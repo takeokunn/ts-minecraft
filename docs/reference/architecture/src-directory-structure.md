@@ -33,6 +33,29 @@ src/
 
 ## レイヤー詳細設計
 
+### レイヤー間依存制約
+
+- Domain → Domain のみ（共通処理は Shared Kernel へ集約予定）
+- Application → Application / Domain
+- Infrastructure → Infrastructure / Application / Domain
+- Presentation → Presentation / Application（Domain への直接依存は警告扱い）
+- Bootstrap → 全レイヤー（起動処理・Layer 組み立て）
+- Testing → 任意（テスト支援のための自由領域）
+- Domain 層のテスト (`__tests__`, `*.spec.ts`, `*.test.ts`) は例外的に `src/testing` を参照可能
+
+検証コマンド:
+
+```bash
+pnpm dlx dependency-cruiser src --config .dependency-cruiser.cjs --output-type err
+```
+
+代表的な違反コード:
+
+- `no-domain-to-outer`（エラー）: Domain 層が外部レイヤーへ依存している。
+- `presentation-through-application`（警告）: Presentation 層が Domain を直接参照している。
+
+違反が検出された場合は依存方向を修正し、Application 層経由のフローへ移行すること。
+
 ### 1. Domain層 (`src/domain/`)
 
 コアビジネスロジック、エンティティ、値オブジェクトを定義。すべてのファイルはEffect-TS 3.17+のパターンに従います。

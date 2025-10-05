@@ -1,0 +1,5630 @@
+[
+  {
+    "path": "src/app.ts",
+    "category": "(root)",
+    "subcategory": "app.ts",
+    "classification": "移行対象"
+  },
+  {
+    "path": "src/application/GameApplicationLive.spec.ts",
+    "category": "application",
+    "subcategory": "GameApplicationLive.spec.ts",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/application/config.spec.ts",
+    "category": "application",
+    "subcategory": "config.spec.ts",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/application/config.ts",
+    "category": "application",
+    "subcategory": "config.ts",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/application/errors.spec.ts",
+    "category": "application",
+    "subcategory": "errors.spec.ts",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/application/errors.ts",
+    "category": "application",
+    "subcategory": "errors.ts",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/application/game-application-live.ts",
+    "category": "application",
+    "subcategory": "game-application-live.ts",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/application/game-application.ts",
+    "category": "application",
+    "subcategory": "game-application.ts",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/application/index.ts",
+    "category": "application",
+    "subcategory": "index.ts",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/application/inventory/api-service.spec.ts",
+    "category": "application",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/application/inventory/api-service.ts",
+    "category": "application",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/application/inventory/index.ts",
+    "category": "application",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/application/lifecycle.spec.ts",
+    "category": "application",
+    "subcategory": "lifecycle.spec.ts",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/application/lifecycle.ts",
+    "category": "application",
+    "subcategory": "lifecycle.ts",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/application/state.spec.ts",
+    "category": "application",
+    "subcategory": "state.spec.ts",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/application/state.ts",
+    "category": "application",
+    "subcategory": "state.ts",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/application/types.spec.ts",
+    "category": "application",
+    "subcategory": "types.spec.ts",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/application/types.ts",
+    "category": "application",
+    "subcategory": "types.ts",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/bootstrap/application.spec.ts",
+    "category": "bootstrap",
+    "subcategory": "application.spec.ts",
+    "classification": "移行対象"
+  },
+  {
+    "path": "src/bootstrap/application.ts",
+    "category": "bootstrap",
+    "subcategory": "application.ts",
+    "classification": "移行対象"
+  },
+  {
+    "path": "src/bootstrap/domain/config.spec.ts",
+    "category": "bootstrap",
+    "subcategory": "domain",
+    "classification": "移行対象"
+  },
+  {
+    "path": "src/bootstrap/domain/config.ts",
+    "category": "bootstrap",
+    "subcategory": "domain",
+    "classification": "移行対象"
+  },
+  {
+    "path": "src/bootstrap/domain/error.spec.ts",
+    "category": "bootstrap",
+    "subcategory": "domain",
+    "classification": "移行対象"
+  },
+  {
+    "path": "src/bootstrap/domain/error.ts",
+    "category": "bootstrap",
+    "subcategory": "domain",
+    "classification": "移行対象"
+  },
+  {
+    "path": "src/bootstrap/domain/index.spec.ts",
+    "category": "bootstrap",
+    "subcategory": "domain",
+    "classification": "移行対象"
+  },
+  {
+    "path": "src/bootstrap/domain/index.ts",
+    "category": "bootstrap",
+    "subcategory": "domain",
+    "classification": "移行対象"
+  },
+  {
+    "path": "src/bootstrap/domain/lifecycle.spec.ts",
+    "category": "bootstrap",
+    "subcategory": "domain",
+    "classification": "移行対象"
+  },
+  {
+    "path": "src/bootstrap/domain/lifecycle.ts",
+    "category": "bootstrap",
+    "subcategory": "domain",
+    "classification": "移行対象"
+  },
+  {
+    "path": "src/bootstrap/domain/value.spec.ts",
+    "category": "bootstrap",
+    "subcategory": "domain",
+    "classification": "移行対象"
+  },
+  {
+    "path": "src/bootstrap/domain/value.ts",
+    "category": "bootstrap",
+    "subcategory": "domain",
+    "classification": "移行対象"
+  },
+  {
+    "path": "src/bootstrap/index.spec.ts",
+    "category": "bootstrap",
+    "subcategory": "index.spec.ts",
+    "classification": "移行対象"
+  },
+  {
+    "path": "src/bootstrap/index.ts",
+    "category": "bootstrap",
+    "subcategory": "index.ts",
+    "classification": "移行対象"
+  },
+  {
+    "path": "src/bootstrap/infrastructure.spec.ts",
+    "category": "bootstrap",
+    "subcategory": "infrastructure.spec.ts",
+    "classification": "移行対象"
+  },
+  {
+    "path": "src/bootstrap/infrastructure.ts",
+    "category": "bootstrap",
+    "subcategory": "infrastructure.ts",
+    "classification": "移行対象"
+  },
+  {
+    "path": "src/domain/agriculture/aggregates.spec.ts",
+    "category": "domain",
+    "subcategory": "agriculture",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/agriculture/aggregates.ts",
+    "category": "domain",
+    "subcategory": "agriculture",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/agriculture/index.ts",
+    "category": "domain",
+    "subcategory": "agriculture",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/agriculture/services.spec.ts",
+    "category": "domain",
+    "subcategory": "agriculture",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/agriculture/services.ts",
+    "category": "domain",
+    "subcategory": "agriculture",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/agriculture/types.spec.ts",
+    "category": "domain",
+    "subcategory": "agriculture",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/agriculture/types.ts",
+    "category": "domain",
+    "subcategory": "agriculture",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/agriculture/value_objects.spec.ts",
+    "category": "domain",
+    "subcategory": "agriculture",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/agriculture/value_objects.ts",
+    "category": "domain",
+    "subcategory": "agriculture",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/block/domain_service/__tests__/registry.test.skip.ts",
+    "category": "domain",
+    "subcategory": "block",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/block/domain_service/index.ts",
+    "category": "domain",
+    "subcategory": "block",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/block/domain_service/registry.ts",
+    "category": "domain",
+    "subcategory": "block",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/block/factory/__tests__/block_factory.test.skip.ts",
+    "category": "domain",
+    "subcategory": "block",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/block/factory/block_factory.ts",
+    "category": "domain",
+    "subcategory": "block",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/block/factory/index.ts",
+    "category": "domain",
+    "subcategory": "block",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/block/index.ts",
+    "category": "domain",
+    "subcategory": "block",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/block/repository/__tests__/block_repository.spec.ts",
+    "category": "domain",
+    "subcategory": "block",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/block/repository/block_repository.ts",
+    "category": "domain",
+    "subcategory": "block",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/block/repository/index.ts",
+    "category": "domain",
+    "subcategory": "block",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/block/repository/types/repository_error.ts",
+    "category": "domain",
+    "subcategory": "block",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/block/types/__tests__/block_definition.spec.ts",
+    "category": "domain",
+    "subcategory": "block",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/block/types/__tests__/block_properties.spec.ts",
+    "category": "domain",
+    "subcategory": "block",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/block/types/block_definition.ts",
+    "category": "domain",
+    "subcategory": "block",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/block/types/block_properties.ts",
+    "category": "domain",
+    "subcategory": "block",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/block/types/index.ts",
+    "category": "domain",
+    "subcategory": "block",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/block/value_object/__tests__/block_identity.spec.ts",
+    "category": "domain",
+    "subcategory": "block",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/block/value_object/block_identity.ts",
+    "category": "domain",
+    "subcategory": "block",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/block/value_object/index.ts",
+    "category": "domain",
+    "subcategory": "block",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/__tests__/CameraService.spec.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/__tests__/CameraSystemLive.spec.skip.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/__tests__/FirstPersonCamera.spec.skip.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/__tests__/ThirdPersonCamera.spec.skip.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/__tests__/adt-exhaustive-testing.spec.skip.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/__tests__/aggregate/camera.spec.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/__tests__/aggregate/index.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/__tests__/aggregate/player_camera.spec.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/__tests__/brand-type-boundary-testing.spec.skip.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/__tests__/generators/effect-fastcheck-integration.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/__tests__/helpers/fixtures.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/__tests__/helpers/generators.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/__tests__/helpers/index.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/__tests__/helpers/test_layer.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/__tests__/index.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/__tests__/integration-layer-testing.spec.skip.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/__tests__/mathematical-properties.spec.skip.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/__tests__/test-runner.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/__tests__/test-utilities.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/__tests__/value_object/camera_position.spec.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/__tests__/value_object/camera_rotation.spec.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/__tests__/value_object/index.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/__tests__/value_object/view_mode.spec.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/aggregate/camera/camera.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/aggregate/camera/factory.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/aggregate/camera/index.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/aggregate/index.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/aggregate/player_camera/factory.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/aggregate/player_camera/index.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/aggregate/player_camera/player_camera.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/aggregate/scene_camera/factory.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/aggregate/scene_camera/index.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/aggregate/scene_camera/scene_camera.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/application_service/camera_mode_manager/index.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/application_service/camera_mode_manager/live.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/application_service/camera_mode_manager/service.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/application_service/camera_mode_manager/types.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/application_service/camera_system_orchestrator/index.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/application_service/camera_system_orchestrator/live.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/application_service/camera_system_orchestrator/service.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/application_service/index.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/application_service/player_camera/index.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/application_service/player_camera/live.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/application_service/player_camera/service.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/application_service/player_camera/types.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/application_service/scene_camera/index.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/application_service/scene_camera/live.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/application_service/scene_camera/service.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/application_service/scene_camera/types.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/constant.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/domain_service/animation_engine/index.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/domain_service/animation_engine/live.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/domain_service/animation_engine/service.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/domain_service/camera_control/index.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/domain_service/camera_control/live.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/domain_service/camera_control/service.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/domain_service/collision_detection/index.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/domain_service/collision_detection/live.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/domain_service/collision_detection/service.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/domain_service/index.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/domain_service/settings_validator/index.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/domain_service/settings_validator/live.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/domain_service/settings_validator/service.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/domain_service/view_mode_manager/index.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/domain_service/view_mode_manager/live.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/domain_service/view_mode_manager/service.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/first_person.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/helper.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/index.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/live.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/player.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/repository/animation_history/index.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/repository/animation_history/live.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/repository/animation_history/service.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/repository/animation_history/types.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/repository/camera_state/index.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/repository/camera_state/live.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/repository/camera_state/service.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/repository/camera_state/types.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/repository/index.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/repository/settings_storage/index.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/repository/settings_storage/live.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/repository/settings_storage/service.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/repository/settings_storage/types.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/repository/view_mode_preferences/index.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/repository/view_mode_preferences/live.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/repository/view_mode_preferences/service.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/repository/view_mode_preferences/types.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/service.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/third_person.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/types.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/types/constants.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/types/errors.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/types/events.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/types/index.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/value_object/animation_state/index.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/value_object/animation_state/operations.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/value_object/animation_state/schema.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/value_object/animation_state/types.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/value_object/camera_position/index.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/value_object/camera_position/operations.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/value_object/camera_position/schema.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/value_object/camera_position/types.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/value_object/camera_rotation/index.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/value_object/camera_rotation/operations.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/value_object/camera_rotation/schema.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/value_object/camera_rotation/types.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/value_object/camera_settings/index.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/value_object/camera_settings/operations.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/value_object/camera_settings/schema.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/value_object/camera_settings/types.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/value_object/index.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/value_object/view_mode/index.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/value_object/view_mode/operations.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/value_object/view_mode/schema.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/camera/value_object/view_mode/types.ts",
+    "category": "domain",
+    "subcategory": "camera",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/__tests__/adt/chunk_operation.spec.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/__tests__/adt/chunk_state.spec.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/__tests__/adt/pattern_matching.spec.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/__tests__/coverage/branch-coverage.spec.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/__tests__/coverage/error-coverage.spec.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/__tests__/effect/concurrency.spec.skip.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/__tests__/integration/chunk_effect_ts_patterns.spec.skip.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/__tests__/integration/chunk_effect_ts_patterns_simple.spec.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/__tests__/integration/domain-integration.spec.skip.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/__tests__/layer_verification.spec.skip.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/__tests__/optics/chunk_data_optics.spec.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/__tests__/optics/chunk_state_optics.spec.skip.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/__tests__/optics/integration.spec.skip.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/__tests__/optics/performance_optics.spec.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/__tests__/optics/traversal_optics.spec.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/__tests__/performance/load-tests.spec.skip.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/__tests__/property/arbitraries/chunk-arbitraries.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/__tests__/property/chunk-properties.spec.skip.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/__tests__/utils/test-layer.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/aggregate/chunk/composite_operations.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/aggregate/chunk/factory.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/aggregate/chunk/index.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/aggregate/chunk/operations.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/aggregate/chunk/optics.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/aggregate/chunk/pattern_matching.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/aggregate/chunk/performance_optics.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/aggregate/chunk/traversal.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/aggregate/chunk/types.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/aggregate/chunk_data/factory.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/aggregate/chunk_data/index.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/aggregate/chunk_data/types.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/aggregate/index.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/application_service/chunk_data_provider.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/domain_service/__tests__/chunk_optimization_service.spec.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/domain_service/__tests__/chunk_serialization_service.spec.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/domain_service/chunk_optimizer/index.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/domain_service/chunk_optimizer/service.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/domain_service/chunk_serializer/index.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/domain_service/chunk_serializer/service.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/domain_service/chunk_validator/index.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/domain_service/chunk_validator/service.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/domain_service/index.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/factory/__tests__/chunk_factory_service.spec.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/factory/chunk_factory/index.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/factory/chunk_factory/service.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/factory/index.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/index.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/repository/chunk_event_repository/index.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/repository/chunk_event_repository/interface.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/repository/chunk_query_repository/implementation.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/repository/chunk_query_repository/index.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/repository/chunk_query_repository/interface.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/repository/chunk_repository/index.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/repository/chunk_repository/indexeddb_implementation.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/repository/chunk_repository/interface.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/repository/chunk_repository/memory_implementation.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/repository/chunk_repository/webworker_implementation.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/repository/cqrs/index.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/repository/index.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/repository/strategy/index.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/repository/strategy/repository_strategy.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/repository/types/index.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/repository/types/repository_error.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/types/advanced_state_optics.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/types/core.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/types/errors.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/types/events.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/types/index.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/types/interfaces.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/types/state_optics.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/value_object/__tests__/chunk_position.operations.spec.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/value_object/block_data/index.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/value_object/block_data/types.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/value_object/chunk_id/index.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/value_object/chunk_id/operations.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/value_object/chunk_id/types.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/value_object/chunk_metadata/index.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/value_object/chunk_metadata/types.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/value_object/chunk_position/index.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/value_object/chunk_position/operations.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/value_object/chunk_position/types.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk/value_object/index.ts",
+    "category": "domain",
+    "subcategory": "chunk",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk_loader/__tests__/application/chunk_loading_provider.spec.ts",
+    "category": "domain",
+    "subcategory": "chunk_loader",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk_loader/__tests__/domain/session.spec.ts",
+    "category": "domain",
+    "subcategory": "chunk_loader",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk_loader/__tests__/types/interfaces.spec.ts",
+    "category": "domain",
+    "subcategory": "chunk_loader",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk_loader/application/chunk_loading_provider.ts",
+    "category": "domain",
+    "subcategory": "chunk_loader",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk_loader/domain/session.ts",
+    "category": "domain",
+    "subcategory": "chunk_loader",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk_loader/index.ts",
+    "category": "domain",
+    "subcategory": "chunk_loader",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk_loader/types/interfaces.ts",
+    "category": "domain",
+    "subcategory": "chunk_loader",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk_manager/aggregate/chunk_pool.spec.ts",
+    "category": "domain",
+    "subcategory": "chunk_manager",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk_manager/aggregate/chunk_pool.ts",
+    "category": "domain",
+    "subcategory": "chunk_manager",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk_manager/application_service/chunk_lifecycle_provider.spec.ts",
+    "category": "domain",
+    "subcategory": "chunk_manager",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk_manager/application_service/chunk_lifecycle_provider.ts",
+    "category": "domain",
+    "subcategory": "chunk_manager",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk_manager/domain_service/lifecycle_manager.spec.ts",
+    "category": "domain",
+    "subcategory": "chunk_manager",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk_manager/domain_service/lifecycle_manager.ts",
+    "category": "domain",
+    "subcategory": "chunk_manager",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk_manager/index.ts",
+    "category": "domain",
+    "subcategory": "chunk_manager",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk_manager/types/core.spec.ts",
+    "category": "domain",
+    "subcategory": "chunk_manager",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk_manager/types/core.ts",
+    "category": "domain",
+    "subcategory": "chunk_manager",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk_manager/types/errors.spec.ts",
+    "category": "domain",
+    "subcategory": "chunk_manager",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk_manager/types/errors.ts",
+    "category": "domain",
+    "subcategory": "chunk_manager",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk_manager/types/events.ts",
+    "category": "domain",
+    "subcategory": "chunk_manager",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk_manager/types/index.ts",
+    "category": "domain",
+    "subcategory": "chunk_manager",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk_manager/types/interfaces.spec.ts",
+    "category": "domain",
+    "subcategory": "chunk_manager",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk_manager/types/interfaces.ts",
+    "category": "domain",
+    "subcategory": "chunk_manager",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk_manager/value_object/lifecycle_stage/lifecycle_stage.spec.ts",
+    "category": "domain",
+    "subcategory": "chunk_manager",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk_manager/value_object/lifecycle_stage/lifecycle_stage.ts",
+    "category": "domain",
+    "subcategory": "chunk_manager",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk_manager/value_object/lifecycle_stage/lifecycle_stats.spec.ts",
+    "category": "domain",
+    "subcategory": "chunk_manager",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk_manager/value_object/lifecycle_stage/lifecycle_stats.ts",
+    "category": "domain",
+    "subcategory": "chunk_manager",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk_manager/value_object/pool_metrics/pool_metrics.spec.ts",
+    "category": "domain",
+    "subcategory": "chunk_manager",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk_manager/value_object/pool_metrics/pool_metrics.ts",
+    "category": "domain",
+    "subcategory": "chunk_manager",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk_manager/value_object/resource_limits/resource_limits.spec.ts",
+    "category": "domain",
+    "subcategory": "chunk_manager",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk_manager/value_object/resource_limits/resource_limits.ts",
+    "category": "domain",
+    "subcategory": "chunk_manager",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk_system/commands.spec.ts",
+    "category": "domain",
+    "subcategory": "chunk_system",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk_system/commands.ts",
+    "category": "domain",
+    "subcategory": "chunk_system",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk_system/events.spec.ts",
+    "category": "domain",
+    "subcategory": "chunk_system",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk_system/events.ts",
+    "category": "domain",
+    "subcategory": "chunk_system",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk_system/index.ts",
+    "category": "domain",
+    "subcategory": "chunk_system",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk_system/model.spec.ts",
+    "category": "domain",
+    "subcategory": "chunk_system",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk_system/model.ts",
+    "category": "domain",
+    "subcategory": "chunk_system",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk_system/repository.indexeddb.spec.ts",
+    "category": "domain",
+    "subcategory": "chunk_system",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk_system/repository.indexeddb.ts",
+    "category": "domain",
+    "subcategory": "chunk_system",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk_system/repository.memory.spec.ts",
+    "category": "domain",
+    "subcategory": "chunk_system",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk_system/repository.memory.ts",
+    "category": "domain",
+    "subcategory": "chunk_system",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk_system/repository.spec.ts",
+    "category": "domain",
+    "subcategory": "chunk_system",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk_system/repository.ts",
+    "category": "domain",
+    "subcategory": "chunk_system",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk_system/services.spec.ts",
+    "category": "domain",
+    "subcategory": "chunk_system",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk_system/services.ts",
+    "category": "domain",
+    "subcategory": "chunk_system",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk_system/time.spec.ts",
+    "category": "domain",
+    "subcategory": "chunk_system",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk_system/time.ts",
+    "category": "domain",
+    "subcategory": "chunk_system",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk_system/types.spec.ts",
+    "category": "domain",
+    "subcategory": "chunk_system",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/chunk_system/types.ts",
+    "category": "domain",
+    "subcategory": "chunk_system",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/combat/__tests__/live.spec.ts",
+    "category": "domain",
+    "subcategory": "combat",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/combat/__tests__/model.spec.ts",
+    "category": "domain",
+    "subcategory": "combat",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/combat/__tests__/service.spec.ts",
+    "category": "domain",
+    "subcategory": "combat",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/combat/__tests__/types.spec.ts",
+    "category": "domain",
+    "subcategory": "combat",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/combat/index.ts",
+    "category": "domain",
+    "subcategory": "combat",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/combat/live.ts",
+    "category": "domain",
+    "subcategory": "combat",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/combat/model.ts",
+    "category": "domain",
+    "subcategory": "combat",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/combat/service.spec.ts",
+    "category": "domain",
+    "subcategory": "combat",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/combat/service.ts",
+    "category": "domain",
+    "subcategory": "combat",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/combat/types.ts",
+    "category": "domain",
+    "subcategory": "combat",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/crafting/aggregate/index.ts",
+    "category": "domain",
+    "subcategory": "crafting",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/crafting/aggregate/recipe.spec.ts",
+    "category": "domain",
+    "subcategory": "crafting",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/crafting/aggregate/recipe.ts",
+    "category": "domain",
+    "subcategory": "crafting",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/crafting/application_service/crafting_engine.spec.ts",
+    "category": "domain",
+    "subcategory": "crafting",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/crafting/application_service/crafting_engine.ts",
+    "category": "domain",
+    "subcategory": "crafting",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/crafting/application_service/index.ts",
+    "category": "domain",
+    "subcategory": "crafting",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/crafting/application_service/recipe_registry.ts",
+    "category": "domain",
+    "subcategory": "crafting",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/crafting/domain_service/crafting_calculation.ts",
+    "category": "domain",
+    "subcategory": "crafting",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/crafting/domain_service/index.ts",
+    "category": "domain",
+    "subcategory": "crafting",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/crafting/domain_service/pattern_matching.spec.ts",
+    "category": "domain",
+    "subcategory": "crafting",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/crafting/domain_service/pattern_matching.ts",
+    "category": "domain",
+    "subcategory": "crafting",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/crafting/domain_service/recipe_discovery.ts",
+    "category": "domain",
+    "subcategory": "crafting",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/crafting/domain_service/recipe_validation.ts",
+    "category": "domain",
+    "subcategory": "crafting",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/crafting/factory/crafting_session_factory.ts",
+    "category": "domain",
+    "subcategory": "crafting",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/crafting/factory/index.ts",
+    "category": "domain",
+    "subcategory": "crafting",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/crafting/factory/recipe_factory.spec.ts",
+    "category": "domain",
+    "subcategory": "crafting",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/crafting/factory/recipe_factory.ts",
+    "category": "domain",
+    "subcategory": "crafting",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/crafting/index.ts",
+    "category": "domain",
+    "subcategory": "crafting",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/crafting/repository/crafting_history_repository.ts",
+    "category": "domain",
+    "subcategory": "crafting",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/crafting/repository/index.ts",
+    "category": "domain",
+    "subcategory": "crafting",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/crafting/repository/recipe_repository.spec.ts",
+    "category": "domain",
+    "subcategory": "crafting",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/crafting/repository/recipe_repository.ts",
+    "category": "domain",
+    "subcategory": "crafting",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/crafting/types/index.ts",
+    "category": "domain",
+    "subcategory": "crafting",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/crafting/value_object/crafting_difficulty.ts",
+    "category": "domain",
+    "subcategory": "crafting",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/crafting/value_object/crafting_time.ts",
+    "category": "domain",
+    "subcategory": "crafting",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/crafting/value_object/grid_position.ts",
+    "category": "domain",
+    "subcategory": "crafting",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/crafting/value_object/index.ts",
+    "category": "domain",
+    "subcategory": "crafting",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/crafting/value_object/ingredient_quantity.ts",
+    "category": "domain",
+    "subcategory": "crafting",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/crafting/value_object/recipe_id.ts",
+    "category": "domain",
+    "subcategory": "crafting",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/crafting/value_object/success_rate.ts",
+    "category": "domain",
+    "subcategory": "crafting",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/entities/index.ts",
+    "category": "domain",
+    "subcategory": "entities",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/entities/model/__tests__/entity.spec.ts",
+    "category": "domain",
+    "subcategory": "entities",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/entities/model/__tests__/player.spec.ts",
+    "category": "domain",
+    "subcategory": "entities",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/entities/model/entity.ts",
+    "category": "domain",
+    "subcategory": "entities",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/entities/model/player.ts",
+    "category": "domain",
+    "subcategory": "entities",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/entities/types/__tests__/core.spec.ts",
+    "category": "domain",
+    "subcategory": "entities",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/entities/types/__tests__/errors.spec.ts",
+    "category": "domain",
+    "subcategory": "entities",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/entities/types/__tests__/events.spec.ts",
+    "category": "domain",
+    "subcategory": "entities",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/entities/types/constants.ts",
+    "category": "domain",
+    "subcategory": "entities",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/entities/types/core.ts",
+    "category": "domain",
+    "subcategory": "entities",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/entities/types/errors.ts",
+    "category": "domain",
+    "subcategory": "entities",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/entities/types/events.ts",
+    "category": "domain",
+    "subcategory": "entities",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/entities/types/index.ts",
+    "category": "domain",
+    "subcategory": "entities",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/equipment/aggregate/equipment_piece.spec.ts",
+    "category": "domain",
+    "subcategory": "equipment",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/equipment/aggregate/equipment_piece.ts",
+    "category": "domain",
+    "subcategory": "equipment",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/equipment/aggregate/equipment_set.spec.ts",
+    "category": "domain",
+    "subcategory": "equipment",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/equipment/aggregate/equipment_set.ts",
+    "category": "domain",
+    "subcategory": "equipment",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/equipment/application_service/service.spec.ts",
+    "category": "domain",
+    "subcategory": "equipment",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/equipment/application_service/service.ts",
+    "category": "domain",
+    "subcategory": "equipment",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/equipment/domain_service/analysis.spec.ts",
+    "category": "domain",
+    "subcategory": "equipment",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/equipment/domain_service/analysis.ts",
+    "category": "domain",
+    "subcategory": "equipment",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/equipment/factory/builder.spec.ts",
+    "category": "domain",
+    "subcategory": "equipment",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/equipment/factory/builder.ts",
+    "category": "domain",
+    "subcategory": "equipment",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/equipment/helper.ts",
+    "category": "domain",
+    "subcategory": "equipment",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/equipment/index.ts",
+    "category": "domain",
+    "subcategory": "equipment",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/equipment/repository/memory.spec.ts",
+    "category": "domain",
+    "subcategory": "equipment",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/equipment/repository/memory.ts",
+    "category": "domain",
+    "subcategory": "equipment",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/equipment/types.ts",
+    "category": "domain",
+    "subcategory": "equipment",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/equipment/types/core.spec.ts",
+    "category": "domain",
+    "subcategory": "equipment",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/equipment/types/core.ts",
+    "category": "domain",
+    "subcategory": "equipment",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/equipment/value_object/item_attributes.spec.ts",
+    "category": "domain",
+    "subcategory": "equipment",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/equipment/value_object/item_attributes.ts",
+    "category": "domain",
+    "subcategory": "equipment",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/equipment/value_object/slot.spec.ts",
+    "category": "domain",
+    "subcategory": "equipment",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/equipment/value_object/slot.ts",
+    "category": "domain",
+    "subcategory": "equipment",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/furniture/__tests__/operations.spec.ts",
+    "category": "domain",
+    "subcategory": "furniture",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/furniture/__tests__/repository.spec.ts",
+    "category": "domain",
+    "subcategory": "furniture",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/furniture/__tests__/service.spec.ts",
+    "category": "domain",
+    "subcategory": "furniture",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/furniture/__tests__/types.spec.ts",
+    "category": "domain",
+    "subcategory": "furniture",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/furniture/index.ts",
+    "category": "domain",
+    "subcategory": "furniture",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/furniture/operations.ts",
+    "category": "domain",
+    "subcategory": "furniture",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/furniture/repository.ts",
+    "category": "domain",
+    "subcategory": "furniture",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/furniture/service.ts",
+    "category": "domain",
+    "subcategory": "furniture",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/furniture/types.ts",
+    "category": "domain",
+    "subcategory": "furniture",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/game_loop/index.ts",
+    "category": "domain",
+    "subcategory": "game_loop",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/game_loop/layer.spec.ts",
+    "category": "domain",
+    "subcategory": "game_loop",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/game_loop/layer.ts",
+    "category": "domain",
+    "subcategory": "game_loop",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/game_loop/legacy/index.ts",
+    "category": "domain",
+    "subcategory": "game_loop",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/game_loop/legacy/live.spec.ts",
+    "category": "domain",
+    "subcategory": "game_loop",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/game_loop/legacy/live.ts",
+    "category": "domain",
+    "subcategory": "game_loop",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/game_loop/legacy/service.spec.ts",
+    "category": "domain",
+    "subcategory": "game_loop",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/game_loop/legacy/service.ts",
+    "category": "domain",
+    "subcategory": "game_loop",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/game_loop/types/core.spec.ts",
+    "category": "domain",
+    "subcategory": "game_loop",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/game_loop/types/core.ts",
+    "category": "domain",
+    "subcategory": "game_loop",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/game_loop/types/errors.spec.ts",
+    "category": "domain",
+    "subcategory": "game_loop",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/game_loop/types/errors.ts",
+    "category": "domain",
+    "subcategory": "game_loop",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/game_loop/types/index.ts",
+    "category": "domain",
+    "subcategory": "game_loop",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/index.ts",
+    "category": "domain",
+    "subcategory": "index.ts",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/input/__tests__/InputService.spec.ts",
+    "category": "domain",
+    "subcategory": "input",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/input/__tests__/InputServiceLive.spec.ts",
+    "category": "domain",
+    "subcategory": "input",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/input/__tests__/errors.spec.ts",
+    "category": "domain",
+    "subcategory": "input",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/input/__tests__/keyBindings.spec.ts",
+    "category": "domain",
+    "subcategory": "input",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/input/__tests__/model.spec.ts",
+    "category": "domain",
+    "subcategory": "input",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/input/__tests__/state.spec.ts",
+    "category": "domain",
+    "subcategory": "input",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/input/errors.ts",
+    "category": "domain",
+    "subcategory": "input",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/input/index.ts",
+    "category": "domain",
+    "subcategory": "input",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/input/input-service-live.ts",
+    "category": "domain",
+    "subcategory": "input",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/input/input-service.ts",
+    "category": "domain",
+    "subcategory": "input",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/input/key-bindings.ts",
+    "category": "domain",
+    "subcategory": "input",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/input/model.ts",
+    "category": "domain",
+    "subcategory": "input",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/input/state.ts",
+    "category": "domain",
+    "subcategory": "input",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/interaction/__tests__/aggregate/breaking_session.spec.ts",
+    "category": "domain",
+    "subcategory": "interaction",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/interaction/__tests__/application_service/session_manager.spec.ts",
+    "category": "domain",
+    "subcategory": "interaction",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/interaction/__tests__/domain_service/index.spec.ts",
+    "category": "domain",
+    "subcategory": "interaction",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/interaction/__tests__/layer/layer.spec.ts",
+    "category": "domain",
+    "subcategory": "interaction",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/interaction/__tests__/repository/session_store.spec.ts",
+    "category": "domain",
+    "subcategory": "interaction",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/interaction/__tests__/types/index.spec.ts",
+    "category": "domain",
+    "subcategory": "interaction",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/interaction/__tests__/value_object/block_face.spec.ts",
+    "category": "domain",
+    "subcategory": "interaction",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/interaction/__tests__/value_object/vector3.spec.ts",
+    "category": "domain",
+    "subcategory": "interaction",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/interaction/aggregate/breaking_session.ts",
+    "category": "domain",
+    "subcategory": "interaction",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/interaction/application_service/session_manager.ts",
+    "category": "domain",
+    "subcategory": "interaction",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/interaction/domain_service/index.ts",
+    "category": "domain",
+    "subcategory": "interaction",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/interaction/index.ts",
+    "category": "domain",
+    "subcategory": "interaction",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/interaction/layer.ts",
+    "category": "domain",
+    "subcategory": "interaction",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/interaction/repository/session_store.ts",
+    "category": "domain",
+    "subcategory": "interaction",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/interaction/types/index.ts",
+    "category": "domain",
+    "subcategory": "interaction",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/interaction/value_object/block_face.ts",
+    "category": "domain",
+    "subcategory": "interaction",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/interaction/value_object/vector3.ts",
+    "category": "domain",
+    "subcategory": "interaction",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/__tests__/InventoryService.spec.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/__tests__/factory/item_factory/factory.spec.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/aggregate/__tests__/container.spec.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/aggregate/__tests__/inventory.spec.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/aggregate/__tests__/item_stack.spec.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/aggregate/container/factory.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/aggregate/container/index.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/aggregate/container/operations.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/aggregate/container/types.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/aggregate/index.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/aggregate/inventory/factory.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/aggregate/inventory/index.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/aggregate/inventory/operations.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/aggregate/inventory/specifications.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/aggregate/inventory/types.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/aggregate/item_stack/factory.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/aggregate/item_stack/index.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/aggregate/item_stack/operations.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/aggregate/item_stack/types.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/application_service/container_manager/commands.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/application_service/container_manager/index.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/application_service/container_manager/live.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/application_service/container_manager/queries.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/application_service/container_manager/service.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/application_service/index.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/application_service/inventory_manager/commands.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/application_service/inventory_manager/index.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/application_service/inventory_manager/live.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/application_service/inventory_manager/queries.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/application_service/inventory_manager/service.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/application_service/transaction_manager/index.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/application_service/transaction_manager/live.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/application_service/transaction_manager/service.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/application_service/transaction_manager/workflows.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/application_service/types/errors.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/domain_service/crafting_integration/index.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/domain_service/crafting_integration/live.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/domain_service/crafting_integration/service.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/domain_service/index.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/domain_service/item_registry/definitions.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/domain_service/item_registry/index.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/domain_service/item_registry/live.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/domain_service/item_registry/service.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/domain_service/stacking_service/index.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/domain_service/stacking_service/live.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/domain_service/stacking_service/rules.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/domain_service/stacking_service/service.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/domain_service/transfer_service/index.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/domain_service/transfer_service/live.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/domain_service/transfer_service/service.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/domain_service/transfer_service/specifications.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/domain_service/validation_service/index.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/domain_service/validation_service/live.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/domain_service/validation_service/service.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/domain_service/validation_service/validators.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/factory/container_factory/builders.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/factory/container_factory/factory.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/factory/container_factory/index.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/factory/container_factory/interface.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/factory/container_factory/presets.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/factory/index.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/factory/inventory_factory/builders.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/factory/inventory_factory/factory.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/factory/inventory_factory/index.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/factory/inventory_factory/interface.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/factory/inventory_factory/presets.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/factory/item_factory/builders.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/factory/item_factory/factory.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/factory/item_factory/index.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/factory/item_factory/interface.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/factory/item_factory/presets.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/index.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/inventory-service-live.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/inventory-service.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/inventory-types.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/item-registry.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/layers.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/repository/container_repository/index.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/repository/container_repository/interface.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/repository/container_repository/memory.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/repository/container_repository/persistent.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/repository/container_repository/types.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/repository/index.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/repository/inventory_repository/index.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/repository/inventory_repository/interface.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/repository/inventory_repository/memory.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/repository/inventory_repository/persistent.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/repository/inventory_repository/types.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/repository/item_definition_repository/index.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/repository/item_definition_repository/interface.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/repository/item_definition_repository/json_file.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/repository/item_definition_repository/memory.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/repository/item_definition_repository/types.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/repository/layers.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/repository/types/index.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/repository/types/repository_error.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/service.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/types/commands.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/types/constants.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/types/core.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/types/errors.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/types/events.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/types/index.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/types/interfaces.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/types/queries.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/types/specifications.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/value_object/__tests__/integration.spec.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/value_object/index.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/value_object/inventory_type/index.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/value_object/inventory_type/operations.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/value_object/inventory_type/schema.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/value_object/inventory_type/types.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/value_object/item_id/index.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/value_object/item_id/operations.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/value_object/item_id/schema.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/value_object/item_id/types.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/value_object/item_metadata/index.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/value_object/item_metadata/operations.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/value_object/item_metadata/schema.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/value_object/item_metadata/types.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/value_object/slot/index.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/value_object/slot/operations.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/value_object/slot/schema.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/value_object/slot/types.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/value_object/slot_position/index.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/value_object/slot_position/operations.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/value_object/slot_position/schema.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/value_object/slot_position/types.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/value_object/stack_size/constraints.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/value_object/stack_size/index.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/value_object/stack_size/operations.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/value_object/stack_size/schema.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/inventory/value_object/stack_size/types.ts",
+    "category": "domain",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/materials/__tests__/catalog.spec.ts",
+    "category": "domain",
+    "subcategory": "materials",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/materials/__tests__/helper.spec.ts",
+    "category": "domain",
+    "subcategory": "materials",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/materials/__tests__/index.spec.ts",
+    "category": "domain",
+    "subcategory": "materials",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/materials/__tests__/live.spec.ts",
+    "category": "domain",
+    "subcategory": "materials",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/materials/__tests__/repository.spec.ts",
+    "category": "domain",
+    "subcategory": "materials",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/materials/__tests__/service.spec.ts",
+    "category": "domain",
+    "subcategory": "materials",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/materials/__tests__/types.spec.ts",
+    "category": "domain",
+    "subcategory": "materials",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/materials/catalog.ts",
+    "category": "domain",
+    "subcategory": "materials",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/materials/helper.ts",
+    "category": "domain",
+    "subcategory": "materials",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/materials/index.ts",
+    "category": "domain",
+    "subcategory": "materials",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/materials/live.ts",
+    "category": "domain",
+    "subcategory": "materials",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/materials/repository.ts",
+    "category": "domain",
+    "subcategory": "materials",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/materials/service.ts",
+    "category": "domain",
+    "subcategory": "materials",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/materials/types.ts",
+    "category": "domain",
+    "subcategory": "materials",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/__tests__/CollisionDetection.spec.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/__tests__/Friction.spec.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/__tests__/Gravity.spec.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/__tests__/PhysicsIntegrationTest.spec.skip.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/__tests__/TerrainAdaptationService.spec.skip.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/__tests__/integration/physics_integration.spec.skip.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/aggregate/__tests__/physics_world.spec.skip.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/aggregate/__tests__/physics_world.test.skip.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/aggregate/__tests__/rigid_body.spec.skip.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/aggregate/__tests__/rigid_body.spec.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/aggregate/index.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/aggregate/physics_world.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/aggregate/rigid_body.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/application_service/__tests__/performance_monitor_service.spec.skip.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/application_service/__tests__/performance_monitor_service.spec.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/application_service/__tests__/physics_simulation_orchestrator.test.skip.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/application_service/__tests__/player_physics_service.spec.skip.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/application_service/__tests__/player_physics_service.test.skip.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/application_service/__tests__/world_collision_service.spec.skip.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/application_service/__tests__/world_collision_service.spec.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/application_service/index.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/application_service/performance_monitor_service.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/application_service/physics_simulation_orchestrator.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/application_service/player_physics_service.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/application_service/world_collision_service.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/constant.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/domain_service/__tests__/collision_detection.spec.skip.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/domain_service/__tests__/collision_service.spec.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/domain_service/__tests__/physics_simulation_service.test.skip.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/domain_service/__tests__/terrain_adaptation_service.spec.skip.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/domain_service/__tests__/terrain_adaptation_service.spec.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/domain_service/collision_service.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/domain_service/index.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/domain_service/physics_simulation_service.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/domain_service/terrain_adaptation_service.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/factory/__tests__/physics_world_factory.spec.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/factory/__tests__/rigid_body_factory.spec.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/factory/index.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/factory/physics_world_factory.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/factory/rigid_body_factory.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/index.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/repository/__tests__/physics_world_repository.spec.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/repository/index.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/repository/physics_world_repository.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/service/basic.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/service/cannon.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/service/index.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/service/performance.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/service/player.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/service/terrain_adaptation.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/service/world_collision.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/system/collision_detection.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/system/fluid_physics.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/system/friction.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/system/gravity.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/system/index.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/types.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/types/__tests__/constants.spec.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/types/__tests__/core.test.skip.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/types/__tests__/errors.spec.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/types/__tests__/events.spec.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/types/constants.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/types/core.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/types/errors.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/types/events.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/types/index.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/types/spatial/index.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/value_object/__tests__/collision_result.spec.skip.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/value_object/__tests__/collision_result.spec.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/value_object/__tests__/fluid_state.spec.skip.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/value_object/__tests__/fluid_state.spec.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/value_object/__tests__/friction_coefficient.spec.skip.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/value_object/__tests__/friction_coefficient.test.skip.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/value_object/__tests__/gravity_vector.spec.skip.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/value_object/__tests__/gravity_vector.test.skip.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/value_object/__tests__/velocity_test.skip.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/value_object/collision_result.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/value_object/fluid_state.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/value_object/friction_coefficient.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/value_object/gravity_vector.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/physics/value_object/index.ts",
+    "category": "domain",
+    "subcategory": "physics",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/player/__tests__/constants.spec.ts",
+    "category": "domain",
+    "subcategory": "player",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/player/__tests__/errors.spec.ts",
+    "category": "domain",
+    "subcategory": "player",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/player/__tests__/generators.ts",
+    "category": "domain",
+    "subcategory": "player",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/player/__tests__/operations.spec.ts",
+    "category": "domain",
+    "subcategory": "player",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/player/__tests__/repository.spec.ts",
+    "category": "domain",
+    "subcategory": "player",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/player/__tests__/services.spec.ts",
+    "category": "domain",
+    "subcategory": "player",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/player/__tests__/time.spec.ts",
+    "category": "domain",
+    "subcategory": "player",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/player/__tests__/types.spec.ts",
+    "category": "domain",
+    "subcategory": "player",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/player/constants.ts",
+    "category": "domain",
+    "subcategory": "player",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/player/errors.ts",
+    "category": "domain",
+    "subcategory": "player",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/player/index.ts",
+    "category": "domain",
+    "subcategory": "player",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/player/operations.ts",
+    "category": "domain",
+    "subcategory": "player",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/player/repository.ts",
+    "category": "domain",
+    "subcategory": "player",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/player/services.ts",
+    "category": "domain",
+    "subcategory": "player",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/player/time.ts",
+    "category": "domain",
+    "subcategory": "player",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/player/types.ts",
+    "category": "domain",
+    "subcategory": "player",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/scene/index.ts",
+    "category": "domain",
+    "subcategory": "scene",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/scene/manager/live.spec.ts",
+    "category": "domain",
+    "subcategory": "scene",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/scene/manager/live.ts",
+    "category": "domain",
+    "subcategory": "scene",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/scene/manager/service.spec.ts",
+    "category": "domain",
+    "subcategory": "scene",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/scene/manager/service.ts",
+    "category": "domain",
+    "subcategory": "scene",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/scene/scenes/__tests__/GameScene.spec.ts",
+    "category": "domain",
+    "subcategory": "scene",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/scene/scenes/__tests__/LoadingScene.spec.ts",
+    "category": "domain",
+    "subcategory": "scene",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/scene/scenes/__tests__/MainMenuScene.spec.ts",
+    "category": "domain",
+    "subcategory": "scene",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/scene/scenes/base.spec.ts",
+    "category": "domain",
+    "subcategory": "scene",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/scene/scenes/base.ts",
+    "category": "domain",
+    "subcategory": "scene",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/scene/scenes/game.spec.ts",
+    "category": "domain",
+    "subcategory": "scene",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/scene/scenes/game.ts",
+    "category": "domain",
+    "subcategory": "scene",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/scene/scenes/loading.spec.ts",
+    "category": "domain",
+    "subcategory": "scene",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/scene/scenes/loading.ts",
+    "category": "domain",
+    "subcategory": "scene",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/scene/scenes/main_menu.spec.ts",
+    "category": "domain",
+    "subcategory": "scene",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/scene/scenes/main_menu.ts",
+    "category": "domain",
+    "subcategory": "scene",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/scene/service.spec.ts",
+    "category": "domain",
+    "subcategory": "scene",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/scene/service.ts",
+    "category": "domain",
+    "subcategory": "scene",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/scene/testing.ts",
+    "category": "domain",
+    "subcategory": "scene",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/scene/types.spec.ts",
+    "category": "domain",
+    "subcategory": "scene",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/scene/types.ts",
+    "category": "domain",
+    "subcategory": "scene",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/shared/effect/brand.ts",
+    "category": "domain",
+    "subcategory": "shared",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/shared/effect/clock.ts",
+    "category": "domain",
+    "subcategory": "shared",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/shared/effect/control.ts",
+    "category": "domain",
+    "subcategory": "shared",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/shared/effect/index.ts",
+    "category": "domain",
+    "subcategory": "shared",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/types.ts",
+    "category": "domain",
+    "subcategory": "types.ts",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/view_distance/__tests__/culling.spec.ts",
+    "category": "domain",
+    "subcategory": "view_distance",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/view_distance/__tests__/frustum.spec.ts",
+    "category": "domain",
+    "subcategory": "view_distance",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/view_distance/__tests__/frustum_factory.spec.ts",
+    "category": "domain",
+    "subcategory": "view_distance",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/view_distance/__tests__/lod.spec.ts",
+    "category": "domain",
+    "subcategory": "view_distance",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/view_distance/__tests__/types.spec.ts",
+    "category": "domain",
+    "subcategory": "view_distance",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/view_distance/__tests__/view_controller.spec.ts",
+    "category": "domain",
+    "subcategory": "view_distance",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/view_distance/__tests__/view_settings_repository.spec.ts",
+    "category": "domain",
+    "subcategory": "view_distance",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/view_distance/culling.ts",
+    "category": "domain",
+    "subcategory": "view_distance",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/view_distance/frustum.ts",
+    "category": "domain",
+    "subcategory": "view_distance",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/view_distance/frustum_factory.ts",
+    "category": "domain",
+    "subcategory": "view_distance",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/view_distance/index.ts",
+    "category": "domain",
+    "subcategory": "view_distance",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/view_distance/lod.ts",
+    "category": "domain",
+    "subcategory": "view_distance",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/view_distance/types.ts",
+    "category": "domain",
+    "subcategory": "view_distance",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/view_distance/view_controller.ts",
+    "category": "domain",
+    "subcategory": "view_distance",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/view_distance/view_settings_repository.ts",
+    "category": "domain",
+    "subcategory": "view_distance",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/__tests__/config.spec.skip.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/__tests__/domain.spec.skip.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/__tests__/helpers.spec.skip.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/__tests__/layers.spec.skip.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/__tests__/metadata.spec.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/__tests__/stubs/node-file-system.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/__tests__/stubs/node-path.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/__tests__/time.spec.skip.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/__tests__/typeguards.spec.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/aggregate/biome_system/biome_registry.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/aggregate/biome_system/biome_system.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/aggregate/biome_system/biome_transitions.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/aggregate/biome_system/climate_model.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/aggregate/biome_system/events.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/aggregate/biome_system/index.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/aggregate/generation_session/error_handling.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/aggregate/generation_session/events.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/aggregate/generation_session/generation_session.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/aggregate/generation_session/index.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/aggregate/generation_session/progress_tracking.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/aggregate/generation_session/session_state.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/aggregate/index.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/aggregate/world_generator/business_rules.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/aggregate/world_generator/events.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/aggregate/world_generator/generation_context.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/aggregate/world_generator/generation_state.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/aggregate/world_generator/index.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/aggregate/world_generator/world_generator.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/application_service/cache_optimization/cache_manager.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/application_service/cache_optimization/index.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/application_service/index.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/application_service/performance_monitoring/index.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/application_service/performance_monitoring/metrics_collector.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/application_service/progressive_loading/adaptive_quality.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/application_service/progressive_loading/index.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/application_service/progressive_loading/loading_scheduler.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/application_service/progressive_loading/memory_monitor.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/application_service/progressive_loading/priority_calculator.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/application_service/world_generation_orchestrator/dependency_coordinator.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/application_service/world_generation_orchestrator/error_recovery.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/application_service/world_generation_orchestrator/generation_pipeline.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/application_service/world_generation_orchestrator/index.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/application_service/world_generation_orchestrator/orchestrator.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/config.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/domain.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/domain_service/biome_classification/biome_mapper.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/domain_service/biome_classification/climate_calculator.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/domain_service/biome_classification/ecosystem_analyzer.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/domain_service/biome_classification/index.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/domain_service/index.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/domain_service/mathematical_operations/coordinate_transform.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/domain_service/mathematical_operations/index.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/domain_service/mathematical_operations/interpolation_service.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/domain_service/mathematical_operations/statistical_analyzer.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/domain_service/noise_generation/fractal_noise_service.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/domain_service/noise_generation/index.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/domain_service/noise_generation/perlin_noise_service.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/domain_service/noise_generation/simplex_noise_service.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/domain_service/procedural_generation/cave_carver.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/domain_service/procedural_generation/index.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/domain_service/procedural_generation/ore_placer.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/domain_service/procedural_generation/structure_spawner.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/domain_service/procedural_generation/terrain_generator.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/domain_service/world_validation/consistency_checker.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/domain_service/world_validation/constraint_enforcer.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/domain_service/world_validation/generation_validator.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/domain_service/world_validation/index.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/factory/biome_system_factory/factory.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/factory/biome_system_factory/index.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/factory/generation_session_factory/configuration.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/factory/generation_session_factory/factory.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/factory/generation_session_factory/index.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/factory/generation_session_factory/session_builder.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/factory/generation_session_factory/template_resolver.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/factory/index.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/factory/world_configuration_factory/factory.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/factory/world_configuration_factory/index.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/factory/world_generator_factory/builder.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/factory/world_generator_factory/factory.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/factory/world_generator_factory/index.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/factory/world_generator_factory/presets.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/factory/world_generator_factory/validation.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/helpers.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/index.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/layers.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/metadata.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/repository/__tests__/integration.spec.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/repository/biome_system_repository/biome_cache.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/repository/biome_system_repository/index.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/repository/biome_system_repository/interface.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/repository/biome_system_repository/memory_implementation.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/repository/biome_system_repository/persistence_implementation.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/repository/generation_session_repository/index.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/repository/generation_session_repository/interface.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/repository/generation_session_repository/memory_implementation.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/repository/generation_session_repository/persistence_implementation.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/repository/generation_session_repository/session_recovery.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/repository/index.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/repository/types/index.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/repository/types/repository_error.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/repository/world_generator_repository/cache_strategy.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/repository/world_generator_repository/index.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/repository/world_generator_repository/interface.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/repository/world_generator_repository/memory_implementation.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/repository/world_generator_repository/persistence_implementation.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/repository/world_metadata_repository/index.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/repository/world_metadata_repository/interface.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/repository/world_metadata_repository/memory_implementation.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/repository/world_metadata_repository/persistence_implementation.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/time.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/typeguards.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/types/constants/biome_constants.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/types/constants/generation_constants.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/types/constants/index.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/types/constants/noise_constants.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/types/constants/world_constants.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/types/core/biome_types.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/types/core/coordinate_types.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/types/core/generation_types.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/types/core/index.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/types/core/world_types.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/types/errors/generation_errors.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/types/errors/index.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/types/errors/validation_errors.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/types/errors/world_errors.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/types/events/generation_events.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/types/events/index.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/types/events/lifecycle_events.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/types/events/world_events.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/types/index.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/utils/schema.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/value_object/biome_properties/humidity_levels.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/value_object/biome_properties/index.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/value_object/biome_properties/soil_composition.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/value_object/biome_properties/temperature_range.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/value_object/biome_properties/vegetation_density.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/value_object/coordinates/block_coordinate.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/value_object/coordinates/chunk_coordinate.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/value_object/coordinates/coordinate_transforms.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/value_object/coordinates/index.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/value_object/coordinates/world_coordinate.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/value_object/generation_parameters/biome_config.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/value_object/generation_parameters/feature_flags.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/value_object/generation_parameters/index.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/value_object/generation_parameters/ore_distribution.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/value_object/generation_parameters/structure_density.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/value_object/index.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/value_object/noise_configuration/amplitude_curves.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/value_object/noise_configuration/frequency_bands.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/value_object/noise_configuration/index.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/value_object/noise_configuration/noise_settings.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/value_object/noise_configuration/octave_config.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/value_object/world_seed/index.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/value_object/world_seed/operations.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/value_object/world_seed/seed.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/domain/world/value_object/world_seed/validation.ts",
+    "category": "domain",
+    "subcategory": "world",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/index.ts",
+    "category": "(root)",
+    "subcategory": "index.ts",
+    "classification": "移行対象"
+  },
+  {
+    "path": "src/infrastructure/audio/__tests__/AudioService.spec.ts",
+    "category": "infrastructure",
+    "subcategory": "audio",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/infrastructure/audio/audio-service-live.ts",
+    "category": "infrastructure",
+    "subcategory": "audio",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/infrastructure/audio/audio-service.ts",
+    "category": "infrastructure",
+    "subcategory": "audio",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/infrastructure/audio/audio-types.ts",
+    "category": "infrastructure",
+    "subcategory": "audio",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/infrastructure/audio/index.ts",
+    "category": "infrastructure",
+    "subcategory": "audio",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/infrastructure/ecs/__tests__/Component.spec.ts",
+    "category": "infrastructure",
+    "subcategory": "ecs",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/infrastructure/ecs/__tests__/Entity.spec.ts",
+    "category": "infrastructure",
+    "subcategory": "ecs",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/infrastructure/ecs/__tests__/System.spec.ts",
+    "category": "infrastructure",
+    "subcategory": "ecs",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/infrastructure/ecs/__tests__/SystemRegistry.spec.ts",
+    "category": "infrastructure",
+    "subcategory": "ecs",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/infrastructure/ecs/__tests__/World.spec.ts",
+    "category": "infrastructure",
+    "subcategory": "ecs",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/infrastructure/ecs/component-definition.ts",
+    "category": "infrastructure",
+    "subcategory": "ecs",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/infrastructure/ecs/component-registry.spec.ts",
+    "category": "infrastructure",
+    "subcategory": "ecs",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/infrastructure/ecs/component-registry.ts",
+    "category": "infrastructure",
+    "subcategory": "ecs",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/infrastructure/ecs/component.ts",
+    "category": "infrastructure",
+    "subcategory": "ecs",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/infrastructure/ecs/entity-manager.ts",
+    "category": "infrastructure",
+    "subcategory": "ecs",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/infrastructure/ecs/entity.ts",
+    "category": "infrastructure",
+    "subcategory": "ecs",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/infrastructure/ecs/index.ts",
+    "category": "infrastructure",
+    "subcategory": "ecs",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/infrastructure/ecs/system-registry.ts",
+    "category": "infrastructure",
+    "subcategory": "ecs",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/infrastructure/ecs/system.ts",
+    "category": "infrastructure",
+    "subcategory": "ecs",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/infrastructure/ecs/world.ts",
+    "category": "infrastructure",
+    "subcategory": "ecs",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/infrastructure/events/event-bus.ts",
+    "category": "infrastructure",
+    "subcategory": "events",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/infrastructure/index.ts",
+    "category": "infrastructure",
+    "subcategory": "index.ts",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/infrastructure/inventory/__tests__/storage-service.spec.ts",
+    "category": "infrastructure",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/infrastructure/inventory/index.ts",
+    "category": "infrastructure",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/infrastructure/inventory/persistence/__tests__/indexed-db.spec.ts",
+    "category": "infrastructure",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/infrastructure/inventory/persistence/__tests__/local-storage.spec.ts",
+    "category": "infrastructure",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/infrastructure/inventory/persistence/indexed-db.ts",
+    "category": "infrastructure",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/infrastructure/inventory/persistence/local-storage.ts",
+    "category": "infrastructure",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/infrastructure/inventory/storage-service.ts",
+    "category": "infrastructure",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/infrastructure/rendering/index.ts",
+    "category": "infrastructure",
+    "subcategory": "rendering",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/infrastructure/rendering/renderer-service-live.ts",
+    "category": "infrastructure",
+    "subcategory": "rendering",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/infrastructure/rendering/renderer-service.spec.ts",
+    "category": "infrastructure",
+    "subcategory": "rendering",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/infrastructure/rendering/renderer-service.ts",
+    "category": "infrastructure",
+    "subcategory": "rendering",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/infrastructure/scene/index.ts",
+    "category": "infrastructure",
+    "subcategory": "scene",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/infrastructure/scene/service-live.ts",
+    "category": "infrastructure",
+    "subcategory": "scene",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/main.ts",
+    "category": "(root)",
+    "subcategory": "main.ts",
+    "classification": "移行対象"
+  },
+  {
+    "path": "src/presentation/index.ts",
+    "category": "presentation",
+    "subcategory": "index.ts",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/presentation/inventory/adt/index.ts",
+    "category": "presentation",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/presentation/inventory/adt/inventory-adt.spec.ts",
+    "category": "presentation",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/presentation/inventory/adt/inventory-adt.ts",
+    "category": "presentation",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/presentation/inventory/config/index.ts",
+    "category": "presentation",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/presentation/inventory/index.ts",
+    "category": "presentation",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/presentation/inventory/state/index.ts",
+    "category": "presentation",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/presentation/inventory/state/reactive-system.spec.ts",
+    "category": "presentation",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/presentation/inventory/state/reactive-system.ts",
+    "category": "presentation",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/presentation/inventory/state/store.spec.ts",
+    "category": "presentation",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/presentation/inventory/state/store.ts",
+    "category": "presentation",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/presentation/inventory/ui/components/InventoryPanel.spec.ts",
+    "category": "presentation",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/presentation/inventory/ui/components/InventoryPanel.test.tsx",
+    "category": "presentation",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/presentation/inventory/ui/components/InventoryPanel.tsx",
+    "category": "presentation",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/presentation/inventory/ui/components/ItemSlot.spec.ts",
+    "category": "presentation",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/presentation/inventory/ui/components/ItemSlot.test.tsx",
+    "category": "presentation",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/presentation/inventory/ui/components/ItemSlot.tsx",
+    "category": "presentation",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/presentation/inventory/ui/components/index.ts",
+    "category": "presentation",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/presentation/inventory/ui/hooks/index.ts",
+    "category": "presentation",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/presentation/inventory/ui/index.ts",
+    "category": "presentation",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/presentation/inventory/view-model/index.ts",
+    "category": "presentation",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/presentation/inventory/view-model/inventory-view-model.spec.ts",
+    "category": "presentation",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/presentation/inventory/view-model/inventory-view-model.ts",
+    "category": "presentation",
+    "subcategory": "inventory",
+    "classification": "構造変更対象"
+  },
+  {
+    "path": "src/testing/effect.ts",
+    "category": "testing",
+    "subcategory": "effect.ts",
+    "classification": "移行対象"
+  }
+]
