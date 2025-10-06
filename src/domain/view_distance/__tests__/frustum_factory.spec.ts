@@ -1,7 +1,7 @@
 import { describe, expect, it } from '@effect/vitest'
 import { Effect } from 'effect'
-import { createViewDistanceToolkit } from '../frustum_factory.js'
-import { createCameraState, createViewControlConfig } from '../types.js'
+import { createViewDistanceToolkit } from '../frustum_factory'
+import { createCameraState, createViewControlConfig } from '../types'
 
 const baseCamera = createCameraState({
   position: { x: 0, y: 0, z: 0 },

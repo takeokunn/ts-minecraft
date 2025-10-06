@@ -16,7 +16,7 @@ export {
   CacheManagerServiceLive,
   CacheStatistics,
   DEFAULT_CACHE_CONFIG,
-} from './cache_manager.js'
+} from './index'
 
 export type {
   CacheConfigurationType,
@@ -24,12 +24,12 @@ export type {
   CacheLayerType,
   CacheManagerErrorType,
   CacheStatisticsType,
-} from './cache_manager.js'
+} from './index'
 
 // === Integrated Cache Optimization Service ===
 
 import { Context, Effect, Layer, Ref, Schema } from 'effect'
-import { CacheManagerService } from './cache_manager.js'
+import { CacheManagerService } from './index'
 
 /**
  * Cache Optimization Service Error
@@ -350,4 +350,4 @@ export const CacheOptimizationUtils = {
   },
 }
 
-export type { CacheOptimizationErrorType, PreloadingStrategy as PreloadingStrategyType } from './index.js'
+export type { CacheOptimizationErrorType, PreloadingStrategy as PreloadingStrategyType } from './index'

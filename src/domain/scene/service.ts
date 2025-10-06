@@ -8,7 +8,7 @@ import {
   SceneState,
   TransitionEffect,
   TransitionError,
-} from './types'
+} from './index'
 
 export interface SceneService {
   readonly transitionTo: (scene: ActiveScene, effect?: TransitionEffect) => Effect.Effect<SceneState, TransitionError>

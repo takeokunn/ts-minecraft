@@ -10,14 +10,14 @@
 // Service Interface & Context
 // ========================================
 
-export { PlayerCameraApplicationService } from './service.js'
-export type { PlayerCameraApplicationService } from './service.js'
+export { PlayerCameraApplicationService } from './index'
+export type { PlayerCameraApplicationService } from './index'
 
 // ========================================
 // Live Implementation
 // ========================================
 
-export { PlayerCameraApplicationServiceLive } from './live.js'
+export { PlayerCameraApplicationServiceLive } from './index'
 
 // ========================================
 // Types & Schemas
@@ -39,7 +39,7 @@ export type {
   ViewModeTransitionFailureReason,
   // Result Types
   ViewModeTransitionResult,
-} from './types.js'
+} from './index'
 
 export {
   CameraApplicationErrorSchema,
@@ -51,7 +51,7 @@ export {
   // Factory Functions
   createPlayerCameraInput,
   createViewModeTransitionResult,
-} from './types.js'
+} from './index'
 
 // ========================================
 // Module Information
@@ -198,7 +198,7 @@ export type {
   Vector3D,
   ViewMode,
   ViewModeTransitionConfig,
-} from '../../types/index.js'
+} from '@domain/camera/types'
 
 // ========================================
 // Usage Examples Documentation
@@ -341,3 +341,5 @@ export type {
  * 5. **パフォーマンス**: 最適化とモニタリング機能
  * 6. **拡張性**: 新機能追加の容易性
  */
+export * from './index';
+export * from './index';

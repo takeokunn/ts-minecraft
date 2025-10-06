@@ -6,7 +6,7 @@ import type {
   ChunkState,
   OptimizationStrategy,
   SerializationFormat,
-} from '../../types/core'
+} from '../../types'
 import type { ChunkMetadata } from '../../value_object/chunk_metadata'
 import type { ChunkPosition } from '../../value_object/chunk_position'
 

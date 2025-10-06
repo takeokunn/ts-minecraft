@@ -11,9 +11,9 @@ import { Effect, Layer, Option, ReadonlyArray, Ref } from 'effect'
 import * as fs from 'fs'
 import * as path from 'path'
 import * as zlib from 'zlib'
-import type { BiomeDefinition, BiomeId, ClimateData, WorldCoordinate } from '../../types'
-import type { AllRepositoryErrors } from '../types'
-import { createDataIntegrityError, createRepositoryError, createStorageError } from '../types'
+import type { BiomeDefinition, BiomeId, ClimateData, WorldCoordinate } from '@domain/world/types'
+import type { AllRepositoryErrors } from '@domain/world/types'
+import { createDataIntegrityError, createRepositoryError, createStorageError } from '@domain/world/types'
 import type {
   BiomePlacement,
   BiomeSystemRepository,
@@ -27,7 +27,7 @@ import type {
   SpatialCoordinate,
   SpatialQuery,
   SpatialQueryResult,
-} from './interface'
+} from './index'
 
 // === Configuration Types ===
 

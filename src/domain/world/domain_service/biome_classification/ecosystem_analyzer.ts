@@ -7,11 +7,11 @@
  */
 
 import { Context, Effect, Layer, Schema } from 'effect'
-import { type GenerationError } from '../../types/errors/generation_errors.js'
-import type { WorldCoordinate2D } from '../../value_object/coordinates/world_coordinate.js'
-import type { WorldSeed } from '../../value_object/world_seed/seed.js'
-import type { BiomeMappingResult, MinecraftBiomeType } from './biome_mapper.js'
-import type { ClimateData } from './climate_calculator.js'
+import { type GenerationError } from '@domain/world/types/errors'
+import type { WorldCoordinate2D } from '@domain/world/value_object/coordinates'
+import type { WorldSeed } from '@domain/world/value_object/world_seed'
+import type { BiomeMappingResult, MinecraftBiomeType } from './index'
+import type { ClimateData } from './index'
 
 /**
  * 生態学的機能群

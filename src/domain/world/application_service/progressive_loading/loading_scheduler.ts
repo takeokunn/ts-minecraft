@@ -537,4 +537,4 @@ export type {
   MovementVector as MovementVectorType,
   PlayerMovementState as PlayerMovementStateType,
   SchedulerConfiguration as SchedulerConfigurationType,
-} from './loading_scheduler.js'
+} from './loading_scheduler'

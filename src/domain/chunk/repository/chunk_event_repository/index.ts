@@ -30,7 +30,8 @@ export {
   type EventQuery,
   // Stream Types
   type EventStream,
-} from './interface'
+} from './index'
 
 // Note: Implementation will be added in a separate task
 // For now, we export only the interface and types
+export * from './index';

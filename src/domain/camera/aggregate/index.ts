@@ -32,7 +32,7 @@ export {
   // Type Guards
   isCamera,
   type CameraSnapshot,
-} from './camera/index.js'
+} from './camera/index'
 
 // ========================================
 // PlayerCamera Aggregate
@@ -52,7 +52,7 @@ export {
   PlayerId,
   Sensitivity,
   SmoothingFactor,
-} from './player_camera/index.js'
+} from './player_camera/index'
 
 // ========================================
 // SceneCamera Aggregate
@@ -77,7 +77,7 @@ export {
   SceneId,
   TargetStrategy,
   type EasingType,
-} from './scene_camera/index.js'
+} from './scene_camera/index'
 export type { CameraError }
 
 // ========================================
@@ -235,18 +235,18 @@ export type AnyCameraId = string
 /**
  * カメラ設定統合型
  */
-import type { CameraSettings } from '../value_object/index.js'
+import type { CameraSettings } from '../value_object/index'
 export type AnyCameraSettings = CameraSettings | PlayerCameraSettings | CinematicSettings
 
 /**
  * カメラエラー統合型
  */
-import type { CameraError } from '../types/errors.js'
+import type { CameraError } from '@domain/camera/types'
 
 /**
  * カメライベント統合型
  */
-import type { CameraEvent } from '../types/events.js'
+import type { CameraEvent } from '@domain/camera/types'
 export type { CameraEvent }
 
 /**

@@ -117,7 +117,7 @@ export type {
  */
 
 // ViewMode ファクトリー
-export { DefaultSettings as ViewModeDefaultSettings, ViewModeFactory } from './view_mode/operations'
+export { DefaultSettings as ViewModeDefaultSettings, ViewModeFactory } from './view_mode'
 
 // Position ファクトリー
 export {
@@ -129,7 +129,7 @@ export {
   createPosition3D,
   createCameraDistance as createPositionCameraDistance,
   createViewOffset,
-} from './camera_position/operations'
+} from './camera_position'
 
 // Rotation ファクトリー
 export {
@@ -140,7 +140,7 @@ export {
   createCameraRotation,
   createMouseDelta,
   createMouseSensitivity,
-} from './camera_rotation/operations'
+} from './camera_rotation'
 
 // Settings ファクトリー
 export {
@@ -150,7 +150,7 @@ export {
   SettingsValidation,
   createCameraLimits,
   createCameraSettings,
-} from './camera_settings/operations'
+} from './camera_settings'
 
 // Animation ファクトリー
 export {
@@ -160,7 +160,7 @@ export {
   CameraAnimationOps,
   EasingFunctions,
   InterpolationOps,
-} from './animation_state/operations'
+} from './animation_state'
 
 /**
  * 統合Schema エクスポート
@@ -176,7 +176,7 @@ export {
   ThirdPersonSettingsSchema,
   CameraDistanceSchema as ViewModeCameraDistanceSchema,
   ViewModeSchema,
-} from './view_mode/schema'
+} from './view_mode'
 
 // Position Schemas
 export {
@@ -188,7 +188,7 @@ export {
   CameraDistanceSchema as PositionCameraDistanceSchema,
   Velocity3DSchema,
   ViewOffsetSchema,
-} from './camera_position/schema'
+} from './camera_position'
 
 // Rotation Schemas
 export {
@@ -206,7 +206,7 @@ export {
   RotationLerpFactorSchema,
   RotationLimitsSchema,
   YawSchema,
-} from './camera_rotation/schema'
+} from './camera_rotation'
 
 // Settings Schemas
 export {
@@ -227,7 +227,7 @@ export {
   SensitivitySchema,
   SettingsConstraints,
   SmoothingSchema,
-} from './camera_settings/schema'
+} from './camera_settings'
 
 // Animation Schemas
 export {
@@ -248,4 +248,4 @@ export {
   PositionAnimationSchema,
   RotationAnimationSchema,
   TimestampSchema,
-} from './animation_state/schema'
+} from './animation_state'

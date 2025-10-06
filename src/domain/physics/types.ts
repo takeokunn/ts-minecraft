@@ -1,4 +1,4 @@
-import { BlockTypeIdSchema } from '@domain/core/types/brands'
+import { BlockTypeIdSchema } from '@domain/entities'
 import { Schema } from '@effect/schema'
 import { Brand } from 'effect'
 import { Vector3Schema } from '../world/types'

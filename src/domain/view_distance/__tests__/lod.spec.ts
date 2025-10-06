@@ -1,8 +1,8 @@
 import { describe, expect, it, prop } from '@effect/vitest'
 import { Effect } from 'effect'
 import * as FC from 'effect/FastCheck'
-import { LODInternals, createLODSelector, type LODSelectionContext } from '../lod.js'
-import { createManagedObject, createPerformanceMetrics, toViewDistance } from '../types.js'
+import { LODInternals, createLODSelector, type LODSelectionContext } from '../lod'
+import { createManagedObject, createPerformanceMetrics, toViewDistance } from '../types'
 
 const baseContext = Effect.runSync(
   Effect.gen(function* () {

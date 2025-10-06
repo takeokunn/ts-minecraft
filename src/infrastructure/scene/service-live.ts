@@ -1,13 +1,4 @@
-import { Clock, Context, Duration, Effect, HashMap, Layer, Match, Option, Ref, Schema, pipe } from 'effect'
-import type { EventBusService } from '@infrastructure/events/event-bus'
-import { EventBus } from '@infrastructure/events/event-bus'
-import {
-  RendererService,
-  parseAlpha as parseRendererAlpha,
-  parseRgbColor,
-} from '@infrastructure/rendering/renderer-service'
-import { RendererServiceLive } from '@infrastructure/rendering/renderer-service-live'
-import { SceneService } from '@domain/scene/service'
+import { SceneService } from '@domain/scene'
 import {
   ActiveScene,
   LoadError as LoadErrorADT,
@@ -29,7 +20,16 @@ import {
   TransitionEffect,
   TransitionError as TransitionErrorADT,
   WorldId,
-} from '@domain/scene/types'
+} from '@domain/scene'
+import type { EventBusService } from '@infrastructure/events'
+import { EventBus } from '@infrastructure/events'
+import {
+  RendererService,
+  parseAlpha as parseRendererAlpha,
+  parseRgbColor,
+} from '@infrastructure/rendering'
+import { RendererServiceLive } from '@infrastructure/rendering'
+import { Clock, Context, Duration, Effect, HashMap, Layer, Match, Option, Ref, Schema, pipe } from 'effect'
 
 // ===== 外部ポート =====
 

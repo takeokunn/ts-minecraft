@@ -16,21 +16,26 @@ export {
   type ChunkRepository,
   type ChunkRepositoryEffect,
   type ChunkStatistics,
-} from './interface'
+} from './index'
 
 export {
   // In-Memory Implementation
   InMemoryChunkRepositoryLive,
-} from './memory_implementation'
+} from './index'
 
 export {
   // IndexedDB Implementation
   IndexedDBChunkRepositoryLive,
-} from './indexeddb_implementation'
+} from './index'
 
 export {
   WORKER_SCRIPT_TEMPLATE,
   // WebWorker Implementation
   WebWorkerChunkRepositoryLive,
   createWebWorkerChunkRepository,
-} from './webworker_implementation'
+} from './index'
+export * from './index';
+export * from './index';
+export * from './index';
+export * from './index';
+export * from './interface';

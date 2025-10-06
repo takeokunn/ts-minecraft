@@ -2,14 +2,14 @@ import { Clock, Effect, Layer, Option, pipe } from 'effect'
 import type { ChunkData } from '../../aggregate/chunk_data'
 import type { ChunkId } from '../../value_object/chunk_id'
 import type { ChunkPosition } from '../../value_object/chunk_position'
-import { RepositoryErrors, type RepositoryError } from '../types/repository_error'
+import { RepositoryErrors, type RepositoryError } from '../types'
 import {
   ChunkRepository,
   type BatchOperationResult,
   type ChunkQuery,
   type ChunkRegion,
   type ChunkStatistics,
-} from './interface'
+} from './index'
 
 const DB_NAME = 'MinecraftChunkStorage'
 const DB_VERSION = 1

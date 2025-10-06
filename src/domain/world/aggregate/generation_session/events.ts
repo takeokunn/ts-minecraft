@@ -8,9 +8,9 @@
  */
 
 import { Brand, Context, Effect, Schema, Stream } from 'effect'
-import type { SessionError } from './error_handling.js'
-import type { GenerationRequest, GenerationSessionId } from './generation_session.js'
-import type { ProgressStatistics } from './progress_tracking.js'
+import type { SessionError } from './index'
+import type { GenerationRequest, GenerationSessionId } from './index'
+import type { ProgressStatistics } from './index'
 
 // ================================
 // Base Event Schema

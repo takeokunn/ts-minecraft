@@ -1,6 +1,6 @@
 import { Context, Effect, Stream } from 'effect'
-import { ChunkEvent } from './events.js'
-import { ChunkSystemError, ChunkSystemState } from './types.js'
+import { ChunkEvent } from './index'
+import { ChunkSystemError, ChunkSystemState } from './index'
 
 export interface ChunkSystemRepository {
   readonly load: Effect.Effect<ChunkSystemState, ChunkSystemError>

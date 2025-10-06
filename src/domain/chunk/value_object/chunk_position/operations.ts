@@ -12,7 +12,7 @@ import {
   getChunkHash,
   parseChunkHash,
   worldToChunkPosition,
-} from './types'
+} from './index'
 
 export {
   calculateChunkDistance,

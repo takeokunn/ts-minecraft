@@ -6,7 +6,7 @@
  */
 
 import { Array, Context, Effect, Option } from 'effect'
-import type { ViewMode } from '../../value_object/index.js'
+import type { ViewMode } from '../../value_object/index'
 import type {
   GameContext,
   PlayerId,
@@ -18,7 +18,7 @@ import type {
   ViewModePreference,
   ViewModePreferenceRecord,
   ViewModePreferencesRepositoryError,
-} from './types.js'
+} from './index'
 
 // ========================================
 // Repository Interface
@@ -556,4 +556,4 @@ export type {
   ViewModePreference,
   ViewModePreferenceRecord,
   ViewModePreferencesRepositoryError,
-} from './types.js'
+} from './index'

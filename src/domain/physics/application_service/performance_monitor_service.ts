@@ -1,7 +1,7 @@
 import { Array as Arr, Context, Effect, Layer, Match, Ref, pipe } from 'effect'
-import { PERFORMANCE_THRESHOLDS } from '../types/constants'
-import type { PhysicsWorldId } from '../types/core'
-import type { PhysicsError } from '../types/errors'
+import { PERFORMANCE_THRESHOLDS } from '@domain/physics/types'
+import type { PhysicsWorldId } from '@domain/physics/types'
+import type { PhysicsError } from '@domain/physics/types'
 
 export interface PerformanceSample {
   readonly worldId: PhysicsWorldId

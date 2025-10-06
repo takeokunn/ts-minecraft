@@ -1,10 +1,10 @@
 import { Cache, Duration, Effect, Chunk as EffectChunk, Either, Match, Option, pipe } from 'effect'
-import type { ChunkTimestamp } from '../../types/core'
-import { CHUNK_HEIGHT, CHUNK_MIN_Y, CHUNK_SIZE } from '../../types/core'
+import type { ChunkTimestamp } from '../../types'
+import { CHUNK_HEIGHT, CHUNK_MIN_Y, CHUNK_SIZE } from '../../types'
 import type { ChunkMetadata, HeightValue } from '../../value_object/chunk_metadata'
 import type { ChunkPosition } from '../../value_object/chunk_position'
-import type { ChunkData } from '../chunk_data/types'
-import { ChunkDataOptics } from './optics'
+import type { ChunkData } from '../chunk_data'
+import { ChunkDataOptics } from './index'
 
 const rangeFromOffset = (start: number, size: number): ReadonlyArray<number> =>
   size <= 0 ? [] : Array.from({ length: size }, (_, index) => start + index)

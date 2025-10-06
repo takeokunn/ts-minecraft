@@ -4,11 +4,12 @@
  */
 
 // Interface and Types
-export * from './interface'
+export * from './index'
 
 // Implementations
-export * from './memory_implementation'
-export * from './persistence_implementation'
+export * from './index'
+export * from './index'
 
 // Cache Strategy
-export * from './cache_strategy'
+export * from './index'
+export * from './index';

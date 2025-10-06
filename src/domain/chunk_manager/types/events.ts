@@ -6,7 +6,7 @@
  */
 
 import { Data, Schema } from 'effect'
-import { ChunkId } from '../../chunk/value_object/chunk_id/index.js'
+import { ChunkId } from '../../chunk/value_object/chunk_id/index'
 import {
   ChunkLifetime,
   ChunkPoolId,
@@ -17,7 +17,7 @@ import {
   MemoryBytes,
   PoolStrategy,
   ResourceUsagePercent,
-} from './core.js'
+} from './index'
 
 // ========================================
 // Event ID and Metadata

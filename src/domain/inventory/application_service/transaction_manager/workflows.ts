@@ -6,12 +6,12 @@
  */
 
 import { Effect, Array as EffectArray } from 'effect'
-import type { ItemStack } from '../../aggregate/item_stack/types'
-import type { TransferService } from '../../domain_service/transfer_service/service'
-import type { ValidationService } from '../../domain_service/validation_service/service'
-import type { InventoryService } from '../../service'
-import type { InventoryId, ItemId, PlayerId } from '../../types/core'
-import type { InventoryApplicationError } from '../types/errors'
+import type { ItemStack } from '../../aggregate/item_stack'
+import type { TransferService } from '../../domain_service/transfer_service'
+import type { ValidationService } from '../../domain_service/validation_service'
+import type { InventoryService } from '../..'
+import type { InventoryId, ItemId, PlayerId } from '../../types'
+import type { InventoryApplicationError } from '../types'
 
 /**
  * ワークフロー実装

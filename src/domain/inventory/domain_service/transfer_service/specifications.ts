@@ -8,7 +8,7 @@
 
 import { Effect, Match, pipe } from 'effect'
 import type { InventoryErrorReason, ItemId } from '../../types'
-import type { TransferConstraint, TransferRequest, TransferabilityDetails } from './service'
+import type { TransferConstraint, TransferRequest, TransferabilityDetails } from './index'
 
 // =============================================================================
 // Specification Pattern Base

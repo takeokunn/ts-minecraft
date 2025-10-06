@@ -1,6 +1,6 @@
 import { Match, pipe } from 'effect'
-import type { InputEvent } from './model'
-import { ActionId, AxisId, AxisValue, KeyCode, MouseButton } from './model'
+import type { InputEvent } from './index'
+import { ActionId, AxisId, AxisValue, KeyCode, MouseButton } from './index'
 
 type AxisDirection = 'positive' | 'negative'
 

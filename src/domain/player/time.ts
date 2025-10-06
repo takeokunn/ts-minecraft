@@ -1,6 +1,6 @@
 import { Context, Effect, Either, Layer, pipe, Schema } from 'effect'
-import { PlayerErrorBuilders } from './errors'
-import { PlayerTimestamp, TimestampSchema } from './types'
+import { PlayerErrorBuilders } from './index'
+import { PlayerTimestamp, TimestampSchema } from './index'
 
 export interface PlayerClockService {
   readonly current: Effect.Effect<PlayerTimestamp, ReturnType<typeof PlayerErrorBuilders.clock>>

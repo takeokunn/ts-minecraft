@@ -1,7 +1,7 @@
-import type { ChunkId } from '@domain/chunk/value_object/chunk_id/types'
+import type { ChunkId } from '@domain/chunk'
 import { Context, Effect } from 'effect'
-import { ChunkDistance, ChunkLifetime, MaxActiveChunks, MemoryBytes, ResourceUsagePercent, Timestamp } from './core'
-import { ActivationError, ConfigError, DeactivationError, LifecycleStatsError, PoolMetricsError } from './errors'
+import { ChunkDistance, ChunkLifetime, MaxActiveChunks, MemoryBytes, ResourceUsagePercent, Timestamp } from './index'
+import { ActivationError, ConfigError, DeactivationError, LifecycleStatsError, PoolMetricsError } from './index'
 
 export type SystemLoad = {
   readonly cpu: ResourceUsagePercent

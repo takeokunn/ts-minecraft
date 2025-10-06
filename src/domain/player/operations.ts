@@ -8,8 +8,8 @@ import {
   MOVEMENT_SPEEDS,
   PHYSICS_CONSTANTS,
   SATURATION_CONSTANTS,
-} from './constants'
-import { PlayerErrorBuilders } from './errors'
+} from './index'
+import { PlayerErrorBuilders } from './index'
 import {
   PlayerAggregate,
   PlayerAggregateSchema,
@@ -29,7 +29,7 @@ import {
   PlayerUpdateContext,
   PlayerUpdateContextSchema,
   PlayerVitalsSchema,
-} from './types'
+} from './index'
 
 // -----------------------------------------------------------------------------
 // 型エイリアス

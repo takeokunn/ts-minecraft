@@ -7,7 +7,7 @@ import {
   RecipeAggregate,
   SuccessRate,
   SuccessRateSchema,
-} from '../aggregate/recipe'
+} from '../aggregate'
 
 export interface CraftingCalculationService {
   readonly computeCraftingTime: (aggregate: RecipeAggregate, multiplier: number) => Effect.Effect<CraftingTime, never>

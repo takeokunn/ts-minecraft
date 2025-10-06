@@ -4,7 +4,10 @@
  * エクスポートモジュール
  */
 
-export * from './commands'
-export { InventoryManagerApplicationServiceLive } from './live'
-export * from './queries'
-export * from './service'
+export * from './index'
+export { InventoryManagerApplicationServiceLive } from './index'
+export * from './index'
+export * from './index'
+export * from './index';
+export * from './index';
+export * from './index';

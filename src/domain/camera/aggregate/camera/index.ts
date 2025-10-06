@@ -5,10 +5,10 @@
  */
 
 // Aggregate Root
-export { Camera, CameraOps } from './camera.js'
+export { Camera, CameraOps } from './index'
 
 // Factory
-export { CameraFactory, type CameraSnapshot } from './factory.js'
+export { CameraFactory, type CameraSnapshot } from './index'
 export type { Camera }
 
 // Type Guards
@@ -17,4 +17,7 @@ export const isCamera = (value: unknown): value is Camera => {
 }
 
 // Re-export for convenience
-import { Camera } from './camera.js'
+import { Camera } from './index'
+export * from './index';
+export * from './index';
+export * from './camera';

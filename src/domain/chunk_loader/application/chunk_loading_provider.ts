@@ -1,5 +1,5 @@
 import { Clock, Effect, HashMap, Layer, Match, Option, Random, SynchronizedRef, pipe } from 'effect'
-import { SessionState, createSession, transition } from '../domain/session'
+import { SessionState, createSession, transition } from '../domain'
 import {
   CacheStatus,
   ChunkId,
@@ -18,7 +18,7 @@ import {
   makeSessionId,
   normalizeTimestamp,
   progressFromPhase,
-} from '../types/interfaces'
+} from '../types'
 
 interface MetricsState {
   readonly activeSessions: number

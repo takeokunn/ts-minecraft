@@ -15,7 +15,7 @@ import type {
   PresetPopularity,
   SettingsRepositoryStatistics,
   ValidationResult,
-} from './service.js'
+} from './index'
 import type {
   CameraPresetSettings,
   GlobalCameraSettings,
@@ -23,14 +23,14 @@ import type {
   PlayerId,
   SettingsRepositoryError,
   SettingsStorageQueryOptions,
-} from './types.js'
+} from './index'
 import {
   createDefaultSettings,
   createSettingsRepositoryError,
   isPresetNotFoundError,
   isSettingsNotFoundError,
   isValidationError,
-} from './types.js'
+} from './index'
 
 // ========================================
 // Internal Storage Types

@@ -1,9 +1,9 @@
 import { Context, Effect, Layer } from 'effect'
-import type { BlockDefinition } from '../types/block_definition'
-import type { BlockId, BlockTag } from '../value_object/block_identity'
-import { BlockRepositoryError } from './types/repository_error'
+import type { BlockDefinition } from '../types'
+import type { BlockId, BlockTag } from '../value_object'
+import { BlockRepositoryError } from './types'
 
-export { BlockRepositoryError } from './types/repository_error'
+export { BlockRepositoryError } from './types'
 
 export interface BlockRepository {
   readonly insert: (definition: BlockDefinition) => Effect.Effect<BlockDefinition, BlockRepositoryError>

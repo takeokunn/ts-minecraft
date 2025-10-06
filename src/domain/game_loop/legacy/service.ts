@@ -12,8 +12,8 @@ import type {
   GameLoopState,
   PerformanceMetrics,
   Timestamp,
-} from '../types/core'
-import { InitializationError, PerformanceError, RuntimeCallbackError, StateTransitionError } from '../types/errors'
+} from '../types'
+import { InitializationError, PerformanceError, RuntimeCallbackError, StateTransitionError } from '../types'
 
 /**
  * ゲームループサービスインターフェース

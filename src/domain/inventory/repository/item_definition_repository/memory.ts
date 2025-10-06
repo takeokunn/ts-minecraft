@@ -8,7 +8,7 @@ import type {
   ItemId,
 } from '../../types'
 import { createDuplicateItemDefinitionError, createItemNotFoundError } from '../types'
-import { ItemDefinitionRepository } from './interface'
+import { ItemDefinitionRepository } from './index'
 
 /**
  * ItemDefinitionRepository Memory Implementation

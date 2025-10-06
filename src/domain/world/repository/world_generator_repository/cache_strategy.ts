@@ -7,9 +7,9 @@
  */
 
 import { Effect, Option, ReadonlyArray, Ref, Schedule } from 'effect'
-import type { WorldGenerator, WorldId } from '../../types'
-import type { AllRepositoryErrors } from '../types'
-import { createRepositoryError } from '../types'
+import type { WorldGenerator, WorldId } from '@domain/world/types'
+import type { AllRepositoryErrors } from '@domain/world/types'
+import { createRepositoryError } from '@domain/world/types'
 
 // === Cache Entry Types ===
 

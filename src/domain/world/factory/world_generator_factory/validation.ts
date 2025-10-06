@@ -19,8 +19,8 @@
  */
 
 import { Effect, Function, Match, Schema } from 'effect'
-import * as WorldSeed from '../../value_object/world_seed/index.js'
-import type { CreateWorldGeneratorParams, FactoryError } from './factory.js'
+import * as WorldSeed from '@domain/world/value_object/world_seed/index'
+import type { CreateWorldGeneratorParams, FactoryError } from './index'
 
 // ================================
 // Validation Result Types
@@ -232,7 +232,7 @@ function validateParameterTypes(params: CreateWorldGeneratorParams): Effect.Effe
 
   try {
     // Schema検証でパラメータ型をチェック
-    const { CreateWorldGeneratorParamsSchema } = require('./factory.js')
+    const { CreateWorldGeneratorParamsSchema } = require('@domain/world/factory.js')
     Schema.decodeSync(CreateWorldGeneratorParamsSchema)(params)
   } catch (error) {
     issues.push(

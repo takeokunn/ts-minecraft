@@ -6,19 +6,19 @@
  */
 
 // 各サービスカテゴリのエクスポート
-export * from './biome_classification/index.js'
-export * from './mathematical_operations/index.js'
-export * from './noise_generation/index.js'
-export * from './procedural_generation/index.js'
-export * from './world_validation/index.js'
+export * from './biome_classification/index'
+export * from './mathematical_operations/index'
+export * from './noise_generation/index'
+export * from './procedural_generation/index'
+export * from './world_validation/index'
 
 // 統合Layer構成
 import { Layer } from 'effect'
-import { BiomeClassificationLayer, BiomeClassificationServices } from './biome_classification/index.js'
-import { MathematicalOperationsLayer, MathematicalOperationsServices } from './mathematical_operations/index.js'
-import { NoiseGenerationLayer, NoiseGenerationServices } from './noise_generation/index.js'
-import { ProceduralGenerationLayer, ProceduralGenerationServices } from './procedural_generation/index.js'
-import { WorldValidationLayer, WorldValidationServices } from './world_validation/index.js'
+import { BiomeClassificationLayer, BiomeClassificationServices } from './biome_classification/index'
+import { MathematicalOperationsLayer, MathematicalOperationsServices } from './mathematical_operations/index'
+import { NoiseGenerationLayer, NoiseGenerationServices } from './noise_generation/index'
+import { ProceduralGenerationLayer, ProceduralGenerationServices } from './procedural_generation/index'
+import { WorldValidationLayer, WorldValidationServices } from './world_validation/index'
 
 /**
  * World Domain Service 統合Layer

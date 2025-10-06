@@ -7,8 +7,8 @@
  */
 
 import { Context, Effect, Option, ReadonlyArray } from 'effect'
-import type { WorldCoordinate, WorldGeneratorId, WorldId, WorldSeed } from '../../types'
-import type { AllRepositoryErrors } from '../types'
+import type { WorldCoordinate, WorldGeneratorId, WorldId, WorldSeed } from '@domain/world/types'
+import type { AllRepositoryErrors } from '@domain/world/types'
 
 // === Metadata Core Types ===
 

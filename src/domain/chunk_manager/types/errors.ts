@@ -1,5 +1,5 @@
-import type { ChunkId } from '@domain/chunk/value_object/chunk_id/types'
-import { ChunkIdSchema } from '@domain/chunk/value_object/chunk_id/types'
+import type { ChunkId } from '@domain/chunk'
+import { ChunkIdSchema } from '@domain/chunk'
 import { Schema } from 'effect'
 import {
   ChunkLifetimeSchema,
@@ -11,7 +11,7 @@ import {
   type ChunkPoolId,
   type MemoryBytes,
   type ResourceUsagePercent,
-} from './core'
+} from './index'
 
 // =============================================================================
 // 失敗理由（ADT）

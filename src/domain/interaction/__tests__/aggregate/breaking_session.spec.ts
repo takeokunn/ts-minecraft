@@ -79,6 +79,5 @@ describe('breaking_session', () => {
         }
       }),
       { numRuns: 48 }
-    )
-  )
+    ))
 })

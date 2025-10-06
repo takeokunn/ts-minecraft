@@ -1,7 +1,7 @@
 import { Context, Effect } from 'effect'
-import type { InputDomainError } from './errors'
-import type { InputEvent, KeyCode, MouseButton, MouseDelta } from './model'
-import type { InputSnapshot } from './state'
+import type { InputDomainError } from './index'
+import type { InputEvent, KeyCode, MouseButton, MouseDelta } from './index'
+import type { InputSnapshot } from './index'
 
 export type InputEventHandler = (event: InputEvent, snapshot: InputSnapshot) => Effect.Effect<void, never>
 

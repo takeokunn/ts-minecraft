@@ -3,9 +3,9 @@ import { describe, expect, it } from '@effect/vitest'
 import { Effect, Either } from 'effect'
 import * as fc from 'effect/FastCheck'
 import { randomUUID } from 'node:crypto'
-import { ChunkCommand } from './commands.js'
-import { applyCommand, makeInitialState } from './model.js'
-import { ChunkRequestSchema, ChunkSystemConfig, ChunkSystemConfigSchema } from './types.js'
+import { ChunkCommand } from './commands'
+import { applyCommand, makeInitialState } from './model'
+import { ChunkRequestSchema, ChunkSystemConfig, ChunkSystemConfigSchema } from './types'
 
 const config: ChunkSystemConfig = Effect.runSync(
   Schema.decodeUnknown(ChunkSystemConfigSchema)({

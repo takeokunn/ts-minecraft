@@ -1,3 +1,3 @@
-export * from './brand'
-export * from './clock'
-export * from './control'
+export * from './index'
+export * from './index'
+export * from './index'

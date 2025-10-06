@@ -1,6 +1,6 @@
 import { Context, Effect, Layer, Option, Ref } from 'effect'
 import { pipe } from 'effect/Function'
-import { BreakingSession } from '../aggregate/breaking_session'
+import { BreakingSession } from '../aggregate'
 import { SessionId } from '../types'
 
 export interface SessionStore {

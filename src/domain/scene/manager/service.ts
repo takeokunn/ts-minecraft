@@ -7,7 +7,7 @@ import {
   SceneStateSchema,
   TransitionEffect,
   TransitionError,
-} from '../types'
+} from '..'
 
 export const SceneManagerStateSchema = Schema.Struct({
   current: SceneStateSchema,

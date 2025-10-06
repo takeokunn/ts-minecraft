@@ -17,7 +17,7 @@ export type {
   CameraMode as NewCameraMode,
   Position3D,
   Sensitivity,
-} from './types/index.js'
+} from '@domain/camera/types'
 
 export {
   CAMERA_DEFAULTS,
@@ -36,7 +36,7 @@ export {
   Position3DSchema,
   SensitivitySchema,
   VALID_CAMERA_MODES,
-} from './types/index.js'
+} from '@domain/camera/types'
 
 // ========================================
 // 既存のレガシー型定義（後方互換性のため）

@@ -1,5 +1,5 @@
 import { Context, Effect, Layer, Ref, pipe } from 'effect'
-import { CraftingResult } from '../application_service/crafting_engine'
+import { CraftingResult } from '../application_service'
 import { RecipeId } from '../types'
 
 export interface CraftingHistoryRepository {

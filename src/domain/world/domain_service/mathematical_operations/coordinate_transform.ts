@@ -3,8 +3,8 @@
  */
 
 import { Context, Effect, Layer } from 'effect'
-import type { GenerationError } from '../../types/errors/generation_errors.js'
-import type { WorldCoordinate3D } from '../../value_object/coordinates/world_coordinate.js'
+import type { GenerationError } from '@domain/world/types/errors'
+import type { WorldCoordinate3D } from '@domain/world/value_object/coordinates'
 
 export interface CoordinateTransformService {
   readonly worldToChunk: (

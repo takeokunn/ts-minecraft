@@ -1,10 +1,10 @@
 import { Schema } from '@effect/schema'
 import { Effect, Option, pipe } from 'effect'
-import { CHUNK_SIZE, CHUNK_VOLUME } from '../../types/core'
+import { CHUNK_SIZE, CHUNK_VOLUME } from '../../types'
 import { type ChunkMetadata, type HeightValue, HeightValue as MakeHeightValue } from '../../value_object/chunk_metadata'
 import type { ChunkPosition } from '../../value_object/chunk_position'
-import type { ChunkData } from '../chunk_data/types'
-import { ChunkDataSchema, ChunkDataValidationError } from '../chunk_data/types'
+import type { ChunkData } from '../chunk_data'
+import { ChunkDataSchema, ChunkDataValidationError } from '../chunk_data'
 
 /**
  * Lens定義

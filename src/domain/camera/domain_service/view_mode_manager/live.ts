@@ -40,8 +40,8 @@ import type {
   ViewModeTransition,
   ViewModeTransitionSettings,
   ViewModeType,
-} from './service'
-import { TransitionExecutionResult, TransitionStep, ViewModeManagerService } from './service'
+} from './index'
+import { TransitionExecutionResult, TransitionStep, ViewModeManagerService } from './index'
 
 /**
  * ビューモード管理サービスのLive実装

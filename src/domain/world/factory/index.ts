@@ -12,7 +12,7 @@
  *
  * ## 使用例
  * ```typescript
- * import { WorldDomainFactoryLayer } from './factory'
+ * import { WorldDomainFactoryLayer } from '@domain/world/factory'
  *
  * const program = Effect.gen(function* () {
  *   // WorldGenerator作成
@@ -83,7 +83,7 @@ export {
   type WorldGeneratorBuilder,
   // Main Factory
   type WorldGeneratorFactory,
-} from './world_generator_factory/index.js'
+} from './world_generator_factory/index'
 
 // ================================
 // GenerationSessionFactory
@@ -139,7 +139,7 @@ export {
   type SessionTemplateResolver,
   type SessionTemplateType,
   type TemplateResolutionResult,
-} from './generation_session_factory/index.js'
+} from './generation_session_factory/index'
 
 // ================================
 // BiomeSystemFactory
@@ -163,7 +163,7 @@ export {
   type BiomeSystemFactory,
   // Parameters & Types
   type CreateBiomeSystemParams,
-} from './biome_system_factory/index.js'
+} from './biome_system_factory/index'
 
 // ================================
 // WorldConfigurationFactory
@@ -185,17 +185,17 @@ export {
   type WorldConfigurationBuilder,
   // Main Factory
   type WorldConfigurationFactory,
-} from './world_configuration_factory/index.js'
+} from './world_configuration_factory/index'
 
 // ================================
 // Layer Integration
 // ================================
 
 import { Layer } from 'effect'
-import { BiomeSystemFactoryLive } from './biome_system_factory/index.js'
-import { GenerationSessionFactoryLive } from './generation_session_factory/index.js'
-import { WorldConfigurationFactoryLive } from './world_configuration_factory/index.js'
-import { WorldGeneratorFactoryLive } from './world_generator_factory/index.js'
+import { BiomeSystemFactoryLive } from './biome_system_factory/index'
+import { GenerationSessionFactoryLive } from './generation_session_factory/index'
+import { WorldConfigurationFactoryLive } from './world_configuration_factory/index'
+import { WorldGeneratorFactoryLive } from './world_generator_factory/index'
 
 /**
  * World Domain Factory統合Layer
@@ -263,11 +263,11 @@ export const createWorldDomainFactoryLayer = (
 // ================================
 
 import { Effect } from 'effect'
-import type * as Coordinates from '../value_object/coordinates/index.js'
-import { createDefaultBiomeSystem } from './biome_system_factory/index.js'
-import { createQuickSession } from './generation_session_factory/index.js'
-import { createQuickConfiguration } from './world_configuration_factory/index.js'
-import { createQuickGenerator } from './world_generator_factory/index.js'
+import type * as Coordinates from '@domain/world/value_object/coordinates/index'
+import { createDefaultBiomeSystem } from './biome_system_factory/index'
+import { createQuickSession } from './generation_session_factory/index'
+import { createQuickConfiguration } from './world_configuration_factory/index'
+import { createQuickGenerator } from './world_generator_factory/index'
 
 /**
  * 完全な世界生成セットアップ
@@ -414,7 +414,7 @@ export type {
   GenerationSession,
   // From aggregates
   WorldGenerator,
-} from '../aggregate/index.js'
+} from '@domain/world/aggregate'
 
 export type {
   BiomeConfiguration,
@@ -422,4 +422,4 @@ export type {
   NoiseConfiguration,
   // From value objects
   WorldSeed,
-} from '../value_object/index.js'
+} from '@domain/world/value_object'

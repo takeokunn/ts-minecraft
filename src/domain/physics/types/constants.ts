@@ -1,5 +1,5 @@
-import type { PhysicsMaterial, PositiveFloat, UnitInterval, Vector3 } from './core'
-import { positiveFloat, unitInterval, vector3 } from './core'
+import type { PhysicsMaterial, PositiveFloat, UnitInterval, Vector3 } from './index'
+import { positiveFloat, unitInterval, vector3 } from './index'
 
 export interface PhysicsConstants {
   readonly gravity: Vector3

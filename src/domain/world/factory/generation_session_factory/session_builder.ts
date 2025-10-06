@@ -13,10 +13,10 @@
  */
 
 import { Duration, Effect, Function, Match } from 'effect'
-import type * as GenerationSession from '../../aggregate/generation_session/generation_session.js'
-import type * as WorldGenerator from '../../aggregate/world_generator/world_generator.js'
-import * as Coordinates from '../../value_object/coordinates/index.js'
-import type { CreateSessionParams, SessionFactoryError, SessionTemplateType } from './factory.js'
+import type * as GenerationSession from '@domain/world/aggregate/generation_session'
+import type * as WorldGenerator from '@domain/world/aggregate/world_generator'
+import * as Coordinates from '@domain/world/value_object/coordinates/index'
+import type { CreateSessionParams, SessionFactoryError, SessionTemplateType } from './index'
 
 // ================================
 // Builder State Management
@@ -629,7 +629,7 @@ class GenerationSessionBuilderImpl implements GenerationSessionBuilder {
 
         const params = yield* this.buildParams()
 
-        const { GenerationSessionFactoryTag } = await import('./factory.js')
+        const { GenerationSessionFactoryTag } = await import('@domain/world/factory.js')
         const factory = yield* Effect.service(GenerationSessionFactoryTag)
 
         return yield* factory.create(params)

@@ -1,5 +1,5 @@
 import { Schema } from 'effect'
-import { AABBSchema, EpochMillisSchema, PhysicsWorldIdSchema, RigidBodyIdSchema, Vector3Schema } from './core'
+import { AABBSchema, EpochMillisSchema, PhysicsWorldIdSchema, RigidBodyIdSchema, Vector3Schema } from './index'
 
 const WorldSteppedSchema = Schema.Struct({
   _tag: Schema.Literal('WorldStepped'),

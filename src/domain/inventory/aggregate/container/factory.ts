@@ -5,7 +5,7 @@
 
 import { Context, Effect, Schema } from 'effect'
 import { nanoid } from 'nanoid'
-import type { PlayerId } from '../../types.js'
+import type { PlayerId } from '../../types'
 import type {
   ContainerAccessLevel,
   ContainerAggregate,
@@ -16,13 +16,13 @@ import type {
   ContainerSlotIndex,
   ContainerType,
   WorldPosition,
-} from './types.js'
+} from './types'
 import {
   CONTAINER_CONSTANTS,
   CONTAINER_SLOT_CONFIGURATIONS,
   ContainerAggregateSchema,
   ContainerError,
-} from './types.js'
+} from './types'
 
 // ===== Factory Interface =====
 

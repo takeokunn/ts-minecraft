@@ -1,5 +1,5 @@
 import { Clock, Data, DateTime, Effect, Either, Match, pipe } from 'effect'
-import { DomainError, Identifier, SchemaViolation, makeIdentifier } from './types'
+import { DomainError, Identifier, SchemaViolation, makeIdentifier } from './index'
 import {
   BreedingOutcome,
   BreedingStats,
@@ -21,7 +21,7 @@ import {
   makeSoilQuality,
   mergeBreedingStats,
   summarizeValueObjects,
-} from './value_objects'
+} from './index'
 
 export type Timestamp = DateTime.Utc
 

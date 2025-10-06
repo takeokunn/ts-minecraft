@@ -1,9 +1,9 @@
 import { Context, Effect, Layer } from 'effect'
-import type { EquipmentPiece } from '../aggregate/equipment_piece'
-import type { EquipmentSet } from '../aggregate/equipment_set'
-import { EquipmentRepositoryTag } from '../repository/memory'
-import type { EquipmentOwnerId, EquipmentSetId, UnixTime } from '../types/core'
-import type { EquipmentSlot } from '../value_object/slot'
+import type { EquipmentPiece } from '../aggregate'
+import type { EquipmentSet } from '../aggregate'
+import { EquipmentRepositoryTag } from '../repository'
+import type { EquipmentOwnerId, EquipmentSetId, UnixTime } from '@domain/equipment/types'
+import type { EquipmentSlot } from '../value_object'
 
 export interface EquipmentService {
   readonly getSet: (id: EquipmentSetId) => Effect.Effect<EquipmentSet>

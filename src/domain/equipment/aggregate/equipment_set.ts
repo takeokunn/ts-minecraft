@@ -7,7 +7,7 @@ import type {
   EquipmentSetVersion,
   UnixTime,
   WeightKg,
-} from '../types/core'
+} from '@domain/equipment/types'
 import {
   EquipmentOwnerIdSchema,
   EquipmentSetIdSchema,
@@ -16,10 +16,10 @@ import {
   WeightSchema,
   makeRequirementViolation,
   makeSchemaViolation,
-} from '../types/core'
-import { ensureWeightWithinLimit } from '../value_object/item_attributes'
-import { equipmentSlotLiterals, type EquipmentSlot, type EquipmentSlotLiteral } from '../value_object/slot'
-import { EquipmentPieceSchema, ensureFitsSlot, withUpdatedTimestamp, type EquipmentPiece } from './equipment_piece'
+} from '@domain/equipment/types'
+import { ensureWeightWithinLimit } from '../value_object'
+import { equipmentSlotLiterals, type EquipmentSlot, type EquipmentSlotLiteral } from '../value_object'
+import { EquipmentPieceSchema, ensureFitsSlot, withUpdatedTimestamp, type EquipmentPiece } from './index'
 
 const optionalPiece = Schema.optional(EquipmentPieceSchema)
 

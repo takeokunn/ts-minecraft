@@ -11,7 +11,7 @@ import type {
   SceneTarget,
   SequenceExecutionResult,
   SequenceId,
-} from './types.js'
+} from './index'
 
 /**
  * Scene Camera Application Service Interface
@@ -281,7 +281,7 @@ export type WipeDirection = import('effect').Data.TaggedEnum<{
   RightToLeft: {}
   TopToBottom: {}
   BottomToTop: {}
-  Circular: { readonly center: import('./types.js').Position3D }
+  Circular: { readonly center: import('@domain/camera/types.js').Position3D }
 }>
 
 /**

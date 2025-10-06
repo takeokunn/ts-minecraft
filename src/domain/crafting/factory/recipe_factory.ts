@@ -10,7 +10,7 @@ import {
   SuccessRateSchema,
   cloneRecipeAggregate,
   createRecipeAggregate,
-} from '../aggregate/recipe'
+} from '../aggregate'
 import { CraftingRecipe, RecipeId, RecipeIdSchema } from '../types'
 
 export interface RecipeFactoryService {

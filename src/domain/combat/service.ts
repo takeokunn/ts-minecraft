@@ -9,7 +9,7 @@ import {
   overwriteSession,
   resolveDefeat,
   setCooldown,
-} from './model'
+} from './index'
 import {
   AttackKind,
   CombatDomainError,
@@ -23,7 +23,7 @@ import {
   Timestamp,
   makeCooldown,
   makeDamage,
-} from './types'
+} from './index'
 
 export interface AttackCommand {
   readonly attacker: CombatantId

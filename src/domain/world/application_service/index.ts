@@ -18,7 +18,7 @@ export {
   WorldGenerationOrchestrator,
   WorldGenerationOrchestratorLive,
   WorldGenerationOrchestratorUtils,
-} from './world_generation_orchestrator/index.js'
+} from './world_generation_orchestrator/index'
 
 export type {
   ChunkGenerationCommandType,
@@ -27,7 +27,7 @@ export type {
   GenerationStatisticsType,
   WorldGenerationCommandType,
   WorldGenerationErrorType,
-} from './world_generation_orchestrator/index.js'
+} from './world_generation_orchestrator/index'
 
 // === Progressive Loading Service ===
 export {
@@ -43,7 +43,7 @@ export {
   ProgressiveLoadingService,
   ProgressiveLoadingServiceLive,
   ProgressiveLoadingUtils,
-} from './progressive_loading/index.js'
+} from './progressive_loading/index'
 
 export type {
   AdaptiveQualityErrorType,
@@ -51,7 +51,7 @@ export type {
   MemoryMonitorErrorType,
   PriorityCalculatorErrorType,
   ProgressiveLoadingErrorType,
-} from './progressive_loading/index.js'
+} from './progressive_loading/index'
 
 // === Cache Optimization Service ===
 export {
@@ -63,13 +63,13 @@ export {
   CacheOptimizationUtils,
   DEFAULT_PRELOADING_STRATEGY,
   PreloadingStrategy,
-} from './cache_optimization/index.js'
+} from './cache_optimization/index'
 
 export type {
   CacheManagerErrorType,
   CacheOptimizationErrorType,
   PreloadingStrategyType,
-} from './cache_optimization/index.js'
+} from './cache_optimization/index'
 
 // === Performance Monitoring Service ===
 export {
@@ -79,17 +79,17 @@ export {
   PerformanceMonitoringService,
   PerformanceMonitoringServiceLive,
   PerformanceMonitoringUtils,
-} from './performance_monitoring/index.js'
+} from './performance_monitoring/index'
 
-export type { MetricsCollectorErrorType, PerformanceMonitoringErrorType } from './performance_monitoring/index.js'
+export type { MetricsCollectorErrorType, PerformanceMonitoringErrorType } from './performance_monitoring/index'
 
 // === Integrated World Application Service ===
 
 import { Context, Effect, Layer, Ref, Schema, STM } from 'effect'
-import { CacheOptimizationService } from './cache_optimization/index.js'
-import { PerformanceMonitoringService } from './performance_monitoring/index.js'
-import { ProgressiveLoadingService } from './progressive_loading/index.js'
-import { WorldGenerationOrchestrator } from './world_generation_orchestrator/index.js'
+import { CacheOptimizationService } from './cache_optimization/index'
+import { PerformanceMonitoringService } from './performance_monitoring/index'
+import { ProgressiveLoadingService } from './progressive_loading/index'
+import { WorldGenerationOrchestrator } from './world_generation_orchestrator/index'
 
 /**
  * World Application Service Error
@@ -916,4 +916,4 @@ export const WorldApplicationServiceUtils = {
 export type {
   WorldApplicationServiceErrorType,
   WorldSystemConfiguration as WorldSystemConfigurationType,
-} from './index.js'
+} from './index'

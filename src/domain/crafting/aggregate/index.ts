@@ -4,10 +4,10 @@
  * DDD集約ルートとドメインメソッドのエクスポート
  */
 
-export * from './recipe'
+export * from './index'
 
 // Recipe集約に関連するすべての型とファクトリメソッド
-export type { CraftingDifficulty, CraftingTime, RecipeAggregate, RecipeMetadata, SuccessRate } from './recipe'
+export type { CraftingDifficulty, CraftingTime, RecipeAggregate, RecipeMetadata, SuccessRate } from './index'
 
 // Recipe集約のファクトリメソッドとドメインメソッド
 export {
@@ -27,4 +27,5 @@ export {
   updateSuccessRate,
   validateRecipe,
   validateRecipeStructure,
-} from './recipe'
+} from './index'
+export * from './index';

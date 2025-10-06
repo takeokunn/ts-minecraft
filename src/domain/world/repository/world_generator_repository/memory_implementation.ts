@@ -7,9 +7,9 @@
  */
 
 import { Effect, Layer, Option, ReadonlyArray, Ref } from 'effect'
-import type { GenerationSettings, PerformanceMetrics, WorldGenerator, WorldId, WorldSeed } from '../../types'
-import type { AllRepositoryErrors } from '../types'
-import { createRepositoryError, createWorldGeneratorNotFoundError } from '../types'
+import type { GenerationSettings, PerformanceMetrics, WorldGenerator, WorldId, WorldSeed } from '@domain/world/types'
+import type { AllRepositoryErrors } from '@domain/world/types'
+import { createRepositoryError, createWorldGeneratorNotFoundError } from '@domain/world/types'
 import {
   WorldGeneratorRepository,
   type CacheConfiguration,
@@ -18,7 +18,7 @@ import {
   type WorldGeneratorRepositoryConfig,
   type WorldGeneratorRepository as WorldGeneratorRepositoryService,
   type WorldGeneratorStatistics,
-} from './interface'
+} from './index'
 
 // === Memory Storage State ===
 

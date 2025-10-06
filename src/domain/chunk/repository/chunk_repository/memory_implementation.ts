@@ -8,7 +8,7 @@ import {
   type ChunkQuery,
   type ChunkRegion,
   type ChunkStatistics,
-} from './interface'
+} from './index'
 
 interface ChunkEntry {
   readonly chunk: ChunkData

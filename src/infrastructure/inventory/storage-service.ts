@@ -13,8 +13,8 @@
 import { Schema } from '@effect/schema'
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
 import { Context, Data, Effect, Option, pipe } from 'effect'
-import type { Inventory, InventoryState, PlayerId } from '../../domain/inventory/inventory-types'
-import { PlayerIdSchema } from '../../domain/inventory/inventory-types'
+import type { Inventory, InventoryState, PlayerId } from '../../domain/inventory'
+import { PlayerIdSchema } from '../../domain/inventory'
 
 // =============================================================================
 // ストレージ種別とキー定義

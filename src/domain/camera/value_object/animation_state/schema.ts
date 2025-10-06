@@ -10,7 +10,7 @@ import {
   PositionAnimation,
   RotationAnimation,
   Timestamp,
-} from './types'
+} from './index'
 
 /**
  * AnimationDuration Brand型用Schema

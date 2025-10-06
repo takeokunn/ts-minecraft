@@ -1,5 +1,5 @@
 import { Clock, Effect, Match, Schema, pipe } from 'effect'
-import { CHUNK_MAX_Y, CHUNK_MIN_Y, CHUNK_SIZE, CHUNK_VOLUME } from '../../types/core'
+import { CHUNK_MAX_Y, CHUNK_MIN_Y, CHUNK_SIZE, CHUNK_VOLUME } from '../../types'
 import type { ChunkMetadata } from '../../value_object/chunk_metadata'
 import {
   type BlockId,
@@ -13,7 +13,7 @@ import {
   ChunkSerializationError,
   BlockId as MakeBlockId,
   ChunkId as MakeChunkId,
-} from './types'
+} from './index'
 
 const inclusiveRange = (start: number, end: number): ReadonlyArray<number> =>
   start > end ? [] : Array.from({ length: end - start + 1 }, (_, index) => start + index)

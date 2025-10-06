@@ -6,7 +6,7 @@
  */
 
 import { Array, Data, Effect, HashMap, Layer, Match, Option, pipe, Ref } from 'effect'
-import type { CameraId } from '../../types/index.js'
+import type { CameraId } from '@domain/camera/types'
 import type {
   AnimationCountFilter,
   AnimationSearchCriteria,
@@ -18,7 +18,7 @@ import type {
   OptimizationResult,
   PerformanceThresholds,
   PerformanceTrendPoint,
-} from './service.js'
+} from './index'
 import type {
   AnimationHistoryRepositoryError,
   AnimationQueryOptions,
@@ -29,14 +29,14 @@ import type {
   AnimationTypeDistribution,
   PerformanceMetrics,
   TimeRange,
-} from './types.js'
+} from './index'
 import {
   createAnimationHistoryError,
   isAnimationRecordNotFoundError,
   isCameraNotFoundError,
   isInvalidTimeRangeError,
   isStorageError,
-} from './types.js'
+} from './index'
 
 // ========================================
 // Internal Storage Types

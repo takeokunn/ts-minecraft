@@ -12,21 +12,13 @@ export type LightLevel = Schema.Schema.Type<typeof LightLevelSchema>
 export const TimestampSchema = Schema.Number.pipe(Schema.int(), Schema.nonNegative(), Schema.brand('Timestamp'))
 export type Timestamp = Schema.Schema.Type<typeof TimestampSchema>
 
-export const HeightValueSchema = Schema.Number.pipe(
-  Schema.int(),
-  Schema.between(-64, 319),
-  Schema.brand('HeightValue')
-)
+export const HeightValueSchema = Schema.Number.pipe(Schema.int(), Schema.between(-64, 319), Schema.brand('HeightValue'))
 export type HeightValue = Schema.Schema.Type<typeof HeightValueSchema>
 
 export const BlockIdSchema = Schema.Number.pipe(Schema.int(), Schema.nonNegative(), Schema.brand('BlockId'))
 export type BlockId = Schema.Schema.Type<typeof BlockIdSchema>
 
-export const BlockCountSchema = Schema.Number.pipe(
-  Schema.int(),
-  Schema.nonNegative(),
-  Schema.brand('BlockCount')
-)
+export const BlockCountSchema = Schema.Number.pipe(Schema.int(), Schema.nonNegative(), Schema.brand('BlockCount'))
 export type BlockCount = Schema.Schema.Type<typeof BlockCountSchema>
 
 export const PercentageSchema = Schema.Number.pipe(
@@ -36,13 +28,7 @@ export const PercentageSchema = Schema.Number.pipe(
 )
 export type Percentage = Schema.Schema.Type<typeof PercentageSchema>
 
-const OptimizationStrategySchema = Schema.Literal(
-  'memory',
-  'compression',
-  'access',
-  'redundancy',
-  'defragmentation'
-)
+const OptimizationStrategySchema = Schema.Literal('memory', 'compression', 'access', 'redundancy', 'defragmentation')
 export type OptimizationStrategyKind = Schema.Schema.Type<typeof OptimizationStrategySchema>
 
 const OptimizationDetailsSchema = Schema.Struct({
@@ -180,8 +166,8 @@ export const createOptimizationRecord = (
           },
         ],
       })
+    )
   )
-)
 
 export const createOptimizationDetails = (
   details: Schema.Schema.Input<typeof OptimizationDetailsSchema>

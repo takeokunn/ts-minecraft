@@ -1,9 +1,9 @@
 import { describe, expect, it } from '@effect/vitest'
 import { Effect } from 'effect'
 import * as FastCheck from 'effect/FastCheck'
+import type { SceneState as SceneConstructors } from '../../types'
 import { buildSceneRuntime, type SceneRuntime, type SceneSnapshot } from '../base'
 import { LoadingDefinition } from '../loading'
-import type { SceneState as SceneConstructors } from '../../types'
 
 type LoadingState = ReturnType<typeof SceneConstructors.Loading>
 
@@ -103,10 +103,8 @@ describe('LoadingScene runtime', () => {
                 yield* scene.initialize()
                 yield* scene.onEnter()
                 const initial = yield* scene.snapshot()
-                const finalSnapshot = yield* Effect.reduce<LoadingSnapshot>(
-                  deltas,
-                  initial,
-                  (_current, delta) => scene.update(delta)
+                const finalSnapshot = yield* Effect.reduce<LoadingSnapshot>(deltas, initial, (_current, delta) =>
+                  scene.update(delta)
                 )
                 expect(finalSnapshot.state.progress).toBeGreaterThanOrEqual(0)
                 expect(finalSnapshot.state.progress).toBeLessThanOrEqual(1)
@@ -115,6 +113,5 @@ describe('LoadingScene runtime', () => {
             )
           )
       )
-    )
-  )
+    ))
 })

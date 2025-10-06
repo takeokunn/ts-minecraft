@@ -9,9 +9,9 @@
 import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
 import * as NodePath from '@effect/platform-node/NodePath'
 import { Effect, Layer, Option, ReadonlyArray, Ref, Schema } from 'effect'
-import type { GenerationSettings, PerformanceMetrics, WorldGenerator, WorldId, WorldSeed } from '../../types'
-import type { AllRepositoryErrors } from '../types'
-import { createDataIntegrityError, createPersistenceError, createWorldGeneratorNotFoundError } from '../types'
+import type { GenerationSettings, PerformanceMetrics, WorldGenerator, WorldId, WorldSeed } from '@domain/world/types'
+import type { AllRepositoryErrors } from '@domain/world/types'
+import { createDataIntegrityError, createPersistenceError, createWorldGeneratorNotFoundError } from '@domain/world/types'
 import type {
   CacheConfiguration,
   WorldGeneratorBatchResult,
@@ -19,7 +19,7 @@ import type {
   WorldGeneratorRepository,
   WorldGeneratorRepositoryConfig,
   WorldGeneratorStatistics,
-} from './interface'
+} from './index'
 
 // === Persistence Storage Schema ===
 

@@ -7,7 +7,7 @@
 
 import { Effect, Match, pipe } from 'effect'
 import type { Inventory, ItemId, ItemStack } from '../../types'
-import type { ValidationOptions, ValidationViolation } from './service'
+import type { ValidationOptions, ValidationViolation } from './index'
 
 // =============================================================================
 // Core Validators

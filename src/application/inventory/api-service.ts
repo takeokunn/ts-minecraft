@@ -3,9 +3,9 @@ import { Context, Effect, Layer, Match, Option, pipe } from 'effect'
 import * as ReadonlyArray from 'effect/Array'
 import * as HashSet from 'effect/HashSet'
 import * as Order from 'effect/Order'
-import type { InventoryServiceError } from '../../domain/inventory/inventory-service'
-import { InventoryService } from '../../domain/inventory/inventory-service'
-import type { Inventory, PlayerId } from '../../domain/inventory/inventory-types'
+import type { InventoryServiceError } from '../../domain/inventory'
+import { InventoryService } from '../../domain/inventory'
+import type { Inventory, PlayerId } from '../../domain/inventory'
 
 // ================================================================
 // アプリケーション固有のADT

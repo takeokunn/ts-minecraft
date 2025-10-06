@@ -3,7 +3,7 @@ export {
   InventoryAPIServiceLive,
   snapshotInventoryCommand,
   sortInventoryCommand,
-} from './api-service'
+} from './index'
 
-export type { InventoryAPIService, InventoryApiError, InventorySnapshot } from './api-service'
-export type InventoryAPIServiceDefinition = import('./api-service').InventoryAPIService
+export type { InventoryAPIService, InventoryApiError, InventorySnapshot } from './index'
+export type InventoryAPIServiceDefinition = import('./index').InventoryAPIService

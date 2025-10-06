@@ -6,8 +6,8 @@
  */
 
 import { Brand, Data, Option, ReadonlyMap, Schema } from 'effect'
-import type { CameraSettings, FOV, Sensitivity } from '../../types/index.js'
-import type { ViewMode } from '../../value_object/index.js'
+import type { CameraSettings, FOV, Sensitivity } from '@domain/camera/types'
+import type { ViewMode } from '../../value_object/index'
 
 // ========================================
 // Repository専用Brand型定義

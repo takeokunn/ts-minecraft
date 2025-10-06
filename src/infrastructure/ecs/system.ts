@@ -7,7 +7,6 @@
 
 import { Schema } from '@effect/schema'
 import { Clock, Context, Data, Effect, Match, Option, pipe } from 'effect'
-import type { World } from './world'
 
 /**
  * システムエラー - ECSシステム実行時のエラー
@@ -71,24 +70,24 @@ export type SystemMetadata = Schema.Schema.Type<typeof SystemMetadata>
  * ECSシステムインターフェース
  * ゲームループ内で実行される処理単位を定義
  */
-export interface System {
+export interface System<Context = unknown> {
   readonly name: string
-  readonly update: (world: World, deltaTime: number) => Effect.Effect<void, SystemError>
+  readonly update: (context: Context, deltaTime: number) => Effect.Effect<void, SystemError>
 }
 
 /**
  * システムサービス - DIコンテナ用のタグ
  */
-export const System = Context.GenericTag<System>('@minecraft/infrastructure/System')
+export const System = Context.GenericTag<System<unknown>>('@minecraft/infrastructure/System')
 
 /**
  * システム作成ヘルパー
  * 簡潔なシステム定義を可能にする
  */
-export const createSystem = (
+export const createSystem = <Context>(
   name: string,
-  update: (world: World, deltaTime: number) => Effect.Effect<void, SystemError>
-): System => ({
+  update: (context: Context, deltaTime: number) => Effect.Effect<void, SystemError>
+): System<Context> => ({
   name,
   update,
 })
@@ -97,35 +96,29 @@ export const createSystem = (
  * システム実行の合成
  * 複数のシステムを順次実行する
  */
-export const runSystems = (
-  systems: readonly System[],
-  world: World,
+export const runSystems = <Context>(
+  systems: readonly System<Context>[],
+  world: Context,
   deltaTime: number
 ): Effect.Effect<void, SystemError> =>
   Effect.forEach(
     systems,
     (system) =>
-      system
-        .update(world, deltaTime)
-        .pipe(
-          Effect.mapError((error) =>
-            isSystemError(error)
-              ? error
-              : makeSystemError(system.name, 'Unknown error in system execution', error)
-          ),
-          Effect.tapError((error) =>
-            Effect.logError(`System ${error.systemName} failed: ${error.message}`)
-          )
+      system.update(world, deltaTime).pipe(
+        Effect.mapError((error) =>
+          isSystemError(error) ? error : makeSystemError(system.name, 'Unknown error in system execution', error)
         ),
+        Effect.tapError((error) => Effect.logError(`System ${error.systemName} failed: ${error.message}`))
+      ),
     { concurrency: 1 }
   ).pipe(Effect.asVoid)
 
 /**
  * パフォーマンス計測付きシステム実行
  */
-export const runSystemWithMetrics = (
-  system: System,
-  world: World,
+export const runSystemWithMetrics = <Context>(
+  system: System<Context>,
+  world: Context,
   deltaTime: number
 ): Effect.Effect<{ readonly duration: number }, SystemError> =>
   Effect.gen(function* () {
@@ -149,7 +142,10 @@ export const runSystemWithMetrics = (
 /**
  * テスト用のモックシステム作成
  */
-export const createMockSystem = (name: string, behavior: Effect.Effect<void, SystemError> = Effect.void): System => ({
+export const createMockSystem = <Context>(
+  name: string,
+  behavior: Effect.Effect<void, SystemError> = Effect.void
+): System<Context> => ({
   name,
   update: () => behavior,
 })

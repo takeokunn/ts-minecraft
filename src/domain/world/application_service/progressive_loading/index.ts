@@ -17,7 +17,7 @@ export {
   MovementVector,
   PlayerMovementState,
   SchedulerConfiguration,
-} from './loading_scheduler.js'
+} from './index'
 
 export type {
   LoadingBatchType,
@@ -27,7 +27,7 @@ export type {
   MovementVectorType,
   PlayerMovementStateType,
   SchedulerConfigurationType,
-} from './loading_scheduler.js'
+} from './index'
 
 // === Priority Calculator ===
 export {
@@ -40,7 +40,7 @@ export {
   PriorityConfiguration,
   PriorityContext,
   PriorityFactor,
-} from './priority_calculator.js'
+} from './index'
 
 export type {
   MLModelPredictionType,
@@ -49,7 +49,7 @@ export type {
   PriorityConfigurationType,
   PriorityContextType,
   PriorityFactorType,
-} from './priority_calculator.js'
+} from './index'
 
 // === Memory Monitor ===
 export {
@@ -63,7 +63,7 @@ export {
   MemoryMonitorServiceLive,
   MemoryPool,
   MemoryStatistics,
-} from './memory_monitor.js'
+} from './index'
 
 export type {
   AllocationRequestType,
@@ -73,7 +73,7 @@ export type {
   MemoryMonitorErrorType,
   MemoryPoolType,
   MemoryStatisticsType,
-} from './memory_monitor.js'
+} from './index'
 
 // === Adaptive Quality ===
 export {
@@ -87,7 +87,7 @@ export {
   PerformanceTrend,
   QualityAdjustment,
   QualityProfile,
-} from './adaptive_quality.js'
+} from './index'
 
 export type {
   AdaptationConfigurationType,
@@ -96,15 +96,15 @@ export type {
   PerformanceTrendType,
   QualityAdjustmentType,
   QualityProfileType,
-} from './adaptive_quality.js'
+} from './index'
 
 // === Integrated Progressive Loading Service ===
 
 import { Context, Effect, Layer, Schema } from 'effect'
-import { AdaptiveQualityService } from './adaptive_quality.js'
-import { LoadingSchedulerService } from './loading_scheduler.js'
-import { MemoryMonitorService } from './memory_monitor.js'
-import { PriorityCalculatorService } from './priority_calculator.js'
+import { AdaptiveQualityService } from './index'
+import { LoadingSchedulerService } from './index'
+import { MemoryMonitorService } from './index'
+import { PriorityCalculatorService } from './index'
 
 /**
  * Progressive Loading Application Service
@@ -540,4 +540,4 @@ export const ProgressiveLoadingUtils = {
     }),
 }
 
-export type { ProgressiveLoadingErrorType } from './index.js'
+export type { ProgressiveLoadingErrorType } from './index'

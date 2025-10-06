@@ -5,7 +5,7 @@
  */
 
 // Service Interface and Implementation
-export { CraftingIntegrationError, CraftingIntegrationService, CraftingIntegrationServiceLive } from './service'
+export { CraftingIntegrationError, CraftingIntegrationService, CraftingIntegrationServiceLive } from './index'
 export type {
   CraftabilityResult,
   CraftingResult,
@@ -16,7 +16,8 @@ export type {
   RecipeRequirements,
   RecipeResult,
   RecipeType,
-} from './service'
+} from './index'
 
 // Live Implementation
-export { CraftingIntegrationServiceLive } from './live'
+export { CraftingIntegrationServiceLive } from './index'
+export * from './index';

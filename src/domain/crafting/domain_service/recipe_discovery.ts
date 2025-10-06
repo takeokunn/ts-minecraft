@@ -1,5 +1,5 @@
 import { Array, Context, Effect, Layer, Option, pipe } from 'effect'
-import { RecipeAggregate } from '../aggregate/recipe'
+import { RecipeAggregate } from '../aggregate'
 import { ItemTag, RecipeId } from '../types'
 
 export interface DiscoveryHint {

@@ -7,7 +7,7 @@
 
 import type { Brand as BrandType } from 'effect'
 import { Schema } from 'effect'
-import { taggedUnion } from '../../utils/schema'
+import { taggedUnion } from '@domain/world/utils'
 
 /**
  * WorldSeed Brand型 - 型レベルでの識別保証

@@ -20,12 +20,12 @@
  */
 
 import { Context, Effect, Function, Layer, Match, Schema } from 'effect'
-import type * as WorldGenerator from '../../aggregate/world_generator/world_generator.js'
-import * as WorldDomainServices from '../../domain_service/index.js'
-import * as BiomeProperties from '../../value_object/biome_properties/index.js'
-import * as GenerationParameters from '../../value_object/generation_parameters/index.js'
-import * as NoiseConfiguration from '../../value_object/noise_configuration/index.js'
-import * as WorldSeed from '../../value_object/world_seed/index.js'
+import type * as WorldGenerator from '@domain/world/aggregate/world_generator'
+import * as WorldDomainServices from '@domain/world/domain_service'
+import * as BiomeProperties from '@domain/world/value_object/biome_properties/index'
+import * as GenerationParameters from '@domain/world/value_object/generation_parameters/index'
+import * as NoiseConfiguration from '@domain/world/value_object/noise_configuration/index'
+import * as WorldSeed from '@domain/world/value_object/world_seed/index'
 
 // ================================
 // Factory Error Types

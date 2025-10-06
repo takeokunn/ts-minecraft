@@ -14,9 +14,9 @@
  */
 
 import { Effect, Function, Match, Option, Schema } from 'effect'
-import type * as GenerationSession from '../../aggregate/generation_session/generation_session.js'
-import type { ConfigurationProfile } from './configuration.js'
-import type { SessionFactoryError, SessionTemplateType } from './factory.js'
+import type * as GenerationSession from '@domain/world/aggregate/generation_session'
+import type { ConfigurationProfile } from './index'
+import type { SessionFactoryError, SessionTemplateType } from './index'
 
 // ================================
 // Template Definition Types

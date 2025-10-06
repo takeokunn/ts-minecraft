@@ -4,7 +4,7 @@
  */
 
 import { Schema } from 'effect'
-import type { ItemId } from '../../types.js'
+import type { ItemId } from '../../types'
 
 // ===== Brand Types =====
 

@@ -34,8 +34,7 @@ describe('block_face', () => {
         expect(face).toBe(expectedFaceFor(components))
       }),
       propertyConfig
-    )
-  )
+    ))
 
   it.effect('computes opposite face', () =>
     Effect.gen(function* () {

@@ -1,6 +1,6 @@
 import { Effect, Match, Option, pipe } from 'effect'
-import type { ChunkLoadProgress, ChunkLoadRequest, LoadProgress, SessionId, Timestamp } from '../types/interfaces'
-import { LoadError, LoadPhase, progressFromPhase, withProgress } from '../types/interfaces'
+import type { ChunkLoadProgress, ChunkLoadRequest, LoadProgress, SessionId, Timestamp } from '../types'
+import { LoadError, LoadPhase, progressFromPhase, withProgress } from '../types'
 
 export interface SessionState {
   readonly sessionId: SessionId

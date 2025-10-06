@@ -7,9 +7,9 @@
  */
 
 import { Effect, Layer, Option, ReadonlyArray, Ref } from 'effect'
-import type { ChunkPosition, GenerationSessionId, GenerationSettings, WorldId } from '../../types'
-import type { AllRepositoryErrors } from '../types'
-import { createGenerationSessionNotFoundError, createRepositoryError } from '../types'
+import type { ChunkPosition, GenerationSessionId, GenerationSettings, WorldId } from '@domain/world/types'
+import type { AllRepositoryErrors } from '@domain/world/types'
+import { createGenerationSessionNotFoundError, createRepositoryError } from '@domain/world/types'
 import type {
   ChunkGenerationTask,
   GenerationProgress,
@@ -22,8 +22,8 @@ import type {
   SessionRecoveryInfo,
   SessionState,
   SessionStatistics,
-} from './interface'
-import { calculateProgress, createDefaultSessionMetadata, defaultGenerationSessionRepositoryConfig } from './interface'
+} from './index'
+import { calculateProgress, createDefaultSessionMetadata, defaultGenerationSessionRepositoryConfig } from './index'
 
 // === Memory Storage State ===
 

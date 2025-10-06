@@ -46,8 +46,7 @@ describe('vector3', () => {
         expect(projection).toBeCloseTo(originalMagnitude, 6)
       }),
       propertyConfig
-    )
-  )
+    ))
 
   it.effect('translation composes additively', () =>
     Effect.gen(function* () {

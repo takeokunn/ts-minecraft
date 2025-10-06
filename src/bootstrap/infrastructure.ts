@@ -1,6 +1,6 @@
 import { GameApplicationLive } from '@application/game-application-live'
-import { GameLoopServiceLive } from '@domain/game_loop/legacy'
-import { InputServiceLive } from '@domain/input/input-service-live'
+import { GameLoopServiceLive } from '@domain/game_loop'
+import { InputServiceLive } from '@domain/input'
 import { InteractionDomainLive } from '@domain/interaction'
 import { SceneManagerLive } from '@domain/scene/manager/live'
 import { Clock, ConfigProvider, Effect, Config as EffectConfig, Either, Layer } from 'effect'

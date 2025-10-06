@@ -4,7 +4,7 @@
  */
 
 import { Effect, Option } from 'effect'
-import { incrementEntityVersion, ItemStackFactory } from './factory.js'
+import { incrementEntityVersion, ItemStackFactory } from './factory'
 import type {
   Durability,
   ItemCount,
@@ -13,8 +13,8 @@ import type {
   ItemStackEntity,
   ItemStackMergedEvent,
   ItemStackSplitEvent,
-} from './types.js'
-import { ITEM_STACK_CONSTANTS, ItemStackError } from './types.js'
+} from './types'
+import { ITEM_STACK_CONSTANTS, ItemStackError } from './types'
 
 // ===== Core Operations =====
 

@@ -6,8 +6,8 @@ import {
   isWithinFrustum,
   summarizeFrustum,
   updateViewFrustum,
-} from '../frustum.js'
-import { createCameraState, toViewDistance } from '../types.js'
+} from '../frustum'
+import { createCameraState, toViewDistance } from '../types'
 
 describe('view_distance/frustum', () => {
   const baseCamera = createCameraState({

@@ -15,8 +15,8 @@ import type {
   GenerationStage,
   GenerationStageStatus,
   WorldId,
-} from '../../types'
-import type { AllRepositoryErrors } from '../types'
+} from '@domain/world/types'
+import type { AllRepositoryErrors } from '@domain/world/types'
 
 // === Generation Session Types ===
 

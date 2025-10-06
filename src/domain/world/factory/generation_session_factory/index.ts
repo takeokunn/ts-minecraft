@@ -49,7 +49,7 @@ export {
   type GenerationSessionFactory,
   type RecoverSessionParams,
   type SessionTemplateType,
-} from './factory.js'
+} from './index'
 
 // ================================
 // Builder Pattern
@@ -65,7 +65,7 @@ export {
   type GenerationSessionBuilder,
   type SessionBuilderState,
   type SessionValidationState,
-} from './session_builder.js'
+} from './index'
 
 // ================================
 // Configuration Management
@@ -84,7 +84,7 @@ export {
   type LoadCondition,
   type OptimizationParams,
   type SessionConfigurationBuilder,
-} from './configuration.js'
+} from './index'
 
 // ================================
 // Template System
@@ -102,19 +102,19 @@ export {
   type SessionTemplateDefinition,
   type SessionTemplateResolver,
   type TemplateResolutionResult,
-} from './template_resolver.js'
+} from './index'
 
 // ================================
 // Convenience Functions
 // ================================
 
 import { Duration, Effect, Layer } from 'effect'
-import type * as GenerationSession from '../../aggregate/generation_session/generation_session.js'
-import * as Coordinates from '../../value_object/coordinates/index.js'
-import { createOptimizedConfiguration } from './configuration.js'
-import type { SessionTemplateType } from './factory.js'
-import { GenerationSessionFactoryLive, GenerationSessionFactoryTag } from './factory.js'
-import { createSessionBuilder } from './session_builder.js'
+import type * as GenerationSession from '@domain/world/aggregate/generation_session'
+import * as Coordinates from '@domain/world/value_object/coordinates/index'
+import { createOptimizedConfiguration } from './index'
+import type { SessionTemplateType } from './index'
+import { GenerationSessionFactoryLive, GenerationSessionFactoryTag } from './index'
+import { createSessionBuilder } from './index'
 
 /**
  * 簡単なGenerationSession作成
@@ -418,7 +418,7 @@ export type {
   GenerationSession,
   GenerationSessionId,
   SessionConfiguration,
-} from '../../aggregate/generation_session/generation_session.js'
+} from '@domain/world/aggregate/generation_session'
 
 // ================================
 // Version Information
@@ -444,3 +444,6 @@ export const FACTORY_FEATURES = [
   'Batch Processing',
   'Streaming Support',
 ] as const
+export * from './index';
+export * from './index';
+export * from '@domain/world/factory';

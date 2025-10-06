@@ -1,8 +1,8 @@
 import { Layer } from 'effect'
-import { ChunkEventRepository } from '../chunk_event_repository/interface'
-import { ChunkQueryRepositoryLive } from '../chunk_query_repository/implementation'
-import { ChunkQueryRepository } from '../chunk_query_repository/interface'
-import { ChunkRepository } from '../chunk_repository/interface'
+import { ChunkEventRepository } from '../chunk_event_repository'
+import { ChunkQueryRepositoryLive } from '../chunk_query_repository'
+import { ChunkQueryRepository } from '../chunk_query_repository'
+import { ChunkRepository } from '../chunk_repository'
 
 /**
  * CQRS Repository Pattern Implementation
@@ -57,4 +57,4 @@ export {
   type ChunkQueryRepository,
   // Repository Interfaces
   type ChunkRepository,
-} from '../chunk_repository/interface'
+} from '../chunk_repository'

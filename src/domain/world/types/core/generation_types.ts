@@ -4,9 +4,9 @@
  */
 
 import { Brand, Schema } from 'effect'
-import { uuid } from '../../utils/schema'
-import { GENERATION_CONSTANTS } from '../constants/generation_constants'
-import { ChunkPosition, Vector3D, WorldSeed } from './world_types'
+import { uuid } from '@domain/world/utils'
+import { GENERATION_CONSTANTS } from '../constants'
+import { ChunkPosition, Vector3D, WorldSeed } from './index'
 
 // === 生成識別子型 ===
 
@@ -123,7 +123,7 @@ export interface HeightMap {
 }
 
 export const HeightMapSchema = Schema.Struct({
-  chunkPosition: Schema.suspend(() => import('./world_types').then((m) => m.ChunkPositionSchema)),
+  chunkPosition: Schema.suspend(() => import('./index').then((m) => m.ChunkPositionSchema)),
   heights: Schema.Array(Schema.Array(HeightMapValueSchema)),
   averageHeight: HeightMapValueSchema,
   minHeight: HeightMapValueSchema,
@@ -216,7 +216,7 @@ export interface GenerationSettings {
 }
 
 export const GenerationSettingsSchema = Schema.Struct({
-  seed: Schema.suspend(() => import('./world_types').then((m) => m.WorldSeedSchema)),
+  seed: Schema.suspend(() => import('./index').then((m) => m.WorldSeedSchema)),
   generateStructures: Schema.Boolean,
   generateCaves: Schema.Boolean,
   generateOres: Schema.Boolean,
@@ -249,7 +249,7 @@ export interface ChunkGenerationResult {
 
 export const ChunkGenerationResultSchema = Schema.Struct({
   requestId: GenerationRequestIdSchema,
-  chunkPosition: Schema.suspend(() => import('./world_types').then((m) => m.ChunkPositionSchema)),
+  chunkPosition: Schema.suspend(() => import('./index').then((m) => m.ChunkPositionSchema)),
   stages: Schema.Array(GenerationStageProgressSchema),
   heightMap: HeightMapSchema,
   biomeData: BiomeGenerationDataSchema,
@@ -339,7 +339,7 @@ export interface StructureInfo {
 
 export const StructureInfoSchema = Schema.Struct({
   type: StructureTypeSchema,
-  position: Schema.suspend(() => import('./world_types').then((m) => m.Vector3DSchema)),
+  position: Schema.suspend(() => import('./index').then((m) => m.Vector3DSchema)),
   rotation: Schema.Number.pipe(Schema.between(0, 360)),
   boundingBox: BoundingBoxSchema,
   variant: Schema.optional(Schema.String),
@@ -358,8 +358,8 @@ export interface BoundingBox {
 }
 
 export const BoundingBoxSchema = Schema.Struct({
-  min: Schema.suspend(() => import('./world_types').then((m) => m.Vector3DSchema)),
-  max: Schema.suspend(() => import('./world_types').then((m) => m.Vector3DSchema)),
+  min: Schema.suspend(() => import('./index').then((m) => m.Vector3DSchema)),
+  max: Schema.suspend(() => import('./index').then((m) => m.Vector3DSchema)),
 }).pipe(
   Schema.annotations({
     title: 'Bounding Box',
@@ -413,11 +413,11 @@ export interface GenerationContext {
 export const GenerationContextSchema = Schema.Struct({
   sessionId: GenerationSessionIdSchema,
   settings: GenerationSettingsSchema,
-  seed: Schema.suspend(() => import('./world_types').then((m) => m.WorldSeedSchema)),
+  seed: Schema.suspend(() => import('./index').then((m) => m.WorldSeedSchema)),
   noiseParams: NoiseParametersSchema,
   performanceStats: GenerationPerformanceStatsSchema,
   activeRequests: Schema.Array(GenerationRequestIdSchema),
-  completedChunks: Schema.Array(Schema.suspend(() => import('./world_types').then((m) => m.ChunkPositionSchema))),
+  completedChunks: Schema.Array(Schema.suspend(() => import('./index').then((m) => m.ChunkPositionSchema))),
 }).pipe(
   Schema.annotations({
     title: 'Generation Context',

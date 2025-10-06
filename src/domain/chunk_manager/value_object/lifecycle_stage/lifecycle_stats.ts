@@ -4,8 +4,8 @@ import {
   type ChunkLifetime,
   type ResourceUsagePercent,
   type Timestamp,
-} from '../../types/core'
-import type { LifecycleStats } from '../../types/interfaces'
+} from '../../types'
+import type { LifecycleStats } from '../../types'
 
 export type LifecycleAccumulator = {
   readonly totalActivations: number

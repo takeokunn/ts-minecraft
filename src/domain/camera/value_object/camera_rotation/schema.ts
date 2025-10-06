@@ -12,7 +12,7 @@ import type {
   RotationLerpFactor,
   RotationLimits,
   Yaw,
-} from './types'
+} from './index'
 
 /**
  * Pitch Brand型用Schema（度単位）

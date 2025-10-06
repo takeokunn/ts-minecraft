@@ -1,5 +1,5 @@
-import type { PlayerId } from '@domain/core/types/brands'
-import type { Vector3D } from '@domain/core/types/spatial'
+import type { PlayerId } from '@domain/entities'
+import type { Vector3D } from '@domain/entities'
 import * as CANNON from 'cannon-es'
 import { Context, Effect, Layer, pipe } from 'effect'
 

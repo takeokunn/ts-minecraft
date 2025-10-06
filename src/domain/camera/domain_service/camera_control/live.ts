@@ -15,8 +15,8 @@ import {
   createPosition3D,
   Position3DOps,
 } from '../../value_object'
-import type { BoundingBox, SphericalCoordinate, ViewBounds } from './service'
-import { CameraControlService } from './service'
+import type { BoundingBox, SphericalCoordinate, ViewBounds } from './index'
+import { CameraControlService } from './index'
 
 /**
  * カメラ制御サービスのLive実装

@@ -8,7 +8,7 @@ import {
   type ChunkId,
   type ChunkIdVersion,
   type ChunkUUID,
-} from './types'
+} from './index'
 
 const chunkPrefix = 'chunk'
 const chunkUuidPrefix = `${chunkPrefix}_uuid`

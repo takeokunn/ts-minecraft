@@ -1,2 +1,2 @@
 // BlockData value object exports
-export * from './types'
+export * from './index'

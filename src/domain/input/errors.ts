@@ -1,6 +1,6 @@
 import type { ParseError } from '@effect/schema/ParseResult'
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
-import type { ActionId } from './model'
+import type { ActionId } from './index'
 
 export type InputDomainError =
   | { readonly _tag: 'InvalidEvent'; readonly issues: ReadonlyArray<string> }

@@ -15,8 +15,8 @@ export {
   PlayerCameraApplicationServiceLive,
   PlayerCameraApplicationServiceModule,
   PlayerCameraApplicationServiceTypeGuards,
-} from './player_camera/index.js'
-export type { PlayerCameraApplicationService } from './player_camera/index.js'
+} from './player_camera/index'
+export type { PlayerCameraApplicationService } from './player_camera/index'
 
 export type {
   CameraApplicationError,
@@ -28,13 +28,13 @@ export type {
   PlayerCameraState,
   PlayerCameraStatistics,
   ViewModeTransitionResult as PlayerViewModeTransitionResult,
-} from './player_camera/index.js'
+} from './player_camera/index'
 
 export {
   createCameraApplicationError,
   createPlayerCameraInput,
   createViewModeTransitionResult as createPlayerViewModeTransitionResult,
-} from './player_camera/index.js'
+} from './player_camera/index'
 
 // ========================================
 // Scene Camera Application Service
@@ -45,8 +45,8 @@ export {
   SceneCameraApplicationServiceLive,
   SceneCameraApplicationServiceModule,
   SceneCameraApplicationServiceTypeGuards,
-} from './scene_camera/index.js'
-export type { SceneCameraApplicationService } from './scene_camera/index.js'
+} from './scene_camera/index'
+export type { SceneCameraApplicationService } from './scene_camera/index'
 
 export type {
   CameraSyncOperation,
@@ -64,9 +64,9 @@ export type {
   SceneTarget,
   SequenceExecutionResult,
   SequenceId,
-} from './scene_camera/index.js'
+} from './scene_camera/index'
 
-export { createSceneCameraApplicationError, createSequenceExecutionResult } from './scene_camera/index.js'
+export { createSceneCameraApplicationError, createSequenceExecutionResult } from './scene_camera/index'
 
 // ========================================
 // Camera Mode Manager Application Service
@@ -76,8 +76,8 @@ export {
   CameraModeManagerApplicationService,
   CameraModeManagerApplicationServiceLive,
   CameraModeManagerApplicationServiceModule,
-} from './camera_mode_manager/index.js'
-export type { CameraModeManagerApplicationService } from './camera_mode_manager/index.js'
+} from './camera_mode_manager/index'
+export type { CameraModeManagerApplicationService } from './camera_mode_manager/index'
 
 export type {
   AnimationType,
@@ -90,12 +90,12 @@ export type {
   ViewModeContext,
   ViewModeRecommendation,
   ViewModeTransitionConfig,
-} from './camera_mode_manager/index.js'
+} from './camera_mode_manager/index'
 
 export {
   createCameraModeManagerApplicationError,
   createViewModeTransitionResult as createModeManagerViewModeTransitionResult,
-} from './camera_mode_manager/index.js'
+} from './camera_mode_manager/index'
 
 // ========================================
 // Camera System Orchestrator Service
@@ -105,8 +105,8 @@ export {
   CameraSystemOrchestratorService,
   CameraSystemOrchestratorServiceLive,
   CameraSystemOrchestratorServiceModule,
-} from './camera_system_orchestrator/index.js'
-export type { CameraSystemOrchestratorService } from './camera_system_orchestrator/index.js'
+} from './camera_system_orchestrator/index'
+export type { CameraSystemOrchestratorService } from './camera_system_orchestrator/index'
 
 export type {
   CameraSystemConfig,
@@ -117,19 +117,17 @@ export type {
   PerformanceOptimizationResult,
   PerformanceTargets,
   WorldState,
-} from './camera_system_orchestrator/index.js'
+} from './camera_system_orchestrator/index'
 
 // ========================================
 // Layer Integration
 // ========================================
 
 import { Layer } from 'effect'
-import {
-  CameraModeManagerApplicationServiceLive,
-  CameraSystemOrchestratorServiceLive,
-  PlayerCameraApplicationServiceLive,
-  SceneCameraApplicationServiceLive,
-} from './index.js'
+import { PlayerCameraApplicationServiceLive } from './player_camera/index'
+import { SceneCameraApplicationServiceLive } from './scene_camera/index'
+import { CameraModeManagerApplicationServiceLive } from './camera_mode_manager/index'
+import { CameraSystemOrchestratorServiceLive } from './camera_system_orchestrator/index'
 
 /**
  * 全Camera Application Serviceの統合Layer
@@ -255,7 +253,7 @@ export type {
   Position3D,
   Vector3D,
   ViewMode,
-} from '../types/index.js'
+} from '@domain/camera/types'
 
 // ========================================
 // Usage Examples Documentation

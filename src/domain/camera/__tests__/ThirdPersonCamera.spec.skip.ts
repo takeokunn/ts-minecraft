@@ -14,7 +14,7 @@ import * as THREE from 'three'
 import { DEFAULT_CAMERA_CONFIG } from '../constant'
 import { CameraService } from '../service'
 import { ThirdPersonCameraLive } from '../third_person'
-import { CameraConfig } from '../types'
+import { CameraConfig } from '@domain/camera/types'
 
 // ================================================================================
 // Predicate Functions - Type Guards

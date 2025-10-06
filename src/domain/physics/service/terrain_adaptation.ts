@@ -1,9 +1,9 @@
-import type { PlayerId } from '@domain/core/types/brands'
-import type { Vector3D } from '@domain/core/types/spatial'
+import type { PlayerId } from '@domain/entities'
+import type { Vector3D } from '@domain/entities'
 import { Context, Effect, Layer, Match, pipe, Ref } from 'effect'
 import type { BlockType } from '../../block/types'
-import { CannonPhysicsService } from './cannon'
-import { WorldCollisionService } from './world_collision'
+import { CannonPhysicsService } from './index'
+import { WorldCollisionService } from './index'
 
 /**
  * Terrain Adaptation Service

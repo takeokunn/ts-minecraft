@@ -1,6 +1,6 @@
 import { Context, Effect } from 'effect'
 import type { BlockData, ChunkAggregate, ChunkData, ChunkId, ChunkPosition, WorldCoordinate } from '../aggregate'
-import type { ChunkBoundsError, ChunkDataValidationError, ChunkIdError, ChunkPositionError } from './errors'
+import type { ChunkBoundsError, ChunkDataValidationError, ChunkIdError, ChunkPositionError } from './index'
 
 /**
  * Chunk Domain Provider Interface - データ提供層

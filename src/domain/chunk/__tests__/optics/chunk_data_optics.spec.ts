@@ -9,8 +9,8 @@ import { describe, expect, it } from 'vitest'
 import { ChunkDataMultiAccessOptics, ChunkDataOptics, ChunkDataOpticsHelpers } from '../../aggregate/chunk/optics'
 import type { ChunkData } from '../../aggregate/chunk_data/types'
 import type { ChunkTimestamp } from '../../types/core'
-import { HeightValue as makeHeightValue } from '../../value_object/chunk_metadata'
 import type { ChunkMetadata, HeightValue } from '../../value_object/chunk_metadata'
+import { HeightValue as makeHeightValue } from '../../value_object/chunk_metadata'
 import type { ChunkPosition } from '../../value_object/chunk_position'
 
 // テストデータの作成
@@ -204,7 +204,9 @@ describe('ChunkDataOpticsHelpers', () => {
 
     it('高さマップ値を変換関数で更新できる', () => {
       const chunk = createTestChunkData()
-      const updated = ChunkDataOpticsHelpers.modifyHeight(chunk, 7, (value) => makeHeightValue(Math.min(319, value + 10)))
+      const updated = ChunkDataOpticsHelpers.modifyHeight(chunk, 7, (value) =>
+        makeHeightValue(Math.min(319, value + 10))
+      )
 
       expect(ChunkDataOptics.heightMapAt(7).get(updated)).toBe(makeHeightValue(74))
       expect(ChunkDataOptics.heightMapAt(7).get(chunk)).toBe(makeHeightValue(64))

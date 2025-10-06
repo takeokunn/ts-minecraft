@@ -601,4 +601,4 @@ export type {
   CacheEntry as CacheEntryType,
   CacheLayer as CacheLayerType,
   CacheStatistics as CacheStatisticsType,
-} from './cache_manager.js'
+} from './cache_manager'

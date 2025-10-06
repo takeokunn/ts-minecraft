@@ -17,8 +17,8 @@ import {
   SessionIdSchema,
   TimestampSchema,
 } from '../types'
-import { BlockFace, BlockFaceSchema } from '../value_object/block_face'
-import { Vector3, Vector3Schema } from '../value_object/vector3'
+import { BlockFace, BlockFaceSchema } from '../value_object'
+import { Vector3, Vector3Schema } from '../value_object'
 
 const SessionStateSchema = Schema.Union(
   Schema.Struct({

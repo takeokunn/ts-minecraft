@@ -1,7 +1,7 @@
 import { Effect, Match, Schema, pipe } from 'effect'
-import { MATERIAL_FRICTION } from '../types/constants'
-import { PhysicsMaterialSchema, UnitInterval, Vector3, parseUnitInterval, parseVector3, vector3 } from '../types/core'
-import type { PhysicsError } from '../types/errors'
+import { MATERIAL_FRICTION } from '@domain/physics/types'
+import { PhysicsMaterialSchema, UnitInterval, Vector3, parseUnitInterval, parseVector3, vector3 } from '@domain/physics/types'
+import type { PhysicsError } from '@domain/physics/types'
 
 const FrictionSchema = Schema.Struct({
   material: PhysicsMaterialSchema,

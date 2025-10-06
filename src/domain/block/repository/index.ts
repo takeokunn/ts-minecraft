@@ -1,2 +1,3 @@
-export * from './block_repository'
-export * from './types/repository_error'
+export * from './index'
+export * from './types'
+export * from './block_repository';

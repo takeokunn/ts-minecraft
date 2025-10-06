@@ -1,6 +1,6 @@
 import { Effect, Match, Option } from 'effect'
 import { pipe } from 'effect/Function'
-import { MenuOption, SceneState as Scenes } from '../types'
+import { MenuOption, SceneState as Scenes } from '..'
 import {
   SceneBlueprint,
   SceneCleanupError,
@@ -13,7 +13,7 @@ import {
   createSceneController,
   makeSceneLayer,
   mapControllerFailure,
-} from './base'
+} from './index'
 
 const menuOptions: ReadonlyArray<MenuOption> = ['NewGame', 'LoadGame', 'Settings', 'Exit']
 
@@ -127,8 +127,10 @@ const metadata: Readonly<MainMenuMetadata> = {
   menuItems: ['新しいゲーム', '設定', '終了'],
 }
 
-const handleLifecycleFailure = (phase: SceneLifecycleError['phase']) => (reason: string): SceneLifecycleError =>
-  SceneLifecycleError({ sceneType: 'MainMenu', phase, message: reason })
+const handleLifecycleFailure =
+  (phase: SceneLifecycleError['phase']) =>
+  (reason: string): SceneLifecycleError =>
+    SceneLifecycleError({ sceneType: 'MainMenu', phase, message: reason })
 
 const handleInitializationFailure = (reason: string): SceneInitializationError =>
   SceneInitializationError({ sceneType: 'MainMenu', message: reason })
@@ -148,11 +150,7 @@ const ensureSelectionExists = (context: MainMenuSceneContext) =>
   Effect.gen(function* () {
     const current = yield* context.controller.current()
     yield* Option.match(current.selectedOption, {
-      onNone: () =>
-        mapControllerFailure(
-          context.controller.selectOption('NewGame'),
-          handleLifecycleFailure('enter')
-        ),
+      onNone: () => mapControllerFailure(context.controller.selectOption('NewGame'), handleLifecycleFailure('enter')),
       onSome: () => Effect.void,
     })
     return undefined

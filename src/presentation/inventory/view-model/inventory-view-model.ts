@@ -1,10 +1,10 @@
-import { InventoryService } from '@domain/inventory/inventory-service'
+import { InventoryService } from '@domain/inventory'
 import {
   PlayerId as DomainPlayerIdFactory,
   type Inventory as DomainInventory,
   type ItemStack as DomainItemStack,
   type PlayerId as DomainPlayerId,
-} from '@domain/inventory/inventory-types'
+} from '@domain/inventory'
 import type { ParseError } from '@effect/schema/ParseResult'
 import { Context, Duration, Effect, HashSet, Layer, Match, Option, Ref, Schedule, Schema, Stream, pipe } from 'effect'
 import {
@@ -32,7 +32,7 @@ import {
   playerIdToString,
   slotGridPosition,
   slotIndexToNumber,
-} from '../adt/inventory-adt'
+} from '../adt'
 
 export interface InventoryViewModel {
   readonly handleEvent: (

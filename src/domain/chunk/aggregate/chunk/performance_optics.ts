@@ -6,8 +6,8 @@
  */
 
 import { Cache, Duration, Effect, Chunk as EffectChunk, Match, pipe } from 'effect'
-import type { ChunkData } from '../chunk_data/types'
-import { ChunkDataOptics } from './optics'
+import type { ChunkData } from '../chunk_data'
+import { ChunkDataOptics } from './index'
 
 /**
  * 高性能ブロック操作用のOptimized Optics

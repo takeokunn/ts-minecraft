@@ -9,8 +9,8 @@ import {
   createSession as createCombatSession,
   createCombatant,
   insertCombatant,
-} from './model'
-import { AttackCommand, AttackContext, decayCooldowns, resolveAttack } from './service'
+} from './index'
+import { AttackCommand, AttackContext, decayCooldowns, resolveAttack } from './index'
 import {
   CombatDomainError,
   CombatError,
@@ -20,7 +20,7 @@ import {
   currentTimestamp,
   makeCooldown,
   makeCriticalChance,
-} from './types'
+} from './index'
 
 export interface CombatService {
   readonly createSession: (blueprint: CombatSessionBlueprint) => Effect.Effect<SessionId, CombatDomainError>

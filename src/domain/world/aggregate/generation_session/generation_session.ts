@@ -8,115 +8,24 @@
  * - グレースフルな中断・再開
  */
 
-import { Brand, Chunk, Context, Effect, Schema, STM } from 'effect'
-import type * as WorldTypes from '../../types/core/world_types.js'
-import type * as GenerationErrors from '../../types/errors/generation_errors.js'
-import * as Coordinates from '../../value_object/coordinates/index.js'
-import * as ErrorHandling from './error_handling.js'
-import * as SessionEvents from './events.js'
-import * as ProgressTracking from './progress_tracking.js'
-import * as SessionState from './session_state.js'
-
-// ================================
-// Session Identifier
-// ================================
-
-export type GenerationSessionId = string & Brand.Brand<'GenerationSessionId'>
-
-export const GenerationSessionIdSchema = Schema.String.pipe(
-  Schema.nonEmptyString(),
-  Schema.brand('GenerationSessionId'),
-  Schema.annotations({
-    title: 'GenerationSessionId',
-    description: 'Unique identifier for generation session',
-    examples: ['gs_12345678-1234-5678-9abc-123456789abc'],
-  })
-)
-
-export const createGenerationSessionId = (value: string): GenerationSessionId =>
-  Schema.decodeSync(GenerationSessionIdSchema)(value)
-
-// ================================
-// Session Configuration
-// ================================
-
-export const SessionConfigurationSchema = Schema.Struct({
-  maxConcurrentChunks: Schema.Number.pipe(
-    Schema.int(),
-    Schema.between(1, 16),
-    Schema.annotations({ description: 'Maximum chunks to generate simultaneously' })
-  ),
-  chunkBatchSize: Schema.Number.pipe(
-    Schema.int(),
-    Schema.between(1, 64),
-    Schema.annotations({ description: 'Number of chunks to process in one batch' })
-  ),
-  retryPolicy: Schema.Struct({
-    maxAttempts: Schema.Number.pipe(Schema.int(), Schema.between(1, 10)),
-    backoffStrategy: Schema.Literal('linear', 'exponential', 'constant'),
-    baseDelayMs: Schema.Number.pipe(Schema.int(), Schema.greaterThan(0)),
-    maxDelayMs: Schema.Number.pipe(Schema.int(), Schema.greaterThan(0)),
-  }),
-  timeoutPolicy: Schema.Struct({
-    chunkTimeoutMs: Schema.Number.pipe(Schema.int(), Schema.greaterThan(0)),
-    sessionTimeoutMs: Schema.Number.pipe(Schema.int(), Schema.greaterThan(0)),
-    gracefulShutdownMs: Schema.Number.pipe(Schema.int(), Schema.greaterThan(0)),
-  }),
-  priorityPolicy: Schema.Struct({
-    enablePriorityQueuing: Schema.Boolean,
-    priorityThreshold: Schema.Number.pipe(Schema.between(1, 10)),
-    highPriorityWeight: Schema.Number.pipe(Schema.between(1.0, 10.0)),
-  }),
-})
-
-export type SessionConfiguration = typeof SessionConfigurationSchema.Type
-
-// ================================
-// Session Request
-// ================================
-
-export const GenerationRequestSchema = Schema.Struct({
-  coordinates: Schema.Array(Coordinates.ChunkCoordinateSchema),
-  priority: Schema.Number.pipe(Schema.between(1, 10)),
-  options: Schema.optional(
-    Schema.Struct({
-      includeStructures: Schema.Boolean,
-      includeCaves: Schema.Boolean,
-      includeOres: Schema.Boolean,
-      generateVegetation: Schema.Boolean,
-      applyPostProcessing: Schema.Boolean,
-    })
-  ),
-  metadata: Schema.optional(
-    Schema.Record({
-      key: Schema.String,
-      value: Schema.Unknown,
-    })
-  ),
-})
-
-export type GenerationRequest = typeof GenerationRequestSchema.Type
-
-// ================================
-// GenerationSession Aggregate
-// ================================
-
-export const GenerationSessionSchema = Schema.Struct({
-  id: GenerationSessionIdSchema,
-  worldGeneratorId: Schema.String, // WorldGeneratorId参照
-  configuration: SessionConfigurationSchema,
-  request: GenerationRequestSchema,
-  state: SessionState.SessionStateSchema,
-  progress: ProgressTracking.ProgressDataSchema,
-  errorHistory: Schema.Array(ErrorHandling.SessionErrorSchema),
-  version: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
-  createdAt: Schema.DateTimeUtc,
-  startedAt: Schema.optional(Schema.DateTimeUtc),
-  completedAt: Schema.optional(Schema.DateTimeUtc),
-  lastActivity: Schema.DateTimeUtc,
-})
-
-export type GenerationSession = typeof GenerationSessionSchema.Type
+import { Chunk, Context, Effect, Schema, STM } from 'effect'
+import type * as WorldTypes from '@domain/world/types/core'
+import type * as GenerationErrors from '@domain/world/types/errors'
+import * as ErrorHandling from './index'
+import * as SessionEvents from './index'
+import * as ProgressTracking from './index'
+import * as SessionState from './index'
+import {
+  GenerationRequestSchema,
+  GenerationSessionIdSchema,
+  GenerationSessionSchema,
+  SessionConfigurationSchema,
+  createGenerationSessionId,
+  type GenerationRequest,
+  type GenerationSession,
+  type GenerationSessionId,
+  type SessionConfiguration,
+} from './index'
 
 // ================================
 // Session Operations

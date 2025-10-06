@@ -15,9 +15,9 @@ import {
   parseUnitInterval,
   parseVector3,
   vector3,
-} from '../types/core'
-import type { PhysicsError } from '../types/errors'
-import { FrictionCoefficient } from '../value_object/friction_coefficient'
+} from '@domain/physics/types'
+import type { PhysicsError } from '@domain/physics/types'
+import { FrictionCoefficient } from '../value_object'
 
 const defaultMotionState = (position: Vector3): MotionState =>
   Effect.runSync(

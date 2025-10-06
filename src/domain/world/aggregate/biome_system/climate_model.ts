@@ -3,8 +3,8 @@
  */
 
 import { Effect, Schema } from 'effect'
-import * as Coordinates from '../../value_object/coordinates/index.js'
-import * as WorldSeed from '../../value_object/world_seed/index.js'
+import * as Coordinates from '@domain/world/value_object/coordinates/index'
+import * as WorldSeed from '@domain/world/value_object/world_seed/index'
 
 export const ClimateModelSchema = Schema.Struct({
   globalSettings: Schema.Struct({

@@ -1,7 +1,7 @@
 import { describe, expect, it } from '@effect/vitest'
 import { Effect } from 'effect'
-import { createCameraState, createManagedObject, createPerformanceMetrics, createViewControlConfig } from '../types.js'
-import { createViewController } from '../view_controller.js'
+import { createCameraState, createManagedObject, createPerformanceMetrics, createViewControlConfig } from '../types'
+import { createViewController } from '../view_controller'
 
 describe('view_distance/view_controller', () => {
   const initialConfig = createViewControlConfig({

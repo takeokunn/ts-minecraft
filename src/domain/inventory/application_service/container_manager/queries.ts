@@ -6,8 +6,8 @@
  */
 
 import { Effect } from 'effect'
-import type { InventoryQuery, QueryResult } from '../../types/queries'
-import type { InventoryApplicationError } from '../types/errors'
+import type { InventoryQuery, QueryResult } from '../../types'
+import type { InventoryApplicationError } from '../types'
 
 /**
  * コンテナクエリハンドラー実装

@@ -6,17 +6,17 @@
  */
 
 import { Effect, Layer, pipe } from 'effect'
-import type { ItemStack } from '../../aggregate/item_stack/types'
-import type { StackingService } from '../../domain_service/stacking_service/service'
-import type { TransferService } from '../../domain_service/transfer_service/service'
-import type { ValidationService } from '../../domain_service/validation_service/service'
-import type { InventoryRepository } from '../../repository/inventory_repository/interface'
-import type { InventoryService } from '../../service'
-import type { InventoryCommand, InventoryQuery } from '../../types/commands'
-import type { InventoryId, PlayerId } from '../../types/core'
-import { makeCommandHandlers } from './commands'
-import { makeQueryHandlers } from './queries'
-import { InventoryManagerApplicationService } from './service'
+import type { ItemStack } from '../../aggregate/item_stack'
+import type { StackingService } from '../../domain_service/stacking_service'
+import type { TransferService } from '../../domain_service/transfer_service'
+import type { ValidationService } from '../../domain_service/validation_service'
+import type { InventoryRepository } from '../../repository/inventory_repository'
+import type { InventoryService } from '../..'
+import type { InventoryCommand, InventoryQuery } from '../../types'
+import type { InventoryId, PlayerId } from '../../types'
+import { makeCommandHandlers } from './index'
+import { makeQueryHandlers } from './index'
+import { InventoryManagerApplicationService } from './index'
 
 /**
  * InventoryManagerApplicationService Live実装

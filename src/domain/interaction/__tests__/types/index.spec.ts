@@ -3,8 +3,8 @@ import { describe, expect, it } from '@effect/vitest'
 import { Effect, Either } from 'effect'
 import * as fc from 'effect/FastCheck'
 import {
-  InteractionCommandSchema,
   decodeSessionIdEither,
+  InteractionCommandSchema,
   InteractionError,
   matchInteractionError,
   parseCommand,
@@ -103,6 +103,5 @@ describe('types', () => {
         expect(reparsed).toStrictEqual(parsed)
       }),
       propertyConfig
-    )
-  )
+    ))
 })

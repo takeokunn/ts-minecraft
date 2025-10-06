@@ -5,9 +5,9 @@
 
 import { Context, Effect, Schema } from 'effect'
 import { nanoid } from 'nanoid'
-import type { ItemId } from '../../types.js'
-import type { Durability, Enchantment, ItemCount, ItemNBTData, ItemStackEntity, ItemStackId } from './types.js'
-import { ITEM_STACK_CONSTANTS, ItemCountSchema, ItemStackEntitySchema, ItemStackError } from './types.js'
+import type { ItemId } from '../../types'
+import type { Durability, Enchantment, ItemCount, ItemNBTData, ItemStackEntity, ItemStackId } from './types'
+import { ITEM_STACK_CONSTANTS, ItemCountSchema, ItemStackEntitySchema, ItemStackError } from './types'
 
 // ===== Factory Interface =====
 

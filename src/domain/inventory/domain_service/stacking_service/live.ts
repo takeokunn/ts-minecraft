@@ -7,8 +7,8 @@
 
 import { Effect, Layer, Match, pipe } from 'effect'
 import type { Inventory, ItemId, ItemStack } from '../../types'
-import { checkCompleteStackCompatibility, resolveMetadataConflicts } from './rules'
-import { StackingError, StackingService, type StackOptimizationOptions, type StackOptimizationResult } from './service'
+import { checkCompleteStackCompatibility, resolveMetadataConflicts } from './index'
+import { StackingError, StackingService, type StackOptimizationOptions, type StackOptimizationResult } from './index'
 
 /**
  * スタッキングサービスのLive実装

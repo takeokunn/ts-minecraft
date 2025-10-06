@@ -1,5 +1,5 @@
 import { Context, Effect, Fiber, Layer, Match, Option, pipe, Schema, STM } from 'effect'
-import type { GenerationStageType, PipelineContextType } from './orchestrator.js'
+import type { GenerationStageType, PipelineContextType } from './index'
 
 /**
  * Generation Pipeline Service
@@ -544,4 +544,4 @@ export type {
   PipelineConfiguration as PipelineConfigurationType,
   PipelineState as PipelineStateType,
   StageExecutionResult as StageExecutionResultType,
-} from './generation_pipeline.js'
+} from './generation_pipeline'

@@ -714,4 +714,4 @@ export type {
   PriorityConfiguration as PriorityConfigurationType,
   PriorityContext as PriorityContextType,
   PriorityFactor as PriorityFactorType,
-} from './priority_calculator.js'
+} from './priority_calculator'

@@ -19,9 +19,9 @@ export type {
   SettingsRepositoryStatistics,
   SettingsStorageRepository,
   ValidationResult,
-} from './service.js'
+} from './index'
 
-export { SettingsStorageRepository, SettingsStorageRepositoryOps } from './service.js'
+export { SettingsStorageRepository, SettingsStorageRepositoryOps } from './index'
 
 // ========================================
 // Repository Types
@@ -43,7 +43,7 @@ export type {
   SpectatorViewSettings,
   ThirdPersonViewSettings,
   ViewModeSettings,
-} from './types.js'
+} from './index'
 
 export {
   CameraPresetSettingsSchema,
@@ -66,13 +66,13 @@ export {
   isStorageError,
   isUnauthorizedError,
   isValidationError,
-} from './types.js'
+} from './index'
 
 // ========================================
 // Live Implementation
 // ========================================
 
-export { SettingsStorageRepositoryLive } from './live.js'
+export { SettingsStorageRepositoryLive } from './index'
 
 // ========================================
 // Module Integration Utilities
@@ -258,8 +258,8 @@ export const SettingsConversionUtils = {
 /**
  * Repository層で頻繁に使用される型の便利エクスポート
  */
-export type { FOV, Sensitivity } from '../../types/index.js'
-export type { ViewMode } from '../../value_object/index.js'
+export type { FOV, Sensitivity } from '@domain/camera/types'
+export type { ViewMode } from '../../value_object/index'
 
 // ========================================
 // Documentation Export
@@ -358,3 +358,5 @@ export const SettingsStorageRepositoryDocs = {
     'ストレージ最適化',
   ],
 } as const
+export * from './index';
+export * from './index';

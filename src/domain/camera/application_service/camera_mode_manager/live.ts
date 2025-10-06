@@ -1,7 +1,7 @@
 import { Array, Data, Effect, Layer, Option } from 'effect'
-import type { CameraModeManagerApplicationService } from './service.js'
-import type { ScheduleId, TransitionId, ViewModeRecommendation, ViewModeTransitionResult } from './types.js'
-import { createViewModeTransitionResult } from './types.js'
+import type { CameraModeManagerApplicationService } from './index'
+import type { ScheduleId, TransitionId, ViewModeRecommendation, ViewModeTransitionResult } from './index'
+import { createViewModeTransitionResult } from './index'
 
 /**
  * Camera Mode Manager Application Service Live Implementation

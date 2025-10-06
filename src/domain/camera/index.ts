@@ -1,21 +1,21 @@
 // Camera Domain Services
-export * from './first_person'
-export * from './live'
-export * from './service'
-export * from './third_person'
+export * from './index'
+export * from './index'
+export * from './index'
+export * from './index'
 
 // New Types System (main exports)
-export * from './types/index'
+export * from '@domain/camera/types'
 
 // Helper functions
-export * from './helper'
+export * from './index'
 
 // Player Camera specific exports (explicit to avoid conflicts)
 export {
   DEFAULT_CAMERA_SETTINGS as DefaultPlayerCameraSettings,
   PlayerCameraService,
   PlayerCameraServiceLive,
-} from './player'
+} from './index'
 
 // Value Object specific exports (explicit to avoid conflicts)
 export {
@@ -32,7 +32,15 @@ export {
   CameraMode as LegacyCameraMode,
   CameraState as LegacyCameraState,
   Vector3Schema,
-} from './types'
+} from '@domain/camera/types'
 
 // Constants
-export * from './constant'
+export * from './index'
+export * from './index';
+export * from './index';
+export * from './index';
+export * from './index';
+export * from './index';
+export * from './service';
+export * from './helper';
+export * from './constant';

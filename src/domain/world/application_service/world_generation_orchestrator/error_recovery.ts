@@ -586,4 +586,4 @@ export type {
   RecoveryAction as RecoveryActionType,
   RecoveryConfiguration as RecoveryConfigurationType,
   RecoveryStrategy as RecoveryStrategyType,
-} from './error_recovery.js'
+} from './error_recovery'

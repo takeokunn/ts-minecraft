@@ -30,7 +30,7 @@ export {
   type WorldX,
   type WorldY,
   type WorldZ,
-} from './world_coordinate.js'
+} from './index'
 
 // Chunk座標系
 export {
@@ -60,7 +60,7 @@ export {
   type LocalCoordinate,
   type LocalX,
   type LocalZ,
-} from './chunk_coordinate.js'
+} from './index'
 
 // Block座標系
 export {
@@ -91,14 +91,14 @@ export {
   type CreateBlockCoordinateParams,
   type DetailedBlockPosition,
   type NeighborPattern,
-} from './block_coordinate.js'
+} from './index'
 
 // 座標変換
 export {
   CoordinateTransformErrorSchema,
   CoordinateTransforms,
   type CoordinateTransformError,
-} from './coordinate_transforms.js'
+} from './index'
 
 /**
  * 便利なファクトリ関数群
@@ -242,3 +242,6 @@ export const CoordinateTypeGuards = {
     )
   },
 } as const
+export * from './world_coordinate';
+export * from './chunk_coordinate';
+export * from './block_coordinate';

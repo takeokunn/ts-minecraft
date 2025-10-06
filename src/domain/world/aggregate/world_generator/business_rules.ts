@@ -8,16 +8,16 @@
  */
 
 import { Effect } from 'effect'
-import type * as GenerationErrors from '../../types/errors/generation_errors.js'
-import * as Coordinates from '../../value_object/coordinates/index.js'
-import * as WorldSeed from '../../value_object/world_seed/index.js'
-import type { GenerationState } from './generation_state.js'
+import type * as GenerationErrors from '@domain/world/types/errors'
+import * as Coordinates from '@domain/world/value_object/coordinates/index'
+import * as WorldSeed from '@domain/world/value_object/world_seed/index'
+import type { GenerationState } from './index'
 import type {
   GenerateChunkCommand,
   GenerationContext,
   UpdateSettingsCommand,
   WorldGenerator,
-} from './world_generator.js'
+} from './index'
 
 // ================================
 // Business Constants

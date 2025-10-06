@@ -1,9 +1,9 @@
-import type { PlayerId } from '@domain/core/types/brands'
-import type { Vector3D } from '@domain/core/types/spatial'
+import type { PlayerId } from '@domain/entities'
+import type { Vector3D } from '@domain/entities'
 import { Context, Effect, Layer, Match, pipe } from 'effect'
 import { Player } from '../../entities/Player'
 import { Direction, JUMP_VELOCITY, MOVEMENT_SPEEDS } from '../../player/PlayerState'
-import { CannonPhysicsService, type PhysicsBodyState } from './cannon'
+import { CannonPhysicsService, type PhysicsBodyState } from './index'
 
 /**
  * Player Physics Service

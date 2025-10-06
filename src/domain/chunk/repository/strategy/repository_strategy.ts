@@ -1,10 +1,10 @@
 import { Effect, Layer, Match, pipe } from 'effect'
-import { IndexedDBChunkRepositoryLive } from '../chunk_repository/indexeddb_implementation'
-import { ChunkRepository } from '../chunk_repository/interface'
-import { InMemoryChunkRepositoryLive } from '../chunk_repository/memory_implementation'
-import { WebWorkerChunkRepositoryLive } from '../chunk_repository/webworker_implementation'
-import type { RepositoryError } from '../types/repository_error'
-import { RepositoryErrors } from '../types/repository_error'
+import { IndexedDBChunkRepositoryLive } from '../chunk_repository'
+import { ChunkRepository } from '../chunk_repository'
+import { InMemoryChunkRepositoryLive } from '../chunk_repository'
+import { WebWorkerChunkRepositoryLive } from '../chunk_repository'
+import type { RepositoryError } from '../types'
+import { RepositoryErrors } from '../types'
 
 /**
  * Repository Strategy Pattern Implementation

@@ -3,7 +3,7 @@
  */
 
 import { Context, Effect, Layer } from 'effect'
-import type { GenerationError } from '../../types/errors/generation_errors.js'
+import type { GenerationError } from '@domain/world/types/errors'
 
 export interface StatisticalAnalyzerService {
   readonly calculateMean: (values: ReadonlyArray<number>) => Effect.Effect<number, GenerationError>

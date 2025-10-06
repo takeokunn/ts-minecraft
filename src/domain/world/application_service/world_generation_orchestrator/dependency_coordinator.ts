@@ -571,4 +571,4 @@ export type {
   DependencyNode as DependencyNodeType,
   ResourceAllocation as ResourceAllocationType,
   ResourcePool as ResourcePoolType,
-} from './dependency_coordinator.js'
+} from './dependency_coordinator'

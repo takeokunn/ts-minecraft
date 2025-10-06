@@ -6,7 +6,7 @@
  */
 
 import { Array, Data, Effect, HashMap, Layer, Match, Option, pipe, Ref } from 'effect'
-import type { ViewMode } from '../../value_object/index.js'
+import type { ViewMode } from '../../value_object/index'
 import type {
   AdaptiveAdjustments,
   GlobalPreferenceStatistics,
@@ -22,7 +22,7 @@ import type {
   ViewModeDistribution,
   ViewModeRecommendation,
   ViewModeTrend,
-} from './service.js'
+} from './index'
 import type {
   GameContext,
   PlayerId,
@@ -34,7 +34,7 @@ import type {
   ViewModePreference,
   ViewModePreferenceRecord,
   ViewModePreferencesRepositoryError,
-} from './types.js'
+} from './index'
 import {
   createDefaultPreferences,
   createViewModePreferencesError,
@@ -42,7 +42,7 @@ import {
   isPreferenceNotFoundError,
   isRecordNotFoundError,
   isStorageError,
-} from './types.js'
+} from './index'
 
 // ========================================
 // Internal Storage Types

@@ -6,7 +6,7 @@
  */
 
 // Service Interface and Implementation
-export { CorrectionError, ValidationError, ValidationService, ValidationServiceLive } from './service'
+export { CorrectionError, ValidationError, ValidationService, ValidationServiceLive } from './index'
 export type {
   CorrectionStep,
   CorrectionSuggestion,
@@ -16,10 +16,10 @@ export type {
   ValidationViolation,
   ValidationViolationType,
   ValidationWarning,
-} from './service'
+} from './index'
 
 // Live Implementation
-export { ValidationServiceLive } from './live'
+export { ValidationServiceLive } from './index'
 
 // Validators
 export {
@@ -31,4 +31,7 @@ export {
   validateSelectedSlot,
   validateSlotCount,
   validateStackSizes,
-} from './validators'
+} from './index'
+export * from './index';
+export * from './index';
+export * from './service';

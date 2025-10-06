@@ -4,10 +4,10 @@
  */
 
 import { Effect } from 'effect'
-import type { ItemId } from '../../types.js'
-import type { ItemStackEntity as ItemStack } from '../item_stack/types.js'
-import type { InventoryAggregate, InventoryBusinessRule, SlotIndex } from './types.js'
-import { INVENTORY_CONSTANTS, InventoryAggregateError } from './types.js'
+import type { ItemId } from '../../types'
+import type { ItemStackEntity as ItemStack } from '../item_stack'
+import type { InventoryAggregate, InventoryBusinessRule, SlotIndex } from './types'
+import { INVENTORY_CONSTANTS, InventoryAggregateError } from './types'
 
 export interface InventorySpecification<T = InventoryAggregate> {
   readonly name: string

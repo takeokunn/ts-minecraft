@@ -9,14 +9,14 @@
 // Service Interface & Context
 // ========================================
 
-export { CameraModeManagerApplicationService } from './service.js'
-export type { CameraModeManagerApplicationService } from './service.js'
+export { CameraModeManagerApplicationService } from './index'
+export type { CameraModeManagerApplicationService } from './index'
 
 // ========================================
 // Live Implementation
 // ========================================
 
-export { CameraModeManagerApplicationServiceLive } from './live.js'
+export { CameraModeManagerApplicationServiceLive } from './index'
 
 // ========================================
 // Types & Schemas
@@ -43,7 +43,7 @@ export type {
   ViewModeTransitionConfig,
   ViewModeTransitionFailureReason,
   ViewModeTransitionResult,
-} from './types.js'
+} from './index'
 
 export {
   CameraModeManagerApplicationErrorSchema,
@@ -53,7 +53,7 @@ export {
   // Factory Functions
   createCameraModeManagerApplicationError,
   createViewModeTransitionResult,
-} from './types.js'
+} from './index'
 
 // Additional service-specific types
 export type {
@@ -65,7 +65,7 @@ export type {
   TimeRange,
   TransitionValidationResult,
   ValidationError,
-} from './service.js'
+} from './index'
 
 // ========================================
 // Module Information
@@ -98,3 +98,5 @@ export const CameraModeManagerApplicationServiceModule = {
     '設定検証機能',
   ] as const,
 } as const
+export * from './index';
+export * from './index';

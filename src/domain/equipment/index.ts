@@ -1,1 +1,1 @@
-export * from './types'
+export * from '@domain/equipment/types'

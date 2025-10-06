@@ -1,8 +1,8 @@
 import { describe, expect, it } from '@effect/vitest'
 import { Effect } from 'effect'
-import { createCombatant, createSession, insertCombatant, type Combatant } from './model.js'
-import { decayCooldowns, resolveAttack, type AttackCommand, type AttackContext } from './service.js'
-import { CombatEventFactory, makeCooldown, makeCriticalChance, makeDamage, makeTimestamp } from './types.js'
+import { createCombatant, createSession, insertCombatant, type Combatant } from './model'
+import { decayCooldowns, resolveAttack, type AttackCommand, type AttackContext } from './service'
+import { CombatEventFactory, makeCooldown, makeCriticalChance, makeDamage, makeTimestamp } from './types'
 
 const makeCombatant = (id: string, stats?: Partial<Combatant>) =>
   Effect.gen(function* () {

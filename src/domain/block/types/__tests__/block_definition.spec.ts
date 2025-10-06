@@ -6,13 +6,11 @@ import { makeBlockDefinition, makeInteractiveBlock, makeLiquidBlock, makeStandar
 
 const propertyConfig: fc.Parameters = { numRuns: 64 }
 
-const blockIdArbitrary = fc
-  .string({ minLength: 1, maxLength: 32 })
-  .filter((value) => /^[a-z0-9_]+$/.test(value))
+const blockIdArbitrary = fc.string({ minLength: 1, maxLength: 32 }).filter((value) => /^[a-z0-9_]+$/.test(value))
 
 const blockNameArbitrary = fc
   .string({ minLength: 1, maxLength: 32, charSet: 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ ' })
-  .map((value) => value.trim().length === 0 ? 'Block' : value.trim())
+  .map((value) => (value.trim().length === 0 ? 'Block' : value.trim()))
 
 const blockTagArbitrary = fc
   .string({ minLength: 1, maxLength: 16, charSet: 'abcdefghijklmnopqrstuvwxyz0123456789_-' })
@@ -74,26 +72,30 @@ describe('block_definition', () => {
 
   it('有効なBlockIdで標準ブロックを生成できる (PBT)', () =>
     fc.assert(
-      fc.property(blockIdArbitrary, blockNameArbitrary, fc.array(blockTagArbitrary, { maxLength: 3 }), (id, name, tags) => {
-        const definition = Effect.runSync(
-          makeStandardBlock({
-            id,
-            name,
-            ...(tags.length > 0 ? { tags } : {}),
-          })
-        )
+      fc.property(
+        blockIdArbitrary,
+        blockNameArbitrary,
+        fc.array(blockTagArbitrary, { maxLength: 3 }),
+        (id, name, tags) => {
+          const definition = Effect.runSync(
+            makeStandardBlock({
+              id,
+              name,
+              ...(tags.length > 0 ? { tags } : {}),
+            })
+          )
 
-        expect(definition._tag).toBe('Standard')
-        expect(definition.identity.id).toBe(id)
-        if (tags.length > 0) {
-          expect(definition.identity.tags).toEqual(tags)
-        } else {
-          expect(definition.identity.tags).toHaveLength(0)
+          expect(definition._tag).toBe('Standard')
+          expect(definition.identity.id).toBe(id)
+          if (tags.length > 0) {
+            expect(definition.identity.tags).toEqual(tags)
+          } else {
+            expect(definition.identity.tags).toHaveLength(0)
+          }
         }
-      }),
+      ),
       propertyConfig
-    )
-  )
+    ))
 
   it.effect('タグ付きブロックを生成する', () =>
     Effect.gen(function* () {

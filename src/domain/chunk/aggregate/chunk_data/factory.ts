@@ -1,5 +1,5 @@
 import { Clock, Effect, Match, Schema, pipe } from 'effect'
-import { CHUNK_SIZE, CHUNK_VOLUME } from '../../types/core'
+import { CHUNK_SIZE, CHUNK_VOLUME } from '../../types'
 import { type ChunkMetadata, HeightValue as MakeHeightValue } from '../../value_object/chunk_metadata'
 import { type ChunkPosition } from '../../value_object/chunk_position'
 import {
@@ -9,7 +9,7 @@ import {
   ChunkDataSchema,
   ChunkDataValidationError,
   ChunkDataId as MakeChunkDataId,
-} from './types'
+} from './index'
 
 const heightMapSize = CHUNK_SIZE * CHUNK_SIZE
 

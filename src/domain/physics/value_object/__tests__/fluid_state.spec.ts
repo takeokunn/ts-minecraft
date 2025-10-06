@@ -1,7 +1,7 @@
 import { describe, expect, it } from '@effect/vitest'
 import { Effect } from 'effect'
 import * as fc from 'effect/FastCheck'
-import { Vector3 } from '../../types/core'
+import { Vector3 } from '@domain/physics/types/core'
 import { FluidState } from '../fluid_state'
 
 describe('FluidState', () => {

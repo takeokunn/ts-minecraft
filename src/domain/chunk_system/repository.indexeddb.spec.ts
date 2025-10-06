@@ -2,11 +2,11 @@ import { Schema } from '@effect/schema'
 import { describe, expect, it } from '@effect/vitest'
 import { Clock, Effect, Stream } from 'effect'
 import { randomUUID } from 'node:crypto'
-import { ChunkCommand } from './commands.js'
-import { applyCommand, makeInitialState } from './model.js'
-import { indexedDbRepositoryLayer } from './repository.indexeddb.js'
-import { ChunkSystemRepository } from './repository.js'
-import { ChunkRequestSchema, ChunkSystemConfigSchema } from './types.js'
+import { ChunkCommand } from './commands'
+import { applyCommand, makeInitialState } from './model'
+import { indexedDbRepositoryLayer } from './repository.indexeddb'
+import { ChunkSystemRepository } from './repository'
+import { ChunkRequestSchema, ChunkSystemConfigSchema } from './types'
 
 const config = Effect.runSync(
   Schema.decodeUnknown(ChunkSystemConfigSchema)({

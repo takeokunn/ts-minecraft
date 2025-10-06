@@ -2,15 +2,15 @@ import * as Effect from 'effect/Effect'
 import * as Either from 'effect/Either'
 import * as Option from 'effect/Option'
 import { describe, expect, it } from 'vitest'
-import { createFurnitureRepository, type FurnitureRepository } from '../repository.js'
+import { createFurnitureRepository, type FurnitureRepository } from '../repository'
 import {
   AppendPageRequest,
   makeFurnitureApplicationService,
   PublishRequest,
   SignUpdateRequest,
   SleepRequest,
-} from '../service.js'
-import { CreateBedInput, CreateBookInput, CreateSignInput, FurnitureError } from '../types.js'
+} from '../service'
+import { CreateBedInput, CreateBookInput, CreateSignInput, FurnitureError } from '../types'
 
 const run = <A>(effect: Effect.Effect<A, any>) => Effect.runPromise(effect)
 

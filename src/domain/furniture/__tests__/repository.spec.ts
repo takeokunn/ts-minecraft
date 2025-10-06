@@ -1,9 +1,9 @@
 import * as Effect from 'effect/Effect'
 import * as Either from 'effect/Either'
 import { describe, expect, it } from 'vitest'
-import { createBed, createBook, createSign } from '../operations.js'
-import { createFurnitureRepository } from '../repository.js'
-import { FurnitureError } from '../types.js'
+import { createBed, createBook, createSign } from '../operations'
+import { createFurnitureRepository } from '../repository'
+import { FurnitureError } from '../types'
 
 const run = <A>(effect: Effect.Effect<A, any>) => Effect.runPromise(effect)
 

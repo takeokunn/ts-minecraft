@@ -7,7 +7,7 @@ import type {
   EquipmentName,
   UnixTime,
   WeightKg,
-} from '../types/core'
+} from '@domain/equipment/types'
 import {
   EquipmentDescriptionSchema,
   EquipmentIdSchema,
@@ -16,7 +16,7 @@ import {
   WeightSchema,
   makeRequirementViolation,
   makeSchemaViolation,
-} from '../types/core'
+} from '@domain/equipment/types'
 import {
   EquipmentStatsSchema,
   EquipmentTierSchema,
@@ -24,8 +24,8 @@ import {
   mergeStats,
   type EquipmentStats,
   type EquipmentTier,
-} from '../value_object/item_attributes'
-import { EquipmentSlotSchema, ensureSlotAllowed, getSlotCategory, type EquipmentSlot } from '../value_object/slot'
+} from '../value_object'
+import { EquipmentSlotSchema, ensureSlotAllowed, getSlotCategory, type EquipmentSlot } from '../value_object'
 
 export const EquipmentTagSchema = Schema.String.pipe(
   Schema.pattern(/^[a-z_]+(?::[a-z_]+)?$/i),

@@ -1,5 +1,5 @@
 import { Effect, Match, Schema } from 'effect'
-import { PlayerStateSchema, SceneState as Scenes, WorldIdSchema } from '../types'
+import { PlayerStateSchema, SceneState as Scenes, WorldIdSchema } from '..'
 import {
   SceneBlueprint,
   SceneCleanupError,
@@ -13,7 +13,7 @@ import {
   createSceneController,
   makeSceneLayer,
   mapControllerFailure,
-} from './base'
+} from './index'
 
 const defaultWorldId = Schema.decodeSync(WorldIdSchema)('world:overworld')
 const defaultPlayerState = Schema.decodeSync(PlayerStateSchema)({
@@ -127,11 +127,12 @@ const metadata: Readonly<GameMetadata> = {
 const handleInitializationFailure = (reason: string): SceneInitializationError =>
   SceneInitializationError({ sceneType: 'GameWorld', message: reason })
 
-const handleUpdateFailure = (reason: string): SceneUpdateError =>
-  SceneUpdateError({ sceneType: 'GameWorld', reason })
+const handleUpdateFailure = (reason: string): SceneUpdateError => SceneUpdateError({ sceneType: 'GameWorld', reason })
 
-const handleLifecycleFailure = (phase: SceneLifecycleError['phase']) => (reason: string): SceneLifecycleError =>
-  SceneLifecycleError({ sceneType: 'GameWorld', phase, message: reason })
+const handleLifecycleFailure =
+  (phase: SceneLifecycleError['phase']) =>
+  (reason: string): SceneLifecycleError =>
+    SceneLifecycleError({ sceneType: 'GameWorld', phase, message: reason })
 
 const handleCleanupFailure = (reason: string): SceneCleanupError =>
   SceneCleanupError({ sceneType: 'GameWorld', message: reason })
@@ -143,9 +144,7 @@ const GameSceneBlueprint: SceneBlueprint<GameState, GameSceneController> = {
 
 const warmUpWorld = (context: GameSceneContext) =>
   mapControllerFailure(
-    context.controller.replace(
-      Scenes.GameWorld({ worldId: defaultWorldId, playerState: defaultPlayerState })
-    ),
+    context.controller.replace(Scenes.GameWorld({ worldId: defaultWorldId, playerState: defaultPlayerState })),
     handleInitializationFailure
   ).pipe(Effect.asVoid)
 

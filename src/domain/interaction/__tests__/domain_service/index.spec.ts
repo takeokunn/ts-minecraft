@@ -14,7 +14,11 @@ const directionArbitrary = fc
   .filter(([x, y, z]) => Math.abs(x) + Math.abs(y) + Math.abs(z) > 1e-5)
 
 const raycastInput = fc
-  .tuple(directionArbitrary, fc.float({ min: 0.1, max: 8, noDefaultInfinity: true, noNaN: true }), fc.float({ min: 0.05, max: 2, noDefaultInfinity: true, noNaN: true }))
+  .tuple(
+    directionArbitrary,
+    fc.float({ min: 0.1, max: 8, noDefaultInfinity: true, noNaN: true }),
+    fc.float({ min: 0.05, max: 2, noDefaultInfinity: true, noNaN: true })
+  )
   .filter(([, maxDistance, step]) => step <= maxDistance)
 
 describe('domain_service', () => {
@@ -60,6 +64,5 @@ describe('domain_service', () => {
         })
       }),
       propertyConfig
-    )
-  )
+    ))
 })

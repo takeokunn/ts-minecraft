@@ -24,7 +24,7 @@ export type {
   RepositoryQueryResult,
   SnapshotTimestamp,
   VersionNumber,
-} from './camera_state/index.js'
+} from './camera_state/index'
 
 export {
   CameraSchema,
@@ -51,7 +51,7 @@ export {
   isEntityNotFoundError,
   isStorageError,
   isValidationError,
-} from './camera_state/index.js'
+} from './camera_state/index'
 
 // ========================================
 // Settings Storage Repository
@@ -84,7 +84,7 @@ export type {
   SpectatorViewSettings,
   ThirdPersonViewSettings,
   ViewModeSettings,
-} from './settings_storage/index.js'
+} from './settings_storage/index'
 
 export {
   CameraPresetSettingsSchema,
@@ -117,7 +117,7 @@ export {
   isStorageError as isSettingsStorageError,
   isValidationError as isSettingsValidationError,
   isUnauthorizedError,
-} from './settings_storage/index.js'
+} from './settings_storage/index'
 
 // ========================================
 // Animation History Repository
@@ -150,7 +150,7 @@ export type {
   PerformanceMetrics,
   PerformanceThresholds,
   PerformanceTrendPoint,
-} from './animation_history/index.js'
+} from './animation_history/index'
 
 export {
   // Utilities
@@ -190,7 +190,7 @@ export {
   isQueryLimitExceededError,
   isRotationChangeAnimation,
   isViewModeSwitchAnimation,
-} from './animation_history/index.js'
+} from './animation_history/index'
 
 // ========================================
 // View Mode Preferences Repository
@@ -234,7 +234,7 @@ export type {
   ViewModeRecommendation,
   ViewModeTrend,
   ViewModeUsageData,
-} from './view_mode_preferences/index.js'
+} from './view_mode_preferences/index'
 
 export {
   GameContextSchema,
@@ -279,7 +279,7 @@ export {
   isStorageError as isPreferencesStorageError,
   isRecordNotFoundError,
   isSystemTrigger,
-} from './view_mode_preferences/index.js'
+} from './view_mode_preferences/index'
 
 // ========================================
 // Repository Layer Integration
@@ -428,8 +428,8 @@ export interface RepositoryLayerStatistics {
 /**
  * Repository層で共通して使用される型の再エクスポート
  */
-export type { CameraId } from '../types/index.js'
-export type { ViewMode } from '../value_object/index.js'
+export type { CameraId } from '@domain/camera/types'
+export type { ViewMode } from '../value_object/index'
 
 // ========================================
 // Documentation Export

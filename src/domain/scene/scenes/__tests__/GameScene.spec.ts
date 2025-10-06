@@ -1,9 +1,9 @@
 import { describe, expect, it } from '@effect/vitest'
 import { Effect } from 'effect'
 import * as FastCheck from 'effect/FastCheck'
+import type { SceneState as SceneConstructors } from '../../types'
 import { buildSceneRuntime, type SceneRuntime, type SceneSnapshot } from '../base'
 import { GameDefinition } from '../game'
-import type { SceneState as SceneConstructors } from '../../types'
 
 type GameState = ReturnType<typeof SceneConstructors.GameWorld>
 
@@ -116,10 +116,8 @@ describe('GameScene runtime', () => {
                 yield* scene.initialize()
                 yield* scene.onEnter()
                 const initial = yield* scene.snapshot()
-                const result = yield* Effect.reduce<GameSnapshot>(
-                  deltas,
-                  initial,
-                  (_current, delta) => scene.update(delta)
+                const result = yield* Effect.reduce<GameSnapshot>(deltas, initial, (_current, delta) =>
+                  scene.update(delta)
                 )
                 const { health, hunger } = result.state.playerState
                 expect(health).toBeGreaterThanOrEqual(0)
@@ -131,8 +129,7 @@ describe('GameScene runtime', () => {
             )
           )
       )
-    )
-  )
+    ))
 
   it.effect('cleanup after exit still succeeds', () =>
     withScene((scene) =>

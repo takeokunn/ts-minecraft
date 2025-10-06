@@ -7,7 +7,7 @@ import {
   SpectatorSettingsSchema,
   ThirdPersonSettingsSchema,
   ViewModeSchema,
-} from './schema'
+} from './index'
 import {
   AnimationTimeline,
   CameraDistance,
@@ -17,7 +17,7 @@ import {
   ThirdPersonSettings,
   ViewMode,
   ViewModeError,
-} from './types'
+} from './index'
 
 /**
  * CameraDistance ファクトリー関数

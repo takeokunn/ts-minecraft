@@ -3,10 +3,10 @@
  * コア型の統合エクスポート
  */
 
-export * from './biome_types'
-export * from './coordinate_types'
-export * from './generation_types'
-export * from './world_types'
+export * from './index'
+export * from './index'
+export * from './index'
+export * from './index'
 
 // 主要型の再エクスポート
 export type {
@@ -31,7 +31,7 @@ export type {
   WorldSeed,
   WorldSettings,
   WorldState,
-} from './world_types'
+} from './index'
 
 export type {
   BiomeGenerationData,
@@ -54,7 +54,7 @@ export type {
   NormalizedNoiseValue,
   StructureInfo,
   StructureType,
-} from './generation_types'
+} from './index'
 
 export type {
   // Coordinate Types
@@ -78,7 +78,7 @@ export type {
   Rotation3D,
   RotationDegrees,
   RotationRadians,
-} from './coordinate_types'
+} from './index'
 
 export type {
   BiomeCategory,
@@ -105,7 +105,7 @@ export type {
   PrecipitationType,
   Temperature,
   Weirdness,
-} from './biome_types'
+} from './index'
 
 // 主要スキーマの再エクスポート
 export {
@@ -121,7 +121,7 @@ export {
   WorldSeedSchema,
   WorldSettingsSchema,
   WorldStateSchema,
-} from './world_types'
+} from './index'
 
 export {
   ChunkGenerationResultSchema,
@@ -134,7 +134,7 @@ export {
   NoiseParametersSchema,
   NoiseValueSchema,
   NormalizedNoiseValueSchema,
-} from './generation_types'
+} from './index'
 
 export {
   // Coordinate Schemas
@@ -147,7 +147,7 @@ export {
   PixelCoordinateSchema,
   PixelPositionSchema,
   Rotation3DSchema,
-} from './coordinate_types'
+} from './index'
 
 export {
   BiomeCategorySchema,
@@ -159,7 +159,7 @@ export {
   ClimateDataSchema,
   HumiditySchema,
   TemperatureSchema,
-} from './biome_types'
+} from './index'
 
 // ヘルパー関数の再エクスポート
 export {
@@ -168,7 +168,7 @@ export {
   createVector3D,
   createWorldId,
   createWorldSeed,
-} from './world_types'
+} from './index'
 
 export {
   createGenerationRequestId,
@@ -177,7 +177,7 @@ export {
   // Generation Helpers
   createNoiseValue,
   createNormalizedNoiseValue,
-} from './generation_types'
+} from './index'
 
 export {
   // Coordinate Helpers
@@ -186,7 +186,7 @@ export {
   createIntBoundingBox,
   createPixelPosition,
   createRotation3D,
-} from './coordinate_types'
+} from './index'
 
 export {
   // Biome Helpers
@@ -196,7 +196,12 @@ export {
   createGenerationProbability,
   createHumidity,
   createTemperature,
-} from './biome_types'
+} from './index'
 
 // 定数の再エクスポート
-export { COORDINATE_CONSTANTS } from './coordinate_types'
+export { COORDINATE_CONSTANTS } from './index'
+export * from './index';
+export * from './index';
+export * from './world_types';
+export * from './coordinate_types';
+export * from './biome_types';

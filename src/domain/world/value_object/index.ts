@@ -28,7 +28,7 @@ export {
   type SeedValidationResult,
   // 型エクスポート
   type WorldSeed,
-} from './world_seed/index.js'
+} from './world_seed/index'
 
 // 3D座標系管理
 export {
@@ -66,7 +66,7 @@ export {
   type WorldX,
   type WorldY,
   type WorldZ,
-} from './coordinates/index.js'
+} from './coordinates/index'
 
 // 世界生成パラメータ
 export {
@@ -129,7 +129,7 @@ export {
   type VeinSize,
   // ワールド境界設定
   type WorldBorderRadius,
-} from './generation_parameters/index.js'
+} from './generation_parameters/index'
 
 // ノイズ設定
 export {
@@ -237,7 +237,7 @@ export {
   type Scale,
   type SmoothingStrength,
   type Weight,
-} from './noise_configuration/index.js'
+} from './noise_configuration/index'
 
 // バイオーム特性
 export {
@@ -370,7 +370,7 @@ export {
   type VegetationType,
   type WaterVaporCharacteristics,
   type WindChillIndex,
-} from './biome_properties/index.js'
+} from './biome_properties/index'
 
 /**
  * World Value Object 統合ファクトリ

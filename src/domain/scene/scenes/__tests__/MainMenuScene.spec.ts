@@ -1,9 +1,9 @@
 import { describe, expect, it } from '@effect/vitest'
 import { Effect, Option } from 'effect'
 import * as FastCheck from 'effect/FastCheck'
+import type { SceneState as SceneConstructors } from '../../types'
 import { buildSceneRuntime, type SceneRuntime, type SceneSnapshot } from '../base'
 import { MainMenuDefinition } from '../main_menu'
-import type { SceneState as SceneConstructors } from '../../types'
 
 type MainMenuState = ReturnType<typeof SceneConstructors.MainMenu>
 type MainMenuSnapshot = SceneSnapshot<MainMenuState>
@@ -108,23 +108,20 @@ describe('MainMenuScene runtime', () => {
 
   it('onEnterとonExitの往復は常に一貫した状態を保つ (property)', () =>
     FastCheck.assert(
-      FastCheck.property(
-        FastCheck.array(FastCheck.boolean(), { minLength: 1, maxLength: 50 }),
-        (toggles) =>
-          Effect.runSync(
-            withScene((scene) =>
-              Effect.gen(function* () {
-                yield* scene.initialize()
-                for (const toggle of toggles) {
-                  const next = yield* (toggle ? scene.onEnter() : scene.onExit())
-                  expect(next.kind).toBe('MainMenu')
-                  expect(typeof next.isActive).toBe('boolean')
-                }
-                return undefined
-              })
-            )
+      FastCheck.property(FastCheck.array(FastCheck.boolean(), { minLength: 1, maxLength: 50 }), (toggles) =>
+        Effect.runSync(
+          withScene((scene) =>
+            Effect.gen(function* () {
+              yield* scene.initialize()
+              for (const toggle of toggles) {
+                const next = yield* toggle ? scene.onEnter() : scene.onExit()
+                expect(next.kind).toBe('MainMenu')
+                expect(typeof next.isActive).toBe('boolean')
+              }
+              return undefined
+            })
           )
+        )
       )
-    )
-  )
+    ))
 })

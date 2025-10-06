@@ -1,6 +1,6 @@
 import { Effect, Schema } from 'effect'
 import type { Simplify } from 'effect/Types'
-import { PhysicsError, fromParseError } from './errors'
+import { PhysicsError, fromParseError } from './index'
 
 const PositiveFloatSchema = Schema.Number.pipe(Schema.finite(), Schema.greaterThan(0), Schema.brand('PositiveFloat'))
 

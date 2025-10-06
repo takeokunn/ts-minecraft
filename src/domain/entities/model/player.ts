@@ -12,13 +12,13 @@ import {
   PlayerStats,
   PlayerUpdateData,
   PlayerUpdateDataSchema,
-} from '../types/core'
+} from '../types'
 import {
   EntityUpdateError,
   EntityValidationError,
   makeEntityUpdateError,
   makeEntityValidationError,
-} from '../types/errors'
+} from '../types'
 
 const deriveAbilities = (abilities: PlayerAbilities, mode: GameMode): PlayerAbilities =>
   pipe(

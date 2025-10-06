@@ -13,7 +13,7 @@ import {
   RenderDistance,
   Sensitivity,
   Smoothing,
-} from './types'
+} from './index'
 
 /**
  * FOV Brand型用Schema

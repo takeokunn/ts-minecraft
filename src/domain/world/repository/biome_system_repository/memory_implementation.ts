@@ -7,9 +7,9 @@
  */
 
 import { Effect, Layer, Option, ReadonlyArray, Ref } from 'effect'
-import type { BiomeDefinition, BiomeId, ClimateData, WorldCoordinate } from '../../types'
-import type { AllRepositoryErrors } from '../types'
-import { createBiomeSpatialIndexError, createRepositoryError } from '../types'
+import type { BiomeDefinition, BiomeId, ClimateData, WorldCoordinate } from '@domain/world/types'
+import type { AllRepositoryErrors } from '@domain/world/types'
+import { createBiomeSpatialIndexError, createRepositoryError } from '@domain/world/types'
 import type {
   BiomePlacement,
   BiomeStatistics,
@@ -20,8 +20,8 @@ import type {
   SpatialCoordinate,
   SpatialQuery,
   SpatialQueryResult,
-} from './interface'
-import { calculateDistance, coordinateInBounds, coordinateToKey, defaultBiomeSystemRepositoryConfig } from './interface'
+} from './index'
+import { calculateDistance, coordinateInBounds, coordinateToKey, defaultBiomeSystemRepositoryConfig } from './index'
 
 // === QuadTree Implementation ===
 

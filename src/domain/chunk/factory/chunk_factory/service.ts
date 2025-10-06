@@ -13,8 +13,8 @@ import {
   ChunkValidationService,
   type SerializationFormat,
 } from '../../domain_service'
-import { ChunkMetadataSchema } from '../../value_object/chunk_metadata/types'
-import { ChunkPositionSchema } from '../../value_object/chunk_position/types'
+import { ChunkMetadataSchema } from '../../value_object/chunk_metadata'
+import { ChunkPositionSchema } from '../../value_object/chunk_position'
 
 export interface ChunkFactoryService {
   readonly createValidatedChunk: (

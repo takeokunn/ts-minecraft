@@ -18,7 +18,7 @@ import {
   WorldSeedSchema,
   WorldSeedValueObjectSchema,
   type WorldSeedBrand,
-} from './seed.js'
+} from './index'
 
 /**
  * WorldSeed操作群 - 関数型パターンによる完全実装

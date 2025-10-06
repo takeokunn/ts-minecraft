@@ -15,10 +15,10 @@ export {
   SceneId,
   TargetStrategy,
   type EasingType,
-} from './scene_camera.js'
+} from './index'
 
 // Factory
-export { SceneCameraFactory } from './factory.js'
+export { SceneCameraFactory } from './index'
 export type { SceneCamera }
 
 // Type Guards
@@ -35,4 +35,5 @@ export const isCinematicSequence = (value: unknown): value is CinematicSequence 
 }
 
 // Re-export for convenience
-import { SceneCamera } from './scene_camera.js'
+import { SceneCamera } from './index'
+export * from './scene_camera';

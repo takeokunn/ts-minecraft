@@ -28,9 +28,7 @@ const provideLayer = <A, E, R>(
   }
 
   return Effect.scoped(
-    Layer.build(layer).pipe(
-      Effect.flatMap((context) => provideContext(effect, context))
-    )
+    Layer.build(layer).pipe(Effect.flatMap((context) => provideContext(effect, context)))
   ) as Effect.Effect<A, E, never>
 }
 

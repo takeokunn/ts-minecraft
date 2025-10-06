@@ -1,3 +1,5 @@
 // ChunkData aggregate exports
-export * from './factory'
-export * from './types'
+export * from './index'
+export * from './index'
+export * from './index';
+export * from './types';

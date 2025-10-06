@@ -1,9 +1,9 @@
 import { Array as Arr, Context, Effect, Layer, Match, Ref, pipe } from 'effect'
-import { PhysicsWorldAggregate } from '../aggregate/physics_world'
-import { PhysicsSimulationService } from '../domain_service/physics_simulation_service'
-import type { AABB, PhysicsConfig, PhysicsWorld, PhysicsWorldId, RigidBody, RigidBodyId } from '../types/core'
-import type { PhysicsError } from '../types/errors'
-import { PhysicsError as PhysicsErrorConstructors } from '../types/errors'
+import { PhysicsWorldAggregate } from '../aggregate'
+import { PhysicsSimulationService } from '../domain_service'
+import type { AABB, PhysicsConfig, PhysicsWorld, PhysicsWorldId, RigidBody, RigidBodyId } from '@domain/physics/types'
+import type { PhysicsError } from '@domain/physics/types'
+import { PhysicsError as PhysicsErrorConstructors } from '@domain/physics/types'
 
 export interface StepOptions {
   readonly deltaTime: number

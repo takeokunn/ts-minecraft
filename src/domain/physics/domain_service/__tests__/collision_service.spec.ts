@@ -2,7 +2,7 @@ import { it } from '@effect/vitest'
 import { Effect } from 'effect'
 import { describe, expect } from 'vitest'
 import { provideLayers } from '../../../../testing/effect'
-import { aabb, vector3 } from '../../types/core'
+import { aabb, vector3 } from '@domain/physics/types/core'
 import { CollisionService, CollisionServiceLive } from '../collision_service'
 
 describe('CollisionService', () => {

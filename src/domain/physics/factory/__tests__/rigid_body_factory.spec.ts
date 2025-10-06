@@ -1,8 +1,8 @@
 import { describe, expect, it } from '@effect/vitest'
 import { Effect } from 'effect'
+import { EpochMillis, PhysicsWorldId, Vector3 } from '@domain/physics/types/core'
+import { PhysicsError } from '@domain/physics/types/errors'
 import { RigidBodyFactory } from '../rigid_body_factory'
-import { PhysicsError } from '../../types/errors'
-import { EpochMillis, PhysicsWorldId, Vector3 } from '../../types/core'
 
 const staticVector = Vector3({ x: 0, y: 10, z: 0 })
 const defaultWorld = PhysicsWorldId('world-12345678')

@@ -21,9 +21,9 @@ export type {
   OptimizationResult,
   PerformanceThresholds,
   PerformanceTrendPoint,
-} from './service.js'
+} from './index'
 
-export { AnimationHistoryRepository, AnimationHistoryRepositoryOps } from './service.js'
+export { AnimationHistoryRepository, AnimationHistoryRepositoryOps } from './index'
 
 // ========================================
 // Repository Types
@@ -43,7 +43,7 @@ export type {
   InterruptionReason,
   PerformanceMetrics,
   TimeRange,
-} from './types.js'
+} from './index'
 
 export {
   AnimationHistoryRepositoryErrorSchema,
@@ -75,13 +75,13 @@ export {
   isRotationChangeAnimation,
   isStorageError,
   isViewModeSwitchAnimation,
-} from './types.js'
+} from './index'
 
 // ========================================
 // Live Implementation
 // ========================================
 
-export { AnimationHistoryRepositoryLive } from './live.js'
+export { AnimationHistoryRepositoryLive } from './index'
 
 // ========================================
 // Module Integration Utilities
@@ -293,8 +293,8 @@ export const AnimationQueryHelpers = {
 /**
  * Repository層で頻繁に使用される型の便利エクスポート
  */
-export type { CameraId } from '../../types/index.js'
-export type { EasingType, ViewMode } from '../../value_object/index.js'
+export type { CameraId } from '@domain/camera/types'
+export type { EasingType, ViewMode } from '../../value_object/index'
 
 // ========================================
 // Documentation Export
@@ -414,3 +414,5 @@ export const AnimationHistoryRepositoryDocs = {
   ],
   performanceFeatures: ['インメモリキャッシュ', 'バッチ処理対応', '時間範囲クエリ最適化', '統計計算高速化'],
 } as const
+export * from './index';
+export * from './index';

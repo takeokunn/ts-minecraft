@@ -6,16 +6,16 @@
  */
 
 import { Array, Effect, HashMap, Layer, Match, Option, pipe, Ref, Schema } from 'effect'
-import type { CameraId } from '../../types/index.js'
-import type { CameraRepositoryStatistics } from './service.js'
-import type { Camera, CameraSnapshot, CameraStateQueryOptions, PlayerId, RepositoryError } from './types.js'
+import type { CameraId } from '@domain/camera/types'
+import type { CameraRepositoryStatistics } from './index'
+import type { Camera, CameraSnapshot, CameraStateQueryOptions, PlayerId, RepositoryError } from './index'
 import {
   CameraSchema,
   CameraSnapshotSchema,
   createRepositoryError,
   isEntityNotFoundError,
   isValidationError,
-} from './types.js'
+} from './index'
 
 // ========================================
 // Internal Storage Types

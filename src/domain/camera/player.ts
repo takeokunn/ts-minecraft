@@ -1,4 +1,4 @@
-import type { PlayerId, Vector3D } from '@domain/entities/types'
+import type { PlayerId, Vector3D } from '@domain/entities'
 import { Context, Effect, Layer, Match, pipe, Ref } from 'effect'
 import * as THREE from 'three'
 import { Player } from '../entities'

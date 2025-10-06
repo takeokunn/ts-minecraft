@@ -3,7 +3,7 @@
  */
 
 import { Context, Effect, Layer } from 'effect'
-import type { GenerationError } from '../../types/errors/generation_errors.js'
+import type { GenerationError } from '@domain/world/types/errors'
 
 export interface InterpolationService {
   readonly linearInterpolate: (a: number, b: number, t: number) => Effect.Effect<number, GenerationError>

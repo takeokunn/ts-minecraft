@@ -8,9 +8,9 @@
  */
 
 import { Brand, Context, Effect, Schema, Stream } from 'effect'
-import type * as WorldTypes from '../../types/core/world_types.js'
-import * as Coordinates from '../../value_object/coordinates/index.js'
-import type { GenerationContext, UpdateSettingsCommand, WorldGeneratorId } from './world_generator.js'
+import type * as WorldTypes from '@domain/world/types/core'
+import * as Coordinates from '@domain/world/value_object/coordinates/index'
+import type { GenerationContext, UpdateSettingsCommand, WorldGeneratorId } from './index'
 
 // ================================
 // Event Base Schema

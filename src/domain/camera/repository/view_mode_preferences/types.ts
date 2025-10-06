@@ -6,7 +6,7 @@
  */
 
 import { Array, Brand, Data, Option, ReadonlyMap, Schema } from 'effect'
-import type { ViewMode } from '../../value_object/index.js'
+import type { ViewMode } from '../../value_object/index'
 
 // ========================================
 // Repository専用Brand型定義

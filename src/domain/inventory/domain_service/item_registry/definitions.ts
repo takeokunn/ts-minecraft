@@ -7,7 +7,7 @@
 
 import { Effect } from 'effect'
 import type { ItemId } from '../../types'
-import type { ItemCategory, ItemDefinition } from './service'
+import type { ItemCategory, ItemDefinition } from './index'
 
 // =============================================================================
 // Default Item Definitions

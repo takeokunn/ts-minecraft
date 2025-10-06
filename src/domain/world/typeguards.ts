@@ -1,5 +1,5 @@
 import { Schema } from 'effect'
-import { WorldDomainConfig, WorldDomainConfigSchema } from './config'
+import { WorldDomainConfig, WorldDomainConfigSchema } from './index'
 
 const WorldDataSchema = Schema.Struct({
   seed: Schema.Number,

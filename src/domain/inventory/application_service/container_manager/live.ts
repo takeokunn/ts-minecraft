@@ -7,11 +7,11 @@
 
 import { Context, Effect, Layer } from 'effect'
 import type { ContainerAggregate, ContainerId } from '../../aggregate/container'
-import type { InventoryCommand } from '../../types/commands'
-import type { ItemStack, PlayerId } from '../../types/core'
-import type { InventoryQuery } from '../../types/queries'
-import type { InventoryApplicationError } from '../types/errors'
-import { ContainerManagerApplicationService as ContainerManagerApplicationServiceInterface } from './service'
+import type { InventoryCommand } from '../../types'
+import type { ItemStack, PlayerId } from '../../types'
+import type { InventoryQuery } from '../../types'
+import type { InventoryApplicationError } from '../types'
+import { ContainerManagerApplicationService as ContainerManagerApplicationServiceInterface } from './index'
 
 /**
  * ContainerManagerApplicationService の Live 実装

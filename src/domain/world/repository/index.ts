@@ -7,7 +7,7 @@
  */
 
 // === Error Types ===
-export * from './types'
+export * from '@domain/world/types'
 
 // === Repository Implementations ===
 

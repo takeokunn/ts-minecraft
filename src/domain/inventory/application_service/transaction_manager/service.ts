@@ -6,9 +6,9 @@
  */
 
 import { Context, Effect } from 'effect'
-import type { ItemStack } from '../../aggregate/item_stack/types'
-import type { InventoryId, ItemId, PlayerId } from '../../types/core'
-import type { InventoryApplicationError } from '../types/errors'
+import type { ItemStack } from '../../aggregate/item_stack'
+import type { InventoryId, ItemId, PlayerId } from '../../types'
+import type { InventoryApplicationError } from '../types'
 
 /**
  * トランザクション管理アプリケーションサービス

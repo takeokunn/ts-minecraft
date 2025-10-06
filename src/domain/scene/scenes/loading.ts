@@ -1,5 +1,5 @@
 import { Effect, Schema } from 'effect'
-import { SceneState as Scenes } from '../types'
+import { SceneState as Scenes } from '..'
 import {
   SceneBlueprint,
   SceneCleanupError,
@@ -13,7 +13,7 @@ import {
   createSceneController,
   makeSceneLayer,
   mapControllerFailure,
-} from './base'
+} from './index'
 
 const decodeProgress = Schema.decode(Schema.Number.pipe(Schema.between(0, 1)))
 const formatIssue = (issue: Schema.ParseError) => issue.message
@@ -45,9 +45,7 @@ export const createLoadingSceneController = (
         )
 
       const advance: LoadingSceneController['advance'] = (delta) =>
-        controller.current().pipe(
-          Effect.flatMap((scene) => setProgress(scene.progress + delta))
-        )
+        controller.current().pipe(Effect.flatMap((scene) => setProgress(scene.progress + delta)))
 
       return {
         ...controller,
@@ -76,11 +74,12 @@ const metadata: Readonly<LoadingMetadata> = {
 const handleInitializationFailure = (reason: string): SceneInitializationError =>
   SceneInitializationError({ sceneType: 'Loading', message: reason })
 
-const handleUpdateFailure = (reason: string): SceneUpdateError =>
-  SceneUpdateError({ sceneType: 'Loading', reason })
+const handleUpdateFailure = (reason: string): SceneUpdateError => SceneUpdateError({ sceneType: 'Loading', reason })
 
-const handleLifecycleFailure = (phase: SceneLifecycleError['phase']) => (reason: string): SceneLifecycleError =>
-  SceneLifecycleError({ sceneType: 'Loading', phase, message: reason })
+const handleLifecycleFailure =
+  (phase: SceneLifecycleError['phase']) =>
+  (reason: string): SceneLifecycleError =>
+    SceneLifecycleError({ sceneType: 'Loading', phase, message: reason })
 
 const handleCleanupFailure = (reason: string): SceneCleanupError =>
   SceneCleanupError({ sceneType: 'Loading', message: reason })
@@ -94,10 +93,7 @@ const mainUpdateStep = (context: LoadingSceneContext, delta: number) =>
   Effect.gen(function* () {
     const current = yield* context.controller.current()
     const nextProgress = Math.min(1, current.progress + delta)
-    yield* mapControllerFailure(
-      context.controller.setProgress(nextProgress),
-      handleUpdateFailure
-    )
+    yield* mapControllerFailure(context.controller.setProgress(nextProgress), handleUpdateFailure)
     return nextProgress
   })
 
@@ -121,8 +117,7 @@ const loadingDefinition: SceneDefinition<LoadingState, LoadingSceneController> =
       yield* mainInitializeStep(context)
       return undefined
     }),
-  onUpdate: (context, frameTime) =>
-    mainUpdateStep(context, Math.min(1, Number(frameTime) / 1000)).pipe(Effect.asVoid),
+  onUpdate: (context, frameTime) => mainUpdateStep(context, Math.min(1, Number(frameTime) / 1000)).pipe(Effect.asVoid),
   onEnter: () => Effect.void,
   onExit: (context) => setComplete(context).pipe(Effect.asVoid),
   onCleanup: (context) => resetProgress(context).pipe(Effect.asVoid),

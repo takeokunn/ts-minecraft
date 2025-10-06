@@ -2,7 +2,7 @@ import * as Schema from '@effect/schema/Schema'
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
 import { Effect, Ref } from 'effect'
 import { pipe } from 'effect/Function'
-import { InvalidConfigurationError, ViewControlConfig, ViewControlConfigSchema, ViewDistanceError } from './types.js'
+import { InvalidConfigurationError, ViewControlConfig, ViewControlConfigSchema, ViewDistanceError } from './index'
 
 export interface ViewSettingsRepository {
   readonly load: () => Effect.Effect<ViewControlConfig, ViewDistanceError>

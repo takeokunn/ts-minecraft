@@ -15,7 +15,7 @@ import {
   type IngredientCollectionResult,
   type Recipe,
   type RecipeIngredient,
-} from './service'
+} from './index'
 
 /**
  * クラフティング統合サービスのLive実装

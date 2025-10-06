@@ -11,7 +11,7 @@ import {
   EntityStatusSchema,
   EntityType,
   EntityTypeSchema,
-} from '../types/constants'
+} from '../types'
 import {
   BrandedTypes,
   DeltaTimeSchema,
@@ -23,7 +23,7 @@ import {
   Vector3Schema,
   Velocity,
   VelocitySchema,
-} from '../types/core'
+} from '../types'
 import {
   EntityCollisionError,
   EntityDomainError,
@@ -34,8 +34,8 @@ import {
   makeEntityNotFoundError,
   makeEntityUpdateError,
   makeEntityValidationError,
-} from '../types/errors'
-import { EntityEvent, makeEntityDespawnedEvent, makeEntitySpawnedEvent, makeEntityUpdatedEvent } from '../types/events'
+} from '../types'
+import { EntityEvent, makeEntityDespawnedEvent, makeEntitySpawnedEvent, makeEntityUpdatedEvent } from '../types'
 
 interface EntityCoreState {
   readonly id: EntityId

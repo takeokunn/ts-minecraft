@@ -2,28 +2,34 @@
 // Barrel Exports – World Domain
 // -----------------------------------------------------------------------------
 
-export * from './aggregate'
-export * from './application_service'
-export * from './domain_service'
-export * from './factory'
-export * from './repository'
-export * from './types'
-export * from './value_object'
+export * from '@domain/world/aggregate'
+export * from '@domain/world/application_service'
+export * from '@domain/world/domain_service'
+export * from '@domain/world/factory'
+export * from '@domain/world/repository'
+export * from '@domain/world/types'
+export * from '@domain/world/value_object'
 
-export * from './config'
-export * from './domain'
-export * from './helpers'
-export * from './layers'
-export * from './metadata'
-export * from './time'
-export * from './typeguards'
+export * from './index'
+export * from './index'
+export * from './index'
+export * from './index'
+export * from './index'
+export * from './index'
+export * from './index'
 
-export type { BiomeSystem, GenerationSession, WorldGenerator } from './aggregate'
+export type { BiomeSystem, GenerationSession, WorldGenerator } from '@domain/world/aggregate'
 
-export type { BlockCoordinate, ChunkCoordinate, WorldCoordinate, WorldSeed } from './value_object'
+export type { BlockCoordinate, ChunkCoordinate, WorldCoordinate, WorldSeed } from '@domain/world/value_object'
 
-export type { GenerationDomainError, ValidationDomainError, WorldDomainError, WorldTypesError } from './types'
+export type { GenerationDomainError, ValidationDomainError, WorldDomainError, WorldTypesError } from '@domain/world/types'
 
-export type { WorldRepositoryLayerConfig, WorldRepositoryServices } from './repository'
+export type { WorldRepositoryLayerConfig, WorldRepositoryServices } from '@domain/world/repository'
 
-export type { WorldApplicationService, WorldApplicationServiceErrorType } from './application_service'
+export type { WorldApplicationService, WorldApplicationServiceErrorType } from '@domain/world/application_service'
+export * from './index';
+export * from './index';
+export * from './time';
+export * from './config';
+export * from './layers';
+export * from './helpers';

@@ -25,4 +25,5 @@ export {
   isValidationError,
   // Repository Errors
   type RepositoryError,
-} from './repository_error'
+} from './index'
+export * from './repository_error';

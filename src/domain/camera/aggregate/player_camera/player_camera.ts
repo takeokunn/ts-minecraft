@@ -7,7 +7,7 @@
  */
 
 import { Data, Effect, Match, Option, pipe } from 'effect'
-import { CameraError } from '../../types/errors.js'
+import { CameraError } from '@domain/camera/types'
 import {
   CameraDistance,
   CameraRotation,
@@ -16,8 +16,8 @@ import {
   Position3D,
   Smoothing,
   ViewMode,
-} from '../../value_object/index.js'
-import { Camera, CameraOps } from '../camera/camera.js'
+} from '../../value_object/index'
+import { Camera, CameraOps } from '../camera'
 
 /**
  * Player ID Brand Type

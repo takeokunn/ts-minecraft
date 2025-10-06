@@ -1,8 +1,8 @@
 // Core types exports
-export * from './core'
-export * from './errors'
-export * from './events'
-export * from './interfaces'
+export * from './index'
+export * from './index'
+export * from './index'
+export * from './index'
 
 // Re-export ADT types for convenience
 export type {
@@ -17,7 +17,12 @@ export type {
   OptimizationStrategy,
   RetryCount,
   SerializationFormat,
-} from './core'
+} from './index'
 
 // Re-export ADT factories
-export { ChunkErrors, ChunkOperations, ChunkStates, ChunkStatesEffect } from './core'
+export { ChunkErrors, ChunkOperations, ChunkStates, ChunkStatesEffect } from './index'
+export * from './index';
+export * from './index';
+export * from './index';
+export * from './state_optics';
+export * from './core';

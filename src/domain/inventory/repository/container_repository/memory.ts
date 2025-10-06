@@ -9,7 +9,7 @@ import type {
   WorldPosition,
 } from '../../types'
 import { createContainerNotFoundError, createRepositoryError } from '../types'
-import { ContainerRepository } from './interface'
+import { ContainerRepository } from './index'
 
 /**
  * ContainerRepository Memory Implementation

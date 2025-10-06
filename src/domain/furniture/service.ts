@@ -9,9 +9,9 @@ import {
   finishSleep,
   publishBook,
   updateSignText,
-} from './operations.js'
-import type { FurnitureRepository } from './repository.js'
-import { createFurnitureRepository } from './repository.js'
+} from './index'
+import type { FurnitureRepository } from './index'
+import { createFurnitureRepository } from './index'
 import {
   Bed,
   Book,
@@ -27,7 +27,7 @@ import {
   SleepEnvironment,
   TickSchema,
   toValidationError,
-} from './types.js'
+} from './index'
 
 export interface SleepRequest {
   readonly bedId: FurnitureId

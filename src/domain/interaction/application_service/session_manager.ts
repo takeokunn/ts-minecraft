@@ -2,9 +2,9 @@ import { Schema } from '@effect/schema'
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
 import { Clock, Context, Effect, Layer, Match, Option } from 'effect'
 import { pipe } from 'effect/Function'
-import { BreakingSessionError, completeImmediately, createSession, recordProgress } from '../aggregate/breaking_session'
+import { BreakingSessionError, completeImmediately, createSession, recordProgress } from '../aggregate'
 import { validatePlacement } from '../domain_service'
-import { SessionStore, SessionStoreTag } from '../repository/session_store'
+import { SessionStore, SessionStoreTag } from '../repository'
 import {
   InteractionCommand,
   InteractionError,

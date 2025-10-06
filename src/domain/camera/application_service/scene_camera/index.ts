@@ -10,14 +10,14 @@
 // Service Interface & Context
 // ========================================
 
-export { SceneCameraApplicationService } from './service.js'
-export type { SceneCameraApplicationService } from './service.js'
+export { SceneCameraApplicationService } from './index'
+export type { SceneCameraApplicationService } from './index'
 
 // ========================================
 // Live Implementation
 // ========================================
 
-export { SceneCameraApplicationServiceLive } from './live.js'
+export { SceneCameraApplicationServiceLive } from './index'
 
 // ========================================
 // Types & Schemas
@@ -63,7 +63,7 @@ export type {
   SequenceMetadata,
   SequenceStatistics,
   TransitionSettings,
-} from './types.js'
+} from './index'
 
 // Additional service-specific types
 export type {
@@ -82,7 +82,7 @@ export type {
   ValidationError,
   ValidationWarning,
   WipeDirection,
-} from './service.js'
+} from './index'
 
 export {
   CinematicSequenceSchema,
@@ -97,7 +97,7 @@ export {
   // Factory Functions
   createSceneCameraApplicationError,
   createSequenceExecutionResult,
-} from './types.js'
+} from './index'
 
 // ========================================
 // Module Information
@@ -255,7 +255,7 @@ export type {
   EntityId,
   PlayerId,
   Position3D,
-} from '../../types/index.js'
+} from '@domain/camera/types'
 
 // ========================================
 // Usage Examples Documentation
@@ -472,3 +472,5 @@ export type {
  * 5. **パフォーマンス最適化**: 大規模シーン対応
  * 6. **デバッグ支援**: 開発・運用支援機能
  */
+export * from './index';
+export * from './index';

@@ -1,5 +1,5 @@
 import { Effect, Layer, Match, Option, Ref, Schema, pipe } from 'effect'
-import { SceneService } from '../service'
+import { SceneService } from '..'
 import {
   ActiveScene,
   PreloadError,
@@ -7,7 +7,7 @@ import {
   SceneState as Scenes,
   TransitionEffect,
   TransitionError as TransitionErrorADT,
-} from '../types'
+} from '..'
 import { SceneManager, SceneManagerState, SceneManagerStateSchema, sceneManagerState } from './service'
 
 const toActiveScene = (scene: SceneState) =>

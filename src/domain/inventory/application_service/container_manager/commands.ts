@@ -7,9 +7,9 @@
 
 import { Effect } from 'effect'
 import type { ContainerId } from '../../aggregate/container'
-import type { InventoryCommand } from '../../types/commands'
-import type { ItemStack } from '../../types/core'
-import type { InventoryApplicationError } from '../types/errors'
+import type { InventoryCommand } from '../../types'
+import type { ItemStack } from '../../types'
+import type { InventoryApplicationError } from '../types'
 
 /**
  * コンテナコマンドハンドラー実装

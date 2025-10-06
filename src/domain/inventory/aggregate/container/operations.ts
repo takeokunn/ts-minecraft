@@ -4,9 +4,9 @@
  */
 
 import { Effect, Option, pipe } from 'effect'
-import type { ItemId, PlayerId } from '../../types.js'
-import type { ItemStackEntity } from '../item_stack/index.js'
-import { addContainerUncommittedEvent, incrementContainerVersion } from './factory.js'
+import type { ItemId, PlayerId } from '../../types'
+import type { ItemStackEntity } from '../item_stack/types'
+import { addContainerUncommittedEvent, incrementContainerVersion } from './factory'
 import type {
   ContainerAggregate,
   ContainerClosedEvent,
@@ -18,8 +18,8 @@ import type {
   ContainerSortedEvent,
   ItemPlacedInContainerEvent,
   ItemRemovedFromContainerEvent,
-} from './types.js'
-import { CONTAINER_CONSTANTS, ContainerError } from './types.js'
+} from './types'
+import { CONTAINER_CONSTANTS, ContainerError } from './types'
 
 // ===== Access Control Operations =====
 

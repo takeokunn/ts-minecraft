@@ -1,13 +1,6 @@
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
 import { Context, Data, Effect, Layer, Match, Ref, Schema } from 'effect'
-import {
-  ActiveScene,
-  SceneId,
-  SceneIdSchema,
-  SceneKind,
-  SceneState,
-  SceneStateSchema,
-} from '../types'
+import { ActiveScene, SceneId, SceneIdSchema, SceneKind, SceneState, SceneStateSchema } from '..'
 
 export type SceneControllerError = Data.TaggedEnum<{
   InvalidMutation: { readonly reason: string }
@@ -38,8 +31,7 @@ export const createSceneController = <A extends SceneState>(initial: A): Effect.
     const stateRef = yield* Ref.make(validatedInitial)
     const initialRef = yield* Ref.make(validatedInitial)
 
-    const setState = (scene: A) =>
-      validate(scene).pipe(Effect.tap((value) => Ref.set(stateRef, value)))
+    const setState = (scene: A) => validate(scene).pipe(Effect.tap((value) => Ref.set(stateRef, value)))
 
     return {
       current: () => Ref.get(stateRef),
@@ -93,10 +85,7 @@ export interface SceneCleanupError {
 }
 export const SceneCleanupError = Data.tagged<SceneCleanupError>('SceneCleanupError')
 
-const FrameTimeSchema = Schema.Number.pipe(
-  Schema.greaterThanOrEqualTo(0),
-  Schema.brand('FrameTime')
-)
+const FrameTimeSchema = Schema.Number.pipe(Schema.greaterThanOrEqualTo(0), Schema.brand('FrameTime'))
 export type FrameTime = Schema.Schema.Type<typeof FrameTimeSchema>
 
 const decodeFrameTime = Schema.decode(FrameTimeSchema)
@@ -226,9 +215,7 @@ export const createSceneRuntime = <A extends SceneState, C extends SceneControll
 
     const update = (delta: number) =>
       decodeFrameTime(delta).pipe(
-        Effect.mapError((issue) =>
-          SceneUpdateError({ sceneType: definition.type, reason: formatParseError(issue) })
-        ),
+        Effect.mapError((issue) => SceneUpdateError({ sceneType: definition.type, reason: formatParseError(issue) })),
         Effect.flatMap((frameTime) =>
           Effect.all({
             initialized: Ref.get(initializedRef),
@@ -276,9 +263,7 @@ export const createSceneRuntime = <A extends SceneState, C extends SceneControll
     const exit = () => onExit(context).pipe(Effect.zipRight(setActive(false)), Effect.zipRight(snapshot()))
 
     const cleanup = () =>
-      ensureInitialized(() =>
-        SceneCleanupError({ sceneType: definition.type, message: 'Scene not initialized' })
-      ).pipe(
+      ensureInitialized(() => SceneCleanupError({ sceneType: definition.type, message: 'Scene not initialized' })).pipe(
         Effect.zipRight(onCleanup(context)),
         Effect.zipRight(controller.reset()),
         Effect.zipRight(setInitialized(false)),
@@ -303,9 +288,7 @@ export interface SceneFactory<A extends SceneState = SceneState> {
   readonly create: () => Effect.Effect<SceneRuntime<A>>
 }
 
-export const SceneFactoryTag = Context.GenericTag<SceneFactory<any>>(
-  '@minecraft/domain/scene/scenes/SceneFactory'
-)
+export const SceneFactoryTag = Context.GenericTag<SceneFactory<any>>('@minecraft/domain/scene/scenes/SceneFactory')
 
 export const makeSceneLayer = <A extends SceneState, C extends SceneController<A> = SceneController<A>>(
   definition: SceneDefinition<A, C>

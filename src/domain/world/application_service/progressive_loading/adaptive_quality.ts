@@ -771,4 +771,4 @@ export type {
   PerformanceTrend as PerformanceTrendType,
   QualityAdjustment as QualityAdjustmentType,
   QualityProfile as QualityProfileType,
-} from './adaptive_quality.js'
+} from './adaptive_quality'

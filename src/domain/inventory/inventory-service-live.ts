@@ -1,6 +1,6 @@
 import { Schema } from '@effect/schema'
 import { Effect, Layer, Ref, pipe } from 'effect'
-import { InventoryService, InventoryServiceError, type AddItemResult } from './inventory-service'
+import { InventoryService, InventoryServiceError, type AddItemResult } from './index'
 import {
   Inventory,
   InventoryState,
@@ -12,8 +12,8 @@ import {
   computeChecksum,
   createEmptyInventory,
   touchInventory,
-} from './inventory-types'
-import { ItemRegistry, type ItemDefinition } from './item-registry'
+} from './index'
+import { ItemRegistry, type ItemDefinition } from './index'
 
 const SLOT_COUNT = 36
 const HOTBAR_SIZE = 9

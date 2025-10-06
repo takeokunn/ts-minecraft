@@ -1,17 +1,10 @@
 import { Schema } from '@effect/schema'
 import { describe, expect, it } from '@effect/vitest'
+import { Effect, Layer, Option, pipe } from 'effect'
 import * as fc from 'effect/FastCheck'
-import { Array as Arr, Effect, Layer, Match, Option, pipe } from 'effect'
 import { ChunkDataSchema } from '../../aggregate/chunk_data/types'
 import { CHUNK_SIZE, CHUNK_VOLUME } from '../../types/core'
-import {
-  makeBlockCount,
-  makePercentage,
-  makeTimestamp,
-  type ChunkMetadata,
-  type ChunkOptimizationRecord,
-  type Percentage,
-} from '../../value_object/chunk_metadata'
+import { type ChunkMetadata, type ChunkOptimizationRecord } from '../../value_object/chunk_metadata'
 import { ChunkOptimizationService, ChunkOptimizationServiceLive, OptimizationStrategy } from '../chunk_optimizer'
 
 const TestLayer: Layer.Layer<ChunkOptimizationService> = ChunkOptimizationServiceLive
@@ -24,10 +17,7 @@ const baseMetadata = {
   heightMap: Array.from({ length: CHUNK_SIZE * CHUNK_SIZE }, () => 64),
 } satisfies Schema.Schema.Input<ChunkMetadata>
 
-const buildChunk = (
-  blocks: Uint16Array,
-  metadataOverrides?: Partial<Schema.Schema.Input<ChunkMetadata>>
-) =>
+const buildChunk = (blocks: Uint16Array, metadataOverrides?: Partial<Schema.Schema.Input<ChunkMetadata>>) =>
   Schema.decodeEffect(ChunkDataSchema)({
     position: { x: 0, z: 0 },
     blocks,
@@ -48,7 +38,13 @@ const expectRecordStrategy = (
   record: Option.Option<ChunkOptimizationRecord>,
   strategy: ChunkOptimizationRecord['strategy']
 ) =>
-  expect(pipe(record, Option.map((item) => item.strategy), Option.getOrElse(() => undefined))).toBe(strategy)
+  expect(
+    pipe(
+      record,
+      Option.map((item) => item.strategy),
+      Option.getOrElse(() => undefined)
+    )
+  ).toBe(strategy)
 
 describe('chunk/domain_service/chunk_optimizer', () => {
   it.effect('optimizeMemory は最適化履歴を記録する', () =>
@@ -217,28 +213,24 @@ describe('chunk/domain_service/chunk_optimizer', () => {
 
   it('eliminateRedundancy は閾値未満の冗長度では変換を抑制する (PBT)', async () => {
     await fc.assert(
-      fc.asyncProperty(
-        fc.integer({ min: 1, max: 8 }),
-        fc.integer({ min: 1, max: 8 }),
-        async (dominant, minority) => {
-          const dominantBlock = dominant
-          const minorityBlock = dominant + minority
-          const blocks = new Uint16Array(
-            Array.from({ length: CHUNK_VOLUME }, (_, index) => (index % 10 === 0 ? minorityBlock : dominantBlock))
-          )
-          const chunk = await buildChunk(blocks).pipe(Effect.runPromise)
-          const optimized = await runWithService(
-            Effect.gen(function* () {
-              const service = yield* ChunkOptimizationService
-              return yield* service.eliminateRedundancy(chunk, 0.95)
-            })
-          ).pipe(Effect.runPromise)
+      fc.asyncProperty(fc.integer({ min: 1, max: 8 }), fc.integer({ min: 1, max: 8 }), async (dominant, minority) => {
+        const dominantBlock = dominant
+        const minorityBlock = dominant + minority
+        const blocks = new Uint16Array(
+          Array.from({ length: CHUNK_VOLUME }, (_, index) => (index % 10 === 0 ? minorityBlock : dominantBlock))
+        )
+        const chunk = await buildChunk(blocks).pipe(Effect.runPromise)
+        const optimized = await runWithService(
+          Effect.gen(function* () {
+            const service = yield* ChunkOptimizationService
+            return yield* service.eliminateRedundancy(chunk, 0.95)
+          })
+        ).pipe(Effect.runPromise)
 
-          const originalUnique = new Set(Array.from(chunk.blocks)).size
-          const optimizedUnique = new Set(Array.from(optimized.blocks)).size
-          expect(optimizedUnique).toBeLessThanOrEqual(originalUnique)
-        }
-      ),
+        const originalUnique = new Set(Array.from(chunk.blocks)).size
+        const optimizedUnique = new Set(Array.from(optimized.blocks)).size
+        expect(optimizedUnique).toBeLessThanOrEqual(originalUnique)
+      }),
       { numRuns: 30 }
     )
   })

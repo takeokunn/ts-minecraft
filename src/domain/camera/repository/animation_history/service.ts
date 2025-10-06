@@ -6,7 +6,7 @@
  */
 
 import { Array, Context, Effect, Option } from 'effect'
-import type { CameraId } from '../../types/index.js'
+import type { CameraId } from '@domain/camera/types'
 import type {
   AnimationHistoryRepositoryError,
   AnimationQueryOptions,
@@ -17,7 +17,7 @@ import type {
   AnimationTypeDistribution,
   PerformanceMetrics,
   TimeRange,
-} from './types.js'
+} from './index'
 
 // ========================================
 // Repository Interface
@@ -446,4 +446,4 @@ export type {
   InterruptionReason,
   PerformanceMetrics,
   TimeRange,
-} from './types.js'
+} from './index'

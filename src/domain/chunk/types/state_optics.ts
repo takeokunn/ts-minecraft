@@ -4,7 +4,7 @@
  * 簡略化されたChunkState操作関数群
  */
 
-import type { ChunkState } from './core'
+import type { ChunkState } from './index'
 
 /**
  * ChunkState ADTへの型安全なアクセス関数群

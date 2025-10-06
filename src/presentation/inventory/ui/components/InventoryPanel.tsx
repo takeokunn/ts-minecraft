@@ -10,8 +10,8 @@ import {
   SlotClicked,
   slotIndexToNumber,
   type InventorySlot,
-} from '../../adt/inventory-adt'
-import { ItemSlot } from './ItemSlot'
+} from '../../adt'
+import { ItemSlot } from './index'
 
 interface InventoryPanelProps {
   readonly model: InventoryPanelModel

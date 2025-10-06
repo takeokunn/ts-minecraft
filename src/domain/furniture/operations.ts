@@ -21,7 +21,7 @@ import {
   TickSchema,
   UpdateSignTextCommand,
   toValidationError,
-} from './types.js'
+} from './index'
 
 import * as Match from 'effect/Match'
 import * as ReadonlyArray from 'effect/ReadonlyArray'

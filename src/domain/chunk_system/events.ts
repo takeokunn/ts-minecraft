@@ -12,7 +12,7 @@ import {
   ResourceBudgetSchema,
   StrategyId,
   StrategyIdSchema,
-} from './types.js'
+} from './index'
 
 export const ChunkEvent = Data.taggedEnum({
   RequestQueued: Data.tagged<{

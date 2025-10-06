@@ -1,6 +1,5 @@
 import { Effect } from 'effect'
 import { describe, expect, it } from 'vitest'
-import { ChunkSerializationError } from '../../aggregate/chunk'
 import { ChunkSerializationService, ChunkSerializationServiceLive, SerializationFormat } from '../chunk_serializer'
 
 // テスト用のレイヤー

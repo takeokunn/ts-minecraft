@@ -2,8 +2,8 @@ import * as Effect from 'effect/Effect'
 import { pipe } from 'effect/Function'
 import * as Option from 'effect/Option'
 import * as Ref from 'effect/Ref'
-import type { Furniture, FurnitureId } from './types.js'
-import { FurnitureError } from './types.js'
+import type { Furniture, FurnitureId } from './index'
+import { FurnitureError } from './index'
 
 export interface FurnitureRepository {
   readonly save: (entity: Furniture) => Effect.Effect<Furniture, never>

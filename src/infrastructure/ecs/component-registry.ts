@@ -2,8 +2,8 @@ import type { ComponentTypeName } from '@domain/entities/types'
 import { Schema } from '@effect/schema'
 import { Context, Effect, Layer, Option, pipe } from 'effect'
 import * as HashMap from 'effect/HashMap'
-import { AllComponentDefinitions, PositionComponent, VelocityComponent } from './component'
-import type { ComponentDefinition } from './component-definition'
+import { AllComponentDefinitions, PositionComponent, VelocityComponent } from './index'
+import type { ComponentDefinition } from './index'
 
 /**
  * コンポーネントスナップショット用スキーマ

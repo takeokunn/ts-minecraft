@@ -34,7 +34,7 @@ import {
   makeFrameInfo,
   makeTimestamp,
   reconcileFrameTiming,
-} from '../types/core'
+} from '../types'
 import {
   InitializationError,
   RuntimeCallbackError,
@@ -42,9 +42,9 @@ import {
   toPerformanceError,
   toRuntimeCallbackError,
   toStateTransitionError,
-} from '../types/errors'
-import type { FrameCallback, FrameCallbackContext, FrameCallbackRegistration, GameLoopService } from './service'
-import { GameLoopService as GameLoopServiceTag } from './service'
+} from '../types'
+import type { FrameCallback, FrameCallbackContext, FrameCallbackRegistration, GameLoopService } from './index'
+import { GameLoopService as GameLoopServiceTag } from './index'
 
 interface InternalState {
   readonly config: GameLoopConfig

@@ -12,7 +12,7 @@ import {
   Vector3,
   ViewDistance,
   ViewDistanceError,
-} from './types.js'
+} from './index'
 
 export interface LODSelectionContext {
   readonly cameraPosition: Vector3

@@ -7,10 +7,10 @@
  */
 
 import { Effect, Layer, Option, ReadonlyArray, Ref } from 'effect'
-import { WorldClock } from '../../time'
-import type { WorldId } from '../../types'
-import type { AllRepositoryErrors } from '../types'
-import { createCompressionError, createRepositoryError, createVersioningError } from '../types'
+import { WorldClock } from '../..'
+import type { WorldId } from '@domain/world/types'
+import type { AllRepositoryErrors } from '@domain/world/types'
+import { createCompressionError, createRepositoryError, createVersioningError } from '@domain/world/types'
 import type {
   BackupConfig,
   BackupInfo,
@@ -29,7 +29,7 @@ import type {
   WorldMetadataRepositoryConfig,
   WorldSettings,
   WorldStatistics,
-} from './interface'
+} from './index'
 
 // === Implementation ===
 

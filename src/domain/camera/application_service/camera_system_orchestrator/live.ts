@@ -1,5 +1,5 @@
 import { Effect, Layer } from 'effect'
-import type { CameraSystemOrchestratorService } from './service.js'
+import type { CameraSystemOrchestratorService } from './index'
 
 /**
  * Camera System Orchestrator Service Live Implementation

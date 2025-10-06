@@ -226,45 +226,44 @@ export const mergeMultipleStacks = (
       return [] as const
     }
 
-    return yield* Effect.reduce(stacks.slice(1), {
-      merged: [] as StackSize[],
-      carry: stacks[0]!,
-    }, (acc, stack) =>
-      Effect.gen(function* () {
-        const mergeResult = yield* mergeStacks(acc.carry, stack, maxSize)
+    return yield* Effect.reduce(
+      stacks.slice(1),
+      {
+        merged: [] as StackSize[],
+        carry: stacks[0]!,
+      },
+      (acc, stack) =>
+        Effect.gen(function* () {
+          const mergeResult = yield* mergeStacks(acc.carry, stack, maxSize)
 
-        return yield* pipe(
-          mergeResult,
-          Match.value,
-          Match.tag('Success', (success) =>
-            Effect.succeed({
-              merged: acc.merged,
-              carry: success.newSize,
-            })
-          ),
-          Match.tag('Overflow', (overflow) =>
-            Effect.succeed({
-              merged: [...acc.merged, overflow.maxSize],
-              carry: overflow.overflow,
-            })
-          ),
-          Match.tag('Underflow', () =>
-            Effect.fail(
-              StackSizeError.InvalidOperation({
-                operation: StackOperation.Merge({ otherStack: stack }),
-                reason: 'スタックのマージ中に不整合が発生しました',
+          return yield* pipe(
+            mergeResult,
+            Match.value,
+            Match.tag('Success', (success) =>
+              Effect.succeed({
+                merged: acc.merged,
+                carry: success.newSize,
               })
-            )
-          ),
-          Match.tag('InvalidOperation', (invalid) =>
-            Effect.fail(StackSizeError.InvalidOperation(invalid))
-          ),
-          Match.exhaustive
-        )
-      })
-    ).pipe(
-      Effect.flatMap(({ merged, carry }) => Effect.succeed([...merged, carry] as const))
-    )
+            ),
+            Match.tag('Overflow', (overflow) =>
+              Effect.succeed({
+                merged: [...acc.merged, overflow.maxSize],
+                carry: overflow.overflow,
+              })
+            ),
+            Match.tag('Underflow', () =>
+              Effect.fail(
+                StackSizeError.InvalidOperation({
+                  operation: StackOperation.Merge({ otherStack: stack }),
+                  reason: 'スタックのマージ中に不整合が発生しました',
+                })
+              )
+            ),
+            Match.tag('InvalidOperation', (invalid) => Effect.fail(StackSizeError.InvalidOperation(invalid))),
+            Match.exhaustive
+          )
+        })
+    ).pipe(Effect.flatMap(({ merged, carry }) => Effect.succeed([...merged, carry] as const)))
   })
 
 /**
@@ -426,9 +425,7 @@ export const optimizeStacks = (
     const fullStackCount = Math.floor(totalItems / maxSizeNum)
     const remainder = totalItems % maxSizeNum
 
-    const fullStacks = yield* Effect.forEach(Array.from({ length: fullStackCount }), () =>
-      createStackSize(maxSizeNum)
-    )
+    const fullStacks = yield* Effect.forEach(Array.from({ length: fullStackCount }), () => createStackSize(maxSizeNum))
 
     const remainderStacks = remainder > 0 ? [yield* createStackSize(remainder)] : ([] as StackSize[])
 

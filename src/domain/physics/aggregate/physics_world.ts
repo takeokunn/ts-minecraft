@@ -1,5 +1,5 @@
 import { Clock, Effect, Match, pipe } from 'effect'
-import { PHYSICS_CONSTANTS } from '../types/constants'
+import { PHYSICS_CONSTANTS } from '@domain/physics/types'
 import {
   EpochMillis,
   EpochMillisSchema,
@@ -18,8 +18,8 @@ import {
   parseVector3,
   positiveFloat,
   unitInterval,
-} from '../types/core'
-import type { PhysicsError } from '../types/errors'
+} from '@domain/physics/types'
+import type { PhysicsError } from '@domain/physics/types'
 
 const defaultConfig: PhysicsConfig = decodeConstant(PhysicsConfigSchema)({
   timeStep: positiveFloat(1 / 60),

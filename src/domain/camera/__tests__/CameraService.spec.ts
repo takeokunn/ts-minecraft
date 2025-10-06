@@ -11,7 +11,7 @@ import * as THREE from 'three'
 import { DEFAULT_CAMERA_CONFIG } from '../constant'
 import { createCameraError, validateCameraMode } from '../helper'
 import { CameraService } from '../service'
-import { CameraConfig } from '../types'
+import { CameraConfig } from '@domain/camera/types'
 
 // ================================================================================
 // Predicate Functions - Type Guards

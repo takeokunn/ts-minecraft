@@ -138,5 +138,5 @@ export {
   Matrix4Schema,
   Vector3Schema as NewVector3Schema,
   QuaternionSchema,
-} from '../core'
-export type { Matrix4, Quaternion, Vector3 } from '../core'
+} from '..'
+export type { Matrix4, Quaternion, Vector3 } from '..'

@@ -3,7 +3,7 @@
  */
 
 import { Effect, Schema } from 'effect'
-import * as BiomeProperties from '../../value_object/biome_properties/index.js'
+import * as BiomeProperties from '@domain/world/value_object/biome_properties/index'
 
 export const BiomeRegistrySchema = Schema.Struct({
   biomes: Schema.Array(

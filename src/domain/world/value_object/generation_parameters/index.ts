@@ -27,7 +27,7 @@ export {
   type Precipitation,
   type Temperature,
   type VegetationDensity,
-} from './biome_config.js'
+} from './index'
 
 // 構造物密度設定
 export {
@@ -52,7 +52,7 @@ export {
   type StructureDensityError,
   type StructureSize,
   type StructureType,
-} from './structure_density.js'
+} from './index'
 
 // 鉱石分布設定
 export {
@@ -81,7 +81,7 @@ export {
   type OverallOreDistribution,
   type Rarity,
   type VeinSize,
-} from './ore_distribution.js'
+} from './index'
 
 // 機能フラグ設定
 export {
@@ -108,7 +108,7 @@ export {
   type FlagPriority,
   type PerformanceImpact,
   type VersionNumber,
-} from './feature_flags.js'
+} from './index'
 
 /**
  * 生成パラメータファクトリ

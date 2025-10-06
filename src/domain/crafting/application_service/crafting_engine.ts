@@ -6,7 +6,7 @@ import {
   canCraftWithGrid,
   updateDescription,
   updateSuccessRate,
-} from '../aggregate/recipe'
+} from '../aggregate'
 import { CraftingGrid, CraftingItemStack, ItemTag, PatternMismatchError } from '../types'
 
 export interface CraftingResult {

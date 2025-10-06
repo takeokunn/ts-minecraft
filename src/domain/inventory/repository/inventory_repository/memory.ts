@@ -11,7 +11,7 @@ import type {
   StackOperationRequest,
 } from '../../types'
 import { createInventoryNotFoundError, createRepositoryError, createSlotNotFoundError } from '../types'
-import { InventoryRepository } from './interface'
+import { InventoryRepository } from './index'
 
 /**
  * InventoryRepository Memory Implementation

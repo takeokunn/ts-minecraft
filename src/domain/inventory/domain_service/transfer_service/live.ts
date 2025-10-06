@@ -15,8 +15,8 @@ import {
   type OptimizedTransferOptions,
   type TransferRequest,
   type TransferResult,
-} from './service'
-import { analyzeTransferability, CanTransferSpecification } from './specifications'
+} from './index'
+import { analyzeTransferability, CanTransferSpecification } from './index'
 
 /**
  * 転送サービスのLive実装

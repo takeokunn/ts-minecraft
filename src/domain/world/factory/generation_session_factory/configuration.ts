@@ -14,8 +14,8 @@
  */
 
 import { Effect, Function, Match, Schema } from 'effect'
-import type * as GenerationSession from '../../aggregate/generation_session/generation_session.js'
-import type { SessionFactoryError } from './factory.js'
+import type * as GenerationSession from '@domain/world/aggregate/generation_session'
+import type { SessionFactoryError } from './index'
 
 // ================================
 // Configuration Types

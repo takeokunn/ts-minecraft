@@ -5,7 +5,7 @@
  */
 
 // Service Interface and Implementation
-export { ItemRegistryError, ItemRegistryService, ItemRegistryServiceLive } from './service'
+export { ItemRegistryError, ItemRegistryService, ItemRegistryServiceLive } from './index'
 export type {
   EdibleProperties,
   FuelProperties,
@@ -18,10 +18,10 @@ export type {
   StackingRules,
   StorageRequirements,
   UsageRestriction,
-} from './service'
+} from './index'
 
 // Live Implementation
-export { ItemRegistryServiceLive } from './live'
+export { ItemRegistryServiceLive } from './index'
 
 // Definitions
 export {
@@ -36,4 +36,7 @@ export {
   isFuel,
   itemExists,
   searchDefaultItems,
-} from './definitions'
+} from './index'
+export * from './index';
+export * from './index';
+export * from './service';

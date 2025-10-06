@@ -1,5 +1,5 @@
 import { Context, Effect, Layer, Match, Option, pipe } from 'effect'
-import { RecipeAggregate, canCraftWithGrid, matchShapedRecipe, matchShapelessRecipe } from '../aggregate/recipe'
+import { RecipeAggregate, canCraftWithGrid, matchShapedRecipe, matchShapelessRecipe } from '../aggregate'
 import { CraftingGrid, CraftingRecipe, PatternMismatchError } from '../types'
 
 export interface PatternMatchOutcome {

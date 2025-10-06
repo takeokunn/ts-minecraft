@@ -21,10 +21,10 @@ export {
   type WorldSeed,
   type WorldSeedBrand,
   type WorldSeedError,
-} from './seed.js'
+} from './index'
 
 // 操作関数群
-export { WorldSeedOps } from './operations.js'
+export { WorldSeedOps } from './index'
 
 // 検証関数群
 export {
@@ -33,7 +33,7 @@ export {
   WorldSeedValidation,
   type ValidationOptions,
   type ValidationResult,
-} from './validation.js'
+} from './index'
 
 /**
  * 便利なファクトリ関数群
@@ -131,3 +131,6 @@ export const WorldSeedTypeGuards = {
     return typeof value === 'string' && ['low', 'medium', 'high'].includes(value)
   },
 } as const
+export * from './index';
+export * from './index';
+export * from './seed';

@@ -16,9 +16,9 @@
  */
 
 import { Context, Effect, Function, Layer, Match, Schema } from 'effect'
-import type * as BiomeSystem from '../../aggregate/biome_system/biome_system.js'
-import * as BiomeProperties from '../../value_object/biome_properties/index.js'
-import * as Coordinates from '../../value_object/coordinates/index.js'
+import type * as BiomeSystem from '@domain/world/aggregate/biome_system'
+import * as BiomeProperties from '@domain/world/value_object/biome_properties/index'
+import * as Coordinates from '@domain/world/value_object/coordinates/index'
 
 // ================================
 // Factory Error Types

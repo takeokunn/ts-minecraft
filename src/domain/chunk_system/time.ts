@@ -1,6 +1,6 @@
 import { Schema } from '@effect/schema'
 import { Clock, Duration, Effect, Match } from 'effect'
-import { ChunkSystemError, EpochMilliseconds, EpochMillisecondsSchema } from './types.js'
+import { ChunkSystemError, EpochMilliseconds, EpochMillisecondsSchema } from './index'
 
 const decodeEpoch = (value: number) =>
   Schema.decodeUnknown(EpochMillisecondsSchema)(value).pipe(

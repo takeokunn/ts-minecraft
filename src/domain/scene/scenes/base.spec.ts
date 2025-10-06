@@ -24,24 +24,25 @@ describe('domain/scene/scenes/base', () => {
 
   it('controller maintains schema validity for generated selections (property)', () =>
     FastCheck.assert(
-      FastCheck.property(FastCheck.array(FastCheck.constantFrom('NewGame', 'LoadGame', 'Settings', 'Exit')), (options) =>
-        Effect.runSync(
-          Effect.gen(function* () {
-            const controller = yield* createSceneController(Scenes.MainMenu())
-            yield* Effect.reduce(options, Option.none<string>(), (_, option) =>
-              controller
-                .update((current) => ({
-                  ...current,
-                  selectedOption: Option.some(option),
-                }))
-                .pipe(Effect.map((state) => state.selectedOption))
-            )
-            const snapshot = yield* controller.reset()
-            expect(snapshot.selectedOption).toStrictEqual(Option.none())
-            return undefined
-          })
-        )
+      FastCheck.property(
+        FastCheck.array(FastCheck.constantFrom('NewGame', 'LoadGame', 'Settings', 'Exit')),
+        (options) =>
+          Effect.runSync(
+            Effect.gen(function* () {
+              const controller = yield* createSceneController(Scenes.MainMenu())
+              yield* Effect.reduce(options, Option.none<string>(), (_, option) =>
+                controller
+                  .update((current) => ({
+                    ...current,
+                    selectedOption: Option.some(option),
+                  }))
+                  .pipe(Effect.map((state) => state.selectedOption))
+              )
+              const snapshot = yield* controller.reset()
+              expect(snapshot.selectedOption).toStrictEqual(Option.none())
+              return undefined
+            })
+          )
       )
-    )
-  )
+    ))
 })

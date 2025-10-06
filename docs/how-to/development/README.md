@@ -41,6 +41,7 @@ claude "Issue #123 を実装して"
 
 - **[開発環境セットアップ](./setup-dev-environment.md)** - devenv を利用した実行環境構築
 - **[開発規約](./development-conventions.md)** - コーディング規約とプロジェクト標準
+- **[Import Path管理規約](./import-path-conventions.md)** - import pathの統一ルールと自動検証
 - **[エントリポイント](./entry-points.md)** - アプリケーション起動点の設計と実装
 - **[GitHub Issue管理](./github-issue-management.md)** - 効率的なIssue管理ワークフロー
 

@@ -1,5 +1,5 @@
 import { Brand, Data, Effect, Match, pipe } from 'effect'
-import { DomainConstants, DomainError, makeBoundedNumber } from './types'
+import { DomainConstants, DomainError, makeBoundedNumber } from './index'
 
 export type GrowthStage = number & Brand.Brand<'GrowthStage'>
 export type MoistureLevel = number & Brand.Brand<'MoistureLevel'>

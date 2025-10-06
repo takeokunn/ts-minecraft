@@ -11,7 +11,7 @@ import type {
   StackOperationRequest,
 } from '../../types'
 import { createInventoryNotFoundError, createRepositoryError, createStorageError } from '../types'
-import { InventoryRepository } from './interface'
+import { InventoryRepository } from './index'
 
 /**
  * Persistent Storage Configuration

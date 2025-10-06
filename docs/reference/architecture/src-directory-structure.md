@@ -406,6 +406,8 @@ src/infrastructure/
 │   ├── CollisionDetection.ts   # 衝突判定
 │   ├── RigidBody.ts            # 剛体
 │   └── CollisionShapes.ts      # 衝突形状
+├── scene/                       # シーン制御のインフラ実装
+│   └── service-live.ts         # SceneService の Live 実装 (レンダラー・イベント連携)
 └── audio/                       # オーディオシステム
     ├── AudioManager.ts         # オーディオ管理
     ├── SoundEffects.ts         # 効果音

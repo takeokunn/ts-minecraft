@@ -13,7 +13,7 @@ import {
   ViewDistance,
   ViewDistanceError,
   toEpochMillis,
-} from './types.js'
+} from './index'
 
 export interface ViewFrustum {
   readonly id: string

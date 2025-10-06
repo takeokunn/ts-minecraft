@@ -7,9 +7,9 @@ import {
   enrichSoilForCrop,
   hydrateCrop,
   projectCropTrajectory,
-} from './aggregates'
-import { DomainError } from './types'
-import { BreedingStats, HydrationState, SoilCondition } from './value_objects'
+} from './index'
+import { DomainError } from './index'
+import { BreedingStats, HydrationState, SoilCondition } from './index'
 
 export type SimulationEvent = Data.TaggedEnum<{
   Hydrated: { readonly hydration: HydrationState }

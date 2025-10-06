@@ -112,6 +112,5 @@ describe('block_properties', () => {
         }
       }),
       propertyConfig
-    )
-  )
+    ))
 })

@@ -1,7 +1,7 @@
 import { Schema } from '@effect/schema'
 import { Effect } from 'effect'
-import type { EquipmentDomainError } from '../types/core'
-import { makeRequirementViolation } from '../types/core'
+import type { EquipmentDomainError } from '@domain/equipment/types'
+import { makeRequirementViolation } from '@domain/equipment/types'
 
 export type EquipmentSlotLiteral =
   | 'main_hand'

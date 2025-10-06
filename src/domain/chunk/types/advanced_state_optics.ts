@@ -7,8 +7,8 @@
 
 import { Cache, Duration, Effect, Chunk as EffectChunk, Either, Match, Optic, Option, pipe, Schedule } from 'effect'
 import type { ChunkMetadata } from '../value_object/chunk_metadata'
-import type { ChunkDataBytes, ChunkState, ChunkTimestamp, LoadProgress } from './core'
-import { ChunkStateGuards } from './state_optics'
+import type { ChunkDataBytes, ChunkState, ChunkTimestamp, LoadProgress } from './index'
+import { ChunkStateGuards } from './index'
 
 /**
  * 高度なChunkState操作用のOptics拡張

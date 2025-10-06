@@ -19,7 +19,7 @@ import {
   toEpochMillis,
   toRenderPriority,
   toViewDistance,
-} from '../types.js'
+} from '../types'
 
 describe('view_distance/types', () => {
   it.effect('toViewDistance validates bounds', () =>

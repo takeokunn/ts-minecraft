@@ -12,8 +12,8 @@ import {
   getItemStackLimit,
   itemExists,
   searchDefaultItems,
-} from './definitions'
-import { ItemRegistryError, ItemRegistryService } from './service'
+} from './index'
+import { ItemRegistryError, ItemRegistryService } from './index'
 
 /**
  * アイテムレジストリサービスのLive実装

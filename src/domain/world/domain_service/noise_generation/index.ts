@@ -6,15 +6,15 @@
  */
 
 // Core Noise Algorithms
-export * from './fractal_noise_service.js'
-export * from './perlin_noise_service.js'
-export * from './simplex_noise_service.js'
+export * from './index'
+export * from './index'
+export * from './index'
 
 // Unified Noise Generation Layer
 import { Layer } from 'effect'
-import { FractalNoiseService, FractalNoiseServiceLive } from './fractal_noise_service.js'
-import { PerlinNoiseService, PerlinNoiseServiceLive } from './perlin_noise_service.js'
-import { SimplexNoiseService, SimplexNoiseServiceLive } from './simplex_noise_service.js'
+import { FractalNoiseService, FractalNoiseServiceLive } from './index'
+import { PerlinNoiseService, PerlinNoiseServiceLive } from './index'
+import { SimplexNoiseService, SimplexNoiseServiceLive } from './index'
 
 /**
  * ノイズ生成統合レイヤー
@@ -131,3 +131,6 @@ export const NoiseFactory = {
     enableVectorization: true,
   }),
 } as const
+export * from './index';
+export * from './simplex_noise_service';
+export * from './perlin_noise_service';

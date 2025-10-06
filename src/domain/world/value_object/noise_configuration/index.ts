@@ -36,7 +36,7 @@ export {
   type Octaves,
   type Persistence,
   type Scale,
-} from './noise_settings.js'
+} from './index'
 
 // オクターブ設定
 export {
@@ -60,7 +60,7 @@ export {
   type OctaveType,
   type Phase,
   type Weight,
-} from './octave_config.js'
+} from './index'
 
 // 周波数帯域設定
 export {
@@ -86,7 +86,7 @@ export {
   type Gain,
   type IndividualFrequencyBand,
   type QFactor,
-} from './frequency_bands.js'
+} from './index'
 
 // 振幅カーブ設定
 export {
@@ -112,7 +112,7 @@ export {
   type CurveType,
   type NormalizedTime,
   type SmoothingStrength,
-} from './amplitude_curves.js'
+} from './index'
 
 /**
  * ノイズ設定ファクトリ
@@ -491,3 +491,4 @@ function createAmplitudeCurveFromPreset(preset: keyof typeof AMPLITUDE_CURVE_PRE
     },
   } as AmplitudeCurve
 }
+export * from './octave_config';

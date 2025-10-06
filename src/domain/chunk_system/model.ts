@@ -1,7 +1,7 @@
 import { Schema } from '@effect/schema'
 import { Clock, Effect, Match, pipe, Array as ReadonlyArray } from 'effect'
-import { ChunkCommand } from './commands.js'
-import { ChunkEvent } from './events.js'
+import { ChunkCommand } from './index'
+import { ChunkEvent } from './index'
 import {
   ChunkRequest,
   ChunkSystemConfig,
@@ -12,7 +12,7 @@ import {
   EpochMillisecondsSchema,
   PerformanceSnapshotSchema,
   TickSchema,
-} from './types.js'
+} from './index'
 
 export interface TransitionResult {
   readonly state: ChunkSystemState

@@ -13,7 +13,7 @@ import type {
   PlayerId,
   SettingsRepositoryError,
   SettingsStorageQueryOptions,
-} from './types.js'
+} from './index'
 
 // ========================================
 // Repository Interface
@@ -385,4 +385,4 @@ export type {
   PlayerId,
   SettingsRepositoryError,
   SettingsStorageQueryOptions,
-} from './types.js'
+} from './index'

@@ -11,7 +11,7 @@ import {
   finishSleep,
   publishBook,
   updateSignText,
-} from '../operations.js'
+} from '../operations'
 import {
   AppendPageCommand,
   CreateBedInput,
@@ -20,7 +20,7 @@ import {
   CreateSignInput,
   FurnitureError,
   TickSchema,
-} from '../types.js'
+} from '../types'
 
 const effectProperty = <T>(
   arbitrary: fc.Arbitrary<T>,

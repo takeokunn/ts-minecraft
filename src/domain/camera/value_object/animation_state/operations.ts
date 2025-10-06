@@ -1,5 +1,5 @@
 import { Brand, Effect, Match, pipe, Schema } from 'effect'
-import { AnimationDurationSchema, AnimationProgressSchema, TimestampSchema } from './schema'
+import { AnimationDurationSchema, AnimationProgressSchema, TimestampSchema } from './index'
 import {
   AnimationDuration,
   AnimationError,
@@ -10,7 +10,7 @@ import {
   Keyframe,
   PositionAnimation,
   Timestamp,
-} from './types'
+} from './index'
 
 /**
  * 基本アニメーション値のファクトリー関数群

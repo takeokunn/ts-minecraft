@@ -20,7 +20,7 @@ export {
   WorldGenerationOrchestratorError,
   WorldGenerationOrchestratorHelpers,
   WorldGenerationResult,
-} from './orchestrator.js'
+} from './index'
 
 export type {
   CancelGenerationCommandType,
@@ -34,7 +34,7 @@ export type {
   UpdateSettingsCommandType,
   WorldGenerationOrchestratorErrorType,
   WorldGenerationResultType,
-} from './orchestrator.js'
+} from './index'
 
 // === Generation Pipeline ===
 export {
@@ -46,14 +46,14 @@ export {
   PipelineStageConfig,
   PipelineState,
   StageExecutionResult,
-} from './generation_pipeline.js'
+} from './index'
 
 export type {
   GenerationPipelineErrorType,
   PipelineConfigurationType,
   PipelineStateType,
   StageExecutionResultType,
-} from './generation_pipeline.js'
+} from './index'
 
 // === Dependency Coordinator ===
 export {
@@ -66,7 +66,7 @@ export {
   DependencyNode,
   ResourceAllocation,
   ResourcePool,
-} from './dependency_coordinator.js'
+} from './index'
 
 export type {
   CoordinationConfigType,
@@ -75,7 +75,7 @@ export type {
   DependencyNodeType,
   ResourceAllocationType,
   ResourcePoolType,
-} from './dependency_coordinator.js'
+} from './index'
 
 // === Error Recovery ===
 export {
@@ -88,7 +88,7 @@ export {
   RecoveryAction,
   RecoveryConfiguration,
   RecoveryStrategy,
-} from './error_recovery.js'
+} from './index'
 
 export type {
   CircuitBreakerType,
@@ -97,14 +97,14 @@ export type {
   RecoveryActionType,
   RecoveryConfigurationType,
   RecoveryStrategyType,
-} from './error_recovery.js'
+} from './index'
 
 // === Live Implementation ===
 
 import { Effect, Layer } from 'effect'
-import { DependencyCoordinatorService, DependencyCoordinatorServiceLive } from './dependency_coordinator.js'
-import { ErrorRecoveryService, ErrorRecoveryServiceLive } from './error_recovery.js'
-import { GenerationPipelineService, GenerationPipelineServiceLive } from './generation_pipeline.js'
+import { DependencyCoordinatorService, DependencyCoordinatorServiceLive } from './index'
+import { ErrorRecoveryService, ErrorRecoveryServiceLive } from './index'
+import { GenerationPipelineService, GenerationPipelineServiceLive } from './index'
 import {
   WorldGenerationOrchestrator,
   type CancelGenerationCommand,
@@ -115,7 +115,7 @@ import {
   type GetProgressQuery,
   type UpdateSettingsCommand,
   type WorldGenerationResult,
-} from './orchestrator.js'
+} from './index'
 
 /**
  * World Generation Orchestrator Live Implementation
@@ -433,3 +433,4 @@ export const WorldGenerationOrchestratorUtils = {
       )
     }),
 }
+export * from './orchestrator';

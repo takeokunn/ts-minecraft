@@ -7,8 +7,8 @@
 
 import { Context, Effect } from 'effect'
 import type { ContainerAggregate, ContainerId } from '../../aggregate/container'
-import type { ItemId, ItemStack, PlayerId } from '../../types/core'
-import type { InventoryApplicationError } from '../types/errors'
+import type { ItemId, ItemStack, PlayerId } from '../../types'
+import type { InventoryApplicationError } from '../types'
 
 /**
  * コンテナ管理アプリケーションサービス

@@ -5,14 +5,14 @@
 
 import { Effect, Option } from 'effect'
 import { describe, expect, it } from 'vitest'
-import type { ItemId, PlayerId } from '../../types.js'
+import type { ItemId, PlayerId } from '../../types'
 import {
   ContainerFactory,
   ContainerFactoryLive,
   createChest,
   createFurnace,
   createHopper,
-} from '../container/factory.js'
+} from '../container/factory'
 import {
   closeContainer,
   findItemSlots,
@@ -26,9 +26,9 @@ import {
   placeItemInContainer,
   removeItemFromContainer,
   sortContainer,
-} from '../container/operations.js'
-import type { ContainerAggregate, ContainerPermission, ContainerSlotIndex, WorldPosition } from '../container/types.js'
-import { ItemStackFactoryLive, createSimpleItemStack } from '../item_stack/factory.js'
+} from '../container/operations'
+import type { ContainerAggregate, ContainerPermission, ContainerSlotIndex, WorldPosition } from '../container/types'
+import { ItemStackFactoryLive, createSimpleItemStack } from '../item_stack/factory'
 
 const testPlayerId = 'player_test_123' as PlayerId
 const testPlayerId2 = 'player_test_456' as PlayerId

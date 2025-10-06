@@ -1,6 +1,6 @@
 import { Schema } from 'effect'
-import { EntityStatusSchema, EntityTypeSchema } from './constants'
-import { EntityIdSchema, PlayerIdSchema, Vector3Schema } from './core'
+import { EntityStatusSchema, EntityTypeSchema } from './index'
+import { EntityIdSchema, PlayerIdSchema, Vector3Schema } from './index'
 
 const timestamp = Schema.Number.pipe(
   Schema.nonNegative(),

@@ -9,9 +9,9 @@
  */
 
 import { Array, Data, Effect, Match, Option, pipe } from 'effect'
-import type { CameraError } from '../../types/errors.js'
-import type { CameraEvent, CameraId } from '../../types/events.js'
-import type { AnimationState, CameraRotation, CameraSettings, Position3D, ViewMode } from '../../value_object/index.js'
+import type { CameraError } from '@domain/camera/types'
+import type { CameraEvent, CameraId } from '@domain/camera/types'
+import type { AnimationState, CameraRotation, CameraSettings, Position3D, ViewMode } from '../../value_object/index'
 
 /**
  * Camera Aggregate Root Interface

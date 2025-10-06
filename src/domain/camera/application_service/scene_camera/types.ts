@@ -7,7 +7,7 @@ import type {
   EntityId,
   PlayerId,
   Position3D,
-} from '../../types/index.js'
+} from '@domain/camera/types'
 
 // ========================================
 // Scene Camera Application Types

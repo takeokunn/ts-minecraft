@@ -6,12 +6,12 @@
  */
 
 import { Effect, Option } from 'effect'
-import { CameraError } from '../../types/errors.js'
-import { CameraId } from '../../types/events.js'
-import { CameraDistance, MouseDelta, MouseSensitivity, Position3D, Smoothing } from '../../value_object/index.js'
-import { Camera } from '../camera/camera.js'
-import { CameraFactory } from '../camera/factory.js'
-import { PlayerCamera, PlayerCameraSettings, PlayerId, Sensitivity, SmoothingFactor } from './player_camera.js'
+import { CameraError } from '@domain/camera/types'
+import { CameraId } from '@domain/camera/types'
+import { CameraDistance, MouseDelta, MouseSensitivity, Position3D, Smoothing } from '../../value_object/index'
+import { Camera } from '../camera'
+import { CameraFactory } from '../camera'
+import { PlayerCamera, PlayerCameraSettings, PlayerId, Sensitivity, SmoothingFactor } from './index'
 
 /**
  * PlayerCamera Factory Namespace

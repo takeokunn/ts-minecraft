@@ -2,8 +2,8 @@ import { Schema } from '@effect/schema'
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
 import { Data, Effect, Either, Match } from 'effect'
 import { pipe } from 'effect/Function'
-import { BlockFaceSchema } from '../value_object/block_face'
-import { Vector3Schema } from '../value_object/vector3'
+import { BlockFaceSchema } from '../value_object'
+import { Vector3Schema } from '../value_object'
 
 const IdentifierSchema = Schema.String.pipe(
   Schema.nonEmptyString({ message: () => '識別子は1文字以上である必要があります' }),

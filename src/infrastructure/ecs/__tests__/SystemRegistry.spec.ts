@@ -4,21 +4,13 @@
  */
 
 import { it } from '@effect/vitest'
-import * as Cause from 'effect/Cause'
-import * as Chunk from 'effect/Chunk'
+import { Duration, Layer, TestClock, TestContext } from 'effect'
 import * as Effect from 'effect/Effect'
-import * as Exit from 'effect/Exit'
 import { pipe } from 'effect/Function'
 import * as Match from 'effect/Match'
 import * as Option from 'effect/Option'
-import { Duration, Layer, TestClock, TestContext } from 'effect'
 import { createSystem, makeSystemError } from '../system'
-import {
-  isSystemRegistryError,
-  SystemRegistryError,
-  SystemRegistryService,
-  SystemRegistryServiceLive,
-} from '../system-registry'
+import { isSystemRegistryError, SystemRegistryService, SystemRegistryServiceLive } from '../system-registry'
 import type { World } from '../world'
 
 // ================================================================================
@@ -36,7 +28,7 @@ describe('SystemRegistry ECS Architecture', () => {
     it.effect('システムを登録できる', () =>
       Effect.gen(function* () {
         const registry = yield* SystemRegistryService
-        const testSystem = createSystem('TestSystem', () => Effect.void)
+        const testSystem = createSystem<World>('TestSystem', () => Effect.void)
 
         yield* registry.register(testSystem, 'normal', 500)
 
@@ -49,8 +41,8 @@ describe('SystemRegistry ECS Architecture', () => {
     it.effect('同じ名前のシステムは重複登録されない', () =>
       Effect.gen(function* () {
         const registry = yield* SystemRegistryService
-        const system1 = createSystem('DuplicateSystem', () => Effect.void)
-        const system2 = createSystem('DuplicateSystem', () => Effect.succeed('different'))
+        const system1 = createSystem<World>('DuplicateSystem', () => Effect.void)
+        const system2 = createSystem<World>('DuplicateSystem', () => Effect.succeed('different'))
 
         yield* registry.register(system1)
         yield* registry.register(system2) // 同じ名前なので無視される
@@ -64,9 +56,9 @@ describe('SystemRegistry ECS Architecture', () => {
       Effect.gen(function* () {
         const registry = yield* SystemRegistryService
 
-        const criticalSystem = createSystem('CriticalSystem', () => Effect.void)
-        const normalSystem = createSystem('NormalSystem', () => Effect.void)
-        const deferredSystem = createSystem('DeferredSystem', () => Effect.void)
+        const criticalSystem = createSystem<World>('CriticalSystem', () => Effect.void)
+        const normalSystem = createSystem<World>('NormalSystem', () => Effect.void)
+        const deferredSystem = createSystem<World>('DeferredSystem', () => Effect.void)
 
         yield* registry.register(criticalSystem, 'critical')
         yield* registry.register(normalSystem, 'normal')
@@ -83,9 +75,9 @@ describe('SystemRegistry ECS Architecture', () => {
       Effect.gen(function* () {
         const registry = yield* SystemRegistryService
 
-        const system1 = createSystem('System1', () => Effect.void)
-        const system2 = createSystem('System2', () => Effect.void)
-        const system3 = createSystem('System3', () => Effect.void)
+        const system1 = createSystem<World>('System1', () => Effect.void)
+        const system2 = createSystem<World>('System2', () => Effect.void)
+        const system3 = createSystem<World>('System3', () => Effect.void)
 
         yield* registry.register(system3, 'normal', 300)
         yield* registry.register(system1, 'normal', 100)
@@ -103,7 +95,7 @@ describe('SystemRegistry ECS Architecture', () => {
     it.effect('登録されたシステムを削除できる', () =>
       Effect.gen(function* () {
         const registry = yield* SystemRegistryService
-        const testSystem = createSystem('TestSystem', () => Effect.void)
+        const testSystem = createSystem<World>('TestSystem', () => Effect.void)
 
         yield* registry.register(testSystem)
         yield* registry.unregister('TestSystem')
@@ -135,7 +127,7 @@ describe('SystemRegistry ECS Architecture', () => {
         const registry = yield* SystemRegistryService
 
         let executed = false
-        const testSystem = createSystem('TestSystem', () =>
+        const testSystem = createSystem<World>('TestSystem', () =>
           Effect.sync(() => {
             executed = true
           })
@@ -157,7 +149,7 @@ describe('SystemRegistry ECS Architecture', () => {
         const registry = yield* SystemRegistryService
 
         let executionCount = 0
-        const testSystem = createSystem('TestSystem', () =>
+        const testSystem = createSystem<World>('TestSystem', () =>
           Effect.sync(() => {
             executionCount++
           })
@@ -180,8 +172,8 @@ describe('SystemRegistry ECS Architecture', () => {
       Effect.gen(function* () {
         const registry = yield* SystemRegistryService
 
-        const system1 = createSystem('System1', () => Effect.void)
-        const system2 = createSystem('System2', () => Effect.void)
+        const system1 = createSystem<World>('System1', () => Effect.void)
+        const system2 = createSystem<World>('System2', () => Effect.void)
 
         yield* registry.register(system1, 'normal')
         yield* registry.register(system2, 'high')
@@ -200,8 +192,8 @@ describe('SystemRegistry ECS Architecture', () => {
       Effect.gen(function* () {
         const registry = yield* SystemRegistryService
 
-        const system1 = createSystem('System1', () => Effect.void)
-        const system2 = createSystem('System2', () => Effect.void)
+        const system1 = createSystem<World>('System1', () => Effect.void)
+        const system2 = createSystem<World>('System2', () => Effect.void)
 
         yield* registry.register(system1, 'normal', 100)
         yield* registry.register(system2, 'normal', 200)
@@ -224,9 +216,9 @@ describe('SystemRegistry ECS Architecture', () => {
 
         const executions: string[] = []
 
-        const system1 = createSystem('System1', () => Effect.sync(() => executions.push('System1')))
-        const system2 = createSystem('System2', () => Effect.sync(() => executions.push('System2')))
-        const system3 = createSystem('System3', () => Effect.sync(() => executions.push('System3')))
+        const system1 = createSystem<World>('System1', () => Effect.sync(() => executions.push('System1')))
+        const system2 = createSystem<World>('System2', () => Effect.sync(() => executions.push('System2')))
+        const system3 = createSystem<World>('System3', () => Effect.sync(() => executions.push('System3')))
 
         yield* registry.register(system1)
         yield* registry.register(system2)
@@ -245,7 +237,7 @@ describe('SystemRegistry ECS Architecture', () => {
         const registry = yield* SystemRegistryService
 
         let executed = false
-        const testSystem = createSystem('TestSystem', () =>
+        const testSystem = createSystem<World>('TestSystem', () =>
           Effect.sync(() => {
             executed = true
           })
@@ -267,7 +259,7 @@ describe('SystemRegistry ECS Architecture', () => {
       Effect.gen(function* () {
         const registry = yield* SystemRegistryService
 
-        const failingSystem = createSystem('FailingSystem', () =>
+        const failingSystem = createSystem<World>('FailingSystem', () =>
           Effect.fail(makeSystemError('FailingSystem', 'Test error'))
         )
 
@@ -290,7 +282,7 @@ describe('SystemRegistry ECS Architecture', () => {
         const registry = yield* SystemRegistryService
 
         let executionCount = 0
-        const testSystem = createSystem('TestSystem', () =>
+        const testSystem = createSystem<World>('TestSystem', () =>
           Effect.gen(function* () {
             executionCount++
             yield* TestClock.adjust(Duration.millis(5))
@@ -330,7 +322,7 @@ describe('SystemRegistry ECS Architecture', () => {
         const registry = yield* SystemRegistryService
 
         let failCount = 0
-        const unreliableSystem = createSystem('UnreliableSystem', () =>
+        const unreliableSystem = createSystem<World>('UnreliableSystem', () =>
           Effect.gen(function* () {
             failCount++
             yield* pipe(
@@ -360,7 +352,7 @@ describe('SystemRegistry ECS Architecture', () => {
       Effect.gen(function* () {
         const registry = yield* SystemRegistryService
 
-        const systemWithGenericError = createSystem('GenericErrorSystem', () =>
+        const systemWithGenericError = createSystem<World>('GenericErrorSystem', () =>
           Effect.fail(new Error('Generic string error'))
         )
 
@@ -381,8 +373,8 @@ describe('SystemRegistry ECS Architecture', () => {
       Effect.gen(function* () {
         const registry = yield* SystemRegistryService
 
-        const system1 = createSystem('System1', () => Effect.void)
-        const system2 = createSystem('System2', () => Effect.void)
+        const system1 = createSystem<World>('System1', () => Effect.void)
+        const system2 = createSystem<World>('System2', () => Effect.void)
 
         yield* registry.register(system1)
         yield* registry.register(system2)
@@ -401,11 +393,11 @@ describe('SystemRegistry ECS Architecture', () => {
       Effect.gen(function* () {
         const registry = yield* SystemRegistryService
 
-        const system1 = createSystem('System1', () => Effect.void)
+        const system1 = createSystem<World>('System1', () => Effect.void)
         yield* registry.register(system1)
         yield* registry.clear
 
-        const system2 = createSystem('System2', () => Effect.void)
+        const system2 = createSystem<World>('System2', () => Effect.void)
         yield* registry.register(system2)
 
         const systems = yield* registry.getSystems

@@ -6,8 +6,8 @@
  */
 
 import { Effect } from 'effect'
-import type { InventoryCommand } from '../../types/commands'
-import type { InventoryApplicationError } from '../types/errors'
+import type { InventoryCommand } from '../../types'
+import type { InventoryApplicationError } from '../types'
 
 /**
  * インベントリコマンドハンドラー実装

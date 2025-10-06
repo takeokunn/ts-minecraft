@@ -9,14 +9,14 @@
 import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
 import * as NodePath from '@effect/platform-node/NodePath'
 import { Effect, Layer, Option, ReadonlyArray, Ref, Schema } from 'effect'
-import type { ChunkPosition, GenerationSessionId, GenerationSettings, WorldId } from '../../types'
-import type { AllRepositoryErrors } from '../types'
+import type { ChunkPosition, GenerationSessionId, GenerationSettings, WorldId } from '@domain/world/types'
+import type { AllRepositoryErrors } from '@domain/world/types'
 import {
   createDataIntegrityError,
   createGenerationSessionNotFoundError,
   createPersistenceError,
   createRepositoryError,
-} from '../types'
+} from '@domain/world/types'
 import type {
   ChunkGenerationTask,
   GenerationProgress,
@@ -29,8 +29,8 @@ import type {
   SessionRecoveryInfo,
   SessionState,
   SessionStatistics,
-} from './interface'
-import { createDefaultSessionMetadata, defaultGenerationSessionRepositoryConfig } from './interface'
+} from './index'
+import { createDefaultSessionMetadata, defaultGenerationSessionRepositoryConfig } from './index'
 
 // === Persistence Schema ===
 

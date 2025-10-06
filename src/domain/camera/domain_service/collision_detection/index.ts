@@ -6,7 +6,7 @@
  */
 
 // Service Interface & Context Tag
-export { CollisionDetectionService, CollisionObject, CollisionResult } from './service'
+export { CollisionDetectionService, CollisionObject, CollisionResult } from './index'
 export type {
   BlockType,
   CollisionDetectionService as CollisionDetectionServiceInterface,
@@ -17,20 +17,20 @@ export type {
   RaycastHit,
   TerrainCollisionData,
   WorldCollisionData,
-} from './service'
+} from './index'
 
 // Live Implementation
-export { CollisionDetectionServiceLive } from './live'
+export { CollisionDetectionServiceLive } from './index'
 
 /**
  * 統合エクスポート - 便利な再エクスポート
  */
 
 // よく使用される型の再エクスポート
-export type { CollisionDetectionService as CollisionDetection } from './service'
+export type { CollisionDetectionService as CollisionDetection } from './index'
 
 // サービスタグの別名エクスポート
-export { CollisionDetectionService as CollisionDetectionTag } from './service'
+export { CollisionDetectionService as CollisionDetectionTag } from './index'
 
 /**
  * 使用例:
@@ -50,3 +50,4 @@ export { CollisionDetectionService as CollisionDetectionTag } from './service'
  * })
  * ```
  */
+export * from './index';

@@ -7,10 +7,10 @@
  */
 
 import { Effect, ReadonlyArray } from 'effect'
-import type { GenerationSessionId } from '../../types'
-import type { AllRepositoryErrors } from '../types'
-import { createRepositoryError, createSessionRecoveryError } from '../types'
-import type { GenerationSession, SessionRecoveryInfo } from './interface'
+import type { GenerationSessionId } from '@domain/world/types'
+import type { AllRepositoryErrors } from '@domain/world/types'
+import { createRepositoryError, createSessionRecoveryError } from '@domain/world/types'
+import type { GenerationSession, SessionRecoveryInfo } from './index'
 
 // === Recovery Strategy Types ===
 

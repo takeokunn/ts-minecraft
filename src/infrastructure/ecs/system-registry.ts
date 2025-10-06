@@ -6,9 +6,8 @@
  */
 
 import { Clock, Context, Data, Effect, Layer, Match, Option, pipe, Ref } from 'effect'
-import type { System, SystemError, SystemMetadata, SystemPriority } from './system'
-import { isSystemError, makeSystemError, priorityToNumber, SystemExecutionState } from './system'
-import type { World } from './world'
+import type { System, SystemError, SystemMetadata, SystemPriority } from './index'
+import { isSystemError, makeSystemError, priorityToNumber, SystemExecutionState } from './index'
 
 /**
  * システムレジストリエラー
@@ -34,8 +33,8 @@ export const isSystemRegistryError = (error: unknown): error is SystemRegistryEr
 /**
  * 登録されたシステムのエントリ
  */
-interface SystemEntry {
-  readonly system: System
+interface SystemEntry<Context> {
+  readonly system: System<Context>
   readonly metadata: SystemMetadata
   readonly executionState: SystemExecutionState
 }
@@ -43,8 +42,8 @@ interface SystemEntry {
 /**
  * システムレジストリの状態
  */
-interface RegistryState {
-  readonly systems: Map<string, SystemEntry>
+interface RegistryState<Context> {
+  readonly systems: Map<string, SystemEntry<Context>>
   readonly executionOrder: readonly string[]
   readonly globalEnabled: boolean
 }
@@ -52,12 +51,12 @@ interface RegistryState {
 /**
  * システムレジストリサービス
  */
-export interface SystemRegistryService {
+export interface SystemRegistryService<Context = unknown> {
   /**
    * システムを登録
    */
   readonly register: (
-    system: System,
+    system: System<Context>,
     priority?: SystemPriority,
     order?: number
   ) => Effect.Effect<void, SystemRegistryError>
@@ -84,17 +83,17 @@ export interface SystemRegistryService {
   /**
    * 登録されたすべてのシステムを取得
    */
-  readonly getSystems: Effect.Effect<readonly System[], never>
+  readonly getSystems: Effect.Effect<readonly System<Context>[], never>
 
   /**
    * 実行順序でソートされたシステムを取得
    */
-  readonly getOrderedSystems: Effect.Effect<readonly System[], never>
+  readonly getOrderedSystems: Effect.Effect<readonly System<Context>[], never>
 
   /**
    * すべての有効なシステムを実行
    */
-  readonly update: (world: World, deltaTime: number) => Effect.Effect<void, SystemError>
+  readonly update: (context: Context, deltaTime: number) => Effect.Effect<void, SystemError>
 
   /**
    * システムの実行統計を取得
@@ -122,7 +121,7 @@ export const SystemRegistryService = Context.GenericTag<SystemRegistryService>(
 /**
  * 実行順序を計算
  */
-const calculateExecutionOrder = (systems: Map<string, SystemEntry>): readonly string[] => {
+const calculateExecutionOrder = <Context>(systems: Map<string, SystemEntry<Context>>): readonly string[] => {
   const entries = Array.from(systems.entries())
 
   // 優先度と順序でソート
@@ -150,7 +149,7 @@ export const SystemRegistryServiceLive = Layer.effect(
   SystemRegistryService,
   Effect.gen(function* () {
     // 初期状態
-    const initialState: RegistryState = {
+    const initialState: RegistryState<unknown> = {
       systems: new Map(),
       executionOrder: [],
       globalEnabled: true,
@@ -161,7 +160,7 @@ export const SystemRegistryServiceLive = Layer.effect(
     /**
      * システムを登録
      */
-    const register = (system: System, priority: SystemPriority = 'normal', order = 500) =>
+    const register = (system: System<unknown>, priority: SystemPriority = 'normal', order = 500) =>
       Effect.gen(function* () {
         yield* Ref.update(stateRef, (state) =>
           pipe(
@@ -186,7 +185,7 @@ export const SystemRegistryServiceLive = Layer.effect(
                 errors: [],
               }
 
-              const entry: SystemEntry = {
+              const entry: SystemEntry<unknown> = {
                 system,
                 metadata,
                 executionState,
@@ -249,7 +248,7 @@ export const SystemRegistryServiceLive = Layer.effect(
             Option.match({
               onNone: () => state,
               onSome: (entry) => {
-                const newEntry: SystemEntry = {
+                const newEntry: SystemEntry<unknown> = {
                   ...entry,
                   metadata: { ...entry.metadata, enabled },
                 }
@@ -276,7 +275,7 @@ export const SystemRegistryServiceLive = Layer.effect(
             Option.match({
               onNone: () => state,
               onSome: (entry) => {
-                const newEntry: SystemEntry = {
+                const newEntry: SystemEntry<unknown> = {
                   ...entry,
                   metadata: {
                     ...entry.metadata,
@@ -314,7 +313,7 @@ export const SystemRegistryServiceLive = Layer.effect(
       const state = yield* Ref.get(stateRef)
       return state.executionOrder
         .map((name) => state.systems.get(name))
-        .filter((entry): entry is SystemEntry => entry !== undefined && entry.metadata.enabled)
+        .filter((entry): entry is SystemEntry<unknown> => entry !== undefined && entry.metadata.enabled)
         .map((entry) => entry.system)
     })
 
@@ -341,7 +340,7 @@ export const SystemRegistryServiceLive = Layer.effect(
                 errors: [...entry.executionState.errors, errorMessage].slice(-10),
               }
 
-              const newEntry: SystemEntry = {
+              const newEntry: SystemEntry<unknown> = {
                 ...entry,
                 executionState: newExecutionState,
               }
@@ -375,7 +374,7 @@ export const SystemRegistryServiceLive = Layer.effect(
                 lastExecutionTime: completedAt,
               }
 
-              const newEntry: SystemEntry = {
+              const newEntry: SystemEntry<unknown> = {
                 ...entry,
                 executionState: newExecutionState,
               }
@@ -392,7 +391,7 @@ export const SystemRegistryServiceLive = Layer.effect(
     /**
      * すべての有効なシステムを実行
      */
-    const update = (world: World, deltaTime: number) =>
+    const update = (context: unknown, deltaTime: number) =>
       Effect.gen(function* () {
         const currentState = yield* Ref.get(stateRef)
         if (!currentState.globalEnabled) {
@@ -407,7 +406,7 @@ export const SystemRegistryServiceLive = Layer.effect(
             Effect.gen(function* () {
               const startTime = yield* Clock.currentTimeMillis
 
-              yield* system.update(world, deltaTime).pipe(
+              yield* system.update(context, deltaTime).pipe(
                 Effect.mapError((error) =>
                   isSystemError(error)
                     ? error

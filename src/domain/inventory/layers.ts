@@ -14,20 +14,20 @@ import {
   StackingServiceLive,
   TransferServiceLive,
   ValidationServiceLive,
-} from './domain_service/index.js'
+} from './domain_service/index'
 
 // ===== Application Services Layer =====
 import {
   ContainerManagerServiceLive,
   InventoryManagerServiceLive,
   TransactionManagerServiceLive,
-} from './application_service/index.js'
+} from './application_service/index'
 
 // ===== Factory Layer =====
-import { ContainerFactoryLive, InventoryFactoryLive, ItemFactoryLive, ItemStackFactoryLive } from './factory/index.js'
+import { ContainerFactoryLive, InventoryFactoryLive, ItemFactoryLive, ItemStackFactoryLive } from './factory/index'
 
 // ===== Repository Layer =====
-import { InventoryRepositoryLayer } from './repository/index.js'
+import { InventoryRepositoryLayer } from './repository/index'
 
 /**
  * Inventory Domain Services Layer

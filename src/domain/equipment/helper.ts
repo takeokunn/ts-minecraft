@@ -1,4 +1,4 @@
-import type { Equipment } from './types'
+import type { Equipment } from '@domain/equipment/types'
 
 // 空の装備セットを作成
 export const createEmptyEquipment = (): Equipment => ({

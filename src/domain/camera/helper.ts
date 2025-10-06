@@ -14,7 +14,7 @@ import type {
   Rotation2D,
   Sensitivity,
   YawAngle,
-} from './types/index.js'
+} from '@domain/camera/types'
 import {
   AnimationDurationSchema,
   CameraDistanceSchema,
@@ -28,7 +28,7 @@ import {
   Rotation2DSchema,
   SensitivitySchema,
   YawAngleSchema,
-} from './types/index.js'
+} from '@domain/camera/types'
 
 export const isCameraError = (error: unknown): error is CameraError =>
   Predicate.isRecord(error) &&

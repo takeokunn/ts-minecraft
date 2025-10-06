@@ -1,6 +1,6 @@
 import { Array, Context, Effect, Layer, Random, pipe } from 'effect'
-import { RecipeAggregate } from '../aggregate/recipe'
-import { CraftingEngineService } from '../application_service/crafting_engine'
+import { RecipeAggregate } from '../aggregate'
+import { CraftingEngineService } from '../application_service'
 import { CraftingGrid } from '../types'
 
 export interface CraftingSession {

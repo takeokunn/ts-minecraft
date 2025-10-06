@@ -659,4 +659,4 @@ export type {
   MemoryMetrics as MemoryMetricsType,
   MemoryPool as MemoryPoolType,
   MemoryStatistics as MemoryStatisticsType,
-} from './memory_monitor.js'
+} from './memory_monitor'

@@ -1,7 +1,7 @@
 import { Schema } from '@effect/schema'
 import { Effect, Ref } from 'effect'
-import { createEquipmentPiece } from '../aggregate/equipment_piece'
-import { emptyEquipmentSet } from '../aggregate/equipment_set'
+import { createEquipmentPiece } from '../aggregate'
+import { emptyEquipmentSet } from '../aggregate'
 import {
   EquipmentIdSchema,
   EquipmentNameSchema,
@@ -9,9 +9,9 @@ import {
   EquipmentSetIdSchema,
   UnixTimeSchema,
   WeightSchema,
-} from '../types/core'
-import { EquipmentStatsSchema, EquipmentTierSchema } from '../value_object/item_attributes'
-import { EquipmentSlotSchema } from '../value_object/slot'
+} from '@domain/equipment/types'
+import { EquipmentStatsSchema, EquipmentTierSchema } from '../value_object'
+import { EquipmentSlotSchema } from '../value_object'
 
 export interface EquipmentBuilderState {
   readonly nextId: number

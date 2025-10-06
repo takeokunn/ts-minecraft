@@ -1,7 +1,7 @@
 import { describe, expect, it } from '@effect/vitest'
 import { Effect } from 'effect'
-import { createViewControlConfig, toViewDistance } from '../types.js'
-import { createViewSettingsRepository } from '../view_settings_repository.js'
+import { createViewControlConfig, toViewDistance } from '../types'
+import { createViewSettingsRepository } from '../view_settings_repository'
 
 describe('view_distance/view_settings_repository', () => {
   const initialConfig = createViewControlConfig({

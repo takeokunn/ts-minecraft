@@ -110,7 +110,7 @@ export {
   // Domain Events
   type WorldGeneratorEvent,
   type WorldGeneratorId,
-} from './world_generator/index.js'
+} from './world_generator/index'
 
 // ================================
 // GenerationSession Aggregate Root
@@ -234,7 +234,7 @@ export {
   type SessionState,
   type SessionStatus,
   type TimeTracking,
-} from './generation_session/index.js'
+} from './generation_session/index'
 
 // ================================
 // BiomeSystem Aggregate Root
@@ -293,7 +293,7 @@ export {
   // Transition Rules
   type TransitionRule,
   type UpdateClimateModelCommand,
-} from './biome_system/index.js'
+} from './biome_system/index'
 
 // ================================
 // Aggregate Layer Integration
@@ -408,5 +408,5 @@ export const WorldDomainAggregateFactory = {
 // ================================
 
 import { Context, Effect, Layer } from 'effect'
-import type * as GenerationErrors from '../types/errors/generation_errors.js'
-import type * as WorldSeed from '../value_object/world_seed/index.js'
+import type * as GenerationErrors from '@domain/world/types/errors'
+import type * as WorldSeed from '@domain/world/value_object/world_seed/index'

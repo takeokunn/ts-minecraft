@@ -22,7 +22,7 @@ import {
   makeDefense,
   makeHealth,
   makeSessionId,
-} from './types'
+} from './index'
 
 export interface CombatantBlueprint {
   readonly id: string

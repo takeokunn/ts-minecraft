@@ -123,7 +123,7 @@ export { createBrandedNumberSchema } from './constants.js'
 // ========================================
 
 // Event Types
-export type { AnimationState, CameraEvent, CameraId, CameraRotation, CameraSettings } from './events.js'
+export type { AnimationState, CameraEvent, CameraId, CameraRotation, CameraSettings } from './index'
 
 // Event Schemas
 export {
@@ -132,10 +132,10 @@ export {
   CameraIdSchema,
   CameraRotationSchema,
   CameraSettingsSchema,
-} from './events.js'
+} from './index'
 
 // Event Factory Functions
-export { createCameraEvent } from './events.js'
+export { createCameraEvent } from './index'
 
 // Event Type Guards
 export {
@@ -146,7 +146,7 @@ export {
   isRotationUpdatedEvent,
   isSettingsChangedEvent,
   isViewModeChangedEvent,
-} from './events.js'
+} from './index'
 
 // ========================================
 // Re-export Everything as Namespace
@@ -157,7 +157,7 @@ export {
  *
  * 使用例:
  * ```typescript
- * import { CameraTypes } from '../types/index.js'
+ * import { CameraTypes } from '@domain/camera/types'
  *
  * // エラー作成
  * const error = CameraTypes.createCameraError.invalidMode('invalid-mode', ['first-person', 'third-person'])
@@ -169,4 +169,6 @@ export {
  * const defaultFOV = CameraTypes.CAMERA_DEFAULTS.FOV
  * ```
  */
-export * as CameraTypes from './index.js'
+export * from './constants';
+export * from './errors';
+export * from './events';

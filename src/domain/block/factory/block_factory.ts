@@ -1,14 +1,14 @@
 import * as Context from 'effect/Context'
 import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'
-import type { BlockDefinition } from '../types/block_definition'
+import type { BlockDefinition } from '../types'
 import {
   BlockDefinitionError,
   makeBlockDefinition,
   makeInteractiveBlock,
   makeLiquidBlock,
   makeStandardBlock,
-} from '../types/block_definition'
+} from '../types'
 
 export interface BlockFactory {
   readonly standard: typeof makeStandardBlock

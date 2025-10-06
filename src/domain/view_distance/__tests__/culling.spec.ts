@@ -1,7 +1,7 @@
 import { describe, expect, it } from '@effect/vitest'
 import { Effect } from 'effect'
-import { createCullingStrategy } from '../culling.js'
-import { createViewFrustum } from '../frustum.js'
+import { createCullingStrategy } from '../culling'
+import { createViewFrustum } from '../frustum'
 import {
   createCameraState,
   createCullableObject,
@@ -9,7 +9,7 @@ import {
   deriveCullableFromManaged,
   toEpochMillis,
   toViewDistance,
-} from '../types.js'
+} from '../types'
 
 describe('view_distance/culling', () => {
   const camera = createCameraState({

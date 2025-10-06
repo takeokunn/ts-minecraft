@@ -6,8 +6,8 @@
  */
 
 import { Array, Context, Effect, Option } from 'effect'
-import type { CameraId } from '../../types/index.js'
-import type { Camera, CameraSnapshot, CameraStateQueryOptions, PlayerId, RepositoryError } from './types.js'
+import type { CameraId } from '@domain/camera/types'
+import type { Camera, CameraSnapshot, CameraStateQueryOptions, PlayerId, RepositoryError } from './index'
 
 // ========================================
 // Repository Interface
@@ -215,4 +215,4 @@ export type RepositoryListResult<T> = Effect.Effect<Array.ReadonlyArray<T>, Repo
 // Export Types for Consumer Modules
 // ========================================
 
-export type { Camera, CameraSnapshot, CameraStateQueryOptions, PlayerId, RepositoryError } from './types.js'
+export type { Camera, CameraSnapshot, CameraStateQueryOptions, PlayerId, RepositoryError } from './index'

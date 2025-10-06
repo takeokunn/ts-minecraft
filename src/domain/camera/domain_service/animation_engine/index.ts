@@ -6,7 +6,7 @@
  */
 
 // Service Interface & Context Tag
-export { AnimationEngineService } from './service'
+export { AnimationEngineService } from './index'
 export type {
   AnimationEngineService as AnimationEngineServiceInterface,
   AnimationKeyframe,
@@ -17,20 +17,20 @@ export type {
   KeyframeEvaluationResult,
   PositionAnimationState,
   RotationAnimationState,
-} from './service'
+} from './index'
 
 // Live Implementation
-export { AnimationEngineServiceLive } from './live'
+export { AnimationEngineServiceLive } from './index'
 
 /**
  * 統合エクスポート - 便利な再エクスポート
  */
 
 // よく使用される型の再エクスポート
-export type { AnimationEngineService as AnimationEngine } from './service'
+export type { AnimationEngineService as AnimationEngine } from './index'
 
 // サービスタグの別名エクスポート
-export { AnimationEngineService as AnimationEngineTag } from './service'
+export { AnimationEngineService as AnimationEngineTag } from './index'
 
 /**
  * 使用例:
@@ -51,3 +51,4 @@ export { AnimationEngineService as AnimationEngineTag } from './service'
  * })
  * ```
  */
+export * from './index';

@@ -11,4 +11,4 @@ export {
   SerializationFormat,
   type ChunkSerializationService,
   type SerializationFormat,
-} from './service'
+} from './index'

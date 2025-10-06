@@ -1,2 +1,4 @@
-export * from './block_definition'
-export * from './block_properties'
+export * from './index'
+export * from './index'
+export * from './block_properties';
+export * from './block_definition';

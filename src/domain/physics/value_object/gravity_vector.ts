@@ -1,5 +1,5 @@
 import { Effect, Match, Schema, pipe } from 'effect'
-import { PHYSICS_CONSTANTS } from '../types/constants'
+import { PHYSICS_CONSTANTS } from '@domain/physics/types'
 import {
   PositiveFloat,
   UnitInterval,
@@ -11,8 +11,8 @@ import {
   parseVector3,
   positiveFloat,
   vector3,
-} from '../types/core'
-import type { PhysicsError } from '../types/errors'
+} from '@domain/physics/types'
+import type { PhysicsError } from '@domain/physics/types'
 
 const GravityVectorSchema = Schema.Struct({
   direction: Vector3Schema,

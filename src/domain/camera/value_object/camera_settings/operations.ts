@@ -12,7 +12,7 @@ import {
   SensitivitySchema,
   SettingsConstraints,
   SmoothingSchema,
-} from './schema'
+} from './index'
 import {
   AspectRatio,
   CameraLimits,
@@ -27,7 +27,7 @@ import {
   Sensitivity,
   SettingsError,
   Smoothing,
-} from './types'
+} from './index'
 
 /**
  * 基本設定値のファクトリー関数群

@@ -1,7 +1,7 @@
 import { describe, expect, it } from '@effect/vitest'
 import { Effect, Stream } from 'effect'
-import { ChunkSystemRepository } from './repository.js'
-import { ChunkSystemError } from './types.js'
+import { ChunkSystemRepository } from './repository'
+import { ChunkSystemError } from './types'
 
 describe('chunk_system/repository tag', () => {
   it.effect('Context tag resolves provided service', () =>

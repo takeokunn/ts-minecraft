@@ -18,6 +18,7 @@ import {
   validateCropAggregateEither,
 } from './aggregates'
 import { DomainConstants } from './types'
+import * as ValueObjects from './value_objects'
 import {
   BreedingOutcome,
   HydrationState,
@@ -27,7 +28,6 @@ import {
   makeMoistureLevel,
   makeSoilQuality,
 } from './value_objects'
-import * as ValueObjects from './value_objects'
 
 const propertyConfig: fc.Parameters = { numRuns: 48 }
 
@@ -37,9 +37,21 @@ const cropInputArbitrary = fc.record({
   moisture: fc.integer({ min: DomainConstants.moistureLevel.min, max: DomainConstants.moistureLevel.max }),
   soil: fc.integer({ min: DomainConstants.soilQuality.min, max: DomainConstants.soilQuality.max }),
   stats: fc.record({
-    fertility: fc.float({ min: DomainConstants.breedingFactor.min, max: DomainConstants.breedingFactor.max, noNaN: true }),
-    resilience: fc.float({ min: DomainConstants.breedingFactor.min, max: DomainConstants.breedingFactor.max, noNaN: true }),
-    harmony: fc.float({ min: DomainConstants.breedingFactor.min, max: DomainConstants.breedingFactor.max, noNaN: true }),
+    fertility: fc.float({
+      min: DomainConstants.breedingFactor.min,
+      max: DomainConstants.breedingFactor.max,
+      noNaN: true,
+    }),
+    resilience: fc.float({
+      min: DomainConstants.breedingFactor.min,
+      max: DomainConstants.breedingFactor.max,
+      noNaN: true,
+    }),
+    harmony: fc.float({
+      min: DomainConstants.breedingFactor.min,
+      max: DomainConstants.breedingFactor.max,
+      noNaN: true,
+    }),
   }),
 })
 
@@ -67,8 +79,7 @@ describe('domain/agriculture/aggregates', () => {
         expect(aggregate.plantedAt).toStrictEqual(aggregate.updatedAt)
       }),
       propertyConfig
-    )
-  )
+    ))
 
   it('makeCropAggregateEitherは不正な識別子で失敗する', () =>
     Effect.runSync(
@@ -104,8 +115,7 @@ describe('domain/agriculture/aggregates', () => {
           })
         )
       })
-    )
-  )
+    ))
 
   it.effect('hydrate/enrich/advance/breedは状態を更新し更新日時を前進させる', () =>
     Effect.gen(function* () {
@@ -129,9 +139,7 @@ describe('domain/agriculture/aggregates', () => {
       const partner = yield* makeBreedingStats({ fertility: 0.6, resilience: 0.4, harmony: 0.8 })
       const bred = yield* breedCrop({ crop: advanced, partner })
       expect(bred.stats.fertility).toBeCloseTo((advanced.stats.fertility + partner.fertility) / 2)
-      expect(DateTime.toEpochMillis(bred.updatedAt)).toBeGreaterThanOrEqual(
-        DateTime.toEpochMillis(advanced.updatedAt)
-      )
+      expect(DateTime.toEpochMillis(bred.updatedAt)).toBeGreaterThanOrEqual(DateTime.toEpochMillis(advanced.updatedAt))
     })
   )
 
@@ -162,7 +170,9 @@ describe('domain/agriculture/aggregates', () => {
     expect(stable._tag).toBe(CropProjection.Stable({ remainAt: aggregate.updatedAt })._tag)
 
     const improved = Effect.runSync(projectCropTrajectory({ crop: aggregate, steps: 3 }))
-    expect(improved._tag).toBe(CropProjection.Improving({ projectedStage: aggregate.stage, at: aggregate.updatedAt })._tag)
+    expect(improved._tag).toBe(
+      CropProjection.Improving({ projectedStage: aggregate.stage, at: aggregate.updatedAt })._tag
+    )
 
     const spy = vi.spyOn(ValueObjects, 'advanceGrowthStage')
     spy.mockImplementation(({ stage }) => Effect.succeed(stage))
@@ -174,7 +184,9 @@ describe('domain/agriculture/aggregates', () => {
     spy.mockImplementation(() => Effect.succeed(decreasedStage))
 
     const mockedDegrade = Effect.runSync(projectCropTrajectory({ crop: aggregate, steps: 1 }))
-    expect(mockedDegrade._tag).toBe(CropProjection.Degrading({ projectedStage: aggregate.stage, at: aggregate.updatedAt })._tag)
+    expect(mockedDegrade._tag).toBe(
+      CropProjection.Degrading({ projectedStage: aggregate.stage, at: aggregate.updatedAt })._tag
+    )
     spy.mockRestore()
   })
 
@@ -200,9 +212,7 @@ describe('domain/agriculture/aggregates', () => {
     Effect.gen(function* () {
       const aggregate = yield* makeAggregate()
       const validatedAggregate = yield* validateCropAggregate(aggregate)
-      expect(DateTime.toEpochMillis(validatedAggregate.plantedAt)).toBe(
-        DateTime.toEpochMillis(aggregate.plantedAt)
-      )
+      expect(DateTime.toEpochMillis(validatedAggregate.plantedAt)).toBe(DateTime.toEpochMillis(aggregate.plantedAt))
       const payload = {
         id: aggregate.id,
         stage: Number(aggregate.stage),

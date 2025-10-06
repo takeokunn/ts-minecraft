@@ -4,11 +4,11 @@ import { Effect, Layer, Stream } from 'effect'
 import * as fc from 'effect/FastCheck'
 import { randomUUID } from 'node:crypto'
 import { provideLayers } from '../../testing/effect'
-import { ChunkCommand } from './commands.js'
-import { makeInitialState } from './model.js'
-import { memoryRepositoryLayer } from './repository.memory.js'
-import { chunkSystemLayer, ChunkSystemService } from './services.js'
-import { ChunkRequestSchema, ChunkSystemConfigSchema } from './types.js'
+import { ChunkCommand } from './commands'
+import { makeInitialState } from './model'
+import { memoryRepositoryLayer } from './repository.memory'
+import { chunkSystemLayer, ChunkSystemService } from './services'
+import { ChunkRequestSchema, ChunkSystemConfigSchema } from './types'
 
 const config = Effect.runSync(
   Schema.decodeUnknown(ChunkSystemConfigSchema)({

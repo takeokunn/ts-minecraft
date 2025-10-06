@@ -1,5 +1,5 @@
 import { Data, Effect, Layer, Match, Option, pipe } from 'effect'
-import type { SceneCameraApplicationService } from './service.js'
+import type { SceneCameraApplicationService } from './index'
 import type {
   CinematicSequence,
   FollowMode,
@@ -11,11 +11,11 @@ import type {
   SceneTarget,
   SequenceExecutionError,
   SequenceId,
-} from './types.js'
-import { createSceneCameraApplicationError, createSequenceExecutionResult } from './types.js'
+} from './index'
+import { createSceneCameraApplicationError, createSequenceExecutionResult } from './index'
 
 // Imported service types
-import type { OptimizationResult, SceneCameraDebugInfo, SceneStatistics, SequenceValidationResult } from './service.js'
+import type { OptimizationResult, SceneCameraDebugInfo, SceneStatistics, SequenceValidationResult } from './index'
 
 // Domain Service Dependencies
 import type {
@@ -24,17 +24,17 @@ import type {
   CollisionDetectionService,
   SettingsValidatorService,
   ViewModeManagerService,
-} from '../../domain_service/index.js'
+} from '../../domain_service/index'
 
 // Repository Dependencies
 import type {
   AnimationHistoryRepository,
   CameraStateRepository,
   SettingsStorageRepository,
-} from '../../repository/index.js'
+} from '../../repository/index'
 
 // Value Object Dependencies
-import type { Position3D } from '../../value_object/index.js'
+import type { Position3D } from '../../value_object/index'
 
 /**
  * Scene Camera Application Service Live Implementation

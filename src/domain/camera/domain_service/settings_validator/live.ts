@@ -33,8 +33,8 @@ import type {
   ValidationWarning,
   ViewModeType,
   ViewModeValidationResult,
-} from './service'
-import { CompatibilityResult, SettingsValidationError, SettingsValidatorService } from './service'
+} from './index'
+import { CompatibilityResult, SettingsValidationError, SettingsValidatorService } from './index'
 
 /**
  * 設定検証サービスのLive実装

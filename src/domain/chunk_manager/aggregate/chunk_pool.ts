@@ -1,4 +1,4 @@
-import type { ChunkId } from '@domain/chunk/value_object/chunk_id/types'
+import type { ChunkId } from '@domain/chunk'
 import { Clock, Effect, HashMap, Match, Option, Ref, pipe } from 'effect'
 import {
   DefaultChunkManagerConfig,
@@ -11,7 +11,7 @@ import {
   type ChunkLifetime,
   type ChunkManagerConfig,
   type LifecycleStage,
-} from '../types/core'
+} from '../types'
 import {
   makeActivationError,
   makeConfigError,
@@ -20,9 +20,9 @@ import {
   type ConfigError,
   type DeactivationError,
   type PoolMetricsError,
-} from '../types/errors'
-import { AutoManagementConfig, LifecycleStats, PoolMetrics, makeAutoManagementConfig } from '../types/interfaces'
-import { activateStage, createInitializedStage, deactivateStage } from '../value_object/lifecycle_stage/lifecycle_stage'
+} from '../types'
+import { AutoManagementConfig, LifecycleStats, PoolMetrics, makeAutoManagementConfig } from '../types'
+import { activateStage, createInitializedStage, deactivateStage } from '../value_object/lifecycle_stage'
 import {
   averageActivationDuration,
   averageDeactivationDuration,
@@ -31,13 +31,13 @@ import {
   recordDeactivation,
   setMemoryPressure,
   toLifecycleStats,
-} from '../value_object/lifecycle_stage/lifecycle_stats'
+} from '../value_object/lifecycle_stage'
 import {
   computeMemoryPressure,
   makeMemoryUsage,
   makePerformanceMetrics,
   makePoolMetrics,
-} from '../value_object/pool_metrics/pool_metrics'
+} from '../value_object/pool_metrics'
 
 const bytesPerChunk = 262_144
 const defaultCoreConfig = DefaultChunkManagerConfig

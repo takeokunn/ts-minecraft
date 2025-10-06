@@ -6,9 +6,9 @@
  */
 
 import { Context, Effect, Layer, Schema } from 'effect'
-import { type GenerationError } from '../../types/errors/generation_errors.js'
-import type { BoundingBox, WorldCoordinate } from '../../value_object/coordinates/world_coordinate.js'
-import type { WorldSeed } from '../../value_object/world_seed/seed.js'
+import { type GenerationError } from '@domain/world/types/errors'
+import type { BoundingBox, WorldCoordinate } from '@domain/world/value_object/coordinates'
+import type { WorldSeed } from '@domain/world/value_object/world_seed'
 
 /**
  * 洞窟ネットワーク - 連結された洞窟システム

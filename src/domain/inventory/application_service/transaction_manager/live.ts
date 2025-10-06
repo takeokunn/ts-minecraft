@@ -6,14 +6,14 @@
  */
 
 import { Effect, Layer, Ref } from 'effect'
-import type { TransferService } from '../../domain_service/transfer_service/service'
-import type { ValidationService } from '../../domain_service/validation_service/service'
-import type { ContainerRepository } from '../../repository/container_repository/interface'
-import type { InventoryRepository } from '../../repository/inventory_repository/interface'
-import type { InventoryService } from '../../service'
-import type { InventoryApplicationError } from '../types/errors'
-import { TransactionManagerApplicationService } from './service'
-import { makeTransactionWorkflows } from './workflows'
+import type { TransferService } from '../../domain_service/transfer_service'
+import type { ValidationService } from '../../domain_service/validation_service'
+import type { ContainerRepository } from '../../repository/container_repository'
+import type { InventoryRepository } from '../../repository/inventory_repository'
+import type { InventoryService } from '../..'
+import type { InventoryApplicationError } from '../types'
+import { TransactionManagerApplicationService } from './index'
+import { makeTransactionWorkflows } from './index'
 
 /**
  * TransactionManagerApplicationService Live実装

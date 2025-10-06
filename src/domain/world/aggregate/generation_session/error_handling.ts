@@ -9,7 +9,7 @@
  */
 
 import { Effect, Schema } from 'effect'
-import type * as GenerationErrors from '../../types/errors/generation_errors.js'
+import type * as GenerationErrors from '@domain/world/types/errors'
 
 // ================================
 // Error Categories

@@ -3,7 +3,7 @@ import * as Either from 'effect/Either'
 import { pipe } from 'effect/Function'
 import * as Schema from 'effect/Schema'
 
-import type { FramesPerSecond, Timestamp } from './core'
+import type { FramesPerSecond, Timestamp } from './index'
 
 /**
  * GameLoop ドメインのエラー ADT

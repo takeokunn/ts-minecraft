@@ -35,16 +35,16 @@ export {
   type WorldConfigurationBuilder,
   // Main Factory Interface
   type WorldConfigurationFactory,
-} from './factory.js'
+} from './index'
 
 // ================================
 // Convenience Functions
 // ================================
 
 import { Effect } from 'effect'
-import type * as WorldConfiguration from './factory.js'
-import type { ConfigurationPresetType, OptimizationMode, ValidationStrictness } from './factory.js'
-import { createWorldConfigurationBuilder } from './factory.js'
+import type * as WorldConfiguration from './index'
+import type { ConfigurationPresetType, OptimizationMode, ValidationStrictness } from './index'
+import { createWorldConfigurationBuilder } from './index'
 
 export const createQuickConfiguration = (): Effect.Effect<WorldConfiguration.WorldConfiguration, never> =>
   createWorldConfigurationBuilder().build().pipe(Effect.orDie)

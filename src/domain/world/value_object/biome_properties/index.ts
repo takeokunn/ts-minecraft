@@ -33,7 +33,7 @@ export {
   type TemperatureRange,
   type TemperatureRangeError,
   type WindChillIndex,
-} from './temperature_range.js'
+} from './index'
 
 // 湿度レベル設定
 export {
@@ -65,7 +65,7 @@ export {
   type SeasonalHumidityVariation,
   type VaporPressure,
   type WaterVaporCharacteristics,
-} from './humidity_levels.js'
+} from './index'
 
 // 植生密度設定
 export {
@@ -97,7 +97,7 @@ export {
   type VegetationInteraction,
   type VegetationLayer,
   type VegetationType,
-} from './vegetation_density.js'
+} from './index'
 
 // 土壌組成設定
 export {
@@ -131,7 +131,7 @@ export {
   type SoilPhysicalProperties,
   type SoilStructure,
   type SoilTexture,
-} from './soil_composition.js'
+} from './index'
 
 /**
  * バイオーム特性ファクトリ

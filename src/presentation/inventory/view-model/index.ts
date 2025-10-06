@@ -1,1 +1,2 @@
-export * from './inventory-view-model'
+export * from './index'
+export * from './inventory-view-model';

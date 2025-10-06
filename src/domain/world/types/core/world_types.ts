@@ -4,7 +4,7 @@
  */
 
 import { Brand, Schema } from 'effect'
-import { WORLD_CONSTANTS } from '../constants/world_constants'
+import { WORLD_CONSTANTS } from '../constants'
 
 // === 基本識別子型 ===
 

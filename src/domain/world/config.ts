@@ -1,5 +1,5 @@
 import { Effect, Match, Schema } from 'effect'
-import type { WorldRepositoryLayerConfig } from './repository'
+import type { WorldRepositoryLayerConfig } from '@domain/world/repository'
 
 const PerformanceModeSchema = Schema.Literal('quality', 'balanced', 'performance')
 const BooleanSchema = Schema.Boolean

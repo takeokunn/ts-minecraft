@@ -2,8 +2,8 @@ import type { ComponentTypeName } from '@domain/entities/types'
 import { Schema } from '@effect/schema'
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
 import { Clock, Context, Data, Effect, HashMap, Layer, Match, Option, pipe, Ref, Stream } from 'effect'
-import type { ComponentDefinition } from './component-definition'
-import { ComponentRegistryService } from './component-registry'
+import type { ComponentDefinition } from './index'
+import { ComponentRegistryService } from './index'
 import {
   createArchetypeManager,
   createComponentStorage,
@@ -12,9 +12,9 @@ import {
   type EntityId,
   type EntityMetadata,
   type EntityPoolError,
-} from './entity'
-import type { SystemError } from './system'
-import { SystemRegistryService } from './system-registry'
+} from './index'
+import type { SystemError } from './index'
+import { SystemRegistryService } from './index'
 
 // =====================================
 // Entity Manager Errors

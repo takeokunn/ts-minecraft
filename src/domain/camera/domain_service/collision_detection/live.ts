@@ -15,8 +15,8 @@ import type {
   PathCollisionInfo,
   RaycastHit,
   TerrainCollisionData,
-} from './service'
-import { CollisionDetectionService, CollisionObject, CollisionResult } from './service'
+} from './index'
+import { CollisionDetectionService, CollisionObject, CollisionResult } from './index'
 
 /**
  * 衝突検出サービスのLive実装

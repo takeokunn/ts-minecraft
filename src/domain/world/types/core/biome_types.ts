@@ -4,8 +4,8 @@
  */
 
 import { Brand, Schema } from 'effect'
-import { BIOME_CONSTANTS } from '../constants/biome_constants'
-import { RectangularArea } from './coordinate_types'
+import { BIOME_CONSTANTS } from '../constants'
+import { RectangularArea } from './index'
 
 // === バイオーム識別子型 ===
 
@@ -452,7 +452,7 @@ export interface BiomeTransitionRule {
 export const BiomeTransitionRuleSchema = Schema.Struct({
   from: BiomeIdSchema,
   to: BiomeIdSchema,
-  transitionZone: Schema.suspend(() => import('./coordinate_types').then((m) => m.RectangularAreaSchema)),
+  transitionZone: Schema.suspend(() => import('./index').then((m) => m.RectangularAreaSchema)),
   blendFunction: Schema.Literal('linear', 'smooth', 'step'),
   blendDistance: Schema.Number.pipe(Schema.int(), Schema.between(1, 64)),
 }).pipe(

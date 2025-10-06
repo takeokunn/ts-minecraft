@@ -29,4 +29,4 @@ export {
   type RepositoryConfig,
   // Strategy Types
   type RepositoryStrategyType,
-} from './repository_strategy'
+} from './index'

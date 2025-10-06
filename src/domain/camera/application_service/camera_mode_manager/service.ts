@@ -1,5 +1,5 @@
 import { Array, Context, Effect, Option } from 'effect'
-import type { CameraId, ViewMode } from '../../types/index.js'
+import type { CameraId, ViewMode } from '@domain/camera/types'
 import type {
   CameraModeManagerApplicationError,
   CameraModeSwitchOperation,
@@ -10,7 +10,7 @@ import type {
   ViewModeRecommendation,
   ViewModeTransitionConfig,
   ViewModeTransitionResult,
-} from './types.js'
+} from './index'
 
 /**
  * Camera Mode Manager Application Service Interface

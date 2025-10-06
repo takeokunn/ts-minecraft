@@ -11,7 +11,7 @@ import {
   ChunkSystemError,
   EpochMillisecondsSchema,
   ResourceBudgetSchema,
-} from './types.js'
+} from './types'
 
 const epochArbitrary = fc.integer({ min: 0, max: 1_000_000 })
 const chunkIdArbitrary = fc.string({ minLength: 1, maxLength: 32 }).filter((value) => /^[a-z0-9\-_/]+$/.test(value))

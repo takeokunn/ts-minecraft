@@ -41,13 +41,15 @@ describe('domain/scene/scenes/game', () => {
             Effect.gen(function* () {
               const controller = yield* createGameSceneController()
               yield* Effect.reduce(deltas, 0, (_, delta) =>
-                Match.value(delta).pipe(
-                  Match.when(
-                    (value) => value >= 0,
-                    (value) => controller.heal(value)
-                  ),
-                  Match.orElse((value) => controller.applyDamage(Math.abs(value)))
-                ).pipe(Effect.asVoid)
+                Match.value(delta)
+                  .pipe(
+                    Match.when(
+                      (value) => value >= 0,
+                      (value) => controller.heal(value)
+                    ),
+                    Match.orElse((value) => controller.applyDamage(Math.abs(value)))
+                  )
+                  .pipe(Effect.asVoid)
               )
               const state = yield* controller.current()
               expect(state.playerState.health).toBeGreaterThanOrEqual(0)
@@ -56,6 +58,5 @@ describe('domain/scene/scenes/game', () => {
             })
           )
       )
-    )
-  )
+    ))
 })

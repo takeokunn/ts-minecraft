@@ -1,5 +1,5 @@
 import { Data } from 'effect'
-import type { BlockId } from '../../value_object/block_identity'
+import type { BlockId } from '../../value_object'
 
 type RepositoryErrorDefinition = Data.TaggedEnum<{
   AlreadyExists: { readonly id: BlockId }

@@ -1,8 +1,8 @@
 import * as Schema from '@effect/schema/Schema'
 import { Effect, Match } from 'effect'
 import { pipe } from 'effect/Function'
-import { ViewFrustum, isWithinFrustum } from './frustum.js'
-import { CullableObject, CullingDecision, CullingDecisionSchema, ViewDistanceError } from './types.js'
+import { ViewFrustum, isWithinFrustum } from './index'
+import { CullableObject, CullingDecision, CullingDecisionSchema, ViewDistanceError } from './index'
 
 export interface CullingStrategy {
   readonly cull: (

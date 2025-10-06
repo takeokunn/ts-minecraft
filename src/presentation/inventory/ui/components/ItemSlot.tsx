@@ -1,7 +1,7 @@
 import type { JSX } from 'react'
 
 import { Effect, Match, Option, pipe } from 'effect'
-import type { InventorySlot, InventoryTheme } from '../../adt/inventory-adt'
+import type { InventorySlot, InventoryTheme } from '../../adt'
 
 export interface ItemSlotVisualStyle {
   readonly backgroundColor: string

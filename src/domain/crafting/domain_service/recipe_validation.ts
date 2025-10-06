@@ -1,5 +1,5 @@
 import { Context, Effect, Layer } from 'effect'
-import { RecipeValidationReport, validateRecipe, validateRecipeStructure } from '../aggregate/recipe'
+import { RecipeValidationReport, validateRecipe, validateRecipeStructure } from '../aggregate'
 import { CraftingRecipe, InvalidRecipeError } from '../types'
 
 export interface RecipeValidationService {

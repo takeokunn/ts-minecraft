@@ -1,3 +1,3 @@
-export * from './layer'
+export * from './index'
 export * from './legacy'
 export * from './types'

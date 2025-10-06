@@ -6,8 +6,8 @@
  */
 
 import { Brand, Data, Option, Schema } from 'effect'
-import type { CameraId, CameraRotation, CameraSettings, Position3D } from '../../types/index.js'
-import type { ViewMode } from '../../value_object/index.js'
+import type { CameraId, CameraRotation, CameraSettings, Position3D } from '@domain/camera/types'
+import type { ViewMode } from '../../value_object/index'
 
 // ========================================
 // Repository専用Brand型定義

@@ -11,7 +11,7 @@ import {
   RendererTargetId,
   RgbColor,
   Viewport,
-} from './renderer-service'
+} from './index'
 
 const makeInitialSnapshot = (): RendererSnapshot => ({
   target: Option.none(),

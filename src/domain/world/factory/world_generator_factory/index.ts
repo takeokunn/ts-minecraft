@@ -46,7 +46,7 @@ export {
   type PresetType,
   // Main Factory Interface
   type WorldGeneratorFactory,
-} from './factory.js'
+} from './index'
 
 // ================================
 // Builder Pattern
@@ -67,7 +67,7 @@ export {
   type ValidationState,
   // Builder Interface
   type WorldGeneratorBuilder,
-} from './builder.js'
+} from './index'
 
 // ================================
 // Presets System
@@ -86,7 +86,7 @@ export {
   PresetRegistry,
   // Preset Types
   type PresetDefinition,
-} from './presets.js'
+} from './index'
 
 // ================================
 // Validation System
@@ -103,17 +103,17 @@ export {
   type ValidationLevel,
   type ValidationResult,
   type ValidationSeverity,
-} from './validation.js'
+} from './index'
 
 // ================================
 // Convenience Functions
 // ================================
 
 import { Effect, Layer } from 'effect'
-import type * as WorldGenerator from '../../aggregate/world_generator/world_generator.js'
-import { createBuilder } from './builder.js'
-import type { PresetType } from './factory.js'
-import { WorldGeneratorFactoryLive, WorldGeneratorFactoryTag } from './factory.js'
+import type * as WorldGenerator from '@domain/world/aggregate/world_generator'
+import { createBuilder } from './index'
+import type { PresetType } from './index'
+import { WorldGeneratorFactoryLive, WorldGeneratorFactoryTag } from './index'
 
 /**
  * 簡単なWorldGenerator作成
@@ -313,7 +313,7 @@ export type {
   // Core types from aggregates
   WorldGenerator,
   WorldGeneratorId,
-} from '../../aggregate/world_generator/world_generator.js'
+} from '@domain/world/aggregate/world_generator'
 
 // ================================
 // Version Information
@@ -329,3 +329,5 @@ export const FACTORY_FEATURES = [
   'Batch Generation',
   'Custom Configuration',
 ] as const
+export * from './index';
+export * from '@domain/world/factory';

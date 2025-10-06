@@ -6,8 +6,8 @@
  */
 
 import { Effect, Option } from 'effect'
-import { CameraError } from '../../types/errors.js'
-import { CameraId } from '../../types/events.js'
+import { CameraError } from '@domain/camera/types'
+import { CameraId } from '@domain/camera/types'
 import {
   CameraDistance,
   CameraRotation,
@@ -18,8 +18,8 @@ import {
   SettingsFactory,
   ViewMode,
   ViewModeFactory,
-} from '../../value_object/index.js'
-import { Camera } from './camera.js'
+} from '../../value_object/index'
+import { Camera } from './index'
 
 /**
  * Camera Snapshot Type

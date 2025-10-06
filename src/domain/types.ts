@@ -6,11 +6,11 @@
  */
 
 // Chunk Domain
-export { ChunkDataProvider } from './chunk/types/interfaces'
-export type { ChunkInput } from './chunk/types/interfaces'
+export { ChunkDataProvider } from './chunk/types'
+export type { ChunkInput } from './chunk/types'
 
 // Chunk Loader Domain
-export { ChunkLoadingProvider } from './chunk_loader/types/interfaces'
+export { ChunkLoadingProvider } from './chunk_loader/types'
 export type {
   CacheStatus,
   ChunkLoadRequest,
@@ -20,7 +20,7 @@ export type {
   PreloadError,
   SessionId,
   SessionNotFoundError,
-} from './chunk_loader/types/interfaces'
+} from './chunk_loader/types'
 
 // Chunk Manager Domain
 export {
@@ -28,14 +28,14 @@ export {
   ChunkLifecycleProvider,
   ConfigError,
   DeactivationError,
-} from './chunk_manager/types/interfaces'
+} from './chunk_manager/types'
 export type {
   AutoManagementConfig,
   LifecycleInput,
   LifecycleStats,
   PoolMetrics,
   SystemLoad,
-} from './chunk_manager/types/interfaces'
+} from './chunk_manager/types'
 
 // View Distance Domain
 export {
@@ -45,7 +45,7 @@ export {
   createViewDistanceToolkit,
   createViewFrustum,
   createViewSettingsRepository,
-} from './view_distance/index.js'
+} from './view_distance/index'
 export type {
   CameraState,
   CullingDecision,
@@ -54,4 +54,4 @@ export type {
   ViewControlContext,
   ViewControlResult,
   ViewDistanceEvent,
-} from './view_distance/index.js'
+} from './view_distance/index'

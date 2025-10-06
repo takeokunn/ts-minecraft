@@ -5,8 +5,8 @@
  * 型安全でシリアライズ可能なコンポーネントシステムを提供
  */
 
-export * from './component'
-export * from './component-registry'
+export * from './index'
+export * from './index'
 // entity.tsからのエクスポート（EntityIdとEntityMetadataを含む）
 export {
   EntityPool,
@@ -20,9 +20,18 @@ export {
   type EntityId,
   type EntityMetadata,
   type EntityPoolStats,
-} from './entity'
-export * from './entity-manager'
-export * from './system'
-export * from './system-registry'
+} from './index'
+export * from './index'
+export * from './index'
+export * from './index'
 // world.tsからのエクスポート（EntityIdとEntityMetadataは除外）
-export { World, WorldError, WorldLive, type WorldStats } from './world'
+export { World, WorldError, WorldLive, type WorldStats } from './index'
+export * from './index';
+export * from './index';
+export * from './index';
+export * from './system';
+export * from './system-registry';
+export * from './entity';
+export * from './component-registry';
+export * from './component-definition';
+export * from './component';

@@ -7,14 +7,13 @@
 
 import { Schema } from '@effect/schema'
 import { Clock, Context, Effect, Layer, Match, Option, pipe, Predicate, Ref } from 'effect'
-import type { EntityId } from './entity'
-import { createEntityId } from './entity'
-import type { System, SystemPriority } from './system'
-import { SystemError } from './system'
-import { SystemRegistryError, SystemRegistryService } from './system-registry'
+import type { EntityId } from './index'
+import { createEntityId } from './index'
+import type { System, SystemError, SystemPriority } from './index'
+import { SystemRegistryError, SystemRegistryService } from './index'
 
 // EntityIdを再エクスポート
-export { type EntityId } from './entity'
+export { type EntityId } from './index'
 
 /**
  * ワールドエラー
@@ -152,7 +151,7 @@ export interface World {
    * システムを登録
    */
   readonly registerSystem: (
-    system: System,
+    system: System<World>,
     priority?: SystemPriority,
     order?: number
   ) => Effect.Effect<void, SystemRegistryError>
@@ -557,7 +556,7 @@ export const WorldLive = Layer.effect(
     /**
      * システムを登録
      */
-    const registerSystem = (system: System, priority?: SystemPriority, order?: number) =>
+    const registerSystem = (system: System<World>, priority?: SystemPriority, order?: number) =>
       Effect.gen(function* () {
         yield* systemRegistry.register(system, priority, order)
 

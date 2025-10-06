@@ -17,9 +17,12 @@ export {
 
   // Types
   type ChunkSearchCriteria,
-} from './interface'
+} from './index'
 
 export {
   // Implementation
   ChunkQueryRepositoryLive,
-} from './implementation'
+} from './index'
+export * from './index';
+export * from './index';
+export * from './interface';

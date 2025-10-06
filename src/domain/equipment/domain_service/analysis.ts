@@ -1,6 +1,6 @@
 import { Effect } from 'effect'
-import type { EquipmentSet } from '../aggregate/equipment_set'
-import { equipmentSlotLiterals } from '../value_object/slot'
+import type { EquipmentSet } from '../aggregate'
+import { equipmentSlotLiterals } from '../value_object'
 
 export interface EquipmentAnalysisSummary {
   readonly totalWeight: number

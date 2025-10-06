@@ -1,10 +1,10 @@
 import { Context, Effect, Layer, Ref } from 'effect'
-import type { EquipmentPiece } from '../aggregate/equipment_piece'
-import type { EquipmentSet } from '../aggregate/equipment_set'
-import { equipPiece, unequipSlot } from '../aggregate/equipment_set'
-import type { EquipmentOwnerId, EquipmentSetId, NotFound, UnixTime } from '../types/core'
-import { makeNotFound } from '../types/core'
-import type { EquipmentSlot } from '../value_object/slot'
+import type { EquipmentPiece } from '../aggregate'
+import type { EquipmentSet } from '../aggregate'
+import { equipPiece, unequipSlot } from '../aggregate'
+import type { EquipmentOwnerId, EquipmentSetId, NotFound, UnixTime } from '@domain/equipment/types'
+import { makeNotFound } from '@domain/equipment/types'
+import type { EquipmentSlot } from '../value_object'
 
 export interface EquipmentRepository {
   readonly load: (id: EquipmentSetId) => Effect.Effect<EquipmentSet, NotFound>

@@ -1,5 +1,5 @@
 import { Brand, Schema } from 'effect'
-import { CameraDistance } from './types'
+import { CameraDistance } from './index'
 
 /**
  * CameraDistance Brand型用Schema

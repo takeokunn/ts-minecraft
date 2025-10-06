@@ -3,12 +3,12 @@ import * as Data from 'effect/Data'
 import * as Effect from 'effect/Effect'
 import { pipe } from 'effect/Function'
 import * as Layer from 'effect/Layer'
-import { BlockFactory, BlockFactoryLive } from '../factory/block_factory'
-import { BlockRepository, BlockRepositoryLayer } from '../repository/block_repository'
-import type { BlockRepositoryError } from '../repository/types/repository_error'
-import type { BlockDefinition, BlockDefinitionError } from '../types/block_definition'
-import { makeInteractiveBlock, makeLiquidBlock, makeStandardBlock } from '../types/block_definition'
-import type { BlockId, BlockTag } from '../value_object/block_identity'
+import { BlockFactory, BlockFactoryLive } from '../factory'
+import { BlockRepository, BlockRepositoryLayer } from '../repository'
+import type { BlockRepositoryError } from '../repository/types'
+import type { BlockDefinition, BlockDefinitionError } from '../types'
+import { makeInteractiveBlock, makeLiquidBlock, makeStandardBlock } from '../types'
+import type { BlockId, BlockTag } from '../value_object'
 
 export type BlockRegistryError = Data.TaggedEnum<{
   DefinitionError: { readonly cause: BlockDefinitionError }

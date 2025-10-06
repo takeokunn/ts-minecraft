@@ -8,11 +8,11 @@
  */
 
 import { Brand, Effect, Schema } from 'effect'
-import type * as GenerationErrors from '../../types/errors/generation_errors.js'
-import * as BiomeProperties from '../../value_object/biome_properties/index.js'
-import * as GenerationParameters from '../../value_object/generation_parameters/index.js'
-import * as NoiseConfiguration from '../../value_object/noise_configuration/index.js'
-import * as WorldSeed from '../../value_object/world_seed/index.js'
+import type * as GenerationErrors from '@domain/world/types/errors'
+import * as BiomeProperties from '@domain/world/value_object/biome_properties/index'
+import * as GenerationParameters from '@domain/world/value_object/generation_parameters/index'
+import * as NoiseConfiguration from '@domain/world/value_object/noise_configuration/index'
+import * as WorldSeed from '@domain/world/value_object/world_seed/index'
 
 // ================================
 // Generation Context ID

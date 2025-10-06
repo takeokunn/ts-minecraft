@@ -32,16 +32,16 @@ export {
   type ValidationIssue,
   type ValidationLevel,
   type ValidationResult,
-} from './factory.js'
+} from './index'
 
 // ================================
 // Convenience Functions
 // ================================
 
 import { Effect } from 'effect'
-import type * as BiomeSystem from '../../aggregate/biome_system/biome_system.js'
-import type { BiomePresetType, PerformanceProfile } from './factory.js'
-import { createBiomeSystemBuilder } from './factory.js'
+import type * as BiomeSystem from '@domain/world/aggregate/biome_system'
+import type { BiomePresetType, PerformanceProfile } from './index'
+import { createBiomeSystemBuilder } from './index'
 
 export const createDefaultBiomeSystem = (): Effect.Effect<BiomeSystem.BiomeSystem, never> =>
   createBiomeSystemBuilder()

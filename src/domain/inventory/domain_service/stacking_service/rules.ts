@@ -8,7 +8,7 @@
 
 import { Effect, Match, pipe } from 'effect'
 import type { ItemId, ItemMetadata, ItemStack } from '../../types'
-import type { MetadataConflict, StackCompatibility, StackIncompatibilityReason } from './service'
+import type { MetadataConflict, StackCompatibility, StackIncompatibilityReason } from './index'
 
 // =============================================================================
 // Core Stacking Rules

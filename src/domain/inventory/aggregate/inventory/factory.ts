@@ -5,7 +5,7 @@
 
 import { Context, Effect, Schema } from 'effect'
 import { nanoid } from 'nanoid'
-import type { PlayerId } from '../../types.js'
+import type { PlayerId } from '../../types'
 import type {
   ArmorSlot,
   HotbarSlot,
@@ -14,8 +14,8 @@ import type {
   InventoryId,
   InventorySlot,
   SlotIndex,
-} from './types.js'
-import { INVENTORY_CONSTANTS, InventoryAggregateError, InventoryAggregateSchema } from './types.js'
+} from './types'
+import { INVENTORY_CONSTANTS, InventoryAggregateError, InventoryAggregateSchema } from './types'
 
 // ===== Factory Interface =====
 

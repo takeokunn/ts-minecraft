@@ -7,8 +7,8 @@ import type {
   KeyCode,
   MouseButton,
   Vector2 as Vector2Type,
-} from './model'
-import { InputTimestamp, MouseDelta, Vector2 } from './model'
+} from './index'
+import { InputTimestamp, MouseDelta, Vector2 } from './index'
 
 export type AxisState = HashMap.HashMap<AxisId, AxisValue>
 

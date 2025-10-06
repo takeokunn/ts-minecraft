@@ -3,22 +3,22 @@
  * 定数の統合エクスポート
  */
 
-export * from './biome_constants'
-export * from './generation_constants'
-export * from './noise_constants'
-export * from './world_constants'
+export * from './index'
+export * from './index'
+export * from './index'
+export * from './index'
 
 // 個別定数オブジェクトの再エクスポート
-export { BIOME_CONSTANTS } from './biome_constants'
-export { GENERATION_CONSTANTS } from './generation_constants'
-export { NOISE_CONSTANTS } from './noise_constants'
-export { WORLD_CONSTANTS } from './world_constants'
+export { BIOME_CONSTANTS } from './index'
+export { GENERATION_CONSTANTS } from './index'
+export { NOISE_CONSTANTS } from './index'
+export { WORLD_CONSTANTS } from './index'
 
 // 統合定数オブジェクト
-import { BIOME_CONSTANTS } from './biome_constants'
-import { GENERATION_CONSTANTS } from './generation_constants'
-import { NOISE_CONSTANTS } from './noise_constants'
-import { WORLD_CONSTANTS } from './world_constants'
+import { BIOME_CONSTANTS } from './index'
+import { GENERATION_CONSTANTS } from './index'
+import { NOISE_CONSTANTS } from './index'
+import { WORLD_CONSTANTS } from './index'
 
 export const WORLD_DOMAIN_CONSTANTS = {
   WORLD: WORLD_CONSTANTS,
@@ -28,14 +28,14 @@ export const WORLD_DOMAIN_CONSTANTS = {
 } as const
 
 // 検証スキーマの統合エクスポート
-export { ValidChunkCoordinateSchema, ValidHeightSchema, ValidWorldCoordinateSchema } from './world_constants'
+export { ValidChunkCoordinateSchema, ValidHeightSchema, ValidWorldCoordinateSchema } from './index'
 
 export {
   ValidHumiditySchema,
   ValidNoiseValueSchema,
   ValidNormalizedNoiseValueSchema,
   ValidTemperatureSchema,
-} from './generation_constants'
+} from './index'
 
 export {
   ValidBiomeCategorySchema,
@@ -43,7 +43,7 @@ export {
   ValidBiomeIdSchema,
   ValidBiomeTemperatureSchema,
   ValidPrecipitationTypeSchema,
-} from './biome_constants'
+} from './index'
 
 export {
   ValidAmplitudeSchema,
@@ -55,4 +55,7 @@ export {
   ValidOctavesSchema,
   ValidPersistenceSchema,
   ValidSeedSchema,
-} from './noise_constants'
+} from './index'
+export * from './index';
+export * from './index';
+export * from './index';

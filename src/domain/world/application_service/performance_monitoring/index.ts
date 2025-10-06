@@ -17,7 +17,7 @@ export {
   MetricsConfiguration,
   MetricValue,
   PerformanceMetrics,
-} from './metrics_collector.js'
+} from './index'
 
 export type {
   AlertThresholdType,
@@ -26,12 +26,12 @@ export type {
   MetricsConfigurationType,
   MetricValueType,
   PerformanceMetricsType,
-} from './metrics_collector.js'
+} from './index'
 
 // === Integrated Performance Monitoring Service ===
 
 import { Context, Effect, Layer, Ref, Schema } from 'effect'
-import { MetricsCollectorService } from './metrics_collector.js'
+import { MetricsCollectorService } from './index'
 
 /**
  * Performance Monitoring Service Error
@@ -610,4 +610,4 @@ export type {
   BottleneckDetectionResult as BottleneckDetectionResultType,
   OptimizationRecommendation as OptimizationRecommendationType,
   PerformanceMonitoringErrorType,
-} from './index.js'
+} from './index'

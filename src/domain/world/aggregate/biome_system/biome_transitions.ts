@@ -3,7 +3,7 @@
  */
 
 import { Effect, Schema } from 'effect'
-import type { BiomeRegistry } from './biome_registry.js'
+import type { BiomeRegistry } from './index'
 
 export const TransitionRuleSchema = Schema.Struct({
   id: Schema.String,

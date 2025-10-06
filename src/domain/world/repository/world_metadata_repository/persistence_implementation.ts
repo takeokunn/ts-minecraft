@@ -12,18 +12,18 @@ import { Effect, Layer, Option, ReadonlyArray, Ref } from 'effect'
 import * as fs from 'fs'
 import * as path from 'path'
 import * as zlib from 'zlib'
-import { WorldGeneratorIdSchema } from '../../aggregate/world_generator'
-import { WorldClock } from '../../time'
-import type { WorldId } from '../../types'
-import { WorldCoordinateSchema, WorldIdSchema, WorldSeedSchema } from '../../types/core/world_types'
-import type { AllRepositoryErrors } from '../types'
+import { WorldGeneratorIdSchema } from '@domain/world/aggregate/world_generator'
+import { WorldClock } from '../..'
+import type { WorldId } from '@domain/world/types'
+import { WorldCoordinateSchema, WorldIdSchema, WorldSeedSchema } from '@domain/world/types/core'
+import type { AllRepositoryErrors } from '@domain/world/types'
 import {
   createCompressionError,
   createDataIntegrityError,
   createRepositoryError,
   createStorageError,
   createVersioningError,
-} from '../types'
+} from '@domain/world/types'
 import type {
   BackupConfig,
   BackupInfo,
@@ -41,7 +41,7 @@ import type {
   WorldMetadataRepositoryConfig,
   WorldSettings,
   WorldStatistics,
-} from './interface'
+} from './index'
 
 // === Persistence Configuration ===
 

@@ -7,8 +7,8 @@
  */
 
 import { Context, Effect, Option, ReadonlyArray } from 'effect'
-import type { BiomeDefinition, BiomeId, ClimateData, Humidity, Temperature, WorldCoordinate } from '../../types'
-import type { AllRepositoryErrors } from '../types'
+import type { BiomeDefinition, BiomeId, ClimateData, Humidity, Temperature, WorldCoordinate } from '@domain/world/types'
+import type { AllRepositoryErrors } from '@domain/world/types'
 
 // === Spatial Index Types ===
 

@@ -4,10 +4,10 @@
  */
 
 // Inventory Aggregate
-export * from './inventory/index.js'
+export * from './inventory/index'
 
 // ItemStack Entity
-export * from './item_stack/index.js'
+export * from './item_stack/index'
 
 // Container Aggregate
-export * from './container/index.js'
+export * from './container/index'

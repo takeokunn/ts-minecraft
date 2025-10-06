@@ -1,7 +1,7 @@
-import type { BlockTypeId } from '@domain/core/types/brands'
-import type { Vector3D } from '@domain/core/types/spatial'
+import type { BlockTypeId } from '@domain/entities'
+import type { Vector3D } from '@domain/entities'
 import { Context, Effect, Layer, pipe, Ref } from 'effect'
-import { CannonPhysicsService } from './cannon'
+import { CannonPhysicsService } from './index'
 
 /**
  * World Collision Service

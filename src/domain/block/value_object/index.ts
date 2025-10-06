@@ -1,1 +1,2 @@
-export * from './block_identity'
+export * from './index'
+export * from './block_identity';

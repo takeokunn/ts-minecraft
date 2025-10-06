@@ -19,7 +19,7 @@
  */
 
 import { Effect, Function, Option, Schema } from 'effect'
-import type { CreateWorldGeneratorParams, FactoryError, PresetType } from './factory.js'
+import type { CreateWorldGeneratorParams, FactoryError, PresetType } from './index'
 
 // ================================
 // Preset Definition Schema

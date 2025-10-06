@@ -1,5 +1,5 @@
 import { Array, Data, Effect, Layer, Match, Option, pipe } from 'effect'
-import type { PlayerCameraApplicationService } from './service.js'
+import type { PlayerCameraApplicationService } from './index'
 import type {
   CameraApplicationError,
   KeyboardAction,
@@ -7,8 +7,8 @@ import type {
   PlayerCameraState,
   PlayerCameraStatistics,
   ViewModeTransitionFailureReason,
-} from './types.js'
-import { createCameraApplicationError, createViewModeTransitionResult } from './types.js'
+} from './index'
+import { createCameraApplicationError, createViewModeTransitionResult } from './index'
 
 // Domain Service Dependencies
 import type {
@@ -17,7 +17,7 @@ import type {
   CollisionDetectionService,
   SettingsValidatorService,
   ViewModeManagerService,
-} from '../../domain_service/index.js'
+} from '../../domain_service/index'
 
 // Repository Dependencies
 import type {
@@ -25,12 +25,12 @@ import type {
   CameraStateRepository,
   SettingsStorageRepository,
   ViewModePreferencesRepository,
-} from '../../repository/index.js'
+} from '../../repository/index'
 
 // Aggregate Dependencies
 
 // Value Object Dependencies
-import type { CameraId, CameraSettings, MouseDelta, PlayerId, ViewMode } from '../../value_object/index.js'
+import type { CameraId, CameraSettings, MouseDelta, PlayerId, ViewMode } from '../../value_object/index'
 
 /**
  * Player Camera Application Service Live Implementation

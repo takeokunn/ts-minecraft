@@ -4,7 +4,7 @@ import * as Effect from 'effect/Effect'
 import { pipe } from 'effect/Function'
 import type { ParseError } from 'effect/ParseResult'
 import * as Schema from 'effect/Schema'
-import type { BlockTag } from '../value_object/block_identity'
+import type { BlockTag } from '../value_object'
 
 // =============================================================================
 // Tool Requirement ADT

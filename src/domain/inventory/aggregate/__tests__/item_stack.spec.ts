@@ -5,14 +5,14 @@
 
 import { Effect, Option } from 'effect'
 import { describe, expect, it } from 'vitest'
-import type { ItemId } from '../../types.js'
+import type { ItemId } from '../../types'
 import {
   ItemStackFactory,
   ItemStackFactoryLive,
   createDurableItemStack,
   createEnchantedItemStack,
   createSimpleItemStack,
-} from '../item_stack/factory.js'
+} from '../item_stack/factory'
 import {
   areItemStacksIdentical,
   canStackWith,
@@ -25,8 +25,8 @@ import {
   mergeItemStacks,
   repairItemStack,
   splitItemStack,
-} from '../item_stack/operations.js'
-import type { Enchantment } from '../item_stack/types.js'
+} from '../item_stack/operations'
+import type { Enchantment } from '../item_stack/types'
 
 const testItemId = 'minecraft:diamond_sword' as ItemId
 const testItemId2 = 'minecraft:stone' as ItemId

@@ -8,7 +8,7 @@ import {
   decodeCreateSignInput,
   optionFromNullable,
   toValidationError,
-} from '../types.js'
+} from '../types'
 
 describe('furniture/types', () => {
   it('decodeCreateBedInput succeeds with valid data', () => {

@@ -1,11 +1,11 @@
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
 import { Effect, Match, Option, Random, Schema } from 'effect'
-import { WorldApplicationService, type WorldApplicationServiceErrorType } from './application_service'
-import { WorldDomainConfig, defaultWorldDomainConfig } from './config'
-import { WorldFactories } from './factory'
-import { WorldClock } from './time'
-import { WorldSeedFactory } from './value_object/world_seed/index.js'
-import type { WorldSeed } from './value_object/world_seed/seed.js'
+import { WorldApplicationService, type WorldApplicationServiceErrorType } from '@domain/world/application_service'
+import { WorldDomainConfig, defaultWorldDomainConfig } from './index'
+import { WorldFactories } from '@domain/world/factory'
+import { WorldClock } from './index'
+import { WorldSeedFactory } from '@domain/world/value_object/world_seed/index'
+import type { WorldSeed } from '@domain/world/value_object/world_seed'
 
 const WorldDataSchema = Schema.Struct({
   seed: Schema.Number,

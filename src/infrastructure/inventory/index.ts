@@ -4,6 +4,7 @@
  * Inventory persistence implementations for infrastructure layer
  */
 
-export * from './persistence/indexed-db'
-export * from './persistence/local-storage'
-export * from './storage-service'
+export * from './persistence'
+export * from './persistence'
+export * from './index'
+export * from './index';

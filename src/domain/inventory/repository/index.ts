@@ -7,4 +7,4 @@ export * from './inventory_repository'
 export * from './item_definition_repository'
 
 // Unified Repository Layers
-export * from './layers'
+export * from './index'

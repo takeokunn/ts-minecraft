@@ -27,9 +27,9 @@ export type {
   ViewModePreferencesRepository,
   ViewModeRecommendation,
   ViewModeTrend,
-} from './service.js'
+} from './index'
 
-export { ViewModePreferencesRepository, ViewModePreferencesRepositoryOps } from './service.js'
+export { ViewModePreferencesRepository, ViewModePreferencesRepositoryOps } from './index'
 
 // ========================================
 // Repository Types
@@ -54,7 +54,7 @@ export type {
   ViewModePreferenceRecord,
   ViewModePreferencesRepositoryError,
   ViewModeUsageData,
-} from './types.js'
+} from './index'
 
 export {
   GameContextSchema,
@@ -88,13 +88,13 @@ export {
   isRecordNotFoundError,
   isStorageError,
   isSystemTrigger,
-} from './types.js'
+} from './index'
 
 // ========================================
 // Live Implementation
 // ========================================
 
-export { ViewModePreferencesRepositoryLive } from './live.js'
+export { ViewModePreferencesRepositoryLive } from './index'
 
 // ========================================
 // Module Integration Utilities
@@ -523,7 +523,7 @@ export const PreferenceQueryHelpers = {
 /**
  * Repository層で頻繁に使用される型の便利エクスポート
  */
-export type { ViewMode } from '../../value_object/index.js'
+export type { ViewMode } from '../../value_object/index'
 
 // ========================================
 // Documentation Export
@@ -674,3 +674,5 @@ export const ViewModePreferencesRepositoryDocs = {
     'パフォーマンス影響分析',
   ],
 } as const
+export * from './index';
+export * from './index';

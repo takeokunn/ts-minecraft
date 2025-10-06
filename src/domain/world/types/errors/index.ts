@@ -5,9 +5,9 @@
 
 import { Schema } from 'effect'
 
-export * from './generation_errors'
-export * from './validation_errors'
-export * from './world_errors'
+export * from './index'
+export * from './index'
+export * from './index'
 
 // 主要エラータイプの再エクスポート
 export type {
@@ -26,7 +26,7 @@ export type {
   WorldLoadError,
   WorldNotFoundError,
   WorldSaveError,
-} from './world_errors'
+} from './index'
 
 export type {
   BiomeAssignmentError,
@@ -42,7 +42,7 @@ export type {
   NoiseGenerationError,
   StructurePlacementError,
   TerrainShapeError,
-} from './generation_errors'
+} from './index'
 
 export type {
   ArraySizeError,
@@ -61,7 +61,7 @@ export type {
   TypeMismatchError,
   UnexpectedFieldError,
   ValidationDomainError,
-} from './validation_errors'
+} from './index'
 
 // 主要スキーマの再エクスポート
 export {
@@ -79,7 +79,7 @@ export {
   WorldLoadErrorSchema,
   WorldNotFoundErrorSchema,
   WorldSaveErrorSchema,
-} from './world_errors'
+} from './index'
 
 export {
   BiomeAssignmentErrorSchema,
@@ -95,7 +95,7 @@ export {
   NoiseGenerationErrorSchema,
   StructurePlacementErrorSchema,
   TerrainShapeErrorSchema,
-} from './generation_errors'
+} from './index'
 
 export {
   ArraySizeErrorSchema,
@@ -114,7 +114,7 @@ export {
   TypeMismatchErrorSchema,
   UnexpectedFieldErrorSchema,
   ValidationDomainErrorSchema,
-} from './validation_errors'
+} from './index'
 
 // ヘルパー関数の再エクスポート
 export {
@@ -123,14 +123,14 @@ export {
   createInvalidCoordinateError,
   createOperationTimeoutError,
   createWorldNotFoundError,
-} from './world_errors'
+} from './index'
 
 export {
   createBiomeAssignmentError,
   // Generation Error Helpers
   createChunkGenerationError,
   createNoiseGenerationError,
-} from './generation_errors'
+} from './index'
 
 export {
   createMultipleValidationError,
@@ -138,7 +138,7 @@ export {
   createPatternMismatchError,
   // Validation Error Helpers
   createSchemaValidationError,
-} from './validation_errors'
+} from './index'
 
 // 統合エラー型
 export type WorldTypesError = WorldDomainError | GenerationDomainError | ValidationDomainError
@@ -196,3 +196,6 @@ export const ERROR_RECOVERY = {
 } as const
 
 export type ErrorRecovery = (typeof ERROR_RECOVERY)[keyof typeof ERROR_RECOVERY]
+export * from './index';
+export * from './world_errors';
+export * from './generation_errors';

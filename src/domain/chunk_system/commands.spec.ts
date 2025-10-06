@@ -3,8 +3,8 @@ import { describe, expect, it } from '@effect/vitest'
 import { Effect, Either } from 'effect'
 import * as fc from 'effect/FastCheck'
 import { randomUUID } from 'node:crypto'
-import { ChunkCommand, decodeCommand } from './commands.js'
-import { ChunkRequestSchema } from './types.js'
+import { ChunkCommand, decodeCommand } from './commands'
+import { ChunkRequestSchema } from './types'
 
 const chunkRequestArbitrary = fc.record({
   id: fc.uuid(),

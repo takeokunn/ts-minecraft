@@ -4,10 +4,10 @@ import { pipe } from 'effect/Function'
 import * as Match from 'effect/Match'
 import type { ParseError } from 'effect/ParseResult'
 import * as Schema from 'effect/Schema'
-import type { BlockIdentity, BlockIdentityError } from '../value_object/block_identity'
-import { assembleIdentity } from '../value_object/block_identity'
-import type { BlockProperties } from './block_properties'
-import { BlockPropertiesError, makeBlockProperties } from './block_properties'
+import type { BlockIdentity, BlockIdentityError } from '../value_object'
+import { assembleIdentity } from '../value_object'
+import type { BlockProperties } from './index'
+import { BlockPropertiesError, makeBlockProperties } from './index'
 
 // =============================================================================
 // Block Definition ADT

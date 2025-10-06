@@ -7,7 +7,9 @@
  */
 
 import { Data } from 'effect'
-import type { BiomeId, GenerationSessionId, WorldId } from '../types'
+import type { BiomeId } from '@domain/world/types/core'
+import type { WorldId } from '@domain/world/types/core'
+import type { GenerationSessionId } from '@domain/world/aggregate/generation_session'
 
 // === Core Repository Errors ===
 

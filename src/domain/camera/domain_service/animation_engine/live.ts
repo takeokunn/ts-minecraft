@@ -32,8 +32,8 @@ import type {
   FOVAnimationState,
   PositionAnimationState,
   RotationAnimationState,
-} from './service'
-import { AnimationEngineService } from './service'
+} from './index'
+import { AnimationEngineService } from './index'
 
 /**
  * アニメーションエンジンサービスのLive実装

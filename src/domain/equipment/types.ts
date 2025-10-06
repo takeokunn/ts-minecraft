@@ -8,7 +8,7 @@ export {
   withUpdatedTimestamp,
   type EquipmentPiece,
   type EquipmentTag,
-} from './aggregate/equipment_piece'
+} from './aggregate'
 export {
   EquipmentSetSchema,
   carriedWeightPercentage,
@@ -20,11 +20,11 @@ export {
   updatePieces,
   type EquipmentSet,
   type Slots,
-} from './aggregate/equipment_set'
-export { EquipmentServiceLive, EquipmentServiceTag, type EquipmentService } from './application_service/service'
-export { analyseEquipmentSet, type EquipmentAnalysisSummary } from './domain_service/analysis'
-export { EquipmentRepositoryTag, InMemoryEquipmentRepository, type EquipmentRepository } from './repository/memory'
-export * from './types/core'
+} from './aggregate'
+export { EquipmentServiceLive, EquipmentServiceTag, type EquipmentService } from './application_service'
+export { analyseEquipmentSet, type EquipmentAnalysisSummary } from './domain_service'
+export { EquipmentRepositoryTag, InMemoryEquipmentRepository, type EquipmentRepository } from './repository'
+export * from '@domain/equipment/types'
 export {
   EquipmentStatsSchema,
   EquipmentTierSchema,
@@ -34,7 +34,7 @@ export {
   parseWeight,
   type EquipmentStats,
   type EquipmentTier,
-} from './value_object/item_attributes'
+} from './value_object'
 export {
   EquipmentSlotSchema,
   allSlots,
@@ -43,4 +43,4 @@ export {
   getSlotCategory,
   type EquipmentSlot,
   type EquipmentSlotLiteral,
-} from './value_object/slot'
+} from './value_object'

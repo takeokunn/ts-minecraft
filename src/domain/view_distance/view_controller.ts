@@ -1,8 +1,8 @@
 import * as Schema from '@effect/schema/Schema'
 import { Clock, Effect } from 'effect'
 import { pipe } from 'effect/Function'
-import { frustumComputedEvent, summarizeFrustum } from './frustum.js'
-import { createViewDistanceToolkit, ViewDistanceToolkit } from './frustum_factory.js'
+import { frustumComputedEvent, summarizeFrustum } from './index'
+import { createViewDistanceToolkit, ViewDistanceToolkit } from './index'
 import {
   deriveCullableFromManaged,
   LODBatchEvaluatedEvent,
@@ -15,7 +15,7 @@ import {
   ViewControlResultSchema,
   ViewDistanceError,
   ViewDistanceEvent,
-} from './types.js'
+} from './index'
 
 export interface ViewController {
   readonly updateViewSystem: (

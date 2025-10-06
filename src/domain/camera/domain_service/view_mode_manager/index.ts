@@ -6,7 +6,7 @@
  */
 
 // Service Interface & Context Tag
-export { TransitionExecutionResult, TransitionStep, ViewModeManagerService } from './service'
+export { TransitionExecutionResult, TransitionStep, ViewModeManagerService } from './index'
 export type {
   CameraKeyframe,
   CameraPath,
@@ -30,20 +30,20 @@ export type {
   ViewModeTransition,
   ViewModeTransitionSettings,
   ViewModeType,
-} from './service'
+} from './index'
 
 // Live Implementation
-export { ViewModeManagerServiceLive } from './live'
+export { ViewModeManagerServiceLive } from './index'
 
 /**
  * 統合エクスポート - 便利な再エクスポート
  */
 
 // よく使用される型の再エクスポート
-export type { ViewModeManagerService as ViewModeManager } from './service'
+export type { ViewModeManagerService as ViewModeManager } from './index'
 
 // サービスタグの別名エクスポート
-export { ViewModeManagerService as ViewModeManagerTag } from './service'
+export { ViewModeManagerService as ViewModeManagerTag } from './index'
 
 /**
  * 使用例:
@@ -63,3 +63,4 @@ export { ViewModeManagerService as ViewModeManagerTag } from './service'
  * })
  * ```
  */
+export * from './index';

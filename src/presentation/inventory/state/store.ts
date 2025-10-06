@@ -1,5 +1,5 @@
 import { Context, Effect, HashMap, Layer, Option, Ref, Stream, SubscriptionRef } from 'effect'
-import type { InventoryView, PlayerId } from '../adt/inventory-adt'
+import type { InventoryView, PlayerId } from '../adt'
 
 export interface InventoryStateStore {
   readonly get: (playerId: PlayerId) => Effect.Effect<Option.Option<InventoryView>>

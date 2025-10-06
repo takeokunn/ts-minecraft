@@ -1,7 +1,14 @@
 import { describe, expect, it } from '@effect/vitest'
 import * as Effect from 'effect/Effect'
 import * as fc from 'effect/FastCheck'
-import { assembleIdentity, makeBlockId, makeBlockName, makeBlockPosition, makeBlockTag, makeBlockTags } from '../block_identity'
+import {
+  assembleIdentity,
+  makeBlockId,
+  makeBlockName,
+  makeBlockPosition,
+  makeBlockTag,
+  makeBlockTags,
+} from '../block_identity'
 
 const propertyConfig: fc.Parameters = { numRuns: 64 }
 
@@ -28,8 +35,7 @@ describe('block_identity', () => {
         expect(id).toBe(value)
       }),
       propertyConfig
-    )
-  )
+    ))
 
   it.effect('BlockTagとBlockNameを組み立てられる', () =>
     Effect.all({

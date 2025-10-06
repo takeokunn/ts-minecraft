@@ -6,15 +6,15 @@
  */
 
 // Core Classification Services
-export * from './biome_mapper.js'
-export * from './climate_calculator.js'
-export * from './ecosystem_analyzer.js'
+export * from './index'
+export * from './index'
+export * from './index'
 
 // Unified Biome Classification Layer
 import { Layer } from 'effect'
-import { BiomeMapperService, BiomeMapperServiceLive } from './biome_mapper.js'
-import { ClimateCalculatorService, ClimateCalculatorServiceLive } from './climate_calculator.js'
-import { EcosystemAnalyzerService, EcosystemAnalyzerServiceLive } from './ecosystem_analyzer.js'
+import { BiomeMapperService, BiomeMapperServiceLive } from './index'
+import { ClimateCalculatorService, ClimateCalculatorServiceLive } from './index'
+import { EcosystemAnalyzerService, EcosystemAnalyzerServiceLive } from './index'
 
 /**
  * バイオーム分類統合レイヤー
@@ -209,3 +209,7 @@ const assessEcotoneQuality = (transitions: ReadonlyArray<any>): number => {
   // エコトーン（移行帯）の品質評価
   return transitions.filter((t) => t.transitionType === 'ecotone').length / transitions.length
 }
+export * from './index';
+export * from './index';
+export * from './climate_calculator';
+export * from './biome_mapper';

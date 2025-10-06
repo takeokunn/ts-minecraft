@@ -317,4 +317,4 @@ export type {
   PipelineContext as PipelineContextType,
   UpdateSettingsCommand as UpdateSettingsCommandType,
   WorldGenerationResult as WorldGenerationResultType,
-} from './orchestrator.js'
+} from './orchestrator'

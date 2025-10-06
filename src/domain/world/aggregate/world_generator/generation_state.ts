@@ -8,9 +8,9 @@
  */
 
 import { Effect, Option, Schema } from 'effect'
-import type * as WorldTypes from '../../types/core/world_types.js'
-import type * as GenerationErrors from '../../types/errors/generation_errors.js'
-import * as Coordinates from '../../value_object/coordinates/index.js'
+import type * as WorldTypes from '@domain/world/types/core'
+import type * as GenerationErrors from '@domain/world/types/errors'
+import * as Coordinates from '@domain/world/value_object/coordinates/index'
 
 // ================================
 // Generation Status

@@ -7,8 +7,8 @@ import type {
   Position3D as Position3DBrand,
   Rotation2D as Rotation2DBrand,
   Sensitivity,
-} from './constants.js'
-import { Position3DSchema, Rotation2DSchema } from './constants.js'
+} from './index'
+import { Position3DSchema, Rotation2DSchema } from './index'
 
 // ========================================
 // Event Base Types
@@ -153,7 +153,7 @@ export const CameraIdSchema = Schema.String.pipe(Schema.brand('CameraId'))
 /**
  * Position3Dスキーマ（constants.jsからの再エクスポート）
  */
-export { Position3DSchema } from './constants.js'
+export { Position3DSchema } from './index'
 
 /**
  * CameraRotationスキーマ（constants.jsのRotation2DSchemaとしての再エクスポート）

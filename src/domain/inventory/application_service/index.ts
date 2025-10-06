@@ -11,7 +11,7 @@ export * from './inventory_manager'
 export * from './transaction_manager'
 
 // 型定義
-export * from './types/errors'
+export * from './types'
 
 // Layer統合
 import { Layer } from 'effect'

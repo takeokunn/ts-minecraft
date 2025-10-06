@@ -1,8 +1,8 @@
 import { Context, Effect, Layer } from 'effect'
-import { RigidBodyAggregate } from '../aggregate/rigid_body'
-import { PhysicsSimulationService } from '../domain_service/physics_simulation_service'
-import type { AABB, PhysicsWorld, RigidBody, Vector3 } from '../types/core'
-import type { PhysicsError } from '../types/errors'
+import { RigidBodyAggregate } from '../aggregate'
+import { PhysicsSimulationService } from '../domain_service'
+import type { AABB, PhysicsWorld, RigidBody, Vector3 } from '@domain/physics/types'
+import type { PhysicsError } from '@domain/physics/types'
 
 export interface PlayerPhysicsContext {
   readonly world: PhysicsWorld

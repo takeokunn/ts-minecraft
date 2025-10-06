@@ -9,7 +9,7 @@
 
 import { Brand, Effect, Option, pipe } from 'effect'
 import * as fc from 'effect/FastCheck'
-import type { CameraError } from '../../types/errors'
+import type { CameraError } from '@domain/camera/types/errors'
 import {
   AnimationError,
   CameraNotInitialized,
@@ -19,7 +19,7 @@ import {
   InvalidMode,
   InvalidParameter,
   ResourceError,
-} from '../../types/errors'
+} from '@domain/camera/types/errors'
 import type {
   BoundingBox,
   CameraDistance,

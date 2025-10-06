@@ -8,7 +8,7 @@ import type {
   Vector3D,
   ViewMode,
   ViewModeTransitionConfig,
-} from '../../types/index.js'
+} from '@domain/camera/types'
 import type {
   CameraApplicationError,
   PlayerCameraInput,
@@ -16,7 +16,7 @@ import type {
   PlayerCameraState,
   PlayerCameraStatistics,
   ViewModeTransitionResult,
-} from './types.js'
+} from './index'
 
 /**
  * Player Camera Application Service Interface

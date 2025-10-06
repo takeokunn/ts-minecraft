@@ -10,7 +10,7 @@ import {
   RequestIdSchema,
   StrategyId,
   StrategyIdSchema,
-} from './types.js'
+} from './index'
 
 export const ChunkCommand = Data.taggedEnum({
   Schedule: Data.tagged<{

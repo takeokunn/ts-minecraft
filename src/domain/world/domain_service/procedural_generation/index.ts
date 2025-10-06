@@ -6,14 +6,14 @@
  */
 
 // Core Services
-export * from './cave_carver.js'
-export * from './ore_placer.js'
-export * from './structure_spawner.js'
-export * from './terrain_generator.js'
+export * from './index'
+export * from './index'
+export * from './index'
+export * from './index'
 
 // Unified Procedural Generation Layer
 import { Layer } from 'effect'
-import { TerrainGeneratorService, TerrainGeneratorServiceLive } from './terrain_generator.js'
+import { TerrainGeneratorService, TerrainGeneratorServiceLive } from './index'
 
 /**
  * プロシージャル生成統合レイヤー

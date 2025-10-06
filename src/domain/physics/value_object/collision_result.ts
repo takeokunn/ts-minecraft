@@ -1,6 +1,6 @@
 import { Effect, Match, Schema, pipe } from 'effect'
-import { AABB, Vector3, Vector3Schema, parseAABB, parsePositiveFloat, parseVector3, vector3 } from '../types/core'
-import type { PhysicsError } from '../types/errors'
+import { AABB, Vector3, Vector3Schema, parseAABB, parsePositiveFloat, parseVector3, vector3 } from '@domain/physics/types'
+import type { PhysicsError } from '@domain/physics/types'
 
 const CollidedAxesSchema = Schema.Struct({
   x: Schema.Boolean,

@@ -3,8 +3,8 @@ import { Buffer } from 'node:buffer'
 import { brotliCompressSync, brotliDecompressSync, deflateSync, gunzipSync, gzipSync, inflateSync } from 'node:zlib'
 import { type ChunkData, ChunkBoundsError, ChunkDataSchema, ChunkSerializationError } from '../../aggregate/chunk'
 import { ChunkDataValidationError } from '../../aggregate/chunk_data'
-import { ChunkMetadataSchema } from '../../value_object/chunk_metadata/types'
-import { ChunkPositionSchema } from '../../value_object/chunk_position/types'
+import { ChunkMetadataSchema } from '../../value_object/chunk_metadata'
+import { ChunkPositionSchema } from '../../value_object/chunk_position'
 
 export type SerializationFormat =
   | { readonly _tag: 'Binary'; readonly compression?: boolean }
@@ -121,11 +121,11 @@ const decodeBinary = (
 
       const x = view.getInt32(offset, true)
       offset += 4
-    const z = view.getInt32(offset, true)
-    offset += 4
+      const z = view.getInt32(offset, true)
+      offset += 4
 
-    const metadataLength = view.getUint32(offset, true)
-    offset += 4
+      const metadataLength = view.getUint32(offset, true)
+      offset += 4
 
       const metadataBytes = data.slice(offset, offset + metadataLength)
       offset += metadataLength
@@ -138,8 +138,8 @@ const decodeBinary = (
         throw new Error(`Binary metadata parse error: ${String(error)}`)
       }
 
-    const isDirty = view.getUint8(offset) === 1
-    offset += 1
+      const isDirty = view.getUint8(offset) === 1
+      offset += 1
 
       const blocksBytes = data.slice(offset)
       const blocksBuffer = blocksBytes.buffer.slice(
@@ -246,8 +246,7 @@ const decodeChunk = (payload: {
 const blocksEqual = (left: Uint16Array, right: Uint16Array): boolean =>
   left.length === right.length && left.every((value, index) => value === right[index])
 
-const metadataEqual = (left: unknown, right: unknown): boolean =>
-  JSON.stringify(left) === JSON.stringify(right)
+const metadataEqual = (left: unknown, right: unknown): boolean => JSON.stringify(left) === JSON.stringify(right)
 
 const chunkEquals = (left: ChunkData, right: ChunkData): boolean =>
   left.position.x === right.position.x &&

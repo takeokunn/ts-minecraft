@@ -10,7 +10,7 @@ import type {
   Position3D,
   ViewMode,
   ViewModeTransitionConfig,
-} from '../../types/index.js'
+} from '@domain/camera/types'
 
 // ========================================
 // Player Camera Application Types

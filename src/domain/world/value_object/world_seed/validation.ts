@@ -5,8 +5,8 @@
  */
 
 import { Effect, Match, Schema } from 'effect'
-import { WorldSeedOps } from './operations.js'
-import { EntropyLevel, WorldSeed, WorldSeedError, WorldSeedErrorSchema } from './seed.js'
+import { WorldSeedOps } from './index'
+import { EntropyLevel, WorldSeed, WorldSeedError, WorldSeedErrorSchema } from './index'
 
 /**
  * 検証結果型

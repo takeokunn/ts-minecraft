@@ -5,6 +5,7 @@ import { PositionComponent } from '../component'
 import { createEntityId } from '../entity'
 import { createSystem } from '../system'
 import { SystemRegistryServiceLive } from '../system-registry'
+import type { World as WorldService } from '../world'
 import { World, WorldLive } from '../world'
 
 describe('World', () => {
@@ -284,7 +285,7 @@ describe('World', () => {
           const world = yield* World
 
           let executed = false
-          const testSystem = createSystem('TestSystem', () =>
+          const testSystem = createSystem<WorldService>('TestSystem', () =>
             Effect.sync(() => {
               executed = true
             })
@@ -305,13 +306,17 @@ describe('World', () => {
 
           const executionOrder: string[] = []
 
-          const highPrioritySystem = createSystem('HighPriority', () => Effect.sync(() => executionOrder.push('high')))
+          const highPrioritySystem = createSystem<WorldService>('HighPriority', () =>
+            Effect.sync(() => executionOrder.push('high'))
+          )
 
-          const normalPrioritySystem = createSystem('NormalPriority', () =>
+          const normalPrioritySystem = createSystem<WorldService>('NormalPriority', () =>
             Effect.sync(() => executionOrder.push('normal'))
           )
 
-          const lowPrioritySystem = createSystem('LowPriority', () => Effect.sync(() => executionOrder.push('low')))
+          const lowPrioritySystem = createSystem<WorldService>('LowPriority', () =>
+            Effect.sync(() => executionOrder.push('low'))
+          )
 
           // 登録順序と逆に登録
           yield* world.registerSystem(lowPrioritySystem, 'low')
@@ -331,7 +336,7 @@ describe('World', () => {
           const world = yield* World
 
           let executionCount = 0
-          const testSystem = createSystem('TestSystem', () =>
+          const testSystem = createSystem<WorldService>('TestSystem', () =>
             Effect.sync(() => {
               executionCount++
             })
@@ -426,7 +431,7 @@ describe('World', () => {
           yield* world.addComponent(entity1, 'Velocity', { vx: 0, vy: 0, vz: 0 })
           yield* world.addComponent(entity2, 'Position', { x: 1, y: 1, z: 1 })
 
-          const testSystem = createSystem('TestSystem', () => Effect.void)
+          const testSystem = createSystem<WorldService>('TestSystem', () => Effect.void)
           yield* world.registerSystem(testSystem)
 
           const stats = yield* world.getStats
@@ -450,7 +455,7 @@ describe('World', () => {
           const entity = yield* world.createEntity()
           yield* world.addComponent(entity, 'Position', { x: 0, y: 0, z: 0 })
 
-          const testSystem = createSystem('TestSystem', () => Effect.void)
+          const testSystem = createSystem<WorldService>('TestSystem', () => Effect.void)
           yield* world.registerSystem(testSystem)
 
           yield* world.clear

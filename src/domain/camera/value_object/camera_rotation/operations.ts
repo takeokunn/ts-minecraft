@@ -7,7 +7,7 @@ import {
   RadiansSchema,
   RollSchema,
   YawSchema,
-} from './schema'
+} from './index'
 import {
   CameraRotation,
   Degrees,
@@ -21,7 +21,7 @@ import {
   RotationLerpFactor,
   RotationLimits,
   Yaw,
-} from './types'
+} from './index'
 
 /**
  * 角度ファクトリー関数群

@@ -16,7 +16,7 @@ describe('System', () => {
   describe('createSystem', () => {
     it.effect('システムを正しく作成できる', () =>
       Effect.gen(function* () {
-        const system = createSystem('TestSystem', () => Effect.void)
+        const system = createSystem<World>('TestSystem', () => Effect.void)
 
         expect(system.name).toBe('TestSystem')
         expect(system.update).toBeDefined()
@@ -41,19 +41,19 @@ describe('System', () => {
       Effect.gen(function* () {
         const executionOrder: string[] = []
 
-        const system1 = createSystem('System1', () =>
+        const system1 = createSystem<World>('System1', () =>
           Effect.sync(() => {
             executionOrder.push('System1')
           })
         )
 
-        const system2 = createSystem('System2', () =>
+        const system2 = createSystem<World>('System2', () =>
           Effect.sync(() => {
             executionOrder.push('System2')
           })
         )
 
-        const system3 = createSystem('System3', () =>
+        const system3 = createSystem<World>('System3', () =>
           Effect.sync(() => {
             executionOrder.push('System3')
           })
@@ -67,9 +67,9 @@ describe('System', () => {
 
     it.effect('システムエラーを適切に処理する', () =>
       Effect.gen(function* () {
-        const system1 = createSystem('System1', () => Effect.void)
+        const system1 = createSystem<World>('System1', () => Effect.void)
 
-        const system2 = createSystem('System2', () => Effect.fail(makeSystemError('System2', 'Test error')))
+        const system2 = createSystem<World>('System2', () => Effect.fail(makeSystemError('System2', 'Test error')))
 
         const result = Effect.runSyncExit(runSystems([system1, system2], {} as World, 16))
 
@@ -98,7 +98,7 @@ describe('System', () => {
 
     it.effect('未知のエラーをSystemErrorにラップする', () =>
       Effect.gen(function* () {
-        const system = createSystem('FailingSystem', () => Effect.fail(new Error('Unexpected failure')))
+        const system = createSystem<World>('FailingSystem', () => Effect.fail(new Error('Unexpected failure')))
 
         const result = Effect.runSyncExit(runSystems([system], {} as World, 16))
 
@@ -131,7 +131,7 @@ describe('System', () => {
   describe('runSystemWithMetrics', () => {
     it.effect('システム実行時間を計測する', () =>
       Effect.gen(function* () {
-        const system = createSystem('TimedSystem', () =>
+        const system = createSystem<World>('TimedSystem', () =>
           Effect.sync(() => {
             // 何か処理をシミュレート
             const start = Date.now()
@@ -157,7 +157,7 @@ describe('System', () => {
           warnings.push(message)
         }
 
-        const system = createSystem('SlowSystem', () =>
+        const system = createSystem<World>('SlowSystem', () =>
           Effect.sync(() => {
             // 20ms以上かかる処理をシミュレート
             const start = Date.now()
@@ -182,7 +182,7 @@ describe('System', () => {
   describe('createMockSystem', () => {
     it.effect('デフォルトの動作でモックシステムを作成する', () =>
       Effect.gen(function* () {
-        const mockSystem = createMockSystem('MockSystem')
+        const mockSystem = createMockSystem<World>('MockSystem')
 
         expect(mockSystem.name).toBe('MockSystem')
 
@@ -200,7 +200,7 @@ describe('System', () => {
           executed = true
         })
 
-        const mockSystem = createMockSystem('MockSystem', customBehavior)
+        const mockSystem = createMockSystem<World>('MockSystem', customBehavior)
 
         Effect.runSync(mockSystem.update({} as World, 16))
 
@@ -212,7 +212,7 @@ describe('System', () => {
       Effect.gen(function* () {
         const error = makeSystemError('MockSystem', 'Mock error')
 
-        const mockSystem = createMockSystem('MockSystem', Effect.fail(error))
+        const mockSystem = createMockSystem<World>('MockSystem', Effect.fail(error))
 
         const result = Effect.runSyncExit(mockSystem.update({} as World, 16))
 

@@ -4,9 +4,9 @@
  */
 
 import { Effect, Option, pipe } from 'effect'
-import type { ItemId } from '../../types.js'
-import type { ItemStackEntity as ItemStack } from '../item_stack/types.js'
-import { addUncommittedEvent, incrementVersion } from './factory.js'
+import type { ItemId } from '../../types'
+import type { ItemStackEntity as ItemStack } from '../item_stack'
+import { addUncommittedEvent, incrementVersion } from './factory'
 import type {
   HotbarChangedEvent,
   HotbarSlot,
@@ -16,8 +16,8 @@ import type {
   ItemRemovedEvent,
   ItemsSwappedEvent,
   SlotIndex,
-} from './types.js'
-import { INVENTORY_CONSTANTS, InventoryAggregateError } from './types.js'
+} from './types'
+import { INVENTORY_CONSTANTS, InventoryAggregateError } from './types'
 
 // =============================================================================
 // Core Operations

@@ -9,14 +9,14 @@
 // Service Interface & Context
 // ========================================
 
-export { CameraSystemOrchestratorService } from './service.js'
-export type { CameraSystemOrchestratorService } from './service.js'
+export { CameraSystemOrchestratorService } from './index'
+export type { CameraSystemOrchestratorService } from './index'
 
 // ========================================
 // Live Implementation
 // ========================================
 
-export { CameraSystemOrchestratorServiceLive } from './live.js'
+export { CameraSystemOrchestratorServiceLive } from './index'
 
 // ========================================
 // Types
@@ -31,7 +31,7 @@ export type {
   PerformanceOptimizationResult,
   PerformanceTargets,
   WorldState,
-} from './service.js'
+} from './index'
 
 // ========================================
 // Module Information
@@ -50,3 +50,4 @@ export const CameraSystemOrchestratorServiceModule = {
     'パフォーマンス最適化',
   ] as const,
 } as const
+export * from './index';

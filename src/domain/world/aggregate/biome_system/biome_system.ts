@@ -8,130 +8,24 @@
  * - 生態系シミュレーション
  */
 
-import { Brand, Context, Effect, Schema, STM } from 'effect'
-import type * as GenerationErrors from '../../types/errors/generation_errors.js'
-import * as Coordinates from '../../value_object/coordinates/index.js'
-import * as WorldSeed from '../../value_object/world_seed/index.js'
+import { Context, Effect, Schema, STM } from 'effect'
+import * as Coordinates from '@domain/world/value_object/coordinates/index.js'
+import type * as GenerationErrors from '@domain/world/types/errors/generation_errors.js'
 import * as BiomeRegistry from './biome_registry.js'
 import * as BiomeTransitions from './biome_transitions.js'
 import * as ClimateModel from './climate_model.js'
 import * as BiomeEvents from './events.js'
-
-// ================================
-// Biome System Identifier
-// ================================
-
-export type BiomeSystemId = string & Brand.Brand<'BiomeSystemId'>
-
-export const BiomeSystemIdSchema = Schema.String.pipe(
-  Schema.nonEmptyString(),
-  Schema.brand('BiomeSystemId'),
-  Schema.annotations({
-    title: 'BiomeSystemId',
-    description: 'Unique identifier for biome system aggregate',
-    examples: ['bs_12345678-1234-5678-9abc-123456789abc'],
-  })
-)
-
-export const createBiomeSystemId = (value: string): BiomeSystemId => Schema.decodeSync(BiomeSystemIdSchema)(value)
-
-// ================================
-// Biome Distribution Map
-// ================================
-
-export const BiomeDistributionSchema = Schema.Struct({
-  chunkCoordinate: Coordinates.ChunkCoordinateSchema,
-  dominantBiome: Schema.String, // BiomeType
-  biomeDistribution: Schema.Record({
-    key: Schema.String, // BiomeType
-    value: Schema.Number.pipe(Schema.between(0, 1)), // 割合
-  }),
-  transitionZones: Schema.Array(
-    Schema.Struct({
-      fromBiome: Schema.String,
-      toBiome: Schema.String,
-      transitionStrength: Schema.Number.pipe(Schema.between(0, 1)),
-      boundaryType: Schema.Literal('smooth', 'sharp', 'gradient'),
-    })
-  ),
-  climateFactors: Schema.Struct({
-    temperature: Schema.Number.pipe(Schema.between(-50, 60)), // 摂氏
-    humidity: Schema.Number.pipe(Schema.between(0, 100)), // パーセント
-    elevation: Schema.Number.pipe(Schema.between(-100, 500)), // 海抜メートル
-    windPattern: Schema.Literal('calm', 'gentle', 'moderate', 'strong'),
-    seasonalVariation: Schema.Number.pipe(Schema.between(0, 1)),
-  }),
-  lastUpdated: Schema.DateTimeUtc,
-})
-
-export type BiomeDistribution = typeof BiomeDistributionSchema.Type
-
-// ================================
-// Biome System Configuration
-// ================================
-
-export const BiomeSystemConfigurationSchema = Schema.Struct({
-  globalClimateSettings: Schema.Struct({
-    baseTemperature: Schema.Number.pipe(Schema.between(-30, 40)),
-    temperatureVariation: Schema.Number.pipe(Schema.between(0, 50)),
-    humidityBase: Schema.Number.pipe(Schema.between(0, 100)),
-    humidityVariation: Schema.Number.pipe(Schema.between(0, 50)),
-    enableSeasonalCycles: Schema.Boolean,
-    seasonalIntensity: Schema.Number.pipe(Schema.between(0, 1)),
-  }),
-  transitionSettings: Schema.Struct({
-    enableSmoothTransitions: Schema.Boolean,
-    transitionZoneWidth: Schema.Number.pipe(Schema.int(), Schema.between(1, 16)),
-    allowSharpBoundaries: Schema.Boolean,
-    biomeStabilityFactor: Schema.Number.pipe(Schema.between(0, 1)),
-  }),
-  distributionSettings: Schema.Struct({
-    biomeScarcity: Schema.Record({
-      key: Schema.String, // BiomeType
-      value: Schema.Number.pipe(Schema.between(0, 1)),
-    }),
-    clusteringIntensity: Schema.Number.pipe(Schema.between(0, 1)),
-    diversityTarget: Schema.Number.pipe(Schema.between(0, 1)),
-    continentalScale: Schema.Boolean,
-  }),
-  optimizationSettings: Schema.Struct({
-    enableDynamicOptimization: Schema.Boolean,
-    recomputeInterval: Schema.Number.pipe(Schema.int(), Schema.greaterThan(0)), // チャンク数
-    cacheSize: Schema.Number.pipe(Schema.int(), Schema.between(100, 10000)),
-    precomputeRadius: Schema.Number.pipe(Schema.int(), Schema.between(1, 32)),
-  }),
-})
-
-export type BiomeSystemConfiguration = typeof BiomeSystemConfigurationSchema.Type
-
-// ================================
-// BiomeSystem Aggregate
-// ================================
-
-export const BiomeSystemSchema = Schema.Struct({
-  id: BiomeSystemIdSchema,
-  worldSeed: WorldSeed.WorldSeedSchema,
-  configuration: BiomeSystemConfigurationSchema,
-  registry: BiomeRegistry.BiomeRegistrySchema,
-  climateModel: ClimateModel.ClimateModelSchema,
-  distributionCache: Schema.Record({
-    key: Schema.String, // ChunkCoordinate文字列
-    value: BiomeDistributionSchema,
-  }),
-  transitionRules: Schema.Array(BiomeTransitions.TransitionRuleSchema),
-  version: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
-  statistics: Schema.Struct({
-    totalBiomesRegistered: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
-    cachedDistributions: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
-    transitionRulesCount: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
-    lastOptimization: Schema.optional(Schema.DateTimeUtc),
-    averageGenerationTime: Schema.Number.pipe(Schema.greaterThanOrEqualTo(0)), // ミリ秒
-  }),
-  createdAt: Schema.DateTimeUtc,
-  updatedAt: Schema.DateTimeUtc,
-})
-
-export type BiomeSystem = typeof BiomeSystemSchema.Type
+import {
+  BiomeDistributionSchema,
+  BiomeSystemConfigurationSchema,
+  BiomeSystemSchema,
+  BiomeSystemIdSchema,
+  createBiomeSystemId,
+  type BiomeDistribution,
+  type BiomeSystem,
+  type BiomeSystemConfiguration,
+  type BiomeSystemId,
+} from './shared.js'
 
 // ================================
 // Commands

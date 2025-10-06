@@ -7,9 +7,9 @@
  */
 
 import { Array, Data, Effect, Match, Option, pipe } from 'effect'
-import type { CameraError } from '../../types/errors.js'
-import { AnimationState, CameraRotation, Position3D } from '../../value_object/index.js'
-import { Camera, CameraOps } from '../camera/camera.js'
+import type { CameraError } from '@domain/camera/types'
+import { AnimationState, CameraRotation, Position3D } from '../../value_object/index'
+import { Camera, CameraOps } from '../camera'
 
 /**
  * Scene ID Brand Type

@@ -12,7 +12,7 @@ import {
   UnixTimeSchema,
   WeightSchema,
   type UnixTime,
-} from '../types/core'
+} from '@domain/equipment/types/core'
 import { EquipmentStatsSchema, EquipmentTierSchema } from '../value_object/item_attributes'
 import { EquipmentSlotSchema, type EquipmentSlotLiteral } from '../value_object/slot'
 import { EquipmentServiceLive, EquipmentServiceTag } from './service'

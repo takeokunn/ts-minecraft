@@ -64,17 +64,10 @@ const validIdentifierArbitrary = fc
 
 const identifierPattern = /^[A-Za-z0-9_-]+$/
 
-const invalidIdentifierArbitrary = fc
-  .string({ minLength: 1, maxLength: 80 })
-  .filter((value) => {
-    const trimmed = value.trim()
-    return (
-      trimmed.length < 3 ||
-      trimmed.length > 64 ||
-      trimmed.length === 0 ||
-      !identifierPattern.test(trimmed)
-    )
-  })
+const invalidIdentifierArbitrary = fc.string({ minLength: 1, maxLength: 80 }).filter((value) => {
+  const trimmed = value.trim()
+  return trimmed.length < 3 || trimmed.length > 64 || trimmed.length === 0 || !identifierPattern.test(trimmed)
+})
 
 const domainRangeEntries = [
   ['growthStage', DomainConstants.growthStage] as const,
@@ -97,8 +90,7 @@ describe('domain/agriculture/types', () => {
         )
       }),
       propertyConfig
-    )
-  )
+    ))
 
   it('makeIdentifierは無効な文字列を拒否する (PBT)', () =>
     fc.assert(
@@ -113,33 +105,27 @@ describe('domain/agriculture/types', () => {
         )
       }),
       propertyConfig
-    )
-  )
+    ))
 
   it('makeBoundedNumberは範囲内の値を保全する (PBT)', () =>
     fc.assert(
-      fc.property(
-        fc.constantFrom(...domainRangeEntries),
-        fc.float({ min: 0, max: 1, noNaN: true }),
-        (entry, ratio) => {
-          const [field, range] = entry
-          const value = range.min + (range.max - range.min) * ratio
-          const result = Effect.runSync(Effect.either(makeBoundedNumber({ field, range, value })))
-          pipe(
-            result,
-            Either.match({
-              onLeft: () => expect(false).toBe(true),
-              onRight: (number) => {
-                expect(number).toBeGreaterThanOrEqual(range.min)
-                expect(number).toBeLessThanOrEqual(range.max)
-              },
-            })
-          )
-        }
-      ),
+      fc.property(fc.constantFrom(...domainRangeEntries), fc.float({ min: 0, max: 1, noNaN: true }), (entry, ratio) => {
+        const [field, range] = entry
+        const value = range.min + (range.max - range.min) * ratio
+        const result = Effect.runSync(Effect.either(makeBoundedNumber({ field, range, value })))
+        pipe(
+          result,
+          Either.match({
+            onLeft: () => expect(false).toBe(true),
+            onRight: (number) => {
+              expect(number).toBeGreaterThanOrEqual(range.min)
+              expect(number).toBeLessThanOrEqual(range.max)
+            },
+          })
+        )
+      }),
       propertyConfig
-    )
-  )
+    ))
 
   it('makeBoundedNumberは範囲外と非有限値で失敗する', () => {
     fc.assert(
@@ -203,8 +189,7 @@ describe('domain/agriculture/types', () => {
 
       const track = (label: string): DomainInvariant<number> => ({
         description: label,
-        verify: (value) =>
-          Ref.update(calls, (entries) => [...entries, label]).pipe(Effect.as(value)),
+        verify: (value) => Ref.update(calls, (entries) => [...entries, label]).pipe(Effect.as(value)),
       })
 
       const positive = ensurePositive('value')
@@ -238,9 +223,7 @@ describe('domain/agriculture/types', () => {
 
   it('ensureWithinRangeは範囲外を拒否する', () => {
     const invariant = ensureWithinRange('growth', DomainConstants.growthStage)
-    const success = Effect.runSync(
-      Effect.either(invariant.verify(DomainConstants.growthStage.min))
-    )
+    const success = Effect.runSync(Effect.either(invariant.verify(DomainConstants.growthStage.min)))
     pipe(
       success,
       Either.match({

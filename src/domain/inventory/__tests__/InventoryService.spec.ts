@@ -1,8 +1,8 @@
 import { InventoryService, InventoryServiceLive, ItemRegistry } from '@domain/inventory/service'
 import { describe, expect, it } from '@effect/vitest'
-import * as fc from 'effect/FastCheck'
 import * as Context from 'effect/Context'
 import * as Effect from 'effect/Effect'
+import * as fc from 'effect/FastCheck'
 import * as Layer from 'effect/Layer'
 import { InventoryState, ItemId, ItemStack, PlayerId, createEmptyInventory } from '../inventory-types'
 

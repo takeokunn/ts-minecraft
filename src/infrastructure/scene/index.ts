@@ -1,1 +1,1 @@
-export * from './service-live'
+export * from './index'

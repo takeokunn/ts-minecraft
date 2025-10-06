@@ -2,14 +2,22 @@
  * @fileoverview Biome System Events - バイオームシステムイベント
  */
 
-import { Brand, Context, Effect, Schema } from 'effect'
-import * as Coordinates from '../../value_object/coordinates/index.js'
-import * as WorldSeed from '../../value_object/world_seed/index.js'
-import type { BiomeDistribution, BiomeSystemConfiguration, BiomeSystemId } from './biome_system.js'
+import { Context, Effect, Schema } from 'effect'
+import * as Coordinates from '@domain/world/value_object/coordinates/index.js'
+import * as WorldSeed from '@domain/world/value_object/world_seed/index.js'
+import {
+  BiomeDistributionPayloadSchema,
+  BiomeSystemConfigurationSchema,
+  BiomeSystemIdSchema,
+  createBiomeSystemId,
+  type BiomeDistribution,
+  type BiomeSystemConfiguration,
+  type BiomeSystemId,
+} from './shared.js'
 
 export const BaseBiomeEventSchema = Schema.Struct({
   eventId: Schema.String.pipe(Schema.brand('BiomeEventId')),
-  biomeSystemId: Schema.String,
+  biomeSystemId: BiomeSystemIdSchema,
   aggregateVersion: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(1)),
   timestamp: Schema.DateTimeUtc,
 })
@@ -20,7 +28,7 @@ export const BiomeSystemCreatedSchema = BaseBiomeEventSchema.pipe(
       eventType: Schema.Literal('BiomeSystemCreated'),
       payload: Schema.Struct({
         worldSeed: WorldSeed.WorldSeedSchema,
-        configuration: Schema.Unknown,
+        configuration: BiomeSystemConfigurationSchema,
       }),
     })
   )
@@ -30,10 +38,7 @@ export const BiomeDistributionGeneratedSchema = BaseBiomeEventSchema.pipe(
   Schema.extend(
     Schema.Struct({
       eventType: Schema.Literal('BiomeDistributionGenerated'),
-      payload: Schema.Struct({
-        coordinate: Coordinates.ChunkCoordinateSchema,
-        distribution: Schema.Unknown,
-      }),
+      payload: BiomeDistributionPayloadSchema,
     })
   )
 )
@@ -53,10 +58,10 @@ export type BiomeSystemCreated = typeof BiomeSystemCreatedSchema.Type
 export type BiomeDistributionGenerated = typeof BiomeDistributionGeneratedSchema.Type
 export type ClimateModelUpdated = typeof ClimateModelUpdatedSchema.Type
 
-const generateEventId = (): Effect.Effect<string & Brand.Brand<'BiomeEventId'>> =>
+const generateEventId = (): Effect.Effect<string & Schema.Schema.Brand<typeof Schema.String, 'BiomeEventId'>> =>
   Effect.sync(() => {
     const timestamp = Date.now()
-    const random = Math.random().toString(36).substr(2, 9)
+    const random = Math.random().toString(36).slice(2, 11)
     return Schema.decodeSync(Schema.String.pipe(Schema.brand('BiomeEventId')))(`bevt_${timestamp}_${random}`)
   })
 

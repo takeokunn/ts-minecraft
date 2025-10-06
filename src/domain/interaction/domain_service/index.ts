@@ -3,8 +3,8 @@ import * as TreeFormatter from '@effect/schema/TreeFormatter'
 import { Effect, Match } from 'effect'
 import { pipe } from 'effect/Function'
 import { InteractionError } from '../types'
-import { BlockFace, BlockFaceError, toUnitNormal } from '../value_object/block_face'
-import { Vector3, Vector3Error, dot, fromNumbers, magnitude, normalize, translate } from '../value_object/vector3'
+import { BlockFace, BlockFaceError, toUnitNormal } from '../value_object'
+import { Vector3, Vector3Error, dot, fromNumbers, magnitude, normalize, translate } from '../value_object'
 
 const PositiveNumberSchema = Schema.Number.pipe(
   Schema.greaterThan(0, { message: (value) => `正の数が必要です: ${value}` })

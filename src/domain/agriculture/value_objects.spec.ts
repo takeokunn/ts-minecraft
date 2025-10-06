@@ -6,9 +6,9 @@ import {
   BreedingOutcome,
   HydrationState,
   SoilCondition,
-  advanceGrowthStage,
   adjustMoistureLevel,
   adjustSoilQuality,
+  advanceGrowthStage,
   describeGrowthStage,
   describeMoisture,
   describeSoil,
@@ -82,8 +82,7 @@ describe('domain/agriculture/value_objects', () => {
         )
       }),
       propertyConfig
-    )
-  )
+    ))
 
   it('makeMoistureLevelとmakeSoilQualityは範囲を保証する (PBT)', () =>
     fc.assert(
@@ -108,8 +107,7 @@ describe('domain/agriculture/value_objects', () => {
         )
       }),
       propertyConfig
-    )
-  )
+    ))
 
   it('advanceGrowthStageは成長段階を上限でクリップし負方向には進まない (PBT)', () =>
     fc.assert(
@@ -123,17 +121,15 @@ describe('domain/agriculture/value_objects', () => {
             onLeft: () => expect(false).toBe(true),
             onRight: (advanced) => {
               const numeric = Number(advanced)
-              const expected = steps <= 0
-                ? Number(stage)
-                : Math.min(Number(stage) + steps, DomainConstants.growthStage.max)
+              const expected =
+                steps <= 0 ? Number(stage) : Math.min(Number(stage) + steps, DomainConstants.growthStage.max)
               expect(numeric).toBe(expected)
             },
           })
         )
       }),
       propertyConfig
-    )
-  )
+    ))
 
   it('adjustMoistureLevelは範囲内にクランプする (PBT)', () =>
     fc.assert(
@@ -154,8 +150,7 @@ describe('domain/agriculture/value_objects', () => {
         )
       }),
       propertyConfig
-    )
-  )
+    ))
 
   it('adjustSoilQualityは範囲内にクランプする (PBT)', () =>
     fc.assert(
@@ -176,8 +171,7 @@ describe('domain/agriculture/value_objects', () => {
         )
       }),
       propertyConfig
-    )
-  )
+    ))
 
   it('describeGrowthStageは段階ごとに適切なタイプと状態を返す', () => {
     const cases: ReadonlyArray<[number, { type: ReturnType<typeof describeGrowthStage>['type']; tag: string }]> = [
@@ -249,8 +243,7 @@ describe('domain/agriculture/value_objects', () => {
         )
       }),
       propertyConfig
-    )
-  )
+    ))
 
   it('mergeBreedingStatsは平均値を返し範囲を逸脱しない', () =>
     fc.assert(
@@ -263,8 +256,7 @@ describe('domain/agriculture/value_objects', () => {
         expect(merged.harmony).toBeCloseTo((currentStats.harmony + partnerStats.harmony) / 2)
       }),
       propertyConfig
-    )
-  )
+    ))
 
   it('evaluateBreedingOutcomeはスコアに応じて分類する', () => {
     const elite = evaluateBreedingOutcome({ fertility: 1, resilience: 1, harmony: 1 })

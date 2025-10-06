@@ -1,5 +1,5 @@
 import { Context, Effect, Layer, pipe } from 'effect'
-import { PlayerErrorBuilders } from './errors'
+import { PlayerErrorBuilders } from './index'
 import {
   applyCommand,
   createPlayer,
@@ -7,9 +7,9 @@ import {
   regenerateHunger,
   transitionState,
   updatePosition,
-} from './operations'
-import { PlayerRepository } from './repository'
-import { PlayerClock } from './time'
+} from './index'
+import { PlayerRepository } from './index'
+import { PlayerClock } from './index'
 import {
   PlayerAggregate,
   PlayerCommand,
@@ -20,7 +20,7 @@ import {
   PlayerPosition,
   PlayerSnapshot,
   PlayerUpdateContext,
-} from './types'
+} from './index'
 
 type ConstraintError = ReturnType<typeof PlayerErrorBuilders.constraint>
 type TransitionError = ReturnType<typeof PlayerErrorBuilders.invalidTransition>

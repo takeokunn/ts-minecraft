@@ -5,9 +5,9 @@
 
 import { Schema } from 'effect'
 
-export * from './generation_events'
-export * from './lifecycle_events'
-export * from './world_events'
+export * from './index'
+export * from './index'
+export * from './index'
 
 // 主要イベントタイプの再エクスポート
 export type {
@@ -28,7 +28,7 @@ export type {
   WorldSavedEvent,
   WorldSettingsChangedEvent,
   WorldUnloadedEvent,
-} from './world_events'
+} from './index'
 
 export type {
   BiomeAssignedEvent,
@@ -44,7 +44,7 @@ export type {
   NoiseGeneratedEvent,
   StructurePlacedEvent,
   TerrainGeneratedEvent,
-} from './generation_events'
+} from './index'
 
 export type {
   BackupCreatedEvent,
@@ -59,7 +59,7 @@ export type {
   // Lifecycle Events
   SystemInitializedEvent,
   SystemShutdownEvent,
-} from './lifecycle_events'
+} from './index'
 
 // 主要スキーマの再エクスポート
 export {
@@ -80,7 +80,7 @@ export {
   WorldSavedEventSchema,
   WorldSettingsChangedEventSchema,
   WorldUnloadedEventSchema,
-} from './world_events'
+} from './index'
 
 export {
   BiomeAssignedEventSchema,
@@ -96,7 +96,7 @@ export {
   NoiseGeneratedEventSchema,
   StructurePlacedEventSchema,
   TerrainGeneratedEventSchema,
-} from './generation_events'
+} from './index'
 
 export {
   BackupCreatedEventSchema,
@@ -111,7 +111,7 @@ export {
   // Lifecycle Event Schemas
   SystemInitializedEventSchema,
   SystemShutdownEventSchema,
-} from './lifecycle_events'
+} from './index'
 
 // ヘルパー関数の再エクスポート
 export {
@@ -121,7 +121,7 @@ export {
   createTimeAdvancedEvent,
   createWeatherChangedEvent,
   createWorldCreatedEvent,
-} from './world_events'
+} from './index'
 
 export {
   createBiomeAssignedEvent,
@@ -130,7 +130,7 @@ export {
   createChunkGenerationStartedEvent,
   createStructurePlacedEvent,
   createTerrainGeneratedEvent,
-} from './generation_events'
+} from './index'
 
 export {
   createBackupCreatedEvent,
@@ -139,7 +139,7 @@ export {
   createResourcesAllocatedEvent,
   // Lifecycle Event Helpers
   createSystemInitializedEvent,
-} from './lifecycle_events'
+} from './index'
 
 // 統合イベント型
 export type WorldTypesEvent = WorldDomainEvent | GenerationDomainEvent | LifecycleDomainEvent
@@ -197,3 +197,5 @@ export const EVENT_STATUS = {
 } as const
 
 export type EventStatus = (typeof EVENT_STATUS)[keyof typeof EVENT_STATUS]
+export * from './index';
+export * from './world_events';

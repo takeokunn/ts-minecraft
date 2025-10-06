@@ -9,9 +9,9 @@
 import { Schema } from '@effect/schema'
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
 import { Clock, Effect, Layer, Match, Option, Random, pipe } from 'effect'
-import type { Inventory, InventoryState, PlayerId } from '../../../domain/inventory/inventory-types'
-import { InventorySchema, InventoryStateSchema, PlayerIdSchema } from '../../../domain/inventory/inventory-types'
-import type { StorageError } from '../storage-service'
+import type { Inventory, InventoryState, PlayerId } from '../../../domain/inventory'
+import { InventorySchema, InventoryStateSchema, PlayerIdSchema } from '../../../domain/inventory'
+import type { StorageError } from '..'
 import {
   InventoryStorageService,
   MillisecondsSchema,
@@ -24,7 +24,7 @@ import {
   toLoadFailed,
   toNotAvailable,
   toSaveFailed,
-} from '../storage-service'
+} from '..'
 
 const backend = Schema.decodeUnknownSync(StorageBackendSchema)('localStorage')
 

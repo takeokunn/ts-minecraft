@@ -5,8 +5,8 @@
 
 import { Effect } from 'effect'
 import { describe, expect, it } from 'vitest'
-import type { ItemId, PlayerId } from '../../types.js'
-import { InventoryFactory, InventoryFactoryLive } from '../inventory/factory.js'
+import type { ItemId, PlayerId } from '../../types'
+import { InventoryFactory, InventoryFactoryLive } from '../inventory/factory'
 import {
   addItem,
   changeSelectedHotbarSlot,
@@ -16,16 +16,16 @@ import {
   isFull,
   removeItem,
   swapItems,
-} from '../inventory/operations.js'
+} from '../inventory/operations'
 import {
   CanAddItemSpecification,
   CanRemoveItemSpecification,
   HasSufficientSpaceSpecification,
   InventoryIntegritySpecification,
   validateSpecification,
-} from '../inventory/specifications.js'
-import type { HotbarSlot, InventoryAggregate, SlotIndex } from '../inventory/types.js'
-import { ItemStackFactoryLive, createSimpleItemStack } from '../item_stack/factory.js'
+} from '../inventory/specifications'
+import type { HotbarSlot, InventoryAggregate, SlotIndex } from '../inventory/types'
+import { ItemStackFactoryLive, createSimpleItemStack } from '../item_stack/factory'
 
 const testPlayerId = 'player_test_123' as PlayerId
 const testItemId = 'minecraft:stone' as ItemId

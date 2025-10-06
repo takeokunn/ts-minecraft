@@ -6,8 +6,8 @@
  */
 
 import { Effect, Schema } from 'effect'
-import { taggedUnion } from '../../utils/schema'
-import { BLOCK_COORDINATE_LIMITS, BlockCoordinate, BlockRange } from './block_coordinate.js'
+import { taggedUnion } from '@domain/world/utils'
+import { BLOCK_COORDINATE_LIMITS, BlockCoordinate, BlockRange } from './index'
 import {
   CHUNK_CONSTANTS,
   CHUNK_COORDINATE_LIMITS,
@@ -15,8 +15,8 @@ import {
   ChunkCoordinate,
   LocalCoordinate,
   type ChunkSectionY,
-} from './chunk_coordinate.js'
-import { WORLD_COORDINATE_LIMITS, WorldCoordinate, type WorldY } from './world_coordinate.js'
+} from './index'
+import { WORLD_COORDINATE_LIMITS, WorldCoordinate, type WorldY } from './index'
 
 /**
  * 変換エラー型

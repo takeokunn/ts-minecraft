@@ -1,5 +1,5 @@
 import { Array, Context, Effect, Layer, Option, Ref, Schema, pipe } from 'effect'
-import { RecipeAggregate } from '../aggregate/recipe'
+import { RecipeAggregate } from '../aggregate'
 import { RecipeId, RecipeIdSchema } from '../types'
 
 export interface RecipeRepository {

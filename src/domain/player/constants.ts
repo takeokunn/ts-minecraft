@@ -10,7 +10,7 @@ import {
   PlayerSpeed,
   SaturationValueSchema,
   SpeedSchema,
-} from './types'
+} from './index'
 
 const decodeSpeed = Schema.decodeUnknownSync(SpeedSchema)
 const decodeHealth = Schema.decodeUnknownSync(HealthValueSchema)

@@ -7,9 +7,9 @@
  */
 
 import { Effect, Option, Ref } from 'effect'
-import type { BiomeId, WorldCoordinate } from '../../types'
-import type { AllRepositoryErrors } from '../types'
-import { createCacheError } from '../types'
+import type { BiomeId, WorldCoordinate } from '@domain/world/types'
+import type { AllRepositoryErrors } from '@domain/world/types'
+import { createCacheError } from '@domain/world/types'
 import type {
   SpatialBounds,
   SpatialCoordinate,
@@ -17,7 +17,7 @@ import type {
   calculateDistance,
   coordinateInBounds,
   coordinateToKey,
-} from './interface'
+} from './index'
 
 // === Cache Configuration ===
 

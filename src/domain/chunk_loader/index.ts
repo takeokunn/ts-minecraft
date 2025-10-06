@@ -16,7 +16,7 @@ export type {
   SessionId,
   SessionNotFoundError,
   Timestamp,
-} from './types/interfaces'
+} from './types'
 
 export {
   CacheStatusSchema,
@@ -35,7 +35,7 @@ export {
   normalizeTimestamp,
   progressFromPhase,
   withProgress,
-} from './types/interfaces'
+} from './types'
 
 export {
   cacheHitRatio,
@@ -47,11 +47,11 @@ export {
   terminate,
   touch,
   transition,
-} from './domain/session'
-export type { SessionState } from './domain/session'
+} from './domain'
+export type { SessionState } from './domain'
 
 export {
   ChunkLoaderDomainLive,
   ChunkLoadingProviderLive,
   makeChunkLoadingProvider,
-} from './application/chunk_loading_provider'
+} from './application'

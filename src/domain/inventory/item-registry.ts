@@ -1,6 +1,6 @@
 import { Context, Effect, Layer, Option, pipe } from 'effect'
-import type { ItemId, ItemStack } from './inventory-types'
-import { ItemId as makeItemId } from './inventory-types'
+import type { ItemId, ItemStack } from './index'
+import { ItemId as makeItemId } from './index'
 
 export type ItemCategory = 'block' | 'tool' | 'weapon' | 'armor' | 'utility' | 'consumable'
 

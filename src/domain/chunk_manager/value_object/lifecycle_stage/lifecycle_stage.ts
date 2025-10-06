@@ -6,8 +6,8 @@ import {
   type DestructionReason,
   type LifecycleStage,
   type Timestamp,
-} from '../../types/core'
-import { ActivationFailure, DeactivationFailure } from '../../types/errors'
+} from '../../types'
+import { ActivationFailure, DeactivationFailure } from '../../types'
 
 const decodeStage = Schema.decodeUnknownSync(LifecycleStageSchema)
 const decodeLifetime = Schema.decodeUnknownSync(ChunkLifetimeSchema)

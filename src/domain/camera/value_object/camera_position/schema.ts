@@ -1,5 +1,5 @@
 import { Brand, Schema } from 'effect'
-import { BoundingBox, CameraDistance, Direction3D, LerpFactor, Position3D, Velocity3D, ViewOffset } from './types'
+import { BoundingBox, CameraDistance, Direction3D, LerpFactor, Position3D, Velocity3D, ViewOffset } from './index'
 
 /**
  * Position3D Brand型用Schema

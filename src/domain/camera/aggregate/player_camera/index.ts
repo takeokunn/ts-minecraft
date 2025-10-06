@@ -12,10 +12,10 @@ export {
   PlayerId,
   Sensitivity,
   SmoothingFactor,
-} from './player_camera.js'
+} from './index'
 
 // Factory
-export { PlayerCameraFactory } from './factory.js'
+export { PlayerCameraFactory } from './index'
 export type { PlayerCamera }
 
 // Type Guards
@@ -28,4 +28,5 @@ export const isPlayerId = (value: unknown): value is PlayerId => {
 }
 
 // Re-export for convenience
-import { PlayerCamera } from './player_camera.js'
+import { PlayerCamera } from './index'
+export * from './player_camera';

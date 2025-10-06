@@ -6,11 +6,11 @@
  */
 
 import { Array, Effect, Option } from 'effect'
-import type { CameraError } from '../../types/errors.js'
-import type { CameraId } from '../../types/events.js'
-import { CameraRotation, Position3D } from '../../value_object/index.js'
-import { Camera } from '../camera/camera.js'
-import { CameraFactory } from '../camera/factory.js'
+import type { CameraError } from '@domain/camera/types'
+import type { CameraId } from '@domain/camera/types'
+import { CameraRotation, Position3D } from '../../value_object/index'
+import { Camera } from '../camera'
+import { CameraFactory } from '../camera'
 import {
   CinematicKeyframe,
   CinematicSequence,
@@ -19,7 +19,7 @@ import {
   SceneCamera,
   SceneId,
   TargetStrategy,
-} from './scene_camera.js'
+} from './index'
 
 /**
  * SceneCamera Factory Namespace

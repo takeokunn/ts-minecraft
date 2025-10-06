@@ -491,6 +491,8 @@ import { validatePosition } from './validators'
 import { PlayerError } from '../errors'
 ```
 
+**関連ガイド**: [Import Path管理規約](./import-path-conventions.md) - 詳細なimport pathルールとツール
+
 ### 3. エラー処理のベストプラクティス
 
 ```typescript

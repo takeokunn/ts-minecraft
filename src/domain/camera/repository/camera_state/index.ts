@@ -15,9 +15,9 @@ export type {
   RepositoryListResult,
   RepositoryOperationResult,
   RepositoryQueryResult,
-} from './service.js'
+} from './index'
 
-export { CameraStateRepository, CameraStateRepositoryOps } from './service.js'
+export { CameraStateRepository, CameraStateRepositoryOps } from './index'
 
 // ========================================
 // Repository Types
@@ -31,7 +31,7 @@ export type {
   RepositoryError,
   SnapshotTimestamp,
   VersionNumber,
-} from './types.js'
+} from './index'
 
 export {
   CameraSchema,
@@ -50,13 +50,13 @@ export {
   isEntityNotFoundError,
   isStorageError,
   isValidationError,
-} from './types.js'
+} from './index'
 
 // ========================================
 // Live Implementation
 // ========================================
 
-export { CameraStateRepositoryLive } from './live.js'
+export { CameraStateRepositoryLive } from './index'
 
 // ========================================
 // Module Integration Utilities
@@ -100,8 +100,8 @@ export const RepositoryTypeGuards = {
 /**
  * Repository層で頻繁に使用される型の便利エクスポート
  */
-export type { CameraId } from '../../types/index.js'
-export type { ViewMode } from '../../value_object/index.js'
+export type { CameraId } from '@domain/camera/types'
+export type { ViewMode } from '../../value_object/index'
 
 // ========================================
 // Documentation Export
@@ -159,3 +159,5 @@ export const CameraStateRepositoryDocs = {
   lastUpdated: '2025-01-XX',
   maintainer: 'Camera Domain Team',
 } as const
+export * from './index';
+export * from './index';

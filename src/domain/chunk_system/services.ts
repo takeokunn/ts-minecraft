@@ -1,9 +1,9 @@
 import { Context, Effect, Layer, Ref, Stream } from 'effect'
-import { ChunkCommand } from './commands.js'
-import { ChunkEvent } from './events.js'
-import { applyCommand, makeInitialState, TransitionResult } from './model.js'
-import { ChunkSystemRepository } from './repository.js'
-import { ChunkSystemConfig, ChunkSystemError, ChunkSystemState } from './types.js'
+import { ChunkCommand } from './index'
+import { ChunkEvent } from './index'
+import { applyCommand, makeInitialState, TransitionResult } from './index'
+import { ChunkSystemRepository } from './index'
+import { ChunkSystemConfig, ChunkSystemError, ChunkSystemState } from './index'
 
 export interface ChunkSystemService {
   readonly current: Effect.Effect<ChunkSystemState, ChunkSystemError>

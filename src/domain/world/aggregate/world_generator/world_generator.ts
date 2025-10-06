@@ -8,72 +8,23 @@
  * - Effect-TS 3.17+の最新パターン活用
  */
 
-import { Brand, Context, Effect, Schema, STM } from 'effect'
-import type * as WorldTypes from '../../types/core/world_types.js'
-import type * as GenerationErrors from '../../types/errors/generation_errors.js'
-import * as BiomeProperties from '../../value_object/biome_properties/index.js'
-import * as Coordinates from '../../value_object/coordinates/index.js'
-import * as GenerationParameters from '../../value_object/generation_parameters/index.js'
-import * as NoiseConfiguration from '../../value_object/noise_configuration/index.js'
-import * as WorldSeed from '../../value_object/world_seed/index.js'
-import * as BusinessRules from './business_rules.js'
-import * as GenerationEvents from './events.js'
-import * as GenerationState from './generation_state.js'
-
-// ================================
-// Aggregate Root Identifier
-// ================================
-
-/**
- * WorldGeneratorのBrand型識別子
- * 集約ルートの一意識別を保証
- */
-export type WorldGeneratorId = string & Brand.Brand<'WorldGeneratorId'>
-
-export const WorldGeneratorIdSchema = Schema.String.pipe(
-  Schema.nonEmptyString(),
-  Schema.brand('WorldGeneratorId'),
-  Schema.annotations({
-    title: 'WorldGeneratorId',
-    description: 'Unique identifier for WorldGenerator aggregate root',
-    examples: ['wg_12345678-1234-5678-9abc-123456789abc'],
-  })
-)
-
-export const createWorldGeneratorId = (value: string): WorldGeneratorId =>
-  Schema.decodeSync(WorldGeneratorIdSchema)(value)
-
-// ================================
-// Aggregate Version (楽観的ロック)
-// ================================
-
-export type AggregateVersion = number & Brand.Brand<'AggregateVersion'>
-
-export const AggregateVersionSchema = Schema.Number.pipe(
-  Schema.int(),
-  Schema.greaterThanOrEqualTo(0),
-  Schema.brand('AggregateVersion'),
-  Schema.annotations({
-    title: 'AggregateVersion',
-    description: 'Version number for optimistic locking',
-  })
-)
-
-// ================================
-// Generation Context
-// ================================
-
-/**
- * 生成コンテキスト - 生成に必要な全設定
- */
-export const GenerationContextSchema = Schema.Struct({
-  seed: WorldSeed.WorldSeedSchema,
-  parameters: GenerationParameters.GenerationParametersSchema,
-  biomeConfig: BiomeProperties.BiomeConfigurationSchema,
-  noiseConfig: NoiseConfiguration.NoiseConfigurationSchema,
-})
-
-export type GenerationContext = typeof GenerationContextSchema.Type
+import { Context, Effect, Schema, STM } from 'effect'
+import type * as WorldTypes from '@domain/world/types/core'
+import type * as GenerationErrors from '@domain/world/types/errors'
+import * as BusinessRules from './index'
+import * as GenerationEvents from './index'
+import * as GenerationState from './index'
+import {
+  AggregateVersionSchema,
+  GenerationContextSchema,
+  WorldGeneratorIdSchema,
+  WorldGeneratorSchema,
+  type GenerateChunkCommand,
+  type GenerationContext,
+  type UpdateSettingsCommand,
+  type WorldGenerator,
+  type WorldGeneratorId,
+} from './index'
 
 // ================================
 // WorldGenerator Aggregate Root
@@ -88,42 +39,9 @@ export type GenerationContext = typeof GenerationContextSchema.Type
  * - ドメインイベントの発行
  * - ビジネスルールの強制
  */
-export const WorldGeneratorSchema = Schema.Struct({
-  id: WorldGeneratorIdSchema,
-  version: AggregateVersionSchema,
-  context: GenerationContextSchema,
-  state: GenerationState.GenerationStateSchema,
-  createdAt: Schema.DateTimeUtc,
-  updatedAt: Schema.DateTimeUtc,
-})
-
-export type WorldGenerator = typeof WorldGeneratorSchema.Type
-
 // ================================
 // Commands (操作要求)
 // ================================
-
-export const GenerateChunkCommandSchema = Schema.Struct({
-  coordinate: Coordinates.ChunkCoordinateSchema,
-  priority: Schema.Number.pipe(Schema.between(1, 10)),
-  options: Schema.optional(
-    Schema.Struct({
-      includeStructures: Schema.Boolean,
-      includeCaves: Schema.Boolean,
-      includeOres: Schema.Boolean,
-    })
-  ),
-})
-
-export type GenerateChunkCommand = typeof GenerateChunkCommandSchema.Type
-
-export const UpdateSettingsCommandSchema = Schema.Struct({
-  parameters: Schema.optional(GenerationParameters.GenerationParametersSchema),
-  biomeConfig: Schema.optional(BiomeProperties.BiomeConfigurationSchema),
-  noiseConfig: Schema.optional(NoiseConfiguration.NoiseConfigurationSchema),
-})
-
-export type UpdateSettingsCommand = typeof UpdateSettingsCommandSchema.Type
 
 // ================================
 // Aggregate Operations
@@ -322,4 +240,18 @@ export const WorldGeneratorLive = WorldGeneratorTag.of({
 // Exports
 // ================================
 
-export { type GenerateChunkCommand, type GenerationContext, type UpdateSettingsCommand }
+export {
+  AggregateVersionSchema,
+  GenerateChunkCommandSchema,
+  createWorldGeneratorId,
+  GenerationContextSchema,
+  UpdateSettingsCommandSchema,
+  WorldGeneratorIdSchema,
+  WorldGeneratorSchema,
+  type AggregateVersion,
+  type GenerateChunkCommand,
+  type GenerationContext,
+  type UpdateSettingsCommand,
+  type WorldGenerator,
+  type WorldGeneratorId,
+} from './index'

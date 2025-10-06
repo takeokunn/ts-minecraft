@@ -6,7 +6,7 @@ import {
   LerpFactorSchema,
   Position3DSchema,
   ViewOffsetSchema,
-} from './schema'
+} from './index'
 import {
   Axis,
   BoundingBox,
@@ -16,7 +16,7 @@ import {
   Position3D,
   PositionError,
   ViewOffset,
-} from './types'
+} from './index'
 
 /**
  * Position3D ファクトリー関数

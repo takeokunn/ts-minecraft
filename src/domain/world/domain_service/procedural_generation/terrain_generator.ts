@@ -6,13 +6,13 @@
  */
 
 import { Context, Effect, Layer, Schema } from 'effect'
-import { type GenerationError } from '../../types/errors/generation_errors.js'
+import { type GenerationError } from '@domain/world/types/errors'
 import type {
   BoundingBox,
   WorldCoordinate,
   WorldCoordinate2D,
-} from '../../value_object/coordinates/world_coordinate.js'
-import type { WorldSeed } from '../../value_object/world_seed/seed.js'
+} from '@domain/world/value_object/coordinates'
+import type { WorldSeed } from '@domain/world/value_object/world_seed'
 
 /**
  * 高度マップ - ワールド座標における高度データ

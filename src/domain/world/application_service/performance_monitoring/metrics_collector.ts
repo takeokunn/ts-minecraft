@@ -693,4 +693,4 @@ export type {
   MetricsConfiguration as MetricsConfigurationType,
   MetricValue as MetricValueType,
   PerformanceMetrics as PerformanceMetricsType,
-} from './metrics_collector.js'
+} from './metrics_collector'
