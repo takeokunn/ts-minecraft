@@ -7,94 +7,78 @@ import { Data, Option, Schema } from 'effect'
 /**
  * カメラドメインのコアエラー型（Data.taggedEnum ADT）
  */
-export class CameraError extends Schema.TaggedError<CameraError>()('CameraError', {
-  _tag: Schema.Literal(
-    'InitializationFailed',
-    'CameraNotInitialized',
-    'InvalidConfiguration',
-    'InvalidMode',
-    'InvalidParameter',
-    'ResourceError',
-    'AnimationError',
-    'CollisionError'
-  ),
-  message: Schema.String,
-  cause: Schema.optional(Schema.Unknown),
-  operation: Schema.optional(Schema.String),
-  config: Schema.optional(Schema.Unknown),
-  mode: Schema.optional(Schema.String),
-  validModes: Schema.optional(Schema.Array(Schema.String)),
-  parameter: Schema.optional(Schema.String),
-  value: Schema.optional(Schema.Unknown),
-  expected: Schema.optional(Schema.String),
-  context: Schema.optional(Schema.Unknown),
-  details: Schema.optional(Schema.Unknown),
-}) {}
+export const CameraError = Data.taggedEnum<{
+  InitializationFailed: { message: string; cause: Option.Option<unknown> }
+  CameraNotInitialized: { operation: string; message: string }
+  InvalidConfiguration: { message: string; config: Option.Option<unknown> }
+  InvalidMode: { message: string; mode: string; validModes: readonly string[] }
+  InvalidParameter: { message: string; parameter: string; value: unknown; expected: Option.Option<string> }
+  ResourceError: { message: string; cause: Option.Option<unknown> }
+  AnimationError: { message: string; context: Option.Option<unknown> }
+  CollisionError: { message: string; details: Option.Option<unknown> }
+}>()
 
-// Schema.TaggedError uses class instantiation pattern
+export type CameraError = Data.TaggedEnum.Type<typeof CameraError>
 
 // ========================================
-// Value Object Errors (Schema.TaggedError)
+// Value Object Errors (Data.taggedEnum)
 // ========================================
 
 /**
  * 位置関連エラー型
  */
-export class PositionError extends Schema.TaggedError<PositionError>()('PositionError', {
-  _tag: Schema.Literal('InvalidPosition', 'PositionOutOfBounds'),
-  message: Schema.String,
-  axis: Schema.optional(Schema.Literal('x', 'y', 'z')),
-  value: Schema.optional(Schema.Number),
-  reason: Schema.optional(Schema.String),
-  position: Schema.optional(
-    Schema.Struct({
-      x: Schema.Number,
-      y: Schema.Number,
-      z: Schema.Number,
-    })
-  ),
-  bounds: Schema.optional(
-    Schema.Struct({
-      min: Schema.Struct({ x: Schema.Number, y: Schema.Number, z: Schema.Number }),
-      max: Schema.Struct({ x: Schema.Number, y: Schema.Number, z: Schema.Number }),
-    })
-  ),
-}) {}
+export const PositionError = Data.taggedEnum<{
+  InvalidPosition: {
+    message: string
+    axis: Option.Option<'x' | 'y' | 'z'>
+    value: Option.Option<number>
+    reason: Option.Option<string>
+  }
+  PositionOutOfBounds: {
+    message: string
+    position: Option.Option<{ x: number; y: number; z: number }>
+    bounds: Option.Option<{
+      min: { x: number; y: number; z: number }
+      max: { x: number; y: number; z: number }
+    }>
+  }
+}>()
+
+export type PositionError = Data.TaggedEnum.Type<typeof PositionError>
 
 /**
  * 回転関連エラー型
  */
-export class RotationError extends Schema.TaggedError<RotationError>()('RotationError', {
-  _tag: Schema.Literal('InvalidRotation', 'RotationLimitExceeded'),
-  message: Schema.String,
-  axis: Schema.optional(Schema.Literal('pitch', 'yaw', 'roll')),
-  value: Schema.optional(Schema.Number),
-  min: Schema.optional(Schema.Number),
-  max: Schema.optional(Schema.Number),
-  rotation: Schema.optional(
-    Schema.Struct({
-      pitch: Schema.Number,
-      yaw: Schema.Number,
-    })
-  ),
-  limits: Schema.optional(
-    Schema.Struct({
-      pitch: Schema.Struct({ min: Schema.Number, max: Schema.Number }),
-      yaw: Schema.Struct({ min: Schema.Number, max: Schema.Number }),
-    })
-  ),
-}) {}
+export const RotationError = Data.taggedEnum<{
+  InvalidRotation: {
+    message: string
+    axis: Option.Option<'pitch' | 'yaw' | 'roll'>
+    value: Option.Option<number>
+    min: Option.Option<number>
+    max: Option.Option<number>
+  }
+  RotationLimitExceeded: {
+    message: string
+    rotation: Option.Option<{ pitch: number; yaw: number }>
+    limits: Option.Option<{
+      pitch: { min: number; max: number }
+      yaw: { min: number; max: number }
+    }>
+  }
+}>()
+
+export type RotationError = Data.TaggedEnum.Type<typeof RotationError>
 
 /**
  * 設定関連エラー型
  */
-export class SettingsError extends Schema.TaggedError<SettingsError>()('SettingsError', {
-  _tag: Schema.Literal('InvalidFOV', 'InvalidSensitivity', 'InvalidDistance'),
-  message: Schema.String,
-  value: Schema.Number,
-  min: Schema.Number,
-  max: Schema.Number,
-}) {}
+export const SettingsError = Data.taggedEnum<{
+  InvalidFOV: { message: string; value: number; min: number; max: number }
+  InvalidSensitivity: { message: string; value: number; min: number; max: number }
+  InvalidDistance: { message: string; value: number; min: number; max: number }
+}>()
+
+export type SettingsError = Data.TaggedEnum.Type<typeof SettingsError>
 
 // ========================================
 // Error Union Types
@@ -110,67 +94,44 @@ export type CameraDomainError = CameraError | PositionError | RotationError | Se
 // ========================================
 
 /**
- * カメラエラーファクトリー（Schema.TaggedError パターン）
+ * カメラエラーファクトリー（Data.taggedEnum パターン）
  */
 export const createCameraError = {
   initializationFailed: (message: string, cause?: unknown) =>
-    new CameraError({
-      _tag: 'InitializationFailed',
-      message,
-      cause,
-    }),
+    CameraError.InitializationFailed({ message, cause: Option.fromNullable(cause) }),
 
   notInitialized: (operation: string) =>
-    new CameraError({
-      _tag: 'CameraNotInitialized',
-      message: `Operation '${operation}' called before camera initialization`,
+    CameraError.CameraNotInitialized({
       operation,
+      message: `Operation '${operation}' called before camera initialization`,
     }),
 
   invalidConfiguration: (message: string, config?: unknown) =>
-    new CameraError({
-      _tag: 'InvalidConfiguration',
-      message,
-      config,
-    }),
+    CameraError.InvalidConfiguration({ message, config: Option.fromNullable(config) }),
 
   invalidMode: (mode: string, validModes: readonly string[]) =>
-    new CameraError({
-      _tag: 'InvalidMode',
+    CameraError.InvalidMode({
       message: `Invalid camera mode '${mode}'. Valid modes: ${validModes.join(', ')}`,
       mode,
       validModes,
     }),
 
   invalidParameter: (parameter: string, value: unknown, expected?: string) =>
-    new CameraError({
-      _tag: 'InvalidParameter',
+    CameraError.InvalidParameter({
       message: `Invalid parameter '${parameter}'${expected ? `: ${expected}` : ''}`,
       parameter,
       value,
-      expected,
+      expected: Option.fromNullable(expected),
     }),
 
   resourceError: (message: string, cause?: unknown) =>
-    new CameraError({
-      _tag: 'ResourceError',
-      message,
-      cause,
-    }),
+    CameraError.ResourceError({ message, cause: Option.fromNullable(cause) }),
 
   animationError: (message: string, context?: unknown) =>
-    new CameraError({
-      _tag: 'AnimationError',
-      message,
-      context,
-    }),
+    CameraError.AnimationError({ message, context: Option.fromNullable(context) }),
 
   collisionError: (message: string, details?: unknown) =>
-    new CameraError({
-      _tag: 'CollisionError',
-      message,
-      details,
-    }),
+    CameraError.CollisionError({ message, details: Option.fromNullable(details) }),
 } as const
 
 /**
@@ -178,12 +139,11 @@ export const createCameraError = {
  */
 export const createPositionError = {
   invalidCoordinate: (axis: 'x' | 'y' | 'z', value: number, reason: string) =>
-    new PositionError({
-      _tag: 'InvalidPosition',
+    PositionError.InvalidPosition({
       message: `Invalid ${axis} coordinate: ${value} (${reason})`,
-      axis,
-      value,
-      reason,
+      axis: Option.some(axis),
+      value: Option.some(value),
+      reason: Option.some(reason),
     }),
 
   outOfBounds: (
@@ -193,11 +153,10 @@ export const createPositionError = {
       max: { x: number; y: number; z: number }
     }
   ) =>
-    new PositionError({
-      _tag: 'PositionOutOfBounds',
+    PositionError.PositionOutOfBounds({
       message: `Position out of bounds: (${position.x}, ${position.y}, ${position.z})`,
-      position,
-      bounds,
+      position: Option.some(position),
+      bounds: Option.some(bounds),
     }),
 } as const
 
@@ -206,13 +165,12 @@ export const createPositionError = {
  */
 export const createRotationError = {
   invalidAngle: (axis: 'pitch' | 'yaw' | 'roll', value: number, min: number, max: number) =>
-    new RotationError({
-      _tag: 'InvalidRotation',
+    RotationError.InvalidRotation({
       message: `Invalid ${axis} angle: ${value} (expected ${min} to ${max})`,
-      axis,
-      value,
-      min,
-      max,
+      axis: Option.some(axis),
+      value: Option.some(value),
+      min: Option.some(min),
+      max: Option.some(max),
     }),
 
   limitExceeded: (
@@ -222,11 +180,10 @@ export const createRotationError = {
       yaw: { min: number; max: number }
     }
   ) =>
-    new RotationError({
-      _tag: 'RotationLimitExceeded',
+    RotationError.RotationLimitExceeded({
       message: `Rotation limit exceeded: pitch=${rotation.pitch}, yaw=${rotation.yaw}`,
-      rotation,
-      limits,
+      rotation: Option.some(rotation),
+      limits: Option.some(limits),
     }),
 } as const
 
@@ -235,8 +192,7 @@ export const createRotationError = {
  */
 export const createSettingsError = {
   invalidFOV: (value: number, min: number, max: number) =>
-    new SettingsError({
-      _tag: 'InvalidFOV',
+    SettingsError.InvalidFOV({
       message: `Invalid FOV: ${value} (expected ${min} to ${max})`,
       value,
       min,
@@ -244,8 +200,7 @@ export const createSettingsError = {
     }),
 
   invalidSensitivity: (value: number, min: number, max: number) =>
-    new SettingsError({
-      _tag: 'InvalidSensitivity',
+    SettingsError.InvalidSensitivity({
       message: `Invalid sensitivity: ${value} (expected ${min} to ${max})`,
       value,
       min,
@@ -253,8 +208,7 @@ export const createSettingsError = {
     }),
 
   invalidDistance: (value: number, min: number, max: number) =>
-    new SettingsError({
-      _tag: 'InvalidDistance',
+    SettingsError.InvalidDistance({
       message: `Invalid distance: ${value} (expected ${min} to ${max})`,
       value,
       min,
@@ -263,7 +217,9 @@ export const createSettingsError = {
 } as const
 
 // ========================================
-// Schema.TaggedError Pattern - No constructor exports needed
+// Data.taggedEnum Pattern - Factory Functions
 // ========================================
-// Note: With Schema.TaggedError, errors are created using factory functions
-// (createCameraError, createPositionError, etc.) instead of direct constructors
+// Note: With Data.taggedEnum, errors are created using:
+// 1. Direct constructors (e.g., CameraError.InitializationFailed({ ... }))
+// 2. Factory functions (e.g., createCameraError.initializationFailed(...))
+// Factory functions provide convenience and consistent error creation

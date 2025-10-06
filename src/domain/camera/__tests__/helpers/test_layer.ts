@@ -5,7 +5,7 @@
  * Effect-TSによる完全な依存性注入とモック管理
  */
 
-import { Effect, Either, Layer, Option, Ref, TestClock, TestContext, TestRandom } from 'effect'
+import { Effect, Either, Layer, Option, Ref, TestClock, TestContext } from 'effect'
 
 // Camera Domain Service imports (値として使用するため通常のimport)
 import { AnimationEngineService } from '../../domain_service/animation_engine/service'
@@ -344,8 +344,8 @@ export const MockRepositoryLayer = Layer.mergeAll(
 // 完全なテストLayer
 export const TestLayer = Layer.mergeAll(MockDomainServiceLayer, MockRepositoryLayer)
 
-// 決定論的テストLayer（TestClockとTestRandom使用）
-export const DeterministicTestLayer = Layer.mergeAll(TestClock.layer, MockDomainServiceLayer, MockRepositoryLayer)
+// 決定論的テストLayer（TestContext使用）
+export const DeterministicTestLayer = Layer.mergeAll(TestContext.TestContext, MockDomainServiceLayer, MockRepositoryLayer)
 
 // パフォーマンステスト用Layer（リアルタイム）
 export const PerformanceTestLayer = Layer.mergeAll(MockDomainServiceLayer, MockRepositoryLayer)

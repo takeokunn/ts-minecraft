@@ -1,4 +1,4 @@
-import { Effect, Match, Number as Number_, pipe, Schema } from 'effect'
+import { Effect, Match, pipe, Schema } from 'effect'
 import { getMaxStackSize, isStackable } from './constraints'
 import { MaxStackSizeSchema, StackSizeSchema } from './schema'
 import {
@@ -59,26 +59,28 @@ export const addToStack = (
     const maxSizeValue = maxSize as number
 
     // バリデーション: 追加量が正の数値であること
-    yield* Effect.filterOrFail(
-      additionSize,
-      (size) => !Number_.isNaN(size) && size > 0,
-      () =>
-        StackSizeError.InvalidOperation({
-          operation: StackOperation.Add({ amount: addition }),
-          reason: '追加量が0以下です',
-        })
+    yield* Effect.succeed(additionSize).pipe(
+      Effect.filterOrFail(
+        (size) => !Number.isNaN(size) && size > 0,
+        () =>
+          StackSizeError.InvalidOperation({
+            operation: StackOperation.Add({ amount: addition }),
+            reason: '追加量が0以下です',
+          })
+      )
     )
 
     // バリデーション: 追加量が最大値を超えていないこと
-    yield* Effect.filterOrFail(
-      additionSize,
-      (size) => size <= maxSizeValue,
-      () =>
-        StackSizeError.ExceedsLimit({
-          current,
-          addition,
-          limit: maxSize,
-        })
+    yield* Effect.succeed(additionSize).pipe(
+      Effect.filterOrFail(
+        (size) => size <= maxSizeValue,
+        () =>
+          StackSizeError.ExceedsLimit({
+            current,
+            addition,
+            limit: maxSize,
+          })
+      )
     )
 
     const newTotal = currentSize + additionSize
@@ -116,14 +118,15 @@ export const removeFromStack = (
     const removalNum = removal as number
 
     // バリデーション: 減算量が正の数値であること
-    yield* Effect.filterOrFail(
-      removalNum,
-      (num) => num > 0,
-      () =>
-        StackSizeError.InvalidOperation({
-          operation: StackOperation.Remove({ amount: removal }),
-          reason: '減算量が0以下です',
-        })
+    yield* Effect.succeed(removalNum).pipe(
+      Effect.filterOrFail(
+        (num) => num > 0,
+        () =>
+          StackSizeError.InvalidOperation({
+            operation: StackOperation.Remove({ amount: removal }),
+            reason: '減算量が0以下です',
+          })
+      )
     )
 
     // 条件分岐: アンダーフローチェック
@@ -162,14 +165,15 @@ export const removeFromStack = (
 export const splitStack = (stack: StackSize, ratio: number): Effect.Effect<SplitResult, StackSizeError> =>
   Effect.gen(function* () {
     // バリデーション: 比率が0と1の間の小数であること
-    yield* Effect.filterOrFail(
-      ratio,
-      (r) => r > 0 && r < 1,
-      () =>
-        StackSizeError.InvalidRatio({
-          ratio,
-          expected: '0と1の間の小数',
-        })
+    yield* Effect.succeed(ratio).pipe(
+      Effect.filterOrFail(
+        (r) => r > 0 && r < 1,
+        () =>
+          StackSizeError.InvalidRatio({
+            ratio,
+            expected: '0と1の間の小数',
+          })
+      )
     )
 
     const stackNum = stack as number
@@ -177,14 +181,15 @@ export const splitStack = (stack: StackSize, ratio: number): Effect.Effect<Split
     const part2Size = stackNum - part1Size
 
     // バリデーション: 両方の分割結果が1以上であること
-    yield* Effect.filterOrFail(
-      { part1Size, part2Size },
-      ({ part1Size, part2Size }) => part1Size > 0 && part2Size > 0,
-      () =>
-        StackSizeError.InvalidRatio({
-          ratio,
-          expected: '両方の分割結果が1以上になる比率',
-        })
+    yield* Effect.succeed({ part1Size, part2Size }).pipe(
+      Effect.filterOrFail(
+        ({ part1Size, part2Size }) => part1Size > 0 && part2Size > 0,
+        () =>
+          StackSizeError.InvalidRatio({
+            ratio,
+            expected: '両方の分割結果が1以上になる比率',
+          })
+      )
     )
 
     const part1 = yield* createStackSize(part1Size)
@@ -203,27 +208,29 @@ export const splitStack = (stack: StackSize, ratio: number): Effect.Effect<Split
 export const splitIntoMultiple = (stack: StackSize, partCount: number): Effect.Effect<SplitResult, StackSizeError> =>
   Effect.gen(function* () {
     // バリデーション: partCountが正の整数であること
-    yield* Effect.filterOrFail(
-      partCount,
-      (count) => Number_.isSafeInteger(count) && count > 0,
-      () =>
-        StackSizeError.InvalidRatio({
-          ratio: partCount,
-          expected: '正の整数',
-        })
+    yield* Effect.succeed(partCount).pipe(
+      Effect.filterOrFail(
+        (count) => Number.isSafeInteger(count) && count > 0,
+        () =>
+          StackSizeError.InvalidRatio({
+            ratio: partCount,
+            expected: '正の整数',
+          })
+      )
     )
 
     const stackNum = stack as number
 
     // バリデーション: partCountがstackNum以下であること
-    yield* Effect.filterOrFail(
-      partCount,
-      (count) => count <= stackNum,
-      () =>
-        StackSizeError.InvalidRatio({
-          ratio: partCount,
-          expected: `最大でも${stackNum}以下`,
-        })
+    yield* Effect.succeed(partCount).pipe(
+      Effect.filterOrFail(
+        (count) => count <= stackNum,
+        () =>
+          StackSizeError.InvalidRatio({
+            ratio: partCount,
+            expected: `最大でも${stackNum}以下`,
+          })
+      )
     )
 
     const baseSize = Math.floor(stackNum / partCount)
@@ -392,14 +399,15 @@ export const executeStackOperation = (
         const newMaxNum = setMax.newMax as number
 
         // バリデーション: 新しい最大値が1以上であること
-        yield* Effect.filterOrFail(
-          newMaxNum,
-          (num) => num > 0,
-          () =>
-            StackSizeError.InvalidOperation({
-              operation,
-              reason: '最大値は1以上である必要があります',
-            })
+        yield* Effect.succeed(newMaxNum).pipe(
+          Effect.filterOrFail(
+            (num) => num > 0,
+            () =>
+              StackSizeError.InvalidOperation({
+                operation,
+                reason: '最大値は1以上である必要があります',
+              })
+          )
         )
 
         // 条件分岐: スタックサイズが新しい最大値以下か、オーバーフローするか
@@ -444,14 +452,15 @@ export const calculateStackStats = (
           const numbers = stacks.map((stack) => stack as number)
 
           // バリデーション: 全てのスタックサイズが正の数値であること
-          yield* Effect.filterOrFail(
-            numbers,
-            (nums) => !nums.some((value) => value <= 0),
-            () =>
-              StackSizeError.InvalidOperation({
-                operation: StackOperation.Split({ ratio: 0.5 }),
-                reason: 'スタックサイズに0以下の値が含まれています',
-              })
+          yield* Effect.succeed(numbers).pipe(
+            Effect.filterOrFail(
+              (nums) => !nums.some((value) => value <= 0),
+              () =>
+                StackSizeError.InvalidOperation({
+                  operation: StackOperation.Split({ ratio: 0.5 }),
+                  reason: 'スタックサイズに0以下の値が含まれています',
+                })
+            )
           )
 
           const totalStacks = numbers.length

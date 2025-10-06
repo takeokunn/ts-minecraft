@@ -5,7 +5,7 @@
  * class構文を一切使用せず、pipe/flowによる関数合成とEffect.genで実装
  */
 
-import { Effect, Match, Option, pipe } from 'effect'
+import { Effect, Layer, Match, Option, pipe } from 'effect'
 import type { ItemMetadata, ItemStack } from '../../types'
 import {
   ItemCreationError as CreationError,
@@ -547,5 +547,5 @@ export const ItemFactoryLive: ItemFactory = {
   },
 }
 
-// Layer.effect による依存性注入実装
-export const ItemFactoryLayer = Effect.succeed(ItemFactoryLive)
+// Layer による依存性注入実装
+export const ItemFactoryLayer = Layer.succeed(ItemFactory, ItemFactoryLive)

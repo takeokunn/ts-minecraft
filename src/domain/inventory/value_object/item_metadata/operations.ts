@@ -153,13 +153,15 @@ export const addEnchantment = (
     )
 
     // バリデーション: 競合エンチャントが存在しないこと
-    yield* Effect.filterOrFail(conflictingEnchantment, Option.isNone, () => {
-      const conflict = Option.getOrThrow(conflictingEnchantment)
-      return ItemMetadataError.ConflictingEnchantments({
-        enchantment1: conflict.id,
-        enchantment2: enchantment.id,
+    yield* Effect.succeed(conflictingEnchantment).pipe(
+      Effect.filterOrFail(Option.isNone, () => {
+        const conflict = Option.getOrThrow(conflictingEnchantment)
+        return ItemMetadataError.ConflictingEnchantments({
+          enchantment1: conflict.id,
+          enchantment2: enchantment.id,
+        })
       })
-    })
+    )
 
     // 同じエンチャントを置き換え
     const updatedEnchantments = pipe(

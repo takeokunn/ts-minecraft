@@ -207,3 +207,6 @@ export class PatternMismatchError extends Schema.TaggedError<PatternMismatchErro
 export const decodeItemStack = Schema.decode(CraftingItemStackSchema)
 export const decodeRecipe = Schema.decode(CraftingRecipeSchema)
 export const decodeGrid = Schema.decode(CraftingGridSchema)
+
+// Grid操作関数を再エクスポート
+export { buildEmptyGrid, replaceSlot, slotAt } from '../helpers'

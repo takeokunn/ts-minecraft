@@ -84,27 +84,29 @@ const getTypeDefaults = (type: InventoryType): Partial<InventoryConfig> =>
 const validateConfig = (config: InventoryConfig): Effect.Effect<void, InventoryCreationError> =>
   Effect.gen(function* () {
     // playerIdの検証
-    yield* Effect.filterOrFail(
-      config.playerId,
-      (id) => id && id.trim() !== '',
-      () =>
-        new CreationError({
-          reason: 'Invalid inventory configuration',
-          invalidFields: ['playerId is required'],
-          context: { config },
-        })
+    yield* Effect.succeed(config.playerId).pipe(
+      Effect.filterOrFail(
+        (id) => id && id.trim() !== '',
+        () =>
+          new CreationError({
+            reason: 'Invalid inventory configuration',
+            invalidFields: ['playerId is required'],
+            context: { config },
+          })
+      )
     )
 
     // slotCountの検証
-    yield* Effect.filterOrFail(
-      config.slotCount,
-      (count) => count >= 0 && count <= 54,
-      () =>
-        new CreationError({
-          reason: 'Invalid inventory configuration',
-          invalidFields: ['slotCount must be between 0 and 54'],
-          context: { config },
-        })
+    yield* Effect.succeed(config.slotCount).pipe(
+      Effect.filterOrFail(
+        (count) => count >= 0 && count <= 54,
+        () =>
+          new CreationError({
+            reason: 'Invalid inventory configuration',
+            invalidFields: ['slotCount must be between 0 and 54'],
+            context: { config },
+          })
+      )
     )
 
     // startingItemsの検証
@@ -152,15 +154,16 @@ const placeItemsInSlots = (
     )
 
     // すべてのアイテムが配置できたか検証
-    yield* Effect.filterOrFail(
-      placementResult.itemIndex,
-      (index) => index >= items.length,
-      () =>
-        new CreationError({
-          reason: 'Not enough empty slots for all starting items',
-          invalidFields: ['startingItems'],
-          context: { availableSlots: slots.length, requestedItems: items.length },
-        })
+    yield* Effect.succeed(placementResult.itemIndex).pipe(
+      Effect.filterOrFail(
+        (index) => index >= items.length,
+        () =>
+          new CreationError({
+            reason: 'Not enough empty slots for all starting items',
+            invalidFields: ['startingItems'],
+            context: { availableSlots: slots.length, requestedItems: items.length },
+          })
+      )
     )
 
     return yield* Effect.succeed({
@@ -370,15 +373,16 @@ export const InventoryFactoryLive: InventoryFactory = {
       )
 
       // コンフリクトチェック
-      yield* Effect.filterOrFail(
-        mergeResult.conflicts.length,
-        (len) => len === 0,
-        () =>
-          new MergeError({
-            reason: 'Slot conflicts during merge',
-            conflictingFields: mergeResult.conflicts,
-            context: { primaryId: primary.playerId, secondaryId: secondary.playerId },
-          })
+      yield* Effect.succeed(mergeResult.conflicts.length).pipe(
+        Effect.filterOrFail(
+          (len) => len === 0,
+          () =>
+            new MergeError({
+              reason: 'Slot conflicts during merge',
+              conflictingFields: mergeResult.conflicts,
+              context: { primaryId: primary.playerId, secondaryId: secondary.playerId },
+            })
+        )
       )
 
       const merged: Inventory = {
@@ -393,51 +397,55 @@ export const InventoryFactoryLive: InventoryFactory = {
   validateInventory: (inventory) =>
     Effect.gen(function* () {
       // playerIdの検証
-      yield* Effect.filterOrFail(
-        inventory.playerId,
-        (id) => id && id.trim() !== '',
-        () =>
-          new ValidationError({
-            reason: 'Inventory validation failed',
-            missingFields: ['playerId is required'],
-            context: { inventory },
-          })
+      yield* Effect.succeed(inventory.playerId).pipe(
+        Effect.filterOrFail(
+          (id) => id && id.trim() !== '',
+          () =>
+            new ValidationError({
+              reason: 'Inventory validation failed',
+              missingFields: ['playerId is required'],
+              context: { inventory },
+            })
+        )
       )
 
       // slotsの検証
-      yield* Effect.filterOrFail(
-        inventory.slots.length,
-        (len) => len === 36,
-        () =>
-          new ValidationError({
-            reason: 'Inventory validation failed',
-            missingFields: ['slots array must have exactly 36 elements'],
-            context: { inventory },
-          })
+      yield* Effect.succeed(inventory.slots.length).pipe(
+        Effect.filterOrFail(
+          (len) => len === 36,
+          () =>
+            new ValidationError({
+              reason: 'Inventory validation failed',
+              missingFields: ['slots array must have exactly 36 elements'],
+              context: { inventory },
+            })
+        )
       )
 
       // hotbarの検証
-      yield* Effect.filterOrFail(
-        inventory.hotbar.length,
-        (len) => len === 9,
-        () =>
-          new ValidationError({
-            reason: 'Inventory validation failed',
-            missingFields: ['hotbar array must have exactly 9 elements'],
-            context: { inventory },
-          })
+      yield* Effect.succeed(inventory.hotbar.length).pipe(
+        Effect.filterOrFail(
+          (len) => len === 9,
+          () =>
+            new ValidationError({
+              reason: 'Inventory validation failed',
+              missingFields: ['hotbar array must have exactly 9 elements'],
+              context: { inventory },
+            })
+        )
       )
 
       // selectedSlotの検証
-      yield* Effect.filterOrFail(
-        inventory.selectedSlot,
-        (slot) => slot >= 0 && slot <= 8,
-        () =>
-          new ValidationError({
-            reason: 'Inventory validation failed',
-            missingFields: ['selectedSlot must be between 0 and 8'],
-            context: { inventory },
-          })
+      yield* Effect.succeed(inventory.selectedSlot).pipe(
+        Effect.filterOrFail(
+          (slot) => slot >= 0 && slot <= 8,
+          () =>
+            new ValidationError({
+              reason: 'Inventory validation failed',
+              missingFields: ['selectedSlot must be between 0 and 8'],
+              context: { inventory },
+            })
+        )
       )
 
       // ホットバーインデックスの検証
@@ -450,15 +458,16 @@ export const InventoryFactoryLive: InventoryFactory = {
         )
       )
 
-      yield* Effect.filterOrFail(
-        hotbarErrors.length,
-        (len) => len === 0,
-        () =>
-          new ValidationError({
-            reason: 'Inventory validation failed',
-            missingFields: hotbarErrors,
-            context: { inventory },
-          })
+      yield* Effect.succeed(hotbarErrors.length).pipe(
+        Effect.filterOrFail(
+          (len) => len === 0,
+          () =>
+            new ValidationError({
+              reason: 'Inventory validation failed',
+              missingFields: hotbarErrors,
+              context: { inventory },
+            })
+        )
       )
 
       return yield* Effect.void

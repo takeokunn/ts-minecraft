@@ -3,7 +3,7 @@
  * Effect-TSによる型安全なビジネスロジックを提供
  */
 
-import { Effect, Option, pipe } from 'effect'
+import { Clock, Effect, Option, pipe } from 'effect'
 import type { ItemId } from '../../types'
 import type { ItemStackEntity as ItemStack } from '../item_stack'
 import { addUncommittedEvent, incrementVersion } from './factory'
@@ -59,6 +59,7 @@ export const removeItem = (
       )
     }
 
+    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms).toISOString())
     const event: ItemRemovedEvent = {
       type: 'ItemRemoved',
       aggregateId: aggregate.id,
@@ -86,7 +87,9 @@ export const removeItem = (
       }
     }
 
-    return pipe({ ...aggregate, slots: updatedSlots }, incrementVersion, (agg) => addUncommittedEvent(agg, event))
+    const aggregateWithUpdatedSlots = { ...aggregate, slots: updatedSlots }
+    const aggregateWithVersion = yield* incrementVersion(aggregateWithUpdatedSlots)
+    return addUncommittedEvent(aggregateWithVersion, event)
   })
 
 export const swapItems = (
@@ -104,6 +107,7 @@ export const swapItems = (
     updatedSlots[fromSlot] = updatedSlots[toSlot] ?? null
     updatedSlots[toSlot] = fromItem ?? null
 
+    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms).toISOString())
     const event: ItemsSwappedEvent = {
       type: 'ItemsSwapped',
       aggregateId: aggregate.id,
@@ -113,7 +117,9 @@ export const swapItems = (
       timestamp: timestamp as any,
     }
 
-    return pipe({ ...aggregate, slots: updatedSlots }, incrementVersion, (agg) => addUncommittedEvent(agg, event))
+    const aggregateWithUpdatedSlots = { ...aggregate, slots: updatedSlots }
+    const aggregateWithVersion = yield* incrementVersion(aggregateWithUpdatedSlots)
+    return addUncommittedEvent(aggregateWithVersion, event)
   })
 
 export const changeSelectedHotbarSlot = (
@@ -125,6 +131,7 @@ export const changeSelectedHotbarSlot = (
       return aggregate
     }
 
+    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms).toISOString())
     const event: HotbarChangedEvent = {
       type: 'HotbarChanged',
       aggregateId: aggregate.id,
@@ -134,7 +141,9 @@ export const changeSelectedHotbarSlot = (
       timestamp: timestamp as any,
     }
 
-    return pipe({ ...aggregate, selectedSlot: newSlot }, incrementVersion, (agg) => addUncommittedEvent(agg, event))
+    const aggregateWithUpdatedSlot = { ...aggregate, selectedSlot: newSlot }
+    const aggregateWithVersion = yield* incrementVersion(aggregateWithUpdatedSlot)
+    return addUncommittedEvent(aggregateWithVersion, event)
   })
 
 export const getItemCount = (aggregate: InventoryAggregate, itemId: ItemId): number =>
@@ -224,6 +233,7 @@ const addToExistingStack = (
       )
     }
 
+    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms).toISOString())
     const updatedSlots = [...aggregate.slots]
     updatedSlots[slotIndex] = {
       ...slot,
@@ -245,7 +255,9 @@ const addToExistingStack = (
       timestamp: timestamp as any,
     }
 
-    return pipe({ ...aggregate, slots: updatedSlots }, incrementVersion, (agg) => addUncommittedEvent(agg, event))
+    const aggregateWithUpdatedSlots = { ...aggregate, slots: updatedSlots }
+    const aggregateWithVersion = yield* incrementVersion(aggregateWithUpdatedSlots)
+    return addUncommittedEvent(aggregateWithVersion, event)
   })
 
 const addToEmptySlot = (
@@ -258,6 +270,7 @@ const addToEmptySlot = (
       yield* Effect.fail(InventoryAggregateError.slotOccupied(slotIndex, itemStack.itemId))
     }
 
+    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms).toISOString())
     const newSlot: InventorySlot = {
       itemStack: {
         ...itemStack,
@@ -280,5 +293,7 @@ const addToEmptySlot = (
       timestamp: timestamp as any,
     }
 
-    return pipe({ ...aggregate, slots: updatedSlots }, incrementVersion, (agg) => addUncommittedEvent(agg, event))
+    const aggregateWithUpdatedSlots = { ...aggregate, slots: updatedSlots }
+    const aggregateWithVersion = yield* incrementVersion(aggregateWithUpdatedSlots)
+    return addUncommittedEvent(aggregateWithVersion, event)
   })

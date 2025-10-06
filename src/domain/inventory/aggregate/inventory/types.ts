@@ -5,14 +5,15 @@
 
 import { Effect, Schema } from 'effect'
 import type { ItemId } from '../../types'
-import { ItemIdSchema, PlayerIdSchema } from '../../types/core'
+import { PlayerIdSchema } from '../../types/core'
+import { ItemIdSchema } from '../../value_object/item_id/schema'
 import { ItemStackEntitySchema } from '../item_stack/types'
 
 // ===== Brand Types =====
 
 export const InventoryIdSchema = Schema.String.pipe(
   Schema.nonEmptyString(),
-  Schema.pattern(/^inv_[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{12}$/),
+  Schema.pattern(/^inv_[A-Za-z0-9_-]+$/),
   Schema.brand('InventoryId')
 )
 export type InventoryId = Schema.Schema.Type<typeof InventoryIdSchema>

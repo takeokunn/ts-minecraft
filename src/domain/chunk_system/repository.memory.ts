@@ -16,13 +16,12 @@ const broadcastAll = (queue: Queue.Queue<ChunkEvent>, events: ReadonlyArray<Chun
   })
 
 export const memoryRepositoryLayer = (initial: ChunkSystemState): Layer.Layer<ChunkSystemRepository> =>
-  Layer.scoped(
+  Layer.effect(
     ChunkSystemRepository,
     Effect.gen(function* () {
       const stateRef = yield* Ref.make(initial)
-      const eventQueue = yield* Queue.sliding<ChunkEvent>(512)
+      const eventQueue = yield* Queue.unbounded<ChunkEvent>()
       const observe: Stream.Stream<ChunkEvent, ChunkSystemError> = Stream.fromQueue(eventQueue)
-      yield* Effect.addFinalizer(() => Queue.shutdown(eventQueue))
       return ChunkSystemRepository.of({
         load: wrapRepository(Ref.get(stateRef)),
         save: (state, events) =>

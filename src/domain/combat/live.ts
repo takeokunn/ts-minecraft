@@ -108,30 +108,22 @@ export const CombatServiceLive = Layer.effect(
       )
 
     const advanceCooldowns: CombatService['advanceCooldowns'] = (sessionId, elapsedMilliseconds) =>
-      Effect.gen(function* () {
-        const elapsed = yield* makeCooldown(elapsedMilliseconds)
-        const state = yield* Ref.get(stateRef)
-        const sessionOption = HashMap.get(state, sessionId)
-        const session = yield* pipe(
-          sessionOption,
-          Option.match({
-            onNone: () => Effect.fail(CombatError.sessionNotFound(sessionId)),
-            onSome: (s) => Effect.succeed(s),
-          })
-        )
-        const refreshed = yield* Effect.forEach(
-          session.combatants,
-          (combatant) => decayCooldowns(combatant, elapsed),
-          { concurrency: 'unbounded' }
-        )
-        const nextSession: CombatSession = {
-          id: session.id,
-          combatants: refreshed,
-          timeline: session.timeline,
-        }
-        const nextState = HashMap.set(state, sessionId, nextSession)
-        yield* Ref.set(stateRef, nextState)
-      })
+      modifySession(sessionId, (session) =>
+        Effect.gen(function* () {
+          const elapsed = yield* makeCooldown(elapsedMilliseconds)
+          const refreshed = yield* Effect.forEach(
+            session.combatants,
+            (combatant) => decayCooldowns(combatant, elapsed),
+            { concurrency: 'unbounded' }
+          )
+          const nextSession: CombatSession = {
+            id: session.id,
+            combatants: refreshed,
+            timeline: session.timeline,
+          }
+          return [true, nextSession] as readonly [boolean, CombatSession]
+        })
+      ).pipe(Effect.asVoid)
 
     const getCombatant: CombatService['getCombatant'] = (sessionId, combatantId) =>
       getSession(sessionId).pipe(
@@ -147,13 +139,13 @@ export const CombatServiceLive = Layer.effect(
     const timeline: CombatService['timeline'] = (sessionId) =>
       getSession(sessionId).pipe(Effect.map((session) => session.timeline))
 
-    return CombatServiceTag.of({
+    return {
       createSession,
       registerCombatant,
       executeAttack,
       advanceCooldowns,
       getCombatant,
       timeline,
-    })
+    }
   })
 )

@@ -89,10 +89,11 @@ export const CraftingIntegrationServiceLive = Layer.succeed(
         const craftability = yield* CraftingIntegrationService.checkCraftability(inventory, recipe)
 
         // Effect.filterOrFailによる検証
-        yield* Effect.filterOrFail(
-          craftability,
-          (c) => c.canCraft,
-          () => new CraftingIntegrationError('CANNOT_CRAFT', craftability.reason)
+        yield* Effect.succeed(craftability).pipe(
+          Effect.filterOrFail(
+            (c) => c.canCraft,
+            () => new CraftingIntegrationError('CANNOT_CRAFT', craftability.reason)
+          )
         )
 
         // Effect.replicateとEffect.reduceによるクラフト実行
@@ -546,11 +547,12 @@ const consumeSpecificItem = (
     )
 
     // Effect.filterOrFailによる不足材料チェック
-    yield* Effect.filterOrFail(
-      consumptionResult,
-      (result) => result.remainingToConsume === 0,
-      (result) =>
-        new CraftingIntegrationError('INSUFFICIENT_MATERIALS', `Missing ${result.remainingToConsume} ${itemId}`)
+    yield* Effect.succeed(consumptionResult).pipe(
+      Effect.filterOrFail(
+        (result) => result.remainingToConsume === 0,
+        (result) =>
+          new CraftingIntegrationError('INSUFFICIENT_MATERIALS', `Missing ${result.remainingToConsume} ${itemId}`)
+      )
     )
 
     return {

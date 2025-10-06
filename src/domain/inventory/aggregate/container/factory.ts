@@ -3,7 +3,7 @@
  * DDD原則に基づく複雑なコンテナ設定の隠蔽
  */
 
-import { Clock, Context, Effect, Schema } from 'effect'
+import { Clock, Context, Effect, Layer, Schema } from 'effect'
 import { nanoid } from 'nanoid'
 import type { PlayerId } from '../../types'
 import type {
@@ -342,6 +342,11 @@ export const ContainerFactoryLive = ContainerFactory.of({
     }
   },
 })
+
+/**
+ * ContainerFactory Layer
+ */
+export const ContainerFactoryLayer = Layer.succeed(ContainerFactory, ContainerFactoryLive)
 
 // ===== Preset Factory Functions =====
 

@@ -44,4 +44,4 @@ const createService = (
 export const chunkSystemLayer = (
   config: ChunkSystemConfig
 ): Layer.Layer<ChunkSystemService, ChunkSystemError, ChunkSystemRepository> =>
-  Layer.scoped(ChunkSystemService, createService(config))
+  Layer.effect(ChunkSystemService, createService(config))

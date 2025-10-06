@@ -2,39 +2,14 @@
 // Error Types and Classes Export
 // ========================================
 
-// Error Classes (Schema.TaggedError)
-export {
-  CameraAnimationError,
-  CameraCollisionError,
-  CameraInitializationError,
-  CameraNotInitializedError,
-  CameraResourceError,
-  InvalidCameraModeError,
-  InvalidConfigurationError,
-  InvalidDistanceError,
-  InvalidFOVError,
-  InvalidParameterError,
-  InvalidPositionError,
-  InvalidRotationError,
-  InvalidSensitivityError,
-  PositionOutOfBoundsError,
-  RotationLimitExceededError,
-} from './errors.js'
+// Error ADTs (Data.taggedEnum)
+export { CameraError, PositionError, RotationError, SettingsError } from './errors.js'
 
 // Error Union Types
-export type { CameraDomainError, CameraError, PositionError, RotationError, SettingsError } from './errors.js'
+export type { CameraDomainError } from './errors.js'
 
 // Error Factory Functions
 export { createCameraError, createPositionError, createRotationError, createSettingsError } from './errors.js'
-
-// Error Schemas (placeholder - implement when needed)
-// export {
-//   CameraDomainErrorSchema,
-//   CameraErrorSchema,
-//   PositionErrorSchema,
-//   RotationErrorSchema,
-//   SettingsErrorSchema,
-// } from './errors.js'
 
 // ========================================
 // Constants and Brand Types Export

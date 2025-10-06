@@ -5,7 +5,7 @@
 
 import { Schema } from 'effect'
 import type { ItemId } from '../../types'
-import { ItemIdSchema } from '../../types/core'
+import { ItemIdSchema } from '../../value_object/item_id/schema'
 import { ItemMetadataSchema } from '../../value_object/item_metadata/schema'
 
 // ===== Brand Types =====
@@ -73,7 +73,7 @@ export const ItemStackMergedEventSchema = Schema.Struct({
   type: Schema.Literal('ItemStackMerged'),
   sourceStackId: ItemStackIdSchema,
   targetStackId: ItemStackIdSchema,
-  itemId: Schema.suspend(() => import('../../types/index').then((m) => m.ItemIdSchema)),
+  itemId: ItemIdSchema,
   mergedQuantity: ItemCountSchema,
   finalQuantity: ItemCountSchema,
   timestamp: Schema.DateTimeUtc,
@@ -83,7 +83,7 @@ export const ItemStackSplitEventSchema = Schema.Struct({
   type: Schema.Literal('ItemStackSplit'),
   sourceStackId: ItemStackIdSchema,
   newStackId: ItemStackIdSchema,
-  itemId: Schema.suspend(() => import('../../types/index').then((m) => m.ItemIdSchema)),
+  itemId: ItemIdSchema,
   splitQuantity: ItemCountSchema,
   remainingQuantity: ItemCountSchema,
   timestamp: Schema.DateTimeUtc,
@@ -92,7 +92,7 @@ export const ItemStackSplitEventSchema = Schema.Struct({
 export const ItemStackConsumedEventSchema = Schema.Struct({
   type: Schema.Literal('ItemStackConsumed'),
   stackId: ItemStackIdSchema,
-  itemId: Schema.suspend(() => import('../../types/index').then((m) => m.ItemIdSchema)),
+  itemId: ItemIdSchema,
   consumedQuantity: ItemCountSchema,
   remainingQuantity: ItemCountSchema,
   timestamp: Schema.DateTimeUtc,
@@ -102,7 +102,7 @@ export const ItemStackConsumedEventSchema = Schema.Struct({
 export const ItemStackDamageEventSchema = Schema.Struct({
   type: Schema.Literal('ItemStackDamaged'),
   stackId: ItemStackIdSchema,
-  itemId: Schema.suspend(() => import('../../types/index').then((m) => m.ItemIdSchema)),
+  itemId: ItemIdSchema,
   previousDurability: DurabilitySchema,
   newDurability: DurabilitySchema,
   damageAmount: Schema.Number.pipe(Schema.between(0, 1)),
@@ -151,7 +151,7 @@ export class ItemStackError extends Schema.TaggedError<ItemStackError>()('ItemSt
   ),
   message: Schema.String,
   stackId: Schema.optional(ItemStackIdSchema),
-  itemId: Schema.optional(Schema.suspend(() => import('../../types/index').then((m) => m.ItemIdSchema))),
+  itemId: Schema.optional(ItemIdSchema),
   quantity: Schema.optional(ItemCountSchema),
   metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Any })),
 }) {

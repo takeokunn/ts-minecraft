@@ -1,6 +1,6 @@
 import type { BlockTypeId } from '@domain/entities'
 import type { AABB, CollisionResult } from '@domain/physics/types'
-import { Effect, Match, Option, pipe, Stream } from 'effect'
+import { Array as ReadonlyArray, Effect, Match, Option, pipe, Stream } from 'effect'
 import type { Vector3 } from '../../world/types'
 
 /**
@@ -43,8 +43,7 @@ export const CollisionDetection = {
   /**
    * エンティティの周囲のブロックAABBを取得
    */
-  getNearbyBlockAABBs: (position: Vector3, radius: number = 2): Array<{ position: Vector3; aabb: AABB }> => {
-    const blocks: Array<{ position: Vector3; aabb: AABB }> = []
+  getNearbyBlockAABBs: (position: Vector3, radius: number = 2): ReadonlyArray<{ position: Vector3; aabb: AABB }> => {
     const minX = Math.floor(position.x - radius)
     const maxX = Math.ceil(position.x + radius)
     const minY = Math.floor(position.y - radius)
@@ -52,22 +51,23 @@ export const CollisionDetection = {
     const minZ = Math.floor(position.z - radius)
     const maxZ = Math.ceil(position.z + radius)
 
-    for (let x = minX; x <= maxX; x++) {
-      for (let y = minY; y <= maxY; y++) {
-        for (let z = minZ; z <= maxZ; z++) {
-          const blockPos = { x, y, z }
-          // ブロックは1x1x1のAABB
-          const blockAABB: AABB = {
-            _tag: 'AABB' as const,
-            min: { x, y, z },
-            max: { x: x + 1, y: y + 1, z: z + 1 },
-          } as AABB
-          blocks.push({ position: blockPos, aabb: blockAABB })
-        }
-      }
-    }
-
-    return blocks
+    // 3重ネストfor文をReadonlyArray.flatMapで宣言的に変換
+    return pipe(
+      Array.from({ length: maxX - minX + 1 }, (_, i) => minX + i),
+      (xRange) =>
+        xRange.flatMap((x) =>
+          Array.from({ length: maxY - minY + 1 }, (_, i) => minY + i).flatMap((y) =>
+            Array.from({ length: maxZ - minZ + 1 }, (_, i) => minZ + i).map((z) => ({
+              position: { x, y, z },
+              aabb: {
+                _tag: 'AABB' as const,
+                min: { x, y, z },
+                max: { x: x + 1, y: y + 1, z: z + 1 },
+              } as AABB,
+            }))
+          )
+        )
+    )
   },
 
   /**
@@ -85,108 +85,129 @@ export const CollisionDetection = {
   ): Effect.Effect<CollisionResult> =>
     Effect.gen(function* () {
       const deltaTime = 1 / 60 // 60 FPS想定
-      let newPosition = {
+      const initialPosition = {
         x: position.x + velocity.x * deltaTime,
         y: position.y + velocity.y * deltaTime,
         z: position.z + velocity.z * deltaTime,
       }
-      let newVelocity = { ...velocity }
-      let isGrounded = false
-      const collidedAxes = { x: false, y: false, z: false }
-      const nearbyBlocks: Array<{ position: Vector3; blockType: BlockTypeId }> = []
-
-      // エンティティボックスを新しい位置に移動
-      const movedBox = CollisionDetection.translateAABB(entityBox, newPosition)
 
       // 周囲のブロックを取得
-      const blockAABBs = CollisionDetection.getNearbyBlockAABBs(newPosition, 3)
+      const blockAABBs = CollisionDetection.getNearbyBlockAABBs(initialPosition, 3)
 
-      // 各軸ごとに衝突をチェック（スイープアルゴリズム）- Streamで関数型変換
-      yield* pipe(
+      // 衝突処理の状態を累積する型
+      type CollisionState = {
+        position: Vector3
+        velocity: Vector3
+        isGrounded: boolean
+        collidedAxes: { x: boolean; y: boolean; z: boolean }
+        nearbyBlocks: ReadonlyArray<{ position: Vector3; blockType: BlockTypeId }>
+      }
+
+      // Stream.reduceで状態を累積（mutable変数削除）
+      const collisionResult = yield* pipe(
         Stream.fromIterable(blockAABBs),
         Stream.mapEffect(({ position: blockPos, aabb: blockAABB }) =>
           Effect.gen(function* () {
             const blockType = getBlockAt(blockPos)
 
-            // 空気ブロックはスキップ - continue相当をfilterで実現
+            // 空気ブロックはスキップ
             return yield* pipe(
               !blockType || blockType === 0,
               Match.value,
               Match.when(false, () => Effect.succeed(Option.some({ blockType: blockType!, blockPos, blockAABB }))),
-              Match.orElse(() => Effect.succeed(Option.none())) // true case - continue相当
+              Match.orElse(() => Effect.succeed(Option.none()))
             )
           })
         ),
-        Stream.filterMap((option) => option), // Option.none()を除外（continue相当）
-        Stream.mapEffect(({ blockType, blockPos, blockAABB }) =>
-          Effect.gen(function* () {
-            nearbyBlocks.push({ position: blockPos, blockType: blockType as BlockTypeId })
+        Stream.filterMap((option) => option),
+        Stream.runFold(
+          {
+            position: initialPosition,
+            velocity: { ...velocity },
+            isGrounded: false,
+            collidedAxes: { x: false, y: false, z: false },
+            nearbyBlocks: [] as ReadonlyArray<{ position: Vector3; blockType: BlockTypeId }>,
+          } as CollisionState,
+          (state, { blockType, blockPos, blockAABB }) => {
+            // nearbyBlocksに追加
+            const updatedNearbyBlocks = [...state.nearbyBlocks, { position: blockPos, blockType: blockType as BlockTypeId }]
 
-            // Y軸の衝突チェック（重力方向）
+            // Y軸の衝突チェック
             const yTestBox = CollisionDetection.translateAABB(entityBox, {
               x: position.x,
-              y: newPosition.y,
+              y: state.position.y,
               z: position.z,
             })
-            pipe(
+
+            const yCollisionState = pipe(
               CollisionDetection.intersectsAABB(yTestBox, blockAABB),
               Match.value,
-              Match.when(false, () => {}),
+              Match.when(false, () => state),
               Match.orElse(() => {
-                collidedAxes.y = true
-                pipe(
+                const updatedCollidedAxes = { ...state.collidedAxes, y: true }
+                return pipe(
                   Match.value(velocity.y),
                   Match.when(
                     (vy) => vy < 0,
-                    () => {
-                      // 下方向への衝突（着地）
-                      newPosition.y = blockAABB.max.y - entityBox.min.y
-                      newVelocity.y = 0
-                      isGrounded = true
-                    }
+                    () => ({
+                      ...state,
+                      position: { ...state.position, y: blockAABB.max.y - entityBox.min.y },
+                      velocity: { ...state.velocity, y: 0 },
+                      isGrounded: true,
+                      collidedAxes: updatedCollidedAxes,
+                      nearbyBlocks: updatedNearbyBlocks,
+                    })
                   ),
                   Match.when(
                     (vy) => vy > 0,
-                    () => {
-                      // 上方向への衝突（頭打ち）
-                      newPosition.y = blockAABB.min.y - entityBox.max.y
-                      newVelocity.y = 0
-                    }
+                    () => ({
+                      ...state,
+                      position: { ...state.position, y: blockAABB.min.y - entityBox.max.y },
+                      velocity: { ...state.velocity, y: 0 },
+                      collidedAxes: updatedCollidedAxes,
+                      nearbyBlocks: updatedNearbyBlocks,
+                    })
                   ),
-                  Match.orElse(() => {})
+                  Match.orElse(() => ({ ...state, collidedAxes: updatedCollidedAxes, nearbyBlocks: updatedNearbyBlocks }))
                 )
               })
             )
 
             // X軸の衝突チェック
             const xTestBox = CollisionDetection.translateAABB(entityBox, {
-              x: newPosition.x,
+              x: yCollisionState.position.x,
               y: position.y,
               z: position.z,
             })
-            pipe(
+
+            const xCollisionState = pipe(
               CollisionDetection.intersectsAABB(xTestBox, blockAABB),
               Match.value,
-              Match.when(false, () => {}),
+              Match.when(false, () => yCollisionState),
               Match.orElse(() => {
-                collidedAxes.x = true
-                pipe(
+                const updatedCollidedAxes = { ...yCollisionState.collidedAxes, x: true }
+                return pipe(
                   Match.value(velocity.x),
                   Match.when(
                     (vx) => vx > 0,
-                    () => {
-                      newPosition.x = blockAABB.min.x - entityBox.max.x
-                    }
+                    () => ({
+                      ...yCollisionState,
+                      position: { ...yCollisionState.position, x: blockAABB.min.x - entityBox.max.x },
+                      velocity: { ...yCollisionState.velocity, x: 0 },
+                      collidedAxes: updatedCollidedAxes,
+                    })
                   ),
                   Match.when(
                     (vx) => vx < 0,
-                    () => {
-                      newPosition.x = blockAABB.max.x - entityBox.min.x
-                    }
+                    () => ({
+                      ...yCollisionState,
+                      position: { ...yCollisionState.position, x: blockAABB.max.x - entityBox.min.x },
+                      velocity: { ...yCollisionState.velocity, x: 0 },
+                      collidedAxes: updatedCollidedAxes,
+                    })
                   ),
-                  Match.orElse(() => {})
+                  Match.orElse(() => ({ ...yCollisionState, collidedAxes: updatedCollidedAxes }))
                 )
-                newVelocity.x = 0
               })
             )
 
@@ -194,40 +215,50 @@ export const CollisionDetection = {
             const zTestBox = CollisionDetection.translateAABB(entityBox, {
               x: position.x,
               y: position.y,
-              z: newPosition.z,
+              z: xCollisionState.position.z,
             })
-            pipe(
+
+            const zCollisionState = pipe(
               CollisionDetection.intersectsAABB(zTestBox, blockAABB),
               Match.value,
-              Match.when(false, () => {}),
+              Match.when(false, () => xCollisionState),
               Match.orElse(() => {
-                collidedAxes.z = true
-                pipe(
+                const updatedCollidedAxes = { ...xCollisionState.collidedAxes, z: true }
+                return pipe(
                   Match.value(velocity.z),
                   Match.when(
                     (vz) => vz > 0,
-                    () => {
-                      newPosition.z = blockAABB.min.z - entityBox.max.z
-                    }
+                    () => ({
+                      ...xCollisionState,
+                      position: { ...xCollisionState.position, z: blockAABB.min.z - entityBox.max.z },
+                      velocity: { ...xCollisionState.velocity, z: 0 },
+                      collidedAxes: updatedCollidedAxes,
+                    })
                   ),
                   Match.when(
                     (vz) => vz < 0,
-                    () => {
-                      newPosition.z = blockAABB.max.z - entityBox.min.z
-                    }
+                    () => ({
+                      ...xCollisionState,
+                      position: { ...xCollisionState.position, z: blockAABB.max.z - entityBox.min.z },
+                      velocity: { ...xCollisionState.velocity, z: 0 },
+                      collidedAxes: updatedCollidedAxes,
+                    })
                   ),
-                  Match.orElse(() => {})
+                  Match.orElse(() => ({ ...xCollisionState, collidedAxes: updatedCollidedAxes }))
                 )
-                newVelocity.z = 0
               })
             )
-          })
-        ),
-        Stream.runDrain
+
+            return zCollisionState
+          }
+        )
       )
 
-      // 階段の自動登り処理 - Match pattern で if文を置き換え
-      const stepCondition = (collidedAxes.x || collidedAxes.z) && !collidedAxes.y && isGrounded
+      // 階段の自動登り処理
+      const stepCondition =
+        (collisionResult.collidedAxes.x || collisionResult.collidedAxes.z) &&
+        !collisionResult.collidedAxes.y &&
+        collisionResult.isGrounded
 
       const canStepResult = pipe(
         stepCondition,
@@ -236,25 +267,24 @@ export const CollisionDetection = {
         Match.orElse(() => {
           const stepHeight = 0.5
           const stepTestPos = {
-            x: newPosition.x,
+            x: collisionResult.position.x,
             y: position.y + stepHeight,
-            z: newPosition.z,
+            z: collisionResult.position.z,
           }
           const stepTestBox = CollisionDetection.translateAABB(entityBox, stepTestPos)
 
-          // ステップ可能性をArray.everyで判定（break相当を関数型で実現）
           const canStep = blockAABBs.every(({ position: blockPos, aabb: blockAABB }) => {
             const blockType = getBlockAt(blockPos)
             return pipe(
               blockType && blockType !== 0,
               Match.value,
-              Match.when(false, () => true), // ブロックなし = ステップ可能
+              Match.when(false, () => true),
               Match.orElse(() => {
                 return pipe(
                   CollisionDetection.intersectsAABB(stepTestBox, blockAABB),
                   Match.value,
-                  Match.when(false, () => true), // 衝突なし = ステップ可能
-                  Match.orElse(() => false) // 衝突あり = ステップ不可
+                  Match.when(false, () => true),
+                  Match.orElse(() => false)
                 )
               })
             )
@@ -264,27 +294,27 @@ export const CollisionDetection = {
         })
       )
 
-      pipe(
+      const finalResult = pipe(
         canStepResult,
         Match.value,
-        Match.when(false, () => {}),
-        Match.orElse(() => {
-          // 階段を登れる場合、Y位置を更新
-          newPosition.y = position.y + 0.5
-          // 水平方向の移動は継続
-          newPosition.x = position.x + velocity.x * deltaTime
-          newPosition.z = position.z + velocity.z * deltaTime
-          collidedAxes.x = false
-          collidedAxes.z = false
-        })
+        Match.when(false, () => collisionResult),
+        Match.orElse(() => ({
+          ...collisionResult,
+          position: {
+            x: position.x + velocity.x * deltaTime,
+            y: position.y + 0.5,
+            z: position.z + velocity.z * deltaTime,
+          },
+          collidedAxes: { ...collisionResult.collidedAxes, x: false, z: false },
+        }))
       )
 
       return {
-        position: newPosition,
-        velocity: newVelocity,
-        isGrounded,
-        collidedAxes,
-        nearbyBlocks,
+        position: finalResult.position,
+        velocity: finalResult.velocity,
+        isGrounded: finalResult.isGrounded,
+        collidedAxes: finalResult.collidedAxes,
+        nearbyBlocks: finalResult.nearbyBlocks,
       }
     }),
 

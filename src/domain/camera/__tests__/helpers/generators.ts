@@ -163,6 +163,7 @@ export const angleGenerator = fc
     noNaN: true,
     noDefaultInfinity: true,
   })
+  .filter((angle) => angle < 360) // 360を除外
   .map((angle) => Brand.nominal<Angle>()(angle))
 
 // Pitch Generator（-90 to 90度の制約）
@@ -183,6 +184,7 @@ export const yawGenerator = fc
     noNaN: true,
     noDefaultInfinity: true,
   })
+  .filter((yaw) => yaw < 360) // 360を除外
   .map((yaw) => Brand.nominal<Yaw>()(yaw))
 
 // CameraRotation Generator

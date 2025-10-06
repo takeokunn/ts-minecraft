@@ -14,8 +14,6 @@ import type {
 import {
   AnimationDurationSchema,
   CameraDistanceSchema,
-  CameraModeSchema,
-  createCameraError,
   DeltaTimeSchema,
   FOVSchema,
   MouseDeltaSchema,
@@ -25,6 +23,8 @@ import {
   SensitivitySchema,
   YawAngleSchema,
 } from '@domain/camera/types'
+import { CameraModeSchema } from '@domain/camera/types/constants'
+import { createCameraError } from '@domain/camera/types/errors'
 import { Effect, pipe, Predicate, Schema } from 'effect'
 import type { CameraConfig, CameraState } from '../types'
 import { CameraConfig as CameraConfigSchema, CameraState as CameraStateSchema } from '../types'

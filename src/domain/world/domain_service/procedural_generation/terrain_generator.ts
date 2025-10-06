@@ -8,7 +8,7 @@
 import { type GenerationError } from '@domain/world/types/errors'
 import type { BoundingBox, WorldCoordinate, WorldCoordinate2D } from '@domain/world/value_object/coordinates'
 import type { WorldSeed } from '@domain/world/value_object/world_seed'
-import { Context, Effect, Layer, Schema } from 'effect'
+import { Clock, Context, Effect, Layer, Option, pipe, ReadonlyArray, Schema } from 'effect'
 
 /**
  * 高度マップ - ワールド座標における高度データ
@@ -312,40 +312,60 @@ export const TerrainGeneratorServiceLive = Layer.effect(
 
     placeLayers: (heightMap, layers, config) =>
       Effect.gen(function* () {
-        const placements: Array<{
-          coordinate: WorldCoordinate
-          material: string
-          density: number
-        }> = []
-
         // 各高度マップポイントに対してレイヤー配置を決定
-        for (let x = 0; x < heightMap.heights.length; x++) {
-          for (let z = 0; z < heightMap.heights[x].length; z++) {
-            const surfaceHeight = heightMap.heights[x][z]
+        // 二重ネストループ → ReadonlyArray.makeBy × 2 + Effect.forEach
+        const placements = yield* pipe(
+          ReadonlyArray.makeBy(heightMap.heights.length, (x) => x),
+          Effect.forEach(
+            (x) =>
+              Effect.gen(function* () {
+                return yield* pipe(
+                  ReadonlyArray.makeBy(heightMap.heights[x].length, (z) => z),
+                  Effect.forEach(
+                    (z) =>
+                      Effect.gen(function* () {
+                        const surfaceHeight = heightMap.heights[x][z]
 
-            // 各レイヤーの配置判定
-            for (const layer of layers) {
-              if (surfaceHeight >= layer.minHeight && surfaceHeight <= layer.maxHeight) {
-                // ノイズによる密度調整
-                const densityModifier =
-                  layer.noiseInfluence > 0
-                    ? yield* calculateDensityModifier(x, z, layer.noiseInfluence)
-                    : Effect.succeed(1.0)
+                        // 各レイヤーの配置判定
+                        return yield* pipe(
+                          layers,
+                          Effect.forEach(
+                            (layer) =>
+                              Effect.gen(function* () {
+                                if (surfaceHeight >= layer.minHeight && surfaceHeight <= layer.maxHeight) {
+                                  // ノイズによる密度調整
+                                  const densityModifier =
+                                    layer.noiseInfluence > 0
+                                      ? yield* calculateDensityModifier(x, z, layer.noiseInfluence)
+                                      : 1.0
 
-                const finalDensity = layer.density * densityModifier
+                                  const finalDensity = layer.density * densityModifier
 
-                if (finalDensity > 0.5) {
-                  // 閾値による配置判定
-                  placements.push({
-                    coordinate: { x, y: surfaceHeight, z } as WorldCoordinate,
-                    material: layer.materialType,
-                    density: finalDensity,
-                  })
-                }
-              }
-            }
-          }
-        }
+                                  if (finalDensity > 0.5) {
+                                    // 閾値による配置判定
+                                    return Option.some({
+                                      coordinate: { x, y: surfaceHeight, z } as WorldCoordinate,
+                                      material: layer.materialType,
+                                      density: finalDensity,
+                                    })
+                                  }
+                                }
+                                return Option.none()
+                              }),
+                            { concurrency: 'unbounded' }
+                          ),
+                          Effect.map(ReadonlyArray.getSomes)
+                        )
+                      }),
+                    { concurrency: 'unbounded' }
+                  ),
+                  Effect.map(ReadonlyArray.flatten)
+                )
+              }),
+            { concurrency: 'unbounded' }
+          ),
+          Effect.map(ReadonlyArray.flatten)
+        )
 
         return placements
       }),
@@ -427,14 +447,14 @@ const generateBaseHeights = (
     const depth = Math.abs(bounds.max.z - bounds.min.z)
     const resolution = Math.min(width, depth, 256) // 最大解像度制限
 
-    const heights: number[] = []
-    for (let i = 0; i < resolution * resolution; i++) {
+    // ReadonlyArray.makeByで固定回数ループを配列生成に変換
+    const heights = ReadonlyArray.makeBy(resolution * resolution, (i) => {
       // 簡易ノイズ（実際の実装では高度なノイズアルゴリズムを使用）
       const x = (i % resolution) / resolution
       const z = Math.floor(i / resolution) / resolution
       const noise = Math.sin(x * 10 + Number(seed)) * Math.cos(z * 10 + Number(seed))
-      heights.push(noise * 100) // 簡易的な高度変換
-    }
+      return noise * 100 // 簡易的な高度変換
+    })
 
     return heights
   })
@@ -468,13 +488,11 @@ const applyHeightConstraints = (
 /**
  * 配列のチャンク化
  */
-const chunkArray = <T>(array: ReadonlyArray<T>, size: number): T[][] => {
-  const chunks: T[][] = []
-  for (let i = 0; i < array.length; i += size) {
-    chunks.push([...array.slice(i, i + size)])
-  }
-  return chunks
-}
+const chunkArray = <T>(array: ReadonlyArray<T>, size: number): T[][] =>
+  pipe(
+    ReadonlyArray.makeBy(Math.ceil(array.length / size), (i) => i * size),
+    ReadonlyArray.map((startIndex) => [...array.slice(startIndex, startIndex + size)])
+  )
 
 /**
  * ノイズ値の単点計算
@@ -518,20 +536,34 @@ const generateSurfacePlacements = (
   config: TerrainGenerationConfig
 ): Effect.Effect<ReadonlyArray<any>, GenerationError> =>
   Effect.gen(function* () {
-    const placements: any[] = []
+    // 二重ネストループ → ReadonlyArray.makeBy × 2 + Effect.forEach
+    const placements = yield* pipe(
+      ReadonlyArray.makeBy(heightMap.heights.length, (x) => x),
+      Effect.forEach(
+        (x) =>
+          Effect.gen(function* () {
+            return yield* pipe(
+              ReadonlyArray.makeBy(heightMap.heights[x].length, (z) => z),
+              Effect.forEach(
+                (z) =>
+                  Effect.gen(function* () {
+                    const height = heightMap.heights[x][z]
+                    const surfaceType = yield* determineSurfaceType(x, z, height, config)
 
-    for (let x = 0; x < heightMap.heights.length; x++) {
-      for (let z = 0; z < heightMap.heights[x].length; z++) {
-        const height = heightMap.heights[x][z]
-        const surfaceType = yield* determineSurfaceType(x, z, height, config)
-
-        placements.push({
-          coordinate: { x, y: height, z },
-          blockType: surfaceType,
-          metadata: { surface: true },
-        })
-      }
-    }
+                    return {
+                      coordinate: { x, y: height, z },
+                      blockType: surfaceType,
+                      metadata: { surface: true },
+                    }
+                  }),
+                { concurrency: 'unbounded' }
+              )
+            )
+          }),
+        { concurrency: 'unbounded' }
+      ),
+      Effect.map(ReadonlyArray.flatten)
+    )
 
     return placements
   })

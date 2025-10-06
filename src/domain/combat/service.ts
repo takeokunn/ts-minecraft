@@ -164,7 +164,7 @@ export const decayCooldowns = (combatant: Combatant, elapsed: Cooldown): Effect.
       combatant.cooldowns,
       (entry) =>
         Effect.gen(function* () {
-          const raw = entry.remaining - elapsed
+          const raw = (entry.remaining as number) - (elapsed as number)
           const bounded = Math.max(0, raw)
           const remaining = yield* makeCooldown(bounded)
           return { attack: entry.attack, remaining }

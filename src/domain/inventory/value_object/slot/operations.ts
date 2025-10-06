@@ -186,7 +186,7 @@ export const addItem = (slot: Slot, itemId: string, quantity: number): Effect.Ef
   Effect.gen(function* () {
     const acceptance = yield* canAcceptItem(slot, itemId, quantity)
 
-    return pipe(
+    return yield* pipe(
       acceptance,
       Match.value,
       Match.tag('Rejected', (rejected) =>
@@ -199,34 +199,62 @@ export const addItem = (slot: Slot, itemId: string, quantity: number): Effect.Ef
         )
       ),
       Match.tag('Accepted', (accepted) =>
-        Effect.succeed({
-          ...slot,
-          state: SlotState.Occupied({
-            itemId,
-            quantity: pipe(
-              slot.state,
-              Match.value,
-              Match.tag('Empty', () => quantity),
-              Match.tag('Occupied', (occupied) => occupied.quantity + quantity),
-              Match.orElse(() => quantity)
-            ),
-          }),
-        } as Slot)
+        Effect.gen(function* () {
+          const newSlot = {
+            id: slot.id,
+            constraint: slot.constraint,
+            position: slot.position,
+            state: SlotState.Occupied({
+              itemId,
+              quantity: pipe(
+                slot.state,
+                Match.value,
+                Match.tag('Empty', () => quantity),
+                Match.tag('Occupied', (occupied) => occupied.quantity + quantity),
+                Match.orElse(() => quantity)
+              ),
+            }),
+          }
+          return yield* pipe(
+            Schema.decodeUnknown(SlotSchema)(newSlot),
+            Effect.mapError(() =>
+              SlotError.InvalidConstraint({
+                field: 'slot',
+                value: newSlot,
+                expected: 'valid Slot object',
+              })
+            )
+          )
+        })
       ),
       Match.tag('PartiallyAccepted', (partial) =>
-        Effect.succeed({
-          ...slot,
-          state: SlotState.Occupied({
-            itemId,
-            quantity: pipe(
-              slot.state,
-              Match.value,
-              Match.tag('Empty', () => partial.acceptedQuantity),
-              Match.tag('Occupied', (occupied) => occupied.quantity + partial.acceptedQuantity),
-              Match.orElse(() => partial.acceptedQuantity)
-            ),
-          }),
-        } as Slot)
+        Effect.gen(function* () {
+          const newSlot = {
+            id: slot.id,
+            constraint: slot.constraint,
+            position: slot.position,
+            state: SlotState.Occupied({
+              itemId,
+              quantity: pipe(
+                slot.state,
+                Match.value,
+                Match.tag('Empty', () => partial.acceptedQuantity),
+                Match.tag('Occupied', (occupied) => occupied.quantity + partial.acceptedQuantity),
+                Match.orElse(() => partial.acceptedQuantity)
+              ),
+            }),
+          }
+          return yield* pipe(
+            Schema.decodeUnknown(SlotSchema)(newSlot),
+            Effect.mapError(() =>
+              SlotError.InvalidConstraint({
+                field: 'slot',
+                value: newSlot,
+                expected: 'valid Slot object',
+              })
+            )
+          )
+        })
       ),
       Match.exhaustive,
       Effect.flatten
@@ -240,17 +268,17 @@ export const removeItem = (
   slot: Slot,
   quantity: number
 ): Effect.Effect<{ slot: Slot; removedQuantity: number }, SlotError> =>
-  Effect.gen(function* () {
-    return pipe(
-      slot.state,
-      Match.value,
-      Match.tag('Empty', () =>
-        Effect.succeed({
-          slot,
-          removedQuantity: 0,
-        })
-      ),
-      Match.tag('Occupied', (occupied) => {
+  pipe(
+    slot.state,
+    Match.value,
+    Match.tag('Empty', () =>
+      Effect.succeed({
+        slot,
+        removedQuantity: 0,
+      })
+    ),
+    Match.tag('Occupied', (occupied) =>
+      Effect.gen(function* () {
         const removedQuantity = Math.min(quantity, occupied.quantity)
         const remainingQuantity = occupied.quantity - removedQuantity
 
@@ -262,26 +290,41 @@ export const removeItem = (
               })
             : SlotState.Empty({})
 
-        return Effect.succeed({
-          slot: {
-            ...slot,
-            state: newState,
-          } as Slot,
-          removedQuantity,
-        })
-      }),
-      Match.orElse(() =>
-        Effect.fail(
-          SlotError.SlotLocked({
-            slotId: slot.id,
-            reason: 'Cannot remove items from locked slot',
-          })
+        const newSlot = {
+          id: slot.id,
+          constraint: slot.constraint,
+          position: slot.position,
+          state: newState,
+        }
+
+        const validatedSlot = yield* pipe(
+          Schema.decodeUnknown(SlotSchema)(newSlot),
+          Effect.mapError(() =>
+            SlotError.InvalidConstraint({
+              field: 'slot',
+              value: newSlot,
+              expected: 'valid Slot object',
+            })
+          )
         )
-      ),
-      Match.exhaustive,
-      Effect.flatten
-    )
-  })
+
+        return {
+          slot: validatedSlot,
+          removedQuantity,
+        }
+      })
+    ),
+    Match.orElse(() =>
+      Effect.fail(
+        SlotError.SlotLocked({
+          slotId: slot.id,
+          reason: 'Cannot remove items from locked slot',
+        })
+      )
+    ),
+    Match.exhaustive,
+    Effect.flatten
+  )
 
 /**
  * スロットをクリア
@@ -297,10 +340,23 @@ export const clearSlot = (slot: Slot): Effect.Effect<Slot, SlotError> =>
       )
     }
 
-    return Effect.succeed({
-      ...slot,
+    const newSlot = {
+      id: slot.id,
+      constraint: slot.constraint,
+      position: slot.position,
       state: SlotState.Empty({}),
-    } as Slot)
+    }
+
+    return yield* pipe(
+      Schema.decodeUnknown(SlotSchema)(newSlot),
+      Effect.mapError(() =>
+        SlotError.InvalidConstraint({
+          field: 'slot',
+          value: newSlot,
+          expected: 'valid Slot object',
+        })
+      )
+    )
   })
 
 /**

@@ -24,7 +24,10 @@ import {
 } from './application_service/index'
 
 // ===== Factory Layer =====
-import { ContainerFactoryLive, InventoryFactoryLive, ItemFactoryLive, ItemStackFactoryLive } from './factory/index'
+import { ContainerFactoryLayer } from './aggregate/container/factory'
+import { InventoryFactoryLayer as InventoryAggregateFactoryLayer } from './aggregate/inventory/factory'
+import { ItemStackFactoryLayer } from './aggregate/item_stack/factory'
+import { ItemFactoryLayer } from './factory/item_factory/factory'
 
 // ===== Repository Layer =====
 import { InventoryRepositoryLayer } from './repository/index'
@@ -62,10 +65,10 @@ export const InventoryApplicationServicesLayer = Layer.mergeAll(
  * 複雑な集約・エンティティの構築を担当。
  */
 export const InventoryFactoryLayer = Layer.mergeAll(
-  InventoryFactoryLive,
-  ContainerFactoryLive,
-  ItemStackFactoryLive,
-  ItemFactoryLive
+  InventoryAggregateFactoryLayer,
+  ContainerFactoryLayer,
+  ItemStackFactoryLayer,
+  ItemFactoryLayer
 )
 
 /**
