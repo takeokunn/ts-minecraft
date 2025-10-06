@@ -269,27 +269,31 @@ export const InventoryFactoryLive: InventoryFactory = {
       // スロット数調整
       const adjustedSlots = Array(config.slotCount).fill(null)
 
-      // 機能別設定適用（Effect.ifパターン）
-      const withHotbar = yield* Effect.if(config.enableHotbar, {
-        onTrue: () => Effect.succeed(baseInventory.hotbar),
-        onFalse: () => Effect.succeed([]),
-      })
+      // 機能別設定適用（Match.whenパターン）
+      const withHotbar = yield* pipe(
+        Match.value(config.enableHotbar),
+        Match.when(true, () => Effect.succeed(baseInventory.hotbar)),
+        Match.orElse(() => Effect.succeed([]))
+      )
 
-      const withArmor = yield* Effect.if(config.enableArmor, {
-        onTrue: () => Effect.succeed(baseInventory.armor),
-        onFalse: () =>
+      const withArmor = yield* pipe(
+        Match.value(config.enableArmor),
+        Match.when(true, () => Effect.succeed(baseInventory.armor)),
+        Match.orElse(() =>
           Effect.succeed({
             helmet: null,
             chestplate: null,
             leggings: null,
             boots: null,
-          }),
-      })
+          })
+        )
+      )
 
-      const withOffhand = yield* Effect.if(config.enableOffhand, {
-        onTrue: () => Effect.succeed(baseInventory.offhand),
-        onFalse: () => Effect.succeed(null),
-      })
+      const withOffhand = yield* pipe(
+        Match.value(config.enableOffhand),
+        Match.when(true, () => Effect.succeed(baseInventory.offhand)),
+        Match.orElse(() => Effect.succeed(null))
+      )
 
       let result: Inventory = {
         ...baseInventory,
@@ -300,10 +304,11 @@ export const InventoryFactoryLive: InventoryFactory = {
       }
 
       // 初期アイテム配置
-      result = yield* Effect.if(config.startingItems !== undefined && config.startingItems.length > 0, {
-        onTrue: () => placeItemsInSlots(result, config.startingItems!),
-        onFalse: () => Effect.succeed(result),
-      })
+      result = yield* pipe(
+        Match.value(config.startingItems !== undefined && config.startingItems.length > 0),
+        Match.when(true, () => placeItemsInSlots(result, config.startingItems!)),
+        Match.orElse(() => Effect.succeed(result))
+      )
 
       return yield* Effect.succeed(result)
     }),

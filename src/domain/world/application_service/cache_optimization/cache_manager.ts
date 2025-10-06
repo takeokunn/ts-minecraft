@@ -1,4 +1,4 @@
-import { Clock, Context, Effect, Layer, Match, Option, Ref, Schema } from 'effect'
+import { Clock, Context, Effect, Layer, Match, Option, ReadonlyArray, Ref, Schema, pipe } from 'effect'
 
 /**
  * Cache Manager Service
@@ -199,38 +199,34 @@ const makeCacheManagerService = Effect.gen(function* () {
   const get = <T>(key: string, validator?: (value: unknown) => value is T) =>
     Effect.gen(function* () {
       const entries = yield* Ref.get(cacheEntries)
-      const entry = entries.get(key)
-
-      if (!entry) {
-        yield* recordMiss()
-        return Option.none<T>()
-      }
-
-      // TTLチェック
       const now = yield* Clock.currentTimeMillis
-      if (entry.ttl && now - entry.createdAt > entry.ttl) {
-        yield* deleteInternal(key)
-        yield* recordMiss()
-        return Option.none<T>()
-      }
 
-      // アクセス記録更新
-      const updatedEntry = {
-        ...entry,
-        lastAccessedAt: yield* Clock.currentTimeMillis,
-        accessCount: entry.accessCount + 1,
-      }
+      return yield* pipe(
+        Option.fromNullable(entries.get(key)),
+        Option.filter((entry) => !entry.ttl || now - entry.createdAt <= entry.ttl),
+        Option.filter((entry) => !validator || validator(entry.value)),
+        Option.match({
+          onNone: () =>
+            Effect.gen(function* () {
+              yield* recordMiss()
+              return Option.none<T>()
+            }),
+          onSome: (entry) =>
+            Effect.gen(function* () {
+              // アクセス記録更新
+              const updatedEntry = {
+                ...entry,
+                lastAccessedAt: yield* Clock.currentTimeMillis,
+                accessCount: entry.accessCount + 1,
+              }
 
-      yield* Ref.update(cacheEntries, (map) => map.set(key, updatedEntry))
-      yield* recordHit()
+              yield* Ref.update(cacheEntries, (map) => map.set(key, updatedEntry))
+              yield* recordHit()
 
-      const value = entry.value
-      if (validator && !validator(value)) {
-        yield* Effect.logWarning(`キャッシュエントリの型が一致しません: ${key}`)
-        return Option.none<T>()
-      }
-
-      return Option.some(value as T)
+              return Option.some(entry.value as T)
+            }),
+        })
+      )
     })
 
   const set = (key: string, value: unknown, options?: { ttl?: number; priority?: number; layer?: string }) =>
@@ -251,13 +247,11 @@ const makeCacheManagerService = Effect.gen(function* () {
         metadata: { layer: options?.layer || 'l1_memory' },
       }
 
-      // サイズチェックと必要に応じてエビクション
+      // サイズチェックと必要に応じてエビクション（Effect.when利用）
       const currentSize = yield* calculateTotalSize()
       const maxSize = config.layers.reduce((sum, layer) => sum + layer.maxSize, 0)
 
-      if (currentSize + entry.size > maxSize) {
-        yield* evictToMakeSpace(entry.size)
-      }
+      yield* Effect.when(currentSize + entry.size > maxSize, () => evictToMakeSpace(entry.size))
 
       yield* Ref.update(cacheEntries, (map) => map.set(key, entry))
       yield* Effect.logDebug(`キャッシュエントリ設定: ${key} (${entry.size}バイト)`)
@@ -276,20 +270,30 @@ const makeCacheManagerService = Effect.gen(function* () {
 
   const clear = (layerId?: string) =>
     Effect.gen(function* () {
-      if (layerId) {
-        yield* Ref.update(cacheEntries, (map) => {
-          for (const [key, entry] of map) {
-            if (entry.metadata.layer === layerId) {
-              map.delete(key)
-            }
-          }
-          return map
+      yield* pipe(
+        Option.fromNullable(layerId),
+        Option.match({
+          onNone: () =>
+            Effect.gen(function* () {
+              yield* Ref.set(cacheEntries, new Map())
+              yield* Effect.logInfo('全キャッシュクリア')
+            }),
+          onSome: (id) =>
+            Effect.gen(function* () {
+              // Map.entries() iterationのfor-if撲滅 → filter
+              yield* Ref.update(cacheEntries, (map) => {
+                const keysToDelete = pipe(
+                  Array.from(map.entries()),
+                  ReadonlyArray.filter(([, entry]) => entry.metadata.layer === id),
+                  ReadonlyArray.map(([key]) => key)
+                )
+                keysToDelete.forEach((key) => map.delete(key))
+                return map
+              })
+              yield* Effect.logInfo(`キャッシュレイヤークリア: ${id}`)
+            }),
         })
-        yield* Effect.logInfo(`キャッシュレイヤークリア: ${layerId}`)
-      } else {
-        yield* Ref.set(cacheEntries, new Map())
-        yield* Effect.logInfo('全キャッシュクリア')
-      }
+      )
     })
 
   const evict = (strategy: CacheStrategy = 'lru', targetSize?: number) =>
@@ -303,16 +307,22 @@ const makeCacheManagerService = Effect.gen(function* () {
       const currentSize = yield* calculateTotalSize()
       const targetSizeActual = targetSize || Math.floor(currentSize * 0.8) // 20%削減がデフォルト
 
-      let evictedCount = 0
-      let freedSize = 0
+      // for-of + if-break撲滅 → Effect.reduce (早期終了付き)
+      const { evictedCount, freedSize } = yield* pipe(
+        evictionCandidates,
+        Effect.reduce({ evictedCount: 0, freedSize: 0 }, (acc, candidate) =>
+          Effect.gen(function* () {
+            // 早期終了条件
+            yield* Effect.when(currentSize - acc.freedSize <= targetSizeActual, () => Effect.succeed(acc))
 
-      for (const candidate of evictionCandidates) {
-        if (currentSize - freedSize <= targetSizeActual) break
-
-        yield* deleteInternal(candidate.key)
-        freedSize += candidate.size
-        evictedCount++
-      }
+            yield* deleteInternal(candidate.key)
+            return {
+              evictedCount: acc.evictedCount + 1,
+              freedSize: acc.freedSize + candidate.size,
+            }
+          }).pipe(Effect.catchAll(() => Effect.succeed(acc)))
+        )
+      )
 
       yield* Ref.update(globalStats, (stats) => ({
         ...stats,
@@ -327,24 +337,32 @@ const makeCacheManagerService = Effect.gen(function* () {
     Effect.gen(function* () {
       yield* Effect.logInfo('キャッシュ最適化開始')
 
-      // 期限切れエントリの削除
+      // 期限切れエントリの削除（for-of撲滅 → Effect.reduce）
       const now = yield* Clock.currentTimeMillis
       const entries = yield* Ref.get(cacheEntries)
-      let expiredCount = 0
 
-      for (const [key, entry] of entries) {
-        if (entry.ttl && now - entry.createdAt > entry.ttl) {
-          yield* deleteInternal(key)
-          expiredCount++
-        }
-      }
+      const expiredCount = yield* pipe(
+        Array.from(entries.entries()),
+        Effect.reduce(0, (count, [key, entry]) =>
+          pipe(
+            Option.fromNullable(entry.ttl),
+            Option.filter((ttl) => now - entry.createdAt > ttl),
+            Option.match({
+              onNone: () => Effect.succeed(count),
+              onSome: () =>
+                Effect.gen(function* () {
+                  yield* deleteInternal(key)
+                  return count + 1
+                }),
+            })
+          )
+        )
+      )
 
       // 統計リセット（必要に応じて）
-      // 圧縮実行（設定に応じて）
+      // 圧縮実行（設定に応じて）→ Effect.when利用
       const config = yield* Ref.get(configuration)
-      if (config.compression.enabled) {
-        yield* compressLargeEntries()
-      }
+      yield* Effect.when(config.compression.enabled, () => compressLargeEntries())
 
       yield* Effect.logInfo(`最適化完了: 期限切れ${expiredCount}エントリ削除`)
     })
@@ -381,17 +399,21 @@ const makeCacheManagerService = Effect.gen(function* () {
     Effect.gen(function* () {
       const entries = yield* Ref.get(cacheEntries)
 
-      if (layerId) {
-        let size = 0
-        for (const entry of entries.values()) {
-          if (entry.metadata.layer === layerId) {
-            size += entry.size
-          }
-        }
-        return size
-      } else {
-        return yield* calculateTotalSize()
-      }
+      return yield* pipe(
+        Option.fromNullable(layerId),
+        Option.match({
+          onNone: () => calculateTotalSize(),
+          onSome: (id) =>
+            // entries.values() iterationのfor-of撲滅 → reduce
+            Effect.sync(() =>
+              pipe(
+                Array.from(entries.values()),
+                ReadonlyArray.filter((entry) => entry.metadata.layer === id),
+                ReadonlyArray.reduce(0, (size, entry) => size + entry.size)
+              )
+            ),
+        })
+      )
     })
 
   const has = (key: string) =>
@@ -402,23 +424,37 @@ const makeCacheManagerService = Effect.gen(function* () {
 
   const getMultiple = <T>(keys: string[], validator?: (value: unknown) => value is T) =>
     Effect.gen(function* () {
-      const results = new Map<string, T>()
-
-      for (const key of keys) {
-        const value = yield* get<T>(key, validator)
-        if (Option.isSome(value)) {
-          results.set(key, value.value)
-        }
-      }
+      // keysのfor-of撲滅 → Effect.reduce
+      const results = yield* pipe(
+        keys,
+        Effect.reduce(new Map<string, T>(), (acc, key) =>
+          Effect.gen(function* () {
+            const value = yield* get<T>(key, validator)
+            yield* pipe(
+              value,
+              Option.match({
+                onNone: () => Effect.void,
+                onSome: (v) =>
+                  Effect.sync(() => {
+                    acc.set(key, v)
+                  }),
+              })
+            )
+            return acc
+          })
+        )
+      )
 
       return results
     })
 
   const setMultiple = (entries: Array<{ key: string; value: unknown; options?: any }>) =>
     Effect.gen(function* () {
-      for (const entry of entries) {
-        yield* set(entry.key, entry.value, entry.options)
-      }
+      // for-of撲滅 → Effect.forEach
+      yield* pipe(
+        entries,
+        Effect.forEach((entry) => set(entry.key, entry.value, entry.options))
+      )
     })
 
   const updateConfiguration = (configUpdate: Partial<Schema.Schema.Type<typeof CacheConfiguration>>) =>
@@ -495,34 +531,43 @@ const makeCacheManagerService = Effect.gen(function* () {
       const config = yield* Ref.get(configuration)
       const entries = yield* Ref.get(cacheEntries)
 
-      let compressedCount = 0
+      // Map.entries() iterationのfor-of撲滅 → Effect.reduce
+      const compressedCount = yield* pipe(
+        Array.from(entries.entries()),
+        Effect.reduce(0, (count, [key, entry]) =>
+          pipe(
+            entry,
+            Option.some,
+            Option.filter((e) => e.size >= config.compression.threshold && !e.metadata.compressed),
+            Option.match({
+              onNone: () => Effect.succeed(count),
+              onSome: (e) =>
+                Effect.sync(() => {
+                  // 圧縮実行（簡略化）
+                  const compressedEntry = {
+                    ...e,
+                    size: Math.floor(e.size * 0.7), // 30%圧縮と仮定
+                    metadata: { ...e.metadata, compressed: true },
+                  }
 
-      for (const [key, entry] of entries) {
-        if (entry.size >= config.compression.threshold && !entry.metadata.compressed) {
-          // 圧縮実行（簡略化）
-          const compressedEntry = {
-            ...entry,
-            size: Math.floor(entry.size * 0.7), // 30%圧縮と仮定
-            metadata: { ...entry.metadata, compressed: true },
-          }
-
-          entries.set(key, compressedEntry)
-          compressedCount++
-        }
-      }
+                  entries.set(key, compressedEntry)
+                  return count + 1
+                }),
+            })
+          )
+        )
+      )
 
       yield* Effect.logInfo(`圧縮完了: ${compressedCount}エントリ`)
     })
 
-  const estimateSize = (value: unknown): number => {
-    if (typeof value === 'string') {
-      return value.length * 2 // UTF-16
-    } else if (typeof value === 'object' && value !== null) {
-      return JSON.stringify(value).length * 2
-    } else {
-      return 8 // プリミティブ型のデフォルト
-    }
-  }
+  // 型判定if-else-if → 三項演算子チェーン
+  const estimateSize = (value: unknown): number =>
+    typeof value === 'string'
+      ? value.length * 2 // UTF-16
+      : typeof value === 'object' && value !== null
+        ? JSON.stringify(value).length * 2
+        : 8 // プリミティブ型のデフォルト
 
   return CacheManagerService.of({
     get,

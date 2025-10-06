@@ -146,14 +146,16 @@ const splitNode = (node: QuadTreeNode, depth: number, maxDepth: number, maxEntri
 
   // 既存のバイオームを子ノードに再配置
   // insertNodeは境界チェックするので、各バイオームは正しい象限にのみ挿入される
-  for (const biome of biomes) {
-    const children: [QuadTreeNode, QuadTreeNode, QuadTreeNode, QuadTreeNode] = [nw, ne, sw, se]
-    for (let i = 0; i < children.length; i++) {
-      const updated = insertNode(children[i], biome, depth + 1, maxDepth, maxEntries)
-      children[i] = updated
-    }
-    ;[nw, ne, sw, se] = children
-  }
+  ;[nw, ne, sw, se] = biomes.reduce(
+    (children, biome) =>
+      children.map((child) => insertNode(child, biome, depth + 1, maxDepth, maxEntries)) as [
+        QuadTreeNode,
+        QuadTreeNode,
+        QuadTreeNode,
+        QuadTreeNode,
+      ],
+    [nw, ne, sw, se] as [QuadTreeNode, QuadTreeNode, QuadTreeNode, QuadTreeNode]
+  )
 
   return {
     bounds,
@@ -187,16 +189,10 @@ const queryNode = (node: QuadTreeNode, bounds: SpatialBounds, results: BiomePlac
 
   if (node.isLeaf) {
     // リーフノードの場合、全バイオームをチェック
-    for (const biome of node.biomes) {
-      if (coordinateInBounds(biome.coordinate, bounds)) {
-        results.push(biome)
-      }
-    }
+    node.biomes.filter((biome) => coordinateInBounds(biome.coordinate, bounds)).forEach((biome) => results.push(biome))
   } else if (node.children) {
     // 内部ノードの場合、子ノードを再帰検索
-    for (const child of node.children) {
-      queryNode(child, bounds, results)
-    }
+    node.children.forEach((child) => queryNode(child, bounds, results))
   }
 }
 
@@ -228,15 +224,13 @@ export const findNearestBiome = (
   const candidates = query(state, searchBounds)
 
   // 最も近いバイオームを検索
-  for (const candidate of candidates) {
+  return candidates.reduce<BiomePlacement | undefined>((nearest, candidate) => {
     const distance = calculateDistance(coordinate, candidate.coordinate)
-    if (distance < minDistance) {
-      minDistance = distance
-      nearest = candidate
+    if (!nearest || distance < calculateDistance(coordinate, nearest.coordinate)) {
+      return candidate
     }
-  }
-
-  return nearest
+    return nearest
+  }, undefined)
 }
 
 /**
@@ -271,9 +265,7 @@ export const getStatistics = (
       stats.leafNodes++
       stats.totalBiomes += node.biomes.length
     } else if (node.children) {
-      for (const child of node.children) {
-        traverse(child, depth + 1)
-      }
+      node.children.forEach((child) => traverse(child, depth + 1))
     }
   }
 

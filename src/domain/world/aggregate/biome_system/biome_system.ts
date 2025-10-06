@@ -437,11 +437,16 @@ const calculateBiomeDistribution = (candidates: readonly string[], dominantBiome
   } else {
     distribution[dominantBiome] = 0.7
     const remaining = 0.3 / (candidates.length - 1)
-    for (const biome of candidates) {
-      if (biome !== dominantBiome) {
-        distribution[biome] = remaining
-      }
-    }
+
+    // for文 → pipe + forEach（副作用的な辞書更新）
+    pipe(
+      candidates,
+      ReadonlyArray.forEach((biome) => {
+        if (biome !== dominantBiome) {
+          distribution[biome] = remaining
+        }
+      })
+    )
   }
 
   return distribution
@@ -478,10 +483,14 @@ const clearCacheEntries = (
   keysToRemove: readonly string[]
 ): Effect.Effect<Record<string, BiomeDistribution>, never> =>
   Effect.sync(() => {
+    // for文 → pipe + forEach（副作用的な削除）
     const newCache = { ...cache }
-    for (const key of keysToRemove) {
-      delete newCache[key]
-    }
+    pipe(
+      keysToRemove,
+      ReadonlyArray.forEach((key) => {
+        delete newCache[key]
+      })
+    )
     return newCache
   })
 

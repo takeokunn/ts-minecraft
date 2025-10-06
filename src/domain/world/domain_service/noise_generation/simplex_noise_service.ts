@@ -8,7 +8,7 @@
 
 import { type GenerationError } from '@domain/world/types/errors'
 import type { WorldCoordinate2D, WorldCoordinate3D } from '@domain/world/value_object/coordinates'
-import { Context, Effect, Layer, Schema } from 'effect'
+import { Context, Effect, Layer, pipe, ReadonlyArray, Schema } from 'effect'
 import type { NoiseField, NoiseSample } from './index'
 
 /**
@@ -431,23 +431,47 @@ export const SimplexNoiseServiceLive = Layer.effect(
     generateField: (bounds, resolution, config) =>
       Effect.gen(function* () {
         const startTime = performance.now()
-        const samples: NoiseSample[][] = []
-        const flatSamples: number[] = []
 
-        // フィールド生成
-        for (let x = 0; x < resolution; x++) {
-          const row: NoiseSample[] = []
-          for (let z = 0; z < resolution; z++) {
-            const worldX = bounds.min.x + (x / (resolution - 1)) * (bounds.max.x - bounds.min.x)
-            const worldZ = bounds.min.z + (z / (resolution - 1)) * (bounds.max.z - bounds.min.z)
+        // 2Dグリッド座標の生成
+        const gridPositions = pipe(
+          ReadonlyArray.range(0, resolution),
+          ReadonlyArray.flatMap((x) =>
+            pipe(
+              ReadonlyArray.range(0, resolution),
+              ReadonlyArray.map((z) => ({ x, z }))
+            )
+          )
+        )
 
-            const sample = yield* SimplexNoiseService.sample2D({ x: worldX, z: worldZ } as WorldCoordinate2D, config)
+        // 全サンプルを並行実行
+        const allSamples = yield* pipe(
+          gridPositions,
+          Effect.forEach(
+            ({ x, z }) => {
+              const worldX = bounds.min.x + (x / (resolution - 1)) * (bounds.max.x - bounds.min.x)
+              const worldZ = bounds.min.z + (z / (resolution - 1)) * (bounds.max.z - bounds.min.z)
+              return SimplexNoiseService.sample2D({ x: worldX, z: worldZ } as WorldCoordinate2D, config)
+            },
+            { concurrency: 'unbounded' }
+          )
+        )
 
-            row.push(sample)
-            flatSamples.push(sample.value)
-          }
-          samples.push(row)
-        }
+        // 2次元配列に再構成
+        const samples = pipe(
+          ReadonlyArray.range(0, resolution),
+          ReadonlyArray.map((x) =>
+            pipe(
+              allSamples,
+              ReadonlyArray.filter((_, idx) => Math.floor(idx / resolution) === x)
+            )
+          )
+        )
+
+        // 統計計算用の1次元配列
+        const flatSamples = pipe(
+          allSamples,
+          ReadonlyArray.map((sample) => sample.value)
+        )
 
         // 統計計算
         const minValue = Math.min(...flatSamples)
@@ -509,17 +533,30 @@ export const SimplexNoiseServiceLive = Layer.effect(
 
     measureAnisotropy: (centerCoordinate, sampleRadius, sampleCount, config) =>
       Effect.gen(function* () {
-        const samples: number[] = []
+        // 円周上の角度配列を生成
+        const angles = pipe(
+          ReadonlyArray.range(0, sampleCount),
+          ReadonlyArray.map((i) => (2 * Math.PI * i) / sampleCount)
+        )
 
-        // 円周上でサンプリング
-        for (let i = 0; i < sampleCount; i++) {
-          const angle = (2 * Math.PI * i) / sampleCount
-          const x = centerCoordinate.x + sampleRadius * Math.cos(angle)
-          const z = centerCoordinate.z + sampleRadius * Math.sin(angle)
-
-          const sample = yield* SimplexNoiseService.sample2D({ x, z } as WorldCoordinate2D, config)
-          samples.push(sample.value)
-        }
+        // 全サンプルを並行実行
+        const samples = yield* pipe(
+          angles,
+          Effect.forEach(
+            (angle) => {
+              const x = centerCoordinate.x + sampleRadius * Math.cos(angle)
+              const z = centerCoordinate.z + sampleRadius * Math.sin(angle)
+              return SimplexNoiseService.sample2D({ x, z } as WorldCoordinate2D, config)
+            },
+            { concurrency: 'unbounded' }
+          ),
+          Effect.map((results) =>
+            pipe(
+              results,
+              ReadonlyArray.map((sample) => sample.value)
+            )
+          )
+        )
 
         // 分散の計算（等方性の指標）
         const mean = samples.reduce((sum, val) => sum + val, 0) / samples.length
@@ -605,10 +642,14 @@ const p = [
   45, 127, 4, 150, 254, 138, 236, 205, 93, 222, 114, 67, 29, 24, 72, 243, 141, 128, 195, 78, 66, 215, 61, 156, 180,
 ]
 
-for (let i = 0; i < 512; i++) {
-  perm[i] = p[i & 255]
-  permMod12[i] = perm[i] % 12
-}
+// perm配列とpermMod12配列の初期化
+pipe(
+  ReadonlyArray.range(0, 512),
+  ReadonlyArray.forEach((i) => {
+    perm[i] = p[i & 255]
+    permMod12[i] = perm[i] % 12
+  })
+)
 
 /**
  * デフォルトシンプレックスノイズ設定

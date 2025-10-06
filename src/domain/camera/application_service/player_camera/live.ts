@@ -104,13 +104,18 @@ export const PlayerCameraApplicationServiceLive = Layer.effect(
     ): Effect.Effect<boolean, CameraApplicationError> =>
       Effect.gen(function* () {
         // アニメーション中は切り替え禁止
-        if (Option.isSome(currentState.animationState)) {
-          return false
-        }
-
-        // ドメインサービスによる互換性チェック
-        const compatibility = yield* viewModeManager.checkModeCompatibility(currentMode, targetMode)
-        return compatibility.canSwitch
+        return yield* pipe(
+          currentState.animationState,
+          Option.match({
+            onSome: () => Effect.succeed(false),
+            onNone: () =>
+              Effect.gen(function* () {
+                // ドメインサービスによる互換性チェック
+                const compatibility = yield* viewModeManager.checkModeCompatibility(currentMode, targetMode)
+                return compatibility.canSwitch
+              }),
+          })
+        )
       })
 
     /**
@@ -198,16 +203,18 @@ export const PlayerCameraApplicationServiceLive = Layer.effect(
             const nextMode = yield* viewModeManager.getNextMode(playerState.viewMode)
             const canSwitch = yield* canSwitchViewMode(playerState.viewMode, nextMode, playerState)
 
-            if (canSwitch) {
-              const updatedMode = yield* viewModeManager.switchToMode(playerState.viewMode, nextMode, Option.none())
-              return {
-                ...playerState,
-                viewMode: updatedMode,
-                lastUpdate: now,
-              } as PlayerCameraState
-            }
-
-            return playerState
+            return yield* Effect.if(canSwitch, {
+              onTrue: () =>
+                Effect.gen(function* () {
+                  const updatedMode = yield* viewModeManager.switchToMode(playerState.viewMode, nextMode, Option.none())
+                  return {
+                    ...playerState,
+                    viewMode: updatedMode,
+                    lastUpdate: now,
+                  } as PlayerCameraState
+                }),
+              onFalse: () => Effect.succeed(playerState),
+            })
           })
         ),
         Match.exhaustive
@@ -253,51 +260,60 @@ export const PlayerCameraApplicationServiceLive = Layer.effect(
       initializePlayerCamera: (playerId, initialPosition, preferences) =>
         Effect.gen(function* () {
           // 既存カメラの確認
-          const existingCamera = playerCameras.get(playerId)
-          if (existingCamera) {
-            return existingCamera.cameraId
-          }
-
-          // 設定の取得または作成
-          const settings = yield* pipe(
-            preferences,
+          const existingCamera = Option.fromNullable(playerCameras.get(playerId))
+          return yield* pipe(
+            existingCamera,
             Option.match({
-              onNone: () => settingsRepo.loadPlayerSettings(playerId),
-              onSome: (prefs) => Effect.succeed(Option.some(prefs.settings)),
-            }),
-            Effect.flatMap(
-              Option.match({
-                onNone: () => createDefaultPlayerCameraSettings(),
-                onSome: Effect.succeed,
-              })
-            )
+              onSome: (camera) => Effect.succeed(camera.cameraId),
+              onNone: () =>
+                Effect.gen(function* () {
+                  // 設定の取得または作成
+                  const settings = yield* pipe(
+                    preferences,
+                    Option.match({
+                      onNone: () => settingsRepo.loadPlayerSettings(playerId),
+                      onSome: (prefs) => Effect.succeed(Option.some(prefs.settings)),
+                    }),
+                    Effect.flatMap(
+                      Option.match({
+                        onNone: () => createDefaultPlayerCameraSettings(),
+                        onSome: Effect.succeed,
+                      })
+                    )
+                  )
+
+                  // カメラID生成と初期回転を並行実行
+                  const [cameraId, initialRotation] = yield* Effect.all(
+                    [generateCameraId(), cameraControlService.getDefaultRotation()],
+                    { concurrency: 'unbounded' }
+                  )
+
+                  const playerCameraState = {
+                    playerId,
+                    cameraId,
+                    position: initialPosition,
+                    rotation: initialRotation,
+                    viewMode: { _tag: 'FirstPerson' } as ViewMode,
+                    settings,
+                    isInitialized: true,
+                    lastUpdate: now,
+                    animationState: Option.none(),
+                  } as PlayerCameraState
+
+                  // 状態永続化と統計初期化を並行実行
+                  yield* Effect.all(
+                    [
+                      Effect.sync(() => playerCameras.set(playerId, playerCameraState)),
+                      settingsRepo.savePlayerSettings(playerId, settings),
+                      updatePlayerStatistics(playerId, 'initialization'),
+                    ],
+                    { concurrency: 'unbounded' }
+                  )
+
+                  return cameraId
+                }),
+            })
           )
-
-          // カメラIDの生成
-          const cameraId = yield* generateCameraId()
-
-          // カメラ状態の作成
-          const initialRotation = yield* cameraControlService.getDefaultRotation()
-          const playerCameraState = {
-            playerId,
-            cameraId,
-            position: initialPosition,
-            rotation: initialRotation,
-            viewMode: { _tag: 'FirstPerson' } as ViewMode, // デフォルトはファーストパーソン
-            settings,
-            isInitialized: true,
-            lastUpdate: now,
-            animationState: Option.none(),
-          } as PlayerCameraState
-
-          // 状態の永続化
-          playerCameras.set(playerId, playerCameraState)
-          yield* settingsRepo.savePlayerSettings(playerId, settings)
-
-          // 統計の初期化
-          yield* updatePlayerStatistics(playerId, 'initialization')
-
-          return cameraId
         }),
 
       handlePlayerInput: (playerId, input) =>
@@ -313,15 +329,15 @@ export const PlayerCameraApplicationServiceLive = Layer.effect(
               Effect.gen(function* () {
                 const canSwitch = yield* canSwitchViewMode(playerState.viewMode, targetMode, playerState)
 
-                if (!canSwitch) {
-                  return yield* Effect.fail(
+                yield* Effect.when(!canSwitch, () =>
+                  Effect.fail(
                     createCameraApplicationError.viewModeSwitchNotAllowed(
                       playerState.viewMode,
                       targetMode,
                       'Mode switch not allowed in current state'
                     )
                   )
-                }
+                )
 
                 const newMode = yield* viewModeManager.switchToMode(playerState.viewMode, targetMode, animationDuration)
 
@@ -388,43 +404,51 @@ export const PlayerCameraApplicationServiceLive = Layer.effect(
 
           const canSwitch = yield* canSwitchViewMode(playerState.viewMode, targetMode, playerState)
 
-          if (!canSwitch) {
-            const reason = Data.struct({
-              _tag: 'ModeNotSupported' as const,
-              mode: targetMode,
-            }) as ViewModeTransitionFailureReason
+          return yield* Effect.if(canSwitch, {
+            onFalse: () => {
+              const reason = Data.struct({
+                _tag: 'ModeNotSupported' as const,
+                mode: targetMode,
+              }) as ViewModeTransitionFailureReason
 
-            return createViewModeTransitionResult.failed(reason, playerState.viewMode, targetMode)
-          }
+              return Effect.succeed(createViewModeTransitionResult.failed(reason, playerState.viewMode, targetMode))
+            },
+            onTrue: () =>
+              Effect.gen(function* () {
+                // アニメーション付き切り替え
+                const animationDuration = Option.getOrElse(
+                  Option.flatMap(transitionConfig, (config) => Option.some(config.duration)),
+                  () => 500 // デフォルト500ms
+                )
 
-          // アニメーション付き切り替え
-          const animationDuration = Option.getOrElse(
-            Option.flatMap(transitionConfig, (config) => Option.some(config.duration)),
-            () => 500 // デフォルト500ms
-          )
+                const animation = yield* animationEngine.createViewModeTransition(
+                  playerState.viewMode,
+                  targetMode,
+                  animationDuration
+                )
 
-          const animation = yield* animationEngine.createViewModeTransition(
-            playerState.viewMode,
-            targetMode,
-            animationDuration
-          )
+                const newMode = yield* viewModeManager.switchToMode(
+                  playerState.viewMode,
+                  targetMode,
+                  Option.some(animation)
+                )
 
-          const newMode = yield* viewModeManager.switchToMode(playerState.viewMode, targetMode, Option.some(animation))
+                const updatedState = {
+                  ...playerState,
+                  viewMode: newMode,
+                  animationState: Option.some(animation),
+                  lastUpdate: now,
+                } as PlayerCameraState
 
-          const updatedState = {
-            ...playerState,
-            viewMode: newMode,
-            animationState: Option.some(animation),
-            lastUpdate: now,
-          } as PlayerCameraState
+                playerCameras.set(playerId, updatedState)
+                yield* updatePlayerStatistics(playerId, 'viewModeSwitch')
 
-          playerCameras.set(playerId, updatedState)
-          yield* updatePlayerStatistics(playerId, 'viewModeSwitch')
+                // 設定の学習記録
+                yield* preferencesRepo.recordViewModeSwitch(playerId, playerState.viewMode, targetMode)
 
-          // 設定の学習記録
-          yield* preferencesRepo.recordViewModeSwitch(playerId, playerState.viewMode, targetMode)
-
-          return createViewModeTransitionResult.success(playerState.viewMode, targetMode, animationDuration, true)
+                return createViewModeTransitionResult.success(playerState.viewMode, targetMode, animationDuration, true)
+              }),
+          })
         }),
 
       applySettingsUpdate: (playerId, settingsUpdate) =>
@@ -459,9 +483,13 @@ export const PlayerCameraApplicationServiceLive = Layer.effect(
           const playerState = yield* findPlayerCamera(playerId)
 
           // アニメーションの停止
-          if (Option.isSome(playerState.animationState)) {
-            yield* animationEngine.stopAnimation(Option.getOrThrow(playerState.animationState))
-          }
+          yield* pipe(
+            playerState.animationState,
+            Option.match({
+              onSome: (animation) => animationEngine.stopAnimation(animation),
+              onNone: () => Effect.void,
+            })
+          )
 
           // 状態の削除
           playerCameras.delete(playerId)
@@ -492,24 +520,28 @@ export const PlayerCameraApplicationServiceLive = Layer.effect(
         Effect.gen(function* () {
           const playerState = yield* findPlayerCamera(playerId)
 
-          if (Option.isSome(playerState.animationState)) {
-            const animation = Option.getOrThrow(playerState.animationState)
+          yield* pipe(
+            playerState.animationState,
+            Option.match({
+              onSome: (animation) =>
+                Effect.gen(function* () {
+                  yield* Effect.if(immediate, {
+                    onTrue: () => animationEngine.stopAnimation(animation),
+                    onFalse: () => animationEngine.fadeOutAnimation(animation, 200), // 200ms フェードアウト
+                  })
 
-            if (immediate) {
-              yield* animationEngine.stopAnimation(animation)
-            } else {
-              yield* animationEngine.fadeOutAnimation(animation, 200) // 200ms フェードアウト
-            }
+                  const updatedState = {
+                    ...playerState,
+                    animationState: Option.none(),
+                    lastUpdate: now,
+                  } as PlayerCameraState
 
-            const updatedState = {
-              ...playerState,
-              animationState: Option.none(),
-              lastUpdate: now,
-            } as PlayerCameraState
-
-            playerCameras.set(playerId, updatedState)
-            activeAnimations.delete(playerId)
-          }
+                  playerCameras.set(playerId, updatedState)
+                  activeAnimations.delete(playerId)
+                }),
+              onNone: () => Effect.void,
+            })
+          )
         }),
 
       resetCamera: (playerId, resetPosition) =>
@@ -530,11 +562,17 @@ export const PlayerCameraApplicationServiceLive = Layer.effect(
           playerCameras.set(playerId, updatedState)
 
           // アニメーションの停止
-          if (activeAnimations.has(playerId)) {
-            const animation = activeAnimations.get(playerId)!
-            yield* animationEngine.stopAnimation(animation)
-            activeAnimations.delete(playerId)
-          }
+          yield* pipe(
+            Option.fromNullable(activeAnimations.get(playerId)),
+            Option.match({
+              onSome: (animation) =>
+                Effect.gen(function* () {
+                  yield* animationEngine.stopAnimation(animation)
+                  activeAnimations.delete(playerId)
+                }),
+              onNone: () => Effect.void,
+            })
+          )
         }),
 
       batchUpdatePlayerCameras: (updates) =>
@@ -552,12 +590,13 @@ export const PlayerCameraApplicationServiceLive = Layer.effect(
         Effect.gen(function* () {
           yield* findPlayerCamera(playerId) // プレイヤーの存在確認
 
-          const stats = performanceMetrics.get(playerId)
-          if (!stats) {
-            return yield* Effect.fail(createCameraApplicationError.playerNotFound(playerId))
-          }
-
-          return stats
+          return yield* pipe(
+            Option.fromNullable(performanceMetrics.get(playerId)),
+            Option.match({
+              onNone: () => Effect.fail(createCameraApplicationError.playerNotFound(playerId)),
+              onSome: Effect.succeed,
+            })
+          )
         }),
 
       getAllPlayerCameraStatistics: () =>
@@ -575,29 +614,46 @@ export const PlayerCameraApplicationServiceLive = Layer.effect(
           let improvementFactor = 0
 
           // メモリ使用量の最適化
-          if (performanceMetrics.size > 100) {
-            const oldEntries = Array.from(performanceMetrics.entries()).filter(
-              ([_, stats]) => now - stats.lastUpdateTime > 300000
-            ) // 5分以上古い
+          const memoryOptimization = yield* Effect.when(performanceMetrics.size > 100, () =>
+            Effect.sync(() => {
+              const oldEntries = Array.from(performanceMetrics.entries()).filter(
+                ([_, stats]) => now - stats.lastUpdateTime > 300000
+              ) // 5分以上古い
 
-            oldEntries.forEach(([playerId]) => {
-              performanceMetrics.delete(playerId)
+              oldEntries.forEach(([playerId]) => {
+                performanceMetrics.delete(playerId)
+              })
+
+              return {
+                optimization: `Cleaned up ${oldEntries.length} old player statistics`,
+                improvement: oldEntries.length * 0.1,
+              }
             })
+          )
 
-            optimizations.push(`Cleaned up ${oldEntries.length} old player statistics`)
-            improvementFactor += oldEntries.length * 0.1
+          if (Option.isSome(memoryOptimization)) {
+            const opt = Option.getOrThrow(memoryOptimization)
+            optimizations.push(opt.optimization)
+            improvementFactor += opt.improvement
           }
 
           // アニメーションの最適化
-          if (activeAnimations.size > 50) {
-            let stoppedAnimations = 0
-            for (const [playerId, animation] of activeAnimations.entries()) {
-              yield* animationEngine.optimizeAnimation(animation)
-              stoppedAnimations++
-            }
+          const animationOptimization = yield* Effect.when(activeAnimations.size > 50, () =>
+            pipe(
+              activeAnimations.entries(),
+              ReadonlyArray.fromIterable,
+              Effect.forEach(([playerId, animation]) => animationEngine.optimizeAnimation(animation)),
+              Effect.map((results) => ({
+                optimization: `Optimized ${results.length} active animations`,
+                improvement: results.length * 0.05,
+              }))
+            )
+          )
 
-            optimizations.push(`Optimized ${stoppedAnimations} active animations`)
-            improvementFactor += stoppedAnimations * 0.05
+          if (Option.isSome(animationOptimization)) {
+            const opt = Option.getOrThrow(animationOptimization)
+            optimizations.push(opt.optimization)
+            improvementFactor += opt.improvement
           }
 
           return {
@@ -609,11 +665,14 @@ export const PlayerCameraApplicationServiceLive = Layer.effect(
       getDebugInfo: (playerId) =>
         Effect.gen(function* () {
           const currentState = yield* findPlayerCamera(playerId)
-          const statistics = performanceMetrics.get(playerId)
 
-          if (!statistics) {
-            return yield* Effect.fail(createCameraApplicationError.playerNotFound(playerId))
-          }
+          const statistics = yield* pipe(
+            Option.fromNullable(performanceMetrics.get(playerId)),
+            Option.match({
+              onNone: () => Effect.fail(createCameraApplicationError.playerNotFound(playerId)),
+              onSome: Effect.succeed,
+            })
+          )
 
           // 最近の入力履歴（実装簡略化のため空配列）
           const recentInputs: Array.ReadonlyArray<PlayerCameraInput> = []

@@ -430,63 +430,77 @@ export const OrePlacerServiceLive = Layer.effect(
 
     generateOreCluster: (center, oreType, clusterSize, grade) =>
       Effect.gen(function* () {
-        const cluster: Array<{
-          coordinate: WorldCoordinate
-          grade: number
-        }> = []
-
         // 球状クラスターの生成
         const radius = Math.cbrt(clusterSize / ((4 * Math.PI) / 3))
 
-        for (let x = -radius; x <= radius; x++) {
-          for (let y = -radius; y <= radius; y++) {
-            for (let z = -radius; z <= radius; z++) {
-              const distance = Math.sqrt(x * x + y * y + z * z)
-              if (distance <= radius) {
-                // 中心からの距離に基づく品位減衰
-                const gradeModifier = 1 - (distance / radius) * 0.5
-                const finalGrade = grade * gradeModifier
+        // 3D空間の全座標を関数型スタイルで生成
+        const cluster = pipe(
+          ReadonlyArray.range(Math.floor(-radius), Math.ceil(radius) + 1),
+          ReadonlyArray.flatMap((x) =>
+            pipe(
+              ReadonlyArray.range(Math.floor(-radius), Math.ceil(radius) + 1),
+              ReadonlyArray.flatMap((y) =>
+                pipe(
+                  ReadonlyArray.range(Math.floor(-radius), Math.ceil(radius) + 1),
+                  ReadonlyArray.filterMap((z) => {
+                    const distance = Math.sqrt(x * x + y * y + z * z)
+                    if (distance > radius) return Option.none()
 
-                if (finalGrade > 0.1) {
-                  // 最低品位閾値
-                  cluster.push({
-                    coordinate: {
-                      x: center.x + x,
-                      y: center.y + y,
-                      z: center.z + z,
-                    } as WorldCoordinate,
-                    grade: finalGrade,
+                    // 中心からの距離に基づく品位減衰
+                    const gradeModifier = 1 - (distance / radius) * 0.5
+                    const finalGrade = grade * gradeModifier
+
+                    if (finalGrade <= 0.1) return Option.none() // 最低品位閾値
+
+                    return Option.some({
+                      coordinate: {
+                        x: center.x + x,
+                        y: center.y + y,
+                        z: center.z + z,
+                      } as WorldCoordinate,
+                      grade: finalGrade,
+                    })
                   })
-                }
-              }
-            }
-          }
-        }
+                )
+              )
+            )
+          )
+        )
 
         return cluster
       }),
 
     validateGeologicalPlausibility: (result, config) =>
       Effect.gen(function* () {
-        const issues: string[] = []
-        const suggestions: string[] = []
+        // 1. 深度分布の検証（関数型スタイル）
+        const depthValidation = pipe(
+          result.veins,
+          ReadonlyArray.filterMap((vein) => {
+            const profile = config.oreProfiles.find((p) => p.oreType === vein.oreType)
+            if (!profile) return Option.none()
 
-        // 1. 深度分布の検証
-        for (const vein of result.veins) {
-          const profile = config.oreProfiles.find((p) => p.oreType === vein.oreType)
-          if (profile) {
             const veinDepth = vein.centerCoordinate.y
             if (
               veinDepth < profile.depthDistribution.depthRange.min ||
               veinDepth > profile.depthDistribution.depthRange.max
             ) {
-              issues.push(`${vein.oreType} vein at inappropriate depth: ${veinDepth}`)
-              suggestions.push(
-                `Relocate ${vein.oreType} vein to depth range ${profile.depthDistribution.depthRange.min}-${profile.depthDistribution.depthRange.max}`
-              )
+              return Option.some({
+                issue: `${vein.oreType} vein at inappropriate depth: ${veinDepth}`,
+                suggestion: `Relocate ${vein.oreType} vein to depth range ${profile.depthDistribution.depthRange.min}-${profile.depthDistribution.depthRange.max}`,
+              })
             }
-          }
-        }
+            return Option.none()
+          })
+        )
+
+        const issues = pipe(
+          depthValidation,
+          ReadonlyArray.map((v) => v.issue)
+        )
+        const suggestions = pipe(
+          depthValidation,
+          ReadonlyArray.map((v) => v.suggestion)
+        )
 
         // 2. 母岩適合性の検証
         // 3. 構造制御の検証
@@ -501,26 +515,42 @@ export const OrePlacerServiceLive = Layer.effect(
 
     evaluateEconomicViability: (result, config) =>
       Effect.gen(function* () {
-        let totalValue = 0
-        const viableDeposits: string[] = []
-        const extractionDifficulty: Record<OreType, number> = {} as any
+        // 各鉱脈の経済性評価（関数型スタイル）
+        const evaluations = pipe(
+          result.veins,
+          ReadonlyArray.filterMap((vein) => {
+            const profile = config.oreProfiles.find((p) => p.oreType === vein.oreType)
+            if (!profile) return Option.none()
 
-        // 各鉱脈の経済性評価
-        for (const vein of result.veins) {
-          const profile = config.oreProfiles.find((p) => p.oreType === vein.oreType)
-          if (profile) {
             const veinValue = calculateVeinValue(vein, profile)
             const difficulty = calculateExtractionDifficulty(vein, profile)
 
-            totalValue += veinValue
-            extractionDifficulty[vein.oreType] = difficulty
+            return Option.some({
+              veinId: vein.id,
+              oreType: vein.oreType,
+              value: veinValue,
+              difficulty,
+              isViable: veinValue / difficulty > 1.0, // 採算性閾値
+            })
+          })
+        )
 
-            if (veinValue / difficulty > 1.0) {
-              // 採算性閾値
-              viableDeposits.push(vein.id)
-            }
-          }
-        }
+        const totalValue = pipe(
+          evaluations,
+          ReadonlyArray.reduce(0, (sum, eval) => sum + eval.value)
+        )
+        const viableDeposits = pipe(
+          evaluations,
+          ReadonlyArray.filter((eval) => eval.isViable),
+          ReadonlyArray.map((eval) => eval.veinId)
+        )
+        const extractionDifficulty = pipe(
+          evaluations,
+          ReadonlyArray.reduce({} as Record<OreType, number>, (acc, eval) => ({
+            ...acc,
+            [eval.oreType]: eval.difficulty,
+          }))
+        )
 
         return {
           totalValue,

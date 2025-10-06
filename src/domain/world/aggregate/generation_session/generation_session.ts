@@ -10,7 +10,7 @@
 
 import type * as WorldTypes from '@domain/world/types/core'
 import type * as GenerationErrors from '@domain/world/types/errors'
-import { Chunk, Clock, Context, Effect, STM } from 'effect'
+import { Chunk, Clock, Context, Effect, ReadonlyArray, STM } from 'effect'
 import * as ErrorHandling from './index'
 import * as ProgressTracking from './index'
 import * as SessionEvents from './index'
@@ -329,27 +329,22 @@ const createChunkBatches = (
       : coordinates
 
     // バッチに分割
-    const batches: SessionState.ChunkBatch[] = []
     const chunks = Chunk.fromIterable(sortedCoordinates)
     const batchChunks = Chunk.chunksOf(chunks, chunkBatchSize)
 
     const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
 
-    let batchIndex = 0
-    for (const batchChunk of batchChunks) {
-      const batchId = `batch_${session.id}_${batchIndex++}`
-      const batch: SessionState.ChunkBatch = {
+    return ReadonlyArray.mapWithIndex(Chunk.toReadonlyArray(batchChunks), (batchChunk, batchIndex) => {
+      const batchId = `batch_${session.id}_${batchIndex}`
+      return {
         id: batchId,
         coordinates: Chunk.toReadonlyArray(batchChunk),
         priority: session.request.priority,
-        status: 'pending',
+        status: 'pending' as const,
         createdAt: now,
         attempts: 0,
-      }
-      batches.push(batch)
-    }
-
-    return batches
+      } satisfies SessionState.ChunkBatch
+    })
   })
 
 /**

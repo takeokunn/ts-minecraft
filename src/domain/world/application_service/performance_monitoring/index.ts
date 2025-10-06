@@ -30,7 +30,7 @@ export type {
 
 // === Integrated Performance Monitoring Service ===
 
-import { Clock, Context, Effect, Ref, Schema } from 'effect'
+import { Clock, Context, Effect, Match, Ref, Schema } from 'effect'
 import { MetricsCollectorService } from './service'
 
 /**
@@ -235,19 +235,22 @@ export const makePerformanceMonitoringService = Effect.gen(function* () {
   const startMonitoring = () =>
     Effect.gen(function* () {
       const isActive = yield* Ref.get(isMonitoring)
-      if (isActive) {
-        yield* Effect.logWarning('パフォーマンス監視は既に開始されています')
-        return
-      }
 
-      yield* Ref.set(isMonitoring, true)
-      const startTime = yield* Clock.currentTimeMillis
-      yield* Ref.set(monitoringStartTime, startTime)
+      // 早期return → Effect.when
+      yield* Effect.when(isActive, () => Effect.logWarning('パフォーマンス監視は既に開始されています'))
 
-      // メトリクス収集開始
-      yield* metricsCollector.startCollection()
+      yield* Effect.unless(isActive, () =>
+        Effect.gen(function* () {
+          yield* Ref.set(isMonitoring, true)
+          const startTime = yield* Clock.currentTimeMillis
+          yield* Ref.set(monitoringStartTime, startTime)
 
-      yield* Effect.logInfo('パフォーマンス監視開始')
+          // メトリクス収集開始
+          yield* metricsCollector.startCollection()
+
+          yield* Effect.logInfo('パフォーマンス監視開始')
+        })
+      )
     })
 
   const stopMonitoring = () =>
@@ -262,52 +265,62 @@ export const makePerformanceMonitoringService = Effect.gen(function* () {
       yield* Effect.logInfo('ボトルネック検出開始')
 
       const snapshot = yield* metricsCollector.getPerformanceSnapshot()
-      const bottlenecks = []
 
-      // CPU使用率チェック
-      if (snapshot.cpuUsage > 0.8) {
-        bottlenecks.push({
+      // データ駆動型設計：しきい値ルールをデータ構造化
+      type BottleneckRule = {
+        readonly check: (snapshot: typeof snapshot) => boolean
+        readonly component: string
+        readonly severity: 'low' | 'medium' | 'high' | 'critical'
+        readonly description: (snapshot: typeof snapshot) => string
+        readonly impact: number | ((snapshot: typeof snapshot) => number)
+        readonly suggestions: ReadonlyArray<string>
+      }
+
+      const bottleneckRules: ReadonlyArray<BottleneckRule> = [
+        {
+          check: (s) => s.cpuUsage > 0.8,
           component: 'CPU',
           severity: 'high' as const,
-          description: `CPU使用率が高すぎます: ${(snapshot.cpuUsage * 100).toFixed(1)}%`,
-          impact: Math.min(snapshot.cpuUsage, 1.0),
+          description: (s) => `CPU使用率が高すぎます: ${(s.cpuUsage * 100).toFixed(1)}%`,
+          impact: (s) => Math.min(s.cpuUsage, 1.0),
           suggestions: ['チャンク生成の並列度を下げる', 'テレインジェネレーションの最適化', '不要な計算の削減'],
-        })
-      }
-
-      // メモリ使用量チェック
-      if (snapshot.memoryUsage > 6 * 1024 * 1024 * 1024) {
-        // 6GB
-        bottlenecks.push({
+        },
+        {
+          check: (s) => s.memoryUsage > 6 * 1024 * 1024 * 1024,
           component: 'Memory',
           severity: 'medium' as const,
-          description: `メモリ使用量が高いです: ${(snapshot.memoryUsage / (1024 * 1024 * 1024)).toFixed(1)}GB`,
+          description: (s) => `メモリ使用量が高いです: ${(s.memoryUsage / (1024 * 1024 * 1024)).toFixed(1)}GB`,
           impact: 0.6,
           suggestions: ['チャンクキャッシュサイズの調整', 'ガベージコレクションの実行', 'メモリプールの最適化'],
-        })
-      }
-
-      // キャッシュヒット率チェック
-      if (snapshot.cacheHitRate < 0.7) {
-        bottlenecks.push({
+        },
+        {
+          check: (s) => s.cacheHitRate < 0.7,
           component: 'Cache',
           severity: 'medium' as const,
-          description: `キャッシュヒット率が低いです: ${(snapshot.cacheHitRate * 100).toFixed(1)}%`,
-          impact: 1.0 - snapshot.cacheHitRate,
+          description: (s) => `キャッシュヒット率が低いです: ${(s.cacheHitRate * 100).toFixed(1)}%`,
+          impact: (s) => 1.0 - s.cacheHitRate,
           suggestions: ['プリローディング戦略の見直し', 'キャッシュサイズの増加', 'エビクションポリシーの調整'],
-        })
-      }
-
-      // I/O パフォーマンスチェック
-      if (snapshot.diskIOPS > 1000) {
-        bottlenecks.push({
+        },
+        {
+          check: (s) => s.diskIOPS > 1000,
           component: 'Disk I/O',
           severity: 'low' as const,
-          description: `ディスクI/O負荷が高いです: ${snapshot.diskIOPS} IOPS`,
+          description: (s) => `ディスクI/O負荷が高いです: ${s.diskIOPS} IOPS`,
           impact: 0.3,
           suggestions: ['SSDへの移行検討', 'I/Oバッファリングの最適化', '非同期書き込みの活用'],
-        })
-      }
+        },
+      ] as const
+
+      // ルールベース検出：filter + map
+      const bottlenecks = bottleneckRules
+        .filter((rule) => rule.check(snapshot))
+        .map((rule) => ({
+          component: rule.component,
+          severity: rule.severity,
+          description: rule.description(snapshot),
+          impact: typeof rule.impact === 'function' ? rule.impact(snapshot) : rule.impact,
+          suggestions: [...rule.suggestions],
+        }))
 
       const overallHealth = 1.0 - bottlenecks.reduce((sum, b) => sum + b.impact, 0) / Math.max(bottlenecks.length, 1)
 
@@ -329,64 +342,72 @@ export const makePerformanceMonitoringService = Effect.gen(function* () {
       yield* Effect.logInfo('最適化提案生成開始')
 
       const snapshot = yield* metricsCollector.getPerformanceSnapshot()
-      const recommendations: Schema.Schema.Type<typeof OptimizationRecommendation>[] = []
 
-      // メモリ最適化提案
-      if (snapshot.memoryUsage > 4 * 1024 * 1024 * 1024) {
-        // 4GB
-        recommendations.push({
-          _tag: 'OptimizationRecommendation',
-          category: 'memory',
-          priority: 'high',
-          title: 'メモリ使用量の最適化',
-          description: 'チャンクプールサイズを調整し、未使用チャンクを積極的に解放する',
-          expectedImprovement: '20-30%のメモリ使用量削減',
-          implementationEffort: 'medium',
-          estimatedImpact: 0.7,
-        })
+      // データ駆動型設計：最適化ルールをデータ構造化
+      type OptimizationRule = {
+        readonly check: (snapshot: typeof snapshot) => boolean
+        readonly recommendation: Schema.Schema.Type<typeof OptimizationRecommendation>
       }
 
-      // CPU最適化提案
-      if (snapshot.cpuUsage > 0.6) {
-        recommendations.push({
-          _tag: 'OptimizationRecommendation',
-          category: 'cpu',
-          priority: 'medium',
-          title: 'CPU負荷の分散',
-          description: 'ワールド生成タスクをワーカースレッドに分散し、メインスレッドの負荷を軽減',
-          expectedImprovement: '15-25%のCPU使用率改善',
-          implementationEffort: 'high',
-          estimatedImpact: 0.6,
-        })
-      }
+      const optimizationRules: ReadonlyArray<OptimizationRule> = [
+        {
+          check: (s) => s.memoryUsage > 4 * 1024 * 1024 * 1024,
+          recommendation: {
+            _tag: 'OptimizationRecommendation',
+            category: 'memory',
+            priority: 'high',
+            title: 'メモリ使用量の最適化',
+            description: 'チャンクプールサイズを調整し、未使用チャンクを積極的に解放する',
+            expectedImprovement: '20-30%のメモリ使用量削減',
+            implementationEffort: 'medium',
+            estimatedImpact: 0.7,
+          },
+        },
+        {
+          check: (s) => s.cpuUsage > 0.6,
+          recommendation: {
+            _tag: 'OptimizationRecommendation',
+            category: 'cpu',
+            priority: 'medium',
+            title: 'CPU負荷の分散',
+            description: 'ワールド生成タスクをワーカースレッドに分散し、メインスレッドの負荷を軽減',
+            expectedImprovement: '15-25%のCPU使用率改善',
+            implementationEffort: 'high',
+            estimatedImpact: 0.6,
+          },
+        },
+        {
+          check: (s) => s.cacheHitRate < 0.8,
+          recommendation: {
+            _tag: 'OptimizationRecommendation',
+            category: 'cache',
+            priority: 'medium',
+            title: 'キャッシュ戦略の改善',
+            description: 'プレイヤーの移動パターンを学習し、予測的なプリローディングを実装',
+            expectedImprovement: '10-20%のキャッシュヒット率向上',
+            implementationEffort: 'medium',
+            estimatedImpact: 0.5,
+          },
+        },
+        {
+          check: (s) => s.diskIOPS > 500,
+          recommendation: {
+            _tag: 'OptimizationRecommendation',
+            category: 'io',
+            priority: 'low',
+            title: 'I/O操作の最適化',
+            description: 'バッチ書き込みと非同期I/Oを活用してディスク負荷を軽減',
+            expectedImprovement: '30-40%のI/O効率向上',
+            implementationEffort: 'low',
+            estimatedImpact: 0.4,
+          },
+        },
+      ] as const
 
-      // キャッシュ最適化提案
-      if (snapshot.cacheHitRate < 0.8) {
-        recommendations.push({
-          _tag: 'OptimizationRecommendation',
-          category: 'cache',
-          priority: 'medium',
-          title: 'キャッシュ戦略の改善',
-          description: 'プレイヤーの移動パターンを学習し、予測的なプリローディングを実装',
-          expectedImprovement: '10-20%のキャッシュヒット率向上',
-          implementationEffort: 'medium',
-          estimatedImpact: 0.5,
-        })
-      }
-
-      // I/O最適化提案
-      if (snapshot.diskIOPS > 500) {
-        recommendations.push({
-          _tag: 'OptimizationRecommendation',
-          category: 'io',
-          priority: 'low',
-          title: 'I/O操作の最適化',
-          description: 'バッチ書き込みと非同期I/Oを活用してディスク負荷を軽減',
-          expectedImprovement: '30-40%のI/O効率向上',
-          implementationEffort: 'low',
-          estimatedImpact: 0.4,
-        })
-      }
+      // ルールベース推奨：filter + map
+      const recommendations = optimizationRules
+        .filter((rule) => rule.check(snapshot))
+        .map((rule) => rule.recommendation)
 
       yield* Effect.logInfo(`最適化提案生成完了: ${recommendations.length}件`)
       return recommendations
@@ -399,23 +420,28 @@ export const makePerformanceMonitoringService = Effect.gen(function* () {
       const startTime = yield* Clock.currentTimeMillis
       const startMemory = (yield* metricsCollector.getPerformanceSnapshot()).memoryUsage
 
-      // ベンチマーク実行（簡略化）
-      const latencies: number[] = []
-      let errorCount = 0
+      // ベンチマーク実行（for文撲滅 → Effect.reduce with immutable accumulator）
+      const { latencies, errorCount } = yield* pipe(
+        ReadonlyArray.range(0, operations),
+        Effect.reduce({ latencies: [] as number[], errorCount: 0 }, (acc, _i) =>
+          Effect.gen(function* () {
+            const opStart = yield* Clock.currentTimeMillis
 
-      for (let i = 0; i < operations; i++) {
-        const opStart = yield* Clock.currentTimeMillis
+            // Effect.catchAllでエラーを捕捉してerrorCountをインクリメント
+            const isError = yield* Effect.sleep(`${Math.random() * 10 + 5} millis`).pipe(
+              Effect.map(() => false),
+              Effect.catchAll(() => Effect.succeed(true))
+            )
 
-        try {
-          // ダミー操作（実際のベンチマークではワールド生成などを実行）
-          yield* Effect.sleep(`${Math.random() * 10 + 5} millis`)
-        } catch (error) {
-          errorCount++
-        }
+            const opEnd = yield* Clock.currentTimeMillis
 
-        const opEnd = yield* Clock.currentTimeMillis
-        latencies.push(opEnd - opStart)
-      }
+            return {
+              latencies: [...acc.latencies, opEnd - opStart],
+              errorCount: acc.errorCount + (isError ? 1 : 0),
+            }
+          })
+        )
+      )
 
       const endTime = yield* Clock.currentTimeMillis
       const endMemory = (yield* metricsCollector.getPerformanceSnapshot()).memoryUsage
@@ -493,16 +519,20 @@ export const makePerformanceMonitoringService = Effect.gen(function* () {
     }>
   ) =>
     Effect.gen(function* () {
-      for (const rule of rules) {
-        yield* metricsCollector.setAlertThreshold({
-          _tag: 'AlertThreshold',
-          metricName: rule.metricName,
-          operator: rule.operator,
-          threshold: rule.threshold,
-          severity: rule.severity,
-          enabled: true,
-        })
-      }
+      // for-of撲滅 → Effect.forEach
+      yield* pipe(
+        rules,
+        Effect.forEach((rule) =>
+          metricsCollector.setAlertThreshold({
+            _tag: 'AlertThreshold',
+            metricName: rule.metricName,
+            operator: rule.operator,
+            threshold: rule.threshold,
+            severity: rule.severity,
+            enabled: true,
+          })
+        )
+      )
 
       yield* Effect.logInfo(`アラートルール設定完了: ${rules.length}件`)
     })
@@ -588,10 +618,13 @@ export const PerformanceMonitoringUtils = {
   assessAlertSeverity: (metricName: string, value: number, threshold: number) => {
     const ratio = value / threshold
 
-    if (ratio > 2.0) return 'critical'
-    if (ratio > 1.5) return 'error'
-    if (ratio > 1.1) return 'warning'
-    return 'info'
+    // Match.whenパターン：しきい値判定
+    return Match.value(ratio).pipe(
+      Match.when(Match.number.greaterThan(2.0), () => 'critical' as const),
+      Match.when(Match.number.greaterThan(1.5), () => 'error' as const),
+      Match.when(Match.number.greaterThan(1.1), () => 'warning' as const),
+      Match.orElse(() => 'info' as const)
+    )
   },
 }
 

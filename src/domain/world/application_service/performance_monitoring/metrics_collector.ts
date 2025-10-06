@@ -251,17 +251,20 @@ const makeMetricsCollectorService = Effect.gen(function* () {
   const startCollection = () =>
     Effect.gen(function* () {
       const isActive = yield* Ref.get(isCollecting)
-      if (isActive) {
-        yield* Effect.logWarning('メトリクス収集は既に開始されています')
-        return
-      }
 
-      yield* Ref.set(isCollecting, true)
+      // 早期return → Effect.when
+      yield* Effect.when(isActive, () => Effect.logWarning('メトリクス収集は既に開始されています'))
 
-      // 収集ループを開始
-      yield* Effect.fork(collectionLoop())
+      yield* Effect.unless(isActive, () =>
+        Effect.gen(function* () {
+          yield* Ref.set(isCollecting, true)
 
-      yield* Effect.logInfo('メトリクス収集開始')
+          // 収集ループを開始
+          yield* Effect.fork(collectionLoop())
+
+          yield* Effect.logInfo('メトリクス収集開始')
+        })
+      )
     })
 
   const stopCollection = () =>
@@ -336,15 +339,21 @@ const makeMetricsCollectorService = Effect.gen(function* () {
       const timers = yield* Ref.get(activeTimers)
       const timer = timers.get(timerId)
 
-      if (!timer) {
-        return yield* Effect.fail({
-          _tag: 'MetricsCollectorError' as const,
-          message: `タイマーが見つかりません: ${timerId}`,
-          collectorId: 'timer',
+      // Option.fromNullable + Option.match
+      const validTimer = yield* pipe(
+        Option.fromNullable(timer),
+        Option.match({
+          onNone: () =>
+            Effect.fail({
+              _tag: 'MetricsCollectorError' as const,
+              message: `タイマーが見つかりません: ${timerId}`,
+              collectorId: 'timer',
+            }),
+          onSome: (t) => Effect.succeed(t),
         })
-      }
+      )
 
-      const elapsedTime = yield* Clock.currentTimeMillis - timer.startTime
+      const elapsedTime = yield* Clock.currentTimeMillis - validTimer.startTime
 
       // タイマーメトリクスを記録
       yield* recordHistogram(timer.name, elapsedTime, undefined, timer.labels)
@@ -405,52 +414,61 @@ const makeMetricsCollectorService = Effect.gen(function* () {
       const now = yield* Clock.currentTimeMillis
       const filteredData = metricData.filter((m) => now - m.timestamp <= timeWindow)
 
-      if (filteredData.length === 0) {
-        return {
-          _tag: 'MetricAggregation' as const,
-          metricName,
-          aggregationType,
-          value: 0,
-          sampleCount: 0,
-          timeWindow,
-        }
-      }
+      // 早期return → Option.match
+      return yield* pipe(
+        filteredData.length === 0
+          ? Option.none<ReadonlyArray<Schema.Schema.Type<typeof MetricValue>>>()
+          : Option.some(filteredData as ReadonlyArray<Schema.Schema.Type<typeof MetricValue>>),
+        Option.match({
+          onNone: () =>
+            Effect.succeed({
+              _tag: 'MetricAggregation' as const,
+              metricName,
+              aggregationType,
+              value: 0,
+              sampleCount: 0,
+              timeWindow,
+            }),
+          onSome: (data) =>
+            Effect.gen(function* () {
+              const values = data.map((m) => m.value)
+              let aggregatedValue: number
 
-      const values = filteredData.map((m) => m.value)
-      let aggregatedValue: number
+              switch (aggregationType) {
+                case 'sum':
+                  aggregatedValue = values.reduce((sum, val) => sum + val, 0)
+                  break
+                case 'average':
+                  aggregatedValue = values.reduce((sum, val) => sum + val, 0) / values.length
+                  break
+                case 'min':
+                  aggregatedValue = Math.min(...values)
+                  break
+                case 'max':
+                  aggregatedValue = Math.max(...values)
+                  break
+                case 'count':
+                  aggregatedValue = values.length
+                  break
+                case 'percentile':
+                  // 95パーセンタイルを計算
+                  const sorted = [...values].sort((a, b) => a - b)
+                  const index = Math.ceil(sorted.length * 0.95) - 1
+                  aggregatedValue = sorted[Math.max(0, index)]
+                  break
+              }
 
-      switch (aggregationType) {
-        case 'sum':
-          aggregatedValue = values.reduce((sum, val) => sum + val, 0)
-          break
-        case 'average':
-          aggregatedValue = values.reduce((sum, val) => sum + val, 0) / values.length
-          break
-        case 'min':
-          aggregatedValue = Math.min(...values)
-          break
-        case 'max':
-          aggregatedValue = Math.max(...values)
-          break
-        case 'count':
-          aggregatedValue = values.length
-          break
-        case 'percentile':
-          // 95パーセンタイルを計算
-          const sorted = [...values].sort((a, b) => a - b)
-          const index = Math.ceil(sorted.length * 0.95) - 1
-          aggregatedValue = sorted[Math.max(0, index)]
-          break
-      }
-
-      return {
-        _tag: 'MetricAggregation' as const,
-        metricName,
-        aggregationType,
-        value: aggregatedValue,
-        sampleCount: filteredData.length,
-        timeWindow,
-      }
+              return {
+                _tag: 'MetricAggregation' as const,
+                metricName,
+                aggregationType,
+                value: aggregatedValue,
+                sampleCount: data.length,
+                timeWindow,
+              }
+            }),
+        })
+      )
     })
 
   const setAlertThreshold = (threshold: Schema.Schema.Type<typeof AlertThreshold>) =>
@@ -463,14 +481,25 @@ const makeMetricsCollectorService = Effect.gen(function* () {
     Effect.gen(function* () {
       const metricsMap = yield* Ref.get(metrics)
 
-      let filteredMetrics = new Map(metricsMap)
-
-      if (timeRange) {
-        for (const [name, metricList] of metricsMap) {
-          const filtered = metricList.filter((m) => m.timestamp >= timeRange.start && m.timestamp <= timeRange.end)
-          filteredMetrics.set(name, filtered)
-        }
-      }
+      // Map iterationのfor-of撲滅 → Option.match + pipe
+      const filteredMetrics = yield* pipe(
+        Option.fromNullable(timeRange),
+        Option.match({
+          onNone: () => Effect.succeed(new Map(metricsMap)),
+          onSome: (range) =>
+            Effect.sync(() => {
+              const filtered = new Map<string, Schema.Schema.Type<typeof MetricValue>[]>()
+              pipe(
+                Array.from(metricsMap.entries()),
+                ReadonlyArray.forEach(([name, metricList]) => {
+                  const filteredList = metricList.filter((m) => m.timestamp >= range.start && m.timestamp <= range.end)
+                  filtered.set(name, filteredList)
+                })
+              )
+              return filtered
+            }),
+        })
+      )
 
       return Match.value(format).pipe(
         Match.when('prometheus', () => exportToPrometheus(filteredMetrics)),
@@ -512,15 +541,21 @@ const makeMetricsCollectorService = Effect.gen(function* () {
       yield* Effect.repeat(
         Effect.gen(function* () {
           const isActive = yield* Ref.get(isCollecting)
-          if (!isActive) return false
 
-          // システムメトリクス収集
-          yield* collectSystemMetrics()
+          // 早期return → Effect.ifの変換
+          return yield* Effect.if(isActive, {
+            onTrue: () =>
+              Effect.gen(function* () {
+                // システムメトリクス収集
+                yield* collectSystemMetrics()
 
-          // 古いメトリクスのクリーンアップ
-          yield* cleanupOldMetrics()
+                // 古いメトリクスのクリーンアップ
+                yield* cleanupOldMetrics()
 
-          return true
+                return true
+              }),
+            onFalse: () => Effect.succeed(false),
+          })
         }),
         { schedule: Effect.Schedule.spaced(`${config.collectionInterval} millis`) }
       )
@@ -542,21 +577,30 @@ const makeMetricsCollectorService = Effect.gen(function* () {
       const thresholds = yield* Ref.get(alertThresholds)
       const threshold = thresholds.get(metricName)
 
-      if (!threshold || !threshold.enabled) return
+      // Option.fromNullable + Option.match
+      yield* pipe(
+        Option.fromNullable(threshold),
+        Option.filter((t) => t.enabled),
+        Option.match({
+          onNone: () => Effect.void,
+          onSome: (t) =>
+            Effect.gen(function* () {
+              const triggered = Match.value(t.operator).pipe(
+                Match.when('greater_than', () => value > t.threshold),
+                Match.when('less_than', () => value < t.threshold),
+                Match.when('equals', () => value === t.threshold),
+                Match.when('not_equals', () => value !== t.threshold),
+                Match.exhaustive
+              )
 
-      const triggered = Match.value(threshold.operator).pipe(
-        Match.when('greater_than', () => value > threshold.threshold),
-        Match.when('less_than', () => value < threshold.threshold),
-        Match.when('equals', () => value === threshold.threshold),
-        Match.when('not_equals', () => value !== threshold.threshold),
-        Match.exhaustive
+              yield* Effect.when(triggered, () =>
+                Effect.logWarning(
+                  `アラート発生: ${metricName} = ${value} (閾値: ${t.threshold}, 重要度: ${t.severity})`
+                )
+              )
+            }),
+        })
       )
-
-      if (triggered) {
-        yield* Effect.logWarning(
-          `アラート発生: ${metricName} = ${value} (閾値: ${threshold.threshold}, 重要度: ${threshold.severity})`
-        )
-      }
     })
 
   const collectSystemMetrics = () =>
@@ -577,11 +621,15 @@ const makeMetricsCollectorService = Effect.gen(function* () {
       const config = yield* Ref.get(configuration)
       const cutoffTime = yield* Clock.currentTimeMillis - config.retentionPeriod
 
+      // Map iterationのfor-of撲滅 → ReadonlyArray.forEach
       yield* Ref.update(metrics, (map) => {
-        for (const [name, metricList] of map) {
-          const filtered = metricList.filter((m) => m.timestamp >= cutoffTime)
-          map.set(name, filtered)
-        }
+        pipe(
+          Array.from(map.entries()),
+          ReadonlyArray.forEach(([name, metricList]) => {
+            const filtered = metricList.filter((m) => m.timestamp >= cutoffTime)
+            map.set(name, filtered)
+          })
+        )
         return map
       })
     })
@@ -591,28 +639,36 @@ const makeMetricsCollectorService = Effect.gen(function* () {
     metricName: string
   ): number | undefined => {
     const metricList = metricsMap.get(metricName)
-    if (!metricList || metricList.length === 0) return undefined
 
-    const latest = metricList[metricList.length - 1]
-    return latest.value
+    // Option.fromNullable + Option.match
+    return pipe(
+      Option.fromNullable(metricList),
+      Option.filter((list) => list.length > 0),
+      Option.map((list) => list[list.length - 1].value),
+      Option.getOrUndefined
+    )
   }
 
   const exportToPrometheus = (metricsMap: Map<string, Schema.Schema.Type<typeof MetricValue>[]>) => {
-    let output = ''
+    // Map iterationのfor-of撲滅 → pipe + reduce
+    return pipe(
+      Array.from(metricsMap.entries()),
+      ReadonlyArray.filterMap(([name, metricList]) =>
+        pipe(
+          Option.fromNullable(metricList),
+          Option.filter((list) => list.length > 0),
+          Option.map((list) => list[list.length - 1]),
+          Option.map((latest) => {
+            const labelStr = Object.entries(latest.labels)
+              .map(([key, value]) => `${key}="${value}"`)
+              .join(',')
 
-    for (const [name, metricList] of metricsMap) {
-      if (metricList.length === 0) continue
-
-      const latest = metricList[metricList.length - 1]
-      const labelStr = Object.entries(latest.labels)
-        .map(([key, value]) => `${key}="${value}"`)
-        .join(',')
-
-      output += `# TYPE ${name} ${latest.type}\n`
-      output += `${name}{${labelStr}} ${latest.value} ${latest.timestamp}\n`
-    }
-
-    return output
+            return `# TYPE ${name} ${latest.type}\n${name}{${labelStr}} ${latest.value} ${latest.timestamp}\n`
+          })
+        )
+      ),
+      ReadonlyArray.join('')
+    )
   }
 
   const exportToJSON = (metricsMap: Map<string, Schema.Schema.Type<typeof MetricValue>[]>) => {
@@ -621,26 +677,32 @@ const makeMetricsCollectorService = Effect.gen(function* () {
   }
 
   const exportToCSV = (metricsMap: Map<string, Schema.Schema.Type<typeof MetricValue>[]>) => {
-    let csv = 'metric_name,type,value,timestamp,labels\n'
+    const header = 'metric_name,type,value,timestamp,labels\n'
 
-    for (const [name, metricList] of metricsMap) {
-      for (const metric of metricList) {
-        const labelsStr = JSON.stringify(metric.labels)
-        csv += `${name},${metric.type},${metric.value},${metric.timestamp},"${labelsStr}"\n`
-      }
-    }
+    // 2重ネストfor-of撲滅 → flatMap + map
+    const rows = pipe(
+      Array.from(metricsMap.entries()),
+      ReadonlyArray.flatMap(([name, metricList]) =>
+        pipe(
+          metricList,
+          ReadonlyArray.map((metric) => {
+            const labelsStr = JSON.stringify(metric.labels)
+            return `${name},${metric.type},${metric.value},${metric.timestamp},"${labelsStr}"\n`
+          })
+        )
+      ),
+      ReadonlyArray.join('')
+    )
 
-    return csv
+    return header + rows
   }
 
   const estimateMemoryUsage = (metricsMap: Map<string, Schema.Schema.Type<typeof MetricValue>[]>) => {
-    let totalSize = 0
-
-    for (const metricList of metricsMap.values()) {
-      totalSize += metricList.length * 100 // 1メトリクス約100バイトと仮定
-    }
-
-    return totalSize
+    // Map.values() iterationのfor-of撲滅 → reduce
+    return pipe(
+      Array.from(metricsMap.values()),
+      ReadonlyArray.reduce(0, (totalSize, metricList) => totalSize + metricList.length * 100) // 1メトリクス約100バイトと仮定
+    )
   }
 
   return MetricsCollectorService.of({

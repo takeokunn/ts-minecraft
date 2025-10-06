@@ -46,8 +46,8 @@ export const BackupKeySchema = Schema.String.pipe(
 )
 export type BackupKey = Schema.Schema.Type<typeof BackupKeySchema>
 
-export const MillisecondsSchema = Schema.Number.pipe(Schema.int(), Schema.positive(), Schema.brand('Milliseconds'))
-export type Milliseconds = Schema.Schema.Type<typeof MillisecondsSchema>
+// Re-export from units
+export { MillisecondsSchema, type Milliseconds } from '../../domain/shared/value_object/units'
 
 const BackupSlotSchema = Schema.Number.pipe(Schema.int(), Schema.between(1, 10), Schema.brand('BackupSlotCount'))
 export type BackupSlotCount = Schema.Schema.Type<typeof BackupSlotSchema>

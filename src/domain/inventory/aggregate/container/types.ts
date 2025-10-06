@@ -271,30 +271,27 @@ export const CONTAINER_SLOT_CONFIGURATIONS = {
 
 // ===== Error Types =====
 
-export class ContainerError extends Schema.TaggedError<ContainerError>()(
-  'ContainerError',
-  {
-    reason: Schema.Literal(
-      'CONTAINER_NOT_FOUND',
-      'ACCESS_DENIED',
-      'SLOT_OCCUPIED',
-      'SLOT_EMPTY',
-      'INVALID_SLOT_INDEX',
-      'CONTAINER_FULL',
-      'INVALID_ITEM_TYPE',
-      'PERMISSION_EXPIRED',
-      'TOO_MANY_VIEWERS',
-      'CONTAINER_LOCKED',
-      'INVALID_CONFIGURATION'
-    ),
-    message: Schema.String,
-    containerId: Schema.optional(ContainerIdSchema),
-    playerId: Schema.optional(Schema.suspend(() => import('../../types/index').then((m) => m.PlayerIdSchema))),
-    slotIndex: Schema.optional(ContainerSlotIndexSchema),
-    itemId: Schema.optional(Schema.suspend(() => import('../../types/index').then((m) => m.ItemIdSchema))),
-    metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Any })),
-  }
-) {
+export class ContainerError extends Schema.TaggedError<ContainerError>()('ContainerError', {
+  reason: Schema.Literal(
+    'CONTAINER_NOT_FOUND',
+    'ACCESS_DENIED',
+    'SLOT_OCCUPIED',
+    'SLOT_EMPTY',
+    'INVALID_SLOT_INDEX',
+    'CONTAINER_FULL',
+    'INVALID_ITEM_TYPE',
+    'PERMISSION_EXPIRED',
+    'TOO_MANY_VIEWERS',
+    'CONTAINER_LOCKED',
+    'INVALID_CONFIGURATION'
+  ),
+  message: Schema.String,
+  containerId: Schema.optional(ContainerIdSchema),
+  playerId: Schema.optional(Schema.suspend(() => import('../../types/index').then((m) => m.PlayerIdSchema))),
+  slotIndex: Schema.optional(ContainerSlotIndexSchema),
+  itemId: Schema.optional(Schema.suspend(() => import('../../types/index').then((m) => m.ItemIdSchema))),
+  metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Any })),
+}) {
   static accessDenied(containerId: ContainerId, playerId: PlayerId): ContainerError {
     return new ContainerError({
       reason: 'ACCESS_DENIED',

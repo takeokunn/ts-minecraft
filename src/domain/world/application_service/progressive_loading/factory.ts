@@ -175,23 +175,23 @@ export const makeProgressiveLoadingService = Effect.gen(function* () {
     qualityStrategy?: 'performance_first' | 'quality_first' | 'balanced'
   }) =>
     Effect.gen(function* () {
-      if (settings.maxConcurrentLoads !== undefined) {
-        yield* scheduler.updateConfiguration({
-          maxConcurrentLoads: settings.maxConcurrentLoads,
+      yield* Effect.when(settings.maxConcurrentLoads !== undefined, () =>
+        scheduler.updateConfiguration({
+          maxConcurrentLoads: settings.maxConcurrentLoads!,
         })
-      }
+      )
 
-      if (settings.memoryManagement !== undefined) {
-        yield* memoryMonitor.updateConfiguration({
-          strategy: settings.memoryManagement,
+      yield* Effect.when(settings.memoryManagement !== undefined, () =>
+        memoryMonitor.updateConfiguration({
+          strategy: settings.memoryManagement!,
         })
-      }
+      )
 
-      if (settings.qualityStrategy !== undefined) {
-        yield* adaptiveQuality.updateConfiguration({
-          strategy: settings.qualityStrategy,
+      yield* Effect.when(settings.qualityStrategy !== undefined, () =>
+        adaptiveQuality.updateConfiguration({
+          strategy: settings.qualityStrategy!,
         })
-      }
+      )
 
       yield* Effect.logInfo('Progressive Loading 設定更新完了')
     })

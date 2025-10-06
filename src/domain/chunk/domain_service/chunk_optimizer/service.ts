@@ -438,12 +438,15 @@ const analyzeEfficiencyInternal = (chunk: ChunkData): Effect.Effect<Optimization
 
     const redundancy = yield* makePercentage(calculateRedundancy(frequencyMap, blockArray.length))
 
-    const accessPatterns = yield* Effect.forEach(sortByFrequency(frequencyMap), ([blockId, frequency]) =>
-      Effect.gen(function* () {
-        const id = yield* makeBlockId(blockId)
-        const freq = yield* makeBlockCount(frequency)
-        return { blockId: id, frequency: freq }
-      }).pipe(Effect.mapError(toValidationError))
+    const accessPatterns = yield* Effect.forEach(
+      sortByFrequency(frequencyMap),
+      ([blockId, frequency]) =>
+        Effect.gen(function* () {
+          const id = yield* makeBlockId(blockId)
+          const freq = yield* makeBlockCount(frequency)
+          return { blockId: id, frequency: freq }
+        }).pipe(Effect.mapError(toValidationError)),
+      { concurrency: 'unbounded' }
     )
 
     const timestampValue = yield* Clock.currentTimeMillis

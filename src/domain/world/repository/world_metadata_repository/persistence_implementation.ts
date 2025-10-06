@@ -111,11 +111,14 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
       })
 
     const checksumFromString = (input: string): string => {
-      let hash = 0
-      for (const char of input) {
-        hash = (hash << 5) - hash + char.charCodeAt(0)
-        hash |= 0
-      }
+      const hash = pipe(
+        input,
+        ReadonlyArray.fromIterable,
+        ReadonlyArray.reduce(0, (hash, char) => {
+          const newHash = (hash << 5) - hash + char.charCodeAt(0)
+          return newHash | 0
+        })
+      )
       return hash.toString(16)
     }
 
@@ -279,28 +282,26 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
     }
 
     const compressData = (data: string): Effect.Effect<Buffer, AllRepositoryErrors> =>
-      Effect.promise(
-        () =>
+      Effect.tryPromise({
+        try: () =>
           new Promise<Buffer>((resolve, reject) => {
             zlib.gzip(data, (err, result) => {
-              if (err) reject(err)
-              else resolve(result)
+              err ? reject(err) : resolve(result)
             })
-          })
-      ).pipe(Effect.catchAll((error) => Effect.fail(createCompressionError('', `Compression failed: ${error}`, error))))
+          }),
+        catch: (error) => createCompressionError('', `Compression failed: ${error}`, error),
+      })
 
     const decompressData = (compressedData: Buffer): Effect.Effect<string, AllRepositoryErrors> =>
-      Effect.promise(
-        () =>
+      Effect.tryPromise({
+        try: () =>
           new Promise<string>((resolve, reject) => {
             zlib.gunzip(compressedData, (err, result) => {
-              if (err) reject(err)
-              else resolve(result.toString('utf8'))
+              err ? reject(err) : resolve(result.toString('utf8'))
             })
-          })
-      ).pipe(
-        Effect.catchAll((error) => Effect.fail(createCompressionError('', `Decompression failed: ${error}`, error)))
-      )
+          }),
+        catch: (error) => createCompressionError('', `Decompression failed: ${error}`, error),
+      })
 
     const writeFile = (filePath: string, data: unknown): Effect.Effect<void, AllRepositoryErrors> =>
       Effect.gen(function* () {
@@ -368,8 +369,13 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
                 onFalse: () => Effect.succeed(content),
               })
 
-              const parsed = JSON.parse(content)
-              const decoded = yield* Schema.decodeUnknown(schema)(parsed).pipe(
+              // パターンB: Effect.try + Effect.flatMap + Schema.decodeUnknown
+              const decoded = yield* Effect.try({
+                try: () => JSON.parse(content),
+                catch: (error) =>
+                  createDataIntegrityError(`JSON parse failed for ${filePath}: ${String(error)}`, 'readFile', error),
+              }).pipe(
+                Effect.flatMap(Schema.decodeUnknown(schema)),
                 Effect.catchAll((error) =>
                   Effect.fail(
                     createDataIntegrityError(`Schema validation failed for ${filePath}: ${error}`, 'readFile', error)

@@ -4,15 +4,8 @@ import { Schema } from 'effect'
 // 基本Brand型
 // -----------------------------------------------------------------------------
 
-export const PlayerIdSchema = Schema.String.pipe(
-  Schema.trimmed(),
-  Schema.minLength(3),
-  Schema.maxLength(32),
-  Schema.pattern(/^[A-Za-z0-9_-]+$/),
-  Schema.brand('PlayerId')
-)
-
-export type PlayerId = Schema.Schema.Type<typeof PlayerIdSchema>
+// PlayerIdは専用value_objectから再エクスポート
+export { PlayerIdSchema, type PlayerId } from './value_object/player_id'
 
 export const PlayerNameSchema = Schema.String.pipe(
   Schema.trimmed(),

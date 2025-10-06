@@ -51,22 +51,22 @@ export namespace CameraOps {
   export const updatePosition = (camera: Camera, newPosition: Position3D): Effect.Effect<Camera, CameraError> =>
     Effect.gen(function* () {
       // カメラが有効でない場合はエラー
-      if (!camera.isEnabled) {
-        return yield* Effect.fail(CameraError({ _tag: 'CameraNotInitializedError', message: 'Camera is disabled' }))
-      }
+      yield* Effect.when(!camera.isEnabled, () =>
+        Effect.fail(CameraError({ _tag: 'CameraNotInitializedError', message: 'Camera is disabled' }))
+      )
 
       // 位置の変更量チェック（急激な移動の防止）
       const positionDelta = calculatePositionDelta(camera.position, newPosition)
       const maxDelta = getMaxPositionDelta(camera.settings)
 
-      if (positionDelta > maxDelta) {
-        return yield* Effect.fail(
+      yield* Effect.when(positionDelta > maxDelta, () =>
+        Effect.fail(
           CameraError({
             _tag: 'InvalidPositionError',
             message: `Position change too large: ${positionDelta} > ${maxDelta}`,
           })
         )
-      }
+      )
 
       // 位置更新イベントの作成
       const event = createPositionUpdatedEvent(camera.id, camera.position, newPosition)
@@ -91,9 +91,9 @@ export namespace CameraOps {
    */
   export const updateRotation = (camera: Camera, newRotation: CameraRotation): Effect.Effect<Camera, CameraError> =>
     Effect.gen(function* () {
-      if (!camera.isEnabled) {
-        return yield* Effect.fail(CameraError({ _tag: 'CameraNotInitializedError', message: 'Camera is disabled' }))
-      }
+      yield* Effect.when(!camera.isEnabled, () =>
+        Effect.fail(CameraError({ _tag: 'CameraNotInitializedError', message: 'Camera is disabled' }))
+      )
 
       // 回転制限の適用
       const constrainedRotation = applyRotationConstraints(newRotation, camera.settings)
@@ -119,9 +119,9 @@ export namespace CameraOps {
    */
   export const changeViewMode = (camera: Camera, newMode: ViewMode): Effect.Effect<Camera, CameraError> =>
     Effect.gen(function* () {
-      if (!camera.isEnabled) {
-        return yield* Effect.fail(CameraError({ _tag: 'CameraNotInitializedError', message: 'Camera is disabled' }))
-      }
+      yield* Effect.when(!camera.isEnabled, () =>
+        Effect.fail(CameraError({ _tag: 'CameraNotInitializedError', message: 'Camera is disabled' }))
+      )
 
       // ビューモード変更時の位置・回転調整
       const adjustedCamera = yield* adjustCameraForViewMode(camera, newMode)
@@ -147,9 +147,9 @@ export namespace CameraOps {
    */
   export const startAnimation = (camera: Camera, animation: AnimationState): Effect.Effect<Camera, CameraError> =>
     Effect.gen(function* () {
-      if (!camera.isEnabled) {
-        return yield* Effect.fail(CameraError({ _tag: 'CameraNotInitializedError', message: 'Camera is disabled' }))
-      }
+      yield* Effect.when(!camera.isEnabled, () =>
+        Effect.fail(CameraError({ _tag: 'CameraNotInitializedError', message: 'Camera is disabled' }))
+      )
 
       // 既存のアニメーション停止
       const updatedCamera = stopAnimation(camera)
@@ -175,20 +175,24 @@ export namespace CameraOps {
    */
   export const stopAnimation = (camera: Camera): Effect.Effect<Camera> =>
     Effect.gen(function* () {
-      if (Option.isNone(camera.animationState)) {
-        return camera
-      }
+      return yield* pipe(
+        camera.animationState,
+        Option.match({
+          onNone: () => Effect.succeed(camera),
+          onSome: (animation) =>
+            Effect.gen(function* () {
+              const event = createAnimationStoppedEvent(camera.id, animation)
+              const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
 
-      const event = createAnimationStoppedEvent(camera.id, camera.animationState.value)
-
-      const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
-
-      return Camera({
-        ...camera,
-        animationState: Option.none(),
-        events: [...camera.events, event],
-        lastUpdated: now,
-      })
+              return Camera({
+                ...camera,
+                animationState: Option.none(),
+                events: [...camera.events, event],
+                lastUpdated: now,
+              })
+            }),
+        })
+      )
     })
 
   /**

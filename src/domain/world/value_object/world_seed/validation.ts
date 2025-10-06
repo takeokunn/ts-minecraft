@@ -4,7 +4,7 @@
  * DDD原則に基づく自己検証機能とドメイン固有の制約実装
  */
 
-import { Effect, Match, Schema } from 'effect'
+import { Effect, Match, ReadonlyArray, Schema } from 'effect'
 import { EntropyLevel, WorldSeed, WorldSeedError, WorldSeedErrorSchema, WorldSeedOps } from './index'
 
 /**
@@ -316,20 +316,16 @@ const validateCustomRules = (
   warnings: string[]
 }> =>
   Effect.gen(function* () {
-    const errors: WorldSeedError[] = []
-    const warnings: string[] = []
+    const ruleResults = yield* Effect.forEach(rules, (rule) => applyCustomRule(seed, rule))
 
-    for (const rule of rules) {
-      const ruleResult = yield* applyCustomRule(seed, rule)
-      if (ruleResult.error) {
-        errors.push(ruleResult.error)
-      }
-      if (ruleResult.warning) {
-        warnings.push(ruleResult.warning)
-      }
-    }
-
-    return { errors, warnings }
+    return ReadonlyArray.reduce(
+      ruleResults,
+      { errors: [] as WorldSeedError[], warnings: [] as string[] },
+      (acc, result) => ({
+        errors: result.error ? [...acc.errors, result.error] : acc.errors,
+        warnings: result.warning ? [...acc.warnings, result.warning] : acc.warnings,
+      })
+    )
   })
 
 /**

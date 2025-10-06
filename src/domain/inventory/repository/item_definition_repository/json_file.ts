@@ -148,14 +148,23 @@ export const ItemDefinitionRepositoryJsonFile = (config: JsonFileConfig = Defaul
 
               // バックアップ作成（有効な場合）
               if (config.backupEnabled) {
-                try {
-                  const backupTimestamp = await Effect.runPromise(Clock.currentTimeMillis)
-                  const backupPath = `${config.filePath}.backup-${backupTimestamp}`
-                  await fs.copyFile(config.filePath, backupPath)
-                } catch (backupError) {
-                  // バックアップ失敗は警告レベル（メイン処理は継続）
-                  console.warn('Failed to create backup:', backupError)
-                }
+                await Effect.runPromise(
+                  pipe(
+                    Effect.tryPromise({
+                      try: async () => {
+                        const backupTimestamp = await Effect.runPromise(Clock.currentTimeMillis)
+                        const backupPath = `${config.filePath}.backup-${backupTimestamp}`
+                        await fs.copyFile(config.filePath, backupPath)
+                      },
+                      catch: (error) => createStorageError('filesystem', 'backup', `Failed to create backup: ${error}`),
+                    }),
+                    Effect.catchAll((error) =>
+                      Effect.sync(() => {
+                        console.warn('Failed to create backup:', error)
+                      })
+                    )
+                  )
+                )
               }
 
               await fs.writeFile(config.filePath, JSON.stringify(data, null, 2), 'utf8')

@@ -16,10 +16,10 @@ export const calculateArmorValue = (equipment: Equipment): number => {
 
   // 各装備部位のアーマー値を加算（簡略化）
   // 実際のゲームではアイテムIDに基づいて値を決定
-  if (equipment.helmet) totalArmor += 2
-  if (equipment.chestplate) totalArmor += 6
-  if (equipment.leggings) totalArmor += 5
-  if (equipment.boots) totalArmor += 1
+  totalArmor += equipment.helmet ? 2 : 0
+  totalArmor += equipment.chestplate ? 6 : 0
+  totalArmor += equipment.leggings ? 5 : 0
+  totalArmor += equipment.boots ? 1 : 0
 
   return Math.min(20, totalArmor) // Max armor is 20
 }

@@ -7,7 +7,7 @@
  */
 
 import type { AllRepositoryErrors, BiomeDefinition, BiomeId, ClimateData, WorldCoordinate } from '@domain/world/types'
-import { createBiomeSpatialIndexError, createRepositoryError } from '@domain/world/types'
+import { createBiomeId, createBiomeSpatialIndexError, createRepositoryError } from '@domain/world/types'
 import { HumiditySchema, TemperatureSchema } from '@domain/world/value_object/generation_parameters/biome_config'
 import { Effect, Layer, Option, ReadonlyArray, Ref, Schema } from 'effect'
 import type {
@@ -137,21 +137,41 @@ const makeBiomeSystemRepositoryMemory = (
         const key = coordinateToKey(coordinate)
         const storage = yield* Ref.get(storageRef)
 
-        // Check cache first
-        const cached = storage.cache.biomeCache.get(key)
-        if (cached && config.cache.enabled) {
-          const now = yield* Clock.currentTimeMillis
-          const ttl = config.cache.ttlSeconds * 1000
-          if (now - cached.timestamp < ttl) {
-            yield* Ref.update(storageRef, (s) => ({
-              ...s,
-              cache: {
-                ...s.cache,
-                statistics: { ...s.cache.statistics, hits: s.cache.statistics.hits + 1 },
-              },
-            }))
-            return Option.some(cached.biomeId)
-          }
+        // Check cache first - Option.matchでnull安全なキャッシュヒット処理
+        const cachedResult = yield* pipe(
+          Option.fromNullable(storage.cache.biomeCache.get(key)),
+          Option.match({
+            onNone: () => Effect.succeed(Option.none<BiomeId>()),
+            onSome: (cached) =>
+              Effect.if(config.cache.enabled, {
+                onTrue: () =>
+                  Effect.gen(function* () {
+                    const now = yield* Clock.currentTimeMillis
+                    const ttl = config.cache.ttlSeconds * 1000
+                    // TTLチェック
+                    return yield* Effect.if(now - cached.timestamp < ttl, {
+                      onTrue: () =>
+                        Effect.gen(function* () {
+                          yield* Ref.update(storageRef, (s) => ({
+                            ...s,
+                            cache: {
+                              ...s.cache,
+                              statistics: { ...s.cache.statistics, hits: s.cache.statistics.hits + 1 },
+                            },
+                          }))
+                          return Option.some(cached.biomeId)
+                        }),
+                      onFalse: () => Effect.succeed(Option.none<BiomeId>()),
+                    })
+                  }),
+                onFalse: () => Effect.succeed(Option.none<BiomeId>()),
+              }),
+          })
+        )
+
+        // キャッシュヒット時は即座にreturn
+        if (Option.isSome(cachedResult)) {
+          return cachedResult
         }
 
         // Query spatial index with pure function
@@ -166,22 +186,29 @@ const makeBiomeSystemRepositoryMemory = (
           },
         }))
 
-        if (nearest) {
-          // Update cache
-          yield* Ref.update(storageRef, (s) => ({
-            ...s,
-            cache: {
-              ...s.cache,
-              biomeCache: new Map(s.cache.biomeCache).set(key, {
-                biomeId: nearest.biomeId,
-                timestamp: yield* Clock.currentTimeMillis,
+        // Option.matchでnearest判定
+        return yield* pipe(
+          Option.fromNullable(nearest),
+          Option.match({
+            onNone: () => Effect.succeed(Option.none<BiomeId>()),
+            onSome: (validNearest) =>
+              Effect.gen(function* () {
+                // Update cache
+                const timestamp = yield* Clock.currentTimeMillis
+                yield* Ref.update(storageRef, (s) => ({
+                  ...s,
+                  cache: {
+                    ...s.cache,
+                    biomeCache: new Map(s.cache.biomeCache).set(key, {
+                      biomeId: validNearest.biomeId,
+                      timestamp,
+                    }),
+                  },
+                }))
+                return Option.some(validNearest.biomeId)
               }),
-            },
-          }))
-          return Option.some(nearest.biomeId)
-        }
-
-        return Option.none()
+          })
+        )
       }).pipe(
         Effect.catchAll((error) =>
           Effect.fail(createRepositoryError(`Failed to get biome at coordinate: ${error}`, 'getBiomeAt', error))
@@ -245,16 +272,17 @@ const makeBiomeSystemRepositoryMemory = (
         const spatialIndex = yield* Ref.get(spatialIndexRef)
         const nearest = findNearestBiome(spatialIndex, coordinate)
 
-        if (nearest && (!biomeType || nearest.biomeId === biomeType)) {
-          return Option.some({
-            biomeId: nearest.biomeId,
-            coordinate: nearest.coordinate,
-            distance: calculateDistance(coordinate, nearest.coordinate),
+        // Option.matchでnearest判定、biomeTypeフィルタ
+        return pipe(
+          Option.fromNullable(nearest),
+          Option.filter((n) => !biomeType || n.biomeId === biomeType),
+          Option.map((validNearest) => ({
+            biomeId: validNearest.biomeId,
+            coordinate: validNearest.coordinate,
+            distance: calculateDistance(coordinate, validNearest.coordinate),
             confidence: 1.0,
-          })
-        }
-
-        return Option.none()
+          }))
+        )
       })
 
     // === Mock implementations for remaining methods ===
@@ -319,7 +347,7 @@ const makeBiomeSystemRepositoryMemory = (
           totalBiomes: biomes.length,
           uniqueBiomeTypes: biomes.length,
           coverage: {},
-          dominantBiome: biomes[0]?.id || ('plains' as BiomeId),
+          dominantBiome: biomes[0]?.id || createBiomeId('minecraft:plains'),
           raresBiomes: [],
           averageTemperature: Schema.decodeSync(TemperatureSchema)(0.5),
           averageHumidity: Schema.decodeSync(HumiditySchema)(0.5),

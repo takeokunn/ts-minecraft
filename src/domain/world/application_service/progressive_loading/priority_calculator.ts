@@ -472,23 +472,39 @@ ${result.factors
     const fps = context.performanceMetrics.fps
     const memory = context.performanceMetrics.memoryUsage
 
-    let performanceValue = 1.0
+    // FPS影響（ルールベース）
+    const fpsMultiplier = pipe(
+      Match.value(fps),
+      Match.when(
+        (f) => f < config.performanceAdaptation.fpsThresholds.low,
+        () => 0.3
+      ),
+      Match.when(
+        (f) => f < config.performanceAdaptation.fpsThresholds.medium,
+        () => 0.6
+      ),
+      Match.when(
+        (f) => f < config.performanceAdaptation.fpsThresholds.high,
+        () => 0.8
+      ),
+      Match.orElse(() => 1.0)
+    )
 
-    // FPS影響
-    if (fps < config.performanceAdaptation.fpsThresholds.low) {
-      performanceValue *= 0.3
-    } else if (fps < config.performanceAdaptation.fpsThresholds.medium) {
-      performanceValue *= 0.6
-    } else if (fps < config.performanceAdaptation.fpsThresholds.high) {
-      performanceValue *= 0.8
-    }
+    // メモリ影響（ルールベース）
+    const memoryMultiplier = pipe(
+      Match.value(memory),
+      Match.when(
+        (m) => m > config.performanceAdaptation.memoryThresholds.high,
+        () => 0.4
+      ),
+      Match.when(
+        (m) => m > config.performanceAdaptation.memoryThresholds.medium,
+        () => 0.7
+      ),
+      Match.orElse(() => 1.0)
+    )
 
-    // メモリ影響
-    if (memory > config.performanceAdaptation.memoryThresholds.high) {
-      performanceValue *= 0.4
-    } else if (memory > config.performanceAdaptation.memoryThresholds.medium) {
-      performanceValue *= 0.7
-    }
+    const performanceValue = fpsMultiplier * memoryMultiplier
 
     return {
       _tag: 'PriorityFactor',
@@ -540,21 +556,19 @@ ${result.factors
   const calculateEnvironmentalFactor = (
     context: Schema.Schema.Type<typeof PriorityContext>
   ): Schema.Schema.Type<typeof PriorityFactor> => {
-    let environmentalValue = 1.0
-
     // 夜間は可視性が下がるため優先度調整
     const dayTime = context.timeOfDay % 24000
-    if (dayTime > 13000 && dayTime < 23000) {
-      // 夜間
-      environmentalValue *= 0.8
-    }
+    const timeMultiplier = dayTime > 13000 && dayTime < 23000 ? 0.8 : 1.0
 
-    // 天候による影響
-    if (context.weather === 'rain') {
-      environmentalValue *= 0.9
-    } else if (context.weather === 'storm') {
-      environmentalValue *= 0.7
-    }
+    // 天候による影響（ルールベース）
+    const weatherMultiplier = pipe(
+      Match.value(context.weather),
+      Match.when('rain', () => 0.9),
+      Match.when('storm', () => 0.7),
+      Match.orElse(() => 1.0)
+    )
+
+    const environmentalValue = timeMultiplier * weatherMultiplier
 
     return {
       _tag: 'PriorityFactor',
@@ -631,20 +645,12 @@ ${result.factors
     context: Schema.Schema.Type<typeof PriorityContext>
   ) => {
     // 利用可能な情報の完全性に基づく信頼度計算
-    let confidence = 0.5 // ベース信頼度
+    const baseConfidence = 0.5
+    const factorBonus = factors.length * 0.1
+    const biomeBonus = context.biomeInfo ? 0.2 : 0.0
+    const fpsBonus = context.performanceMetrics.fps > 0 ? 0.1 : 0.0
 
-    // 各ファクターの存在で信頼度向上
-    confidence += factors.length * 0.1
-
-    // バイオーム情報があれば信頼度向上
-    if (context.biomeInfo) {
-      confidence += 0.2
-    }
-
-    // パフォーマンスメトリクスの精度
-    if (context.performanceMetrics.fps > 0) {
-      confidence += 0.1
-    }
+    const confidence = baseConfidence + factorBonus + biomeBonus + fpsBonus
 
     return Math.min(1.0, confidence)
   }

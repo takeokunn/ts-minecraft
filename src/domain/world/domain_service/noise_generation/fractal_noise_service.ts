@@ -8,7 +8,7 @@
 
 import { type GenerationError } from '@domain/world/types/errors'
 import type { WorldCoordinate2D, WorldCoordinate3D } from '@domain/world/value_object/coordinates'
-import { Context, Effect, Layer, Schema } from 'effect'
+import { Context, Effect, Layer, pipe, ReadonlyArray, Schema } from 'effect'
 import { PerlinNoiseService, SimplexNoiseService } from './index'
 
 /**
@@ -283,56 +283,67 @@ export const FractalNoiseServiceLive = Layer.effect(
       generateBrownianMotion: (coordinate, config) =>
         Effect.gen(function* () {
           const startTime = performance.now()
-          let amplitude = config.baseAmplitude
-          let frequency = config.baseFrequency
-          let totalValue = 0
-          let totalAmplitude = 0
-          const octaveDetails = []
 
-          // オクターブの計算
-          for (let octave = 0; octave < config.octaves; octave++) {
-            const baseNoiseConfig = {
-              frequency,
-              amplitude: 1.0, // 正規化された振幅
-              octaves: 1,
-              persistence: 1.0,
-              lacunarity: 1.0,
-              seed: config.seed,
-              gradientMode: 'improved' as const,
-              interpolation: 'quintic' as const,
-              enableVectorization: true,
-            }
+          // オクターブの計算をEffect.reduceで逐次実行
+          const result = yield* pipe(
+            ReadonlyArray.range(0, config.octaves),
+            Effect.reduce(
+              {
+                amplitude: config.baseAmplitude,
+                frequency: config.baseFrequency,
+                totalValue: 0,
+                totalAmplitude: 0,
+                octaveDetails: [] as ReadonlyArray<any>,
+              },
+              (acc, octave) =>
+                Effect.gen(function* () {
+                  const baseNoiseConfig = {
+                    frequency: acc.frequency,
+                    amplitude: 1.0, // 正規化された振幅
+                    octaves: 1,
+                    persistence: 1.0,
+                    lacunarity: 1.0,
+                    seed: config.seed,
+                    gradientMode: 'improved' as const,
+                    interpolation: 'quintic' as const,
+                    enableVectorization: true,
+                  }
 
-            const noiseSample =
-              config.baseNoiseType === 'perlin'
-                ? yield* perlinNoise.sample2D(coordinate, baseNoiseConfig)
-                : yield* simplexNoise.sample2D(coordinate, {
-                    ...baseNoiseConfig,
-                    gradientSelection: 'simplex' as const,
-                    enableAntiAliasing: true,
-                    enableSIMD: true,
-                    cachingEnabled: true,
-                  })
+                  const noiseSample =
+                    config.baseNoiseType === 'perlin'
+                      ? yield* perlinNoise.sample2D(coordinate, baseNoiseConfig)
+                      : yield* simplexNoise.sample2D(coordinate, {
+                          ...baseNoiseConfig,
+                          gradientSelection: 'simplex' as const,
+                          enableAntiAliasing: true,
+                          enableSIMD: true,
+                          cachingEnabled: true,
+                        })
 
-            const contribution = noiseSample.value * amplitude
-            totalValue += contribution
-            totalAmplitude += amplitude
+                  const contribution = noiseSample.value * acc.amplitude
 
-            octaveDetails.push({
-              octave,
-              frequency,
-              amplitude,
-              contribution,
-              noiseValue: noiseSample.value,
-            })
-
-            // 次のオクターブの準備
-            frequency *= config.lacunarity
-            amplitude *= config.persistence
-          }
+                  return {
+                    amplitude: acc.amplitude * config.persistence,
+                    frequency: acc.frequency * config.lacunarity,
+                    totalValue: acc.totalValue + contribution,
+                    totalAmplitude: acc.totalAmplitude + acc.amplitude,
+                    octaveDetails: [
+                      ...acc.octaveDetails,
+                      {
+                        octave,
+                        frequency: acc.frequency,
+                        amplitude: acc.amplitude,
+                        contribution,
+                        noiseValue: noiseSample.value,
+                      },
+                    ],
+                  }
+                })
+            )
+          )
 
           // 正規化
-          const normalizedValue = totalAmplitude > 0 ? totalValue / totalAmplitude : 0
+          const normalizedValue = result.totalAmplitude > 0 ? result.totalValue / result.totalAmplitude : 0
           const scaledValue = normalizedValue * (config.outputScale ?? 1.0) + (config.outputBias ?? 0.0)
           const finalValue = config.enableClamping ? Math.max(-1, Math.min(1, scaledValue)) : scaledValue
 
@@ -342,7 +353,7 @@ export const FractalNoiseServiceLive = Layer.effect(
             value: finalValue,
             coordinate,
             fractalType: 'brownian_motion' as const,
-            octaveDetails,
+            octaveDetails: result.octaveDetails,
             metadata: {
               totalOctaves: config.octaves,
               computationTime,
@@ -353,56 +364,68 @@ export const FractalNoiseServiceLive = Layer.effect(
       generateTurbulence: (coordinate, config) =>
         Effect.gen(function* () {
           const startTime = performance.now()
-          let amplitude = config.baseAmplitude
-          let frequency = config.baseFrequency
-          let totalValue = 0
-          let totalAmplitude = 0
-          const octaveDetails = []
 
-          // 乱流計算（絶対値を取る）
-          for (let octave = 0; octave < config.octaves; octave++) {
-            const baseNoiseConfig = {
-              frequency,
-              amplitude: 1.0,
-              octaves: 1,
-              persistence: 1.0,
-              lacunarity: 1.0,
-              seed: config.seed,
-              gradientMode: 'improved' as const,
-              interpolation: 'quintic' as const,
-              enableVectorization: true,
-            }
+          // 乱流計算をEffect.reduceで逐次実行
+          const result = yield* pipe(
+            ReadonlyArray.range(0, config.octaves),
+            Effect.reduce(
+              {
+                amplitude: config.baseAmplitude,
+                frequency: config.baseFrequency,
+                totalValue: 0,
+                totalAmplitude: 0,
+                octaveDetails: [] as ReadonlyArray<any>,
+              },
+              (acc, octave) =>
+                Effect.gen(function* () {
+                  const baseNoiseConfig = {
+                    frequency: acc.frequency,
+                    amplitude: 1.0,
+                    octaves: 1,
+                    persistence: 1.0,
+                    lacunarity: 1.0,
+                    seed: config.seed,
+                    gradientMode: 'improved' as const,
+                    interpolation: 'quintic' as const,
+                    enableVectorization: true,
+                  }
 
-            const noiseSample =
-              config.baseNoiseType === 'perlin'
-                ? yield* perlinNoise.sample2D(coordinate, baseNoiseConfig)
-                : yield* simplexNoise.sample2D(coordinate, {
-                    ...baseNoiseConfig,
-                    gradientSelection: 'simplex' as const,
-                    enableAntiAliasing: true,
-                    enableSIMD: true,
-                    cachingEnabled: true,
-                  })
+                  const noiseSample =
+                    config.baseNoiseType === 'perlin'
+                      ? yield* perlinNoise.sample2D(coordinate, baseNoiseConfig)
+                      : yield* simplexNoise.sample2D(coordinate, {
+                          ...baseNoiseConfig,
+                          gradientSelection: 'simplex' as const,
+                          enableAntiAliasing: true,
+                          enableSIMD: true,
+                          cachingEnabled: true,
+                        })
 
-            // 乱流効果：絶対値を取る
-            const turbulentValue = Math.abs(noiseSample.value)
-            const contribution = turbulentValue * amplitude
-            totalValue += contribution
-            totalAmplitude += amplitude
+                  // 乱流効果：絶対値を取る
+                  const turbulentValue = Math.abs(noiseSample.value)
+                  const contribution = turbulentValue * acc.amplitude
 
-            octaveDetails.push({
-              octave,
-              frequency,
-              amplitude,
-              contribution,
-              noiseValue: turbulentValue,
-            })
+                  return {
+                    amplitude: acc.amplitude * config.persistence,
+                    frequency: acc.frequency * config.lacunarity,
+                    totalValue: acc.totalValue + contribution,
+                    totalAmplitude: acc.totalAmplitude + acc.amplitude,
+                    octaveDetails: [
+                      ...acc.octaveDetails,
+                      {
+                        octave,
+                        frequency: acc.frequency,
+                        amplitude: acc.amplitude,
+                        contribution,
+                        noiseValue: turbulentValue,
+                      },
+                    ],
+                  }
+                })
+            )
+          )
 
-            frequency *= config.lacunarity
-            amplitude *= config.persistence
-          }
-
-          const normalizedValue = totalAmplitude > 0 ? totalValue / totalAmplitude : 0
+          const normalizedValue = result.totalAmplitude > 0 ? result.totalValue / result.totalAmplitude : 0
           const scaledValue = normalizedValue * (config.outputScale ?? 1.0) + (config.outputBias ?? 0.0)
           const finalValue = config.enableClamping ? Math.max(-1, Math.min(1, scaledValue)) : scaledValue
 
@@ -412,7 +435,7 @@ export const FractalNoiseServiceLive = Layer.effect(
             value: finalValue,
             coordinate,
             fractalType: 'turbulence' as const,
-            octaveDetails,
+            octaveDetails: result.octaveDetails,
             metadata: {
               totalOctaves: config.octaves,
               computationTime,
@@ -423,63 +446,76 @@ export const FractalNoiseServiceLive = Layer.effect(
       generateRidgedMultifractal: (coordinate, config) =>
         Effect.gen(function* () {
           const startTime = performance.now()
-          let amplitude = config.baseAmplitude
-          let frequency = config.baseFrequency
-          let signal = 0
-          let weight = 1.0
           const ridgeOffset = config.ridgeOffset ?? 1.0
-          const octaveDetails = []
 
-          // リッジ付きマルチフラクタル計算
-          for (let octave = 0; octave < config.octaves; octave++) {
-            const baseNoiseConfig = {
-              frequency,
-              amplitude: 1.0,
-              octaves: 1,
-              persistence: 1.0,
-              lacunarity: 1.0,
-              seed: config.seed,
-              gradientMode: 'improved' as const,
-              interpolation: 'quintic' as const,
-              enableVectorization: true,
-            }
+          // リッジ付きマルチフラクタル計算をEffect.reduceで逐次実行（weight依存あり）
+          const result = yield* pipe(
+            ReadonlyArray.range(0, config.octaves),
+            Effect.reduce(
+              {
+                amplitude: config.baseAmplitude,
+                frequency: config.baseFrequency,
+                signal: 0,
+                weight: 1.0,
+                octaveDetails: [] as ReadonlyArray<any>,
+              },
+              (acc, octave) =>
+                Effect.gen(function* () {
+                  const baseNoiseConfig = {
+                    frequency: acc.frequency,
+                    amplitude: 1.0,
+                    octaves: 1,
+                    persistence: 1.0,
+                    lacunarity: 1.0,
+                    seed: config.seed,
+                    gradientMode: 'improved' as const,
+                    interpolation: 'quintic' as const,
+                    enableVectorization: true,
+                  }
 
-            const noiseSample =
-              config.baseNoiseType === 'perlin'
-                ? yield* perlinNoise.sample2D(coordinate, baseNoiseConfig)
-                : yield* simplexNoise.sample2D(coordinate, {
-                    ...baseNoiseConfig,
-                    gradientSelection: 'simplex' as const,
-                    enableAntiAliasing: true,
-                    enableSIMD: true,
-                    cachingEnabled: true,
-                  })
+                  const noiseSample =
+                    config.baseNoiseType === 'perlin'
+                      ? yield* perlinNoise.sample2D(coordinate, baseNoiseConfig)
+                      : yield* simplexNoise.sample2D(coordinate, {
+                          ...baseNoiseConfig,
+                          gradientSelection: 'simplex' as const,
+                          enableAntiAliasing: true,
+                          enableSIMD: true,
+                          cachingEnabled: true,
+                        })
 
-            // リッジ関数の適用
-            let noiseValue = Math.abs(noiseSample.value)
-            noiseValue = ridgeOffset - noiseValue
-            noiseValue = noiseValue * noiseValue
-            noiseValue *= weight
+                  // リッジ関数の適用
+                  let noiseValue = Math.abs(noiseSample.value)
+                  noiseValue = ridgeOffset - noiseValue
+                  noiseValue = noiseValue * noiseValue
+                  noiseValue *= acc.weight
 
-            // 重みの更新（前のオクターブの値に依存）
-            weight = Math.max(0, Math.min(1, noiseValue))
+                  // 重みの更新（前のオクターブの値に依存）
+                  const newWeight = Math.max(0, Math.min(1, noiseValue))
 
-            const contribution = noiseValue * amplitude
-            signal += contribution
+                  const contribution = noiseValue * acc.amplitude
 
-            octaveDetails.push({
-              octave,
-              frequency,
-              amplitude,
-              contribution,
-              noiseValue,
-            })
+                  return {
+                    amplitude: acc.amplitude * config.persistence * config.gain,
+                    frequency: acc.frequency * config.lacunarity,
+                    signal: acc.signal + contribution,
+                    weight: newWeight,
+                    octaveDetails: [
+                      ...acc.octaveDetails,
+                      {
+                        octave,
+                        frequency: acc.frequency,
+                        amplitude: acc.amplitude,
+                        contribution,
+                        noiseValue,
+                      },
+                    ],
+                  }
+                })
+            )
+          )
 
-            frequency *= config.lacunarity
-            amplitude *= config.persistence * config.gain
-          }
-
-          const scaledValue = signal * (config.outputScale ?? 1.0) + (config.outputBias ?? 0.0)
+          const scaledValue = result.signal * (config.outputScale ?? 1.0) + (config.outputBias ?? 0.0)
           const finalValue = config.enableClamping ? Math.max(-1, Math.min(1, scaledValue)) : scaledValue
 
           const computationTime = performance.now() - startTime
@@ -488,7 +524,7 @@ export const FractalNoiseServiceLive = Layer.effect(
             value: finalValue,
             coordinate,
             fractalType: 'ridged_multifractal' as const,
-            octaveDetails,
+            octaveDetails: result.octaveDetails,
             metadata: {
               totalOctaves: config.octaves,
               computationTime,
@@ -528,17 +564,28 @@ export const FractalNoiseServiceLive = Layer.effect(
 
       analyzeFractalDimension: (bounds, sampleCount, config) =>
         Effect.gen(function* () {
-          // フラクタル次元解析の実装
-          const samples: number[] = []
+          // ランダムサンプリング位置の生成
+          const randomPositions = pipe(
+            ReadonlyArray.range(0, sampleCount),
+            ReadonlyArray.map(() => ({
+              x: bounds.min.x + Math.random() * (bounds.max.x - bounds.min.x),
+              z: bounds.min.z + Math.random() * (bounds.max.z - bounds.min.z),
+            }))
+          )
 
-          // ランダムサンプリング
-          for (let i = 0; i < sampleCount; i++) {
-            const x = bounds.min.x + Math.random() * (bounds.max.x - bounds.min.x)
-            const z = bounds.min.z + Math.random() * (bounds.max.z - bounds.min.z)
-
-            const sample = yield* FractalNoiseService.sample2D({ x, z } as WorldCoordinate2D, config)
-            samples.push(sample.value)
-          }
+          // 全サンプルを並行実行
+          const samples = yield* pipe(
+            randomPositions,
+            Effect.forEach((pos) => FractalNoiseService.sample2D(pos as WorldCoordinate2D, config), {
+              concurrency: 'unbounded',
+            }),
+            Effect.map((results) =>
+              pipe(
+                results,
+                ReadonlyArray.map((sample) => sample.value)
+              )
+            )
+          )
 
           // 基本統計計算
           const mean = samples.reduce((sum, val) => sum + val, 0) / samples.length
@@ -554,12 +601,15 @@ export const FractalNoiseServiceLive = Layer.effect(
             persistenceVariation: config.persistence - 0.5,
             selfSimilarity: 1.0 - variance,
             roughness: variance * 2,
-            octaveContributions: Array.from({ length: config.octaves }, (_, i) => ({
-              octave: i,
-              frequency: config.baseFrequency * Math.pow(config.lacunarity, i),
-              amplitude: config.baseAmplitude * Math.pow(config.persistence, i),
-              contribution: Math.pow(config.persistence, i),
-            })),
+            octaveContributions: pipe(
+              ReadonlyArray.range(0, config.octaves),
+              ReadonlyArray.map((i) => ({
+                octave: i,
+                frequency: config.baseFrequency * Math.pow(config.lacunarity, i),
+                amplitude: config.baseAmplitude * Math.pow(config.persistence, i),
+                contribution: Math.pow(config.persistence, i),
+              }))
+            ),
           } satisfies FractalStatistics
         }),
 
@@ -567,19 +617,25 @@ export const FractalNoiseServiceLive = Layer.effect(
         Effect.gen(function* () {
           // 簡略化されたスペクトル解析
           const n = samples.length
-          const spectrum: number[] = []
 
-          // 離散フーリエ変換の近似
-          for (let k = 0; k < n / 2; k++) {
-            let real = 0,
-              imag = 0
-            for (let n_idx = 0; n_idx < n; n_idx++) {
-              const angle = (-2 * Math.PI * k * n_idx) / n
-              real += samples[n_idx] * Math.cos(angle)
-              imag += samples[n_idx] * Math.sin(angle)
-            }
-            spectrum.push(Math.sqrt(real * real + imag * imag))
-          }
+          // 離散フーリエ変換の近似をReadonlyArray.flatMapで実装
+          const spectrum = pipe(
+            ReadonlyArray.range(0, Math.floor(n / 2)),
+            ReadonlyArray.map((k) => {
+              // 内側のループをreduceで集約
+              const { real, imag } = pipe(
+                ReadonlyArray.range(0, n),
+                ReadonlyArray.reduce({ real: 0, imag: 0 }, (acc, n_idx) => {
+                  const angle = (-2 * Math.PI * k * n_idx) / n
+                  return {
+                    real: acc.real + samples[n_idx] * Math.cos(angle),
+                    imag: acc.imag + samples[n_idx] * Math.sin(angle),
+                  }
+                })
+              )
+              return Math.sqrt(real * real + imag * imag)
+            })
+          )
 
           return spectrum
         }),

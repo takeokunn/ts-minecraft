@@ -159,17 +159,14 @@ const mergeResource = (ref: Ref.Ref<HashMap.HashMap<string, PreloadedResource>>,
   Ref.update(ref, (map) => HashMap.set(map, resource.id, resource))
 
 const preloadResource = (resources: Ref.Ref<HashMap.HashMap<string, PreloadedResource>>, path: string) =>
-  Effect.flatMap(
-    Effect.map(Clock.currentTimeMillis, parseTimestamp),
-    (timestamp) =>
-      mergeResource(resources, {
-        id: path,
-        type: resourceKindFromPath(path),
-        data: Option.none(),
-        size: 0,
-        loadedAt: timestamp,
-      })
-    )
+  Effect.flatMap(Effect.map(Clock.currentTimeMillis, parseTimestamp), (timestamp) =>
+    mergeResource(resources, {
+      id: path,
+      type: resourceKindFromPath(path),
+      data: Option.none(),
+      size: 0,
+      loadedAt: timestamp,
+    })
   )
 
 const ensureSceneValid = (scene: ActiveScene) =>
@@ -281,7 +278,7 @@ export const makeSceneService = Effect.gen(function* () {
         Effect.forEach(
           ['textures/blocks.png', 'models/player.obj', 'sounds/ambient.mp3'],
           (path) => preloadResource(resourcesRef, path),
-          { discard: true }
+          { concurrency: 'unbounded', discard: true }
         ).pipe(
           Effect.mapError(() =>
             PreloadErrorADT.PreloadFailed({
@@ -295,7 +292,7 @@ export const makeSceneService = Effect.gen(function* () {
         Effect.forEach(
           ['textures/menu-bg.png', 'sounds/menu-music.mp3'],
           (path) => preloadResource(resourcesRef, path),
-          { discard: true }
+          { concurrency: 'unbounded', discard: true }
         ).pipe(
           Effect.mapError(() =>
             PreloadErrorADT.PreloadFailed({
@@ -405,20 +402,17 @@ export const makeSceneService = Effect.gen(function* () {
     })
 
   const registerFailure = (error: Error) =>
-    Effect.flatMap(
-      Effect.map(Clock.currentTimeMillis, parseTimestamp),
-      (timestamp) => {
-        const scene = Scenes.Error({
-          error: {
-            message: error.message,
-            stack: Option.fromNullable(error.stack),
-            timestamp,
-          },
-          recoverable: false,
-        })
-        return Ref.set(currentScene, scene).pipe(Effect.zipRight(emitTransitionCompleted(scene)), Effect.as(scene))
+    Effect.flatMap(Effect.map(Clock.currentTimeMillis, parseTimestamp), (timestamp) => {
+      const scene = Scenes.Error({
+        error: {
+          message: error.message,
+          stack: Option.fromNullable(error.stack),
+          timestamp,
+        },
+        recoverable: false,
       })
-    )
+      return Ref.set(currentScene, scene).pipe(Effect.zipRight(emitTransitionCompleted(scene)), Effect.as(scene))
+    })
 
   return SceneService.of({
     transitionTo,
@@ -457,8 +451,7 @@ export const SceneSaveManagerLayer = Layer.succeed(SaveManager, {
       world: Option.none<WorldSnapshot>(),
       player: Option.none<PlayerState>(),
       createdAt: parseTimestamp(millis),
-    }))
-    ),
+    })),
   autoSave: () => Effect.void,
 })
 

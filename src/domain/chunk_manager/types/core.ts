@@ -4,8 +4,8 @@ import { Schema } from 'effect'
 // 時刻・期間系ブランド型
 // =============================================================================
 
-export const TimestampSchema = Schema.Number.pipe(Schema.int(), Schema.nonNegative(), Schema.brand('Timestamp'))
-export type Timestamp = Schema.Schema.Type<typeof TimestampSchema>
+// Re-export from units
+export { TimestampSchema, type Timestamp } from '../../shared/value_object/units'
 
 export const DurationMsSchema = Schema.Number.pipe(Schema.int(), Schema.nonNegative(), Schema.brand('DurationMs'))
 export type DurationMs = Schema.Schema.Type<typeof DurationMsSchema>

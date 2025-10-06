@@ -3,22 +3,14 @@ import { BrandedTypes } from '@domain/entities/types'
 import { Context, Effect, Layer, Match, Option, pipe, Schema } from 'effect'
 
 // =====================================
-// Entity ID Type
+// Entity ID Type - 新実装への再エクスポート
 // =====================================
 
-export const EntityIdSchema = Schema.Number.pipe(
-  Schema.int(),
-  Schema.nonNegative(),
-  Schema.brand('EntityId'),
-  Schema.annotations({
-    title: 'EntityId',
-    description: 'Unique entity identifier in the ECS system',
-  })
-)
-export type EntityId = Schema.Schema.Type<typeof EntityIdSchema>
-
-// Helper for creating EntityId
-export const createEntityId = (value: number): EntityId => Schema.decodeSync(EntityIdSchema)(value)
+export {
+  makeUnsafe as createEntityId,
+  ECSEntityIdSchema as EntityIdSchema,
+  type ECSEntityId as EntityId,
+} from './value_object/ecs_entity_id'
 
 // =====================================
 // Entity Pool (高速エンティティID管理)
@@ -220,7 +212,7 @@ export const createComponentStorage = <T>() => {
           })
         )
       },
-      { discard: true }
+      { concurrency: 'unbounded', discard: true }
     ) as Effect.Effect<void, E, R>
 
   // バッチ取得（高速）

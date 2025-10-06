@@ -1,7 +1,10 @@
 import { Context, Data, Effect, Match, Option, ParseResult, Schema, pipe } from 'effect'
+// ChunkIdは専用value_objectから再エクスポート
+import { ChunkIdSchema, type ChunkId } from '@domain/chunk/value_object/chunk_id'
 
 const IntSchema = Schema.Number.pipe(Schema.int())
-const TimestampSchema = Schema.Number.pipe(Schema.nonNegative(), Schema.brand('Timestamp'))
+// Re-export from units
+import { TimestampSchema, type Timestamp as TimestampType } from '../../shared/value_object/units'
 const PrioritySchema = Schema.Number.pipe(Schema.between(0, 100), Schema.brand('ChunkPriority'))
 const ProgressSchema = Schema.Number.pipe(Schema.between(0, 1), Schema.brand('LoadProgress'))
 const ChunkCoordinateSchema = Schema.Struct({
@@ -9,18 +12,17 @@ const ChunkCoordinateSchema = Schema.Struct({
   y: IntSchema,
   z: IntSchema,
 })
-const ChunkIdSchema = Schema.String.pipe(Schema.pattern(/^chunk_-?\d+_-?\d+_-?\d+$/), Schema.brand('ChunkId'))
 const SessionIdSchema = Schema.String.pipe(
   Schema.pattern(/^session_[0-9a-f]{16}_[0-9a-f]{16}$/),
   Schema.brand('SessionId')
 )
 const LoadSourceSchema = Schema.Literal('player', 'system', 'prefetch')
 
-export type Timestamp = Schema.Schema.Type<typeof TimestampSchema>
+export type { TimestampType as Timestamp }
 export type ChunkPriority = Schema.Schema.Type<typeof PrioritySchema>
 export type LoadProgress = Schema.Schema.Type<typeof ProgressSchema>
 export type ChunkCoordinates = Schema.Schema.Type<typeof ChunkCoordinateSchema>
-export type ChunkId = Schema.Schema.Type<typeof ChunkIdSchema>
+export type { ChunkId }
 export type SessionId = Schema.Schema.Type<typeof SessionIdSchema>
 export type ChunkLoadSource = Schema.Schema.Type<typeof LoadSourceSchema>
 

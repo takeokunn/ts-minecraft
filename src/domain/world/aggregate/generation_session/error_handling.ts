@@ -401,12 +401,13 @@ export const suggestRecoveryStrategy = (
                   confidence: 0.7,
                 }) as const
             ),
-            Match.orElse(() =>
-              ({
-                strategy: 'retry' as const,
-                reason: 'Unknown error category - trying retry',
-                confidence: 0.5,
-              }) as const
+            Match.orElse(
+              () =>
+                ({
+                  strategy: 'retry' as const,
+                  reason: 'Unknown error category - trying retry',
+                  confidence: 0.5,
+                }) as const
             )
           )
         ),

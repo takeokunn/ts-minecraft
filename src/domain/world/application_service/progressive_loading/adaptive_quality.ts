@@ -1,4 +1,4 @@
-import { Clock, Context, Effect, Layer, Option, Ref, Schema } from 'effect'
+import { Clock, Context, Effect, Layer, Match, Option, pipe, Ref, Schema } from 'effect'
 
 /**
  * Adaptive Quality Service
@@ -242,18 +242,18 @@ const makeAdaptiveQualityService = Effect.gen(function* () {
     Effect.gen(function* () {
       const isActive = yield* Ref.get(isAdapting)
 
-      return yield* Effect.if(isActive, {
-        onTrue: () => Effect.logWarning('適応的品質調整は既に開始されています'),
-        onFalse: () =>
-          Effect.gen(function* () {
-            yield* Ref.set(isAdapting, true)
+      yield* Effect.when(!isActive, () =>
+        Effect.gen(function* () {
+          yield* Ref.set(isAdapting, true)
 
-            // 適応ループを開始
-            yield* Effect.fork(adaptationLoop())
+          // 適応ループを開始
+          yield* Effect.fork(adaptationLoop())
 
-            yield* Effect.logInfo('適応的品質調整開始')
-          }),
-      })
+          yield* Effect.logInfo('適応的品質調整開始')
+        })
+      )
+
+      yield* Effect.when(isActive, () => Effect.logWarning('適応的品質調整は既に開始されています'))
     })
 
   const stopAdaptation = () =>
@@ -278,13 +278,16 @@ const makeAdaptiveQualityService = Effect.gen(function* () {
     Effect.gen(function* () {
       const current = yield* Ref.get(currentProfile)
 
-      return yield* Effect.if(current.overallLevel === targetLevel && !force, {
-        onTrue: () =>
+      yield* pipe(
+        current.overallLevel === targetLevel && !force,
+        Match.value,
+        Match.when(true, () =>
           Effect.gen(function* () {
             yield* Effect.logDebug(`品質レベルは既に ${targetLevel} です`)
             return yield* createNoChangeAdjustment(current)
-          }),
-        onFalse: () =>
+          })
+        ),
+        Match.when(false, () =>
           Effect.gen(function* () {
             const targetProfile = DEFAULT_QUALITY_PROFILES[targetLevel]
             const adjustment = yield* createQualityAdjustment(current, targetProfile, `手動調整: ${targetLevel}`)
@@ -294,8 +297,10 @@ const makeAdaptiveQualityService = Effect.gen(function* () {
 
             yield* Effect.logInfo(`品質調整実行: ${current.overallLevel} → ${targetLevel}`)
             return adjustment
-          }),
-      })
+          })
+        ),
+        Match.exhaustive
+      )
     })
 
   const setCustomProfile = (profile: Schema.Schema.Type<typeof QualityProfile>) =>
@@ -308,16 +313,20 @@ const makeAdaptiveQualityService = Effect.gen(function* () {
     Effect.gen(function* () {
       const history = yield* Ref.get(performanceHistory)
 
-      return yield* Effect.if(history.length < 5, {
-        onTrue: () => Effect.succeed([]),
-        onFalse: () =>
+      yield* pipe(
+        history.length < 5,
+        Match.value,
+        Match.when(true, () => Effect.succeed([])),
+        Match.when(false, () =>
           Effect.succeed([
             calculateTrend(history, 'fps', (s) => s.fps),
             calculateTrend(history, 'cpuUsage', (s) => s.cpuUsage),
             calculateTrend(history, 'memoryUsage', (s) => s.memoryUsage),
             calculateTrend(history, 'frameTime', (s) => s.frameTime),
-          ]),
-      })
+          ])
+        ),
+        Match.exhaustive
+      )
     })
 
   const getAdjustmentHistory = (limit: number = 20) =>
@@ -329,7 +338,6 @@ const makeAdaptiveQualityService = Effect.gen(function* () {
   const recommendQualityLevel = (currentMetrics: Schema.Schema.Type<typeof PerformanceSnapshot>) =>
     Effect.gen(function* () {
       const config = yield* Ref.get(configuration)
-      const current = yield* Ref.get(currentProfile)
 
       // パフォーマンス評価
       const fpsScore =
@@ -343,23 +351,18 @@ const makeAdaptiveQualityService = Effect.gen(function* () {
 
       const overallScore = (fpsScore + memoryScore + cpuScore) / 3
 
-      // 推奨レベル決定（ネストされたEffect.ifで5段階評価）
-      const recommendedLevel = yield* Effect.if(overallScore >= 0.9, {
-        onTrue: () => Effect.succeed<QualityLevel>('ultra'),
-        onFalse: () =>
-          Effect.if(overallScore >= 0.75, {
-            onTrue: () => Effect.succeed<QualityLevel>('high'),
-            onFalse: () =>
-              Effect.if(overallScore >= 0.6, {
-                onTrue: () => Effect.succeed<QualityLevel>('medium'),
-                onFalse: () =>
-                  Effect.if(overallScore >= 0.4, {
-                    onTrue: () => Effect.succeed<QualityLevel>('low'),
-                    onFalse: () => Effect.succeed<QualityLevel>('minimal'),
-                  }),
-              }),
-          }),
-      })
+      // 推奨レベル決定（純粋関数で5段階評価）
+      const getQualityFromScore = (score: number): QualityLevel =>
+        pipe(
+          Match.value(score),
+          Match.when(Match.number.greaterThanOrEqualTo(0.9), () => 'ultra' as const),
+          Match.when(Match.number.greaterThanOrEqualTo(0.75), () => 'high' as const),
+          Match.when(Match.number.greaterThanOrEqualTo(0.6), () => 'medium' as const),
+          Match.when(Match.number.greaterThanOrEqualTo(0.4), () => 'low' as const),
+          Match.orElse(() => 'minimal' as const)
+        )
+
+      const recommendedLevel = getQualityFromScore(overallScore)
 
       // ユーザー制限適用
       const qualityLevels: QualityLevel[] = ['minimal', 'low', 'medium', 'high', 'ultra']
@@ -392,29 +395,48 @@ const makeAdaptiveQualityService = Effect.gen(function* () {
       const history = yield* Ref.get(adjustmentHistory)
       const lastAdjustment = history[history.length - 1]
 
-      return yield* Effect.if(!lastAdjustment || !lastAdjustment.rollbackPossible, {
-        onTrue: () =>
-          Effect.gen(function* () {
-            yield* Effect.logWarning('ロールバック可能な調整がありません')
-            return false
-          }),
-        onFalse: () =>
-          Effect.gen(function* () {
-            // 前のプロファイルを探して復元
-            const previousProfile = findProfileByName(lastAdjustment.fromProfile)
-            return yield* Effect.if(previousProfile !== null, {
-              onTrue: () =>
+      yield* pipe(
+        Option.fromNullable(lastAdjustment),
+        Option.match({
+          onNone: () =>
+            Effect.gen(function* () {
+              yield* Effect.logWarning('ロールバック可能な調整がありません')
+              return false
+            }),
+          onSome: (adjustment) =>
+            pipe(
+              adjustment.rollbackPossible,
+              Match.value,
+              Match.when(false, () =>
                 Effect.gen(function* () {
-                  yield* Ref.set(currentProfile, previousProfile)
-                  yield* Effect.logInfo(
-                    `品質調整ロールバック: ${lastAdjustment.toProfile} → ${lastAdjustment.fromProfile}`
+                  yield* Effect.logWarning('ロールバック可能な調整がありません')
+                  return false
+                })
+              ),
+              Match.when(true, () =>
+                Effect.gen(function* () {
+                  const previousProfile = findProfileByName(adjustment.fromProfile)
+
+                  return yield* pipe(
+                    Option.fromNullable(previousProfile),
+                    Option.match({
+                      onNone: () => Effect.succeed(false),
+                      onSome: (profile) =>
+                        Effect.gen(function* () {
+                          yield* Ref.set(currentProfile, profile)
+                          yield* Effect.logInfo(
+                            `品質調整ロールバック: ${adjustment.toProfile} → ${adjustment.fromProfile}`
+                          )
+                          return true
+                        }),
+                    })
                   )
-                  return true
-                }),
-              onFalse: () => Effect.succeed(false),
-            })
-          }),
-      })
+                })
+              ),
+              Match.exhaustive
+            ),
+        })
+      )
     })
 
   // === Helper Functions ===
@@ -427,45 +449,61 @@ const makeAdaptiveQualityService = Effect.gen(function* () {
         Effect.gen(function* () {
           const isActive = yield* Ref.get(isAdapting)
 
-          return yield* Effect.if(!isActive, {
-            onTrue: () => Effect.succeed(false),
-            onFalse: () =>
+          yield* pipe(
+            isActive,
+            Match.value,
+            Match.when(false, () => Effect.succeed(false)),
+            Match.when(true, () =>
               Effect.gen(function* () {
                 // 一時停止チェック
                 const now = yield* Clock.currentTimeMillis
                 const pauseTime = yield* Ref.get(pausedUntil)
 
-                return yield* Effect.if(Option.isSome(pauseTime) && now < pauseTime.value, {
-                  onTrue: () => Effect.succeed(true),
-                  onFalse: () =>
-                    Effect.gen(function* () {
-                      yield* Ref.set(pausedUntil, Option.none())
+                const shouldPause = pipe(
+                  pauseTime,
+                  Option.match({
+                    onNone: () => false,
+                    onSome: (time) => now < time,
+                  })
+                )
 
-                      const history = yield* Ref.get(performanceHistory)
+                yield* Effect.when(shouldPause, () => Effect.succeed(true))
 
-                      return yield* Effect.if(history.length < 3, {
-                        onTrue: () => Effect.succeed(true),
-                        onFalse: () =>
-                          Effect.gen(function* () {
-                            const latestMetrics = history[history.length - 1]
-                            const recommendedLevel = yield* recommendQualityLevel(latestMetrics)
-                            const currentLevel = (yield* Ref.get(currentProfile)).overallLevel
+                yield* Effect.when(!shouldPause, () =>
+                  Effect.gen(function* () {
+                    yield* Ref.set(pausedUntil, Option.none())
 
-                            // 品質調整が必要かチェック
-                            yield* Effect.when(recommendedLevel !== currentLevel, () =>
-                              Effect.gen(function* () {
-                                const stabilityCheck = yield* checkStability(history, config.stabilityThreshold)
-                                yield* Effect.when(stabilityCheck, () => adjustQuality(recommendedLevel))
-                              })
-                            )
+                    const history = yield* Ref.get(performanceHistory)
 
-                            return true
-                          }),
-                      })
-                    }),
-                })
-              }),
-          })
+                    yield* pipe(
+                      history.length >= 3,
+                      Match.value,
+                      Match.when(false, () => Effect.void),
+                      Match.when(true, () =>
+                        Effect.gen(function* () {
+                          const latestMetrics = history[history.length - 1]
+                          const recommendedLevel = yield* recommendQualityLevel(latestMetrics)
+                          const currentLevel = (yield* Ref.get(currentProfile)).overallLevel
+
+                          // 品質調整が必要かチェック
+                          yield* Effect.when(recommendedLevel !== currentLevel, () =>
+                            Effect.gen(function* () {
+                              const stabilityCheck = yield* checkStability(history, config.stabilityThreshold)
+                              yield* Effect.when(stabilityCheck, () => adjustQuality(recommendedLevel))
+                            })
+                          )
+                        })
+                      ),
+                      Match.exhaustive
+                    )
+                  })
+                )
+
+                return true
+              })
+            ),
+            Match.exhaustive
+          )
         }),
         { schedule: Effect.Schedule.spaced(`${config.adaptationInterval} millis`) }
       )
@@ -473,9 +511,11 @@ const makeAdaptiveQualityService = Effect.gen(function* () {
 
   const checkStability = (history: Schema.Schema.Type<typeof PerformanceSnapshot>[], thresholdMs: number) =>
     Effect.gen(function* () {
-      return yield* Effect.if(history.length < 2, {
-        onTrue: () => Effect.succeed(false),
-        onFalse: () =>
+      yield* pipe(
+        history.length < 2,
+        Match.value,
+        Match.when(true, () => Effect.succeed(false)),
+        Match.when(false, () =>
           Effect.gen(function* () {
             const latest = history[history.length - 1]
             const previous = history[history.length - 2]
@@ -485,8 +525,10 @@ const makeAdaptiveQualityService = Effect.gen(function* () {
             const fpsVariation = Math.abs(latest.fps - previous.fps) / previous.fps
 
             return timeDiff >= thresholdMs && fpsVariation < 0.1 // 10%以内の変動
-          }),
-      })
+          })
+        ),
+        Match.exhaustive
+      )
     })
 
   const createQualityAdjustment = (
@@ -571,36 +613,44 @@ const makeAdaptiveQualityService = Effect.gen(function* () {
     const values = history.slice(-10).map(extractor) // 最新10件
     const n = values.length
 
-    if (n < 2) {
-      return {
-        _tag: 'PerformanceTrend',
-        metric: metricName,
-        direction: 'stable',
-        rate: 0,
-        confidence: 0,
-        samples: values,
-      }
-    }
-
-    // 線形回帰による傾向計算（簡略化）
-    const sum = values.reduce((a, b) => a + b, 0)
-    const mean = sum / n
-    const recent = values.slice(-3).reduce((a, b) => a + b, 0) / Math.min(3, n)
-
-    const rate = (recent - mean) / mean
-    let direction: 'improving' | 'stable' | 'degrading' = 'stable'
-
-    if (rate > 0.05) direction = 'improving'
-    else if (rate < -0.05) direction = 'degrading'
-
-    return {
+    const noTrend: Schema.Schema.Type<typeof PerformanceTrend> = {
       _tag: 'PerformanceTrend',
       metric: metricName,
-      direction,
-      rate,
-      confidence: Math.min(1.0, n / 10),
+      direction: 'stable',
+      rate: 0,
+      confidence: 0,
       samples: values,
     }
+
+    return pipe(
+      n < 2,
+      Match.value,
+      Match.when(true, () => noTrend),
+      Match.when(false, () => {
+        // 線形回帰による傾向計算（簡略化）
+        const sum = values.reduce((a, b) => a + b, 0)
+        const mean = sum / n
+        const recent = values.slice(-3).reduce((a, b) => a + b, 0) / Math.min(3, n)
+
+        const rate = (recent - mean) / mean
+        const direction = pipe(
+          Match.value(rate),
+          Match.when(Match.number.greaterThan(0.05), () => 'improving' as const),
+          Match.when(Match.number.lessThan(-0.05), () => 'degrading' as const),
+          Match.orElse(() => 'stable' as const)
+        )
+
+        return {
+          _tag: 'PerformanceTrend',
+          metric: metricName,
+          direction,
+          rate,
+          confidence: Math.min(1.0, n / 10),
+          samples: values,
+        }
+      }),
+      Match.exhaustive
+    )
   }
 
   const estimateFPSGain = (
@@ -627,20 +677,16 @@ const makeAdaptiveQualityService = Effect.gen(function* () {
     return qualityImpact * 0.1 // 推定CPU削減率
   }
 
-  const getQualityImpact = (level: QualityLevel) => {
-    switch (level) {
-      case 'ultra':
-        return 1.0
-      case 'high':
-        return 0.8
-      case 'medium':
-        return 0.6
-      case 'low':
-        return 0.4
-      case 'minimal':
-        return 0.2
-    }
-  }
+  const getQualityImpact = (level: QualityLevel) =>
+    pipe(
+      Match.value(level),
+      Match.when('ultra', () => 1.0),
+      Match.when('high', () => 0.8),
+      Match.when('medium', () => 0.6),
+      Match.when('low', () => 0.4),
+      Match.when('minimal', () => 0.2),
+      Match.exhaustive
+    )
 
   const findProfileByName = (name: string): Schema.Schema.Type<typeof QualityProfile> | null => {
     const profiles = Object.values(DEFAULT_QUALITY_PROFILES)

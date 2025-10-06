@@ -3,7 +3,7 @@
  * DDD原則に基づく複雑なオブジェクト生成の隠蔽
  */
 
-import { Clock, Context, Effect, Layer, Schema } from 'effect'
+import { Clock, Context, Effect, Layer, Match, pipe, Schema } from 'effect'
 import { nanoid } from 'nanoid'
 import type { PlayerId } from '../../types'
 import type {
@@ -160,14 +160,18 @@ class InventoryBuilderImpl implements InventoryBuilder {
     return Effect.gen(
       function* () {
         // 必須フィールドの検証
-        if (!this.playerId) {
-          yield* Effect.fail(
-            new InventoryAggregateError({
-              reason: 'INVALID_ITEM_TYPE',
-              message: 'プレイヤーIDが設定されていません',
-            })
-          )
-        }
+        yield* pipe(
+          Match.value(!this.playerId),
+          Match.when(true, () =>
+            Effect.fail(
+              new InventoryAggregateError({
+                reason: 'INVALID_ITEM_TYPE',
+                message: 'プレイヤーIDが設定されていません',
+              })
+            )
+          ),
+          Match.orElse(() => Effect.succeed(undefined))
+        )
 
         // IDの生成または検証
         const id = this.id ?? (`inv_${nanoid()}` as InventoryId)

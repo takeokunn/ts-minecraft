@@ -228,25 +228,17 @@ export const createWorldDomainFactoryLayer = (
 ): Layer.Layer<never, never, any> => {
   const finalConfig = { ...defaultWorldFactoryConfig, ...config }
 
-  const layers: Layer.Layer<never, never, any>[] = []
+  // ルールベース設計: Layer構成を宣言的に定義
+  const layerRules = [
+    { condition: finalConfig.enableWorldGenerator, layer: WorldGeneratorFactoryLive },
+    { condition: finalConfig.enableGenerationSession, layer: GenerationSessionFactoryLive },
+    { condition: finalConfig.enableBiomeSystem, layer: BiomeSystemFactoryLive },
+    { condition: finalConfig.enableWorldConfiguration, layer: WorldConfigurationFactoryLive },
+  ]
 
-  if (finalConfig.enableWorldGenerator) {
-    layers.push(WorldGeneratorFactoryLive)
-  }
+  const enabledLayers = layerRules.filter((rule) => rule.condition).map((rule) => rule.layer)
 
-  if (finalConfig.enableGenerationSession) {
-    layers.push(GenerationSessionFactoryLive)
-  }
-
-  if (finalConfig.enableBiomeSystem) {
-    layers.push(BiomeSystemFactoryLive)
-  }
-
-  if (finalConfig.enableWorldConfiguration) {
-    layers.push(WorldConfigurationFactoryLive)
-  }
-
-  return Layer.mergeAll(...layers)
+  return Layer.mergeAll(...enabledLayers)
 }
 
 // ================================

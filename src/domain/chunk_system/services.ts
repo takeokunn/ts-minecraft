@@ -17,7 +17,9 @@ export interface ChunkSystemService {
   readonly events: Stream.Stream<ChunkEvent, ChunkSystemError>
 }
 
-export const ChunkSystemService = Context.GenericTag<ChunkSystemService>('@minecraft/domain/chunk_system/ChunkSystemService')
+export const ChunkSystemService = Context.GenericTag<ChunkSystemService>(
+  '@minecraft/domain/chunk_system/ChunkSystemService'
+)
 
 const createService = (
   config: ChunkSystemConfig

@@ -8,8 +8,8 @@ export type BiomeType = Schema.Schema.Type<typeof BiomeTypeSchema>
 export const LightLevelSchema = Schema.Number.pipe(Schema.int(), Schema.between(0, 15), Schema.brand('LightLevel'))
 export type LightLevel = Schema.Schema.Type<typeof LightLevelSchema>
 
-export const TimestampSchema = Schema.Number.pipe(Schema.int(), Schema.nonNegative(), Schema.brand('Timestamp'))
-export type Timestamp = Schema.Schema.Type<typeof TimestampSchema>
+// Re-export from units
+export { TimestampSchema, type Timestamp } from '../../../shared/value_object/units'
 
 export const HeightValueSchema = Schema.Number.pipe(Schema.int(), Schema.between(-64, 319), Schema.brand('HeightValue'))
 export type HeightValue = Schema.Schema.Type<typeof HeightValueSchema>

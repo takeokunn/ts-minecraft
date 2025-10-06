@@ -14,7 +14,7 @@
  */
 
 import type * as GenerationSession from '@domain/world/aggregate/generation_session'
-import { Clock, Effect, Function, Match, Option, Schema } from 'effect'
+import { Clock, Effect, Function, Match, Option, ReadonlyArray, Schema } from 'effect'
 import type { ConfigurationProfile, SessionFactoryError, SessionTemplateType } from './index'
 import { SessionTemplateRegistryService } from './template_registry_service'
 
@@ -230,61 +230,69 @@ const createSessionTemplateResolver = (): SessionTemplateResolver => ({
     Effect.gen(function* () {
       const registry = yield* SessionTemplateRegistryService
       const allTemplates = yield* registry.list
-      const scores = new Map<SessionTemplateType, number>()
 
-      for (const templateType of allTemplates) {
-        const template = yield* registry.get(templateType)
-        if (Option.isNone(template)) continue
+      // 各テンプレートのスコアを計算
+      const scoredTemplates = yield* Function.pipe(
+        allTemplates,
+        Effect.forEach((templateType) =>
+          Effect.gen(function* () {
+            const template = yield* registry.get(templateType)
+            if (Option.isNone(template)) return Option.none<readonly [SessionTemplateType, number]>()
 
-        let score = 0
-        const templateDef = template.value
+            const templateDef = template.value
+            let score = 0
 
-        // チャンク数に基づくスコアリング
-        if (criteria.chunkCount) {
-          const optimalConcurrency = templateDef.configuration.maxConcurrentChunks
-          const efficiencyScore = Math.min(
-            criteria.chunkCount / optimalConcurrency,
-            optimalConcurrency / criteria.chunkCount
-          )
-          score += efficiencyScore * 30
-        }
+            // チャンク数に基づくスコアリング
+            if (criteria.chunkCount) {
+              const optimalConcurrency = templateDef.configuration.maxConcurrentChunks
+              const efficiencyScore = Math.min(
+                criteria.chunkCount / optimalConcurrency,
+                optimalConcurrency / criteria.chunkCount
+              )
+              score += efficiencyScore * 30
+            }
 
-        // ユースケース一致度
-        if (criteria.useCases) {
-          const matchingUseCases = criteria.useCases.filter((useCase) =>
-            templateDef.useCases.some((templateUseCase) =>
-              templateUseCase.toLowerCase().includes(useCase.toLowerCase())
-            )
-          )
-          score += (matchingUseCases.length / criteria.useCases.length) * 40
-        }
+            // ユースケース一致度
+            if (criteria.useCases) {
+              const matchingUseCases = criteria.useCases.filter((useCase) =>
+                templateDef.useCases.some((templateUseCase) =>
+                  templateUseCase.toLowerCase().includes(useCase.toLowerCase())
+                )
+              )
+              score += (matchingUseCases.length / criteria.useCases.length) * 40
+            }
 
-        // パフォーマンス要件
-        if (criteria.performance) {
-          const performanceMatch = Function.pipe(
-            Match.value(criteria.performance),
-            Match.when('speed', () => (templateDef.performance.expectedDuration === 'fast' ? 20 : 0)),
-            Match.when('quality', () => (templateDef.configuration.maxConcurrentChunks <= 2 ? 20 : 0)),
-            Match.when('memory', () => (templateDef.performance.expectedMemoryUsage === 'low' ? 20 : 0)),
-            Match.orElse(() => 0)
-          )
-          score += performanceMatch
-        }
+            // パフォーマンス要件
+            if (criteria.performance) {
+              const performanceMatch = Function.pipe(
+                Match.value(criteria.performance),
+                Match.when('speed', () => (templateDef.performance.expectedDuration === 'fast' ? 20 : 0)),
+                Match.when('quality', () => (templateDef.configuration.maxConcurrentChunks <= 2 ? 20 : 0)),
+                Match.when('memory', () => (templateDef.performance.expectedMemoryUsage === 'low' ? 20 : 0)),
+                Match.orElse(() => 0)
+              )
+              score += performanceMatch
+            }
 
-        // プロファイル互換性
-        if (criteria.profile) {
-          const isSupported = templateDef.requirements.supportedProfiles.includes(criteria.profile)
-          score += isSupported ? 10 : -10
-        }
+            // プロファイル互換性
+            if (criteria.profile) {
+              const isSupported = templateDef.requirements.supportedProfiles.includes(criteria.profile)
+              score += isSupported ? 10 : -10
+            }
 
-        scores.set(templateType, score)
-      }
+            return Option.some([templateType, score] as const)
+          })
+        )
+      )
 
-      // スコア順でソート
-      return Array.from(scores.entries())
-        .sort(([, scoreA], [, scoreB]) => scoreB - scoreA)
-        .map(([type, _]) => type)
-        .slice(0, 5) // 上位5つ
+      // スコア順でソートして上位5つを返す
+      return Function.pipe(
+        scoredTemplates,
+        ReadonlyArray.filterMap((x) => x),
+        ReadonlyArray.sort(([, scoreA], [, scoreB]) => scoreB - scoreA),
+        ReadonlyArray.map(([type, _]) => type),
+        ReadonlyArray.take(5)
+      )
     }),
 
   search: (query) =>

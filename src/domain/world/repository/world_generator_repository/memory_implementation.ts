@@ -15,7 +15,7 @@ import type {
   WorldSeed,
 } from '@domain/world/types'
 import { createRepositoryError, createWorldGeneratorNotFoundError } from '@domain/world/types'
-import { Effect, Layer, Option, ReadonlyArray, Ref } from 'effect'
+import { Clock, Effect, Layer, Option, pipe, ReadonlyArray, Ref } from 'effect'
 import {
   WorldGeneratorRepository,
   type CacheConfiguration,
@@ -127,13 +127,16 @@ const makeWorldGeneratorRepositoryMemory = (
           generators: newGenerators,
         })
 
-        if (config.performance.enableMetrics) {
-          const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
-          yield* updateStatistics((stats) => ({
-            ...stats,
-            lastGenerationTime: now,
-          }))
-        }
+        // Effect.whenパターン: 条件付きメトリクス更新
+        yield* Effect.when(config.performance.enableMetrics, () =>
+          Effect.gen(function* () {
+            const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+            yield* updateStatistics((stats) => ({
+              ...stats,
+              lastGenerationTime: now,
+            }))
+          })
+        )
       }).pipe(
         Effect.catchAll((error) =>
           Effect.fail(createRepositoryError(`Failed to save world generator: ${error}`, 'save', error))
@@ -145,13 +148,16 @@ const makeWorldGeneratorRepositoryMemory = (
         const storage = yield* Ref.get(storageRef)
         const generator = storage.generators.get(worldId)
 
-        if (config.cache.enabled) {
-          if (generator) {
-            yield* updateCacheStats((stats) => ({ ...stats, hits: stats.hits + 1 }))
-          } else {
-            yield* updateCacheStats((stats) => ({ ...stats, misses: stats.misses + 1 }))
-          }
-        }
+        // Option.matchパターン: キャッシュヒット/ミス判定
+        yield* Effect.when(config.cache.enabled, () =>
+          pipe(
+            Option.fromNullable(generator),
+            Option.match({
+              onNone: () => updateCacheStats((stats) => ({ ...stats, misses: stats.misses + 1 })),
+              onSome: () => updateCacheStats((stats) => ({ ...stats, hits: stats.hits + 1 })),
+            })
+          )
+        )
 
         return generator ? Option.some(generator) : Option.none()
       }).pipe(
@@ -200,24 +206,44 @@ const makeWorldGeneratorRepositoryMemory = (
         const storage = yield* Ref.get(storageRef)
         let generators = Array.from(storage.generators.values())
 
-        // Apply filters
-        if (query.worldId) {
-          generators = generators.filter((g) => g.worldId === query.worldId)
-        }
-        if (query.seed) {
-          generators = generators.filter((g) => g.seed === query.seed)
-        }
-        if (query.settings) {
-          generators = generators.filter((g) => {
-            return Object.entries(query.settings!).every(([key, value]) => {
-              const generatorValue = (g.settings as any)[key]
-              return generatorValue === value
-            })
+        // Option.matchパターン: クエリフィルター適用
+        generators = pipe(
+          Option.fromNullable(query.worldId),
+          Option.match({
+            onNone: () => generators,
+            onSome: (worldId) => generators.filter((g) => g.worldId === worldId),
           })
-        }
-        if (query.active !== undefined) {
-          generators = generators.filter((g) => g.isActive === query.active)
-        }
+        )
+
+        generators = pipe(
+          Option.fromNullable(query.seed),
+          Option.match({
+            onNone: () => generators,
+            onSome: (seed) => generators.filter((g) => g.seed === seed),
+          })
+        )
+
+        generators = pipe(
+          Option.fromNullable(query.settings),
+          Option.match({
+            onNone: () => generators,
+            onSome: (settings) =>
+              generators.filter((g) =>
+                Object.entries(settings).every(([key, value]) => {
+                  const generatorValue = (g.settings as any)[key]
+                  return generatorValue === value
+                })
+              ),
+          })
+        )
+
+        generators = pipe(
+          Option.fromNullable(query.active),
+          Option.match({
+            onNone: () => generators,
+            onSome: (active) => generators.filter((g) => g.isActive === active),
+          })
+        )
 
         // Apply pagination
         const offset = query.offset ?? 0
@@ -251,9 +277,14 @@ const makeWorldGeneratorRepositoryMemory = (
       Effect.gen(function* () {
         const storage = yield* Ref.get(storageRef)
 
-        if (!storage.generators.has(worldId)) {
-          return yield* Effect.fail(createWorldGeneratorNotFoundError(worldId))
-        }
+        // Option.matchパターン: 存在チェック
+        yield* pipe(
+          Option.fromNullable(storage.generators.get(worldId)),
+          Option.match({
+            onNone: () => Effect.fail(createWorldGeneratorNotFoundError(worldId)),
+            onSome: () => Effect.void,
+          })
+        )
 
         const newGenerators = new Map(storage.generators)
         newGenerators.delete(worldId)
@@ -293,27 +324,43 @@ const makeWorldGeneratorRepositoryMemory = (
       Effect.gen(function* () {
         const storage = yield* Ref.get(storageRef)
         const newGenerators = new Map(storage.generators)
-        const successful: WorldId[] = []
-        const failed: { worldId: WorldId; error: AllRepositoryErrors }[] = []
 
-        for (const generator of generators) {
-          try {
-            newGenerators.set(generator.worldId, generator)
-            successful.push(generator.worldId)
-          } catch (error) {
-            failed.push({
-              worldId: generator.worldId,
-              error: createRepositoryError(`Failed to save generator: ${error}`, 'saveMany', error),
-            })
-          }
-        }
+        const { successful, failed } = yield* pipe(
+          generators,
+          Effect.reduce(
+            { successful: [] as WorldId[], failed: [] as { worldId: WorldId; error: AllRepositoryErrors }[] },
+            (acc, generator) =>
+              Effect.try({
+                try: () => {
+                  newGenerators.set(generator.worldId, generator)
+                  return {
+                    ...acc,
+                    successful: [...acc.successful, generator.worldId],
+                  }
+                },
+                catch: (error) => {
+                  return {
+                    ...acc,
+                    failed: [
+                      ...acc.failed,
+                      {
+                        worldId: generator.worldId,
+                        error: createRepositoryError(`Failed to save generator: ${error}`, 'saveMany', error),
+                      },
+                    ],
+                  }
+                },
+              }).pipe(Effect.catchAll((acc) => Effect.succeed(acc)))
+          )
+        )
 
-        if (successful.length > 0) {
-          yield* Ref.set(storageRef, {
+        // Effect.whenパターン: 成功時のみストレージ更新
+        yield* Effect.when(successful.length > 0, () =>
+          Ref.set(storageRef, {
             ...storage,
             generators: newGenerators,
           })
-        }
+        )
 
         return {
           successful,
@@ -332,27 +379,45 @@ const makeWorldGeneratorRepositoryMemory = (
       Effect.gen(function* () {
         const storage = yield* Ref.get(storageRef)
         const newGenerators = new Map(storage.generators)
-        const successful: WorldId[] = []
-        const failed: { worldId: WorldId; error: AllRepositoryErrors }[] = []
 
-        for (const worldId of worldIds) {
-          if (storage.generators.has(worldId)) {
-            newGenerators.delete(worldId)
-            successful.push(worldId)
-          } else {
-            failed.push({
-              worldId,
-              error: createWorldGeneratorNotFoundError(worldId),
-            })
-          }
-        }
+        // Option.matchパターン: 存在チェック付き削除
+        const { successful, failed } = pipe(
+          worldIds,
+          ReadonlyArray.reduce(
+            { successful: [] as WorldId[], failed: [] as { worldId: WorldId; error: AllRepositoryErrors }[] },
+            (acc, worldId) =>
+              pipe(
+                Option.fromNullable(storage.generators.get(worldId)),
+                Option.match({
+                  onNone: () => ({
+                    ...acc,
+                    failed: [
+                      ...acc.failed,
+                      {
+                        worldId,
+                        error: createWorldGeneratorNotFoundError(worldId),
+                      },
+                    ],
+                  }),
+                  onSome: () => {
+                    newGenerators.delete(worldId)
+                    return {
+                      ...acc,
+                      successful: [...acc.successful, worldId],
+                    }
+                  },
+                })
+              )
+          )
+        )
 
-        if (successful.length > 0) {
-          yield* Ref.set(storageRef, {
+        // Effect.whenパターン: 成功時のみストレージ更新
+        yield* Effect.when(successful.length > 0, () =>
+          Ref.set(storageRef, {
             ...storage,
             generators: newGenerators,
           })
-        }
+        )
 
         return {
           successful,
@@ -410,13 +475,22 @@ const makeWorldGeneratorRepositoryMemory = (
 
     const count = (query?: Partial<WorldGeneratorQuery>): Effect.Effect<number, AllRepositoryErrors> =>
       Effect.gen(function* () {
-        if (!query) {
-          const storage = yield* Ref.get(storageRef)
-          return storage.generators.size
-        }
-
-        const generators = yield* findByQuery(query as WorldGeneratorQuery)
-        return generators.length
+        // Option.matchパターン: クエリの有無による分岐
+        return yield* pipe(
+          Option.fromNullable(query),
+          Option.match({
+            onNone: () =>
+              Effect.gen(function* () {
+                const storage = yield* Ref.get(storageRef)
+                return storage.generators.size
+              }),
+            onSome: (q) =>
+              Effect.gen(function* () {
+                const generators = yield* findByQuery(q as WorldGeneratorQuery)
+                return generators.length
+              }),
+          })
+        )
       }).pipe(
         Effect.catchAll((error) =>
           Effect.fail(createRepositoryError(`Failed to count world generators: ${error}`, 'count', error))

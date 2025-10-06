@@ -214,8 +214,7 @@ export const WorldGenerationOrchestratorHelpers = {
       // ワールド生成開始
       const worldResult = yield* orchestrator.generateWorld(worldCommand)
 
-      // チャンク範囲計算
-      const chunks = worldCommand.bounds ? calculateChunksInBounds(worldCommand.bounds) : []
+      const chunks = pipe(worldCommand.bounds, (bounds) => (bounds ? calculateChunksInBounds(bounds) : []))
 
       // 各チャンクを生成
       const chunkResults = yield* Effect.forEach(
@@ -295,14 +294,17 @@ export const WorldGenerationOrchestratorHelpers = {
 // === Utility Functions ===
 
 function calculateChunksInBounds(bounds: { minX: number; maxX: number; minZ: number; maxZ: number }) {
-  const chunks = []
   const chunkSize = 16 // Minecraftの標準チャンクサイズ
 
-  for (let x = Math.floor(bounds.minX / chunkSize); x <= Math.floor(bounds.maxX / chunkSize); x++) {
-    for (let z = Math.floor(bounds.minZ / chunkSize); z <= Math.floor(bounds.maxZ / chunkSize); z++) {
-      chunks.push({ x, z }) // ChunkCoordinate相当
-    }
-  }
+  const chunks = pipe(
+    ReadonlyArray.range(Math.floor(bounds.minX / chunkSize), Math.floor(bounds.maxX / chunkSize) + 1),
+    ReadonlyArray.flatMap((x) =>
+      pipe(
+        ReadonlyArray.range(Math.floor(bounds.minZ / chunkSize), Math.floor(bounds.maxZ / chunkSize) + 1),
+        ReadonlyArray.map((z) => ({ x, z }))
+      )
+    )
+  )
 
   return chunks
 }

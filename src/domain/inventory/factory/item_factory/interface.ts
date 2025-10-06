@@ -5,7 +5,7 @@
  * NBT、品質、レアリティ、エンチャントなどの複雑なアイテム属性を管理
  */
 
-import { Context, Effect, Schema } from 'effect'
+import { Context, Effect, Match, pipe, Schema } from 'effect'
 import type { ItemId, ItemStack } from '../../types'
 
 // ItemStack Factory固有のエラー型（Schema.TaggedErrorパターン）
@@ -207,16 +207,39 @@ export const defaultStackingRules: StackingRules = {
   canStack: (item1, item2) =>
     item1.itemId === item2.itemId && JSON.stringify(item1.metadata) === JSON.stringify(item2.metadata),
 
-  maxStackSize: (item) => {
-    // カテゴリ別のスタックサイズ判定
-    if (item.metadata?.customName) return 1 // カスタム名付きは単体
-    if (item.durability !== undefined && item.durability < 1.0) return 1 // 耐久度低下は単体
-    return 64 // デフォルト
-  },
+  maxStackSize: (item) =>
+    pipe(
+      item,
+      Match.value,
+      // カスタム名付きは単体
+      Match.when(
+        (i) => i.metadata?.customName !== undefined,
+        () => 1
+      ),
+      // 耐久度低下は単体
+      Match.when(
+        (i) => i.durability !== undefined && i.durability < 1.0,
+        () => 1
+      ),
+      // デフォルト
+      Match.orElse(() => 64)
+    ),
 
-  combineRule: (item1, item2) => {
-    if (!defaultStackingRules.canStack(item1, item2)) return 'error'
-    if (item1.count + item2.count <= defaultStackingRules.maxStackSize(item1)) return 'combine'
-    return 'separate'
-  },
+  combineRule: (item1, item2) =>
+    pipe(
+      { item1, item2 },
+      Match.value,
+      // スタック不可の場合はエラー
+      Match.when(
+        ({ item1, item2 }) => !defaultStackingRules.canStack(item1, item2),
+        () => 'error' as const
+      ),
+      // 合計がmaxStackSize以下なら結合
+      Match.when(
+        ({ item1, item2 }) => item1.count + item2.count <= defaultStackingRules.maxStackSize(item1),
+        () => 'combine' as const
+      ),
+      // それ以外は分離
+      Match.orElse(() => 'separate' as const)
+    ),
 }

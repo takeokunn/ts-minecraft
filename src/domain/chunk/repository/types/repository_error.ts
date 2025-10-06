@@ -264,11 +264,12 @@ export const isTransientError = (error: RepositoryError): boolean => {
   }
 }
 
-export const getRetryDelay = (error: RepositoryError, attempt: number): number => {
-  if (!isRetryableError(error)) return 0
-
-  // Exponential backoff with jitter
-  const baseDelay = Math.min(1000 * Math.pow(2, attempt), 30000)
-  const jitter = Math.random() * 0.1 * baseDelay
-  return baseDelay + jitter
-}
+export const getRetryDelay = (error: RepositoryError, attempt: number): number =>
+  isRetryableError(error)
+    ? (() => {
+        // Exponential backoff with jitter
+        const baseDelay = Math.min(1000 * Math.pow(2, attempt), 30000)
+        const jitter = Math.random() * 0.1 * baseDelay
+        return baseDelay + jitter
+      })()
+    : 0

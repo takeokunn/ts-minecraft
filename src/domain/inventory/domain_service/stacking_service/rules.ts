@@ -22,14 +22,17 @@ export const checkItemIdCompatibility = (
   sourceStack: ItemStack,
   targetStack: ItemStack
 ): Effect.Effect<{ isCompatible: boolean; reason?: StackIncompatibilityReason }, never> =>
-  Effect.if(sourceStack.itemId === targetStack.itemId, {
-    onTrue: () => Effect.succeed({ isCompatible: true }),
-    onFalse: () =>
+  pipe(
+    Match.value(sourceStack.itemId === targetStack.itemId),
+    Match.when(true, () => Effect.succeed({ isCompatible: true })),
+    Match.when(false, () =>
       Effect.succeed({
         isCompatible: false,
         reason: 'DIFFERENT_ITEM_IDS' as const,
-      }),
-  })
+      })
+    ),
+    Match.exhaustive
+  )
 
 /**
  * スタック制限ルール
@@ -43,19 +46,23 @@ export const checkStackLimitRule = (
     const stackLimit = yield* getItemStackLimit(sourceStack.itemId)
     const combinedCount = sourceStack.count + targetStack.count
 
-    return yield* Effect.if(combinedCount <= stackLimit, {
-      onTrue: () =>
+    return yield* pipe(
+      Match.value(combinedCount <= stackLimit),
+      Match.when(true, () =>
         Effect.succeed({
           isCompatible: true,
           maxCombined: combinedCount,
-        }),
-      onFalse: () =>
+        })
+      ),
+      Match.when(false, () =>
         Effect.succeed({
           isCompatible: false,
           maxCombined: stackLimit,
           reason: 'STACK_LIMIT_EXCEEDED' as const,
-        }),
-    })
+        })
+      ),
+      Match.exhaustive
+    )
   })
 
 /**
@@ -74,89 +81,102 @@ export const checkMetadataCompatibility = (
   never
 > =>
   Effect.gen(function* () {
-    // 両方ともメタデータがない場合は互換性あり
-    if (!sourceStack.metadata && !targetStack.metadata) {
-      return { isCompatible: true, conflicts: [] }
-    }
+    // Option.matchによる両方nullチェック
+    const sourceMetaOpt = Option.fromNullable(sourceStack.metadata)
+    const targetMetaOpt = Option.fromNullable(targetStack.metadata)
 
-    // 片方のみメタデータがある場合
-    if (!sourceStack.metadata || !targetStack.metadata) {
-      return {
-        isCompatible: false,
-        conflicts: [],
-        reason: 'METADATA_MISMATCH' as const,
-      }
-    }
-
-    // 各メタデータフィールドをチェック
-    const sourceMetadata = sourceStack.metadata
-    const targetMetadata = targetStack.metadata
-
-    const conflicts: MetadataConflict[] = []
-
-    // エンチャントのチェック
-    const enchantmentConflict = yield* checkEnchantmentCompatibility(
-      sourceMetadata.enchantments,
-      targetMetadata.enchantments
-    )
-    yield* Effect.when(enchantmentConflict !== null, () =>
-      Effect.sync(() => {
-        conflicts.push(enchantmentConflict!)
-      })
-    )
-
-    // カスタム名のチェック
-    yield* Effect.when(sourceMetadata.customName !== targetMetadata.customName, () =>
-      Effect.sync(() => {
-        conflicts.push({
-          field: 'customName',
-          sourceValue: sourceMetadata.customName,
-          targetValue: targetMetadata.customName,
-          resolutionStrategy: 'PREVENT_STACK',
+    // Match.valueによるメタデータ存在パターン判定
+    return yield* pipe(
+      Match.value({ source: Option.isSome(sourceMetaOpt), target: Option.isSome(targetMetaOpt) }),
+      Match.when({ source: false, target: false }, () => Effect.succeed({ isCompatible: true, conflicts: [] })),
+      Match.when({ source: false, target: true }, () =>
+        Effect.succeed({
+          isCompatible: false,
+          conflicts: [],
+          reason: 'METADATA_MISMATCH' as const,
         })
-      })
-    )
-
-    // Loreのチェック
-    const loreConflict = yield* checkLoreCompatibility(sourceMetadata.lore, targetMetadata.lore)
-    yield* Effect.when(loreConflict !== null, () =>
-      Effect.sync(() => {
-        conflicts.push(loreConflict!)
-      })
-    )
-
-    // ダメージ値のチェック
-    yield* Effect.when(sourceMetadata.damage !== targetMetadata.damage, () =>
-      Effect.sync(() => {
-        conflicts.push({
-          field: 'damage',
-          sourceValue: sourceMetadata.damage,
-          targetValue: targetMetadata.damage,
-          resolutionStrategy: 'AVERAGE',
+      ),
+      Match.when({ source: true, target: false }, () =>
+        Effect.succeed({
+          isCompatible: false,
+          conflicts: [],
+          reason: 'METADATA_MISMATCH' as const,
         })
-      })
-    )
+      ),
+      Match.orElse(() =>
+        Effect.gen(function* () {
+          // 両方メタデータあり - 詳細チェック実行
+          const sourceMetadata = sourceStack.metadata!
+          const targetMetadata = targetStack.metadata!
 
-    // 耐久値のチェック
-    yield* Effect.when(sourceMetadata.durability !== targetMetadata.durability, () =>
-      Effect.sync(() => {
-        conflicts.push({
-          field: 'durability',
-          sourceValue: sourceMetadata.durability,
-          targetValue: targetMetadata.durability,
-          resolutionStrategy: 'AVERAGE',
+          const conflicts: MetadataConflict[] = []
+
+          // エンチャントのチェック
+          const enchantmentConflict = yield* checkEnchantmentCompatibility(
+            sourceMetadata.enchantments,
+            targetMetadata.enchantments
+          )
+          yield* Effect.when(enchantmentConflict !== null, () =>
+            Effect.sync(() => {
+              conflicts.push(enchantmentConflict!)
+            })
+          )
+
+          // カスタム名のチェック
+          yield* Effect.when(sourceMetadata.customName !== targetMetadata.customName, () =>
+            Effect.sync(() => {
+              conflicts.push({
+                field: 'customName',
+                sourceValue: sourceMetadata.customName,
+                targetValue: targetMetadata.customName,
+                resolutionStrategy: 'PREVENT_STACK',
+              })
+            })
+          )
+
+          // Loreのチェック
+          const loreConflict = yield* checkLoreCompatibility(sourceMetadata.lore, targetMetadata.lore)
+          yield* Effect.when(loreConflict !== null, () =>
+            Effect.sync(() => {
+              conflicts.push(loreConflict!)
+            })
+          )
+
+          // ダメージ値のチェック
+          yield* Effect.when(sourceMetadata.damage !== targetMetadata.damage, () =>
+            Effect.sync(() => {
+              conflicts.push({
+                field: 'damage',
+                sourceValue: sourceMetadata.damage,
+                targetValue: targetMetadata.damage,
+                resolutionStrategy: 'AVERAGE',
+              })
+            })
+          )
+
+          // 耐久値のチェック
+          yield* Effect.when(sourceMetadata.durability !== targetMetadata.durability, () =>
+            Effect.sync(() => {
+              conflicts.push({
+                field: 'durability',
+                sourceValue: sourceMetadata.durability,
+                targetValue: targetMetadata.durability,
+                resolutionStrategy: 'AVERAGE',
+              })
+            })
+          )
+
+          // 互換性の判定
+          const hasBlockingConflicts = conflicts.some((conflict) => conflict.resolutionStrategy === 'PREVENT_STACK')
+
+          return {
+            isCompatible: !hasBlockingConflicts,
+            conflicts,
+            reason: hasBlockingConflicts ? ('METADATA_MISMATCH' as const) : undefined,
+          }
         })
-      })
+      )
     )
-
-    // 互換性の判定
-    const hasBlockingConflicts = conflicts.some((conflict) => conflict.resolutionStrategy === 'PREVENT_STACK')
-
-    return {
-      isCompatible: !hasBlockingConflicts,
-      conflicts,
-      reason: hasBlockingConflicts ? ('METADATA_MISMATCH' as const) : undefined,
-    }
   })
 
 /**
@@ -175,14 +195,18 @@ export const checkDurabilityCompatibility = (
     const durabilityDifference = Math.abs(sourceDurability - targetDurability)
     const isToolItem = yield* isToolOrWeapon(sourceStack.itemId)
 
-    return yield* Effect.if(() => isToolItem && durabilityDifference > 0.1, {
-      onTrue: () =>
-        Effect.succeed({
-          isCompatible: false,
-          reason: 'DURABILITY_CONFLICT' as const,
-        }),
-      onFalse: () => Effect.succeed({ isCompatible: true }),
-    })
+    return yield* pipe(
+      Match.value({ isToolItem, durabilityDifference }),
+      Match.when(
+        ({ isToolItem, durabilityDifference }) => isToolItem && durabilityDifference > 0.1,
+        () =>
+          Effect.succeed({
+            isCompatible: false,
+            reason: 'DURABILITY_CONFLICT' as const,
+          })
+      ),
+      Match.orElse(() => Effect.succeed({ isCompatible: true }))
+    )
   })
 
 // =============================================================================
@@ -272,58 +296,76 @@ const checkEnchantmentCompatibility = (
   targetEnchantments: ItemMetadata['enchantments']
 ): Effect.Effect<MetadataConflict | null, never> =>
   Effect.gen(function* () {
-    // 両方ともエンチャントなしの場合は互換性あり
-    if (!sourceEnchantments && !targetEnchantments) {
-      return null
-    }
+    // Option.matchによる両方nullチェック
+    const sourceOpt = Option.fromNullable(sourceEnchantments)
+    const targetOpt = Option.fromNullable(targetEnchantments)
 
-    // 片方のみエンチャントありの場合は互換性なし
-    if (!sourceEnchantments || !targetEnchantments) {
-      return {
-        field: 'enchantments',
-        sourceValue: sourceEnchantments,
-        targetValue: targetEnchantments,
-        resolutionStrategy: 'PREVENT_STACK',
-      }
-    }
-
-    // エンチャントの比較
-    const sourceEnchantmentMap = new Map(sourceEnchantments.map((e) => [e.id, e.level]))
-    const targetEnchantmentMap = new Map(targetEnchantments.map((e) => [e.id, e.level]))
-
-    // エンチャントの種類や レベルが異なる場合
-    return yield* Effect.if(sourceEnchantmentMap.size !== targetEnchantmentMap.size, {
-      onTrue: () =>
+    // Match.valueによるエンチャント存在パターン判定
+    return yield* pipe(
+      Match.value({ source: Option.isSome(sourceOpt), target: Option.isSome(targetOpt) }),
+      Match.when({ source: false, target: false }, () => Effect.succeed(null)),
+      Match.when({ source: false, target: true }, () =>
         Effect.succeed<MetadataConflict>({
           field: 'enchantments',
           sourceValue: sourceEnchantments,
           targetValue: targetEnchantments,
           resolutionStrategy: 'PREVENT_STACK',
-        }),
-      onFalse: () =>
+        })
+      ),
+      Match.when({ source: true, target: false }, () =>
+        Effect.succeed<MetadataConflict>({
+          field: 'enchantments',
+          sourceValue: sourceEnchantments,
+          targetValue: targetEnchantments,
+          resolutionStrategy: 'PREVENT_STACK',
+        })
+      ),
+      Match.orElse(() =>
         Effect.gen(function* () {
-          // ReadonlyArray.findFirstIndexで早期発見パターンに変換
-          const entries = Array.from(sourceEnchantmentMap.entries())
-          const mismatchIndex = pipe(
-            entries,
-            ReadonlyArray.findFirstIndex(([enchantId, level]) => targetEnchantmentMap.get(enchantId) !== level)
-          )
+          // 両方エンチャントあり - 詳細比較
+          const sourceEnchantmentMap = new Map(sourceEnchantments!.map((e) => [e.id, e.level]))
+          const targetEnchantmentMap = new Map(targetEnchantments!.map((e) => [e.id, e.level]))
 
+          // エンチャントの種類やレベルが異なる場合
           return yield* pipe(
-            mismatchIndex,
-            Option.match({
-              onNone: () => Effect.succeed<MetadataConflict | null>(null),
-              onSome: () =>
-                Effect.succeed<MetadataConflict>({
-                  field: 'enchantments',
-                  sourceValue: sourceEnchantments,
-                  targetValue: targetEnchantments,
-                  resolutionStrategy: 'PREVENT_STACK',
-                }),
-            })
+            Match.value(sourceEnchantmentMap.size !== targetEnchantmentMap.size),
+            Match.when(true, () =>
+              Effect.succeed<MetadataConflict>({
+                field: 'enchantments',
+                sourceValue: sourceEnchantments,
+                targetValue: targetEnchantments,
+                resolutionStrategy: 'PREVENT_STACK',
+              })
+            ),
+            Match.when(false, () =>
+              Effect.gen(function* () {
+                // ReadonlyArray.findFirstIndexで早期発見パターンに変換
+                const entries = Array.from(sourceEnchantmentMap.entries())
+                const mismatchIndex = pipe(
+                  entries,
+                  ReadonlyArray.findFirstIndex(([enchantId, level]) => targetEnchantmentMap.get(enchantId) !== level)
+                )
+
+                return yield* pipe(
+                  mismatchIndex,
+                  Option.match({
+                    onNone: () => Effect.succeed<MetadataConflict | null>(null),
+                    onSome: () =>
+                      Effect.succeed<MetadataConflict>({
+                        field: 'enchantments',
+                        sourceValue: sourceEnchantments,
+                        targetValue: targetEnchantments,
+                        resolutionStrategy: 'PREVENT_STACK',
+                      }),
+                  })
+                )
+              })
+            ),
+            Match.exhaustive
           )
-        }),
-    })
+        })
+      )
+    )
   })
 
 /**
@@ -334,53 +376,71 @@ const checkLoreCompatibility = (
   targetLore: ItemMetadata['lore']
 ): Effect.Effect<MetadataConflict | null, never> =>
   Effect.gen(function* () {
-    // 両方ともLoreなしの場合は互換性あり
-    if (!sourceLore && !targetLore) {
-      return null
-    }
+    // Option.matchによる両方nullチェック
+    const sourceOpt = Option.fromNullable(sourceLore)
+    const targetOpt = Option.fromNullable(targetLore)
 
-    // 片方のみLoreありの場合は互換性なし
-    if (!sourceLore || !targetLore) {
-      return {
-        field: 'lore',
-        sourceValue: sourceLore,
-        targetValue: targetLore,
-        resolutionStrategy: 'PREVENT_STACK',
-      }
-    }
-
-    // Loreの配列比較
-    return yield* Effect.if(sourceLore.length !== targetLore.length, {
-      onTrue: () =>
+    // Match.valueによるLore存在パターン判定
+    return yield* pipe(
+      Match.value({ source: Option.isSome(sourceOpt), target: Option.isSome(targetOpt) }),
+      Match.when({ source: false, target: false }, () => Effect.succeed(null)),
+      Match.when({ source: false, target: true }, () =>
         Effect.succeed<MetadataConflict>({
           field: 'lore',
           sourceValue: sourceLore,
           targetValue: targetLore,
           resolutionStrategy: 'PREVENT_STACK',
-        }),
-      onFalse: () =>
+        })
+      ),
+      Match.when({ source: true, target: false }, () =>
+        Effect.succeed<MetadataConflict>({
+          field: 'lore',
+          sourceValue: sourceLore,
+          targetValue: targetLore,
+          resolutionStrategy: 'PREVENT_STACK',
+        })
+      ),
+      Match.orElse(() =>
         Effect.gen(function* () {
-          // ReadonlyArray.findFirstIndexで不一致インデックスを検出
-          const mismatchIndex = pipe(
-            sourceLore,
-            ReadonlyArray.findFirstIndex((line, i) => targetLore[i] !== line)
-          )
-
+          // 両方Loreあり - 配列比較
           return yield* pipe(
-            mismatchIndex,
-            Option.match({
-              onNone: () => Effect.succeed<MetadataConflict | null>(null),
-              onSome: () =>
-                Effect.succeed<MetadataConflict>({
-                  field: 'lore',
-                  sourceValue: sourceLore,
-                  targetValue: targetLore,
-                  resolutionStrategy: 'PREVENT_STACK',
-                }),
-            })
+            Match.value(sourceLore!.length !== targetLore!.length),
+            Match.when(true, () =>
+              Effect.succeed<MetadataConflict>({
+                field: 'lore',
+                sourceValue: sourceLore,
+                targetValue: targetLore,
+                resolutionStrategy: 'PREVENT_STACK',
+              })
+            ),
+            Match.when(false, () =>
+              Effect.gen(function* () {
+                // ReadonlyArray.findFirstIndexで不一致インデックスを検出
+                const mismatchIndex = pipe(
+                  sourceLore!,
+                  ReadonlyArray.findFirstIndex((line, i) => targetLore![i] !== line)
+                )
+
+                return yield* pipe(
+                  mismatchIndex,
+                  Option.match({
+                    onNone: () => Effect.succeed<MetadataConflict | null>(null),
+                    onSome: () =>
+                      Effect.succeed<MetadataConflict>({
+                        field: 'lore',
+                        sourceValue: sourceLore,
+                        targetValue: targetLore,
+                        resolutionStrategy: 'PREVENT_STACK',
+                      }),
+                  })
+                )
+              })
+            ),
+            Match.exhaustive
           )
-        }),
-    })
+        })
+      )
+    )
   })
 
 /**
@@ -439,16 +499,18 @@ export const checkCompleteStackCompatibility = (
     // 1. アイテムID互換性チェック
     const itemIdCheck = yield* checkItemIdCompatibility(sourceStack, targetStack)
 
-    return yield* Effect.if(!itemIdCheck.isCompatible, {
-      onTrue: () =>
+    return yield* pipe(
+      Match.value(itemIdCheck.isCompatible),
+      Match.when(false, () =>
         Effect.succeed({
           isCompatible: false,
           reason: itemIdCheck.reason,
           maxCombinedCount: 0,
           requiresMetadataConsolidation: false,
           metadataConflicts: [],
-        }),
-      onFalse: () =>
+        })
+      ),
+      Match.when(true, () =>
         Effect.gen(function* () {
           // 2. スタック制限チェック
           const stackLimitCheck = yield* checkStackLimitRule(sourceStack, targetStack)
@@ -478,8 +540,10 @@ export const checkCompleteStackCompatibility = (
             requiresMetadataConsolidation: metadataCheck.conflicts.length > 0,
             metadataConflicts: metadataCheck.conflicts,
           }
-        }),
-    })
+        })
+      ),
+      Match.exhaustive
+    )
   })
 
 // =============================================================================

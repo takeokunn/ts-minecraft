@@ -100,7 +100,7 @@ export type {
 
 // === Integrated Progressive Loading Service ===
 
-import { Clock, Context, Effect, Schema } from 'effect'
+import { Clock, Context, Effect, Option, pipe, ReadonlyArray, Schema } from 'effect'
 import {
   AdaptiveQualityService,
   LoadingSchedulerService,
@@ -380,23 +380,38 @@ export const makeProgressiveLoadingService = Effect.gen(function* () {
     qualityStrategy?: 'performance_first' | 'quality_first' | 'balanced'
   }) =>
     Effect.gen(function* () {
-      if (settings.maxConcurrentLoads !== undefined) {
-        yield* scheduler.updateConfiguration({
-          maxConcurrentLoads: settings.maxConcurrentLoads,
+      yield* pipe(
+        Option.fromNullable(settings.maxConcurrentLoads),
+        Option.match({
+          onNone: () => Effect.void,
+          onSome: (maxConcurrentLoads) =>
+            scheduler.updateConfiguration({
+              maxConcurrentLoads,
+            }),
         })
-      }
+      )
 
-      if (settings.memoryManagement !== undefined) {
-        yield* memoryMonitor.updateConfiguration({
-          strategy: settings.memoryManagement,
+      yield* pipe(
+        Option.fromNullable(settings.memoryManagement),
+        Option.match({
+          onNone: () => Effect.void,
+          onSome: (strategy) =>
+            memoryMonitor.updateConfiguration({
+              strategy,
+            }),
         })
-      }
+      )
 
-      if (settings.qualityStrategy !== undefined) {
-        yield* adaptiveQuality.updateConfiguration({
-          strategy: settings.qualityStrategy,
+      yield* pipe(
+        Option.fromNullable(settings.qualityStrategy),
+        Option.match({
+          onNone: () => Effect.void,
+          onSome: (strategy) =>
+            adaptiveQuality.updateConfiguration({
+              strategy,
+            }),
         })
-      }
+      )
 
       yield* Effect.logInfo('Progressive Loading 設定更新完了')
     })
@@ -438,17 +453,28 @@ export const ProgressiveLoadingUtils = {
   ) =>
     Effect.gen(function* () {
       const service = yield* ProgressiveLoadingService
-      const requests: string[] = []
 
-      for (let x = centerX - radius; x <= centerX + radius; x++) {
-        for (let z = centerZ - radius; z <= centerZ + radius; z++) {
-          const distance = Math.sqrt((x - centerX) ** 2 + (z - centerZ) ** 2)
-          if (distance <= radius) {
-            const requestId = yield* service.requestChunkLoad(x, z, playerId, priority)
-            requests.push(requestId)
-          }
-        }
-      }
+      // 円形範囲内の全座標を事前計算
+      const positions = pipe(
+        ReadonlyArray.range(centerX - radius, centerX + radius + 1),
+        ReadonlyArray.flatMap((x) =>
+          pipe(
+            ReadonlyArray.range(centerZ - radius, centerZ + radius + 1),
+            ReadonlyArray.map((z) => ({
+              x,
+              z,
+              distance: Math.sqrt((x - centerX) ** 2 + (z - centerZ) ** 2),
+            }))
+          )
+        ),
+        ReadonlyArray.filter(({ distance }) => distance <= radius)
+      )
+
+      // チャンクロードを完全並行実行
+      const requests = yield* pipe(
+        positions,
+        Effect.forEach(({ x, z }) => service.requestChunkLoad(x, z, playerId, priority), { concurrency: 'unbounded' })
+      )
 
       return requests
     }),
@@ -474,20 +500,20 @@ export const ProgressiveLoadingUtils = {
 
             yield* service.updatePerformanceMetrics(fps, memory, cpu)
 
-            if (onMetrics) {
-              yield* onMetrics(fps, memory, cpu)
-            }
+            yield* pipe(
+              Option.fromNullable(onMetrics),
+              Option.match({
+                onNone: () => Effect.void,
+                onSome: (fn) => fn(fps, memory, cpu),
+              })
+            )
           }),
           { schedule: Effect.Schedule.spaced('1 seconds') }
         )
       )
 
-      try {
-        const result = yield* task
-        return result
-      } finally {
-        yield* Effect.interrupt(monitoringFiber)
-      }
+      // Effect.ensuring を使用して、成功・失敗に関わらず fiber を中断
+      return yield* task.pipe(Effect.ensuring(Effect.interrupt(monitoringFiber)))
     }),
 
   /**

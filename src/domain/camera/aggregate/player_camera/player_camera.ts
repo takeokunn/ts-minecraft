@@ -21,8 +21,9 @@ import { Camera, CameraOps } from '../camera'
 
 /**
  * Player ID Brand Type
+ * 専用value_objectから再エクスポート
  */
-export type PlayerId = string & { readonly _brand: 'PlayerId' }
+export type { PlayerId } from '@domain/player/value_object/player_id'
 
 /**
  * Sensitivity Value Object

@@ -174,9 +174,7 @@ export const AnimationEngineServiceLive = Layer.succeed(
      */
     evaluateKeyframeAnimation: (keyframes, currentTime) =>
       Effect.gen(function* () {
-        if (keyframes.length === 0) {
-          return yield* Effect.fail(createAnimationError.emptyKeyframes())
-        }
+        yield* Effect.when(keyframes.length === 0, () => Effect.fail(createAnimationError.emptyKeyframes()))
 
         // 現在時刻に対応するキーフレーム範囲を検索
         const { currentKeyframe, nextKeyframe, progress } = yield* findKeyframeRange(keyframes, currentTime)
@@ -352,13 +350,25 @@ const updateCombinedAnimation = (
     const positionResult = yield* updatePositionAnimation(animation.positionAnimation, currentTime)
     const rotationResult = yield* updateRotationAnimation(animation.rotationAnimation, currentTime)
 
-    let fovResult: AnimationUpdateResult | undefined
-    if (animation.fovAnimation) {
-      fovResult = yield* updateFOVAnimation(animation.fovAnimation, currentTime)
-    }
+    const fovResult = yield* pipe(
+      Option.fromNullable(animation.fovAnimation),
+      Option.match({
+        onSome: (fovAnim) => Effect.map(updateFOVAnimation(fovAnim, currentTime), Option.some),
+        onNone: () => Effect.succeed(Option.none<AnimationUpdateResult>()),
+      })
+    )
 
     // すべてのアニメーションが完了したかチェック
-    const isComplete = positionResult.isComplete && rotationResult.isComplete && (fovResult?.isComplete ?? true)
+    const isComplete =
+      positionResult.isComplete &&
+      rotationResult.isComplete &&
+      pipe(
+        fovResult,
+        Option.match({
+          onSome: (result) => result.isComplete,
+          onNone: () => true,
+        })
+      )
 
     const newState = isComplete ? AnimationStateOps.createCompleted() : AnimationStateOps.createPlaying()
 
@@ -448,11 +458,16 @@ const findKeyframeRange = (
 > =>
   Effect.gen(function* () {
     // 時刻でソートされたキーフレームから現在の範囲を検索
-    for (let i = 0; i < keyframes.length - 1; i++) {
-      const current = keyframes[i]
-      const next = keyframes[i + 1]
-
-      if (currentTime >= current.time && currentTime <= next.time) {
+    const keyframePair = pipe(
+      ReadonlyArray.range(0, keyframes.length - 1),
+      ReadonlyArray.findFirst((i) => {
+        const current = keyframes[i]
+        const next = keyframes[i + 1]
+        return currentTime >= current.time && currentTime <= next.time
+      }),
+      Option.map((i) => {
+        const current = keyframes[i]
+        const next = keyframes[i + 1]
         const duration = next.time - current.time
         const elapsed = currentTime - current.time
         const progress = duration > 0 ? elapsed / duration : 1.0
@@ -462,15 +477,21 @@ const findKeyframeRange = (
           nextKeyframe: i + 1,
           progress,
         }
-      }
-    }
+      })
+    )
 
-    // 最後のキーフレーム以降
-    return {
-      currentKeyframe: keyframes.length - 1,
-      nextKeyframe: undefined,
-      progress: 1.0,
-    }
+    return pipe(
+      keyframePair,
+      Option.match({
+        onSome: (pair) => Effect.succeed(pair),
+        onNone: () =>
+          Effect.succeed({
+            currentKeyframe: keyframes.length - 1,
+            nextKeyframe: undefined,
+            progress: 1.0,
+          }),
+      })
+    )
   })
 
 /**
@@ -483,23 +504,36 @@ const interpolateKeyframeProperty = <T>(
   easingType: EasingType
 ): Effect.Effect<T | undefined, CameraError> =>
   Effect.gen(function* () {
+    // 境界値チェック（意図的保持）
     if (!current) return undefined
     if (!next) return current
 
-    // 型に応じた補間処理
-    if (typeof current === 'object' && 'x' in current) {
-      // Position3D の場合
-      return yield* Position3DOps.lerp(current as Position3D, next as Position3D, progress) as T
-    } else if (typeof current === 'object' && 'pitch' in current) {
-      // CameraRotation の場合
-      return yield* CameraRotationOps.slerp(current as CameraRotation, next as CameraRotation, progress) as T
-    } else if (typeof current === 'number') {
-      // FOV等の数値の場合
-      const easedProgress = EasingFunctions.getFunction(easingType)(progress)
-      return InterpolationOps.lerp(current, next as number, easedProgress) as T
-    }
-
-    return current
+    // 型に応じた補間処理（Match.valueで型判定）
+    return yield* pipe(
+      current,
+      Match.value,
+      Match.when(
+        (c) => typeof c === 'object' && c !== null && 'x' in c,
+        (c) => Position3DOps.lerp(c as Position3D, next as Position3D, progress) as Effect.Effect<T, CameraError>
+      ),
+      Match.when(
+        (c) => typeof c === 'object' && c !== null && 'pitch' in c,
+        (c) =>
+          CameraRotationOps.slerp(c as CameraRotation, next as CameraRotation, progress) as Effect.Effect<
+            T,
+            CameraError
+          >
+      ),
+      Match.when(
+        (c) => typeof c === 'number',
+        (c) =>
+          Effect.sync(() => {
+            const easedProgress = EasingFunctions.getFunction(easingType)(progress)
+            return InterpolationOps.lerp(c, next as number, easedProgress) as T
+          })
+      ),
+      Match.orElse((c) => Effect.succeed(c))
+    )
   })
 
 /**

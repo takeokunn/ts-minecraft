@@ -289,23 +289,28 @@ const createWorldGeneratorFactory = (): WorldGeneratorFactory => ({
   createBatch: (configs: readonly CreateWorldGeneratorParams[]) =>
     Effect.gen(function* () {
       // バッチサイズ検証
-      if (configs.length === 0) {
-        return yield* Effect.fail(
-          new FactoryError({
-            category: 'parameter_validation',
-            message: 'Empty configuration array provided',
-          })
-        )
-      }
-
-      if (configs.length > 10) {
-        return yield* Effect.fail(
-          new FactoryError({
-            category: 'performance_constraint',
-            message: 'Batch size exceeds maximum limit (10)',
-          })
-        )
-      }
+      yield* Function.pipe(
+        Match.value(configs.length),
+        Match.when(0, () =>
+          Effect.fail(
+            new FactoryError({
+              category: 'parameter_validation',
+              message: 'Empty configuration array provided',
+            })
+          )
+        ),
+        Match.when(
+          (len) => len > 10,
+          () =>
+            Effect.fail(
+              new FactoryError({
+                category: 'performance_constraint',
+                message: 'Batch size exceeds maximum limit (10)',
+              })
+            )
+        ),
+        Match.orElse(() => Effect.void)
+      )
 
       // 並列生成
       const generators = yield* Effect.all(

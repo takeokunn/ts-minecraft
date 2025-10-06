@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Ref, Schema } from 'effect'
+import { Clock, Context, Effect, Layer, Option, pipe, ReadonlyArray, Ref, Schema } from 'effect'
 
 /**
  * Dependency Coordinator Service
@@ -217,27 +217,31 @@ const makeDependencyCoordinatorService = Effect.gen(function* () {
       yield* Effect.logInfo(`依存関係グラフ構築開始: ${nodes.length}ノード`)
 
       const nodeMap = new Map(nodes.map((node) => [node.id, node]))
-      const edges = []
-
       // エッジ構築
-      for (const node of nodes) {
-        for (const depId of node.dependencies) {
-          if (nodeMap.has(depId)) {
-            edges.push({
-              from: depId,
-              to: node.id,
-              weight: 1.0,
-              type: 'hard' as const,
-            })
-          }
-        }
-      }
+      const edges = pipe(
+        nodes,
+        ReadonlyArray.flatMap((node) =>
+          pipe(
+            node.dependencies,
+            ReadonlyArray.filterMap((depId) =>
+              nodeMap.has(depId)
+                ? Option.some({
+                    from: depId,
+                    to: node.id,
+                    weight: 1.0,
+                    type: 'hard' as const,
+                  })
+                : Option.none()
+            )
+          )
+        )
+      )
 
       // 循環依存検出
       const cycles = yield* detectCycles(nodeMap, edges)
-      if (cycles.length > 0 && config.deadlockDetection) {
-        yield* Effect.logWarning(`循環依存検出: ${cycles.length}個`)
-      }
+      yield* Effect.when(cycles.length > 0 && config.deadlockDetection, () =>
+        Effect.logWarning(`循環依存検出: ${cycles.length}個`)
+      )
 
       // クリティカルパス計算
       const criticalPath = yield* calculateCriticalPathInternal(nodeMap, edges)
@@ -275,39 +279,51 @@ const makeDependencyCoordinatorService = Effect.gen(function* () {
     Effect.gen(function* () {
       yield* Effect.logInfo(`調整実行開始: ${executionPlan.length}タスク`)
 
-      const results: Record<string, any> = {}
-      const concurrentTasks = new Map<string, Effect.Effect<any, any>>()
+      const results = yield* pipe(
+        executionPlan,
+        Effect.reduce({} as Record<string, any>, (acc, taskId) =>
+          pipe(
+            Option.fromNullable(taskExecutors[taskId]),
+            Option.match({
+              onNone: () =>
+                Effect.gen(function* () {
+                  yield* Effect.logWarning(`タスクエグゼキューター未定義: ${taskId}`)
+                  return acc
+                }),
+              onSome: (executor) =>
+                Effect.gen(function* () {
+                  // リソース割り当て
+                  const allocation = yield* allocateResources(taskId, {
+                    cpu: 0.25,
+                    memory: 512,
+                    io: 0.1,
+                  })
 
-      for (const taskId of executionPlan) {
-        if (!taskExecutors[taskId]) {
-          yield* Effect.logWarning(`タスクエグゼキューター未定義: ${taskId}`)
-          continue
-        }
+                  const result = yield* pipe(
+                    Effect.gen(function* () {
+                      // タスク実行
+                      const startTime = yield* Clock.currentTimeMillis
+                      const result = yield* executor
+                      const endTime = yield* Clock.currentTimeMillis
 
-        // リソース割り当て
-        const allocation = yield* allocateResources(taskId, {
-          cpu: 0.25,
-          memory: 512,
-          io: 0.1,
-        })
+                      // 実行履歴記録
+                      yield* Ref.update(executionHistory, (history) => [
+                        ...history,
+                        { taskId, startTime, endTime, result },
+                      ])
 
-        yield* pipe(
-          Effect.gen(function* () {
-            // タスク実行
-            const startTime = yield* Clock.currentTimeMillis
-            const result = yield* taskExecutors[taskId]
-            const endTime = yield* Clock.currentTimeMillis
+                      yield* Effect.logInfo(`タスク完了: ${taskId} (${endTime - startTime}ms)`)
+                      return result
+                    }),
+                    Effect.ensuring(releaseResources(taskId))
+                  )
 
-            results[taskId] = result
-
-            // 実行履歴記録
-            yield* Ref.update(executionHistory, (history) => [...history, { taskId, startTime, endTime, result }])
-
-            yield* Effect.logInfo(`タスク完了: ${taskId} (${endTime - startTime}ms)`)
-          }),
-          Effect.ensuring(releaseResources(taskId))
+                  return { ...acc, [taskId]: result }
+                }),
+            })
+          )
         )
-      }
+      )
 
       yield* Effect.logInfo(`調整実行完了: ${Object.keys(results).length}タスク`)
       return results
@@ -321,18 +337,19 @@ const makeDependencyCoordinatorService = Effect.gen(function* () {
       const currentPool = yield* Ref.get(resourcePool)
 
       // リソース可用性チェック
-      if (
+      const hasInsufficientResources =
         currentPool.cpuCapacity < requirements.cpu ||
         currentPool.memoryCapacity < requirements.memory ||
         currentPool.ioCapacity < requirements.io
-      ) {
-        return yield* Effect.fail({
+
+      yield* Effect.when(hasInsufficientResources, () =>
+        Effect.fail({
           _tag: 'DependencyCoordinatorError' as const,
           message: `リソース不足: ${taskId}`,
           coordinationId: 'resource-allocation',
           nodeId: taskId,
         })
-      }
+      )
 
       const allocation: Schema.Schema.Type<typeof ResourceAllocation> = {
         _tag: 'ResourceAllocation',
@@ -362,28 +379,31 @@ const makeDependencyCoordinatorService = Effect.gen(function* () {
   const releaseResources = (taskId: string) =>
     Effect.gen(function* () {
       const allocs = yield* Ref.get(activeAllocations)
-      const allocation = allocs.get(taskId)
 
-      if (!allocation) {
-        yield* Effect.logWarning(`割り当て情報が見つかりません: ${taskId}`)
-        return
-      }
+      yield* pipe(
+        Option.fromNullable(allocs.get(taskId)),
+        Option.match({
+          onNone: () => Effect.logWarning(`割り当て情報が見つかりません: ${taskId}`),
+          onSome: (allocation) =>
+            Effect.gen(function* () {
+              // リソース解放
+              yield* Ref.update(resourcePool, (pool) => ({
+                ...pool,
+                cpuCapacity: pool.cpuCapacity + allocation.allocatedCpu,
+                memoryCapacity: pool.memoryCapacity + allocation.allocatedMemory,
+                ioCapacity: pool.ioCapacity + allocation.allocatedIo,
+                activeTasks: pool.activeTasks.filter((id) => id !== taskId),
+              }))
 
-      // リソース解放
-      yield* Ref.update(resourcePool, (pool) => ({
-        ...pool,
-        cpuCapacity: pool.cpuCapacity + allocation.allocatedCpu,
-        memoryCapacity: pool.memoryCapacity + allocation.allocatedMemory,
-        ioCapacity: pool.ioCapacity + allocation.allocatedIo,
-        activeTasks: pool.activeTasks.filter((id) => id !== taskId),
-      }))
+              yield* Ref.update(activeAllocations, (allocs) => {
+                allocs.delete(taskId)
+                return allocs
+              })
 
-      yield* Ref.update(activeAllocations, (allocs) => {
-        allocs.delete(taskId)
-        return allocs
-      })
-
-      yield* Effect.logDebug(`リソース解放: ${taskId}`)
+              yield* Effect.logDebug(`リソース解放: ${taskId}`)
+            }),
+        })
+      )
     })
 
   const detectDeadlock = (graph: Schema.Schema.Type<typeof DependencyGraph>) =>
@@ -408,8 +428,9 @@ const makeDependencyCoordinatorService = Effect.gen(function* () {
       return {
         totalExecutions: history.length,
         activeAllocations: allocs.size,
-        averageExecutionTime:
-          history.length > 0 ? history.reduce((sum, h) => sum + (h.endTime - h.startTime), 0) / history.length : 0,
+        averageExecutionTime: pipe(history.length > 0, (hasHistory) =>
+          hasHistory ? history.reduce((sum, h) => sum + (h.endTime - h.startTime), 0) / history.length : 0
+        ),
         resourceUtilization: {
           cpu: Array.from(allocs.values()).reduce((sum, a) => sum + a.allocatedCpu, 0),
           memory: Array.from(allocs.values()).reduce((sum, a) => sum + a.allocatedMemory, 0),
@@ -439,21 +460,24 @@ const makeDependencyCoordinatorService = Effect.gen(function* () {
         recursionStack.add(nodeId)
 
         const dependencies = nodes.get(nodeId)?.dependencies || []
-        for (const depId of dependencies) {
-          if (dfs(depId, [...path, nodeId])) {
-            return true
-          }
-        }
+        const hasCycle = pipe(
+          dependencies,
+          ReadonlyArray.some((depId) => dfs(depId, [...path, nodeId]))
+        )
+        if (hasCycle) return true
 
         recursionStack.delete(nodeId)
         return false
       }
 
-      for (const nodeId of nodes.keys()) {
-        if (!visited.has(nodeId)) {
-          dfs(nodeId, [])
-        }
-      }
+      pipe(
+        Array.from(nodes.keys()),
+        ReadonlyArray.map((nodeId) => {
+          if (!visited.has(nodeId)) {
+            dfs(nodeId, [])
+          }
+        })
+      )
 
       return cycles
     })
@@ -461,10 +485,12 @@ const makeDependencyCoordinatorService = Effect.gen(function* () {
   const calculateCriticalPathInternal = (nodes: Map<string, Schema.Schema.Type<typeof DependencyNode>>, edges: any[]) =>
     Effect.gen(function* () {
       // 最長経路計算（簡略化）
-      const durations = new Map<string, number>()
-      for (const [nodeId, node] of nodes) {
-        durations.set(nodeId, node.estimatedDuration)
-      }
+      const durations = new Map(
+        pipe(
+          Array.from(nodes.entries()),
+          ReadonlyArray.map(([nodeId, node]) => [nodeId, node.estimatedDuration] as const)
+        )
+      )
 
       // 単純な場合のクリティカルパス（実際はより複雑な計算が必要）
       return Array.from(nodes.keys()).slice(0, 3) // プレースホルダー
@@ -476,37 +502,63 @@ const makeDependencyCoordinatorService = Effect.gen(function* () {
       const adjList = new Map<string, string[]>()
 
       // 初期化
-      for (const nodeId of Object.keys(graph.nodes)) {
-        inDegree.set(nodeId, 0)
-        adjList.set(nodeId, [])
-      }
+      pipe(
+        Object.keys(graph.nodes),
+        ReadonlyArray.map((nodeId) => {
+          inDegree.set(nodeId, 0)
+          adjList.set(nodeId, [])
+        })
+      )
 
       // グラフ構築
-      for (const edge of graph.edges) {
-        adjList.get(edge.from)?.push(edge.to)
-        inDegree.set(edge.to, (inDegree.get(edge.to) || 0) + 1)
+      pipe(
+        graph.edges,
+        ReadonlyArray.map((edge) => {
+          adjList.get(edge.from)?.push(edge.to)
+          inDegree.set(edge.to, (inDegree.get(edge.to) || 0) + 1)
+        })
+      )
+
+      // トポロジカルソート（再帰的キュー処理）
+      const processQueue = (
+        queue: string[],
+        result: string[],
+        inDegree: Map<string, number>,
+        adjList: Map<string, string[]>
+      ): string[] => {
+        if (queue.length === 0) return result
+
+        const current = queue[0]
+        const newQueue = queue.slice(1)
+        const newResult = [...result, current]
+
+        const neighbors = adjList.get(current) || []
+        const { updatedQueue, updatedInDegree } = pipe(
+          neighbors,
+          ReadonlyArray.reduce({ updatedQueue: newQueue, updatedInDegree: inDegree }, (acc, neighbor) => {
+            const newDegree = (acc.updatedInDegree.get(neighbor) || 0) - 1
+            acc.updatedInDegree.set(neighbor, newDegree)
+
+            if (newDegree === 0) {
+              return {
+                updatedQueue: [...acc.updatedQueue, neighbor],
+                updatedInDegree: acc.updatedInDegree,
+              }
+            }
+            return acc
+          })
+        )
+
+        return processQueue(updatedQueue, newResult, updatedInDegree, adjList)
       }
 
-      // トポロジカルソート
-      const queue = Array.from(inDegree.entries())
-        .filter(([_, degree]) => degree === 0)
-        .map(([nodeId, _]) => nodeId)
+      const initialQueue = pipe(
+        Array.from(inDegree.entries()),
+        ReadonlyArray.filter(([_, degree]) => degree === 0),
+        ReadonlyArray.map(([nodeId, _]) => nodeId)
+      )
 
-      const result: string[] = []
-
-      while (queue.length > 0) {
-        const current = queue.shift()!
-        result.push(current)
-
-        for (const neighbor of adjList.get(current) || []) {
-          const newDegree = (inDegree.get(neighbor) || 0) - 1
-          inDegree.set(neighbor, newDegree)
-
-          if (newDegree === 0) {
-            queue.push(neighbor)
-          }
-        }
-      }
+      const result = processQueue(initialQueue, [], inDegree, adjList)
 
       return result
     })

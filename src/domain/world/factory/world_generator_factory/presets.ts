@@ -18,7 +18,7 @@
  * - Experimental: 実験的機能設定
  */
 
-import { Clock, Effect, Function, Option, Schema } from 'effect'
+import { Clock, Effect, Function, Match, Option, Schema } from 'effect'
 import type { CreateWorldGeneratorParams, FactoryError, PresetType } from './index'
 import { PresetRegistryService } from './preset_registry_service'
 
@@ -138,22 +138,26 @@ export const checkPresetCompatibility = (
   Effect.gen(function* () {
     const preset = yield* getPreset(type)
 
-    // バージョンチェック（簡易実装）
-    if (requirements.minecraftVersion && preset.compatibility.minecraftVersion !== requirements.minecraftVersion) {
-      return false
-    }
+    // 互換性チェック（Match.whenチェーン）
+    const isCompatible = Function.pipe(
+      Match.value({ preset, requirements }),
+      Match.when(
+        ({ preset, requirements }) =>
+          requirements.minecraftVersion && preset.compatibility.minecraftVersion !== requirements.minecraftVersion,
+        () => false
+      ),
+      Match.when(
+        ({ preset, requirements }) => requirements.needsModSupport && !preset.compatibility.modSupport,
+        () => false
+      ),
+      Match.when(
+        ({ preset, requirements }) => !requirements.allowExperimental && preset.compatibility.experimentalFeatures,
+        () => false
+      ),
+      Match.orElse(() => true)
+    )
 
-    // MODサポートチェック
-    if (requirements.needsModSupport && !preset.compatibility.modSupport) {
-      return false
-    }
-
-    // 実験的機能チェック
-    if (!requirements.allowExperimental && preset.compatibility.experimentalFeatures) {
-      return false
-    }
-
-    return true
+    return isCompatible
   })
 
 /**
@@ -172,22 +176,18 @@ export const getRecommendedPreset = (requirements: {
       allPresets.map((type) =>
         Effect.gen(function* () {
           const preset = yield* getPreset(type)
-          let score = 0
 
-          // パフォーマンス一致度
-          if (preset.performance.cpuUsage === requirements.performance) score += 3
+          const performanceScore = preset.performance.cpuUsage === requirements.performance ? 3 : 0
+          const qualityScore = preset.generation.qualityLevel === requirements.quality ? 3 : 0
 
-          // 品質一致度
-          if (preset.generation.qualityLevel === requirements.quality) score += 3
-
-          // 機能一致度
           const availableFeatures = Object.entries(preset.features)
             .filter(([_, enabled]) => enabled)
             .map(([feature, _]) => feature)
 
           const matchingFeatures = requirements.features.filter((feature) => availableFeatures.includes(feature))
+          const featureScore = matchingFeatures.length
 
-          score += matchingFeatures.length
+          const score = performanceScore + qualityScore + featureScore
 
           return { type, score }
         })
@@ -197,14 +197,18 @@ export const getRecommendedPreset = (requirements: {
     // 最高スコアのプリセットを返す
     const best = scores.reduce((max, current) => (current.score > max.score ? current : max))
 
-    if (best.score === 0) {
-      return yield* Effect.fail(
-        new FactoryError({
-          category: 'parameter_validation',
-          message: 'No suitable preset found for requirements',
-        })
-      )
-    }
+    yield* Function.pipe(
+      Match.value(best.score),
+      Match.when(0, () =>
+        Effect.fail(
+          new FactoryError({
+            category: 'parameter_validation',
+            message: 'No suitable preset found for requirements',
+          })
+        )
+      ),
+      Match.orElse(() => Effect.void)
+    )
 
     return best.type
   })

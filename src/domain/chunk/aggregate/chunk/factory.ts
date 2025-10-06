@@ -7,7 +7,7 @@ import {
   type ChunkData,
   type ChunkId,
   type ChunkPosition,
-  type WorldCoordinate,
+  type LocalCoordinate,
   ChunkBoundsError,
   ChunkDataSchema,
   ChunkSerializationError,
@@ -29,14 +29,14 @@ const isValidCoordinate = (x: number, y: number, z: number): boolean =>
   x >= 0 && x < CHUNK_SIZE && y >= CHUNK_MIN_Y && y < CHUNK_MAX_Y && z >= 0 && z < CHUNK_SIZE
 
 const ensureCoordinateBounds = (
-  x: WorldCoordinate,
-  y: WorldCoordinate,
-  z: WorldCoordinate
+  x: LocalCoordinate,
+  y: LocalCoordinate,
+  z: LocalCoordinate
 ): Effect.Effect<
   {
-    readonly x: WorldCoordinate
-    readonly y: WorldCoordinate
-    readonly z: WorldCoordinate
+    readonly x: LocalCoordinate
+    readonly y: LocalCoordinate
+    readonly z: LocalCoordinate
     readonly index: number
   },
   ChunkBoundsError
@@ -58,19 +58,19 @@ const ensureCoordinateBounds = (
     Effect.map((coords) => ({ ...coords, index: getBlockIndex(coords.x, coords.y, coords.z) }))
   )
 
-const computeNormalizedBounds = (start: WorldCoordinate, end: WorldCoordinate, min: number, max: number) => {
+const computeNormalizedBounds = (start: LocalCoordinate, end: LocalCoordinate, min: number, max: number) => {
   const low = Math.max(min, Math.min(start, end))
   const high = Math.min(max, Math.max(start, end))
   return { low, high }
 }
 
 const regionRanges = (
-  startX: WorldCoordinate,
-  startY: WorldCoordinate,
-  startZ: WorldCoordinate,
-  endX: WorldCoordinate,
-  endY: WorldCoordinate,
-  endZ: WorldCoordinate
+  startX: LocalCoordinate,
+  startY: LocalCoordinate,
+  startZ: LocalCoordinate,
+  endX: LocalCoordinate,
+  endY: LocalCoordinate,
+  endZ: LocalCoordinate
 ): Effect.Effect<
   {
     readonly xRange: ReadonlyArray<number>
@@ -108,9 +108,9 @@ const updateTimestamp = (metadata: ChunkMetadata, timestamp: number): ChunkMetad
 
 const buildAggregate = (state: ChunkData): ChunkAggregate => {
   const getBlock = (
-    x: WorldCoordinate,
-    y: WorldCoordinate,
-    z: WorldCoordinate
+    x: LocalCoordinate,
+    y: LocalCoordinate,
+    z: LocalCoordinate
   ): Effect.Effect<BlockId, ChunkBoundsError> =>
     pipe(
       ensureCoordinateBounds(x, y, z),

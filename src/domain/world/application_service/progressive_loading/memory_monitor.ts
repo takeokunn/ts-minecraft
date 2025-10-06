@@ -1,4 +1,4 @@
-import { Clock, Context, Effect, Layer, Ref, Schema } from 'effect'
+import { Clock, Context, Effect, Layer, Match, Option, pipe, ReadonlyArray, Ref, Schema } from 'effect'
 
 /**
  * Memory Monitor Service
@@ -234,17 +234,19 @@ const makeMemoryMonitorService = Effect.gen(function* () {
   const startMonitoring = () =>
     Effect.gen(function* () {
       const isActive = yield* Ref.get(isMonitoring)
-      if (isActive) {
-        yield* Effect.logWarning('メモリ監視は既に開始されています')
-        return
-      }
 
-      yield* Ref.set(isMonitoring, true)
+      yield* Effect.when(isActive, () => Effect.logWarning('メモリ監視は既に開始されています'))
 
-      // 監視ループを開始
-      yield* Effect.fork(monitoringLoop())
+      yield* Effect.when(!isActive, () =>
+        Effect.gen(function* () {
+          yield* Ref.set(isMonitoring, true)
 
-      yield* Effect.logInfo('メモリ監視開始')
+          // 監視ループを開始
+          yield* Effect.fork(monitoringLoop())
+
+          yield* Effect.logInfo('メモリ監視開始')
+        })
+      )
     })
 
   const stopMonitoring = () =>
@@ -267,11 +269,15 @@ const makeMemoryMonitorService = Effect.gen(function* () {
 
       const usageRatio = metrics.usedMemory / metrics.totalMemory
 
-      if (usageRatio >= config.thresholds.criticalPressure) return 'critical'
-      if (usageRatio >= config.thresholds.highPressure) return 'high'
-      if (usageRatio >= config.thresholds.mediumPressure) return 'medium'
-      if (usageRatio >= config.thresholds.lowPressure) return 'low'
-      return 'none'
+      // ルールベース判定（Match.whenで実装）
+      return pipe(
+        Match.value(usageRatio),
+        Match.when(Match.number.greaterThanOrEqualTo(config.thresholds.criticalPressure), () => 'critical' as const),
+        Match.when(Match.number.greaterThanOrEqualTo(config.thresholds.highPressure), () => 'high' as const),
+        Match.when(Match.number.greaterThanOrEqualTo(config.thresholds.mediumPressure), () => 'medium' as const),
+        Match.when(Match.number.greaterThanOrEqualTo(config.thresholds.lowPressure), () => 'low' as const),
+        Match.orElse(() => 'none' as const)
+      )
     })
 
   const allocateMemory = (request: Schema.Schema.Type<typeof AllocationRequest>) =>
@@ -282,13 +288,14 @@ const makeMemoryMonitorService = Effect.gen(function* () {
 
       // メモリプレッシャーチェック
       const pressureLevel = yield* getPressureLevel()
-      if (pressureLevel === 'critical' && request.priority !== 'critical') {
-        return yield* Effect.fail({
+
+      yield* Effect.when(pressureLevel === 'critical' && request.priority !== 'critical', () =>
+        Effect.fail({
           _tag: 'MemoryMonitorError' as const,
           message: 'メモリプレッシャーが高いため割り当てを拒否しました',
           monitorId: allocationId,
         })
-      }
+      )
 
       // 割り当て記録
       yield* Ref.update(allocations, (map) => map.set(allocationId, { request, timestamp: now }))
@@ -311,27 +318,31 @@ const makeMemoryMonitorService = Effect.gen(function* () {
       const allocMap = yield* Ref.get(allocations)
       const allocation = allocMap.get(allocationId)
 
-      if (!allocation) {
-        yield* Effect.logWarning(`割り当てIDが見つかりません: ${allocationId}`)
-        return
-      }
+      yield* pipe(
+        Option.fromNullable(allocation),
+        Option.match({
+          onNone: () => Effect.logWarning(`割り当てIDが見つかりません: ${allocationId}`),
+          onSome: (alloc) =>
+            Effect.gen(function* () {
+              // プール更新
+              yield* updatePoolAllocation(alloc.request.poolType, alloc.request.size, false)
 
-      // プール更新
-      yield* updatePoolAllocation(allocation.request.poolType, allocation.request.size, false)
+              // 割り当て記録削除
+              yield* Ref.update(allocations, (map) => {
+                map.delete(allocationId)
+                return map
+              })
 
-      // 割り当て記録削除
-      yield* Ref.update(allocations, (map) => {
-        map.delete(allocationId)
-        return map
-      })
+              // 統計更新
+              yield* Ref.update(statistics, (stats) => ({
+                ...stats,
+                totalDeallocations: stats.totalDeallocations + 1,
+              }))
 
-      // 統計更新
-      yield* Ref.update(statistics, (stats) => ({
-        ...stats,
-        totalDeallocations: stats.totalDeallocations + 1,
-      }))
-
-      yield* Effect.logDebug(`メモリ解放: ${allocationId}`)
+              yield* Effect.logDebug(`メモリ解放: ${allocationId}`)
+            }),
+        })
+      )
     })
 
   const triggerGarbageCollection = (aggressive: boolean) =>
@@ -356,12 +367,13 @@ const makeMemoryMonitorService = Effect.gen(function* () {
 
       const pools = yield* Ref.get(memoryPools)
 
-      for (const [poolId, pool] of pools) {
-        // 断片化率が高い場合はコンパクション
-        if (pool.fragmentationRatio > 0.3) {
-          yield* compactMemoryPool(poolId)
-        }
-      }
+      // for文 → ReadonlyArray.forEach
+      yield* pipe(
+        Array.from(pools.entries()),
+        ReadonlyArray.forEach(([poolId, pool]) =>
+          Effect.when(pool.fragmentationRatio > 0.3, () => compactMemoryPool(poolId))
+        )
+      )
 
       yield* Effect.logInfo('メモリプール最適化完了')
     })
@@ -370,28 +382,44 @@ const makeMemoryMonitorService = Effect.gen(function* () {
     Effect.gen(function* () {
       yield* Effect.logWarning('緊急メモリクリーンアップ実行')
 
-      let freedBytes = 0
+      const allocMap = yield* Ref.get(allocations)
 
       // 低優先度割り当ての強制解放
-      const allocMap = yield* Ref.get(allocations)
       const lowPriorityAllocs = Array.from(allocMap.entries()).filter(([_, alloc]) => alloc.request.priority === 'low')
 
-      for (const [allocId, _] of lowPriorityAllocs) {
-        yield* deallocateMemory(allocId)
-        freedBytes += _.request.size
-      }
+      const lowPriorityFreed = yield* pipe(
+        lowPriorityAllocs,
+        Effect.forEach(
+          ([allocId, alloc]) =>
+            Effect.gen(function* () {
+              yield* deallocateMemory(allocId)
+              return alloc.request.size
+            }),
+          { concurrency: 'unbounded' }
+        ),
+        Effect.map((sizes) => sizes.reduce((sum, size) => sum + size, 0))
+      )
 
       // 一時的割り当ての強制解放
       const tempAllocs = Array.from(allocMap.entries()).filter(([_, alloc]) => alloc.request.lifetime === 'temporary')
 
-      for (const [allocId, _] of tempAllocs) {
-        yield* deallocateMemory(allocId)
-        freedBytes += _.request.size
-      }
+      const tempFreed = yield* pipe(
+        tempAllocs,
+        Effect.forEach(
+          ([allocId, alloc]) =>
+            Effect.gen(function* () {
+              yield* deallocateMemory(allocId)
+              return alloc.request.size
+            }),
+          { concurrency: 'unbounded' }
+        ),
+        Effect.map((sizes) => sizes.reduce((sum, size) => sum + size, 0))
+      )
 
       // アグレッシブGC
       yield* triggerGarbageCollection(true)
 
+      const freedBytes = lowPriorityFreed + tempFreed
       yield* Effect.logWarning(`緊急クリーンアップ完了: ${freedBytes}バイト解放`)
       return freedBytes
     })
@@ -432,34 +460,41 @@ const makeMemoryMonitorService = Effect.gen(function* () {
       yield* Effect.repeat(
         Effect.gen(function* () {
           const isActive = yield* Ref.get(isMonitoring)
-          if (!isActive) return false
 
-          // メトリクス収集
-          const metrics = yield* collectMemoryMetrics()
-          yield* Ref.set(currentMetrics, metrics)
+          return yield* pipe(
+            isActive,
+            Match.value,
+            Match.when(false, () => Effect.succeed(false)),
+            Match.when(true, () =>
+              Effect.gen(function* () {
+                // メトリクス収集
+                const metrics = yield* collectMemoryMetrics()
+                yield* Ref.set(currentMetrics, metrics)
 
-          // プレッシャーレベル判定
-          const pressureLevel = yield* getPressureLevel()
+                // プレッシャーレベル判定
+                const pressureLevel = yield* getPressureLevel()
 
-          // アラート生成
-          if (pressureLevel !== 'none') {
-            yield* generateAlert(pressureLevel, metrics)
-          }
+                // アラート生成
+                yield* Effect.when(pressureLevel !== 'none', () => generateAlert(pressureLevel, metrics))
 
-          // 自動GC判定
-          if (config.autoGCEnabled) {
-            const usageRatio = metrics.usedMemory / metrics.totalMemory
-            if (usageRatio >= config.gcTriggerThreshold) {
-              yield* triggerGarbageCollection(false)
-            }
-          }
+                // 自動GC判定
+                yield* Effect.when(config.autoGCEnabled, () =>
+                  Effect.gen(function* () {
+                    const usageRatio = metrics.usedMemory / metrics.totalMemory
+                    yield* Effect.when(usageRatio >= config.gcTriggerThreshold, () => triggerGarbageCollection(false))
+                  })
+                )
 
-          // 緊急クリーンアップ判定
-          if (config.emergencyCleanupEnabled && pressureLevel === 'critical') {
-            yield* emergencyCleanup()
-          }
+                // 緊急クリーンアップ判定
+                yield* Effect.when(config.emergencyCleanupEnabled && pressureLevel === 'critical', () =>
+                  emergencyCleanup()
+                )
 
-          return true
+                return true
+              })
+            ),
+            Match.exhaustive
+          )
         }),
         { schedule: Effect.Schedule.spaced(`${config.monitoringInterval} millis`) }
       )
@@ -503,20 +538,19 @@ const makeMemoryMonitorService = Effect.gen(function* () {
       yield* Effect.logWarning(`メモリアラート: ${alert.message}`)
     })
 
-  const getSuggestedActions = (level: MemoryPressureLevel): string[] => {
-    switch (level) {
-      case 'low':
-        return ['一時ファイルのクリーンアップを検討']
-      case 'medium':
-        return ['キャッシュサイズの縮小', '未使用リソースの解放']
-      case 'high':
-        return ['アグレッシブキャッシュクリア', 'バックグラウンドタスクの停止']
-      case 'critical':
-        return ['緊急メモリクリーンアップ', '重要でない機能の無効化', 'アプリケーション再起動の検討']
-      default:
-        return []
-    }
-  }
+  const getSuggestedActions = (level: MemoryPressureLevel): string[] =>
+    pipe(
+      Match.value(level),
+      Match.when('low', () => ['一時ファイルのクリーンアップを検討']),
+      Match.when('medium', () => ['キャッシュサイズの縮小', '未使用リソースの解放']),
+      Match.when('high', () => ['アグレッシブキャッシュクリア', 'バックグラウンドタスクの停止']),
+      Match.when('critical', () => [
+        '緊急メモリクリーンアップ',
+        '重要でない機能の無効化',
+        'アプリケーション再起動の検討',
+      ]),
+      Match.orElse(() => [])
+    )
 
   const updatePoolAllocation = (
     poolType: Schema.Schema.Type<typeof AllocationRequest>['poolType'],
@@ -524,9 +558,11 @@ const makeMemoryMonitorService = Effect.gen(function* () {
     allocate: boolean
   ) =>
     Effect.gen(function* () {
+      const now = yield* Clock.currentTimeMillis
+
       yield* Ref.update(memoryPools, (pools) => {
         const poolId = `pool_${poolType}`
-        const pool = pools.get(poolId) || createDefaultPool(poolId, poolType)
+        const pool = pools.get(poolId) || createDefaultPool(poolId, poolType, now)
 
         const updatedPool = {
           ...pool,
@@ -554,20 +590,28 @@ const makeMemoryMonitorService = Effect.gen(function* () {
 
       yield* Ref.update(memoryPools, (pools) => {
         const pool = pools.get(poolId)
-        if (pool) {
-          pools.set(poolId, {
-            ...pool,
-            fragmentationRatio: 0.1, // コンパクション後は断片化が減少
-            lastCompaction: now,
+
+        return pipe(
+          Option.fromNullable(pool),
+          Option.match({
+            onNone: () => pools,
+            onSome: (p) => {
+              pools.set(poolId, {
+                ...p,
+                fragmentationRatio: 0.1, // コンパクション後は断片化が減少
+                lastCompaction: now,
+              })
+              return pools
+            },
           })
-        }
-        return pools
+        )
       })
     })
 
   const createDefaultPool = (
     poolId: string,
-    poolType: Schema.Schema.Type<typeof AllocationRequest>['poolType']
+    poolType: Schema.Schema.Type<typeof AllocationRequest>['poolType'],
+    timestamp: number
   ): Schema.Schema.Type<typeof MemoryPool> => ({
     _tag: 'MemoryPool',
     poolId,
@@ -577,7 +621,7 @@ const makeMemoryMonitorService = Effect.gen(function* () {
     allocatedItems: 0,
     freeItems: 100,
     fragmentationRatio: 0,
-    lastCompaction: yield* Clock.currentTimeMillis,
+    lastCompaction: timestamp,
   })
 
   return MemoryMonitorService.of({

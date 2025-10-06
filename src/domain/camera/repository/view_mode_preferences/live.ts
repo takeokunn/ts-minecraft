@@ -5,7 +5,7 @@
  * プレイヤー設定、学習アルゴリズム、統計分析、推奨システムの統合実装
  */
 
-import { Array, Clock, Data, Effect, Either, HashMap, Layer, Match, Option, pipe, Ref } from 'effect'
+import { Array, Clock, Data, Effect, Either, HashMap, Layer, Match, Option, pipe, Ref, Schema } from 'effect'
 import type { ViewMode } from '../../value_object/index'
 import type {
   AdaptiveAdjustments,
@@ -40,6 +40,7 @@ import {
   isPreferenceNotFoundError,
   isRecordNotFoundError,
   isStorageError,
+  PreferenceExportDataSchema,
 } from './index'
 
 // ========================================
@@ -561,16 +562,21 @@ export const ViewModePreferencesRepositoryLive = Layer.effect(
             const state = yield* Ref.get(storageRef)
             const preference = HashMap.get(state.playerPreferences, playerId)
 
-            if (Option.isNone(preference)) {
-              // デフォルト設定を返す
-              const defaultPreference = yield* createDefaultPreferences.viewModePreference(playerId)
-              yield* Ref.updateEffect(storageRef, (currentState) =>
-                StorageOps.savePlayerPreference(currentState, playerId, defaultPreference)
-              )
-              return defaultPreference
-            }
-
-            return preference.value
+            return yield* pipe(
+              preference,
+              Option.match({
+                onNone: () =>
+                  Effect.gen(function* () {
+                    // デフォルト設定を返す
+                    const defaultPreference = yield* createDefaultPreferences.viewModePreference(playerId)
+                    yield* Ref.updateEffect(storageRef, (currentState) =>
+                      StorageOps.savePlayerPreference(currentState, playerId, defaultPreference)
+                    )
+                    return defaultPreference
+                  }),
+                onSome: (pref) => Effect.succeed(pref),
+              })
+            )
           }).pipe(handlePreferencesOperation),
 
         deletePlayerPreference: (playerId: PlayerId) =>
@@ -684,18 +690,24 @@ export const ViewModePreferencesRepositoryLive = Layer.effect(
             const cacheKey = CacheKeys.analyticsKey(playerId, timeRange)
 
             const cached = HashMap.get(state.statisticsCache, cacheKey)
-            if (Option.isSome(cached)) {
-              return cached.value
-            }
 
-            const analytics = StorageOps.calculatePlayerAnalytics(state, playerId, timeRange)
+            return yield* pipe(
+              cached,
+              Option.match({
+                onNone: () =>
+                  Effect.gen(function* () {
+                    const analytics = StorageOps.calculatePlayerAnalytics(state, playerId, timeRange)
 
-            yield* Ref.update(storageRef, (currentState) => ({
-              ...currentState,
-              statisticsCache: HashMap.set(currentState.statisticsCache, cacheKey, analytics),
-            }))
+                    yield* Ref.update(storageRef, (currentState) => ({
+                      ...currentState,
+                      statisticsCache: HashMap.set(currentState.statisticsCache, cacheKey, analytics),
+                    }))
 
-            return analytics
+                    return analytics
+                  }),
+                onSome: (value) => Effect.succeed(value),
+              })
+            )
           }).pipe(handlePreferencesOperation),
 
         getRecommendedViewMode: (playerId: PlayerId, context: GameContext, currentTime: number) =>
@@ -863,12 +875,21 @@ export const ViewModePreferencesRepositoryLive = Layer.effect(
               modeUsage.set(record.viewMode, (modeUsage.get(record.viewMode) || 0) + 1)
             })
 
-            for (const [context, modeMap] of contextUsage.entries()) {
-              const mostUsedMode = Array.from(modeMap.entries()).sort((a, b) => b[1] - a[1])[0]?.[0]
-              if (mostUsedMode) {
-                contextPreferences.set(context, mostUsedMode)
-              }
-            }
+            // HashMap.entries を関数型スタイルで処理
+            pipe(
+              Array.from(contextUsage.entries()),
+              ReadonlyArray.forEach(([context, modeMap]) => {
+                const mostUsedMode = pipe(
+                  Array.from(modeMap.entries()),
+                  ReadonlyArray.sort((a, b) => b[1] - a[1]),
+                  ReadonlyArray.head,
+                  Option.map(([mode]) => mode)
+                )
+                if (Option.isSome(mostUsedMode)) {
+                  contextPreferences.set(context, mostUsedMode.value)
+                }
+              })
+            )
 
             const lastLearned = yield* Clock.currentTimeMillis
             const patterns: LearnedPatterns = {
@@ -892,23 +913,27 @@ export const ViewModePreferencesRepositoryLive = Layer.effect(
           Effect.gen(function* () {
             yield* Ref.update(storageRef, (state) => {
               // 記録を見つけて満足度を更新
-              let updatedState = state
-              for (const [playerId, records] of HashMap.entries(state.usageRecords)) {
-                const recordIndex = records.findIndex((r) => r.id === recordId)
-                if (recordIndex !== -1) {
-                  const updatedRecords = [...records]
-                  updatedRecords[recordIndex] = {
-                    ...updatedRecords[recordIndex],
-                    satisfactionScore: Option.some(score),
-                  }
-                  updatedState = {
-                    ...updatedState,
-                    usageRecords: HashMap.set(updatedState.usageRecords, playerId, updatedRecords),
-                  }
-                  break
-                }
-              }
-              return updatedState
+              const updatedEntry = pipe(
+                Array.from(HashMap.entries(state.usageRecords)),
+                ReadonlyArray.findFirst(([, records]) => records.some((r) => r.id === recordId)),
+                Option.map(([playerId, records]) => {
+                  const updatedRecords = pipe(
+                    records,
+                    ReadonlyArray.map((record) =>
+                      record.id === recordId ? { ...record, satisfactionScore: Option.some(score) } : record
+                    )
+                  )
+                  return [playerId, updatedRecords] as const
+                })
+              )
+
+              return Option.match(updatedEntry, {
+                onNone: () => state,
+                onSome: ([playerId, updatedRecords]) => ({
+                  ...state,
+                  usageRecords: HashMap.set(state.usageRecords, playerId, updatedRecords),
+                }),
+              })
             })
             yield* Effect.logDebug(`Satisfaction feedback recorded: ${recordId} -> ${score}`)
           }).pipe(handlePreferencesOperation),
@@ -966,28 +991,36 @@ export const ViewModePreferencesRepositoryLive = Layer.effect(
             let totalDeleted = 0
 
             yield* Ref.update(storageRef, (state) => {
-              let updatedState = state
+              const { updatedRecords, totalDeleted: deleted } = pipe(
+                Array.from(HashMap.entries(state.usageRecords)),
+                ReadonlyArray.reduce(
+                  { updatedRecords: state.usageRecords, totalDeleted: 0 },
+                  ({ updatedRecords, totalDeleted }, [playerId, records]) => {
+                    const filteredRecords = pipe(
+                      records,
+                      ReadonlyArray.sort((a, b) => b.timestamp - a.timestamp),
+                      ReadonlyArray.filter((record) => record.timestamp >= cutoffTime),
+                      (sorted) =>
+                        keepRecentCount && sorted.length > keepRecentCount
+                          ? ReadonlyArray.take(sorted, keepRecentCount)
+                          : sorted
+                    )
 
-              for (const [playerId, records] of HashMap.entries(state.usageRecords)) {
-                const sortedRecords = [...records].sort((a, b) => b.timestamp - a.timestamp)
-                let filteredRecords = sortedRecords.filter((record) => record.timestamp >= cutoffTime)
+                    return {
+                      updatedRecords: HashMap.set(updatedRecords, playerId, filteredRecords),
+                      totalDeleted: totalDeleted + (records.length - filteredRecords.length),
+                    }
+                  }
+                )
+              )
 
-                if (keepRecentCount && filteredRecords.length > keepRecentCount) {
-                  filteredRecords = filteredRecords.slice(0, keepRecentCount)
-                }
-
-                totalDeleted += records.length - filteredRecords.length
-                updatedState = {
-                  ...updatedState,
-                  usageRecords: HashMap.set(updatedState.usageRecords, playerId, filteredRecords),
-                }
-              }
-
+              totalDeleted = deleted
               return {
-                ...updatedState,
+                ...state,
+                usageRecords: updatedRecords,
                 metadata: {
-                  ...updatedState.metadata,
-                  totalRecords: updatedState.metadata.totalRecords - totalDeleted,
+                  ...state.metadata,
+                  totalRecords: state.metadata.totalRecords - totalDeleted,
                 },
               }
             })
@@ -1028,17 +1061,32 @@ export const ViewModePreferencesRepositoryLive = Layer.effect(
               warnings: [],
             }
 
-            const parseResult = yield* Effect.try({
+            const validatedDataResult = yield* Effect.try({
               try: () => JSON.parse(jsonData),
-              catch: (error) => error,
-            }).pipe(Effect.either)
+              catch: (error) => createViewModePreferencesError.decodingFailed('PreferenceExportData', String(error)),
+            }).pipe(
+              Effect.flatMap(Schema.decodeUnknown(PreferenceExportDataSchema)),
+              Effect.mapError((error) =>
+                createViewModePreferencesError.decodingFailed('PreferenceExportData', String(error))
+              ),
+              Effect.either
+            )
 
-            if (Either.isLeft(parseResult)) {
-              return {
-                ...result,
-                success: false,
-                errors: [String(parseResult.left)],
-              }
+            const validatedData = yield* pipe(
+              validatedDataResult,
+              Either.match({
+                onLeft: (error) =>
+                  Effect.succeed({
+                    ...result,
+                    success: false,
+                    errors: [error._tag === 'DecodingFailed' ? error.reason : String(error)],
+                  }),
+                onRight: (data) => Effect.succeed(data),
+              })
+            )
+
+            if (!validatedData.success) {
+              return validatedData
             }
 
             // 簡易実装: データのインポート処理
@@ -1059,21 +1107,34 @@ export const ViewModePreferencesRepositoryLive = Layer.effect(
               suggestions: [],
             }
 
-            const parseResult = yield* Effect.try({
+            const validationResult = yield* Effect.try({
               try: () => JSON.parse(jsonData),
-              catch: (error) => error,
-            }).pipe(Effect.either)
+              catch: (error) => createViewModePreferencesError.decodingFailed('PreferenceExportData', String(error)),
+            }).pipe(
+              Effect.flatMap(Schema.decodeUnknown(PreferenceExportDataSchema)),
+              Effect.mapError((error) =>
+                createViewModePreferencesError.decodingFailed('PreferenceExportData', String(error))
+              ),
+              Effect.either
+            )
 
-            if (Either.isLeft(parseResult)) {
-              return {
-                ...result,
-                isValid: false,
-                errors: [String(parseResult.left)],
-              }
-            }
-            // 簡易実装: スキーマ検証
-
-            return result
+            return yield* pipe(
+              validationResult,
+              Either.match({
+                onLeft: (error) =>
+                  Effect.succeed({
+                    ...result,
+                    isValid: false,
+                    preferencesValid: false,
+                    errors: [error._tag === 'DecodingFailed' ? error.reason : String(error)],
+                  }),
+                onRight: (_data) =>
+                  Effect.succeed({
+                    ...result,
+                    suggestions: ['Export data structure is valid'],
+                  }),
+              })
+            )
           }).pipe(handlePreferencesOperation),
 
         // ========================================

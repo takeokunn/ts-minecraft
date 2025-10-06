@@ -173,20 +173,24 @@ export const updateProgress = (
 
     const updatedPerformance = yield* calculatePerformanceMetrics(data.performance, updatedStatistics, elapsedTime, now)
 
-    // マイルストーン記録
-    const milestones = [...data.timeTracking.milestones]
+    // マイルストーン記録（for文 → ReadonlyArray.filterMap）
     const milestoneThresholds = [10, 25, 50, 75, 90, 95]
+    const newMilestones = pipe(
+      milestoneThresholds,
+      ReadonlyArray.filterMap((threshold) => {
+        const alreadyRecorded = data.timeTracking.milestones.some((m) => m.percentage === threshold)
+        if (!alreadyRecorded && newCompletionPercentage >= threshold) {
+          return Option.some({
+            percentage: threshold,
+            timestamp: now,
+            chunksCompleted: newCompleted,
+          })
+        }
+        return Option.none()
+      })
+    )
 
-    for (const threshold of milestoneThresholds) {
-      const alreadyRecorded = milestones.some((m) => m.percentage === threshold)
-      if (!alreadyRecorded && newCompletionPercentage >= threshold) {
-        milestones.push({
-          percentage: threshold,
-          timestamp: now,
-          chunksCompleted: newCompleted,
-        })
-      }
-    }
+    const milestones = [...data.timeTracking.milestones, ...newMilestones]
 
     const updatedTimeTracking: TimeTracking = {
       ...data.timeTracking,

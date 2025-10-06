@@ -26,8 +26,7 @@ const makeInitialSnapshot = (): RendererSnapshot => ({
 const updateWithTimestamp = (
   ref: Ref.Ref<RendererSnapshot>,
   mutate: (snapshot: RendererSnapshot, timestamp: number) => RendererSnapshot
-) =>
-  Effect.flatMap(Clock.currentTimeMillis, (timestamp) => Ref.update(ref, (snapshot) => mutate(snapshot, timestamp)))
+) => Effect.flatMap(Clock.currentTimeMillis, (timestamp) => Ref.update(ref, (snapshot) => mutate(snapshot, timestamp)))
 
 export const RendererServiceLive = Layer.effect(
   RendererService,

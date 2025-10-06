@@ -76,6 +76,7 @@ export const ChunkCoordinateSchema = Schema.Struct({
   x: ChunkXSchema,
   z: ChunkZSchema,
 }).pipe(
+  Schema.brand('ChunkCoordinate'),
   Schema.annotations({
     identifier: 'ChunkCoordinate',
     title: 'Chunk 2D Coordinate',
@@ -118,6 +119,7 @@ export const LocalCoordinateSchema = Schema.Struct({
   x: LocalXSchema,
   z: LocalZSchema,
 }).pipe(
+  Schema.brand('LocalCoordinate'),
   Schema.annotations({
     identifier: 'LocalCoordinate',
     title: 'Chunk Local Coordinate',
@@ -150,6 +152,7 @@ export const ChunkSectionCoordinateSchema = Schema.Struct({
   y: ChunkSectionYSchema,
   z: ChunkZSchema,
 }).pipe(
+  Schema.brand('ChunkSectionCoordinate'),
   Schema.annotations({
     identifier: 'ChunkSectionCoordinate',
     title: 'Chunk Section 3D Coordinate',
@@ -209,6 +212,7 @@ export const ChunkBoundsSchema = Schema.Struct({
     z: Schema.Number,
   }),
 }).pipe(
+  Schema.brand('ChunkBounds'),
   Schema.annotations({
     identifier: 'ChunkBounds',
     title: 'Chunk Boundary Information',

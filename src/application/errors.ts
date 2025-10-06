@@ -32,64 +32,75 @@ export type ErrorContext = Schema.Schema.Type<typeof ErrorContext>
 
 // ===== アプリケーション初期化エラー =====
 
-export const GameLoopInitializationFailedError = Schema.TaggedStruct('GameLoopInitializationFailedError', {
-  context: ErrorContext,
-  cause: Schema.String,
-  retryable: Schema.Boolean,
-})
-export type GameLoopInitializationFailedError = Schema.Schema.Type<typeof GameLoopInitializationFailedError>
+export class GameLoopInitializationFailedError extends Schema.TaggedError<GameLoopInitializationFailedError>()(
+  'GameLoopInitializationFailedError',
+  {
+    context: ErrorContext,
+    cause: Schema.String,
+    retryable: Schema.Boolean,
+  }
+) {}
 
-export const RendererInitializationFailedError = Schema.TaggedStruct('RendererInitializationFailedError', {
-  context: ErrorContext,
-  cause: Schema.String,
-  webglVersion: Schema.optional(Schema.Union(Schema.Literal('webgl'), Schema.Literal('webgl2'))),
-  capabilities: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Boolean })),
-})
-export type RendererInitializationFailedError = Schema.Schema.Type<typeof RendererInitializationFailedError>
+export class RendererInitializationFailedError extends Schema.TaggedError<RendererInitializationFailedError>()(
+  'RendererInitializationFailedError',
+  {
+    context: ErrorContext,
+    cause: Schema.String,
+    webglVersion: Schema.optional(Schema.Union(Schema.Literal('webgl'), Schema.Literal('webgl2'))),
+    capabilities: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Boolean })),
+  }
+) {}
 
-export const SceneInitializationFailedError = Schema.TaggedStruct('SceneInitializationFailedError', {
-  context: ErrorContext,
-  sceneType: Schema.optional(Schema.String),
-  cause: Schema.String,
-})
-export type SceneInitializationFailedError = Schema.Schema.Type<typeof SceneInitializationFailedError>
+export class SceneInitializationFailedError extends Schema.TaggedError<SceneInitializationFailedError>()(
+  'SceneInitializationFailedError',
+  {
+    context: ErrorContext,
+    sceneType: Schema.optional(Schema.String),
+    cause: Schema.String,
+  }
+) {}
 
-export const InputInitializationFailedError = Schema.TaggedStruct('InputInitializationFailedError', {
-  context: ErrorContext,
-  deviceType: Schema.optional(
-    Schema.Union(Schema.Literal('keyboard'), Schema.Literal('mouse'), Schema.Literal('gamepad'))
-  ),
-  cause: Schema.String,
-})
-export type InputInitializationFailedError = Schema.Schema.Type<typeof InputInitializationFailedError>
+export class InputInitializationFailedError extends Schema.TaggedError<InputInitializationFailedError>()(
+  'InputInitializationFailedError',
+  {
+    context: ErrorContext,
+    deviceType: Schema.optional(
+      Schema.Union(Schema.Literal('keyboard'), Schema.Literal('mouse'), Schema.Literal('gamepad'))
+    ),
+    cause: Schema.String,
+  }
+) {}
 
-export const ECSInitializationFailedError = Schema.TaggedStruct('ECSInitializationFailedError', {
-  context: ErrorContext,
-  component: Schema.optional(Schema.String),
-  system: Schema.optional(Schema.String),
-  cause: Schema.String,
-})
-export type ECSInitializationFailedError = Schema.Schema.Type<typeof ECSInitializationFailedError>
+export class ECSInitializationFailedError extends Schema.TaggedError<ECSInitializationFailedError>()(
+  'ECSInitializationFailedError',
+  {
+    context: ErrorContext,
+    component: Schema.optional(Schema.String),
+    system: Schema.optional(Schema.String),
+    cause: Schema.String,
+  }
+) {}
 
-export const CanvasNotFoundError = Schema.TaggedStruct('CanvasNotFoundError', {
+export class CanvasNotFoundError extends Schema.TaggedError<CanvasNotFoundError>()('CanvasNotFoundError', {
   context: ErrorContext,
   canvasId: Schema.optional(Schema.String),
   selector: Schema.optional(Schema.String),
-})
-export type CanvasNotFoundError = Schema.Schema.Type<typeof CanvasNotFoundError>
+}) {}
 
 // ===== ランタイムエラー =====
 
-export const SystemCommunicationError = Schema.TaggedStruct('SystemCommunicationError', {
-  context: ErrorContext,
-  sourceSystem: Schema.String,
-  targetSystem: Schema.String,
-  messageType: Schema.String,
-  cause: Schema.String,
-})
-export type SystemCommunicationError = Schema.Schema.Type<typeof SystemCommunicationError>
+export class SystemCommunicationError extends Schema.TaggedError<SystemCommunicationError>()(
+  'SystemCommunicationError',
+  {
+    context: ErrorContext,
+    sourceSystem: Schema.String,
+    targetSystem: Schema.String,
+    messageType: Schema.String,
+    cause: Schema.String,
+  }
+) {}
 
-export const FrameProcessingError = Schema.TaggedStruct('FrameProcessingError', {
+export class FrameProcessingError extends Schema.TaggedError<FrameProcessingError>()('FrameProcessingError', {
   context: ErrorContext,
   frameNumber: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
   deltaTime: Milliseconds,
@@ -100,32 +111,31 @@ export const FrameProcessingError = Schema.TaggedStruct('FrameProcessingError', 
     Schema.Literal('ecs')
   ),
   cause: Schema.String,
-})
-export type FrameProcessingError = Schema.Schema.Type<typeof FrameProcessingError>
+}) {}
 
-export const PerformanceDegradationError = Schema.TaggedStruct('PerformanceDegradationError', {
-  context: ErrorContext,
-  metric: Schema.Union(Schema.Literal('fps'), Schema.Literal('memory'), Schema.Literal('cpu'), Schema.Literal('gpu')),
-  currentValue: Schema.Number,
-  thresholdValue: Schema.Number,
-  severity: Schema.Union(Schema.Literal('warning'), Schema.Literal('critical')),
-})
-export type PerformanceDegradationError = Schema.Schema.Type<typeof PerformanceDegradationError>
+export class PerformanceDegradationError extends Schema.TaggedError<PerformanceDegradationError>()(
+  'PerformanceDegradationError',
+  {
+    context: ErrorContext,
+    metric: Schema.Union(Schema.Literal('fps'), Schema.Literal('memory'), Schema.Literal('cpu'), Schema.Literal('gpu')),
+    currentValue: Schema.Number,
+    thresholdValue: Schema.Number,
+    severity: Schema.Union(Schema.Literal('warning'), Schema.Literal('critical')),
+  }
+) {}
 
-export const MemoryLeakError = Schema.TaggedStruct('MemoryLeakError', {
+export class MemoryLeakError extends Schema.TaggedError<MemoryLeakError>()('MemoryLeakError', {
   context: ErrorContext,
   memoryUsage: MemoryBytes,
   memoryLimit: MemoryBytes,
   leakSource: Schema.optional(Schema.String),
-})
-export type MemoryLeakError = Schema.Schema.Type<typeof MemoryLeakError>
+}) {}
 
-export const WebGLContextLostError = Schema.TaggedStruct('WebGLContextLostError', {
+export class WebGLContextLostError extends Schema.TaggedError<WebGLContextLostError>()('WebGLContextLostError', {
   context: ErrorContext,
   recoverable: Schema.Boolean,
   lastDrawCall: Schema.optional(Schema.String),
-})
-export type WebGLContextLostError = Schema.Schema.Type<typeof WebGLContextLostError>
+}) {}
 
 export type GameApplicationRuntimeError =
   | SystemCommunicationError
@@ -136,28 +146,34 @@ export type GameApplicationRuntimeError =
 
 // ===== 状態管理エラー =====
 
-export const InvalidStateTransitionError = Schema.TaggedStruct('InvalidStateTransitionError', {
-  context: ErrorContext,
-  currentState: Schema.String,
-  attemptedState: Schema.String,
-  validTransitions: Schema.Array(Schema.String),
-})
-export type InvalidStateTransitionError = Schema.Schema.Type<typeof InvalidStateTransitionError>
+export class InvalidStateTransitionError extends Schema.TaggedError<InvalidStateTransitionError>()(
+  'InvalidStateTransitionError',
+  {
+    context: ErrorContext,
+    currentState: Schema.String,
+    attemptedState: Schema.String,
+    validTransitions: Schema.Array(Schema.String),
+  }
+) {}
 
-export const ConfigurationValidationError = Schema.TaggedStruct('ConfigurationValidationError', {
-  context: ErrorContext,
-  field: Schema.String,
-  value: JsonValue,
-  constraint: Schema.String,
-})
-export type ConfigurationValidationError = Schema.Schema.Type<typeof ConfigurationValidationError>
+export class ConfigurationValidationError extends Schema.TaggedError<ConfigurationValidationError>()(
+  'ConfigurationValidationError',
+  {
+    context: ErrorContext,
+    field: Schema.String,
+    value: JsonValue,
+    constraint: Schema.String,
+  }
+) {}
 
-export const SystemSynchronizationError = Schema.TaggedStruct('SystemSynchronizationError', {
-  context: ErrorContext,
-  outOfSyncSystems: Schema.Array(Schema.String),
-  timeDrift: Milliseconds,
-})
-export type SystemSynchronizationError = Schema.Schema.Type<typeof SystemSynchronizationError>
+export class SystemSynchronizationError extends Schema.TaggedError<SystemSynchronizationError>()(
+  'SystemSynchronizationError',
+  {
+    context: ErrorContext,
+    outOfSyncSystems: Schema.Array(Schema.String),
+    timeDrift: Milliseconds,
+  }
+) {}
 
 export type GameApplicationStateError =
   | InvalidStateTransitionError

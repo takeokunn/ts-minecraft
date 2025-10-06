@@ -71,7 +71,9 @@ export const validateCameraState = (state: unknown): Effect.Effect<CameraState, 
 /**
  * カメラモードの検証ヘルパー
  */
-export const validateCameraMode = (mode: unknown): Effect.Effect<Schema.Schema.Type<typeof CameraModeSchema>, CameraError> =>
+export const validateCameraMode = (
+  mode: unknown
+): Effect.Effect<Schema.Schema.Type<typeof CameraModeSchema>, CameraError> =>
   pipe(
     Schema.decodeUnknown(CameraModeSchema)(mode),
     Effect.mapError(() => createCameraError.invalidMode(String(mode), ['first-person', 'third-person']))

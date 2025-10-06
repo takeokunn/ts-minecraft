@@ -7,7 +7,7 @@
 
 import { Clock, Context, Effect, Layer, Match, Option, pipe, Predicate, Ref, Schema } from 'effect'
 import type { EntityId } from './entity'
-import { createEntityId } from './entity'
+import { createEntityId, EntityIdSchema } from './entity'
 import type { System, SystemError, SystemPriority } from './system'
 import { SystemRegistryError, SystemRegistryService } from './system-registry'
 
@@ -19,7 +19,7 @@ export { type EntityId } from './entity'
  */
 export const WorldError = Schema.TaggedStruct('WorldError', {
   message: Schema.String,
-  entityId: Schema.optional(Schema.Number.pipe(Schema.brand('EntityId'))),
+  entityId: Schema.optional(EntityIdSchema),
   componentType: Schema.optional(Schema.String),
   cause: Schema.optional(Schema.Unknown),
 })
@@ -54,7 +54,7 @@ interface ComponentStorage {
  * エンティティメタデータ
  */
 export const EntityMetadata = Schema.Struct({
-  id: Schema.Number.pipe(Schema.brand('EntityId')),
+  id: EntityIdSchema,
   name: Schema.optional(Schema.String),
   tags: Schema.Array(Schema.String),
   createdAt: Schema.Number,

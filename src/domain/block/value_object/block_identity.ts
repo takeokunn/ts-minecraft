@@ -115,14 +115,10 @@ export const makeBlockPosition = (input: { readonly x: number; readonly y: numbe
 // =============================================================================
 
 export const makeBlockTags = (inputs: Iterable<string>) =>
-  Effect.gen(function* () {
-    const resolved: BlockTag[] = []
-    for (const candidate of Array.fromIterable(inputs)) {
-      const tag = yield* makeBlockTag(candidate)
-      resolved.push(tag)
-    }
-    return resolved as ReadonlyArray<BlockTag>
-  })
+  pipe(
+    Array.fromIterable(inputs),
+    Effect.forEach((candidate) => makeBlockTag(candidate))
+  )
 
 // =============================================================================
 // Aggregate Helper

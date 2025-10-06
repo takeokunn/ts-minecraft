@@ -1,8 +1,7 @@
 import { Schema } from 'effect'
 
-export const PlayerIdSchema = Schema.String.pipe(Schema.minLength(1), Schema.brand('PlayerId'))
-export type PlayerId = Schema.Schema.Type<typeof PlayerIdSchema>
-export const PlayerId = (value: string): PlayerId => Schema.decodeUnknownSync(PlayerIdSchema)(value)
+// PlayerIdは専用value_objectから再エクスポート
+export { PlayerIdSchema, type PlayerId } from '@domain/player/value_object/player_id'
 
 export const ItemIdSchema = Schema.String.pipe(Schema.pattern(/^[a-z0-9_:-]+$/i), Schema.brand('ItemId'))
 export type ItemId = Schema.Schema.Type<typeof ItemIdSchema>
@@ -109,10 +108,7 @@ const serializeInventory = (inventory: Inventory) => ({
 
 export const computeChecksum = (inventory: Inventory): string => {
   const json = JSON.stringify(serializeInventory(inventory))
-  let hash = 0
-  for (let i = 0; i < json.length; i += 1) {
-    hash = (hash * 31 + json.charCodeAt(i)) >>> 0
-  }
+  const hash = Array.from(json).reduce((acc, char) => (acc * 31 + char.charCodeAt(0)) >>> 0, 0)
   return hash.toString(16)
 }
 

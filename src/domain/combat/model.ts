@@ -134,10 +134,7 @@ export const updateCombatant = (
   combatantId: CombatantId,
   mutate: (combatant: Combatant) => Effect.Effect<Combatant, CombatDomainError>
 ): Effect.Effect<CombatSession, CombatDomainError> => {
-  const option = ReadonlyArray.findFirst(
-    session.combatants,
-    (candidate) => candidate.id === combatantId
-  )
+  const option = ReadonlyArray.findFirst(session.combatants, (candidate) => candidate.id === combatantId)
   return Option.match(option, {
     onNone: () => Effect.fail(CombatError.combatantNotFound(combatantId)),
     onSome: (current) =>

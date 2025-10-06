@@ -5,7 +5,7 @@
  * Effect-TSパターンに従い、包括的な検証機能を提供します。
  */
 
-import { Effect, Layer } from 'effect'
+import { Effect, HashSet, Layer, pipe, ReadonlyArray } from 'effect'
 import type { Inventory } from '../../types'
 import {
   runAllValidators,
@@ -58,9 +58,14 @@ export const ValidationServiceLive = Layer.succeed(
      */
     validateSlot: (inventory, slotIndex) =>
       Effect.gen(function* () {
-        if (slotIndex < 0 || slotIndex >= inventory.slots.length) {
-          yield* Effect.fail(new ValidationError('INVALID_SLOT_INDEX', `Slot ${slotIndex} out of bounds`))
-        }
+        // Match.whenによる範囲チェック
+        yield* pipe(
+          Match.value(slotIndex >= 0 && slotIndex < inventory.slots.length),
+          Match.when(false, () =>
+            Effect.fail(new ValidationError('INVALID_SLOT_INDEX', `Slot ${slotIndex} out of bounds`))
+          ),
+          Match.orElse(() => Effect.void)
+        )
 
         const violations = yield* validateSingleSlot(inventory, slotIndex)
         const suggestions = yield* generateSlotSuggestions(violations)
@@ -78,25 +83,23 @@ export const ValidationServiceLive = Layer.succeed(
     validateHotbar: (inventory) =>
       Effect.gen(function* () {
         const invalidSlots: number[] = []
-        const duplicateReferences: number[] = []
-        const outOfBoundsReferences: number[] = []
 
         // 重複チェック
-        const seen = new Set<number>()
-        for (const slot of inventory.hotbar) {
-          if (seen.has(slot)) {
-            duplicateReferences.push(slot)
-          } else {
-            seen.add(slot)
-          }
-        }
+        const duplicateResult = pipe(
+          inventory.hotbar,
+          ReadonlyArray.reduce({ seen: HashSet.empty<number>(), duplicates: [] as number[] }, (acc, slot) =>
+            HashSet.has(acc.seen, slot)
+              ? { ...acc, duplicates: [...acc.duplicates, slot] }
+              : { ...acc, seen: HashSet.add(acc.seen, slot) }
+          )
+        )
+        const duplicateReferences = duplicateResult.duplicates
 
         // 範囲外チェック
-        for (const slot of inventory.hotbar) {
-          if (slot < 0 || slot >= 36) {
-            outOfBoundsReferences.push(slot)
-          }
-        }
+        const outOfBoundsReferences = pipe(
+          inventory.hotbar,
+          ReadonlyArray.filter((slot) => slot < 0 || slot >= 36)
+        )
 
         return {
           isValid: duplicateReferences.length === 0 && outOfBoundsReferences.length === 0,
@@ -112,13 +115,6 @@ export const ValidationServiceLive = Layer.succeed(
      */
     validateArmorSlots: (inventory) =>
       Effect.gen(function* () {
-        const issues: Array<{
-          slot: 'helmet' | 'chestplate' | 'leggings' | 'boots'
-          issue: string
-          severity: 'ERROR' | 'WARNING'
-          suggestion?: string
-        }> = []
-
         const armorSlots = [
           { name: 'helmet' as const, item: inventory.armor.helmet },
           { name: 'chestplate' as const, item: inventory.armor.chestplate },
@@ -126,16 +122,20 @@ export const ValidationServiceLive = Layer.succeed(
           { name: 'boots' as const, item: inventory.armor.boots },
         ]
 
-        for (const { name, item } of armorSlots) {
-          if (item !== null && !item.itemId.includes(name)) {
-            issues.push({
-              slot: name,
-              issue: `Invalid armor type: ${item.itemId}`,
-              severity: 'ERROR',
-              suggestion: `Replace with valid ${name} item`,
-            })
-          }
-        }
+        const issues = pipe(
+          armorSlots,
+          ReadonlyArray.filterMap(({ name, item }) =>
+            item !== null && !item.itemId.includes(name)
+              ? ReadonlyArray.of({
+                  slot: name,
+                  issue: `Invalid armor type: ${item.itemId}`,
+                  severity: 'ERROR' as const,
+                  suggestion: `Replace with valid ${name} item`,
+                })
+              : ReadonlyArray.empty()
+          ),
+          ReadonlyArray.flatten
+        )
 
         return {
           isValid: issues.length === 0,
@@ -148,25 +148,59 @@ export const ValidationServiceLive = Layer.succeed(
      */
     autoCorrectIssues: (inventory, suggestions, dryRun = false) =>
       Effect.gen(function* () {
-        const appliedCorrections: CorrectionSuggestion[] = []
-        const failedCorrections: Array<{ suggestion: CorrectionSuggestion; reason: string }> = []
-        let correctedInventory = inventory
+        const automatedSuggestions = pipe(
+          suggestions,
+          ReadonlyArray.filter((s) => s.automated)
+        )
 
-        for (const suggestion of suggestions) {
-          if (suggestion.automated) {
-            try {
-              if (!dryRun) {
-                correctedInventory = yield* applyCorrectionSuggestion(correctedInventory, suggestion)
-              }
-              appliedCorrections.push(suggestion)
-            } catch (error) {
-              failedCorrections.push({
-                suggestion,
-                reason: error instanceof Error ? error.message : 'Unknown error',
-              })
-            }
-          }
-        }
+        const results = yield* Effect.forEach(
+          automatedSuggestions,
+          (suggestion) =>
+            Effect.gen(function* () {
+              // Match.whenによるdryRun分岐
+              return yield* pipe(
+                Match.value(dryRun),
+                Match.when(true, () => Effect.succeed({ type: 'applied' as const, suggestion, inventory })),
+                Match.orElse(() =>
+                  pipe(
+                    applyCorrectionSuggestion(inventory, suggestion),
+                    Effect.map((inv) => ({ type: 'applied' as const, suggestion, inventory: inv })),
+                    Effect.catchAll((error) =>
+                      Effect.succeed({
+                        type: 'failed' as const,
+                        suggestion,
+                        reason: error instanceof Error ? error.message : 'Unknown error',
+                      })
+                    )
+                  )
+                )
+              )
+            }),
+          { concurrency: 'unbounded' }
+        )
+
+        const appliedCorrections = pipe(
+          results,
+          ReadonlyArray.filter((r) => r.type === 'applied'),
+          ReadonlyArray.map((r) => r.suggestion)
+        )
+        const failedCorrections = pipe(
+          results,
+          ReadonlyArray.filterMap((r) =>
+            r.type === 'failed'
+              ? ReadonlyArray.of({ suggestion: r.suggestion, reason: r.reason })
+              : ReadonlyArray.empty()
+          ),
+          ReadonlyArray.flatten
+        )
+        const correctedInventory = pipe(
+          results,
+          ReadonlyArray.findLast((r) => r.type === 'applied'),
+          ReadonlyArray.match({
+            onEmpty: () => inventory,
+            onNonEmpty: (arr) => arr[arr.length - 1].inventory,
+          })
+        )
 
         const impactAnalysis = yield* analyzeImpact(inventory, correctedInventory)
 
@@ -190,24 +224,25 @@ export const ValidationServiceLive = Layer.succeed(
           { name: 'Usability', weight: 0.3, calculator: calculateUsabilityScore },
         ]
 
-        let totalScore = 0
-        const factorResults: Array<{
-          name: string
-          score: number
-          weight: number
-          description: string
-        }> = []
+        const factorResults = yield* Effect.forEach(
+          factors,
+          (factor) =>
+            Effect.gen(function* () {
+              const score = yield* factor.calculator(inventory)
+              return {
+                name: factor.name,
+                score,
+                weight: factor.weight,
+                description: `${factor.name} assessment`,
+              }
+            }),
+          { concurrency: 'unbounded' }
+        )
 
-        for (const factor of factors) {
-          const score = yield* factor.calculator(inventory)
-          totalScore += score * factor.weight
-          factorResults.push({
-            name: factor.name,
-            score,
-            weight: factor.weight,
-            description: `${factor.name} assessment`,
-          })
-        }
+        const totalScore = pipe(
+          factorResults,
+          ReadonlyArray.reduce(0, (acc, result) => acc + result.score * result.weight)
+        )
 
         return {
           score: Math.round(totalScore),
@@ -244,14 +279,21 @@ const generateWarnings = (inventory: Inventory): Effect.Effect<ValidationResult[
     const occupiedSlots = inventory.slots.filter((slot) => slot !== null).length
     const usageRate = occupiedSlots / inventory.slots.length
 
-    if (usageRate > 0.9) {
-      warnings.push({
-        type: 'HIGH_USAGE',
-        description: 'Inventory is nearly full',
-        recommendation: 'Consider consolidating items or using storage',
-        impact: 'USABILITY',
-      })
-    }
+    // Match.whenによる条件付き警告追加
+    yield* pipe(
+      Match.value(usageRate > 0.9),
+      Match.when(true, () =>
+        Effect.sync(() => {
+          warnings.push({
+            type: 'HIGH_USAGE',
+            description: 'Inventory is nearly full',
+            recommendation: 'Consider consolidating items or using storage',
+            impact: 'USABILITY',
+          })
+        })
+      ),
+      Match.orElse(() => Effect.void)
+    )
 
     return warnings
   })
@@ -260,29 +302,29 @@ const generateCorrectionSuggestions = (
   violations: ValidationResult['violations']
 ): Effect.Effect<CorrectionSuggestion[], never> =>
   Effect.gen(function* () {
-    const suggestions: CorrectionSuggestion[] = []
-
-    for (const violation of violations) {
-      if (violation.canAutoCorrect) {
-        suggestions.push({
-          description: `Auto-fix: ${violation.description}`,
-          automated: true,
-          impact: violation.severity === 'CRITICAL' ? 'HIGH' : 'MEDIUM',
-          prerequisites: [],
-          correctionSteps: [
-            {
-              action: 'UPDATE',
-              target: 'SLOT',
-              slotIndex: violation.affectedSlots[0],
-              newValue: violation.expectedValue,
-              reason: violation.description,
-            },
-          ],
-        })
-      }
-    }
-
-    return suggestions
+    return pipe(
+      violations,
+      ReadonlyArray.filterMap((violation) =>
+        violation.canAutoCorrect
+          ? ReadonlyArray.of({
+              description: `Auto-fix: ${violation.description}`,
+              automated: true,
+              impact: violation.severity === 'CRITICAL' ? ('HIGH' as const) : ('MEDIUM' as const),
+              prerequisites: [],
+              correctionSteps: [
+                {
+                  action: 'UPDATE' as const,
+                  target: 'SLOT' as const,
+                  slotIndex: violation.affectedSlots[0],
+                  newValue: violation.expectedValue,
+                  reason: violation.description,
+                },
+              ],
+            })
+          : ReadonlyArray.empty()
+      ),
+      ReadonlyArray.flatten
+    )
   })
 
 const generateValidationSummary = (
@@ -290,9 +332,23 @@ const generateValidationSummary = (
   violations: ValidationResult['violations']
 ): Effect.Effect<ValidationResult['validationSummary'], never> =>
   Effect.gen(function* () {
-    const occupiedSlots = inventory.slots.filter((slot) => slot !== null).length
-    const uniqueItems = new Set(inventory.slots.filter((slot) => slot !== null).map((slot) => slot!.itemId)).size
-    const totalItems = inventory.slots.reduce((sum, slot) => sum + (slot?.count ?? 0), 0)
+    const occupiedSlots = pipe(
+      inventory.slots,
+      ReadonlyArray.filter((slot) => slot !== null)
+    ).length
+
+    const uniqueItems = pipe(
+      inventory.slots,
+      ReadonlyArray.filterMap((slot) => (slot !== null ? ReadonlyArray.of(slot.itemId) : ReadonlyArray.empty())),
+      ReadonlyArray.flatten,
+      (items) => HashSet.fromIterable(items),
+      HashSet.size
+    )
+
+    const totalItems = pipe(
+      inventory.slots,
+      ReadonlyArray.reduce(0, (sum, slot) => sum + (slot?.count ?? 0))
+    )
 
     return {
       totalSlots: inventory.slots.length,
@@ -301,7 +357,10 @@ const generateValidationSummary = (
       uniqueItems,
       totalItems,
       healthScore: violations.length === 0 ? 100 : Math.max(0, 100 - violations.length * 10),
-      recommendedActions: violations.map((v) => v.description),
+      recommendedActions: pipe(
+        violations,
+        ReadonlyArray.map((v) => v.description)
+      ),
     }
   })
 
@@ -313,19 +372,31 @@ const validateSingleSlot = (
     const violations: ValidationResult['violations'] = []
     const slot = inventory.slots[slotIndex]
 
-    if (slot !== null) {
-      if (slot.count <= 0 || slot.count > 64) {
-        violations.push({
-          type: 'INVALID_STACK_SIZE',
-          severity: 'ERROR',
-          description: `Invalid stack size: ${slot.count}`,
-          affectedSlots: [slotIndex],
-          detectedValue: slot.count,
-          expectedValue: 'between 1 and 64',
-          canAutoCorrect: true,
-        })
-      }
-    }
+    // Option.matchによるnullチェック + Match.whenによるスタックサイズ検証
+    yield* pipe(
+      Option.fromNullable(slot),
+      Option.match({
+        onNone: () => Effect.void,
+        onSome: (stackSlot) =>
+          pipe(
+            Match.value(stackSlot.count > 0 && stackSlot.count <= 64),
+            Match.when(false, () =>
+              Effect.sync(() => {
+                violations.push({
+                  type: 'INVALID_STACK_SIZE',
+                  severity: 'ERROR',
+                  description: `Invalid stack size: ${stackSlot.count}`,
+                  affectedSlots: [slotIndex],
+                  detectedValue: stackSlot.count,
+                  expectedValue: 'between 1 and 64',
+                  canAutoCorrect: true,
+                })
+              })
+            ),
+            Match.orElse(() => Effect.void)
+          ),
+      })
+    )
 
     return violations
   })

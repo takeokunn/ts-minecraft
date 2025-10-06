@@ -38,11 +38,7 @@ export type PerformanceMemory = Schema.Schema.Type<typeof PerformanceMemorySchem
 export const getPerformanceMemory = (): Effect.Effect<Option.Option<PerformanceMemory>, never> =>
   Effect.sync(() => {
     const perf = performance as any
-    if (!perf.memory) {
-      return Option.none()
-    }
-
-    return Schema.decodeUnknownOption(PerformanceMemorySchema)(perf.memory)
+    return perf.memory ? Schema.decodeUnknownOption(PerformanceMemorySchema)(perf.memory) : Option.none()
   })
 
 /**

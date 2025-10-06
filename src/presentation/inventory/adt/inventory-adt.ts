@@ -3,13 +3,8 @@ import { Data, Effect, Match, Option, Schema, pipe } from 'effect'
 const decode = <A, I>(schema: Schema.Schema<A, I>) => Schema.decode(schema)
 const decodeSync = <A, I>(schema: Schema.Schema<A, I>) => Schema.decodeSync(schema)
 
-export const PlayerIdSchema = Schema.String.pipe(
-  Schema.minLength(1),
-  Schema.maxLength(64),
-  Schema.pattern(/^[A-Za-z0-9_-]+$/),
-  Schema.brand('PlayerId')
-)
-export type PlayerId = Schema.Schema.Type<typeof PlayerIdSchema>
+// PlayerIdは専用value_objectから再エクスポート
+export { PlayerIdSchema, type PlayerId } from '@domain/player/value_object/player_id'
 export const parsePlayerId = decode(PlayerIdSchema)
 export const playerIdToString = (value: PlayerId): string => value
 
@@ -321,42 +316,32 @@ export type InventoryGUIEvent =
   | ReturnType<typeof QuickMove>
   | ReturnType<typeof QuickDrop>
 
-export interface SlotNotFoundError {
-  readonly _tag: 'SlotNotFoundError'
-  readonly slot: SlotIndex
-}
-export const SlotNotFoundError = Data.tagged<SlotNotFoundError>('SlotNotFoundError')
+export class SlotNotFoundError extends Schema.TaggedError<SlotNotFoundError>()('SlotNotFoundError', {
+  slot: SlotIndexSchema,
+}) {}
 
-export interface InvalidDropError {
-  readonly _tag: 'InvalidDropError'
-  readonly reason: string
-}
-export const InvalidDropError = Data.tagged<InvalidDropError>('InvalidDropError')
+export class InvalidDropError extends Schema.TaggedError<InvalidDropError>()('InvalidDropError', {
+  reason: Schema.String,
+}) {}
 
-export interface AnimationFailedError {
-  readonly _tag: 'AnimationFailedError'
-  readonly slot: SlotIndex
-}
-export const AnimationFailedError = Data.tagged<AnimationFailedError>('AnimationFailedError')
+export class AnimationFailedError extends Schema.TaggedError<AnimationFailedError>()('AnimationFailedError', {
+  slot: SlotIndexSchema,
+}) {}
 
-export interface RenderFailureError {
-  readonly _tag: 'RenderFailureError'
-  readonly message: string
-}
-export const RenderFailureError = Data.tagged<RenderFailureError>('RenderFailureError')
+export class RenderFailureError extends Schema.TaggedError<RenderFailureError>()('RenderFailureError', {
+  message: Schema.String,
+}) {}
 
-export interface DomainFailureError {
-  readonly _tag: 'DomainFailureError'
-  readonly message: string
-}
-export const DomainFailureError = Data.tagged<DomainFailureError>('DomainFailureError')
+export class DomainFailureError extends Schema.TaggedError<DomainFailureError>()('DomainFailureError', {
+  message: Schema.String,
+}) {}
 
 export type InventoryGUIError =
-  | ReturnType<typeof SlotNotFoundError>
-  | ReturnType<typeof InvalidDropError>
-  | ReturnType<typeof AnimationFailedError>
-  | ReturnType<typeof RenderFailureError>
-  | ReturnType<typeof DomainFailureError>
+  | SlotNotFoundError
+  | InvalidDropError
+  | AnimationFailedError
+  | RenderFailureError
+  | DomainFailureError
 
 export type InventoryEventHandler = (event: InventoryGUIEvent) => Effect.Effect<void, InventoryGUIError>
 

@@ -6,25 +6,14 @@ const nonEmptyText = Schema.String.pipe(Schema.minLength(1))
 // Branded Scalar Types
 // -----------------------------------------------------------------------------
 
-export const EntityIdSchema = nonEmptyText.pipe(
-  Schema.maxLength(64),
-  Schema.brand('EntityId'),
-  Schema.annotations({
-    title: 'EntityId',
-    description: 'Unique identifier for any entity',
-  })
-)
-export type EntityId = Schema.Schema.Type<typeof EntityIdSchema>
+// DomainEntityIdへの再エクスポート（後方互換性維持）
+export {
+  DomainEntityIdSchema as EntityIdSchema,
+  type DomainEntityId as EntityId,
+} from '../value_object/domain_entity_id'
 
-export const PlayerIdSchema = nonEmptyText.pipe(
-  Schema.maxLength(64),
-  Schema.brand('PlayerId'),
-  Schema.annotations({
-    title: 'PlayerId',
-    description: 'Stable identifier for a player entity',
-  })
-)
-export type PlayerId = Schema.Schema.Type<typeof PlayerIdSchema>
+// PlayerIdは専用value_objectから再エクスポート
+export { PlayerIdSchema, type PlayerId } from '@domain/player/value_object/player_id'
 
 export const BlockIdSchema = nonEmptyText.pipe(
   Schema.brand('BlockId'),
@@ -104,15 +93,8 @@ export const ComponentTypeNameSchema = nonEmptyText.pipe(
 )
 export type ComponentTypeName = Schema.Schema.Type<typeof ComponentTypeNameSchema>
 
-export const DeltaTimeSchema = Schema.Number.pipe(
-  Schema.nonNegative(),
-  Schema.brand('DeltaTime'),
-  Schema.annotations({
-    title: 'DeltaTime',
-    description: 'Simulation step in milliseconds',
-  })
-)
-export type DeltaTime = Schema.Schema.Type<typeof DeltaTimeSchema>
+// Re-export from units with alias
+export { MillisecondsSchema as DeltaTimeSchema, type Milliseconds as DeltaTime } from '../../shared/value_object/units'
 
 // -----------------------------------------------------------------------------
 // Spatial Types
@@ -313,6 +295,7 @@ export type PlayerUpdateData = Schema.Schema.Type<typeof PlayerUpdateDataSchema>
 // -----------------------------------------------------------------------------
 
 export const BrandedTypes = {
+  // DomainEntityId.makeUnsafe使用に移行推奨
   createEntityId: (value: string): EntityId => Schema.decodeSync(EntityIdSchema)(value),
   createPlayerId: (value: string): PlayerId => Schema.decodeSync(PlayerIdSchema)(value),
   createBlockId: (value: string): BlockId => Schema.decodeSync(BlockIdSchema)(value),

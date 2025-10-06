@@ -1,5 +1,6 @@
 #!/usr/bin/env tsx
 
+import { Option, pipe, ReadonlyArray } from 'effect'
 import { glob } from 'glob'
 import * as fs from 'node:fs'
 
@@ -43,12 +44,12 @@ function isTestFile(filePath: string): boolean {
  * path aliasを実際のパスに解決
  */
 function resolvePathAlias(importPath: string): string | null {
-  for (const [alias, realPath] of Object.entries(PATH_ALIASES)) {
-    if (importPath.startsWith(alias)) {
-      return importPath.replace(alias, realPath)
-    }
-  }
-  return null
+  return pipe(
+    Object.entries(PATH_ALIASES),
+    ReadonlyArray.findFirst(([alias]) => importPath.startsWith(alias)),
+    Option.map(([alias, realPath]) => importPath.replace(alias, realPath)),
+    Option.getOrNull
+  )
 }
 
 /**
@@ -230,12 +231,10 @@ async function main() {
     ignore: ['node_modules/**', 'dist/**'],
   })
 
-  const allViolations: Violation[] = []
-
-  for (const file of files) {
-    const violations = validateFile(file)
-    allViolations.push(...violations)
-  }
+  const allViolations = pipe(
+    files,
+    ReadonlyArray.flatMap((file) => validateFile(file))
+  )
 
   if (allViolations.length === 0) {
     console.log('✅ All imports are valid')
@@ -244,21 +243,25 @@ async function main() {
 
   console.log(`❌ Found ${allViolations.length} import violations:\n`)
 
-  // ファイル別にグループ化して出力
-  const violationsByFile = new Map<string, Violation[]>()
-  for (const violation of allViolations) {
-    const existing = violationsByFile.get(violation.file) ?? []
-    existing.push(violation)
-    violationsByFile.set(violation.file, existing)
-  }
+  const violationsByFile = pipe(
+    allViolations,
+    ReadonlyArray.groupBy((v) => v.file)
+  )
 
-  for (const [file, violations] of violationsByFile.entries()) {
-    for (const violation of violations) {
-      console.log(`${file}:${violation.line}`)
-      console.log(`  ${violation.message}`)
-      console.log(`  ${violation.importStatement}\n`)
-    }
-  }
+  pipe(
+    violationsByFile,
+    (map) => Array.from(map.entries()),
+    ReadonlyArray.forEach(([file, violations]) => {
+      pipe(
+        violations,
+        ReadonlyArray.forEach((violation) => {
+          console.log(`${file}:${violation.line}`)
+          console.log(`  ${violation.message}`)
+          console.log(`  ${violation.importStatement}\n`)
+        })
+      )
+    })
+  )
 
   process.exit(1)
 }

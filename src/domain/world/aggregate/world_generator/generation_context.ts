@@ -208,12 +208,13 @@ export const createPreset = (
     },
   }
 
-  const params = presets[presetName]
-  if (!params) {
-    return Effect.fail(GenerationErrors.createValidationError(`Unknown preset: ${presetName}`))
-  }
-
-  return create(params)
+  return pipe(
+    Option.fromNullable(presets[presetName]),
+    Option.match({
+      onNone: () => Effect.fail(GenerationErrors.createValidationError(`Unknown preset: ${presetName}`)),
+      onSome: (params) => create(params),
+    })
+  )
 }
 
 // ================================
@@ -230,33 +231,37 @@ const validateContextConsistency = (config: {
   noiseConfig: NoiseConfiguration.NoiseConfiguration
 }): Effect.Effect<void, GenerationErrors.ValidationError> =>
   Effect.gen(function* () {
-    // シード値とノイズ設定の一貫性
-    if (config.noiseConfig.baseSettings.seed !== config.seed.value) {
-      return yield* Effect.fail(
-        GenerationErrors.createValidationError('Seed mismatch between world seed and noise configuration')
-      )
-    }
+    // ルールベース検証：独立した条件を配列化
+    const validationRules = [
+      {
+        name: 'seed-consistency',
+        condition: config.noiseConfig.baseSettings.seed !== config.seed.value,
+        error: 'Seed mismatch between world seed and noise configuration',
+      },
+      {
+        name: 'elevation-range',
+        condition: Math.max(...Object.values(config.biomeConfig.elevationRanges)) > config.parameters.terrain.maxHeight,
+        error: 'Biome elevation exceeds terrain max height',
+      },
+      {
+        name: 'structure-density',
+        condition: Object.values(config.parameters.structures.density).reduce((sum, density) => sum + density, 0) > 1.0,
+        error: 'Total structure density exceeds 100%',
+      },
+      {
+        name: 'noise-scale',
+        condition: config.noiseConfig.baseSettings.scale <= 0,
+        error: 'Noise scale must be positive',
+      },
+    ]
 
-    // バイオーム設定と地形パラメータの一貫性
-    const maxElevation = Math.max(...Object.values(config.biomeConfig.elevationRanges))
-    if (maxElevation > config.parameters.terrain.maxHeight) {
-      return yield* Effect.fail(GenerationErrors.createValidationError('Biome elevation exceeds terrain max height'))
-    }
-
-    // 構造物密度の妥当性
-    const totalStructureDensity = Object.values(config.parameters.structures.density).reduce(
-      (sum, density) => sum + density,
-      0
+    // 全ルール検証
+    yield* Effect.forEach(validationRules, (rule) =>
+      Effect.when(rule.condition, {
+        onTrue: () => Effect.fail(GenerationErrors.createValidationError(rule.error)),
+        onFalse: () => Effect.void,
+      })
     )
-
-    if (totalStructureDensity > 1.0) {
-      return yield* Effect.fail(GenerationErrors.createValidationError('Total structure density exceeds 100%'))
-    }
-
-    // ノイズ設定の数値範囲検証
-    if (config.noiseConfig.baseSettings.scale <= 0) {
-      return yield* Effect.fail(GenerationErrors.createValidationError('Noise scale must be positive'))
-    }
   })
 
 /**
@@ -266,25 +271,29 @@ export const validateGenerationCompatibility = (
   context: GenerationContext
 ): Effect.Effect<void, GenerationErrors.ValidationError> =>
   Effect.gen(function* () {
-    // メタデータと設定の互換性チェック
-    if (context.metadata.worldType === 'flat') {
-      // フラットワールドでは地形生成パラメータを無視
-      if (context.parameters.terrain.generateCaves || context.parameters.terrain.generateRavines) {
-        return yield* Effect.fail(GenerationErrors.createValidationError('Flat world cannot have caves or ravines'))
-      }
-    }
+    // ルールベース検証：メタデータと設定の互換性チェック
+    const compatibilityRules = [
+      {
+        name: 'flat-world-terrain',
+        condition:
+          context.metadata.worldType === 'flat' &&
+          (context.parameters.terrain.generateCaves || context.parameters.terrain.generateRavines),
+        error: 'Flat world cannot have caves or ravines',
+      },
+      {
+        name: 'peaceful-hostile-mobs',
+        condition: context.metadata.difficulty === 'peaceful' && context.parameters.mobs.hostileSpawnRate > 0,
+        error: 'Peaceful difficulty cannot have hostile mob spawning',
+      },
+    ]
 
-    if (context.metadata.gameMode === 'creative' && context.metadata.difficulty !== 'peaceful') {
-      // クリエイティブモードでは通常ピースフルが推奨
-      // 警告レベルだが、エラーにはしない
-    }
-
-    // 難易度と敵対MOB生成の一貫性
-    if (context.metadata.difficulty === 'peaceful' && context.parameters.mobs.hostileSpawnRate > 0) {
-      return yield* Effect.fail(
-        GenerationErrors.createValidationError('Peaceful difficulty cannot have hostile mob spawning')
-      )
-    }
+    // 全ルール検証
+    yield* Effect.forEach(compatibilityRules, (rule) =>
+      Effect.when(rule.condition, {
+        onTrue: () => Effect.fail(GenerationErrors.createValidationError(rule.error)),
+        onFalse: () => Effect.void,
+      })
+    )
   })
 
 // ================================

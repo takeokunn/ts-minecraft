@@ -315,9 +315,13 @@ const makePlayerCameraService: Effect.Effect<PlayerCameraService> = Effect.gen(f
 
   // 角度の線形補間（周期性を考慮）
   const lerpAngle = (a: number, b: number, t: number): number => {
-    let diff = b - a
-    while (diff > Math.PI) diff -= 2 * Math.PI
-    while (diff < -Math.PI) diff += 2 * Math.PI
+    // 角度差を-π～πの範囲に正規化（再帰的アプローチ）
+    const normalizeDiff = (diff: number): number => {
+      if (diff > Math.PI) return normalizeDiff(diff - 2 * Math.PI)
+      if (diff < -Math.PI) return normalizeDiff(diff + 2 * Math.PI)
+      return diff
+    }
+    const diff = normalizeDiff(b - a)
     return a + diff * t
   }
 

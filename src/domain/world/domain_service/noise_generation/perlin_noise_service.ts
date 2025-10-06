@@ -9,7 +9,7 @@
 import { type GenerationError } from '@domain/world/types/errors'
 import type { WorldCoordinate2D, WorldCoordinate3D } from '@domain/world/value_object/coordinates'
 import type { OctaveConfig } from '@domain/world/value_object/noise_configuration'
-import { Context, Effect, Layer, Schema } from 'effect'
+import { Context, Effect, Layer, pipe, ReadonlyArray, Schema } from 'effect'
 
 /**
  * パーリンノイズ設定スキーマ
@@ -314,23 +314,47 @@ export const PerlinNoiseServiceLive = Layer.effect(
     generateField: (bounds, resolution, config) =>
       Effect.gen(function* () {
         const startTime = performance.now()
-        const samples: NoiseSample[][] = []
-        const flatSamples: number[] = []
 
-        // フィールド生成
-        for (let x = 0; x < resolution; x++) {
-          const row: NoiseSample[] = []
-          for (let z = 0; z < resolution; z++) {
-            const worldX = bounds.min.x + (x / (resolution - 1)) * (bounds.max.x - bounds.min.x)
-            const worldZ = bounds.min.z + (z / (resolution - 1)) * (bounds.max.z - bounds.min.z)
+        // 2Dグリッド座標の生成
+        const gridPositions = pipe(
+          ReadonlyArray.range(0, resolution),
+          ReadonlyArray.flatMap((x) =>
+            pipe(
+              ReadonlyArray.range(0, resolution),
+              ReadonlyArray.map((z) => ({ x, z }))
+            )
+          )
+        )
 
-            const sample = yield* PerlinNoiseService.sample2D({ x: worldX, z: worldZ } as WorldCoordinate2D, config)
+        // 全サンプルを並行実行
+        const allSamples = yield* pipe(
+          gridPositions,
+          Effect.forEach(
+            ({ x, z }) => {
+              const worldX = bounds.min.x + (x / (resolution - 1)) * (bounds.max.x - bounds.min.x)
+              const worldZ = bounds.min.z + (z / (resolution - 1)) * (bounds.max.z - bounds.min.z)
+              return PerlinNoiseService.sample2D({ x: worldX, z: worldZ } as WorldCoordinate2D, config)
+            },
+            { concurrency: 'unbounded' }
+          )
+        )
 
-            row.push(sample)
-            flatSamples.push(sample.value)
-          }
-          samples.push(row)
-        }
+        // 2次元配列に再構成
+        const samples = pipe(
+          ReadonlyArray.range(0, resolution),
+          ReadonlyArray.map((x) =>
+            pipe(
+              allSamples,
+              ReadonlyArray.filter((_, idx) => Math.floor(idx / resolution) === x)
+            )
+          )
+        )
+
+        // 統計計算用の1次元配列
+        const flatSamples = pipe(
+          allSamples,
+          ReadonlyArray.map((sample) => sample.value)
+        )
 
         // 統計計算
         const minValue = Math.min(...flatSamples)
@@ -363,37 +387,46 @@ export const PerlinNoiseServiceLive = Layer.effect(
 
     generateOctaveNoise: (coordinate, octaveConfigs, baseConfig) =>
       Effect.gen(function* () {
-        let totalValue = 0
-        let totalAmplitude = 0
-        const octaveContributions: number[] = []
+        // オクターブ計算をEffect.reduceで逐次実行
+        const result = yield* pipe(
+          octaveConfigs,
+          Effect.reduce(
+            {
+              totalValue: 0,
+              totalAmplitude: 0,
+              octaveContributions: [] as ReadonlyArray<number>,
+            },
+            (acc, octaveConfig) =>
+              Effect.gen(function* () {
+                const octaveNoiseConfig: PerlinNoiseConfig = {
+                  ...baseConfig,
+                  frequency: baseConfig.frequency * octaveConfig.frequency,
+                  amplitude: baseConfig.amplitude * octaveConfig.amplitude,
+                }
 
-        // 各オクターブの計算
-        for (const octaveConfig of octaveConfigs) {
-          const octaveNoiseConfig: PerlinNoiseConfig = {
-            ...baseConfig,
-            frequency: baseConfig.frequency * octaveConfig.frequency,
-            amplitude: baseConfig.amplitude * octaveConfig.amplitude,
-          }
+                const octaveSample = yield* PerlinNoiseService.sample2D(coordinate, octaveNoiseConfig)
+                const contribution = octaveSample.value * octaveConfig.amplitude
 
-          const octaveSample = yield* PerlinNoiseService.sample2D(coordinate, octaveNoiseConfig)
-          const contribution = octaveSample.value * octaveConfig.amplitude
-
-          totalValue += contribution
-          totalAmplitude += octaveConfig.amplitude
-          octaveContributions.push(contribution)
-        }
+                return {
+                  totalValue: acc.totalValue + contribution,
+                  totalAmplitude: acc.totalAmplitude + octaveConfig.amplitude,
+                  octaveContributions: [...acc.octaveContributions, contribution],
+                }
+              })
+          )
+        )
 
         // 正規化
-        const normalizedValue = totalAmplitude > 0 ? totalValue / totalAmplitude : 0
+        const normalizedValue = result.totalAmplitude > 0 ? result.totalValue / result.totalAmplitude : 0
         const clampedValue = Math.max(-1, Math.min(1, normalizedValue))
 
         return {
           value: clampedValue,
           coordinate,
           metadata: {
-            octaveContributions,
+            octaveContributions: result.octaveContributions,
             totalOctaves: octaveConfigs.length,
-            finalAmplitude: totalAmplitude,
+            finalAmplitude: result.totalAmplitude,
           },
         } satisfies NoiseSample
       }),

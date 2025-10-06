@@ -301,15 +301,17 @@ export const ContainerFactoryLive = ContainerFactory.of({
       }
 
       if (options?.permissions) {
-        for (const permission of options.permissions) {
-          builderWithDefaults = builderWithDefaults.addPermission(permission)
-        }
+        builderWithDefaults = pipe(
+          options.permissions,
+          ReadonlyArray.reduce(builderWithDefaults, (acc, permission) => acc.addPermission(permission))
+        )
       }
 
       if (options?.customSlots) {
-        for (const { index, slot } of options.customSlots) {
-          builderWithDefaults = builderWithDefaults.setSlot(index, slot)
-        }
+        builderWithDefaults = pipe(
+          options.customSlots,
+          ReadonlyArray.reduce(builderWithDefaults, (acc, { index, slot }) => acc.setSlot(index, slot))
+        )
       }
 
       return yield* builderWithDefaults.build()

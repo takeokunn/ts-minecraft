@@ -35,25 +35,41 @@ export const makeIdentifier = (value: string): Effect.Effect<Identifier, DomainE
   Effect.gen(function* () {
     const trimmed = value.trim()
 
-    if (trimmed !== value) {
-      return yield* Effect.fail(
-        ValidationError({ field: 'identifier', message: 'identifier must not contain surrounding whitespace' })
-      )
-    }
+    yield* pipe(
+      trimmed !== value,
+      Effect.when({
+        onTrue: () =>
+          Effect.fail(
+            ValidationError({ field: 'identifier', message: 'identifier must not contain surrounding whitespace' })
+          ),
+        onFalse: () => Effect.void,
+      })
+    )
 
-    if (trimmed.length < 3) {
-      return yield* Effect.fail(ValidationError({ field: 'identifier', message: 'length must be >= 3' }))
-    }
+    yield* pipe(
+      trimmed.length < 3,
+      Effect.when({
+        onTrue: () => Effect.fail(ValidationError({ field: 'identifier', message: 'length must be >= 3' })),
+        onFalse: () => Effect.void,
+      })
+    )
 
-    if (trimmed.length > 64) {
-      return yield* Effect.fail(ValidationError({ field: 'identifier', message: 'length must be <= 64' }))
-    }
+    yield* pipe(
+      trimmed.length > 64,
+      Effect.when({
+        onTrue: () => Effect.fail(ValidationError({ field: 'identifier', message: 'length must be <= 64' })),
+        onFalse: () => Effect.void,
+      })
+    )
 
-    if (!identifierPattern.test(trimmed)) {
-      return yield* Effect.fail(
-        ValidationError({ field: 'identifier', message: 'allowed characters are [A-Za-z0-9_-]' })
-      )
-    }
+    yield* pipe(
+      !identifierPattern.test(trimmed),
+      Effect.when({
+        onTrue: () =>
+          Effect.fail(ValidationError({ field: 'identifier', message: 'allowed characters are [A-Za-z0-9_-]' })),
+        onFalse: () => Effect.void,
+      })
+    )
 
     return IdentifierBrand(trimmed)
   })
@@ -67,14 +83,22 @@ export const makeBoundedNumber = (params: {
   readonly value: number
 }): Effect.Effect<number, DomainError> =>
   Effect.gen(function* () {
-    if (!Number.isFinite(params.value)) {
-      return yield* Effect.fail(ValidationError({ field: params.field, message: `${params.field} must be finite` }))
-    }
+    yield* pipe(
+      !Number.isFinite(params.value),
+      Effect.when({
+        onTrue: () => Effect.fail(ValidationError({ field: params.field, message: `${params.field} must be finite` })),
+        onFalse: () => Effect.void,
+      })
+    )
 
     const clamped = params.value
-    if (clamped < params.range.min || clamped > params.range.max) {
-      return yield* Effect.fail(OutOfRange({ field: params.field, range: params.range, actual: clamped }))
-    }
+    yield* pipe(
+      clamped < params.range.min || clamped > params.range.max,
+      Effect.when({
+        onTrue: () => Effect.fail(OutOfRange({ field: params.field, range: params.range, actual: clamped })),
+        onFalse: () => Effect.void,
+      })
+    )
 
     return clamped
   })

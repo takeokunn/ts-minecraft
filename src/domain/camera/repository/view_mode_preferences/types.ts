@@ -14,8 +14,9 @@ import type { ViewMode } from '../../value_object/index'
 
 /**
  * Player ID - プレイヤー識別子
+ * 専用value_objectから再エクスポート
  */
-export type PlayerId = Brand<string, 'PlayerId'>
+export type { PlayerId } from '@domain/player/value_object/player_id'
 
 /**
  * Key Binding - キーバインディング設定
@@ -479,6 +480,17 @@ export const ViewModePreferencesRepositoryErrorSchema = Schema.Union(
     conflictingPlayer: Schema.OptionFromNullable(PlayerIdSchema),
   })
 )
+
+/**
+ * Export Data Schema - エクスポートデータ検証用
+ * exportPlayerPreferences/importPlayerPreferences で使用
+ */
+export const PreferenceExportDataSchema = Schema.Struct({
+  playerId: PlayerIdSchema,
+  preference: Schema.UndefinedOr(ViewModePreferenceSchema),
+  records: Schema.Array(ViewModePreferenceRecordSchema),
+  exportedAt: Schema.Number.pipe(Schema.positive()),
+})
 
 // ========================================
 // Factory Functions

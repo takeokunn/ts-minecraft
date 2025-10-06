@@ -4,6 +4,7 @@ import { pipe } from 'effect/Function'
 import * as Layer from 'effect/Layer'
 import * as Match from 'effect/Match'
 import * as Option from 'effect/Option'
+import * as ParseResult from 'effect/ParseResult'
 import * as Schema from 'effect/Schema'
 import * as SynchronizedRef from 'effect/SynchronizedRef'
 
@@ -73,12 +74,12 @@ const deriveMetrics = (state: InternalState): PerformanceMetrics => ({
 })
 
 const parseErrorToInitialization = (error: Schema.ParseError): InitializationError =>
-  InitializationError({ reason: Schema.formatError(error) })
+  InitializationError({ reason: ParseResult.TreeFormatter.formatErrorSync(error) })
 
 const parseErrorToRuntime = (id: string, error: Schema.ParseError, at: Timestamp): RuntimeCallbackError =>
   toRuntimeCallbackError({
     callbackId: id,
-    causeMessage: Schema.formatError(error),
+    causeMessage: ParseResult.TreeFormatter.formatErrorSync(error),
     occurredAt: at,
   })
 

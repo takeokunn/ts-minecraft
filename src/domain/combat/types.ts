@@ -137,19 +137,36 @@ const identifierPipeline = (
   Effect.gen(function* () {
     const trimmed = value.trim()
 
-    if (trimmed.length < 3) {
-      return yield* Effect.fail(CombatError.invalidIdentifier(entity, trimmed, 'length must be >= 3'))
-    }
+    yield* pipe(
+      trimmed.length < 3,
+      Effect.when({
+        onTrue: () => Effect.fail(CombatError.invalidIdentifier(entity, trimmed, 'length must be >= 3')),
+        onFalse: () => Effect.void,
+      })
+    )
 
-    if (trimmed.length > 32) {
-      return yield* Effect.fail(CombatError.invalidIdentifier(entity, trimmed, 'length must be <= 32'))
-    }
+    yield* pipe(
+      trimmed.length > 32,
+      Effect.when({
+        onTrue: () => Effect.fail(CombatError.invalidIdentifier(entity, trimmed, 'length must be <= 32')),
+        onFalse: () => Effect.void,
+      })
+    )
 
-    if (!/^[a-z0-9_-]+$/i.test(trimmed)) {
-      return yield* Effect.fail(
-        CombatError.invalidIdentifier(entity, trimmed, 'accepts only alphanumeric characters, underscore, or hyphen')
-      )
-    }
+    yield* pipe(
+      !/^[a-z0-9_-]+$/i.test(trimmed),
+      Effect.when({
+        onTrue: () =>
+          Effect.fail(
+            CombatError.invalidIdentifier(
+              entity,
+              trimmed,
+              'accepts only alphanumeric characters, underscore, or hyphen'
+            )
+          ),
+        onFalse: () => Effect.void,
+      })
+    )
 
     return trimmed.toLowerCase()
   })
@@ -163,21 +180,31 @@ const createNumericFactory =
   }): ((value: number) => Effect.Effect<A, CombatDomainError>) =>
   (value) =>
     Effect.gen(function* () {
-      if (!Number.isFinite(value)) {
-        return yield* Effect.fail(CombatError.invalidStat(options.field, value, 'finite number required'))
-      }
+      yield* pipe(
+        !Number.isFinite(value),
+        Effect.when({
+          onTrue: () => Effect.fail(CombatError.invalidStat(options.field, value, 'finite number required')),
+          onFalse: () => Effect.void,
+        })
+      )
 
-      if (value < options.min) {
-        return yield* Effect.fail(
-          CombatError.invalidStat(options.field, value, `value must be >= ${String(options.min)}`)
-        )
-      }
+      yield* pipe(
+        value < options.min,
+        Effect.when({
+          onTrue: () =>
+            Effect.fail(CombatError.invalidStat(options.field, value, `value must be >= ${String(options.min)}`)),
+          onFalse: () => Effect.void,
+        })
+      )
 
-      if (value > options.max) {
-        return yield* Effect.fail(
-          CombatError.invalidStat(options.field, value, `value must be <= ${String(options.max)}`)
-        )
-      }
+      yield* pipe(
+        value > options.max,
+        Effect.when({
+          onTrue: () =>
+            Effect.fail(CombatError.invalidStat(options.field, value, `value must be <= ${String(options.max)}`)),
+          onFalse: () => Effect.void,
+        })
+      )
 
       return options.brand(value)
     })

@@ -92,12 +92,14 @@ const defaultSessionPersistenceConfig: SessionPersistenceConfig = {
 // === Utility Functions ===
 
 const calculateChecksum = (data: string): string => {
-  let hash = 0
-  for (let i = 0; i < data.length; i++) {
-    const char = data.charCodeAt(i)
-    hash = (hash << 5) - hash + char
-    hash = hash & hash
-  }
+  const hash = pipe(
+    data.split(''),
+    ReadonlyArray.reduce(0, (hash, char) => {
+      const charCode = char.charCodeAt(0)
+      const newHash = (hash << 5) - hash + charCode
+      return newHash & newHash
+    })
+  )
   return hash.toString(16)
 }
 
@@ -184,7 +186,17 @@ const makeGenerationSessionRepositoryPersistence = (
                             onTrue: () =>
                               Effect.gen(function* () {
                                 const metadataContent = yield* fs.readFileString(metadataFile)
-                                const metadata = JSON.parse(metadataContent)
+                                // パターンB: Effect.try + JSON.parse
+                                const metadata = yield* Effect.try({
+                                  try: () => JSON.parse(metadataContent),
+                                  catch: (error) =>
+                                    createDataIntegrityError(
+                                      `Metadata JSON parse failed: ${String(error)}`,
+                                      ['metadata'],
+                                      metadataContent,
+                                      error
+                                    ),
+                                })
                                 const actualChecksum = calculateChecksum(content)
 
                                 yield* pipe(
@@ -212,8 +224,24 @@ const makeGenerationSessionRepositoryPersistence = (
 
                 const decompressed = config.enableCompression ? yield* decompressData(content) : content
 
-                const parsedData = JSON.parse(decompressed)
-                return Schema.decodeUnknownSync(PersistenceSessionSchema)(parsedData)
+                // Pattern B: Effect.try + Effect.flatMap + Schema.decodeUnknown
+                const validated = yield* Effect.try({
+                  try: () => JSON.parse(decompressed),
+                  catch: (error) =>
+                    new Error(
+                      `Failed to parse session data JSON: ${error instanceof Error ? error.message : String(error)}`
+                    ),
+                }).pipe(
+                  Effect.flatMap(Schema.decodeUnknown(PersistenceSessionSchema)),
+                  Effect.mapError((error) => ({
+                    _tag: 'SchemaValidationError' as const,
+                    message: `PersistenceSessionSchema validation failed: ${error}`,
+                    context: 'loadSessionsFromFile',
+                    cause: error,
+                  }))
+                )
+
+                return validated
               }),
           })
         )
@@ -692,7 +720,17 @@ const makeGenerationSessionRepositoryPersistence = (
         const content = yield* fs.readFileString(checkpointFile)
         const decompressed = config.enableCompression ? yield* decompressData(content) : content
 
-        const checkpointData = JSON.parse(decompressed)
+        // パターンB前半: Effect.try + JSON.parse（Schema検証は将来追加）
+        const checkpointData = yield* Effect.try({
+          try: () => JSON.parse(decompressed),
+          catch: (error) =>
+            createDataIntegrityError(
+              `Checkpoint JSON parse failed: ${String(error)}`,
+              ['checkpointData'],
+              decompressed,
+              error
+            ),
+        })
         const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
         const restoredSession: GenerationSession = {
           ...checkpointData.session,

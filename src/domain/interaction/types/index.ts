@@ -12,11 +12,11 @@ const IdentifierSchema = Schema.String.pipe(
 )
 
 export const BlockIdSchema = IdentifierSchema.pipe(Schema.brand('BlockId'))
-export const PlayerIdSchema = IdentifierSchema.pipe(Schema.brand('PlayerId'))
+// PlayerIdは専用value_objectから再エクスポート
+export { PlayerIdSchema, type PlayerId } from '@domain/player/value_object/player_id'
 export const SessionIdSchema = IdentifierSchema.pipe(Schema.brand('SessionId'))
 
 export type BlockId = Schema.Schema.Type<typeof BlockIdSchema>
-export type PlayerId = Schema.Schema.Type<typeof PlayerIdSchema>
 export type SessionId = Schema.Schema.Type<typeof SessionIdSchema>
 
 export const TickSchema = Schema.Number.pipe(

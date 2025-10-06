@@ -32,7 +32,7 @@ export {
   type WorldX,
   type WorldY,
   type WorldZ,
-} from './block_coordinate'
+} from './world_coordinate'
 
 // Chunk座標系
 export {
@@ -62,7 +62,7 @@ export {
   type LocalCoordinate,
   type LocalX,
   type LocalZ,
-} from './block_coordinate'
+} from './chunk_coordinate'
 
 // Block座標系
 export {
@@ -96,10 +96,14 @@ export {
 } from './block_coordinate'
 
 // 座標変換
-export * from './block_coordinate'
-export { CoordinateTransformErrorSchema, CoordinateTransforms, type CoordinateTransformError } from './block_coordinate'
-export * from './chunk_coordinate'
-export * from './world_coordinate'
+export {
+  CoordinateTransformErrorSchema,
+  CoordinateTransforms,
+  type CoordinateTransformError,
+} from './coordinate_transforms'
+
+// Chunk座標操作
+export * as ChunkCoordinateOperations from './chunk_coordinate_operations'
 
 /**
  * 便利なファクトリ関数群
@@ -166,7 +170,7 @@ export const CoordinateConstants = {
    */
   ORIGIN: {
     WORLD: { x: 0, y: 0, z: 0 },
-    CHUNK: { x: 0, z: 0 },
+    CHUNK: CHUNK_ORIGIN,
     BLOCK: { x: 0, y: 0, z: 0 },
     LOCAL: { x: 0, z: 0 },
   },

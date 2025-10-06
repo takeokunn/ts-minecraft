@@ -323,20 +323,18 @@ export const SceneCameraApplicationServiceLive = Layer.effect(
     return SceneCameraApplicationService.of({
       createSceneCamera: (sceneId, initialSetup) =>
         Effect.gen(function* () {
-          const now = yield* Clock.currentTimeMillis
-          const sceneCameraId = yield* generateSceneCameraId()
-
           // シーンの初期化
           yield* Effect.when(!scenes.has(sceneId), () => Effect.sync(() => scenes.set(sceneId, new Set())))
 
-          // 初期位置とターゲットの計算
-          const initialTargetPositions = yield* Effect.all(initialSetup.targets.map(resolveTargetPosition), {
-            concurrency: 'unbounded',
-          })
-
-          const cameraPosition = yield* calculateCameraPositionFromFollow(
-            initialSetup.followMode,
-            initialSetup.initialPosition
+          // 独立した初期化処理を並行実行
+          const [now, sceneCameraId, initialTargetPositions, cameraPosition] = yield* Effect.all(
+            [
+              Clock.currentTimeMillis,
+              generateSceneCameraId(),
+              Effect.all(initialSetup.targets.map(resolveTargetPosition), { concurrency: 'unbounded' }),
+              calculateCameraPositionFromFollow(initialSetup.followMode, initialSetup.initialPosition),
+            ],
+            { concurrency: 'unbounded' }
           )
 
           // カメラ状態の作成
@@ -366,10 +364,15 @@ export const SceneCameraApplicationServiceLive = Layer.effect(
             },
           } as SceneCameraState
 
-          // 状態の保存
-          scenes.get(sceneId)!.add(sceneCameraId)
-          sceneCameras.set(sceneCameraId, cameraState)
-          performanceMetrics.set(sceneCameraId, cameraState.statistics)
+          // 状態の保存（並行実行）
+          yield* Effect.all(
+            [
+              Effect.sync(() => scenes.get(sceneId)!.add(sceneCameraId)),
+              Effect.sync(() => sceneCameras.set(sceneCameraId, cameraState)),
+              Effect.sync(() => performanceMetrics.set(sceneCameraId, cameraState.statistics)),
+            ],
+            { concurrency: 'unbounded' }
+          )
 
           return sceneCameraId
         }),

@@ -363,12 +363,14 @@ const calculateChunkDataHash = (chunkData: WorldTypes.ChunkData): string => {
   })
 
   // 簡易ハッシュ関数 (本番環境では暗号学的ハッシュ関数を使用)
-  let hash = 0
-  for (let i = 0; i < data.length; i++) {
-    const char = data.charCodeAt(i)
-    hash = (hash << 5) - hash + char
-    hash = hash & hash // 32bit整数に変換
-  }
+  const hash = pipe(
+    ReadonlyArray.range(0, data.length),
+    ReadonlyArray.reduce(0, (hash, i) => {
+      const char = data.charCodeAt(i)
+      const newHash = (hash << 5) - hash + char
+      return newHash & newHash // 32bit整数に変換
+    })
+  )
   return hash.toString(36)
 }
 

@@ -325,26 +325,28 @@ export const unless = (
 export const validate = (state: WorldGeneratorBuilderState): Effect.Effect<ValidationState, FactoryError> =>
   Effect.gen(function* () {
     const errors: string[] = []
-    const warnings: string[] = []
 
-    // 必須設定のチェック
-    if (!state.seed) {
-      warnings.push('No seed specified, random seed will be generated')
-    }
+    // ルールベース警告チェック
+    const warningRules = [
+      {
+        condition: !state.seed,
+        message: 'No seed specified, random seed will be generated',
+      },
+      {
+        condition: state.maxConcurrentGenerations && state.maxConcurrentGenerations > 8,
+        message: 'High concurrent generation count may impact performance',
+      },
+      {
+        condition: state.cacheSize && state.cacheSize > 5000,
+        message: 'Large cache size may consume significant memory',
+      },
+      {
+        condition: state.qualityLevel === 'fast' && state.maxConcurrentGenerations === 1,
+        message: 'Fast quality with single thread may not be optimal',
+      },
+    ]
 
-    // パフォーマンス設定の妥当性チェック
-    if (state.maxConcurrentGenerations && state.maxConcurrentGenerations > 8) {
-      warnings.push('High concurrent generation count may impact performance')
-    }
-
-    if (state.cacheSize && state.cacheSize > 5000) {
-      warnings.push('Large cache size may consume significant memory')
-    }
-
-    // 設定の整合性チェック
-    if (state.qualityLevel === 'fast' && state.maxConcurrentGenerations === 1) {
-      warnings.push('Fast quality with single thread may not be optimal')
-    }
+    const warnings = warningRules.filter((rule) => rule.condition).map((rule) => rule.message)
 
     return {
       isValid: errors.length === 0,
@@ -374,15 +376,22 @@ export const buildWorldGenerator = (
   Effect.gen(function* () {
     // 検証
     const validation = yield* validate(state)
-    if (!validation.isValid) {
-      const { FactoryError: FactoryErrorClass } = yield* Effect.promise(() => import('./validation.js'))
-      return yield* Effect.fail(
-        new FactoryErrorClass({
-          category: 'parameter_validation',
-          message: `Builder validation failed: ${validation.errors.join(', ')}`,
+
+    yield* Function.pipe(
+      Match.value(validation.isValid),
+      Match.when(false, () =>
+        Effect.gen(function* () {
+          const { FactoryError: FactoryErrorClass } = yield* Effect.promise(() => import('./validation.js'))
+          return yield* Effect.fail(
+            new FactoryErrorClass({
+              category: 'parameter_validation',
+              message: `Builder validation failed: ${validation.errors.join(', ')}`,
+            })
+          )
         })
-      )
-    }
+      ),
+      Match.orElse(() => Effect.void)
+    )
 
     // パラメータ構築
     const params = yield* buildParams(state)

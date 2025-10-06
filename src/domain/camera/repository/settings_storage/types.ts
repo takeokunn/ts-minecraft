@@ -15,8 +15,9 @@ import type { ViewMode } from '../../value_object/index'
 
 /**
  * Player ID - プレイヤー識別子
+ * 専用value_objectから再エクスポート
  */
-export type PlayerId = Brand<string, 'PlayerId'>
+export type { PlayerId } from '@domain/player/value_object/player_id'
 
 /**
  * Key Binding - キーバインディング設定
@@ -539,3 +540,19 @@ export const isPresetNotFoundError = (error: SettingsRepositoryError): boolean =
 export const isUnauthorizedError = (error: SettingsRepositoryError): boolean => error._tag === 'UnauthorizedAccess'
 
 export const isStorageError = (error: SettingsRepositoryError): boolean => error._tag === 'StorageError'
+
+// ========================================
+// Import/Export Data Schemas
+// ========================================
+
+/**
+ * Export Data Schema
+ * exportSettings関数で生成されるJSONデータの構造を定義
+ */
+export const ExportDataSchema = Schema.Struct({
+  globalSettings: GlobalCameraSettingsSchema,
+  playerSettings: Schema.optional(PlayerCameraSettingsSchema),
+  presets: Schema.optional(Schema.Array(CameraPresetSettingsSchema)),
+})
+
+export type ExportData = Schema.Schema.Type<typeof ExportDataSchema>

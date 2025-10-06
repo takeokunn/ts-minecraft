@@ -54,28 +54,17 @@ export const makeWorldApplicationService = Effect.gen(function* () {
       yield* Effect.logInfo('World Application Service システム初期化開始')
 
       // 設定を更新
-      if (configuration) {
-        yield* Ref.update(systemConfiguration, (current) => ({ ...current, ...configuration }))
-      }
+      yield* Effect.when(configuration !== undefined, () =>
+        Ref.update(systemConfiguration, (current) => ({ ...current, ...configuration }))
+      )
 
       const config = yield* Ref.get(systemConfiguration)
 
       // 各サービスを初期化
-      if (config.generation.enabled) {
-        yield* worldGeneration.initialize()
-      }
-
-      if (config.loading.enabled) {
-        yield* progressiveLoading.initialize()
-      }
-
-      if (config.cache.enabled) {
-        yield* cacheOptimization.initialize()
-      }
-
-      if (config.monitoring.enabled) {
-        yield* performanceMonitoring.initialize()
-      }
+      yield* Effect.when(config.generation.enabled, () => worldGeneration.initialize())
+      yield* Effect.when(config.loading.enabled, () => progressiveLoading.initialize())
+      yield* Effect.when(config.cache.enabled, () => cacheOptimization.initialize())
+      yield* Effect.when(config.monitoring.enabled, () => performanceMonitoring.initialize())
 
       yield* Effect.logInfo('World Application Service システム初期化完了')
     })
@@ -91,21 +80,10 @@ export const makeWorldApplicationService = Effect.gen(function* () {
       const config = yield* Ref.get(systemConfiguration)
 
       // 各サービスを順次開始
-      if (config.generation.enabled) {
-        yield* worldGeneration.start()
-      }
-
-      if (config.loading.enabled) {
-        yield* progressiveLoading.start()
-      }
-
-      if (config.cache.enabled) {
-        yield* cacheOptimization.startAutoOptimization()
-      }
-
-      if (config.monitoring.enabled) {
-        yield* performanceMonitoring.startMonitoring()
-      }
+      yield* Effect.when(config.generation.enabled, () => worldGeneration.start())
+      yield* Effect.when(config.loading.enabled, () => progressiveLoading.start())
+      yield* Effect.when(config.cache.enabled, () => cacheOptimization.startAutoOptimization())
+      yield* Effect.when(config.monitoring.enabled, () => performanceMonitoring.startMonitoring())
 
       yield* STM.commit(STM.TRef.set(systemState, 'running'))
       yield* Effect.logInfo('World Application Service システム開始完了')
@@ -119,21 +97,10 @@ export const makeWorldApplicationService = Effect.gen(function* () {
       const config = yield* Ref.get(systemConfiguration)
 
       // 各サービスを順次停止
-      if (config.monitoring.enabled) {
-        yield* performanceMonitoring.stopMonitoring()
-      }
-
-      if (config.cache.enabled) {
-        yield* cacheOptimization.stopAutoOptimization()
-      }
-
-      if (config.loading.enabled) {
-        yield* progressiveLoading.stop()
-      }
-
-      if (config.generation.enabled) {
-        yield* worldGeneration.stop()
-      }
+      yield* Effect.when(config.monitoring.enabled, () => performanceMonitoring.stopMonitoring())
+      yield* Effect.when(config.cache.enabled, () => cacheOptimization.stopAutoOptimization())
+      yield* Effect.when(config.loading.enabled, () => progressiveLoading.stop())
+      yield* Effect.when(config.generation.enabled, () => worldGeneration.stop())
 
       yield* STM.commit(STM.TRef.set(systemState, 'stopped'))
       yield* Effect.logInfo('World Application Service システム停止完了')
@@ -317,20 +284,20 @@ export const makeWorldApplicationService = Effect.gen(function* () {
       yield* Ref.update(systemConfiguration, (current) => ({ ...current, ...updates }))
 
       // 各サービスの設定を更新
-      if (updates.loading) {
-        yield* progressiveLoading.updateSettings({
+      yield* Effect.when(updates.loading !== undefined, () =>
+        progressiveLoading.updateSettings({
           maxConcurrentLoads: 10, // デフォルト値
-          adaptiveQuality: updates.loading.adaptiveQuality,
-          memoryManagement: updates.loading.memoryManagement,
+          adaptiveQuality: updates.loading!.adaptiveQuality,
+          memoryManagement: updates.loading!.memoryManagement,
         })
-      }
+      )
 
-      if (updates.cache) {
-        yield* cacheOptimization.updatePreloadingStrategy({
-          enabled: updates.cache.enabled,
+      yield* Effect.when(updates.cache !== undefined, () =>
+        cacheOptimization.updatePreloadingStrategy({
+          enabled: updates.cache!.enabled,
           preloadPriority: 'medium',
         })
-      }
+      )
 
       yield* Effect.logInfo('システム設定更新完了')
     })
@@ -384,14 +351,16 @@ export const makeWorldApplicationService = Effect.gen(function* () {
       const overallHealthy = Object.values(services).every(Boolean)
 
       const issues = []
-      if (!services.generation) {
-        issues.push({
-          service: 'generation',
-          severity: 'error' as const,
-          message: 'ワールド生成サービスに問題があります',
-          suggestion: 'サービスを再起動してください',
-        })
-      }
+      yield* Effect.when(!services.generation, () =>
+        Effect.sync(() =>
+          issues.push({
+            service: 'generation',
+            severity: 'error' as const,
+            message: 'ワールド生成サービスに問題があります',
+            suggestion: 'サービスを再起動してください',
+          })
+        )
+      )
 
       const healthCheck = {
         overall: overallHealthy ? 'healthy' : ('degraded' as 'healthy' | 'degraded' | 'unhealthy'),

@@ -13,23 +13,18 @@ import * as Schema from 'effect/Schema'
 
 /**
  * タイムスタンプ（ミリ秒）
+ * Re-export from units
  */
-export const TimestampSchema = Schema.Number.pipe(
-  Schema.nonNegative(),
-  Schema.brand('Timestamp'),
-  Schema.annotations({ description: 'Epoch millisecond timestamp' })
-)
-export type Timestamp = Schema.Schema.Type<typeof TimestampSchema>
+export { TimestampSchema, type Timestamp } from '../../shared/value_object/units'
 
 /**
  * デルタタイム（ミリ秒）
+ * Re-export from units with alias
  */
-export const FrameDurationSchema = Schema.Number.pipe(
-  Schema.nonNegative(),
-  Schema.brand('FrameDuration'),
-  Schema.annotations({ description: 'Frame-to-frame duration in milliseconds' })
-)
-export type FrameDuration = Schema.Schema.Type<typeof FrameDurationSchema>
+export {
+  MillisecondsSchema as FrameDurationSchema,
+  type Milliseconds as FrameDuration,
+} from '../../shared/value_object/units'
 
 /**
  * フレームカウント

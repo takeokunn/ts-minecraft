@@ -5,10 +5,12 @@
  * class構文を一切使用せず、pipe/flowによる関数合成とEffect.genで実装
  */
 
-import { Effect, Layer, Match, Option, pipe } from 'effect'
+import { Effect, Layer, Match, Option, pipe, ReadonlyArray } from 'effect'
 import type { ItemMetadata, ItemStack } from '../../types'
 import {
   ItemCreationError as CreationError,
+  defaultItemConfig,
+  defaultStackingRules,
   EnchantmentDefinition,
   ItemCategory,
   ItemConfig,
@@ -19,26 +21,20 @@ import {
   ItemStackError as StackError,
   StackingRules,
   ItemValidationError as ValidationError,
-  defaultItemConfig,
-  defaultStackingRules,
 } from './interface'
 
 // ===== 内部ヘルパー関数（Pure Functions） =====
 
-const collectSome = <A>(inputs: ReadonlyArray<Option.Option<A>>): Array<A> => {
-  const collected: Array<A> = []
-  for (const option of inputs) {
-    if (Option.isSome(option)) {
-      collected.push(option.value)
-    }
-  }
-  return collected
-}
+const collectSome = <A>(inputs: ReadonlyArray<Option.Option<A>>): ReadonlyArray<A> =>
+  pipe(
+    inputs,
+    ReadonlyArray.filterMap((option) => option)
+  )
 
 const filterMapArray = <A, B>(
   items: ReadonlyArray<A>,
   project: (value: A, index: number) => Option.Option<B>
-): Array<B> => collectSome(items.map(project))
+): ReadonlyArray<B> => pipe(items, ReadonlyArray.filterMap(project))
 
 const getNonEmptyOrUndefined = <K extends PropertyKey, V>(
   entries: ReadonlyArray<readonly [K, V]>
@@ -181,16 +177,19 @@ const validateItemConfig = (config: ItemConfig): Effect.Effect<void, ItemCreatio
 
   const errors = [...baseErrors, ...enchantmentErrors]
 
-  if (errors.length === 0) {
-    return Effect.void
-  }
-
-  return Effect.fail(
-    new CreationError({
-      reason: 'Invalid item configuration',
-      invalidFields: [...errors],
-      context: { config },
-    })
+  return pipe(
+    errors.length === 0,
+    Match.value,
+    Match.when(true, () => Effect.void),
+    Match.orElse(() =>
+      Effect.fail(
+        new CreationError({
+          reason: 'Invalid item configuration',
+          invalidFields: [...errors],
+          context: { config },
+        })
+      )
+    )
   )
 }
 
@@ -268,16 +267,19 @@ const checkEnchantmentConflicts = (
     )
   )
 
-  if (conflicts.length === 0) {
-    return Effect.void
-  }
-
-  return Effect.fail(
-    new CreationError({
-      reason: 'Enchantment conflicts detected',
-      invalidFields: [...conflicts],
-      context: { enchantments },
-    })
+  return pipe(
+    conflicts.length === 0,
+    Match.value,
+    Match.when(true, () => Effect.void),
+    Match.orElse(() =>
+      Effect.fail(
+        new CreationError({
+          reason: 'Enchantment conflicts detected',
+          invalidFields: [...conflicts],
+          context: { enchantments },
+        })
+      )
+    )
   )
 }
 

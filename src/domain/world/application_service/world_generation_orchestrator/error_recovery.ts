@@ -1,4 +1,4 @@
-import { Clock, Context, Effect, Layer, Match, pipe, Ref, Schema } from 'effect'
+import { Clock, Context, Effect, Layer, Match, Option, pipe, Ref, Schema } from 'effect'
 
 /**
  * Error Recovery Service
@@ -229,28 +229,35 @@ const makeErrorRecoveryService = Effect.gen(function* () {
     Effect.gen(function* () {
       const config = yield* Ref.get(recoveryConfig)
 
-      const strategy = config.recoveryStrategies[errorContext.classification]
-      if (!strategy) {
-        return yield* Effect.fail({
-          _tag: 'ErrorRecoveryServiceError' as const,
-          message: `回復戦略が見つかりません: ${errorContext.classification}`,
-          recoveryId: errorContext.errorId,
-          errorContext,
+      const strategy = yield* pipe(
+        Option.fromNullable(config.recoveryStrategies[errorContext.classification]),
+        Option.match({
+          onNone: () =>
+            Effect.fail({
+              _tag: 'ErrorRecoveryServiceError' as const,
+              message: `回復戦略が見つかりません: ${errorContext.classification}`,
+              recoveryId: errorContext.errorId,
+              errorContext,
+            }),
+          onSome: (strat) => Effect.succeed(strat),
         })
-      }
+      )
 
-      // 再試行回数に基づく戦略調整
-      if (errorContext.retryCount >= strategy.maxAttempts) {
-        const fallbackStrategy: Schema.Schema.Type<typeof RecoveryAction> = {
-          ...strategy,
-          strategy: 'fallback',
-          maxAttempts: 1,
-        }
-        return fallbackStrategy
-      }
+      const adjustedStrategy = yield* pipe(
+        errorContext.retryCount >= strategy.maxAttempts,
+        Effect.if({
+          onTrue: () =>
+            Effect.succeed({
+              ...strategy,
+              strategy: 'fallback' as const,
+              maxAttempts: 1,
+            }),
+          onFalse: () => Effect.succeed(strategy),
+        })
+      )
 
-      yield* Effect.logInfo(`回復戦略決定: ${errorContext.classification} -> ${strategy.strategy}`)
-      return strategy
+      yield* Effect.logInfo(`回復戦略決定: ${errorContext.classification} -> ${adjustedStrategy.strategy}`)
+      return adjustedStrategy
     })
 
   const attemptRecovery = (
@@ -306,38 +313,47 @@ const makeErrorRecoveryService = Effect.gen(function* () {
   const restoreFromCheckpoint = (id: string) =>
     Effect.gen(function* () {
       const checkpointMap = yield* Ref.get(checkpoints)
-      const checkpoint = checkpointMap.get(id)
 
-      if (!checkpoint) {
-        return yield* Effect.fail({
-          _tag: 'ErrorRecoveryServiceError' as const,
-          message: `チェックポイントが見つかりません: ${id}`,
-          recoveryId: id,
+      return yield* pipe(
+        Option.fromNullable(checkpointMap.get(id)),
+        Option.match({
+          onNone: () =>
+            Effect.fail({
+              _tag: 'ErrorRecoveryServiceError' as const,
+              message: `チェックポイントが見つかりません: ${id}`,
+              recoveryId: id,
+            }),
+          onSome: (checkpoint) =>
+            Effect.gen(function* () {
+              yield* Effect.logInfo(`チェックポイントから復元: ${id}`)
+              return structuredClone(checkpoint)
+            }),
         })
-      }
-
-      yield* Effect.logInfo(`チェックポイントから復元: ${id}`)
-      return structuredClone(checkpoint)
+      )
     })
 
   const getCircuitBreakerState = (id: string) =>
     Effect.gen(function* () {
       const breakerMap = yield* Ref.get(circuitBreakers)
-      const breaker = breakerMap.get(id)
 
-      if (!breaker) {
-        const newBreaker: Schema.Schema.Type<typeof CircuitBreaker> = {
-          _tag: 'CircuitBreaker',
-          id,
-          state: 'closed',
-          failureCount: 0,
-          successCount: 0,
-        }
-        yield* Ref.update(circuitBreakers, (map) => map.set(id, newBreaker))
-        return newBreaker
-      }
-
-      return breaker
+      return yield* pipe(
+        Option.fromNullable(breakerMap.get(id)),
+        Option.match({
+          onNone: () =>
+            Effect.gen(function* () {
+              const newBreaker: Schema.Schema.Type<typeof CircuitBreaker> = {
+                _tag: 'CircuitBreaker',
+                id,
+                state: 'closed',
+                failureCount: 0,
+                successCount: 0,
+              }
+              yield* Ref.update(circuitBreakers, (map) => map.set(id, newBreaker))
+              return newBreaker
+            }),
+          onSome: (breaker) => Effect.succeed(breaker),
+        })
+      )
     })
 
   const executeWithCircuitBreaker = <A, E>(id: string, task: Effect.Effect<A, E>) =>
@@ -346,52 +362,83 @@ const makeErrorRecoveryService = Effect.gen(function* () {
       const config = yield* Ref.get(recoveryConfig)
 
       // サーキットブレーカー状態チェック
-      if (breaker.state === 'open') {
-        const now = yield* Clock.currentTimeMillis
-        if (breaker.nextRetryTime && now < breaker.nextRetryTime) {
-          return yield* Effect.fail({
-            _tag: 'ErrorRecoveryServiceError' as const,
-            message: `サーキットブレーカーが開いています: ${id}`,
-            recoveryId: id,
-          } as any)
-        }
-        // 半開状態に移行
-        yield* updateCircuitBreakerState(id, { state: 'half_open', successCount: 0 })
-      }
+      yield* Match.value(breaker.state).pipe(
+        Match.when('open', () =>
+          Effect.gen(function* () {
+            const now = yield* Clock.currentTimeMillis
+            yield* pipe(
+              Option.fromNullable(breaker.nextRetryTime),
+              Option.match({
+                onNone: () => Effect.void,
+                onSome: (retryTime) =>
+                  pipe(
+                    now < retryTime,
+                    Effect.if({
+                      onTrue: () =>
+                        Effect.fail({
+                          _tag: 'ErrorRecoveryServiceError' as const,
+                          message: `サーキットブレーカーが開いています: ${id}`,
+                          recoveryId: id,
+                        } as any),
+                      onFalse: () => Effect.void,
+                    })
+                  ),
+              })
+            )
+            // 半開状態に移行
+            yield* updateCircuitBreakerState(id, { state: 'half_open', successCount: 0 })
+          })
+        ),
+        Match.orElse(() => Effect.void)
+      )
 
       return yield* pipe(
         task,
-        Effect.tap((result) =>
-          Effect.gen(function* () {
-            // 成功時の処理
-            if (breaker.state === 'half_open') {
-              const newSuccessCount = breaker.successCount + 1
-              if (newSuccessCount >= config.circuitBreakerConfig.halfOpenMaxCalls) {
-                yield* updateCircuitBreakerState(id, {
-                  state: 'closed',
-                  failureCount: 0,
-                  successCount: 0,
-                })
-              } else {
-                yield* updateCircuitBreakerState(id, { successCount: newSuccessCount })
-              }
-            }
-          })
+        Effect.tap(() =>
+          Match.value(breaker.state).pipe(
+            Match.when('half_open', () =>
+              Effect.gen(function* () {
+                const newSuccessCount = breaker.successCount + 1
+                const shouldClose = newSuccessCount >= config.circuitBreakerConfig.halfOpenMaxCalls
+
+                yield* pipe(
+                  shouldClose,
+                  Effect.if({
+                    onTrue: () =>
+                      updateCircuitBreakerState(id, {
+                        state: 'closed',
+                        failureCount: 0,
+                        successCount: 0,
+                      }),
+                    onFalse: () => updateCircuitBreakerState(id, { successCount: newSuccessCount }),
+                  })
+                )
+              })
+            ),
+            Match.orElse(() => Effect.void)
+          )
         ),
         Effect.catchAll((error) =>
           Effect.gen(function* () {
-            // 失敗時の処理
             const newFailureCount = breaker.failureCount + 1
-            if (newFailureCount >= config.circuitBreakerConfig.failureThreshold) {
-              yield* updateCircuitBreakerState(id, {
-                state: 'open',
-                failureCount: newFailureCount,
-                lastFailureTime: yield* Clock.currentTimeMillis,
-                nextRetryTime: yield* Clock.currentTimeMillis,
+            const shouldOpen = newFailureCount >= config.circuitBreakerConfig.failureThreshold
+
+            yield* pipe(
+              shouldOpen,
+              Effect.if({
+                onTrue: () =>
+                  Effect.gen(function* () {
+                    const timestamp = yield* Clock.currentTimeMillis
+                    return yield* updateCircuitBreakerState(id, {
+                      state: 'open',
+                      failureCount: newFailureCount,
+                      lastFailureTime: timestamp,
+                      nextRetryTime: timestamp,
+                    })
+                  }),
+                onFalse: () => updateCircuitBreakerState(id, { failureCount: newFailureCount }),
               })
-            } else {
-              yield* updateCircuitBreakerState(id, { failureCount: newFailureCount })
-            }
+            )
 
             return yield* Effect.fail(error)
           })
@@ -413,8 +460,9 @@ const makeErrorRecoveryService = Effect.gen(function* () {
           },
           {} as Record<string, number>
         ),
-        averageRetryCount:
-          history.length > 0 ? history.reduce((sum, ctx) => sum + ctx.retryCount, 0) / history.length : 0,
+        averageRetryCount: pipe(history.length > 0, (hasHistory) =>
+          hasHistory ? history.reduce((sum, ctx) => sum + ctx.retryCount, 0) / history.length : 0
+        ),
         circuitBreakerStates: Array.from(breakers.values()).reduce(
           (acc, breaker) => {
             acc[breaker.state] = (acc[breaker.state] || 0) + 1
@@ -439,13 +487,18 @@ const makeErrorRecoveryService = Effect.gen(function* () {
   // === Helper Functions ===
 
   const updateCircuitBreakerState = (id: string, update: Partial<Schema.Schema.Type<typeof CircuitBreaker>>) =>
-    Ref.update(circuitBreakers, (map) => {
-      const current = map.get(id)
-      if (current) {
-        map.set(id, { ...current, ...update })
-      }
-      return map
-    })
+    Ref.update(circuitBreakers, (map) =>
+      pipe(
+        Option.fromNullable(map.get(id)),
+        Option.match({
+          onNone: () => map,
+          onSome: (current) => {
+            map.set(id, { ...current, ...update })
+            return map
+          },
+        })
+      )
+    )
 
   const executeRetryStrategy = (task: Effect.Effect<any, any>, action: Schema.Schema.Type<typeof RecoveryAction>) =>
     pipe(

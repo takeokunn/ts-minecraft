@@ -73,15 +73,16 @@ export const CacheOptimizationUtils = {
     memoryPressure: number,
     accessPattern: 'sequential' | 'random' | 'clustered'
   ) => {
-    if (hitRate < 0.5) {
-      return 'aggressive_preloading'
-    } else if (memoryPressure > 0.8) {
-      return 'conservative_eviction'
-    } else if (accessPattern === 'sequential') {
-      return 'predictive_caching'
-    } else {
-      return 'adaptive_hybrid'
-    }
+    // ルールベース設計: 優先度順に評価
+    const strategyRules = [
+      { check: () => hitRate < 0.5, strategy: 'aggressive_preloading' as const },
+      { check: () => memoryPressure > 0.8, strategy: 'conservative_eviction' as const },
+      { check: () => accessPattern === 'sequential', strategy: 'predictive_caching' as const },
+      { check: () => true, strategy: 'adaptive_hybrid' as const }, // デフォルト
+    ]
+
+    const matchedRule = strategyRules.find((rule) => rule.check())
+    return matchedRule?.strategy ?? 'adaptive_hybrid'
   },
 }
 

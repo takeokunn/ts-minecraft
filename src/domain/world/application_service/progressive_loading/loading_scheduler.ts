@@ -1,4 +1,4 @@
-import { Clock, Context, Effect, Layer, Match, Option, Ref, Schema } from 'effect'
+import { Clock, Context, Effect, Layer, Match, Option, pipe, ReadonlyArray, Ref, Schema } from 'effect'
 
 /**
  * Loading Scheduler Service
@@ -240,9 +240,11 @@ const makeLoadingSchedulerService = Effect.gen(function* () {
     Effect.gen(function* () {
       yield* Effect.logInfo(`バッチスケジュール: ${batch.batchId} (${batch.requests.length}件)`)
 
-      for (const request of batch.requests) {
-        yield* scheduleLoad(request)
-      }
+      // for文 → Effect.forEach + concurrency: 'unbounded'
+      yield* pipe(
+        batch.requests,
+        Effect.forEach((request) => scheduleLoad(request), { concurrency: 'unbounded' })
+      )
 
       yield* Effect.logInfo(`バッチスケジュール完了: ${batch.batchId}`)
     })
@@ -253,9 +255,12 @@ const makeLoadingSchedulerService = Effect.gen(function* () {
 
       // 移動予測に基づく先読みリクエスト生成
       const predictiveRequests = yield* generatePredictiveRequestsInternal(state.playerId, 5.0)
-      for (const request of predictiveRequests) {
-        yield* scheduleLoad(request)
-      }
+
+      // for文 → Effect.forEach + concurrency: 'unbounded'
+      yield* pipe(
+        predictiveRequests,
+        Effect.forEach((request) => scheduleLoad(request), { concurrency: 'unbounded' })
+      )
 
       yield* Effect.logDebug(`プレイヤー移動状態更新: ${state.playerId}`)
     })
@@ -265,31 +270,31 @@ const makeLoadingSchedulerService = Effect.gen(function* () {
       const config = yield* Ref.get(configuration)
       const state = yield* Ref.get(queueState)
 
-      if (state.pending.length === 0) {
-        return Option.none()
-      }
-
-      if (state.inProgress.length >= config.maxConcurrentLoads) {
+      // 早期return条件チェック
+      if (state.pending.length === 0 || state.inProgress.length >= config.maxConcurrentLoads) {
         return Option.none()
       }
 
       // スケジューリング戦略に基づくタスク選択
       const selectedTask = yield* selectTaskByStrategy(state.pending, config.strategy)
 
-      if (Option.isSome(selectedTask)) {
-        const task = selectedTask.value
+      return yield* pipe(
+        selectedTask,
+        Option.match({
+          onNone: () => Effect.succeed(Option.none()),
+          onSome: (task) =>
+            Effect.gen(function* () {
+              yield* Ref.update(queueState, (state) => ({
+                ...state,
+                pending: state.pending.filter((r) => r.id !== task.id),
+                inProgress: [...state.inProgress, task],
+              }))
 
-        yield* Ref.update(queueState, (state) => ({
-          ...state,
-          pending: state.pending.filter((r) => r.id !== task.id),
-          inProgress: [...state.inProgress, task],
-        }))
-
-        yield* Effect.logDebug(`次のタスクを取得: ${task.id}`)
-        return selectedTask
-      }
-
-      return Option.none()
+              yield* Effect.logDebug(`次のタスクを取得: ${task.id}`)
+              return Option.some(task)
+            }),
+        })
+      )
     })
 
   const reportCompletion = (requestId: string, success: boolean, metrics?: Record<string, number>) =>
@@ -301,33 +306,31 @@ const makeLoadingSchedulerService = Effect.gen(function* () {
         const request = state.inProgress[inProgressIndex]
         const newInProgress = state.inProgress.filter((_, i) => i !== inProgressIndex)
 
-        if (success) {
-          return {
-            ...state,
-            inProgress: newInProgress,
-            completed: [...state.completed, requestId],
-            totalProcessed: state.totalProcessed + 1,
-          }
-        } else {
-          return {
-            ...state,
-            inProgress: newInProgress,
-            failed: [
-              ...state.failed,
-              {
-                requestId,
-                error: 'Loading failed',
-                retryCount: 0,
-              },
-            ],
-          }
-        }
+        return success
+          ? {
+              ...state,
+              inProgress: newInProgress,
+              completed: [...state.completed, requestId],
+              totalProcessed: state.totalProcessed + 1,
+            }
+          : {
+              ...state,
+              inProgress: newInProgress,
+              failed: [
+                ...state.failed,
+                {
+                  requestId,
+                  error: 'Loading failed',
+                  retryCount: 0,
+                },
+              ],
+            }
       })
 
       // パフォーマンスメトリクス更新
-      if (metrics) {
-        yield* Ref.update(performanceMetrics, (current) => ({ ...current, ...metrics }))
-      }
+      yield* Effect.when(metrics !== undefined, () =>
+        Ref.update(performanceMetrics, (current) => ({ ...current, ...metrics }))
+      )
 
       yield* Effect.logInfo(`読み込み完了報告: ${requestId} (成功: ${success})`)
     })
@@ -338,25 +341,33 @@ const makeLoadingSchedulerService = Effect.gen(function* () {
 
       // ペンディングキューから削除
       const pendingIndex = state.pending.findIndex((r) => r.id === requestId)
-      if (pendingIndex !== -1) {
-        yield* Ref.update(queueState, (state) => ({
-          ...state,
-          pending: state.pending.filter((_, i) => i !== pendingIndex),
-        }))
-        yield* Effect.logInfo(`リクエストキャンセル (ペンディング): ${requestId}`)
-        return true
-      }
+      const foundInPending = yield* Effect.when(pendingIndex !== -1, () =>
+        Effect.gen(function* () {
+          yield* Ref.update(queueState, (state) => ({
+            ...state,
+            pending: state.pending.filter((_, i) => i !== pendingIndex),
+          }))
+          yield* Effect.logInfo(`リクエストキャンセル (ペンディング): ${requestId}`)
+          return true
+        })
+      )
+
+      if (foundInPending) return true
 
       // 進行中キューから削除
       const inProgressIndex = state.inProgress.findIndex((r) => r.id === requestId)
-      if (inProgressIndex !== -1) {
-        yield* Ref.update(queueState, (state) => ({
-          ...state,
-          inProgress: state.inProgress.filter((_, i) => i !== inProgressIndex),
-        }))
-        yield* Effect.logInfo(`リクエストキャンセル (進行中): ${requestId}`)
-        return true
-      }
+      const foundInProgress = yield* Effect.when(inProgressIndex !== -1, () =>
+        Effect.gen(function* () {
+          yield* Ref.update(queueState, (state) => ({
+            ...state,
+            inProgress: state.inProgress.filter((_, i) => i !== inProgressIndex),
+          }))
+          yield* Effect.logInfo(`リクエストキャンセル (進行中): ${requestId}`)
+          return true
+        })
+      )
+
+      if (foundInProgress) return true
 
       yield* Effect.logWarning(`キャンセル対象リクエストが見つかりません: ${requestId}`)
       return false
@@ -384,10 +395,8 @@ const makeLoadingSchedulerService = Effect.gen(function* () {
     const priorityOrder = { critical: 5, high: 4, normal: 3, low: 2, background: 1 }
     const priorityDiff = priorityOrder[b.priority] - priorityOrder[a.priority]
 
-    if (priorityDiff !== 0) return priorityDiff
-
-    // 同じ優先度の場合は距離で比較
-    return a.distance - b.distance
+    // 優先度が同じ場合は距離で比較
+    return priorityDiff !== 0 ? priorityDiff : a.distance - b.distance
   }
 
   const selectTaskByStrategy = (
@@ -434,11 +443,8 @@ const makeLoadingSchedulerService = Effect.gen(function* () {
       const movementMap = yield* Ref.get(playerMovements)
       const movement = movementMap.get(playerId)
 
-      if (!movement) {
-        return []
-      }
+      if (!movement) return []
 
-      const requests: Schema.Schema.Type<typeof LoadingRequest>[] = []
       const chunkSize = 16 // Minecraftのチャンクサイズ
 
       // 移動予測に基づく位置計算
@@ -450,35 +456,40 @@ const makeLoadingSchedulerService = Effect.gen(function* () {
 
       const now = yield* Clock.currentTimeMillis
 
-      // 予測位置周辺のチャンクをリクエスト生成
+      // 予測位置周辺のチャンクをリクエスト生成（2重for文 → ReadonlyArray.flatMap）
       const radius = Math.ceil(movement.viewDistance / chunkSize)
-      for (let dx = -radius; dx <= radius; dx++) {
-        for (let dz = -radius; dz <= radius; dz++) {
-          const chunkX = predictedChunkX + dx
-          const chunkZ = predictedChunkZ + dz
-          const distance = Math.sqrt(dx * dx + dz * dz) * chunkSize
+      const requests: Schema.Schema.Type<typeof LoadingRequest>[] = pipe(
+        ReadonlyArray.range(-radius, radius + 1),
+        ReadonlyArray.flatMap((dx) =>
+          pipe(
+            ReadonlyArray.range(-radius, radius + 1),
+            ReadonlyArray.filterMap((dz) => {
+              const chunkX = predictedChunkX + dx
+              const chunkZ = predictedChunkZ + dz
+              const distance = Math.sqrt(dx * dx + dz * dz) * chunkSize
 
-          if (distance <= movement.viewDistance) {
-            const request: Schema.Schema.Type<typeof LoadingRequest> = {
-              _tag: 'LoadingRequest',
-              id: `predictive_${playerId}_${chunkX}_${chunkZ}_${now}`,
-              chunkPosition: { x: chunkX, z: chunkZ },
-              priority: distance < chunkSize * 2 ? 'high' : 'background',
-              distance,
-              estimatedSize: 1024, // 1KB推定
-              requester: playerId,
-              timestamp: now,
-              deadline: now,
-              dependencies: [],
-              metadata: {
-                predictive: true,
-                confidence: movement.movementVector.confidence,
-              },
-            }
-            requests.push(request)
-          }
-        }
-      }
+              return distance > movement.viewDistance
+                ? Option.none()
+                : Option.some({
+                    _tag: 'LoadingRequest' as const,
+                    id: `predictive_${playerId}_${chunkX}_${chunkZ}_${now}`,
+                    chunkPosition: { x: chunkX, z: chunkZ },
+                    priority: distance < chunkSize * 2 ? ('high' as const) : ('background' as const),
+                    distance,
+                    estimatedSize: 1024, // 1KB推定
+                    requester: playerId,
+                    timestamp: now,
+                    deadline: now,
+                    dependencies: [],
+                    metadata: {
+                      predictive: true,
+                      confidence: movement.movementVector.confidence,
+                    },
+                  })
+            })
+          )
+        )
+      )
 
       yield* Effect.logDebug(`予測リクエスト生成: ${requests.length}件 (プレイヤー: ${playerId})`)
       return requests

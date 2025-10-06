@@ -7,20 +7,16 @@
 
 import { taggedUnion } from '@domain/world/utils'
 import { Effect, Schema } from 'effect'
+import { BLOCK_COORDINATE_LIMITS, BlockCoordinate, BlockRange } from './block_coordinate'
 import {
-  BLOCK_COORDINATE_LIMITS,
-  BlockCoordinate,
-  BlockRange,
   CHUNK_CONSTANTS,
   CHUNK_COORDINATE_LIMITS,
   ChunkBounds,
   ChunkCoordinate,
   LocalCoordinate,
-  WORLD_COORDINATE_LIMITS,
-  WorldCoordinate,
   type ChunkSectionY,
-  type WorldY,
-} from './index'
+} from './chunk_coordinate'
+import { WORLD_COORDINATE_LIMITS, WorldCoordinate, type WorldY } from './world_coordinate'
 
 /**
  * 変換エラー型

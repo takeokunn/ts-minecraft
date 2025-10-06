@@ -229,21 +229,22 @@ const makeGenerationPipelineService = Effect.gen(function* () {
 
       const sortedStages = config.stages.sort((a, b) => a.priority - b.priority).filter((stage) => stage.enabled)
 
-      // 段階的実行
-      let completedStages: string[] = []
-      let failedStages: string[] = []
-
-      for (const stageConfig of sortedStages) {
-        // 依存関係チェック
-        const dependenciesMet = stageConfig.dependencies.every((dep) => completedStages.includes(dep))
-
-        if (!dependenciesMet) {
-          yield* Effect.logWarning(`ステージ ${stageConfig.stage} の依存関係が満たされていません`)
-          continue
-        }
-
-        yield* pipe(
+      // 段階的実行（for文 → Effect.reduce）
+      const { completedStages, failedStages } = yield* pipe(
+        sortedStages,
+        Effect.reduce({ completedStages: [] as string[], failedStages: [] as string[] }, (acc, stageConfig) =>
           Effect.gen(function* () {
+            // 依存関係チェック
+            const dependenciesMet = stageConfig.dependencies.every((dep) => acc.completedStages.includes(dep))
+
+            yield* Effect.when(!dependenciesMet, () =>
+              Effect.logWarning(`ステージ ${stageConfig.stage} の依存関係が満たされていません`)
+            )
+
+            if (!dependenciesMet) {
+              return acc
+            }
+
             yield* Effect.logInfo(`ステージ実行開始: ${stageConfig.stage}`)
 
             const result = yield* pipe(
@@ -252,42 +253,43 @@ const makeGenerationPipelineService = Effect.gen(function* () {
             )
 
             if (result.status === 'success') {
-              completedStages.push(stageConfig.stage)
+              const newCompletedStages = [...acc.completedStages, stageConfig.stage]
               yield* updatePipelineState(pipelineId, {
-                completedStages,
-                progress: (completedStages.length / sortedStages.length) * 100,
+                completedStages: newCompletedStages,
+                progress: (newCompletedStages.length / sortedStages.length) * 100,
               })
+              yield* Effect.logInfo(`ステージ実行成功: ${stageConfig.stage}`)
+              return { completedStages: newCompletedStages, failedStages: acc.failedStages }
             } else {
-              failedStages.push(stageConfig.stage)
-              yield* updatePipelineState(pipelineId, { failedStages })
+              const newFailedStages = [...acc.failedStages, stageConfig.stage]
+              yield* updatePipelineState(pipelineId, { failedStages: newFailedStages })
 
-              if (config.errorStrategy === 'fail_fast') {
-                return yield* Effect.fail(new Error(`ステージ失敗: ${stageConfig.stage}`))
-              }
+              yield* Effect.when(config.errorStrategy === 'fail_fast', () =>
+                Effect.fail(new Error(`ステージ失敗: ${stageConfig.stage}`))
+              )
+
+              return { completedStages: acc.completedStages, failedStages: newFailedStages }
             }
-          }),
-          Effect.catchAll((error) =>
-            Effect.gen(function* () {
-              failedStages.push(stageConfig.stage)
-              yield* Effect.logError(`ステージ実行エラー: ${stageConfig.stage} - ${error}`)
-
-              if (config.errorStrategy === 'fail_fast') {
-                yield* updatePipelineState(pipelineId, { status: 'failed', failedStages })
-                return yield* Effect.fail({
-                  _tag: 'GenerationPipelineError' as const,
-                  message: `パイプライン実行失敗: ${error}`,
-                  pipelineId,
-                  stage: stageConfig.stage,
-                  cause: error,
-                })
-              }
+          })
+        ),
+        Effect.catchAll((error) =>
+          Effect.gen(function* () {
+            yield* Effect.logError(`パイプライン実行エラー: ${error}`)
+            yield* updatePipelineState(pipelineId, { status: 'failed' })
+            return yield* Effect.fail({
+              _tag: 'GenerationPipelineError' as const,
+              message: `パイプライン実行失敗: ${error}`,
+              pipelineId,
+              stage: 'unknown',
+              cause: error,
             })
-          )
+          })
         )
-      }
+      )
 
-      // 完了状態更新
-      const finalStatus = failedStages.length > 0 ? 'failed' : 'completed'
+      const finalStatus = pipe(failedStages.length > 0, (hasFailures) =>
+        hasFailures ? ('failed' as const) : ('completed' as const)
+      )
       yield* updatePipelineState(pipelineId, {
         status: finalStatus,
         progress: 100,
@@ -318,10 +320,12 @@ const makeGenerationPipelineService = Effect.gen(function* () {
 
   const cancelPipeline = (pipelineId: string, graceful: boolean) =>
     Effect.gen(function* () {
-      if (graceful) {
-        yield* Effect.logInfo(`パイプライン安全停止開始: ${pipelineId}`)
-        // チェックポイント保存等の処理
-      }
+      yield* Effect.when(graceful, () =>
+        Effect.gen(function* () {
+          yield* Effect.logInfo(`パイプライン安全停止開始: ${pipelineId}`)
+          // チェックポイント保存等の処理
+        })
+      )
 
       yield* updatePipelineState(pipelineId, { status: 'cancelled' })
       yield* Effect.logInfo(`パイプラインキャンセル: ${pipelineId}`)
@@ -341,13 +345,18 @@ const makeGenerationPipelineService = Effect.gen(function* () {
   ) =>
     Effect.gen(function* () {
       yield* STM.commit(
-        STM.modify(configurations, (map) => {
-          const current = map.get(pipelineId)
-          if (current) {
-            map.set(pipelineId, { ...current, ...configUpdate })
-          }
-          return map
-        })
+        STM.modify(configurations, (map) =>
+          pipe(
+            Option.fromNullable(map.get(pipelineId)),
+            Option.match({
+              onNone: () => map,
+              onSome: (current) => {
+                map.set(pipelineId, { ...current, ...configUpdate })
+                return map
+              },
+            })
+          )
+        )
       )
       yield* Effect.logInfo(`パイプライン設定更新: ${pipelineId}`)
     })
@@ -358,17 +367,22 @@ const makeGenerationPipelineService = Effect.gen(function* () {
     Effect.gen(function* () {
       const lastUpdateTime = yield* Clock.currentTimeMillis
       return yield* STM.commit(
-        STM.modify(pipelines, (map) => {
-          const current = map.get(pipelineId)
-          if (current) {
-            map.set(pipelineId, {
-              ...current,
-              ...update,
-              lastUpdateTime,
+        STM.modify(pipelines, (map) =>
+          pipe(
+            Option.fromNullable(map.get(pipelineId)),
+            Option.match({
+              onNone: () => map,
+              onSome: (current) => {
+                map.set(pipelineId, {
+                  ...current,
+                  ...update,
+                  lastUpdateTime,
+                })
+                return map
+              },
             })
-          }
-          return map
-        })
+          )
+        )
       )
     })
 

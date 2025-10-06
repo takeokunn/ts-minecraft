@@ -114,8 +114,9 @@ export type Camera = Brand<
 
 /**
  * Player ID - プレイヤー識別子
+ * 専用value_objectから再エクスポート
  */
-export type PlayerId = Brand<string, 'PlayerId'>
+export type { PlayerId } from '@domain/player/value_object/player_id'
 
 // ========================================
 // Schema定義

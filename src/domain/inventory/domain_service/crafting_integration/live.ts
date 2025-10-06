@@ -31,15 +31,17 @@ export const CraftingIntegrationServiceLive = Layer.succeed(
         // 材料の可用性をチェック
         const ingredientChecks = yield* pipe(
           recipe.ingredients,
-          Effect.forEach((ingredient) =>
-            Effect.gen(function* () {
-              const available = yield* countItemsInInventory(inventory, ingredient.itemId)
-              return {
-                ingredient,
-                available,
-                isMissing: available < ingredient.count,
-              }
-            })
+          Effect.forEach(
+            (ingredient) =>
+              Effect.gen(function* () {
+                const available = yield* countItemsInInventory(inventory, ingredient.itemId)
+                return {
+                  ingredient,
+                  available,
+                  isMissing: available < ingredient.count,
+                }
+              }),
+            { concurrency: 'unbounded' }
           )
         )
 
@@ -161,9 +163,10 @@ export const CraftingIntegrationServiceLive = Layer.succeed(
                   0
                 )
 
-                // Effect.ifによる材料十分性チェック
-                return yield* Effect.if(totalAvailable >= ingredient.count, {
-                  onTrue: () =>
+                // Match.whenによる材料十分性チェック
+                return yield* pipe(
+                  Match.value(totalAvailable >= ingredient.count),
+                  Match.when(true, () =>
                     Effect.succeed({
                       ...acc,
                       collected: [
@@ -174,8 +177,9 @@ export const CraftingIntegrationServiceLive = Layer.succeed(
                           fromSlots: availableSlots.slice(0, Math.ceil(ingredient.count / 64)),
                         },
                       ],
-                    }),
-                  onFalse: () =>
+                    })
+                  ),
+                  Match.orElse(() =>
                     Effect.gen(function* () {
                       const newMissing = {
                         itemId: ingredient.itemId,
@@ -188,11 +192,13 @@ export const CraftingIntegrationServiceLive = Layer.succeed(
                         onTrue: () =>
                           pipe(
                             ingredient.alternatives ?? [],
-                            Effect.forEach((altItemId) =>
-                              Effect.gen(function* () {
-                                const altAvailable = yield* countItemsInInventory(inventory, altItemId)
-                                return { altItemId, altAvailable }
-                              })
+                            Effect.forEach(
+                              (altItemId) =>
+                                Effect.gen(function* () {
+                                  const altAvailable = yield* countItemsInInventory(inventory, altItemId)
+                                  return { altItemId, altAvailable }
+                                }),
+                              { concurrency: 'unbounded' }
                             ),
                             Effect.map(
                               ReadonlyArray.filterMap(({ altItemId, altAvailable }) =>
@@ -214,8 +220,9 @@ export const CraftingIntegrationServiceLive = Layer.succeed(
                         missing: [...acc.missing, newMissing],
                         alternatives: [...acc.alternatives, ...newAlternatives],
                       }
-                    }),
-                })
+                    })
+                  )
+                )
               })
           )
         )
@@ -231,12 +238,14 @@ export const CraftingIntegrationServiceLive = Layer.succeed(
           onTrue: () =>
             pipe(
               ['oak', 'birch', 'spruce', 'jungle', 'acacia', 'dark_oak'] as const,
-              Effect.forEach((woodType) =>
-                Effect.gen(function* () {
-                  const altItemId = `minecraft:${woodType}_planks` as ItemId
-                  const available = yield* countItemsInInventory(inventory, altItemId)
-                  return { altItemId, available, woodType }
-                })
+              Effect.forEach(
+                (woodType) =>
+                  Effect.gen(function* () {
+                    const altItemId = `minecraft:${woodType}_planks` as ItemId
+                    const available = yield* countItemsInInventory(inventory, altItemId)
+                    return { altItemId, available, woodType }
+                  }),
+                { concurrency: 'unbounded' }
               ),
               Effect.map(
                 ReadonlyArray.filterMap(({ altItemId, available, woodType }) =>
@@ -319,17 +328,19 @@ export const CraftingIntegrationServiceLive = Layer.succeed(
 
         const results = yield* pipe(
           matchingRecipes,
-          Effect.forEach((recipe) =>
-            Effect.gen(function* () {
-              const craftability = yield* CraftingIntegrationService.checkCraftability(inventory, recipe)
+          Effect.forEach(
+            (recipe) =>
+              Effect.gen(function* () {
+                const craftability = yield* CraftingIntegrationService.checkCraftability(inventory, recipe)
 
-              return {
-                recipe,
-                canCraft: craftability.canCraft,
-                missingIngredients: craftability.missingIngredients.map((mi) => mi.itemId),
-                craftingComplexity: calculateCraftingComplexity(recipe),
-              }
-            })
+                return {
+                  recipe,
+                  canCraft: craftability.canCraft,
+                  missingIngredients: craftability.missingIngredients.map((mi) => mi.itemId),
+                  craftingComplexity: calculateCraftingComplexity(recipe),
+                }
+              }),
+            { concurrency: 'unbounded' }
           )
         )
 
@@ -436,11 +447,13 @@ const calculateSuggestedSlots = (
   Effect.gen(function* () {
     return yield* pipe(
       ingredients,
-      Effect.forEach((ingredient) =>
-        Effect.gen(function* () {
-          const slots = yield* findItemSlots(inventory, ingredient.itemId)
-          return Option.fromNullable(slots[0])
-        })
+      Effect.forEach(
+        (ingredient) =>
+          Effect.gen(function* () {
+            const slots = yield* findItemSlots(inventory, ingredient.itemId)
+            return Option.fromNullable(slots[0])
+          }),
+        { concurrency: 'unbounded' }
       ),
       Effect.map(ReadonlyArray.getSomes)
     )
@@ -509,30 +522,32 @@ const consumeSpecificItem = (
         },
         (acc, { index, slot }) =>
           Effect.gen(function* () {
-            // 残り消費量がゼロなら処理スキップ
+            // 早期return - 意図的保持（残り消費量ゼロ）
             if (acc.remainingToConsume === 0) {
               return acc
             }
 
-            // 対象アイテムでなければスキップ
+            // 早期return - 意図的保持（対象アイテム判定）
             if (slot?.itemStack?.itemId !== itemId) {
               return acc
             }
 
             const consumeFromThisSlot = Math.min(slot.itemStack.count, acc.remainingToConsume)
 
-            // Effect.ifによる完全消費チェック
-            const updatedSlot = yield* Effect.if(consumeFromThisSlot === slot.itemStack.count, {
-              onTrue: () => Effect.succeed(null as typeof slot),
-              onFalse: () =>
+            // Match.whenによる完全消費チェック
+            const updatedSlot = yield* pipe(
+              Match.value(consumeFromThisSlot === slot.itemStack.count),
+              Match.when(true, () => Effect.succeed(null as typeof slot)),
+              Match.orElse(() =>
                 Effect.succeed({
                   ...slot,
                   itemStack: {
                     ...slot.itemStack,
                     count: slot.itemStack.count - consumeFromThisSlot,
                   },
-                }),
-            })
+                })
+              )
+            )
 
             const newSlotsArray = [...acc.newSlots]
             newSlotsArray[index] = updatedSlot

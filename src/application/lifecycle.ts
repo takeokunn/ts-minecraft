@@ -46,7 +46,7 @@ const invalidTransition = (
       ],
     })
     return yield* Effect.fail(
-      InvalidStateTransitionError.make({
+      new InvalidStateTransitionError({
         context,
         currentState: current,
         attemptedState: target,

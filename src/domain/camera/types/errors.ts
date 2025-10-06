@@ -1,4 +1,4 @@
-import { Data, Option, Schema } from 'effect'
+import { Data, Option } from 'effect'
 
 // ========================================
 // Camera Domain Core Errors (Data.taggedEnum)

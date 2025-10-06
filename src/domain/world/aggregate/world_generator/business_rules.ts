@@ -113,11 +113,15 @@ const validateParameterConsistency = (
     )
 
     // バイオーム温度範囲の妥当性
-    for (const [biomeId, tempRange] of Object.entries(biomeConfig.temperatureRanges)) {
-      yield* Effect.when(tempRange.min >= tempRange.max, () =>
-        Effect.fail(GenerationErrors.createValidationError(`Invalid temperature range for biome ${biomeId}`))
-      )
-    }
+    yield* pipe(
+      Object.entries(biomeConfig.temperatureRanges),
+      Effect.forEach(([biomeId, tempRange]) =>
+        Effect.when(tempRange.min >= tempRange.max, () =>
+          Effect.fail(GenerationErrors.createValidationError(`Invalid temperature range for biome ${biomeId}`))
+        )
+      ),
+      Effect.asVoid
+    )
 
     // ノイズスケールの妥当性
     yield* Effect.when(noiseConfig.baseSettings.scale <= 0 || noiseConfig.baseSettings.scale > 1000, () =>
@@ -173,17 +177,26 @@ const validatePhysicalConstraints = (
     )
 
     // 気候モデルの物理的妥当性
-    for (const climate of Object.values(biomeConfig.climateData)) {
-      yield* Effect.when(climate.temperature < -50 || climate.temperature > 60, () =>
-        Effect.fail(
-          GenerationErrors.createValidationError('Temperature values must be within realistic range (-50°C to 60°C)')
+    yield* pipe(
+      Object.values(biomeConfig.climateData),
+      Effect.forEach((climate) =>
+        pipe(
+          Effect.when(climate.temperature < -50 || climate.temperature > 60, () =>
+            Effect.fail(
+              GenerationErrors.createValidationError(
+                'Temperature values must be within realistic range (-50°C to 60°C)'
+              )
+            )
+          ),
+          Effect.flatMap(() =>
+            Effect.when(climate.humidity < 0 || climate.humidity > 100, () =>
+              Effect.fail(GenerationErrors.createValidationError('Humidity values must be between 0% and 100%'))
+            )
+          )
         )
-      )
-
-      yield* Effect.when(climate.humidity < 0 || climate.humidity > 100, () =>
-        Effect.fail(GenerationErrors.createValidationError('Humidity values must be between 0% and 100%'))
-      )
-    }
+      ),
+      Effect.asVoid
+    )
   })
 
 // ================================
@@ -204,10 +217,14 @@ export const validateChunkGenerationRequest = (
     // 優先度の妥当性
     yield* validatePriority(command.priority)
 
-    // 生成オプションの妥当性
-    if (command.options) {
-      yield* validateGenerationOptions(generator, command.options)
-    }
+    // 生成オプションの妥当性（Option.matchパターン）
+    yield* pipe(
+      Option.fromNullable(command.options),
+      Option.match({
+        onNone: () => Effect.void,
+        onSome: (options) => validateGenerationOptions(generator, options),
+      })
+    )
 
     // ジェネレータ状態の確認
     yield* validateGeneratorState(generator)
@@ -264,15 +281,21 @@ const validateGenerationOptions = (
   options: NonNullable<GenerateChunkCommand['options']>
 ): Effect.Effect<void, GenerationErrors.ValidationError> =>
   Effect.gen(function* () {
-    // フラットワールドでは洞窟生成を無効化
-    yield* Effect.when(generator.context.metadata.worldType === 'flat' && options.includeCaves, () =>
-      Effect.fail(GenerationErrors.createValidationError('Flat worlds cannot generate caves'))
-    )
+    // ルールベース検証：生成オプションの制約チェック
+    const optionRules = [
+      {
+        name: 'flat-world-caves',
+        condition: generator.context.metadata.worldType === 'flat' && options.includeCaves,
+        error: 'Flat worlds cannot generate caves',
+      },
+    ]
 
-    // ピースフル難易度では敵対MOB関連構造物を制限
-    if (generator.context.metadata.difficulty === 'peaceful' && options.includeStructures) {
-      // より詳細なチェックが必要だが、ここでは簡略化
-    }
+    yield* Effect.forEach(optionRules, (rule) =>
+      Effect.when(rule.condition, {
+        onTrue: () => Effect.fail(GenerationErrors.createValidationError(rule.error)),
+        onFalse: () => Effect.void,
+      })
+    )
   })
 
 /**
@@ -310,17 +333,24 @@ export const validateSettingsUpdate = (
       Effect.fail(GenerationErrors.createValidationError('Cannot update settings while chunk generation is active'))
     )
 
-    // 更新内容の検証
-    if (command.parameters || command.biomeConfig || command.noiseConfig) {
-      const updatedContext = {
-        ...generator.context,
-        ...(command.parameters && { parameters: command.parameters }),
-        ...(command.biomeConfig && { biomeConfig: command.biomeConfig }),
-        ...(command.noiseConfig && { noiseConfig: command.noiseConfig }),
-      }
+    // 更新内容の検証（Option.matchパターン）
+    const hasUpdates = command.parameters || command.biomeConfig || command.noiseConfig
 
-      yield* validateParameterConsistency(updatedContext)
-    }
+    yield* pipe(
+      Option.fromNullable(hasUpdates ? command : null),
+      Option.match({
+        onNone: () => Effect.void,
+        onSome: (cmd) => {
+          const updatedContext = {
+            ...generator.context,
+            ...(cmd.parameters && { parameters: cmd.parameters }),
+            ...(cmd.biomeConfig && { biomeConfig: cmd.biomeConfig }),
+            ...(cmd.noiseConfig && { noiseConfig: cmd.noiseConfig }),
+          }
+          return validateParameterConsistency(updatedContext)
+        },
+      })
+    )
   })
 
 // ================================
@@ -387,17 +417,24 @@ export const validateStateIntegrity = (state: GenerationState): Effect.Effect<vo
     )
 
     // 生成状態の論理的整合性
-    for (const [key, info] of Object.entries(state.activeGenerations)) {
-      yield* Effect.when(info.status === 'completed' || info.status === 'failed', () =>
-        Effect.fail(
-          GenerationErrors.createIntegrityError(`Active generation ${key} has terminal status ${info.status}`)
+    yield* pipe(
+      Object.entries(state.activeGenerations),
+      Effect.forEach(([key, info]) =>
+        pipe(
+          Effect.when(info.status === 'completed' || info.status === 'failed', () =>
+            Effect.fail(
+              GenerationErrors.createIntegrityError(`Active generation ${key} has terminal status ${info.status}`)
+            )
+          ),
+          Effect.flatMap(() =>
+            Effect.when(info.attempts <= 0, () =>
+              Effect.fail(GenerationErrors.createIntegrityError(`Invalid attempt count for generation ${key}`))
+            )
+          )
         )
-      )
-
-      yield* Effect.when(info.attempts <= 0, () =>
-        Effect.fail(GenerationErrors.createIntegrityError(`Invalid attempt count for generation ${key}`))
-      )
-    }
+      ),
+      Effect.asVoid
+    )
   })
 
 // ================================

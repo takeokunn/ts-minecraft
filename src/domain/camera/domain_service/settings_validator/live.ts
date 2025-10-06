@@ -140,7 +140,7 @@ export const SettingsValidatorServiceLive = Layer.succeed(
               })
             }),
         })
-      }),,
+      }),
 
     /**
      * 設定制約の適用
@@ -161,7 +161,7 @@ export const SettingsValidatorServiceLive = Layer.succeed(
           onTrue: () => applyAccessibilityRequirements(platformLimited, constraints.accessibilityRequirements),
           onFalse: () => Effect.succeed(platformLimited),
         })
-      }),,
+      }),
 
     /**
      * FOV値の検証
@@ -193,7 +193,7 @@ export const SettingsValidatorServiceLive = Layer.succeed(
         )
 
         return fov
-      }),,
+      }),
 
     /**
      * フレームレート制約の検証
@@ -216,7 +216,7 @@ export const SettingsValidatorServiceLive = Layer.succeed(
         yield* validateQualityFrameRateBalance(qualityLevel, targetFrameRate, hardwareLimits)
 
         return targetFrameRate
-      }),,
+      }),
 
     /**
      * レンダリング設定の妥当性確認
@@ -260,7 +260,7 @@ export const SettingsValidatorServiceLive = Layer.succeed(
           qualityLevel,
           adjustments,
         }
-      }),,
+      }),
 
     /**
      * 感度設定の検証
@@ -285,7 +285,7 @@ export const SettingsValidatorServiceLive = Layer.succeed(
           controllerSensitivity,
           calibrationRecommendations,
         }
-      }),,
+      }),
 
     /**
      * パフォーマンス最適化設定の提案
@@ -315,7 +315,7 @@ export const SettingsValidatorServiceLive = Layer.succeed(
 /**
  * 基本設定値の検証
  */
-const const validateBasicSettings = (settings: CameraSettings): Effect.Effect<void, SettingsValidationError> =>
+const validateBasicSettings = (settings: CameraSettings): Effect.Effect<void, SettingsValidationError> =>
   Effect.gen(function* () {
     // SettingsValidationを使用した基本検証
     const isValid = yield* SettingsValidation.validateSettings(settings)
@@ -574,13 +574,10 @@ const applyHardwareLimits = (
 ): Effect.Effect<CameraSettings, SettingsValidationError> =>
   Effect.gen(function* () {
     // フレームレート制限
-    const frameRateLimited = yield* Effect.if(
-      (settings.frameRate as number) > (limits.maxFrameRate as number),
-      {
-        onTrue: () => CameraSettingsOps.setFrameRate(settings, limits.maxFrameRate),
-        onFalse: () => Effect.succeed(settings),
-      }
-    )
+    const frameRateLimited = yield* Effect.if((settings.frameRate as number) > (limits.maxFrameRate as number), {
+      onTrue: () => CameraSettingsOps.setFrameRate(settings, limits.maxFrameRate),
+      onFalse: () => Effect.succeed(settings),
+    })
 
     // 品質レベル調整
     return yield* Effect.if((frameRateLimited.qualityLevel as number) > (limits.maxTextureQuality as number), {

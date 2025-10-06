@@ -11,6 +11,20 @@ export type SerializationFormat =
   | { readonly _tag: 'JSON'; readonly pretty?: boolean }
   | { readonly _tag: 'Compressed'; readonly algorithm: 'gzip' | 'deflate' | 'brotli' }
 
+/**
+ * JSON形式のChunkData payload Schema
+ * deserialize時のJSON.parse結果を検証
+ */
+const ChunkJsonPayloadSchema = Schema.Struct({
+  position: Schema.Struct({
+    x: Schema.Number,
+    z: Schema.Number,
+  }),
+  metadata: Schema.Unknown,
+  isDirty: Schema.Boolean,
+  blocks: Schema.Array(Schema.Number),
+})
+
 export const SerializationFormat = {
   Binary: (options: { readonly compression?: boolean } = {}): SerializationFormat => ({
     _tag: 'Binary',
@@ -132,8 +146,20 @@ const decodeBinary = (
     const metadataJson = new TextDecoder().decode(metadataBytes)
     const metadata = yield* Effect.try({
       try: () => JSON.parse(metadataJson),
-      catch: (error) => new Error(`Binary metadata parse error: ${String(error)}`),
-    })
+      catch: (error) =>
+        ChunkSerializationError({
+          message: `Binary metadata JSON parse failed: ${String(error)}`,
+          originalError: error,
+        }),
+    }).pipe(
+      Effect.flatMap(Schema.decodeUnknown(ChunkMetadataSchema)),
+      Effect.mapError((error) =>
+        ChunkSerializationError({
+          message: `Binary metadata schema validation failed: ${String(error)}`,
+          originalError: error,
+        })
+      )
+    )
 
     const isDirty = view.getUint8(offset) === 1
     offset += 1
@@ -325,14 +351,22 @@ export const ChunkSerializationServiceLive = Layer.effect(
                       message: `JSONの解析に失敗しました: ${String(error)}`,
                       originalError: error,
                     }),
-                })
+                }).pipe(
+                  Effect.flatMap(Schema.decodeUnknown(ChunkJsonPayloadSchema)),
+                  Effect.mapError((error) =>
+                    ChunkSerializationError({
+                      message: `JSON payload schema validation failed: ${String(error)}`,
+                      originalError: error,
+                    })
+                  )
+                )
               ),
-              Effect.flatMap((payload: unknown) =>
+              Effect.flatMap((payload) =>
                 decodeChunk({
-                  position: (payload as { position: { x: number; z: number } }).position,
-                  metadata: (payload as { metadata: unknown }).metadata,
-                  isDirty: (payload as { isDirty: boolean }).isDirty,
-                  blocks: new Uint16Array((payload as { blocks: number[] }).blocks),
+                  position: payload.position,
+                  metadata: payload.metadata,
+                  isDirty: payload.isDirty,
+                  blocks: new Uint16Array(payload.blocks),
                 })
               )
             )

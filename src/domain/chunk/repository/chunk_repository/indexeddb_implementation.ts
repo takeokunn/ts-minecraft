@@ -1,4 +1,4 @@
-import { Clock, Effect, Layer, Option, pipe } from 'effect'
+import { Clock, Effect, Layer, Match, Option, pipe } from 'effect'
 import type { ChunkData } from '../../aggregate/chunk_data'
 import type { ChunkId } from '../../value_object/chunk_id'
 import type { ChunkPosition } from '../../value_object/chunk_position'
@@ -51,17 +51,25 @@ const openDatabase = (): Effect.Effect<IDBDatabase, RepositoryError> =>
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result
 
-      if (!db.objectStoreNames.contains(CHUNK_STORE)) {
-        const chunkStore = db.createObjectStore(CHUNK_STORE, { keyPath: 'id' })
-        chunkStore.createIndex('position', ['chunkData.position.x', 'chunkData.position.z'], { unique: true })
-        chunkStore.createIndex('createdAt', 'createdAt')
-        chunkStore.createIndex('modifiedAt', 'modifiedAt')
-        chunkStore.createIndex('lastAccessAt', 'lastAccessAt')
-      }
+      pipe(
+        Match.value(db.objectStoreNames.contains(CHUNK_STORE)),
+        Match.when(false, () => {
+          const chunkStore = db.createObjectStore(CHUNK_STORE, { keyPath: 'id' })
+          chunkStore.createIndex('position', ['chunkData.position.x', 'chunkData.position.z'], { unique: true })
+          chunkStore.createIndex('createdAt', 'createdAt')
+          chunkStore.createIndex('modifiedAt', 'modifiedAt')
+          chunkStore.createIndex('lastAccessAt', 'lastAccessAt')
+        }),
+        Match.orElse(() => {})
+      )
 
-      if (!db.objectStoreNames.contains(METADATA_STORE)) {
-        db.createObjectStore(METADATA_STORE, { keyPath: 'key' })
-      }
+      pipe(
+        Match.value(db.objectStoreNames.contains(METADATA_STORE)),
+        Match.when(false, () => {
+          db.createObjectStore(METADATA_STORE, { keyPath: 'key' })
+        }),
+        Match.orElse(() => {})
+      )
     }
   })
 

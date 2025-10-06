@@ -158,11 +158,7 @@ export const WorldGenerationOrchestratorUtils = {
           yield* onProgress(progress)
 
           // 完了または失敗時は監視終了
-          if (progress.stage === 'completed' || progress.stage === 'failed') {
-            return false
-          }
-
-          return true
+          return progress.stage !== 'completed' && progress.stage !== 'failed'
         }),
         { schedule: Effect.Schedule.spaced('2 seconds') }
       )

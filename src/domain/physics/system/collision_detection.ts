@@ -1,6 +1,6 @@
 import type { BlockTypeId } from '@domain/entities'
 import type { AABB, CollisionResult } from '@domain/physics/types'
-import { Array as ReadonlyArray, Effect, Match, Option, pipe, Stream } from 'effect'
+import { Effect, Match, Option, pipe, Array as ReadonlyArray, Stream } from 'effect'
 import type { Vector3 } from '../../world/types'
 
 /**
@@ -130,7 +130,10 @@ export const CollisionDetection = {
           } as CollisionState,
           (state, { blockType, blockPos, blockAABB }) => {
             // nearbyBlocksに追加
-            const updatedNearbyBlocks = [...state.nearbyBlocks, { position: blockPos, blockType: blockType as BlockTypeId }]
+            const updatedNearbyBlocks = [
+              ...state.nearbyBlocks,
+              { position: blockPos, blockType: blockType as BlockTypeId },
+            ]
 
             // Y軸の衝突チェック
             const yTestBox = CollisionDetection.translateAABB(entityBox, {
@@ -168,7 +171,11 @@ export const CollisionDetection = {
                       nearbyBlocks: updatedNearbyBlocks,
                     })
                   ),
-                  Match.orElse(() => ({ ...state, collidedAxes: updatedCollidedAxes, nearbyBlocks: updatedNearbyBlocks }))
+                  Match.orElse(() => ({
+                    ...state,
+                    collidedAxes: updatedCollidedAxes,
+                    nearbyBlocks: updatedNearbyBlocks,
+                  }))
                 )
               })
             )

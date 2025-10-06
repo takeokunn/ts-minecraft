@@ -1,6 +1,6 @@
 import type { EquipmentDomainError } from '@domain/equipment/types'
 import { makeRequirementViolation } from '@domain/equipment/types'
-import { Effect, Schema } from 'effect'
+import { Effect, Match, Schema } from 'effect'
 
 export type EquipmentSlotLiteral =
   | 'main_hand'
@@ -68,15 +68,12 @@ export const ensureSlotAllowed = (
 ): Effect.Effect<EquipmentSlot, EquipmentDomainError> => {
   const literal = toLiteral(slot)
   const category = slotCategoryTable[literal]
-  const ok = (() => {
-    if (category._tag === 'Hand') {
-      return tag.startsWith('weapon') || tag.startsWith('tool')
-    }
-    if (category._tag === 'Armor') {
-      return tag.startsWith('armor')
-    }
-    return tag.startsWith('accessory') || tag.startsWith('trinket')
-  })()
+  const ok = Match.value(category).pipe(
+    Match.tag('Hand', () => tag.startsWith('weapon') || tag.startsWith('tool')),
+    Match.tag('Armor', () => tag.startsWith('armor')),
+    Match.tag('Accessory', () => tag.startsWith('accessory') || tag.startsWith('trinket')),
+    Match.exhaustive
+  )
 
   return ok
     ? Effect.succeed(slot)

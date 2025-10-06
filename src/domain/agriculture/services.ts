@@ -84,11 +84,14 @@ export const batchSimulate = (params: {
   readonly soilDelta: number
   readonly growthSteps: number
 }): Effect.Effect<ReadonlyArray<CropSimulationResult>, DomainError> =>
-  Effect.forEach(params.aggregates, (aggregate) =>
-    simulateCropCycle({
-      aggregate,
-      hydrationDelta: params.hydrationDelta,
-      soilDelta: params.soilDelta,
-      growthSteps: params.growthSteps,
-    })
+  Effect.forEach(
+    params.aggregates,
+    (aggregate) =>
+      simulateCropCycle({
+        aggregate,
+        hydrationDelta: params.hydrationDelta,
+        soilDelta: params.soilDelta,
+        growthSteps: params.growthSteps,
+      }),
+    { concurrency: 'unbounded' }
   )

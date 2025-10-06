@@ -84,6 +84,7 @@ export const BlockCoordinateSchema = Schema.Struct({
   y: BlockYSchema,
   z: BlockZSchema,
 }).pipe(
+  Schema.brand('BlockCoordinate'),
   Schema.annotations({
     identifier: 'BlockCoordinate',
     title: 'Block 3D Coordinate',
@@ -100,6 +101,7 @@ export const BlockCoordinate2DSchema = Schema.Struct({
   x: BlockXSchema,
   z: BlockZSchema,
 }).pipe(
+  Schema.brand('BlockCoordinate2D'),
   Schema.annotations({
     identifier: 'BlockCoordinate2D',
     title: 'Block 2D Coordinate',
@@ -129,6 +131,7 @@ export const BlockRelativePositionSchema = Schema.Struct({
   y: Schema.Number.pipe(Schema.between(0, 1)),
   z: Schema.Number.pipe(Schema.between(0, 1)),
 }).pipe(
+  Schema.brand('BlockRelativePosition'),
   Schema.annotations({
     identifier: 'BlockRelativePosition',
     title: 'Block Relative Position',
@@ -145,6 +148,7 @@ export const DetailedBlockPositionSchema = Schema.Struct({
   block: BlockCoordinateSchema,
   relative: BlockRelativePositionSchema,
 }).pipe(
+  Schema.brand('DetailedBlockPosition'),
   Schema.annotations({
     identifier: 'DetailedBlockPosition',
     title: 'Detailed Block Position',
@@ -161,6 +165,7 @@ export const BlockRangeSchema = Schema.Struct({
   min: BlockCoordinateSchema,
   max: BlockCoordinateSchema,
 }).pipe(
+  Schema.brand('BlockRange'),
   Schema.annotations({
     identifier: 'BlockRange',
     title: 'Block Range',
@@ -236,6 +241,7 @@ export const BlockNeighborhoodSchema = Schema.Struct({
   pattern: NeighborPatternSchema,
   neighbors: Schema.Array(BlockCoordinateSchema),
 }).pipe(
+  Schema.brand('BlockNeighborhood'),
   Schema.annotations({
     identifier: 'BlockNeighborhood',
     title: 'Block Neighborhood',

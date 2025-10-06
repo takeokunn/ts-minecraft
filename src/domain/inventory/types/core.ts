@@ -22,19 +22,9 @@ export type InventoryId = Schema.Schema.Type<typeof InventoryIdSchema>
 
 /**
  * プレイヤー識別子
- * プレイヤーの一意識別子（UUID形式推奨）
+ * 専用value_objectから再エクスポート
  */
-export const PlayerIdSchema = Schema.String.pipe(
-  Schema.pattern(/^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$/),
-  Schema.brand('PlayerId'),
-  Schema.annotations({
-    title: 'PlayerId',
-    description: 'Unique identifier for a player (UUID format)',
-    examples: ['550e8400-e29b-41d4-a716-446655440000'],
-  })
-)
-
-export type PlayerId = Schema.Schema.Type<typeof PlayerIdSchema>
+export { PlayerIdSchema, type PlayerId } from '@domain/player/value_object/player_id'
 
 /**
  * アイテム識別子

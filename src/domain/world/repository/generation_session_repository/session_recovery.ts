@@ -58,16 +58,11 @@ export const analyzeSessionRecovery = (
 
     const riskLevel: 'low' | 'medium' | 'high' = corruptionRate < 0.1 ? 'low' : corruptionRate < 0.3 ? 'medium' : 'high'
 
-    const recommendations: string[] = []
-    if (corruptionRate > 0.5) {
-      recommendations.push('Consider full regeneration instead of recovery')
-    }
-    if (session.progress.failedChunks > 10) {
-      recommendations.push('Check world generation settings for issues')
-    }
-    if (session.state === 'failed') {
-      recommendations.push('Investigate root cause before recovery')
-    }
+    const recommendations: string[] = [
+      ...(corruptionRate > 0.5 ? ['Consider full regeneration instead of recovery'] : []),
+      ...(session.progress.failedChunks > 10 ? ['Check world generation settings for issues'] : []),
+      ...(session.state === 'failed' ? ['Investigate root cause before recovery'] : []),
+    ]
 
     return {
       sessionId: session.id,
@@ -119,38 +114,47 @@ export const executeSessionRecovery = (
     let skippedChunks = 0
     let corruptedChunks = 0
 
-    switch (options.strategy) {
-      case 'conservative':
-        // Only recover chunks with high confidence
-        recoveredChunks = analysis.recoverableChunks.length
-        skippedChunks = analysis.corruptedChunks.length
-        corruptedChunks = 0
-        break
+    const recoveryMetrics = pipe(
+      options.strategy,
+      Match.value,
+      Match.when('conservative', () => ({
+        recoveredChunks: analysis.recoverableChunks.length,
+        skippedChunks: analysis.corruptedChunks.length,
+        corruptedChunks: 0,
+      })),
+      Match.when('aggressive', () => ({
+        recoveredChunks: session.chunks.length,
+        skippedChunks: 0,
+        corruptedChunks: 0,
+      })),
+      Match.when('smart', () =>
+        pipe(
+          analysis.riskLevel,
+          Match.value,
+          Match.when('low', () => ({
+            recoveredChunks: session.chunks.length,
+            skippedChunks: 0,
+            corruptedChunks: 0,
+          })),
+          Match.when('medium', () => ({
+            recoveredChunks: analysis.recoverableChunks.length,
+            skippedChunks: Math.floor(analysis.corruptedChunks.length / 2),
+            corruptedChunks: Math.ceil(analysis.corruptedChunks.length / 2),
+          })),
+          Match.when('high', () => ({
+            recoveredChunks: Math.floor(analysis.recoverableChunks.length * 0.8),
+            skippedChunks: analysis.corruptedChunks.length,
+            corruptedChunks: Math.floor(analysis.recoverableChunks.length * 0.2),
+          })),
+          Match.exhaustive
+        )
+      ),
+      Match.exhaustive
+    )
 
-      case 'aggressive':
-        // Attempt to recover all chunks, including corrupted ones
-        recoveredChunks = session.chunks.length
-        skippedChunks = 0
-        corruptedChunks = 0
-        break
-
-      case 'smart':
-        // Intelligent recovery based on corruption analysis
-        if (analysis.riskLevel === 'low') {
-          recoveredChunks = session.chunks.length
-          skippedChunks = 0
-          corruptedChunks = 0
-        } else if (analysis.riskLevel === 'medium') {
-          recoveredChunks = analysis.recoverableChunks.length
-          skippedChunks = Math.floor(analysis.corruptedChunks.length / 2)
-          corruptedChunks = Math.ceil(analysis.corruptedChunks.length / 2)
-        } else {
-          recoveredChunks = Math.floor(analysis.recoverableChunks.length * 0.8)
-          skippedChunks = analysis.corruptedChunks.length
-          corruptedChunks = Math.floor(analysis.recoverableChunks.length * 0.2)
-        }
-        break
-    }
+    recoveredChunks = recoveryMetrics.recoveredChunks
+    skippedChunks = recoveryMetrics.skippedChunks
+    corruptedChunks = recoveryMetrics.corruptedChunks
 
     // Simulate recovery process
     yield* Effect.sleep(`${Math.min(analysis.estimatedRecoveryTime, 5000)} millis`)
@@ -249,41 +253,41 @@ export const validateRecoveredSession = (
   AllRepositoryErrors
 > =>
   Effect.gen(function* () {
-    const issues: string[] = []
-    let confidence = 1.0
-
-    // Check session integrity
-    if (recoveredSession.id !== originalSession.id) {
-      issues.push('Session ID mismatch')
-      confidence -= 0.5
-    }
-
-    if (recoveredSession.worldId !== originalSession.worldId) {
-      issues.push('World ID mismatch')
-      confidence -= 0.3
-    }
-
-    // Check chunk integrity
     const originalCompletedChunks = originalSession.chunks.filter((c) => c.status === 'completed').length
     const recoveredCompletedChunks = recoveredSession.chunks.filter((c) => c.status === 'completed').length
 
-    if (recoveredCompletedChunks < originalCompletedChunks * 0.8) {
-      issues.push('Significant chunk loss detected')
-      confidence -= 0.2
-    }
+    const integrityChecks = [
+      {
+        condition: recoveredSession.id !== originalSession.id,
+        issue: 'Session ID mismatch',
+        penalty: 0.5,
+      },
+      {
+        condition: recoveredSession.worldId !== originalSession.worldId,
+        issue: 'World ID mismatch',
+        penalty: 0.3,
+      },
+      {
+        condition: recoveredCompletedChunks < originalCompletedChunks * 0.8,
+        issue: 'Significant chunk loss detected',
+        penalty: 0.2,
+      },
+      {
+        condition: recoveredSession.progress.overallProgress < originalSession.progress.overallProgress * 0.9,
+        issue: 'Progress regression detected',
+        penalty: 0.1,
+      },
+    ]
 
-    // Check progress integrity
-    if (recoveredSession.progress.overallProgress < originalSession.progress.overallProgress * 0.9) {
-      issues.push('Progress regression detected')
-      confidence -= 0.1
-    }
-
+    const failedChecks = integrityChecks.filter((check) => check.condition)
+    const issues = failedChecks.map((check) => check.issue)
+    const confidence = Math.max(1.0 - failedChecks.reduce((sum, check) => sum + check.penalty, 0), 0.0)
     const isValid = issues.length === 0 && confidence > 0.5
 
     return {
       isValid,
       issues,
-      confidence: Math.max(confidence, 0.0),
+      confidence,
     }
   })
 

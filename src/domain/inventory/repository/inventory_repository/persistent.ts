@@ -1,4 +1,4 @@
-import { Clock, Effect, HashMap, Layer, Option, Ref } from 'effect'
+import { Clock, Effect, HashMap, Layer, Option, Ref, Schema, TreeFormatter } from 'effect'
 import type {
   Inventory,
   InventoryQuery,
@@ -12,6 +12,7 @@ import type {
 } from '../../types'
 import { createInventoryNotFoundError, createRepositoryError, createStorageError } from '../types'
 import { InventoryRepository } from './index'
+import { InventoryRepositoryStorageSchema } from './storage_schema'
 
 /**
  * Persistent Storage Configuration
@@ -47,78 +48,93 @@ export const InventoryRepositoryPersistent = (config: PersistentConfig = Default
 
       // ストレージ操作のヘルパー関数
       const loadFromStorage = Effect.gen(function* () {
-        try {
-          const data = localStorage.getItem(config.storageKey)
-          if (data) {
-            const parsed = JSON.parse(data)
-            const inventories = new Map<PlayerId, Inventory>()
+        // LocalStorageからのデータ読み込み
+        const rawData = yield* Effect.try({
+          try: () => localStorage.getItem(config.storageKey),
+          catch: (error) => createStorageError('localStorage', 'load', `Failed to get item: ${error}`),
+        })
 
-            if (parsed.inventories) {
-              Object.entries(parsed.inventories).forEach(([playerId, inventory]) => {
-                const inv = inventory as Inventory
-                // Map の復元
-                inv.slots = new Map(Object.entries(inv.slots || {}))
-                inventories.set(playerId as PlayerId, inv)
-              })
-            }
-
-            yield* Ref.set(inventoryCache, HashMap.fromIterable(inventories))
-
-            if (parsed.snapshots) {
-              const snapshots = new Map<string, InventorySnapshot>()
-              Object.entries(parsed.snapshots).forEach(([id, snapshot]) => {
-                const snap = snapshot as InventorySnapshot
-                // スナップショット内のInventoryのMap復元
-                if (snap.inventory.slots) {
-                  snap.inventory.slots = new Map(Object.entries(snap.inventory.slots))
-                }
-                snapshots.set(id, snap)
-              })
-              yield* Ref.set(snapshotCache, HashMap.fromIterable(snapshots))
-            }
-          }
-        } catch (error) {
-          yield* Effect.fail(createStorageError('localStorage', 'load', `Failed to load data: ${error}`))
+        // データが存在しない場合は空の状態を返す
+        if (!rawData) {
+          return Effect.void
         }
+
+        // JSON.parse → Schema.decodeUnknown による型安全な検証
+        const validated = yield* Effect.try({
+          try: () => JSON.parse(rawData),
+          catch: (cause) => createStorageError('localStorage', 'load', `JSON parse failed: ${cause}`),
+        }).pipe(
+          Effect.flatMap(Schema.decodeUnknown(InventoryRepositoryStorageSchema)),
+          Effect.mapError((error) =>
+            createStorageError(
+              'localStorage',
+              'load',
+              `Schema validation failed: ${TreeFormatter.formatErrorSync(error)}`
+            )
+          )
+        )
+
+        // Inventory復元: ObjectからMapへ変換
+        const inventories = new Map<PlayerId, Inventory>()
+        if (validated.inventories) {
+          Object.entries(validated.inventories).forEach(([playerId, inventory]) => {
+            inventories.set(playerId as PlayerId, inventory as Inventory)
+          })
+        }
+
+        // Snapshot復元: ObjectからMapへ変換
+        const snapshots = new Map<string, InventorySnapshot>()
+        if (validated.snapshots) {
+          Object.entries(validated.snapshots).forEach(([id, snapshot]) => {
+            snapshots.set(id, snapshot as InventorySnapshot)
+          })
+        }
+
+        // キャッシュへの保存
+        yield* Ref.set(inventoryCache, HashMap.fromIterable(inventories))
+        yield* Ref.set(snapshotCache, HashMap.fromIterable(snapshots))
       })
 
       const saveToStorage = Effect.gen(function* () {
-        try {
-          const inventories = yield* Ref.get(inventoryCache)
-          const snapshots = yield* Ref.get(snapshotCache)
+        const inventories = yield* Ref.get(inventoryCache)
+        const snapshots = yield* Ref.get(snapshotCache)
+        const timestamp = yield* Clock.currentTimeMillis
 
-          // Map を Object に変換してシリアライズ可能にする
-          const inventoriesObj: Record<string, any> = {}
-          HashMap.forEach(inventories, (inventory, playerId) => {
-            inventoriesObj[playerId] = {
-              ...inventory,
-              slots: Object.fromEntries(inventory.slots),
-            }
-          })
+        // Map を Object に変換してシリアライズ可能にする
+        const inventoriesObj: Record<string, any> = {}
+        HashMap.forEach(inventories, (inventory, playerId) => {
+          inventoriesObj[playerId] = {
+            ...inventory,
+            slots: Object.fromEntries(inventory.slots),
+          }
+        })
 
-          const snapshotsObj: Record<string, any> = {}
-          HashMap.forEach(snapshots, (snapshot, id) => {
-            snapshotsObj[id] = {
-              ...snapshot,
-              inventory: {
-                ...snapshot.inventory,
-                slots: Object.fromEntries(snapshot.inventory.slots),
-              },
-            }
-          })
+        const snapshotsObj: Record<string, any> = {}
+        HashMap.forEach(snapshots, (snapshot, id) => {
+          snapshotsObj[id] = {
+            ...snapshot,
+            inventory: {
+              ...snapshot.inventory,
+              slots: Object.fromEntries(snapshot.inventory.slots),
+            },
+          }
+        })
 
-          const data = JSON.stringify({
-            inventories: inventoriesObj,
-            snapshots: snapshotsObj,
-            version: 1,
-            lastSaved: yield* Clock.currentTimeMillis,
-          })
+        const data = JSON.stringify({
+          inventories: inventoriesObj,
+          snapshots: snapshotsObj,
+          version: 1,
+          lastSaved: timestamp,
+        })
 
-          localStorage.setItem(config.storageKey, data)
-          yield* Ref.set(isDirty, false)
-        } catch (error) {
-          yield* Effect.fail(createStorageError('localStorage', 'save', `Failed to save data: ${error}`))
-        }
+        yield* Effect.try({
+          try: () => {
+            localStorage.setItem(config.storageKey, data)
+          },
+          catch: (error) => createStorageError('localStorage', 'save', `Failed to save data: ${error}`),
+        })
+
+        yield* Ref.set(isDirty, false)
       })
 
       // 定期保存の設定

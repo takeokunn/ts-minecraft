@@ -73,32 +73,28 @@ const ensureNumber = (value: unknown, field: string): Effect.Effect<number, Doma
       : Effect.fail(invalidStructure(field, 'number expected'))
 
 const ensureTimestamp = (value: unknown, field: string): Effect.Effect<Timestamp, DomainError> =>
-  Effect.suspend(() => {
-    if (typeof value === 'number') {
-      return Effect.succeed(fromEpochMillis(value))
-    }
-
-    if (typeof value === 'string') {
-      const parsed = Date.parse(value)
-      return Number.isNaN(parsed)
-        ? Effect.fail(invalidStructure(field, 'invalid timestamp string'))
-        : Effect.succeed(fromEpochMillis(parsed))
-    }
-
-    if (value instanceof Date) {
-      return Number.isNaN(value.getTime())
-        ? Effect.fail(invalidStructure(field, 'invalid Date instance'))
-        : Effect.succeed(DateTime.unsafeFromDate(value))
-    }
-
-    if (DateTime.isDateTime(value)) {
-      return value._tag === 'Utc'
-        ? Effect.succeed(value)
-        : Effect.fail(invalidStructure(field, 'utc timestamp expected'))
-    }
-
-    return Effect.fail(invalidStructure(field, 'timestamp expected'))
-  })
+  Effect.suspend(() =>
+    Match.value(value).pipe(
+      Match.when(Match.number, (num) => Effect.succeed(fromEpochMillis(num))),
+      Match.when(Match.string, (str) => {
+        const parsed = Date.parse(str)
+        return Number.isNaN(parsed)
+          ? Effect.fail(invalidStructure(field, 'invalid timestamp string'))
+          : Effect.succeed(fromEpochMillis(parsed))
+      }),
+      Match.when(
+        (v): v is Date => v instanceof Date,
+        (date) =>
+          Number.isNaN(date.getTime())
+            ? Effect.fail(invalidStructure(field, 'invalid Date instance'))
+            : Effect.succeed(DateTime.unsafeFromDate(date))
+      ),
+      Match.when(DateTime.isDateTime, (dt) =>
+        dt._tag === 'Utc' ? Effect.succeed(dt) : Effect.fail(invalidStructure(field, 'utc timestamp expected'))
+      ),
+      Match.orElse(() => Effect.fail(invalidStructure(field, 'timestamp expected')))
+    )
+  )
 
 export const makeCropAggregate = (input: {
   readonly id: string
@@ -226,10 +222,14 @@ export const validateCropAggregate = (input: unknown): Effect.Effect<CropAggrega
     const record = yield* ensureRecord(input, 'cropAggregate')
 
     const idValue = record['id']
-    if (typeof idValue !== 'string') {
-      return yield* Effect.fail(invalidStructure('cropAggregate.id', 'string identifier expected'))
-    }
-    const identifier = yield* makeIdentifier(idValue)
+    yield* pipe(
+      typeof idValue !== 'string',
+      Effect.when({
+        onTrue: () => Effect.fail(invalidStructure('cropAggregate.id', 'string identifier expected')),
+        onFalse: () => Effect.void,
+      })
+    )
+    const identifier = yield* makeIdentifier(idValue as string)
 
     const stage = yield* ensureNumber(record['stage'], 'cropAggregate.stage').pipe(Effect.flatMap(makeGrowthStage))
     const moisture = yield* ensureNumber(record['moisture'], 'cropAggregate.moisture').pipe(

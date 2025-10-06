@@ -254,7 +254,7 @@ export const PlayerCameraStateSchema = Schema.Struct({
   animationState: Schema.OptionFromSelf(Schema.Unknown), // AnimationStateSchemaを参照
 }).pipe(Schema.fromBrand(Brand.nominal<PlayerCameraState>()))
 
-export const export const ViewModeTransitionResultSchema = Schema.Union(
+export const ViewModeTransitionResultSchema = Schema.Union(
   Schema.TaggedStruct('Success', {
     fromMode: Schema.Unknown, // ViewModeSchemaを参照
     toMode: Schema.Unknown, // ViewModeSchemaを参照
@@ -290,7 +290,7 @@ export const export const ViewModeTransitionResultSchema = Schema.Union(
   })
 )
 
-export const export const CameraApplicationErrorSchema = Schema.Union(
+export const CameraApplicationErrorSchema = Schema.Union(
   Schema.TaggedStruct('CameraNotFound', {
     cameraId: Schema.String,
   }),

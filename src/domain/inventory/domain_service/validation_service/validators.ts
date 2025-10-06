@@ -3,11 +3,14 @@
  *
  * 個別の検証ルールとバリデーターを実装するモジュール。
  * 各種検証ロジックを責任分離し、再利用可能な形で提供します。
+ *
+ * Phase 2-B Track 7: Effect.if完全撲滅 - ADTパターン適用済み
  */
 
-import { Effect, Match, Option, ReadonlyArray, pipe } from 'effect'
+import { Effect, HashSet, Match, Option, ReadonlyArray, pipe } from 'effect'
 import type { Inventory, ItemId, ItemStack } from '../../types'
 import type { ValidationOptions, ValidationViolation } from './index'
+import { ValidationResult } from './validation_result'
 
 // =============================================================================
 // Core Validators
@@ -15,28 +18,40 @@ import type { ValidationOptions, ValidationViolation } from './index'
 
 /**
  * スロット数検証
+ * Effect.if → Match.value + Match.tag パターン適用
  */
 export const validateSlotCount = (inventory: Inventory): Effect.Effect<ReadonlyArray<ValidationViolation>, never> =>
   Effect.gen(function* () {
-    return yield* Effect.if(inventory.slots.length !== 36, {
-      onTrue: () =>
-        Effect.succeed([
-          {
-            type: 'INVALID_SLOT_COUNT',
-            severity: 'CRITICAL',
-            description: `Invalid slot count: ${inventory.slots.length}, expected 36`,
-            affectedSlots: [],
-            detectedValue: inventory.slots.length,
-            expectedValue: 36,
-            canAutoCorrect: false,
-          } as ValidationViolation,
-        ]),
-      onFalse: () => Effect.succeed([]),
-    })
+    const result = pipe(
+      Match.value(inventory.slots.length),
+      Match.when(36, () => ValidationResult.Valid({})),
+      Match.orElse((detected) => ValidationResult.InvalidSlotCount({ detected, expected: 36 }))
+    )
+
+    return yield* pipe(
+      result,
+      Match.tag({
+        Valid: () => Effect.succeed([]),
+        InvalidSlotCount: ({ detected, expected }) =>
+          Effect.succeed([
+            {
+              type: 'INVALID_SLOT_COUNT',
+              severity: 'CRITICAL',
+              description: `Invalid slot count: ${detected}, expected ${expected}`,
+              affectedSlots: [],
+              detectedValue: detected,
+              expectedValue: expected,
+              canAutoCorrect: false,
+            } as ValidationViolation,
+          ]),
+        _: () => Effect.succeed([]),
+      })
+    )
   })
 
 /**
  * スタックサイズ検証
+ * 既にfilterMapWithIndexで宣言的記述済み（Effect.if不使用）
  */
 export const validateStackSizes = (inventory: Inventory): Effect.Effect<ReadonlyArray<ValidationViolation>, never> =>
   Effect.gen(function* () {
@@ -60,59 +75,90 @@ export const validateStackSizes = (inventory: Inventory): Effect.Effect<Readonly
 
 /**
  * ホットバー検証
+ * Effect.if（3箇所） → Match.value + Match.tag パターン適用
  */
 export const validateHotbarSlots = (inventory: Inventory): Effect.Effect<ReadonlyArray<ValidationViolation>, never> =>
   Effect.gen(function* () {
     // ホットバー配列の長さチェック
-    const lengthViolation = yield* Effect.if(inventory.hotbar.length !== 9, {
-      onTrue: () =>
-        Effect.succeed(
-          Option.some({
-            type: 'INVALID_SLOT_COUNT',
-            severity: 'ERROR',
-            description: `Invalid hotbar length: ${inventory.hotbar.length}, expected 9`,
-            affectedSlots: [],
-            detectedValue: inventory.hotbar.length,
-            expectedValue: 9,
-            canAutoCorrect: true,
-          } as ValidationViolation)
-        ),
-      onFalse: () => Effect.succeed(Option.none<ValidationViolation>()),
-    })
+    const lengthResult = pipe(
+      Match.value(inventory.hotbar.length),
+      Match.when(9, () => ValidationResult.Valid({})),
+      Match.orElse((detected) => ValidationResult.InvalidHotbarLength({ detected, expected: 9 }))
+    )
+
+    const lengthViolation = yield* pipe(
+      lengthResult,
+      Match.tag({
+        Valid: () => Effect.succeed(Option.none<ValidationViolation>()),
+        InvalidHotbarLength: ({ detected, expected }) =>
+          Effect.succeed(
+            Option.some({
+              type: 'INVALID_SLOT_COUNT',
+              severity: 'ERROR',
+              description: `Invalid hotbar length: ${detected}, expected ${expected}`,
+              affectedSlots: [],
+              detectedValue: detected,
+              expectedValue: expected,
+              canAutoCorrect: true,
+            } as ValidationViolation)
+          ),
+        _: () => Effect.succeed(Option.none<ValidationViolation>()),
+      })
+    )
 
     // 重複チェック
     const duplicates = findDuplicates(inventory.hotbar)
-    const duplicateViolation = yield* Effect.if(duplicates.length > 0, {
-      onTrue: () =>
-        Effect.succeed(
-          Option.some({
-            type: 'DUPLICATE_HOTBAR_SLOT',
-            severity: 'ERROR',
-            description: `Duplicate hotbar slot references: ${duplicates.join(', ')}`,
-            affectedSlots: duplicates,
-            detectedValue: duplicates,
-            canAutoCorrect: true,
-          } as ValidationViolation)
-        ),
-      onFalse: () => Effect.succeed(Option.none<ValidationViolation>()),
-    })
+    const duplicateResult = pipe(
+      Match.value(duplicates),
+      Match.when(ReadonlyArray.isEmptyReadonlyArray, () => ValidationResult.Valid({})),
+      Match.orElse((dups) => ValidationResult.DuplicateHotbarSlot({ duplicates: dups }))
+    )
+
+    const duplicateViolation = yield* pipe(
+      duplicateResult,
+      Match.tag({
+        Valid: () => Effect.succeed(Option.none<ValidationViolation>()),
+        DuplicateHotbarSlot: ({ duplicates: dups }) =>
+          Effect.succeed(
+            Option.some({
+              type: 'DUPLICATE_HOTBAR_SLOT',
+              severity: 'ERROR',
+              description: `Duplicate hotbar slot references: ${dups.join(', ')}`,
+              affectedSlots: dups as number[],
+              detectedValue: dups,
+              canAutoCorrect: true,
+            } as ValidationViolation)
+          ),
+        _: () => Effect.succeed(Option.none<ValidationViolation>()),
+      })
+    )
 
     // 範囲外チェック
     const outOfBounds = inventory.hotbar.filter((slot) => slot < 0 || slot >= 36)
-    const outOfBoundsViolation = yield* Effect.if(outOfBounds.length > 0, {
-      onTrue: () =>
-        Effect.succeed(
-          Option.some({
-            type: 'HOTBAR_SLOT_OUT_OF_BOUNDS',
-            severity: 'ERROR',
-            description: `Hotbar slots out of bounds: ${outOfBounds.join(', ')}`,
-            affectedSlots: outOfBounds,
-            detectedValue: outOfBounds,
-            canAutoCorrect: true,
-          } as ValidationViolation)
-        ),
-      onFalse: () => Effect.succeed(Option.none<ValidationViolation>()),
-    })
+    const outOfBoundsResult = pipe(
+      Match.value(outOfBounds),
+      Match.when(ReadonlyArray.isEmptyReadonlyArray, () => ValidationResult.Valid({})),
+      Match.orElse((oob) => ValidationResult.HotbarSlotOutOfBounds({ outOfBounds: oob }))
+    )
+
+    const outOfBoundsViolation = yield* pipe(
+      outOfBoundsResult,
+      Match.tag({
+        Valid: () => Effect.succeed(Option.none<ValidationViolation>()),
+        HotbarSlotOutOfBounds: ({ outOfBounds: oob }) =>
+          Effect.succeed(
+            Option.some({
+              type: 'HOTBAR_SLOT_OUT_OF_BOUNDS',
+              severity: 'ERROR',
+              description: `Hotbar slots out of bounds: ${oob.join(', ')}`,
+              affectedSlots: oob as number[],
+              detectedValue: oob,
+              canAutoCorrect: true,
+            } as ValidationViolation)
+          ),
+        _: () => Effect.succeed(Option.none<ValidationViolation>()),
+      })
+    )
 
     return pipe(
       [lengthViolation, duplicateViolation, outOfBoundsViolation],
@@ -122,28 +168,41 @@ export const validateHotbarSlots = (inventory: Inventory): Effect.Effect<Readonl
 
 /**
  * 選択スロット検証
+ * Effect.if → Match.value + Match.tag パターン適用
  */
 export const validateSelectedSlot = (inventory: Inventory): Effect.Effect<ReadonlyArray<ValidationViolation>, never> =>
   Effect.gen(function* () {
-    return yield* Effect.if(inventory.selectedSlot < 0 || inventory.selectedSlot > 8, {
-      onTrue: () =>
-        Effect.succeed([
-          {
-            type: 'INVALID_SELECTED_SLOT',
-            severity: 'ERROR',
-            description: `Invalid selected slot: ${inventory.selectedSlot}, expected 0-8`,
-            affectedSlots: [],
-            detectedValue: inventory.selectedSlot,
-            expectedValue: 'between 0 and 8',
-            canAutoCorrect: true,
-          } as ValidationViolation,
-        ]),
-      onFalse: () => Effect.succeed([]),
-    })
+    const isValid = inventory.selectedSlot >= 0 && inventory.selectedSlot <= 8
+    const result = pipe(
+      Match.value(isValid),
+      Match.when(true, () => ValidationResult.Valid({})),
+      Match.orElse(() => ValidationResult.InvalidSelectedSlot({ selectedSlot: inventory.selectedSlot }))
+    )
+
+    return yield* pipe(
+      result,
+      Match.tag({
+        Valid: () => Effect.succeed([]),
+        InvalidSelectedSlot: ({ selectedSlot }) =>
+          Effect.succeed([
+            {
+              type: 'INVALID_SELECTED_SLOT',
+              severity: 'ERROR',
+              description: `Invalid selected slot: ${selectedSlot}, expected 0-8`,
+              affectedSlots: [],
+              detectedValue: selectedSlot,
+              expectedValue: 'between 0 and 8',
+              canAutoCorrect: true,
+            } as ValidationViolation,
+          ]),
+        _: () => Effect.succeed([]),
+      })
+    )
   })
 
 /**
  * 防具スロット検証
+ * Effect.if（1箇所） → Match.value + Match.tag パターン適用
  */
 export const validateArmorSlots = (inventory: Inventory): Effect.Effect<ReadonlyArray<ValidationViolation>, never> =>
   Effect.gen(function* () {
@@ -161,21 +220,30 @@ export const validateArmorSlots = (inventory: Inventory): Effect.Effect<Readonly
           if (item === null) return Option.none<ValidationViolation>()
 
           const isValidArmor = yield* isValidArmorForSlot(item.itemId, slot)
+          const result = pipe(
+            Match.value(isValidArmor),
+            Match.when(true, () => ValidationResult.Valid({})),
+            Match.orElse(() => ValidationResult.InvalidArmorSlot({ slot, itemId: item.itemId }))
+          )
 
-          return yield* Effect.if(!isValidArmor, {
-            onTrue: () =>
-              Effect.succeed(
-                Option.some({
-                  type: 'INVALID_ARMOR_SLOT',
-                  severity: 'ERROR',
-                  description: `Invalid armor item ${item.itemId} in ${slot} slot`,
-                  affectedSlots: [],
-                  detectedValue: item.itemId,
-                  canAutoCorrect: false,
-                } as ValidationViolation)
-              ),
-            onFalse: () => Effect.succeed(Option.none<ValidationViolation>()),
-          })
+          return yield* pipe(
+            result,
+            Match.tag({
+              Valid: () => Effect.succeed(Option.none<ValidationViolation>()),
+              InvalidArmorSlot: ({ slot: armorSlot, itemId }) =>
+                Effect.succeed(
+                  Option.some({
+                    type: 'INVALID_ARMOR_SLOT',
+                    severity: 'ERROR',
+                    description: `Invalid armor item ${itemId} in ${armorSlot} slot`,
+                    affectedSlots: [],
+                    detectedValue: itemId,
+                    canAutoCorrect: false,
+                  } as ValidationViolation)
+                ),
+              _: () => Effect.succeed(Option.none<ValidationViolation>()),
+            })
+          )
         })
       ),
       Effect.map(ReadonlyArray.filterMap((x) => x))
@@ -184,6 +252,7 @@ export const validateArmorSlots = (inventory: Inventory): Effect.Effect<Readonly
 
 /**
  * メタデータ検証
+ * 既にfilterMapWithIndexで宣言的記述済み（Effect.if不使用）
  */
 export const validateMetadata = (inventory: Inventory): Effect.Effect<ReadonlyArray<ValidationViolation>, never> =>
   Effect.gen(function* () {
@@ -197,6 +266,7 @@ export const validateMetadata = (inventory: Inventory): Effect.Effect<ReadonlyAr
 
 /**
  * 耐久値検証
+ * 既にfilterMapWithIndexで宣言的記述済み（Effect.if不使用）
  */
 export const validateDurability = (inventory: Inventory): Effect.Effect<ReadonlyArray<ValidationViolation>, never> =>
   Effect.gen(function* () {
@@ -223,18 +293,15 @@ export const validateDurability = (inventory: Inventory): Effect.Effect<Readonly
 // =============================================================================
 
 const findDuplicates = (array: ReadonlyArray<number>): number[] => {
-  const seen = new Set<number>()
-  const duplicates = new Set<number>()
-
-  for (const item of array) {
-    if (seen.has(item)) {
-      duplicates.add(item)
-    } else {
-      seen.add(item)
-    }
-  }
-
-  return Array.from(duplicates)
+  const result = pipe(
+    array,
+    ReadonlyArray.reduce({ seen: HashSet.empty<number>(), duplicates: HashSet.empty<number>() }, (acc, item) =>
+      HashSet.has(acc.seen, item)
+        ? { ...acc, duplicates: HashSet.add(acc.duplicates, item) }
+        : { ...acc, seen: HashSet.add(acc.seen, item) }
+    )
+  )
+  return Array.from(result.duplicates)
 }
 
 const isValidArmorForSlot = (itemId: ItemId, slot: string): Effect.Effect<boolean, never> =>
@@ -250,6 +317,10 @@ const isValidArmorForSlot = (itemId: ItemId, slot: string): Effect.Effect<boolea
     )
   })
 
+/**
+ * スタックメタデータ検証
+ * Effect.if（1箇所） → Match.value + Match.tag パターン適用
+ */
 const validateStackMetadata = (
   stack: ItemStack,
   slotIndex: number
@@ -257,7 +328,7 @@ const validateStackMetadata = (
   Effect.gen(function* () {
     const metadata = stack.metadata!
 
-    // エンチャント検証
+    // エンチャント検証（既に宣言的記述）
     const enchantmentViolations = pipe(
       metadata.enchantments ?? [],
       ReadonlyArray.filterMap((enchantment) =>
@@ -275,24 +346,32 @@ const validateStackMetadata = (
       )
     )
 
-    // ダメージ値検証
-    const damageViolation = yield* Effect.if(
-      metadata.damage !== undefined && (metadata.damage < 0 || metadata.damage > 1000),
-      {
-        onTrue: () =>
+    // ダメージ値検証（Effect.if → Match.value + Match.tag）
+    const isDamageValid = metadata.damage === undefined || (metadata.damage >= 0 && metadata.damage <= 1000)
+    const damageResult = pipe(
+      Match.value(isDamageValid),
+      Match.when(true, () => ValidationResult.Valid({})),
+      Match.orElse(() => ValidationResult.InvalidDamageValue({ slotIndex, damage: metadata.damage ?? 0 }))
+    )
+
+    const damageViolation = yield* pipe(
+      damageResult,
+      Match.tag({
+        Valid: () => Effect.succeed(Option.none<ValidationViolation>()),
+        InvalidDamageValue: ({ damage }) =>
           Effect.succeed(
             Option.some({
               type: 'METADATA_CORRUPTION',
               severity: 'WARNING',
-              description: `Invalid damage value: ${metadata.damage}`,
+              description: `Invalid damage value: ${damage}`,
               affectedSlots: [slotIndex],
-              detectedValue: metadata.damage,
+              detectedValue: damage,
               expectedValue: 'between 0 and 1000',
               canAutoCorrect: true,
             } as ValidationViolation)
           ),
-        onFalse: () => Effect.succeed(Option.none<ValidationViolation>()),
-      }
+        _: () => Effect.succeed(Option.none<ValidationViolation>()),
+      })
     )
 
     return [...enchantmentViolations, ...pipe(damageViolation, Option.toArray)]
@@ -304,6 +383,7 @@ const validateStackMetadata = (
 
 /**
  * 包括的な検証実行
+ * Effect.if（4箇所、条件付きバリデーション） → Match.value + pipe パターン適用
  */
 export const runAllValidators = (
   inventory: Inventory,
@@ -315,33 +395,38 @@ export const runAllValidators = (
     const stackSizeViolations = yield* validateStackSizes(inventory)
 
     // ホットバー検証（条件付き）
-    const hotbarViolations = yield* Effect.if(options.verifyHotbarIntegrity, {
-      onTrue: () =>
+    const hotbarViolations = yield* pipe(
+      Match.value(options.verifyHotbarIntegrity),
+      Match.when(true, () =>
         Effect.gen(function* () {
           const hotbar = yield* validateHotbarSlots(inventory)
           const selectedSlot = yield* validateSelectedSlot(inventory)
           return [...hotbar, ...selectedSlot]
-        }),
-      onFalse: () => Effect.succeed([]),
-    })
+        })
+      ),
+      Match.orElse(() => Effect.succeed([]))
+    )
 
     // 防具検証（条件付き）
-    const armorViolations = yield* Effect.if(options.validateArmorSlots, {
-      onTrue: () => validateArmorSlots(inventory),
-      onFalse: () => Effect.succeed([]),
-    })
+    const armorViolations = yield* pipe(
+      Match.value(options.validateArmorSlots),
+      Match.when(true, () => validateArmorSlots(inventory)),
+      Match.orElse(() => Effect.succeed([]))
+    )
 
     // メタデータ検証（条件付き）
-    const metadataViolations = yield* Effect.if(options.validateMetadata, {
-      onTrue: () => validateMetadata(inventory),
-      onFalse: () => Effect.succeed([]),
-    })
+    const metadataViolations = yield* pipe(
+      Match.value(options.validateMetadata),
+      Match.when(true, () => validateMetadata(inventory)),
+      Match.orElse(() => Effect.succeed([]))
+    )
 
     // 耐久値検証（条件付き）
-    const durabilityViolations = yield* Effect.if(options.checkDurabilityRanges, {
-      onTrue: () => validateDurability(inventory),
-      onFalse: () => Effect.succeed([]),
-    })
+    const durabilityViolations = yield* pipe(
+      Match.value(options.checkDurabilityRanges),
+      Match.when(true, () => validateDurability(inventory)),
+      Match.orElse(() => Effect.succeed([]))
+    )
 
     return [
       ...slotCountViolations,

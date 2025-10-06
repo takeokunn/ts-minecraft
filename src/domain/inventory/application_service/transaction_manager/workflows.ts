@@ -250,7 +250,7 @@ const executeCraftingWorkflowImpl = (
     yield* Effect.logDebug('Phase 2: Reserving materials')
     const reservedMaterials = yield* reserveCraftingMaterials(operation, inventoryService)
 
-    try {
+    return yield* Effect.gen(function* () {
       // フェーズ3: 結果アイテム配置スペース確保
       yield* Effect.logDebug('Phase 3: Ensuring result item space')
       const resultSlot = yield* ensureResultItemSpace(operation, inventoryService)
@@ -259,16 +259,17 @@ const executeCraftingWorkflowImpl = (
       yield* Effect.logDebug('Phase 4: Consuming materials')
       const consumedMaterials = yield* consumeCraftingMaterials(operation, reservedMaterials, inventoryService)
 
-      // フェーズ5: 結果アイテム生成
-      yield* Effect.logDebug('Phase 5: Producing result item')
-      yield* produceResultItem(operation, resultSlot, inventoryService)
-
-      // フェーズ6: 副産物処理
-      yield* Effect.logDebug('Phase 6: Handling byproducts')
-      const byproducts = yield* handleCraftingByproducts(operation, inventoryService)
-
-      // フェーズ7: 経験値計算
-      const experienceGained = yield* calculateCraftingExperience(operation)
+      // フェーズ5-7: 結果生成、副産物、経験値を並行実行
+      yield* Effect.logDebug('Phase 5-7: Parallel production, byproducts, and experience')
+      const [byproducts, experienceGained] = yield* Effect.all(
+        [
+          produceResultItem(operation, resultSlot, inventoryService).pipe(
+            Effect.flatMap(() => handleCraftingByproducts(operation, inventoryService))
+          ),
+          calculateCraftingExperience(operation),
+        ],
+        { concurrency: 'unbounded' }
+      )
 
       yield* Effect.logInfo('Crafting workflow completed successfully', {
         transactionId,
@@ -285,17 +286,21 @@ const executeCraftingWorkflowImpl = (
         experienceGained,
         byproducts,
       }
-    } catch (error) {
-      // エラー時のロールバック
-      yield* Effect.logError('Crafting workflow failed, rolling back', {
-        transactionId,
-        error: String(error),
-      })
+    }).pipe(
+      Effect.catchAll((error) =>
+        Effect.gen(function* () {
+          // エラー時のロールバック
+          yield* Effect.logError('Crafting workflow failed, rolling back', {
+            transactionId,
+            error: String(error),
+          })
 
-      yield* rollbackCraftingMaterials(reservedMaterials, inventoryService)
+          yield* rollbackCraftingMaterials(reservedMaterials, inventoryService)
 
-      throw error
-    }
+          return yield* Effect.fail(error)
+        })
+      )
+    )
   })
 
 /**
@@ -333,39 +338,48 @@ const executeTradeWorkflowImpl = (
       }
     }
 
-    // フェーズ3: アイテム予約
-    yield* Effect.logDebug('Phase 3: Reserving trade items')
-    const player1Items = yield* reserveTradeItems(operation.player1Offers, inventoryService)
-    const player2Items = yield* reserveTradeItems(operation.player2Offers, inventoryService)
+    // フェーズ3: アイテム予約（並行実行）
+    yield* Effect.logDebug('Phase 3: Reserving trade items (parallel)')
+    const [player1Items, player2Items] = yield* Effect.all(
+      [
+        reserveTradeItems(operation.player1Offers, inventoryService),
+        reserveTradeItems(operation.player2Offers, inventoryService),
+      ],
+      { concurrency: 'unbounded' }
+    )
 
-    try {
-      // フェーズ4: アイテム移動実行
-      yield* Effect.logDebug('Phase 4: Executing item transfers')
+    return yield* Effect.gen(function* () {
+      // フェーズ4: アイテム移動実行（並行実行）
+      yield* Effect.logDebug('Phase 4: Executing item transfers (parallel)')
 
-      // プレイヤー1 → プレイヤー2
-      const player2Received = yield* EffectArray.forEach(operation.player1Offers, (offer) =>
-        transferService
-          .transferItem(
-            offer.inventoryId,
-            operation.player2Id, // 簡略化：プレイヤー2のインベントリIDを取得
-            offer.slotIndex,
-            undefined, // 自動スロット選択
-            offer.itemStack.quantity
-          )
-          .pipe(Effect.map(() => offer.itemStack))
-      )
-
-      // プレイヤー2 → プレイヤー1
-      const player1Received = yield* EffectArray.forEach(operation.player2Offers, (offer) =>
-        transferService
-          .transferItem(
-            offer.inventoryId,
-            operation.player1Id, // 簡略化：プレイヤー1のインベントリIDを取得
-            offer.slotIndex,
-            undefined, // 自動スロット選択
-            offer.itemStack.quantity
-          )
-          .pipe(Effect.map(() => offer.itemStack))
+      const [player2Received, player1Received] = yield* Effect.all(
+        [
+          // プレイヤー1 → プレイヤー2
+          EffectArray.forEach(operation.player1Offers, (offer) =>
+            transferService
+              .transferItem(
+                offer.inventoryId,
+                operation.player2Id,
+                offer.slotIndex,
+                undefined,
+                offer.itemStack.quantity
+              )
+              .pipe(Effect.map(() => offer.itemStack))
+          ),
+          // プレイヤー2 → プレイヤー1
+          EffectArray.forEach(operation.player2Offers, (offer) =>
+            transferService
+              .transferItem(
+                offer.inventoryId,
+                operation.player1Id,
+                offer.slotIndex,
+                undefined,
+                offer.itemStack.quantity
+              )
+              .pipe(Effect.map(() => offer.itemStack))
+          ),
+        ],
+        { concurrency: 'unbounded' }
       )
 
       // フェーズ5: 取引価値計算
@@ -386,17 +400,21 @@ const executeTradeWorkflowImpl = (
         tradeValue,
         completedAt: yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms)),
       }
-    } catch (error) {
-      // エラー時のロールバック
-      yield* Effect.logError('Trade workflow failed, rolling back', {
-        transactionId,
-        error: String(error),
-      })
+    }).pipe(
+      Effect.catchAll((error) =>
+        Effect.gen(function* () {
+          // エラー時のロールバック
+          yield* Effect.logError('Trade workflow failed, rolling back', {
+            transactionId,
+            error: String(error),
+          })
 
-      yield* rollbackTradeItems([...player1Items, ...player2Items], inventoryService)
+          yield* rollbackTradeItems([...player1Items, ...player2Items], inventoryService)
 
-      throw error
-    }
+          return yield* Effect.fail(error)
+        })
+      )
+    )
   })
 
 /**

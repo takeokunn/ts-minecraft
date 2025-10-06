@@ -597,41 +597,38 @@ function isValidSeed(seed: unknown): boolean {
  * メモリ使用量推定
  */
 function estimateMemoryUsage(params: CreateWorldGeneratorParams): number {
-  let baseMemory = 100 // MB
+  const baseMemory = 100 // MB
 
-  if (params.cacheSize) {
-    baseMemory += params.cacheSize * 0.1 // キャッシュサイズの10%
-  }
+  const cacheMemory = params.cacheSize ? params.cacheSize * 0.1 : 0
+  const concurrencyMemory = params.maxConcurrentGenerations ? params.maxConcurrentGenerations * 50 : 0
 
-  if (params.maxConcurrentGenerations) {
-    baseMemory += params.maxConcurrentGenerations * 50 // 1スレッドあたり50MB
-  }
+  const qualityMultiplier = params.qualityLevel === 'quality' ? 1.5 : 1.0
 
-  if (params.qualityLevel === 'quality') {
-    baseMemory *= 1.5 // 品質モードは1.5倍
-  }
-
-  return Math.round(baseMemory)
+  return Math.round((baseMemory + cacheMemory + concurrencyMemory) * qualityMultiplier)
 }
 
 /**
  * CPU使用率スコア計算
  */
 function calculateCpuUsageScore(params: CreateWorldGeneratorParams): number {
-  let score = 20 // ベーススコア
+  const baseScore = 20
 
-  if (params.qualityLevel === 'quality') score += 30
-  if (params.qualityLevel === 'balanced') score += 15
+  const qualityScore = Function.pipe(
+    Match.value(params.qualityLevel),
+    Match.when('quality', () => 30),
+    Match.when('balanced', () => 15),
+    Match.orElse(() => 0)
+  )
 
-  if (params.maxConcurrentGenerations) {
-    score += params.maxConcurrentGenerations * 5
-  }
+  const concurrencyScore = params.maxConcurrentGenerations ? params.maxConcurrentGenerations * 5 : 0
 
-  if (params.enableStructures) score += 10
-  if (params.enableCaves) score += 15
-  if (params.enableOres) score += 10
+  const featureScore = [
+    params.enableStructures ? 10 : 0,
+    params.enableCaves ? 15 : 0,
+    params.enableOres ? 10 : 0,
+  ].reduce((sum, score) => sum + score, 0)
 
-  return Math.min(100, score)
+  return Math.min(100, baseScore + qualityScore + concurrencyScore + featureScore)
 }
 
 // ================================
@@ -697,9 +694,12 @@ function analyzePerformanceImpact(params: CreateWorldGeneratorParams): Effect.Ef
  * 推奨スレッド数計算
  */
 function calculateRecommendedThreads(params: CreateWorldGeneratorParams): number {
-  if (params.qualityLevel === 'quality') return 2
-  if (params.qualityLevel === 'fast') return 8
-  return 4 // balanced
+  return Function.pipe(
+    Match.value(params.qualityLevel),
+    Match.when('quality', () => 2),
+    Match.when('fast', () => 8),
+    Match.orElse(() => 4) // balanced
+  )
 }
 
 // ================================

@@ -753,15 +753,29 @@ export const WorldApplicationServiceUtils = {
   ) =>
     Effect.gen(function* () {
       const service = yield* WorldApplicationService
-      const chunkIds: string[] = []
 
-      for (let x = centerX - radius; x <= centerX + radius; x++) {
-        for (let z = centerZ - radius; z <= centerZ + radius; z++) {
-          const distance = Math.sqrt((x - centerX) ** 2 + (z - centerZ) ** 2)
-          const chunkId = yield* Effect.when(distance <= radius, () => service.generateChunk(worldId, x, z, priority))
-          yield* Effect.when(chunkId !== undefined, () => Effect.sync(() => chunkIds.push(chunkId)))
-        }
-      }
+      // 円形範囲内の全座標を事前計算
+      const positions = pipe(
+        ReadonlyArray.range(centerX - radius, centerX + radius + 1),
+        ReadonlyArray.flatMap((x) =>
+          pipe(
+            ReadonlyArray.range(centerZ - radius, centerZ + radius + 1),
+            ReadonlyArray.map((z) => ({
+              x,
+              z,
+              distance: Math.sqrt((x - centerX) ** 2 + (z - centerZ) ** 2),
+            }))
+          )
+        ),
+        ReadonlyArray.filter(({ distance }) => distance <= radius)
+      )
+
+      // チャンク生成を完全並行実行
+      const chunkIds = yield* pipe(
+        positions,
+        Effect.forEach(({ x, z }) => service.generateChunk(worldId, x, z, priority), { concurrency: 'unbounded' }),
+        Effect.map(ReadonlyArray.compact)
+      )
 
       return chunkIds
     }),

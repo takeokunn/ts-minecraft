@@ -510,18 +510,13 @@ export const isContainerEmpty = (aggregate: ContainerAggregate): boolean =>
 /**
  * 指定されたアイテムが存在するスロットを検索
  */
-export const findItemSlots = (aggregate: ContainerAggregate, itemId: ItemId): ReadonlyArray<ContainerSlotIndex> => {
-  const slots: ContainerSlotIndex[] = []
-
-  for (let i = 0; i < aggregate.slots.length; i++) {
-    const slot = aggregate.slots[i]
-    if (slot?.itemStack?.itemId === itemId) {
-      slots.push(i as ContainerSlotIndex)
-    }
-  }
-
-  return slots
-}
+export const findItemSlots = (aggregate: ContainerAggregate, itemId: ItemId): ReadonlyArray<ContainerSlotIndex> =>
+  pipe(
+    aggregate.slots,
+    ReadonlyArray.filterMapWithIndex((i, slot) =>
+      slot?.itemStack?.itemId === itemId ? Option.some(i as ContainerSlotIndex) : Option.none()
+    )
+  )
 
 /**
  * 指定されたアイテムの合計数量を取得

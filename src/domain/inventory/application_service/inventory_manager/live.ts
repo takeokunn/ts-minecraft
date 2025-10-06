@@ -5,7 +5,7 @@
  * DDD Application層のライブ実装
  */
 
-import { Effect, Layer, pipe } from 'effect'
+import { Effect, Layer, Match, pipe } from 'effect'
 import type { InventoryService } from '../..'
 import type { ItemStack } from '../../aggregate/item_stack'
 import type { StackingService } from '../../domain_service/stacking_service'
@@ -125,11 +125,13 @@ export const InventoryManagerApplicationServiceLive = Layer.effect(
           // スタッキング可能性チェック
           const stackingResult = yield* stackingService.canStack(inventoryId, itemStack, slotIndex)
 
-          if (stackingResult.canStack) {
-            yield* inventoryService.stackItem(inventoryId, stackingResult.targetSlot, itemStack.quantity)
-          } else {
-            yield* inventoryService.addItem(inventoryId, itemStack, slotIndex)
-          }
+          yield* pipe(
+            Match.value(stackingResult.canStack),
+            Match.when(true, () =>
+              inventoryService.stackItem(inventoryId, stackingResult.targetSlot, itemStack.quantity)
+            ),
+            Match.orElse(() => inventoryService.addItem(inventoryId, itemStack, slotIndex))
+          )
 
           yield* Effect.logDebug('Item added successfully')
         }),
@@ -286,30 +288,42 @@ export const InventoryManagerApplicationServiceLive = Layer.effect(
         Effect.gen(function* () {
           yield* Effect.logInfo('Optimizing performance', { targetMetrics })
 
-          // パフォーマンス最適化ロジック実装
-          const optimizations: string[] = []
-          let performanceImprovement = 0
-
-          // メモリ使用量チェック
-          if (targetMetrics.maxMemoryUsage < 1000000) {
-            // 1MB
-            optimizations.push('Memory optimization enabled')
-            performanceImprovement += 15
+          // パフォーマンス最適化ルール定義
+          type OptimizationRule = {
+            readonly condition: (metrics: typeof targetMetrics) => boolean
+            readonly message: string
+            readonly improvement: number
           }
 
-          // コマンド実行時間最適化
-          if (targetMetrics.maxCommandExecutionTime < 100) {
-            // 100ms
-            optimizations.push('Command execution optimization enabled')
-            performanceImprovement += 10
-          }
+          const optimizationRules: readonly OptimizationRule[] = [
+            {
+              condition: (metrics) => metrics.maxMemoryUsage < 1000000, // 1MB
+              message: 'Memory optimization enabled',
+              improvement: 15,
+            },
+            {
+              condition: (metrics) => metrics.maxCommandExecutionTime < 100, // 100ms
+              message: 'Command execution optimization enabled',
+              improvement: 10,
+            },
+            {
+              condition: (metrics) => metrics.maxQueryExecutionTime < 50, // 50ms
+              message: 'Query execution optimization enabled',
+              improvement: 8,
+            },
+          ]
 
-          // クエリ実行時間最適化
-          if (targetMetrics.maxQueryExecutionTime < 50) {
-            // 50ms
-            optimizations.push('Query execution optimization enabled')
-            performanceImprovement += 8
-          }
+          // 最適化条件評価と適用
+          const results = optimizationRules.map((rule) =>
+            pipe(
+              Match.value(rule.condition(targetMetrics)),
+              Match.when(true, () => ({ message: rule.message, improvement: rule.improvement })),
+              Match.orElse(() => ({ message: '', improvement: 0 }))
+            )
+          )
+
+          const optimizations = results.filter((r) => r.message !== '').map((r) => r.message)
+          const performanceImprovement = results.reduce((sum, r) => sum + r.improvement, 0)
 
           yield* Effect.logInfo('Performance optimization completed', {
             optimizationsApplied: optimizations,

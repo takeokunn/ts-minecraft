@@ -1,14 +1,13 @@
 import { Clock, Effect, Match, Option, Random, Schema, pipe } from 'effect'
 import { createChunkPosition, type ChunkPosition } from '../chunk_position'
+import { ChunkIdError } from './errors'
+import { ChunkIdSchema, type ChunkId } from './schema'
 import {
-  ChunkIdError,
-  ChunkIdSchema,
   ChunkId as MakeChunkId,
   ChunkIdVersion as MakeChunkIdVersion,
-  type ChunkId,
   type ChunkIdVersion,
   type ChunkUUID,
-} from './index'
+} from './types'
 
 const chunkPrefix = 'chunk'
 const chunkUuidPrefix = `${chunkPrefix}_uuid`

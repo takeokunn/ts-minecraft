@@ -8,7 +8,7 @@
 
 import type { AllRepositoryErrors, WorldGenerator, WorldId } from '@domain/world/types'
 import { createRepositoryError } from '@domain/world/types'
-import { Clock, Effect, Option, ReadonlyArray, Ref, Schedule } from 'effect'
+import { Clock, Effect, Option, pipe, ReadonlyArray, Ref, Schedule } from 'effect'
 
 // === Cache Entry Types ===
 
@@ -73,31 +73,56 @@ export const makeLRUCacheStrategy = <K, V>(
         const entries = yield* Ref.get(entriesRef)
         const accessOrder = yield* Ref.get(accessOrderRef)
 
-        let evicted = 0
-        let currentSize = entries.size
+        // Effect.repeatWhileパターンで1件ずつ追い出し
+        const evictOne = Effect.gen(function* () {
+          const currentEntries = yield* Ref.get(entriesRef)
+          const currentOrder = yield* Ref.get(accessOrderRef)
 
-        while (currentSize > maxSize && accessOrder.length > 0) {
-          const lruKey = accessOrder[0]
-          if (lruKey && entries.has(lruKey)) {
-            yield* Ref.update(entriesRef, (map) => {
-              const newMap = new Map(map)
-              newMap.delete(lruKey)
-              return newMap
+          // Option.matchパターン: 追い出し条件チェック（早期return）
+          const shouldContinue = currentEntries.size > maxSize && currentOrder.length > 0
+
+          return yield* pipe(
+            Option.fromNullable(shouldContinue ? true : null),
+            Option.match({
+              onNone: () => Effect.succeed(Option.none()),
+              onSome: () =>
+                Effect.gen(function* () {
+                  const lruKey = currentOrder[0]
+
+                  return yield* pipe(
+                    Option.fromNullable(lruKey && currentEntries.has(lruKey) ? lruKey : null),
+                    Option.match({
+                      onNone: () => Effect.succeed(Option.none()),
+                      onSome: (key) =>
+                        Effect.gen(function* () {
+                          yield* Ref.update(entriesRef, (map) => {
+                            const newMap = new Map(map)
+                            newMap.delete(key)
+                            return newMap
+                          })
+                          yield* Ref.update(accessOrderRef, (order) => order.slice(1))
+                          return Option.some(1)
+                        }),
+                    })
+                  )
+                }),
             })
-            yield* Ref.update(accessOrderRef, (order) => order.slice(1))
-            evicted++
-            currentSize--
-          } else {
-            break
-          }
-        }
+          )
+        })
 
-        if (evicted > 0) {
-          yield* Ref.update(statisticsRef, (stats) => ({
+        const evicted = yield* pipe(
+          evictOne,
+          Effect.repeatWhile(Option.isSome),
+          Effect.map((results) => ReadonlyArray.getSomes(results).length)
+        )
+
+        // Effect.whenパターン: 追い出し時のみ統計更新
+        yield* Effect.when(evicted > 0, () =>
+          Ref.update(statisticsRef, (stats) => ({
             ...stats,
             evictions: stats.evictions + evicted,
           }))
-        }
+        )
 
         return evicted
       })
@@ -113,44 +138,53 @@ export const makeLRUCacheStrategy = <K, V>(
           totalRequests: stats.totalRequests + 1,
         }))
 
-        if (entry) {
-          // Update access information
-          const now = yield* Clock.currentTimeMillis
-          const updatedEntry: CacheEntry<V> = {
-            ...entry,
-            accessCount: entry.accessCount + 1,
-            lastAccessed: now,
-          }
+        // Option.matchパターン: キャッシュヒット/ミス処理
+        return yield* pipe(
+          Option.fromNullable(entry),
+          Option.match({
+            onNone: () =>
+              Effect.gen(function* () {
+                yield* Ref.update(statisticsRef, (stats) => {
+                  const newMisses = stats.misses + 1
+                  const newTotal = stats.totalRequests
+                  return {
+                    ...stats,
+                    misses: newMisses,
+                    hitRate: stats.hits / newTotal,
+                  }
+                })
 
-          yield* Ref.update(entriesRef, (map) => new Map(map).set(key, updatedEntry))
-          yield* updateAccessOrder(key)
+                return Option.none()
+              }),
+            onSome: (cachedEntry) =>
+              Effect.gen(function* () {
+                // Update access information
+                const now = yield* Clock.currentTimeMillis
+                const updatedEntry: CacheEntry<V> = {
+                  ...cachedEntry,
+                  accessCount: cachedEntry.accessCount + 1,
+                  lastAccessed: now,
+                }
 
-          const endTime = yield* Clock.currentTimeMillis
-          yield* Ref.update(statisticsRef, (stats) => {
-            const newHits = stats.hits + 1
-            const newTotal = stats.totalRequests
-            return {
-              ...stats,
-              hits: newHits,
-              hitRate: newHits / newTotal,
-              averageAccessTime: (stats.averageAccessTime + (endTime - startTime)) / 2,
-            }
+                yield* Ref.update(entriesRef, (map) => new Map(map).set(key, updatedEntry))
+                yield* updateAccessOrder(key)
+
+                const endTime = yield* Clock.currentTimeMillis
+                yield* Ref.update(statisticsRef, (stats) => {
+                  const newHits = stats.hits + 1
+                  const newTotal = stats.totalRequests
+                  return {
+                    ...stats,
+                    hits: newHits,
+                    hitRate: newHits / newTotal,
+                    averageAccessTime: (stats.averageAccessTime + (endTime - startTime)) / 2,
+                  }
+                })
+
+                return Option.some(cachedEntry.value)
+              }),
           })
-
-          return Option.some(entry.value)
-        } else {
-          yield* Ref.update(statisticsRef, (stats) => {
-            const newMisses = stats.misses + 1
-            const newTotal = stats.totalRequests
-            return {
-              ...stats,
-              misses: newMisses,
-              hitRate: stats.hits / newTotal,
-            }
-          })
-
-          return Option.none()
-        }
+        )
       }).pipe(
         Effect.catchAll((error) =>
           Effect.fail(createRepositoryError(`LRU cache get operation failed: ${error}`, 'cache_get', error))
@@ -171,11 +205,9 @@ export const makeLRUCacheStrategy = <K, V>(
         yield* Ref.update(entriesRef, (map) => new Map(map).set(key, entry))
         yield* updateAccessOrder(key)
 
-        // Evict if necessary
+        // Effect.whenパターン: サイズ超過時のみ追い出し
         const currentSize = yield* size()
-        if (currentSize > maxSize) {
-          yield* evictLRU()
-        }
+        yield* Effect.when(currentSize > maxSize, () => evictLRU())
       }).pipe(
         Effect.catchAll((error) =>
           Effect.fail(createRepositoryError(`LRU cache set operation failed: ${error}`, 'cache_set', error))
@@ -187,14 +219,17 @@ export const makeLRUCacheStrategy = <K, V>(
         const entries = yield* Ref.get(entriesRef)
         const existed = entries.has(key)
 
-        if (existed) {
-          yield* Ref.update(entriesRef, (map) => {
-            const newMap = new Map(map)
-            newMap.delete(key)
-            return newMap
+        // Effect.whenパターン: 存在する場合のみ削除
+        yield* Effect.when(existed, () =>
+          Effect.gen(function* () {
+            yield* Ref.update(entriesRef, (map) => {
+              const newMap = new Map(map)
+              newMap.delete(key)
+              return newMap
+            })
+            yield* Ref.update(accessOrderRef, (order) => order.filter((k) => k !== key))
           })
-          yield* Ref.update(accessOrderRef, (order) => order.filter((k) => k !== key))
-        }
+        )
 
         return existed
       }).pipe(
@@ -226,11 +261,11 @@ export const makeLRUCacheStrategy = <K, V>(
     const getStatistics = (): Effect.Effect<CacheStatistics, AllRepositoryErrors> => Ref.get(statisticsRef)
 
     const warmup = (entries: ReadonlyArray<readonly [K, V]>): Effect.Effect<void, AllRepositoryErrors> =>
-      Effect.gen(function* () {
-        for (const [key, value] of entries) {
-          yield* set(key, value)
-        }
-      })
+      pipe(
+        entries,
+        Effect.forEach(([key, value]) => set(key, value), { concurrency: 'unbounded' }),
+        Effect.asVoid
+      )
 
     return {
       get,
@@ -268,25 +303,34 @@ export const makeTTLCacheStrategy = <K, V>(
       Effect.gen(function* () {
         const entries = yield* Ref.get(entriesRef)
         const now = yield* Clock.currentTimeMillis
-        let evicted = 0
 
-        const validEntries = new Map<K, CacheEntry<V>>()
-        for (const [key, entry] of entries) {
-          if (isExpired(entry, now)) {
-            evicted++
-          } else {
-            validEntries.set(key, entry)
-          }
-        }
+        // filterMap で有効なエントリと期限切れカウントを同時に処理
+        // Option.matchパターン: 期限切れ判定によるエントリ分類
+        const { validEntries, evicted } = pipe(
+          Array.from(entries),
+          ReadonlyArray.reduce({ validEntries: new Map<K, CacheEntry<V>>(), evicted: 0 }, (acc, [key, entry]) =>
+            pipe(
+              Option.fromNullable(isExpired(entry, now) ? null : entry),
+              Option.match({
+                onNone: () => ({ ...acc, evicted: acc.evicted + 1 }),
+                onSome: (validEntry) => {
+                  acc.validEntries.set(key, validEntry)
+                  return acc
+                },
+              })
+            )
+          )
+        )
 
         yield* Ref.set(entriesRef, validEntries)
 
-        if (evicted > 0) {
-          yield* Ref.update(statisticsRef, (stats) => ({
+        // Effect.whenパターン: 追い出し時のみ統計更新
+        yield* Effect.when(evicted > 0, () =>
+          Ref.update(statisticsRef, (stats) => ({
             ...stats,
             evictions: stats.evictions + evicted,
           }))
-        }
+        )
 
         return evicted
       })
@@ -308,38 +352,47 @@ export const makeTTLCacheStrategy = <K, V>(
           totalRequests: stats.totalRequests + 1,
         }))
 
-        if (entry && !isExpired(entry, now)) {
-          yield* Ref.update(statisticsRef, (stats) => {
-            const newHits = stats.hits + 1
-            return {
-              ...stats,
-              hits: newHits,
-              hitRate: newHits / stats.totalRequests,
-            }
+        // Option.matchパターン: エントリ存在チェック + 期限チェック
+        return yield* pipe(
+          Option.fromNullable(entry && !isExpired(entry, now) ? entry : null),
+          Option.match({
+            onNone: () =>
+              Effect.gen(function* () {
+                // 期限切れエントリを削除
+                yield* Effect.when(entry !== undefined, () =>
+                  Ref.update(entriesRef, (map) => {
+                    const newMap = new Map(map)
+                    newMap.delete(key)
+                    return newMap
+                  })
+                )
+
+                yield* Ref.update(statisticsRef, (stats) => {
+                  const newMisses = stats.misses + 1
+                  return {
+                    ...stats,
+                    misses: newMisses,
+                    hitRate: stats.hits / stats.totalRequests,
+                  }
+                })
+
+                return Option.none()
+              }),
+            onSome: (validEntry) =>
+              Effect.gen(function* () {
+                yield* Ref.update(statisticsRef, (stats) => {
+                  const newHits = stats.hits + 1
+                  return {
+                    ...stats,
+                    hits: newHits,
+                    hitRate: newHits / stats.totalRequests,
+                  }
+                })
+
+                return Option.some(validEntry.value)
+              }),
           })
-
-          return Option.some(entry.value)
-        } else {
-          if (entry) {
-            // Remove expired entry
-            yield* Ref.update(entriesRef, (map) => {
-              const newMap = new Map(map)
-              newMap.delete(key)
-              return newMap
-            })
-          }
-
-          yield* Ref.update(statisticsRef, (stats) => {
-            const newMisses = stats.misses + 1
-            return {
-              ...stats,
-              misses: newMisses,
-              hitRate: stats.hits / stats.totalRequests,
-            }
-          })
-
-          return Option.none()
-        }
+        )
       })
 
     const set = (key: K, value: V): Effect.Effect<void, AllRepositoryErrors> =>
@@ -355,11 +408,9 @@ export const makeTTLCacheStrategy = <K, V>(
 
         yield* Ref.update(entriesRef, (map) => new Map(map).set(key, entry))
 
-        // Check size limit
+        // Effect.whenパターン: サイズ超過時のみクリーンアップ
         const currentSize = yield* size()
-        if (currentSize > maxSize) {
-          yield* cleanupExpired()
-        }
+        yield* Effect.when(currentSize > maxSize, () => cleanupExpired())
       })
 
     const deleteKey = (key: K): Effect.Effect<boolean, AllRepositoryErrors> =>
@@ -367,13 +418,14 @@ export const makeTTLCacheStrategy = <K, V>(
         const entries = yield* Ref.get(entriesRef)
         const existed = entries.has(key)
 
-        if (existed) {
-          yield* Ref.update(entriesRef, (map) => {
+        // Effect.whenパターン: 存在する場合のみ削除
+        yield* Effect.when(existed, () =>
+          Ref.update(entriesRef, (map) => {
             const newMap = new Map(map)
             newMap.delete(key)
             return newMap
           })
-        }
+        )
 
         return existed
       })
@@ -397,11 +449,11 @@ export const makeTTLCacheStrategy = <K, V>(
     const getStatistics = (): Effect.Effect<CacheStatistics, AllRepositoryErrors> => Ref.get(statisticsRef)
 
     const warmup = (entries: ReadonlyArray<readonly [K, V]>): Effect.Effect<void, AllRepositoryErrors> =>
-      Effect.gen(function* () {
-        for (const [key, value] of entries) {
-          yield* set(key, value)
-        }
-      })
+      pipe(
+        entries,
+        Effect.forEach(([key, value]) => set(key, value), { concurrency: 'unbounded' }),
+        Effect.asVoid
+      )
 
     return {
       get,
@@ -443,16 +495,21 @@ export const makeWorldGeneratorCache = (
         return {
           get: (key: WorldId) =>
             Effect.gen(function* () {
-              // Try TTL cache first (freshness)
+              // Option.matchパターン: TTLキャッシュヒット判定
               const ttlResult = yield* ttlCache.get(key)
-              if (Option.isSome(ttlResult)) {
-                // Update LRU for access pattern
-                yield* lruCache.set(key, ttlResult.value)
-                return ttlResult
-              }
 
-              // Fall back to LRU cache
-              return yield* lruCache.get(key)
+              return yield* pipe(
+                ttlResult,
+                Option.match({
+                  onNone: () => lruCache.get(key),
+                  onSome: (value) =>
+                    Effect.gen(function* () {
+                      // Update LRU for access pattern
+                      yield* lruCache.set(key, value)
+                      return Option.some(value)
+                    }),
+                })
+              )
             }),
 
           set: (key: WorldId, value: WorldGenerator) =>

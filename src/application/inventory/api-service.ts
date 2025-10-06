@@ -13,15 +13,11 @@ type InventoryCommand =
   | { readonly _tag: 'SortInventory'; readonly playerId: PlayerId }
   | { readonly _tag: 'SnapshotInventory'; readonly playerId: PlayerId }
 
-export type InventoryApiError = {
-  readonly _tag: 'DomainFailure'
-  readonly cause: InventoryServiceError
-}
+export class InventoryApiError extends Schema.TaggedError<InventoryApiError>()('DomainFailure', {
+  cause: Schema.Unknown,
+}) {}
 
-const fromDomainError = (cause: InventoryServiceError): InventoryApiError => ({
-  _tag: 'DomainFailure',
-  cause,
-})
+const fromDomainError = (cause: InventoryServiceError): InventoryApiError => new InventoryApiError({ cause })
 
 // ================================================================
 // 応答DTO

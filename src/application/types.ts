@@ -15,8 +15,8 @@ export type TargetFramesPerSecond = Schema.Schema.Type<typeof TargetFramesPerSec
 export const FrameCount = Schema.Number.pipe(Schema.int(), Schema.nonNegative(), Schema.brand('FrameCount'))
 export type FrameCount = Schema.Schema.Type<typeof FrameCount>
 
-export const Milliseconds = Schema.Number.pipe(Schema.nonNegative(), Schema.brand('Milliseconds'))
-export type Milliseconds = Schema.Schema.Type<typeof Milliseconds>
+// Re-export from units
+export { MillisecondsSchema as Milliseconds, type Milliseconds } from '../domain/shared/value_object/units'
 
 export const MemoryBytes = Schema.Number.pipe(Schema.nonNegative(), Schema.brand('MemoryBytes'))
 export type MemoryBytes = Schema.Schema.Type<typeof MemoryBytes>
@@ -27,8 +27,8 @@ export type CpuPercentage = Schema.Schema.Type<typeof CpuPercentage>
 export const ResourcePercentage = Schema.Number.pipe(Schema.between(0, 1), Schema.brand('ResourcePercentage'))
 export type ResourcePercentage = Schema.Schema.Type<typeof ResourcePercentage>
 
-export const Timestamp = Schema.Number.pipe(Schema.int(), Schema.nonNegative(), Schema.brand('Timestamp'))
-export type Timestamp = Schema.Schema.Type<typeof Timestamp>
+// Re-export from units
+export { TimestampSchema as Timestamp, type Timestamp } from '../domain/shared/value_object/units'
 
 export const SlotCount = Schema.Number.pipe(Schema.int(), Schema.nonNegative(), Schema.brand('SlotCount'))
 export type SlotCount = Schema.Schema.Type<typeof SlotCount>

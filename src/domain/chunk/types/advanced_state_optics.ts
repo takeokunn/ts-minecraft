@@ -97,17 +97,28 @@ export const ChunkStateTransitionOptics = {
       toState: TTo,
       validation?: (state: Extract<ChunkState, { _tag: TFrom }>) => boolean
     ) =>
-    (state: ChunkState): Either.Either<TTo, string> => {
-      if (state._tag !== fromState) {
-        return Either.left(`Invalid transition: expected ${fromState}, got ${state._tag}`)
-      }
-
-      if (validation && !validation(state as Extract<ChunkState, { _tag: TFrom }>)) {
-        return Either.left(`Transition validation failed from ${fromState}`)
-      }
-
-      return Either.right(toState)
-    },
+    (state: ChunkState): Either.Either<TTo, string> =>
+      pipe(
+        Match.value(state._tag === fromState),
+        Match.when(false, () => Either.left(`Invalid transition: expected ${fromState}, got ${state._tag}` as const)),
+        Match.when(true, () =>
+          pipe(
+            validation,
+            Option.fromNullable,
+            Option.match({
+              onNone: () => Either.right(toState),
+              onSome: (validate) =>
+                pipe(
+                  Match.value(validate(state as Extract<ChunkState, { _tag: TFrom }>)),
+                  Match.when(false, () => Either.left(`Transition validation failed from ${fromState}` as const)),
+                  Match.when(true, () => Either.right(toState)),
+                  Match.exhaustive
+                ),
+            })
+          )
+        ),
+        Match.exhaustive
+      ),
 
   /**
    * 条件付き状態遷移
@@ -120,14 +131,13 @@ export const ChunkStateTransitionOptics = {
         transition: (state: ChunkState) => ChunkState
       }>
     ) =>
-    (state: ChunkState): ChunkState => {
-      for (const { condition, transition } of conditions) {
-        if (condition(state)) {
-          return transition(state)
-        }
-      }
-      return state // 条件に合致しない場合は元の状態を返す
-    },
+    (state: ChunkState): ChunkState =>
+      pipe(
+        conditions,
+        ReadonlyArray.findFirst(({ condition }) => condition(state)),
+        Option.map(({ transition }) => transition(state)),
+        Option.getOrElse(() => state)
+      ),
 
   /**
    * ロールバック機能付き状態遷移
@@ -204,12 +214,14 @@ export const ParallelChunkStateOptics = {
     Effect.gen(function* () {
       const chunks = EffectChunk.fromIterable(states)
       const batches = EffectChunk.chunksOf(chunks, batchSize)
-      const results: ChunkState[] = []
 
-      for (const batch of batches) {
-        const batchResults = yield* Effect.all(EffectChunk.toReadonlyArray(batch).map(operation))
-        results.push(...batchResults)
-      }
+      const results = yield* pipe(
+        batches,
+        Effect.forEach((batch) => Effect.all(EffectChunk.toReadonlyArray(batch).map(operation)), {
+          concurrency: 'unbounded',
+        }),
+        Effect.map(ReadonlyArray.flatten)
+      )
 
       return results
     }),
@@ -246,9 +258,21 @@ export const ParallelChunkStateOptics = {
 
       statistics.forEach((stat) => {
         byState[stat.tag] = (byState[stat.tag] || 0) + 1
-        if (stat.hasData) hasData++
-        if (stat.hasProgress) hasProgress++
-        if (stat.hasError) hasErrors++
+        hasData += pipe(
+          Match.value(stat.hasData),
+          Match.when(true, () => 1),
+          Match.orElse(() => 0)
+        )
+        hasProgress += pipe(
+          Match.value(stat.hasProgress),
+          Match.when(true, () => 1),
+          Match.orElse(() => 0)
+        )
+        hasErrors += pipe(
+          Match.value(stat.hasError),
+          Match.when(true, () => 1),
+          Match.orElse(() => 0)
+        )
       })
 
       return {
@@ -321,9 +345,11 @@ export const ReactiveChunkStateOptics = {
     (state: ChunkState) =>
     (newState: ChunkState) =>
       Effect.gen(function* () {
-        if (state._tag !== newState._tag) {
-          yield* onStateChange(state, newState)
-        }
+        yield* pipe(
+          Match.value(state._tag !== newState._tag),
+          Match.when(true, () => onStateChange(state, newState)),
+          Match.orElse(() => Effect.void)
+        )
         return newState
       }),
 

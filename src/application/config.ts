@@ -70,7 +70,7 @@ const configurationFailure = ({
         },
       ],
     })
-    const error = ConfigurationValidationError.make({
+    const error = new ConfigurationValidationError({
       context,
       field,
       value: toJsonValue(candidate),

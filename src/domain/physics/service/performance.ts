@@ -211,14 +211,17 @@ const makePhysicsPerformanceService: Effect.Effect<PhysicsPerformanceService> = 
   // パフォーマンス監視の初期化
   const initializePerformanceMonitoring = (initialLevel: PerformanceLevel = 'High') =>
     Effect.gen(function* () {
-      const settings = PERFORMANCE_SETTINGS.get(initialLevel)
-      if (!settings) {
-        return yield* Effect.fail({
-          _tag: 'PhysicsPerformanceError',
-          message: `Invalid performance level: ${initialLevel}`,
-          reason: 'ConfigurationError',
-        } as PhysicsPerformanceError)
-      }
+      const settingsOption = PERFORMANCE_SETTINGS.get(initialLevel)
+      const settings = yield* Effect.filterOrFail(
+        Effect.succeed(settingsOption),
+        (s): s is OptimizationSettings => s !== undefined,
+        () =>
+          ({
+            _tag: 'PhysicsPerformanceError',
+            message: `Invalid performance level: ${initialLevel}`,
+            reason: 'ConfigurationError',
+          }) as PhysicsPerformanceError
+      )
 
       const now = yield* Clock.currentTimeMillis
       yield* Ref.update(performanceStateRef, (state) => ({
@@ -300,14 +303,17 @@ const makePhysicsPerformanceService: Effect.Effect<PhysicsPerformanceService> = 
   // パフォーマンスレベルの手動設定
   const setPerformanceLevel = (level: PerformanceLevel) =>
     Effect.gen(function* () {
-      const settings = PERFORMANCE_SETTINGS.get(level)
-      if (!settings) {
-        return yield* Effect.fail({
-          _tag: 'PhysicsPerformanceError',
-          message: `Invalid performance level: ${level}`,
-          reason: 'ConfigurationError',
-        } as PhysicsPerformanceError)
-      }
+      const settingsOption = PERFORMANCE_SETTINGS.get(level)
+      const settings = yield* Effect.filterOrFail(
+        Effect.succeed(settingsOption),
+        (s): s is OptimizationSettings => s !== undefined,
+        () =>
+          ({
+            _tag: 'PhysicsPerformanceError',
+            message: `Invalid performance level: ${level}`,
+            reason: 'ConfigurationError',
+          }) as PhysicsPerformanceError
+      )
 
       const now = yield* Clock.currentTimeMillis
       yield* Ref.update(performanceStateRef, (state) => ({
@@ -340,8 +346,12 @@ const makePhysicsPerformanceService: Effect.Effect<PhysicsPerformanceService> = 
       let optimizationApplied = false
 
       // 適応モードでない場合は推奨のみ
-      if (!state.adaptiveMode) {
-        return { optimizationApplied: false, recommendations: ['Adaptive mode is disabled'] }
+      const earlyReturn = yield* Effect.if(!state.adaptiveMode, {
+        onTrue: () => Effect.succeed({ optimizationApplied: false, recommendations: ['Adaptive mode is disabled'] }),
+        onFalse: () => Effect.succeed(null),
+      })
+      if (earlyReturn !== null) {
+        return earlyReturn
       }
 
       // 過去1秒間の平均パフォーマンスを分析
@@ -429,13 +439,17 @@ const makePhysicsPerformanceService: Effect.Effect<PhysicsPerformanceService> = 
       optimizationApplied = analysis.applied
 
       // 追加の最適化推奨
-      if (avgMetrics.physicsTime > avgMetrics.frameTime * 0.5) {
-        recommendations.push('Physics computation takes >50% of frame time - consider physics optimization')
-      }
+      yield* Effect.when(avgMetrics.physicsTime > avgMetrics.frameTime * 0.5, () =>
+        Effect.sync(() => {
+          recommendations.push('Physics computation takes >50% of frame time - consider physics optimization')
+        })
+      )
 
-      if (avgMetrics.activeObjects > 1000) {
-        recommendations.push('High active object count - consider LOD or culling optimizations')
-      }
+      yield* Effect.when(avgMetrics.activeObjects > 1000, () =>
+        Effect.sync(() => {
+          recommendations.push('High active object count - consider LOD or culling optimizations')
+        })
+      )
 
       return { optimizationApplied, recommendations }
     })

@@ -527,7 +527,11 @@ export const ClimateCalculatorServiceLive = Layer.effect(
                 const yearlyVariation = Math.sin(year * 0.1) * 0.1 + Math.random() * 0.05
                 const modifiedSeed = BigInt(Number(seed) + year)
 
-                const climate = yield* ClimateCalculatorService.calculateClimate(coordinate, 0, modifiedSeed as WorldSeed)
+                const climate = yield* ClimateCalculatorService.calculateClimate(
+                  coordinate,
+                  0,
+                  modifiedSeed as WorldSeed
+                )
 
                 return {
                   temperature: climate.temperature * (1 + yearlyVariation),

@@ -192,29 +192,30 @@ export namespace SceneCameraOps {
       const newFollowMode = pipe(
         currentMode,
         Match.value,
-        Match.tag('SingleTarget', (single) => {
+        Match.tag('SingleTarget', (single) =>
           // 削除対象の場合はFreeLookに変更
-          if (positionsEqual(single.target, target)) {
-            return FollowMode.FreeLook({})
-          }
-          return single
-        }),
+          positionsEqual(single.target, target) ? FollowMode.FreeLook({}) : single
+        ),
         Match.tag('MultipleTargets', (multiple) => {
           const filteredTargets = multiple.targets.filter((t) => !positionsEqual(t, target))
 
-          if (filteredTargets.length === 0) {
-            return FollowMode.FreeLook({})
-          } else if (filteredTargets.length === 1) {
-            return FollowMode.SingleTarget({
-              target: filteredTargets[0],
-              offset: createDefaultOffset(),
-            })
-          } else {
-            return FollowMode.MultipleTargets({
-              targets: filteredTargets,
-              strategy: multiple.strategy,
-            })
-          }
+          return pipe(
+            filteredTargets.length,
+            Match.value,
+            Match.when(0, () => FollowMode.FreeLook({})),
+            Match.when(1, () =>
+              FollowMode.SingleTarget({
+                target: filteredTargets[0],
+                offset: createDefaultOffset(),
+              })
+            ),
+            Match.orElse(() =>
+              FollowMode.MultipleTargets({
+                targets: filteredTargets,
+                strategy: multiple.strategy,
+              })
+            )
+          )
         }),
         Match.orElse(() => currentMode)
       )
@@ -318,23 +319,21 @@ export namespace SceneCameraOps {
   /**
    * キーフレームの記録
    */
-  export const recordKeyframe = (sceneCamera: SceneCamera, time: number): SceneCamera => {
-    if (!sceneCamera.isRecording) {
-      return sceneCamera
-    }
-
-    const keyframe = CinematicKeyframe({
-      _tag: 'CinematicKeyframe',
-      time,
-      position: sceneCamera.camera.position,
-      rotation: sceneCamera.camera.rotation,
-    })
-
-    return SceneCamera({
-      ...sceneCamera,
-      recordedKeyframes: [...sceneCamera.recordedKeyframes, keyframe],
-    })
-  }
+  export const recordKeyframe = (sceneCamera: SceneCamera, time: number): SceneCamera =>
+    sceneCamera.isRecording
+      ? SceneCamera({
+          ...sceneCamera,
+          recordedKeyframes: [
+            ...sceneCamera.recordedKeyframes,
+            CinematicKeyframe({
+              _tag: 'CinematicKeyframe',
+              time,
+              position: sceneCamera.camera.position,
+              rotation: sceneCamera.camera.rotation,
+            }),
+          ],
+        })
+      : sceneCamera
 
   /**
    * 記録されたキーフレームからシーケンス作成
@@ -344,14 +343,14 @@ export namespace SceneCameraOps {
     sequenceId: string
   ): Effect.Effect<CinematicSequence, CameraError> =>
     Effect.gen(function* () {
-      if (sceneCamera.recordedKeyframes.length === 0) {
-        return yield* Effect.fail(
+      yield* Effect.when(sceneCamera.recordedKeyframes.length === 0, () =>
+        Effect.fail(
           CameraError({
             _tag: 'InvalidParameterError',
             message: 'No keyframes recorded',
           })
         )
-      }
+      )
 
       const duration = Math.max(...sceneCamera.recordedKeyframes.map((kf) => kf.time))
 

@@ -41,8 +41,9 @@ export type MouseDelta = number & Brand.Brand<'MouseDelta'>
 
 /**
  * デルタ時間のBrand型
+ * Re-export from units with alias
  */
-export type DeltaTime = number & Brand.Brand<'DeltaTime'>
+export type { Milliseconds as DeltaTime } from '../../shared/value_object/units'
 
 /**
  * 3D位置のBrand型
@@ -360,11 +361,9 @@ export const MouseDeltaSchema = createBrandedNumberSchema('MouseDelta', {
 
 /**
  * デルタ時間バリデーションスキーマ
+ * Re-export from units with alias
  */
-export const DeltaTimeSchema = createBrandedNumberSchema('DeltaTime', {
-  nonNegative: true,
-  finite: true,
-})
+export { MillisecondsSchema as DeltaTimeSchema } from '../../shared/value_object/units'
 
 /**
  * 3D位置バリデーションスキーマ

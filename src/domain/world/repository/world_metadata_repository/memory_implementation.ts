@@ -1166,12 +1166,14 @@ export const WorldMetadataRepositoryMemoryImplementation = (
         Effect.gen(function* () {
           yield* pipe(
             worldIds,
-            Effect.forEach((worldId) =>
-              Effect.gen(function* () {
-                yield* Effect.ignore(this.findMetadata(worldId))
-                yield* Effect.ignore(this.getSettings(worldId))
-                yield* Effect.ignore(this.getStatistics(worldId))
-              })
+            Effect.forEach(
+              (worldId) =>
+                Effect.gen(function* () {
+                  yield* Effect.ignore(this.findMetadata(worldId))
+                  yield* Effect.ignore(this.getSettings(worldId))
+                  yield* Effect.ignore(this.getStatistics(worldId))
+                }),
+              { concurrency: 'unbounded' }
             )
           )
         }),
@@ -1182,7 +1184,9 @@ export const WorldMetadataRepositoryMemoryImplementation = (
         Effect.gen(function* () {
           const results = yield* pipe(
             metadataList,
-            Effect.forEach((metadata) => Effect.either(this.saveMetadata(metadata)))
+            Effect.forEach((metadata) => Effect.either(this.saveMetadata(metadata)), {
+              concurrency: 'unbounded',
+            })
           )
 
           return pipe(
@@ -1199,23 +1203,25 @@ export const WorldMetadataRepositoryMemoryImplementation = (
         Effect.gen(function* () {
           const results = yield* pipe(
             updates,
-            Effect.forEach((update) =>
-              Effect.gen(function* () {
-                const currentMetadata = yield* this.findMetadata(update.worldId)
+            Effect.forEach(
+              (update) =>
+                Effect.gen(function* () {
+                  const currentMetadata = yield* this.findMetadata(update.worldId)
 
-                return yield* pipe(
-                  currentMetadata,
-                  Option.match({
-                    onNone: () => Effect.succeed(false),
-                    onSome: (metadata) =>
-                      Effect.gen(function* () {
-                        const updatedMetadata = { ...metadata, ...update.metadata }
-                        const result = yield* Effect.either(this.updateMetadata(updatedMetadata))
-                        return result._tag === 'Right'
-                      }),
-                  })
-                )
-              })
+                  return yield* pipe(
+                    currentMetadata,
+                    Option.match({
+                      onNone: () => Effect.succeed(false),
+                      onSome: (metadata) =>
+                        Effect.gen(function* () {
+                          const updatedMetadata = { ...metadata, ...update.metadata }
+                          const result = yield* Effect.either(this.updateMetadata(updatedMetadata))
+                          return result._tag === 'Right'
+                        }),
+                    })
+                  )
+                }),
+              { concurrency: 'unbounded' }
             )
           )
 
@@ -1230,7 +1236,9 @@ export const WorldMetadataRepositoryMemoryImplementation = (
         Effect.gen(function* () {
           const results = yield* pipe(
             worldIds,
-            Effect.forEach((worldId) => Effect.either(this.deleteMetadata(worldId)))
+            Effect.forEach((worldId) => Effect.either(this.deleteMetadata(worldId)), {
+              concurrency: 'unbounded',
+            })
           )
 
           return pipe(
@@ -1244,7 +1252,9 @@ export const WorldMetadataRepositoryMemoryImplementation = (
         Effect.gen(function* () {
           const results = yield* pipe(
             worldIds,
-            Effect.forEach((worldId) => Effect.either(this.compressMetadata(worldId, compressionConfig)))
+            Effect.forEach((worldId) => Effect.either(this.compressMetadata(worldId, compressionConfig)), {
+              concurrency: 'unbounded',
+            })
           )
 
           return pipe(

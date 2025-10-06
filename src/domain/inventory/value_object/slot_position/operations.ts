@@ -155,37 +155,53 @@ export const positionToArmorSlot = (
 export const getSlotSection = (position: SlotPosition): SlotSection => {
   const pos = position as number
 
-  if (pos >= 0 && pos <= 8) {
-    return SlotSection.Hotbar({
-      startIndex: 0,
-      endIndex: 8,
-      priority: 'highest',
-    })
-  } else if (pos >= 9 && pos <= 35) {
-    return SlotSection.MainInventory({
-      startIndex: 9,
-      endIndex: 35,
-      priority: 'normal',
-    })
-  } else if (pos >= 36 && pos <= 39) {
-    return SlotSection.ArmorSlots({
-      helmet: 36,
-      chestplate: 37,
-      leggings: 38,
-      boots: 39,
-    })
-  } else if (pos === 40) {
-    return SlotSection.OffhandSlot({
-      index: 40,
-    })
-  } else {
-    // デフォルトでメインインベントリとして扱う
-    return SlotSection.MainInventory({
-      startIndex: 9,
-      endIndex: 35,
-      priority: 'normal',
-    })
-  }
+  return pipe(
+    pos,
+    Match.value,
+    Match.when(
+      (p) => p >= 0 && p <= 8,
+      () =>
+        SlotSection.Hotbar({
+          startIndex: 0,
+          endIndex: 8,
+          priority: 'highest',
+        })
+    ),
+    Match.when(
+      (p) => p >= 9 && p <= 35,
+      () =>
+        SlotSection.MainInventory({
+          startIndex: 9,
+          endIndex: 35,
+          priority: 'normal',
+        })
+    ),
+    Match.when(
+      (p) => p >= 36 && p <= 39,
+      () =>
+        SlotSection.ArmorSlots({
+          helmet: 36,
+          chestplate: 37,
+          leggings: 38,
+          boots: 39,
+        })
+    ),
+    Match.when(
+      (p) => p === 40,
+      () =>
+        SlotSection.OffhandSlot({
+          index: 40,
+        })
+    ),
+    Match.orElse(() =>
+      // デフォルトでメインインベントリとして扱う
+      SlotSection.MainInventory({
+        startIndex: 9,
+        endIndex: 35,
+        priority: 'normal',
+      })
+    )
+  )
 }
 
 /**
@@ -404,13 +420,10 @@ export const getSlotPositionsInRange = (
       )
     }
 
-    const positions: SlotPosition[] = []
-    for (let i = start; i <= end; i++) {
-      const position = yield* createSlotPosition(i)
-      positions.push(position)
-    }
-
-    return positions
+    return yield* pipe(
+      ReadonlyArray.range(start, end + 1),
+      Effect.forEach((i) => createSlotPosition(i), { concurrency: 'unbounded' })
+    )
   })
 
 /**
@@ -426,13 +439,14 @@ export const getAvailablePositions = (
     Match.tag('Compact', () => getSlotPositionsInRange(0 as SlotPosition, 26 as SlotPosition)),
     Match.tag('Wide', () => getSlotPositionsInRange(0 as SlotPosition, 8 as SlotPosition)),
     Match.tag('Creative', () => Effect.succeed([])),
-    Match.tag('Crafting', (crafting) => {
-      if (crafting.gridSize === '2x2') {
-        return getSlotPositionsInRange(0 as SlotPosition, 4 as SlotPosition)
-      } else {
-        return getSlotPositionsInRange(0 as SlotPosition, 9 as SlotPosition)
-      }
-    }),
+    Match.tag('Crafting', (crafting) =>
+      pipe(
+        crafting.gridSize,
+        Match.value,
+        Match.when('2x2', () => getSlotPositionsInRange(0 as SlotPosition, 4 as SlotPosition)),
+        Match.orElse(() => getSlotPositionsInRange(0 as SlotPosition, 9 as SlotPosition))
+      )
+    ),
     Match.tag('Furnace', (furnace) => Effect.succeed([furnace.input, furnace.fuel, furnace.output])),
     Match.tag('Anvil', (anvil) => Effect.succeed([anvil.left, anvil.right, anvil.result])),
     Match.exhaustive

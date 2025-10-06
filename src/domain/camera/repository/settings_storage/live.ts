@@ -5,7 +5,7 @@
  * プレイヤー設定、グローバル設定、プリセット設定の統合管理
  */
 
-import { Array, Clock, Effect, Either, HashMap, Layer, Match, Option, pipe, Ref } from 'effect'
+import { Array, Clock, Effect, Either, HashMap, Layer, Match, Option, pipe, Ref, Schema } from 'effect'
 import type {
   CameraPresetSettings,
   CleanupResult,
@@ -25,6 +25,7 @@ import type {
 import {
   createDefaultSettings,
   createSettingsRepositoryError,
+  ExportDataSchema,
   isPresetNotFoundError,
   isSettingsNotFoundError,
   isValidationError,
@@ -483,13 +484,12 @@ export const SettingsStorageRepositoryLive = Layer.effect(
         savePlayerSettingsBatch: (settingsArray: Array.ReadonlyArray<PlayerCameraSettings>) =>
           Effect.gen(function* () {
             yield* Ref.updateEffect(storageRef, (state) =>
-              Effect.gen(function* () {
-                let currentState = state
-                for (const settings of settingsArray) {
-                  currentState = yield* StorageOps.storePlayerSettings(currentState, settings.playerId, settings)
-                }
-                return currentState
-              })
+              pipe(
+                settingsArray,
+                Effect.reduce(state, (currentState, settings) =>
+                  StorageOps.storePlayerSettings(currentState, settings.playerId, settings)
+                )
+              )
             )
             yield* Effect.logDebug(`Batch save completed: ${settingsArray.length} player settings`)
           }).pipe(handleSettingsOperation),
@@ -497,42 +497,48 @@ export const SettingsStorageRepositoryLive = Layer.effect(
         savePresetSettingsBatch: (presetsArray: Array.ReadonlyArray<CameraPresetSettings>) =>
           Effect.gen(function* () {
             yield* Ref.updateEffect(storageRef, (state) =>
-              Effect.gen(function* () {
-                let currentState = state
-                for (const preset of presetsArray) {
-                  currentState = yield* StorageOps.storePresetSettings(currentState, preset.name, preset)
-                }
-                return currentState
-              })
+              pipe(
+                presetsArray,
+                Effect.reduce(state, (currentState, preset) =>
+                  StorageOps.storePresetSettings(currentState, preset.name, preset)
+                )
+              )
             )
             yield* Effect.logDebug(`Batch save completed: ${presetsArray.length} presets`)
           }).pipe(handleSettingsOperation),
 
         deletePlayerSettingsBatch: (playerIds: Array.ReadonlyArray<PlayerId>) =>
           Effect.gen(function* () {
-            let deletedCount = 0
-            yield* Ref.update(storageRef, (state) => {
-              let newState = state
-              for (const playerId of playerIds) {
-                if (HashMap.has(newState.playerSettings, playerId)) {
-                  newState = {
-                    ...newState,
-                    playerSettings: HashMap.remove(newState.playerSettings, playerId),
-                    usageAnalytics: HashMap.remove(newState.usageAnalytics, playerId),
+            const result = yield* Ref.modify(storageRef, (state) => {
+              const { newState, deletedCount } = pipe(
+                playerIds,
+                ReadonlyArray.reduce({ newState: state, deletedCount: 0 }, ({ newState, deletedCount }, playerId) => {
+                  if (HashMap.has(newState.playerSettings, playerId)) {
+                    return {
+                      newState: {
+                        ...newState,
+                        playerSettings: HashMap.remove(newState.playerSettings, playerId),
+                        usageAnalytics: HashMap.remove(newState.usageAnalytics, playerId),
+                      },
+                      deletedCount: deletedCount + 1,
+                    }
                   }
-                  deletedCount++
-                }
-              }
-              return {
-                ...newState,
-                metadata: {
-                  ...newState.metadata,
-                  totalOperations: newState.metadata.totalOperations + 1,
+                  return { newState, deletedCount }
+                })
+              )
+              return [
+                deletedCount,
+                {
+                  ...newState,
+                  metadata: {
+                    ...newState.metadata,
+                    totalOperations: newState.metadata.totalOperations + 1,
+                  },
                 },
-              }
+              ] as const
             })
-            yield* Effect.logDebug(`Batch delete completed: ${deletedCount} player settings`)
-            return deletedCount
+            yield* Effect.logDebug(`Batch delete completed: ${result} player settings`)
+            return result
           }).pipe(handleSettingsOperation),
 
         // ========================================
@@ -570,17 +576,33 @@ export const SettingsStorageRepositoryLive = Layer.effect(
               errors: [],
             }
 
-            const parseResult = yield* Effect.try({
+            // パターンB: Effect.try + Effect.flatMap + Schema.decodeUnknown
+            const validatedDataResult = yield* Effect.try({
               try: () => JSON.parse(jsonData),
-              catch: (error) => error,
-            }).pipe(Effect.either)
+              catch: (error) => createSettingsRepositoryError('import', `JSON parse failed: ${String(error)}`),
+            }).pipe(
+              Effect.flatMap(Schema.decodeUnknown(ExportDataSchema)),
+              Effect.mapError((error) =>
+                createSettingsRepositoryError('import', `Schema validation failed: ${String(error)}`)
+              ),
+              Effect.either
+            )
 
-            if (Either.isLeft(parseResult)) {
-              return {
-                ...importResult,
-                success: false,
-                errors: [String(parseResult.left)],
-              }
+            const validatedData = yield* pipe(
+              validatedDataResult,
+              Either.match({
+                onLeft: (error) =>
+                  Effect.succeed({
+                    ...importResult,
+                    success: false,
+                    errors: [String(error)],
+                  }),
+                onRight: (data) => Effect.succeed(data),
+              })
+            )
+
+            if (!validatedData.success) {
+              return validatedData
             }
 
             // 簡易実装: データのインポート処理
@@ -600,19 +622,36 @@ export const SettingsStorageRepositoryLive = Layer.effect(
               warnings: [],
             }
 
-            const parseResult = yield* Effect.try({
+            // パターンB: Effect.try + Effect.flatMap + Schema.decodeUnknown
+            const validatedDataResult = yield* Effect.try({
               try: () => JSON.parse(jsonData),
-              catch: (error) => error,
-            }).pipe(Effect.either)
+              catch: (error) => createSettingsRepositoryError('validate', `JSON parse failed: ${String(error)}`),
+            }).pipe(
+              Effect.flatMap(Schema.decodeUnknown(ExportDataSchema)),
+              Effect.mapError((error) =>
+                createSettingsRepositoryError('validate', `Schema validation failed: ${String(error)}`)
+              ),
+              Effect.either
+            )
 
-            if (Either.isLeft(parseResult)) {
-              return {
-                ...validationResult,
-                isValid: false,
-                errors: [String(parseResult.left)],
-              }
+            const validatedData = yield* pipe(
+              validatedDataResult,
+              Either.match({
+                onLeft: (error) =>
+                  Effect.succeed({
+                    ...validationResult,
+                    isValid: false,
+                    errors: [String(error)],
+                  }),
+                onRight: () => Effect.succeed(validationResult),
+              })
+            )
+
+            if (!validatedData.isValid) {
+              return validatedData
             }
-            // 簡易実装: スキーマ検証
+
+            // Schema検証が成功した場合、validatedDataを返す
 
             return validationResult
           }).pipe(handleSettingsOperation),

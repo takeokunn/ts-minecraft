@@ -254,22 +254,16 @@ export const NoiseConfigurationValidation = {
    * 周波数帯域の重複チェック
    */
   checkFrequencyOverlap: (bands: IndividualFrequencyBand[]): boolean => {
-    for (let i = 0; i < bands.length; i++) {
-      for (let j = i + 1; j < bands.length; j++) {
-        const band1 = bands[i]
-        const band2 = bands[j]
-
+    return bands.some((band1, i) =>
+      bands.slice(i + 1).some((band2) => {
         const range1Min = band1.centerFrequency - band1.bandwidth / 2
         const range1Max = band1.centerFrequency + band1.bandwidth / 2
         const range2Min = band2.centerFrequency - band2.bandwidth / 2
         const range2Max = band2.centerFrequency + band2.bandwidth / 2
 
-        if (range1Max > range2Min && range2Max > range1Min) {
-          return true // 重複あり
-        }
-      }
-    }
-    return false // 重複なし
+        return range1Max > range2Min && range2Max > range1Min
+      })
+    )
   },
 } as const
 

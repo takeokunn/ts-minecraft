@@ -21,7 +21,7 @@ import {
 } from '@domain/world/types'
 import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
 import * as NodePath from '@effect/platform-node/NodePath'
-import { Clock, Effect, Layer, Option, ReadonlyArray, Ref, Schema } from 'effect'
+import { Clock, Effect, Layer, Option, pipe, ReadonlyArray, Ref, Schema } from 'effect'
 import type {
   CacheConfiguration,
   WorldGeneratorBatchResult,
@@ -105,12 +105,14 @@ const defaultPersistenceConfig: PersistenceConfig = {
 
 const calculateChecksum = (data: string): string => {
   // Simple checksum calculation (in production, use proper hash functions)
-  let hash = 0
-  for (let i = 0; i < data.length; i++) {
-    const char = data.charCodeAt(i)
-    hash = (hash << 5) - hash + char
-    hash = hash & hash // Convert to 32-bit integer
-  }
+  const hash = pipe(
+    data.split(''),
+    ReadonlyArray.reduce(0, (hash, char) => {
+      const charCode = char.charCodeAt(0)
+      const newHash = (hash << 5) - hash + charCode
+      return newHash & newHash // Convert to 32-bit integer
+    })
+  )
   return hash.toString(16)
 }
 
@@ -155,9 +157,8 @@ const makeWorldGeneratorRepositoryPersistence = (
     const ensureDirectoryExists = (dirPath: string): Effect.Effect<void, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const exists = yield* fs.exists(dirPath)
-        if (!exists) {
-          yield* fs.makeDirectory(dirPath, { recursive: true })
-        }
+        // Effect.whenパターン: ディレクトリが存在しない場合のみ作成
+        yield* Effect.when(!exists, () => fs.makeDirectory(dirPath, { recursive: true }))
       }).pipe(
         Effect.catchAll((error) =>
           Effect.fail(createPersistenceError(`Failed to create directory: ${dirPath}`, 'filesystem', error))
@@ -167,49 +168,94 @@ const makeWorldGeneratorRepositoryPersistence = (
     const loadDataFromFile = (): Effect.Effect<PersistenceData, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const exists = yield* fs.exists(dataFile)
-        if (!exists) {
-          const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
-          return {
-            generators: {},
-            metadata: {
-              version: '1.0.0',
-              createdAt: now.toISOString(),
-              lastModified: now.toISOString(),
-              checksum: '',
-            },
-            statistics: {
-              totalChunksGenerated: 0,
-              lastGenerationTime: null,
-              performanceMetrics: {},
-            },
-          }
-        }
 
-        const content = yield* fs.readFileString(dataFile)
+        // Option.matchパターン: ファイル存在チェック（早期return）
+        return yield* pipe(
+          Option.fromNullable(exists ? true : null),
+          Option.match({
+            onNone: () =>
+              Effect.gen(function* () {
+                const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+                return {
+                  generators: {},
+                  metadata: {
+                    version: '1.0.0',
+                    createdAt: now.toISOString(),
+                    lastModified: now.toISOString(),
+                    checksum: '',
+                  },
+                  statistics: {
+                    totalChunksGenerated: 0,
+                    lastGenerationTime: null,
+                    performanceMetrics: {},
+                  },
+                }
+              }),
+            onSome: () =>
+              Effect.gen(function* () {
+                const content = yield* fs.readFileString(dataFile)
 
-        if (config.enableChecksums) {
-          // Verify checksum if metadata exists
-          const metadataExists = yield* fs.exists(metadataFile)
-          if (metadataExists) {
-            const metadataContent = yield* fs.readFileString(metadataFile)
-            const metadata = JSON.parse(metadataContent)
-            const actualChecksum = calculateChecksum(content)
+                // Effect.whenパターン: チェックサム検証
+                yield* Effect.when(config.enableChecksums, () =>
+                  Effect.gen(function* () {
+                    const metadataExists = yield* fs.exists(metadataFile)
+                    yield* Effect.when(metadataExists, () =>
+                      Effect.gen(function* () {
+                        const metadataContent = yield* fs.readFileString(metadataFile)
+                        // パターンB: Effect.try + JSON.parse
+                        const metadata = yield* Effect.try({
+                          try: () => JSON.parse(metadataContent),
+                          catch: (error) =>
+                            createDataIntegrityError(
+                              `Metadata JSON parse failed: ${String(error)}`,
+                              ['metadata'],
+                              metadataContent,
+                              error
+                            ),
+                        })
+                        const actualChecksum = calculateChecksum(content)
 
-            if (metadata.checksum !== actualChecksum) {
-              return yield* Effect.fail(
-                createDataIntegrityError(
-                  'Data checksum mismatch - file may be corrupted',
-                  ['checksum'],
-                  metadata.checksum,
-                  actualChecksum
+                        yield* pipe(
+                          Option.fromNullable(metadata.checksum === actualChecksum ? true : null),
+                          Option.match({
+                            onNone: () =>
+                              Effect.fail(
+                                createDataIntegrityError(
+                                  'Data checksum mismatch - file may be corrupted',
+                                  ['checksum'],
+                                  metadata.checksum,
+                                  actualChecksum
+                                )
+                              ),
+                            onSome: () => Effect.void,
+                          })
+                        )
+                      })
+                    )
+                  })
                 )
-              )
-            }
-          }
-        }
 
-        const parsedData = JSON.parse(content)
-        return Schema.decodeUnknownSync(PersistenceDataSchema)(parsedData)
+                // Pattern B: Effect.try + Effect.flatMap + Schema.decodeUnknown
+                const validated = yield* Effect.try({
+                  try: () => JSON.parse(content),
+                  catch: (error) =>
+                    new Error(
+                      `Failed to parse generator data JSON: ${error instanceof Error ? error.message : String(error)}`
+                    ),
+                }).pipe(
+                  Effect.flatMap(Schema.decodeUnknown(PersistenceDataSchema)),
+                  Effect.mapError((error) => ({
+                    _tag: 'SchemaValidationError' as const,
+                    message: `PersistenceDataSchema validation failed: ${error}`,
+                    context: 'loadDataFromFile',
+                    cause: error,
+                  }))
+                )
+
+                return validated
+              }),
+          })
+        )
       }).pipe(
         Effect.catchAll((error) =>
           Effect.fail(createPersistenceError(`Failed to load data from file: ${error}`, 'filesystem', error))
@@ -222,30 +268,34 @@ const makeWorldGeneratorRepositoryPersistence = (
 
         const content = JSON.stringify(data, null, 2)
 
-        // Calculate and save checksum
-        if (config.enableChecksums) {
-          const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
-          const checksum = calculateChecksum(content)
-          const metadata = {
-            ...data.metadata,
-            checksum,
-            lastModified: now.toISOString(),
-          }
+        // Effect.whenパターン: チェックサム計算・保存
+        yield* Effect.when(config.enableChecksums, () =>
+          Effect.gen(function* () {
+            const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+            const checksum = calculateChecksum(content)
+            const metadata = {
+              ...data.metadata,
+              checksum,
+              lastModified: now.toISOString(),
+            }
 
-          yield* fs.writeFileString(metadataFile, JSON.stringify(metadata, null, 2))
-        }
+            yield* fs.writeFileString(metadataFile, JSON.stringify(metadata, null, 2))
+          })
+        )
 
-        // Compress if enabled
-        const finalContent = config.enableCompression
-          ? yield* compressData(content, config.backup.compressionLevel)
-          : content
+        // Option.matchパターン: 圧縮有効化判定
+        const finalContent = yield* pipe(
+          Option.fromNullable(config.enableCompression ? true : null),
+          Option.match({
+            onNone: () => Effect.succeed(content),
+            onSome: () => compressData(content, config.backup.compressionLevel),
+          })
+        )
 
         yield* fs.writeFileString(dataFile, finalContent)
 
-        // Auto backup if enabled
-        if (config.autoBackup && config.backup.enabled) {
-          yield* createBackupInternal(data)
-        }
+        // Effect.whenパターン: 自動バックアップ
+        yield* Effect.when(config.autoBackup && config.backup.enabled, () => createBackupInternal(data))
       }).pipe(
         Effect.catchAll((error) =>
           Effect.fail(createPersistenceError(`Failed to save data to file: ${error}`, 'filesystem', error))
@@ -315,24 +365,35 @@ const makeWorldGeneratorRepositoryPersistence = (
 
     const findById = (worldId: WorldId): Effect.Effect<Option.Option<WorldGenerator>, AllRepositoryErrors> =>
       Effect.gen(function* () {
-        // Check cache first
+        // Option.matchパターン: キャッシュヒット判定（早期return）
         const cache = yield* Ref.get(cacheRef)
         const cached = cache.get(worldId)
-        if (cached) {
-          return Option.some(cached)
-        }
 
-        // Load from file
-        const data = yield* loadDataFromFile()
-        const generator = data.generators[worldId] as WorldGenerator | undefined
+        return yield* pipe(
+          Option.fromNullable(cached),
+          Option.match({
+            onNone: () =>
+              Effect.gen(function* () {
+                // Load from file
+                const data = yield* loadDataFromFile()
+                const generator = data.generators[worldId] as WorldGenerator | undefined
 
-        if (generator) {
-          // Update cache
-          yield* Ref.update(cacheRef, (cache) => new Map(cache).set(worldId, generator))
-          return Option.some(generator)
-        }
-
-        return Option.none()
+                return yield* pipe(
+                  Option.fromNullable(generator),
+                  Option.match({
+                    onNone: () => Effect.succeed(Option.none()),
+                    onSome: (gen) =>
+                      Effect.gen(function* () {
+                        // Update cache
+                        yield* Ref.update(cacheRef, (cache) => new Map(cache).set(worldId, gen))
+                        return Option.some(gen)
+                      }),
+                  })
+                )
+              }),
+            onSome: (cachedGen) => Effect.succeed(Option.some(cachedGen)),
+          })
+        )
       })
 
     const findAll = (
@@ -353,9 +414,15 @@ const makeWorldGeneratorRepositoryPersistence = (
       Effect.gen(function* () {
         // Check if exists
         const data = yield* loadDataFromFile()
-        if (!data.generators[worldId]) {
-          return yield* Effect.fail(createWorldGeneratorNotFoundError(worldId))
-        }
+
+        // Option.matchパターン: 存在チェック（早期return）
+        yield* pipe(
+          Option.fromNullable(data.generators[worldId]),
+          Option.match({
+            onNone: () => Effect.fail(createWorldGeneratorNotFoundError(worldId)),
+            onSome: () => Effect.void,
+          })
+        )
 
         // Remove from cache
         yield* Ref.update(cacheRef, (cache) => {
@@ -381,15 +448,21 @@ const makeWorldGeneratorRepositoryPersistence = (
 
     const exists = (worldId: WorldId): Effect.Effect<boolean, AllRepositoryErrors> =>
       Effect.gen(function* () {
-        // Check cache first
+        // Option.matchパターン: キャッシュヒット判定（早期return）
         const cache = yield* Ref.get(cacheRef)
-        if (cache.has(worldId)) {
-          return true
-        }
 
-        // Check file
-        const data = yield* loadDataFromFile()
-        return worldId in data.generators
+        return yield* pipe(
+          Option.fromNullable(cache.has(worldId) ? true : null),
+          Option.match({
+            onNone: () =>
+              Effect.gen(function* () {
+                // Check file
+                const data = yield* loadDataFromFile()
+                return worldId in data.generators
+              }),
+            onSome: () => Effect.succeed(true),
+          })
+        )
       })
 
     // === Simplified implementations for other required methods ===
@@ -415,9 +488,30 @@ const makeWorldGeneratorRepositoryPersistence = (
       Effect.gen(function* () {
         let generators = yield* findAll()
 
-        if (query.worldId) generators = generators.filter((g) => g.worldId === query.worldId)
-        if (query.seed) generators = generators.filter((g) => g.seed === query.seed)
-        if (query.active !== undefined) generators = generators.filter((g) => g.isActive === query.active)
+        // Option.matchパターン: クエリフィルター適用
+        generators = pipe(
+          Option.fromNullable(query.worldId),
+          Option.match({
+            onNone: () => generators,
+            onSome: (worldId) => generators.filter((g) => g.worldId === worldId),
+          })
+        )
+
+        generators = pipe(
+          Option.fromNullable(query.seed),
+          Option.match({
+            onNone: () => generators,
+            onSome: (seed) => generators.filter((g) => g.seed === seed),
+          })
+        )
+
+        generators = pipe(
+          Option.fromNullable(query.active),
+          Option.match({
+            onNone: () => generators,
+            onSome: (active) => generators.filter((g) => g.isActive === active),
+          })
+        )
 
         const offset = query.offset ?? 0
         const limit = query.limit ?? generators.length
@@ -446,16 +540,16 @@ const makeWorldGeneratorRepositoryPersistence = (
     const findManyByIds = (
       worldIds: ReadonlyArray<WorldId>
     ): Effect.Effect<ReadonlyArray<WorldGenerator>, AllRepositoryErrors> =>
-      Effect.gen(function* () {
-        const results: WorldGenerator[] = []
-        for (const id of worldIds) {
-          const generator = yield* findById(id)
-          if (Option.isSome(generator)) {
-            results.push(generator.value)
-          }
-        }
-        return results
-      })
+      pipe(
+        worldIds,
+        Effect.forEach((id) =>
+          pipe(
+            findById(id),
+            Effect.map((generator) => (Option.isSome(generator) ? Option.some(generator.value) : Option.none()))
+          )
+        ),
+        Effect.map(ReadonlyArray.filterMap(identity))
+      )
 
     // Statistics and monitoring mock implementations
     const getStatistics = (): Effect.Effect<WorldGeneratorStatistics, AllRepositoryErrors> =>
@@ -476,12 +570,22 @@ const makeWorldGeneratorRepositoryPersistence = (
 
     const count = (query?: Partial<WorldGeneratorQuery>): Effect.Effect<number, AllRepositoryErrors> =>
       Effect.gen(function* () {
-        if (!query) {
-          const all = yield* findAll()
-          return all.length
-        }
-        const filtered = yield* findByQuery(query as WorldGeneratorQuery)
-        return filtered.length
+        // Option.matchパターン: クエリの有無による分岐
+        return yield* pipe(
+          Option.fromNullable(query),
+          Option.match({
+            onNone: () =>
+              Effect.gen(function* () {
+                const all = yield* findAll()
+                return all.length
+              }),
+            onSome: (q) =>
+              Effect.gen(function* () {
+                const filtered = yield* findByQuery(q as WorldGeneratorQuery)
+                return filtered.length
+              }),
+          })
+        )
       })
 
     // Cache management implementations
@@ -490,15 +594,19 @@ const makeWorldGeneratorRepositoryPersistence = (
 
     const clearCache = (worldId?: WorldId): Effect.Effect<void, AllRepositoryErrors> =>
       Effect.gen(function* () {
-        if (worldId) {
-          yield* Ref.update(cacheRef, (cache) => {
-            const newCache = new Map(cache)
-            newCache.delete(worldId)
-            return newCache
+        // Option.matchパターン: worldId指定の有無による分岐
+        yield* pipe(
+          Option.fromNullable(worldId),
+          Option.match({
+            onNone: () => Ref.set(cacheRef, new Map()),
+            onSome: (id) =>
+              Ref.update(cacheRef, (cache) => {
+                const newCache = new Map(cache)
+                newCache.delete(id)
+                return newCache
+              }),
           })
-        } else {
-          yield* Ref.set(cacheRef, new Map())
-        }
+        )
       })
 
     const getCacheStatistics = (): Effect.Effect<
@@ -534,7 +642,12 @@ const makeWorldGeneratorRepositoryPersistence = (
         const backupFile = path.join(backupPath, `${backupId}.json`)
         const content = yield* fs.readFileString(backupFile)
         const decompressed = yield* decompressData(content)
-        const data = JSON.parse(decompressed) as PersistenceData
+        // パターンB前半: Effect.try + JSON.parse（Schema検証は将来追加）
+        const data = (yield* Effect.try({
+          try: () => JSON.parse(decompressed),
+          catch: (error) =>
+            createDataIntegrityError(`Backup JSON parse failed: ${String(error)}`, ['backupData'], decompressed, error),
+        })) as PersistenceData
 
         yield* saveDataToFile(data)
         yield* Ref.set(cacheRef, new Map()) // Clear cache to force reload

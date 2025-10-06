@@ -8,7 +8,7 @@
 import type * as GenerationSession from '@domain/world/aggregate/generation_session'
 import type * as WorldGenerator from '@domain/world/aggregate/world_generator'
 import * as Coordinates from '@domain/world/value_object/coordinates/index'
-import { Duration, Effect, Function, Match } from 'effect'
+import { Duration, Effect, Function, Match, Option, ReadonlyArray } from 'effect'
 import type { CreateSessionParams, SessionFactoryError, SessionTemplateType } from './index'
 import type { GenerationSessionBuilderState, SessionValidationState } from './session_builder_state'
 
@@ -869,18 +869,22 @@ export const build = (
 /**
  * エリア座標を生成
  */
-function generateAreaCoordinates(center: Coordinates.ChunkCoordinate, radius: number): Coordinates.ChunkCoordinate[] {
-  const coordinates: Coordinates.ChunkCoordinate[] = []
-
-  for (let x = -radius; x <= radius; x++) {
-    for (let z = -radius; z <= radius; z++) {
-      if (x * x + z * z <= radius * radius) {
-        coordinates.push(Coordinates.createChunkCoordinate(center.x + x, center.z + z))
-      }
-    }
-  }
-
-  return coordinates
+function generateAreaCoordinates(
+  center: Coordinates.ChunkCoordinate,
+  radius: number
+): readonly Coordinates.ChunkCoordinate[] {
+  return Function.pipe(
+    ReadonlyArray.range(-radius, radius + 1),
+    ReadonlyArray.flatMap((x) =>
+      Function.pipe(
+        ReadonlyArray.range(-radius, radius + 1),
+        ReadonlyArray.filterMap((z) => {
+          if (x * x + z * z > radius * radius) return Option.none()
+          return Option.some(Coordinates.createChunkCoordinate(center.x + x, center.z + z))
+        })
+      )
+    )
+  )
 }
 
 /**
@@ -889,14 +893,14 @@ function generateAreaCoordinates(center: Coordinates.ChunkCoordinate, radius: nu
 function generateGridCoordinates(
   topLeft: Coordinates.ChunkCoordinate,
   bottomRight: Coordinates.ChunkCoordinate
-): Coordinates.ChunkCoordinate[] {
-  const coordinates: Coordinates.ChunkCoordinate[] = []
-
-  for (let x = topLeft.x; x <= bottomRight.x; x++) {
-    for (let z = topLeft.z; z <= bottomRight.z; z++) {
-      coordinates.push(Coordinates.createChunkCoordinate(x, z))
-    }
-  }
-
-  return coordinates
+): readonly Coordinates.ChunkCoordinate[] {
+  return Function.pipe(
+    ReadonlyArray.range(topLeft.x, bottomRight.x + 1),
+    ReadonlyArray.flatMap((x) =>
+      Function.pipe(
+        ReadonlyArray.range(topLeft.z, bottomRight.z + 1),
+        ReadonlyArray.map((z) => Coordinates.createChunkCoordinate(x, z))
+      )
+    )
+  )
 }

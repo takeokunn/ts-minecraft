@@ -38,31 +38,29 @@ export const WorldSeedSchema = Schema.Number.pipe(
 )
 
 /** 次元ID - ワールド内の異なる次元を識別 */
-export type DimensionId = string & Brand.Brand<'DimensionId'>
-
-export const DimensionIdSchema = Schema.String.pipe(
-  Schema.pattern(/^minecraft:[a-z_]+$/),
-  Schema.brand('DimensionId'),
-  Schema.annotations({
-    title: 'Dimension ID',
-    description: 'Identifier for different world dimensions',
-    examples: ['minecraft:overworld', 'minecraft:nether', 'minecraft:the_end'],
-  })
-)
+// DimensionId型は専用のvalue_objectに移動しました
+// import { DimensionId, DimensionIdSchema } from '../../value_object/dimension_id'
+export { DimensionIdSchema } from '../../value_object/dimension_id'
+export type { DimensionId } from '../../value_object/dimension_id'
 
 // === 座標システム型 ===
 
-/** ワールド座標 - ワールド空間での絶対座標 */
-export type WorldCoordinate = number & Brand.Brand<'WorldCoordinate'>
+/** ワールド座標 - 正式な定義はvalue_object/coordinatesを参照 */
+export type {
+  WorldCoordinate,
+  WorldCoordinate2D,
+  WorldX,
+  WorldY,
+  WorldZ,
+} from '../../value_object/coordinates/world_coordinate'
 
-export const WorldCoordinateSchema = Schema.Number.pipe(
-  Schema.between(WORLD_CONSTANTS.BORDER.MAX_SIZE * -0.5, WORLD_CONSTANTS.BORDER.MAX_SIZE * 0.5),
-  Schema.brand('WorldCoordinate'),
-  Schema.annotations({
-    title: 'World Coordinate',
-    description: 'Absolute coordinate in world space',
-  })
-)
+export {
+  WorldCoordinate2DSchema,
+  WorldCoordinateSchema,
+  WorldXSchema,
+  WorldYSchema,
+  WorldZSchema,
+} from '../../value_object/coordinates/world_coordinate'
 
 /** チャンク座標 - チャンク単位での座標 */
 export type ChunkCoordinate = number & Brand.Brand<'ChunkCoordinate'>
@@ -104,40 +102,7 @@ export const HeightSchema = Schema.Number.pipe(
 )
 
 // === 位置ベクトル型 ===
-
-/** 2次元位置ベクトル */
-export interface Vector2D {
-  readonly x: WorldCoordinate
-  readonly z: WorldCoordinate
-}
-
-export const Vector2DSchema = Schema.Struct({
-  x: WorldCoordinateSchema,
-  z: WorldCoordinateSchema,
-}).pipe(
-  Schema.annotations({
-    title: 'Vector2D',
-    description: '2D position vector in world space',
-  })
-)
-
-/** 3次元位置ベクトル */
-export interface Vector3D {
-  readonly x: WorldCoordinate
-  readonly y: Height
-  readonly z: WorldCoordinate
-}
-
-export const Vector3DSchema = Schema.Struct({
-  x: WorldCoordinateSchema,
-  y: HeightSchema,
-  z: WorldCoordinateSchema,
-}).pipe(
-  Schema.annotations({
-    title: 'Vector3D',
-    description: '3D position vector in world space',
-  })
-)
+// Vector2D/Vector3Dは非推奨 - WorldCoordinate/WorldCoordinate2Dを使用してください
 
 /** チャンク位置 */
 export interface ChunkPosition {
@@ -177,7 +142,7 @@ export const SectionPositionSchema = Schema.Struct({
 
 /** 世界境界設定 */
 export interface WorldBorder {
-  readonly center: Vector2D
+  readonly center: WorldCoordinate2D
   readonly size: number
   readonly damageBuffer: number
   readonly damageAmount: number
@@ -186,7 +151,7 @@ export interface WorldBorder {
 }
 
 export const WorldBorderSchema = Schema.Struct({
-  center: Vector2DSchema,
+  center: WorldCoordinate2DSchema,
   size: Schema.Number.pipe(Schema.between(WORLD_CONSTANTS.BORDER.MIN_SIZE, WORLD_CONSTANTS.BORDER.MAX_SIZE)),
   damageBuffer: Schema.Number.pipe(Schema.nonNegative()),
   damageAmount: Schema.Number.pipe(Schema.nonNegative()),
@@ -289,7 +254,7 @@ export interface WorldSettings {
   readonly gameMode: GameMode
   readonly gameRules: GameRules
   readonly border: WorldBorder
-  readonly spawnPoint: Vector3D
+  readonly spawnPoint: WorldCoordinate
   readonly allowCommands: boolean
   readonly generateStructures: boolean
   readonly hardcore: boolean
@@ -304,7 +269,7 @@ export const WorldSettingsSchema = Schema.Struct({
   gameMode: GameModeSchema,
   gameRules: GameRulesSchema,
   border: WorldBorderSchema,
-  spawnPoint: Vector3DSchema,
+  spawnPoint: WorldCoordinateSchema,
   allowCommands: Schema.Boolean,
   generateStructures: Schema.Boolean,
   hardcore: Schema.Boolean,
@@ -382,20 +347,20 @@ export const WorldStateSchema = Schema.Struct({
 
 /** 座標変換のヘルパー型 */
 export interface CoordinateHelpers {
-  readonly worldToChunk: (worldCoord: WorldCoordinate) => ChunkCoordinate
-  readonly chunkToWorld: (chunkCoord: ChunkCoordinate) => WorldCoordinate
-  readonly worldToSection: (worldCoord: WorldCoordinate) => SectionCoordinate
-  readonly sectionToWorld: (sectionCoord: SectionCoordinate) => WorldCoordinate
+  readonly worldToChunk: (worldCoord: WorldX | WorldZ) => ChunkCoordinate
+  readonly chunkToWorld: (chunkCoord: ChunkCoordinate) => WorldX | WorldZ
+  readonly worldToSection: (worldCoord: WorldY) => SectionCoordinate
+  readonly sectionToWorld: (sectionCoord: SectionCoordinate) => WorldY
 }
 
 // === 作成ヘルパー関数 ===
 
-/** Vector3D作成ヘルパー */
-export const createVector3D = (x: number, y: number, z: number): Vector3D =>
-  Schema.decodeSync(Vector3DSchema)({
-    x: x as WorldCoordinate,
-    y: y as Height,
-    z: z as WorldCoordinate,
+/** WorldCoordinate作成ヘルパー */
+export const createVector3D = (x: number, y: number, z: number): WorldCoordinate =>
+  Schema.decodeSync(WorldCoordinateSchema)({
+    x: x as WorldX,
+    y: y as WorldY,
+    z: z as WorldZ,
   })
 
 /** ChunkPosition作成ヘルパー */

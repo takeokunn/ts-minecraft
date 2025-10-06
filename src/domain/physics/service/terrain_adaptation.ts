@@ -1,5 +1,5 @@
 import type { PlayerId, Vector3D } from '@domain/entities'
-import { Context, Effect, Layer, Match, pipe, Ref } from 'effect'
+import { Context, Effect, Layer, Match, Option, pipe, ReadonlyArray, Ref } from 'effect'
 import type { BlockType } from '../../block/types'
 import { CannonPhysicsService } from './cannon'
 import { WorldCollisionService } from './world_collision'
@@ -276,16 +276,20 @@ const makeTerrainAdaptationService: Effect.Effect<
   const adaptToTerrain = (playerId: PlayerId, playerPosition: Vector3D, deltaTime: number) =>
     Effect.gen(function* () {
       const states = yield* Ref.get(playerTerrainStatesRef)
-      const currentState = states.get(playerId)
-
-      if (!currentState) {
-        return yield* Effect.fail({
-          _tag: 'TerrainAdaptationError',
-          message: `Player terrain state not found: ${playerId}`,
-          playerId,
-          reason: 'InvalidTerrain',
-        } as TerrainAdaptationError)
-      }
+      const currentState = yield* pipe(
+        Option.fromNullable(states.get(playerId)),
+        Effect.filterOrFail(
+          Option.isSome,
+          () =>
+            ({
+              _tag: 'TerrainAdaptationError',
+              message: `Player terrain state not found: ${playerId}`,
+              playerId,
+              reason: 'InvalidTerrain',
+            }) as TerrainAdaptationError
+        ),
+        Effect.map(Option.getOrThrow)
+      )
 
       // 足元と胴体周辺のブロックを検査
       const terrainSamples = yield* Effect.gen(function* () {
@@ -353,8 +357,9 @@ const makeTerrainAdaptationService: Effect.Effect<
 
       // 主要地形タイプの決定（最も影響の大きいブロック）
       const dominantTerrain = yield* Effect.gen(function* () {
+        // 空配列チェック
         if (terrainSamples.length === 0) {
-          return DEFAULT_TERRAIN_PROPERTIES
+          return { ...DEFAULT_TERRAIN_PROPERTIES, submersionLevel: 0 }
         }
 
         // 水中判定
@@ -363,40 +368,51 @@ const makeTerrainAdaptationService: Effect.Effect<
 
         // 最も特殊な地形特性を優先
         const specialBlocks = terrainSamples.find((block) => TERRAIN_PROPERTIES.has(block.id))
-        if (specialBlocks) {
-          // Create a BlockType-like object for getTerrainProperties
-          const blockTypeLike: BlockType = {
-            id: specialBlocks.id,
-            name: specialBlocks.id,
-            tags: [],
-            category: 'natural' as const,
-            texture: { top: '', bottom: '', north: '', south: '', east: '', west: '' },
-            physics: {
-              solid: true,
-              gravity: false,
-              hardness: 1.0,
-              resistance: 1.0,
-              luminance: 0,
-              opacity: 15,
-              flammable: false,
-              replaceable: false,
-              waterloggable: false,
-            },
-            tool: 'none' as const,
-            minToolLevel: 0,
-            drops: [],
-            sound: {
-              break: 'block.stone.break',
-              place: 'block.stone.place',
-              step: 'block.stone.step',
-            },
-            stackSize: 64,
-          }
-          const properties = yield* getTerrainProperties(blockTypeLike)
-          return { ...properties, submersionLevel }
-        }
 
-        return { ...DEFAULT_TERRAIN_PROPERTIES } as TerrainMovementProperties & { submersionLevel?: number }
+        // Match APIで地形タイプ処理
+        return yield* pipe(
+          Option.fromNullable(specialBlocks),
+          Option.match({
+            onNone: () =>
+              Effect.succeed({
+                ...DEFAULT_TERRAIN_PROPERTIES,
+                submersionLevel: 0,
+              }),
+            onSome: (blocks) =>
+              Effect.gen(function* () {
+                // Create a BlockType-like object for getTerrainProperties
+                const blockTypeLike: BlockType = {
+                  id: blocks.id,
+                  name: blocks.id,
+                  tags: [],
+                  category: 'natural' as const,
+                  texture: { top: '', bottom: '', north: '', south: '', east: '', west: '' },
+                  physics: {
+                    solid: true,
+                    gravity: false,
+                    hardness: 1.0,
+                    resistance: 1.0,
+                    luminance: 0,
+                    opacity: 15,
+                    flammable: false,
+                    replaceable: false,
+                    waterloggable: false,
+                  },
+                  tool: 'none' as const,
+                  minToolLevel: 0,
+                  drops: [],
+                  sound: {
+                    break: 'block.stone.break',
+                    place: 'block.stone.place',
+                    step: 'block.stone.step',
+                  },
+                  stackSize: 64,
+                }
+                const properties = yield* getTerrainProperties(blockTypeLike)
+                return { ...properties, submersionLevel }
+              }),
+          })
+        )
       })
 
       // 地形変化の緩和（急激な変化を防ぐ）
@@ -456,6 +472,7 @@ const makeTerrainAdaptationService: Effect.Effect<
     Effect.gen(function* () {
       // 前方への移動がない場合はスキップ
       const horizontalSpeed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z)
+
       if (horizontalSpeed < 0.1) {
         return { position: playerPosition, velocity }
       }
@@ -490,31 +507,50 @@ const makeTerrainAdaptationService: Effect.Effect<
         return { position: playerPosition, velocity }
       }
 
-      // ステップアップ可能な高さをチェック
-      for (let testHeight = 0.1; testHeight <= stepHeight; testHeight += 0.1) {
-        const stepUpPosition: Vector3D = {
-          ...forwardPosition,
-          y: playerPosition.y + testHeight,
-        }
+      // ステップアップ可能な高さをチェック（関数型変換）
+      const testHeights = pipe(
+        ReadonlyArray.range(1, Math.floor(stepHeight / 0.1)),
+        ReadonlyArray.map((i) => i * 0.1)
+      )
 
-        const stepUpCollision = yield* worldCollision
-          .checkSphereCollision({
-            center: stepUpPosition,
-            radius: 0.3,
+      const stepUpResult = yield* pipe(
+        testHeights,
+        Effect.findFirst((testHeight) =>
+          Effect.gen(function* () {
+            const stepUpPosition: Vector3D = {
+              ...forwardPosition,
+              y: playerPosition.y + testHeight,
+            }
+
+            const stepUpCollision = yield* worldCollision
+              .checkSphereCollision({
+                center: stepUpPosition,
+                radius: 0.3,
+              })
+              .pipe(Effect.orElse(() => Effect.succeed({ blocks: [], hasCollision: false })))
+
+            if (!stepUpCollision.hasCollision) {
+              // ステップアップ成功
+              return Option.some({
+                position: { ...playerPosition, y: playerPosition.y + testHeight },
+                velocity: { ...velocity, y: Math.max(0, velocity.y) },
+              })
+            }
+
+            return Option.none()
           })
-          .pipe(Effect.orElse(() => Effect.succeed({ blocks: [], hasCollision: false })))
+        ),
+        Effect.catchAll(() => Effect.succeed(Option.none()))
+      )
 
-        if (!stepUpCollision.hasCollision) {
-          // ステップアップ成功
-          return {
-            position: { ...playerPosition, y: playerPosition.y + testHeight },
-            velocity: { ...velocity, y: Math.max(0, velocity.y) }, // 上向きの速度を保持
-          }
-        }
-      }
-
-      // ステップアップ不可、通常の衝突処理
-      return { position: playerPosition, velocity }
+      // Match APIで結果処理
+      return yield* pipe(
+        stepUpResult,
+        Option.match({
+          onNone: () => Effect.succeed({ position: playerPosition, velocity }),
+          onSome: (result) => Effect.succeed(result),
+        })
+      )
     })
 
   // 水中物理の適用

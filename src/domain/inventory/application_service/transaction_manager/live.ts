@@ -5,7 +5,7 @@
  * 分散トランザクション・デッドロック検出・2フェーズコミット対応
  */
 
-import { Clock, Effect, Layer, Ref } from 'effect'
+import { Clock, Effect, Array as EffectArray, Layer, Match, Option, pipe, Ref } from 'effect'
 import type { InventoryService } from '../..'
 import type { TransferService } from '../../domain_service/transfer_service'
 import type { ValidationService } from '../../domain_service/validation_service'
@@ -61,56 +61,57 @@ export const TransactionManagerApplicationServiceLive = Layer.effect(
 
           const startTime = yield* Clock.currentTimeMillis
 
-          try {
+          return yield* Effect.gen(function* () {
             // フェーズ1: 前提条件チェック
             yield* validateAtomicTransferPreconditions(transfers)
 
             // フェーズ2: リソースロック獲得
             const acquiredLocks = yield* acquireTransferLocks(transfers, txId)
 
-            try {
+            return yield* Effect.gen(function* () {
               // フェーズ3: 転送実行
-              let completedTransfers = 0
-
-              for (const transfer of transfers) {
-                yield* transferService.transferItem(
-                  transfer.sourceInventoryId,
-                  transfer.targetInventoryId,
-                  transfer.sourceSlot,
-                  transfer.targetSlot,
-                  transfer.quantity
-                )
-                completedTransfers++
-              }
+              yield* Effect.forEach(
+                transfers,
+                (transfer) =>
+                  transferService.transferItem(
+                    transfer.sourceInventoryId,
+                    transfer.targetInventoryId,
+                    transfer.sourceSlot,
+                    transfer.targetSlot,
+                    transfer.quantity
+                  ),
+                { concurrency: 'unbounded' }
+              )
 
               // 成功時の統計更新
               yield* updateSuccessMetrics(startTime)
 
               yield* Effect.logInfo('Atomic transfers completed successfully', {
                 transactionId: txId,
-                completedTransfers,
+                completedTransfers: transfers.length,
               })
 
               return {
                 transactionId: txId,
-                completedTransfers,
+                completedTransfers: transfers.length,
                 totalTransfers: transfers.length,
               }
-            } finally {
-              // ロック解放
-              yield* releaseLocks(acquiredLocks)
-            }
-          } catch (error) {
-            // 失敗時の統計更新
-            yield* updateFailureMetrics(startTime)
+            }).pipe(Effect.ensuring(releaseLocks(acquiredLocks)))
+          }).pipe(
+            Effect.catchAll((error) =>
+              Effect.gen(function* () {
+                // 失敗時の統計更新
+                yield* updateFailureMetrics(startTime)
 
-            yield* Effect.logError('Atomic transfers failed', {
-              transactionId: txId,
-              error: String(error),
-            })
+                yield* Effect.logError('Atomic transfers failed', {
+                  transactionId: txId,
+                  error: String(error),
+                })
 
-            throw error
-          }
+                return yield* Effect.fail(error)
+              })
+            )
+          )
         }),
 
       executeCraftingTransaction: (craftingOperation) =>
@@ -199,17 +200,17 @@ export const TransactionManagerApplicationServiceLive = Layer.effect(
           const states = yield* Ref.get(transactionStates)
           const transactionState = states.get(transactionId)
 
-          if (!transactionState) {
-            return yield* Effect.fail(
-              new InventoryApplicationError({
-                _tag: 'TRANSACTION_NOT_FOUND',
-                message: 'Transaction not found',
-                transactionId,
-              })
-            )
-          }
-
-          return transactionState
+          return yield* Option.match(Option.fromNullable(transactionState), {
+            onNone: () =>
+              Effect.fail(
+                new InventoryApplicationError({
+                  _tag: 'TRANSACTION_NOT_FOUND',
+                  message: 'Transaction not found',
+                  transactionId,
+                })
+              ),
+            onSome: (state) => Effect.succeed(state),
+          })
         }),
 
       rollbackTransaction: (transactionId, reason) =>
@@ -219,37 +220,40 @@ export const TransactionManagerApplicationServiceLive = Layer.effect(
           const states = yield* Ref.get(transactionStates)
           const transactionState = states.get(transactionId)
 
-          if (!transactionState) {
-            return yield* Effect.fail(
-              new InventoryApplicationError({
-                _tag: 'TRANSACTION_NOT_FOUND',
-                message: 'Transaction not found for rollback',
-                transactionId,
-              })
-            )
-          }
+          return yield* Option.match(Option.fromNullable(transactionState), {
+            onNone: () =>
+              Effect.fail(
+                new InventoryApplicationError({
+                  _tag: 'TRANSACTION_NOT_FOUND',
+                  message: 'Transaction not found for rollback',
+                  transactionId,
+                })
+              ),
+            onSome: (state) =>
+              Effect.gen(function* () {
+                // ロールバック操作実行
+                const rollbackResults = yield* executeTransactionRollback(state, reason)
 
-          // ロールバック操作実行
-          const rollbackResults = yield* executeTransactionRollback(transactionState, reason)
+                // トランザクション状態更新
+                const endTime = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+                yield* Ref.update(transactionStates, (states) => {
+                  const updatedState = {
+                    ...state,
+                    status: 'rolled_back' as const,
+                    rollbackReason: reason,
+                    endTime,
+                  }
+                  return new Map(states).set(transactionId, updatedState)
+                })
 
-          // トランザクション状態更新
-          const endTime = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
-          yield* Ref.update(transactionStates, (states) => {
-            const updatedState = {
-              ...transactionState,
-              status: 'rolled_back' as const,
-              rollbackReason: reason,
-              endTime,
-            }
-            return new Map(states).set(transactionId, updatedState)
+                yield* Effect.logInfo('Transaction rollback completed', {
+                  transactionId,
+                  rollbackOperations: rollbackResults.restoredOperations.length,
+                })
+
+                return rollbackResults
+              }),
           })
-
-          yield* Effect.logInfo('Transaction rollback completed', {
-            transactionId,
-            rollbackOperations: rollbackResults.restoredOperations.length,
-          })
-
-          return rollbackResults
         }),
 
       detectAndResolveDeadlocks: () =>
@@ -259,33 +263,39 @@ export const TransactionManagerApplicationServiceLive = Layer.effect(
           const locks = yield* Ref.get(lockRegistry)
           const deadlocks = yield* detectDeadlocks(locks)
 
-          if (deadlocks.length === 0) {
-            return {
-              deadlocksDetected: 0,
-              deadlocksResolved: 0,
-              affectedTransactions: [],
-              resolutionStrategy: 'none',
-            }
-          }
+          return yield* pipe(
+            Match.value(deadlocks),
+            Match.when(EffectArray.isEmptyReadonlyArray, () =>
+              Effect.succeed({
+                deadlocksDetected: 0,
+                deadlocksResolved: 0,
+                affectedTransactions: [],
+                resolutionStrategy: 'none' as const,
+              })
+            ),
+            Match.orElse((detectedDeadlocks) =>
+              Effect.gen(function* () {
+                yield* Effect.logWarning('Deadlocks detected', {
+                  deadlockCount: detectedDeadlocks.length,
+                })
 
-          yield* Effect.logWarning('Deadlocks detected', {
-            deadlockCount: deadlocks.length,
-          })
+                // デッドロック解決戦略実行
+                const resolutionResult = yield* resolveDeadlocks(detectedDeadlocks)
 
-          // デッドロック解決戦略実行
-          const resolutionResult = yield* resolveDeadlocks(deadlocks)
+                yield* Effect.logInfo('Deadlock resolution completed', {
+                  resolvedCount: resolutionResult.resolvedCount,
+                  strategy: resolutionResult.strategy,
+                })
 
-          yield* Effect.logInfo('Deadlock resolution completed', {
-            resolvedCount: resolutionResult.resolvedCount,
-            strategy: resolutionResult.strategy,
-          })
-
-          return {
-            deadlocksDetected: deadlocks.length,
-            deadlocksResolved: resolutionResult.resolvedCount,
-            affectedTransactions: resolutionResult.affectedTransactions,
-            resolutionStrategy: resolutionResult.strategy,
-          }
+                return {
+                  deadlocksDetected: detectedDeadlocks.length,
+                  deadlocksResolved: resolutionResult.resolvedCount,
+                  affectedTransactions: resolutionResult.affectedTransactions,
+                  resolutionStrategy: resolutionResult.strategy,
+                }
+              })
+            )
+          )
         }),
 
       getTransactionStatistics: (timeRange) =>
@@ -309,29 +319,53 @@ export const TransactionManagerApplicationServiceLive = Layer.effect(
           const states = yield* Ref.get(transactionStates)
           const currentTime = yield* Clock.currentTimeMillis
 
-          const timedOutTransactions: string[] = []
-          const automaticallyRolledBack: string[] = []
-          const manualInterventionRequired: string[] = []
+          const result = yield* pipe(
+            Array.from(states.entries()),
+            Effect.forEach(
+              ([txId, state]) =>
+                pipe(
+                  Match.value(state),
+                  Match.when({ status: 'pending' }, (pendingState) =>
+                    Effect.gen(function* () {
+                      const elapsedTime = currentTime - pendingState.startTime.getTime()
 
-          for (const [txId, state] of states) {
-            if (state.status === 'pending') {
-              const elapsedTime = currentTime - state.startTime.getTime()
+                      return yield* pipe(
+                        Match.value(elapsedTime > timeoutThreshold),
+                        Match.when(true, () =>
+                          Effect.gen(function* () {
+                            // 自動ロールバック可能かチェック
+                            const canAutoRollback = yield* canAutomaticallyRollback(pendingState)
 
-              if (elapsedTime > timeoutThreshold) {
-                timedOutTransactions.push(txId)
+                            return yield* pipe(
+                              Match.value(canAutoRollback),
+                              Match.when(true, () =>
+                                Effect.gen(function* () {
+                                  yield* executeAutomaticRollback(txId, pendingState)
+                                  return { type: 'auto-rollback' as const, txId }
+                                })
+                              ),
+                              Match.orElse(() => Effect.succeed({ type: 'manual-intervention' as const, txId }))
+                            )
+                          })
+                        ),
+                        Match.orElse(() => Effect.succeed({ type: 'none' as const, txId }))
+                      )
+                    })
+                  ),
+                  Match.orElse(() => Effect.succeed({ type: 'none' as const, txId }))
+                ),
+              { concurrency: 'unbounded' }
+            ),
+            Effect.map((results) => ({
+              timedOutTransactions: results
+                .filter((r) => r.type === 'auto-rollback' || r.type === 'manual-intervention')
+                .map((r) => r.txId),
+              automaticallyRolledBack: results.filter((r) => r.type === 'auto-rollback').map((r) => r.txId),
+              manualInterventionRequired: results.filter((r) => r.type === 'manual-intervention').map((r) => r.txId),
+            }))
+          )
 
-                // 自動ロールバック可能かチェック
-                const canAutoRollback = yield* canAutomaticallyRollback(state)
-
-                if (canAutoRollback) {
-                  yield* executeAutomaticRollback(txId, state)
-                  automaticallyRolledBack.push(txId)
-                } else {
-                  manualInterventionRequired.push(txId)
-                }
-              }
-            }
-          }
+          const { timedOutTransactions, automaticallyRolledBack, manualInterventionRequired } = result
 
           yield* Effect.logInfo('Transaction timeout handling completed', {
             timedOutCount: timedOutTransactions.length,

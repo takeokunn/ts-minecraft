@@ -404,21 +404,23 @@ export const EcosystemAnalyzerServiceLive = Layer.effect(
 
     buildInteractionNetwork: (ecosystemStructure, seed) =>
       Effect.gen(function* () {
-        const interactions: SpeciesInteraction[] = []
         const guilds = Object.keys(ecosystemStructure.guildComposition)
 
-        // 機能群間の相互作用を生成
-        for (let i = 0; i < guilds.length; i++) {
-          for (let j = i + 1; j < guilds.length; j++) {
-            const guild1 = guilds[i] as EcologicalGuild
-            const guild2 = guilds[j] as EcologicalGuild
-
-            const interaction = yield* generateInteraction(guild1, guild2, seed)
-            if (interaction) {
-              interactions.push(interaction)
-            }
-          }
-        }
+        // 機能群間の相互作用を生成（2重for文 → ReadonlyArray.flatMap + filterMap）
+        const interactions = yield* pipe(
+          ReadonlyArray.range(0, guilds.length),
+          ReadonlyArray.flatMap((i) =>
+            pipe(
+              ReadonlyArray.range(i + 1, guilds.length),
+              ReadonlyArray.map((j) => ({
+                guild1: guilds[i] as EcologicalGuild,
+                guild2: guilds[j] as EcologicalGuild,
+              }))
+            )
+          ),
+          Effect.forEach(({ guild1, guild2 }) => generateInteraction(guild1, guild2, seed)),
+          Effect.map(ReadonlyArray.filterMap((interaction) => (interaction ? Option.some(interaction) : Option.none())))
+        )
 
         return interactions
       }),
@@ -466,24 +468,31 @@ export const EcosystemAnalyzerServiceLive = Layer.effect(
 
     detectBiodiversityHotspots: (region, threshold) =>
       Effect.gen(function* () {
-        const hotspots = []
+        // 2重for文 → ReadonlyArray.flatMap + filterMap
+        const hotspots = pipe(
+          region,
+          ReadonlyArray.flatMap((row) =>
+            pipe(
+              row,
+              ReadonlyArray.filterMap((ecosystem) => {
+                const diversityScore = ecosystem.shannonDiversity * ecosystem.speciesRichness
+                const endemismLevel = ecosystem.endemism
 
-        for (const row of region) {
-          for (const ecosystem of row) {
-            const diversityScore = ecosystem.shannonDiversity * ecosystem.speciesRichness
-            const endemismLevel = ecosystem.endemism
+                if (diversityScore <= threshold) {
+                  return Option.none()
+                }
 
-            if (diversityScore > threshold) {
-              hotspots.push({
-                coordinate: ecosystem.coordinate as WorldCoordinate2D,
-                diversityScore,
-                endemismLevel,
-                threatLevel: 1 - ecosystem.resilience, // 脅威レベルは復元力の逆
-                conservationPriority: diversityScore * endemismLevel,
+                return Option.some({
+                  coordinate: ecosystem.coordinate as WorldCoordinate2D,
+                  diversityScore,
+                  endemismLevel,
+                  threatLevel: 1 - ecosystem.resilience, // 脅威レベルは復元力の逆
+                  conservationPriority: diversityScore * endemismLevel,
+                })
               })
-            }
-          }
-        }
+            )
+          )
+        )
 
         return hotspots.sort((a, b) => b.conservationPriority - a.conservationPriority)
       }),

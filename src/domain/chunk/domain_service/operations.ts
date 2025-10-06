@@ -5,7 +5,7 @@
  * 複数のドメインサービスを組み合わせた高レベル操作を実装します。
  */
 
-import { Effect, pipe } from 'effect'
+import { Chunk, Effect, pipe, Stream } from 'effect'
 import { ChunkData } from '../aggregate/chunk'
 import { ChunkDataValidationError } from '../aggregate/chunk_data'
 import { ChunkOptimizationService } from './chunk_optimizer'
@@ -27,14 +27,14 @@ export const performCompleteChunkValidation = (chunk: ChunkData) =>
 
     // 整合性チェック
     const isIntegrityValid = yield* validation.validateIntegrity(chunk)
-    if (!isIntegrityValid) {
-      return yield* Effect.fail(
+    yield* Effect.when(!isIntegrityValid, () =>
+      Effect.fail(
         new ChunkDataValidationError({
           message: 'チャンクの整合性検証に失敗しました',
           data: chunk,
         })
       )
-    }
+    )
 
     // チェックサム検証
     const checksum = yield* serialization.calculateChecksum(chunk.blocks)
@@ -103,14 +103,14 @@ export const serializeWithIntegrityCheck = (chunk: ChunkData, format: any) =>
     // 整合性検証
     const isValid = yield* serialization.validateSerialization(chunk, serialized, format)
 
-    if (!isValid) {
-      return yield* Effect.fail(
+    yield* Effect.when(!isValid, () =>
+      Effect.fail(
         new ChunkDataValidationError({
           message: 'シリアライゼーション後の整合性検証に失敗しました',
           data: chunk,
         })
       )
-    }
+    )
 
     // チェックサム計算
     const checksum = yield* serialization.calculateChecksum(serialized)
@@ -161,11 +161,16 @@ export const processChunkCompletely = (chunk: ChunkData, serializationFormat: an
  */
 export const processBatchChunks = (chunks: ReadonlyArray<ChunkData>, serializationFormat: any) =>
   Effect.gen(function* () {
-    const results = yield* Effect.forEach(chunks, (chunk) => processChunkCompletely(chunk, serializationFormat), {
-      concurrency: 'unbounded',
-    })
+    // ✅ Stream化: 大量チャンクの段階的処理でメモリ効率化
+    const results = yield* pipe(
+      Stream.fromIterable(chunks),
+      Stream.mapEffect((chunk) => processChunkCompletely(chunk, serializationFormat), { concurrency: 'unbounded' }),
+      Stream.buffer({ capacity: 16 }), // バッファリングで効率化
+      Stream.tap((result) => Effect.logDebug(`Processed chunk: ${result.summary.serializedSize} bytes`)),
+      Stream.runCollect
+    )
 
-    const { totalOriginalSize, totalSerializedSize, successCount } = results.reduce(
+    const { totalOriginalSize, totalSerializedSize, successCount } = Chunk.toReadonlyArray(results).reduce(
       (acc, result) => ({
         totalOriginalSize: acc.totalOriginalSize + result.summary.originalSize,
         totalSerializedSize: acc.totalSerializedSize + result.summary.serializedSize,
@@ -175,7 +180,7 @@ export const processBatchChunks = (chunks: ReadonlyArray<ChunkData>, serializati
     )
 
     return {
-      results,
+      results: Chunk.toReadonlyArray(results),
       batchStatistics: {
         totalChunks: chunks.length,
         successfullyProcessed: successCount,

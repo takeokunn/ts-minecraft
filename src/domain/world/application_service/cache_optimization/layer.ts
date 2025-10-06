@@ -4,7 +4,7 @@
  * キャッシュ最適化サービスのLayer定義
  */
 
-import { Context, Effect, Layer, Ref, Schema } from 'effect'
+import { Context, Effect, Layer, Option, ReadonlyArray, Ref, Schema, pipe } from 'effect'
 import { CacheManagerService, CacheManagerServiceLive } from './cache_manager'
 
 /**
@@ -123,52 +123,81 @@ const makeCacheOptimizationService = Effect.gen(function* () {
     Effect.gen(function* () {
       const strategy = yield* Ref.get(preloadingStrategy)
 
-      if (!strategy.enabled) {
-        return 0
-      }
+      return yield* pipe(
+        strategy,
+        Option.some,
+        Option.filter((s) => s.enabled),
+        Option.match({
+          onNone: () => Effect.succeed(0),
+          onSome: (s) =>
+            Effect.gen(function* () {
+              const maxPreload = Math.min(s.maxPreloadChunks, radius * radius * 4)
 
-      let preloadedCount = 0
-      const maxPreload = Math.min(strategy.maxPreloadChunks, radius * radius * 4)
+              // 2重ネストループを関数型パターンに変換（並行処理）
+              const positions = pipe(
+                ReadonlyArray.range(centerX - radius, centerX + radius + 1),
+                ReadonlyArray.flatMap((x) =>
+                  pipe(
+                    ReadonlyArray.range(centerZ - radius, centerZ + radius + 1),
+                    ReadonlyArray.map((z) => ({ x, z }))
+                  )
+                ),
+                ReadonlyArray.take(maxPreload)
+              )
 
-      for (let x = centerX - radius; x <= centerX + radius; x++) {
-        for (let z = centerZ - radius; z <= centerZ + radius; z++) {
-          if (preloadedCount >= maxPreload) break
+              const preloadedCount = yield* pipe(
+                positions,
+                Effect.reduce(0, (count, { x, z }) =>
+                  Effect.gen(function* () {
+                    const chunkKey = `chunk_${x}_${z}`
+                    const hasChunk = yield* cacheManager.has(chunkKey)
 
-          const chunkKey = `chunk_${x}_${z}`
-          const hasChunk = yield* cacheManager.has(chunkKey)
+                    // if早期return → Effect.if利用
+                    return yield* Effect.if(hasChunk, {
+                      onTrue: () => Effect.succeed(count),
+                      onFalse: () =>
+                        Effect.gen(function* () {
+                          // チャンクデータの生成とキャッシュ（簡略化）
+                          const chunkData = { x, z, generated: true, playerId }
 
-          if (!hasChunk) {
-            // チャンクデータの生成とキャッシュ（簡略化）
-            const chunkData = { x, z, generated: true, playerId }
+                          yield* cacheManager.set(chunkKey, chunkData, {
+                            priority: s.preloadPriority === 'high' ? 0.8 : 0.3,
+                            layer: 'l2_memory',
+                          })
 
-            yield* cacheManager.set(chunkKey, chunkData, {
-              priority: strategy.preloadPriority === 'high' ? 0.8 : 0.3,
-              layer: 'l2_memory',
-            })
+                          return count + 1
+                        }),
+                    })
+                  })
+                )
+              )
 
-            preloadedCount++
-          }
-        }
-      }
-
-      yield* Effect.logInfo(`プリローディング完了: ${preloadedCount}チャンク`)
-      return preloadedCount
+              yield* Effect.logInfo(`プリローディング完了: ${preloadedCount}チャンク`)
+              return preloadedCount
+            }),
+        })
+      )
     })
 
   const startAutoOptimization = () =>
     Effect.gen(function* () {
       const isActive = yield* Ref.get(isAutoOptimizing)
-      if (isActive) {
-        yield* Effect.logWarning('自動最適化は既に開始されています')
-        return
-      }
 
-      yield* Ref.set(isAutoOptimizing, true)
+      return yield* pipe(
+        isActive,
+        (active) => !active,
+        (canStart) =>
+          canStart
+            ? Effect.gen(function* () {
+                yield* Ref.set(isAutoOptimizing, true)
 
-      // 自動最適化ループを開始
-      yield* Effect.fork(optimizationLoop())
+                // 自動最適化ループを開始
+                yield* Effect.fork(optimizationLoop())
 
-      yield* Effect.logInfo('自動キャッシュ最適化開始')
+                yield* Effect.logInfo('自動キャッシュ最適化開始')
+              })
+            : Effect.logWarning('自動最適化は既に開始されています')
+      )
     })
 
   const stopAutoOptimization = () =>
@@ -207,16 +236,29 @@ const makeCacheOptimizationService = Effect.gen(function* () {
       const stats = yield* cacheManager.getStatistics()
       const totalSize = yield* cacheManager.getSize()
 
-      const recommendations = []
+      const recommendations: string[] = []
 
-      if (stats.hitRate < 0.7) {
-        recommendations.push('キャッシュヒット率が低いです。プリローディング戦略を見直してください。')
-      }
+      yield* pipe(
+        stats.hitRate,
+        (hitRate) => hitRate < 0.7,
+        (isLowHitRate) =>
+          isLowHitRate
+            ? Effect.sync(() => {
+                recommendations.push('キャッシュヒット率が低いです。プリローディング戦略を見直してください。')
+              })
+            : Effect.void
+      )
 
-      if (totalSize > 500 * 1024 * 1024) {
-        // 500MB
-        recommendations.push('メモリ使用量が高いです。エビクション設定を調整してください。')
-      }
+      yield* pipe(
+        totalSize,
+        (size) => size > 500 * 1024 * 1024, // 500MB
+        (isHighMemory) =>
+          isHighMemory
+            ? Effect.sync(() => {
+                recommendations.push('メモリ使用量が高いです。エビクション設定を調整してください。')
+              })
+            : Effect.void
+      )
 
       const report = {
         hitRate: stats.hitRate,
@@ -235,19 +277,25 @@ const makeCacheOptimizationService = Effect.gen(function* () {
       yield* Effect.repeat(
         Effect.gen(function* () {
           const isActive = yield* Ref.get(isAutoOptimizing)
-          if (!isActive) return false
 
-          // 定期的な最適化実行
-          yield* cacheManager.optimize()
+          // if早期return → Effect.if利用
+          return yield* Effect.if(isActive, {
+            onTrue: () =>
+              Effect.gen(function* () {
+                // 定期的な最適化実行
+                yield* cacheManager.optimize()
 
-          // 効率レポートチェック
-          const report = yield* getEfficiencyReport()
+                // 効率レポートチェック
+                const report = yield* getEfficiencyReport()
 
-          if (report.hitRate < 0.5) {
-            yield* Effect.logWarning(`キャッシュ効率が低下: ヒット率=${(report.hitRate * 100).toFixed(1)}%`)
-          }
+                yield* Effect.when(report.hitRate < 0.5, () =>
+                  Effect.logWarning(`キャッシュ効率が低下: ヒット率=${(report.hitRate * 100).toFixed(1)}%`)
+                )
 
-          return true
+                return true
+              }),
+            onFalse: () => Effect.succeed(false),
+          })
         }),
         { schedule: Effect.Schedule.spaced('30 seconds') }
       )

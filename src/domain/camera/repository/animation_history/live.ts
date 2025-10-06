@@ -6,7 +6,7 @@
  */
 
 import type { CameraId } from '@domain/camera/types'
-import { Array, Clock, Data, Effect, Either, HashMap, Layer, Match, Option, pipe, Ref } from 'effect'
+import { Array, Clock, Data, Effect, Either, HashMap, Layer, Match, Option, pipe, Ref, Schema } from 'effect'
 import type {
   AnimationCountFilter,
   AnimationHistoryRepositoryError,
@@ -28,6 +28,7 @@ import type {
   TimeRange,
 } from './index'
 import {
+  AnimationHistoryExportDataSchema,
   createAnimationHistoryError,
   isAnimationRecordNotFoundError,
   isCameraNotFoundError,
@@ -918,21 +919,27 @@ export const AnimationHistoryRepositoryLive = Layer.effect(
               processingTimeMs: 0,
             }
 
-            const parseResult = yield* Effect.try({
+            const validatedDataResult = yield* Effect.try({
               try: () => JSON.parse(jsonData),
-              catch: (error) => error,
-            }).pipe(Effect.either)
+              catch: (error) => createAnimationHistoryError.decodingFailed('AnimationHistoryExportData', String(error)),
+            }).pipe(
+              Effect.flatMap(Schema.decodeUnknown(AnimationHistoryExportDataSchema)),
+              Effect.mapError((error) =>
+                createAnimationHistoryError.decodingFailed('AnimationHistoryExportData', String(error))
+              ),
+              Effect.either
+            )
 
             return yield* pipe(
-              parseResult,
+              validatedDataResult,
               Either.match({
                 onLeft: (error) =>
                   Effect.succeed({
                     ...result,
                     success: false,
-                    errors: [String(error)],
+                    errors: [error._tag === 'DecodingFailed' ? error.reason : String(error)],
                   }),
-                onRight: () =>
+                onRight: (_data) =>
                   Effect.gen(function* () {
                     // 簡易実装: データのインポート処理
                     yield* Effect.logInfo(`Importing animation history for camera: ${cameraId}`)

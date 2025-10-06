@@ -205,33 +205,36 @@ export const ChunkFactoryServiceLive = Layer.effect(
         ),
 
       createBatchChunks: (specifications) =>
-        Effect.forEach(specifications, (spec) =>
-          Effect.gen(function* () {
-            const blocks = yield* pipe(
-              Option.fromNullable(spec.blocks),
-              Option.match({
-                onSome: Effect.succeed,
-                onNone: () =>
-                  Effect.sync(() => {
-                    const filled = new Uint16Array(CHUNK_VOLUME)
-                    filled.fill(spec.fillBlockId ?? 0)
-                    return filled
-                  }),
-              })
-            )
+        Effect.forEach(
+          specifications,
+          (spec) =>
+            Effect.gen(function* () {
+              const blocks = yield* pipe(
+                Option.fromNullable(spec.blocks),
+                Option.match({
+                  onSome: Effect.succeed,
+                  onNone: () =>
+                    Effect.sync(() => {
+                      const filled = new Uint16Array(CHUNK_VOLUME)
+                      filled.fill(spec.fillBlockId ?? 0)
+                      return filled
+                    }),
+                })
+              )
 
-            const metadataInput = Option.fromNullable(spec.metadata).pipe(
-              Option.getOrElse(() => ({
-                biome: 'plains',
-                lightLevel: 15,
-                isModified: false,
-                lastUpdate: 0,
-                heightMap: Array.from({ length: CHUNK_SIZE * CHUNK_SIZE }, () => DEFAULT_HEIGHT),
-              }))
-            )
+              const metadataInput = Option.fromNullable(spec.metadata).pipe(
+                Option.getOrElse(() => ({
+                  biome: 'plains',
+                  lightLevel: 15,
+                  isModified: false,
+                  lastUpdate: 0,
+                  heightMap: Array.from({ length: CHUNK_SIZE * CHUNK_SIZE }, () => DEFAULT_HEIGHT),
+                }))
+              )
 
-            return yield* service.createValidatedChunk(spec.position, blocks, metadataInput)
-          })
+              return yield* service.createValidatedChunk(spec.position, blocks, metadataInput)
+            }),
+          { concurrency: 'unbounded' }
         ),
     }
 

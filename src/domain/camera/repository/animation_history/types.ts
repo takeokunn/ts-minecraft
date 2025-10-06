@@ -431,6 +431,17 @@ export const AnimationHistoryRepositoryErrorSchema = Schema.Union(
   })
 )
 
+/**
+ * Animation History Export Data Schema - エクスポートデータ検証用
+ * exportHistory/importHistory で使用
+ */
+export const AnimationHistoryExportDataSchema = Schema.Struct({
+  cameraId: Schema.String.pipe(Schema.brand('CameraId')),
+  timeRange: TimeRangeSchema,
+  records: Schema.Array(AnimationRecordSchema),
+  exportedAt: Schema.Number.pipe(Schema.positive()),
+})
+
 // ========================================
 // Factory Functions
 // ========================================

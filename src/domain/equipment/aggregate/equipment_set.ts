@@ -123,14 +123,19 @@ export const equipPiece = (
   timestamp: UnixTime
 ): Effect.Effect<EquipmentSet, EquipmentDomainError> =>
   Effect.gen(function* () {
-    if (slotOccupied(set, piece.slot)) {
-      return yield* Effect.fail(
-        makeRequirementViolation({
-          requirement: 'slot-empty',
-          detail: `slot ${piece.slot} already occupied`,
-        })
-      )
-    }
+    yield* pipe(
+      slotOccupied(set, piece.slot),
+      Effect.when({
+        onTrue: () =>
+          Effect.fail(
+            makeRequirementViolation({
+              requirement: 'slot-empty',
+              detail: `slot ${piece.slot} already occupied`,
+            })
+          ),
+        onFalse: () => Effect.void,
+      })
+    )
 
     yield* ensureFitsSlot(piece, piece.slot)
 

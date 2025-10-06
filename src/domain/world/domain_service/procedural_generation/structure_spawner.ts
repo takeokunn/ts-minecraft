@@ -689,28 +689,52 @@ export const StructureSpawnerServiceLive = Layer.effect(
       Effect.gen(function* () {
         // 歴史発展シミュレーションの実装
 
-        let currentStructures = initialStructures
-        const historicalEvents: any[] = []
-        const demographicChanges: any[] = []
-
-        // 時代ごとのシミュレーション
+        // 時代ごとのシミュレーション（for文撲滅 → Effect.reduce）
         const timeSteps = Math.floor(timeSpan / 100) // 100年ごと
-        for (let step = 0; step < timeSteps; step++) {
-          // 1. 人口変動の計算
-          const populationChange = yield* simulatePopulationChange(currentStructures, config)
-          demographicChanges.push(populationChange)
 
-          // 2. 構造物の発展・衰退
-          const developmentEvents = yield* simulateStructureDevelopment(currentStructures, populationChange, config)
-          historicalEvents.push(...developmentEvents)
+        const finalState = yield* pipe(
+          ReadonlyArray.range(0, timeSteps),
+          Effect.reduce(
+            {
+              currentStructures: initialStructures,
+              historicalEvents: [] as any[],
+              demographicChanges: [] as any[],
+            },
+            (state, _step) =>
+              Effect.gen(function* () {
+                // 1. 人口変動の計算
+                const populationChange = yield* simulatePopulationChange(state.currentStructures, config)
 
-          // 3. 新規建設の判定
-          const newConstructions = yield* simulateNewConstruction(currentStructures, populationChange, config)
-          currentStructures = [...currentStructures, ...newConstructions]
+                // 2. 構造物の発展・衰退
+                const developmentEvents = yield* simulateStructureDevelopment(
+                  state.currentStructures,
+                  populationChange,
+                  config
+                )
 
-          // 4. 廃墟化・破壊の処理
-          currentStructures = yield* simulateDecayAndDestruction(currentStructures, config)
-        }
+                // 3. 新規建設の判定
+                const newConstructions = yield* simulateNewConstruction(
+                  state.currentStructures,
+                  populationChange,
+                  config
+                )
+
+                // 4. 廃墟化・破壊の処理
+                const updatedStructures = yield* simulateDecayAndDestruction(
+                  [...state.currentStructures, ...newConstructions],
+                  config
+                )
+
+                return {
+                  currentStructures: updatedStructures,
+                  historicalEvents: [...state.historicalEvents, ...developmentEvents],
+                  demographicChanges: [...state.demographicChanges, populationChange],
+                }
+              })
+          )
+        )
+
+        const { currentStructures, historicalEvents, demographicChanges } = finalState
 
         return {
           developedStructures: currentStructures,

@@ -74,9 +74,13 @@ export const createEquipmentPiece = (
 ): Effect.Effect<EquipmentPiece, EquipmentDomainError> =>
   Effect.gen(function* () {
     const primaryTag = components.tags[0]
-    if (primaryTag !== undefined) {
-      yield* ensureSlotAllowed(components.slot, primaryTag)
-    }
+    yield* pipe(
+      primaryTag !== undefined,
+      Effect.when({
+        onTrue: () => ensureSlotAllowed(components.slot, primaryTag!),
+        onFalse: () => Effect.void,
+      })
+    )
 
     const adjustedWeight = applyTierWeight(components.tier, components.weight)
     const mergedStats = mergeStats([components.stats])

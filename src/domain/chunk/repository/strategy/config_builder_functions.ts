@@ -105,13 +105,12 @@ export const setEnableEncryption = (
 /**
  * RepositoryConfig構築
  */
-export const buildConfig = (state: RepositoryConfigBuilderState): RepositoryConfig => {
-  if (!state.strategy) {
-    throw new Error('Strategy must be specified')
-  }
-
-  return state as RepositoryConfig
-}
+export const buildConfig = (state: RepositoryConfigBuilderState): RepositoryConfig =>
+  state.strategy
+    ? (state as RepositoryConfig)
+    : (() => {
+        throw new Error('Strategy must be specified')
+      })()
 
 /**
  * Layer構築

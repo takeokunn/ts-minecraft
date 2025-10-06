@@ -86,13 +86,16 @@ export const addToStack = (
     const newTotal = currentSize + additionSize
 
     // 条件分岐: 新しい合計が最大値以下か、オーバーフローするか
-    return yield* Effect.if(newTotal <= maxSizeValue, {
-      onTrue: () =>
+    return yield* pipe(
+      newTotal <= maxSizeValue,
+      Match.value,
+      Match.when(true, () =>
         Effect.gen(function* () {
           const newSize = yield* createStackSize(newTotal)
           return StackOperationResult.Success({ newSize })
-        }),
-      onFalse: () =>
+        })
+      ),
+      Match.when(false, () =>
         Effect.gen(function* () {
           const overflowAmount = newTotal - maxSizeValue
           const overflow = yield* createStackSize(overflowAmount)
@@ -102,8 +105,10 @@ export const addToStack = (
             maxSize: capped,
             overflow,
           })
-        }),
-    })
+        })
+      ),
+      Match.exhaustive
+    )
   })
 
 /**
@@ -130,33 +135,43 @@ export const removeFromStack = (
     )
 
     // 条件分岐: アンダーフローチェック
-    return yield* Effect.if(removalNum > currentNum, {
-      onTrue: () =>
+    return yield* pipe(
+      removalNum > currentNum,
+      Match.value,
+      Match.when(true, () =>
         Effect.succeed(
           StackOperationResult.Underflow({
             currentSize: current,
             requested: removal,
           })
-        ),
-      onFalse: () =>
+        )
+      ),
+      Match.when(false, () =>
         Effect.gen(function* () {
           const newSize = currentNum - removalNum
 
           // 条件分岐: 0になった場合は最小値1に設定
-          return yield* Effect.if(newSize === 0, {
-            onTrue: () =>
+          return yield* pipe(
+            newSize === 0,
+            Match.value,
+            Match.when(true, () =>
               Effect.gen(function* () {
                 const minSize = yield* createStackSize(1)
                 return StackOperationResult.Success({ newSize: minSize })
-              }),
-            onFalse: () =>
+              })
+            ),
+            Match.when(false, () =>
               Effect.gen(function* () {
                 const validNewSize = yield* createStackSize(newSize)
                 return StackOperationResult.Success({ newSize: validNewSize })
-              }),
-          })
-        }),
-    })
+              })
+            ),
+            Match.exhaustive
+          )
+        })
+      ),
+      Match.exhaustive
+    )
   })
 
 /**
@@ -265,9 +280,11 @@ export const mergeMultipleStacks = (
 ): Effect.Effect<readonly StackSize[], StackSizeError> =>
   Effect.gen(function* () {
     // 早期return: 空配列の場合は空配列を返す
-    return yield* Effect.if(stacks.length === 0, {
-      onTrue: () => Effect.succeed([] as const),
-      onFalse: () =>
+    return yield* pipe(
+      stacks.length === 0,
+      Match.value,
+      Match.when(true, () => Effect.succeed([] as const)),
+      Match.when(false, () =>
         Effect.gen(function* () {
           return yield* Effect.reduce(
             stacks.slice(1),
@@ -307,8 +324,10 @@ export const mergeMultipleStacks = (
                 )
               })
           ).pipe(Effect.flatMap(({ merged, carry }) => Effect.succeed([...merged, carry] as const)))
-        }),
-    })
+        })
+      ),
+      Match.exhaustive
+    )
   })
 
 /**
@@ -322,36 +341,45 @@ export const canStack = (
 ): Effect.Effect<StackabilityResult, StackSizeError> =>
   Effect.gen(function* () {
     // 早期return: アイテムIDが異なる場合はスタック不可
-    return yield* Effect.if(itemId1 !== itemId2, {
-      onTrue: () =>
+    return yield* pipe(
+      itemId1 !== itemId2,
+      Match.value,
+      Match.when(true, () =>
         Effect.succeed(
           StackabilityResult.NotStackable({
             reason: `Different item types: ${itemId1} vs ${itemId2}`,
           })
-        ),
-      onFalse: () =>
+        )
+      ),
+      Match.when(false, () =>
         Effect.gen(function* () {
           // 早期return: アイテムがスタック可能でない場合
-          return yield* Effect.if(!isStackable(itemId1), {
-            onTrue: () =>
+          return yield* pipe(
+            !isStackable(itemId1),
+            Match.value,
+            Match.when(true, () =>
               Effect.succeed(
                 StackabilityResult.NotStackable({
                   reason: `Item ${itemId1} is not stackable`,
                 })
-              ),
-            onFalse: () =>
+              )
+            ),
+            Match.when(false, () =>
               Effect.gen(function* () {
                 const maxSize = getMaxStackSize(itemId1)
                 const combinedSize = (stack1 as number) + (stack2 as number)
 
                 // 条件分岐: 完全スタック可能か部分スタック可能か
-                return yield* Effect.if(combinedSize <= (maxSize as number), {
-                  onTrue: () =>
+                return yield* pipe(
+                  combinedSize <= (maxSize as number),
+                  Match.value,
+                  Match.when(true, () =>
                     Effect.gen(function* () {
                       const newSize = yield* createStackSize(combinedSize)
                       return StackabilityResult.FullyStackable({ combinedSize: newSize })
-                    }),
-                  onFalse: () =>
+                    })
+                  ),
+                  Match.when(false, () =>
                     Effect.gen(function* () {
                       const stackedSize = yield* createStackSize(maxSize as number)
                       const remainder = yield* createStackSize(combinedSize - (maxSize as number))
@@ -360,12 +388,18 @@ export const canStack = (
                         stackedSize,
                         remainder,
                       })
-                    }),
-                })
-              }),
-          })
-        }),
-    })
+                    })
+                  ),
+                  Match.exhaustive
+                )
+              })
+            ),
+            Match.exhaustive
+          )
+        })
+      ),
+      Match.exhaustive
+    )
   })
 
 /**
@@ -411,9 +445,11 @@ export const executeStackOperation = (
         )
 
         // 条件分岐: スタックサイズが新しい最大値以下か、オーバーフローするか
-        return yield* Effect.if(stackNum <= newMaxNum, {
-          onTrue: () => Effect.succeed(StackOperationResult.Success({ newSize: stack })),
-          onFalse: () =>
+        return yield* pipe(
+          stackNum <= newMaxNum,
+          Match.value,
+          Match.when(true, () => Effect.succeed(StackOperationResult.Success({ newSize: stack }))),
+          Match.when(false, () =>
             Effect.gen(function* () {
               const newSize = yield* createStackSize(newMaxNum)
               const overflow = yield* createStackSize(stackNum - newMaxNum)
@@ -422,8 +458,10 @@ export const executeStackOperation = (
                 maxSize: newSize,
                 overflow,
               })
-            }),
-        })
+            })
+          ),
+          Match.exhaustive
+        )
       })
     ),
     Match.exhaustive
@@ -438,16 +476,19 @@ export const calculateStackStats = (
 ): Effect.Effect<StackStats, StackSizeError> =>
   Effect.gen(function* () {
     // 早期return: 空配列の場合は統計ゼロを返す
-    return yield* Effect.if(stacks.length === 0, {
-      onTrue: () =>
+    return yield* pipe(
+      stacks.length === 0,
+      Match.value,
+      Match.when(true, () =>
         Effect.succeed({
           totalStacks: 0,
           totalItems: 0,
           averageStackSize: 0,
           maxPossibleStacks: 0,
           efficiency: 0,
-        } as const),
-      onFalse: () =>
+        } as const)
+      ),
+      Match.when(false, () =>
         Effect.gen(function* () {
           const numbers = stacks.map((stack) => stack as number)
 
@@ -476,8 +517,10 @@ export const calculateStackStats = (
             maxPossibleStacks,
             efficiency,
           } as const
-        }),
-    })
+        })
+      ),
+      Match.exhaustive
+    )
   })
 
 /**
@@ -489,9 +532,11 @@ export const optimizeStacks = (
 ): Effect.Effect<readonly StackSize[], StackSizeError> =>
   Effect.gen(function* () {
     // 早期return: 空配列の場合は空配列を返す
-    return yield* Effect.if(stacks.length === 0, {
-      onTrue: () => Effect.succeed([] as const),
-      onFalse: () =>
+    return yield* pipe(
+      stacks.length === 0,
+      Match.value,
+      Match.when(true, () => Effect.succeed([] as const)),
+      Match.when(false, () =>
         Effect.gen(function* () {
           const maxSizeNum = maxStackSize as number
 
@@ -507,8 +552,10 @@ export const optimizeStacks = (
           const remainderStacks = remainder > 0 ? [yield* createStackSize(remainder)] : ([] as StackSize[])
 
           return [...fullStacks, ...remainderStacks] as const
-        }),
-    })
+        })
+      ),
+      Match.exhaustive
+    )
   })
 
 /**

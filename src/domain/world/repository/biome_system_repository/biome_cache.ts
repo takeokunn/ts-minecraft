@@ -7,7 +7,7 @@
  */
 
 import type { AllRepositoryErrors, BiomeId, WorldCoordinate } from '@domain/world/types'
-import { createCacheError } from '@domain/world/types'
+import { createBiomeId, createCacheError } from '@domain/world/types'
 import { Clock, Effect, Option, pipe, ReadonlyArray, Ref } from 'effect'
 import type {
   calculateDistance,
@@ -212,49 +212,57 @@ export const createBiomeCache = (
     const evictLRUSpatial = (): Effect.Effect<void, never> =>
       Effect.gen(function* () {
         const cache = yield* Ref.get(spatialCache)
-        if (cache.size <= config.maxSpatialEntries) return
 
-        const entries = Array.from(cache.entries())
-        entries.sort(([, a], [, b]) => a.lastAccess - b.lastAccess)
+        // Effect.whenで早期return → 条件付き実行
+        yield* Effect.when(cache.size > config.maxSpatialEntries, () =>
+          Effect.gen(function* () {
+            const entries = Array.from(cache.entries())
+            entries.sort(([, a], [, b]) => a.lastAccess - b.lastAccess)
 
-        const toEvict = entries.slice(0, cache.size - config.maxSpatialEntries + 100) // Evict extra for performance
-        const updated = new Map(cache)
+            const toEvict = entries.slice(0, cache.size - config.maxSpatialEntries + 100) // Evict extra for performance
+            const updated = new Map(cache)
 
-        // Effect.syncでMap削除をラップ
-        yield* pipe(
-          toEvict,
-          Effect.forEach(([key]) => Effect.sync(() => updated.delete(key)), { concurrency: 'unbounded' })
+            // Effect.syncでMap削除をラップ
+            yield* pipe(
+              toEvict,
+              Effect.forEach(([key]) => Effect.sync(() => updated.delete(key)), { concurrency: 'unbounded' })
+            )
+
+            yield* Ref.set(spatialCache, updated)
+            yield* Ref.update(spatialStats, (stats) => ({
+              ...stats,
+              evictionCount: stats.evictionCount + toEvict.length,
+            }))
+          })
         )
-
-        yield* Ref.set(spatialCache, updated)
-        yield* Ref.update(spatialStats, (stats) => ({
-          ...stats,
-          evictionCount: stats.evictionCount + toEvict.length,
-        }))
       })
 
     const evictLRUQuery = (): Effect.Effect<void, never> =>
       Effect.gen(function* () {
         const cache = yield* Ref.get(queryCache)
-        if (cache.size <= config.maxQueryEntries) return
 
-        const entries = Array.from(cache.entries())
-        entries.sort(([, a], [, b]) => a.timestamp - b.timestamp)
+        // Effect.whenで早期return → 条件付き実行
+        yield* Effect.when(cache.size > config.maxQueryEntries, () =>
+          Effect.gen(function* () {
+            const entries = Array.from(cache.entries())
+            entries.sort(([, a], [, b]) => a.timestamp - b.timestamp)
 
-        const toEvict = entries.slice(0, cache.size - config.maxQueryEntries + 50)
-        const updated = new Map(cache)
+            const toEvict = entries.slice(0, cache.size - config.maxQueryEntries + 50)
+            const updated = new Map(cache)
 
-        // Effect.syncでMap削除をラップ
-        yield* pipe(
-          toEvict,
-          Effect.forEach(([key]) => Effect.sync(() => updated.delete(key)), { concurrency: 'unbounded' })
+            // Effect.syncでMap削除をラップ
+            yield* pipe(
+              toEvict,
+              Effect.forEach(([key]) => Effect.sync(() => updated.delete(key)), { concurrency: 'unbounded' })
+            )
+
+            yield* Ref.set(queryCache, updated)
+            yield* Ref.update(queryStats, (stats) => ({
+              ...stats,
+              evictionCount: stats.evictionCount + toEvict.length,
+            }))
+          })
         )
-
-        yield* Ref.set(queryCache, updated)
-        yield* Ref.update(queryStats, (stats) => ({
-          ...stats,
-          evictionCount: stats.evictionCount + toEvict.length,
-        }))
       })
 
     // === Implementation ===
@@ -269,37 +277,52 @@ export const createBiomeCache = (
           const cache = yield* Ref.get(spatialCache)
           const entry = cache.get(key)
 
-          if (entry && !(yield* isExpired(entry.timestamp))) {
-            // Update access statistics
-            const currentTime = yield* getCurrentTimestamp()
-            const updated = new Map(cache)
-            updated.set(key, {
-              ...entry,
-              lastAccess: currentTime,
-              accessCount: entry.accessCount + 1,
+          // Option.matchでnull安全なキャッシュヒット処理
+          return yield* pipe(
+            Option.fromNullable(entry),
+            Option.flatMap((e) =>
+              Effect.gen(function* () {
+                const expired = yield* isExpired(e.timestamp)
+                return expired ? Option.none<typeof e>() : Option.some(e)
+              })
+            ),
+            Option.match({
+              onSome: (validEntry) =>
+                Effect.gen(function* () {
+                  // Update access statistics
+                  const currentTime = yield* getCurrentTimestamp()
+                  const updated = new Map(cache)
+                  updated.set(key, {
+                    ...validEntry,
+                    lastAccess: currentTime,
+                    accessCount: validEntry.accessCount + 1,
+                  })
+                  yield* Ref.set(spatialCache, updated)
+
+                  const endTime = yield* getCurrentTimestamp()
+                  yield* Ref.update(spatialStats, (stats) => ({
+                    ...stats,
+                    hitCount: stats.hitCount + 1,
+                    totalAccessTime: stats.totalAccessTime + (endTime - startTime),
+                    accessCount: stats.accessCount + 1,
+                  }))
+
+                  return Option.some(validEntry.biomeId)
+                }),
+              onNone: () =>
+                Effect.gen(function* () {
+                  const endTime = yield* getCurrentTimestamp()
+                  yield* Ref.update(spatialStats, (stats) => ({
+                    ...stats,
+                    missCount: stats.missCount + 1,
+                    totalAccessTime: stats.totalAccessTime + (endTime - startTime),
+                    accessCount: stats.accessCount + 1,
+                  }))
+
+                  return Option.none()
+                }),
             })
-            yield* Ref.set(spatialCache, updated)
-
-            const endTime = yield* getCurrentTimestamp()
-            yield* Ref.update(spatialStats, (stats) => ({
-              ...stats,
-              hitCount: stats.hitCount + 1,
-              totalAccessTime: stats.totalAccessTime + (endTime - startTime),
-              accessCount: stats.accessCount + 1,
-            }))
-
-            return Option.some(entry.biomeId)
-          }
-
-          const endTime = yield* getCurrentTimestamp()
-          yield* Ref.update(spatialStats, (stats) => ({
-            ...stats,
-            missCount: stats.missCount + 1,
-            totalAccessTime: stats.totalAccessTime + (endTime - startTime),
-            accessCount: stats.accessCount + 1,
-          }))
-
-          return Option.none()
+          )
         }),
 
       setBiomeAt: (coordinate: SpatialCoordinate, biomeId: BiomeId, confidence = 1.0) =>
@@ -336,22 +359,30 @@ export const createBiomeCache = (
               ([key, entry]) =>
                 Effect.gen(function* () {
                   const expired = yield* isExpired(entry.timestamp)
-                  if (expired) return Option.none()
+                  // 期限切れの場合はOption.none
+                  return yield* pipe(
+                    expired,
+                    Effect.if({
+                      onTrue: () => Effect.succeed(Option.none()),
+                      onFalse: () =>
+                        Effect.gen(function* () {
+                          const coordinate = {
+                            x: parseFloat(key.split(',')[0]) as WorldCoordinate,
+                            z: parseFloat(key.split(',')[1]) as WorldCoordinate,
+                          }
 
-                  const coordinate = {
-                    x: parseFloat(key.split(',')[0]) as WorldCoordinate,
-                    z: parseFloat(key.split(',')[1]) as WorldCoordinate,
-                  }
-
-                  if (coordinateInBounds(coordinate, bounds)) {
-                    return Option.some({
-                      biomeId: entry.biomeId,
-                      coordinate,
-                      distance: 0,
-                      confidence: entry.confidence,
+                          // 境界チェック
+                          return coordinateInBounds(coordinate, bounds)
+                            ? Option.some({
+                                biomeId: entry.biomeId,
+                                coordinate,
+                                distance: 0,
+                                confidence: entry.confidence,
+                              })
+                            : Option.none()
+                        }),
                     })
-                  }
-                  return Option.none()
+                  )
                 }),
               { concurrency: 'unbounded' }
             ),
@@ -398,108 +429,142 @@ export const createBiomeCache = (
           const cache = yield* Ref.get(queryCache)
           const entry = cache.get(queryHash)
 
-          if (entry && !(yield* isExpired(entry.timestamp))) {
-            // Update access statistics
-            const updated = new Map(cache)
-            updated.set(queryHash, {
-              ...entry,
-              accessCount: entry.accessCount + 1,
+          // Option.matchでキャッシュヒット処理
+          return yield* pipe(
+            Option.fromNullable(entry),
+            Option.flatMap((e) =>
+              Effect.gen(function* () {
+                const expired = yield* isExpired(e.timestamp)
+                return expired ? Option.none<typeof e>() : Option.some(e)
+              })
+            ),
+            Option.match({
+              onSome: (validEntry) =>
+                Effect.gen(function* () {
+                  // Update access statistics
+                  const updated = new Map(cache)
+                  updated.set(queryHash, {
+                    ...validEntry,
+                    accessCount: validEntry.accessCount + 1,
+                  })
+                  yield* Ref.set(queryCache, updated)
+
+                  yield* Ref.update(queryStats, (stats) => ({
+                    ...stats,
+                    hitCount: stats.hitCount + 1,
+                  }))
+
+                  return Option.some(validEntry.results)
+                }),
+              onNone: () =>
+                Effect.gen(function* () {
+                  yield* Ref.update(queryStats, (stats) => ({
+                    ...stats,
+                    missCount: stats.missCount + 1,
+                  }))
+
+                  return Option.none()
+                }),
             })
-            yield* Ref.set(queryCache, updated)
-
-            yield* Ref.update(queryStats, (stats) => ({
-              ...stats,
-              hitCount: stats.hitCount + 1,
-            }))
-
-            return Option.some(entry.results)
-          }
-
-          yield* Ref.update(queryStats, (stats) => ({
-            ...stats,
-            missCount: stats.missCount + 1,
-          }))
-
-          return Option.none()
+          )
         }),
 
       setCachedQuery: (queryHash: string, results: ReadonlyArray<SpatialQueryResult>, bounds: SpatialBounds) =>
         Effect.gen(function* () {
-          if (!config.enableQueryCaching) return
+          // Effect.whenで設定チェック
+          yield* Effect.when(config.enableQueryCaching, () =>
+            Effect.gen(function* () {
+              const cache = yield* Ref.get(queryCache)
+              const timestamp = yield* getCurrentTimestamp()
+              const entry: QueryCacheEntry = {
+                queryHash,
+                results,
+                timestamp,
+                accessCount: 1,
+                bounds,
+              }
 
-          const cache = yield* Ref.get(queryCache)
-          const timestamp = yield* getCurrentTimestamp()
-          const entry: QueryCacheEntry = {
-            queryHash,
-            results,
-            timestamp,
-            accessCount: 1,
-            bounds,
-          }
+              const updated = new Map(cache)
+              updated.set(queryHash, entry)
+              yield* Ref.set(queryCache, updated)
 
-          const updated = new Map(cache)
-          updated.set(queryHash, entry)
-          yield* Ref.set(queryCache, updated)
-
-          yield* evictLRUQuery()
+              yield* evictLRUQuery()
+            })
+          )
         }),
 
       // === Spatial Clustering ===
 
       getCluster: (coordinate: SpatialCoordinate) =>
         Effect.gen(function* () {
-          if (!config.enableSpatialClustering) return Option.none()
+          // 設定無効時は即座にOption.none
+          return yield* Effect.if(config.enableSpatialClustering, {
+            onTrue: () =>
+              Effect.gen(function* () {
+                const gridKey = getGridKey(coordinate)
+                const clusters = yield* Ref.get(spatialClusters)
+                const cluster = clusters.get(gridKey)
 
-          const gridKey = getGridKey(coordinate)
-          const clusters = yield* Ref.get(spatialClusters)
-          const cluster = clusters.get(gridKey)
-
-          if (cluster && !(yield* isExpired(cluster.lastUpdate))) {
-            return Option.some(cluster)
-          }
-
-          return Option.none()
+                // Option.matchで有効期限チェック
+                return yield* pipe(
+                  Option.fromNullable(cluster),
+                  Option.match({
+                    onNone: () => Effect.succeed(Option.none<SpatialCluster>()),
+                    onSome: (c) =>
+                      Effect.gen(function* () {
+                        const expired = yield* isExpired(c.lastUpdate)
+                        return expired ? Option.none<SpatialCluster>() : Option.some(c)
+                      }),
+                  })
+                )
+              }),
+            onFalse: () => Effect.succeed(Option.none<SpatialCluster>()),
+          })
         }),
 
       updateCluster: (coordinate: SpatialCoordinate, biomeDistribution: Map<BiomeId, number>) =>
         Effect.gen(function* () {
-          if (!config.enableSpatialClustering) return
+          // Effect.whenで設定チェック
+          yield* Effect.when(config.enableSpatialClustering, () =>
+            Effect.gen(function* () {
+              const gridKey = getGridKey(coordinate)
+              const clusters = yield* Ref.get(spatialClusters)
 
-          const gridKey = getGridKey(coordinate)
-          const clusters = yield* Ref.get(spatialClusters)
+              // Find dominant biome - ReadonlyArray.reduceで最大値検索
+              const { dominantBiome, maxCount } = pipe(
+                Array.from(biomeDistribution.entries()),
+                ReadonlyArray.reduce(
+                  { dominantBiome: createBiomeId('minecraft:unknown'), maxCount: 0 },
+                  (acc, [biomeId, count]) => (count > acc.maxCount ? { dominantBiome: biomeId, maxCount: count } : acc)
+                )
+              )
 
-          // Find dominant biome - ReadonlyArray.reduceで最大値検索
-          const { dominantBiome, maxCount } = pipe(
-            Array.from(biomeDistribution.entries()),
-            ReadonlyArray.reduce({ dominantBiome: 'unknown' as BiomeId, maxCount: 0 }, (acc, [biomeId, count]) =>
-              count > acc.maxCount ? { dominantBiome: biomeId, maxCount: count } : acc
-            )
+              const totalBiomes = pipe(
+                Array.from(biomeDistribution.values()),
+                ReadonlyArray.reduce(0, (sum, count) => sum + count)
+              )
+              const confidence = totalBiomes > 0 ? maxCount / totalBiomes : 0
+
+              const timestamp = yield* getCurrentTimestamp()
+              const cluster: SpatialCluster = {
+                centerCoordinate: {
+                  x: (Math.floor(coordinate.x / config.spatialGridSize) * config.spatialGridSize +
+                    config.spatialGridSize / 2) as WorldCoordinate,
+                  z: (Math.floor(coordinate.z / config.spatialGridSize) * config.spatialGridSize +
+                    config.spatialGridSize / 2) as WorldCoordinate,
+                },
+                radius: config.spatialGridSize / 2,
+                dominantBiome,
+                biomeDistribution,
+                confidence,
+                lastUpdate: timestamp,
+              }
+
+              const updated = new Map(clusters)
+              updated.set(gridKey, cluster)
+              yield* Ref.set(spatialClusters, updated)
+            })
           )
-
-          const totalBiomes = pipe(
-            Array.from(biomeDistribution.values()),
-            ReadonlyArray.reduce(0, (sum, count) => sum + count)
-          )
-          const confidence = totalBiomes > 0 ? maxCount / totalBiomes : 0
-
-          const timestamp = yield* getCurrentTimestamp()
-          const cluster: SpatialCluster = {
-            centerCoordinate: {
-              x: (Math.floor(coordinate.x / config.spatialGridSize) * config.spatialGridSize +
-                config.spatialGridSize / 2) as WorldCoordinate,
-              z: (Math.floor(coordinate.z / config.spatialGridSize) * config.spatialGridSize +
-                config.spatialGridSize / 2) as WorldCoordinate,
-            },
-            radius: config.spatialGridSize / 2,
-            dominantBiome,
-            biomeDistribution,
-            confidence,
-            lastUpdate: timestamp,
-          }
-
-          const updated = new Map(clusters)
-          updated.set(gridKey, cluster)
-          yield* Ref.set(spatialClusters, updated)
         }),
 
       getNearbyCluster: (coordinate: SpatialCoordinate, radius: number) =>
@@ -540,34 +605,42 @@ export const createBiomeCache = (
 
       clear: (bounds?: SpatialBounds) =>
         Effect.gen(function* () {
-          if (!bounds) {
-            yield* Ref.set(spatialCache, new Map())
-            yield* Ref.set(queryCache, new Map())
-            yield* Ref.set(spatialClusters, new Map())
-            return
-          }
+          // Option.matchでbounds有無判定
+          yield* pipe(
+            Option.fromNullable(bounds),
+            Option.match({
+              onNone: () =>
+                Effect.gen(function* () {
+                  yield* Ref.set(spatialCache, new Map())
+                  yield* Ref.set(queryCache, new Map())
+                  yield* Ref.set(spatialClusters, new Map())
+                }),
+              onSome: (validBounds) =>
+                Effect.gen(function* () {
+                  // Clear within bounds - ReadonlyArray.filterでbounds外のエントリのみ残す
+                  const spatialMap = yield* Ref.get(spatialCache)
+                  const filteredSpatialEntries = pipe(
+                    Array.from(spatialMap.entries()),
+                    ReadonlyArray.filter(([key, entry]) => {
+                      const coordinate = {
+                        x: parseFloat(key.split(',')[0]) as WorldCoordinate,
+                        z: parseFloat(key.split(',')[1]) as WorldCoordinate,
+                      }
+                      return !coordinateInBounds(coordinate, validBounds)
+                    })
+                  )
+                  yield* Ref.set(spatialCache, new Map(filteredSpatialEntries))
 
-          // Clear within bounds - ReadonlyArray.filterでbounds外のエントリのみ残す
-          const spatialMap = yield* Ref.get(spatialCache)
-          const filteredSpatialEntries = pipe(
-            Array.from(spatialMap.entries()),
-            ReadonlyArray.filter(([key, entry]) => {
-              const coordinate = {
-                x: parseFloat(key.split(',')[0]) as WorldCoordinate,
-                z: parseFloat(key.split(',')[1]) as WorldCoordinate,
-              }
-              return !coordinateInBounds(coordinate, bounds)
+                  // Clear query cache entries that intersect with bounds
+                  const queryMap = yield* Ref.get(queryCache)
+                  const filteredQueryEntries = pipe(
+                    Array.from(queryMap.entries()),
+                    ReadonlyArray.filter(([key, entry]) => !boundsIntersect(entry.bounds, validBounds))
+                  )
+                  yield* Ref.set(queryCache, new Map(filteredQueryEntries))
+                }),
             })
           )
-          yield* Ref.set(spatialCache, new Map(filteredSpatialEntries))
-
-          // Clear query cache entries that intersect with bounds
-          const queryMap = yield* Ref.get(queryCache)
-          const filteredQueryEntries = pipe(
-            Array.from(queryMap.entries()),
-            ReadonlyArray.filter(([key, entry]) => !boundsIntersect(entry.bounds, bounds))
-          )
-          yield* Ref.set(queryCache, new Map(filteredQueryEntries))
         }),
 
       evictExpired: () =>
@@ -634,40 +707,43 @@ export const createBiomeCache = (
           // Evict expired entries
           yield* Effect.fork(this.evictExpired())
 
-          // Optimize spatial clusters - Effect.forEachでクラスタごとに処理
-          if (config.enableSpatialClustering) {
-            const clusters = yield* Ref.get(spatialClusters)
-            const spatialMap = yield* Ref.get(spatialCache)
+          // Optimize spatial clusters - Effect.whenで設定チェック
+          yield* Effect.when(config.enableSpatialClustering, () =>
+            Effect.gen(function* () {
+              const clusters = yield* Ref.get(spatialClusters)
+              const spatialMap = yield* Ref.get(spatialCache)
 
-            // Update cluster statistics based on cache hits
-            yield* Effect.forEach(
-              Array.from(clusters.entries()),
-              ([gridKey, cluster]) =>
-                Effect.gen(function* () {
-                  // ReadonlyArray.reduceでバイオーム分布を集計
-                  const biomeDistribution = pipe(
-                    Array.from(spatialMap.entries()),
-                    ReadonlyArray.filter(([coordKey, entry]) => {
-                      const coordinate = {
-                        x: parseFloat(coordKey.split(',')[0]) as WorldCoordinate,
-                        z: parseFloat(coordKey.split(',')[1]) as WorldCoordinate,
-                      }
-                      return getGridKey(coordinate) === gridKey
-                    }),
-                    ReadonlyArray.reduce(new Map<BiomeId, number>(), (dist, [coordKey, entry]) => {
-                      const count = dist.get(entry.biomeId) || 0
-                      dist.set(entry.biomeId, count + 1)
-                      return dist
-                    })
-                  )
+              // Update cluster statistics based on cache hits
+              yield* Effect.forEach(
+                Array.from(clusters.entries()),
+                ([gridKey, cluster]) =>
+                  Effect.gen(function* () {
+                    // ReadonlyArray.reduceでバイオーム分布を集計
+                    const biomeDistribution = pipe(
+                      Array.from(spatialMap.entries()),
+                      ReadonlyArray.filter(([coordKey, entry]) => {
+                        const coordinate = {
+                          x: parseFloat(coordKey.split(',')[0]) as WorldCoordinate,
+                          z: parseFloat(coordKey.split(',')[1]) as WorldCoordinate,
+                        }
+                        return getGridKey(coordinate) === gridKey
+                      }),
+                      ReadonlyArray.reduce(new Map<BiomeId, number>(), (dist, [coordKey, entry]) => {
+                        const count = dist.get(entry.biomeId) || 0
+                        dist.set(entry.biomeId, count + 1)
+                        return dist
+                      })
+                    )
 
-                  if (biomeDistribution.size > 0) {
-                    yield* this.updateCluster(cluster.centerCoordinate, biomeDistribution)
-                  }
-                }),
-              { concurrency: 'unbounded' }
-            )
-          }
+                    // Effect.whenで非空チェック
+                    yield* Effect.when(biomeDistribution.size > 0, () =>
+                      this.updateCluster(cluster.centerCoordinate, biomeDistribution)
+                    )
+                  }),
+                { concurrency: 'unbounded' }
+              )
+            })
+          )
         }),
 
       getStatistics: () =>

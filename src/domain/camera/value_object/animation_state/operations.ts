@@ -337,19 +337,15 @@ export const InterpolationOps = {
     const t = progress as number
 
     // 現在の時間に対応するキーフレームペアを見つける
-    let fromIndex = 0
-    let toIndex = 1
+    const keyframePair = pipe(
+      ReadonlyArray.range(0, keyframes.length - 1),
+      ReadonlyArray.findFirst((i) => t >= keyframes[i].time && t <= keyframes[i + 1].time),
+      Option.map((i) => ({ fromIndex: i, toIndex: i + 1 })),
+      Option.getOrElse(() => ({ fromIndex: 0, toIndex: 1 }))
+    )
 
-    for (let i = 0; i < keyframes.length - 1; i++) {
-      if (t >= keyframes[i].time && t <= keyframes[i + 1].time) {
-        fromIndex = i
-        toIndex = i + 1
-        break
-      }
-    }
-
-    const fromKeyframe = keyframes[fromIndex]
-    const toKeyframe = keyframes[toIndex]
+    const fromKeyframe = keyframes[keyframePair.fromIndex]
+    const toKeyframe = keyframes[keyframePair.toIndex]
 
     // キーフレーム間での正規化された時間
     const segmentProgress = (t - fromKeyframe.time) / (toKeyframe.time - fromKeyframe.time)

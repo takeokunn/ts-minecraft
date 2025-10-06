@@ -1,4 +1,4 @@
-import { Clock, Effect, HashMap, Layer, Option, ReadonlyArray, Ref, pipe } from 'effect'
+import { Clock, Effect, HashMap, Layer, Option, ReadonlyArray, Ref, Schema, pipe } from 'effect'
 import type {
   Container,
   ContainerId,
@@ -10,6 +10,7 @@ import type {
 } from '../../types'
 import { createContainerNotFoundError, createRepositoryError, createStorageError } from '../types'
 import { ContainerRepository } from './index'
+import { ContainerRepositoryStorageSchema } from './storage_schema'
 
 /**
  * Persistent Storage Configuration
@@ -61,6 +62,17 @@ export const ContainerRepositoryPersistent = (config: ContainerPersistentConfig 
       }
 
       // ストレージ操作のヘルパー関数
+
+      // Schema.decodeUnknownを使用した型安全なデータ読み込み
+      const decodeFromStorage = (rawData: string) =>
+        Effect.try({
+          try: () => JSON.parse(rawData),
+          catch: (error) => createStorageError('localStorage', 'load', `JSON parse failed: ${error}`),
+        }).pipe(
+          Effect.flatMap(Schema.decodeUnknown(ContainerRepositoryStorageSchema)),
+          Effect.mapError((error) => createStorageError('localStorage', 'load', `Schema validation failed: ${error}`))
+        )
+
       const loadFromStorage = Effect.gen(function* () {
         // IndexedDBチェック - Effect.whenで早期エラー返却
         yield* Effect.when(config.indexedDBEnabled && typeof window !== 'undefined' && window.indexedDB, () =>
@@ -68,47 +80,54 @@ export const ContainerRepositoryPersistent = (config: ContainerPersistentConfig 
         )
 
         // LocalStorageからのデータ読み込みと復元
-        const result = yield* Effect.try({
-          try: () => {
-            const data = localStorage.getItem(config.storageKey)
-            if (!data) return null
+        const result = yield* Effect.gen(function* () {
+          const rawData = localStorage.getItem(config.storageKey)
+          if (!rawData) return null
 
-            const parsed = JSON.parse(data)
+          // Schema.decodeUnknownで型安全にデータを検証
+          const validated = yield* decodeFromStorage(rawData)
 
-            // コンテナの復元
-            const containerEntries = pipe(
-              parsed.containers ? Object.entries(parsed.containers) : [],
-              ReadonlyArray.map(([id, container]) => {
-                const cont = container as Container
-                cont.slots = new Map(Object.entries(cont.slots || {}))
-                return [id as ContainerId, cont] as const
-              })
+          // コンテナの復元
+          const containerEntries = pipe(
+            validated.containers ? Object.entries(validated.containers) : [],
+            ReadonlyArray.map(([id, container]) => {
+              const cont: Container = {
+                ...container,
+                id: id as ContainerId,
+                slots: new Map(Object.entries(container.slots)),
+              }
+              return [id as ContainerId, cont] as const
+            })
+          )
+
+          const positionEntries = pipe(
+            containerEntries,
+            ReadonlyArray.filterMap(([, cont]) =>
+              cont.position && cont.worldId
+                ? Option.some([getPositionKey(cont.position, cont.worldId), cont.id] as const)
+                : Option.none()
             )
+          )
 
-            const positionEntries = pipe(
-              containerEntries,
-              ReadonlyArray.filterMap(([, cont]) =>
-                cont.position && cont.worldId
-                  ? Option.some([getPositionKey(cont.position, cont.worldId), cont.id] as const)
-                  : Option.none()
-              )
-            )
+          // スナップショットの復元
+          const snapshotEntries = pipe(
+            validated.snapshots ? Object.entries(validated.snapshots) : [],
+            ReadonlyArray.map(([id, snapshot]) => {
+              const snap: ContainerSnapshot = {
+                ...snapshot,
+                id,
+                containerId: snapshot.containerId as ContainerId,
+                container: {
+                  ...snapshot.container,
+                  id: snapshot.container.id as ContainerId,
+                  slots: new Map(Object.entries(snapshot.container.slots)),
+                },
+              }
+              return [id, snap] as const
+            })
+          )
 
-            // スナップショットの復元
-            const snapshotEntries = pipe(
-              parsed.snapshots ? Object.entries(parsed.snapshots) : [],
-              ReadonlyArray.map(([id, snapshot]) => {
-                const snap = snapshot as ContainerSnapshot
-                if (snap.container.slots) {
-                  snap.container.slots = new Map(Object.entries(snap.container.slots))
-                }
-                return [id, snap] as const
-              })
-            )
-
-            return { containerEntries, positionEntries, snapshotEntries }
-          },
-          catch: (error) => createStorageError('localStorage', 'load', `Failed to load data: ${error}`),
+          return { containerEntries, positionEntries, snapshotEntries }
         })
 
         // キャッシュへの保存

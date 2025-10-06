@@ -59,11 +59,24 @@ export type {
 } from './types'
 
 export {
+  GameContextSchema,
+  KeyBindingSchema,
+  // Schema definitions
+  PlayerIdSchema,
+  PreferenceExportDataSchema,
+  PreferenceQueryOptionsSchema,
+  PreferenceRecordIdSchema,
+  PreferenceTriggerSchema,
+  TimeRangeSchema,
+  TrendDirectionSchema,
+  ViewModePopularitySchema,
+  ViewModePreferenceRecordSchema,
+  ViewModePreferenceSchema,
+  ViewModePreferencesRepositoryErrorSchema,
   // Default preferences factory
   createDefaultPreferences,
   // Error factory functions
   createViewModePreferencesError,
-  GameContextSchema,
   isAnalyticsCalculationFailedError,
   isAutomaticTrigger,
   isBuildingContext,
@@ -78,18 +91,6 @@ export {
   isRecordNotFoundError,
   isStorageError,
   isSystemTrigger,
-  KeyBindingSchema,
-  // Schema definitions
-  PlayerIdSchema,
-  PreferenceQueryOptionsSchema,
-  PreferenceRecordIdSchema,
-  PreferenceTriggerSchema,
-  TimeRangeSchema,
-  TrendDirectionSchema,
-  ViewModePopularitySchema,
-  ViewModePreferenceRecordSchema,
-  ViewModePreferenceSchema,
-  ViewModePreferencesRepositoryErrorSchema,
 } from './types'
 
 // ========================================
@@ -392,7 +393,9 @@ export const PreferenceRecommendationHelpers = {
       timePatterns.filter((pattern) => Math.abs(pattern.timeOfDay - currentHour) <= 1),
       ReadonlyArray.fromIterable,
       Option.liftPredicate((patterns) => patterns.length > 0),
-      Option.map((patterns) => patterns.reduce((best, current) => (current.confidence > best.confidence ? current : best))),
+      Option.map((patterns) =>
+        patterns.reduce((best, current) => (current.confidence > best.confidence ? current : best))
+      ),
       Option.flatMap((bestPattern) =>
         bestPattern.confidence > 0.6 ? Option.some(bestPattern.preferredMode) : Option.none()
       )

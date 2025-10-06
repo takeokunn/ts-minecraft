@@ -8,7 +8,7 @@
 
 import type { GenerationSessionId } from '@domain/world/aggregate/generation_session'
 import type { BiomeId, WorldId } from '@domain/world/types/core'
-import { Clock, Data, Effect } from 'effect'
+import { Clock, Data, Effect, Match } from 'effect'
 
 // === Core Repository Errors ===
 
@@ -363,40 +363,69 @@ export const isMetadataNotFoundError = (error: unknown): error is MetadataNotFou
 /**
  * エラーカテゴリ分類
  */
-export const categorizeRepositoryError = (error: AllRepositoryErrors) => {
-  if (isRepositoryError(error) || isPersistenceError(error)) {
-    return 'infrastructure'
-  }
-  if (isDataIntegrityError(error)) {
-    return 'data_quality'
-  }
-  if (
-    isWorldGeneratorNotFoundError(error) ||
-    isGenerationSessionNotFoundError(error) ||
-    isBiomeNotFoundError(error) ||
-    isMetadataNotFoundError(error)
-  ) {
-    return 'not_found'
-  }
-  return 'unknown'
-}
+export const categorizeRepositoryError = (error: AllRepositoryErrors) =>
+  Match.value(error).pipe(
+    Match.when(
+      (e): e is RepositoryError | PersistenceError => isRepositoryError(e) || isPersistenceError(e),
+      () => 'infrastructure' as const
+    ),
+    Match.when(
+      (e): e is DataIntegrityError => isDataIntegrityError(e),
+      () => 'data_quality' as const
+    ),
+    Match.when(
+      (
+        e
+      ): e is
+        | WorldGeneratorNotFoundError
+        | GenerationSessionNotFoundError
+        | BiomeNotFoundError
+        | MetadataNotFoundError =>
+        isWorldGeneratorNotFoundError(e) ||
+        isGenerationSessionNotFoundError(e) ||
+        isBiomeNotFoundError(e) ||
+        isMetadataNotFoundError(e),
+      () => 'not_found' as const
+    ),
+    Match.orElse(() => 'unknown' as const)
+  )
 
 /**
  * エラー重要度判定
  */
-export const getErrorSeverity = (error: AllRepositoryErrors): 'low' | 'medium' | 'high' | 'critical' => {
-  if (isDataIntegrityError(error)) return 'critical'
-  if (isPersistenceError(error)) return 'high'
-  if (isRepositoryError(error)) return 'medium'
-  return 'low'
-}
+export const getErrorSeverity = (error: AllRepositoryErrors): 'low' | 'medium' | 'high' | 'critical' =>
+  Match.value(error).pipe(
+    Match.when(
+      (e): e is DataIntegrityError => isDataIntegrityError(e),
+      () => 'critical' as const
+    ),
+    Match.when(
+      (e): e is PersistenceError => isPersistenceError(e),
+      () => 'high' as const
+    ),
+    Match.when(
+      (e): e is RepositoryError => isRepositoryError(e),
+      () => 'medium' as const
+    ),
+    Match.orElse(() => 'low' as const)
+  )
 
 /**
  * エラーリトライ可能性判定
  */
-export const isRetryableError = (error: AllRepositoryErrors): boolean => {
-  if (isDataIntegrityError(error)) return false
-  if (isPersistenceError(error)) return true
-  if (isRepositoryError(error)) return true
-  return false
-}
+export const isRetryableError = (error: AllRepositoryErrors): boolean =>
+  Match.value(error).pipe(
+    Match.when(
+      (e): e is DataIntegrityError => isDataIntegrityError(e),
+      () => false
+    ),
+    Match.when(
+      (e): e is PersistenceError => isPersistenceError(e),
+      () => true
+    ),
+    Match.when(
+      (e): e is RepositoryError => isRepositoryError(e),
+      () => true
+    ),
+    Match.orElse(() => false)
+  )

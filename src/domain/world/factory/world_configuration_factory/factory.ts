@@ -19,7 +19,7 @@ import * as BiomeProperties from '@domain/world/value_object/biome_properties/in
 import * as GenerationParameters from '@domain/world/value_object/generation_parameters/index'
 import * as NoiseConfiguration from '@domain/world/value_object/noise_configuration/index'
 import * as WorldSeed from '@domain/world/value_object/world_seed/index'
-import { Context, Effect, Function, Layer, Match, Schema } from 'effect'
+import { Context, Effect, Function, Layer, Match, ReadonlyArray, Schema } from 'effect'
 
 // ================================
 // Factory Error Types
@@ -278,12 +278,10 @@ const createWorldConfigurationFactory = (): WorldConfigurationFactory => ({
         return yield* createDefaultConfiguration()
       }
 
-      let mergedConfig = configs[0]
-      for (let i = 1; i < configs.length; i++) {
-        mergedConfig = yield* mergeConfigurations(mergedConfig, configs[i])
-      }
-
-      return mergedConfig
+      return yield* Function.pipe(
+        ReadonlyArray.drop(configs, 1),
+        Effect.reduce(configs[0], (mergedConfig, config) => mergeConfigurations(mergedConfig, config))
+      )
     }),
 
   validate: (config: WorldConfiguration, strictness?: ValidationStrictness) =>
@@ -695,16 +693,23 @@ const autoFixConfiguration = (
   issues: readonly ConfigurationValidationIssue[]
 ): Effect.Effect<WorldConfiguration, ConfigurationFactoryError> =>
   Effect.gen(function* () {
-    let fixedConfig = config
+    const autoFixableIssues = Function.pipe(
+      issues,
+      ReadonlyArray.filter((i) => i.autoFixable)
+    )
 
-    for (const issue of issues.filter((i) => i.autoFixable)) {
-      if (issue.category === 'memory' && issue.message.includes('High memory usage')) {
-        fixedConfig = yield* applyOptimization(fixedConfig, 'memory')
-      }
-      // 他の自動修正ロジック...
-    }
-
-    return fixedConfig
+    return yield* Function.pipe(
+      autoFixableIssues,
+      Effect.reduce(config, (fixedConfig, issue) =>
+        Effect.gen(function* () {
+          if (issue.category === 'memory' && issue.message.includes('High memory usage')) {
+            return yield* applyOptimization(fixedConfig, 'memory')
+          }
+          // 他の自動修正ロジック...
+          return fixedConfig
+        })
+      )
+    )
   })
 
 const createFromTemplate = (

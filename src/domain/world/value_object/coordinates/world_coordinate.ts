@@ -84,6 +84,7 @@ export const WorldCoordinateSchema = Schema.Struct({
   y: WorldYSchema,
   z: WorldZSchema,
 }).pipe(
+  Schema.brand('WorldCoordinate'),
   Schema.annotations({
     identifier: 'WorldCoordinate',
     title: 'World 3D Coordinate',
@@ -100,6 +101,7 @@ export const WorldCoordinate2DSchema = Schema.Struct({
   x: WorldXSchema,
   z: WorldZSchema,
 }).pipe(
+  Schema.brand('WorldCoordinate2D'),
   Schema.annotations({
     identifier: 'WorldCoordinate2D',
     title: 'World 2D Coordinate',
@@ -192,6 +194,7 @@ export const BoundingBoxSchema = Schema.Struct({
   min: WorldCoordinateSchema,
   max: WorldCoordinateSchema,
 }).pipe(
+  Schema.brand('BoundingBox'),
   Schema.annotations({
     identifier: 'BoundingBox',
     title: 'World Bounding Box',
@@ -208,6 +211,7 @@ export const BoundingSphereSchema = Schema.Struct({
   center: WorldCoordinateSchema,
   radius: DistanceSchema,
 }).pipe(
+  Schema.brand('BoundingSphere'),
   Schema.annotations({
     identifier: 'BoundingSphere',
     title: 'World Bounding Sphere',

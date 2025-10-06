@@ -118,64 +118,75 @@ const validateContainerConfig = (config: ContainerConfig): Effect.Effect<void, C
   })
 
 // スロットにアイテムが挿入可能かチェック（Pure Function）
-const canInsertIntoSlot = (slot: ContainerSlot, item: ItemStack): boolean => {
-  // スロットが既に占有されている場合
-  if (slot.item !== null) {
-    // 同じアイテムでスタック可能かチェック
-    if (slot.item.itemId === item.itemId) {
-      const maxStackSize = slot.maxStackSize || 64
-      return slot.item.count + item.count <= maxStackSize
-    }
-    return false
-  }
-
-  // 空のスロットの場合、アイテムタイプ制限をチェック
-  if (slot.acceptsItemType) {
-    return slot.acceptsItemType(item.itemId)
-  }
-
-  return true
-}
+const canInsertIntoSlot = (slot: ContainerSlot, item: ItemStack): boolean =>
+  pipe(
+    slot,
+    Match.value,
+    // スロットが既に占有されている場合
+    Match.when(
+      (s) => s.item !== null,
+      (s) =>
+        pipe(
+          s.item!.itemId === item.itemId,
+          Match.value,
+          // 同じアイテムでスタック可能かチェック
+          Match.when(true, () => {
+            const maxStackSize = s.maxStackSize || 64
+            return s.item!.count + item.count <= maxStackSize
+          }),
+          Match.orElse(() => false)
+        )
+    ),
+    // 空のスロットの場合、アイテムタイプ制限をチェック
+    Match.when(
+      (s) => s.acceptsItemType !== undefined,
+      (s) => s.acceptsItemType!(item.itemId)
+    ),
+    // デフォルト: 挿入可能
+    Match.orElse(() => true)
+  )
 
 // アイテム挿入処理（Pure Function with Effect）
 const insertItemIntoSlot = (slot: ContainerSlot, item: ItemStack): Effect.Effect<ContainerSlot, OperationError> =>
   Effect.gen(function* () {
-    return yield* pipe(
-      canInsertIntoSlot(slot, item),
-      Effect.if({
-        onTrue: () =>
-          pipe(
-            Option.fromNullable(slot.item),
-            Option.match({
-              onNone: () =>
-                Effect.succeed({
-                  ...slot,
-                  item,
-                }),
-              onSome: (existingItem) =>
-                Effect.gen(function* () {
-                  const maxStackSize = slot.maxStackSize || 64
-                  const newCount = Math.min(existingItem.count + item.count, maxStackSize)
+    const canInsert = yield* canInsertIntoSlot(slot, item)
 
-                  return yield* Effect.succeed({
-                    ...slot,
-                    item: {
-                      ...existingItem,
-                      count: newCount,
-                    },
-                  })
-                }),
-            })
-          ),
-        onFalse: () =>
-          Effect.fail(
-            new OperationError({
-              reason: 'Cannot insert item into slot',
-              operation: 'insertItem',
-              context: { slot, item },
-            })
-          ),
-      })
+    return yield* pipe(
+      Match.value(canInsert),
+      Match.when(true, () =>
+        pipe(
+          Option.fromNullable(slot.item),
+          Option.match({
+            onNone: () =>
+              Effect.succeed({
+                ...slot,
+                item,
+              }),
+            onSome: (existingItem) =>
+              Effect.gen(function* () {
+                const maxStackSize = slot.maxStackSize || 64
+                const newCount = Math.min(existingItem.count + item.count, maxStackSize)
+
+                return yield* Effect.succeed({
+                  ...slot,
+                  item: {
+                    ...existingItem,
+                    count: newCount,
+                  },
+                })
+              }),
+          })
+        )
+      ),
+      Match.orElse(() =>
+        Effect.fail(
+          new OperationError({
+            reason: 'Cannot insert item into slot',
+            operation: 'insertItem',
+            context: { slot, item },
+          })
+        )
+      )
     )
   })
 
@@ -194,37 +205,36 @@ const extractItemFromSlot = (
             const extractAmount = amount || item.count
 
             return yield* pipe(
-              extractAmount <= 0,
-              Effect.if({
-                onTrue: () =>
-                  Effect.fail(
-                    new OperationError({
-                      reason: 'Extract amount must be positive',
-                      operation: 'extractItem',
-                      context: { slot, amount },
+              Match.value(extractAmount <= 0),
+              Match.when(true, () =>
+                Effect.fail(
+                  new OperationError({
+                    reason: 'Extract amount must be positive',
+                    operation: 'extractItem',
+                    context: { slot, amount },
+                  })
+                )
+              ),
+              Match.orElse(() =>
+                pipe(
+                  Match.value(extractAmount >= item.count),
+                  Match.when(true, () => Effect.succeed([{ ...slot, item: null }, item] as const)),
+                  Match.orElse(() =>
+                    Effect.gen(function* () {
+                      const extractedItem: ItemStack = {
+                        ...item,
+                        count: extractAmount,
+                      }
+                      const remainingItem: ItemStack = {
+                        ...item,
+                        count: item.count - extractAmount,
+                      }
+                      const newSlot: ContainerSlot = { ...slot, item: remainingItem }
+                      return yield* Effect.succeed([newSlot, extractedItem] as const)
                     })
-                  ),
-                onFalse: () =>
-                  pipe(
-                    extractAmount >= item.count,
-                    Effect.if({
-                      onTrue: () => Effect.succeed([{ ...slot, item: null }, item] as const),
-                      onFalse: () =>
-                        Effect.gen(function* () {
-                          const extractedItem: ItemStack = {
-                            ...item,
-                            count: extractAmount,
-                          }
-                          const remainingItem: ItemStack = {
-                            ...item,
-                            count: item.count - extractAmount,
-                          }
-                          const newSlot: ContainerSlot = { ...slot, item: remainingItem }
-                          return yield* Effect.succeed([newSlot, extractedItem] as const)
-                        }),
-                    })
-                  ),
-              })
+                  )
+                )
+              )
             )
           }),
       })
@@ -244,24 +254,24 @@ const placeInitialItems = (
           const { slotIndex, item } = itemPlacement
 
           return yield* pipe(
-            slotIndex < 0 || slotIndex >= mutableSlots.length,
-            Effect.if({
-              onTrue: () =>
-                Effect.fail(
-                  new CreationError({
-                    reason: `Invalid slot index ${slotIndex}`,
-                    invalidFields: ['slotIndex'],
-                    context: { itemPlacement, totalSlots: mutableSlots.length },
-                  })
-                ),
-              onFalse: () =>
-                Effect.gen(function* () {
-                  const currentSlot = mutableSlots[slotIndex]
-                  const updatedSlot = yield* insertItemIntoSlot(currentSlot, item)
-                  mutableSlots[slotIndex] = updatedSlot
-                  return yield* Effect.succeed(mutableSlots)
-                }),
-            })
+            Match.value(slotIndex < 0 || slotIndex >= mutableSlots.length),
+            Match.when(true, () =>
+              Effect.fail(
+                new CreationError({
+                  reason: `Invalid slot index ${slotIndex}`,
+                  invalidFields: ['slotIndex'],
+                  context: { itemPlacement, totalSlots: mutableSlots.length },
+                })
+              )
+            ),
+            Match.orElse(() =>
+              Effect.gen(function* () {
+                const currentSlot = mutableSlots[slotIndex]
+                const updatedSlot = yield* insertItemIntoSlot(currentSlot, item)
+                mutableSlots[slotIndex] = updatedSlot
+                return yield* Effect.succeed(mutableSlots)
+              })
+            )
           )
         })
       )
@@ -437,29 +447,29 @@ export const ContainerFactoryLive: ContainerFactory = {
           onSome: (targetSlotIndex) =>
             Effect.gen(function* () {
               return yield* pipe(
-                targetSlotIndex < 0 || targetSlotIndex >= container.slots.length,
-                Effect.if({
-                  onTrue: () =>
-                    Effect.fail(
-                      new OperationError({
-                        reason: `Invalid slot index ${targetSlotIndex}`,
-                        operation: 'insertItem',
-                        context: { container: container.id, slotIndex: targetSlotIndex },
-                      })
-                    ),
-                  onFalse: () =>
-                    Effect.gen(function* () {
-                      const targetSlot = container.slots[targetSlotIndex]
-                      const updatedSlot = yield* insertItemIntoSlot(targetSlot, item)
-                      const newSlots = [...container.slots]
-                      newSlots[targetSlotIndex] = updatedSlot
+                Match.value(targetSlotIndex < 0 || targetSlotIndex >= container.slots.length),
+                Match.when(true, () =>
+                  Effect.fail(
+                    new OperationError({
+                      reason: `Invalid slot index ${targetSlotIndex}`,
+                      operation: 'insertItem',
+                      context: { container: container.id, slotIndex: targetSlotIndex },
+                    })
+                  )
+                ),
+                Match.orElse(() =>
+                  Effect.gen(function* () {
+                    const targetSlot = container.slots[targetSlotIndex]
+                    const updatedSlot = yield* insertItemIntoSlot(targetSlot, item)
+                    const newSlots = [...container.slots]
+                    newSlots[targetSlotIndex] = updatedSlot
 
-                      return yield* Effect.succeed({
-                        ...container,
-                        slots: newSlots,
-                      })
-                    }),
-                })
+                    return yield* Effect.succeed({
+                      ...container,
+                      slots: newSlots,
+                    })
+                  })
+                )
               )
             }),
         })
@@ -470,32 +480,32 @@ export const ContainerFactoryLive: ContainerFactory = {
   extractItem: (container, slotIndex, amount) =>
     Effect.gen(function* () {
       return yield* pipe(
-        slotIndex < 0 || slotIndex >= container.slots.length,
-        Effect.if({
-          onTrue: () =>
-            Effect.fail(
-              new OperationError({
-                reason: `Invalid slot index ${slotIndex}`,
-                operation: 'extractItem',
-                context: { container: container.id, slotIndex },
-              })
-            ),
-          onFalse: () =>
-            Effect.gen(function* () {
-              const targetSlot = container.slots[slotIndex]
-              const [updatedSlot, extractedItem] = yield* extractItemFromSlot(targetSlot, amount)
+        Match.value(slotIndex < 0 || slotIndex >= container.slots.length),
+        Match.when(true, () =>
+          Effect.fail(
+            new OperationError({
+              reason: `Invalid slot index ${slotIndex}`,
+              operation: 'extractItem',
+              context: { container: container.id, slotIndex },
+            })
+          )
+        ),
+        Match.orElse(() =>
+          Effect.gen(function* () {
+            const targetSlot = container.slots[slotIndex]
+            const [updatedSlot, extractedItem] = yield* extractItemFromSlot(targetSlot, amount)
 
-              const newSlots = [...container.slots]
-              newSlots[slotIndex] = updatedSlot
+            const newSlots = [...container.slots]
+            newSlots[slotIndex] = updatedSlot
 
-              const updatedContainer: Container = {
-                ...container,
-                slots: newSlots,
-              }
+            const updatedContainer: Container = {
+              ...container,
+              slots: newSlots,
+            }
 
-              return yield* Effect.succeed([updatedContainer, extractedItem] as const)
-            }),
-        })
+            return yield* Effect.succeed([updatedContainer, extractedItem] as const)
+          })
+        )
       )
     }),
 
@@ -503,60 +513,61 @@ export const ContainerFactoryLive: ContainerFactory = {
   moveItem: (container, fromSlot, toSlot) =>
     Effect.gen(function* () {
       return yield* pipe(
-        fromSlot === toSlot,
-        Effect.if({
-          onTrue: () => Effect.succeed(container),
-          onFalse: () =>
-            pipe(
-              fromSlot < 0 || fromSlot >= container.slots.length || toSlot < 0 || toSlot >= container.slots.length,
-              Effect.if({
-                onTrue: () =>
-                  Effect.fail(
-                    new OperationError({
-                      reason: 'Invalid slot indices for move operation',
-                      operation: 'moveItem',
-                      context: { container: container.id, fromSlot, toSlot },
-                    })
-                  ),
-                onFalse: () =>
-                  Effect.gen(function* () {
-                    const sourceSlot = container.slots[fromSlot]
-                    const targetSlot = container.slots[toSlot]
-
-                    return yield* pipe(
-                      Option.fromNullable(sourceSlot.item),
-                      Option.match({
-                        onNone: () => Effect.succeed(container),
-                        onSome: () =>
-                          Effect.gen(function* () {
-                            const [updatedSourceSlot, extractedItem] = yield* extractItemFromSlot(sourceSlot)
-
-                            return yield* pipe(
-                              Option.fromNullable(extractedItem),
-                              Option.match({
-                                onNone: () => Effect.succeed(container),
-                                onSome: (item) =>
-                                  Effect.gen(function* () {
-                                    const updatedTargetSlot = yield* insertItemIntoSlot(targetSlot, item)
-
-                                    const newSlots = [...container.slots]
-                                    newSlots[fromSlot] = updatedSourceSlot
-                                    newSlots[toSlot] = updatedTargetSlot
-
-                                    return yield* Effect.succeed({
-                                      ...container,
-                                      slots: newSlots,
-                                    })
-                                  }),
-                              })
-                            )
-                          }),
-                      })
-                    )
-                  }),
-              })
+        Match.value(fromSlot === toSlot),
+        Match.when(true, () => Effect.succeed(container)),
+        Match.orElse(() =>
+          pipe(
+            Match.value(
+              fromSlot < 0 || fromSlot >= container.slots.length || toSlot < 0 || toSlot >= container.slots.length
             ),
-        })
+            Match.when(true, () =>
+              Effect.fail(
+                new OperationError({
+                  reason: 'Invalid slot indices for move operation',
+                  operation: 'moveItem',
+                  context: { container: container.id, fromSlot, toSlot },
+                })
+              )
+            ),
+            Match.orElse(() =>
+              Effect.gen(function* () {
+                const sourceSlot = container.slots[fromSlot]
+                const targetSlot = container.slots[toSlot]
+
+                return yield* pipe(
+                  Option.fromNullable(sourceSlot.item),
+                  Option.match({
+                    onNone: () => Effect.succeed(container),
+                    onSome: () =>
+                      Effect.gen(function* () {
+                        const [updatedSourceSlot, extractedItem] = yield* extractItemFromSlot(sourceSlot)
+
+                        return yield* pipe(
+                          Option.fromNullable(extractedItem),
+                          Option.match({
+                            onNone: () => Effect.succeed(container),
+                            onSome: (item) =>
+                              Effect.gen(function* () {
+                                const updatedTargetSlot = yield* insertItemIntoSlot(targetSlot, item)
+
+                                const newSlots = [...container.slots]
+                                newSlots[fromSlot] = updatedSourceSlot
+                                newSlots[toSlot] = updatedTargetSlot
+
+                                return yield* Effect.succeed({
+                                  ...container,
+                                  slots: newSlots,
+                                })
+                              }),
+                          })
+                        )
+                      }),
+                  })
+                )
+              })
+            )
+          )
+        )
       )
     }),
 

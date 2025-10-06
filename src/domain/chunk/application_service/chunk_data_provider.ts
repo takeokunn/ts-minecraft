@@ -31,14 +31,14 @@ export class ChunkDataProviderLive implements ChunkDataProvider {
       yield* Effect.logInfo(`Getting chunk with ID: ${id}`)
 
       // チャンクIDの検証
-      if (!id || typeof id !== 'string') {
-        return yield* Effect.fail({
+      yield* Effect.when(!id || typeof id !== 'string', () =>
+        Effect.fail({
           _tag: 'ChunkIdError' as const,
           chunkId: id,
           reason: 'Invalid chunk ID format',
           operation: 'getChunk',
         })
-      }
+      )
 
       // 現在時刻を取得
       const clock = yield* Clock.Clock
@@ -89,24 +89,26 @@ export class ChunkDataProviderLive implements ChunkDataProvider {
 
       // データサイズの検証
       const expectedSize = 16 * 16 * 384 // CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT
-      if (chunk.data.length !== expectedSize) {
-        return yield* Effect.fail({
+      yield* Effect.when(chunk.data.length !== expectedSize, () =>
+        Effect.fail({
           _tag: 'ChunkDataValidationError' as const,
           chunkId: chunk.id,
           reason: `Invalid chunk data size: expected ${expectedSize}, got ${chunk.data.length}`,
           data: chunk.data,
         })
-      }
+      )
 
       // ポジションの検証
-      if (!chunk.position || typeof chunk.position.x !== 'number' || typeof chunk.position.z !== 'number') {
-        return yield* Effect.fail({
-          _tag: 'ChunkDataValidationError' as const,
-          chunkId: chunk.id,
-          reason: 'Invalid chunk position',
-          data: chunk.position,
-        })
-      }
+      yield* Effect.when(
+        !chunk.position || typeof chunk.position.x !== 'number' || typeof chunk.position.z !== 'number',
+        () =>
+          Effect.fail({
+            _tag: 'ChunkDataValidationError' as const,
+            chunkId: chunk.id,
+            reason: 'Invalid chunk position',
+            data: chunk.position,
+          })
+      )
 
       yield* Effect.logInfo(`Chunk validation successful: ${chunk.id}`)
     })
@@ -123,15 +125,14 @@ export class ChunkDataProviderLive implements ChunkDataProvider {
       // 座標の境界チェック
       const { x, y, z } = position
 
-      if (y < -64 || y > 319) {
-        // CHUNK_MIN_Y to CHUNK_MAX_Y
-        return yield* Effect.fail({
+      yield* Effect.when(y < -64 || y > 319, () =>
+        Effect.fail({
           _tag: 'ChunkBoundsError' as const,
           position,
           reason: `Y coordinate out of bounds: ${y}`,
           bounds: { min: -64, max: 319 },
         })
-      }
+      )
 
       // チャンク座標に変換
       const chunkX = Math.floor(x / 16)
@@ -168,14 +169,14 @@ export class ChunkDataProviderLive implements ChunkDataProvider {
       // 座標の境界チェック（getBlockと同じロジック）
       const { y } = position
 
-      if (y < -64 || y > 319) {
-        return yield* Effect.fail({
+      yield* Effect.when(y < -64 || y > 319, () =>
+        Effect.fail({
           _tag: 'ChunkBoundsError' as const,
           position,
           reason: `Y coordinate out of bounds: ${y}`,
           bounds: { min: -64, max: 319 },
         })
-      }
+      )
 
       // TODO: 実際のブロック設定ロジック
       yield* Effect.logInfo(`Block set successfully at: (${position.x}, ${position.y}, ${position.z})`)

@@ -12,14 +12,8 @@ export const EpochMillisecondsSchema = Schema.Number.pipe(
 
 export type EpochMilliseconds = Schema.Schema.Type<typeof EpochMillisecondsSchema>
 
-export const ChunkIdSchema = Schema.String.pipe(
-  Schema.minLength(1),
-  Schema.maxLength(128),
-  Schema.pattern(/^[a-z0-9\-_/]+$/),
-  Schema.brand('ChunkId')
-)
-
-export type ChunkId = Schema.Schema.Type<typeof ChunkIdSchema>
+// ChunkIdは専用value_objectから再エクスポート
+export { ChunkIdSchema, type ChunkId } from '@domain/chunk/value_object/chunk_id'
 
 export const RequestIdSchema = Schema.UUID.pipe(Schema.brand('RequestId'))
 

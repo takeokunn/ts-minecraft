@@ -7,7 +7,7 @@
  */
 
 import type { AllRepositoryErrors, BiomeDefinition, BiomeId, ClimateData, WorldCoordinate } from '@domain/world/types'
-import { createDataIntegrityError, createRepositoryError, createStorageError } from '@domain/world/types'
+import { createBiomeId, createDataIntegrityError, createRepositoryError, createStorageError } from '@domain/world/types'
 import {
   HumiditySchema,
   PrecipitationSchema,
@@ -192,8 +192,13 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
                 onFalse: () => Effect.succeed(rawContent),
               })
 
-              const parsed = JSON.parse(content)
-              const decoded = yield* Schema.decodeUnknown(schema)(parsed).pipe(
+              // パターンB: Effect.try + Effect.flatMap + Schema.decodeUnknown
+              const decoded = yield* Effect.try({
+                try: () => JSON.parse(content),
+                catch: (error) =>
+                  createDataIntegrityError(`JSON parse failed for ${filePath}: ${String(error)}`, 'readFile', error),
+              }).pipe(
+                Effect.flatMap(Schema.decodeUnknown(schema)),
                 Effect.catchAll((error) =>
                   Effect.fail(
                     createDataIntegrityError(`Schema validation failed for ${filePath}: ${error}`, 'readFile', error)
@@ -243,7 +248,7 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
                     biome,
                     Option.map((b) => ({
                       ...b,
-                      id: b.id as BiomeId,
+                      id: createBiomeId(b.id),
                     }))
                   )
                 }),
@@ -277,7 +282,7 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
               Effect.gen(function* () {
                 const converted = value.map((p) => ({
                   ...p,
-                  biomeId: p.biomeId as BiomeId,
+                  biomeId: createBiomeId(p.biomeId),
                   coordinate: {
                     x: p.coordinate.x as WorldCoordinate,
                     z: p.coordinate.z as WorldCoordinate,
@@ -784,7 +789,8 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
           )
 
           const dominantBiome =
-            Array.from(biomeTypeCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || ('unknown' as BiomeId)
+            Array.from(biomeTypeCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ||
+            createBiomeId('minecraft:unknown')
 
           return {
             totalBiomes: relevantPlacements.length,

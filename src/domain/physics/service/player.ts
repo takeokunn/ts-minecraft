@@ -176,32 +176,41 @@ const makePlayerPhysicsService: Effect.Effect<PlayerPhysicsService, never, Canno
         )
 
         // 移動方向ベクトルの計算（水平面のみ）
-        const moveVector = yield* Effect.sync(() => {
-          const baseVector = { x: 0, y: 0, z: 0 }
+        const baseVector = { x: 0, y: 0, z: 0 }
 
-          // Forward/Backward
-          if (direction.forward) {
+        // Forward/Backward
+        yield* Effect.when(direction.forward, () =>
+          Effect.sync(() => {
             baseVector.z -= 1
-          }
-          if (direction.backward) {
+          })
+        )
+
+        yield* Effect.when(direction.backward, () =>
+          Effect.sync(() => {
             baseVector.z += 1
-          }
+          })
+        )
 
-          // Left/Right
-          if (direction.left) {
+        // Left/Right
+        yield* Effect.when(direction.left, () =>
+          Effect.sync(() => {
             baseVector.x -= 1
-          }
-          if (direction.right) {
-            baseVector.x += 1
-          }
+          })
+        )
 
-          // ベクトルを正規化
+        yield* Effect.when(direction.right, () =>
+          Effect.sync(() => {
+            baseVector.x += 1
+          })
+        )
+
+        // ベクトルを正規化
+        const moveVector = yield* Effect.sync(() => {
           const length = Math.sqrt(baseVector.x * baseVector.x + baseVector.z * baseVector.z)
           if (length > 0) {
             baseVector.x /= length
             baseVector.z /= length
           }
-
           return baseVector
         })
 

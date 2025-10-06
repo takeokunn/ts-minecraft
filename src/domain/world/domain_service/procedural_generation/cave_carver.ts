@@ -414,28 +414,28 @@ export const CaveCarverServiceLive = Layer.effect(
       Effect.gen(function* () {
         // 水流シミュレーション
 
-        const flowResults: Array<{
-          path: ReadonlyArray<WorldCoordinate>
-          volume: number
-          poolingAreas: ReadonlyArray<WorldCoordinate>
-        }> = []
+        // for文 → Effect.forEach（水源ごとの流路計算）
+        const flowResults = yield* pipe(
+          waterSources,
+          Effect.forEach((source) =>
+            Effect.gen(function* () {
+              // 1. 流路の計算
+              const flowPath = yield* calculateWaterPath(source, network)
 
-        for (const source of waterSources) {
-          // 1. 流路の計算
-          const flowPath = yield* calculateWaterPath(source, network)
+              // 2. 流量の計算
+              const volume = yield* calculateFlowVolume(source, flowPath)
 
-          // 2. 流量の計算
-          const volume = yield* calculateFlowVolume(source, flowPath)
+              // 3. 溜まり場の特定
+              const poolingAreas = yield* identifyPoolingAreas(flowPath, network)
 
-          // 3. 溜まり場の特定
-          const poolingAreas = yield* identifyPoolingAreas(flowPath, network)
-
-          flowResults.push({
-            path: flowPath,
-            volume,
-            poolingAreas,
-          })
-        }
+              return {
+                path: flowPath,
+                volume,
+                poolingAreas,
+              }
+            })
+          )
+        )
 
         return flowResults
       }),
@@ -453,21 +453,25 @@ const generateCaveCandidates = (
   seed: WorldSeed
 ): Effect.Effect<ReadonlyArray<WorldCoordinate>, GenerationError> =>
   Effect.gen(function* () {
-    const candidates: WorldCoordinate[] = []
     const volume = calculateBoundsVolume(bounds)
     const targetCaveCount = Math.floor(volume * config.density * 0.0001)
 
-    for (let i = 0; i < targetCaveCount; i++) {
-      // ノイズベースの配置決定
-      const x = bounds.min.x + (bounds.max.x - bounds.min.x) * Math.random()
-      const y = bounds.min.y + (bounds.max.y - bounds.min.y) * Math.random()
-      const z = bounds.min.z + (bounds.max.z - bounds.min.z) * Math.random()
+    // for文 → ReadonlyArray.filterMap（洞窟候補生成）
+    const candidates = pipe(
+      ReadonlyArray.range(0, targetCaveCount),
+      ReadonlyArray.filterMap(() => {
+        // ノイズベースの配置決定
+        const x = bounds.min.x + (bounds.max.x - bounds.min.x) * Math.random()
+        const y = bounds.min.y + (bounds.max.y - bounds.min.y) * Math.random()
+        const z = bounds.min.z + (bounds.max.z - bounds.min.z) * Math.random()
 
-      // 深度制約の適用
-      if (y >= config.minDepth && y <= config.maxDepth) {
-        candidates.push({ x, y, z } as WorldCoordinate)
-      }
-    }
+        // 深度制約の適用
+        if (y >= config.minDepth && y <= config.maxDepth) {
+          return Option.some({ x, y, z } as WorldCoordinate)
+        }
+        return Option.none()
+      })
+    )
 
     return candidates
   })

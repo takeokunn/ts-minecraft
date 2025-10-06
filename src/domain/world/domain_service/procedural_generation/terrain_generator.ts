@@ -8,7 +8,7 @@
 import { type GenerationError } from '@domain/world/types/errors'
 import type { BoundingBox, WorldCoordinate, WorldCoordinate2D } from '@domain/world/value_object/coordinates'
 import type { WorldSeed } from '@domain/world/value_object/world_seed'
-import { Clock, Context, Effect, Layer, Option, pipe, ReadonlyArray, Schema } from 'effect'
+import { Clock, Context, Effect, Layer, Match, Option, pipe, ReadonlyArray, Schema } from 'effect'
 
 /**
  * 高度マップ - ワールド座標における高度データ
@@ -372,22 +372,31 @@ export const TerrainGeneratorServiceLive = Layer.effect(
 
     determineSurface: (coordinate, height, config) =>
       Effect.gen(function* () {
-        // 地表面材質の決定ロジック
-
-        // 1. 高度による基本材質
-        if (height < config.seaLevel - 10) {
-          return 'sand' // 深海
-        } else if (height < config.seaLevel) {
-          return 'gravel' // 浅海
-        } else if (height < config.seaLevel + 10) {
-          return 'sand' // 海岸
-        } else if (height < config.seaLevel + 50) {
-          return 'grass' // 平地
-        } else if (height < config.seaLevel + 100) {
-          return 'stone' // 丘陵
-        } else {
-          return 'stone' // 山地
-        }
+        // 高度による地表面材質の決定
+        return pipe(
+          Match.value(true),
+          Match.when(
+            height < config.seaLevel - 10,
+            () => 'sand' // 深海
+          ),
+          Match.when(
+            height < config.seaLevel,
+            () => 'gravel' // 浅海
+          ),
+          Match.when(
+            height < config.seaLevel + 10,
+            () => 'sand' // 海岸
+          ),
+          Match.when(
+            height < config.seaLevel + 50,
+            () => 'grass' // 平地
+          ),
+          Match.when(
+            height < config.seaLevel + 100,
+            () => 'stone' // 丘陵
+          ),
+          Match.orElse(() => 'stone') // 山地
+        )
       }),
 
     validateTerrain: (result, config) =>

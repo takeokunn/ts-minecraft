@@ -5,7 +5,7 @@
  * 不変性を保証する関数型プログラミングパターンを採用
  */
 
-import { Clock, Effect, Equal, Hash, Schema } from 'effect'
+import { Clock, Effect, Equal, Hash, ReadonlyArray, Schema } from 'effect'
 import {
   CreateWorldSeedParams,
   CreateWorldSeedParamsSchema,
@@ -236,14 +236,7 @@ export const WorldSeedOps = {
         })
       }
 
-      const seeds: WorldSeed[] = []
-
-      for (let i = 0; i < count; i++) {
-        const derivedSeed = yield* WorldSeedOps.derive(start, i)
-        seeds.push(derivedSeed)
-      }
-
-      return seeds
+      return yield* Effect.forEach(ReadonlyArray.range(0, count), (i) => WorldSeedOps.derive(start, i))
     }),
 }
 
@@ -274,11 +267,11 @@ const generateSeedValue = (params: CreateWorldSeedParams): Effect.Effect<WorldSe
  * 文字列からシード値への変換（Java互換ハッシュ）
  */
 const stringToSeed = (str: string): number => {
-  let hash = 0
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i)
-    hash = ((hash << 5) - hash + char) & 0xffffffff
-  }
+  const hash = ReadonlyArray.reduce(
+    ReadonlyArray.fromIterable(str),
+    0,
+    (hash, char) => ((hash << 5) - hash + char.charCodeAt(0)) & 0xffffffff
+  )
   // 32bit符号付き整数に変換
   return hash | 0
 }
@@ -312,13 +305,10 @@ const calculateUniformity = (value: number): number => {
  */
 const calculateComplexity = (value: number): number => {
   const binary = Math.abs(value).toString(2)
-  let transitions = 0
 
-  for (let i = 1; i < binary.length; i++) {
-    if (binary[i] !== binary[i - 1]) {
-      transitions++
-    }
-  }
+  const transitions = ReadonlyArray.reduce(ReadonlyArray.range(1, binary.length), 0, (count, i) =>
+    binary[i] !== binary[i - 1] ? count + 1 : count
+  )
 
   // 複雑性 = 遷移数 / 最大可能遷移数
   return transitions / (binary.length - 1)
