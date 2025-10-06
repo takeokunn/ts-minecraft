@@ -32,24 +32,22 @@ describe('combat/types', () => {
     )
   )
 
-  it.prop('makeHealth rejects negative values', [fc.float({ max: -0.0001 })], ([value]) =>
-    makeHealth(value).pipe(
-      Effect.flip,
-      Effect.map((error) => {
-        expect(error.kind).toBe('InvalidStat')
-        expect(error.stat).toBe('health')
-      })
-    )
-  )
+  it.prop('makeHealth rejects negative values', [fc.float({ max: Math.fround(-0.0001) })], ([value]) => {
+    const outcome = Effect.runSync(Effect.either(makeHealth(value)))
+    expect(outcome).toMatchObject({ _tag: 'Left' })
+    if (outcome._tag === 'Left') {
+      expect(outcome.left.kind).toBe('InvalidStat')
+      expect(outcome.left.stat).toBe('health')
+    }
+    return true
+  })
 
-  it.prop('makeCriticalChance accepts probabilities in range [0,1]', [fc.float({ min: 0, max: 1 })], ([value]) =>
-    makeCriticalChance(value).pipe(
-      Effect.map((chance) => {
-        expect(chance).toBeGreaterThanOrEqual(0)
-        expect(chance).toBeLessThanOrEqual(1)
-      })
-    )
-  )
+  it.prop('makeCriticalChance accepts probabilities in range [0,1]', [fc.float({ min: Math.fround(0), max: Math.fround(1) })], ([value]) => {
+    const chance = Effect.runSync(makeCriticalChance(value))
+    expect(chance).toBeGreaterThanOrEqual(0)
+    expect(chance).toBeLessThanOrEqual(1)
+    return true
+  })
 
   it.effect('AttackKindFactory produces well tagged variants', () =>
     Effect.gen(function* () {

@@ -3,7 +3,7 @@
  * DDD原則に基づく複雑なエンティティ生成の隠蔽
  */
 
-import { Clock, Context, Effect, Schema } from 'effect'
+import { Clock, Context, Effect, Layer, Schema } from 'effect'
 import { nanoid } from 'nanoid'
 import type { ItemId } from '../../types'
 import type { Durability, Enchantment, ItemCount, ItemNBTData, ItemStackEntity, ItemStackId } from './types'
@@ -310,6 +310,11 @@ export const ItemStackFactoryLive = ItemStackFactory.of({
 
   builder: () => new ItemStackBuilderImpl(),
 })
+
+/**
+ * ItemStackFactory Layer
+ */
+export const ItemStackFactoryLayer = Layer.succeed(ItemStackFactory, ItemStackFactoryLive)
 
 // ===== Utility Functions =====
 

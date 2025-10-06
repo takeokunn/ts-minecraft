@@ -5,7 +5,7 @@
  */
 
 // Service Interface and Implementation
-export { ItemRegistryError, ItemRegistryService, ItemRegistryServiceLive } from './service'
+export { ItemRegistryError, ItemRegistryService } from './service'
 export type {
   EdibleProperties,
   FuelProperties,

@@ -704,15 +704,21 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
       updateBiomesInBounds: (bounds: SpatialBounds, biomeId: BiomeId) =>
         Effect.gen(function* () {
           const placements = yield* Ref.get(biomePlacements)
-          let updatedCount = 0
 
-          const updated = placements.map((placement) => {
-            if (coordinateInBounds(placement.coordinate, bounds)) {
-              updatedCount++
-              return { ...placement, biomeId }
-            }
-            return placement
-          })
+          const { updated, updatedCount } = pipe(
+            placements,
+            ReadonlyArray.reduce({ updated: [] as BiomePlacement[], updatedCount: 0 }, (acc, placement) =>
+              coordinateInBounds(placement.coordinate, bounds)
+                ? {
+                    updated: [...acc.updated, { ...placement, biomeId }],
+                    updatedCount: acc.updatedCount + 1,
+                  }
+                : {
+                    updated: [...acc.updated, placement],
+                    updatedCount: acc.updatedCount,
+                  }
+            )
+          )
 
           yield* Ref.set(biomePlacements, updated)
           yield* persistBiomePlacements()

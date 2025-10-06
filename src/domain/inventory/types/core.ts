@@ -232,10 +232,7 @@ export const ItemMetadataSchema = Schema.Struct({
     )
   ),
   nbtData: Schema.optional(
-    Schema.Record({
-      key: Schema.String,
-      value: Schema.Unknown,
-    }).pipe(
+    Schema.Record({ key: Schema.String, value: Schema.Any }).pipe(
       Schema.annotations({
         description: 'Custom NBT data for mod compatibility',
       })

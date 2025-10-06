@@ -6,7 +6,7 @@
  */
 
 // Service Interface and Implementation
-export { CorrectionError, ValidationError, ValidationService, ValidationServiceLive } from './service'
+export { CorrectionError, ValidationError, ValidationService } from './service'
 export type {
   CorrectionStep,
   CorrectionSuggestion,

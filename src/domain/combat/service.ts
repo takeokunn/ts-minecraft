@@ -41,12 +41,13 @@ export interface AttackResolution {
   readonly target: Combatant
 }
 
-const findCombatant = (session: CombatSession, id: CombatantId): Effect.Effect<Combatant, CombatDomainError> =>
-  pipe(
-    session.combatants,
-    ReadonlyArray.findFirst((combatant) => combatant.id === id),
-    Effect.fromOption(() => CombatError.combatantNotFound(id))
-  )
+const findCombatant = (session: CombatSession, id: CombatantId): Effect.Effect<Combatant, CombatDomainError> => {
+  const option = ReadonlyArray.findFirst(session.combatants, (combatant) => combatant.id === id)
+  return Option.match(option, {
+    onNone: () => Effect.fail(CombatError.combatantNotFound(id)),
+    onSome: (combatant) => Effect.succeed(combatant),
+  })
+}
 
 const ensureDistinctParticipants = (
   attacker: CombatantId,
@@ -58,19 +59,18 @@ const ensureDistinctParticipants = (
     () => CombatError.invalidAttack('attacker and target must differ')
   )
 
-const ensureCooldownReady = (combatant: Combatant, attack: AttackKind): Effect.Effect<void, CombatDomainError> =>
-  pipe(
-    getCooldown(combatant, attack.tag),
-    Option.match({
-      onNone: () => Effect.unit,
-      onSome: (remaining) =>
-        Effect.filterOrFail(
-          Effect.succeed(remaining),
-          (cooldown) => cooldown <= 0,
-          (cooldown) => CombatError.cooldownViolation(combatant.id, attack.tag, cooldown)
-        ).pipe(Effect.asVoid),
-    })
-  )
+const ensureCooldownReady = (combatant: Combatant, attack: AttackKind): Effect.Effect<void, CombatDomainError> => {
+  const option = getCooldown(combatant, attack.tag)
+  return Option.match(option, {
+    onNone: () => Effect.void,
+    onSome: (remaining) =>
+      Effect.filterOrFail(
+        Effect.succeed(remaining),
+        (cooldown) => cooldown <= 0,
+        (cooldown) => CombatError.cooldownViolation(combatant.id, attack.tag, cooldown)
+      ).pipe(Effect.asVoid),
+  })
+}
 
 const calculateBaseDamage = (attacker: Combatant, attack: AttackKind): Effect.Effect<Damage, CombatDomainError> =>
   Match.value(attack).pipe(
@@ -160,12 +160,11 @@ export const resolveAttack = (
 
 export const decayCooldowns = (combatant: Combatant, elapsed: Cooldown): Effect.Effect<Combatant, CombatDomainError> =>
   Effect.gen(function* () {
-    const decayAmount = yield* makeCooldown(elapsed)
     const nextCooldowns = yield* Effect.forEach(
       combatant.cooldowns,
       (entry) =>
         Effect.gen(function* () {
-          const raw = entry.remaining - decayAmount
+          const raw = entry.remaining - elapsed
           const bounded = Math.max(0, raw)
           const remaining = yield* makeCooldown(bounded)
           return { attack: entry.attack, remaining }

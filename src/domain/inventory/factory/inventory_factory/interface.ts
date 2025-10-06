@@ -12,7 +12,7 @@ import type { Inventory, ItemStack, PlayerId } from '../../types'
 export class InventoryCreationError extends Schema.TaggedError<InventoryCreationError>()('InventoryCreationError', {
   reason: Schema.String,
   invalidFields: Schema.Array(Schema.String),
-  context: Schema.Record({ key: Schema.String, value: Schema.Unknown }).pipe(Schema.optional),
+  context: Schema.Record({ key: Schema.String, value: Schema.Any }).pipe(Schema.optional),
 }) {}
 
 export class InventoryValidationError extends Schema.TaggedError<InventoryValidationError>()(
@@ -20,14 +20,14 @@ export class InventoryValidationError extends Schema.TaggedError<InventoryValida
   {
     reason: Schema.String,
     missingFields: Schema.Array(Schema.String),
-    context: Schema.Record({ key: Schema.String, value: Schema.Unknown }).pipe(Schema.optional),
+    context: Schema.Record({ key: Schema.String, value: Schema.Any }).pipe(Schema.optional),
   }
 ) {}
 
 export class InventoryMergeError extends Schema.TaggedError<InventoryMergeError>()('InventoryMergeError', {
   reason: Schema.String,
   conflictingFields: Schema.Array(Schema.String),
-  context: Schema.Record({ key: Schema.String, value: Schema.Unknown }).pipe(Schema.optional),
+  context: Schema.Record({ key: Schema.String, value: Schema.Any }).pipe(Schema.optional),
 }) {}
 
 // インベントリータイプ（DDD Value Object）

@@ -562,49 +562,49 @@ export type CameraModeManagerApplicationError = Data.TaggedEnum<{
 export const TransitionIdSchema = Schema.String.pipe(Schema.fromBrand(Brand.nominal<TransitionId>()))
 export const ScheduleIdSchema = Schema.String.pipe(Schema.fromBrand(Brand.nominal<ScheduleId>()))
 
-export const EasingFunctionSchema = Schema.TaggedEnum<EasingFunction>({
-  Linear: Schema.Struct({}),
-  EaseIn: Schema.Struct({}),
-  EaseOut: Schema.Struct({}),
-  EaseInOut: Schema.Struct({}),
-  Bounce: Schema.Struct({}),
-  Elastic: Schema.Struct({
+export const EasingFunctionSchema = Schema.Union(
+  Schema.TaggedStruct('Linear', {}),
+  Schema.TaggedStruct('EaseIn', {}),
+  Schema.TaggedStruct('EaseOut', {}),
+  Schema.TaggedStruct('EaseInOut', {}),
+  Schema.TaggedStruct('Bounce', {}),
+  Schema.TaggedStruct('Elastic', {
     amplitude: Schema.Number.pipe(Schema.positive()),
     period: Schema.Number.pipe(Schema.positive()),
   }),
-  Back: Schema.Struct({
+  Schema.TaggedStruct('Back', {
     overshoot: Schema.Number.pipe(Schema.positive()),
   }),
-  Custom: Schema.Struct({
+  Schema.TaggedStruct('Custom', {
     controlPoints: Schema.Array(Schema.Number.pipe(Schema.between(0, 1))),
-  }),
-})
+  })
+)
 
-export const AnimationTypeSchema = Schema.TaggedEnum<AnimationType>({
-  Instant: Schema.Struct({}),
-  Smooth: Schema.Struct({}),
-  Cinematic: Schema.Struct({}),
-  Bounce: Schema.Struct({}),
-  Fade: Schema.Struct({
+export const AnimationTypeSchema = Schema.Union(
+  Schema.TaggedStruct('Instant', {}),
+  Schema.TaggedStruct('Smooth', {}),
+  Schema.TaggedStruct('Cinematic', {}),
+  Schema.TaggedStruct('Bounce', {}),
+  Schema.TaggedStruct('Fade', {
     fadeColor: Schema.String,
   }),
-  Zoom: Schema.Struct({
+  Schema.TaggedStruct('Zoom', {
     zoomFactor: Schema.Number.pipe(Schema.positive()),
   }),
-  Slide: Schema.Struct({
-    direction: Schema.TaggedEnum<SlideDirection>({
-      Left: Schema.Struct({}),
-      Right: Schema.Struct({}),
-      Up: Schema.Struct({}),
-      Down: Schema.Struct({}),
-      Forward: Schema.Struct({}),
-      Backward: Schema.Struct({}),
-    }),
+  Schema.TaggedStruct('Slide', {
+    direction: Schema.Union(
+      Schema.TaggedStruct('Left', {}),
+      Schema.TaggedStruct('Right', {}),
+      Schema.TaggedStruct('Up', {}),
+      Schema.TaggedStruct('Down', {}),
+      Schema.TaggedStruct('Forward', {}),
+      Schema.TaggedStruct('Backward', {})
+    ),
   }),
-  Morph: Schema.Struct({
+  Schema.TaggedStruct('Morph', {
     morphSteps: Schema.Number.pipe(Schema.int(), Schema.positive()),
-  }),
-})
+  })
+)
 
 export const ViewModeTransitionConfigSchema = Schema.Struct({
   duration: Schema.Number.pipe(Schema.positive()),
@@ -617,99 +617,99 @@ export const ViewModeTransitionConfigSchema = Schema.Struct({
   customParameters: Schema.OptionFromSelf(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
 }).pipe(Schema.fromBrand(Brand.nominal<ViewModeTransitionConfig>()))
 
-export const ViewModeTransitionResultSchema = Schema.TaggedEnum<ViewModeTransitionResult>({
-  Success: Schema.Struct({
+export const ViewModeTransitionResultSchema = Schema.Union(
+  Schema.TaggedStruct('Success', {
     fromMode: Schema.Unknown, // ViewModeSchemaを参照
     toMode: Schema.Unknown, // ViewModeSchemaを参照
     duration: Schema.Number.pipe(Schema.positive()),
     animated: Schema.Boolean,
     transitionId: TransitionIdSchema,
   }),
-  Failed: Schema.Struct({
-    reason: Schema.TaggedEnum<ViewModeTransitionFailureReason>({
-      ModeNotSupported: Schema.Struct({
+  Schema.TaggedStruct('Failed', {
+    reason: Schema.Union(
+      Schema.TaggedStruct('ModeNotSupported', {
         mode: Schema.Unknown, // ViewModeSchemaを参照
       }),
-      AnimationInProgress: Schema.Struct({
+      Schema.TaggedStruct('AnimationInProgress', {
         currentAnimation: Schema.Unknown, // AnimationStateSchemaを参照
       }),
-      InvalidConfiguration: Schema.Struct({
+      Schema.TaggedStruct('InvalidConfiguration', {
         config: ViewModeTransitionConfigSchema,
       }),
-      ResourceUnavailable: Schema.Struct({
+      Schema.TaggedStruct('ResourceUnavailable', {
         resource: Schema.String,
       }),
-      PermissionDenied: Schema.Struct({
+      Schema.TaggedStruct('PermissionDenied', {
         requiredPermission: Schema.String,
       }),
-      SystemBusy: Schema.Struct({
+      Schema.TaggedStruct('SystemBusy', {
         activeOperations: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
       }),
-      NetworkError: Schema.Struct({
+      Schema.TaggedStruct('NetworkError', {
         networkDetails: Schema.String,
       }),
-      TimeoutExceeded: Schema.Struct({
+      Schema.TaggedStruct('TimeoutExceeded', {
         timeoutMs: Schema.Number.pipe(Schema.positive()),
-      }),
-    }),
+      })
+    ),
     fromMode: Schema.Unknown, // ViewModeSchemaを参照
     targetMode: Schema.Unknown, // ViewModeSchemaを参照
     errorDetails: Schema.OptionFromSelf(Schema.String),
   }),
-  InProgress: Schema.Struct({
+  Schema.TaggedStruct('InProgress', {
     fromMode: Schema.Unknown, // ViewModeSchemaを参照
     toMode: Schema.Unknown, // ViewModeSchemaを参照
     progress: Schema.Number.pipe(Schema.between(0, 1)),
     estimatedRemaining: Schema.Number.pipe(Schema.positive()),
     transitionId: TransitionIdSchema,
   }),
-  Cancelled: Schema.Struct({
+  Schema.TaggedStruct('Cancelled', {
     fromMode: Schema.Unknown, // ViewModeSchemaを参照
     targetMode: Schema.Unknown, // ViewModeSchemaを参照
     reason: Schema.String,
     progress: Schema.Number.pipe(Schema.between(0, 1)),
-  }),
-})
+  })
+)
 
-export const CameraModeManagerApplicationErrorSchema = Schema.TaggedEnum<CameraModeManagerApplicationError>({
-  ModeTransitionFailed: Schema.Struct({
+export const CameraModeManagerApplicationErrorSchema = Schema.Union(
+  Schema.TaggedStruct('ModeTransitionFailed', {
     cameraId: Schema.String,
     fromMode: Schema.Unknown, // ViewModeSchemaを参照
     toMode: Schema.Unknown, // ViewModeSchemaを参照
     reason: Schema.Unknown, // ViewModeTransitionFailureReasonSchemaを参照
   }),
-  InvalidModeConfiguration: Schema.Struct({
+  Schema.TaggedStruct('InvalidModeConfiguration', {
     mode: Schema.Unknown, // ViewModeSchemaを参照
     configurationErrors: Schema.Array(Schema.String),
   }),
-  ConcurrentTransitionConflict: Schema.Struct({
+  Schema.TaggedStruct('ConcurrentTransitionConflict', {
     cameraId: Schema.String,
     activeTransition: TransitionIdSchema,
     requestedTransition: ViewModeTransitionConfigSchema,
   }),
-  SchedulingConflict: Schema.Struct({
+  Schema.TaggedStruct('SchedulingConflict', {
     scheduleId: ScheduleIdSchema,
     conflictingScheduleId: ScheduleIdSchema,
     scheduledTime: Schema.Number,
   }),
-  ContextResolutionFailed: Schema.Struct({
+  Schema.TaggedStruct('ContextResolutionFailed', {
     context: Schema.Unknown, // ViewModeContextSchemaを参照
     missingFactors: Schema.Array(Schema.String),
   }),
-  RecommendationSystemUnavailable: Schema.Struct({
+  Schema.TaggedStruct('RecommendationSystemUnavailable', {
     systemStatus: Schema.String,
     estimatedRestoreTime: Schema.OptionFromSelf(Schema.Number),
   }),
-  PerformanceConstraintViolated: Schema.Struct({
+  Schema.TaggedStruct('PerformanceConstraintViolated', {
     constraint: Schema.String,
     current: Schema.Number,
     limit: Schema.Number,
   }),
-  UnsupportedModeCombo: Schema.Struct({
+  Schema.TaggedStruct('UnsupportedModeCombo', {
     modes: Schema.Array(Schema.Unknown), // ViewModeSchemaの配列を参照
     reason: Schema.String,
-  }),
-})
+  })
+)
 
 // ========================================
 // Factory Functions

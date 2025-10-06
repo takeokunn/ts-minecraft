@@ -80,7 +80,10 @@ export const NBTTagSchema: Schema.Schema<NBTTag> = Schema.Union(
   }),
   Schema.Struct({
     _tag: Schema.Literal('Compound'),
-    value: Schema.Record({ key: Schema.String, value: Schema.suspend(() => NBTTagSchema) }),
+    value: Schema.Record({
+      key: Schema.String,
+      value: Schema.suspend(() => NBTTagSchema),
+    }),
   })
 )
 

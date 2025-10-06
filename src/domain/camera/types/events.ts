@@ -6,8 +6,8 @@ import type {
   Position3D as Position3DBrand,
   Rotation2D as Rotation2DBrand,
   Sensitivity,
-} from './index'
-import { Position3DSchema, Rotation2DSchema } from './index'
+} from './constants.js'
+import { Position3DSchema, Rotation2DSchema } from './constants.js'
 
 // ========================================
 // Event Base Types

@@ -27,28 +27,32 @@ const config = Effect.runSync(
 
 describe('chunk_system/repository.indexeddb', () => {
   it.effect('persists state with latency and streams events', () =>
-    Effect.scoped(
-      Effect.gen(function* () {
-        const initial = yield* makeInitialState(config)
+    makeInitialState(config).pipe(
+      Effect.flatMap((initial) => {
         const layer = indexedDbRepositoryLayer(initial)
-        const repository = yield* Effect.service(ChunkSystemRepository).pipe(Effect.provide(layer))
-        const request = yield* Schema.decodeUnknown(ChunkRequestSchema)({
-          id: randomUUID(),
-          chunk: 'chunk-idb',
-          priority: 'normal',
-          action: 'load',
-          createdAt: 0,
-          deadline: 20,
-        })
-        const transition = yield* applyCommand(initial, ChunkCommand.Schedule({ request }))
-        const start = yield* Clock.currentTimeMillis
-        yield* repository.save(transition.state, transition.events)
-        const end = yield* Clock.currentTimeMillis
-        expect(end - start).toBeGreaterThanOrEqual(2)
-        const roundTrip = yield* repository.load
-        expect(roundTrip.active).toHaveLength(1)
-        const events = yield* repository.observe.pipe(Stream.take(1), Stream.runCollect)
-        expect(events[0]?._tag).toBe('RequestQueued')
+
+        return Effect.scoped(
+          Effect.gen(function* () {
+            const repository = yield* ChunkSystemRepository
+            const request = yield* Schema.decodeUnknown(ChunkRequestSchema)({
+              id: randomUUID(),
+              chunk: 'chunk-idb',
+              priority: 'normal',
+              action: 'load',
+              createdAt: 0,
+              deadline: 20,
+            })
+            const transition = yield* applyCommand(initial, ChunkCommand.Schedule({ request }))
+            const start = yield* Clock.currentTimeMillis
+            yield* repository.save(transition.state, transition.events)
+            const end = yield* Clock.currentTimeMillis
+            expect(end - start).toBeGreaterThanOrEqual(2)
+            const roundTrip = yield* repository.load
+            expect(roundTrip.active).toHaveLength(1)
+            const events = yield* repository.observe.pipe(Stream.take(1), Stream.runCollect)
+            expect(events[0]?._tag).toBe('RequestQueued')
+          }).pipe(Effect.provide(layer))
+        )
       })
     )
   )

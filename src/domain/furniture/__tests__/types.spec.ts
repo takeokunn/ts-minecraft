@@ -1,6 +1,5 @@
-import * as Schema from '@effect/schema/Schema'
 import { describe, expect, it } from '@effect/vitest'
-import { Effect, Either, Option } from 'effect'
+import { Effect, Either, Option, Schema } from 'effect'
 import {
   CreateBedInputSchema,
   FurnitureIdSchema,

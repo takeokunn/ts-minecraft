@@ -5,6 +5,8 @@
 
 import { Effect, Schema } from 'effect'
 import type { ItemId } from '../../types'
+import { ItemIdSchema, PlayerIdSchema } from '../../types/core'
+import { ItemStackEntitySchema } from '../item_stack/types'
 
 // ===== Brand Types =====
 
@@ -26,8 +28,8 @@ export type HotbarSlot = Schema.Schema.Type<typeof HotbarSlotSchema>
 export const InventorySlotSchema = Schema.Union(
   Schema.Null,
   Schema.Struct({
-    itemStack: Schema.suspend(() => import('../item_stack/types').then((m) => m.ItemStackEntitySchema)),
-    metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
+    itemStack: ItemStackEntitySchema,
+    metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Any })),
   })
 )
 export type InventorySlot = Schema.Schema.Type<typeof InventorySlotSchema>
@@ -44,7 +46,7 @@ export type ArmorSlot = Schema.Schema.Type<typeof ArmorSlotSchema>
 
 export const InventoryAggregateSchema = Schema.Struct({
   id: InventoryIdSchema,
-  playerId: Schema.suspend(() => import('../../types/index').then((m) => m.PlayerIdSchema)),
+  playerId: PlayerIdSchema,
   slots: Schema.Array(InventorySlotSchema).pipe(Schema.minItems(36), Schema.maxItems(36)),
   hotbar: Schema.Array(SlotIndexSchema).pipe(Schema.minItems(9), Schema.maxItems(9)),
   armor: ArmorSlotSchema,
@@ -62,19 +64,19 @@ export type InventoryAggregate = Schema.Schema.Type<typeof InventoryAggregateSch
 export const ItemAddedEventSchema = Schema.Struct({
   type: Schema.Literal('ItemAdded'),
   aggregateId: InventoryIdSchema,
-  playerId: Schema.suspend(() => import('../../types/index').then((m) => m.PlayerIdSchema)),
-  itemId: Schema.suspend(() => import('../../types/index').then((m) => m.ItemIdSchema)),
+  playerId: PlayerIdSchema,
+  itemId: ItemIdSchema,
   quantity: Schema.Number.pipe(Schema.int(), Schema.positive()),
   slotIndex: SlotIndexSchema,
   timestamp: Schema.DateTimeUtc,
-  metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
+  metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Any })),
 })
 
 export const ItemRemovedEventSchema = Schema.Struct({
   type: Schema.Literal('ItemRemoved'),
   aggregateId: InventoryIdSchema,
-  playerId: Schema.suspend(() => import('../../types/index').then((m) => m.PlayerIdSchema)),
-  itemId: Schema.suspend(() => import('../../types/index').then((m) => m.ItemIdSchema)),
+  playerId: PlayerIdSchema,
+  itemId: ItemIdSchema,
   quantity: Schema.Number.pipe(Schema.int(), Schema.positive()),
   slotIndex: SlotIndexSchema,
   timestamp: Schema.DateTimeUtc,
@@ -84,7 +86,7 @@ export const ItemRemovedEventSchema = Schema.Struct({
 export const ItemsSwappedEventSchema = Schema.Struct({
   type: Schema.Literal('ItemsSwapped'),
   aggregateId: InventoryIdSchema,
-  playerId: Schema.suspend(() => import('../../types/index').then((m) => m.PlayerIdSchema)),
+  playerId: PlayerIdSchema,
   fromSlot: SlotIndexSchema,
   toSlot: SlotIndexSchema,
   timestamp: Schema.DateTimeUtc,
@@ -93,7 +95,7 @@ export const ItemsSwappedEventSchema = Schema.Struct({
 export const HotbarChangedEventSchema = Schema.Struct({
   type: Schema.Literal('HotbarChanged'),
   aggregateId: InventoryIdSchema,
-  playerId: Schema.suspend(() => import('../../types/index').then((m) => m.PlayerIdSchema)),
+  playerId: PlayerIdSchema,
   previousSlot: HotbarSlotSchema,
   newSlot: HotbarSlotSchema,
   timestamp: Schema.DateTimeUtc,
@@ -135,33 +137,23 @@ export const INVENTORY_CONSTANTS = {
 
 // ===== Error Types =====
 
-export const InventoryAggregateErrorSchema = Schema.TaggedError('InventoryAggregateError')(
-  Schema.Struct({
-    reason: Schema.Literal(
-      'SLOT_OCCUPIED',
-      'SLOT_EMPTY',
-      'INVALID_SLOT_INDEX',
-      'ITEM_NOT_STACKABLE',
-      'STACK_SIZE_EXCEEDED',
-      'INSUFFICIENT_QUANTITY',
-      'INVALID_ITEM_TYPE',
-      'ARMOR_SLOT_MISMATCH',
-      'AGGREGATE_VERSION_CONFLICT'
-    ),
-    message: Schema.String,
-    slotIndex: Schema.optional(SlotIndexSchema),
-    itemId: Schema.optional(Schema.suspend(() => import('../../types/index').then((m) => m.ItemIdSchema))),
-    metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
-  })
-)
-
-export class InventoryAggregateError extends Schema.TaggedError('InventoryAggregateError')<{
-  readonly reason: typeof InventoryAggregateErrorSchema.Type.reason
-  readonly message: string
-  readonly slotIndex?: SlotIndex
-  readonly itemId?: ItemId
-  readonly metadata?: Record<string, unknown>
-}> {
+export class InventoryAggregateError extends Schema.TaggedError<InventoryAggregateError>()('InventoryAggregateError', {
+  reason: Schema.Literal(
+    'SLOT_OCCUPIED',
+    'SLOT_EMPTY',
+    'INVALID_SLOT_INDEX',
+    'ITEM_NOT_STACKABLE',
+    'STACK_SIZE_EXCEEDED',
+    'INSUFFICIENT_QUANTITY',
+    'INVALID_ITEM_TYPE',
+    'ARMOR_SLOT_MISMATCH',
+    'AGGREGATE_VERSION_CONFLICT'
+  ),
+  message: Schema.String,
+  slotIndex: Schema.optional(SlotIndexSchema),
+  itemId: Schema.optional(ItemIdSchema),
+  metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Any })),
+}) {
   static slotOccupied(slotIndex: SlotIndex, itemId?: ItemId): InventoryAggregateError {
     return new InventoryAggregateError({
       reason: 'SLOT_OCCUPIED',

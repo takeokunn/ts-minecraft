@@ -127,7 +127,7 @@ export const createEmptyInventory = (playerId: PlayerId): Inventory => {
     offhand: null,
     version: 0,
     metadata: {
-      lastUpdated: yield * Clock.currentTimeMillis,
+      lastUpdated: Date.now(),
       checksum: '',
     },
   }
@@ -150,7 +150,7 @@ export const touchInventory = (inventory: Inventory): Inventory => {
   return {
     ...updated,
     metadata: {
-      lastUpdated: yield * Clock.currentTimeMillis,
+      lastUpdated: Date.now(),
       checksum: computeChecksum(updated),
     },
   }

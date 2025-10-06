@@ -300,12 +300,7 @@ export const CheckItemAvailabilityQuerySchema = Schema.Struct({
     Schema.Struct({
       itemId: Schema.String,
       quantity: Schema.Number.pipe(Schema.int(), Schema.positive()),
-      metadata: Schema.optional(
-        Schema.Record({
-          key: Schema.String,
-          value: Schema.Unknown,
-        })
-      ),
+      metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Any })),
       minDurability: Schema.optional(Schema.Number.pipe(Schema.between(0, 1))),
     })
   ).pipe(

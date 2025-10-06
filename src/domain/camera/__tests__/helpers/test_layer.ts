@@ -5,7 +5,7 @@
  * Effect-TSによる完全な依存性注入とモック管理
  */
 
-import { Effect, Layer, Ref, TestClock, TestContext } from 'effect'
+import { Effect, Either, Layer, Option, Ref, TestClock, TestContext, TestRandom } from 'effect'
 
 // Camera Domain Service imports (値として使用するため通常のimport)
 import { AnimationEngineService } from '../../domain_service/animation_engine/service'
@@ -341,26 +341,17 @@ export const MockRepositoryLayer = Layer.mergeAll(
   Layer.effect(ViewModePreferencesRepository, mockViewModePreferencesRepository)
 )
 
-// Test基盤Layer
-export const TestFoundationLayer = Layer.mergeAll(
-  TestContext.TestContext,
-  TestClock.layer,
-  TestRandom.layer,
-  NodeContext.layer
-)
-
 // 完全なテストLayer
-export const TestLayer = Layer.mergeAll(TestFoundationLayer, MockDomainServiceLayer, MockRepositoryLayer)
+export const TestLayer = Layer.mergeAll(MockDomainServiceLayer, MockRepositoryLayer)
 
 // 決定論的テストLayer（TestClockとTestRandom使用）
-export const DeterministicTestLayer = Layer.mergeAll(TestFoundationLayer, MockDomainServiceLayer, MockRepositoryLayer)
+export const DeterministicTestLayer = Layer.mergeAll(TestClock.layer, MockDomainServiceLayer, MockRepositoryLayer)
 
 // パフォーマンステスト用Layer（リアルタイム）
-export const PerformanceTestLayer = Layer.mergeAll(NodeContext.layer, MockDomainServiceLayer, MockRepositoryLayer)
+export const PerformanceTestLayer = Layer.mergeAll(MockDomainServiceLayer, MockRepositoryLayer)
 
 // 統合テスト用Layer（実際のサービス使用）
 export const IntegrationTestLayer = Layer.mergeAll(
-  TestFoundationLayer,
   // 実際のLayerをここにインポート
   // CameraControlServiceLive,
   // AnimationEngineServiceLive,

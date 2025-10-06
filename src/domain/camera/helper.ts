@@ -1,9 +1,7 @@
 import type {
   AnimationDuration,
-  CameraConfig,
   CameraDistance,
   CameraError,
-  CameraState,
   DeltaTime,
   FOV,
   MouseDelta,
@@ -28,6 +26,8 @@ import {
   YawAngleSchema,
 } from '@domain/camera/types'
 import { Effect, pipe, Predicate, Schema } from 'effect'
+import type { CameraConfig, CameraState } from '../types'
+import { CameraConfig as CameraConfigSchema, CameraState as CameraStateSchema } from '../types'
 
 export const isCameraError = (error: unknown): error is CameraError =>
   Predicate.isRecord(error) &&
@@ -51,7 +51,7 @@ export { createCameraError }
  */
 export const validateCameraConfig = (config: unknown): Effect.Effect<CameraConfig, CameraError> =>
   pipe(
-    Schema.decodeUnknown(CameraConfig)(config),
+    Schema.decodeUnknown(CameraConfigSchema)(config),
     Effect.mapError((parseError) =>
       createCameraError.invalidConfiguration(`カメラ設定の検証に失敗しました: ${parseError.message}`, config)
     )
@@ -62,7 +62,7 @@ export const validateCameraConfig = (config: unknown): Effect.Effect<CameraConfi
  */
 export const validateCameraState = (state: unknown): Effect.Effect<CameraState, CameraError> =>
   pipe(
-    Schema.decodeUnknown(CameraState)(state),
+    Schema.decodeUnknown(CameraStateSchema)(state),
     Effect.mapError((parseError) =>
       createCameraError.invalidParameter('カメラ状態', state, `Valid CameraState: ${parseError.message}`)
     )
@@ -71,7 +71,7 @@ export const validateCameraState = (state: unknown): Effect.Effect<CameraState, 
 /**
  * カメラモードの検証ヘルパー
  */
-export const validateCameraMode = (mode: unknown): Effect.Effect<typeof CameraModeSchema.Type, CameraError> =>
+export const validateCameraMode = (mode: unknown): Effect.Effect<Schema.Schema.Type<typeof CameraModeSchema>, CameraError> =>
   pipe(
     Schema.decodeUnknown(CameraModeSchema)(mode),
     Effect.mapError(() => createCameraError.invalidMode(String(mode), ['first-person', 'third-person']))

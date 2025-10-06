@@ -6,7 +6,7 @@
  */
 
 // Service Interface and Implementation
-export { BatchTransferError, TransferError, TransferService, TransferServiceLive } from './service'
+export { BatchTransferError, TransferError, TransferService } from './service'
 export type {
   BatchTransferRequest,
   OptimizedTransferOptions,

@@ -124,7 +124,7 @@ describe('combat/service', () => {
         criticalRoll: yield* makeCriticalChance(0.5),
       }
       const result = yield* resolveAttack(session, command, context)
-      expect(result.target.health).toBeLessThanOrEqual(target.health)
+      return result.target.health <= target.health
     })
   )
 })

@@ -58,7 +58,7 @@ describe('furniture/repository', () => {
       createSign({
         style: 'oak',
         text: { lines: ['hello'], alignment: 'left' },
-        placedBy: 'player_sign01',
+        placedBy: 'player_abcd5678',
         location: { x: 2, y: 70, z: 2 },
       })
     )

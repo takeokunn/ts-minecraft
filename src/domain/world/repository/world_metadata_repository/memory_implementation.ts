@@ -20,7 +20,6 @@ import type {
   generateVersionString,
   MetadataChange,
   MetadataQuery,
-  MetadataSearchResult,
   MetadataVersion,
   VersionHistory,
   WorldMetadata,
@@ -370,102 +369,67 @@ export const WorldMetadataRepositoryMemoryImplementation = (
       searchMetadata: (query: MetadataQuery) =>
         Effect.gen(function* () {
           const store = yield* Ref.get(metadataStore)
-          let candidates = Array.from(store.values())
 
-          // Apply filters
-          if (query.worldId) {
-            candidates = candidates.filter((m) => m.id === query.worldId)
-          }
+          const candidates = pipe(
+            Array.from(store.values()),
+            // Apply filters using pure function composition
+            ReadonlyArray.filter((m) => !query.worldId || m.id === query.worldId),
+            ReadonlyArray.filter((m) => !query.name || m.name.toLowerCase().includes(query.name.toLowerCase())),
+            ReadonlyArray.filter(
+              (m) => !query.tags || query.tags.length === 0 || query.tags.some((tag) => m.tags.includes(tag))
+            ),
+            ReadonlyArray.filter((m) => !query.generatorId || m.generatorId === query.generatorId),
+            ReadonlyArray.filter((m) => !query.gameMode || m.settings.gameMode === query.gameMode),
+            ReadonlyArray.filter((m) => !query.difficulty || m.settings.difficulty === query.difficulty),
+            ReadonlyArray.filter((m) => !query.worldType || m.settings.worldType === query.worldType),
+            ReadonlyArray.filter((m) => !query.createdAfter || m.createdAt >= query.createdAfter),
+            ReadonlyArray.filter((m) => !query.createdBefore || m.createdAt <= query.createdBefore),
+            ReadonlyArray.filter((m) => !query.modifiedAfter || m.lastModified >= query.modifiedAfter),
+            ReadonlyArray.filter((m) => !query.modifiedBefore || m.lastModified <= query.modifiedBefore),
+            ReadonlyArray.filter(
+              (m) => query.minSize === undefined || m.statistics.size.uncompressedSize >= query.minSize
+            ),
+            ReadonlyArray.filter(
+              (m) => query.maxSize === undefined || m.statistics.size.uncompressedSize <= query.maxSize
+            ),
+            // Sort results if sortBy is specified
+            (items) =>
+              query.sortBy
+                ? pipe(
+                    items,
+                    ReadonlyArray.sort((a, b) => {
+                      const comparison = (() => {
+                        switch (query.sortBy) {
+                          case 'name':
+                            return a.name.localeCompare(b.name)
+                          case 'created':
+                            return a.createdAt.getTime() - b.createdAt.getTime()
+                          case 'modified':
+                            return a.lastModified.getTime() - b.lastModified.getTime()
+                          case 'size':
+                            return a.statistics.size.uncompressedSize - b.statistics.size.uncompressedSize
+                          case 'accessed':
+                            return a.lastAccessed.getTime() - b.lastAccessed.getTime()
+                          default:
+                            return 0
+                        }
+                      })()
+                      return query.sortOrder === 'desc' ? -comparison : comparison
+                    })
+                  )
+                : items,
+            // Limit results if specified
+            (items) => (query.limit ? pipe(items, ReadonlyArray.take(query.limit)) : items),
+            // Create search results
+            ReadonlyArray.map((metadata) => ({
+              metadata,
+              relevanceScore: 1.0,
+              matchedFields: ['name'] as const,
+              snippet: metadata.description ? metadata.description.substring(0, 100) + '...' : undefined,
+            }))
+          )
 
-          if (query.name) {
-            candidates = candidates.filter((m) => m.name.toLowerCase().includes(query.name!.toLowerCase()))
-          }
-
-          if (query.tags && query.tags.length > 0) {
-            candidates = candidates.filter((m) => query.tags!.some((tag) => m.tags.includes(tag)))
-          }
-
-          if (query.generatorId) {
-            candidates = candidates.filter((m) => m.generatorId === query.generatorId)
-          }
-
-          if (query.gameMode) {
-            candidates = candidates.filter((m) => m.settings.gameMode === query.gameMode)
-          }
-
-          if (query.difficulty) {
-            candidates = candidates.filter((m) => m.settings.difficulty === query.difficulty)
-          }
-
-          if (query.worldType) {
-            candidates = candidates.filter((m) => m.settings.worldType === query.worldType)
-          }
-
-          if (query.createdAfter) {
-            candidates = candidates.filter((m) => m.createdAt >= query.createdAfter!)
-          }
-
-          if (query.createdBefore) {
-            candidates = candidates.filter((m) => m.createdAt <= query.createdBefore!)
-          }
-
-          if (query.modifiedAfter) {
-            candidates = candidates.filter((m) => m.lastModified >= query.modifiedAfter!)
-          }
-
-          if (query.modifiedBefore) {
-            candidates = candidates.filter((m) => m.lastModified <= query.modifiedBefore!)
-          }
-
-          if (query.minSize !== undefined) {
-            candidates = candidates.filter((m) => m.statistics.size.uncompressedSize >= query.minSize!)
-          }
-
-          if (query.maxSize !== undefined) {
-            candidates = candidates.filter((m) => m.statistics.size.uncompressedSize <= query.maxSize!)
-          }
-
-          // Sort results
-          if (query.sortBy) {
-            candidates.sort((a, b) => {
-              let comparison = 0
-
-              switch (query.sortBy) {
-                case 'name':
-                  comparison = a.name.localeCompare(b.name)
-                  break
-                case 'created':
-                  comparison = a.createdAt.getTime() - b.createdAt.getTime()
-                  break
-                case 'modified':
-                  comparison = a.lastModified.getTime() - b.lastModified.getTime()
-                  break
-                case 'size':
-                  comparison = a.statistics.size.uncompressedSize - b.statistics.size.uncompressedSize
-                  break
-                case 'accessed':
-                  comparison = a.lastAccessed.getTime() - b.lastAccessed.getTime()
-                  break
-              }
-
-              return query.sortOrder === 'desc' ? -comparison : comparison
-            })
-          }
-
-          // Limit results
-          if (query.limit) {
-            candidates = candidates.slice(0, query.limit)
-          }
-
-          // Create search results
-          const results: MetadataSearchResult[] = candidates.map((metadata) => ({
-            metadata,
-            relevanceScore: 1.0, // Simplified scoring
-            matchedFields: ['name'], // Simplified field matching
-            snippet: metadata.description ? metadata.description.substring(0, 100) + '...' : undefined,
-          }))
-
-          return results
+          return candidates
         }),
 
       // === Settings Management ===

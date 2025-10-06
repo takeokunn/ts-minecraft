@@ -166,3 +166,71 @@ export const ChunkSystemConfigSchema = Schema.Struct({
 })
 
 export type ChunkSystemConfig = Schema.Schema.Type<typeof ChunkSystemConfigSchema>
+
+// ============================================================================
+// ドメインイベント
+// ============================================================================
+
+export const ChunkEvent = Data.taggedEnum({
+  RequestQueued: Data.tagged<{
+    readonly _tag: 'RequestQueued'
+    readonly request: ChunkRequest
+  }>('RequestQueued'),
+  RequestCompleted: Data.tagged<{
+    readonly _tag: 'RequestCompleted'
+    readonly requestId: RequestId
+    readonly completedAt: EpochMilliseconds
+  }>('RequestCompleted'),
+  RequestFailed: Data.tagged<{
+    readonly _tag: 'RequestFailed'
+    readonly requestId: RequestId
+    readonly occurredAt: EpochMilliseconds
+    readonly reason: string
+  }>('RequestFailed'),
+  StrategyShifted: Data.tagged<{
+    readonly _tag: 'StrategyShifted'
+    readonly strategy: StrategyId
+    readonly decidedAt: EpochMilliseconds
+  }>('StrategyShifted'),
+  BudgetChanged: Data.tagged<{
+    readonly _tag: 'BudgetChanged'
+    readonly budget: ResourceBudget
+    readonly effectiveAt: EpochMilliseconds
+  }>('BudgetChanged'),
+})
+
+export type ChunkEvent = Data.taggedEnum.Infer<typeof ChunkEvent>
+
+// ============================================================================
+// ドメインコマンド
+// ============================================================================
+
+export const ChunkCommand = Data.taggedEnum({
+  Schedule: Data.tagged<{
+    readonly _tag: 'Schedule'
+    readonly request: ChunkRequest
+  }>('Schedule'),
+  Complete: Data.tagged<{
+    readonly _tag: 'Complete'
+    readonly requestId: RequestId
+    readonly completedAt: EpochMilliseconds
+  }>('Complete'),
+  Fail: Data.tagged<{
+    readonly _tag: 'Fail'
+    readonly requestId: RequestId
+    readonly occurredAt: EpochMilliseconds
+    readonly reason: string
+  }>('Fail'),
+  Reprioritize: Data.tagged<{
+    readonly _tag: 'Reprioritize'
+    readonly requestId: RequestId
+    readonly newPriority: ChunkPriority
+  }>('Reprioritize'),
+  SwitchStrategy: Data.tagged<{
+    readonly _tag: 'SwitchStrategy'
+    readonly strategy: StrategyId
+    readonly decidedAt: EpochMilliseconds
+  }>('SwitchStrategy'),
+})
+
+export type ChunkCommand = Data.taggedEnum.Infer<typeof ChunkCommand>

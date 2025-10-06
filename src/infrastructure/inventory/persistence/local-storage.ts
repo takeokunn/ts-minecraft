@@ -220,11 +220,7 @@ export const LocalStorageInventoryService = Layer.effect(
               onNone: () => Effect.fail(toLoadFailed(backend, 'backup', 'Inventory not found for backup')),
               onSome: (inventory) =>
                 Effect.gen(function* () {
-                  const millisValue = yield* Clock.currentTimeMillis.pipe(
-                    Effect.mapError((cause) =>
-                      toLoadFailed(backend, 'backup-clock', 'Failed to obtain timestamp', cause)
-                    )
-                  )
+                  const millisValue = yield* Clock.currentTimeMillis
                   const millis = yield* Schema.decodeUnknown(MillisecondsSchema)(millisValue).pipe(
                     Effect.mapError((error) => toCorrupted(backend, formatParseError(error), error))
                   )

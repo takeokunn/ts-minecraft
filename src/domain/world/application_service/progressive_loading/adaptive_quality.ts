@@ -241,17 +241,19 @@ const makeAdaptiveQualityService = Effect.gen(function* () {
   const startAdaptation = () =>
     Effect.gen(function* () {
       const isActive = yield* Ref.get(isAdapting)
-      if (isActive) {
-        yield* Effect.logWarning('適応的品質調整は既に開始されています')
-        return
-      }
 
-      yield* Ref.set(isAdapting, true)
+      return yield* Effect.if(isActive, {
+        onTrue: () => Effect.logWarning('適応的品質調整は既に開始されています'),
+        onFalse: () =>
+          Effect.gen(function* () {
+            yield* Ref.set(isAdapting, true)
 
-      // 適応ループを開始
-      yield* Effect.fork(adaptationLoop())
+            // 適応ループを開始
+            yield* Effect.fork(adaptationLoop())
 
-      yield* Effect.logInfo('適応的品質調整開始')
+            yield* Effect.logInfo('適応的品質調整開始')
+          }),
+      })
     })
 
   const stopAdaptation = () =>
@@ -276,19 +278,24 @@ const makeAdaptiveQualityService = Effect.gen(function* () {
     Effect.gen(function* () {
       const current = yield* Ref.get(currentProfile)
 
-      if (current.overallLevel === targetLevel && !force) {
-        yield* Effect.logDebug(`品質レベルは既に ${targetLevel} です`)
-        return yield* createNoChangeAdjustment(current)
-      }
+      return yield* Effect.if(current.overallLevel === targetLevel && !force, {
+        onTrue: () =>
+          Effect.gen(function* () {
+            yield* Effect.logDebug(`品質レベルは既に ${targetLevel} です`)
+            return yield* createNoChangeAdjustment(current)
+          }),
+        onFalse: () =>
+          Effect.gen(function* () {
+            const targetProfile = DEFAULT_QUALITY_PROFILES[targetLevel]
+            const adjustment = yield* createQualityAdjustment(current, targetProfile, `手動調整: ${targetLevel}`)
 
-      const targetProfile = DEFAULT_QUALITY_PROFILES[targetLevel]
-      const adjustment = yield* createQualityAdjustment(current, targetProfile, `手動調整: ${targetLevel}`)
+            yield* Ref.set(currentProfile, targetProfile)
+            yield* Ref.update(adjustmentHistory, (history) => [...history.slice(-49), adjustment])
 
-      yield* Ref.set(currentProfile, targetProfile)
-      yield* Ref.update(adjustmentHistory, (history) => [...history.slice(-49), adjustment])
-
-      yield* Effect.logInfo(`品質調整実行: ${current.overallLevel} → ${targetLevel}`)
-      return adjustment
+            yield* Effect.logInfo(`品質調整実行: ${current.overallLevel} → ${targetLevel}`)
+            return adjustment
+          }),
+      })
     })
 
   const setCustomProfile = (profile: Schema.Schema.Type<typeof QualityProfile>) =>
@@ -301,18 +308,16 @@ const makeAdaptiveQualityService = Effect.gen(function* () {
     Effect.gen(function* () {
       const history = yield* Ref.get(performanceHistory)
 
-      if (history.length < 5) {
-        return []
-      }
-
-      const trends: Schema.Schema.Type<typeof PerformanceTrend>[] = [
-        calculateTrend(history, 'fps', (s) => s.fps),
-        calculateTrend(history, 'cpuUsage', (s) => s.cpuUsage),
-        calculateTrend(history, 'memoryUsage', (s) => s.memoryUsage),
-        calculateTrend(history, 'frameTime', (s) => s.frameTime),
-      ]
-
-      return trends
+      return yield* Effect.if(history.length < 5, {
+        onTrue: () => Effect.succeed([]),
+        onFalse: () =>
+          Effect.succeed([
+            calculateTrend(history, 'fps', (s) => s.fps),
+            calculateTrend(history, 'cpuUsage', (s) => s.cpuUsage),
+            calculateTrend(history, 'memoryUsage', (s) => s.memoryUsage),
+            calculateTrend(history, 'frameTime', (s) => s.frameTime),
+          ]),
+      })
     })
 
   const getAdjustmentHistory = (limit: number = 20) =>
@@ -338,20 +343,23 @@ const makeAdaptiveQualityService = Effect.gen(function* () {
 
       const overallScore = (fpsScore + memoryScore + cpuScore) / 3
 
-      // 推奨レベル決定
-      let recommendedLevel: QualityLevel
-
-      if (overallScore >= 0.9) {
-        recommendedLevel = 'ultra'
-      } else if (overallScore >= 0.75) {
-        recommendedLevel = 'high'
-      } else if (overallScore >= 0.6) {
-        recommendedLevel = 'medium'
-      } else if (overallScore >= 0.4) {
-        recommendedLevel = 'low'
-      } else {
-        recommendedLevel = 'minimal'
-      }
+      // 推奨レベル決定（ネストされたEffect.ifで5段階評価）
+      const recommendedLevel = yield* Effect.if(overallScore >= 0.9, {
+        onTrue: () => Effect.succeed<QualityLevel>('ultra'),
+        onFalse: () =>
+          Effect.if(overallScore >= 0.75, {
+            onTrue: () => Effect.succeed<QualityLevel>('high'),
+            onFalse: () =>
+              Effect.if(overallScore >= 0.6, {
+                onTrue: () => Effect.succeed<QualityLevel>('medium'),
+                onFalse: () =>
+                  Effect.if(overallScore >= 0.4, {
+                    onTrue: () => Effect.succeed<QualityLevel>('low'),
+                    onFalse: () => Effect.succeed<QualityLevel>('minimal'),
+                  }),
+              }),
+          }),
+      })
 
       // ユーザー制限適用
       const qualityLevels: QualityLevel[] = ['minimal', 'low', 'medium', 'high', 'ultra']
@@ -384,20 +392,29 @@ const makeAdaptiveQualityService = Effect.gen(function* () {
       const history = yield* Ref.get(adjustmentHistory)
       const lastAdjustment = history[history.length - 1]
 
-      if (!lastAdjustment || !lastAdjustment.rollbackPossible) {
-        yield* Effect.logWarning('ロールバック可能な調整がありません')
-        return false
-      }
-
-      // 前のプロファイルを探して復元
-      const previousProfile = findProfileByName(lastAdjustment.fromProfile)
-      if (previousProfile) {
-        yield* Ref.set(currentProfile, previousProfile)
-        yield* Effect.logInfo(`品質調整ロールバック: ${lastAdjustment.toProfile} → ${lastAdjustment.fromProfile}`)
-        return true
-      }
-
-      return false
+      return yield* Effect.if(!lastAdjustment || !lastAdjustment.rollbackPossible, {
+        onTrue: () =>
+          Effect.gen(function* () {
+            yield* Effect.logWarning('ロールバック可能な調整がありません')
+            return false
+          }),
+        onFalse: () =>
+          Effect.gen(function* () {
+            // 前のプロファイルを探して復元
+            const previousProfile = findProfileByName(lastAdjustment.fromProfile)
+            return yield* Effect.if(previousProfile !== null, {
+              onTrue: () =>
+                Effect.gen(function* () {
+                  yield* Ref.set(currentProfile, previousProfile)
+                  yield* Effect.logInfo(
+                    `品質調整ロールバック: ${lastAdjustment.toProfile} → ${lastAdjustment.fromProfile}`
+                  )
+                  return true
+                }),
+              onFalse: () => Effect.succeed(false),
+            })
+          }),
+      })
     })
 
   // === Helper Functions ===
@@ -409,32 +426,46 @@ const makeAdaptiveQualityService = Effect.gen(function* () {
       yield* Effect.repeat(
         Effect.gen(function* () {
           const isActive = yield* Ref.get(isAdapting)
-          if (!isActive) return false
 
-          // 一時停止チェック
-          const now = yield* Clock.currentTimeMillis
-          const pauseTime = yield* Ref.get(pausedUntil)
-          if (Option.isSome(pauseTime) && now < pauseTime.value) {
-            return true
-          }
-          yield* Ref.set(pausedUntil, Option.none())
+          return yield* Effect.if(!isActive, {
+            onTrue: () => Effect.succeed(false),
+            onFalse: () =>
+              Effect.gen(function* () {
+                // 一時停止チェック
+                const now = yield* Clock.currentTimeMillis
+                const pauseTime = yield* Ref.get(pausedUntil)
 
-          const history = yield* Ref.get(performanceHistory)
-          if (history.length < 3) return true
+                return yield* Effect.if(Option.isSome(pauseTime) && now < pauseTime.value, {
+                  onTrue: () => Effect.succeed(true),
+                  onFalse: () =>
+                    Effect.gen(function* () {
+                      yield* Ref.set(pausedUntil, Option.none())
 
-          const latestMetrics = history[history.length - 1]
-          const recommendedLevel = yield* recommendQualityLevel(latestMetrics)
-          const currentLevel = (yield* Ref.get(currentProfile)).overallLevel
+                      const history = yield* Ref.get(performanceHistory)
 
-          // 品質調整が必要かチェック
-          if (recommendedLevel !== currentLevel) {
-            const stabilityCheck = yield* checkStability(history, config.stabilityThreshold)
-            if (stabilityCheck) {
-              yield* adjustQuality(recommendedLevel)
-            }
-          }
+                      return yield* Effect.if(history.length < 3, {
+                        onTrue: () => Effect.succeed(true),
+                        onFalse: () =>
+                          Effect.gen(function* () {
+                            const latestMetrics = history[history.length - 1]
+                            const recommendedLevel = yield* recommendQualityLevel(latestMetrics)
+                            const currentLevel = (yield* Ref.get(currentProfile)).overallLevel
 
-          return true
+                            // 品質調整が必要かチェック
+                            yield* Effect.when(recommendedLevel !== currentLevel, () =>
+                              Effect.gen(function* () {
+                                const stabilityCheck = yield* checkStability(history, config.stabilityThreshold)
+                                yield* Effect.when(stabilityCheck, () => adjustQuality(recommendedLevel))
+                              })
+                            )
+
+                            return true
+                          }),
+                      })
+                    }),
+                })
+              }),
+          })
         }),
         { schedule: Effect.Schedule.spaced(`${config.adaptationInterval} millis`) }
       )
@@ -442,16 +473,20 @@ const makeAdaptiveQualityService = Effect.gen(function* () {
 
   const checkStability = (history: Schema.Schema.Type<typeof PerformanceSnapshot>[], thresholdMs: number) =>
     Effect.gen(function* () {
-      if (history.length < 2) return false
+      return yield* Effect.if(history.length < 2, {
+        onTrue: () => Effect.succeed(false),
+        onFalse: () =>
+          Effect.gen(function* () {
+            const latest = history[history.length - 1]
+            const previous = history[history.length - 2]
 
-      const latest = history[history.length - 1]
-      const previous = history[history.length - 2]
+            // 最近の変動が安定していることを確認
+            const timeDiff = latest.timestamp - previous.timestamp
+            const fpsVariation = Math.abs(latest.fps - previous.fps) / previous.fps
 
-      // 最近の変動が安定していることを確認
-      const timeDiff = latest.timestamp - previous.timestamp
-      const fpsVariation = Math.abs(latest.fps - previous.fps) / previous.fps
-
-      return timeDiff >= thresholdMs && fpsVariation < 0.1 // 10%以内の変動
+            return timeDiff >= thresholdMs && fpsVariation < 0.1 // 10%以内の変動
+          }),
+      })
     })
 
   const createQualityAdjustment = (
@@ -461,26 +496,35 @@ const makeAdaptiveQualityService = Effect.gen(function* () {
   ) =>
     Effect.gen(function* () {
       const now = yield* Clock.currentTimeMillis
-      const changes = []
+      const changes: Array<{
+        setting: string
+        fromValue: unknown
+        toValue: unknown
+        impact: 'major' | 'moderate' | 'minor'
+      }> = []
 
-      // 設定変更を記録
-      if (fromProfile.settings.renderDistance !== toProfile.settings.renderDistance) {
-        changes.push({
-          setting: 'renderDistance',
-          fromValue: fromProfile.settings.renderDistance,
-          toValue: toProfile.settings.renderDistance,
-          impact: 'major' as const,
+      // 設定変更を記録（Effect.whenで条件付き副作用）
+      yield* Effect.when(fromProfile.settings.renderDistance !== toProfile.settings.renderDistance, () =>
+        Effect.sync(() => {
+          changes.push({
+            setting: 'renderDistance',
+            fromValue: fromProfile.settings.renderDistance,
+            toValue: toProfile.settings.renderDistance,
+            impact: 'major' as const,
+          })
         })
-      }
+      )
 
-      if (fromProfile.settings.textureResolution !== toProfile.settings.textureResolution) {
-        changes.push({
-          setting: 'textureResolution',
-          fromValue: fromProfile.settings.textureResolution,
-          toValue: toProfile.settings.textureResolution,
-          impact: 'moderate' as const,
+      yield* Effect.when(fromProfile.settings.textureResolution !== toProfile.settings.textureResolution, () =>
+        Effect.sync(() => {
+          changes.push({
+            setting: 'textureResolution',
+            fromValue: fromProfile.settings.textureResolution,
+            toValue: toProfile.settings.textureResolution,
+            impact: 'moderate' as const,
+          })
         })
-      }
+      )
 
       const adjustment: Schema.Schema.Type<typeof QualityAdjustment> = {
         _tag: 'QualityAdjustment',

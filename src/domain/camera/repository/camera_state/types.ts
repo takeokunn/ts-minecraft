@@ -158,36 +158,36 @@ export const CameraStateQueryOptionsSchema = Schema.Struct({
 /**
  * Repository Error Schema
  */
-export const RepositoryErrorSchema = Schema.TaggedEnum<RepositoryError>()({
-  EntityNotFound: Schema.Struct({
+export const RepositoryErrorSchema = Schema.Union(
+  Schema.TaggedStruct('EntityNotFound', {
     entityType: Schema.String,
     entityId: Schema.String,
   }),
-  DuplicateEntity: Schema.Struct({
+  Schema.TaggedStruct('DuplicateEntity', {
     entityType: Schema.String,
     entityId: Schema.String,
   }),
-  ValidationFailed: Schema.Struct({
+  Schema.TaggedStruct('ValidationFailed', {
     message: Schema.String,
     details: Schema.OptionFromNullable(Schema.String),
   }),
-  OperationFailed: Schema.Struct({
+  Schema.TaggedStruct('OperationFailed', {
     operation: Schema.String,
     reason: Schema.String,
   }),
-  StorageError: Schema.Struct({
+  Schema.TaggedStruct('StorageError', {
     message: Schema.String,
     cause: Schema.OptionFromNullable(Schema.Unknown),
   }),
-  EncodingFailed: Schema.Struct({
+  Schema.TaggedStruct('EncodingFailed', {
     entityType: Schema.String,
     reason: Schema.String,
   }),
-  DecodingFailed: Schema.Struct({
+  Schema.TaggedStruct('DecodingFailed', {
     entityType: Schema.String,
     reason: Schema.String,
-  }),
-})
+  })
+)
 
 /**
  * Camera Schema

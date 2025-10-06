@@ -3,7 +3,7 @@
  * DDD原則に基づく集約のビジネスロジックテスト
  */
 
-import { Effect, Option } from 'effect'
+import { Effect, Layer, Option } from 'effect'
 import { describe, expect, it } from 'vitest'
 import type { ItemId, PlayerId } from '../../types'
 import { ContainerFactory, ContainerFactoryLive, createChest, createFurnace, createHopper } from '../container/factory'
@@ -35,26 +35,23 @@ const testPosition: WorldPosition = {
   dimension: 'minecraft:overworld',
 }
 
-const testLayer = ContainerFactoryLive.pipe(Effect.provide(ItemStackFactoryLive))
+const testLayer = Layer.provide(ContainerFactoryLive, ItemStackFactoryLive)
 
 describe('Container Aggregate', () => {
   describe('Factory', () => {
     it('should create chest container', async () => {
-      const program = Effect.gen(function* () {
-        const chest = yield* createChest(testPlayerId, testPosition, 'private')
+      const chest = await Effect.runPromise(
+        createChest(testPlayerId, testPosition, 'private').pipe(Effect.provide(testLayer))
+      )
 
-        expect(chest.type).toBe('chest')
-        expect(chest.ownerId).toBe(testPlayerId)
-        expect(chest.configuration.maxSlots).toBe(27)
-        expect(chest.slots).toHaveLength(27)
-        expect(chest.slots.every((slot) => slot === null)).toBe(true)
-        expect(chest.accessLevel).toBe('private')
-        expect(chest.isOpen).toBe(false)
-        expect(chest.currentViewers).toHaveLength(0)
-      })
-
-      const result = await Effect.runPromise(program.pipe(Effect.provide(testLayer)))
-      expect(result).toBeUndefined()
+      expect(chest.type).toBe('chest')
+      expect(chest.ownerId).toBe(testPlayerId)
+      expect(chest.configuration.maxSlots).toBe(27)
+      expect(chest.slots).toHaveLength(27)
+      expect(chest.slots.every((slot) => slot === null)).toBe(true)
+      expect(chest.accessLevel).toBe('private')
+      expect(chest.isOpen).toBe(false)
+      expect(chest.currentViewers).toHaveLength(0)
     })
 
     it('should create furnace container with special slots', async () => {

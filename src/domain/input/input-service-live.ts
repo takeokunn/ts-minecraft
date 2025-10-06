@@ -14,7 +14,7 @@ import {
 } from './index'
 
 const makeInputServiceLive = Effect.gen(function* () {
-  const now = yield* Clock.currentTimeMillis.pipe(Effect.map((millis) => InputTimestamp(Math.floor(millis))))
+  const now = yield* Effect.map(Clock.currentTimeMillis, (millis) => InputTimestamp(Math.floor(millis)))
 
   const snapshotRef = yield* Ref.make(makeSnapshot(now))
   const handlersRef = yield* Ref.make<ReadonlyArray<InputEventHandler>>([])

@@ -39,25 +39,13 @@ export type EasingType =
   | { readonly _tag: 'Bounce'; readonly amplitude: number; readonly period: number }
   | { readonly _tag: 'Elastic'; readonly amplitude: number; readonly period: number }
   | { readonly _tag: 'Back'; readonly overshoot: number }
-  | { readonly _tag: 'Cubic'; readonly controlPoint1: { x: number; y: number }; readonly controlPoint2: { x: number; y: number } }
+  | {
+      readonly _tag: 'Cubic'
+      readonly controlPoint1: { x: number; y: number }
+      readonly controlPoint2: { x: number; y: number }
+    }
   | { readonly _tag: 'Spring'; readonly tension: number; readonly friction: number }
   | { readonly _tag: 'Custom'; readonly easingFunction: (t: number) => number }
-
-/**
- * EasingType コンストラクタ関数群
- */
-export const EasingType = {
-  Linear: (): EasingType => ({ _tag: 'Linear' as const }),
-  EaseIn: (power: number): EasingType => ({ _tag: 'EaseIn' as const, power }),
-  EaseOut: (power: number): EasingType => ({ _tag: 'EaseOut' as const, power }),
-  EaseInOut: (power: number): EasingType => ({ _tag: 'EaseInOut' as const, power }),
-  Bounce: (amplitude: number, period: number): EasingType => ({ _tag: 'Bounce' as const, amplitude, period }),
-  Elastic: (amplitude: number, period: number): EasingType => ({ _tag: 'Elastic' as const, amplitude, period }),
-  Back: (overshoot: number): EasingType => ({ _tag: 'Back' as const, overshoot }),
-  Cubic: (controlPoint1: { x: number; y: number }, controlPoint2: { x: number; y: number }): EasingType => ({ _tag: 'Cubic' as const, controlPoint1, controlPoint2 }),
-  Spring: (tension: number, friction: number): EasingType => ({ _tag: 'Spring' as const, tension, friction }),
-  Custom: (easingFunction: (t: number) => number): EasingType => ({ _tag: 'Custom' as const, easingFunction }),
-} as const
 
 /**
  * アニメーション状態のADT
@@ -205,31 +193,63 @@ export type KeyframeAnimation = Brand.Brand<
  */
 export type AnimationEvent =
   | { readonly _tag: 'Started'; readonly animationId: string; readonly startTime: Timestamp }
-  | { readonly _tag: 'Updated'; readonly animationId: string; readonly progress: AnimationProgress; readonly currentTime: Timestamp }
+  | {
+      readonly _tag: 'Updated'
+      readonly animationId: string
+      readonly progress: AnimationProgress
+      readonly currentTime: Timestamp
+    }
   | { readonly _tag: 'Paused'; readonly animationId: string; readonly pauseTime: Timestamp }
   | { readonly _tag: 'Resumed'; readonly animationId: string; readonly resumeTime: Timestamp }
   | { readonly _tag: 'Completed'; readonly animationId: string; readonly completionTime: Timestamp }
-  | { readonly _tag: 'Cancelled'; readonly animationId: string; readonly cancellationTime: Timestamp; readonly reason: string }
-  | { readonly _tag: 'LoopCompleted'; readonly animationId: string; readonly loopCount: number; readonly time: Timestamp }
+  | {
+      readonly _tag: 'Cancelled'
+      readonly animationId: string
+      readonly cancellationTime: Timestamp
+      readonly reason: string
+    }
+  | {
+      readonly _tag: 'LoopCompleted'
+      readonly animationId: string
+      readonly loopCount: number
+      readonly time: Timestamp
+    }
 
 /**
  * AnimationEvent コンストラクタ関数群
  */
 export const AnimationEvent = {
-  Started: (props: { readonly animationId: string; readonly startTime: Timestamp }): AnimationEvent =>
-    ({ _tag: 'Started' as const, ...props }),
-  Updated: (props: { readonly animationId: string; readonly progress: AnimationProgress; readonly currentTime: Timestamp }): AnimationEvent =>
-    ({ _tag: 'Updated' as const, ...props }),
-  Paused: (props: { readonly animationId: string; readonly pauseTime: Timestamp }): AnimationEvent =>
-    ({ _tag: 'Paused' as const, ...props }),
-  Resumed: (props: { readonly animationId: string; readonly resumeTime: Timestamp }): AnimationEvent =>
-    ({ _tag: 'Resumed' as const, ...props }),
-  Completed: (props: { readonly animationId: string; readonly completionTime: Timestamp }): AnimationEvent =>
-    ({ _tag: 'Completed' as const, ...props }),
-  Cancelled: (props: { readonly animationId: string; readonly cancellationTime: Timestamp; readonly reason: string }): AnimationEvent =>
-    ({ _tag: 'Cancelled' as const, ...props }),
-  LoopCompleted: (props: { readonly animationId: string; readonly loopCount: number; readonly time: Timestamp }): AnimationEvent =>
-    ({ _tag: 'LoopCompleted' as const, ...props }),
+  Started: (props: { readonly animationId: string; readonly startTime: Timestamp }): AnimationEvent => ({
+    _tag: 'Started' as const,
+    ...props,
+  }),
+  Updated: (props: {
+    readonly animationId: string
+    readonly progress: AnimationProgress
+    readonly currentTime: Timestamp
+  }): AnimationEvent => ({ _tag: 'Updated' as const, ...props }),
+  Paused: (props: { readonly animationId: string; readonly pauseTime: Timestamp }): AnimationEvent => ({
+    _tag: 'Paused' as const,
+    ...props,
+  }),
+  Resumed: (props: { readonly animationId: string; readonly resumeTime: Timestamp }): AnimationEvent => ({
+    _tag: 'Resumed' as const,
+    ...props,
+  }),
+  Completed: (props: { readonly animationId: string; readonly completionTime: Timestamp }): AnimationEvent => ({
+    _tag: 'Completed' as const,
+    ...props,
+  }),
+  Cancelled: (props: {
+    readonly animationId: string
+    readonly cancellationTime: Timestamp
+    readonly reason: string
+  }): AnimationEvent => ({ _tag: 'Cancelled' as const, ...props }),
+  LoopCompleted: (props: {
+    readonly animationId: string
+    readonly loopCount: number
+    readonly time: Timestamp
+  }): AnimationEvent => ({ _tag: 'LoopCompleted' as const, ...props }),
 } as const
 
 /**
@@ -239,7 +259,12 @@ export type AnimationError =
   | { readonly _tag: 'InvalidDuration'; readonly duration: number; readonly min: number; readonly max: number }
   | { readonly _tag: 'InvalidProgress'; readonly progress: number; readonly expected: string }
   | { readonly _tag: 'InvalidTimestamp'; readonly timestamp: number; readonly reason: string }
-  | { readonly _tag: 'InvalidEasingParameter'; readonly easingType: string; readonly parameter: string; readonly value: unknown }
+  | {
+      readonly _tag: 'InvalidEasingParameter'
+      readonly easingType: string
+      readonly parameter: string
+      readonly value: unknown
+    }
   | { readonly _tag: 'KeyframeValidationFailed'; readonly keyframeIndex: number; readonly reason: string }
   | { readonly _tag: 'AnimationNotFound'; readonly animationId: string }
   | { readonly _tag: 'AnimationAlreadyRunning'; readonly animationId: string }
@@ -256,29 +281,46 @@ export type AnimationError =
  * AnimationError コンストラクタ関数群
  */
 export const AnimationError = {
-  InvalidDuration: (props: { readonly duration: number; readonly min: number; readonly max: number }): AnimationError =>
-    ({ _tag: 'InvalidDuration' as const, ...props }),
-  InvalidProgress: (props: { readonly progress: number; readonly expected: string }): AnimationError =>
-    ({ _tag: 'InvalidProgress' as const, ...props }),
-  InvalidTimestamp: (props: { readonly timestamp: number; readonly reason: string }): AnimationError =>
-    ({ _tag: 'InvalidTimestamp' as const, ...props }),
-  InvalidEasingParameter: (props: { readonly easingType: string; readonly parameter: string; readonly value: unknown }): AnimationError =>
-    ({ _tag: 'InvalidEasingParameter' as const, ...props }),
-  KeyframeValidationFailed: (props: { readonly keyframeIndex: number; readonly reason: string }): AnimationError =>
-    ({ _tag: 'KeyframeValidationFailed' as const, ...props }),
-  AnimationNotFound: (props: { readonly animationId: string }): AnimationError =>
-    ({ _tag: 'AnimationNotFound' as const, ...props }),
-  AnimationAlreadyRunning: (props: { readonly animationId: string }): AnimationError =>
-    ({ _tag: 'AnimationAlreadyRunning' as const, ...props }),
-  AnimationStateConflict: (props: { readonly currentState: string; readonly requestedOperation: string }): AnimationError =>
-    ({ _tag: 'AnimationStateConflict' as const, ...props }),
+  InvalidDuration: (props: {
+    readonly duration: number
+    readonly min: number
+    readonly max: number
+  }): AnimationError => ({ _tag: 'InvalidDuration' as const, ...props }),
+  InvalidProgress: (props: { readonly progress: number; readonly expected: string }): AnimationError => ({
+    _tag: 'InvalidProgress' as const,
+    ...props,
+  }),
+  InvalidTimestamp: (props: { readonly timestamp: number; readonly reason: string }): AnimationError => ({
+    _tag: 'InvalidTimestamp' as const,
+    ...props,
+  }),
+  InvalidEasingParameter: (props: {
+    readonly easingType: string
+    readonly parameter: string
+    readonly value: unknown
+  }): AnimationError => ({ _tag: 'InvalidEasingParameter' as const, ...props }),
+  KeyframeValidationFailed: (props: { readonly keyframeIndex: number; readonly reason: string }): AnimationError => ({
+    _tag: 'KeyframeValidationFailed' as const,
+    ...props,
+  }),
+  AnimationNotFound: (props: { readonly animationId: string }): AnimationError => ({
+    _tag: 'AnimationNotFound' as const,
+    ...props,
+  }),
+  AnimationAlreadyRunning: (props: { readonly animationId: string }): AnimationError => ({
+    _tag: 'AnimationAlreadyRunning' as const,
+    ...props,
+  }),
+  AnimationStateConflict: (props: {
+    readonly currentState: string
+    readonly requestedOperation: string
+  }): AnimationError => ({ _tag: 'AnimationStateConflict' as const, ...props }),
   InterpolationFailed: (props: {
     readonly from: unknown
     readonly to: unknown
     readonly progress: number
     readonly reason: string
-  }): AnimationError =>
-    ({ _tag: 'InterpolationFailed' as const, ...props }),
+  }): AnimationError => ({ _tag: 'InterpolationFailed' as const, ...props }),
 } as const
 
 /**

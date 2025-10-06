@@ -12,19 +12,19 @@ import type { ItemId, ItemStack } from '../../types'
 export class ItemCreationError extends Schema.TaggedError<ItemCreationError>()('ItemCreationError', {
   reason: Schema.String,
   invalidFields: Schema.Array(Schema.String),
-  context: Schema.Record({ key: Schema.String, value: Schema.Unknown }).pipe(Schema.optional),
+  context: Schema.Record({ key: Schema.String, value: Schema.Any }).pipe(Schema.optional),
 }) {}
 
 export class ItemValidationError extends Schema.TaggedError<ItemValidationError>()('ItemValidationError', {
   reason: Schema.String,
   missingFields: Schema.Array(Schema.String),
-  context: Schema.Record({ key: Schema.String, value: Schema.Unknown }).pipe(Schema.optional),
+  context: Schema.Record({ key: Schema.String, value: Schema.Any }).pipe(Schema.optional),
 }) {}
 
 export class ItemStackError extends Schema.TaggedError<ItemStackError>()('ItemStackError', {
   reason: Schema.String,
-  stackingRules: Schema.Record({ key: Schema.String, value: Schema.Unknown }).pipe(Schema.optional),
-  context: Schema.Record({ key: Schema.String, value: Schema.Unknown }).pipe(Schema.optional),
+  stackingRules: Schema.Record({ key: Schema.String, value: Schema.Any }).pipe(Schema.optional),
+  context: Schema.Record({ key: Schema.String, value: Schema.Any }).pipe(Schema.optional),
 }) {}
 
 // アイテムカテゴリ（DDD Value Object）

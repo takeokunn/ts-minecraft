@@ -5,12 +5,14 @@
 
 import { Schema } from 'effect'
 import type { ItemId } from '../../types'
+import { ItemIdSchema } from '../../types/core'
+import { ItemMetadataSchema } from '../../value_object/item_metadata/schema'
 
 // ===== Brand Types =====
 
 export const ItemStackIdSchema = Schema.String.pipe(
   Schema.nonEmptyString(),
-  Schema.pattern(/^stack_[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{12}$/),
+  Schema.pattern(/^stack_[A-Za-z0-9_-]+$/),
   Schema.brand('ItemStackId')
 )
 export type ItemStackId = Schema.Schema.Type<typeof ItemStackIdSchema>
@@ -37,7 +39,7 @@ export const ItemNBTDataSchema = Schema.Struct({
   unbreakable: Schema.optional(Schema.Boolean),
   hideFlags: Schema.optional(Schema.Number.pipe(Schema.int())),
   customModelData: Schema.optional(Schema.Number.pipe(Schema.int())),
-  attributes: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
+  attributes: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Any })),
   tags: Schema.optional(Schema.Array(Schema.String)),
 })
 export type ItemNBTData = Schema.Schema.Type<typeof ItemNBTDataSchema>
@@ -49,12 +51,12 @@ export const ItemStackEntitySchema = Schema.Struct({
   id: ItemStackIdSchema,
 
   // 基本アイテム情報
-  itemId: Schema.suspend(() => import('../../types/index').then((m) => m.ItemIdSchema)),
+  itemId: ItemIdSchema,
   count: ItemCountSchema,
 
   // オプション属性
   durability: Schema.optional(DurabilitySchema),
-  metadata: Schema.optional(Schema.suspend(() => import('../../types/index').then((m) => m.ItemMetadata))),
+  metadata: Schema.optional(ItemMetadataSchema),
   nbtData: Schema.optional(ItemNBTDataSchema),
 
   // エンティティメタデータ
@@ -135,35 +137,24 @@ export const ITEM_STACK_CONSTANTS = {
 
 // ===== Error Types =====
 
-export const ItemStackErrorSchema = Schema.TaggedError('ItemStackError')(
-  Schema.Struct({
-    reason: Schema.Literal(
-      'INVALID_STACK_SIZE',
-      'INCOMPATIBLE_ITEMS',
-      'INSUFFICIENT_QUANTITY',
-      'ITEM_BROKEN',
-      'INVALID_DURABILITY',
-      'MERGE_OVERFLOW',
-      'SPLIT_UNDERFLOW',
-      'ENCHANTMENT_CONFLICT',
-      'NBT_MISMATCH'
-    ),
-    message: Schema.String,
-    stackId: Schema.optional(ItemStackIdSchema),
-    itemId: Schema.optional(Schema.suspend(() => import('../../types/index').then((m) => m.ItemIdSchema))),
-    quantity: Schema.optional(ItemCountSchema),
-    metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
-  })
-)
-
-export class ItemStackError extends Schema.TaggedError('ItemStackError')<{
-  readonly reason: typeof ItemStackErrorSchema.Type.reason
-  readonly message: string
-  readonly stackId?: ItemStackId
-  readonly itemId?: ItemId
-  readonly quantity?: ItemCount
-  readonly metadata?: Record<string, unknown>
-}> {
+export class ItemStackError extends Schema.TaggedError<ItemStackError>()('ItemStackError', {
+  reason: Schema.Literal(
+    'INVALID_STACK_SIZE',
+    'INCOMPATIBLE_ITEMS',
+    'INSUFFICIENT_QUANTITY',
+    'ITEM_BROKEN',
+    'INVALID_DURABILITY',
+    'MERGE_OVERFLOW',
+    'SPLIT_UNDERFLOW',
+    'ENCHANTMENT_CONFLICT',
+    'NBT_MISMATCH'
+  ),
+  message: Schema.String,
+  stackId: Schema.optional(ItemStackIdSchema),
+  itemId: Schema.optional(Schema.suspend(() => import('../../types/index').then((m) => m.ItemIdSchema))),
+  quantity: Schema.optional(ItemCountSchema),
+  metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Any })),
+}) {
   static invalidStackSize(stackId: ItemStackId, size: number): ItemStackError {
     return new ItemStackError({
       reason: 'INVALID_STACK_SIZE',

@@ -123,7 +123,7 @@ export { createBrandedNumberSchema } from './constants.js'
 // ========================================
 
 // Event Types
-export type { AnimationState, CameraEvent, CameraId, CameraRotation, CameraSettings } from './constants'
+export type { AnimationState, CameraEvent, CameraId, CameraRotation, CameraSettings } from './events.js'
 
 // Event Schemas
 export {
@@ -132,10 +132,10 @@ export {
   CameraIdSchema,
   CameraRotationSchema,
   CameraSettingsSchema,
-} from './constants'
+} from './events.js'
 
 // Event Factory Functions
-export { createCameraEvent } from './constants'
+export { createCameraEvent } from './events.js'
 
 // Event Type Guards
 export {
@@ -146,29 +146,18 @@ export {
   isRotationUpdatedEvent,
   isSettingsChangedEvent,
   isViewModeChangedEvent,
-} from './constants'
+} from './events.js'
 
 // ========================================
-// Re-export Everything as Namespace
+// Re-export Everything as Namespace - DISABLED to avoid circular dependencies
 // ========================================
 
 /**
  * Camera Domain Types Namespace
  *
- * 使用例:
- * ```typescript
- * import { CameraTypes } from '@domain/camera/types'
- *
- * // エラー作成
- * const error = CameraTypes.createCameraError.invalidMode('invalid-mode', ['first-person', 'third-person'])
- *
- * // イベント作成
- * const event = CameraTypes.createCameraEvent.cameraInitialized('camera-1', 'first-person')
- *
- * // 定数使用
- * const defaultFOV = CameraTypes.CAMERA_DEFAULTS.FOV
- * ```
+ * All exports are done explicitly above to avoid circular dependency issues.
+ * Wildcard re-exports can cause module initialization order problems in Vitest.
  */
-export * from './constants'
-export * from './errors'
-export * from './events'
+// export * from './constants'
+// export * from './errors'
+// export * from './events'

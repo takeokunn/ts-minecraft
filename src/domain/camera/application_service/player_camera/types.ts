@@ -206,41 +206,41 @@ export type CameraApplicationError = Data.TaggedEnum<{
 // Schema Definitions
 // ========================================
 
-export const PlayerCameraInputSchema = Schema.TaggedEnum<PlayerCameraInput>({
-  MouseMovement: Schema.Struct({
+export const PlayerCameraInputSchema = Schema.Union(
+  Schema.TaggedStruct('MouseMovement', {
     deltaX: Schema.Number,
     deltaY: Schema.Number,
     timestamp: Schema.Number,
   }),
-  KeyboardInput: Schema.Struct({
-    action: Schema.TaggedEnum<KeyboardAction>({
-      ZoomIn: Schema.Struct({}),
-      ZoomOut: Schema.Struct({}),
-      ResetCamera: Schema.Struct({}),
-      ToggleFreeLook: Schema.Struct({}),
-      CenterView: Schema.Struct({}),
-      CycleCameraMode: Schema.Struct({}),
-    }),
+  Schema.TaggedStruct('KeyboardInput', {
+    action: Schema.Union(
+      Schema.TaggedStruct('ZoomIn', {}),
+      Schema.TaggedStruct('ZoomOut', {}),
+      Schema.TaggedStruct('ResetCamera', {}),
+      Schema.TaggedStruct('ToggleFreeLook', {}),
+      Schema.TaggedStruct('CenterView', {}),
+      Schema.TaggedStruct('CycleCameraMode', {})
+    ),
     modifiers: Schema.Array(
-      Schema.TaggedEnum<KeyModifier>({
-        Shift: Schema.Struct({}),
-        Ctrl: Schema.Struct({}),
-        Alt: Schema.Struct({}),
-        Meta: Schema.Struct({}),
-      })
+      Schema.Union(
+        Schema.TaggedStruct('Shift', {}),
+        Schema.TaggedStruct('Ctrl', {}),
+        Schema.TaggedStruct('Alt', {}),
+        Schema.TaggedStruct('Meta', {})
+      )
     ),
     timestamp: Schema.Number,
   }),
-  ViewModeSwitch: Schema.Struct({
+  Schema.TaggedStruct('ViewModeSwitch', {
     targetMode: Schema.Unknown, // ViewModeSchemaを参照
     preservePosition: Schema.Boolean,
     animationDuration: Schema.OptionFromSelf(Schema.Number),
   }),
-  SettingsUpdate: Schema.Struct({
+  Schema.TaggedStruct('SettingsUpdate', {
     settings: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
     immediate: Schema.Boolean,
-  }),
-})
+  })
+)
 
 export const PlayerCameraStateSchema = Schema.Struct({
   playerId: Schema.String,
@@ -254,79 +254,79 @@ export const PlayerCameraStateSchema = Schema.Struct({
   animationState: Schema.OptionFromSelf(Schema.Unknown), // AnimationStateSchemaを参照
 }).pipe(Schema.fromBrand(Brand.nominal<PlayerCameraState>()))
 
-export const ViewModeTransitionResultSchema = Schema.TaggedEnum<ViewModeTransitionResult>({
-  Success: Schema.Struct({
+export const export const ViewModeTransitionResultSchema = Schema.Union(
+  Schema.TaggedStruct('Success', {
     fromMode: Schema.Unknown, // ViewModeSchemaを参照
     toMode: Schema.Unknown, // ViewModeSchemaを参照
     duration: Schema.Number,
     animated: Schema.Boolean,
   }),
-  Failed: Schema.Struct({
-    reason: Schema.TaggedEnum<ViewModeTransitionFailureReason>({
-      ModeNotSupported: Schema.Struct({
+  Schema.TaggedStruct('Failed', {
+    reason: Schema.Union(
+      Schema.TaggedStruct('ModeNotSupported', {
         mode: Schema.Unknown, // ViewModeSchemaを参照
       }),
-      AnimationInProgress: Schema.Struct({
+      Schema.TaggedStruct('AnimationInProgress', {
         currentAnimation: Schema.Unknown, // AnimationStateSchemaを参照
       }),
-      InvalidState: Schema.Struct({
+      Schema.TaggedStruct('InvalidState', {
         currentState: PlayerCameraStateSchema,
       }),
-      ConfigurationError: Schema.Struct({
+      Schema.TaggedStruct('ConfigurationError', {
         config: Schema.Unknown, // ViewModeTransitionConfigSchemaを参照
       }),
-      ResourceUnavailable: Schema.Struct({
+      Schema.TaggedStruct('ResourceUnavailable', {
         resource: Schema.String,
-      }),
-    }),
+      })
+    ),
     fromMode: Schema.Unknown, // ViewModeSchemaを参照
     targetMode: Schema.Unknown, // ViewModeSchemaを参照
   }),
-  InProgress: Schema.Struct({
+  Schema.TaggedStruct('InProgress', {
     fromMode: Schema.Unknown, // ViewModeSchemaを参照
     toMode: Schema.Unknown, // ViewModeSchemaを参照
     progress: Schema.Number.pipe(Schema.between(0, 1)),
     estimatedRemaining: Schema.Number.pipe(Schema.positive()),
-  }),
-})
+  })
+)
 
-export const CameraApplicationErrorSchema = Schema.TaggedEnum<CameraApplicationError>({
-  CameraNotFound: Schema.Struct({
+export const export const CameraApplicationErrorSchema = Schema.Union(
+  Schema.TaggedStruct('CameraNotFound', {
     cameraId: Schema.String,
   }),
-  PlayerNotFound: Schema.Struct({
+  Schema.TaggedStruct('PlayerNotFound', {
     playerId: Schema.String,
   }),
-  ViewModeSwitchNotAllowed: Schema.Struct({
+  Schema.TaggedStruct('ViewModeSwitchNotAllowed', {
     currentMode: Schema.Unknown, // ViewModeSchemaを参照
     targetMode: Schema.Unknown, // ViewModeSchemaを参照
     reason: Schema.String,
   }),
-  SystemNotInitialized: Schema.Struct({}),
-  ConcurrentUpdateConflict: Schema.Struct({
+  Schema.TaggedStruct('SystemNotInitialized', {}),
+  Schema.TaggedStruct('ConcurrentUpdateConflict', {
     cameraId: Schema.String,
     version: Schema.Number,
     conflictingOperation: Schema.String,
   }),
-  PerformanceLimitExceeded: Schema.Struct({
+  Schema.TaggedStruct('PerformanceLimitExceeded', {
     metric: Schema.String,
     current: Schema.Number,
     limit: Schema.Number,
   }),
-  InvalidInputFormat: Schema.Struct({
+  Schema.TaggedStruct('InvalidInputFormat', {
     input: Schema.Unknown,
     expectedFormat: Schema.String,
   }),
-  ConfigurationValidationFailed: Schema.Struct({
+  Schema.TaggedStruct('ConfigurationValidationFailed', {
     config: Schema.Unknown,
     validationErrors: Schema.Array(Schema.String),
   }),
-  ResourceAllocationFailed: Schema.Struct({
+  Schema.TaggedStruct('ResourceAllocationFailed', {
     resource: Schema.String,
     availableMemory: Schema.Number,
     requiredMemory: Schema.Number,
-  }),
-})
+  })
+)
 
 // ========================================
 // Factory Functions

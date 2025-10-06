@@ -264,12 +264,12 @@ export const KeyBindingSchema = Schema.Struct({
 /**
  * Quality Level Schema
  */
-export const QualityLevelSchema = Schema.TaggedEnum<QualityLevel>()({
-  Low: Schema.Struct({}),
-  Medium: Schema.Struct({}),
-  High: Schema.Struct({}),
-  Ultra: Schema.Struct({}),
-  Custom: Schema.Struct({
+export const QualityLevelSchema = Schema.Union(
+  Schema.TaggedStruct('Low', {}),
+  Schema.TaggedStruct('Medium', {}),
+  Schema.TaggedStruct('High', {}),
+  Schema.TaggedStruct('Ultra', {}),
+  Schema.TaggedStruct('Custom', {
     customSettings: Schema.Struct({
       renderDistance: Schema.Number.pipe(Schema.positive()),
       shadowQuality: Schema.Number.pipe(Schema.clamp(0, 10)),
@@ -277,8 +277,8 @@ export const QualityLevelSchema = Schema.TaggedEnum<QualityLevel>()({
       effectsQuality: Schema.Number.pipe(Schema.clamp(0, 10)),
       antiAliasing: Schema.Boolean,
     }).pipe(Schema.brand('CustomQualitySettings')),
-  }),
-})
+  })
+)
 
 /**
  * Player Camera Settings Schema
@@ -369,55 +369,55 @@ export const CameraPresetSettingsSchema = Schema.Struct({
 export const SettingsStorageQueryOptionsSchema = Schema.Struct({
   includeDefaults: Schema.Boolean,
   filterByTag: Schema.OptionFromNullable(Schema.String),
-  sortBy: Schema.TaggedEnum<SettingsSortBy>()({
-    Name: Schema.Struct({ ascending: Schema.Boolean }),
-    CreatedAt: Schema.Struct({ ascending: Schema.Boolean }),
-    LastModified: Schema.Struct({ ascending: Schema.Boolean }),
-    Popularity: Schema.Struct({ ascending: Schema.Boolean }),
-  }),
+  sortBy: Schema.Union(
+    Schema.TaggedStruct('Name', { ascending: Schema.Boolean }),
+    Schema.TaggedStruct('CreatedAt', { ascending: Schema.Boolean }),
+    Schema.TaggedStruct('LastModified', { ascending: Schema.Boolean }),
+    Schema.TaggedStruct('Popularity', { ascending: Schema.Boolean })
+  ),
   limit: Schema.OptionFromNullable(Schema.Number.pipe(Schema.positive())),
 }).pipe(Schema.brand('SettingsStorageQueryOptions'))
 
 /**
  * Settings Repository Error Schema
  */
-export const SettingsRepositoryErrorSchema = Schema.TaggedEnum<SettingsRepositoryError>()({
-  SettingsNotFound: Schema.Struct({
+export const SettingsRepositoryErrorSchema = Schema.Union(
+  Schema.TaggedStruct('SettingsNotFound', {
     settingsType: Schema.String,
     identifier: Schema.String,
   }),
-  DuplicateSettings: Schema.Struct({
+  Schema.TaggedStruct('DuplicateSettings', {
     settingsType: Schema.String,
     identifier: Schema.String,
   }),
-  ValidationFailed: Schema.Struct({
+  Schema.TaggedStruct('ValidationFailed', {
     field: Schema.String,
     value: Schema.Unknown,
     reason: Schema.String,
   }),
-  PresetNotFound: Schema.Struct({
+  Schema.TaggedStruct('PresetNotFound', {
     presetName: Schema.String,
   }),
-  PresetAlreadyExists: Schema.Struct({
+  Schema.TaggedStruct('PresetAlreadyExists', {
     presetName: Schema.String,
   }),
-  UnauthorizedAccess: Schema.Struct({
+  Schema.TaggedStruct('UnauthorizedAccess', {
     operation: Schema.String,
     playerId: PlayerIdSchema,
   }),
-  StorageError: Schema.Struct({
+  Schema.TaggedStruct('StorageError', {
     message: Schema.String,
     cause: Schema.OptionFromNullable(Schema.Unknown),
   }),
-  EncodingFailed: Schema.Struct({
+  Schema.TaggedStruct('EncodingFailed', {
     settingsType: Schema.String,
     reason: Schema.String,
   }),
-  DecodingFailed: Schema.Struct({
+  Schema.TaggedStruct('DecodingFailed', {
     settingsType: Schema.String,
     reason: Schema.String,
-  }),
-})
+  })
+)
 
 // ========================================
 // Factory Functions

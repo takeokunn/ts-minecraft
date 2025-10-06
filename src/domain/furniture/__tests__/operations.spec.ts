@@ -191,7 +191,7 @@ describe('furniture/operations', () => {
       const sign = yield* createSign({
         style: 'oak',
         text: { lines: ['Hello'], alignment: 'left' },
-        placedBy: 'player_owner01',
+        placedBy: 'player_abcd1234',
         location: { x: 5, y: 70, z: 5 },
       } satisfies CreateSignInput)
 
@@ -199,7 +199,7 @@ describe('furniture/operations', () => {
 
       const error = yield* updateSignText({
         sign,
-        editor: 'player_other02',
+        editor: 'player_efgh5678',
         text: { lines: ['Intruder'], alignment: 'center' },
         currentTick: tick,
       }).pipe(Effect.flip)

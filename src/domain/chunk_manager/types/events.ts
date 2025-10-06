@@ -377,42 +377,42 @@ export const EventMetadataSchema = Schema.Struct({
   userId: Schema.optional(Schema.String),
 })
 
-export const PoolManagementEventSchema = Schema.TaggedEnum<PoolManagementEvent>()({
-  PoolCreated: Schema.Struct({
+export const PoolManagementEventSchema = Schema.Union(
+  Schema.TaggedStruct('PoolCreated', {
     poolId: Schema.String,
     strategy: Schema.Unknown, // PoolStrategySchemaを参照
     maxCapacity: Schema.Number.pipe(Schema.int(), Schema.positive()),
     metadata: EventMetadataSchema,
   }),
-  PoolDestroyed: Schema.Struct({
+  Schema.TaggedStruct('PoolDestroyed', {
     poolId: Schema.String,
     reason: Schema.String,
     chunksEvicted: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
     metadata: EventMetadataSchema,
   }),
-  PoolConfigurationChanged: Schema.Struct({
+  Schema.TaggedStruct('PoolConfigurationChanged', {
     poolId: Schema.String,
     oldStrategy: Schema.Unknown,
     newStrategy: Schema.Unknown,
     metadata: EventMetadataSchema,
   }),
-  PoolCapacityChanged: Schema.Struct({
+  Schema.TaggedStruct('PoolCapacityChanged', {
     poolId: Schema.String,
     oldCapacity: Schema.Number.pipe(Schema.int(), Schema.positive()),
     newCapacity: Schema.Number.pipe(Schema.int(), Schema.positive()),
     metadata: EventMetadataSchema,
-  }),
-})
+  })
+)
 
-export const ChunkLifecycleEventSchema = Schema.TaggedEnum<ChunkLifecycleEvent>()({
-  ChunkActivated: Schema.Struct({
+export const ChunkLifecycleEventSchema = Schema.Union(
+  Schema.TaggedStruct('ChunkActivated', {
     chunkId: Schema.String,
     poolId: Schema.String,
     priority: Schema.Number.pipe(Schema.int(), Schema.between(0, 100)),
     activatedAt: Schema.Date,
     metadata: EventMetadataSchema,
   }),
-  ChunkDeactivated: Schema.Struct({
+  Schema.TaggedStruct('ChunkDeactivated', {
     chunkId: Schema.String,
     poolId: Schema.String,
     deactivatedAt: Schema.Date,
@@ -420,29 +420,29 @@ export const ChunkLifecycleEventSchema = Schema.TaggedEnum<ChunkLifecycleEvent>(
     reason: Schema.String,
     metadata: EventMetadataSchema,
   }),
-  ChunkMarkedForDestruction: Schema.Struct({
+  Schema.TaggedStruct('ChunkMarkedForDestruction', {
     chunkId: Schema.String,
     poolId: Schema.String,
     markedAt: Schema.Date,
     reason: Schema.Unknown, // DestructionReasonSchemaを参照
     metadata: EventMetadataSchema,
   }),
-  ChunkDestroyed: Schema.Struct({
+  Schema.TaggedStruct('ChunkDestroyed', {
     chunkId: Schema.String,
     poolId: Schema.String,
     destroyedAt: Schema.Date,
     memoryFreed: Schema.Number.pipe(Schema.int(), Schema.positive()),
     metadata: EventMetadataSchema,
   }),
-  LifecycleStageChanged: Schema.Struct({
+  Schema.TaggedStruct('LifecycleStageChanged', {
     chunkId: Schema.String,
     poolId: Schema.String,
     fromStage: Schema.Unknown, // LifecycleStageSchemaを参照
     toStage: Schema.Unknown, // LifecycleStageSchemaを参照
     changedAt: Schema.Date,
     metadata: EventMetadataSchema,
-  }),
-})
+  })
+)
 
 // ========================================
 // Event Factory Functions

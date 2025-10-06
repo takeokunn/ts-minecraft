@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest'
 import type { ItemId } from '../../types'
 import {
   ItemStackFactory,
-  ItemStackFactoryLive,
+  ItemStackFactoryLayer,
   createDurableItemStack,
   createEnchantedItemStack,
   createSimpleItemStack,
@@ -31,7 +31,7 @@ import type { Enchantment } from '../item_stack/types'
 const testItemId = 'minecraft:diamond_sword' as ItemId
 const testItemId2 = 'minecraft:stone' as ItemId
 
-const testLayer = ItemStackFactoryLive
+const testLayer = ItemStackFactoryLayer
 
 describe('ItemStack Entity', () => {
   describe('Factory', () => {

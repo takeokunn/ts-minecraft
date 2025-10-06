@@ -26,7 +26,7 @@ export const indexedDbRepositoryLayer = (initial: ChunkSystemState): Layer.Layer
       const eventQueue = yield* Queue.sliding<ChunkEvent>(512)
       const observe: Stream.Stream<ChunkEvent, ChunkSystemError> = Stream.fromQueue(eventQueue)
       yield* Effect.addFinalizer(() => Queue.shutdown(eventQueue))
-      return {
+      return ChunkSystemRepository.of({
         load: wrapRepository(simulateLatency(Ref.get(persistedRef))),
         save: (state, events) =>
           wrapRepository(
@@ -35,6 +35,6 @@ export const indexedDbRepositoryLayer = (initial: ChunkSystemState): Layer.Layer
             )
           ),
         observe,
-      }
+      })
     })
   )

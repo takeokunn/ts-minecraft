@@ -346,21 +346,21 @@ export const viewModeArbitrary = fc.oneof(
       timeline: fc.record({
         keyframes: fc.array(
           fc.record({
-            time: fc.float({ min: Math.fround(0), max: Math.fround(10), noNaN: true }),
+            time: fc.float({ min: Math.fround(0), max: Math.fround(10), noNaN: true, noDefaultInfinity: true }),
             position: fc.record({
-              x: fc.float({ min: -100, max: 100 }),
-              y: fc.float({ min: -100, max: 100 }),
-              z: fc.float({ min: -100, max: 100 }),
+              x: fc.float({ min: Math.fround(-100), max: Math.fround(100), noNaN: true, noDefaultInfinity: true }),
+              y: fc.float({ min: Math.fround(-100), max: Math.fround(100), noNaN: true, noDefaultInfinity: true }),
+              z: fc.float({ min: Math.fround(-100), max: Math.fround(100), noNaN: true, noDefaultInfinity: true }),
             }),
             rotation: fc.record({
-              pitch: fc.float({ min: -Math.PI / 2, max: Math.PI / 2 }),
-              yaw: fc.float({ min: -Math.PI, max: Math.PI }),
+              pitch: fc.float({ min: Math.fround(-Math.PI / 2), max: Math.fround(Math.PI / 2), noNaN: true, noDefaultInfinity: true }),
+              yaw: fc.float({ min: Math.fround(-Math.PI), max: Math.fround(Math.PI), noNaN: true, noDefaultInfinity: true }),
             }),
             easing: fc.constantFrom('linear', 'ease-in', 'ease-out', 'ease-in-out'),
           }),
           { minLength: 2, maxLength: 10 }
         ),
-        duration: fc.float({ min: Math.fround(0.1), max: Math.fround(10.0), noNaN: true }),
+        duration: fc.float({ min: Math.fround(0.1), max: Math.fround(10.0), noNaN: true, noDefaultInfinity: true }),
         loop: fc.boolean(),
       }),
     })

@@ -60,7 +60,7 @@ export const ContainerSlotSchema = Schema.Union(
   Schema.Struct({
     itemStack: Schema.suspend(() => import('../item_stack/index').then((m) => m.ItemStackEntitySchema)),
     locked: Schema.optional(Schema.Boolean),
-    metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
+    metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Any })),
   })
 )
 export type ContainerSlot = Schema.Schema.Type<typeof ContainerSlotSchema>
@@ -75,7 +75,7 @@ export const ContainerConfigurationSchema = Schema.Struct({
   ),
   slotFilters: Schema.optional(
     Schema.Record({
-      key: ContainerSlotIndexSchema,
+      key: Schema.String,
       value: Schema.Array(Schema.suspend(() => import('../../types/index').then((m) => m.ItemIdSchema))),
     })
   ),
@@ -271,8 +271,9 @@ export const CONTAINER_SLOT_CONFIGURATIONS = {
 
 // ===== Error Types =====
 
-export const ContainerErrorSchema = Schema.TaggedError('ContainerError')(
-  Schema.Struct({
+export class ContainerError extends Schema.TaggedError<ContainerError>()(
+  'ContainerError',
+  {
     reason: Schema.Literal(
       'CONTAINER_NOT_FOUND',
       'ACCESS_DENIED',
@@ -291,19 +292,9 @@ export const ContainerErrorSchema = Schema.TaggedError('ContainerError')(
     playerId: Schema.optional(Schema.suspend(() => import('../../types/index').then((m) => m.PlayerIdSchema))),
     slotIndex: Schema.optional(ContainerSlotIndexSchema),
     itemId: Schema.optional(Schema.suspend(() => import('../../types/index').then((m) => m.ItemIdSchema))),
-    metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
-  })
-)
-
-export class ContainerError extends Schema.TaggedError('ContainerError')<{
-  readonly reason: typeof ContainerErrorSchema.Type.reason
-  readonly message: string
-  readonly containerId?: ContainerId
-  readonly playerId?: PlayerId
-  readonly slotIndex?: ContainerSlotIndex
-  readonly itemId?: ItemId
-  readonly metadata?: Record<string, unknown>
-}> {
+    metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Any })),
+  }
+) {
   static accessDenied(containerId: ContainerId, playerId: PlayerId): ContainerError {
     return new ContainerError({
       reason: 'ACCESS_DENIED',

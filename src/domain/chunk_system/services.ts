@@ -17,7 +17,7 @@ export interface ChunkSystemService {
   readonly events: Stream.Stream<ChunkEvent, ChunkSystemError>
 }
 
-export const ChunkSystemService = Context.Tag<ChunkSystemService>('@minecraft/domain/chunk_system/ChunkSystemService')
+export const ChunkSystemService = Context.GenericTag<ChunkSystemService>('@minecraft/domain/chunk_system/ChunkSystemService')
 
 const createService = (
   config: ChunkSystemConfig
@@ -34,14 +34,14 @@ const createService = (
         Effect.flatMap((state) => applyCommand(state, command)),
         Effect.tap(persist)
       )
-    return {
+    return ChunkSystemService.of({
       current: Ref.get(stateRef),
       dispatch,
       events: repository.observe,
-    }
+    })
   })
 
 export const chunkSystemLayer = (
   config: ChunkSystemConfig
 ): Layer.Layer<ChunkSystemService, ChunkSystemError, ChunkSystemRepository> =>
-  Layer.effectScoped(ChunkSystemService, createService(config))
+  Layer.scoped(ChunkSystemService, createService(config))

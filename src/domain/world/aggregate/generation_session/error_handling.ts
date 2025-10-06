@@ -172,29 +172,19 @@ export const createSessionError = (
  */
 export const shouldRetryBatch = (retryStrategy: RetryStrategy, error: SessionError): Effect.Effect<boolean, never> =>
   Effect.gen(function* () {
-    // 最大試行回数チェック
-    if (error.context.attempt >= retryStrategy.maxAttempts) {
-      return false
-    }
-
-    // カテゴリベースの判定
-    if (!retryStrategy.retryableCategories.includes(error.category)) {
-      return false
-    }
-
-    // 重要度による判定
-    if (error.severity === 'critical') {
-      return false
-    }
-
-    // 特定エラーコードの判定
     const nonRetryableCodes = ['VALIDATION_ERROR', 'CONFIGURATION_ERROR', 'PERMISSION_DENIED', 'INVALID_REQUEST']
 
-    if (nonRetryableCodes.includes(error.code)) {
-      return false
-    }
-
-    return true
+    // 4つのif文 → 単一のpipe + 論理演算
+    return pipe(
+      {
+        maxAttemptsExceeded: error.context.attempt >= retryStrategy.maxAttempts,
+        categoryNotRetryable: !retryStrategy.retryableCategories.includes(error.category),
+        isCritical: error.severity === 'critical',
+        hasNonRetryableCode: nonRetryableCodes.includes(error.code),
+      },
+      ({ maxAttemptsExceeded, categoryNotRetryable, isCritical, hasNonRetryableCode }) =>
+        !(maxAttemptsExceeded || categoryNotRetryable || isCritical || hasNonRetryableCode)
+    )
   })
 
 /**
@@ -202,31 +192,30 @@ export const shouldRetryBatch = (retryStrategy: RetryStrategy, error: SessionErr
  */
 export const calculateRetryDelay = (retryStrategy: RetryStrategy, attempt: number): Effect.Effect<number, never> =>
   Effect.gen(function* () {
-    let delay: number
-
-    switch (retryStrategy.backoffStrategy) {
-      case 'linear':
-        delay = retryStrategy.baseDelayMs * attempt
-        break
-      case 'exponential':
-        delay = retryStrategy.baseDelayMs * Math.pow(2, attempt - 1)
-        break
-      case 'constant':
-      default:
-        delay = retryStrategy.baseDelayMs
-        break
-    }
+    // switch文 → Match.value
+    const delay = pipe(
+      retryStrategy.backoffStrategy,
+      Match.value,
+      Match.when(
+        (s) => s === 'linear',
+        () => retryStrategy.baseDelayMs * attempt
+      ),
+      Match.when(
+        (s) => s === 'exponential',
+        () => retryStrategy.baseDelayMs * Math.pow(2, attempt - 1)
+      ),
+      Match.orElse(() => retryStrategy.baseDelayMs)
+    )
 
     // 最大遅延時間の適用
-    delay = Math.min(delay, retryStrategy.maxDelayMs)
+    const cappedDelay = Math.min(delay, retryStrategy.maxDelayMs)
 
-    // ジッター適用
-    if (retryStrategy.jitterEnabled) {
-      const jitter = Math.random() * 0.1 * delay // 最大10%のジッター
-      delay += jitter
-    }
+    // ジッター適用（if文 → 三項演算子）
+    const finalDelay = retryStrategy.jitterEnabled
+      ? cappedDelay + Math.random() * 0.1 * cappedDelay // 最大10%のジッター
+      : cappedDelay
 
-    return Math.round(delay)
+    return Math.round(finalDelay)
   })
 
 /**
@@ -257,47 +246,74 @@ export const analyzeErrors = (errors: readonly SessionError[]): Effect.Effect<Er
       critical: 0,
     }
 
-    // エラーコード別集計
-    const errorCounts: Record<string, number> = {}
-
-    for (const error of errors) {
-      errorsByCategory[error.category]++
-      errorsBySeverity[error.severity]++
-
-      errorCounts[error.code] = (errorCounts[error.code] || 0) + 1
-    }
-
-    // 最頻出エラー
-    let mostCommonError: ErrorAnalysis['mostCommonError']
-    if (Object.keys(errorCounts).length > 0) {
-      const [code, occurrences] = Object.entries(errorCounts).reduce((max, current) =>
-        current[1] > max[1] ? current : max
+    // エラーコード別集計（for → ReadonlyArray.reduce）
+    const {
+      errorsByCategory: updatedByCategory,
+      errorsBySeverity: updatedBySeverity,
+      errorCounts,
+    } = pipe(
+      errors,
+      ReadonlyArray.reduce(
+        { errorsByCategory, errorsBySeverity, errorCounts: {} as Record<string, number> },
+        (acc, error) => ({
+          errorsByCategory: {
+            ...acc.errorsByCategory,
+            [error.category]: acc.errorsByCategory[error.category] + 1,
+          },
+          errorsBySeverity: {
+            ...acc.errorsBySeverity,
+            [error.severity]: acc.errorsBySeverity[error.severity] + 1,
+          },
+          errorCounts: {
+            ...acc.errorCounts,
+            [error.code]: (acc.errorCounts[error.code] || 0) + 1,
+          },
+        })
       )
+    )
 
-      const sampleError = errors.find((e) => e.code === code)
-      if (sampleError) {
-        mostCommonError = {
-          code,
-          message: sampleError.message,
-          occurrences,
-        }
-      }
-    }
+    // 最頻出エラー（if文 → Option.match）
+    const mostCommonError = yield* pipe(
+      Object.keys(errorCounts).length > 0 ? Option.some(errorCounts) : Option.none(),
+      Option.match({
+        onNone: () => Effect.succeed(undefined as ErrorAnalysis['mostCommonError']),
+        onSome: (counts) =>
+          Effect.gen(function* () {
+            const [code, occurrences] = Object.entries(counts).reduce((max, current) =>
+              current[1] > max[1] ? current : max
+            )
+
+            return yield* pipe(
+              errors.find((e) => e.code === code),
+              Option.fromNullable,
+              Option.match({
+                onNone: () => Effect.succeed(undefined as ErrorAnalysis['mostCommonError']),
+                onSome: (sampleError) =>
+                  Effect.succeed({
+                    code,
+                    message: sampleError.message,
+                    occurrences,
+                  }),
+              })
+            )
+          }),
+      })
+    )
 
     // エラー率計算 (仮の総操作数を使用)
     const assumedTotalOperations = Math.max(totalErrors * 2, 100)
     const errorRate = totalErrors / assumedTotalOperations
 
     // 致命的エラー数
-    const criticalErrorCount = errorsBySeverity.critical
+    const criticalErrorCount = updatedBySeverity.critical
 
     // 最近のエラートレンド分析
     const recentErrorTrend = analyzeErrorTrend(errors)
 
     return {
       totalErrors,
-      errorsByCategory,
-      errorsBySeverity,
+      errorsByCategory: updatedByCategory,
+      errorsBySeverity: updatedBySeverity,
       mostCommonError,
       errorRate,
       criticalErrorCount,
@@ -320,66 +336,81 @@ export const suggestRecoveryStrategy = (
   never
 > =>
   Effect.gen(function* () {
-    // 重要度による判定
-    if (error.severity === 'critical') {
-      return {
-        strategy: 'abort',
-        reason: 'Critical error detected - aborting session',
-        confidence: 0.9,
-      }
-    }
-
-    // カテゴリによる判定
-    switch (error.category) {
-      case 'transient':
-        return {
-          strategy: 'retry',
-          reason: 'Transient error - likely to succeed on retry',
-          confidence: 0.8,
-        }
-
-      case 'resource':
-        if (analysis.errorsByCategory.resource > 5) {
-          return {
-            strategy: 'abort',
-            reason: 'Multiple resource errors - system may be overloaded',
-            confidence: 0.7,
-          }
-        }
-        return {
-          strategy: 'retry',
-          reason: 'Resource error - may be temporary',
-          confidence: 0.6,
-        }
-
-      case 'configuration':
-        return {
-          strategy: 'abort',
-          reason: 'Configuration error - manual intervention required',
+    // 重要度による判定（if文 → Effect.if）
+    return yield* Effect.if(error.severity === 'critical', {
+      onTrue: () =>
+        Effect.succeed({
+          strategy: 'abort' as const,
+          reason: 'Critical error detected - aborting session',
           confidence: 0.9,
-        }
-
-      case 'validation':
-        return {
-          strategy: 'skip',
-          reason: 'Validation error - skip invalid chunk',
-          confidence: 0.8,
-        }
-
-      case 'timeout':
-        return {
-          strategy: 'retry',
-          reason: 'Timeout error - may succeed with retry',
-          confidence: 0.7,
-        }
-
-      default:
-        return {
-          strategy: 'retry',
-          reason: 'Unknown error category - trying retry',
-          confidence: 0.5,
-        }
-    }
+        }),
+      onFalse: () =>
+        Effect.succeed(
+          // カテゴリによる判定（switch文 → Match.value）
+          pipe(
+            error.category,
+            Match.value,
+            Match.when(
+              (c) => c === 'transient',
+              () =>
+                ({
+                  strategy: 'retry' as const,
+                  reason: 'Transient error - likely to succeed on retry',
+                  confidence: 0.8,
+                }) as const
+            ),
+            Match.when(
+              (c) => c === 'resource',
+              () =>
+                analysis.errorsByCategory.resource > 5
+                  ? ({
+                      strategy: 'abort' as const,
+                      reason: 'Multiple resource errors - system may be overloaded',
+                      confidence: 0.7,
+                    } as const)
+                  : ({
+                      strategy: 'retry' as const,
+                      reason: 'Resource error - may be temporary',
+                      confidence: 0.6,
+                    } as const)
+            ),
+            Match.when(
+              (c) => c === 'configuration',
+              () =>
+                ({
+                  strategy: 'abort' as const,
+                  reason: 'Configuration error - manual intervention required',
+                  confidence: 0.9,
+                }) as const
+            ),
+            Match.when(
+              (c) => c === 'validation',
+              () =>
+                ({
+                  strategy: 'skip' as const,
+                  reason: 'Validation error - skip invalid chunk',
+                  confidence: 0.8,
+                }) as const
+            ),
+            Match.when(
+              (c) => c === 'timeout',
+              () =>
+                ({
+                  strategy: 'retry' as const,
+                  reason: 'Timeout error - may succeed with retry',
+                  confidence: 0.7,
+                }) as const
+            ),
+            Match.orElse(() =>
+              ({
+                strategy: 'retry' as const,
+                reason: 'Unknown error category - trying retry',
+                confidence: 0.5,
+              }) as const
+            )
+          )
+        ),
+    })
   })
 
 // ================================
@@ -393,92 +424,95 @@ const categorizeError = (error: GenerationErrors.GenerationError): ErrorCategory
   const message = error.message.toLowerCase()
   const code = error.code?.toLowerCase() || ''
 
-  if (code.includes('timeout') || message.includes('timeout')) {
-    return 'timeout'
-  }
-
-  if (
-    code.includes('network') ||
-    message.includes('network') ||
-    code.includes('connection') ||
-    message.includes('connection')
-  ) {
-    return 'transient'
-  }
-
-  if (
-    code.includes('memory') ||
-    message.includes('memory') ||
-    code.includes('resource') ||
-    message.includes('resource')
-  ) {
-    return 'resource'
-  }
-
-  if (
-    code.includes('validation') ||
-    message.includes('validation') ||
-    code.includes('invalid') ||
-    message.includes('invalid')
-  ) {
-    return 'validation'
-  }
-
-  if (code.includes('config') || message.includes('config')) {
-    return 'configuration'
-  }
-
-  if (
-    code.includes('data') ||
-    message.includes('data') ||
-    code.includes('corruption') ||
-    message.includes('corruption')
-  ) {
-    return 'data'
-  }
-
-  if (code.includes('cancel') || message.includes('cancel')) {
-    return 'cancelled'
-  }
-
-  if (code.includes('system') || message.includes('system')) {
-    return 'system'
-  }
-
-  return 'unknown'
+  // if文連鎖 → Match.when連鎖
+  return pipe(
+    { code, message },
+    Match.value,
+    Match.when(
+      ({ code, message }) => code.includes('timeout') || message.includes('timeout'),
+      () => 'timeout' as const
+    ),
+    Match.when(
+      ({ code, message }) =>
+        code.includes('network') ||
+        message.includes('network') ||
+        code.includes('connection') ||
+        message.includes('connection'),
+      () => 'transient' as const
+    ),
+    Match.when(
+      ({ code, message }) =>
+        code.includes('memory') ||
+        message.includes('memory') ||
+        code.includes('resource') ||
+        message.includes('resource'),
+      () => 'resource' as const
+    ),
+    Match.when(
+      ({ code, message }) =>
+        code.includes('validation') ||
+        message.includes('validation') ||
+        code.includes('invalid') ||
+        message.includes('invalid'),
+      () => 'validation' as const
+    ),
+    Match.when(
+      ({ code, message }) => code.includes('config') || message.includes('config'),
+      () => 'configuration' as const
+    ),
+    Match.when(
+      ({ code, message }) =>
+        code.includes('data') ||
+        message.includes('data') ||
+        code.includes('corruption') ||
+        message.includes('corruption'),
+      () => 'data' as const
+    ),
+    Match.when(
+      ({ code, message }) => code.includes('cancel') || message.includes('cancel'),
+      () => 'cancelled' as const
+    ),
+    Match.when(
+      ({ code, message }) => code.includes('system') || message.includes('system'),
+      () => 'system' as const
+    ),
+    Match.orElse(() => 'unknown' as const)
+  )
 }
 
 /**
  * 重要度判定
  */
 const determineSeverity = (error: GenerationErrors.GenerationError, category: ErrorCategory): ErrorSeverity => {
-  // カテゴリベースの重要度
-  switch (category) {
-    case 'critical':
-    case 'system':
-      return 'critical'
-
-    case 'configuration':
-    case 'data':
-      return 'high'
-
-    case 'resource':
-    case 'timeout':
-      return 'medium'
-
-    case 'transient':
-    case 'validation':
-      return 'low'
-
-    default:
-      return 'medium'
-  }
+  // switch文 → Match.value
+  return pipe(
+    category,
+    Match.value,
+    Match.when(
+      (c) => c === 'critical' || c === 'system',
+      () => 'critical' as const
+    ),
+    Match.when(
+      (c) => c === 'configuration' || c === 'data',
+      () => 'high' as const
+    ),
+    Match.when(
+      (c) => c === 'resource' || c === 'timeout',
+      () => 'medium' as const
+    ),
+    Match.when(
+      (c) => c === 'transient' || c === 'validation',
+      () => 'low' as const
+    ),
+    Match.orElse(() => 'medium' as const)
+  )
 }
 
 /**
  * エラートレンド分析
  */
 const analyzeErrorTrend = (errors: readonly SessionError[]): 'increasing' | 'decreasing' | 'stable' => {
+  // 早期return → そのまま維持（純粋な条件チェック）
   if (errors.length < 4) return 'stable'
 
   // 最近のエラーを時間順にソート
@@ -489,13 +523,20 @@ const analyzeErrorTrend = (errors: readonly SessionError[]): 'increasing' | 'dec
   const firstHalf = sortedErrors.slice(0, midpoint)
   const secondHalf = sortedErrors.slice(midpoint)
 
-  if (secondHalf.length > firstHalf.length * 1.5) {
-    return 'increasing'
-  } else if (secondHalf.length < firstHalf.length * 0.5) {
-    return 'decreasing'
-  } else {
-    return 'stable'
-  }
+  // if文 → pipe + Match.value
+  return pipe(
+    { secondHalfLen: secondHalf.length, firstHalfLen: firstHalf.length },
+    Match.value,
+    Match.when(
+      ({ secondHalfLen, firstHalfLen }) => secondHalfLen > firstHalfLen * 1.5,
+      () => 'increasing' as const
+    ),
+    Match.when(
+      ({ secondHalfLen, firstHalfLen }) => secondHalfLen < firstHalfLen * 0.5,
+      () => 'decreasing' as const
+    ),
+    Match.orElse(() => 'stable' as const)
+  )
 }
 
 // ================================

@@ -308,48 +308,48 @@ export const KeyBindingSchema = Schema.Struct({
 /**
  * Game Context Schema
  */
-export const GameContextSchema = Schema.TaggedEnum<GameContext>()({
-  Exploration: Schema.Struct({}),
-  Combat: Schema.Struct({}),
-  Building: Schema.Struct({}),
-  Flying: Schema.Struct({}),
-  Spectating: Schema.Struct({}),
-  Cinematic: Schema.Struct({}),
-  Menu: Schema.Struct({}),
-  Inventory: Schema.Struct({}),
-  Crafting: Schema.Struct({}),
-  Chat: Schema.Struct({}),
-})
+export const GameContextSchema = Schema.Union(
+  Schema.TaggedStruct('Exploration', {}),
+  Schema.TaggedStruct('Combat', {}),
+  Schema.TaggedStruct('Building', {}),
+  Schema.TaggedStruct('Flying', {}),
+  Schema.TaggedStruct('Spectating', {}),
+  Schema.TaggedStruct('Cinematic', {}),
+  Schema.TaggedStruct('Menu', {}),
+  Schema.TaggedStruct('Inventory', {}),
+  Schema.TaggedStruct('Crafting', {}),
+  Schema.TaggedStruct('Chat', {})
+)
 
 /**
  * Preference Trigger Schema
  */
-export const PreferenceTriggerSchema = Schema.TaggedEnum<PreferenceTrigger>()({
-  Manual: Schema.Struct({
+export const PreferenceTriggerSchema = Schema.Union(
+  Schema.TaggedStruct('Manual', {
     inputMethod: Schema.Literal('keyboard', 'mouse', 'gamepad', 'touch'),
   }),
-  Automatic: Schema.Struct({
+  Schema.TaggedStruct('Automatic', {
     reason: Schema.Literal('context-switch', 'smart-suggestion', 'preset-load'),
   }),
-  System: Schema.Struct({
+  Schema.TaggedStruct('System', {
     reason: Schema.Literal('performance-optimization', 'error-recovery', 'default-fallback'),
-  }),
-})
+  })
+)
 
 /**
  * Trend Direction Schema
  */
-export const TrendDirectionSchema = Schema.TaggedEnum<TrendDirection>()({
-  Rising: Schema.Struct({
+export const TrendDirectionSchema = Schema.Union(
+  Schema.TaggedStruct('Rising', {
     percentageIncrease: Schema.Number.pipe(Schema.nonNegative()),
   }),
-  Falling: Schema.Struct({
+  Schema.TaggedStruct('Falling', {
     percentageDecrease: Schema.Number.pipe(Schema.nonNegative()),
   }),
-  Stable: Schema.Struct({
+  Schema.TaggedStruct('Stable', {
     variancePercentage: Schema.Number.pipe(Schema.nonNegative()),
-  }),
-})
+  })
+)
 
 /**
  * View Mode Preference Schema
@@ -425,60 +425,60 @@ export const PreferenceQueryOptionsSchema = Schema.Struct({
   filterByViewMode: Schema.OptionFromNullable(Schema.String),
   timeRange: Schema.OptionFromNullable(TimeRangeSchema),
   includeSatisfactionData: Schema.Boolean,
-  sortBy: Schema.TaggedEnum<PreferenceSortBy>()({
-    Timestamp: Schema.Struct({ ascending: Schema.Boolean }),
-    Duration: Schema.Struct({ ascending: Schema.Boolean }),
-    Frequency: Schema.Struct({ ascending: Schema.Boolean }),
-    Satisfaction: Schema.Struct({ ascending: Schema.Boolean }),
-  }),
+  sortBy: Schema.Union(
+    Schema.TaggedStruct('Timestamp', { ascending: Schema.Boolean }),
+    Schema.TaggedStruct('Duration', { ascending: Schema.Boolean }),
+    Schema.TaggedStruct('Frequency', { ascending: Schema.Boolean }),
+    Schema.TaggedStruct('Satisfaction', { ascending: Schema.Boolean })
+  ),
   limit: Schema.OptionFromNullable(Schema.Number.pipe(Schema.positive())),
 }).pipe(Schema.brand('PreferenceQueryOptions'))
 
 /**
  * View Mode Preferences Repository Error Schema
  */
-export const ViewModePreferencesRepositoryErrorSchema = Schema.TaggedEnum<ViewModePreferencesRepositoryError>()({
-  PreferenceNotFound: Schema.Struct({
+export const ViewModePreferencesRepositoryErrorSchema = Schema.Union(
+  Schema.TaggedStruct('PreferenceNotFound', {
     playerId: PlayerIdSchema,
     context: Schema.OptionFromNullable(GameContextSchema),
   }),
-  RecordNotFound: Schema.Struct({
+  Schema.TaggedStruct('RecordNotFound', {
     recordId: PreferenceRecordIdSchema,
   }),
-  InvalidPreference: Schema.Struct({
+  Schema.TaggedStruct('InvalidPreference', {
     field: Schema.String,
     value: Schema.Unknown,
     reason: Schema.String,
   }),
-  DuplicateRecord: Schema.Struct({
+  Schema.TaggedStruct('DuplicateRecord', {
     playerId: PlayerIdSchema,
     timestamp: Schema.Number,
   }),
-  AnalyticsCalculationFailed: Schema.Struct({
+  Schema.TaggedStruct('AnalyticsCalculationFailed', {
     playerId: PlayerIdSchema,
     reason: Schema.String,
   }),
-  PopularityDataUnavailable: Schema.Struct({
+  Schema.TaggedStruct('PopularityDataUnavailable', {
     context: Schema.OptionFromNullable(GameContextSchema),
     reason: Schema.String,
   }),
-  StorageError: Schema.Struct({
+  Schema.TaggedStruct('StorageError', {
     message: Schema.String,
     cause: Schema.OptionFromNullable(Schema.Unknown),
   }),
-  EncodingFailed: Schema.Struct({
+  Schema.TaggedStruct('EncodingFailed', {
     dataType: Schema.String,
     reason: Schema.String,
   }),
-  DecodingFailed: Schema.Struct({
+  Schema.TaggedStruct('DecodingFailed', {
     dataType: Schema.String,
     reason: Schema.String,
   }),
-  ConcurrencyError: Schema.Struct({
+  Schema.TaggedStruct('ConcurrencyError', {
     operation: Schema.String,
     conflictingPlayer: Schema.OptionFromNullable(PlayerIdSchema),
-  }),
-})
+  })
+)
 
 // ========================================
 // Factory Functions

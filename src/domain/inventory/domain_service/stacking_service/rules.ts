@@ -6,7 +6,7 @@
  * 再利用可能なルールとして実装します。
  */
 
-import { Effect, Match, pipe } from 'effect'
+import { Effect, Match, Option, pipe, ReadonlyArray } from 'effect'
 import type { ItemId, ItemMetadata, ItemStack } from '../../types'
 import type { MetadataConflict, StackCompatibility, StackIncompatibilityReason } from './index'
 
@@ -302,17 +302,26 @@ const checkEnchantmentCompatibility = (
         }),
       onFalse: () =>
         Effect.gen(function* () {
-          for (const [enchantId, level] of sourceEnchantmentMap) {
-            if (targetEnchantmentMap.get(enchantId) !== level) {
-              return {
-                field: 'enchantments',
-                sourceValue: sourceEnchantments,
-                targetValue: targetEnchantments,
-                resolutionStrategy: 'PREVENT_STACK',
-              } as MetadataConflict
-            }
-          }
-          return null
+          // ReadonlyArray.findFirstIndexで早期発見パターンに変換
+          const entries = Array.from(sourceEnchantmentMap.entries())
+          const mismatchIndex = pipe(
+            entries,
+            ReadonlyArray.findFirstIndex(([enchantId, level]) => targetEnchantmentMap.get(enchantId) !== level)
+          )
+
+          return yield* pipe(
+            mismatchIndex,
+            Option.match({
+              onNone: () => Effect.succeed<MetadataConflict | null>(null),
+              onSome: () =>
+                Effect.succeed<MetadataConflict>({
+                  field: 'enchantments',
+                  sourceValue: sourceEnchantments,
+                  targetValue: targetEnchantments,
+                  resolutionStrategy: 'PREVENT_STACK',
+                }),
+            })
+          )
         }),
     })
   })
@@ -351,17 +360,25 @@ const checkLoreCompatibility = (
         }),
       onFalse: () =>
         Effect.gen(function* () {
-          for (let i = 0; i < sourceLore.length; i++) {
-            if (sourceLore[i] !== targetLore[i]) {
-              return {
-                field: 'lore',
-                sourceValue: sourceLore,
-                targetValue: targetLore,
-                resolutionStrategy: 'PREVENT_STACK',
-              } as MetadataConflict
-            }
-          }
-          return null
+          // ReadonlyArray.findFirstIndexで不一致インデックスを検出
+          const mismatchIndex = pipe(
+            sourceLore,
+            ReadonlyArray.findFirstIndex((line, i) => targetLore[i] !== line)
+          )
+
+          return yield* pipe(
+            mismatchIndex,
+            Option.match({
+              onNone: () => Effect.succeed<MetadataConflict | null>(null),
+              onSome: () =>
+                Effect.succeed<MetadataConflict>({
+                  field: 'lore',
+                  sourceValue: sourceLore,
+                  targetValue: targetLore,
+                  resolutionStrategy: 'PREVENT_STACK',
+                }),
+            })
+          )
         }),
     })
   })
@@ -478,18 +495,20 @@ export const resolveMetadataConflicts = (
   conflicts: ReadonlyArray<MetadataConflict>
 ): Effect.Effect<ItemMetadata, never> =>
   Effect.gen(function* () {
-    let resolvedMetadata = { ...targetMetadata }
+    // Effect.reduceでイミュータブルな累積パターンに変換
+    return yield* pipe(
+      conflicts,
+      Effect.reduce(targetMetadata as ItemMetadata, (resolvedMetadata, conflict) =>
+        Effect.gen(function* () {
+          const resolution = yield* applyResolutionStrategy(conflict, sourceMetadata, targetMetadata)
 
-    for (const conflict of conflicts) {
-      const resolution = yield* applyResolutionStrategy(conflict, sourceMetadata, targetMetadata)
-
-      resolvedMetadata = {
-        ...resolvedMetadata,
-        [conflict.field]: resolution,
-      }
-    }
-
-    return resolvedMetadata
+          return {
+            ...resolvedMetadata,
+            [conflict.field]: resolution,
+          }
+        })
+      )
+    )
   })
 
 /**

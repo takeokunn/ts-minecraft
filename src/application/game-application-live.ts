@@ -50,10 +50,8 @@ const makeService = (stateRef: GameApplicationStateRef): GameApplication => ({
     modifyState(stateRef, (current) =>
       guardLifecycleTransition(current.lifecycle, 'Starting').pipe(
         Effect.flatMap(() =>
-          Clock.currentTimeMillis.pipe(
-            Effect.map((timestamp) =>
-              synchronizeLifecycle(withStartTime(synchronizeLifecycle(current, 'Starting'), timestamp), 'Running')
-            )
+          Effect.map(Clock.currentTimeMillis, (timestamp) =>
+            synchronizeLifecycle(withStartTime(synchronizeLifecycle(current, 'Starting'), timestamp), 'Running')
           )
         )
       )

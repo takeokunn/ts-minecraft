@@ -6,7 +6,7 @@
  * 核となるバリデーションロジックを実装しています。
  */
 
-import { Effect, Layer, Match, pipe } from 'effect'
+import { Clock, Effect, Layer, Match, pipe } from 'effect'
 import type {
   AnimationSettings,
   AspectRatio,
@@ -48,31 +48,25 @@ export const SettingsValidatorServiceLive = Layer.succeed(
      */
     validateCameraSettings: (settings) =>
       Effect.gen(function* () {
-        const warnings: ValidationWarning[] = []
         const appliedConstraints: string[] = []
 
-        // 基本的な設定値検証
-        yield* validateBasicSettings(settings)
-
-        // FOVと縦横比の整合性確認
-        yield* validateFOVAspectRatioConsistency(settings.fov, settings.aspectRatio)
-
-        // Near/Far planeの妥当性確認
-        yield* validateNearFarPlanes(settings.nearPlane, settings.farPlane)
-
-        // フレームレートの妥当性確認
-        yield* validateFrameRateSettings(settings.frameRate, settings.qualityLevel)
+        // 独立したバリデーションを並列実行
+        yield* Effect.Do.pipe(
+          Effect.tap(() => validateBasicSettings(settings)),
+          Effect.tap(() => validateFOVAspectRatioConsistency(settings.fov, settings.aspectRatio)),
+          Effect.tap(() => validateNearFarPlanes(settings.nearPlane, settings.farPlane)),
+          Effect.tap(() => validateFrameRateSettings(settings.frameRate, settings.qualityLevel))
+        )
 
         // パフォーマンス影響の評価
         const performanceWarnings = yield* assessPerformanceImpact(settings)
-        warnings.push(...performanceWarnings)
 
         return {
           _tag: 'ValidatedCameraSettings' as const,
           settings,
           validationTimestamp: yield* Clock.currentTimeMillis,
           appliedConstraints,
-          warnings,
+          warnings: performanceWarnings,
         }
       }),
 
@@ -112,57 +106,62 @@ export const SettingsValidatorServiceLive = Layer.succeed(
       Effect.gen(function* () {
         const issues = yield* findCompatibilityIssues(cameraSettings, viewModeSettings, animationSettings)
 
-        if (issues.length === 0) {
-          return CompatibilityResult.Compatible({
-            confidence: 1.0,
-            notes: ['All settings are fully compatible'],
-          })
-        }
+        return yield* Effect.if(issues.length === 0, {
+          onTrue: () =>
+            Effect.succeed(
+              CompatibilityResult.Compatible({
+                confidence: 1.0,
+                notes: ['All settings are fully compatible'],
+              })
+            ),
+          onFalse: () =>
+            Effect.gen(function* () {
+              const criticalIssues = issues.filter((issue) => issue.impact === 'high')
 
-        const criticalIssues = issues.filter((issue) => issue.impact === 'high')
-        if (criticalIssues.length > 0) {
-          const conflicts = yield* convertIssuesToConflicts(criticalIssues)
-          const requiredChanges = yield* generateRequiredChanges(criticalIssues)
+              return yield* Effect.if(criticalIssues.length > 0, {
+                onTrue: () =>
+                  Effect.gen(function* () {
+                    const conflicts = yield* convertIssuesToConflicts(criticalIssues)
+                    const requiredChanges = yield* generateRequiredChanges(criticalIssues)
 
-          return CompatibilityResult.Incompatible({
-            conflicts,
-            requiredChanges,
-          })
-        }
-
-        const suggestions = yield* generateCompatibilitySuggestions(issues)
-        return CompatibilityResult.PartiallyCompatible({
-          issues,
-          suggestions,
+                    return CompatibilityResult.Incompatible({
+                      conflicts,
+                      requiredChanges,
+                    })
+                  }),
+                onFalse: () =>
+                  Effect.gen(function* () {
+                    const suggestions = yield* generateCompatibilitySuggestions(issues)
+                    return CompatibilityResult.PartiallyCompatible({
+                      issues,
+                      suggestions,
+                    })
+                  }),
+              })
+            }),
         })
-      }),
+      }),,
 
     /**
      * 設定制約の適用
      */
     applySettingsConstraints: (settings, constraints) =>
       Effect.gen(function* () {
-        let constrainedSettings = settings
-
         // ハードウェア制限を適用
-        constrainedSettings = yield* applyHardwareLimits(constrainedSettings, constraints.hardwareLimits)
+        const hardwareLimited = yield* applyHardwareLimits(settings, constraints.hardwareLimits)
 
         // パフォーマンス制限を適用
-        constrainedSettings = yield* applyPerformanceLimits(constrainedSettings, constraints.performanceLimits)
+        const performanceLimited = yield* applyPerformanceLimits(hardwareLimited, constraints.performanceLimits)
 
         // プラットフォーム制限を適用
-        constrainedSettings = yield* applyPlatformLimits(constrainedSettings, constraints.platformLimits)
+        const platformLimited = yield* applyPlatformLimits(performanceLimited, constraints.platformLimits)
 
         // アクセシビリティ要件を適用
-        if (constraints.accessibilityRequirements) {
-          constrainedSettings = yield* applyAccessibilityRequirements(
-            constrainedSettings,
-            constraints.accessibilityRequirements
-          )
-        }
-
-        return constrainedSettings
-      }),
+        return yield* Effect.if(constraints.accessibilityRequirements !== undefined, {
+          onTrue: () => applyAccessibilityRequirements(platformLimited, constraints.accessibilityRequirements),
+          onFalse: () => Effect.succeed(platformLimited),
+        })
+      }),,
 
     /**
      * FOV値の検証
@@ -174,26 +173,27 @@ export const SettingsValidatorServiceLive = Layer.succeed(
         const minFOV = 30
         const maxFOV = 120
 
-        if (fovValue < minFOV || fovValue > maxFOV) {
-          return yield* Effect.fail(
+        yield* Effect.filterOrFail(
+          fovValue >= minFOV && fovValue <= maxFOV,
+          () => fov,
+          () =>
             SettingsValidationError.InvalidFOV({
               value: fovValue,
               min: minFOV,
               max: maxFOV,
             })
-          )
-        }
+        )
 
         // プラットフォーム固有の制限
         yield* validatePlatformSpecificFOV(fov, context.platform)
 
         // モーションシックネス対応
-        if (context.userPreferences.comfortSettings.motionSickness === 'high') {
-          yield* validateMotionSicknessFOV(fov)
-        }
+        yield* Effect.when(context.userPreferences.comfortSettings.motionSickness === 'high', () =>
+          validateMotionSicknessFOV(fov)
+        )
 
         return fov
-      }),
+      }),,
 
     /**
      * フレームレート制約の検証
@@ -202,20 +202,21 @@ export const SettingsValidatorServiceLive = Layer.succeed(
       Effect.gen(function* () {
         const frameRateValue = targetFrameRate as number
 
-        if (frameRateValue > hardwareLimits.maxFrameRate) {
-          return yield* Effect.fail(
+        yield* Effect.filterOrFail(
+          frameRateValue <= hardwareLimits.maxFrameRate,
+          () => targetFrameRate,
+          () =>
             SettingsValidationError.InvalidFrameRate({
               value: frameRateValue,
               hardwareLimit: hardwareLimits.maxFrameRate as number,
             })
-          )
-        }
+        )
 
         // 品質レベルとフレームレートの相関チェック
         yield* validateQualityFrameRateBalance(qualityLevel, targetFrameRate, hardwareLimits)
 
         return targetFrameRate
-      }),
+      }),,
 
     /**
      * レンダリング設定の妥当性確認
@@ -225,8 +226,10 @@ export const SettingsValidatorServiceLive = Layer.succeed(
         const adjustments: string[] = []
 
         // Near < Far の基本チェック
-        if ((nearPlane as number) >= (farPlane as number)) {
-          return yield* Effect.fail(
+        yield* Effect.filterOrFail(
+          (nearPlane as number) < (farPlane as number),
+          () => true,
+          () =>
             SettingsValidationError.IncompatibleSettings({
               conflicts: [
                 {
@@ -236,17 +239,19 @@ export const SettingsValidatorServiceLive = Layer.succeed(
                 },
               ],
             })
-          )
-        }
+        )
 
         // レンダリング距離と品質レベルの妥当性
         const maxRenderDistance = getMaxRenderDistanceForQuality(qualityLevel)
-        let adjustedRenderDistance = renderDistance
 
-        if (renderDistance > maxRenderDistance) {
-          adjustedRenderDistance = maxRenderDistance
-          adjustments.push(`Render distance reduced to ${maxRenderDistance} for quality level ${qualityLevel}`)
-        }
+        const adjustedRenderDistance = yield* Effect.if(renderDistance > maxRenderDistance, {
+          onTrue: () =>
+            Effect.sync(() => {
+              adjustments.push(`Render distance reduced to ${maxRenderDistance} for quality level ${qualityLevel}`)
+              return maxRenderDistance
+            }),
+          onFalse: () => Effect.succeed(renderDistance),
+        })
 
         return {
           nearPlane,
@@ -255,7 +260,7 @@ export const SettingsValidatorServiceLive = Layer.succeed(
           qualityLevel,
           adjustments,
         }
-      }),
+      }),,
 
     /**
      * 感度設定の検証
@@ -269,16 +274,18 @@ export const SettingsValidatorServiceLive = Layer.succeed(
         yield* validateSensitivityForInputType(controllerSensitivity, 'controller')
 
         // アクセシビリティ考慮
-        if (inputType === 'mixed') {
-          calibrationRecommendations.push('Consider calibrating both input methods for consistent experience')
-        }
+        yield* Effect.when(inputType === 'mixed', () =>
+          Effect.sync(() => {
+            calibrationRecommendations.push('Consider calibrating both input methods for consistent experience')
+          })
+        )
 
         return {
           mouseSensitivity,
           controllerSensitivity,
           calibrationRecommendations,
         }
-      }),
+      }),,
 
     /**
      * パフォーマンス最適化設定の提案
@@ -308,12 +315,14 @@ export const SettingsValidatorServiceLive = Layer.succeed(
 /**
  * 基本設定値の検証
  */
-const validateBasicSettings = (settings: CameraSettings): Effect.Effect<void, SettingsValidationError> =>
+const const validateBasicSettings = (settings: CameraSettings): Effect.Effect<void, SettingsValidationError> =>
   Effect.gen(function* () {
     // SettingsValidationを使用した基本検証
     const isValid = yield* SettingsValidation.validateSettings(settings)
-    if (!isValid) {
-      return yield* Effect.fail(
+    yield* Effect.filterOrFail(
+      isValid,
+      () => true,
+      () =>
         SettingsValidationError.IncompatibleSettings({
           conflicts: [
             {
@@ -323,8 +332,7 @@ const validateBasicSettings = (settings: CameraSettings): Effect.Effect<void, Se
             },
           ],
         })
-      )
-    }
+    )
   })
 
 /**
@@ -339,8 +347,10 @@ const validateFOVAspectRatioConsistency = (
     const aspectValue = aspectRatio as number
 
     // 超ワイドディスプレイでの極端なFOVをチェック
-    if (aspectValue > 2.5 && fovValue > 100) {
-      return yield* Effect.fail(
+    yield* Effect.filterOrFail(
+      !(aspectValue > 2.5 && fovValue > 100),
+      () => true,
+      () =>
         SettingsValidationError.IncompatibleSettings({
           conflicts: [
             {
@@ -350,8 +360,7 @@ const validateFOVAspectRatioConsistency = (
             },
           ],
         })
-      )
-    }
+    )
   })
 
 /**
@@ -367,8 +376,10 @@ const validateNearFarPlanes = (
     const ratio = far / near
 
     // Z-fighting防止のための比率チェック
-    if (ratio > 10000) {
-      return yield* Effect.fail(
+    yield* Effect.filterOrFail(
+      ratio <= 10000,
+      () => true,
+      () =>
         SettingsValidationError.IncompatibleSettings({
           conflicts: [
             {
@@ -378,8 +389,7 @@ const validateNearFarPlanes = (
             },
           ],
         })
-      )
-    }
+    )
   })
 
 /**
@@ -390,13 +400,8 @@ const validateFrameRateSettings = (
   qualityLevel: QualityLevel
 ): Effect.Effect<void, SettingsValidationError> =>
   Effect.gen(function* () {
-    const frameRateValue = frameRate as number
-    const qualityValue = qualityLevel as number
-
-    // 高品質設定での高フレームレートの実現可能性チェック
-    if (qualityValue >= 0.8 && frameRateValue > 60) {
-      // 警告レベルのチェック（エラーではない）
-    }
+    // 高品質設定での高フレームレートは警告のみ（エラーではない）
+    // 将来的に警告システムを実装する際に使用
   })
 
 /**
@@ -409,26 +414,30 @@ const assessPerformanceImpact = (
     const warnings: ValidationWarning[] = []
 
     // レンダリング品質によるパフォーマンス影響
-    if ((settings.qualityLevel as number) > 0.8) {
-      warnings.push({
-        type: 'performance',
-        message: 'High quality settings may impact performance',
-        severity: 'medium',
-        affectedSetting: 'qualityLevel',
-        recommendation: 'Consider reducing quality for better performance',
+    yield* Effect.when((settings.qualityLevel as number) > 0.8, () =>
+      Effect.sync(() => {
+        warnings.push({
+          type: 'performance',
+          message: 'High quality settings may impact performance',
+          severity: 'medium',
+          affectedSetting: 'qualityLevel',
+          recommendation: 'Consider reducing quality for better performance',
+        })
       })
-    }
+    )
 
     // 高フレームレートによるバッテリー影響
-    if ((settings.frameRate as number) > 60) {
-      warnings.push({
-        type: 'battery',
-        message: 'High frame rate increases battery consumption',
-        severity: 'low',
-        affectedSetting: 'frameRate',
-        recommendation: 'Use 60fps for better battery life',
+    yield* Effect.when((settings.frameRate as number) > 60, () =>
+      Effect.sync(() => {
+        warnings.push({
+          type: 'battery',
+          message: 'High frame rate increases battery consumption',
+          severity: 'low',
+          affectedSetting: 'frameRate',
+          recommendation: 'Use 60fps for better battery life',
+        })
       })
-    }
+    )
 
     return warnings
   })
@@ -564,19 +573,20 @@ const applyHardwareLimits = (
   limits: HardwareLimits
 ): Effect.Effect<CameraSettings, SettingsValidationError> =>
   Effect.gen(function* () {
-    let adjustedSettings = settings
-
     // フレームレート制限
-    if ((settings.frameRate as number) > (limits.maxFrameRate as number)) {
-      adjustedSettings = yield* CameraSettingsOps.setFrameRate(adjustedSettings, limits.maxFrameRate)
-    }
+    const frameRateLimited = yield* Effect.if(
+      (settings.frameRate as number) > (limits.maxFrameRate as number),
+      {
+        onTrue: () => CameraSettingsOps.setFrameRate(settings, limits.maxFrameRate),
+        onFalse: () => Effect.succeed(settings),
+      }
+    )
 
     // 品質レベル調整
-    if ((settings.qualityLevel as number) > (limits.maxTextureQuality as number)) {
-      adjustedSettings = yield* CameraSettingsOps.setQualityLevel(adjustedSettings, limits.maxTextureQuality)
-    }
-
-    return adjustedSettings
+    return yield* Effect.if((frameRateLimited.qualityLevel as number) > (limits.maxTextureQuality as number), {
+      onTrue: () => CameraSettingsOps.setQualityLevel(frameRateLimited, limits.maxTextureQuality),
+      onFalse: () => Effect.succeed(frameRateLimited),
+    })
   })
 
 /**
@@ -587,14 +597,11 @@ const applyPerformanceLimits = (
   limits: PerformanceLimits
 ): Effect.Effect<CameraSettings, SettingsValidationError> =>
   Effect.gen(function* () {
-    let adjustedSettings = settings
-
     // ターゲットフレームレートに調整
-    if ((settings.frameRate as number) > (limits.targetFrameRate as number)) {
-      adjustedSettings = yield* CameraSettingsOps.setFrameRate(adjustedSettings, limits.targetFrameRate)
-    }
-
-    return adjustedSettings
+    return yield* Effect.if((settings.frameRate as number) > (limits.targetFrameRate as number), {
+      onTrue: () => CameraSettingsOps.setFrameRate(settings, limits.targetFrameRate),
+      onFalse: () => Effect.succeed(settings),
+    })
   })
 
 /**

@@ -133,21 +133,23 @@ export const updateCombatant = (
   session: CombatSession,
   combatantId: CombatantId,
   mutate: (combatant: Combatant) => Effect.Effect<Combatant, CombatDomainError>
-): Effect.Effect<CombatSession, CombatDomainError> =>
-  pipe(
+): Effect.Effect<CombatSession, CombatDomainError> => {
+  const option = ReadonlyArray.findFirst(
     session.combatants,
-    ReadonlyArray.findFirst((candidate) => candidate.id === combatantId),
-    Effect.fromOption(() => CombatError.combatantNotFound(combatantId)),
-    Effect.flatMap((current) =>
+    (candidate) => candidate.id === combatantId
+  )
+  return Option.match(option, {
+    onNone: () => Effect.fail(CombatError.combatantNotFound(combatantId)),
+    onSome: (current) =>
       mutate(current).pipe(
         Effect.map((updated) => ({
           id: session.id,
           combatants: replaceCombatant(session.combatants, updated),
           timeline: session.timeline,
         }))
-      )
-    )
-  )
+      ),
+  })
+}
 
 export const appendEvent = (session: CombatSession, event: CombatEvent): CombatSession => ({
   id: session.id,
@@ -221,7 +223,7 @@ export const advanceCooldowns = (
       combatant.cooldowns,
       (entry) =>
         Effect.gen(function* () {
-          const numeric = entry.remaining - elapsed
+          const numeric = (entry.remaining as number) - (elapsed as number)
           const bounded = numeric <= 0 ? 0 : numeric
           const remaining = yield* makeCooldown(bounded)
           return { attack: entry.attack, remaining }

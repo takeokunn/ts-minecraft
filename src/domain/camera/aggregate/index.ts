@@ -19,6 +19,8 @@
  * - **型安全性**: Effect-TSとBrand型による完全な型安全性
  */
 
+import { Match, pipe } from 'effect'
+
 // ========================================
 // Camera Core Aggregate
 // ========================================
@@ -100,10 +102,13 @@ export const isCameraAggregate = (value: unknown): value is CameraAggregate => {
  * Aggregateタイプの取得
  */
 export const getCameraAggregateType = (aggregate: CameraAggregate): string => {
-  if (isCamera(aggregate)) return 'Camera'
-  if (isPlayerCamera(aggregate)) return 'PlayerCamera'
-  if (isSceneCamera(aggregate)) return 'SceneCamera'
-  return 'Unknown'
+  return pipe(
+    Match.value(aggregate),
+    Match.when(isCamera, () => 'Camera' as const),
+    Match.when(isPlayerCamera, () => 'PlayerCamera' as const),
+    Match.when(isSceneCamera, () => 'SceneCamera' as const),
+    Match.orElse(() => 'Unknown' as const)
+  )
 }
 
 // ========================================
@@ -176,50 +181,75 @@ export namespace CameraAggregateOps {
    * Aggregateからカメラ位置を取得
    */
   export const getPosition = (aggregate: CameraAggregate) => {
-    if (isCamera(aggregate)) return aggregate.position
-    if (isPlayerCamera(aggregate)) return aggregate.camera.position
-    if (isSceneCamera(aggregate)) return aggregate.camera.position
-    throw new Error('Unknown camera aggregate type')
+    return pipe(
+      Match.value(aggregate),
+      Match.when(isCamera, (cam) => cam.position),
+      Match.when(isPlayerCamera, (cam) => cam.camera.position),
+      Match.when(isSceneCamera, (cam) => cam.camera.position),
+      Match.orElse(() => {
+        throw new Error('Unknown camera aggregate type')
+      })
+    )
   }
 
   /**
    * Aggregateからカメラ回転を取得
    */
   export const getRotation = (aggregate: CameraAggregate) => {
-    if (isCamera(aggregate)) return aggregate.rotation
-    if (isPlayerCamera(aggregate)) return aggregate.camera.rotation
-    if (isSceneCamera(aggregate)) return aggregate.camera.rotation
-    throw new Error('Unknown camera aggregate type')
+    return pipe(
+      Match.value(aggregate),
+      Match.when(isCamera, (cam) => cam.rotation),
+      Match.when(isPlayerCamera, (cam) => cam.camera.rotation),
+      Match.when(isSceneCamera, (cam) => cam.camera.rotation),
+      Match.orElse(() => {
+        throw new Error('Unknown camera aggregate type')
+      })
+    )
   }
 
   /**
    * Aggregateからビューモードを取得
    */
   export const getViewMode = (aggregate: CameraAggregate) => {
-    if (isCamera(aggregate)) return aggregate.viewMode
-    if (isPlayerCamera(aggregate)) return aggregate.camera.viewMode
-    if (isSceneCamera(aggregate)) return aggregate.camera.viewMode
-    throw new Error('Unknown camera aggregate type')
+    return pipe(
+      Match.value(aggregate),
+      Match.when(isCamera, (cam) => cam.viewMode),
+      Match.when(isPlayerCamera, (cam) => cam.camera.viewMode),
+      Match.when(isSceneCamera, (cam) => cam.camera.viewMode),
+      Match.orElse(() => {
+        throw new Error('Unknown camera aggregate type')
+      })
+    )
   }
 
   /**
    * Aggregateが有効かどうかを確認
    */
   export const isEnabled = (aggregate: CameraAggregate): boolean => {
-    if (isCamera(aggregate)) return aggregate.isEnabled
-    if (isPlayerCamera(aggregate)) return aggregate.camera.isEnabled
-    if (isSceneCamera(aggregate)) return aggregate.camera.isEnabled
-    throw new Error('Unknown camera aggregate type')
+    return pipe(
+      Match.value(aggregate),
+      Match.when(isCamera, (cam) => cam.isEnabled),
+      Match.when(isPlayerCamera, (cam) => cam.camera.isEnabled),
+      Match.when(isSceneCamera, (cam) => cam.camera.isEnabled),
+      Match.orElse(() => {
+        throw new Error('Unknown camera aggregate type')
+      })
+    )
   }
 
   /**
    * Aggregateのコアカメラを取得
    */
   export const getCoreCamera = (aggregate: CameraAggregate): Camera => {
-    if (isCamera(aggregate)) return aggregate
-    if (isPlayerCamera(aggregate)) return aggregate.camera
-    if (isSceneCamera(aggregate)) return aggregate.camera
-    throw new Error('Unknown camera aggregate type')
+    return pipe(
+      Match.value(aggregate),
+      Match.when(isCamera, (cam) => cam),
+      Match.when(isPlayerCamera, (cam) => cam.camera),
+      Match.when(isSceneCamera, (cam) => cam.camera),
+      Match.orElse(() => {
+        throw new Error('Unknown camera aggregate type')
+      })
+    )
   }
 }
 

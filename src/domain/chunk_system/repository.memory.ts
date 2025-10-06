@@ -23,11 +23,11 @@ export const memoryRepositoryLayer = (initial: ChunkSystemState): Layer.Layer<Ch
       const eventQueue = yield* Queue.sliding<ChunkEvent>(512)
       const observe: Stream.Stream<ChunkEvent, ChunkSystemError> = Stream.fromQueue(eventQueue)
       yield* Effect.addFinalizer(() => Queue.shutdown(eventQueue))
-      return {
+      return ChunkSystemRepository.of({
         load: wrapRepository(Ref.get(stateRef)),
         save: (state, events) =>
           wrapRepository(Effect.all([Ref.set(stateRef, state), broadcastAll(eventQueue, events)], { discard: true })),
         observe,
-      }
+      })
     })
   )

@@ -27,28 +27,32 @@ const config = Effect.runSync(
 
 describe('chunk_system/repository.memory', () => {
   it.effect('persists state and replays events', () =>
-    Effect.scoped(
-      Effect.gen(function* () {
-        const initial = yield* makeInitialState(config)
+    makeInitialState(config).pipe(
+      Effect.flatMap((initial) => {
         const layer = memoryRepositoryLayer(initial)
-        const repository = yield* Effect.service(ChunkSystemRepository).pipe(Effect.provide(layer))
-        const loaded = yield* repository.load
-        expect(loaded.strategy).toBe(config.initialStrategy)
-        const request = yield* Schema.decodeUnknown(ChunkRequestSchema)({
-          id: randomUUID(),
-          chunk: 'chunk-memory',
-          priority: 'high',
-          action: 'load',
-          createdAt: 0,
-          deadline: 10,
-        })
-        const transition = yield* applyCommand(loaded, ChunkCommand.Schedule({ request }))
-        yield* repository.save(transition.state, transition.events)
-        const replay = yield* repository.load
-        expect(replay.active).toHaveLength(1)
-        const events = yield* repository.observe.pipe(Stream.take(1), Stream.runCollect)
-        expect(events.length).toBe(1)
-        expect(events[0]?._tag).toBe('RequestQueued')
+
+        return Effect.scoped(
+          Effect.gen(function* () {
+            const repository = yield* ChunkSystemRepository
+            const loaded = yield* repository.load
+            expect(loaded.strategy).toBe(config.initialStrategy)
+            const request = yield* Schema.decodeUnknown(ChunkRequestSchema)({
+              id: randomUUID(),
+              chunk: 'chunk-memory',
+              priority: 'high',
+              action: 'load',
+              createdAt: 0,
+              deadline: 10,
+            })
+            const transition = yield* applyCommand(loaded, ChunkCommand.Schedule({ request }))
+            yield* repository.save(transition.state, transition.events)
+            const replay = yield* repository.load
+            expect(replay.active).toHaveLength(1)
+            const events = yield* repository.observe.pipe(Stream.take(1), Stream.runCollect)
+            expect(events.length).toBe(1)
+            expect(events[0]?._tag).toBe('RequestQueued')
+          }).pipe(Effect.provide(layer))
+        )
       })
     )
   )

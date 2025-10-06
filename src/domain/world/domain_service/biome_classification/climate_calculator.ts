@@ -472,7 +472,6 @@ export const ClimateCalculatorServiceLive = Layer.effect(
 
     detectClimateBoundaries: (centerCoordinate, searchRadius, seed) =>
       Effect.gen(function* () {
-        const boundaries = []
         const centerClimate = yield* ClimateCalculatorService.calculateClimate(
           centerCoordinate,
           0, // 標高は簡略化
@@ -480,53 +479,64 @@ export const ClimateCalculatorServiceLive = Layer.effect(
         )
         const centerClassification = yield* ClimateCalculatorService.classifyClimate(centerClimate)
 
-        // 8方向での境界検出
-        for (let angle = 0; angle < 360; angle += 45) {
-          const rad = (angle * Math.PI) / 180
-          const testCoordinate: WorldCoordinate2D = {
-            x: centerCoordinate.x + Math.cos(rad) * searchRadius,
-            z: centerCoordinate.z + Math.sin(rad) * searchRadius,
-          }
+        // 8方向での境界検出（0, 45, 90, 135, 180, 225, 270, 315度）
+        const angles = ReadonlyArray.makeBy(8, (i) => i * 45)
 
-          const testClimate = yield* ClimateCalculatorService.calculateClimate(testCoordinate, 0, seed)
-          const testClassification = yield* ClimateCalculatorService.classifyClimate(testClimate)
+        const boundaries = yield* pipe(
+          angles,
+          Effect.forEach(
+            (angle) =>
+              Effect.gen(function* () {
+                const rad = (angle * Math.PI) / 180
+                const testCoordinate: WorldCoordinate2D = {
+                  x: centerCoordinate.x + Math.cos(rad) * searchRadius,
+                  z: centerCoordinate.z + Math.sin(rad) * searchRadius,
+                }
 
-          // 境界の検出
-          if (
-            testClassification.koppenClass !== centerClassification.koppenClass ||
-            testClassification.whittakerBiome !== centerClassification.whittakerBiome
-          ) {
-            const sharpness =
-              Math.abs(testClimate.temperature - centerClimate.temperature) / 10 +
-              Math.abs(testClimate.precipitation - centerClimate.precipitation) / 1000
+                const testClimate = yield* ClimateCalculatorService.calculateClimate(testCoordinate, 0, seed)
+                const testClassification = yield* ClimateCalculatorService.classifyClimate(testClimate)
 
-            boundaries.push({
-              coordinate: testCoordinate,
-              boundaryType: `${centerClassification.koppenClass}_to_${testClassification.koppenClass}`,
-              sharpness,
-            })
-          }
-        }
+                // 境界の検出
+                return testClassification.koppenClass !== centerClassification.koppenClass ||
+                  testClassification.whittakerBiome !== centerClassification.whittakerBiome
+                  ? Option.some({
+                      coordinate: testCoordinate,
+                      boundaryType: `${centerClassification.koppenClass}_to_${testClassification.koppenClass}`,
+                      sharpness:
+                        Math.abs(testClimate.temperature - centerClimate.temperature) / 10 +
+                        Math.abs(testClimate.precipitation - centerClimate.precipitation) / 1000,
+                    })
+                  : Option.none()
+              }),
+            { concurrency: 'unbounded' }
+          ),
+          Effect.map(ReadonlyArray.getSomes)
+        )
 
         return boundaries
       }),
 
     assessClimateStability: (coordinate, timespan, seed) =>
       Effect.gen(function* () {
-        const climateHistory = []
-
         // 簡略化された時系列気候計算
-        for (let year = 0; year < timespan; year++) {
-          const yearlyVariation = Math.sin(year * 0.1) * 0.1 + Math.random() * 0.05
-          const modifiedSeed = BigInt(Number(seed) + year)
+        const climateHistory = yield* pipe(
+          ReadonlyArray.makeBy(timespan, (year) => year),
+          Effect.forEach(
+            (year) =>
+              Effect.gen(function* () {
+                const yearlyVariation = Math.sin(year * 0.1) * 0.1 + Math.random() * 0.05
+                const modifiedSeed = BigInt(Number(seed) + year)
 
-          const climate = yield* ClimateCalculatorService.calculateClimate(coordinate, 0, modifiedSeed as WorldSeed)
+                const climate = yield* ClimateCalculatorService.calculateClimate(coordinate, 0, modifiedSeed as WorldSeed)
 
-          climateHistory.push({
-            temperature: climate.temperature * (1 + yearlyVariation),
-            precipitation: climate.precipitation * (1 + yearlyVariation * 0.5),
-          })
-        }
+                return {
+                  temperature: climate.temperature * (1 + yearlyVariation),
+                  precipitation: climate.precipitation * (1 + yearlyVariation * 0.5),
+                }
+              }),
+            { concurrency: 'unbounded' }
+          )
+        )
 
         // 安定性指標の計算
         const tempVariation = calculateVariation(climateHistory.map((c) => c.temperature))
@@ -535,10 +545,12 @@ export const ClimateCalculatorServiceLive = Layer.effect(
         const stability = 1 - (tempVariation + precVariation) / 2
         const variability = (tempVariation + precVariation) / 2
 
-        const trends = []
-        if (tempVariation > 0.3) trends.push('high_temperature_variability')
-        if (precVariation > 0.3) trends.push('high_precipitation_variability')
-        if (stability < 0.5) trends.push('unstable_climate')
+        const trends = pipe(
+          [],
+          (trends) => (tempVariation > 0.3 ? [...trends, 'high_temperature_variability'] : trends),
+          (trends) => (precVariation > 0.3 ? [...trends, 'high_precipitation_variability'] : trends),
+          (trends) => (stability < 0.5 ? [...trends, 'unstable_climate'] : trends)
+        )
 
         return {
           stability,
@@ -650,51 +662,94 @@ const calculatePrecipitationSeasonality = (
 /**
  * Köppen-Geiger分類
  */
-const classifyKoppen = (climate: ClimateData): Effect.Effect<string, GenerationError> =>
-  Effect.succeed(() => {
-    const temp = climate.temperature
-    const prec = climate.precipitation
+const classifyKoppen = (climate: ClimateData): Effect.Effect<string, GenerationError> => {
+  const temp = climate.temperature
+  const prec = climate.precipitation
 
-    // 簡略化されたKöppen分類
-    if (temp > 18) {
-      if (prec > 2000) return 'Af' // 熱帯雨林
-      if (prec > 1000) return 'Am' // 熱帯モンスーン
-      return 'Aw' // 熱帯サバナ
-    } else if (temp > -3) {
-      if (prec > 1500) return 'Cfb' // 西岸海洋性
-      if (prec > 800) return 'Cfa' // 温暖湿潤
-      return 'BSk' // ステップ
-    } else {
-      if (prec > 1000) return 'Dfb' // 冷帯湿潤
-      return 'Dfc' // 亜寒帯
-    }
-  })()
+  return Effect.succeed(
+    pipe(
+      { temp, prec },
+      Match.value,
+      Match.when(
+        ({ temp, prec }) => temp > 18 && prec > 2000,
+        () => 'Af' as const // 熱帯雨林
+      ),
+      Match.when(
+        ({ temp, prec }) => temp > 18 && prec > 1000,
+        () => 'Am' as const // 熱帯モンスーン
+      ),
+      Match.when(
+        ({ temp }) => temp > 18,
+        () => 'Aw' as const // 熱帯サバナ
+      ),
+      Match.when(
+        ({ temp, prec }) => temp > -3 && prec > 1500,
+        () => 'Cfb' as const // 西岸海洋性
+      ),
+      Match.when(
+        ({ temp, prec }) => temp > -3 && prec > 800,
+        () => 'Cfa' as const // 温暖湿潤
+      ),
+      Match.when(
+        ({ temp }) => temp > -3,
+        () => 'BSk' as const // ステップ
+      ),
+      Match.when(
+        ({ prec }) => prec > 1000,
+        () => 'Dfb' as const // 冷帯湿潤
+      ),
+      Match.orElse(() => 'Dfc' as const) // 亜寒帯
+    )
+  )
+}
 
 /**
  * Whittaker生物群系分類
  */
-const classifyWhittaker = (climate: ClimateData): Effect.Effect<string, GenerationError> =>
-  Effect.succeed(() => {
-    const temp = climate.temperature
-    const prec = climate.precipitation
+const classifyWhittaker = (climate: ClimateData): Effect.Effect<string, GenerationError> => {
+  const temp = climate.temperature
+  const prec = climate.precipitation
 
-    // Whittaker二次元分類
-    if (temp > 20) {
-      if (prec > 2000) return 'tropical_rainforest'
-      if (prec > 1000) return 'tropical_seasonal_forest'
-      return 'desert'
-    } else if (temp > 10) {
-      if (prec > 1500) return 'temperate_rainforest'
-      if (prec > 800) return 'temperate_deciduous_forest'
-      if (prec > 300) return 'temperate_grassland'
-      return 'desert'
-    } else if (temp > -5) {
-      if (prec > 400) return 'boreal_forest'
-      return 'tundra'
-    } else {
-      return 'tundra'
-    }
-  })()
+  return Effect.succeed(
+    pipe(
+      { temp, prec },
+      Match.value,
+      Match.when(
+        ({ temp, prec }) => temp > 20 && prec > 2000,
+        () => 'tropical_rainforest' as const
+      ),
+      Match.when(
+        ({ temp, prec }) => temp > 20 && prec > 1000,
+        () => 'tropical_seasonal_forest' as const
+      ),
+      Match.when(
+        ({ temp }) => temp > 20,
+        () => 'desert' as const
+      ),
+      Match.when(
+        ({ temp, prec }) => temp > 10 && prec > 1500,
+        () => 'temperate_rainforest' as const
+      ),
+      Match.when(
+        ({ temp, prec }) => temp > 10 && prec > 800,
+        () => 'temperate_deciduous_forest' as const
+      ),
+      Match.when(
+        ({ temp, prec }) => temp > 10 && prec > 300,
+        () => 'temperate_grassland' as const
+      ),
+      Match.when(
+        ({ temp }) => temp > 10,
+        () => 'desert' as const
+      ),
+      Match.when(
+        ({ temp, prec }) => temp > -5 && prec > 400,
+        () => 'boreal_forest' as const
+      ),
+      Match.orElse(() => 'tundra' as const)
+    )
+  )
+}
 
 /**
  * 分類信頼度の計算

@@ -10,7 +10,7 @@ const decodeEpoch = (value: number) =>
     )
   )
 
-export const now = () => Clock.currentTimeMillis.pipe(Effect.flatMap(decodeEpoch))
+export const now = () => Effect.flatMap(Clock.currentTimeMillis, decodeEpoch)
 
 export const withinDeadline = (nowEpoch: EpochMilliseconds, deadline: EpochMilliseconds) =>
   Match.value(nowEpoch <= deadline).pipe(

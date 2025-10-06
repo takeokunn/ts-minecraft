@@ -28,13 +28,13 @@ describe('furniture/service', () => {
         color: 'red',
         orientation: 'north',
         coordinates: { x: 0, y: 64, z: 0 },
-        requestedBy: 'player_owner01',
+        requestedBy: 'player_ownerff1',
       } satisfies CreateBedInput)
     )
 
     const sleepRequest: SleepRequest = {
       bedId: bed.id,
-      playerId: 'player_owner01',
+      playerId: 'player_ownerff1',
       environment: {
         lightLevel: 5,
         noiseLevel: 10,
@@ -82,7 +82,7 @@ describe('furniture/service', () => {
       service.registerSign({
         style: 'oak',
         text: { lines: ['Welcome'], alignment: 'center' },
-        placedBy: 'player_sign_owner',
+        placedBy: 'player_signeraa',
         location: { x: 5, y: 70, z: 5 },
       } satisfies CreateSignInput)
     )
@@ -90,7 +90,7 @@ describe('furniture/service', () => {
     const updated = await run(
       service.editSign({
         signId: sign.id,
-        editor: 'player_sign_owner',
+        editor: 'player_signeraa',
         text: { lines: ['Welcome Home'], alignment: 'center' },
       } satisfies SignUpdateRequest)
     )

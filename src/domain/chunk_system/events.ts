@@ -1,47 +1,15 @@
-import { Data, Effect, Match, Schema } from 'effect'
+import { Effect, Match, Schema } from 'effect'
 import {
-  ChunkRequest,
+  ChunkEvent,
   ChunkRequestSchema,
   ChunkSystemError,
-  EpochMilliseconds,
   EpochMillisecondsSchema,
-  RequestId,
   RequestIdSchema,
-  ResourceBudget,
   ResourceBudgetSchema,
-  StrategyId,
   StrategyIdSchema,
 } from './index'
 
-export const ChunkEvent = Data.taggedEnum({
-  RequestQueued: Data.tagged<{
-    readonly _tag: 'RequestQueued'
-    readonly request: ChunkRequest
-  }>('RequestQueued'),
-  RequestCompleted: Data.tagged<{
-    readonly _tag: 'RequestCompleted'
-    readonly requestId: RequestId
-    readonly completedAt: EpochMilliseconds
-  }>('RequestCompleted'),
-  RequestFailed: Data.tagged<{
-    readonly _tag: 'RequestFailed'
-    readonly requestId: RequestId
-    readonly occurredAt: EpochMilliseconds
-    readonly reason: string
-  }>('RequestFailed'),
-  StrategyShifted: Data.tagged<{
-    readonly _tag: 'StrategyShifted'
-    readonly strategy: StrategyId
-    readonly decidedAt: EpochMilliseconds
-  }>('StrategyShifted'),
-  BudgetChanged: Data.tagged<{
-    readonly _tag: 'BudgetChanged'
-    readonly budget: ResourceBudget
-    readonly effectiveAt: EpochMilliseconds
-  }>('BudgetChanged'),
-})
-
-export type ChunkEvent = Data.taggedEnum.Infer<typeof ChunkEvent>
+export { ChunkEvent } from './index'
 
 const RequestQueuedSchema = Schema.Struct({
   _tag: Schema.Literal('RequestQueued'),

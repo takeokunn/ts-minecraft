@@ -1,4 +1,4 @@
-import { Context, Effect, HashMap, Layer, Random, Ref } from 'effect'
+import { Context, Effect, HashMap, Layer, Option, Random, Ref } from 'effect'
 import * as ReadonlyArray from 'effect/Array'
 import { pipe } from 'effect/Function'
 import {
@@ -50,32 +50,34 @@ export const CombatServiceLive = Layer.effect(
 
     const getSession = (sessionId: SessionId): Effect.Effect<CombatSession, CombatDomainError> =>
       Ref.get(stateRef).pipe(
-        Effect.flatMap((state) =>
-          pipe(
-            HashMap.get(state, sessionId),
-            Effect.fromOption(() => CombatError.sessionNotFound(sessionId))
-          )
-        )
+        Effect.flatMap((state) => {
+          const option = HashMap.get(state, sessionId)
+          return Option.match(option, {
+            onNone: () => Effect.fail(CombatError.sessionNotFound(sessionId)),
+            onSome: (session) => Effect.succeed(session),
+          })
+        })
       )
 
     const modifySession = <A>(
       sessionId: SessionId,
       fn: (session: CombatSession) => Effect.Effect<readonly [A, CombatSession], CombatDomainError>
     ): Effect.Effect<A, CombatDomainError> =>
-      Ref.modifyEffect(stateRef, (state) =>
-        pipe(
-          HashMap.get(state, sessionId),
-          Effect.fromOption(() => CombatError.sessionNotFound(sessionId)),
-          Effect.flatMap((session) =>
-            fn(session).pipe(
-              Effect.map(([result, nextSession]) => {
-                const nextState = HashMap.set(state, sessionId, nextSession)
-                return [result, nextState] satisfies readonly [A, HashMap.HashMap<SessionId, CombatSession>]
-              })
-            )
-          )
+      Effect.gen(function* () {
+        const state = yield* Ref.get(stateRef)
+        const sessionOption = HashMap.get(state, sessionId)
+        const session = yield* pipe(
+          sessionOption,
+          Option.match({
+            onNone: () => Effect.fail(CombatError.sessionNotFound(sessionId)),
+            onSome: (s) => Effect.succeed(s),
+          })
         )
-      )
+        const [result, nextSession] = yield* fn(session)
+        const nextState = HashMap.set(state, sessionId, nextSession)
+        yield* Ref.set(stateRef, nextState)
+        return result
+      })
 
     const createSession: CombatService['createSession'] = (blueprint) =>
       Effect.gen(function* () {
@@ -106,32 +108,40 @@ export const CombatServiceLive = Layer.effect(
       )
 
     const advanceCooldowns: CombatService['advanceCooldowns'] = (sessionId, elapsedMilliseconds) =>
-      modifySession(sessionId, (session) =>
-        Effect.gen(function* () {
-          const elapsed = yield* makeCooldown(elapsedMilliseconds)
-          const refreshed = yield* Effect.forEach(
-            session.combatants,
-            (combatant) => decayCooldowns(combatant, elapsed),
-            { concurrency: 'unbounded' }
-          )
-          const nextSession: CombatSession = {
-            id: session.id,
-            combatants: refreshed,
-            timeline: session.timeline,
-          }
-          return [undefined, nextSession] satisfies readonly [void, CombatSession]
-        })
-      ).pipe(Effect.asVoid)
+      Effect.gen(function* () {
+        const elapsed = yield* makeCooldown(elapsedMilliseconds)
+        const state = yield* Ref.get(stateRef)
+        const sessionOption = HashMap.get(state, sessionId)
+        const session = yield* pipe(
+          sessionOption,
+          Option.match({
+            onNone: () => Effect.fail(CombatError.sessionNotFound(sessionId)),
+            onSome: (s) => Effect.succeed(s),
+          })
+        )
+        const refreshed = yield* Effect.forEach(
+          session.combatants,
+          (combatant) => decayCooldowns(combatant, elapsed),
+          { concurrency: 'unbounded' }
+        )
+        const nextSession: CombatSession = {
+          id: session.id,
+          combatants: refreshed,
+          timeline: session.timeline,
+        }
+        const nextState = HashMap.set(state, sessionId, nextSession)
+        yield* Ref.set(stateRef, nextState)
+      })
 
     const getCombatant: CombatService['getCombatant'] = (sessionId, combatantId) =>
       getSession(sessionId).pipe(
-        Effect.flatMap((session) =>
-          pipe(
-            session.combatants,
-            ReadonlyArray.findFirst((combatant) => combatant.id === combatantId),
-            Effect.fromOption(() => CombatError.combatantNotFound(combatantId))
-          )
-        )
+        Effect.flatMap((session) => {
+          const option = ReadonlyArray.findFirst(session.combatants, (combatant) => combatant.id === combatantId)
+          return Option.match(option, {
+            onNone: () => Effect.fail(CombatError.combatantNotFound(combatantId)),
+            onSome: (combatant) => Effect.succeed(combatant),
+          })
+        })
       )
 
     const timeline: CombatService['timeline'] = (sessionId) =>

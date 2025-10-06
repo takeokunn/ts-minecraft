@@ -356,7 +356,7 @@ export type {
  *       operation: {
  *         _tag: 'StartSequence' as const,
  *         sequence: createSyncSequence(id),
- *         startTime: Option.some(Date.now() + 1000) // 1秒後に同期開始
+ *         startTime: Option.some((yield* Clock.currentTimeMillis) + 1000) // 1秒後に同期開始
  *       }
  *     }))
  *

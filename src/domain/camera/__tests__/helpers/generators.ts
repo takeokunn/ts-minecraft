@@ -27,8 +27,8 @@ import { PositionError, ViewMode, ViewModeError } from '../../value_object'
 
 // 有効な座標値のGenerator
 export const coordinateGenerator = fc.float({
-  min: -1000,
-  max: 1000,
+  min: Math.fround(-1000),
+  max: Math.fround(1000),
   noNaN: true,
   noDefaultInfinity: true,
 })
@@ -46,56 +46,60 @@ export const position3DGenerator = fc
 export const boundedPosition3DGenerator = (minX = -100, maxX = 100, minY = -100, maxY = 100, minZ = -100, maxZ = 100) =>
   fc
     .record({
-      x: fc.float({ min: minX, max: maxX }),
-      y: fc.float({ min: minY, max: maxY }),
-      z: fc.float({ min: minZ, max: maxZ }),
+      x: fc.float({ min: Math.fround(minX), max: Math.fround(maxX), noNaN: true, noDefaultInfinity: true }),
+      y: fc.float({ min: Math.fround(minY), max: Math.fround(maxY), noNaN: true, noDefaultInfinity: true }),
+      z: fc.float({ min: Math.fround(minZ), max: Math.fround(maxZ), noNaN: true, noDefaultInfinity: true }),
     })
     .map(({ x, y, z }) => Brand.nominal<Position3D>()({ x, y, z } as const))
 
 // CameraDistance Generator（1-50の制約付き）
 export const cameraDistanceGenerator = fc
   .float({
-    min: 1,
-    max: 50,
+    min: Math.fround(1),
+    max: Math.fround(50),
+    noNaN: true,
+    noDefaultInfinity: true,
   })
   .map((distance) => Brand.nominal<CameraDistance>()(distance))
 
 // ViewOffset Generator
 export const viewOffsetGenerator = fc
   .record({
-    x: fc.float({ min: -10, max: 10 }),
-    y: fc.float({ min: -10, max: 10 }),
-    z: fc.float({ min: -10, max: 10 }),
+    x: fc.float({ min: Math.fround(-10), max: Math.fround(10), noNaN: true, noDefaultInfinity: true }),
+    y: fc.float({ min: Math.fround(-10), max: Math.fround(10), noNaN: true, noDefaultInfinity: true }),
+    z: fc.float({ min: Math.fround(-10), max: Math.fround(10), noNaN: true, noDefaultInfinity: true }),
   })
   .map(({ x, y, z }) => Brand.nominal<ViewOffset>()({ x, y, z } as const))
 
 // LerpFactor Generator（0-1の制約付き）
 export const lerpFactorGenerator = fc
   .float({
-    min: 0,
-    max: 1,
+    min: Math.fround(0),
+    max: Math.fround(1),
+    noNaN: true,
+    noDefaultInfinity: true,
   })
   .map((factor) => Brand.nominal<LerpFactor>()(factor))
 
 // Velocity3D Generator
 export const velocity3DGenerator = fc
   .record({
-    x: fc.float({ min: -100, max: 100 }),
-    y: fc.float({ min: -100, max: 100 }),
-    z: fc.float({ min: -100, max: 100 }),
+    x: fc.float({ min: Math.fround(-100), max: Math.fround(100), noNaN: true, noDefaultInfinity: true }),
+    y: fc.float({ min: Math.fround(-100), max: Math.fround(100), noNaN: true, noDefaultInfinity: true }),
+    z: fc.float({ min: Math.fround(-100), max: Math.fround(100), noNaN: true, noDefaultInfinity: true }),
   })
   .map(({ x, y, z }) => Brand.nominal<Velocity3D>()({ x, y, z } as const))
 
 // Direction3D Generator（正規化されたベクトル）
 export const direction3DGenerator = fc
   .record({
-    x: fc.float({ min: -1, max: 1 }),
-    y: fc.float({ min: -1, max: 1 }),
-    z: fc.float({ min: -1, max: 1 }),
+    x: fc.float({ min: Math.fround(-1), max: Math.fround(1), noNaN: true, noDefaultInfinity: true }),
+    y: fc.float({ min: Math.fround(-1), max: Math.fround(1), noNaN: true, noDefaultInfinity: true }),
+    z: fc.float({ min: Math.fround(-1), max: Math.fround(1), noNaN: true, noDefaultInfinity: true }),
   })
   .filter(({ x, y, z }) => {
     const magnitude = Math.sqrt(x * x + y * y + z * z)
-    return magnitude > 0.001 // ゼロベクトルを除外
+    return magnitude > Math.fround(0.001) // ゼロベクトルを除外
   })
   .map(({ x, y, z }) => {
     const magnitude = Math.sqrt(x * x + y * y + z * z)
@@ -140,9 +144,9 @@ export const positionErrorGenerator = fc.oneof(
 
   fc
     .record({
-      distance: fc.float(),
-      min: fc.float({ min: 0 }),
-      max: fc.float({ min: 0 }),
+      distance: fc.float({ noNaN: true, noDefaultInfinity: true }),
+      min: fc.float({ min: Math.fround(0), noNaN: true, noDefaultInfinity: true }),
+      max: fc.float({ min: Math.fround(0), noNaN: true, noDefaultInfinity: true }),
     })
     .map((data) => PositionError.InvalidDistance(data))
 )
@@ -154,24 +158,30 @@ export const positionErrorGenerator = fc.oneof(
 // Angle Generator（度数法）
 export const angleGenerator = fc
   .float({
-    min: -360,
-    max: 360,
+    min: Math.fround(-360),
+    max: Math.fround(360),
+    noNaN: true,
+    noDefaultInfinity: true,
   })
   .map((angle) => Brand.nominal<Angle>()(angle))
 
 // Pitch Generator（-90 to 90度の制約）
 export const pitchGenerator = fc
   .float({
-    min: -90,
-    max: 90,
+    min: Math.fround(-90),
+    max: Math.fround(90),
+    noNaN: true,
+    noDefaultInfinity: true,
   })
   .map((pitch) => Brand.nominal<Pitch>()(pitch))
 
 // Yaw Generator（0 to 360度）
 export const yawGenerator = fc
   .float({
-    min: 0,
-    max: 360,
+    min: Math.fround(0),
+    max: Math.fround(360),
+    noNaN: true,
+    noDefaultInfinity: true,
   })
   .map((yaw) => Brand.nominal<Yaw>()(yaw))
 
@@ -191,24 +201,24 @@ export const cameraRotationGenerator = fc
 // FirstPersonSettings Generator
 export const firstPersonSettingsGenerator = fc.record({
   bobbing: fc.boolean(),
-  mouseSensitivity: fc.float({ min: 0.1, max: 5.0 }),
-  smoothing: fc.float({ min: 0, max: 1 }),
-  headOffset: fc.float({ min: 0, max: 2 }),
+  mouseSensitivity: fc.float({ min: Math.fround(0.1), max: Math.fround(5.0), noNaN: true, noDefaultInfinity: true }),
+  smoothing: fc.float({ min: Math.fround(0), max: Math.fround(1), noNaN: true, noDefaultInfinity: true }),
+  headOffset: fc.float({ min: Math.fround(0), max: Math.fround(2), noNaN: true, noDefaultInfinity: true }),
 })
 
 // ThirdPersonSettings Generator
 export const thirdPersonSettingsGenerator = fc.record({
-  mouseSensitivity: fc.float({ min: 0.1, max: 5.0 }),
-  smoothing: fc.float({ min: 0, max: 1 }),
-  distance: fc.float({ min: 1.0, max: 50.0 }),
-  verticalOffset: fc.float({ min: -2, max: 2 }),
+  mouseSensitivity: fc.float({ min: Math.fround(0.1), max: Math.fround(5.0), noNaN: true, noDefaultInfinity: true }),
+  smoothing: fc.float({ min: Math.fround(0), max: Math.fround(1), noNaN: true, noDefaultInfinity: true }),
+  distance: fc.float({ min: Math.fround(1.0), max: Math.fround(50.0), noNaN: true, noDefaultInfinity: true }),
+  verticalOffset: fc.float({ min: Math.fround(-2), max: Math.fround(2), noNaN: true, noDefaultInfinity: true }),
   collisionEnabled: fc.boolean(),
 })
 
 // SpectatorSettings Generator
 export const spectatorSettingsGenerator = fc.record({
-  movementSpeed: fc.float({ min: 1, max: 50 }),
-  mouseSensitivity: fc.float({ min: 0.1, max: 5.0 }),
+  movementSpeed: fc.float({ min: Math.fround(1), max: Math.fround(50), noNaN: true, noDefaultInfinity: true }),
+  mouseSensitivity: fc.float({ min: Math.fround(0.1), max: Math.fround(5.0), noNaN: true, noDefaultInfinity: true }),
   freefly: fc.boolean(),
   nightVision: fc.boolean(),
 })
@@ -216,22 +226,22 @@ export const spectatorSettingsGenerator = fc.record({
 // CinematicSettings Generator
 export const cinematicSettingsGenerator = fc.record({
   easing: fc.boolean(),
-  duration: fc.float({ min: 0.1, max: 10 }),
+  duration: fc.float({ min: Math.fround(0.1), max: Math.fround(10), noNaN: true, noDefaultInfinity: true }),
   interpolation: fc.constantFrom('linear', 'smooth', 'bezier'),
   lockInput: fc.boolean(),
 })
 
 // AnimationKeyframe Generator
 export const animationKeyframeGenerator = fc.record({
-  time: fc.float({ min: 0, max: 10 }),
+  time: fc.float({ min: Math.fround(0), max: Math.fround(10), noNaN: true, noDefaultInfinity: true }),
   position: fc.record({
     x: coordinateGenerator,
     y: coordinateGenerator,
     z: coordinateGenerator,
   }),
   rotation: fc.record({
-    pitch: fc.float({ min: -90, max: 90 }),
-    yaw: fc.float({ min: 0, max: 360 }),
+    pitch: fc.float({ min: Math.fround(-90), max: Math.fround(90), noNaN: true, noDefaultInfinity: true }),
+    yaw: fc.float({ min: Math.fround(0), max: Math.fround(360), noNaN: true, noDefaultInfinity: true }),
   }),
   easing: fc.constantFrom('linear', 'ease-in', 'ease-out', 'ease-in-out'),
 })
@@ -239,7 +249,7 @@ export const animationKeyframeGenerator = fc.record({
 // AnimationTimeline Generator
 export const animationTimelineGenerator = fc.record({
   keyframes: fc.array(animationKeyframeGenerator, { minLength: 2, maxLength: 10 }),
-  duration: fc.float({ min: 1, max: 30 }),
+  duration: fc.float({ min: Math.fround(1), max: Math.fround(30), noNaN: true, noDefaultInfinity: true }),
   loop: fc.boolean(),
 })
 
@@ -280,9 +290,9 @@ export const viewModeGenerator = fc.oneof(
 export const viewModeErrorGenerator = fc.oneof(
   fc
     .record({
-      distance: fc.float(),
-      min: fc.float({ min: 0 }),
-      max: fc.float({ min: 0 }),
+      distance: fc.float({ noNaN: true, noDefaultInfinity: true }),
+      min: fc.float({ min: Math.fround(0), noNaN: true, noDefaultInfinity: true }),
+      max: fc.float({ min: Math.fround(0), noNaN: true, noDefaultInfinity: true }),
     })
     .map((data) => ViewModeError.InvalidDistance(data)),
 
@@ -322,9 +332,9 @@ export const fullCameraStateGenerator = fc.record({
 
 // マウス入力Generator
 export const mouseInputGenerator = fc.record({
-  deltaX: fc.float({ min: -100, max: 100 }),
-  deltaY: fc.float({ min: -100, max: 100 }),
-  sensitivity: fc.float({ min: 0.1, max: 5.0 }),
+  deltaX: fc.float({ min: Math.fround(-100), max: Math.fround(100), noNaN: true, noDefaultInfinity: true }),
+  deltaY: fc.float({ min: Math.fround(-100), max: Math.fround(100), noNaN: true, noDefaultInfinity: true }),
+  sensitivity: fc.float({ min: Math.fround(0.1), max: Math.fround(5.0), noNaN: true, noDefaultInfinity: true }),
 })
 
 // 無効値のGenerator（境界値テスト用）
@@ -332,8 +342,8 @@ export const invalidCoordinateGenerator = fc.oneof(
   fc.constant(Number.NaN),
   fc.constant(Number.POSITIVE_INFINITY),
   fc.constant(Number.NEGATIVE_INFINITY),
-  fc.float({ min: 1e10, max: 1e20 }),
-  fc.float({ min: -1e20, max: -1e10 })
+  fc.float({ min: Math.fround(1e10), max: Math.fround(1e20) }),
+  fc.float({ min: Math.fround(-1e20), max: Math.fround(-1e10) })
 )
 
 // エッジケース用Position3D Generator
@@ -346,9 +356,9 @@ export const edgeCasePosition3DGenerator = fc.oneof(
   // 小数点以下が多い値
   fc
     .record({
-      x: fc.float({ min: -1, max: 1 }),
-      y: fc.float({ min: -1, max: 1 }),
-      z: fc.float({ min: -1, max: 1 }),
+      x: fc.float({ min: Math.fround(-1), max: Math.fround(1), noNaN: true, noDefaultInfinity: true }),
+      y: fc.float({ min: Math.fround(-1), max: Math.fround(1), noNaN: true, noDefaultInfinity: true }),
+      z: fc.float({ min: Math.fround(-1), max: Math.fround(1), noNaN: true, noDefaultInfinity: true }),
     })
     .map(({ x, y, z }) =>
       Brand.nominal<Position3D>()({

@@ -159,9 +159,9 @@ const mergeResource = (ref: Ref.Ref<HashMap.HashMap<string, PreloadedResource>>,
   Ref.update(ref, (map) => HashMap.set(map, resource.id, resource))
 
 const preloadResource = (resources: Ref.Ref<HashMap.HashMap<string, PreloadedResource>>, path: string) =>
-  Clock.currentTimeMillis.pipe(
-    Effect.map(parseTimestamp),
-    Effect.flatMap((timestamp) =>
+  Effect.flatMap(
+    Effect.map(Clock.currentTimeMillis, parseTimestamp),
+    (timestamp) =>
       mergeResource(resources, {
         id: path,
         type: resourceKindFromPath(path),
@@ -339,7 +339,7 @@ export const makeSceneService = Effect.gen(function* () {
   const saveSnapshot = () =>
     Effect.gen(function* () {
       const scene = yield* Ref.get(currentScene)
-      const timestamp = yield* Clock.currentTimeMillis.pipe(Effect.map(parseTimestamp))
+      const timestamp = yield* Effect.map(Clock.currentTimeMillis, parseTimestamp)
 
       const snapshot = yield* Match.value(scene).pipe(
         Match.tag('GameWorld', ({ worldId, playerState }) =>
@@ -405,9 +405,9 @@ export const makeSceneService = Effect.gen(function* () {
     })
 
   const registerFailure = (error: Error) =>
-    Clock.currentTimeMillis.pipe(
-      Effect.map(parseTimestamp),
-      Effect.flatMap((timestamp) => {
+    Effect.flatMap(
+      Effect.map(Clock.currentTimeMillis, parseTimestamp),
+      (timestamp) => {
         const scene = Scenes.Error({
           error: {
             message: error.message,
@@ -452,14 +452,12 @@ export const SceneWorldManagerLayer = Layer.succeed(WorldManager, {
 export const SceneSaveManagerLayer = Layer.succeed(SaveManager, {
   save: () => Effect.void,
   load: () =>
-    Clock.currentTimeMillis.pipe(
-      Effect.map(parseTimestamp),
-      Effect.map((timestamp) => ({
-        scene: Scenes.MainMenu(),
-        world: Option.none<WorldSnapshot>(),
-        player: Option.none<PlayerState>(),
-        createdAt: timestamp,
-      }))
+    Effect.map(Clock.currentTimeMillis, (millis) => ({
+      scene: Scenes.MainMenu(),
+      world: Option.none<WorldSnapshot>(),
+      player: Option.none<PlayerState>(),
+      createdAt: parseTimestamp(millis),
+    }))
     ),
   autoSave: () => Effect.void,
 })

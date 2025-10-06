@@ -1,4 +1,4 @@
-import { Data, Option } from 'effect'
+import { Data, Option, Schema } from 'effect'
 
 // ========================================
 // Camera Domain Core Errors (Data.taggedEnum)
@@ -7,123 +7,94 @@ import { Data, Option } from 'effect'
 /**
  * カメラドメインのコアエラー型（Data.taggedEnum ADT）
  */
-export type CameraError = Data.TaggedEnum<{
-  InitializationFailed: {
-    readonly message: string
-    readonly cause: Option.Option<unknown>
-  }
-  CameraNotInitialized: {
-    readonly operation: string
-  }
-  InvalidConfiguration: {
-    readonly message: string
-    readonly config: Option.Option<unknown>
-  }
-  InvalidMode: {
-    readonly mode: string
-    readonly validModes: readonly string[]
-  }
-  InvalidParameter: {
-    readonly parameter: string
-    readonly value: unknown
-    readonly expected: Option.Option<string>
-  }
-  ResourceError: {
-    readonly message: string
-    readonly cause: Option.Option<unknown>
-  }
-  AnimationError: {
-    readonly message: string
-    readonly context: Option.Option<unknown>
-  }
-  CollisionError: {
-    readonly message: string
-    readonly details: Option.Option<unknown>
-  }
-}>
+export class CameraError extends Schema.TaggedError<CameraError>()('CameraError', {
+  _tag: Schema.Literal(
+    'InitializationFailed',
+    'CameraNotInitialized',
+    'InvalidConfiguration',
+    'InvalidMode',
+    'InvalidParameter',
+    'ResourceError',
+    'AnimationError',
+    'CollisionError'
+  ),
+  message: Schema.String,
+  cause: Schema.optional(Schema.Unknown),
+  operation: Schema.optional(Schema.String),
+  config: Schema.optional(Schema.Unknown),
+  mode: Schema.optional(Schema.String),
+  validModes: Schema.optional(Schema.Array(Schema.String)),
+  parameter: Schema.optional(Schema.String),
+  value: Schema.optional(Schema.Unknown),
+  expected: Schema.optional(Schema.String),
+  context: Schema.optional(Schema.Unknown),
+  details: Schema.optional(Schema.Unknown),
+}) {}
 
-// ADTコンストラクタ生成
-const {
-  InitializationFailed,
-  CameraNotInitialized,
-  InvalidConfiguration,
-  InvalidMode,
-  InvalidParameter,
-  ResourceError,
-  AnimationError,
-  CollisionError,
-} = Data.taggedEnum<CameraError>()
+// Schema.TaggedError uses class instantiation pattern
 
 // ========================================
-// Value Object Errors (Data.taggedEnum)
+// Value Object Errors (Schema.TaggedError)
 // ========================================
 
 /**
  * 位置関連エラー型
  */
-export type PositionError = Data.TaggedEnum<{
-  InvalidPosition: {
-    readonly axis: 'x' | 'y' | 'z'
-    readonly value: number
-    readonly reason: string
-  }
-  PositionOutOfBounds: {
-    readonly position: { readonly x: number; readonly y: number; readonly z: number }
-    readonly bounds: {
-      readonly min: { readonly x: number; readonly y: number; readonly z: number }
-      readonly max: { readonly x: number; readonly y: number; readonly z: number }
-    }
-  }
-}>
-
-const PositionErrorConstructors = Data.taggedEnum<PositionError>()
-const { InvalidPosition, PositionOutOfBounds } = PositionErrorConstructors
+export class PositionError extends Schema.TaggedError<PositionError>()('PositionError', {
+  _tag: Schema.Literal('InvalidPosition', 'PositionOutOfBounds'),
+  message: Schema.String,
+  axis: Schema.optional(Schema.Literal('x', 'y', 'z')),
+  value: Schema.optional(Schema.Number),
+  reason: Schema.optional(Schema.String),
+  position: Schema.optional(
+    Schema.Struct({
+      x: Schema.Number,
+      y: Schema.Number,
+      z: Schema.Number,
+    })
+  ),
+  bounds: Schema.optional(
+    Schema.Struct({
+      min: Schema.Struct({ x: Schema.Number, y: Schema.Number, z: Schema.Number }),
+      max: Schema.Struct({ x: Schema.Number, y: Schema.Number, z: Schema.Number }),
+    })
+  ),
+}) {}
 
 /**
  * 回転関連エラー型
  */
-export type RotationError = Data.TaggedEnum<{
-  InvalidRotation: {
-    readonly axis: 'pitch' | 'yaw' | 'roll'
-    readonly value: number
-    readonly min: number
-    readonly max: number
-  }
-  RotationLimitExceeded: {
-    readonly rotation: { readonly pitch: number; readonly yaw: number }
-    readonly limits: {
-      readonly pitch: { readonly min: number; readonly max: number }
-      readonly yaw: { readonly min: number; readonly max: number }
-    }
-  }
-}>
-
-const RotationErrorConstructors = Data.taggedEnum<RotationError>()
-const { InvalidRotation, RotationLimitExceeded } = RotationErrorConstructors
+export class RotationError extends Schema.TaggedError<RotationError>()('RotationError', {
+  _tag: Schema.Literal('InvalidRotation', 'RotationLimitExceeded'),
+  message: Schema.String,
+  axis: Schema.optional(Schema.Literal('pitch', 'yaw', 'roll')),
+  value: Schema.optional(Schema.Number),
+  min: Schema.optional(Schema.Number),
+  max: Schema.optional(Schema.Number),
+  rotation: Schema.optional(
+    Schema.Struct({
+      pitch: Schema.Number,
+      yaw: Schema.Number,
+    })
+  ),
+  limits: Schema.optional(
+    Schema.Struct({
+      pitch: Schema.Struct({ min: Schema.Number, max: Schema.Number }),
+      yaw: Schema.Struct({ min: Schema.Number, max: Schema.Number }),
+    })
+  ),
+}) {}
 
 /**
  * 設定関連エラー型
  */
-export type SettingsError = Data.TaggedEnum<{
-  InvalidFOV: {
-    readonly value: number
-    readonly min: number
-    readonly max: number
-  }
-  InvalidSensitivity: {
-    readonly value: number
-    readonly min: number
-    readonly max: number
-  }
-  InvalidDistance: {
-    readonly value: number
-    readonly min: number
-    readonly max: number
-  }
-}>
-
-const SettingsErrorConstructors = Data.taggedEnum<SettingsError>()
-const { InvalidFOV, InvalidSensitivity, InvalidDistance } = SettingsErrorConstructors
+export class SettingsError extends Schema.TaggedError<SettingsError>()('SettingsError', {
+  _tag: Schema.Literal('InvalidFOV', 'InvalidSensitivity', 'InvalidDistance'),
+  message: Schema.String,
+  value: Schema.Number,
+  min: Schema.Number,
+  max: Schema.Number,
+}) {}
 
 // ========================================
 // Error Union Types
@@ -139,36 +110,81 @@ export type CameraDomainError = CameraError | PositionError | RotationError | Se
 // ========================================
 
 /**
- * カメラエラーファクトリー（ADTコンストラクタベース）
+ * カメラエラーファクトリー（Schema.TaggedError パターン）
  */
 export const createCameraError = {
   initializationFailed: (message: string, cause?: unknown) =>
-    InitializationFailed({ message, cause: Option.fromNullable(cause) }),
+    new CameraError({
+      _tag: 'InitializationFailed',
+      message,
+      cause,
+    }),
 
-  notInitialized: (operation: string) => CameraNotInitialized({ operation }),
+  notInitialized: (operation: string) =>
+    new CameraError({
+      _tag: 'CameraNotInitialized',
+      message: `Operation '${operation}' called before camera initialization`,
+      operation,
+    }),
 
   invalidConfiguration: (message: string, config?: unknown) =>
-    InvalidConfiguration({ message, config: Option.fromNullable(config) }),
+    new CameraError({
+      _tag: 'InvalidConfiguration',
+      message,
+      config,
+    }),
 
-  invalidMode: (mode: string, validModes: readonly string[]) => InvalidMode({ mode, validModes }),
+  invalidMode: (mode: string, validModes: readonly string[]) =>
+    new CameraError({
+      _tag: 'InvalidMode',
+      message: `Invalid camera mode '${mode}'. Valid modes: ${validModes.join(', ')}`,
+      mode,
+      validModes,
+    }),
 
   invalidParameter: (parameter: string, value: unknown, expected?: string) =>
-    InvalidParameter({ parameter, value, expected: Option.fromNullable(expected) }),
+    new CameraError({
+      _tag: 'InvalidParameter',
+      message: `Invalid parameter '${parameter}'${expected ? `: ${expected}` : ''}`,
+      parameter,
+      value,
+      expected,
+    }),
 
-  resourceError: (message: string, cause?: unknown) => ResourceError({ message, cause: Option.fromNullable(cause) }),
+  resourceError: (message: string, cause?: unknown) =>
+    new CameraError({
+      _tag: 'ResourceError',
+      message,
+      cause,
+    }),
 
   animationError: (message: string, context?: unknown) =>
-    AnimationError({ message, context: Option.fromNullable(context) }),
+    new CameraError({
+      _tag: 'AnimationError',
+      message,
+      context,
+    }),
 
   collisionError: (message: string, details?: unknown) =>
-    CollisionError({ message, details: Option.fromNullable(details) }),
+    new CameraError({
+      _tag: 'CollisionError',
+      message,
+      details,
+    }),
 } as const
 
 /**
  * 位置エラーファクトリー
  */
 export const createPositionError = {
-  invalidCoordinate: (axis: 'x' | 'y' | 'z', value: number, reason: string) => InvalidPosition({ axis, value, reason }),
+  invalidCoordinate: (axis: 'x' | 'y' | 'z', value: number, reason: string) =>
+    new PositionError({
+      _tag: 'InvalidPosition',
+      message: `Invalid ${axis} coordinate: ${value} (${reason})`,
+      axis,
+      value,
+      reason,
+    }),
 
   outOfBounds: (
     position: { x: number; y: number; z: number },
@@ -176,7 +192,13 @@ export const createPositionError = {
       min: { x: number; y: number; z: number }
       max: { x: number; y: number; z: number }
     }
-  ) => PositionOutOfBounds({ position, bounds }),
+  ) =>
+    new PositionError({
+      _tag: 'PositionOutOfBounds',
+      message: `Position out of bounds: (${position.x}, ${position.y}, ${position.z})`,
+      position,
+      bounds,
+    }),
 } as const
 
 /**
@@ -184,7 +206,14 @@ export const createPositionError = {
  */
 export const createRotationError = {
   invalidAngle: (axis: 'pitch' | 'yaw' | 'roll', value: number, min: number, max: number) =>
-    InvalidRotation({ axis, value, min, max }),
+    new RotationError({
+      _tag: 'InvalidRotation',
+      message: `Invalid ${axis} angle: ${value} (expected ${min} to ${max})`,
+      axis,
+      value,
+      min,
+      max,
+    }),
 
   limitExceeded: (
     rotation: { pitch: number; yaw: number },
@@ -192,74 +221,49 @@ export const createRotationError = {
       pitch: { min: number; max: number }
       yaw: { min: number; max: number }
     }
-  ) => RotationLimitExceeded({ rotation, limits }),
+  ) =>
+    new RotationError({
+      _tag: 'RotationLimitExceeded',
+      message: `Rotation limit exceeded: pitch=${rotation.pitch}, yaw=${rotation.yaw}`,
+      rotation,
+      limits,
+    }),
 } as const
 
 /**
  * 設定エラーファクトリー
  */
 export const createSettingsError = {
-  invalidFOV: (value: number, min: number, max: number) => InvalidFOV({ value, min, max }),
+  invalidFOV: (value: number, min: number, max: number) =>
+    new SettingsError({
+      _tag: 'InvalidFOV',
+      message: `Invalid FOV: ${value} (expected ${min} to ${max})`,
+      value,
+      min,
+      max,
+    }),
 
-  invalidSensitivity: (value: number, min: number, max: number) => InvalidSensitivity({ value, min, max }),
+  invalidSensitivity: (value: number, min: number, max: number) =>
+    new SettingsError({
+      _tag: 'InvalidSensitivity',
+      message: `Invalid sensitivity: ${value} (expected ${min} to ${max})`,
+      value,
+      min,
+      max,
+    }),
 
-  invalidDistance: (value: number, min: number, max: number) => InvalidDistance({ value, min, max }),
+  invalidDistance: (value: number, min: number, max: number) =>
+    new SettingsError({
+      _tag: 'InvalidDistance',
+      message: `Invalid distance: ${value} (expected ${min} to ${max})`,
+      value,
+      min,
+      max,
+    }),
 } as const
 
 // ========================================
-// ADT Export for External Use
+// Schema.TaggedError Pattern - No constructor exports needed
 // ========================================
-
-/**
- * カメラエラーADTコンストラクタ（外部用エクスポート）
- */
-export {
-  AnimationError,
-  CameraNotInitialized,
-  CollisionError,
-  InitializationFailed,
-  InvalidConfiguration,
-  InvalidMode,
-  InvalidParameter,
-  ResourceError,
-}
-
-/**
- * 位置エラーADTコンストラクタ（外部用エクスポート）
- */
-export { InvalidPosition, PositionOutOfBounds }
-
-/**
- * 回転エラーADTコンストラクタ（外部用エクスポート）
- */
-export { InvalidRotation, RotationLimitExceeded }
-
-/**
- * 設定エラーADTコンストラクタ（外部用エクスポート）
- */
-export { InvalidDistance, InvalidFOV, InvalidSensitivity }
-
-// ========================================
-// Backward Compatibility Aliases
-// ========================================
-
-/**
- * 既存コードとの後方互換性のためのエイリアス
- * @deprecated - 新しいADTパターンを使用してください
- */
-export const CameraInitializationError = InitializationFailed
-export const CameraNotInitializedError = CameraNotInitialized
-export const InvalidConfigurationError = InvalidConfiguration
-export const InvalidCameraModeError = InvalidMode
-export const InvalidParameterError = InvalidParameter
-export const CameraResourceError = ResourceError
-export const CameraAnimationError = AnimationError
-export const CameraCollisionError = CollisionError
-
-export const InvalidPositionError = InvalidPosition
-export const PositionOutOfBoundsError = PositionOutOfBounds
-export const InvalidRotationError = InvalidRotation
-export const RotationLimitExceededError = RotationLimitExceeded
-export const InvalidFOVError = InvalidFOV
-export const InvalidSensitivityError = InvalidSensitivity
-export const InvalidDistanceError = InvalidDistance
+// Note: With Schema.TaggedError, errors are created using factory functions
+// (createCameraError, createPositionError, etc.) instead of direct constructors

@@ -1,10 +1,5 @@
 import { Brand, Clock, Effect, Match, pipe, Schema } from 'effect'
-import {
-  AnimationDuration,
-  AnimationDurationSchema,
-  AnimationProgressSchema,
-  TimestampSchema,
-} from './schema'
+import { AnimationDuration, AnimationDurationSchema, AnimationProgressSchema, TimestampSchema } from './schema'
 import {
   AnimationError,
   AnimationProgress,
@@ -122,14 +117,14 @@ export const EasingFunctions = {
    * 事前定義されたイージング関数
    */
   presets: {
-    linear: (): EasingType => EasingType.Linear(),
-    easeIn: (power: number = 2): EasingType => EasingType.EaseIn(power),
-    easeOut: (power: number = 2): EasingType => EasingType.EaseOut(power),
-    easeInOut: (power: number = 2): EasingType => EasingType.EaseInOut(power),
-    bounce: (amplitude: number = 1, period: number = 0.3): EasingType => EasingType.Bounce(amplitude, period),
-    elastic: (amplitude: number = 1, period: number = 0.3): EasingType => EasingType.Elastic(amplitude, period),
-    back: (overshoot: number = 1.7): EasingType => EasingType.Back(overshoot),
-    spring: (tension: number = 300, friction: number = 30): EasingType => EasingType.Spring(tension, friction),
+    linear: (): EasingType => ({ _tag: 'Linear' }),
+    easeIn: (power: number = 2): EasingType => ({ _tag: 'EaseIn', power }),
+    easeOut: (power: number = 2): EasingType => ({ _tag: 'EaseOut', power }),
+    easeInOut: (power: number = 2): EasingType => ({ _tag: 'EaseInOut', power }),
+    bounce: (amplitude: number = 1, period: number = 0.3): EasingType => ({ _tag: 'Bounce', amplitude, period }),
+    elastic: (amplitude: number = 1, period: number = 0.3): EasingType => ({ _tag: 'Elastic', amplitude, period }),
+    back: (overshoot: number = 1.7): EasingType => ({ _tag: 'Back', overshoot }),
+    spring: (tension: number = 300, friction: number = 30): EasingType => ({ _tag: 'Spring', tension, friction }),
   },
 }
 

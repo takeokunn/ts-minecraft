@@ -1,4 +1,4 @@
-import { Effect, Array as EffectArray, Match, pipe, Schema } from 'effect'
+import { Effect, Array as EffectArray, Match, Option, pipe, ReadonlyArray, Schema } from 'effect'
 import {
   CustomModelDataSchema,
   DisplayNameSchema,
@@ -147,24 +147,26 @@ export const addEnchantment = (
   Effect.gen(function* () {
     const currentEnchantments = metadata.enchantments ?? []
 
-    // 既存のエンチャントと競合をチェック
-    const conflictingEnchantment = currentEnchantments.find((existing) =>
+    // 競合エンチャント検出
+    const conflictingEnchantment = ReadonlyArray.findFirst(currentEnchantments, (existing) =>
       isEnchantmentConflicting(existing.id, enchantment.id)
     )
 
-    if (conflictingEnchantment) {
-      return yield* Effect.fail(
-        ItemMetadataError.ConflictingEnchantments({
-          enchantment1: conflictingEnchantment.id,
-          enchantment2: enchantment.id,
-        })
-      )
-    }
+    // バリデーション: 競合エンチャントが存在しないこと
+    yield* Effect.filterOrFail(conflictingEnchantment, Option.isNone, () => {
+      const conflict = Option.getOrThrow(conflictingEnchantment)
+      return ItemMetadataError.ConflictingEnchantments({
+        enchantment1: conflict.id,
+        enchantment2: enchantment.id,
+      })
+    })
 
-    // 同じエンチャントが既に存在する場合は置き換え
-    const updatedEnchantments = currentEnchantments
-      .filter((existing) => existing.id !== enchantment.id)
-      .concat([enchantment])
+    // 同じエンチャントを置き換え
+    const updatedEnchantments = pipe(
+      currentEnchantments,
+      ReadonlyArray.filter((existing) => existing.id !== enchantment.id),
+      ReadonlyArray.append(enchantment)
+    )
 
     return yield* createItemMetadata({
       ...metadata,

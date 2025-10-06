@@ -1,5 +1,4 @@
-import * as Schema from '@effect/schema/Schema'
-import { Clock, Effect } from 'effect'
+import { Clock, Effect, Schema } from 'effect'
 import { pipe } from 'effect/Function'
 import * as Option from 'effect/Option'
 import {
@@ -29,10 +28,13 @@ type BedAggregate = Extract<Furniture, { _tag: 'Bed' }>
 type BookAggregate = Extract<Furniture, { _tag: 'Book' }>
 type DraftState = Extract<BookAggregate['state'], { _tag: 'Draft' }>
 
+let idCounter = 0
 const generateId: Effect.Effect<Schema.Schema.Type<typeof FurnitureIdSchema>, FurnitureError> = Effect.gen(
   function* () {
     const millis = yield* Clock.currentTimeMillis
-    const suffix = (millis % 36 ** 12).toString(36).padStart(12, '0').slice(-12)
+    const counter = idCounter++
+    const combined = millis * 1000 + counter
+    const suffix = (combined % 36 ** 12).toString(36).padStart(12, '0').slice(-12)
     const identifier = `furn_${suffix}`
     return yield* Schema.decodeUnknown(FurnitureIdSchema)(identifier).pipe(Effect.mapError(toValidationError))
   }
@@ -88,13 +90,11 @@ const ensureBedIsUsable = (bed: Bed, playerId: PlayerId) =>
   )
 
 const decreaseDurability = (bed: Bed) =>
-  pipe(
-    bed.durability,
-    (current) => Math.max(0, current - 1),
-    (value) => Schema.decodeUnknown(DurabilitySchema)(value),
-    Effect.mapError(toValidationError),
-    Effect.map((durability) => ({ ...bed, durability }))
-  )
+  Effect.gen(function* () {
+    const newValue = Math.max(0, bed.durability - 1)
+    const durability = yield* Schema.decodeUnknown(DurabilitySchema)(newValue).pipe(Effect.mapError(toValidationError))
+    return { ...bed, durability }
+  })
 
 export const createBed = (input: CreateBedInput) =>
   Effect.gen(function* () {
@@ -102,7 +102,8 @@ export const createBed = (input: CreateBedInput) =>
     const id = yield* generateId
     const placedAt = yield* currentTick
     const durability =
-      validated.durability ?? (yield* Schema.decodeUnknown(DurabilitySchema)(100).pipe(Effect.mapError(toValidationError)))
+      validated.durability ??
+      (yield* Schema.decodeUnknown(DurabilitySchema)(100).pipe(Effect.mapError(toValidationError)))
 
     return {
       _tag: 'Bed',

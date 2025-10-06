@@ -12,7 +12,7 @@ import type { ItemId, ItemStack } from '../../types'
 export class ContainerCreationError extends Schema.TaggedError<ContainerCreationError>()('ContainerCreationError', {
   reason: Schema.String,
   invalidFields: Schema.Array(Schema.String),
-  context: Schema.Record({ key: Schema.String, value: Schema.Unknown }).pipe(Schema.optional),
+  context: Schema.Record({ key: Schema.String, value: Schema.Any }).pipe(Schema.optional),
 }) {}
 
 export class ContainerValidationError extends Schema.TaggedError<ContainerValidationError>()(
@@ -20,14 +20,14 @@ export class ContainerValidationError extends Schema.TaggedError<ContainerValida
   {
     reason: Schema.String,
     missingFields: Schema.Array(Schema.String),
-    context: Schema.Record({ key: Schema.String, value: Schema.Unknown }).pipe(Schema.optional),
+    context: Schema.Record({ key: Schema.String, value: Schema.Any }).pipe(Schema.optional),
   }
 ) {}
 
 export class ContainerOperationError extends Schema.TaggedError<ContainerOperationError>()('ContainerOperationError', {
   reason: Schema.String,
   operation: Schema.String,
-  context: Schema.Record({ key: Schema.String, value: Schema.Unknown }).pipe(Schema.optional),
+  context: Schema.Record({ key: Schema.String, value: Schema.Any }).pipe(Schema.optional),
 }) {}
 
 // コンテナタイプ（DDD Value Object）

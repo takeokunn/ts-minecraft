@@ -1,6 +1,5 @@
-import { Brand, Effect, Either } from 'effect'
+import { Brand, Effect } from 'effect'
 import { Clock } from 'effect/Clock'
-import { pipe } from 'effect/Function'
 
 // ============================================================
 // Error Types
@@ -135,26 +134,25 @@ const identifierPipeline = (
   value: string,
   entity: InvalidIdentifierError['entity']
 ): Effect.Effect<string, CombatDomainError> =>
-  pipe(
-    value,
-    Either.right<string, CombatDomainError>,
-    Either.map((input) => input.trim()),
-    Either.filterOrElseWith(
-      (input) => input.length >= 3,
-      (input) => CombatError.invalidIdentifier(entity, input, 'length must be >= 3')
-    ),
-    Either.filterOrElseWith(
-      (input) => input.length <= 32,
-      (input) => CombatError.invalidIdentifier(entity, input, 'length must be <= 32')
-    ),
-    Either.filterOrElseWith(
-      (input) => /^[a-z0-9_-]+$/i.test(input),
-      (input) =>
-        CombatError.invalidIdentifier(entity, input, 'accepts only alphanumeric characters, underscore, or hyphen')
-    ),
-    Either.map((input) => input.toLowerCase()),
-    Effect.fromEither
-  )
+  Effect.gen(function* () {
+    const trimmed = value.trim()
+
+    if (trimmed.length < 3) {
+      return yield* Effect.fail(CombatError.invalidIdentifier(entity, trimmed, 'length must be >= 3'))
+    }
+
+    if (trimmed.length > 32) {
+      return yield* Effect.fail(CombatError.invalidIdentifier(entity, trimmed, 'length must be <= 32'))
+    }
+
+    if (!/^[a-z0-9_-]+$/i.test(trimmed)) {
+      return yield* Effect.fail(
+        CombatError.invalidIdentifier(entity, trimmed, 'accepts only alphanumeric characters, underscore, or hyphen')
+      )
+    }
+
+    return trimmed.toLowerCase()
+  })
 
 const createNumericFactory =
   <A>(options: {
@@ -163,25 +161,26 @@ const createNumericFactory =
     readonly max: number
     readonly brand: (value: number) => A
   }): ((value: number) => Effect.Effect<A, CombatDomainError>) =>
-  (value) => {
-    const validated = pipe(
-      value,
-      Either.right<number, CombatDomainError>,
-      Either.filterOrElseWith(Number.isFinite, (invalid) =>
-        CombatError.invalidStat(options.field, invalid, 'finite number required')
-      ),
-      Either.filterOrElseWith(
-        (numeric) => numeric >= options.min,
-        (invalid) => CombatError.invalidStat(options.field, invalid, `value must be >= ${String(options.min)}`)
-      ),
-      Either.filterOrElseWith(
-        (numeric) => numeric <= options.max,
-        (invalid) => CombatError.invalidStat(options.field, invalid, `value must be <= ${String(options.max)}`)
-      ),
-      Effect.fromEither
-    )
-    return validated.pipe(Effect.map(options.brand))
-  }
+  (value) =>
+    Effect.gen(function* () {
+      if (!Number.isFinite(value)) {
+        return yield* Effect.fail(CombatError.invalidStat(options.field, value, 'finite number required'))
+      }
+
+      if (value < options.min) {
+        return yield* Effect.fail(
+          CombatError.invalidStat(options.field, value, `value must be >= ${String(options.min)}`)
+        )
+      }
+
+      if (value > options.max) {
+        return yield* Effect.fail(
+          CombatError.invalidStat(options.field, value, `value must be <= ${String(options.max)}`)
+        )
+      }
+
+      return options.brand(value)
+    })
 
 export const makeCombatantId = (value: string): Effect.Effect<CombatantId, CombatDomainError> =>
   identifierPipeline(value, 'combatantId').pipe(Effect.map(CombatantIdBrand))
@@ -238,8 +237,9 @@ export const makeTimestamp = createNumericFactory<Timestamp>({
   brand: TimestampBrand,
 })
 
-export const currentTimestamp: Effect.Effect<Timestamp, never> =
-  Effect.map(Clock.currentTimeMillis, (millis) => TimestampBrand(millis))
+export const currentTimestamp: Effect.Effect<Timestamp, never> = Effect.map(Clock.currentTimeMillis, (millis) =>
+  TimestampBrand(millis)
+)
 
 // ============================================================
 // Attack and Event Algebraic Data Types

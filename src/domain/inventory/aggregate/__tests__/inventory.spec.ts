@@ -6,7 +6,7 @@
 import { Effect } from 'effect'
 import { describe, expect, it } from 'vitest'
 import type { ItemId, PlayerId } from '../../types'
-import { InventoryFactory, InventoryFactoryLive } from '../inventory/factory'
+import { InventoryFactory, InventoryFactoryLayer } from '../inventory/factory'
 import {
   addItem,
   changeSelectedHotbarSlot,
@@ -31,7 +31,7 @@ const testPlayerId = 'player_test_123' as PlayerId
 const testItemId = 'minecraft:stone' as ItemId
 const testItemId2 = 'minecraft:wood' as ItemId
 
-const testLayer = InventoryFactoryLive.pipe(Effect.provide(ItemStackFactoryLive))
+const testLayer = InventoryFactoryLayer
 
 describe('Inventory Aggregate', () => {
   describe('Factory', () => {

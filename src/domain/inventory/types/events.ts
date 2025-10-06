@@ -169,10 +169,7 @@ export const ItemAddedEventSchema = Schema.Struct({
     })
   ),
   metadata: Schema.optional(
-    Schema.Record({
-      key: Schema.String,
-      value: Schema.Unknown,
-    }).pipe(
+    Schema.Record({ key: Schema.String, value: Schema.Any }).pipe(
       Schema.annotations({
         description: 'Item metadata such as enchantments, durability, etc.',
       })

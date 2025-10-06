@@ -209,12 +209,7 @@ export const ValidationResultSchema = Schema.Struct({
   isValid: Schema.Boolean,
   errors: Schema.Array(Schema.String),
   warnings: Schema.Array(Schema.String),
-  metadata: Schema.optional(
-    Schema.Record({
-      key: Schema.String,
-      value: Schema.Unknown,
-    })
-  ),
+  metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Any })),
 }).pipe(
   Schema.annotations({
     title: 'ValidationResult',
@@ -235,12 +230,7 @@ export const TransferRequestSchema = Schema.Struct({
   itemId: Schema.String,
   quantity: Schema.Number.pipe(Schema.int(), Schema.positive()),
   userId: Schema.String,
-  metadata: Schema.optional(
-    Schema.Record({
-      key: Schema.String,
-      value: Schema.Unknown,
-    })
-  ),
+  metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Any })),
 }).pipe(
   Schema.annotations({
     title: 'TransferRequest',
@@ -361,23 +351,13 @@ export const CraftingRecipeSchema = Schema.Struct({
     Schema.Struct({
       itemId: Schema.String,
       quantity: Schema.Number.pipe(Schema.int(), Schema.positive()),
-      metadata: Schema.optional(
-        Schema.Record({
-          key: Schema.String,
-          value: Schema.Unknown,
-        })
-      ),
+      metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Any })),
     })
   ),
   result: Schema.Struct({
     itemId: Schema.String,
     quantity: Schema.Number.pipe(Schema.int(), Schema.positive()),
-    metadata: Schema.optional(
-      Schema.Record({
-        key: Schema.String,
-        value: Schema.Unknown,
-      })
-    ),
+    metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Any })),
   }),
   craftingType: Schema.Literal('CRAFTING_TABLE', 'FURNACE', 'ANVIL', 'BREWING_STAND'),
   requirements: Schema.optional(Schema.Array(Schema.String)),
@@ -418,12 +398,7 @@ export const UsageContextSchema = Schema.Struct({
   slotNumber: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
   action: Schema.String,
   target: Schema.optional(Schema.Unknown),
-  environment: Schema.optional(
-    Schema.Record({
-      key: Schema.String,
-      value: Schema.Unknown,
-    })
-  ),
+  environment: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Any })),
   timestamp: Schema.Number,
 }).pipe(
   Schema.annotations({

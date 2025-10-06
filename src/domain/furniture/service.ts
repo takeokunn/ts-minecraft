@@ -1,5 +1,4 @@
-import * as Schema from '@effect/schema/Schema'
-import { Clock, Effect, Match } from 'effect'
+import { Clock, Effect, Match, Schema } from 'effect'
 import type { FurnitureRepository } from './index'
 import {
   appendPage,

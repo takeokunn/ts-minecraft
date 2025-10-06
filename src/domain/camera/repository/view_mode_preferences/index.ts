@@ -5,7 +5,7 @@
  * プレイヤー設定、学習アルゴリズム、統計分析、推奨システムを統合
  */
 
-import { Clock, Effect, Schema } from 'effect'
+import { Clock, Data, Effect, Match, Option, ReadonlyArray, Schema, pipe } from 'effect'
 
 // ========================================
 // Repository Interface & Context
@@ -189,21 +189,33 @@ export const PreferenceAnalysisUtils = {
    * 自動化レベルを計算
    */
   calculateAutomationLevel: (preference: ViewModePreference): number => {
-    let score = 0
-    if (preference.autoSwitchEnabled) score += 40
-    if (preference.smartSwitchEnabled) score += 30
-    if (preference.transitionAnimationEnabled) score += 20
-    score += preference.contextSensitivity * 10
-    return Math.min(100, score)
+    return pipe(
+      0,
+      (score) => score + (preference.autoSwitchEnabled ? 40 : 0),
+      (score) => score + (preference.smartSwitchEnabled ? 30 : 0),
+      (score) => score + (preference.transitionAnimationEnabled ? 20 : 0),
+      (score) => score + preference.contextSensitivity * 10,
+      (score) => Math.min(100, score)
+    )
   },
 
   /**
    * 推奨の信頼度を評価
    */
   evaluateRecommendationConfidence: (recommendation: ViewModeRecommendation): 'low' | 'medium' | 'high' => {
-    if (recommendation.confidence >= 0.8) return 'high'
-    if (recommendation.confidence >= 0.6) return 'medium'
-    return 'low'
+    return pipe(
+      recommendation.confidence,
+      Match.value,
+      Match.when(
+        (c) => c >= 0.8,
+        () => 'high' as const
+      ),
+      Match.when(
+        (c) => c >= 0.6,
+        () => 'medium' as const
+      ),
+      Match.orElse(() => 'low' as const)
+    )
   },
 
   /**
@@ -212,30 +224,40 @@ export const PreferenceAnalysisUtils = {
   analyzeContextUsage: (
     records: Array.ReadonlyArray<ViewModePreferenceRecord>
   ): Map<GameContext, { count: number; averageDuration: number; modes: Set<ViewMode> }> => {
-    const contextUsage = new Map()
-
-    records.forEach((record) => {
-      if (!contextUsage.has(record.context)) {
-        contextUsage.set(record.context, {
-          count: 0,
-          totalDuration: 0,
-          modes: new Set(),
-        })
-      }
-
-      const usage = contextUsage.get(record.context)
-      usage.count++
-      usage.totalDuration += record.duration
-      usage.modes.add(record.viewMode)
-    })
+    const contextUsage = pipe(
+      records,
+      ReadonlyArray.reduce(
+        new Map<GameContext, { count: number; totalDuration: number; modes: Set<ViewMode> }>(),
+        (acc, record) => {
+          const existing = acc.get(record.context)
+          const updated = existing
+            ? {
+                count: existing.count + 1,
+                totalDuration: existing.totalDuration + record.duration,
+                modes: new Set([...existing.modes, record.viewMode]),
+              }
+            : {
+                count: 1,
+                totalDuration: record.duration,
+                modes: new Set([record.viewMode]),
+              }
+          acc.set(record.context, updated)
+          return acc
+        }
+      )
+    )
 
     // 平均継続時間を計算
-    contextUsage.forEach((usage, context) => {
-      usage.averageDuration = usage.totalDuration / usage.count
-      delete usage.totalDuration
-    })
-
-    return contextUsage
+    return new Map(
+      Array.from(contextUsage.entries()).map(([context, usage]) => [
+        context,
+        {
+          count: usage.count,
+          averageDuration: usage.totalDuration / usage.count,
+          modes: usage.modes,
+        },
+      ])
+    )
   },
 
   /**
@@ -252,48 +274,59 @@ export const PreferenceAnalysisUtils = {
       .map((r) => Option.getOrElse(r.satisfactionScore, () => 3))
       .filter((score) => score > 0)
 
-    if (satisfactionScores.length === 0) {
-      return {
-        average: 3,
-        trend: 'stable',
-        byMode: new Map(),
-      }
-    }
+    // 早期return → 三項演算子で統合
+    return satisfactionScores.length === 0
+      ? { average: 3, trend: 'stable' as const, byMode: new Map() }
+      : pipe(satisfactionScores, (scores) => {
+          const average = scores.reduce((sum, score) => sum + score, 0) / scores.length
 
-    const average = satisfactionScores.reduce((sum, score) => sum + score, 0) / satisfactionScores.length
+          // 傾向分析（簡易実装）
+          const recentScores = scores.slice(-10)
+          const earlierScores = scores.slice(0, Math.min(10, scores.length - 10))
 
-    // 傾向分析（簡易実装）
-    const recentScores = satisfactionScores.slice(-10)
-    const earlierScores = satisfactionScores.slice(0, Math.min(10, satisfactionScores.length - 10))
+          const trend: 'improving' | 'declining' | 'stable' =
+            recentScores.length > 0 && earlierScores.length > 0
+              ? pipe(
+                  {
+                    recent: recentScores.reduce((sum, score) => sum + score, 0) / recentScores.length,
+                    earlier: earlierScores.reduce((sum, score) => sum + score, 0) / earlierScores.length,
+                  },
+                  ({ recent, earlier }) =>
+                    recent > earlier + 0.2
+                      ? ('improving' as const)
+                      : recent < earlier - 0.2
+                        ? ('declining' as const)
+                        : ('stable' as const)
+                )
+              : ('stable' as const)
 
-    let trend: 'improving' | 'declining' | 'stable' = 'stable'
-    if (recentScores.length > 0 && earlierScores.length > 0) {
-      const recentAvg = recentScores.reduce((sum, score) => sum + score, 0) / recentScores.length
-      const earlierAvg = earlierScores.reduce((sum, score) => sum + score, 0) / earlierScores.length
+          // モード別満足度 - ReadonlyArray.reduce + Option.match
+          const modeScores = pipe(
+            records,
+            ReadonlyArray.reduce(new Map<ViewMode, number[]>(), (acc, record) =>
+              pipe(
+                record.satisfactionScore,
+                Option.match({
+                  onNone: () => acc,
+                  onSome: (score) => {
+                    const existing = acc.get(record.viewMode) || []
+                    acc.set(record.viewMode, [...existing, score])
+                    return acc
+                  },
+                })
+              )
+            )
+          )
 
-      if (recentAvg > earlierAvg + 0.2) trend = 'improving'
-      else if (recentAvg < earlierAvg - 0.2) trend = 'declining'
-    }
+          const byMode = new Map(
+            Array.from(modeScores.entries()).map(([mode, scores]) => [
+              mode,
+              scores.reduce((sum, score) => sum + score, 0) / scores.length,
+            ])
+          )
 
-    // モード別満足度
-    const byMode = new Map<ViewMode, number>()
-    const modeScores = new Map<ViewMode, number[]>()
-
-    records.forEach((record) => {
-      if (Option.isSome(record.satisfactionScore)) {
-        if (!modeScores.has(record.viewMode)) {
-          modeScores.set(record.viewMode, [])
-        }
-        modeScores.get(record.viewMode)!.push(record.satisfactionScore.value)
-      }
-    })
-
-    modeScores.forEach((scores, mode) => {
-      const avg = scores.reduce((sum, score) => sum + score, 0) / scores.length
-      byMode.set(mode, avg)
-    })
-
-    return { average, trend, byMode }
+          return { average, trend, byMode }
+        })
   },
 
   /**
@@ -303,22 +336,22 @@ export const PreferenceAnalysisUtils = {
     patterns: LearnedPatterns,
     recentRecords: Array.ReadonlyArray<ViewModePreferenceRecord>
   ): number => {
-    if (recentRecords.length === 0) return 0
-
-    let correctPredictions = 0
-    let totalPredictions = 0
-
-    recentRecords.forEach((record) => {
-      const predictedMode = patterns.contextPreferences.get(record.context)
-      if (predictedMode) {
-        totalPredictions++
-        if (predictedMode === record.viewMode) {
-          correctPredictions++
-        }
-      }
-    })
-
-    return totalPredictions > 0 ? (correctPredictions / totalPredictions) * 100 : 0
+    return recentRecords.length === 0
+      ? 0
+      : pipe(
+          recentRecords,
+          ReadonlyArray.reduce({ correctPredictions: 0, totalPredictions: 0 }, (acc, record) => {
+            const predictedMode = patterns.contextPreferences.get(record.context)
+            return predictedMode
+              ? {
+                  correctPredictions: acc.correctPredictions + (predictedMode === record.viewMode ? 1 : 0),
+                  totalPredictions: acc.totalPredictions + 1,
+                }
+              : acc
+          }),
+          ({ correctPredictions, totalPredictions }) =>
+            totalPredictions > 0 ? (correctPredictions / totalPredictions) * 100 : 0
+        )
   },
 } as const
 
@@ -355,15 +388,15 @@ export const PreferenceRecommendationHelpers = {
     currentHour: number,
     timePatterns: Array.ReadonlyArray<TimeBasedPattern>
   ): Option<ViewMode> => {
-    const relevantPatterns = timePatterns.filter((pattern) => Math.abs(pattern.timeOfDay - currentHour) <= 1)
-
-    if (relevantPatterns.length === 0) return Option.none()
-
-    const bestPattern = relevantPatterns.reduce((best, current) =>
-      current.confidence > best.confidence ? current : best
+    return pipe(
+      timePatterns.filter((pattern) => Math.abs(pattern.timeOfDay - currentHour) <= 1),
+      ReadonlyArray.fromIterable,
+      Option.liftPredicate((patterns) => patterns.length > 0),
+      Option.map((patterns) => patterns.reduce((best, current) => (current.confidence > best.confidence ? current : best))),
+      Option.flatMap((bestPattern) =>
+        bestPattern.confidence > 0.6 ? Option.some(bestPattern.preferredMode) : Option.none()
+      )
     )
-
-    return bestPattern.confidence > 0.6 ? Option.some(bestPattern.preferredMode) : Option.none()
   },
 
   /**
@@ -374,43 +407,47 @@ export const PreferenceRecommendationHelpers = {
     allAnalytics: Array.ReadonlyArray<PreferenceAnalyticsData>,
     context: GameContext
   ): Option<ViewMode> => {
-    // 類似度計算（簡易実装）
-    const similarities = allAnalytics
-      .filter((analytics) => analytics.playerId !== targetAnalytics.playerId)
-      .map((analytics) => {
-        // プレイスタイルの類似度を計算
-        let similarity = 0
-        const sharedModes = analytics.preferredModes.filter((mode) =>
-          targetAnalytics.preferredModes.some((targetMode) => targetMode.viewMode === mode.viewMode)
+    return pipe(
+      allAnalytics
+        .filter((analytics) => analytics.playerId !== targetAnalytics.playerId)
+        .map((analytics) => {
+          const sharedModes = analytics.preferredModes.filter((mode) =>
+            targetAnalytics.preferredModes.some((targetMode) => targetMode.viewMode === mode.viewMode)
+          )
+
+          const similarity =
+            sharedModes.length / Math.max(analytics.preferredModes.length, targetAnalytics.preferredModes.length)
+
+          return { analytics, similarity }
+        })
+        .filter((item) => item.similarity > 0.3)
+        .sort((a, b) => b.similarity - a.similarity),
+      ReadonlyArray.fromIterable,
+      Option.liftPredicate((similarities) => similarities.length > 0),
+      Option.flatMap((similarities) =>
+        pipe(
+          similarities.slice(0, 5),
+          ReadonlyArray.reduce(new Map<ViewMode, number>(), (contextModes, { analytics }) =>
+            pipe(
+              analytics.contextSwitchPatterns,
+              ReadonlyArray.reduce(contextModes, (acc, pattern) =>
+                pattern.toContext._tag === context._tag
+                  ? (() => {
+                      const currentCount = acc.get(pattern.preferredViewMode) || 0
+                      acc.set(pattern.preferredViewMode, currentCount + pattern.frequency)
+                      return acc
+                    })()
+                  : acc
+              )
+            )
+          ),
+          (contextModes) => Array.from(contextModes.entries()),
+          ReadonlyArray.fromIterable,
+          Option.liftPredicate((entries) => entries.length > 0),
+          Option.map((entries) => entries.sort((a, b) => b[1] - a[1])[0][0])
         )
-
-        similarity =
-          sharedModes.length / Math.max(analytics.preferredModes.length, targetAnalytics.preferredModes.length)
-
-        return { analytics, similarity }
-      })
-      .filter((item) => item.similarity > 0.3)
-      .sort((a, b) => b.similarity - a.similarity)
-
-    if (similarities.length === 0) return Option.none()
-
-    // 類似プレイヤーのコンテキスト使用パターンから推奨を抽出
-    const contextModes = new Map<ViewMode, number>()
-
-    similarities.slice(0, 5).forEach(({ analytics }) => {
-      analytics.contextSwitchPatterns.forEach((pattern) => {
-        if (pattern.toContext._tag === context._tag) {
-          const currentCount = contextModes.get(pattern.preferredViewMode) || 0
-          contextModes.set(pattern.preferredViewMode, currentCount + pattern.frequency)
-        }
-      })
-    })
-
-    if (contextModes.size === 0) return Option.none()
-
-    const recommendedMode = Array.from(contextModes.entries()).sort((a, b) => b[1] - a[1])[0][0]
-
-    return Option.some(recommendedMode)
+      )
+    )
   },
 
   /**
@@ -424,20 +461,16 @@ export const PreferenceRecommendationHelpers = {
 
     const baseText = `We ${confidenceText} recommend ${recommendedMode} mode`
 
-    switch (reason) {
-      case 'historical-preference':
-        return `${baseText} based on your past usage patterns.`
-      case 'context-pattern':
-        return `${baseText} as it's commonly used in this context.`
-      case 'similar-users':
-        return `${baseText} based on preferences of similar players.`
-      case 'time-based-pattern':
-        return `${baseText} based on your typical usage at this time.`
-      case 'performance-optimization':
-        return `${baseText} for optimal performance in this scenario.`
-      default:
-        return `${baseText}.`
-    }
+    return pipe(
+      reason,
+      Match.value,
+      Match.when('historical-preference', () => `${baseText} based on your past usage patterns.`),
+      Match.when('context-pattern', () => `${baseText} as it's commonly used in this context.`),
+      Match.when('similar-users', () => `${baseText} based on preferences of similar players.`),
+      Match.when('time-based-pattern', () => `${baseText} based on your typical usage at this time.`),
+      Match.when('performance-optimization', () => `${baseText} for optimal performance in this scenario.`),
+      Match.orElse(() => `${baseText}.`)
+    )
   },
 } as const
 
@@ -590,10 +623,11 @@ export type { ViewMode } from '../../value_object/index'
  *     const preference = yield* repo.loadPlayerPreference(playerId)
  *
  *     // コンテキスト別推奨取得
+ *     const now = yield* Clock.currentTimeMillis
  *     const recommendation = yield* repo.getRecommendedViewMode(
  *       playerId,
  *       Data.tagged('Building', {}),
- *       Date.now()
+ *       now
  *     )
  *
  *     return { preference, recommendation }

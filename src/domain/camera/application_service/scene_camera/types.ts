@@ -533,66 +533,66 @@ export const SceneCameraIdSchema = Schema.String.pipe(Schema.fromBrand(Brand.nom
 export const SequenceIdSchema = Schema.String.pipe(Schema.fromBrand(Brand.nominal<SequenceId>()))
 export const ScheduleIdSchema = Schema.String.pipe(Schema.fromBrand(Brand.nominal<ScheduleId>()))
 
-export const FollowModeSchema = Schema.TaggedEnum<FollowMode>({
-  Static: Schema.Struct({}),
-  FollowTarget: Schema.Struct({
+export const FollowModeSchema = Schema.Union(
+  Schema.TaggedStruct('Static', {}),
+  Schema.TaggedStruct('FollowTarget', {
     target: Schema.Unknown, // SceneTargetSchemaを参照
     smoothing: Schema.Number.pipe(Schema.between(0, 1)),
     maxDistance: Schema.Number.pipe(Schema.positive()),
   }),
-  Orbit: Schema.Struct({
+  Schema.TaggedStruct('Orbit', {
     center: Schema.Unknown, // Position3DSchemaを参照
     radius: Schema.Number.pipe(Schema.positive()),
     speed: Schema.Number.pipe(Schema.positive()),
-    direction: Schema.TaggedEnum<OrbitDirection>({
-      Clockwise: Schema.Struct({}),
-      CounterClockwise: Schema.Struct({}),
-      PingPong: Schema.Struct({}),
-    }),
+    direction: Schema.Union(
+      Schema.TaggedStruct('Clockwise', {}),
+      Schema.TaggedStruct('CounterClockwise', {}),
+      Schema.TaggedStruct('PingPong', {})
+    ),
   }),
-  Path: Schema.Struct({
+  Schema.TaggedStruct('Path', {
     waypoints: Schema.Array(Schema.Unknown), // Position3DSchemaの配列
     speed: Schema.Number.pipe(Schema.positive()),
     looping: Schema.Boolean,
   }),
-  LookAt: Schema.Struct({
+  Schema.TaggedStruct('LookAt', {
     target: Schema.Unknown, // SceneTargetSchemaを参照
     distance: Schema.Number.pipe(Schema.positive()),
     angle: Schema.Number,
-  }),
-})
+  })
+)
 
-export const SceneTargetSchema = Schema.TaggedEnum<SceneTarget>({
-  StaticPosition: Schema.Struct({
+export const SceneTargetSchema = Schema.Union(
+  Schema.TaggedStruct('StaticPosition', {
     position: Schema.Unknown, // Position3DSchemaを参照
     weight: Schema.Number.pipe(Schema.between(0, 1)),
   }),
-  DynamicEntity: Schema.Struct({
+  Schema.TaggedStruct('DynamicEntity', {
     entityId: Schema.String,
     offset: Schema.Unknown, // Position3DSchemaを参照
     weight: Schema.Number.pipe(Schema.between(0, 1)),
   }),
-  Player: Schema.Struct({
+  Schema.TaggedStruct('Player', {
     playerId: Schema.String,
     offset: Schema.Unknown, // Position3DSchemaを参照
     weight: Schema.Number.pipe(Schema.between(0, 1)),
   }),
-  CustomTracker: Schema.Struct({
+  Schema.TaggedStruct('CustomTracker', {
     trackerId: Schema.String,
     weight: Schema.Number.pipe(Schema.between(0, 1)),
-    updateCallback: Schema.Function, // 実際の実装では詳細な関数型定義が必要
+    // updateCallback removed: 関数フィールドはSchemaに含めず、型定義(SceneTarget)で定義
   }),
-  Group: Schema.Struct({
+  Schema.TaggedStruct('Group', {
     targets: Schema.Array(Schema.Unknown), // 再帰的SceneTargetSchema
-    centeringMode: Schema.TaggedEnum<CenteringMode>({
-      Arithmetic: Schema.Struct({}),
-      Weighted: Schema.Struct({}),
-      Closest: Schema.Struct({}),
-      Bounds: Schema.Struct({}),
-    }),
+    centeringMode: Schema.Union(
+      Schema.TaggedStruct('Arithmetic', {}),
+      Schema.TaggedStruct('Weighted', {}),
+      Schema.TaggedStruct('Closest', {}),
+      Schema.TaggedStruct('Bounds', {})
+    ),
     weight: Schema.Number.pipe(Schema.between(0, 1)),
-  }),
-})
+  })
+)
 
 export const CinematicSequenceSchema = Schema.Struct({
   id: SequenceIdSchema,
@@ -600,72 +600,72 @@ export const CinematicSequenceSchema = Schema.Struct({
   description: Schema.OptionFromSelf(Schema.String),
   keyframes: Schema.Array(Schema.Unknown), // CameraKeyframeSchemaを参照
   duration: Schema.Number.pipe(Schema.positive()),
-  loopMode: Schema.TaggedEnum<LoopMode>({
-    None: Schema.Struct({}),
-    Loop: Schema.Struct({}),
-    PingPong: Schema.Struct({}),
-    Random: Schema.Struct({
+  loopMode: Schema.Union(
+    Schema.TaggedStruct('None', {}),
+    Schema.TaggedStruct('Loop', {}),
+    Schema.TaggedStruct('PingPong', {}),
+    Schema.TaggedStruct('Random', {
       sequencePool: Schema.Array(SequenceIdSchema),
-    }),
-  }),
+    })
+  ),
   transitionSettings: Schema.Unknown, // TransitionSettingsSchemaを参照
   metadata: Schema.Unknown, // SequenceMetadataSchemaを参照
 }).pipe(Schema.fromBrand(Brand.nominal<CinematicSequence>()))
 
-export const SceneCameraApplicationErrorSchema = Schema.TaggedEnum<SceneCameraApplicationError>({
-  SceneNotFound: Schema.Struct({
+export const SceneCameraApplicationErrorSchema = Schema.Union(
+  Schema.TaggedStruct('SceneNotFound', {
     sceneId: SceneIdSchema,
   }),
-  SceneCameraNotFound: Schema.Struct({
+  Schema.TaggedStruct('SceneCameraNotFound', {
     sceneCameraId: SceneCameraIdSchema,
   }),
-  SequenceNotFound: Schema.Struct({
+  Schema.TaggedStruct('SequenceNotFound', {
     sequenceId: SequenceIdSchema,
   }),
-  InvalidCameraSetup: Schema.Struct({
+  Schema.TaggedStruct('InvalidCameraSetup', {
     setup: Schema.Unknown, // SceneCameraSetupSchemaを参照
     validationErrors: Schema.Array(Schema.String),
   }),
-  TargetResolutionFailed: Schema.Struct({
+  Schema.TaggedStruct('TargetResolutionFailed', {
     target: SceneTargetSchema,
     reason: Schema.String,
   }),
-  SequenceExecutionFailed: Schema.Struct({
+  Schema.TaggedStruct('SequenceExecutionFailed', {
     sequenceId: SequenceIdSchema,
-    error: Schema.TaggedEnum<SequenceExecutionError>({
-      InvalidKeyframe: Schema.Struct({
+    error: Schema.Union(
+      Schema.TaggedStruct('InvalidKeyframe', {
         keyframeIndex: Schema.Number,
         reason: Schema.String,
       }),
-      ResourceUnavailable: Schema.Struct({
+      Schema.TaggedStruct('ResourceUnavailable', {
         resource: Schema.String,
         requiredAmount: Schema.Number,
         availableAmount: Schema.Number,
       }),
-      TargetNotFound: Schema.Struct({
+      Schema.TaggedStruct('TargetNotFound', {
         targetId: Schema.String,
         targetType: Schema.String,
       }),
-      AnimationSystemError: Schema.Struct({
+      Schema.TaggedStruct('AnimationSystemError', {
         details: Schema.String,
-      }),
-    }),
+      })
+    ),
   }),
-  CameraConstraintViolation: Schema.Struct({
+  Schema.TaggedStruct('CameraConstraintViolation', {
     constraint: Schema.String,
     currentValue: Schema.Number,
     allowedRange: Schema.Tuple(Schema.Number, Schema.Number),
   }),
-  ResourceLimitExceeded: Schema.Struct({
+  Schema.TaggedStruct('ResourceLimitExceeded', {
     resource: Schema.String,
     current: Schema.Number,
     limit: Schema.Number,
   }),
-  ConcurrentOperationConflict: Schema.Struct({
+  Schema.TaggedStruct('ConcurrentOperationConflict', {
     operationType: Schema.String,
     conflictingOperation: Schema.String,
-  }),
-})
+  })
+)
 
 // ========================================
 // Factory Functions

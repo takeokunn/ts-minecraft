@@ -38,6 +38,7 @@ export {
   BlockDataError,
   ChunkDistance,
   ChunkHash,
+  ChunkIdSchema,
   ChunkMetadataError,
   ChunkMetadataSchema,
   ChunkPositionSchema,

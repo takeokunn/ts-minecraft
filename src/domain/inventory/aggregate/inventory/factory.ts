@@ -3,7 +3,7 @@
  * DDD原則に基づく複雑なオブジェクト生成の隠蔽
  */
 
-import { Clock, Context, Effect, Schema } from 'effect'
+import { Clock, Context, Effect, Layer, Schema } from 'effect'
 import { nanoid } from 'nanoid'
 import type { PlayerId } from '../../types'
 import type {
@@ -230,6 +230,11 @@ export const InventoryFactoryLive = InventoryFactory.of({
 
   builder: () => new InventoryBuilderImpl(),
 })
+
+/**
+ * InventoryFactory Layer
+ */
+export const InventoryFactoryLayer = Layer.succeed(InventoryFactory, InventoryFactoryLive)
 
 // ===== Utility Functions =====
 
