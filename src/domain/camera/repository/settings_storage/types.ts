@@ -5,8 +5,8 @@
  * プレイヤー設定、グローバル設定、プリセット設定の管理
  */
 
-import { Brand, Data, Option, ReadonlyMap, Schema } from 'effect'
 import type { CameraSettings, FOV, Sensitivity } from '@domain/camera/types'
+import { Brand, Clock, Data, Effect, Option, ReadonlyMap, Schema } from 'effect'
 import type { ViewMode } from '../../value_object/index'
 
 // ========================================
@@ -461,32 +461,38 @@ export const createSettingsRepositoryError = {
  * Default Settings Factory
  */
 export const createDefaultSettings = {
-  globalCameraSettings: (): GlobalCameraSettings =>
-    ({
-      defaultSensitivity: 1.0 as Sensitivity,
-      defaultFOV: 75 as FOV,
-      animationDuration: 200,
-      collisionDetectionEnabled: true,
-      debugMode: false,
-      maxRenderDistance: 256,
-      qualityLevel: Data.tagged('Medium', {}),
-      performanceMode: false,
-      lastModified: Date.now(),
-      version: 1,
-    }) as GlobalCameraSettings,
+  globalCameraSettings: (): Effect.Effect<GlobalCameraSettings> =>
+    Effect.gen(function* () {
+      const now = yield* Clock.currentTimeMillis
+      return {
+        defaultSensitivity: 1.0 as Sensitivity,
+        defaultFOV: 75 as FOV,
+        animationDuration: 200,
+        collisionDetectionEnabled: true,
+        debugMode: false,
+        maxRenderDistance: 256,
+        qualityLevel: Data.tagged('Medium', {}),
+        performanceMode: false,
+        lastModified: now,
+        version: 1,
+      } as GlobalCameraSettings
+    }),
 
-  playerCameraSettings: (playerId: PlayerId): PlayerCameraSettings =>
-    ({
-      playerId,
-      sensitivity: 1.0 as Sensitivity,
-      fov: 75 as FOV,
-      viewModePreference: 'first-person' as ViewMode,
-      animationEnabled: true,
-      collisionEnabled: true,
-      customBindings: new Map(),
-      lastModified: Date.now(),
-      version: 1,
-    }) as PlayerCameraSettings,
+  playerCameraSettings: (playerId: PlayerId): Effect.Effect<PlayerCameraSettings> =>
+    Effect.gen(function* () {
+      const now = yield* Clock.currentTimeMillis
+      return {
+        playerId,
+        sensitivity: 1.0 as Sensitivity,
+        fov: 75 as FOV,
+        viewModePreference: 'first-person' as ViewMode,
+        animationEnabled: true,
+        collisionEnabled: true,
+        customBindings: new Map(),
+        lastModified: now,
+        version: 1,
+      } as PlayerCameraSettings
+    }),
 
   viewModeSettings: (): ViewModeSettings =>
     ({

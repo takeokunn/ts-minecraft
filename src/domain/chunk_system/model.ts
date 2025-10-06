@@ -1,8 +1,7 @@
-import { Schema } from '@effect/schema'
-import { Clock, Effect, Match, pipe, Array as ReadonlyArray } from 'effect'
-import { ChunkCommand } from './index'
-import { ChunkEvent } from './index'
+import { Clock, Effect, Match, pipe, Array as ReadonlyArray, Schema } from 'effect'
 import {
+  ChunkCommand,
+  ChunkEvent,
   ChunkRequest,
   ChunkSystemConfig,
   ChunkSystemConfigSchema,

@@ -7,8 +7,13 @@
 
 import { Effect, Layer } from 'effect'
 import type { Inventory } from '../../types'
-import { ValidationError, ValidationService, type CorrectionSuggestion, type ValidationResult } from './index'
-import { runAllValidators } from './index'
+import {
+  runAllValidators,
+  ValidationError,
+  ValidationService,
+  type CorrectionSuggestion,
+  type ValidationResult,
+} from './index'
 
 /**
  * 検証サービスのLive実装

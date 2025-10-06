@@ -8,8 +8,8 @@
  * - 診断情報の収集
  */
 
-import { Effect, Schema } from 'effect'
 import type * as GenerationErrors from '@domain/world/types/errors'
+import { Effect, Schema } from 'effect'
 
 // ================================
 // Error Categories
@@ -140,7 +140,7 @@ export const createSessionError = (
   batchId?: string,
   context?: Partial<SessionError['context']>
 ): SessionError => {
-  const now = new Date()
+  const now = yield * Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
   const errorId = `err_${now.getTime()}_${Math.random().toString(36).substr(2, 9)}`
 
   // エラー分類

@@ -2,8 +2,8 @@
  * Constraint Enforcer Service - 制約強制ドメインサービス
  */
 
-import { Context, Effect, Layer } from 'effect'
 import type { GenerationError } from '@domain/world/types/errors'
+import { Context, Effect, Layer } from 'effect'
 
 export interface ConstraintEnforcerService {
   readonly enforceConstraints: (data: any) => Effect.Effect<any, GenerationError>

@@ -114,53 +114,53 @@ const decodeBinary = (
   },
   ChunkSerializationError
 > =>
-  Effect.try({
-    try: () => {
-      const view = new DataView(data.buffer, data.byteOffset, data.byteLength)
-      let offset = 0
+  Effect.gen(function* () {
+    const view = new DataView(data.buffer, data.byteOffset, data.byteLength)
+    let offset = 0
 
-      const x = view.getInt32(offset, true)
-      offset += 4
-      const z = view.getInt32(offset, true)
-      offset += 4
+    const x = view.getInt32(offset, true)
+    offset += 4
+    const z = view.getInt32(offset, true)
+    offset += 4
 
-      const metadataLength = view.getUint32(offset, true)
-      offset += 4
+    const metadataLength = view.getUint32(offset, true)
+    offset += 4
 
-      const metadataBytes = data.slice(offset, offset + metadataLength)
-      offset += metadataLength
+    const metadataBytes = data.slice(offset, offset + metadataLength)
+    offset += metadataLength
 
-      const metadataJson = new TextDecoder().decode(metadataBytes)
-      let metadata: unknown
-      try {
-        metadata = JSON.parse(metadataJson)
-      } catch (error) {
-        throw new Error(`Binary metadata parse error: ${String(error)}`)
-      }
+    const metadataJson = new TextDecoder().decode(metadataBytes)
+    const metadata = yield* Effect.try({
+      try: () => JSON.parse(metadataJson),
+      catch: (error) => new Error(`Binary metadata parse error: ${String(error)}`),
+    })
 
-      const isDirty = view.getUint8(offset) === 1
-      offset += 1
+    const isDirty = view.getUint8(offset) === 1
+    offset += 1
 
-      const blocksBytes = data.slice(offset)
-      const blocksBuffer = blocksBytes.buffer.slice(
-        blocksBytes.byteOffset,
-        blocksBytes.byteOffset + blocksBytes.byteLength
+    const blocksBytes = data.slice(offset)
+    const blocksBuffer = blocksBytes.buffer.slice(
+      blocksBytes.byteOffset,
+      blocksBytes.byteOffset + blocksBytes.byteLength
+    )
+    const blocks = new Uint16Array(blocksBuffer)
+
+    return {
+      position: { x, z },
+      metadata,
+      isDirty,
+      blocks,
+    }
+  }).pipe(
+    Effect.catchAll((error) =>
+      Effect.fail(
+        ChunkSerializationError({
+          message: `Binaryデータの解析に失敗しました: ${String(error)}`,
+          originalError: error,
+        })
       )
-      const blocks = new Uint16Array(blocksBuffer)
-
-      return {
-        position: { x, z },
-        metadata,
-        isDirty,
-        blocks,
-      }
-    },
-    catch: (error) =>
-      ChunkSerializationError({
-        message: `Binaryデータの解析に失敗しました: ${String(error)}`,
-        originalError: error,
-      }),
-  })
+    )
+  )
 
 const maybeCompress = (
   data: Uint8Array,
@@ -319,7 +319,7 @@ export const ChunkSerializationServiceLive = Layer.effect(
               }),
               Effect.flatMap((json) =>
                 Effect.try({
-                  try: () => JSON.parse(json) as any,
+                  try: () => JSON.parse(json),
                   catch: (error) =>
                     ChunkSerializationError({
                       message: `JSONの解析に失敗しました: ${String(error)}`,
@@ -327,12 +327,12 @@ export const ChunkSerializationServiceLive = Layer.effect(
                     }),
                 })
               ),
-              Effect.flatMap((payload) =>
+              Effect.flatMap((payload: unknown) =>
                 decodeChunk({
-                  position: payload.position,
-                  metadata: payload.metadata,
-                  isDirty: payload.isDirty,
-                  blocks: new Uint16Array(payload.blocks),
+                  position: (payload as { position: { x: number; z: number } }).position,
+                  metadata: (payload as { metadata: unknown }).metadata,
+                  isDirty: (payload as { isDirty: boolean }).isDirty,
+                  blocks: new Uint16Array((payload as { blocks: number[] }).blocks),
                 })
               )
             )

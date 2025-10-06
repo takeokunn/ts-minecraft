@@ -1,4 +1,4 @@
-import { Effect, Match, pipe, Schema } from 'effect'
+import { Effect, Either, Match, pipe, ReadonlyArray, Schema } from 'effect'
 import { ItemIdSchema, ItemNameSchema, NamespaceSchema } from './schema'
 import {
   ItemCategory,
@@ -163,57 +163,70 @@ export const inferCategory = (itemId: ItemId): Effect.Effect<ItemCategory, ItemI
   const nameStr = name as string
 
   // ツール判定
-  if (nameStr.includes('sword')) {
-    return Effect.succeed(ItemCategory.Tool({ toolType: 'sword' }))
-  }
-  if (nameStr.includes('pickaxe')) {
-    return Effect.succeed(ItemCategory.Tool({ toolType: 'pickaxe' }))
-  }
-  if (nameStr.includes('axe') && !nameStr.includes('pickaxe')) {
-    return Effect.succeed(ItemCategory.Tool({ toolType: 'axe' }))
-  }
-  if (nameStr.includes('shovel')) {
-    return Effect.succeed(ItemCategory.Tool({ toolType: 'shovel' }))
-  }
-  if (nameStr.includes('hoe')) {
-    return Effect.succeed(ItemCategory.Tool({ toolType: 'hoe' }))
-  }
-  if (nameStr.includes('bow')) {
-    return Effect.succeed(ItemCategory.Tool({ toolType: 'bow' }))
-  }
-
-  // 防具判定
-  if (nameStr.includes('helmet')) {
-    return Effect.succeed(ItemCategory.Armor({ slot: 'helmet' }))
-  }
-  if (nameStr.includes('chestplate')) {
-    return Effect.succeed(ItemCategory.Armor({ slot: 'chestplate' }))
-  }
-  if (nameStr.includes('leggings')) {
-    return Effect.succeed(ItemCategory.Armor({ slot: 'leggings' }))
-  }
-  if (nameStr.includes('boots')) {
-    return Effect.succeed(ItemCategory.Armor({ slot: 'boots' }))
-  }
-
-  // 食べ物判定
-  const foodItems = ['bread', 'apple', 'carrot', 'potato', 'beef', 'pork', 'chicken', 'fish', 'cookie', 'cake']
-  if (foodItems.some((food) => nameStr.includes(food))) {
-    return Effect.succeed(ItemCategory.Food({ nutrition: 4, saturation: 0.3 }))
-  }
-
-  // ブロック判定（デフォルト）
-  if (nameStr.includes('block') || nameStr.includes('stone') || nameStr.includes('wood')) {
-    return Effect.succeed(ItemCategory.Block({ subtype: 'building' }))
-  }
-
-  // ポーション判定
-  if (nameStr.includes('potion')) {
-    return Effect.succeed(ItemCategory.Potion({ effects: [], duration: 180 }))
-  }
-
-  // その他
-  return Effect.succeed(ItemCategory.Misc({ description: 'Miscellaneous item' }))
+  return pipe(
+    Match.value(nameStr),
+    Match.when(
+      (n) => n.includes('sword'),
+      () => Effect.succeed(ItemCategory.Tool({ toolType: 'sword' }))
+    ),
+    Match.when(
+      (n) => n.includes('pickaxe'),
+      () => Effect.succeed(ItemCategory.Tool({ toolType: 'pickaxe' }))
+    ),
+    Match.when(
+      (n) => n.includes('axe') && !n.includes('pickaxe'),
+      () => Effect.succeed(ItemCategory.Tool({ toolType: 'axe' }))
+    ),
+    Match.when(
+      (n) => n.includes('shovel'),
+      () => Effect.succeed(ItemCategory.Tool({ toolType: 'shovel' }))
+    ),
+    Match.when(
+      (n) => n.includes('hoe'),
+      () => Effect.succeed(ItemCategory.Tool({ toolType: 'hoe' }))
+    ),
+    Match.when(
+      (n) => n.includes('bow'),
+      () => Effect.succeed(ItemCategory.Tool({ toolType: 'bow' }))
+    ),
+    // 防具判定
+    Match.when(
+      (n) => n.includes('helmet'),
+      () => Effect.succeed(ItemCategory.Armor({ slot: 'helmet' }))
+    ),
+    Match.when(
+      (n) => n.includes('chestplate'),
+      () => Effect.succeed(ItemCategory.Armor({ slot: 'chestplate' }))
+    ),
+    Match.when(
+      (n) => n.includes('leggings'),
+      () => Effect.succeed(ItemCategory.Armor({ slot: 'leggings' }))
+    ),
+    Match.when(
+      (n) => n.includes('boots'),
+      () => Effect.succeed(ItemCategory.Armor({ slot: 'boots' }))
+    ),
+    // 食べ物判定
+    Match.when(
+      (n) => {
+        const foodItems = ['bread', 'apple', 'carrot', 'potato', 'beef', 'pork', 'chicken', 'fish', 'cookie', 'cake']
+        return foodItems.some((food) => n.includes(food))
+      },
+      () => Effect.succeed(ItemCategory.Food({ nutrition: 4, saturation: 0.3 }))
+    ),
+    // ブロック判定
+    Match.when(
+      (n) => n.includes('block') || n.includes('stone') || n.includes('wood'),
+      () => Effect.succeed(ItemCategory.Block({ subtype: 'building' }))
+    ),
+    // ポーション判定
+    Match.when(
+      (n) => n.includes('potion'),
+      () => Effect.succeed(ItemCategory.Potion({ effects: [], duration: 180 }))
+    ),
+    // その他（デフォルト）
+    Match.orElse(() => Effect.succeed(ItemCategory.Misc({ description: 'Miscellaneous item' })))
+  )
 }
 
 /**
@@ -223,21 +236,16 @@ export const searchItems = (
   items: readonly ItemId[],
   criteria: ItemSearchCriteria
 ): Effect.Effect<readonly ItemId[], ItemIdError> =>
-  Effect.gen(function* () {
-    let filteredItems = items
-
-    // 名前空間フィルタ
-    if (criteria.namespace) {
-      filteredItems = filteredItems.filter((item) => getNamespace(item) === criteria.namespace)
-    }
-
-    // 名前パターンフィルタ
-    if (criteria.namePattern) {
-      filteredItems = filteredItems.filter((item) => criteria.namePattern!.test(getItemName(item) as string))
-    }
-
-    return filteredItems
-  })
+  Effect.succeed(
+    pipe(
+      items,
+      // 名前空間フィルタ
+      (items) => (criteria.namespace ? items.filter((item) => getNamespace(item) === criteria.namespace) : items),
+      // 名前パターンフィルタ
+      (items) =>
+        criteria.namePattern ? items.filter((item) => criteria.namePattern!.test(getItemName(item) as string)) : items
+    )
+  )
 
 /**
  * 一般的なMinecraftアイテムのファクトリー関数
@@ -280,20 +288,15 @@ export const validateItemIds = (inputs: readonly string[]): Effect.Effect<readon
       concurrency: 'unbounded',
     })
 
-    const errors: ItemIdError[] = []
-    const validItems: ItemId[] = []
+    const { errors, validItems } = pipe(
+      results,
+      ReadonlyArray.partitionMap((result) =>
+        result._tag === 'Left' ? Either.left(result.left) : Either.right(result.right)
+      )
+    )
 
-    results.forEach((result) => {
-      if (result._tag === 'Left') {
-        errors.push(result.left)
-      } else {
-        validItems.push(result.right)
-      }
+    return yield* Effect.if(errors.length > 0, {
+      onTrue: () => Effect.fail(errors),
+      onFalse: () => Effect.succeed(validItems),
     })
-
-    if (errors.length > 0) {
-      return yield* Effect.fail(errors)
-    }
-
-    return validItems
   })

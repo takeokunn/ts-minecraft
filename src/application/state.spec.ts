@@ -1,5 +1,5 @@
-import { Schema } from '@effect/schema'
 import { describe, expect, it } from '@effect/vitest'
+import { Schema } from 'effect'
 import * as ReadonlyArray from 'effect/Array'
 import * as FastCheck from 'effect/FastCheck'
 import { applyConfig, computeHealth, createInitialState, synchronizeLifecycle, tickState, withStartTime } from './state'

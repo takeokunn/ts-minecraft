@@ -6,7 +6,8 @@
  * パフォーマンス・エラーハンドリング・Layer統合検証
  */
 
-import { Effect } from 'effect'
+import { HumiditySchema, TemperatureSchema } from '@domain/world/value_object/generation_parameters/biome_config'
+import { Effect, Schema } from 'effect'
 import { describe, expect, it } from 'vitest'
 import { BiomeSystemRepository, type BiomeDefinition } from '../biome_system_repository'
 import { GenerationSessionRepository, type GenerationSession } from '../generation_session_repository'
@@ -111,8 +112,8 @@ const createTestBiomeDefinition = (): BiomeDefinition => ({
   id: 'test-forest' as any,
   name: 'Test Forest',
   category: 'forest',
-  temperature: 0.7 as any,
-  humidity: 0.8 as any,
+  temperature: Schema.decodeSync(TemperatureSchema)(0.7),
+  humidity: Schema.decodeSync(HumiditySchema)(0.8),
   properties: {
     color: '#228B22',
     foliageColor: '#228B22',

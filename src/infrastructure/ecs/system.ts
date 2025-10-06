@@ -5,8 +5,7 @@
  * Effect-TSを使用した関数型でコンポジタブルな実装
  */
 
-import { Schema } from '@effect/schema'
-import { Clock, Context, Data, Effect, Match, Option, pipe } from 'effect'
+import { Clock, Context, Data, Effect, Match, Option, pipe, Schema } from 'effect'
 
 /**
  * システムエラー - ECSシステム実行時のエラー

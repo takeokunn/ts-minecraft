@@ -5,7 +5,7 @@ import { Schema } from 'effect'
 // -----------------------------------------------------------------------------
 
 export const PlayerIdSchema = Schema.String.pipe(
-  Schema.trim(),
+  Schema.trimmed(),
   Schema.minLength(3),
   Schema.maxLength(32),
   Schema.pattern(/^[A-Za-z0-9_-]+$/),
@@ -15,7 +15,7 @@ export const PlayerIdSchema = Schema.String.pipe(
 export type PlayerId = Schema.Schema.Type<typeof PlayerIdSchema>
 
 export const PlayerNameSchema = Schema.String.pipe(
-  Schema.trim(),
+  Schema.trimmed(),
   Schema.minLength(1),
   Schema.maxLength(48),
   Schema.brand('PlayerName')
@@ -89,7 +89,7 @@ export const AccelerationSchema = Schema.Number.pipe(Schema.finite(), Schema.bra
 export type PlayerAcceleration = Schema.Schema.Type<typeof AccelerationSchema>
 
 export const WorldIdSchema = Schema.String.pipe(
-  Schema.trim(),
+  Schema.trimmed(),
   Schema.minLength(1),
   Schema.maxLength(64),
   Schema.brand('WorldId')
@@ -169,7 +169,7 @@ export const PlayerAggregateSchema = Schema.Struct({
   position: PlayerPositionSchema,
   motion: PlayerMotionSchema,
 }).pipe(
-  Schema.refine((aggregate) => aggregate.updatedAt >= aggregate.createdAt, {
+  Schema.filter((aggregate) => aggregate.updatedAt >= aggregate.createdAt, {
     message: () => 'updatedAtはcreatedAt以上である必要があります',
   }),
   Schema.brand('PlayerAggregate')
@@ -181,7 +181,7 @@ export const PlayerSnapshotSchema = Schema.Struct({
   aggregate: PlayerAggregateSchema,
   capturedAt: TimestampSchema,
 }).pipe(
-  Schema.refine(({ aggregate, capturedAt }) => capturedAt >= aggregate.createdAt, {
+  Schema.filter(({ aggregate, capturedAt }) => capturedAt >= aggregate.createdAt, {
     message: () => 'スナップショット時刻が作成時刻以前です',
   }),
   Schema.brand('PlayerSnapshot')
@@ -189,60 +189,76 @@ export const PlayerSnapshotSchema = Schema.Struct({
 
 export type PlayerSnapshot = Schema.Schema.Type<typeof PlayerSnapshotSchema>
 
-export const PlayerEventSchema = Schema.TaggedUnion('_tag', [
-  Schema.Struct({
-    _tag: Schema.Literal('PlayerCreated'),
-    aggregate: PlayerAggregateSchema,
-  }),
-  Schema.Struct({
-    _tag: Schema.Literal('PlayerVitalsChanged'),
-    aggregate: PlayerAggregateSchema,
-  }),
-  Schema.Struct({
-    _tag: Schema.Literal('PlayerPositionChanged'),
-    aggregate: PlayerAggregateSchema,
-  }),
-  Schema.Struct({
-    _tag: Schema.Literal('PlayerStateChanged'),
-    aggregate: PlayerAggregateSchema,
-    previousState: PlayerLifecycleStateSchema,
-  }),
-])
+const PlayerCreatedEvent = Schema.Struct({
+  _tag: Schema.Literal('PlayerCreated'),
+  aggregate: PlayerAggregateSchema,
+})
+
+const PlayerVitalsChangedEvent = Schema.Struct({
+  _tag: Schema.Literal('PlayerVitalsChanged'),
+  aggregate: PlayerAggregateSchema,
+})
+
+const PlayerPositionChangedEvent = Schema.Struct({
+  _tag: Schema.Literal('PlayerPositionChanged'),
+  aggregate: PlayerAggregateSchema,
+})
+
+const PlayerStateChangedEvent = Schema.Struct({
+  _tag: Schema.Literal('PlayerStateChanged'),
+  aggregate: PlayerAggregateSchema,
+  previousState: PlayerLifecycleStateSchema,
+})
+
+export const PlayerEventSchema = Schema.Union(
+  PlayerCreatedEvent,
+  PlayerVitalsChangedEvent,
+  PlayerPositionChangedEvent,
+  PlayerStateChangedEvent
+)
 
 export type PlayerEvent = Schema.Schema.Type<typeof PlayerEventSchema>
 
-export const PlayerCommandSchema = Schema.TaggedUnion('_tag', [
-  Schema.Struct({
-    _tag: Schema.Literal('CreatePlayer'),
-    id: PlayerIdSchema,
-    name: PlayerNameSchema,
-    gameMode: PlayerGameModeSchema,
-    timestamp: TimestampSchema,
-  }),
-  Schema.Struct({
-    _tag: Schema.Literal('UpdateVitals'),
-    id: PlayerIdSchema,
-    health: HealthValueSchema,
-    hunger: HungerValueSchema,
-    saturation: SaturationValueSchema,
-    experienceLevel: ExperienceLevelSchema,
-    timestamp: TimestampSchema,
-  }),
-  Schema.Struct({
-    _tag: Schema.Literal('UpdatePosition'),
-    id: PlayerIdSchema,
-    position: PlayerPositionSchema,
-    motion: PlayerMotionSchema,
-    timestamp: TimestampSchema,
-  }),
-  Schema.Struct({
-    _tag: Schema.Literal('TransitionState'),
-    id: PlayerIdSchema,
-    from: PlayerLifecycleStateSchema,
-    to: PlayerLifecycleStateSchema,
-    timestamp: TimestampSchema,
-  }),
-])
+const CreatePlayerCommand = Schema.Struct({
+  _tag: Schema.Literal('CreatePlayer'),
+  id: PlayerIdSchema,
+  name: PlayerNameSchema,
+  gameMode: PlayerGameModeSchema,
+  timestamp: TimestampSchema,
+})
+
+const UpdateVitalsCommand = Schema.Struct({
+  _tag: Schema.Literal('UpdateVitals'),
+  id: PlayerIdSchema,
+  health: HealthValueSchema,
+  hunger: HungerValueSchema,
+  saturation: SaturationValueSchema,
+  experienceLevel: ExperienceLevelSchema,
+  timestamp: TimestampSchema,
+})
+
+const UpdatePositionCommand = Schema.Struct({
+  _tag: Schema.Literal('UpdatePosition'),
+  id: PlayerIdSchema,
+  position: PlayerPositionSchema,
+  motion: PlayerMotionSchema,
+  timestamp: TimestampSchema,
+})
+
+const TransitionStateCommand = Schema.Struct({
+  _tag: Schema.Literal('TransitionState'),
+  id: PlayerIdSchema,
+  from: PlayerLifecycleStateSchema,
+  to: PlayerLifecycleStateSchema,
+  timestamp: TimestampSchema,
+})
+
+export const PlayerCommandSchema = Schema.Union(
+  CreatePlayerCommand,
+  UpdateVitalsCommand,
+  UpdatePositionCommand,
+  TransitionStateCommand
+)
 
 export type PlayerCommand = Schema.Schema.Type<typeof PlayerCommandSchema>
 

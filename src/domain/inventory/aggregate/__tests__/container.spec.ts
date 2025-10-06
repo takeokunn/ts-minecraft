@@ -6,13 +6,7 @@
 import { Effect, Option } from 'effect'
 import { describe, expect, it } from 'vitest'
 import type { ItemId, PlayerId } from '../../types'
-import {
-  ContainerFactory,
-  ContainerFactoryLive,
-  createChest,
-  createFurnace,
-  createHopper,
-} from '../container/factory'
+import { ContainerFactory, ContainerFactoryLive, createChest, createFurnace, createHopper } from '../container/factory'
 import {
   closeContainer,
   findItemSlots,

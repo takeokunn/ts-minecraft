@@ -1,6 +1,5 @@
 import { Context, Effect } from 'effect'
-import type { ArmorSlots, Inventory, InventoryState, ItemId, ItemStack, PlayerId } from './index'
-import type { ItemRegistryError } from './index'
+import type { ArmorSlots, Inventory, InventoryState, ItemId, ItemRegistryError, ItemStack, PlayerId } from './index'
 
 export type AddItemResult =
   | {

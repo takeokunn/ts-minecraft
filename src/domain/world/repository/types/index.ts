@@ -1,5 +1,1 @@
-/**
- * @fileoverview World Repository Types - Export Module
- */
-
-export * from './index'
+export * from './repository_error'

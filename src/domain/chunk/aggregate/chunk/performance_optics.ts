@@ -6,6 +6,7 @@
  */
 
 import { Cache, Duration, Effect, Chunk as EffectChunk, Match, pipe } from 'effect'
+import { getUsedHeapSize } from '../../../performance'
 import type { ChunkData } from '../chunk_data'
 import { ChunkDataOptics } from './index'
 
@@ -488,11 +489,11 @@ export const PerformanceMonitoring = {
    */
   monitorMemory: <A>(operation: Effect.Effect<A>): Effect.Effect<A> =>
     Effect.gen(function* () {
-      const beforeMemory = yield* Effect.sync(() => (performance as any).memory?.usedJSHeapSize || 0)
+      const beforeMemory = yield* getUsedHeapSize()
 
       const result = yield* operation
 
-      const afterMemory = yield* Effect.sync(() => (performance as any).memory?.usedJSHeapSize || 0)
+      const afterMemory = yield* getUsedHeapSize()
 
       yield* pipe(
         afterMemory - beforeMemory,

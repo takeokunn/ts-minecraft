@@ -1,5 +1,4 @@
-import { Schema } from '@effect/schema'
-import { Effect, Match, Option, pipe } from 'effect'
+import { Effect, Match, Option, Schema, pipe } from 'effect'
 import * as ReadonlyArray from 'effect/Array'
 import * as HashMap from 'effect/HashMap'
 import { InvalidStateTransitionError, JsonValue, createErrorContext } from './errors'

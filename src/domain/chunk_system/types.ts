@@ -1,5 +1,4 @@
-import { Schema } from '@effect/schema'
-import { Data, Equal, Hash } from 'effect'
+import { Data, Equal, Hash, Schema } from 'effect'
 
 // ============================================================================
 // 基本ブランド型
@@ -22,7 +21,7 @@ export const ChunkIdSchema = Schema.String.pipe(
 
 export type ChunkId = Schema.Schema.Type<typeof ChunkIdSchema>
 
-export const RequestIdSchema = Schema.String.pipe(Schema.uuid(), Schema.brand('RequestId'))
+export const RequestIdSchema = Schema.UUID.pipe(Schema.brand('RequestId'))
 
 export type RequestId = Schema.Schema.Type<typeof RequestIdSchema>
 
@@ -103,8 +102,8 @@ export const ChunkRequestSchema = Schema.Struct({
   createdAt: EpochMillisecondsSchema,
   deadline: EpochMillisecondsSchema,
 }).pipe(
-  Schema.refine((request) => request.createdAt <= request.deadline, {
-    message: 'createdAt must be earlier than or equal to deadline',
+  Schema.filter((request) => request.createdAt <= request.deadline, {
+    message: () => 'createdAt must be earlier than or equal to deadline',
     identifier: 'ChunkRequestDeadline',
   })
 )
@@ -154,7 +153,7 @@ export const ChunkSystemError = Data.taggedEnum({
   }>('ValidationError'),
 })
 
-export type ChunkSystemError = Data.TaggedEnum.Infer<typeof ChunkSystemError>
+export type ChunkSystemError = Data.taggedEnum.Infer<typeof ChunkSystemError>
 
 // ============================================================================
 // 設定

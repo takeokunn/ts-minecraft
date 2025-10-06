@@ -6,18 +6,20 @@
  * 統合した高次のビジネスロジックを提供します。
  */
 
+import { Schema } from 'effect'
+
 // ========================================
 // Service Interface & Context
 // ========================================
 
-export { PlayerCameraApplicationService } from './index'
-export type { PlayerCameraApplicationService } from './index'
+export { PlayerCameraApplicationService } from './service'
+export type { PlayerCameraApplicationService } from './types'
 
 // ========================================
 // Live Implementation
 // ========================================
 
-export { PlayerCameraApplicationServiceLive } from './index'
+export { PlayerCameraApplicationServiceLive } from './live'
 
 // ========================================
 // Types & Schemas
@@ -26,8 +28,8 @@ export { PlayerCameraApplicationServiceLive } from './index'
 export type {
   // Error Types
   CameraApplicationError,
-  KeyModifier,
   KeyboardAction,
+  KeyModifier,
   PerformanceMetrics,
   // Input Types
   PlayerCameraInput,
@@ -39,19 +41,19 @@ export type {
   ViewModeTransitionFailureReason,
   // Result Types
   ViewModeTransitionResult,
-} from './index'
+} from './types'
 
 export {
   CameraApplicationErrorSchema,
-  // Schema Exports
-  PlayerCameraInputSchema,
-  PlayerCameraStateSchema,
-  ViewModeTransitionResultSchema,
   createCameraApplicationError,
   // Factory Functions
   createPlayerCameraInput,
   createViewModeTransitionResult,
-} from './index'
+  // Schema Exports
+  PlayerCameraInputSchema,
+  PlayerCameraStateSchema,
+  ViewModeTransitionResultSchema,
+} from './types'
 
 // ========================================
 // Module Information
@@ -117,66 +119,24 @@ export const PlayerCameraApplicationServiceTypeGuards = {
   /**
    * PlayerCameraInput type guard
    */
-  isPlayerCameraInput: (value: unknown): value is PlayerCameraInput => {
-    return (
-      typeof value === 'object' &&
-      value !== null &&
-      '_tag' in value &&
-      ['MouseMovement', 'KeyboardInput', 'ViewModeSwitch', 'SettingsUpdate'].includes((value as any)._tag)
-    )
-  },
+  isPlayerCameraInput: (value: unknown): value is PlayerCameraInput => Schema.is(PlayerCameraInputSchema)(value),
 
   /**
    * PlayerCameraState type guard
    */
-  isPlayerCameraState: (value: unknown): value is PlayerCameraState => {
-    return (
-      typeof value === 'object' &&
-      value !== null &&
-      'playerId' in value &&
-      'cameraId' in value &&
-      'position' in value &&
-      'rotation' in value &&
-      'viewMode' in value &&
-      'settings' in value &&
-      'isInitialized' in value &&
-      'lastUpdate' in value
-    )
-  },
+  isPlayerCameraState: (value: unknown): value is PlayerCameraState => Schema.is(PlayerCameraStateSchema)(value),
 
   /**
    * CameraApplicationError type guard
    */
-  isCameraApplicationError: (value: unknown): value is CameraApplicationError => {
-    return (
-      typeof value === 'object' &&
-      value !== null &&
-      '_tag' in value &&
-      [
-        'CameraNotFound',
-        'PlayerNotFound',
-        'ViewModeSwitchNotAllowed',
-        'SystemNotInitialized',
-        'ConcurrentUpdateConflict',
-        'PerformanceLimitExceeded',
-        'InvalidInputFormat',
-        'ConfigurationValidationFailed',
-        'ResourceAllocationFailed',
-      ].includes((value as any)._tag)
-    )
-  },
+  isCameraApplicationError: (value: unknown): value is CameraApplicationError =>
+    Schema.is(CameraApplicationErrorSchema)(value),
 
   /**
    * ViewModeTransitionResult type guard
    */
-  isViewModeTransitionResult: (value: unknown): value is ViewModeTransitionResult => {
-    return (
-      typeof value === 'object' &&
-      value !== null &&
-      '_tag' in value &&
-      ['Success', 'Failed', 'InProgress'].includes((value as any)._tag)
-    )
-  },
+  isViewModeTransitionResult: (value: unknown): value is ViewModeTransitionResult =>
+    Schema.is(ViewModeTransitionResultSchema)(value),
 } as const
 
 // ========================================
@@ -341,5 +301,3 @@ export type {
  * 5. **パフォーマンス**: 最適化とモニタリング機能
  * 6. **拡張性**: 新機能追加の容易性
  */
-export * from './index';
-export * from './index';

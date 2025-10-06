@@ -1,5 +1,4 @@
-import { Schema } from '@effect/schema'
-import { HashMap, Option, pipe } from 'effect'
+import { HashMap, Option, pipe, Schema } from 'effect'
 import * as Array_ from 'effect/Array'
 import type {
   BlockId,

@@ -1,6 +1,5 @@
-import { Schema } from '@effect/schema'
 import { describe, expect, it } from '@effect/vitest'
-import { Effect, Layer, Option, pipe } from 'effect'
+import { Effect, Layer, Option, pipe, Schema } from 'effect'
 import * as fc from 'effect/FastCheck'
 import { ChunkDataSchema } from '../../aggregate/chunk_data/types'
 import { CHUNK_SIZE, CHUNK_VOLUME } from '../../types/core'
@@ -18,7 +17,7 @@ const baseMetadata = {
 } satisfies Schema.Schema.Input<ChunkMetadata>
 
 const buildChunk = (blocks: Uint16Array, metadataOverrides?: Partial<Schema.Schema.Input<ChunkMetadata>>) =>
-  Schema.decodeEffect(ChunkDataSchema)({
+  Schema.decode(ChunkDataSchema)({
     position: { x: 0, z: 0 },
     blocks,
     metadata: { ...baseMetadata, ...metadataOverrides },

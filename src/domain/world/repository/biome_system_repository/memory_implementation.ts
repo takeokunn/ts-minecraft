@@ -3,15 +3,14 @@
  * バイオームシステムリポジトリのインメモリ実装
  *
  * 高速な空間検索・バイオーム管理・気候データ処理
- * QuadTree空間インデックスによる効率的な地理的検索
+ * 完全不変QuadTreeによる効率的な地理的検索 (O(N log N))
  */
 
-import { Effect, Layer, Option, ReadonlyArray, Ref } from 'effect'
-import type { BiomeDefinition, BiomeId, ClimateData, WorldCoordinate } from '@domain/world/types'
-import type { AllRepositoryErrors } from '@domain/world/types'
+import type { AllRepositoryErrors, BiomeDefinition, BiomeId, ClimateData, WorldCoordinate } from '@domain/world/types'
 import { createBiomeSpatialIndexError, createRepositoryError } from '@domain/world/types'
+import { HumiditySchema, TemperatureSchema } from '@domain/world/value_object/generation_parameters/biome_config'
+import { Effect, Layer, Option, ReadonlyArray, Ref, Schema } from 'effect'
 import type {
-  BiomePlacement,
   BiomeStatistics,
   BiomeSystemRepository,
   BiomeSystemRepositoryConfig,
@@ -21,148 +20,14 @@ import type {
   SpatialQuery,
   SpatialQueryResult,
 } from './index'
-import { calculateDistance, coordinateInBounds, coordinateToKey, defaultBiomeSystemRepositoryConfig } from './index'
-
-// === QuadTree Implementation ===
-
-interface QuadTreeNode {
-  readonly bounds: SpatialBounds
-  readonly biomes: BiomePlacement[]
-  readonly children?: [QuadTreeNode, QuadTreeNode, QuadTreeNode, QuadTreeNode] // NW, NE, SW, SE
-  readonly isLeaf: boolean
-}
-
-class QuadTree {
-  private root: QuadTreeNode
-  private maxDepth: number
-  private maxEntries: number
-
-  constructor(bounds: SpatialBounds, maxDepth: number = 8, maxEntries: number = 16) {
-    this.root = {
-      bounds,
-      biomes: [],
-      isLeaf: true,
-    }
-    this.maxDepth = maxDepth
-    this.maxEntries = maxEntries
-  }
-
-  insert(placement: BiomePlacement): void {
-    this.insertNode(this.root, placement, 0)
-  }
-
-  private insertNode(node: QuadTreeNode, placement: BiomePlacement, depth: number): void {
-    if (!coordinateInBounds(placement.coordinate, node.bounds)) {
-      return
-    }
-
-    if (node.isLeaf) {
-      node.biomes.push(placement)
-
-      // Split if necessary
-      if (node.biomes.length > this.maxEntries && depth < this.maxDepth) {
-        this.splitNode(node, depth)
-      }
-    } else {
-      // Insert into appropriate child
-      if (node.children) {
-        for (const child of node.children) {
-          this.insertNode(child, placement, depth + 1)
-        }
-      }
-    }
-  }
-
-  private splitNode(node: QuadTreeNode, depth: number): void {
-    const { bounds } = node
-    const midX = ((bounds.minX + bounds.maxX) / 2) as WorldCoordinate
-    const midZ = ((bounds.minZ + bounds.maxZ) / 2) as WorldCoordinate
-
-    const children: [QuadTreeNode, QuadTreeNode, QuadTreeNode, QuadTreeNode] = [
-      // NW
-      { bounds: { minX: bounds.minX, minZ: midZ, maxX: midX, maxZ: bounds.maxZ }, biomes: [], isLeaf: true },
-      // NE
-      { bounds: { minX: midX, minZ: midZ, maxX: bounds.maxX, maxZ: bounds.maxZ }, biomes: [], isLeaf: true },
-      // SW
-      { bounds: { minX: bounds.minX, minZ: bounds.minZ, maxX: midX, maxZ: midZ }, biomes: [], isLeaf: true },
-      // SE
-      { bounds: { minX: midX, minZ: bounds.minZ, maxX: bounds.maxX, maxZ: midZ }, biomes: [], isLeaf: true },
-    ]
-
-    // Redistribute biomes to children
-    for (const biome of node.biomes) {
-      for (const child of children) {
-        if (coordinateInBounds(biome.coordinate, child.bounds)) {
-          child.biomes.push(biome)
-        }
-      }
-    }
-
-    // Update node
-    Object.assign(node, {
-      children,
-      biomes: [],
-      isLeaf: false,
-    })
-  }
-
-  query(bounds: SpatialBounds): BiomePlacement[] {
-    const results: BiomePlacement[] = []
-    this.queryNode(this.root, bounds, results)
-    return results
-  }
-
-  private queryNode(node: QuadTreeNode, bounds: SpatialBounds, results: BiomePlacement[]): void {
-    if (!this.boundsIntersect(node.bounds, bounds)) {
-      return
-    }
-
-    if (node.isLeaf) {
-      for (const biome of node.biomes) {
-        if (coordinateInBounds(biome.coordinate, bounds)) {
-          results.push(biome)
-        }
-      }
-    } else if (node.children) {
-      for (const child of node.children) {
-        this.queryNode(child, bounds, results)
-      }
-    }
-  }
-
-  private boundsIntersect(a: SpatialBounds, b: SpatialBounds): boolean {
-    return !(a.maxX < b.minX || a.minX > b.maxX || a.maxZ < b.minZ || a.minZ > b.maxZ)
-  }
-
-  findNearestBiome(coordinate: SpatialCoordinate, maxDistance: number = Infinity): BiomePlacement | null {
-    let nearest: BiomePlacement | null = null
-    let minDistance = maxDistance
-
-    const searchBounds: SpatialBounds = {
-      minX: (coordinate.x - maxDistance) as WorldCoordinate,
-      minZ: (coordinate.z - maxDistance) as WorldCoordinate,
-      maxX: (coordinate.x + maxDistance) as WorldCoordinate,
-      maxZ: (coordinate.z + maxDistance) as WorldCoordinate,
-    }
-
-    const candidates = this.query(searchBounds)
-    for (const candidate of candidates) {
-      const distance = calculateDistance(coordinate, candidate.coordinate)
-      if (distance < minDistance) {
-        minDistance = distance
-        nearest = candidate
-      }
-    }
-
-    return nearest
-  }
-}
+import { calculateDistance, coordinateToKey, defaultBiomeSystemRepositoryConfig } from './index'
+import { createQuadTree, findNearestBiome, getStatistics, insertPlacement, query } from './quadtree_operations'
+import type { BiomePlacement } from './quadtree_schema'
 
 // === Memory Storage ===
 
 interface MemoryStorage {
   readonly biomeDefinitions: Map<BiomeId, BiomeDefinition>
-  readonly spatialIndex: QuadTree
   readonly climateData: Map<string, ClimateData>
   readonly cache: {
     readonly biomeCache: Map<string, { biomeId: BiomeId; timestamp: number }>
@@ -188,9 +53,13 @@ const makeBiomeSystemRepositoryMemory = (
       maxZ: 30000000 as WorldCoordinate,
     }
 
+    // Create Ref for immutable QuadTree state
+    const spatialIndexRef = yield* Ref.make(
+      createQuadTree(worldBounds, config.spatialIndex.maxDepth, config.spatialIndex.maxEntriesPerNode)
+    )
+
     const storageRef = yield* Ref.make<MemoryStorage>({
       biomeDefinitions: new Map(),
-      spatialIndex: new QuadTree(worldBounds, config.spatialIndex.maxDepth, config.spatialIndex.maxEntriesPerNode),
       climateData: new Map(),
       cache: {
         biomeCache: new Map(),
@@ -234,39 +103,24 @@ const makeBiomeSystemRepositoryMemory = (
 
     // === Spatial Biome Placement ===
 
+    // FIX: O(N²) → O(N log N) 性能バグ修正
+    // Before: 毎回QuadTreeを再構築 = O(N²)
+    // After: 不変更新・構造共有 = O(log N)
     const placeBiome = (placement: BiomePlacement): Effect.Effect<void, AllRepositoryErrors> =>
       Effect.gen(function* () {
-        yield* Ref.update(storageRef, (storage) => {
-          const newIndex = new QuadTree(
-            worldBounds,
-            config.spatialIndex.maxDepth,
-            config.spatialIndex.maxEntriesPerNode
-          )
-
-          // Copy existing placements
-          const existingPlacements = storage.spatialIndex.query(worldBounds)
-          for (const existing of existingPlacements) {
-            newIndex.insert(existing)
-          }
-
-          // Add new placement
-          newIndex.insert(placement)
-
-          return {
-            ...storage,
-            spatialIndex: newIndex,
-          }
-        })
+        // Pure function with structural sharing
+        yield* Ref.update(spatialIndexRef, (state) => insertPlacement(state, placement))
 
         // Update cache
         const key = coordinateToKey(placement.coordinate)
+        const timestampValue = yield* Clock.currentTimeMillis
         yield* Ref.update(storageRef, (storage) => ({
           ...storage,
           cache: {
             ...storage.cache,
             biomeCache: new Map(storage.cache.biomeCache).set(key, {
               biomeId: placement.biomeId,
-              timestamp: Date.now(),
+              timestamp: timestampValue,
             }),
           },
         }))
@@ -286,8 +140,9 @@ const makeBiomeSystemRepositoryMemory = (
         // Check cache first
         const cached = storage.cache.biomeCache.get(key)
         if (cached && config.cache.enabled) {
+          const now = yield* Clock.currentTimeMillis
           const ttl = config.cache.ttlSeconds * 1000
-          if (Date.now() - cached.timestamp < ttl) {
+          if (now - cached.timestamp < ttl) {
             yield* Ref.update(storageRef, (s) => ({
               ...s,
               cache: {
@@ -299,8 +154,9 @@ const makeBiomeSystemRepositoryMemory = (
           }
         }
 
-        // Query spatial index
-        const nearest = storage.spatialIndex.findNearestBiome(coordinate, 100) // 100 block search radius
+        // Query spatial index with pure function
+        const spatialIndex = yield* Ref.get(spatialIndexRef)
+        const nearest = findNearestBiome(spatialIndex, coordinate, 100) // 100 block search radius
 
         yield* Ref.update(storageRef, (s) => ({
           ...s,
@@ -318,7 +174,7 @@ const makeBiomeSystemRepositoryMemory = (
               ...s.cache,
               biomeCache: new Map(s.cache.biomeCache).set(key, {
                 biomeId: nearest.biomeId,
-                timestamp: Date.now(),
+                timestamp: yield* Clock.currentTimeMillis,
               }),
             },
           }))
@@ -336,8 +192,8 @@ const makeBiomeSystemRepositoryMemory = (
       bounds: SpatialBounds
     ): Effect.Effect<ReadonlyArray<SpatialQueryResult>, AllRepositoryErrors> =>
       Effect.gen(function* () {
-        const storage = yield* Ref.get(storageRef)
-        const placements = storage.spatialIndex.query(bounds)
+        const spatialIndex = yield* Ref.get(spatialIndexRef)
+        const placements = query(spatialIndex, bounds)
 
         const results: SpatialQueryResult[] = placements.map((placement) => ({
           biomeId: placement.biomeId,
@@ -381,13 +237,13 @@ const makeBiomeSystemRepositoryMemory = (
         return results.sort((a, b) => a.distance - b.distance)
       })
 
-    const findNearestBiome = (
+    const findNearestBiomeByType = (
       coordinate: SpatialCoordinate,
       biomeType?: BiomeId
     ): Effect.Effect<Option.Option<SpatialQueryResult>, AllRepositoryErrors> =>
       Effect.gen(function* () {
-        const storage = yield* Ref.get(storageRef)
-        const nearest = storage.spatialIndex.findNearestBiome(coordinate)
+        const spatialIndex = yield* Ref.get(spatialIndexRef)
+        const nearest = findNearestBiome(spatialIndex, coordinate)
 
         if (nearest && (!biomeType || nearest.biomeId === biomeType)) {
           return Option.some({
@@ -413,12 +269,16 @@ const makeBiomeSystemRepositoryMemory = (
     const setClimateTransition = (transition: any) => Effect.void
     const rebuildSpatialIndex = () => Effect.void
     const getIndexStatistics = () =>
-      Effect.succeed({
-        totalEntries: 0,
-        indexDepth: 0,
-        leafNodes: 0,
-        averageEntriesPerNode: 0,
-        spatialCoverage: worldBounds,
+      Effect.gen(function* () {
+        const spatialIndex = yield* Ref.get(spatialIndexRef)
+        const stats = getStatistics(spatialIndex)
+        return {
+          totalEntries: stats.totalBiomes,
+          indexDepth: stats.maxDepth,
+          leafNodes: stats.leafNodes,
+          averageEntriesPerNode: stats.leafNodes > 0 ? stats.totalBiomes / stats.leafNodes : 0,
+          spatialCoverage: worldBounds,
+        }
       })
     const optimizeIndex = () => Effect.succeed({ beforeNodes: 0, afterNodes: 0, improvementRatio: 1.0 })
     const updateBiomeCache = (coordinate: SpatialCoordinate, biomeId: BiomeId, ttl?: number) => Effect.void
@@ -450,7 +310,7 @@ const makeBiomeSystemRepositoryMemory = (
     const updateBiomesInBounds = (bounds: SpatialBounds, biomeId: BiomeId) => Effect.succeed(0)
     const clearBiomesInBounds = (bounds: SpatialBounds) => Effect.succeed(0)
 
-    const getStatistics = (bounds?: SpatialBounds) =>
+    const getBiomeStatistics = (bounds?: SpatialBounds) =>
       Effect.gen(function* () {
         const storage = yield* Ref.get(storageRef)
         const biomes = Array.from(storage.biomeDefinitions.values())
@@ -461,8 +321,8 @@ const makeBiomeSystemRepositoryMemory = (
           coverage: {},
           dominantBiome: biomes[0]?.id || ('plains' as BiomeId),
           raresBiomes: [],
-          averageTemperature: 0.5 as any,
-          averageHumidity: 0.5 as any,
+          averageTemperature: Schema.decodeSync(TemperatureSchema)(0.5),
+          averageHumidity: Schema.decodeSync(HumiditySchema)(0.5),
           spatialDistribution: { clustered: 0.3, dispersed: 0.4, random: 0.3 },
         } as BiomeStatistics
       })
@@ -507,7 +367,7 @@ const makeBiomeSystemRepositoryMemory = (
       getBiomeAt,
       getBiomesInBounds,
       findBiomesInRadius,
-      findNearestBiome,
+      findNearestBiome: findNearestBiomeByType,
       executeQuery,
       setClimateData,
       getClimateData,
@@ -524,7 +384,7 @@ const makeBiomeSystemRepositoryMemory = (
       placeBiomes,
       updateBiomesInBounds,
       clearBiomesInBounds,
-      getStatistics,
+      getStatistics: getBiomeStatistics,
       analyzeBiomeDistribution,
       analyzeTransitions,
       exportBiomeData,

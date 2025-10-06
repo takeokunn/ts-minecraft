@@ -1,7 +1,7 @@
 import type { BlockTypeId } from '@domain/entities'
+import type { AABB, CollisionResult, FluidPhysicsResult, FluidType, PhysicsError } from '@domain/physics/types'
 import { Context, Effect } from 'effect'
 import type { Vector3 } from '../../world/types'
-import type { AABB, CollisionResult, FluidPhysicsResult, FluidType, PhysicsError } from '@domain/physics/types'
 
 /**
  * 物理エンジンサービスインターフェース

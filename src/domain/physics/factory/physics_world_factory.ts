@@ -1,6 +1,5 @@
+import type { PhysicsConfig, PhysicsError, PhysicsWorld, Vector3 } from '@domain/physics/types'
 import { PhysicsWorldAggregate } from '../aggregate'
-import type { PhysicsConfig, PhysicsWorld, Vector3 } from '@domain/physics/types'
-import type { PhysicsError } from '@domain/physics/types'
 
 export interface WorldCreationOptions {
   readonly config?: Partial<PhysicsConfig>

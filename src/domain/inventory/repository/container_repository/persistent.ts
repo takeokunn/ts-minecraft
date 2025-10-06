@@ -1,4 +1,4 @@
-import { Effect, HashMap, Layer, Option, Ref } from 'effect'
+import { Clock, Effect, HashMap, Layer, Option, ReadonlyArray, Ref, pipe } from 'effect'
 import type {
   Container,
   ContainerId,
@@ -62,99 +62,123 @@ export const ContainerRepositoryPersistent = (config: ContainerPersistentConfig 
 
       // ストレージ操作のヘルパー関数
       const loadFromStorage = Effect.gen(function* () {
-        try {
-          if (config.indexedDBEnabled && typeof window !== 'undefined' && window.indexedDB) {
-            // IndexedDB実装（ブラウザ環境）
-            yield* Effect.fail(createRepositoryError('loadFromStorage', 'IndexedDB implementation not yet available'))
-          } else {
-            // LocalStorage fallback
+        // IndexedDBチェック - Effect.whenで早期エラー返却
+        yield* Effect.when(config.indexedDBEnabled && typeof window !== 'undefined' && window.indexedDB, () =>
+          Effect.fail(createRepositoryError('loadFromStorage', 'IndexedDB implementation not yet available'))
+        )
+
+        // LocalStorageからのデータ読み込みと復元
+        const result = yield* Effect.try({
+          try: () => {
             const data = localStorage.getItem(config.storageKey)
-            if (data) {
-              const parsed = JSON.parse(data)
+            if (!data) return null
 
-              if (parsed.containers) {
-                const containers = new Map<ContainerId, Container>()
-                const positions = new Map<string, ContainerId>()
+            const parsed = JSON.parse(data)
 
-                Object.entries(parsed.containers).forEach(([id, container]) => {
-                  const cont = container as Container
-                  // Map の復元
-                  cont.slots = new Map(Object.entries(cont.slots || {}))
-                  containers.set(id as ContainerId, cont)
+            // コンテナの復元
+            const containerEntries = pipe(
+              parsed.containers ? Object.entries(parsed.containers) : [],
+              ReadonlyArray.map(([id, container]) => {
+                const cont = container as Container
+                cont.slots = new Map(Object.entries(cont.slots || {}))
+                return [id as ContainerId, cont] as const
+              })
+            )
 
-                  // 位置インデックス復元
-                  if (cont.position && cont.worldId) {
-                    const positionKey = getPositionKey(cont.position, cont.worldId)
-                    positions.set(positionKey, cont.id)
-                  }
-                })
+            const positionEntries = pipe(
+              containerEntries,
+              ReadonlyArray.filterMap(([, cont]) =>
+                cont.position && cont.worldId
+                  ? Option.some([getPositionKey(cont.position, cont.worldId), cont.id] as const)
+                  : Option.none()
+              )
+            )
 
-                yield* Ref.set(containerCache, HashMap.fromIterable(containers))
-                yield* Ref.set(positionIndex, HashMap.fromIterable(positions))
-              }
+            // スナップショットの復元
+            const snapshotEntries = pipe(
+              parsed.snapshots ? Object.entries(parsed.snapshots) : [],
+              ReadonlyArray.map(([id, snapshot]) => {
+                const snap = snapshot as ContainerSnapshot
+                if (snap.container.slots) {
+                  snap.container.slots = new Map(Object.entries(snap.container.slots))
+                }
+                return [id, snap] as const
+              })
+            )
 
-              if (parsed.snapshots) {
-                const snapshots = new Map<string, ContainerSnapshot>()
-                Object.entries(parsed.snapshots).forEach(([id, snapshot]) => {
-                  const snap = snapshot as ContainerSnapshot
-                  // スナップショット内のContainerのMap復元
-                  if (snap.container.slots) {
-                    snap.container.slots = new Map(Object.entries(snap.container.slots))
-                  }
-                  snapshots.set(id, snap)
-                })
-                yield* Ref.set(snapshotCache, HashMap.fromIterable(snapshots))
-              }
-            }
-          }
-        } catch (error) {
-          yield* Effect.fail(createStorageError('localStorage', 'load', `Failed to load data: ${error}`))
-        }
+            return { containerEntries, positionEntries, snapshotEntries }
+          },
+          catch: (error) => createStorageError('localStorage', 'load', `Failed to load data: ${error}`),
+        })
+
+        // キャッシュへの保存
+        yield* pipe(
+          Option.fromNullable(result),
+          Option.match({
+            onNone: () => Effect.void,
+            onSome: ({ containerEntries, positionEntries, snapshotEntries }) =>
+              Effect.gen(function* () {
+                yield* Ref.set(containerCache, HashMap.fromIterable(containerEntries))
+                yield* Ref.set(positionIndex, HashMap.fromIterable(positionEntries))
+                yield* Ref.set(snapshotCache, HashMap.fromIterable(snapshotEntries))
+              }),
+          })
+        )
       })
 
       const saveToStorage = Effect.gen(function* () {
-        try {
-          if (config.indexedDBEnabled && typeof window !== 'undefined' && window.indexedDB) {
-            // IndexedDB実装（ブラウザ環境）
-            yield* Effect.fail(createRepositoryError('saveToStorage', 'IndexedDB implementation not yet available'))
-          } else {
-            // LocalStorage fallback
-            const containers = yield* Ref.get(containerCache)
-            const snapshots = yield* Ref.get(snapshotCache)
+        // IndexedDBチェック - Effect.whenで早期エラー返却
+        yield* Effect.when(config.indexedDBEnabled && typeof window !== 'undefined' && window.indexedDB, () =>
+          Effect.fail(createRepositoryError('saveToStorage', 'IndexedDB implementation not yet available'))
+        )
 
+        // キャッシュデータの取得
+        const containers = yield* Ref.get(containerCache)
+        const snapshots = yield* Ref.get(snapshotCache)
+        const currentTime = yield* Clock.currentTimeMillis
+
+        // LocalStorageへの保存処理
+        yield* Effect.try({
+          try: () => {
             // Map を Object に変換してシリアライズ可能にする
-            const containersObj: Record<string, any> = {}
-            HashMap.forEach(containers, (container, id) => {
-              containersObj[id] = {
-                ...container,
-                slots: Object.fromEntries(container.slots),
-              }
-            })
-
-            const snapshotsObj: Record<string, any> = {}
-            HashMap.forEach(snapshots, (snapshot, id) => {
-              snapshotsObj[id] = {
-                ...snapshot,
-                container: {
-                  ...snapshot.container,
-                  slots: Object.fromEntries(snapshot.container.slots),
+            const containersObj = pipe(
+              HashMap.toEntries(containers),
+              ReadonlyArray.reduce({} as Record<string, unknown>, (acc, [id, container]) => ({
+                ...acc,
+                [id]: {
+                  ...container,
+                  slots: Object.fromEntries(container.slots),
                 },
-              }
-            })
+              }))
+            )
+
+            const snapshotsObj = pipe(
+              HashMap.toEntries(snapshots),
+              ReadonlyArray.reduce({} as Record<string, unknown>, (acc, [id, snapshot]) => ({
+                ...acc,
+                [id]: {
+                  ...snapshot,
+                  container: {
+                    ...snapshot.container,
+                    slots: Object.fromEntries(snapshot.container.slots),
+                  },
+                },
+              }))
+            )
 
             const data = JSON.stringify({
               containers: containersObj,
               snapshots: snapshotsObj,
               version: 1,
-              lastSaved: Date.now(),
+              lastSaved: currentTime,
             })
 
             localStorage.setItem(config.storageKey, data)
-            yield* Ref.set(isDirty, false)
-          }
-        } catch (error) {
-          yield* Effect.fail(createStorageError('localStorage', 'save', `Failed to save data: ${error}`))
-        }
+          },
+          catch: (error) => createStorageError('localStorage', 'save', `Failed to save data: ${error}`),
+        })
+
+        yield* Ref.set(isDirty, false)
       })
 
       // 初期化時にデータをロード
@@ -166,10 +190,12 @@ export const ContainerRepositoryPersistent = (config: ContainerPersistentConfig 
             yield* Ref.update(containerCache, (cache) => HashMap.set(cache, container.id, container))
 
             // 位置インデックスも更新
-            if (container.position && container.worldId) {
-              const positionKey = getPositionKey(container.position, container.worldId)
-              yield* Ref.update(positionIndex, (index) => HashMap.set(index, positionKey, container.id))
-            }
+            yield* Effect.when(container.position !== undefined && container.worldId !== undefined, () =>
+              Effect.gen(function* () {
+                const positionKey = getPositionKey(container.position!, container.worldId!)
+                yield* Ref.update(positionIndex, (index) => HashMap.set(index, positionKey, container.id))
+              })
+            )
 
             yield* Ref.set(isDirty, true)
           }),
@@ -211,15 +237,16 @@ export const ContainerRepositoryPersistent = (config: ContainerPersistentConfig 
             const cache = yield* Ref.get(containerCache)
             const containers = Array.from(HashMap.values(cache))
 
-            return containers.filter((container) => {
-              if (!container.permissions) return true
-
-              if (container.permissions.public) return true
-              if (container.permissions.owner === playerId) return true
-              if (container.permissions.allowedPlayers?.includes(playerId)) return true
-
-              return false
-            })
+            return pipe(
+              containers,
+              ReadonlyArray.filter(
+                (container) =>
+                  container.permissions === undefined ||
+                  container.permissions.public ||
+                  container.permissions.owner === playerId ||
+                  (container.permissions.allowedPlayers?.includes(playerId) ?? false)
+              )
+            )
           }),
 
         findInRange: (minPosition: WorldPosition, maxPosition: WorldPosition, worldId: string) =>
@@ -227,10 +254,15 @@ export const ContainerRepositoryPersistent = (config: ContainerPersistentConfig 
             const cache = yield* Ref.get(containerCache)
             const containers = Array.from(HashMap.values(cache))
 
-            return containers.filter((container) => {
-              if (!container.position || container.worldId !== worldId) return false
-              return isInRange(container.position, minPosition, maxPosition)
-            })
+            return pipe(
+              containers,
+              ReadonlyArray.filter(
+                (container) =>
+                  container.position !== undefined &&
+                  container.worldId === worldId &&
+                  isInRange(container.position, minPosition, maxPosition)
+              )
+            )
           }),
 
         findAll: () =>
@@ -252,12 +284,12 @@ export const ContainerRepositoryPersistent = (config: ContainerPersistentConfig 
               Option.match({
                 onNone: () => Effect.void,
                 onSome: (container) =>
-                  Effect.gen(function* () {
-                    if (container.position && container.worldId) {
-                      const positionKey = getPositionKey(container.position, container.worldId)
+                  Effect.when(container.position !== undefined && container.worldId !== undefined, () =>
+                    Effect.gen(function* () {
+                      const positionKey = getPositionKey(container.position!, container.worldId!)
                       yield* Ref.update(positionIndex, (index) => HashMap.remove(index, positionKey))
-                    }
-                  }),
+                    })
+                  ),
               })
             )
 
@@ -299,25 +331,24 @@ export const ContainerRepositoryPersistent = (config: ContainerPersistentConfig 
 
         saveMany: (containers: ReadonlyArray<Container>) =>
           Effect.gen(function* () {
-            yield* Ref.update(containerCache, (cache) => {
-              let updatedCache = cache
-              containers.forEach((container) => {
-                updatedCache = HashMap.set(updatedCache, container.id, container)
-              })
-              return updatedCache
-            })
+            yield* Ref.update(containerCache, (cache) =>
+              pipe(
+                containers,
+                ReadonlyArray.reduce(cache, (acc, container) => HashMap.set(acc, container.id, container))
+              )
+            )
 
             // 位置インデックスも一括更新
-            yield* Ref.update(positionIndex, (index) => {
-              let updatedIndex = index
-              containers.forEach((container) => {
-                if (container.position && container.worldId) {
-                  const positionKey = getPositionKey(container.position, container.worldId)
-                  updatedIndex = HashMap.set(updatedIndex, positionKey, container.id)
-                }
-              })
-              return updatedIndex
-            })
+            yield* Ref.update(positionIndex, (index) =>
+              pipe(
+                containers,
+                ReadonlyArray.reduce(index, (acc, container) =>
+                  container.position !== undefined && container.worldId !== undefined
+                    ? HashMap.set(acc, getPositionKey(container.position, container.worldId), container.id)
+                    : acc
+                )
+              )
+            )
 
             yield* Ref.set(isDirty, true)
           }),
@@ -327,55 +358,40 @@ export const ContainerRepositoryPersistent = (config: ContainerPersistentConfig 
             const cache = yield* Ref.get(containerCache)
             const containers = Array.from(HashMap.values(cache))
 
-            return containers.filter((container) => {
+            return pipe(
+              containers,
               // タイプフィルター
-              if (query.types && !query.types.includes(container.type)) {
-                return false
-              }
-
-              // 容量フィルター
-              if (query.minCapacity !== undefined && container.capacity < query.minCapacity) {
-                return false
-              }
-              if (query.maxCapacity !== undefined && container.capacity > query.maxCapacity) {
-                return false
-              }
-
+              ReadonlyArray.filter((c) => !query.types || query.types.includes(c.type)),
+              // 容量フィルター（最小）
+              ReadonlyArray.filter((c) => query.minCapacity === undefined || c.capacity >= query.minCapacity),
+              // 容量フィルター（最大）
+              ReadonlyArray.filter((c) => query.maxCapacity === undefined || c.capacity <= query.maxCapacity),
               // ワールドフィルター
-              if (query.worldId && container.worldId !== query.worldId) {
-                return false
-              }
-
+              ReadonlyArray.filter((c) => !query.worldId || c.worldId === query.worldId),
               // 範囲フィルター
-              if (query.withinRange && container.position) {
+              ReadonlyArray.filter((c) => {
+                if (!query.withinRange || !c.position) return true
                 const { center, radius } = query.withinRange
                 const distance = Math.sqrt(
-                  Math.pow(container.position.x - center.x, 2) +
-                    Math.pow(container.position.y - center.y, 2) +
-                    Math.pow(container.position.z - center.z, 2)
+                  Math.pow(c.position.x - center.x, 2) +
+                    Math.pow(c.position.y - center.y, 2) +
+                    Math.pow(c.position.z - center.z, 2)
                 )
-                if (distance > radius) return false
-              }
-
+                return distance <= radius
+              }),
               // アクセス権フィルター
-              if (query.accessibleToPlayer) {
-                if (!container.permissions) return true
-
-                const hasAccess =
-                  container.permissions.public ||
-                  container.permissions.owner === query.accessibleToPlayer ||
-                  container.permissions.allowedPlayers?.includes(query.accessibleToPlayer)
-
-                if (!hasAccess) return false
-              }
-
+              ReadonlyArray.filter((c) => {
+                if (!query.accessibleToPlayer) return true
+                if (!c.permissions) return true
+                return (
+                  c.permissions.public ||
+                  c.permissions.owner === query.accessibleToPlayer ||
+                  (c.permissions.allowedPlayers?.includes(query.accessibleToPlayer) ?? false)
+                )
+              }),
               // 空ではないコンテナフィルター
-              if (query.notEmpty === true && container.slots.size === 0) {
-                return false
-              }
-
-              return true
-            })
+              ReadonlyArray.filter((c) => query.notEmpty !== true || c.slots.size > 0)
+            )
           }),
 
         createSnapshot: (containerId: ContainerId, snapshotName: string) =>
@@ -389,13 +405,15 @@ export const ContainerRepositoryPersistent = (config: ContainerPersistentConfig 
                 onNone: () => Effect.fail(createContainerNotFoundError(containerId)),
                 onSome: (container) =>
                   Effect.gen(function* () {
-                    const snapshotId = `container-snapshot-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+                    const timestamp = yield* Clock.currentTimeMillis
+                    const randomPart = Math.random().toString(36).substr(2, 9)
+                    const snapshotId = `container-snapshot-${timestamp}-${randomPart}`
                     const snapshot: ContainerSnapshot = {
                       id: snapshotId,
                       name: snapshotName,
                       containerId,
                       container: structuredClone(container),
-                      createdAt: Date.now(),
+                      createdAt: timestamp,
                     }
 
                     yield* Ref.update(snapshotCache, (cache) => HashMap.set(cache, snapshot.id, snapshot))
@@ -421,7 +439,7 @@ export const ContainerRepositoryPersistent = (config: ContainerPersistentConfig 
                   Effect.gen(function* () {
                     const restoredContainer: Container = {
                       ...snapshot.container,
-                      lastAccessed: Date.now(),
+                      lastAccessed: yield* Clock.currentTimeMillis,
                       version: snapshot.container.version + 1,
                     }
 
@@ -430,10 +448,16 @@ export const ContainerRepositoryPersistent = (config: ContainerPersistentConfig 
                     )
 
                     // 位置インデックスも更新
-                    if (restoredContainer.position && restoredContainer.worldId) {
-                      const positionKey = getPositionKey(restoredContainer.position, restoredContainer.worldId)
-                      yield* Ref.update(positionIndex, (index) => HashMap.set(index, positionKey, restoredContainer.id))
-                    }
+                    yield* Effect.when(
+                      restoredContainer.position !== undefined && restoredContainer.worldId !== undefined,
+                      () =>
+                        Effect.gen(function* () {
+                          const positionKey = getPositionKey(restoredContainer.position!, restoredContainer.worldId!)
+                          yield* Ref.update(positionIndex, (index) =>
+                            HashMap.set(index, positionKey, restoredContainer.id)
+                          )
+                        })
+                    )
 
                     yield* Ref.set(isDirty, true)
                   }),
@@ -455,7 +479,7 @@ export const ContainerRepositoryPersistent = (config: ContainerPersistentConfig 
                     const updatedContainer: Container = {
                       ...container,
                       permissions,
-                      lastAccessed: Date.now(),
+                      lastAccessed: yield* Clock.currentTimeMillis,
                       version: container.version + 1,
                     }
 
@@ -474,9 +498,7 @@ export const ContainerRepositoryPersistent = (config: ContainerPersistentConfig 
         cleanup: () =>
           Effect.gen(function* () {
             const dirty = yield* Ref.get(isDirty)
-            if (dirty) {
-              yield* saveToStorage
-            }
+            yield* Effect.when(dirty, () => saveToStorage)
           }),
       })
     })

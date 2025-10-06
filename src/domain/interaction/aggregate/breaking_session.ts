@@ -1,6 +1,5 @@
-import { Schema } from '@effect/schema'
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
-import { Data, Effect, Match, Option } from 'effect'
+import { Data, Effect, Match, Option, Schema } from 'effect'
 import { pipe } from 'effect/Function'
 import {
   BlockId,
@@ -17,8 +16,7 @@ import {
   SessionIdSchema,
   TimestampSchema,
 } from '../types'
-import { BlockFace, BlockFaceSchema } from '../value_object'
-import { Vector3, Vector3Schema } from '../value_object'
+import { BlockFace, BlockFaceSchema, Vector3, Vector3Schema } from '../value_object'
 
 const SessionStateSchema = Schema.Union(
   Schema.Struct({

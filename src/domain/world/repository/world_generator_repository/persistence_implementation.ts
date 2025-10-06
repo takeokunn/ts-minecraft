@@ -6,12 +6,22 @@
  * JSON形式でのデータ保存・読み込み・バックアップ対応
  */
 
+import type {
+  AllRepositoryErrors,
+  GenerationSettings,
+  PerformanceMetrics,
+  WorldGenerator,
+  WorldId,
+  WorldSeed,
+} from '@domain/world/types'
+import {
+  createDataIntegrityError,
+  createPersistenceError,
+  createWorldGeneratorNotFoundError,
+} from '@domain/world/types'
 import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
 import * as NodePath from '@effect/platform-node/NodePath'
-import { Effect, Layer, Option, ReadonlyArray, Ref, Schema } from 'effect'
-import type { GenerationSettings, PerformanceMetrics, WorldGenerator, WorldId, WorldSeed } from '@domain/world/types'
-import type { AllRepositoryErrors } from '@domain/world/types'
-import { createDataIntegrityError, createPersistenceError, createWorldGeneratorNotFoundError } from '@domain/world/types'
+import { Clock, Effect, Layer, Option, ReadonlyArray, Ref, Schema } from 'effect'
 import type {
   CacheConfiguration,
   WorldGeneratorBatchResult,
@@ -158,12 +168,13 @@ const makeWorldGeneratorRepositoryPersistence = (
       Effect.gen(function* () {
         const exists = yield* fs.exists(dataFile)
         if (!exists) {
+          const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
           return {
             generators: {},
             metadata: {
               version: '1.0.0',
-              createdAt: new Date().toISOString(),
-              lastModified: new Date().toISOString(),
+              createdAt: now.toISOString(),
+              lastModified: now.toISOString(),
               checksum: '',
             },
             statistics: {
@@ -213,11 +224,12 @@ const makeWorldGeneratorRepositoryPersistence = (
 
         // Calculate and save checksum
         if (config.enableChecksums) {
+          const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
           const checksum = calculateChecksum(content)
           const metadata = {
             ...data.metadata,
             checksum,
-            lastModified: new Date().toISOString(),
+            lastModified: now.toISOString(),
           }
 
           yield* fs.writeFileString(metadataFile, JSON.stringify(metadata, null, 2))
@@ -244,7 +256,9 @@ const makeWorldGeneratorRepositoryPersistence = (
       Effect.gen(function* () {
         yield* ensureDirectoryExists(backupPath)
 
-        const backupId = `backup-${Date.now()}`
+        const timestamp = yield* Clock.currentTimeMillis
+        const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+        const backupId = `backup-${timestamp}`
         const backupFile = path.join(backupPath, `${backupId}.json`)
         const content = JSON.stringify(data, null, 2)
 
@@ -255,7 +269,7 @@ const makeWorldGeneratorRepositoryPersistence = (
         const metadata: BackupMetadata = {
           id: backupId,
           worldId: null, // Full backup
-          createdAt: new Date().toISOString(),
+          createdAt: now.toISOString(),
           size: compressedContent.length,
           checksum: calculateChecksum(compressedContent),
           compressionLevel: config.backup.compressionLevel,
@@ -282,6 +296,7 @@ const makeWorldGeneratorRepositoryPersistence = (
         const data = yield* loadDataFromFile()
 
         // Update generators
+        const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
         const updatedData: PersistenceData = {
           ...data,
           generators: {
@@ -290,7 +305,7 @@ const makeWorldGeneratorRepositoryPersistence = (
           },
           metadata: {
             ...data.metadata,
-            lastModified: new Date().toISOString(),
+            lastModified: now.toISOString(),
           },
         }
 
@@ -351,12 +366,13 @@ const makeWorldGeneratorRepositoryPersistence = (
 
         // Update data
         const { [worldId]: removed, ...remainingGenerators } = data.generators
+        const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
         const updatedData: PersistenceData = {
           ...data,
           generators: remainingGenerators,
           metadata: {
             ...data.metadata,
-            lastModified: new Date().toISOString(),
+            lastModified: now.toISOString(),
           },
         }
 

@@ -3,14 +3,8 @@
  * 世界生成システムの構造化エラー定義
  */
 
-import { Data, Schema } from 'effect'
-import {
-  ChunkPosition,
-  GenerationRequestId,
-  GenerationSessionId,
-  GenerationStage,
-  NoiseParameters,
-} from '../core'
+import { Clock, Data, Effect, Schema } from 'effect'
+import { ChunkPosition, GenerationRequestId, GenerationSessionId, GenerationStage, NoiseParameters } from '../core'
 import { ErrorContext } from './index'
 
 // === 生成プロセスエラー ===
@@ -60,9 +54,7 @@ export class GenerationSessionError extends Data.TaggedError('GenerationSessionE
 
 export const GenerationSessionErrorSchema = Schema.TaggedStruct('GenerationSessionError', {
   sessionId: Schema.suspend(() => import('../core').then((m) => m.GenerationSessionIdSchema)),
-  activeRequests: Schema.Array(
-    Schema.suspend(() => import('../core').then((m) => m.GenerationRequestIdSchema))
-  ),
+  activeRequests: Schema.Array(Schema.suspend(() => import('../core').then((m) => m.GenerationRequestIdSchema))),
   reason: Schema.String,
   context: Schema.suspend(() => import('./index').then((m) => m.ErrorContextSchema)),
   recovery: Schema.Literal('restart', 'continue', 'abort'),
@@ -123,9 +115,7 @@ export const InvalidNoiseParametersErrorSchema = Schema.TaggedStruct('InvalidNoi
   invalidFields: Schema.Array(Schema.String),
   reason: Schema.String,
   context: Schema.suspend(() => import('./index').then((m) => m.ErrorContextSchema)),
-  suggestedFix: Schema.optional(
-    Schema.suspend(() => import('../core').then((m) => m.NoiseParametersSchema))
-  ),
+  suggestedFix: Schema.optional(Schema.suspend(() => import('../core').then((m) => m.NoiseParametersSchema))),
 }).pipe(
   Schema.annotations({
     title: 'Invalid Noise Parameters Error',
@@ -417,14 +407,17 @@ export const createChunkGenerationError = (
   reason: string,
   context?: Partial<ErrorContext>,
   retryable: boolean = true
-): ChunkGenerationError =>
-  new ChunkGenerationError({
-    requestId,
-    chunkPosition,
-    stage,
-    reason,
-    context: { timestamp: new Date(), ...context },
-    retryable,
+): Effect.Effect<ChunkGenerationError> =>
+  Effect.gen(function* () {
+    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    return new ChunkGenerationError({
+      requestId,
+      chunkPosition,
+      stage,
+      reason,
+      context: { timestamp, ...context },
+      retryable,
+    })
   })
 
 /** NoiseGenerationError作成ヘルパー */
@@ -434,13 +427,16 @@ export const createNoiseGenerationError = (
   parameters: NoiseParameters,
   reason: string,
   context?: Partial<ErrorContext>
-): NoiseGenerationError =>
-  new NoiseGenerationError({
-    noiseType,
-    coordinates,
-    parameters,
-    reason,
-    context: { timestamp: new Date(), ...context },
+): Effect.Effect<NoiseGenerationError> =>
+  Effect.gen(function* () {
+    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    return new NoiseGenerationError({
+      noiseType,
+      coordinates,
+      parameters,
+      reason,
+      context: { timestamp, ...context },
+    })
   })
 
 /** BiomeAssignmentError作成ヘルパー */
@@ -450,11 +446,14 @@ export const createBiomeAssignmentError = (
   reason: string,
   context?: Partial<ErrorContext>,
   fallbackBiome?: string
-): BiomeAssignmentError =>
-  new BiomeAssignmentError({
-    chunkPosition,
-    climateData,
-    reason,
-    context: { timestamp: new Date(), ...context },
-    fallbackBiome,
+): Effect.Effect<BiomeAssignmentError> =>
+  Effect.gen(function* () {
+    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    return new BiomeAssignmentError({
+      chunkPosition,
+      climateData,
+      reason,
+      context: { timestamp, ...context },
+      fallbackBiome,
+    })
   })

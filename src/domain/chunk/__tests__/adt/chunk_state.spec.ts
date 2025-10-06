@@ -5,7 +5,7 @@ import { ChunkState, ChunkStates } from '../../types/core'
 
 /**
  * ChunkState ADT テストスイート
- * Data.TaggedEnumによる型安全なテストケース
+ * Data.taggedEnumによる型安全なテストケース
  */
 describe('ChunkState ADT Tests', () => {
   // ===== ChunkState Factory Tests ===== //

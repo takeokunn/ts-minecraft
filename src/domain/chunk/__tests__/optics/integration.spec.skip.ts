@@ -7,6 +7,7 @@
 
 import { Effect } from 'effect'
 import { describe, expect, it } from 'vitest'
+import { getUsedHeapSize } from '../../../performance'
 import { ChunkCompositeOperations } from '../../aggregate/chunk/composite_operations'
 import { ChunkDataOpticsHelpers } from '../../aggregate/chunk/optics'
 import { OptimizedChunkOptics } from '../../aggregate/chunk/performance_optics'
@@ -452,7 +453,7 @@ describe('Optics Integration Tests', () => {
 
   describe('メモリ使用量とガベージコレクション', () => {
     it('長時間実行でのメモリリーク検出', async () => {
-      const initialMemory = (performance as any).memory?.usedJSHeapSize || 0
+      const initialMemory = await Effect.runPromise(getUsedHeapSize())
 
       // 長時間の操作をシミュレート
       for (let round = 0; round < 100; round++) {
@@ -481,7 +482,7 @@ describe('Optics Integration Tests', () => {
         }
       }
 
-      const finalMemory = (performance as any).memory?.usedJSHeapSize || 0
+      const finalMemory = await Effect.runPromise(getUsedHeapSize())
       const memoryIncrease = finalMemory - initialMemory
 
       // メモリリークがないことを確認（増加は50MB以下）

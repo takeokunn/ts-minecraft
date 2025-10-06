@@ -1,5 +1,4 @@
-import { Schema } from '@effect/schema'
-import { Match } from 'effect'
+import { Match, Schema } from 'effect'
 import type { SystemStatus as Status } from './types'
 import {
   ApplicationLifecycleState,

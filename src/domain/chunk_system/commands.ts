@@ -1,7 +1,7 @@
-import { Schema } from '@effect/schema'
-import { Data, Effect, Match } from 'effect'
+import { Data, Effect, Match, Schema } from 'effect'
 import {
   ChunkRequest,
+  ChunkPrioritySchema,
   ChunkRequestSchema,
   ChunkSystemError,
   EpochMilliseconds,
@@ -40,7 +40,7 @@ export const ChunkCommand = Data.taggedEnum({
   }>('SwitchStrategy'),
 })
 
-export type ChunkCommand = Data.TaggedEnum.Infer<typeof ChunkCommand>
+export type ChunkCommand = Data.taggedEnum.Infer<typeof ChunkCommand>
 
 const ScheduleSchema = Schema.Struct({
   _tag: Schema.Literal('Schedule'),
@@ -63,7 +63,7 @@ const FailSchema = Schema.Struct({
 const ReprioritizeSchema = Schema.Struct({
   _tag: Schema.Literal('Reprioritize'),
   requestId: RequestIdSchema,
-  newPriority: ChunkRequestSchema.shape.priority,
+  newPriority: ChunkPrioritySchema,
 })
 
 const SwitchStrategySchema = Schema.Struct({

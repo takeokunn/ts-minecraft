@@ -1,7 +1,2 @@
-/**
- * @fileoverview ChunkManagerアプリケーションサービスのバレルエクスポート
- * チャンクライフサイクル管理のアプリケーション層インターフェース
- */
-
-export { ChunkLifecycleProviderLayer } from './index'
-export * from './index';
+export * from './chunk_lifecycle_provider'
+export * from './chunk_lifecycle_provider.spec'

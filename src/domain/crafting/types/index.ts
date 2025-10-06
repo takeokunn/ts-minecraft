@@ -1,5 +1,4 @@
-import { Schema } from '@effect/schema'
-import { Array, Effect, Option, pipe } from 'effect'
+import { Schema } from 'effect'
 
 /**
  * ### 基本的なブランド型
@@ -100,29 +99,6 @@ export const CraftingGridSchema = Schema.Struct({
   slots: Schema.Array(GridSlotSchema).pipe(Schema.minItems(1), Schema.maxItems(9)),
 })
 export type CraftingGrid = Schema.Schema.Type<typeof CraftingGridSchema>
-
-/**
- * グリッドスロット列を2次元配列に変換（純粋関数）
- */
-export const gridToMatrix = (grid: CraftingGrid): ReadonlyArray<ReadonlyArray<Option.Option<CraftingItemStack>>> => {
-  const height = Number(grid.height)
-  const width = Number(grid.width)
-  return pipe(
-    Array.range(0, height - 1),
-    Array.map((row) =>
-      pipe(
-        Array.range(0, width - 1),
-        Array.map((column) =>
-          pipe(
-            grid.slots,
-            Array.findFirst((slot) => slot.coordinate.x === column && slot.coordinate.y === row),
-            Option.flatMap((slot) => (slot._tag === 'OccupiedSlot' ? Option.some(slot.stack) : Option.none()))
-          )
-        )
-      )
-    )
-  )
-}
 
 /**
  * ### レシピ定義に使用するブランド型
@@ -228,42 +204,6 @@ export class PatternMismatchError extends Schema.TaggedError<PatternMismatchErro
 /**
  * ### ヘルパー関数
  */
-export const decodeItemStack = Schema.decodeEffect(CraftingItemStackSchema)
-export const decodeRecipe = Schema.decodeEffect(CraftingRecipeSchema)
-export const decodeGrid = Schema.decodeEffect(CraftingGridSchema)
-
-export const buildEmptyGrid = (width: GridWidth, height: GridHeight): Effect.Effect<CraftingGrid, never> => {
-  const size = { width: Number(width), height: Number(height) }
-  return Effect.succeed({
-    width,
-    height,
-    slots: pipe(
-      Array.range(0, size.height - 1),
-      Array.flatMap((y) =>
-        pipe(
-          Array.range(0, size.width - 1),
-          Array.map((x) => ({
-            _tag: 'EmptySlot',
-            coordinate: { x, y },
-          }))
-        )
-      )
-    ),
-  })
-}
-
-export const slotAt = (grid: CraftingGrid, coordinate: GridCoordinate): Option.Option<GridSlot> =>
-  pipe(
-    grid.slots,
-    Array.findFirst((slot) => slot.coordinate.x === coordinate.x && slot.coordinate.y === coordinate.y)
-  )
-
-export const replaceSlot = (grid: CraftingGrid, slot: GridSlot): CraftingGrid => ({
-  ...grid,
-  slots: pipe(
-    grid.slots,
-    Array.map((existing) =>
-      existing.coordinate.x === slot.coordinate.x && existing.coordinate.y === slot.coordinate.y ? slot : existing
-    )
-  ),
-})
+export const decodeItemStack = Schema.decode(CraftingItemStackSchema)
+export const decodeRecipe = Schema.decode(CraftingRecipeSchema)
+export const decodeGrid = Schema.decode(CraftingGridSchema)

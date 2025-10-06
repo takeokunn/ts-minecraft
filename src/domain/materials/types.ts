@@ -1,5 +1,4 @@
-import { Schema } from '@effect/schema'
-import { Data } from 'effect'
+import { Data, Schema } from 'effect'
 
 const NonEmptyString = Schema.String.pipe(Schema.minLength(1))
 

@@ -5,6 +5,8 @@
  * プレイヤー設定、学習アルゴリズム、統計分析、推奨システムを統合
  */
 
+import { Clock, Effect, Schema } from 'effect'
+
 // ========================================
 // Repository Interface & Context
 // ========================================
@@ -27,9 +29,9 @@ export type {
   ViewModePreferencesRepository,
   ViewModeRecommendation,
   ViewModeTrend,
-} from './index'
+} from './service'
 
-export { ViewModePreferencesRepository, ViewModePreferencesRepositoryOps } from './index'
+export { ViewModePreferencesRepository, ViewModePreferencesRepositoryOps } from './service'
 
 // ========================================
 // Repository Types
@@ -54,26 +56,14 @@ export type {
   ViewModePreferenceRecord,
   ViewModePreferencesRepositoryError,
   ViewModeUsageData,
-} from './index'
+} from './types'
 
 export {
-  GameContextSchema,
-  KeyBindingSchema,
-  // Schema definitions
-  PlayerIdSchema,
-  PreferenceQueryOptionsSchema,
-  PreferenceRecordIdSchema,
-  PreferenceTriggerSchema,
-  TimeRangeSchema,
-  TrendDirectionSchema,
-  ViewModePopularitySchema,
-  ViewModePreferenceRecordSchema,
-  ViewModePreferenceSchema,
-  ViewModePreferencesRepositoryErrorSchema,
   // Default preferences factory
   createDefaultPreferences,
   // Error factory functions
   createViewModePreferencesError,
+  GameContextSchema,
   isAnalyticsCalculationFailedError,
   isAutomaticTrigger,
   isBuildingContext,
@@ -88,13 +78,25 @@ export {
   isRecordNotFoundError,
   isStorageError,
   isSystemTrigger,
-} from './index'
+  KeyBindingSchema,
+  // Schema definitions
+  PlayerIdSchema,
+  PreferenceQueryOptionsSchema,
+  PreferenceRecordIdSchema,
+  PreferenceTriggerSchema,
+  TimeRangeSchema,
+  TrendDirectionSchema,
+  ViewModePopularitySchema,
+  ViewModePreferenceRecordSchema,
+  ViewModePreferenceSchema,
+  ViewModePreferencesRepositoryErrorSchema,
+} from './types'
 
 // ========================================
 // Live Implementation
 // ========================================
 
-export { ViewModePreferencesRepositoryLive } from './index'
+export { ViewModePreferencesRepositoryLive } from './live'
 
 // ========================================
 // Module Integration Utilities
@@ -152,23 +154,7 @@ export const ViewModePreferencesRepositoryTypeGuards = {
   },
 
   isGameContext: (value: unknown): value is GameContext => {
-    return (
-      typeof value === 'object' &&
-      value !== null &&
-      '_tag' in value &&
-      [
-        'Exploration',
-        'Combat',
-        'Building',
-        'Flying',
-        'Spectating',
-        'Cinematic',
-        'Menu',
-        'Inventory',
-        'Crafting',
-        'Chat',
-      ].includes((value as any)._tag)
-    )
+    return typeof value === 'object' && value !== null && '_tag' in value && Schema.is(ViewContextSchema)(value)
   },
 
   isViewModeRecommendation: (value: unknown): value is ViewModeRecommendation => {
@@ -466,30 +452,32 @@ export const PreferenceQueryHelpers = {
   /**
    * 最新24時間のクエリオプションを作成
    */
-  createLast24HoursQuery: (context?: GameContext): PreferenceQueryOptions => {
-    const now = Date.now()
-    const yesterday = now - 24 * 60 * 60 * 1000
+  createLast24HoursQuery: (context?: GameContext): Effect.Effect<PreferenceQueryOptions> =>
+    Effect.gen(function* () {
+      const now = yield* Clock.currentTimeMillis
+      const yesterday = now - 24 * 60 * 60 * 1000
 
-    return {
-      ...createDefaultPreferences.defaultQueryOptions(),
-      timeRange: Option.some(createDefaultPreferences.timeRange(yesterday, now)),
-      filterByContext: context ? Option.some(context) : Option.none(),
-    } as PreferenceQueryOptions
-  },
+      return {
+        ...createDefaultPreferences.defaultQueryOptions(),
+        timeRange: Option.some(createDefaultPreferences.timeRange(yesterday, now)),
+        filterByContext: context ? Option.some(context) : Option.none(),
+      } as PreferenceQueryOptions
+    }),
 
   /**
    * 最新1週間のクエリオプションを作成
    */
-  createLastWeekQuery: (viewMode?: ViewMode): PreferenceQueryOptions => {
-    const now = Date.now()
-    const weekAgo = now - 7 * 24 * 60 * 60 * 1000
+  createLastWeekQuery: (viewMode?: ViewMode): Effect.Effect<PreferenceQueryOptions> =>
+    Effect.gen(function* () {
+      const now = yield* Clock.currentTimeMillis
+      const weekAgo = now - 7 * 24 * 60 * 60 * 1000
 
-    return {
-      ...createDefaultPreferences.defaultQueryOptions(),
-      timeRange: Option.some(createDefaultPreferences.timeRange(weekAgo, now)),
-      filterByViewMode: viewMode ? Option.some(viewMode) : Option.none(),
-    } as PreferenceQueryOptions
-  },
+      return {
+        ...createDefaultPreferences.defaultQueryOptions(),
+        timeRange: Option.some(createDefaultPreferences.timeRange(weekAgo, now)),
+        filterByViewMode: viewMode ? Option.some(viewMode) : Option.none(),
+      } as PreferenceQueryOptions
+    }),
 
   /**
    * 満足度データ付きクエリオプションを作成
@@ -674,5 +662,3 @@ export const ViewModePreferencesRepositoryDocs = {
     'パフォーマンス影響分析',
   ],
 } as const
-export * from './index';
-export * from './index';

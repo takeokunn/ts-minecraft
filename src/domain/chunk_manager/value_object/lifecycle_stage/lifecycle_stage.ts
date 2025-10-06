@@ -1,13 +1,14 @@
 import { Effect, Match, Schema } from 'effect'
 import {
+  ActivationFailure,
   ChunkLifetimeSchema,
+  DeactivationFailure,
   LifecycleStageSchema,
   type ChunkLifetime,
   type DestructionReason,
   type LifecycleStage,
   type Timestamp,
 } from '../../types'
-import { ActivationFailure, DeactivationFailure } from '../../types'
 
 const decodeStage = Schema.decodeUnknownSync(LifecycleStageSchema)
 const decodeLifetime = Schema.decodeUnknownSync(ChunkLifetimeSchema)

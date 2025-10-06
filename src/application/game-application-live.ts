@@ -1,5 +1,4 @@
-import { Schema } from '@effect/schema'
-import { Clock, Effect, Layer } from 'effect'
+import { Clock, Effect, Layer, Schema } from 'effect'
 import * as Option from 'effect/Option'
 import * as SynchronizedRef from 'effect/SynchronizedRef'
 import { mergeConfig } from './config'

@@ -3,5 +3,5 @@
  * 装備品ビルダーパターン実装
  */
 
-export type { EquipmentBuilder, EquipmentBuilderState } from './index'
-export { EquipmentBuilder } from './index'
+export { EquipmentBuilder } from './builder'
+export type { EquipmentBuilder, EquipmentBuilderState } from './builder'

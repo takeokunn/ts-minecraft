@@ -1,25 +1,28 @@
-import { Effect, Layer } from 'effect'
+import { Clock, Effect, Layer } from 'effect'
 import type { CameraSystemOrchestratorService } from './index'
 
 /**
  * Camera System Orchestrator Service Live Implementation
  */
 export const CameraSystemOrchestratorServiceLive = Layer.effect(
-  CameraSystemOrchestratorService as any,
+  CameraSystemOrchestratorService,
   Effect.gen(function* () {
+    const now = yield* Clock.currentTimeMillis
+
     // Internal state
     const systemState = {
       isInitialized: false,
       activeCameras: 0,
       totalMemoryUsage: 0,
-      startTime: Date.now(),
+      startTime: now,
     }
 
     return CameraSystemOrchestratorService.of({
       initializeCameraSystem: (systemConfig) =>
         Effect.gen(function* () {
+          const currentTime = yield* Clock.currentTimeMillis
           systemState.isInitialized = true
-          systemState.startTime = Date.now()
+          systemState.startTime = currentTime
         }),
 
       shutdownCameraSystem: () =>
@@ -43,13 +46,16 @@ export const CameraSystemOrchestratorServiceLive = Layer.effect(
         }),
 
       getCameraSystemStatistics: () =>
-        Effect.succeed({
-          totalCameras: 10,
-          activeCameras: systemState.activeCameras,
-          totalMemoryUsage: systemState.totalMemoryUsage,
-          averageFrameTime: 16.67,
-          systemUptime: Date.now() - systemState.startTime,
-        } as any),
+        Effect.gen(function* () {
+          const currentTime = yield* Clock.currentTimeMillis
+          return {
+            totalCameras: 10,
+            activeCameras: systemState.activeCameras,
+            totalMemoryUsage: systemState.totalMemoryUsage,
+            averageFrameTime: 16.67,
+            systemUptime: currentTime - systemState.startTime,
+          } as any
+        }),
 
       optimizeSystemPerformance: (performanceTargets) =>
         Effect.succeed({

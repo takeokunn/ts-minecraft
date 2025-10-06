@@ -1,6 +1,5 @@
-import { Schema } from '@effect/schema'
 import { describe, expect, it } from '@effect/vitest'
-import { Clock, Effect } from 'effect'
+import { Clock, Effect, Schema } from 'effect'
 import { now, sleepUntil, withinDeadline } from './time'
 import { EpochMillisecondsSchema } from './types'
 

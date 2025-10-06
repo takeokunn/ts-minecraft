@@ -291,22 +291,22 @@ const makeDependencyCoordinatorService = Effect.gen(function* () {
           io: 0.1,
         })
 
-        try {
-          // タスク実行
-          const startTime = Date.now()
-          const result = yield* taskExecutors[taskId]
-          const endTime = Date.now()
+        yield* pipe(
+          Effect.gen(function* () {
+            // タスク実行
+            const startTime = yield* Clock.currentTimeMillis
+            const result = yield* taskExecutors[taskId]
+            const endTime = yield* Clock.currentTimeMillis
 
-          results[taskId] = result
+            results[taskId] = result
 
-          // 実行履歴記録
-          yield* Ref.update(executionHistory, (history) => [...history, { taskId, startTime, endTime, result }])
+            // 実行履歴記録
+            yield* Ref.update(executionHistory, (history) => [...history, { taskId, startTime, endTime, result }])
 
-          yield* Effect.logInfo(`タスク完了: ${taskId} (${endTime - startTime}ms)`)
-        } finally {
-          // リソース解放
-          yield* releaseResources(taskId)
-        }
+            yield* Effect.logInfo(`タスク完了: ${taskId} (${endTime - startTime}ms)`)
+          }),
+          Effect.ensuring(releaseResources(taskId))
+        )
       }
 
       yield* Effect.logInfo(`調整実行完了: ${Object.keys(results).length}タスク`)
@@ -340,8 +340,8 @@ const makeDependencyCoordinatorService = Effect.gen(function* () {
         allocatedCpu: requirements.cpu,
         allocatedMemory: requirements.memory,
         allocatedIo: requirements.io,
-        startTime: Date.now(),
-        estimatedEndTime: Date.now() + 30000, // 30秒の推定
+        startTime: yield* Clock.currentTimeMillis,
+        estimatedEndTime: yield* Clock.currentTimeMillis,
       }
 
       // リソース予約

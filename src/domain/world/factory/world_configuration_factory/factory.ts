@@ -15,11 +15,11 @@
  * - 高度なバリデーションシステム
  */
 
-import { Context, Effect, Function, Layer, Match, Schema } from 'effect'
 import * as BiomeProperties from '@domain/world/value_object/biome_properties/index'
 import * as GenerationParameters from '@domain/world/value_object/generation_parameters/index'
 import * as NoiseConfiguration from '@domain/world/value_object/noise_configuration/index'
 import * as WorldSeed from '@domain/world/value_object/world_seed/index'
+import { Context, Effect, Function, Layer, Match, Schema } from 'effect'
 
 // ================================
 // Factory Error Types
@@ -466,10 +466,13 @@ const mergeConfigurations = (
 // ================================
 
 const validateConfiguration = (config: WorldConfiguration): Effect.Effect<boolean, ConfigurationFactoryError> =>
-  Effect.gen(function* () {
-    try {
+  pipe(
+    Effect.gen(function* () {
       // スキーマ検証
-      Schema.decodeSync(WorldConfigurationSchema)(config)
+      yield* Effect.try({
+        try: () => Schema.decodeSync(WorldConfigurationSchema)(config),
+        catch: () => new Error('Schema validation failed'),
+      })
 
       // ビジネスルール検証
       const isParametersValid = yield* GenerationParameters.validate(config.parameters)
@@ -477,10 +480,9 @@ const validateConfiguration = (config: WorldConfiguration): Effect.Effect<boolea
       const isNoiseConfigValid = yield* NoiseConfiguration.validate(config.noiseConfig)
 
       return isParametersValid && isBiomeConfigValid && isNoiseConfigValid
-    } catch {
-      return false
-    }
-  })
+    }),
+    Effect.catchAll(() => Effect.succeed(false))
+  )
 
 // ================================
 // Advanced Helper Functions
@@ -490,30 +492,30 @@ const validateCreateParams = (
   params: CreateConfigurationParams
 ): Effect.Effect<CreateConfigurationParams, ConfigurationFactoryError> =>
   Effect.gen(function* () {
-    try {
-      // Schema検証
-      const validatedParams = Schema.decodeSync(CreateConfigurationParamsSchema)(params)
-
-      // ビジネスルール検証
-      if (validatedParams.memoryBudget && validatedParams.memoryBudget <= 0) {
-        return yield* Effect.fail(
+    // Schema検証
+    const validatedParams = yield* pipe(
+      Effect.try({
+        try: () => Schema.decodeSync(CreateConfigurationParamsSchema)(params),
+        catch: (error) =>
           new ConfigurationFactoryError({
             category: 'configuration_invalid',
-            message: 'Memory budget must be positive',
-          })
-        )
-      }
+            message: 'Schema validation failed',
+            cause: error,
+          }),
+      })
+    )
 
-      return validatedParams
-    } catch (error) {
+    // ビジネスルール検証
+    if (validatedParams.memoryBudget && validatedParams.memoryBudget <= 0) {
       return yield* Effect.fail(
         new ConfigurationFactoryError({
           category: 'configuration_invalid',
-          message: 'Invalid parameters',
-          context: { error, params },
+          message: 'Memory budget must be positive',
         })
       )
     }
+
+    return validatedParams
   })
 
 const applyOptimization = (
@@ -592,18 +594,25 @@ const validateConfigurationAdvanced = (
     let score = 100
 
     // 基本検証
-    try {
-      Schema.decodeSync(WorldConfigurationSchema)(config)
-    } catch (error) {
-      issues.push({
-        severity: 'error',
-        category: 'syntax',
-        message: 'Configuration schema validation failed',
-        suggestion: 'Check configuration structure',
-        autoFixable: false,
-      })
-      score -= 30
-    }
+    pipe(
+      Effect.try({
+        try: () => Schema.decodeSync(WorldConfigurationSchema)(config),
+        catch: (error) => error,
+      }),
+      Effect.catchAll((error) =>
+        Effect.sync(() => {
+          issues.push({
+            severity: 'error',
+            category: 'syntax',
+            message: 'Configuration schema validation failed',
+            suggestion: 'Check configuration structure',
+            autoFixable: false,
+          })
+          score -= 30
+        })
+      ),
+      Effect.runSync
+    )
 
     // パフォーマンス検証
     const memoryUsage = estimateMemoryUsage(config)
@@ -789,49 +798,36 @@ export interface WorldConfigurationBuilder {
   readonly build: () => Effect.Effect<WorldConfiguration, ConfigurationFactoryError>
 }
 
-class WorldConfigurationBuilderImpl implements WorldConfigurationBuilder {
-  constructor(private readonly config: Partial<WorldConfiguration> = {}) {}
+// WorldConfigurationBuilderImpl クラスは削除されました
+// 新しいパターン: Schema + Pure Functions を使用してください
+// - builder_state.ts: WorldConfigurationBuilderStateSchema, initialWorldConfigurationBuilderState
+// - builder_functions.ts: withSeed, withParameters, withBiomeConfig, withNoiseConfig, withMetadata, build
+//
+// 使用例:
+// import { pipe } from 'effect/Function'
+// import * as BuilderState from './builder_state.js'
+// import * as BuilderFunctions from './builder_functions.js'
+//
+// const config = yield* pipe(
+//   BuilderState.initialWorldConfigurationBuilderState,
+//   (state) => BuilderFunctions.withSeed(state, seed),
+//   (state) => BuilderFunctions.withParameters(state, params),
+//   BuilderFunctions.build
+// )
 
-  withSeed(seed: WorldSeed.WorldSeed): WorldConfigurationBuilder {
-    return new WorldConfigurationBuilderImpl({ ...this.config, seed })
-  }
-
-  withParameters(params: GenerationParameters.GenerationParameters): WorldConfigurationBuilder {
-    return new WorldConfigurationBuilderImpl({ ...this.config, parameters: params })
-  }
-
-  withBiomeConfig(config: BiomeProperties.BiomeConfiguration): WorldConfigurationBuilder {
-    return new WorldConfigurationBuilderImpl({ ...this.config, biomeConfig: config })
-  }
-
-  withNoiseConfig(config: NoiseConfiguration.NoiseConfiguration): WorldConfigurationBuilder {
-    return new WorldConfigurationBuilderImpl({ ...this.config, noiseConfig: config })
-  }
-
-  withMetadata(metadata: Record<string, unknown>): WorldConfigurationBuilder {
-    return new WorldConfigurationBuilderImpl({
-      ...this.config,
-      metadata: { ...this.config.metadata, ...metadata },
-    })
-  }
-
-  build(): Effect.Effect<WorldConfiguration, ConfigurationFactoryError> {
-    return Effect.gen(
-      function* () {
-        const defaultConfig = yield* createDefaultConfiguration()
-        return {
-          seed: this.config.seed ?? defaultConfig.seed,
-          parameters: this.config.parameters ?? defaultConfig.parameters,
-          biomeConfig: this.config.biomeConfig ?? defaultConfig.biomeConfig,
-          noiseConfig: this.config.noiseConfig ?? defaultConfig.noiseConfig,
-          metadata: this.config.metadata,
-        }
-      }.bind(this)
-    )
-  }
+export const createWorldConfigurationBuilder = () => {
+  // Builder interface is deprecated - use pure functions instead
+  // Import: import * as BuilderState from './builder_state.js'
+  // Import: import * as BuilderFunctions from './builder_functions.js'
+  //
+  // Usage:
+  // const config = yield* pipe(
+  //   BuilderState.initialWorldConfigurationBuilderState,
+  //   (state) => BuilderFunctions.withSeed(state, seed),
+  //   BuilderFunctions.build
+  // )
+  throw new Error('WorldConfigurationBuilder interface is deprecated. Use Schema + pure functions pattern.')
 }
-
-export const createWorldConfigurationBuilder = (): WorldConfigurationBuilder => new WorldConfigurationBuilderImpl()
 
 // ================================
 // Context.GenericTag

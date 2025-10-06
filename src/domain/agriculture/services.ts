@@ -1,15 +1,17 @@
 import { Data, Effect, Match, pipe } from 'effect'
 import {
+  BreedingStats,
   CropAggregate,
   CropProjection,
+  DomainError,
+  HydrationState,
+  SoilCondition,
   advanceCropGrowth,
   describeAggregateSummary,
   enrichSoilForCrop,
   hydrateCrop,
   projectCropTrajectory,
 } from './index'
-import { DomainError } from './index'
-import { BreedingStats, HydrationState, SoilCondition } from './index'
 
 export type SimulationEvent = Data.TaggedEnum<{
   Hydrated: { readonly hydration: HydrationState }

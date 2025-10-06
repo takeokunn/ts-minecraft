@@ -1,22 +1,20 @@
 import { Effect, Match, pipe, Schema } from 'effect'
 import {
-  AnimationTimelineSchema,
-  CameraDistanceSchema,
-  CinematicSettingsSchema,
-  FirstPersonSettingsSchema,
-  SpectatorSettingsSchema,
-  ThirdPersonSettingsSchema,
-  ViewModeSchema,
-} from './index'
-import {
   AnimationTimeline,
+  AnimationTimelineSchema,
   CameraDistance,
+  CameraDistanceSchema,
   CinematicSettings,
+  CinematicSettingsSchema,
   FirstPersonSettings,
+  FirstPersonSettingsSchema,
   SpectatorSettings,
+  SpectatorSettingsSchema,
   ThirdPersonSettings,
+  ThirdPersonSettingsSchema,
   ViewMode,
   ViewModeError,
+  ViewModeSchema,
 } from './index'
 
 /**

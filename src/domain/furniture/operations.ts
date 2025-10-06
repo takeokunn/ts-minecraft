@@ -23,8 +23,8 @@ import {
   toValidationError,
 } from './index'
 
+import * as ReadonlyArray from 'effect/Array'
 import * as Match from 'effect/Match'
-import * as ReadonlyArray from 'effect/ReadonlyArray'
 type BedAggregate = Extract<Furniture, { _tag: 'Bed' }>
 type BookAggregate = Extract<Furniture, { _tag: 'Book' }>
 type DraftState = Extract<BookAggregate['state'], { _tag: 'Draft' }>
@@ -34,14 +34,14 @@ const generateId: Effect.Effect<Schema.Schema.Type<typeof FurnitureIdSchema>, Fu
     const millis = yield* Clock.currentTimeMillis
     const suffix = (millis % 36 ** 12).toString(36).padStart(12, '0').slice(-12)
     const identifier = `furn_${suffix}`
-    return yield* Schema.decode(FurnitureIdSchema)(identifier).pipe(Effect.mapError(toValidationError))
+    return yield* Schema.decodeUnknown(FurnitureIdSchema)(identifier).pipe(Effect.mapError(toValidationError))
   }
 )
 
 const currentTick: Effect.Effect<Schema.Schema.Type<typeof TickSchema>, FurnitureError> = pipe(
   Clock.currentTimeMillis,
   Effect.map((millis) => Math.floor(millis / 50)),
-  Effect.flatMap((tick) => Schema.decode(TickSchema)(tick)),
+  Effect.flatMap((tick) => Schema.decodeUnknown(TickSchema)(tick)),
   Effect.mapError(toValidationError)
 )
 
@@ -91,18 +91,18 @@ const decreaseDurability = (bed: Bed) =>
   pipe(
     bed.durability,
     (current) => Math.max(0, current - 1),
-    (value) => Schema.decode(DurabilitySchema)(value),
+    (value) => Schema.decodeUnknown(DurabilitySchema)(value),
     Effect.mapError(toValidationError),
     Effect.map((durability) => ({ ...bed, durability }))
   )
 
 export const createBed = (input: CreateBedInput) =>
   Effect.gen(function* () {
-    const validated = yield* Schema.decode(CreateBedInputSchema)(input).pipe(Effect.mapError(toValidationError))
+    const validated = yield* Schema.decodeUnknown(CreateBedInputSchema)(input).pipe(Effect.mapError(toValidationError))
     const id = yield* generateId
     const placedAt = yield* currentTick
     const durability =
-      validated.durability ?? (yield* Schema.decode(DurabilitySchema)(100).pipe(Effect.mapError(toValidationError)))
+      validated.durability ?? (yield* Schema.decodeUnknown(DurabilitySchema)(100).pipe(Effect.mapError(toValidationError)))
 
     return {
       _tag: 'Bed',
@@ -137,7 +137,7 @@ export const finishSleep = (bed: Bed) => Effect.succeed({ ...bed, occupant: Opti
 
 export const createBook = (input: CreateBookInput) =>
   Effect.gen(function* () {
-    const validated = yield* Schema.decode(CreateBookInputSchema)(input).pipe(Effect.mapError(toValidationError))
+    const validated = yield* Schema.decodeUnknown(CreateBookInputSchema)(input).pipe(Effect.mapError(toValidationError))
     const id = yield* generateId
 
     return {
@@ -152,10 +152,11 @@ export const createBook = (input: CreateBookInput) =>
   })
 
 const ensureBookEditable = (book: BookAggregate): Effect.Effect<DraftState, FurnitureError> =>
-  Match.tag(book.state, {
-    Draft: (draft) => Effect.succeed(draft),
-    Published: () => Effect.fail(FurnitureError.alreadyPublished(book.id)),
-  })
+  Match.value(book.state).pipe(
+    Match.tag('Draft', (draft) => Effect.succeed(draft)),
+    Match.tag('Published', () => Effect.fail(FurnitureError.alreadyPublished(book.id))),
+    Match.exhaustive
+  )
 
 const ensureNextPageIndex = (book: BookAggregate, page: AppendPageCommand['page']) =>
   pipe(
@@ -187,7 +188,7 @@ export const appendPage = (command: AppendPageCommand) =>
 
 export const publishBook = (book: BookAggregate, tick: number) =>
   Effect.gen(function* () {
-    const publishedAt = yield* Schema.decode(TickSchema)(tick).pipe(Effect.mapError(toValidationError))
+    const publishedAt = yield* Schema.decodeUnknown(TickSchema)(tick).pipe(Effect.mapError(toValidationError))
 
     return {
       ...book,
@@ -197,7 +198,7 @@ export const publishBook = (book: BookAggregate, tick: number) =>
 
 export const createSign = (input: CreateSignInput) =>
   Effect.gen(function* () {
-    const validated = yield* Schema.decode(CreateSignInputSchema)(input).pipe(Effect.mapError(toValidationError))
+    const validated = yield* Schema.decodeUnknown(CreateSignInputSchema)(input).pipe(Effect.mapError(toValidationError))
     const id = yield* generateId
     const placedAt = yield* currentTick
 

@@ -3,7 +3,7 @@
  * DDD原則に基づく集約境界の厳密な管理
  */
 
-import { Schema } from 'effect'
+import { Effect, Schema } from 'effect'
 import type { ItemId } from '../../types'
 
 // ===== Brand Types =====
@@ -26,7 +26,7 @@ export type HotbarSlot = Schema.Schema.Type<typeof HotbarSlotSchema>
 export const InventorySlotSchema = Schema.Union(
   Schema.Null,
   Schema.Struct({
-    itemStack: Schema.suspend(() => import('../item_stack/types.js').then((m) => m.ItemStackEntitySchema)),
+    itemStack: Schema.suspend(() => import('../item_stack/types').then((m) => m.ItemStackEntitySchema)),
     metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
   })
 )
@@ -44,7 +44,7 @@ export type ArmorSlot = Schema.Schema.Type<typeof ArmorSlotSchema>
 
 export const InventoryAggregateSchema = Schema.Struct({
   id: InventoryIdSchema,
-  playerId: Schema.suspend(() => import('../../types.js').then((m) => m.PlayerIdSchema)),
+  playerId: Schema.suspend(() => import('../../types/index').then((m) => m.PlayerIdSchema)),
   slots: Schema.Array(InventorySlotSchema).pipe(Schema.minItems(36), Schema.maxItems(36)),
   hotbar: Schema.Array(SlotIndexSchema).pipe(Schema.minItems(9), Schema.maxItems(9)),
   armor: ArmorSlotSchema,
@@ -62,8 +62,8 @@ export type InventoryAggregate = Schema.Schema.Type<typeof InventoryAggregateSch
 export const ItemAddedEventSchema = Schema.Struct({
   type: Schema.Literal('ItemAdded'),
   aggregateId: InventoryIdSchema,
-  playerId: Schema.suspend(() => import('../../types.js').then((m) => m.PlayerIdSchema)),
-  itemId: Schema.suspend(() => import('../../types.js').then((m) => m.ItemIdSchema)),
+  playerId: Schema.suspend(() => import('../../types/index').then((m) => m.PlayerIdSchema)),
+  itemId: Schema.suspend(() => import('../../types/index').then((m) => m.ItemIdSchema)),
   quantity: Schema.Number.pipe(Schema.int(), Schema.positive()),
   slotIndex: SlotIndexSchema,
   timestamp: Schema.DateTimeUtc,
@@ -73,8 +73,8 @@ export const ItemAddedEventSchema = Schema.Struct({
 export const ItemRemovedEventSchema = Schema.Struct({
   type: Schema.Literal('ItemRemoved'),
   aggregateId: InventoryIdSchema,
-  playerId: Schema.suspend(() => import('../../types.js').then((m) => m.PlayerIdSchema)),
-  itemId: Schema.suspend(() => import('../../types.js').then((m) => m.ItemIdSchema)),
+  playerId: Schema.suspend(() => import('../../types/index').then((m) => m.PlayerIdSchema)),
+  itemId: Schema.suspend(() => import('../../types/index').then((m) => m.ItemIdSchema)),
   quantity: Schema.Number.pipe(Schema.int(), Schema.positive()),
   slotIndex: SlotIndexSchema,
   timestamp: Schema.DateTimeUtc,
@@ -84,7 +84,7 @@ export const ItemRemovedEventSchema = Schema.Struct({
 export const ItemsSwappedEventSchema = Schema.Struct({
   type: Schema.Literal('ItemsSwapped'),
   aggregateId: InventoryIdSchema,
-  playerId: Schema.suspend(() => import('../../types.js').then((m) => m.PlayerIdSchema)),
+  playerId: Schema.suspend(() => import('../../types/index').then((m) => m.PlayerIdSchema)),
   fromSlot: SlotIndexSchema,
   toSlot: SlotIndexSchema,
   timestamp: Schema.DateTimeUtc,
@@ -93,7 +93,7 @@ export const ItemsSwappedEventSchema = Schema.Struct({
 export const HotbarChangedEventSchema = Schema.Struct({
   type: Schema.Literal('HotbarChanged'),
   aggregateId: InventoryIdSchema,
-  playerId: Schema.suspend(() => import('../../types.js').then((m) => m.PlayerIdSchema)),
+  playerId: Schema.suspend(() => import('../../types/index').then((m) => m.PlayerIdSchema)),
   previousSlot: HotbarSlotSchema,
   newSlot: HotbarSlotSchema,
   timestamp: Schema.DateTimeUtc,
@@ -117,10 +117,11 @@ export type InventoryDomainEvent = Schema.Schema.Type<typeof InventoryDomainEven
 export const InventoryBusinessRuleSchema = Schema.Struct({
   name: Schema.String,
   description: Schema.String,
-  validate: Schema.Function.pipe(Schema.annotations({ description: 'ビジネスルール検証関数' })),
 })
 
-export type InventoryBusinessRule = Schema.Schema.Type<typeof InventoryBusinessRuleSchema>
+export type InventoryBusinessRule = Schema.Schema.Type<typeof InventoryBusinessRuleSchema> & {
+  validate: (inventory: InventoryAggregate) => Effect.Effect<boolean, InventoryAggregateError>
+}
 
 // ===== Constants =====
 
@@ -149,7 +150,7 @@ export const InventoryAggregateErrorSchema = Schema.TaggedError('InventoryAggreg
     ),
     message: Schema.String,
     slotIndex: Schema.optional(SlotIndexSchema),
-    itemId: Schema.optional(Schema.suspend(() => import('../../types.js').then((m) => m.ItemIdSchema))),
+    itemId: Schema.optional(Schema.suspend(() => import('../../types/index').then((m) => m.ItemIdSchema))),
     metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
   })
 )

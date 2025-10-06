@@ -1,7 +1,6 @@
-import { Schema } from '@effect/schema'
 import * as Arbitrary from '@effect/schema/Arbitrary'
 import { describe, expect, it } from '@effect/vitest'
-import { Effect, Option, pipe } from 'effect'
+import { Effect, Option, Schema, pipe } from 'effect'
 import * as fc from 'effect/FastCheck'
 import { BootstrapConfigDefaults } from './config'
 import {

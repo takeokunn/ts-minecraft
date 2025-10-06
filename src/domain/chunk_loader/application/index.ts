@@ -1,7 +1,1 @@
-/**
- * @fileoverview ChunkLoaderアプリケーション層のバレルエクスポート
- * チャンクローディングのアプリケーションサービス
- */
-
-export { ChunkLoadingProviderLayer, ChunkLoadingProviderLive } from './index'
-export * from './index';
+export * from './chunk_loading_provider'

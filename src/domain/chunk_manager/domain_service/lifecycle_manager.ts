@@ -1,14 +1,15 @@
 import { Context, Effect, Layer } from 'effect'
 import { makeChunkPool } from '../aggregate'
+import type { ChunkLifecycleProvider } from '../types'
 import {
+  AutoManagementConfig,
+  ChunkLifecycleProvider as ChunkLifecycleProviderTag,
   ChunkManagerConfig,
   DefaultChunkManagerConfig,
   makeChunkDistance,
   makeMaxActiveChunks,
   makeResourceUsagePercent,
 } from '../types'
-import type { ChunkLifecycleProvider } from '../types'
-import { AutoManagementConfig, ChunkLifecycleProvider as ChunkLifecycleProviderTag } from '../types'
 
 const fallbackAutoConfig: AutoManagementConfig = {
   enabled: true,

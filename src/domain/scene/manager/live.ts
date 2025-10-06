@@ -1,8 +1,8 @@
 import { Effect, Layer, Match, Option, Ref, Schema, pipe } from 'effect'
-import { SceneService } from '..'
 import {
   ActiveScene,
   PreloadError,
+  SceneService,
   SceneState,
   SceneState as Scenes,
   TransitionEffect,

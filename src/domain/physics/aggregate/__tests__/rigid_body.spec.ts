@@ -1,8 +1,8 @@
+import type { PhysicsMaterial, RigidBodyType } from '@domain/physics/types/core'
+import { vector3 } from '@domain/physics/types/core'
 import { it } from '@effect/vitest'
 import { Effect } from 'effect'
 import { describe, expect } from 'vitest'
-import type { PhysicsMaterial, RigidBodyType } from '@domain/physics/types/core'
-import { vector3 } from '@domain/physics/types/core'
 import { RigidBodyAggregate } from '../rigid_body'
 
 describe('RigidBodyAggregate', () => {

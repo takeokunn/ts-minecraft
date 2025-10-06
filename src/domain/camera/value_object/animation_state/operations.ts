@@ -1,7 +1,11 @@
-import { Brand, Effect, Match, pipe, Schema } from 'effect'
-import { AnimationDurationSchema, AnimationProgressSchema, TimestampSchema } from './index'
+import { Brand, Clock, Effect, Match, pipe, Schema } from 'effect'
 import {
   AnimationDuration,
+  AnimationDurationSchema,
+  AnimationProgressSchema,
+  TimestampSchema,
+} from './schema'
+import {
   AnimationError,
   AnimationProgress,
   AnimationState,
@@ -10,7 +14,7 @@ import {
   Keyframe,
   PositionAnimation,
   Timestamp,
-} from './index'
+} from './types'
 
 /**
  * 基本アニメーション値のファクトリー関数群
@@ -48,16 +52,19 @@ export const AnimationValueFactory = {
   /**
    * Timestamp作成
    */
-  createTimestamp: (milliseconds: number = Date.now()): Effect.Effect<Timestamp, AnimationError> =>
-    pipe(
-      Schema.decodeUnknown(TimestampSchema)(milliseconds),
-      Effect.mapError(() =>
-        AnimationError.InvalidTimestamp({
-          timestamp: milliseconds,
-          reason: 'Timestamp must be non-negative',
-        })
+  createTimestamp: (milliseconds?: number): Effect.Effect<Timestamp, AnimationError> =>
+    Effect.gen(function* () {
+      const ms = milliseconds ?? (yield* Clock.currentTimeMillis)
+      return yield* pipe(
+        Schema.decodeUnknown(TimestampSchema)(ms),
+        Effect.mapError(() =>
+          AnimationError.InvalidTimestamp({
+            timestamp: ms,
+            reason: 'Timestamp must be non-negative',
+          })
+        )
       )
-    ),
+    }),
 }
 
 /**
@@ -115,14 +122,14 @@ export const EasingFunctions = {
    * 事前定義されたイージング関数
    */
   presets: {
-    linear: (): EasingType => EasingType.Linear({}),
-    easeIn: (power: number = 2): EasingType => EasingType.EaseIn({ power }),
-    easeOut: (power: number = 2): EasingType => EasingType.EaseOut({ power }),
-    easeInOut: (power: number = 2): EasingType => EasingType.EaseInOut({ power }),
-    bounce: (amplitude: number = 1, period: number = 0.3): EasingType => EasingType.Bounce({ amplitude, period }),
-    elastic: (amplitude: number = 1, period: number = 0.3): EasingType => EasingType.Elastic({ amplitude, period }),
-    back: (overshoot: number = 1.7): EasingType => EasingType.Back({ overshoot }),
-    spring: (tension: number = 300, friction: number = 30): EasingType => EasingType.Spring({ tension, friction }),
+    linear: (): EasingType => EasingType.Linear(),
+    easeIn: (power: number = 2): EasingType => EasingType.EaseIn(power),
+    easeOut: (power: number = 2): EasingType => EasingType.EaseOut(power),
+    easeInOut: (power: number = 2): EasingType => EasingType.EaseInOut(power),
+    bounce: (amplitude: number = 1, period: number = 0.3): EasingType => EasingType.Bounce(amplitude, period),
+    elastic: (amplitude: number = 1, period: number = 0.3): EasingType => EasingType.Elastic(amplitude, period),
+    back: (overshoot: number = 1.7): EasingType => EasingType.Back(overshoot),
+    spring: (tension: number = 300, friction: number = 30): EasingType => EasingType.Spring(tension, friction),
   },
 }
 

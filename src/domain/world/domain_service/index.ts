@@ -13,32 +13,13 @@ export * from './procedural_generation/index'
 export * from './world_validation/index'
 
 // 統合Layer構成
-import { Layer } from 'effect'
-import { BiomeClassificationLayer, BiomeClassificationServices } from './biome_classification/index'
-import { MathematicalOperationsLayer, MathematicalOperationsServices } from './mathematical_operations/index'
-import { NoiseGenerationLayer, NoiseGenerationServices } from './noise_generation/index'
-import { ProceduralGenerationLayer, ProceduralGenerationServices } from './procedural_generation/index'
-import { WorldValidationLayer, WorldValidationServices } from './world_validation/index'
+export * from './layer'
 
-/**
- * World Domain Service 統合Layer
- *
- * 全てのWorld Domain Serviceを統合した単一のLayerです。
- * 依存関係を適切に解決し、パフォーマンス最適化された
- * 並行処理環境を提供します。
- */
-export const WorldDomainServiceLayer = Layer.mergeAll(
-  // 基盤サービス（他サービスから依存される）
-  MathematicalOperationsLayer,
-  NoiseGenerationLayer,
-
-  // 中間サービス（基盤サービスに依存）
-  BiomeClassificationLayer,
-  WorldValidationLayer,
-
-  // 高レベルサービス（他の全サービスに依存可能）
-  ProceduralGenerationLayer
-)
+import { BiomeClassificationServices } from './biome_classification/index'
+import { MathematicalOperationsServices } from './mathematical_operations/index'
+import { NoiseGenerationServices } from './noise_generation/index'
+import { ProceduralGenerationServices } from './procedural_generation/index'
+import { WorldValidationServices } from './world_validation/index'
 
 /**
  * World Domain Service 統合サービス集合

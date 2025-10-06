@@ -4,12 +4,9 @@
  * idb-keyval を Effect-TS ラッパーで包み、宣言的な API を提供する。
  */
 
-import { Schema } from '@effect/schema'
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
-import { Clock, Effect, Layer, Match, Option, Random, pipe } from 'effect'
+import { Clock, Effect, Layer, Match, Option, Random, Schema, pipe } from 'effect'
 import { clear, createStore, del, get, keys, set } from 'idb-keyval'
-import type { Inventory, InventoryState, PlayerId } from '../../../domain/inventory'
-import { InventorySchema, InventoryStateSchema, PlayerIdSchema } from '../../../domain/inventory'
 import type { StorageError } from '..'
 import {
   InventoryStorageService,
@@ -26,6 +23,8 @@ import {
   toNotAvailable,
   toSaveFailed,
 } from '..'
+import type { Inventory, InventoryState, PlayerId } from '../../../domain/inventory'
+import { InventorySchema, InventoryStateSchema, PlayerIdSchema } from '../../../domain/inventory'
 
 const backend = Schema.decodeUnknownSync(StorageBackendSchema)('indexedDB')
 

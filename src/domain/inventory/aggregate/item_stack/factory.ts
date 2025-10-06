@@ -3,7 +3,7 @@
  * DDD原則に基づく複雑なエンティティ生成の隠蔽
  */
 
-import { Context, Effect, Schema } from 'effect'
+import { Clock, Context, Effect, Schema } from 'effect'
 import { nanoid } from 'nanoid'
 import type { ItemId } from '../../types'
 import type { Durability, Enchantment, ItemCount, ItemNBTData, ItemStackEntity, ItemStackId } from './types'
@@ -129,8 +129,8 @@ class ItemStackBuilderImpl implements ItemStackBuilder {
   private nbtData: ItemNBTData = {}
   private metadata: Record<string, unknown> = {}
   private version: number = ITEM_STACK_CONSTANTS.DEFAULT_VERSION
-  private createdAt: Date = new Date()
-  private lastModified: Date = new Date()
+  private createdAt: string | null = null
+  private lastModified: string | null = null
 
   setItemId(itemId: ItemId): ItemStackBuilder {
     this.itemId = itemId
@@ -231,6 +231,11 @@ class ItemStackBuilderImpl implements ItemStackBuilder {
         // IDの生成または検証
         const id = this.id ?? (`stack_${nanoid()}` as ItemStackId)
 
+        // タイムスタンプの生成（未設定の場合）
+        const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms).toISOString())
+        const createdAt = this.createdAt ?? timestamp
+        const lastModified = this.lastModified ?? timestamp
+
         // エンティティデータの構築
         const entityData = {
           id,
@@ -239,8 +244,8 @@ class ItemStackBuilderImpl implements ItemStackBuilder {
           ...(this.durability && { durability: this.durability }),
           ...(Object.keys(this.metadata).length > 0 && { metadata: this.metadata }),
           ...(Object.keys(this.nbtData).length > 0 && { nbtData: this.nbtData }),
-          createdAt: this.createdAt.toISOString(),
-          lastModified: this.lastModified.toISOString(),
+          createdAt,
+          lastModified,
           version: this.version,
         }
 
@@ -376,8 +381,12 @@ export const createEnchantedItemStack = (
 /**
  * エンティティのバージョンを増加
  */
-export const incrementEntityVersion = (entity: ItemStackEntity): ItemStackEntity => ({
-  ...entity,
-  version: entity.version + 1,
-  lastModified: new Date().toISOString() as any,
-})
+export const incrementEntityVersion = (entity: ItemStackEntity): Effect.Effect<ItemStackEntity> =>
+  Effect.gen(function* () {
+    const lastModified = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms).toISOString())
+    return {
+      ...entity,
+      version: entity.version + 1,
+      lastModified: lastModified as any,
+    }
+  })

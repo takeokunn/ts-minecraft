@@ -1,21 +1,22 @@
-import { Effect, Match, Schema, pipe } from 'effect'
-import { PHYSICS_CONSTANTS } from '@domain/physics/types'
+import { PHYSICS_CONSTANTS } from '@domain/physics/types/constants'
 import {
   PositiveFloat,
   UnitInterval,
   Vector3,
   Vector3Schema,
+  decodeWith,
   nonNegativeFloat,
   parsePositiveFloat,
   parseUnitInterval,
   parseVector3,
   positiveFloat,
   vector3,
-} from '@domain/physics/types'
-import type { PhysicsError } from '@domain/physics/types'
+} from '@domain/physics/types/core'
+import type { PhysicsError } from '@domain/physics/types/errors'
+import { Effect, Match, Schema, pipe } from 'effect'
 
 const GravityVectorSchema = Schema.Struct({
-  direction: Vector3Schema,
+  direction: Schema.suspend(() => Vector3Schema),
   magnitude: Schema.Number.pipe(Schema.greaterThan(0)),
   terminalVelocity: Schema.Number.pipe(Schema.greaterThan(0)),
   multiplier: Schema.Number.pipe(Schema.between(0, 2)),
@@ -101,20 +102,10 @@ const calculateFallDamage = (fallDistance: PositiveFloat): ReturnType<typeof non
     Match.orElse((distance) => nonNegativeFloat((distance - 3) * 0.5))
   )
 
-const forMedium = (inFluid: boolean): GravityVector =>
-  pipe(
-    inFluid,
-    Match.value,
-    Match.when(false, () =>
-      Effect.runSync(
-        make({
-          direction: vector3({ x: 0, y: -1, z: 0 }),
-          magnitude: PHYSICS_CONSTANTS.gravity.y * -1,
-        })
-      )
-    ),
-    Match.orElse(() =>
-      Effect.runSync(
+// Factory関数化してruntime初期化問題を回避
+const createForMedium = (inFluid: boolean): GravityVector =>
+  inFluid
+    ? Effect.runSync(
         make({
           direction: vector3({ x: 0, y: -1, z: 0 }),
           magnitude: PHYSICS_CONSTANTS.gravity.y * -0.4 * -1,
@@ -122,8 +113,14 @@ const forMedium = (inFluid: boolean): GravityVector =>
           terminalVelocity: PHYSICS_CONSTANTS.terminalVelocity * 0.4,
         })
       )
-    )
-  )
+    : Effect.runSync(
+        make({
+          direction: vector3({ x: 0, y: -1, z: 0 }),
+          magnitude: PHYSICS_CONSTANTS.gravity.y * -1,
+        })
+      )
+
+const forMedium = createForMedium
 
 const withMultiplier = (gravity: GravityVector, multiplier: UnitInterval): GravityVector =>
   Effect.runSync(
@@ -139,6 +136,11 @@ const withMultiplier = (gravity: GravityVector, multiplier: UnitInterval): Gravi
 const inspect = (gravity: GravityVector): string =>
   `gravity: (${gravity.direction.x.toFixed(3)}, ${gravity.direction.y.toFixed(3)}, ${gravity.direction.z.toFixed(3)}) * ${gravity.magnitude.toFixed(3)} | terminal=${gravity.terminalVelocity.toFixed(2)} | multiplier=${gravity.multiplier}`
 
+// プリセット用factory関数
+const createDefault = (): GravityVector => Effect.runSync(make({}))
+const createFluid = (): GravityVector =>
+  Effect.runSync(make({ multiplier: 0.4, magnitude: PHYSICS_CONSTANTS.gravity.y * -0.4 }))
+
 export const GravityVector = {
   schema: GravityVectorSchema,
   create: make,
@@ -149,6 +151,6 @@ export const GravityVector = {
   forMedium,
   withMultiplier,
   inspect,
-  default: Effect.runSync(make({})),
-  fluid: Effect.runSync(make({ multiplier: 0.4, magnitude: PHYSICS_CONSTANTS.gravity.y * -0.4 })),
+  default: createDefault(),
+  fluid: createFluid(),
 }

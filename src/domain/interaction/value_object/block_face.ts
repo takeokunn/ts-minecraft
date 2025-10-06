@@ -1,6 +1,5 @@
-import { Schema } from '@effect/schema'
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
-import { Data, Effect, Match, Option } from 'effect'
+import { Data, Effect, Match, Option, Schema } from 'effect'
 import { pipe } from 'effect/Function'
 import { Vector3, Vector3Error, fromNumbers, normalize } from './vector3'
 

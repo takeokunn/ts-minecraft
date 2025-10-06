@@ -7,14 +7,14 @@
  * - パフォーマンス制限の管理
  */
 
-import { Effect } from 'effect'
 import type * as GenerationErrors from '@domain/world/types/errors'
 import * as Coordinates from '@domain/world/value_object/coordinates/index'
 import * as WorldSeed from '@domain/world/value_object/world_seed/index'
-import type { GenerationState } from './index'
+import { Effect } from 'effect'
 import type {
   GenerateChunkCommand,
   GenerationContext,
+  GenerationState,
   UpdateSettingsCommand,
   WorldGenerator,
 } from './index'
@@ -87,17 +87,15 @@ export const validateCreationContext = (
 const validateSeedIntegrity = (seed: WorldSeed.WorldSeed): Effect.Effect<void, GenerationErrors.ValidationError> =>
   Effect.gen(function* () {
     // シード値の有効性確認
-    if (!WorldSeed.isValid(seed)) {
-      return yield* Effect.fail(GenerationErrors.createValidationError('Invalid world seed value'))
-    }
+    yield* Effect.when(!WorldSeed.isValid(seed), () =>
+      Effect.fail(GenerationErrors.createValidationError('Invalid world seed value'))
+    )
 
     // エントロピーの確認
     const entropy = WorldSeed.calculateEntropy(seed)
-    if (entropy < 0.5) {
-      return yield* Effect.fail(
-        GenerationErrors.createValidationError('Insufficient seed entropy for quality generation')
-      )
-    }
+    yield* Effect.when(entropy < 0.5, () =>
+      Effect.fail(GenerationErrors.createValidationError('Insufficient seed entropy for quality generation'))
+    )
   })
 
 /**
@@ -110,32 +108,28 @@ const validateParameterConsistency = (
     const { parameters, biomeConfig, noiseConfig } = context
 
     // 地形高度の整合性
-    if (parameters.terrain.minHeight >= parameters.terrain.maxHeight) {
-      return yield* Effect.fail(
-        GenerationErrors.createValidationError('Terrain min height must be less than max height')
-      )
-    }
+    yield* Effect.when(parameters.terrain.minHeight >= parameters.terrain.maxHeight, () =>
+      Effect.fail(GenerationErrors.createValidationError('Terrain min height must be less than max height'))
+    )
 
     // バイオーム温度範囲の妥当性
     for (const [biomeId, tempRange] of Object.entries(biomeConfig.temperatureRanges)) {
-      if (tempRange.min >= tempRange.max) {
-        return yield* Effect.fail(
-          GenerationErrors.createValidationError(`Invalid temperature range for biome ${biomeId}`)
-        )
-      }
+      yield* Effect.when(tempRange.min >= tempRange.max, () =>
+        Effect.fail(GenerationErrors.createValidationError(`Invalid temperature range for biome ${biomeId}`))
+      )
     }
 
     // ノイズスケールの妥当性
-    if (noiseConfig.baseSettings.scale <= 0 || noiseConfig.baseSettings.scale > 1000) {
-      return yield* Effect.fail(GenerationErrors.createValidationError('Noise scale must be between 0 and 1000'))
-    }
+    yield* Effect.when(noiseConfig.baseSettings.scale <= 0 || noiseConfig.baseSettings.scale > 1000, () =>
+      Effect.fail(GenerationErrors.createValidationError('Noise scale must be between 0 and 1000'))
+    )
 
     // 構造物密度の総和チェック
     const totalDensity = Object.values(parameters.structures.density).reduce((sum, density) => sum + density, 0)
 
-    if (totalDensity > 1.0) {
-      return yield* Effect.fail(GenerationErrors.createValidationError('Total structure density cannot exceed 1.0'))
-    }
+    yield* Effect.when(totalDensity > 1.0, () =>
+      Effect.fail(GenerationErrors.createValidationError('Total structure density cannot exceed 1.0'))
+    )
   })
 
 /**
@@ -147,21 +141,15 @@ const validateResourceLimits = (context: GenerationContext): Effect.Effect<void,
 
     // チャンク生成負荷の見積もり
     const estimatedLoad = estimateGenerationLoad(parameters)
-    if (estimatedLoad > 100) {
-      // 任意の上限値
-      return yield* Effect.fail(
-        GenerationErrors.createValidationError('Generation parameters would exceed system capacity')
-      )
-    }
+    yield* Effect.when(estimatedLoad > 100, () =>
+      Effect.fail(GenerationErrors.createValidationError('Generation parameters would exceed system capacity'))
+    )
 
     // メモリ使用量の見積もり
     const estimatedMemory = estimateMemoryUsage(parameters)
-    if (estimatedMemory > 1024 * 1024 * 1024) {
-      // 1GB上限
-      return yield* Effect.fail(
-        GenerationErrors.createValidationError('Generation parameters would exceed memory limits')
-      )
-    }
+    yield* Effect.when(estimatedMemory > 1024 * 1024 * 1024, () =>
+      Effect.fail(GenerationErrors.createValidationError('Generation parameters would exceed memory limits'))
+    )
   })
 
 /**
@@ -174,27 +162,27 @@ const validatePhysicalConstraints = (
     const { parameters, biomeConfig } = context
 
     // 重力と地形の関係
-    if (parameters.physics.gravity <= 0) {
-      return yield* Effect.fail(GenerationErrors.createValidationError('Gravity must be positive'))
-    }
+    yield* Effect.when(parameters.physics.gravity <= 0, () =>
+      Effect.fail(GenerationErrors.createValidationError('Gravity must be positive'))
+    )
 
     // 水位と地形の関係
     const seaLevel = parameters.terrain.seaLevel
-    if (seaLevel < parameters.terrain.minHeight || seaLevel > parameters.terrain.maxHeight) {
-      return yield* Effect.fail(GenerationErrors.createValidationError('Sea level must be within terrain height range'))
-    }
+    yield* Effect.when(seaLevel < parameters.terrain.minHeight || seaLevel > parameters.terrain.maxHeight, () =>
+      Effect.fail(GenerationErrors.createValidationError('Sea level must be within terrain height range'))
+    )
 
     // 気候モデルの物理的妥当性
     for (const climate of Object.values(biomeConfig.climateData)) {
-      if (climate.temperature < -50 || climate.temperature > 60) {
-        return yield* Effect.fail(
+      yield* Effect.when(climate.temperature < -50 || climate.temperature > 60, () =>
+        Effect.fail(
           GenerationErrors.createValidationError('Temperature values must be within realistic range (-50°C to 60°C)')
         )
-      }
+      )
 
-      if (climate.humidity < 0 || climate.humidity > 100) {
-        return yield* Effect.fail(GenerationErrors.createValidationError('Humidity values must be between 0% and 100%'))
-      }
+      yield* Effect.when(climate.humidity < 0 || climate.humidity > 100, () =>
+        Effect.fail(GenerationErrors.createValidationError('Humidity values must be between 0% and 100%'))
+      )
     }
   })
 
@@ -233,21 +221,21 @@ const validateChunkCoordinate = (
 ): Effect.Effect<void, GenerationErrors.ValidationError> =>
   Effect.gen(function* () {
     // 座標範囲の確認
-    if (
+    yield* Effect.when(
       Math.abs(coordinate.x) > MAX_CHUNK_DISTANCE_FROM_ORIGIN ||
-      Math.abs(coordinate.z) > MAX_CHUNK_DISTANCE_FROM_ORIGIN
-    ) {
-      return yield* Effect.fail(
-        GenerationErrors.createValidationError(
-          `Chunk coordinate (${coordinate.x}, ${coordinate.z}) exceeds maximum distance`
+        Math.abs(coordinate.z) > MAX_CHUNK_DISTANCE_FROM_ORIGIN,
+      () =>
+        Effect.fail(
+          GenerationErrors.createValidationError(
+            `Chunk coordinate (${coordinate.x}, ${coordinate.z}) exceeds maximum distance`
+          )
         )
-      )
-    }
+    )
 
     // 座標の整数性確認 (念のため)
-    if (!Number.isInteger(coordinate.x) || !Number.isInteger(coordinate.z)) {
-      return yield* Effect.fail(GenerationErrors.createValidationError('Chunk coordinates must be integers'))
-    }
+    yield* Effect.when(!Number.isInteger(coordinate.x) || !Number.isInteger(coordinate.z), () =>
+      Effect.fail(GenerationErrors.createValidationError('Chunk coordinates must be integers'))
+    )
   })
 
 /**
@@ -255,17 +243,17 @@ const validateChunkCoordinate = (
  */
 const validatePriority = (priority: number): Effect.Effect<void, GenerationErrors.ValidationError> =>
   Effect.gen(function* () {
-    if (priority < MIN_GENERATION_PRIORITY || priority > MAX_GENERATION_PRIORITY) {
-      return yield* Effect.fail(
+    yield* Effect.when(priority < MIN_GENERATION_PRIORITY || priority > MAX_GENERATION_PRIORITY, () =>
+      Effect.fail(
         GenerationErrors.createValidationError(
           `Priority must be between ${MIN_GENERATION_PRIORITY} and ${MAX_GENERATION_PRIORITY}`
         )
       )
-    }
+    )
 
-    if (!Number.isInteger(priority)) {
-      return yield* Effect.fail(GenerationErrors.createValidationError('Priority must be an integer'))
-    }
+    yield* Effect.when(!Number.isInteger(priority), () =>
+      Effect.fail(GenerationErrors.createValidationError('Priority must be an integer'))
+    )
   })
 
 /**
@@ -277,9 +265,9 @@ const validateGenerationOptions = (
 ): Effect.Effect<void, GenerationErrors.ValidationError> =>
   Effect.gen(function* () {
     // フラットワールドでは洞窟生成を無効化
-    if (generator.context.metadata.worldType === 'flat' && options.includeCaves) {
-      return yield* Effect.fail(GenerationErrors.createValidationError('Flat worlds cannot generate caves'))
-    }
+    yield* Effect.when(generator.context.metadata.worldType === 'flat' && options.includeCaves, () =>
+      Effect.fail(GenerationErrors.createValidationError('Flat worlds cannot generate caves'))
+    )
 
     // ピースフル難易度では敵対MOB関連構造物を制限
     if (generator.context.metadata.difficulty === 'peaceful' && options.includeStructures) {
@@ -293,13 +281,13 @@ const validateGenerationOptions = (
 const validateGeneratorState = (generator: WorldGenerator): Effect.Effect<void, GenerationErrors.ValidationError> =>
   Effect.gen(function* () {
     // 同時生成数の確認
-    if (generator.state.statistics.concurrentGenerations >= MAX_CONCURRENT_GENERATIONS) {
-      return yield* Effect.fail(
+    yield* Effect.when(generator.state.statistics.concurrentGenerations >= MAX_CONCURRENT_GENERATIONS, () =>
+      Effect.fail(
         GenerationErrors.createValidationError(
           `Maximum concurrent generations (${MAX_CONCURRENT_GENERATIONS}) exceeded`
         )
       )
-    }
+    )
 
     // ジェネレータの整合性確認
     yield* validateStructuralIntegrity(generator)
@@ -318,11 +306,9 @@ export const validateSettingsUpdate = (
 ): Effect.Effect<void, GenerationErrors.ValidationError> =>
   Effect.gen(function* () {
     // アクティブな生成中の更新制限
-    if (generator.state.statistics.concurrentGenerations > 0) {
-      return yield* Effect.fail(
-        GenerationErrors.createValidationError('Cannot update settings while chunk generation is active')
-      )
-    }
+    yield* Effect.when(generator.state.statistics.concurrentGenerations > 0, () =>
+      Effect.fail(GenerationErrors.createValidationError('Cannot update settings while chunk generation is active'))
+    )
 
     // 更新内容の検証
     if (command.parameters || command.biomeConfig || command.noiseConfig) {
@@ -349,21 +335,19 @@ export const validateStructuralIntegrity = (
 ): Effect.Effect<void, GenerationErrors.IntegrityError> =>
   Effect.gen(function* () {
     // 必須フィールドの存在確認
-    if (!generator.id || !generator.context || !generator.state) {
-      return yield* Effect.fail(GenerationErrors.createIntegrityError('Missing required generator fields'))
-    }
+    yield* Effect.when(!generator.id || !generator.context || !generator.state, () =>
+      Effect.fail(GenerationErrors.createIntegrityError('Missing required generator fields'))
+    )
 
     // バージョンの整合性
-    if (generator.version < 0) {
-      return yield* Effect.fail(GenerationErrors.createIntegrityError('Invalid aggregate version'))
-    }
+    yield* Effect.when(generator.version < 0, () =>
+      Effect.fail(GenerationErrors.createIntegrityError('Invalid aggregate version'))
+    )
 
     // タイムスタンプの整合性
-    if (generator.createdAt > generator.updatedAt) {
-      return yield* Effect.fail(
-        GenerationErrors.createIntegrityError('Created timestamp cannot be after updated timestamp')
-      )
-    }
+    yield* Effect.when(generator.createdAt > generator.updatedAt, () =>
+      Effect.fail(GenerationErrors.createIntegrityError('Created timestamp cannot be after updated timestamp'))
+    )
   })
 
 /**
@@ -380,13 +364,13 @@ export const validateDataIntegrity = (
 
     // 統計データの整合性
     const stats = generator.state.statistics
-    if (stats.totalChunksGenerated < 0 || stats.failureCount < 0) {
-      return yield* Effect.fail(GenerationErrors.createIntegrityError('Invalid statistics values'))
-    }
+    yield* Effect.when(stats.totalChunksGenerated < 0 || stats.failureCount < 0, () =>
+      Effect.fail(GenerationErrors.createIntegrityError('Invalid statistics values'))
+    )
 
-    if (stats.successRate < 0 || stats.successRate > 1) {
-      return yield* Effect.fail(GenerationErrors.createIntegrityError('Invalid success rate'))
-    }
+    yield* Effect.when(stats.successRate < 0 || stats.successRate > 1, () =>
+      Effect.fail(GenerationErrors.createIntegrityError('Invalid success rate'))
+    )
   })
 
 /**
@@ -396,23 +380,23 @@ export const validateStateIntegrity = (state: GenerationState): Effect.Effect<vo
   Effect.gen(function* () {
     // アクティブ生成数の整合性
     const activeCount = Object.keys(state.activeGenerations).length
-    if (activeCount !== state.statistics.concurrentGenerations) {
-      return yield* Effect.fail(
+    yield* Effect.when(activeCount !== state.statistics.concurrentGenerations, () =>
+      Effect.fail(
         GenerationErrors.createIntegrityError('Active generations count mismatch between state and statistics')
       )
-    }
+    )
 
     // 生成状態の論理的整合性
     for (const [key, info] of Object.entries(state.activeGenerations)) {
-      if (info.status === 'completed' || info.status === 'failed') {
-        return yield* Effect.fail(
+      yield* Effect.when(info.status === 'completed' || info.status === 'failed', () =>
+        Effect.fail(
           GenerationErrors.createIntegrityError(`Active generation ${key} has terminal status ${info.status}`)
         )
-      }
+      )
 
-      if (info.attempts <= 0) {
-        return yield* Effect.fail(GenerationErrors.createIntegrityError(`Invalid attempt count for generation ${key}`))
-      }
+      yield* Effect.when(info.attempts <= 0, () =>
+        Effect.fail(GenerationErrors.createIntegrityError(`Invalid attempt count for generation ${key}`))
+      )
     }
   })
 

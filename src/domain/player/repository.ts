@@ -1,6 +1,6 @@
 import { Context, Effect, Layer, Option, Ref, pipe } from 'effect'
-import { PlayerErrorBuilders } from './index'
 import type { PlayerAggregate, PlayerId } from './index'
+import { PlayerErrorBuilders } from './index'
 
 export interface PlayerRepositoryService {
   readonly upsert: (aggregate: PlayerAggregate) => Effect.Effect<void, never>

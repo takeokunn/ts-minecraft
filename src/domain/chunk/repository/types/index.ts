@@ -4,6 +4,7 @@
  * チャンクリポジトリ型定義の統合エクスポート
  */
 
+export * from './repository_error'
 export {
   RepositoryError,
   RepositoryErrorSchema,
@@ -25,5 +26,4 @@ export {
   isValidationError,
   // Repository Errors
   type RepositoryError,
-} from './index'
-export * from './repository_error';
+} from './repository_error'

@@ -1,5 +1,4 @@
-import { Schema } from '@effect/schema'
-import { Array, Clock, Effect, HashSet, Match, Option, Record, pipe } from 'effect'
+import { Array, Clock, Effect, HashSet, Match, Option, Record, Schema, pipe } from 'effect'
 import {
   CraftingGrid,
   CraftingItemStack,
@@ -86,7 +85,7 @@ export const createRecipeAggregate = (
     const tags: ReadonlyArray<ItemTag> = input.tags ?? []
     const now = yield* currentDate()
 
-    const metadata = yield* Schema.decodeEffect(RecipeMetadataSchema)({
+    const metadata = yield* Schema.decode(RecipeMetadataSchema)({
       createdAt: now,
       updatedAt: now,
       version: 1,

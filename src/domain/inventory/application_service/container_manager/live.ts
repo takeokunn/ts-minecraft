@@ -7,9 +7,7 @@
 
 import { Context, Effect, Layer } from 'effect'
 import type { ContainerAggregate, ContainerId } from '../../aggregate/container'
-import type { InventoryCommand } from '../../types'
-import type { ItemStack, PlayerId } from '../../types'
-import type { InventoryQuery } from '../../types'
+import type { InventoryCommand, InventoryQuery, ItemStack, PlayerId } from '../../types'
 import type { InventoryApplicationError } from '../types'
 import { ContainerManagerApplicationService as ContainerManagerApplicationServiceInterface } from './index'
 
@@ -33,7 +31,7 @@ const ContainerManagerApplicationServiceImpl: ContainerManagerApplicationService
     Effect.fail({
       _tag: 'CONTAINER_NOT_FOUND',
       message: 'Container not found',
-      timestamp: new Date(),
+      timestamp: yield * Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms)),
     }),
 
   closeContainer: (containerId: ContainerId, playerId: PlayerId): Effect.Effect<void, InventoryApplicationError> =>
@@ -55,7 +53,7 @@ const ContainerManagerApplicationServiceImpl: ContainerManagerApplicationService
     Effect.fail({
       _tag: 'CONTAINER_NOT_FOUND',
       message: 'No items available in container',
-      timestamp: new Date(),
+      timestamp: yield * Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms)),
     }),
 
   deleteContainer: (containerId: ContainerId, playerId: PlayerId): Effect.Effect<void, InventoryApplicationError> =>
@@ -94,7 +92,7 @@ const ContainerManagerApplicationServiceImpl: ContainerManagerApplicationService
     Effect.fail({
       _tag: 'CONTAINER_NOT_FOUND',
       message: 'Container not found',
-      timestamp: new Date(),
+      timestamp: yield * Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms)),
     }),
 
   getPlayerContainers: (
@@ -142,7 +140,7 @@ const ContainerManagerApplicationServiceImpl: ContainerManagerApplicationService
       uniqueItemTypes: 0,
       totalValue: 0,
       utilizationPercentage: 0,
-      lastAccessed: new Date(),
+      lastAccessed: yield * Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms)),
       accessCount: 0,
     }),
 
@@ -192,7 +190,7 @@ const ContainerManagerApplicationServiceImpl: ContainerManagerApplicationService
     Effect.fail({
       _tag: 'CONTAINER_NOT_FOUND',
       message: 'Container health check failed',
-      timestamp: new Date(),
+      timestamp: yield * Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms)),
     }),
 }
 

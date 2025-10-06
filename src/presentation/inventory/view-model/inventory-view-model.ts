@@ -1,6 +1,6 @@
-import { InventoryService } from '@domain/inventory'
 import {
   PlayerId as DomainPlayerIdFactory,
+  InventoryService,
   type Inventory as DomainInventory,
   type ItemStack as DomainItemStack,
   type PlayerId as DomainPlayerId,

@@ -5,7 +5,7 @@
  * class構文を一切使用せず、pipe/flowによる関数合成とEffect.genで実装
  */
 
-import { Effect, Match, pipe } from 'effect'
+import { Effect, Match, Option, pipe, ReadonlyArray } from 'effect'
 import type { ItemStack } from '../../types'
 import type {
   Container,
@@ -30,69 +30,91 @@ import {
 const getContainerSpec = (type: ContainerType): ContainerTypeSpec => containerTypeSpecs[type]
 
 // 空のスロット生成（Pure Function）
-const createEmptySlots = (spec: ContainerTypeSpec): ReadonlyArray<ContainerSlot> => {
-  const slots: ContainerSlot[] = []
+const createEmptySlots = (spec: ContainerTypeSpec): ReadonlyArray<ContainerSlot> =>
+  pipe(
+    ReadonlyArray.makeBy(spec.defaultSlotCount, (i) => {
+      const specialSlot = spec.specialSlots?.find((s) => s.index === i)
 
-  for (let i = 0; i < spec.defaultSlotCount; i++) {
-    // 特殊スロットの確認
-    const specialSlot = spec.specialSlots?.find((s) => s.index === i)
-
-    const slot: ContainerSlot = {
-      index: i,
-      type: specialSlot?.type || 'storage',
-      item: null,
-      acceptsItemType: specialSlot?.acceptsItemType,
-      maxStackSize: 64, // デフォルト
-    }
-
-    slots.push(slot)
-  }
-
-  return slots
-}
+      return {
+        index: i,
+        type: (specialSlot?.type || 'storage') as const,
+        item: null,
+        acceptsItemType: specialSlot?.acceptsItemType,
+        maxStackSize: 64,
+      }
+    })
+  )
 
 // コンテナ設定の検証（Pure Function with Effect Error Handling）
 const validateContainerConfig = (config: ContainerConfig): Effect.Effect<void, ContainerCreationError> =>
   Effect.gen(function* () {
-    const errors: string[] = []
-
-    if (!config.id || config.id.trim() === '') {
-      errors.push('id is required')
-    }
-
-    if (!config.type) {
-      errors.push('type is required')
-    }
+    const errors = pipe(
+      [
+        pipe(
+          !config.id || config.id.trim() === '',
+          Option.liftPredicate((isEmpty) => isEmpty),
+          Option.map(() => 'id is required')
+        ),
+        pipe(
+          !config.type,
+          Option.liftPredicate((isEmpty) => isEmpty),
+          Option.map(() => 'type is required')
+        ),
+      ],
+      ReadonlyArray.filterMap((opt) => opt)
+    )
 
     const spec = getContainerSpec(config.type)
-    if (config.totalSlots !== undefined) {
-      if (config.totalSlots < 1 || config.totalSlots > 54) {
-        errors.push('totalSlots must be between 1 and 54')
-      }
-      if (config.totalSlots !== spec.defaultSlotCount) {
-        errors.push(`totalSlots for ${config.type} should be ${spec.defaultSlotCount}`)
-      }
-    }
+    const slotErrors = pipe(
+      config.totalSlots,
+      Option.fromNullable,
+      Option.map((totalSlots) =>
+        pipe(
+          [
+            pipe(
+              totalSlots < 1 || totalSlots > 54,
+              Option.liftPredicate((invalid) => invalid),
+              Option.map(() => 'totalSlots must be between 1 and 54')
+            ),
+            pipe(
+              totalSlots !== spec.defaultSlotCount,
+              Option.liftPredicate((mismatch) => mismatch),
+              Option.map(() => `totalSlots for ${config.type} should be ${spec.defaultSlotCount}`)
+            ),
+          ],
+          ReadonlyArray.filterMap((opt) => opt)
+        )
+      ),
+      Option.getOrElse(() => [] as ReadonlyArray<string>)
+    )
 
-    if (config.initialItems) {
-      for (const item of config.initialItems) {
-        if (item.slotIndex < 0 || item.slotIndex >= spec.defaultSlotCount) {
-          errors.push(`invalid slot index ${item.slotIndex} for ${config.type}`)
-        }
-      }
-    }
-
-    if (errors.length > 0) {
-      return yield* Effect.fail(
-        new CreationError({
-          reason: 'Invalid container configuration',
-          invalidFields: errors,
-          context: { config },
-        })
+    const itemErrors = pipe(
+      config.initialItems ?? [],
+      ReadonlyArray.filterMap((item) =>
+        pipe(
+          item.slotIndex < 0 || item.slotIndex >= spec.defaultSlotCount,
+          Option.liftPredicate((invalid) => invalid),
+          Option.map(() => `invalid slot index ${item.slotIndex} for ${config.type}`)
+        )
       )
-    }
+    )
 
-    return yield* Effect.void
+    const allErrors = [...errors, ...slotErrors, ...itemErrors]
+
+    return yield* pipe(
+      allErrors.length > 0,
+      Effect.when({
+        onTrue: () =>
+          Effect.fail(
+            new CreationError({
+              reason: 'Invalid container configuration',
+              invalidFields: allErrors,
+              context: { config },
+            })
+          ),
+        onFalse: () => Effect.void,
+      })
+    )
   })
 
 // スロットにアイテムが挿入可能かチェック（Pure Function）
@@ -118,35 +140,43 @@ const canInsertIntoSlot = (slot: ContainerSlot, item: ItemStack): boolean => {
 // アイテム挿入処理（Pure Function with Effect）
 const insertItemIntoSlot = (slot: ContainerSlot, item: ItemStack): Effect.Effect<ContainerSlot, OperationError> =>
   Effect.gen(function* () {
-    if (!canInsertIntoSlot(slot, item)) {
-      return yield* Effect.fail(
-        new OperationError({
-          reason: 'Cannot insert item into slot',
-          operation: 'insertItem',
-          context: { slot, item },
-        })
-      )
-    }
+    return yield* pipe(
+      canInsertIntoSlot(slot, item),
+      Effect.if({
+        onTrue: () =>
+          pipe(
+            Option.fromNullable(slot.item),
+            Option.match({
+              onNone: () =>
+                Effect.succeed({
+                  ...slot,
+                  item,
+                }),
+              onSome: (existingItem) =>
+                Effect.gen(function* () {
+                  const maxStackSize = slot.maxStackSize || 64
+                  const newCount = Math.min(existingItem.count + item.count, maxStackSize)
 
-    if (slot.item === null) {
-      // 空のスロットに挿入
-      return yield* Effect.succeed({
-        ...slot,
-        item,
+                  return yield* Effect.succeed({
+                    ...slot,
+                    item: {
+                      ...existingItem,
+                      count: newCount,
+                    },
+                  })
+                }),
+            })
+          ),
+        onFalse: () =>
+          Effect.fail(
+            new OperationError({
+              reason: 'Cannot insert item into slot',
+              operation: 'insertItem',
+              context: { slot, item },
+            })
+          ),
       })
-    } else {
-      // 既存アイテムとスタック
-      const maxStackSize = slot.maxStackSize || 64
-      const newCount = Math.min(slot.item.count + item.count, maxStackSize)
-
-      return yield* Effect.succeed({
-        ...slot,
-        item: {
-          ...slot.item,
-          count: newCount,
-        },
-      })
-    }
+    )
   })
 
 // スロットからアイテム抽出（Pure Function with Effect）
@@ -155,39 +185,50 @@ const extractItemFromSlot = (
   amount?: number
 ): Effect.Effect<readonly [ContainerSlot, ItemStack | null], OperationError> =>
   Effect.gen(function* () {
-    if (slot.item === null) {
-      return yield* Effect.succeed([slot, null] as const)
-    }
+    return yield* pipe(
+      Option.fromNullable(slot.item),
+      Option.match({
+        onNone: () => Effect.succeed([slot, null] as const),
+        onSome: (item) =>
+          Effect.gen(function* () {
+            const extractAmount = amount || item.count
 
-    const extractAmount = amount || slot.item.count
-    if (extractAmount <= 0) {
-      return yield* Effect.fail(
-        new OperationError({
-          reason: 'Extract amount must be positive',
-          operation: 'extractItem',
-          context: { slot, amount },
-        })
-      )
-    }
-
-    if (extractAmount >= slot.item.count) {
-      // 全て抽出
-      const extractedItem = slot.item
-      const newSlot: ContainerSlot = { ...slot, item: null }
-      return yield* Effect.succeed([newSlot, extractedItem] as const)
-    } else {
-      // 一部抽出
-      const extractedItem: ItemStack = {
-        ...slot.item,
-        count: extractAmount,
-      }
-      const remainingItem: ItemStack = {
-        ...slot.item,
-        count: slot.item.count - extractAmount,
-      }
-      const newSlot: ContainerSlot = { ...slot, item: remainingItem }
-      return yield* Effect.succeed([newSlot, extractedItem] as const)
-    }
+            return yield* pipe(
+              extractAmount <= 0,
+              Effect.if({
+                onTrue: () =>
+                  Effect.fail(
+                    new OperationError({
+                      reason: 'Extract amount must be positive',
+                      operation: 'extractItem',
+                      context: { slot, amount },
+                    })
+                  ),
+                onFalse: () =>
+                  pipe(
+                    extractAmount >= item.count,
+                    Effect.if({
+                      onTrue: () => Effect.succeed([{ ...slot, item: null }, item] as const),
+                      onFalse: () =>
+                        Effect.gen(function* () {
+                          const extractedItem: ItemStack = {
+                            ...item,
+                            count: extractAmount,
+                          }
+                          const remainingItem: ItemStack = {
+                            ...item,
+                            count: item.count - extractAmount,
+                          }
+                          const newSlot: ContainerSlot = { ...slot, item: remainingItem }
+                          return yield* Effect.succeed([newSlot, extractedItem] as const)
+                        }),
+                    })
+                  ),
+              })
+            )
+          }),
+      })
+    )
   })
 
 // 初期アイテム配置（Pure Function with Effect）
@@ -196,27 +237,35 @@ const placeInitialItems = (
   items: ReadonlyArray<{ slotIndex: number; item: ItemStack }>
 ): Effect.Effect<ReadonlyArray<ContainerSlot>, ContainerCreationError> =>
   Effect.gen(function* () {
-    const mutableSlots = [...slots]
+    return yield* pipe(
+      items,
+      Effect.reduce([...slots], (mutableSlots, itemPlacement) =>
+        Effect.gen(function* () {
+          const { slotIndex, item } = itemPlacement
 
-    for (const itemPlacement of items) {
-      const { slotIndex, item } = itemPlacement
-
-      if (slotIndex < 0 || slotIndex >= mutableSlots.length) {
-        return yield* Effect.fail(
-          new CreationError({
-            reason: `Invalid slot index ${slotIndex}`,
-            invalidFields: ['slotIndex'],
-            context: { itemPlacement, totalSlots: mutableSlots.length },
-          })
-        )
-      }
-
-      const currentSlot = mutableSlots[slotIndex]
-      const updatedSlot = yield* insertItemIntoSlot(currentSlot, item)
-      mutableSlots[slotIndex] = updatedSlot
-    }
-
-    return yield* Effect.succeed(mutableSlots)
+          return yield* pipe(
+            slotIndex < 0 || slotIndex >= mutableSlots.length,
+            Effect.if({
+              onTrue: () =>
+                Effect.fail(
+                  new CreationError({
+                    reason: `Invalid slot index ${slotIndex}`,
+                    invalidFields: ['slotIndex'],
+                    context: { itemPlacement, totalSlots: mutableSlots.length },
+                  })
+                ),
+              onFalse: () =>
+                Effect.gen(function* () {
+                  const currentSlot = mutableSlots[slotIndex]
+                  const updatedSlot = yield* insertItemIntoSlot(currentSlot, item)
+                  mutableSlots[slotIndex] = updatedSlot
+                  return yield* Effect.succeed(mutableSlots)
+                }),
+            })
+          )
+        })
+      )
+    )
   })
 
 // ===== Factory実装（Function.flowとEffect.genパターン） =====
@@ -287,7 +336,11 @@ export const ContainerFactoryLive: ContainerFactory = {
     Effect.gen(function* () {
       const container = yield* ContainerFactoryLive.createEmpty(id, 'shulker_box')
 
-      const metadata = color ? { color } : undefined
+      const metadata = pipe(
+        Option.fromNullable(color),
+        Option.map((c) => ({ color: c })),
+        Option.getOrUndefined
+      )
 
       return yield* Effect.succeed({
         ...container,
@@ -301,12 +354,17 @@ export const ContainerFactoryLive: ContainerFactory = {
       yield* validateContainerConfig(config)
 
       const spec = getContainerSpec(config.type)
-      let slots = createEmptySlots(spec)
+      const emptySlots = createEmptySlots(spec)
 
-      // 初期アイテム配置
-      if (config.initialItems && config.initialItems.length > 0) {
-        slots = yield* placeInitialItems(slots, config.initialItems)
-      }
+      const slots = yield* pipe(
+        config.initialItems,
+        Option.fromNullable,
+        Option.filter((items) => items.length > 0),
+        Option.match({
+          onNone: () => Effect.succeed(emptySlots),
+          onSome: (items) => placeInitialItems(emptySlots, items),
+        })
+      )
 
       const container: Container = {
         id: config.id,
@@ -341,120 +399,165 @@ export const ContainerFactoryLive: ContainerFactory = {
   // アイテム挿入
   insertItem: (container, item, slotIndex) =>
     Effect.gen(function* () {
-      if (slotIndex !== undefined) {
-        // 指定スロットに挿入
-        if (slotIndex < 0 || slotIndex >= container.slots.length) {
-          return yield* Effect.fail(
-            new OperationError({
-              reason: `Invalid slot index ${slotIndex}`,
-              operation: 'insertItem',
-              context: { container: container.id, slotIndex },
-            })
-          )
-        }
+      return yield* pipe(
+        Option.fromNullable(slotIndex),
+        Option.match({
+          onNone: () =>
+            Effect.gen(function* () {
+              const availableSlotIndex = pipe(
+                container.slots,
+                ReadonlyArray.findFirstIndex((slot) => canInsertIntoSlot(slot, item))
+              )
 
-        const targetSlot = container.slots[slotIndex]
-        const updatedSlot = yield* insertItemIntoSlot(targetSlot, item)
-        const newSlots = [...container.slots]
-        newSlots[slotIndex] = updatedSlot
+              return yield* pipe(
+                availableSlotIndex,
+                Option.match({
+                  onNone: () =>
+                    Effect.fail(
+                      new OperationError({
+                        reason: 'No available slot for item insertion',
+                        operation: 'insertItem',
+                        context: { container: container.id, item },
+                      })
+                    ),
+                  onSome: (slotIndex) =>
+                    Effect.gen(function* () {
+                      const updatedSlot = yield* insertItemIntoSlot(container.slots[slotIndex], item)
+                      const newSlots = [...container.slots]
+                      newSlots[slotIndex] = updatedSlot
 
-        return yield* Effect.succeed({
-          ...container,
-          slots: newSlots,
+                      return yield* Effect.succeed({
+                        ...container,
+                        slots: newSlots,
+                      })
+                    }),
+                })
+              )
+            }),
+          onSome: (targetSlotIndex) =>
+            Effect.gen(function* () {
+              return yield* pipe(
+                targetSlotIndex < 0 || targetSlotIndex >= container.slots.length,
+                Effect.if({
+                  onTrue: () =>
+                    Effect.fail(
+                      new OperationError({
+                        reason: `Invalid slot index ${targetSlotIndex}`,
+                        operation: 'insertItem',
+                        context: { container: container.id, slotIndex: targetSlotIndex },
+                      })
+                    ),
+                  onFalse: () =>
+                    Effect.gen(function* () {
+                      const targetSlot = container.slots[targetSlotIndex]
+                      const updatedSlot = yield* insertItemIntoSlot(targetSlot, item)
+                      const newSlots = [...container.slots]
+                      newSlots[targetSlotIndex] = updatedSlot
+
+                      return yield* Effect.succeed({
+                        ...container,
+                        slots: newSlots,
+                      })
+                    }),
+                })
+              )
+            }),
         })
-      } else {
-        // 最初の利用可能なスロットに挿入
-        for (let i = 0; i < container.slots.length; i++) {
-          const slot = container.slots[i]
-          if (canInsertIntoSlot(slot, item)) {
-            const updatedSlot = yield* insertItemIntoSlot(slot, item)
-            const newSlots = [...container.slots]
-            newSlots[i] = updatedSlot
-
-            return yield* Effect.succeed({
-              ...container,
-              slots: newSlots,
-            })
-          }
-        }
-
-        // 挿入可能なスロットが見つからない
-        return yield* Effect.fail(
-          new OperationError({
-            reason: 'No available slot for item insertion',
-            operation: 'insertItem',
-            context: { container: container.id, item },
-          })
-        )
-      }
+      )
     }),
 
   // アイテム抽出
   extractItem: (container, slotIndex, amount) =>
     Effect.gen(function* () {
-      if (slotIndex < 0 || slotIndex >= container.slots.length) {
-        return yield* Effect.fail(
-          new OperationError({
-            reason: `Invalid slot index ${slotIndex}`,
-            operation: 'extractItem',
-            context: { container: container.id, slotIndex },
-          })
-        )
-      }
+      return yield* pipe(
+        slotIndex < 0 || slotIndex >= container.slots.length,
+        Effect.if({
+          onTrue: () =>
+            Effect.fail(
+              new OperationError({
+                reason: `Invalid slot index ${slotIndex}`,
+                operation: 'extractItem',
+                context: { container: container.id, slotIndex },
+              })
+            ),
+          onFalse: () =>
+            Effect.gen(function* () {
+              const targetSlot = container.slots[slotIndex]
+              const [updatedSlot, extractedItem] = yield* extractItemFromSlot(targetSlot, amount)
 
-      const targetSlot = container.slots[slotIndex]
-      const [updatedSlot, extractedItem] = yield* extractItemFromSlot(targetSlot, amount)
+              const newSlots = [...container.slots]
+              newSlots[slotIndex] = updatedSlot
 
-      const newSlots = [...container.slots]
-      newSlots[slotIndex] = updatedSlot
+              const updatedContainer: Container = {
+                ...container,
+                slots: newSlots,
+              }
 
-      const updatedContainer: Container = {
-        ...container,
-        slots: newSlots,
-      }
-
-      return yield* Effect.succeed([updatedContainer, extractedItem] as const)
+              return yield* Effect.succeed([updatedContainer, extractedItem] as const)
+            }),
+        })
+      )
     }),
 
   // アイテム移動
   moveItem: (container, fromSlot, toSlot) =>
     Effect.gen(function* () {
-      if (fromSlot === toSlot) {
-        return yield* Effect.succeed(container)
-      }
+      return yield* pipe(
+        fromSlot === toSlot,
+        Effect.if({
+          onTrue: () => Effect.succeed(container),
+          onFalse: () =>
+            pipe(
+              fromSlot < 0 || fromSlot >= container.slots.length || toSlot < 0 || toSlot >= container.slots.length,
+              Effect.if({
+                onTrue: () =>
+                  Effect.fail(
+                    new OperationError({
+                      reason: 'Invalid slot indices for move operation',
+                      operation: 'moveItem',
+                      context: { container: container.id, fromSlot, toSlot },
+                    })
+                  ),
+                onFalse: () =>
+                  Effect.gen(function* () {
+                    const sourceSlot = container.slots[fromSlot]
+                    const targetSlot = container.slots[toSlot]
 
-      if (fromSlot < 0 || fromSlot >= container.slots.length || toSlot < 0 || toSlot >= container.slots.length) {
-        return yield* Effect.fail(
-          new OperationError({
-            reason: 'Invalid slot indices for move operation',
-            operation: 'moveItem',
-            context: { container: container.id, fromSlot, toSlot },
-          })
-        )
-      }
+                    return yield* pipe(
+                      Option.fromNullable(sourceSlot.item),
+                      Option.match({
+                        onNone: () => Effect.succeed(container),
+                        onSome: () =>
+                          Effect.gen(function* () {
+                            const [updatedSourceSlot, extractedItem] = yield* extractItemFromSlot(sourceSlot)
 
-      const sourceSlot = container.slots[fromSlot]
-      const targetSlot = container.slots[toSlot]
+                            return yield* pipe(
+                              Option.fromNullable(extractedItem),
+                              Option.match({
+                                onNone: () => Effect.succeed(container),
+                                onSome: (item) =>
+                                  Effect.gen(function* () {
+                                    const updatedTargetSlot = yield* insertItemIntoSlot(targetSlot, item)
 
-      if (sourceSlot.item === null) {
-        return yield* Effect.succeed(container)
-      }
+                                    const newSlots = [...container.slots]
+                                    newSlots[fromSlot] = updatedSourceSlot
+                                    newSlots[toSlot] = updatedTargetSlot
 
-      const [updatedSourceSlot, extractedItem] = yield* extractItemFromSlot(sourceSlot)
-      if (extractedItem === null) {
-        return yield* Effect.succeed(container)
-      }
-
-      const updatedTargetSlot = yield* insertItemIntoSlot(targetSlot, extractedItem)
-
-      const newSlots = [...container.slots]
-      newSlots[fromSlot] = updatedSourceSlot
-      newSlots[toSlot] = updatedTargetSlot
-
-      return yield* Effect.succeed({
-        ...container,
-        slots: newSlots,
-      })
+                                    return yield* Effect.succeed({
+                                      ...container,
+                                      slots: newSlots,
+                                    })
+                                  }),
+                              })
+                            )
+                          }),
+                      })
+                    )
+                  }),
+              })
+            ),
+        })
+      )
     }),
 
   // コンテナクリア
@@ -472,44 +575,66 @@ export const ContainerFactoryLive: ContainerFactory = {
   // コンテナ検証
   validateContainer: (container) =>
     Effect.gen(function* () {
-      const errors: string[] = []
-
-      if (!container.id || container.id.trim() === '') {
-        errors.push('id is required')
-      }
-
-      if (!container.type) {
-        errors.push('type is required')
-      }
+      const basicErrors = pipe(
+        [
+          pipe(
+            !container.id || container.id.trim() === '',
+            Option.liftPredicate((isEmpty) => isEmpty),
+            Option.map(() => 'id is required')
+          ),
+          pipe(
+            !container.type,
+            Option.liftPredicate((isEmpty) => isEmpty),
+            Option.map(() => 'type is required')
+          ),
+        ],
+        ReadonlyArray.filterMap((opt) => opt)
+      )
 
       const spec = getContainerSpec(container.type)
-      if (container.totalSlots !== spec.defaultSlotCount) {
-        errors.push(`totalSlots should be ${spec.defaultSlotCount} for ${container.type}`)
-      }
+      const specErrors = pipe(
+        [
+          pipe(
+            container.totalSlots !== spec.defaultSlotCount,
+            Option.liftPredicate((mismatch) => mismatch),
+            Option.map(() => `totalSlots should be ${spec.defaultSlotCount} for ${container.type}`)
+          ),
+          pipe(
+            container.slots.length !== spec.defaultSlotCount,
+            Option.liftPredicate((mismatch) => mismatch),
+            Option.map(() => `slots array length should be ${spec.defaultSlotCount}`)
+          ),
+        ],
+        ReadonlyArray.filterMap((opt) => opt)
+      )
 
-      if (container.slots.length !== spec.defaultSlotCount) {
-        errors.push(`slots array length should be ${spec.defaultSlotCount}`)
-      }
-
-      // スロットインデックスの検証
-      for (let i = 0; i < container.slots.length; i++) {
-        const slot = container.slots[i]
-        if (slot.index !== i) {
-          errors.push(`slot at position ${i} has incorrect index ${slot.index}`)
-        }
-      }
-
-      if (errors.length > 0) {
-        return yield* Effect.fail(
-          new ValidationError({
-            reason: 'Container validation failed',
-            missingFields: errors,
-            context: { container },
-          })
+      const indexErrors = pipe(
+        container.slots,
+        ReadonlyArray.filterMap((slot, i) =>
+          pipe(
+            slot.index !== i,
+            Option.liftPredicate((mismatch) => mismatch),
+            Option.map(() => `slot at position ${i} has incorrect index ${slot.index}`)
+          )
         )
-      }
+      )
 
-      return yield* Effect.void
+      const allErrors = [...basicErrors, ...specErrors, ...indexErrors]
+
+      return yield* pipe(
+        allErrors.length > 0,
+        Effect.when({
+          onTrue: () =>
+            Effect.fail(
+              new ValidationError({
+                reason: 'Container validation failed',
+                missingFields: allErrors,
+                context: { container },
+              })
+            ),
+          onFalse: () => Effect.void,
+        })
+      )
     }),
 
   // コンテナ最適化
@@ -517,33 +642,58 @@ export const ContainerFactoryLive: ContainerFactory = {
     Effect.gen(function* () {
       yield* ContainerFactoryLive.validateContainer(container)
 
-      // スタック統合などの最適化
-      const optimizedSlots = [...container.slots]
+      const optimizedSlots = pipe(
+        ReadonlyArray.makeBy(container.slots.length, (i) => i),
+        ReadonlyArray.reduce([...container.slots] as ContainerSlot[], (slots, i) => {
+          const slot1 = slots[i]
 
-      // 同じアイテムのスタック統合
-      for (let i = 0; i < optimizedSlots.length; i++) {
-        const slot1 = optimizedSlots[i]
-        if (!slot1.item || slot1.type !== 'storage') continue
+          return pipe(!slot1.item || slot1.type !== 'storage', (shouldSkip) =>
+            shouldSkip
+              ? slots
+              : pipe(
+                  ReadonlyArray.makeBy(slots.length - (i + 1), (offset) => i + 1 + offset),
+                  ReadonlyArray.reduce(slots, (currentSlots, j) => {
+                    const slot2 = currentSlots[j]
 
-        for (let j = i + 1; j < optimizedSlots.length; j++) {
-          const slot2 = optimizedSlots[j]
-          if (!slot2.item || slot2.type !== 'storage') continue
+                    return pipe(
+                      !slot2.item || slot2.type !== 'storage' || slot1.item.itemId !== slot2.item.itemId,
+                      (shouldSkip) =>
+                        shouldSkip
+                          ? currentSlots
+                          : pipe(
+                              slot1.item,
+                              Option.fromNullable,
+                              Option.flatMap((item1) =>
+                                pipe(
+                                  slot2.item,
+                                  Option.fromNullable,
+                                  Option.map((item2) => {
+                                    const maxStackSize = Math.min(slot1.maxStackSize || 64, slot2.maxStackSize || 64)
+                                    const totalCount = item1.count + item2.count
 
-          if (slot1.item.itemId === slot2.item.itemId) {
-            const maxStackSize = Math.min(slot1.maxStackSize || 64, slot2.maxStackSize || 64)
-            const totalCount = slot1.item.count + slot2.item.count
-
-            if (totalCount <= maxStackSize) {
-              // 統合可能
-              optimizedSlots[i] = {
-                ...slot1,
-                item: { ...slot1.item, count: totalCount },
-              }
-              optimizedSlots[j] = { ...slot2, item: null }
-            }
-          }
-        }
-      }
+                                    return pipe(totalCount <= maxStackSize, (canMerge) =>
+                                      canMerge
+                                        ? pipe([...currentSlots], (newSlots) => {
+                                            newSlots[i] = {
+                                              ...slot1,
+                                              item: { ...item1, count: totalCount },
+                                            }
+                                            newSlots[j] = { ...slot2, item: null }
+                                            return newSlots
+                                          })
+                                        : currentSlots
+                                    )
+                                  })
+                                )
+                              ),
+                              Option.getOrElse(() => currentSlots)
+                            )
+                    )
+                  })
+                )
+          )
+        })
+      )
 
       return yield* Effect.succeed({
         ...container,
@@ -569,16 +719,18 @@ export const ContainerFactoryLive: ContainerFactory = {
   getSlotByType: (container, type) => container.slots.filter((slot) => slot.type === type),
 
   // アイテム挿入可能性チェック
-  canInsertItem: (container, item, slotIndex) => {
-    if (slotIndex !== undefined) {
-      if (slotIndex < 0 || slotIndex >= container.slots.length) {
-        return false
-      }
-      return canInsertIntoSlot(container.slots[slotIndex], item)
-    } else {
-      return container.slots.some((slot) => canInsertIntoSlot(slot, item))
-    }
-  },
+  canInsertItem: (container, item, slotIndex) =>
+    pipe(
+      Option.fromNullable(slotIndex),
+      Option.match({
+        onNone: () => container.slots.some((slot) => canInsertIntoSlot(slot, item)),
+        onSome: (targetSlotIndex) =>
+          pipe(
+            targetSlotIndex < 0 || targetSlotIndex >= container.slots.length,
+            (invalid) => !invalid && canInsertIntoSlot(container.slots[targetSlotIndex], item)
+          ),
+      })
+    ),
 }
 
 // Layer.effect による依存性注入実装

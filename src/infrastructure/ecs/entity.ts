@@ -1,7 +1,6 @@
 import type { EntityCapacity, EntityCount } from '@domain/entities/types'
 import { BrandedTypes } from '@domain/entities/types'
-import { Schema } from '@effect/schema'
-import { Context, Effect, Layer, Match, Option, pipe } from 'effect'
+import { Context, Effect, Layer, Match, Option, pipe, Schema } from 'effect'
 
 // =====================================
 // Entity ID Type

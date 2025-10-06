@@ -3,7 +3,7 @@
  * DDD原則に基づく複雑なオブジェクト生成の隠蔽
  */
 
-import { Context, Effect, Schema } from 'effect'
+import { Clock, Context, Effect, Schema } from 'effect'
 import { nanoid } from 'nanoid'
 import type { PlayerId } from '../../types'
 import type {
@@ -108,7 +108,7 @@ class InventoryBuilderImpl implements InventoryBuilder {
   private offhand: InventorySlot = null
   private selectedSlot: HotbarSlot = 0 as HotbarSlot
   private version: number = 1
-  private lastModified: Date = new Date()
+  private lastModifiedMs: number | null = null
   private uncommittedEvents: Array<InventoryDomainEvent> = []
 
   setPlayerId(playerId: PlayerId): InventoryBuilder {
@@ -172,6 +172,10 @@ class InventoryBuilderImpl implements InventoryBuilder {
         // IDの生成または検証
         const id = this.id ?? (`inv_${nanoid()}` as InventoryId)
 
+        // lastModifiedの取得
+        const lastModifiedMs = this.lastModifiedMs ?? (yield* Clock.currentTimeMillis)
+        const lastModified = new Date(lastModifiedMs).toISOString()
+
         // スキーマ検証
         const aggregate = yield* Schema.decodeUnknown(InventoryAggregateSchema)({
           id,
@@ -182,7 +186,7 @@ class InventoryBuilderImpl implements InventoryBuilder {
           offhand: this.offhand,
           selectedSlot: this.selectedSlot,
           version: this.version,
-          lastModified: this.lastModified.toISOString(),
+          lastModified,
           uncommittedEvents: this.uncommittedEvents,
         }).pipe(
           Effect.mapError(
@@ -253,11 +257,15 @@ export const createDefaultHotbar = (): ReadonlyArray<SlotIndex> =>
 /**
  * 集約のバージョンを増加
  */
-export const incrementVersion = (aggregate: InventoryAggregate): InventoryAggregate => ({
-  ...aggregate,
-  version: aggregate.version + 1,
-  lastModified: new Date().toISOString() as any,
-})
+export const incrementVersion = (aggregate: InventoryAggregate): Effect.Effect<InventoryAggregate> =>
+  Effect.gen(function* () {
+    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms).toISOString())
+    return {
+      ...aggregate,
+      version: aggregate.version + 1,
+      lastModified: now as any,
+    }
+  })
 
 /**
  * 未コミットイベントを追加

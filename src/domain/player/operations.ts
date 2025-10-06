@@ -7,16 +7,13 @@ import {
   JUMP_VELOCITY,
   MOVEMENT_SPEEDS,
   PHYSICS_CONSTANTS,
-  SATURATION_CONSTANTS,
-} from './index'
-import { PlayerErrorBuilders } from './index'
-import {
   PlayerAggregate,
   PlayerAggregateSchema,
   PlayerCommand,
   PlayerCommandSchema,
   PlayerCreationInput,
   PlayerCreationInputSchema,
+  PlayerErrorBuilders,
   PlayerEvent,
   PlayerEventSchema,
   PlayerGameMode,
@@ -29,6 +26,7 @@ import {
   PlayerUpdateContext,
   PlayerUpdateContextSchema,
   PlayerVitalsSchema,
+  SATURATION_CONSTANTS,
 } from './index'
 
 // -----------------------------------------------------------------------------

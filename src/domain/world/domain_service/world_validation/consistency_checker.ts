@@ -6,11 +6,10 @@
  * データ品質の保証と問題の早期発見
  */
 
-import { Context, Effect, Layer, Schema } from 'effect'
 import { type GenerationError } from '@domain/world/types/errors'
 import type { WorldCoordinate2D } from '@domain/world/value_object/coordinates'
-import type { BiomeMappingResult } from '../biome_classification'
-import type { ClimateData } from '../biome_classification'
+import { Context, Effect, Layer, Schema } from 'effect'
+import type { BiomeMappingResult, ClimateData } from '../biome_classification'
 
 /**
  * 整合性検証結果スキーマ

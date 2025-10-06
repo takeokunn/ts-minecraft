@@ -1,4 +1,4 @@
-import { Data, Schema } from 'effect'
+import { Clock, Data, Effect, Schema } from 'effect'
 
 /**
  * Chunk Repository Domain - Error Types
@@ -92,74 +92,101 @@ export const RepositoryError = Data.taggedEnum<RepositoryError>()
  * RepositoryError ファクトリ関数
  */
 export const RepositoryErrors = {
-  chunkNotFound: (chunkId: string, message?: string): RepositoryError =>
-    RepositoryError.ChunkNotFound({
-      chunkId,
-      message: message ?? `Chunk not found: ${chunkId}`,
-      timestamp: Date.now(),
+  chunkNotFound: (chunkId: string, message?: string): Effect.Effect<RepositoryError> =>
+    Effect.gen(function* () {
+      const timestamp = yield* Clock.currentTimeMillis
+      return RepositoryError.ChunkNotFound({
+        chunkId,
+        message: message ?? `Chunk not found: ${chunkId}`,
+        timestamp,
+      })
     }),
 
-  duplicateChunk: (chunkId: string, message?: string): RepositoryError =>
-    RepositoryError.DuplicateChunk({
-      chunkId,
-      message: message ?? `Duplicate chunk: ${chunkId}`,
-      timestamp: Date.now(),
+  duplicateChunk: (chunkId: string, message?: string): Effect.Effect<RepositoryError> =>
+    Effect.gen(function* () {
+      const timestamp = yield* Clock.currentTimeMillis
+      return RepositoryError.DuplicateChunk({
+        chunkId,
+        message: message ?? `Duplicate chunk: ${chunkId}`,
+        timestamp,
+      })
     }),
 
-  storage: (operation: string, reason: string, originalError?: unknown): RepositoryError =>
-    RepositoryError.StorageError({
-      operation,
-      reason,
-      originalError: originalError ?? 'Unknown error',
-      timestamp: Date.now(),
+  storage: (operation: string, reason: string, originalError?: unknown): Effect.Effect<RepositoryError> =>
+    Effect.gen(function* () {
+      const timestamp = yield* Clock.currentTimeMillis
+      return RepositoryError.StorageError({
+        operation,
+        reason,
+        originalError: originalError ?? 'Unknown error',
+        timestamp,
+      })
     }),
 
-  validation: (field: string, value: unknown, constraint: string): RepositoryError =>
-    RepositoryError.ValidationError({
-      field,
-      value,
-      constraint,
-      timestamp: Date.now(),
+  validation: (field: string, value: unknown, constraint: string): Effect.Effect<RepositoryError> =>
+    Effect.gen(function* () {
+      const timestamp = yield* Clock.currentTimeMillis
+      return RepositoryError.ValidationError({
+        field,
+        value,
+        constraint,
+        timestamp,
+      })
     }),
 
-  dataIntegrity: (expected: string, actual: string, checksum?: string): RepositoryError =>
-    RepositoryError.DataIntegrityError({
-      expected,
-      actual,
-      checksum,
-      timestamp: Date.now(),
+  dataIntegrity: (expected: string, actual: string, checksum?: string): Effect.Effect<RepositoryError> =>
+    Effect.gen(function* () {
+      const timestamp = yield* Clock.currentTimeMillis
+      return RepositoryError.DataIntegrityError({
+        expected,
+        actual,
+        checksum,
+        timestamp,
+      })
     }),
 
-  network: (url: string, status: number, message: string): RepositoryError =>
-    RepositoryError.NetworkError({
-      url,
-      status,
-      message,
-      timestamp: Date.now(),
+  network: (url: string, status: number, message: string): Effect.Effect<RepositoryError> =>
+    Effect.gen(function* () {
+      const timestamp = yield* Clock.currentTimeMillis
+      return RepositoryError.NetworkError({
+        url,
+        status,
+        message,
+        timestamp,
+      })
     }),
 
-  timeout: (operation: string, duration: number, threshold: number): RepositoryError =>
-    RepositoryError.TimeoutError({
-      operation,
-      duration,
-      threshold,
-      timestamp: Date.now(),
+  timeout: (operation: string, duration: number, threshold: number): Effect.Effect<RepositoryError> =>
+    Effect.gen(function* () {
+      const timestamp = yield* Clock.currentTimeMillis
+      return RepositoryError.TimeoutError({
+        operation,
+        duration,
+        threshold,
+        timestamp,
+      })
     }),
 
-  permission: (operation: string, resource: string, requiredPermission: string): RepositoryError =>
-    RepositoryError.PermissionError({
-      operation,
-      resource,
-      requiredPermission,
-      timestamp: Date.now(),
+  permission: (operation: string, resource: string, requiredPermission: string): Effect.Effect<RepositoryError> =>
+    Effect.gen(function* () {
+      const timestamp = yield* Clock.currentTimeMillis
+      return RepositoryError.PermissionError({
+        operation,
+        resource,
+        requiredPermission,
+        timestamp,
+      })
     }),
 
-  resourceLimit: (resource: string, limit: number, current: number): RepositoryError =>
-    RepositoryError.ResourceLimitError({
-      resource,
-      limit,
-      current,
-      timestamp: Date.now(),
+  resourceLimit: (resource: string, limit: number, current: number): Effect.Effect<RepositoryError> =>
+    Effect.gen(function* () {
+      const timestamp = yield* Clock.currentTimeMillis
+      return RepositoryError.ResourceLimitError({
+        resource,
+        limit,
+        current,
+        timestamp,
+      })
     }),
 } as const
 

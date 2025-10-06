@@ -1,7 +1,6 @@
-import { Schema } from '@effect/schema'
-import { Effect } from 'effect'
 import type { EquipmentDomainError, WeightKg } from '@domain/equipment/types'
 import { makeRequirementViolation, WeightSchema } from '@domain/equipment/types'
+import { Effect, Schema } from 'effect'
 
 export const EquipmentTierSchema = Schema.Literal('common', 'rare', 'epic', 'legendary').pipe(
   Schema.brand('EquipmentTier')

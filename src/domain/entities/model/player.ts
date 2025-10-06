@@ -1,23 +1,20 @@
-import { Schema } from '@effect/schema'
-import { Effect, Match } from 'effect'
+import { Effect, Match, Schema } from 'effect'
 import * as Either from 'effect/Either'
 import { pipe } from 'effect/Function'
 import * as Option from 'effect/Option'
 import {
+  EntityUpdateError,
+  EntityValidationError,
   GameMode,
   GameModeSchema,
+  makeEntityUpdateError,
+  makeEntityValidationError,
   Player,
   PlayerAbilities,
   PlayerAbilitiesSchema,
   PlayerStats,
   PlayerUpdateData,
   PlayerUpdateDataSchema,
-} from '../types'
-import {
-  EntityUpdateError,
-  EntityValidationError,
-  makeEntityUpdateError,
-  makeEntityValidationError,
 } from '../types'
 
 const deriveAbilities = (abilities: PlayerAbilities, mode: GameMode): PlayerAbilities =>

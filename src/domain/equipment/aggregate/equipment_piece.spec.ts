@@ -1,6 +1,3 @@
-import { Schema } from '@effect/schema'
-import { describe, expect, it } from '@effect/vitest'
-import { Effect } from 'effect'
 import {
   EquipmentDescriptionSchema,
   EquipmentIdSchema,
@@ -8,6 +5,8 @@ import {
   UnixTimeSchema,
   WeightSchema,
 } from '@domain/equipment/types/core'
+import { describe, expect, it } from '@effect/vitest'
+import { Effect, Schema } from 'effect'
 import { EquipmentStatsSchema, EquipmentTierSchema } from '../value_object/item_attributes'
 import { EquipmentSlotSchema } from '../value_object/slot'
 import {

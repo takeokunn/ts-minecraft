@@ -6,7 +6,7 @@
  * 核となるビジネスロジックを実装しています。
  */
 
-import { Effect, Layer, Match, pipe } from 'effect'
+import { Clock, Effect, Layer, Match, pipe } from 'effect'
 import type {
   AnimationDuration,
   AnimationState,
@@ -503,9 +503,10 @@ const interpolateKeyframeProperty = <T>(
   })
 
 /**
- * 現在時刻の取得（スタブ実装）
+ * 現在時刻の取得
  */
-const getCurrentTime = (): Effect.Effect<Timestamp, CameraError> => Effect.succeed(Date.now() as Timestamp)
+const getCurrentTime = (): Effect.Effect<Timestamp, CameraError> =>
+  Effect.map(Clock.currentTimeMillis, (ms) => ms as Timestamp)
 
 /**
  * アニメーションID生成（スタブ実装）

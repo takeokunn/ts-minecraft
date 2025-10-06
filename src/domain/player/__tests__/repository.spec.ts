@@ -1,7 +1,7 @@
 import { Effect } from 'effect'
 import * as fc from 'effect/FastCheck'
 import { describe, expect, it } from 'vitest'
-import { provideLayers } from '../../testing/effect'
+import { provideLayers } from '../../../testing/effect'
 import { PlayerRepository, PlayerRepositoryLive } from '../repository'
 import { aggregateArb } from './generators'
 

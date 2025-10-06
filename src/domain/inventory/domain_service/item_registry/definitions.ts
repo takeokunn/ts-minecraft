@@ -43,7 +43,7 @@ const DEFAULT_ITEM_DEFINITIONS = new Map<ItemId, ItemDefinition>([
       },
       metadata: {
         version: '1.0.0',
-        lastUpdated: Date.now(),
+        lastUpdated: yield * Clock.currentTimeMillis,
         tags: ['tool', 'pickaxe', 'diamond'],
         description: 'A durable pickaxe made of diamond',
         craftingRecipes: ['diamond_pickaxe_recipe'],
@@ -77,7 +77,7 @@ const DEFAULT_ITEM_DEFINITIONS = new Map<ItemId, ItemDefinition>([
       },
       metadata: {
         version: '1.0.0',
-        lastUpdated: Date.now(),
+        lastUpdated: yield * Clock.currentTimeMillis,
         tags: ['weapon', 'sword', 'diamond'],
         description: 'A sharp sword made of diamond',
         craftingRecipes: ['diamond_sword_recipe'],
@@ -111,7 +111,7 @@ const DEFAULT_ITEM_DEFINITIONS = new Map<ItemId, ItemDefinition>([
       },
       metadata: {
         version: '1.0.0',
-        lastUpdated: Date.now(),
+        lastUpdated: yield * Clock.currentTimeMillis,
         tags: ['food', 'bread'],
         description: 'Nutritious bread that restores hunger',
         craftingRecipes: ['bread_recipe'],
@@ -141,7 +141,7 @@ const DEFAULT_ITEM_DEFINITIONS = new Map<ItemId, ItemDefinition>([
       },
       metadata: {
         version: '1.0.0',
-        lastUpdated: Date.now(),
+        lastUpdated: yield * Clock.currentTimeMillis,
         tags: ['block', 'building', 'stone'],
         description: 'Common building block',
         craftingRecipes: [],
@@ -175,7 +175,7 @@ const DEFAULT_ITEM_DEFINITIONS = new Map<ItemId, ItemDefinition>([
       },
       metadata: {
         version: '1.0.0',
-        lastUpdated: Date.now(),
+        lastUpdated: yield * Clock.currentTimeMillis,
         tags: ['fuel', 'mining'],
         description: 'Common fuel source',
         craftingRecipes: [],
@@ -299,7 +299,7 @@ export const createDynamicItemDefinition = (
       },
       metadata: {
         version: '1.0.0',
-        lastUpdated: Date.now(),
+        lastUpdated: yield* Clock.currentTimeMillis,
         tags: [],
         craftingRecipes: [],
       },

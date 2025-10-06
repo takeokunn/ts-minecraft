@@ -5,8 +5,7 @@
  * @deprecated このファイルの型はcore.tsに統合されました。新しいVector3、Quaternion、Matrix4型を使用してください
  */
 
-import { Schema } from '@effect/schema'
-import { Brand } from 'effect'
+import { Brand, Schema } from 'effect'
 
 // core.tsからの再エクスポート用の型定義
 // 既存コードとの互換性のため一時的に維持

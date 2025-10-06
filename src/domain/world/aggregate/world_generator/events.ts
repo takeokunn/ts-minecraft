@@ -7,9 +7,9 @@
  * - 型安全なイベント発行・購読
  */
 
-import { Brand, Context, Effect, Schema, Stream } from 'effect'
 import type * as WorldTypes from '@domain/world/types/core'
 import * as Coordinates from '@domain/world/value_object/coordinates/index'
+import { Brand, Clock, Context, Effect, Schema, Stream } from 'effect'
 import type { GenerationContext, UpdateSettingsCommand, WorldGeneratorId } from './index'
 
 // ================================
@@ -217,8 +217,8 @@ export type WorldGeneratorEvent = typeof WorldGeneratorEventSchema.Type
  * ユニークなイベントIDを生成
  */
 const generateEventId = (): Effect.Effect<string & Brand.Brand<'EventId'>> =>
-  Effect.sync(() => {
-    const timestamp = Date.now()
+  Effect.gen(function* () {
+    const timestamp = yield* Clock.currentTimeMillis
     const random = Math.random().toString(36).substr(2, 9)
     return Schema.decodeSync(Schema.String.pipe(Schema.brand('EventId')))(`evt_${timestamp}_${random}`)
   })
@@ -233,7 +233,7 @@ export const createWorldGeneratorCreated = (
 ): Effect.Effect<WorldGeneratorCreated> =>
   Effect.gen(function* () {
     const eventId = yield* generateEventId()
-    const timestamp = yield* Effect.sync(() => new Date())
+    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
 
     return Schema.decodeSync(WorldGeneratorCreatedSchema)({
       eventId,
@@ -266,7 +266,7 @@ export const createChunkGenerationStarted = (
 ): Effect.Effect<ChunkGenerationStarted> =>
   Effect.gen(function* () {
     const eventId = yield* generateEventId()
-    const timestamp = yield* Effect.sync(() => new Date())
+    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
 
     return Schema.decodeSync(ChunkGenerationStartedSchema)({
       eventId,
@@ -294,7 +294,7 @@ export const createChunkGenerated = (
 ): Effect.Effect<ChunkGenerated> =>
   Effect.gen(function* () {
     const eventId = yield* generateEventId()
-    const timestamp = yield* Effect.sync(() => new Date())
+    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
 
     // パフォーマンスメトリクス計算
     const performanceMetrics = {
@@ -332,7 +332,7 @@ export const createChunkGenerationFailed = (
 ): Effect.Effect<ChunkGenerationFailed> =>
   Effect.gen(function* () {
     const eventId = yield* generateEventId()
-    const timestamp = yield* Effect.sync(() => new Date())
+    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
 
     return Schema.decodeSync(ChunkGenerationFailedSchema)({
       eventId,
@@ -361,7 +361,7 @@ export const createSettingsUpdated = (
 ): Effect.Effect<SettingsUpdated> =>
   Effect.gen(function* () {
     const eventId = yield* generateEventId()
-    const timestamp = yield* Effect.sync(() => new Date())
+    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
 
     return Schema.decodeSync(SettingsUpdatedSchema)({
       eventId,

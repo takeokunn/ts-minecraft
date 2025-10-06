@@ -6,7 +6,7 @@
  */
 
 // Service Interface and Implementation
-export { StackOptimizationError, StackingError, StackingService, StackingServiceLive } from './index'
+export { StackOptimizationError, StackingError, StackingService, StackingServiceLive } from './service'
 export type {
   MetadataConflict,
   MetadataResolutionStrategy,
@@ -17,12 +17,13 @@ export type {
   StackOptimizationResult,
   StackSplitRequest,
   StackSplitResult,
-} from './index'
+} from './service'
 
 // Live Implementation
-export { StackingServiceLive } from './index'
+export { StackingServiceLive } from './live'
 
 // Rules and Constraints
+export * from './service'
 export {
   checkCompleteStackCompatibility,
   checkDurabilityCompatibility,
@@ -30,7 +31,4 @@ export {
   checkMetadataCompatibility,
   checkStackLimitRule,
   resolveMetadataConflicts,
-} from './index'
-export * from './index';
-export * from './index';
-export * from './service';
+} from './service'

@@ -1,8 +1,8 @@
-import { Brand, Schema } from 'effect'
 import * as Coordinates from '@domain/world/value_object/coordinates/index'
-import * as ErrorHandling from './index'
-import * as ProgressTracking from './index'
-import * as SessionState from './index'
+import { Brand, Schema } from 'effect'
+import * as ErrorHandling from '../error_handling'
+import * as ProgressTracking from '../progress_tracking'
+import * as SessionState from '../session_state'
 
 export type GenerationSessionId = string & Brand.Brand<'GenerationSessionId'>
 

@@ -1,7 +1,3 @@
-import { Schema } from '@effect/schema'
-import { Effect, Ref } from 'effect'
-import { createEquipmentPiece } from '../aggregate'
-import { emptyEquipmentSet } from '../aggregate'
 import {
   EquipmentIdSchema,
   EquipmentNameSchema,
@@ -10,8 +6,9 @@ import {
   UnixTimeSchema,
   WeightSchema,
 } from '@domain/equipment/types'
-import { EquipmentStatsSchema, EquipmentTierSchema } from '../value_object'
-import { EquipmentSlotSchema } from '../value_object'
+import { Clock, Effect, Ref, Schema } from 'effect'
+import { createEquipmentPiece, emptyEquipmentSet } from '../aggregate'
+import { EquipmentSlotSchema, EquipmentStatsSchema, EquipmentTierSchema } from '../value_object'
 
 export interface EquipmentBuilderState {
   readonly nextId: number
@@ -39,7 +36,8 @@ export const EquipmentBuilder = Effect.gen(function* () {
         criticalChance: 0.05,
       })
       const weight = yield* Schema.decodeUnknown(WeightSchema)(4)
-      const timestamp = yield* Schema.decodeUnknown(UnixTimeSchema)(Date.now())
+      const timestampMs = yield* Clock.currentTimeMillis
+      const timestamp = yield* Schema.decodeUnknown(UnixTimeSchema)(timestampMs)
       return yield* createEquipmentPiece({
         id,
         name,
@@ -57,7 +55,8 @@ export const EquipmentBuilder = Effect.gen(function* () {
     Effect.gen(function* () {
       const id = yield* Schema.decodeUnknown(EquipmentSetIdSchema)(yield* generateId('set'))
       const ownerId = yield* Schema.decodeUnknown(EquipmentOwnerIdSchema)(owner)
-      const timestamp = yield* Schema.decodeUnknown(UnixTimeSchema)(Date.now())
+      const timestampMs = yield* Clock.currentTimeMillis
+      const timestamp = yield* Schema.decodeUnknown(UnixTimeSchema)(timestampMs)
       const weightLimit = yield* Schema.decodeUnknown(WeightSchema)(100)
       return emptyEquipmentSet(id, ownerId, timestamp, weightLimit)
     })

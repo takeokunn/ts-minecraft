@@ -15,9 +15,9 @@ export type {
   RepositoryListResult,
   RepositoryOperationResult,
   RepositoryQueryResult,
-} from './index'
+} from './service'
 
-export { CameraStateRepository, CameraStateRepositoryOps } from './index'
+export { CameraStateRepository, CameraStateRepositoryOps } from './service'
 
 // ========================================
 // Repository Types
@@ -31,7 +31,7 @@ export type {
   RepositoryError,
   SnapshotTimestamp,
   VersionNumber,
-} from './index'
+} from './types'
 
 export {
   CameraSchema,
@@ -50,13 +50,13 @@ export {
   isEntityNotFoundError,
   isStorageError,
   isValidationError,
-} from './index'
+} from './types'
 
 // ========================================
 // Live Implementation
 // ========================================
 
-export { CameraStateRepositoryLive } from './index'
+export { CameraStateRepositoryLive } from './live'
 
 // ========================================
 // Module Integration Utilities
@@ -159,5 +159,3 @@ export const CameraStateRepositoryDocs = {
   lastUpdated: '2025-01-XX',
   maintainer: 'Camera Domain Team',
 } as const
-export * from './index';
-export * from './index';

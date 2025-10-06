@@ -5,7 +5,7 @@
  * プレイヤー設定、コンテキスト依存設定、人気度分析の型安全性確保
  */
 
-import { Array, Brand, Data, Option, ReadonlyMap, Schema } from 'effect'
+import { Array, Brand, Clock, Data, Effect, Option, ReadonlyMap, Schema } from 'effect'
 import type { ViewMode } from '../../value_object/index'
 
 // ========================================
@@ -535,30 +535,33 @@ export const createDefaultPreferences = {
   /**
    * デフォルトのViewMode設定を作成
    */
-  viewModePreference: (playerId: PlayerId): ViewModePreference =>
-    ({
-      defaultMode: 'first-person' as ViewMode,
-      contextualModes: new Map([
-        [Data.tagged('Exploration', {}), 'first-person' as ViewMode],
-        [Data.tagged('Combat', {}), 'first-person' as ViewMode],
-        [Data.tagged('Building', {}), 'third-person' as ViewMode],
-        [Data.tagged('Flying', {}), 'third-person' as ViewMode],
-        [Data.tagged('Spectating', {}), 'spectator' as ViewMode],
-        [Data.tagged('Cinematic', {}), 'cinematic' as ViewMode],
-      ]),
-      autoSwitchEnabled: true,
-      transitionAnimationEnabled: true,
-      quickSwitchBinding: Option.some({
-        key: 'F',
-        modifiers: [],
-        action: 'toggle-view-mode',
-        description: 'Quick view mode toggle',
-      } as KeyBinding),
-      smartSwitchEnabled: true,
-      contextSensitivity: 0.7,
-      lastModified: Date.now(),
-      version: 1,
-    }) as ViewModePreference,
+  viewModePreference: (playerId: PlayerId): Effect.Effect<ViewModePreference> =>
+    Effect.gen(function* () {
+      const lastModified = yield* Clock.currentTimeMillis
+      return {
+        defaultMode: 'first-person' as ViewMode,
+        contextualModes: new Map([
+          [Data.tagged('Exploration', {}), 'first-person' as ViewMode],
+          [Data.tagged('Combat', {}), 'first-person' as ViewMode],
+          [Data.tagged('Building', {}), 'third-person' as ViewMode],
+          [Data.tagged('Flying', {}), 'third-person' as ViewMode],
+          [Data.tagged('Spectating', {}), 'spectator' as ViewMode],
+          [Data.tagged('Cinematic', {}), 'cinematic' as ViewMode],
+        ]),
+        autoSwitchEnabled: true,
+        transitionAnimationEnabled: true,
+        quickSwitchBinding: Option.some({
+          key: 'F',
+          modifiers: [],
+          action: 'toggle-view-mode',
+          description: 'Quick view mode toggle',
+        } as KeyBinding),
+        smartSwitchEnabled: true,
+        contextSensitivity: 0.7,
+        lastModified,
+        version: 1,
+      } as ViewModePreference
+    }),
 
   /**
    * ViewMode使用記録を作成
@@ -568,18 +571,22 @@ export const createDefaultPreferences = {
     viewMode: ViewMode,
     context: GameContext,
     duration: number
-  ): ViewModePreferenceRecord =>
-    ({
-      id: `pref_${Date.now()}_${Math.random().toString(36).slice(2)}` as PreferenceRecordId,
-      playerId,
-      viewMode,
-      context,
-      timestamp: Date.now(),
-      duration,
-      triggeredBy: Data.tagged('Manual', { inputMethod: 'keyboard' }),
-      sessionId: `session_${Date.now()}`,
-      satisfactionScore: Option.none(),
-    }) as ViewModePreferenceRecord,
+  ): Effect.Effect<ViewModePreferenceRecord> =>
+    Effect.gen(function* () {
+      const timestamp = yield* Clock.currentTimeMillis
+      const randomId = yield* Effect.sync(() => Math.random().toString(36).slice(2, 11))
+      return {
+        id: `pref_${timestamp}_${randomId}` as PreferenceRecordId,
+        playerId,
+        viewMode,
+        context,
+        timestamp,
+        duration,
+        triggeredBy: Data.tagged('Manual', { inputMethod: 'keyboard' }),
+        sessionId: `session_${timestamp}`,
+        satisfactionScore: Option.none(),
+      } as ViewModePreferenceRecord
+    }),
 
   /**
    * 時間範囲を作成

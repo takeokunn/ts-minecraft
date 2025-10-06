@@ -6,14 +6,21 @@
  * 空間インデックス・気候データの永続化
  */
 
+import type { AllRepositoryErrors, BiomeDefinition, BiomeId, ClimateData, WorldCoordinate } from '@domain/world/types'
+import { createDataIntegrityError, createRepositoryError, createStorageError } from '@domain/world/types'
+import {
+  HumiditySchema,
+  PrecipitationSchema,
+  PressureSchema,
+  SeasonalVariationSchema,
+  TemperatureSchema,
+  WindSpeedSchema,
+} from '@domain/world/value_object/generation_parameters/biome_config'
 import * as Schema from '@effect/schema/Schema'
-import { Effect, Layer, Option, ReadonlyArray, Ref } from 'effect'
+import { Clock, Effect, Layer, Option, pipe, ReadonlyArray, Ref } from 'effect'
 import * as fs from 'fs'
 import * as path from 'path'
 import * as zlib from 'zlib'
-import type { BiomeDefinition, BiomeId, ClimateData, WorldCoordinate } from '@domain/world/types'
-import type { AllRepositoryErrors } from '@domain/world/types'
-import { createDataIntegrityError, createRepositoryError, createStorageError } from '@domain/world/types'
 import type {
   BiomePlacement,
   BiomeSystemRepository,
@@ -26,7 +33,6 @@ import type {
   SpatialBounds,
   SpatialCoordinate,
   SpatialQuery,
-  SpatialQueryResult,
 } from './index'
 
 // === Configuration Types ===
@@ -46,8 +52,8 @@ const StoredBiomeDefinition = Schema.Struct({
   id: Schema.String,
   name: Schema.String,
   category: Schema.String,
-  temperature: Schema.Number,
-  humidity: Schema.Number,
+  temperature: TemperatureSchema,
+  humidity: HumiditySchema,
   properties: Schema.Record(Schema.String, Schema.Unknown),
   createdAt: Schema.DateFromString,
   updatedAt: Schema.DateFromString,
@@ -70,12 +76,12 @@ const StoredClimateData = Schema.Struct({
     x: Schema.Number,
     z: Schema.Number,
   }),
-  temperature: Schema.Number,
-  humidity: Schema.Number,
-  precipitation: Schema.Number,
-  windSpeed: Schema.Number,
-  pressure: Schema.Number,
-  seasonalVariation: Schema.Number,
+  temperature: TemperatureSchema,
+  humidity: HumiditySchema,
+  precipitation: PrecipitationSchema,
+  windSpeed: WindSpeedSchema,
+  pressure: PressureSchema,
+  seasonalVariation: SeasonalVariationSchema,
   microclimate: Schema.Record(Schema.String, Schema.Number),
   timestamp: Schema.DateFromString,
 })
@@ -98,10 +104,11 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
     const biomeDefinitions = yield* Ref.make(new Map<BiomeId, BiomeDefinition>())
     const biomePlacements = yield* Ref.make<BiomePlacement[]>([])
     const climateData = yield* Ref.make(new Map<string, ClimateData>())
+    const initialNow = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
     const cacheStats = yield* Ref.make({
       hitCount: 0,
       missCount: 0,
-      lastAccess: new Date(),
+      lastAccess: initialNow,
     })
 
     // Initialize storage directories
@@ -113,32 +120,38 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
 
     // === File Operations ===
 
-    const getFilePath = (category: string, key?: string): string => {
-      if (key) {
-        return path.join(persistenceConfig.dataPath, category, `${key}.json`)
-      }
-      return path.join(persistenceConfig.dataPath, category)
-    }
+    const getFilePath = (category: string, key?: string): string =>
+      pipe(
+        Option.fromNullable(key),
+        Option.match({
+          onNone: () => path.join(persistenceConfig.dataPath, category),
+          onSome: (k) => path.join(persistenceConfig.dataPath, category, `${k}.json`),
+        })
+      )
 
     const writeFile = (filePath: string, data: unknown): Effect.Effect<void, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const directory = path.dirname(filePath)
         yield* Effect.promise(() => fs.promises.mkdir(directory, { recursive: true }))
 
-        let content = JSON.stringify(data, null, 2)
+        const jsonContent = JSON.stringify(data, null, 2)
 
-        if (persistenceConfig.compressionEnabled) {
-          const compressed = yield* Effect.promise(
-            () =>
-              new Promise<Buffer>((resolve, reject) => {
-                zlib.gzip(content, (err, result) => {
-                  if (err) reject(err)
-                  else resolve(result)
-                })
-              })
-          )
-          content = compressed.toString('base64')
-        }
+        const content = yield* Effect.if(persistenceConfig.compressionEnabled, {
+          onTrue: () =>
+            Effect.gen(function* () {
+              const compressed = yield* Effect.promise(
+                () =>
+                  new Promise<Buffer>((resolve, reject) => {
+                    zlib.gzip(jsonContent, (err, result) => {
+                      if (err) reject(err)
+                      else resolve(result)
+                    })
+                  })
+              )
+              return compressed.toString('base64')
+            }),
+          onFalse: () => Effect.succeed(jsonContent),
+        })
 
         yield* Effect.promise(() => fs.promises.writeFile(filePath, content, 'utf8'))
       }).pipe(
@@ -159,36 +172,39 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
             .catch(() => false)
         )
 
-        if (!exists) {
-          return Option.none()
-        }
+        return yield* Effect.if(exists, {
+          onTrue: () =>
+            Effect.gen(function* () {
+              const rawContent = yield* Effect.promise(() => fs.promises.readFile(filePath, 'utf8'))
 
-        let content = yield* Effect.promise(() => fs.promises.readFile(filePath, 'utf8'))
-
-        if (persistenceConfig.compressionEnabled) {
-          const decompressed = yield* Effect.promise(
-            () =>
-              new Promise<string>((resolve, reject) => {
-                const buffer = Buffer.from(content, 'base64')
-                zlib.gunzip(buffer, (err, result) => {
-                  if (err) reject(err)
-                  else resolve(result.toString('utf8'))
-                })
+              const content = yield* Effect.if(persistenceConfig.compressionEnabled, {
+                onTrue: () =>
+                  Effect.promise(
+                    () =>
+                      new Promise<string>((resolve, reject) => {
+                        const buffer = Buffer.from(rawContent, 'base64')
+                        zlib.gunzip(buffer, (err, result) => {
+                          if (err) reject(err)
+                          else resolve(result.toString('utf8'))
+                        })
+                      })
+                  ),
+                onFalse: () => Effect.succeed(rawContent),
               })
-          )
-          content = decompressed
-        }
 
-        const parsed = JSON.parse(content)
-        const decoded = yield* Schema.decodeUnknown(schema)(parsed).pipe(
-          Effect.catchAll((error) =>
-            Effect.fail(
-              createDataIntegrityError(`Schema validation failed for ${filePath}: ${error}`, 'readFile', error)
-            )
-          )
-        )
+              const parsed = JSON.parse(content)
+              const decoded = yield* Schema.decodeUnknown(schema)(parsed).pipe(
+                Effect.catchAll((error) =>
+                  Effect.fail(
+                    createDataIntegrityError(`Schema validation failed for ${filePath}: ${error}`, 'readFile', error)
+                  )
+                )
+              )
 
-        return Option.some(decoded)
+              return Option.some(decoded)
+            }),
+          onFalse: () => Effect.succeed(Option.none<T>()),
+        })
       }).pipe(
         Effect.catchAll((error) =>
           Effect.fail(createStorageError(`Failed to read file ${filePath}: ${error}`, 'readFile', error))
@@ -208,33 +224,44 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
             .catch(() => false)
         )
 
-        if (!exists) {
-          return
-        }
+        yield* Effect.when(exists, () =>
+          Effect.gen(function* () {
+            const files = yield* Effect.promise(() => fs.promises.readdir(biomesDir)).pipe(
+              Effect.catchAll(() => Effect.succeed([]))
+            )
 
-        const files = yield* Effect.promise(() => fs.promises.readdir(biomesDir)).pipe(
-          Effect.catchAll(() => Effect.succeed([]))
+            const jsonFiles = files.filter((file) => file.endsWith('.json'))
+
+            const biomes = yield* Effect.forEach(
+              jsonFiles,
+              (file) =>
+                Effect.gen(function* () {
+                  const filePath = path.join(biomesDir, file)
+                  const biome = yield* readFile(filePath, StoredBiomeDefinition)
+
+                  return pipe(
+                    biome,
+                    Option.map((b) => ({
+                      ...b,
+                      id: b.id as BiomeId,
+                    }))
+                  )
+                }),
+              { concurrency: 'sequential' }
+            )
+
+            const definitions = new Map<BiomeId, BiomeDefinition>()
+            pipe(
+              biomes,
+              ReadonlyArray.filter(Option.isSome),
+              ReadonlyArray.forEach((someBiome) => {
+                definitions.set(someBiome.value.id, someBiome.value)
+              })
+            )
+
+            yield* Ref.set(biomeDefinitions, definitions)
+          })
         )
-
-        const definitions = new Map<BiomeId, BiomeDefinition>()
-
-        for (const file of files) {
-          if (!file.endsWith('.json')) continue
-
-          const filePath = path.join(biomesDir, file)
-          const biome = yield* readFile(filePath, StoredBiomeDefinition)
-
-          if (Option.isSome(biome)) {
-            definitions.set(biome.value.id as BiomeId, {
-              ...biome.value,
-              id: biome.value.id as BiomeId,
-              temperature: biome.value.temperature as any,
-              humidity: biome.value.humidity as any,
-            })
-          }
-        }
-
-        yield* Ref.set(biomeDefinitions, definitions)
       })
 
     const loadBiomePlacements = (): Effect.Effect<void, AllRepositoryErrors> =>
@@ -242,17 +269,24 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
         const placementsFile = getFilePath('placements.json')
         const placements = yield* readFile(placementsFile, Schema.Array(StoredBiomePlacement))
 
-        if (Option.isSome(placements)) {
-          const converted = placements.value.map((p) => ({
-            ...p,
-            biomeId: p.biomeId as BiomeId,
-            coordinate: {
-              x: p.coordinate.x as WorldCoordinate,
-              z: p.coordinate.z as WorldCoordinate,
-            },
-          }))
-          yield* Ref.set(biomePlacements, converted)
-        }
+        yield* pipe(
+          placements,
+          Option.match({
+            onNone: () => Effect.void,
+            onSome: (value) =>
+              Effect.gen(function* () {
+                const converted = value.map((p) => ({
+                  ...p,
+                  biomeId: p.biomeId as BiomeId,
+                  coordinate: {
+                    x: p.coordinate.x as WorldCoordinate,
+                    z: p.coordinate.z as WorldCoordinate,
+                  },
+                }))
+                yield* Ref.set(biomePlacements, converted)
+              }),
+          })
+        )
       })
 
     const loadClimateData = (): Effect.Effect<void, AllRepositoryErrors> =>
@@ -260,40 +294,46 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
         const climateFile = getFilePath('climate.json')
         const climate = yield* readFile(climateFile, Schema.Array(StoredClimateData))
 
-        if (Option.isSome(climate)) {
-          const climateMap = new Map<string, ClimateData>()
+        yield* pipe(
+          climate,
+          Option.match({
+            onNone: () => Effect.void,
+            onSome: (value) =>
+              Effect.gen(function* () {
+                const climateMap = pipe(
+                  value,
+                  ReadonlyArray.reduce(new Map<string, ClimateData>(), (acc, data) => {
+                    const key = coordinateToKey({
+                      x: data.coordinate.x as WorldCoordinate,
+                      z: data.coordinate.z as WorldCoordinate,
+                    })
+                    acc.set(key, {
+                      ...data,
+                      coordinate: {
+                        x: data.coordinate.x as WorldCoordinate,
+                        z: data.coordinate.z as WorldCoordinate,
+                      },
+                    })
+                    return acc
+                  })
+                )
 
-          for (const data of climate.value) {
-            const key = coordinateToKey({
-              x: data.coordinate.x as WorldCoordinate,
-              z: data.coordinate.z as WorldCoordinate,
-            })
-            climateMap.set(key, {
-              ...data,
-              coordinate: {
-                x: data.coordinate.x as WorldCoordinate,
-                z: data.coordinate.z as WorldCoordinate,
-              },
-              temperature: data.temperature as any,
-              humidity: data.humidity as any,
-              precipitation: data.precipitation as any,
-              windSpeed: data.windSpeed as any,
-              pressure: data.pressure as any,
-              seasonalVariation: data.seasonalVariation as any,
-            })
-          }
-
-          yield* Ref.set(climateData, climateMap)
-        }
+                yield* Ref.set(climateData, climateMap)
+              }),
+          })
+        )
       })
 
     // === Persistence operations ===
 
     const persistBiomeDefinition = (biome: BiomeDefinition): Effect.Effect<void, AllRepositoryErrors> =>
-      writeFile(getFilePath('biomes', biome.id), {
-        ...biome,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+      Effect.gen(function* () {
+        const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+        return yield* writeFile(getFilePath('biomes', biome.id), {
+          ...biome,
+          createdAt: now.toISOString(),
+          updatedAt: now.toISOString(),
+        })
       })
 
     const persistBiomePlacements = (): Effect.Effect<void, AllRepositoryErrors> =>
@@ -350,11 +390,11 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
       updateBiomeDefinition: (biome: BiomeDefinition) =>
         Effect.gen(function* () {
           const definitions = yield* Ref.get(biomeDefinitions)
-          if (!definitions.has(biome.id)) {
-            return yield* Effect.fail(
-              createRepositoryError(`Biome definition not found: ${biome.id}`, 'updateBiomeDefinition', null)
-            )
-          }
+          yield* Effect.filterOrFail(
+            definitions.has(biome.id),
+            (has) => has,
+            () => createRepositoryError(`Biome definition not found: ${biome.id}`, 'updateBiomeDefinition', null)
+          )
           const updated = new Map(definitions)
           updated.set(biome.id, biome)
           yield* Ref.set(biomeDefinitions, updated)
@@ -367,15 +407,14 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
           const updated = new Map(definitions)
           const deleted = updated.delete(biomeId)
 
-          if (!deleted) {
-            return yield* Effect.fail(
-              createRepositoryError(`Biome definition not found: ${biomeId}`, 'deleteBiomeDefinition', null)
-            )
-          }
+          yield* Effect.filterOrFail(
+            deleted,
+            (d) => d,
+            () => createRepositoryError(`Biome definition not found: ${biomeId}`, 'deleteBiomeDefinition', null)
+          )
 
           yield* Ref.set(biomeDefinitions, updated)
 
-          // Delete file
           const filePath = getFilePath('biomes', biomeId)
           yield* Effect.promise(() => fs.promises.unlink(filePath).catch(() => {}))
         }),
@@ -394,125 +433,113 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
         Effect.gen(function* () {
           const placements = yield* Ref.get(biomePlacements)
 
-          // Find closest biome placement
-          let closestPlacement: BiomePlacement | null = null
-          let minDistance = Infinity
+          const closestPlacement = pipe(
+            placements,
+            ReadonlyArray.reduce(
+              { placement: null as BiomePlacement | null, minDistance: Infinity },
+              (acc, placement) => {
+                const distance = calculateDistance(coordinate, placement.coordinate)
+                return distance <= placement.radius && distance < acc.minDistance
+                  ? { placement, minDistance: distance }
+                  : acc
+              }
+            )
+          )
 
-          for (const placement of placements) {
-            const distance = calculateDistance(coordinate, placement.coordinate)
-            if (distance <= placement.radius && distance < minDistance) {
-              minDistance = distance
-              closestPlacement = placement
-            }
-          }
-
-          return Option.fromNullable(closestPlacement?.biomeId)
+          return Option.fromNullable(closestPlacement.placement?.biomeId)
         }),
 
       getBiomesInBounds: (bounds: SpatialBounds) =>
         Effect.gen(function* () {
           const placements = yield* Ref.get(biomePlacements)
 
-          const results: SpatialQueryResult[] = []
-
-          for (const placement of placements) {
-            if (coordinateInBounds(placement.coordinate, bounds)) {
-              results.push({
-                biomeId: placement.biomeId,
-                coordinate: placement.coordinate,
-                distance: 0,
-                confidence: 1.0,
-              })
-            }
-          }
-
-          return results.sort((a, b) => a.distance - b.distance)
+          return pipe(
+            placements,
+            ReadonlyArray.filter((placement) => coordinateInBounds(placement.coordinate, bounds)),
+            ReadonlyArray.map((placement) => ({
+              biomeId: placement.biomeId,
+              coordinate: placement.coordinate,
+              distance: 0,
+              confidence: 1.0,
+            })),
+            ReadonlyArray.sort((a, b) => a.distance - b.distance)
+          )
         }),
 
       findBiomesInRadius: (center: SpatialCoordinate, radius: number) =>
         Effect.gen(function* () {
           const placements = yield* Ref.get(biomePlacements)
 
-          const results: SpatialQueryResult[] = []
-
-          for (const placement of placements) {
-            const distance = calculateDistance(center, placement.coordinate)
-            if (distance <= radius) {
-              results.push({
-                biomeId: placement.biomeId,
-                coordinate: placement.coordinate,
-                distance,
-                confidence: Math.max(0.1, 1.0 - distance / radius),
-              })
-            }
-          }
-
-          return results.sort((a, b) => a.distance - b.distance)
+          return pipe(
+            placements,
+            ReadonlyArray.filterMap((placement) => {
+              const distance = calculateDistance(center, placement.coordinate)
+              return distance <= radius
+                ? Option.some({
+                    biomeId: placement.biomeId,
+                    coordinate: placement.coordinate,
+                    distance,
+                    confidence: Math.max(0.1, 1.0 - distance / radius),
+                  })
+                : Option.none()
+            }),
+            ReadonlyArray.sort((a, b) => a.distance - b.distance)
+          )
         }),
 
       findNearestBiome: (coordinate: SpatialCoordinate, biomeType?: BiomeId) =>
         Effect.gen(function* () {
           const placements = yield* Ref.get(biomePlacements)
 
-          let nearestPlacement: BiomePlacement | null = null
-          let minDistance = Infinity
+          const nearestResult = pipe(
+            placements,
+            ReadonlyArray.filter((placement) => !biomeType || placement.biomeId === biomeType),
+            ReadonlyArray.reduce(
+              { placement: null as BiomePlacement | null, minDistance: Infinity },
+              (acc, placement) => {
+                const distance = calculateDistance(coordinate, placement.coordinate)
+                return distance < acc.minDistance ? { placement, minDistance: distance } : acc
+              }
+            )
+          )
 
-          for (const placement of placements) {
-            if (biomeType && placement.biomeId !== biomeType) {
-              continue
-            }
-
-            const distance = calculateDistance(coordinate, placement.coordinate)
-            if (distance < minDistance) {
-              minDistance = distance
-              nearestPlacement = placement
-            }
-          }
-
-          if (!nearestPlacement) {
-            return Option.none()
-          }
-
-          return Option.some({
-            biomeId: nearestPlacement.biomeId,
-            coordinate: nearestPlacement.coordinate,
-            distance: minDistance,
-            confidence: 1.0,
-          })
+          return pipe(
+            Option.fromNullable(nearestResult.placement),
+            Option.map((placement) => ({
+              biomeId: placement.biomeId,
+              coordinate: placement.coordinate,
+              distance: nearestResult.minDistance,
+              confidence: 1.0,
+            }))
+          )
         }),
 
       executeQuery: (query: SpatialQuery) =>
         Effect.gen(function* () {
           const placements = yield* Ref.get(biomePlacements)
 
-          let candidates: SpatialQueryResult[] = []
+          const candidates = pipe(
+            placements,
+            ReadonlyArray.filterMap((placement) => {
+              const distance = calculateDistance(query.center, placement.coordinate)
 
-          for (const placement of placements) {
-            const distance = calculateDistance(query.center, placement.coordinate)
-
-            if (distance <= query.radius) {
-              if (!query.biomeTypes || query.biomeTypes.includes(placement.biomeId)) {
-                candidates.push({
-                  biomeId: placement.biomeId,
-                  coordinate: placement.coordinate,
-                  distance,
-                  confidence: Math.max(0.1, 1.0 - distance / query.radius),
-                })
-              }
-            }
-          }
-
-          // Sort by criteria
-          if (query.sortBy === 'distance') {
-            candidates.sort((a, b) => a.distance - b.distance)
-          } else if (query.sortBy === 'priority') {
-            candidates.sort((a, b) => b.confidence - a.confidence)
-          }
-
-          // Limit results
-          if (query.maxResults) {
-            candidates = candidates.slice(0, query.maxResults)
-          }
+              return distance <= query.radius && (!query.biomeTypes || query.biomeTypes.includes(placement.biomeId))
+                ? Option.some({
+                    biomeId: placement.biomeId,
+                    coordinate: placement.coordinate,
+                    distance,
+                    confidence: Math.max(0.1, 1.0 - distance / query.radius),
+                  })
+                : Option.none()
+            }),
+            (results) =>
+              query.sortBy === 'distance'
+                ? ReadonlyArray.sort(results, (a, b) => a.distance - b.distance)
+                : query.sortBy === 'priority'
+                  ? ReadonlyArray.sort(results, (a, b) => b.confidence - a.confidence)
+                  : results,
+            (results) => (query.maxResults ? ReadonlyArray.take(results, query.maxResults) : results)
+          )
 
           return candidates
         }),
@@ -540,40 +567,44 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
         Effect.gen(function* () {
           const climateMap = yield* Ref.get(climateData)
 
-          // Simple nearest neighbor interpolation for now
           const key = coordinateToKey(coordinate)
           const existing = climateMap.get(key)
 
-          if (existing) {
-            return existing
-          }
-
-          // Return default climate if no data found
-          return {
-            coordinate,
-            temperature: 15 as any,
-            humidity: 0.5 as any,
-            precipitation: 0.3 as any,
-            windSpeed: 5.0 as any,
-            pressure: 1013.25 as any,
-            seasonalVariation: 0.2 as any,
-            microclimate: {},
-            timestamp: new Date(),
-          }
+          return yield* pipe(
+            Option.fromNullable(existing),
+            Option.match({
+              onSome: (value) => Effect.succeed(value),
+              onNone: () =>
+                Effect.gen(function* () {
+                  const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+                  return {
+                    coordinate,
+                    temperature: Schema.decodeSync(TemperatureSchema)(15),
+                    humidity: Schema.decodeSync(HumiditySchema)(0.5),
+                    precipitation: Schema.decodeSync(PrecipitationSchema)(300),
+                    windSpeed: Schema.decodeSync(WindSpeedSchema)(5.0),
+                    pressure: Schema.decodeSync(PressureSchema)(1013.25),
+                    seasonalVariation: Schema.decodeSync(SeasonalVariationSchema)(0.2),
+                    microclimate: {},
+                    timestamp: now,
+                  }
+                }),
+            })
+          )
         }),
 
       createClimateGrid: (bounds: SpatialBounds, resolution: number) =>
         Effect.gen(function* () {
           const climateMap = yield* Ref.get(climateData)
-          const gridData = new Map<string, ClimateData>()
 
-          // Sample implementation - would need proper grid generation
-          for (const [key, climate] of climateMap) {
-            const coord = keyToCoordinate(key)
-            if (coordinateInBounds(coord, bounds)) {
-              gridData.set(key, climate)
-            }
-          }
+          const gridData = pipe(
+            Array.from(climateMap.entries()),
+            ReadonlyArray.filter(([key, _]) => coordinateInBounds(keyToCoordinate(key), bounds)),
+            ReadonlyArray.reduce(new Map<string, ClimateData>(), (acc, [key, climate]) => {
+              acc.set(key, climate)
+              return acc
+            })
+          )
 
           return {
             resolution,
@@ -619,20 +650,21 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
       updateBiomeCache: (coordinate: SpatialCoordinate, biomeId: BiomeId, ttl?: number) =>
         Effect.gen(function* () {
           const stats = yield* Ref.get(cacheStats)
+          const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
           yield* Ref.set(cacheStats, {
             ...stats,
             hitCount: stats.hitCount + 1,
-            lastAccess: new Date(),
+            lastAccess: now,
           })
         }),
 
       clearCache: (bounds?: SpatialBounds) =>
         Effect.gen(function* () {
-          const stats = yield* Ref.get(cacheStats)
+          const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
           yield* Ref.set(cacheStats, {
             hitCount: 0,
             missCount: 0,
-            lastAccess: new Date(),
+            lastAccess: now,
           })
         }),
 
@@ -711,24 +743,39 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
             ? placements.filter((p) => coordinateInBounds(p.coordinate, bounds))
             : placements
 
-          const biomeTypeCounts = new Map<BiomeId, number>()
-          let totalTemp = 0
-          let totalHumidity = 0
+          const { biomeTypeCounts, totalTemp, totalHumidity } = pipe(
+            relevantPlacements,
+            ReadonlyArray.reduce(
+              {
+                biomeTypeCounts: new Map<BiomeId, number>(),
+                totalTemp: 0,
+                totalHumidity: 0,
+              },
+              (acc, placement) => {
+                acc.biomeTypeCounts.set(placement.biomeId, (acc.biomeTypeCounts.get(placement.biomeId) || 0) + 1)
 
-          for (const placement of relevantPlacements) {
-            biomeTypeCounts.set(placement.biomeId, (biomeTypeCounts.get(placement.biomeId) || 0) + 1)
+                return pipe(
+                  Option.fromNullable(definitions.get(placement.biomeId)),
+                  Option.match({
+                    onNone: () => acc,
+                    onSome: (definition) => ({
+                      ...acc,
+                      totalTemp: acc.totalTemp + definition.temperature,
+                      totalHumidity: acc.totalHumidity + definition.humidity,
+                    }),
+                  })
+                )
+              }
+            )
+          )
 
-            const definition = definitions.get(placement.biomeId)
-            if (definition) {
-              totalTemp += definition.temperature
-              totalHumidity += definition.humidity
-            }
-          }
-
-          const coverage: Record<string, number> = {}
-          for (const [biomeId, count] of biomeTypeCounts) {
-            coverage[biomeId] = relevantPlacements.length > 0 ? (count / relevantPlacements.length) * 100 : 0
-          }
+          const coverage: Record<string, number> = pipe(
+            Array.from(biomeTypeCounts.entries()),
+            ReadonlyArray.reduce({} as Record<string, number>, (acc, [biomeId, count]) => ({
+              ...acc,
+              [biomeId]: relevantPlacements.length > 0 ? (count / relevantPlacements.length) * 100 : 0,
+            }))
+          )
 
           const dominantBiome =
             Array.from(biomeTypeCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || ('unknown' as BiomeId)
@@ -742,9 +789,13 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
               .filter(([_, count]) => count === 1)
               .map(([biomeId]) => biomeId),
             averageTemperature:
-              relevantPlacements.length > 0 ? ((totalTemp / relevantPlacements.length) as any) : (15 as any),
+              relevantPlacements.length > 0
+                ? Schema.decodeSync(TemperatureSchema)(totalTemp / relevantPlacements.length)
+                : Schema.decodeSync(TemperatureSchema)(15),
             averageHumidity:
-              relevantPlacements.length > 0 ? ((totalHumidity / relevantPlacements.length) as any) : (0.5 as any),
+              relevantPlacements.length > 0
+                ? Schema.decodeSync(HumiditySchema)(totalHumidity / relevantPlacements.length)
+                : Schema.decodeSync(HumiditySchema)(0.5),
             spatialDistribution: {
               clustered: 0.3,
               dispersed: 0.5,
@@ -810,20 +861,17 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
 
           const errors: string[] = []
           const warnings: string[] = []
-          const spatialErrors: Array<{
-            readonly coordinate: SpatialCoordinate
-            readonly issue: string
-          }> = []
-
-          // Validate biome references
-          for (const placement of placements) {
-            if (!definitions.has(placement.biomeId)) {
-              spatialErrors.push({
-                coordinate: placement.coordinate,
-                issue: `Referenced biome ${placement.biomeId} not found in definitions`,
-              })
-            }
-          }
+          const spatialErrors = pipe(
+            placements,
+            ReadonlyArray.filterMap((placement) =>
+              definitions.has(placement.biomeId)
+                ? Option.none()
+                : Option.some({
+                    coordinate: placement.coordinate,
+                    issue: `Referenced biome ${placement.biomeId} not found in definitions`,
+                  })
+            )
+          )
 
           return {
             isValid: errors.length === 0 && spatialErrors.length === 0,

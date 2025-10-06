@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Ref, Schema } from 'effect'
+import { Clock, Context, Effect, Layer, Ref, Schema } from 'effect'
 
 /**
  * Memory Monitor Service
@@ -222,7 +222,8 @@ const makeMemoryMonitorService = Effect.gen(function* () {
   // 内部状態管理
   const configuration = yield* Ref.make<Schema.Schema.Type<typeof MemoryConfiguration>>(DEFAULT_MEMORY_CONFIG)
   const isMonitoring = yield* Ref.make<boolean>(false)
-  const currentMetrics = yield* Ref.make<Schema.Schema.Type<typeof MemoryMetrics>>(createInitialMetrics())
+  const initialMetrics = yield* createInitialMetrics()
+  const currentMetrics = yield* Ref.make<Schema.Schema.Type<typeof MemoryMetrics>>(initialMetrics)
   const memoryPools = yield* Ref.make<Map<string, Schema.Schema.Type<typeof MemoryPool>>>(new Map())
   const allocations = yield* Ref.make<
     Map<string, { request: Schema.Schema.Type<typeof AllocationRequest>; timestamp: number }>
@@ -275,7 +276,9 @@ const makeMemoryMonitorService = Effect.gen(function* () {
 
   const allocateMemory = (request: Schema.Schema.Type<typeof AllocationRequest>) =>
     Effect.gen(function* () {
-      const allocationId = `alloc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      const now = yield* Clock.currentTimeMillis
+      const randomId = yield* Effect.sync(() => Math.random().toString(36).substr(2, 9))
+      const allocationId = `alloc_${now}_${randomId}`
 
       // メモリプレッシャーチェック
       const pressureLevel = yield* getPressureLevel()
@@ -288,7 +291,7 @@ const makeMemoryMonitorService = Effect.gen(function* () {
       }
 
       // 割り当て記録
-      yield* Ref.update(allocations, (map) => map.set(allocationId, { request, timestamp: Date.now() }))
+      yield* Ref.update(allocations, (map) => map.set(allocationId, { request, timestamp: now }))
 
       // プール更新
       yield* updatePoolAllocation(request.poolType, request.size, true)
@@ -475,7 +478,7 @@ const makeMemoryMonitorService = Effect.gen(function* () {
         external: 256 * 1024 * 1024, // 256MB
         buffers: 128 * 1024 * 1024, // 128MB
         cached: 1024 * 1024 * 1024, // 1GB
-        timestamp: Date.now(),
+        timestamp: yield* Clock.currentTimeMillis,
       }
 
       mockMetrics.freeMemory = mockMetrics.totalMemory - mockMetrics.usedMemory
@@ -485,13 +488,14 @@ const makeMemoryMonitorService = Effect.gen(function* () {
 
   const generateAlert = (level: MemoryPressureLevel, metrics: Schema.Schema.Type<typeof MemoryMetrics>) =>
     Effect.gen(function* () {
+      const now = yield* Clock.currentTimeMillis
       const alert: Schema.Schema.Type<typeof MemoryAlert> = {
         _tag: 'MemoryAlert',
-        id: `alert_${Date.now()}`,
+        id: `alert_${now}`,
         level,
         message: `メモリプレッシャー: ${level} (使用率: ${((metrics.usedMemory / metrics.totalMemory) * 100).toFixed(1)}%)`,
         metrics,
-        timestamp: Date.now(),
+        timestamp: now,
         suggestedActions: getSuggestedActions(level),
       }
 
@@ -546,13 +550,15 @@ const makeMemoryMonitorService = Effect.gen(function* () {
     Effect.gen(function* () {
       yield* Effect.logInfo(`メモリプールコンパクション: ${poolId}`)
 
+      const now = yield* Clock.currentTimeMillis
+
       yield* Ref.update(memoryPools, (pools) => {
         const pool = pools.get(poolId)
         if (pool) {
           pools.set(poolId, {
             ...pool,
             fragmentationRatio: 0.1, // コンパクション後は断片化が減少
-            lastCompaction: Date.now(),
+            lastCompaction: now,
           })
         }
         return pools
@@ -571,7 +577,7 @@ const makeMemoryMonitorService = Effect.gen(function* () {
     allocatedItems: 0,
     freeItems: 100,
     fragmentationRatio: 0,
-    lastCompaction: Date.now(),
+    lastCompaction: yield* Clock.currentTimeMillis,
   })
 
   return MemoryMonitorService.of({
@@ -593,18 +599,22 @@ const makeMemoryMonitorService = Effect.gen(function* () {
 
 // === Helper Functions ===
 
-const createInitialMetrics = (): Schema.Schema.Type<typeof MemoryMetrics> => ({
-  _tag: 'MemoryMetrics',
-  totalMemory: 8 * 1024 * 1024 * 1024, // 8GB
-  usedMemory: 2 * 1024 * 1024 * 1024, // 2GB
-  freeMemory: 6 * 1024 * 1024 * 1024, // 6GB
-  heapUsed: 256 * 1024 * 1024, // 256MB
-  heapTotal: 512 * 1024 * 1024, // 512MB
-  external: 128 * 1024 * 1024, // 128MB
-  buffers: 64 * 1024 * 1024, // 64MB
-  cached: 512 * 1024 * 1024, // 512MB
-  timestamp: Date.now(),
-})
+const createInitialMetrics = (): Effect.Effect<Schema.Schema.Type<typeof MemoryMetrics>> =>
+  Effect.gen(function* () {
+    const timestamp = yield* Clock.currentTimeMillis
+    return {
+      _tag: 'MemoryMetrics',
+      totalMemory: 8 * 1024 * 1024 * 1024, // 8GB
+      usedMemory: 2 * 1024 * 1024 * 1024, // 2GB
+      freeMemory: 6 * 1024 * 1024 * 1024, // 6GB
+      heapUsed: 256 * 1024 * 1024, // 256MB
+      heapTotal: 512 * 1024 * 1024, // 512MB
+      external: 128 * 1024 * 1024, // 128MB
+      buffers: 64 * 1024 * 1024, // 64MB
+      cached: 512 * 1024 * 1024, // 512MB
+      timestamp,
+    }
+  })
 
 const createInitialStatistics = (): Schema.Schema.Type<typeof MemoryStatistics> => ({
   _tag: 'MemoryStatistics',

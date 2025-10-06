@@ -1,10 +1,10 @@
-import { Brand, Schema } from 'effect'
 import * as BiomeProperties from '@domain/world/value_object/biome_properties/index'
 import * as Coordinates from '@domain/world/value_object/coordinates/index'
 import * as GenerationParameters from '@domain/world/value_object/generation_parameters/index'
 import * as NoiseConfiguration from '@domain/world/value_object/noise_configuration/index'
 import * as WorldSeed from '@domain/world/value_object/world_seed/index'
-import * as GenerationState from './index'
+import { Brand, Schema } from 'effect'
+import * as GenerationState from '../generation_state'
 
 /**
  * WorldGeneratorのBrand型識別子

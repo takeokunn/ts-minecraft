@@ -1,11 +1,10 @@
-import { Schema } from '@effect/schema'
 import { describe, expect, it } from '@effect/vitest'
-import { Clock, Effect, Stream } from 'effect'
+import { Clock, Effect, Schema, Stream } from 'effect'
 import { randomUUID } from 'node:crypto'
 import { ChunkCommand } from './commands'
 import { applyCommand, makeInitialState } from './model'
-import { indexedDbRepositoryLayer } from './repository.indexeddb'
 import { ChunkSystemRepository } from './repository'
+import { indexedDbRepositoryLayer } from './repository.indexeddb'
 import { ChunkRequestSchema, ChunkSystemConfigSchema } from './types'
 
 const config = Effect.runSync(

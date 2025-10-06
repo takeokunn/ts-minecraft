@@ -1,7 +1,6 @@
-import { Schema } from '@effect/schema'
 import type { ParseError } from '@effect/schema/ParseResult'
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
-import { Data, Option, pipe } from 'effect'
+import { Data, Option, pipe, Schema } from 'effect'
 import * as ReadonlyArray from 'effect/Array'
 import * as Match from 'effect/Match'
 import type { LifecycleIntent, LifecycleState } from './lifecycle'

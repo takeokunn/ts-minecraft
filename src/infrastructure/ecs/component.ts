@@ -6,8 +6,8 @@
  */
 
 import { ComponentTypeNameSchema } from '@domain/entities/types'
-import { Schema } from '@effect/schema'
-import { makeComponentDefinition } from './index'
+import { Schema } from 'effect'
+import { makeComponentDefinition } from './component-definition'
 
 const toComponentType = Schema.decodeUnknownSync(ComponentTypeNameSchema)
 

@@ -1,28 +1,26 @@
 import { Effect, Match, Option } from 'effect'
+import * as ReadonlyArray from 'effect/Array'
 import { pipe } from 'effect/Function'
-import * as ReadonlyArray from 'effect/ReadonlyArray'
-import {
-  CombatSession,
-  Combatant,
-  applyDamage,
-  getCooldown,
-  overwriteSession,
-  resolveDefeat,
-  setCooldown,
-} from './index'
 import {
   AttackKind,
   CombatDomainError,
   CombatError,
   CombatEvent,
   CombatEventFactory,
+  CombatSession,
+  Combatant,
   CombatantId,
   Cooldown,
   CriticalChance,
   Damage,
   Timestamp,
+  applyDamage,
+  getCooldown,
   makeCooldown,
   makeDamage,
+  overwriteSession,
+  resolveDefeat,
+  setCooldown,
 } from './index'
 
 export interface AttackCommand {

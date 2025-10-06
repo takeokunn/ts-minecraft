@@ -91,7 +91,7 @@ export const InventoryRepositoryMemory = Layer.effect(
                   const updatedInventory: Inventory = {
                     ...inventory,
                     slots: updatedSlots,
-                    lastUpdated: Date.now(),
+                    lastUpdated: yield* Clock.currentTimeMillis,
                     version: inventory.version + 1,
                   }
 
@@ -118,7 +118,7 @@ export const InventoryRepositoryMemory = Layer.effect(
                   const updatedInventory: Inventory = {
                     ...inventory,
                     slots: updatedSlots,
-                    lastUpdated: Date.now(),
+                    lastUpdated: yield* Clock.currentTimeMillis,
                     version: inventory.version + 1,
                   }
 
@@ -225,7 +225,7 @@ export const InventoryRepositoryMemory = Layer.effect(
                     name: snapshotName,
                     playerId,
                     inventory: structuredClone(inventory),
-                    createdAt: Date.now(),
+                    createdAt: yield* Clock.currentTimeMillis,
                   }
 
                   yield* Ref.update(snapshotStore, (store) => HashMap.set(store, snapshot.id, snapshot))
@@ -250,7 +250,7 @@ export const InventoryRepositoryMemory = Layer.effect(
                 Effect.gen(function* () {
                   const restoredInventory: Inventory = {
                     ...snapshot.inventory,
-                    lastUpdated: Date.now(),
+                    lastUpdated: yield* Clock.currentTimeMillis,
                     version: snapshot.inventory.version + 1,
                   }
 

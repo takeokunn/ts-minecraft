@@ -1,13 +1,14 @@
 import * as Schema from '@effect/schema/Schema'
 import { Clock, Effect } from 'effect'
 import { pipe } from 'effect/Function'
-import { frustumComputedEvent, summarizeFrustum } from './index'
-import { createViewDistanceToolkit, ViewDistanceToolkit } from './index'
 import {
+  createViewDistanceToolkit,
   deriveCullableFromManaged,
+  frustumComputedEvent,
   LODBatchEvaluatedEvent,
   ManagedObject,
   ObjectsCulledEvent,
+  summarizeFrustum,
   toEpochMillis,
   ViewControlConfig,
   ViewControlContext,
@@ -15,6 +16,7 @@ import {
   ViewControlResultSchema,
   ViewDistanceError,
   ViewDistanceEvent,
+  ViewDistanceToolkit,
 } from './index'
 
 export interface ViewController {

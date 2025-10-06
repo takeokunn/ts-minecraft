@@ -8,19 +8,14 @@
  * - グレースフルな中断・再開
  */
 
-import { Chunk, Context, Effect, Schema, STM } from 'effect'
 import type * as WorldTypes from '@domain/world/types/core'
 import type * as GenerationErrors from '@domain/world/types/errors'
+import { Chunk, Clock, Context, Effect, STM } from 'effect'
 import * as ErrorHandling from './index'
-import * as SessionEvents from './index'
 import * as ProgressTracking from './index'
+import * as SessionEvents from './index'
 import * as SessionState from './index'
 import {
-  GenerationRequestSchema,
-  GenerationSessionIdSchema,
-  GenerationSessionSchema,
-  SessionConfigurationSchema,
-  createGenerationSessionId,
   type GenerationRequest,
   type GenerationSession,
   type GenerationSessionId,
@@ -41,7 +36,7 @@ export const create = (
   configuration?: Partial<SessionConfiguration>
 ): Effect.Effect<GenerationSession, GenerationErrors.CreationError> =>
   Effect.gen(function* () {
-    const now = yield* Effect.sync(() => new Date())
+    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
 
     // デフォルト設定のマージ
     const defaultConfig: SessionConfiguration = {
@@ -74,12 +69,14 @@ export const create = (
     yield* validateGenerationRequest(request)
     yield* validateConfiguration(mergedConfig)
 
+    const state = yield* SessionState.createInitial()
+
     const session: GenerationSession = {
       id,
       worldGeneratorId,
       configuration: mergedConfig,
       request,
-      state: SessionState.createInitial(),
+      state,
       progress: ProgressTracking.createInitial(request.coordinates.length),
       errorHistory: [],
       version: 0,
@@ -105,12 +102,12 @@ export const start = (session: GenerationSession): STM.STM<GenerationSession, Ge
       )
     }
 
-    const now = yield* STM.fromEffect(Effect.sync(() => new Date()))
+    const now = yield* STM.fromEffect(Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms)))
 
     // バッチ作成
     const batches = yield* STM.fromEffect(createChunkBatches(session))
 
-    const updatedState = SessionState.startSession(session.state, batches)
+    const updatedState = yield* STM.fromEffect(SessionState.startSession(session.state, batches))
     const updatedProgress = ProgressTracking.startTracking(session.progress)
 
     const updatedSession: GenerationSession = {
@@ -143,7 +140,7 @@ export const completeBatch = (
     // 進捗更新
     const updatedProgress = yield* STM.fromEffect(ProgressTracking.updateProgress(session.progress, results.length, 0))
 
-    const now = yield* STM.fromEffect(Effect.sync(() => new Date()))
+    const now = yield* STM.fromEffect(Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms)))
 
     const updatedSession: GenerationSession = {
       ...session,
@@ -175,7 +172,7 @@ export const failBatch = (
   error: GenerationErrors.GenerationError
 ): STM.STM<GenerationSession, GenerationErrors.SessionError> =>
   STM.gen(function* () {
-    const now = yield* STM.fromEffect(Effect.sync(() => new Date()))
+    const now = yield* STM.fromEffect(Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms)))
 
     // エラーハンドリング
     const sessionError = ErrorHandling.createSessionError(error, batchId)
@@ -236,9 +233,9 @@ export const pause = (
       )
     }
 
-    const now = yield* Effect.sync(() => new Date())
+    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
 
-    const updatedState = SessionState.pauseSession(session.state, reason)
+    const updatedState = yield* SessionState.pauseSession(session.state, reason)
     const updatedProgress = ProgressTracking.pauseTracking(session.progress)
 
     const updatedSession: GenerationSession = {
@@ -266,9 +263,9 @@ export const resume = (session: GenerationSession): Effect.Effect<GenerationSess
       )
     }
 
-    const now = yield* Effect.sync(() => new Date())
+    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
 
-    const updatedState = SessionState.resumeSession(session.state)
+    const updatedState = yield* SessionState.resumeSession(session.state)
     const updatedProgress = ProgressTracking.resumeTracking(session.progress)
 
     const updatedSession: GenerationSession = {
@@ -290,9 +287,9 @@ export const resume = (session: GenerationSession): Effect.Effect<GenerationSess
  */
 const completeSession = (session: GenerationSession): STM.STM<GenerationSession, GenerationErrors.SessionError> =>
   STM.gen(function* () {
-    const now = yield* STM.fromEffect(Effect.sync(() => new Date()))
+    const now = yield* STM.fromEffect(Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms)))
 
-    const updatedState = SessionState.completeSession(session.state)
+    const updatedState = yield* STM.fromEffect(SessionState.completeSession(session.state))
     const updatedProgress = ProgressTracking.completeTracking(session.progress)
 
     const completedSession: GenerationSession = {
@@ -336,6 +333,8 @@ const createChunkBatches = (
     const chunks = Chunk.fromIterable(sortedCoordinates)
     const batchChunks = Chunk.chunksOf(chunks, chunkBatchSize)
 
+    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+
     let batchIndex = 0
     for (const batchChunk of batchChunks) {
       const batchId = `batch_${session.id}_${batchIndex++}`
@@ -344,7 +343,7 @@ const createChunkBatches = (
         coordinates: Chunk.toReadonlyArray(batchChunk),
         priority: session.request.priority,
         status: 'pending',
-        createdAt: new Date(),
+        createdAt: now,
         attempts: 0,
       }
       batches.push(batch)

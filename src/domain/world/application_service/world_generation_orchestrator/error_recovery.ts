@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Match, pipe, Ref, Schema } from 'effect'
+import { Clock, Context, Effect, Layer, Match, pipe, Ref, Schema } from 'effect'
 
 /**
  * Error Recovery Service
@@ -261,7 +261,7 @@ const makeErrorRecoveryService = Effect.gen(function* () {
     Effect.gen(function* () {
       yield* Effect.logInfo(`回復試行開始: ${recoveryAction.strategy} (試行 ${errorContext.retryCount + 1})`)
 
-      const startTime = Date.now()
+      const startTime = yield* Clock.currentTimeMillis
 
       const result = yield* Match.value(recoveryAction.strategy).pipe(
         Match.when('retry', () => executeRetryStrategy(originalTask, recoveryAction)),
@@ -272,7 +272,7 @@ const makeErrorRecoveryService = Effect.gen(function* () {
         Match.exhaustive
       )
 
-      const duration = Date.now() - startTime
+      const duration = yield* Clock.currentTimeMillis - startTime
 
       // 回復試行履歴更新
       const updatedContext: Schema.Schema.Type<typeof ErrorContext> = {
@@ -347,7 +347,7 @@ const makeErrorRecoveryService = Effect.gen(function* () {
 
       // サーキットブレーカー状態チェック
       if (breaker.state === 'open') {
-        const now = Date.now()
+        const now = yield* Clock.currentTimeMillis
         if (breaker.nextRetryTime && now < breaker.nextRetryTime) {
           return yield* Effect.fail({
             _tag: 'ErrorRecoveryServiceError' as const,
@@ -359,40 +359,44 @@ const makeErrorRecoveryService = Effect.gen(function* () {
         yield* updateCircuitBreakerState(id, { state: 'half_open', successCount: 0 })
       }
 
-      try {
-        const result = yield* task
-
-        // 成功時の処理
-        if (breaker.state === 'half_open') {
-          const newSuccessCount = breaker.successCount + 1
-          if (newSuccessCount >= config.circuitBreakerConfig.halfOpenMaxCalls) {
-            yield* updateCircuitBreakerState(id, {
-              state: 'closed',
-              failureCount: 0,
-              successCount: 0,
-            })
-          } else {
-            yield* updateCircuitBreakerState(id, { successCount: newSuccessCount })
-          }
-        }
-
-        return result
-      } catch (error) {
-        // 失敗時の処理
-        const newFailureCount = breaker.failureCount + 1
-        if (newFailureCount >= config.circuitBreakerConfig.failureThreshold) {
-          yield* updateCircuitBreakerState(id, {
-            state: 'open',
-            failureCount: newFailureCount,
-            lastFailureTime: Date.now(),
-            nextRetryTime: Date.now() + config.circuitBreakerConfig.recoveryTimeout,
+      return yield* pipe(
+        task,
+        Effect.tap((result) =>
+          Effect.gen(function* () {
+            // 成功時の処理
+            if (breaker.state === 'half_open') {
+              const newSuccessCount = breaker.successCount + 1
+              if (newSuccessCount >= config.circuitBreakerConfig.halfOpenMaxCalls) {
+                yield* updateCircuitBreakerState(id, {
+                  state: 'closed',
+                  failureCount: 0,
+                  successCount: 0,
+                })
+              } else {
+                yield* updateCircuitBreakerState(id, { successCount: newSuccessCount })
+              }
+            }
           })
-        } else {
-          yield* updateCircuitBreakerState(id, { failureCount: newFailureCount })
-        }
+        ),
+        Effect.catchAll((error) =>
+          Effect.gen(function* () {
+            // 失敗時の処理
+            const newFailureCount = breaker.failureCount + 1
+            if (newFailureCount >= config.circuitBreakerConfig.failureThreshold) {
+              yield* updateCircuitBreakerState(id, {
+                state: 'open',
+                failureCount: newFailureCount,
+                lastFailureTime: yield* Clock.currentTimeMillis,
+                nextRetryTime: yield* Clock.currentTimeMillis,
+              })
+            } else {
+              yield* updateCircuitBreakerState(id, { failureCount: newFailureCount })
+            }
 
-        throw error
-      }
+            return yield* Effect.fail(error)
+          })
+        )
+      )
     })
 
   const getRecoveryStatistics = () =>
@@ -458,14 +462,16 @@ const makeErrorRecoveryService = Effect.gen(function* () {
   ) =>
     Effect.gen(function* () {
       yield* Effect.logWarning(`フォールバック実行: ${errorContext.errorId}`)
+      const timestamp = yield* Clock.currentTimeMillis
       // 最小限の結果を返す
-      return { fallback: true, stage: errorContext.stage, timestamp: Date.now() }
+      return { fallback: true, stage: errorContext.stage, timestamp }
     })
 
   const executeSkipStrategy = () =>
     Effect.gen(function* () {
       yield* Effect.logInfo('ステージスキップ実行')
-      return { skipped: true, timestamp: Date.now() }
+      const timestamp = yield* Clock.currentTimeMillis
+      return { skipped: true, timestamp }
     })
 
   const executeAbortStrategy = (errorContext: Schema.Schema.Type<typeof ErrorContext>) =>

@@ -8,17 +8,14 @@
  * - Effect-TS 3.17+の最新パターン活用
  */
 
-import { Context, Effect, Schema, STM } from 'effect'
 import type * as WorldTypes from '@domain/world/types/core'
 import type * as GenerationErrors from '@domain/world/types/errors'
+import { Clock, Context, Effect, Schema, STM } from 'effect'
 import * as BusinessRules from './index'
 import * as GenerationEvents from './index'
 import * as GenerationState from './index'
 import {
   AggregateVersionSchema,
-  GenerationContextSchema,
-  WorldGeneratorIdSchema,
-  WorldGeneratorSchema,
   type GenerateChunkCommand,
   type GenerationContext,
   type UpdateSettingsCommand,
@@ -58,13 +55,15 @@ export const create = (
     // ビジネスルール検証
     yield* BusinessRules.validateCreationContext(context)
 
-    const now = yield* Effect.sync(() => new Date())
+    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+
+    const state = yield* GenerationState.createInitial()
 
     const generator: WorldGenerator = {
       id,
       version: Schema.decodeSync(AggregateVersionSchema)(0),
       context,
-      state: GenerationState.createInitial(),
+      state,
       createdAt: now,
       updatedAt: now,
     }
@@ -107,11 +106,13 @@ export const generateChunk = (
       GenerationState.completeChunkGeneration(updatedState, command.coordinate, chunkData)
     )
 
+    const updatedAt = yield* STM.fromEffect(Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms)))
+
     const updatedGenerator: WorldGenerator = {
       ...generator,
       version: Schema.decodeSync(AggregateVersionSchema)(generator.version + 1),
       state: finalState,
-      updatedAt: new Date(),
+      updatedAt,
     }
 
     // 完了イベント発行
@@ -140,11 +141,13 @@ export const updateSettings = (
       ...(command.noiseConfig && { noiseConfig: command.noiseConfig }),
     }
 
+    const updatedAt = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+
     const updatedGenerator: WorldGenerator = {
       ...generator,
       version: Schema.decodeSync(AggregateVersionSchema)(generator.version + 1),
       context: updatedContext,
-      updatedAt: new Date(),
+      updatedAt,
     }
 
     // 設定更新イベント発行
@@ -188,13 +191,15 @@ const generateChunkData = (
     // この実装はDomain Service層に委譲する
     // 実際の地形生成、バイオーム計算、構造物配置など
 
+    const generatedAt = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+
     // プレースホルダー実装
     const chunkData: WorldTypes.ChunkData = {
       coordinate: command.coordinate,
       heightMap: new Array(256).fill(64), // 16x16の高度マップ
       biomes: new Array(256).fill(0), // バイオームID配列
       structures: [],
-      generatedAt: new Date(),
+      generatedAt,
     }
 
     return chunkData
@@ -242,8 +247,8 @@ export const WorldGeneratorLive = WorldGeneratorTag.of({
 
 export {
   AggregateVersionSchema,
-  GenerateChunkCommandSchema,
   createWorldGeneratorId,
+  GenerateChunkCommandSchema,
   GenerationContextSchema,
   UpdateSettingsCommandSchema,
   WorldGeneratorIdSchema,

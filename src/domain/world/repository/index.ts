@@ -25,32 +25,10 @@ export * from './world_metadata_repository'
 
 // === Layer Integration ===
 
-import { Layer } from 'effect'
-import type {
-  BiomeSystemRepository,
-  BiomeSystemRepositoryConfig,
-  BiomeSystemRepositoryMemoryLive,
-  BiomeSystemRepositoryPersistenceLive,
-} from './biome_system_repository'
-import type {
-  GenerationSessionRepository,
-  GenerationSessionRepositoryConfig,
-  GenerationSessionRepositoryMemoryLive,
-  GenerationSessionRepositoryPersistenceLive,
-} from './generation_session_repository'
-import type {
-  WorldGeneratorRepository,
-  WorldGeneratorRepositoryCacheLive,
-  WorldGeneratorRepositoryConfig,
-  WorldGeneratorRepositoryMemoryLive,
-  WorldGeneratorRepositoryPersistenceLive,
-} from './world_generator_repository'
-import type {
-  WorldMetadataRepository,
-  WorldMetadataRepositoryConfig,
-  WorldMetadataRepositoryMemoryLive,
-  WorldMetadataRepositoryPersistenceLive,
-} from './world_metadata_repository'
+import type { BiomeSystemRepository, BiomeSystemRepositoryConfig } from './biome_system_repository'
+import type { GenerationSessionRepository, GenerationSessionRepositoryConfig } from './generation_session_repository'
+import type { WorldGeneratorRepository, WorldGeneratorRepositoryConfig } from './world_generator_repository'
+import type { WorldMetadataRepository, WorldMetadataRepositoryConfig } from './world_metadata_repository'
 
 // === Repository Configuration ===
 
@@ -126,68 +104,9 @@ export const defaultWorldRepositoryLayerConfig: WorldRepositoryLayerConfig = {
   implementation: 'memory',
 }
 
-// === Memory Implementation Layer ===
+// === Layer Implementations ===
 
-/**
- * 全Repository Memory実装Layer
- */
-export const WorldRepositoryMemoryLayer = (config: WorldRepositoryLayerConfig = defaultWorldRepositoryLayerConfig) =>
-  Layer.mergeAll(
-    WorldGeneratorRepositoryMemoryLive(config.worldGenerator),
-    GenerationSessionRepositoryMemoryLive(config.generationSession),
-    BiomeSystemRepositoryMemoryLive(config.biomeSystem),
-    WorldMetadataRepositoryMemoryLive(config.worldMetadata)
-  )
-
-// === Persistence Implementation Layer ===
-
-/**
- * 全Repository Persistence実装Layer
- */
-export const WorldRepositoryPersistenceLayer = (
-  config: WorldRepositoryLayerConfig = defaultWorldRepositoryLayerConfig
-) =>
-  Layer.mergeAll(
-    WorldGeneratorRepositoryPersistenceLive(config.worldGenerator),
-    GenerationSessionRepositoryPersistenceLive(config.generationSession),
-    BiomeSystemRepositoryPersistenceLive(config.biomeSystem),
-    WorldMetadataRepositoryPersistenceLive(config.worldMetadata)
-  )
-
-// === Mixed Implementation Layer ===
-
-/**
- * Mixed実装Layer（パフォーマンス重視）
- */
-export const WorldRepositoryMixedLayer = (config: WorldRepositoryLayerConfig = defaultWorldRepositoryLayerConfig) =>
-  Layer.mergeAll(
-    // Cache layer for world generator (high-frequency access)
-    WorldGeneratorRepositoryCacheLive(config.worldGenerator),
-    // Memory for sessions (temporary, high-performance needed)
-    GenerationSessionRepositoryMemoryLive(config.generationSession),
-    // Memory for biome system (spatial queries need speed)
-    BiomeSystemRepositoryMemoryLive(config.biomeSystem),
-    // Persistence for metadata (long-term storage needed)
-    WorldMetadataRepositoryPersistenceLive(config.worldMetadata)
-  )
-
-// === Auto Layer Selection ===
-
-/**
- * 設定に基づく自動Layer選択
- */
-export const WorldRepositoryLayer = (config: WorldRepositoryLayerConfig = defaultWorldRepositoryLayerConfig) => {
-  switch (config.implementation) {
-    case 'memory':
-      return WorldRepositoryMemoryLayer(config)
-    case 'persistence':
-      return WorldRepositoryPersistenceLayer(config)
-    case 'mixed':
-      return WorldRepositoryMixedLayer(config)
-    default:
-      return WorldRepositoryMemoryLayer(config)
-  }
-}
+export * from './layers'
 
 // === Repository Service Types ===
 
@@ -203,101 +122,7 @@ export interface WorldRepositoryServices {
 
 // === Utility Functions ===
 
-/**
- * Repository層健全性チェック
- */
-export const validateRepositoryHealth = (services: WorldRepositoryServices) => ({
-  worldGenerator: {
-    isInitialized: true, // Would check actual initialization status
-    memoryUsage: '15MB',
-    cacheHitRate: 0.85,
-    errorRate: 0.02,
-  },
-  generationSession: {
-    isInitialized: true,
-    activeSessions: 5,
-    averageSessionDuration: '45 minutes',
-    recoverySuccessRate: 0.92,
-  },
-  biomeSystem: {
-    isInitialized: true,
-    spatialIndexDepth: 8,
-    biomeCount: 25000,
-    cacheEfficiency: 0.78,
-  },
-  worldMetadata: {
-    isInitialized: true,
-    totalWorlds: 150,
-    compressionRatio: 0.35,
-    backupCount: 450,
-  },
-})
-
-/**
- * Repository層パフォーマンス統計
- */
-export const getRepositoryPerformanceStats = (services: WorldRepositoryServices) => ({
-  overall: {
-    totalMemoryUsage: '180MB',
-    averageResponseTime: '12ms',
-    totalOperations: 15420,
-    errorRate: 0.015,
-  },
-  breakdown: {
-    worldGenerator: { responseTime: '8ms', operations: 3200, errors: 12 },
-    generationSession: { responseTime: '25ms', operations: 850, errors: 8 },
-    biomeSystem: { responseTime: '5ms', operations: 8900, errors: 15 },
-    worldMetadata: { responseTime: '15ms', operations: 2470, errors: 18 },
-  },
-  recommendations: [
-    'Consider increasing biome system cache size for better spatial query performance',
-    'Generation session recovery strategy could be optimized for common failure patterns',
-    'World metadata versioning overhead is acceptable but monitor growth',
-  ],
-})
-
-/**
- * Repository層メトリクス収集
- */
-export const collectRepositoryMetrics = (services: WorldRepositoryServices) => ({
-  timestamp: new Date().toISOString(),
-  version: '1.0.0',
-  metrics: {
-    // Cache metrics
-    cache: {
-      worldGenerator: { size: 850, hitRate: 0.85, evictions: 12 },
-      biomeSystem: { size: 9500, hitRate: 0.78, evictions: 45 },
-      worldMetadata: { size: 650, hitRate: 0.72, evictions: 8 },
-    },
-    // Performance metrics
-    performance: {
-      avgReadLatency: 8.5,
-      avgWriteLatency: 18.2,
-      throughput: 1250, // operations per second
-      concurrency: 15,
-    },
-    // Storage metrics
-    storage: {
-      totalSize: '2.5GB',
-      compressionRatio: 0.32,
-      indexingOverhead: '45MB',
-      fragmentationRatio: 0.08,
-    },
-    // Error metrics
-    errors: {
-      total: 53,
-      byType: {
-        validation: 15,
-        storage: 8,
-        integrity: 4,
-        concurrency: 12,
-        compression: 3,
-        versioning: 6,
-        cache: 5,
-      },
-    },
-  },
-})
+export * from './helpers'
 
 // === Type Exports ===
 

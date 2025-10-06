@@ -6,7 +6,7 @@
  * アイテムに関する複雑なビジネスルールを統合管理します。
  */
 
-import { Context, Effect } from 'effect'
+import { Context, Data, Effect } from 'effect'
 import type { ItemId } from '../../types'
 
 // =============================================================================
@@ -133,15 +133,10 @@ export interface ItemDefinitionMetadata {
 // Domain Errors
 // =============================================================================
 
-export class ItemRegistryError extends Error {
-  readonly _tag = 'ItemRegistryError'
-  constructor(
-    readonly reason: string,
-    readonly itemId?: ItemId
-  ) {
-    super(`Item registry error: ${reason} ${itemId ? `for ${itemId}` : ''}`)
-  }
-}
+export class ItemRegistryError extends Data.TaggedError('ItemRegistryError')<{
+  readonly reason: string
+  readonly itemId?: ItemId
+}> {}
 
 // =============================================================================
 // Item Registry Service Interface

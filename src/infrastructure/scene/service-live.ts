@@ -1,4 +1,3 @@
-import { SceneService } from '@domain/scene'
 import {
   ActiveScene,
   LoadError as LoadErrorADT,
@@ -11,6 +10,7 @@ import {
   SceneEvent,
   SceneProgress,
   SceneProgressSchema,
+  SceneService,
   SceneState,
   SceneStateSchema,
   SceneTimestamp,
@@ -25,10 +25,10 @@ import type { EventBusService } from '@infrastructure/events'
 import { EventBus } from '@infrastructure/events'
 import {
   RendererService,
+  RendererServiceLive,
   parseAlpha as parseRendererAlpha,
   parseRgbColor,
 } from '@infrastructure/rendering'
-import { RendererServiceLive } from '@infrastructure/rendering'
 import { Clock, Context, Duration, Effect, HashMap, Layer, Match, Option, Ref, Schema, pipe } from 'effect'
 
 // ===== 外部ポート =====

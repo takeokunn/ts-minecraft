@@ -1,4 +1,4 @@
-import { Effect, Layer, Ref } from 'effect'
+import { Clock, Effect, Layer, pipe, ReadonlyArray, Ref } from 'effect'
 import type { ChunkData } from '../../aggregate/chunk_data'
 import type { ChunkPosition } from '../../value_object/chunk_position'
 import type { ChunkRepository } from '../chunk_repository'
@@ -192,28 +192,34 @@ export const ChunkQueryRepositoryLive = Layer.effect(
         const cache = yield* Ref.get(cacheRef)
         const entry = cache.get(key) as CacheEntry<T> | undefined
 
-        if (entry && Date.now() - entry.timestamp < ttlMs) {
-          // ヒット数更新
-          yield* Ref.update(cacheRef, (currentCache) => {
-            const newCache = new Map(currentCache)
-            newCache.set(key, { ...entry, hitCount: entry.hitCount + 1 })
-            return newCache
-          })
-          return entry.data
+        if (entry) {
+          const now = yield* Clock.currentTimeMillis
+          if (now - entry.timestamp < ttlMs) {
+            // ヒット数更新
+            yield* Ref.update(cacheRef, (currentCache) => {
+              const newCache = new Map(currentCache)
+              newCache.set(key, { ...entry, hitCount: entry.hitCount + 1 })
+              return newCache
+            })
+            return entry.data
+          }
         }
 
         return null
       })
 
     const setCache = <T>(key: string, data: T): Effect.Effect<void, never> =>
-      Ref.update(cacheRef, (cache) => {
-        const newCache = new Map(cache)
-        newCache.set(key, {
-          data,
-          timestamp: Date.now(),
-          hitCount: 0,
+      Effect.gen(function* () {
+        const now = yield* Clock.currentTimeMillis
+        yield* Ref.update(cacheRef, (cache) => {
+          const newCache = new Map(cache)
+          newCache.set(key, {
+            data,
+            timestamp: now,
+            hitCount: 0,
+          })
+          return newCache
         })
-        return newCache
       })
 
     return {
@@ -253,16 +259,12 @@ export const ChunkQueryRepositoryLive = Layer.effect(
           // 実際の実装では、チャンクの中身をチェックして空かどうかを判定
           const allChunks = region ? yield* chunkRepo.findByRegion(region) : yield* chunkRepo.findByQuery({})
 
-          const emptyPositions: ChunkPosition[] = []
-
-          for (const chunk of allChunks) {
-            // チャンクが空かどうかの判定ロジック
-            // 実際の実装では chunk.blocks の中身をチェック
-            const isEmpty = JSON.stringify(chunk).length < 1000 // 簡易判定
-            if (isEmpty) {
-              emptyPositions.push(chunk.position)
-            }
-          }
+          // ReadonlyArray関数で空チャンクフィルタリング
+          const emptyPositions = pipe(
+            allChunks,
+            ReadonlyArray.filter((chunk) => JSON.stringify(chunk).length < 1000),
+            ReadonlyArray.map((chunk) => chunk.position)
+          )
 
           yield* setCache(cacheKey, emptyPositions)
           return emptyPositions
@@ -477,22 +479,24 @@ export const ChunkQueryRepositoryLive = Layer.effect(
 
       getRegionalStatistics: (regions) =>
         Effect.gen(function* () {
-          const results = []
+          // Effect.forEachで並行実行可能な統計計算
+          return yield* Effect.forEach(
+            regions,
+            (region) =>
+              Effect.gen(function* () {
+                const chunks = yield* chunkRepo.findByRegion(region)
+                const loadedCount = chunks.length // 実際の実装では状態をチェック
 
-          for (const region of regions) {
-            const chunks = yield* chunkRepo.findByRegion(region)
-            const loadedCount = chunks.length // 実際の実装では状態をチェック
-
-            results.push({
-              region,
-              chunkCount: chunks.length,
-              loadedCount,
-              memoryUsage: chunks.length * 64 * 1024, // 簡易推定
-              averageAccessTime: 10, // 簡易推定
-            })
-          }
-
-          return results
+                return {
+                  region,
+                  chunkCount: chunks.length,
+                  loadedCount,
+                  memoryUsage: chunks.length * 64 * 1024, // 簡易推定
+                  averageAccessTime: 10, // 簡易推定
+                }
+              }),
+            { concurrency: 'unbounded' }
+          )
         }),
 
       generateHeatmap: (region, metric) =>
@@ -510,7 +514,7 @@ export const ChunkQueryRepositoryLive = Layer.effect(
                 value = 10 // 実際の実装では chunk.metadata.loadTime
                 break
               case 'modificationTime':
-                value = Date.now() // 実際の実装では chunk.metadata.modifiedAt
+                value = 0 // 実際の実装では chunk.metadata.modifiedAt（プレースホルダー）
                 break
               case 'size':
                 value = JSON.stringify(chunk).length
@@ -524,7 +528,7 @@ export const ChunkQueryRepositoryLive = Layer.effect(
               metadata: {
                 loadTime: 10,
                 accessCount: 1,
-                lastModified: Date.now(),
+                lastModified: 0, // プレースホルダー（実際の実装ではchunk.metadata.modifiedAtを使用）
               },
             }
           })
@@ -580,17 +584,17 @@ export const ChunkQueryRepositoryLive = Layer.effect(
       getTimeSeriesStats: (metric, interval, timeRange) =>
         Effect.gen(function* () {
           // 時系列統計計算（プレースホルダー）
-          const stats = []
           const intervalMs = interval === 'hourly' ? 3600000 : interval === 'daily' ? 86400000 : 604800000
 
-          for (let time = timeRange.from; time <= timeRange.to; time += intervalMs) {
-            stats.push({
-              timestamp: time,
+          // 数値範囲をReadonlyArray.makeByで生成
+          const timeSteps = Math.floor((timeRange.to - timeRange.from) / intervalMs) + 1
+          return pipe(
+            ReadonlyArray.makeBy(timeSteps, (i) => timeRange.from + i * intervalMs),
+            ReadonlyArray.map((timestamp) => ({
+              timestamp,
               value: Math.floor(Math.random() * 100), // プレースホルダー
-            })
-          }
-
-          return stats
+            }))
+          )
         }),
 
       // ===== Optimization and Maintenance Queries ===== //
@@ -615,23 +619,22 @@ export const ChunkQueryRepositoryLive = Layer.effect(
           const allChunks = yield* chunkRepo.findByQuery({})
 
           // 孤立チャンク検出ロジック（隣接チャンクがないもの）
-          const orphaned = []
-
-          for (const chunk of allChunks) {
-            const neighbors = yield* chunkRepo.findByRegion({
-              minX: chunk.position.x - 1,
-              maxX: chunk.position.x + 1,
-              minZ: chunk.position.z - 1,
-              maxZ: chunk.position.z + 1,
-            })
-
-            if (neighbors.length === 1) {
-              // 自分だけ
-              orphaned.push(chunk)
-            }
-          }
-
-          return orphaned
+          // Effect.filterで並行チェック
+          return yield* Effect.filter(
+            allChunks,
+            (chunk) =>
+              Effect.gen(function* () {
+                const neighbors = yield* chunkRepo.findByRegion({
+                  minX: chunk.position.x - 1,
+                  maxX: chunk.position.x + 1,
+                  minZ: chunk.position.z - 1,
+                  maxZ: chunk.position.z + 1,
+                })
+                // 自分だけの場合は孤立
+                return neighbors.length === 1
+              }),
+            { concurrency: 'unbounded' }
+          )
         }),
 
       findMemoryPressureCauses: () =>
@@ -657,10 +660,11 @@ export const ChunkQueryRepositoryLive = Layer.effect(
       monitorActiveChunks: () =>
         Effect.gen(function* () {
           const recentChunks = yield* chunkRepo.findRecentlyLoaded(50)
+          const now = yield* Clock.currentTimeMillis
 
           const active = recentChunks.map((chunk) => ({
             chunk,
-            lastActivity: Date.now(),
+            lastActivity: now,
             activityType: 'load', // 実際の実装では活動タイプを判定
           }))
 
@@ -669,24 +673,25 @@ export const ChunkQueryRepositoryLive = Layer.effect(
 
       measureQueryPerformance: <T>(queryName: string, query: Effect.Effect<T, RepositoryError>) =>
         Effect.gen(function* () {
-          const startTime = Date.now()
+          const startTime = yield* Clock.currentTimeMillis
           const startMemory = process.memoryUsage().heapUsed
 
           const result = yield* query
 
-          const endTime = Date.now()
+          const endTime = yield* Clock.currentTimeMillis
           const endMemory = process.memoryUsage().heapUsed
 
           const executionTimeMs = endTime - startTime
           const memoryUsed = endMemory - startMemory
 
+          const now = yield* Clock.currentTimeMillis
           // パフォーマンスメトリクスを記録
           yield* Ref.update(performanceMetricsRef, (metrics) => [
             ...metrics.slice(-99), // 最新100件を保持
             {
               queryName,
               executionTimeMs,
-              timestamp: Date.now(),
+              timestamp: now,
               memoryUsed,
             },
           ])

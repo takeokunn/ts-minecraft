@@ -42,12 +42,12 @@ const randomRecipeId = (): Effect.Effect<RecipeId, never> =>
   pipe(
     Random.nextIntBetween(1000, 9_999_999),
     Effect.map((value) => `recipe-${value}`),
-    Effect.flatMap((id) => Schema.decodeEffect(RecipeIdSchema)(id))
+    Effect.flatMap((id) => Schema.decode(RecipeIdSchema)(id))
   )
 
-const defaultDifficulty = Schema.decodeEffect(CraftingDifficultySchema)(3)
-const defaultTime = Schema.decodeEffect(CraftingTimeSchema)(1_000)
-const defaultSuccess = Schema.decodeEffect(SuccessRateSchema)(0.85)
+const defaultDifficulty = Schema.decode(CraftingDifficultySchema)(3)
+const defaultTime = Schema.decode(CraftingTimeSchema)(1_000)
+const defaultSuccess = Schema.decode(SuccessRateSchema)(0.85)
 
 export const RecipeFactoryServiceLive = Layer.effect(
   RecipeFactoryService,

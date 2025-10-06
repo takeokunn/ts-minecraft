@@ -3,7 +3,7 @@
  * 世界ドメインの構造化エラー定義
  */
 
-import { Data, Schema } from 'effect'
+import { Clock, Data, Effect, Schema } from 'effect'
 import { ChunkPosition, DimensionId, Vector3D, WorldId } from '../core'
 
 // === 基本エラー情報型 ===
@@ -24,9 +24,7 @@ export const ErrorContextSchema = Schema.Struct({
   timestamp: Schema.DateFromSelf,
   worldId: Schema.optional(Schema.suspend(() => import('../core').then((m) => m.WorldIdSchema))),
   position: Schema.optional(Schema.suspend(() => import('../core').then((m) => m.Vector3DSchema))),
-  chunkPosition: Schema.optional(
-    Schema.suspend(() => import('../core').then((m) => m.ChunkPositionSchema))
-  ),
+  chunkPosition: Schema.optional(Schema.suspend(() => import('../core').then((m) => m.ChunkPositionSchema))),
   dimensionId: Schema.optional(Schema.suspend(() => import('../core').then((m) => m.DimensionIdSchema))),
   operationId: Schema.optional(Schema.String),
   userId: Schema.optional(Schema.String),
@@ -236,9 +234,7 @@ export const DimensionNotFoundErrorSchema = Schema.TaggedStruct('DimensionNotFou
   dimensionId: Schema.suspend(() => import('../core').then((m) => m.DimensionIdSchema)),
   worldId: Schema.suspend(() => import('../core').then((m) => m.WorldIdSchema)),
   context: ErrorContextSchema,
-  availableDimensions: Schema.Array(
-    Schema.suspend(() => import('../core').then((m) => m.DimensionIdSchema))
-  ),
+  availableDimensions: Schema.Array(Schema.suspend(() => import('../core').then((m) => m.DimensionIdSchema))),
 }).pipe(
   Schema.annotations({
     title: 'Dimension Not Found Error',
@@ -394,21 +390,28 @@ export const WorldDomainErrorSchema = Schema.Union(
 // === エラー作成ヘルパー関数 ===
 
 /** ErrorContext作成ヘルパー */
-export const createErrorContext = (overrides: Partial<ErrorContext> = {}): ErrorContext => ({
-  timestamp: new Date(),
-  ...overrides,
-})
+export const createErrorContext = (overrides: Partial<ErrorContext> = {}): Effect.Effect<ErrorContext> =>
+  Effect.gen(function* () {
+    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    return {
+      timestamp,
+      ...overrides,
+    }
+  })
 
 /** WorldNotFoundError作成ヘルパー */
 export const createWorldNotFoundError = (
   worldId: WorldId,
   context?: Partial<ErrorContext>,
   suggestedAction?: string
-): WorldNotFoundError =>
-  new WorldNotFoundError({
-    worldId,
-    context: createErrorContext(context),
-    suggestedAction,
+): Effect.Effect<WorldNotFoundError> =>
+  Effect.gen(function* () {
+    const errorContext = yield* createErrorContext(context)
+    return new WorldNotFoundError({
+      worldId,
+      context: errorContext,
+      suggestedAction,
+    })
   })
 
 /** InvalidCoordinateError作成ヘルパー */
@@ -417,12 +420,15 @@ export const createInvalidCoordinateError = (
   reason: string,
   context?: Partial<ErrorContext>,
   validRange?: { min: Vector3D; max: Vector3D }
-): InvalidCoordinateError =>
-  new InvalidCoordinateError({
-    coordinate,
-    reason,
-    context: createErrorContext(context),
-    validRange,
+): Effect.Effect<InvalidCoordinateError> =>
+  Effect.gen(function* () {
+    const errorContext = yield* createErrorContext(context)
+    return new InvalidCoordinateError({
+      coordinate,
+      reason,
+      context: errorContext,
+      validRange,
+    })
   })
 
 /** OperationTimeoutError作成ヘルパー */
@@ -432,11 +438,14 @@ export const createOperationTimeoutError = (
   elapsedMs: number,
   context?: Partial<ErrorContext>,
   retryable: boolean = true
-): OperationTimeoutError =>
-  new OperationTimeoutError({
-    operation,
-    timeoutMs,
-    elapsedMs,
-    context: createErrorContext(context),
-    retryable,
+): Effect.Effect<OperationTimeoutError> =>
+  Effect.gen(function* () {
+    const errorContext = yield* createErrorContext(context)
+    return new OperationTimeoutError({
+      operation,
+      timeoutMs,
+      elapsedMs,
+      context: errorContext,
+      retryable,
+    })
   })

@@ -6,8 +6,8 @@
  * プレイヤー追従、衝突検出などの機能を提供します。
  */
 
-import { Data, Effect, Match, Option, pipe } from 'effect'
 import { CameraError } from '@domain/camera/types'
+import { Data, Effect, Match, Option, pipe } from 'effect'
 import {
   CameraDistance,
   CameraRotation,

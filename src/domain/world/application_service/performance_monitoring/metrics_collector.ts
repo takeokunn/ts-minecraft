@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Match, Ref, Schema } from 'effect'
+import { Clock, Context, Effect, Layer, Match, Ref, Schema } from 'effect'
 
 /**
  * Metrics Collector Service
@@ -277,7 +277,7 @@ const makeMetricsCollectorService = Effect.gen(function* () {
         name,
         type: 'counter',
         value,
-        timestamp: Date.now(),
+        timestamp: yield* Clock.currentTimeMillis,
         labels: labels || {},
       }
 
@@ -292,7 +292,7 @@ const makeMetricsCollectorService = Effect.gen(function* () {
         name,
         type: 'gauge',
         value,
-        timestamp: Date.now(),
+        timestamp: yield* Clock.currentTimeMillis,
         labels: labels || {},
       }
 
@@ -307,7 +307,7 @@ const makeMetricsCollectorService = Effect.gen(function* () {
         name,
         type: 'histogram',
         value,
-        timestamp: Date.now(),
+        timestamp: yield* Clock.currentTimeMillis,
         labels: labels || {},
       }
 
@@ -317,10 +317,11 @@ const makeMetricsCollectorService = Effect.gen(function* () {
 
   const startTimer = (name: string, labels?: Record<string, string>) =>
     Effect.gen(function* () {
-      const timerId = `timer_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      const now = yield* Clock.currentTimeMillis
+      const timerId = `timer_${now}_${Math.random().toString(36).substr(2, 9)}`
       const timer = {
         name,
-        startTime: Date.now(),
+        startTime: now,
         labels,
       }
 
@@ -343,7 +344,7 @@ const makeMetricsCollectorService = Effect.gen(function* () {
         })
       }
 
-      const elapsedTime = Date.now() - timer.startTime
+      const elapsedTime = yield* Clock.currentTimeMillis - timer.startTime
 
       // タイマーメトリクスを記録
       yield* recordHistogram(timer.name, elapsedTime, undefined, timer.labels)
@@ -386,7 +387,7 @@ const makeMetricsCollectorService = Effect.gen(function* () {
         errorCount: getLatestMetricValue(metricsMap, 'error_count') || 0,
         timeoutCount: getLatestMetricValue(metricsMap, 'timeout_count') || 0,
         retryCount: getLatestMetricValue(metricsMap, 'retry_count') || 0,
-        timestamp: Date.now(),
+        timestamp: yield* Clock.currentTimeMillis,
       }
 
       return snapshot
@@ -401,7 +402,7 @@ const makeMetricsCollectorService = Effect.gen(function* () {
       const metricsMap = yield* Ref.get(metrics)
       const metricData = metricsMap.get(metricName) || []
 
-      const now = Date.now()
+      const now = yield* Clock.currentTimeMillis
       const filteredData = metricData.filter((m) => now - m.timestamp <= timeWindow)
 
       if (filteredData.length === 0) {
@@ -498,7 +499,7 @@ const makeMetricsCollectorService = Effect.gen(function* () {
         totalMetrics,
         activeTimers: timers.size,
         memoryUsage,
-        lastCollection: Date.now(),
+        lastCollection: yield* Clock.currentTimeMillis,
       }
     })
 
@@ -561,7 +562,7 @@ const makeMetricsCollectorService = Effect.gen(function* () {
   const collectSystemMetrics = () =>
     Effect.gen(function* () {
       // システムメトリクスの収集（簡略化）
-      const now = Date.now()
+      const now = yield* Clock.currentTimeMillis
 
       yield* recordGauge('memory_usage', 4 * 1024 * 1024 * 1024 + Math.random() * 1024 * 1024 * 1024)
       yield* recordGauge('cpu_usage', 0.3 + Math.random() * 0.4)
@@ -574,7 +575,7 @@ const makeMetricsCollectorService = Effect.gen(function* () {
   const cleanupOldMetrics = () =>
     Effect.gen(function* () {
       const config = yield* Ref.get(configuration)
-      const cutoffTime = Date.now() - config.retentionPeriod
+      const cutoffTime = yield* Clock.currentTimeMillis - config.retentionPeriod
 
       yield* Ref.update(metrics, (map) => {
         for (const [name, metricList] of map) {

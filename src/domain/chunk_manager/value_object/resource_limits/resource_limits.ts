@@ -1,6 +1,12 @@
 import { Effect } from 'effect'
-import { MaxActiveChunks, ResourceUsagePercent, makeMaxActiveChunks, makeResourceUsagePercent } from '../../types'
-import { AutoManagementConfig, SystemLoad } from '../../types'
+import {
+  AutoManagementConfig,
+  MaxActiveChunks,
+  ResourceUsagePercent,
+  SystemLoad,
+  makeMaxActiveChunks,
+  makeResourceUsagePercent,
+} from '../../types'
 
 export const shouldThrottleActivations = (
   config: AutoManagementConfig,

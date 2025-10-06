@@ -1,5 +1,4 @@
-import { Schema } from '@effect/schema'
-import { Option, Order, ReadonlyArray, pipe } from 'effect'
+import { Option, Order, ReadonlyArray, Schema, pipe } from 'effect'
 
 // ============================================================================
 // ブランド型定義

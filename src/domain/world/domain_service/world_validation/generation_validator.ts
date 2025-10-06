@@ -2,8 +2,8 @@
  * Generation Validator Service - 生成検証ドメインサービス
  */
 
-import { Context, Effect, Layer } from 'effect'
 import type { GenerationError } from '@domain/world/types/errors'
+import { Context, Effect, Layer } from 'effect'
 
 export interface GenerationValidatorService {
   readonly validateGeneration: (data: any) => Effect.Effect<boolean, GenerationError>

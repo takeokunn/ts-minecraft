@@ -1,4 +1,4 @@
-import { Schema } from 'effect'
+import { Clock, Effect, Schema } from 'effect'
 
 // =============================================================================
 // Inventory Error Types using Schema.TaggedError
@@ -409,10 +409,16 @@ export type InventoryDomainError =
 /**
  * 基本インベントリエラーを生成
  */
-export const createInventoryError = (params: { message: string; inventoryId?: string }): InventoryError =>
-  new InventoryError({
-    ...params,
-    timestamp: Date.now(),
+export const createInventoryError = (params: {
+  message: string
+  inventoryId?: string
+}): Effect.Effect<InventoryError> =>
+  Effect.gen(function* () {
+    const timestamp = yield* Clock.currentTimeMillis
+    return new InventoryError({
+      ...params,
+      timestamp,
+    })
   })
 
 /**

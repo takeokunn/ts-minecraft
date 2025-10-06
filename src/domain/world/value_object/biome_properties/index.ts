@@ -33,7 +33,7 @@ export {
   type TemperatureRange,
   type TemperatureRangeError,
   type WindChillIndex,
-} from './index'
+} from './humidity_levels'
 
 // 湿度レベル設定
 export {
@@ -65,7 +65,7 @@ export {
   type SeasonalHumidityVariation,
   type VaporPressure,
   type WaterVaporCharacteristics,
-} from './index'
+} from './humidity_levels'
 
 // 植生密度設定
 export {
@@ -97,7 +97,7 @@ export {
   type VegetationInteraction,
   type VegetationLayer,
   type VegetationType,
-} from './index'
+} from './humidity_levels'
 
 // 土壌組成設定
 export {
@@ -131,7 +131,7 @@ export {
   type SoilPhysicalProperties,
   type SoilStructure,
   type SoilTexture,
-} from './index'
+} from './humidity_levels'
 
 /**
  * バイオーム特性ファクトリ

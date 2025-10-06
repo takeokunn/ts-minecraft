@@ -1,32 +1,30 @@
 import * as Schema from '@effect/schema/Schema'
 import { Clock, Effect, Match } from 'effect'
+import type { FurnitureRepository } from './index'
 import {
   appendPage,
-  beginSleep,
-  createBed,
-  createBook,
-  createSign,
-  finishSleep,
-  publishBook,
-  updateSignText,
-} from './index'
-import type { FurnitureRepository } from './index'
-import { createFurnitureRepository } from './index'
-import {
   Bed,
+  beginSleep,
   Book,
   BookPage,
+  createBed,
   CreateBedInput,
+  createBook,
   CreateBookInput,
+  createFurnitureRepository,
+  createSign,
   CreateSignInput,
+  finishSleep,
   FurnitureError,
   FurnitureId,
   PlayerId,
+  publishBook,
   Sign,
   SignTextSchema,
   SleepEnvironment,
   TickSchema,
   toValidationError,
+  updateSignText,
 } from './index'
 
 export interface SleepRequest {
@@ -64,7 +62,7 @@ export interface FurnitureApplicationService {
 
 const toTickEffect = Effect.gen(function* () {
   const millis = yield* Clock.currentTimeMillis
-  return yield* Schema.decode(TickSchema)(Math.floor(millis / 50)).pipe(Effect.mapError(toValidationError))
+  return yield* Schema.decodeUnknown(TickSchema)(Math.floor(millis / 50)).pipe(Effect.mapError(toValidationError))
 })
 
 const expectBed = (entity: unknown, id: FurnitureId) =>

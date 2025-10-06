@@ -43,90 +43,118 @@ export const FrameNumberSchema = Schema.Number.pipe(
 )
 
 /**
- * EasingType Schema - TaggedUnionを使用
+ * EasingType Schema - Unionを使用
  */
-export const EasingTypeSchema = Schema.TaggedUnion('_tag', {
-  Linear: Schema.Struct({
-    _tag: Schema.Literal('Linear'),
+const LinearEasing = Schema.Struct({
+  _tag: Schema.Literal('Linear'),
+})
+
+const EaseInEasing = Schema.Struct({
+  _tag: Schema.Literal('EaseIn'),
+  power: Schema.Number.pipe(Schema.between(1, 10)),
+})
+
+const EaseOutEasing = Schema.Struct({
+  _tag: Schema.Literal('EaseOut'),
+  power: Schema.Number.pipe(Schema.between(1, 10)),
+})
+
+const EaseInOutEasing = Schema.Struct({
+  _tag: Schema.Literal('EaseInOut'),
+  power: Schema.Number.pipe(Schema.between(1, 10)),
+})
+
+const BounceEasing = Schema.Struct({
+  _tag: Schema.Literal('Bounce'),
+  amplitude: Schema.Number.pipe(Schema.between(0.1, 2.0)),
+  period: Schema.Number.pipe(Schema.between(0.1, 1.0)),
+})
+
+const ElasticEasing = Schema.Struct({
+  _tag: Schema.Literal('Elastic'),
+  amplitude: Schema.Number.pipe(Schema.between(0.1, 2.0)),
+  period: Schema.Number.pipe(Schema.between(0.1, 1.0)),
+})
+
+const BackEasing = Schema.Struct({
+  _tag: Schema.Literal('Back'),
+  overshoot: Schema.Number.pipe(Schema.between(0.1, 3.0)),
+})
+
+const CubicEasing = Schema.Struct({
+  _tag: Schema.Literal('Cubic'),
+  controlPoint1: Schema.Struct({
+    x: Schema.Number.pipe(Schema.between(0, 1)),
+    y: Schema.Number,
   }),
-  EaseIn: Schema.Struct({
-    _tag: Schema.Literal('EaseIn'),
-    power: Schema.Number.pipe(Schema.between(1, 10)),
-  }),
-  EaseOut: Schema.Struct({
-    _tag: Schema.Literal('EaseOut'),
-    power: Schema.Number.pipe(Schema.between(1, 10)),
-  }),
-  EaseInOut: Schema.Struct({
-    _tag: Schema.Literal('EaseInOut'),
-    power: Schema.Number.pipe(Schema.between(1, 10)),
-  }),
-  Bounce: Schema.Struct({
-    _tag: Schema.Literal('Bounce'),
-    amplitude: Schema.Number.pipe(Schema.between(0.1, 2.0)),
-    period: Schema.Number.pipe(Schema.between(0.1, 1.0)),
-  }),
-  Elastic: Schema.Struct({
-    _tag: Schema.Literal('Elastic'),
-    amplitude: Schema.Number.pipe(Schema.between(0.1, 2.0)),
-    period: Schema.Number.pipe(Schema.between(0.1, 1.0)),
-  }),
-  Back: Schema.Struct({
-    _tag: Schema.Literal('Back'),
-    overshoot: Schema.Number.pipe(Schema.between(0.1, 3.0)),
-  }),
-  Cubic: Schema.Struct({
-    _tag: Schema.Literal('Cubic'),
-    controlPoint1: Schema.Struct({
-      x: Schema.Number.pipe(Schema.between(0, 1)),
-      y: Schema.Number,
-    }),
-    controlPoint2: Schema.Struct({
-      x: Schema.Number.pipe(Schema.between(0, 1)),
-      y: Schema.Number,
-    }),
-  }),
-  Spring: Schema.Struct({
-    _tag: Schema.Literal('Spring'),
-    tension: Schema.Number.pipe(Schema.between(0.1, 1000)),
-    friction: Schema.Number.pipe(Schema.between(0.1, 100)),
-  }),
-  Custom: Schema.Struct({
-    _tag: Schema.Literal('Custom'),
-    easingFunction: Schema.Function(Schema.Number, Schema.Number),
+  controlPoint2: Schema.Struct({
+    x: Schema.Number.pipe(Schema.between(0, 1)),
+    y: Schema.Number,
   }),
 })
 
-/**
- * AnimationState Schema - TaggedUnionを使用
- */
-export const AnimationStateSchema = Schema.TaggedUnion('_tag', {
-  Idle: Schema.Struct({
-    _tag: Schema.Literal('Idle'),
-  }),
-  Playing: Schema.Struct({
-    _tag: Schema.Literal('Playing'),
-    startTime: TimestampSchema,
-    duration: AnimationDurationSchema,
-    currentProgress: AnimationProgressSchema,
-  }),
-  Paused: Schema.Struct({
-    _tag: Schema.Literal('Paused'),
-    pausedAt: TimestampSchema,
-    remainingDuration: AnimationDurationSchema,
-    currentProgress: AnimationProgressSchema,
-  }),
-  Completed: Schema.Struct({
-    _tag: Schema.Literal('Completed'),
-    completedAt: TimestampSchema,
-    finalProgress: AnimationProgressSchema,
-  }),
-  Cancelled: Schema.Struct({
-    _tag: Schema.Literal('Cancelled'),
-    cancelledAt: TimestampSchema,
-    progressAtCancel: AnimationProgressSchema,
-  }),
+const SpringEasing = Schema.Struct({
+  _tag: Schema.Literal('Spring'),
+  tension: Schema.Number.pipe(Schema.between(0.1, 1000)),
+  friction: Schema.Number.pipe(Schema.between(0.1, 100)),
 })
+
+// Custom easing with function is not supported in Schema as functions cannot be serialized
+// Removed CustomEasing from the union
+
+export const EasingTypeSchema = Schema.Union(
+  LinearEasing,
+  EaseInEasing,
+  EaseOutEasing,
+  EaseInOutEasing,
+  BounceEasing,
+  ElasticEasing,
+  BackEasing,
+  CubicEasing,
+  SpringEasing
+)
+
+/**
+ * AnimationState Schema - Unionを使用
+ */
+const IdleAnimationState = Schema.Struct({
+  _tag: Schema.Literal('Idle'),
+})
+
+const PlayingAnimationState = Schema.Struct({
+  _tag: Schema.Literal('Playing'),
+  startTime: TimestampSchema,
+  duration: AnimationDurationSchema,
+  currentProgress: AnimationProgressSchema,
+})
+
+const PausedAnimationState = Schema.Struct({
+  _tag: Schema.Literal('Paused'),
+  pausedAt: TimestampSchema,
+  remainingDuration: AnimationDurationSchema,
+  currentProgress: AnimationProgressSchema,
+})
+
+const CompletedAnimationState = Schema.Struct({
+  _tag: Schema.Literal('Completed'),
+  completedAt: TimestampSchema,
+  finalProgress: AnimationProgressSchema,
+})
+
+const CancelledAnimationState = Schema.Struct({
+  _tag: Schema.Literal('Cancelled'),
+  cancelledAt: TimestampSchema,
+  progressAtCancel: AnimationProgressSchema,
+  reason: Schema.String,
+})
+
+export const AnimationStateSchema = Schema.Union(
+  IdleAnimationState,
+  PlayingAnimationState,
+  PausedAnimationState,
+  CompletedAnimationState,
+  CancelledAnimationState
+)
 
 /**
  * Position3D Schema（再利用）
@@ -246,48 +274,62 @@ export const AnimationDirectionSchema = Schema.Literal('forward', 'reverse', 'al
 export const PlaybackModeSchema = Schema.Literal('once', 'loop', 'ping-pong', 'hold-last')
 
 /**
- * AnimationEvent Schema - TaggedUnionを使用
+ * AnimationEvent Schema - Unionを使用
  */
-export const AnimationEventSchema = Schema.TaggedUnion('_tag', {
-  Started: Schema.Struct({
-    _tag: Schema.Literal('Started'),
-    animationId: Schema.String,
-    startTime: TimestampSchema,
-  }),
-  Updated: Schema.Struct({
-    _tag: Schema.Literal('Updated'),
-    animationId: Schema.String,
-    progress: AnimationProgressSchema,
-    currentTime: TimestampSchema,
-  }),
-  Paused: Schema.Struct({
-    _tag: Schema.Literal('Paused'),
-    animationId: Schema.String,
-    pauseTime: TimestampSchema,
-  }),
-  Resumed: Schema.Struct({
-    _tag: Schema.Literal('Resumed'),
-    animationId: Schema.String,
-    resumeTime: TimestampSchema,
-  }),
-  Completed: Schema.Struct({
-    _tag: Schema.Literal('Completed'),
-    animationId: Schema.String,
-    completionTime: TimestampSchema,
-  }),
-  Cancelled: Schema.Struct({
-    _tag: Schema.Literal('Cancelled'),
-    animationId: Schema.String,
-    cancellationTime: TimestampSchema,
-    reason: Schema.String,
-  }),
-  LoopCompleted: Schema.Struct({
-    _tag: Schema.Literal('LoopCompleted'),
-    animationId: Schema.String,
-    loopCount: Schema.Number.pipe(Schema.int(), Schema.positive()),
-    time: TimestampSchema,
-  }),
+const StartedAnimationEvent = Schema.Struct({
+  _tag: Schema.Literal('Started'),
+  animationId: Schema.String,
+  startTime: TimestampSchema,
 })
+
+const UpdatedAnimationEvent = Schema.Struct({
+  _tag: Schema.Literal('Updated'),
+  animationId: Schema.String,
+  progress: AnimationProgressSchema,
+  currentTime: TimestampSchema,
+})
+
+const PausedAnimationEvent = Schema.Struct({
+  _tag: Schema.Literal('Paused'),
+  animationId: Schema.String,
+  pauseTime: TimestampSchema,
+})
+
+const ResumedAnimationEvent = Schema.Struct({
+  _tag: Schema.Literal('Resumed'),
+  animationId: Schema.String,
+  resumeTime: TimestampSchema,
+})
+
+const CompletedAnimationEvent = Schema.Struct({
+  _tag: Schema.Literal('Completed'),
+  animationId: Schema.String,
+  completionTime: TimestampSchema,
+})
+
+const CancelledAnimationEvent = Schema.Struct({
+  _tag: Schema.Literal('Cancelled'),
+  animationId: Schema.String,
+  cancellationTime: TimestampSchema,
+  reason: Schema.String,
+})
+
+const LoopCompletedAnimationEvent = Schema.Struct({
+  _tag: Schema.Literal('LoopCompleted'),
+  animationId: Schema.String,
+  loopCount: Schema.Number.pipe(Schema.int(), Schema.positive()),
+  time: TimestampSchema,
+})
+
+export const AnimationEventSchema = Schema.Union(
+  StartedAnimationEvent,
+  UpdatedAnimationEvent,
+  PausedAnimationEvent,
+  ResumedAnimationEvent,
+  CompletedAnimationEvent,
+  CancelledAnimationEvent,
+  LoopCompletedAnimationEvent
+)
 
 /**
  * アニメーション設定用のSchema

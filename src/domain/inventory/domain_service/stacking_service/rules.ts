@@ -22,14 +22,13 @@ export const checkItemIdCompatibility = (
   sourceStack: ItemStack,
   targetStack: ItemStack
 ): Effect.Effect<{ isCompatible: boolean; reason?: StackIncompatibilityReason }, never> =>
-  Effect.gen(function* () {
-    if (sourceStack.itemId === targetStack.itemId) {
-      return { isCompatible: true }
-    }
-    return {
-      isCompatible: false,
-      reason: 'DIFFERENT_ITEM_IDS' as const,
-    }
+  Effect.if(sourceStack.itemId === targetStack.itemId, {
+    onTrue: () => Effect.succeed({ isCompatible: true }),
+    onFalse: () =>
+      Effect.succeed({
+        isCompatible: false,
+        reason: 'DIFFERENT_ITEM_IDS' as const,
+      }),
   })
 
 /**
@@ -44,18 +43,19 @@ export const checkStackLimitRule = (
     const stackLimit = yield* getItemStackLimit(sourceStack.itemId)
     const combinedCount = sourceStack.count + targetStack.count
 
-    if (combinedCount <= stackLimit) {
-      return {
-        isCompatible: true,
-        maxCombined: combinedCount,
-      }
-    }
-
-    return {
-      isCompatible: combinedCount <= stackLimit,
-      maxCombined: stackLimit,
-      reason: combinedCount > stackLimit ? ('STACK_LIMIT_EXCEEDED' as const) : undefined,
-    }
+    return yield* Effect.if(combinedCount <= stackLimit, {
+      onTrue: () =>
+        Effect.succeed({
+          isCompatible: true,
+          maxCombined: combinedCount,
+        }),
+      onFalse: () =>
+        Effect.succeed({
+          isCompatible: false,
+          maxCombined: stackLimit,
+          reason: 'STACK_LIMIT_EXCEEDED' as const,
+        }),
+    })
   })
 
 /**
@@ -74,8 +74,6 @@ export const checkMetadataCompatibility = (
   never
 > =>
   Effect.gen(function* () {
-    const conflicts: MetadataConflict[] = []
-
     // 両方ともメタデータがない場合は互換性あり
     if (!sourceStack.metadata && !targetStack.metadata) {
       return { isCompatible: true, conflicts: [] }
@@ -94,50 +92,62 @@ export const checkMetadataCompatibility = (
     const sourceMetadata = sourceStack.metadata
     const targetMetadata = targetStack.metadata
 
+    const conflicts: MetadataConflict[] = []
+
     // エンチャントのチェック
     const enchantmentConflict = yield* checkEnchantmentCompatibility(
       sourceMetadata.enchantments,
       targetMetadata.enchantments
     )
-    if (enchantmentConflict) {
-      conflicts.push(enchantmentConflict)
-    }
+    yield* Effect.when(enchantmentConflict !== null, () =>
+      Effect.sync(() => {
+        conflicts.push(enchantmentConflict!)
+      })
+    )
 
     // カスタム名のチェック
-    if (sourceMetadata.customName !== targetMetadata.customName) {
-      conflicts.push({
-        field: 'customName',
-        sourceValue: sourceMetadata.customName,
-        targetValue: targetMetadata.customName,
-        resolutionStrategy: 'PREVENT_STACK',
+    yield* Effect.when(sourceMetadata.customName !== targetMetadata.customName, () =>
+      Effect.sync(() => {
+        conflicts.push({
+          field: 'customName',
+          sourceValue: sourceMetadata.customName,
+          targetValue: targetMetadata.customName,
+          resolutionStrategy: 'PREVENT_STACK',
+        })
       })
-    }
+    )
 
     // Loreのチェック
     const loreConflict = yield* checkLoreCompatibility(sourceMetadata.lore, targetMetadata.lore)
-    if (loreConflict) {
-      conflicts.push(loreConflict)
-    }
+    yield* Effect.when(loreConflict !== null, () =>
+      Effect.sync(() => {
+        conflicts.push(loreConflict!)
+      })
+    )
 
     // ダメージ値のチェック
-    if (sourceMetadata.damage !== targetMetadata.damage) {
-      conflicts.push({
-        field: 'damage',
-        sourceValue: sourceMetadata.damage,
-        targetValue: targetMetadata.damage,
-        resolutionStrategy: 'AVERAGE',
+    yield* Effect.when(sourceMetadata.damage !== targetMetadata.damage, () =>
+      Effect.sync(() => {
+        conflicts.push({
+          field: 'damage',
+          sourceValue: sourceMetadata.damage,
+          targetValue: targetMetadata.damage,
+          resolutionStrategy: 'AVERAGE',
+        })
       })
-    }
+    )
 
     // 耐久値のチェック
-    if (sourceMetadata.durability !== targetMetadata.durability) {
-      conflicts.push({
-        field: 'durability',
-        sourceValue: sourceMetadata.durability,
-        targetValue: targetMetadata.durability,
-        resolutionStrategy: 'AVERAGE',
+    yield* Effect.when(sourceMetadata.durability !== targetMetadata.durability, () =>
+      Effect.sync(() => {
+        conflicts.push({
+          field: 'durability',
+          sourceValue: sourceMetadata.durability,
+          targetValue: targetMetadata.durability,
+          resolutionStrategy: 'AVERAGE',
+        })
       })
-    }
+    )
 
     // 互換性の判定
     const hasBlockingConflicts = conflicts.some((conflict) => conflict.resolutionStrategy === 'PREVENT_STACK')
@@ -165,15 +175,14 @@ export const checkDurabilityCompatibility = (
     const durabilityDifference = Math.abs(sourceDurability - targetDurability)
     const isToolItem = yield* isToolOrWeapon(sourceStack.itemId)
 
-    if (isToolItem && durabilityDifference > 0.1) {
-      // 10%以上の差
-      return {
-        isCompatible: false,
-        reason: 'DURABILITY_CONFLICT' as const,
-      }
-    }
-
-    return { isCompatible: true }
+    return yield* Effect.if(() => isToolItem && durabilityDifference > 0.1, {
+      onTrue: () =>
+        Effect.succeed({
+          isCompatible: false,
+          reason: 'DURABILITY_CONFLICT' as const,
+        }),
+      onFalse: () => Effect.succeed({ isCompatible: true }),
+    })
   })
 
 // =============================================================================
@@ -283,27 +292,29 @@ const checkEnchantmentCompatibility = (
     const targetEnchantmentMap = new Map(targetEnchantments.map((e) => [e.id, e.level]))
 
     // エンチャントの種類や レベルが異なる場合
-    if (sourceEnchantmentMap.size !== targetEnchantmentMap.size) {
-      return {
-        field: 'enchantments',
-        sourceValue: sourceEnchantments,
-        targetValue: targetEnchantments,
-        resolutionStrategy: 'PREVENT_STACK',
-      }
-    }
-
-    for (const [enchantId, level] of sourceEnchantmentMap) {
-      if (targetEnchantmentMap.get(enchantId) !== level) {
-        return {
+    return yield* Effect.if(sourceEnchantmentMap.size !== targetEnchantmentMap.size, {
+      onTrue: () =>
+        Effect.succeed<MetadataConflict>({
           field: 'enchantments',
           sourceValue: sourceEnchantments,
           targetValue: targetEnchantments,
           resolutionStrategy: 'PREVENT_STACK',
-        }
-      }
-    }
-
-    return null
+        }),
+      onFalse: () =>
+        Effect.gen(function* () {
+          for (const [enchantId, level] of sourceEnchantmentMap) {
+            if (targetEnchantmentMap.get(enchantId) !== level) {
+              return {
+                field: 'enchantments',
+                sourceValue: sourceEnchantments,
+                targetValue: targetEnchantments,
+                resolutionStrategy: 'PREVENT_STACK',
+              } as MetadataConflict
+            }
+          }
+          return null
+        }),
+    })
   })
 
 /**
@@ -330,27 +341,29 @@ const checkLoreCompatibility = (
     }
 
     // Loreの配列比較
-    if (sourceLore.length !== targetLore.length) {
-      return {
-        field: 'lore',
-        sourceValue: sourceLore,
-        targetValue: targetLore,
-        resolutionStrategy: 'PREVENT_STACK',
-      }
-    }
-
-    for (let i = 0; i < sourceLore.length; i++) {
-      if (sourceLore[i] !== targetLore[i]) {
-        return {
+    return yield* Effect.if(sourceLore.length !== targetLore.length, {
+      onTrue: () =>
+        Effect.succeed<MetadataConflict>({
           field: 'lore',
           sourceValue: sourceLore,
           targetValue: targetLore,
           resolutionStrategy: 'PREVENT_STACK',
-        }
-      }
-    }
-
-    return null
+        }),
+      onFalse: () =>
+        Effect.gen(function* () {
+          for (let i = 0; i < sourceLore.length; i++) {
+            if (sourceLore[i] !== targetLore[i]) {
+              return {
+                field: 'lore',
+                sourceValue: sourceLore,
+                targetValue: targetLore,
+                resolutionStrategy: 'PREVENT_STACK',
+              } as MetadataConflict
+            }
+          }
+          return null
+        }),
+    })
   })
 
 /**
@@ -408,43 +421,48 @@ export const checkCompleteStackCompatibility = (
   Effect.gen(function* () {
     // 1. アイテムID互換性チェック
     const itemIdCheck = yield* checkItemIdCompatibility(sourceStack, targetStack)
-    if (!itemIdCheck.isCompatible) {
-      return {
-        isCompatible: false,
-        reason: itemIdCheck.reason,
-        maxCombinedCount: 0,
-        requiresMetadataConsolidation: false,
-        metadataConflicts: [],
-      }
-    }
 
-    // 2. スタック制限チェック
-    const stackLimitCheck = yield* checkStackLimitRule(sourceStack, targetStack)
+    return yield* Effect.if(!itemIdCheck.isCompatible, {
+      onTrue: () =>
+        Effect.succeed({
+          isCompatible: false,
+          reason: itemIdCheck.reason,
+          maxCombinedCount: 0,
+          requiresMetadataConsolidation: false,
+          metadataConflicts: [],
+        }),
+      onFalse: () =>
+        Effect.gen(function* () {
+          // 2. スタック制限チェック
+          const stackLimitCheck = yield* checkStackLimitRule(sourceStack, targetStack)
 
-    // 3. メタデータ互換性チェック
-    const metadataCheck = yield* checkMetadataCompatibility(sourceStack, targetStack)
+          // 3. メタデータ互換性チェック
+          const metadataCheck = yield* checkMetadataCompatibility(sourceStack, targetStack)
 
-    // 4. 耐久値互換性チェック
-    const durabilityCheck = yield* checkDurabilityCompatibility(sourceStack, targetStack)
+          // 4. 耐久値互換性チェック
+          const durabilityCheck = yield* checkDurabilityCompatibility(sourceStack, targetStack)
 
-    // 全ての結果を統合
-    const allCompatible = stackLimitCheck.isCompatible && metadataCheck.isCompatible && durabilityCheck.isCompatible
+          // 全ての結果を統合
+          const allCompatible =
+            stackLimitCheck.isCompatible && metadataCheck.isCompatible && durabilityCheck.isCompatible
 
-    const primaryReason = !stackLimitCheck.isCompatible
-      ? stackLimitCheck.reason
-      : !metadataCheck.isCompatible
-        ? metadataCheck.reason
-        : !durabilityCheck.isCompatible
-          ? durabilityCheck.reason
-          : undefined
+          const primaryReason = !stackLimitCheck.isCompatible
+            ? stackLimitCheck.reason
+            : !metadataCheck.isCompatible
+              ? metadataCheck.reason
+              : !durabilityCheck.isCompatible
+                ? durabilityCheck.reason
+                : undefined
 
-    return {
-      isCompatible: allCompatible,
-      reason: primaryReason,
-      maxCombinedCount: stackLimitCheck.maxCombined,
-      requiresMetadataConsolidation: metadataCheck.conflicts.length > 0,
-      metadataConflicts: metadataCheck.conflicts,
-    }
+          return {
+            isCompatible: allCompatible,
+            reason: primaryReason,
+            maxCombinedCount: stackLimitCheck.maxCombined,
+            requiresMetadataConsolidation: metadataCheck.conflicts.length > 0,
+            metadataConflicts: metadataCheck.conflicts,
+          }
+        }),
+    })
   })
 
 // =============================================================================

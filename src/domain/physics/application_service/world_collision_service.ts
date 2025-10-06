@@ -1,8 +1,7 @@
+import type { AABB, PhysicsError, PhysicsWorldId, Vector3 } from '@domain/physics/types'
+import { vector3 } from '@domain/physics/types'
 import { Context, Effect, Layer } from 'effect'
 import { CollisionService } from '../domain_service'
-import type { AABB, PhysicsWorldId, Vector3 } from '@domain/physics/types'
-import { vector3 } from '@domain/physics/types'
-import type { PhysicsError } from '@domain/physics/types'
 
 export interface BlockPlacementContext {
   readonly worldId: PhysicsWorldId

@@ -41,7 +41,7 @@ describe('furniture/types', () => {
   })
 
   it('FurnitureIdSchema rejects unknown format', () => {
-    const decode = Schema.decode(FurnitureIdSchema)
+    const decode = Schema.decodeUnknown(FurnitureIdSchema)
     const effect = decode('invalid')
     expect(() => Effect.runSync(effect)).toThrow()
   })
@@ -61,7 +61,7 @@ describe('furniture/types', () => {
   })
 
   it('toValidationError aggregates issues', () => {
-    const effect = Schema.decode(CreateBedInputSchema)({})
+    const effect = Schema.decodeUnknown(CreateBedInputSchema)({})
     const failure = Effect.runSync(Effect.either(effect))
     if (Either.isLeft(failure)) {
       const error = toValidationError(failure.left)

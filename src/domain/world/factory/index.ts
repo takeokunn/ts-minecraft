@@ -191,22 +191,13 @@ export {
 // Layer Integration
 // ================================
 
+export * from './layer'
+
 import { Layer } from 'effect'
 import { BiomeSystemFactoryLive } from './biome_system_factory/index'
 import { GenerationSessionFactoryLive } from './generation_session_factory/index'
 import { WorldConfigurationFactoryLive } from './world_configuration_factory/index'
 import { WorldGeneratorFactoryLive } from './world_generator_factory/index'
-
-/**
- * World Domain Factory統合Layer
- * 全てのFactoryを統合した単一のLayerです。
- */
-export const WorldDomainFactoryLayer = Layer.mergeAll(
-  WorldGeneratorFactoryLive,
-  GenerationSessionFactoryLive,
-  BiomeSystemFactoryLive,
-  WorldConfigurationFactoryLive
-)
 
 /**
  * 設定可能なFactory Layer
@@ -262,102 +253,13 @@ export const createWorldDomainFactoryLayer = (
 // Convenience Workflows
 // ================================
 
-import { Effect } from 'effect'
-import type * as Coordinates from '@domain/world/value_object/coordinates/index'
-import { createDefaultBiomeSystem } from './biome_system_factory/index'
-import { createQuickSession } from './generation_session_factory/index'
-import { createQuickConfiguration } from './world_configuration_factory/index'
-import { createQuickGenerator } from './world_generator_factory/index'
-
-/**
- * 完全な世界生成セットアップ
- * Generator + Session + BiomeSystem + Configuration
- */
-export const createCompleteWorldSetup = (
-  coordinates: readonly Coordinates.ChunkCoordinate[]
-): Effect.Effect<
-  {
-    generator: any
-    session: any
-    biomeSystem: any
-    configuration: any
-  },
-  never
-> =>
-  Effect.gen(function* () {
-    // 並列でFactoryを実行
-    const [generator, session, biomeSystem, configuration] = yield* Effect.all([
-      createQuickGenerator(),
-      createQuickSession(coordinates),
-      createDefaultBiomeSystem(),
-      createQuickConfiguration(),
-    ])
-
-    return {
-      generator,
-      session,
-      biomeSystem,
-      configuration,
-    }
-  })
-
-/**
- * 高速世界生成セットアップ
- * パフォーマンス重視
- */
-export const createFastWorldSetup = (
-  coordinates: readonly Coordinates.ChunkCoordinate[]
-): Effect.Effect<
-  {
-    generator: any
-    session: any
-  },
-  never
-> =>
-  Effect.gen(function* () {
-    const [generator, session] = yield* Effect.all([createFastGenerator(), createExplorationSession(coordinates)])
-
-    return { generator, session }
-  })
-
-/**
- * 品質重視世界生成セットアップ
- * 最高品質の生成
- */
-export const createQualityWorldSetup = (
-  coordinates: readonly Coordinates.ChunkCoordinate[]
-): Effect.Effect<
-  {
-    generator: any
-    session: any
-    biomeSystem: any
-  },
-  never
-> =>
-  Effect.gen(function* () {
-    const [generator, session, biomeSystem] = yield* Effect.all([
-      createQualityGenerator(),
-      createQualitySession(coordinates),
-      createDefaultBiomeSystem(),
-    ])
-
-    return { generator, session, biomeSystem }
-  })
+export * from './helpers'
 
 // ================================
 // Testing Utilities
 // ================================
 
-/**
- * テスト用Factory Layer
- */
-export const createTestWorldFactoryLayer = () =>
-  Layer.mergeAll(
-    Layer.succeed(WorldGeneratorFactoryTag, {} as any),
-    Layer.succeed(GenerationSessionFactoryTag, {} as any),
-    Layer.succeed(BiomeSystemFactoryTag, {} as any),
-    Layer.succeed(WorldConfigurationFactoryTag, {} as any)
-  )
+// Exported from ./layer
 
 // ================================
 // Version Information
@@ -385,25 +287,7 @@ export const FACTORY_LAYER_FEATURES = [
 // ================================
 // Factory Summary
 // ================================
-
-/**
- * Factory統計情報取得
- */
-export const getFactoryStatistics = (): Effect.Effect<
-  {
-    factoryCount: number
-    builderCount: number
-    templateCount: number
-    presetCount: number
-  },
-  never
-> =>
-  Effect.succeed({
-    factoryCount: SUPPORTED_FACTORY_TYPES.length,
-    builderCount: 4, // 各FactoryにBuilder
-    templateCount: 7, // SessionTemplateの数
-    presetCount: 10, // WorldGeneratorPresetの数
-  })
+// (Exported from helpers.ts)
 
 // ================================
 // Re-export Common Types

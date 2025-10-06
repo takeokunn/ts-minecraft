@@ -1,6 +1,12 @@
-import { Array, Data, Effect, Layer, Option } from 'effect'
-import type { CameraModeManagerApplicationService } from './index'
-import type { ScheduleId, TransitionId, ViewModeRecommendation, ViewModeTransitionResult } from './index'
+import { Array, Clock, Data, Effect, Layer, Option } from 'effect'
+import { DefaultSettings, ViewMode } from '../../value_object/view_mode'
+import type {
+  CameraModeManagerApplicationService,
+  ScheduleId,
+  TransitionId,
+  ViewModeRecommendation,
+  ViewModeTransitionResult,
+} from './index'
 import { createViewModeTransitionResult } from './index'
 
 /**
@@ -10,7 +16,7 @@ import { createViewModeTransitionResult } from './index'
  * 複雑なモード遷移ロジックとスケジューリング機能を提供します。
  */
 export const CameraModeManagerApplicationServiceLive = Layer.effect(
-  CameraModeManagerApplicationService as any,
+  CameraModeManagerApplicationService,
   Effect.gen(function* () {
     // Internal state
     const activeTransitions = new Map<string, ViewModeTransitionResult>()
@@ -19,10 +25,18 @@ export const CameraModeManagerApplicationServiceLive = Layer.effect(
 
     // Helper functions
     const generateTransitionId = (): Effect.Effect<TransitionId, never> =>
-      Effect.succeed(`transition-${Date.now()}-${Math.random().toString(36).substr(2, 9)}` as TransitionId)
+      Effect.gen(function* () {
+        const timestamp = yield* Clock.currentTimeMillis
+        const random = yield* Effect.sync(() => Math.random().toString(36).substr(2, 9))
+        return `transition-${timestamp}-${random}` as TransitionId
+      })
 
     const generateScheduleId = (): Effect.Effect<ScheduleId, never> =>
-      Effect.succeed(`schedule-${Date.now()}-${Math.random().toString(36).substr(2, 9)}` as ScheduleId)
+      Effect.gen(function* () {
+        const timestamp = yield* Clock.currentTimeMillis
+        const random = yield* Effect.sync(() => Math.random().toString(36).substr(2, 9))
+        return `schedule-${timestamp}-${random}` as ScheduleId
+      })
 
     return CameraModeManagerApplicationService.of({
       switchCameraMode: (cameraId, targetMode, transitionConfig) =>
@@ -31,7 +45,7 @@ export const CameraModeManagerApplicationServiceLive = Layer.effect(
 
           // Basic validation and transition logic (simplified)
           const result = createViewModeTransitionResult.success(
-            { _tag: 'FirstPerson' } as any, // Current mode (simplified)
+            ViewMode.FirstPerson({ settings: DefaultSettings.firstPerson() }),
             targetMode,
             transitionConfig.duration,
             true,
@@ -45,15 +59,16 @@ export const CameraModeManagerApplicationServiceLive = Layer.effect(
       batchSwitchCameraMode: (operations) =>
         Effect.all(
           operations.map((op) =>
-            Effect.succeed(
-              createViewModeTransitionResult.success(
-                { _tag: 'FirstPerson' } as any,
+            Effect.gen(function* () {
+              const timestamp = yield* Clock.currentTimeMillis
+              return createViewModeTransitionResult.success(
+                ViewMode.FirstPerson({ settings: DefaultSettings.firstPerson() }),
                 op.targetMode,
                 op.transitionConfig.duration,
                 true,
-                `transition-batch-${Date.now()}` as TransitionId
+                `transition-batch-${timestamp}` as TransitionId
               )
-            )
+            })
           ),
           { concurrency: 'unbounded' }
         ),
@@ -82,17 +97,25 @@ export const CameraModeManagerApplicationServiceLive = Layer.effect(
 
       getAvailableViewModes: (cameraId, context) =>
         Effect.succeed([
-          { _tag: 'FirstPerson' },
-          { _tag: 'ThirdPerson' },
-          { _tag: 'Spectator' },
-        ] as Array.ReadonlyArray<any>),
+          ViewMode.FirstPerson({ settings: DefaultSettings.firstPerson() }),
+          ViewMode.ThirdPerson({
+            settings: DefaultSettings.thirdPerson(),
+            distance: 8.0 as any, // CameraDistance Brand型は別途対応
+          }),
+          ViewMode.Spectator({ settings: DefaultSettings.spectator() }),
+        ]),
 
       optimizeViewModeForContext: (cameraId, context, playerPreferences) =>
         Effect.succeed({
-          recommendedMode: { _tag: 'FirstPerson' },
+          recommendedMode: ViewMode.FirstPerson({ settings: DefaultSettings.firstPerson() }),
           confidence: 0.8,
           reasoning: [{ _tag: 'GameplayOptimal', description: 'Best for current game mode' }],
-          alternativeModes: [{ _tag: 'ThirdPerson' }],
+          alternativeModes: [
+            ViewMode.ThirdPerson({
+              settings: DefaultSettings.thirdPerson(),
+              distance: 8.0 as any, // CameraDistance Brand型は別途対応
+            }),
+          ],
           contextFactors: {} as any,
           timeToSwitch: Option.some(500),
         } as ViewModeRecommendation),
@@ -116,7 +139,7 @@ export const CameraModeManagerApplicationServiceLive = Layer.effect(
           successfulTransitions: 95,
           failedTransitions: 5,
           averageTransitionTime: 500,
-          mostUsedMode: { _tag: 'FirstPerson' },
+          mostUsedMode: ViewMode.FirstPerson({ settings: DefaultSettings.firstPerson() }),
           transitionsByMode: { FirstPerson: 60, ThirdPerson: 40 },
           performanceImpact: 0.05,
         } as any),
@@ -143,7 +166,7 @@ export const CameraModeManagerApplicationServiceLive = Layer.effect(
           const transitionId = yield* generateTransitionId()
 
           return createViewModeTransitionResult.success(
-            { _tag: 'FirstPerson' } as any,
+            ViewMode.FirstPerson({ settings: DefaultSettings.firstPerson() }),
             emergencyMode,
             100, // Emergency switches are fast
             false, // No animation for emergency

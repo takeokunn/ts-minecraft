@@ -85,7 +85,7 @@ export type { MetricsCollectorErrorType, PerformanceMonitoringErrorType } from '
 
 // === Integrated World Application Service ===
 
-import { Context, Effect, Layer, Ref, Schema, STM } from 'effect'
+import { Clock, Context, Effect, Ref, Schema, STM } from 'effect'
 import { CacheOptimizationService } from './cache_optimization/index'
 import { PerformanceMonitoringService } from './performance_monitoring/index'
 import { ProgressiveLoadingService } from './progressive_loading/index'
@@ -336,7 +336,7 @@ export interface WorldApplicationService {
 
 // === Live Implementation ===
 
-const makeWorldApplicationService = Effect.gen(function* () {
+export const makeWorldApplicationService = Effect.gen(function* () {
   const worldGeneration = yield* WorldGenerationOrchestrator
   const progressiveLoading = yield* ProgressiveLoadingService
   const cacheOptimization = yield* CacheOptimizationService
@@ -352,28 +352,20 @@ const makeWorldApplicationService = Effect.gen(function* () {
       yield* Effect.logInfo('World Application Service システム初期化開始')
 
       // 設定を更新
-      if (configuration) {
-        yield* Ref.update(systemConfiguration, (current) => ({ ...current, ...configuration }))
-      }
+      yield* Effect.when(configuration !== undefined, () =>
+        Ref.update(systemConfiguration, (current) => ({ ...current, ...configuration! }))
+      )
 
       const config = yield* Ref.get(systemConfiguration)
 
       // 各サービスを初期化
-      if (config.generation.enabled) {
-        yield* worldGeneration.initialize()
-      }
+      yield* Effect.when(config.generation.enabled, () => worldGeneration.initialize())
 
-      if (config.loading.enabled) {
-        yield* progressiveLoading.initialize()
-      }
+      yield* Effect.when(config.loading.enabled, () => progressiveLoading.initialize())
 
-      if (config.cache.enabled) {
-        yield* cacheOptimization.initialize()
-      }
+      yield* Effect.when(config.cache.enabled, () => cacheOptimization.initialize())
 
-      if (config.monitoring.enabled) {
-        yield* performanceMonitoring.initialize()
-      }
+      yield* Effect.when(config.monitoring.enabled, () => performanceMonitoring.initialize())
 
       yield* Effect.logInfo('World Application Service システム初期化完了')
     })
@@ -381,28 +373,21 @@ const makeWorldApplicationService = Effect.gen(function* () {
   const start = () =>
     Effect.gen(function* () {
       yield* STM.commit(STM.TRef.set(systemState, 'starting'))
-      yield* Ref.set(systemStartTime, Date.now())
+      const startTime = yield* Clock.currentTimeMillis
+      yield* Ref.set(systemStartTime, startTime)
 
       yield* Effect.logInfo('World Application Service システム開始')
 
       const config = yield* Ref.get(systemConfiguration)
 
       // 各サービスを順次開始
-      if (config.generation.enabled) {
-        yield* worldGeneration.start()
-      }
+      yield* Effect.when(config.generation.enabled, () => worldGeneration.start())
 
-      if (config.loading.enabled) {
-        yield* progressiveLoading.start()
-      }
+      yield* Effect.when(config.loading.enabled, () => progressiveLoading.start())
 
-      if (config.cache.enabled) {
-        yield* cacheOptimization.startAutoOptimization()
-      }
+      yield* Effect.when(config.cache.enabled, () => cacheOptimization.startAutoOptimization())
 
-      if (config.monitoring.enabled) {
-        yield* performanceMonitoring.startMonitoring()
-      }
+      yield* Effect.when(config.monitoring.enabled, () => performanceMonitoring.startMonitoring())
 
       yield* STM.commit(STM.TRef.set(systemState, 'running'))
       yield* Effect.logInfo('World Application Service システム開始完了')
@@ -416,21 +401,13 @@ const makeWorldApplicationService = Effect.gen(function* () {
       const config = yield* Ref.get(systemConfiguration)
 
       // 各サービスを順次停止
-      if (config.monitoring.enabled) {
-        yield* performanceMonitoring.stopMonitoring()
-      }
+      yield* Effect.when(config.monitoring.enabled, () => performanceMonitoring.stopMonitoring())
 
-      if (config.cache.enabled) {
-        yield* cacheOptimization.stopAutoOptimization()
-      }
+      yield* Effect.when(config.cache.enabled, () => cacheOptimization.stopAutoOptimization())
 
-      if (config.loading.enabled) {
-        yield* progressiveLoading.stop()
-      }
+      yield* Effect.when(config.loading.enabled, () => progressiveLoading.stop())
 
-      if (config.generation.enabled) {
-        yield* worldGeneration.stop()
-      }
+      yield* Effect.when(config.generation.enabled, () => worldGeneration.stop())
 
       yield* STM.commit(STM.TRef.set(systemState, 'stopped'))
       yield* Effect.logInfo('World Application Service システム停止完了')
@@ -469,6 +446,8 @@ const makeWorldApplicationService = Effect.gen(function* () {
     priority: 'critical' | 'high' | 'normal' | 'low' | 'background' = 'normal'
   ) =>
     Effect.gen(function* () {
+      const startTime = yield* Clock.currentTimeMillis
+
       // Progressive Loading経由でチャンク生成をリクエスト
       const requestId = yield* progressiveLoading.requestChunkLoad(chunkX, chunkZ, worldId, priority)
 
@@ -484,8 +463,8 @@ const makeWorldApplicationService = Effect.gen(function* () {
       const chunkId = yield* worldGeneration.generateChunk(worldId, chunkSettings)
 
       // 完了報告
-      const startTime = Date.now()
-      yield* progressiveLoading.reportLoadComplete(requestId, true, Date.now() - startTime)
+      const endTime = yield* Clock.currentTimeMillis
+      yield* progressiveLoading.reportLoadComplete(requestId, true, endTime - startTime)
 
       yield* Effect.logInfo(`チャンク生成完了: ${chunkId} (${chunkX}, ${chunkZ})`)
       return chunkId
@@ -533,7 +512,8 @@ const makeWorldApplicationService = Effect.gen(function* () {
       ])
 
       const startTime = yield* Ref.get(systemStartTime)
-      const uptime = startTime > 0 ? Date.now() - startTime : 0
+      const now = yield* Clock.currentTimeMillis
+      const uptime = startTime > 0 ? now - startTime : 0
 
       const status = {
         generation: {
@@ -611,32 +591,32 @@ const makeWorldApplicationService = Effect.gen(function* () {
       yield* Ref.update(systemConfiguration, (current) => ({ ...current, ...updates }))
 
       // 各サービスの設定を更新
-      if (updates.loading) {
-        yield* progressiveLoading.updateSettings({
+      yield* Effect.when(updates.loading !== undefined, () =>
+        progressiveLoading.updateSettings({
           maxConcurrentLoads: 10, // デフォルト値
-          adaptiveQuality: updates.loading.adaptiveQuality,
-          memoryManagement: updates.loading.memoryManagement,
+          adaptiveQuality: updates.loading!.adaptiveQuality,
+          memoryManagement: updates.loading!.memoryManagement,
         })
-      }
+      )
 
-      if (updates.cache) {
-        yield* cacheOptimization.updatePreloadingStrategy({
-          enabled: updates.cache.enabled,
+      yield* Effect.when(updates.cache !== undefined, () =>
+        cacheOptimization.updatePreloadingStrategy({
+          enabled: updates.cache!.enabled,
           preloadPriority: 'medium',
         })
-      }
+      )
 
       yield* Effect.logInfo('システム設定更新完了')
     })
 
   const generatePerformanceReport = () =>
     Effect.gen(function* () {
-      const startTime = Date.now()
+      const startTime = yield* Clock.currentTimeMillis
       const metrics = yield* performanceMonitoring.getMetrics()
 
       const report = {
-        timestamp: Date.now(),
-        duration: Date.now() - startTime,
+        timestamp: yield* Clock.currentTimeMillis,
+        duration: yield* Clock.currentTimeMillis,
         metrics: {
           generation: metrics.generation,
           loading: metrics.loading,
@@ -677,15 +657,18 @@ const makeWorldApplicationService = Effect.gen(function* () {
 
       const overallHealthy = Object.values(services).every(Boolean)
 
-      const issues = []
-      if (!services.generation) {
-        issues.push({
-          service: 'generation',
-          severity: 'error' as const,
-          message: 'ワールド生成サービスに問題があります',
-          suggestion: 'サービスを再起動してください',
-        })
-      }
+      const issues = yield* Effect.if(!services.generation, {
+        onTrue: () =>
+          Effect.succeed([
+            {
+              service: 'generation',
+              severity: 'error' as const,
+              message: 'ワールド生成サービスに問題があります',
+              suggestion: 'サービスを再起動してください',
+            },
+          ]),
+        onFalse: () => Effect.succeed([]),
+      })
 
       const healthCheck = {
         overall: overallHealthy ? 'healthy' : ('degraded' as 'healthy' | 'degraded' | 'unhealthy'),
@@ -724,41 +707,8 @@ export const WorldApplicationService = Context.GenericTag<WorldApplicationServic
   '@minecraft/domain/world/WorldApplicationService'
 )
 
-// === Integrated Layer ===
-
-export const WorldApplicationServiceLive = Layer.effect(WorldApplicationService, makeWorldApplicationService).pipe(
-  Layer.provide(WorldGenerationOrchestrator),
-  Layer.provide(ProgressiveLoadingService),
-  Layer.provide(CacheOptimizationService),
-  Layer.provide(PerformanceMonitoringService)
-)
-
-// === Complete World Domain Application Service Layer ===
-
-export const WorldDomainApplicationServiceLayer = Layer.mergeAll(
-  // World Generation Orchestrator層
-  Layer
-    .mergeAll
-    // Generation Pipeline, Dependency Coordinator, Error Recoveryの統合
-    (),
-  // Progressive Loading Service層
-  Layer
-    .mergeAll
-    // Loading Scheduler, Priority Calculator, Memory Monitor, Adaptive Qualityの統合
-    (),
-  // Cache Optimization Service層
-  Layer
-    .mergeAll
-    // Cache Manager, Preloading Strategyの統合
-    (),
-  // Performance Monitoring Service層
-  Layer
-    .mergeAll
-    // Metrics Collector, Bottleneck Detectorの統合
-    (),
-  // 統合アプリケーションサービス
-  WorldApplicationServiceLive
-)
+// === Layer Exports ===
+export * from './layer'
 
 // === Default Configuration ===
 
@@ -808,10 +758,8 @@ export const WorldApplicationServiceUtils = {
       for (let x = centerX - radius; x <= centerX + radius; x++) {
         for (let z = centerZ - radius; z <= centerZ + radius; z++) {
           const distance = Math.sqrt((x - centerX) ** 2 + (z - centerZ) ** 2)
-          if (distance <= radius) {
-            const chunkId = yield* service.generateChunk(worldId, x, z, priority)
-            chunkIds.push(chunkId)
-          }
+          const chunkId = yield* Effect.when(distance <= radius, () => service.generateChunk(worldId, x, z, priority))
+          yield* Effect.when(chunkId !== undefined, () => Effect.sync(() => chunkIds.push(chunkId)))
         }
       }
 
@@ -833,19 +781,27 @@ export const WorldApplicationServiceUtils = {
       const service = yield* WorldApplicationService
       const status = yield* service.getSystemStatus()
 
-      const alerts = []
+      const alerts: string[] = []
 
-      if (thresholds.maxErrorRate && status.system.errorRate > thresholds.maxErrorRate) {
-        alerts.push(`エラー率が閾値を超えました: ${(status.system.errorRate * 100).toFixed(2)}%`)
-      }
+      yield* Effect.when(
+        thresholds.maxErrorRate !== undefined && status.system.errorRate > thresholds.maxErrorRate,
+        () =>
+          Effect.sync(() => alerts.push(`エラー率が閾値を超えました: ${(status.system.errorRate * 100).toFixed(2)}%`))
+      )
 
-      if (thresholds.minHitRate && status.loading.hitRate < thresholds.minHitRate) {
-        alerts.push(`キャッシュヒット率が低下しました: ${(status.loading.hitRate * 100).toFixed(1)}%`)
-      }
+      yield* Effect.when(thresholds.minHitRate !== undefined && status.loading.hitRate < thresholds.minHitRate, () =>
+        Effect.sync(() =>
+          alerts.push(`キャッシュヒット率が低下しました: ${(status.loading.hitRate * 100).toFixed(1)}%`)
+        )
+      )
 
-      if (thresholds.maxMemoryUsage && status.cache.memoryUsage > thresholds.maxMemoryUsage) {
-        alerts.push(`メモリ使用量が閾値を超えました: ${(status.cache.memoryUsage / 1024 / 1024).toFixed(1)}MB`)
-      }
+      yield* Effect.when(
+        thresholds.maxMemoryUsage !== undefined && status.cache.memoryUsage > thresholds.maxMemoryUsage,
+        () =>
+          Effect.sync(() =>
+            alerts.push(`メモリ使用量が閾値を超えました: ${(status.cache.memoryUsage / 1024 / 1024).toFixed(1)}MB`)
+          )
+      )
 
       return {
         status,
@@ -864,24 +820,27 @@ export const WorldApplicationServiceUtils = {
       // ヘルスチェック実行
       const healthCheck = yield* service.performHealthCheck()
 
-      if (healthCheck.overall !== 'healthy') {
-        yield* Effect.logWarning('システムの健全性に問題があります。最適化を実行します。')
+      return yield* Effect.if(healthCheck.overall !== 'healthy', {
+        onTrue: () =>
+          Effect.gen(function* () {
+            yield* Effect.logWarning('システムの健全性に問題があります。最適化を実行します。')
 
-        // パフォーマンス最適化実行
-        const optimizationResult = yield* service.optimizePerformance()
+            // パフォーマンス最適化実行
+            const optimizationResult = yield* service.optimizePerformance()
 
-        return {
-          healthCheckBefore: healthCheck,
-          optimizationApplied: true,
-          optimizationResult,
-        }
-      }
-
-      return {
-        healthCheckBefore: healthCheck,
-        optimizationApplied: false,
-        optimizationResult: null,
-      }
+            return {
+              healthCheckBefore: healthCheck,
+              optimizationApplied: true,
+              optimizationResult,
+            }
+          }),
+        onFalse: () =>
+          Effect.succeed({
+            healthCheckBefore: healthCheck,
+            optimizationApplied: false,
+            optimizationResult: null,
+          }),
+      })
     }),
 
   /**
@@ -916,4 +875,4 @@ export const WorldApplicationServiceUtils = {
 export type {
   WorldApplicationServiceErrorType,
   WorldSystemConfiguration as WorldSystemConfigurationType,
-} from './index'
+} from './factory'

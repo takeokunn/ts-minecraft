@@ -1,7 +1,5 @@
-import { Effect, Layer, Match } from 'effect'
 import { WorldAggregateLive, WorldEventPublishersLive } from '@domain/world/aggregate'
 import { WorldDomainApplicationServiceLayer } from '@domain/world/application_service'
-import { defaultWorldDomainConfig, selectWorldDomainConfig, type WorldDomainConfig } from './index'
 import { WorldDomainServiceLayer } from '@domain/world/domain_service'
 import { WorldDomainFactoryLayer } from '@domain/world/factory'
 import {
@@ -11,6 +9,8 @@ import {
   WorldRepositoryPersistenceLayer,
   type WorldRepositoryLayerConfig,
 } from '@domain/world/repository'
+import { Effect, Layer, Match } from 'effect'
+import { defaultWorldDomainConfig, selectWorldDomainConfig, type WorldDomainConfig } from './index'
 
 const composeRepositoryLayer = (config: WorldRepositoryLayerConfig) =>
   Match.value(config.implementation).pipe(

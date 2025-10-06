@@ -6,17 +6,18 @@
  * 外部依存は一切持たない純粋なビジネスロジックとして実装されています。
  */
 
-import { Effect, Array as EffectArray, Layer, Match, pipe } from 'effect'
+import { Effect, Array as EffectArray, Layer, Match, Option, pipe, ReadonlyArray } from 'effect'
 import type { Inventory, ItemId, ItemStack } from '../../types'
 import {
+  analyzeTransferability,
   BatchTransferError,
+  CanTransferSpecification,
   TransferError,
   TransferService,
   type OptimizedTransferOptions,
   type TransferRequest,
   type TransferResult,
 } from './index'
-import { analyzeTransferability, CanTransferSpecification } from './index'
 
 /**
  * 転送サービスのLive実装
@@ -71,44 +72,63 @@ export const TransferServiceLive = Layer.succeed(
      */
     batchTransferItems: (request) =>
       Effect.gen(function* () {
-        const results: TransferResult[] = []
-        const failedTransfers: Array<{ index: number; error: TransferError }> = []
-        let currentSourceInventory = request.sourceInventory
-        let currentTargetInventory = request.targetInventory
+        const result = yield* pipe(
+          request.transfers,
+          ReadonlyArray.mapWithIndex((i, transfer) => ({ i, transfer })),
+          Effect.reduce(
+            {
+              sourceInventory: request.sourceInventory,
+              targetInventory: request.targetInventory,
+              results: [] as TransferResult[],
+              failedTransfers: [] as Array<{ index: number; error: TransferError }>,
+            },
+            (acc, { i, transfer }) =>
+              Effect.gen(function* () {
+                const transferRequest: TransferRequest = {
+                  ...transfer,
+                  sourceInventory: acc.sourceInventory,
+                  targetInventory: acc.targetInventory,
+                }
 
-        // 各転送を順次実行
-        for (let i = 0; i < request.transfers.length; i++) {
-          const transfer = request.transfers[i]
-          const transferRequest: TransferRequest = {
-            ...transfer,
-            sourceInventory: currentSourceInventory,
-            targetInventory: currentTargetInventory,
-          }
+                const transferResult = yield* pipe(
+                  TransferService.transferItem(transferRequest),
+                  Effect.catchAll((error) =>
+                    Effect.succeed({
+                      failed: true,
+                      index: i,
+                      error:
+                        error instanceof TransferError
+                          ? error
+                          : new TransferError('INVENTORY_FULL', 'Unknown error occurred'),
+                    })
+                  )
+                )
 
-          try {
-            const result = yield* TransferService.transferItem(transferRequest)
-            results.push(result)
+                if ('failed' in transferResult && transferResult.failed) {
+                  return {
+                    ...acc,
+                    failedTransfers: [
+                      ...acc.failedTransfers,
+                      { index: transferResult.index, error: transferResult.error },
+                    ],
+                  }
+                }
 
-            // 次の転送のために現在の状態を更新
-            currentSourceInventory = result.sourceInventory
-            currentTargetInventory = result.targetInventory
-          } catch (error) {
-            if (error instanceof TransferError) {
-              failedTransfers.push({ index: i, error })
-            } else {
-              failedTransfers.push({
-                index: i,
-                error: new TransferError('INVENTORY_FULL', 'Unknown error occurred'),
+                return {
+                  sourceInventory: transferResult.sourceInventory,
+                  targetInventory: transferResult.targetInventory,
+                  results: [...acc.results, transferResult],
+                  failedTransfers: acc.failedTransfers,
+                }
               })
-            }
-          }
+          )
+        )
+
+        if (result.failedTransfers.length > 0) {
+          yield* Effect.fail(new BatchTransferError(result.failedTransfers, result.results))
         }
 
-        if (failedTransfers.length > 0) {
-          yield* Effect.fail(new BatchTransferError(failedTransfers, results))
-        }
-
-        return results
+        return result.results
       }),
 
     /**
@@ -147,31 +167,34 @@ export const TransferServiceLive = Layer.succeed(
      */
     consolidateStacks: (sourceInventory, targetInventory, itemId) =>
       Effect.gen(function* () {
-        let consolidatedStacks = 0
-        let currentSourceInventory = sourceInventory
-        let currentTargetInventory = targetInventory
-
-        // 指定されたアイテムまたは全アイテムを処理
         const itemsToProcess = itemId ? [itemId] : yield* extractUniqueItemIds(sourceInventory)
 
-        for (const currentItemId of itemsToProcess) {
-          // 同じアイテムIDのスタックを統合
-          const consolidationResult = yield* consolidateItemStacks(
-            currentSourceInventory,
-            currentTargetInventory,
-            currentItemId
+        const result = yield* pipe(
+          itemsToProcess,
+          Effect.reduce(
+            {
+              sourceInventory,
+              targetInventory,
+              consolidatedStacks: 0,
+            },
+            (acc, currentItemId) =>
+              Effect.gen(function* () {
+                const consolidationResult = yield* consolidateItemStacks(
+                  acc.sourceInventory,
+                  acc.targetInventory,
+                  currentItemId
+                )
+
+                return {
+                  sourceInventory: consolidationResult.sourceInventory,
+                  targetInventory: consolidationResult.targetInventory,
+                  consolidatedStacks: acc.consolidatedStacks + consolidationResult.mergedStacks,
+                }
+              })
           )
+        )
 
-          currentSourceInventory = consolidationResult.sourceInventory
-          currentTargetInventory = consolidationResult.targetInventory
-          consolidatedStacks += consolidationResult.mergedStacks
-        }
-
-        return {
-          sourceInventory: currentSourceInventory,
-          targetInventory: currentTargetInventory,
-          consolidatedStacks,
-        }
+        return result
       }),
 
     /**
@@ -179,46 +202,54 @@ export const TransferServiceLive = Layer.succeed(
      */
     distributeItemsIntelligently: (sourceInventory, targetInventories, distributionRules) =>
       Effect.gen(function* () {
-        let currentSourceInventory = sourceInventory
-        let currentTargetInventories = [...targetInventories]
-        const distributionSummary: Array<{
-          readonly inventoryIndex: number
-          readonly itemsReceived: number
-          readonly slotsUsed: number
-        }> = []
-
-        // 優先順位に基づいて分散
         const priorityOrder = distributionRules.priorityOrder ?? EffectArray.range(0, targetInventories.length - 1)
 
-        for (const inventoryIndex of priorityOrder) {
-          if (inventoryIndex >= currentTargetInventories.length) continue
+        const result = yield* pipe(
+          priorityOrder,
+          ReadonlyArray.filter((index) => index < targetInventories.length),
+          Effect.reduce(
+            {
+              sourceInventory,
+              targetInventories: [...targetInventories],
+              distributionSummary: [] as Array<{
+                readonly inventoryIndex: number
+                readonly itemsReceived: number
+                readonly slotsUsed: number
+              }>,
+            },
+            (acc, inventoryIndex) =>
+              Effect.gen(function* () {
+                const isEmpty = yield* isInventoryEmpty(acc.sourceInventory)
+                if (isEmpty) {
+                  return acc
+                }
 
-          const distributionResult = yield* distributeToSingleInventory(
-            currentSourceInventory,
-            currentTargetInventories[inventoryIndex],
-            distributionRules
+                const distributionResult = yield* distributeToSingleInventory(
+                  acc.sourceInventory,
+                  acc.targetInventories[inventoryIndex],
+                  distributionRules
+                )
+
+                const newTargetInventories = [...acc.targetInventories]
+                newTargetInventories[inventoryIndex] = distributionResult.targetInventory
+
+                return {
+                  sourceInventory: distributionResult.sourceInventory,
+                  targetInventories: newTargetInventories,
+                  distributionSummary: [
+                    ...acc.distributionSummary,
+                    {
+                      inventoryIndex,
+                      itemsReceived: distributionResult.itemsReceived,
+                      slotsUsed: distributionResult.slotsUsed,
+                    },
+                  ],
+                }
+              })
           )
+        )
 
-          currentSourceInventory = distributionResult.sourceInventory
-          currentTargetInventories[inventoryIndex] = distributionResult.targetInventory
-
-          distributionSummary.push({
-            inventoryIndex,
-            itemsReceived: distributionResult.itemsReceived,
-            slotsUsed: distributionResult.slotsUsed,
-          })
-
-          // ソースインベントリが空になったら終了
-          if (yield* isInventoryEmpty(currentSourceInventory)) {
-            break
-          }
-        }
-
-        return {
-          sourceInventory: currentSourceInventory,
-          targetInventories: currentTargetInventories,
-          distributionSummary,
-        }
+        return result
       }),
 
     /**
@@ -323,30 +354,33 @@ const generatePartialStackTransfers = (
   targetInventory: Inventory
 ): Effect.Effect<TransferRequest[], never> =>
   Effect.gen(function* () {
-    const transfers: TransferRequest[] = []
+    const transfers = yield* pipe(
+      sourceInventory.slots,
+      ReadonlyArray.filterMapWithIndex((sourceSlot, sourceItem) => {
+        if (sourceItem === null) return Option.none()
 
-    for (let sourceSlot = 0; sourceSlot < sourceInventory.slots.length; sourceSlot++) {
-      const sourceItem = sourceInventory.slots[sourceSlot]
-      if (sourceItem === null) continue
+        const targetSlot = pipe(
+          targetInventory.slots,
+          ReadonlyArray.findFirstIndex(
+            (targetItem) => targetItem !== null && targetItem.itemId === sourceItem.itemId && targetItem.count < 64
+          ),
+          Option.getOrUndefined
+        )
 
-      // ターゲットインベントリ内で同じアイテムの部分的なスタックを検索
-      for (let targetSlot = 0; targetSlot < targetInventory.slots.length; targetSlot++) {
-        const targetItem = targetInventory.slots[targetSlot]
+        if (targetSlot === undefined) return Option.none()
 
-        if (targetItem !== null && targetItem.itemId === sourceItem.itemId && targetItem.count < 64) {
-          const transferableCount = Math.min(sourceItem.count, 64 - targetItem.count)
+        const targetItem = targetInventory.slots[targetSlot]!
+        const transferableCount = Math.min(sourceItem.count, 64 - targetItem.count)
 
-          transfers.push({
-            sourceInventory,
-            targetInventory,
-            sourceSlot,
-            targetSlot,
-            itemCount: transferableCount,
-          })
-          break
-        }
-      }
-    }
+        return Option.some({
+          sourceInventory,
+          targetInventory,
+          sourceSlot,
+          targetSlot,
+          itemCount: transferableCount,
+        })
+      })
+    )
 
     return transfers
   })
@@ -360,23 +394,26 @@ const generateEmptySlotTransfers = (
   options: OptimizedTransferOptions
 ): Effect.Effect<TransferRequest[], never> =>
   Effect.gen(function* () {
-    const transfers: TransferRequest[] = []
+    const transfers = yield* pipe(
+      sourceInventory.slots,
+      ReadonlyArray.filterMapWithIndex((sourceSlot, sourceItem) => {
+        if (sourceItem === null) return Option.none()
 
-    for (let sourceSlot = 0; sourceSlot < sourceInventory.slots.length; sourceSlot++) {
-      const sourceItem = sourceInventory.slots[sourceSlot]
-      if (sourceItem === null) continue
+        return Effect.gen(function* () {
+          const emptySlot = yield* findFirstEmptySlot(targetInventory)
+          if (emptySlot === undefined) return Option.none()
 
-      // 空きスロットを検索
-      const emptySlot = yield* findFirstEmptySlot(targetInventory)
-      if (emptySlot !== undefined) {
-        transfers.push({
-          sourceInventory,
-          targetInventory,
-          sourceSlot,
-          targetSlot: emptySlot,
+          return Option.some({
+            sourceInventory,
+            targetInventory,
+            sourceSlot,
+            targetSlot: emptySlot,
+          })
         })
-      }
-    }
+      }),
+      Effect.all,
+      Effect.map(ReadonlyArray.getSomes)
+    )
 
     return transfers
   })
@@ -389,24 +426,26 @@ const generateCategorizedTransfers = (
   targetInventory: Inventory
 ): Effect.Effect<TransferRequest[], never> =>
   Effect.gen(function* () {
-    // アイテムカテゴリ別の最適配置ロジック
-    // 現在は基本実装、将来的にアイテムレジストリと連携
-    const transfers: TransferRequest[] = []
+    const transfers = yield* pipe(
+      sourceInventory.slots,
+      ReadonlyArray.filterMapWithIndex((sourceSlot, sourceItem) => {
+        if (sourceItem === null) return Option.none()
 
-    for (let sourceSlot = 0; sourceSlot < sourceInventory.slots.length; sourceSlot++) {
-      const sourceItem = sourceInventory.slots[sourceSlot]
-      if (sourceItem === null) continue
+        return Effect.gen(function* () {
+          const preferredSlot = yield* calculatePreferredSlotByCategory(sourceItem.itemId, targetInventory)
+          if (preferredSlot === undefined) return Option.none()
 
-      const preferredSlot = yield* calculatePreferredSlotByCategory(sourceItem.itemId, targetInventory)
-      if (preferredSlot !== undefined) {
-        transfers.push({
-          sourceInventory,
-          targetInventory,
-          sourceSlot,
-          targetSlot: preferredSlot,
+          return Option.some({
+            sourceInventory,
+            targetInventory,
+            sourceSlot,
+            targetSlot: preferredSlot,
+          })
         })
-      }
-    }
+      }),
+      Effect.all,
+      Effect.map(ReadonlyArray.getSomes)
+    )
 
     return transfers
   })
@@ -427,42 +466,54 @@ const consolidateItemStacks = (
   TransferError
 > =>
   Effect.gen(function* () {
-    let currentSourceInventory = sourceInventory
-    let currentTargetInventory = targetInventory
-    let mergedStacks = 0
-
-    // ソースインベントリから指定されたアイテムのスロットを取得
     const sourceSlots = yield* findItemSlots(sourceInventory, itemId)
-
-    // ターゲットインベントリから部分的なスタックを取得
     const partialTargetSlots = yield* findPartialStacks(targetInventory, itemId)
 
-    // 部分的なスタックを優先的に埋める
-    for (const sourceSlot of sourceSlots) {
-      for (const targetSlot of partialTargetSlots) {
-        const transferRequest: TransferRequest = {
-          sourceInventory: currentSourceInventory,
-          targetInventory: currentTargetInventory,
-          sourceSlot,
-          targetSlot,
-        }
+    const result = yield* pipe(
+      sourceSlots,
+      Effect.reduce(
+        {
+          sourceInventory,
+          targetInventory,
+          mergedStacks: 0,
+        },
+        (acc, sourceSlot) =>
+          Effect.gen(function* () {
+            const targetResult = yield* pipe(
+              partialTargetSlots,
+              Effect.reduce({ transferred: false, currentAcc: acc }, (innerAcc, targetSlot) =>
+                Effect.gen(function* () {
+                  if (innerAcc.transferred) return innerAcc
 
-        const canTransfer = yield* new CanTransferSpecification().isSatisfiedBy(transferRequest)
-        if (canTransfer) {
-          const result = yield* TransferService.transferItem(transferRequest)
-          currentSourceInventory = result.sourceInventory
-          currentTargetInventory = result.targetInventory
-          mergedStacks++
-          break
-        }
-      }
-    }
+                  const transferRequest: TransferRequest = {
+                    sourceInventory: innerAcc.currentAcc.sourceInventory,
+                    targetInventory: innerAcc.currentAcc.targetInventory,
+                    sourceSlot,
+                    targetSlot,
+                  }
 
-    return {
-      sourceInventory: currentSourceInventory,
-      targetInventory: currentTargetInventory,
-      mergedStacks,
-    }
+                  const canTransfer = yield* new CanTransferSpecification().isSatisfiedBy(transferRequest)
+                  if (!canTransfer) return innerAcc
+
+                  const result = yield* TransferService.transferItem(transferRequest)
+                  return {
+                    transferred: true,
+                    currentAcc: {
+                      sourceInventory: result.sourceInventory,
+                      targetInventory: result.targetInventory,
+                      mergedStacks: innerAcc.currentAcc.mergedStacks + 1,
+                    },
+                  }
+                })
+              )
+            )
+
+            return targetResult.currentAcc
+          })
+      )
+    )
+
+    return result
   })
 
 /**
@@ -494,43 +545,48 @@ const distributeToSingleInventory = (
   TransferError
 > =>
   Effect.gen(function* () {
-    let currentSourceInventory = sourceInventory
-    let currentTargetInventory = targetInventory
-    let itemsReceived = 0
-    let slotsUsed = 0
+    const result = yield* pipe(
+      pipe(
+        sourceInventory.slots,
+        ReadonlyArray.mapWithIndex((sourceSlot, _) => sourceSlot)
+      ),
+      Effect.reduce(
+        {
+          sourceInventory,
+          targetInventory,
+          itemsReceived: 0,
+          slotsUsed: 0,
+        },
+        (acc, sourceSlot) =>
+          Effect.gen(function* () {
+            if (acc.sourceInventory.slots[sourceSlot] === null) return acc
 
-    // 転送可能なアイテムを順次処理
-    for (let sourceSlot = 0; sourceSlot < sourceInventory.slots.length; sourceSlot++) {
-      if (currentSourceInventory.slots[sourceSlot] === null) continue
+            if (rules.respectCapacity && (yield* isInventoryFull(acc.targetInventory))) {
+              return acc
+            }
 
-      const transferRequest: TransferRequest = {
-        sourceInventory: currentSourceInventory,
-        targetInventory: currentTargetInventory,
-        sourceSlot,
-        targetSlot: 'auto',
-      }
+            const transferRequest: TransferRequest = {
+              sourceInventory: acc.sourceInventory,
+              targetInventory: acc.targetInventory,
+              sourceSlot,
+              targetSlot: 'auto',
+            }
 
-      const canTransfer = yield* new CanTransferSpecification().isSatisfiedBy(transferRequest)
-      if (canTransfer) {
-        const result = yield* TransferService.transferItem(transferRequest)
-        currentSourceInventory = result.sourceInventory
-        currentTargetInventory = result.targetInventory
-        itemsReceived += result.transferredCount
-        slotsUsed++
+            const canTransfer = yield* new CanTransferSpecification().isSatisfiedBy(transferRequest)
+            if (!canTransfer) return acc
 
-        // 容量制限に達したら停止
-        if (rules.respectCapacity && (yield* isInventoryFull(currentTargetInventory))) {
-          break
-        }
-      }
-    }
+            const result = yield* TransferService.transferItem(transferRequest)
+            return {
+              sourceInventory: result.sourceInventory,
+              targetInventory: result.targetInventory,
+              itemsReceived: acc.itemsReceived + result.transferredCount,
+              slotsUsed: acc.slotsUsed + 1,
+            }
+          })
+      )
+    )
 
-    return {
-      sourceInventory: currentSourceInventory,
-      targetInventory: currentTargetInventory,
-      itemsReceived,
-      slotsUsed,
-    }
+    return result
   })
 
 /**
@@ -540,11 +596,16 @@ const extractUniqueItemIds = (inventory: Inventory): Effect.Effect<ItemId[], nev
   Effect.gen(function* () {
     const itemIds = new Set<ItemId>()
 
-    for (const slot of inventory.slots) {
-      if (slot !== null) {
-        itemIds.add(slot.itemId)
-      }
-    }
+    yield* Effect.forEach(
+      inventory.slots,
+      (slot) => {
+        if (slot !== null) {
+          itemIds.add(slot.itemId)
+        }
+        return Effect.void
+      },
+      { concurrency: 'unbounded' }
+    )
 
     return Array.from(itemIds)
   })
@@ -554,12 +615,11 @@ const extractUniqueItemIds = (inventory: Inventory): Effect.Effect<ItemId[], nev
  */
 const findFirstEmptySlot = (inventory: Inventory): Effect.Effect<number | undefined, never> =>
   Effect.gen(function* () {
-    for (let i = 0; i < inventory.slots.length; i++) {
-      if (inventory.slots[i] === null) {
-        return i
-      }
-    }
-    return undefined
+    return pipe(
+      inventory.slots,
+      ReadonlyArray.findFirstIndex((slot) => slot === null),
+      Option.getOrElse(() => undefined)
+    )
   })
 
 /**
@@ -567,16 +627,12 @@ const findFirstEmptySlot = (inventory: Inventory): Effect.Effect<number | undefi
  */
 const findItemSlots = (inventory: Inventory, itemId: ItemId): Effect.Effect<number[], never> =>
   Effect.gen(function* () {
-    const slots: number[] = []
-
-    for (let i = 0; i < inventory.slots.length; i++) {
-      const slot = inventory.slots[i]
-      if (slot !== null && slot.itemId === itemId) {
-        slots.push(i)
-      }
-    }
-
-    return slots
+    return pipe(
+      inventory.slots,
+      ReadonlyArray.filterMapWithIndex((i, slot) =>
+        slot !== null && slot.itemId === itemId ? Option.some(i) : Option.none()
+      )
+    )
   })
 
 /**
@@ -584,16 +640,12 @@ const findItemSlots = (inventory: Inventory, itemId: ItemId): Effect.Effect<numb
  */
 const findPartialStacks = (inventory: Inventory, itemId: ItemId): Effect.Effect<number[], never> =>
   Effect.gen(function* () {
-    const slots: number[] = []
-
-    for (let i = 0; i < inventory.slots.length; i++) {
-      const slot = inventory.slots[i]
-      if (slot !== null && slot.itemId === itemId && slot.count < 64) {
-        slots.push(i)
-      }
-    }
-
-    return slots
+    return pipe(
+      inventory.slots,
+      ReadonlyArray.filterMapWithIndex((i, slot) =>
+        slot !== null && slot.itemId === itemId && slot.count < 64 ? Option.some(i) : Option.none()
+      )
+    )
   })
 
 /**
@@ -659,10 +711,9 @@ const getItemCategory = (itemId: ItemId): Effect.Effect<'tool' | 'weapon' | 'foo
  * 指定範囲内で空きスロットを検索
  */
 const findSlotInRange = (inventory: Inventory, startIndex: number, endIndex: number): number | undefined => {
-  for (let i = startIndex; i < Math.min(endIndex, inventory.slots.length); i++) {
-    if (inventory.slots[i] === null) {
-      return i
-    }
-  }
-  return undefined
+  return pipe(
+    ReadonlyArray.range(startIndex, Math.min(endIndex, inventory.slots.length) - 1),
+    ReadonlyArray.findFirst((i) => inventory.slots[i] === null),
+    Option.getOrUndefined
+  )
 }

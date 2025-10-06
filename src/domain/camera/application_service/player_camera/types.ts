@@ -1,5 +1,3 @@
-import { Schema } from '@effect/schema'
-import { Array, Brand, Data, Option } from 'effect'
 import type {
   AnimationState,
   CameraId,
@@ -11,6 +9,7 @@ import type {
   ViewMode,
   ViewModeTransitionConfig,
 } from '@domain/camera/types'
+import { Array, Brand, Clock, Data, Effect, Option, Schema } from 'effect'
 
 // ========================================
 // Player Camera Application Types
@@ -334,20 +333,29 @@ export const CameraApplicationErrorSchema = Schema.TaggedEnum<CameraApplicationE
 // ========================================
 
 export const createPlayerCameraInput = {
-  mouseMovement: (deltaX: MouseDelta, deltaY: MouseDelta): PlayerCameraInput =>
-    Data.struct({
-      _tag: 'MouseMovement' as const,
-      deltaX,
-      deltaY,
-      timestamp: Date.now(),
+  mouseMovement: (deltaX: MouseDelta, deltaY: MouseDelta): Effect.Effect<PlayerCameraInput> =>
+    Effect.gen(function* () {
+      const timestamp = yield* Clock.currentTimeMillis
+      return Data.struct({
+        _tag: 'MouseMovement' as const,
+        deltaX,
+        deltaY,
+        timestamp,
+      })
     }),
 
-  keyboardInput: (action: KeyboardAction, modifiers: Array.ReadonlyArray<KeyModifier> = []): PlayerCameraInput =>
-    Data.struct({
-      _tag: 'KeyboardInput' as const,
-      action,
-      modifiers,
-      timestamp: Date.now(),
+  keyboardInput: (
+    action: KeyboardAction,
+    modifiers: Array.ReadonlyArray<KeyModifier> = []
+  ): Effect.Effect<PlayerCameraInput> =>
+    Effect.gen(function* () {
+      const timestamp = yield* Clock.currentTimeMillis
+      return Data.struct({
+        _tag: 'KeyboardInput' as const,
+        action,
+        modifiers,
+        timestamp,
+      })
     }),
 
   viewModeSwitch: (

@@ -6,11 +6,8 @@
  * - 型安全: Brand + Schema decode により `as` 排除
  */
 
-import { Schema } from '@effect/schema'
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
-import { Clock, Effect, Layer, Match, Option, Random, pipe } from 'effect'
-import type { Inventory, InventoryState, PlayerId } from '../../../domain/inventory'
-import { InventorySchema, InventoryStateSchema, PlayerIdSchema } from '../../../domain/inventory'
+import { Clock, Effect, Layer, Match, Option, Random, Schema, pipe } from 'effect'
 import type { StorageError } from '..'
 import {
   InventoryStorageService,
@@ -25,6 +22,8 @@ import {
   toNotAvailable,
   toSaveFailed,
 } from '..'
+import type { Inventory, InventoryState, PlayerId } from '../../../domain/inventory'
+import { InventorySchema, InventoryStateSchema, PlayerIdSchema } from '../../../domain/inventory'
 
 const backend = Schema.decodeUnknownSync(StorageBackendSchema)('localStorage')
 

@@ -5,26 +5,14 @@
  * 高性能かつ高品質なノイズアルゴリズム実装
  */
 
-// Core Noise Algorithms
-export * from './index'
-export * from './index'
-export * from './index'
+export * from './fractal_noise_service'
+export * from './layer'
+export * from './perlin_noise_service'
+export * from './simplex_noise_service'
 
-// Unified Noise Generation Layer
-import { Layer } from 'effect'
-import { FractalNoiseService, FractalNoiseServiceLive } from './index'
-import { PerlinNoiseService, PerlinNoiseServiceLive } from './index'
-import { SimplexNoiseService, SimplexNoiseServiceLive } from './index'
-
-/**
- * ノイズ生成統合レイヤー
- * 全てのノイズ生成サービスを統合
- */
-export const NoiseGenerationLayer = Layer.mergeAll(
-  PerlinNoiseServiceLive,
-  SimplexNoiseServiceLive,
-  FractalNoiseServiceLive
-)
+import { FractalNoiseService } from './fractal_noise_service'
+import { PerlinNoiseService } from './perlin_noise_service'
+import { SimplexNoiseService } from './simplex_noise_service'
 
 /**
  * ノイズ生成サービス統合タグ
@@ -131,6 +119,3 @@ export const NoiseFactory = {
     enableVectorization: true,
   }),
 } as const
-export * from './index';
-export * from './simplex_noise_service';
-export * from './perlin_noise_service';

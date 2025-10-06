@@ -1,4 +1,4 @@
-import { Effect, HashMap, Layer, Option, Ref } from 'effect'
+import { Clock, Effect, HashMap, Layer, Option, Ref } from 'effect'
 import type {
   Inventory,
   InventoryQuery,
@@ -111,7 +111,7 @@ export const InventoryRepositoryPersistent = (config: PersistentConfig = Default
             inventories: inventoriesObj,
             snapshots: snapshotsObj,
             version: 1,
-            lastSaved: Date.now(),
+            lastSaved: yield* Clock.currentTimeMillis,
           })
 
           localStorage.setItem(config.storageKey, data)
@@ -199,7 +199,7 @@ export const InventoryRepositoryPersistent = (config: PersistentConfig = Default
                     const updatedInventory: Inventory = {
                       ...inventory,
                       slots: updatedSlots,
-                      lastUpdated: Date.now(),
+                      lastUpdated: yield* Clock.currentTimeMillis,
                       version: inventory.version + 1,
                     }
 
@@ -227,7 +227,7 @@ export const InventoryRepositoryPersistent = (config: PersistentConfig = Default
                     const updatedInventory: Inventory = {
                       ...inventory,
                       slots: updatedSlots,
-                      lastUpdated: Date.now(),
+                      lastUpdated: yield* Clock.currentTimeMillis,
                       version: inventory.version + 1,
                     }
 
@@ -333,13 +333,15 @@ export const InventoryRepositoryPersistent = (config: PersistentConfig = Default
                 onNone: () => Effect.fail(createInventoryNotFoundError(playerId)),
                 onSome: (inventory) =>
                   Effect.gen(function* () {
-                    const snapshotId = `snapshot-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+                    const timestamp = yield* Clock.currentTimeMillis
+                    const randomPart = Math.random().toString(36).substr(2, 9)
+                    const snapshotId = `snapshot-${timestamp}-${randomPart}`
                     const snapshot: InventorySnapshot = {
                       id: snapshotId,
                       name: snapshotName,
                       playerId,
                       inventory: structuredClone(inventory),
-                      createdAt: Date.now(),
+                      createdAt: timestamp,
                     }
 
                     yield* Ref.update(snapshotCache, (cache) => HashMap.set(cache, snapshot.id, snapshot))
@@ -365,7 +367,7 @@ export const InventoryRepositoryPersistent = (config: PersistentConfig = Default
                   Effect.gen(function* () {
                     const restoredInventory: Inventory = {
                       ...snapshot.inventory,
-                      lastUpdated: Date.now(),
+                      lastUpdated: yield* Clock.currentTimeMillis,
                       version: snapshot.inventory.version + 1,
                     }
 

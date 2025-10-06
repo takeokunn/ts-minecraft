@@ -1,6 +1,5 @@
-import { Context, Effect, Either, Layer, pipe, Schema } from 'effect'
-import { PlayerErrorBuilders } from './index'
-import { PlayerTimestamp, TimestampSchema } from './index'
+import { Clock, Context, Effect, Either, Layer, pipe, Schema } from 'effect'
+import { PlayerErrorBuilders, PlayerTimestamp, TimestampSchema } from './index'
 
 export interface PlayerClockService {
   readonly current: Effect.Effect<PlayerTimestamp, ReturnType<typeof PlayerErrorBuilders.clock>>
@@ -17,10 +16,7 @@ const decodeTimestamp = (value: unknown) =>
   )
 
 const makeClock = Effect.succeed<PlayerClockService>({
-  current: pipe(
-    Effect.sync(() => Date.now()),
-    Effect.flatMap(decodeTimestamp)
-  ),
+  current: pipe(Clock.currentTimeMillis, Effect.flatMap(decodeTimestamp)),
   fromUnix: (millis: number) => decodeTimestamp(millis),
 })
 

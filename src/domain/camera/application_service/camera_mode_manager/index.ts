@@ -9,14 +9,14 @@
 // Service Interface & Context
 // ========================================
 
-export { CameraModeManagerApplicationService } from './index'
-export type { CameraModeManagerApplicationService } from './index'
+export { CameraModeManagerApplicationService } from './service'
+export type { CameraModeManagerApplicationService } from './types'
 
 // ========================================
 // Live Implementation
 // ========================================
 
-export { CameraModeManagerApplicationServiceLive } from './index'
+export { CameraModeManagerApplicationServiceLive } from './live'
 
 // ========================================
 // Types & Schemas
@@ -43,7 +43,7 @@ export type {
   ViewModeTransitionConfig,
   ViewModeTransitionFailureReason,
   ViewModeTransitionResult,
-} from './index'
+} from './types'
 
 export {
   CameraModeManagerApplicationErrorSchema,
@@ -53,7 +53,7 @@ export {
   // Factory Functions
   createCameraModeManagerApplicationError,
   createViewModeTransitionResult,
-} from './index'
+} from './types'
 
 // Additional service-specific types
 export type {
@@ -65,7 +65,7 @@ export type {
   TimeRange,
   TransitionValidationResult,
   ValidationError,
-} from './index'
+} from './types'
 
 // ========================================
 // Module Information
@@ -98,5 +98,3 @@ export const CameraModeManagerApplicationServiceModule = {
     '設定検証機能',
   ] as const,
 } as const
-export * from './index';
-export * from './index';

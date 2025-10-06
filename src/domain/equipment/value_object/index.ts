@@ -4,7 +4,6 @@
  */
 
 // Slot
-export type { EquipmentSlot, EquipmentSlotLiteral, SlotCategory } from './index'
 export {
   EquipmentSlotSchema,
   allSlots,
@@ -12,16 +11,17 @@ export {
   encodeSlot,
   equipmentSlotLiterals,
   getSlotCategory,
-} from './index'
+} from './item_attributes'
+export type { EquipmentSlot, EquipmentSlotLiteral, SlotCategory } from './item_attributes'
 
 // Item Attributes
-export type { EquipmentStats, EquipmentTier } from './index'
+export * from './item_attributes'
 export {
   EquipmentStatsSchema,
   EquipmentTierSchema,
   getTierMultiplier,
   mergeStats,
   parseWeight,
-} from './index'
-export * from './slot';
-export * from './item_attributes';
+} from './item_attributes'
+export type { EquipmentStats, EquipmentTier } from './item_attributes'
+export * from './slot'

@@ -19,7 +19,10 @@ import {
   GameLoopConfig,
   GameLoopState,
   GameLoopStateSchema,
+  InitializationError,
   PerformanceMetrics,
+  RuntimeCallbackError,
+  StateTransitionError,
   Timestamp,
   currentTimestamp,
   effectFromEither,
@@ -34,11 +37,6 @@ import {
   makeFrameInfo,
   makeTimestamp,
   reconcileFrameTiming,
-} from '../types'
-import {
-  InitializationError,
-  RuntimeCallbackError,
-  StateTransitionError,
   toPerformanceError,
   toRuntimeCallbackError,
   toStateTransitionError,

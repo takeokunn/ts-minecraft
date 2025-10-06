@@ -5,26 +5,14 @@
  * 現実的な気候学・生態学理論に基づく高精度実装
  */
 
-// Core Classification Services
-export * from './index'
-export * from './index'
-export * from './index'
+export * from './biome_mapper'
+export * from './climate_calculator'
+export * from './ecosystem_analyzer'
+export * from './layer'
 
-// Unified Biome Classification Layer
-import { Layer } from 'effect'
-import { BiomeMapperService, BiomeMapperServiceLive } from './index'
-import { ClimateCalculatorService, ClimateCalculatorServiceLive } from './index'
-import { EcosystemAnalyzerService, EcosystemAnalyzerServiceLive } from './index'
-
-/**
- * バイオーム分類統合レイヤー
- * 気候計算・マッピング・生態系解析を統合
- */
-export const BiomeClassificationLayer = Layer.mergeAll(
-  ClimateCalculatorServiceLive,
-  BiomeMapperServiceLive,
-  EcosystemAnalyzerServiceLive
-)
+import { BiomeMapperService } from './biome_mapper'
+import { ClimateCalculatorService } from './climate_calculator'
+import { EcosystemAnalyzerService } from './ecosystem_analyzer'
 
 /**
  * バイオーム分類サービス統合タグ
@@ -209,7 +197,3 @@ const assessEcotoneQuality = (transitions: ReadonlyArray<any>): number => {
   // エコトーン（移行帯）の品質評価
   return transitions.filter((t) => t.transitionType === 'ecotone').length / transitions.length
 }
-export * from './index';
-export * from './index';
-export * from './climate_calculator';
-export * from './biome_mapper';

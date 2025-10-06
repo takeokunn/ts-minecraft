@@ -5,4 +5,4 @@
  * 境界検証を提供するドメインサービス
  */
 
-export { ChunkValidationService, ChunkValidationServiceLive, type ChunkValidationService } from './index'
+export { ChunkValidationService, ChunkValidationServiceLive, type ChunkValidationService } from './service'

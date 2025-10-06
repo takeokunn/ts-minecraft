@@ -123,7 +123,7 @@ export { createBrandedNumberSchema } from './constants.js'
 // ========================================
 
 // Event Types
-export type { AnimationState, CameraEvent, CameraId, CameraRotation, CameraSettings } from './index'
+export type { AnimationState, CameraEvent, CameraId, CameraRotation, CameraSettings } from './constants'
 
 // Event Schemas
 export {
@@ -132,10 +132,10 @@ export {
   CameraIdSchema,
   CameraRotationSchema,
   CameraSettingsSchema,
-} from './index'
+} from './constants'
 
 // Event Factory Functions
-export { createCameraEvent } from './index'
+export { createCameraEvent } from './constants'
 
 // Event Type Guards
 export {
@@ -146,7 +146,7 @@ export {
   isRotationUpdatedEvent,
   isSettingsChangedEvent,
   isViewModeChangedEvent,
-} from './index'
+} from './constants'
 
 // ========================================
 // Re-export Everything as Namespace
@@ -169,6 +169,6 @@ export {
  * const defaultFOV = CameraTypes.CAMERA_DEFAULTS.FOV
  * ```
  */
-export * from './constants';
-export * from './errors';
-export * from './events';
+export * from './constants'
+export * from './errors'
+export * from './events'

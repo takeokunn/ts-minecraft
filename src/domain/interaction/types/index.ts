@@ -1,9 +1,7 @@
-import { Schema } from '@effect/schema'
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
-import { Data, Effect, Either, Match } from 'effect'
+import { Data, Match, Schema } from 'effect'
 import { pipe } from 'effect/Function'
-import { BlockFaceSchema } from '../value_object'
-import { Vector3Schema } from '../value_object'
+import { BlockFaceSchema, Vector3Schema } from '../value_object'
 
 const IdentifierSchema = Schema.String.pipe(
   Schema.nonEmptyString({ message: () => '識別子は1文字以上である必要があります' }),
@@ -143,14 +141,8 @@ export const InteractionError = Data.taggedEnum({
 
 export type InteractionError = typeof InteractionError.Type
 
-const toInvalidCommand = (error: Schema.ParseError) => InteractionError.InvalidCommand({ message: parseError(error) })
-
-export const parseCommand = (input: unknown) =>
-  pipe(Schema.decode(InteractionCommandSchema)(input), Effect.mapError(toInvalidCommand))
-
-export const parseCommandEither = (input: unknown) =>
-  pipe(Schema.decodeEither(InteractionCommandSchema)(input), Either.mapLeft(toInvalidCommand))
-
+export const parseCommand = Schema.decode(InteractionCommandSchema)
+export const parseCommandEither = Schema.decodeEither(InteractionCommandSchema)
 export const parseEvent = Schema.decode(InteractionEventSchema)
 export const parseEventEither = Schema.decodeEither(InteractionEventSchema)
 

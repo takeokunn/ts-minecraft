@@ -265,7 +265,7 @@ export const createChunkAggregate = (
   data: ChunkData
 ): Effect.Effect<ChunkAggregate, ChunkBoundsError | ChunkSerializationError> =>
   pipe(
-    Schema.decodeEffect(ChunkDataSchema)(data),
+    Schema.decode(ChunkDataSchema)(data),
     Effect.mapError((error) =>
       ChunkSerializationError({
         message: 'チャンクデータの検証に失敗しました',

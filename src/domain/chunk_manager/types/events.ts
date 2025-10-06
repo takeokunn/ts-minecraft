@@ -5,7 +5,7 @@
  * Event Sourcingパターンに基づき、ドメイン内で発生する全てのイベントを型安全に定義します。
  */
 
-import { Data, Schema } from 'effect'
+import { Brand, Clock, Data, Effect, Schema } from 'effect'
 import { ChunkId } from '../../chunk/value_object/chunk_id/index'
 import {
   ChunkLifetime,
@@ -448,9 +448,12 @@ export const ChunkLifecycleEventSchema = Schema.TaggedEnum<ChunkLifecycleEvent>(
 // Event Factory Functions
 // ========================================
 
-export const createEventId = () => {
-  return `event-${Date.now()}-${Math.random().toString(36).substr(2, 9)}` as EventId
-}
+export const createEventId = (): Effect.Effect<EventId> =>
+  Effect.gen(function* () {
+    const timestamp = yield* Clock.currentTimeMillis
+    const random = yield* Effect.sync(() => Math.random().toString(36).substring(2, 11))
+    return `event-${timestamp}-${random}` as EventId
+  })
 
 export const createEventMetadata = (
   aggregateId: string,
@@ -460,15 +463,20 @@ export const createEventMetadata = (
     correlationId?: string
     userId?: string
   }
-): EventMetadata =>
-  EventMetadata({
-    eventId: createEventId(),
-    timestamp: new Date(),
-    aggregateId,
-    aggregateVersion,
-    causationId: options?.causationId,
-    correlationId: options?.correlationId,
-    userId: options?.userId,
+): Effect.Effect<EventMetadata> =>
+  Effect.gen(function* () {
+    const eventId = yield* createEventId()
+    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+
+    return EventMetadata({
+      eventId,
+      timestamp: now,
+      aggregateId,
+      aggregateVersion,
+      causationId: options?.causationId,
+      correlationId: options?.correlationId,
+      userId: options?.userId,
+    })
   })
 
 // Pool Management Event Factories
@@ -479,12 +487,15 @@ export const createPoolCreatedEvent = (
   strategy: PoolStrategy,
   maxCapacity: number,
   aggregateVersion: number
-) =>
-  PoolManagementEvent.PoolCreated({
-    poolId,
-    strategy,
-    maxCapacity,
-    metadata: createEventMetadata(poolId, aggregateVersion),
+): Effect.Effect<PoolManagementEvent> =>
+  Effect.gen(function* () {
+    const metadata = yield* createEventMetadata(poolId, aggregateVersion)
+    return PoolManagementEvent.PoolCreated({
+      poolId,
+      strategy,
+      maxCapacity,
+      metadata,
+    })
   })
 
 export const createPoolDestroyedEvent = (
@@ -492,12 +503,15 @@ export const createPoolDestroyedEvent = (
   reason: string,
   chunksEvicted: number,
   aggregateVersion: number
-) =>
-  PoolManagementEvent.PoolDestroyed({
-    poolId,
-    reason,
-    chunksEvicted,
-    metadata: createEventMetadata(poolId, aggregateVersion),
+): Effect.Effect<PoolManagementEvent> =>
+  Effect.gen(function* () {
+    const metadata = yield* createEventMetadata(poolId, aggregateVersion)
+    return PoolManagementEvent.PoolDestroyed({
+      poolId,
+      reason,
+      chunksEvicted,
+      metadata,
+    })
   })
 
 // Chunk Lifecycle Event Factories
@@ -508,13 +522,17 @@ export const createChunkActivatedEvent = (
   poolId: ChunkPoolId,
   priority: ChunkPriority,
   aggregateVersion: number
-) =>
-  ChunkLifecycleEvent.ChunkActivated({
-    chunkId,
-    poolId,
-    priority,
-    activatedAt: new Date(),
-    metadata: createEventMetadata(chunkId, aggregateVersion),
+): Effect.Effect<ChunkLifecycleEvent> =>
+  Effect.gen(function* () {
+    const metadata = yield* createEventMetadata(chunkId, aggregateVersion)
+    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    return ChunkLifecycleEvent.ChunkActivated({
+      chunkId,
+      poolId,
+      priority,
+      activatedAt: now,
+      metadata,
+    })
   })
 
 export const createChunkDeactivatedEvent = (
@@ -523,14 +541,18 @@ export const createChunkDeactivatedEvent = (
   idleTime: ChunkLifetime,
   reason: string,
   aggregateVersion: number
-) =>
-  ChunkLifecycleEvent.ChunkDeactivated({
-    chunkId,
-    poolId,
-    deactivatedAt: new Date(),
-    idleTime,
-    reason,
-    metadata: createEventMetadata(chunkId, aggregateVersion),
+): Effect.Effect<ChunkLifecycleEvent> =>
+  Effect.gen(function* () {
+    const metadata = yield* createEventMetadata(chunkId, aggregateVersion)
+    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    return ChunkLifecycleEvent.ChunkDeactivated({
+      chunkId,
+      poolId,
+      deactivatedAt: now,
+      idleTime,
+      reason,
+      metadata,
+    })
   })
 
 export const createChunkMarkedForDestructionEvent = (
@@ -538,13 +560,17 @@ export const createChunkMarkedForDestructionEvent = (
   poolId: ChunkPoolId,
   reason: DestructionReason,
   aggregateVersion: number
-) =>
-  ChunkLifecycleEvent.ChunkMarkedForDestruction({
-    chunkId,
-    poolId,
-    markedAt: new Date(),
-    reason,
-    metadata: createEventMetadata(chunkId, aggregateVersion),
+): Effect.Effect<ChunkLifecycleEvent> =>
+  Effect.gen(function* () {
+    const metadata = yield* createEventMetadata(chunkId, aggregateVersion)
+    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    return ChunkLifecycleEvent.ChunkMarkedForDestruction({
+      chunkId,
+      poolId,
+      markedAt: now,
+      reason,
+      metadata,
+    })
   })
 
 export const createChunkDestroyedEvent = (
@@ -552,13 +578,17 @@ export const createChunkDestroyedEvent = (
   poolId: ChunkPoolId,
   memoryFreed: MemoryBytes,
   aggregateVersion: number
-) =>
-  ChunkLifecycleEvent.ChunkDestroyed({
-    chunkId,
-    poolId,
-    destroyedAt: new Date(),
-    memoryFreed,
-    metadata: createEventMetadata(chunkId, aggregateVersion),
+): Effect.Effect<ChunkLifecycleEvent> =>
+  Effect.gen(function* () {
+    const metadata = yield* createEventMetadata(chunkId, aggregateVersion)
+    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    return ChunkLifecycleEvent.ChunkDestroyed({
+      chunkId,
+      poolId,
+      destroyedAt: now,
+      memoryFreed,
+      metadata,
+    })
   })
 
 // Memory Management Event Factories
@@ -569,13 +599,17 @@ export const createMemoryUsageUpdatedEvent = (
   poolUsages: Record<string, MemoryBytes>,
   usagePercent: ResourceUsagePercent,
   aggregateVersion: number
-) =>
-  MemoryManagementEvent.MemoryUsageUpdated({
-    totalUsage,
-    poolUsages,
-    usagePercent,
-    timestamp: new Date(),
-    metadata: createEventMetadata('memory-manager', aggregateVersion),
+): Effect.Effect<MemoryManagementEvent> =>
+  Effect.gen(function* () {
+    const metadata = yield* createEventMetadata('memory-manager', aggregateVersion)
+    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    return MemoryManagementEvent.MemoryUsageUpdated({
+      totalUsage,
+      poolUsages,
+      usagePercent,
+      timestamp: now,
+      metadata,
+    })
   })
 
 // Garbage Collection Event Factories
@@ -587,14 +621,18 @@ export const createGCStartedEvent = (
   targetPools: ChunkPoolId[],
   expectedChunks: number,
   aggregateVersion: number
-) =>
-  GarbageCollectionEvent.GCStarted({
-    gcId,
-    strategy,
-    targetPools,
-    expectedChunks,
-    startedAt: new Date(),
-    metadata: createEventMetadata(gcId, aggregateVersion),
+): Effect.Effect<GarbageCollectionEvent> =>
+  Effect.gen(function* () {
+    const metadata = yield* createEventMetadata(gcId, aggregateVersion)
+    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    return GarbageCollectionEvent.GCStarted({
+      gcId,
+      strategy,
+      targetPools,
+      expectedChunks,
+      startedAt: now,
+      metadata,
+    })
   })
 
 export const createGCCompletedEvent = (
@@ -603,14 +641,18 @@ export const createGCCompletedEvent = (
   memoryFreed: MemoryBytes,
   duration: number,
   aggregateVersion: number
-) =>
-  GarbageCollectionEvent.GCCompleted({
-    gcId,
-    chunksCollected,
-    memoryFreed,
-    duration,
-    completedAt: new Date(),
-    metadata: createEventMetadata(gcId, aggregateVersion),
+): Effect.Effect<GarbageCollectionEvent> =>
+  Effect.gen(function* () {
+    const metadata = yield* createEventMetadata(gcId, aggregateVersion)
+    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    return GarbageCollectionEvent.GCCompleted({
+      gcId,
+      chunksCollected,
+      memoryFreed,
+      duration,
+      completedAt: now,
+      metadata,
+    })
   })
 
 // Performance Event Factories
@@ -625,15 +667,19 @@ export const createPerformanceMetricRecordedEvent = (
     poolId?: ChunkPoolId
     chunkId?: ChunkId
   }
-) =>
-  PerformanceEvent.PerformanceMetricRecorded({
-    metricName,
-    value,
-    unit,
-    poolId: options?.poolId,
-    chunkId: options?.chunkId,
-    recordedAt: new Date(),
-    metadata: createEventMetadata('performance-monitor', aggregateVersion),
+): Effect.Effect<PerformanceEvent> =>
+  Effect.gen(function* () {
+    const metadata = yield* createEventMetadata('performance-monitor', aggregateVersion)
+    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    return PerformanceEvent.PerformanceMetricRecorded({
+      metricName,
+      value,
+      unit,
+      poolId: options?.poolId,
+      chunkId: options?.chunkId,
+      recordedAt: now,
+      metadata,
+    })
   })
 
 // Configuration Event Factories
@@ -646,14 +692,17 @@ export const createConfigurationChangedEvent = (
   changedBy: string,
   reason: string,
   aggregateVersion: number
-) =>
-  ConfigurationEvent.ConfigurationChanged({
-    configKey,
-    oldValue,
-    newValue,
-    changedBy,
-    reason,
-    metadata: createEventMetadata('configuration-manager', aggregateVersion),
+): Effect.Effect<ConfigurationEvent> =>
+  Effect.gen(function* () {
+    const metadata = yield* createEventMetadata('configuration-manager', aggregateVersion)
+    return ConfigurationEvent.ConfigurationChanged({
+      configKey,
+      oldValue,
+      newValue,
+      changedBy,
+      reason,
+      metadata,
+    })
   })
 
 // Error Event Factories
@@ -666,14 +715,17 @@ export const createErrorOccurredEvent = (
   severity: 'low' | 'medium' | 'high' | 'critical',
   aggregateVersion: number,
   stackTrace?: string
-) =>
-  ErrorEvent.ErrorOccurred({
-    errorType,
-    errorMessage,
-    stackTrace,
-    affectedComponents,
-    severity,
-    metadata: createEventMetadata('error-handler', aggregateVersion),
+): Effect.Effect<ErrorEvent> =>
+  Effect.gen(function* () {
+    const metadata = yield* createEventMetadata('error-handler', aggregateVersion)
+    return ErrorEvent.ErrorOccurred({
+      errorType,
+      errorMessage,
+      stackTrace,
+      affectedComponents,
+      severity,
+      metadata,
+    })
   })
 
 // ========================================

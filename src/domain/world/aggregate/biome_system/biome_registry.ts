@@ -2,8 +2,8 @@
  * @fileoverview Biome Registry - バイオーム登録管理
  */
 
-import { Effect, Schema } from 'effect'
 import * as BiomeProperties from '@domain/world/value_object/biome_properties/index'
+import { Effect, Schema } from 'effect'
 
 export const BiomeRegistrySchema = Schema.Struct({
   biomes: Schema.Array(

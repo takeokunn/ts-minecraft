@@ -7,10 +7,10 @@
  * - 並行処理制御
  */
 
-import { Effect, Schema } from 'effect'
 import type * as WorldTypes from '@domain/world/types/core'
 import type * as GenerationErrors from '@domain/world/types/errors'
 import * as Coordinates from '@domain/world/value_object/coordinates/index'
+import { Clock, Effect, Schema } from 'effect'
 
 // ================================
 // Session Status
@@ -114,50 +114,56 @@ export type SessionState = typeof SessionStateSchema.Type
 /**
  * 初期状態作成
  */
-export const createInitial = (): SessionState => ({
-  status: 'created',
-  executionContext: {
-    activeBatches: {},
-    queuedBatches: [],
-    completedBatches: [],
-    failedBatches: [],
-    maxConcurrentBatches: 4,
-    currentConcurrency: 0,
-  },
-  lastStateChange: new Date(),
-  stateHistory: [],
-})
+export const createInitial = (): Effect.Effect<SessionState> =>
+  Effect.gen(function* () {
+    const lastStateChange = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+
+    return {
+      status: 'created',
+      executionContext: {
+        activeBatches: {},
+        queuedBatches: [],
+        completedBatches: [],
+        failedBatches: [],
+        maxConcurrentBatches: 4,
+        currentConcurrency: 0,
+      },
+      lastStateChange,
+      stateHistory: [],
+    }
+  })
 
 /**
  * セッション開始
  */
-export const startSession = (state: SessionState, batches: readonly ChunkBatch[]): SessionState => {
-  const now = new Date()
+export const startSession = (state: SessionState, batches: readonly ChunkBatch[]): Effect.Effect<SessionState> =>
+  Effect.gen(function* () {
+    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
 
-  // バッチをキューに追加
-  const queuedBatchIds = batches.map((batch) => batch.id)
+    // バッチをキューに追加
+    const queuedBatchIds = batches.map((batch) => batch.id)
 
-  const newState: SessionState = {
-    ...state,
-    status: 'running',
-    executionContext: {
-      ...state.executionContext,
-      queuedBatches: queuedBatchIds,
-    },
-    lastStateChange: now,
-    stateHistory: [
-      ...state.stateHistory,
-      {
-        fromStatus: state.status,
-        toStatus: 'running',
-        timestamp: now,
-        reason: 'Session started',
+    const newState: SessionState = {
+      ...state,
+      status: 'running',
+      executionContext: {
+        ...state.executionContext,
+        queuedBatches: queuedBatchIds,
       },
-    ],
-  }
+      lastStateChange: now,
+      stateHistory: [
+        ...state.stateHistory,
+        {
+          fromStatus: state.status,
+          toStatus: 'running',
+          timestamp: now,
+          reason: 'Session started',
+        },
+      ],
+    }
 
-  return newState
-}
+    return newState
+  })
 
 /**
  * バッチ開始
@@ -180,7 +186,7 @@ export const startBatch = (
     // キューからバッチを削除
     const queuedBatches = state.executionContext.queuedBatches.filter((id) => id !== batchId)
 
-    const now = yield* Effect.sync(() => new Date())
+    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
 
     const startedBatch: ChunkBatch = {
       ...batch,
@@ -220,7 +226,7 @@ export const completeBatch = (
       return yield* Effect.fail(GenerationErrors.createStateError(`Batch ${batchId} not found in active batches`))
     }
 
-    const now = yield* Effect.sync(() => new Date())
+    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
 
     const completedBatch: ChunkBatch = {
       ...activeBatch,
@@ -261,7 +267,7 @@ export const failBatch = (
       return yield* Effect.fail(GenerationErrors.createStateError(`Batch ${batchId} not found in active batches`))
     }
 
-    const now = yield* Effect.sync(() => new Date())
+    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
 
     const failedBatch: ChunkBatch = {
       ...activeBatch,
@@ -301,7 +307,7 @@ export const scheduleRetry = (
       return yield* Effect.fail(GenerationErrors.createStateError(`Batch ${batchId} not found in active batches`))
     }
 
-    const now = yield* Effect.sync(() => new Date())
+    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
     const scheduleTime = retryAt || new Date(now.getTime() + 5000) // 5秒後にデフォルト
 
     const retryingBatch: ChunkBatch = {
@@ -330,94 +336,102 @@ export const scheduleRetry = (
 /**
  * セッション一時停止
  */
-export const pauseSession = (state: SessionState, reason: string): SessionState => {
-  const now = new Date()
+export const pauseSession = (state: SessionState, reason: string): Effect.Effect<SessionState> =>
+  Effect.gen(function* () {
+    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
 
-  return {
-    ...state,
-    status: 'paused',
-    pauseReason: reason,
-    lastStateChange: now,
-    stateHistory: [
-      ...state.stateHistory,
-      {
-        fromStatus: state.status,
-        toStatus: 'paused',
-        timestamp: now,
-        reason,
-      },
-    ],
-  }
-}
+    return {
+      ...state,
+      status: 'paused',
+      pauseReason: reason,
+      lastStateChange: now,
+      stateHistory: [
+        ...state.stateHistory,
+        {
+          fromStatus: state.status,
+          toStatus: 'paused',
+          timestamp: now,
+          reason,
+        },
+      ],
+    }
+  })
 
 /**
  * セッション再開
  */
-export const resumeSession = (state: SessionState): SessionState => {
-  const now = new Date()
+export const resumeSession = (state: SessionState): Effect.Effect<SessionState> =>
+  Effect.gen(function* () {
+    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
 
-  return {
-    ...state,
-    status: 'running',
-    pauseReason: undefined,
-    lastStateChange: now,
-    stateHistory: [
-      ...state.stateHistory,
-      {
-        fromStatus: state.status,
-        toStatus: 'running',
-        timestamp: now,
-        reason: 'Session resumed',
-      },
-    ],
-  }
-}
+    return {
+      ...state,
+      status: 'running',
+      pauseReason: undefined,
+      lastStateChange: now,
+      stateHistory: [
+        ...state.stateHistory,
+        {
+          fromStatus: state.status,
+          toStatus: 'running',
+          timestamp: now,
+          reason: 'Session resumed',
+        },
+      ],
+    }
+  })
 
 /**
  * セッション完了
  */
-export const completeSession = (state: SessionState): SessionState => {
-  const now = new Date()
+export const completeSession = (state: SessionState): Effect.Effect<SessionState> =>
+  Effect.gen(function* () {
+    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
 
-  return {
-    ...state,
-    status: 'completed',
-    lastStateChange: now,
-    stateHistory: [
-      ...state.stateHistory,
-      {
-        fromStatus: state.status,
-        toStatus: 'completed',
-        timestamp: now,
-        reason: 'All batches completed',
-      },
-    ],
-  }
-}
+    return {
+      ...state,
+      status: 'completed',
+      lastStateChange: now,
+      stateHistory: [
+        ...state.stateHistory,
+        {
+          fromStatus: state.status,
+          toStatus: 'completed',
+          timestamp: now,
+          reason: 'All batches completed',
+        },
+      ],
+    }
+  })
 
 /**
  * セッションキャンセル
  */
-export const cancelSession = (state: SessionState, reason: string, cancellationToken: string): SessionState => {
-  const now = new Date()
+export const cancelSession = (
+  state: SessionState,
+  reason: string,
+  cancellationToken: string
+): Effect.Effect<SessionState> =>
+  Effect.gen(function* () {
+    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
 
-  return {
-    ...state,
-    status: 'cancelled',
-    pauseReason: reason,
-    cancellationToken,
-    lastStateChange: now,
-    stateHistory: [
-      ...state.stateHistory,
-      {
-        fromStatus: state.status,
-        toStatus: 'cancelled',
-        timestamp: now,
-        reason,
-      },
-    ],
-  }
-}
+    return {
+      ...state,
+      status: 'cancelled',
+      pauseReason: reason,
+      cancellationToken,
+      lastStateChange: now,
+      stateHistory: [
+        ...state.stateHistory,
+        {
+          fromStatus: state.status,
+          toStatus: 'cancelled',
+          timestamp: now,
+          reason,
+        },
+      ],
+    }
+  })
 
 // ================================
 // Query Functions

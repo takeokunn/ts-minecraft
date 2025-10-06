@@ -8,19 +8,14 @@
  * - 生態系シミュレーション
  */
 
-import { Context, Effect, Schema, STM } from 'effect'
-import * as Coordinates from '@domain/world/value_object/coordinates/index.js'
 import type * as GenerationErrors from '@domain/world/types/errors/generation_errors.js'
+import * as Coordinates from '@domain/world/value_object/coordinates/index.js'
+import { Clock, Context, Effect, Schema, STM } from 'effect'
 import * as BiomeRegistry from './biome_registry.js'
 import * as BiomeTransitions from './biome_transitions.js'
 import * as ClimateModel from './climate_model.js'
 import * as BiomeEvents from './events.js'
 import {
-  BiomeDistributionSchema,
-  BiomeSystemConfigurationSchema,
-  BiomeSystemSchema,
-  BiomeSystemIdSchema,
-  createBiomeSystemId,
   type BiomeDistribution,
   type BiomeSystem,
   type BiomeSystemConfiguration,
@@ -86,7 +81,7 @@ export const create = (
   configuration?: Partial<BiomeSystemConfiguration>
 ): Effect.Effect<BiomeSystem, GenerationErrors.CreationError> =>
   Effect.gen(function* () {
-    const now = yield* Effect.sync(() => new Date())
+    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
 
     // デフォルト設定
     const defaultConfig: BiomeSystemConfiguration = {
@@ -166,7 +161,7 @@ export const generateBiomeDistribution = (
   command: GenerateBiomeDistributionCommand
 ): STM.STM<[BiomeSystem, BiomeDistribution], GenerationErrors.GenerationError> =>
   STM.gen(function* () {
-    const startTime = yield* STM.fromEffect(Effect.sync(() => Date.now()))
+    const startTime = yield* STM.fromEffect(Clock.currentTimeMillis)
     const coordinateKey = coordinateToKey(command.coordinate)
 
     // キャッシュチェック
@@ -188,13 +183,15 @@ export const generateBiomeDistribution = (
       calculateTransitionZones(system, command.coordinate, biomeSelection.dominantBiome, command.options)
     )
 
+    const lastUpdated = yield* STM.fromEffect(Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms)))
+
     const distribution: BiomeDistribution = {
       chunkCoordinate: command.coordinate,
       dominantBiome: biomeSelection.dominantBiome,
       biomeDistribution: biomeSelection.distribution,
       transitionZones,
       climateFactors,
-      lastUpdated: new Date(),
+      lastUpdated,
     }
 
     // キャッシュ更新
@@ -204,13 +201,15 @@ export const generateBiomeDistribution = (
     }
 
     // 統計更新
-    const endTime = yield* STM.fromEffect(Effect.sync(() => Date.now()))
+    const endTime = yield* STM.fromEffect(Clock.currentTimeMillis)
     const generationTime = endTime - startTime
     const newAverageTime = updateAverageGenerationTime(
       system.statistics.averageGenerationTime,
       generationTime,
       system.statistics.cachedDistributions + 1
     )
+
+    const updatedAt = yield* STM.fromEffect(Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms)))
 
     const updatedSystem: BiomeSystem = {
       ...system,
@@ -221,7 +220,7 @@ export const generateBiomeDistribution = (
         cachedDistributions: system.statistics.cachedDistributions + 1,
         averageGenerationTime: newAverageTime,
       },
-      updatedAt: new Date(),
+      updatedAt,
     }
 
     // 生成イベント発行
@@ -247,6 +246,8 @@ export const updateClimateModel = (
     const affectedKeys = yield* calculateAffectedCacheKeys(system, command)
     const cleanedCache = yield* clearCacheEntries(system.distributionCache, affectedKeys)
 
+    const updatedAt = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+
     const updatedSystem: BiomeSystem = {
       ...system,
       climateModel: updatedModel,
@@ -256,7 +257,7 @@ export const updateClimateModel = (
         ...system.statistics,
         cachedDistributions: Object.keys(cleanedCache).length,
       },
-      updatedAt: new Date(),
+      updatedAt,
     }
 
     // 更新イベント発行
@@ -281,6 +282,8 @@ export const addTransitionRule = (
 
     const updatedRules = [...system.transitionRules, rule]
 
+    const updatedAt = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+
     const updatedSystem: BiomeSystem = {
       ...system,
       transitionRules: updatedRules,
@@ -289,7 +292,7 @@ export const addTransitionRule = (
         ...system.statistics,
         transitionRulesCount: updatedRules.length,
       },
-      updatedAt: new Date(),
+      updatedAt,
     }
 
     return updatedSystem
@@ -304,7 +307,7 @@ export const optimize = (system: BiomeSystem): Effect.Effect<BiomeSystem, Genera
       return system
     }
 
-    const now = yield* Effect.sync(() => new Date())
+    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
 
     // キャッシュサイズ最適化
     const optimizedCache = yield* optimizeCache(

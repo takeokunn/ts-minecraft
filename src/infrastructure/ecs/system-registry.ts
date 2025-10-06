@@ -6,8 +6,8 @@
  */
 
 import { Clock, Context, Data, Effect, Layer, Match, Option, pipe, Ref } from 'effect'
-import type { System, SystemError, SystemMetadata, SystemPriority } from './index'
-import { isSystemError, makeSystemError, priorityToNumber, SystemExecutionState } from './index'
+import type { System, SystemError, SystemMetadata, SystemPriority } from './system'
+import { isSystemError, makeSystemError, priorityToNumber, SystemExecutionState } from './system'
 
 /**
  * システムレジストリエラー

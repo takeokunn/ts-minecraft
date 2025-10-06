@@ -1,5 +1,7 @@
+import { it } from '@effect/vitest'
 import { Effect } from 'effect'
-import { describe, expect, it } from 'vitest'
+import { describe, expect } from 'vitest'
+import { provideLayers } from '../../../../testing/effect'
 import { ChunkSerializationService, ChunkSerializationServiceLive, SerializationFormat } from '../chunk_serializer'
 
 // テスト用のレイヤー
@@ -24,255 +26,274 @@ const createTestChunkData = () => ({
 
 describe('ChunkSerializationService', () => {
   describe('serialize and deserialize', () => {
-    it('Binary形式でシリアライゼーション・デシリアライゼーションできる', async () => {
-      const originalChunk = createTestChunkData()
-      const format = SerializationFormat.Binary()
+    it.effect('Binary形式でシリアライゼーション・デシリアライゼーションできる', () =>
+      provideLayers(
+        Effect.gen(function* () {
+          const originalChunk = createTestChunkData()
+          const format = SerializationFormat.Binary()
+          const service = yield* ChunkSerializationService
 
-      const result = await Effect.gen(function* () {
-        const service = yield* ChunkSerializationService
+          // シリアライゼーション
+          const serialized = yield* service.serialize(originalChunk, format)
 
-        // シリアライゼーション
-        const serialized = yield* service.serialize(originalChunk, format)
+          // デシリアライゼーション
+          const deserialized = yield* service.deserialize(serialized, format)
 
-        // デシリアライゼーション
-        const deserialized = yield* service.deserialize(serialized, format)
+          expect(serialized).toBeInstanceOf(Uint8Array)
+          expect(serialized.length).toBeGreaterThan(0)
 
-        return { serialized, deserialized }
-      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
+          // デシリアライズされたデータの検証
+          expect(deserialized.position.x).toBe(originalChunk.position.x)
+          expect(deserialized.position.z).toBe(originalChunk.position.z)
+          expect(deserialized.isDirty).toBe(originalChunk.isDirty)
+          expect(deserialized.metadata.biomeId).toBe(originalChunk.metadata.biomeId)
+          expect(deserialized.blocks.length).toBe(originalChunk.blocks.length)
+        }),
+        TestLayer
+      )
+    )
 
-      expect(result.serialized).toBeInstanceOf(Uint8Array)
-      expect(result.serialized.length).toBeGreaterThan(0)
+    it.effect('JSON形式でシリアライゼーション・デシリアライゼーションできる', () =>
+      provideLayers(
+        Effect.gen(function* () {
+          const originalChunk = createTestChunkData()
+          const format = SerializationFormat.JSON({ pretty: true })
+          const service = yield* ChunkSerializationService
 
-      // デシリアライズされたデータの検証
-      expect(result.deserialized.position.x).toBe(originalChunk.position.x)
-      expect(result.deserialized.position.z).toBe(originalChunk.position.z)
-      expect(result.deserialized.isDirty).toBe(originalChunk.isDirty)
-      expect(result.deserialized.metadata.biomeId).toBe(originalChunk.metadata.biomeId)
-      expect(result.deserialized.blocks.length).toBe(originalChunk.blocks.length)
-    })
+          const serialized = yield* service.serialize(originalChunk, format)
+          const deserialized = yield* service.deserialize(serialized, format)
 
-    it('JSON形式でシリアライゼーション・デシリアライゼーションできる', async () => {
-      const originalChunk = createTestChunkData()
-      const format = SerializationFormat.JSON({ pretty: true })
+          // JSONとして解析可能か確認
+          const jsonString = new TextDecoder().decode(serialized)
+          const parsedJson = JSON.parse(jsonString)
 
-      const result = await Effect.gen(function* () {
-        const service = yield* ChunkSerializationService
+          expect(parsedJson.position.x).toBe(originalChunk.position.x)
+          expect(parsedJson.position.z).toBe(originalChunk.position.z)
 
-        const serialized = yield* service.serialize(originalChunk, format)
-        const deserialized = yield* service.deserialize(serialized, format)
+          // デシリアライズされたデータの検証
+          expect(deserialized.position.x).toBe(originalChunk.position.x)
+          expect(deserialized.position.z).toBe(originalChunk.position.z)
+          expect(deserialized.blocks).toBeInstanceOf(Uint16Array)
+        }),
+        TestLayer
+      )
+    )
 
-        return { serialized, deserialized }
-      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
+    it.effect('圧縮形式でシリアライゼーション・デシリアライゼーションできる', () =>
+      provideLayers(
+        Effect.gen(function* () {
+          const originalChunk = createTestChunkData()
+          const format = SerializationFormat.Compressed('gzip')
+          const service = yield* ChunkSerializationService
 
-      // JSONとして解析可能か確認
-      const jsonString = new TextDecoder().decode(result.serialized)
-      const parsedJson = JSON.parse(jsonString)
+          const serialized = yield* service.serialize(originalChunk, format)
+          const deserialized = yield* service.deserialize(serialized, format)
 
-      expect(parsedJson.position.x).toBe(originalChunk.position.x)
-      expect(parsedJson.position.z).toBe(originalChunk.position.z)
-
-      // デシリアライズされたデータの検証
-      expect(result.deserialized.position.x).toBe(originalChunk.position.x)
-      expect(result.deserialized.position.z).toBe(originalChunk.position.z)
-      expect(result.deserialized.blocks).toBeInstanceOf(Uint16Array)
-    })
-
-    it('圧縮形式でシリアライゼーション・デシリアライゼーションできる', async () => {
-      const originalChunk = createTestChunkData()
-      const format = SerializationFormat.Compressed('gzip')
-
-      const result = await Effect.gen(function* () {
-        const service = yield* ChunkSerializationService
-
-        const serialized = yield* service.serialize(originalChunk, format)
-        const deserialized = yield* service.deserialize(serialized, format)
-
-        return { serialized, deserialized }
-      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
-
-      expect(result.serialized).toBeInstanceOf(Uint8Array)
-      expect(result.deserialized.position.x).toBe(originalChunk.position.x)
-      expect(result.deserialized.position.z).toBe(originalChunk.position.z)
-    })
+          expect(serialized).toBeInstanceOf(Uint8Array)
+          expect(deserialized.position.x).toBe(originalChunk.position.x)
+          expect(deserialized.position.z).toBe(originalChunk.position.z)
+        }),
+        TestLayer
+      )
+    )
   })
 
   describe('compress and decompress', () => {
-    it('gzipで圧縮・解凍できる', async () => {
-      const testData = new TextEncoder().encode('Hello, World! '.repeat(100))
+    it.effect('gzipで圧縮・解凍できる', () =>
+      provideLayers(
+        Effect.gen(function* () {
+          const testData = new TextEncoder().encode('Hello, World! '.repeat(100))
+          const service = yield* ChunkSerializationService
 
-      const result = await Effect.gen(function* () {
-        const service = yield* ChunkSerializationService
+          const compressed = yield* service.compress(testData, 'gzip')
+          const decompressed = yield* service.decompress(compressed, 'gzip')
 
-        const compressed = yield* service.compress(testData, 'gzip')
-        const decompressed = yield* service.decompress(compressed, 'gzip')
+          expect(compressed.length).toBeLessThanOrEqual(testData.length) // 圧縮されている
+          expect(Array.from(decompressed)).toEqual(Array.from(testData)) // 元データと一致
+        }),
+        TestLayer
+      )
+    )
 
-        return { compressed, decompressed }
-      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
+    it.effect('deflateで圧縮・解凍できる', () =>
+      provideLayers(
+        Effect.gen(function* () {
+          const testData = new TextEncoder().encode('Test data for deflate compression')
+          const service = yield* ChunkSerializationService
 
-      expect(result.compressed.length).toBeLessThanOrEqual(testData.length) // 圧縮されている
-      expect(Array.from(result.decompressed)).toEqual(Array.from(testData)) // 元データと一致
-    })
+          const compressed = yield* service.compress(testData, 'deflate')
+          const decompressed = yield* service.decompress(compressed, 'deflate')
 
-    it('deflateで圧縮・解凍できる', async () => {
-      const testData = new TextEncoder().encode('Test data for deflate compression')
-
-      const result = await Effect.gen(function* () {
-        const service = yield* ChunkSerializationService
-
-        const compressed = yield* service.compress(testData, 'deflate')
-        const decompressed = yield* service.decompress(compressed, 'deflate')
-
-        return { compressed, decompressed }
-      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
-
-      expect(Array.from(result.decompressed)).toEqual(Array.from(testData))
-    })
+          expect(Array.from(decompressed)).toEqual(Array.from(testData))
+        }),
+        TestLayer
+      )
+    )
   })
 
   describe('calculateChecksum', () => {
-    it('SHA-256チェックサムを計算できる', async () => {
-      const testData = new TextEncoder().encode('test data')
+    it.effect('SHA-256チェックサムを計算できる', () =>
+      provideLayers(
+        Effect.gen(function* () {
+          const testData = new TextEncoder().encode('test data')
+          const service = yield* ChunkSerializationService
 
-      const checksum = await Effect.gen(function* () {
-        const service = yield* ChunkSerializationService
-        return yield* service.calculateChecksum(testData, 'SHA-256')
-      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
+          const checksum = yield* service.calculateChecksum(testData, 'SHA-256')
 
-      expect(checksum).toMatch(/^[a-f0-9]{64}$/) // SHA-256は64文字の16進数
-    })
+          expect(checksum).toMatch(/^[a-f0-9]{64}$/) // SHA-256は64文字の16進数
+        }),
+        TestLayer
+      )
+    )
 
-    it('SHA-1チェックサムを計算できる', async () => {
-      const testData = new TextEncoder().encode('test data')
+    it.effect('SHA-1チェックサムを計算できる', () =>
+      provideLayers(
+        Effect.gen(function* () {
+          const testData = new TextEncoder().encode('test data')
+          const service = yield* ChunkSerializationService
 
-      const checksum = await Effect.gen(function* () {
-        const service = yield* ChunkSerializationService
-        return yield* service.calculateChecksum(testData, 'SHA-1')
-      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
+          const checksum = yield* service.calculateChecksum(testData, 'SHA-1')
 
-      expect(checksum).toMatch(/^[a-f0-9]{40}$/) // SHA-1は40文字の16進数
-    })
+          expect(checksum).toMatch(/^[a-f0-9]{40}$/) // SHA-1は40文字の16進数
+        }),
+        TestLayer
+      )
+    )
 
-    it('同じデータは同じチェックサムを生成する', async () => {
-      const testData = new TextEncoder().encode('consistent data')
+    it.effect('同じデータは同じチェックサムを生成する', () =>
+      provideLayers(
+        Effect.gen(function* () {
+          const testData = new TextEncoder().encode('consistent data')
+          const service = yield* ChunkSerializationService
 
-      const result = await Effect.gen(function* () {
-        const service = yield* ChunkSerializationService
+          const checksum1 = yield* service.calculateChecksum(testData)
+          const checksum2 = yield* service.calculateChecksum(testData)
 
-        const checksum1 = yield* service.calculateChecksum(testData)
-        const checksum2 = yield* service.calculateChecksum(testData)
-
-        return { checksum1, checksum2 }
-      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
-
-      expect(result.checksum1).toBe(result.checksum2)
-    })
+          expect(checksum1).toBe(checksum2)
+        }),
+        TestLayer
+      )
+    )
   })
 
   describe('estimateSize', () => {
-    it('Binary形式のサイズを推定できる', async () => {
-      const chunk = createTestChunkData()
-      const format = SerializationFormat.Binary()
+    it.effect('Binary形式のサイズを推定できる', () =>
+      provideLayers(
+        Effect.gen(function* () {
+          const chunk = createTestChunkData()
+          const format = SerializationFormat.Binary()
+          const service = yield* ChunkSerializationService
 
-      const estimatedSize = await Effect.gen(function* () {
-        const service = yield* ChunkSerializationService
-        return yield* service.estimateSize(chunk, format)
-      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
+          const estimatedSize = yield* service.estimateSize(chunk, format)
 
-      expect(estimatedSize).toBeGreaterThan(0)
-      expect(typeof estimatedSize).toBe('number')
-    })
+          expect(estimatedSize).toBeGreaterThan(0)
+          expect(typeof estimatedSize).toBe('number')
+        }),
+        TestLayer
+      )
+    )
 
-    it('JSON形式のサイズを推定できる', async () => {
-      const chunk = createTestChunkData()
-      const format = SerializationFormat.JSON()
+    it.effect('JSON形式のサイズを推定できる', () =>
+      provideLayers(
+        Effect.gen(function* () {
+          const chunk = createTestChunkData()
+          const format = SerializationFormat.JSON()
+          const service = yield* ChunkSerializationService
 
-      const estimatedSize = await Effect.gen(function* () {
-        const service = yield* ChunkSerializationService
-        return yield* service.estimateSize(chunk, format)
-      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
+          const estimatedSize = yield* service.estimateSize(chunk, format)
 
-      expect(estimatedSize).toBeGreaterThan(0)
-    })
+          expect(estimatedSize).toBeGreaterThan(0)
+        }),
+        TestLayer
+      )
+    )
 
-    it('圧縮形式は非圧縮形式より小さい推定サイズを返す', async () => {
-      const chunk = createTestChunkData()
-      const binaryFormat = SerializationFormat.Binary()
-      const compressedFormat = SerializationFormat.Compressed('gzip')
+    it.effect('圧縮形式は非圧縮形式より小さい推定サイズを返す', () =>
+      provideLayers(
+        Effect.gen(function* () {
+          const chunk = createTestChunkData()
+          const binaryFormat = SerializationFormat.Binary()
+          const compressedFormat = SerializationFormat.Compressed('gzip')
+          const service = yield* ChunkSerializationService
 
-      const result = await Effect.gen(function* () {
-        const service = yield* ChunkSerializationService
+          const binarySize = yield* service.estimateSize(chunk, binaryFormat)
+          const compressedSize = yield* service.estimateSize(chunk, compressedFormat)
 
-        const binarySize = yield* service.estimateSize(chunk, binaryFormat)
-        const compressedSize = yield* service.estimateSize(chunk, compressedFormat)
-
-        return { binarySize, compressedSize }
-      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
-
-      expect(result.compressedSize).toBeLessThanOrEqual(result.binarySize)
-    })
+          expect(compressedSize).toBeLessThanOrEqual(binarySize)
+        }),
+        TestLayer
+      )
+    )
   })
 
   describe('validateSerialization', () => {
-    it('正しいシリアライゼーションを検証できる', async () => {
-      const originalChunk = createTestChunkData()
-      const format = SerializationFormat.Binary()
+    it.effect('正しいシリアライゼーションを検証できる', () =>
+      provideLayers(
+        Effect.gen(function* () {
+          const originalChunk = createTestChunkData()
+          const format = SerializationFormat.Binary()
+          const service = yield* ChunkSerializationService
 
-      const isValid = await Effect.gen(function* () {
-        const service = yield* ChunkSerializationService
+          const serialized = yield* service.serialize(originalChunk, format)
+          const isValid = yield* service.validateSerialization(originalChunk, serialized, format)
 
-        const serialized = yield* service.serialize(originalChunk, format)
-        return yield* service.validateSerialization(originalChunk, serialized, format)
-      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
-
-      expect(isValid).toBe(true)
-    })
-
-    it('破損したシリアライゼーションを検出できる', async () => {
-      const originalChunk = createTestChunkData()
-      const format = SerializationFormat.Binary()
-
-      const result = await Effect.gen(function* () {
-        const service = yield* ChunkSerializationService
-
-        const serialized = yield* service.serialize(originalChunk, format)
-
-        // データを意図的に破損
-        const corruptedData = new Uint8Array(serialized)
-        corruptedData[10] = corruptedData[10] ^ 0xff // ビット反転
-
-        return yield* service.validateSerialization(originalChunk, corruptedData, format)
-      }).pipe(
-        Effect.provide(TestLayer),
-        Effect.flip, // エラーを期待
-        Effect.runPromise
+          expect(isValid).toBe(true)
+        }),
+        TestLayer
       )
+    )
 
-      expect(result._tag).toBe('ChunkSerializationError')
-    })
+    it.effect('破損したシリアライゼーションを検出できる', () =>
+      provideLayers(
+        Effect.gen(function* () {
+          const originalChunk = createTestChunkData()
+          const format = SerializationFormat.Binary()
+          const service = yield* ChunkSerializationService
+
+          const serialized = yield* service.serialize(originalChunk, format)
+
+          // データを意図的に破損
+          const corruptedData = new Uint8Array(serialized)
+          corruptedData[10] = corruptedData[10] ^ 0xff // ビット反転
+
+          // エラーが発生することを期待
+          const result = yield* Effect.flip(service.validateSerialization(originalChunk, corruptedData, format))
+
+          expect(result._tag).toBe('ChunkSerializationError')
+        }),
+        TestLayer
+      )
+    )
   })
 
   describe('エラーハンドリング', () => {
-    it('無効なアルゴリズムで圧縮エラーを処理する', async () => {
-      const testData = new Uint8Array([1, 2, 3])
+    it.effect('無効なアルゴリズムで圧縮エラーを処理する', () =>
+      provideLayers(
+        Effect.gen(function* () {
+          const testData = new Uint8Array([1, 2, 3])
+          const service = yield* ChunkSerializationService
 
-      const result = await Effect.gen(function* () {
-        const service = yield* ChunkSerializationService
-        return yield* service.compress(testData, 'invalid-algorithm' as any)
-      }).pipe(Effect.provide(TestLayer), Effect.flip, Effect.runPromise)
+          const result = yield* Effect.flip(service.compress(testData, 'invalid-algorithm' as any))
 
-      expect(result._tag).toBe('ChunkSerializationError')
-    })
+          expect(result._tag).toBe('ChunkSerializationError')
+        }),
+        TestLayer
+      )
+    )
 
-    it('不正なJSONデータでデシリアライゼーションエラーを処理する', async () => {
-      const invalidJson = new TextEncoder().encode('{ invalid json }')
-      const format = SerializationFormat.JSON()
+    it.effect('不正なJSONデータでデシリアライゼーションエラーを処理する', () =>
+      provideLayers(
+        Effect.gen(function* () {
+          const invalidJson = new TextEncoder().encode('{ invalid json }')
+          const format = SerializationFormat.JSON()
+          const service = yield* ChunkSerializationService
 
-      const result = await Effect.gen(function* () {
-        const service = yield* ChunkSerializationService
-        return yield* service.deserialize(invalidJson, format)
-      }).pipe(Effect.provide(TestLayer), Effect.flip, Effect.runPromise)
+          const result = yield* Effect.flip(service.deserialize(invalidJson, format))
 
-      expect(result._tag).toBe('ChunkSerializationError')
-    })
+          expect(result._tag).toBe('ChunkSerializationError')
+        }),
+        TestLayer
+      )
+    )
   })
 })

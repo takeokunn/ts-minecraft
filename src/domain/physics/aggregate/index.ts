@@ -1,4 +1,2 @@
-export { PhysicsWorldAggregate } from './index'
-export { RigidBodyAggregate } from './index'
-export * from './index';
-export * from './index';
+export { PhysicsWorldAggregate } from './physics_world'
+export { RigidBodyAggregate } from './rigid_body'

@@ -1,4 +1,4 @@
-import { Data } from 'effect'
+import { Clock, Data, Effect } from 'effect'
 import type { ContainerId, ItemId, PlayerId, SlotPosition } from '../../types'
 
 // =============================================================================
@@ -177,98 +177,142 @@ export type AllRepositoryErrors =
 /**
  * Repository操作エラーを生成
  */
-export const createRepositoryError = (operation: string, reason: string, details?: unknown): RepositoryError =>
-  RepositoryError({
-    operation,
-    reason,
-    details,
-    timestamp: Date.now(),
+export const createRepositoryError = (
+  operation: string,
+  reason: string,
+  details?: unknown
+): Effect.Effect<RepositoryError> =>
+  Effect.gen(function* () {
+    const timestamp = yield* Clock.currentTimeMillis
+    return RepositoryError({
+      operation,
+      reason,
+      details,
+      timestamp,
+    })
   })
 
 /**
  * インベントリ未発見エラーを生成
  */
-export const createInventoryNotFoundError = (playerId: PlayerId): InventoryNotFoundError =>
-  InventoryNotFoundError({
-    playerId,
-    timestamp: Date.now(),
+export const createInventoryNotFoundError = (playerId: PlayerId): Effect.Effect<InventoryNotFoundError> =>
+  Effect.gen(function* () {
+    const timestamp = yield* Clock.currentTimeMillis
+    return InventoryNotFoundError({
+      playerId,
+      timestamp,
+    })
   })
 
 /**
  * アイテム未発見エラーを生成
  */
-export const createItemNotFoundError = (itemId: ItemId): ItemNotFoundError =>
-  ItemNotFoundError({
-    itemId,
-    timestamp: Date.now(),
+export const createItemNotFoundError = (itemId: ItemId): Effect.Effect<ItemNotFoundError> =>
+  Effect.gen(function* () {
+    const timestamp = yield* Clock.currentTimeMillis
+    return ItemNotFoundError({
+      itemId,
+      timestamp,
+    })
   })
 
 /**
  * コンテナ未発見エラーを生成
  */
-export const createContainerNotFoundError = (containerId: ContainerId): ContainerNotFoundError =>
-  ContainerNotFoundError({
-    containerId,
-    timestamp: Date.now(),
+export const createContainerNotFoundError = (containerId: ContainerId): Effect.Effect<ContainerNotFoundError> =>
+  Effect.gen(function* () {
+    const timestamp = yield* Clock.currentTimeMillis
+    return ContainerNotFoundError({
+      containerId,
+      timestamp,
+    })
   })
 
 /**
  * スロット未発見エラーを生成
  */
-export const createSlotNotFoundError = (playerId: PlayerId, position: SlotPosition): SlotNotFoundError =>
-  SlotNotFoundError({
-    playerId,
-    position,
-    timestamp: Date.now(),
+export const createSlotNotFoundError = (playerId: PlayerId, position: SlotPosition): Effect.Effect<SlotNotFoundError> =>
+  Effect.gen(function* () {
+    const timestamp = yield* Clock.currentTimeMillis
+    return SlotNotFoundError({
+      playerId,
+      position,
+      timestamp,
+    })
   })
 
 /**
  * 重複インベントリエラーを生成
  */
-export const createDuplicateInventoryError = (playerId: PlayerId): DuplicateInventoryError =>
-  DuplicateInventoryError({
-    playerId,
-    timestamp: Date.now(),
+export const createDuplicateInventoryError = (playerId: PlayerId): Effect.Effect<DuplicateInventoryError> =>
+  Effect.gen(function* () {
+    const timestamp = yield* Clock.currentTimeMillis
+    return DuplicateInventoryError({
+      playerId,
+      timestamp,
+    })
   })
 
 /**
  * 重複アイテム定義エラーを生成
  */
-export const createDuplicateItemDefinitionError = (itemId: ItemId): DuplicateItemDefinitionError =>
-  DuplicateItemDefinitionError({
-    itemId,
-    timestamp: Date.now(),
+export const createDuplicateItemDefinitionError = (itemId: ItemId): Effect.Effect<DuplicateItemDefinitionError> =>
+  Effect.gen(function* () {
+    const timestamp = yield* Clock.currentTimeMillis
+    return DuplicateItemDefinitionError({
+      itemId,
+      timestamp,
+    })
   })
 
 /**
  * データ整合性エラーを生成
  */
-export const createDataIntegrityError = (message: string, affectedEntities: readonly string[]): DataIntegrityError =>
-  DataIntegrityError({
-    message,
-    affectedEntities,
-    timestamp: Date.now(),
+export const createDataIntegrityError = (
+  message: string,
+  affectedEntities: readonly string[]
+): Effect.Effect<DataIntegrityError> =>
+  Effect.gen(function* () {
+    const timestamp = yield* Clock.currentTimeMillis
+    return DataIntegrityError({
+      message,
+      affectedEntities,
+      timestamp,
+    })
   })
 
 /**
  * ストレージエラーを生成
  */
-export const createStorageError = (storageType: string, operation: string, reason: string): StorageError =>
-  StorageError({
-    storageType,
-    operation,
-    reason,
-    timestamp: Date.now(),
+export const createStorageError = (
+  storageType: string,
+  operation: string,
+  reason: string
+): Effect.Effect<StorageError> =>
+  Effect.gen(function* () {
+    const timestamp = yield* Clock.currentTimeMillis
+    return StorageError({
+      storageType,
+      operation,
+      reason,
+      timestamp,
+    })
   })
 
 /**
  * 検証エラーを生成
  */
-export const createValidationError = (entityType: string, validationFailures: readonly string[]): ValidationError =>
-  ValidationError({
-    entityType,
-    validationFailures,
-    timestamp: Date.now(),
+export const createValidationError = (
+  entityType: string,
+  validationFailures: readonly string[]
+): Effect.Effect<ValidationError> =>
+  Effect.gen(function* () {
+    const timestamp = yield* Clock.currentTimeMillis
+    return ValidationError({
+      entityType,
+      validationFailures,
+      timestamp,
+    })
   })
 
 /**
@@ -278,12 +322,15 @@ export const createInsufficientCapacityError = (
   playerId: PlayerId,
   requiredCapacity: number,
   availableCapacity: number
-): InsufficientCapacityError =>
-  InsufficientCapacityError({
-    playerId,
-    requiredCapacity,
-    availableCapacity,
-    timestamp: Date.now(),
+): Effect.Effect<InsufficientCapacityError> =>
+  Effect.gen(function* () {
+    const timestamp = yield* Clock.currentTimeMillis
+    return InsufficientCapacityError({
+      playerId,
+      requiredCapacity,
+      availableCapacity,
+      timestamp,
+    })
   })
 
 /**
@@ -294,13 +341,16 @@ export const createInsufficientItemsError = (
   itemId: ItemId,
   requestedQuantity: number,
   availableQuantity: number
-): InsufficientItemsError =>
-  InsufficientItemsError({
-    playerId,
-    itemId,
-    requestedQuantity,
-    availableQuantity,
-    timestamp: Date.now(),
+): Effect.Effect<InsufficientItemsError> =>
+  Effect.gen(function* () {
+    const timestamp = yield* Clock.currentTimeMillis
+    return InsufficientItemsError({
+      playerId,
+      itemId,
+      requestedQuantity,
+      availableQuantity,
+      timestamp,
+    })
   })
 
 // =============================================================================

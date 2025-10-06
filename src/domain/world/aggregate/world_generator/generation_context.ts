@@ -7,12 +7,12 @@
  * - 型安全な設定操作
  */
 
-import { Brand, Effect, Schema } from 'effect'
 import type * as GenerationErrors from '@domain/world/types/errors'
 import * as BiomeProperties from '@domain/world/value_object/biome_properties/index'
 import * as GenerationParameters from '@domain/world/value_object/generation_parameters/index'
 import * as NoiseConfiguration from '@domain/world/value_object/noise_configuration/index'
 import * as WorldSeed from '@domain/world/value_object/world_seed/index'
+import { Brand, Clock, Effect, Schema } from 'effect'
 
 // ================================
 // Generation Context ID
@@ -87,9 +87,10 @@ export const create = (
   params: CreateContextParams
 ): Effect.Effect<GenerationContext, GenerationErrors.ValidationError> =>
   Effect.gen(function* () {
-    const now = yield* Effect.sync(() => new Date())
-    const contextId = yield* Effect.sync(() =>
-      Schema.decodeSync(GenerationContextIdSchema)(`ctx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`)
+    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const timestamp = yield* Clock.currentTimeMillis
+    const contextId = Schema.decodeSync(GenerationContextIdSchema)(
+      `ctx_${timestamp}_${Math.random().toString(36).substr(2, 9)}`
     )
 
     // デフォルト値の設定
@@ -129,7 +130,7 @@ export const update = (
   updates: Partial<Omit<GenerationContext, 'id' | 'version' | 'createdAt' | 'updatedAt'>>
 ): Effect.Effect<GenerationContext, GenerationErrors.ValidationError> =>
   Effect.gen(function* () {
-    const now = yield* Effect.sync(() => new Date())
+    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
 
     const updatedContext: GenerationContext = {
       ...context,

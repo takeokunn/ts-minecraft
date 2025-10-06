@@ -1,7 +1,7 @@
+import { aabb, vector3 } from '@domain/physics/types/core'
 import { it } from '@effect/vitest'
 import { Effect } from 'effect'
 import { describe, expect } from 'vitest'
-import { aabb, vector3 } from '@domain/physics/types/core'
 import { CollisionResult } from '../collision_result'
 
 describe('CollisionResult', () => {

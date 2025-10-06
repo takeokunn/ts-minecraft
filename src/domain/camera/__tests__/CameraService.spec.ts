@@ -3,15 +3,14 @@
  * Context7準拠のEffect-TS v3.17+最新パターン使用
  */
 
-import { Schema } from '@effect/schema'
+import { CameraConfig } from '@domain/camera/types'
 import { expect, it } from '@effect/vitest'
-import { Effect, Exit, Layer, Match, Option, pipe, TestContext } from 'effect'
+import { Effect, Exit, Layer, Match, Option, pipe, Schema, TestContext } from 'effect'
 import * as Predicate from 'effect/Predicate'
 import * as THREE from 'three'
 import { DEFAULT_CAMERA_CONFIG } from '../constant'
 import { createCameraError, validateCameraMode } from '../helper'
 import { CameraService } from '../service'
-import { CameraConfig } from '@domain/camera/types'
 
 // ================================================================================
 // Predicate Functions - Type Guards

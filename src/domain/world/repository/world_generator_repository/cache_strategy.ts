@@ -6,10 +6,9 @@
  * LRU, LFU, TTL, Hybrid戦略の実装
  */
 
-import { Effect, Option, ReadonlyArray, Ref, Schedule } from 'effect'
-import type { WorldGenerator, WorldId } from '@domain/world/types'
-import type { AllRepositoryErrors } from '@domain/world/types'
+import type { AllRepositoryErrors, WorldGenerator, WorldId } from '@domain/world/types'
 import { createRepositoryError } from '@domain/world/types'
+import { Clock, Effect, Option, ReadonlyArray, Ref, Schedule } from 'effect'
 
 // === Cache Entry Types ===
 
@@ -105,7 +104,7 @@ export const makeLRUCacheStrategy = <K, V>(
 
     const get = (key: K): Effect.Effect<Option.Option<V>, AllRepositoryErrors> =>
       Effect.gen(function* () {
-        const startTime = Date.now()
+        const startTime = yield* Clock.currentTimeMillis
         const entries = yield* Ref.get(entriesRef)
         const entry = entries.get(key)
 
@@ -116,15 +115,17 @@ export const makeLRUCacheStrategy = <K, V>(
 
         if (entry) {
           // Update access information
+          const now = yield* Clock.currentTimeMillis
           const updatedEntry: CacheEntry<V> = {
             ...entry,
             accessCount: entry.accessCount + 1,
-            lastAccessed: Date.now(),
+            lastAccessed: now,
           }
 
           yield* Ref.update(entriesRef, (map) => new Map(map).set(key, updatedEntry))
           yield* updateAccessOrder(key)
 
+          const endTime = yield* Clock.currentTimeMillis
           yield* Ref.update(statisticsRef, (stats) => {
             const newHits = stats.hits + 1
             const newTotal = stats.totalRequests
@@ -132,7 +133,7 @@ export const makeLRUCacheStrategy = <K, V>(
               ...stats,
               hits: newHits,
               hitRate: newHits / newTotal,
-              averageAccessTime: (stats.averageAccessTime + (Date.now() - startTime)) / 2,
+              averageAccessTime: (stats.averageAccessTime + (endTime - startTime)) / 2,
             }
           })
 
@@ -158,11 +159,12 @@ export const makeLRUCacheStrategy = <K, V>(
 
     const set = (key: K, value: V): Effect.Effect<void, AllRepositoryErrors> =>
       Effect.gen(function* () {
+        const now = yield* Clock.currentTimeMillis
         const entry: CacheEntry<V> = {
           value,
-          timestamp: Date.now(),
+          timestamp: now,
           accessCount: 1,
-          lastAccessed: Date.now(),
+          lastAccessed: now,
           size: estimateSize(value),
         }
 
@@ -260,16 +262,17 @@ export const makeTTLCacheStrategy = <K, V>(
       averageAccessTime: 0,
     })
 
-    const isExpired = (entry: CacheEntry<V>): boolean => Date.now() - entry.timestamp > ttlMs
+    const isExpired = (entry: CacheEntry<V>, now: number): boolean => now - entry.timestamp > ttlMs
 
     const cleanupExpired = (): Effect.Effect<number, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const entries = yield* Ref.get(entriesRef)
+        const now = yield* Clock.currentTimeMillis
         let evicted = 0
 
         const validEntries = new Map<K, CacheEntry<V>>()
         for (const [key, entry] of entries) {
-          if (isExpired(entry)) {
+          if (isExpired(entry, now)) {
             evicted++
           } else {
             validEntries.set(key, entry)
@@ -298,13 +301,14 @@ export const makeTTLCacheStrategy = <K, V>(
 
         const entries = yield* Ref.get(entriesRef)
         const entry = entries.get(key)
+        const now = yield* Clock.currentTimeMillis
 
         yield* Ref.update(statisticsRef, (stats) => ({
           ...stats,
           totalRequests: stats.totalRequests + 1,
         }))
 
-        if (entry && !isExpired(entry)) {
+        if (entry && !isExpired(entry, now)) {
           yield* Ref.update(statisticsRef, (stats) => {
             const newHits = stats.hits + 1
             return {
@@ -340,11 +344,12 @@ export const makeTTLCacheStrategy = <K, V>(
 
     const set = (key: K, value: V): Effect.Effect<void, AllRepositoryErrors> =>
       Effect.gen(function* () {
+        const now = yield* Clock.currentTimeMillis
         const entry: CacheEntry<V> = {
           value,
-          timestamp: Date.now(),
+          timestamp: now,
           accessCount: 1,
-          lastAccessed: Date.now(),
+          lastAccessed: now,
           size: estimateSize(value),
         }
 

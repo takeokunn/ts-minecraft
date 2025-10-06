@@ -1,5 +1,5 @@
-import { Schema } from '@effect/schema'
 import { describe, expect, it } from '@effect/vitest'
+import { Schema } from 'effect'
 import {
   DEFAULT_GAME_APPLICATION_CONFIG,
   GameApplicationConfig,

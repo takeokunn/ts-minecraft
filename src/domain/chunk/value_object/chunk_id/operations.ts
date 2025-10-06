@@ -60,7 +60,7 @@ export const generateRandomChunkId = (): Effect.Effect<ChunkId, ChunkIdError> =>
  */
 export const validateChunkId = (value: unknown): Effect.Effect<ChunkId, ChunkIdError> =>
   pipe(
-    Schema.decodeEffect(ChunkIdSchema)(value),
+    Schema.decode(ChunkIdSchema)(value),
     Effect.map(MakeChunkId),
     Effect.mapError((error) => invalidIdError(`チャンクIDの検証に失敗しました: ${String(error)}`, value))
   )
@@ -97,8 +97,8 @@ export const extractPositionFromVersionedId = (chunkId: ChunkId): Effect.Effect<
     Option.flatMap((parts) =>
       pipe(
         Effect.tuple(
-          Schema.decodeEffect(Schema.NumberFromString)(parts[2]!),
-          Schema.decodeEffect(Schema.NumberFromString)(parts[3]!)
+          Schema.decode(Schema.NumberFromString)(parts[2]!),
+          Schema.decode(Schema.NumberFromString)(parts[3]!)
         ),
         Effect.option
       )

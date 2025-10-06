@@ -1,7 +1,6 @@
-import { Schema } from '@effect/schema'
 import * as Arbitrary from '@effect/schema/Arbitrary'
 import { describe, expect, it } from '@effect/vitest'
-import { Effect } from 'effect'
+import { Effect, Schema } from 'effect'
 import {
   BootstrapConfigDefaults,
   BootstrapConfigSchema,

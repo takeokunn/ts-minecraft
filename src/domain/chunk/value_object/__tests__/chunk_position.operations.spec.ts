@@ -1,7 +1,7 @@
 import { describe, expect, it } from '@effect/vitest'
 import { Effect, Option, Schema } from 'effect'
+import * as ReadonlyArray from 'effect/Array'
 import * as fc from 'effect/FastCheck'
-import * as ReadonlyArray from 'effect/ReadonlyArray'
 import {
   calculateChebyshevDistance,
   calculateChunkDistance,

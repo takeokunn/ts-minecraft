@@ -5,35 +5,33 @@
  * プレイヤー設定、学習アルゴリズム、統計分析、推奨システムの統合実装
  */
 
-import { Array, Data, Effect, HashMap, Layer, Match, Option, pipe, Ref } from 'effect'
+import { Array, Clock, Data, Effect, Either, HashMap, Layer, Match, Option, pipe, Ref } from 'effect'
 import type { ViewMode } from '../../value_object/index'
 import type {
   AdaptiveAdjustments,
+  GameContext,
   GlobalPreferenceStatistics,
   ImportOptions,
   ImportResult,
   IntegrityCheckResult,
   LearnedPatterns,
-  ReanalysisResult,
-  RecommendationReason,
-  SmartSwitchSettings,
-  StatisticsRecalculationResult,
-  ValidationResult,
-  ViewModeDistribution,
-  ViewModeRecommendation,
-  ViewModeTrend,
-} from './index'
-import type {
-  GameContext,
   PlayerId,
   PreferenceAnalyticsData,
   PreferenceQueryOptions,
   PreferenceRecordId,
+  ReanalysisResult,
+  RecommendationReason,
+  SmartSwitchSettings,
+  StatisticsRecalculationResult,
   TimeRange,
+  ValidationResult,
+  ViewModeDistribution,
   ViewModePopularity,
   ViewModePreference,
   ViewModePreferenceRecord,
   ViewModePreferencesRepositoryError,
+  ViewModeRecommendation,
+  ViewModeTrend,
 } from './index'
 import {
   createDefaultPreferences,
@@ -92,21 +90,25 @@ const StorageOps = {
   /**
    * 初期状態を作成
    */
-  createInitialState: (): ViewModePreferencesStorageState => ({
-    playerPreferences: HashMap.empty(),
-    contextualPreferences: HashMap.empty(),
-    usageRecords: HashMap.empty(),
-    popularityData: HashMap.empty(),
-    learnedPatterns: HashMap.empty(),
-    smartSwitchSettings: HashMap.empty(),
-    statisticsCache: HashMap.empty(),
-    metadata: {
-      totalUsers: 0,
-      totalRecords: 0,
-      lastAnalysisDate: Date.now(),
-      cacheHitRate: 0,
-    },
-  }),
+  createInitialState: (): Effect.Effect<ViewModePreferencesStorageState> =>
+    Effect.gen(function* () {
+      const lastAnalysisDate = yield* Clock.currentTimeMillis
+      return {
+        playerPreferences: HashMap.empty(),
+        contextualPreferences: HashMap.empty(),
+        usageRecords: HashMap.empty(),
+        popularityData: HashMap.empty(),
+        learnedPatterns: HashMap.empty(),
+        smartSwitchSettings: HashMap.empty(),
+        statisticsCache: HashMap.empty(),
+        metadata: {
+          totalUsers: 0,
+          totalRecords: 0,
+          lastAnalysisDate,
+          cacheHitRate: 0,
+        },
+      }
+    }),
 
   /**
    * プレイヤー設定を保存
@@ -115,23 +117,25 @@ const StorageOps = {
     state: ViewModePreferencesStorageState,
     playerId: PlayerId,
     preference: ViewModePreference
-  ): ViewModePreferencesStorageState => {
-    const isNewPlayer = !HashMap.has(state.playerPreferences, playerId)
-    const updatedPreference = {
-      ...preference,
-      lastModified: Date.now(),
-      version: preference.version + 1,
-    }
+  ): Effect.Effect<ViewModePreferencesStorageState> =>
+    Effect.gen(function* () {
+      const isNewPlayer = !HashMap.has(state.playerPreferences, playerId)
+      const lastModified = yield* Clock.currentTimeMillis
+      const updatedPreference = {
+        ...preference,
+        lastModified,
+        version: preference.version + 1,
+      }
 
-    return {
-      ...state,
-      playerPreferences: HashMap.set(state.playerPreferences, playerId, updatedPreference),
-      metadata: {
-        ...state.metadata,
-        totalUsers: isNewPlayer ? state.metadata.totalUsers + 1 : state.metadata.totalUsers,
-      },
-    }
-  },
+      return {
+        ...state,
+        playerPreferences: HashMap.set(state.playerPreferences, playerId, updatedPreference),
+        metadata: {
+          ...state.metadata,
+          totalUsers: isNewPlayer ? state.metadata.totalUsers + 1 : state.metadata.totalUsers,
+        },
+      }
+    }),
 
   /**
    * 使用記録を追加
@@ -163,36 +167,38 @@ const StorageOps = {
     viewMode: ViewMode,
     context: Option<GameContext>,
     increment: number = 1
-  ): ViewModePreferencesStorageState => {
-    const key = CacheKeys.popularityKey(viewMode, context)
-    const existing = HashMap.get(state.popularityData, key).pipe(
-      Option.getOrElse(
-        () =>
-          ({
-            viewMode,
-            context,
-            usageCount: 0,
-            uniqueUsers: 0,
-            averageDuration: 0,
-            satisfactionScore: 3.0,
-            trendDirection: Data.tagged('Stable', { variancePercentage: 0 }),
-            rankingPosition: 1,
-            lastUpdated: Date.now(),
-          }) as ViewModePopularity
+  ): Effect.Effect<ViewModePreferencesStorageState> =>
+    Effect.gen(function* () {
+      const now = yield* Clock.currentTimeMillis
+      const key = CacheKeys.popularityKey(viewMode, context)
+      const existing = HashMap.get(state.popularityData, key).pipe(
+        Option.getOrElse(
+          () =>
+            ({
+              viewMode,
+              context,
+              usageCount: 0,
+              uniqueUsers: 0,
+              averageDuration: 0,
+              satisfactionScore: 3.0,
+              trendDirection: Data.tagged('Stable', { variancePercentage: 0 }),
+              rankingPosition: 1,
+              lastUpdated: now,
+            }) as ViewModePopularity
+        )
       )
-    )
 
-    const updated: ViewModePopularity = {
-      ...existing,
-      usageCount: existing.usageCount + increment,
-      lastUpdated: Date.now(),
-    }
+      const updated: ViewModePopularity = {
+        ...existing,
+        usageCount: existing.usageCount + increment,
+        lastUpdated: now,
+      }
 
-    return {
-      ...state,
-      popularityData: HashMap.set(state.popularityData, key, updated),
-    }
-  },
+      return {
+        ...state,
+        popularityData: HashMap.set(state.popularityData, key, updated),
+      }
+    }),
 
   /**
    * 履歴をフィルタリング
@@ -200,37 +206,49 @@ const StorageOps = {
   filterRecords: (
     records: Array.ReadonlyArray<ViewModePreferenceRecord>,
     options: PreferenceQueryOptions
-  ): Array.ReadonlyArray<ViewModePreferenceRecord> => {
-    let filteredRecords = records
-
-    // コンテキストフィルタ
-    if (Option.isSome(options.filterByContext)) {
-      filteredRecords = filteredRecords.filter((record) => record.context._tag === options.filterByContext.value._tag)
-    }
-
-    // ViewModeフィルタ
-    if (Option.isSome(options.filterByViewMode)) {
-      filteredRecords = filteredRecords.filter((record) => record.viewMode === options.filterByViewMode.value)
-    }
-
-    // 時間範囲フィルタ
-    if (Option.isSome(options.timeRange)) {
-      const range = options.timeRange.value
-      filteredRecords = filteredRecords.filter(
-        (record) => record.timestamp >= range.startTime && record.timestamp <= range.endTime
-      )
-    }
-
-    // ソート
-    filteredRecords = StorageOps.sortRecords(filteredRecords, options.sortBy)
-
-    // 制限
-    if (Option.isSome(options.limit)) {
-      filteredRecords = filteredRecords.slice(0, options.limit.value)
-    }
-
-    return filteredRecords
-  },
+  ): Array.ReadonlyArray<ViewModePreferenceRecord> =>
+    pipe(
+      records,
+      // コンテキストフィルタ
+      (r) =>
+        pipe(
+          options.filterByContext,
+          Option.match({
+            onNone: () => r,
+            onSome: (context) => r.filter((record) => record.context._tag === context._tag),
+          })
+        ),
+      // ViewModeフィルタ
+      (r) =>
+        pipe(
+          options.filterByViewMode,
+          Option.match({
+            onNone: () => r,
+            onSome: (viewMode) => r.filter((record) => record.viewMode === viewMode),
+          })
+        ),
+      // 時間範囲フィルタ
+      (r) =>
+        pipe(
+          options.timeRange,
+          Option.match({
+            onNone: () => r,
+            onSome: (range) =>
+              r.filter((record) => record.timestamp >= range.startTime && record.timestamp <= range.endTime),
+          })
+        ),
+      // ソート
+      (r) => StorageOps.sortRecords(r, options.sortBy),
+      // 制限
+      (r) =>
+        pipe(
+          options.limit,
+          Option.match({
+            onNone: () => r,
+            onSome: (limit) => r.slice(0, limit),
+          })
+        )
+    ),
 
   /**
    * 記録をソート
@@ -276,53 +294,72 @@ const StorageOps = {
     context: GameContext,
     currentTime: number
   ): ViewModeRecommendation => {
-    // 簡易推奨アルゴリズム
     const preference = HashMap.get(state.playerPreferences, playerId)
     const records = HashMap.get(state.usageRecords, playerId).pipe(
       Option.getOrElse(() => [] as Array.ReadonlyArray<ViewModePreferenceRecord>)
     )
 
-    // デフォルト推奨
-    let recommendedMode: ViewMode = 'first-person'
-    let confidence = 0.5
-    let reason: RecommendationReason = 'default-fallback'
-
-    if (Option.isSome(preference)) {
-      // プレイヤー設定から推奨
-      const contextualMode = preference.value.contextualModes.get(context)
-      if (contextualMode) {
-        recommendedMode = contextualMode
-        confidence = 0.8
-        reason = 'historical-preference'
-      } else {
-        recommendedMode = preference.value.defaultMode
-        confidence = 0.6
-        reason = 'context-pattern'
-      }
-    }
+    // プレイヤー設定から推奨モードを計算
+    const [recommendedMode, confidence, reason] = pipe(
+      preference,
+      Option.match({
+        onNone: () => ['first-person' as ViewMode, 0.5, 'default-fallback' as RecommendationReason] as const,
+        onSome: (pref) => {
+          const contextualMode = pref.contextualModes.get(context)
+          return contextualMode
+            ? ([contextualMode, 0.8, 'historical-preference'] as const)
+            : ([pref.defaultMode, 0.6, 'context-pattern'] as const)
+        },
+      })
+    )
 
     // 同じコンテキストの履歴から推奨を強化
-    const contextRecords = records.filter((r) => r.context._tag === context._tag)
-    if (contextRecords.length > 0) {
-      const modeFrequency = new Map<ViewMode, number>()
-      contextRecords.forEach((record) => {
-        const count = modeFrequency.get(record.viewMode) || 0
-        modeFrequency.set(record.viewMode, count + 1)
+    const contextRecords = pipe(
+      records,
+      Array.filter((r) => r.context._tag === context._tag)
+    )
+
+    const [finalMode, finalConfidence, finalReason] = pipe(
+      contextRecords,
+      Array.matchRight({
+        onEmpty: () => [recommendedMode, confidence, reason] as const,
+        onNonEmpty: (_, records) => {
+          // 頻度マップを作成（immutable）
+          const modeFrequency = pipe(
+            records,
+            Array.reduce(new Map<ViewMode, number>(), (acc, record) => {
+              const newMap = new Map(acc)
+              newMap.set(record.viewMode, (acc.get(record.viewMode) || 0) + 1)
+              return newMap
+            })
+          )
+
+          const mostUsedEntry = pipe(
+            Array.from(modeFrequency.entries()),
+            Array.sortBy(([_, count]) => -count),
+            Array.head
+          )
+
+          return pipe(
+            mostUsedEntry,
+            Option.match({
+              onNone: () => [recommendedMode, confidence, reason] as const,
+              onSome: ([mode, count]) => {
+                const usageRatio = count / records.length
+                return usageRatio > 0.6
+                  ? ([mode, Math.min(0.9, 0.6 + usageRatio * 0.3), 'historical-preference'] as const)
+                  : ([recommendedMode, confidence, reason] as const)
+              },
+            })
+          )
+        },
       })
-
-      const mostUsedMode = Array.from(modeFrequency.entries()).sort((a, b) => b[1] - a[1])[0]
-
-      if (mostUsedMode && mostUsedMode[1] > contextRecords.length * 0.6) {
-        recommendedMode = mostUsedMode[0]
-        confidence = Math.min(0.9, 0.6 + (mostUsedMode[1] / contextRecords.length) * 0.3)
-        reason = 'historical-preference'
-      }
-    }
+    )
 
     return {
-      recommendedMode,
-      confidence,
-      reason,
+      recommendedMode: finalMode,
+      confidence: finalConfidence,
+      reason: finalReason,
       alternatives: [
         { mode: 'first-person', confidence: 0.3, reason: 'General purpose mode' },
         { mode: 'third-person', confidence: 0.2, reason: 'Better spatial awareness' },
@@ -342,40 +379,50 @@ const StorageOps = {
       Option.getOrElse(() => [] as Array.ReadonlyArray<ViewModePreferenceRecord>)
     )
 
-    let filteredRecords = records
-    if (timeRange) {
-      filteredRecords = records.filter(
-        (record) => record.timestamp >= timeRange.startTime && record.timestamp <= timeRange.endTime
-      )
-    }
+    // 時間範囲でフィルタリング
+    const filteredRecords = timeRange
+      ? pipe(
+          records,
+          Array.filter((record) => record.timestamp >= timeRange.startTime && record.timestamp <= timeRange.endTime)
+        )
+      : records
 
     const totalSwitches = filteredRecords.length
-    const timeSpan = timeRange
-      ? (timeRange.endTime - timeRange.startTime) / (1000 * 60 * 60) // hours
-      : 24 // default to 24 hours
-
+    const timeSpan = timeRange ? (timeRange.endTime - timeRange.startTime) / (1000 * 60 * 60) : 24
     const averageSwitchFrequency = totalSwitches / timeSpan
 
-    // ViewMode使用データ
-    const modeUsage = new Map<ViewMode, { count: number; totalDuration: number; contexts: Set<GameContext> }>()
-    filteredRecords.forEach((record) => {
-      const existing = modeUsage.get(record.viewMode) || { count: 0, totalDuration: 0, contexts: new Set() }
-      existing.count++
-      existing.totalDuration += record.duration
-      existing.contexts.add(record.context)
-      modeUsage.set(record.viewMode, existing)
-    })
+    // ViewMode使用データをimmutableに集計
+    const modeUsage = pipe(
+      filteredRecords,
+      Array.reduce(
+        new Map<ViewMode, { count: number; totalDuration: number; contexts: Set<GameContext> }>(),
+        (acc, record) => {
+          const newMap = new Map(acc)
+          const existing = acc.get(record.viewMode) || { count: 0, totalDuration: 0, contexts: new Set() }
+          const updated = {
+            count: existing.count + 1,
+            totalDuration: existing.totalDuration + record.duration,
+            contexts: new Set([...existing.contexts, record.context]),
+          }
+          newMap.set(record.viewMode, updated)
+          return newMap
+        }
+      )
+    )
 
-    const preferredModes = Array.from(modeUsage.entries()).map(
-      ([mode, data]) =>
-        ({
-          viewMode: mode,
-          usageCount: data.count,
-          totalDuration: data.totalDuration,
-          averageDuration: data.totalDuration / data.count,
-          contexts: Array.from(data.contexts),
-          satisfactionScore: 3.5, // 簡易実装
-        }) as any
+    const preferredModes = pipe(
+      Array.from(modeUsage.entries()),
+      Array.map(
+        ([mode, data]) =>
+          ({
+            viewMode: mode,
+            usageCount: data.count,
+            totalDuration: data.totalDuration,
+            averageDuration: data.totalDuration / data.count,
+            contexts: Array.from(data.contexts),
+            satisfactionScore: 3.5,
+          }) as any
+      )
     )
 
     return {
@@ -383,10 +430,10 @@ const StorageOps = {
       totalSwitches,
       averageSwitchFrequency,
       preferredModes,
-      contextSwitchPatterns: [], // 簡易実装では空配列
-      satisfactionTrend: [], // 簡易実装では空配列
-      efficiencyScore: Math.min(100, Math.max(0, 100 - averageSwitchFrequency * 5)), // 簡易計算
-      adaptabilityScore: Math.min(100, modeUsage.size * 25), // モード多様性スコア
+      contextSwitchPatterns: [],
+      satisfactionTrend: [],
+      efficiencyScore: Math.min(100, Math.max(0, 100 - averageSwitchFrequency * 5)),
+      adaptabilityScore: Math.min(100, modeUsage.size * 25),
     } as PreferenceAnalyticsData
   },
 
@@ -398,30 +445,44 @@ const StorageOps = {
     timeRange?: TimeRange
   ): GlobalPreferenceStatistics => {
     const totalUsers = HashMap.size(state.playerPreferences)
-    const activeUsers = totalUsers // 簡易実装では全ユーザーをアクティブとみなす
+    const activeUsers = totalUsers
 
-    // 最も人気のViewModeを計算
-    const allRecords: ViewModePreferenceRecord[] = []
-    for (const records of HashMap.values(state.usageRecords)) {
-      allRecords.push(...Array.from(records))
-    }
+    // 全レコードを収集
+    const allRecords = pipe(
+      HashMap.values(state.usageRecords),
+      Array.flatMap((records) => Array.from(records))
+    )
 
-    let filteredRecords = allRecords
-    if (timeRange) {
-      filteredRecords = allRecords.filter(
-        (record) => record.timestamp >= timeRange.startTime && record.timestamp <= timeRange.endTime
+    // 時間範囲でフィルタリング
+    const filteredRecords = timeRange
+      ? pipe(
+          allRecords,
+          Array.filter((record) => record.timestamp >= timeRange.startTime && record.timestamp <= timeRange.endTime)
+        )
+      : allRecords
+
+    // モード頻度とコンテキスト分布を同時に集計
+    const [modeFrequency, contextDistribution] = pipe(
+      filteredRecords,
+      Array.reduce(
+        [new Map<ViewMode, number>(), new Map<GameContext, number>()] as const,
+        ([modeMap, contextMap], record) => {
+          const newModeMap = new Map(modeMap)
+          const newContextMap = new Map(contextMap)
+          newModeMap.set(record.viewMode, (modeMap.get(record.viewMode) || 0) + 1)
+          newContextMap.set(record.context, (contextMap.get(record.context) || 0) + 1)
+          return [newModeMap, newContextMap] as const
+        }
       )
-    }
+    )
 
-    const modeFrequency = new Map<ViewMode, number>()
-    const contextDistribution = new Map<GameContext, number>()
-
-    filteredRecords.forEach((record) => {
-      modeFrequency.set(record.viewMode, (modeFrequency.get(record.viewMode) || 0) + 1)
-      contextDistribution.set(record.context, (contextDistribution.get(record.context) || 0) + 1)
-    })
-
-    const mostPopularMode = Array.from(modeFrequency.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || 'first-person'
+    const mostPopularMode = pipe(
+      Array.from(modeFrequency.entries()),
+      Array.sortBy(([_, count]) => -count),
+      Array.head,
+      Option.map(([mode, _]) => mode),
+      Option.getOrElse(() => 'first-person' as ViewMode)
+    )
 
     const averageSwitchFrequency = filteredRecords.length / Math.max(totalUsers, 1)
 
@@ -431,8 +492,8 @@ const StorageOps = {
       mostPopularMode,
       contextDistribution,
       averageSwitchFrequency,
-      satisfactionScore: 3.5, // 簡易実装
-      adaptationRate: 0.7, // 簡易実装
+      satisfactionScore: 3.5,
+      adaptationRate: 0.7,
     }
   },
 } as const
@@ -479,7 +540,8 @@ export const ViewModePreferencesRepositoryLive = Layer.effect(
   import('./service.js').then((m) => m.ViewModePreferencesRepository),
   Effect.gen(function* () {
     // インメモリストレージの初期化
-    const storageRef = yield* Ref.make(StorageOps.createInitialState())
+    const initialState = yield* StorageOps.createInitialState()
+    const storageRef = yield* Ref.make(initialState)
 
     return import('./service.js')
       .then((m) => m.ViewModePreferencesRepository)
@@ -490,7 +552,7 @@ export const ViewModePreferencesRepositoryLive = Layer.effect(
 
         savePlayerPreference: (playerId: PlayerId, preference: ViewModePreference) =>
           Effect.gen(function* () {
-            yield* Ref.update(storageRef, (state) => StorageOps.savePlayerPreference(state, playerId, preference))
+            yield* Ref.updateEffect(storageRef, (state) => StorageOps.savePlayerPreference(state, playerId, preference))
             yield* Effect.logDebug(`Player preference saved: ${playerId}`)
           }).pipe(handlePreferencesOperation),
 
@@ -501,8 +563,8 @@ export const ViewModePreferencesRepositoryLive = Layer.effect(
 
             if (Option.isNone(preference)) {
               // デフォルト設定を返す
-              const defaultPreference = createDefaultPreferences.viewModePreference(playerId)
-              yield* Ref.update(storageRef, (currentState) =>
+              const defaultPreference = yield* createDefaultPreferences.viewModePreference(playerId)
+              yield* Ref.updateEffect(storageRef, (currentState) =>
                 StorageOps.savePlayerPreference(currentState, playerId, defaultPreference)
               )
               return defaultPreference
@@ -565,15 +627,20 @@ export const ViewModePreferencesRepositoryLive = Layer.effect(
               key.startsWith(playerId)
             )
 
-            const resultMap = new Map()
-            for (const [key, preference] of HashMap.entries(playerContextualPrefs)) {
-              const contextName = key.split('_')[1]
-              // 簡易実装: context名からGameContextを復元
-              if (contextName) {
-                const context = Data.tagged(contextName as any, {})
-                resultMap.set(context, preference)
-              }
-            }
+            const resultMap = pipe(
+              HashMap.entries(playerContextualPrefs),
+              Array.reduce(new Map<GameContext, ViewModePreference>(), (acc, [key, preference]) => {
+                const contextName = key.split('_')[1]
+                return contextName
+                  ? (() => {
+                      const newMap = new Map(acc)
+                      const context = Data.tagged(contextName as any, {})
+                      newMap.set(context, preference)
+                      return newMap
+                    })()
+                  : acc
+              })
+            )
 
             return resultMap as ReadonlyMap<GameContext, ViewModePreference>
           }).pipe(handlePreferencesOperation),
@@ -584,10 +651,16 @@ export const ViewModePreferencesRepositoryLive = Layer.effect(
 
         recordPreferenceUsage: (record: ViewModePreferenceRecord) =>
           Effect.gen(function* () {
-            yield* Ref.update(storageRef, (state) => {
-              const updatedState = StorageOps.addUsageRecord(state, record)
-              return StorageOps.updatePopularityData(updatedState, record.viewMode, Option.some(record.context))
-            })
+            yield* Ref.updateEffect(storageRef, (state) =>
+              Effect.gen(function* () {
+                const updatedState = StorageOps.addUsageRecord(state, record)
+                return yield* StorageOps.updatePopularityData(
+                  updatedState,
+                  record.viewMode,
+                  Option.some(record.context)
+                )
+              })
+            )
             yield* Effect.logDebug(`Usage recorded: ${record.viewMode} in ${record.context._tag}`)
           }).pipe(handlePreferencesOperation),
 
@@ -667,21 +740,21 @@ export const ViewModePreferencesRepositoryLive = Layer.effect(
         getViewModeTrends: (timeRange: TimeRange, context?: GameContext) =>
           Effect.gen(function* () {
             const state = yield* Ref.get(storageRef)
-            const trends: ViewModeTrend[] = []
+            const bucketSize = (timeRange.endTime - timeRange.startTime) / 10
 
-            // 簡易実装: 基本的なトレンドデータを生成
-            const bucketSize = (timeRange.endTime - timeRange.startTime) / 10 // 10区間
-            for (let i = 0; i < 10; i++) {
-              const timePoint = timeRange.startTime + i * bucketSize
-              trends.push({
-                viewMode: 'first-person',
-                context: context ? Option.some(context) : Option.none(),
-                timePoint,
-                usageCount: Math.floor(Math.random() * 100),
-                changePercentage: (Math.random() - 0.5) * 20,
-                trendStrength: Math.random() * 2 - 1,
+            const trends = pipe(
+              Array.makeBy(10, (i) => {
+                const timePoint = timeRange.startTime + i * bucketSize
+                return {
+                  viewMode: 'first-person' as const,
+                  context: context ? Option.some(context) : Option.none(),
+                  timePoint,
+                  usageCount: Math.floor(Math.random() * 100),
+                  changePercentage: (Math.random() - 0.5) * 20,
+                  trendStrength: Math.random() * 2 - 1,
+                } as ViewModeTrend
               })
-            }
+            )
 
             return trends
           }).pipe(handlePreferencesOperation),
@@ -691,41 +764,57 @@ export const ViewModePreferencesRepositoryLive = Layer.effect(
             const state = yield* Ref.get(storageRef)
 
             // 全使用記録を取得
-            const allRecords: ViewModePreferenceRecord[] = []
-            for (const records of HashMap.values(state.usageRecords)) {
-              allRecords.push(...Array.from(records))
-            }
+            const allRecords = pipe(
+              HashMap.values(state.usageRecords),
+              Array.flatMap((records) => Array.from(records))
+            )
 
             // フィルタリング
-            let filteredRecords = allRecords.filter((record) => record.context._tag === context._tag)
-            if (timeRange) {
-              filteredRecords = filteredRecords.filter(
-                (record) => record.timestamp >= timeRange.startTime && record.timestamp <= timeRange.endTime
+            const filteredRecords = pipe(
+              allRecords,
+              Array.filter((record) => record.context._tag === context._tag),
+              (records) =>
+                timeRange
+                  ? pipe(
+                      records,
+                      Array.filter(
+                        (record) => record.timestamp >= timeRange.startTime && record.timestamp <= timeRange.endTime
+                      )
+                    )
+                  : records
+            )
+
+            // 分布データを一度に集計
+            const [modeDistribution, userDistribution, durationMap] = pipe(
+              filteredRecords,
+              Array.reduce(
+                [new Map<ViewMode, number>(), new Map<ViewMode, number>(), new Map<ViewMode, number[]>()] as const,
+                ([modeMap, userMap, durMap], record) => {
+                  const newModeMap = new Map(modeMap)
+                  const newUserMap = new Map(userMap)
+                  const newDurMap = new Map(durMap)
+
+                  newModeMap.set(record.viewMode, (modeMap.get(record.viewMode) || 0) + 1)
+                  newUserMap.set(record.viewMode, (userMap.get(record.viewMode) || 0) + 1)
+
+                  const durations = durMap.get(record.viewMode) || []
+                  newDurMap.set(record.viewMode, [...durations, record.duration])
+
+                  return [newModeMap, newUserMap, newDurMap] as const
+                }
               )
-            }
+            )
 
-            const modeDistribution = new Map<ViewMode, number>()
-            const userDistribution = new Map<ViewMode, number>()
-            const durationMap = new Map<ViewMode, number[]>()
-
-            filteredRecords.forEach((record) => {
-              // モード分布
-              modeDistribution.set(record.viewMode, (modeDistribution.get(record.viewMode) || 0) + 1)
-
-              // ユーザー分布（簡易実装）
-              userDistribution.set(record.viewMode, (userDistribution.get(record.viewMode) || 0) + 1)
-
-              // 期間分布
-              const durations = durationMap.get(record.viewMode) || []
-              durations.push(record.duration)
-              durationMap.set(record.viewMode, durations)
-            })
-
-            const averageDuration = new Map<ViewMode, number>()
-            for (const [mode, durations] of durationMap.entries()) {
-              const avg = durations.reduce((sum, d) => sum + d, 0) / durations.length
-              averageDuration.set(mode, avg)
-            }
+            // 平均期間を計算
+            const averageDuration = pipe(
+              Array.from(durationMap.entries()),
+              Array.reduce(new Map<ViewMode, number>(), (acc, [mode, durations]) => {
+                const newMap = new Map(acc)
+                const avg = durations.reduce((sum, d) => sum + d, 0) / durations.length
+                newMap.set(mode, avg)
+                return newMap
+              })
+            )
 
             const distribution: ViewModeDistribution = {
               context,
@@ -781,13 +870,14 @@ export const ViewModePreferencesRepositoryLive = Layer.effect(
               }
             }
 
+            const lastLearned = yield* Clock.currentTimeMillis
             const patterns: LearnedPatterns = {
               playerId,
               contextPreferences,
               timeBasedPatterns: [], // 簡易実装では空配列
               sequencePatterns: [], // 簡易実装では空配列
               confidenceScore: 0.8,
-              lastLearned: Date.now(),
+              lastLearned,
             }
 
             yield* Ref.update(storageRef, (currentState) => ({
@@ -825,6 +915,7 @@ export const ViewModePreferencesRepositoryLive = Layer.effect(
 
         adjustAdaptiveSettings: (playerId: PlayerId, adjustments: AdaptiveAdjustments) =>
           Effect.gen(function* () {
+            const lastModified = yield* Clock.currentTimeMillis
             yield* Ref.update(storageRef, (state) => {
               const currentPreference = HashMap.get(state.playerPreferences, playerId)
               if (Option.isSome(currentPreference)) {
@@ -834,7 +925,7 @@ export const ViewModePreferencesRepositoryLive = Layer.effect(
                     adjustments.contextSensitivity,
                     () => currentPreference.value.contextSensitivity
                   ),
-                  lastModified: Date.now(),
+                  lastModified,
                   version: currentPreference.value.version + 1,
                 }
                 return {
@@ -853,10 +944,9 @@ export const ViewModePreferencesRepositoryLive = Layer.effect(
 
         savePlayerPreferencesBatch: (preferences: Array.ReadonlyArray<[PlayerId, ViewModePreference]>) =>
           Effect.gen(function* () {
-            yield* Ref.update(storageRef, (state) =>
-              preferences.reduce(
-                (acc, [playerId, preference]) => StorageOps.savePlayerPreference(acc, playerId, preference),
-                state
+            yield* Ref.updateEffect(storageRef, (state) =>
+              Effect.reduce(preferences, state, (acc, [playerId, preference]) =>
+                StorageOps.savePlayerPreference(acc, playerId, preference)
               )
             )
             yield* Effect.logDebug(`Batch preferences saved: ${preferences.length} entries`)
@@ -916,11 +1006,12 @@ export const ViewModePreferencesRepositoryLive = Layer.effect(
             const preference = HashMap.get(state.playerPreferences, playerId)
             const records = includeHistory ? HashMap.get(state.usageRecords, playerId) : Option.none()
 
+            const exportedAt = yield* Clock.currentTimeMillis
             const exportData = {
               playerId,
               preference: Option.getOrUndefined(preference),
               records: Option.getOrElse(records, () => []),
-              exportedAt: Date.now(),
+              exportedAt,
             }
 
             return JSON.stringify(exportData, null, 2)
@@ -937,18 +1028,22 @@ export const ViewModePreferencesRepositoryLive = Layer.effect(
               warnings: [],
             }
 
-            try {
-              const data = JSON.parse(jsonData)
-              // 簡易実装: データのインポート処理
-              yield* Effect.logInfo(`Importing preferences for player: ${playerId}`)
-              result.importedPreferences = 1
-            } catch (error) {
+            const parseResult = yield* Effect.try({
+              try: () => JSON.parse(jsonData),
+              catch: (error) => error,
+            }).pipe(Effect.either)
+
+            if (Either.isLeft(parseResult)) {
               return {
                 ...result,
                 success: false,
-                errors: [String(error)],
+                errors: [String(parseResult.left)],
               }
             }
+
+            // 簡易実装: データのインポート処理
+            yield* Effect.logInfo(`Importing preferences for player: ${playerId}`)
+            result.importedPreferences = 1
 
             return result
           }).pipe(handlePreferencesOperation),
@@ -964,16 +1059,19 @@ export const ViewModePreferencesRepositoryLive = Layer.effect(
               suggestions: [],
             }
 
-            try {
-              JSON.parse(jsonData)
-              // 簡易実装: スキーマ検証
-            } catch (error) {
+            const parseResult = yield* Effect.try({
+              try: () => JSON.parse(jsonData),
+              catch: (error) => error,
+            }).pipe(Effect.either)
+
+            if (Either.isLeft(parseResult)) {
               return {
                 ...result,
                 isValid: false,
-                errors: [String(error)],
+                errors: [String(parseResult.left)],
               }
             }
+            // 簡易実装: スキーマ検証
 
             return result
           }).pipe(handlePreferencesOperation),
@@ -999,12 +1097,13 @@ export const ViewModePreferencesRepositoryLive = Layer.effect(
 
         recalculateStatistics: () =>
           Effect.gen(function* () {
+            const lastAnalysisDate = yield* Clock.currentTimeMillis
             yield* Ref.update(storageRef, (state) => ({
               ...state,
               statisticsCache: HashMap.empty(),
               metadata: {
                 ...state.metadata,
-                lastAnalysisDate: Date.now(),
+                lastAnalysisDate,
               },
             }))
 

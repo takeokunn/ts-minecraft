@@ -3,7 +3,7 @@
  * 世界生成システムのイベント定義（Event Sourcing対応）
  */
 
-import { Schema } from 'effect'
+import { Clock, Effect, Schema } from 'effect'
 import {
   BiomeGenerationData,
   ChunkPosition,
@@ -71,9 +71,7 @@ export const GenerationSessionCompletedEventSchema = Schema.Struct({
     chunksGenerated: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
     chunksSkipped: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
     chunksFailed: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
-    performanceStats: Schema.suspend(() =>
-      import('../core').then((m) => m.GenerationPerformanceStatsSchema)
-    ),
+    performanceStats: Schema.suspend(() => import('../core').then((m) => m.GenerationPerformanceStatsSchema)),
   }),
 }).pipe(
   Schema.annotations({
@@ -104,9 +102,7 @@ export const GenerationSessionFailedEventSchema = Schema.Struct({
     reason: Schema.String,
     failedAfter: Schema.Number.pipe(Schema.nonNegative()),
     completedChunks: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
-    failedChunks: Schema.Array(
-      Schema.suspend(() => import('../core').then((m) => m.ChunkPositionSchema))
-    ),
+    failedChunks: Schema.Array(Schema.suspend(() => import('../core').then((m) => m.ChunkPositionSchema))),
     recoveryAction: Schema.Literal('retry', 'skip', 'abort'),
   }),
 }).pipe(
@@ -139,9 +135,7 @@ export const ChunkGenerationStartedEventSchema = Schema.Struct({
     chunkPosition: Schema.suspend(() => import('../core').then((m) => m.ChunkPositionSchema)),
     priority: Schema.Number.pipe(Schema.int(), Schema.between(0, 10)),
     requestedBy: Schema.String,
-    expectedStages: Schema.Array(
-      Schema.suspend(() => import('../core').then((m) => m.GenerationStageSchema))
-    ),
+    expectedStages: Schema.Array(Schema.suspend(() => import('../core').then((m) => m.GenerationStageSchema))),
   }),
 }).pipe(
   Schema.annotations({
@@ -172,9 +166,7 @@ export const ChunkGenerationCompletedEventSchema = Schema.Struct({
     requestId: Schema.suspend(() => import('../core').then((m) => m.GenerationRequestIdSchema)),
     chunkPosition: Schema.suspend(() => import('../core').then((m) => m.ChunkPositionSchema)),
     generationTime: Schema.Number.pipe(Schema.nonNegative()),
-    completedStages: Schema.Array(
-      Schema.suspend(() => import('../core').then((m) => m.GenerationStageSchema))
-    ),
+    completedStages: Schema.Array(Schema.suspend(() => import('../core').then((m) => m.GenerationStageSchema))),
     heightMap: Schema.suspend(() => import('../core').then((m) => m.HeightMapSchema)),
     biomeData: Schema.suspend(() => import('../core').then((m) => m.BiomeGenerationDataSchema)),
     memoryUsed: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
@@ -243,9 +235,7 @@ export const GenerationStageStartedEventSchema = Schema.Struct({
     chunkPosition: Schema.suspend(() => import('../core').then((m) => m.ChunkPositionSchema)),
     stage: Schema.suspend(() => import('../core').then((m) => m.GenerationStageSchema)),
     estimatedDuration: Schema.optional(Schema.Number.pipe(Schema.nonNegative())),
-    dependencies: Schema.Array(
-      Schema.suspend(() => import('../core').then((m) => m.GenerationStageSchema))
-    ),
+    dependencies: Schema.Array(Schema.suspend(() => import('../core').then((m) => m.GenerationStageSchema))),
   }),
 }).pipe(
   Schema.annotations({
@@ -277,9 +267,7 @@ export const GenerationStageCompletedEventSchema = Schema.Struct({
     stage: Schema.suspend(() => import('../core').then((m) => m.GenerationStageSchema)),
     actualDuration: Schema.Number.pipe(Schema.nonNegative()),
     outputData: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
-    nextStages: Schema.Array(
-      Schema.suspend(() => import('../core').then((m) => m.GenerationStageSchema))
-    ),
+    nextStages: Schema.Array(Schema.suspend(() => import('../core').then((m) => m.GenerationStageSchema))),
   }),
 }).pipe(
   Schema.annotations({
@@ -489,24 +477,28 @@ export const createChunkGenerationStartedEvent = (
   requestedBy: string,
   expectedStages: readonly GenerationStage[],
   aggregateVersion: number
-): ChunkGenerationStartedEvent => ({
-  type: 'ChunkGenerationStarted',
-  metadata: {
-    eventId: crypto.randomUUID(),
-    timestamp: new Date(),
-    version: 1,
-    causedBy: { systemId: 'generation_system' },
-    aggregateId: requestId,
-    aggregateVersion,
-  },
-  payload: {
-    requestId,
-    chunkPosition,
-    priority,
-    requestedBy,
-    expectedStages,
-  },
-})
+): Effect.Effect<ChunkGenerationStartedEvent> =>
+  Effect.gen(function* () {
+    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    return {
+      type: 'ChunkGenerationStarted',
+      metadata: {
+        eventId: crypto.randomUUID(),
+        timestamp,
+        version: 1,
+        causedBy: { systemId: 'generation_system' },
+        aggregateId: requestId,
+        aggregateVersion,
+      },
+      payload: {
+        requestId,
+        chunkPosition,
+        priority,
+        requestedBy,
+        expectedStages,
+      },
+    }
+  })
 
 /** StructurePlacedEvent作成ヘルパー */
 export const createStructurePlacedEvent = (
@@ -515,23 +507,27 @@ export const createStructurePlacedEvent = (
   placementTime: number,
   conflictsResolved: readonly string[],
   aggregateVersion: number
-): StructurePlacedEvent => ({
-  type: 'StructurePlaced',
-  metadata: {
-    eventId: crypto.randomUUID(),
-    timestamp: new Date(),
-    version: 1,
-    causedBy: { systemId: 'structure_generator' },
-    aggregateId: `${chunkPosition.x},${chunkPosition.z}`,
-    aggregateVersion,
-  },
-  payload: {
-    chunkPosition,
-    structure,
-    placementTime,
-    conflictsResolved,
-  },
-})
+): Effect.Effect<StructurePlacedEvent> =>
+  Effect.gen(function* () {
+    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    return {
+      type: 'StructurePlaced',
+      metadata: {
+        eventId: crypto.randomUUID(),
+        timestamp,
+        version: 1,
+        causedBy: { systemId: 'structure_generator' },
+        aggregateId: `${chunkPosition.x},${chunkPosition.z}`,
+        aggregateVersion,
+      },
+      payload: {
+        chunkPosition,
+        structure,
+        placementTime,
+        conflictsResolved,
+      },
+    }
+  })
 
 /** BiomesAssignedEvent作成ヘルパー */
 export const createBiomesAssignedEvent = (
@@ -540,20 +536,24 @@ export const createBiomesAssignedEvent = (
   assignmentTime: number,
   blendingApplied: boolean,
   aggregateVersion: number
-): BiomesAssignedEvent => ({
-  type: 'BiomesAssigned',
-  metadata: {
-    eventId: crypto.randomUUID(),
-    timestamp: new Date(),
-    version: 1,
-    causedBy: { systemId: 'biome_generator' },
-    aggregateId: `${chunkPosition.x},${chunkPosition.z}`,
-    aggregateVersion,
-  },
-  payload: {
-    chunkPosition,
-    biomeData,
-    assignmentTime,
-    blendingApplied,
-  },
-})
+): Effect.Effect<BiomesAssignedEvent> =>
+  Effect.gen(function* () {
+    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    return {
+      type: 'BiomesAssigned',
+      metadata: {
+        eventId: crypto.randomUUID(),
+        timestamp,
+        version: 1,
+        causedBy: { systemId: 'biome_generator' },
+        aggregateId: `${chunkPosition.x},${chunkPosition.z}`,
+        aggregateVersion,
+      },
+      payload: {
+        chunkPosition,
+        biomeData,
+        assignmentTime,
+        blendingApplied,
+      },
+    }
+  })

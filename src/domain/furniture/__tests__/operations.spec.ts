@@ -1,7 +1,7 @@
 import { describe, expect, it } from '@effect/vitest'
 import { Effect, Option, Schema, pipe } from 'effect'
+import * as ReadonlyArray from 'effect/Array'
 import * as fc from 'effect/FastCheck'
-import * as ReadonlyArray from 'effect/ReadonlyArray'
 import {
   appendPage,
   beginSleep,
@@ -89,7 +89,7 @@ describe('furniture/operations', () => {
         requestedBy: 'player_abcd1234',
       })
 
-      const currentTick = yield* Schema.decode(TickSchema)(250)
+      const currentTick = yield* Schema.decodeUnknown(TickSchema)(250)
 
       const updated = yield* beginSleep({
         bed,
@@ -118,7 +118,7 @@ describe('furniture/operations', () => {
         requestedBy: 'player_abcd1234',
       })
 
-      const currentTick = yield* Schema.decode(TickSchema)(200)
+      const currentTick = yield* Schema.decodeUnknown(TickSchema)(200)
 
       const error = yield* beginSleep({
         bed,
@@ -146,7 +146,7 @@ describe('furniture/operations', () => {
         requestedBy: 'player_abcd1234',
       })
 
-      const currentTick = yield* Schema.decode(TickSchema)(120)
+      const currentTick = yield* Schema.decodeUnknown(TickSchema)(120)
       const sleeping = yield* beginSleep({
         bed,
         playerId: 'player_abcd1234',
@@ -195,7 +195,7 @@ describe('furniture/operations', () => {
         location: { x: 5, y: 70, z: 5 },
       } satisfies CreateSignInput)
 
-      const tick = yield* Schema.decode(TickSchema)(400)
+      const tick = yield* Schema.decodeUnknown(TickSchema)(400)
 
       const error = yield* updateSignText({
         sign,

@@ -7,8 +7,9 @@
  * - Edge Caseの系統的検証
  */
 
-import { Effect, TestContext } from 'effect'
+import { Clock, Effect, TestContext } from 'effect'
 import { describe, expect, it } from 'vitest'
+import { TestClockLayer } from '../../../../testing/clock-layer'
 import {
   CHUNK_MAX_Y,
   CHUNK_MIN_Y,
@@ -60,11 +61,14 @@ describe('Chunk Domain Branch Coverage Tests', () => {
 
     it.effect('ChunkStates.loaded() - 全分岐網羅', () =>
       Effect.gen(function* () {
+        const clock = yield* Clock.Clock
+        const now = yield* clock.currentTimeMillis
+
         const testData = new Uint8Array(CHUNK_VOLUME) as ChunkDataBytes
         const testMetadata = {
           biome: 'plains' as const,
-          generationTime: Date.now() as any,
-          lastModified: Date.now() as any,
+          generationTime: now as any,
+          lastModified: now as any,
           version: 1,
           checksum: 'test-hash' as any,
         }
@@ -74,7 +78,7 @@ describe('Chunk Domain Branch Coverage Tests', () => {
         expect(loadedState.data).toBe(testData)
         expect(loadedState.metadata).toBe(testMetadata)
         expect(loadedState.loadTime).toBeGreaterThan(0)
-      })
+      }).pipe(Effect.provide(TestClockLayer))
     )
 
     it.effect('ChunkStates.failed() - 全分岐網羅', () =>
@@ -94,16 +98,19 @@ describe('Chunk Domain Branch Coverage Tests', () => {
 
     it.effect('ChunkStates.dirty() - 全分岐網羅', () =>
       Effect.gen(function* () {
+        const clock = yield* Clock.Clock
+        const now = yield* clock.currentTimeMillis
+
         const testData = new Uint8Array(CHUNK_VOLUME) as ChunkDataBytes
         const testChanges = {
           id: 'test-id' as any,
           blocks: [],
-          timestamp: Date.now() as any,
+          timestamp: now as any,
         }
         const testMetadata = {
           biome: 'plains' as const,
-          generationTime: Date.now() as any,
-          lastModified: Date.now() as any,
+          generationTime: now as any,
+          lastModified: now as any,
           version: 1,
           checksum: 'test-hash' as any,
         }
@@ -113,17 +120,20 @@ describe('Chunk Domain Branch Coverage Tests', () => {
         expect(dirtyState.data).toBe(testData)
         expect(dirtyState.changes).toBe(testChanges)
         expect(dirtyState.metadata).toBe(testMetadata)
-      })
+      }).pipe(Effect.provide(TestClockLayer))
     )
 
     it.effect('ChunkStates.saving() - 全分岐網羅', () =>
       Effect.gen(function* () {
+        const clock = yield* Clock.Clock
+        const now = yield* clock.currentTimeMillis
+
         const testData = new Uint8Array(CHUNK_VOLUME) as ChunkDataBytes
         const testProgress = 75 as LoadProgress
         const testMetadata = {
           biome: 'forest' as const,
-          generationTime: Date.now() as any,
-          lastModified: Date.now() as any,
+          generationTime: now as any,
+          lastModified: now as any,
           version: 2,
           checksum: 'save-hash' as any,
         }
@@ -133,16 +143,19 @@ describe('Chunk Domain Branch Coverage Tests', () => {
         expect(savingState.data).toBe(testData)
         expect(savingState.progress).toBe(testProgress)
         expect(savingState.metadata).toBe(testMetadata)
-      })
+      }).pipe(Effect.provide(TestClockLayer))
     )
 
     it.effect('ChunkStates.cached() - 全分岐網羅', () =>
       Effect.gen(function* () {
+        const clock = yield* Clock.Clock
+        const now = yield* clock.currentTimeMillis
+
         const testData = new Uint8Array(CHUNK_VOLUME) as ChunkDataBytes
         const testMetadata = {
           biome: 'desert' as const,
-          generationTime: Date.now() as any,
-          lastModified: Date.now() as any,
+          generationTime: now as any,
+          lastModified: now as any,
           version: 3,
           checksum: 'cache-hash' as any,
         }
@@ -152,7 +165,7 @@ describe('Chunk Domain Branch Coverage Tests', () => {
         expect(cachedState.data).toBe(testData)
         expect(cachedState.metadata).toBe(testMetadata)
         expect(cachedState.cacheTime).toBeGreaterThan(0)
-      })
+      }).pipe(Effect.provide(TestClockLayer))
     )
   })
 
@@ -169,12 +182,15 @@ describe('Chunk Domain Branch Coverage Tests', () => {
 
     it.effect('ChunkOperations.write() - 全分岐網羅', () =>
       Effect.gen(function* () {
+        const clock = yield* Clock.Clock
+        const now = yield* clock.currentTimeMillis
+
         const position: ChunkPosition = { x: -5, z: 15 }
         const data = new Uint8Array(CHUNK_VOLUME) as ChunkDataBytes
         const metadata = {
           biome: 'mountains' as const,
-          generationTime: Date.now() as any,
-          lastModified: Date.now() as any,
+          generationTime: now as any,
+          lastModified: now as any,
           version: 1,
           checksum: 'write-hash' as any,
         }
@@ -184,7 +200,7 @@ describe('Chunk Domain Branch Coverage Tests', () => {
         expect(writeOp.position).toBe(position)
         expect(writeOp.data).toBe(data)
         expect(writeOp.metadata).toBe(metadata)
-      })
+      }).pipe(Effect.provide(TestClockLayer))
     )
 
     it.effect('ChunkOperations.delete() - 全分岐網羅', () =>
@@ -239,11 +255,14 @@ describe('Chunk Domain Branch Coverage Tests', () => {
 
     it.effect('ChunkOperations.serialize() - 全分岐網羅', () =>
       Effect.gen(function* () {
+        const clock = yield* Clock.Clock
+        const now = yield* clock.currentTimeMillis
+
         const data = new Uint8Array(CHUNK_VOLUME) as ChunkDataBytes
         const metadata = {
           biome: 'ocean' as const,
-          generationTime: Date.now() as any,
-          lastModified: Date.now() as any,
+          generationTime: now as any,
+          lastModified: now as any,
           version: 1,
           checksum: 'serialize-hash' as any,
         }
@@ -263,7 +282,7 @@ describe('Chunk Domain Branch Coverage Tests', () => {
         const compressedFormat = { _tag: 'Compressed' as const, algorithm: 'gzip' }
         const serializeCompressed = ChunkOperations.serialize(data, compressedFormat as any, metadata)
         expect(serializeCompressed.format).toBe(compressedFormat)
-      })
+      }).pipe(Effect.provide(TestClockLayer))
     )
   })
 
@@ -401,12 +420,15 @@ describe('Chunk Domain Branch Coverage Tests', () => {
   describe('Edge Case Testing', () => {
     it.effect('空チャンクデータ処理', () =>
       Effect.gen(function* () {
+        const clock = yield* Clock.Clock
+        const now = yield* clock.currentTimeMillis
+
         // 全て0のチャンクデータ
         const emptyData = new Uint8Array(CHUNK_VOLUME).fill(0) as ChunkDataBytes
         const metadata = {
           biome: 'void' as const,
-          generationTime: Date.now() as any,
-          lastModified: Date.now() as any,
+          generationTime: now as any,
+          lastModified: now as any,
           version: 1,
           checksum: 'empty-hash' as any,
         }
@@ -414,17 +436,20 @@ describe('Chunk Domain Branch Coverage Tests', () => {
         const state = ChunkStates.loaded(emptyData, metadata)
         expect(state._tag).toBe('Loaded')
         expect(state.data.every((byte) => byte === 0)).toBe(true)
-      })
+      }).pipe(Effect.provide(TestClockLayer))
     )
 
     it.effect('最大値チャンクデータ処理', () =>
       Effect.gen(function* () {
+        const clock = yield* Clock.Clock
+        const now = yield* clock.currentTimeMillis
+
         // 全て255のチャンクデータ
         const maxData = new Uint8Array(CHUNK_VOLUME).fill(255) as ChunkDataBytes
         const metadata = {
           biome: 'solid' as const,
-          generationTime: Date.now() as any,
-          lastModified: Date.now() as any,
+          generationTime: now as any,
+          lastModified: now as any,
           version: 1,
           checksum: 'max-hash' as any,
         }
@@ -432,7 +457,7 @@ describe('Chunk Domain Branch Coverage Tests', () => {
         const state = ChunkStates.loaded(maxData, metadata)
         expect(state._tag).toBe('Loaded')
         expect(state.data.every((byte) => byte === 255)).toBe(true)
-      })
+      }).pipe(Effect.provide(TestClockLayer))
     )
 
     it.effect('極端な座標値処理', () =>

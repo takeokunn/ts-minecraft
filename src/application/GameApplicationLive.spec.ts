@@ -1,6 +1,5 @@
-import { Schema } from '@effect/schema'
 import { describe, expect, it } from '@effect/vitest'
-import { Context, Effect, Layer } from 'effect'
+import { Context, Effect, Layer, Schema } from 'effect'
 import * as Option from 'effect/Option'
 import { GameApplication } from './game-application'
 import { GameApplicationLive } from './game-application-live'

@@ -5,6 +5,3 @@
  */
 
 export * from './persistence'
-export * from './persistence'
-export * from './index'
-export * from './index';

@@ -5,9 +5,9 @@
  * 型安全性とオーバーフロー防止を完全実装
  */
 
+import { taggedUnion } from '@domain/world/utils'
 import type { Brand as BrandType } from 'effect'
 import { Schema } from 'effect'
-import { taggedUnion } from '@domain/world/utils'
 
 /**
  * World座標系の各軸のBrand型

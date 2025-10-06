@@ -5,8 +5,7 @@
  */
 
 import { Effect, Match, Schema } from 'effect'
-import { WorldSeedOps } from './index'
-import { EntropyLevel, WorldSeed, WorldSeedError, WorldSeedErrorSchema } from './index'
+import { EntropyLevel, WorldSeed, WorldSeedError, WorldSeedErrorSchema, WorldSeedOps } from './index'
 
 /**
  * 検証結果型
@@ -236,7 +235,7 @@ const validateBusinessRules = (
     }
 
     // タイムスタンプ妥当性
-    const now = Date.now()
+    const now = yield* Clock.currentTimeMillis
     if (seed.timestamp > now) {
       warnings.push('Seed timestamp is in the future')
     }

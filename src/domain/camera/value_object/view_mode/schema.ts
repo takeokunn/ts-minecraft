@@ -77,25 +77,33 @@ export const AnimationTimelineSchema = Schema.Struct({
 })
 
 /**
- * ViewMode Schema - TaggedUnionを使用
+ * ViewMode Schema - Unionを使用
  */
-export const ViewModeSchema = Schema.TaggedUnion('_tag', {
-  FirstPerson: Schema.Struct({
-    _tag: Schema.Literal('FirstPerson'),
-    settings: FirstPersonSettingsSchema,
-  }),
-  ThirdPerson: Schema.Struct({
-    _tag: Schema.Literal('ThirdPerson'),
-    settings: ThirdPersonSettingsSchema,
-    distance: CameraDistanceSchema,
-  }),
-  Spectator: Schema.Struct({
-    _tag: Schema.Literal('Spectator'),
-    settings: SpectatorSettingsSchema,
-  }),
-  Cinematic: Schema.Struct({
-    _tag: Schema.Literal('Cinematic'),
-    settings: CinematicSettingsSchema,
-    timeline: AnimationTimelineSchema,
-  }),
+const FirstPersonViewMode = Schema.Struct({
+  _tag: Schema.Literal('FirstPerson'),
+  settings: FirstPersonSettingsSchema,
 })
+
+const ThirdPersonViewMode = Schema.Struct({
+  _tag: Schema.Literal('ThirdPerson'),
+  settings: ThirdPersonSettingsSchema,
+  distance: CameraDistanceSchema,
+})
+
+const SpectatorViewMode = Schema.Struct({
+  _tag: Schema.Literal('Spectator'),
+  settings: SpectatorSettingsSchema,
+})
+
+const CinematicViewMode = Schema.Struct({
+  _tag: Schema.Literal('Cinematic'),
+  settings: CinematicSettingsSchema,
+  timeline: AnimationTimelineSchema,
+})
+
+export const ViewModeSchema = Schema.Union(
+  FirstPersonViewMode,
+  ThirdPersonViewMode,
+  SpectatorViewMode,
+  CinematicViewMode
+)

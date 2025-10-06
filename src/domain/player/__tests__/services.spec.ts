@@ -1,7 +1,7 @@
 import { Effect, Layer } from 'effect'
 import * as fc from 'effect/FastCheck'
 import { describe, expect, it } from 'vitest'
-import { provideLayers } from '../../testing/effect'
+import { provideLayers } from '../../../testing/effect'
 import { PlayerRepositoryLive } from '../repository'
 import { PlayerDomainService, PlayerDomainServiceLive } from '../services'
 import { PlayerClockLive } from '../time'

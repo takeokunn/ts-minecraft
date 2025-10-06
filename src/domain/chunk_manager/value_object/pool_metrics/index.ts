@@ -3,10 +3,5 @@
  * チャンクプールのメトリクスと性能測定
  */
 
-export {
-  computeMemoryPressure,
-  makeMemoryUsage,
-  makePerformanceMetrics,
-  makePoolMetrics,
-} from './index'
-export * from './pool_metrics';
+export * from './pool_metrics'
+export { computeMemoryPressure, makeMemoryUsage, makePerformanceMetrics, makePoolMetrics } from './pool_metrics'

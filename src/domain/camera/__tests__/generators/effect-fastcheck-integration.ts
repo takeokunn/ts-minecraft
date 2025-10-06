@@ -7,8 +7,6 @@
  * - Brand型・ADT完全対応
  */
 
-import { Brand, Effect, Option, pipe } from 'effect'
-import * as fc from 'effect/FastCheck'
 import type { CameraError } from '@domain/camera/types/errors'
 import {
   AnimationError,
@@ -20,6 +18,8 @@ import {
   InvalidParameter,
   ResourceError,
 } from '@domain/camera/types/errors'
+import { Brand, Effect, Option, pipe } from 'effect'
+import * as fc from 'effect/FastCheck'
 import type {
   BoundingBox,
   CameraDistance,

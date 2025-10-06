@@ -1,5 +1,4 @@
-import { Schema } from '@effect/schema'
-import { Brand, Data, Effect } from 'effect'
+import { Brand, Data, Effect, Schema } from 'effect'
 import type { ChunkMetadata } from '../../value_object/chunk_metadata'
 import { ChunkMetadataSchema } from '../../value_object/chunk_metadata'
 import type { ChunkPosition } from '../../value_object/chunk_position'

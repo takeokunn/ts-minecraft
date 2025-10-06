@@ -1,21 +1,19 @@
 import { Brand, Effect, pipe, Schema } from 'effect'
 import {
-  BoundingBoxSchema,
-  CameraDistanceSchema,
-  Direction3DSchema,
-  LerpFactorSchema,
-  Position3DSchema,
-  ViewOffsetSchema,
-} from './index'
-import {
   Axis,
   BoundingBox,
+  BoundingBoxSchema,
   CameraDistance,
+  CameraDistanceSchema,
   Direction3D,
+  Direction3DSchema,
   LerpFactor,
+  LerpFactorSchema,
   Position3D,
+  Position3DSchema,
   PositionError,
   ViewOffset,
+  ViewOffsetSchema,
 } from './index'
 
 /**

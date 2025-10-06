@@ -6,7 +6,7 @@
  * 転送最適化などの高度なビジネスロジックを提供します。
  */
 
-import { Context, Effect } from 'effect'
+import { Context, Data, Effect } from 'effect'
 import type { Inventory, InventoryErrorReason, ItemId } from '../../types'
 
 // =============================================================================
@@ -80,28 +80,18 @@ export interface OptimizedTransferOptions {
 // Domain Errors
 // =============================================================================
 
-export class TransferError extends Error {
-  readonly _tag = 'TransferError'
-  constructor(
-    readonly reason: InventoryErrorReason,
-    readonly details?: string
-  ) {
-    super(`Transfer failed: ${reason} ${details ? `- ${details}` : ''}`)
-  }
-}
+export class TransferError extends Data.TaggedError('TransferError')<{
+  readonly reason: InventoryErrorReason
+  readonly details?: string
+}> {}
 
-export class BatchTransferError extends Error {
-  readonly _tag = 'BatchTransferError'
-  constructor(
-    readonly failedTransfers: ReadonlyArray<{
-      index: number
-      error: TransferError
-    }>,
-    readonly partialResults: ReadonlyArray<TransferResult>
-  ) {
-    super(`Batch transfer failed: ${failedTransfers.length} transfers failed`)
-  }
-}
+export class BatchTransferError extends Data.TaggedError('BatchTransferError')<{
+  readonly failedTransfers: ReadonlyArray<{
+    index: number
+    error: TransferError
+  }>
+  readonly partialResults: ReadonlyArray<TransferResult>
+}> {}
 
 // =============================================================================
 // Transfer Service Interface

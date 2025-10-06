@@ -1,6 +1,5 @@
 import { Effect, Layer, Ref } from 'effect'
-import { SceneService } from './index'
-import { ActiveScene, SceneState } from './index'
+import { ActiveScene, SceneService, SceneState } from './index'
 
 const createSceneServiceTestImpl = (initial: SceneState): Effect.Effect<SceneService> =>
   Effect.gen(function* () {

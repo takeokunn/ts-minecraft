@@ -1,6 +1,5 @@
-import { Schema } from '@effect/schema'
 import { describe, expect, it } from '@effect/vitest'
-import { Effect, Option, pipe } from 'effect'
+import { Effect, Option, Schema, pipe } from 'effect'
 import {
   CraftingDifficultySchema,
   CraftingTimeSchema,
@@ -18,7 +17,7 @@ import {
 } from '../types'
 import { CraftingEngineService, CraftingEngineServiceLive } from './crafting_engine'
 
-const decode = <A>(schema: Schema.Schema<A>) => Schema.decodeEffect(schema)
+const decode = <A>(schema: Schema.Schema<A>) => Schema.decode(schema)
 
 const stack = decode(CraftingItemStackSchema)({
   itemId: 'minecraft:oak_planks',

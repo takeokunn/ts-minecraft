@@ -1,5 +1,3 @@
-import { Schema } from '@effect/schema'
-import { Array, Brand, Data, Option } from 'effect'
 import type {
   AnimationState,
   CameraRotation,
@@ -8,6 +6,7 @@ import type {
   PlayerId,
   Position3D,
 } from '@domain/camera/types'
+import { Array, Brand, Data, Option, Schema } from 'effect'
 
 // ========================================
 // Scene Camera Application Types

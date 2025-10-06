@@ -6,4 +6,4 @@
  * 高品質なチャンク作成を提供
  */
 
-export { ChunkFactoryService, ChunkFactoryServiceLive, type ChunkFactoryService } from './index'
+export { ChunkFactoryService, ChunkFactoryServiceLive, type ChunkFactoryService } from './service'

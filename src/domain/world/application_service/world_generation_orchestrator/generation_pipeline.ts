@@ -1,4 +1,4 @@
-import { Context, Effect, Fiber, Layer, Match, Option, pipe, Schema, STM } from 'effect'
+import { Clock, Context, Effect, Fiber, Layer, Match, Option, pipe, Schema, STM } from 'effect'
 import type { GenerationStageType, PipelineContextType } from './index'
 
 /**
@@ -188,8 +188,8 @@ const makeGenerationPipelineService = Effect.gen(function* () {
         currentStage: Option.none(),
         completedStages: [],
         failedStages: [],
-        startTime: Date.now(),
-        lastUpdateTime: Date.now(),
+        startTime: yield* Clock.currentTimeMillis,
+        lastUpdateTime: yield* Clock.currentTimeMillis,
         status: 'initialized',
         progress: 0,
         metrics: {},
@@ -242,43 +242,48 @@ const makeGenerationPipelineService = Effect.gen(function* () {
           continue
         }
 
-        try {
-          yield* Effect.logInfo(`ステージ実行開始: ${stageConfig.stage}`)
+        yield* pipe(
+          Effect.gen(function* () {
+            yield* Effect.logInfo(`ステージ実行開始: ${stageConfig.stage}`)
 
-          const result = yield* pipe(
-            executeStageInternal(pipelineId, stageConfig.stage, stageConfig),
-            Effect.timeout(`${stageConfig.timeout} millis`)
-          )
+            const result = yield* pipe(
+              executeStageInternal(pipelineId, stageConfig.stage, stageConfig),
+              Effect.timeout(`${stageConfig.timeout} millis`)
+            )
 
-          if (result.status === 'success') {
-            completedStages.push(stageConfig.stage)
-            yield* updatePipelineState(pipelineId, {
-              completedStages,
-              progress: (completedStages.length / sortedStages.length) * 100,
-            })
-          } else {
-            failedStages.push(stageConfig.stage)
-            yield* updatePipelineState(pipelineId, { failedStages })
+            if (result.status === 'success') {
+              completedStages.push(stageConfig.stage)
+              yield* updatePipelineState(pipelineId, {
+                completedStages,
+                progress: (completedStages.length / sortedStages.length) * 100,
+              })
+            } else {
+              failedStages.push(stageConfig.stage)
+              yield* updatePipelineState(pipelineId, { failedStages })
 
-            if (config.errorStrategy === 'fail_fast') {
-              throw new Error(`ステージ失敗: ${stageConfig.stage}`)
+              if (config.errorStrategy === 'fail_fast') {
+                return yield* Effect.fail(new Error(`ステージ失敗: ${stageConfig.stage}`))
+              }
             }
-          }
-        } catch (error) {
-          failedStages.push(stageConfig.stage)
-          yield* Effect.logError(`ステージ実行エラー: ${stageConfig.stage} - ${error}`)
+          }),
+          Effect.catchAll((error) =>
+            Effect.gen(function* () {
+              failedStages.push(stageConfig.stage)
+              yield* Effect.logError(`ステージ実行エラー: ${stageConfig.stage} - ${error}`)
 
-          if (config.errorStrategy === 'fail_fast') {
-            yield* updatePipelineState(pipelineId, { status: 'failed', failedStages })
-            return yield* Effect.fail({
-              _tag: 'GenerationPipelineError' as const,
-              message: `パイプライン実行失敗: ${error}`,
-              pipelineId,
-              stage: stageConfig.stage,
-              cause: error,
+              if (config.errorStrategy === 'fail_fast') {
+                yield* updatePipelineState(pipelineId, { status: 'failed', failedStages })
+                return yield* Effect.fail({
+                  _tag: 'GenerationPipelineError' as const,
+                  message: `パイプライン実行失敗: ${error}`,
+                  pipelineId,
+                  stage: stageConfig.stage,
+                  cause: error,
+                })
+              }
             })
-          }
-        }
+          )
+        )
       }
 
       // 完了状態更新
@@ -350,19 +355,22 @@ const makeGenerationPipelineService = Effect.gen(function* () {
   // === Helper Functions ===
 
   const updatePipelineState = (pipelineId: string, update: Partial<Schema.Schema.Type<typeof PipelineState>>) =>
-    STM.commit(
-      STM.modify(pipelines, (map) => {
-        const current = map.get(pipelineId)
-        if (current) {
-          map.set(pipelineId, {
-            ...current,
-            ...update,
-            lastUpdateTime: Date.now(),
-          })
-        }
-        return map
-      })
-    )
+    Effect.gen(function* () {
+      const lastUpdateTime = yield* Clock.currentTimeMillis
+      return yield* STM.commit(
+        STM.modify(pipelines, (map) => {
+          const current = map.get(pipelineId)
+          if (current) {
+            map.set(pipelineId, {
+              ...current,
+              ...update,
+              lastUpdateTime,
+            })
+          }
+          return map
+        })
+      )
+    })
 
   const getCurrentState = (pipelineId: string) =>
     Effect.flatMap(
@@ -384,7 +392,7 @@ const makeGenerationPipelineService = Effect.gen(function* () {
     config?: Schema.Schema.Type<typeof PipelineStageConfig>
   ) =>
     Effect.gen(function* () {
-      const startTime = Date.now()
+      const startTime = yield* Clock.currentTimeMillis
 
       yield* updatePipelineState(pipelineId, { currentStage: stage })
 
@@ -400,7 +408,7 @@ const makeGenerationPipelineService = Effect.gen(function* () {
         Match.exhaustive
       )
 
-      const duration = Date.now() - startTime
+      const duration = yield* Clock.currentTimeMillis - startTime
 
       const result: Schema.Schema.Type<typeof StageExecutionResult> = {
         _tag: 'StageExecutionResult',

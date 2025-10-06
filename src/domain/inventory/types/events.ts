@@ -1,4 +1,4 @@
-import { Schema } from 'effect'
+import { Clock, Effect, Schema } from 'effect'
 
 // =============================================================================
 // Base Domain Event
@@ -685,11 +685,18 @@ export type InventoryDomainEvent =
 /**
  * 共通イベントプロパティを生成
  */
-const createBaseEvent = (aggregateId: string, aggregateVersion: number): Omit<BaseDomainEvent, 'eventId'> => ({
-  aggregateId,
-  aggregateVersion,
-  timestamp: Date.now(),
-})
+const createBaseEvent = (
+  aggregateId: string,
+  aggregateVersion: number
+): Effect.Effect<Omit<BaseDomainEvent, 'eventId'>> =>
+  Effect.gen(function* () {
+    const timestamp = yield* Clock.currentTimeMillis
+    return {
+      aggregateId,
+      aggregateVersion,
+      timestamp,
+    }
+  })
 
 /**
  * ユニークなイベントIDを生成

@@ -14,7 +14,7 @@ import type { ChunkPosition } from '../../value_object/chunk_position'
  * Chunk Pattern Matching Operations
  * チャンクのパターンマッチング処理
  *
- * Data.TaggedEnumとMatch.typeを活用した型安全なパターンマッチング
+ * Data.taggedEnumとMatch.typeを活用した型安全なパターンマッチング
  */
 
 // ===== ChunkState Pattern Matching ===== //

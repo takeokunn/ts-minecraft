@@ -5,15 +5,14 @@
  * パフォーマンス最適化のためのStructure of Arrays (SoA)パターンを採用
  */
 
-import { Schema } from '@effect/schema'
-import { Clock, Context, Effect, Layer, Match, Option, pipe, Predicate, Ref } from 'effect'
-import type { EntityId } from './index'
-import { createEntityId } from './index'
-import type { System, SystemError, SystemPriority } from './index'
-import { SystemRegistryError, SystemRegistryService } from './index'
+import { Clock, Context, Effect, Layer, Match, Option, pipe, Predicate, Ref, Schema } from 'effect'
+import type { EntityId } from './entity'
+import { createEntityId } from './entity'
+import type { System, SystemError, SystemPriority } from './system'
+import { SystemRegistryError, SystemRegistryService } from './system-registry'
 
 // EntityIdを再エクスポート
-export { type EntityId } from './index'
+export { type EntityId } from './entity'
 
 /**
  * ワールドエラー

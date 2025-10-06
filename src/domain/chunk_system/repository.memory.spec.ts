@@ -1,6 +1,5 @@
-import { Schema } from '@effect/schema'
 import { describe, expect, it } from '@effect/vitest'
-import { Effect, Stream } from 'effect'
+import { Effect, Schema, Stream } from 'effect'
 import { randomUUID } from 'node:crypto'
 import { ChunkCommand } from './commands'
 import { applyCommand, makeInitialState } from './model'

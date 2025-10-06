@@ -1,14 +1,21 @@
-import { Effect } from 'effect'
 import * as WorldAggregates from '@domain/world/aggregate'
 import * as WorldApplicationServices from '@domain/world/application_service'
-import { defaultWorldDomainConfig, selectWorldDomainConfig, type WorldDomainConfig } from './index'
 import * as WorldDomainServices from '@domain/world/domain_service'
 import * as WorldFactories from '@domain/world/factory'
-import { WorldDomainHelpers } from './index'
-import { WorldDomainLayer, WorldDomainPerformanceLayer, WorldDomainQualityLayer, WorldDomainTestLayer } from './index'
 import * as WorldRepositories from '@domain/world/repository'
 import * as WorldTypes from '@domain/world/types'
 import * as WorldValueObjects from '@domain/world/value_object'
+import { Effect } from 'effect'
+import {
+  defaultWorldDomainConfig,
+  selectWorldDomainConfig,
+  WorldDomainHelpers,
+  WorldDomainLayer,
+  WorldDomainPerformanceLayer,
+  WorldDomainQualityLayer,
+  WorldDomainTestLayer,
+  type WorldDomainConfig,
+} from './index'
 
 export interface WorldDomainInterface {
   readonly Types: typeof WorldTypes

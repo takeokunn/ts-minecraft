@@ -5,7 +5,7 @@
  * インベントリとクラフティングシステムの統合を効率的に処理します。
  */
 
-import { Effect, Layer } from 'effect'
+import { Effect, Layer, Option, pipe, ReadonlyArray } from 'effect'
 import type { Inventory, ItemId, ItemStack } from '../../types'
 import {
   CraftingIntegrationError,
@@ -28,35 +28,45 @@ export const CraftingIntegrationServiceLive = Layer.succeed(
      */
     checkCraftability: (inventory, recipe) =>
       Effect.gen(function* () {
-        const missingIngredients: CraftabilityResult['missingIngredients'] = []
-        let canCraft = true
-        let reason: string | undefined
-
         // 材料の可用性をチェック
-        for (const ingredient of recipe.ingredients) {
-          const available = yield* countItemsInInventory(inventory, ingredient.itemId)
-
-          if (available < ingredient.count) {
-            missingIngredients.push({
-              itemId: ingredient.itemId,
-              required: ingredient.count,
-              available,
+        const ingredientChecks = yield* pipe(
+          recipe.ingredients,
+          Effect.forEach((ingredient) =>
+            Effect.gen(function* () {
+              const available = yield* countItemsInInventory(inventory, ingredient.itemId)
+              return {
+                ingredient,
+                available,
+                isMissing: available < ingredient.count,
+              }
             })
-            canCraft = false
-          }
-        }
+          )
+        )
 
-        if (!canCraft) {
-          reason = 'Insufficient ingredients'
-        }
+        const missingIngredients = pipe(
+          ingredientChecks,
+          ReadonlyArray.filter((check) => check.isMissing),
+          ReadonlyArray.map((check) => ({
+            itemId: check.ingredient.itemId,
+            required: check.ingredient.count,
+            available: check.available,
+          }))
+        )
+
+        const canCraftIngredients = missingIngredients.length === 0
 
         // 結果の配置可能性をチェック
         const resultPlacement = yield* checkResultPlacement(inventory, recipe.result)
 
-        if (!resultPlacement.canPlace) {
-          canCraft = false
-          reason = reason ? `${reason}; No space for result` : 'No space for result'
-        }
+        const canCraft = canCraftIngredients && resultPlacement.canPlace
+
+        const reason = !canCraftIngredients
+          ? resultPlacement.canPlace
+            ? 'Insufficient ingredients'
+            : 'Insufficient ingredients; No space for result'
+          : !resultPlacement.canPlace
+            ? 'No space for result'
+            : undefined
 
         // 推奨スロットの計算
         const suggestedSlots = yield* calculateSuggestedSlots(inventory, recipe.ingredients)
@@ -303,15 +313,12 @@ export const CraftingIntegrationServiceLive = Layer.succeed(
 // =============================================================================
 
 const countItemsInInventory = (inventory: Inventory, itemId: ItemId): Effect.Effect<number, never> =>
-  Effect.gen(function* () {
-    let count = 0
-    for (const slot of inventory.slots) {
-      if (slot?.itemStack?.itemId === itemId) {
-        count += slot.itemStack.count
-      }
-    }
-    return count
-  })
+  pipe(
+    inventory.slots,
+    ReadonlyArray.reduce(0, (count, slot) =>
+      slot?.itemStack?.itemId === itemId ? count + slot.itemStack.count : count
+    )
+  )
 
 const checkResultPlacement = (
   inventory: Inventory,
@@ -319,25 +326,32 @@ const checkResultPlacement = (
 ): Effect.Effect<CraftabilityResult['resultPlacement'], never> =>
   Effect.gen(function* () {
     // 空きスロットを検索
-    for (let i = 0; i < inventory.slots.length; i++) {
-      if (inventory.slots[i] === null) {
-        return {
-          canPlace: true,
-          targetSlot: i,
-          overflow: [],
-        }
+    const emptySlotIndex = pipe(
+      inventory.slots,
+      ReadonlyArray.findFirstIndex((slot) => slot === null)
+    )
+
+    if (Option.isSome(emptySlotIndex)) {
+      return {
+        canPlace: true,
+        targetSlot: emptySlotIndex.value,
+        overflow: [],
       }
     }
 
     // 同じアイテムで結合可能なスロットを検索
-    for (let i = 0; i < inventory.slots.length; i++) {
-      const slot = inventory.slots[i]
-      if (slot?.itemStack?.itemId === result.itemId && slot.itemStack.count + result.count <= 64) {
-        return {
-          canPlace: true,
-          targetSlot: i,
-          overflow: [],
-        }
+    const stackableSlotIndex = pipe(
+      inventory.slots,
+      ReadonlyArray.findFirstIndex(
+        (slot) => slot?.itemStack?.itemId === result.itemId && slot.itemStack.count + result.count <= 64
+      )
+    )
+
+    if (Option.isSome(stackableSlotIndex)) {
+      return {
+        canPlace: true,
+        targetSlot: stackableSlotIndex.value,
+        overflow: [],
       }
     }
 
@@ -357,30 +371,27 @@ const calculateSuggestedSlots = (
   ingredients: ReadonlyArray<RecipeIngredient>
 ): Effect.Effect<number[], never> =>
   Effect.gen(function* () {
-    const suggestedSlots: number[] = []
-
-    for (const ingredient of ingredients) {
-      const slots = yield* findItemSlots(inventory, ingredient.itemId)
-      if (slots.length > 0) {
-        suggestedSlots.push(slots[0]) // 最初に見つかったスロットを提案
-      }
-    }
-
-    return suggestedSlots
+    return yield* pipe(
+      ingredients,
+      Effect.forEach((ingredient) =>
+        Effect.gen(function* () {
+          const slots = yield* findItemSlots(inventory, ingredient.itemId)
+          return Option.fromNullable(slots[0])
+        })
+      ),
+      Effect.map(ReadonlyArray.getSomes)
+    )
   })
 
 const findItemSlots = (inventory: Inventory, itemId: ItemId): Effect.Effect<number[], never> =>
-  Effect.gen(function* () {
-    const slots: number[] = []
-
-    for (let i = 0; i < inventory.slots.length; i++) {
-      if (inventory.slots[i]?.itemStack?.itemId === itemId) {
-        slots.push(i)
-      }
-    }
-
-    return slots
-  })
+  Effect.succeed(
+    pipe(
+      inventory.slots,
+      ReadonlyArray.reduceWithIndex([] as number[], (index, slots, slot) =>
+        slot?.itemStack?.itemId === itemId ? [...slots, index] : slots
+      )
+    )
+  )
 
 const consumeIngredients = (
   inventory: Inventory,

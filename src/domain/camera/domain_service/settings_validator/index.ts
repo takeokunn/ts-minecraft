@@ -6,7 +6,7 @@
  */
 
 // Service Interface & Context Tag
-export { CompatibilityResult, SettingsValidationError, SettingsValidatorService } from './index'
+export { CompatibilityResult, SettingsValidationError, SettingsValidatorService } from './service'
 export type {
   AccessibilityRequirements,
   AnimationValidationResult,
@@ -38,20 +38,20 @@ export type {
   ViewModeType,
   ViewModeValidationResult,
   WarningType,
-} from './index'
+} from './service'
 
 // Live Implementation
-export { SettingsValidatorServiceLive } from './index'
+export { SettingsValidatorServiceLive } from './live'
 
 /**
  * 統合エクスポート - 便利な再エクスポート
  */
 
 // よく使用される型の再エクスポート
-export type { SettingsValidatorService as SettingsValidator } from './index'
+export type { SettingsValidatorService as SettingsValidator } from './service'
 
 // サービスタグの別名エクスポート
-export { SettingsValidatorService as SettingsValidatorTag } from './index'
+export { SettingsValidatorService as SettingsValidatorTag } from './service'
 
 /**
  * 使用例:
@@ -67,4 +67,3 @@ export { SettingsValidatorService as SettingsValidatorTag } from './index'
  * })
  * ```
  */
-export * from './index';

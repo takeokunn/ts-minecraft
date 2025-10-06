@@ -1,6 +1,5 @@
-import { Schema } from '@effect/schema'
 import { describe, expect, it } from '@effect/vitest'
-import { Effect, Option } from 'effect'
+import { Effect, Option, Schema } from 'effect'
 import * as FastCheck from 'effect/FastCheck'
 import { mergeConfig } from './config'
 import { DEFAULT_GAME_APPLICATION_CONFIG, GameApplicationConfig, TargetFramesPerSecond } from './types'

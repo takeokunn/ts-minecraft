@@ -1,22 +1,32 @@
-import { Schema } from '@effect/schema'
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
-import { Effect, Match } from 'effect'
+import { Effect, Match, Schema } from 'effect'
 import * as Either from 'effect/Either'
 import { pipe } from 'effect/Function'
 import * as Option from 'effect/Option'
 import {
+  BrandedTypes,
+  DeltaTimeSchema,
   ENTITY_PRIORITY,
   ENTITY_STATUS,
+  EntityCollisionError,
+  EntityDomainError,
+  EntityEvent,
+  EntityId,
+  EntityIdSchema,
+  EntityNotFoundError,
   EntityPrioritySchema,
   EntityStatusSchema,
   EntityType,
   EntityTypeSchema,
-} from '../types'
-import {
-  BrandedTypes,
-  DeltaTimeSchema,
-  EntityId,
-  EntityIdSchema,
+  EntityUpdateError,
+  EntityValidationError,
+  makeEntityCollisionError,
+  makeEntityDespawnedEvent,
+  makeEntityNotFoundError,
+  makeEntitySpawnedEvent,
+  makeEntityUpdatedEvent,
+  makeEntityUpdateError,
+  makeEntityValidationError,
   Rotation,
   RotationSchema,
   Vector3D,
@@ -24,18 +34,6 @@ import {
   Velocity,
   VelocitySchema,
 } from '../types'
-import {
-  EntityCollisionError,
-  EntityDomainError,
-  EntityNotFoundError,
-  EntityUpdateError,
-  EntityValidationError,
-  makeEntityCollisionError,
-  makeEntityNotFoundError,
-  makeEntityUpdateError,
-  makeEntityValidationError,
-} from '../types'
-import { EntityEvent, makeEntityDespawnedEvent, makeEntitySpawnedEvent, makeEntityUpdatedEvent } from '../types'
 
 interface EntityCoreState {
   readonly id: EntityId

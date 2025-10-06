@@ -1,8 +1,8 @@
-import { Array, Data, Effect, Layer, Match, Option, pipe } from 'effect'
-import type { PlayerCameraApplicationService } from './index'
+import { Array, Clock, Data, Effect, Layer, Match, Option, pipe } from 'effect'
 import type {
   CameraApplicationError,
   KeyboardAction,
+  PlayerCameraApplicationService,
   PlayerCameraInput,
   PlayerCameraState,
   PlayerCameraStatistics,
@@ -39,19 +39,19 @@ import type { CameraId, CameraSettings, MouseDelta, PlayerId, ViewMode } from '.
  * 複数のDomain ServiceとRepositoryを統合してビジネスロジックを実現します。
  */
 export const PlayerCameraApplicationServiceLive = Layer.effect(
-  PlayerCameraApplicationService as any, // type assertion for Context.GenericTag
+  PlayerCameraApplicationService,
   Effect.gen(function* () {
     // === Dependencies Injection ===
-    const cameraStateRepo = yield* CameraStateRepository as any
-    const settingsRepo = yield* SettingsStorageRepository as any
-    const animationHistoryRepo = yield* AnimationHistoryRepository as any
-    const preferencesRepo = yield* ViewModePreferencesRepository as any
+    const cameraStateRepo = yield* CameraStateRepository
+    const settingsRepo = yield* SettingsStorageRepository
+    const animationHistoryRepo = yield* AnimationHistoryRepository
+    const preferencesRepo = yield* ViewModePreferencesRepository
 
-    const cameraControlService = yield* CameraControlService as any
-    const animationEngine = yield* AnimationEngineService as any
-    const collisionDetection = yield* CollisionDetectionService as any
-    const settingsValidator = yield* SettingsValidatorService as any
-    const viewModeManager = yield* ViewModeManagerService as any
+    const cameraControlService = yield* CameraControlService
+    const animationEngine = yield* AnimationEngineService
+    const collisionDetection = yield* CollisionDetectionService
+    const settingsValidator = yield* SettingsValidatorService
+    const viewModeManager = yield* ViewModeManagerService
 
     // === Internal State Management ===
     const playerCameras = new Map<PlayerId, PlayerCameraState>()
@@ -89,7 +89,10 @@ export const PlayerCameraApplicationServiceLive = Layer.effect(
      * カメラIDを生成
      */
     const generateCameraId = (): Effect.Effect<CameraId, never> =>
-      Effect.succeed(`camera-${Date.now()}-${Math.random().toString(36).substr(2, 9)}` as CameraId)
+      Effect.gen(function* () {
+        const now = yield* Clock.currentTimeMillis
+        return `camera-${now}-${Math.random().toString(36).substr(2, 9)}` as CameraId
+      })
 
     /**
      * ビューモード切り替え可能性チェック
@@ -130,7 +133,7 @@ export const PlayerCameraApplicationServiceLive = Layer.effect(
         const updatedState = {
           ...playerState,
           rotation: newRotation,
-          lastUpdate: Date.now(),
+          lastUpdate: now,
         } as PlayerCameraState
 
         return updatedState
@@ -152,7 +155,7 @@ export const PlayerCameraApplicationServiceLive = Layer.effect(
               playerState.settings,
               -5 // FOV減少でズームイン
             )
-            return { ...playerState, settings: newSettings, lastUpdate: Date.now() } as PlayerCameraState
+            return { ...playerState, settings: newSettings, lastUpdate: now } as PlayerCameraState
           })
         ),
         Match.tag('ZoomOut', () =>
@@ -161,7 +164,7 @@ export const PlayerCameraApplicationServiceLive = Layer.effect(
               playerState.settings,
               5 // FOV増加でズームアウト
             )
-            return { ...playerState, settings: newSettings, lastUpdate: Date.now() } as PlayerCameraState
+            return { ...playerState, settings: newSettings, lastUpdate: now } as PlayerCameraState
           })
         ),
         Match.tag('ResetCamera', () =>
@@ -170,14 +173,14 @@ export const PlayerCameraApplicationServiceLive = Layer.effect(
             return {
               ...playerState,
               rotation: defaultRotation,
-              lastUpdate: Date.now(),
+              lastUpdate: now,
             } as PlayerCameraState
           })
         ),
         Match.tag('ToggleFreeLook', () =>
           Effect.succeed({
             ...playerState,
-            lastUpdate: Date.now(),
+            lastUpdate: now,
           } as PlayerCameraState)
         ),
         Match.tag('CenterView', () =>
@@ -186,7 +189,7 @@ export const PlayerCameraApplicationServiceLive = Layer.effect(
             return {
               ...playerState,
               rotation: centeredRotation,
-              lastUpdate: Date.now(),
+              lastUpdate: now,
             } as PlayerCameraState
           })
         ),
@@ -200,7 +203,7 @@ export const PlayerCameraApplicationServiceLive = Layer.effect(
               return {
                 ...playerState,
                 viewMode: updatedMode,
-                lastUpdate: Date.now(),
+                lastUpdate: now,
               } as PlayerCameraState
             }
 
@@ -222,7 +225,7 @@ export const PlayerCameraApplicationServiceLive = Layer.effect(
             averageFrameTime: 16.67,
             cameraMovements: 0,
             viewModeChanges: 0,
-            lastUpdateTime: Date.now(),
+            lastUpdateTime: now,
             memoryUsage: 0,
             performanceMetrics: {
               updateFrequency: 60,
@@ -238,7 +241,7 @@ export const PlayerCameraApplicationServiceLive = Layer.effect(
           totalInputEvents: current.totalInputEvents + 1,
           ...(operationType === 'movement' && { cameraMovements: current.cameraMovements + 1 }),
           ...(operationType === 'viewModeSwitch' && { viewModeChanges: current.viewModeChanges + 1 }),
-          lastUpdateTime: Date.now(),
+          lastUpdateTime: now,
         } as PlayerCameraStatistics
 
         performanceMetrics.set(playerId, updated)
@@ -283,7 +286,7 @@ export const PlayerCameraApplicationServiceLive = Layer.effect(
             viewMode: { _tag: 'FirstPerson' } as ViewMode, // デフォルトはファーストパーソン
             settings,
             isInitialized: true,
-            lastUpdate: Date.now(),
+            lastUpdate: now,
             animationState: Option.none(),
           } as PlayerCameraState
 
@@ -327,7 +330,7 @@ export const PlayerCameraApplicationServiceLive = Layer.effect(
                 return {
                   ...playerState,
                   viewMode: newMode,
-                  lastUpdate: Date.now(),
+                  lastUpdate: now,
                 } as PlayerCameraState
               })
             ),
@@ -341,7 +344,7 @@ export const PlayerCameraApplicationServiceLive = Layer.effect(
                 return {
                   ...playerState,
                   settings: validatedSettings,
-                  lastUpdate: Date.now(),
+                  lastUpdate: now,
                 } as PlayerCameraState
               })
             ),
@@ -372,7 +375,7 @@ export const PlayerCameraApplicationServiceLive = Layer.effect(
           const updatedState = {
             ...playerState,
             position: finalPosition,
-            lastUpdate: Date.now(),
+            lastUpdate: now,
           } as PlayerCameraState
 
           playerCameras.set(playerId, updatedState)
@@ -412,7 +415,7 @@ export const PlayerCameraApplicationServiceLive = Layer.effect(
             ...playerState,
             viewMode: newMode,
             animationState: Option.some(animation),
-            lastUpdate: Date.now(),
+            lastUpdate: now,
           } as PlayerCameraState
 
           playerCameras.set(playerId, updatedState)
@@ -442,7 +445,7 @@ export const PlayerCameraApplicationServiceLive = Layer.effect(
           const updatedState = {
             ...playerState,
             settings: validatedSettings,
-            lastUpdate: Date.now(),
+            lastUpdate: now,
           } as PlayerCameraState
 
           playerCameras.set(playerId, updatedState)
@@ -478,7 +481,7 @@ export const PlayerCameraApplicationServiceLive = Layer.effect(
           const updatedState = {
             ...playerState,
             animationState: Option.some(animation),
-            lastUpdate: Date.now(),
+            lastUpdate: now,
           } as PlayerCameraState
 
           playerCameras.set(playerId, updatedState)
@@ -501,7 +504,7 @@ export const PlayerCameraApplicationServiceLive = Layer.effect(
             const updatedState = {
               ...playerState,
               animationState: Option.none(),
-              lastUpdate: Date.now(),
+              lastUpdate: now,
             } as PlayerCameraState
 
             playerCameras.set(playerId, updatedState)
@@ -521,7 +524,7 @@ export const PlayerCameraApplicationServiceLive = Layer.effect(
             rotation: defaultRotation,
             settings: resetPosition ? defaultSettings : playerState.settings,
             animationState: Option.none(),
-            lastUpdate: Date.now(),
+            lastUpdate: now,
           } as PlayerCameraState
 
           playerCameras.set(playerId, updatedState)
@@ -567,13 +570,14 @@ export const PlayerCameraApplicationServiceLive = Layer.effect(
 
       optimizePerformance: (targetMetrics) =>
         Effect.gen(function* () {
+          const now = yield* Clock.currentTimeMillis
           const optimizations: string[] = []
           let improvementFactor = 0
 
           // メモリ使用量の最適化
           if (performanceMetrics.size > 100) {
             const oldEntries = Array.from(performanceMetrics.entries()).filter(
-              ([_, stats]) => Date.now() - stats.lastUpdateTime > 300000
+              ([_, stats]) => now - stats.lastUpdateTime > 300000
             ) // 5分以上古い
 
             oldEntries.forEach(([playerId]) => {

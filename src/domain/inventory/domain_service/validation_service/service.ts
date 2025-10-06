@@ -6,7 +6,7 @@
  * 複雑な検証ロジックを提供します。
  */
 
-import { Context, Effect } from 'effect'
+import { Context, Data, Effect } from 'effect'
 import type { Inventory, InventoryErrorReason } from '../../types'
 
 // =============================================================================
@@ -116,27 +116,17 @@ export interface ValidationOptions {
 // Domain Errors
 // =============================================================================
 
-export class ValidationError extends Error {
-  readonly _tag = 'ValidationError'
-  constructor(
-    readonly reason: InventoryErrorReason,
-    readonly details?: string
-  ) {
-    super(`Validation failed: ${reason} ${details ? `- ${details}` : ''}`)
-  }
-}
+export class ValidationError extends Data.TaggedError('ValidationError')<{
+  readonly reason: InventoryErrorReason
+  readonly details?: string
+}> {}
 
-export class CorrectionError extends Error {
-  readonly _tag = 'CorrectionError'
-  constructor(
-    readonly failedCorrections: ReadonlyArray<{
-      step: CorrectionStep
-      error: string
-    }>
-  ) {
-    super(`Correction failed: ${failedCorrections.length} steps failed`)
-  }
-}
+export class CorrectionError extends Data.TaggedError('CorrectionError')<{
+  readonly failedCorrections: ReadonlyArray<{
+    step: CorrectionStep
+    error: string
+  }>
+}> {}
 
 // =============================================================================
 // Validation Service Interface

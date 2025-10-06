@@ -34,35 +34,16 @@ interface ClockShape {
 /**
  * Playerドメイン共通エラーADT
  */
-export const PlayerError = Data.taggedEnum('PlayerError')({
-  IdentityViolation: Data.struct<IdentityShape>({
-    reason: '',
-    value: '',
-  }),
-  ConstraintViolation: Data.struct<ConstraintShape>({
-    reason: '',
-    details: new Map(),
-  }),
-  InvalidTransition: Data.struct<TransitionShape>({
-    from: '',
-    to: '',
-    trigger: '',
-    explanation: '',
-  }),
-  MissingEntity: Data.struct<MissingShape>({
-    entity: '',
-    identifier: '',
-  }),
-  PersistenceFailure: Data.struct<PersistenceShape>({
-    operation: '',
-    cause: Option.none<unknown>(),
-  }),
-  ClockFailure: Data.struct<ClockShape>({
-    cause: Option.none<unknown>(),
-  }),
-})
+export const PlayerError = Data.taggedEnum<{
+  IdentityViolation: IdentityShape
+  ConstraintViolation: ConstraintShape
+  InvalidTransition: TransitionShape
+  MissingEntity: MissingShape
+  PersistenceFailure: PersistenceShape
+  ClockFailure: ClockShape
+}>()
 
-export type PlayerError = Data.TaggedEnum.Infer<typeof PlayerError>
+export type PlayerError = Data.TaggedEnum.Type<typeof PlayerError>
 
 interface ConstantRangeShape {
   readonly constant: string
@@ -78,19 +59,12 @@ interface ConstantFiniteShape {
 /**
  * Player定数検証エラーADT
  */
-export const PlayerConstantError = Data.taggedEnum('PlayerConstantError')({
-  OutOfRange: Data.struct<ConstantRangeShape>({
-    constant: '',
-    value: 0,
-    requirement: '',
-  }),
-  NotFinite: Data.struct<ConstantFiniteShape>({
-    constant: '',
-    value: 0,
-  }),
-})
+export const PlayerConstantError = Data.taggedEnum<{
+  OutOfRange: ConstantRangeShape
+  NotFinite: ConstantFiniteShape
+}>()
 
-export type PlayerConstantError = Data.TaggedEnum.Infer<typeof PlayerConstantError>
+export type PlayerConstantError = Data.TaggedEnum.Type<typeof PlayerConstantError>
 
 /**
  * PlayerErrorビルダー関数

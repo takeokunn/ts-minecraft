@@ -1,9 +1,15 @@
 import { Context, Effect, Layer, Ref, Stream } from 'effect'
-import { ChunkCommand } from './index'
-import { ChunkEvent } from './index'
-import { applyCommand, makeInitialState, TransitionResult } from './index'
-import { ChunkSystemRepository } from './index'
-import { ChunkSystemConfig, ChunkSystemError, ChunkSystemState } from './index'
+import {
+  applyCommand,
+  ChunkCommand,
+  ChunkEvent,
+  ChunkSystemConfig,
+  ChunkSystemError,
+  ChunkSystemRepository,
+  ChunkSystemState,
+  makeInitialState,
+  TransitionResult,
+} from './index'
 
 export interface ChunkSystemService {
   readonly current: Effect.Effect<ChunkSystemState, ChunkSystemError>

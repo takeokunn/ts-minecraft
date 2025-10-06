@@ -1,3 +1,4 @@
+import type { LifecycleStats } from '../../types'
 import {
   makeChunkLifetime,
   makeResourceUsagePercent,
@@ -5,7 +6,6 @@ import {
   type ResourceUsagePercent,
   type Timestamp,
 } from '../../types'
-import type { LifecycleStats } from '../../types'
 
 export type LifecycleAccumulator = {
   readonly totalActivations: number

@@ -5,15 +5,14 @@
  * 分散トランザクション・デッドロック検出・2フェーズコミット対応
  */
 
-import { Effect, Layer, Ref } from 'effect'
+import { Clock, Effect, Layer, Ref } from 'effect'
+import type { InventoryService } from '../..'
 import type { TransferService } from '../../domain_service/transfer_service'
 import type { ValidationService } from '../../domain_service/validation_service'
 import type { ContainerRepository } from '../../repository/container_repository'
 import type { InventoryRepository } from '../../repository/inventory_repository'
-import type { InventoryService } from '../..'
 import type { InventoryApplicationError } from '../types'
-import { TransactionManagerApplicationService } from './index'
-import { makeTransactionWorkflows } from './index'
+import { makeTransactionWorkflows, TransactionManagerApplicationService } from './index'
 
 /**
  * TransactionManagerApplicationService Live実装
@@ -60,7 +59,7 @@ export const TransactionManagerApplicationServiceLive = Layer.effect(
             transferCount: transfers.length,
           })
 
-          const startTime = Date.now()
+          const startTime = yield* Clock.currentTimeMillis
 
           try {
             // フェーズ1: 前提条件チェック
@@ -121,7 +120,7 @@ export const TransactionManagerApplicationServiceLive = Layer.effect(
             recipeId: craftingOperation.recipeId,
           })
 
-          const startTime = Date.now()
+          const startTime = yield* Clock.currentTimeMillis
           const result = yield* workflows.executeCraftingWorkflow(craftingOperation)
 
           yield* updateSuccessMetrics(startTime)
@@ -137,7 +136,7 @@ export const TransactionManagerApplicationServiceLive = Layer.effect(
             player2Id: tradeOperation.player2Id,
           })
 
-          const startTime = Date.now()
+          const startTime = yield* Clock.currentTimeMillis
           const result = yield* workflows.executeTradeWorkflow(tradeOperation)
 
           yield* updateSuccessMetrics(startTime)
@@ -153,7 +152,7 @@ export const TransactionManagerApplicationServiceLive = Layer.effect(
             itemCount: distributionOperation.itemsToDistribute.length,
           })
 
-          const startTime = Date.now()
+          const startTime = yield* Clock.currentTimeMillis
           const result = yield* workflows.executeBulkDistributionWorkflow(distributionOperation)
 
           yield* updateSuccessMetrics(startTime)
@@ -169,7 +168,7 @@ export const TransactionManagerApplicationServiceLive = Layer.effect(
             strategy: mergeOperation.mergeStrategy,
           })
 
-          const startTime = Date.now()
+          const startTime = yield* Clock.currentTimeMillis
           const result = yield* workflows.executeInventoryMergeWorkflow(mergeOperation)
 
           yield* updateSuccessMetrics(startTime)
@@ -185,7 +184,7 @@ export const TransactionManagerApplicationServiceLive = Layer.effect(
             ruleCount: refillOperation.refillRules.length,
           })
 
-          const startTime = Date.now()
+          const startTime = yield* Clock.currentTimeMillis
           const result = yield* workflows.executeAutoRefillWorkflow(refillOperation)
 
           yield* updateSuccessMetrics(startTime)
@@ -234,12 +233,13 @@ export const TransactionManagerApplicationServiceLive = Layer.effect(
           const rollbackResults = yield* executeTransactionRollback(transactionState, reason)
 
           // トランザクション状態更新
+          const endTime = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
           yield* Ref.update(transactionStates, (states) => {
             const updatedState = {
               ...transactionState,
               status: 'rolled_back' as const,
               rollbackReason: reason,
-              endTime: new Date(),
+              endTime,
             }
             return new Map(states).set(transactionId, updatedState)
           })
@@ -307,7 +307,7 @@ export const TransactionManagerApplicationServiceLive = Layer.effect(
           })
 
           const states = yield* Ref.get(transactionStates)
-          const currentTime = Date.now()
+          const currentTime = yield* Clock.currentTimeMillis
 
           const timedOutTransactions: string[] = []
           const automaticallyRolledBack: string[] = []
@@ -450,7 +450,7 @@ const releaseLocks = (lockIds: string[]): Effect.Effect<void, InventoryApplicati
 
 const updateSuccessMetrics = (startTime: number): Effect.Effect<void, never> =>
   Effect.gen(function* () {
-    const endTime = Date.now()
+    const endTime = yield* Clock.currentTimeMillis
     const latency = endTime - startTime
 
     // 統計更新（実装では実際のメトリクス更新）
@@ -459,7 +459,7 @@ const updateSuccessMetrics = (startTime: number): Effect.Effect<void, never> =>
 
 const updateFailureMetrics = (startTime: number): Effect.Effect<void, never> =>
   Effect.gen(function* () {
-    const endTime = Date.now()
+    const endTime = yield* Clock.currentTimeMillis
     const latency = endTime - startTime
 
     // 統計更新（実装では実際のメトリクス更新）

@@ -5,9 +5,9 @@
  * 決定論的生成とパフォーマンス最適化の両立
  */
 
+import { taggedUnion } from '@domain/world/utils'
 import type { Brand as BrandType } from 'effect'
 import { Schema } from 'effect'
-import { taggedUnion } from '@domain/world/utils'
 
 /**
  * 周波数Brand型（正の数値）

@@ -1,6 +1,5 @@
-import { Schema } from '@effect/schema'
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
-import { Clock, Context, Effect, Layer, Match, Option } from 'effect'
+import { Clock, Context, Effect, Layer, Match, Option, Schema } from 'effect'
 import { pipe } from 'effect/Function'
 import { BreakingSessionError, completeImmediately, createSession, recordProgress } from '../aggregate'
 import { validatePlacement } from '../domain_service'

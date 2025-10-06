@@ -23,12 +23,7 @@ export type {
 } from './chunk_loader/types'
 
 // Chunk Manager Domain
-export {
-  ActivationError,
-  ChunkLifecycleProvider,
-  ConfigError,
-  DeactivationError,
-} from './chunk_manager/types'
+export { ActivationError, ChunkLifecycleProvider, ConfigError, DeactivationError } from './chunk_manager/types'
 export type {
   AutoManagementConfig,
   LifecycleInput,

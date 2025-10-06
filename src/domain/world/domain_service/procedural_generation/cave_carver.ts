@@ -5,10 +5,10 @@
  * 物理法則に基づいた洞窟構造とMinecraft互換性を両立
  */
 
-import { Context, Effect, Layer, Schema } from 'effect'
 import { type GenerationError } from '@domain/world/types/errors'
 import type { BoundingBox, WorldCoordinate } from '@domain/world/value_object/coordinates'
 import type { WorldSeed } from '@domain/world/value_object/world_seed'
+import { Clock, Context, Effect, Layer, Schema } from 'effect'
 
 /**
  * 洞窟ネットワーク - 連結された洞窟システム
@@ -285,8 +285,9 @@ export const CaveCarverServiceLive = Layer.effect(
         // 6. ネットワーク統計の計算
         const metadata = yield* calculateNetworkMetadata(sizedCaves, tunnels, waterSources)
 
+        const timestamp = yield* Clock.currentTimeMillis
         return {
-          id: `cave_network_${seed}_${Date.now()}`,
+          id: `cave_network_${seed}_${timestamp}`,
           caves: sizedCaves,
           tunnels,
           waterSources,
@@ -296,7 +297,7 @@ export const CaveCarverServiceLive = Layer.effect(
 
     carveBlocks: (network, config, existingTerrain) =>
       Effect.gen(function* () {
-        const startTime = Date.now()
+        const startTime = yield* Clock.currentTimeMillis
 
         // 1. 洞窟空間の彫刻
         const caveCarves = yield* carveAllCaves(network.caves, config)
@@ -320,7 +321,7 @@ export const CaveCarverServiceLive = Layer.effect(
         const statistics = {
           totalVolume: calculateTotalVolume(network),
           carvedBlocks: caveCarves.length + tunnelCarves.length + waterCarves.length,
-          generationTime: Date.now() - startTime,
+          generationTime: yield* Clock.currentTimeMillis,
           memoryUsed: estimateMemoryUsage(caveCarves, tunnelCarves, supportBlocks),
           complexityScore: calculateComplexityScore(network),
         }

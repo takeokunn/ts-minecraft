@@ -1,7 +1,5 @@
 import { Effect, Layer, Queue, Ref, Stream } from 'effect'
-import { ChunkEvent } from './index'
-import { ChunkSystemRepository } from './index'
-import { ChunkSystemError, ChunkSystemState } from './index'
+import { ChunkEvent, ChunkSystemError, ChunkSystemRepository, ChunkSystemState } from './index'
 
 const wrapRepository = <A>(effect: Effect.Effect<A, unknown>) =>
   effect.pipe(

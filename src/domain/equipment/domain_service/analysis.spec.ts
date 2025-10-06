@@ -1,8 +1,3 @@
-import { Schema } from '@effect/schema'
-import { describe, expect, it } from '@effect/vitest'
-import { Effect } from 'effect'
-import { EquipmentTagSchema, createEquipmentPiece } from '../aggregate/equipment_piece'
-import { emptyEquipmentSet, equipPiece } from '../aggregate/equipment_set'
 import {
   EquipmentIdSchema,
   EquipmentOwnerIdSchema,
@@ -11,6 +6,10 @@ import {
   WeightSchema,
   type UnixTime,
 } from '@domain/equipment/types/core'
+import { describe, expect, it } from '@effect/vitest'
+import { Effect, Schema } from 'effect'
+import { EquipmentTagSchema, createEquipmentPiece } from '../aggregate/equipment_piece'
+import { emptyEquipmentSet, equipPiece } from '../aggregate/equipment_set'
 import { EquipmentStatsSchema, EquipmentTierSchema } from '../value_object/item_attributes'
 import { EquipmentSlotSchema } from '../value_object/slot'
 import { analyseEquipmentSet } from './analysis'

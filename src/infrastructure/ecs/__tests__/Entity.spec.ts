@@ -4,8 +4,8 @@
  */
 
 import { BrandedTypes } from '@domain/entities/types'
-import { Schema } from '@effect/schema'
 import { it } from '@effect/vitest'
+import { Schema } from 'effect'
 import * as Effect from 'effect/Effect'
 import * as Either from 'effect/Either'
 import * as Layer from 'effect/Layer'

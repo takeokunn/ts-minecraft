@@ -1,4 +1,5 @@
-import { Cache, Duration, Effect, Chunk as EffectChunk, Either, Match, Option, pipe } from 'effect'
+import { Cache, Clock, Duration, Effect, Chunk as EffectChunk, Either, Match, Option, pipe } from 'effect'
+import { getUsedHeapSize } from '../../../performance'
 import type { ChunkTimestamp } from '../../types'
 import { CHUNK_HEIGHT, CHUNK_MIN_Y, CHUNK_SIZE } from '../../types'
 import type { ChunkMetadata, HeightValue } from '../../value_object/chunk_metadata'
@@ -56,11 +57,14 @@ const recalculatePositionalMetadata = (
   position: ChunkPosition,
   currentMetadata: ChunkMetadata
 ): Effect.Effect<ChunkMetadata> =>
-  Effect.sync(() => ({
-    ...currentMetadata,
-    biome: calculateBiomeFromPosition(position),
-    timestamp: Date.now() as ChunkTimestamp,
-  }))
+  Effect.gen(function* () {
+    const timestamp = yield* Clock.currentTimeMillis
+    return {
+      ...currentMetadata,
+      biome: calculateBiomeFromPosition(position),
+      timestamp: timestamp as ChunkTimestamp,
+    }
+  })
 
 const calculateBiomeFromPosition = (position: ChunkPosition): string =>
   pipe(
@@ -494,9 +498,9 @@ export const PerformanceMonitoring = {
 
   monitorMemory: <A>(operation: Effect.Effect<A>): Effect.Effect<A> =>
     Effect.gen(function* () {
-      const beforeMemory = yield* Effect.sync(() => (performance as any).memory?.usedJSHeapSize ?? 0)
+      const beforeMemory = yield* getUsedHeapSize()
       const result = yield* operation
-      const afterMemory = yield* Effect.sync(() => (performance as any).memory?.usedJSHeapSize ?? 0)
+      const afterMemory = yield* getUsedHeapSize()
 
       yield* pipe(
         afterMemory - beforeMemory,

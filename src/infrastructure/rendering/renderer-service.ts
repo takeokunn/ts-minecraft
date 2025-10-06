@@ -1,5 +1,4 @@
-import { Schema } from '@effect/schema'
-import { Context, Effect, Option } from 'effect'
+import { Context, Effect, Option, Schema } from 'effect'
 
 // ブランド型定義 -------------------------------------------------------------
 

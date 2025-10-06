@@ -1,12 +1,18 @@
 import { Effect, Match, Option, pipe } from 'effect'
 import type { ChangeSet, ChunkDataBytes, ChunkState, ChunkTimestamp, LoadProgress } from '../../types'
-import { CHUNK_HEIGHT, CHUNK_MIN_Y, CHUNK_SIZE, ChunkStatesEffect } from '../../types'
-import { ChunkStateGuards, ChunkStateOptics, ChunkStateOpticsHelpers } from '../../types'
+import {
+  CHUNK_HEIGHT,
+  CHUNK_MIN_Y,
+  CHUNK_SIZE,
+  ChunkStateGuards,
+  ChunkStateOptics,
+  ChunkStateOpticsHelpers,
+  ChunkStatesEffect,
+} from '../../types'
 import type { ChunkMetadata, HeightValue } from '../../value_object/chunk_metadata'
 import type { ChunkPosition } from '../../value_object/chunk_position'
 import type { ChunkData } from '../chunk_data'
-import { ChunkDataOptics, ChunkDataOpticsHelpers } from './index'
-import { ChunkBoundsError } from './index'
+import { ChunkBoundsError, ChunkDataOptics, ChunkDataOpticsHelpers } from './index'
 
 const localBlockIndex = (x: number, y: number, z: number): number =>
   (y - CHUNK_MIN_Y) * CHUNK_SIZE * CHUNK_SIZE + z * CHUNK_SIZE + x

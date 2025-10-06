@@ -148,7 +148,7 @@ export const CreateBedInputSchema = Schema.Struct({
   orientation: OrientationSchema,
   coordinates: CoordinatesSchema,
   requestedBy: PlayerIdSchema,
-  durability: Schema.optionalWith(DurabilitySchema, () => 100),
+  durability: Schema.optionalWith(DurabilitySchema, { default: () => 100 }),
 })
 export type CreateBedInput = Schema.Schema.Type<typeof CreateBedInputSchema>
 
@@ -180,7 +180,7 @@ export const CreateSignInputSchema = Schema.Struct({
   text: SignTextSchema,
   placedBy: PlayerIdSchema,
   location: CoordinatesSchema,
-  glowing: Schema.optionalWith(Schema.Boolean, () => false),
+  glowing: Schema.optionalWith(Schema.Boolean, { default: () => false }),
 })
 export type CreateSignInput = Schema.Schema.Type<typeof CreateSignInputSchema>
 

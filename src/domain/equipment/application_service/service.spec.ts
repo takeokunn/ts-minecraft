@@ -1,10 +1,3 @@
-import { Schema } from '@effect/schema'
-import { describe, expect, it } from '@effect/vitest'
-import { Effect } from 'effect'
-import { provideLayers } from '../../../testing/effect'
-import { EquipmentTagSchema, createEquipmentPiece } from '../aggregate/equipment_piece'
-import { emptyEquipmentSet } from '../aggregate/equipment_set'
-import { EquipmentRepositoryTag, InMemoryEquipmentRepository } from '../repository/memory'
 import {
   EquipmentIdSchema,
   EquipmentOwnerIdSchema,
@@ -13,6 +6,12 @@ import {
   WeightSchema,
   type UnixTime,
 } from '@domain/equipment/types/core'
+import { describe, expect, it } from '@effect/vitest'
+import { Effect, Schema } from 'effect'
+import { provideLayers } from '../../../testing/effect'
+import { EquipmentTagSchema, createEquipmentPiece } from '../aggregate/equipment_piece'
+import { emptyEquipmentSet } from '../aggregate/equipment_set'
+import { EquipmentRepositoryTag, InMemoryEquipmentRepository } from '../repository/memory'
 import { EquipmentStatsSchema, EquipmentTierSchema } from '../value_object/item_attributes'
 import { EquipmentSlotSchema, type EquipmentSlotLiteral } from '../value_object/slot'
 import { EquipmentServiceLive, EquipmentServiceTag } from './service'

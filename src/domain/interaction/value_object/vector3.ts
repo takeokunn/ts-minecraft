@@ -1,6 +1,5 @@
-import { Schema } from '@effect/schema'
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
-import { Data, Effect, Either } from 'effect'
+import { Data, Effect, Either, Schema } from 'effect'
 import { pipe } from 'effect/Function'
 
 const ComponentSchema = Schema.Number.pipe(
@@ -26,13 +25,14 @@ export const Vector3Error = Data.taggedEnum({
 
 export type Vector3Error = typeof Vector3Error.Type
 
-const formatParseError = (error: Schema.ParseError) => {
-  try {
-    return TreeFormatter.formatError(error, { includeStackTrace: false })
-  } catch {
-    return 'Vector3を構築できません'
-  }
-}
+const formatParseError = (error: Schema.ParseError) =>
+  pipe(
+    Effect.try({
+      try: () => TreeFormatter.formatError(error, { includeStackTrace: false }),
+      catch: () => 'Vector3を構築できません' as const,
+    }),
+    Effect.runSync
+  )
 
 const toSchemaViolation = (error: Schema.ParseError) =>
   Vector3Error.SchemaViolation({ message: formatParseError(error) })

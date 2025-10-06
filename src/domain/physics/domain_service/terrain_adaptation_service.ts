@@ -1,5 +1,5 @@
-import { Context, Effect, Layer, Match, pipe } from 'effect'
 import type { PhysicsError } from '@domain/physics/types'
+import { Context, Effect, Layer, Match, pipe } from 'effect'
 import type { FluidState as FluidStateState } from '../value_object'
 import { FluidState } from '../value_object'
 

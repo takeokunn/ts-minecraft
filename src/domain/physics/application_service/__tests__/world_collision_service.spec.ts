@@ -1,7 +1,7 @@
+import { aabb, physicsWorldId, vector3 } from '@domain/physics/types/core'
 import { describe, expect, it } from '@effect/vitest'
 import { Effect, Layer } from 'effect'
 import { CollisionServiceLive } from '../../domain_service/collision_service'
-import { aabb, PhysicsWorldId, vector3 } from '@domain/physics/types/core'
 import { WorldCollisionApplicationService, WorldCollisionApplicationServiceLive } from '../world_collision_service'
 
 describe('WorldCollisionApplicationService', () => {
@@ -10,7 +10,7 @@ describe('WorldCollisionApplicationService', () => {
     min: vector3({ x: 0, y: 0, z: 0 }),
     max: vector3({ x: 1, y: 2, z: 1 }),
   })
-  const worldId = PhysicsWorldId('world-12345678')
+  const worldId = physicsWorldId('world-12345678')
 
   it.effect('allows placement when no collision is detected', () =>
     Effect.gen(function* () {

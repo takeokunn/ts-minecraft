@@ -11,7 +11,14 @@ module.exports = {
       severity: 'warn',
       from: {
         orphan: true,
-        pathNot: ['^src/main.ts$', '^src/index.ts$', '^src/app.ts$', '__tests__/', '\.[Ss]pec\.(ts|tsx)$', '\.[Tt]est\.(ts|tsx)$'],
+        pathNot: [
+          '^src/main.ts$',
+          '^src/index.ts$',
+          '^src/app.ts$',
+          '__tests__/',
+          '\.[Ss]pec\.(ts|tsx)$',
+          '\.[Tt]est\.(ts|tsx)$',
+        ],
       },
       to: {},
     },

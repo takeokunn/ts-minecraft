@@ -1,6 +1,5 @@
-import { Schema } from '@effect/schema'
 import { describe, expect, it } from '@effect/vitest'
-import { Effect, Either } from 'effect'
+import { Effect, Either, Schema } from 'effect'
 import * as fc from 'effect/FastCheck'
 import { randomUUID } from 'node:crypto'
 import { ChunkCommand } from './commands'

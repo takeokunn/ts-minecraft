@@ -33,51 +33,62 @@ export interface TransferSpecification {
  */
 export class ValidSlotSpecification implements TransferSpecification {
   isSatisfiedBy = (request: TransferRequest): Effect.Effect<boolean, never> =>
-    Effect.gen(function* () {
-      // ソーススロットの検証
-      if (request.sourceSlot < 0 || request.sourceSlot >= request.sourceInventory.slots.length) {
-        return false
-      }
-
-      // ターゲットスロットの検証（'auto'の場合はスキップ）
-      if (request.targetSlot !== 'auto') {
-        if (request.targetSlot < 0 || request.targetSlot >= request.targetInventory.slots.length) {
-          return false
-        }
-      }
-
-      return true
-    })
+    pipe(
+      Effect.Do,
+      Effect.bind('sourceValid', () =>
+        Effect.succeed(request.sourceSlot >= 0 && request.sourceSlot < request.sourceInventory.slots.length)
+      ),
+      Effect.bind('targetValid', () =>
+        Effect.succeed(
+          request.targetSlot === 'auto' ||
+            (request.targetSlot >= 0 && request.targetSlot < request.targetInventory.slots.length)
+        )
+      ),
+      Effect.map(({ sourceValid, targetValid }) => sourceValid && targetValid)
+    )
 
   getViolationReason = (): InventoryErrorReason => 'INVALID_SLOT_INDEX'
 
   getConstraints = (request: TransferRequest): Effect.Effect<ReadonlyArray<TransferConstraint>, never> =>
-    Effect.gen(function* () {
-      const constraints: TransferConstraint[] = []
-
-      // ソーススロット検証
-      if (request.sourceSlot < 0 || request.sourceSlot >= request.sourceInventory.slots.length) {
-        constraints.push({
-          type: 'slot_occupied',
-          message: `Source slot ${request.sourceSlot} is out of bounds`,
-          affectedSlots: [request.sourceSlot],
+    pipe(
+      Effect.Do,
+      Effect.bind('sourceConstraint', () =>
+        Effect.if(request.sourceSlot < 0 || request.sourceSlot >= request.sourceInventory.slots.length, {
+          onTrue: () =>
+            Effect.succeed(
+              Option.some<TransferConstraint>({
+                type: 'slot_occupied',
+                message: `Source slot ${request.sourceSlot} is out of bounds`,
+                affectedSlots: [request.sourceSlot],
+              })
+            ),
+          onFalse: () => Effect.succeed(Option.none<TransferConstraint>()),
         })
-      }
-
-      // ターゲットスロット検証
-      if (
-        request.targetSlot !== 'auto' &&
-        (request.targetSlot < 0 || request.targetSlot >= request.targetInventory.slots.length)
-      ) {
-        constraints.push({
-          type: 'slot_occupied',
-          message: `Target slot ${request.targetSlot} is out of bounds`,
-          affectedSlots: [request.targetSlot],
-        })
-      }
-
-      return constraints
-    })
+      ),
+      Effect.bind('targetConstraint', () =>
+        Effect.if(
+          request.targetSlot !== 'auto' &&
+            (request.targetSlot < 0 || request.targetSlot >= request.targetInventory.slots.length),
+          {
+            onTrue: () =>
+              Effect.succeed(
+                Option.some<TransferConstraint>({
+                  type: 'slot_occupied',
+                  message: `Target slot ${request.targetSlot} is out of bounds`,
+                  affectedSlots: [request.targetSlot],
+                })
+              ),
+            onFalse: () => Effect.succeed(Option.none<TransferConstraint>()),
+          }
+        )
+      ),
+      Effect.map(({ sourceConstraint, targetConstraint }) =>
+        pipe(
+          [sourceConstraint, targetConstraint],
+          ReadonlyArray.filterMap((opt) => opt)
+        )
+      )
+    )
 }
 
 /**
@@ -94,21 +105,20 @@ export class SourceItemExistsSpecification implements TransferSpecification {
   getViolationReason = (): InventoryErrorReason => 'INSUFFICIENT_ITEMS'
 
   getConstraints = (request: TransferRequest): Effect.Effect<ReadonlyArray<TransferConstraint>, never> =>
-    Effect.gen(function* () {
-      const sourceItem = request.sourceInventory.slots[request.sourceSlot]
-
-      if (sourceItem === null) {
-        return [
-          {
-            type: 'slot_occupied',
-            message: `Source slot ${request.sourceSlot} is empty`,
-            affectedSlots: [request.sourceSlot],
-          },
-        ]
-      }
-
-      return []
-    })
+    pipe(
+      Effect.succeed(request.sourceInventory.slots[request.sourceSlot]),
+      Effect.map((sourceItem) =>
+        sourceItem === null
+          ? [
+              {
+                type: 'slot_occupied' as const,
+                message: `Source slot ${request.sourceSlot} is empty`,
+                affectedSlots: [request.sourceSlot],
+              },
+            ]
+          : []
+      )
+    )
 }
 
 /**
@@ -117,49 +127,45 @@ export class SourceItemExistsSpecification implements TransferSpecification {
  */
 export class ValidItemCountSpecification implements TransferSpecification {
   isSatisfiedBy = (request: TransferRequest): Effect.Effect<boolean, never> =>
-    Effect.gen(function* () {
-      const sourceItem = request.sourceInventory.slots[request.sourceSlot]
-
-      if (sourceItem === null) {
-        return false
-      }
-
-      const requestedCount = request.itemCount ?? sourceItem.count
-
-      return requestedCount > 0 && requestedCount <= sourceItem.count
-    })
+    pipe(
+      Effect.succeed(request.sourceInventory.slots[request.sourceSlot]),
+      Effect.map((sourceItem) => {
+        if (sourceItem === null) return false
+        const requestedCount = request.itemCount ?? sourceItem.count
+        return requestedCount > 0 && requestedCount <= sourceItem.count
+      })
+    )
 
   getViolationReason = (): InventoryErrorReason => 'INVALID_ITEM_COUNT'
 
   getConstraints = (request: TransferRequest): Effect.Effect<ReadonlyArray<TransferConstraint>, never> =>
-    Effect.gen(function* () {
-      const sourceItem = request.sourceInventory.slots[request.sourceSlot]
-      const constraints: TransferConstraint[] = []
+    pipe(
+      Effect.succeed(request.sourceInventory.slots[request.sourceSlot]),
+      Effect.map((sourceItem) => {
+        if (sourceItem === null) return []
 
-      if (sourceItem === null) {
+        const requestedCount = request.itemCount ?? sourceItem.count
+        const constraints: TransferConstraint[] = []
+
+        if (requestedCount <= 0) {
+          constraints.push({
+            type: 'item_specific',
+            message: 'Item count must be greater than 0',
+            affectedSlots: [request.sourceSlot],
+          })
+        }
+
+        if (requestedCount > sourceItem.count) {
+          constraints.push({
+            type: 'item_specific',
+            message: `Requested count ${requestedCount} exceeds available ${sourceItem.count}`,
+            affectedSlots: [request.sourceSlot],
+          })
+        }
+
         return constraints
-      }
-
-      const requestedCount = request.itemCount ?? sourceItem.count
-
-      if (requestedCount <= 0) {
-        constraints.push({
-          type: 'item_specific',
-          message: 'Item count must be greater than 0',
-          affectedSlots: [request.sourceSlot],
-        })
-      }
-
-      if (requestedCount > sourceItem.count) {
-        constraints.push({
-          type: 'item_specific',
-          message: `Requested count ${requestedCount} exceeds available ${sourceItem.count}`,
-          affectedSlots: [request.sourceSlot],
-        })
-      }
-
-      return constraints
-    })
+      })
+    )
 }
 
 /**
@@ -169,7 +175,6 @@ export class ValidItemCountSpecification implements TransferSpecification {
 export class TargetSlotAvailableSpecification implements TransferSpecification {
   isSatisfiedBy = (request: TransferRequest): Effect.Effect<boolean, never> =>
     Effect.gen(function* () {
-      // 'auto'の場合は空きスロットの存在を確認
       if (request.targetSlot === 'auto') {
         return request.targetInventory.slots.some((slot) => slot === null)
       }
@@ -177,71 +182,65 @@ export class TargetSlotAvailableSpecification implements TransferSpecification {
       const targetSlot = request.targetInventory.slots[request.targetSlot]
       const sourceItem = request.sourceInventory.slots[request.sourceSlot]
 
-      if (sourceItem === null) {
-        return false
-      }
+      if (sourceItem === null) return false
+      if (targetSlot === null) return true
 
-      // ターゲットスロットが空の場合はOK
-      if (targetSlot === null) {
-        return true
-      }
-
-      // 同じアイテムIDの場合は結合可能性を確認
       if (targetSlot.itemId === sourceItem.itemId) {
         const requestedCount = request.itemCount ?? sourceItem.count
-        return targetSlot.count + requestedCount <= 64 // スタック制限
+        return targetSlot.count + requestedCount <= 64
       }
 
-      // 異なるアイテムの場合は結合不可
       return false
     })
 
   getViolationReason = (): InventoryErrorReason => 'SLOT_OCCUPIED'
 
   getConstraints = (request: TransferRequest): Effect.Effect<ReadonlyArray<TransferConstraint>, never> =>
-    Effect.gen(function* () {
-      const constraints: TransferConstraint[] = []
-
-      if (request.targetSlot === 'auto') {
-        const hasEmptySlot = request.targetInventory.slots.some((slot) => slot === null)
-        if (!hasEmptySlot) {
-          constraints.push({
-            type: 'slot_occupied',
-            message: 'No empty slots available in target inventory',
-            affectedSlots: [],
-          })
+    pipe(
+      Effect.Do,
+      Effect.bind('sourceItem', () => Effect.succeed(request.sourceInventory.slots[request.sourceSlot])),
+      Effect.map(({ sourceItem }) => {
+        if (request.targetSlot === 'auto') {
+          const hasEmptySlot = request.targetInventory.slots.some((slot) => slot === null)
+          if (!hasEmptySlot) {
+            return [
+              {
+                type: 'slot_occupied' as const,
+                message: 'No empty slots available in target inventory',
+                affectedSlots: [],
+              },
+            ]
+          }
+          return []
         }
-        return constraints
-      }
 
-      const targetSlot = request.targetInventory.slots[request.targetSlot]
-      const sourceItem = request.sourceInventory.slots[request.sourceSlot]
+        if (sourceItem === null) return []
 
-      if (sourceItem === null) {
-        return constraints
-      }
+        const targetSlot = request.targetInventory.slots[request.targetSlot]
+        const constraints: TransferConstraint[] = []
 
-      if (targetSlot !== null && targetSlot.itemId !== sourceItem.itemId) {
-        constraints.push({
-          type: 'incompatible_items',
-          message: `Cannot combine ${sourceItem.itemId} with ${targetSlot.itemId}`,
-          affectedSlots: [request.targetSlot],
-        })
-      }
-
-      if (targetSlot !== null && targetSlot.itemId === sourceItem.itemId) {
-        const requestedCount = request.itemCount ?? sourceItem.count
-        if (targetSlot.count + requestedCount > 64) {
+        if (targetSlot !== null && targetSlot.itemId !== sourceItem.itemId) {
           constraints.push({
-            type: 'stack_limit',
-            message: `Stack would exceed limit: ${targetSlot.count + requestedCount} > 64`,
+            type: 'incompatible_items',
+            message: `Cannot combine ${sourceItem.itemId} with ${targetSlot.itemId}`,
             affectedSlots: [request.targetSlot],
           })
         }
-      }
 
-      return constraints
-    })
+        if (targetSlot !== null && targetSlot.itemId === sourceItem.itemId) {
+          const requestedCount = request.itemCount ?? sourceItem.count
+          if (targetSlot.count + requestedCount > 64) {
+            constraints.push({
+              type: 'stack_limit',
+              message: `Stack would exceed limit: ${targetSlot.count + requestedCount} > 64`,
+              affectedSlots: [request.targetSlot],
+            })
+          }
+        }
+
+        return constraints
+      })
+    )
 }
 
 /**
@@ -253,20 +252,12 @@ export class StackLimitSpecification implements TransferSpecification {
     Effect.gen(function* () {
       const sourceItem = request.sourceInventory.slots[request.sourceSlot]
 
-      if (sourceItem === null) {
-        return false
-      }
+      if (sourceItem === null) return false
 
       const requestedCount = request.itemCount ?? sourceItem.count
+      if (requestedCount > 64) return false
 
-      // 基本的なスタック制限チェック（64個まで）
-      if (requestedCount > 64) {
-        return false
-      }
-
-      // アイテム固有のスタック制限（将来の拡張ポイント）
       const itemSpecificLimit = yield* this.getItemStackLimit(sourceItem.itemId)
-
       return requestedCount <= itemSpecificLimit
     })
 
@@ -275,24 +266,23 @@ export class StackLimitSpecification implements TransferSpecification {
   getConstraints = (request: TransferRequest): Effect.Effect<ReadonlyArray<TransferConstraint>, never> =>
     Effect.gen(function* () {
       const sourceItem = request.sourceInventory.slots[request.sourceSlot]
-      const constraints: TransferConstraint[] = []
 
-      if (sourceItem === null) {
-        return constraints
-      }
+      if (sourceItem === null) return []
 
       const requestedCount = request.itemCount ?? sourceItem.count
       const itemSpecificLimit = yield* this.getItemStackLimit(sourceItem.itemId)
 
       if (requestedCount > itemSpecificLimit) {
-        constraints.push({
-          type: 'stack_limit',
-          message: `Requested count ${requestedCount} exceeds stack limit ${itemSpecificLimit}`,
-          affectedSlots: [request.sourceSlot],
-        })
+        return [
+          {
+            type: 'stack_limit' as const,
+            message: `Requested count ${requestedCount} exceeds stack limit ${itemSpecificLimit}`,
+            affectedSlots: [request.sourceSlot],
+          },
+        ]
       }
 
-      return constraints
+      return []
     })
 
   private getItemStackLimit = (itemId: ItemId): Effect.Effect<number, never> =>
@@ -345,45 +335,37 @@ export class CanTransferSpecification implements TransferSpecification {
   ]
 
   isSatisfiedBy = (request: TransferRequest): Effect.Effect<boolean, never> =>
-    Effect.gen(function* () {
-      // 全ての仕様が満たされているかを確認
-      for (const spec of this.specifications) {
-        const satisfied = yield* spec.isSatisfiedBy(request)
-        if (!satisfied) {
-          return false
-        }
-      }
-      return true
-    })
+    pipe(
+      this.specifications,
+      Effect.forEach((spec) => spec.isSatisfiedBy(request), { concurrency: 'unbounded' }),
+      Effect.map((results) => ReadonlyArray.every(results, (satisfied) => satisfied))
+    )
 
   getViolationReason = (): InventoryErrorReason => 'INVENTORY_FULL' // デフォルト
 
   getConstraints = (request: TransferRequest): Effect.Effect<ReadonlyArray<TransferConstraint>, never> =>
-    Effect.gen(function* () {
-      const allConstraints: TransferConstraint[] = []
-
-      // 全ての仕様から制約を収集
-      for (const spec of this.specifications) {
-        const constraints = yield* spec.getConstraints(request)
-        allConstraints.push(...constraints)
-      }
-
-      return allConstraints
-    })
+    pipe(
+      this.specifications,
+      Effect.forEach((spec) => spec.getConstraints(request), { concurrency: 'unbounded' }),
+      Effect.map((constraintArrays) => ReadonlyArray.flatten(constraintArrays))
+    )
 
   /**
    * 最初に違反した仕様の理由を取得
    */
   getFirstViolationReason = (request: TransferRequest): Effect.Effect<InventoryErrorReason | null, never> =>
-    Effect.gen(function* () {
-      for (const spec of this.specifications) {
-        const satisfied = yield* spec.isSatisfiedBy(request)
-        if (!satisfied) {
-          return spec.getViolationReason()
-        }
-      }
-      return null
-    })
+    pipe(
+      this.specifications,
+      Effect.reduce(Option.none<InventoryErrorReason>(), (acc, spec) =>
+        Effect.gen(function* () {
+          if (Option.isSome(acc)) return acc
+
+          const satisfied = yield* spec.isSatisfiedBy(request)
+          return satisfied ? Option.none<InventoryErrorReason>() : Option.some(spec.getViolationReason())
+        })
+      ),
+      Effect.map((result) => (Option.isSome(result) ? result.value : null))
+    )
 }
 
 // =============================================================================
@@ -423,25 +405,17 @@ const calculateMaxTransferableCount = (request: TransferRequest): Effect.Effect<
   Effect.gen(function* () {
     const sourceItem = request.sourceInventory.slots[request.sourceSlot]
 
-    if (sourceItem === null) {
-      return 0
-    }
+    if (sourceItem === null) return 0
 
     const targetSlot = request.targetSlot === 'auto' ? yield* findOptimalTargetSlot(request) : request.targetSlot
 
-    if (targetSlot === undefined) {
-      return 0
-    }
+    if (targetSlot === undefined) return 0
 
     const targetItem = request.targetInventory.slots[targetSlot]
 
-    if (targetItem === null) {
-      return sourceItem.count
-    }
+    if (targetItem === null) return sourceItem.count
 
-    if (targetItem.itemId !== sourceItem.itemId) {
-      return 0
-    }
+    if (targetItem.itemId !== sourceItem.itemId) return 0
 
     return Math.min(sourceItem.count, 64 - targetItem.count)
   })
@@ -453,24 +427,23 @@ const findOptimalTargetSlot = (request: TransferRequest): Effect.Effect<number |
   Effect.gen(function* () {
     const sourceItem = request.sourceInventory.slots[request.sourceSlot]
 
-    if (sourceItem === null) {
-      return undefined
-    }
+    if (sourceItem === null) return undefined
 
     // 1. 同じアイテムIDの部分的なスタックを優先
-    for (let i = 0; i < request.targetInventory.slots.length; i++) {
-      const slot = request.targetInventory.slots[i]
-      if (slot !== null && slot.itemId === sourceItem.itemId && slot.count < 64) {
-        return i
-      }
+    const partialStackIndex = pipe(
+      request.targetInventory.slots,
+      ReadonlyArray.findFirstIndex((slot) => slot !== null && slot.itemId === sourceItem.itemId && slot.count < 64)
+    )
+
+    if (Option.isSome(partialStackIndex)) {
+      return partialStackIndex.value
     }
 
     // 2. 空きスロットを検索
-    for (let i = 0; i < request.targetInventory.slots.length; i++) {
-      if (request.targetInventory.slots[i] === null) {
-        return i
-      }
-    }
+    const emptySlotIndex = pipe(
+      request.targetInventory.slots,
+      ReadonlyArray.findFirstIndex((slot) => slot === null)
+    )
 
-    return undefined
+    return Option.isSome(emptySlotIndex) ? emptySlotIndex.value : undefined
   })

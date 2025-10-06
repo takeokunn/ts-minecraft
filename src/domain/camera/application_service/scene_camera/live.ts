@@ -1,9 +1,9 @@
-import { Data, Effect, Layer, Match, Option, pipe } from 'effect'
-import type { SceneCameraApplicationService } from './index'
+import { Clock, Data, Effect, Layer, Match, Option, pipe } from 'effect'
 import type {
   CinematicSequence,
   FollowMode,
   SceneCameraApplicationError,
+  SceneCameraApplicationService,
   SceneCameraId,
   SceneCameraState,
   SceneCameraStatistics,
@@ -43,18 +43,18 @@ import type { Position3D } from '../../value_object/index'
  * 複数のDomain ServiceとRepositoryを統合してシネマティック機能を提供します。
  */
 export const SceneCameraApplicationServiceLive = Layer.effect(
-  SceneCameraApplicationService as any, // type assertion for Context.GenericTag
+  SceneCameraApplicationService,
   Effect.gen(function* () {
     // === Dependencies Injection ===
-    const cameraStateRepo = yield* CameraStateRepository as any
-    const settingsRepo = yield* SettingsStorageRepository as any
-    const animationHistoryRepo = yield* AnimationHistoryRepository as any
+    const cameraStateRepo = yield* CameraStateRepository
+    const settingsRepo = yield* SettingsStorageRepository
+    const animationHistoryRepo = yield* AnimationHistoryRepository
 
-    const cameraControlService = yield* CameraControlService as any
-    const animationEngine = yield* AnimationEngineService as any
-    const collisionDetection = yield* CollisionDetectionService as any
-    const settingsValidator = yield* SettingsValidatorService as any
-    const viewModeManager = yield* ViewModeManagerService as any
+    const cameraControlService = yield* CameraControlService
+    const animationEngine = yield* AnimationEngineService
+    const collisionDetection = yield* CollisionDetectionService
+    const settingsValidator = yield* SettingsValidatorService
+    const viewModeManager = yield* ViewModeManagerService
 
     // === Internal State Management ===
     const scenes = new Map<SceneId, Set<SceneCameraId>>()
@@ -70,13 +70,21 @@ export const SceneCameraApplicationServiceLive = Layer.effect(
      * シーンカメラIDを生成
      */
     const generateSceneCameraId = (): Effect.Effect<SceneCameraId, never> =>
-      Effect.succeed(`scene-camera-${Date.now()}-${Math.random().toString(36).substr(2, 9)}` as SceneCameraId)
+      Effect.gen(function* () {
+        const timestamp = yield* Clock.currentTimeMillis
+        const random = yield* Effect.sync(() => Math.random().toString(36).substr(2, 9))
+        return `scene-camera-${timestamp}-${random}` as SceneCameraId
+      })
 
     /**
      * シーケンスIDを生成
      */
     const generateSequenceId = (): Effect.Effect<SequenceId, never> =>
-      Effect.succeed(`sequence-${Date.now()}-${Math.random().toString(36).substr(2, 9)}` as SequenceId)
+      Effect.gen(function* () {
+        const timestamp = yield* Clock.currentTimeMillis
+        const random = yield* Effect.sync(() => Math.random().toString(36).substr(2, 9))
+        return `sequence-${timestamp}-${random}` as SequenceId
+      })
 
     /**
      * シーンカメラ状態を取得（内部用）
@@ -212,26 +220,23 @@ export const SceneCameraApplicationServiceLive = Layer.effect(
                 Math.pow(targetPosition.z - currentPosition.z, 2)
             )
 
-            if (distance > maxDistance) {
-              const ratio = maxDistance / distance
-              return {
-                x: currentPosition.x + (targetPosition.x - currentPosition.x) * ratio,
-                y: currentPosition.y + (targetPosition.y - currentPosition.y) * ratio,
-                z: currentPosition.z + (targetPosition.z - currentPosition.z) * ratio,
-              } as Position3D
-            }
-
-            // スムージング適用
-            return {
-              x: currentPosition.x + (targetPosition.x - currentPosition.x) * smoothing,
-              y: currentPosition.y + (targetPosition.y - currentPosition.y) * smoothing,
-              z: currentPosition.z + (targetPosition.z - currentPosition.z) * smoothing,
-            } as Position3D
+            return distance > maxDistance
+              ? ({
+                  x: currentPosition.x + (targetPosition.x - currentPosition.x) * (maxDistance / distance),
+                  y: currentPosition.y + (targetPosition.y - currentPosition.y) * (maxDistance / distance),
+                  z: currentPosition.z + (targetPosition.z - currentPosition.z) * (maxDistance / distance),
+                } as Position3D)
+              : ({
+                  x: currentPosition.x + (targetPosition.x - currentPosition.x) * smoothing,
+                  y: currentPosition.y + (targetPosition.y - currentPosition.y) * smoothing,
+                  z: currentPosition.z + (targetPosition.z - currentPosition.z) * smoothing,
+                } as Position3D)
           })
         ),
         Match.tag('Orbit', ({ center, radius, speed, direction }) =>
           Effect.gen(function* () {
-            const time = Date.now() / 1000 // 秒単位
+            const timeMs = yield* Clock.currentTimeMillis
+            const time = timeMs / 1000 // 秒単位
             const angle = time * speed
 
             return {
@@ -243,12 +248,7 @@ export const SceneCameraApplicationServiceLive = Layer.effect(
         ),
         Match.tag('Path', ({ waypoints, speed, looping }) =>
           Effect.gen(function* () {
-            if (waypoints.length === 0) {
-              return currentPosition
-            }
-
-            // 簡略実装：最初のウェイポイントを返す
-            return waypoints[0]
+            return waypoints.length === 0 ? currentPosition : waypoints[0]
           })
         ),
         Match.tag('LookAt', ({ target, distance, angle }) =>
@@ -273,21 +273,14 @@ export const SceneCameraApplicationServiceLive = Layer.effect(
       cameraState: SceneCameraState
     ): Effect.Effect<boolean, SceneCameraApplicationError> =>
       Effect.gen(function* () {
-        // 既に実行中のシーケンスがあるかチェック
-        if (Option.isSome(cameraState.currentSequence)) {
-          return false
-        }
-
-        // キーフレームの妥当性チェック
-        if (sequence.keyframes.length === 0) {
-          return false
-        }
-
-        // リソース利用可能性チェック（簡略実装）
         const memoryRequired = sequence.keyframes.length * 1024 // 1KB per keyframe
         const availableMemory = 100 * 1024 * 1024 // 100MB available
 
-        return memoryRequired < availableMemory
+        return (
+          Option.isNone(cameraState.currentSequence) &&
+          sequence.keyframes.length > 0 &&
+          memoryRequired < availableMemory
+        )
       })
 
     /**
@@ -298,13 +291,14 @@ export const SceneCameraApplicationServiceLive = Layer.effect(
       operationType: string
     ): Effect.Effect<void, never> =>
       Effect.gen(function* () {
+        const now = yield* Clock.currentTimeMillis
         const current =
           performanceMetrics.get(sceneCameraId) ||
           ({
             totalSequencesPlayed: 0,
             totalRunTime: 0,
             averageFPS: 60,
-            lastPerformanceCheck: Date.now(),
+            lastPerformanceCheck: now,
             memoryUsage: 0,
             renderingMetrics: {
               drawCalls: 0,
@@ -318,7 +312,7 @@ export const SceneCameraApplicationServiceLive = Layer.effect(
         const updated = {
           ...current,
           ...(operationType === 'sequenceStart' && { totalSequencesPlayed: current.totalSequencesPlayed + 1 }),
-          lastPerformanceCheck: Date.now(),
+          lastPerformanceCheck: now,
         } as SceneCameraStatistics
 
         performanceMetrics.set(sceneCameraId, updated)
@@ -329,12 +323,11 @@ export const SceneCameraApplicationServiceLive = Layer.effect(
     return SceneCameraApplicationService.of({
       createSceneCamera: (sceneId, initialSetup) =>
         Effect.gen(function* () {
+          const now = yield* Clock.currentTimeMillis
           const sceneCameraId = yield* generateSceneCameraId()
 
           // シーンの初期化
-          if (!scenes.has(sceneId)) {
-            scenes.set(sceneId, new Set())
-          }
+          yield* Effect.when(!scenes.has(sceneId), () => Effect.sync(() => scenes.set(sceneId, new Set())))
 
           // 初期位置とターゲットの計算
           const initialTargetPositions = yield* Effect.all(initialSetup.targets.map(resolveTargetPosition), {
@@ -356,12 +349,12 @@ export const SceneCameraApplicationServiceLive = Layer.effect(
             isActive: true,
             currentSequence: Option.none(),
             animationState: Option.none(),
-            lastUpdate: Date.now(),
+            lastUpdate: now,
             statistics: {
               totalSequencesPlayed: 0,
               totalRunTime: 0,
               averageFPS: 60,
-              lastPerformanceCheck: Date.now(),
+              lastPerformanceCheck: now,
               memoryUsage: 0,
               renderingMetrics: {
                 drawCalls: 0,
@@ -383,12 +376,13 @@ export const SceneCameraApplicationServiceLive = Layer.effect(
 
       addCameraToScene: (sceneId, cameraConfig) =>
         Effect.gen(function* () {
+          const now = yield* Clock.currentTimeMillis
           const sceneCameraId = yield* generateSceneCameraId()
 
           // シーンの存在確認
-          if (!scenes.has(sceneId)) {
-            return yield* Effect.fail(createSceneCameraApplicationError.sceneNotFound(sceneId))
-          }
+          yield* Effect.unless(scenes.has(sceneId), () =>
+            Effect.fail(createSceneCameraApplicationError.sceneNotFound(sceneId))
+          )
 
           const cameraState = {
             sceneCameraId,
@@ -399,12 +393,12 @@ export const SceneCameraApplicationServiceLive = Layer.effect(
             isActive: cameraConfig.isActive,
             currentSequence: Option.none(),
             animationState: Option.none(),
-            lastUpdate: Date.now(),
+            lastUpdate: now,
             statistics: {
               totalSequencesPlayed: 0,
               totalRunTime: 0,
               averageFPS: 60,
-              lastPerformanceCheck: Date.now(),
+              lastPerformanceCheck: now,
               memoryUsage: 0,
               renderingMetrics: {
                 drawCalls: 0,
@@ -425,6 +419,7 @@ export const SceneCameraApplicationServiceLive = Layer.effect(
 
       updateSceneTargets: (sceneCameraId, targets) =>
         Effect.gen(function* () {
+          const now = yield* Clock.currentTimeMillis
           const cameraState = yield* findSceneCamera(sceneCameraId)
 
           // ターゲット位置の解決
@@ -433,7 +428,7 @@ export const SceneCameraApplicationServiceLive = Layer.effect(
           const updatedState = {
             ...cameraState,
             currentTargets: targets,
-            lastUpdate: Date.now(),
+            lastUpdate: now,
           } as SceneCameraState
 
           sceneCameras.set(sceneCameraId, updatedState)
@@ -441,113 +436,148 @@ export const SceneCameraApplicationServiceLive = Layer.effect(
 
       startCinematicSequence: (sceneCameraId, sequence) =>
         Effect.gen(function* () {
+          const now = yield* Clock.currentTimeMillis
           const cameraState = yield* findSceneCamera(sceneCameraId)
 
           const canExecute = yield* validateSequenceExecution(sequence, cameraState)
-          if (!canExecute) {
-            const error = Data.struct({
-              _tag: 'AnimationSystemError' as const,
-              details: 'Cannot start sequence: camera is busy or invalid sequence',
-            }) as SequenceExecutionError
 
-            return createSequenceExecutionResult.failed(sequence.id, error, 0)
-          }
+          return yield* pipe(
+            canExecute,
+            Effect.if({
+              onTrue: () =>
+                Effect.gen(function* () {
+                  // シーケンス実行の開始
+                  const animation = yield* animationEngine.createSequenceAnimation(sequence)
 
-          // シーケンス実行の開始
-          const animation = yield* animationEngine.createSequenceAnimation(sequence)
+                  const updatedState = {
+                    ...cameraState,
+                    currentSequence: Option.some(sequence),
+                    animationState: Option.some(animation),
+                    lastUpdate: now,
+                  } as SceneCameraState
 
-          const updatedState = {
-            ...cameraState,
-            currentSequence: Option.some(sequence),
-            animationState: Option.some(animation),
-            lastUpdate: Date.now(),
-          } as SceneCameraState
+                  sceneCameras.set(sceneCameraId, updatedState)
+                  activeSequences.set(sceneCameraId, sequence)
 
-          sceneCameras.set(sceneCameraId, updatedState)
-          activeSequences.set(sceneCameraId, sequence)
+                  yield* updateSceneCameraStatistics(sceneCameraId, 'sequenceStart')
 
-          yield* updateSceneCameraStatistics(sceneCameraId, 'sequenceStart')
+                  // アニメーション履歴の記録
+                  yield* animationHistoryRepo.recordSequenceStart(sceneCameraId, sequence.id)
 
-          // アニメーション履歴の記録
-          yield* animationHistoryRepo.recordSequenceStart(sceneCameraId, sequence.id)
+                  return createSequenceExecutionResult.started(sequence.id, sequence.duration)
+                }),
+              onFalse: () => {
+                const error = Data.struct({
+                  _tag: 'AnimationSystemError' as const,
+                  details: 'Cannot start sequence: camera is busy or invalid sequence',
+                }) as SequenceExecutionError
 
-          return createSequenceExecutionResult.started(sequence.id, sequence.duration)
+                return Effect.succeed(createSequenceExecutionResult.failed(sequence.id, error, 0))
+              },
+            })
+          )
         }),
 
       pauseCinematicSequence: (sceneCameraId) =>
         Effect.gen(function* () {
+          const now = yield* Clock.currentTimeMillis
           const cameraState = yield* findSceneCamera(sceneCameraId)
 
-          if (Option.isSome(cameraState.animationState)) {
-            const animation = Option.getOrThrow(cameraState.animationState)
-            yield* animationEngine.pauseAnimation(animation)
+          yield* pipe(
+            cameraState.animationState,
+            Option.match({
+              onNone: () => Effect.void,
+              onSome: (animation) =>
+                Effect.gen(function* () {
+                  yield* animationEngine.pauseAnimation(animation)
 
-            const updatedState = {
-              ...cameraState,
-              lastUpdate: Date.now(),
-            } as SceneCameraState
+                  const updatedState = {
+                    ...cameraState,
+                    lastUpdate: now,
+                  } as SceneCameraState
 
-            sceneCameras.set(sceneCameraId, updatedState)
-          }
+                  sceneCameras.set(sceneCameraId, updatedState)
+                }),
+            })
+          )
         }),
 
       resumeCinematicSequence: (sceneCameraId) =>
         Effect.gen(function* () {
+          const now = yield* Clock.currentTimeMillis
           const cameraState = yield* findSceneCamera(sceneCameraId)
 
-          if (Option.isSome(cameraState.animationState)) {
-            const animation = Option.getOrThrow(cameraState.animationState)
-            yield* animationEngine.resumeAnimation(animation)
+          yield* pipe(
+            cameraState.animationState,
+            Option.match({
+              onNone: () => Effect.void,
+              onSome: (animation) =>
+                Effect.gen(function* () {
+                  yield* animationEngine.resumeAnimation(animation)
 
-            const updatedState = {
-              ...cameraState,
-              lastUpdate: Date.now(),
-            } as SceneCameraState
+                  const updatedState = {
+                    ...cameraState,
+                    lastUpdate: now,
+                  } as SceneCameraState
 
-            sceneCameras.set(sceneCameraId, updatedState)
-          }
+                  sceneCameras.set(sceneCameraId, updatedState)
+                }),
+            })
+          )
         }),
 
       stopCinematicSequence: (sceneCameraId) =>
         Effect.gen(function* () {
+          const now = yield* Clock.currentTimeMillis
           const cameraState = yield* findSceneCamera(sceneCameraId)
 
-          if (Option.isSome(cameraState.animationState)) {
-            const animation = Option.getOrThrow(cameraState.animationState)
-            yield* animationEngine.stopAnimation(animation)
+          yield* pipe(
+            cameraState.animationState,
+            Option.match({
+              onNone: () => Effect.void,
+              onSome: (animation) =>
+                Effect.gen(function* () {
+                  yield* animationEngine.stopAnimation(animation)
 
-            const updatedState = {
-              ...cameraState,
-              currentSequence: Option.none(),
-              animationState: Option.none(),
-              lastUpdate: Date.now(),
-            } as SceneCameraState
+                  const updatedState = {
+                    ...cameraState,
+                    currentSequence: Option.none(),
+                    animationState: Option.none(),
+                    lastUpdate: now,
+                  } as SceneCameraState
 
-            sceneCameras.set(sceneCameraId, updatedState)
-            activeSequences.delete(sceneCameraId)
+                  sceneCameras.set(sceneCameraId, updatedState)
+                  activeSequences.delete(sceneCameraId)
 
-            // アニメーション履歴の記録
-            if (Option.isSome(cameraState.currentSequence)) {
-              const sequence = Option.getOrThrow(cameraState.currentSequence)
-              yield* animationHistoryRepo.recordSequenceEnd(sceneCameraId, sequence.id)
-            }
-          }
+                  // アニメーション履歴の記録
+                  yield* pipe(
+                    cameraState.currentSequence,
+                    Option.match({
+                      onNone: () => Effect.void,
+                      onSome: (sequence) => animationHistoryRepo.recordSequenceEnd(sceneCameraId, sequence.id),
+                    })
+                  )
+                }),
+            })
+          )
         }),
 
       getSceneCameraState: (sceneCameraId) => findSceneCamera(sceneCameraId),
 
       getAllSceneCameras: (sceneId) =>
         Effect.gen(function* () {
-          const sceneCameraIds = scenes.get(sceneId)
-
-          if (!sceneCameraIds) {
-            return yield* Effect.fail(createSceneCameraApplicationError.sceneNotFound(sceneId))
-          }
-
-          const cameraStates = Array.from(sceneCameraIds)
-            .map((id) => sceneCameras.get(id)!)
-            .filter(Boolean)
-          return cameraStates
+          return yield* pipe(
+            Option.fromNullable(scenes.get(sceneId)),
+            Option.match({
+              onNone: () => Effect.fail(createSceneCameraApplicationError.sceneNotFound(sceneId)),
+              onSome: (sceneCameraIds) =>
+                Effect.succeed(
+                  Array.from(sceneCameraIds)
+                    .map((id) => sceneCameras.get(id)!)
+                    .filter(Boolean)
+                ),
+            })
+          )
         }),
 
       destroySceneCamera: (sceneCameraId) =>
@@ -555,54 +585,89 @@ export const SceneCameraApplicationServiceLive = Layer.effect(
           const cameraState = yield* findSceneCamera(sceneCameraId)
 
           // アクティブなシーケンスの停止
-          if (Option.isSome(cameraState.currentSequence)) {
-            if (Option.isSome(cameraState.animationState)) {
-              const animation = Option.getOrThrow(cameraState.animationState)
-              yield* animationEngine.stopAnimation(animation)
-            }
-          }
+          yield* pipe(
+            cameraState.currentSequence,
+            Option.match({
+              onNone: () => Effect.void,
+              onSome: () =>
+                pipe(
+                  cameraState.animationState,
+                  Option.match({
+                    onNone: () => Effect.void,
+                    onSome: (animation) => animationEngine.stopAnimation(animation),
+                  })
+                ),
+            })
+          )
 
           // 状態の削除
-          const sceneSet = scenes.get(cameraState.sceneId)
-          if (sceneSet) {
-            sceneSet.delete(sceneCameraId)
-          }
-
-          sceneCameras.delete(sceneCameraId)
-          activeSequences.delete(sceneCameraId)
-          trackingStates.delete(sceneCameraId)
-          performanceMetrics.delete(sceneCameraId)
-        }),
-
-      destroyScene: (sceneId) =>
-        Effect.gen(function* () {
-          const sceneCameraIds = scenes.get(sceneId)
-
-          if (!sceneCameraIds) {
-            return yield* Effect.fail(createSceneCameraApplicationError.sceneNotFound(sceneId))
-          }
-
-          // 全カメラの破棄
-          for (const sceneCameraId of sceneCameraIds) {
-            const cameraState = sceneCameras.get(sceneCameraId)
-            if (cameraState && Option.isSome(cameraState.animationState)) {
-              const animation = Option.getOrThrow(cameraState.animationState)
-              yield* animationEngine.stopAnimation(animation)
-            }
+          yield* Effect.sync(() => {
+            pipe(
+              Option.fromNullable(scenes.get(cameraState.sceneId)),
+              Option.match({
+                onNone: () => {},
+                onSome: (sceneSet) => {
+                  sceneSet.delete(sceneCameraId)
+                },
+              })
+            )
 
             sceneCameras.delete(sceneCameraId)
             activeSequences.delete(sceneCameraId)
             trackingStates.delete(sceneCameraId)
             performanceMetrics.delete(sceneCameraId)
-          }
+          })
+        }),
 
-          scenes.delete(sceneId)
+      destroyScene: (sceneId) =>
+        Effect.gen(function* () {
+          yield* pipe(
+            Option.fromNullable(scenes.get(sceneId)),
+            Option.match({
+              onNone: () => Effect.fail(createSceneCameraApplicationError.sceneNotFound(sceneId)),
+              onSome: (sceneCameraIds) =>
+                Effect.gen(function* () {
+                  // 全カメラの破棄
+                  yield* Effect.all(
+                    Array.from(sceneCameraIds).map((sceneCameraId) =>
+                      Effect.gen(function* () {
+                        yield* pipe(
+                          Option.fromNullable(sceneCameras.get(sceneCameraId)),
+                          Option.match({
+                            onNone: () => Effect.void,
+                            onSome: (cameraState) =>
+                              pipe(
+                                cameraState.animationState,
+                                Option.match({
+                                  onNone: () => Effect.void,
+                                  onSome: (animation) => animationEngine.stopAnimation(animation),
+                                })
+                              ),
+                          })
+                        )
+
+                        yield* Effect.sync(() => {
+                          sceneCameras.delete(sceneCameraId)
+                          activeSequences.delete(sceneCameraId)
+                          trackingStates.delete(sceneCameraId)
+                          performanceMetrics.delete(sceneCameraId)
+                        })
+                      })
+                    ),
+                    { concurrency: 'unbounded' }
+                  )
+
+                  scenes.delete(sceneId)
+                }),
+            })
+          )
         }),
 
       synchronizeCameras: (operations) =>
         Effect.all(
           operations.map(({ sceneCameraId, operation }) =>
             Effect.gen(function* () {
+              const now = yield* Clock.currentTimeMillis
               // 簡略実装：各操作を順次実行
               const mockSequence = {
                 id: yield* generateSequenceId(),
@@ -620,8 +685,8 @@ export const SceneCameraApplicationServiceLive = Layer.effect(
                 metadata: {
                   creator: 'System',
                   version: '1.0.0',
-                  created: Date.now(),
-                  lastModified: Date.now(),
+                  created: now,
+                  lastModified: now,
                   tags: ['sync'],
                   category: { _tag: 'Debug' },
                 },
@@ -635,6 +700,7 @@ export const SceneCameraApplicationServiceLive = Layer.effect(
 
       switchBetweenCameras: (fromCameraId, toCameraId, transitionConfig) =>
         Effect.gen(function* () {
+          const now = yield* Clock.currentTimeMillis
           const fromCamera = yield* findSceneCamera(fromCameraId)
           const toCamera = yield* findSceneCamera(toCameraId)
 
@@ -672,8 +738,8 @@ export const SceneCameraApplicationServiceLive = Layer.effect(
             metadata: {
               creator: 'System',
               version: '1.0.0',
-              created: Date.now(),
-              lastModified: Date.now(),
+              created: now,
+              lastModified: now,
               tags: ['transition'],
               category: { _tag: 'Cinematic' },
             },
@@ -684,19 +750,20 @@ export const SceneCameraApplicationServiceLive = Layer.effect(
 
       startDynamicTracking: (sceneCameraId, target, trackingConfig) =>
         Effect.gen(function* () {
+          const now = yield* Clock.currentTimeMillis
           const cameraState = yield* findSceneCamera(sceneCameraId)
 
           // 追跡状態の保存
           trackingStates.set(sceneCameraId, {
             target,
             config: trackingConfig,
-            startTime: Date.now(),
+            startTime: now,
             isActive: true,
           })
 
           const updatedState = {
             ...cameraState,
-            lastUpdate: Date.now(),
+            lastUpdate: now,
           } as SceneCameraState
 
           sceneCameras.set(sceneCameraId, updatedState)
@@ -713,67 +780,84 @@ export const SceneCameraApplicationServiceLive = Layer.effect(
         Effect.gen(function* () {
           yield* findSceneCamera(sceneCameraId) // 存在確認
 
-          const stats = performanceMetrics.get(sceneCameraId)
-          if (!stats) {
-            return yield* Effect.fail(createSceneCameraApplicationError.sceneCameraNotFound(sceneCameraId))
-          }
-
-          return stats
+          return yield* pipe(
+            Option.fromNullable(performanceMetrics.get(sceneCameraId)),
+            Option.match({
+              onNone: () => Effect.fail(createSceneCameraApplicationError.sceneCameraNotFound(sceneCameraId)),
+              onSome: Effect.succeed,
+            })
+          )
         }),
 
       getSceneStatistics: (sceneId) =>
         Effect.gen(function* () {
-          const sceneCameraIds = scenes.get(sceneId)
+          const now = yield* Clock.currentTimeMillis
 
-          if (!sceneCameraIds) {
-            return yield* Effect.fail(createSceneCameraApplicationError.sceneNotFound(sceneId))
-          }
+          return yield* pipe(
+            Option.fromNullable(scenes.get(sceneId)),
+            Option.match({
+              onNone: () => Effect.fail(createSceneCameraApplicationError.sceneNotFound(sceneId)),
+              onSome: (sceneCameraIds) => {
+                const activeCameras = Array.from(sceneCameraIds)
+                  .map((id) => sceneCameras.get(id))
+                  .filter((camera) => camera?.isActive).length
 
-          const activeCameras = Array.from(sceneCameraIds)
-            .map((id) => sceneCameras.get(id))
-            .filter((camera) => camera?.isActive).length
-
-          return {
-            totalCameras: sceneCameraIds.size,
-            activeCameras,
-            totalSequencesPlayed: Array.from(sceneCameraIds)
-              .map((id) => performanceMetrics.get(id)?.totalSequencesPlayed || 0)
-              .reduce((sum, count) => sum + count, 0),
-            averagePerformance: 60, // 簡略実装
-            memoryUsage: sceneCameraIds.size * 1024 * 1024, // 1MB per camera
-            lastOptimization: Date.now(),
-          } as SceneStatistics
+                return Effect.succeed({
+                  totalCameras: sceneCameraIds.size,
+                  activeCameras,
+                  totalSequencesPlayed: Array.from(sceneCameraIds)
+                    .map((id) => performanceMetrics.get(id)?.totalSequencesPlayed || 0)
+                    .reduce((sum, count) => sum + count, 0),
+                  averagePerformance: 60, // 簡略実装
+                  memoryUsage: sceneCameraIds.size * 1024 * 1024, // 1MB per camera
+                  lastOptimization: now,
+                } as SceneStatistics)
+              },
+            })
+          )
         }),
 
       optimizeSceneCameras: (optimizationTargets) =>
         Effect.gen(function* () {
-          let camerasOptimized = 0
-          let sequencesOptimized = 0
-          let memoryFreed = 0
+          const stats = yield* Effect.when(optimizationTargets.cleanupInactiveCameras, () =>
+            Effect.gen(function* () {
+              let camerasOptimized = 0
+              let memoryFreed = 0
 
-          // 非アクティブカメラのクリーンアップ
-          if (optimizationTargets.cleanupInactiveCameras) {
-            for (const [sceneCameraId, cameraState] of sceneCameras.entries()) {
-              if (!cameraState.isActive) {
-                yield* Effect.sync(() => {
-                  const sceneSet = scenes.get(cameraState.sceneId)
-                  if (sceneSet) {
-                    sceneSet.delete(sceneCameraId)
-                  }
-                  sceneCameras.delete(sceneCameraId)
-                  activeSequences.delete(sceneCameraId)
-                  performanceMetrics.delete(sceneCameraId)
+              yield* Effect.all(
+                Array.from(sceneCameras.entries()).map(([sceneCameraId, cameraState]) =>
+                  Effect.when(!cameraState.isActive, () =>
+                    Effect.sync(() => {
+                      pipe(
+                        Option.fromNullable(scenes.get(cameraState.sceneId)),
+                        Option.match({
+                          onNone: () => {},
+                          onSome: (sceneSet) => {
+                            sceneSet.delete(sceneCameraId)
+                          },
+                        })
+                      )
+                      sceneCameras.delete(sceneCameraId)
+                      activeSequences.delete(sceneCameraId)
+                      performanceMetrics.delete(sceneCameraId)
 
-                  camerasOptimized++
-                  memoryFreed += 1024 * 1024 // 1MB per camera
-                })
-              }
-            }
-          }
+                      camerasOptimized++
+                      memoryFreed += 1024 * 1024 // 1MB per camera
+                    })
+                  )
+                ),
+                { concurrency: 'unbounded' }
+              )
+
+              return { camerasOptimized, memoryFreed }
+            })
+          )
+
+          const { camerasOptimized = 0, memoryFreed = 0 } = stats || {}
 
           return {
             camerasOptimized,
-            sequencesOptimized,
+            sequencesOptimized: 0,
             memoryFreed,
             performanceImprovement: 0.1, // 10%改善
             optimizationDuration: 100, // 100ms
@@ -782,77 +866,73 @@ export const SceneCameraApplicationServiceLive = Layer.effect(
 
       validateSequence: (sequence) =>
         Effect.gen(function* () {
-          const errors: string[] = []
-
           // 基本的な検証
-          if (sequence.keyframes.length === 0) {
-            errors.push('Sequence must have at least one keyframe')
-          }
-
-          if (sequence.duration <= 0) {
-            errors.push('Sequence duration must be positive')
-          }
+          const baseErrors = [
+            ...(sequence.keyframes.length === 0 ? ['Sequence must have at least one keyframe'] : []),
+            ...(sequence.duration <= 0 ? ['Sequence duration must be positive'] : []),
+          ]
 
           // キーフレームの検証
-          for (let i = 0; i < sequence.keyframes.length; i++) {
-            const keyframe = sequence.keyframes[i]
-            if (keyframe.time < 0 || keyframe.time > sequence.duration) {
-              errors.push(`Keyframe ${i} time is out of sequence duration range`)
-            }
-          }
+          const keyframeErrors = sequence.keyframes.flatMap((keyframe, i) =>
+            keyframe.time < 0 || keyframe.time > sequence.duration
+              ? [`Keyframe ${i} time is out of sequence duration range`]
+              : []
+          )
 
-          if (errors.length > 0) {
-            return Data.struct({
-              _tag: 'Invalid' as const,
-              errors: errors.map((msg) => ({
-                type: 'ValidationError',
-                message: msg,
-                keyframeIndex: Option.none(),
-                severity: { _tag: 'Medium' },
-              })),
-              warnings: [],
-            }) as SequenceValidationResult
-          }
+          const errors = [...baseErrors, ...keyframeErrors]
 
-          return Data.struct({
-            _tag: 'Valid' as const,
-            estimatedDuration: sequence.duration,
-            requiredResources: ['memory', 'gpu'],
-          }) as SequenceValidationResult
+          return errors.length > 0
+            ? (Data.struct({
+                _tag: 'Invalid' as const,
+                errors: errors.map((msg) => ({
+                  type: 'ValidationError',
+                  message: msg,
+                  keyframeIndex: Option.none(),
+                  severity: { _tag: 'Medium' },
+                })),
+                warnings: [],
+              }) as SequenceValidationResult)
+            : (Data.struct({
+                _tag: 'Valid' as const,
+                estimatedDuration: sequence.duration,
+                requiredResources: ['memory', 'gpu'],
+              }) as SequenceValidationResult)
         }),
 
       getDebugInfo: (sceneCameraId) =>
         Effect.gen(function* () {
           const currentState = yield* findSceneCamera(sceneCameraId)
-          const statistics = performanceMetrics.get(sceneCameraId)
 
-          if (!statistics) {
-            return yield* Effect.fail(createSceneCameraApplicationError.sceneCameraNotFound(sceneCameraId))
-          }
-
-          return {
-            currentState,
-            recentOperations: ['startSequence', 'updateTargets'], // 簡略実装
-            performanceMetrics: statistics,
-            memoryBreakdown: {
-              sequences: 1024,
-              keyframes: 2048,
-              targets: 512,
-              animations: 1024,
-              effects: 256,
-              total: 4864,
-            },
-            activeSequenceDetails: Option.fromNullable(activeSequences.get(sceneCameraId)).pipe(
-              Option.map((sequence) => ({
-                sequenceId: sequence.id,
-                currentKeyframe: 0,
-                totalKeyframes: sequence.keyframes.length,
-                progress: 0.5, // 50%
-                remainingTime: sequence.duration / 2,
-                lastFrameTime: 16.67,
-              }))
-            ),
-          } as SceneCameraDebugInfo
+          return yield* pipe(
+            Option.fromNullable(performanceMetrics.get(sceneCameraId)),
+            Option.match({
+              onNone: () => Effect.fail(createSceneCameraApplicationError.sceneCameraNotFound(sceneCameraId)),
+              onSome: (statistics) =>
+                Effect.succeed({
+                  currentState,
+                  recentOperations: ['startSequence', 'updateTargets'], // 簡略実装
+                  performanceMetrics: statistics,
+                  memoryBreakdown: {
+                    sequences: 1024,
+                    keyframes: 2048,
+                    targets: 512,
+                    animations: 1024,
+                    effects: 256,
+                    total: 4864,
+                  },
+                  activeSequenceDetails: Option.fromNullable(activeSequences.get(sceneCameraId)).pipe(
+                    Option.map((sequence) => ({
+                      sequenceId: sequence.id,
+                      currentKeyframe: 0,
+                      totalKeyframes: sequence.keyframes.length,
+                      progress: 0.5, // 50%
+                      remainingTime: sequence.duration / 2,
+                      lastFrameTime: 16.67,
+                    }))
+                  ),
+                } as SceneCameraDebugInfo),
+            })
+          )
         }),
     })
   })

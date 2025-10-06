@@ -12,7 +12,7 @@ import type {
   SourceId,
   SourceNotFoundError,
   Volume,
-} from './index'
+} from './audio-types'
 
 /**
  * AudioService Interface

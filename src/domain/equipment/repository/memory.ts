@@ -1,9 +1,8 @@
-import { Context, Effect, Layer, Ref } from 'effect'
-import type { EquipmentPiece } from '../aggregate'
-import type { EquipmentSet } from '../aggregate'
-import { equipPiece, unequipSlot } from '../aggregate'
 import type { EquipmentOwnerId, EquipmentSetId, NotFound, UnixTime } from '@domain/equipment/types'
 import { makeNotFound } from '@domain/equipment/types'
+import { Context, Effect, Layer, Ref } from 'effect'
+import type { EquipmentPiece, EquipmentSet } from '../aggregate'
+import { equipPiece, unequipSlot } from '../aggregate'
 import type { EquipmentSlot } from '../value_object'
 
 export interface EquipmentRepository {

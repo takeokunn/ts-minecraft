@@ -6,28 +6,15 @@ difficulty: 'beginner'
 tags: ['import-path', 'module-management', 'code-organization', 'best-practices', 'typescript']
 prerequisites: ['basic-typescript', 'project-structure']
 estimated_reading_time: '10分'
-related_docs:
-  [
-    './development-conventions.md',
-    '../../reference/architecture/directory-structure.md',
-  ]
+related_docs: ['./development-conventions.md', '../../reference/architecture/directory-structure.md']
 ai_context:
-  primary_concepts:
-    ['import-path-management', 'module-organization', 'code-consistency', 'tooling']
-  prerequisite_knowledge:
-    ['typescript-modules', 'path-aliases', 'project-structure']
+  primary_concepts: ['import-path-management', 'module-organization', 'code-consistency', 'tooling']
+  prerequisite_knowledge: ['typescript-modules', 'path-aliases', 'project-structure']
   estimated_completion_time: '15分'
-  learning_outcomes:
-    ['import規約理解', '自動検証ツール活用', 'コード品質向上']
+  learning_outcomes: ['import規約理解', '自動検証ツール活用', 'コード品質向上']
   complexity_level: 3.0
 machine_readable:
-  topics:
-    [
-      'import-path',
-      'module-management',
-      'code-organization',
-      'typescript',
-    ]
+  topics: ['import-path', 'module-management', 'code-organization', 'typescript']
   skill_level: 'beginner'
   implementation_time: 15
   confidence_score: 0.99

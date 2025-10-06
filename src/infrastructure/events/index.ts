@@ -2,5 +2,6 @@
  * @fileoverview イベントバスのバレルエクスポート
  */
 
-export type { EventBusService } from './index'
-export { EventBus, EventBusDefault } from './index'
+export { EventBus } from './event-bus'
+export type { EventBusService } from './event-bus'
+export { EventBusDefault } from './event-bus-live'

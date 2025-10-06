@@ -5,9 +5,9 @@
  * ベジェ曲線・スプライン補間による滑らかな変化制御
  */
 
+import { taggedUnion } from '@domain/world/utils'
 import type { Brand as BrandType } from 'effect'
 import { Schema } from 'effect'
-import { taggedUnion } from '@domain/world/utils'
 
 /**
  * 正規化時間Brand型（0.0から1.0）

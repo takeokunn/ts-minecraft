@@ -1,7 +1,7 @@
 import type { BlockTypeId } from '@domain/entities'
+import type { AABB, CollisionResult } from '@domain/physics/types'
 import { Effect, Match, Option, pipe, Stream } from 'effect'
 import type { Vector3 } from '../../world/types'
-import type { AABB, CollisionResult } from '@domain/physics/types'
 
 /**
  * AABB衝突検出システム

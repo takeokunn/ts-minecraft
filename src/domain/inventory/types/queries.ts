@@ -1,4 +1,4 @@
-import { Schema } from 'effect'
+import { Clock, Effect, Schema } from 'effect'
 
 // =============================================================================
 // Base Query Types
@@ -656,10 +656,14 @@ export type QueryResult = Schema.Schema.Type<typeof QueryResultSchema>
 /**
  * 共通クエリプロパティを生成
  */
-const createBaseQuery = (userId: string): Omit<BaseQuery, 'queryId'> => ({
-  timestamp: Date.now(),
-  userId,
-})
+const createBaseQuery = (userId: string): Effect.Effect<Omit<BaseQuery, 'queryId'>> =>
+  Effect.gen(function* () {
+    const timestamp = yield* Clock.currentTimeMillis
+    return {
+      timestamp,
+      userId,
+    }
+  })
 
 /**
  * ユニークなクエリIDを生成

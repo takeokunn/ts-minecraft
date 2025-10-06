@@ -9,6 +9,6 @@ export {
   ChunkSerializationService,
   ChunkSerializationServiceLive,
   SerializationFormat,
-  type ChunkSerializationService,
-  type SerializationFormat,
-} from './index'
+  type ChunkSerializationService as ChunkSerializationServiceType,
+  type SerializationFormat as SerializationFormatType,
+} from './service'

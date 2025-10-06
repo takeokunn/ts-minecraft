@@ -17,7 +17,7 @@ export type ContainerId = Schema.Schema.Type<typeof ContainerIdSchema>
 
 export const ContainerSlotIndexSchema = Schema.Number.pipe(
   Schema.int(),
-  Schema.nonnegative(),
+  Schema.nonNegative(),
   Schema.brand('ContainerSlotIndex')
 )
 export type ContainerSlotIndex = Schema.Schema.Type<typeof ContainerSlotIndexSchema>
@@ -58,7 +58,7 @@ export type WorldPosition = Schema.Schema.Type<typeof WorldPositionSchema>
 export const ContainerSlotSchema = Schema.Union(
   Schema.Null,
   Schema.Struct({
-    itemStack: Schema.suspend(() => import('../item_stack/index.js').then((m) => m.ItemStackEntitySchema)),
+    itemStack: Schema.suspend(() => import('../item_stack/index').then((m) => m.ItemStackEntitySchema)),
     locked: Schema.optional(Schema.Boolean),
     metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
   })
@@ -68,15 +68,15 @@ export type ContainerSlot = Schema.Schema.Type<typeof ContainerSlotSchema>
 export const ContainerConfigurationSchema = Schema.Struct({
   maxSlots: Schema.Number.pipe(Schema.int(), Schema.positive()),
   allowedItemTypes: Schema.optional(
-    Schema.Array(Schema.suspend(() => import('../../types.js').then((m) => m.ItemIdSchema)))
+    Schema.Array(Schema.suspend(() => import('../../types/index').then((m) => m.ItemIdSchema)))
   ),
   restrictedItemTypes: Schema.optional(
-    Schema.Array(Schema.suspend(() => import('../../types.js').then((m) => m.ItemIdSchema)))
+    Schema.Array(Schema.suspend(() => import('../../types/index').then((m) => m.ItemIdSchema)))
   ),
   slotFilters: Schema.optional(
     Schema.Record({
       key: ContainerSlotIndexSchema,
-      value: Schema.Array(Schema.suspend(() => import('../../types.js').then((m) => m.ItemIdSchema))),
+      value: Schema.Array(Schema.suspend(() => import('../../types/index').then((m) => m.ItemIdSchema))),
     })
   ),
   autoSort: Schema.optional(Schema.Boolean),
@@ -86,7 +86,7 @@ export const ContainerConfigurationSchema = Schema.Struct({
 export type ContainerConfiguration = Schema.Schema.Type<typeof ContainerConfigurationSchema>
 
 export const ContainerPermissionSchema = Schema.Struct({
-  playerId: Schema.suspend(() => import('../../types.js').then((m) => m.PlayerIdSchema)),
+  playerId: Schema.suspend(() => import('../../types/index').then((m) => m.PlayerIdSchema)),
   canView: Schema.Boolean,
   canInsert: Schema.Boolean,
   canExtract: Schema.Boolean,
@@ -101,7 +101,7 @@ export const ContainerAggregateSchema = Schema.Struct({
   // 集約ルート識別子
   id: ContainerIdSchema,
   type: ContainerTypeSchema,
-  ownerId: Schema.suspend(() => import('../../types.js').then((m) => m.PlayerIdSchema)),
+  ownerId: Schema.suspend(() => import('../../types/index').then((m) => m.PlayerIdSchema)),
 
   // 位置情報
   position: WorldPositionSchema,
@@ -118,7 +118,7 @@ export const ContainerAggregateSchema = Schema.Struct({
 
   // 状態管理
   isOpen: Schema.Boolean,
-  currentViewers: Schema.Array(Schema.suspend(() => import('../../types.js').then((m) => m.PlayerIdSchema))),
+  currentViewers: Schema.Array(Schema.suspend(() => import('../../types/index').then((m) => m.PlayerIdSchema))),
 
   // 集約メタデータ
   version: Schema.Number.pipe(Schema.int(), Schema.positive()),
@@ -137,7 +137,7 @@ export type ContainerAggregate = Schema.Schema.Type<typeof ContainerAggregateSch
 export const ContainerOpenedEventSchema = Schema.Struct({
   type: Schema.Literal('ContainerOpened'),
   aggregateId: ContainerIdSchema,
-  playerId: Schema.suspend(() => import('../../types.js').then((m) => m.PlayerIdSchema)),
+  playerId: Schema.suspend(() => import('../../types/index').then((m) => m.PlayerIdSchema)),
   containerType: ContainerTypeSchema,
   position: WorldPositionSchema,
   timestamp: Schema.DateTimeUtc,
@@ -146,7 +146,7 @@ export const ContainerOpenedEventSchema = Schema.Struct({
 export const ContainerClosedEventSchema = Schema.Struct({
   type: Schema.Literal('ContainerClosed'),
   aggregateId: ContainerIdSchema,
-  playerId: Schema.suspend(() => import('../../types.js').then((m) => m.PlayerIdSchema)),
+  playerId: Schema.suspend(() => import('../../types/index').then((m) => m.PlayerIdSchema)),
   containerType: ContainerTypeSchema,
   sessionDuration: Schema.Number.pipe(Schema.positive()),
   timestamp: Schema.DateTimeUtc,
@@ -155,22 +155,22 @@ export const ContainerClosedEventSchema = Schema.Struct({
 export const ItemPlacedInContainerEventSchema = Schema.Struct({
   type: Schema.Literal('ItemPlacedInContainer'),
   aggregateId: ContainerIdSchema,
-  playerId: Schema.suspend(() => import('../../types.js').then((m) => m.PlayerIdSchema)),
+  playerId: Schema.suspend(() => import('../../types/index').then((m) => m.PlayerIdSchema)),
   slotIndex: ContainerSlotIndexSchema,
-  itemId: Schema.suspend(() => import('../../types.js').then((m) => m.ItemIdSchema)),
+  itemId: Schema.suspend(() => import('../../types/index').then((m) => m.ItemIdSchema)),
   quantity: Schema.Number.pipe(Schema.int(), Schema.positive()),
-  itemStackId: Schema.suspend(() => import('../item_stack/index.js').then((m) => m.ItemStackIdSchema)),
+  itemStackId: Schema.suspend(() => import('../item_stack/index').then((m) => m.ItemStackIdSchema)),
   timestamp: Schema.DateTimeUtc,
 })
 
 export const ItemRemovedFromContainerEventSchema = Schema.Struct({
   type: Schema.Literal('ItemRemovedFromContainer'),
   aggregateId: ContainerIdSchema,
-  playerId: Schema.suspend(() => import('../../types.js').then((m) => m.PlayerIdSchema)),
+  playerId: Schema.suspend(() => import('../../types/index').then((m) => m.PlayerIdSchema)),
   slotIndex: ContainerSlotIndexSchema,
-  itemId: Schema.suspend(() => import('../../types.js').then((m) => m.ItemIdSchema)),
+  itemId: Schema.suspend(() => import('../../types/index').then((m) => m.ItemIdSchema)),
   quantity: Schema.Number.pipe(Schema.int(), Schema.positive()),
-  itemStackId: Schema.suspend(() => import('../item_stack/index.js').then((m) => m.ItemStackIdSchema)),
+  itemStackId: Schema.suspend(() => import('../item_stack/index').then((m) => m.ItemStackIdSchema)),
   timestamp: Schema.DateTimeUtc,
   reason: Schema.Literal('extracted', 'consumed', 'hopper', 'automation'),
 })
@@ -178,7 +178,7 @@ export const ItemRemovedFromContainerEventSchema = Schema.Struct({
 export const ContainerSortedEventSchema = Schema.Struct({
   type: Schema.Literal('ContainerSorted'),
   aggregateId: ContainerIdSchema,
-  playerId: Schema.suspend(() => import('../../types.js').then((m) => m.PlayerIdSchema)),
+  playerId: Schema.suspend(() => import('../../types/index').then((m) => m.PlayerIdSchema)),
   sortType: Schema.Literal('alphabetical', 'quantity', 'type', 'custom'),
   affectedSlots: Schema.Array(ContainerSlotIndexSchema),
   timestamp: Schema.DateTimeUtc,
@@ -187,8 +187,8 @@ export const ContainerSortedEventSchema = Schema.Struct({
 export const ContainerPermissionGrantedEventSchema = Schema.Struct({
   type: Schema.Literal('ContainerPermissionGranted'),
   aggregateId: ContainerIdSchema,
-  ownerId: Schema.suspend(() => import('../../types.js').then((m) => m.PlayerIdSchema)),
-  grantedTo: Schema.suspend(() => import('../../types.js').then((m) => m.PlayerIdSchema)),
+  ownerId: Schema.suspend(() => import('../../types/index').then((m) => m.PlayerIdSchema)),
+  grantedTo: Schema.suspend(() => import('../../types/index').then((m) => m.PlayerIdSchema)),
   permission: ContainerPermissionSchema,
   timestamp: Schema.DateTimeUtc,
 })
@@ -288,9 +288,9 @@ export const ContainerErrorSchema = Schema.TaggedError('ContainerError')(
     ),
     message: Schema.String,
     containerId: Schema.optional(ContainerIdSchema),
-    playerId: Schema.optional(Schema.suspend(() => import('../../types.js').then((m) => m.PlayerIdSchema))),
+    playerId: Schema.optional(Schema.suspend(() => import('../../types/index').then((m) => m.PlayerIdSchema))),
     slotIndex: Schema.optional(ContainerSlotIndexSchema),
-    itemId: Schema.optional(Schema.suspend(() => import('../../types.js').then((m) => m.ItemIdSchema))),
+    itemId: Schema.optional(Schema.suspend(() => import('../../types/index').then((m) => m.ItemIdSchema))),
     metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
   })
 )

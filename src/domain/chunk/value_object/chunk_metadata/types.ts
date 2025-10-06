@@ -1,5 +1,4 @@
-import { Schema } from '@effect/schema'
-import { Data, Effect, Option, pipe } from 'effect'
+import { Data, Effect, Option, pipe, Schema } from 'effect'
 
 const nonEmptyString = Schema.String.pipe(Schema.nonEmptyString())
 
@@ -92,7 +91,7 @@ export const withOptimizationRecord = (
   record: ChunkOptimizationRecord
 ): Effect.Effect<ChunkMetadata, ChunkMetadataError> =>
   pipe(
-    Schema.decodeEffect(ChunkMetadataSchema)({
+    Schema.decode(ChunkMetadataSchema)({
       ...metadata,
       isModified: true,
       lastUpdate: record.executedAt,
@@ -122,7 +121,7 @@ export const touchMetadata = (
   timestamp: Timestamp
 ): Effect.Effect<ChunkMetadata, ChunkMetadataError> =>
   pipe(
-    Schema.decodeEffect(ChunkMetadataSchema)({
+    Schema.decode(ChunkMetadataSchema)({
       ...metadata,
       isModified: true,
       lastUpdate: timestamp,
@@ -146,7 +145,7 @@ export const createOptimizationRecord = (
   details?: ChunkOptimizationDetails
 ): Effect.Effect<ChunkOptimizationRecord, ChunkMetadataError> =>
   pipe(
-    Schema.decodeEffect(OptimizationRecordSchema)(
+    Schema.decode(OptimizationRecordSchema)(
       pipe(
         details,
         Option.fromNullable,
@@ -173,7 +172,7 @@ export const createOptimizationDetails = (
   details: Schema.Schema.Input<typeof OptimizationDetailsSchema>
 ): Effect.Effect<ChunkOptimizationDetails, ChunkMetadataError> =>
   pipe(
-    Schema.decodeEffect(OptimizationDetailsSchema)(details),
+    Schema.decode(OptimizationDetailsSchema)(details),
     Effect.mapError((error) =>
       ChunkMetadataError({
         message: '最適化詳細の構築に失敗しました',
@@ -189,7 +188,7 @@ export const createOptimizationDetails = (
 
 export const makeTimestamp = (value: number): Effect.Effect<Timestamp, ChunkMetadataError> =>
   pipe(
-    Schema.decodeEffect(TimestampSchema)(value),
+    Schema.decode(TimestampSchema)(value),
     Effect.mapError((error) =>
       ChunkMetadataError({
         message: 'タイムスタンプの構築に失敗しました',
@@ -205,7 +204,7 @@ export const makeTimestamp = (value: number): Effect.Effect<Timestamp, ChunkMeta
 
 export const makeBlockCount = (value: number): Effect.Effect<BlockCount, ChunkMetadataError> =>
   pipe(
-    Schema.decodeEffect(BlockCountSchema)(value),
+    Schema.decode(BlockCountSchema)(value),
     Effect.mapError((error) =>
       ChunkMetadataError({
         message: 'ブロック数の構築に失敗しました',
@@ -221,7 +220,7 @@ export const makeBlockCount = (value: number): Effect.Effect<BlockCount, ChunkMe
 
 export const makePercentage = (value: number): Effect.Effect<Percentage, ChunkMetadataError> =>
   pipe(
-    Schema.decodeEffect(PercentageSchema)(value),
+    Schema.decode(PercentageSchema)(value),
     Effect.mapError((error) =>
       ChunkMetadataError({
         message: '割合値の構築に失敗しました',
@@ -237,7 +236,7 @@ export const makePercentage = (value: number): Effect.Effect<Percentage, ChunkMe
 
 export const makeBlockId = (value: number): Effect.Effect<BlockId, ChunkMetadataError> =>
   pipe(
-    Schema.decodeEffect(BlockIdSchema)(value),
+    Schema.decode(BlockIdSchema)(value),
     Effect.mapError((error) =>
       ChunkMetadataError({
         message: 'ブロックIDの構築に失敗しました',

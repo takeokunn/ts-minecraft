@@ -60,10 +60,10 @@ const CHUNK_VOLUME = CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT
 const DEFAULT_HEIGHT = 0
 
 const decodePosition = (input: Schema.Schema.Input<typeof ChunkPositionSchema>) =>
-  Schema.decodeEffect(ChunkPositionSchema)(input)
+  Schema.decode(ChunkPositionSchema)(input)
 
 const decodeMetadata = (input: Schema.Schema.Input<typeof ChunkMetadataSchema>) =>
-  Schema.decodeEffect(ChunkMetadataSchema)(input)
+  Schema.decode(ChunkMetadataSchema)(input)
 
 const ensureIntegrity = (validation: ChunkValidationService, chunk: ChunkData) =>
   pipe(

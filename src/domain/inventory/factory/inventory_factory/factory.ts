@@ -5,7 +5,8 @@
  * class構文を一切使用せず、pipe/flowによる関数合成とEffect.genで実装
  */
 
-import { Effect, Match, pipe } from 'effect'
+import { Effect, Match, Option, pipe } from 'effect'
+import * as ReadonlyArray from 'effect/Array'
 import type { Inventory, ItemStack } from '../../types'
 import { createEmptyInventory } from '../../types'
 import type {
@@ -82,29 +83,43 @@ const getTypeDefaults = (type: InventoryType): Partial<InventoryConfig> =>
 // 設定の検証（Pure Function with Effect Error Handling）
 const validateConfig = (config: InventoryConfig): Effect.Effect<void, InventoryCreationError> =>
   Effect.gen(function* () {
-    const errors: string[] = []
-
-    if (!config.playerId || config.playerId.trim() === '') {
-      errors.push('playerId is required')
-    }
-
-    if (config.slotCount < 0 || config.slotCount > 54) {
-      errors.push('slotCount must be between 0 and 54')
-    }
-
-    if (config.startingItems && config.startingItems.length > config.slotCount) {
-      errors.push('startingItems count exceeds slotCount')
-    }
-
-    if (errors.length > 0) {
-      return yield* Effect.fail(
+    // playerIdの検証
+    yield* Effect.filterOrFail(
+      config.playerId,
+      (id) => id && id.trim() !== '',
+      () =>
         new CreationError({
           reason: 'Invalid inventory configuration',
-          invalidFields: errors,
+          invalidFields: ['playerId is required'],
           context: { config },
         })
+    )
+
+    // slotCountの検証
+    yield* Effect.filterOrFail(
+      config.slotCount,
+      (count) => count >= 0 && count <= 54,
+      () =>
+        new CreationError({
+          reason: 'Invalid inventory configuration',
+          invalidFields: ['slotCount must be between 0 and 54'],
+          context: { config },
+        })
+    )
+
+    // startingItemsの検証
+    yield* Effect.when(config.startingItems !== undefined, () =>
+      Effect.filterOrFail(
+        config.startingItems!,
+        (items) => items.length <= config.slotCount,
+        () =>
+          new CreationError({
+            reason: 'Invalid inventory configuration',
+            invalidFields: ['startingItems count exceeds slotCount'],
+            context: { config },
+          })
       )
-    }
+    )
 
     return yield* Effect.void
   })
@@ -116,55 +131,82 @@ const placeItemsInSlots = (
 ): Effect.Effect<Inventory, InventoryCreationError> =>
   Effect.gen(function* () {
     const slots = [...inventory.slots]
-    let itemIndex = 0
 
-    for (let slotIndex = 0; slotIndex < slots.length && itemIndex < items.length; slotIndex++) {
-      if (slots[slotIndex] === null) {
-        slots[slotIndex] = items[itemIndex]
-        itemIndex++
-      }
-    }
+    // アイテムを空きスロットに配置
+    const placementResult = pipe(
+      items,
+      ReadonlyArray.reduce(
+        { slots, itemIndex: 0 } as { slots: Array<ItemStack | null>; itemIndex: number },
+        (acc, item) =>
+          pipe(
+            acc.slots.findIndex((slot, idx) => slot === null && idx >= acc.itemIndex),
+            (emptySlotIndex) =>
+              emptySlotIndex === -1
+                ? acc
+                : pipe([...acc.slots], (newSlots) => {
+                    newSlots[emptySlotIndex] = item
+                    return { slots: newSlots, itemIndex: acc.itemIndex + 1 }
+                  })
+          )
+      )
+    )
 
-    if (itemIndex < items.length) {
-      return yield* Effect.fail(
+    // すべてのアイテムが配置できたか検証
+    yield* Effect.filterOrFail(
+      placementResult.itemIndex,
+      (index) => index >= items.length,
+      () =>
         new CreationError({
           reason: 'Not enough empty slots for all starting items',
           invalidFields: ['startingItems'],
           context: { availableSlots: slots.length, requestedItems: items.length },
         })
-      )
-    }
+    )
 
     return yield* Effect.succeed({
       ...inventory,
-      slots,
+      slots: placementResult.slots,
     })
   })
 
 // インベントリーの最適化（アイテムスタック統合）
 const optimizeStacks = (inventory: Inventory): Effect.Effect<Inventory, InventoryCreationError> =>
   Effect.gen(function* () {
-    const optimizedSlots = [...inventory.slots]
-
     // 同一アイテムのスタック統合ロジック
-    for (let i = 0; i < optimizedSlots.length; i++) {
-      const currentSlot = optimizedSlots[i]
-      if (!currentSlot) continue
-
-      for (let j = i + 1; j < optimizedSlots.length; j++) {
-        const targetSlot = optimizedSlots[j]
-        if (!targetSlot) continue
-
-        // 同じアイテムID且つスタック可能な場合
-        if (currentSlot.itemId === targetSlot.itemId && currentSlot.count + targetSlot.count <= 64) {
-          optimizedSlots[i] = {
-            ...currentSlot,
-            count: currentSlot.count + targetSlot.count,
-          }
-          optimizedSlots[j] = null
-        }
-      }
-    }
+    const optimizedSlots = pipe(
+      ReadonlyArray.makeBy(inventory.slots.length, (i) => i),
+      ReadonlyArray.reduce([...inventory.slots] as Array<ItemStack | null>, (slots, i) =>
+        pipe(
+          Option.fromNullable(slots[i]),
+          Option.match({
+            onNone: () => slots,
+            onSome: (currentSlot) =>
+              pipe(
+                ReadonlyArray.makeBy(slots.length - (i + 1), (offset) => i + 1 + offset),
+                ReadonlyArray.reduce(slots, (currentSlots, j) =>
+                  pipe(
+                    Option.fromNullable(currentSlots[j]),
+                    Option.match({
+                      onNone: () => currentSlots,
+                      onSome: (targetSlot) =>
+                        currentSlot.itemId === targetSlot.itemId && currentSlot.count + targetSlot.count <= 64
+                          ? pipe([...currentSlots], (newSlots) => {
+                              newSlots[i] = {
+                                ...currentSlot,
+                                count: currentSlot.count + targetSlot.count,
+                              }
+                              newSlots[j] = null
+                              return newSlots
+                            })
+                          : currentSlots,
+                    })
+                  )
+                )
+              ),
+          })
+        )
+      )
+    )
 
     return yield* Effect.succeed({
       ...inventory,
@@ -224,36 +266,41 @@ export const InventoryFactoryLive: InventoryFactory = {
       // スロット数調整
       const adjustedSlots = Array(config.slotCount).fill(null)
 
-      let result: Inventory = {
-        ...baseInventory,
-        slots: adjustedSlots,
-      }
+      // 機能別設定適用（Effect.ifパターン）
+      const withHotbar = yield* Effect.if(config.enableHotbar, {
+        onTrue: () => Effect.succeed(baseInventory.hotbar),
+        onFalse: () => Effect.succeed([]),
+      })
 
-      // 機能別設定適用
-      if (!config.enableHotbar) {
-        result = { ...result, hotbar: [] }
-      }
-
-      if (!config.enableArmor) {
-        result = {
-          ...result,
-          armor: {
+      const withArmor = yield* Effect.if(config.enableArmor, {
+        onTrue: () => Effect.succeed(baseInventory.armor),
+        onFalse: () =>
+          Effect.succeed({
             helmet: null,
             chestplate: null,
             leggings: null,
             boots: null,
-          },
-        }
-      }
+          }),
+      })
 
-      if (!config.enableOffhand) {
-        result = { ...result, offhand: null }
+      const withOffhand = yield* Effect.if(config.enableOffhand, {
+        onTrue: () => Effect.succeed(baseInventory.offhand),
+        onFalse: () => Effect.succeed(null),
+      })
+
+      let result: Inventory = {
+        ...baseInventory,
+        slots: adjustedSlots,
+        hotbar: withHotbar,
+        armor: withArmor,
+        offhand: withOffhand,
       }
 
       // 初期アイテム配置
-      if (config.startingItems && config.startingItems.length > 0) {
-        result = yield* placeItemsInSlots(result, config.startingItems)
-      }
+      result = yield* Effect.if(config.startingItems !== undefined && config.startingItems.length > 0, {
+        onTrue: () => placeItemsInSlots(result, config.startingItems!),
+        onFalse: () => Effect.succeed(result),
+      })
 
       return yield* Effect.succeed(result)
     }),
@@ -294,32 +341,49 @@ export const InventoryFactoryLive: InventoryFactory = {
   // インベントリーマージ（Union Pattern）
   mergeInventories: (primary, secondary) =>
     Effect.gen(function* () {
-      const mergedSlots = [...primary.slots]
-      const conflicts: string[] = []
-
       // セカンダリのアイテムをプライマリに統合
-      for (let i = 0; i < secondary.slots.length && i < mergedSlots.length; i++) {
-        const secondaryItem = secondary.slots[i]
-        if (secondaryItem && mergedSlots[i] === null) {
-          mergedSlots[i] = secondaryItem
-        } else if (secondaryItem && mergedSlots[i] !== null) {
-          conflicts.push(`slot_${i}`)
-        }
-      }
+      const mergeResult = pipe(
+        ReadonlyArray.makeBy(Math.min(secondary.slots.length, primary.slots.length), (i) => i),
+        ReadonlyArray.reduce({ mergedSlots: [...primary.slots], conflicts: [] as string[] }, (acc, i) =>
+          pipe(
+            Option.fromNullable(secondary.slots[i]),
+            Option.match({
+              onNone: () => acc,
+              onSome: (secondaryItem) =>
+                pipe(
+                  Option.fromNullable(acc.mergedSlots[i]),
+                  Option.match({
+                    onNone: () => {
+                      const newSlots = [...acc.mergedSlots]
+                      newSlots[i] = secondaryItem
+                      return { mergedSlots: newSlots, conflicts: acc.conflicts }
+                    },
+                    onSome: () => ({
+                      mergedSlots: acc.mergedSlots,
+                      conflicts: [...acc.conflicts, `slot_${i}`],
+                    }),
+                  })
+                ),
+            })
+          )
+        )
+      )
 
-      if (conflicts.length > 0) {
-        return yield* Effect.fail(
+      // コンフリクトチェック
+      yield* Effect.filterOrFail(
+        mergeResult.conflicts.length,
+        (len) => len === 0,
+        () =>
           new MergeError({
             reason: 'Slot conflicts during merge',
-            conflictingFields: conflicts,
+            conflictingFields: mergeResult.conflicts,
             context: { primaryId: primary.playerId, secondaryId: secondary.playerId },
           })
-        )
-      }
+      )
 
       const merged: Inventory = {
         ...primary,
-        slots: mergedSlots,
+        slots: mergeResult.mergedSlots,
       }
 
       return yield* Effect.succeed(merged)
@@ -328,40 +392,74 @@ export const InventoryFactoryLive: InventoryFactory = {
   // インベントリー検証
   validateInventory: (inventory) =>
     Effect.gen(function* () {
-      const errors: string[] = []
-
-      if (!inventory.playerId || inventory.playerId.trim() === '') {
-        errors.push('playerId is required')
-      }
-
-      if (inventory.slots.length !== 36) {
-        errors.push('slots array must have exactly 36 elements')
-      }
-
-      if (inventory.hotbar.length !== 9) {
-        errors.push('hotbar array must have exactly 9 elements')
-      }
-
-      if (inventory.selectedSlot < 0 || inventory.selectedSlot > 8) {
-        errors.push('selectedSlot must be between 0 and 8')
-      }
-
-      // ホットバーインデックスの検証
-      for (const slotIndex of inventory.hotbar) {
-        if (slotIndex < 0 || slotIndex >= inventory.slots.length) {
-          errors.push(`invalid hotbar slot index: ${slotIndex}`)
-        }
-      }
-
-      if (errors.length > 0) {
-        return yield* Effect.fail(
+      // playerIdの検証
+      yield* Effect.filterOrFail(
+        inventory.playerId,
+        (id) => id && id.trim() !== '',
+        () =>
           new ValidationError({
             reason: 'Inventory validation failed',
-            missingFields: errors,
+            missingFields: ['playerId is required'],
             context: { inventory },
           })
+      )
+
+      // slotsの検証
+      yield* Effect.filterOrFail(
+        inventory.slots.length,
+        (len) => len === 36,
+        () =>
+          new ValidationError({
+            reason: 'Inventory validation failed',
+            missingFields: ['slots array must have exactly 36 elements'],
+            context: { inventory },
+          })
+      )
+
+      // hotbarの検証
+      yield* Effect.filterOrFail(
+        inventory.hotbar.length,
+        (len) => len === 9,
+        () =>
+          new ValidationError({
+            reason: 'Inventory validation failed',
+            missingFields: ['hotbar array must have exactly 9 elements'],
+            context: { inventory },
+          })
+      )
+
+      // selectedSlotの検証
+      yield* Effect.filterOrFail(
+        inventory.selectedSlot,
+        (slot) => slot >= 0 && slot <= 8,
+        () =>
+          new ValidationError({
+            reason: 'Inventory validation failed',
+            missingFields: ['selectedSlot must be between 0 and 8'],
+            context: { inventory },
+          })
+      )
+
+      // ホットバーインデックスの検証
+      const hotbarErrors = pipe(
+        inventory.hotbar,
+        ReadonlyArray.filterMap((slotIndex) =>
+          slotIndex < 0 || slotIndex >= inventory.slots.length
+            ? Option.some(`invalid hotbar slot index: ${slotIndex}`)
+            : Option.none()
         )
-      }
+      )
+
+      yield* Effect.filterOrFail(
+        hotbarErrors.length,
+        (len) => len === 0,
+        () =>
+          new ValidationError({
+            reason: 'Inventory validation failed',
+            missingFields: hotbarErrors,
+            context: { inventory },
+          })
+      )
 
       return yield* Effect.void
     }),

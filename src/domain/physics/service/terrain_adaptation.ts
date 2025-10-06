@@ -1,9 +1,8 @@
-import type { PlayerId } from '@domain/entities'
-import type { Vector3D } from '@domain/entities'
+import type { PlayerId, Vector3D } from '@domain/entities'
 import { Context, Effect, Layer, Match, pipe, Ref } from 'effect'
 import type { BlockType } from '../../block/types'
-import { CannonPhysicsService } from './index'
-import { WorldCollisionService } from './index'
+import { CannonPhysicsService } from './cannon'
+import { WorldCollisionService } from './world_collision'
 
 /**
  * Terrain Adaptation Service
@@ -217,7 +216,7 @@ const makeTerrainAdaptationService: Effect.Effect<
         submersionLevel: 0.0,
         isSwimming: false,
         isClimbing: false,
-        lastTerrainChange: Date.now(),
+        lastTerrainChange: yield* Clock.currentTimeMillis,
         adaptationBuffer: [],
       }
 
@@ -402,7 +401,7 @@ const makeTerrainAdaptationService: Effect.Effect<
 
       // 地形変化の緩和（急激な変化を防ぐ）
       const smoothedTerrain = yield* Effect.gen(function* () {
-        const timeSinceChange = Date.now() - currentState.lastTerrainChange
+        const timeSinceChange = yield* Clock.currentTimeMillis - currentState.lastTerrainChange
         const adaptationSpeed = Math.min(1.0, deltaTime * 2) // 0.5秒で完全適応
 
         // 緩和処理
@@ -443,7 +442,7 @@ const makeTerrainAdaptationService: Effect.Effect<
         submersionLevel: (dominantTerrain as any).submersionLevel || 0,
         isSwimming: ((dominantTerrain as any).submersionLevel || 0) >= 0.6,
         isClimbing: false, // TODO: 実装予定
-        lastTerrainChange: Date.now(),
+        lastTerrainChange: yield* Clock.currentTimeMillis,
         adaptationBuffer: [...currentState.adaptationBuffer.slice(-4), smoothedTerrain],
       }
 

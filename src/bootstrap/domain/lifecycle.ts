@@ -1,5 +1,4 @@
-import { Schema } from '@effect/schema'
-import { Effect, Option, pipe } from 'effect'
+import { Effect, Option, pipe, Schema } from 'effect'
 import * as Match from 'effect/Match'
 import { BootstrapConfig, BootstrapConfigSchema } from './config'
 import { EpochMilliseconds, EpochMillisecondsSchema } from './value'

@@ -97,7 +97,6 @@ export {
 export {
   DevelopmentRepositoryLayer,
   ProductionRepositoryLayer,
-  RepositoryConfigBuilder,
   TestRepositoryLayer,
   autoSelectStrategy,
   configureRepository,
@@ -110,6 +109,23 @@ export {
   type RepositoryConfig,
   // Repository Strategy
   type RepositoryStrategyType,
+} from './strategy'
+
+// ===== Configuration Builder ===== //
+
+export {
+  RepositoryConfigBuilderStateSchema,
+  buildConfig,
+  buildLayer,
+  initialRepositoryConfigBuilderState,
+  setCacheSize,
+  setEnableCompression,
+  setEnableEncryption,
+  setEnableWebWorkers,
+  setMaxMemoryUsage,
+  setPreferredStorage,
+  setStrategy,
+  type RepositoryConfigBuilderState,
 } from './strategy'
 
 // ===== CQRS Layers ===== //
@@ -125,20 +141,4 @@ export {
 
 // ===== Convenience Functions ===== //
 
-/**
- * 開発環境用のAll-in-One Repository Layer
- * メモリベースの高速実装
- */
-export const ChunkDevelopmentLayer = ChunkCQRSRepositoryLayer(InMemoryChunkRepositoryLive)
-
-/**
- * テスト環境用のAll-in-One Repository Layer
- * テスト特化の設定
- */
-export const ChunkTestLayer = ChunkCQRSRepositoryLayer(InMemoryChunkRepositoryLive)
-
-/**
- * 本番環境用のAll-in-One Repository Layer
- * 環境自動検出による最適化実装
- */
-export const ChunkProductionLayer = ChunkCQRSRepositoryLayer(ProductionRepositoryLayer)
+export * from './layers'

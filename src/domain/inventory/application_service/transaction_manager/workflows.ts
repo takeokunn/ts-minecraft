@@ -6,10 +6,10 @@
  */
 
 import { Effect, Array as EffectArray } from 'effect'
+import type { InventoryService } from '../..'
 import type { ItemStack } from '../../aggregate/item_stack'
 import type { TransferService } from '../../domain_service/transfer_service'
 import type { ValidationService } from '../../domain_service/validation_service'
-import type { InventoryService } from '../..'
 import type { InventoryId, ItemId, PlayerId } from '../../types'
 import type { InventoryApplicationError } from '../types'
 
@@ -329,7 +329,7 @@ const executeTradeWorkflowImpl = (
         player1Received: [],
         player2Received: [],
         tradeValue: { player1Value: 0, player2Value: 0 },
-        completedAt: new Date(),
+        completedAt: yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms)),
       }
     }
 
@@ -384,7 +384,7 @@ const executeTradeWorkflowImpl = (
         player1Received,
         player2Received,
         tradeValue,
-        completedAt: new Date(),
+        completedAt: yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms)),
       }
     } catch (error) {
       // エラー時のロールバック

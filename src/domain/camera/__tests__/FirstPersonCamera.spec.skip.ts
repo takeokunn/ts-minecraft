@@ -3,9 +3,9 @@
  * Context7準拠のEffect-TS v3.17+最新パターン使用
  */
 
-import { Schema } from '@effect/schema'
+import { CameraConfig } from '@domain/camera/types'
 import { expect, it } from '@effect/vitest'
-import { Effect, Layer, TestContext } from 'effect'
+import { Effect, Layer, Schema, TestContext } from 'effect'
 import * as Exit from 'effect/Exit'
 import { pipe } from 'effect/Function'
 import * as Match from 'effect/Match'
@@ -14,7 +14,6 @@ import * as THREE from 'three'
 import { DEFAULT_CAMERA_CONFIG } from '../constant'
 import { FirstPersonCameraLive } from '../first_person'
 import { CameraService } from '../service'
-import { CameraConfig } from '@domain/camera/types'
 
 // ================================================================================
 // Predicate Functions - Type Guards

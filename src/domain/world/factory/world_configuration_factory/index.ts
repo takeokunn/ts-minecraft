@@ -2,6 +2,7 @@
  * @fileoverview WorldConfigurationFactory - 統合エクスポート
  */
 
+// Factory exports
 export {
   ConfigurationComparisonResultSchema,
   ConfigurationComplexitySchema,
@@ -31,37 +32,46 @@ export {
   type ValidationStrictness,
   // Configuration Types
   type WorldConfiguration,
-  // Builder Pattern
+  // Builder Pattern (deprecated - use Schema + pure functions)
   type WorldConfigurationBuilder,
   // Main Factory Interface
   type WorldConfigurationFactory,
-} from './index'
+} from './factory.js'
+
+// New Builder Pattern exports (Schema + Pure Functions)
+export {
+  initialWorldConfigurationBuilderState,
+  WorldConfigurationBuilderStateSchema,
+  type WorldConfigurationBuilderState,
+} from './builder_state.js'
+
+export { build, withBiomeConfig, withMetadata, withNoiseConfig, withParameters, withSeed } from './builder_functions.js'
 
 // ================================
 // Convenience Functions
 // ================================
 
 import { Effect } from 'effect'
-import type * as WorldConfiguration from './index'
-import type { ConfigurationPresetType, OptimizationMode, ValidationStrictness } from './index'
-import { createWorldConfigurationBuilder } from './index'
+import type { ConfigurationPresetType, OptimizationMode, ValidationStrictness, WorldConfiguration } from './factory.js'
+import { WorldConfigurationFactoryTag } from './factory.js'
 
-export const createQuickConfiguration = (): Effect.Effect<WorldConfiguration.WorldConfiguration, never> =>
-  createWorldConfigurationBuilder().build().pipe(Effect.orDie)
+export const createQuickConfiguration = (): Effect.Effect<WorldConfiguration, never> =>
+  Effect.gen(function* () {
+    const factory = yield* WorldConfigurationFactoryTag
+    return yield* factory.createFromPreset('default')
+  }).pipe(Effect.orDie)
 
 export const createOptimizedConfiguration = (
   optimization: OptimizationMode
-): Effect.Effect<WorldConfiguration.WorldConfiguration, never> =>
+): Effect.Effect<WorldConfiguration, never> =>
   Effect.gen(function* () {
-    const factory = WorldConfiguration.WorldConfigurationFactoryTag
+    const factory = yield* WorldConfigurationFactoryTag
     return yield* factory.createOptimized(optimization)
   }).pipe(Effect.orDie)
 
-export const createPresetConfiguration = (
-  preset: ConfigurationPresetType
-): Effect.Effect<WorldConfiguration.WorldConfiguration, never> =>
+export const createPresetConfiguration = (preset: ConfigurationPresetType): Effect.Effect<WorldConfiguration, never> =>
   Effect.gen(function* () {
-    const factory = WorldConfiguration.WorldConfigurationFactoryTag
+    const factory = yield* WorldConfigurationFactoryTag
     return yield* factory.createFromPreset(preset)
   }).pipe(Effect.orDie)
 
@@ -70,13 +80,13 @@ export const createValidatedConfiguration = (
   strictness: ValidationStrictness = 'standard'
 ): Effect.Effect<
   {
-    config: WorldConfiguration.WorldConfiguration
-    validation: WorldConfiguration.ConfigurationValidationResult
+    config: WorldConfiguration
+    validation: import('./factory.js').ConfigurationValidationResult
   },
   never
 > =>
   Effect.gen(function* () {
-    const factory = WorldConfiguration.WorldConfigurationFactoryTag
+    const factory = yield* WorldConfigurationFactoryTag
     const config = yield* factory.createFromPreset(preset)
     const validation = yield* factory.validate(config, strictness)
     return { config, validation }
@@ -84,9 +94,9 @@ export const createValidatedConfiguration = (
 
 export const createBatchConfigurations = (
   presets: readonly ConfigurationPresetType[]
-): Effect.Effect<readonly WorldConfiguration.WorldConfiguration[], never> =>
+): Effect.Effect<readonly WorldConfiguration[], never> =>
   Effect.gen(function* () {
-    const factory = WorldConfiguration.WorldConfigurationFactoryTag
+    const factory = yield* WorldConfigurationFactoryTag
     const requests = presets.map((preset) => ({ preset }))
     return yield* factory.createBatch(requests)
   }).pipe(Effect.orDie)
@@ -94,9 +104,9 @@ export const createBatchConfigurations = (
 export const createCustomConfiguration = (
   basePreset: ConfigurationPresetType = 'default',
   customParams: Record<string, unknown> = {}
-): Effect.Effect<WorldConfiguration.WorldConfiguration, never> =>
+): Effect.Effect<WorldConfiguration, never> =>
   Effect.gen(function* () {
-    const factory = WorldConfiguration.WorldConfigurationFactoryTag
+    const factory = yield* WorldConfigurationFactoryTag
     return yield* factory.create({
       preset: basePreset,
       customParameters: customParams,

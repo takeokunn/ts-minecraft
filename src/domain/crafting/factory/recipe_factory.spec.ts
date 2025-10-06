@@ -1,10 +1,9 @@
-import { Schema } from '@effect/schema'
 import { describe, expect, it } from '@effect/vitest'
-import { Effect } from 'effect'
+import { Effect, Schema } from 'effect'
 import { CraftingItemStackSchema, CraftingRecipeSchema } from '../types'
 import { RecipeFactoryService, RecipeFactoryServiceLive } from './recipe_factory'
 
-const decode = <A>(schema: Schema.Schema<A>) => Schema.decodeEffect(schema)
+const decode = <A>(schema: Schema.Schema<A>) => Schema.decode(schema)
 
 const stack = decode(CraftingItemStackSchema)({
   itemId: 'minecraft:glass',

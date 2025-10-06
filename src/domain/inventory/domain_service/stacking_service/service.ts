@@ -6,7 +6,7 @@
  * 複雑なビジネスロジックを提供します。
  */
 
-import { Context, Effect } from 'effect'
+import { Context, Data, Effect } from 'effect'
 import type { Inventory, InventoryErrorReason, ItemId, ItemMetadata, ItemStack } from '../../types'
 
 // =============================================================================
@@ -119,28 +119,18 @@ export interface StackSplitResult {
 // Domain Errors
 // =============================================================================
 
-export class StackingError extends Error {
-  readonly _tag = 'StackingError'
-  constructor(
-    readonly reason: InventoryErrorReason,
-    readonly details?: string
-  ) {
-    super(`Stacking operation failed: ${reason} ${details ? `- ${details}` : ''}`)
-  }
-}
+export class StackingError extends Data.TaggedError('StackingError')<{
+  readonly reason: InventoryErrorReason
+  readonly details?: string
+}> {}
 
-export class StackOptimizationError extends Error {
-  readonly _tag = 'StackOptimizationError'
-  constructor(
-    readonly failedOperations: ReadonlyArray<{
-      operation: StackOperation
-      error: StackingError
-    }>,
-    readonly partialResult?: StackOptimizationResult
-  ) {
-    super(`Stack optimization failed: ${failedOperations.length} operations failed`)
-  }
-}
+export class StackOptimizationError extends Data.TaggedError('StackOptimizationError')<{
+  readonly failedOperations: ReadonlyArray<{
+    operation: StackOperation
+    error: StackingError
+  }>
+  readonly partialResult?: StackOptimizationResult
+}> {}
 
 // =============================================================================
 // Stacking Service Interface

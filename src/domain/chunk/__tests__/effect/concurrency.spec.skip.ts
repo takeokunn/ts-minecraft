@@ -9,6 +9,7 @@
  */
 
 import {
+  Clock,
   Deferred,
   Duration,
   Effect,
@@ -215,14 +216,17 @@ describe('Effect-TS Concurrency Tests', () => {
         // プロデューサーFiber
         const producer = yield* Fiber.fork(
           Effect.gen(function* () {
+            const clock = yield* Clock.Clock
+            const now = yield* clock.currentTimeMillis
+
             for (let i = 0; i < 20; i++) {
               const operation = ChunkOperations.write(
                 { x: i, z: 0 },
                 new Uint8Array(CHUNK_VOLUME).fill(i) as ChunkDataBytes,
                 {
                   biome: 'test' as const,
-                  generationTime: Date.now() as any,
-                  lastModified: Date.now() as any,
+                  generationTime: now as any,
+                  lastModified: now as any,
                   version: 1,
                   checksum: `hash-${i}` as any,
                 }
@@ -267,11 +271,14 @@ describe('Effect-TS Concurrency Tests', () => {
         const createChunkResource = (id: number) =>
           Resource.make(
             Effect.gen(function* () {
+              const clock = yield* Clock.Clock
+              const now = yield* clock.currentTimeMillis
+
               yield* Ref.update(resourceCreated, (n) => n + 1)
               return {
                 id,
                 data: new Uint8Array(CHUNK_VOLUME).fill(id) as ChunkDataBytes,
-                timestamp: Date.now(),
+                timestamp: now,
               }
             }),
             (resource) =>
@@ -471,6 +478,9 @@ describe('Effect-TS Concurrency Tests', () => {
 
     it.effect('Stream分岐・結合・複雑フロー制御', () =>
       Effect.gen(function* () {
+        const clock = yield* Clock.Clock
+        const now = yield* clock.currentTimeMillis
+
         const readOperations = yield* Ref.make<Array<ChunkOperation>>([])
         const writeOperations = yield* Ref.make<Array<ChunkOperation>>([])
         const errors = yield* Ref.make<Array<string>>([])
@@ -480,8 +490,8 @@ describe('Effect-TS Concurrency Tests', () => {
           if (i % 3 === 0) {
             return ChunkOperations.write({ x: i, z: 0 }, new Uint8Array(CHUNK_VOLUME).fill(i) as ChunkDataBytes, {
               biome: 'test' as const,
-              generationTime: Date.now() as any,
-              lastModified: Date.now() as any,
+              generationTime: now as any,
+              lastModified: now as any,
               version: 1,
               checksum: `hash-${i}` as any,
             })

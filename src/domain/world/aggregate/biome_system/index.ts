@@ -1,5 +1,5 @@
-export * from './biome_system.js'
 export * from './biome_registry.js'
+export * from './biome_system.js'
 export * from './biome_transitions.js'
 export * from './climate_model.js'
 export * from './events.js'

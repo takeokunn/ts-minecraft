@@ -1,4 +1,4 @@
-import { Effect, Layer } from 'effect'
+import { Clock, Effect, Layer, Schema } from 'effect'
 import type {
   BlockData,
   ChunkAggregate,
@@ -12,6 +12,7 @@ import type {
   ChunkPositionError,
   WorldCoordinate,
 } from '../types'
+import { BiomeTypeSchema, LightLevelSchema, TimestampSchema } from '../value_object/chunk_metadata/types'
 
 /**
  * Chunk Data Provider Live Implementation
@@ -39,15 +40,19 @@ export class ChunkDataProviderLive implements ChunkDataProvider {
         })
       }
 
+      // 現在時刻を取得
+      const clock = yield* Clock.Clock
+      const now = yield* clock.currentTimeMillis
+
       // モックチャンクデータの作成
       const mockChunk: ChunkAggregate = {
         id,
         position: { x: 0, z: 0 },
         data: new Uint16Array(16 * 16 * 384), // CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT
         metadata: {
-          biome: 'plains' as any,
-          lightLevel: 15 as any,
-          timestamp: Date.now() as any,
+          biome: Schema.decodeSync(BiomeTypeSchema)('plains'),
+          lightLevel: Schema.decodeSync(LightLevelSchema)(15),
+          timestamp: Schema.decodeSync(TimestampSchema)(now),
         },
         blocks: new Map(),
       }

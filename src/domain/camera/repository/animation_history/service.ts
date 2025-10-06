@@ -5,8 +5,8 @@
  * アニメーション記録・統計・履歴管理・パフォーマンス分析を統合
  */
 
-import { Array, Context, Effect, Option } from 'effect'
 import type { CameraId } from '@domain/camera/types'
+import { Array, Context, Effect, Option } from 'effect'
 import type {
   AnimationHistoryRepositoryError,
   AnimationQueryOptions,

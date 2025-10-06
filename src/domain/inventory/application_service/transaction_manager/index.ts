@@ -4,8 +4,4 @@
  * エクスポートモジュール
  */
 
-export { TransactionManagerApplicationServiceLive } from './index'
-export * from './index'
-export * from './index'
-export * from './index';
-export * from './index';
+export { TransactionManagerApplicationServiceLive } from './service'

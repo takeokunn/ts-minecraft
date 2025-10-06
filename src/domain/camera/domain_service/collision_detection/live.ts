@@ -6,7 +6,7 @@
  * 空間分割による最適化を含む処理を実装しています。
  */
 
-import { Effect, Layer, Match, Option, pipe } from 'effect'
+import { Effect, Array as EffectArray, Layer, Match, Option, pipe } from 'effect'
 import type { BoundingBox, CameraError, Position3D, Vector3D } from '../../value_object'
 import { Position3DOps, createDirection3D, createPosition3D } from '../../value_object'
 import type {
@@ -32,28 +32,65 @@ export const CollisionDetectionServiceLive = Layer.succeed(
     checkCameraCollision: (position, collisionRadius, worldData) =>
       Effect.gen(function* () {
         // 静的オブジェクトとの衝突チェック
-        for (const obj of worldData.staticObjects) {
-          const collision = yield* checkSingleObjectCollision(position, collisionRadius, obj)
-          if (collision._tag === 'Collision') {
-            return collision
+        const staticCollision = yield* pipe(
+          worldData.staticObjects,
+          EffectArray.findFirst((obj) =>
+            Effect.gen(function* () {
+              const collision = yield* checkSingleObjectCollision(position, collisionRadius, obj)
+              return collision._tag === 'Collision'
+            })
+          ),
+          Effect.andThen(
+            Option.match({
+              onNone: () => Effect.succeed(CollisionResult.NoCollision()),
+              onSome: (obj) => checkSingleObjectCollision(position, collisionRadius, obj),
+            })
+          )
+        )
+
+        return yield* Effect.when(
+          () => staticCollision._tag === 'Collision',
+          () => Effect.succeed(staticCollision),
+          {
+            onFalse: () =>
+              pipe(
+                worldData.dynamicObjects,
+                EffectArray.findFirst((obj) =>
+                  Effect.gen(function* () {
+                    const collision = yield* checkSingleObjectCollision(position, collisionRadius, obj)
+                    return collision._tag === 'Collision'
+                  })
+                ),
+                Effect.andThen(
+                  Option.match({
+                    onNone: () => Effect.succeed(CollisionResult.NoCollision()),
+                    onSome: (obj) => checkSingleObjectCollision(position, collisionRadius, obj),
+                  })
+                ),
+                Effect.andThen((dynamicCollision) =>
+                  Effect.when(
+                    () => dynamicCollision._tag === 'Collision',
+                    () => Effect.succeed(dynamicCollision),
+                    {
+                      onFalse: () =>
+                        pipe(
+                          checkTerrainCollision(position, collisionRadius, worldData.terrain),
+                          Effect.andThen((terrainCollision) =>
+                            Effect.when(
+                              () => terrainCollision._tag === 'Collision',
+                              () => Effect.succeed(terrainCollision),
+                              {
+                                onFalse: () => Effect.succeed(CollisionResult.NoCollision()),
+                              }
+                            )
+                          )
+                        ),
+                    }
+                  )
+                )
+              ),
           }
-        }
-
-        // 動的オブジェクトとの衝突チェック
-        for (const obj of worldData.dynamicObjects) {
-          const collision = yield* checkSingleObjectCollision(position, collisionRadius, obj)
-          if (collision._tag === 'Collision') {
-            return collision
-          }
-        }
-
-        // 地形との衝突チェック
-        const terrainCollision = yield* checkTerrainCollision(position, collisionRadius, worldData.terrain)
-        if (terrainCollision._tag === 'Collision') {
-          return terrainCollision
-        }
-
-        return CollisionResult.NoCollision()
+        )
       }),
 
     /**
@@ -62,24 +99,42 @@ export const CollisionDetectionServiceLive = Layer.succeed(
      */
     findSafePosition: (desiredPosition, currentPosition, collisionRadius, worldData) =>
       Effect.gen(function* () {
-        let candidatePosition = desiredPosition
         const maxIterations = 10
-        const stepSize = 0.1
 
-        for (let i = 0; i < maxIterations; i++) {
-          const collision = yield* checkCameraCollision(candidatePosition, collisionRadius, worldData)
+        const findSafePositionRecursive = (
+          candidatePosition: Position3D,
+          iteration: number
+        ): Effect.Effect<Position3D, CameraError> =>
+          Effect.gen(function* () {
+            return yield* Effect.when(
+              () => iteration >= maxIterations,
+              () => Effect.succeed(currentPosition),
+              {
+                onFalse: () =>
+                  pipe(
+                    checkCameraCollision(candidatePosition, collisionRadius, worldData),
+                    Effect.andThen((collision) =>
+                      Effect.when(
+                        () => collision._tag === 'NoCollision',
+                        () => Effect.succeed(candidatePosition),
+                        {
+                          onFalse: () =>
+                            pipe(
+                              calculateAvoidanceVector(collision, candidatePosition),
+                              Effect.andThen((avoidanceVector) =>
+                                Position3DOps.add(candidatePosition, avoidanceVector)
+                              ),
+                              Effect.andThen((newPosition) => findSafePositionRecursive(newPosition, iteration + 1))
+                            ),
+                        }
+                      )
+                    )
+                  ),
+              }
+            )
+          })
 
-          if (collision._tag === 'NoCollision') {
-            return candidatePosition
-          }
-
-          // 衝突から離れる方向に位置を調整
-          const avoidanceVector = yield* calculateAvoidanceVector(collision, candidatePosition)
-          candidatePosition = yield* Position3DOps.add(candidatePosition, avoidanceVector)
-        }
-
-        // 安全な位置が見つからない場合は現在位置を返す
-        return currentPosition
+        return yield* findSafePositionRecursive(desiredPosition, 0)
       }),
 
     /**
@@ -88,31 +143,29 @@ export const CollisionDetectionServiceLive = Layer.succeed(
      */
     performRaycast: (origin, direction, maxDistance, worldData) =>
       Effect.gen(function* () {
-        let closestHit: RaycastHit | undefined
-        let closestDistance = maxDistance
-
         // 正規化された方向ベクトルを確保
         const normalizedDirection = yield* normalizeVector(direction)
 
-        // 静的オブジェクトとのレイキャスト
-        for (const obj of worldData.staticObjects) {
-          const hit = yield* raycastSingleObject(origin, normalizedDirection, closestDistance, obj)
-          if (Option.isSome(hit) && hit.value.distance < closestDistance) {
-            closestHit = hit.value
-            closestDistance = hit.value.distance
-          }
-        }
+        // 全オブジェクトのレイキャストヒットを収集
+        const allObjects = [...worldData.staticObjects, ...worldData.dynamicObjects]
 
-        // 動的オブジェクトとのレイキャスト
-        for (const obj of worldData.dynamicObjects) {
-          const hit = yield* raycastSingleObject(origin, normalizedDirection, closestDistance, obj)
-          if (Option.isSome(hit) && hit.value.distance < closestDistance) {
-            closestHit = hit.value
-            closestDistance = hit.value.distance
-          }
-        }
+        const hits = yield* pipe(
+          allObjects,
+          EffectArray.map((obj) => raycastSingleObject(origin, normalizedDirection, maxDistance, obj)),
+          Effect.all
+        )
 
-        return Option.fromNullable(closestHit)
+        // 最も近いヒットを検索
+        return pipe(
+          hits,
+          EffectArray.getSomes,
+          EffectArray.reduceRight(Option.none<RaycastHit>(), (hit, acc) =>
+            Option.match(acc, {
+              onNone: () => Option.some(hit),
+              onSome: (closest) => (hit.distance < closest.distance ? Option.some(hit) : Option.some(closest)),
+            })
+          )
+        )
       }),
 
     /**
@@ -123,13 +176,14 @@ export const CollisionDetectionServiceLive = Layer.succeed(
       Effect.gen(function* () {
         // 目標への直線経路をチェック
         const directPath = yield* isPathClear(currentPosition, targetPosition, obstacles)
-        if (directPath) {
-          return targetPosition
-        }
 
-        // 障害物を回避する代替経路を計算
-        const avoidancePosition = yield* findAvoidancePath(currentPosition, targetPosition, obstacles)
-        return avoidancePosition
+        return yield* Effect.when(
+          () => directPath,
+          () => Effect.succeed(targetPosition),
+          {
+            onFalse: () => findAvoidancePath(currentPosition, targetPosition, obstacles),
+          }
+        )
       }),
 
     /**
@@ -182,16 +236,11 @@ export const CollisionDetectionServiceLive = Layer.succeed(
      * 複数衝突検出
      */
     checkMultipleCollisions: (position, collisionRadius, obstacles) =>
-      Effect.gen(function* () {
-        const collisions: CollisionResult[] = []
-
-        for (const obstacle of obstacles) {
-          const collision = yield* checkSingleObjectCollision(position, collisionRadius, obstacle)
-          collisions.push(collision)
-        }
-
-        return collisions
-      }),
+      pipe(
+        obstacles,
+        EffectArray.map((obstacle) => checkSingleObjectCollision(position, collisionRadius, obstacle)),
+        Effect.all
+      ),
 
     /**
      * 動的衝突予測
@@ -203,31 +252,48 @@ export const CollisionDetectionServiceLive = Layer.succeed(
         const normalizedDirection = yield* Position3DOps.normalize(pathDirection)
 
         const steps = Math.ceil(pathLength / (collisionRadius * 0.5))
-        const stepSize = pathLength / steps
 
-        for (let i = 1; i <= steps; i++) {
-          const t = i / steps
-          const currentPosition = yield* Position3DOps.lerp(startPosition, endPosition, t)
+        const checkStep = (step: number): Effect.Effect<Option.Option<PathCollisionInfo>, CameraError> =>
+          Effect.gen(function* () {
+            return yield* Effect.when(
+              () => step > steps,
+              () => Effect.succeed(Option.none<PathCollisionInfo>()),
+              {
+                onFalse: () =>
+                  pipe(
+                    Effect.gen(function* () {
+                      const t = step / steps
+                      const currentPosition = yield* Position3DOps.lerp(startPosition, endPosition, t)
+                      const collision = yield* checkCameraCollision(currentPosition, collisionRadius, worldData)
 
-          const collision = yield* checkCameraCollision(currentPosition, collisionRadius, worldData)
-          if (collision._tag === 'Collision') {
-            // 衝突前の安全な位置を計算
-            const safeT = Math.max(0, (i - 1) / steps)
-            const safePosition = yield* Position3DOps.lerp(startPosition, endPosition, safeT)
+                      return yield* Effect.when(
+                        () => collision._tag === 'Collision',
+                        () =>
+                          Effect.gen(function* () {
+                            const safeT = Math.max(0, (step - 1) / steps)
+                            const safePosition = yield* Position3DOps.lerp(startPosition, endPosition, safeT)
 
-            const pathCollisionInfo: PathCollisionInfo = {
-              collisionPoint: collision.hitPosition,
-              collisionNormal: collision.hitNormal,
-              collisionTime: t,
-              collisionObject: collision.collisionObject,
-              safePosition,
-            }
+                            const pathCollisionInfo: PathCollisionInfo = {
+                              collisionPoint: collision.hitPosition,
+                              collisionNormal: collision.hitNormal,
+                              collisionTime: t,
+                              collisionObject: collision.collisionObject,
+                              safePosition,
+                            }
 
-            return Option.some(pathCollisionInfo)
-          }
-        }
+                            return Option.some(pathCollisionInfo)
+                          }),
+                        {
+                          onFalse: () => checkStep(step + 1),
+                        }
+                      )
+                    })
+                  ),
+              }
+            )
+          })
 
-        return Option.none()
+        return yield* checkStep(1)
       }),
   })
 )
@@ -277,21 +343,29 @@ const checkBoxCollision = (
   Effect.gen(function* () {
     const isColliding = yield* sphereBoxCollision(position, collisionRadius, box)
 
-    if (!isColliding) {
-      return CollisionResult.NoCollision()
-    }
-
-    // 衝突詳細を計算
-    const closestPoint = yield* findClosestPointToBox(position, box)
-    const hitNormal = yield* calculateBoxNormal(position, box)
-    const penetrationDepth = yield* calculatePenetrationDepth(position, closestPoint, collisionRadius)
-
-    return CollisionResult.Collision({
-      hitPosition: closestPoint,
-      hitNormal,
-      penetrationDepth,
-      collisionObject: obj,
-    })
+    return yield* Effect.when(
+      () => !isColliding,
+      () => Effect.succeed(CollisionResult.NoCollision()),
+      {
+        onFalse: () =>
+          pipe(
+            Effect.all([findClosestPointToBox(position, box), calculateBoxNormal(position, box)]),
+            Effect.andThen(([closestPoint, hitNormal]) =>
+              pipe(
+                calculatePenetrationDepth(position, closestPoint, collisionRadius),
+                Effect.map((penetrationDepth) =>
+                  CollisionResult.Collision({
+                    hitPosition: closestPoint,
+                    hitNormal,
+                    penetrationDepth,
+                    collisionObject: obj,
+                  })
+                )
+              )
+            )
+          ),
+      }
+    )
   })
 
 /**
@@ -308,25 +382,36 @@ const checkSphereCollision = (
   Effect.gen(function* () {
     const isColliding = yield* sphereSphereCollision(position, collisionRadius, sphereCenter, sphereRadius)
 
-    if (!isColliding) {
-      return CollisionResult.NoCollision()
-    }
-
-    // 衝突詳細を計算
-    const direction = yield* Position3DOps.subtract(position, sphereCenter)
-    const distance = yield* Position3DOps.magnitude(direction)
-    const hitNormal = yield* Position3DOps.normalize(direction)
-
-    const hitPosition = yield* Position3DOps.add(sphereCenter, yield* Position3DOps.scale(hitNormal, sphereRadius))
-
-    const penetrationDepth = collisionRadius + sphereRadius - distance
-
-    return CollisionResult.Collision({
-      hitPosition,
-      hitNormal,
-      penetrationDepth,
-      collisionObject: obj,
-    })
+    return yield* Effect.when(
+      () => !isColliding,
+      () => Effect.succeed(CollisionResult.NoCollision()),
+      {
+        onFalse: () =>
+          pipe(
+            Position3DOps.subtract(position, sphereCenter),
+            Effect.andThen((direction) =>
+              Effect.all({
+                distance: Position3DOps.magnitude(direction),
+                hitNormal: Position3DOps.normalize(direction),
+              })
+            ),
+            Effect.andThen(({ distance, hitNormal }) =>
+              pipe(
+                Position3DOps.scale(hitNormal, sphereRadius),
+                Effect.andThen((scaledNormal) => Position3DOps.add(sphereCenter, scaledNormal)),
+                Effect.map((hitPosition) =>
+                  CollisionResult.Collision({
+                    hitPosition,
+                    hitNormal,
+                    penetrationDepth: collisionRadius + sphereRadius - distance,
+                    collisionObject: obj,
+                  })
+                )
+              )
+            )
+          ),
+      }
+    )
   })
 
 /**
@@ -343,19 +428,24 @@ const checkPlaneCollision = (
   Effect.gen(function* () {
     const distance = yield* distanceToPlane(position, planePoint, planeNormal)
 
-    if (Math.abs(distance) > collisionRadius) {
-      return CollisionResult.NoCollision()
-    }
-
-    const hitPosition = yield* findClosestPointToPlane(position, planePoint, planeNormal)
-    const penetrationDepth = collisionRadius - Math.abs(distance)
-
-    return CollisionResult.Collision({
-      hitPosition,
-      hitNormal: planeNormal,
-      penetrationDepth,
-      collisionObject: obj,
-    })
+    return yield* Effect.when(
+      () => Math.abs(distance) > collisionRadius,
+      () => Effect.succeed(CollisionResult.NoCollision()),
+      {
+        onFalse: () =>
+          pipe(
+            findClosestPointToPlane(position, planePoint, planeNormal),
+            Effect.map((hitPosition) =>
+              CollisionResult.Collision({
+                hitPosition,
+                hitNormal: planeNormal,
+                penetrationDepth: collisionRadius - Math.abs(distance),
+                collisionObject: obj,
+              })
+            )
+          ),
+      }
+    )
   })
 
 /**
@@ -391,43 +481,60 @@ const checkTerrainCollision = (
     const gridZ = Math.floor(coords.z / terrain.blockSize)
 
     // 境界チェック
-    if (gridX < 0 || gridZ < 0 || gridX >= terrain.blockData[0]?.length || gridZ >= terrain.blockData.length) {
-      return CollisionResult.NoCollision()
-    }
+    const isOutOfBounds =
+      gridX < 0 || gridZ < 0 || gridX >= terrain.blockData[0]?.length || gridZ >= terrain.blockData.length
 
-    // 地形高度をチェック
-    const terrainHeight = terrain.heightMap[gridZ]?.[gridX] ?? 0
-    const cameraBottom = coords.y - collisionRadius
+    return yield* Effect.when(
+      () => isOutOfBounds,
+      () => Effect.succeed(CollisionResult.NoCollision()),
+      {
+        onFalse: () =>
+          Effect.gen(function* () {
+            // 地形高度をチェック
+            const terrainHeight = terrain.heightMap[gridZ]?.[gridX] ?? 0
+            const cameraBottom = coords.y - collisionRadius
 
-    if (cameraBottom <= terrainHeight) {
-      const hitPosition = yield* createPosition3D(coords.x, terrainHeight, coords.z)
-      const hitNormal = yield* createDirection3D(0, 1, 0) // 上向き法線
-      const penetrationDepth = terrainHeight - cameraBottom
+            return yield* Effect.when(
+              () => cameraBottom <= terrainHeight,
+              () =>
+                pipe(
+                  Effect.all({
+                    hitPosition: createPosition3D(coords.x, terrainHeight, coords.z),
+                    hitNormal: createDirection3D(0, 1, 0),
+                    min: createPosition3D(gridX * terrain.blockSize, 0, gridZ * terrain.blockSize),
+                    max: createPosition3D(
+                      (gridX + 1) * terrain.blockSize,
+                      terrainHeight,
+                      (gridZ + 1) * terrain.blockSize
+                    ),
+                  }),
+                  Effect.map(({ hitPosition, hitNormal, min, max }) => {
+                    const terrainObject = CollisionObject.Box({
+                      boundingBox: { min, max },
+                      material: {
+                        type: 'solid' as CollisionMaterialType,
+                        friction: 0.8,
+                        bounciness: 0.1,
+                        penetrable: false,
+                        density: 1.0,
+                      },
+                    })
 
-      // ダミーの地形衝突オブジェクトを作成
-      const terrainObject = CollisionObject.Box({
-        boundingBox: {
-          min: yield* createPosition3D(gridX * terrain.blockSize, 0, gridZ * terrain.blockSize),
-          max: yield* createPosition3D((gridX + 1) * terrain.blockSize, terrainHeight, (gridZ + 1) * terrain.blockSize),
-        },
-        material: {
-          type: 'solid' as CollisionMaterialType,
-          friction: 0.8,
-          bounciness: 0.1,
-          penetrable: false,
-          density: 1.0,
-        },
-      })
-
-      return CollisionResult.Collision({
-        hitPosition,
-        hitNormal,
-        penetrationDepth,
-        collisionObject: terrainObject,
-      })
-    }
-
-    return CollisionResult.NoCollision()
+                    return CollisionResult.Collision({
+                      hitPosition,
+                      hitNormal,
+                      penetrationDepth: terrainHeight - cameraBottom,
+                      collisionObject: terrainObject,
+                    })
+                  })
+                ),
+              {
+                onFalse: () => Effect.succeed(CollisionResult.NoCollision()),
+              }
+            )
+          }),
+      }
+    )
   })
 
 /**
@@ -453,16 +560,17 @@ const calculateAvoidanceVector = (
   position: Position3D
 ): Effect.Effect<Vector3D, CameraError> =>
   Effect.gen(function* () {
-    if (collision._tag === 'NoCollision') {
-      return yield* createDirection3D(0, 0, 0)
-    }
-
-    const avoidanceDirection = yield* Position3DOps.scale(
-      collision.hitNormal,
-      collision.penetrationDepth + 0.1 // 少し余裕を持たせる
+    return yield* Effect.when(
+      () => collision._tag === 'NoCollision',
+      () => createDirection3D(0, 0, 0),
+      {
+        onFalse: () =>
+          Position3DOps.scale(
+            collision.hitNormal,
+            collision.penetrationDepth + 0.1 // 少し余裕を持たせる
+          ),
+      }
     )
-
-    return avoidanceDirection
   })
 
 const raycastSingleObject = (
@@ -519,14 +627,18 @@ const findClosestPointToSphere = (
     const direction = yield* Position3DOps.subtract(point, center)
     const distance = yield* Position3DOps.magnitude(direction)
 
-    if (distance <= radius) {
-      return point // 点が球体内部にある
-    }
-
-    const normalizedDirection = yield* Position3DOps.normalize(direction)
-    const closestPoint = yield* Position3DOps.add(center, yield* Position3DOps.scale(normalizedDirection, radius))
-
-    return closestPoint
+    return yield* Effect.when(
+      () => distance <= radius,
+      () => Effect.succeed(point), // 点が球体内部にある
+      {
+        onFalse: () =>
+          pipe(
+            Position3DOps.normalize(direction),
+            Effect.andThen((normalizedDirection) => Position3DOps.scale(normalizedDirection, radius)),
+            Effect.andThen((scaled) => Position3DOps.add(center, scaled))
+          ),
+      }
+    )
   })
 
 const findClosestPointToPlane = (
@@ -547,18 +659,25 @@ const findClosestPointToMesh = (
 ): Effect.Effect<Position3D, CameraError> =>
   Effect.gen(function* () {
     // 簡易実装：最も近い頂点を返す
-    let closestPoint = vertices[0]
-    let closestDistance = yield* Position3DOps.distance(point, vertices[0])
+    const vertexDistances = yield* pipe(
+      vertices,
+      EffectArray.map((vertex) =>
+        pipe(
+          Position3DOps.distance(point, vertex),
+          Effect.map((distance) => ({ vertex, distance }))
+        )
+      ),
+      Effect.all
+    )
 
-    for (const vertex of vertices) {
-      const distance = yield* Position3DOps.distance(point, vertex)
-      if (distance < closestDistance) {
-        closestDistance = distance
-        closestPoint = vertex
-      }
-    }
+    const closest = pipe(
+      vertexDistances,
+      EffectArray.reduce({ vertex: vertices[0], distance: Infinity }, (acc, curr) =>
+        curr.distance < acc.distance ? curr : acc
+      )
+    )
 
-    return closestPoint
+    return closest.vertex
   })
 
 const calculateBoxNormal = (position: Position3D, box: BoundingBox): Effect.Effect<Vector3D, CameraError> =>
@@ -570,21 +689,49 @@ const calculateBoxNormal = (position: Position3D, box: BoundingBox): Effect.Effe
     const posCoords = Position3DOps.getCoordinates(position)
 
     // X, Y, Z軸での距離を計算
-    const distToMinX = Math.abs(posCoords.x - minCoords.x)
-    const distToMaxX = Math.abs(posCoords.x - maxCoords.x)
-    const distToMinY = Math.abs(posCoords.y - minCoords.y)
-    const distToMaxY = Math.abs(posCoords.y - maxCoords.y)
-    const distToMinZ = Math.abs(posCoords.z - minCoords.z)
-    const distToMaxZ = Math.abs(posCoords.z - maxCoords.z)
+    const distances = {
+      minX: Math.abs(posCoords.x - minCoords.x),
+      maxX: Math.abs(posCoords.x - maxCoords.x),
+      minY: Math.abs(posCoords.y - minCoords.y),
+      maxY: Math.abs(posCoords.y - maxCoords.y),
+      minZ: Math.abs(posCoords.z - minCoords.z),
+      maxZ: Math.abs(posCoords.z - maxCoords.z),
+    }
 
-    const minDist = Math.min(distToMinX, distToMaxX, distToMinY, distToMaxY, distToMinZ, distToMaxZ)
+    const minDist = Math.min(
+      distances.minX,
+      distances.maxX,
+      distances.minY,
+      distances.maxY,
+      distances.minZ,
+      distances.maxZ
+    )
 
-    if (minDist === distToMinX) return yield* createDirection3D(-1, 0, 0)
-    if (minDist === distToMaxX) return yield* createDirection3D(1, 0, 0)
-    if (minDist === distToMinY) return yield* createDirection3D(0, -1, 0)
-    if (minDist === distToMaxY) return yield* createDirection3D(0, 1, 0)
-    if (minDist === distToMinZ) return yield* createDirection3D(0, 0, -1)
-    return yield* createDirection3D(0, 0, 1)
+    return yield* pipe(
+      minDist,
+      Match.value,
+      Match.when(
+        (d) => d === distances.minX,
+        () => createDirection3D(-1, 0, 0)
+      ),
+      Match.when(
+        (d) => d === distances.maxX,
+        () => createDirection3D(1, 0, 0)
+      ),
+      Match.when(
+        (d) => d === distances.minY,
+        () => createDirection3D(0, -1, 0)
+      ),
+      Match.when(
+        (d) => d === distances.maxY,
+        () => createDirection3D(0, 1, 0)
+      ),
+      Match.when(
+        (d) => d === distances.minZ,
+        () => createDirection3D(0, 0, -1)
+      ),
+      Match.orElse(() => createDirection3D(0, 0, 1))
+    )
   })
 
 const calculatePenetrationDepth = (
@@ -609,30 +756,46 @@ const distanceToPlane = (
 
 const calculateMeshBoundingBox = (vertices: readonly Position3D[]): Effect.Effect<BoundingBox, CameraError> =>
   Effect.gen(function* () {
-    if (vertices.length === 0) {
-      const origin = yield* createPosition3D(0, 0, 0)
-      return { min: origin, max: origin }
-    }
+    return yield* Effect.when(
+      () => vertices.length === 0,
+      () =>
+        pipe(
+          createPosition3D(0, 0, 0),
+          Effect.map((origin) => ({ min: origin, max: origin }))
+        ),
+      {
+        onFalse: () =>
+          Effect.gen(function* () {
+            const bounds = pipe(
+              vertices,
+              EffectArray.reduce(
+                {
+                  minX: Infinity,
+                  minY: Infinity,
+                  minZ: Infinity,
+                  maxX: -Infinity,
+                  maxY: -Infinity,
+                  maxZ: -Infinity,
+                },
+                (acc, vertex) => {
+                  const coords = Position3DOps.getCoordinates(vertex)
+                  return {
+                    minX: Math.min(acc.minX, coords.x),
+                    minY: Math.min(acc.minY, coords.y),
+                    minZ: Math.min(acc.minZ, coords.z),
+                    maxX: Math.max(acc.maxX, coords.x),
+                    maxY: Math.max(acc.maxY, coords.y),
+                    maxZ: Math.max(acc.maxZ, coords.z),
+                  }
+                }
+              )
+            )
 
-    let minX = Infinity,
-      minY = Infinity,
-      minZ = Infinity
-    let maxX = -Infinity,
-      maxY = -Infinity,
-      maxZ = -Infinity
+            const min = yield* createPosition3D(bounds.minX, bounds.minY, bounds.minZ)
+            const max = yield* createPosition3D(bounds.maxX, bounds.maxY, bounds.maxZ)
 
-    for (const vertex of vertices) {
-      const coords = Position3DOps.getCoordinates(vertex)
-      minX = Math.min(minX, coords.x)
-      minY = Math.min(minY, coords.y)
-      minZ = Math.min(minZ, coords.z)
-      maxX = Math.max(maxX, coords.x)
-      maxY = Math.max(maxY, coords.y)
-      maxZ = Math.max(maxZ, coords.z)
-    }
-
-    const min = yield* createPosition3D(minX, minY, minZ)
-    const max = yield* createPosition3D(maxX, maxY, maxZ)
-
-    return { min, max }
+            return { min, max }
+          }),
+      }
+    )
   })

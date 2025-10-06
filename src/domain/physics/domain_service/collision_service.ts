@@ -1,6 +1,5 @@
+import type { AABB, PhysicsError, PhysicsWorldId, Vector3 } from '@domain/physics/types'
 import { Context, Effect, Layer } from 'effect'
-import type { AABB, PhysicsWorldId, Vector3 } from '@domain/physics/types'
-import type { PhysicsError } from '@domain/physics/types'
 import { CollisionResult } from '../value_object'
 
 export interface CollisionQuery {

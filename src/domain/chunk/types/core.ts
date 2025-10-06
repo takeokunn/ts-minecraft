@@ -89,7 +89,7 @@ export const ChangeSetSchema = Schema.Struct({
 })
 
 /**
- * チャンクの状態 - Data.TaggedEnum ADT
+ * チャンクの状態 - Data.taggedEnum ADT
  */
 export type ChunkState = Data.TaggedEnum<{
   /** チャンク未読み込み状態 */
@@ -140,7 +140,7 @@ export type ChunkState = Data.TaggedEnum<{
 export const ChunkState = Data.taggedEnum<ChunkState>()
 
 /**
- * チャンク操作 - Data.TaggedEnum ADT
+ * チャンク操作 - Data.taggedEnum ADT
  */
 export type ChunkOperation = Data.TaggedEnum<{
   /** チャンク読み込み操作 */
@@ -211,7 +211,7 @@ export type SerializationFormat = Data.TaggedEnum<{
 export const SerializationFormat = Data.taggedEnum<SerializationFormat>()
 
 /**
- * チャンクエラー階層 - Data.TaggedEnum ADT
+ * チャンクエラー階層 - Data.taggedEnum ADT
  */
 export type ChunkError = Data.TaggedEnum<{
   /** バリデーションエラー */
@@ -309,7 +309,7 @@ export const ChunkStatesEffect = {
     Effect.gen(function* () {
       const clock = yield* Effect.service(DomainClock)
       const epochMillis = yield* clock.now()
-      const startTime = yield* Schema.decodeEffect(ChunkTimestampSchema)(epochMillis)
+      const startTime = yield* Schema.decode(ChunkTimestampSchema)(epochMillis)
       return ChunkState.Loading({ progress, startTime })
     }),
 
@@ -317,7 +317,7 @@ export const ChunkStatesEffect = {
     Effect.gen(function* () {
       const clock = yield* Effect.service(DomainClock)
       const epochMillis = yield* clock.now()
-      const loadTime = yield* Schema.decodeEffect(ChunkTimestampSchema)(epochMillis)
+      const loadTime = yield* Schema.decode(ChunkTimestampSchema)(epochMillis)
       return ChunkState.Loaded({ data, loadTime, metadata })
     }),
 
@@ -325,8 +325,8 @@ export const ChunkStatesEffect = {
     Effect.gen(function* () {
       const clock = yield* Effect.service(DomainClock)
       const epochMillis = yield* clock.now()
-      const lastAttempt = yield* Schema.decodeEffect(ChunkTimestampSchema)(epochMillis)
-      const safeRetryCount = yield* Schema.decodeEffect(RetryCountSchema)(retryCount)
+      const lastAttempt = yield* Schema.decode(ChunkTimestampSchema)(epochMillis)
+      const safeRetryCount = yield* Schema.decode(RetryCountSchema)(retryCount)
       return ChunkState.Failed({ error, retryCount: safeRetryCount, lastAttempt })
     }),
 
@@ -340,7 +340,7 @@ export const ChunkStatesEffect = {
     Effect.gen(function* () {
       const clock = yield* Effect.service(DomainClock)
       const epochMillis = yield* clock.now()
-      const cacheTime = yield* Schema.decodeEffect(ChunkTimestampSchema)(epochMillis)
+      const cacheTime = yield* Schema.decode(ChunkTimestampSchema)(epochMillis)
       return ChunkState.Cached({ data, cacheTime, metadata })
     }),
 } as const

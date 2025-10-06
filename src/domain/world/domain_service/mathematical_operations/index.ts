@@ -2,20 +2,14 @@
  * Mathematical Operations Domain Services
  */
 
-export * from './index'
-export * from './index'
-export * from './index'
+export * from './coordinate_transform'
+export * from './interpolation_service'
+export * from './layer'
+export * from './statistical_analyzer'
 
-import { Layer } from 'effect'
-import { CoordinateTransformService, CoordinateTransformServiceLive } from './index'
-import { InterpolationService, InterpolationServiceLive } from './index'
-import { StatisticalAnalyzerService, StatisticalAnalyzerServiceLive } from './index'
-
-export const MathematicalOperationsLayer = Layer.mergeAll(
-  InterpolationServiceLive,
-  CoordinateTransformServiceLive,
-  StatisticalAnalyzerServiceLive
-)
+import { CoordinateTransformService } from './coordinate_transform'
+import { InterpolationService } from './interpolation_service'
+import { StatisticalAnalyzerService } from './statistical_analyzer'
 
 export const MathematicalOperationsServices = {
   Interpolation: InterpolationService,

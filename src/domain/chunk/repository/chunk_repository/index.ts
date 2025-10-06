@@ -1,41 +1,26 @@
 /**
  * ChunkRepository Module - Barrel Export
  *
- * 基盤チャンクリポジトリの統合エクスポート
- * 複数実装とインターフェースの提供
+ * Effect-TS パターンに基づく標準リポジトリインターフェース
+ * チャンクの基本的なCRUD操作を提供
  */
 
 export {
   ChunkRepository,
-  type BatchOperationResult,
-  type ChunkArray,
-  type ChunkOption,
-  type ChunkQuery,
-  type ChunkRegion,
+  // Methods
+  type ChunkCreateResult,
+  type ChunkDeleteResult,
+  // Options
+  type ChunkFindOptions,
+  type ChunkFindResult,
   // Interface
   type ChunkRepository,
   type ChunkRepositoryEffect,
-  type ChunkStatistics,
-} from './index'
+  type ChunkSaveOptions,
+  type ChunkUpdateResult,
+  // Types
+  type ChunkVersion,
+} from './interface'
 
-export {
-  // In-Memory Implementation
-  InMemoryChunkRepositoryLive,
-} from './index'
-
-export {
-  // IndexedDB Implementation
-  IndexedDBChunkRepositoryLive,
-} from './index'
-
-export {
-  WORKER_SCRIPT_TEMPLATE,
-  // WebWorker Implementation
-  WebWorkerChunkRepositoryLive,
-  createWebWorkerChunkRepository,
-} from './index'
-export * from './index';
-export * from './index';
-export * from './index';
-export * from './index';
-export * from './interface';
+// Note: Implementation will be added in a separate task
+// For now, we export only the interface and types

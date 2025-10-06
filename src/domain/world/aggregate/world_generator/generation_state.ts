@@ -7,10 +7,10 @@
  * - パフォーマンス最適化のための統計情報
  */
 
-import { Effect, Option, Schema } from 'effect'
 import type * as WorldTypes from '@domain/world/types/core'
 import type * as GenerationErrors from '@domain/world/types/errors'
 import * as Coordinates from '@domain/world/value_object/coordinates/index'
+import { Clock, Effect, Option, Schema } from 'effect'
 
 // ================================
 // Generation Status
@@ -91,22 +91,27 @@ export type GenerationState = typeof GenerationStateSchema.Type
 /**
  * 初期状態作成
  */
-export const createInitial = (): GenerationState => ({
-  status: 'idle',
-  activeGenerations: {},
-  completedChunks: {},
-  statistics: {
-    totalChunksGenerated: 0,
-    totalGenerationTime: 0,
-    averageGenerationTime: 0,
-    successRate: 1.0,
-    concurrentGenerations: 0,
-    peakConcurrentGenerations: 0,
-    failureCount: 0,
-    retryCount: 0,
-  },
-  lastActivity: new Date(),
-})
+export const createInitial = (): Effect.Effect<GenerationState> =>
+  Effect.gen(function* () {
+    const lastActivity = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+
+    return {
+      status: 'idle',
+      activeGenerations: {},
+      completedChunks: {},
+      statistics: {
+        totalChunksGenerated: 0,
+        totalGenerationTime: 0,
+        averageGenerationTime: 0,
+        successRate: 1.0,
+        concurrentGenerations: 0,
+        peakConcurrentGenerations: 0,
+        failureCount: 0,
+        retryCount: 0,
+      },
+      lastActivity,
+    }
+  })
 
 /**
  * チャンク生成開始
@@ -118,7 +123,7 @@ export const startChunkGeneration = (
 ): Effect.Effect<GenerationState, GenerationErrors.StateError> =>
   Effect.gen(function* () {
     const coordinateKey = coordinateToKey(coordinate)
-    const now = yield* Effect.sync(() => new Date())
+    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
 
     // 既に生成中または完了済みかチェック
     if (coordinateKey in state.activeGenerations) {
@@ -167,7 +172,7 @@ export const completeChunkGeneration = (
 ): Effect.Effect<GenerationState, GenerationErrors.StateError> =>
   Effect.gen(function* () {
     const coordinateKey = coordinateToKey(coordinate)
-    const now = yield* Effect.sync(() => new Date())
+    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
 
     const activeGeneration = state.activeGenerations[coordinateKey]
     if (!activeGeneration) {
@@ -234,7 +239,7 @@ export const failChunkGeneration = (
 ): Effect.Effect<GenerationState, GenerationErrors.StateError> =>
   Effect.gen(function* () {
     const coordinateKey = coordinateToKey(coordinate)
-    const now = yield* Effect.sync(() => new Date())
+    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
 
     const activeGeneration = state.activeGenerations[coordinateKey]
     if (!activeGeneration) {

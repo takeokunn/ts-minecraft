@@ -5,9 +5,9 @@
  * ワールド座標との完全な変換保証とブロック境界の厳密な管理
  */
 
+import { taggedUnion } from '@domain/world/utils'
 import type { Brand as BrandType } from 'effect'
 import { Schema } from 'effect'
-import { taggedUnion } from '@domain/world/utils'
 
 /**
  * ブロック座標系のBrand型

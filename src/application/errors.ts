@@ -1,5 +1,4 @@
-import { Schema } from '@effect/schema'
-import { Clock, Effect, Match } from 'effect'
+import { Clock, Effect, Match, Schema } from 'effect'
 import { ErrorSeverity, MemoryBytes, Milliseconds, Timestamp } from './types'
 
 // ===== JSON表現 =====

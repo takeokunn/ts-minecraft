@@ -6,10 +6,15 @@
  * セッション管理・復旧・履歴機能を完全サポート
  */
 
-import { Effect, Layer, Option, ReadonlyArray, Ref } from 'effect'
-import type { ChunkPosition, GenerationSessionId, GenerationSettings, WorldId } from '@domain/world/types'
-import type { AllRepositoryErrors } from '@domain/world/types'
+import type {
+  AllRepositoryErrors,
+  ChunkPosition,
+  GenerationSessionId,
+  GenerationSettings,
+  WorldId,
+} from '@domain/world/types'
 import { createGenerationSessionNotFoundError, createRepositoryError } from '@domain/world/types'
+import { Clock, Effect, Layer, Option, pipe, ReadonlyArray, Ref } from 'effect'
 import type {
   ChunkGenerationTask,
   GenerationProgress,
@@ -77,8 +82,11 @@ const makeGenerationSessionRepositoryMemory = (
     const storageRef = yield* Ref.make(createInitialMemoryStorage())
 
     // Utility functions
-    const generateSessionId = (): GenerationSessionId =>
-      `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}` as GenerationSessionId
+    const generateSessionId = (): Effect.Effect<GenerationSessionId, never> =>
+      Effect.gen(function* () {
+        const timestamp = yield* Clock.currentTimeMillis
+        return `session-${timestamp}-${Math.random().toString(36).substr(2, 9)}` as GenerationSessionId
+      })
 
     const addHistoryEntry = (
       sessionId: GenerationSessionId,
@@ -87,10 +95,11 @@ const makeGenerationSessionRepositoryMemory = (
       actor: string = 'system'
     ): Effect.Effect<void, never> =>
       Effect.gen(function* () {
+        const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
         yield* Ref.update(storageRef, (storage) => {
           const sessionHistory = storage.history.get(sessionId) || []
           const newEntry = {
-            timestamp: new Date(),
+            timestamp: now,
             action,
             details,
             actor,
@@ -123,8 +132,8 @@ const makeGenerationSessionRepositoryMemory = (
       metadata?: Partial<GenerationSessionMetadata>
     ): Effect.Effect<GenerationSession, AllRepositoryErrors> =>
       Effect.gen(function* () {
-        const sessionId = generateSessionId()
-        const now = new Date()
+        const sessionId = yield* generateSessionId()
+        const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
 
         const session: GenerationSession = {
           id: sessionId,
@@ -174,9 +183,7 @@ const makeGenerationSessionRepositoryMemory = (
     ): Effect.Effect<Option.Option<GenerationSession>, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const storage = yield* Ref.get(storageRef)
-        const session = storage.sessions.get(sessionId)
-
-        return session ? Option.some(session) : Option.none()
+        return pipe(Option.fromNullable(storage.sessions.get(sessionId)))
       }).pipe(
         Effect.catchAll((error) =>
           Effect.fail(createRepositoryError(`Failed to find session by ID: ${error}`, 'findById', error))
@@ -214,65 +221,110 @@ const makeGenerationSessionRepositoryMemory = (
     const findByQuery = (query: SessionQuery): Effect.Effect<ReadonlyArray<GenerationSession>, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const storage = yield* Ref.get(storageRef)
-        let sessions = Array.from(storage.sessions.values())
+        const sessions = Array.from(storage.sessions.values())
 
-        // Apply filters
-        if (query.worldId) {
-          sessions = sessions.filter((s) => s.worldId === query.worldId)
-        }
-        if (query.state) {
-          sessions = sessions.filter((s) => s.state === query.state)
-        }
-        if (query.priority) {
-          sessions = sessions.filter((s) => s.metadata.priority === query.priority)
-        }
-        if (query.createdAfter) {
-          sessions = sessions.filter((s) => s.createdAt >= query.createdAfter!)
-        }
-        if (query.createdBefore) {
-          sessions = sessions.filter((s) => s.createdAt <= query.createdBefore!)
-        }
-        if (query.hasFailedChunks !== undefined) {
-          sessions = sessions.filter((s) =>
-            query.hasFailedChunks ? s.progress.failedChunks > 0 : s.progress.failedChunks === 0
+        // Apply filters using functional composition
+        const filtered = pipe(
+          sessions,
+          ReadonlyArray.filter((s) =>
+            pipe(
+              Option.fromNullable(query.worldId),
+              Option.match({
+                onNone: () => true,
+                onSome: (worldId) => s.worldId === worldId,
+              })
+            )
+          ),
+          ReadonlyArray.filter((s) =>
+            pipe(
+              Option.fromNullable(query.state),
+              Option.match({
+                onNone: () => true,
+                onSome: (state) => s.state === state,
+              })
+            )
+          ),
+          ReadonlyArray.filter((s) =>
+            pipe(
+              Option.fromNullable(query.priority),
+              Option.match({
+                onNone: () => true,
+                onSome: (priority) => s.metadata.priority === priority,
+              })
+            )
+          ),
+          ReadonlyArray.filter((s) =>
+            pipe(
+              Option.fromNullable(query.createdAfter),
+              Option.match({
+                onNone: () => true,
+                onSome: (createdAfter) => s.createdAt >= createdAfter,
+              })
+            )
+          ),
+          ReadonlyArray.filter((s) =>
+            pipe(
+              Option.fromNullable(query.createdBefore),
+              Option.match({
+                onNone: () => true,
+                onSome: (createdBefore) => s.createdAt <= createdBefore,
+              })
+            )
+          ),
+          ReadonlyArray.filter((s) =>
+            query.hasFailedChunks === undefined
+              ? true
+              : query.hasFailedChunks
+                ? s.progress.failedChunks > 0
+                : s.progress.failedChunks === 0
+          ),
+          ReadonlyArray.filter((s) =>
+            pipe(
+              Option.fromNullable(query.tags),
+              Option.match({
+                onNone: () => true,
+                onSome: (tags) => tags.length === 0 || tags.some((tag) => s.metadata.tags.includes(tag)),
+              })
+            )
           )
-        }
-        if (query.tags && query.tags.length > 0) {
-          sessions = sessions.filter((s) => query.tags!.some((tag) => s.metadata.tags.includes(tag)))
-        }
+        )
 
         // Apply sorting
-        if (query.sortBy) {
-          sessions.sort((a, b) => {
-            let aValue: Date | number
-            let bValue: Date | number
+        const sorted = pipe(
+          Option.fromNullable(query.sortBy),
+          Option.match({
+            onNone: () => filtered,
+            onSome: (sortBy) => {
+              const getValue = (session: GenerationSession): Date | number => {
+                switch (sortBy) {
+                  case 'createdAt':
+                    return session.createdAt
+                  case 'lastActivityAt':
+                    return session.lastActivityAt
+                  case 'progress':
+                    return session.progress.overallProgress
+                  default:
+                    return 0
+                }
+              }
 
-            switch (query.sortBy!) {
-              case 'createdAt':
-                aValue = a.createdAt
-                bValue = b.createdAt
-                break
-              case 'lastActivityAt':
-                aValue = a.lastActivityAt
-                bValue = b.lastActivityAt
-                break
-              case 'progress':
-                aValue = a.progress.overallProgress
-                bValue = b.progress.overallProgress
-                break
-              default:
-                return 0
-            }
-
-            const comparison = aValue < bValue ? -1 : aValue > bValue ? 1 : 0
-            return query.sortOrder === 'desc' ? -comparison : comparison
+              return pipe(
+                filtered,
+                ReadonlyArray.sort((a, b) => {
+                  const aValue = getValue(a)
+                  const bValue = getValue(b)
+                  const comparison = aValue < bValue ? -1 : aValue > bValue ? 1 : 0
+                  return query.sortOrder === 'desc' ? -comparison : comparison
+                })
+              )
+            },
           })
-        }
+        )
 
         // Apply pagination
         const offset = query.offset ?? 0
-        const limit = query.limit ?? sessions.length
-        return sessions.slice(offset, offset + limit)
+        const limit = query.limit ?? sorted.length
+        return sorted.slice(offset, offset + limit)
       }).pipe(
         Effect.catchAll((error) =>
           Effect.fail(createRepositoryError(`Failed to find sessions by query: ${error}`, 'findByQuery', error))
@@ -285,14 +337,19 @@ const makeGenerationSessionRepositoryMemory = (
     const updateSession = (session: GenerationSession): Effect.Effect<void, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const storage = yield* Ref.get(storageRef)
+        const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
 
-        if (!storage.sessions.has(session.id)) {
-          return yield* Effect.fail(createGenerationSessionNotFoundError(session.id))
-        }
+        yield* pipe(
+          storage.sessions.has(session.id),
+          Effect.when(() => !storage.sessions.has(session.id), {
+            onTrue: () => Effect.fail(createGenerationSessionNotFoundError(session.id)),
+            onFalse: () => Effect.void,
+          })
+        )
 
         const updatedSession = {
           ...session,
-          lastActivityAt: new Date(),
+          lastActivityAt: now,
         }
 
         yield* Ref.update(storageRef, (storage) => ({
@@ -303,7 +360,7 @@ const makeGenerationSessionRepositoryMemory = (
         yield* addHistoryEntry(session.id, 'session_updated', { changes: 'full_update' })
         yield* updateStatistics((stats) => ({
           ...stats,
-          lastActivityAt: new Date(),
+          lastActivityAt: now,
         }))
       }).pipe(
         Effect.catchAll((error) =>
@@ -315,9 +372,12 @@ const makeGenerationSessionRepositoryMemory = (
       Effect.gen(function* () {
         const storage = yield* Ref.get(storageRef)
 
-        if (!storage.sessions.has(sessionId)) {
-          return yield* Effect.fail(createGenerationSessionNotFoundError(sessionId))
-        }
+        yield* pipe(
+          Effect.when(() => !storage.sessions.has(sessionId), {
+            onTrue: () => Effect.fail(createGenerationSessionNotFoundError(sessionId)),
+            onFalse: () => Effect.void,
+          })
+        )
 
         yield* Ref.update(storageRef, (storage) => {
           const newSessions = new Map(storage.sessions)
@@ -348,24 +408,31 @@ const makeGenerationSessionRepositoryMemory = (
       sessionIds: ReadonlyArray<GenerationSessionId>
     ): Effect.Effect<SessionBatchResult, AllRepositoryErrors> =>
       Effect.gen(function* () {
-        const successful: GenerationSessionId[] = []
-        const failed: { sessionId: GenerationSessionId; error: AllRepositoryErrors }[] = []
+        const results = yield* Effect.forEach(
+          sessionIds,
+          (sessionId) =>
+            pipe(
+              deleteSession(sessionId),
+              Effect.exit,
+              Effect.map((exit) => ({ sessionId, exit }))
+            ),
+          { concurrency: 'unbounded' }
+        )
 
-        for (const sessionId of sessionIds) {
-          try {
-            yield* deleteSession(sessionId)
-            successful.push(sessionId)
-          } catch (error) {
-            failed.push({
-              sessionId,
-              error: createRepositoryError(`Failed to delete session: ${error}`, 'deleteSessions', error),
-            })
-          }
-        }
+        const [successful, failed] = pipe(
+          results,
+          ReadonlyArray.partition(({ exit }) => exit._tag === 'Success')
+        )
 
         return {
-          successful,
-          failed,
+          successful: successful.map(({ sessionId }) => sessionId),
+          failed: failed.map(({ sessionId, exit }) => ({
+            sessionId,
+            error:
+              exit._tag === 'Failure'
+                ? exit.cause.failures[0] || createRepositoryError('Unknown error', 'deleteSessions', null)
+                : createRepositoryError('Unknown error', 'deleteSessions', null),
+          })),
           totalProcessed: sessionIds.length,
         }
       }).pipe(
@@ -382,13 +449,16 @@ const makeGenerationSessionRepositoryMemory = (
     ): Effect.Effect<void, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const storage = yield* Ref.get(storageRef)
-        const session = storage.sessions.get(sessionId)
 
-        if (!session) {
-          return yield* Effect.fail(createGenerationSessionNotFoundError(sessionId))
-        }
+        const session = yield* pipe(
+          Option.fromNullable(storage.sessions.get(sessionId)),
+          Option.match({
+            onNone: () => Effect.fail(createGenerationSessionNotFoundError(sessionId)),
+            onSome: (s) => Effect.succeed(s),
+          })
+        )
 
-        const now = new Date()
+        const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
         const updatedSession: GenerationSession = {
           ...session,
           state,
@@ -416,16 +486,20 @@ const makeGenerationSessionRepositoryMemory = (
     ): Effect.Effect<void, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const storage = yield* Ref.get(storageRef)
-        const session = storage.sessions.get(sessionId)
+        const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
 
-        if (!session) {
-          return yield* Effect.fail(createGenerationSessionNotFoundError(sessionId))
-        }
+        const session = yield* pipe(
+          Option.fromNullable(storage.sessions.get(sessionId)),
+          Option.match({
+            onNone: () => Effect.fail(createGenerationSessionNotFoundError(sessionId)),
+            onSome: (s) => Effect.succeed(s),
+          })
+        )
 
         const updatedSession: GenerationSession = {
           ...session,
           progress: { ...session.progress, ...progress },
-          lastActivityAt: new Date(),
+          lastActivityAt: now,
         }
 
         yield* Ref.update(storageRef, (storage) => ({
@@ -458,17 +532,21 @@ const makeGenerationSessionRepositoryMemory = (
     ): Effect.Effect<void, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const storage = yield* Ref.get(storageRef)
-        const session = storage.sessions.get(sessionId)
+        const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
 
-        if (!session) {
-          return yield* Effect.fail(createGenerationSessionNotFoundError(sessionId))
-        }
+        const session = yield* pipe(
+          Option.fromNullable(storage.sessions.get(sessionId)),
+          Option.match({
+            onNone: () => Effect.fail(createGenerationSessionNotFoundError(sessionId)),
+            onSome: (s) => Effect.succeed(s),
+          })
+        )
 
         const updatedSession: GenerationSession = {
           ...session,
           chunks: [...session.chunks, task],
           progress: calculateProgress([...session.chunks, task]),
-          lastActivityAt: new Date(),
+          lastActivityAt: now,
         }
 
         yield* Ref.update(storageRef, (storage) => ({
@@ -486,19 +564,30 @@ const makeGenerationSessionRepositoryMemory = (
     ): Effect.Effect<void, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const storage = yield* Ref.get(storageRef)
-        const session = storage.sessions.get(sessionId)
+        const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
 
-        if (!session) {
-          return yield* Effect.fail(createGenerationSessionNotFoundError(sessionId))
-        }
+        const session = yield* pipe(
+          Option.fromNullable(storage.sessions.get(sessionId)),
+          Option.match({
+            onNone: () => Effect.fail(createGenerationSessionNotFoundError(sessionId)),
+            onSome: (s) => Effect.succeed(s),
+          })
+        )
 
         const chunkIndex = session.chunks.findIndex((c) => c.position.x === position.x && c.position.z === position.z)
 
-        if (chunkIndex === -1) {
-          return yield* Effect.fail(
-            createRepositoryError(`Chunk task not found at position: ${position.x}, ${position.z}`, 'updateChunkTask')
-          )
-        }
+        yield* pipe(
+          Effect.when(() => chunkIndex === -1, {
+            onTrue: () =>
+              Effect.fail(
+                createRepositoryError(
+                  `Chunk task not found at position: ${position.x}, ${position.z}`,
+                  'updateChunkTask'
+                )
+              ),
+            onFalse: () => Effect.void,
+          })
+        )
 
         const updatedChunks = [...session.chunks]
         updatedChunks[chunkIndex] = { ...updatedChunks[chunkIndex], ...update }
@@ -507,7 +596,7 @@ const makeGenerationSessionRepositoryMemory = (
           ...session,
           chunks: updatedChunks,
           progress: calculateProgress(updatedChunks),
-          lastActivityAt: new Date(),
+          lastActivityAt: now,
         }
 
         yield* Ref.update(storageRef, (storage) => ({
@@ -523,10 +612,14 @@ const makeGenerationSessionRepositoryMemory = (
     ): Effect.Effect<ReadonlyArray<ChunkGenerationTask>, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const sessionOpt = yield* findById(sessionId)
-        if (Option.isNone(sessionOpt)) {
-          return yield* Effect.fail(createGenerationSessionNotFoundError(sessionId))
-        }
-        return sessionOpt.value.chunks.filter((c) => c.status === 'completed')
+        const session = yield* pipe(
+          sessionOpt,
+          Option.match({
+            onNone: () => Effect.fail(createGenerationSessionNotFoundError(sessionId)),
+            onSome: (s) => Effect.succeed(s),
+          })
+        )
+        return session.chunks.filter((c) => c.status === 'completed')
       })
 
     const getFailedChunks = (
@@ -534,10 +627,14 @@ const makeGenerationSessionRepositoryMemory = (
     ): Effect.Effect<ReadonlyArray<ChunkGenerationTask>, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const sessionOpt = yield* findById(sessionId)
-        if (Option.isNone(sessionOpt)) {
-          return yield* Effect.fail(createGenerationSessionNotFoundError(sessionId))
-        }
-        return sessionOpt.value.chunks.filter((c) => c.status === 'failed')
+        const session = yield* pipe(
+          sessionOpt,
+          Option.match({
+            onNone: () => Effect.fail(createGenerationSessionNotFoundError(sessionId)),
+            onSome: (s) => Effect.succeed(s),
+          })
+        )
+        return session.chunks.filter((c) => c.status === 'failed')
       })
 
     const getPendingChunks = (
@@ -545,10 +642,14 @@ const makeGenerationSessionRepositoryMemory = (
     ): Effect.Effect<ReadonlyArray<ChunkGenerationTask>, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const sessionOpt = yield* findById(sessionId)
-        if (Option.isNone(sessionOpt)) {
-          return yield* Effect.fail(createGenerationSessionNotFoundError(sessionId))
-        }
-        return sessionOpt.value.chunks.filter((c) => c.status === 'pending' || c.status === 'running')
+        const session = yield* pipe(
+          sessionOpt,
+          Option.match({
+            onNone: () => Effect.fail(createGenerationSessionNotFoundError(sessionId)),
+            onSome: (s) => Effect.succeed(s),
+          })
+        )
+        return session.chunks.filter((c) => c.status === 'pending' || c.status === 'running')
       })
 
     // === Checkpoint & Recovery mock implementations ===
@@ -556,19 +657,24 @@ const makeGenerationSessionRepositoryMemory = (
     const createCheckpoint = (sessionId: GenerationSessionId): Effect.Effect<string, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const sessionOpt = yield* findById(sessionId)
-        if (Option.isNone(sessionOpt)) {
-          return yield* Effect.fail(createGenerationSessionNotFoundError(sessionId))
-        }
+        const session = yield* pipe(
+          sessionOpt,
+          Option.match({
+            onNone: () => Effect.fail(createGenerationSessionNotFoundError(sessionId)),
+            onSome: (s) => Effect.succeed(s),
+          })
+        )
 
-        const checkpointId = `checkpoint-${Date.now()}`
-        const session = sessionOpt.value
+        const timestamp = yield* Clock.currentTimeMillis
+        const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+        const checkpointId = `checkpoint-${timestamp}`
 
         yield* Ref.update(storageRef, (storage) => {
           const sessionCheckpoints = storage.checkpoints.get(sessionId) || new Map()
           const newCheckpoint = {
             id: checkpointId,
             data: session,
-            createdAt: new Date(),
+            createdAt: now,
             size: JSON.stringify(session).length,
           }
           sessionCheckpoints.set(checkpointId, newCheckpoint)
@@ -589,22 +695,28 @@ const makeGenerationSessionRepositoryMemory = (
     ): Effect.Effect<void, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const storage = yield* Ref.get(storageRef)
-        const sessionCheckpoints = storage.checkpoints.get(sessionId)
+        const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
 
-        if (!sessionCheckpoints) {
-          return yield* Effect.fail(createGenerationSessionNotFoundError(sessionId))
-        }
+        const sessionCheckpoints = yield* pipe(
+          Option.fromNullable(storage.checkpoints.get(sessionId)),
+          Option.match({
+            onNone: () => Effect.fail(createGenerationSessionNotFoundError(sessionId)),
+            onSome: (sc) => Effect.succeed(sc),
+          })
+        )
 
-        const checkpoint = sessionCheckpoints.get(checkpointId)
-        if (!checkpoint) {
-          return yield* Effect.fail(
-            createRepositoryError(`Checkpoint not found: ${checkpointId}`, 'restoreFromCheckpoint')
-          )
-        }
+        const checkpoint = yield* pipe(
+          Option.fromNullable(sessionCheckpoints.get(checkpointId)),
+          Option.match({
+            onNone: () =>
+              Effect.fail(createRepositoryError(`Checkpoint not found: ${checkpointId}`, 'restoreFromCheckpoint')),
+            onSome: (cp) => Effect.succeed(cp),
+          })
+        )
 
         const restoredSession: GenerationSession = {
           ...checkpoint.data,
-          lastActivityAt: new Date(),
+          lastActivityAt: now,
         }
 
         yield* Ref.update(storageRef, (storage) => ({
@@ -628,18 +740,20 @@ const makeGenerationSessionRepositoryMemory = (
     > =>
       Effect.gen(function* () {
         const storage = yield* Ref.get(storageRef)
-        const sessionCheckpoints = storage.checkpoints.get(sessionId)
 
-        if (!sessionCheckpoints) {
-          return []
-        }
-
-        return Array.from(sessionCheckpoints.values()).map((checkpoint) => ({
-          id: checkpoint.id,
-          createdAt: checkpoint.createdAt,
-          size: checkpoint.size,
-          chunkCount: checkpoint.data.chunks.length,
-        }))
+        return pipe(
+          Option.fromNullable(storage.checkpoints.get(sessionId)),
+          Option.match({
+            onNone: () => [],
+            onSome: (sessionCheckpoints) =>
+              Array.from(sessionCheckpoints.values()).map((checkpoint) => ({
+                id: checkpoint.id,
+                createdAt: checkpoint.createdAt,
+                size: checkpoint.size,
+                chunkCount: checkpoint.data.chunks.length,
+              })),
+          })
+        )
       })
 
     // === Statistics & Monitoring ===
@@ -691,13 +805,21 @@ const makeGenerationSessionRepositoryMemory = (
 
     const count = (query?: Partial<SessionQuery>): Effect.Effect<number, AllRepositoryErrors> =>
       Effect.gen(function* () {
-        if (!query) {
-          const storage = yield* Ref.get(storageRef)
-          return storage.sessions.size
-        }
-
-        const sessions = yield* findByQuery(query as SessionQuery)
-        return sessions.length
+        return yield* pipe(
+          Option.fromNullable(query),
+          Option.match({
+            onNone: () =>
+              Effect.gen(function* () {
+                const storage = yield* Ref.get(storageRef)
+                return storage.sessions.size
+              }),
+            onSome: (q) =>
+              Effect.gen(function* () {
+                const sessions = yield* findByQuery(q as SessionQuery)
+                return sessions.length
+              }),
+          })
+        )
       })
 
     // === Repository Management ===
@@ -732,17 +854,20 @@ const makeGenerationSessionRepositoryMemory = (
     const analyzeRecovery = (sessionId: GenerationSessionId): Effect.Effect<SessionRecoveryInfo, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const sessionOpt = yield* findById(sessionId)
-        if (Option.isNone(sessionOpt)) {
-          return yield* Effect.fail(createGenerationSessionNotFoundError(sessionId))
-        }
-
-        const session = sessionOpt.value
+        const session = yield* pipe(
+          sessionOpt,
+          Option.match({
+            onNone: () => Effect.fail(createGenerationSessionNotFoundError(sessionId)),
+            onSome: (s) => Effect.succeed(s),
+          })
+        )
+        const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
         const corruptedChunks = session.chunks.filter((c) => c.status === 'failed').map((c) => c.position)
 
         return {
           sessionId,
           canRecover: session.state === 'failed' || session.state === 'cancelled',
-          lastCheckpoint: new Date(),
+          lastCheckpoint: now,
           corruptedChunks,
           recoverableChunks: session.chunks.filter((c) => c.status === 'completed').map((c) => c.position),
           estimatedRecoveryTime: corruptedChunks.length * 1000, // 1 second per chunk

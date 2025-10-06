@@ -1,5 +1,4 @@
-import { Schema } from '@effect/schema'
-import { Data } from 'effect'
+import { Clock, Data, Effect, Schema } from 'effect'
 import type {
   CameraDistance,
   CameraMode,
@@ -324,130 +323,187 @@ export const CameraEventSchema = Schema.Union(
  * カメライベントファクトリー
  */
 export const createCameraEvent = {
-  cameraInitialized: (cameraId: CameraId, viewMode: CameraMode) =>
-    Data.struct({
-      _tag: 'CameraInitialized' as const,
-      cameraId,
-      viewMode,
-      timestamp: Date.now(),
+  cameraInitialized: (cameraId: CameraId, viewMode: CameraMode): Effect.Effect<CameraEvent> =>
+    Effect.gen(function* () {
+      const timestamp = yield* Clock.currentTimeMillis
+      return Data.struct({
+        _tag: 'CameraInitialized' as const,
+        cameraId,
+        viewMode,
+        timestamp,
+      })
     }),
 
-  viewModeChanged: (cameraId: CameraId, fromMode: CameraMode, toMode: CameraMode) =>
-    Data.struct({
-      _tag: 'ViewModeChanged' as const,
-      cameraId,
-      fromMode,
-      toMode,
-      timestamp: Date.now(),
+  viewModeChanged: (cameraId: CameraId, fromMode: CameraMode, toMode: CameraMode): Effect.Effect<CameraEvent> =>
+    Effect.gen(function* () {
+      const timestamp = yield* Clock.currentTimeMillis
+      return Data.struct({
+        _tag: 'ViewModeChanged' as const,
+        cameraId,
+        fromMode,
+        toMode,
+        timestamp,
+      })
     }),
 
-  positionUpdated: (cameraId: CameraId, fromPosition: Position3D, toPosition: Position3D) =>
-    Data.struct({
-      _tag: 'PositionUpdated' as const,
-      cameraId,
-      fromPosition,
-      toPosition,
-      timestamp: Date.now(),
+  positionUpdated: (cameraId: CameraId, fromPosition: Position3D, toPosition: Position3D): Effect.Effect<CameraEvent> =>
+    Effect.gen(function* () {
+      const timestamp = yield* Clock.currentTimeMillis
+      return Data.struct({
+        _tag: 'PositionUpdated' as const,
+        cameraId,
+        fromPosition,
+        toPosition,
+        timestamp,
+      })
     }),
 
-  rotationUpdated: (cameraId: CameraId, fromRotation: CameraRotation, toRotation: CameraRotation) =>
-    Data.struct({
-      _tag: 'RotationUpdated' as const,
-      cameraId,
-      fromRotation,
-      toRotation,
-      timestamp: Date.now(),
+  rotationUpdated: (
+    cameraId: CameraId,
+    fromRotation: CameraRotation,
+    toRotation: CameraRotation
+  ): Effect.Effect<CameraEvent> =>
+    Effect.gen(function* () {
+      const timestamp = yield* Clock.currentTimeMillis
+      return Data.struct({
+        _tag: 'RotationUpdated' as const,
+        cameraId,
+        fromRotation,
+        toRotation,
+        timestamp,
+      })
     }),
 
-  settingsChanged: (cameraId: CameraId, changedSettings: Partial<CameraSettings>) =>
-    Data.struct({
-      _tag: 'SettingsChanged' as const,
-      cameraId,
-      changedSettings,
-      timestamp: Date.now(),
+  settingsChanged: (cameraId: CameraId, changedSettings: Partial<CameraSettings>): Effect.Effect<CameraEvent> =>
+    Effect.gen(function* () {
+      const timestamp = yield* Clock.currentTimeMillis
+      return Data.struct({
+        _tag: 'SettingsChanged' as const,
+        cameraId,
+        changedSettings,
+        timestamp,
+      })
     }),
 
-  animationStarted: (cameraId: CameraId, animationState: AnimationState) =>
-    Data.struct({
-      _tag: 'AnimationStarted' as const,
-      cameraId,
-      animationState,
-      timestamp: Date.now(),
+  animationStarted: (cameraId: CameraId, animationState: AnimationState): Effect.Effect<CameraEvent> =>
+    Effect.gen(function* () {
+      const timestamp = yield* Clock.currentTimeMillis
+      return Data.struct({
+        _tag: 'AnimationStarted' as const,
+        cameraId,
+        animationState,
+        timestamp,
+      })
     }),
 
-  animationCompleted: (cameraId: CameraId, animationState: AnimationState) =>
-    Data.struct({
-      _tag: 'AnimationCompleted' as const,
-      cameraId,
-      animationState,
-      timestamp: Date.now(),
+  animationCompleted: (cameraId: CameraId, animationState: AnimationState): Effect.Effect<CameraEvent> =>
+    Effect.gen(function* () {
+      const timestamp = yield* Clock.currentTimeMillis
+      return Data.struct({
+        _tag: 'AnimationCompleted' as const,
+        cameraId,
+        animationState,
+        timestamp,
+      })
     }),
 
-  animationCancelled: (cameraId: CameraId, animationState: AnimationState, reason: string) =>
-    Data.struct({
-      _tag: 'AnimationCancelled' as const,
-      cameraId,
-      animationState,
-      reason,
-      timestamp: Date.now(),
+  animationCancelled: (
+    cameraId: CameraId,
+    animationState: AnimationState,
+    reason: string
+  ): Effect.Effect<CameraEvent> =>
+    Effect.gen(function* () {
+      const timestamp = yield* Clock.currentTimeMillis
+      return Data.struct({
+        _tag: 'AnimationCancelled' as const,
+        cameraId,
+        animationState,
+        reason,
+        timestamp,
+      })
     }),
 
-  collisionDetected: (cameraId: CameraId, position: Position3D, obstruction: unknown) =>
-    Data.struct({
-      _tag: 'CollisionDetected' as const,
-      cameraId,
-      position,
-      obstruction,
-      timestamp: Date.now(),
+  collisionDetected: (cameraId: CameraId, position: Position3D, obstruction: unknown): Effect.Effect<CameraEvent> =>
+    Effect.gen(function* () {
+      const timestamp = yield* Clock.currentTimeMillis
+      return Data.struct({
+        _tag: 'CollisionDetected' as const,
+        cameraId,
+        position,
+        obstruction,
+        timestamp,
+      })
     }),
 
-  cameraLocked: (cameraId: CameraId, reason: string) =>
-    Data.struct({
-      _tag: 'CameraLocked' as const,
-      cameraId,
-      reason,
-      timestamp: Date.now(),
+  cameraLocked: (cameraId: CameraId, reason: string): Effect.Effect<CameraEvent> =>
+    Effect.gen(function* () {
+      const timestamp = yield* Clock.currentTimeMillis
+      return Data.struct({
+        _tag: 'CameraLocked' as const,
+        cameraId,
+        reason,
+        timestamp,
+      })
     }),
 
-  cameraUnlocked: (cameraId: CameraId) =>
-    Data.struct({
-      _tag: 'CameraUnlocked' as const,
-      cameraId,
-      timestamp: Date.now(),
+  cameraUnlocked: (cameraId: CameraId): Effect.Effect<CameraEvent> =>
+    Effect.gen(function* () {
+      const timestamp = yield* Clock.currentTimeMillis
+      return Data.struct({
+        _tag: 'CameraUnlocked' as const,
+        cameraId,
+        timestamp,
+      })
     }),
 
-  fovChanged: (cameraId: CameraId, fromFOV: FOV, toFOV: FOV) =>
-    Data.struct({
-      _tag: 'FOVChanged' as const,
-      cameraId,
-      fromFOV,
-      toFOV,
-      timestamp: Date.now(),
+  fovChanged: (cameraId: CameraId, fromFOV: FOV, toFOV: FOV): Effect.Effect<CameraEvent> =>
+    Effect.gen(function* () {
+      const timestamp = yield* Clock.currentTimeMillis
+      return Data.struct({
+        _tag: 'FOVChanged' as const,
+        cameraId,
+        fromFOV,
+        toFOV,
+        timestamp,
+      })
     }),
 
-  sensitivityChanged: (cameraId: CameraId, fromSensitivity: Sensitivity, toSensitivity: Sensitivity) =>
-    Data.struct({
-      _tag: 'SensitivityChanged' as const,
-      cameraId,
-      fromSensitivity,
-      toSensitivity,
-      timestamp: Date.now(),
+  sensitivityChanged: (
+    cameraId: CameraId,
+    fromSensitivity: Sensitivity,
+    toSensitivity: Sensitivity
+  ): Effect.Effect<CameraEvent> =>
+    Effect.gen(function* () {
+      const timestamp = yield* Clock.currentTimeMillis
+      return Data.struct({
+        _tag: 'SensitivityChanged' as const,
+        cameraId,
+        fromSensitivity,
+        toSensitivity,
+        timestamp,
+      })
     }),
 
-  cameraShakeStarted: (cameraId: CameraId, intensity: number, duration: number) =>
-    Data.struct({
-      _tag: 'CameraShakeStarted' as const,
-      cameraId,
-      intensity,
-      duration,
-      timestamp: Date.now(),
+  cameraShakeStarted: (cameraId: CameraId, intensity: number, duration: number): Effect.Effect<CameraEvent> =>
+    Effect.gen(function* () {
+      const timestamp = yield* Clock.currentTimeMillis
+      return Data.struct({
+        _tag: 'CameraShakeStarted' as const,
+        cameraId,
+        intensity,
+        duration,
+        timestamp,
+      })
     }),
 
-  cameraShakeEnded: (cameraId: CameraId) =>
-    Data.struct({
-      _tag: 'CameraShakeEnded' as const,
-      cameraId,
-      timestamp: Date.now(),
+  cameraShakeEnded: (cameraId: CameraId): Effect.Effect<CameraEvent> =>
+    Effect.gen(function* () {
+      const timestamp = yield* Clock.currentTimeMillis
+      return Data.struct({
+        _tag: 'CameraShakeEnded' as const,
+        cameraId,
+        timestamp,
+      })
     }),
 } as const
 

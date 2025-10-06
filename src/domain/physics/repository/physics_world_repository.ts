@@ -1,6 +1,5 @@
+import type { PhysicsError, PhysicsWorld, PhysicsWorldId } from '@domain/physics/types'
 import { Context, Effect, Layer, Option, Ref } from 'effect'
-import type { PhysicsWorld, PhysicsWorldId } from '@domain/physics/types'
-import type { PhysicsError } from '@domain/physics/types'
 
 export interface PhysicsWorldRepository {
   readonly save: (world: PhysicsWorld) => Effect.Effect<void, PhysicsError>

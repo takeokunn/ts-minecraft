@@ -15,10 +15,10 @@
  * - 並列処理と大規模データ対応
  */
 
-import { Context, Effect, Function, Layer, Match, Schema } from 'effect'
 import type * as BiomeSystem from '@domain/world/aggregate/biome_system'
 import * as BiomeProperties from '@domain/world/value_object/biome_properties/index'
 import * as Coordinates from '@domain/world/value_object/coordinates/index'
+import { Context, Effect, Function, Layer, Match, Schema } from 'effect'
 
 // ================================
 // Factory Error Types
@@ -267,102 +267,36 @@ export interface BiomeSystemBuilder {
   >
 }
 
-class BiomeSystemBuilderImpl implements BiomeSystemBuilder {
-  constructor(private readonly params: CreateBiomeSystemParams = {}) {}
+// BiomeSystemBuilderImpl クラスは削除されました
+// 新しいパターン: Schema + Pure Functions を使用してください
+// - builder_state.ts: BiomeSystemBuilderStateSchema, initialBiomeSystemBuilderState
+// - builder_functions.ts: withPreset, withClimate, withTransitions, withComplexity, etc., build, buildWithValidation
+//
+// 使用例:
+// import { pipe } from 'effect/Function'
+// import * as BuilderState from './builder_state.js'
+// import * as BuilderFunctions from './builder_functions.js'
+//
+// const system = yield* pipe(
+//   BuilderState.initialBiomeSystemBuilderState,
+//   (state) => BuilderFunctions.withPreset(state, 'default'),
+//   (state) => BuilderFunctions.withTransitions(state, true),
+//   BuilderFunctions.build
+// )
 
-  withPreset(preset: BiomePresetType): BiomeSystemBuilder {
-    return new BiomeSystemBuilderImpl({ ...this.params, preset })
-  }
-
-  withClimate(config: BiomeProperties.BiomeConfiguration): BiomeSystemBuilder {
-    return new BiomeSystemBuilderImpl({
-      ...this.params,
-      climateConfig: config,
-    })
-  }
-
-  withTransitions(enable: boolean): BiomeSystemBuilder {
-    return new BiomeSystemBuilderImpl({
-      ...this.params,
-      enableTransitions: enable,
-    })
-  }
-
-  withComplexity(level: 'simple' | 'complex' | 'realistic'): BiomeSystemBuilder {
-    return new BiomeSystemBuilderImpl({
-      ...this.params,
-      ecosystemComplexity: level,
-    })
-  }
-
-  withPerformance(profile: PerformanceProfile): BiomeSystemBuilder {
-    return new BiomeSystemBuilderImpl({
-      ...this.params,
-      performanceProfile: profile,
-    })
-  }
-
-  withValidation(level: ValidationLevel): BiomeSystemBuilder {
-    return new BiomeSystemBuilderImpl({
-      ...this.params,
-      validationLevel: level,
-    })
-  }
-
-  withCaching(enable: boolean): BiomeSystemBuilder {
-    return new BiomeSystemBuilderImpl({
-      ...this.params,
-      enableCaching: enable,
-    })
-  }
-
-  withParallelProcessing(enable: boolean): BiomeSystemBuilder {
-    return new BiomeSystemBuilderImpl({
-      ...this.params,
-      parallelProcessing: enable,
-    })
-  }
-
-  withMemoryLimit(limit: number): BiomeSystemBuilder {
-    return new BiomeSystemBuilderImpl({
-      ...this.params,
-      memoryLimit: limit,
-    })
-  }
-
-  withCustomBiomes(biomes: readonly BiomeProperties.BiomeType[]): BiomeSystemBuilder {
-    return new BiomeSystemBuilderImpl({
-      ...this.params,
-      customBiomes: biomes,
-    })
-  }
-
-  withMetadata(metadata: Record<string, unknown>): BiomeSystemBuilder {
-    return new BiomeSystemBuilderImpl({
-      ...this.params,
-      metadata: { ...this.params.metadata, ...metadata },
-    })
-  }
-
-  build(): Effect.Effect<BiomeSystem.BiomeSystem, BiomeFactoryError> {
-    return createBiomeSystemFactory().create(this.params)
-  }
-
-  buildWithValidation(): Effect.Effect<
-    { system: BiomeSystem.BiomeSystem; validation: ValidationResult },
-    BiomeFactoryError
-  > {
-    return Effect.gen(
-      function* () {
-        const system = yield* createBiomeSystemFactory().create(this.params)
-        const validation = yield* validateBiomeSystem(system, this.params.validationLevel ?? 'standard')
-        return { system, validation }
-      }.bind(this)
-    )
-  }
+export const createBiomeSystemBuilder = () => {
+  // Builder interface is deprecated - use pure functions instead
+  // Import: import * as BuilderState from './builder_state.js'
+  // Import: import * as BuilderFunctions from './builder_functions.js'
+  //
+  // Usage:
+  // const system = yield* pipe(
+  //   BuilderState.initialBiomeSystemBuilderState,
+  //   (state) => BuilderFunctions.withPreset(state, 'default'),
+  //   BuilderFunctions.build
+  // )
+  throw new Error('BiomeSystemBuilder interface is deprecated. Use Schema + pure functions pattern.')
 }
-
-export const createBiomeSystemBuilder = (): BiomeSystemBuilder => new BiomeSystemBuilderImpl()
 
 // ================================
 // Climate Calculator
@@ -528,39 +462,39 @@ const validateCreateParams = (
   params: CreateBiomeSystemParams
 ): Effect.Effect<CreateBiomeSystemParams, BiomeFactoryError> =>
   Effect.gen(function* () {
-    try {
-      // Schema検証
-      const validatedParams = Schema.decodeSync(CreateBiomeSystemParamsSchema)(params)
-
-      // ビジネスルール検証
-      if (validatedParams.memoryLimit && validatedParams.memoryLimit < 0) {
-        return yield* Effect.fail(
+    // Schema検証
+    const validatedParams = yield* pipe(
+      Effect.try({
+        try: () => Schema.decodeSync(CreateBiomeSystemParamsSchema)(params),
+        catch: (error) =>
           new BiomeFactoryError({
             category: 'biome_creation',
-            message: 'Memory limit must be non-negative',
-          })
-        )
-      }
+            message: 'Schema validation failed',
+            cause: error,
+          }),
+      })
+    )
 
-      if (validatedParams.customBiomes && validatedParams.customBiomes.length > 50) {
-        return yield* Effect.fail(
-          new BiomeFactoryError({
-            category: 'biome_creation',
-            message: 'Too many custom biomes (max: 50)',
-          })
-        )
-      }
-
-      return validatedParams
-    } catch (error) {
+    // ビジネスルール検証
+    if (validatedParams.memoryLimit && validatedParams.memoryLimit < 0) {
       return yield* Effect.fail(
         new BiomeFactoryError({
           category: 'biome_creation',
-          message: 'Invalid parameters',
-          context: { error, params },
+          message: 'Memory limit must be non-negative',
         })
       )
     }
+
+    if (validatedParams.customBiomes && validatedParams.customBiomes.length > 50) {
+      return yield* Effect.fail(
+        new BiomeFactoryError({
+          category: 'biome_creation',
+          message: 'Too many custom biomes (max: 50)',
+        })
+      )
+    }
+
+    return validatedParams
   })
 
 // ================================

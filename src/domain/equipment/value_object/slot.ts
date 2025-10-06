@@ -1,7 +1,6 @@
-import { Schema } from '@effect/schema'
-import { Effect } from 'effect'
 import type { EquipmentDomainError } from '@domain/equipment/types'
 import { makeRequirementViolation } from '@domain/equipment/types'
+import { Effect, Schema } from 'effect'
 
 export type EquipmentSlotLiteral =
   | 'main_hand'

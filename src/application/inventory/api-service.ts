@@ -1,11 +1,9 @@
-import { Schema } from '@effect/schema'
-import { Context, Effect, Layer, Match, Option, pipe } from 'effect'
+import { Context, Effect, Layer, Match, Option, pipe, Schema } from 'effect'
 import * as ReadonlyArray from 'effect/Array'
 import * as HashSet from 'effect/HashSet'
 import * as Order from 'effect/Order'
-import type { InventoryServiceError } from '../../domain/inventory'
+import type { Inventory, InventoryServiceError, PlayerId } from '../../domain/inventory'
 import { InventoryService } from '../../domain/inventory'
-import type { Inventory, PlayerId } from '../../domain/inventory'
 
 // ================================================================
 // アプリケーション固有のADT

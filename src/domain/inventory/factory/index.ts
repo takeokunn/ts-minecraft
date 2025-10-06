@@ -21,19 +21,6 @@
 
 // ===== Inventory Factory System =====
 export {
-  adventureInventory,
-  availablePresets as availableInventoryPresets,
-  buildingInventory,
-  // Builder Implementation
-  createInventoryBuilder,
-  createPresetInventory,
-  creativeInventory,
-  creativeInventoryBuilder,
-  customInventoryBuilder,
-  customSlotInventory,
-  // Constants & Defaults
-  defaultPermissions,
-  getPresetByType,
   InventoryBuilderFactoryLayer,
   InventoryBuilderFactoryLive,
   InventoryBuilderFactoryTag,
@@ -50,8 +37,21 @@ export {
   // Context Tags
   InventoryFactoryTag,
   InventoryMergeError,
-  presetInfo as inventoryPresetInfo,
   InventoryValidationError,
+  adventureInventory,
+  availablePresets as availableInventoryPresets,
+  buildingInventory,
+  // Builder Implementation
+  createInventoryBuilder,
+  createPresetInventory,
+  creativeInventory,
+  creativeInventoryBuilder,
+  customInventoryBuilder,
+  customSlotInventory,
+  // Constants & Defaults
+  defaultPermissions,
+  getPresetByType,
+  presetInfo as inventoryPresetInfo,
   newPlayerInventory,
   playerInventoryBuilder,
   pvpArenaInventory,
@@ -75,6 +75,23 @@ export {
 
 // ===== Item Factory System =====
 export {
+  ItemBuilderFactoryLayer,
+  ItemBuilderFactoryLive,
+  ItemBuilderFactoryTag,
+  // Error Types
+  ItemCreationError,
+  // Unified Layer
+  ItemFactoryAllLayer,
+
+  // Helper Functions
+  ItemFactoryHelpers,
+  ItemFactoryLayer,
+  // Factory Implementation
+  ItemFactoryLive,
+  // Context Tags
+  ItemFactoryTag,
+  ItemStackError,
+  ItemValidationError,
   armorItemBuilder,
   arrow,
   availableItemPresets,
@@ -113,24 +130,7 @@ export {
   ironHelmet,
   ironPickaxe,
   ironSword,
-  ItemBuilderFactoryLayer,
-  ItemBuilderFactoryLive,
-  ItemBuilderFactoryTag,
-  // Error Types
-  ItemCreationError,
-  // Unified Layer
-  ItemFactoryAllLayer,
-
-  // Helper Functions
-  ItemFactoryHelpers,
-  ItemFactoryLayer,
-  // Factory Implementation
-  ItemFactoryLive,
-  // Context Tags
-  ItemFactoryTag,
   itemPresetInfo,
-  ItemStackError,
-  ItemValidationError,
   leatherBoots,
   leatherChestplate,
   // Preset System - Armor
@@ -171,15 +171,6 @@ export {
 
 // ===== Container Factory System =====
 export {
-  anvil,
-  availableContainerPresets,
-  barrel,
-  blastFurnace,
-  brewingStand,
-  brewingStandContainerBuilder,
-  buildingMaterialChest,
-  chestContainerBuilder,
-  coloredShulkerBox,
   ContainerBuilderFactoryLayer,
   ContainerBuilderFactoryLive,
   ContainerBuilderFactoryTag,
@@ -196,9 +187,18 @@ export {
   // Context Tags
   ContainerFactoryTag,
   ContainerOperationError,
+  ContainerValidationError,
+  anvil,
+  availableContainerPresets,
+  barrel,
+  blastFurnace,
+  brewingStand,
+  brewingStandContainerBuilder,
+  buildingMaterialChest,
+  chestContainerBuilder,
+  coloredShulkerBox,
   containerPresetInfo,
   containerTypeSpecs,
-  ContainerValidationError,
   craftingTable,
   craftingTableContainerBuilder,
   // Builder Implementation
@@ -260,39 +260,7 @@ export {
 } from './container_factory'
 
 // ===== Unified Factory System =====
-import { Layer } from 'effect'
-import { ContainerFactoryAllLayer } from './container_factory'
-import { InventoryFactoryAllLayer } from './inventory_factory'
-import { ItemFactoryAllLayer } from './item_factory'
-
-/**
- * 全Inventory関連ファクトリーサービスを統合したレイヤー
- * アプリケーション層でInventoryドメインの全ファクトリーを一括利用可能
- *
- * @description
- * このレイヤーを提供することで、以下の全てのファクトリーサービスが利用可能になります：
- * - InventoryFactory: プレイヤーインベントリー管理
- * - InventoryBuilderFactory: インベントリービルダー
- * - ItemFactory: アイテム生成・管理
- * - ItemBuilderFactory: アイテムビルダー
- * - ContainerFactory: コンテナ生成・管理
- * - ContainerBuilderFactory: コンテナビルダー
- *
- * @example
- * ```typescript
- * const program = Effect.gen(function* () {
- *   // 全ファクトリーが利用可能
- *   const playerInventory = yield* InventoryFactoryHelpers.createPlayer('player1')
- *   const diamondSword = yield* ItemFactoryHelpers.createWeapon('diamond_sword')
- *   const chest = yield* ContainerFactoryHelpers.createChest('chest1')
- * }).pipe(Effect.provide(InventoryFactorySystemLayer))
- * ```
- */
-export const InventoryFactorySystemLayer = Layer.mergeAll(
-  InventoryFactoryAllLayer,
-  ItemFactoryAllLayer,
-  ContainerFactoryAllLayer
-)
+export * from './layer'
 
 // ===== Factory System Information =====
 

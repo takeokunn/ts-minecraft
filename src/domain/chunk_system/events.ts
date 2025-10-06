@@ -1,5 +1,4 @@
-import { Schema } from '@effect/schema'
-import { Data, Effect, Match } from 'effect'
+import { Data, Effect, Match, Schema } from 'effect'
 import {
   ChunkRequest,
   ChunkRequestSchema,
@@ -42,7 +41,7 @@ export const ChunkEvent = Data.taggedEnum({
   }>('BudgetChanged'),
 })
 
-export type ChunkEvent = Data.TaggedEnum.Infer<typeof ChunkEvent>
+export type ChunkEvent = Data.taggedEnum.Infer<typeof ChunkEvent>
 
 const RequestQueuedSchema = Schema.Struct({
   _tag: Schema.Literal('RequestQueued'),

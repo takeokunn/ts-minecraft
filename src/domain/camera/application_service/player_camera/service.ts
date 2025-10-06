@@ -1,4 +1,3 @@
-import { Context, Effect, Option } from 'effect'
 import type {
   AnimationConfig,
   CameraId,
@@ -9,6 +8,7 @@ import type {
   ViewMode,
   ViewModeTransitionConfig,
 } from '@domain/camera/types'
+import { Context, Effect, Option } from 'effect'
 import type {
   CameraApplicationError,
   PlayerCameraInput,

@@ -1,4 +1,4 @@
-import { Schema } from 'effect'
+import { Clock, Effect, Schema } from 'effect'
 
 // =============================================================================
 // Base Command Types
@@ -718,10 +718,14 @@ export type InventoryCommand =
 /**
  * 共通コマンドプロパティを生成
  */
-const createBaseCommand = (userId: string): Omit<BaseCommand, 'commandId'> => ({
-  timestamp: Date.now(),
-  userId,
-})
+const createBaseCommand = (userId: string): Effect.Effect<Omit<BaseCommand, 'commandId'>> =>
+  Effect.gen(function* () {
+    const timestamp = yield* Clock.currentTimeMillis
+    return {
+      timestamp,
+      userId,
+    }
+  })
 
 /**
  * ユニークなコマンドIDを生成

@@ -398,13 +398,16 @@ export const CameraRepositoryLayerUtils = {
    * Repository層の統計情報を取得
    */
   getLayerStatistics: (): import('effect').Effect.Effect<RepositoryLayerStatistics, RepositoryError> => {
-    return import('effect').then(({ Effect }) =>
-      Effect.succeed({
-        totalRepositories: 4,
-        activeConnections: 4,
-        totalRecords: 1000,
-        storageUsageBytes: 1024 * 1024,
-        lastOptimizationTime: Date.now(),
+    return import('effect').then(({ Clock, Effect }) =>
+      Effect.gen(function* () {
+        const now = yield* Clock.currentTimeMillis
+        return {
+          totalRepositories: 4,
+          activeConnections: 4,
+          totalRecords: 1000,
+          storageUsageBytes: 1024 * 1024,
+          lastOptimizationTime: now,
+        }
       })
     )
   },

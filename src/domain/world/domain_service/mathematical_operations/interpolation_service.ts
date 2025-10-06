@@ -2,8 +2,8 @@
  * Interpolation Service - 補間演算ドメインサービス
  */
 
-import { Context, Effect, Layer } from 'effect'
 import type { GenerationError } from '@domain/world/types/errors'
+import { Context, Effect, Layer } from 'effect'
 
 export interface InterpolationService {
   readonly linearInterpolate: (a: number, b: number, t: number) => Effect.Effect<number, GenerationError>

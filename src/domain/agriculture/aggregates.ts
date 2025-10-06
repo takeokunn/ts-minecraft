@@ -1,11 +1,13 @@
 import { Clock, Data, DateTime, Effect, Either, Match, pipe } from 'effect'
-import { DomainError, Identifier, SchemaViolation, makeIdentifier } from './index'
 import {
   BreedingOutcome,
   BreedingStats,
+  DomainError,
   GrowthStage,
   HydrationState,
+  Identifier,
   MoistureLevel,
+  SchemaViolation,
   SoilCondition,
   SoilQuality,
   adjustMoistureLevel,
@@ -17,6 +19,7 @@ import {
   evaluateBreedingOutcome,
   makeBreedingStats,
   makeGrowthStage,
+  makeIdentifier,
   makeMoistureLevel,
   makeSoilQuality,
   mergeBreedingStats,

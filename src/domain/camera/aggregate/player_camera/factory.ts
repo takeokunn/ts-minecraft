@@ -5,12 +5,10 @@
  * プレイヤー固有の設定とカメラの統合を行います。
  */
 
+import { CameraError, CameraId } from '@domain/camera/types'
 import { Effect, Option } from 'effect'
-import { CameraError } from '@domain/camera/types'
-import { CameraId } from '@domain/camera/types'
 import { CameraDistance, MouseDelta, MouseSensitivity, Position3D, Smoothing } from '../../value_object/index'
-import { Camera } from '../camera'
-import { CameraFactory } from '../camera'
+import { Camera, CameraFactory } from '../camera'
 import { PlayerCamera, PlayerCameraSettings, PlayerId, Sensitivity, SmoothingFactor } from './index'
 
 /**

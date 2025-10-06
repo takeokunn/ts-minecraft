@@ -1,7 +1,7 @@
 import type { BlockTypeId } from '@domain/entities'
 import { Effect, Match, pipe } from 'effect'
 import type { Vector3 } from '../../world/types'
-import { BLOCK_FRICTION } from '..'
+import { BLOCK_FRICTION } from '../constant'
 
 /**
  * 摩擦システム

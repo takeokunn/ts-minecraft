@@ -1,5 +1,4 @@
-import { Schema } from '@effect/schema'
-import { Brand, Data, Effect, Option, pipe } from 'effect'
+import { Brand, Data, Effect, Option, pipe, Schema } from 'effect'
 
 /**
  * チャンク座標の値オブジェクト
@@ -65,7 +64,7 @@ const hashDelimiter = ':'
  */
 export const createChunkPosition = (x: number, z: number): Effect.Effect<ChunkPosition, ChunkPositionError> =>
   pipe(
-    Schema.decodeEffect(ChunkPositionSchema)({ x, z }),
+    Schema.decode(ChunkPositionSchema)({ x, z }),
     Effect.mapError((issue) =>
       ChunkPositionError({
         message: 'チャンク座標の構築に失敗しました',
@@ -120,8 +119,8 @@ export const parseChunkHash = (hash: string): Effect.Effect<ChunkPosition, Chunk
     Option.flatMap((parts) =>
       pipe(
         Effect.tuple(
-          Schema.decodeEffect(Schema.NumberFromString)(parts[0]!),
-          Schema.decodeEffect(Schema.NumberFromString)(parts[1]!)
+          Schema.decode(Schema.NumberFromString)(parts[0]!),
+          Schema.decode(Schema.NumberFromString)(parts[1]!)
         ),
         Effect.map(([xValue, zValue]) => ({ x: xValue, z: zValue })),
         Effect.option

@@ -1,2 +1,1 @@
-export * from './index'
-export * from './block_factory';
+export * from './block_factory'

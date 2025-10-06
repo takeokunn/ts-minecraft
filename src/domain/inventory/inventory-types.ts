@@ -1,4 +1,4 @@
-import { Schema } from '@effect/schema'
+import { Schema } from 'effect'
 
 export const PlayerIdSchema = Schema.String.pipe(Schema.minLength(1), Schema.brand('PlayerId'))
 export type PlayerId = Schema.Schema.Type<typeof PlayerIdSchema>
@@ -127,7 +127,7 @@ export const createEmptyInventory = (playerId: PlayerId): Inventory => {
     offhand: null,
     version: 0,
     metadata: {
-      lastUpdated: Date.now(),
+      lastUpdated: yield * Clock.currentTimeMillis,
       checksum: '',
     },
   }
@@ -150,7 +150,7 @@ export const touchInventory = (inventory: Inventory): Inventory => {
   return {
     ...updated,
     metadata: {
-      lastUpdated: Date.now(),
+      lastUpdated: yield * Clock.currentTimeMillis,
       checksum: computeChecksum(updated),
     },
   }

@@ -45,4 +45,4 @@ export const RecipeRepositoryLive = Layer.scoped(
   })
 )
 
-export const decodeRecipeId = Schema.decodeEffect(RecipeIdSchema)
+export const decodeRecipeId = Schema.decode(RecipeIdSchema)

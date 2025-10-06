@@ -3,8 +3,8 @@
  * 世界ドメインのイベント定義（Event Sourcing対応）
  */
 
-import { Schema } from 'effect'
 import { uuid } from '@domain/world/utils'
+import { Clock, Effect, Schema } from 'effect'
 import { ChunkPosition, DimensionId, GameTime, Vector3D, WorldId, WorldState } from '../core'
 
 // === 基本イベント型 ===
@@ -496,15 +496,19 @@ export const createEventMetadata = (
     operationId?: string
   },
   correlationId?: string
-): EventMetadata => ({
-  eventId: crypto.randomUUID(),
-  timestamp: new Date(),
-  version: 1,
-  causedBy,
-  correlationId,
-  aggregateId,
-  aggregateVersion,
-})
+): Effect.Effect<EventMetadata> =>
+  Effect.gen(function* () {
+    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    return {
+      eventId: crypto.randomUUID(),
+      timestamp,
+      version: 1,
+      causedBy,
+      correlationId,
+      aggregateId,
+      aggregateVersion,
+    }
+  })
 
 /** WorldCreationStartedEvent作成ヘルパー */
 export const createWorldCreationStartedEvent = (
@@ -514,17 +518,21 @@ export const createWorldCreationStartedEvent = (
   settings: Record<string, unknown>,
   requestedBy: string,
   aggregateVersion: number = 0
-): WorldCreationStartedEvent => ({
-  type: 'WorldCreationStarted',
-  metadata: createEventMetadata(worldId, aggregateVersion, { userId: requestedBy }),
-  payload: {
-    worldId,
-    worldName,
-    seed,
-    settings,
-    requestedBy,
-  },
-})
+): Effect.Effect<WorldCreationStartedEvent> =>
+  Effect.gen(function* () {
+    const metadata = yield* createEventMetadata(worldId, aggregateVersion, { userId: requestedBy })
+    return {
+      type: 'WorldCreationStarted',
+      metadata,
+      payload: {
+        worldId,
+        worldName,
+        seed,
+        settings,
+        requestedBy,
+      },
+    }
+  })
 
 /** PlayerJoinedWorldEvent作成ヘルパー */
 export const createPlayerJoinedWorldEvent = (
@@ -535,18 +543,22 @@ export const createPlayerJoinedWorldEvent = (
   gameMode: string,
   firstJoin: boolean,
   aggregateVersion: number
-): PlayerJoinedWorldEvent => ({
-  type: 'PlayerJoinedWorld',
-  metadata: createEventMetadata(worldId, aggregateVersion, { userId: playerId }),
-  payload: {
-    worldId,
-    playerId,
-    playerName,
-    spawnPosition,
-    gameMode,
-    firstJoin,
-  },
-})
+): Effect.Effect<PlayerJoinedWorldEvent> =>
+  Effect.gen(function* () {
+    const metadata = yield* createEventMetadata(worldId, aggregateVersion, { userId: playerId })
+    return {
+      type: 'PlayerJoinedWorld',
+      metadata,
+      payload: {
+        worldId,
+        playerId,
+        playerName,
+        spawnPosition,
+        gameMode,
+        firstJoin,
+      },
+    }
+  })
 
 /** WeatherChangedEvent作成ヘルパー */
 export const createWeatherChangedEvent = (
@@ -556,14 +568,18 @@ export const createWeatherChangedEvent = (
   duration: GameTime,
   natural: boolean,
   aggregateVersion: number
-): WeatherChangedEvent => ({
-  type: 'WeatherChanged',
-  metadata: createEventMetadata(worldId, aggregateVersion, { systemId: 'weather_system' }),
-  payload: {
-    worldId,
-    oldWeather,
-    newWeather,
-    duration,
-    natural,
-  },
-})
+): Effect.Effect<WeatherChangedEvent> =>
+  Effect.gen(function* () {
+    const metadata = yield* createEventMetadata(worldId, aggregateVersion, { systemId: 'weather_system' })
+    return {
+      type: 'WeatherChanged',
+      metadata,
+      payload: {
+        worldId,
+        oldWeather,
+        newWeather,
+        duration,
+        natural,
+      },
+    }
+  })

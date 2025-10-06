@@ -6,7 +6,7 @@
  * レシピの実行可能性、材料の可用性、結果の配置などを処理します。
  */
 
-import { Context, Effect } from 'effect'
+import { Context, Data, Effect } from 'effect'
 import type { Inventory, ItemId, ItemStack } from '../../types'
 
 // =============================================================================
@@ -129,15 +129,10 @@ export interface IngredientCollectionResult {
 // Domain Errors
 // =============================================================================
 
-export class CraftingIntegrationError extends Error {
-  readonly _tag = 'CraftingIntegrationError'
-  constructor(
-    readonly reason: string,
-    readonly details?: string
-  ) {
-    super(`Crafting integration error: ${reason} ${details ? `- ${details}` : ''}`)
-  }
-}
+export class CraftingIntegrationError extends Data.TaggedError('CraftingIntegrationError')<{
+  readonly reason: string
+  readonly details?: string
+}> {}
 
 // =============================================================================
 // Crafting Integration Service Interface

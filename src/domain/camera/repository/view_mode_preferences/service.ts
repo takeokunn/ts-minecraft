@@ -5,7 +5,7 @@
  * プレイヤー設定、コンテキスト依存設定、人気度分析、使用パターン学習を統合
  */
 
-import { Array, Context, Effect, Option } from 'effect'
+import { Array, Clock, Context, Effect, Option } from 'effect'
 import type { ViewMode } from '../../value_object/index'
 import type {
   GameContext,
@@ -537,7 +537,8 @@ export const ViewModePreferencesRepositoryOps = {
   safeGetRecommendation: (playerId: PlayerId, context: GameContext) =>
     Effect.gen(function* () {
       const repository = yield* ViewModePreferencesRepository
-      return yield* repository.getRecommendedViewMode(playerId, context, Date.now())
+      const now = yield* Clock.currentTimeMillis
+      return yield* repository.getRecommendedViewMode(playerId, context, now)
     }),
 } as const
 

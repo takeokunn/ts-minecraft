@@ -5,9 +5,9 @@
  * バランス調整とパフォーマンス最適化を両立
  */
 
+import { taggedUnion } from '@domain/world/utils'
 import type { Brand as BrandType } from 'effect'
 import { Schema } from 'effect'
-import { taggedUnion } from '@domain/world/utils'
 
 /**
  * 密度値Brand型（0.0から1.0）

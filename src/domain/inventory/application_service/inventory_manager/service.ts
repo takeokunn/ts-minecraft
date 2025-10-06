@@ -9,9 +9,7 @@
 import { Context, Effect } from 'effect'
 import type { Inventory } from '../../aggregate/inventory'
 import type { ItemStack } from '../../aggregate/item_stack'
-import type { InventoryCommand, InventoryQuery } from '../../types'
-import type { InventoryId, PlayerId } from '../../types'
-import type { QueryResult } from '../../types'
+import type { InventoryCommand, InventoryId, InventoryQuery, PlayerId, QueryResult } from '../../types'
 import type { InventoryApplicationError } from '../types'
 
 /**

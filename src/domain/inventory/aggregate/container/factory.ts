@@ -3,7 +3,7 @@
  * DDD原則に基づく複雑なコンテナ設定の隠蔽
  */
 
-import { Context, Effect, Schema } from 'effect'
+import { Clock, Context, Effect, Schema } from 'effect'
 import { nanoid } from 'nanoid'
 import type { PlayerId } from '../../types'
 import type {
@@ -17,12 +17,7 @@ import type {
   ContainerType,
   WorldPosition,
 } from './types'
-import {
-  CONTAINER_CONSTANTS,
-  CONTAINER_SLOT_CONFIGURATIONS,
-  ContainerAggregateSchema,
-  ContainerError,
-} from './types'
+import { CONTAINER_CONSTANTS, CONTAINER_SLOT_CONFIGURATIONS, ContainerAggregateSchema, ContainerError } from './types'
 
 // ===== Factory Interface =====
 
@@ -133,8 +128,8 @@ class ContainerBuilderImpl implements ContainerBuilder {
   private slots: Array<ContainerSlot> = []
   private permissions: Array<ContainerPermission> = []
   private version: number = CONTAINER_CONSTANTS.DEFAULT_VERSION
-  private createdAt: Date = new Date()
-  private lastModified: Date = new Date()
+  private createdAt: string | null = null
+  private lastModified: string | null = null
 
   setType(type: ContainerType): ContainerBuilder {
     this.type = type
@@ -231,6 +226,11 @@ class ContainerBuilderImpl implements ContainerBuilder {
         // IDの生成または検証
         const id = this.id ?? (`container_${nanoid()}` as ContainerId)
 
+        // タイムスタンプの生成（未設定の場合）
+        const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms).toISOString())
+        const createdAt = this.createdAt ?? timestamp
+        const lastModified = this.lastModified ?? timestamp
+
         // 集約データの構築
         const aggregateData = {
           id,
@@ -244,8 +244,8 @@ class ContainerBuilderImpl implements ContainerBuilder {
           isOpen: false,
           currentViewers: [],
           version: this.version,
-          createdAt: this.createdAt.toISOString(),
-          lastModified: this.lastModified.toISOString(),
+          createdAt,
+          lastModified,
           uncommittedEvents: [],
         }
 
@@ -430,11 +430,15 @@ export const createEmptyContainerSlot = (): ContainerSlot => null
 /**
  * 集約のバージョンを増加
  */
-export const incrementContainerVersion = (aggregate: ContainerAggregate): ContainerAggregate => ({
-  ...aggregate,
-  version: aggregate.version + 1,
-  lastModified: new Date().toISOString() as any,
-})
+export const incrementContainerVersion = (aggregate: ContainerAggregate): Effect.Effect<ContainerAggregate> =>
+  Effect.gen(function* () {
+    const lastModified = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms).toISOString())
+    return {
+      ...aggregate,
+      version: aggregate.version + 1,
+      lastModified: lastModified as any,
+    }
+  })
 
 /**
  * 未コミットイベントを追加

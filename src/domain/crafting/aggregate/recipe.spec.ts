@@ -1,7 +1,6 @@
-import { Schema } from '@effect/schema'
 import { ParseResult } from '@effect/schema/ParseResult'
 import { describe, expect, it } from '@effect/vitest'
-import { Effect, pipe } from 'effect'
+import { Effect, Schema, pipe } from 'effect'
 import * as FastCheck from 'effect/FastCheck'
 import {
   CraftingGrid,
@@ -27,7 +26,7 @@ import {
   updateSuccessRate,
 } from './recipe'
 
-const decode = <A>(schema: Schema.Schema<A>) => Schema.decodeEffect(schema)
+const decode = <A>(schema: Schema.Schema<A>) => Schema.decode(schema)
 
 const sampleStack: Effect.Effect<CraftingItemStack, ParseResult.ParseError> = decode(CraftingItemStackSchema)({
   itemId: 'minecraft:oak_planks',
@@ -162,7 +161,7 @@ describe('RecipeAggregate', () => {
     Effect.sync(() =>
       FastCheck.assert(
         FastCheck.property(FastCheck.float({ min: 1.01, max: 5, noNaN: true }), (value) => {
-          const program = Schema.decodeEffect(SuccessRateSchema)(value)
+          const program = Schema.decode(SuccessRateSchema)(value)
           const exit = Effect.runSyncExit(program)
           expect(exit._tag).toBe('Failure')
         })

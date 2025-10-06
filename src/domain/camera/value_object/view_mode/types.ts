@@ -66,7 +66,7 @@ export interface AnimationKeyframe {
 }
 
 /**
- * カメラモード ADT - Data.TaggedEnumを使用
+ * カメラモード ADT - Data.taggedEnumを使用
  */
 export type ViewMode = Data.TaggedEnum<{
   FirstPerson: { readonly settings: FirstPersonSettings }

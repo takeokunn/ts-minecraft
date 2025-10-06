@@ -1,4 +1,4 @@
-import { Context, Effect, Layer } from 'effect'
+import { Context, Effect } from 'effect'
 
 /**
  * Simple Event Bus for publishing combat events
@@ -11,12 +11,3 @@ export interface EventBusService {
 }
 
 export const EventBus = Context.GenericTag<EventBusService>('@minecraft/infrastructure/EventBus')
-
-// Default implementation
-export const EventBusDefault = Layer.succeed(EventBus, {
-  publish: () => Effect.succeed(undefined),
-  subscribe: () =>
-    Effect.succeed({
-      close: () => Effect.succeed(undefined),
-    }),
-})

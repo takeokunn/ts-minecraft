@@ -8,4 +8,4 @@ export {
   computeTargetActiveChunks,
   shouldEvictChunks,
   shouldThrottleActivations,
-} from './index'
+} from './resource_limits'

@@ -13,10 +13,10 @@
  * - 設定バリデーション
  */
 
-import { Effect, Function, Match, Option, Schema } from 'effect'
 import type * as GenerationSession from '@domain/world/aggregate/generation_session'
-import type { ConfigurationProfile } from './index'
-import type { SessionFactoryError, SessionTemplateType } from './index'
+import { Clock, Effect, Function, Match, Option, Schema } from 'effect'
+import type { ConfigurationProfile, SessionFactoryError, SessionTemplateType } from './index'
+import { SessionTemplateRegistryService } from './template_registry_service'
 
 // ================================
 // Template Definition Types
@@ -94,341 +94,6 @@ export const TemplateResolutionResultSchema = Schema.Struct({
 export type TemplateResolutionResult = typeof TemplateResolutionResultSchema.Type
 
 // ================================
-// Template Registry
-// ================================
-
-class SessionTemplateRegistry {
-  private readonly templates = new Map<SessionTemplateType, SessionTemplateDefinition>()
-  private readonly customTemplates = new Map<string, SessionTemplateDefinition>()
-
-  register(type: SessionTemplateType, definition: SessionTemplateDefinition): void {
-    this.templates.set(type, definition)
-  }
-
-  registerCustom(name: string, definition: SessionTemplateDefinition): void {
-    this.customTemplates.set(name, definition)
-  }
-
-  get(type: SessionTemplateType): Option.Option<SessionTemplateDefinition> {
-    return Option.fromNullable(this.templates.get(type))
-  }
-
-  getCustom(name: string): Option.Option<SessionTemplateDefinition> {
-    return Option.fromNullable(this.customTemplates.get(name))
-  }
-
-  list(): readonly SessionTemplateType[] {
-    return Array.from(this.templates.keys())
-  }
-
-  listCustom(): readonly string[] {
-    return Array.from(this.customTemplates.keys())
-  }
-
-  listByCategory(category: SessionTemplateDefinition['category']): readonly SessionTemplateType[] {
-    return Array.from(this.templates.entries())
-      .filter(([_, definition]) => definition.category === category)
-      .map(([type, _]) => type)
-  }
-
-  search(query: {
-    useCases?: string[]
-    performance?: Partial<SessionTemplateDefinition['performance']>
-    requirements?: Partial<SessionTemplateDefinition['requirements']>
-    tags?: string[]
-  }): readonly SessionTemplateType[] {
-    return Array.from(this.templates.entries())
-      .filter(([_, template]) => {
-        // ユースケースフィルタ
-        if (query.useCases) {
-          const hasMatchingUseCase = query.useCases.some((useCase) =>
-            template.useCases.some((templateUseCase) => templateUseCase.toLowerCase().includes(useCase.toLowerCase()))
-          )
-          if (!hasMatchingUseCase) return false
-        }
-
-        // パフォーマンスフィルタ
-        if (query.performance) {
-          if (
-            query.performance.expectedCpuUsage &&
-            template.performance.expectedCpuUsage !== query.performance.expectedCpuUsage
-          ) {
-            return false
-          }
-          if (
-            query.performance.expectedMemoryUsage &&
-            template.performance.expectedMemoryUsage !== query.performance.expectedMemoryUsage
-          ) {
-            return false
-          }
-        }
-
-        // 要件フィルタ
-        if (query.requirements) {
-          if (query.requirements.minCpuCores && template.requirements.minCpuCores > query.requirements.minCpuCores) {
-            return false
-          }
-          if (query.requirements.minMemoryMB && template.requirements.minMemoryMB > query.requirements.minMemoryMB) {
-            return false
-          }
-        }
-
-        // タグフィルタ
-        if (query.tags) {
-          const hasMatchingTag = query.tags.some((tag) =>
-            template.metadata.tags.some((templateTag) => templateTag.toLowerCase().includes(tag.toLowerCase()))
-          )
-          if (!hasMatchingTag) return false
-        }
-
-        return true
-      })
-      .map(([type, _]) => type)
-  }
-}
-
-const registry = new SessionTemplateRegistry()
-
-// ================================
-// Template Definitions
-// ================================
-
-/**
- * 基本テンプレート定義
- */
-const defineTemplates = (): void => {
-  // Single Chunk Template
-  registry.register('single_chunk', {
-    name: 'Single Chunk Generation',
-    description: 'Optimized for generating a single chunk with high quality',
-    category: 'basic',
-    version: '1.0.0',
-    configuration: {
-      maxConcurrentChunks: 1,
-      chunkBatchSize: 1,
-      retryPolicy: {
-        maxAttempts: 3,
-        backoffStrategy: 'exponential',
-        baseDelayMs: 1000,
-        maxDelayMs: 5000,
-      },
-      timeoutPolicy: {
-        chunkTimeoutMs: 30000,
-        sessionTimeoutMs: 60000,
-        gracefulShutdownMs: 5000,
-      },
-      priorityPolicy: {
-        enablePriorityQueuing: false,
-        priorityThreshold: 5,
-        highPriorityWeight: 1.0,
-      },
-    },
-    executionMode: 'sync',
-    defaultOptions: {
-      includeStructures: true,
-      includeCaves: true,
-      includeOres: true,
-      generateVegetation: true,
-      applyPostProcessing: true,
-    },
-    useCases: ['block placement', 'structure building', 'detailed generation'],
-    performance: {
-      expectedCpuUsage: 'low',
-      expectedMemoryUsage: 'low',
-      expectedDuration: 'fast',
-      scalability: 'poor',
-    },
-    requirements: {
-      minCpuCores: 1,
-      minMemoryMB: 512,
-      supportedProfiles: ['development', 'testing', 'production'],
-      dependencies: [],
-    },
-    metadata: {
-      author: 'minecraft-core',
-      tags: ['basic', 'single', 'quality'],
-      stability: 'stable',
-      lastModified: new Date('2025-01-01'),
-      compatibilityVersion: '1.0.0',
-    },
-  })
-
-  // Area Generation Template
-  registry.register('area_generation', {
-    name: 'Area Generation',
-    description: 'Optimized for generating large areas efficiently',
-    category: 'basic',
-    version: '1.0.0',
-    configuration: {
-      maxConcurrentChunks: 4,
-      chunkBatchSize: 16,
-      retryPolicy: {
-        maxAttempts: 3,
-        backoffStrategy: 'exponential',
-        baseDelayMs: 1000,
-        maxDelayMs: 10000,
-      },
-      timeoutPolicy: {
-        chunkTimeoutMs: 30000,
-        sessionTimeoutMs: 600000,
-        gracefulShutdownMs: 5000,
-      },
-      priorityPolicy: {
-        enablePriorityQueuing: true,
-        priorityThreshold: 5,
-        highPriorityWeight: 2.0,
-      },
-    },
-    executionMode: 'async',
-    defaultOptions: {
-      includeStructures: true,
-      includeCaves: true,
-      includeOres: true,
-      generateVegetation: true,
-      applyPostProcessing: true,
-    },
-    useCases: ['world exploration', 'base building', 'resource gathering'],
-    performance: {
-      expectedCpuUsage: 'medium',
-      expectedMemoryUsage: 'medium',
-      expectedDuration: 'normal',
-      scalability: 'good',
-    },
-    requirements: {
-      minCpuCores: 2,
-      minMemoryMB: 1024,
-      supportedProfiles: ['development', 'staging', 'production'],
-      dependencies: [],
-    },
-    metadata: {
-      author: 'minecraft-core',
-      tags: ['area', 'exploration', 'balanced'],
-      stability: 'stable',
-      lastModified: new Date('2025-01-01'),
-      compatibilityVersion: '1.0.0',
-    },
-  })
-
-  // World Exploration Template
-  registry.register('world_exploration', {
-    name: 'World Exploration',
-    description: 'Optimized for real-time exploration with fast terrain generation',
-    category: 'optimization',
-    version: '1.0.0',
-    configuration: {
-      maxConcurrentChunks: 8,
-      chunkBatchSize: 4,
-      retryPolicy: {
-        maxAttempts: 2,
-        backoffStrategy: 'linear',
-        baseDelayMs: 500,
-        maxDelayMs: 2000,
-      },
-      timeoutPolicy: {
-        chunkTimeoutMs: 10000,
-        sessionTimeoutMs: 300000,
-        gracefulShutdownMs: 2000,
-      },
-      priorityPolicy: {
-        enablePriorityQueuing: true,
-        priorityThreshold: 7,
-        highPriorityWeight: 3.0,
-      },
-    },
-    executionMode: 'streaming',
-    defaultOptions: {
-      includeStructures: true,
-      includeCaves: false,
-      includeOres: false,
-      generateVegetation: false,
-      applyPostProcessing: false,
-    },
-    useCases: ['player movement', 'real-time exploration', 'streaming'],
-    performance: {
-      expectedCpuUsage: 'high',
-      expectedMemoryUsage: 'medium',
-      expectedDuration: 'fast',
-      scalability: 'excellent',
-    },
-    requirements: {
-      minCpuCores: 4,
-      minMemoryMB: 2048,
-      supportedProfiles: ['production', 'high_performance'],
-      dependencies: [],
-    },
-    metadata: {
-      author: 'minecraft-core',
-      tags: ['exploration', 'streaming', 'performance'],
-      stability: 'stable',
-      lastModified: new Date('2025-01-01'),
-      compatibilityVersion: '1.0.0',
-    },
-  })
-
-  // Structure Placement Template
-  registry.register('structure_placement', {
-    name: 'Structure Placement',
-    description: 'Optimized for placing structures with high precision',
-    category: 'specialized',
-    version: '1.0.0',
-    configuration: {
-      maxConcurrentChunks: 2,
-      chunkBatchSize: 8,
-      retryPolicy: {
-        maxAttempts: 5,
-        backoffStrategy: 'exponential',
-        baseDelayMs: 2000,
-        maxDelayMs: 30000,
-      },
-      timeoutPolicy: {
-        chunkTimeoutMs: 60000,
-        sessionTimeoutMs: 1800000,
-        gracefulShutdownMs: 10000,
-      },
-      priorityPolicy: {
-        enablePriorityQueuing: true,
-        priorityThreshold: 3,
-        highPriorityWeight: 5.0,
-      },
-    },
-    executionMode: 'async',
-    defaultOptions: {
-      includeStructures: true,
-      includeCaves: false,
-      includeOres: false,
-      generateVegetation: false,
-      applyPostProcessing: true,
-    },
-    useCases: ['village generation', 'dungeon placement', 'custom structures'],
-    performance: {
-      expectedCpuUsage: 'medium',
-      expectedMemoryUsage: 'high',
-      expectedDuration: 'slow',
-      scalability: 'fair',
-    },
-    requirements: {
-      minCpuCores: 2,
-      minMemoryMB: 2048,
-      supportedProfiles: ['staging', 'production'],
-      dependencies: ['structure_generator'],
-    },
-    metadata: {
-      author: 'minecraft-core',
-      tags: ['structures', 'precision', 'quality'],
-      stability: 'stable',
-      lastModified: new Date('2025-01-01'),
-      compatibilityVersion: '1.0.0',
-    },
-  })
-
-  // 他のテンプレート定義も同様に追加...
-  // terrain_modification, bulk_generation, streaming_generation
-}
-
-// テンプレート定義を初期化
-defineTemplates()
-
-// ================================
 // Template Resolver
 // ================================
 
@@ -462,9 +127,12 @@ export interface SessionTemplateResolver {
   /**
    * テンプレート検索
    */
-  readonly search: (
-    query: Parameters<SessionTemplateRegistry['search']>[0]
-  ) => Effect.Effect<readonly SessionTemplateType[], SessionFactoryError>
+  readonly search: (query: {
+    readonly useCases?: ReadonlyArray<string>
+    readonly performance?: Partial<SessionTemplateDefinition['performance']>
+    readonly requirements?: Partial<SessionTemplateDefinition['requirements']>
+    readonly tags?: ReadonlyArray<string>
+  }) => Effect.Effect<readonly SessionTemplateType[], SessionFactoryError>
 
   /**
    * テンプレート作成
@@ -487,7 +155,8 @@ export interface SessionTemplateResolver {
 const createSessionTemplateResolver = (): SessionTemplateResolver => ({
   resolve: (type: SessionTemplateType, customizations?: Record<string, unknown>) =>
     Effect.gen(function* () {
-      const template = registry.get(type)
+      const registry = yield* SessionTemplateRegistryService
+      const template = yield* registry.get(type)
 
       if (Option.isNone(template)) {
         return yield* Effect.fail(
@@ -529,7 +198,8 @@ const createSessionTemplateResolver = (): SessionTemplateResolver => ({
 
   resolveCustom: (name: string, customizations?: Record<string, unknown>) =>
     Effect.gen(function* () {
-      const template = registry.getCustom(name)
+      const registry = yield* SessionTemplateRegistryService
+      const template = yield* registry.getCustom(name)
 
       if (Option.isNone(template)) {
         return yield* Effect.fail(
@@ -558,11 +228,12 @@ const createSessionTemplateResolver = (): SessionTemplateResolver => ({
 
   recommend: (criteria) =>
     Effect.gen(function* () {
-      const allTemplates = registry.list()
+      const registry = yield* SessionTemplateRegistryService
+      const allTemplates = yield* registry.list
       const scores = new Map<SessionTemplateType, number>()
 
       for (const templateType of allTemplates) {
-        const template = registry.get(templateType)
+        const template = yield* registry.get(templateType)
         if (Option.isNone(template)) continue
 
         let score = 0
@@ -616,16 +287,22 @@ const createSessionTemplateResolver = (): SessionTemplateResolver => ({
         .slice(0, 5) // 上位5つ
     }),
 
-  search: (query) => Effect.succeed(registry.search(query)),
+  search: (query) =>
+    Effect.gen(function* () {
+      const registry = yield* SessionTemplateRegistryService
+      return yield* registry.search(query)
+    }),
 
   create: (name: string, definition: SessionTemplateDefinition) =>
-    Effect.sync(() => {
-      registry.registerCustom(name, definition)
+    Effect.gen(function* () {
+      const registry = yield* SessionTemplateRegistryService
+      yield* registry.registerCustom(name, definition)
     }),
 
   compose: (baseType: SessionTemplateType, modifications: Partial<SessionTemplateDefinition>) =>
     Effect.gen(function* () {
-      const baseTemplate = registry.get(baseType)
+      const registry = yield* SessionTemplateRegistryService
+      const baseTemplate = yield* registry.get(baseType)
 
       if (Option.isNone(baseTemplate)) {
         return yield* Effect.fail(
@@ -636,6 +313,7 @@ const createSessionTemplateResolver = (): SessionTemplateResolver => ({
         )
       }
 
+      const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
       return {
         ...baseTemplate.value,
         ...modifications,
@@ -646,7 +324,7 @@ const createSessionTemplateResolver = (): SessionTemplateResolver => ({
         metadata: {
           ...baseTemplate.value.metadata,
           ...modifications.metadata,
-          lastModified: new Date(),
+          lastModified: now,
         },
       }
     }),
@@ -678,33 +356,43 @@ export const SessionTemplateResolverTag = Symbol('SessionTemplateResolver')
 export const SessionTemplateResolverLive = createSessionTemplateResolver()
 
 export const getTemplate = (type: SessionTemplateType): Effect.Effect<SessionTemplateDefinition, SessionFactoryError> =>
-  Function.pipe(
-    registry.get(type),
-    Option.match({
-      onNone: () =>
-        Effect.fail(
-          new SessionFactoryError({
-            category: 'configuration_invalid',
-            message: `Template not found: ${type}`,
-          })
-        ),
-      onSome: (template) => Effect.succeed(template),
-    })
-  )
+  Effect.gen(function* () {
+    const registry = yield* SessionTemplateRegistryService
+    const template = yield* registry.get(type)
 
-export const listTemplates = (): readonly SessionTemplateType[] => registry.list()
+    if (Option.isNone(template)) {
+      return yield* Effect.fail(
+        new SessionFactoryError({
+          category: 'configuration_invalid',
+          message: `Template not found: ${type}`,
+        })
+      )
+    }
 
-export const searchTemplates = (
-  query: Parameters<SessionTemplateRegistry['search']>[0]
-): readonly SessionTemplateType[] => registry.search(query)
+    return template.value
+  })
+
+export const listTemplates = (): Effect.Effect<readonly SessionTemplateType[]> =>
+  Effect.gen(function* () {
+    const registry = yield* SessionTemplateRegistryService
+    return yield* registry.list
+  })
+
+export const searchTemplates = (query: {
+  readonly useCases?: ReadonlyArray<string>
+  readonly performance?: Partial<SessionTemplateDefinition['performance']>
+  readonly requirements?: Partial<SessionTemplateDefinition['requirements']>
+  readonly tags?: ReadonlyArray<string>
+}): Effect.Effect<readonly SessionTemplateType[]> =>
+  Effect.gen(function* () {
+    const registry = yield* SessionTemplateRegistryService
+    return yield* registry.search(query)
+  })
 
 // ================================
 // Exports
 // ================================
 
-export {
-  registry as SessionTemplateRegistry,
-  type SessionTemplateDefinition,
-  type SessionTemplateResolver,
-  type TemplateResolutionResult,
-}
+export { SessionTemplateRegistryLive } from './template_registry_live'
+export { SessionTemplateRegistryService } from './template_registry_service'
+export type { SessionTemplateDefinition, SessionTemplateResolver, TemplateResolutionResult }

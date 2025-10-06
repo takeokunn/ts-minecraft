@@ -8,9 +8,8 @@
  * DDD原則に基づき、ビジネスルールを内包し、不変性を保証します。
  */
 
-import { Array, Data, Effect, Match, Option, pipe } from 'effect'
-import type { CameraError } from '@domain/camera/types'
-import type { CameraEvent, CameraId } from '@domain/camera/types'
+import type { CameraError, CameraEvent, CameraId } from '@domain/camera/types'
+import { Array, Clock, Data, Effect, Match, Option, pipe } from 'effect'
 import type { AnimationState, CameraRotation, CameraSettings, Position3D, ViewMode } from '../../value_object/index'
 
 /**
@@ -72,12 +71,15 @@ export namespace CameraOps {
       // 位置更新イベントの作成
       const event = createPositionUpdatedEvent(camera.id, camera.position, newPosition)
 
+      // 現在時刻を取得
+      const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+
       // 新しいAggregateインスタンスの返却
       return Camera({
         ...camera,
         position: newPosition,
         events: [...camera.events, event],
-        lastUpdated: new Date(),
+        lastUpdated: now,
       })
     })
 
@@ -99,11 +101,14 @@ export namespace CameraOps {
       // 回転更新イベントの作成
       const event = createRotationUpdatedEvent(camera.id, camera.rotation, constrainedRotation)
 
+      // 現在時刻を取得
+      const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+
       return Camera({
         ...camera,
         rotation: constrainedRotation,
         events: [...camera.events, event],
-        lastUpdated: new Date(),
+        lastUpdated: now,
       })
     })
 
@@ -124,11 +129,14 @@ export namespace CameraOps {
       // ビューモード変更イベントの作成
       const event = createViewModeChangedEvent(camera.id, camera.viewMode, newMode)
 
+      // 現在時刻を取得
+      const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+
       return Camera({
         ...adjustedCamera,
         viewMode: newMode,
         events: [...adjustedCamera.events, event],
-        lastUpdated: new Date(),
+        lastUpdated: now,
       })
     })
 
@@ -149,11 +157,14 @@ export namespace CameraOps {
       // アニメーション開始イベントの作成
       const event = createAnimationStartedEvent(camera.id, animation)
 
+      // 現在時刻を取得
+      const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+
       return Camera({
         ...updatedCamera,
         animationState: Option.some(animation),
         events: [...updatedCamera.events, event],
-        lastUpdated: new Date(),
+        lastUpdated: now,
       })
     })
 
@@ -162,20 +173,23 @@ export namespace CameraOps {
    *
    * 現在のアニメーションを停止し、停止イベントを記録します。
    */
-  export const stopAnimation = (camera: Camera): Camera => {
-    if (Option.isNone(camera.animationState)) {
-      return camera
-    }
+  export const stopAnimation = (camera: Camera): Effect.Effect<Camera> =>
+    Effect.gen(function* () {
+      if (Option.isNone(camera.animationState)) {
+        return camera
+      }
 
-    const event = createAnimationStoppedEvent(camera.id, camera.animationState.value)
+      const event = createAnimationStoppedEvent(camera.id, camera.animationState.value)
 
-    return Camera({
-      ...camera,
-      animationState: Option.none(),
-      events: [...camera.events, event],
-      lastUpdated: new Date(),
+      const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+
+      return Camera({
+        ...camera,
+        animationState: Option.none(),
+        events: [...camera.events, event],
+        lastUpdated: now,
+      })
     })
-  }
 
   /**
    * カメラ設定の更新
@@ -198,39 +212,49 @@ export namespace CameraOps {
       // 設定変更イベントの作成
       const event = createSettingsChangedEvent(camera.id, camera.settings, validatedSettings)
 
+      // 現在時刻を取得
+      const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+
       return Camera({
         ...camera,
         settings: validatedSettings,
         events: [...camera.events, event],
-        lastUpdated: new Date(),
+        lastUpdated: now,
       })
     })
 
   /**
    * カメラの有効化
    */
-  export const enable = (camera: Camera): Camera =>
-    Camera({
-      ...camera,
-      isEnabled: true,
-      events: [...camera.events, createCameraEnabledEvent(camera.id)],
-      lastUpdated: new Date(),
+  export const enable = (camera: Camera): Effect.Effect<Camera> =>
+    Effect.gen(function* () {
+      const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+
+      return Camera({
+        ...camera,
+        isEnabled: true,
+        events: [...camera.events, createCameraEnabledEvent(camera.id)],
+        lastUpdated: now,
+      })
     })
 
   /**
    * カメラの無効化
    */
-  export const disable = (camera: Camera): Camera => {
-    const disabledCamera = Camera({
-      ...camera,
-      isEnabled: false,
-      animationState: Option.none(),
-      events: [...camera.events, createCameraDisabledEvent(camera.id)],
-      lastUpdated: new Date(),
-    })
+  export const disable = (camera: Camera): Effect.Effect<Camera> =>
+    Effect.gen(function* () {
+      const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
 
-    return disabledCamera
-  }
+      const disabledCamera = Camera({
+        ...camera,
+        isEnabled: false,
+        animationState: Option.none(),
+        events: [...camera.events, createCameraDisabledEvent(camera.id)],
+        lastUpdated: now,
+      })
+
+      return disabledCamera
+    })
 
   /**
    * イベントのクリア

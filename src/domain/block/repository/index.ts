@@ -1,3 +1,1 @@
-export * from './index'
-export * from './types'
-export * from './block_repository';
+export * from './block_repository'

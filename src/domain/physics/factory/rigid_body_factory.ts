@@ -1,7 +1,6 @@
+import type { PhysicsError, PhysicsWorldId, RigidBody, RigidBodyType, Vector3 } from '@domain/physics/types'
 import { Effect } from 'effect'
 import { RigidBodyAggregate } from '../aggregate'
-import type { PhysicsWorldId, RigidBody, RigidBodyType, Vector3 } from '@domain/physics/types'
-import type { PhysicsError } from '@domain/physics/types'
 
 export interface RigidBodyCreationOptions {
   readonly worldId: PhysicsWorldId

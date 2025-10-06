@@ -1,6 +1,6 @@
-import { Schema } from '@effect/schema'
 import * as Arbitrary from '@effect/schema/Arbitrary'
 import { expect, it } from '@effect/vitest'
+import { Schema } from 'effect'
 import {
   BlockId,
   ItemId,

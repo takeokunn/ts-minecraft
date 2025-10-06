@@ -14,6 +14,24 @@
  */
 
 import { Schema } from 'effect'
+import { WORLD_DOMAIN_CONSTANTS } from './constants'
+import {
+  BiomeDefinitionSchema,
+  BiomeIdSchema,
+  BlockCoordinateSchema,
+  ChunkCoordinateSchema,
+  ClimateDataSchema,
+  GenerationContextSchema,
+  GenerationStageSchema,
+  NoiseValueSchema,
+  WorldCoordinateSchema,
+  WorldIdSchema,
+  WorldSeedSchema,
+  WorldSettingsSchema,
+  WorldStateSchema,
+} from './core'
+import { WorldTypesErrorSchema } from './errors'
+import { WorldTypesEventSchema } from './events'
 
 // === ディレクトリ別エクスポート ===
 

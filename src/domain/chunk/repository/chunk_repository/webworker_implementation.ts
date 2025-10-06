@@ -1,6 +1,5 @@
 import { Layer } from 'effect'
-import { ChunkRepository } from './index'
-import { InMemoryChunkRepositoryLive } from './index'
+import { ChunkRepository, InMemoryChunkRepositoryLive } from './index'
 
 /**
  * WebWorker ChunkRepository Implementation (Fallback)

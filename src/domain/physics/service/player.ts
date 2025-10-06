@@ -1,9 +1,8 @@
-import type { PlayerId } from '@domain/entities'
-import type { Vector3D } from '@domain/entities'
-import { Context, Effect, Layer, Match, pipe } from 'effect'
+import type { PlayerId, Vector3D } from '@domain/entities'
+import { Clock, Context, Effect, Layer, Match, pipe } from 'effect'
 import { Player } from '../../entities/Player'
 import { Direction, JUMP_VELOCITY, MOVEMENT_SPEEDS } from '../../player/PlayerState'
-import { CannonPhysicsService, type PhysicsBodyState } from './index'
+import { CannonPhysicsService, type PhysicsBodyState } from './cannon'
 
 /**
  * Player Physics Service
@@ -147,7 +146,7 @@ const makePlayerPhysicsService: Effect.Effect<PlayerPhysicsService, never, Canno
           bodyId,
           physicsState,
           movementConfig: finalConfig,
-          lastGroundTime: Date.now(),
+          lastGroundTime: yield* Clock.currentTimeMillis,
           fallStartY: player.position.y,
         }
 
@@ -244,7 +243,8 @@ const makePlayerPhysicsService: Effect.Effect<PlayerPhysicsService, never, Canno
         )
 
         // 地面接触時間の更新
-        const lastGroundTime = newPhysicsState.isOnGround ? Date.now() : physicsState.lastGroundTime
+        const currentTime = yield* Clock.currentTimeMillis
+        const lastGroundTime = newPhysicsState.isOnGround ? currentTime : physicsState.lastGroundTime
 
         return {
           ...physicsState,
@@ -260,7 +260,7 @@ const makePlayerPhysicsService: Effect.Effect<PlayerPhysicsService, never, Canno
         const canJump = yield* pipe(
           Match.value({
             isOnGround: physicsState.physicsState.isOnGround,
-            timeSinceGround: Date.now() - physicsState.lastGroundTime,
+            timeSinceGround: yield* Clock.currentTimeMillis,
           }),
           Match.when(
             ({ isOnGround }) => !isOnGround,
@@ -386,7 +386,8 @@ const makePlayerPhysicsService: Effect.Effect<PlayerPhysicsService, never, Canno
         const fallStartY = wasOnGround && !isNowOnGround ? newPhysicsState.position.y : physicsState.fallStartY
 
         // 地面接触時間の更新
-        const lastGroundTime = isNowOnGround ? Date.now() : physicsState.lastGroundTime
+        const currentTime = yield* Clock.currentTimeMillis
+        const lastGroundTime = isNowOnGround ? currentTime : physicsState.lastGroundTime
 
         return {
           ...physicsState,

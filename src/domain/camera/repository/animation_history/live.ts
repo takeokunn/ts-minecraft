@@ -5,29 +5,26 @@
  * パフォーマンス分析、統計計算、履歴管理の統合実装
  */
 
-import { Array, Data, Effect, HashMap, Layer, Match, Option, pipe, Ref } from 'effect'
 import type { CameraId } from '@domain/camera/types'
+import { Array, Clock, Data, Effect, Either, HashMap, Layer, Match, Option, pipe, Ref } from 'effect'
 import type {
   AnimationCountFilter,
+  AnimationHistoryRepositoryError,
+  AnimationQueryOptions,
+  AnimationRecord,
+  AnimationRecordId,
   AnimationSearchCriteria,
+  AnimationStatistics,
+  AnimationType,
+  AnimationTypeDistribution,
   ExportOptions,
   ImportOptions,
   ImportResult,
   IntegrityCheckResult,
   InterruptionAnalysis,
   OptimizationResult,
-  PerformanceThresholds,
-  PerformanceTrendPoint,
-} from './index'
-import type {
-  AnimationHistoryRepositoryError,
-  AnimationQueryOptions,
-  AnimationRecord,
-  AnimationRecordId,
-  AnimationStatistics,
-  AnimationType,
-  AnimationTypeDistribution,
   PerformanceMetrics,
+  PerformanceThresholds,
   TimeRange,
 } from './index'
 import {
@@ -78,18 +75,22 @@ const StorageOps = {
   /**
    * 初期状態を作成
    */
-  createInitialState: (): AnimationHistoryStorageState => ({
-    animationRecords: HashMap.empty(),
-    recordIndex: HashMap.empty(),
-    performanceCache: HashMap.empty(),
-    statisticsCache: HashMap.empty(),
-    metadata: {
-      totalRecords: 0,
-      lastOptimizationDate: Date.now(),
-      totalStorageBytes: 0,
-      cacheHitRate: 0,
-    },
-  }),
+  createInitialState: (): Effect.Effect<AnimationHistoryStorageState> =>
+    Effect.gen(function* () {
+      const now = yield* Clock.currentTimeMillis
+      return {
+        animationRecords: HashMap.empty(),
+        recordIndex: HashMap.empty(),
+        performanceCache: HashMap.empty(),
+        statisticsCache: HashMap.empty(),
+        metadata: {
+          totalRecords: 0,
+          lastOptimizationDate: now,
+          totalStorageBytes: 0,
+          cacheHitRate: 0,
+        },
+      }
+    }),
 
   /**
    * アニメーション記録を追加
@@ -130,38 +131,48 @@ const StorageOps = {
   applyQueryOptions: (
     records: Array.ReadonlyArray<AnimationRecord>,
     options: AnimationQueryOptions
-  ): Array.ReadonlyArray<AnimationRecord> => {
-    let filteredRecords = records
-
-    // 種別フィルタ
-    if (Option.isSome(options.filterByType)) {
-      filteredRecords = filteredRecords.filter(
-        (record) => record.animationType._tag === options.filterByType.value._tag
-      )
-    }
-
-    // 成功フィルタ
-    if (Option.isSome(options.filterBySuccess)) {
-      filteredRecords = filteredRecords.filter((record) => record.success === options.filterBySuccess.value)
-    }
-
-    // 優先度フィルタ
-    if (Option.isSome(options.filterByPriority)) {
-      filteredRecords = filteredRecords.filter(
-        (record) => record.metadata.priority._tag === options.filterByPriority.value._tag
-      )
-    }
-
-    // ソート
-    filteredRecords = StorageOps.sortRecords(filteredRecords, options.sortBy)
-
-    // 制限
-    if (Option.isSome(options.limit)) {
-      filteredRecords = filteredRecords.slice(0, options.limit.value)
-    }
-
-    return filteredRecords
-  },
+  ): Array.ReadonlyArray<AnimationRecord> =>
+    pipe(
+      records,
+      // 種別フィルタ
+      (recs) =>
+        pipe(
+          options.filterByType,
+          Option.match({
+            onNone: () => recs,
+            onSome: (filterType) => recs.filter((record) => record.animationType._tag === filterType._tag),
+          })
+        ),
+      // 成功フィルタ
+      (recs) =>
+        pipe(
+          options.filterBySuccess,
+          Option.match({
+            onNone: () => recs,
+            onSome: (filterSuccess) => recs.filter((record) => record.success === filterSuccess),
+          })
+        ),
+      // 優先度フィルタ
+      (recs) =>
+        pipe(
+          options.filterByPriority,
+          Option.match({
+            onNone: () => recs,
+            onSome: (filterPriority) => recs.filter((record) => record.metadata.priority._tag === filterPriority._tag),
+          })
+        ),
+      // ソート
+      (recs) => StorageOps.sortRecords(recs, options.sortBy),
+      // 制限
+      (recs) =>
+        pipe(
+          options.limit,
+          Option.match({
+            onNone: () => recs,
+            onSome: (limitValue) => recs.slice(0, limitValue),
+          })
+        )
+    ),
 
   /**
    * 記録をソート
@@ -256,40 +267,44 @@ const StorageOps = {
   /**
    * パフォーマンス指標を計算
    */
-  calculatePerformanceMetrics: (records: Array.ReadonlyArray<AnimationRecord>): PerformanceMetrics => {
-    if (records.length === 0) {
-      return {
-        averageFrameRate: 0,
-        frameDropCount: 0,
-        memoryPeakMB: 0,
-        renderTimeP95: 0,
-        stutterEvents: 0,
-      } as PerformanceMetrics
-    }
+  calculatePerformanceMetrics: (records: Array.ReadonlyArray<AnimationRecord>): PerformanceMetrics =>
+    pipe(
+      records,
+      Array.matchLeft({
+        onEmpty: () =>
+          ({
+            averageFrameRate: 0,
+            frameDropCount: 0,
+            memoryPeakMB: 0,
+            renderTimeP95: 0,
+            stutterEvents: 0,
+          }) as PerformanceMetrics,
+        onNonEmpty: (recs) => {
+          const frameRates = recs.map((r) => r.metadata.frameRate)
+          const renderTimes = recs.map((r) => r.metadata.renderTime)
+          const memoryUsages = recs.map((r) => r.metadata.memoryUsageMB)
 
-    const frameRates = records.map((r) => r.metadata.frameRate)
-    const renderTimes = records.map((r) => r.metadata.renderTime)
-    const memoryUsages = records.map((r) => r.metadata.memoryUsageMB)
+          const averageFrameRate = frameRates.reduce((sum, fr) => sum + fr, 0) / frameRates.length
+          const frameDropCount = recs.filter((r) => r.metadata.frameRate < 30).length
+          const memoryPeakMB = Math.max(...memoryUsages)
 
-    const averageFrameRate = frameRates.reduce((sum, fr) => sum + fr, 0) / frameRates.length
-    const frameDropCount = records.filter((r) => r.metadata.frameRate < 30).length
-    const memoryPeakMB = Math.max(...memoryUsages)
+          // 95パーセンタイル計算（簡易版）
+          const sortedRenderTimes = [...renderTimes].sort((a, b) => a - b)
+          const p95Index = Math.floor(sortedRenderTimes.length * 0.95)
+          const renderTimeP95 = sortedRenderTimes[p95Index] || 0
 
-    // 95パーセンタイル計算（簡易版）
-    const sortedRenderTimes = [...renderTimes].sort((a, b) => a - b)
-    const p95Index = Math.floor(sortedRenderTimes.length * 0.95)
-    const renderTimeP95 = sortedRenderTimes[p95Index] || 0
+          const stutterEvents = recs.filter((r) => r.metadata.renderTime > 16.67).length // 60fps基準
 
-    const stutterEvents = records.filter((r) => r.metadata.renderTime > 16.67).length // 60fps基準
-
-    return {
-      averageFrameRate,
-      frameDropCount,
-      memoryPeakMB,
-      renderTimeP95,
-      stutterEvents,
-    } as PerformanceMetrics
-  },
+          return {
+            averageFrameRate,
+            frameDropCount,
+            memoryPeakMB,
+            renderTimeP95,
+            stutterEvents,
+          } as PerformanceMetrics
+        },
+      })
+    ),
 
   /**
    * 古いデータをクリーンアップ
@@ -308,12 +323,11 @@ const StorageOps = {
     const deletedCount = existingRecords.length - filteredRecords.length
 
     // 削除された記録をインデックスからも削除
-    let updatedRecordIndex = state.recordIndex
-    for (const record of existingRecords) {
-      if (record.startTime < cutoffTime) {
-        updatedRecordIndex = HashMap.remove(updatedRecordIndex, record.id)
-      }
-    }
+    const updatedRecordIndex = pipe(
+      existingRecords,
+      Array.filter((record) => record.startTime < cutoffTime),
+      Array.reduce(state.recordIndex, (index, record) => HashMap.remove(index, record.id))
+    )
 
     const updatedState: AnimationHistoryStorageState = {
       ...state,
@@ -371,7 +385,8 @@ export const AnimationHistoryRepositoryLive = Layer.effect(
   import('./service.js').then((m) => m.AnimationHistoryRepository),
   Effect.gen(function* () {
     // インメモリストレージの初期化
-    const storageRef = yield* Ref.make(StorageOps.createInitialState())
+    const initialState = yield* StorageOps.createInitialState()
+    const storageRef = yield* Ref.make(initialState)
 
     return import('./service.js')
       .then((m) => m.AnimationHistoryRepository)
@@ -393,11 +408,15 @@ export const AnimationHistoryRepositoryLive = Layer.effect(
               Option.getOrElse(() => [] as Array.ReadonlyArray<AnimationRecord>)
             )
 
-            let filteredRecords = StorageOps.filterByTimeRange(allRecords, timeRange)
-
-            if (options) {
-              filteredRecords = StorageOps.applyQueryOptions(filteredRecords, options)
-            }
+            const filteredRecords = pipe(StorageOps.filterByTimeRange(allRecords, timeRange), (records) =>
+              pipe(
+                Option.fromNullable(options),
+                Option.match({
+                  onNone: () => records,
+                  onSome: (opts) => StorageOps.applyQueryOptions(records, opts),
+                })
+              )
+            )
 
             return filteredRecords
           }).pipe(handleAnimationHistoryOperation),
@@ -409,15 +428,16 @@ export const AnimationHistoryRepositoryLive = Layer.effect(
               Option.getOrElse(() => [] as Array.ReadonlyArray<AnimationRecord>)
             )
 
-            if (records.length === 0) {
-              return Option.none<AnimationRecord>()
-            }
-
-            const latest = records.reduce((latest, current) =>
-              current.startTime > latest.startTime ? current : latest
+            return pipe(
+              records,
+              Array.matchLeft({
+                onEmpty: () => Option.none<AnimationRecord>(),
+                onNonEmpty: (recs) =>
+                  Option.some(
+                    recs.reduce((latest, current) => (current.startTime > latest.startTime ? current : latest))
+                  ),
+              })
             )
-
-            return Option.some(latest)
           }).pipe(handleAnimationHistoryOperation),
 
         getAnimationRecord: (recordId: AnimationRecordId) =>
@@ -428,36 +448,39 @@ export const AnimationHistoryRepositoryLive = Layer.effect(
 
         updateAnimationRecord: (recordId: AnimationRecordId, updates: Partial<AnimationRecord>) =>
           Effect.gen(function* () {
-            yield* Ref.update(storageRef, (state) => {
-              const existingRecord = HashMap.get(state.recordIndex, recordId)
+            yield* Ref.update(storageRef, (state) =>
+              pipe(
+                HashMap.get(state.recordIndex, recordId),
+                Option.match({
+                  onNone: () => state,
+                  onSome: (existingRecord) => {
+                    const updatedRecord = { ...existingRecord, ...updates }
+                    const updatedRecordIndex = HashMap.set(state.recordIndex, recordId, updatedRecord)
 
-              if (Option.isNone(existingRecord)) {
-                return state
-              }
+                    // アニメーション記録リストも更新
+                    const updatedAnimationRecords = pipe(
+                      Array.fromIterable(HashMap.entries(state.animationRecords)),
+                      Array.findFirst(([_, records]) => records.findIndex((r) => r.id === recordId) !== -1),
+                      Option.match({
+                        onNone: () => state.animationRecords,
+                        onSome: ([cameraId, records]) => {
+                          const recordIndex = records.findIndex((r) => r.id === recordId)
+                          const updatedRecords = [...records]
+                          updatedRecords[recordIndex] = updatedRecord
+                          return HashMap.set(state.animationRecords, cameraId, updatedRecords)
+                        },
+                      })
+                    )
 
-              const updatedRecord = { ...existingRecord.value, ...updates }
-
-              // インデックスを更新
-              const updatedRecordIndex = HashMap.set(state.recordIndex, recordId, updatedRecord)
-
-              // アニメーション記録リストも更新
-              let updatedAnimationRecords = state.animationRecords
-              for (const [cameraId, records] of HashMap.entries(state.animationRecords)) {
-                const recordIndex = records.findIndex((r) => r.id === recordId)
-                if (recordIndex !== -1) {
-                  const updatedRecords = [...records]
-                  updatedRecords[recordIndex] = updatedRecord
-                  updatedAnimationRecords = HashMap.set(updatedAnimationRecords, cameraId, updatedRecords)
-                  break
-                }
-              }
-
-              return {
-                ...state,
-                recordIndex: updatedRecordIndex,
-                animationRecords: updatedAnimationRecords,
-              }
-            })
+                    return {
+                      ...state,
+                      recordIndex: updatedRecordIndex,
+                      animationRecords: updatedAnimationRecords,
+                    }
+                  },
+                })
+              )
+            )
             yield* Effect.logDebug(`Animation record updated: ${recordId}`)
           }).pipe(handleAnimationHistoryOperation),
 
@@ -468,14 +491,20 @@ export const AnimationHistoryRepositoryLive = Layer.effect(
               const updatedRecordIndex = HashMap.remove(state.recordIndex, recordId)
 
               // アニメーション記録リストからも削除
-              let updatedAnimationRecords = state.animationRecords
-              for (const [cameraId, records] of HashMap.entries(state.animationRecords)) {
-                const filteredRecords = records.filter((r) => r.id !== recordId)
-                if (filteredRecords.length !== records.length) {
-                  updatedAnimationRecords = HashMap.set(updatedAnimationRecords, cameraId, filteredRecords)
-                  break
-                }
-              }
+              const updatedAnimationRecords = pipe(
+                Array.fromIterable(HashMap.entries(state.animationRecords)),
+                Array.findFirst(([_, records]) => {
+                  const filteredRecords = records.filter((r) => r.id !== recordId)
+                  return filteredRecords.length !== records.length
+                }),
+                Option.match({
+                  onNone: () => state.animationRecords,
+                  onSome: ([cameraId, records]) => {
+                    const filteredRecords = records.filter((r) => r.id !== recordId)
+                    return HashMap.set(state.animationRecords, cameraId, filteredRecords)
+                  },
+                })
+              )
 
               return {
                 ...state,
@@ -509,21 +538,27 @@ export const AnimationHistoryRepositoryLive = Layer.effect(
         ) =>
           Effect.gen(function* () {
             const state = yield* Ref.get(storageRef)
-            const resultMap = new Map<CameraId, Array.ReadonlyArray<AnimationRecord>>()
+            const resultMap = pipe(
+              cameraIds,
+              Array.reduce(new Map<CameraId, Array.ReadonlyArray<AnimationRecord>>(), (map, cameraId) => {
+                const allRecords = HashMap.get(state.animationRecords, cameraId).pipe(
+                  Option.getOrElse(() => [] as Array.ReadonlyArray<AnimationRecord>)
+                )
 
-            for (const cameraId of cameraIds) {
-              const allRecords = HashMap.get(state.animationRecords, cameraId).pipe(
-                Option.getOrElse(() => [] as Array.ReadonlyArray<AnimationRecord>)
-              )
+                const filteredRecords = pipe(StorageOps.filterByTimeRange(allRecords, timeRange), (records) =>
+                  pipe(
+                    Option.fromNullable(options),
+                    Option.match({
+                      onNone: () => records,
+                      onSome: (opts) => StorageOps.applyQueryOptions(records, opts),
+                    })
+                  )
+                )
 
-              let filteredRecords = StorageOps.filterByTimeRange(allRecords, timeRange)
-
-              if (options) {
-                filteredRecords = StorageOps.applyQueryOptions(filteredRecords, options)
-              }
-
-              resultMap.set(cameraId, filteredRecords)
-            }
+                map.set(cameraId, filteredRecords)
+                return map
+              })
+            )
 
             return resultMap as ReadonlyMap<CameraId, Array.ReadonlyArray<AnimationRecord>>
           }).pipe(handleAnimationHistoryOperation),
@@ -541,19 +576,22 @@ export const AnimationHistoryRepositoryLive = Layer.effect(
 
         clearAllHistory: (olderThan: Date) =>
           Effect.gen(function* () {
-            let totalDeleted = 0
-            yield* Ref.update(storageRef, (state) => {
-              let cleanedState = state
-              for (const cameraId of HashMap.keys(state.animationRecords)) {
-                const [newState, deletedCount] = StorageOps.cleanup(cleanedState, cameraId, olderThan)
-                cleanedState = newState
-                totalDeleted += deletedCount
-              }
-              return cleanedState
+            const result = yield* Ref.modify(storageRef, (state) => {
+              const cleanupResult = pipe(
+                Array.fromIterable(HashMap.keys(state.animationRecords)),
+                Array.reduce({ state, totalDeleted: 0 }, (acc, cameraId) => {
+                  const [newState, deletedCount] = StorageOps.cleanup(acc.state, cameraId, olderThan)
+                  return {
+                    state: newState,
+                    totalDeleted: acc.totalDeleted + deletedCount,
+                  }
+                })
+              )
+              return [cleanupResult.totalDeleted, cleanupResult.state]
             })
 
-            yield* Effect.logInfo(`Global history cleanup completed: ${totalDeleted} records deleted`)
-            return totalDeleted
+            yield* Effect.logInfo(`Global history cleanup completed: ${result} records deleted`)
+            return result
           }).pipe(handleAnimationHistoryOperation),
 
         // ========================================
@@ -567,24 +605,29 @@ export const AnimationHistoryRepositoryLive = Layer.effect(
 
             // キャッシュチェック
             const cachedStats = HashMap.get(state.statisticsCache, cacheKey)
-            if (Option.isSome(cachedStats)) {
-              return cachedStats.value
-            }
+            return yield* pipe(
+              cachedStats,
+              Option.match({
+                onSome: (stats) => Effect.succeed(stats),
+                onNone: () =>
+                  Effect.gen(function* () {
+                    const records = HashMap.get(state.animationRecords, cameraId).pipe(
+                      Option.getOrElse(() => [] as Array.ReadonlyArray<AnimationRecord>)
+                    )
 
-            const records = HashMap.get(state.animationRecords, cameraId).pipe(
-              Option.getOrElse(() => [] as Array.ReadonlyArray<AnimationRecord>)
+                    const filteredRecords = StorageOps.filterByTimeRange(records, timeRange)
+                    const statistics = StorageOps.calculateStatistics(filteredRecords, timeRange)
+
+                    // キャッシュに保存
+                    yield* Ref.update(storageRef, (currentState) => ({
+                      ...currentState,
+                      statisticsCache: HashMap.set(currentState.statisticsCache, cacheKey, statistics),
+                    }))
+
+                    return statistics
+                  }),
+              })
             )
-
-            const filteredRecords = StorageOps.filterByTimeRange(records, timeRange)
-            const statistics = StorageOps.calculateStatistics(filteredRecords, timeRange)
-
-            // キャッシュに保存
-            yield* Ref.update(storageRef, (currentState) => ({
-              ...currentState,
-              statisticsCache: HashMap.set(currentState.statisticsCache, cacheKey, statistics),
-            }))
-
-            return statistics
           }).pipe(handleAnimationHistoryOperation),
 
         getGlobalAnimationStatistics: (timeRange: TimeRange) =>
@@ -593,25 +636,30 @@ export const AnimationHistoryRepositoryLive = Layer.effect(
             const cacheKey = CacheKeys.globalStatsKey(timeRange)
 
             const cachedStats = HashMap.get(state.statisticsCache, cacheKey)
-            if (Option.isSome(cachedStats)) {
-              return cachedStats.value
-            }
+            return yield* pipe(
+              cachedStats,
+              Option.match({
+                onSome: (stats) => Effect.succeed(stats),
+                onNone: () =>
+                  Effect.gen(function* () {
+                    // 全カメラの記録を統合
+                    const allRecords = pipe(
+                      Array.fromIterable(HashMap.values(state.animationRecords)),
+                      Array.flatMap((records) => Array.from(records))
+                    )
 
-            // 全カメラの記録を統合
-            const allRecords: AnimationRecord[] = []
-            for (const records of HashMap.values(state.animationRecords)) {
-              allRecords.push(...Array.from(records))
-            }
+                    const filteredRecords = StorageOps.filterByTimeRange(allRecords, timeRange)
+                    const statistics = StorageOps.calculateStatistics(filteredRecords, timeRange)
 
-            const filteredRecords = StorageOps.filterByTimeRange(allRecords, timeRange)
-            const statistics = StorageOps.calculateStatistics(filteredRecords, timeRange)
+                    yield* Ref.update(storageRef, (currentState) => ({
+                      ...currentState,
+                      statisticsCache: HashMap.set(currentState.statisticsCache, cacheKey, statistics),
+                    }))
 
-            yield* Ref.update(storageRef, (currentState) => ({
-              ...currentState,
-              statisticsCache: HashMap.set(currentState.statisticsCache, cacheKey, statistics),
-            }))
-
-            return statistics
+                    return statistics
+                  }),
+              })
+            )
           }).pipe(handleAnimationHistoryOperation),
 
         getPerformanceMetrics: (cameraId: CameraId, timeRange: TimeRange) =>
@@ -620,23 +668,28 @@ export const AnimationHistoryRepositoryLive = Layer.effect(
             const cacheKey = CacheKeys.performanceKey(cameraId, timeRange)
 
             const cachedMetrics = HashMap.get(state.performanceCache, cacheKey)
-            if (Option.isSome(cachedMetrics)) {
-              return cachedMetrics.value
-            }
+            return yield* pipe(
+              cachedMetrics,
+              Option.match({
+                onSome: (metrics) => Effect.succeed(metrics),
+                onNone: () =>
+                  Effect.gen(function* () {
+                    const records = HashMap.get(state.animationRecords, cameraId).pipe(
+                      Option.getOrElse(() => [] as Array.ReadonlyArray<AnimationRecord>)
+                    )
 
-            const records = HashMap.get(state.animationRecords, cameraId).pipe(
-              Option.getOrElse(() => [] as Array.ReadonlyArray<AnimationRecord>)
+                    const filteredRecords = StorageOps.filterByTimeRange(records, timeRange)
+                    const metrics = StorageOps.calculatePerformanceMetrics(filteredRecords)
+
+                    yield* Ref.update(storageRef, (currentState) => ({
+                      ...currentState,
+                      performanceCache: HashMap.set(currentState.performanceCache, cacheKey, metrics),
+                    }))
+
+                    return metrics
+                  }),
+              })
             )
-
-            const filteredRecords = StorageOps.filterByTimeRange(records, timeRange)
-            const metrics = StorageOps.calculatePerformanceMetrics(filteredRecords)
-
-            yield* Ref.update(storageRef, (currentState) => ({
-              ...currentState,
-              performanceCache: HashMap.set(currentState.performanceCache, cacheKey, metrics),
-            }))
-
-            return metrics
           }).pipe(handleAnimationHistoryOperation),
 
         getAnimationTypeDistribution: (cameraId: CameraId, timeRange: TimeRange) =>
@@ -653,7 +706,10 @@ export const AnimationHistoryRepositoryLive = Layer.effect(
               [Data.tagged('PositionChange', { reason: 'player-movement' }), distribution.positionChanges],
               [Data.tagged('RotationChange', { reason: 'mouse-input' }), distribution.rotationChanges],
               [
-                Data.tagged('ViewModeSwitch', { fromMode: 'first-person' as any, toMode: 'third-person' as any }),
+                Data.tagged('ViewModeSwitch', {
+                  fromMode: 'first-person' as 'first-person' | 'third-person' | 'spectator' | 'cinematic',
+                  toMode: 'third-person' as 'first-person' | 'third-person' | 'spectator' | 'cinematic',
+                }),
                 distribution.viewModeSwitches,
               ],
               [Data.tagged('Cinematic', { sequenceName: 'default' }), distribution.cinematics],
@@ -699,29 +755,34 @@ export const AnimationHistoryRepositoryLive = Layer.effect(
         analyzePerformanceTrends: (cameraId: CameraId, timeRange: TimeRange, bucketSize: number) =>
           Effect.gen(function* () {
             const records = yield* this.getAnimationHistory(cameraId, timeRange)
-            const trends: PerformanceTrendPoint[] = []
 
             // 簡易実装: 時間バケットごとの分析
             const bucketCount = Math.ceil((timeRange.endTime - timeRange.startTime) / bucketSize)
 
-            for (let i = 0; i < bucketCount; i++) {
-              const bucketStart = timeRange.startTime + i * bucketSize
-              const bucketEnd = Math.min(bucketStart + bucketSize, timeRange.endTime)
+            const trends = pipe(
+              Array.makeBy(bucketCount, (i) => i),
+              Array.filterMap((i) => {
+                const bucketStart = timeRange.startTime + i * bucketSize
+                const bucketEnd = Math.min(bucketStart + bucketSize, timeRange.endTime)
 
-              const bucketRecords = records.filter((r) => r.startTime >= bucketStart && r.startTime < bucketEnd)
+                const bucketRecords = records.filter((r) => r.startTime >= bucketStart && r.startTime < bucketEnd)
 
-              if (bucketRecords.length > 0) {
-                trends.push({
-                  timestamp: bucketStart,
-                  averageFrameRate:
-                    bucketRecords.reduce((sum, r) => sum + r.metadata.frameRate, 0) / bucketRecords.length,
-                  averageRenderTime:
-                    bucketRecords.reduce((sum, r) => sum + r.metadata.renderTime, 0) / bucketRecords.length,
-                  memoryUsage: Math.max(...bucketRecords.map((r) => r.metadata.memoryUsageMB)),
-                  animationCount: bucketRecords.length,
-                })
-              }
-            }
+                return pipe(
+                  bucketRecords,
+                  Array.matchLeft({
+                    onEmpty: () => Option.none(),
+                    onNonEmpty: (recs) =>
+                      Option.some({
+                        timestamp: bucketStart,
+                        averageFrameRate: recs.reduce((sum, r) => sum + r.metadata.frameRate, 0) / recs.length,
+                        averageRenderTime: recs.reduce((sum, r) => sum + r.metadata.renderTime, 0) / recs.length,
+                        memoryUsage: Math.max(...recs.map((r) => r.metadata.memoryUsageMB)),
+                        animationCount: recs.length,
+                      }),
+                  })
+                )
+              })
+            )
 
             return trends
           }).pipe(handleAnimationHistoryOperation),
@@ -733,29 +794,42 @@ export const AnimationHistoryRepositoryLive = Layer.effect(
         searchAnimations: (searchCriteria: AnimationSearchCriteria) =>
           Effect.gen(function* () {
             const state = yield* Ref.get(storageRef)
-            let allRecords: AnimationRecord[] = []
 
             // カメラIDフィルタ
-            if (Option.isSome(searchCriteria.cameraIds)) {
-              for (const cameraId of searchCriteria.cameraIds.value) {
-                const cameraRecords = HashMap.get(state.animationRecords, cameraId).pipe(
-                  Option.getOrElse(() => [] as Array.ReadonlyArray<AnimationRecord>)
-                )
-                allRecords.push(...Array.from(cameraRecords))
-              }
-            } else {
-              for (const records of HashMap.values(state.animationRecords)) {
-                allRecords.push(...Array.from(records))
-              }
-            }
+            const allRecords = pipe(
+              searchCriteria.cameraIds,
+              Option.match({
+                onSome: (cameraIds) =>
+                  pipe(
+                    cameraIds,
+                    Array.flatMap((cameraId) =>
+                      HashMap.get(state.animationRecords, cameraId).pipe(
+                        Option.match({
+                          onNone: () => [] as Array.ReadonlyArray<AnimationRecord>,
+                          onSome: (records) => Array.from(records),
+                        })
+                      )
+                    )
+                  ),
+                onNone: () =>
+                  pipe(
+                    Array.fromIterable(HashMap.values(state.animationRecords)),
+                    Array.flatMap((records) => Array.from(records))
+                  ),
+              })
+            )
 
             // 時間範囲フィルタ
-            if (Option.isSome(searchCriteria.timeRange)) {
-              allRecords = StorageOps.filterByTimeRange(allRecords, searchCriteria.timeRange.value)
-            }
+            const filteredRecords = pipe(
+              searchCriteria.timeRange,
+              Option.match({
+                onNone: () => allRecords,
+                onSome: (timeRange) => StorageOps.filterByTimeRange(allRecords, timeRange),
+              })
+            )
 
             // その他のフィルタは簡易実装
-            return allRecords
+            return filteredRecords
           }).pipe(handleAnimationHistoryOperation),
 
         animationRecordExists: (recordId: AnimationRecordId) =>
@@ -768,21 +842,44 @@ export const AnimationHistoryRepositoryLive = Layer.effect(
           Effect.gen(function* () {
             const records = yield* this.getAnimationHistory(cameraId, timeRange)
 
-            let filteredRecords = records
-
-            if (filter) {
-              if (Option.isSome(filter.animationType)) {
-                filteredRecords = filteredRecords.filter(
-                  (r) => r.animationType._tag === filter.animationType.value._tag
-                )
-              }
-              if (Option.isSome(filter.successOnly)) {
-                filteredRecords = filteredRecords.filter((r) => r.success === filter.successOnly.value)
-              }
-              if (Option.isSome(filter.excludeInterrupted) && filter.excludeInterrupted.value) {
-                filteredRecords = filteredRecords.filter((r) => Option.isNone(r.interruption))
-              }
-            }
+            const filteredRecords = pipe(
+              Option.fromNullable(filter),
+              Option.match({
+                onNone: () => records,
+                onSome: (f) =>
+                  pipe(
+                    records,
+                    // アニメーションタイプフィルタ
+                    (recs) =>
+                      pipe(
+                        f.animationType,
+                        Option.match({
+                          onNone: () => recs,
+                          onSome: (filterType) => recs.filter((r) => r.animationType._tag === filterType._tag),
+                        })
+                      ),
+                    // 成功フィルタ
+                    (recs) =>
+                      pipe(
+                        f.successOnly,
+                        Option.match({
+                          onNone: () => recs,
+                          onSome: (filterSuccess) => recs.filter((r) => r.success === filterSuccess),
+                        })
+                      ),
+                    // 中断除外フィルタ
+                    (recs) =>
+                      pipe(
+                        f.excludeInterrupted,
+                        Option.match({
+                          onNone: () => recs,
+                          onSome: (shouldExclude) =>
+                            shouldExclude ? recs.filter((r) => Option.isNone(r.interruption)) : recs,
+                        })
+                      )
+                  ),
+              })
+            )
 
             return filteredRecords.length
           }).pipe(handleAnimationHistoryOperation),
@@ -794,12 +891,19 @@ export const AnimationHistoryRepositoryLive = Layer.effect(
         exportHistory: (cameraId: CameraId, timeRange: TimeRange, options?: ExportOptions) =>
           Effect.gen(function* () {
             const records = yield* this.getAnimationHistory(cameraId, timeRange)
+            const now = yield* Clock.currentTimeMillis
             const exportData = {
               cameraId,
               timeRange,
-              records:
-                options?.includeMetadata !== false ? records : records.map((r) => ({ ...r, metadata: undefined })),
-              exportedAt: Date.now(),
+              records: pipe(
+                Option.fromNullable(options),
+                Option.match({
+                  onNone: () => records,
+                  onSome: (opts) =>
+                    opts.includeMetadata !== false ? records : records.map((r) => ({ ...r, metadata: undefined })),
+                })
+              ),
+              exportedAt: now,
             }
             return JSON.stringify(exportData, null, 2)
           }).pipe(handleAnimationHistoryOperation),
@@ -814,19 +918,28 @@ export const AnimationHistoryRepositoryLive = Layer.effect(
               processingTimeMs: 0,
             }
 
-            try {
-              const data = JSON.parse(jsonData)
-              // 簡易実装: データのインポート処理
-              yield* Effect.logInfo(`Importing animation history for camera: ${cameraId}`)
-            } catch (error) {
-              return {
-                ...result,
-                success: false,
-                errors: [String(error)],
-              }
-            }
+            const parseResult = yield* Effect.try({
+              try: () => JSON.parse(jsonData),
+              catch: (error) => error,
+            }).pipe(Effect.either)
 
-            return result
+            return yield* pipe(
+              parseResult,
+              Either.match({
+                onLeft: (error) =>
+                  Effect.succeed({
+                    ...result,
+                    success: false,
+                    errors: [String(error)],
+                  }),
+                onRight: () =>
+                  Effect.gen(function* () {
+                    // 簡易実装: データのインポート処理
+                    yield* Effect.logInfo(`Importing animation history for camera: ${cameraId}`)
+                    return result
+                  }),
+              })
+            )
           }).pipe(handleAnimationHistoryOperation),
 
         // ========================================
@@ -854,13 +967,14 @@ export const AnimationHistoryRepositoryLive = Layer.effect(
             const beforeSize = JSON.stringify(state).length
 
             // 簡易最適化: キャッシュクリア
+            const now = yield* Clock.currentTimeMillis
             yield* Ref.update(storageRef, (currentState) => ({
               ...currentState,
               performanceCache: HashMap.empty(),
               statisticsCache: HashMap.empty(),
               metadata: {
                 ...currentState.metadata,
-                lastOptimizationDate: Date.now(),
+                lastOptimizationDate: now,
               },
             }))
 

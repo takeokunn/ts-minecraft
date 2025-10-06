@@ -49,12 +49,12 @@ export const ItemStackEntitySchema = Schema.Struct({
   id: ItemStackIdSchema,
 
   // 基本アイテム情報
-  itemId: Schema.suspend(() => import('../../types.js').then((m) => m.ItemIdSchema)),
+  itemId: Schema.suspend(() => import('../../types/index').then((m) => m.ItemIdSchema)),
   count: ItemCountSchema,
 
   // オプション属性
   durability: Schema.optional(DurabilitySchema),
-  metadata: Schema.optional(Schema.suspend(() => import('../../types.js').then((m) => m.ItemMetadata))),
+  metadata: Schema.optional(Schema.suspend(() => import('../../types/index').then((m) => m.ItemMetadata))),
   nbtData: Schema.optional(ItemNBTDataSchema),
 
   // エンティティメタデータ
@@ -71,7 +71,7 @@ export const ItemStackMergedEventSchema = Schema.Struct({
   type: Schema.Literal('ItemStackMerged'),
   sourceStackId: ItemStackIdSchema,
   targetStackId: ItemStackIdSchema,
-  itemId: Schema.suspend(() => import('../../types.js').then((m) => m.ItemIdSchema)),
+  itemId: Schema.suspend(() => import('../../types/index').then((m) => m.ItemIdSchema)),
   mergedQuantity: ItemCountSchema,
   finalQuantity: ItemCountSchema,
   timestamp: Schema.DateTimeUtc,
@@ -81,7 +81,7 @@ export const ItemStackSplitEventSchema = Schema.Struct({
   type: Schema.Literal('ItemStackSplit'),
   sourceStackId: ItemStackIdSchema,
   newStackId: ItemStackIdSchema,
-  itemId: Schema.suspend(() => import('../../types.js').then((m) => m.ItemIdSchema)),
+  itemId: Schema.suspend(() => import('../../types/index').then((m) => m.ItemIdSchema)),
   splitQuantity: ItemCountSchema,
   remainingQuantity: ItemCountSchema,
   timestamp: Schema.DateTimeUtc,
@@ -90,7 +90,7 @@ export const ItemStackSplitEventSchema = Schema.Struct({
 export const ItemStackConsumedEventSchema = Schema.Struct({
   type: Schema.Literal('ItemStackConsumed'),
   stackId: ItemStackIdSchema,
-  itemId: Schema.suspend(() => import('../../types.js').then((m) => m.ItemIdSchema)),
+  itemId: Schema.suspend(() => import('../../types/index').then((m) => m.ItemIdSchema)),
   consumedQuantity: ItemCountSchema,
   remainingQuantity: ItemCountSchema,
   timestamp: Schema.DateTimeUtc,
@@ -100,7 +100,7 @@ export const ItemStackConsumedEventSchema = Schema.Struct({
 export const ItemStackDamageEventSchema = Schema.Struct({
   type: Schema.Literal('ItemStackDamaged'),
   stackId: ItemStackIdSchema,
-  itemId: Schema.suspend(() => import('../../types.js').then((m) => m.ItemIdSchema)),
+  itemId: Schema.suspend(() => import('../../types/index').then((m) => m.ItemIdSchema)),
   previousDurability: DurabilitySchema,
   newDurability: DurabilitySchema,
   damageAmount: Schema.Number.pipe(Schema.between(0, 1)),
@@ -150,7 +150,7 @@ export const ItemStackErrorSchema = Schema.TaggedError('ItemStackError')(
     ),
     message: Schema.String,
     stackId: Schema.optional(ItemStackIdSchema),
-    itemId: Schema.optional(Schema.suspend(() => import('../../types.js').then((m) => m.ItemIdSchema))),
+    itemId: Schema.optional(Schema.suspend(() => import('../../types/index').then((m) => m.ItemIdSchema))),
     quantity: Schema.optional(ItemCountSchema),
     metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
   })

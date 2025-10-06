@@ -1,6 +1,6 @@
 import { Effect, Match, pipe } from 'effect'
 import type { Vector3 } from '../../world/types'
-import { PHYSICS_CONSTANTS } from '..'
+import { PHYSICS_CONSTANTS } from '../types/constants'
 
 /**
  * 重力システム

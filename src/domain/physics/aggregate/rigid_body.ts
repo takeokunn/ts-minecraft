@@ -1,4 +1,3 @@
-import { Clock, Effect, Match, Random, pipe } from 'effect'
 import {
   EpochMillisSchema,
   MotionState,
@@ -15,8 +14,9 @@ import {
   parseUnitInterval,
   parseVector3,
   vector3,
-} from '@domain/physics/types'
-import type { PhysicsError } from '@domain/physics/types'
+} from '@domain/physics/types/core'
+import type { PhysicsError } from '@domain/physics/types/errors'
+import { Clock, Effect, Match, Random, pipe } from 'effect'
 import { FrictionCoefficient } from '../value_object'
 
 const defaultMotionState = (position: Vector3): MotionState =>

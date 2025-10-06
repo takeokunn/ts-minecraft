@@ -6,10 +6,9 @@
  * 高度な復旧戦略と安全性保証
  */
 
-import { Effect, ReadonlyArray } from 'effect'
-import type { GenerationSessionId } from '@domain/world/types'
-import type { AllRepositoryErrors } from '@domain/world/types'
+import type { AllRepositoryErrors, GenerationSessionId } from '@domain/world/types'
 import { createRepositoryError, createSessionRecoveryError } from '@domain/world/types'
+import { Clock, Effect, ReadonlyArray } from 'effect'
 import type { GenerationSession, SessionRecoveryInfo } from './index'
 
 // === Recovery Strategy Types ===
@@ -102,7 +101,7 @@ export const executeSessionRecovery = (
   }
 ): Effect.Effect<RecoveryResult, AllRepositoryErrors> =>
   Effect.gen(function* () {
-    const startTime = Date.now()
+    const startTime = yield* Clock.currentTimeMillis
     const errors: string[] = []
     const warnings: string[] = []
 
@@ -156,7 +155,8 @@ export const executeSessionRecovery = (
     // Simulate recovery process
     yield* Effect.sleep(`${Math.min(analysis.estimatedRecoveryTime, 5000)} millis`)
 
-    const duration = Date.now() - startTime
+    const endTime = yield* Clock.currentTimeMillis
+    const duration = endTime - startTime
     const successful = errors.length === 0 && recoveredChunks > 0
 
     return {

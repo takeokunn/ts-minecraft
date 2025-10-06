@@ -16,7 +16,7 @@ import {
 } from 'effect'
 import { nanoid } from 'nanoid'
 import * as THREE from 'three'
-import { AudioService } from './index'
+import { AudioService } from './audio-service'
 import {
   AudioContextError,
   AudioError,
@@ -33,7 +33,7 @@ import {
   type SourceId,
   SourceNotFoundError,
   type Volume,
-} from './index'
+} from './audio-types'
 
 interface ActiveSource {
   audio: THREE.PositionalAudio | THREE.Audio

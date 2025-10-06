@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Option, Ref, Schema } from 'effect'
+import { Clock, Context, Effect, Layer, Option, Ref, Schema } from 'effect'
 
 /**
  * Adaptive Quality Service
@@ -278,7 +278,7 @@ const makeAdaptiveQualityService = Effect.gen(function* () {
 
       if (current.overallLevel === targetLevel && !force) {
         yield* Effect.logDebug(`品質レベルは既に ${targetLevel} です`)
-        return createNoChangeAdjustment(current)
+        return yield* createNoChangeAdjustment(current)
       }
 
       const targetProfile = DEFAULT_QUALITY_PROFILES[targetLevel]
@@ -374,7 +374,7 @@ const makeAdaptiveQualityService = Effect.gen(function* () {
 
   const pauseAdaptation = (durationMs: number) =>
     Effect.gen(function* () {
-      const resumeTime = Date.now() + durationMs
+      const resumeTime = yield* Clock.currentTimeMillis + durationMs
       yield* Ref.set(pausedUntil, Option.some(resumeTime))
       yield* Effect.logInfo(`適応調整を一時停止: ${durationMs}ms`)
     })
@@ -412,8 +412,9 @@ const makeAdaptiveQualityService = Effect.gen(function* () {
           if (!isActive) return false
 
           // 一時停止チェック
+          const now = yield* Clock.currentTimeMillis
           const pauseTime = yield* Ref.get(pausedUntil)
-          if (Option.isSome(pauseTime) && Date.now() < pauseTime.value) {
+          if (Option.isSome(pauseTime) && now < pauseTime.value) {
             return true
           }
           yield* Ref.set(pausedUntil, Option.none())
@@ -459,6 +460,7 @@ const makeAdaptiveQualityService = Effect.gen(function* () {
     reason: string
   ) =>
     Effect.gen(function* () {
+      const now = yield* Clock.currentTimeMillis
       const changes = []
 
       // 設定変更を記録
@@ -482,8 +484,8 @@ const makeAdaptiveQualityService = Effect.gen(function* () {
 
       const adjustment: Schema.Schema.Type<typeof QualityAdjustment> = {
         _tag: 'QualityAdjustment',
-        adjustmentId: `adj_${Date.now()}`,
-        timestamp: Date.now(),
+        adjustmentId: `adj_${now}`,
+        timestamp: now,
         fromProfile: fromProfile.profileName,
         toProfile: toProfile.profileName,
         reason,
@@ -501,17 +503,21 @@ const makeAdaptiveQualityService = Effect.gen(function* () {
 
   const createNoChangeAdjustment = (
     profile: Schema.Schema.Type<typeof QualityProfile>
-  ): Schema.Schema.Type<typeof QualityAdjustment> => ({
-    _tag: 'QualityAdjustment',
-    adjustmentId: `no_change_${Date.now()}`,
-    timestamp: Date.now(),
-    fromProfile: profile.profileName,
-    toProfile: profile.profileName,
-    reason: '変更不要',
-    changes: [],
-    expectedImprovement: { fpsGain: 0, memoryReduction: 0, cpuReduction: 0 },
-    rollbackPossible: false,
-  })
+  ): Effect.Effect<Schema.Schema.Type<typeof QualityAdjustment>> =>
+    Effect.gen(function* () {
+      const now = yield* Clock.currentTimeMillis
+      return {
+        _tag: 'QualityAdjustment',
+        adjustmentId: `no_change_${now}`,
+        timestamp: now,
+        fromProfile: profile.profileName,
+        toProfile: profile.profileName,
+        reason: '変更不要',
+        changes: [],
+        expectedImprovement: { fpsGain: 0, memoryReduction: 0, cpuReduction: 0 },
+        rollbackPossible: false,
+      }
+    })
 
   const calculateTrend = (
     history: Schema.Schema.Type<typeof PerformanceSnapshot>[],

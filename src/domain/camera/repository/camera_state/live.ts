@@ -5,10 +5,16 @@
  * ドメイン層での使用に特化した実装で、技術的実装詳細は含まない
  */
 
-import { Array, Effect, HashMap, Layer, Match, Option, pipe, Ref, Schema } from 'effect'
 import type { CameraId } from '@domain/camera/types'
-import type { CameraRepositoryStatistics } from './index'
-import type { Camera, CameraSnapshot, CameraStateQueryOptions, PlayerId, RepositoryError } from './index'
+import { Array, Clock, Effect, HashMap, Layer, Match, Option, pipe, Ref, Schema } from 'effect'
+import type {
+  Camera,
+  CameraRepositoryStatistics,
+  CameraSnapshot,
+  CameraStateQueryOptions,
+  PlayerId,
+  RepositoryError,
+} from './index'
 import {
   CameraSchema,
   CameraSnapshotSchema,
@@ -60,19 +66,22 @@ const CameraFactory = {
    * CameraからSnapshotを作成
    */
   toSnapshot: (camera: Camera, version: number = 1): Effect.Effect<CameraSnapshot, RepositoryError> =>
-    pipe(
-      {
-        cameraId: camera.id,
-        position: camera.position,
-        rotation: camera.rotation,
-        viewMode: camera.viewMode,
-        settings: camera.settings,
-        timestamp: Date.now(),
-        version,
-      },
-      Schema.encode(CameraSnapshotSchema),
-      Effect.mapError(() => createRepositoryError.encodingFailed('CameraSnapshot', 'Invalid camera data'))
-    ),
+    Effect.gen(function* () {
+      const now = yield* Clock.currentTimeMillis
+      return yield* pipe(
+        {
+          cameraId: camera.id,
+          position: camera.position,
+          rotation: camera.rotation,
+          viewMode: camera.viewMode,
+          settings: camera.settings,
+          timestamp: now,
+          version,
+        },
+        Schema.encode(CameraSnapshotSchema),
+        Effect.mapError(() => createRepositoryError.encodingFailed('CameraSnapshot', 'Invalid camera data'))
+      )
+    }),
 } as const
 
 /**
@@ -82,15 +91,19 @@ const StorageOps = {
   /**
    * 初期状態を作成
    */
-  createInitialState: (): StorageState => ({
-    cameras: HashMap.empty(),
-    snapshots: HashMap.empty(),
-    playerCameraMapping: HashMap.empty(),
-    metadata: {
-      lastCleanupTime: Date.now(),
-      totalOperations: 0,
-    },
-  }),
+  createInitialState: (): Effect.Effect<StorageState> =>
+    Effect.gen(function* () {
+      const now = yield* Clock.currentTimeMillis
+      return {
+        cameras: HashMap.empty(),
+        snapshots: HashMap.empty(),
+        playerCameraMapping: HashMap.empty(),
+        metadata: {
+          lastCleanupTime: now,
+          totalOperations: 0,
+        },
+      }
+    }),
 
   /**
    * カメラをストレージに保存
@@ -134,37 +147,39 @@ const StorageOps = {
   /**
    * 期限切れデータをクリーンアップ
    */
-  cleanup: (state: StorageState, olderThan: Date): [StorageState, number] => {
-    const cutoffTime = olderThan.getTime()
-    let deletedCount = 0
+  cleanup: (state: StorageState, olderThan: Date): Effect.Effect<readonly [StorageState, number]> =>
+    Effect.gen(function* () {
+      const now = yield* Clock.currentTimeMillis
+      const cutoffTime = olderThan.getTime()
+      let deletedCount = 0
 
-    // 古いカメラを削除
-    const filteredCameras = HashMap.filter(state.cameras, (camera) => {
-      if (camera.lastUpdateTime < cutoffTime) {
-        deletedCount++
-        return false
+      // 古いカメラを削除
+      const filteredCameras = HashMap.filter(state.cameras, (camera) => {
+        if (camera.lastUpdateTime < cutoffTime) {
+          deletedCount++
+          return false
+        }
+        return true
+      })
+
+      // 古いスナップショットを削除
+      const filteredSnapshots = HashMap.map(state.snapshots, (snapshots) =>
+        snapshots.filter((snapshot) => snapshot.timestamp >= cutoffTime)
+      )
+
+      const cleanedState: StorageState = {
+        ...state,
+        cameras: filteredCameras,
+        snapshots: filteredSnapshots,
+        metadata: {
+          ...state.metadata,
+          lastCleanupTime: now,
+          totalOperations: state.metadata.totalOperations + 1,
+        },
       }
-      return true
-    })
 
-    // 古いスナップショットを削除
-    const filteredSnapshots = HashMap.map(state.snapshots, (snapshots) =>
-      snapshots.filter((snapshot) => snapshot.timestamp >= cutoffTime)
-    )
-
-    const cleanedState: StorageState = {
-      ...state,
-      cameras: filteredCameras,
-      snapshots: filteredSnapshots,
-      metadata: {
-        ...state.metadata,
-        lastCleanupTime: Date.now(),
-        totalOperations: state.metadata.totalOperations + 1,
-      },
-    }
-
-    return [cleanedState, deletedCount]
-  },
+      return [cleanedState, deletedCount] as const
+    }),
 } as const
 
 // ========================================
@@ -202,7 +217,8 @@ export const CameraStateRepositoryLive = Layer.effect(
   import('./service.js').then((m) => m.CameraStateRepository),
   Effect.gen(function* () {
     // インメモリストレージの初期化
-    const storageRef = yield* Ref.make(StorageOps.createInitialState())
+    const initialState = yield* StorageOps.createInitialState()
+    const storageRef = yield* Ref.make(initialState)
 
     return import('./service.js')
       .then((m) => m.CameraStateRepository)
@@ -301,10 +317,12 @@ export const CameraStateRepositoryLive = Layer.effect(
          */
         cleanup: (olderThan: Date) =>
           Effect.gen(function* () {
-            const [newState, deletedCount] = yield* Ref.modify(storageRef, (state) => {
-              const [cleanedState, count] = StorageOps.cleanup(state, olderThan)
-              return [count, cleanedState]
-            })
+            const deletedCount = yield* Ref.modifyEffect(storageRef, (state) =>
+              Effect.gen(function* () {
+                const [cleanedState, count] = yield* StorageOps.cleanup(state, olderThan)
+                return [count, cleanedState] as const
+              })
+            )
 
             yield* Effect.logInfo(`Cleanup completed: ${deletedCount} cameras removed`)
             return deletedCount

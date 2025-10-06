@@ -2,14 +2,13 @@
  * @fileoverview Biome System Events - バイオームシステムイベント
  */
 
-import { Context, Effect, Schema } from 'effect'
 import * as Coordinates from '@domain/world/value_object/coordinates/index.js'
 import * as WorldSeed from '@domain/world/value_object/world_seed/index.js'
+import { Clock, Context, Effect, Schema } from 'effect'
 import {
   BiomeDistributionPayloadSchema,
   BiomeSystemConfigurationSchema,
   BiomeSystemIdSchema,
-  createBiomeSystemId,
   type BiomeDistribution,
   type BiomeSystemConfiguration,
   type BiomeSystemId,
@@ -60,7 +59,7 @@ export type ClimateModelUpdated = typeof ClimateModelUpdatedSchema.Type
 
 const generateEventId = (): Effect.Effect<string & Schema.Schema.Brand<typeof Schema.String, 'BiomeEventId'>> =>
   Effect.sync(() => {
-    const timestamp = Date.now()
+    const timestamp = yield * Clock.currentTimeMillis
     const random = Math.random().toString(36).slice(2, 11)
     return Schema.decodeSync(Schema.String.pipe(Schema.brand('BiomeEventId')))(`bevt_${timestamp}_${random}`)
   })
@@ -72,7 +71,7 @@ export const createBiomeSystemCreated = (
 ): Effect.Effect<BiomeSystemCreated> =>
   Effect.gen(function* () {
     const eventId = yield* generateEventId()
-    const timestamp = yield* Effect.sync(() => new Date())
+    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
 
     return Schema.decodeSync(BiomeSystemCreatedSchema)({
       eventId,
@@ -91,7 +90,7 @@ export const createBiomeDistributionGenerated = (
 ): Effect.Effect<BiomeDistributionGenerated> =>
   Effect.gen(function* () {
     const eventId = yield* generateEventId()
-    const timestamp = yield* Effect.sync(() => new Date())
+    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
 
     return Schema.decodeSync(BiomeDistributionGeneratedSchema)({
       eventId,
@@ -109,7 +108,7 @@ export const createClimateModelUpdated = (
 ): Effect.Effect<ClimateModelUpdated> =>
   Effect.gen(function* () {
     const eventId = yield* generateEventId()
-    const timestamp = yield* Effect.sync(() => new Date())
+    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
 
     return Schema.decodeSync(ClimateModelUpdatedSchema)({
       eventId,

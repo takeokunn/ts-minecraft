@@ -4,9 +4,8 @@
  * Schema.Struct定義、型安全性、シリアライズ可能性の検証
  */
 
-import { Schema } from '@effect/schema'
 import { it } from '@effect/vitest'
-import { Effect } from 'effect'
+import { Effect, Schema } from 'effect'
 import { describe, expect } from 'vitest'
 import { PositionComponent, VelocityComponent } from '../component'
 

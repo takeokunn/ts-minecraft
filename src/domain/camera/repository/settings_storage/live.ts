@@ -5,24 +5,22 @@
  * プレイヤー設定、グローバル設定、プリセット設定の統合管理
  */
 
-import { Array, Effect, HashMap, Layer, Match, Option, pipe, Ref } from 'effect'
+import { Array, Clock, Effect, Either, HashMap, Layer, Match, Option, pipe, Ref } from 'effect'
 import type {
+  CameraPresetSettings,
   CleanupResult,
+  GlobalCameraSettings,
   ImportResult,
   IntegrityCheckResult,
   OptimizationResult,
-  PlayerUsageAnalytics,
-  PresetPopularity,
-  SettingsRepositoryStatistics,
-  ValidationResult,
-} from './index'
-import type {
-  CameraPresetSettings,
-  GlobalCameraSettings,
   PlayerCameraSettings,
   PlayerId,
+  PlayerUsageAnalytics,
+  PresetPopularity,
   SettingsRepositoryError,
+  SettingsRepositoryStatistics,
   SettingsStorageQueryOptions,
+  ValidationResult,
 } from './index'
 import {
   createDefaultSettings,
@@ -70,17 +68,22 @@ const StorageOps = {
   /**
    * 初期状態を作成
    */
-  createInitialState: (): SettingsStorageState => ({
-    playerSettings: HashMap.empty(),
-    globalSettings: createDefaultSettings.globalCameraSettings(),
-    presetSettings: HashMap.empty(),
-    usageAnalytics: HashMap.empty(),
-    metadata: {
-      lastOptimizationDate: Date.now(),
-      totalOperations: 0,
-      lastCleanupDate: Date.now(),
-    },
-  }),
+  createInitialState: (): Effect.Effect<SettingsStorageState> =>
+    Effect.gen(function* () {
+      const now = yield* Clock.currentTimeMillis
+      const globalSettings = yield* createDefaultSettings.globalCameraSettings()
+      return {
+        playerSettings: HashMap.empty(),
+        globalSettings,
+        presetSettings: HashMap.empty(),
+        usageAnalytics: HashMap.empty(),
+        metadata: {
+          lastOptimizationDate: now,
+          totalOperations: 0,
+          lastCleanupDate: now,
+        },
+      }
+    }),
 
   /**
    * プレイヤー設定を保存
@@ -89,42 +92,44 @@ const StorageOps = {
     state: SettingsStorageState,
     playerId: PlayerId,
     settings: PlayerCameraSettings
-  ): SettingsStorageState => {
-    const updatedSettings = {
-      ...settings,
-      lastModified: Date.now(),
-      version: settings.version + 1,
-    }
+  ): Effect.Effect<SettingsStorageState> =>
+    Effect.gen(function* () {
+      const now = yield* Clock.currentTimeMillis
+      const updatedSettings = {
+        ...settings,
+        lastModified: now,
+        version: settings.version + 1,
+      }
 
-    // 使用状況を更新
-    const currentUsage = HashMap.get(state.usageAnalytics, playerId).pipe(
-      Option.getOrElse(() => ({
-        playerId,
-        settingsChangeCount: 0,
-        lastActivityDate: 0,
-        viewModeUsage: HashMap.empty(),
-        presetUsage: HashMap.empty(),
-        customBindingsCount: 0,
-      }))
-    )
+      // 使用状況を更新
+      const currentUsage = HashMap.get(state.usageAnalytics, playerId).pipe(
+        Option.getOrElse(() => ({
+          playerId,
+          settingsChangeCount: 0,
+          lastActivityDate: 0,
+          viewModeUsage: HashMap.empty(),
+          presetUsage: HashMap.empty(),
+          customBindingsCount: 0,
+        }))
+      )
 
-    const updatedUsage: PlayerUsageData = {
-      ...currentUsage,
-      settingsChangeCount: currentUsage.settingsChangeCount + 1,
-      lastActivityDate: Date.now(),
-      customBindingsCount: settings.customBindings.size,
-    }
+      const updatedUsage: PlayerUsageData = {
+        ...currentUsage,
+        settingsChangeCount: currentUsage.settingsChangeCount + 1,
+        lastActivityDate: now,
+        customBindingsCount: settings.customBindings.size,
+      }
 
-    return {
-      ...state,
-      playerSettings: HashMap.set(state.playerSettings, playerId, updatedSettings),
-      usageAnalytics: HashMap.set(state.usageAnalytics, playerId, updatedUsage),
-      metadata: {
-        ...state.metadata,
-        totalOperations: state.metadata.totalOperations + 1,
-      },
-    }
-  },
+      return {
+        ...state,
+        playerSettings: HashMap.set(state.playerSettings, playerId, updatedSettings),
+        usageAnalytics: HashMap.set(state.usageAnalytics, playerId, updatedUsage),
+        metadata: {
+          ...state.metadata,
+          totalOperations: state.metadata.totalOperations + 1,
+        },
+      }
+    }),
 
   /**
    * プリセット設定を保存
@@ -133,111 +138,128 @@ const StorageOps = {
     state: SettingsStorageState,
     presetName: string,
     settings: CameraPresetSettings
-  ): SettingsStorageState => ({
-    ...state,
-    presetSettings: HashMap.set(state.presetSettings, presetName, settings),
-    metadata: {
-      ...state.metadata,
-      totalOperations: state.metadata.totalOperations + 1,
-    },
-  }),
+  ): Effect.Effect<SettingsStorageState> =>
+    Effect.gen(function* () {
+      return {
+        ...state,
+        presetSettings: HashMap.set(state.presetSettings, presetName, settings),
+        metadata: {
+          ...state.metadata,
+          totalOperations: state.metadata.totalOperations + 1,
+        },
+      }
+    }),
 
   /**
    * グローバル設定を更新
    */
-  updateGlobalSettings: (state: SettingsStorageState, settings: GlobalCameraSettings): SettingsStorageState => ({
-    ...state,
-    globalSettings: {
-      ...settings,
-      lastModified: Date.now(),
-      version: settings.version + 1,
-    },
-    metadata: {
-      ...state.metadata,
-      totalOperations: state.metadata.totalOperations + 1,
-    },
-  }),
+  updateGlobalSettings: (
+    state: SettingsStorageState,
+    settings: GlobalCameraSettings
+  ): Effect.Effect<SettingsStorageState> =>
+    Effect.gen(function* () {
+      const now = yield* Clock.currentTimeMillis
+      return {
+        ...state,
+        globalSettings: {
+          ...settings,
+          lastModified: now,
+          version: settings.version + 1,
+        },
+        metadata: {
+          ...state.metadata,
+          totalOperations: state.metadata.totalOperations + 1,
+        },
+      }
+    }),
 
   /**
    * 期限切れデータをクリーンアップ
    */
-  cleanup: (state: SettingsStorageState, olderThan: Date): [SettingsStorageState, CleanupResult] => {
-    const cutoffTime = olderThan.getTime()
-    let deletedPlayerSettings = 0
-    let deletedPresets = 0
+  cleanup: (
+    state: SettingsStorageState,
+    olderThan: Date
+  ): Effect.Effect<readonly [SettingsStorageState, CleanupResult]> =>
+    Effect.gen(function* () {
+      const now = yield* Clock.currentTimeMillis
+      const cutoffTime = olderThan.getTime()
+      let deletedPlayerSettings = 0
+      let deletedPresets = 0
 
-    // 古いプレイヤー設定を削除
-    const filteredPlayerSettings = HashMap.filter(state.playerSettings, (settings) => {
-      if (settings.lastModified < cutoffTime) {
-        deletedPlayerSettings++
-        return false
+      // 古いプレイヤー設定を削除
+      const filteredPlayerSettings = HashMap.filter(state.playerSettings, (settings) => {
+        if (settings.lastModified < cutoffTime) {
+          deletedPlayerSettings++
+          return false
+        }
+        return true
+      })
+
+      // 古いプリセット設定を削除
+      const filteredPresetSettings = HashMap.filter(state.presetSettings, (preset) => {
+        if (preset.createdAt < cutoffTime) {
+          deletedPresets++
+          return false
+        }
+        return true
+      })
+
+      const cleanedState: SettingsStorageState = {
+        ...state,
+        playerSettings: filteredPlayerSettings,
+        presetSettings: filteredPresetSettings,
+        metadata: {
+          ...state.metadata,
+          lastCleanupDate: now,
+          totalOperations: state.metadata.totalOperations + 1,
+        },
       }
-      return true
-    })
 
-    // 古いプリセット設定を削除
-    const filteredPresetSettings = HashMap.filter(state.presetSettings, (preset) => {
-      if (preset.createdAt < cutoffTime) {
-        deletedPresets++
-        return false
+      const result: CleanupResult = {
+        deletedPlayerSettings,
+        deletedPresets,
+        freedStorageBytes: JSON.stringify(state).length - JSON.stringify(cleanedState).length,
+        operationDurationMs: 0, // 簡易実装では0
       }
-      return true
-    })
 
-    const cleanedState: SettingsStorageState = {
-      ...state,
-      playerSettings: filteredPlayerSettings,
-      presetSettings: filteredPresetSettings,
-      metadata: {
-        ...state.metadata,
-        lastCleanupDate: Date.now(),
-        totalOperations: state.metadata.totalOperations + 1,
-      },
-    }
-
-    const result: CleanupResult = {
-      deletedPlayerSettings,
-      deletedPresets,
-      freedStorageBytes: JSON.stringify(state).length - JSON.stringify(cleanedState).length,
-      operationDurationMs: 0, // 簡易実装では0
-    }
-
-    return [cleanedState, result]
-  },
+      return [cleanedState, result] as const
+    }),
 
   /**
    * 統計情報を生成
    */
-  generateStatistics: (state: SettingsStorageState): SettingsRepositoryStatistics => {
-    const playerSettings = HashMap.values(state.playerSettings)
-    const presetSettings = HashMap.values(state.presetSettings)
-    const allPlayerSettings = Array.from(playerSettings)
-    const allPresets = Array.from(presetSettings)
+  generateStatistics: (state: SettingsStorageState): Effect.Effect<SettingsRepositoryStatistics> =>
+    Effect.gen(function* () {
+      const now = yield* Clock.currentTimeMillis
+      const playerSettings = HashMap.values(state.playerSettings)
+      const presetSettings = HashMap.values(state.presetSettings)
+      const allPlayerSettings = Array.from(playerSettings)
+      const allPresets = Array.from(presetSettings)
 
-    const publicPresets = allPresets.filter((preset) => preset.isPublic).length
-    const privatePresets = allPresets.length - publicPresets
+      const publicPresets = allPresets.filter((preset) => preset.isPublic).length
+      const privatePresets = allPresets.length - publicPresets
 
-    // プリセット人気度の計算（簡易版）
-    const presetUsage = HashMap.empty<string, number>()
-    const mostPopularPresets: Array.ReadonlyArray<PresetPopularity> = Array.from(HashMap.entries(presetUsage)).map(
-      ([presetName, usageCount]) => ({
-        presetName,
-        usageCount,
-        lastUsed: Date.now(), // 簡易実装
-      })
-    )
+      // プリセット人気度の計算（簡易版）
+      const presetUsage = HashMap.empty<string, number>()
+      const mostPopularPresets: Array<PresetPopularity> = Array.from(HashMap.entries(presetUsage)).map(
+        ([presetName, usageCount]) => ({
+          presetName,
+          usageCount,
+          lastUsed: now, // 簡易実装
+        })
+      )
 
-    return {
-      totalPlayerSettings: allPlayerSettings.length,
-      totalPresets: allPresets.length,
-      publicPresets,
-      privatePresets,
-      averageSettingsPerPlayer: allPlayerSettings.length > 0 ? 1 : 0, // 簡易計算
-      mostPopularPresets,
-      storageUsageBytes: JSON.stringify(state).length,
-      lastOptimizationDate: Option.some(state.metadata.lastOptimizationDate),
-    }
-  },
+      return {
+        totalPlayerSettings: allPlayerSettings.length,
+        totalPresets: allPresets.length,
+        publicPresets,
+        privatePresets,
+        averageSettingsPerPlayer: allPlayerSettings.length > 0 ? 1 : 0, // 簡易計算
+        mostPopularPresets,
+        storageUsageBytes: JSON.stringify(state).length,
+        lastOptimizationDate: Option.some(state.metadata.lastOptimizationDate),
+      }
+    }),
 } as const
 
 // ========================================
@@ -277,7 +299,8 @@ export const SettingsStorageRepositoryLive = Layer.effect(
   import('./service.js').then((m) => m.SettingsStorageRepository),
   Effect.gen(function* () {
     // インメモリストレージの初期化
-    const storageRef = yield* Ref.make(StorageOps.createInitialState())
+    const initialState = yield* StorageOps.createInitialState()
+    const storageRef = yield* Ref.make(initialState)
 
     return import('./service.js')
       .then((m) => m.SettingsStorageRepository)
@@ -288,7 +311,7 @@ export const SettingsStorageRepositoryLive = Layer.effect(
 
         savePlayerSettings: (playerId: PlayerId, settings: PlayerCameraSettings) =>
           Effect.gen(function* () {
-            yield* Ref.update(storageRef, (state) => StorageOps.storePlayerSettings(state, playerId, settings))
+            yield* Ref.updateEffect(storageRef, (state) => StorageOps.storePlayerSettings(state, playerId, settings))
             yield* Effect.logDebug(`Player settings saved: ${playerId}`)
           }).pipe(handleSettingsOperation),
 
@@ -324,7 +347,7 @@ export const SettingsStorageRepositoryLive = Layer.effect(
 
         saveGlobalSettings: (settings: GlobalCameraSettings) =>
           Effect.gen(function* () {
-            yield* Ref.update(storageRef, (state) => StorageOps.updateGlobalSettings(state, settings))
+            yield* Ref.updateEffect(storageRef, (state) => StorageOps.updateGlobalSettings(state, settings))
             yield* Effect.logDebug('Global settings saved')
           }).pipe(handleSettingsOperation),
 
@@ -336,8 +359,8 @@ export const SettingsStorageRepositoryLive = Layer.effect(
 
         resetGlobalSettings: () =>
           Effect.gen(function* () {
-            const defaultSettings = createDefaultSettings.globalCameraSettings()
-            yield* Ref.update(storageRef, (state) => StorageOps.updateGlobalSettings(state, defaultSettings))
+            const defaultSettings = yield* createDefaultSettings.globalCameraSettings()
+            yield* Ref.updateEffect(storageRef, (state) => StorageOps.updateGlobalSettings(state, defaultSettings))
             yield* Effect.logInfo('Global settings reset to defaults')
           }).pipe(handleSettingsOperation),
 
@@ -353,7 +376,7 @@ export const SettingsStorageRepositoryLive = Layer.effect(
 
         savePresetSettings: (presetName: string, settings: CameraPresetSettings) =>
           Effect.gen(function* () {
-            yield* Ref.update(storageRef, (state) => StorageOps.storePresetSettings(state, presetName, settings))
+            yield* Ref.updateEffect(storageRef, (state) => StorageOps.storePresetSettings(state, presetName, settings))
             yield* Effect.logDebug(`Preset settings saved: ${presetName}`)
           }).pipe(handleSettingsOperation),
 
@@ -437,15 +460,16 @@ export const SettingsStorageRepositoryLive = Layer.effect(
               return yield* Effect.fail(createSettingsRepositoryError.presetNotFound(sourcePresetName))
             }
 
+            const now = yield* Clock.currentTimeMillis
             const copiedPreset: CameraPresetSettings = {
               ...sourcePreset.value,
               name: targetPresetName,
-              createdAt: Date.now(),
+              createdAt: now,
               createdBy: newCreator,
               version: 1,
             }
 
-            yield* Ref.update(storageRef, (currentState) =>
+            yield* Ref.updateEffect(storageRef, (currentState) =>
               StorageOps.storePresetSettings(currentState, targetPresetName, copiedPreset)
             )
 
@@ -458,19 +482,28 @@ export const SettingsStorageRepositoryLive = Layer.effect(
 
         savePlayerSettingsBatch: (settingsArray: Array.ReadonlyArray<PlayerCameraSettings>) =>
           Effect.gen(function* () {
-            yield* Ref.update(storageRef, (state) =>
-              settingsArray.reduce(
-                (acc, settings) => StorageOps.storePlayerSettings(acc, settings.playerId, settings),
-                state
-              )
+            yield* Ref.updateEffect(storageRef, (state) =>
+              Effect.gen(function* () {
+                let currentState = state
+                for (const settings of settingsArray) {
+                  currentState = yield* StorageOps.storePlayerSettings(currentState, settings.playerId, settings)
+                }
+                return currentState
+              })
             )
             yield* Effect.logDebug(`Batch save completed: ${settingsArray.length} player settings`)
           }).pipe(handleSettingsOperation),
 
         savePresetSettingsBatch: (presetsArray: Array.ReadonlyArray<CameraPresetSettings>) =>
           Effect.gen(function* () {
-            yield* Ref.update(storageRef, (state) =>
-              presetsArray.reduce((acc, preset) => StorageOps.storePresetSettings(acc, preset.name, preset), state)
+            yield* Ref.updateEffect(storageRef, (state) =>
+              Effect.gen(function* () {
+                let currentState = state
+                for (const preset of presetsArray) {
+                  currentState = yield* StorageOps.storePresetSettings(currentState, preset.name, preset)
+                }
+                return currentState
+              })
             )
             yield* Effect.logDebug(`Batch save completed: ${presetsArray.length} presets`)
           }).pipe(handleSettingsOperation),
@@ -537,17 +570,21 @@ export const SettingsStorageRepositoryLive = Layer.effect(
               errors: [],
             }
 
-            try {
-              const data = JSON.parse(jsonData)
-              // 簡易実装: データのインポート処理
-              yield* Effect.logInfo('Settings imported successfully')
-            } catch (error) {
+            const parseResult = yield* Effect.try({
+              try: () => JSON.parse(jsonData),
+              catch: (error) => error,
+            }).pipe(Effect.either)
+
+            if (Either.isLeft(parseResult)) {
               return {
                 ...importResult,
                 success: false,
-                errors: [String(error)],
+                errors: [String(parseResult.left)],
               }
             }
+
+            // 簡易実装: データのインポート処理
+            yield* Effect.logInfo('Settings imported successfully')
 
             return importResult
           }).pipe(handleSettingsOperation),
@@ -563,16 +600,19 @@ export const SettingsStorageRepositoryLive = Layer.effect(
               warnings: [],
             }
 
-            try {
-              JSON.parse(jsonData)
-              // 簡易実装: スキーマ検証
-            } catch (error) {
+            const parseResult = yield* Effect.try({
+              try: () => JSON.parse(jsonData),
+              catch: (error) => error,
+            }).pipe(Effect.either)
+
+            if (Either.isLeft(parseResult)) {
               return {
                 ...validationResult,
                 isValid: false,
-                errors: [String(error)],
+                errors: [String(parseResult.left)],
               }
             }
+            // 簡易実装: スキーマ検証
 
             return validationResult
           }).pipe(handleSettingsOperation),
@@ -584,7 +624,7 @@ export const SettingsStorageRepositoryLive = Layer.effect(
         getStatistics: () =>
           Effect.gen(function* () {
             const state = yield* Ref.get(storageRef)
-            return StorageOps.generateStatistics(state)
+            return yield* StorageOps.generateStatistics(state)
           }).pipe(handleSettingsOperation),
 
         analyzePlayerUsage: (playerId: PlayerId) =>
@@ -614,10 +654,12 @@ export const SettingsStorageRepositoryLive = Layer.effect(
 
         cleanup: (olderThan: Date) =>
           Effect.gen(function* () {
-            const [newState, result] = yield* Ref.modify(storageRef, (state) => {
-              const [cleanedState, cleanupResult] = StorageOps.cleanup(state, olderThan)
-              return [cleanupResult, cleanedState]
-            })
+            const result = yield* Ref.modifyEffect(storageRef, (state) =>
+              Effect.gen(function* () {
+                const [cleanedState, cleanupResult] = yield* StorageOps.cleanup(state, olderThan)
+                return [cleanupResult, cleanedState] as const
+              })
+            )
 
             yield* Effect.logInfo(
               `Cleanup completed: ${result.deletedPlayerSettings} player settings, ${result.deletedPresets} presets removed`
@@ -645,11 +687,12 @@ export const SettingsStorageRepositoryLive = Layer.effect(
             const beforeSize = JSON.stringify(state).length
 
             // 簡易最適化処理
+            const now = yield* Clock.currentTimeMillis
             yield* Ref.update(storageRef, (currentState) => ({
               ...currentState,
               metadata: {
                 ...currentState.metadata,
-                lastOptimizationDate: Date.now(),
+                lastOptimizationDate: now,
               },
             }))
 

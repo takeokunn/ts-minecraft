@@ -18,8 +18,9 @@
  * - Experimental: 実験的機能設定
  */
 
-import { Effect, Function, Option, Schema } from 'effect'
+import { Clock, Effect, Function, Option, Schema } from 'effect'
 import type { CreateWorldGeneratorParams, FactoryError, PresetType } from './index'
+import { PresetRegistryService } from './preset_registry_service'
 
 // ================================
 // Preset Definition Schema
@@ -62,485 +63,9 @@ export const PresetDefinitionSchema = Schema.Struct({
 export type PresetDefinition = typeof PresetDefinitionSchema.Type
 
 // ================================
-// Preset Registry
+// Standard Presets (Moved to preset_initialization_live.ts)
 // ================================
-
-/**
- * プリセットレジストリ
- * 全プリセットの一元管理
- */
-class PresetRegistry {
-  private readonly presets = new Map<PresetType, PresetDefinition>()
-
-  register(type: PresetType, definition: PresetDefinition): void {
-    this.presets.set(type, definition)
-  }
-
-  get(type: PresetType): Option.Option<PresetDefinition> {
-    return Option.fromNullable(this.presets.get(type))
-  }
-
-  list(): readonly PresetType[] {
-    return Array.from(this.presets.keys())
-  }
-
-  listByCategory(category: PresetDefinition['category']): readonly PresetType[] {
-    return Array.from(this.presets.entries())
-      .filter(([_, definition]) => definition.category === category)
-      .map(([type, _]) => type)
-  }
-}
-
-const registry = new PresetRegistry()
-
-// ================================
-// Standard Presets
-// ================================
-
-/**
- * Default - 標準バランス型設定
- * 最も汎用的で安定した設定
- */
-const defaultPreset: PresetDefinition = {
-  name: 'Default World',
-  description: 'Standard balanced world generation with all features enabled',
-  category: 'standard',
-  compatibility: {
-    minecraftVersion: '1.20+',
-    modSupport: true,
-    experimentalFeatures: false,
-  },
-  performance: {
-    cpuUsage: 'medium',
-    memoryUsage: 'medium',
-    recommendedThreads: 4,
-  },
-  features: {
-    structures: true,
-    caves: true,
-    ores: true,
-    villages: true,
-    dungeons: true,
-  },
-  generation: {
-    qualityLevel: 'balanced',
-    maxConcurrentGenerations: 4,
-    cacheSize: 1000,
-    enableStructures: true,
-    enableCaves: true,
-    enableOres: true,
-    enableDebugMode: false,
-    logLevel: 'info',
-  },
-  metadata: {
-    author: 'minecraft-core',
-    version: '1.0.0',
-    createdAt: new Date('2025-01-01'),
-    updatedAt: new Date('2025-01-01'),
-  },
-}
-
-/**
- * Survival - サバイバル最適化設定
- * 高品質でバランスの取れたサバイバル体験
- */
-const survivalPreset: PresetDefinition = {
-  name: 'Survival World',
-  description: 'Optimized for survival gameplay with enhanced world generation',
-  category: 'standard',
-  compatibility: {
-    minecraftVersion: '1.20+',
-    modSupport: true,
-    experimentalFeatures: false,
-  },
-  performance: {
-    cpuUsage: 'high',
-    memoryUsage: 'high',
-    recommendedThreads: 2,
-  },
-  features: {
-    structures: true,
-    caves: true,
-    ores: true,
-    villages: true,
-    dungeons: true,
-  },
-  generation: {
-    qualityLevel: 'quality',
-    maxConcurrentGenerations: 2,
-    cacheSize: 2000,
-    enableStructures: true,
-    enableCaves: true,
-    enableOres: true,
-    enableDebugMode: false,
-    logLevel: 'warn',
-  },
-  metadata: {
-    author: 'minecraft-core',
-    version: '1.0.0',
-    createdAt: new Date('2025-01-01'),
-    updatedAt: new Date('2025-01-01'),
-  },
-}
-
-/**
- * Creative - クリエイティブ最適化設定
- * 高速生成でクリエイティブビルド向け
- */
-const creativePreset: PresetDefinition = {
-  name: 'Creative World',
-  description: 'Fast generation optimized for creative building',
-  category: 'standard',
-  compatibility: {
-    minecraftVersion: '1.20+',
-    modSupport: true,
-    experimentalFeatures: false,
-  },
-  performance: {
-    cpuUsage: 'low',
-    memoryUsage: 'medium',
-    recommendedThreads: 8,
-  },
-  features: {
-    structures: true,
-    caves: false,
-    ores: false,
-    villages: true,
-    dungeons: false,
-  },
-  generation: {
-    qualityLevel: 'fast',
-    maxConcurrentGenerations: 8,
-    cacheSize: 1500,
-    enableStructures: true,
-    enableCaves: false,
-    enableOres: false,
-    enableDebugMode: false,
-    logLevel: 'error',
-  },
-  metadata: {
-    author: 'minecraft-core',
-    version: '1.0.0',
-    createdAt: new Date('2025-01-01'),
-    updatedAt: new Date('2025-01-01'),
-  },
-}
-
-/**
- * Peaceful - 平和な環境設定
- * 敵対的構造物を除外した平和な世界
- */
-const peacefulPreset: PresetDefinition = {
-  name: 'Peaceful World',
-  description: 'Peaceful world without hostile structures',
-  category: 'standard',
-  compatibility: {
-    minecraftVersion: '1.20+',
-    modSupport: true,
-    experimentalFeatures: false,
-  },
-  performance: {
-    cpuUsage: 'medium',
-    memoryUsage: 'medium',
-    recommendedThreads: 4,
-  },
-  features: {
-    structures: false,
-    caves: true,
-    ores: true,
-    villages: true,
-    dungeons: false,
-  },
-  generation: {
-    qualityLevel: 'balanced',
-    maxConcurrentGenerations: 4,
-    cacheSize: 1000,
-    enableStructures: false,
-    enableCaves: true,
-    enableOres: true,
-    enableDebugMode: false,
-    logLevel: 'info',
-  },
-  metadata: {
-    author: 'minecraft-core',
-    version: '1.0.0',
-    createdAt: new Date('2025-01-01'),
-    updatedAt: new Date('2025-01-01'),
-  },
-}
-
-/**
- * Hardcore - 高難易度設定
- * 最高品質・最高難易度の生成設定
- */
-const hardcorePreset: PresetDefinition = {
-  name: 'Hardcore World',
-  description: 'Maximum quality generation for hardcore gameplay',
-  category: 'standard',
-  compatibility: {
-    minecraftVersion: '1.20+',
-    modSupport: true,
-    experimentalFeatures: false,
-  },
-  performance: {
-    cpuUsage: 'high',
-    memoryUsage: 'high',
-    recommendedThreads: 1,
-  },
-  features: {
-    structures: true,
-    caves: true,
-    ores: true,
-    villages: true,
-    dungeons: true,
-  },
-  generation: {
-    qualityLevel: 'quality',
-    maxConcurrentGenerations: 1,
-    cacheSize: 3000,
-    enableStructures: true,
-    enableCaves: true,
-    enableOres: true,
-    enableDebugMode: false,
-    logLevel: 'warn',
-  },
-  metadata: {
-    author: 'minecraft-core',
-    version: '1.0.0',
-    createdAt: new Date('2025-01-01'),
-    updatedAt: new Date('2025-01-01'),
-  },
-}
-
-// ================================
-// Specialized Presets
-// ================================
-
-/**
- * Superflat - 平坦世界設定
- * 最小限の生成で平坦な世界
- */
-const superflatPreset: PresetDefinition = {
-  name: 'Superflat World',
-  description: 'Flat world with minimal generation',
-  category: 'specialized',
-  compatibility: {
-    minecraftVersion: '1.20+',
-    modSupport: false,
-    experimentalFeatures: false,
-  },
-  performance: {
-    cpuUsage: 'low',
-    memoryUsage: 'low',
-    recommendedThreads: 8,
-  },
-  features: {
-    structures: false,
-    caves: false,
-    ores: false,
-    villages: false,
-    dungeons: false,
-  },
-  generation: {
-    qualityLevel: 'fast',
-    maxConcurrentGenerations: 16,
-    cacheSize: 500,
-    enableStructures: false,
-    enableCaves: false,
-    enableOres: false,
-    enableDebugMode: false,
-    logLevel: 'error',
-  },
-  metadata: {
-    author: 'minecraft-core',
-    version: '1.0.0',
-    createdAt: new Date('2025-01-01'),
-    updatedAt: new Date('2025-01-01'),
-  },
-}
-
-/**
- * Amplified - 拡張地形設定
- * 極端な地形生成による壮大な世界
- */
-const amplifiedPreset: PresetDefinition = {
-  name: 'Amplified World',
-  description: 'Extreme terrain generation with amplified features',
-  category: 'specialized',
-  compatibility: {
-    minecraftVersion: '1.20+',
-    modSupport: true,
-    experimentalFeatures: true,
-  },
-  performance: {
-    cpuUsage: 'high',
-    memoryUsage: 'high',
-    recommendedThreads: 1,
-  },
-  features: {
-    structures: true,
-    caves: true,
-    ores: true,
-    villages: true,
-    dungeons: true,
-  },
-  generation: {
-    qualityLevel: 'quality',
-    maxConcurrentGenerations: 1,
-    cacheSize: 5000,
-    enableStructures: true,
-    enableCaves: true,
-    enableOres: true,
-    enableDebugMode: false,
-    logLevel: 'info',
-  },
-  metadata: {
-    author: 'minecraft-core',
-    version: '1.0.0',
-    createdAt: new Date('2025-01-01'),
-    updatedAt: new Date('2025-01-01'),
-  },
-}
-
-// ================================
-// Debug & Development Presets
-// ================================
-
-/**
- * Debug - 開発・デバッグ設定
- * 開発者向け高度なデバッグ機能
- */
-const debugPreset: PresetDefinition = {
-  name: 'Debug World',
-  description: 'Development and debugging focused generation',
-  category: 'debug',
-  compatibility: {
-    minecraftVersion: '1.20+',
-    modSupport: true,
-    experimentalFeatures: true,
-  },
-  performance: {
-    cpuUsage: 'low',
-    memoryUsage: 'medium',
-    recommendedThreads: 4,
-  },
-  features: {
-    structures: false,
-    caves: false,
-    ores: false,
-    villages: false,
-    dungeons: false,
-  },
-  generation: {
-    qualityLevel: 'fast',
-    maxConcurrentGenerations: 4,
-    cacheSize: 1000,
-    enableStructures: false,
-    enableCaves: false,
-    enableOres: false,
-    enableDebugMode: true,
-    logLevel: 'debug',
-  },
-  metadata: {
-    author: 'minecraft-core',
-    version: '1.0.0',
-    createdAt: new Date('2025-01-01'),
-    updatedAt: new Date('2025-01-01'),
-  },
-}
-
-/**
- * Custom - ユーザー定義設定
- * 完全カスタマイズ可能な基本設定
- */
-const customPreset: PresetDefinition = {
-  name: 'Custom World',
-  description: 'User-defined customizable world generation',
-  category: 'standard',
-  compatibility: {
-    minecraftVersion: '1.20+',
-    modSupport: true,
-    experimentalFeatures: true,
-  },
-  performance: {
-    cpuUsage: 'medium',
-    memoryUsage: 'medium',
-    recommendedThreads: 4,
-  },
-  features: {
-    structures: true,
-    caves: true,
-    ores: true,
-    villages: true,
-    dungeons: true,
-  },
-  generation: {},
-  metadata: {
-    author: 'user',
-    version: '1.0.0',
-    createdAt: new Date('2025-01-01'),
-    updatedAt: new Date('2025-01-01'),
-  },
-}
-
-/**
- * Experimental - 実験的機能設定
- * 最新実験的機能をテストする設定
- */
-const experimentalPreset: PresetDefinition = {
-  name: 'Experimental World',
-  description: 'Cutting-edge experimental features and generation',
-  category: 'experimental',
-  compatibility: {
-    minecraftVersion: '1.21+',
-    modSupport: true,
-    experimentalFeatures: true,
-  },
-  performance: {
-    cpuUsage: 'high',
-    memoryUsage: 'high',
-    recommendedThreads: 2,
-  },
-  features: {
-    structures: true,
-    caves: true,
-    ores: true,
-    villages: true,
-    dungeons: true,
-  },
-  generation: {
-    qualityLevel: 'quality',
-    maxConcurrentGenerations: 2,
-    cacheSize: 2000,
-    enableStructures: true,
-    enableCaves: true,
-    enableOres: true,
-    enableDebugMode: true,
-    logLevel: 'debug',
-  },
-  metadata: {
-    author: 'minecraft-experimental',
-    version: '1.0.0-alpha',
-    createdAt: new Date('2025-01-01'),
-    updatedAt: new Date('2025-01-01'),
-  },
-}
-
-// ================================
-// Registry Registration
-// ================================
-
-// 全プリセットをレジストリに登録
-registry.register('default', defaultPreset)
-registry.register('survival', survivalPreset)
-registry.register('creative', creativePreset)
-registry.register('peaceful', peacefulPreset)
-registry.register('hardcore', hardcorePreset)
-registry.register('superflat', superflatPreset)
-registry.register('amplified', amplifiedPreset)
-registry.register('debug', debugPreset)
-registry.register('custom', customPreset)
-registry.register('experimental', experimentalPreset)
+// Note: プリセット定義と初期化は preset_initialization_live.ts に移動しました
 
 // ================================
 // Public API
@@ -550,19 +75,24 @@ registry.register('experimental', experimentalPreset)
  * プリセット取得
  */
 export const getPreset = (type: PresetType): Effect.Effect<PresetDefinition, FactoryError> =>
-  Function.pipe(
-    registry.get(type),
-    Option.match({
-      onNone: () =>
-        Effect.fail(
-          new FactoryError({
-            category: 'parameter_validation',
-            message: `Unknown preset type: ${type}`,
-          })
-        ),
-      onSome: (preset) => Effect.succeed(preset),
-    })
-  )
+  Effect.gen(function* () {
+    const registry = yield* PresetRegistryService
+    const result = yield* registry.get(type)
+
+    return yield* Function.pipe(
+      result,
+      Option.match({
+        onNone: () =>
+          Effect.fail(
+            new FactoryError({
+              category: 'parameter_validation',
+              message: `Unknown preset type: ${type}`,
+            })
+          ),
+        onSome: (preset) => Effect.succeed(preset),
+      })
+    )
+  })
 
 /**
  * プリセット生成パラメータ取得
@@ -573,13 +103,20 @@ export const getPresetParams = (type: PresetType): Effect.Effect<CreateWorldGene
 /**
  * 利用可能プリセット一覧
  */
-export const listPresets = (): readonly PresetType[] => registry.list()
+export const listPresets = (): Effect.Effect<readonly PresetType[]> =>
+  Effect.gen(function* () {
+    const registry = yield* PresetRegistryService
+    return yield* registry.list
+  })
 
 /**
  * カテゴリ別プリセット一覧
  */
-export const listPresetsByCategory = (category: PresetDefinition['category']): readonly PresetType[] =>
-  registry.listByCategory(category)
+export const listPresetsByCategory = (category: PresetDefinition['category']): Effect.Effect<readonly PresetType[]> =>
+  Effect.gen(function* () {
+    const registry = yield* PresetRegistryService
+    return yield* registry.listByCategory(category)
+  })
 
 /**
  * プリセット情報取得
@@ -680,38 +217,44 @@ export const createCustomPreset = (
   description: string,
   params: CreateWorldGeneratorParams
 ): Effect.Effect<PresetDefinition, FactoryError> =>
-  Effect.succeed({
-    name,
-    description,
-    category: 'standard',
-    compatibility: {
-      minecraftVersion: '1.20+',
-      modSupport: true,
-      experimentalFeatures: false,
-    },
-    performance: {
-      cpuUsage: 'medium',
-      memoryUsage: 'medium',
-      recommendedThreads: 4,
-    },
-    features: {
-      structures: params.enableStructures ?? true,
-      caves: params.enableCaves ?? true,
-      ores: params.enableOres ?? true,
-      villages: true,
-      dungeons: true,
-    },
-    generation: params,
-    metadata: {
-      author: 'user',
-      version: '1.0.0',
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    },
+  Effect.gen(function* () {
+    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    return {
+      name,
+      description,
+      category: 'standard',
+      compatibility: {
+        minecraftVersion: '1.20+',
+        modSupport: true,
+        experimentalFeatures: false,
+      },
+      performance: {
+        cpuUsage: 'medium',
+        memoryUsage: 'medium',
+        recommendedThreads: 4,
+      },
+      features: {
+        structures: params.enableStructures ?? true,
+        caves: params.enableCaves ?? true,
+        ores: params.enableOres ?? true,
+        villages: true,
+        dungeons: true,
+      },
+      generation: params,
+      metadata: {
+        author: 'user',
+        version: '1.0.0',
+        createdAt: now,
+        updatedAt: now,
+      },
+    }
   })
 
 // ================================
 // Exports
 // ================================
 
-export { registry as PresetRegistry, type PresetDefinition }
+export { PresetSystemLive } from './preset_initialization_live'
+export { PresetRegistryLive } from './preset_registry_live'
+export { PresetRegistryService } from './preset_registry_service'
+export type { PresetDefinition }

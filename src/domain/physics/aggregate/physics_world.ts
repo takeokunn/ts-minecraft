@@ -1,5 +1,4 @@
-import { Clock, Effect, Match, pipe } from 'effect'
-import { PHYSICS_CONSTANTS } from '@domain/physics/types'
+import { PHYSICS_CONSTANTS } from '@domain/physics/types/constants'
 import {
   EpochMillis,
   EpochMillisSchema,
@@ -18,23 +17,26 @@ import {
   parseVector3,
   positiveFloat,
   unitInterval,
-} from '@domain/physics/types'
-import type { PhysicsError } from '@domain/physics/types'
+} from '@domain/physics/types/core'
+import type { PhysicsError } from '@domain/physics/types/errors'
+import { Clock, Effect, Match, pipe } from 'effect'
 
-const defaultConfig: PhysicsConfig = decodeConstant(PhysicsConfigSchema)({
-  timeStep: positiveFloat(1 / 60),
-  maxSubSteps: 3,
-  damping: unitInterval(0.02),
-  solverIterations: 10,
-})
+const getDefaultConfig = (): PhysicsConfig =>
+  decodeConstant(PhysicsConfigSchema)({
+    timeStep: positiveFloat(1 / 60),
+    maxSubSteps: 3,
+    damping: unitInterval(0.02),
+    solverIterations: 10,
+  })
 
-const defaultState = decodeConstant(PhysicsWorldStateSchema)({
-  isRunning: false,
-  totalTime: 0,
-  entityCount: 0,
-  activeBodies: 0,
-  lastStepAt: 0,
-})
+const getDefaultState = () =>
+  decodeConstant(PhysicsWorldStateSchema)({
+    isRunning: false,
+    totalTime: 0,
+    entityCount: 0,
+    activeBodies: 0,
+    lastStepAt: 0,
+  })
 
 const generateId = (prefix: string): Effect.Effect<PhysicsWorldId, PhysicsError> =>
   Effect.flatMap(now(), (millis) => {
@@ -55,7 +57,7 @@ const create = (
     const id = yield* generateId('world')
     const createdAt = yield* now()
     const mergedConfig = {
-      ...defaultConfig,
+      ...getDefaultConfig(),
       ...params.config,
     }
     const gravityVector = params.gravity ?? PHYSICS_CONSTANTS.gravity
@@ -65,7 +67,7 @@ const create = (
       config: mergedConfig,
       gravity: gravityVector,
       state: {
-        ...defaultState,
+        ...getDefaultState(),
         lastStepAt: createdAt,
       },
       createdAt,

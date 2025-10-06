@@ -1,6 +1,14 @@
+import {
+  AABB,
+  Vector3,
+  Vector3Schema,
+  parseAABB,
+  parsePositiveFloat,
+  parseVector3,
+  vector3,
+} from '@domain/physics/types/core'
+import type { PhysicsError } from '@domain/physics/types/errors'
 import { Effect, Match, Schema, pipe } from 'effect'
-import { AABB, Vector3, Vector3Schema, parseAABB, parsePositiveFloat, parseVector3, vector3 } from '@domain/physics/types'
-import type { PhysicsError } from '@domain/physics/types'
 
 const CollidedAxesSchema = Schema.Struct({
   x: Schema.Boolean,
@@ -11,11 +19,11 @@ const CollidedAxesSchema = Schema.Struct({
 export type CollidedAxes = Schema.Schema.Type<typeof CollidedAxesSchema>
 
 const CollisionResultSchema = Schema.Struct({
-  position: Vector3Schema,
-  velocity: Vector3Schema,
+  position: Schema.suspend(() => Vector3Schema),
+  velocity: Schema.suspend(() => Vector3Schema),
   collidedAxes: CollidedAxesSchema,
   isGrounded: Schema.Boolean,
-  contactNormal: Vector3Schema,
+  contactNormal: Schema.suspend(() => Vector3Schema),
   penetration: Schema.Number.pipe(Schema.nonNegative()),
 }).pipe(Schema.brand('CollisionResult'))
 

@@ -25,11 +25,10 @@ export const CraftingCalculationServiceLive = Layer.effect(
   CraftingCalculationService,
   Effect.succeed({
     computeCraftingTime: (aggregate, multiplier) =>
-      Schema.decodeEffect(CraftingTimeSchema)(Math.round(Number(aggregate.craftingTime) * multiplier)),
+      Schema.decode(CraftingTimeSchema)(Math.round(Number(aggregate.craftingTime) * multiplier)),
 
-    computeSuccessRate: (aggregate, adjustment) =>
-      Schema.decodeEffect(SuccessRateSchema)(aggregate.successRate + adjustment),
+    computeSuccessRate: (aggregate, adjustment) => Schema.decode(SuccessRateSchema)(aggregate.successRate + adjustment),
 
-    adjustDifficulty: (difficulty, delta) => Schema.decodeEffect(CraftingDifficultySchema)(difficulty + delta),
+    adjustDifficulty: (difficulty, delta) => Schema.decode(CraftingDifficultySchema)(difficulty + delta),
   })
 )

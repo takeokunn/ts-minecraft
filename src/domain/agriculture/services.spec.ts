@@ -1,13 +1,8 @@
 import { describe, expect, it } from '@effect/vitest'
 import { Effect } from 'effect'
 import * as fc from 'effect/FastCheck'
-import {
-  CropAggregate,
-  simulateCropCycle,
-  batchSimulate,
-  planOptimizationStrategy,
-} from './services'
 import { makeCropAggregate } from './aggregates'
+import { batchSimulate, planOptimizationStrategy, simulateCropCycle } from './services'
 import { DomainConstants } from './types'
 import { HydrationState, SoilCondition, makeBreedingStats } from './value_objects'
 
@@ -67,7 +62,7 @@ describe('domain/agriculture/services', () => {
     })
   )
 
-  it('planOptimizationStrategyは統計値に基づいて戦略を選択する (PBT)', () =>
+  it('planOptimizationStrategyは統計値に基づいて戦略を選択する (PBT)', () => {
     const statsArbitrary = fc.record({
       fertility: fc.float({ min: DomainConstants.breedingFactor.min, max: DomainConstants.breedingFactor.max }),
       resilience: fc.float({ min: DomainConstants.breedingFactor.min, max: DomainConstants.breedingFactor.max }),

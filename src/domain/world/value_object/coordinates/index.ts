@@ -5,6 +5,8 @@
  * World/Chunk/Block座標系間の数学的に正確な変換保証
  */
 
+import { Schema } from 'effect'
+
 // World座標系
 export {
   BoundingBoxSchema,
@@ -30,7 +32,7 @@ export {
   type WorldX,
   type WorldY,
   type WorldZ,
-} from './index'
+} from './block_coordinate'
 
 // Chunk座標系
 export {
@@ -60,7 +62,7 @@ export {
   type LocalCoordinate,
   type LocalX,
   type LocalZ,
-} from './index'
+} from './block_coordinate'
 
 // Block座標系
 export {
@@ -91,14 +93,13 @@ export {
   type CreateBlockCoordinateParams,
   type DetailedBlockPosition,
   type NeighborPattern,
-} from './index'
+} from './block_coordinate'
 
 // 座標変換
-export {
-  CoordinateTransformErrorSchema,
-  CoordinateTransforms,
-  type CoordinateTransformError,
-} from './index'
+export * from './block_coordinate'
+export { CoordinateTransformErrorSchema, CoordinateTransforms, type CoordinateTransformError } from './block_coordinate'
+export * from './chunk_coordinate'
+export * from './world_coordinate'
 
 /**
  * 便利なファクトリ関数群
@@ -198,50 +199,15 @@ export const CoordinateTypeGuards = {
   /**
    * World座標の型ガード
    */
-  isWorldCoordinate: (value: unknown): value is WorldCoordinate => {
-    return (
-      typeof value === 'object' &&
-      value !== null &&
-      'x' in value &&
-      'y' in value &&
-      'z' in value &&
-      typeof (value as any).x === 'number' &&
-      typeof (value as any).y === 'number' &&
-      typeof (value as any).z === 'number'
-    )
-  },
+  isWorldCoordinate: (value: unknown): value is WorldCoordinate => Schema.is(WorldCoordinateSchema)(value),
 
   /**
    * Chunk座標の型ガード
    */
-  isChunkCoordinate: (value: unknown): value is ChunkCoordinate => {
-    return (
-      typeof value === 'object' &&
-      value !== null &&
-      'x' in value &&
-      'z' in value &&
-      typeof (value as any).x === 'number' &&
-      typeof (value as any).z === 'number' &&
-      !('y' in value)
-    )
-  },
+  isChunkCoordinate: (value: unknown): value is ChunkCoordinate => Schema.is(ChunkCoordinateSchema)(value),
 
   /**
    * Block座標の型ガード
    */
-  isBlockCoordinate: (value: unknown): value is BlockCoordinate => {
-    return (
-      typeof value === 'object' &&
-      value !== null &&
-      'x' in value &&
-      'y' in value &&
-      'z' in value &&
-      typeof (value as any).x === 'number' &&
-      typeof (value as any).y === 'number' &&
-      typeof (value as any).z === 'number'
-    )
-  },
+  isBlockCoordinate: (value: unknown): value is BlockCoordinate => Schema.is(BlockCoordinateSchema)(value),
 } as const
-export * from './world_coordinate';
-export * from './chunk_coordinate';
-export * from './block_coordinate';

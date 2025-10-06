@@ -2,4 +2,4 @@ export {
   PhysicsWorldRepository,
   PhysicsWorldRepositoryLive,
   type PhysicsWorldRepository,
-} from './index'
+} from './physics_world_repository'

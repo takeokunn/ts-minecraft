@@ -1,7 +1,6 @@
-import type { BlockTypeId } from '@domain/entities'
-import type { Vector3D } from '@domain/entities'
+import type { BlockTypeId, Vector3D } from '@domain/entities'
 import { Context, Effect, Layer, pipe, Ref } from 'effect'
-import { CannonPhysicsService } from './index'
+import { CannonPhysicsService } from './cannon'
 
 /**
  * World Collision Service

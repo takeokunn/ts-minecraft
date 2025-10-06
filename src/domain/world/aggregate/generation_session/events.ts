@@ -7,10 +7,8 @@
  * - エラー・回復イベント
  */
 
-import { Brand, Context, Effect, Schema, Stream } from 'effect'
-import type { SessionError } from './index'
-import type { GenerationRequest, GenerationSessionId } from './index'
-import type { ProgressStatistics } from './index'
+import { Brand, Clock, Context, Effect, Schema, Stream } from 'effect'
+import type { GenerationRequest, GenerationSessionId, ProgressStatistics, SessionError } from './index'
 
 // ================================
 // Base Event Schema
@@ -304,8 +302,8 @@ export type SessionEvent = typeof SessionEventSchema.Type
  * ユニークなイベントIDを生成
  */
 const generateEventId = (): Effect.Effect<string & Brand.Brand<'SessionEventId'>> =>
-  Effect.sync(() => {
-    const timestamp = Date.now()
+  Effect.gen(function* () {
+    const timestamp = yield* Clock.currentTimeMillis
     const random = Math.random().toString(36).substr(2, 9)
     return Schema.decodeSync(Schema.String.pipe(Schema.brand('SessionEventId')))(`sevt_${timestamp}_${random}`)
   })
@@ -321,7 +319,7 @@ export const createSessionCreated = (
 ): Effect.Effect<SessionCreated> =>
   Effect.gen(function* () {
     const eventId = yield* generateEventId()
-    const timestamp = yield* Effect.sync(() => new Date())
+    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
 
     return Schema.decodeSync(SessionCreatedSchema)({
       eventId,
@@ -349,7 +347,7 @@ export const createSessionStarted = (
 ): Effect.Effect<SessionStarted> =>
   Effect.gen(function* () {
     const eventId = yield* generateEventId()
-    const timestamp = yield* Effect.sync(() => new Date())
+    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
 
     return Schema.decodeSync(SessionStartedSchema)({
       eventId,
@@ -375,7 +373,7 @@ export const createSessionPaused = (
 ): Effect.Effect<SessionPaused> =>
   Effect.gen(function* () {
     const eventId = yield* generateEventId()
-    const timestamp = yield* Effect.sync(() => new Date())
+    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
 
     return Schema.decodeSync(SessionPausedSchema)({
       eventId,
@@ -401,7 +399,7 @@ export const createSessionResumed = (
 ): Effect.Effect<SessionResumed> =>
   Effect.gen(function* () {
     const eventId = yield* generateEventId()
-    const timestamp = yield* Effect.sync(() => new Date())
+    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
 
     return Schema.decodeSync(SessionResumedSchema)({
       eventId,
@@ -427,7 +425,7 @@ export const createSessionCompleted = (
 ): Effect.Effect<SessionCompleted> =>
   Effect.gen(function* () {
     const eventId = yield* generateEventId()
-    const timestamp = yield* Effect.sync(() => new Date())
+    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
 
     return Schema.decodeSync(SessionCompletedSchema)({
       eventId,
@@ -462,7 +460,7 @@ export const createBatchCompleted = (
 ): Effect.Effect<BatchCompleted> =>
   Effect.gen(function* () {
     const eventId = yield* generateEventId()
-    const timestamp = yield* Effect.sync(() => new Date())
+    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
 
     return Schema.decodeSync(BatchCompletedSchema)({
       eventId,
@@ -494,7 +492,7 @@ export const createBatchFailed = (
 ): Effect.Effect<BatchFailed> =>
   Effect.gen(function* () {
     const eventId = yield* generateEventId()
-    const timestamp = yield* Effect.sync(() => new Date())
+    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
 
     return Schema.decodeSync(BatchFailedSchema)({
       eventId,

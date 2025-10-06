@@ -6,17 +6,22 @@
  * セッション復旧・チェックポイント・履歴管理機能
  */
 
-import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
-import * as NodePath from '@effect/platform-node/NodePath'
-import { Effect, Layer, Option, ReadonlyArray, Ref, Schema } from 'effect'
-import type { ChunkPosition, GenerationSessionId, GenerationSettings, WorldId } from '@domain/world/types'
-import type { AllRepositoryErrors } from '@domain/world/types'
+import type {
+  AllRepositoryErrors,
+  ChunkPosition,
+  GenerationSessionId,
+  GenerationSettings,
+  WorldId,
+} from '@domain/world/types'
 import {
   createDataIntegrityError,
   createGenerationSessionNotFoundError,
   createPersistenceError,
   createRepositoryError,
 } from '@domain/world/types'
+import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
+import * as NodePath from '@effect/platform-node/NodePath'
+import { Clock, Effect, Function, Layer, Option, pipe, ReadonlyArray, Ref, Schema } from 'effect'
 import type {
   ChunkGenerationTask,
   GenerationProgress,
@@ -129,9 +134,12 @@ const makeGenerationSessionRepositoryPersistence = (
     const ensureDirectoryExists = (dirPath: string): Effect.Effect<void, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const exists = yield* fs.exists(dirPath)
-        if (!exists) {
-          yield* fs.makeDirectory(dirPath, { recursive: true })
-        }
+        yield* pipe(
+          Effect.when(() => !exists, {
+            onTrue: () => fs.makeDirectory(dirPath, { recursive: true }),
+            onFalse: () => Effect.void,
+          })
+        )
       }).pipe(
         Effect.catchAll((error) =>
           Effect.fail(createPersistenceError(`Failed to create directory: ${dirPath}`, 'filesystem', error))
@@ -141,47 +149,74 @@ const makeGenerationSessionRepositoryPersistence = (
     const loadSessionsFromFile = (): Effect.Effect<PersistenceSessionData, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const exists = yield* fs.exists(sessionFile)
-        if (!exists) {
-          return {
-            sessions: {},
-            checkpoints: {},
-            history: {},
-            metadata: {
-              version: '1.0.0',
-              createdAt: new Date().toISOString(),
-              lastModified: new Date().toISOString(),
-              checksum: '',
-              sessionCount: 0,
-            },
-          }
-        }
 
-        const content = yield* fs.readFileString(sessionFile)
+        return yield* pipe(
+          exists,
+          Effect.when(() => !exists, {
+            onTrue: () =>
+              Effect.gen(function* () {
+                const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+                return {
+                  sessions: {},
+                  checkpoints: {},
+                  history: {},
+                  metadata: {
+                    version: '1.0.0',
+                    createdAt: now.toISOString(),
+                    lastModified: now.toISOString(),
+                    checksum: '',
+                    sessionCount: 0,
+                  },
+                }
+              }),
+            onFalse: () =>
+              Effect.gen(function* () {
+                const content = yield* fs.readFileString(sessionFile)
 
-        if (config.enableChecksums) {
-          const metadataExists = yield* fs.exists(metadataFile)
-          if (metadataExists) {
-            const metadataContent = yield* fs.readFileString(metadataFile)
-            const metadata = JSON.parse(metadataContent)
-            const actualChecksum = calculateChecksum(content)
+                yield* pipe(
+                  config.enableChecksums,
+                  Effect.when(() => config.enableChecksums, {
+                    onTrue: () =>
+                      Effect.gen(function* () {
+                        const metadataExists = yield* fs.exists(metadataFile)
+                        yield* pipe(
+                          Effect.when(() => metadataExists, {
+                            onTrue: () =>
+                              Effect.gen(function* () {
+                                const metadataContent = yield* fs.readFileString(metadataFile)
+                                const metadata = JSON.parse(metadataContent)
+                                const actualChecksum = calculateChecksum(content)
 
-            if (metadata.checksum !== actualChecksum) {
-              return yield* Effect.fail(
-                createDataIntegrityError(
-                  'Session data checksum mismatch - file may be corrupted',
-                  ['checksum'],
-                  metadata.checksum,
-                  actualChecksum
+                                yield* pipe(
+                                  Effect.when(() => metadata.checksum !== actualChecksum, {
+                                    onTrue: () =>
+                                      Effect.fail(
+                                        createDataIntegrityError(
+                                          'Session data checksum mismatch - file may be corrupted',
+                                          ['checksum'],
+                                          metadata.checksum,
+                                          actualChecksum
+                                        )
+                                      ),
+                                    onFalse: () => Effect.void,
+                                  })
+                                )
+                              }),
+                            onFalse: () => Effect.void,
+                          })
+                        )
+                      }),
+                    onFalse: () => Effect.void,
+                  })
                 )
-              )
-            }
-          }
-        }
 
-        const decompressed = config.enableCompression ? yield* decompressData(content) : content
+                const decompressed = config.enableCompression ? yield* decompressData(content) : content
 
-        const parsedData = JSON.parse(decompressed)
-        return Schema.decodeUnknownSync(PersistenceSessionSchema)(parsedData)
+                const parsedData = JSON.parse(decompressed)
+                return Schema.decodeUnknownSync(PersistenceSessionSchema)(parsedData)
+              }),
+          })
+        )
       }).pipe(
         Effect.catchAll((error) =>
           Effect.fail(createPersistenceError(`Failed to load sessions from file: ${error}`, 'filesystem', error))
@@ -198,32 +233,50 @@ const makeGenerationSessionRepositoryPersistence = (
         const compressedContent = config.enableCompression ? yield* compressData(content) : content
 
         // Calculate checksum
-        if (config.enableChecksums) {
-          const checksum = calculateChecksum(compressedContent)
-          const metadata = {
-            ...data.metadata,
-            checksum,
-            lastModified: new Date().toISOString(),
-          }
+        yield* pipe(
+          Effect.when(() => config.enableChecksums, {
+            onTrue: () =>
+              Effect.gen(function* () {
+                const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+                const checksum = calculateChecksum(compressedContent)
+                const metadata = {
+                  ...data.metadata,
+                  checksum,
+                  lastModified: now.toISOString(),
+                }
 
-          yield* fs.writeFileString(metadataFile, JSON.stringify(metadata, null, 2))
-        }
+                yield* fs.writeFileString(metadataFile, JSON.stringify(metadata, null, 2))
+              }),
+            onFalse: () => Effect.void,
+          })
+        )
 
         yield* fs.writeFileString(sessionFile, compressedContent)
 
         // Create backup if enabled
-        if (config.checkpointing.enabled) {
-          const backupFile = path.join(sessionPath, `sessions-backup-${Date.now()}.json`)
-          yield* fs.writeFileString(backupFile, compressedContent)
-        }
+        yield* pipe(
+          Effect.when(() => config.checkpointing.enabled, {
+            onTrue: () =>
+              Effect.gen(function* () {
+                const timestamp = yield* Clock.currentTimeMillis
+                const backupFile = path.join(sessionPath, `sessions-backup-${timestamp}.json`)
+                yield* fs.writeFileString(backupFile, compressedContent)
+              }),
+            onFalse: () => Effect.void,
+          })
+        )
       }).pipe(
         Effect.catchAll((error) =>
           Effect.fail(createPersistenceError(`Failed to save sessions to file: ${error}`, 'filesystem', error))
         )
       )
 
-    const generateSessionId = (): GenerationSessionId =>
-      `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}` as GenerationSessionId
+    const generateSessionId = (): Effect.Effect<GenerationSessionId> =>
+      Effect.gen(function* () {
+        const timestamp = yield* Clock.currentTimeMillis
+        const random = yield* Effect.sync(() => Math.random().toString(36).substr(2, 9))
+        return `session-${timestamp}-${random}` as GenerationSessionId
+      })
 
     // === Session CRUD Operations ===
 
@@ -233,8 +286,8 @@ const makeGenerationSessionRepositoryPersistence = (
       metadata?: Partial<GenerationSessionMetadata>
     ): Effect.Effect<GenerationSession, AllRepositoryErrors> =>
       Effect.gen(function* () {
-        const sessionId = generateSessionId()
-        const now = new Date()
+        const sessionId = yield* generateSessionId()
+        const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
 
         const session: GenerationSession = {
           id: sessionId,
@@ -297,36 +350,40 @@ const makeGenerationSessionRepositoryPersistence = (
       Effect.gen(function* () {
         // Check cache first
         const cache = yield* Ref.get(sessionCacheRef)
-        const cached = cache.get(sessionId)
-        if (cached) {
-          return Option.some(cached)
-        }
 
-        // Load from file
-        const data = yield* loadSessionsFromFile()
-        const session = data.sessions[sessionId] as GenerationSession | undefined
+        return yield* pipe(
+          Option.fromNullable(cache.get(sessionId)),
+          Option.match({
+            onNone: () =>
+              Effect.gen(function* () {
+                // Load from file
+                const data = yield* loadSessionsFromFile()
+                const session = data.sessions[sessionId] as GenerationSession | undefined
 
-        if (session) {
-          // Update cache
-          yield* Ref.update(sessionCacheRef, (cache) => new Map(cache).set(sessionId, session))
-          return Option.some(session)
-        }
-
-        return Option.none()
+                return yield* pipe(
+                  Option.fromNullable(session),
+                  Option.match({
+                    onNone: () => Effect.succeed(Option.none<GenerationSession>()),
+                    onSome: (s) =>
+                      Effect.gen(function* () {
+                        // Update cache
+                        yield* Ref.update(sessionCacheRef, (cache) => new Map(cache).set(sessionId, s))
+                        return Option.some(s)
+                      }),
+                  })
+                )
+              }),
+            onSome: (s) => Effect.succeed(Option.some(s)),
+          })
+        )
       })
 
     const findManyByIds = (
       sessionIds: ReadonlyArray<GenerationSessionId>
     ): Effect.Effect<ReadonlyArray<GenerationSession>, AllRepositoryErrors> =>
       Effect.gen(function* () {
-        const results: GenerationSession[] = []
-        for (const id of sessionIds) {
-          const session = yield* findById(id)
-          if (Option.isSome(session)) {
-            results.push(session.value)
-          }
-        }
-        return results
+        const sessions = yield* Effect.forEach(sessionIds, findById, { concurrency: 'unbounded' })
+        return pipe(sessions, ReadonlyArray.filterMap(Function.identity))
       })
 
     const findByWorldId = (worldId: WorldId): Effect.Effect<ReadonlyArray<GenerationSession>, AllRepositoryErrors> =>
@@ -339,28 +396,79 @@ const makeGenerationSessionRepositoryPersistence = (
     const findByQuery = (query: SessionQuery): Effect.Effect<ReadonlyArray<GenerationSession>, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const data = yield* loadSessionsFromFile()
-        let sessions = Object.values(data.sessions) as GenerationSession[]
+        const sessions = Object.values(data.sessions) as GenerationSession[]
 
-        // Apply filters (same logic as memory implementation)
-        if (query.worldId) sessions = sessions.filter((s) => s.worldId === query.worldId)
-        if (query.state) sessions = sessions.filter((s) => s.state === query.state)
-        if (query.priority) sessions = sessions.filter((s) => s.metadata.priority === query.priority)
-        if (query.createdAfter) sessions = sessions.filter((s) => s.createdAt >= query.createdAfter!)
-        if (query.createdBefore) sessions = sessions.filter((s) => s.createdAt <= query.createdBefore!)
+        // Apply filters using functional composition
+        const filtered = pipe(
+          sessions,
+          ReadonlyArray.filter((s) =>
+            pipe(
+              Option.fromNullable(query.worldId),
+              Option.match({
+                onNone: () => true,
+                onSome: (worldId) => s.worldId === worldId,
+              })
+            )
+          ),
+          ReadonlyArray.filter((s) =>
+            pipe(
+              Option.fromNullable(query.state),
+              Option.match({
+                onNone: () => true,
+                onSome: (state) => s.state === state,
+              })
+            )
+          ),
+          ReadonlyArray.filter((s) =>
+            pipe(
+              Option.fromNullable(query.priority),
+              Option.match({
+                onNone: () => true,
+                onSome: (priority) => s.metadata.priority === priority,
+              })
+            )
+          ),
+          ReadonlyArray.filter((s) =>
+            pipe(
+              Option.fromNullable(query.createdAfter),
+              Option.match({
+                onNone: () => true,
+                onSome: (createdAfter) => s.createdAt >= createdAfter,
+              })
+            )
+          ),
+          ReadonlyArray.filter((s) =>
+            pipe(
+              Option.fromNullable(query.createdBefore),
+              Option.match({
+                onNone: () => true,
+                onSome: (createdBefore) => s.createdAt <= createdBefore,
+              })
+            )
+          )
+        )
 
-        // Apply sorting and pagination
-        if (query.sortBy) {
-          sessions.sort((a, b) => {
-            const aValue = a[query.sortBy!] as any
-            const bValue = b[query.sortBy!] as any
-            const comparison = aValue < bValue ? -1 : aValue > bValue ? 1 : 0
-            return query.sortOrder === 'desc' ? -comparison : comparison
+        // Apply sorting
+        const sorted = pipe(
+          Option.fromNullable(query.sortBy),
+          Option.match({
+            onNone: () => filtered,
+            onSome: (sortBy) =>
+              pipe(
+                filtered,
+                ReadonlyArray.sort((a, b) => {
+                  const aValue = a[sortBy] as any
+                  const bValue = b[sortBy] as any
+                  const comparison = aValue < bValue ? -1 : aValue > bValue ? 1 : 0
+                  return query.sortOrder === 'desc' ? -comparison : comparison
+                })
+              ),
           })
-        }
+        )
 
         const offset = query.offset ?? 0
-        const limit = query.limit ?? sessions.length
-        return sessions.slice(offset, offset + limit)
+        const limit = query.limit ?? sorted.length
+        return sorted.slice(offset, offset + limit)
       })
 
     const findActiveSessions = (): Effect.Effect<ReadonlyArray<GenerationSession>, AllRepositoryErrors> =>
@@ -370,13 +478,18 @@ const makeGenerationSessionRepositoryPersistence = (
       Effect.gen(function* () {
         // Check if session exists
         const data = yield* loadSessionsFromFile()
-        if (!data.sessions[session.id]) {
-          return yield* Effect.fail(createGenerationSessionNotFoundError(session.id))
-        }
 
+        yield* pipe(
+          Effect.when(() => !data.sessions[session.id], {
+            onTrue: () => Effect.fail(createGenerationSessionNotFoundError(session.id)),
+            onFalse: () => Effect.void,
+          })
+        )
+
+        const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
         const updatedSession = {
           ...session,
-          lastActivityAt: new Date(),
+          lastActivityAt: now,
         }
 
         // Update cache
@@ -391,7 +504,7 @@ const makeGenerationSessionRepositoryPersistence = (
           },
           metadata: {
             ...data.metadata,
-            lastModified: new Date().toISOString(),
+            lastModified: now.toISOString(),
           },
         }
 
@@ -401,9 +514,13 @@ const makeGenerationSessionRepositoryPersistence = (
     const deleteSession = (sessionId: GenerationSessionId): Effect.Effect<void, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const data = yield* loadSessionsFromFile()
-        if (!data.sessions[sessionId]) {
-          return yield* Effect.fail(createGenerationSessionNotFoundError(sessionId))
-        }
+
+        yield* pipe(
+          Effect.when(() => !data.sessions[sessionId], {
+            onTrue: () => Effect.fail(createGenerationSessionNotFoundError(sessionId)),
+            onFalse: () => Effect.void,
+          })
+        )
 
         // Remove from cache
         yield* Ref.update(sessionCacheRef, (cache) => {
@@ -417,6 +534,7 @@ const makeGenerationSessionRepositoryPersistence = (
         const { [sessionId]: removedCheckpoints, ...remainingCheckpoints } = data.checkpoints
         const { [sessionId]: removedHistory, ...remainingHistory } = data.history
 
+        const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
         const updatedData: PersistenceSessionData = {
           sessions: remainingSessions,
           checkpoints: remainingCheckpoints,
@@ -424,7 +542,7 @@ const makeGenerationSessionRepositoryPersistence = (
           metadata: {
             ...data.metadata,
             sessionCount: Object.keys(remainingSessions).length,
-            lastModified: new Date().toISOString(),
+            lastModified: now.toISOString(),
           },
         }
 
@@ -435,24 +553,31 @@ const makeGenerationSessionRepositoryPersistence = (
       sessionIds: ReadonlyArray<GenerationSessionId>
     ): Effect.Effect<SessionBatchResult, AllRepositoryErrors> =>
       Effect.gen(function* () {
-        const successful: GenerationSessionId[] = []
-        const failed: { sessionId: GenerationSessionId; error: AllRepositoryErrors }[] = []
+        const results = yield* Effect.forEach(
+          sessionIds,
+          (sessionId) =>
+            pipe(
+              deleteSession(sessionId),
+              Effect.exit,
+              Effect.map((exit) => ({ sessionId, exit }))
+            ),
+          { concurrency: 'unbounded' }
+        )
 
-        for (const sessionId of sessionIds) {
-          try {
-            yield* deleteSession(sessionId)
-            successful.push(sessionId)
-          } catch (error) {
-            failed.push({
-              sessionId,
-              error: createRepositoryError(`Failed to delete session: ${error}`, 'deleteSessions', error),
-            })
-          }
-        }
+        const [successful, failed] = pipe(
+          results,
+          ReadonlyArray.partition(({ exit }) => exit._tag === 'Success')
+        )
 
         return {
-          successful,
-          failed,
+          successful: successful.map(({ sessionId }) => sessionId),
+          failed: failed.map(({ sessionId, exit }) => ({
+            sessionId,
+            error:
+              exit._tag === 'Failure'
+                ? exit.cause.failures[0] || createRepositoryError('Unknown error', 'deleteSessions', null)
+                : createRepositoryError('Unknown error', 'deleteSessions', null),
+          })),
           totalProcessed: sessionIds.length,
         }
       })
@@ -465,12 +590,14 @@ const makeGenerationSessionRepositoryPersistence = (
     ): Effect.Effect<void, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const sessionOpt = yield* findById(sessionId)
-        if (Option.isNone(sessionOpt)) {
-          return yield* Effect.fail(createGenerationSessionNotFoundError(sessionId))
-        }
-
-        const session = sessionOpt.value
-        const now = new Date()
+        const session = yield* pipe(
+          sessionOpt,
+          Option.match({
+            onNone: () => Effect.fail(createGenerationSessionNotFoundError(sessionId)),
+            onSome: (s) => Effect.succeed(s),
+          })
+        )
+        const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
         const updatedSession: GenerationSession = {
           ...session,
           state,
@@ -489,15 +616,18 @@ const makeGenerationSessionRepositoryPersistence = (
     ): Effect.Effect<void, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const sessionOpt = yield* findById(sessionId)
-        if (Option.isNone(sessionOpt)) {
-          return yield* Effect.fail(createGenerationSessionNotFoundError(sessionId))
-        }
-
-        const session = sessionOpt.value
+        const session = yield* pipe(
+          sessionOpt,
+          Option.match({
+            onNone: () => Effect.fail(createGenerationSessionNotFoundError(sessionId)),
+            onSome: (s) => Effect.succeed(s),
+          })
+        )
+        const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
         const updatedSession: GenerationSession = {
           ...session,
           progress: { ...session.progress, ...progress },
-          lastActivityAt: new Date(),
+          lastActivityAt: now,
         }
 
         yield* updateSession(updatedSession)
@@ -508,21 +638,26 @@ const makeGenerationSessionRepositoryPersistence = (
     const createCheckpoint = (sessionId: GenerationSessionId): Effect.Effect<string, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const sessionOpt = yield* findById(sessionId)
-        if (Option.isNone(sessionOpt)) {
-          return yield* Effect.fail(createGenerationSessionNotFoundError(sessionId))
-        }
+        const session = yield* pipe(
+          sessionOpt,
+          Option.match({
+            onNone: () => Effect.fail(createGenerationSessionNotFoundError(sessionId)),
+            onSome: (s) => Effect.succeed(s),
+          })
+        )
 
         yield* ensureDirectoryExists(checkpointPath)
 
-        const checkpointId = `checkpoint-${Date.now()}`
-        const session = sessionOpt.value
+        const timestamp = yield* Clock.currentTimeMillis
+        const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+        const checkpointId = `checkpoint-${timestamp}`
         const checkpointFile = path.join(checkpointPath, `${sessionId}-${checkpointId}.json`)
 
         const checkpointData = {
           checkpointId,
           sessionId,
           session,
-          createdAt: new Date().toISOString(),
+          createdAt: now.toISOString(),
           version: '1.0.0',
         }
 
@@ -546,19 +681,22 @@ const makeGenerationSessionRepositoryPersistence = (
         const checkpointFile = path.join(checkpointPath, `${sessionId}-${checkpointId}.json`)
         const exists = yield* fs.exists(checkpointFile)
 
-        if (!exists) {
-          return yield* Effect.fail(
-            createRepositoryError(`Checkpoint not found: ${checkpointId}`, 'restoreFromCheckpoint')
-          )
-        }
+        yield* pipe(
+          Effect.when(() => !exists, {
+            onTrue: () =>
+              Effect.fail(createRepositoryError(`Checkpoint not found: ${checkpointId}`, 'restoreFromCheckpoint')),
+            onFalse: () => Effect.void,
+          })
+        )
 
         const content = yield* fs.readFileString(checkpointFile)
         const decompressed = config.enableCompression ? yield* decompressData(content) : content
 
         const checkpointData = JSON.parse(decompressed)
+        const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
         const restoredSession: GenerationSession = {
           ...checkpointData.session,
-          lastActivityAt: new Date(),
+          lastActivityAt: now,
         }
 
         yield* updateSession(restoredSession)
@@ -627,13 +765,21 @@ const makeGenerationSessionRepositoryPersistence = (
 
     const count = (query?: Partial<SessionQuery>): Effect.Effect<number, AllRepositoryErrors> =>
       Effect.gen(function* () {
-        if (!query) {
-          const data = yield* loadSessionsFromFile()
-          return Object.keys(data.sessions).length
-        }
-
-        const sessions = yield* findByQuery(query as SessionQuery)
-        return sessions.length
+        return yield* pipe(
+          Option.fromNullable(query),
+          Option.match({
+            onNone: () =>
+              Effect.gen(function* () {
+                const data = yield* loadSessionsFromFile()
+                return Object.keys(data.sessions).length
+              }),
+            onSome: (q) =>
+              Effect.gen(function* () {
+                const sessions = yield* findByQuery(q as SessionQuery)
+                return sessions.length
+              }),
+          })
+        )
       })
 
     // === Mock implementations for remaining methods ===

@@ -85,7 +85,7 @@ export const CraftingEngineServiceLive = Layer.effect(
 
     const adjustSuccessRate: CraftingEngineService['adjustSuccessRate'] = (aggregate, delta) =>
       pipe(
-        Schema.decodeEffect(SuccessRateSchema)(aggregate.successRate + delta),
+        Schema.decode(SuccessRateSchema)(aggregate.successRate + delta),
         Effect.flatMap((rate) => updateSuccessRate(aggregate, rate))
       )
 

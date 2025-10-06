@@ -1,6 +1,5 @@
-import { Schema } from '@effect/schema'
 import { ParseResult } from '@effect/schema/ParseResult'
-import { Effect } from 'effect'
+import { Effect, Schema } from 'effect'
 import { GridCoordinateSchema } from '../types'
 
 export interface GridPosition {
@@ -9,4 +8,4 @@ export interface GridPosition {
 }
 
 export const create = (x: number, y: number): Effect.Effect<GridPosition, ParseResult.ParseError> =>
-  Schema.decodeEffect(GridCoordinateSchema)({ x, y })
+  Schema.decode(GridCoordinateSchema)({ x, y })

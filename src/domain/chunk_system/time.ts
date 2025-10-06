@@ -1,5 +1,4 @@
-import { Schema } from '@effect/schema'
-import { Clock, Duration, Effect, Match } from 'effect'
+import { Clock, Duration, Effect, Match, Schema } from 'effect'
 import { ChunkSystemError, EpochMilliseconds, EpochMillisecondsSchema } from './index'
 
 const decodeEpoch = (value: number) =>

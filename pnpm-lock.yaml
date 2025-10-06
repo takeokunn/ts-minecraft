@@ -23,6 +23,9 @@ importers:
       '@effect/schema':
         specifier: ^0.75.5
         version: 0.75.5(effect@3.18.2)
+      '@fp-ts/optic':
+        specifier: ^0.25.0
+        version: 0.25.0(@effect/typeclass@0.27.5(effect@3.18.2))(effect@3.18.2)
       '@types/react':
         specifier: ^19.2.0
         version: 19.2.0
@@ -232,6 +235,11 @@ packages:
     peerDependencies:
       effect: ^3.9.2
 
+  '@effect/typeclass@0.27.5':
+    resolution: {integrity: sha512-aJaxq9Rg6l8ZBLM/H6s1SAJwu0vuR80z/LgWCky1HIGtBG8H8tkTwi/vyEzRS1PxHYAe/DvOntmBLfmIkx8Cwg==}
+    peerDependencies:
+      effect: ^3.8.5
+
   '@effect/vitest@0.25.1':
     resolution: {integrity: sha512-OMYvOU8iGed8GZXxgVBXlYtjG+jwWj5cJxFk0hOHOfTbCHXtdCMEWlXNba5zxbE7dBnW4srbnSYrP/NGGTC3qQ==}
     peerDependencies:
@@ -393,6 +401,12 @@ packages:
     engines: {node: '>=18'}
     cpu: [x64]
     os: [win32]
+
+  '@fp-ts/optic@0.25.0':
+    resolution: {integrity: sha512-qEALuWspe+M+zOB7HnL1n6VVLTB2rRYhcgSWIBOJgIrCQcUpIsicgdLl1qN8VeuMvlE6EiCf3YFWDUmgnE7sAA==}
+    peerDependencies:
+      '@effect/typeclass': ^0.27.0
+      effect: ^3.8.0
 
   '@isaacs/balanced-match@4.0.1':
     resolution: {integrity: sha512-yzMTt9lEb8Gv7zRioUilSglI0c0smZ9k5D65677DLWLtWJaXIS3CqcGyUFByYKlnUj6TkjLVs54fBl6+TiGQDQ==}
@@ -1544,6 +1558,10 @@ snapshots:
       effect: 3.18.2
       fast-check: 3.23.2
 
+  '@effect/typeclass@0.27.5(effect@3.18.2)':
+    dependencies:
+      effect: 3.18.2
+
   '@effect/vitest@0.25.1(effect@3.18.2)(vitest@3.2.4)':
     dependencies:
       effect: 3.18.2
@@ -1626,6 +1644,11 @@ snapshots:
 
   '@esbuild/win32-x64@0.25.10':
     optional: true
+
+  '@fp-ts/optic@0.25.0(@effect/typeclass@0.27.5(effect@3.18.2))(effect@3.18.2)':
+    dependencies:
+      '@effect/typeclass': 0.27.5(effect@3.18.2)
+      effect: 3.18.2
 
   '@isaacs/balanced-match@4.0.1': {}
 

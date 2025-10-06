@@ -5,14 +5,10 @@
  * Minecraft互換の地形生成と数学的正確性を両立
  */
 
-import { Context, Effect, Layer, Schema } from 'effect'
 import { type GenerationError } from '@domain/world/types/errors'
-import type {
-  BoundingBox,
-  WorldCoordinate,
-  WorldCoordinate2D,
-} from '@domain/world/value_object/coordinates'
+import type { BoundingBox, WorldCoordinate, WorldCoordinate2D } from '@domain/world/value_object/coordinates'
 import type { WorldSeed } from '@domain/world/value_object/world_seed'
+import { Context, Effect, Layer, Schema } from 'effect'
 
 /**
  * 高度マップ - ワールド座標における高度データ
@@ -250,7 +246,7 @@ export const TerrainGeneratorServiceLive = Layer.effect(
           resolution: Math.ceil(Math.sqrt(constrainedHeights.length)),
           heights: chunkArray(constrainedHeights, Math.ceil(Math.sqrt(constrainedHeights.length))),
           metadata: {
-            generationTime: Date.now(),
+            generationTime: yield* Clock.currentTimeMillis,
             algorithm: 'procedural_noise',
             seed: BigInt(seed.toString()),
             noiseSettings: config.primaryNoise,
@@ -262,7 +258,7 @@ export const TerrainGeneratorServiceLive = Layer.effect(
 
     generateTerrain: (heightMap, config) =>
       Effect.gen(function* () {
-        const startTime = Date.now()
+        const startTime = yield* Clock.currentTimeMillis
 
         // 1. レイヤー配置の計算
         const layerPlacements = yield* placeLayers(heightMap, config.layers, config)
@@ -276,7 +272,7 @@ export const TerrainGeneratorServiceLive = Layer.effect(
         // 4. 統計情報の計算
         const statistics = {
           totalBlocks: blockPlacements.length + surfacePlacements.length,
-          generationTime: Date.now() - startTime,
+          generationTime: yield* Clock.currentTimeMillis,
           memoryUsed: estimateMemoryUsage(blockPlacements, surfacePlacements),
           layerCounts: calculateLayerCounts(blockPlacements, surfacePlacements),
         }

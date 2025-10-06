@@ -5,9 +5,9 @@
  * キャリング・キャパシティと競争原理に基づく実装
  */
 
+import { taggedUnion } from '@domain/world/utils'
 import type { Brand as BrandType } from 'effect'
 import { Schema } from 'effect'
-import { taggedUnion } from '@domain/world/utils'
 
 /**
  * 植生密度Brand型（0.0から1.0）

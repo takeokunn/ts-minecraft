@@ -3,7 +3,7 @@
 // 後方互換性のために一時的に保持していますが、新しいコードでは types/index.js を使用してください
 // ========================================
 
-import { Schema } from '@effect/schema'
+import { Schema } from 'effect'
 
 // 新しい types/ ディレクトリからの再エクスポート
 export type {

@@ -6,7 +6,7 @@
  */
 
 // Service Interface and Implementation
-export { BatchTransferError, TransferError, TransferService, TransferServiceLive } from './index'
+export { BatchTransferError, TransferError, TransferService, TransferServiceLive } from './service'
 export type {
   BatchTransferRequest,
   OptimizedTransferOptions,
@@ -14,12 +14,13 @@ export type {
   TransferRequest,
   TransferResult,
   TransferabilityDetails,
-} from './index'
+} from './service'
 
 // Live Implementation
-export { TransferServiceLive } from './index'
+export { TransferServiceLive } from './live'
 
 // Specifications
+export * from './service'
 export {
   CanTransferSpecification,
   SourceItemExistsSpecification,
@@ -28,8 +29,5 @@ export {
   ValidItemCountSpecification,
   ValidSlotSpecification,
   analyzeTransferability,
-} from './index'
-export type { TransferSpecification } from './index'
-export * from './index';
-export * from './index';
-export * from './service';
+} from './service'
+export type { TransferSpecification } from './service'

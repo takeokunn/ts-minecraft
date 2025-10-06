@@ -5,7 +5,7 @@
  * 既存のInventoryQueryベースで実装
  */
 
-import { Effect } from 'effect'
+import { Clock, Effect } from 'effect'
 import type { InventoryQuery, QueryResult } from '../../types'
 import type { InventoryApplicationError } from '../types'
 
@@ -24,54 +24,14 @@ export interface InventoryQueryHandlers {
  * インベントリクエリ処理の実装
  * 基本的なインベントリ検索をサポート
  */
-export const handleInventoryQuery = (query: InventoryQuery): Effect.Effect<QueryResult, InventoryApplicationError> => {
-  // 簡略実装：基本的なクエリ結果を返す
-  const result: QueryResult = {
-    queryId: query.queryId,
-    executionTime: 0,
-    success: true,
-    timestamp: Date.now(),
-  }
-  return Effect.succeed(result)
-}
-
-/**
- * インベントリ取得のシミュレーション
- */
-export const handleGetInventory = (query: InventoryQuery): Effect.Effect<QueryResult, InventoryApplicationError> => {
-  const result: QueryResult = {
-    queryId: query.queryId,
-    executionTime: 5,
-    success: true,
-    timestamp: Date.now(),
-  }
-  return Effect.succeed(result)
-}
-
-/**
- * アイテム検索のシミュレーション
- */
-export const handleFindItems = (query: InventoryQuery): Effect.Effect<QueryResult, InventoryApplicationError> => {
-  const result: QueryResult = {
-    queryId: query.queryId,
-    executionTime: 10,
-    success: true,
-    timestamp: Date.now(),
-  }
-  return Effect.succeed(result)
-}
-
-/**
- * インベントリ統計取得のシミュレーション
- */
-export const handleGetInventoryStats = (
-  query: InventoryQuery
-): Effect.Effect<QueryResult, InventoryApplicationError> => {
-  const result: QueryResult = {
-    queryId: query.queryId,
-    executionTime: 8,
-    success: true,
-    timestamp: Date.now(),
-  }
-  return Effect.succeed(result)
-}
+export const handleInventoryQuery = (query: InventoryQuery): Effect.Effect<QueryResult, InventoryApplicationError> =>
+  Effect.gen(function* () {
+    const now = yield* Clock.currentTimeMillis
+    const result: QueryResult = {
+      queryId: query.queryId,
+      executionTime: 0,
+      success: true,
+      timestamp: now,
+    }
+    return result
+  })

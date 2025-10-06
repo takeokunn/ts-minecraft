@@ -1,6 +1,5 @@
-import { Schema } from '@effect/schema'
 import { describe, expect, it } from '@effect/vitest'
-import { Effect } from 'effect'
+import { Effect, Schema } from 'effect'
 import { EquipmentSlotSchema, allSlots, ensureSlotAllowed, getSlotCategory } from './slot'
 
 describe('equipment/value_object/slot', () => {

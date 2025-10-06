@@ -1,9 +1,9 @@
 import type { BlockTypeId } from '@domain/core/types/brands'
+import type { AABB } from '@domain/physics/types'
 import { it as effectIt, it } from '@effect/vitest'
 import { Effect, Match, pipe } from 'effect'
 import { describe, expect } from 'vitest'
 import { CollisionDetection } from '../system/collision_detection'
-import type { AABB } from '@domain/physics/types'
 
 describe('CollisionDetection', () => {
   const createAABB = (minX: number, minY: number, minZ: number, maxX: number, maxY: number, maxZ: number): AABB =>

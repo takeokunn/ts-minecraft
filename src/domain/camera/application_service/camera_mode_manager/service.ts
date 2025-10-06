@@ -1,5 +1,5 @@
-import { Array, Context, Effect, Option } from 'effect'
 import type { CameraId, ViewMode } from '@domain/camera/types'
+import { Array, Context, Effect, Option } from 'effect'
 import type {
   CameraModeManagerApplicationError,
   CameraModeSwitchOperation,

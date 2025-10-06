@@ -1,11 +1,11 @@
+import { epochMillis, physicsWorldId, vector3 } from '@domain/physics/types/core'
+import { PhysicsError } from '@domain/physics/types/errors'
 import { describe, expect, it } from '@effect/vitest'
 import { Effect } from 'effect'
-import { EpochMillis, PhysicsWorldId, Vector3 } from '@domain/physics/types/core'
-import { PhysicsError } from '@domain/physics/types/errors'
 import { RigidBodyFactory } from '../rigid_body_factory'
 
-const staticVector = Vector3({ x: 0, y: 10, z: 0 })
-const defaultWorld = PhysicsWorldId('world-12345678')
+const staticVector = vector3({ x: 0, y: 10, z: 0 })
+const defaultWorld = physicsWorldId('world-12345678')
 
 const run = <A>(effect: Effect.Effect<A>) => Effect.runSync(effect)
 
@@ -31,7 +31,7 @@ describe('RigidBodyFactory', () => {
     expect(body.restitution).toBeLessThanOrEqual(1)
     expect(body.friction).toBeGreaterThanOrEqual(0)
     expect(body.friction).toBeLessThanOrEqual(1)
-    expect(body.createdAt).toBeGreaterThanOrEqual(EpochMillis(0))
+    expect(body.createdAt).toBeGreaterThanOrEqual(epochMillis(0))
     expect(body.updatedAt).toBeGreaterThanOrEqual(body.createdAt)
   })
 
@@ -45,7 +45,7 @@ describe('RigidBodyFactory', () => {
         mass: 0.5,
         friction: 0.1,
         restitution: 0.9,
-        position: Vector3({ x: 1, y: 2, z: 3 }),
+        position: vector3({ x: 1, y: 2, z: 3 }),
       })
     )
 
@@ -60,12 +60,12 @@ describe('RigidBodyFactory', () => {
         bodyType: 'static',
         material: 'stone',
         mass: 1000,
-        position: Vector3({ x: -3, y: 0, z: 4 }),
+        position: vector3({ x: -3, y: 0, z: 4 }),
       })
     )
 
     expect(heavyBody.mass).toBeCloseTo(1000)
-    expect(heavyBody.motion.velocity).toEqual(Vector3({ x: 0, y: 0, z: 0 }))
+    expect(heavyBody.motion.velocity).toEqual(vector3({ x: 0, y: 0, z: 0 }))
   })
 
   it('fails when mass is invalid', () => {

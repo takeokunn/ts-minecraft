@@ -1,1 +1,1 @@
-export * from './index'
+export * from './repository_error'

@@ -13,4 +13,4 @@ export {
   type OptimizationMetrics,
   type OptimizationResult,
   type OptimizationStrategy,
-} from './index'
+} from './service'

@@ -2,20 +2,14 @@
  * World Validation Domain Services
  */
 
-export * from './index'
-export * from './index'
-export * from './index'
+export * from './consistency_checker'
+export * from './constraint_enforcer'
+export * from './generation_validator'
+export * from './layer'
 
-import { Layer } from 'effect'
-import { ConsistencyCheckerService, ConsistencyCheckerServiceLive } from './index'
-import { ConstraintEnforcerService, ConstraintEnforcerServiceLive } from './index'
-import { GenerationValidatorService, GenerationValidatorServiceLive } from './index'
-
-export const WorldValidationLayer = Layer.mergeAll(
-  ConsistencyCheckerServiceLive,
-  GenerationValidatorServiceLive,
-  ConstraintEnforcerServiceLive
-)
+import { ConsistencyCheckerService } from './consistency_checker'
+import { ConstraintEnforcerService } from './constraint_enforcer'
+import { GenerationValidatorService } from './generation_validator'
 
 export const WorldValidationServices = {
   ConsistencyChecker: ConsistencyCheckerService,

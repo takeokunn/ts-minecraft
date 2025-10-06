@@ -6,27 +6,27 @@
  */
 
 // Service Interface & Context Tag
-export { CameraControlService } from './index'
+export { CameraControlService } from './service'
 export type {
   BoundingBox,
   CameraControlService as CameraControlServiceInterface,
   PositionConstraints,
   SphericalCoordinate,
   ViewBounds,
-} from './index'
+} from './service'
 
 // Live Implementation
-export { CameraControlServiceLive } from './index'
+export { CameraControlServiceLive } from './live'
 
 /**
  * 統合エクスポート - 便利な再エクスポート
  */
 
 // よく使用される型の再エクスポート
-export type { CameraControlService as CameraControl } from './index'
+export type { CameraControlService as CameraControl } from './service'
 
 // サービスタグの別名エクスポート
-export { CameraControlService as CameraControlTag } from './index'
+export { CameraControlService as CameraControlTag } from './service'
 
 /**
  * 使用例:
@@ -45,4 +45,3 @@ export { CameraControlService as CameraControlTag } from './index'
  * })
  * ```
  */
-export * from './index';

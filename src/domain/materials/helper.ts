@@ -1,5 +1,4 @@
-import { Schema } from '@effect/schema'
-import { Either, HashMap, Match, Option, pipe } from 'effect'
+import { Either, HashMap, Match, Option, Schema, pipe } from 'effect'
 import { materialByBlockId } from './catalog'
 import {
   BlockId,

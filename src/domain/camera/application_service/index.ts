@@ -20,8 +20,8 @@ export type { PlayerCameraApplicationService } from './player_camera/index'
 
 export type {
   CameraApplicationError,
-  KeyboardAction,
   KeyModifier,
+  KeyboardAction,
   PerformanceMetrics,
   PlayerCameraInput,
   PlayerCameraSettingsUpdate,
@@ -123,24 +123,7 @@ export type {
 // Layer Integration
 // ========================================
 
-import { Layer } from 'effect'
-import { PlayerCameraApplicationServiceLive } from './player_camera/index'
-import { SceneCameraApplicationServiceLive } from './scene_camera/index'
-import { CameraModeManagerApplicationServiceLive } from './camera_mode_manager/index'
-import { CameraSystemOrchestratorServiceLive } from './camera_system_orchestrator/index'
-
-/**
- * 全Camera Application Serviceの統合Layer
- *
- * 4つのApplication Serviceを統合した単一のLayerを提供します。
- * この統合Layerにより、カメラドメインの全ユースケースが利用可能になります。
- */
-export const CameraApplicationServicesLayer = Layer.mergeAll(
-  PlayerCameraApplicationServiceLive,
-  SceneCameraApplicationServiceLive,
-  CameraModeManagerApplicationServiceLive,
-  CameraSystemOrchestratorServiceLive
-)
+export * from './layer'
 
 // ========================================
 // Module Information

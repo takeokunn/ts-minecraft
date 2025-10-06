@@ -2,8 +2,8 @@
  * Statistical Analyzer Service - 統計解析ドメインサービス
  */
 
-import { Context, Effect, Layer } from 'effect'
 import type { GenerationError } from '@domain/world/types/errors'
+import { Context, Effect, Layer } from 'effect'
 
 export interface StatisticalAnalyzerService {
   readonly calculateMean: (values: ReadonlyArray<number>) => Effect.Effect<number, GenerationError>

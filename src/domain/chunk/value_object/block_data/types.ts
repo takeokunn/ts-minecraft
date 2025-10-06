@@ -1,5 +1,4 @@
-import { Schema } from '@effect/schema'
-import { Brand, Data } from 'effect'
+import { Brand, Data, Schema } from 'effect'
 
 /**
  * ブロックIDの値オブジェクト

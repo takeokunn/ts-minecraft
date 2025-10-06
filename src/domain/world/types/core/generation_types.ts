@@ -3,8 +3,8 @@
  * 世界生成システムの基本型定義
  */
 
-import { Brand, Schema } from 'effect'
 import { uuid } from '@domain/world/utils'
+import { Brand, Schema } from 'effect'
 import { GENERATION_CONSTANTS } from '../constants'
 import { ChunkPosition, Vector3D, WorldSeed } from './index'
 
@@ -252,7 +252,7 @@ export const ChunkGenerationResultSchema = Schema.Struct({
   chunkPosition: Schema.suspend(() => import('./index').then((m) => m.ChunkPositionSchema)),
   stages: Schema.Array(GenerationStageProgressSchema),
   heightMap: HeightMapSchema,
-  biomeData: BiomeGenerationDataSchema,
+  biomeData: Schema.suspend(() => BiomeGenerationDataSchema),
   generationTime: Schema.Number.pipe(Schema.nonNegative()),
   memoryUsage: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
   success: Schema.Boolean,
@@ -341,7 +341,7 @@ export const StructureInfoSchema = Schema.Struct({
   type: StructureTypeSchema,
   position: Schema.suspend(() => import('./index').then((m) => m.Vector3DSchema)),
   rotation: Schema.Number.pipe(Schema.between(0, 360)),
-  boundingBox: BoundingBoxSchema,
+  boundingBox: Schema.suspend(() => BoundingBoxSchema),
   variant: Schema.optional(Schema.String),
   seed: Schema.Number.pipe(Schema.int()),
 }).pipe(

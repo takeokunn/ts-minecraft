@@ -70,28 +70,7 @@ export {
  *
  * 全てのカメラドメインサービスを統合したLayerを提供
  */
-import { Layer } from 'effect'
-import {
-  AnimationEngineServiceLive,
-  CameraControlServiceLive,
-  CollisionDetectionServiceLive,
-  SettingsValidatorServiceLive,
-  ViewModeManagerServiceLive,
-} from './camera_control'
-
-/**
- * 全カメラドメインサービスの統合Layer
- *
- * この単一のLayerを提供することで、すべてのカメラ
- * ドメインサービスを一度に利用可能にします。
- */
-export const CameraDomainServicesLayer = Layer.mergeAll(
-  CameraControlServiceLive,
-  AnimationEngineServiceLive,
-  CollisionDetectionServiceLive,
-  SettingsValidatorServiceLive,
-  ViewModeManagerServiceLive
-)
+export * from './layer'
 
 /**
  * 主要なドメインサービス型の再エクスポート

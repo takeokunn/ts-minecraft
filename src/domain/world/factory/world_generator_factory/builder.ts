@@ -12,21 +12,20 @@
  * - エラーハンドリングの一元化
  */
 
-import { Effect, Function, Match } from 'effect'
 import type * as WorldGenerator from '@domain/world/aggregate/world_generator'
 import * as BiomeProperties from '@domain/world/value_object/biome_properties/index'
 import * as GenerationParameters from '@domain/world/value_object/generation_parameters/index'
 import * as NoiseConfiguration from '@domain/world/value_object/noise_configuration/index'
 import * as WorldSeed from '@domain/world/value_object/world_seed/index'
+import { Effect } from 'effect'
 import type { CreateWorldGeneratorParams, FactoryError, PresetType } from './index'
 
 // ================================
-// Builder State Management
+// Deprecated Types (Use builder_state.ts)
 // ================================
 
 /**
- * Builder状態インターフェース
- * 各設定段階での型安全性を保証
+ * @deprecated Use WorldGeneratorBuilderState from builder_state.ts
  */
 interface BuilderState {
   readonly seed?: WorldSeed.WorldSeed
@@ -44,7 +43,7 @@ interface BuilderState {
 }
 
 /**
- * Builder検証状態
+ * @deprecated Use ValidationState from builder_state.ts
  */
 interface ValidationState {
   readonly isValid: boolean
@@ -123,349 +122,227 @@ export interface WorldGeneratorBuilder {
 }
 
 // ================================
-// Builder Implementation
+// Deprecated Class Implementation
 // ================================
 
+/**
+ * @deprecated Use builder_functions.ts with pipe pattern instead
+ *
+ * This class is kept for backward compatibility but will be removed in future versions.
+ * Migration example:
+ *
+ * Before:
+ *   const generator = createBuilder().withSeed(seed).withParams(params).build()
+ *
+ * After:
+ *   const generator = pipe(
+ *     initialWorldGeneratorBuilderState,
+ *     (state) => withSeed(state, seed),
+ *     (state) => withParameters(state, params),
+ *     buildWorldGenerator
+ *   )
+ */
 class WorldGeneratorBuilderImpl implements WorldGeneratorBuilder {
   constructor(private readonly state: BuilderState = {}) {}
 
-  // 基本設定
-  withSeed(seed: WorldSeed.WorldSeed | string | number): WorldGeneratorBuilder {
-    const resolvedSeed = Function.pipe(
-      Match.type<WorldSeed.WorldSeed | string | number>(),
-      Match.when(Match.string, (s) => WorldSeed.createFromString(s)),
-      Match.when(Match.number, (n) => WorldSeed.createFromNumber(n)),
-      Match.orElse((seed) => seed as WorldSeed.WorldSeed)
-    )(seed)
-
-    return new WorldGeneratorBuilderImpl({
-      ...this.state,
-      seed: resolvedSeed,
-    })
+  withSeed(): WorldGeneratorBuilder {
+    throw new Error(
+      'WorldGeneratorBuilderImpl is deprecated. Use builder_functions.ts with pipe pattern. See builder.ts for migration example.'
+    )
   }
 
   withRandomSeed(): WorldGeneratorBuilder {
-    return new WorldGeneratorBuilderImpl({
-      ...this.state,
-      seed: WorldSeed.createRandom(),
-    })
+    throw new Error(
+      'WorldGeneratorBuilderImpl is deprecated. Use builder_functions.ts with pipe pattern. See builder.ts for migration example.'
+    )
   }
 
-  // 生成パラメータ設定
-  withParameters(parameters: GenerationParameters.GenerationParameters): WorldGeneratorBuilder {
-    return new WorldGeneratorBuilderImpl({
-      ...this.state,
-      parameters,
-    })
+  withParameters(): WorldGeneratorBuilder {
+    throw new Error(
+      'WorldGeneratorBuilderImpl is deprecated. Use builder_functions.ts with pipe pattern. See builder.ts for migration example.'
+    )
   }
 
   withDefaultParameters(): WorldGeneratorBuilder {
-    return new WorldGeneratorBuilderImpl({
-      ...this.state,
-      parameters: GenerationParameters.createDefault(),
-    })
+    throw new Error(
+      'WorldGeneratorBuilderImpl is deprecated. Use builder_functions.ts with pipe pattern. See builder.ts for migration example.'
+    )
   }
 
-  // バイオーム設定
-  withBiomeConfig(config: BiomeProperties.BiomeConfiguration): WorldGeneratorBuilder {
-    return new WorldGeneratorBuilderImpl({
-      ...this.state,
-      biomeConfig: config,
-    })
+  withBiomeConfig(): WorldGeneratorBuilder {
+    throw new Error(
+      'WorldGeneratorBuilderImpl is deprecated. Use builder_functions.ts with pipe pattern. See builder.ts for migration example.'
+    )
   }
 
   withDefaultBiomes(): WorldGeneratorBuilder {
-    return new WorldGeneratorBuilderImpl({
-      ...this.state,
-      biomeConfig: BiomeProperties.createDefaultConfiguration(),
-    })
+    throw new Error(
+      'WorldGeneratorBuilderImpl is deprecated. Use builder_functions.ts with pipe pattern. See builder.ts for migration example.'
+    )
   }
 
-  // ノイズ設定
-  withNoiseConfig(config: NoiseConfiguration.NoiseConfiguration): WorldGeneratorBuilder {
-    return new WorldGeneratorBuilderImpl({
-      ...this.state,
-      noiseConfig: config,
-    })
+  withNoiseConfig(): WorldGeneratorBuilder {
+    throw new Error(
+      'WorldGeneratorBuilderImpl is deprecated. Use builder_functions.ts with pipe pattern. See builder.ts for migration example.'
+    )
   }
 
   withDefaultNoise(): WorldGeneratorBuilder {
-    return new WorldGeneratorBuilderImpl({
-      ...this.state,
-      noiseConfig: NoiseConfiguration.createDefault(),
-    })
-  }
-
-  // パフォーマンス設定
-  withMaxConcurrentGenerations(count: number): WorldGeneratorBuilder {
-    return new WorldGeneratorBuilderImpl({
-      ...this.state,
-      maxConcurrentGenerations: Math.max(1, Math.min(16, count)),
-    })
-  }
-
-  withCacheSize(size: number): WorldGeneratorBuilder {
-    return new WorldGeneratorBuilderImpl({
-      ...this.state,
-      cacheSize: Math.max(100, Math.min(10000, size)),
-    })
-  }
-
-  // 機能設定
-  enableStructures(enable = true): WorldGeneratorBuilder {
-    return new WorldGeneratorBuilderImpl({
-      ...this.state,
-      enableStructures: enable,
-    })
-  }
-
-  enableCaves(enable = true): WorldGeneratorBuilder {
-    return new WorldGeneratorBuilderImpl({
-      ...this.state,
-      enableCaves: enable,
-    })
-  }
-
-  enableOres(enable = true): WorldGeneratorBuilder {
-    return new WorldGeneratorBuilderImpl({
-      ...this.state,
-      enableOres: enable,
-    })
-  }
-
-  // 品質設定
-  withQualityLevel(level: 'fast' | 'balanced' | 'quality'): WorldGeneratorBuilder {
-    return new WorldGeneratorBuilderImpl({
-      ...this.state,
-      qualityLevel: level,
-    })
-  }
-
-  // デバッグ設定
-  enableDebugMode(enable = true): WorldGeneratorBuilder {
-    return new WorldGeneratorBuilderImpl({
-      ...this.state,
-      enableDebugMode: enable,
-    })
-  }
-
-  withLogLevel(level: 'error' | 'warn' | 'info' | 'debug'): WorldGeneratorBuilder {
-    return new WorldGeneratorBuilderImpl({
-      ...this.state,
-      logLevel: level,
-    })
-  }
-
-  // プリセット適用
-  applyPreset(preset: PresetType): WorldGeneratorBuilder {
-    const presetConfig = Function.pipe(
-      Match.value(preset),
-      Match.when('default', () => this.optimizeForBalance()),
-      Match.when('survival', () => this.optimizeForQuality()),
-      Match.when('creative', () => this.optimizeForPerformance().enableStructures(false)),
-      Match.when('peaceful', () => this.optimizeForBalance().enableStructures(false)),
-      Match.when('hardcore', () => this.optimizeForQuality().withMaxConcurrentGenerations(1)),
-      Match.when('superflat', () => this.optimizeForPerformance().disableAllFeatures()),
-      Match.when('amplified', () => this.optimizeForQuality()),
-      Match.when('debug', () => this.optimizeForDevelopment()),
-      Match.when('custom', () => this),
-      Match.when('experimental', () => this.optimizeForQuality().enableDebugMode()),
-      Match.orElse(() => this)
+    throw new Error(
+      'WorldGeneratorBuilderImpl is deprecated. Use builder_functions.ts with pipe pattern. See builder.ts for migration example.'
     )
-
-    return presetConfig
   }
 
-  // 高レベル設定
+  withMaxConcurrentGenerations(): WorldGeneratorBuilder {
+    throw new Error(
+      'WorldGeneratorBuilderImpl is deprecated. Use builder_functions.ts with pipe pattern. See builder.ts for migration example.'
+    )
+  }
+
+  withCacheSize(): WorldGeneratorBuilder {
+    throw new Error(
+      'WorldGeneratorBuilderImpl is deprecated. Use builder_functions.ts with pipe pattern. See builder.ts for migration example.'
+    )
+  }
+
+  enableStructures(): WorldGeneratorBuilder {
+    throw new Error(
+      'WorldGeneratorBuilderImpl is deprecated. Use builder_functions.ts with pipe pattern. See builder.ts for migration example.'
+    )
+  }
+
+  enableCaves(): WorldGeneratorBuilder {
+    throw new Error(
+      'WorldGeneratorBuilderImpl is deprecated. Use builder_functions.ts with pipe pattern. See builder.ts for migration example.'
+    )
+  }
+
+  enableOres(): WorldGeneratorBuilder {
+    throw new Error(
+      'WorldGeneratorBuilderImpl is deprecated. Use builder_functions.ts with pipe pattern. See builder.ts for migration example.'
+    )
+  }
+
+  withQualityLevel(): WorldGeneratorBuilder {
+    throw new Error(
+      'WorldGeneratorBuilderImpl is deprecated. Use builder_functions.ts with pipe pattern. See builder.ts for migration example.'
+    )
+  }
+
+  enableDebugMode(): WorldGeneratorBuilder {
+    throw new Error(
+      'WorldGeneratorBuilderImpl is deprecated. Use builder_functions.ts with pipe pattern. See builder.ts for migration example.'
+    )
+  }
+
+  withLogLevel(): WorldGeneratorBuilder {
+    throw new Error(
+      'WorldGeneratorBuilderImpl is deprecated. Use builder_functions.ts with pipe pattern. See builder.ts for migration example.'
+    )
+  }
+
+  applyPreset(): WorldGeneratorBuilder {
+    throw new Error(
+      'WorldGeneratorBuilderImpl is deprecated. Use builder_functions.ts with pipe pattern. See builder.ts for migration example.'
+    )
+  }
+
   optimizeForPerformance(): WorldGeneratorBuilder {
-    return new WorldGeneratorBuilderImpl({
-      ...this.state,
-      qualityLevel: 'fast',
-      maxConcurrentGenerations: 8,
-      cacheSize: 2000,
-      enableDebugMode: false,
-    })
+    throw new Error(
+      'WorldGeneratorBuilderImpl is deprecated. Use builder_functions.ts with pipe pattern. See builder.ts for migration example.'
+    )
   }
 
   optimizeForQuality(): WorldGeneratorBuilder {
-    return new WorldGeneratorBuilderImpl({
-      ...this.state,
-      qualityLevel: 'quality',
-      maxConcurrentGenerations: 2,
-      cacheSize: 5000,
-      enableDebugMode: false,
-    })
+    throw new Error(
+      'WorldGeneratorBuilderImpl is deprecated. Use builder_functions.ts with pipe pattern. See builder.ts for migration example.'
+    )
   }
 
   optimizeForDevelopment(): WorldGeneratorBuilder {
-    return new WorldGeneratorBuilderImpl({
-      ...this.state,
-      qualityLevel: 'fast',
-      maxConcurrentGenerations: 4,
-      cacheSize: 1000,
-      enableDebugMode: true,
-      logLevel: 'debug',
-    })
+    throw new Error(
+      'WorldGeneratorBuilderImpl is deprecated. Use builder_functions.ts with pipe pattern. See builder.ts for migration example.'
+    )
   }
 
-  // 内部ヘルパー
-  private optimizeForBalance(): WorldGeneratorBuilder {
-    return new WorldGeneratorBuilderImpl({
-      ...this.state,
-      qualityLevel: 'balanced',
-      maxConcurrentGenerations: 4,
-      cacheSize: 1000,
-      enableDebugMode: false,
-    })
+  when(): WorldGeneratorBuilder {
+    throw new Error(
+      'WorldGeneratorBuilderImpl is deprecated. Use builder_functions.ts with pipe pattern. See builder.ts for migration example.'
+    )
   }
 
-  private disableAllFeatures(): WorldGeneratorBuilder {
-    return new WorldGeneratorBuilderImpl({
-      ...this.state,
-      enableStructures: false,
-      enableCaves: false,
-      enableOres: false,
-    })
+  unless(): WorldGeneratorBuilder {
+    throw new Error(
+      'WorldGeneratorBuilderImpl is deprecated. Use builder_functions.ts with pipe pattern. See builder.ts for migration example.'
+    )
   }
 
-  // 条件設定
-  when(
-    condition: boolean,
-    configureFn: (builder: WorldGeneratorBuilder) => WorldGeneratorBuilder
-  ): WorldGeneratorBuilder {
-    return condition ? configureFn(this) : this
-  }
-
-  unless(
-    condition: boolean,
-    configureFn: (builder: WorldGeneratorBuilder) => WorldGeneratorBuilder
-  ): WorldGeneratorBuilder {
-    return !condition ? configureFn(this) : this
-  }
-
-  // 検証
   validate(): Effect.Effect<ValidationState, FactoryError> {
-    return Effect.gen(
-      function* () {
-        const errors: string[] = []
-        const warnings: string[] = []
-
-        // 必須設定のチェック
-        if (!this.state.seed) {
-          warnings.push('No seed specified, random seed will be generated')
-        }
-
-        // パフォーマンス設定の妥当性チェック
-        if (this.state.maxConcurrentGenerations && this.state.maxConcurrentGenerations > 8) {
-          warnings.push('High concurrent generation count may impact performance')
-        }
-
-        if (this.state.cacheSize && this.state.cacheSize > 5000) {
-          warnings.push('Large cache size may consume significant memory')
-        }
-
-        // 設定の整合性チェック
-        if (this.state.qualityLevel === 'fast' && this.state.maxConcurrentGenerations === 1) {
-          warnings.push('Fast quality with single thread may not be optimal')
-        }
-
-        return {
-          isValid: errors.length === 0,
-          errors,
-          warnings,
-        }
-      }.bind(this)
+    throw new Error(
+      'WorldGeneratorBuilderImpl is deprecated. Use builder_functions.ts with pipe pattern. See builder.ts for migration example.'
     )
   }
 
   isValid(): Effect.Effect<boolean, FactoryError> {
-    return Effect.map(this.validate(), (state) => state.isValid)
+    throw new Error(
+      'WorldGeneratorBuilderImpl is deprecated. Use builder_functions.ts with pipe pattern. See builder.ts for migration example.'
+    )
   }
 
-  // 構築
   build(): Effect.Effect<WorldGenerator.WorldGenerator, FactoryError> {
-    return Effect.gen(
-      function* () {
-        // 検証
-        const validation = yield* this.validate()
-        if (!validation.isValid) {
-          return yield* Effect.fail(
-            new FactoryError({
-              category: 'parameter_validation',
-              message: `Builder validation failed: ${validation.errors.join(', ')}`,
-            })
-          )
-        }
-
-        // パラメータ構築
-        const params = yield* this.buildParams()
-
-        // ファクトリを使用してWorldGenerator作成
-        const { WorldGeneratorFactoryTag } = await import('@domain/world/factory.js')
-        const factory = yield* Effect.service(WorldGeneratorFactoryTag)
-
-        return yield* factory.create(params)
-      }.bind(this)
+    throw new Error(
+      'WorldGeneratorBuilderImpl is deprecated. Use builder_functions.ts with pipe pattern. See builder.ts for migration example.'
     )
   }
 
   buildWithDefaults(): Effect.Effect<WorldGenerator.WorldGenerator, FactoryError> {
-    return this.withRandomSeed()
-      .withDefaultParameters()
-      .withDefaultBiomes()
-      .withDefaultNoise()
-      .optimizeForBalance()
-      .build()
+    throw new Error(
+      'WorldGeneratorBuilderImpl is deprecated. Use builder_functions.ts with pipe pattern. See builder.ts for migration example.'
+    )
   }
 
   buildParams(): Effect.Effect<CreateWorldGeneratorParams, FactoryError> {
-    return Effect.succeed({
-      seed: this.state.seed,
-      parameters: this.state.parameters,
-      biomeConfig: this.state.biomeConfig,
-      noiseConfig: this.state.noiseConfig,
-      maxConcurrentGenerations: this.state.maxConcurrentGenerations,
-      cacheSize: this.state.cacheSize,
-      enableStructures: this.state.enableStructures,
-      enableCaves: this.state.enableCaves,
-      enableOres: this.state.enableOres,
-      qualityLevel: this.state.qualityLevel,
-      enableDebugMode: this.state.enableDebugMode,
-      logLevel: this.state.logLevel,
-    })
+    throw new Error(
+      'WorldGeneratorBuilderImpl is deprecated. Use builder_functions.ts with pipe pattern. See builder.ts for migration example.'
+    )
   }
 
-  // 状態管理
   getState(): BuilderState {
-    return { ...this.state }
+    throw new Error(
+      'WorldGeneratorBuilderImpl is deprecated. Use builder_functions.ts with pipe pattern. See builder.ts for migration example.'
+    )
   }
 
   clone(): WorldGeneratorBuilder {
-    return new WorldGeneratorBuilderImpl({ ...this.state })
+    throw new Error(
+      'WorldGeneratorBuilderImpl is deprecated. Use builder_functions.ts with pipe pattern. See builder.ts for migration example.'
+    )
   }
 
   reset(): WorldGeneratorBuilder {
-    return new WorldGeneratorBuilderImpl({})
+    throw new Error(
+      'WorldGeneratorBuilderImpl is deprecated. Use builder_functions.ts with pipe pattern. See builder.ts for migration example.'
+    )
   }
 }
 
 // ================================
-// Factory Functions
+// Deprecated Factory Functions
 // ================================
 
 /**
- * 新しいWorldGeneratorBuilder作成
+ * @deprecated Use builder_functions.ts with initialWorldGeneratorBuilderState instead
  */
 export const createBuilder = (): WorldGeneratorBuilder => new WorldGeneratorBuilderImpl()
 
 /**
- * 既存設定から新しいBuilder作成
+ * @deprecated Use builder_functions.ts with initialWorldGeneratorBuilderState and spread params instead
  */
 export const createBuilderFromParams = (params: CreateWorldGeneratorParams): WorldGeneratorBuilder =>
   new WorldGeneratorBuilderImpl(params)
 
 /**
- * 既存WorldGeneratorから新しいBuilder作成
+ * @deprecated Use builder_functions.ts with initialWorldGeneratorBuilderState and spread generator.context instead
  */
 export const createBuilderFromGenerator = (generator: WorldGenerator.WorldGenerator): WorldGeneratorBuilder =>
   new WorldGeneratorBuilderImpl({
@@ -476,35 +353,35 @@ export const createBuilderFromGenerator = (generator: WorldGenerator.WorldGenera
   })
 
 /**
- * プリセットから事前設定されたBuilder作成
+ * @deprecated Use applyPreset function from builder_functions.ts instead
  */
 export const createBuilderFromPreset = (preset: PresetType): WorldGeneratorBuilder =>
   createBuilder().applyPreset(preset)
 
 // ================================
-// Common Builder Patterns
+// Deprecated Common Builder Patterns
 // ================================
 
 /**
- * 開発者向け高速設定Builder
+ * @deprecated Use optimizeForPerformance and enableDebugMode functions from builder_functions.ts instead
  */
 export const createFastBuilder = (): WorldGeneratorBuilder =>
   createBuilder().optimizeForPerformance().enableDebugMode().withLogLevel('debug')
 
 /**
- * 品質重視Builder
+ * @deprecated Use optimizeForQuality and feature enable functions from builder_functions.ts instead
  */
 export const createQualityBuilder = (): WorldGeneratorBuilder =>
   createBuilder().optimizeForQuality().enableStructures().enableCaves().enableOres()
 
 /**
- * バランス型Builder
+ * @deprecated Use applyPreset('default') and feature enable functions from builder_functions.ts instead
  */
 export const createBalancedBuilder = (): WorldGeneratorBuilder =>
   createBuilder().optimizeForBalance().enableStructures().enableCaves().enableOres()
 
 /**
- * カスタム設定Builder
+ * @deprecated Use pipe with configureFn from builder_functions.ts instead
  */
 export const createCustomBuilder = (
   configureFn: (builder: WorldGeneratorBuilder) => WorldGeneratorBuilder

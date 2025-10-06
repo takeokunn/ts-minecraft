@@ -1,32 +1,35 @@
 import type { ChunkId } from '@domain/chunk'
 import { Clock, Effect, HashMap, Match, Option, Ref, pipe } from 'effect'
 import {
+  AutoManagementConfig,
   DefaultChunkManagerConfig,
+  LifecycleStats,
+  PoolMetrics,
+  makeActivationError,
+  makeAutoManagementConfig,
   makeChunkDistance,
   makeChunkLifetime,
+  makeConfigError,
+  makeDeactivationError,
   makeMaxActiveChunks,
   makeMemoryBytes,
   makeResourceUsagePercent,
   makeTimestamp,
+  type ActivationError,
   type ChunkLifetime,
   type ChunkManagerConfig,
-  type LifecycleStage,
-} from '../types'
-import {
-  makeActivationError,
-  makeConfigError,
-  makeDeactivationError,
-  type ActivationError,
   type ConfigError,
   type DeactivationError,
+  type LifecycleStage,
   type PoolMetricsError,
 } from '../types'
-import { AutoManagementConfig, LifecycleStats, PoolMetrics, makeAutoManagementConfig } from '../types'
-import { activateStage, createInitializedStage, deactivateStage } from '../value_object/lifecycle_stage'
 import {
+  activateStage,
   averageActivationDuration,
   averageDeactivationDuration,
+  createInitializedStage,
   createLifecycleAccumulator,
+  deactivateStage,
   recordActivation,
   recordDeactivation,
   setMemoryPressure,

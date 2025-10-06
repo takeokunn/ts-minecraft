@@ -1,6 +1,6 @@
 import { Effect, Schema } from 'effect'
 import type { Simplify } from 'effect/Types'
-import { PhysicsError, fromParseError } from './index'
+import { PhysicsError, fromParseError } from './errors'
 
 const PositiveFloatSchema = Schema.Number.pipe(Schema.finite(), Schema.greaterThan(0), Schema.brand('PositiveFloat'))
 
@@ -125,6 +125,8 @@ export const nonNegativeFloat = (input: unknown): NonNegativeFloat => decodeCons
 export const unitInterval = (input: unknown): UnitInterval => decodeConstant(UnitIntervalSchema)(input)
 export const vector3 = (input: unknown): Vector3 => decodeConstant(Vector3Schema)(input)
 export const aabb = (input: unknown): AABB => decodeConstant(AABBSchema)(input)
+export const physicsWorldId = (input: unknown): PhysicsWorldId => decodeConstant(PhysicsWorldIdSchema)(input)
+export const epochMillis = (input: unknown): EpochMillis => decodeConstant(EpochMillisSchema)(input)
 
 export const parsePositiveFloat = (input: unknown) => decodeWith(PositiveFloatSchema)(input)
 export const parseNonNegativeFloat = (input: unknown) => decodeWith(NonNegativeFloatSchema)(input)

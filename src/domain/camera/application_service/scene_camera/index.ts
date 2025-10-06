@@ -6,18 +6,20 @@
  * 高度なカメラ制御機能を提供します。
  */
 
+import { Schema } from 'effect'
+
 // ========================================
 // Service Interface & Context
 // ========================================
 
-export { SceneCameraApplicationService } from './index'
-export type { SceneCameraApplicationService } from './index'
+export { SceneCameraApplicationService } from './service'
+export type { SceneCameraApplicationService } from './types'
 
 // ========================================
 // Live Implementation
 // ========================================
 
-export { SceneCameraApplicationServiceLive } from './index'
+export { SceneCameraApplicationServiceLive } from './live'
 
 // ========================================
 // Types & Schemas
@@ -63,7 +65,7 @@ export type {
   SequenceMetadata,
   SequenceStatistics,
   TransitionSettings,
-} from './index'
+} from './types'
 
 // Additional service-specific types
 export type {
@@ -82,10 +84,13 @@ export type {
   ValidationError,
   ValidationWarning,
   WipeDirection,
-} from './index'
+} from './types'
 
 export {
   CinematicSequenceSchema,
+  // Factory Functions
+  createSceneCameraApplicationError,
+  createSequenceExecutionResult,
   FollowModeSchema,
   SceneCameraApplicationErrorSchema,
   SceneCameraIdSchema,
@@ -94,10 +99,7 @@ export {
   SceneTargetSchema,
   ScheduleIdSchema,
   SequenceIdSchema,
-  // Factory Functions
-  createSceneCameraApplicationError,
-  createSequenceExecutionResult,
-} from './index'
+} from './types'
 
 // ========================================
 // Module Information
@@ -196,48 +198,28 @@ export const SceneCameraApplicationServiceTypeGuards = {
   /**
    * SceneTarget type guard
    */
-  isSceneTarget: (value: unknown): value is SceneTarget => {
-    return (
-      typeof value === 'object' &&
-      value !== null &&
-      '_tag' in value &&
-      ['StaticPosition', 'DynamicEntity', 'Player', 'CustomTracker', 'Group'].includes((value as any)._tag)
-    )
-  },
+  isSceneTarget: (value: unknown): value is SceneTarget => Schema.is(SceneTargetSchema)(value),
 
   /**
    * SequenceExecutionResult type guard
    */
-  isSequenceExecutionResult: (value: unknown): value is SequenceExecutionResult => {
-    return (
-      typeof value === 'object' &&
-      value !== null &&
-      '_tag' in value &&
-      ['Started', 'Completed', 'Failed', 'Interrupted'].includes((value as any)._tag)
-    )
-  },
+  isSequenceExecutionResult: (value: unknown): value is SequenceExecutionResult =>
+    Schema.is(
+      Schema.Struct({
+        _tag: Schema.Union(
+          Schema.Literal('Started'),
+          Schema.Literal('Completed'),
+          Schema.Literal('Failed'),
+          Schema.Literal('Interrupted')
+        ),
+      })
+    )(value),
 
   /**
    * SceneCameraApplicationError type guard
    */
-  isSceneCameraApplicationError: (value: unknown): value is SceneCameraApplicationError => {
-    return (
-      typeof value === 'object' &&
-      value !== null &&
-      '_tag' in value &&
-      [
-        'SceneNotFound',
-        'SceneCameraNotFound',
-        'SequenceNotFound',
-        'InvalidCameraSetup',
-        'TargetResolutionFailed',
-        'SequenceExecutionFailed',
-        'CameraConstraintViolation',
-        'ResourceLimitExceeded',
-        'ConcurrentOperationConflict',
-      ].includes((value as any)._tag)
-    )
-  },
+  isSceneCameraApplicationError: (value: unknown): value is SceneCameraApplicationError =>
+    Schema.is(SceneCameraApplicationErrorSchema)(value),
 } as const
 
 // ========================================
@@ -472,5 +454,3 @@ export type {
  * 5. **パフォーマンス最適化**: 大規模シーン対応
  * 6. **デバッグ支援**: 開発・運用支援機能
  */
-export * from './index';
-export * from './index';

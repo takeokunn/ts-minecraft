@@ -5,9 +5,9 @@
  * 実験的機能と安定機能の管理
  */
 
+import { taggedUnion } from '@domain/world/utils'
 import type { Brand as BrandType } from 'effect'
 import { Schema } from 'effect'
-import { taggedUnion } from '@domain/world/utils'
 
 /**
  * フラグ重要度Brand型（1-10）

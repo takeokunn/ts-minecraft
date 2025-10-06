@@ -5,6 +5,10 @@
  * アニメーション記録・統計・パフォーマンス分析・履歴管理を統合
  */
 
+import { Clock, Data, Effect, Option, Schema } from 'effect'
+import type { AnimationQueryOptions, AnimationRecord, TimeRange } from './types'
+import { createAnimationRecord } from './types'
+
 // ========================================
 // Repository Interface & Context
 // ========================================
@@ -21,9 +25,9 @@ export type {
   OptimizationResult,
   PerformanceThresholds,
   PerformanceTrendPoint,
-} from './index'
+} from './service'
 
-export { AnimationHistoryRepository, AnimationHistoryRepositoryOps } from './index'
+export { AnimationHistoryRepository, AnimationHistoryRepositoryOps } from './service'
 
 // ========================================
 // Repository Types
@@ -43,7 +47,7 @@ export type {
   InterruptionReason,
   PerformanceMetrics,
   TimeRange,
-} from './index'
+} from './types'
 
 export {
   AnimationHistoryRepositoryErrorSchema,
@@ -54,14 +58,12 @@ export {
   AnimationRecordIdSchema,
   AnimationRecordSchema,
   AnimationTypeSchema,
-  InterruptionReasonSchema,
-  TimeRangeSchema,
   // Error factory functions
   createAnimationHistoryError,
 
   // Animation record factory functions
   createAnimationRecord,
-
+  InterruptionReasonSchema,
   // Type guards
   isAnimationRecordNotFoundError,
   isCameraNotFoundError,
@@ -75,13 +77,14 @@ export {
   isRotationChangeAnimation,
   isStorageError,
   isViewModeSwitchAnimation,
-} from './index'
+  TimeRangeSchema,
+} from './types'
 
 // ========================================
 // Live Implementation
 // ========================================
 
-export { AnimationHistoryRepositoryLive } from './index'
+export { AnimationHistoryRepositoryLive } from './live'
 
 // ========================================
 // Module Integration Utilities
@@ -127,17 +130,7 @@ export const AnimationHistoryRepositoryTypeGuards = {
     )
   },
 
-  isTimeRange: (value: unknown): value is TimeRange => {
-    return (
-      typeof value === 'object' &&
-      value !== null &&
-      'startTime' in value &&
-      'endTime' in value &&
-      typeof (value as any).startTime === 'number' &&
-      typeof (value as any).endTime === 'number' &&
-      (value as any).endTime > (value as any).startTime
-    )
-  },
+  isTimeRange: (value: unknown): value is TimeRange => Schema.is(TimeRangeSchema)(value),
 
   isAnimationStatistics: (value: unknown): value is AnimationStatistics => {
     return (
@@ -239,20 +232,22 @@ export const AnimationQueryHelpers = {
   /**
    * 最新24時間の時間範囲を作成
    */
-  createLast24HoursRange: (): TimeRange => {
-    const now = Date.now()
-    const yesterday = now - 24 * 60 * 60 * 1000
-    return createAnimationRecord.timeRange(yesterday, now)
-  },
+  createLast24HoursRange: (): Effect.Effect<TimeRange> =>
+    Effect.gen(function* () {
+      const now = yield* Clock.currentTimeMillis
+      const yesterday = now - 24 * 60 * 60 * 1000
+      return createAnimationRecord.timeRange(yesterday, now)
+    }),
 
   /**
    * 最新1週間の時間範囲を作成
    */
-  createLastWeekRange: (): TimeRange => {
-    const now = Date.now()
-    const weekAgo = now - 7 * 24 * 60 * 60 * 1000
-    return createAnimationRecord.timeRange(weekAgo, now)
-  },
+  createLastWeekRange: (): Effect.Effect<TimeRange> =>
+    Effect.gen(function* () {
+      const now = yield* Clock.currentTimeMillis
+      const weekAgo = now - 7 * 24 * 60 * 60 * 1000
+      return createAnimationRecord.timeRange(weekAgo, now)
+    }),
 
   /**
    * 成功したアニメーションのみ取得するクエリオプション
@@ -414,5 +409,3 @@ export const AnimationHistoryRepositoryDocs = {
   ],
   performanceFeatures: ['インメモリキャッシュ', 'バッチ処理対応', '時間範囲クエリ最適化', '統計計算高速化'],
 } as const
-export * from './index';
-export * from './index';

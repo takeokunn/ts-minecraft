@@ -1,4 +1,3 @@
 // ChunkId value object exports
-export * from './index'
-export * from './index'
-export * from './index';
+export * from './operations'
+export * from './types'

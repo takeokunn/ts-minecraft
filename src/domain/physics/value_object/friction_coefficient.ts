@@ -1,10 +1,17 @@
+import { MATERIAL_FRICTION } from '@domain/physics/types/constants'
+import {
+  PhysicsMaterialSchema,
+  UnitInterval,
+  Vector3,
+  parseUnitInterval,
+  parseVector3,
+  vector3,
+} from '@domain/physics/types/core'
+import type { PhysicsError } from '@domain/physics/types/errors'
 import { Effect, Match, Schema, pipe } from 'effect'
-import { MATERIAL_FRICTION } from '@domain/physics/types'
-import { PhysicsMaterialSchema, UnitInterval, Vector3, parseUnitInterval, parseVector3, vector3 } from '@domain/physics/types'
-import type { PhysicsError } from '@domain/physics/types'
 
 const FrictionSchema = Schema.Struct({
-  material: PhysicsMaterialSchema,
+  material: Schema.suspend(() => PhysicsMaterialSchema),
   coefficient: Schema.Number.pipe(Schema.between(0, 1)),
 }).pipe(Schema.brand('FrictionCoefficient'))
 
@@ -23,16 +30,13 @@ const create = (
     }
   })
 
-const fromMaterial = (material: Schema.Schema.Type<typeof PhysicsMaterialSchema>): FrictionCoefficient =>
-  pipe(
-    MATERIAL_FRICTION[material],
-    Match.value,
-    Match.when(
-      (value) => value !== undefined,
-      (value) => Effect.runSync(create(material, value))
-    ),
-    Match.orElse(() => Effect.runSync(create(material, 0.5)))
-  )
+// Factory関数化してruntime初期化問題を回避
+const createFromMaterial = (material: Schema.Schema.Type<typeof PhysicsMaterialSchema>): FrictionCoefficient => {
+  const frictionValue = MATERIAL_FRICTION[material]
+  return Effect.runSync(create(material, frictionValue !== undefined ? frictionValue : 0.5))
+}
+
+const fromMaterial = createFromMaterial
 
 const mix = (surface: FrictionCoefficient, modifier: UnitInterval): Effect.Effect<FrictionCoefficient, PhysicsError> =>
   Effect.map(parseUnitInterval(surface.coefficient * modifier), (coefficient) => ({

@@ -1,5 +1,3 @@
-import { Schema } from '@effect/schema'
-import { Effect, Match } from 'effect'
 import type {
   EquipmentDescription,
   EquipmentDomainError,
@@ -17,15 +15,19 @@ import {
   makeRequirementViolation,
   makeSchemaViolation,
 } from '@domain/equipment/types'
+import { Effect, Match, Schema } from 'effect'
 import {
+  EquipmentSlotSchema,
   EquipmentStatsSchema,
   EquipmentTierSchema,
   applyTierWeight,
+  ensureSlotAllowed,
+  getSlotCategory,
   mergeStats,
+  type EquipmentSlot,
   type EquipmentStats,
   type EquipmentTier,
 } from '../value_object'
-import { EquipmentSlotSchema, ensureSlotAllowed, getSlotCategory, type EquipmentSlot } from '../value_object'
 
 export const EquipmentTagSchema = Schema.String.pipe(
   Schema.pattern(/^[a-z_]+(?::[a-z_]+)?$/i),

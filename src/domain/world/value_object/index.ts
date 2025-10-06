@@ -517,28 +517,31 @@ export const WorldValueObjectValidation = {
   /**
    * 完全ワールド設定の整合性検証
    */
-  validateCompleteWorld: (world: any): boolean => {
-    try {
-      // 座標系の妥当性
-      if (!CoordinateTransforms.isValidWorldCoordinate(world.coordinates.spawn)) {
-        return false
-      }
+  validateCompleteWorld: (world: any): boolean =>
+    pipe(
+      Effect.try({
+        try: () => {
+          // 座標系の妥当性
+          if (!CoordinateTransforms.isValidWorldCoordinate(world.coordinates.spawn)) {
+            return false
+          }
 
-      // ノイズ設定の妥当性
-      if (!NoiseConfigurationValidation.validateNoiseSettings(world.noise)) {
-        return false
-      }
+          // ノイズ設定の妥当性
+          if (!NoiseConfigurationValidation.validateNoiseSettings(world.noise)) {
+            return false
+          }
 
-      // バイオーム特性の整合性
-      if (!BiomePropertiesValidation.validateEnvironmentalConsistency(world.biome)) {
-        return false
-      }
+          // バイオーム特性の整合性
+          if (!BiomePropertiesValidation.validateEnvironmentalConsistency(world.biome)) {
+            return false
+          }
 
-      return true
-    } catch {
-      return false
-    }
-  },
+          return true
+        },
+        catch: () => false as const,
+      }),
+      Effect.runSync
+    ),
 
   /**
    * 世界シードの複合検証

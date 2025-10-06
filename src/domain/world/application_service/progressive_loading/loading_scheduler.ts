@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Match, Option, Ref, Schema } from 'effect'
+import { Clock, Context, Effect, Layer, Match, Option, Ref, Schema } from 'effect'
 
 /**
  * Loading Scheduler Service
@@ -397,12 +397,12 @@ const makeLoadingSchedulerService = Effect.gen(function* () {
     Effect.gen(function* () {
       if (pending.length === 0) return Option.none()
 
+      const now = yield* Clock.currentTimeMillis
       return Match.value(strategy).pipe(
         Match.when('fifo', () => Option.some(pending[0])),
         Match.when('priority_based', () => Option.some(pending.sort(comparePriority)[0])),
         Match.when('distance_based', () => Option.some(pending.sort((a, b) => a.distance - b.distance)[0])),
         Match.when('deadline_driven', () => {
-          const now = Date.now()
           const withDeadlines = pending.filter((r) => r.deadline && r.deadline > now)
           return withDeadlines.length > 0
             ? Option.some(withDeadlines.sort((a, b) => (a.deadline || 0) - (b.deadline || 0))[0])
@@ -412,7 +412,7 @@ const makeLoadingSchedulerService = Effect.gen(function* () {
           // 適応的アルゴリズム（簡略化）
           const scored = pending.map((req) => ({
             request: req,
-            score: calculateAdaptiveScore(req),
+            score: calculateAdaptiveScore(req, now),
           }))
           const best = scored.sort((a, b) => b.score - a.score)[0]
           return Option.some(best.request)
@@ -421,10 +421,10 @@ const makeLoadingSchedulerService = Effect.gen(function* () {
       )
     })
 
-  const calculateAdaptiveScore = (request: Schema.Schema.Type<typeof LoadingRequest>) => {
+  const calculateAdaptiveScore = (request: Schema.Schema.Type<typeof LoadingRequest>, now: number) => {
     const priorityWeight = { critical: 100, high: 80, normal: 60, low: 40, background: 20 }
     const distanceWeight = Math.max(0, 100 - request.distance * 5)
-    const ageWeight = Math.min(50, (Date.now() - request.timestamp) / 1000)
+    const ageWeight = Math.min(50, (now - request.timestamp) / 1000)
 
     return priorityWeight[request.priority] + distanceWeight + ageWeight
   }
@@ -448,6 +448,8 @@ const makeLoadingSchedulerService = Effect.gen(function* () {
       const predictedChunkX = Math.floor(predictedX / chunkSize)
       const predictedChunkZ = Math.floor(predictedZ / chunkSize)
 
+      const now = yield* Clock.currentTimeMillis
+
       // 予測位置周辺のチャンクをリクエスト生成
       const radius = Math.ceil(movement.viewDistance / chunkSize)
       for (let dx = -radius; dx <= radius; dx++) {
@@ -459,14 +461,14 @@ const makeLoadingSchedulerService = Effect.gen(function* () {
           if (distance <= movement.viewDistance) {
             const request: Schema.Schema.Type<typeof LoadingRequest> = {
               _tag: 'LoadingRequest',
-              id: `predictive_${playerId}_${chunkX}_${chunkZ}_${Date.now()}`,
+              id: `predictive_${playerId}_${chunkX}_${chunkZ}_${now}`,
               chunkPosition: { x: chunkX, z: chunkZ },
               priority: distance < chunkSize * 2 ? 'high' : 'background',
               distance,
               estimatedSize: 1024, // 1KB推定
               requester: playerId,
-              timestamp: Date.now(),
-              deadline: Date.now() + lookAheadSeconds * 1000,
+              timestamp: now,
+              deadline: now,
               dependencies: [],
               metadata: {
                 predictive: true,

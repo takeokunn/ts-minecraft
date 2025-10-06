@@ -3,8 +3,8 @@
  * システムライフサイクルとリソース管理のイベント定義
  */
 
-import { Schema } from 'effect'
 import { uuid } from '@domain/world/utils'
+import { Clock, Effect, Schema } from 'effect'
 import { ChunkPosition, WorldId } from '../core'
 import { EventMetadata } from './index'
 
@@ -488,24 +488,28 @@ export const createSystemStartedEvent = (
   initializedModules: readonly string[],
   configurationLoaded: Record<string, unknown>,
   resourcesAllocated: { memory: number; threads: number; storage: number }
-): SystemStartedEvent => ({
-  type: 'SystemStarted',
-  metadata: {
-    eventId: crypto.randomUUID(),
-    timestamp: new Date(),
-    version: 1,
-    causedBy: { systemId: 'startup_manager' },
-    aggregateId: 'system',
-    aggregateVersion: 1,
-  },
-  payload: {
-    systemVersion,
-    startupTime,
-    initializedModules,
-    configurationLoaded,
-    resourcesAllocated,
-  },
-})
+): Effect.Effect<SystemStartedEvent> =>
+  Effect.gen(function* () {
+    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    return {
+      type: 'SystemStarted',
+      metadata: {
+        eventId: crypto.randomUUID(),
+        timestamp,
+        version: 1,
+        causedBy: { systemId: 'startup_manager' },
+        aggregateId: 'system',
+        aggregateVersion: 1,
+      },
+      payload: {
+        systemVersion,
+        startupTime,
+        initializedModules,
+        configurationLoaded,
+        resourcesAllocated,
+      },
+    }
+  })
 
 /** MemoryWarningEvent作成ヘルパー */
 export const createMemoryWarningEvent = (
@@ -515,25 +519,29 @@ export const createMemoryWarningEvent = (
   severityLevel: 'low' | 'medium' | 'high' | 'critical',
   suggestedActions: readonly string[],
   affectedOperations: readonly string[]
-): MemoryWarningEvent => ({
-  type: 'MemoryWarning',
-  metadata: {
-    eventId: crypto.randomUUID(),
-    timestamp: new Date(),
-    version: 1,
-    causedBy: { systemId: 'memory_monitor' },
-    aggregateId: 'system_resources',
-    aggregateVersion: 1,
-  },
-  payload: {
-    currentUsage,
-    maxAvailable,
-    thresholdBreached,
-    severityLevel,
-    suggestedActions,
-    affectedOperations,
-  },
-})
+): Effect.Effect<MemoryWarningEvent> =>
+  Effect.gen(function* () {
+    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    return {
+      type: 'MemoryWarning',
+      metadata: {
+        eventId: crypto.randomUUID(),
+        timestamp,
+        version: 1,
+        causedBy: { systemId: 'memory_monitor' },
+        aggregateId: 'system_resources',
+        aggregateVersion: 1,
+      },
+      payload: {
+        currentUsage,
+        maxAvailable,
+        thresholdBreached,
+        severityLevel,
+        suggestedActions,
+        affectedOperations,
+      },
+    }
+  })
 
 /** ChunkLoadedEvent作成ヘルパー */
 export const createChunkLoadedEvent = (
@@ -543,22 +551,26 @@ export const createChunkLoadedEvent = (
   source: 'disk' | 'generation' | 'network' | 'cache',
   dataSizeBytes: number,
   playersInRange: readonly string[]
-): ChunkLoadedEvent => ({
-  type: 'ChunkLoaded',
-  metadata: {
-    eventId: crypto.randomUUID(),
-    timestamp: new Date(),
-    version: 1,
-    causedBy: { systemId: 'chunk_manager' },
-    aggregateId: `${worldId}:${chunkPosition.x},${chunkPosition.z}`,
-    aggregateVersion: 1,
-  },
-  payload: {
-    worldId,
-    chunkPosition,
-    loadTime,
-    source,
-    dataSizeBytes,
-    playersInRange,
-  },
-})
+): Effect.Effect<ChunkLoadedEvent> =>
+  Effect.gen(function* () {
+    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    return {
+      type: 'ChunkLoaded',
+      metadata: {
+        eventId: crypto.randomUUID(),
+        timestamp,
+        version: 1,
+        causedBy: { systemId: 'chunk_manager' },
+        aggregateId: `${worldId}:${chunkPosition.x},${chunkPosition.z}`,
+        aggregateVersion: 1,
+      },
+      payload: {
+        worldId,
+        chunkPosition,
+        loadTime,
+        source,
+        dataSizeBytes,
+        playersInRange,
+      },
+    }
+  })

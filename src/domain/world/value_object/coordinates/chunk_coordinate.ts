@@ -5,9 +5,9 @@
  * チャンク境界の正確な計算と変換を保証
  */
 
+import { taggedUnion } from '@domain/world/utils'
 import type { Brand as BrandType } from 'effect'
 import { Schema } from 'effect'
-import { taggedUnion } from '@domain/world/utils'
 
 /**
  * チャンク座標系のBrand型

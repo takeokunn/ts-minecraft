@@ -1,7 +1,6 @@
 import { BlockTypeIdSchema } from '@domain/entities'
-import { Schema } from '@effect/schema'
-import { Brand } from 'effect'
-import { Vector3Schema } from '../world/types'
+import { Brand, Schema } from 'effect'
+import { Vector3Schema } from './types/core'
 
 /**
  * 流体タイプ
@@ -13,7 +12,7 @@ export type FluidType = Schema.Schema.Type<typeof FluidTypeSchema>
  * AABB (Axis-Aligned Bounding Box) 型
  * 衝突判定用の境界ボックス
  */
-const AABBSchema = Schema.Struct({
+export const AABBSchema = Schema.Struct({
   _tag: Schema.Literal('AABB'),
   min: Vector3Schema,
   max: Vector3Schema,

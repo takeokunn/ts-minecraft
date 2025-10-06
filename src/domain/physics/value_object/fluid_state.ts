@@ -1,6 +1,6 @@
+import { Vector3, parseUnitInterval, parseVector3, unitInterval } from '@domain/physics/types/core'
+import type { PhysicsError } from '@domain/physics/types/errors'
 import { Effect, Match, Schema, pipe } from 'effect'
-import { Vector3, parseUnitInterval, parseVector3, unitInterval } from '@domain/physics/types'
-import type { PhysicsError } from '@domain/physics/types'
 
 const FluidKindSchema = Schema.Literal('none', 'water', 'lava')
 
@@ -35,31 +35,35 @@ const create = (params: {
     }
   })
 
-const presets: Record<FluidKind, FluidState> = {
-  none: Effect.runSync(
-    create({
-      kind: 'none',
-      immersion: unitInterval(0),
-      resistance: unitInterval(1),
-      buoyancy: 0,
-    })
-  ),
-  water: Effect.runSync(
-    create({
-      kind: 'water',
-      immersion: unitInterval(1),
-      resistance: unitInterval(0.6),
-      buoyancy: 0.02,
-    })
-  ),
-  lava: Effect.runSync(
-    create({
-      kind: 'lava',
-      immersion: unitInterval(1),
-      resistance: unitInterval(0.4),
-      buoyancy: 0.01,
-    })
-  ),
+// Lazy evaluation（関数化）でruntime初期化問題を回避
+const presets: Record<FluidKind, () => FluidState> = {
+  none: () =>
+    Effect.runSync(
+      create({
+        kind: 'none',
+        immersion: unitInterval(0),
+        resistance: unitInterval(1),
+        buoyancy: 0,
+      })
+    ),
+  water: () =>
+    Effect.runSync(
+      create({
+        kind: 'water',
+        immersion: unitInterval(1),
+        resistance: unitInterval(0.6),
+        buoyancy: 0.02,
+      })
+    ),
+  lava: () =>
+    Effect.runSync(
+      create({
+        kind: 'lava',
+        immersion: unitInterval(1),
+        resistance: unitInterval(0.4),
+        buoyancy: 0.01,
+      })
+    ),
 }
 
 const FluidKindValue: Record<'none' | 'water' | 'lava', FluidKind> = {
@@ -98,8 +102,8 @@ const blend = (
     return yield* create({
       kind: feetKind === 'none' ? headKind : feetKind,
       immersion: immersionValue,
-      resistance: feetKind === 'none' ? unitInterval(1) : presets[feetKind].resistance,
-      buoyancy: presets[feetKind === 'none' ? headKind : feetKind].buoyancy,
+      resistance: feetKind === 'none' ? unitInterval(1) : presets[feetKind]().resistance,
+      buoyancy: presets[feetKind === 'none' ? headKind : feetKind]().buoyancy,
     })
   })
 
@@ -132,7 +136,17 @@ const isFullySubmerged = (state: FluidState): boolean => state.kind !== 'none' &
 export const FluidState = {
   schema: FluidStateSchema,
   create,
-  presets,
+  presets: {
+    get none() {
+      return presets.none()
+    },
+    get water() {
+      return presets.water()
+    },
+    get lava() {
+      return presets.lava()
+    },
+  },
   classify,
   blend,
   calculate,

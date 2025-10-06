@@ -1,2 +1,2 @@
-export * from './store'
 export * from './reactive-system'
+export * from './store'

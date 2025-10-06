@@ -17,7 +17,7 @@ export {
   MetricsConfiguration,
   MetricValue,
   PerformanceMetrics,
-} from './index'
+} from './factory'
 
 export type {
   AlertThresholdType,
@@ -26,12 +26,12 @@ export type {
   MetricsConfigurationType,
   MetricValueType,
   PerformanceMetricsType,
-} from './index'
+} from './factory'
 
 // === Integrated Performance Monitoring Service ===
 
-import { Context, Effect, Layer, Ref, Schema } from 'effect'
-import { MetricsCollectorService } from './index'
+import { Clock, Context, Effect, Ref, Schema } from 'effect'
+import { MetricsCollectorService } from './service'
 
 /**
  * Performance Monitoring Service Error
@@ -201,7 +201,7 @@ export interface PerformanceMonitoringService {
 
 // === Live Implementation ===
 
-const makePerformanceMonitoringService = Effect.gen(function* () {
+export const makePerformanceMonitoringService = Effect.gen(function* () {
   const metricsCollector = yield* MetricsCollectorService
   const isMonitoring = yield* Ref.make<boolean>(false)
   const monitoringStartTime = yield* Ref.make<number>(0)
@@ -241,7 +241,8 @@ const makePerformanceMonitoringService = Effect.gen(function* () {
       }
 
       yield* Ref.set(isMonitoring, true)
-      yield* Ref.set(monitoringStartTime, Date.now())
+      const startTime = yield* Clock.currentTimeMillis
+      yield* Ref.set(monitoringStartTime, startTime)
 
       // メトリクス収集開始
       yield* metricsCollector.startCollection()
@@ -314,7 +315,7 @@ const makePerformanceMonitoringService = Effect.gen(function* () {
         _tag: 'BottleneckDetectionResult',
         detectedBottlenecks: bottlenecks,
         overallHealth: Math.max(0, overallHealth),
-        timestamp: Date.now(),
+        timestamp: yield* Clock.currentTimeMillis,
       }
 
       yield* Effect.logInfo(
@@ -395,7 +396,7 @@ const makePerformanceMonitoringService = Effect.gen(function* () {
     Effect.gen(function* () {
       yield* Effect.logInfo(`ベンチマーク開始: ${benchmarkName} (${operations}操作, ${concurrency}並行)`)
 
-      const startTime = Date.now()
+      const startTime = yield* Clock.currentTimeMillis
       const startMemory = (yield* metricsCollector.getPerformanceSnapshot()).memoryUsage
 
       // ベンチマーク実行（簡略化）
@@ -403,7 +404,7 @@ const makePerformanceMonitoringService = Effect.gen(function* () {
       let errorCount = 0
 
       for (let i = 0; i < operations; i++) {
-        const opStart = Date.now()
+        const opStart = yield* Clock.currentTimeMillis
 
         try {
           // ダミー操作（実際のベンチマークではワールド生成などを実行）
@@ -412,11 +413,11 @@ const makePerformanceMonitoringService = Effect.gen(function* () {
           errorCount++
         }
 
-        const opEnd = Date.now()
+        const opEnd = yield* Clock.currentTimeMillis
         latencies.push(opEnd - opStart)
       }
 
-      const endTime = Date.now()
+      const endTime = yield* Clock.currentTimeMillis
       const endMemory = (yield* metricsCollector.getPerformanceSnapshot()).memoryUsage
       const duration = endTime - startTime
 
@@ -437,7 +438,7 @@ const makePerformanceMonitoringService = Effect.gen(function* () {
         p99Latency: sortedLatencies[p99Index] || averageLatency,
         memoryUsage: endMemory - startMemory,
         errorRate: errorCount / operations,
-        timestamp: Date.now(),
+        timestamp: yield* Clock.currentTimeMillis,
       }
 
       yield* Effect.logInfo(
@@ -512,7 +513,7 @@ const makePerformanceMonitoringService = Effect.gen(function* () {
       const bottlenecks = yield* detectBottlenecks()
 
       return {
-        timestamp: Date.now(),
+        timestamp: yield* Clock.currentTimeMillis,
         metrics: {
           memory_usage: snapshot.memoryUsage,
           cpu_usage: snapshot.cpuUsage,
@@ -543,19 +544,8 @@ export const PerformanceMonitoringService = Context.GenericTag<PerformanceMonito
   '@minecraft/domain/world/PerformanceMonitoringService'
 )
 
-// === Layer ===
-
-export const PerformanceMonitoringServiceLive = Layer.effect(
-  PerformanceMonitoringService,
-  makePerformanceMonitoringService
-).pipe(Layer.provide(MetricsCollectorServiceLive))
-
-// === Complete Service Layer ===
-
-export const PerformanceMonitoringServicesLayer = Layer.mergeAll(
-  MetricsCollectorServiceLive,
-  PerformanceMonitoringServiceLive
-)
+// === Layer Exports ===
+export * from './layer'
 
 // === Helper Functions ===
 
@@ -610,4 +600,4 @@ export type {
   BottleneckDetectionResult as BottleneckDetectionResultType,
   OptimizationRecommendation as OptimizationRecommendationType,
   PerformanceMonitoringErrorType,
-} from './index'
+} from './factory'

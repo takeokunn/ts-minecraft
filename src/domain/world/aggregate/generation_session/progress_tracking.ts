@@ -8,8 +8,8 @@
  * - 統計データ収集
  */
 
-import { Effect, Schema } from 'effect'
 import type * as GenerationErrors from '@domain/world/types/errors'
+import { Clock, Effect, Schema } from 'effect'
 
 // ================================
 // Progress Statistics
@@ -91,7 +91,7 @@ export type ProgressData = typeof ProgressDataSchema.Type
  * 初期進捗データ作成
  */
 export const createInitial = (totalChunks: number): ProgressData => {
-  const now = new Date()
+  const now = yield * Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
 
   return {
     statistics: {
@@ -124,7 +124,7 @@ export const createInitial = (totalChunks: number): ProgressData => {
  * 追跡開始
  */
 export const startTracking = (data: ProgressData): ProgressData => {
-  const now = new Date()
+  const now = yield * Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
 
   return {
     ...data,
@@ -146,7 +146,7 @@ export const updateProgress = (
   failedDelta: number
 ): Effect.Effect<ProgressData, GenerationErrors.StateError> =>
   Effect.gen(function* () {
-    const now = yield* Effect.sync(() => new Date())
+    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
 
     // 統計更新
     const newCompleted = data.statistics.completedChunks + completedDelta
@@ -221,7 +221,7 @@ export const updateProgress = (
  * 追跡一時停止
  */
 export const pauseTracking = (data: ProgressData): ProgressData => {
-  const now = new Date()
+  const now = yield * Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
 
   return {
     ...data,
@@ -237,7 +237,7 @@ export const pauseTracking = (data: ProgressData): ProgressData => {
  * 追跡再開
  */
 export const resumeTracking = (data: ProgressData): ProgressData => {
-  const now = new Date()
+  const now = yield * Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
 
   // 一時停止期間を計算
   const pauseDuration = data.timeTracking.lastUpdateTime
@@ -259,7 +259,7 @@ export const resumeTracking = (data: ProgressData): ProgressData => {
  * 追跡完了
  */
 export const completeTracking = (data: ProgressData): ProgressData => {
-  const now = new Date()
+  const now = yield * Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
 
   return {
     ...data,

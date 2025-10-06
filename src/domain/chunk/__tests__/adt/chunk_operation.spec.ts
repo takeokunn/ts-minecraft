@@ -3,7 +3,7 @@ import { ChunkOperation, ChunkOperations, OptimizationStrategy, SerializationFor
 
 /**
  * ChunkOperation ADT テストスイート
- * Data.TaggedEnumによる型安全な操作テスト
+ * Data.taggedEnumによる型安全な操作テスト
  */
 describe('ChunkOperation ADT Tests', () => {
   // Mock data for tests

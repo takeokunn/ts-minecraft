@@ -20,7 +20,7 @@ const domainClockLive: DomainClock = {
   now: () =>
     pipe(
       Clock.currentTimeMillis,
-      Effect.flatMap((millis) => Schema.decodeEffect(EpochMillisSchema)(millis))
+      Effect.flatMap((millis) => Schema.decode(EpochMillisSchema)(millis))
     ),
   monotonic: () => Clock.currentTimeNanos,
   measure: <A, E, R>(effect: Effect.Effect<A, E, R>) =>

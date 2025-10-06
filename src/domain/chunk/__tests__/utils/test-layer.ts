@@ -8,7 +8,7 @@
  * - Effect-TS統合テストサポート
  */
 
-import { Duration, Effect, Layer, Random, Ref, TestClock, TestContext } from 'effect'
+import { Clock, Duration, Effect, Layer, Random, Ref, TestClock, TestContext } from 'effect'
 import type { ChunkDataBytes, ChunkError, ChunkOperation, ChunkState, LoadProgress, RetryCount } from '../../types/core'
 import { ChunkErrors, ChunkOperations, ChunkStates } from '../../types/core'
 import type { ChunkPosition } from '../../value_object/chunk_position/types'
@@ -76,7 +76,9 @@ export class MockChunkDataGenerator extends Effect.Service<MockChunkDataGenerato
  */
 export class MockTimeProvider extends Effect.Service<MockTimeProvider>()('MockTimeProvider', {
   effect: Effect.gen(function* () {
-    const baseTime = yield* Ref.make(Date.now())
+    const clock = yield* Clock.Clock
+    const initialTime = yield* clock.currentTimeMillis
+    const baseTime = yield* Ref.make(initialTime)
 
     return {
       now: (): Effect.Effect<number, never> => Ref.get(baseTime),
@@ -86,7 +88,12 @@ export class MockTimeProvider extends Effect.Service<MockTimeProvider>()('MockTi
 
       setTime: (timestamp: number): Effect.Effect<void, never> => Ref.set(baseTime, timestamp),
 
-      resetTime: (): Effect.Effect<void, never> => Ref.set(baseTime, Date.now()),
+      resetTime: (): Effect.Effect<void, never> =>
+        Effect.gen(function* () {
+          const clock = yield* Clock.Clock
+          const now = yield* clock.currentTimeMillis
+          yield* Ref.set(baseTime, now)
+        }),
     }
   }),
 }) {}
@@ -112,22 +119,32 @@ export class MockMetricsCollector extends Effect.Service<MockMetricsCollector>()
         })),
 
       recordError: (error: ChunkError): Effect.Effect<void, never> =>
-        Ref.update(metrics, (m) => ({
-          ...m,
-          errors: [...m.errors, { error, timestamp: Date.now() }],
-        })),
+        Effect.gen(function* () {
+          const clock = yield* Clock.Clock
+          const now = yield* clock.currentTimeMillis
+
+          yield* Ref.update(metrics, (m) => ({
+            ...m,
+            errors: [...m.errors, { error, timestamp: now }],
+          }))
+        }),
 
       recordMemoryUsage: (): Effect.Effect<void, never> =>
-        Ref.update(metrics, (m) => ({
-          ...m,
-          memoryUsage: [
-            ...m.memoryUsage,
-            {
-              timestamp: Date.now(),
-              usage: process.memoryUsage().heapUsed,
-            },
-          ],
-        })),
+        Effect.gen(function* () {
+          const clock = yield* Clock.Clock
+          const now = yield* clock.currentTimeMillis
+
+          yield* Ref.update(metrics, (m) => ({
+            ...m,
+            memoryUsage: [
+              ...m.memoryUsage,
+              {
+                timestamp: now,
+                usage: process.memoryUsage().heapUsed,
+              },
+            ],
+          }))
+        }),
 
       getMetrics: (): Effect.Effect<typeof metrics extends Ref.Ref<infer T> ? T : never, never> => Ref.get(metrics),
 
@@ -156,54 +173,65 @@ export const ChunkTestHelpers = {
   /**
    * テスト用チャンクメタデータ生成
    */
-  createTestMetadata: (overrides: Partial<any> = {}) => ({
-    biome: 'test-biome' as const,
-    generationTime: Date.now() as any,
-    lastModified: Date.now() as any,
-    version: 1,
-    checksum: 'test-checksum' as any,
-    ...overrides,
-  }),
+  createTestMetadata: (overrides: Partial<any> = {}): Effect.Effect<any, never> =>
+    Effect.gen(function* () {
+      const clock = yield* Clock.Clock
+      const now = yield* clock.currentTimeMillis
+
+      return {
+        biome: 'test-biome' as const,
+        generationTime: now as any,
+        lastModified: now as any,
+        version: 1,
+        checksum: 'test-checksum' as any,
+        ...overrides,
+      }
+    }),
 
   /**
    * テスト用チャンク状態セット生成
    */
-  createTestStateSet: (): Array<ChunkState> => [
-    ChunkStates.unloaded(),
-    ChunkStates.loading(50 as LoadProgress),
-    ChunkStates.loaded(
-      new Uint8Array(TEST_CONSTANTS.CHUNK_VOLUME).fill(42) as ChunkDataBytes,
-      ChunkTestHelpers.createTestMetadata()
-    ),
-    ChunkStates.failed('test error', 1 as RetryCount),
-    ChunkStates.dirty(
-      new Uint8Array(TEST_CONSTANTS.CHUNK_VOLUME).fill(123) as ChunkDataBytes,
-      {
-        id: 'test-change-id' as any,
-        blocks: [],
-        timestamp: Date.now() as any,
-      },
-      ChunkTestHelpers.createTestMetadata()
-    ),
-  ],
+  createTestStateSet: (): Effect.Effect<Array<ChunkState>, never> =>
+    Effect.gen(function* () {
+      const clock = yield* Clock.Clock
+      const now = yield* clock.currentTimeMillis
+      const metadata = yield* ChunkTestHelpers.createTestMetadata()
+
+      return [
+        ChunkStates.unloaded(),
+        ChunkStates.loading(50 as LoadProgress),
+        ChunkStates.loaded(new Uint8Array(TEST_CONSTANTS.CHUNK_VOLUME).fill(42) as ChunkDataBytes, metadata),
+        ChunkStates.failed('test error', 1 as RetryCount),
+        ChunkStates.dirty(
+          new Uint8Array(TEST_CONSTANTS.CHUNK_VOLUME).fill(123) as ChunkDataBytes,
+          {
+            id: 'test-change-id' as any,
+            blocks: [],
+            timestamp: now as any,
+          },
+          metadata
+        ),
+      ]
+    }),
 
   /**
    * テスト用チャンク操作セット生成
    */
-  createTestOperationSet: (): Array<ChunkOperation> => {
-    const position = ChunkTestHelpers.createTestPosition(10, 20)
-    const data = new Uint8Array(TEST_CONSTANTS.CHUNK_VOLUME).fill(255) as ChunkDataBytes
-    const metadata = ChunkTestHelpers.createTestMetadata()
+  createTestOperationSet: (): Effect.Effect<Array<ChunkOperation>, never> =>
+    Effect.gen(function* () {
+      const position = ChunkTestHelpers.createTestPosition(10, 20)
+      const data = new Uint8Array(TEST_CONSTANTS.CHUNK_VOLUME).fill(255) as ChunkDataBytes
+      const metadata = yield* ChunkTestHelpers.createTestMetadata()
 
-    return [
-      ChunkOperations.read(position),
-      ChunkOperations.write(position, data, metadata),
-      ChunkOperations.delete(position),
-      ChunkOperations.validate(position, 'test-checksum'),
-      ChunkOperations.optimize(position, { _tag: 'Memory' as const } as any),
-      ChunkOperations.serialize(data, { _tag: 'Binary' as const } as any, metadata),
-    ]
-  },
+      return [
+        ChunkOperations.read(position),
+        ChunkOperations.write(position, data, metadata),
+        ChunkOperations.delete(position),
+        ChunkOperations.validate(position, 'test-checksum'),
+        ChunkOperations.optimize(position, { _tag: 'Memory' as const } as any),
+        ChunkOperations.serialize(data, { _tag: 'Binary' as const } as any, metadata),
+      ]
+    }),
 
   /**
    * テスト用エラーセット生成
@@ -354,4 +382,4 @@ export const ChunkPerformanceTestLayer = Layer.mergeAll(
 
 // ===== Export All ===== //
 
-export * from "./test-layer-exports"
+export * from './test-layer-exports'

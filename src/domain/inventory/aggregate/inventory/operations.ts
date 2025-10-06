@@ -66,7 +66,7 @@ export const removeItem = (
       itemId: slot.itemStack.itemId,
       quantity,
       slotIndex,
-      timestamp: new Date().toISOString() as any,
+      timestamp: timestamp as any,
       reason: 'consumed',
     }
 
@@ -80,7 +80,7 @@ export const removeItem = (
         itemStack: {
           ...slot.itemStack,
           count: slot.itemStack.count - quantity,
-          lastModified: new Date().toISOString() as any,
+          lastModified: timestamp as any,
           version: slot.itemStack.version + 1,
         },
       }
@@ -110,7 +110,7 @@ export const swapItems = (
       playerId: aggregate.playerId,
       fromSlot,
       toSlot,
-      timestamp: new Date().toISOString() as any,
+      timestamp: timestamp as any,
     }
 
     return pipe({ ...aggregate, slots: updatedSlots }, incrementVersion, (agg) => addUncommittedEvent(agg, event))
@@ -131,7 +131,7 @@ export const changeSelectedHotbarSlot = (
       playerId: aggregate.playerId,
       previousSlot: aggregate.selectedSlot,
       newSlot,
-      timestamp: new Date().toISOString() as any,
+      timestamp: timestamp as any,
     }
 
     return pipe({ ...aggregate, selectedSlot: newSlot }, incrementVersion, (agg) => addUncommittedEvent(agg, event))
@@ -230,7 +230,7 @@ const addToExistingStack = (
       itemStack: {
         ...slot.itemStack,
         count: newCount,
-        lastModified: new Date().toISOString() as any,
+        lastModified: timestamp as any,
         version: slot.itemStack.version + 1,
       },
     }
@@ -242,7 +242,7 @@ const addToExistingStack = (
       itemId: itemStack.itemId,
       quantity: itemStack.count,
       slotIndex,
-      timestamp: new Date().toISOString() as any,
+      timestamp: timestamp as any,
     }
 
     return pipe({ ...aggregate, slots: updatedSlots }, incrementVersion, (agg) => addUncommittedEvent(agg, event))
@@ -261,7 +261,7 @@ const addToEmptySlot = (
     const newSlot: InventorySlot = {
       itemStack: {
         ...itemStack,
-        lastModified: new Date().toISOString() as any,
+        lastModified: timestamp as any,
         version: itemStack.version ?? 1,
       },
       metadata: {},
@@ -277,7 +277,7 @@ const addToEmptySlot = (
       itemId: itemStack.itemId,
       quantity: itemStack.count,
       slotIndex,
-      timestamp: new Date().toISOString() as any,
+      timestamp: timestamp as any,
     }
 
     return pipe({ ...aggregate, slots: updatedSlots }, incrementVersion, (agg) => addUncommittedEvent(agg, event))

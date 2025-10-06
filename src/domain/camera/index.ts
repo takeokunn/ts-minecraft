@@ -1,21 +1,16 @@
 // Camera Domain Services
-export * from './index'
-export * from './index'
-export * from './index'
-export * from './index'
 
 // New Types System (main exports)
 export * from '@domain/camera/types'
 
 // Helper functions
-export * from './index'
 
 // Player Camera specific exports (explicit to avoid conflicts)
 export {
   DEFAULT_CAMERA_SETTINGS as DefaultPlayerCameraSettings,
   PlayerCameraService,
   PlayerCameraServiceLive,
-} from './index'
+} from './service'
 
 // Value Object specific exports (explicit to avoid conflicts)
 export {
@@ -35,12 +30,6 @@ export {
 } from '@domain/camera/types'
 
 // Constants
-export * from './index'
-export * from './index';
-export * from './index';
-export * from './index';
-export * from './index';
-export * from './index';
-export * from './service';
-export * from './helper';
-export * from './constant';
+export * from './constant'
+export * from './helper'
+export * from './service'

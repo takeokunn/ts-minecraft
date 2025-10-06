@@ -6,10 +6,9 @@
  * Effect-TS 3.17+ の Data.tagged による構造化エラー
  */
 
-import { Data } from 'effect'
-import type { BiomeId } from '@domain/world/types/core'
-import type { WorldId } from '@domain/world/types/core'
 import type { GenerationSessionId } from '@domain/world/aggregate/generation_session'
+import type { BiomeId, WorldId } from '@domain/world/types/core'
+import { Clock, Data, Effect } from 'effect'
 
 // === Core Repository Errors ===
 
@@ -216,12 +215,19 @@ export type AllRepositoryErrors =
 /**
  * Repository基底エラー作成
  */
-export const createRepositoryError = (message: string, operation: string, cause?: unknown): RepositoryError =>
-  new RepositoryError({
-    message,
-    operation,
-    cause,
-    timestamp: Date.now(),
+export const createRepositoryError = (
+  message: string,
+  operation: string,
+  cause?: unknown
+): Effect.Effect<RepositoryError> =>
+  Effect.gen(function* () {
+    const timestamp = yield* Clock.currentTimeMillis
+    return new RepositoryError({
+      message,
+      operation,
+      cause,
+      timestamp,
+    })
   })
 
 /**
@@ -231,12 +237,15 @@ export const createPersistenceError = (
   message: string,
   storageType: 'memory' | 'indexeddb' | 'filesystem' | 'database',
   cause?: unknown
-): PersistenceError =>
-  new PersistenceError({
-    message,
-    storageType,
-    cause,
-    timestamp: Date.now(),
+): Effect.Effect<PersistenceError> =>
+  Effect.gen(function* () {
+    const timestamp = yield* Clock.currentTimeMillis
+    return new PersistenceError({
+      message,
+      storageType,
+      cause,
+      timestamp,
+    })
   })
 
 /**
@@ -247,23 +256,32 @@ export const createDataIntegrityError = (
   corruptedFields: readonly string[],
   expectedChecksum?: string,
   actualChecksum?: string
-): DataIntegrityError =>
-  new DataIntegrityError({
-    message,
-    corruptedFields,
-    expectedChecksum,
-    actualChecksum,
-    timestamp: Date.now(),
+): Effect.Effect<DataIntegrityError> =>
+  Effect.gen(function* () {
+    const timestamp = yield* Clock.currentTimeMillis
+    return new DataIntegrityError({
+      message,
+      corruptedFields,
+      expectedChecksum,
+      actualChecksum,
+      timestamp,
+    })
   })
 
 /**
  * World Generator未発見エラー作成
  */
-export const createWorldGeneratorNotFoundError = (worldId: WorldId, message?: string): WorldGeneratorNotFoundError =>
-  new WorldGeneratorNotFoundError({
-    worldId,
-    message: message ?? `World generator not found for world: ${worldId}`,
-    timestamp: Date.now(),
+export const createWorldGeneratorNotFoundError = (
+  worldId: WorldId,
+  message?: string
+): Effect.Effect<WorldGeneratorNotFoundError> =>
+  Effect.gen(function* () {
+    const timestamp = yield* Clock.currentTimeMillis
+    return new WorldGeneratorNotFoundError({
+      worldId,
+      message: message ?? `World generator not found for world: ${worldId}`,
+      timestamp,
+    })
   })
 
 /**
@@ -272,11 +290,14 @@ export const createWorldGeneratorNotFoundError = (worldId: WorldId, message?: st
 export const createGenerationSessionNotFoundError = (
   sessionId: GenerationSessionId,
   message?: string
-): GenerationSessionNotFoundError =>
-  new GenerationSessionNotFoundError({
-    sessionId,
-    message: message ?? `Generation session not found: ${sessionId}`,
-    timestamp: Date.now(),
+): Effect.Effect<GenerationSessionNotFoundError> =>
+  Effect.gen(function* () {
+    const timestamp = yield* Clock.currentTimeMillis
+    return new GenerationSessionNotFoundError({
+      sessionId,
+      message: message ?? `Generation session not found: ${sessionId}`,
+      timestamp,
+    })
   })
 
 /**
@@ -286,12 +307,15 @@ export const createBiomeNotFoundError = (
   biomeId: BiomeId,
   coordinates?: { x: number; z: number },
   message?: string
-): BiomeNotFoundError =>
-  new BiomeNotFoundError({
-    biomeId,
-    coordinates,
-    message: message ?? `Biome not found: ${biomeId}`,
-    timestamp: Date.now(),
+): Effect.Effect<BiomeNotFoundError> =>
+  Effect.gen(function* () {
+    const timestamp = yield* Clock.currentTimeMillis
+    return new BiomeNotFoundError({
+      biomeId,
+      coordinates,
+      message: message ?? `Biome not found: ${biomeId}`,
+      timestamp,
+    })
   })
 
 /**
@@ -301,12 +325,15 @@ export const createMetadataNotFoundError = (
   worldId: WorldId,
   metadataType: string,
   message?: string
-): MetadataNotFoundError =>
-  new MetadataNotFoundError({
-    worldId,
-    metadataType,
-    message: message ?? `Metadata not found for world: ${worldId}, type: ${metadataType}`,
-    timestamp: Date.now(),
+): Effect.Effect<MetadataNotFoundError> =>
+  Effect.gen(function* () {
+    const timestamp = yield* Clock.currentTimeMillis
+    return new MetadataNotFoundError({
+      worldId,
+      metadataType,
+      message: message ?? `Metadata not found for world: ${worldId}, type: ${metadataType}`,
+      timestamp,
+    })
   })
 
 // === Error Type Guards ===

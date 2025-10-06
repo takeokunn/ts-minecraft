@@ -8,7 +8,7 @@
  * - リアルタイムメトリクス測定
  */
 
-import { Duration, Effect, Fiber, Layer, Ref, Stream, TestContext } from 'effect'
+import { Clock, Duration, Effect, Fiber, Layer, Ref, Stream, TestContext } from 'effect'
 import { describe, expect, it } from 'vitest'
 import { CHUNK_VOLUME, ChunkOperations, type ChunkDataBytes, type ChunkOperation } from '../../types/core'
 
@@ -26,6 +26,9 @@ const CONCURRENT_LIMIT = 1000 // 並行実行制限
  */
 class PerformanceMonitor extends Effect.Service<PerformanceMonitor>()('PerformanceMonitor', {
   effect: Effect.gen(function* () {
+    const clock = yield* Clock.Clock
+    const startTime = yield* clock.currentTimeMillis
+
     const metrics = yield* Ref.make({
       totalOperations: 0,
       successfulOperations: 0,
@@ -34,7 +37,7 @@ class PerformanceMonitor extends Effect.Service<PerformanceMonitor>()('Performan
       maxLatency: 0,
       minLatency: Number.MAX_SAFE_INTEGER,
       memoryPeakUsage: 0,
-      startTime: Date.now(),
+      startTime,
     })
 
     return {
@@ -70,13 +73,18 @@ class PerformanceMonitor extends Effect.Service<PerformanceMonitor>()('Performan
 
       getThroughput: () =>
         Effect.gen(function* () {
+          const clock = yield* Clock.Clock
+          const now = yield* clock.currentTimeMillis
           const m = yield* Ref.get(metrics)
-          const elapsed = Date.now() - m.startTime
+          const elapsed = now - m.startTime
           return elapsed > 0 ? (m.totalOperations / elapsed) * 1000 : 0 // ops/sec
         }),
 
       reset: () =>
         Effect.gen(function* () {
+          const clock = yield* Clock.Clock
+          const now = yield* clock.currentTimeMillis
+
           yield* Ref.set(metrics, {
             totalOperations: 0,
             successfulOperations: 0,
@@ -85,7 +93,7 @@ class PerformanceMonitor extends Effect.Service<PerformanceMonitor>()('Performan
             maxLatency: 0,
             minLatency: Number.MAX_SAFE_INTEGER,
             memoryPeakUsage: 0,
-            startTime: Date.now(),
+            startTime: now,
           })
         }),
     }
@@ -347,6 +355,9 @@ describe('Chunk Domain Performance Tests', () => {
         )
 
         // プレッシャー下での操作実行
+        const clock = yield* Clock.Clock
+        const now = yield* clock.currentTimeMillis
+
         const operationCount = 500
         const operations = Array.from({ length: operationCount }, (_, i) =>
           ChunkOperations.write(
@@ -354,8 +365,8 @@ describe('Chunk Domain Performance Tests', () => {
             new Uint8Array(CHUNK_VOLUME).fill(i % 256) as ChunkDataBytes,
             {
               biome: 'test' as const,
-              generationTime: Date.now() as any,
-              lastModified: Date.now() as any,
+              generationTime: now as any,
+              lastModified: now as any,
               version: 1,
               checksum: `hash-${i}` as any,
             }

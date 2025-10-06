@@ -5,9 +5,9 @@
  * 相対湿度・絶対湿度・露点温度の正確な計算
  */
 
+import { taggedUnion } from '@domain/world/utils'
 import type { Brand as BrandType } from 'effect'
 import { Schema } from 'effect'
-import { taggedUnion } from '@domain/world/utils'
 
 /**
  * 相対湿度Brand型（0%から100%）

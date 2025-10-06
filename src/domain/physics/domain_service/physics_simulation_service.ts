@@ -1,11 +1,8 @@
-import { Context, Effect, Layer } from 'effect'
-import type { AABB, PhysicsWorld, RigidBody, Vector3 } from '@domain/physics/types'
+import type { AABB, PhysicsError, PhysicsWorld, RigidBody, Vector3 } from '@domain/physics/types'
 import { parsePositiveFloat } from '@domain/physics/types'
-import type { PhysicsError } from '@domain/physics/types'
-import { FluidState } from '../value_object'
-import { FrictionCoefficient } from '../value_object'
-import { GravityVector } from '../value_object'
-import { CollisionService } from './index'
+import { Context, Effect, Layer } from 'effect'
+import { FluidState, FrictionCoefficient, GravityVector } from '../value_object'
+import { CollisionService } from './collision_service'
 
 export interface SimulationContext {
   readonly world: PhysicsWorld

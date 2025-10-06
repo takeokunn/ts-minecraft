@@ -1,6 +1,5 @@
-import { Schema } from '@effect/schema'
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
-import { Effect, Option } from 'effect'
+import { Effect, Option, Schema } from 'effect'
 import * as Either from 'effect/Either'
 import { ConfigurationValidationError, JsonValue, createErrorContext } from './errors'
 import {

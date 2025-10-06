@@ -1,10 +1,15 @@
 import { Effect, Layer, Match, pipe } from 'effect'
-import { IndexedDBChunkRepositoryLive } from '../chunk_repository'
-import { ChunkRepository } from '../chunk_repository'
-import { InMemoryChunkRepositoryLive } from '../chunk_repository'
-import { WebWorkerChunkRepositoryLive } from '../chunk_repository'
+import { getEffectiveConnectionType } from '../../../../shared/browser/network-info-schema'
+import { getPerformanceMemoryOrDefault } from '../../../performance'
+import {
+  ChunkRepository,
+  IndexedDBChunkRepositoryLive,
+  InMemoryChunkRepositoryLive,
+  WebWorkerChunkRepositoryLive,
+} from '../chunk_repository'
 import type { RepositoryError } from '../types'
 import { RepositoryErrors } from '../types'
+import { initialRepositoryConfigBuilderState, type RepositoryConfigBuilderState } from './config_builder_state'
 
 /**
  * Repository Strategy Pattern Implementation
@@ -69,15 +74,20 @@ export interface PerformanceRequirements {
  * 実行環境を自動検出
  */
 export const detectEnvironment = (): Effect.Effect<EnvironmentInfo, RepositoryError> =>
-  Effect.gen(function* () {
-    try {
+  Effect.try({
+    try: () => {
       // プラットフォーム検出
-      const platform = (() => {
-        if (typeof window !== 'undefined') return 'browser'
-        if (typeof process !== 'undefined' && process.versions?.node) return 'node'
-        if (typeof self !== 'undefined' && typeof importScripts === 'function') return 'webworker'
-        return 'unknown'
-      })()
+      const platform = pipe(
+        Match.value({
+          hasWindow: typeof window !== 'undefined',
+          hasNode: typeof process !== 'undefined' && process.versions?.node,
+          hasWebWorker: typeof self !== 'undefined' && typeof importScripts === 'function',
+        }),
+        Match.when({ hasWindow: true }, () => 'browser' as const),
+        Match.when({ hasNode: true }, () => 'node' as const),
+        Match.when({ hasWebWorker: true }, () => 'webworker' as const),
+        Match.orElse(() => 'unknown' as const)
+      )
 
       // API利用可能性チェック
       const hasBrowserAPI = typeof window !== 'undefined'
@@ -86,35 +96,54 @@ export const detectEnvironment = (): Effect.Effect<EnvironmentInfo, RepositoryEr
       const hasFileSystem = typeof process !== 'undefined' && typeof require !== 'undefined'
 
       // メモリ制約推定
-      const memoryConstraints = (() => {
-        if (platform === 'browser' && 'memory' in performance) {
-          const memory = (performance as any).memory
-          if (memory.usedJSHeapSize > memory.jsHeapSizeLimit * 0.8) return 'low'
-          if (memory.usedJSHeapSize > memory.jsHeapSizeLimit * 0.5) return 'medium'
-          return 'high'
-        }
-        if (platform === 'node' && process.memoryUsage) {
-          const usage = process.memoryUsage()
-          const totalMB = usage.heapTotal / (1024 * 1024)
-          if (totalMB < 128) return 'low'
-          if (totalMB < 512) return 'medium'
-          return 'high'
-        }
-        return 'medium' // デフォルト
-      })()
+      const memoryConstraints = pipe(
+        platform,
+        Match.value,
+        Match.when('browser', () => {
+          // ブラウザのメモリ使用量を取得
+          return 'memory' in performance
+            ? pipe(Effect.runSync(getPerformanceMemoryOrDefault()), (memory) =>
+                memory.usedJSHeapSize > memory.jsHeapSizeLimit * 0.8
+                  ? ('low' as const)
+                  : memory.usedJSHeapSize > memory.jsHeapSizeLimit * 0.5
+                    ? ('medium' as const)
+                    : ('high' as const)
+              )
+            : ('medium' as const)
+        }),
+        Match.when('node', () => {
+          // Node.jsのメモリ使用量を取得
+          return process.memoryUsage
+            ? pipe(
+                process.memoryUsage(),
+                (usage) => usage.heapTotal / (1024 * 1024),
+                (totalMB) =>
+                  totalMB < 128 ? ('low' as const) : totalMB < 512 ? ('medium' as const) : ('high' as const)
+              )
+            : ('medium' as const)
+        }),
+        Match.orElse(() => 'medium' as const)
+      )
 
       // パフォーマンスプロファイル推定
-      const performanceProfile = (() => {
-        if (platform === 'browser') {
-          const connection = (navigator as any).connection
-          if (connection?.effectiveType === 'slow-2g' || connection?.effectiveType === '2g') {
-            return 'low'
-          }
-          if (connection?.effectiveType === '3g') return 'medium'
-          return 'high'
-        }
-        return 'high' // Node.jsはデフォルトで高性能
-      })()
+      const performanceProfile = pipe(
+        platform,
+        Match.value,
+        Match.when('browser', () => {
+          // ブラウザのネットワーク状態を取得
+          return 'connection' in navigator
+            ? pipe(
+                Effect.runSync(getEffectiveConnectionType()),
+                Match.value,
+                Match.when('slow-2g', () => 'low' as const),
+                Match.when('2g', () => 'low' as const),
+                Match.when('3g', () => 'medium' as const),
+                Match.orElse(() => 'high' as const)
+              )
+            : ('high' as const)
+        }),
+        Match.orElse(() => 'high' as const)
+      )
 
       // 並行処理サポート
       const concurrencySupport = hasWebWorkers || platform === 'node'
@@ -131,11 +160,8 @@ export const detectEnvironment = (): Effect.Effect<EnvironmentInfo, RepositoryEr
       }
 
       return envInfo
-    } catch (error) {
-      return yield* Effect.fail(
-        RepositoryErrors.storage('environment_detection', 'Failed to detect environment', error)
-      )
-    }
+    },
+    catch: (error) => RepositoryErrors.storage('environment_detection', 'Failed to detect environment', error),
   })
 
 // ===== Strategy Selection ===== //
@@ -146,42 +172,48 @@ export const detectEnvironment = (): Effect.Effect<EnvironmentInfo, RepositoryEr
 export const selectOptimalStrategy = (
   environment: EnvironmentInfo,
   requirements: PerformanceRequirements
-): RepositoryStrategyType => {
-  // メモリ制約が厳しい場合
-  if (environment.memoryConstraints === 'low' || requirements.memoryBudget < 64) {
-    if (environment.hasIndexedDB) return 'indexeddb'
-    return 'memory' // フォールバック
-  }
-
-  // 高い並行性が必要な場合
-  if (requirements.concurrentOperations > 10 && environment.hasWebWorkers) {
-    return 'webworker'
-  }
-
-  // 強い一貫性が必要な場合
-  if (requirements.dataConsistency === 'strong') {
-    return 'memory' // インメモリが最も一貫性が高い
-  }
-
-  // 永続化が必要な場合
-  if (requirements.durability === 'persistent') {
-    if (environment.hasIndexedDB) return 'indexeddb'
-    if (environment.hasFileSystem) return 'memory' // Node.jsでは外部永続化と組み合わせ
-  }
-
-  // 低遅延が最優先の場合
-  if (requirements.maxLatency < 10) {
-    return 'memory'
-  }
-
-  // バランス型の場合
-  if (environment.hasIndexedDB && environment.memoryConstraints === 'high') {
-    return 'hybrid'
-  }
-
-  // デフォルト選択
-  return 'memory'
-}
+): RepositoryStrategyType =>
+  pipe(
+    // 優先度順に条件をチェック
+    Match.value({
+      // メモリ制約が厳しい場合の判定
+      isLowMemory: environment.memoryConstraints === 'low' || requirements.memoryBudget < 64,
+      // 高い並行性が必要な場合の判定
+      needsHighConcurrency: requirements.concurrentOperations > 10 && environment.hasWebWorkers,
+      // 強い一貫性が必要な場合の判定
+      needsStrongConsistency: requirements.dataConsistency === 'strong',
+      // 永続化が必要な場合の判定
+      needsPersistence: requirements.durability === 'persistent',
+      // 低遅延が最優先の場合の判定
+      needsLowLatency: requirements.maxLatency < 10,
+      // バランス型の判定
+      isBalanced: environment.hasIndexedDB && environment.memoryConstraints === 'high',
+      // 環境情報
+      environment,
+    }),
+    // メモリ制約が厳しい場合
+    Match.when({ isLowMemory: true }, ({ environment }) =>
+      environment.hasIndexedDB ? ('indexeddb' as const) : ('memory' as const)
+    ),
+    // 高い並行性が必要な場合
+    Match.when({ needsHighConcurrency: true }, () => 'webworker' as const),
+    // 強い一貫性が必要な場合
+    Match.when({ needsStrongConsistency: true }, () => 'memory' as const),
+    // 永続化が必要な場合
+    Match.when({ needsPersistence: true }, ({ environment }) =>
+      environment.hasIndexedDB
+        ? ('indexeddb' as const)
+        : environment.hasFileSystem
+          ? ('memory' as const)
+          : ('memory' as const)
+    ),
+    // 低遅延が最優先の場合
+    Match.when({ needsLowLatency: true }, () => 'memory' as const),
+    // バランス型の場合
+    Match.when({ isBalanced: true }, () => 'hybrid' as const),
+    // デフォルト選択
+    Match.orElse(() => 'memory' as const)
+  )
 
 /**
  * 自動戦略選択
@@ -376,82 +408,26 @@ const createAutoRepository = (): Layer.Layer<ChunkRepository, RepositoryError> =
       const strategy = yield* autoSelectStrategy()
 
       // 再帰的に適切な戦略のRepositoryを作成
-      if (strategy === 'auto') {
-        // 無限再帰防止：autoが選ばれた場合はmemoryにフォールバック
-        return yield* Effect.service(ChunkRepository).pipe(Effect.provide(InMemoryChunkRepositoryLive))
-      }
-
-      return yield* Effect.service(ChunkRepository).pipe(Effect.provide(createRepositoryLayer(strategy)))
+      // 無限再帰防止：autoが選ばれた場合はmemoryにフォールバック
+      return yield* pipe(
+        strategy,
+        Match.value,
+        Match.when('auto', () => Effect.service(ChunkRepository).pipe(Effect.provide(InMemoryChunkRepositoryLive))),
+        Match.orElse((s) => Effect.service(ChunkRepository).pipe(Effect.provide(createRepositoryLayer(s))))
+      )
     })
   )
 
 // ===== Configuration Builder ===== //
 
-/**
- * Repository設定ビルダー
- */
-export class RepositoryConfigBuilder {
-  private config: Partial<RepositoryConfig> = {}
-
-  strategy(strategy: RepositoryStrategyType): RepositoryConfigBuilder {
-    this.config.strategy = strategy
-    return this
-  }
-
-  maxMemoryUsage(mb: number): RepositoryConfigBuilder {
-    this.config.options = { ...this.config.options, maxMemoryUsage: mb }
-    return this
-  }
-
-  preferredStorage(storage: 'memory' | 'persistent'): RepositoryConfigBuilder {
-    this.config.options = { ...this.config.options, preferredStorage: storage }
-    return this
-  }
-
-  enableWebWorkers(enable: boolean = true, maxWorkers?: number): RepositoryConfigBuilder {
-    this.config.options = {
-      ...this.config.options,
-      enableWebWorkers: enable,
-      maxWorkers: maxWorkers,
-    }
-    return this
-  }
-
-  cacheSize(size: number): RepositoryConfigBuilder {
-    this.config.options = { ...this.config.options, cacheSize: size }
-    return this
-  }
-
-  enableCompression(enable: boolean = true): RepositoryConfigBuilder {
-    this.config.options = { ...this.config.options, compressionEnabled: enable }
-    return this
-  }
-
-  enableEncryption(enable: boolean = true): RepositoryConfigBuilder {
-    this.config.options = { ...this.config.options, encryptionEnabled: enable }
-    return this
-  }
-
-  build(): RepositoryConfig {
-    if (!this.config.strategy) {
-      throw new Error('Strategy must be specified')
-    }
-
-    return this.config as RepositoryConfig
-  }
-
-  buildLayer(): Layer.Layer<ChunkRepository, RepositoryError> {
-    const config = this.build()
-    return createRepositoryLayer(config.strategy)
-  }
-}
-
 // ===== Convenience Functions ===== //
 
 /**
  * 設定ビルダーを作成
+ *
+ * @returns 初期状態のRepositoryConfigBuilderState
  */
-export const configureRepository = (): RepositoryConfigBuilder => new RepositoryConfigBuilder()
+export const configureRepository = (): RepositoryConfigBuilderState => initialRepositoryConfigBuilderState
 
 /**
  * 環境に最適化されたRepository Layerを作成

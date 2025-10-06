@@ -1,7 +1,6 @@
 import { ComponentTypeNameSchema } from '@domain/entities/types'
-import { Schema } from '@effect/schema'
 import { it } from '@effect/vitest'
-import { Effect, Option, pipe } from 'effect'
+import { Effect, Option, pipe, Schema } from 'effect'
 import { expect } from 'vitest'
 import { provideLayers } from '../../testing/effect'
 import { AllComponentDefinitions, PositionComponentDefinition, VelocityComponentDefinition } from './component'

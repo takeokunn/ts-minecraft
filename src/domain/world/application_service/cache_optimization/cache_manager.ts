@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Match, Option, Ref, Schema } from 'effect'
+import { Clock, Context, Effect, Layer, Match, Option, Ref, Schema } from 'effect'
 
 /**
  * Cache Manager Service
@@ -207,7 +207,8 @@ const makeCacheManagerService = Effect.gen(function* () {
       }
 
       // TTLチェック
-      if (entry.ttl && Date.now() - entry.createdAt > entry.ttl) {
+      const now = yield* Clock.currentTimeMillis
+      if (entry.ttl && now - entry.createdAt > entry.ttl) {
         yield* deleteInternal(key)
         yield* recordMiss()
         return Option.none<T>()
@@ -216,7 +217,7 @@ const makeCacheManagerService = Effect.gen(function* () {
       // アクセス記録更新
       const updatedEntry = {
         ...entry,
-        lastAccessedAt: Date.now(),
+        lastAccessedAt: yield* Clock.currentTimeMillis,
         accessCount: entry.accessCount + 1,
       }
 
@@ -235,7 +236,7 @@ const makeCacheManagerService = Effect.gen(function* () {
   const set = (key: string, value: unknown, options?: { ttl?: number; priority?: number; layer?: string }) =>
     Effect.gen(function* () {
       const config = yield* Ref.get(configuration)
-      const now = Date.now()
+      const now = yield* Clock.currentTimeMillis
 
       const entry: Schema.Schema.Type<typeof CacheEntry> = {
         _tag: 'CacheEntry',
@@ -327,7 +328,7 @@ const makeCacheManagerService = Effect.gen(function* () {
       yield* Effect.logInfo('キャッシュ最適化開始')
 
       // 期限切れエントリの削除
-      const now = Date.now()
+      const now = yield* Clock.currentTimeMillis
       const entries = yield* Ref.get(cacheEntries)
       let expiredCount = 0
 
@@ -446,6 +447,7 @@ const makeCacheManagerService = Effect.gen(function* () {
 
   const selectEvictionCandidates = (entries: Schema.Schema.Type<typeof CacheEntry>[], strategy: CacheStrategy) =>
     Effect.gen(function* () {
+      const now = yield* Clock.currentTimeMillis
       return Match.value(strategy).pipe(
         Match.when('lru', () => [...entries].sort((a, b) => a.lastAccessedAt - b.lastAccessedAt)),
         Match.when('lfu', () => [...entries].sort((a, b) => a.accessCount - b.accessCount)),
@@ -453,16 +455,16 @@ const makeCacheManagerService = Effect.gen(function* () {
         Match.when('adaptive', () => {
           // 複合スコアによる選択
           return [...entries].sort((a, b) => {
-            const scoreA = calculateEvictionScore(a)
-            const scoreB = calculateEvictionScore(b)
+            const scoreA = calculateEvictionScore(a, now)
+            const scoreB = calculateEvictionScore(b, now)
             return scoreA - scoreB
           })
         }),
         Match.when('hybrid', () => {
           // LRU + 使用頻度の組み合わせ
           return [...entries].sort((a, b) => {
-            const scoreA = (Date.now() - a.lastAccessedAt) / a.accessCount
-            const scoreB = (Date.now() - b.lastAccessedAt) / b.accessCount
+            const scoreA = (now - a.lastAccessedAt) / a.accessCount
+            const scoreB = (now - b.lastAccessedAt) / b.accessCount
             return scoreB - scoreA
           })
         }),
@@ -470,13 +472,13 @@ const makeCacheManagerService = Effect.gen(function* () {
       )
     })
 
-  const calculateEvictionScore = (entry: Schema.Schema.Type<typeof CacheEntry>) => {
+  const calculateEvictionScore = (entry: Schema.Schema.Type<typeof CacheEntry>, now: number) => {
     const ageWeight = 0.3
     const accessWeight = 0.4
     const sizeWeight = 0.2
     const priorityWeight = 0.1
 
-    const age = Date.now() - entry.lastAccessedAt
+    const age = now - entry.lastAccessedAt
     const normalizedAge = Math.min(age / (24 * 60 * 60 * 1000), 1) // 24時間で正規化
 
     const accessScore = 1 / (entry.accessCount + 1)

@@ -3,7 +3,7 @@
  * 検証システムの構造化エラー定義
  */
 
-import { Data, Schema } from 'effect'
+import { Clock, Data, Effect, Schema } from 'effect'
 import { ErrorContext } from './index'
 
 // === スキーマ検証エラー ===
@@ -377,7 +377,7 @@ export class MultipleValidationError extends Data.TaggedError('MultipleValidatio
 }
 
 export const MultipleValidationErrorSchema = Schema.TaggedStruct('MultipleValidationError', {
-  errors: Schema.Array(Schema.lazy(() => ValidationDomainErrorSchema)),
+  errors: Schema.Array(Schema.suspend(() => ValidationDomainErrorSchema)),
   context: Schema.suspend(() => import('./index').then((m) => m.ErrorContextSchema)),
   severity: Schema.Literal('warning', 'error', 'critical'),
 }).pipe(
@@ -438,15 +438,18 @@ export const createSchemaValidationError = (
   actualValue: unknown,
   context?: Partial<ErrorContext>,
   validationRule?: string
-): SchemaValidationError =>
-  new SchemaValidationError({
-    schemaName,
-    fieldPath,
-    expectedType,
-    actualValue,
-    actualType: typeof actualValue,
-    context: { timestamp: new Date(), ...context },
-    validationRule,
+): Effect.Effect<SchemaValidationError> =>
+  Effect.gen(function* () {
+    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    return new SchemaValidationError({
+      schemaName,
+      fieldPath,
+      expectedType,
+      actualValue,
+      actualType: typeof actualValue,
+      context: { timestamp, ...context },
+      validationRule,
+    })
   })
 
 /** NumberOutOfRangeError作成ヘルパー */
@@ -457,14 +460,17 @@ export const createNumberOutOfRangeError = (
   maxValue: number,
   context?: Partial<ErrorContext>,
   inclusive: boolean = true
-): NumberOutOfRangeError =>
-  new NumberOutOfRangeError({
-    fieldName,
-    value,
-    minValue,
-    maxValue,
-    context: { timestamp: new Date(), ...context },
-    inclusive,
+): Effect.Effect<NumberOutOfRangeError> =>
+  Effect.gen(function* () {
+    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    return new NumberOutOfRangeError({
+      fieldName,
+      value,
+      minValue,
+      maxValue,
+      context: { timestamp, ...context },
+      inclusive,
+    })
   })
 
 /** PatternMismatchError作成ヘルパー */
@@ -475,14 +481,17 @@ export const createPatternMismatchError = (
   context?: Partial<ErrorContext>,
   description?: string,
   examples?: readonly string[]
-): PatternMismatchError =>
-  new PatternMismatchError({
-    fieldName,
-    value,
-    pattern,
-    context: { timestamp: new Date(), ...context },
-    description,
-    examples,
+): Effect.Effect<PatternMismatchError> =>
+  Effect.gen(function* () {
+    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    return new PatternMismatchError({
+      fieldName,
+      value,
+      pattern,
+      context: { timestamp, ...context },
+      description,
+      examples,
+    })
   })
 
 /** MultipleValidationError作成ヘルパー */
@@ -490,9 +499,12 @@ export const createMultipleValidationError = (
   errors: readonly ValidationDomainError[],
   context?: Partial<ErrorContext>,
   severity: 'warning' | 'error' | 'critical' = 'error'
-): MultipleValidationError =>
-  new MultipleValidationError({
-    errors,
-    context: { timestamp: new Date(), ...context },
-    severity,
+): Effect.Effect<MultipleValidationError> =>
+  Effect.gen(function* () {
+    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    return new MultipleValidationError({
+      errors,
+      context: { timestamp, ...context },
+      severity,
+    })
   })

@@ -17,7 +17,7 @@ export {
   MovementVector,
   PlayerMovementState,
   SchedulerConfiguration,
-} from './index'
+} from './adaptive_quality'
 
 export type {
   LoadingBatchType,
@@ -27,7 +27,7 @@ export type {
   MovementVectorType,
   PlayerMovementStateType,
   SchedulerConfigurationType,
-} from './index'
+} from './adaptive_quality'
 
 // === Priority Calculator ===
 export {
@@ -40,7 +40,7 @@ export {
   PriorityConfiguration,
   PriorityContext,
   PriorityFactor,
-} from './index'
+} from './adaptive_quality'
 
 export type {
   MLModelPredictionType,
@@ -49,7 +49,7 @@ export type {
   PriorityConfigurationType,
   PriorityContextType,
   PriorityFactorType,
-} from './index'
+} from './adaptive_quality'
 
 // === Memory Monitor ===
 export {
@@ -63,7 +63,7 @@ export {
   MemoryMonitorServiceLive,
   MemoryPool,
   MemoryStatistics,
-} from './index'
+} from './adaptive_quality'
 
 export type {
   AllocationRequestType,
@@ -73,7 +73,7 @@ export type {
   MemoryMonitorErrorType,
   MemoryPoolType,
   MemoryStatisticsType,
-} from './index'
+} from './adaptive_quality'
 
 // === Adaptive Quality ===
 export {
@@ -87,7 +87,7 @@ export {
   PerformanceTrend,
   QualityAdjustment,
   QualityProfile,
-} from './index'
+} from './adaptive_quality'
 
 export type {
   AdaptationConfigurationType,
@@ -96,15 +96,17 @@ export type {
   PerformanceTrendType,
   QualityAdjustmentType,
   QualityProfileType,
-} from './index'
+} from './adaptive_quality'
 
 // === Integrated Progressive Loading Service ===
 
-import { Context, Effect, Layer, Schema } from 'effect'
-import { AdaptiveQualityService } from './index'
-import { LoadingSchedulerService } from './index'
-import { MemoryMonitorService } from './index'
-import { PriorityCalculatorService } from './index'
+import { Clock, Context, Effect, Schema } from 'effect'
+import {
+  AdaptiveQualityService,
+  LoadingSchedulerService,
+  MemoryMonitorService,
+  PriorityCalculatorService,
+} from './service'
 
 /**
  * Progressive Loading Application Service
@@ -216,7 +218,7 @@ export interface ProgressiveLoadingService {
 
 // === Live Implementation ===
 
-const makeProgressiveLoadingService = Effect.gen(function* () {
+export const makeProgressiveLoadingService = Effect.gen(function* () {
   const scheduler = yield* LoadingSchedulerService
   const priorityCalculator = yield* PriorityCalculatorService
   const memoryMonitor = yield* MemoryMonitorService
@@ -275,7 +277,7 @@ const makeProgressiveLoadingService = Effect.gen(function* () {
           confidence: velocity.x !== 0 || velocity.z !== 0 ? 0.8 : 0.5,
         },
         viewDistance,
-        lastUpdate: Date.now(),
+        lastUpdate: yield* Clock.currentTimeMillis,
         history: [], // 簡略化
       }
 
@@ -287,7 +289,7 @@ const makeProgressiveLoadingService = Effect.gen(function* () {
     Effect.gen(function* () {
       const snapshot = {
         _tag: 'PerformanceSnapshot' as const,
-        timestamp: Date.now(),
+        timestamp: yield* Clock.currentTimeMillis,
         fps,
         frameTime: 1000 / fps,
         cpuUsage,
@@ -342,7 +344,8 @@ const makeProgressiveLoadingService = Effect.gen(function* () {
     priority: 'critical' | 'high' | 'normal' | 'low' | 'background' = 'normal'
   ) =>
     Effect.gen(function* () {
-      const requestId = `chunk_${chunkX}_${chunkZ}_${Date.now()}`
+      const now = yield* Clock.currentTimeMillis
+      const requestId = `chunk_${chunkX}_${chunkZ}_${now}`
 
       const loadRequest = {
         _tag: 'LoadingRequest' as const,
@@ -352,7 +355,7 @@ const makeProgressiveLoadingService = Effect.gen(function* () {
         distance: 0, // プレイヤー位置から計算
         estimatedSize: 1024, // 1KB推定
         requester: playerId,
-        timestamp: Date.now(),
+        timestamp: now,
         dependencies: [],
         metadata: {},
       }
@@ -417,27 +420,8 @@ export const ProgressiveLoadingService = Context.GenericTag<ProgressiveLoadingSe
   '@minecraft/domain/world/ProgressiveLoadingService'
 )
 
-// === Integrated Layer ===
-
-export const ProgressiveLoadingServiceLive = Layer.effect(
-  ProgressiveLoadingService,
-  makeProgressiveLoadingService
-).pipe(
-  Layer.provide(LoadingSchedulerService),
-  Layer.provide(PriorityCalculatorService),
-  Layer.provide(MemoryMonitorService),
-  Layer.provide(AdaptiveQualityService)
-)
-
-// === Complete Service Layer ===
-
-export const ProgressiveLoadingServicesLayer = Layer.mergeAll(
-  LoadingSchedulerServiceLive,
-  PriorityCalculatorServiceLive,
-  MemoryMonitorServiceLive,
-  AdaptiveQualityServiceLive,
-  ProgressiveLoadingServiceLive
-)
+// === Layer Exports ===
+export * from './layer'
 
 // === Helper Functions ===
 
@@ -540,4 +524,4 @@ export const ProgressiveLoadingUtils = {
     }),
 }
 
-export type { ProgressiveLoadingErrorType } from './index'
+export type { ProgressiveLoadingErrorType } from './adaptive_quality'

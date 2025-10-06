@@ -4,14 +4,6 @@
  */
 
 // Entity
-export type {
-  EntityCoreState,
-  EntityCreateInput,
-  EntityDomainFailure,
-  EntityState,
-  EntityTickInput,
-  EntityUpdateInput,
-} from './index'
 export {
   EntityCreateSchema,
   EntityTickSchema,
@@ -19,10 +11,18 @@ export {
   createEntity,
   integrateTick,
   updateEntity,
-} from './index'
+} from './entity'
+export type {
+  EntityCoreState,
+  EntityCreateInput,
+  EntityDomainFailure,
+  EntityState,
+  EntityTickInput,
+  EntityUpdateInput,
+} from './entity'
 
 // Player
-export type { PlayerDomainFailure } from './index'
-export { applyExperienceGain, applyPlayerUpdate, changeGameMode } from './index'
-export * from './player';
-export * from './entity';
+export * from './entity'
+export { applyExperienceGain, applyPlayerUpdate, changeGameMode } from './entity'
+export type { PlayerDomainFailure } from './entity'
+export * from './player'

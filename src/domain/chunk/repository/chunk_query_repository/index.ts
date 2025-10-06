@@ -1,28 +1,28 @@
 /**
  * ChunkQueryRepository Module - Barrel Export
  *
- * CQRS パターンのQuery側実装
- * 読み取り専用の高性能クエリ操作を提供
+ * CQRS パターンに基づく読み取り専用リポジトリ
+ * 高速な検索・集約クエリの最適化
  */
 
 export {
   ChunkQueryRepository,
-  type ChunkAnalytics,
-  type ChunkHeatmapData,
-  type ChunkNeighborhood,
-  type ChunkPerformanceStats,
+  // Query Types
+  type ChunkFilter,
   // Interface
   type ChunkQueryRepository,
   type ChunkQueryRepositoryEffect,
+  type ChunkQueryResult,
+  type ChunkSortOptions,
+  type ChunkStatistics,
+  // Pagination
+  type PageInfo,
+  type PaginatedChunkResult,
+  // Query Builders
+  type QueryBuilder,
+  type QueryCriteria,
+  type QueryProjection,
+} from './interface'
 
-  // Types
-  type ChunkSearchCriteria,
-} from './index'
-
-export {
-  // Implementation
-  ChunkQueryRepositoryLive,
-} from './index'
-export * from './index';
-export * from './index';
-export * from './interface';
+// Note: Implementation will be added in a separate task
+// For now, we export only the interface and types

@@ -1,5 +1,3 @@
-import { Schema } from '@effect/schema'
-import { Effect } from 'effect'
 import type {
   EquipmentDomainError,
   EquipmentOwnerId,
@@ -17,8 +15,13 @@ import {
   makeRequirementViolation,
   makeSchemaViolation,
 } from '@domain/equipment/types'
-import { ensureWeightWithinLimit } from '../value_object'
-import { equipmentSlotLiterals, type EquipmentSlot, type EquipmentSlotLiteral } from '../value_object'
+import { Effect, Schema } from 'effect'
+import {
+  ensureWeightWithinLimit,
+  equipmentSlotLiterals,
+  type EquipmentSlot,
+  type EquipmentSlotLiteral,
+} from '../value_object'
 import { EquipmentPieceSchema, ensureFitsSlot, withUpdatedTimestamp, type EquipmentPiece } from './index'
 
 const optionalPiece = Schema.optional(EquipmentPieceSchema)

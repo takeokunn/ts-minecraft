@@ -50,8 +50,4 @@ export {
 } from './domain'
 export type { SessionState } from './domain'
 
-export {
-  ChunkLoaderDomainLive,
-  ChunkLoadingProviderLive,
-  makeChunkLoadingProvider,
-} from './application'
+export { ChunkLoaderDomainLive, ChunkLoadingProviderLive, makeChunkLoadingProvider } from './application'

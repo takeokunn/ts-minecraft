@@ -6,10 +6,16 @@
  * Effect-TS 3.17+ Layer パターンによる依存性注入対応
  */
 
-import { Effect, Layer, Option, ReadonlyArray, Ref } from 'effect'
-import type { GenerationSettings, PerformanceMetrics, WorldGenerator, WorldId, WorldSeed } from '@domain/world/types'
-import type { AllRepositoryErrors } from '@domain/world/types'
+import type {
+  AllRepositoryErrors,
+  GenerationSettings,
+  PerformanceMetrics,
+  WorldGenerator,
+  WorldId,
+  WorldSeed,
+} from '@domain/world/types'
 import { createRepositoryError, createWorldGeneratorNotFoundError } from '@domain/world/types'
+import { Effect, Layer, Option, ReadonlyArray, Ref } from 'effect'
 import {
   WorldGeneratorRepository,
   type CacheConfiguration,
@@ -122,9 +128,10 @@ const makeWorldGeneratorRepositoryMemory = (
         })
 
         if (config.performance.enableMetrics) {
+          const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
           yield* updateStatistics((stats) => ({
             ...stats,
-            lastGenerationTime: new Date(),
+            lastGenerationTime: now,
           }))
         }
       }).pipe(
@@ -490,7 +497,10 @@ const makeWorldGeneratorRepositoryMemory = (
     const warmupCache = (worldIds: ReadonlyArray<WorldId>): Effect.Effect<void, AllRepositoryErrors> => Effect.void // Mock implementation
 
     const createBackup = (worldId?: WorldId): Effect.Effect<string, AllRepositoryErrors> =>
-      Effect.succeed(`backup-${Date.now()}`) // Mock implementation
+      Effect.gen(function* () {
+        const timestamp = yield* Clock.currentTimeMillis
+        return `backup-${timestamp}`
+      })
 
     const restoreFromBackup = (backupId: string, worldId?: WorldId): Effect.Effect<void, AllRepositoryErrors> =>
       Effect.void // Mock implementation

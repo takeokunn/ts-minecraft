@@ -19,10 +19,10 @@
  * - Chunk による効率的なバッチ処理
  */
 
-import { Chunk, Context, Duration, Effect, Function, Layer, Match, Schema } from 'effect'
 import type * as GenerationSession from '@domain/world/aggregate/generation_session'
 import type * as WorldGenerator from '@domain/world/aggregate/world_generator'
 import * as Coordinates from '@domain/world/value_object/coordinates/index'
+import { Chunk, Context, Duration, Effect, Function, Layer, Match, Schema } from 'effect'
 
 // ================================
 // Factory Error Types
@@ -371,19 +371,18 @@ const createGenerationSessionFactory = (): GenerationSessionFactory => ({
  * セッションパラメータ検証
  */
 const validateSessionParams = (params: CreateSessionParams): Effect.Effect<void, SessionFactoryError> =>
-  Effect.gen(function* () {
-    try {
-      Schema.decodeSync(CreateSessionParamsSchema)(params)
-    } catch (error) {
-      return yield* Effect.fail(
+  pipe(
+    Effect.try({
+      try: () => Schema.decodeSync(CreateSessionParamsSchema)(params),
+      catch: (error) =>
         new SessionFactoryError({
           category: 'configuration_invalid',
           message: 'Invalid session parameters',
           cause: error,
-        })
-      )
-    }
-  })
+        }),
+    }),
+    Effect.asVoid
+  )
 
 /**
  * デフォルト設定適用

@@ -1,46 +1,42 @@
+export * from '@domain/equipment/types'
 export {
   EquipmentPieceSchema,
+  EquipmentSetSchema,
   EquipmentTagSchema,
   assignBonusStats,
-  createEquipmentPiece,
-  ensureFitsSlot,
-  promoteTier,
-  withUpdatedTimestamp,
-  type EquipmentPiece,
-  type EquipmentTag,
-} from './aggregate'
-export {
-  EquipmentSetSchema,
   carriedWeightPercentage,
+  createEquipmentPiece,
   createEquipmentSet,
   emptyEquipmentSet,
+  ensureFitsSlot,
   equipPiece,
   findPiece,
+  promoteTier,
   unequipSlot,
   updatePieces,
+  withUpdatedTimestamp,
+  type EquipmentPiece,
   type EquipmentSet,
+  type EquipmentTag,
   type Slots,
 } from './aggregate'
 export { EquipmentServiceLive, EquipmentServiceTag, type EquipmentService } from './application_service'
 export { analyseEquipmentSet, type EquipmentAnalysisSummary } from './domain_service'
 export { EquipmentRepositoryTag, InMemoryEquipmentRepository, type EquipmentRepository } from './repository'
-export * from '@domain/equipment/types'
-export {
-  EquipmentStatsSchema,
-  EquipmentTierSchema,
-  applyTierWeight,
-  ensureWeightWithinLimit,
-  mergeStats,
-  parseWeight,
-  type EquipmentStats,
-  type EquipmentTier,
-} from './value_object'
 export {
   EquipmentSlotSchema,
+  EquipmentStatsSchema,
+  EquipmentTierSchema,
   allSlots,
+  applyTierWeight,
   ensureSlotAllowed,
+  ensureWeightWithinLimit,
   equipmentSlotLiterals,
   getSlotCategory,
+  mergeStats,
+  parseWeight,
   type EquipmentSlot,
   type EquipmentSlotLiteral,
+  type EquipmentStats,
+  type EquipmentTier,
 } from './value_object'

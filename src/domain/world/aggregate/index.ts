@@ -299,23 +299,11 @@ export {
 // Aggregate Layer Integration
 // ================================
 
-/**
- * 全集約ルートサービスの統合タグ
- */
-export const WorldAggregateServicesTag = Context.GenericTag<{
-  readonly worldGenerator: typeof WorldGeneratorTag.Service
-  readonly generationSession: typeof GenerationSessionTag.Service
-  readonly biomeSystem: typeof BiomeSystemTag.Service
-}>('@minecraft/domain/world/aggregate/WorldAggregateServices')
+// ================================
+// Layer Integration
+// ================================
 
-/**
- * 全イベント発行者の統合タグ
- */
-export const WorldEventPublishersTag = Context.GenericTag<{
-  readonly worldGeneratorEvents: EventPublisher
-  readonly sessionEvents: SessionEventPublisher
-  readonly biomeEvents: typeof BiomeEventPublisherTag.Service
-}>('@minecraft/domain/world/aggregate/WorldEventPublishers')
+export * from './layer'
 
 /**
  * 集約間協調サービス
@@ -344,24 +332,6 @@ export interface AggregateOrchestrator {
 
 export const AggregateOrchestratorTag = Context.GenericTag<AggregateOrchestrator>(
   '@minecraft/domain/world/aggregate/AggregateOrchestrator'
-)
-
-/**
- * 統合レイヤー実装
- */
-export const WorldAggregateLive = Layer.mergeAll(
-  WorldGeneratorLive.pipe(Layer.provide(Layer.succeed(WorldGeneratorTag, WorldGeneratorLive))),
-  GenerationSessionLive.pipe(Layer.provide(Layer.succeed(GenerationSessionTag, GenerationSessionLive))),
-  BiomeSystemLive.pipe(Layer.provide(Layer.succeed(BiomeSystemTag, BiomeSystemLive)))
-)
-
-/**
- * イベント発行者統合レイヤー
- */
-export const WorldEventPublishersLive = Layer.mergeAll(
-  Layer.succeed(EventPublisherTag, InMemoryEventPublisher),
-  Layer.succeed(SessionEventPublisherTag, InMemorySessionEventPublisher),
-  Layer.succeed(BiomeEventPublisherTag, InMemoryBiomeEventPublisher)
 )
 
 // ================================
@@ -407,6 +377,6 @@ export const WorldDomainAggregateFactory = {
 // Exports
 // ================================
 
-import { Context, Effect, Layer } from 'effect'
 import type * as GenerationErrors from '@domain/world/types/errors'
 import type * as WorldSeed from '@domain/world/value_object/world_seed/index'
+import { Context, Effect } from 'effect'

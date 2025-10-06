@@ -5,9 +5,9 @@
  * Effect-TS 3.17+ Schema + Brand型による完全型安全実装
  */
 
+import { taggedUnion } from '@domain/world/utils'
 import type { Brand as BrandType } from 'effect'
 import { Schema } from 'effect'
-import { taggedUnion } from '@domain/world/utils'
 
 /**
  * WorldSeed Brand型 - 型レベルでの識別保証

@@ -5,9 +5,9 @@
  * 数学的精度とパフォーマンスの最適化
  */
 
+import { taggedUnion } from '@domain/world/utils'
 import type { Brand as BrandType } from 'effect'
 import { Schema } from 'effect'
-import { taggedUnion } from '@domain/world/utils'
 
 /**
  * オクターブインデックスBrand型（0以上）

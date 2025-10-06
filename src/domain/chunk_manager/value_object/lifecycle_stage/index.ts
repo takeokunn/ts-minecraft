@@ -11,9 +11,10 @@ export {
   destroyStage,
   markPendingDestruction,
   updateIdleDuration,
-} from './index'
+} from './lifecycle_stage'
 
 // Lifecycle Stats
+export * from './lifecycle_stage'
 export {
   averageActivationDuration,
   averageDeactivationDuration,
@@ -22,6 +23,5 @@ export {
   recordDeactivation,
   setMemoryPressure,
   toLifecycleStats,
-} from './index'
-export * from './lifecycle_stats';
-export * from './lifecycle_stage';
+} from './lifecycle_stage'
+export * from './lifecycle_stats'

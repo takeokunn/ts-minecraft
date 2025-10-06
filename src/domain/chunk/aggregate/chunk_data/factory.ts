@@ -234,7 +234,7 @@ export const createChunkDataAggregate = (
   data: ChunkData
 ): Effect.Effect<ChunkDataAggregate, ChunkDataValidationError> =>
   pipe(
-    Schema.decodeEffect(ChunkDataSchema)(data),
+    Schema.decode(ChunkDataSchema)(data),
     Effect.mapError((error) =>
       ChunkDataValidationError({
         message: 'チャンクデータの検証に失敗しました',
@@ -285,7 +285,7 @@ export const createEmptyChunkDataAggregate = (
  */
 export const validateChunkData = (data: unknown): Effect.Effect<ChunkData, ChunkDataValidationError> =>
   pipe(
-    Schema.decodeEffect(ChunkDataSchema)(data),
+    Schema.decode(ChunkDataSchema)(data),
     Effect.mapError((error) =>
       ChunkDataValidationError({
         message: `チャンクデータの検証に失敗しました: ${String(error)}`,

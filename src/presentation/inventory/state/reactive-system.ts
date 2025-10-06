@@ -1,7 +1,7 @@
 import { Context, Duration, Effect, Fiber, HashSet, Layer, Ref, Schedule, Stream } from 'effect'
 import type { InventoryGUIError, PlayerId } from '../adt'
 import { InventoryViewModelTag } from '../view-model'
-import { InventoryStateStoreTag } from './index'
+import { InventoryStateStoreTag } from './store'
 
 export interface InventoryReactiveSystem {
   readonly register: (playerId: PlayerId) => Effect.Effect<void, InventoryGUIError>

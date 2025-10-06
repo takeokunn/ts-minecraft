@@ -1,6 +1,6 @@
-import { Brand, Schema } from 'effect'
 import * as Coordinates from '@domain/world/value_object/coordinates/index.js'
 import * as WorldSeed from '@domain/world/value_object/world_seed/index.js'
+import { Brand, Schema } from 'effect'
 
 export type BiomeSystemId = string & Brand.Brand<'BiomeSystemId'>
 
@@ -13,8 +13,7 @@ export const BiomeSystemIdSchema = Schema.String.pipe(
   })
 )
 
-export const createBiomeSystemId = (value: string): BiomeSystemId =>
-  Schema.decodeSync(BiomeSystemIdSchema)(value)
+export const createBiomeSystemId = (value: string): BiomeSystemId => Schema.decodeSync(BiomeSystemIdSchema)(value)
 
 export const BiomeSystemConfigurationSchema = Schema.Struct({
   climateModel: Schema.Struct({

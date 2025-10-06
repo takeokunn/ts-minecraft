@@ -3,6 +3,5 @@
  * 装備品管理のアプリケーション層インターフェース
  */
 
-export type { EquipmentService } from './index'
-export { EquipmentServiceLive, EquipmentServiceTag, makeEquipmentService } from './index'
-export * from './index';
+export { EquipmentServiceLive, EquipmentServiceTag, makeEquipmentService } from './service'
+export type { EquipmentService } from './service'

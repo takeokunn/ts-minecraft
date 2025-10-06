@@ -5,8 +5,8 @@
  * アニメーション記録、統計情報、履歴管理の型安全性確保
  */
 
-import { Brand, Data, Option, Schema } from 'effect'
 import type { CameraId, CameraRotation, Position3D } from '@domain/camera/types'
+import { Brand, Clock, Data, Effect, Option, Schema } from 'effect'
 import type { EasingType, ViewMode } from '../../value_object/index'
 
 // ========================================
@@ -488,30 +488,34 @@ export const createAnimationRecord = {
     endRotation: CameraRotation,
     duration: number,
     easingType: EasingType
-  ): AnimationRecord =>
-    ({
-      id: `anim_${Date.now()}_${Math.random().toString(36).slice(2)}` as AnimationRecordId,
-      cameraId,
-      animationType,
-      startPosition,
-      endPosition,
-      startRotation,
-      endRotation,
-      duration,
-      easingType,
-      startTime: Date.now(),
-      endTime: Date.now() + duration,
-      success: false, // 開始時は未完了
-      interruption: Option.none(),
-      metadata: {
-        frameRate: 60,
-        performanceScore: 100,
-        memoryUsageMB: 0,
-        renderTime: 0,
-        userTriggered: true,
-        priority: Data.tagged('Normal', {}),
-      } as AnimationMetadata,
-    }) as AnimationRecord,
+  ): Effect.Effect<AnimationRecord> =>
+    Effect.gen(function* () {
+      const now = yield* Clock.currentTimeMillis
+      const random = yield* Effect.sync(() => Math.random().toString(36).slice(2))
+      return {
+        id: `anim_${now}_${random}` as AnimationRecordId,
+        cameraId,
+        animationType,
+        startPosition,
+        endPosition,
+        startRotation,
+        endRotation,
+        duration,
+        easingType,
+        startTime: now,
+        endTime: now + duration,
+        success: false, // 開始時は未完了
+        interruption: Option.none(),
+        metadata: {
+          frameRate: 60,
+          performanceScore: 100,
+          memoryUsageMB: 0,
+          renderTime: 0,
+          userTriggered: true,
+          priority: Data.tagged('Normal', {}),
+        } as AnimationMetadata,
+      } as AnimationRecord
+    }),
 
   /**
    * 時間範囲を作成

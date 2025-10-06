@@ -1,6 +1,5 @@
-import { Schema } from '@effect/schema'
-import { Array, Brand, Data, Option } from 'effect'
 import type { AnimationState, CameraId, Position3D, ViewMode } from '@domain/camera/types'
+import { Array, Brand, Data, Option, Schema } from 'effect'
 
 // ========================================
 // Camera Mode Manager Application Types

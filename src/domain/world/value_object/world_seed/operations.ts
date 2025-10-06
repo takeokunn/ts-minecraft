@@ -5,7 +5,7 @@
  * 不変性を保証する関数型プログラミングパターンを採用
  */
 
-import { Effect, Equal, Hash, Schema } from 'effect'
+import { Clock, Effect, Equal, Hash, Schema } from 'effect'
 import {
   CreateWorldSeedParams,
   CreateWorldSeedParamsSchema,
@@ -38,10 +38,14 @@ export const WorldSeedOps = {
       // エントロピー計算
       const entropy = calculateEntropy(seedValue)
 
+      // タイムスタンプ取得
+      const timestampMs = yield* Clock.currentTimeMillis
+      const timestamp = Schema.decodeSync(TimestampSchema)(timestampMs)
+
       // WorldSeed構築
       const worldSeed: WorldSeed = {
         value: seedValue,
-        timestamp: Schema.decodeSync(TimestampSchema)(Date.now()),
+        timestamp,
         entropy,
         humanReadable: validatedParams.humanReadable,
         context: validatedParams.generator
@@ -115,7 +119,7 @@ export const WorldSeedOps = {
    */
   fromTimestamp: (): Effect.Effect<WorldSeed, WorldSeedError> =>
     Effect.gen(function* () {
-      const timestamp = Date.now()
+      const timestamp = yield* Clock.currentTimeMillis
       const seedValue = (timestamp % 4294967296) - 2147483648
 
       return yield* WorldSeedOps.create({

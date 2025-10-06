@@ -280,7 +280,7 @@ export const ContainerRepositoryMemory = Layer.effect(
                     name: snapshotName,
                     containerId,
                     container: structuredClone(container),
-                    createdAt: Date.now(),
+                    createdAt: yield* Clock.currentTimeMillis,
                   }
 
                   yield* Ref.update(snapshotStore, (store) => HashMap.set(store, snapshot.id, snapshot))
@@ -305,7 +305,7 @@ export const ContainerRepositoryMemory = Layer.effect(
                 Effect.gen(function* () {
                   const restoredContainer: Container = {
                     ...snapshot.container,
-                    lastAccessed: Date.now(),
+                    lastAccessed: yield* Clock.currentTimeMillis,
                     version: snapshot.container.version + 1,
                   }
 
@@ -337,7 +337,7 @@ export const ContainerRepositoryMemory = Layer.effect(
                   const updatedContainer: Container = {
                     ...container,
                     permissions,
-                    lastAccessed: Date.now(),
+                    lastAccessed: yield* Clock.currentTimeMillis,
                     version: container.version + 1,
                   }
 

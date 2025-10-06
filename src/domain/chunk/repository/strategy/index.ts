@@ -9,8 +9,6 @@ export {
   // Environment-specific Layers
   DevelopmentRepositoryLayer,
   ProductionRepositoryLayer,
-  // Configuration Builder
-  RepositoryConfigBuilder,
   TestRepositoryLayer,
   autoSelectStrategy,
   configureRepository,
@@ -29,4 +27,23 @@ export {
   type RepositoryConfig,
   // Strategy Types
   type RepositoryStrategyType,
-} from './index'
+} from './repository_strategy'
+
+// Configuration Builder State & Functions
+export {
+  RepositoryConfigBuilderStateSchema,
+  initialRepositoryConfigBuilderState,
+  type RepositoryConfigBuilderState,
+} from './config_builder_state'
+
+export {
+  buildConfig,
+  buildLayer,
+  setCacheSize,
+  setEnableCompression,
+  setEnableEncryption,
+  setEnableWebWorkers,
+  setMaxMemoryUsage,
+  setPreferredStorage,
+  setStrategy,
+} from './config_builder_functions'

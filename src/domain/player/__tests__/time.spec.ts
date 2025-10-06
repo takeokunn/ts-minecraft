@@ -1,6 +1,6 @@
 import { Effect } from 'effect'
 import { describe, expect, it } from 'vitest'
-import { provideLayers } from '../../testing/effect'
+import { provideLayers } from '../../../testing/effect'
 import { PlayerClock, PlayerClockLive } from '../time'
 
 const runWithClock = <A>(effect: Effect.Effect<A>) => Effect.runPromise(provideLayers(effect, PlayerClockLive))

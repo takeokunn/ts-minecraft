@@ -5,18 +5,22 @@
  * オーバーフロー防止と境界値の厳密な管理
  */
 
-import { Effect, Schema } from 'effect'
 import { taggedUnion } from '@domain/world/utils'
-import { BLOCK_COORDINATE_LIMITS, BlockCoordinate, BlockRange } from './index'
+import { Effect, Schema } from 'effect'
 import {
+  BLOCK_COORDINATE_LIMITS,
+  BlockCoordinate,
+  BlockRange,
   CHUNK_CONSTANTS,
   CHUNK_COORDINATE_LIMITS,
   ChunkBounds,
   ChunkCoordinate,
   LocalCoordinate,
+  WORLD_COORDINATE_LIMITS,
+  WorldCoordinate,
   type ChunkSectionY,
+  type WorldY,
 } from './index'
-import { WORLD_COORDINATE_LIMITS, WorldCoordinate, type WorldY } from './index'
 
 /**
  * 変換エラー型

@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Ref, Schema } from 'effect'
+import { Clock, Context, Effect, Layer, Match, pipe, Ref, Schema } from 'effect'
 
 /**
  * Priority Calculator Service
@@ -243,9 +243,10 @@ const makePriorityCalculatorService = Effect.gen(function* () {
       }
 
       // 履歴記録
+      const timestamp = yield* Clock.currentTimeMillis
       yield* Ref.update(calculationHistory, (history) => [
         ...history.slice(-99), // 最新100件を保持
-        { context, result, timestamp: Date.now() },
+        { context, result, timestamp },
       ])
 
       yield* Effect.logDebug(`優先度計算完了: ${finalPriority} (${priorityLevel})`)
@@ -312,16 +313,20 @@ const makePriorityCalculatorService = Effect.gen(function* () {
       const adjustedWeights = { ...config.baseFactors }
 
       // FPSが低い場合は距離重視を強化
-      if (performanceMetrics.fps < 30) {
-        adjustedWeights.distance = Math.min(1.0, adjustedWeights.distance * 1.2)
-        adjustedWeights.complexity = Math.max(0.1, adjustedWeights.complexity * 0.8)
-      }
+      yield* Effect.when(performanceMetrics.fps < 30, () =>
+        Effect.sync(() => {
+          adjustedWeights.distance = Math.min(1.0, adjustedWeights.distance * 1.2)
+          adjustedWeights.complexity = Math.max(0.1, adjustedWeights.complexity * 0.8)
+        })
+      )
 
       // メモリ使用量が高い場合は選択的読み込み
-      if (performanceMetrics.memoryUsage > 0.8) {
-        adjustedWeights.distance = Math.min(1.0, adjustedWeights.distance * 1.5)
-        adjustedWeights.prediction = Math.max(0.1, adjustedWeights.prediction * 0.6)
-      }
+      yield* Effect.when(performanceMetrics.memoryUsage > 0.8, () =>
+        Effect.sync(() => {
+          adjustedWeights.distance = Math.min(1.0, adjustedWeights.distance * 1.5)
+          adjustedWeights.prediction = Math.max(0.1, adjustedWeights.prediction * 0.6)
+        })
+      )
 
       yield* updateConfiguration({ baseFactors: adjustedWeights })
       yield* Effect.logInfo('ファクター重み動的調整完了')
@@ -362,22 +367,28 @@ ${result.factors
       factors.push(distanceFactor)
 
       // 移動予測ファクター
-      if (config.movementPrediction.enabled) {
-        const movementFactor = calculateMovementFactor(context, config)
-        factors.push(movementFactor)
-      }
+      yield* Effect.when(config.movementPrediction.enabled, () =>
+        Effect.sync(() => {
+          const movementFactor = calculateMovementFactor(context, config)
+          factors.push(movementFactor)
+        })
+      )
 
       // パフォーマンスファクター
-      if (config.performanceAdaptation.enabled) {
-        const performanceFactor = calculatePerformanceFactor(context, config)
-        factors.push(performanceFactor)
-      }
+      yield* Effect.when(config.performanceAdaptation.enabled, () =>
+        Effect.sync(() => {
+          const performanceFactor = calculatePerformanceFactor(context, config)
+          factors.push(performanceFactor)
+        })
+      )
 
       // コンテンツファクター
-      if (config.contentAnalysis.enabled && context.biomeInfo) {
-        const contentFactor = calculateContentFactor(context, config)
-        factors.push(contentFactor)
-      }
+      yield* Effect.when(config.contentAnalysis.enabled && context.biomeInfo, () =>
+        Effect.sync(() => {
+          const contentFactor = calculateContentFactor(context, config)
+          factors.push(contentFactor)
+        })
+      )
 
       // 視界ファクター
       const visibilityFactor = calculateVisibilityFactor(context)
@@ -567,25 +578,53 @@ ${result.factors
       return Math.max(0, Math.min(100, normalizedPriority))
     })
 
-  const determinePriorityLevel = (priority: number) => {
-    if (priority >= 90) return 'critical' as const
-    if (priority >= 70) return 'high' as const
-    if (priority >= 40) return 'normal' as const
-    if (priority >= 20) return 'low' as const
-    return 'background' as const
-  }
+  const determinePriorityLevel = (priority: number) =>
+    pipe(
+      Match.value(priority),
+      Match.when(
+        (p) => p >= 90,
+        () => 'critical' as const
+      ),
+      Match.when(
+        (p) => p >= 70,
+        () => 'high' as const
+      ),
+      Match.when(
+        (p) => p >= 40,
+        () => 'normal' as const
+      ),
+      Match.when(
+        (p) => p >= 20,
+        () => 'low' as const
+      ),
+      Match.orElse(() => 'background' as const)
+    )
 
   const determineRecommendedAction = (
     priority: number,
     context: Schema.Schema.Type<typeof PriorityContext>,
     config: Schema.Schema.Type<typeof PriorityConfiguration>
-  ) => {
-    if (priority >= 90) return 'load_immediately' as const
-    if (priority >= 70) return 'load_soon' as const
-    if (priority >= 40) return 'load_when_available' as const
-    if (priority >= 20) return 'defer_loading' as const
-    return 'skip_loading' as const
-  }
+  ) =>
+    pipe(
+      Match.value(priority),
+      Match.when(
+        (p) => p >= 90,
+        () => 'load_immediately' as const
+      ),
+      Match.when(
+        (p) => p >= 70,
+        () => 'load_soon' as const
+      ),
+      Match.when(
+        (p) => p >= 40,
+        () => 'load_when_available' as const
+      ),
+      Match.when(
+        (p) => p >= 20,
+        () => 'defer_loading' as const
+      ),
+      Match.orElse(() => 'skip_loading' as const)
+    )
 
   const calculateConfidence = (
     factors: Schema.Schema.Type<typeof PriorityFactor>[],

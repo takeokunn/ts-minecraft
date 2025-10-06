@@ -1,25 +1,26 @@
 import { Context, Effect, HashMap, Layer, Random, Ref } from 'effect'
+import * as ReadonlyArray from 'effect/Array'
 import { pipe } from 'effect/Function'
-import * as ReadonlyArray from 'effect/ReadonlyArray'
 import {
+  AttackCommand,
+  AttackContext,
+  CombatDomainError,
+  CombatError,
+  CombatEvent,
   CombatSession,
   CombatSessionBlueprint,
   Combatant,
   CombatantBlueprint,
-  createSession as createCombatSession,
-  createCombatant,
-  insertCombatant,
-} from './index'
-import { AttackCommand, AttackContext, decayCooldowns, resolveAttack } from './index'
-import {
-  CombatDomainError,
-  CombatError,
-  CombatEvent,
   CombatantId,
   SessionId,
+  createSession as createCombatSession,
+  createCombatant,
   currentTimestamp,
+  decayCooldowns,
+  insertCombatant,
   makeCooldown,
   makeCriticalChance,
+  resolveAttack,
 } from './index'
 
 export interface CombatService {

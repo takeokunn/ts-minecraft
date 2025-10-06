@@ -5,9 +5,9 @@
  * Minecraft準拠の生態学的妥当性と気候データ管理
  */
 
+import { taggedUnion } from '@domain/world/utils'
 import type { Brand as BrandType } from 'effect'
 import { Schema } from 'effect'
-import { taggedUnion } from '@domain/world/utils'
 
 /**
  * 温度値Brand型（摂氏-50度から50度）
@@ -88,6 +88,67 @@ export const PrecipitationSchema = Schema.Number.pipe(
     title: 'Annual Precipitation',
     description: 'Annual precipitation in millimeters (0-2000mm)',
     examples: [500, 1200, 100, 1800],
+  })
+)
+
+/**
+ * 風速Brand型（0から100 m/s）
+ */
+export type WindSpeed = number & BrandType.Brand<'WindSpeed'>
+
+/**
+ * 風速Schema
+ */
+export const WindSpeedSchema = Schema.Number.pipe(
+  Schema.finite(),
+  Schema.nonNegative(),
+  Schema.between(0, 100),
+  Schema.brand('WindSpeed'),
+  Schema.annotations({
+    identifier: 'WindSpeed',
+    title: 'Wind Speed',
+    description: 'Wind speed in meters per second (0-100 m/s)',
+    examples: [5, 10, 20, 50],
+  })
+)
+
+/**
+ * 気圧Brand型（900から1100 hPa）
+ */
+export type Pressure = number & BrandType.Brand<'Pressure'>
+
+/**
+ * 気圧Schema
+ */
+export const PressureSchema = Schema.Number.pipe(
+  Schema.finite(),
+  Schema.between(900, 1100),
+  Schema.brand('Pressure'),
+  Schema.annotations({
+    identifier: 'Pressure',
+    title: 'Atmospheric Pressure',
+    description: 'Atmospheric pressure in hectopascals (900-1100 hPa)',
+    examples: [1013.25, 1020, 1000, 980],
+  })
+)
+
+/**
+ * 季節変動Brand型（0.0から1.0）
+ */
+export type SeasonalVariation = number & BrandType.Brand<'SeasonalVariation'>
+
+/**
+ * 季節変動Schema
+ */
+export const SeasonalVariationSchema = Schema.Number.pipe(
+  Schema.finite(),
+  Schema.between(0, 1),
+  Schema.brand('SeasonalVariation'),
+  Schema.annotations({
+    identifier: 'SeasonalVariation',
+    title: 'Seasonal Variation',
+    description: 'Seasonal variation factor (0.0-1.0, 0=none, 1=extreme)',
+    examples: [0.2, 0.5, 0.8, 0.1],
   })
 )
 

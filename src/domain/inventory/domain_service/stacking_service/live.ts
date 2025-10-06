@@ -7,8 +7,14 @@
 
 import { Effect, Layer, Match, pipe } from 'effect'
 import type { Inventory, ItemId, ItemStack } from '../../types'
-import { checkCompleteStackCompatibility, resolveMetadataConflicts } from './index'
-import { StackingError, StackingService, type StackOptimizationOptions, type StackOptimizationResult } from './index'
+import {
+  checkCompleteStackCompatibility,
+  resolveMetadataConflicts,
+  StackingError,
+  StackingService,
+  type StackOptimizationOptions,
+  type StackOptimizationResult,
+} from './index'
 
 /**
  * スタッキングサービスのLive実装
@@ -28,9 +34,10 @@ export const StackingServiceLive = Layer.succeed(
       Effect.gen(function* () {
         const compatibility = yield* checkCompleteStackCompatibility(sourceStack, targetStack)
 
-        if (!compatibility.isCompatible) {
-          yield* Effect.fail(new StackingError('ITEM_NOT_STACKABLE', compatibility.reason))
-        }
+        yield* Effect.when(
+          () => !compatibility.isCompatible,
+          () => Effect.fail(new StackingError('ITEM_NOT_STACKABLE', compatibility.reason))
+        )
 
         // メタデータ解決
         const resolvedMetadata = compatibility.requiresMetadataConsolidation
@@ -73,19 +80,22 @@ export const StackingServiceLive = Layer.succeed(
       Effect.gen(function* () {
         const sourceStack = inventory.slots[request.sourceSlot]
 
-        if (sourceStack === null) {
-          yield* Effect.fail(new StackingError('INSUFFICIENT_ITEMS', 'Source slot is empty'))
-        }
+        yield* Effect.when(
+          () => sourceStack === null,
+          () => Effect.fail(new StackingError('INSUFFICIENT_ITEMS', 'Source slot is empty'))
+        )
 
-        if (request.splitCount >= sourceStack!.count) {
-          yield* Effect.fail(new StackingError('INVALID_ITEM_COUNT', 'Split count exceeds available items'))
-        }
+        yield* Effect.when(
+          () => request.splitCount >= sourceStack!.count,
+          () => Effect.fail(new StackingError('INVALID_ITEM_COUNT', 'Split count exceeds available items'))
+        )
 
         const targetSlot = request.targetSlot === 'auto' ? yield* findEmptySlot(inventory) : request.targetSlot
 
-        if (targetSlot === undefined) {
-          yield* Effect.fail(new StackingError('INVENTORY_FULL', 'No available slot for split'))
-        }
+        yield* Effect.when(
+          () => targetSlot === undefined,
+          () => Effect.fail(new StackingError('INVENTORY_FULL', 'No available slot for split'))
+        )
 
         const newSlots = [...inventory.slots]
 
@@ -124,26 +134,38 @@ export const StackingServiceLive = Layer.succeed(
         const warnings: string[] = []
 
         // 同じアイテムのスタック統合
-        if (options.consolidatePartialStacks) {
-          const consolidationResult = yield* consolidateAllStacks(currentInventory, options)
-          currentInventory = consolidationResult.inventory
-          stacksConsolidated += consolidationResult.stacksConsolidated
-          operations.push(...consolidationResult.operations)
-        }
+        yield* Effect.when(
+          () => options.consolidatePartialStacks,
+          () =>
+            Effect.gen(function* () {
+              const consolidationResult = yield* consolidateAllStacks(currentInventory, options)
+              currentInventory = consolidationResult.inventory
+              stacksConsolidated += consolidationResult.stacksConsolidated
+              operations.push(...consolidationResult.operations)
+            })
+        )
 
         // カテゴリ別グループ化
-        if (options.groupByCategory) {
-          const groupingResult = yield* groupItemsByCategory(currentInventory)
-          currentInventory = groupingResult.inventory
-          operations.push(...groupingResult.operations)
-        }
+        yield* Effect.when(
+          () => options.groupByCategory,
+          () =>
+            Effect.gen(function* () {
+              const groupingResult = yield* groupItemsByCategory(currentInventory)
+              currentInventory = groupingResult.inventory
+              operations.push(...groupingResult.operations)
+            })
+        )
 
         // 左詰め配置
-        if (options.fillFromLeft) {
-          const compactionResult = yield* compactInventory(currentInventory)
-          currentInventory = compactionResult.inventory
-          operations.push(...compactionResult.operations)
-        }
+        yield* Effect.when(
+          () => options.fillFromLeft,
+          () =>
+            Effect.gen(function* () {
+              const compactionResult = yield* compactInventory(currentInventory)
+              currentInventory = compactionResult.inventory
+              operations.push(...compactionResult.operations)
+            })
+        )
 
         const spaceSaved =
           inventory.slots.filter((s) => s === null).length - currentInventory.slots.filter((s) => s === null).length
@@ -210,12 +232,20 @@ export const StackingServiceLive = Layer.succeed(
 
         for (let i = 0; i < inventory.slots.length; i++) {
           const stack = inventory.slots[i]
-          if (stack === null) continue
-
-          const score = yield* calculateMatchScore(stack, criteria)
-          if (score > 0) {
-            matches.push({ slot: i, stack, matchScore: score })
-          }
+          yield* Effect.when(
+            () => stack !== null,
+            () =>
+              Effect.gen(function* () {
+                const score = yield* calculateMatchScore(stack!, criteria)
+                yield* Effect.when(
+                  () => score > 0,
+                  () =>
+                    Effect.sync(() => {
+                      matches.push({ slot: i, stack: stack!, matchScore: score })
+                    })
+                )
+              })
+          )
         }
 
         return matches.sort((a, b) => b.matchScore - a.matchScore)
@@ -297,11 +327,15 @@ const groupStacksByItemId = (inventory: Inventory): Effect.Effect<Map<ItemId, nu
 
     for (let i = 0; i < inventory.slots.length; i++) {
       const stack = inventory.slots[i]
-      if (stack !== null) {
-        const existing = groups.get(stack.itemId) ?? []
-        existing.push(i)
-        groups.set(stack.itemId, existing)
-      }
+      yield* Effect.when(
+        () => stack !== null,
+        () =>
+          Effect.sync(() => {
+            const existing = groups.get(stack!.itemId) ?? []
+            existing.push(i)
+            groups.set(stack!.itemId, existing)
+          })
+      )
     }
 
     return groups
@@ -332,25 +366,31 @@ const consolidateItemGroup = (
         const sourceStack = currentInventory.slots[sourceSlot]
         const targetStack = currentInventory.slots[targetSlot]
 
+        yield* Effect.when(
+          () => sourceStack && targetStack && sourceStack.count + targetStack.count <= 64,
+          () =>
+            Effect.sync(() => {
+              // スタック統合実行
+              const newSlots = [...currentInventory.slots]
+              newSlots[targetSlot] = {
+                ...targetStack!,
+                count: sourceStack!.count + targetStack!.count,
+              }
+              newSlots[sourceSlot] = null
+
+              currentInventory = { ...currentInventory, slots: newSlots }
+              stacksConsolidated++
+
+              operations.push({
+                type: 'CONSOLIDATE',
+                sourceSlot,
+                targetSlot,
+                itemsBefore: sourceStack!.count + targetStack!.count,
+                itemsAfter: newSlots[targetSlot]!.count,
+              })
+            })
+        )
         if (sourceStack && targetStack && sourceStack.count + targetStack.count <= 64) {
-          // スタック統合実行
-          const newSlots = [...currentInventory.slots]
-          newSlots[targetSlot] = {
-            ...targetStack,
-            count: sourceStack.count + targetStack.count,
-          }
-          newSlots[sourceSlot] = null
-
-          currentInventory = { ...currentInventory, slots: newSlots }
-          stacksConsolidated++
-
-          operations.push({
-            type: 'CONSOLIDATE',
-            sourceSlot,
-            targetSlot,
-            itemsBefore: sourceStack.count + targetStack.count,
-            itemsAfter: newSlots[targetSlot]!.count,
-          })
           break
         }
       }
@@ -392,21 +432,29 @@ const compactInventory = (
 
     // 非nullアイテムを前詰め
     for (let readIndex = 0; readIndex < newSlots.length; readIndex++) {
-      if (newSlots[readIndex] !== null) {
-        if (writeIndex !== readIndex) {
-          newSlots[writeIndex] = newSlots[readIndex]
-          newSlots[readIndex] = null
+      yield* Effect.when(
+        () => newSlots[readIndex] !== null,
+        () =>
+          Effect.gen(function* () {
+            yield* Effect.when(
+              () => writeIndex !== readIndex,
+              () =>
+                Effect.sync(() => {
+                  newSlots[writeIndex] = newSlots[readIndex]
+                  newSlots[readIndex] = null
 
-          operations.push({
-            type: 'MOVE',
-            sourceSlot: readIndex,
-            targetSlot: writeIndex,
-            itemsBefore: newSlots[writeIndex]!.count,
-            itemsAfter: newSlots[writeIndex]!.count,
+                  operations.push({
+                    type: 'MOVE',
+                    sourceSlot: readIndex,
+                    targetSlot: writeIndex,
+                    itemsBefore: newSlots[writeIndex]!.count,
+                    itemsAfter: newSlots[writeIndex]!.count,
+                  })
+                })
+            )
+            writeIndex++
           })
-        }
-        writeIndex++
-      }
+      )
     }
 
     return {
@@ -470,14 +518,18 @@ const checkItemSpecificConstraints = (
 
     // アイテム固有の制約をチェック
     const isNonStackable = yield* checkIfNonStackable(stack.itemId)
-    if (isNonStackable && stack.count > 1) {
-      violations.push({
-        constraint: 'NON_STACKABLE_ITEM',
-        description: `${stack.itemId} cannot be stacked`,
-        severity: 'ERROR',
-        suggestedFix: 'Split into individual items',
-      })
-    }
+    yield* Effect.when(
+      () => isNonStackable && stack.count > 1,
+      () =>
+        Effect.sync(() => {
+          violations.push({
+            constraint: 'NON_STACKABLE_ITEM',
+            description: `${stack.itemId} cannot be stacked`,
+            severity: 'ERROR',
+            suggestedFix: 'Split into individual items',
+          })
+        })
+    )
 
     return violations
   })
@@ -510,24 +562,44 @@ const calculateMatchScore = (
   Effect.gen(function* () {
     let score = 0
 
-    if (criteria.itemId && stack.itemId === criteria.itemId) {
-      score += 100
-    }
+    yield* Effect.when(
+      () => criteria.itemId && stack.itemId === criteria.itemId,
+      () =>
+        Effect.sync(() => {
+          score += 100
+        })
+    )
 
-    if (criteria.minCount && stack.count >= criteria.minCount) {
-      score += 50
-    }
+    yield* Effect.when(
+      () => criteria.minCount && stack.count >= criteria.minCount,
+      () =>
+        Effect.sync(() => {
+          score += 50
+        })
+    )
 
-    if (criteria.maxCount && stack.count <= criteria.maxCount) {
-      score += 25
-    }
+    yield* Effect.when(
+      () => criteria.maxCount && stack.count <= criteria.maxCount,
+      () =>
+        Effect.sync(() => {
+          score += 25
+        })
+    )
 
-    if (criteria.hasEnchantments) {
-      const hasEnchantments = stack.metadata?.enchantments && stack.metadata.enchantments.length > 0
-      if (hasEnchantments) {
-        score += 30
-      }
-    }
+    yield* Effect.when(
+      () => criteria.hasEnchantments,
+      () =>
+        Effect.gen(function* () {
+          const hasEnchantments = stack.metadata?.enchantments && stack.metadata.enchantments.length > 0
+          yield* Effect.when(
+            () => hasEnchantments,
+            () =>
+              Effect.sync(() => {
+                score += 30
+              })
+          )
+        })
+    )
 
     return score
   })

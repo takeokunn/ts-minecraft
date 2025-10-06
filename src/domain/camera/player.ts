@@ -1,5 +1,5 @@
 import type { PlayerId, Vector3D } from '@domain/entities'
-import { Context, Effect, Layer, Match, pipe, Ref } from 'effect'
+import { Clock, Context, Effect, Layer, Match, pipe, Ref } from 'effect'
 import * as THREE from 'three'
 import { Player } from '../entities'
 
@@ -173,6 +173,9 @@ const makePlayerCameraService: Effect.Effect<PlayerCameraService> = Effect.gen(f
       const aspect = canvas.clientWidth / canvas.clientHeight
       const camera = new THREE.PerspectiveCamera(finalSettings.fov, aspect, finalSettings.near, finalSettings.far)
 
+      // 現在時刻を取得
+      const now = yield* Clock.currentTimeMillis
+
       // 初期カメラ状態
       const cameraState: CameraState = {
         camera,
@@ -181,7 +184,7 @@ const makePlayerCameraService: Effect.Effect<PlayerCameraService> = Effect.gen(f
         targetRotation: { yaw: 0, pitch: 0 },
         currentPosition: { x: 0, y: 70, z: 0 },
         currentRotation: { yaw: 0, pitch: 0 },
-        lastUpdateTime: Date.now(),
+        lastUpdateTime: now,
         isLocked: false,
       }
 
@@ -260,13 +263,16 @@ const makePlayerCameraService: Effect.Effect<PlayerCameraService> = Effect.gen(f
       const lookAtTarget = calculateLookAtTarget(newCurrentPosition, newCurrentRotation)
       cameraState.camera.lookAt(lookAtTarget.x, lookAtTarget.y, lookAtTarget.z)
 
+      // 現在時刻を取得
+      const now = yield* Clock.currentTimeMillis
+
       // 状態を更新
       const updatedState: CameraState = {
         ...cameraState,
         targetPosition: newTargetPosition,
         currentPosition: newCurrentPosition,
         currentRotation: newCurrentRotation,
-        lastUpdateTime: Date.now(),
+        lastUpdateTime: now,
       }
 
       yield* Ref.update(cameraStatesRef, (states) => states.set(playerId, updatedState))
@@ -392,7 +398,7 @@ const makePlayerCameraService: Effect.Effect<PlayerCameraService> = Effect.gen(f
         return
       }
 
-      const currentTime = Date.now()
+      const currentTime = yield* Clock.currentTimeMillis
       const elapsed = currentTime - animation.startTime
       const progress = Math.min(elapsed / animation.duration, 1.0)
 

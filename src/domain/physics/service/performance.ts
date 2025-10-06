@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Match, pipe, Ref, Schedule } from 'effect'
+import { Clock, Context, Effect, Layer, Match, pipe, Ref, Schedule } from 'effect'
 
 /**
  * Physics Performance Service
@@ -187,6 +187,7 @@ export const PhysicsPerformanceService = Context.GenericTag<PhysicsPerformanceSe
 // Physics Performance Service実装
 const makePhysicsPerformanceService: Effect.Effect<PhysicsPerformanceService> = Effect.gen(function* () {
   // パフォーマンス状態管理
+  const now = yield* Clock.currentTimeMillis
   const performanceStateRef = yield* Ref.make<PerformanceState>({
     currentLevel: 'High',
     settings: PERFORMANCE_SETTINGS.get('High')!,
@@ -198,10 +199,10 @@ const makePhysicsPerformanceService: Effect.Effect<PhysicsPerformanceService> = 
       activeObjects: 0,
       memoryUsage: 0,
       fps: 0,
-      timestamp: Date.now(),
+      timestamp: now,
     },
     adaptiveMode: true,
-    lastOptimization: Date.now(),
+    lastOptimization: now,
   })
 
   // メトリクス履歴の最大サイズ
@@ -219,11 +220,12 @@ const makePhysicsPerformanceService: Effect.Effect<PhysicsPerformanceService> = 
         } as PhysicsPerformanceError)
       }
 
+      const now = yield* Clock.currentTimeMillis
       yield* Ref.update(performanceStateRef, (state) => ({
         ...state,
         currentLevel: initialLevel,
         settings,
-        lastOptimization: Date.now(),
+        lastOptimization: now,
       }))
 
       console.log(`Physics performance monitoring initialized at ${initialLevel} level`)
@@ -232,7 +234,7 @@ const makePhysicsPerformanceService: Effect.Effect<PhysicsPerformanceService> = 
   // フレームメトリクスの記録
   const recordFrameMetrics = (frameTime: number, physicsTime: number, collisionChecks: number, activeObjects: number) =>
     Effect.gen(function* () {
-      const currentTime = Date.now()
+      const currentTime = yield* Clock.currentTimeMillis
 
       // メモリ使用量を推定 (実際のメモリ使用量は環境によって異なる)
       const estimatedMemoryUsage = (activeObjects * 0.5 + collisionChecks * 0.01) / 1024 // MB
@@ -307,12 +309,13 @@ const makePhysicsPerformanceService: Effect.Effect<PhysicsPerformanceService> = 
         } as PhysicsPerformanceError)
       }
 
+      const now = yield* Clock.currentTimeMillis
       yield* Ref.update(performanceStateRef, (state) => ({
         ...state,
         currentLevel: level,
         settings,
         adaptiveMode: false, // 手動設定時は適応モードを無効化
-        lastOptimization: Date.now(),
+        lastOptimization: now,
       }))
 
       console.log(`Performance level manually set to: ${level}`)
@@ -380,7 +383,8 @@ const makePhysicsPerformanceService: Effect.Effect<PhysicsPerformanceService> = 
               // パフォーマンスが良好：レベルを上げることを検討
               const currentLevels: PerformanceLevel[] = ['Ultra', 'High', 'Medium', 'Low', 'Minimum']
               const currentIndex = currentLevels.indexOf(state.currentLevel)
-              const timeSinceLastOptimization = Date.now() - state.lastOptimization
+              const now = yield* Clock.currentTimeMillis
+              const timeSinceLastOptimization = now - state.lastOptimization
 
               if (currentIndex > 0 && timeSinceLastOptimization > 5000) {
                 // 5秒以上経過
@@ -446,6 +450,7 @@ const makePhysicsPerformanceService: Effect.Effect<PhysicsPerformanceService> = 
   // パフォーマンス統計のリセット
   const resetStatistics = () =>
     Effect.gen(function* () {
+      const now = yield* Clock.currentTimeMillis
       yield* Ref.update(performanceStateRef, (state) => ({
         ...state,
         metrics: [],
@@ -456,9 +461,9 @@ const makePhysicsPerformanceService: Effect.Effect<PhysicsPerformanceService> = 
           activeObjects: 0,
           memoryUsage: 0,
           fps: 0,
-          timestamp: Date.now(),
+          timestamp: now,
         },
-        lastOptimization: Date.now(),
+        lastOptimization: now,
       }))
 
       console.log('Performance statistics reset')
@@ -472,7 +477,7 @@ const makePhysicsPerformanceService: Effect.Effect<PhysicsPerformanceService> = 
     })
 
   // 現在時刻の取得
-  const now = () => performance.now()
+  const getNow = () => performance.now()
 
   const service: PhysicsPerformanceService = {
     initializePerformanceMonitoring,

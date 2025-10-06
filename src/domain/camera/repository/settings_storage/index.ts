@@ -5,6 +5,8 @@
  * プレイヤー設定、グローバル設定、プリセット設定の統合管理
  */
 
+import { Clock, Effect } from 'effect'
+
 // ========================================
 // Repository Interface & Context
 // ========================================
@@ -19,9 +21,9 @@ export type {
   SettingsRepositoryStatistics,
   SettingsStorageRepository,
   ValidationResult,
-} from './index'
+} from './service'
 
-export { SettingsStorageRepository, SettingsStorageRepositoryOps } from './index'
+export { SettingsStorageRepository, SettingsStorageRepositoryOps } from './service'
 
 // ========================================
 // Repository Types
@@ -43,11 +45,21 @@ export type {
   SpectatorViewSettings,
   ThirdPersonViewSettings,
   ViewModeSettings,
-} from './index'
+} from './types'
 
 export {
   CameraPresetSettingsSchema,
+  // Default settings factory
+  createDefaultSettings,
+  // Error factory functions
+  createSettingsRepositoryError,
   GlobalCameraSettingsSchema,
+  isPresetNotFoundError,
+  // Type guards
+  isSettingsNotFoundError,
+  isStorageError,
+  isUnauthorizedError,
+  isValidationError,
   KeyBindingSchema,
   PlayerCameraSettingsSchema,
   // Schema definitions
@@ -56,23 +68,13 @@ export {
   SettingsRepositoryErrorSchema,
   SettingsStorageQueryOptionsSchema,
   ViewModeSettingsSchema,
-  // Default settings factory
-  createDefaultSettings,
-  // Error factory functions
-  createSettingsRepositoryError,
-  isPresetNotFoundError,
-  // Type guards
-  isSettingsNotFoundError,
-  isStorageError,
-  isUnauthorizedError,
-  isValidationError,
-} from './index'
+} from './types'
 
 // ========================================
 // Live Implementation
 // ========================================
 
-export { SettingsStorageRepositoryLive } from './index'
+export { SettingsStorageRepositoryLive } from './live'
 
 // ========================================
 // Module Integration Utilities
@@ -199,49 +201,56 @@ export const SettingsConversionUtils = {
     playerSettings: PlayerCameraSettings,
     presetName: string,
     description: string
-  ): CameraPresetSettings =>
-    ({
-      name: presetName,
-      description,
-      settings: {
-        fov: playerSettings.fov,
-        sensitivity: playerSettings.sensitivity,
-        smoothing: 0.1, // デフォルト値
-      },
-      viewModeSettings: createDefaultSettings.viewModeSettings(),
-      createdAt: Date.now(),
-      createdBy: playerSettings.playerId,
-      isPublic: false,
-      tags: [],
-      version: 1,
-    }) as CameraPresetSettings,
+  ): Effect.Effect<CameraPresetSettings> =>
+    Effect.gen(function* () {
+      const now = yield* Clock.currentTimeMillis
+      return {
+        name: presetName,
+        description,
+        settings: {
+          fov: playerSettings.fov,
+          sensitivity: playerSettings.sensitivity,
+          smoothing: 0.1, // デフォルト値
+        },
+        viewModeSettings: createDefaultSettings.viewModeSettings(),
+        createdAt: now,
+        createdBy: playerSettings.playerId,
+        isPublic: false,
+        tags: [],
+        version: 1,
+      } as CameraPresetSettings
+    }),
 
   /**
    * プリセット設定からプレイヤー設定への変換
    */
-  presetToPlayerSettings: (preset: CameraPresetSettings, playerId: PlayerId): PlayerCameraSettings =>
-    ({
-      playerId,
-      sensitivity: preset.settings.sensitivity,
-      fov: preset.settings.fov,
-      viewModePreference: 'first-person' as any, // デフォルト
-      animationEnabled: true,
-      collisionEnabled: true,
-      customBindings: new Map(),
-      lastModified: Date.now(),
-      version: 1,
-    }) as PlayerCameraSettings,
+  presetToPlayerSettings: (preset: CameraPresetSettings, playerId: PlayerId): Effect.Effect<PlayerCameraSettings> =>
+    Effect.gen(function* () {
+      const now = yield* Clock.currentTimeMillis
+      return {
+        playerId,
+        sensitivity: preset.settings.sensitivity,
+        fov: preset.settings.fov,
+        viewModePreference: 'first-person' as 'first-person' | 'third-person' | 'spectator' | 'cinematic',
+        animationEnabled: true,
+        collisionEnabled: true,
+        customBindings: new Map(),
+        lastModified: now,
+        version: 1,
+      } as PlayerCameraSettings
+    }),
 
   /**
    * JSON文字列からの設定復元
    */
-  parseSettingsFromJson: (jsonString: string): any => {
-    try {
-      return JSON.parse(jsonString)
-    } catch (error) {
-      throw new Error(`Invalid JSON format: ${error}`)
-    }
-  },
+  parseSettingsFromJson: (jsonString: string): any =>
+    pipe(
+      Effect.try({
+        try: () => JSON.parse(jsonString),
+        catch: (error) => new Error(`Invalid JSON format: ${error}`),
+      }),
+      Effect.runSync
+    ),
 
   /**
    * 設定をJSON文字列に変換
@@ -358,5 +367,3 @@ export const SettingsStorageRepositoryDocs = {
     'ストレージ最適化',
   ],
 } as const
-export * from './index';
-export * from './index';

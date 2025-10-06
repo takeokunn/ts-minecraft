@@ -6,8 +6,8 @@
  * Effect-TS 3.17+ Context.GenericTag による依存性注入
  */
 
-import { Context, Effect, Option, ReadonlyArray } from 'effect'
 import type {
+  AllRepositoryErrors,
   ChunkGenerationResult,
   ChunkPosition,
   GenerationSessionId,
@@ -16,7 +16,7 @@ import type {
   GenerationStageStatus,
   WorldId,
 } from '@domain/world/types'
-import type { AllRepositoryErrors } from '@domain/world/types'
+import { Context, Effect, Option, ReadonlyArray } from 'effect'
 
 // === Generation Session Types ===
 

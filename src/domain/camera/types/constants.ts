@@ -1,5 +1,4 @@
-import { Schema } from '@effect/schema'
-import { Brand } from 'effect'
+import { Brand, Effect, Schema } from 'effect'
 
 // ========================================
 // Brand Types
@@ -230,29 +229,12 @@ export const isValidDeltaTime = (value: number): value is DeltaTime => value >= 
 /**
  * 有効な3D位置かチェック
  */
-export const isValidPosition3D = (value: unknown): value is Position3D =>
-  typeof value === 'object' &&
-  value !== null &&
-  'x' in value &&
-  'y' in value &&
-  'z' in value &&
-  typeof (value as any).x === 'number' &&
-  typeof (value as any).y === 'number' &&
-  typeof (value as any).z === 'number' &&
-  isFinite((value as any).x) &&
-  isFinite((value as any).y) &&
-  isFinite((value as any).z)
+export const isValidPosition3D = (value: unknown): value is Position3D => Schema.is(Position3DSchema)(value)
 
 /**
  * 有効な2D回転かチェック
  */
-export const isValidRotation2D = (value: unknown): value is Rotation2D =>
-  typeof value === 'object' &&
-  value !== null &&
-  'pitch' in value &&
-  'yaw' in value &&
-  isValidPitch((value as any).pitch) &&
-  isValidYaw((value as any).yaw)
+export const isValidRotation2D = (value: unknown): value is Rotation2D => Schema.is(Rotation2DSchema)(value)
 
 // ========================================
 // Schema Factory Functions
@@ -388,9 +370,9 @@ export const DeltaTimeSchema = createBrandedNumberSchema('DeltaTime', {
  * 3D位置バリデーションスキーマ
  */
 export const Position3DSchema = Schema.Struct({
-  x: Schema.Number,
-  y: Schema.Number,
-  z: Schema.Number,
+  x: Schema.Number.pipe(Schema.finite()),
+  y: Schema.Number.pipe(Schema.finite()),
+  z: Schema.Number.pipe(Schema.finite()),
 }).pipe(Schema.brand('Position3D'))
 
 /**
@@ -408,104 +390,78 @@ export const Rotation2DSchema = Schema.Struct({
 /**
  * FOVファクトリー関数
  */
-export const createFOV = (value: number): FOV => {
-  if (!isValidFOV(value)) {
-    throw new Error(`Invalid FOV: ${value}. Must be between ${CAMERA_LIMITS.FOV.min} and ${CAMERA_LIMITS.FOV.max}`)
-  }
-  return Brand.nominal<FOV>()(value)
-}
+export const createFOV = (value: number): Effect.Effect<FOV, Error> =>
+  Effect.gen(function* () {
+    return yield* Schema.decodeUnknown(FOVSchema)(value)
+  })
 
 /**
  * 感度ファクトリー関数
  */
-export const createSensitivity = (value: number): Sensitivity => {
-  if (!isValidSensitivity(value)) {
-    throw new Error(
-      `Invalid sensitivity: ${value}. Must be between ${CAMERA_LIMITS.SENSITIVITY.min} and ${CAMERA_LIMITS.SENSITIVITY.max}`
-    )
-  }
-  return Brand.nominal<Sensitivity>()(value)
-}
+export const createSensitivity = (value: number): Effect.Effect<Sensitivity, Error> =>
+  Effect.gen(function* () {
+    return yield* Schema.decodeUnknown(SensitivitySchema)(value)
+  })
 
 /**
  * カメラ距離ファクトリー関数
  */
-export const createCameraDistance = (value: number): CameraDistance => {
-  if (!isValidDistance(value)) {
-    throw new Error(
-      `Invalid distance: ${value}. Must be between ${CAMERA_LIMITS.DISTANCE.min} and ${CAMERA_LIMITS.DISTANCE.max}`
-    )
-  }
-  return Brand.nominal<CameraDistance>()(value)
-}
+export const createCameraDistance = (value: number): Effect.Effect<CameraDistance, Error> =>
+  Effect.gen(function* () {
+    return yield* Schema.decodeUnknown(CameraDistanceSchema)(value)
+  })
 
 /**
  * ピッチ角ファクトリー関数
  */
-export const createPitchAngle = (value: number): PitchAngle => {
-  if (!isValidPitch(value)) {
-    throw new Error(
-      `Invalid pitch: ${value}. Must be between ${CAMERA_LIMITS.PITCH.min} and ${CAMERA_LIMITS.PITCH.max}`
-    )
-  }
-  return Brand.nominal<PitchAngle>()(value)
-}
+export const createPitchAngle = (value: number): Effect.Effect<PitchAngle, Error> =>
+  Effect.gen(function* () {
+    return yield* Schema.decodeUnknown(PitchAngleSchema)(value)
+  })
 
 /**
  * ヨー角ファクトリー関数（正規化付き）
  */
-export const createYawAngle = (value: number): YawAngle => {
-  if (!isValidYaw(value)) {
-    throw new Error(`Invalid yaw: ${value}. Must be a finite number`)
-  }
-  // ヨー角を-180から180の範囲に正規化
-  const normalized = ((value % 360) + 360) % 360
-  const finalValue = normalized > 180 ? normalized - 360 : normalized
-  return Brand.nominal<YawAngle>()(finalValue)
-}
+export const createYawAngle = (value: number): Effect.Effect<YawAngle, Error> =>
+  Effect.gen(function* () {
+    // ヨー角を-180から180の範囲に正規化
+    const normalized = ((value % 360) + 360) % 360
+    const finalValue = normalized > 180 ? normalized - 360 : normalized
+    return yield* Schema.decodeUnknown(YawAngleSchema)(finalValue)
+  })
 
 /**
  * アニメーション時間ファクトリー関数
  */
-export const createAnimationDuration = (value: number): AnimationDuration => {
-  if (!isValidAnimationDuration(value)) {
-    throw new Error(
-      `Invalid animation duration: ${value}. Must be between ${CAMERA_LIMITS.ANIMATION_DURATION.min} and ${CAMERA_LIMITS.ANIMATION_DURATION.max}`
-    )
-  }
-  return Brand.nominal<AnimationDuration>()(value)
-}
+export const createAnimationDuration = (value: number): Effect.Effect<AnimationDuration, Error> =>
+  Effect.gen(function* () {
+    return yield* Schema.decodeUnknown(AnimationDurationSchema)(value)
+  })
 
 /**
  * マウス移動量ファクトリー関数
  */
-export const createMouseDelta = (value: number): MouseDelta => {
-  if (!isValidMouseDelta(value)) {
-    throw new Error(`Invalid mouse delta: ${value}. Must be a finite number`)
-  }
-  return Brand.nominal<MouseDelta>()(value)
-}
+export const createMouseDelta = (value: number): Effect.Effect<MouseDelta, Error> =>
+  Effect.gen(function* () {
+    return yield* Schema.decodeUnknown(MouseDeltaSchema)(value)
+  })
 
 /**
  * デルタ時間ファクトリー関数
  */
-export const createDeltaTime = (value: number): DeltaTime => {
-  if (!isValidDeltaTime(value)) {
-    throw new Error(`Invalid delta time: ${value}. Must be a non-negative finite number`)
-  }
-  return Brand.nominal<DeltaTime>()(value)
-}
+export const createDeltaTime = (value: number): Effect.Effect<DeltaTime, Error> =>
+  Effect.gen(function* () {
+    return yield* Schema.decodeUnknown(DeltaTimeSchema)(value)
+  })
 
 /**
  * 3D位置ファクトリー関数
  */
-export const createPosition3D = (x: number, y: number, z: number): Position3D => {
-  const position = { x, y, z }
-  if (!isValidPosition3D(position)) {
-    throw new Error(`Invalid position: ${JSON.stringify(position)}. All coordinates must be finite numbers`)
-  }
-  return Brand.nominal<Position3D>()(position)
-}
+export const createPosition3D = (x: number, y: number, z: number): Effect.Effect<Position3D, Error> =>
+  Effect.gen(function* () {
+    const position = { x, y, z }
+    return yield* Schema.decodeUnknown(Position3DSchema)(position)
+  })
 
 /**
  * 2D回転ファクトリー関数

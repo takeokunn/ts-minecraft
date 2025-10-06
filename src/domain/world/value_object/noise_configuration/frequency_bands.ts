@@ -5,9 +5,9 @@
  * FFT/DFT原理に基づく周波数領域での制御
  */
 
+import { taggedUnion } from '@domain/world/utils'
 import type { Brand as BrandType } from 'effect'
 import { Schema } from 'effect'
-import { taggedUnion } from '@domain/world/utils'
 
 /**
  * 周波数値Brand型（正の数値）
@@ -254,8 +254,8 @@ export const FrequencyBandCollectionSchema = Schema.Struct({
   analysis: Schema.Struct({
     enabled: Schema.Boolean,
     fftSize: Schema.Number.pipe(Schema.int()).pipe(
-      Schema.refine((n) => [128, 256, 512, 1024, 2048, 4096].includes(n), {
-        message: 'FFT size must be a power of 2 between 128 and 4096',
+      Schema.filter((n) => [128, 256, 512, 1024, 2048, 4096].includes(n), {
+        message: () => 'FFT size must be a power of 2 between 128 and 4096',
       })
     ),
     windowFunction: Schema.Literal('hann', 'hamming', 'blackman', 'kaiser', 'rectangular'),

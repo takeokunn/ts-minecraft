@@ -5,10 +5,10 @@
  * 地形適応性と文明発展ロジックを組み込んだ知的配置システム
  */
 
-import { Context, Effect, Layer, Schema } from 'effect'
 import { type GenerationError } from '@domain/world/types/errors'
 import type { BoundingBox, WorldCoordinate } from '@domain/world/value_object/coordinates'
 import type { WorldSeed } from '@domain/world/value_object/world_seed'
+import { Context, Effect, Layer, Schema } from 'effect'
 
 /**
  * 構造物タイプ定義
@@ -506,7 +506,7 @@ export const StructureSpawnerServiceLive = Layer.effect(
   Effect.succeed({
     spawnStructures: (bounds, config, seed, terrainContext) =>
       Effect.gen(function* () {
-        const startTime = Date.now()
+        const startTime = yield* Clock.currentTimeMillis
 
         // 1. 配置候補の計算
         const placementCandidates = yield* calculatePlacementCandidates(bounds, config, terrainContext)
@@ -532,7 +532,7 @@ export const StructureSpawnerServiceLive = Layer.effect(
         const statistics = yield* calculatePlacementStatistics(weatheredStructures, bounds)
         const metadata = {
           totalBlocks: weatheredStructures.reduce((sum, s) => sum + s.blocks.length, 0),
-          generationTime: Date.now() - startTime,
+          generationTime: yield* Clock.currentTimeMillis,
           memoryUsed: estimateMemoryUsage(weatheredStructures),
           terrainModifications: calculateTerrainModifications(weatheredStructures),
           averageComplexity: calculateAverageComplexity(weatheredStructures),
@@ -595,7 +595,7 @@ export const StructureSpawnerServiceLive = Layer.effect(
           functionalElements,
           generationContext: {
             seed: BigInt(seed.toString()),
-            generationTime: Date.now(),
+            generationTime: yield* Clock.currentTimeMillis,
             terrainAdaptations: [],
             neighboringStructures: [],
             biomeInfluence: undefined,

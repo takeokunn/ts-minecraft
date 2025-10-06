@@ -1,5 +1,3 @@
-import { Schema } from '@effect/schema'
-import { Effect, pipe, Predicate } from 'effect'
 import type {
   AnimationDuration,
   CameraConfig,
@@ -29,6 +27,7 @@ import {
   SensitivitySchema,
   YawAngleSchema,
 } from '@domain/camera/types'
+import { Effect, pipe, Predicate, Schema } from 'effect'
 
 export const isCameraError = (error: unknown): error is CameraError =>
   Predicate.isRecord(error) &&

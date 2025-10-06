@@ -1,11 +1,11 @@
 import { Data, Option } from 'effect'
 
 // ========================================
-// Camera Domain Core Errors (Data.TaggedEnum)
+// Camera Domain Core Errors (Data.taggedEnum)
 // ========================================
 
 /**
- * カメラドメインのコアエラー型（Data.TaggedEnum ADT）
+ * カメラドメインのコアエラー型（Data.taggedEnum ADT）
  */
 export type CameraError = Data.TaggedEnum<{
   InitializationFailed: {
@@ -55,7 +55,7 @@ const {
 } = Data.taggedEnum<CameraError>()
 
 // ========================================
-// Value Object Errors (Data.TaggedEnum)
+// Value Object Errors (Data.taggedEnum)
 // ========================================
 
 /**

@@ -5,9 +5,9 @@
  * 粒径分布・化学組成・生物活性の統合的表現
  */
 
+import { taggedUnion } from '@domain/world/utils'
 import type { Brand as BrandType } from 'effect'
 import { Schema } from 'effect'
-import { taggedUnion } from '@domain/world/utils'
 
 /**
  * 粒径比率Brand型（0.0から1.0）

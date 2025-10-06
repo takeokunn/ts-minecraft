@@ -1,6 +1,6 @@
 import { Effect, Match, Option } from 'effect'
+import * as ReadonlyArray from 'effect/Array'
 import { pipe } from 'effect/Function'
-import * as ReadonlyArray from 'effect/ReadonlyArray'
 import {
   AttackLabel,
   CombatDomainError,

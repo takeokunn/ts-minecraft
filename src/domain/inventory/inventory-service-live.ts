@@ -1,19 +1,21 @@
-import { Schema } from '@effect/schema'
-import { Effect, Layer, Ref, pipe } from 'effect'
-import { InventoryService, InventoryServiceError, type AddItemResult } from './index'
+import { Clock, Effect, Layer, Option, Ref, Schema, pipe } from 'effect'
+import * as ReadonlyArray from 'effect/Array'
 import {
   Inventory,
-  InventoryState,
+  InventoryService,
+  InventoryServiceError,
   InventoryStateSchema,
   ItemId,
   ItemIdSchema,
+  ItemRegistry,
   ItemStack,
   PlayerId,
   computeChecksum,
   createEmptyInventory,
   touchInventory,
+  type AddItemResult,
+  type ItemDefinition,
 } from './index'
-import { ItemRegistry, type ItemDefinition } from './index'
 
 const SLOT_COUNT = 36
 const HOTBAR_SIZE = 9
@@ -25,25 +27,15 @@ const sameStack = (left: ItemStack, right: ItemStack): boolean =>
   left.itemId === right.itemId && JSON.stringify(left.metadata ?? null) === JSON.stringify(right.metadata ?? null)
 
 const ensureSlotIndex = (slotIndex: number) =>
-  Effect.try({
-    try: () => {
-      if (Number.isInteger(slotIndex) && slotIndex >= 0 && slotIndex < SLOT_COUNT) {
-        return slotIndex
-      }
-      throw new Error('invalid slot index')
-    },
-    catch: () => InventoryServiceError.invalidSlotIndex(slotIndex),
+  Effect.if(Number.isInteger(slotIndex) && slotIndex >= 0 && slotIndex < SLOT_COUNT, {
+    onTrue: () => Effect.succeed(slotIndex),
+    onFalse: () => Effect.fail(InventoryServiceError.invalidSlotIndex(slotIndex)),
   })
 
 const ensureHotbarIndex = (index: number) =>
-  Effect.try({
-    try: () => {
-      if (Number.isInteger(index) && index >= 0 && index < HOTBAR_SIZE) {
-        return index
-      }
-      throw new Error('invalid hotbar index')
-    },
-    catch: () => InventoryServiceError.invalidHotbarIndex(index),
+  Effect.if(Number.isInteger(index) && index >= 0 && index < HOTBAR_SIZE, {
+    onTrue: () => Effect.succeed(index),
+    onFalse: () => Effect.fail(InventoryServiceError.invalidHotbarIndex(index)),
   })
 
 const cloneItem = (item: ItemStack): ItemStack => ({
@@ -78,13 +70,18 @@ export const InventoryServiceLive = Layer.effect(
     const getOrCreateInventory = (playerId: PlayerId) =>
       Ref.modify(stateRef, (state) => {
         const existing = state.get(playerId)
-        if (existing) {
-          return [existing, state] as const
-        }
-        const created = createEmptyInventory(playerId)
-        const next = new Map(state)
-        next.set(playerId, created)
-        return [created, next] as const
+        return pipe(
+          Option.fromNullable(existing),
+          Option.match({
+            onNone: () => {
+              const created = createEmptyInventory(playerId)
+              const next = new Map(state)
+              next.set(playerId, created)
+              return [created, next] as const
+            },
+            onSome: (inv) => [inv, state] as const,
+          })
+        )
       })
 
     const saveInventory = (inventory: Inventory) =>
@@ -111,37 +108,62 @@ export const InventoryServiceLive = Layer.effect(
 
       const tryStack = (index: number) => {
         const current = slots[index]
-        if (!current) return
-        if (!sameStack(current, item) || !definition.stackable) return
-        if (current.count >= definition.maxStackSize) return
-        const capacity = definition.maxStackSize - current.count
-        const toAdd = Math.min(capacity, remaining)
-        slots[index] = {
-          ...current,
-          count: current.count + toAdd,
-        }
-        remaining -= toAdd
-        added += toAdd
-        touched.add(index)
+        pipe(
+          Option.fromNullable(current),
+          Option.filter((curr) => sameStack(curr, item) && definition.stackable),
+          Option.filter((curr) => curr.count < definition.maxStackSize),
+          Option.map((curr) => {
+            const capacity = definition.maxStackSize - curr.count
+            const toAdd = Math.min(capacity, remaining)
+            slots[index] = {
+              ...curr,
+              count: curr.count + toAdd,
+            }
+            remaining -= toAdd
+            added += toAdd
+            touched.add(index)
+          })
+        )
       }
 
-      for (let index = 0; index < SLOT_COUNT && remaining > 0; index += 1) {
-        tryStack(index)
-      }
+      // 既存スタックへの追加を試行
+      pipe(
+        ReadonlyArray.makeBy(SLOT_COUNT, (i) => i),
+        ReadonlyArray.forEach((index) => {
+          pipe(
+            Effect.when(
+              () => remaining > 0,
+              () => Effect.sync(() => tryStack(index))
+            ),
+            Effect.runSync
+          )
+        })
+      )
 
-      for (let index = 0; index < SLOT_COUNT && remaining > 0; index += 1) {
-        if (slots[index] === null) {
-          const toPlace = definition.stackable ? Math.min(definition.maxStackSize, remaining) : 1
-          slots[index] = {
-            itemId: item.itemId,
-            count: toPlace,
-            metadata: item.metadata ? { ...item.metadata } : undefined,
-          }
-          remaining -= toPlace
-          added += toPlace
-          touched.add(index)
-        }
-      }
+      // 空きスロットへの配置
+      pipe(
+        ReadonlyArray.makeBy(SLOT_COUNT, (i) => i),
+        ReadonlyArray.forEach((index) => {
+          pipe(
+            Effect.when(
+              () => remaining > 0 && slots[index] === null,
+              () =>
+                Effect.sync(() => {
+                  const toPlace = definition.stackable ? Math.min(definition.maxStackSize, remaining) : 1
+                  slots[index] = {
+                    itemId: item.itemId,
+                    count: toPlace,
+                    metadata: item.metadata ? { ...item.metadata } : undefined,
+                  }
+                  remaining -= toPlace
+                  added += toPlace
+                  touched.add(index)
+                })
+            ),
+            Effect.runSync
+          )
+        })
+      )
 
       const result: AddItemResult =
         added === 0
@@ -185,9 +207,11 @@ export const InventoryServiceLive = Layer.effect(
 
       getInventoryState: (playerId) =>
         withInventory(playerId, (inventory) =>
-          Effect.succeed<InventoryState>({
-            inventory,
-            persistedAt: Date.now(),
+          Effect.gen(function* () {
+            return {
+              inventory,
+              persistedAt: yield* Clock.currentTimeMillis,
+            }
           })
         ),
 
@@ -195,13 +219,17 @@ export const InventoryServiceLive = Layer.effect(
         pipe(
           Schema.decodeUnknown(InventoryStateSchema)(state),
           Effect.mapError((error) => InventoryServiceError.inventoryStateValidationFailed(error)),
-          Effect.tap(({ inventory }) =>
-            saveInventory({
-              ...inventory,
-              metadata: {
-                lastUpdated: Date.now(),
-                checksum: computeChecksum(inventory),
-              },
+          Effect.flatMap(({ inventory }) =>
+            Effect.gen(function* () {
+              const lastUpdated = yield* Clock.currentTimeMillis
+              yield* saveInventory({
+                ...inventory,
+                metadata: {
+                  lastUpdated,
+                  checksum: computeChecksum(inventory),
+                },
+              })
+              return { inventory, persistedAt: lastUpdated }
             })
           )
         ),
@@ -212,9 +240,10 @@ export const InventoryServiceLive = Layer.effect(
           const definition = yield* itemRegistry.ensureDefinition(item.itemId)
           const slots = [...inventory.slots]
           const { snapshot, result } = buildAddResult(inventory, slots, definition, item)
-          if (result._tag !== 'full') {
-            yield* saveInventory(snapshot)
-          }
+          yield* Effect.when(
+            () => result._tag !== 'full',
+            () => saveInventory(snapshot)
+          )
           return result
         }),
 
@@ -238,7 +267,13 @@ export const InventoryServiceLive = Layer.effect(
           const index = yield* ensureSlotIndex(slotIndex)
           const inventory = yield* getOrCreateInventory(playerId)
           const item = inventory.slots[index]
-          return item ? cloneItem(item) : null
+          return pipe(
+            Option.fromNullable(item),
+            Option.match({
+              onNone: () => null,
+              onSome: (i) => cloneItem(i),
+            })
+          )
         }),
 
       removeItem: (playerId, slotIndex, amount) =>
@@ -246,40 +281,41 @@ export const InventoryServiceLive = Layer.effect(
           const index = yield* ensureSlotIndex(slotIndex)
           const inventory = yield* getOrCreateInventory(playerId)
           const current = inventory.slots[index]
-          if (!current) {
-            return null
-          }
-          const quantity = amount ?? current.count
-          if (quantity > current.count) {
-            return yield* Effect.fail(
-              InventoryServiceError.insufficientQuantity({
-                slotIndex: index,
-                requested: quantity,
-                available: current.count,
-              })
-            )
-          }
-          const updated = updateInventory(inventory, (draft) => {
-            const nextSlots = [...draft.slots]
-            if (quantity === current.count) {
-              nextSlots[index] = null
-            } else {
-              nextSlots[index] = {
-                ...current,
-                count: current.count - quantity,
-              }
-            }
-            return {
-              ...draft,
-              slots: nextSlots,
-            }
-          })
-          yield* saveInventory(updated)
-          return {
-            itemId: current.itemId,
-            count: quantity,
-            metadata: current.metadata ? { ...current.metadata } : undefined,
-          }
+          return yield* pipe(
+            Option.fromNullable(current),
+            Option.match({
+              onNone: () => Effect.succeed(null),
+              onSome: (curr) =>
+                Effect.gen(function* () {
+                  const quantity = amount ?? curr.count
+                  yield* Effect.when(
+                    () => quantity > curr.count,
+                    () =>
+                      Effect.fail(
+                        InventoryServiceError.insufficientQuantity({
+                          slotIndex: index,
+                          requested: quantity,
+                          available: curr.count,
+                        })
+                      )
+                  )
+                  const updated = updateInventory(inventory, (draft) => {
+                    const nextSlots = [...draft.slots]
+                    nextSlots[index] = quantity === curr.count ? null : { ...curr, count: curr.count - quantity }
+                    return {
+                      ...draft,
+                      slots: nextSlots,
+                    }
+                  })
+                  yield* saveInventory(updated)
+                  return {
+                    itemId: curr.itemId,
+                    count: quantity,
+                    metadata: curr.metadata ? { ...curr.metadata } : undefined,
+                  }
+                }),
+            })
+          )
         }),
 
       moveItem: (playerId, fromSlot, toSlot, amount) =>
@@ -287,74 +323,101 @@ export const InventoryServiceLive = Layer.effect(
           const fromIndex = yield* ensureSlotIndex(fromSlot)
           const toIndex = yield* ensureSlotIndex(toSlot)
           const inventory = yield* getOrCreateInventory(playerId)
-          if (fromIndex === toIndex) {
-            return
-          }
+          yield* Effect.when(
+            () => fromIndex === toIndex,
+            () => Effect.void
+          )
           const source = inventory.slots[fromIndex]
           const destination = inventory.slots[toIndex]
-          if (!source) {
-            return yield* Effect.fail(
-              InventoryServiceError.insufficientQuantity({
-                slotIndex: fromIndex,
-                requested: amount ?? 0,
-                available: 0,
-              })
-            )
-          }
-          const definition = yield* itemRegistry.ensureDefinition(source.itemId)
-          const transferAmount = amount ?? source.count
-          if (transferAmount > source.count || transferAmount <= 0) {
-            return yield* Effect.fail(
-              InventoryServiceError.insufficientQuantity({
-                slotIndex: fromIndex,
-                requested: transferAmount,
-                available: source.count,
-              })
-            )
-          }
-          const updated = updateInventory(inventory, (draft) => {
-            const nextSlots = [...draft.slots]
-            const remaining = source.count - transferAmount
-            const movedItem: ItemStack = {
-              itemId: source.itemId,
-              count: transferAmount,
-              metadata: source.metadata ? { ...source.metadata } : undefined,
-            }
+          return yield* pipe(
+            Option.fromNullable(source),
+            Option.match({
+              onNone: () =>
+                Effect.fail(
+                  InventoryServiceError.insufficientQuantity({
+                    slotIndex: fromIndex,
+                    requested: amount ?? 0,
+                    available: 0,
+                  })
+                ),
+              onSome: (src) =>
+                Effect.gen(function* () {
+                  const definition = yield* itemRegistry.ensureDefinition(src.itemId)
+                  const transferAmount = amount ?? src.count
+                  yield* Effect.when(
+                    () => transferAmount > src.count || transferAmount <= 0,
+                    () =>
+                      Effect.fail(
+                        InventoryServiceError.insufficientQuantity({
+                          slotIndex: fromIndex,
+                          requested: transferAmount,
+                          available: src.count,
+                        })
+                      )
+                  )
+                  const updated = updateInventory(inventory, (draft) => {
+                    const nextSlots = [...draft.slots]
+                    const remaining = src.count - transferAmount
+                    const movedItem: ItemStack = {
+                      itemId: src.itemId,
+                      count: transferAmount,
+                      metadata: src.metadata ? { ...src.metadata } : undefined,
+                    }
 
-            if (destination && sameStack(destination, source) && definition.stackable) {
-              const total = destination.count + transferAmount
-              const toPlace = Math.min(definition.maxStackSize, total)
-              const remainder = total - toPlace
-              nextSlots[toIndex] = { ...destination, count: toPlace }
-              nextSlots[fromIndex] =
-                remainder > 0
-                  ? { ...source, count: remaining + remainder }
-                  : remaining > 0
-                    ? { ...source, count: remaining }
-                    : null
-            } else if (destination === null) {
-              nextSlots[toIndex] = movedItem
-              nextSlots[fromIndex] = remaining > 0 ? { ...source, count: remaining } : null
-            } else {
-              nextSlots[toIndex] = movedItem
-              nextSlots[fromIndex] = destination
-            }
+                    pipe(
+                      Option.fromNullable(destination),
+                      Option.match({
+                        onNone: () => {
+                          nextSlots[toIndex] = movedItem
+                          nextSlots[fromIndex] = remaining > 0 ? { ...src, count: remaining } : null
+                        },
+                        onSome: (dest) => {
+                          pipe(
+                            Effect.if(sameStack(dest, src) && definition.stackable, {
+                              onTrue: () =>
+                                Effect.sync(() => {
+                                  const total = dest.count + transferAmount
+                                  const toPlace = Math.min(definition.maxStackSize, total)
+                                  const remainder = total - toPlace
+                                  nextSlots[toIndex] = { ...dest, count: toPlace }
+                                  nextSlots[fromIndex] =
+                                    remainder > 0
+                                      ? { ...src, count: remaining + remainder }
+                                      : remaining > 0
+                                        ? { ...src, count: remaining }
+                                        : null
+                                }),
+                              onFalse: () =>
+                                Effect.sync(() => {
+                                  nextSlots[toIndex] = movedItem
+                                  nextSlots[fromIndex] = dest
+                                }),
+                            }),
+                            Effect.runSync
+                          )
+                        },
+                      })
+                    )
 
-            return {
-              ...draft,
-              slots: nextSlots,
-            }
-          })
-          yield* saveInventory(updated)
+                    return {
+                      ...draft,
+                      slots: nextSlots,
+                    }
+                  })
+                  yield* saveInventory(updated)
+                }),
+            })
+          )
         }),
 
       swapItems: (playerId, slotA, slotB) =>
         Effect.gen(function* () {
           const first = yield* ensureSlotIndex(slotA)
           const second = yield* ensureSlotIndex(slotB)
-          if (first === second) {
-            return
-          }
+          yield* Effect.when(
+            () => first === second,
+            () => Effect.void
+          )
           const inventory = yield* getOrCreateInventory(playerId)
           const updated = updateInventory(inventory, (draft) => {
             const nextSlots = [...draft.slots]
@@ -373,62 +436,85 @@ export const InventoryServiceLive = Layer.effect(
         Effect.gen(function* () {
           const sourceIndex = yield* ensureSlotIndex(sourceSlot)
           const targetIndex = yield* ensureSlotIndex(targetSlot)
-          if (sourceIndex === targetIndex) {
-            return
-          }
+          yield* Effect.when(
+            () => sourceIndex === targetIndex,
+            () => Effect.void
+          )
           const inventory = yield* getOrCreateInventory(playerId)
           const sourceItem = inventory.slots[sourceIndex]
           const targetItem = inventory.slots[targetIndex]
-          if (!sourceItem) {
-            return yield* Effect.fail(
-              InventoryServiceError.insufficientQuantity({
-                slotIndex: sourceIndex,
-                requested: amount,
-                available: 0,
-              })
-            )
-          }
-          if (amount <= 0 || amount > sourceItem.count) {
-            return yield* Effect.fail(
-              InventoryServiceError.insufficientQuantity({
-                slotIndex: sourceIndex,
-                requested: amount,
-                available: sourceItem.count,
-              })
-            )
-          }
-          if (targetItem && !sameStack(sourceItem, targetItem)) {
-            return yield* Effect.fail(
-              InventoryServiceError.splitTargetMustBeCompatible({
-                sourceSlot: sourceIndex,
-                targetSlot: targetIndex,
-              })
-            )
-          }
-          const definition = yield* itemRegistry.ensureDefinition(sourceItem.itemId)
-          const updated = updateInventory(inventory, (draft) => {
-            const nextSlots = [...draft.slots]
-            const remaining = sourceItem.count - amount
-            const existingTargetCount = targetItem?.count ?? 0
-            const desiredTargetCount = existingTargetCount + amount
-            if (desiredTargetCount > definition.maxStackSize) {
-              throw InventoryServiceError.splitTargetMustBeCompatible({
-                sourceSlot: sourceIndex,
-                targetSlot: targetIndex,
-              })
-            }
-            nextSlots[sourceIndex] = remaining > 0 ? { ...sourceItem, count: remaining } : null
-            nextSlots[targetIndex] = {
-              itemId: sourceItem.itemId,
-              count: desiredTargetCount,
-              metadata: sourceItem.metadata ? { ...sourceItem.metadata } : undefined,
-            }
-            return {
-              ...draft,
-              slots: nextSlots,
-            }
-          })
-          yield* saveInventory(updated)
+          return yield* pipe(
+            Option.fromNullable(sourceItem),
+            Option.match({
+              onNone: () =>
+                Effect.fail(
+                  InventoryServiceError.insufficientQuantity({
+                    slotIndex: sourceIndex,
+                    requested: amount,
+                    available: 0,
+                  })
+                ),
+              onSome: (src) =>
+                Effect.gen(function* () {
+                  yield* Effect.when(
+                    () => amount <= 0 || amount > src.count,
+                    () =>
+                      Effect.fail(
+                        InventoryServiceError.insufficientQuantity({
+                          slotIndex: sourceIndex,
+                          requested: amount,
+                          available: src.count,
+                        })
+                      )
+                  )
+                  yield* pipe(
+                    Option.fromNullable(targetItem),
+                    Option.filter((tgt) => !sameStack(src, tgt)),
+                    Option.match({
+                      onNone: () => Effect.void,
+                      onSome: () =>
+                        Effect.fail(
+                          InventoryServiceError.splitTargetMustBeCompatible({
+                            sourceSlot: sourceIndex,
+                            targetSlot: targetIndex,
+                          })
+                        ),
+                    })
+                  )
+                  const definition = yield* itemRegistry.ensureDefinition(src.itemId)
+                  const updated = updateInventory(inventory, (draft) => {
+                    const nextSlots = [...draft.slots]
+                    const remaining = src.count - amount
+                    const existingTargetCount = targetItem?.count ?? 0
+                    const desiredTargetCount = existingTargetCount + amount
+                    pipe(
+                      Effect.when(
+                        () => desiredTargetCount > definition.maxStackSize,
+                        () =>
+                          Effect.fail(
+                            InventoryServiceError.splitTargetMustBeCompatible({
+                              sourceSlot: sourceIndex,
+                              targetSlot: targetIndex,
+                            })
+                          )
+                      ),
+                      Effect.runSync
+                    )
+                    nextSlots[sourceIndex] = remaining > 0 ? { ...src, count: remaining } : null
+                    nextSlots[targetIndex] = {
+                      itemId: src.itemId,
+                      count: desiredTargetCount,
+                      metadata: src.metadata ? { ...src.metadata } : undefined,
+                    }
+                    return {
+                      ...draft,
+                      slots: nextSlots,
+                    }
+                  })
+                  yield* saveInventory(updated)
+                }),
+            })
+          )
         }).pipe(
           Effect.catchAll((error) =>
             Effect.fail(
@@ -449,43 +535,53 @@ export const InventoryServiceLive = Layer.effect(
         Effect.gen(function* () {
           const sourceIndex = yield* ensureSlotIndex(sourceSlot)
           const targetIndex = yield* ensureSlotIndex(targetSlot)
-          if (sourceIndex === targetIndex) {
-            return
-          }
+          yield* Effect.when(
+            () => sourceIndex === targetIndex,
+            () => Effect.void
+          )
           const inventory = yield* getOrCreateInventory(playerId)
           const sourceItem = inventory.slots[sourceIndex]
           const targetItem = inventory.slots[targetIndex]
-          if (!sourceItem || !targetItem) {
-            return
-          }
-          if (!sameStack(sourceItem, targetItem)) {
-            return yield* Effect.fail(
-              InventoryServiceError.differentItemKind({
-                sourceSlot: sourceIndex,
-                targetSlot: targetIndex,
-              })
-            )
-          }
-          const definition = yield* itemRegistry.ensureDefinition(sourceItem.itemId)
-          if (!definition.stackable) {
-            return
-          }
-          const total = sourceItem.count + targetItem.count
-          const toTarget = Math.min(definition.maxStackSize, total)
-          const remainder = total - toTarget
-          const updated = updateInventory(inventory, (draft) => {
-            const nextSlots = [...draft.slots]
-            nextSlots[targetIndex] = {
-              ...targetItem,
-              count: toTarget,
-            }
-            nextSlots[sourceIndex] = remainder > 0 ? { ...sourceItem, count: remainder } : null
-            return {
-              ...draft,
-              slots: nextSlots,
-            }
-          })
-          yield* saveInventory(updated)
+          return yield* pipe(
+            Option.all([Option.fromNullable(sourceItem), Option.fromNullable(targetItem)]),
+            Option.match({
+              onNone: () => Effect.void,
+              onSome: ([src, tgt]) =>
+                Effect.gen(function* () {
+                  yield* Effect.when(
+                    () => !sameStack(src, tgt),
+                    () =>
+                      Effect.fail(
+                        InventoryServiceError.differentItemKind({
+                          sourceSlot: sourceIndex,
+                          targetSlot: targetIndex,
+                        })
+                      )
+                  )
+                  const definition = yield* itemRegistry.ensureDefinition(src.itemId)
+                  yield* Effect.when(
+                    () => !definition.stackable,
+                    () => Effect.void
+                  )
+                  const total = src.count + tgt.count
+                  const toTarget = Math.min(definition.maxStackSize, total)
+                  const remainder = total - toTarget
+                  const updated = updateInventory(inventory, (draft) => {
+                    const nextSlots = [...draft.slots]
+                    nextSlots[targetIndex] = {
+                      ...tgt,
+                      count: toTarget,
+                    }
+                    nextSlots[sourceIndex] = remainder > 0 ? { ...src, count: remainder } : null
+                    return {
+                      ...draft,
+                      slots: nextSlots,
+                    }
+                  })
+                  yield* saveInventory(updated)
+                }),
+            })
+          )
         }),
 
       setSelectedSlot: (playerId, hotbarIndex) =>
@@ -503,7 +599,14 @@ export const InventoryServiceLive = Layer.effect(
         withInventory(playerId, (inventory) => {
           const slotIndex = inventory.hotbar[inventory.selectedSlot]
           const item = inventory.slots[slotIndex]
-          return Effect.succeed(item ? cloneItem(item) : null)
+          return pipe(
+            Option.fromNullable(item),
+            Option.match({
+              onNone: () => Effect.succeed(null),
+              onSome: (i) => Effect.succeed(cloneItem(i)),
+            }),
+            Effect.flatten
+          )
         }),
 
       getHotbarItem: (playerId, hotbarIndex) =>
@@ -512,7 +615,13 @@ export const InventoryServiceLive = Layer.effect(
           const inventory = yield* getOrCreateInventory(playerId)
           const slotIndex = inventory.hotbar[index]
           const item = inventory.slots[slotIndex]
-          return item ? cloneItem(item) : null
+          return pipe(
+            Option.fromNullable(item),
+            Option.match({
+              onNone: () => null,
+              onSome: (i) => cloneItem(i),
+            })
+          )
         }),
 
       transferToHotbar: (playerId, slotIndex, hotbarIndex) =>
@@ -543,13 +652,26 @@ export const InventoryServiceLive = Layer.effect(
               },
             }))
             yield* saveInventory(updated)
-            return previous ? cloneItem(previous) : null
+            return pipe(
+              Option.fromNullable(previous),
+              Option.match({
+                onNone: () => null,
+                onSome: (p) => cloneItem(p),
+              })
+            )
           })
         ),
 
       getArmor: (playerId, slot) =>
         withInventory(playerId, (inventory) =>
-          Effect.succeed(inventory.armor[slot] ? cloneItem(inventory.armor[slot]!) : null)
+          pipe(
+            Option.fromNullable(inventory.armor[slot]),
+            Option.match({
+              onNone: () => Effect.succeed(null),
+              onSome: (armor) => Effect.succeed(cloneItem(armor)),
+            }),
+            Effect.flatten
+          )
         ),
 
       setOffhandItem: (playerId, item) =>
@@ -563,58 +685,116 @@ export const InventoryServiceLive = Layer.effect(
         }),
 
       getOffhandItem: (playerId) =>
-        withInventory(playerId, (inventory) => Effect.succeed(inventory.offhand ? cloneItem(inventory.offhand) : null)),
+        withInventory(playerId, (inventory) =>
+          pipe(
+            Option.fromNullable(inventory.offhand),
+            Option.match({
+              onNone: () => Effect.succeed(null),
+              onSome: (oh) => Effect.succeed(cloneItem(oh)),
+            }),
+            Effect.flatten
+          )
+        ),
 
       getEmptySlotCount: (playerId) =>
         withInventory(playerId, (inventory) =>
-          Effect.succeed(inventory.slots.reduce((count, slot) => (slot === null ? count + 1 : count), 0))
+          pipe(
+            inventory.slots,
+            ReadonlyArray.reduce(0, (count, slot) =>
+              pipe(
+                Option.fromNullable(slot),
+                Option.match({
+                  onNone: () => count + 1,
+                  onSome: () => count,
+                })
+              )
+            ),
+            Effect.succeed
+          )
         ),
 
       getUsedSlotCount: (playerId) =>
         withInventory(playerId, (inventory) =>
-          Effect.succeed(inventory.slots.reduce((count, slot) => (slot !== null ? count + 1 : count), 0))
+          pipe(
+            inventory.slots,
+            ReadonlyArray.reduce(0, (count, slot) =>
+              pipe(
+                Option.fromNullable(slot),
+                Option.match({
+                  onNone: () => count,
+                  onSome: () => count + 1,
+                })
+              )
+            ),
+            Effect.succeed
+          )
         ),
 
       findItemSlots: (playerId, itemIdInput) =>
         withInventory(playerId, (inventory) => {
           const itemId = normalizeItemId(itemIdInput)
-          const indices: number[] = []
-          for (let i = 0; i < inventory.slots.length; i += 1) {
-            const item = inventory.slots[i]
-            if (item && item.itemId === itemId) {
-              indices.push(i)
-            }
-          }
+          const indices = pipe(
+            inventory.slots,
+            ReadonlyArray.filterMapWithIndex((i, item) =>
+              pipe(
+                Option.fromNullable(item),
+                Option.filter((it) => it.itemId === itemId),
+                Option.map(() => i)
+              )
+            )
+          )
           return Effect.succeed(indices)
         }),
 
       countItem: (playerId, itemIdInput) =>
         withInventory(playerId, (inventory) => {
           const itemId = normalizeItemId(itemIdInput)
-          const total = inventory.slots.reduce((amount, slot) => {
-            if (slot && slot.itemId === itemId) {
-              return amount + slot.count
-            }
-            return amount
-          }, 0)
-          return Effect.succeed(total)
+          return pipe(
+            inventory.slots,
+            ReadonlyArray.reduce(0, (amount, slot) =>
+              pipe(
+                Option.fromNullable(slot),
+                Option.filter((s) => s.itemId === itemId),
+                Option.match({
+                  onNone: () => amount,
+                  onSome: (s) => amount + s.count,
+                })
+              )
+            ),
+            Effect.succeed
+          )
         }),
 
       hasSpaceForItem: (playerId, item) =>
         Effect.gen(function* () {
           const inventory = yield* getOrCreateInventory(playerId)
           const definition = yield* itemRegistry.ensureDefinition(item.itemId)
-          const existingSpace = inventory.slots.reduce((space, slot) => {
-            if (slot && sameStack(slot, item) && definition.stackable) {
-              const available = Math.max(0, definition.maxStackSize - slot.count)
-              return space + available
-            }
-            return space
-          }, 0)
-          if (existingSpace >= item.count) {
-            return true
-          }
-          return inventory.slots.some((slot) => slot === null)
+          const existingSpace = pipe(
+            inventory.slots,
+            ReadonlyArray.reduce(0, (space, slot) =>
+              pipe(
+                Option.fromNullable(slot),
+                Option.filter((s) => sameStack(s, item) && definition.stackable),
+                Option.match({
+                  onNone: () => space,
+                  onSome: (s) => space + Math.max(0, definition.maxStackSize - s.count),
+                })
+              )
+            )
+          )
+          return pipe(
+            Effect.if(existingSpace >= item.count, {
+              onTrue: () => Effect.succeed(true),
+              onFalse: () =>
+                Effect.succeed(
+                  pipe(
+                    inventory.slots,
+                    ReadonlyArray.some((slot) => slot === null)
+                  )
+                ),
+            }),
+            Effect.flatten
+          )
         }),
 
       sortInventory: (playerId) =>

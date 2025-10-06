@@ -5,10 +5,10 @@
  * 地質学的原理とゲームバランスを両立した鉱脈生成
  */
 
-import { Context, Effect, Layer, Schema } from 'effect'
 import { type GenerationError } from '@domain/world/types/errors'
 import type { BoundingBox, WorldCoordinate } from '@domain/world/value_object/coordinates'
 import type { WorldSeed } from '@domain/world/value_object/world_seed'
+import { Context, Effect, Layer, Schema } from 'effect'
 
 /**
  * 鉱石タイプ定義
@@ -346,7 +346,7 @@ export const OrePlacerServiceLive = Layer.effect(
   Effect.succeed({
     placeOres: (bounds, config, seed, existingTerrain) =>
       Effect.gen(function* () {
-        const startTime = Date.now()
+        const startTime = yield* Clock.currentTimeMillis
 
         // 1. 鉱脈配置の決定
         const veinPlacements = yield* determineVeinPlacements(bounds, config, seed)
@@ -376,7 +376,7 @@ export const OrePlacerServiceLive = Layer.effect(
           veinCount: generatedVeins.length,
           averageVeinSize:
             generatedVeins.reduce((sum, v) => sum + v.length * v.width * v.thickness, 0) / generatedVeins.length,
-          generationTime: Date.now() - startTime,
+          generationTime: yield* Clock.currentTimeMillis,
           memoryUsed: estimateMemoryUsage(validatedPlacements, generatedVeins),
           economicValue: calculateTotalEconomicValue(validatedPlacements, config),
         }

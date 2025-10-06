@@ -70,7 +70,7 @@ export const SettingsValidatorServiceLive = Layer.succeed(
         return {
           _tag: 'ValidatedCameraSettings' as const,
           settings,
-          validationTimestamp: Date.now(),
+          validationTimestamp: yield* Clock.currentTimeMillis,
           appliedConstraints,
           warnings,
         }

@@ -5,9 +5,9 @@
  * 熱力学的整合性と季節変動の正確な表現
  */
 
+import { taggedUnion } from '@domain/world/utils'
 import type { Brand as BrandType } from 'effect'
 import { Schema } from 'effect'
-import { taggedUnion } from '@domain/world/utils'
 
 /**
  * 摂氏温度Brand型（-50℃から60℃）

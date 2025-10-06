@@ -5,9 +5,8 @@
  * 複雑な生成ロジックを分離し、型安全な生成を保証します。
  */
 
-import { Effect, Option } from 'effect'
-import { CameraError } from '@domain/camera/types'
-import { CameraId } from '@domain/camera/types'
+import { CameraError, CameraId } from '@domain/camera/types'
+import { Clock, Effect, Option } from 'effect'
 import {
   CameraDistance,
   CameraRotation,
@@ -61,6 +60,9 @@ export namespace CameraFactory {
       // 基本設定の検証
       const validatedSettings = yield* validateCameraSettings(cameraSettings)
 
+      // 現在時刻を取得
+      const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+
       // Camera Aggregateの作成
       const camera = Camera({
         _tag: 'Camera',
@@ -72,7 +74,7 @@ export namespace CameraFactory {
         animationState: Option.none(),
         events: [createCameraInitializedEvent(id, viewMode)],
         isEnabled: true,
-        lastUpdated: new Date(),
+        lastUpdated: now,
       })
 
       return camera
@@ -104,6 +106,9 @@ export namespace CameraFactory {
       // スナップショットの検証
       yield* validateSnapshot(snapshot)
 
+      // 現在時刻を取得（lastUpdatedがない場合）
+      const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+
       // Camera Aggregateの復元
       const camera = Camera({
         _tag: 'Camera',
@@ -115,7 +120,7 @@ export namespace CameraFactory {
         animationState: Option.none(), // アニメーション状態はスナップショットには含めない
         events: [], // イベントは復元時にクリア
         isEnabled: snapshot.isEnabled,
-        lastUpdated: snapshot.lastUpdated ?? new Date(),
+        lastUpdated: snapshot.lastUpdated ?? now,
       })
 
       return camera

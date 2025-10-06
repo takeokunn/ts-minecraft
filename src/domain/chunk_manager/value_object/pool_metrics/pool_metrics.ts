@@ -1,7 +1,6 @@
 import { Effect, Match } from 'effect'
-import { ResourceUsagePercent, makeMemoryBytes, makeResourceUsagePercent } from '../../types'
-import { makePoolMetricsError } from '../../types'
 import type { MemoryUsage, PerformanceMetrics, PoolMetrics } from '../../types'
+import { ResourceUsagePercent, makeMemoryBytes, makePoolMetricsError, makeResourceUsagePercent } from '../../types'
 
 const computeMemoryPressureValue = (usage: MemoryUsage): ResourceUsagePercent =>
   makeResourceUsagePercent(usage.total === 0 ? 0 : Math.min(1, (usage.active + usage.cached) / usage.total))

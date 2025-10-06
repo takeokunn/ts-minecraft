@@ -10,9 +10,8 @@
  * - class は一切使用せず Data.tagged の ADT でエラー体系を定義
  */
 
-import { Schema } from '@effect/schema'
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
-import { Context, Data, Effect, Option, pipe } from 'effect'
+import { Context, Data, Effect, Option, pipe, Schema } from 'effect'
 import type { Inventory, InventoryState, PlayerId } from '../../domain/inventory'
 import { PlayerIdSchema } from '../../domain/inventory'
 

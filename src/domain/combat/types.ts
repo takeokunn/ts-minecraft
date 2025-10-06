@@ -238,9 +238,8 @@ export const makeTimestamp = createNumericFactory<Timestamp>({
   brand: TimestampBrand,
 })
 
-export const currentTimestamp: Effect.Effect<Timestamp, never> = Clock.currentTimeMillis.pipe(
-  Effect.map((millis) => TimestampBrand(millis))
-)
+export const currentTimestamp: Effect.Effect<Timestamp, never> =
+  Effect.map(Clock.currentTimeMillis, (millis) => TimestampBrand(millis))
 
 // ============================================================
 // Attack and Event Algebraic Data Types
