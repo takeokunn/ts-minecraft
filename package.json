@@ -24,7 +24,7 @@
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
-    "@effect/platform": "^0.90.10",
+    "@effect/platform": "^0.92.1",
     "@effect/schema": "^0.75.5",
     "@fp-ts/optic": "^0.25.0",
     "@types/react": "^19.2.0",
