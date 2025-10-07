@@ -29,6 +29,6 @@ export type Meters = Schema.Schema.Type<typeof MetersSchema>
 /**
  * Meters constants
  */
-export const METERS_ZERO: Meters = 0 as Meters
-export const ONE_METER: Meters = 1 as Meters
-export const ONE_BLOCK: Meters = 1 as Meters // Minecraft 1 block = 1 meter
+export const METERS_ZERO: Meters = Schema.make(MetersSchema)(0)
+export const ONE_METER: Meters = Schema.make(MetersSchema)(1)
+export const ONE_BLOCK: Meters = Schema.make(MetersSchema)(1) // Minecraft 1 block = 1 meter

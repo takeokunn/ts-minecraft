@@ -4,6 +4,7 @@
  */
 
 import { Schema } from 'effect'
+import { unsafeCoerce } from 'effect/Function'
 import type { ItemId, PlayerId } from '../../types'
 
 // ===== Brand Types =====
@@ -21,6 +22,13 @@ export const ContainerSlotIndexSchema = Schema.Number.pipe(
   Schema.brand('ContainerSlotIndex')
 )
 export type ContainerSlotIndex = Schema.Schema.Type<typeof ContainerSlotIndexSchema>
+
+// ===== makeUnsafe Functions =====
+
+export const makeUnsafeContainerId = (value: string): ContainerId => unsafeCoerce<string, ContainerId>(value)
+
+export const makeUnsafeContainerSlotIndex = (value: number): ContainerSlotIndex =>
+  unsafeCoerce<number, ContainerSlotIndex>(value)
 
 // ===== Enums and Literals =====
 
@@ -332,7 +340,7 @@ export class ContainerError extends Schema.TaggedError<ContainerError>()('Contai
       reason: 'INVALID_SLOT_INDEX',
       message: `不正なスロットインデックス: ${slotIndex}`,
       containerId,
-      slotIndex: slotIndex as ContainerSlotIndex,
+      slotIndex: makeUnsafeContainerSlotIndex(slotIndex),
     })
   }
 

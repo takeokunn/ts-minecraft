@@ -1,4 +1,4 @@
-import { PlayerId } from '@domain/player/value_object/player_id'
+import { PlayerId } from '@domain/shared/entities/player_id'
 import { Schema } from 'effect'
 import { describe, expect, it } from 'vitest'
 import { InventoryRepositoryStorageSchema } from '../storage_schema'

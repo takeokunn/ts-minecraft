@@ -3,9 +3,10 @@
  * コンテナ固有のビジネスロジック実装
  */
 
-import { Clock, Effect, Option, pipe } from 'effect'
+import { Clock, DateTime, Effect, Match, Option, pipe, Schema } from 'effect'
 import type { ItemId, PlayerId } from '../../types'
 import type { ItemStackEntity } from '../item_stack/types'
+import { ItemCountSchema, makeUnsafeItemStackId } from '../item_stack/types'
 import { addContainerUncommittedEvent, incrementContainerVersion } from './factory'
 import type {
   ContainerAggregate,
@@ -19,7 +20,7 @@ import type {
   ItemPlacedInContainerEvent,
   ItemRemovedFromContainerEvent,
 } from './types'
-import { CONTAINER_CONSTANTS, ContainerError } from './types'
+import { CONTAINER_CONSTANTS, ContainerError, makeUnsafeContainerSlotIndex } from './types'
 
 // ===== Access Control Operations =====
 
@@ -51,21 +52,22 @@ export const openContainer = (
 
     // 既に視聴中でない場合のみ追加
     if (!aggregate.currentViewers.includes(playerId)) {
-      const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms).toISOString())
+      const now = yield* DateTime.now
+      const timestamp = DateTime.formatIso(now)
       const event: ContainerOpenedEvent = {
         type: 'ContainerOpened',
         aggregateId: aggregate.id,
         playerId,
         containerType: aggregate.type,
         position: aggregate.position,
-        timestamp: timestamp as any,
+        timestamp,
       }
 
       const updatedAgg = {
         ...aggregate,
         isOpen: true,
         currentViewers: [...aggregate.currentViewers, playerId],
-        lastAccessed: timestamp as any,
+        lastAccessed: timestamp,
       }
       const versionedAgg = yield* incrementContainerVersion(updatedAgg)
       return addContainerUncommittedEvent(versionedAgg, event)
@@ -87,7 +89,8 @@ export const closeContainer = (
     const updatedViewers = aggregate.currentViewers.filter((id) => id !== playerId)
     const now = yield* Clock.currentTimeMillis
     const sessionDuration = now - sessionStartTime.getTime()
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms).toISOString())
+    const now = yield* DateTime.now
+    const timestamp = DateTime.formatIso(now)
 
     const event: ContainerClosedEvent = {
       type: 'ContainerClosed',
@@ -95,7 +98,7 @@ export const closeContainer = (
       playerId,
       containerType: aggregate.type,
       sessionDuration,
-      timestamp: timestamp as any,
+      timestamp,
     }
 
     const updatedAgg = {
@@ -163,7 +166,8 @@ export const placeItemInContainer = (
     const updatedSlots = [...aggregate.slots]
     updatedSlots[slotIndex] = newSlot
 
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms).toISOString())
+    const now = yield* DateTime.now
+    const timestamp = DateTime.formatIso(now)
     const event: ItemPlacedInContainerEvent = {
       type: 'ItemPlacedInContainer',
       aggregateId: aggregate.id,
@@ -172,7 +176,7 @@ export const placeItemInContainer = (
       itemId: itemStack.itemId,
       quantity: itemStack.count,
       itemStackId: itemStack.id,
-      timestamp: timestamp as any,
+      timestamp,
     }
 
     const updatedAgg = { ...aggregate, slots: updatedSlots }
@@ -214,26 +218,25 @@ export const removeItemFromContainer = (
 
     const slot = aggregate.slots[slotIndex]
 
-    // スロットにアイテムが存在するかチェック
-    yield* pipe(
-      slot?.itemStack,
-      Effect.filterOrFail(
-        (itemStack) => itemStack !== undefined,
-        () => ContainerError.slotEmpty(aggregate.id, slotIndex)
-      )
+    // スロットにアイテムが存在するかチェックし、検証済みデータを取得
+    const validatedSlot = yield* pipe(
+      slot,
+      Option.fromNullable,
+      Option.flatMap((s) => (s.itemStack ? Option.some({ slot: s, itemStack: s.itemStack }) : Option.none())),
+      Effect.fromOption(() => ContainerError.slotEmpty(aggregate.id, slotIndex))
     )
 
-    const removeQuantity = quantity ?? slot!.itemStack!.count
+    const removeQuantity = quantity ?? validatedSlot.itemStack.count
 
     // 数量の検証
     yield* pipe(
       removeQuantity,
       Effect.filterOrFail(
-        (qty) => qty <= slot!.itemStack!.count,
+        (qty) => qty <= validatedSlot.itemStack.count,
         () =>
           new ContainerError({
             reason: 'INVALID_SLOT_INDEX',
-            message: `数量不足: ${removeQuantity} > ${slot!.itemStack!.count}`,
+            message: `数量不足: ${removeQuantity} > ${validatedSlot.itemStack.count}`,
             containerId: aggregate.id,
             slotIndex,
           })
@@ -243,38 +246,40 @@ export const removeItemFromContainer = (
     const updatedSlots = [...aggregate.slots]
     let removedItemStack: Option.Option<ItemStackEntity> = Option.none()
 
-    if (removeQuantity === slot!.itemStack!.count) {
+    if (removeQuantity === validatedSlot.itemStack.count) {
       // 完全に削除
       updatedSlots[slotIndex] = null
-      removedItemStack = Option.some(slot!.itemStack!)
+      removedItemStack = Option.some(validatedSlot.itemStack)
     } else {
       // 一部削除
+      const newCount = validatedSlot.itemStack.count - removeQuantity
       const updatedItemStack: ItemStackEntity = {
-        ...slot!.itemStack!,
-        count: (slot!.itemStack!.count - removeQuantity) as any,
+        ...validatedSlot.itemStack,
+        count: Schema.make(ItemCountSchema)(newCount),
       }
-      updatedSlots[slotIndex] = { ...slot!, itemStack: updatedItemStack }
+      updatedSlots[slotIndex] = { ...validatedSlot.slot, itemStack: updatedItemStack }
 
       // 削除されたアイテムスタックを作成（簡略化）
       const now = yield* Clock.currentTimeMillis
       const removedStack: ItemStackEntity = {
-        ...slot!.itemStack!,
-        count: removeQuantity as any,
-        id: `stack_removed_${now}` as any,
+        ...validatedSlot.itemStack,
+        count: Schema.make(ItemCountSchema)(removeQuantity),
+        id: makeUnsafeItemStackId(`stack_removed_${now}`),
       }
       removedItemStack = Option.some(removedStack)
     }
 
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms).toISOString())
+    const now = yield* DateTime.now
+    const timestamp = DateTime.formatIso(now)
     const event: ItemRemovedFromContainerEvent = {
       type: 'ItemRemovedFromContainer',
       aggregateId: aggregate.id,
       playerId,
       slotIndex,
-      itemId: slot!.itemStack!.itemId,
+      itemId: validatedSlot.itemStack.itemId,
       quantity: removeQuantity,
-      itemStackId: slot!.itemStack!.id,
-      timestamp: timestamp as any,
+      itemStackId: validatedSlot.itemStack.id,
+      timestamp,
       reason,
     }
 
@@ -317,24 +322,26 @@ export const sortContainer = (
       )
     )
 
-    // アイテムがあるスロットを取得
-    const itemSlots = aggregate.slots.map((slot, index) => ({ slot, index })).filter(({ slot }) => slot?.itemStack)
+    // アイテムがあるスロットを取得（型安全に）
+    const itemSlots = aggregate.slots
+      .map((slot, index) => ({ slot, index }))
+      .filter(
+        (item): item is { slot: NonNullable<typeof item.slot> & { itemStack: ItemStackEntity }; index: number } =>
+          item.slot !== null && item.slot.itemStack !== undefined
+      )
 
     // ソートロジック
     const sortedSlots = [...itemSlots].sort((a, b) => {
-      const itemA = a.slot!.itemStack!
-      const itemB = b.slot!.itemStack!
+      const itemA = a.slot.itemStack
+      const itemB = b.slot.itemStack
 
-      switch (sortType) {
-        case 'alphabetical':
-          return itemA.itemId.localeCompare(itemB.itemId)
-        case 'quantity':
-          return itemB.count - itemA.count
-        case 'type':
-          return itemA.itemId.localeCompare(itemB.itemId)
-        default:
-          return 0
-      }
+      return pipe(
+        Match.value(sortType),
+        Match.when('alphabetical', () => itemA.itemId.localeCompare(itemB.itemId)),
+        Match.when('quantity', () => itemB.count - itemA.count),
+        Match.when('type', () => itemA.itemId.localeCompare(itemB.itemId)),
+        Match.orElse(() => 0)
+      )
     })
 
     // 新しいスロット配列を作成
@@ -345,16 +352,17 @@ export const sortContainer = (
       }
     })
 
-    const affectedSlots = sortedSlots.map((_, index) => index as ContainerSlotIndex)
+    const affectedSlots = sortedSlots.map((_, index) => makeUnsafeContainerSlotIndex(index))
 
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms).toISOString())
+    const now = yield* DateTime.now
+    const timestamp = DateTime.formatIso(now)
     const event: ContainerSortedEvent = {
       type: 'ContainerSorted',
       aggregateId: aggregate.id,
       playerId,
       sortType,
       affectedSlots,
-      timestamp: timestamp as any,
+      timestamp,
     }
 
     const updatedAgg = { ...aggregate, slots: newSlots }
@@ -389,14 +397,15 @@ export const grantPermission = (
     // 既存の権限を削除して新しい権限を追加
     const updatedPermissions = [...aggregate.permissions.filter((p) => p.playerId !== targetPlayerId), newPermission]
 
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms).toISOString())
+    const now = yield* DateTime.now
+    const timestamp = DateTime.formatIso(now)
     const event: ContainerPermissionGrantedEvent = {
       type: 'ContainerPermissionGranted',
       aggregateId: aggregate.id,
       ownerId,
       grantedTo: targetPlayerId,
       permission: newPermission,
-      timestamp: timestamp as any,
+      timestamp,
     }
 
     const updatedAgg = { ...aggregate, permissions: updatedPermissions }
@@ -433,26 +442,22 @@ const checkAccess = (
 
     // 権限の有効期限チェック
     if (permission.expiresAt) {
-      const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
-      const expiresAt = new Date(permission.expiresAt)
+      const now = yield* DateTime.now
+      const expiresAt = DateTime.unsafeFromDate(new Date(permission.expiresAt))
       if (now > expiresAt) {
         return false
       }
     }
 
     // アクセスタイプ別のチェック
-    switch (accessType) {
-      case 'view':
-        return permission.canView
-      case 'insert':
-        return permission.canInsert
-      case 'extract':
-        return permission.canExtract
-      case 'modify':
-        return permission.canModify
-      default:
-        return false
-    }
+    return pipe(
+      Match.value(accessType),
+      Match.when('view', () => permission.canView),
+      Match.when('insert', () => permission.canInsert),
+      Match.when('extract', () => permission.canExtract),
+      Match.when('modify', () => permission.canModify),
+      Match.orElse(() => false)
+    )
   })
 
 /**
@@ -514,7 +519,7 @@ export const findItemSlots = (aggregate: ContainerAggregate, itemId: ItemId): Re
   pipe(
     aggregate.slots,
     ReadonlyArray.filterMapWithIndex((i, slot) =>
-      slot?.itemStack?.itemId === itemId ? Option.some(i as ContainerSlotIndex) : Option.none()
+      slot?.itemStack?.itemId === itemId ? Option.some(makeUnsafeContainerSlotIndex(i)) : Option.none()
     )
   )
 

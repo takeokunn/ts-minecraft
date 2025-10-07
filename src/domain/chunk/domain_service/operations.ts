@@ -8,8 +8,8 @@
 import { Chunk, Effect, pipe, Stream } from 'effect'
 import { ChunkData } from '../aggregate/chunk'
 import { ChunkDataValidationError } from '../aggregate/chunk_data'
-import { ChunkOptimizationService } from './chunk_optimizer'
-import { ChunkSerializationService } from './chunk_serializer'
+import { ChunkOptimizationService, type OptimizationResult } from './chunk_optimizer'
+import { ChunkSerializationService, type SerializationFormat } from './chunk_serializer'
 import { ChunkValidationService } from './chunk_validator'
 
 /**
@@ -60,7 +60,7 @@ export const optimizeAndValidateChunk = (chunk: ChunkData) =>
 
     const { optimizedChunk, results } = yield* Effect.reduce(
       strategies,
-      { optimizedChunk: chunk, results: [] as Array<(typeof strategies)[number]> },
+      { optimizedChunk: chunk, results: [] as const satisfies ReadonlyArray<OptimizationResult> },
       (state, strategy) =>
         pipe(
           optimization.applyOptimization(state.optimizedChunk, strategy),
@@ -89,7 +89,7 @@ export const optimizeAndValidateChunk = (chunk: ChunkData) =>
 /**
  * チャンクのシリアライゼーションと整合性保証
  */
-export const serializeWithIntegrityCheck = (chunk: ChunkData, format: any) =>
+export const serializeWithIntegrityCheck = (chunk: ChunkData, format: SerializationFormat) =>
   Effect.gen(function* () {
     const serialization = yield* ChunkSerializationService
     const validation = yield* ChunkValidationService
@@ -128,7 +128,7 @@ export const serializeWithIntegrityCheck = (chunk: ChunkData, format: any) =>
  * チャンクの完全処理パイプライン
  * 検証 → 最適化 → シリアライゼーション → 最終検証
  */
-export const processChunkCompletely = (chunk: ChunkData, serializationFormat: any) =>
+export const processChunkCompletely = (chunk: ChunkData, serializationFormat: SerializationFormat) =>
   Effect.gen(function* () {
     const initialValidation = yield* performCompleteChunkValidation(chunk)
     const optimizationResult = yield* optimizeAndValidateChunk(chunk)
@@ -159,7 +159,7 @@ export const processChunkCompletely = (chunk: ChunkData, serializationFormat: an
 /**
  * バッチチャンク処理（複数チャンクの並列処理）
  */
-export const processBatchChunks = (chunks: ReadonlyArray<ChunkData>, serializationFormat: any) =>
+export const processBatchChunks = (chunks: ReadonlyArray<ChunkData>, serializationFormat: SerializationFormat) =>
   Effect.gen(function* () {
     // ✅ Stream化: 大量チャンクの段階的処理でメモリ効率化
     const results = yield* pipe(

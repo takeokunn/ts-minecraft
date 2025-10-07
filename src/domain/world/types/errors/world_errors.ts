@@ -3,7 +3,7 @@
  * 世界ドメインの構造化エラー定義
  */
 
-import { Clock, Data, Effect, Schema } from 'effect'
+import { Data, DateTime, Effect, Schema } from 'effect'
 import { ChunkPosition, DimensionId, Vector3D, WorldId } from '../core'
 
 // === 基本エラー情報型 ===
@@ -392,7 +392,8 @@ export const WorldDomainErrorSchema = Schema.Union(
 /** ErrorContext作成ヘルパー */
 export const createErrorContext = (overrides: Partial<ErrorContext> = {}): Effect.Effect<ErrorContext> =>
   Effect.gen(function* () {
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const now = yield* DateTime.now
+    const timestamp = DateTime.toDate(now)
     return {
       timestamp,
       ...overrides,

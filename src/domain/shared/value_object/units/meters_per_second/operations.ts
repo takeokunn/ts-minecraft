@@ -7,6 +7,7 @@ import * as Effect from 'effect/Effect'
 import * as Order from 'effect/Order'
 import * as Schema from 'effect/Schema'
 import type { Meters } from '../meters'
+import { MetersSchema } from '../meters/schema'
 import type { Milliseconds } from '../milliseconds'
 import * as MillisecondsOps from '../milliseconds/operations'
 import type { MetersPerSecond } from './schema'
@@ -26,7 +27,7 @@ export const make = (value: number): Effect.Effect<MetersPerSecond, Schema.Parse
  * 数値からMetersPerSecond型を生成（バリデーションなし）
  * 信頼できるソースからの値のみ使用すること
  */
-export const makeUnsafe = (value: number): MetersPerSecond => value as MetersPerSecond
+export const makeUnsafe = (value: number): MetersPerSecond => Schema.make(MetersPerSecondSchema)(value)
 
 /**
  * Calculate velocity from distance and time
@@ -36,7 +37,7 @@ export const makeUnsafe = (value: number): MetersPerSecond => value as MetersPer
 export const fromDistanceAndTime = (distance: Meters, time: Milliseconds): MetersPerSecond => {
   const timeInSeconds = MillisecondsOps.toSeconds(time)
   const isZero = timeInSeconds === 0
-  return isZero ? (0 as MetersPerSecond) : ((distance / timeInSeconds) as MetersPerSecond)
+  return isZero ? Schema.make(MetersPerSecondSchema)(0) : Schema.make(MetersPerSecondSchema)(distance / timeInSeconds)
 }
 
 /**
@@ -46,40 +47,43 @@ export const fromDistanceAndTime = (distance: Meters, time: Milliseconds): Meter
  */
 export const toDistance = (velocity: MetersPerSecond, time: Milliseconds): Meters => {
   const timeInSeconds = MillisecondsOps.toSeconds(time)
-  return (velocity * timeInSeconds) as Meters
+  return Schema.make(MetersSchema)(velocity * timeInSeconds)
 }
 
 /**
  * Add two velocities
  */
-export const add = (a: MetersPerSecond, b: MetersPerSecond): MetersPerSecond => (a + b) as MetersPerSecond
+export const add = (a: MetersPerSecond, b: MetersPerSecond): MetersPerSecond =>
+  Schema.make(MetersPerSecondSchema)(a + b)
 
 /**
  * Subtract two velocities
  */
-export const subtract = (a: MetersPerSecond, b: MetersPerSecond): MetersPerSecond => (a - b) as MetersPerSecond
+export const subtract = (a: MetersPerSecond, b: MetersPerSecond): MetersPerSecond =>
+  Schema.make(MetersPerSecondSchema)(a - b)
 
 /**
  * Multiply velocity by scalar
  */
 export const multiply = (velocity: MetersPerSecond, scalar: number): MetersPerSecond =>
-  (velocity * scalar) as MetersPerSecond
+  Schema.make(MetersPerSecondSchema)(velocity * scalar)
 
 /**
  * Divide velocity by scalar
  */
 export const divide = (velocity: MetersPerSecond, scalar: number): MetersPerSecond =>
-  (velocity / scalar) as MetersPerSecond
+  Schema.make(MetersPerSecondSchema)(velocity / scalar)
 
 /**
  * Get absolute value of velocity
  */
-export const abs = (velocity: MetersPerSecond): MetersPerSecond => Math.abs(velocity) as MetersPerSecond
+export const abs = (velocity: MetersPerSecond): MetersPerSecond =>
+  Schema.make(MetersPerSecondSchema)(Math.abs(velocity))
 
 /**
  * Negate velocity (reverse direction)
  */
-export const negate = (velocity: MetersPerSecond): MetersPerSecond => -velocity as MetersPerSecond
+export const negate = (velocity: MetersPerSecond): MetersPerSecond => Schema.make(MetersPerSecondSchema)(-velocity)
 
 /**
  * Apply acceleration over time (v' = v + a * t)
@@ -92,7 +96,7 @@ export const applyAcceleration = (
   time: Milliseconds
 ): MetersPerSecond => {
   const timeInSeconds = MillisecondsOps.toSeconds(time)
-  return (velocity + acceleration * timeInSeconds) as MetersPerSecond
+  return Schema.make(MetersPerSecondSchema)(velocity + acceleration * timeInSeconds)
 }
 
 /**
@@ -103,7 +107,7 @@ export const applyAcceleration = (
 export const applyDamping = (velocity: MetersPerSecond, dampingFactor: number, time: Milliseconds): MetersPerSecond => {
   const timeInSeconds = MillisecondsOps.toSeconds(time)
   const decayFactor = Math.pow(dampingFactor, timeInSeconds)
-  return (velocity * decayFactor) as MetersPerSecond
+  return Schema.make(MetersPerSecondSchema)(velocity * decayFactor)
 }
 
 /**
@@ -113,7 +117,7 @@ export const applyDamping = (velocity: MetersPerSecond, dampingFactor: number, t
  */
 export const clamp = (velocity: MetersPerSecond, maxVelocity: MetersPerSecond): MetersPerSecond => {
   const absMax = Math.abs(maxVelocity)
-  return Math.max(-absMax, Math.min(absMax, velocity)) as MetersPerSecond
+  return Schema.make(MetersPerSecondSchema)(Math.max(-absMax, Math.min(absMax, velocity)))
 }
 
 /**
@@ -144,14 +148,16 @@ export const toKilometersPerHour = (velocity: MetersPerSecond): number => veloci
 /**
  * Convert from kilometers per hour
  */
-export const fromKilometersPerHour = (kph: number): MetersPerSecond => (kph / 3.6) as MetersPerSecond
+export const fromKilometersPerHour = (kph: number): MetersPerSecond => Schema.make(MetersPerSecondSchema)(kph / 3.6)
 
 /**
  * Get minimum of two velocities
  */
-export const min = (a: MetersPerSecond, b: MetersPerSecond): MetersPerSecond => Math.min(a, b) as MetersPerSecond
+export const min = (a: MetersPerSecond, b: MetersPerSecond): MetersPerSecond =>
+  Schema.make(MetersPerSecondSchema)(Math.min(a, b))
 
 /**
  * Get maximum of two velocities
  */
-export const max = (a: MetersPerSecond, b: MetersPerSecond): MetersPerSecond => Math.max(a, b) as MetersPerSecond
+export const max = (a: MetersPerSecond, b: MetersPerSecond): MetersPerSecond =>
+  Schema.make(MetersPerSecondSchema)(Math.max(a, b))

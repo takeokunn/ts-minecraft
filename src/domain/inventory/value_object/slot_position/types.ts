@@ -1,4 +1,5 @@
 import { Brand, Data } from 'effect'
+import { unsafeCoerce } from 'effect/Function'
 
 /**
  * SlotPosition Brand型（0-35範囲）
@@ -147,3 +148,9 @@ export type AdjacentSlots = {
     readonly bottomRight?: SlotPosition
   }
 }
+
+/**
+ * SlotPosition を安全でない方法で作成（パフォーマンス重視）
+ * 高頻度呼び出し箇所でのみ使用すること
+ */
+export const makeUnsafeSlotPosition = (position: number): SlotPosition => unsafeCoerce<number, SlotPosition>(position)

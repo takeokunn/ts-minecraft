@@ -145,9 +145,7 @@ const StorageOps = {
     state: ViewModePreferencesStorageState,
     record: ViewModePreferenceRecord
   ): ViewModePreferencesStorageState => {
-    const existingRecords = HashMap.get(state.usageRecords, record.playerId).pipe(
-      Option.getOrElse(() => [] as Array.ReadonlyArray<ViewModePreferenceRecord>)
-    )
+    const existingRecords = HashMap.get(state.usageRecords, record.playerId).pipe(Option.getOrElse(() => []))
     const updatedRecords = [...existingRecords, record]
 
     return {
@@ -296,9 +294,7 @@ const StorageOps = {
     currentTime: number
   ): ViewModeRecommendation => {
     const preference = HashMap.get(state.playerPreferences, playerId)
-    const records = HashMap.get(state.usageRecords, playerId).pipe(
-      Option.getOrElse(() => [] as Array.ReadonlyArray<ViewModePreferenceRecord>)
-    )
+    const records = HashMap.get(state.usageRecords, playerId).pipe(Option.getOrElse(() => []))
 
     // プレイヤー設定から推奨モードを計算
     const [recommendedMode, confidence, reason] = pipe(
@@ -376,9 +372,7 @@ const StorageOps = {
     playerId: PlayerId,
     timeRange?: TimeRange
   ): PreferenceAnalyticsData => {
-    const records = HashMap.get(state.usageRecords, playerId).pipe(
-      Option.getOrElse(() => [] as Array.ReadonlyArray<ViewModePreferenceRecord>)
-    )
+    const records = HashMap.get(state.usageRecords, playerId).pipe(Option.getOrElse(() => []))
 
     // 時間範囲でフィルタリング
     const filteredRecords = timeRange
@@ -648,7 +642,7 @@ export const ViewModePreferencesRepositoryLive = Layer.effect(
               })
             )
 
-            return resultMap as ReadonlyMap<GameContext, ViewModePreference>
+            return resultMap
           }).pipe(handlePreferencesOperation),
 
         // ========================================
@@ -673,9 +667,7 @@ export const ViewModePreferencesRepositoryLive = Layer.effect(
         getPreferenceHistory: (playerId: PlayerId, options?: PreferenceQueryOptions) =>
           Effect.gen(function* () {
             const state = yield* Ref.get(storageRef)
-            const records = HashMap.get(state.usageRecords, playerId).pipe(
-              Option.getOrElse(() => [] as Array.ReadonlyArray<ViewModePreferenceRecord>)
-            )
+            const records = HashMap.get(state.usageRecords, playerId).pipe(Option.getOrElse(() => []))
 
             if (options) {
               return StorageOps.filterRecords(records, options)
@@ -855,9 +847,7 @@ export const ViewModePreferencesRepositoryLive = Layer.effect(
         learnPlayerPatterns: (playerId: PlayerId, timeRange: TimeRange) =>
           Effect.gen(function* () {
             const state = yield* Ref.get(storageRef)
-            const records = HashMap.get(state.usageRecords, playerId).pipe(
-              Option.getOrElse(() => [] as Array.ReadonlyArray<ViewModePreferenceRecord>)
-            )
+            const records = HashMap.get(state.usageRecords, playerId).pipe(Option.getOrElse(() => []))
 
             const filteredRecords = records.filter(
               (record) => record.timestamp >= timeRange.startTime && record.timestamp <= timeRange.endTime

@@ -8,6 +8,8 @@ import {
   ItemName,
   ItemRarity,
   ItemSearchCriteria,
+  makeUnsafeItemName,
+  makeUnsafeNamespace,
   Namespace,
 } from './types'
 
@@ -58,7 +60,7 @@ export const createItemIdFromParts = (namespace: string, name: string): Effect.E
  */
 export const getNamespace = (itemId: ItemId): Namespace => {
   const parts = (itemId as string).split(':')
-  return parts[0] as Namespace
+  return makeUnsafeNamespace(parts[0])
 }
 
 /**
@@ -66,7 +68,7 @@ export const getNamespace = (itemId: ItemId): Namespace => {
  */
 export const getItemName = (itemId: ItemId): ItemName => {
   const parts = (itemId as string).split(':')
-  return parts[1] as ItemName
+  return makeUnsafeItemName(parts[1])
 }
 
 /**
@@ -243,7 +245,13 @@ export const searchItems = (
       (items) => (criteria.namespace ? items.filter((item) => getNamespace(item) === criteria.namespace) : items),
       // 名前パターンフィルタ
       (items) =>
-        criteria.namePattern ? items.filter((item) => criteria.namePattern!.test(getItemName(item) as string)) : items
+        pipe(
+          Option.fromNullable(criteria.namePattern),
+          Option.match({
+            onNone: () => items,
+            onSome: (pattern) => items.filter((item) => pattern.test(getItemName(item) as string)),
+          })
+        )
     )
   )
 

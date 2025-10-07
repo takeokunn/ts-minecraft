@@ -3,9 +3,9 @@
  * Application層の依存関係を提供し、Domain層に依存
  */
 
-import { Layer } from 'effect'
 import { EquipmentDomainLive } from '@/domain/equipment/layers'
-import { EquipmentServiceLive } from './application_service'
+import { Layer } from 'effect'
+import { EquipmentServiceLive } from './service'
 
 /**
  * Equipment Application Layer

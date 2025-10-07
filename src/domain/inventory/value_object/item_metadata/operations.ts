@@ -486,28 +486,22 @@ export const executeMetadataOperation = (
 export const getEnchantmentEffect = (enchantment: Enchantment): EnchantmentEffect => {
   const { id, level } = enchantment
 
-  switch (id) {
-    case 'minecraft:sharpness':
-      return EnchantmentEffect.Sharpness({ damageBonus: level * 0.5 })
-    case 'minecraft:protection':
-      return EnchantmentEffect.Protection({ type: 'all' })
-    case 'minecraft:efficiency':
-      return EnchantmentEffect.Efficiency({ speedMultiplier: 1 + level * 0.3 })
-    case 'minecraft:fortune':
-      return EnchantmentEffect.Fortune({ dropMultiplier: 1 + level * 0.5 })
-    case 'minecraft:silk_touch':
-      return EnchantmentEffect.SilkTouch({})
-    case 'minecraft:unbreaking':
-      return EnchantmentEffect.Unbreaking({ durabilityMultiplier: 1 + level / 3 })
-    case 'minecraft:mending':
-      return EnchantmentEffect.Mending({})
-    case 'minecraft:infinity':
-      return EnchantmentEffect.Infinity({})
-    default:
-      return EnchantmentEffect.Custom({
+  return pipe(
+    Match.value(id),
+    Match.when('minecraft:sharpness', () => EnchantmentEffect.Sharpness({ damageBonus: level * 0.5 })),
+    Match.when('minecraft:protection', () => EnchantmentEffect.Protection({ type: 'all' })),
+    Match.when('minecraft:efficiency', () => EnchantmentEffect.Efficiency({ speedMultiplier: 1 + level * 0.3 })),
+    Match.when('minecraft:fortune', () => EnchantmentEffect.Fortune({ dropMultiplier: 1 + level * 0.5 })),
+    Match.when('minecraft:silk_touch', () => EnchantmentEffect.SilkTouch({})),
+    Match.when('minecraft:unbreaking', () => EnchantmentEffect.Unbreaking({ durabilityMultiplier: 1 + level / 3 })),
+    Match.when('minecraft:mending', () => EnchantmentEffect.Mending({})),
+    Match.when('minecraft:infinity', () => EnchantmentEffect.Infinity({})),
+    Match.orElse(() =>
+      EnchantmentEffect.Custom({
         name: id,
         description: `Custom enchantment: ${id}`,
         effect: { level },
       })
-  }
+    )
+  )
 }

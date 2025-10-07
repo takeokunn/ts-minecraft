@@ -3,7 +3,7 @@
  * Effect-TSによる型安全なビジネスロジックを提供
  */
 
-import { Clock, Effect, Match, Option, pipe, ReadonlyArray } from 'effect'
+import { DateTime, Effect, Match, Option, pipe, ReadonlyArray } from 'effect'
 import type { ItemId } from '../../types'
 import type { ItemStackEntity as ItemStack } from '../item_stack'
 import { addUncommittedEvent, incrementVersion } from './factory'
@@ -17,7 +17,7 @@ import type {
   ItemsSwappedEvent,
   SlotIndex,
 } from './types'
-import { INVENTORY_CONSTANTS, InventoryAggregateError } from './types'
+import { INVENTORY_CONSTANTS, InventoryAggregateError, makeUnsafeSlotIndex } from './types'
 
 // =============================================================================
 // Core Operations
@@ -49,7 +49,7 @@ export const addItem = (
     return yield* pipe(
       emptySlot,
       Option.match({
-        onNone: () => Effect.fail(InventoryAggregateError.slotOccupied(-1 as SlotIndex, itemStack.itemId)),
+        onNone: () => Effect.fail(InventoryAggregateError.slotOccupied(makeUnsafeSlotIndex(-1), itemStack.itemId)),
         onSome: (slotIndex) => addToEmptySlot(aggregate, slotIndex, itemStack),
       })
     )
@@ -87,7 +87,8 @@ export const removeItem = (
       Match.orElse(() => Effect.succeed(undefined))
     )
 
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms).toISOString())
+    const now = yield* DateTime.now
+    const timestamp = DateTime.formatIso(now)
     const event: ItemRemovedEvent = {
       type: 'ItemRemoved',
       aggregateId: aggregate.id,
@@ -95,7 +96,7 @@ export const removeItem = (
       itemId: validatedSlot.itemStack.itemId,
       quantity,
       slotIndex,
-      timestamp: timestamp as any,
+      timestamp,
       reason: 'consumed',
     }
 
@@ -111,7 +112,7 @@ export const removeItem = (
           itemStack: {
             ...validatedSlot.itemStack,
             count: validatedSlot.itemStack.count - quantity,
-            lastModified: timestamp as any,
+            lastModified: timestamp,
             version: validatedSlot.itemStack.version + 1,
           },
         })
@@ -140,14 +141,15 @@ export const swapItems = (
           updatedSlots[fromSlot] = updatedSlots[toSlot] ?? null
           updatedSlots[toSlot] = fromItem ?? null
 
-          const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms).toISOString())
+          const now = yield* DateTime.now
+          const timestamp = DateTime.formatIso(now)
           const event: ItemsSwappedEvent = {
             type: 'ItemsSwapped',
             aggregateId: aggregate.id,
             playerId: aggregate.playerId,
             fromSlot,
             toSlot,
-            timestamp: timestamp as any,
+            timestamp,
           }
 
           const aggregateWithUpdatedSlots = { ...aggregate, slots: updatedSlots }
@@ -169,14 +171,15 @@ export const changeSelectedHotbarSlot = (
       Match.when(true, () => Effect.succeed(aggregate)),
       Match.orElse(() =>
         Effect.gen(function* () {
-          const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms).toISOString())
+          const now = yield* DateTime.now
+          const timestamp = DateTime.formatIso(now)
           const event: HotbarChangedEvent = {
             type: 'HotbarChanged',
             aggregateId: aggregate.id,
             playerId: aggregate.playerId,
             previousSlot: aggregate.selectedSlot,
             newSlot,
-            timestamp: timestamp as any,
+            timestamp,
           }
 
           const aggregateWithUpdatedSlot = { ...aggregate, selectedSlot: newSlot }
@@ -204,7 +207,7 @@ export const removeAllItems = (
         Effect.gen(function* () {
           const slot = current.slots[i]
           if (slot?.itemStack?.itemId === itemId) {
-            return yield* removeItem(current, i as SlotIndex, slot.itemStack.count)
+            return yield* removeItem(current, makeUnsafeSlotIndex(i), slot.itemStack.count)
           }
           return current
         })
@@ -215,7 +218,7 @@ export const removeAllItems = (
 export const findItemSlots = (aggregate: InventoryAggregate, itemId: ItemId): ReadonlyArray<SlotIndex> =>
   aggregate.slots.reduce<SlotIndex[]>((acc, slot, index) => {
     if (slot?.itemStack?.itemId === itemId) {
-      acc.push(index as SlotIndex)
+      acc.push(makeUnsafeSlotIndex(index))
     }
     return acc
   }, [])
@@ -244,14 +247,14 @@ const findStackableSlot = (aggregate: InventoryAggregate, itemId: ItemId): Optio
       (slot) =>
         slot?.itemStack && slot.itemStack.itemId === itemId && slot.itemStack.count < INVENTORY_CONSTANTS.MAX_STACK_SIZE
     ),
-    Option.map((i) => i as SlotIndex)
+    Option.map((i) => makeUnsafeSlotIndex(i))
   )
 
 const findEmptySlot = (aggregate: InventoryAggregate): Option.Option<SlotIndex> =>
   pipe(
     aggregate.slots,
     ReadonlyArray.findFirstIndex((slot) => slot === null),
-    Option.map((i) => i as SlotIndex)
+    Option.map((i) => makeUnsafeSlotIndex(i))
   )
 
 const addToExistingStack = (
@@ -284,14 +287,15 @@ const addToExistingStack = (
       Match.orElse(() => Effect.succeed(undefined))
     )
 
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms).toISOString())
+    const now = yield* DateTime.now
+    const timestamp = DateTime.formatIso(now)
     const updatedSlots = [...aggregate.slots]
     updatedSlots[slotIndex] = {
       ...validatedSlot.slot,
       itemStack: {
         ...validatedSlot.itemStack,
         count: newCount,
-        lastModified: timestamp as any,
+        lastModified: timestamp,
         version: validatedSlot.itemStack.version + 1,
       },
     }
@@ -303,7 +307,7 @@ const addToExistingStack = (
       itemId: itemStack.itemId,
       quantity: itemStack.count,
       slotIndex,
-      timestamp: timestamp as any,
+      timestamp,
     }
 
     const aggregateWithUpdatedSlots = { ...aggregate, slots: updatedSlots }
@@ -324,11 +328,12 @@ const addToEmptySlot = (
       Match.orElse(() => Effect.succeed(undefined))
     )
 
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms).toISOString())
+    const now = yield* DateTime.now
+    const timestamp = DateTime.formatIso(now)
     const newSlot: InventorySlot = {
       itemStack: {
         ...itemStack,
-        lastModified: timestamp as any,
+        lastModified: timestamp,
         version: itemStack.version ?? 1,
       },
       metadata: {},
@@ -344,7 +349,7 @@ const addToEmptySlot = (
       itemId: itemStack.itemId,
       quantity: itemStack.count,
       slotIndex,
-      timestamp: timestamp as any,
+      timestamp,
     }
 
     const aggregateWithUpdatedSlots = { ...aggregate, slots: updatedSlots }

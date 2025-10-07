@@ -1,11 +1,12 @@
 import { Schema } from 'effect'
 
-// PlayerIdは専用value_objectから再エクスポート
-export { PlayerIdSchema, type PlayerId } from '@domain/player/value_object/player_id'
+// PlayerIdは共有カーネルから再エクスポート
+export { PlayerIdSchema, type PlayerId } from '@domain/shared/entities/player_id'
+export { SimpleItemIdSchema as ItemIdSchema, type ItemId } from '../../shared/entities/item_id'
 
-export const ItemIdSchema = Schema.String.pipe(Schema.pattern(/^[a-z0-9_:-]+$/i), Schema.brand('ItemId'))
-export type ItemId = Schema.Schema.Type<typeof ItemIdSchema>
-export const ItemId = (value: string): ItemId => Schema.decodeUnknownSync(ItemIdSchema)(value)
+// 共有カーネルから再エクスポート（互換性のためSimpleItemIdSchemaを使用）
+import { SimpleItemIdSchema } from '../../shared/entities/item_id'
+export const ItemId = (value: string): ItemId => Schema.decodeUnknownSync(SimpleItemIdSchema)(value)
 
 export const ItemMetadataSchema = Schema.Struct({
   durability: Schema.optional(Schema.Number.pipe(Schema.nonNegative())),

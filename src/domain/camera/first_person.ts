@@ -75,9 +75,9 @@ const validateNumber = (value: unknown, parameterName: string): Effect.Effect<nu
 const validateVector3 = (position: unknown, paramName: string = 'position'): Effect.Effect<Vector3, CameraError> => {
   return pipe(
     position,
-    Schema.decodeUnknown(Vector3Schema as unknown as Schema.Schema<Vector3, unknown>),
+    Schema.decodeUnknown(Vector3Schema),
     Effect.mapError(() => createCameraError.invalidParameter(paramName, position, 'Vector3 with x, y, z coordinates'))
-  ) as Effect.Effect<Vector3, CameraError>
+  )
 }
 
 /**
@@ -119,7 +119,7 @@ const createFirstPersonCameraService = (stateRef: Ref.Ref<FirstPersonState>): Ca
 
       yield* Ref.set(stateRef, initialState)
       return camera
-    }) as Effect.Effect<THREE.PerspectiveCamera, CameraError, never>,
+    }),
 
   switchMode: (mode: unknown): Effect.Effect<void, CameraError, never> =>
     Effect.gen(function* () {
@@ -148,8 +148,8 @@ const createFirstPersonCameraService = (stateRef: Ref.Ref<FirstPersonState>): Ca
         ),
         Match.when('third-person', (): Effect.Effect<void, CameraError> => Effect.succeed(undefined)), // 一人称カメラでは三人称モードを無視
         Match.orElse((m): Effect.Effect<void, CameraError> => Effect.fail(createCameraError.invalidMode(String(m))))
-      ) as Effect.Effect<void, CameraError, never>
-    }) as Effect.Effect<void, CameraError, never>,
+      )
+    }),
 
   update: (deltaTime: unknown, targetPosition: unknown): Effect.Effect<void, CameraError> =>
     Effect.gen(function* () {
@@ -190,7 +190,7 @@ const createFirstPersonCameraService = (stateRef: Ref.Ref<FirstPersonState>): Ca
       }
 
       yield* Ref.set(stateRef, newState)
-    }) as Effect.Effect<void, CameraError, never>,
+    }),
 
   rotate: (deltaX: unknown, deltaY: unknown): Effect.Effect<void, CameraError> =>
     Effect.gen(function* () {
@@ -227,7 +227,7 @@ const createFirstPersonCameraService = (stateRef: Ref.Ref<FirstPersonState>): Ca
       }
 
       yield* Ref.set(stateRef, newState)
-    }) as Effect.Effect<void, CameraError, never>,
+    }),
 
   setFOV: (fov: unknown): Effect.Effect<void, CameraError> =>
     Effect.gen(function* () {
@@ -250,7 +250,7 @@ const createFirstPersonCameraService = (stateRef: Ref.Ref<FirstPersonState>): Ca
       }
 
       yield* Ref.set(stateRef, newState)
-    }) as Effect.Effect<void, CameraError, never>,
+    }),
 
   setSensitivity: (sensitivity: unknown): Effect.Effect<void, CameraError> =>
     Effect.gen(function* () {
@@ -269,14 +269,14 @@ const createFirstPersonCameraService = (stateRef: Ref.Ref<FirstPersonState>): Ca
       }
 
       yield* Ref.set(stateRef, newState)
-    }) as Effect.Effect<void, CameraError, never>,
+    }),
 
   setThirdPersonDistance: (distance: unknown): Effect.Effect<void, CameraError> =>
     Effect.gen(function* () {
       const validDistance = yield* validateNumber(distance, 'distance')
       // ファーストパーソンモードでは距離設定は無効
       yield* Effect.succeed(undefined)
-    }) as Effect.Effect<void, CameraError, never>,
+    }),
 
   setSmoothing: (smoothing: unknown): Effect.Effect<void, CameraError> =>
     Effect.gen(function* () {
@@ -292,25 +292,25 @@ const createFirstPersonCameraService = (stateRef: Ref.Ref<FirstPersonState>): Ca
       }
 
       yield* Ref.set(stateRef, newState)
-    }) as Effect.Effect<void, CameraError, never>,
+    }),
 
   getState: (): Effect.Effect<CameraState, never> =>
     Effect.gen(function* () {
       const state = yield* Ref.get(stateRef)
       return state.state
-    }) as Effect.Effect<CameraState, never, never>,
+    }),
 
   getConfig: (): Effect.Effect<CameraConfig, never> =>
     Effect.gen(function* () {
       const state = yield* Ref.get(stateRef)
       return state.config
-    }) as Effect.Effect<CameraConfig, never, never>,
+    }),
 
   getCamera: (): Effect.Effect<THREE.PerspectiveCamera | null, never> =>
     Effect.gen(function* () {
       const state = yield* Ref.get(stateRef)
       return state.camera
-    }) as Effect.Effect<THREE.PerspectiveCamera | null, never, never>,
+    }),
 
   reset: (): Effect.Effect<void, CameraError> =>
     Effect.gen(function* () {
@@ -334,7 +334,7 @@ const createFirstPersonCameraService = (stateRef: Ref.Ref<FirstPersonState>): Ca
       }
 
       yield* Ref.set(stateRef, newState)
-    }) as Effect.Effect<void, CameraError, never>,
+    }),
 
   updateAspectRatio: (width: unknown, height: unknown): Effect.Effect<void, CameraError> =>
     Effect.gen(function* () {
@@ -344,7 +344,7 @@ const createFirstPersonCameraService = (stateRef: Ref.Ref<FirstPersonState>): Ca
       const camera = yield* ensureCameraExists(state, 'updateAspectRatio')
       camera.aspect = validWidth / validHeight
       camera.updateProjectionMatrix()
-    }) as Effect.Effect<void, CameraError, never>,
+    }),
 
   dispose: (): Effect.Effect<void, never> =>
     Effect.gen(function* () {
@@ -376,7 +376,7 @@ const createFirstPersonCameraService = (stateRef: Ref.Ref<FirstPersonState>): Ca
       }
 
       yield* Ref.set(stateRef, newState)
-    }) as Effect.Effect<void, never, never>,
+    }),
 })
 
 /**
@@ -398,5 +398,5 @@ export const FirstPersonCameraLive = Layer.effect(
     })
 
     return createFirstPersonCameraService(stateRef)
-  }) as Effect.Effect<CameraService, never, never>
+  })
 )

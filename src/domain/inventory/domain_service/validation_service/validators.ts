@@ -13,6 +13,24 @@ import type { ValidationOptions, ValidationViolation } from './index'
 import { ValidationResult } from './validation_result'
 
 // =============================================================================
+// Helper: Type-safe ValidationViolation Construction
+// =============================================================================
+
+/**
+ * ValidationViolationの型安全な構築ヘルパー
+ * `as ValidationViolation`を排除し、コンパイル時の型安全性を保証
+ */
+const createValidationViolation = (params: {
+  readonly type: ValidationViolation['type']
+  readonly severity: ValidationViolation['severity']
+  readonly description: string
+  readonly affectedSlots: ReadonlyArray<number>
+  readonly detectedValue: unknown
+  readonly expectedValue?: unknown
+  readonly canAutoCorrect: boolean
+}): ValidationViolation => params
+
+// =============================================================================
 // Core Validators
 // =============================================================================
 
@@ -34,7 +52,7 @@ export const validateSlotCount = (inventory: Inventory): Effect.Effect<ReadonlyA
         Valid: () => Effect.succeed([]),
         InvalidSlotCount: ({ detected, expected }) =>
           Effect.succeed([
-            {
+            createValidationViolation({
               type: 'INVALID_SLOT_COUNT',
               severity: 'CRITICAL',
               description: `Invalid slot count: ${detected}, expected ${expected}`,
@@ -42,7 +60,7 @@ export const validateSlotCount = (inventory: Inventory): Effect.Effect<ReadonlyA
               detectedValue: detected,
               expectedValue: expected,
               canAutoCorrect: false,
-            } as ValidationViolation,
+            }),
           ]),
         _: () => Effect.succeed([]),
       })
@@ -59,15 +77,17 @@ export const validateStackSizes = (inventory: Inventory): Effect.Effect<Readonly
       inventory.slots,
       ReadonlyArray.filterMapWithIndex((i, stack) =>
         stack !== null && (stack.count <= 0 || stack.count > 64)
-          ? Option.some({
-              type: 'INVALID_STACK_SIZE',
-              severity: 'ERROR',
-              description: `Invalid stack size: ${stack.count} at slot ${i}`,
-              affectedSlots: [i],
-              detectedValue: stack.count,
-              expectedValue: 'between 1 and 64',
-              canAutoCorrect: true,
-            } as ValidationViolation)
+          ? Option.some(
+              createValidationViolation({
+                type: 'INVALID_STACK_SIZE',
+                severity: 'ERROR',
+                description: `Invalid stack size: ${stack.count} at slot ${i}`,
+                affectedSlots: [i],
+                detectedValue: stack.count,
+                expectedValue: 'between 1 and 64',
+                canAutoCorrect: true,
+              })
+            )
           : Option.none()
       )
     )
@@ -92,15 +112,17 @@ export const validateHotbarSlots = (inventory: Inventory): Effect.Effect<Readonl
         Valid: () => Effect.succeed(Option.none<ValidationViolation>()),
         InvalidHotbarLength: ({ detected, expected }) =>
           Effect.succeed(
-            Option.some({
-              type: 'INVALID_SLOT_COUNT',
-              severity: 'ERROR',
-              description: `Invalid hotbar length: ${detected}, expected ${expected}`,
-              affectedSlots: [],
-              detectedValue: detected,
-              expectedValue: expected,
-              canAutoCorrect: true,
-            } as ValidationViolation)
+            Option.some(
+              createValidationViolation({
+                type: 'INVALID_SLOT_COUNT',
+                severity: 'ERROR',
+                description: `Invalid hotbar length: ${detected}, expected ${expected}`,
+                affectedSlots: [],
+                detectedValue: detected,
+                expectedValue: expected,
+                canAutoCorrect: true,
+              })
+            )
           ),
         _: () => Effect.succeed(Option.none<ValidationViolation>()),
       })
@@ -120,14 +142,16 @@ export const validateHotbarSlots = (inventory: Inventory): Effect.Effect<Readonl
         Valid: () => Effect.succeed(Option.none<ValidationViolation>()),
         DuplicateHotbarSlot: ({ duplicates: dups }) =>
           Effect.succeed(
-            Option.some({
-              type: 'DUPLICATE_HOTBAR_SLOT',
-              severity: 'ERROR',
-              description: `Duplicate hotbar slot references: ${dups.join(', ')}`,
-              affectedSlots: dups as number[],
-              detectedValue: dups,
-              canAutoCorrect: true,
-            } as ValidationViolation)
+            Option.some(
+              createValidationViolation({
+                type: 'DUPLICATE_HOTBAR_SLOT',
+                severity: 'ERROR',
+                description: `Duplicate hotbar slot references: ${dups.join(', ')}`,
+                affectedSlots: dups,
+                detectedValue: dups,
+                canAutoCorrect: true,
+              })
+            )
           ),
         _: () => Effect.succeed(Option.none<ValidationViolation>()),
       })
@@ -147,14 +171,16 @@ export const validateHotbarSlots = (inventory: Inventory): Effect.Effect<Readonl
         Valid: () => Effect.succeed(Option.none<ValidationViolation>()),
         HotbarSlotOutOfBounds: ({ outOfBounds: oob }) =>
           Effect.succeed(
-            Option.some({
-              type: 'HOTBAR_SLOT_OUT_OF_BOUNDS',
-              severity: 'ERROR',
-              description: `Hotbar slots out of bounds: ${oob.join(', ')}`,
-              affectedSlots: oob as number[],
-              detectedValue: oob,
-              canAutoCorrect: true,
-            } as ValidationViolation)
+            Option.some(
+              createValidationViolation({
+                type: 'HOTBAR_SLOT_OUT_OF_BOUNDS',
+                severity: 'ERROR',
+                description: `Hotbar slots out of bounds: ${oob.join(', ')}`,
+                affectedSlots: oob,
+                detectedValue: oob,
+                canAutoCorrect: true,
+              })
+            )
           ),
         _: () => Effect.succeed(Option.none<ValidationViolation>()),
       })
@@ -185,7 +211,7 @@ export const validateSelectedSlot = (inventory: Inventory): Effect.Effect<Readon
         Valid: () => Effect.succeed([]),
         InvalidSelectedSlot: ({ selectedSlot }) =>
           Effect.succeed([
-            {
+            createValidationViolation({
               type: 'INVALID_SELECTED_SLOT',
               severity: 'ERROR',
               description: `Invalid selected slot: ${selectedSlot}, expected 0-8`,
@@ -193,7 +219,7 @@ export const validateSelectedSlot = (inventory: Inventory): Effect.Effect<Readon
               detectedValue: selectedSlot,
               expectedValue: 'between 0 and 8',
               canAutoCorrect: true,
-            } as ValidationViolation,
+            }),
           ]),
         _: () => Effect.succeed([]),
       })
@@ -232,14 +258,16 @@ export const validateArmorSlots = (inventory: Inventory): Effect.Effect<Readonly
               Valid: () => Effect.succeed(Option.none<ValidationViolation>()),
               InvalidArmorSlot: ({ slot: armorSlot, itemId }) =>
                 Effect.succeed(
-                  Option.some({
-                    type: 'INVALID_ARMOR_SLOT',
-                    severity: 'ERROR',
-                    description: `Invalid armor item ${itemId} in ${armorSlot} slot`,
-                    affectedSlots: [],
-                    detectedValue: itemId,
-                    canAutoCorrect: false,
-                  } as ValidationViolation)
+                  Option.some(
+                    createValidationViolation({
+                      type: 'INVALID_ARMOR_SLOT',
+                      severity: 'ERROR',
+                      description: `Invalid armor item ${itemId} in ${armorSlot} slot`,
+                      affectedSlots: [],
+                      detectedValue: itemId,
+                      canAutoCorrect: false,
+                    })
+                  )
                 ),
               _: () => Effect.succeed(Option.none<ValidationViolation>()),
             })
@@ -274,15 +302,17 @@ export const validateDurability = (inventory: Inventory): Effect.Effect<Readonly
       inventory.slots,
       ReadonlyArray.filterMapWithIndex((i, stack) =>
         stack?.durability !== undefined && (stack.durability < 0 || stack.durability > 1)
-          ? Option.some({
-              type: 'DURABILITY_OUT_OF_RANGE',
-              severity: 'ERROR',
-              description: `Invalid durability: ${stack.durability} at slot ${i}`,
-              affectedSlots: [i],
-              detectedValue: stack.durability,
-              expectedValue: 'between 0 and 1',
-              canAutoCorrect: true,
-            } as ValidationViolation)
+          ? Option.some(
+              createValidationViolation({
+                type: 'DURABILITY_OUT_OF_RANGE',
+                severity: 'ERROR',
+                description: `Invalid durability: ${stack.durability} at slot ${i}`,
+                affectedSlots: [i],
+                detectedValue: stack.durability,
+                expectedValue: 'between 0 and 1',
+                canAutoCorrect: true,
+              })
+            )
           : Option.none()
       )
     )
@@ -333,15 +363,17 @@ const validateStackMetadata = (
       metadata.enchantments ?? [],
       ReadonlyArray.filterMap((enchantment) =>
         enchantment.level < 1 || enchantment.level > 5
-          ? Option.some({
-              type: 'METADATA_CORRUPTION',
-              severity: 'WARNING',
-              description: `Invalid enchantment level: ${enchantment.level} for ${enchantment.id}`,
-              affectedSlots: [slotIndex],
-              detectedValue: enchantment.level,
-              expectedValue: 'between 1 and 5',
-              canAutoCorrect: true,
-            } as ValidationViolation)
+          ? Option.some(
+              createValidationViolation({
+                type: 'METADATA_CORRUPTION',
+                severity: 'WARNING',
+                description: `Invalid enchantment level: ${enchantment.level} for ${enchantment.id}`,
+                affectedSlots: [slotIndex],
+                detectedValue: enchantment.level,
+                expectedValue: 'between 1 and 5',
+                canAutoCorrect: true,
+              })
+            )
           : Option.none()
       )
     )
@@ -360,15 +392,17 @@ const validateStackMetadata = (
         Valid: () => Effect.succeed(Option.none<ValidationViolation>()),
         InvalidDamageValue: ({ damage }) =>
           Effect.succeed(
-            Option.some({
-              type: 'METADATA_CORRUPTION',
-              severity: 'WARNING',
-              description: `Invalid damage value: ${damage}`,
-              affectedSlots: [slotIndex],
-              detectedValue: damage,
-              expectedValue: 'between 0 and 1000',
-              canAutoCorrect: true,
-            } as ValidationViolation)
+            Option.some(
+              createValidationViolation({
+                type: 'METADATA_CORRUPTION',
+                severity: 'WARNING',
+                description: `Invalid damage value: ${damage}`,
+                affectedSlots: [slotIndex],
+                detectedValue: damage,
+                expectedValue: 'between 0 and 1000',
+                canAutoCorrect: true,
+              })
+            )
           ),
         _: () => Effect.succeed(Option.none<ValidationViolation>()),
       })

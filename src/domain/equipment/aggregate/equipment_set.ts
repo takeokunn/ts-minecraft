@@ -74,7 +74,11 @@ const emptySlots = (): Slots =>
 
 const setError = (message: string): EquipmentDomainError => makeSchemaViolation({ field: 'EquipmentSet', message })
 
-const slotKey = (slot: EquipmentSlot): EquipmentSlotLiteral => slot as unknown as EquipmentSlotLiteral
+/**
+ * EquipmentSlotのTaggedEnum型から_tagプロパティを取得してEquipmentSlotLiteralに変換
+ * EquipmentSlotは TaggedEnum 型で { _tag: 'main_hand' | 'off_hand' | ... } の構造
+ */
+const slotKey = (slot: EquipmentSlot): EquipmentSlotLiteral => slot._tag
 
 const computeWeight = (slots: Slots): WeightKg =>
   equipmentSlotLiterals.reduce<WeightKg>((total, literal) => {

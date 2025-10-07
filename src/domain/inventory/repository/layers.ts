@@ -1,4 +1,4 @@
-import { Context, Effect, Layer } from 'effect'
+import { Context, Effect, Layer, Match, pipe } from 'effect'
 import {
   ContainerRepository,
   ContainerRepositoryMemory,
@@ -295,18 +295,13 @@ export interface InventoryRepositoryConfig {
 /**
  * 設定に基づいてRepository Layerを作成
  */
-export const createInventoryRepositoryLayer = (config: InventoryRepositoryConfig) => {
-  switch (config.environment) {
-    case 'development':
-      return DevelopmentInventoryRepositoryLayers
-
-    case 'test':
-      return TestInventoryRepositoryLayers
-
-    case 'production':
-      return ProductionInventoryRepositoryLayers
-
-    case 'browser':
+export const createInventoryRepositoryLayer = (config: InventoryRepositoryConfig) =>
+  pipe(
+    Match.value(config.environment),
+    Match.when('development', () => DevelopmentInventoryRepositoryLayers),
+    Match.when('test', () => TestInventoryRepositoryLayers),
+    Match.when('production', () => ProductionInventoryRepositoryLayers),
+    Match.when('browser', () => {
       const inventoryLayer = config.inventoryConfig?.persistent
         ? InventoryRepositoryLayers.persistent(config.inventoryConfig.persistent)
         : InventoryRepositoryLayers.persistentDefault
@@ -316,8 +311,8 @@ export const createInventoryRepositoryLayer = (config: InventoryRepositoryConfig
         : ContainerRepositoryLayers.persistentDefault
 
       return createUnifiedInventoryRepository(inventoryLayer, ItemDefinitionRepositoryLayers.memory, containerLayer)
-
-    case 'server':
+    }),
+    Match.when('server', () => {
       const itemDefLayer = config.itemDefinitionConfig?.jsonFile
         ? ItemDefinitionRepositoryLayers.jsonFile(config.itemDefinitionConfig.jsonFile)
         : ItemDefinitionRepositoryLayers.jsonFileDefault
@@ -327,14 +322,10 @@ export const createInventoryRepositoryLayer = (config: InventoryRepositoryConfig
         itemDefLayer,
         ContainerRepositoryLayers.memory
       )
-
-    case 'hybrid':
-      return HybridInventoryRepositoryLayers
-
-    default:
-      return ProductionInventoryRepositoryLayers
-  }
-}
+    }),
+    Match.when('hybrid', () => HybridInventoryRepositoryLayers),
+    Match.orElse(() => ProductionInventoryRepositoryLayers)
+  )
 
 /**
  * デフォルト設定

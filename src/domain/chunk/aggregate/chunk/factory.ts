@@ -1,4 +1,5 @@
 import { Clock, Effect, Match, Schema, pipe } from 'effect'
+import { makeUnsafeChunkId } from '../../../shared/entities/chunk_id'
 import { CHUNK_MAX_Y, CHUNK_MIN_Y, CHUNK_SIZE, CHUNK_VOLUME } from '../../types'
 import type { ChunkMetadata } from '../../value_object/chunk_metadata'
 import {
@@ -12,13 +13,12 @@ import {
   ChunkDataSchema,
   ChunkSerializationError,
   BlockId as MakeBlockId,
-  ChunkId as MakeChunkId,
 } from './index'
 
 const inclusiveRange = (start: number, end: number): ReadonlyArray<number> =>
   start > end ? [] : Array.from({ length: end - start + 1 }, (_, index) => start + index)
 
-const buildChunkId = (position: ChunkPosition): ChunkId => MakeChunkId(`${position.x}_${position.z}`)
+const buildChunkId = (position: ChunkPosition): ChunkId => makeUnsafeChunkId(`chunk_${position.x}_${position.z}`)
 
 const getBlockIndex = (x: number, y: number, z: number): number => {
   const normalizedY = y - CHUNK_MIN_Y

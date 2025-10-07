@@ -9,7 +9,8 @@ import {
   ChunkStateOpticsHelpers,
   ChunkStatesEffect,
 } from '../../types'
-import type { ChunkMetadata, HeightValue } from '../../value_object/chunk_metadata'
+import type { ChunkMetadata } from '../../value_object/chunk_metadata'
+import { makeUnsafeHeightValue } from '../../value_object/chunk_metadata'
 import type { ChunkPosition } from '../../value_object/chunk_position'
 import type { ChunkData } from '../chunk_data'
 import { ChunkBoundsError, ChunkDataOptics, ChunkDataOpticsHelpers } from './index'
@@ -57,11 +58,11 @@ export const ChunkOperations = {
           Match.value,
           Match.when(
             ({ blockId, y, currentHeight }) => blockId !== 0 && y > currentHeight,
-            ({ y }) => y as HeightValue
+            ({ y }) => makeUnsafeHeightValue(y)
           ),
           Match.when(
             ({ blockId, y, currentHeight }) => blockId === 0 && y === currentHeight,
-            () => recalculateHeight(chunk, x, z, y) as HeightValue
+            () => makeUnsafeHeightValue(recalculateHeight(chunk, x, z, y))
           ),
           Match.orElse(({ currentHeight }) => currentHeight)
         )

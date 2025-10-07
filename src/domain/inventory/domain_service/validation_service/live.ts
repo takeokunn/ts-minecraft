@@ -87,10 +87,15 @@ export const ValidationServiceLive = Layer.succeed(
         // 重複チェック
         const duplicateResult = pipe(
           inventory.hotbar,
-          ReadonlyArray.reduce({ seen: HashSet.empty<number>(), duplicates: [] as number[] }, (acc, slot) =>
-            HashSet.has(acc.seen, slot)
-              ? { ...acc, duplicates: [...acc.duplicates, slot] }
-              : { ...acc, seen: HashSet.add(acc.seen, slot) }
+          ReadonlyArray.reduce(
+            { seen: HashSet.empty<number>(), duplicates: [] as const satisfies readonly number[] } as {
+              seen: HashSet.HashSet<number>
+              duplicates: readonly number[]
+            },
+            (acc, slot) =>
+              HashSet.has(acc.seen, slot)
+                ? { ...acc, duplicates: [...acc.duplicates, slot] }
+                : { ...acc, seen: HashSet.add(acc.seen, slot) }
           )
         )
         const duplicateReferences = duplicateResult.duplicates

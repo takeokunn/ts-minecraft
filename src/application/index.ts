@@ -8,6 +8,18 @@ export { guardLifecycleTransition, permittedTargets } from './lifecycle'
 export { applyConfig, computeHealth, createInitialState, synchronizeLifecycle, tickState, withStartTime } from './state'
 export { DEFAULT_GAME_APPLICATION_CONFIG } from './types'
 
+// FR-1 Application Services
+export * from './camera'
+export * from './chunk'
+export * from './chunk_manager'
+export * from './crafting'
+export * from './equipment'
+export * from './game_loop'
+export * from './interaction'
+export * from './inventory'
+export * from './physics'
+export * from './world'
+
 export type {
   ApplicationLifecycleState,
   ECSState,
@@ -21,7 +33,7 @@ export type {
   SystemStatus,
 } from './types'
 
-export type {
+export {
   CanvasNotFoundError,
   ConfigurationValidationError,
   ECSInitializationFailedError,

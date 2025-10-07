@@ -1,6 +1,7 @@
 import { Effect, Match, pipe } from 'effect'
 import { CHUNK_MIN_Y, CHUNK_SIZE } from '../../types'
 import type { HeightValue } from '../../value_object/chunk_metadata'
+import { makeUnsafeHeightValue } from '../../value_object/chunk_metadata'
 import type { ChunkData } from '../chunk_data'
 import { ChunkDataOptics } from './index'
 
@@ -12,7 +13,7 @@ const modifyBlocks = (chunk: ChunkData, mapper: (block: number, index: number) =
 const modifyHeightMap = (chunk: ChunkData, mapper: (height: HeightValue, index: number) => HeightValue): ChunkData =>
   ChunkDataOptics.metadata.modify((metadata) => ({
     ...metadata,
-    heightMap: metadata.heightMap.map((height, index) => mapper(height as HeightValue, index)),
+    heightMap: metadata.heightMap.map((height, index) => mapper(makeUnsafeHeightValue(height), index)),
   }))(chunk)
 
 const indexToCoordinates = (index: number) => {

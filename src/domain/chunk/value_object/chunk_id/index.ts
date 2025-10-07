@@ -1,11 +1,8 @@
-// Schema & Type
-export { ChunkIdSchema, type ChunkId } from './schema'
+// Re-export from shared kernel
+export { ChunkIdError, ChunkIdSchema, type ChunkId } from '../../../shared/entities/chunk_id'
 
-// Operations
+// Domain-specific operations (kept for backward compatibility)
 export * from './operations'
-
-// Errors
-export { ChunkIdError } from './errors'
 
 // Legacy types (ChunkIdVersion, ChunkUUID)
 export * from './types'

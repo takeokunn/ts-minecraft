@@ -3,13 +3,6 @@ import { Context, Effect, Either } from 'effect'
 import * as Match from 'effect/Match'
 import {
   AppError,
-  AppInitializationResult,
-  AppReadiness,
-  BootstrapConfig,
-  BootstrapConfigSnapshot,
-  EpochMilliseconds,
-  LifecycleSnapshot,
-  LifecycleState,
   appErrorStage,
   ensureReadySnapshot as ensureReadySnapshotSchema,
   initializationProjection,
@@ -23,6 +16,15 @@ import {
   reviveEpochZero as reviveEpochZeroValue,
   toConfigIssueList,
 } from './domain'
+import type {
+  AppInitializationResult,
+  AppReadiness,
+  BootstrapConfig,
+  BootstrapConfigSnapshot,
+  EpochMilliseconds,
+  LifecycleSnapshot,
+  LifecycleState,
+} from './domain/index'
 
 type LifecycleCases<A> = {
   readonly onReady: () => Effect.Effect<A, AppError>

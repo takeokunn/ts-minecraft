@@ -14,14 +14,16 @@ import {
   projectInitialization,
   projectReadiness,
 } from './application'
-import {
-  AppError,
+import type {
   BootstrapConfig,
-  BootstrapConfigDefaults,
   BootstrapConfigInput,
   BootstrapConfigSnapshot,
   EpochMilliseconds,
   LifecycleState,
+} from './domain'
+import {
+  AppError,
+  BootstrapConfigDefaults,
   bootstrapConfig,
   epochMilliseconds,
   makeConfigError,

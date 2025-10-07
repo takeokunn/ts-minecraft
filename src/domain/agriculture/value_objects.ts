@@ -65,20 +65,16 @@ const describeStageType = (stage: number): GrowthStageType =>
 
 const describeStageState = (stage: number): GrowthStageState => {
   const type = describeStageType(stage)
-  switch (type) {
-    case 'seed':
-      return { _tag: 'Seed' }
-    case 'germination':
-      return { _tag: 'Germinating', progress: stage / 2 }
-    case 'seedling':
-      return { _tag: 'Seedling', leafPairs: stage - 2 }
-    case 'growing':
-      return { _tag: 'Growing', vigor: stage / DomainConstants.growthStage.max }
-    case 'mature':
-      return { _tag: 'Mature', readiness: (stage - 10) / 4 }
-    case 'harvestable':
-      return { _tag: 'Harvestable', quality: 1 }
-  }
+  return pipe(
+    Match.value(type),
+    Match.when('seed', () => ({ _tag: 'Seed' as const })),
+    Match.when('germination', () => ({ _tag: 'Germinating' as const, progress: stage / 2 })),
+    Match.when('seedling', () => ({ _tag: 'Seedling' as const, leafPairs: stage - 2 })),
+    Match.when('growing', () => ({ _tag: 'Growing' as const, vigor: stage / DomainConstants.growthStage.max })),
+    Match.when('mature', () => ({ _tag: 'Mature' as const, readiness: (stage - 10) / 4 })),
+    Match.when('harvestable', () => ({ _tag: 'Harvestable' as const, quality: 1 })),
+    Match.exhaustive
+  )
 }
 
 export const describeGrowthStage = (

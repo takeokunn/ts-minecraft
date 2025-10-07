@@ -216,7 +216,7 @@ export const SystemHealthCheck = Schema.Struct({
 })
 export type SystemHealthCheck = Schema.Schema.Type<typeof SystemHealthCheck>
 
-const ErrorSeverity = Schema.Literal('low', 'medium', 'high', 'critical')
+export const ErrorSeverity = Schema.Literal('low', 'medium', 'high', 'critical')
 export type ErrorSeverity = Schema.Schema.Type<typeof ErrorSeverity>
 
 export const RecordedError = Schema.Struct({

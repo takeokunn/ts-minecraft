@@ -16,8 +16,6 @@ import type {
   ItemBuilderConfig,
   ItemBuilderFactory,
   ItemCategory,
-  ItemQuality,
-  ItemRarity,
   ItemValidationError,
 } from './interface'
 import { ItemCreationError as CreationError, ItemValidationError as ValidationError } from './interface'

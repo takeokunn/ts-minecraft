@@ -1,6 +1,7 @@
 /**
- * @fileoverview Equipment Application層のバレルエクスポート
+ * @fileoverview Equipmentアプリケーションサービスのバレルエクスポート
+ * 装備品管理のアプリケーション層インターフェース
  */
 
-export * from './application_service'
-export * from './layers'
+export { EquipmentServiceLive, EquipmentServiceTag, makeEquipmentService } from './service'
+export type { EquipmentService } from './service'

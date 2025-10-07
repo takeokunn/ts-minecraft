@@ -77,22 +77,22 @@ const transaction = <T>(
   db: IDBDatabase,
   stores: ReadonlyArray<string>,
   mode: IDBTransactionMode,
-  operation: (tx: IDBTransaction) => Promise<T>
+  operation: (tx: IDBTransaction) => Effect.Effect<T>
 ): Effect.Effect<T, RepositoryError> =>
-  Effect.tryPromise({
-    try: async () => {
-      const tx = db.transaction(stores, mode)
-      return await operation(tx)
-    },
-    catch: (error) => RepositoryErrors.storage('transaction', 'Transaction failed', error),
-  })
+  Effect.gen(function* () {
+    const tx = db.transaction(stores, mode)
+    return yield* operation(tx)
+  }).pipe(Effect.catchAll((error) => Effect.fail(RepositoryErrors.storage('transaction', 'Transaction failed', error))))
 
-const requestToPromise = <T>(executor: () => IDBRequest<T>): Promise<T> =>
-  new Promise((resolve, reject) => {
-    const request = executor()
-    request.onsuccess = () => resolve(request.result)
-    request.onerror = () => reject(request.error)
-  })
+const requestToEffect = <T>(executor: () => IDBRequest<T>): Effect.Effect<T> =>
+  Effect.promise(
+    () =>
+      new Promise((resolve, reject) => {
+        const request = executor()
+        request.onsuccess = () => resolve(request.result)
+        request.onerror = () => reject(request.error)
+      })
+  )
 
 const toRecord = (chunk: ChunkData) =>
   Effect.map(Clock.currentTimeMillis, (timestamp) => ({
@@ -207,129 +207,153 @@ export const IndexedDBChunkRepositoryLive = Layer.effect(
 
       findByIds: (ids: ReadonlyArray<ChunkId>) =>
         transaction(db, [CHUNK_STORE], 'readonly', (tx) =>
-          Promise.all(ids.map((id) => requestToPromise(() => tx.objectStore(CHUNK_STORE).get(idKey(id)))))
+          Effect.all(
+            ids.map((id) => requestToEffect(() => tx.objectStore(CHUNK_STORE).get(idKey(id)))),
+            { concurrency: 20 }
+          )
         ).pipe(Effect.map((records) => records.flatMap((record) => (record ? [record.chunkData] : [])))),
 
       findByPositions: (positions: ReadonlyArray<ChunkPosition>) =>
         transaction(db, [CHUNK_STORE], 'readonly', (tx) =>
-          Promise.all(
+          Effect.all(
             positions.map((position) =>
-              requestToPromise(() => tx.objectStore(CHUNK_STORE).index('position').getAll([position.x, position.z]))
-            )
+              requestToEffect(() => tx.objectStore(CHUNK_STORE).index('position').getAll([position.x, position.z]))
+            ),
+            { concurrency: 20 }
           )
         ).pipe(Effect.map((records) => records.flatMap((record) => record?.map((entry) => entry.chunkData) ?? []))),
 
       save: (chunk: ChunkData) =>
         Effect.flatMap(toRecord(chunk), (record) =>
           transaction(db, [CHUNK_STORE], 'readwrite', (tx) =>
-            requestToPromise(() => tx.objectStore(CHUNK_STORE).put(record))
+            requestToEffect(() => tx.objectStore(CHUNK_STORE).put(record))
           ).pipe(Effect.as(chunk))
         ),
 
       saveAll: (chunks: ReadonlyArray<ChunkData>) =>
         Effect.flatMap(Clock.currentTimeMillis, (timestamp) =>
-          transaction(db, [CHUNK_STORE], 'readwrite', async (tx) => {
-            const store = tx.objectStore(CHUNK_STORE)
-            await Promise.all(
-              chunks.map((chunk) =>
-                requestToPromise(() =>
-                  store.put({
-                    id: positionKey(chunk.position),
-                    chunkData: chunk,
-                    createdAt: timestamp,
-                    modifiedAt: timestamp,
-                    accessCount: 0,
-                    lastAccessAt: timestamp,
-                    size: estimateChunkSize(chunk),
-                  })
-                )
+          transaction(db, [CHUNK_STORE], 'readwrite', (tx) =>
+            Effect.gen(function* () {
+              const store = tx.objectStore(CHUNK_STORE)
+              yield* Effect.all(
+                chunks.map((chunk) =>
+                  requestToEffect(() =>
+                    store.put({
+                      id: positionKey(chunk.position),
+                      chunkData: chunk,
+                      createdAt: timestamp,
+                      modifiedAt: timestamp,
+                      accessCount: 0,
+                      lastAccessAt: timestamp,
+                      size: estimateChunkSize(chunk),
+                    })
+                  )
+                ),
+                { concurrency: 10 }
               )
-            )
-            return chunks
-          })
+              return chunks
+            })
+          )
         ),
 
       delete: (id: ChunkId) =>
         transaction(db, [CHUNK_STORE], 'readwrite', (tx) =>
-          requestToPromise(() => tx.objectStore(CHUNK_STORE).delete(idKey(id)))
+          requestToEffect(() => tx.objectStore(CHUNK_STORE).delete(idKey(id)))
         ).pipe(Effect.asVoid),
 
       deleteByPosition: (position: ChunkPosition) =>
         transaction(db, [CHUNK_STORE], 'readwrite', (tx) =>
-          requestToPromise(() => tx.objectStore(CHUNK_STORE).delete(positionKey(position)))
+          requestToEffect(() => tx.objectStore(CHUNK_STORE).delete(positionKey(position)))
         ).pipe(Effect.asVoid),
 
       deleteAll: (ids: ReadonlyArray<ChunkId>) =>
-        transaction(db, [CHUNK_STORE], 'readwrite', async (tx) => {
-          const store = tx.objectStore(CHUNK_STORE)
-          await Promise.all(ids.map((id) => requestToPromise(() => store.delete(idKey(id)))))
-        }).pipe(Effect.asVoid),
+        transaction(db, [CHUNK_STORE], 'readwrite', (tx) =>
+          Effect.gen(function* () {
+            const store = tx.objectStore(CHUNK_STORE)
+            yield* Effect.all(
+              ids.map((id) => requestToEffect(() => store.delete(idKey(id)))),
+              { concurrency: 5 }
+            )
+          })
+        ).pipe(Effect.asVoid),
 
       exists: (id: ChunkId) =>
         transaction(db, [CHUNK_STORE], 'readonly', (tx) =>
-          requestToPromise(() => tx.objectStore(CHUNK_STORE).getKey(idKey(id)))
+          requestToEffect(() => tx.objectStore(CHUNK_STORE).getKey(idKey(id)))
         ).pipe(Effect.map((key) => key !== undefined)),
 
       existsByPosition: (position: ChunkPosition) =>
         transaction(db, [CHUNK_STORE], 'readonly', (tx) =>
-          requestToPromise(() => tx.objectStore(CHUNK_STORE).getKey(positionKey(position)))
+          requestToEffect(() => tx.objectStore(CHUNK_STORE).getKey(positionKey(position)))
         ).pipe(Effect.map((key) => key !== undefined)),
 
       count: () =>
-        transaction(db, [CHUNK_STORE], 'readonly', (tx) => requestToPromise(() => tx.objectStore(CHUNK_STORE).count())),
+        transaction(db, [CHUNK_STORE], 'readonly', (tx) => requestToEffect(() => tx.objectStore(CHUNK_STORE).count())),
 
       countByRegion: (region: ChunkRegion) =>
-        transaction(db, [CHUNK_STORE], 'readonly', async (tx) => {
-          const records = await requestToPromise<ReadonlyArray<ChunkRecord>>(() => tx.objectStore(CHUNK_STORE).getAll())
-          return records.filter(
-            (record) =>
-              record.chunkData.position.x >= region.minX &&
-              record.chunkData.position.x <= region.maxX &&
-              record.chunkData.position.z >= region.minZ &&
-              record.chunkData.position.z <= region.maxZ
-          ).length
-        }),
+        transaction(db, [CHUNK_STORE], 'readonly', (tx) =>
+          Effect.gen(function* () {
+            const records = yield* requestToEffect<ReadonlyArray<ChunkRecord>>(() =>
+              tx.objectStore(CHUNK_STORE).getAll()
+            )
+            return records.filter(
+              (record) =>
+                record.chunkData.position.x >= region.minX &&
+                record.chunkData.position.x <= region.maxX &&
+                record.chunkData.position.z >= region.minZ &&
+                record.chunkData.position.z <= region.maxZ
+            ).length
+          })
+        ),
 
       findByQuery: (query: ChunkQuery) =>
-        transaction(db, [CHUNK_STORE], 'readonly', async (tx) => {
-          const records = await requestToPromise<ReadonlyArray<ChunkRecord>>(() => tx.objectStore(CHUNK_STORE).getAll())
-          const filtered = records.filter((record) => matchesQuery(record, query))
-          const offset = query.offset ?? 0
-          return sliceWithLimit(filtered, offset, query.limit).map((record) => record.chunkData)
-        }),
+        transaction(db, [CHUNK_STORE], 'readonly', (tx) =>
+          Effect.gen(function* () {
+            const records = yield* requestToEffect<ReadonlyArray<ChunkRecord>>(() =>
+              tx.objectStore(CHUNK_STORE).getAll()
+            )
+            const filtered = records.filter((record) => matchesQuery(record, query))
+            const offset = query.offset ?? 0
+            return sliceWithLimit(filtered, offset, query.limit).map((record) => record.chunkData)
+          })
+        ),
 
       findRecentlyLoaded: (limit: number) =>
         transaction(db, [CHUNK_STORE], 'readonly', (tx) =>
-          requestToPromise<ReadonlyArray<ChunkRecord>>(() =>
+          requestToEffect<ReadonlyArray<ChunkRecord>>(() =>
             tx.objectStore(CHUNK_STORE).index('createdAt').getAll(undefined, limit)
           )
         ).pipe(Effect.map((records) => records.map((record) => record.chunkData))),
 
       findModified: (since: number) =>
-        transaction(db, [CHUNK_STORE], 'readonly', async (tx) => {
-          const records = await requestToPromise<ReadonlyArray<ChunkRecord>>(() =>
-            tx.objectStore(CHUNK_STORE).index('modifiedAt').getAll(IDBKeyRange.lowerBound(since))
-          )
-          return records.map((record) => record.chunkData)
-        }),
+        transaction(db, [CHUNK_STORE], 'readonly', (tx) =>
+          Effect.gen(function* () {
+            const records = yield* requestToEffect<ReadonlyArray<ChunkRecord>>(() =>
+              tx.objectStore(CHUNK_STORE).index('modifiedAt').getAll(IDBKeyRange.lowerBound(since))
+            )
+            return records.map((record) => record.chunkData)
+          })
+        ),
 
       getStatistics: () =>
-        transaction(db, [CHUNK_STORE], 'readonly', async (tx) => {
-          const store = tx.objectStore(CHUNK_STORE)
-          const records = await requestToPromise<ReadonlyArray<ChunkRecord>>(() => store.getAll())
-          const memoryUsage = records.reduce((sum, record) => sum + record.size, 0)
-          const loadedChunks = records.length
-          const modifiedChunks = records.filter((record) => record.chunkData.isDirty).length
+        transaction(db, [CHUNK_STORE], 'readonly', (tx) =>
+          Effect.gen(function* () {
+            const store = tx.objectStore(CHUNK_STORE)
+            const records = yield* requestToEffect<ReadonlyArray<ChunkRecord>>(() => store.getAll())
+            const memoryUsage = records.reduce((sum, record) => sum + record.size, 0)
+            const loadedChunks = records.length
+            const modifiedChunks = records.filter((record) => record.chunkData.isDirty).length
 
-          return {
-            totalChunks: records.length,
-            loadedChunks,
-            modifiedChunks,
-            memoryUsage,
-            averageLoadTime: 0,
-            cacheHitRate: 0,
-          } satisfies ChunkStatistics
-        }),
+            return {
+              totalChunks: records.length,
+              loadedChunks,
+              modifiedChunks,
+              memoryUsage,
+              averageLoadTime: 0,
+              cacheHitRate: 0,
+            } satisfies ChunkStatistics
+          })
+        ),
 
       batchSave: (chunks) =>
         Effect.map(
@@ -337,33 +361,43 @@ export const IndexedDBChunkRepositoryLive = Layer.effect(
           (saved) =>
             ({
               successful: saved,
-              failed: [] as ReadonlyArray<{ readonly item: ChunkData; readonly error: RepositoryError }>,
+              failed: [] as const satisfies ReadonlyArray<{
+                readonly item: ChunkData
+                readonly error: RepositoryError
+              }>,
             }) satisfies BatchOperationResult<ChunkData>
         ),
 
       batchDelete: (ids) =>
         Effect.map(
-          transaction(db, [CHUNK_STORE], 'readwrite', async (tx) => {
-            const store = tx.objectStore(CHUNK_STORE)
-            await Promise.all(ids.map((id) => requestToPromise(() => store.delete(idKey(id)))))
-            return ids
-          }),
+          transaction(db, [CHUNK_STORE], 'readwrite', (tx) =>
+            Effect.gen(function* () {
+              const store = tx.objectStore(CHUNK_STORE)
+              yield* Effect.all(
+                ids.map((id) => requestToEffect(() => store.delete(idKey(id)))),
+                { concurrency: 5 }
+              )
+              return ids
+            })
+          ),
           (deleted) =>
             ({
               successful: deleted,
-              failed: [] as ReadonlyArray<{ readonly item: ChunkId; readonly error: RepositoryError }>,
+              failed: [] as const satisfies ReadonlyArray<{ readonly item: ChunkId; readonly error: RepositoryError }>,
             }) satisfies BatchOperationResult<ChunkId>
         ),
 
       initialize: () =>
-        transaction(db, [CHUNK_STORE, METADATA_STORE], 'readwrite', async (tx) => {
-          await requestToPromise(() => tx.objectStore(CHUNK_STORE).clear())
-          await requestToPromise(() => tx.objectStore(METADATA_STORE).clear())
-        }).pipe(Effect.asVoid),
+        transaction(db, [CHUNK_STORE, METADATA_STORE], 'readwrite', (tx) =>
+          Effect.gen(function* () {
+            yield* requestToEffect(() => tx.objectStore(CHUNK_STORE).clear())
+            yield* requestToEffect(() => tx.objectStore(METADATA_STORE).clear())
+          })
+        ).pipe(Effect.asVoid),
 
       clear: () =>
         transaction(db, [CHUNK_STORE], 'readwrite', (tx) =>
-          requestToPromise(() => tx.objectStore(CHUNK_STORE).clear())
+          requestToEffect(() => tx.objectStore(CHUNK_STORE).clear())
         ).pipe(Effect.asVoid),
 
       validateIntegrity: () => Effect.succeed(true),

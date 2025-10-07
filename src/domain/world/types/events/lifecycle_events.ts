@@ -4,7 +4,7 @@
  */
 
 import { uuid } from '@domain/world/utils'
-import { Clock, Effect, Schema } from 'effect'
+import { DateTime, Effect, Schema } from 'effect'
 import { ChunkPosition, WorldId } from '../core'
 import { EventMetadata } from './index'
 
@@ -490,7 +490,8 @@ export const createSystemStartedEvent = (
   resourcesAllocated: { memory: number; threads: number; storage: number }
 ): Effect.Effect<SystemStartedEvent> =>
   Effect.gen(function* () {
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const now = yield* DateTime.now
+    const timestamp = DateTime.toDate(now)
     return {
       type: 'SystemStarted',
       metadata: {
@@ -521,7 +522,8 @@ export const createMemoryWarningEvent = (
   affectedOperations: readonly string[]
 ): Effect.Effect<MemoryWarningEvent> =>
   Effect.gen(function* () {
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const now = yield* DateTime.now
+    const timestamp = DateTime.toDate(now)
     return {
       type: 'MemoryWarning',
       metadata: {
@@ -553,7 +555,8 @@ export const createChunkLoadedEvent = (
   playersInRange: readonly string[]
 ): Effect.Effect<ChunkLoadedEvent> =>
   Effect.gen(function* () {
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const now = yield* DateTime.now
+    const timestamp = DateTime.toDate(now)
     return {
       type: 'ChunkLoaded',
       metadata: {

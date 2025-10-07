@@ -54,7 +54,8 @@ export const getNetworkConnection = (): Effect.Effect<Option.Option<NetworkConne
       return Option.none()
     }
 
-    const nav = navigator as any
+    // Navigator.connection は非標準APIでTypeScript型定義に含まれないため、ランタイムチェック
+    const nav = navigator as Navigator & { connection?: unknown }
     return Schema.decodeUnknownOption(NetworkConnectionSchema)(nav.connection)
   })
 

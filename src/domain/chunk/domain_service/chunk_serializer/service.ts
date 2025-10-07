@@ -468,20 +468,22 @@ export const ChunkSerializationServiceLive = Layer.effect(
 
       calculateChecksum: (data, algorithm = 'SHA-256') =>
         pipe(
-          Effect.tryPromise({
-            try: async () => {
-              const subtleAlgorithm = algorithm === 'MD5' ? 'SHA-256' : algorithm
-              const digest = await crypto.subtle.digest(subtleAlgorithm, data)
-              return Array.from(new Uint8Array(digest))
-                .map((byte) => byte.toString(16).padStart(2, '0'))
-                .join('')
-            },
-            catch: (error) =>
-              ChunkSerializationError({
-                message: `チェックサム計算に失敗しました: ${String(error)}`,
-                originalError: error,
-              }),
-          })
+          Effect.gen(function* () {
+            const subtleAlgorithm = algorithm === 'MD5' ? 'SHA-256' : algorithm
+            const digest = yield* Effect.promise(() => crypto.subtle.digest(subtleAlgorithm, data))
+            return Array.from(new Uint8Array(digest))
+              .map((byte) => byte.toString(16).padStart(2, '0'))
+              .join('')
+          }).pipe(
+            Effect.catchAll((error) =>
+              Effect.fail(
+                ChunkSerializationError({
+                  message: `チェックサム計算に失敗しました: ${String(error)}`,
+                  originalError: error,
+                })
+              )
+            )
+          )
         ),
 
       estimateSize: (chunk, format) =>

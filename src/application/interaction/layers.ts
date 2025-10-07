@@ -3,9 +3,9 @@
  * Application層の依存関係を提供し、Domain層に依存
  */
 
-import { Layer } from 'effect'
 import { InteractionDomainLive } from '@/domain/interaction/layer'
-import { SessionManagerLive } from './application_service'
+import { Layer } from 'effect'
+import { SessionManagerLive } from './session_manager'
 
 /**
  * Interaction Application Layer

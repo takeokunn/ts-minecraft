@@ -19,6 +19,16 @@ import {
   type TransferResult,
 } from './index'
 
+// 型ガード: 転送失敗型
+type TransferFailure = {
+  readonly failed: true
+  readonly index: number
+  readonly error: TransferError
+}
+
+const isTransferFailure = (result: TransferResult | TransferFailure): result is TransferFailure =>
+  'failed' in result && result.failed === true
+
 /**
  * 転送サービスのLive実装
  * 純粋なドメインロジックのみを含む
@@ -82,8 +92,8 @@ export const TransferServiceLive = Layer.succeed(
             {
               sourceInventory: request.sourceInventory,
               targetInventory: request.targetInventory,
-              results: [] as TransferResult[],
-              failedTransfers: [] as Array<{ index: number; error: TransferError }>,
+              results: [] as const satisfies readonly TransferResult[],
+              failedTransfers: [] as const satisfies ReadonlyArray<{ index: number; error: TransferError }>,
             },
             (acc, { i, transfer }) =>
               Effect.gen(function* () {
@@ -107,28 +117,23 @@ export const TransferServiceLive = Layer.succeed(
                   )
                 )
 
-                // Match.valueパターン: failedプロパティ判定
-                return yield* pipe(
-                  Match.value('failed' in transferResult && transferResult.failed),
-                  Match.when(true, () =>
-                    Effect.succeed({
-                      ...acc,
-                      failedTransfers: [
-                        ...acc.failedTransfers,
-                        { index: (transferResult as any).index, error: (transferResult as any).error },
-                      ],
-                    })
-                  ),
-                  Match.when(false, () =>
-                    Effect.succeed({
-                      sourceInventory: (transferResult as TransferResult).sourceInventory,
-                      targetInventory: (transferResult as TransferResult).targetInventory,
-                      results: [...acc.results, transferResult as TransferResult],
-                      failedTransfers: acc.failedTransfers,
-                    })
-                  ),
-                  Match.exhaustive
-                )
+                // 型ガードを使用した型安全な分岐
+                if (isTransferFailure(transferResult)) {
+                  return Effect.succeed({
+                    ...acc,
+                    failedTransfers: [
+                      ...acc.failedTransfers,
+                      { index: transferResult.index, error: transferResult.error },
+                    ],
+                  })
+                }
+
+                return Effect.succeed({
+                  sourceInventory: transferResult.sourceInventory,
+                  targetInventory: transferResult.targetInventory,
+                  results: [...acc.results, transferResult],
+                  failedTransfers: acc.failedTransfers,
+                })
               })
           )
         )
@@ -227,7 +232,7 @@ export const TransferServiceLive = Layer.succeed(
             {
               sourceInventory,
               targetInventories: [...targetInventories],
-              distributionSummary: [] as Array<{
+              distributionSummary: [] as const satisfies ReadonlyArray<{
                 readonly inventoryIndex: number
                 readonly itemsReceived: number
                 readonly slotsUsed: number

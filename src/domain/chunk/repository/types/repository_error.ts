@@ -1,4 +1,4 @@
-import { Clock, Data, Effect, Schema } from 'effect'
+import { Clock, Data, Effect, Match, pipe, Schema } from 'effect'
 
 /**
  * Chunk Repository Domain - Error Types
@@ -236,33 +236,22 @@ export const isResourceLimitError = (
 /**
  * エラー回復ユーティリティ
  */
-export const isRetryableError = (error: RepositoryError): boolean => {
-  switch (error._tag) {
-    case 'NetworkError':
-    case 'TimeoutError':
-    case 'StorageError':
-      return true
-    case 'ChunkNotFound':
-    case 'DuplicateChunk':
-    case 'ValidationError':
-    case 'DataIntegrityError':
-    case 'PermissionError':
-    case 'ResourceLimitError':
-      return false
-    default:
-      return false
-  }
-}
+export const isRetryableError = (error: RepositoryError): boolean =>
+  pipe(
+    Match.value(error),
+    Match.tag('NetworkError', () => true),
+    Match.tag('TimeoutError', () => true),
+    Match.tag('StorageError', () => true),
+    Match.orElse(() => false)
+  )
 
-export const isTransientError = (error: RepositoryError): boolean => {
-  switch (error._tag) {
-    case 'NetworkError':
-    case 'TimeoutError':
-      return true
-    default:
-      return false
-  }
-}
+export const isTransientError = (error: RepositoryError): boolean =>
+  pipe(
+    Match.value(error),
+    Match.tag('NetworkError', () => true),
+    Match.tag('TimeoutError', () => true),
+    Match.orElse(() => false)
+  )
 
 export const getRetryDelay = (error: RepositoryError, attempt: number): number =>
   isRetryableError(error)

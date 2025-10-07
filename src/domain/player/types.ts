@@ -4,8 +4,9 @@ import { Schema } from 'effect'
 // 基本Brand型
 // -----------------------------------------------------------------------------
 
-// PlayerIdは専用value_objectから再エクスポート
-export { PlayerIdSchema, type PlayerId } from './value_object/player_id'
+// 共有カーネルから再エクスポート
+export { PlayerIdSchema, type PlayerId } from '../shared/entities/player_id'
+export { WorldIdSchema, type WorldId } from '../shared/entities/world_id'
 
 export const PlayerNameSchema = Schema.String.pipe(
   Schema.trimmed(),
@@ -80,15 +81,6 @@ export type PlayerSpeed = Schema.Schema.Type<typeof SpeedSchema>
 export const AccelerationSchema = Schema.Number.pipe(Schema.finite(), Schema.brand('PlayerAcceleration'))
 
 export type PlayerAcceleration = Schema.Schema.Type<typeof AccelerationSchema>
-
-export const WorldIdSchema = Schema.String.pipe(
-  Schema.trimmed(),
-  Schema.minLength(1),
-  Schema.maxLength(64),
-  Schema.brand('WorldId')
-)
-
-export type WorldId = Schema.Schema.Type<typeof WorldIdSchema>
 
 // -----------------------------------------------------------------------------
 // 値オブジェクト

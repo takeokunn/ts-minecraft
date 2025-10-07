@@ -8,23 +8,25 @@ import * as ParseResult from 'effect/ParseResult'
 import * as Schema from 'effect/Schema'
 import * as SynchronizedRef from 'effect/SynchronizedRef'
 
-import {
-  DefaultGameLoopConfig,
+import type {
   FrameCount,
-  FrameCountSchema,
   FrameDuration,
-  FrameDurationSchema,
   FrameId,
-  FrameIdSchema,
   FramesPerSecond,
   GameLoopConfig,
   GameLoopState,
+  PerformanceMetrics,
+  Timestamp,
+} from '../types'
+import {
+  DefaultGameLoopConfig,
+  FrameCountSchema,
+  FrameDurationSchema,
+  FrameIdSchema,
   GameLoopStateSchema,
   InitializationError,
-  PerformanceMetrics,
   RuntimeCallbackError,
   StateTransitionError,
-  Timestamp,
   currentTimestamp,
   effectFromEither,
   fpsToNumber,

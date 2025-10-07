@@ -73,43 +73,43 @@ export const EasingFunctions = {
     pipe(
       easing,
       Match.value,
-      Match.tag('Linear', () => t as number),
-      Match.tag('EaseIn', ({ power }) => Math.pow(t as number, power)),
-      Match.tag('EaseOut', ({ power }) => 1 - Math.pow(1 - (t as number), power)),
+      Match.tag('Linear', () => t),
+      Match.tag('EaseIn', ({ power }) => Math.pow(t, power)),
+      Match.tag('EaseOut', ({ power }) => 1 - Math.pow(1 - t, power)),
       Match.tag('EaseInOut', ({ power }) => {
-        const tNum = t as number
+        const tNum = t
         return tNum < 0.5 ? Math.pow(2 * tNum, power) / 2 : 1 - Math.pow(2 * (1 - tNum), power) / 2
       }),
       Match.tag('Bounce', ({ amplitude, period }) => {
-        const tNum = t as number
+        const tNum = t
         if (tNum === 1) return 1
         return amplitude * Math.pow(2, -10 * tNum) * Math.sin(((tNum - period / 4) * (2 * Math.PI)) / period) + 1
       }),
       Match.tag('Elastic', ({ amplitude, period }) => {
-        const tNum = t as number
+        const tNum = t
         if (tNum === 0 || tNum === 1) return tNum
         return amplitude * Math.pow(2, -10 * tNum) * Math.sin(((tNum - period / 4) * (2 * Math.PI)) / period) + 1
       }),
       Match.tag('Back', ({ overshoot }) => {
-        const tNum = t as number
+        const tNum = t
         const c1 = 1.70158 * overshoot
         const c3 = c1 + 1
         return c3 * tNum * tNum * tNum - c1 * tNum * tNum
       }),
       Match.tag('Cubic', ({ controlPoint1, controlPoint2 }) => {
         // ベジェ曲線の実装
-        const tNum = t as number
+        const tNum = t
         const u = 1 - tNum
         return 3 * u * u * tNum * controlPoint1.y + 3 * u * tNum * tNum * controlPoint2.y + tNum * tNum * tNum
       }),
       Match.tag('Spring', ({ tension, friction }) => {
         // スプリングアニメーションの簡易実装
-        const tNum = t as number
+        const tNum = t
         const omega = Math.sqrt(tension)
         const zeta = friction / (2 * Math.sqrt(tension))
         return 1 - Math.exp(-zeta * omega * tNum) * Math.cos(omega * Math.sqrt(1 - zeta * zeta) * tNum)
       }),
-      Match.tag('Custom', ({ easingFunction }) => easingFunction(t as number)),
+      Match.tag('Custom', ({ easingFunction }) => easingFunction(t)),
       Match.exhaustive
     ),
 
@@ -334,7 +334,7 @@ export const InterpolationOps = {
       )
     }
 
-    const t = progress as number
+    const t = progress
 
     // 現在の時間に対応するキーフレームペアを見つける
     const keyframePair = pipe(
@@ -418,7 +418,7 @@ export const CameraAnimationOps = {
 
       const easedProgress = animation.positionAnimation
         ? EasingFunctions.apply(progress, animation.positionAnimation.easingType)
-        : (progress as number)
+        : progress
 
       const updatedPositionAnimation = animation.positionAnimation
         ? Brand.nominal<PositionAnimation>()({

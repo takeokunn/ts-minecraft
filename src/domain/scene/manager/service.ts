@@ -1,13 +1,6 @@
 import { Context, Effect, Either, Option, Schema } from 'effect'
-import {
-  ActiveScene,
-  ActiveSceneSchema,
-  PreloadError,
-  SceneState,
-  SceneStateSchema,
-  TransitionEffect,
-  TransitionError,
-} from '..'
+import type { ActiveScene } from '..'
+import { ActiveSceneSchema, PreloadError, SceneState, SceneStateSchema, TransitionEffect, TransitionError } from '..'
 
 export const SceneManagerStateSchema = Schema.Struct({
   current: SceneStateSchema,

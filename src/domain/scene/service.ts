@@ -1,14 +1,6 @@
 import { Context, Effect } from 'effect'
-import {
-  ActiveScene,
-  LoadError,
-  PreloadError,
-  SaveError,
-  SaveId,
-  SceneState,
-  TransitionEffect,
-  TransitionError,
-} from './index'
+import type { ActiveScene, SaveId } from './index'
+import { LoadError, PreloadError, SaveError, SceneState, TransitionEffect, TransitionError } from './index'
 
 export interface SceneService {
   readonly transitionTo: (scene: ActiveScene, effect?: TransitionEffect) => Effect.Effect<SceneState, TransitionError>

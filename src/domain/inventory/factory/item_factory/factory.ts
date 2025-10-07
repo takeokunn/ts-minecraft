@@ -5,8 +5,9 @@
  * class構文を一切使用せず、pipe/flowによる関数合成とEffect.genで実装
  */
 
-import { Effect, Layer, Match, Option, pipe, ReadonlyArray } from 'effect'
+import { Effect, Layer, Match, Option, pipe, ReadonlyArray, Schema } from 'effect'
 import type { ItemMetadata, ItemStack } from '../../types'
+import { ItemQualitySchema } from '../../types/item_enums'
 import {
   ItemCreationError as CreationError,
   defaultItemConfig,
@@ -16,7 +17,6 @@ import {
   ItemConfig,
   ItemCreationError,
   ItemFactory,
-  ItemQuality,
   ItemStackError,
   ItemStackError as StackError,
   StackingRules,
@@ -38,7 +38,12 @@ const filterMapArray = <A, B>(
 
 const getNonEmptyOrUndefined = <K extends PropertyKey, V>(
   entries: ReadonlyArray<readonly [K, V]>
-): Record<K, V> | undefined => (entries.length === 0 ? undefined : (Object.fromEntries(entries) as Record<K, V>))
+): Record<K, V> | undefined => {
+  if (entries.length === 0) {
+    return undefined
+  }
+  return Object.fromEntries(entries) as Record<K, V>
+}
 
 // カテゴリ別デフォルト設定（Match.valueパターン）
 const getCategoryDefaults = (category: ItemCategory): Partial<ItemConfig> =>
@@ -50,63 +55,63 @@ const getCategoryDefaults = (category: ItemCategory): Partial<ItemConfig> =>
       maxStackSize: 1,
       durability: 1.0,
       maxDurability: 100,
-      quality: 'common' as ItemQuality,
+      quality: Schema.make(ItemQualitySchema)('common'),
     })),
     Match.when('weapon', () => ({
       stackable: false,
       maxStackSize: 1,
       durability: 1.0,
       maxDurability: 150,
-      quality: 'common' as ItemQuality,
+      quality: Schema.make(ItemQualitySchema)('common'),
     })),
     Match.when('armor', () => ({
       stackable: false,
       maxStackSize: 1,
       durability: 1.0,
       maxDurability: 200,
-      quality: 'common' as ItemQuality,
+      quality: Schema.make(ItemQualitySchema)('common'),
     })),
     Match.when('food', () => ({
       stackable: true,
       maxStackSize: 16,
       durability: undefined,
-      quality: 'common' as ItemQuality,
+      quality: Schema.make(ItemQualitySchema)('common'),
     })),
     Match.when('block', () => ({
       stackable: true,
       maxStackSize: 64,
       durability: undefined,
-      quality: 'common' as ItemQuality,
+      quality: Schema.make(ItemQualitySchema)('common'),
     })),
     Match.when('resource', () => ({
       stackable: true,
       maxStackSize: 64,
       durability: undefined,
-      quality: 'common' as ItemQuality,
+      quality: Schema.make(ItemQualitySchema)('common'),
     })),
     Match.when('consumable', () => ({
       stackable: true,
       maxStackSize: 8,
       durability: undefined,
-      quality: 'common' as ItemQuality,
+      quality: Schema.make(ItemQualitySchema)('common'),
     })),
     Match.when('redstone', () => ({
       stackable: true,
       maxStackSize: 64,
       durability: undefined,
-      quality: 'common' as ItemQuality,
+      quality: Schema.make(ItemQualitySchema)('common'),
     })),
     Match.when('decoration', () => ({
       stackable: true,
       maxStackSize: 64,
       durability: undefined,
-      quality: 'common' as ItemQuality,
+      quality: Schema.make(ItemQualitySchema)('common'),
     })),
     Match.when('misc', () => ({
       stackable: true,
       maxStackSize: 64,
       durability: undefined,
-      quality: 'common' as ItemQuality,
+      quality: Schema.make(ItemQualitySchema)('common'),
     })),
     Match.exhaustive
   )
@@ -161,10 +166,10 @@ const validateItemConfig = (config: ItemConfig): Effect.Effect<void, ItemCreatio
     ),
   ])
 
-  const enchantmentErrors = pipe(
+  const enchantmentErrors: ReadonlyArray<string> = pipe(
     Option.fromNullable(config.enchantments),
     Option.match({
-      onNone: () => [] as string[],
+      onNone: () => [],
       onSome: (enchantments) =>
         filterMapArray(enchantments, (enchant) =>
           whenInvalid(

@@ -14,8 +14,8 @@ export { TimestampSchema, type Timestamp } from '../../../shared/value_object/un
 export const HeightValueSchema = Schema.Number.pipe(Schema.int(), Schema.between(-64, 319), Schema.brand('HeightValue'))
 export type HeightValue = Schema.Schema.Type<typeof HeightValueSchema>
 
-export const BlockIdSchema = Schema.Number.pipe(Schema.int(), Schema.nonNegative(), Schema.brand('BlockId'))
-export type BlockId = Schema.Schema.Type<typeof BlockIdSchema>
+// Re-export from shared entities
+export { BlockTypeIdSchema, type BlockTypeId } from '../../../shared/entities/block_type_id'
 
 export const BlockCountSchema = Schema.Number.pipe(Schema.int(), Schema.nonNegative(), Schema.brand('BlockCount'))
 export type BlockCount = Schema.Schema.Type<typeof BlockCountSchema>
@@ -84,6 +84,12 @@ export interface ChunkMetadataError {
 export const ChunkMetadataError = Data.tagged<ChunkMetadataError>('ChunkMetadataError')
 
 export const makeHeightValue = (value: number): HeightValue => Schema.decodeSync(HeightValueSchema)(value)
+
+/**
+ * HeightValueを検証なしで作成（型アサーションを集約）
+ * 注意: 値の妥当性は呼び出し側で保証すること
+ */
+export const makeUnsafeHeightValue = (value: number): HeightValue => value as HeightValue
 export const HeightValue = makeHeightValue
 
 export const withOptimizationRecord = (
@@ -234,18 +240,22 @@ export const makePercentage = (value: number): Effect.Effect<Percentage, ChunkMe
     )
   )
 
-export const makeBlockId = (value: number): Effect.Effect<BlockId, ChunkMetadataError> =>
+export const makeBlockTypeId = (value: number): Effect.Effect<BlockTypeId, ChunkMetadataError> =>
   pipe(
-    Schema.decode(BlockIdSchema)(value),
+    Schema.decode(BlockTypeIdSchema)(value),
     Effect.mapError((error) =>
       ChunkMetadataError({
-        message: 'ブロックIDの構築に失敗しました',
+        message: 'ブロックタイプIDの構築に失敗しました',
         issues: [
           {
-            field: 'blockId',
+            field: 'blockTypeId',
             explanation: String(error),
           },
         ],
       })
     )
   )
+
+// Note: 共有カーネルのBlockTypeId.createも利用可能
+// import * as BlockTypeId from '../../../shared/entities/block_type_id'
+// BlockTypeId.create(value) でも同等の処理が可能

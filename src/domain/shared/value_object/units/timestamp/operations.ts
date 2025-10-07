@@ -3,11 +3,13 @@
  * Timestamp型の操作関数
  */
 
+import { DateTime } from 'effect'
 import * as Clock from 'effect/Clock'
 import * as Effect from 'effect/Effect'
 import * as Order from 'effect/Order'
 import * as Schema from 'effect/Schema'
 import type { Milliseconds } from '../milliseconds'
+import { MillisecondsSchema } from '../milliseconds/schema'
 import type { Timestamp } from './schema'
 import { TimestampSchema } from './schema'
 
@@ -16,7 +18,8 @@ import { TimestampSchema } from './schema'
  *
  * Effect Clockを使用して現在のタイムスタンプを取得
  */
-export const now = (): Effect.Effect<Timestamp> => Effect.map(Clock.currentTimeMillis, (millis) => millis as Timestamp)
+export const now = (): Effect.Effect<Timestamp> =>
+  Effect.map(Clock.currentTimeMillis, (millis) => Schema.make(TimestampSchema)(millis))
 
 /**
  * Create Timestamp from number with validation
@@ -32,21 +35,21 @@ export const make = (value: number): Effect.Effect<Timestamp, Schema.ParseError>
  * 数値からTimestamp型を生成（バリデーションなし）
  * 信頼できるソースからの値のみ使用すること
  */
-export const makeUnsafe = (value: number): Timestamp => value as Timestamp
+export const makeUnsafe = (value: number): Timestamp => Schema.make(TimestampSchema)(value)
 
 /**
  * Create Timestamp from Date
  *
  * DateオブジェクトからTimestampを生成
  */
-export const fromDate = (date: Date): Timestamp => date.getTime() as Timestamp
+export const fromDate = (date: Date): Timestamp => Schema.make(TimestampSchema)(date.getTime())
 
 /**
- * Convert Timestamp to Date
+ * Convert Timestamp to DateTime.Utc
  *
- * TimestampをDateオブジェクトに変換
+ * TimestampをDateTime.Utcに変換
  */
-export const toDate = (timestamp: Timestamp): Date => new Date(timestamp)
+export const toDateTime = (timestamp: Timestamp): DateTime.Utc => DateTime.unsafeFromDate(new Date(timestamp))
 
 /**
  * Add Milliseconds to Timestamp
@@ -54,7 +57,7 @@ export const toDate = (timestamp: Timestamp): Date => new Date(timestamp)
  * TimestampにMillisecondsを加算
  */
 export const addMilliseconds = (timestamp: Timestamp, duration: Milliseconds): Timestamp =>
-  (timestamp + duration) as Timestamp
+  Schema.make(TimestampSchema)(timestamp + duration)
 
 /**
  * Subtract Milliseconds from Timestamp
@@ -62,14 +65,15 @@ export const addMilliseconds = (timestamp: Timestamp, duration: Milliseconds): T
  * TimestampからMillisecondsを減算（負にならないようにクランプ）
  */
 export const subtractMilliseconds = (timestamp: Timestamp, duration: Milliseconds): Timestamp =>
-  Math.max(0, timestamp - duration) as Timestamp
+  Schema.make(TimestampSchema)(Math.max(0, timestamp - duration))
 
 /**
  * Calculate duration between two Timestamps
  *
  * 2つのTimestamp間の経過時間を計算（Millisecondsで返す）
  */
-export const diff = (start: Timestamp, end: Timestamp): Milliseconds => Math.abs(end - start) as Milliseconds
+export const diff = (start: Timestamp, end: Timestamp): Milliseconds =>
+  Schema.make(MillisecondsSchema)(Math.abs(end - start))
 
 /**
  * Compare two Timestamps
@@ -95,26 +99,29 @@ export const isAfter = (a: Timestamp, b: Timestamp): boolean => a > b
 /**
  * Get minimum of two Timestamps
  */
-export const min = (a: Timestamp, b: Timestamp): Timestamp => Math.min(a, b) as Timestamp
+export const min = (a: Timestamp, b: Timestamp): Timestamp => Schema.make(TimestampSchema)(Math.min(a, b))
 
 /**
  * Get maximum of two Timestamps
  */
-export const max = (a: Timestamp, b: Timestamp): Timestamp => Math.max(a, b) as Timestamp
+export const max = (a: Timestamp, b: Timestamp): Timestamp => Schema.make(TimestampSchema)(Math.max(a, b))
 
 /**
  * Convert to ISO 8601 string
  *
  * ISO 8601形式の文字列に変換
  */
-export const toISOString = (timestamp: Timestamp): string => new Date(timestamp).toISOString()
+export const toISOString = (timestamp: Timestamp): string =>
+  DateTime.formatIso(DateTime.unsafeFromDate(new Date(timestamp)))
 
 /**
  * Parse from ISO 8601 string
  *
  * ISO 8601形式の文字列からTimestampを生成
  */
-export const fromISOString = (isoString: string): Effect.Effect<Timestamp, Schema.ParseError> => {
-  const date = new Date(isoString)
-  return make(date.getTime())
-}
+export const fromISOString = (isoString: string): Effect.Effect<Timestamp, Schema.ParseError> =>
+  Effect.gen(function* () {
+    const dateTime = DateTime.unsafeFromDate(new Date(isoString))
+    const millis = DateTime.toEpochMillis(dateTime)
+    return yield* make(millis)
+  })

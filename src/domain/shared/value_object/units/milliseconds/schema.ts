@@ -29,6 +29,6 @@ export type Milliseconds = Schema.Schema.Type<typeof MillisecondsSchema>
 /**
  * Milliseconds constants
  */
-export const MILLISECONDS_ZERO: Milliseconds = 0 as Milliseconds
-export const FRAME_16MS: Milliseconds = 16.67 as Milliseconds // 60 FPS
-export const ONE_SECOND: Milliseconds = 1000 as Milliseconds
+export const MILLISECONDS_ZERO: Milliseconds = Schema.make(MillisecondsSchema)(0)
+export const FRAME_16MS: Milliseconds = Schema.make(MillisecondsSchema)(16.67) // 60 FPS
+export const ONE_SECOND: Milliseconds = Schema.make(MillisecondsSchema)(1000)

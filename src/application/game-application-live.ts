@@ -2,11 +2,12 @@ import { Clock, Effect, Layer, Schema } from 'effect'
 import * as Option from 'effect/Option'
 import * as SynchronizedRef from 'effect/SynchronizedRef'
 import { mergeConfig } from './config'
-import { GameApplicationInitError, GameApplicationRuntimeError, GameApplicationStateError } from './errors'
+import type { GameApplicationInitError, GameApplicationRuntimeError, GameApplicationStateError } from './errors'
 import { GameApplication } from './game-application'
 import { guardLifecycleTransition } from './lifecycle'
 import { applyConfig, computeHealth, createInitialState, synchronizeLifecycle, tickState, withStartTime } from './state'
-import { ApplicationLifecycleState, DEFAULT_GAME_APPLICATION_CONFIG, GameApplicationState, Milliseconds } from './types'
+import type { ApplicationLifecycleState, GameApplicationState, Milliseconds } from './types'
+import { DEFAULT_GAME_APPLICATION_CONFIG } from './types'
 
 const defaultTickDelta = Schema.decodeSync(Milliseconds)(16)
 

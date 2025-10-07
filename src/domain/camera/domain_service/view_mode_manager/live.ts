@@ -135,18 +135,19 @@ export const ViewModeManagerServiceLive = Layer.succeed(
         let updatedCamera = camera
 
         // 初期位置の設定
-        updatedCamera = yield* Effect.if(
-          cinematicSettings.cameraPath !== undefined && cinematicSettings.cameraPath.keyframes.length > 0,
-          {
-            onTrue: () =>
+        updatedCamera = yield* pipe(
+          Option.fromNullable(cinematicSettings.cameraPath),
+          Option.filter((path) => path.keyframes.length > 0),
+          Option.match({
+            onNone: () => Effect.succeed(updatedCamera),
+            onSome: (cameraPath) =>
               Effect.gen(function* () {
-                const firstKeyframe = cinematicSettings.cameraPath!.keyframes[0]
+                const firstKeyframe = cameraPath.keyframes[0]
                 let updated = yield* CameraOps.setPosition(updatedCamera, firstKeyframe.position)
                 updated = yield* CameraOps.setRotation(updated, firstKeyframe.rotation)
                 return updated
               }),
-            onFalse: () => Effect.succeed(updatedCamera),
-          }
+          })
         )
 
         // FOVオーバーライド

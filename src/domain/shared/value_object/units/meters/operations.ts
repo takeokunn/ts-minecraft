@@ -23,37 +23,37 @@ export const make = (value: number): Effect.Effect<Meters, Schema.ParseError> =>
  * 数値からMeters型を生成（バリデーションなし）
  * 信頼できるソースからの値のみ使用すること
  */
-export const makeUnsafe = (value: number): Meters => value as Meters
+export const makeUnsafe = (value: number): Meters => Schema.make(MetersSchema)(value)
 
 /**
  * Add two Meters
  */
-export const add = (a: Meters, b: Meters): Meters => (a + b) as Meters
+export const add = (a: Meters, b: Meters): Meters => Schema.make(MetersSchema)(a + b)
 
 /**
  * Subtract two Meters
  */
-export const subtract = (a: Meters, b: Meters): Meters => (a - b) as Meters
+export const subtract = (a: Meters, b: Meters): Meters => Schema.make(MetersSchema)(a - b)
 
 /**
  * Multiply Meters by scalar
  */
-export const multiply = (meters: Meters, scalar: number): Meters => (meters * scalar) as Meters
+export const multiply = (meters: Meters, scalar: number): Meters => Schema.make(MetersSchema)(meters * scalar)
 
 /**
  * Divide Meters by scalar
  */
-export const divide = (meters: Meters, scalar: number): Meters => (meters / scalar) as Meters
+export const divide = (meters: Meters, scalar: number): Meters => Schema.make(MetersSchema)(meters / scalar)
 
 /**
  * Get absolute value of Meters
  */
-export const abs = (meters: Meters): Meters => Math.abs(meters) as Meters
+export const abs = (meters: Meters): Meters => Schema.make(MetersSchema)(Math.abs(meters))
 
 /**
  * Negate Meters
  */
-export const negate = (meters: Meters): Meters => -meters as Meters
+export const negate = (meters: Meters): Meters => Schema.make(MetersSchema)(-meters)
 
 /**
  * Compare two Meters
@@ -63,18 +63,18 @@ export const compare = (a: Meters, b: Meters): -1 | 0 | 1 => Order.number(a, b)
 /**
  * Get minimum of two Meters
  */
-export const min = (a: Meters, b: Meters): Meters => Math.min(a, b) as Meters
+export const min = (a: Meters, b: Meters): Meters => Schema.make(MetersSchema)(Math.min(a, b))
 
 /**
  * Get maximum of two Meters
  */
-export const max = (a: Meters, b: Meters): Meters => Math.max(a, b) as Meters
+export const max = (a: Meters, b: Meters): Meters => Schema.make(MetersSchema)(Math.max(a, b))
 
 /**
  * Clamp Meters between min and max
  */
 export const clamp = (value: Meters, minValue: Meters, maxValue: Meters): Meters =>
-  Math.max(minValue, Math.min(maxValue, value)) as Meters
+  Schema.make(MetersSchema)(Math.max(minValue, Math.min(maxValue, value)))
 
 /**
  * Check if Meters is zero
@@ -99,7 +99,7 @@ export const toCentimeters = (meters: Meters): number => meters * 100
 /**
  * Convert from centimeters
  */
-export const fromCentimeters = (cm: number): Meters => (cm / 100) as Meters
+export const fromCentimeters = (cm: number): Meters => Schema.make(MetersSchema)(cm / 100)
 
 /**
  * Convert to kilometers
@@ -109,12 +109,12 @@ export const toKilometers = (meters: Meters): number => meters / 1000
 /**
  * Convert from kilometers
  */
-export const fromKilometers = (km: number): Meters => (km * 1000) as Meters
+export const fromKilometers = (km: number): Meters => Schema.make(MetersSchema)(km * 1000)
 
 /**
  * Round Meters to specified decimal places
  */
 export const round = (meters: Meters, decimalPlaces = 0): Meters => {
   const multiplier = Math.pow(10, decimalPlaces)
-  return (Math.round(meters * multiplier) / multiplier) as Meters
+  return Schema.make(MetersSchema)(Math.round(meters * multiplier) / multiplier)
 }

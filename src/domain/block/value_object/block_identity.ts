@@ -5,23 +5,13 @@ import { pipe } from 'effect/Function'
 import type { ParseError } from 'effect/ParseResult'
 import * as Schema from 'effect/Schema'
 
+// 共有カーネルからimport & 再エクスポート
+import { BlockIdSchema, type BlockId } from '../../shared/entities/block_id'
+export { BlockIdSchema, type BlockId }
+
 // =============================================================================
 // Brand Schemas
 // =============================================================================
-
-export const BlockIdSchema = Schema.String.pipe(
-  Schema.trimmed(),
-  Schema.pattern(/^[a-z0-9_]+$/),
-  Schema.minLength(1),
-  Schema.maxLength(64),
-  Schema.brand('BlockId'),
-  Schema.annotations({
-    title: 'BlockId',
-    description: '小文字・数字・アンダースコアのみ許容されるブロックID',
-  })
-)
-
-export type BlockId = Schema.Schema.Type<typeof BlockIdSchema>
 
 export const BlockNameSchema = Schema.String.pipe(
   Schema.trimmed(),

@@ -372,28 +372,39 @@ export const DistanceMeasurementSchema = Schema.Struct({
 // === 作成ヘルパー関数 ===
 
 /** BlockPosition作成ヘルパー */
-export const createBlockPosition = (x: number, y: number, z: number): BlockPosition =>
-  Schema.decodeSync(BlockPositionSchema)({
-    x: x as BlockCoordinate,
-    y: y as BlockCoordinate,
-    z: z as BlockCoordinate,
-  })
+// === 高速座標生成関数（バリデーションなし） ===
+
+/**
+ * 信頼できるソースからの座標生成用
+ * バリデーションコストを回避
+ */
+const makeUnsafeBlockCoordinate = (value: number): BlockCoordinate => value as BlockCoordinate
+
+const makeUnsafePixelCoordinate = (value: number): PixelCoordinate => value as PixelCoordinate
+
+const makeUnsafeChunkLocalCoordinate = (value: number): ChunkLocalCoordinate => value as ChunkLocalCoordinate
+
+const makeUnsafeRotationDegrees = (value: number): RotationDegrees => value as RotationDegrees
+
+export const createBlockPosition = (x: number, y: number, z: number): BlockPosition => ({
+  x: makeUnsafeBlockCoordinate(x),
+  y: makeUnsafeBlockCoordinate(y),
+  z: makeUnsafeBlockCoordinate(z),
+})
 
 /** PixelPosition作成ヘルパー */
-export const createPixelPosition = (x: number, y: number, z: number): PixelPosition =>
-  Schema.decodeSync(PixelPositionSchema)({
-    x: x as PixelCoordinate,
-    y: y as PixelCoordinate,
-    z: z as PixelCoordinate,
-  })
+export const createPixelPosition = (x: number, y: number, z: number): PixelPosition => ({
+  x: makeUnsafePixelCoordinate(x),
+  y: makeUnsafePixelCoordinate(y),
+  z: makeUnsafePixelCoordinate(z),
+})
 
 /** ChunkLocalPosition作成ヘルパー */
-export const createChunkLocalPosition = (x: number, y: number, z: number): ChunkLocalPosition =>
-  Schema.decodeSync(ChunkLocalPositionSchema)({
-    x: x as ChunkLocalCoordinate,
-    y: y as BlockCoordinate,
-    z: z as ChunkLocalCoordinate,
-  })
+export const createChunkLocalPosition = (x: number, y: number, z: number): ChunkLocalPosition => ({
+  x: makeUnsafeChunkLocalCoordinate(x),
+  y: makeUnsafeBlockCoordinate(y),
+  z: makeUnsafeChunkLocalCoordinate(z),
+})
 
 /** IntBoundingBox作成ヘルパー */
 export const createIntBoundingBox = (
@@ -403,23 +414,21 @@ export const createIntBoundingBox = (
   maxX: number,
   maxY: number,
   maxZ: number
-): IntBoundingBox =>
-  Schema.decodeSync(IntBoundingBoxSchema)({
-    minX: minX as BlockCoordinate,
-    minY: minY as BlockCoordinate,
-    minZ: minZ as BlockCoordinate,
-    maxX: maxX as BlockCoordinate,
-    maxY: maxY as BlockCoordinate,
-    maxZ: maxZ as BlockCoordinate,
-  })
+): IntBoundingBox => ({
+  minX: makeUnsafeBlockCoordinate(minX),
+  minY: makeUnsafeBlockCoordinate(minY),
+  minZ: makeUnsafeBlockCoordinate(minZ),
+  maxX: makeUnsafeBlockCoordinate(maxX),
+  maxY: makeUnsafeBlockCoordinate(maxY),
+  maxZ: makeUnsafeBlockCoordinate(maxZ),
+})
 
 /** Rotation3D作成ヘルパー */
-export const createRotation3D = (yaw: number, pitch: number, roll: number): Rotation3D =>
-  Schema.decodeSync(Rotation3DSchema)({
-    yaw: yaw as RotationDegrees,
-    pitch: pitch as RotationDegrees,
-    roll: roll as RotationDegrees,
-  })
+export const createRotation3D = (yaw: number, pitch: number, roll: number): Rotation3D => ({
+  yaw: makeUnsafeRotationDegrees(yaw),
+  pitch: makeUnsafeRotationDegrees(pitch),
+  roll: makeUnsafeRotationDegrees(roll),
+})
 
 // === 座標変換ユーティリティ定数 ===
 

@@ -114,9 +114,9 @@ export type Camera = Brand<
 
 /**
  * Player ID - プレイヤー識別子
- * 専用value_objectから再エクスポート
+ * 共有カーネルから再エクスポート
  */
-export type { PlayerId } from '@domain/player/value_object/player_id'
+export type { PlayerId } from '@domain/shared/entities/player_id'
 
 // ========================================
 // Schema定義
@@ -216,9 +216,9 @@ export const CameraSchema = Schema.Struct({
 }).pipe(Schema.brand('Camera'))
 
 /**
- * Player ID Schema
+ * Player ID Schema - 共有カーネルから再エクスポート
  */
-export const PlayerIdSchema = Schema.String.pipe(Schema.brand('PlayerId'))
+export { PlayerIdSchema } from '@domain/shared/entities/player_id'
 
 /**
  * Version Number Schema

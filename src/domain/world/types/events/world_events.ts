@@ -4,7 +4,7 @@
  */
 
 import { uuid } from '@domain/world/utils'
-import { Clock, Effect, Schema } from 'effect'
+import { DateTime, Effect, Schema } from 'effect'
 import { ChunkPosition, DimensionId, GameTime, Vector3D, WorldId, WorldState } from '../core'
 
 // === 基本イベント型 ===
@@ -498,7 +498,8 @@ export const createEventMetadata = (
   correlationId?: string
 ): Effect.Effect<EventMetadata> =>
   Effect.gen(function* () {
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const now = yield* DateTime.now
+    const timestamp = DateTime.toDate(now)
     return {
       eventId: crypto.randomUUID(),
       timestamp,

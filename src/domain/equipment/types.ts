@@ -1,3 +1,4 @@
+export { EquipmentServiceLive, EquipmentServiceTag, type EquipmentService } from '@/application/equipment'
 export * from '@domain/equipment/types'
 export {
   EquipmentPieceSchema,
@@ -20,7 +21,6 @@ export {
   type EquipmentTag,
   type Slots,
 } from './aggregate'
-export { EquipmentServiceLive, EquipmentServiceTag, type EquipmentService } from './application_service'
 export { analyseEquipmentSet, type EquipmentAnalysisSummary } from './domain_service'
 export { EquipmentRepositoryTag, InMemoryEquipmentRepository, type EquipmentRepository } from './repository'
 export {

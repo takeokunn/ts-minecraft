@@ -3,7 +3,7 @@
  * DDD原則に基づく複雑なオブジェクト生成の隠蔽
  */
 
-import { Clock, Context, Effect, Layer, Match, pipe, Schema } from 'effect'
+import { Context, DateTime, Effect, Layer, Match, pipe, Schema } from 'effect'
 import { nanoid } from 'nanoid'
 import type { PlayerId } from '../../types'
 import type {
@@ -15,7 +15,14 @@ import type {
   InventorySlot,
   SlotIndex,
 } from './types'
-import { INVENTORY_CONSTANTS, InventoryAggregateError, InventoryAggregateSchema } from './types'
+import {
+  INVENTORY_CONSTANTS,
+  InventoryAggregateError,
+  InventoryAggregateSchema,
+  makeUnsafeHotbarSlot,
+  makeUnsafeInventoryId,
+  makeUnsafeSlotIndex,
+} from './types'
 
 // ===== Factory Interface =====
 
@@ -95,9 +102,8 @@ class InventoryBuilderImpl implements InventoryBuilder {
   private id: InventoryId | null = null
   private playerId: PlayerId | null = null
   private slots: Array<InventorySlot> = Array(INVENTORY_CONSTANTS.MAIN_INVENTORY_SIZE).fill(null)
-  private hotbar: ReadonlyArray<SlotIndex> = Array.from(
-    { length: INVENTORY_CONSTANTS.HOTBAR_SIZE },
-    (_, i) => i as SlotIndex
+  private hotbar: ReadonlyArray<SlotIndex> = Array.from({ length: INVENTORY_CONSTANTS.HOTBAR_SIZE }, (_, i) =>
+    makeUnsafeSlotIndex(i)
   )
   private armor: ArmorSlot = {
     helmet: null,
@@ -106,7 +112,7 @@ class InventoryBuilderImpl implements InventoryBuilder {
     boots: null,
   }
   private offhand: InventorySlot = null
-  private selectedSlot: HotbarSlot = 0 as HotbarSlot
+  private selectedSlot: HotbarSlot = makeUnsafeHotbarSlot(0)
   private version: number = 1
   private lastModifiedMs: number | null = null
   private uncommittedEvents: Array<InventoryDomainEvent> = []
@@ -174,11 +180,12 @@ class InventoryBuilderImpl implements InventoryBuilder {
         )
 
         // IDの生成または検証
-        const id = this.id ?? (`inv_${nanoid()}` as InventoryId)
+        const id = this.id ?? makeUnsafeInventoryId(`inv_${nanoid()}`)
 
         // lastModifiedの取得
-        const lastModifiedMs = this.lastModifiedMs ?? (yield* Clock.currentTimeMillis)
-        const lastModified = new Date(lastModifiedMs).toISOString()
+        const now = yield* DateTime.now
+        const lastModifiedMs = this.lastModifiedMs ?? DateTime.toEpochMillis(now)
+        const lastModified = DateTime.formatIso(DateTime.unsafeFromDate(new Date(lastModifiedMs)))
 
         // スキーマ検証
         const aggregate = yield* Schema.decodeUnknown(InventoryAggregateSchema)({
@@ -261,18 +268,19 @@ export const createEmptyArmorSlot = (): ArmorSlot => ({
  * デフォルトのホットバー設定を作成
  */
 export const createDefaultHotbar = (): ReadonlyArray<SlotIndex> =>
-  Array.from({ length: INVENTORY_CONSTANTS.HOTBAR_SIZE }, (_, i) => i as SlotIndex)
+  Array.from({ length: INVENTORY_CONSTANTS.HOTBAR_SIZE }, (_, i) => makeUnsafeSlotIndex(i))
 
 /**
  * 集約のバージョンを増加
  */
 export const incrementVersion = (aggregate: InventoryAggregate): Effect.Effect<InventoryAggregate> =>
   Effect.gen(function* () {
-    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms).toISOString())
+    const nowDateTime = yield* DateTime.now
+    const now = DateTime.formatIso(nowDateTime)
     return {
       ...aggregate,
       version: aggregate.version + 1,
-      lastModified: now as any,
+      lastModified: now,
     }
   })
 

@@ -1,4 +1,4 @@
-import { Data, ParseResult } from 'effect'
+import { Data, Match, ParseResult } from 'effect'
 
 /**
  * Physics domain error algebraic data type.
@@ -52,18 +52,14 @@ export const PhysicsError = {
   TemporalAnomaly: Constructors.TemporalAnomaly,
   InvalidTransition: Constructors.InvalidTransition,
   match<A>(error: PhysicsError, cases: MatchCases<A>): A {
-    switch (error._tag) {
-      case 'SchemaViolation':
-        return cases.SchemaViolation(error)
-      case 'ConstraintViolation':
-        return cases.ConstraintViolation(error)
-      case 'NotFound':
-        return cases.NotFound(error)
-      case 'TemporalAnomaly':
-        return cases.TemporalAnomaly(error)
-      case 'InvalidTransition':
-        return cases.InvalidTransition(error)
-    }
+    return Match.value(error).pipe(
+      Match.tag('SchemaViolation', cases.SchemaViolation),
+      Match.tag('ConstraintViolation', cases.ConstraintViolation),
+      Match.tag('NotFound', cases.NotFound),
+      Match.tag('TemporalAnomaly', cases.TemporalAnomaly),
+      Match.tag('InvalidTransition', cases.InvalidTransition),
+      Match.exhaustive
+    )
   },
 }
 

@@ -6,22 +6,10 @@
 import { Brand, Schema } from 'effect'
 import { WORLD_CONSTANTS } from '../constants'
 
+// 共有カーネルから再エクスポート
+export { WorldIdSchema, type WorldId } from '../../../shared/entities/world_id'
+
 // === 基本識別子型 ===
-
-/** 世界ID - 複数の世界を区別するための識別子 */
-export type WorldId = string & Brand.Brand<'WorldId'>
-
-export const WorldIdSchema = Schema.String.pipe(
-  Schema.minLength(1),
-  Schema.maxLength(255),
-  Schema.pattern(/^[a-zA-Z0-9_-]+$/),
-  Schema.brand('WorldId'),
-  Schema.annotations({
-    title: 'World ID',
-    description: 'Unique identifier for a world instance',
-    examples: ['world_main', 'creative_world', 'adventure_map'],
-  })
-)
 
 /** 世界シード - 世界生成の決定的なランダムシード */
 export type WorldSeed = number & Brand.Brand<'WorldSeed'>
@@ -55,6 +43,9 @@ export type {
 } from '../../value_object/coordinates/world_coordinate'
 
 export {
+  makeUnsafeWorldX,
+  makeUnsafeWorldY,
+  makeUnsafeWorldZ,
   WorldCoordinate2DSchema,
   WorldCoordinateSchema,
   WorldXSchema,
@@ -358,9 +349,9 @@ export interface CoordinateHelpers {
 /** WorldCoordinate作成ヘルパー */
 export const createVector3D = (x: number, y: number, z: number): WorldCoordinate =>
   Schema.decodeSync(WorldCoordinateSchema)({
-    x: x as WorldX,
-    y: y as WorldY,
-    z: z as WorldZ,
+    x: makeUnsafeWorldX(x),
+    y: makeUnsafeWorldY(y),
+    z: makeUnsafeWorldZ(z),
   })
 
 /** ChunkPosition作成ヘルパー */

@@ -1,7 +1,7 @@
 import { Context, Effect, Layer, Option, Ref } from 'effect'
 import { pipe } from 'effect/Function'
-import { BreakingSession } from '../aggregate'
-import { SessionId } from '../types'
+import type { BreakingSession } from '../aggregate'
+import type { SessionId } from '../types'
 
 export interface SessionStore {
   readonly get: (id: SessionId) => Effect.Effect<Option.Option<BreakingSession>>

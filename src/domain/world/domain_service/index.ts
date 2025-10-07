@@ -1,25 +1,15 @@
 /**
- * World Domain Services - 統合エクスポート
- *
- * 全てのWorld Domain Serviceを統合し、
- * 単一の WorldDomainServiceLayer として提供します。
+ * @fileoverview World Domain Service Layer - Main Index
+ * ワールドドメインサービス層の統合エクスポート
  */
 
-// 各サービスカテゴリのエクスポート
-export * from './biome_classification/index'
-export * from './mathematical_operations/index'
-export * from './noise_generation/index'
-export * from './procedural_generation/index'
-export * from './world_validation/index'
+// === Noise Generation Domain Service (moved to world_generation context) ===
+export * from '@/domain/world_generation/domain_service/noise_generation/index'
+export { NoiseGenerationServices } from '@/domain/world_generation/domain_service/noise_generation/index'
 
-// 統合Layer構成
-export * from './layer'
-
-import { BiomeClassificationServices } from './biome_classification/index'
-import { MathematicalOperationsServices } from './mathematical_operations/index'
-import { NoiseGenerationServices } from './noise_generation/index'
-import { ProceduralGenerationServices } from './procedural_generation/index'
-import { WorldValidationServices } from './world_validation/index'
+// === Procedural Generation Domain Service (moved to world_generation context) ===
+export * from '@/domain/world_generation/domain_service/procedural_generation/index'
+export { ProceduralGenerationServices } from '@/domain/world_generation/domain_service/procedural_generation/index'
 
 /**
  * World Domain Service 統合サービス集合

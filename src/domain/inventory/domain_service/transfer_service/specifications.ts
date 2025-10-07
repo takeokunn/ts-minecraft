@@ -31,8 +31,8 @@ export interface TransferSpecification {
  * スロット有効性仕様
  * 指定されたスロットが有効な範囲内にあるかを検証
  */
-export class ValidSlotSpecification implements TransferSpecification {
-  isSatisfiedBy = (request: TransferRequest): Effect.Effect<boolean, never> =>
+export const ValidSlotSpecification: TransferSpecification = {
+  isSatisfiedBy: (request: TransferRequest): Effect.Effect<boolean, never> =>
     pipe(
       Effect.Do,
       Effect.bind('sourceValid', () =>
@@ -45,11 +45,11 @@ export class ValidSlotSpecification implements TransferSpecification {
         )
       ),
       Effect.map(({ sourceValid, targetValid }) => sourceValid && targetValid)
-    )
+    ),
 
-  getViolationReason = (): InventoryErrorReason => 'INVALID_SLOT_INDEX'
+  getViolationReason: (): InventoryErrorReason => 'INVALID_SLOT_INDEX',
 
-  getConstraints = (request: TransferRequest): Effect.Effect<ReadonlyArray<TransferConstraint>, never> =>
+  getConstraints: (request: TransferRequest): Effect.Effect<ReadonlyArray<TransferConstraint>, never> =>
     pipe(
       Effect.Do,
       Effect.bind('sourceConstraint', () =>
@@ -91,23 +91,23 @@ export class ValidSlotSpecification implements TransferSpecification {
           ReadonlyArray.filterMap((opt) => opt)
         )
       )
-    )
+    ),
 }
 
 /**
  * ソースアイテム存在仕様
  * ソーススロットにアイテムが存在するかを検証
  */
-export class SourceItemExistsSpecification implements TransferSpecification {
-  isSatisfiedBy = (request: TransferRequest): Effect.Effect<boolean, never> =>
+export const SourceItemExistsSpecification: TransferSpecification = {
+  isSatisfiedBy: (request: TransferRequest): Effect.Effect<boolean, never> =>
     Effect.gen(function* () {
       const sourceItem = request.sourceInventory.slots[request.sourceSlot]
       return sourceItem !== null
-    })
+    }),
 
-  getViolationReason = (): InventoryErrorReason => 'INSUFFICIENT_ITEMS'
+  getViolationReason: (): InventoryErrorReason => 'INSUFFICIENT_ITEMS',
 
-  getConstraints = (request: TransferRequest): Effect.Effect<ReadonlyArray<TransferConstraint>, never> =>
+  getConstraints: (request: TransferRequest): Effect.Effect<ReadonlyArray<TransferConstraint>, never> =>
     pipe(
       Effect.succeed(request.sourceInventory.slots[request.sourceSlot]),
       Effect.map((sourceItem) =>
@@ -125,15 +125,15 @@ export class SourceItemExistsSpecification implements TransferSpecification {
           })
         )
       )
-    )
+    ),
 }
 
 /**
  * アイテム数量有効性仕様
  * 転送しようとするアイテム数が有効な範囲内にあるかを検証
  */
-export class ValidItemCountSpecification implements TransferSpecification {
-  isSatisfiedBy = (request: TransferRequest): Effect.Effect<boolean, never> =>
+export const ValidItemCountSpecification: TransferSpecification = {
+  isSatisfiedBy: (request: TransferRequest): Effect.Effect<boolean, never> =>
     pipe(
       Effect.succeed(request.sourceInventory.slots[request.sourceSlot]),
       Effect.map((sourceItem) =>
@@ -148,11 +148,11 @@ export class ValidItemCountSpecification implements TransferSpecification {
           })
         )
       )
-    )
+    ),
 
-  getViolationReason = (): InventoryErrorReason => 'INVALID_ITEM_COUNT'
+  getViolationReason: (): InventoryErrorReason => 'INVALID_ITEM_COUNT',
 
-  getConstraints = (request: TransferRequest): Effect.Effect<ReadonlyArray<TransferConstraint>, never> =>
+  getConstraints: (request: TransferRequest): Effect.Effect<ReadonlyArray<TransferConstraint>, never> =>
     pipe(
       Effect.succeed(request.sourceInventory.slots[request.sourceSlot]),
       Effect.map((sourceItem) =>
@@ -192,15 +192,15 @@ export class ValidItemCountSpecification implements TransferSpecification {
           })
         )
       )
-    )
+    ),
 }
 
 /**
  * ターゲットスロット利用可能性仕様
  * ターゲットスロットがアイテム受け入れ可能かを検証
  */
-export class TargetSlotAvailableSpecification implements TransferSpecification {
-  isSatisfiedBy = (request: TransferRequest): Effect.Effect<boolean, never> =>
+export const TargetSlotAvailableSpecification: TransferSpecification = {
+  isSatisfiedBy: (request: TransferRequest): Effect.Effect<boolean, never> =>
     Effect.gen(function* () {
       return yield* pipe(
         Match.value(request.targetSlot),
@@ -236,11 +236,11 @@ export class TargetSlotAvailableSpecification implements TransferSpecification {
           })
         )
       )
-    })
+    }),
 
-  getViolationReason = (): InventoryErrorReason => 'SLOT_OCCUPIED'
+  getViolationReason: (): InventoryErrorReason => 'SLOT_OCCUPIED',
 
-  getConstraints = (request: TransferRequest): Effect.Effect<ReadonlyArray<TransferConstraint>, never> =>
+  getConstraints: (request: TransferRequest): Effect.Effect<ReadonlyArray<TransferConstraint>, never> =>
     pipe(
       Effect.Do,
       Effect.bind('sourceItem', () => Effect.succeed(request.sourceInventory.slots[request.sourceSlot])),
@@ -308,15 +308,48 @@ export class TargetSlotAvailableSpecification implements TransferSpecification {
           )
         )
       )
-    )
+    ),
 }
+
+/**
+ * アイテム固有のスタック制限を取得するヘルパー関数
+ * 現在は一律64個だが、将来的にアイテムレジストリから取得
+ */
+const getItemStackLimit = (itemId: ItemId): Effect.Effect<number, never> =>
+  Effect.gen(function* () {
+    return pipe(
+      itemId,
+      Match.value,
+      Match.when(
+        (s) => s.includes('ender_pearl'),
+        () => 16
+      ),
+      Match.when(
+        (s) => s.includes('snowball'),
+        () => 16
+      ),
+      Match.when(
+        (s) => s.includes('bucket'),
+        () => 1
+      ),
+      Match.when(
+        (s) => s.includes('sword'),
+        () => 1
+      ),
+      Match.when(
+        (s) => s.includes('armor'),
+        () => 1
+      ),
+      Match.orElse(() => 64)
+    )
+  })
 
 /**
  * スタック制限仕様
  * アイテムのスタック制限を検証
  */
-export class StackLimitSpecification implements TransferSpecification {
-  isSatisfiedBy = (request: TransferRequest): Effect.Effect<boolean, never> =>
+export const StackLimitSpecification: TransferSpecification = {
+  isSatisfiedBy: (request: TransferRequest): Effect.Effect<boolean, never> =>
     Effect.gen(function* () {
       const sourceItem = request.sourceInventory.slots[request.sourceSlot]
 
@@ -333,7 +366,7 @@ export class StackLimitSpecification implements TransferSpecification {
                 Match.when(true, () => Effect.succeed(false)),
                 Match.when(false, () =>
                   Effect.gen(function* () {
-                    const itemSpecificLimit = yield* this.getItemStackLimit(item.itemId)
+                    const itemSpecificLimit = yield* getItemStackLimit(item.itemId)
                     return requestedCount <= itemSpecificLimit
                   })
                 ),
@@ -342,11 +375,11 @@ export class StackLimitSpecification implements TransferSpecification {
             }),
         })
       )
-    })
+    }),
 
-  getViolationReason = (): InventoryErrorReason => 'INVALID_STACK_SIZE'
+  getViolationReason: (): InventoryErrorReason => 'INVALID_STACK_SIZE',
 
-  getConstraints = (request: TransferRequest): Effect.Effect<ReadonlyArray<TransferConstraint>, never> =>
+  getConstraints: (request: TransferRequest): Effect.Effect<ReadonlyArray<TransferConstraint>, never> =>
     Effect.gen(function* () {
       const sourceItem = request.sourceInventory.slots[request.sourceSlot]
 
@@ -357,7 +390,7 @@ export class StackLimitSpecification implements TransferSpecification {
           onSome: (item) =>
             Effect.gen(function* () {
               const requestedCount = request.itemCount ?? item.count
-              const itemSpecificLimit = yield* this.getItemStackLimit(item.itemId)
+              const itemSpecificLimit = yield* getItemStackLimit(item.itemId)
 
               return pipe(
                 Match.value(requestedCount > itemSpecificLimit),
@@ -374,38 +407,7 @@ export class StackLimitSpecification implements TransferSpecification {
             }),
         })
       )
-    })
-
-  private getItemStackLimit = (itemId: ItemId): Effect.Effect<number, never> =>
-    Effect.gen(function* () {
-      // アイテム固有のスタック制限ロジック
-      // 現在は一律64個だが、将来的にアイテムレジストリから取得
-      return pipe(
-        itemId,
-        Match.value,
-        Match.when(
-          (s) => s.includes('ender_pearl'),
-          () => 16
-        ),
-        Match.when(
-          (s) => s.includes('snowball'),
-          () => 16
-        ),
-        Match.when(
-          (s) => s.includes('bucket'),
-          () => 1
-        ),
-        Match.when(
-          (s) => s.includes('sword'),
-          () => 1
-        ),
-        Match.when(
-          (s) => s.includes('armor'),
-          () => 1
-        ),
-        Match.orElse(() => 64)
-      )
-    })
+    }),
 }
 
 // =============================================================================
@@ -413,40 +415,45 @@ export class StackLimitSpecification implements TransferSpecification {
 // =============================================================================
 
 /**
+ * 基本転送可能性仕様で使用する全仕様のリスト
+ */
+const allTransferSpecifications: ReadonlyArray<TransferSpecification> = [
+  ValidSlotSpecification,
+  SourceItemExistsSpecification,
+  ValidItemCountSpecification,
+  TargetSlotAvailableSpecification,
+  StackLimitSpecification,
+]
+
+/**
  * 基本転送可能性仕様（複合仕様）
  * 全ての基本的な転送条件を結合
  */
-export class CanTransferSpecification implements TransferSpecification {
-  private readonly specifications: ReadonlyArray<TransferSpecification> = [
-    new ValidSlotSpecification(),
-    new SourceItemExistsSpecification(),
-    new ValidItemCountSpecification(),
-    new TargetSlotAvailableSpecification(),
-    new StackLimitSpecification(),
-  ]
-
-  isSatisfiedBy = (request: TransferRequest): Effect.Effect<boolean, never> =>
+export const CanTransferSpecification: TransferSpecification & {
+  getFirstViolationReason: (request: TransferRequest) => Effect.Effect<InventoryErrorReason | null, never>
+} = {
+  isSatisfiedBy: (request: TransferRequest): Effect.Effect<boolean, never> =>
     pipe(
-      this.specifications,
+      allTransferSpecifications,
       Effect.forEach((spec) => spec.isSatisfiedBy(request), { concurrency: 'unbounded' }),
       Effect.map((results) => ReadonlyArray.every(results, (satisfied) => satisfied))
-    )
+    ),
 
-  getViolationReason = (): InventoryErrorReason => 'INVENTORY_FULL' // デフォルト
+  getViolationReason: (): InventoryErrorReason => 'INVENTORY_FULL', // デフォルト
 
-  getConstraints = (request: TransferRequest): Effect.Effect<ReadonlyArray<TransferConstraint>, never> =>
+  getConstraints: (request: TransferRequest): Effect.Effect<ReadonlyArray<TransferConstraint>, never> =>
     pipe(
-      this.specifications,
+      allTransferSpecifications,
       Effect.forEach((spec) => spec.getConstraints(request), { concurrency: 'unbounded' }),
       Effect.map((constraintArrays) => ReadonlyArray.flatten(constraintArrays))
-    )
+    ),
 
   /**
    * 最初に違反した仕様の理由を取得
    */
-  getFirstViolationReason = (request: TransferRequest): Effect.Effect<InventoryErrorReason | null, never> =>
+  getFirstViolationReason: (request: TransferRequest): Effect.Effect<InventoryErrorReason | null, never> =>
     pipe(
-      this.specifications,
+      allTransferSpecifications,
       Effect.reduce(Option.none<InventoryErrorReason>(), (acc, spec) =>
         Effect.gen(function* () {
           return yield* pipe(
@@ -477,7 +484,7 @@ export class CanTransferSpecification implements TransferSpecification {
           Match.exhaustive
         )
       )
-    )
+    ),
 }
 
 // =============================================================================
@@ -489,11 +496,9 @@ export class CanTransferSpecification implements TransferSpecification {
  */
 export const analyzeTransferability = (request: TransferRequest): Effect.Effect<TransferabilityDetails, never> =>
   Effect.gen(function* () {
-    const canTransferSpec = new CanTransferSpecification()
-
-    const canTransfer = yield* canTransferSpec.isSatisfiedBy(request)
-    const constraints = yield* canTransferSpec.getConstraints(request)
-    const reason = yield* canTransferSpec.getFirstViolationReason(request)
+    const canTransfer = yield* CanTransferSpecification.isSatisfiedBy(request)
+    const constraints = yield* CanTransferSpecification.getConstraints(request)
+    const reason = yield* CanTransferSpecification.getFirstViolationReason(request)
 
     // 最大転送可能数を計算
     const maxTransferableCount = yield* calculateMaxTransferableCount(request)

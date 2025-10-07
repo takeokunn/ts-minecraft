@@ -3,11 +3,17 @@
  * DDD原則に基づく複雑なエンティティ生成の隠蔽
  */
 
-import { Clock, Context, Effect, Layer, Schema } from 'effect'
+import { Context, DateTime, Effect, Layer, Schema } from 'effect'
 import { nanoid } from 'nanoid'
 import type { ItemId } from '../../types'
 import type { Durability, Enchantment, ItemCount, ItemNBTData, ItemStackEntity, ItemStackId } from './types'
-import { ITEM_STACK_CONSTANTS, ItemCountSchema, ItemStackEntitySchema, ItemStackError } from './types'
+import {
+  ITEM_STACK_CONSTANTS,
+  ItemCountSchema,
+  ItemStackEntitySchema,
+  ItemStackError,
+  makeUnsafeItemStackId,
+} from './types'
 
 // ===== Factory Interface =====
 
@@ -25,11 +31,6 @@ export interface ItemStackFactory {
    * 既存データからItemStackエンティティを復元
    */
   readonly restore: (data: unknown) => Effect.Effect<ItemStackEntity, ItemStackError>
-
-  /**
-   * ItemStackエンティティのビルダーを作成
-   */
-  readonly builder: () => ItemStackBuilder
 }
 
 export const ItemStackFactory = Context.GenericTag<ItemStackFactory>(
@@ -45,253 +46,243 @@ export interface ItemStackCreateOptions {
   readonly metadata?: Record<string, unknown>
 }
 
-// ===== Builder Pattern Implementation =====
+// ===== Builder State (Pure Functions Pattern) =====
 
-export interface ItemStackBuilder {
-  /**
-   * アイテムIDを設定
-   */
-  readonly setItemId: (itemId: ItemId) => ItemStackBuilder
-
-  /**
-   * カウントを設定
-   */
-  readonly setCount: (count: ItemCount) => ItemStackBuilder
-
-  /**
-   * カスタムIDを設定（テスト用）
-   */
-  readonly setId: (id: ItemStackId) => ItemStackBuilder
-
-  /**
-   * 耐久度を設定
-   */
-  readonly setDurability: (durability: Durability) => ItemStackBuilder
-
-  /**
-   * NBTデータを設定
-   */
-  readonly setNBTData: (nbtData: ItemNBTData) => ItemStackBuilder
-
-  /**
-   * エンチャントを追加
-   */
-  readonly addEnchantment: (enchantment: Enchantment) => ItemStackBuilder
-
-  /**
-   * カスタム名を設定
-   */
-  readonly setCustomName: (name: string) => ItemStackBuilder
-
-  /**
-   * 説明文を追加
-   */
-  readonly addLore: (lore: string) => ItemStackBuilder
-
-  /**
-   * 破壊不能フラグを設定
-   */
-  readonly setUnbreakable: (unbreakable: boolean) => ItemStackBuilder
-
-  /**
-   * カスタムモデルデータを設定
-   */
-  readonly setCustomModelData: (modelData: number) => ItemStackBuilder
-
-  /**
-   * タグを追加
-   */
-  readonly addTag: (tag: string) => ItemStackBuilder
-
-  /**
-   * メタデータを設定
-   */
-  readonly setMetadata: (metadata: Record<string, unknown>) => ItemStackBuilder
-
-  /**
-   * バージョンを設定
-   */
-  readonly setVersion: (version: number) => ItemStackBuilder
-
-  /**
-   * エンティティをビルド
-   */
-  readonly build: () => Effect.Effect<ItemStackEntity, ItemStackError>
+/**
+ * ItemStackBuilderの状態型定義
+ */
+export type ItemStackBuilderState = {
+  readonly id?: ItemStackId
+  readonly itemId?: ItemId
+  readonly count?: ItemCount
+  readonly durability?: Durability
+  readonly nbtData: ItemNBTData
+  readonly metadata: Record<string, unknown>
+  readonly version: number
+  readonly createdAt?: string
+  readonly lastModified?: string
 }
 
-// ===== Builder Implementation =====
+/**
+ * 初期状態
+ */
+export const initialItemStackBuilderState: ItemStackBuilderState = {
+  nbtData: {},
+  metadata: {},
+  version: ITEM_STACK_CONSTANTS.DEFAULT_VERSION,
+}
 
-class ItemStackBuilderImpl implements ItemStackBuilder {
-  private id: ItemStackId | null = null
-  private itemId: ItemId | null = null
-  private count: ItemCount | null = null
-  private durability: Durability | null = null
-  private nbtData: ItemNBTData = {}
-  private metadata: Record<string, unknown> = {}
-  private version: number = ITEM_STACK_CONSTANTS.DEFAULT_VERSION
-  private createdAt: string | null = null
-  private lastModified: string | null = null
+/**
+ * アイテムIDを設定
+ */
+export const withItemId = (state: ItemStackBuilderState, itemId: ItemId): ItemStackBuilderState => ({
+  ...state,
+  itemId,
+})
 
-  setItemId(itemId: ItemId): ItemStackBuilder {
-    this.itemId = itemId
-    return this
-  }
+/**
+ * カウントを設定
+ */
+export const withCount = (state: ItemStackBuilderState, count: ItemCount): ItemStackBuilderState => ({
+  ...state,
+  count,
+})
 
-  setCount(count: ItemCount): ItemStackBuilder {
-    this.count = count
-    return this
-  }
+/**
+ * カスタムIDを設定（テスト用）
+ */
+export const withId = (state: ItemStackBuilderState, id: ItemStackId): ItemStackBuilderState => ({
+  ...state,
+  id,
+})
 
-  setId(id: ItemStackId): ItemStackBuilder {
-    this.id = id
-    return this
-  }
+/**
+ * 耐久度を設定
+ */
+export const withDurability = (state: ItemStackBuilderState, durability: Durability): ItemStackBuilderState => ({
+  ...state,
+  durability,
+})
 
-  setDurability(durability: Durability): ItemStackBuilder {
-    this.durability = durability
-    return this
-  }
+/**
+ * NBTデータを設定
+ */
+export const withNBTData = (state: ItemStackBuilderState, nbtData: ItemNBTData): ItemStackBuilderState => ({
+  ...state,
+  nbtData: { ...state.nbtData, ...nbtData },
+})
 
-  setNBTData(nbtData: ItemNBTData): ItemStackBuilder {
-    this.nbtData = { ...this.nbtData, ...nbtData }
-    return this
-  }
+/**
+ * エンチャントを追加
+ */
+export const withEnchantment = (state: ItemStackBuilderState, enchantment: Enchantment): ItemStackBuilderState => ({
+  ...state,
+  nbtData: {
+    ...state.nbtData,
+    enchantments: [...(state.nbtData.enchantments ?? []), enchantment],
+  },
+})
 
-  addEnchantment(enchantment: Enchantment): ItemStackBuilder {
-    if (!this.nbtData.enchantments) {
-      this.nbtData.enchantments = []
+/**
+ * カスタム名を設定
+ */
+export const withCustomName = (state: ItemStackBuilderState, name: string): ItemStackBuilderState => ({
+  ...state,
+  nbtData: {
+    ...state.nbtData,
+    customName: name,
+  },
+})
+
+/**
+ * 説明文を追加
+ */
+export const withLore = (state: ItemStackBuilderState, lore: string): ItemStackBuilderState => ({
+  ...state,
+  nbtData: {
+    ...state.nbtData,
+    lore: [...(state.nbtData.lore ?? []), lore],
+  },
+})
+
+/**
+ * 破壊不能フラグを設定
+ */
+export const withUnbreakable = (state: ItemStackBuilderState, unbreakable: boolean): ItemStackBuilderState => ({
+  ...state,
+  nbtData: {
+    ...state.nbtData,
+    unbreakable,
+  },
+})
+
+/**
+ * カスタムモデルデータを設定
+ */
+export const withCustomModelData = (state: ItemStackBuilderState, modelData: number): ItemStackBuilderState => ({
+  ...state,
+  nbtData: {
+    ...state.nbtData,
+    customModelData: modelData,
+  },
+})
+
+/**
+ * タグを追加
+ */
+export const withTag = (state: ItemStackBuilderState, tag: string): ItemStackBuilderState => ({
+  ...state,
+  nbtData: {
+    ...state.nbtData,
+    tags: [...(state.nbtData.tags ?? []), tag],
+  },
+})
+
+/**
+ * メタデータを設定
+ */
+export const withMetadata = (
+  state: ItemStackBuilderState,
+  metadata: Record<string, unknown>
+): ItemStackBuilderState => ({
+  ...state,
+  metadata: { ...state.metadata, ...metadata },
+})
+
+/**
+ * バージョンを設定
+ */
+export const withVersion = (state: ItemStackBuilderState, version: number): ItemStackBuilderState => ({
+  ...state,
+  version,
+})
+
+/**
+ * エンティティをビルド
+ */
+export const buildItemStack = (state: ItemStackBuilderState): Effect.Effect<ItemStackEntity, ItemStackError> =>
+  Effect.gen(function* () {
+    // 必須フィールドの検証
+    if (!state.itemId) {
+      yield* Effect.fail(
+        new ItemStackError({
+          reason: 'INCOMPATIBLE_ITEMS',
+          message: 'アイテムIDが設定されていません',
+        })
+      )
     }
-    this.nbtData.enchantments = [...this.nbtData.enchantments, enchantment]
-    return this
-  }
 
-  setCustomName(name: string): ItemStackBuilder {
-    this.nbtData.customName = name
-    return this
-  }
-
-  addLore(lore: string): ItemStackBuilder {
-    if (!this.nbtData.lore) {
-      this.nbtData.lore = []
+    if (!state.count) {
+      yield* Effect.fail(
+        new ItemStackError({
+          reason: 'INVALID_STACK_SIZE',
+          message: 'アイテム数量が設定されていません',
+        })
+      )
     }
-    this.nbtData.lore = [...this.nbtData.lore, lore]
-    return this
-  }
 
-  setUnbreakable(unbreakable: boolean): ItemStackBuilder {
-    this.nbtData.unbreakable = unbreakable
-    return this
-  }
+    // IDの生成または検証
+    const id = state.id ?? makeUnsafeItemStackId(`stack_${nanoid()}`)
 
-  setCustomModelData(modelData: number): ItemStackBuilder {
-    this.nbtData.customModelData = modelData
-    return this
-  }
+    // タイムスタンプの生成（未設定の場合）
+    const now = yield* DateTime.now
+    const timestamp = DateTime.formatIso(now)
+    const createdAt = state.createdAt ?? timestamp
+    const lastModified = state.lastModified ?? timestamp
 
-  addTag(tag: string): ItemStackBuilder {
-    if (!this.nbtData.tags) {
-      this.nbtData.tags = []
+    // エンティティデータの構築
+    const entityData = {
+      id,
+      itemId: state.itemId,
+      count: state.count,
+      ...(state.durability && { durability: state.durability }),
+      ...(Object.keys(state.metadata).length > 0 && { metadata: state.metadata }),
+      ...(Object.keys(state.nbtData).length > 0 && { nbtData: state.nbtData }),
+      createdAt,
+      lastModified,
+      version: state.version,
     }
-    this.nbtData.tags = [...this.nbtData.tags, tag]
-    return this
-  }
 
-  setMetadata(metadata: Record<string, unknown>): ItemStackBuilder {
-    this.metadata = { ...this.metadata, ...metadata }
-    return this
-  }
-
-  setVersion(version: number): ItemStackBuilder {
-    this.version = version
-    return this
-  }
-
-  build(): Effect.Effect<ItemStackEntity, ItemStackError> {
-    return Effect.gen(
-      function* () {
-        // 必須フィールドの検証
-        if (!this.itemId) {
-          yield* Effect.fail(
-            new ItemStackError({
-              reason: 'INCOMPATIBLE_ITEMS',
-              message: 'アイテムIDが設定されていません',
-            })
-          )
-        }
-
-        if (!this.count) {
-          yield* Effect.fail(
-            new ItemStackError({
-              reason: 'INVALID_STACK_SIZE',
-              message: 'アイテム数量が設定されていません',
-            })
-          )
-        }
-
-        // IDの生成または検証
-        const id = this.id ?? (`stack_${nanoid()}` as ItemStackId)
-
-        // タイムスタンプの生成（未設定の場合）
-        const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms).toISOString())
-        const createdAt = this.createdAt ?? timestamp
-        const lastModified = this.lastModified ?? timestamp
-
-        // エンティティデータの構築
-        const entityData = {
-          id,
-          itemId: this.itemId,
-          count: this.count,
-          ...(this.durability && { durability: this.durability }),
-          ...(Object.keys(this.metadata).length > 0 && { metadata: this.metadata }),
-          ...(Object.keys(this.nbtData).length > 0 && { nbtData: this.nbtData }),
-          createdAt,
-          lastModified,
-          version: this.version,
-        }
-
-        // スキーマ検証
-        const entity = yield* Schema.decodeUnknown(ItemStackEntitySchema)(entityData).pipe(
-          Effect.mapError(
-            (error) =>
-              new ItemStackError({
-                reason: 'INCOMPATIBLE_ITEMS',
-                message: `ItemStackエンティティの検証に失敗: ${String(error)}`,
-              })
-          )
-        )
-
-        return entity
-      }.bind(this)
+    // スキーマ検証
+    const entity = yield* Schema.decodeUnknown(ItemStackEntitySchema)(entityData).pipe(
+      Effect.mapError(
+        (error) =>
+          new ItemStackError({
+            reason: 'INCOMPATIBLE_ITEMS',
+            message: `ItemStackエンティティの検証に失敗: ${String(error)}`,
+          })
+      )
     )
-  }
-}
+
+    return entity
+  })
 
 // ===== Factory Implementation =====
 
 export const ItemStackFactoryLive = ItemStackFactory.of({
   create: (itemId: ItemId, count: ItemCount, options?: ItemStackCreateOptions) =>
     Effect.gen(function* () {
-      const builder = new ItemStackBuilderImpl()
-
-      let builderWithBasics = builder.setItemId(itemId).setCount(count)
+      let state = initialItemStackBuilderState
+      state = withItemId(state, itemId)
+      state = withCount(state, count)
 
       if (options?.id) {
-        builderWithBasics = builderWithBasics.setId(options.id)
+        state = withId(state, options.id)
       }
 
       if (options?.durability) {
-        builderWithBasics = builderWithBasics.setDurability(options.durability)
+        state = withDurability(state, options.durability)
       }
 
       if (options?.nbtData) {
-        builderWithBasics = builderWithBasics.setNBTData(options.nbtData)
+        state = withNBTData(state, options.nbtData)
       }
 
       if (options?.metadata) {
-        builderWithBasics = builderWithBasics.setMetadata(options.metadata)
+        state = withMetadata(state, options.metadata)
       }
 
-      return yield* builderWithBasics.build()
+      return yield* buildItemStack(state)
     }),
 
   restore: (data: unknown) =>
@@ -307,8 +298,6 @@ export const ItemStackFactoryLive = ItemStackFactory.of({
         )
       )
     }),
-
-  builder: () => new ItemStackBuilderImpl(),
 })
 
 /**
@@ -324,7 +313,7 @@ export const ItemStackFactoryLayer = Layer.succeed(ItemStackFactory, ItemStackFa
 export const createSimpleItemStack = (itemId: ItemId, count: number): Effect.Effect<ItemStackEntity, ItemStackError> =>
   Effect.gen(function* () {
     const validCount = yield* Schema.decodeUnknown(ItemCountSchema)(count).pipe(
-      Effect.mapError((error) => ItemStackError.invalidStackSize(`stack_${nanoid()}` as ItemStackId, count))
+      Effect.mapError((error) => ItemStackError.invalidStackSize(makeUnsafeItemStackId(`stack_${nanoid()}`), count))
     )
 
     const factory = yield* ItemStackFactory
@@ -341,7 +330,7 @@ export const createDurableItemStack = (
 ): Effect.Effect<ItemStackEntity, ItemStackError> =>
   Effect.gen(function* () {
     const validCount = yield* Schema.decodeUnknown(ItemCountSchema)(count).pipe(
-      Effect.mapError((error) => ItemStackError.invalidStackSize(`stack_${nanoid()}` as ItemStackId, count))
+      Effect.mapError((error) => ItemStackError.invalidStackSize(makeUnsafeItemStackId(`stack_${nanoid()}`), count))
     )
 
     const validDurability = yield* Schema.decodeUnknown(
@@ -372,7 +361,7 @@ export const createEnchantedItemStack = (
 ): Effect.Effect<ItemStackEntity, ItemStackError> =>
   Effect.gen(function* () {
     const validCount = yield* Schema.decodeUnknown(ItemCountSchema)(count).pipe(
-      Effect.mapError((error) => ItemStackError.invalidStackSize(`stack_${nanoid()}` as ItemStackId, count))
+      Effect.mapError((error) => ItemStackError.invalidStackSize(makeUnsafeItemStackId(`stack_${nanoid()}`), count))
     )
 
     const factory = yield* ItemStackFactory
@@ -388,10 +377,11 @@ export const createEnchantedItemStack = (
  */
 export const incrementEntityVersion = (entity: ItemStackEntity): Effect.Effect<ItemStackEntity> =>
   Effect.gen(function* () {
-    const lastModified = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms).toISOString())
+    const nowDateTime = yield* DateTime.now
+    const lastModified = DateTime.formatIso(nowDateTime)
     return {
       ...entity,
       version: entity.version + 1,
-      lastModified: lastModified as any,
+      lastModified,
     }
   })

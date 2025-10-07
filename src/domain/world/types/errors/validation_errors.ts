@@ -3,7 +3,7 @@
  * 検証システムの構造化エラー定義
  */
 
-import { Clock, Data, Effect, Schema } from 'effect'
+import { Data, DateTime, Effect, Schema } from 'effect'
 import { ErrorContext } from './index'
 
 // === スキーマ検証エラー ===
@@ -440,7 +440,8 @@ export const createSchemaValidationError = (
   validationRule?: string
 ): Effect.Effect<SchemaValidationError> =>
   Effect.gen(function* () {
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const now = yield* DateTime.now
+    const timestamp = DateTime.toDate(now)
     return new SchemaValidationError({
       schemaName,
       fieldPath,
@@ -462,7 +463,8 @@ export const createNumberOutOfRangeError = (
   inclusive: boolean = true
 ): Effect.Effect<NumberOutOfRangeError> =>
   Effect.gen(function* () {
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const now = yield* DateTime.now
+    const timestamp = DateTime.toDate(now)
     return new NumberOutOfRangeError({
       fieldName,
       value,
@@ -483,7 +485,8 @@ export const createPatternMismatchError = (
   examples?: readonly string[]
 ): Effect.Effect<PatternMismatchError> =>
   Effect.gen(function* () {
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const now = yield* DateTime.now
+    const timestamp = DateTime.toDate(now)
     return new PatternMismatchError({
       fieldName,
       value,
@@ -501,7 +504,8 @@ export const createMultipleValidationError = (
   severity: 'warning' | 'error' | 'critical' = 'error'
 ): Effect.Effect<MultipleValidationError> =>
   Effect.gen(function* () {
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const now = yield* DateTime.now
+    const timestamp = DateTime.toDate(now)
     return new MultipleValidationError({
       errors,
       context: { timestamp, ...context },

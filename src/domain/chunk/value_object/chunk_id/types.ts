@@ -1,29 +1,7 @@
-import { Brand, Data, Schema } from 'effect'
+import { Brand } from 'effect'
 
-/**
- * チャンクIDの値オブジェクト
- */
-export type ChunkId = string & Brand.Brand<'ChunkId'>
-export const ChunkId = Brand.refined<ChunkId>(
-  (value): value is ChunkId => value.length > 0,
-  (value) => Brand.error(`空文字列は許可されていません: ${value}`)
-)
-
-/**
- * チャンクIDのスキーマ定義
- */
-export const ChunkIdSchema = Schema.String.pipe(Schema.nonEmptyString(), Schema.brand('ChunkId'))
-
-/**
- * チャンクIDエラー型（ADT）
- */
-export interface ChunkIdError {
-  readonly _tag: 'ChunkIdError'
-  readonly message: string
-  readonly value?: unknown
-}
-
-export const ChunkIdError = Data.tagged<ChunkIdError>('ChunkIdError')
+// ChunkId は共有カーネルから提供されます
+// このファイルは後方互換性のためのレガシー型定義のみを含みます
 
 /**
  * チャンクIDバージョンの値オブジェクト

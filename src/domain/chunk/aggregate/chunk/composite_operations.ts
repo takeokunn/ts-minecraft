@@ -1,8 +1,9 @@
 import { Cache, Clock, Duration, Effect, Chunk as EffectChunk, Either, Match, Option, pipe } from 'effect'
 import { getUsedHeapSize } from '../../../performance'
 import type { ChunkTimestamp } from '../../types'
-import { CHUNK_HEIGHT, CHUNK_MIN_Y, CHUNK_SIZE } from '../../types'
+import { CHUNK_HEIGHT, CHUNK_MIN_Y, CHUNK_SIZE, makeUnsafeChunkTimestamp } from '../../types'
 import type { ChunkMetadata, HeightValue } from '../../value_object/chunk_metadata'
+import { makeUnsafeHeightValue } from '../../value_object/chunk_metadata'
 import type { ChunkPosition } from '../../value_object/chunk_position'
 import type { ChunkData } from '../chunk_data'
 import { ChunkDataOptics } from './index'
@@ -62,7 +63,7 @@ const recalculatePositionalMetadata = (
     return {
       ...currentMetadata,
       biome: calculateBiomeFromPosition(position),
-      timestamp: timestamp as ChunkTimestamp,
+      timestamp: makeUnsafeChunkTimestamp(timestamp),
     }
   })
 
@@ -138,7 +139,7 @@ export const ChunkCompositeOperations = {
       const heightUpdates = validCoordinates
         .map(({ x, y, z }) => ({
           index: heightMapIndex(x, z),
-          height: y as HeightValue,
+          height: makeUnsafeHeightValue(y),
           isSolid: blockId !== 0,
         }))
         .filter(({ isSolid, index, height }) =>

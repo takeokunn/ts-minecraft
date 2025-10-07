@@ -8,10 +8,9 @@ import * as TreeFormatter from '@effect/schema/TreeFormatter'
 import { Effect, Match, Schema } from 'effect'
 import { pipe } from 'effect/Function'
 import { InteractionError } from '../types'
+import type { BlockFace, Vector3 } from '../value_object'
 import {
-  BlockFace,
   BlockFaceError,
-  Vector3,
   Vector3Error,
   dot,
   fromNumbers,

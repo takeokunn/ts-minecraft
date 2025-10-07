@@ -5,6 +5,8 @@
  * Effect-TS 3.17+ 型安全性・数学的精度・Minecraft互換性の統合
  */
 
+import { Effect, Match, pipe } from 'effect'
+
 // ワールドシード管理
 export {
   SEED_QUALITY_PRESETS,
@@ -133,11 +135,12 @@ export {
 
 // ノイズ設定
 export {
-  AMPLITUDE_CURVE_PRESETS,
   AdvancedNoiseSettingsSchema,
+  AMPLITUDE_CURVE_PRESETS,
   AmplitudeCurveErrorSchema,
   AmplitudeCurveSchema,
   AmplitudeSchema,
+  asFilterType,
   BandwidthSchema,
   BasicNoiseSettingsSchema,
   CompleteOctaveConfigSchema,
@@ -150,8 +153,8 @@ export {
   CurveSegmentSchema,
   CurveTensionSchema,
   CurveTypeSchema,
-  FREQUENCY_BAND_PRESETS,
   FilterTypeSchema,
+  FREQUENCY_BAND_PRESETS,
   FrequencyBandClassSchema,
   FrequencyBandCollectionSchema,
   FrequencyBandsErrorSchema,
@@ -163,6 +166,22 @@ export {
   IndividualOctaveConfigSchema,
   InterpolationSchema,
   LacunaritySchema,
+  // makeUnsafe関数
+  makeUnsafeAmplitude,
+  makeUnsafeBandwidth,
+  makeUnsafeControlPointValue,
+  makeUnsafeFrequency,
+  makeUnsafeFrequencyValue,
+  makeUnsafeGain,
+  makeUnsafeLacunarity,
+  makeUnsafeNormalizedTime,
+  makeUnsafeOctaveIndex,
+  makeUnsafeOctaves,
+  makeUnsafePersistence,
+  makeUnsafePhase,
+  makeUnsafeQFactor,
+  makeUnsafeScale,
+  makeUnsafeWeight,
   // 定数・プリセット
   NOISE_PRESETS,
   NoiseConfigurationConstants,
@@ -180,8 +199,8 @@ export {
   OctaveCombinationSchema,
   OctaveConfigErrorSchema,
   OctaveIndexSchema,
-  OctaveTypeSchema,
   OctavesSchema,
+  OctaveTypeSchema,
   PersistenceSchema,
   PhaseSchema,
   QFactorSchema,
@@ -229,8 +248,8 @@ export {
   type OctaveConfigError,
   // オクターブ設定
   type OctaveIndex,
-  type OctaveType,
   type Octaves,
+  type OctaveType,
   type Persistence,
   type Phase,
   type QFactor,
@@ -244,11 +263,11 @@ export {
   AbsoluteHumiditySchema,
   AltitudeTemperatureEffectSchema,
   AtmosphericHumidityStatsSchema,
+  BiomassSchema,
   BIOME_HUMIDITY_MAPPING,
   BIOME_SOIL_MAPPING,
   BIOME_TEMPERATURE_MAPPING,
   BIOME_VEGETATION_MAPPING,
-  BiomassSchema,
   BiomePropertiesConstants,
   // ファクトリ・検証・型ガード
   BiomePropertiesFactory,
@@ -269,8 +288,8 @@ export {
   ElectricConductivitySchema,
   EnvironmentalResponseSchema,
   GrowthStageSchema,
-  HUMIDITY_PRESETS,
   HeatIndexSchema,
+  HUMIDITY_PRESETS,
   HumidityClassificationSchema,
   HumidityLevelsErrorSchema,
   HumidityLevelsSchema,
@@ -282,10 +301,10 @@ export {
   PrecipitationTypeSchema,
   // スキーマエクスポート（湿度）
   RelativeHumiditySchema,
-  SOIL_COMPOSITION_PRESETS,
-  SeasonTypeSchema,
   SeasonalHumidityVariationSchema,
   SeasonalTemperatureVariationSchema,
+  SeasonTypeSchema,
+  SOIL_COMPOSITION_PRESETS,
   SoilChemistrySchema,
   SoilCompositionErrorSchema,
   SoilCompositionSchema,
@@ -300,8 +319,8 @@ export {
   TemperatureDeltaSchema,
   TemperatureRangeErrorSchema,
   TemperatureRangeSchema,
-  VEGETATION_DENSITY_PRESETS,
   VaporPressureSchema,
+  VEGETATION_DENSITY_PRESETS,
   VegetationDensityConfigSchema,
   VegetationDensityErrorSchema,
   // スキーマエクスポート（植生）
@@ -343,9 +362,9 @@ export {
   type ParticleSizeDistribution,
   // 湿度レベル設定
   type RelativeHumidity,
-  type SeasonType,
   type SeasonalHumidityVariation,
   type SeasonalTemperatureVariation,
+  type SeasonType,
   type SoilChemistry,
   type SoilComposition,
   type SoilCompositionError,
@@ -411,20 +430,15 @@ export const WorldValueObjectFactory = {
   /**
    * 地形タイプ別ワールド作成
    */
-  createByTerrainType: (terrainType: TerrainType) => {
-    switch (terrainType) {
-      case 'flat':
-        return createFlatWorld()
-      case 'amplified':
-        return createAmplifiedWorld()
-      case 'large_biomes':
-        return createLargeBiomesWorld()
-      case 'island':
-        return createIslandWorld()
-      default:
-        return WorldValueObjectFactory.createMinecraftDefault()
-    }
-  },
+  createByTerrainType: (terrainType: TerrainType) =>
+    pipe(
+      Match.value(terrainType),
+      Match.when('flat', () => createFlatWorld()),
+      Match.when('amplified', () => createAmplifiedWorld()),
+      Match.when('large_biomes', () => createLargeBiomesWorld()),
+      Match.when('island', () => createIslandWorld()),
+      Match.orElse(() => WorldValueObjectFactory.createMinecraftDefault())
+    ),
 
   /**
    * 気候帯別ワールド作成
@@ -632,7 +646,7 @@ function createFlatWorld(): any {
       worldBorder: WORLD_COORDINATE_LIMITS,
     },
     generation: GenerationParametersFactory.createFlat(),
-    noise: { ...NoiseConfigurationFactory.createTerrainNoise(), amplitude: 0.1 as Amplitude },
+    noise: { ...NoiseConfigurationFactory.createTerrainNoise(), amplitude: makeUnsafeAmplitude(0.1) },
     biome: BiomePropertiesFactory.createTemperateForest(),
   }
 }
@@ -645,7 +659,7 @@ function createAmplifiedWorld(): any {
       worldBorder: WORLD_COORDINATE_LIMITS,
     },
     generation: GenerationParametersFactory.createAmplified(),
-    noise: { ...NoiseConfigurationFactory.createTerrainNoise(), amplitude: 500 as Amplitude },
+    noise: { ...NoiseConfigurationFactory.createTerrainNoise(), amplitude: makeUnsafeAmplitude(500) },
     biome: BiomePropertiesFactory.createTemperateForest(),
   }
 }
@@ -658,7 +672,7 @@ function createLargeBiomesWorld(): any {
       worldBorder: WORLD_COORDINATE_LIMITS,
     },
     generation: GenerationParametersFactory.createLargeBiomes(),
-    noise: { ...NoiseConfigurationFactory.createTerrainNoise(), scale: 4.0 as Scale },
+    noise: { ...NoiseConfigurationFactory.createTerrainNoise(), scale: makeUnsafeScale(4.0) },
     biome: BiomePropertiesFactory.createTemperateForest(),
   }
 }

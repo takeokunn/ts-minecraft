@@ -8,7 +8,7 @@
 
 import type { AllRepositoryErrors, WorldId } from '@domain/world/types'
 import { createCompressionError, createRepositoryError, createVersioningError } from '@domain/world/types'
-import { Effect, Layer, Option, pipe, ReadonlyArray, Ref } from 'effect'
+import { DateTime, Effect, Layer, Match, Option, pipe, ReadonlyArray, Ref } from 'effect'
 import { WorldClock } from '../..'
 import type {
   BackupConfig,
@@ -398,22 +398,33 @@ export const WorldMetadataRepositoryMemoryImplementation = (
                 ? pipe(
                     items,
                     ReadonlyArray.sort((a, b) => {
-                      const comparison = (() => {
-                        switch (query.sortBy) {
-                          case 'name':
-                            return a.name.localeCompare(b.name)
-                          case 'created':
-                            return a.createdAt.getTime() - b.createdAt.getTime()
-                          case 'modified':
-                            return a.lastModified.getTime() - b.lastModified.getTime()
-                          case 'size':
-                            return a.statistics.size.uncompressedSize - b.statistics.size.uncompressedSize
-                          case 'accessed':
-                            return a.lastAccessed.getTime() - b.lastAccessed.getTime()
-                          default:
-                            return 0
-                        }
-                      })()
+                      const comparison = pipe(
+                        Match.value(query.sortBy),
+                        Match.when('name', () => a.name.localeCompare(b.name)),
+                        Match.when(
+                          'created',
+                          () =>
+                            DateTime.toEpochMillis(DateTime.unsafeFromDate(a.createdAt)) -
+                            DateTime.toEpochMillis(DateTime.unsafeFromDate(b.createdAt))
+                        ),
+                        Match.when(
+                          'modified',
+                          () =>
+                            DateTime.toEpochMillis(DateTime.unsafeFromDate(a.lastModified)) -
+                            DateTime.toEpochMillis(DateTime.unsafeFromDate(b.lastModified))
+                        ),
+                        Match.when(
+                          'size',
+                          () => a.statistics.size.uncompressedSize - b.statistics.size.uncompressedSize
+                        ),
+                        Match.when(
+                          'accessed',
+                          () =>
+                            DateTime.toEpochMillis(DateTime.unsafeFromDate(a.lastAccessed)) -
+                            DateTime.toEpochMillis(DateTime.unsafeFromDate(b.lastAccessed))
+                        ),
+                        Match.orElse(() => 0)
+                      )
                       return query.sortOrder === 'desc' ? -comparison : comparison
                     })
                   )
@@ -724,7 +735,9 @@ export const WorldMetadataRepositoryMemoryImplementation = (
             onTrue: () =>
               Effect.sync(() => {
                 const oldest = Array.from(worldVersions.entries()).sort(
-                  ([, a], [, b]) => a.timestamp.getTime() - b.timestamp.getTime()
+                  ([, a], [, b]) =>
+                    DateTime.toEpochMillis(DateTime.unsafeFromDate(a.timestamp)) -
+                    DateTime.toEpochMillis(DateTime.unsafeFromDate(b.timestamp))
                 )[0]
                 worldVersions.delete(oldest[0])
                 return worldVersions
@@ -848,11 +861,15 @@ export const WorldMetadataRepositoryMemoryImplementation = (
                       onTrue: () =>
                         Effect.succeed(
                           versionEntries
-                            .sort(([, a], [, b]) => b.timestamp.getTime() - a.timestamp.getTime())
+                            .sort(
+                              ([, a], [, b]) =>
+                                DateTime.toEpochMillis(DateTime.unsafeFromDate(b.timestamp)) -
+                                DateTime.toEpochMillis(DateTime.unsafeFromDate(a.timestamp))
+                            )
                             .slice(retentionPolicy.maxVersions)
                             .map(([v]) => v)
                         ),
-                      onFalse: () => Effect.succeed([] as string[]),
+                      onFalse: () => Effect.succeed([] as const satisfies ReadonlyArray<string>),
                     }
                   )
 
@@ -860,12 +877,13 @@ export const WorldMetadataRepositoryMemoryImplementation = (
                   const versionsByAgePolicy = yield* Effect.if(retentionPolicy.maxAgeDays !== undefined, {
                     onTrue: () =>
                       Effect.gen(function* () {
-                        const now = yield* currentMillis
+                        const nowDateTime = yield* DateTime.now
+                        const now = DateTime.toEpochMillis(nowDateTime)
                         const cutoffMillis = now - retentionPolicy.maxAgeDays! * 24 * 60 * 60 * 1000
-                        const cutoffDate = new Date(cutoffMillis)
+                        const cutoffDate = DateTime.toDate(DateTime.unsafeMake(cutoffMillis))
                         return versionEntries.filter(([, version]) => version.timestamp < cutoffDate).map(([v]) => v)
                       }),
-                    onFalse: () => Effect.succeed([] as string[]),
+                    onFalse: () => Effect.succeed([] as const satisfies ReadonlyArray<string>),
                   })
 
                   const versionsToDelete = [...new Set([...versionsByMaxPolicy, ...versionsByAgePolicy])]
@@ -998,7 +1016,11 @@ export const WorldMetadataRepositoryMemoryImplementation = (
             .map((id) => backupMap.get(id))
             .filter((backup): backup is BackupInfo => backup !== undefined)
 
-          return backups.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+          return backups.sort(
+            (a, b) =>
+              DateTime.toEpochMillis(DateTime.unsafeFromDate(b.timestamp)) -
+              DateTime.toEpochMillis(DateTime.unsafeFromDate(a.timestamp))
+          )
         }),
 
       restoreBackup: (worldId: WorldId, backupId: string) =>
@@ -1089,13 +1111,14 @@ export const WorldMetadataRepositoryMemoryImplementation = (
 
       getIndexStatistics: () =>
         Effect.gen(function* () {
-          const now = yield* currentMillis
+          const nowDateTime = yield* DateTime.now
+          const now = DateTime.toEpochMillis(nowDateTime)
           const lastOptimizedMillis = now - 24 * 60 * 60 * 1000
           return {
             totalIndexes: 5,
             totalSize: 800 * 1024,
             fragmentationRatio: 0.15,
-            lastOptimized: new Date(lastOptimizedMillis),
+            lastOptimized: DateTime.toDate(DateTime.unsafeMake(lastOptimizedMillis)),
           }
         }),
 
@@ -1191,10 +1214,16 @@ export const WorldMetadataRepositoryMemoryImplementation = (
 
           return pipe(
             results,
-            ReadonlyArray.reduce({ successful: 0, failed: 0, errors: [] as AllRepositoryErrors[] }, (acc, result) =>
-              result._tag === 'Right'
-                ? { ...acc, successful: acc.successful + 1 }
-                : { ...acc, failed: acc.failed + 1, errors: [...acc.errors, result.left] }
+            ReadonlyArray.reduce(
+              {
+                successful: 0,
+                failed: 0,
+                errors: [] as const satisfies ReadonlyArray<AllRepositoryErrors>,
+              },
+              (acc, result) =>
+                result._tag === 'Right'
+                  ? { ...acc, successful: acc.successful + 1 }
+                  : { ...acc, failed: acc.failed + 1, errors: [...acc.errors, result.left] }
             )
           )
         }),
@@ -1293,7 +1322,11 @@ export const WorldMetadataRepositoryMemoryImplementation = (
           const validationResults = pipe(
             Array.from(store.entries()),
             ReadonlyArray.reduce(
-              { errors: [] as string[], warnings: [] as string[], corruptedMetadata: [] as WorldId[] },
+              {
+                errors: [] as const satisfies ReadonlyArray<string>,
+                warnings: [] as const satisfies ReadonlyArray<string>,
+                corruptedMetadata: [] as const satisfies ReadonlyArray<WorldId>,
+              },
               (acc, [worldId, metadata]) => {
                 const expectedChecksum = calculateMetadataChecksum(metadata)
                 const hasChecksumMismatch = metadata.checksum !== expectedChecksum
@@ -1357,13 +1390,20 @@ export const WorldMetadataRepositoryMemoryImplementation = (
                   const totalCompressedSize = metadataList.reduce((sum, m) => sum + m.statistics.size.compressedSize, 0)
                   return totalSize > 0 ? totalCompressedSize / totalSize : 1.0
                 })(),
-                oldestWorld: [...metadataList].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())[0]
-                  .createdAt,
-                newestWorld: [...metadataList].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())[
-                  metadataList.length - 1
-                ].createdAt,
+                oldestWorld: [...metadataList].sort(
+                  (a, b) =>
+                    DateTime.toEpochMillis(DateTime.unsafeFromDate(a.createdAt)) -
+                    DateTime.toEpochMillis(DateTime.unsafeFromDate(b.createdAt))
+                )[0].createdAt,
+                newestWorld: [...metadataList].sort(
+                  (a, b) =>
+                    DateTime.toEpochMillis(DateTime.unsafeFromDate(a.createdAt)) -
+                    DateTime.toEpochMillis(DateTime.unsafeFromDate(b.createdAt))
+                )[metadataList.length - 1].createdAt,
                 mostActiveWorld: [...metadataList].sort(
-                  (a, b) => b.lastAccessed.getTime() - a.lastAccessed.getTime()
+                  (a, b) =>
+                    DateTime.toEpochMillis(DateTime.unsafeFromDate(b.lastAccessed)) -
+                    DateTime.toEpochMillis(DateTime.unsafeFromDate(a.lastAccessed))
                 )[0].id,
               }),
           })

@@ -30,4 +30,4 @@ export type Timestamp = Schema.Schema.Type<typeof TimestampSchema>
 /**
  * Timestamp constants
  */
-export const EPOCH_ZERO: Timestamp = 0 as Timestamp // 1970-01-01 00:00:00 UTC
+export const EPOCH_ZERO: Timestamp = Schema.make(TimestampSchema)(0) // 1970-01-01 00:00:00 UTC

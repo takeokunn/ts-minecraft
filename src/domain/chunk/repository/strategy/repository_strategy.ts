@@ -26,6 +26,15 @@ import { initialRepositoryConfigBuilderState, type RepositoryConfigBuilderState 
 export type RepositoryStrategyType = 'memory' | 'indexeddb' | 'webworker' | 'hybrid' | 'auto'
 
 /**
+ * string を RepositoryStrategyType に変換
+ *
+ * Pattern 7（型ガード関数集約）
+ * 使用箇所: 戦略選択ロジック内（Match.when）
+ */
+export const asRepositoryStrategyType = <T extends string>(type: T): RepositoryStrategyType =>
+  type as RepositoryStrategyType
+
+/**
  * 環境情報
  */
 export interface EnvironmentInfo {

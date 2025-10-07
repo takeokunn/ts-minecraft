@@ -4,6 +4,7 @@
  */
 
 import { Schema } from 'effect'
+import { unsafeCoerce } from 'effect/Function'
 import type { ItemId } from '../../types'
 import { ItemIdSchema } from '../../value_object/item_id/schema'
 import { ItemMetadataSchema } from '../../value_object/item_metadata/schema'
@@ -22,6 +23,14 @@ export type ItemCount = Schema.Schema.Type<typeof ItemCountSchema>
 
 export const DurabilitySchema = Schema.Number.pipe(Schema.between(0, 1), Schema.brand('Durability'))
 export type Durability = Schema.Schema.Type<typeof DurabilitySchema>
+
+// ===== makeUnsafe Functions =====
+
+export const makeUnsafeItemStackId = (value: string): ItemStackId => unsafeCoerce<string, ItemStackId>(value)
+
+export const makeUnsafeItemCount = (value: number): ItemCount => unsafeCoerce<number, ItemCount>(value)
+
+export const makeUnsafeDurability = (value: number): Durability => unsafeCoerce<number, Durability>(value)
 
 // ===== Value Objects =====
 
@@ -160,7 +169,7 @@ export class ItemStackError extends Schema.TaggedError<ItemStackError>()('ItemSt
       reason: 'INVALID_STACK_SIZE',
       message: `不正なスタックサイズ: ${size}`,
       stackId,
-      quantity: size as ItemCount,
+      quantity: makeUnsafeItemCount(size),
     })
   }
 
@@ -177,7 +186,7 @@ export class ItemStackError extends Schema.TaggedError<ItemStackError>()('ItemSt
       reason: 'INSUFFICIENT_QUANTITY',
       message: `数量不足: ${requested} > ${available}`,
       stackId,
-      quantity: requested as ItemCount,
+      quantity: makeUnsafeItemCount(requested),
     })
   }
 
@@ -195,7 +204,7 @@ export class ItemStackError extends Schema.TaggedError<ItemStackError>()('ItemSt
       reason: 'MERGE_OVERFLOW',
       message: `マージによるスタックサイズオーバーフロー: ${totalSize}`,
       stackId: sourceId,
-      quantity: totalSize as ItemCount,
+      quantity: makeUnsafeItemCount(totalSize),
     })
   }
 
@@ -204,7 +213,7 @@ export class ItemStackError extends Schema.TaggedError<ItemStackError>()('ItemSt
       reason: 'SPLIT_UNDERFLOW',
       message: `分割によるスタックサイズアンダーフロー: ${splitSize}`,
       stackId,
-      quantity: splitSize as ItemCount,
+      quantity: makeUnsafeItemCount(splitSize),
     })
   }
 }

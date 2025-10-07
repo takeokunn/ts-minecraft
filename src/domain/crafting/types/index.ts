@@ -3,12 +3,11 @@ import { Schema } from 'effect'
 /**
  * ### 基本的なブランド型
  *
- * - ItemId: アイテム識別子
+ * - ItemId: アイテム識別子（共有カーネルから再エクスポート）
  * - ItemTag: アイテムタグ
  * - ItemQuantity: スタックの数量 (1-64)
  */
-export const ItemIdSchema = Schema.String.pipe(Schema.minLength(1), Schema.maxLength(128), Schema.brand('ItemId'))
-export type ItemId = Schema.Schema.Type<typeof ItemIdSchema>
+export { SimpleItemIdSchema as ItemIdSchema, type ItemId } from '../../../shared/entities/item_id'
 
 export const ItemTagSchema = Schema.String.pipe(Schema.minLength(1), Schema.maxLength(64), Schema.brand('ItemTag'))
 export type ItemTag = Schema.Schema.Type<typeof ItemTagSchema>

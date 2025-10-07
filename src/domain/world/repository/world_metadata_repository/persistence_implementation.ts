@@ -6,7 +6,7 @@
  * 高度なバックアップとバージョン管理
  */
 
-import { WorldGeneratorIdSchema } from '@domain/world/aggregate/world_generator'
+import { WorldGeneratorIdSchema } from '@/domain/world_generation/aggregate/world_generator'
 import type { AllRepositoryErrors, WorldId } from '@domain/world/types'
 import {
   createCompressionError,
@@ -18,7 +18,7 @@ import {
 import { WorldCoordinateSchema, WorldIdSchema, WorldSeedSchema } from '@domain/world/types/core'
 import * as Schema from '@effect/schema/Schema'
 import * as crypto from 'crypto'
-import { Effect, Layer, Option, pipe, ReadonlyArray, Ref } from 'effect'
+import { DateTime, Effect, Layer, Match, Option, pipe, ReadonlyArray, Ref } from 'effect'
 import * as fs from 'fs'
 import * as path from 'path'
 import * as zlib from 'zlib'
@@ -816,25 +816,33 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
                 ? pipe(
                     arr,
                     ReadonlyArray.sort((a, b) => {
-                      let comparison = 0
-
-                      switch (query.sortBy) {
-                        case 'name':
-                          comparison = a.name.localeCompare(b.name)
-                          break
-                        case 'created':
-                          comparison = a.createdAt.getTime() - b.createdAt.getTime()
-                          break
-                        case 'modified':
-                          comparison = a.lastModified.getTime() - b.lastModified.getTime()
-                          break
-                        case 'size':
-                          comparison = a.statistics.size.uncompressedSize - b.statistics.size.uncompressedSize
-                          break
-                        case 'accessed':
-                          comparison = a.lastAccessed.getTime() - b.lastAccessed.getTime()
-                          break
-                      }
+                      const comparison = pipe(
+                        Match.value(query.sortBy),
+                        Match.when('name', () => a.name.localeCompare(b.name)),
+                        Match.when(
+                          'created',
+                          () =>
+                            DateTime.toEpochMillis(DateTime.unsafeFromDate(a.createdAt)) -
+                            DateTime.toEpochMillis(DateTime.unsafeFromDate(b.createdAt))
+                        ),
+                        Match.when(
+                          'modified',
+                          () =>
+                            DateTime.toEpochMillis(DateTime.unsafeFromDate(a.lastModified)) -
+                            DateTime.toEpochMillis(DateTime.unsafeFromDate(b.lastModified))
+                        ),
+                        Match.when(
+                          'size',
+                          () => a.statistics.size.uncompressedSize - b.statistics.size.uncompressedSize
+                        ),
+                        Match.when(
+                          'accessed',
+                          () =>
+                            DateTime.toEpochMillis(DateTime.unsafeFromDate(a.lastAccessed)) -
+                            DateTime.toEpochMillis(DateTime.unsafeFromDate(b.lastAccessed))
+                        ),
+                        Match.orElse(() => 0)
+                      )
 
                       return query.sortOrder === 'desc' ? -comparison : comparison
                     })
@@ -988,20 +996,20 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
             [contentType]: count,
           })
 
-          const nextContent = (() => {
-            switch (contentType) {
-              case 'biome':
-                return { ...currentContent, biomeCount: updateCounter(currentContent.biomeCount) }
-              case 'structure':
-                return { ...currentContent, structureCount: updateCounter(currentContent.structureCount) }
-              case 'entity':
-                return { ...currentContent, entityCount: updateCounter(currentContent.entityCount) }
-              case 'tileEntity':
-                return { ...currentContent, tileEntityCount: updateCounter(currentContent.tileEntityCount) }
-              default:
-                return currentContent
-            }
-          })()
+          const nextContent = pipe(
+            Match.value(contentType),
+            Match.when('biome', () => ({ ...currentContent, biomeCount: updateCounter(currentContent.biomeCount) })),
+            Match.when('structure', () => ({
+              ...currentContent,
+              structureCount: updateCounter(currentContent.structureCount),
+            })),
+            Match.when('entity', () => ({ ...currentContent, entityCount: updateCounter(currentContent.entityCount) })),
+            Match.when('tileEntity', () => ({
+              ...currentContent,
+              tileEntityCount: updateCounter(currentContent.tileEntityCount),
+            })),
+            Match.orElse(() => currentContent)
+          )
 
           yield* Effect.when(nextContent !== currentContent, () =>
             this.updateStatistics(worldId, {
@@ -1039,7 +1047,11 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
               Effect.sync(() => {
                 const oldest = pipe(
                   Array.from(worldVersions.entries()),
-                  ReadonlyArray.sort(([, a], [, b]) => a.timestamp.getTime() - b.timestamp.getTime()),
+                  ReadonlyArray.sort(
+                    ([, a], [, b]) =>
+                      DateTime.toEpochMillis(DateTime.unsafeFromDate(a.timestamp)) -
+                      DateTime.toEpochMillis(DateTime.unsafeFromDate(b.timestamp))
+                  ),
                   ReadonlyArray.head
                 )
                 pipe(
@@ -1097,7 +1109,11 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
               }),
               onSome: (versions) => {
                 const versionArray = Array.from(versions.values())
-                const sortedVersions = versionArray.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime())
+                const sortedVersions = versionArray.sort(
+                  (a, b) =>
+                    DateTime.toEpochMillis(DateTime.unsafeFromDate(a.timestamp)) -
+                    DateTime.toEpochMillis(DateTime.unsafeFromDate(b.timestamp))
+                )
 
                 return {
                   worldId,
@@ -1177,7 +1193,11 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
                     retentionPolicy.maxVersions && versionEntries.length > retentionPolicy.maxVersions
                       ? pipe(
                           versionEntries,
-                          ReadonlyArray.sort(([, a], [, b]) => b.timestamp.getTime() - a.timestamp.getTime()),
+                          ReadonlyArray.sort(
+                            ([, a], [, b]) =>
+                              DateTime.toEpochMillis(DateTime.unsafeFromDate(b.timestamp)) -
+                              DateTime.toEpochMillis(DateTime.unsafeFromDate(a.timestamp))
+                          ),
                           ReadonlyArray.drop(retentionPolicy.maxVersions),
                           ReadonlyArray.map(([v]) => v)
                         )
@@ -1186,9 +1206,10 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
                   const versionsByAge = yield* Effect.if(Boolean(retentionPolicy.maxAgeDays), {
                     onTrue: () =>
                       Effect.gen(function* () {
-                        const now = yield* currentMillis
+                        const nowDateTime = yield* DateTime.now
+                        const now = DateTime.toEpochMillis(nowDateTime)
                         const cutoffMillis = now - retentionPolicy.maxAgeDays! * 24 * 60 * 60 * 1000
-                        const cutoffDate = new Date(cutoffMillis)
+                        const cutoffDate = DateTime.toDate(DateTime.unsafeMake(cutoffMillis))
                         return pipe(
                           versionEntries,
                           ReadonlyArray.filter(([, version]) => version.timestamp < cutoffDate),
@@ -1334,7 +1355,11 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
           const backupMap = yield* Ref.get(backupStore)
           const worldBackups = Array.from(backupMap.values())
             .filter((backup) => backup.worldId === worldId)
-            .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+            .sort(
+              (a, b) =>
+                DateTime.toEpochMillis(DateTime.unsafeFromDate(b.timestamp)) -
+                DateTime.toEpochMillis(DateTime.unsafeFromDate(a.timestamp))
+            )
 
           return worldBackups
         }),
@@ -1504,14 +1529,15 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
       getIndexStatistics: () =>
         Effect.gen(function* () {
           const indexMap = yield* Ref.get(indexStore)
-          const now = yield* currentMillis
+          const nowDateTime = yield* DateTime.now
+          const now = DateTime.toEpochMillis(nowDateTime)
           const lastOptimizedMillis = now - 24 * 60 * 60 * 1000
 
           return {
             totalIndexes: indexMap.size,
             totalSize: Array.from(indexMap.values()).reduce((sum, ids) => sum + ids.length * 32, 0), // Rough estimate
             fragmentationRatio: 0.15,
-            lastOptimized: new Date(lastOptimizedMillis),
+            lastOptimized: DateTime.toDate(DateTime.unsafeMake(lastOptimizedMillis)),
           }
         }),
 
@@ -1789,13 +1815,20 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
                     ? metadataList.reduce((sum, m) => sum + m.statistics.size.compressedSize, 0) /
                       metadataList.reduce((sum, m) => sum + m.statistics.size.uncompressedSize, 0)
                     : 1.0,
-                oldestWorld: [...metadataList].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())[0]
-                  .createdAt,
-                newestWorld: [...metadataList].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())[
-                  metadataList.length - 1
-                ].createdAt,
+                oldestWorld: [...metadataList].sort(
+                  (a, b) =>
+                    DateTime.toEpochMillis(DateTime.unsafeFromDate(a.createdAt)) -
+                    DateTime.toEpochMillis(DateTime.unsafeFromDate(b.createdAt))
+                )[0].createdAt,
+                newestWorld: [...metadataList].sort(
+                  (a, b) =>
+                    DateTime.toEpochMillis(DateTime.unsafeFromDate(a.createdAt)) -
+                    DateTime.toEpochMillis(DateTime.unsafeFromDate(b.createdAt))
+                )[metadataList.length - 1].createdAt,
                 mostActiveWorld: [...metadataList].sort(
-                  (a, b) => b.lastAccessed.getTime() - a.lastAccessed.getTime()
+                  (a, b) =>
+                    DateTime.toEpochMillis(DateTime.unsafeFromDate(b.lastAccessed)) -
+                    DateTime.toEpochMillis(DateTime.unsafeFromDate(a.lastAccessed))
                 )[0].id,
               }),
           })

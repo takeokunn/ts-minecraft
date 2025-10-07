@@ -7,6 +7,7 @@
 
 import { Effect, Layer, Option, pipe, ReadonlyArray } from 'effect'
 import type { Inventory, ItemId, ItemStack } from '../../types'
+import { makeUnsafeItemId } from '../../value_object/item_id/types'
 import {
   CraftingIntegrationError,
   CraftingIntegrationService,
@@ -104,8 +105,8 @@ export const CraftingIntegrationServiceLive = Layer.succeed(
           Effect.reduce(
             {
               currentInventory: inventory,
-              craftedItems: [] as ItemStack[],
-              consumedIngredients: [] as CraftingResult['consumedIngredients'],
+              craftedItems: [] as const satisfies readonly ItemStack[],
+              consumedIngredients: [] as const satisfies CraftingResult['consumedIngredients'],
               experienceGained: 0,
             },
             (acc, _) =>
@@ -151,9 +152,9 @@ export const CraftingIntegrationServiceLive = Layer.succeed(
           ingredients,
           Effect.reduce(
             {
-              collected: [] as IngredientCollectionResult['collected'],
-              missing: [] as IngredientCollectionResult['missing'],
-              alternatives: [] as IngredientCollectionResult['alternatives'],
+              collected: [] as const satisfies IngredientCollectionResult['collected'],
+              missing: [] as const satisfies IngredientCollectionResult['missing'],
+              alternatives: [] as const satisfies IngredientCollectionResult['alternatives'],
             },
             (acc, ingredient) =>
               Effect.gen(function* () {
@@ -212,7 +213,7 @@ export const CraftingIntegrationServiceLive = Layer.succeed(
                               )
                             )
                           ),
-                        onFalse: () => Effect.succeed([] as IngredientCollectionResult['alternatives']),
+                        onFalse: () => Effect.succeed([] as const satisfies IngredientCollectionResult['alternatives']),
                       })
 
                       return {
@@ -241,7 +242,7 @@ export const CraftingIntegrationServiceLive = Layer.succeed(
               Effect.forEach(
                 (woodType) =>
                   Effect.gen(function* () {
-                    const altItemId = `minecraft:${woodType}_planks` as ItemId
+                    const altItemId = makeUnsafeItemId(`minecraft:${woodType}_planks`)
                     const available = yield* countItemsInInventory(inventory, altItemId)
                     return { altItemId, available, woodType }
                   }),
@@ -262,7 +263,7 @@ export const CraftingIntegrationServiceLive = Layer.succeed(
             ),
           onFalse: () =>
             Effect.succeed(
-              [] as Array<{
+              [] as const satisfies ReadonlyArray<{
                 itemId: ItemId
                 availableCount: number
                 compatibilityScore: number
@@ -288,8 +289,8 @@ export const CraftingIntegrationServiceLive = Layer.succeed(
               currentInventory: inventory,
               totalCrafted: 0,
               totalExperienceGained: 0,
-              failedRecipes: [] as Array<{ recipe: Recipe; reason: string }>,
-              executionOrder: [] as string[],
+              failedRecipes: [] as const satisfies ReadonlyArray<{ recipe: Recipe; reason: string }>,
+              executionOrder: [] as const satisfies readonly string[],
             },
             (acc, { recipe, count }) =>
               pipe(
@@ -463,7 +464,7 @@ const findItemSlots = (inventory: Inventory, itemId: ItemId): Effect.Effect<numb
   Effect.succeed(
     pipe(
       inventory.slots,
-      ReadonlyArray.reduceWithIndex([] as number[], (index, slots, slot) =>
+      ReadonlyArray.reduceWithIndex([] as const satisfies readonly number[], (index, slots, slot) =>
         slot?.itemStack?.itemId === itemId ? [...slots, index] : slots
       )
     )
@@ -484,7 +485,7 @@ const consumeIngredients = (
     Effect.reduce(
       {
         currentInventory: inventory,
-        consumed: [] as CraftingResult['consumedIngredients'],
+        consumed: [] as const satisfies CraftingResult['consumedIngredients'],
       },
       (acc, ingredient) =>
         Effect.gen(function* () {
@@ -517,7 +518,7 @@ const consumeSpecificItem = (
       Effect.reduce(
         {
           newSlots: [...inventory.slots],
-          fromSlots: [] as number[],
+          fromSlots: [] as const satisfies readonly number[],
           remainingToConsume: count,
         },
         (acc, { index, slot }) =>
@@ -629,9 +630,9 @@ const getAllRecipes = (): Effect.Effect<Recipe[], never> =>
       {
         recipeId: 'bread_recipe',
         type: 'CRAFTING' as const,
-        ingredients: [{ itemId: 'minecraft:wheat' as ItemId, count: 3 }],
+        ingredients: [{ itemId: makeUnsafeItemId('minecraft:wheat'), count: 3 }],
         result: {
-          itemId: 'minecraft:bread' as ItemId,
+          itemId: makeUnsafeItemId('minecraft:bread'),
           count: 1,
         },
         requirements: {

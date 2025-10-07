@@ -3,13 +3,14 @@
  * DDD原則に基づく複雑なコンテナ設定の隠蔽
  */
 
-import { Clock, Context, Effect, Layer, Schema } from 'effect'
+import { Context, DateTime, Effect, Layer, Schema } from 'effect'
 import { nanoid } from 'nanoid'
 import type { PlayerId } from '../../types'
 import type {
   ContainerAccessLevel,
   ContainerAggregate,
   ContainerConfiguration,
+  ContainerDomainEvent,
   ContainerId,
   ContainerPermission,
   ContainerSlot,
@@ -227,7 +228,8 @@ class ContainerBuilderImpl implements ContainerBuilder {
         const id = this.id ?? (`container_${nanoid()}` as ContainerId)
 
         // タイムスタンプの生成（未設定の場合）
-        const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms).toISOString())
+        const now = yield* DateTime.now
+        const timestamp = DateTime.formatIso(now)
         const createdAt = this.createdAt ?? timestamp
         const lastModified = this.lastModified ?? timestamp
 
@@ -390,7 +392,7 @@ export const createFurnace = (
     return yield* factory.create('furnace', ownerId, position, {
       configuration: {
         slotFilters: {
-          1: ['minecraft:coal', 'minecraft:charcoal', 'minecraft:wood'] as any[], // 燃料スロット
+          1: ['minecraft:coal', 'minecraft:charcoal', 'minecraft:wood'] as ReadonlyArray<string>, // 燃料スロット
         },
       },
     })
@@ -439,11 +441,12 @@ export const createEmptyContainerSlot = (): ContainerSlot => null
  */
 export const incrementContainerVersion = (aggregate: ContainerAggregate): Effect.Effect<ContainerAggregate> =>
   Effect.gen(function* () {
-    const lastModified = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms).toISOString())
+    const nowDateTime = yield* DateTime.now
+    const lastModified = DateTime.formatIso(nowDateTime)
     return {
       ...aggregate,
       version: aggregate.version + 1,
-      lastModified: lastModified as any,
+      lastModified,
     }
   })
 
@@ -452,7 +455,7 @@ export const incrementContainerVersion = (aggregate: ContainerAggregate): Effect
  */
 export const addContainerUncommittedEvent = (
   aggregate: ContainerAggregate,
-  event: any // ContainerDomainEvent (循環参照を避けるためany)
+  event: ContainerDomainEvent
 ): ContainerAggregate => ({
   ...aggregate,
   uncommittedEvents: [...aggregate.uncommittedEvents, event],

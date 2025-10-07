@@ -136,6 +136,42 @@ export const ScaleSchema = Schema.Number.pipe(
 )
 
 /**
+ * Frequency型のunsafe変換関数
+ * 定数定義時の型アサーションを型安全に実施（範囲検証なし）
+ */
+export const makeUnsafeFrequency = (value: number): Frequency => value as Frequency
+
+/**
+ * Amplitude型のunsafe変換関数
+ * 定数定義時の型アサーションを型安全に実施（範囲検証なし）
+ */
+export const makeUnsafeAmplitude = (value: number): Amplitude => value as Amplitude
+
+/**
+ * Lacunarity型のunsafe変換関数
+ * 定数定義時の型アサーションを型安全に実施（範囲検証なし）
+ */
+export const makeUnsafeLacunarity = (value: number): Lacunarity => value as Lacunarity
+
+/**
+ * Persistence型のunsafe変換関数
+ * 定数定義時の型アサーションを型安全に実施（範囲検証なし）
+ */
+export const makeUnsafePersistence = (value: number): Persistence => value as Persistence
+
+/**
+ * Octaves型のunsafe変換関数
+ * 定数定義時の型アサーションを型安全に実施（範囲検証なし）
+ */
+export const makeUnsafeOctaves = (value: number): Octaves => value as Octaves
+
+/**
+ * Scale型のunsafe変換関数
+ * 定数定義時の型アサーションを型安全に実施（範囲検証なし）
+ */
+export const makeUnsafeScale = (value: number): Scale => value as Scale
+
+/**
  * ノイズタイプ列挙
  */
 export const NoiseTypeSchema = Schema.Literal(

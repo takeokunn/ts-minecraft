@@ -29,7 +29,7 @@ export type MetersPerSecond = Schema.Schema.Type<typeof MetersPerSecondSchema>
 /**
  * MetersPerSecond constants
  */
-export const VELOCITY_ZERO: MetersPerSecond = 0 as MetersPerSecond
-export const WALKING_SPEED: MetersPerSecond = 4.317 as MetersPerSecond // Minecraft walking speed
-export const SPRINTING_SPEED: MetersPerSecond = 5.612 as MetersPerSecond // Minecraft sprinting speed
-export const GRAVITY_ACCELERATION: MetersPerSecond = 9.8 as MetersPerSecond // Earth gravity (positive for downward)
+export const VELOCITY_ZERO: MetersPerSecond = Schema.make(MetersPerSecondSchema)(0)
+export const WALKING_SPEED: MetersPerSecond = Schema.make(MetersPerSecondSchema)(4.317) // Minecraft walking speed
+export const SPRINTING_SPEED: MetersPerSecond = Schema.make(MetersPerSecondSchema)(5.612) // Minecraft sprinting speed
+export const GRAVITY_ACCELERATION: MetersPerSecond = Schema.make(MetersPerSecondSchema)(9.8) // Earth gravity (positive for downward)

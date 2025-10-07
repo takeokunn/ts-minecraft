@@ -17,7 +17,11 @@ import type {
   ContainerValidationError,
   defaultContainerPermissions,
 } from './interface'
-import { ContainerCreationError as CreationError, ContainerValidationError as ValidationError } from './interface'
+import {
+  asContainerType,
+  ContainerCreationError as CreationError,
+  ContainerValidationError as ValidationError,
+} from './interface'
 
 // ===== Builder Configuration Helpers（Pure Functions） =====
 
@@ -29,17 +33,17 @@ const getTypeDefaultConfig = (type: ContainerType): ContainerBuilderConfig => {
     type,
     Match.value,
     Match.when('chest', () => ({
-      type: 'chest' as ContainerType,
+      type: asContainerType('chest'),
       totalSlots: 27,
       permissions: defaultContainerPermissions,
     })),
     Match.when('large_chest', () => ({
-      type: 'large_chest' as ContainerType,
+      type: asContainerType('large_chest'),
       totalSlots: 54,
       permissions: defaultContainerPermissions,
     })),
     Match.when('ender_chest', () => ({
-      type: 'ender_chest' as ContainerType,
+      type: asContainerType('ender_chest'),
       totalSlots: 27,
       permissions: {
         ...defaultContainerPermissions,
@@ -47,37 +51,37 @@ const getTypeDefaultConfig = (type: ContainerType): ContainerBuilderConfig => {
       },
     })),
     Match.when('shulker_box', () => ({
-      type: 'shulker_box' as ContainerType,
+      type: asContainerType('shulker_box'),
       totalSlots: 27,
       permissions: defaultContainerPermissions,
     })),
     Match.when('furnace', () => ({
-      type: 'furnace' as ContainerType,
+      type: asContainerType('furnace'),
       totalSlots: 3,
       permissions: defaultContainerPermissions,
     })),
     Match.when('blast_furnace', () => ({
-      type: 'blast_furnace' as ContainerType,
+      type: asContainerType('blast_furnace'),
       totalSlots: 3,
       permissions: defaultContainerPermissions,
     })),
     Match.when('smoker', () => ({
-      type: 'smoker' as ContainerType,
+      type: asContainerType('smoker'),
       totalSlots: 3,
       permissions: defaultContainerPermissions,
     })),
     Match.when('brewing_stand', () => ({
-      type: 'brewing_stand' as ContainerType,
+      type: asContainerType('brewing_stand'),
       totalSlots: 4,
       permissions: defaultContainerPermissions,
     })),
     Match.when('hopper', () => ({
-      type: 'hopper' as ContainerType,
+      type: asContainerType('hopper'),
       totalSlots: 5,
       permissions: defaultContainerPermissions,
     })),
     Match.when('crafting_table', () => ({
-      type: 'crafting_table' as ContainerType,
+      type: asContainerType('crafting_table'),
       totalSlots: 10,
       permissions: {
         ...defaultContainerPermissions,

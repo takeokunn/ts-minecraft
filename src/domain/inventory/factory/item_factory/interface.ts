@@ -7,6 +7,7 @@
 
 import { Context, Effect, Match, pipe, Schema } from 'effect'
 import type { ItemId, ItemStack } from '../../types'
+import type { ItemCategory, ItemQuality, ItemRarity } from '../../types/item_enums'
 
 // ItemStack Factory固有のエラー型（Schema.TaggedErrorパターン）
 export class ItemCreationError extends Schema.TaggedError<ItemCreationError>()('ItemCreationError', {
@@ -27,24 +28,7 @@ export class ItemStackError extends Schema.TaggedError<ItemStackError>()('ItemSt
   context: Schema.Record({ key: Schema.String, value: Schema.Any }).pipe(Schema.optional),
 }) {}
 
-// アイテムカテゴリ（DDD Value Object）
-export type ItemCategory =
-  | 'tool'
-  | 'weapon'
-  | 'armor'
-  | 'food'
-  | 'block'
-  | 'resource'
-  | 'misc'
-  | 'consumable'
-  | 'redstone'
-  | 'decoration'
-
-// アイテム品質レベル（DDD Value Object）
-export type ItemQuality = 'poor' | 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary'
-
-// アイテムレアリティ（DDD Value Object）
-export type ItemRarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary' | 'mythic'
+// アイテムカテゴリ・品質・レアリティは types/item_enums.ts から import
 
 // エンチャント定義（DDD Value Object）
 export interface EnchantmentDefinition {

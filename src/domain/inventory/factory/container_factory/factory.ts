@@ -19,6 +19,7 @@ import type {
   defaultContainerPermissions,
 } from './interface'
 import {
+  asContainerType,
   ContainerCreationError as CreationError,
   ContainerOperationError as OperationError,
   ContainerValidationError as ValidationError,
@@ -127,14 +128,21 @@ const canInsertIntoSlot = (slot: ContainerSlot, item: ItemStack): boolean =>
       (s) => s.item !== null,
       (s) =>
         pipe(
-          s.item!.itemId === item.itemId,
-          Match.value,
-          // 同じアイテムでスタック可能かチェック
-          Match.when(true, () => {
-            const maxStackSize = s.maxStackSize || 64
-            return s.item!.count + item.count <= maxStackSize
-          }),
-          Match.orElse(() => false)
+          Option.fromNullable(s.item),
+          Option.match({
+            onNone: () => false,
+            onSome: (existingItem) =>
+              pipe(
+                existingItem.itemId === item.itemId,
+                Match.value,
+                // 同じアイテムでスタック可能かチェック
+                Match.when(true, () => {
+                  const maxStackSize = s.maxStackSize || 64
+                  return existingItem.count + item.count <= maxStackSize
+                }),
+                Match.orElse(() => false)
+              ),
+          })
         )
     ),
     // 空のスロットの場合、アイテムタイプ制限をチェック
@@ -315,9 +323,9 @@ export const ContainerFactoryLive: ContainerFactory = {
       const type: ContainerType = pipe(
         variant,
         Match.value,
-        Match.when('blast_furnace', () => 'blast_furnace' as ContainerType),
-        Match.when('smoker', () => 'smoker' as ContainerType),
-        Match.orElse(() => 'furnace' as ContainerType)
+        Match.when('blast_furnace', () => asContainerType('blast_furnace')),
+        Match.when('smoker', () => asContainerType('smoker')),
+        Match.orElse(() => asContainerType('furnace'))
       )
 
       return yield* ContainerFactoryLive.createEmpty(id, type)

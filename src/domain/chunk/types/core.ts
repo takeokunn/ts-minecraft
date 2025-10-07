@@ -51,11 +51,25 @@ export type RetryCount = number & Brand.Brand<'RetryCount'>
 export const RetryCountSchema = Schema.Number.pipe(Schema.int(), Schema.nonNegative(), Schema.brand('RetryCount'))
 
 /**
+ * number を RetryCount に変換（検証なし）
+ *
+ * 注意: 既に検証済みの値のみに使用すること
+ */
+export const makeUnsafeRetryCount = (count: number): RetryCount => count as RetryCount
+
+/**
  * チャンクのタイムスタンプ
  */
 export type ChunkTimestamp = number & Brand.Brand<'ChunkTimestamp'>
 
 export const ChunkTimestampSchema = Schema.Number.pipe(Schema.int(), Schema.positive(), Schema.brand('ChunkTimestamp'))
+
+/**
+ * number を ChunkTimestamp に変換（検証なし）
+ *
+ * 注意: 既に検証済みの値のみに使用すること
+ */
+export const makeUnsafeChunkTimestamp = (timestamp: number): ChunkTimestamp => timestamp as ChunkTimestamp
 
 // ===== ADT Types ===== //
 
@@ -265,21 +279,21 @@ export const ChunkStates = {
   loading: (progress: LoadProgress): ChunkState =>
     ChunkState.Loading({
       progress,
-      startTime: 0 as ChunkTimestamp,
+      startTime: makeUnsafeChunkTimestamp(0),
     }),
 
   loaded: (data: ChunkDataBytes, metadata: ChunkMetadata): ChunkState =>
     ChunkState.Loaded({
       data,
-      loadTime: 0 as ChunkTimestamp,
+      loadTime: makeUnsafeChunkTimestamp(0),
       metadata,
     }),
 
-  failed: (error: string, retryCount: RetryCount = 0 as RetryCount): ChunkState =>
+  failed: (error: string, retryCount: RetryCount = makeUnsafeRetryCount(0)): ChunkState =>
     ChunkState.Failed({
       error,
       retryCount,
-      lastAttempt: 0 as ChunkTimestamp,
+      lastAttempt: makeUnsafeChunkTimestamp(0),
     }),
 
   dirty: (data: ChunkDataBytes, changes: ChangeSet, metadata: ChunkMetadata): ChunkState =>
@@ -299,7 +313,7 @@ export const ChunkStates = {
   cached: (data: ChunkDataBytes, metadata: ChunkMetadata): ChunkState =>
     ChunkState.Cached({
       data,
-      cacheTime: 0 as ChunkTimestamp,
+      cacheTime: makeUnsafeChunkTimestamp(0),
       metadata,
     }),
 } as const

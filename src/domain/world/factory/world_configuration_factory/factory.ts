@@ -15,7 +15,7 @@
  * - 高度なバリデーションシステム
  */
 
-import * as BiomeProperties from '@domain/world/value_object/biome_properties/index'
+import * as BiomeProperties from '@/domain/biome/value_object/biome_properties/index'
 import * as GenerationParameters from '@domain/world/value_object/generation_parameters/index'
 import * as NoiseConfiguration from '@domain/world/value_object/noise_configuration/index'
 import * as WorldSeed from '@domain/world/value_object/world_seed/index'

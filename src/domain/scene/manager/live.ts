@@ -1,6 +1,6 @@
 import { Effect, Layer, Match, Option, Ref, Schema, pipe } from 'effect'
+import type { ActiveScene } from '..'
 import {
-  ActiveScene,
   PreloadError,
   SceneService,
   SceneState,
@@ -8,7 +8,8 @@ import {
   TransitionEffect,
   TransitionError as TransitionErrorADT,
 } from '..'
-import { SceneManager, SceneManagerState, SceneManagerStateSchema, sceneManagerState } from './service'
+import type { SceneManagerState } from './service'
+import { SceneManager, SceneManagerStateSchema, sceneManagerState } from './service'
 
 const toActiveScene = (scene: SceneState) =>
   Match.value(scene).pipe(

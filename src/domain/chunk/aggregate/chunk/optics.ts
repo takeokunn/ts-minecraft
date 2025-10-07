@@ -1,6 +1,11 @@
 import { Effect, Option, pipe, Schema } from 'effect'
 import { CHUNK_SIZE, CHUNK_VOLUME } from '../../types'
-import { type ChunkMetadata, type HeightValue, HeightValue as MakeHeightValue } from '../../value_object/chunk_metadata'
+import {
+  type ChunkMetadata,
+  type HeightValue,
+  HeightValue as MakeHeightValue,
+  makeUnsafeHeightValue,
+} from '../../value_object/chunk_metadata'
 import type { ChunkPosition } from '../../value_object/chunk_position'
 import type { ChunkData } from '../chunk_data'
 import { ChunkDataSchema, ChunkDataValidationError } from '../chunk_data'
@@ -284,8 +289,7 @@ export const ChunkDataOpticsEffect = {
       safeHeightIndex(index),
       Option.match({
         onNone: () => Effect.fail(invalidIndexError('height', index)),
-        onSome: (validated) =>
-          Effect.succeed((chunk.metadata.heightMap[validated] ?? (0 as HeightValue)) as HeightValue),
+        onSome: (validated) => Effect.succeed(chunk.metadata.heightMap[validated] ?? makeUnsafeHeightValue(0)),
       })
     ),
 } as const

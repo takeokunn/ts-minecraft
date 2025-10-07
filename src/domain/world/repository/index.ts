@@ -11,23 +11,25 @@ export * from '@domain/world/types'
 
 // === Repository Implementations ===
 
-// World Generator Repository
-export * from './world_generator_repository'
+// World Generator Repository (moved to world_generation)
+export * from '@/domain/world_generation/repository/world_generator_repository'
 
-// Generation Session Repository
-export * from './generation_session_repository'
-
-// Biome System Repository
-export * from './biome_system_repository'
+// Generation Session Repository (moved to world_generation)
+export * from '@/domain/world_generation/repository/generation_session_repository'
 
 // World Metadata Repository
 export * from './world_metadata_repository'
 
 // === Layer Integration ===
 
-import type { BiomeSystemRepository, BiomeSystemRepositoryConfig } from './biome_system_repository'
-import type { GenerationSessionRepository, GenerationSessionRepositoryConfig } from './generation_session_repository'
-import type { WorldGeneratorRepository, WorldGeneratorRepositoryConfig } from './world_generator_repository'
+import type {
+  GenerationSessionRepository,
+  GenerationSessionRepositoryConfig,
+} from '@/domain/world_generation/repository/generation_session_repository'
+import type {
+  WorldGeneratorRepository,
+  WorldGeneratorRepositoryConfig,
+} from '@/domain/world_generation/repository/world_generator_repository'
 import type { WorldMetadataRepository, WorldMetadataRepositoryConfig } from './world_metadata_repository'
 
 // === Repository Configuration ===
@@ -38,7 +40,6 @@ import type { WorldMetadataRepository, WorldMetadataRepositoryConfig } from './w
 export interface WorldRepositoryLayerConfig {
   readonly worldGenerator: WorldGeneratorRepositoryConfig
   readonly generationSession: GenerationSessionRepositoryConfig
-  readonly biomeSystem: BiomeSystemRepositoryConfig
   readonly worldMetadata: WorldMetadataRepositoryConfig
   readonly implementation: 'memory' | 'persistence' | 'mixed'
 }
@@ -58,13 +59,6 @@ export const defaultWorldRepositoryLayerConfig: WorldRepositoryLayerConfig = {
     recovery: { enabled: true, strategy: 'smart', maxRetries: 3 },
     cache: { enabled: true, maxSize: 500, ttlSeconds: 600 },
     performance: { enableProfiling: false, enableMetrics: true, batchSize: 25 },
-  },
-  biomeSystem: {
-    storage: { type: 'memory', maxBiomes: 100000 },
-    spatialIndex: { type: 'quadtree', maxDepth: 12, maxEntriesPerNode: 16, minNodeSize: 64 },
-    cache: { enabled: true, maxSize: 10000, ttlSeconds: 300, spatialCacheEnabled: true, climateCacheEnabled: true },
-    climate: { gridResolution: 16, interpolationMethod: 'bilinear', enableTransitions: true, transitionSmoothing: 0.5 },
-    performance: { enableProfiling: false, enableMetrics: true, batchSize: 1000, indexOptimizationInterval: 3600000 },
   },
   worldMetadata: {
     storage: { type: 'memory', maxWorlds: 1000, enableEncryption: false },
@@ -116,7 +110,6 @@ export * from './layers'
 export interface WorldRepositoryServices {
   readonly worldGenerator: WorldGeneratorRepository
   readonly generationSession: GenerationSessionRepository
-  readonly biomeSystem: BiomeSystemRepository
   readonly worldMetadata: WorldMetadataRepository
 }
 

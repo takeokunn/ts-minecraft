@@ -6,7 +6,7 @@
  * Effect-TS 3.17+ の Data.tagged による構造化エラー
  */
 
-import type { GenerationSessionId } from '@domain/world/aggregate/generation_session'
+import type { GenerationSessionId } from '@/domain/world_generation/aggregate/generation_session'
 import type { BiomeId, WorldId } from '@domain/world/types/core'
 import { Clock, Data, Effect, Match } from 'effect'
 

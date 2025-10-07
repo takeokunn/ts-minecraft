@@ -14,12 +14,13 @@ import {
 /**
  * InventoryType ファクトリー関数
  */
-export const createInventoryType = (typeData: any): Effect.Effect<InventoryType, InventoryTypeError> =>
+export const createInventoryType = (typeData: unknown): Effect.Effect<InventoryType, InventoryTypeError> =>
   pipe(
     Schema.decodeUnknown(InventoryTypeSchema)(typeData),
     Effect.mapError(() =>
       InventoryTypeError.UnsupportedType({
-        type: typeData._tag || 'unknown',
+        type:
+          typeof typeData === 'object' && typeData !== null && '_tag' in typeData ? String(typeData._tag) : 'unknown',
         supportedTypes: ['Player', 'Chest', 'Furnace', 'CraftingTable', 'Anvil', 'EnchantingTable'],
       })
     )

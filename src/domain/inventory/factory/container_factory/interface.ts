@@ -54,6 +54,9 @@ export type ContainerType =
   | 'fletching_table'
   | 'loom'
 
+// 型ガード関数（Schema未定義のため暫定的に使用）
+export const asContainerType = (value: string): ContainerType => value as ContainerType
+
 // コンテナアクセス権限（DDD Value Object）
 export interface ContainerPermissions {
   readonly canInsert: boolean

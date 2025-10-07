@@ -3,18 +3,15 @@ import { Data, Effect, Match, Option, Schema, pipe } from 'effect'
 const decode = <A, I>(schema: Schema.Schema<A, I>) => Schema.decode(schema)
 const decodeSync = <A, I>(schema: Schema.Schema<A, I>) => Schema.decodeSync(schema)
 
-// PlayerIdは専用value_objectから再エクスポート
-export { PlayerIdSchema, type PlayerId } from '@domain/player/value_object/player_id'
+// PlayerIdは共有カーネルから再エクスポート
+export { PlayerIdSchema, type PlayerId } from '@domain/shared/entities/player_id'
+export { SimpleItemIdSchema as ItemIdSchema, type ItemId } from '../../../domain/shared/entities/item_id'
 export const parsePlayerId = decode(PlayerIdSchema)
 export const playerIdToString = (value: PlayerId): string => value
 
-export const ItemIdSchema = Schema.String.pipe(
-  Schema.minLength(1),
-  Schema.pattern(/^[A-Za-z0-9_:.-]+$/),
-  Schema.brand('ItemId')
-)
-export type ItemId = Schema.Schema.Type<typeof ItemIdSchema>
-export const parseItemId = decode(ItemIdSchema)
+// 共有カーネルから再エクスポート
+import { SimpleItemIdSchema } from '../../../domain/shared/entities/item_id'
+export const parseItemId = decode(SimpleItemIdSchema)
 
 export const SlotIndexSchema = Schema.Number.pipe(Schema.int(), Schema.nonNegative(), Schema.brand('SlotIndex'))
 export type SlotIndex = Schema.Schema.Type<typeof SlotIndexSchema>

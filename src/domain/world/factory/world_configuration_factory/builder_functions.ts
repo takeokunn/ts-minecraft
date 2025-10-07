@@ -1,4 +1,4 @@
-import * as BiomeProperties from '@domain/world/biome/biome_properties.js'
+import * as BiomeProperties from '@/domain/biome/value_object/biome_properties/index'
 import * as GenerationParameters from '@domain/world/config/generation_parameters.js'
 import * as NoiseConfiguration from '@domain/world/config/noise_configuration.js'
 import * as WorldSeed from '@domain/world/config/world_seed.js'

@@ -72,6 +72,24 @@ export const PhaseSchema = Schema.Number.pipe(
 )
 
 /**
+ * OctaveIndex型のunsafe変換関数
+ * 定数定義時の型アサーションを型安全に実施（範囲検証なし）
+ */
+export const makeUnsafeOctaveIndex = (value: number): OctaveIndex => value as OctaveIndex
+
+/**
+ * Weight型のunsafe変換関数
+ * 定数定義時の型アサーションを型安全に実施（範囲検証なし）
+ */
+export const makeUnsafeWeight = (value: number): Weight => value as Weight
+
+/**
+ * Phase型のunsafe変換関数
+ * 定数定義時の型アサーションを型安全に実施（範囲検証なし）
+ */
+export const makeUnsafePhase = (value: number): Phase => value as Phase
+
+/**
  * オクターブタイプ
  */
 export const OctaveTypeSchema = Schema.Literal(

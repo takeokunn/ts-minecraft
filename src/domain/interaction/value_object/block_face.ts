@@ -1,7 +1,8 @@
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
 import { Data, Effect, Match, Option, Schema } from 'effect'
 import { pipe } from 'effect/Function'
-import { Vector3, Vector3Error, fromNumbers, normalize } from './vector3'
+import type { Vector3 } from './vector3'
+import { Vector3Error, fromNumbers, normalize } from './vector3'
 
 const BlockFaceLiteralSchema = Schema.Literal('north', 'south', 'east', 'west', 'up', 'down')
 

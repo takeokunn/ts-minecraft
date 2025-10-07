@@ -33,6 +33,9 @@ export class InventoryMergeError extends Schema.TaggedError<InventoryMergeError>
 // インベントリータイプ（DDD Value Object）
 export type InventoryType = 'player' | 'creative' | 'survival' | 'spectator' | 'adventure'
 
+// 型ガード関数（Schema未定義のため暫定的に使用）
+export const asInventoryType = (value: string): InventoryType => value as InventoryType
+
 // インベントリー設定（DDD Value Object）
 export interface InventoryConfig {
   readonly playerId: PlayerId

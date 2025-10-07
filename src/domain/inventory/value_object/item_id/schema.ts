@@ -1,5 +1,8 @@
 import { Brand, Schema } from 'effect'
-import { ItemCategory, ItemId, ItemName, ItemRarity, Namespace } from './types'
+import { ItemCategory, ItemName, ItemRarity, Namespace } from './types'
+
+// 共有カーネルから再エクスポート
+export { ItemIdSchema, type ItemId } from '../../../../shared/entities/item_id'
 
 /**
  * Namespace Brand型用Schema
@@ -17,24 +20,6 @@ export const ItemNameSchema = Schema.String.pipe(
   Schema.nonEmptyString(),
   Schema.pattern(/^[a-z0-9/_-]+$/),
   Schema.fromBrand(Brand.nominal<ItemName>())
-)
-
-/**
- * ItemId Brand型用Schema
- */
-export const ItemIdSchema = Schema.String.pipe(
-  Schema.nonEmptyString(),
-  Schema.pattern(/^[a-z0-9._-]+:[a-z0-9/_-]+$/),
-  Schema.filter(
-    (value) => {
-      const parts = value.split(':')
-      return parts.length === 2 && parts[0].length > 0 && parts[1].length > 0
-    },
-    {
-      message: () => 'ItemId must be in format "namespace:name"',
-    }
-  ),
-  Schema.fromBrand(Brand.nominal<ItemId>())
 )
 
 /**

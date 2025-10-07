@@ -169,7 +169,7 @@ export const SettingsValidatorServiceLive = Layer.succeed(
     validateFOV: (fov, aspectRatio, context) =>
       Effect.gen(function* () {
         // 基本的なFOV範囲チェック
-        const fovValue = fov as number
+        const fovValue = fov
         const minFOV = 30
         const maxFOV = 120
 
@@ -200,7 +200,7 @@ export const SettingsValidatorServiceLive = Layer.succeed(
      */
     validateFrameRateConstraints: (targetFrameRate, qualityLevel, hardwareLimits) =>
       Effect.gen(function* () {
-        const frameRateValue = targetFrameRate as number
+        const frameRateValue = targetFrameRate
 
         yield* Effect.filterOrFail(
           frameRateValue <= hardwareLimits.maxFrameRate,
@@ -208,7 +208,7 @@ export const SettingsValidatorServiceLive = Layer.succeed(
           () =>
             SettingsValidationError.InvalidFrameRate({
               value: frameRateValue,
-              hardwareLimit: hardwareLimits.maxFrameRate as number,
+              hardwareLimit: hardwareLimits.maxFrameRate,
             })
         )
 
@@ -227,7 +227,7 @@ export const SettingsValidatorServiceLive = Layer.succeed(
 
         // Near < Far の基本チェック
         yield* Effect.filterOrFail(
-          (nearPlane as number) < (farPlane as number),
+          nearPlane < farPlane,
           () => true,
           () =>
             SettingsValidationError.IncompatibleSettings({
@@ -344,7 +344,7 @@ const validateFOVAspectRatioConsistency = (
 ): Effect.Effect<void, SettingsValidationError> =>
   Effect.gen(function* () {
     const fovValue = fov as number
-    const aspectValue = aspectRatio as number
+    const aspectValue = aspectRatio
 
     // 超ワイドディスプレイでの極端なFOVをチェック
     yield* Effect.filterOrFail(
@@ -371,8 +371,8 @@ const validateNearFarPlanes = (
   farPlane: FarPlane
 ): Effect.Effect<void, SettingsValidationError> =>
   Effect.gen(function* () {
-    const near = nearPlane as number
-    const far = farPlane as number
+    const near = nearPlane
+    const far = farPlane
     const ratio = far / near
 
     // Z-fighting防止のための比率チェック
@@ -414,7 +414,7 @@ const assessPerformanceImpact = (
     const warnings: ValidationWarning[] = []
 
     // レンダリング品質によるパフォーマンス影響
-    yield* Effect.when((settings.qualityLevel as number) > 0.8, () =>
+    yield* Effect.when(settings.qualityLevel > 0.8, () =>
       Effect.sync(() => {
         warnings.push({
           type: 'performance',
@@ -427,7 +427,7 @@ const assessPerformanceImpact = (
     )
 
     // 高フレームレートによるバッテリー影響
-    yield* Effect.when((settings.frameRate as number) > 60, () =>
+    yield* Effect.when(settings.frameRate > 60, () =>
       Effect.sync(() => {
         warnings.push({
           type: 'battery',
@@ -574,13 +574,13 @@ const applyHardwareLimits = (
 ): Effect.Effect<CameraSettings, SettingsValidationError> =>
   Effect.gen(function* () {
     // フレームレート制限
-    const frameRateLimited = yield* Effect.if((settings.frameRate as number) > (limits.maxFrameRate as number), {
+    const frameRateLimited = yield* Effect.if(settings.frameRate > limits.maxFrameRate, {
       onTrue: () => CameraSettingsOps.setFrameRate(settings, limits.maxFrameRate),
       onFalse: () => Effect.succeed(settings),
     })
 
     // 品質レベル調整
-    return yield* Effect.if((frameRateLimited.qualityLevel as number) > (limits.maxTextureQuality as number), {
+    return yield* Effect.if(frameRateLimited.qualityLevel > limits.maxTextureQuality, {
       onTrue: () => CameraSettingsOps.setQualityLevel(frameRateLimited, limits.maxTextureQuality),
       onFalse: () => Effect.succeed(frameRateLimited),
     })
@@ -595,7 +595,7 @@ const applyPerformanceLimits = (
 ): Effect.Effect<CameraSettings, SettingsValidationError> =>
   Effect.gen(function* () {
     // ターゲットフレームレートに調整
-    return yield* Effect.if((settings.frameRate as number) > (limits.targetFrameRate as number), {
+    return yield* Effect.if(settings.frameRate > limits.targetFrameRate, {
       onTrue: () => CameraSettingsOps.setFrameRate(settings, limits.targetFrameRate),
       onFalse: () => Effect.succeed(settings),
     })

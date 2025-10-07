@@ -215,12 +215,13 @@ export const ChunkQueryRepositoryLive = Layer.effect(
     const getCached = <T>(key: string, ttlMs: number = 60000): Effect.Effect<T | null, never> =>
       Effect.gen(function* () {
         const cache = yield* Ref.get(cacheRef)
+        // Map<string, CacheEntry<unknown>>からCacheEntry<T>への型安全な取得
         const entry = cache.get(key) as CacheEntry<T> | undefined
 
         return yield* pipe(
           Option.fromNullable(entry),
           Option.match({
-            onNone: () => Effect.succeed(null as T | null),
+            onNone: () => Effect.succeed(null),
             onSome: (e) =>
               Effect.gen(function* () {
                 const now = yield* Clock.currentTimeMillis
@@ -237,7 +238,7 @@ export const ChunkQueryRepositoryLive = Layer.effect(
                         })
                         return e.data as T | null
                       }),
-                    onFalse: () => Effect.succeed(null as T | null),
+                    onFalse: () => Effect.succeed(null),
                   })
                 )
               }),
@@ -485,7 +486,7 @@ export const ChunkQueryRepositoryLive = Layer.effect(
           })
 
           // Option.matchで隣接チャンクをundefinedに変換
-          const extractValue = (opt: { _tag: string; value?: any }) => (opt._tag === 'Some' ? opt.value : undefined)
+          const extractValue = (opt: { _tag: string; value?: unknown }) => (opt._tag === 'Some' ? opt.value : undefined)
 
           const neighborhood: ChunkNeighborhood = {
             center,
@@ -580,22 +581,14 @@ export const ChunkQueryRepositoryLive = Layer.effect(
           const chunks = yield* chunkRepo.findByRegion(region)
 
           const data = chunks.map((chunk) => {
-            let value = 0
-
-            switch (metric) {
-              case 'accessCount':
-                value = 1 // 実際の実装では chunk.metadata.accessCount
-                break
-              case 'loadTime':
-                value = 10 // 実際の実装では chunk.metadata.loadTime
-                break
-              case 'modificationTime':
-                value = 0 // 実際の実装では chunk.metadata.modifiedAt（プレースホルダー）
-                break
-              case 'size':
-                value = JSON.stringify(chunk).length
-                break
-            }
+            const value = pipe(
+              Match.value(metric),
+              Match.when('accessCount', () => 1), // 実際の実装では chunk.metadata.accessCount
+              Match.when('loadTime', () => 10), // 実際の実装では chunk.metadata.loadTime
+              Match.when('modificationTime', () => 0), // 実際の実装では chunk.metadata.modifiedAt（プレースホルダー）
+              Match.when('size', () => JSON.stringify(chunk).length),
+              Match.exhaustive
+            )
 
             return {
               x: chunk.position.x,

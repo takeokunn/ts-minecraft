@@ -3,7 +3,7 @@ import { WorldFactories } from '@domain/world/factory'
 import type { WorldSeed } from '@domain/world/value_object/world_seed'
 import { WorldSeedFactory } from '@domain/world/value_object/world_seed/index'
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
-import { Effect, Match, Option, Random, Schema } from 'effect'
+import { DateTime, Effect, Match, Option, Random, Schema } from 'effect'
 import { WorldClock, WorldDomainConfig, defaultWorldDomainConfig } from './index'
 
 const WorldDataSchema = Schema.Struct({
@@ -98,8 +98,8 @@ const optimizeWorldSettingsInternal = (config: Partial<WorldDomainConfig>) =>
 const exportWorldMetadataInternal = (world: unknown) =>
   Effect.gen(function* () {
     const validation = yield* validateWorldDataInternal(world)
-    const nowMillis = yield* Effect.flatMap(Effect.service(WorldClock), (clock) => clock.currentMillis)
-    const now = new Date(nowMillis)
+    const nowDateTime = yield* DateTime.now
+    const now = DateTime.toDate(nowDateTime)
 
     return Match.value(validation.isValid).pipe(
       Match.when(true, () => {
@@ -118,7 +118,7 @@ const exportWorldMetadataInternal = (world: unknown) =>
         return {
           name: typed.metadata?.name ?? 'Unnamed World',
           seed: typed.seed,
-          created: typed.metadata?.created ? new Date(typed.metadata.created) : now,
+          created: typed.metadata?.created ? DateTime.toDate(DateTime.unsafeMake(typed.metadata.created)) : now,
           version: typed.metadata?.version ?? '1.0.0',
           type: typed.metadata?.type ?? 'unknown',
           chunks: typed.generator?.statistics?.totalGenerated ?? 0,

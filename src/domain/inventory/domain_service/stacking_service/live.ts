@@ -78,38 +78,41 @@ export const StackingServiceLive = Layer.succeed(
      */
     splitStack: (inventory, request) =>
       Effect.gen(function* () {
-        const sourceStack = inventory.slots[request.sourceSlot]
+        const sourceStackOption = Option.fromNullable(inventory.slots[request.sourceSlot])
 
-        yield* Effect.when(
-          () => sourceStack === null,
-          () => Effect.fail(new StackingError('INSUFFICIENT_ITEMS', 'Source slot is empty'))
+        const sourceStack = yield* pipe(
+          sourceStackOption,
+          Effect.fromOption,
+          Effect.mapError(() => new StackingError('INSUFFICIENT_ITEMS', 'Source slot is empty'))
         )
 
         yield* Effect.when(
-          () => request.splitCount >= sourceStack!.count,
+          () => request.splitCount >= sourceStack.count,
           () => Effect.fail(new StackingError('INVALID_ITEM_COUNT', 'Split count exceeds available items'))
         )
 
-        const targetSlot = request.targetSlot === 'auto' ? yield* findEmptySlot(inventory) : request.targetSlot
+        const targetSlotMaybe = request.targetSlot === 'auto' ? yield* findEmptySlot(inventory) : request.targetSlot
 
-        yield* Effect.when(
-          () => targetSlot === undefined,
-          () => Effect.fail(new StackingError('INVENTORY_FULL', 'No available slot for split'))
+        const targetSlot = yield* pipe(
+          Option.fromNullable(targetSlotMaybe),
+          Effect.fromOption,
+          Effect.mapError(() => new StackingError('INVENTORY_FULL', 'No available slot for split'))
         )
 
         const newSlots = [...inventory.slots]
 
         // 元のスタックを更新
-        newSlots[request.sourceSlot] = {
-          ...sourceStack!,
-          count: sourceStack!.count - request.splitCount,
+        const updatedSourceStack: ItemStack = {
+          ...sourceStack,
+          count: sourceStack.count - request.splitCount,
         }
+        newSlots[request.sourceSlot] = updatedSourceStack
 
         // 分割されたスタックを新しいスロットに配置
         const splitStack: ItemStack = {
-          ...sourceStack!,
+          ...sourceStack,
           count: request.splitCount,
-          metadata: request.preserveMetadata ? sourceStack!.metadata : undefined,
+          metadata: request.preserveMetadata ? sourceStack.metadata : undefined,
         }
         newSlots[targetSlot] = splitStack
 
@@ -118,8 +121,8 @@ export const StackingServiceLive = Layer.succeed(
           updatedInventory: { ...inventory, slots: newSlots },
           sourceSlot: request.sourceSlot,
           targetSlot,
-          originalStack: sourceStack!,
-          resultingStacks: [newSlots[request.sourceSlot]!, splitStack],
+          originalStack: sourceStack,
+          resultingStacks: [updatedSourceStack, splitStack],
         }
       }),
 
@@ -307,7 +310,11 @@ const consolidateAllStacks = (
       Array.from(itemGroups.entries()),
       ReadonlyArray.filter(([_, slots]) => slots.length > 1),
       Effect.reduce(
-        { inventory, stacksConsolidated: 0, operations: [] as StackOptimizationResult['operationsPerformed'] },
+        {
+          inventory,
+          stacksConsolidated: 0,
+          operations: [] as const satisfies StackOptimizationResult['operationsPerformed'],
+        },
         (acc, [itemId, slots]) =>
           Effect.gen(function* () {
             const consolidationResult = yield* consolidateItemGroup(acc.inventory, itemId, slots)
@@ -330,10 +337,18 @@ const groupStacksByItemId = (inventory: Inventory): Effect.Effect<Map<ItemId, nu
       ReadonlyArray.mapWithIndex((stack, i) => ({ stack, index: i })),
       ReadonlyArray.filter(({ stack }) => stack !== null),
       ReadonlyArray.reduce(new Map<ItemId, number[]>(), (groups, { stack, index }) => {
-        const existing = groups.get(stack!.itemId) ?? []
-        existing.push(index)
-        groups.set(stack!.itemId, existing)
-        return groups
+        return pipe(
+          Option.fromNullable(stack),
+          Option.match({
+            onNone: () => groups,
+            onSome: (itemStack) => {
+              const existing = groups.get(itemStack.itemId) ?? []
+              existing.push(index)
+              groups.set(itemStack.itemId, existing)
+              return groups
+            },
+          })
+        )
       })
     )
   )
@@ -369,7 +384,7 @@ const consolidateItemGroup = (
         {
           inventory,
           stacksConsolidated: 0,
-          operations: [] as StackOptimizationResult['operationsPerformed'],
+          operations: [] as const satisfies StackOptimizationResult['operationsPerformed'],
           shouldContinue: true,
         },
         (acc, { sourceSlot, targetSlot }) =>
@@ -384,10 +399,11 @@ const consolidateItemGroup = (
             if (sourceStack && targetStack && sourceStack.count + targetStack.count <= 64) {
               // スタック統合実行
               const newSlots = [...acc.inventory.slots]
-              newSlots[targetSlot] = {
+              const consolidatedStack = {
                 ...targetStack,
                 count: sourceStack.count + targetStack.count,
               }
+              newSlots[targetSlot] = consolidatedStack
               newSlots[sourceSlot] = null
 
               const newOperation = {
@@ -395,7 +411,7 @@ const consolidateItemGroup = (
                 sourceSlot,
                 targetSlot,
                 itemsBefore: sourceStack.count + targetStack.count,
-                itemsAfter: newSlots[targetSlot]!.count,
+                itemsAfter: consolidatedStack.count,
               }
 
               return {
@@ -452,7 +468,7 @@ const compactInventory = (
       Effect.reduce(
         {
           newSlots: [...inventory.slots],
-          operations: [] as StackOptimizationResult['operationsPerformed'],
+          operations: [] as const satisfies StackOptimizationResult['operationsPerformed'],
           writeIndex: 0,
         },
         (acc, { slot, readIndex }) =>

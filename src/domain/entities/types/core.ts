@@ -6,43 +6,13 @@ const nonEmptyText = Schema.String.pipe(Schema.minLength(1))
 // Branded Scalar Types
 // -----------------------------------------------------------------------------
 
-// DomainEntityIdへの再エクスポート（後方互換性維持）
-export {
-  DomainEntityIdSchema as EntityIdSchema,
-  type DomainEntityId as EntityId,
-} from '../value_object/domain_entity_id'
-
-// PlayerIdは専用value_objectから再エクスポート
-export { PlayerIdSchema, type PlayerId } from '@domain/player/value_object/player_id'
-
-export const BlockIdSchema = nonEmptyText.pipe(
-  Schema.brand('BlockId'),
-  Schema.annotations({
-    title: 'BlockId',
-    description: 'Identifier for a block definition',
-  })
-)
-export type BlockId = Schema.Schema.Type<typeof BlockIdSchema>
-
-export const BlockTypeIdSchema = Schema.Number.pipe(
-  Schema.int(),
-  Schema.nonNegative(),
-  Schema.brand('BlockTypeId'),
-  Schema.annotations({
-    title: 'BlockTypeId',
-    description: 'Numeric identifier for a block type in registries',
-  })
-)
-export type BlockTypeId = Schema.Schema.Type<typeof BlockTypeIdSchema>
-
-export const ItemIdSchema = nonEmptyText.pipe(
-  Schema.brand('ItemId'),
-  Schema.annotations({
-    title: 'ItemId',
-    description: 'Identifier for items',
-  })
-)
-export type ItemId = Schema.Schema.Type<typeof ItemIdSchema>
+// 共有カーネルから再エクスポート
+export { BlockIdSchema, type BlockId } from '@domain/shared/entities/block_id'
+export { BlockTypeIdSchema, type BlockTypeId } from '@domain/shared/entities/block_type_id'
+export { EntityIdSchema, type EntityId } from '@domain/shared/entities/entity_id'
+export { ItemIdSchema, type ItemId } from '@domain/shared/entities/item_id'
+export { PlayerIdSchema, type PlayerId } from '@domain/shared/entities/player_id'
+export { WorldIdSchema, type WorldId } from '@domain/shared/entities/world_id'
 
 export const SessionIdSchema = nonEmptyText.pipe(
   Schema.brand('SessionId'),
@@ -52,15 +22,6 @@ export const SessionIdSchema = nonEmptyText.pipe(
   })
 )
 export type SessionId = Schema.Schema.Type<typeof SessionIdSchema>
-
-export const WorldIdSchema = nonEmptyText.pipe(
-  Schema.brand('WorldId'),
-  Schema.annotations({
-    title: 'WorldId',
-    description: 'Identifier for a world or dimension instance',
-  })
-)
-export type WorldId = Schema.Schema.Type<typeof WorldIdSchema>
 
 export const EntityCountSchema = Schema.Number.pipe(
   Schema.int(),

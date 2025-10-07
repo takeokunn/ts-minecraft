@@ -45,17 +45,24 @@ export const ItemDefinitionRepositoryJsonFile = (config: JsonFileConfig = Defaul
 
       // ファイル操作のヘルパー関数
       const loadFromFile = pipe(
-        Effect.tryPromise({
-          try: async () => {
-            if (typeof require !== 'undefined') {
-              const fs = require('fs').promises
-              const fileContent = await fs.readFile(config.filePath, 'utf8')
-              return JSON.parse(fileContent)
-            }
-            throw new Error('File system not available')
-          },
-          catch: (error) => createStorageError('filesystem', 'load', `Failed to load file: ${error}`),
-        }),
+        Effect.gen(function* () {
+          if (typeof require !== 'undefined') {
+            const fs = require('fs').promises
+            const fileContent = yield* Effect.promise(() => fs.readFile(config.filePath, 'utf8'))
+            return JSON.parse(fileContent)
+          }
+          return yield* Effect.fail(new Error('File system not available'))
+        }).pipe(
+          Effect.catchAll((error) =>
+            Effect.fail(
+              createStorageError(
+                'filesystem',
+                'load',
+                `Failed to load file: ${error instanceof Error ? error.message : String(error)}`
+              )
+            )
+          )
+        ),
         Effect.flatMap((data) =>
           Effect.gen(function* () {
             // definitions の処理
@@ -136,44 +143,47 @@ export const ItemDefinitionRepositoryJsonFile = (config: JsonFileConfig = Defaul
           lastSaved: timestamp,
         }
 
-        yield* Effect.tryPromise({
-          try: async () => {
-            if (typeof require !== 'undefined') {
-              const fs = require('fs').promises
-              const path = require('path')
+        yield* Effect.gen(function* () {
+          if (typeof require !== 'undefined') {
+            const fs = require('fs').promises
+            const path = require('path')
 
-              // ディレクトリが存在しない場合は作成
-              const dir = path.dirname(config.filePath)
-              await fs.mkdir(dir, { recursive: true })
+            // ディレクトリが存在しない場合は作成
+            const dir = path.dirname(config.filePath)
+            yield* Effect.promise(() => fs.mkdir(dir, { recursive: true }))
 
-              // バックアップ作成（有効な場合）
-              if (config.backupEnabled) {
-                await Effect.runPromise(
-                  pipe(
-                    Effect.tryPromise({
-                      try: async () => {
-                        const backupTimestamp = await Effect.runPromise(Clock.currentTimeMillis)
-                        const backupPath = `${config.filePath}.backup-${backupTimestamp}`
-                        await fs.copyFile(config.filePath, backupPath)
-                      },
-                      catch: (error) => createStorageError('filesystem', 'backup', `Failed to create backup: ${error}`),
-                    }),
-                    Effect.catchAll((error) =>
-                      Effect.sync(() => {
-                        console.warn('Failed to create backup:', error)
-                      })
-                    )
-                  )
+            // バックアップ作成（有効な場合）
+            if (config.backupEnabled) {
+              yield* pipe(
+                Effect.gen(function* () {
+                  const backupTimestamp = yield* Clock.currentTimeMillis
+                  const backupPath = `${config.filePath}.backup-${backupTimestamp}`
+                  yield* Effect.promise(() => fs.copyFile(config.filePath, backupPath))
+                }),
+                Effect.catchAll((error) =>
+                  Effect.sync(() => {
+                    console.warn('Failed to create backup:', error)
+                  })
                 )
-              }
-
-              await fs.writeFile(config.filePath, JSON.stringify(data, null, 2), 'utf8')
-            } else {
-              throw new Error('File system not available')
+              )
             }
-          },
-          catch: (error) => createStorageError('filesystem', 'save', `Failed to save file: ${error}`),
-        })
+
+            // ファイル書き込み
+            yield* Effect.promise(() => fs.writeFile(config.filePath, JSON.stringify(data, null, 2), 'utf8'))
+          } else {
+            yield* Effect.fail(createStorageError('filesystem', 'save', 'File system not available'))
+          }
+        }).pipe(
+          Effect.catchAll((error) =>
+            Effect.fail(
+              createStorageError(
+                'filesystem',
+                'save',
+                `Failed to save file: ${error instanceof Error ? error.message : String(error)}`
+              )
+            )
+          )
+        )
 
         yield* Ref.set(isDirty, false)
       })

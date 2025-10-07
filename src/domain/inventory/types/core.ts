@@ -22,25 +22,15 @@ export type InventoryId = Schema.Schema.Type<typeof InventoryIdSchema>
 
 /**
  * プレイヤー識別子
- * 専用value_objectから再エクスポート
+ * 共有カーネルから再エクスポート
  */
-export { PlayerIdSchema, type PlayerId } from '@domain/player/value_object/player_id'
+export { PlayerIdSchema, type PlayerId } from '@domain/shared/entities/player_id'
 
 /**
  * アイテム識別子
- * Minecraftアイテムの一意識別子（namespace:name形式）
+ * 共有カーネルから再エクスポート
  */
-export const ItemIdSchema = Schema.String.pipe(
-  Schema.pattern(/^[a-z_]+:[a-z_]+$/),
-  Schema.brand('ItemId'),
-  Schema.annotations({
-    title: 'ItemId',
-    description: 'Unique identifier for an item (namespace:name format)',
-    examples: ['minecraft:stone', 'minecraft:diamond_sword', 'custom:magic_wand'],
-  })
-)
-
-export type ItemId = Schema.Schema.Type<typeof ItemIdSchema>
+export { ItemIdSchema, type ItemId } from '../../../shared/entities/item_id'
 
 /**
  * スロット番号

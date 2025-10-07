@@ -9,14 +9,18 @@ import { Effect, Array as EffectArray, Function, Match, pipe } from 'effect'
 import type { ItemStack, PlayerId } from '../../types'
 import { InventoryFactoryLive } from './factory'
 import type {
+  defaultPermissions,
   InventoryBuilder,
   InventoryBuilderConfig,
   InventoryBuilderFactory,
   InventoryType,
   InventoryValidationError,
-  defaultPermissions,
 } from './interface'
-import { InventoryCreationError as CreationError, InventoryValidationError as ValidationError } from './interface'
+import {
+  asInventoryType,
+  InventoryCreationError as CreationError,
+  InventoryValidationError as ValidationError,
+} from './interface'
 
 // ===== Builder Configuration Helpers（Pure Functions） =====
 
@@ -26,7 +30,7 @@ const getDefaultConfig = (type: InventoryType): InventoryBuilderConfig =>
     type,
     Match.value,
     Match.when('player', () => ({
-      type: 'player' as InventoryType,
+      type: asInventoryType('player'),
       slotCount: 36,
       enableHotbar: true,
       enableArmor: true,
@@ -35,7 +39,7 @@ const getDefaultConfig = (type: InventoryType): InventoryBuilderConfig =>
       permissions: defaultPermissions,
     })),
     Match.when('creative', () => ({
-      type: 'creative' as InventoryType,
+      type: asInventoryType('creative'),
       slotCount: 45,
       enableHotbar: true,
       enableArmor: true,
@@ -48,7 +52,7 @@ const getDefaultConfig = (type: InventoryType): InventoryBuilderConfig =>
       },
     })),
     Match.when('survival', () => ({
-      type: 'survival' as InventoryType,
+      type: asInventoryType('survival'),
       slotCount: 36,
       enableHotbar: true,
       enableArmor: true,
@@ -57,7 +61,7 @@ const getDefaultConfig = (type: InventoryType): InventoryBuilderConfig =>
       permissions: defaultPermissions,
     })),
     Match.when('spectator', () => ({
-      type: 'spectator' as InventoryType,
+      type: asInventoryType('spectator'),
       slotCount: 0,
       enableHotbar: false,
       enableArmor: false,
@@ -72,7 +76,7 @@ const getDefaultConfig = (type: InventoryType): InventoryBuilderConfig =>
       },
     })),
     Match.when('adventure', () => ({
-      type: 'adventure' as InventoryType,
+      type: asInventoryType('adventure'),
       slotCount: 36,
       enableHotbar: true,
       enableArmor: true,

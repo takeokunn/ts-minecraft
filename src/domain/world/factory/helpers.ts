@@ -4,13 +4,21 @@
  * ワールドファクトリーの便利なワークフローとユーティリティ関数を提供します。
  */
 
+import {
+  createExplorationSession,
+  createQualitySession,
+  createQuickSession,
+} from '@/domain/world_generation/factory/generation_session_factory/index'
+import {
+  createFastGenerator,
+  createQualityGenerator,
+  createQuickGenerator,
+} from '@/domain/world_generation/factory/world_generator_factory/index'
 import type * as Coordinates from '@domain/world/value_object/coordinates/index'
 import { Effect } from 'effect'
 import { createDefaultBiomeSystem } from './biome_system_factory/index'
-import { createExplorationSession, createQualitySession, createQuickSession } from './generation_session_factory/index'
 import { SUPPORTED_FACTORY_TYPES } from './index'
 import { createQuickConfiguration } from './world_configuration_factory/index'
-import { createFastGenerator, createQualityGenerator, createQuickGenerator } from './world_generator_factory/index'
 
 /**
  * 完全な世界生成セットアップ

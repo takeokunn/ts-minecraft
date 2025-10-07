@@ -106,19 +106,24 @@ export const checkMetadataCompatibility = (
       Match.orElse(() =>
         Effect.gen(function* () {
           // 両方メタデータあり - 詳細チェック実行
-          const sourceMetadata = sourceStack.metadata!
-          const targetMetadata = targetStack.metadata!
+          const sourceMetadata = yield* pipe(sourceMetaOpt, Effect.fromOption, Effect.orDie)
+          const targetMetadata = yield* pipe(targetMetaOpt, Effect.fromOption, Effect.orDie)
 
           const conflicts: MetadataConflict[] = []
 
           // エンチャントのチェック
-          const enchantmentConflict = yield* checkEnchantmentCompatibility(
+          const enchantmentConflictOpt = yield* checkEnchantmentCompatibility(
             sourceMetadata.enchantments,
             targetMetadata.enchantments
           )
-          yield* Effect.when(enchantmentConflict !== null, () =>
-            Effect.sync(() => {
-              conflicts.push(enchantmentConflict!)
+          yield* pipe(
+            Option.fromNullable(enchantmentConflictOpt),
+            Option.match({
+              onNone: () => Effect.void,
+              onSome: (conflict) =>
+                Effect.sync(() => {
+                  conflicts.push(conflict)
+                }),
             })
           )
 
@@ -135,10 +140,15 @@ export const checkMetadataCompatibility = (
           )
 
           // Loreのチェック
-          const loreConflict = yield* checkLoreCompatibility(sourceMetadata.lore, targetMetadata.lore)
-          yield* Effect.when(loreConflict !== null, () =>
-            Effect.sync(() => {
-              conflicts.push(loreConflict!)
+          const loreConflictOpt = yield* checkLoreCompatibility(sourceMetadata.lore, targetMetadata.lore)
+          yield* pipe(
+            Option.fromNullable(loreConflictOpt),
+            Option.match({
+              onNone: () => Effect.void,
+              onSome: (conflict) =>
+                Effect.sync(() => {
+                  conflicts.push(conflict)
+                }),
             })
           )
 
@@ -323,8 +333,20 @@ const checkEnchantmentCompatibility = (
       Match.orElse(() =>
         Effect.gen(function* () {
           // 両方エンチャントあり - 詳細比較
-          const sourceEnchantmentMap = new Map(sourceEnchantments!.map((e) => [e.id, e.level]))
-          const targetEnchantmentMap = new Map(targetEnchantments!.map((e) => [e.id, e.level]))
+          const sourceEnchantmentMap = pipe(
+            sourceOpt,
+            Option.match({
+              onNone: () => new Map<string, number>(),
+              onSome: (enchantments) => new Map(enchantments.map((e) => [e.id, e.level])),
+            })
+          )
+          const targetEnchantmentMap = pipe(
+            targetOpt,
+            Option.match({
+              onNone: () => new Map<string, number>(),
+              onSome: (enchantments) => new Map(enchantments.map((e) => [e.id, e.level])),
+            })
+          )
 
           // エンチャントの種類やレベルが異なる場合
           return yield* pipe(
@@ -403,8 +425,17 @@ const checkLoreCompatibility = (
       Match.orElse(() =>
         Effect.gen(function* () {
           // 両方Loreあり - 配列比較
+          const sourceLoreArray = pipe(
+            sourceOpt,
+            Option.getOrElse(() => [] as readonly string[])
+          )
+          const targetLoreArray = pipe(
+            targetOpt,
+            Option.getOrElse(() => [] as readonly string[])
+          )
+
           return yield* pipe(
-            Match.value(sourceLore!.length !== targetLore!.length),
+            Match.value(sourceLoreArray.length !== targetLoreArray.length),
             Match.when(true, () =>
               Effect.succeed<MetadataConflict>({
                 field: 'lore',
@@ -417,8 +448,8 @@ const checkLoreCompatibility = (
               Effect.gen(function* () {
                 // ReadonlyArray.findFirstIndexで不一致インデックスを検出
                 const mismatchIndex = pipe(
-                  sourceLore!,
-                  ReadonlyArray.findFirstIndex((line, i) => targetLore![i] !== line)
+                  sourceLoreArray,
+                  ReadonlyArray.findFirstIndex((line, i) => targetLoreArray[i] !== line)
                 )
 
                 return yield* pipe(

@@ -8,7 +8,7 @@
 
 import { type GenerationError } from '@domain/world/types/errors'
 import type { WorldCoordinate2D } from '@domain/world/value_object/coordinates'
-import { Context, Effect, Layer, Schema } from 'effect'
+import { Context, Effect, Layer, Match, pipe, Schema } from 'effect'
 import type { BiomeMappingResult, ClimateData } from '../biome_classification'
 
 /**
@@ -184,14 +184,11 @@ const validateBiomeClimateMatch = (biome: any, climate: ClimateData): boolean =>
   const temp = climate.temperature
   const precip = climate.precipitation
 
-  switch (biome) {
-    case 'desert':
-      return temp > 15 && precip < 500
-    case 'jungle':
-      return temp > 20 && precip > 1500
-    case 'tundra':
-      return temp < 0
-    default:
-      return true
-  }
+  return pipe(
+    Match.value(biome),
+    Match.when('desert', () => temp > 15 && precip < 500),
+    Match.when('jungle', () => temp > 20 && precip > 1500),
+    Match.when('tundra', () => temp < 0),
+    Match.orElse(() => true)
+  )
 }

@@ -4,6 +4,7 @@
  */
 
 import { Effect, Schema } from 'effect'
+import { unsafeCoerce } from 'effect/Function'
 import type { ItemId } from '../../types'
 import { PlayerIdSchema } from '../../types/core'
 import { ItemIdSchema } from '../../value_object/item_id/schema'
@@ -23,6 +24,14 @@ export type SlotIndex = Schema.Schema.Type<typeof SlotIndexSchema>
 
 export const HotbarSlotSchema = Schema.Number.pipe(Schema.int(), Schema.between(0, 8), Schema.brand('HotbarSlot'))
 export type HotbarSlot = Schema.Schema.Type<typeof HotbarSlotSchema>
+
+// ===== makeUnsafe Functions =====
+
+export const makeUnsafeInventoryId = (value: string): InventoryId => unsafeCoerce<string, InventoryId>(value)
+
+export const makeUnsafeSlotIndex = (value: number): SlotIndex => unsafeCoerce<number, SlotIndex>(value)
+
+export const makeUnsafeHotbarSlot = (value: number): HotbarSlot => unsafeCoerce<number, HotbarSlot>(value)
 
 // ===== Value Objects =====
 
@@ -176,7 +185,7 @@ export class InventoryAggregateError extends Schema.TaggedError<InventoryAggrega
     return new InventoryAggregateError({
       reason: 'INVALID_SLOT_INDEX',
       message: `不正なスロットインデックス: ${slotIndex}`,
-      slotIndex: slotIndex as SlotIndex,
+      slotIndex: makeUnsafeSlotIndex(slotIndex),
     })
   }
 

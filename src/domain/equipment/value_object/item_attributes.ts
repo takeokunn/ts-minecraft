@@ -1,6 +1,6 @@
 import type { EquipmentDomainError, WeightKg } from '@domain/equipment/types'
 import { makeRequirementViolation, WeightSchema } from '@domain/equipment/types'
-import { Effect, Schema } from 'effect'
+import { Effect, Match, pipe, Schema } from 'effect'
 
 export const EquipmentTierSchema = Schema.Literal('common', 'rare', 'epic', 'legendary').pipe(
   Schema.brand('EquipmentTier')
@@ -20,16 +20,14 @@ const encodeTier = Schema.encodeSync(EquipmentTierSchema)
 
 const getTierMultiplier = (tier: EquipmentTier): number => {
   const literal = encodeTier(tier)
-  switch (literal) {
-    case 'common':
-      return 1
-    case 'rare':
-      return 0.95
-    case 'epic':
-      return 0.9
-    case 'legendary':
-      return 0.85
-  }
+  return pipe(
+    Match.value(literal),
+    Match.when('common', () => 1),
+    Match.when('rare', () => 0.95),
+    Match.when('epic', () => 0.9),
+    Match.when('legendary', () => 0.85),
+    Match.exhaustive
+  )
 }
 
 export const mergeStats = (stats: ReadonlyArray<EquipmentStats>): EquipmentStats =>

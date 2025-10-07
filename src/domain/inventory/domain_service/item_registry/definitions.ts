@@ -7,6 +7,7 @@
 
 import { Effect, Array as EffectArray, pipe } from 'effect'
 import type { ItemId } from '../../types'
+import { makeUnsafeItemId } from '../../value_object/item_id/types'
 import type { ItemCategory, ItemDefinition } from './index'
 
 // =============================================================================
@@ -19,16 +20,16 @@ import type { ItemCategory, ItemDefinition } from './index'
 const DEFAULT_ITEM_DEFINITIONS = new Map<ItemId, ItemDefinition>([
   // ツール系
   [
-    'minecraft:diamond_pickaxe' as ItemId,
+    makeUnsafeItemId('minecraft:diamond_pickaxe'),
     {
-      itemId: 'minecraft:diamond_pickaxe' as ItemId,
+      itemId: makeUnsafeItemId('minecraft:diamond_pickaxe'),
       displayName: 'Diamond Pickaxe',
       category: 'TOOL' as ItemCategory,
       properties: {
         maxStackSize: 1,
         durability: {
           maxDurability: 1561,
-          repairMaterials: ['minecraft:diamond' as ItemId],
+          repairMaterials: [makeUnsafeItemId('minecraft:diamond')],
         },
         enchantable: true,
         rarity: 'RARE',
@@ -53,16 +54,16 @@ const DEFAULT_ITEM_DEFINITIONS = new Map<ItemId, ItemDefinition>([
 
   // 武器系
   [
-    'minecraft:diamond_sword' as ItemId,
+    makeUnsafeItemId('minecraft:diamond_sword'),
     {
-      itemId: 'minecraft:diamond_sword' as ItemId,
+      itemId: makeUnsafeItemId('minecraft:diamond_sword'),
       displayName: 'Diamond Sword',
       category: 'WEAPON' as ItemCategory,
       properties: {
         maxStackSize: 1,
         durability: {
           maxDurability: 1561,
-          repairMaterials: ['minecraft:diamond' as ItemId],
+          repairMaterials: [makeUnsafeItemId('minecraft:diamond')],
         },
         enchantable: true,
         rarity: 'RARE',
@@ -87,9 +88,9 @@ const DEFAULT_ITEM_DEFINITIONS = new Map<ItemId, ItemDefinition>([
 
   // 食べ物系
   [
-    'minecraft:bread' as ItemId,
+    makeUnsafeItemId('minecraft:bread'),
     {
-      itemId: 'minecraft:bread' as ItemId,
+      itemId: makeUnsafeItemId('minecraft:bread'),
       displayName: 'Bread',
       category: 'FOOD' as ItemCategory,
       properties: {
@@ -121,9 +122,9 @@ const DEFAULT_ITEM_DEFINITIONS = new Map<ItemId, ItemDefinition>([
 
   // ブロック系
   [
-    'minecraft:cobblestone' as ItemId,
+    makeUnsafeItemId('minecraft:cobblestone'),
     {
-      itemId: 'minecraft:cobblestone' as ItemId,
+      itemId: makeUnsafeItemId('minecraft:cobblestone'),
       displayName: 'Cobblestone',
       category: 'BUILDING_BLOCK' as ItemCategory,
       properties: {
@@ -151,9 +152,9 @@ const DEFAULT_ITEM_DEFINITIONS = new Map<ItemId, ItemDefinition>([
 
   // 燃料系
   [
-    'minecraft:coal' as ItemId,
+    makeUnsafeItemId('minecraft:coal'),
     {
-      itemId: 'minecraft:coal' as ItemId,
+      itemId: makeUnsafeItemId('minecraft:coal'),
       displayName: 'Coal',
       category: 'MISCELLANEOUS' as ItemCategory,
       properties: {

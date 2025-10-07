@@ -7,73 +7,82 @@
  */
 
 import { CameraError } from '@domain/camera/types'
-import { Data, Effect, Match, Option, pipe } from 'effect'
+import { PlayerIdSchema } from '@domain/shared/entities/player_id'
+import { Effect, Match, Option, pipe, Schema } from 'effect'
 import {
   CameraDistance,
+  CameraDistanceSchema,
   CameraRotation,
   MouseDelta,
-  MouseSensitivity,
+  MouseDeltaSchema,
+  MouseSensitivitySchema,
   Position3D,
+  Position3DSchema,
   Smoothing,
+  SmoothingSchema,
   ViewMode,
 } from '../../value_object/index'
-import { Camera, CameraOps } from '../camera'
+import { Camera, CameraOps, CameraSchema } from '../camera'
 
 /**
  * Player ID Brand Type
- * 専用value_objectから再エクスポート
+ * 共有カーネルから再エクスポート
  */
-export type { PlayerId } from '@domain/player/value_object/player_id'
+export type { PlayerId } from '@domain/shared/entities/player_id'
 
 /**
- * Sensitivity Value Object
+ * Sensitivity Value Object Schema
  */
-export class Sensitivity extends Data.Class<{
-  readonly _tag: 'Sensitivity'
-  readonly mouse: MouseSensitivity
-  readonly keyboard: number
-  readonly wheel: number
-}> {}
+export const SensitivitySchema = Schema.Struct({
+  _tag: Schema.Literal('Sensitivity'),
+  mouse: MouseSensitivitySchema,
+  keyboard: Schema.Number,
+  wheel: Schema.Number,
+})
+export type Sensitivity = Schema.Schema.Type<typeof SensitivitySchema>
 
 /**
- * Smoothing Factor Value Object
+ * Smoothing Factor Value Object Schema
  */
-export class SmoothingFactor extends Data.Class<{
-  readonly _tag: 'SmoothingFactor'
-  readonly movement: Smoothing
-  readonly rotation: Smoothing
-  readonly zoom: Smoothing
-}> {}
+export const SmoothingFactorSchema = Schema.Struct({
+  _tag: Schema.Literal('SmoothingFactor'),
+  movement: SmoothingSchema,
+  rotation: SmoothingSchema,
+  zoom: SmoothingSchema,
+})
+export type SmoothingFactor = Schema.Schema.Type<typeof SmoothingFactorSchema>
 
 /**
- * Player Camera Settings
+ * Player Camera Settings Schema
  */
-export class PlayerCameraSettings extends Data.Class<{
-  readonly _tag: 'PlayerCameraSettings'
-  readonly sensitivity: Sensitivity
-  readonly smoothing: SmoothingFactor
-  readonly invertY: boolean
-  readonly autoRun: boolean
-  readonly bobbing: boolean
-  readonly collisionEnabled: boolean
-  readonly followDistance: CameraDistance
-}> {}
+export const PlayerCameraSettingsSchema = Schema.Struct({
+  _tag: Schema.Literal('PlayerCameraSettings'),
+  sensitivity: SensitivitySchema,
+  smoothing: SmoothingFactorSchema,
+  invertY: Schema.Boolean,
+  autoRun: Schema.Boolean,
+  bobbing: Schema.Boolean,
+  collisionEnabled: Schema.Boolean,
+  followDistance: CameraDistanceSchema,
+})
+export type PlayerCameraSettings = Schema.Schema.Type<typeof PlayerCameraSettingsSchema>
 
 /**
- * PlayerCamera Aggregate
+ * PlayerCamera Aggregate Schema
  *
  * プレイヤー固有のカメラ機能を提供するAggregateです。
  */
-export class PlayerCamera extends Data.Class<{
-  readonly _tag: 'PlayerCamera'
-  readonly camera: Camera
-  readonly playerId: PlayerId
-  readonly settings: PlayerCameraSettings
-  readonly inputAccumulator: MouseDelta
-  readonly lastPlayerPosition: Option.Option<Position3D>
-  readonly isFollowing: boolean
-  readonly collisionEnabled: boolean
-}> {}
+export const PlayerCameraSchema = Schema.Struct({
+  _tag: Schema.Literal('PlayerCamera'),
+  camera: CameraSchema,
+  playerId: PlayerIdSchema,
+  settings: PlayerCameraSettingsSchema,
+  inputAccumulator: MouseDeltaSchema,
+  lastPlayerPosition: Schema.OptionFromSelf(Position3DSchema),
+  isFollowing: Schema.Boolean,
+  collisionEnabled: Schema.Boolean,
+})
+export type PlayerCamera = Schema.Schema.Type<typeof PlayerCameraSchema>
 
 /**
  * PlayerCamera Operations
@@ -125,11 +134,11 @@ export namespace PlayerCameraOps {
       // 入力蓄積の更新
       const newInputAccumulator = accumulateMouseInput(playerCamera.inputAccumulator, deltaX, deltaY)
 
-      return PlayerCamera({
+      return {
         ...playerCamera,
         camera: updatedCamera,
         inputAccumulator: newInputAccumulator,
-      })
+      }
     })
 
   /**
@@ -162,11 +171,11 @@ export namespace PlayerCameraOps {
       // カメラ位置の更新
       const updatedCamera = yield* CameraOps.updatePosition(camera, smoothedPosition)
 
-      return PlayerCamera({
+      return {
         ...playerCamera,
         camera: updatedCamera,
         lastPlayerPosition: Option.some(playerPosition),
-      })
+      }
     })
 
   /**
@@ -177,10 +186,10 @@ export namespace PlayerCameraOps {
       const firstPersonMode = createFirstPersonViewMode()
       const updatedCamera = yield* CameraOps.changeViewMode(playerCamera.camera, firstPersonMode)
 
-      return PlayerCamera({
+      return {
         ...playerCamera,
         camera: updatedCamera,
-      })
+      }
     })
 
   /**
@@ -194,59 +203,55 @@ export namespace PlayerCameraOps {
       const thirdPersonMode = createThirdPersonViewMode(distance)
       const updatedCamera = yield* CameraOps.changeViewMode(playerCamera.camera, thirdPersonMode)
 
-      return PlayerCamera({
+      return {
         ...playerCamera,
         camera: updatedCamera,
-        settings: PlayerCameraSettings({
+        settings: {
           ...playerCamera.settings,
           followDistance: distance,
-        }),
-      })
+        },
+      }
     })
 
   /**
    * プレイヤー追従の有効化
    */
-  export const enableFollowing = (playerCamera: PlayerCamera): PlayerCamera =>
-    PlayerCamera({
-      ...playerCamera,
-      isFollowing: true,
-    })
+  export const enableFollowing = (playerCamera: PlayerCamera): PlayerCamera => ({
+    ...playerCamera,
+    isFollowing: true,
+  })
 
   /**
    * プレイヤー追従の無効化
    */
-  export const disableFollowing = (playerCamera: PlayerCamera): PlayerCamera =>
-    PlayerCamera({
-      ...playerCamera,
-      isFollowing: false,
-    })
+  export const disableFollowing = (playerCamera: PlayerCamera): PlayerCamera => ({
+    ...playerCamera,
+    isFollowing: false,
+  })
 
   /**
    * 衝突検出の有効化
    */
-  export const enableCollision = (playerCamera: PlayerCamera): PlayerCamera =>
-    PlayerCamera({
-      ...playerCamera,
+  export const enableCollision = (playerCamera: PlayerCamera): PlayerCamera => ({
+    ...playerCamera,
+    collisionEnabled: true,
+    settings: {
+      ...playerCamera.settings,
       collisionEnabled: true,
-      settings: PlayerCameraSettings({
-        ...playerCamera.settings,
-        collisionEnabled: true,
-      }),
-    })
+    },
+  })
 
   /**
    * 衝突検出の無効化
    */
-  export const disableCollision = (playerCamera: PlayerCamera): PlayerCamera =>
-    PlayerCamera({
-      ...playerCamera,
+  export const disableCollision = (playerCamera: PlayerCamera): PlayerCamera => ({
+    ...playerCamera,
+    collisionEnabled: false,
+    settings: {
+      ...playerCamera.settings,
       collisionEnabled: false,
-      settings: PlayerCameraSettings({
-        ...playerCamera.settings,
-        collisionEnabled: false,
-      }),
-    })
+    },
+  })
 
   /**
    * 設定の更新
@@ -254,14 +259,13 @@ export namespace PlayerCameraOps {
   export const updateSettings = (
     playerCamera: PlayerCamera,
     settingsUpdate: Partial<PlayerCameraSettings>
-  ): PlayerCamera =>
-    PlayerCamera({
-      ...playerCamera,
-      settings: PlayerCameraSettings({
-        ...playerCamera.settings,
-        ...settingsUpdate,
-      }),
-    })
+  ): PlayerCamera => ({
+    ...playerCamera,
+    settings: {
+      ...playerCamera.settings,
+      ...settingsUpdate,
+    },
+  })
 
   /**
    * カメラの取得
@@ -281,11 +285,10 @@ export namespace PlayerCameraOps {
   /**
    * 入力累積のリセット
    */
-  export const resetInputAccumulator = (playerCamera: PlayerCamera): PlayerCamera =>
-    PlayerCamera({
-      ...playerCamera,
-      inputAccumulator: createEmptyMouseDelta(),
-    })
+  export const resetInputAccumulator = (playerCamera: PlayerCamera): PlayerCamera => ({
+    ...playerCamera,
+    inputAccumulator: createEmptyMouseDelta(),
+  })
 }
 
 // ========================================

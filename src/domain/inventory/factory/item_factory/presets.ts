@@ -5,7 +5,7 @@
  * Function.flowパターンによる組み合わせ可能なアイテム生成関数群
  */
 
-import { Effect, pipe } from 'effect'
+import { Effect, Match, pipe } from 'effect'
 import type { ItemId, ItemStack } from '../../types'
 import { InventoryBrandedTypes } from '../../types'
 import {
@@ -417,102 +417,57 @@ export type ItemPresetName = (typeof availableItemPresets)[number]
 export const createPresetItem = (
   presetName: ItemPresetName,
   count?: number
-): Effect.Effect<ItemStack, ItemCreationError> => {
-  switch (presetName) {
+): Effect.Effect<ItemStack, ItemCreationError> =>
+  pipe(
+    Match.value(presetName),
     // ツール
-    case 'wooden_sword':
-      return woodenSword(count)
-    case 'wooden_pickaxe':
-      return woodenPickaxe(count)
-    case 'wooden_axe':
-      return woodenAxe(count)
-    case 'wooden_shovel':
-      return woodenShovel(count)
-    case 'wooden_hoe':
-      return woodenHoe(count)
-    case 'stone_sword':
-      return stoneSword(count)
-    case 'stone_pickaxe':
-      return stonePickaxe(count)
-    case 'stone_axe':
-      return stoneAxe(count)
-    case 'iron_sword':
-      return ironSword(count)
-    case 'iron_pickaxe':
-      return ironPickaxe(count)
-    case 'diamond_sword':
-      return diamondSword(count)
-    case 'diamond_pickaxe':
-      return diamondPickaxe(count)
-
+    Match.when('wooden_sword', () => woodenSword(count)),
+    Match.when('wooden_pickaxe', () => woodenPickaxe(count)),
+    Match.when('wooden_axe', () => woodenAxe(count)),
+    Match.when('wooden_shovel', () => woodenShovel(count)),
+    Match.when('wooden_hoe', () => woodenHoe(count)),
+    Match.when('stone_sword', () => stoneSword(count)),
+    Match.when('stone_pickaxe', () => stonePickaxe(count)),
+    Match.when('stone_axe', () => stoneAxe(count)),
+    Match.when('iron_sword', () => ironSword(count)),
+    Match.when('iron_pickaxe', () => ironPickaxe(count)),
+    Match.when('diamond_sword', () => diamondSword(count)),
+    Match.when('diamond_pickaxe', () => diamondPickaxe(count)),
     // 防具
-    case 'leather_helmet':
-      return leatherHelmet(count)
-    case 'leather_chestplate':
-      return leatherChestplate(count)
-    case 'leather_leggings':
-      return leatherLeggings(count)
-    case 'leather_boots':
-      return leatherBoots(count)
-    case 'iron_helmet':
-      return ironHelmet(count)
-    case 'iron_chestplate':
-      return ironChestplate(count)
-    case 'diamond_helmet':
-      return diamondHelmet(count)
-    case 'diamond_chestplate':
-      return diamondChestplate(count)
-
+    Match.when('leather_helmet', () => leatherHelmet(count)),
+    Match.when('leather_chestplate', () => leatherChestplate(count)),
+    Match.when('leather_leggings', () => leatherLeggings(count)),
+    Match.when('leather_boots', () => leatherBoots(count)),
+    Match.when('iron_helmet', () => ironHelmet(count)),
+    Match.when('iron_chestplate', () => ironChestplate(count)),
+    Match.when('diamond_helmet', () => diamondHelmet(count)),
+    Match.when('diamond_chestplate', () => diamondChestplate(count)),
     // 食料
-    case 'bread':
-      return bread(count)
-    case 'cooked_beef':
-      return cookedBeef(count)
-    case 'golden_apple':
-      return goldenApple(count)
-    case 'enchanted_golden_apple':
-      return enchantedGoldenApple(count)
-
+    Match.when('bread', () => bread(count)),
+    Match.when('cooked_beef', () => cookedBeef(count)),
+    Match.when('golden_apple', () => goldenApple(count)),
+    Match.when('enchanted_golden_apple', () => enchantedGoldenApple(count)),
     // ブロック
-    case 'stone':
-      return stone(count)
-    case 'cobblestone':
-      return cobblestone(count)
-    case 'oak_planks':
-      return oakPlanks(count)
-    case 'glass':
-      return glass(count)
-    case 'dirt':
-      return dirt(count)
-
+    Match.when('stone', () => stone(count)),
+    Match.when('cobblestone', () => cobblestone(count)),
+    Match.when('oak_planks', () => oakPlanks(count)),
+    Match.when('glass', () => glass(count)),
+    Match.when('dirt', () => dirt(count)),
     // エンチャント付き
-    case 'enchanted_diamond_sword':
-      return enchantedDiamondSword(count)
-    case 'enchanted_diamond_pickaxe':
-      return enchantedDiamondPickaxe(count)
-
+    Match.when('enchanted_diamond_sword', () => enchantedDiamondSword(count)),
+    Match.when('enchanted_diamond_pickaxe', () => enchantedDiamondPickaxe(count)),
     // 特殊
-    case 'bow':
-      return bow(count)
-    case 'arrow':
-      return arrow(count)
-    case 'redstone':
-      return redstone(count)
-    case 'redstone_torch':
-      return redstoneTorch(count)
-    case 'lever':
-      return lever(count)
-    case 'button':
-      return button(count)
-    case 'piston':
-      return piston(count)
-    case 'sticky_piston':
-      return stickyPiston(count)
-
-    default:
-      return bread(count) // fallback
-  }
-}
+    Match.when('bow', () => bow(count)),
+    Match.when('arrow', () => arrow(count)),
+    Match.when('redstone', () => redstone(count)),
+    Match.when('redstone_torch', () => redstoneTorch(count)),
+    Match.when('lever', () => lever(count)),
+    Match.when('button', () => button(count)),
+    Match.when('piston', () => piston(count)),
+    Match.when('sticky_piston', () => stickyPiston(count)),
+    // fallback
+    Match.orElse(() => bread(count))
+  )
 
 // プリセット情報
 export const itemPresetInfo: Record<ItemPresetName, { name: string; description: string; category: string }> = {

@@ -142,20 +142,22 @@ export const ChunkValidationServiceLive = Layer.effect(
 
       validateChecksum: (data, expectedChecksum) =>
         pipe(
-          Effect.tryPromise({
-            try: async () => {
-              const hashBuffer = await crypto.subtle.digest('SHA-256', data)
-              return Array.from(new Uint8Array(hashBuffer))
-                .map((byte) => byte.toString(16).padStart(2, '0'))
-                .join('')
-            },
-            catch: (error) =>
-              ChunkDataValidationError({
-                message: `チェックサムの計算に失敗しました: ${String(error)}`,
-                field: 'checksum',
-                value: data,
-              }),
-          }),
+          Effect.gen(function* () {
+            const hashBuffer = yield* Effect.promise(() => crypto.subtle.digest('SHA-256', data))
+            return Array.from(new Uint8Array(hashBuffer))
+              .map((byte) => byte.toString(16).padStart(2, '0'))
+              .join('')
+          }).pipe(
+            Effect.catchAll((error) =>
+              Effect.fail(
+                ChunkDataValidationError({
+                  message: `チェックサムの計算に失敗しました: ${String(error)}`,
+                  field: 'checksum',
+                  value: data,
+                })
+              )
+            )
+          ),
           Effect.flatMap((calculated) =>
             pipe(
               calculated === expectedChecksum,

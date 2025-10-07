@@ -10,8 +10,8 @@ export const FurnitureIdSchema = Schema.String.pipe(
 )
 export type FurnitureId = Schema.Schema.Type<typeof FurnitureIdSchema>
 
-// PlayerIdは専用value_objectから再エクスポート
-export { PlayerIdSchema, type PlayerId } from '@domain/player/value_object/player_id'
+// PlayerIdは共有カーネルから再エクスポート
+export { PlayerIdSchema, type PlayerId } from '@domain/shared/entities/player_id'
 
 export const TickSchema = Schema.Number.pipe(Schema.int(), Schema.nonNegative(), Schema.brand('GameTick'))
 export type GameTick = Schema.Schema.Type<typeof TickSchema>
