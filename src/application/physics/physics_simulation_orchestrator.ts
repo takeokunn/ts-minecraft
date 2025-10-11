@@ -101,7 +101,7 @@ export const PhysicsSimulationOrchestratorServiceLive = Layer.effect(
               headLevel: options.headLevel,
               feetLevel: options.feetLevel,
             }),
-          { concurrency: 'unbounded' }
+          { concurrency: 4 }
         )
 
         const updatedWorld = yield* PhysicsWorldAggregate.step(target, options.deltaTime, bodies.length)

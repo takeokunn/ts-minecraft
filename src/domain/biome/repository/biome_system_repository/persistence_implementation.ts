@@ -22,7 +22,7 @@ import {
   WindSpeedSchema,
 } from '@domain/world/value_object/generation_parameters/biome_config'
 import * as Schema from '@effect/schema/Schema'
-import { Clock, Effect, Layer, Option, pipe, ReadonlyArray, Ref } from 'effect'
+import { Clock, DateTime, Effect, Layer, Option, pipe, ReadonlyArray, Ref } from 'effect'
 import * as fs from 'fs'
 import * as path from 'path'
 import * as zlib from 'zlib'
@@ -91,6 +91,8 @@ const StoredClimateData = Schema.Struct({
   timestamp: Schema.DateFromString,
 })
 
+const currentDate = DateTime.nowAsDate
+
 // === Implementation ===
 
 export const BiomeSystemRepositoryPersistenceImplementation = (
@@ -109,7 +111,7 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
     const biomeDefinitions = yield* Ref.make(new Map<BiomeId, BiomeDefinition>())
     const biomePlacements = yield* Ref.make<BiomePlacement[]>([])
     const climateData = yield* Ref.make(new Map<string, ClimateData>())
-    const initialNow = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const initialNow = yield* currentDate
     const cacheStats = yield* Ref.make({
       hitCount: 0,
       missCount: 0,
@@ -330,7 +332,7 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
 
     const persistBiomeDefinition = (biome: BiomeDefinition): Effect.Effect<void, AllRepositoryErrors> =>
       Effect.gen(function* () {
-        const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+        const now = yield* currentDate
         return yield* writeFile(getFilePath('biomes', biome.id), {
           ...biome,
           createdAt: now.toISOString(),
@@ -578,7 +580,7 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
               onSome: (value) => Effect.succeed(value),
               onNone: () =>
                 Effect.gen(function* () {
-                  const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+                  const now = yield* currentDate
                   return {
                     coordinate,
                     temperature: Schema.decodeSync(TemperatureSchema)(15),
@@ -652,7 +654,7 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
       updateBiomeCache: (coordinate: SpatialCoordinate, biomeId: BiomeId, ttl?: number) =>
         Effect.gen(function* () {
           const stats = yield* Ref.get(cacheStats)
-          const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+          const now = yield* currentDate
           yield* Ref.set(cacheStats, {
             ...stats,
             hitCount: stats.hitCount + 1,
@@ -662,7 +664,7 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
 
       clearCache: (bounds?: SpatialBounds) =>
         Effect.gen(function* () {
-          const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+          const now = yield* currentDate
           yield* Ref.set(cacheStats, {
             hitCount: 0,
             missCount: 0,

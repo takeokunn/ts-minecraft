@@ -278,7 +278,7 @@ export const makeSceneService = Effect.gen(function* () {
         Effect.forEach(
           ['textures/blocks.png', 'models/player.obj', 'sounds/ambient.mp3'],
           (path) => preloadResource(resourcesRef, path),
-          { concurrency: 'unbounded', discard: true }
+          { concurrency: 4, discard: true }
         ).pipe(
           Effect.mapError(() =>
             PreloadErrorADT.PreloadFailed({
@@ -292,7 +292,7 @@ export const makeSceneService = Effect.gen(function* () {
         Effect.forEach(
           ['textures/menu-bg.png', 'sounds/menu-music.mp3'],
           (path) => preloadResource(resourcesRef, path),
-          { concurrency: 'unbounded', discard: true }
+          { concurrency: 4, discard: true }
         ).pipe(
           Effect.mapError(() =>
             PreloadErrorADT.PreloadFailed({

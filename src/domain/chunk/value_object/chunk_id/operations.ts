@@ -134,5 +134,5 @@ export const createChunkIdHierarchy = (chunkId: ChunkId, depth: number = 2): Rea
  */
 export const validateChunkIds = (values: ReadonlyArray<unknown>): Effect.Effect<ReadonlyArray<ChunkId>, ChunkIdError> =>
   Effect.forEach(values, validateChunkId, {
-    concurrency: 'unbounded',
+    concurrency: 4,
   })

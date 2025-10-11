@@ -42,7 +42,7 @@ export const CraftingIntegrationServiceLive = Layer.succeed(
                   isMissing: available < ingredient.count,
                 }
               }),
-            { concurrency: 'unbounded' }
+            { concurrency: 4 }
           )
         )
 
@@ -199,7 +199,7 @@ export const CraftingIntegrationServiceLive = Layer.succeed(
                                   const altAvailable = yield* countItemsInInventory(inventory, altItemId)
                                   return { altItemId, altAvailable }
                                 }),
-                              { concurrency: 'unbounded' }
+                              { concurrency: 4 }
                             ),
                             Effect.map(
                               ReadonlyArray.filterMap(({ altItemId, altAvailable }) =>
@@ -246,7 +246,7 @@ export const CraftingIntegrationServiceLive = Layer.succeed(
                     const available = yield* countItemsInInventory(inventory, altItemId)
                     return { altItemId, available, woodType }
                   }),
-                { concurrency: 'unbounded' }
+                { concurrency: 4 }
               ),
               Effect.map(
                 ReadonlyArray.filterMap(({ altItemId, available, woodType }) =>
@@ -341,7 +341,7 @@ export const CraftingIntegrationServiceLive = Layer.succeed(
                   craftingComplexity: calculateCraftingComplexity(recipe),
                 }
               }),
-            { concurrency: 'unbounded' }
+            { concurrency: 4 }
           )
         )
 
@@ -454,7 +454,7 @@ const calculateSuggestedSlots = (
             const slots = yield* findItemSlots(inventory, ingredient.itemId)
             return Option.fromNullable(slots[0])
           }),
-        { concurrency: 'unbounded' }
+        { concurrency: 4 }
       ),
       Effect.map(ReadonlyArray.getSomes)
     )

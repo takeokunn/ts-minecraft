@@ -456,7 +456,7 @@ export const SimplexNoiseServiceLive = Layer.effect(
               const worldZ = bounds.min.z + (z / (resolution - 1)) * (bounds.max.z - bounds.min.z)
               return SimplexNoiseService.sample2D(makeUnsafeWorldCoordinate2D(worldX, worldZ), config)
             },
-            { concurrency: 'unbounded' }
+            { concurrency: 4 }
           )
         )
 
@@ -552,7 +552,7 @@ export const SimplexNoiseServiceLive = Layer.effect(
               const z = centerCoordinate.z + sampleRadius * Math.sin(angle)
               return SimplexNoiseService.sample2D(makeUnsafeWorldCoordinate2D(x, z), config)
             },
-            { concurrency: 'unbounded' }
+            { concurrency: 4 }
           ),
           Effect.map((results) =>
             pipe(

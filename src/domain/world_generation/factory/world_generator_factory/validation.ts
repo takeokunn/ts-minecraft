@@ -159,7 +159,7 @@ export const validateParams = (
     // 並列検証実行
     const ruleResults = yield* Effect.all(
       rules.map((rule) => rule(params)),
-      { concurrency: 'unbounded' }
+      { concurrency: 4 }
     )
 
     // 結果統合

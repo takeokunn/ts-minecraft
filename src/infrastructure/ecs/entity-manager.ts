@@ -272,7 +272,7 @@ export const EntityManagerLive = Effect.gen(function* () {
               onSome: (storage) => storage.remove(id),
             })
           ),
-        { concurrency: 'unbounded' }
+        { concurrency: 4 }
       )
 
       // タグインデックスから削除
@@ -459,7 +459,7 @@ export const EntityManagerLive = Effect.gen(function* () {
               })
             )
           }),
-        { concurrency: 'unbounded' }
+        { concurrency: 4 }
       )
 
       return result
@@ -506,7 +506,7 @@ export const EntityManagerLive = Effect.gen(function* () {
                           current,
                           (entityId) =>
                             hasComponent(entityId, definition).pipe(Effect.map((has) => ({ entityId, has }))),
-                          { concurrency: 'unbounded' }
+                          { concurrency: 4 }
                         )
 
                         const filtered = evaluations.filter(({ has }) => has).map(({ entityId }) => entityId)
@@ -560,7 +560,7 @@ export const EntityManagerLive = Effect.gen(function* () {
                         return entry
                       })
                     ),
-                  { concurrency: 'unbounded' }
+                  { concurrency: 4 }
                 )
               )
             ),
@@ -589,7 +589,7 @@ export const EntityManagerLive = Effect.gen(function* () {
                       decodeComponent(definition, value, 'iterateComponents').pipe(
                         Effect.flatMap((component) => f(entityId, component))
                       ),
-                    { concurrency: 'unbounded' }
+                    { concurrency: 4 }
                   ).pipe(Effect.asVoid)
                 )
               ),
@@ -612,7 +612,7 @@ export const EntityManagerLive = Effect.gen(function* () {
       const componentCounts = yield* Effect.forEach(
         Array.from(componentStorages.values()),
         (storage) => storage.getStats().pipe(Effect.map((stats) => Number(stats.size))),
-        { concurrency: 'unbounded' }
+        { concurrency: 4 }
       )
 
       const totalComponents = componentCounts.reduce((acc, count) => acc + count, 0)
@@ -632,7 +632,7 @@ export const EntityManagerLive = Effect.gen(function* () {
     Effect.gen(function* () {
       // すべてのコンポーネントストレージをクリア
       yield* Effect.forEach(Array.from(componentStorages.values()), (storage) => storage.clear(), {
-        concurrency: 'unbounded',
+        concurrency: 4,
       })
 
       // すべてのインデックスをクリア

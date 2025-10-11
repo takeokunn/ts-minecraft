@@ -17,7 +17,12 @@ import type {
   ItemsSwappedEvent,
   SlotIndex,
 } from './types'
-import { INVENTORY_CONSTANTS, InventoryAggregateError, makeUnsafeSlotIndex } from './types'
+import {
+  INVENTORY_CONSTANTS,
+  InventoryAggregateError,
+  InventoryAggregateErrorFactory,
+  makeUnsafeSlotIndex,
+} from './types'
 
 // =============================================================================
 // Core Operations
@@ -49,7 +54,8 @@ export const addItem = (
     return yield* pipe(
       emptySlot,
       Option.match({
-        onNone: () => Effect.fail(InventoryAggregateError.slotOccupied(makeUnsafeSlotIndex(-1), itemStack.itemId)),
+        onNone: () =>
+          Effect.fail(InventoryAggregateErrorFactory.slotOccupied(makeUnsafeSlotIndex(-1), itemStack.itemId)),
         onSome: (slotIndex) => addToEmptySlot(aggregate, slotIndex, itemStack),
       })
     )
@@ -67,7 +73,7 @@ export const removeItem = (
     const validatedSlot = yield* pipe(
       Option.fromNullable(slot?.itemStack),
       Option.match({
-        onNone: () => Effect.fail(InventoryAggregateError.slotEmpty(slotIndex)),
+        onNone: () => Effect.fail(InventoryAggregateErrorFactory.slotEmpty(slotIndex)),
         onSome: (itemStack) => Effect.succeed({ slot, itemStack }),
       })
     )
@@ -77,7 +83,7 @@ export const removeItem = (
       Match.value(validatedSlot.itemStack.count < quantity),
       Match.when(true, () =>
         Effect.fail(
-          InventoryAggregateError.insufficientQuantity(
+          InventoryAggregateErrorFactory.insufficientQuantity(
             validatedSlot.itemStack.itemId,
             quantity,
             validatedSlot.itemStack.count
@@ -269,7 +275,7 @@ const addToExistingStack = (
     const validatedSlot = yield* pipe(
       Option.fromNullable(slot?.itemStack),
       Option.match({
-        onNone: () => Effect.fail(InventoryAggregateError.slotEmpty(slotIndex)),
+        onNone: () => Effect.fail(InventoryAggregateErrorFactory.slotEmpty(slotIndex)),
         onSome: (itemStack) => Effect.succeed({ slot, itemStack }),
       })
     )
@@ -281,7 +287,11 @@ const addToExistingStack = (
       Match.value(newCount > INVENTORY_CONSTANTS.MAX_STACK_SIZE),
       Match.when(true, () =>
         Effect.fail(
-          InventoryAggregateError.stackSizeExceeded(itemStack.itemId, newCount, INVENTORY_CONSTANTS.MAX_STACK_SIZE)
+          InventoryAggregateErrorFactory.stackSizeExceeded(
+            itemStack.itemId,
+            newCount,
+            INVENTORY_CONSTANTS.MAX_STACK_SIZE
+          )
         )
       ),
       Match.orElse(() => Effect.succeed(undefined))
@@ -324,7 +334,7 @@ const addToEmptySlot = (
     // スロットが空であることを確認
     yield* pipe(
       Match.value(!!aggregate.slots[slotIndex]),
-      Match.when(true, () => Effect.fail(InventoryAggregateError.slotOccupied(slotIndex, itemStack.itemId))),
+      Match.when(true, () => Effect.fail(InventoryAggregateErrorFactory.slotOccupied(slotIndex, itemStack.itemId))),
       Match.orElse(() => Effect.succeed(undefined))
     )
 

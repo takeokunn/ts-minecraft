@@ -42,10 +42,38 @@ export const SessionFactoryErrorSchema = Schema.TaggedError('SessionFactoryError
   cause: Schema.optional(Schema.Unknown),
 })
 
-export class SessionFactoryError extends Schema.TaggedError<typeof SessionFactoryErrorSchema>()(
-  'SessionFactoryError',
-  SessionFactoryErrorSchema
-) {}
+export type SessionFactoryError = Schema.Schema.Type<typeof SessionFactoryErrorSchema>
+
+type SessionFactoryErrorExtras = Partial<
+  Omit<SessionFactoryError, 'category' | 'message'>
+>
+
+const makeWithCategory = (
+  category: SessionFactoryError['category'],
+  message: string,
+  extras?: SessionFactoryErrorExtras
+): SessionFactoryError =>
+  SessionFactoryErrorSchema.make({
+    category,
+    message,
+    ...extras,
+  })
+
+export const SessionFactoryErrorFactory = {
+  make: (input: SessionFactoryError): SessionFactoryError => SessionFactoryErrorSchema.make(input),
+  sessionCreation: (message: string, extras?: SessionFactoryErrorExtras) =>
+    makeWithCategory('session_creation', message, extras),
+  configurationInvalid: (message: string, extras?: SessionFactoryErrorExtras) =>
+    makeWithCategory('configuration_invalid', message, extras),
+  resourceExhaustion: (message: string, extras?: SessionFactoryErrorExtras) =>
+    makeWithCategory('resource_exhaustion', message, extras),
+  dependencyMissing: (message: string, extras?: SessionFactoryErrorExtras) =>
+    makeWithCategory('dependency_missing', message, extras),
+  workflowConflict: (message: string, extras?: SessionFactoryErrorExtras) =>
+    makeWithCategory('workflow_conflict', message, extras),
+} as const
+
+export const SessionFactoryError = SessionFactoryErrorFactory
 
 // ================================
 // Factory Parameters
@@ -220,9 +248,7 @@ const createGenerationSessionFactory = (): GenerationSessionFactory => ({
       const session = yield* Effect.tryPromise({
         try: () => GenerationSession.create(sessionId, resolvedParams.request, configuration),
         catch: (error) =>
-          new SessionFactoryError({
-            category: 'session_creation',
-            message: 'Failed to create GenerationSession',
+          SessionFactoryError.sessionCreation('Failed to create GenerationSession', {
             sessionId,
             cause: error,
           }),
@@ -239,10 +265,7 @@ const createGenerationSessionFactory = (): GenerationSessionFactory => ({
       // バッチサイズ検証
       if (params.requests.length === 0) {
         return yield* Effect.fail(
-          new SessionFactoryError({
-            category: 'configuration_invalid',
-            message: 'Empty batch request provided',
-          })
+          SessionFactoryError.configurationInvalid('Empty batch request provided')
         )
       }
 
@@ -337,10 +360,7 @@ const createGenerationSessionFactory = (): GenerationSessionFactory => ({
       // 優先度検証
       if (priority < 1 || priority > 10) {
         return yield* Effect.fail(
-          new SessionFactoryError({
-            category: 'configuration_invalid',
-            message: 'Priority must be between 1 and 10',
-          })
+          SessionFactoryError.configurationInvalid('Priority must be between 1 and 10')
         )
       }
 
@@ -375,9 +395,7 @@ const validateSessionParams = (params: CreateSessionParams): Effect.Effect<void,
     Effect.try({
       try: () => Schema.decodeSync(CreateSessionParamsSchema)(params),
       catch: (error) =>
-        new SessionFactoryError({
-          category: 'configuration_invalid',
-          message: 'Invalid session parameters',
+        SessionFactoryError.configurationInvalid('Invalid session parameters', {
           cause: error,
         }),
     }),
@@ -516,12 +534,7 @@ const loadSessionTemplate = (template: SessionTemplateType): Effect.Effect<Sessi
     Match.when('bulk_generation', () => createBulkGenerationTemplate()),
     Match.when('streaming_generation', () => createStreamingGenerationTemplate()),
     Match.orElse(() =>
-      Effect.fail(
-        new SessionFactoryError({
-          category: 'configuration_invalid',
-          message: `Unknown session template: ${template}`,
-        })
-      )
+      Effect.fail(SessionFactoryError.configurationInvalid(`Unknown session template: ${template}`))
     )
   )
 

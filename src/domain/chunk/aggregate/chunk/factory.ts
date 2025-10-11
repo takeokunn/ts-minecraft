@@ -144,6 +144,7 @@ const buildAggregate = (state: ChunkData): ChunkAggregate => {
           const newBlocks = new Uint16Array(state.blocks)
           const timestamp = yield* Clock.currentTimeMillis
 
+          // メモリ枯渇防止: 3重ネストunbounded削除
           yield* Effect.forEach(
             xRange,
             (x) =>
@@ -157,11 +158,11 @@ const buildAggregate = (state: ChunkData): ChunkAggregate => {
                         const index = getBlockIndex(x, y, z)
                         newBlocks[index] = blockId
                       }),
-                    { concurrency: 'unbounded' }
+                    { concurrency: 8 }
                   ),
-                { concurrency: 'unbounded' }
+                { concurrency: 4 }
               ),
-            { concurrency: 'unbounded' }
+            { concurrency: 2 }
           )
 
           const newData: ChunkData = {

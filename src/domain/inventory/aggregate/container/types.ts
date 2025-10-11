@@ -279,7 +279,7 @@ export const CONTAINER_SLOT_CONFIGURATIONS = {
 
 // ===== Error Types =====
 
-export class ContainerError extends Schema.TaggedError<ContainerError>()('ContainerError', {
+export const ContainerErrorSchema = Schema.TaggedError('ContainerError', {
   reason: Schema.Literal(
     'CONTAINER_NOT_FOUND',
     'ACCESS_DENIED',
@@ -299,65 +299,82 @@ export class ContainerError extends Schema.TaggedError<ContainerError>()('Contai
   slotIndex: Schema.optional(ContainerSlotIndexSchema),
   itemId: Schema.optional(Schema.suspend(() => import('../../types/index').then((m) => m.ItemIdSchema))),
   metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Any })),
-}) {
-  static accessDenied(containerId: ContainerId, playerId: PlayerId): ContainerError {
-    return new ContainerError({
+})
+
+export type ContainerError = Schema.Schema.Type<typeof ContainerErrorSchema>
+
+export const ContainerErrorFactory = {
+  make: (input: Schema.Schema.Type<typeof ContainerErrorSchema>): ContainerError =>
+    ContainerErrorSchema.make(input),
+
+  accessDenied: (containerId: ContainerId, playerId: PlayerId): ContainerError =>
+    ContainerErrorSchema.make({
       reason: 'ACCESS_DENIED',
       message: `プレイヤー${playerId}はコンテナ${containerId}にアクセスできません`,
       containerId,
       playerId,
-    })
-  }
+    }),
 
-  static slotOccupied(containerId: ContainerId, slotIndex: ContainerSlotIndex): ContainerError {
-    return new ContainerError({
+  slotOccupied: (containerId: ContainerId, slotIndex: ContainerSlotIndex): ContainerError =>
+    ContainerErrorSchema.make({
       reason: 'SLOT_OCCUPIED',
       message: `スロット${slotIndex}は既に占有されています`,
       containerId,
       slotIndex,
-    })
-  }
+    }),
 
-  static slotEmpty(containerId: ContainerId, slotIndex: ContainerSlotIndex): ContainerError {
-    return new ContainerError({
+  slotEmpty: (containerId: ContainerId, slotIndex: ContainerSlotIndex): ContainerError =>
+    ContainerErrorSchema.make({
       reason: 'SLOT_EMPTY',
       message: `スロット${slotIndex}は空です`,
       containerId,
       slotIndex,
-    })
-  }
+    }),
 
-  static containerFull(containerId: ContainerId): ContainerError {
-    return new ContainerError({
+  containerFull: (containerId: ContainerId): ContainerError =>
+    ContainerErrorSchema.make({
       reason: 'CONTAINER_FULL',
       message: `コンテナ${containerId}は満杯です`,
       containerId,
-    })
-  }
+    }),
 
-  static invalidSlotIndex(containerId: ContainerId, slotIndex: number): ContainerError {
-    return new ContainerError({
+  invalidSlotIndex: (containerId: ContainerId, slotIndex: number): ContainerError =>
+    ContainerErrorSchema.make({
       reason: 'INVALID_SLOT_INDEX',
       message: `不正なスロットインデックス: ${slotIndex}`,
       containerId,
       slotIndex: makeUnsafeContainerSlotIndex(slotIndex),
-    })
-  }
+    }),
 
-  static tooManyViewers(containerId: ContainerId): ContainerError {
-    return new ContainerError({
+  tooManyViewers: (containerId: ContainerId): ContainerError =>
+    ContainerErrorSchema.make({
       reason: 'TOO_MANY_VIEWERS',
       message: `コンテナ${containerId}の視聴者数が上限に達しています`,
       containerId,
-    })
-  }
+    }),
 
-  static invalidItemType(containerId: ContainerId, itemId: ItemId): ContainerError {
-    return new ContainerError({
+  invalidItemType: (containerId: ContainerId, itemId: ItemId): ContainerError =>
+    ContainerErrorSchema.make({
       reason: 'INVALID_ITEM_TYPE',
       message: `アイテム${itemId}はこのコンテナに配置できません`,
       containerId,
       itemId,
-    })
-  }
-}
+    }),
+
+  permissionExpired: (containerId: ContainerId, playerId: PlayerId): ContainerError =>
+    ContainerErrorSchema.make({
+      reason: 'PERMISSION_EXPIRED',
+      message: `プレイヤー${playerId}のコンテナ${containerId}へのアクセス権限が期限切れです`,
+      containerId,
+      playerId,
+    }),
+
+  containerLocked: (containerId: ContainerId): ContainerError =>
+    ContainerErrorSchema.make({
+      reason: 'CONTAINER_LOCKED',
+      message: `コンテナ${containerId}はロックされています`,
+      containerId,
+    }),
+} as const
+
+export const ContainerError = ContainerErrorFactory

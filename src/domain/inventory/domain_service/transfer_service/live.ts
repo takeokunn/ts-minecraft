@@ -739,7 +739,7 @@ const extractUniqueItemIds = (inventory: Inventory): Effect.Effect<ItemId[], nev
               }),
           })
         ),
-      { concurrency: 'unbounded' }
+      { concurrency: 4 }
     )
 
     return Array.from(itemIds)

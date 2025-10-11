@@ -291,7 +291,7 @@ export const FractalNoiseServiceLive = Layer.effect(
                 frequency: config.baseFrequency,
                 totalValue: 0,
                 totalAmplitude: 0,
-                octaveDetails: [] as ReadonlyArray<any>,
+                octaveDetails: [] satisfies ReadonlyArray<any>,
               },
               (acc, octave) =>
                 Effect.gen(function* () {
@@ -372,7 +372,7 @@ export const FractalNoiseServiceLive = Layer.effect(
                 frequency: config.baseFrequency,
                 totalValue: 0,
                 totalAmplitude: 0,
-                octaveDetails: [] as ReadonlyArray<any>,
+                octaveDetails: [] satisfies ReadonlyArray<any>,
               },
               (acc, octave) =>
                 Effect.gen(function* () {
@@ -455,7 +455,7 @@ export const FractalNoiseServiceLive = Layer.effect(
                 frequency: config.baseFrequency,
                 signal: 0,
                 weight: 1.0,
-                octaveDetails: [] as ReadonlyArray<any>,
+                octaveDetails: [] satisfies ReadonlyArray<any>,
               },
               (acc, octave) =>
                 Effect.gen(function* () {
@@ -573,11 +573,11 @@ export const FractalNoiseServiceLive = Layer.effect(
             )
           )
 
-          // 全サンプルを並行実行
+          // 全サンプルを並行実行（メモリ枯渇防止のため並行数を8に制限）
           const samples = yield* pipe(
             randomPositions,
             Effect.forEach((pos) => FractalNoiseService.sample2D(pos, config), {
-              concurrency: 'unbounded',
+              concurrency: 8,
             }),
             Effect.map((results) =>
               pipe(
@@ -607,11 +607,11 @@ export const FractalNoiseServiceLive = Layer.effect(
                 octave: i,
                 frequency: config.baseFrequency * Math.pow(config.lacunarity, i),
                 amplitude: config.baseAmplitude * Math.pow(config.persistence, i),
-                contribution: Math.pow(config.persistence, i),
+                contribution: Math.pow(config.persistence, i) / config.octaves, // 均等分配
               }))
             ),
-          } satisfies FractalStatistics
-        }),
+          }
+        }),,
 
       analyzeSpectrum: (samples, sampleRate) =>
         Effect.gen(function* () {

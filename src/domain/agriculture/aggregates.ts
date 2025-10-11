@@ -28,7 +28,7 @@ import {
 
 export type Timestamp = DateTime.Utc
 
-const fromEpochMillis = (millis: number): Timestamp => DateTime.unsafeFromDate(new Date(millis))
+const fromEpochMillis = (millis: number): Timestamp => DateTime.unsafeMake(millis)
 
 const currentTimestamp: Effect.Effect<Timestamp> = pipe(Clock.currentTimeMillis, Effect.map(fromEpochMillis))
 

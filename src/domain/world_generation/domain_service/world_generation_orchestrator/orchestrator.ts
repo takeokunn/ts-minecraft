@@ -226,7 +226,7 @@ export const WorldGenerationOrchestratorHelpers = {
             worldSeed: worldCommand.seed,
             parameters: worldCommand.parameters,
           }),
-        { concurrency: 'unbounded' }
+        { concurrency: 4 }
       )
 
       return {

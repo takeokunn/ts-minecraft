@@ -102,13 +102,15 @@ export const makeProgressiveLoadingService = Effect.gen(function* () {
   const getSystemStatus = () =>
     Effect.gen(function* () {
       const queueState = yield* scheduler.getQueueState()
+      // Queue化対応: getQueueStatistics()でpending数を取得
+      const queueStatistics = yield* scheduler.getQueueStatistics()
       const memoryMetrics = yield* memoryMonitor.getCurrentMetrics()
       const memoryPressure = yield* memoryMonitor.getPressureLevel()
       const currentProfile = yield* adaptiveQuality.getCurrentProfile()
 
       const status = {
         scheduler: {
-          pendingRequests: queueState.pending.length,
+          pendingRequests: queueStatistics.pendingCount,
           inProgressRequests: queueState.inProgress.length,
           totalProcessed: queueState.totalProcessed,
         },

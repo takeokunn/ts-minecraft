@@ -1196,7 +1196,7 @@ export const WorldMetadataRepositoryMemoryImplementation = (
                   yield* Effect.ignore(this.getSettings(worldId))
                   yield* Effect.ignore(this.getStatistics(worldId))
                 }),
-              { concurrency: 'unbounded' }
+              { concurrency: 4 }
             )
           )
         }),
@@ -1208,7 +1208,7 @@ export const WorldMetadataRepositoryMemoryImplementation = (
           const results = yield* pipe(
             metadataList,
             Effect.forEach((metadata) => Effect.either(this.saveMetadata(metadata)), {
-              concurrency: 'unbounded',
+              concurrency: 4,
             })
           )
 
@@ -1250,7 +1250,7 @@ export const WorldMetadataRepositoryMemoryImplementation = (
                     })
                   )
                 }),
-              { concurrency: 'unbounded' }
+              { concurrency: 4 }
             )
           )
 
@@ -1266,7 +1266,7 @@ export const WorldMetadataRepositoryMemoryImplementation = (
           const results = yield* pipe(
             worldIds,
             Effect.forEach((worldId) => Effect.either(this.deleteMetadata(worldId)), {
-              concurrency: 'unbounded',
+              concurrency: 4,
             })
           )
 
@@ -1282,7 +1282,7 @@ export const WorldMetadataRepositoryMemoryImplementation = (
           const results = yield* pipe(
             worldIds,
             Effect.forEach((worldId) => Effect.either(this.compressMetadata(worldId, compressionConfig)), {
-              concurrency: 'unbounded',
+              concurrency: 4,
             })
           )
 

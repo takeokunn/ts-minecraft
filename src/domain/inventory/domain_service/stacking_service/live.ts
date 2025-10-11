@@ -242,7 +242,7 @@ export const StackingServiceLive = Layer.succeed(
                     return score > 0 ? Option.some({ slot: index, stack, matchScore: score }) : Option.none()
                   })
                 : Effect.succeed(Option.none()),
-            { concurrency: 'unbounded' }
+            { concurrency: 4 }
           ),
           Effect.map(ReadonlyArray.getSomes)
         )

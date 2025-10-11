@@ -6,6 +6,7 @@
  */
 
 import { Clock, Context, Effect, Layer, Match, Option, pipe, Predicate, Ref, Schema } from 'effect'
+import { unsafeCoerce } from 'effect/Function'
 import type { EntityId } from './entity'
 import { createEntityId, EntityIdSchema } from './entity'
 import type { System, SystemError, SystemPriority } from './system'
@@ -415,7 +416,7 @@ export const WorldLive = Layer.effect(
                 Option.fromNullable(storage.data.get(entityId)),
                 Option.match({
                   onNone: () => null,
-                  onSome: (component) => component as T,
+                  onSome: (component) => unsafeCoerce<unknown, T>(component),
                 })
               ),
           })
@@ -676,7 +677,7 @@ export const WorldLive = Layer.effect(
                         Option.flatMap((metadata) => (metadata.active ? Option.some(metadata) : Option.none())),
                         Option.match({
                           onNone: () => acc,
-                          onSome: () => acc.set(id, component as T),
+                          onSome: () => acc.set(id, unsafeCoerce<unknown, T>(component)),
                         })
                       )
                     )

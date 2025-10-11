@@ -51,6 +51,8 @@ export interface InventoryApplicationError {
   readonly recipeId?: string
 }
 
+const currentTimestamp = Effect.map(Clock.currentTimeMillis, DateTime.unsafeMake)
+
 /**
  * インベントリが見つからないエラー
  */
@@ -59,7 +61,7 @@ export const InventoryNotFoundError = (
   playerId?: string
 ): Effect.Effect<InventoryApplicationError> =>
   Effect.gen(function* () {
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => DateTime.unsafeFromDate(new Date(ms)))
+    const timestamp = yield* currentTimestamp
     return {
       _tag: 'INVENTORY_NOT_FOUND' as const,
       message: `Inventory not found: ${inventoryId}`,
@@ -77,7 +79,7 @@ export const ContainerNotFoundError = (
   playerId?: string
 ): Effect.Effect<InventoryApplicationError> =>
   Effect.gen(function* () {
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => DateTime.unsafeFromDate(new Date(ms)))
+    const timestamp = yield* currentTimestamp
     return {
       _tag: 'CONTAINER_NOT_FOUND' as const,
       message: `Container not found: ${containerId}`,
@@ -95,7 +97,7 @@ export const ContainerPositionOccupiedError = (
   existingContainerId?: string
 ): Effect.Effect<InventoryApplicationError> =>
   Effect.gen(function* () {
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => DateTime.unsafeFromDate(new Date(ms)))
+    const timestamp = yield* currentTimestamp
     return {
       _tag: 'CONTAINER_POSITION_OCCUPIED' as const,
       message: `Position already occupied by container at (${position.x}, ${position.y}, ${position.z})`,
@@ -114,7 +116,7 @@ export const ContainerAccessDeniedError = (
   requiredPermission: 'read' | 'write' | 'admin'
 ): Effect.Effect<InventoryApplicationError> =>
   Effect.gen(function* () {
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => DateTime.unsafeFromDate(new Date(ms)))
+    const timestamp = yield* currentTimestamp
     return {
       _tag: 'CONTAINER_ACCESS_DENIED' as const,
       message: `Access denied to container ${containerId} for player ${playerId}. Required permission: ${requiredPermission}`,
@@ -134,7 +136,7 @@ export const ContainerLockedError = (
   playerId?: string
 ): Effect.Effect<InventoryApplicationError> =>
   Effect.gen(function* () {
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => DateTime.unsafeFromDate(new Date(ms)))
+    const timestamp = yield* currentTimestamp
     return {
       _tag: 'CONTAINER_LOCKED' as const,
       message: `Container ${containerId} is locked with ${lockType} lock`,
@@ -154,7 +156,7 @@ export const ContainerUnlockFailedError = (
   reason: string
 ): Effect.Effect<InventoryApplicationError> =>
   Effect.gen(function* () {
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => DateTime.unsafeFromDate(new Date(ms)))
+    const timestamp = yield* currentTimestamp
     return {
       _tag: 'CONTAINER_UNLOCK_FAILED' as const,
       message: `Failed to unlock container ${containerId}: ${reason}`,
@@ -170,7 +172,7 @@ export const ContainerUnlockFailedError = (
  */
 export const TransactionNotFoundError = (transactionId: string): Effect.Effect<InventoryApplicationError> =>
   Effect.gen(function* () {
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => DateTime.unsafeFromDate(new Date(ms)))
+    const timestamp = yield* currentTimestamp
     return {
       _tag: 'TRANSACTION_NOT_FOUND' as const,
       message: `Transaction not found: ${transactionId}`,
@@ -188,7 +190,7 @@ export const TransactionFailedError = (
   cause?: Error
 ): Effect.Effect<InventoryApplicationError> =>
   Effect.gen(function* () {
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => DateTime.unsafeFromDate(new Date(ms)))
+    const timestamp = yield* currentTimestamp
     return {
       _tag: 'TRANSACTION_FAILED' as const,
       message: `Transaction ${transactionId} failed: ${reason}`,
@@ -207,7 +209,7 @@ export const TransactionTimeoutError = (
   timeoutMs: number
 ): Effect.Effect<InventoryApplicationError> =>
   Effect.gen(function* () {
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => DateTime.unsafeFromDate(new Date(ms)))
+    const timestamp = yield* currentTimestamp
     return {
       _tag: 'TRANSACTION_TIMEOUT' as const,
       message: `Transaction ${transactionId} timed out after ${timeoutMs}ms`,
@@ -225,7 +227,7 @@ export const TransactionDeadlockError = (
   resourceIds: ReadonlyArray<string>
 ): Effect.Effect<InventoryApplicationError> =>
   Effect.gen(function* () {
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => DateTime.unsafeFromDate(new Date(ms)))
+    const timestamp = yield* currentTimestamp
     return {
       _tag: 'TRANSACTION_DEADLOCK' as const,
       message: `Deadlock detected involving transactions: ${transactionIds.join(', ')}`,
@@ -243,7 +245,7 @@ export const InvalidOperationError = (
   context?: unknown
 ): Effect.Effect<InventoryApplicationError> =>
   Effect.gen(function* () {
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => DateTime.unsafeFromDate(new Date(ms)))
+    const timestamp = yield* currentTimestamp
     return {
       _tag: 'INVALID_OPERATION' as const,
       message: `Invalid operation '${operation}': ${reason}`,
@@ -261,7 +263,7 @@ export const PermissionDeniedError = (
   resource: string
 ): Effect.Effect<InventoryApplicationError> =>
   Effect.gen(function* () {
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => DateTime.unsafeFromDate(new Date(ms)))
+    const timestamp = yield* currentTimestamp
     return {
       _tag: 'PERMISSION_DENIED' as const,
       message: `Player ${playerId} does not have permission to ${action} on ${resource}`,
@@ -280,7 +282,7 @@ export const ResourceBusyError = (
   busyUntil?: DateTime.Utc
 ): Effect.Effect<InventoryApplicationError> =>
   Effect.gen(function* () {
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => DateTime.unsafeFromDate(new Date(ms)))
+    const timestamp = yield* currentTimestamp
     return {
       _tag: 'RESOURCE_BUSY' as const,
       message: `Resource ${resourceType}:${resourceId} is currently busy`,
@@ -298,7 +300,7 @@ export const ValidationFailedError = (
   context?: unknown
 ): Effect.Effect<InventoryApplicationError> =>
   Effect.gen(function* () {
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => DateTime.unsafeFromDate(new Date(ms)))
+    const timestamp = yield* currentTimestamp
     return {
       _tag: 'VALIDATION_FAILED' as const,
       message: `Validation failed. Violated rules: ${violatedRules.join(', ')}`,
@@ -315,7 +317,7 @@ export const ConcurrencyConflictError = (
   conflictingOperations: ReadonlyArray<string>
 ): Effect.Effect<InventoryApplicationError> =>
   Effect.gen(function* () {
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => DateTime.unsafeFromDate(new Date(ms)))
+    const timestamp = yield* currentTimestamp
     return {
       _tag: 'CONCURRENCY_CONFLICT' as const,
       message: `Concurrency conflict on resource ${resource}`,
@@ -333,7 +335,7 @@ export const DistributedTransactionFailedError = (
   phase: '1' | '2'
 ): Effect.Effect<InventoryApplicationError> =>
   Effect.gen(function* () {
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => DateTime.unsafeFromDate(new Date(ms)))
+    const timestamp = yield* currentTimestamp
     return {
       _tag: 'DISTRIBUTED_TRANSACTION_FAILED' as const,
       message: `Distributed transaction ${transactionId} failed in phase ${phase}`,
@@ -352,7 +354,7 @@ export const AutoRefillFailedError = (
   playerId?: string
 ): Effect.Effect<InventoryApplicationError> =>
   Effect.gen(function* () {
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => DateTime.unsafeFromDate(new Date(ms)))
+    const timestamp = yield* currentTimestamp
     return {
       _tag: 'AUTO_REFILL_FAILED' as const,
       message: `Auto refill failed for inventory ${inventoryId}`,
@@ -373,7 +375,7 @@ export const BulkOperationFailedError = (
   errors: ReadonlyArray<string>
 ): Effect.Effect<InventoryApplicationError> =>
   Effect.gen(function* () {
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => DateTime.unsafeFromDate(new Date(ms)))
+    const timestamp = yield* currentTimestamp
     return {
       _tag: 'BULK_OPERATION_FAILED' as const,
       message: `Bulk ${operationType} failed: ${failedOperations}/${totalOperations} operations failed`,
@@ -392,7 +394,7 @@ export const MergeOperationFailedError = (
   playerId?: string
 ): Effect.Effect<InventoryApplicationError> =>
   Effect.gen(function* () {
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => DateTime.unsafeFromDate(new Date(ms)))
+    const timestamp = yield* currentTimestamp
     return {
       _tag: 'MERGE_OPERATION_FAILED' as const,
       message: `Merge operation failed: ${reason}`,
@@ -413,7 +415,7 @@ export const CraftingFailedError = (
   reason: string
 ): Effect.Effect<InventoryApplicationError> =>
   Effect.gen(function* () {
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => DateTime.unsafeFromDate(new Date(ms)))
+    const timestamp = yield* currentTimestamp
     return {
       _tag: 'CRAFTING_FAILED' as const,
       message: `Crafting failed for recipe ${recipeId}: ${reason}`,
@@ -435,7 +437,7 @@ export const TradeFailedError = (
   reason: string
 ): Effect.Effect<InventoryApplicationError> =>
   Effect.gen(function* () {
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => DateTime.unsafeFromDate(new Date(ms)))
+    const timestamp = yield* currentTimestamp
     return {
       _tag: 'TRADE_FAILED' as const,
       message: `Trade ${tradeId} failed: ${reason}`,
@@ -495,12 +497,56 @@ export const InventoryApplicationErrorSchema = Schema.Struct({
 })
 
 /**
+ * シリアライゼーションエラー
+ */
+export class InventorySerializationError extends Schema.TaggedError<InventorySerializationError>()(
+  'InventorySerializationError',
+  {
+    operation: Schema.Literal('serialize', 'deserialize'),
+    serialized: Schema.String,
+    cause: Schema.Unknown,
+  }
+) {}
+
+/**
  * エラーのシリアライゼーション/デシリアライゼーション
  */
-export const serializeError = (error: InventoryApplicationError): string => JSON.stringify(error)
+export const serializeError = (error: InventoryApplicationError): Effect.Effect<string, InventorySerializationError> =>
+  Effect.try({
+    try: () => JSON.stringify(error),
+    catch: (cause) =>
+      new InventorySerializationError({
+        operation: 'serialize',
+        serialized: String(error),
+        cause,
+      }),
+  })
 
-export const deserializeError = (serialized: string): InventoryApplicationError =>
-  JSON.parse(serialized) as InventoryApplicationError
+export const deserializeError = (
+  serialized: string
+): Effect.Effect<InventoryApplicationError, InventorySerializationError> =>
+  Effect.gen(function* () {
+    const parsed = yield* Effect.try({
+      try: () => JSON.parse(serialized),
+      catch: (cause) =>
+        new InventorySerializationError({
+          operation: 'deserialize',
+          serialized,
+          cause,
+        }),
+    })
+
+    return yield* Schema.decodeUnknown(InventoryApplicationErrorSchema)(parsed).pipe(
+      Effect.mapError(
+        (cause) =>
+          new InventorySerializationError({
+            operation: 'deserialize',
+            serialized,
+            cause,
+          })
+      )
+    )
+  })
 
 /**
  * エラーレベルの判定

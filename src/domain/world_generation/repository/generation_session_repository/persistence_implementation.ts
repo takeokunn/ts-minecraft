@@ -21,7 +21,8 @@ import {
 } from '@domain/world/types'
 import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
 import * as NodePath from '@effect/platform-node/NodePath'
-import { Clock, Effect, Function, Layer, Option, pipe, ReadonlyArray, Ref, Schema } from 'effect'
+import { Clock, DateTime, Effect, Function, Layer, Option, pipe, ReadonlyArray, Ref, Schema } from 'effect'
+import { makeUnsafeGenerationSessionId } from '../../aggregate/generation_session/shared/index'
 import type {
   ChunkGenerationTask,
   GenerationProgress,
@@ -125,10 +126,14 @@ const makeGenerationSessionRepositoryPersistence = (
 
     // In-memory cache for performance
     const sessionCacheRef = yield* Ref.make<Map<GenerationSessionId, GenerationSession>>(new Map())
-    const statisticsRef = yield* Ref.make({
+    const statisticsRef = yield* Ref.make<{
+      totalSessionsCreated: number
+      totalChunksGenerated: number
+      lastActivityAt: Date | null
+    }>({
       totalSessionsCreated: 0,
       totalChunksGenerated: 0,
-      lastActivityAt: null as Date | null,
+      lastActivityAt: null,
     })
 
     // === File Operations ===
@@ -157,7 +162,7 @@ const makeGenerationSessionRepositoryPersistence = (
           Effect.when(() => !exists, {
             onTrue: () =>
               Effect.gen(function* () {
-                const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+                const now = yield* DateTime.nowAsDate
                 return {
                   sessions: {},
                   checkpoints: {},
@@ -265,7 +270,7 @@ const makeGenerationSessionRepositoryPersistence = (
           Effect.when(() => config.enableChecksums, {
             onTrue: () =>
               Effect.gen(function* () {
-                const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+                const now = yield* DateTime.nowAsDate
                 const checksum = calculateChecksum(compressedContent)
                 const metadata = {
                   ...data.metadata,
@@ -303,7 +308,7 @@ const makeGenerationSessionRepositoryPersistence = (
       Effect.gen(function* () {
         const timestamp = yield* Clock.currentTimeMillis
         const random = yield* Effect.sync(() => Math.random().toString(36).substr(2, 9))
-        return `session-${timestamp}-${random}` as GenerationSessionId
+        return makeUnsafeGenerationSessionId(`session-${timestamp}-${random}`)
       })
 
     // === Session CRUD Operations ===
@@ -315,7 +320,7 @@ const makeGenerationSessionRepositoryPersistence = (
     ): Effect.Effect<GenerationSession, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const sessionId = yield* generateSessionId()
-        const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+        const now = yield* DateTime.nowAsDate
 
         const session: GenerationSession = {
           id: sessionId,
@@ -386,7 +391,7 @@ const makeGenerationSessionRepositoryPersistence = (
               Effect.gen(function* () {
                 // Load from file
                 const data = yield* loadSessionsFromFile()
-                const session = data.sessions[sessionId] as GenerationSession | undefined
+                const session = data.sessions[sessionId]
 
                 return yield* pipe(
                   Option.fromNullable(session),
@@ -410,21 +415,21 @@ const makeGenerationSessionRepositoryPersistence = (
       sessionIds: ReadonlyArray<GenerationSessionId>
     ): Effect.Effect<ReadonlyArray<GenerationSession>, AllRepositoryErrors> =>
       Effect.gen(function* () {
-        const sessions = yield* Effect.forEach(sessionIds, findById, { concurrency: 'unbounded' })
+        const sessions = yield* Effect.forEach(sessionIds, findById, { concurrency: 4 })
         return pipe(sessions, ReadonlyArray.filterMap(Function.identity))
       })
 
     const findByWorldId = (worldId: WorldId): Effect.Effect<ReadonlyArray<GenerationSession>, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const data = yield* loadSessionsFromFile()
-        const sessions = Object.values(data.sessions) as GenerationSession[]
+        const sessions = Object.values(data.sessions)
         return sessions.filter((session) => session.worldId === worldId)
       })
 
     const findByQuery = (query: SessionQuery): Effect.Effect<ReadonlyArray<GenerationSession>, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const data = yield* loadSessionsFromFile()
-        const sessions = Object.values(data.sessions) as GenerationSession[]
+        const sessions = Object.values(data.sessions)
 
         // Apply filters using functional composition
         const filtered = pipe(
@@ -523,7 +528,7 @@ const makeGenerationSessionRepositoryPersistence = (
           })
         )
 
-        const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+        const now = yield* DateTime.nowAsDate
         const updatedSession = {
           ...session,
           lastActivityAt: now,
@@ -571,7 +576,7 @@ const makeGenerationSessionRepositoryPersistence = (
         const { [sessionId]: removedCheckpoints, ...remainingCheckpoints } = data.checkpoints
         const { [sessionId]: removedHistory, ...remainingHistory } = data.history
 
-        const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+        const now = yield* DateTime.nowAsDate
         const updatedData: PersistenceSessionData = {
           sessions: remainingSessions,
           checkpoints: remainingCheckpoints,
@@ -598,7 +603,7 @@ const makeGenerationSessionRepositoryPersistence = (
               Effect.exit,
               Effect.map((exit) => ({ sessionId, exit }))
             ),
-          { concurrency: 'unbounded' }
+          { concurrency: 4 }
         )
 
         const [successful, failed] = pipe(
@@ -634,7 +639,7 @@ const makeGenerationSessionRepositoryPersistence = (
             onSome: (s) => Effect.succeed(s),
           })
         )
-        const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+        const now = yield* DateTime.nowAsDate
         const updatedSession: GenerationSession = {
           ...session,
           state,
@@ -660,7 +665,7 @@ const makeGenerationSessionRepositoryPersistence = (
             onSome: (s) => Effect.succeed(s),
           })
         )
-        const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+        const now = yield* DateTime.nowAsDate
         const updatedSession: GenerationSession = {
           ...session,
           progress: { ...session.progress, ...progress },
@@ -686,7 +691,7 @@ const makeGenerationSessionRepositoryPersistence = (
         yield* ensureDirectoryExists(checkpointPath)
 
         const timestamp = yield* Clock.currentTimeMillis
-        const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+        const now = yield* DateTime.nowAsDate
         const checkpointId = `checkpoint-${timestamp}`
         const checkpointFile = path.join(checkpointPath, `${sessionId}-${checkpointId}.json`)
 
@@ -740,7 +745,7 @@ const makeGenerationSessionRepositoryPersistence = (
               error
             ),
         })
-        const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+        const now = yield* DateTime.nowAsDate
         const restoredSession: GenerationSession = {
           ...checkpointData.session,
           lastActivityAt: now,
@@ -775,7 +780,7 @@ const makeGenerationSessionRepositoryPersistence = (
     const getStatistics = (): Effect.Effect<SessionStatistics, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const data = yield* loadSessionsFromFile()
-        const sessions = Object.values(data.sessions) as GenerationSession[]
+        const sessions = Object.values(data.sessions)
 
         const totalSessions = sessions.length
         const activeSessions = sessions.filter((s) => s.state === 'active').length
@@ -829,7 +834,7 @@ const makeGenerationSessionRepositoryPersistence = (
               }),
             onSome: (q) =>
               Effect.gen(function* () {
-                const sessions = yield* findByQuery(q as SessionQuery)
+                const sessions = yield* findByQuery(q)
                 return sessions.length
               }),
           })
@@ -853,7 +858,13 @@ const makeGenerationSessionRepositoryPersistence = (
     const getCompletedChunks = (sessionId: GenerationSessionId) => Effect.succeed([])
     const getFailedChunks = (sessionId: GenerationSessionId) => Effect.succeed([])
     const getPendingChunks = (sessionId: GenerationSessionId) => Effect.succeed([])
-    const analyzeRecovery = (sessionId: GenerationSessionId) => Effect.succeed({} as SessionRecoveryInfo)
+    const analyzeRecovery = (sessionId: GenerationSessionId): Effect.Effect<SessionRecoveryInfo, AllRepositoryErrors> =>
+      Effect.succeed({
+        canRecover: false,
+        failedChunks: [],
+        estimatedRecoveryTime: null,
+        recommendedStrategy: 'restart',
+      } satisfies SessionRecoveryInfo)
     const recoverSession = (sessionId: GenerationSessionId, options?: any) => Effect.void
     const getSessionHistory = (sessionId: GenerationSessionId) => Effect.succeed([])
     const archiveCompletedSessions = (olderThan: Date) => Effect.succeed(0)
@@ -874,9 +885,7 @@ const makeGenerationSessionRepositoryPersistence = (
 
         // Load initial data to cache
         const data = yield* loadSessionsFromFile()
-        const sessions = Object.entries(data.sessions).map(
-          ([id, session]) => [id, session as GenerationSession] as const
-        )
+        const sessions = Object.entries(data.sessions).map(([id, session]) => [id, session] as const)
         yield* Ref.set(sessionCacheRef, new Map(sessions))
       })
 

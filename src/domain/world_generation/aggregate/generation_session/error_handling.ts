@@ -9,7 +9,7 @@
  */
 
 import type * as GenerationErrors from '@domain/world/types/errors'
-import { Effect, Schema } from 'effect'
+import { DateTime, Effect, Schema } from 'effect'
 
 // ================================
 // Error Categories
@@ -140,7 +140,7 @@ export const createSessionError = (
   batchId?: string,
   context?: Partial<SessionError['context']>
 ): SessionError => {
-  const now = yield * Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+  const now = DateTime.toDate(DateTime.unsafeNow())
   const errorId = `err_${now.getTime()}_${Math.random().toString(36).substr(2, 9)}`
 
   // エラー分類
@@ -254,7 +254,11 @@ export const analyzeErrors = (errors: readonly SessionError[]): Effect.Effect<Er
     } = pipe(
       errors,
       ReadonlyArray.reduce(
-        { errorsByCategory, errorsBySeverity, errorCounts: {} as Record<string, number> },
+        {
+          errorsByCategory,
+          errorsBySeverity,
+          errorCounts: {} satisfies Record<string, number> as Record<string, number>,
+        },
         (acc, error) => ({
           errorsByCategory: {
             ...acc.errorsByCategory,
@@ -276,7 +280,7 @@ export const analyzeErrors = (errors: readonly SessionError[]): Effect.Effect<Er
     const mostCommonError = yield* pipe(
       Object.keys(errorCounts).length > 0 ? Option.some(errorCounts) : Option.none(),
       Option.match({
-        onNone: () => Effect.succeed(undefined as ErrorAnalysis['mostCommonError']),
+        onNone: () => Effect.succeed(undefined),
         onSome: (counts) =>
           Effect.gen(function* () {
             const [code, occurrences] = Object.entries(counts).reduce((max, current) =>
@@ -287,7 +291,7 @@ export const analyzeErrors = (errors: readonly SessionError[]): Effect.Effect<Er
               errors.find((e) => e.code === code),
               Option.fromNullable,
               Option.match({
-                onNone: () => Effect.succeed(undefined as ErrorAnalysis['mostCommonError']),
+                onNone: () => Effect.succeed(undefined),
                 onSome: (sampleError) =>
                   Effect.succeed({
                     code,

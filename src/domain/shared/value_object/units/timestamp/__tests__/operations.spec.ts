@@ -130,7 +130,7 @@ describe('Timestamp DateTime Operations', () => {
     })
 
     it('DateTimeから生成したミリ秒値でTimestampを作成できる', () => {
-      const dateTime = DateTime.unsafeFromDate(new Date(1704067200000))
+      const dateTime = DateTime.unsafeMake(1704067200000)
       const millis = DateTime.toEpochMillis(dateTime)
       const timestamp = makeTimestamp(millis)
 

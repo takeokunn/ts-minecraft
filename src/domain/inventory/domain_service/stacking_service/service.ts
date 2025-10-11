@@ -6,7 +6,7 @@
  * 複雑なビジネスロジックを提供します。
  */
 
-import { Context, Data, Effect } from 'effect'
+import { Context, Effect } from 'effect'
 import type { Inventory, InventoryErrorReason, ItemId, ItemMetadata, ItemStack } from '../../types'
 
 // =============================================================================
@@ -119,18 +119,108 @@ export interface StackSplitResult {
 // Domain Errors
 // =============================================================================
 
-export class StackingError extends Data.TaggedError('StackingError')<{
-  readonly reason: InventoryErrorReason
-  readonly details?: string
-}> {}
+export const StackingErrorSchema = Schema.TaggedStruct('StackingError', {
+  reason: Schema.String,
+  details: Schema.optional(Schema.String),
+}).pipe(
+  Schema.annotations({
+    title: 'Stacking Error',
+    description: 'Error when item stacking operation fails',
+  })
+)
+export type StackingError = Schema.Schema.Type<typeof StackingErrorSchema>
 
-export class StackOptimizationError extends Data.TaggedError('StackOptimizationError')<{
-  readonly failedOperations: ReadonlyArray<{
+/**
+ * StackingErrorのメッセージを取得する操作関数
+ */
+export const getStackingErrorMessage = (error: StackingError): string =>
+  error.details ? `${error.reason}: ${error.details}` : error.reason
+
+/**
+ * StackingErrorを作成するFactory関数
+ */
+export const createStackingError = (
+  reason: InventoryErrorReason,
+  details?: string
+): Effect.Effect<StackingError, Schema.ParseError> =>
+  Schema.decode(StackingErrorSchema)({
+    _tag: 'StackingError' as const,
+    reason,
+    details,
+  })
+
+/**
+ * 型ガード関数
+ */
+export const isStackingError = (error: unknown): error is StackingError => Schema.is(StackingErrorSchema)(error)
+
+export const StackOptimizationErrorSchema = Schema.TaggedStruct('StackOptimizationError', {
+  failedOperations: Schema.Array(
+    Schema.Struct({
+      operation: Schema.Struct({
+        type: Schema.Literal('MERGE', 'SPLIT', 'MOVE', 'CONSOLIDATE'),
+        sourceSlot: Schema.Number,
+        targetSlot: Schema.optional(Schema.Number),
+        itemsBefore: Schema.Number,
+        itemsAfter: Schema.Number,
+        metadata: Schema.optional(Schema.Unknown),
+      }),
+      error: Schema.suspend(() => StackingErrorSchema),
+    })
+  ),
+  partialResult: Schema.optional(
+    Schema.Struct({
+      optimizedInventory: Schema.Unknown,
+      stacksConsolidated: Schema.Number,
+      spaceSaved: Schema.Number,
+      operationsPerformed: Schema.Array(
+        Schema.Struct({
+          type: Schema.Literal('MERGE', 'SPLIT', 'MOVE', 'CONSOLIDATE'),
+          sourceSlot: Schema.Number,
+          targetSlot: Schema.optional(Schema.Number),
+          itemsBefore: Schema.Number,
+          itemsAfter: Schema.Number,
+          metadata: Schema.optional(Schema.Unknown),
+        })
+      ),
+      warnings: Schema.Array(Schema.String),
+    })
+  ),
+}).pipe(
+  Schema.annotations({
+    title: 'Stack Optimization Error',
+    description: 'Error when stack optimization fails with partial results',
+  })
+)
+export type StackOptimizationError = Schema.Schema.Type<typeof StackOptimizationErrorSchema>
+
+/**
+ * StackOptimizationErrorのメッセージを取得する操作関数
+ */
+export const getStackOptimizationErrorMessage = (error: StackOptimizationError): string =>
+  `Stack optimization failed with ${error.failedOperations.length} failed operations`
+
+/**
+ * StackOptimizationErrorを作成するFactory関数
+ */
+export const createStackOptimizationError = (
+  failedOperations: ReadonlyArray<{
     operation: StackOperation
     error: StackingError
-  }>
-  readonly partialResult?: StackOptimizationResult
-}> {}
+  }>,
+  partialResult?: StackOptimizationResult
+): Effect.Effect<StackOptimizationError, Schema.ParseError> =>
+  Schema.decode(StackOptimizationErrorSchema)({
+    _tag: 'StackOptimizationError' as const,
+    failedOperations,
+    partialResult,
+  })
+
+/**
+ * 型ガード関数
+ */
+export const isStackOptimizationError = (error: unknown): error is StackOptimizationError =>
+  Schema.is(StackOptimizationErrorSchema)(error)
 
 // =============================================================================
 // Stacking Service Interface

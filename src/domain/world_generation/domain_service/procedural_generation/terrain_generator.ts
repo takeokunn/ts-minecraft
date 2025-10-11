@@ -356,8 +356,7 @@ export const TerrainGeneratorServiceLive = Layer.effect(
 
     placeLayers: (heightMap, layers, config) =>
       Effect.gen(function* () {
-        // 各高度マップポイントに対してレイヤー配置を決定
-        // 二重ネストループ → ReadonlyArray.makeBy × 2 + Effect.forEach
+        // メモリ枯渇防止: 3重ネストunbounded削除
         const placements = yield* pipe(
           ReadonlyArray.makeBy(heightMap.heights.length, (x) => x),
           Effect.forEach(
@@ -370,14 +369,12 @@ export const TerrainGeneratorServiceLive = Layer.effect(
                       Effect.gen(function* () {
                         const surfaceHeight = heightMap.heights[x][z]
 
-                        // 各レイヤーの配置判定
                         return yield* pipe(
                           layers,
                           Effect.forEach(
                             (layer) =>
                               Effect.gen(function* () {
                                 if (surfaceHeight >= layer.minHeight && surfaceHeight <= layer.maxHeight) {
-                                  // ノイズによる密度調整
                                   const densityModifier =
                                     layer.noiseInfluence > 0
                                       ? yield* calculateDensityModifier(x, z, layer.noiseInfluence)
@@ -386,7 +383,6 @@ export const TerrainGeneratorServiceLive = Layer.effect(
                                   const finalDensity = layer.density * densityModifier
 
                                   if (finalDensity > 0.5) {
-                                    // 閾値による配置判定
                                     return Option.some({
                                       coordinate: makeUnsafeWorldCoordinate(x, surfaceHeight, z),
                                       material: layer.materialType,
@@ -396,17 +392,17 @@ export const TerrainGeneratorServiceLive = Layer.effect(
                                 }
                                 return Option.none()
                               }),
-                            { concurrency: 'unbounded' }
+                            { concurrency: 4 }
                           ),
                           Effect.map(ReadonlyArray.getSomes)
                         )
                       }),
-                    { concurrency: 'unbounded' }
+                    { concurrency: 4 }
                   ),
                   Effect.map(ReadonlyArray.flatten)
                 )
               }),
-            { concurrency: 'unbounded' }
+            { concurrency: 2 }
           ),
           Effect.map(ReadonlyArray.flatten)
         )
@@ -584,12 +580,12 @@ const generateBlockPlacements = (
 /**
  * 地表面配置の生成
  */
-const generateSurfacePlacements = (
+const const generateSurfacePlacements = (
   heightMap: HeightMap,
   config: TerrainGenerationConfig
 ): Effect.Effect<ReadonlyArray<any>, GenerationError> =>
   Effect.gen(function* () {
-    // 二重ネストループ → ReadonlyArray.makeBy × 2 + Effect.forEach
+    // メモリ枯渇防止: unbounded削除
     const placements = yield* pipe(
       ReadonlyArray.makeBy(heightMap.heights.length, (x) => x),
       Effect.forEach(
@@ -609,11 +605,11 @@ const generateSurfacePlacements = (
                       metadata: { surface: true },
                     }
                   }),
-                { concurrency: 'unbounded' }
+                { concurrency: 4 }
               )
             )
           }),
-        { concurrency: 'unbounded' }
+        { concurrency: 2 }
       ),
       Effect.map(ReadonlyArray.flatten)
     )

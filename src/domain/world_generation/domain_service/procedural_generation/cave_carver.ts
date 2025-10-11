@@ -549,26 +549,26 @@ const calculateNetworkMetadata = (
 
 // その他のヘルパー関数（実装の詳細は省略）
 const carveAllCaves = (caves: ReadonlyArray<{ center: WorldCoordinate; radius: number }>, config: CaveCarveConfig) =>
-  Effect.succeed([] as ReadonlyArray<WorldCoordinate>)
+  Effect.succeed([] satisfies ReadonlyArray<WorldCoordinate>)
 
 const carveAllTunnels = (
   tunnels: ReadonlyArray<{ path: ReadonlyArray<WorldCoordinate>; width: number; height: number }>,
   config: CaveCarveConfig
-) => Effect.succeed([] as ReadonlyArray<WorldCoordinate>)
+) => Effect.succeed([] satisfies ReadonlyArray<WorldCoordinate>)
 
 const addStructuralSupports = (network: CaveNetwork, config: CaveCarveConfig) =>
-  Effect.succeed([] as ReadonlyArray<WorldCoordinate>)
+  Effect.succeed([] satisfies ReadonlyArray<WorldCoordinate>)
 
 const carveWaterSystems = (
   sources: ReadonlyArray<{ coordinate: WorldCoordinate; flowRate: number }>,
   config: CaveCarveConfig
-) => Effect.succeed([] as ReadonlyArray<WorldCoordinate>)
+) => Effect.succeed([] satisfies ReadonlyArray<WorldCoordinate>)
 
 const addCaveDecorations = (network: CaveNetwork, config: CaveCarveConfig) =>
-  Effect.succeed([] as ReadonlyArray<{ coordinate: WorldCoordinate; decorationType: string }>)
+  Effect.succeed([] satisfies ReadonlyArray<{ coordinate: WorldCoordinate; decorationType: string }>)
 
 const calculateFlowPaths = (network: CaveNetwork, config: CaveCarveConfig) =>
-  Effect.succeed([] as ReadonlyArray<{ path: ReadonlyArray<WorldCoordinate>; flowRate: number }>)
+  Effect.succeed([] satisfies ReadonlyArray<{ path: ReadonlyArray<WorldCoordinate>; flowRate: number }>)
 
 const calculateTotalVolume = (network: CaveNetwork) => 1000
 
@@ -577,16 +577,16 @@ const estimateMemoryUsage = (...args: ReadonlyArray<unknown>[]) => 1024
 const calculateComplexityScore = (network: CaveNetwork) => 0.5
 
 const validateCarveWarnings = (network: CaveNetwork, config: CaveCarveConfig) =>
-  Effect.succeed([] as ReadonlyArray<string>)
+  Effect.succeed([] satisfies ReadonlyArray<string>)
 
 const generateSphericalCoordinates = (center: WorldCoordinate, radius: number) =>
-  Effect.succeed([] as ReadonlyArray<WorldCoordinate>)
+  Effect.succeed([] satisfies ReadonlyArray<WorldCoordinate>)
 
 const applyNaturalizationNoise = (coords: ReadonlyArray<WorldCoordinate>, noise: number, seed: WorldSeed) =>
   Effect.succeed(coords)
 
 const calculateCaveSupports = (coords: ReadonlyArray<WorldCoordinate>, config: CaveCarveConfig) =>
-  Effect.succeed([] as ReadonlyArray<WorldCoordinate>)
+  Effect.succeed([] satisfies ReadonlyArray<WorldCoordinate>)
 
 const applyGravityEffect = (coords: ReadonlyArray<WorldCoordinate>, center: WorldCoordinate) => Effect.succeed(coords)
 
@@ -596,7 +596,7 @@ const calculateStraightPath = (start: WorldCoordinate, end: WorldCoordinate) =>
 const applyCurvature = (path: ReadonlyArray<WorldCoordinate>, noise: number) => Effect.succeed(path)
 
 const expandPathToTunnel = (path: ReadonlyArray<WorldCoordinate>, width: number, height: number) =>
-  Effect.succeed([] as ReadonlyArray<WorldCoordinate>)
+  Effect.succeed([] satisfies ReadonlyArray<WorldCoordinate>)
 
 const applyGeologicalConstraints = (coords: ReadonlyArray<WorldCoordinate>, config: CaveCarveConfig) =>
   Effect.succeed(coords)
@@ -604,26 +604,26 @@ const applyGeologicalConstraints = (coords: ReadonlyArray<WorldCoordinate>, conf
 const validateCaveStability = (
   caves: ReadonlyArray<{ center: WorldCoordinate; radius: number }>,
   config: CaveCarveConfig
-) => Effect.succeed([] as ReadonlyArray<string>)
+) => Effect.succeed([] satisfies ReadonlyArray<string>)
 
 const validateTunnelStability = (
   tunnels: ReadonlyArray<{ path: ReadonlyArray<WorldCoordinate> }>,
   config: CaveCarveConfig
-) => Effect.succeed([] as ReadonlyArray<string>)
+) => Effect.succeed([] satisfies ReadonlyArray<string>)
 
 const validateOverallStability = (network: CaveNetwork, config: CaveCarveConfig) =>
-  Effect.succeed([] as ReadonlyArray<string>)
+  Effect.succeed([] satisfies ReadonlyArray<string>)
 
 const identifyWeakPoints = (...args: ReadonlyArray<unknown>[]) =>
-  Effect.succeed([] as ReadonlyArray<{ location: WorldCoordinate; severity: number }>)
+  Effect.succeed([] satisfies ReadonlyArray<{ location: WorldCoordinate; severity: number }>)
 
 const generateStabilityRecommendations = (
   weakPoints: ReadonlyArray<{ location: WorldCoordinate; severity: number }>,
   config: CaveCarveConfig
-) => Effect.succeed([] as ReadonlyArray<string>)
+) => Effect.succeed([] satisfies ReadonlyArray<string>)
 
 const calculateWaterPath = (source: { coordinate: WorldCoordinate; flowRate: number }, network: CaveNetwork) =>
-  Effect.succeed([] as ReadonlyArray<WorldCoordinate>)
+  Effect.succeed([] satisfies ReadonlyArray<WorldCoordinate>)
 
 const calculateFlowVolume = (
   source: { coordinate: WorldCoordinate; flowRate: number },
@@ -631,7 +631,7 @@ const calculateFlowVolume = (
 ) => Effect.succeed(100)
 
 const identifyPoolingAreas = (path: ReadonlyArray<WorldCoordinate>, network: CaveNetwork) =>
-  Effect.succeed([] as ReadonlyArray<WorldCoordinate>)
+  Effect.succeed([] satisfies ReadonlyArray<WorldCoordinate>)
 const calculateBoundsVolume = (bounds: BoundingBox) =>
   Math.abs(bounds.max.x - bounds.min.x) * Math.abs(bounds.max.y - bounds.min.y) * Math.abs(bounds.max.z - bounds.min.z)
 

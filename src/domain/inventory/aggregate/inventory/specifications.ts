@@ -140,7 +140,7 @@ export const InventoryIntegritySpecification: InventorySpecification = {
         Effect.forEach(
           (slot) =>
             slot?.itemStack ? ValidStackSizeSpecification.isSatisfiedBy(slot.itemStack) : Effect.succeed(true),
-          { concurrency: 'unbounded' }
+          { concurrency: 4 }
         ),
         Effect.map(ReadonlyArray.some((valid) => !valid))
       )

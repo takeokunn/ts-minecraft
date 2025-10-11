@@ -34,6 +34,6 @@ const toDecision = (object: CullableObject, visible: boolean): Effect.Effect<Cul
 export const createCullingStrategy = (): CullingStrategy => ({
   cull: (objects, frustum) =>
     Effect.forEach(objects, (object) => toDecision(object, isWithinFrustum(frustum, object.position)), {
-      concurrency: 'unbounded',
+      concurrency: 4,
     }),
 })

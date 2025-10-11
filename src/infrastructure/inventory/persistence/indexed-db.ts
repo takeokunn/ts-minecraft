@@ -143,7 +143,7 @@ const gatherPlayerIds = () =>
             )
             return yield* decodePlayerIdFromStorageKey(storageKey)
           }),
-        { concurrency: 'unbounded' }
+        { concurrency: 4 }
       )
     )
   )
@@ -272,7 +272,7 @@ export const IndexedDBInventoryService = Layer.effect(
           const encoded = yield* Effect.forEach(
             allKeys,
             (key) => tryPromise('load', 'inventory', () => get(key, inventoryStore)),
-            { concurrency: 'unbounded' }
+            { concurrency: 4 }
           )
           const sizes = encoded.map((value) =>
             pipe(

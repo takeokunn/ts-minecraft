@@ -12,7 +12,7 @@ import type * as GenerationErrors from '@domain/world/types/errors'
 import * as GenerationParameters from '@domain/world/value_object/generation_parameters/index'
 import * as NoiseConfiguration from '@domain/world/value_object/noise_configuration/index'
 import * as WorldSeed from '@domain/world/value_object/world_seed/index'
-import { Brand, Clock, Effect, Schema } from 'effect'
+import { Brand, Clock, DateTime, Effect, Schema } from 'effect'
 
 // ================================
 // Generation Context ID
@@ -87,7 +87,7 @@ export const create = (
   params: CreateContextParams
 ): Effect.Effect<GenerationContext, GenerationErrors.ValidationError> =>
   Effect.gen(function* () {
-    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const now = yield* DateTime.nowAsDate
     const timestamp = yield* Clock.currentTimeMillis
     const contextId = Schema.decodeSync(GenerationContextIdSchema)(
       `ctx_${timestamp}_${Math.random().toString(36).substr(2, 9)}`
@@ -130,7 +130,7 @@ export const update = (
   updates: Partial<Omit<GenerationContext, 'id' | 'version' | 'createdAt' | 'updatedAt'>>
 ): Effect.Effect<GenerationContext, GenerationErrors.ValidationError> =>
   Effect.gen(function* () {
-    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const now = yield* DateTime.nowAsDate
 
     const updatedContext: GenerationContext = {
       ...context,

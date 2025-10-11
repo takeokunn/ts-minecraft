@@ -10,7 +10,7 @@
 import type * as WorldTypes from '@domain/world/types/core'
 import type * as GenerationErrors from '@domain/world/types/errors'
 import * as Coordinates from '@domain/world/value_object/coordinates/index'
-import { Clock, Effect, Option, Schema } from 'effect'
+import { DateTime, Effect, Option, Schema } from 'effect'
 
 // ================================
 // Generation Status
@@ -93,7 +93,7 @@ export type GenerationState = typeof GenerationStateSchema.Type
  */
 export const createInitial = (): Effect.Effect<GenerationState> =>
   Effect.gen(function* () {
-    const lastActivity = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const lastActivity = yield* DateTime.nowAsDate
 
     return {
       status: 'idle',
@@ -123,7 +123,7 @@ export const startChunkGeneration = (
 ): Effect.Effect<GenerationState, GenerationErrors.StateError> =>
   Effect.gen(function* () {
     const coordinateKey = coordinateToKey(coordinate)
-    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const now = yield* DateTime.nowAsDate
 
     // 既に生成中または完了済みかチェック
     if (coordinateKey in state.activeGenerations) {
@@ -172,7 +172,7 @@ export const completeChunkGeneration = (
 ): Effect.Effect<GenerationState, GenerationErrors.StateError> =>
   Effect.gen(function* () {
     const coordinateKey = coordinateToKey(coordinate)
-    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const now = yield* DateTime.nowAsDate
 
     const activeGeneration = state.activeGenerations[coordinateKey]
     if (!activeGeneration) {
@@ -239,7 +239,7 @@ export const failChunkGeneration = (
 ): Effect.Effect<GenerationState, GenerationErrors.StateError> =>
   Effect.gen(function* () {
     const coordinateKey = coordinateToKey(coordinate)
-    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const now = yield* DateTime.nowAsDate
 
     const activeGeneration = state.activeGenerations[coordinateKey]
     if (!activeGeneration) {

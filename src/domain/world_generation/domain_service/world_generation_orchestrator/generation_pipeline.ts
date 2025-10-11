@@ -232,45 +232,50 @@ const makeGenerationPipelineService = Effect.gen(function* () {
       // 段階的実行（for文 → Effect.reduce）
       const { completedStages, failedStages } = yield* pipe(
         sortedStages,
-        Effect.reduce({ completedStages: [] as string[], failedStages: [] as string[] }, (acc, stageConfig) =>
-          Effect.gen(function* () {
-            // 依存関係チェック
-            const dependenciesMet = stageConfig.dependencies.every((dep) => acc.completedStages.includes(dep))
+        Effect.reduce(
+          {
+            completedStages: [] satisfies string[] as string[],
+            failedStages: [] satisfies string[] as string[],
+          },
+          (acc, stageConfig) =>
+            Effect.gen(function* () {
+              // 依存関係チェック
+              const dependenciesMet = stageConfig.dependencies.every((dep) => acc.completedStages.includes(dep))
 
-            yield* Effect.when(!dependenciesMet, () =>
-              Effect.logWarning(`ステージ ${stageConfig.stage} の依存関係が満たされていません`)
-            )
-
-            if (!dependenciesMet) {
-              return acc
-            }
-
-            yield* Effect.logInfo(`ステージ実行開始: ${stageConfig.stage}`)
-
-            const result = yield* pipe(
-              executeStageInternal(pipelineId, stageConfig.stage, stageConfig),
-              Effect.timeout(`${stageConfig.timeout} millis`)
-            )
-
-            if (result.status === 'success') {
-              const newCompletedStages = [...acc.completedStages, stageConfig.stage]
-              yield* updatePipelineState(pipelineId, {
-                completedStages: newCompletedStages,
-                progress: (newCompletedStages.length / sortedStages.length) * 100,
-              })
-              yield* Effect.logInfo(`ステージ実行成功: ${stageConfig.stage}`)
-              return { completedStages: newCompletedStages, failedStages: acc.failedStages }
-            } else {
-              const newFailedStages = [...acc.failedStages, stageConfig.stage]
-              yield* updatePipelineState(pipelineId, { failedStages: newFailedStages })
-
-              yield* Effect.when(config.errorStrategy === 'fail_fast', () =>
-                Effect.fail(new Error(`ステージ失敗: ${stageConfig.stage}`))
+              yield* Effect.when(!dependenciesMet, () =>
+                Effect.logWarning(`ステージ ${stageConfig.stage} の依存関係が満たされていません`)
               )
 
-              return { completedStages: acc.completedStages, failedStages: newFailedStages }
-            }
-          })
+              if (!dependenciesMet) {
+                return acc
+              }
+
+              yield* Effect.logInfo(`ステージ実行開始: ${stageConfig.stage}`)
+
+              const result = yield* pipe(
+                executeStageInternal(pipelineId, stageConfig.stage, stageConfig),
+                Effect.timeout(`${stageConfig.timeout} millis`)
+              )
+
+              if (result.status === 'success') {
+                const newCompletedStages = [...acc.completedStages, stageConfig.stage]
+                yield* updatePipelineState(pipelineId, {
+                  completedStages: newCompletedStages,
+                  progress: (newCompletedStages.length / sortedStages.length) * 100,
+                })
+                yield* Effect.logInfo(`ステージ実行成功: ${stageConfig.stage}`)
+                return { completedStages: newCompletedStages, failedStages: acc.failedStages }
+              } else {
+                const newFailedStages = [...acc.failedStages, stageConfig.stage]
+                yield* updatePipelineState(pipelineId, { failedStages: newFailedStages })
+
+                yield* Effect.when(config.errorStrategy === 'fail_fast', () =>
+                  Effect.fail(new Error(`ステージ失敗: ${stageConfig.stage}`))
+                )
+
+                return { completedStages: acc.completedStages, failedStages: newFailedStages }
+              }
+            })
         ),
         Effect.catchAll((error) =>
           Effect.gen(function* () {

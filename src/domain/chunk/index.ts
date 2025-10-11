@@ -75,25 +75,41 @@ export {
 
 // 型定義（Types） - 定数・エラー・イベント
 export {
-  BlockChangedEvent,
+  BlockChangedEventSchema,
   CHUNK_HEIGHT,
   CHUNK_MAX_Y,
   CHUNK_MIN_Y,
   // 定数
   CHUNK_SIZE,
   CHUNK_VOLUME,
-  ChunkCorruptedEvent,
-  // イベント
-  ChunkCreatedEvent,
+  ChunkCorruptedEventSchema,
+  ChunkCreatedEventSchema,
+  ChunkEvent,
+  ChunkEventSchema,
   ChunkIdError,
-  ChunkLoadedEvent,
-  ChunkModifiedEvent,
+  ChunkLoadedEventSchema,
+  ChunkModifiedEventSchema,
   // エラー
   ChunkPositionError,
-  ChunkSavedEvent,
-  ChunkUnloadedEvent,
+  ChunkSavedEventSchema,
+  ChunkUnloadedEventSchema,
+  createBlockChangedEvent,
+  createChunkCorruptedEvent,
+  createChunkCreatedEvent,
+  createChunkLoadedEvent,
+  createChunkModifiedEvent,
+  createChunkSavedEvent,
+  createChunkUnloadedEvent,
+  type BlockChangedEvent,
+  type ChunkCorruptedEvent,
+  // イベント
+  type ChunkCreatedEvent,
   // インターフェース
   type ChunkDataProvider,
+  type ChunkLoadedEvent,
+  type ChunkModifiedEvent,
+  type ChunkSavedEvent,
+  type ChunkUnloadedEvent,
 } from './types'
 
 // ドメインサービス（Domain Services）

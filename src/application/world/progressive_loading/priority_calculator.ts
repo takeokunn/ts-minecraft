@@ -258,7 +258,7 @@ const makePriorityCalculatorService = Effect.gen(function* () {
       yield* Effect.logInfo(`一括優先度計算開始: ${contexts.length}チャンク`)
 
       const results = yield* Effect.forEach(contexts, (context) => calculatePriority(context), {
-        concurrency: 'unbounded',
+        concurrency: 4,
       })
 
       yield* Effect.logInfo(`一括優先度計算完了: ${results.length}件`)

@@ -18,7 +18,7 @@
  * - Experimental: 実験的機能設定
  */
 
-import { Clock, Effect, Function, Match, Option, Schema } from 'effect'
+import { DateTime, Effect, Function, Match, Option, Schema } from 'effect'
 import type { CreateWorldGeneratorParams, FactoryError, PresetType } from './index'
 import { PresetRegistryService } from './preset_registry_service'
 
@@ -222,7 +222,7 @@ export const createCustomPreset = (
   params: CreateWorldGeneratorParams
 ): Effect.Effect<PresetDefinition, FactoryError> =>
   Effect.gen(function* () {
-    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const now = yield* DateTime.nowAsDate
     return {
       name,
       description,

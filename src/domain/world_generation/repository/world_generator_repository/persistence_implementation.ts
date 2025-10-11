@@ -21,7 +21,7 @@ import {
 } from '@domain/world/types'
 import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
 import * as NodePath from '@effect/platform-node/NodePath'
-import { Clock, Effect, Layer, Option, pipe, ReadonlyArray, Ref, Schema } from 'effect'
+import { Clock, DateTime, Effect, Layer, Option, pipe, ReadonlyArray, Ref, Schema } from 'effect'
 import type {
   CacheConfiguration,
   WorldGeneratorBatchResult,
@@ -148,7 +148,7 @@ const makeWorldGeneratorRepositoryPersistence = (
     const cacheRef = yield* Ref.make<Map<WorldId, WorldGenerator>>(new Map())
     const statisticsRef = yield* Ref.make({
       totalChunksGenerated: 0,
-      lastGenerationTime: null as Date | null,
+      lastGenerationTime: null,
       performanceMetrics: new Map<WorldId, PerformanceMetrics>(),
     })
 
@@ -175,7 +175,7 @@ const makeWorldGeneratorRepositoryPersistence = (
           Option.match({
             onNone: () =>
               Effect.gen(function* () {
-                const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+                const now = yield* DateTime.nowAsDate
                 return {
                   generators: {},
                   metadata: {
@@ -271,7 +271,7 @@ const makeWorldGeneratorRepositoryPersistence = (
         // Effect.whenパターン: チェックサム計算・保存
         yield* Effect.when(config.enableChecksums, () =>
           Effect.gen(function* () {
-            const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+            const now = yield* DateTime.nowAsDate
             const checksum = calculateChecksum(content)
             const metadata = {
               ...data.metadata,
@@ -307,7 +307,7 @@ const makeWorldGeneratorRepositoryPersistence = (
         yield* ensureDirectoryExists(backupPath)
 
         const timestamp = yield* Clock.currentTimeMillis
-        const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+        const now = yield* DateTime.nowAsDate
         const backupId = `backup-${timestamp}`
         const backupFile = path.join(backupPath, `${backupId}.json`)
         const content = JSON.stringify(data, null, 2)
@@ -346,7 +346,7 @@ const makeWorldGeneratorRepositoryPersistence = (
         const data = yield* loadDataFromFile()
 
         // Update generators
-        const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+        const now = yield* DateTime.nowAsDate
         const updatedData: PersistenceData = {
           ...data,
           generators: {
@@ -376,7 +376,7 @@ const makeWorldGeneratorRepositoryPersistence = (
               Effect.gen(function* () {
                 // Load from file
                 const data = yield* loadDataFromFile()
-                const generator = data.generators[worldId] as WorldGenerator | undefined
+                const generator = data.generators[worldId]
 
                 return yield* pipe(
                   Option.fromNullable(generator),
@@ -402,7 +402,7 @@ const makeWorldGeneratorRepositoryPersistence = (
     ): Effect.Effect<ReadonlyArray<WorldGenerator>, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const data = yield* loadDataFromFile()
-        const generators = Object.values(data.generators) as WorldGenerator[]
+        const generators = Object.values(data.generators)
 
         const startIndex = offset ?? 0
         const endIndex = limit ? startIndex + limit : generators.length
@@ -433,7 +433,7 @@ const makeWorldGeneratorRepositoryPersistence = (
 
         // Update data
         const { [worldId]: removed, ...remainingGenerators } = data.generators
-        const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+        const now = yield* DateTime.nowAsDate
         const updatedData: PersistenceData = {
           ...data,
           generators: remainingGenerators,
@@ -564,7 +564,12 @@ const makeWorldGeneratorRepositoryPersistence = (
           averageChunkGenerationTime: 0,
           totalChunksGenerated: stats.totalChunksGenerated,
           lastGenerationTime: stats.lastGenerationTime,
-          performanceMetrics: {} as PerformanceMetrics,
+          performanceMetrics: {
+            averageGenerationTimeMs: 0,
+            peakMemoryUsageMB: 0,
+            cacheHitRate: 0,
+            errorRate: 0,
+          } satisfies PerformanceMetrics,
         }
       })
 
@@ -581,7 +586,7 @@ const makeWorldGeneratorRepositoryPersistence = (
               }),
             onSome: (q) =>
               Effect.gen(function* () {
-                const filtered = yield* findByQuery(q as WorldGeneratorQuery)
+                const filtered = yield* findByQuery(q)
                 return filtered.length
               }),
           })
@@ -643,11 +648,11 @@ const makeWorldGeneratorRepositoryPersistence = (
         const content = yield* fs.readFileString(backupFile)
         const decompressed = yield* decompressData(content)
         // パターンB前半: Effect.try + JSON.parse（Schema検証は将来追加）
-        const data = (yield* Effect.try({
+        const data = yield* Effect.try({
           try: () => JSON.parse(decompressed),
           catch: (error) =>
             createDataIntegrityError(`Backup JSON parse failed: ${String(error)}`, ['backupData'], decompressed, error),
-        })) as PersistenceData
+        })
 
         yield* saveDataToFile(data)
         yield* Ref.set(cacheRef, new Map()) // Clear cache to force reload
@@ -682,7 +687,7 @@ const makeWorldGeneratorRepositoryPersistence = (
 
         // Load initial data to cache
         const data = yield* loadDataFromFile()
-        const generators = Object.entries(data.generators).map(([id, gen]) => [id, gen as WorldGenerator] as const)
+        const generators = Object.entries(data.generators).map(([id, gen]) => [id, gen] as const)
         yield* Ref.set(cacheRef, new Map(generators))
       })
 

@@ -38,7 +38,7 @@ const live: ComponentRegistryPort = {
     Effect.succeed(
       pipe(
         HashMap.get(definitionIndex, type),
-        Option.map((definition) => definition as ComponentDefinition<any>)
+        Option.map((definition) => definition satisfies ComponentDefinition<unknown>)
       )
     ),
 }

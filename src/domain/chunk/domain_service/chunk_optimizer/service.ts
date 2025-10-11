@@ -446,7 +446,7 @@ const analyzeEfficiencyInternal = (chunk: ChunkData): Effect.Effect<Optimization
           const freq = yield* makeBlockCount(frequency)
           return { blockId: id, frequency: freq }
         }).pipe(Effect.mapError(toValidationError)),
-      { concurrency: 'unbounded' }
+      { concurrency: 8 }
     )
 
     const timestampValue = yield* Clock.currentTimeMillis

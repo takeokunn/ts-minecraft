@@ -49,7 +49,7 @@ export const fromDate = (date: Date): Timestamp => Schema.make(TimestampSchema)(
  *
  * TimestampをDateTime.Utcに変換
  */
-export const toDateTime = (timestamp: Timestamp): DateTime.Utc => DateTime.unsafeFromDate(new Date(timestamp))
+export const toDateTime = (timestamp: Timestamp): DateTime.Utc => DateTime.unsafeMake(timestamp)
 
 /**
  * Add Milliseconds to Timestamp
@@ -112,7 +112,7 @@ export const max = (a: Timestamp, b: Timestamp): Timestamp => Schema.make(Timest
  * ISO 8601形式の文字列に変換
  */
 export const toISOString = (timestamp: Timestamp): string =>
-  DateTime.formatIso(DateTime.unsafeFromDate(new Date(timestamp)))
+  DateTime.formatIso(DateTime.unsafeMake(timestamp))
 
 /**
  * Parse from ISO 8601 string
@@ -121,7 +121,6 @@ export const toISOString = (timestamp: Timestamp): string =>
  */
 export const fromISOString = (isoString: string): Effect.Effect<Timestamp, Schema.ParseError> =>
   Effect.gen(function* () {
-    const dateTime = DateTime.unsafeFromDate(new Date(isoString))
-    const millis = DateTime.toEpochMillis(dateTime)
-    return yield* make(millis)
+    const date = yield* Schema.decodeUnknown(Schema.DateFromString)(isoString)
+    return yield* make(date.getTime())
   })

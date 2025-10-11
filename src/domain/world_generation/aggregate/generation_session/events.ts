@@ -7,7 +7,7 @@
  * - エラー・回復イベント
  */
 
-import { Brand, Clock, Context, Effect, Schema, Stream } from 'effect'
+import { Brand, Clock, Context, DateTime, Effect, Schema, Stream } from 'effect'
 import type { GenerationRequest, GenerationSessionId, ProgressStatistics, SessionError } from './index'
 
 // ================================
@@ -319,7 +319,7 @@ export const createSessionCreated = (
 ): Effect.Effect<SessionCreated> =>
   Effect.gen(function* () {
     const eventId = yield* generateEventId()
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const timestamp = yield* DateTime.nowAsDate
 
     return Schema.decodeSync(SessionCreatedSchema)({
       eventId,
@@ -347,7 +347,7 @@ export const createSessionStarted = (
 ): Effect.Effect<SessionStarted> =>
   Effect.gen(function* () {
     const eventId = yield* generateEventId()
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const timestamp = yield* DateTime.nowAsDate
 
     return Schema.decodeSync(SessionStartedSchema)({
       eventId,
@@ -373,7 +373,7 @@ export const createSessionPaused = (
 ): Effect.Effect<SessionPaused> =>
   Effect.gen(function* () {
     const eventId = yield* generateEventId()
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const timestamp = yield* DateTime.nowAsDate
 
     return Schema.decodeSync(SessionPausedSchema)({
       eventId,
@@ -399,7 +399,7 @@ export const createSessionResumed = (
 ): Effect.Effect<SessionResumed> =>
   Effect.gen(function* () {
     const eventId = yield* generateEventId()
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const timestamp = yield* DateTime.nowAsDate
 
     return Schema.decodeSync(SessionResumedSchema)({
       eventId,
@@ -425,7 +425,7 @@ export const createSessionCompleted = (
 ): Effect.Effect<SessionCompleted> =>
   Effect.gen(function* () {
     const eventId = yield* generateEventId()
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const timestamp = yield* DateTime.nowAsDate
 
     return Schema.decodeSync(SessionCompletedSchema)({
       eventId,
@@ -460,7 +460,7 @@ export const createBatchCompleted = (
 ): Effect.Effect<BatchCompleted> =>
   Effect.gen(function* () {
     const eventId = yield* generateEventId()
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const timestamp = yield* DateTime.nowAsDate
 
     return Schema.decodeSync(BatchCompletedSchema)({
       eventId,
@@ -492,7 +492,7 @@ export const createBatchFailed = (
 ): Effect.Effect<BatchFailed> =>
   Effect.gen(function* () {
     const eventId = yield* generateEventId()
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const timestamp = yield* DateTime.nowAsDate
 
     return Schema.decodeSync(BatchFailedSchema)({
       eventId,
@@ -506,7 +506,9 @@ export const createBatchFailed = (
         error,
         attempt: error.context.attempt,
         willRetry,
-        retryScheduledAt: willRetry ? new Date(timestamp.getTime() + 5000) : undefined,
+        retryScheduledAt: willRetry
+          ? DateTime.toDate(DateTime.unsafeMake(timestamp.getTime() + 5000))
+          : undefined,
       },
     })
   })

@@ -226,7 +226,7 @@ export const createBiomeCache = (
             // Effect.syncでMap削除をラップ
             yield* pipe(
               toEvict,
-              Effect.forEach(([key]) => Effect.sync(() => updated.delete(key)), { concurrency: 'unbounded' })
+              Effect.forEach(([key]) => Effect.sync(() => updated.delete(key)), { concurrency: 4 })
             )
 
             yield* Ref.set(spatialCache, updated)
@@ -254,7 +254,7 @@ export const createBiomeCache = (
             // Effect.syncでMap削除をラップ
             yield* pipe(
               toEvict,
-              Effect.forEach(([key]) => Effect.sync(() => updated.delete(key)), { concurrency: 'unbounded' })
+              Effect.forEach(([key]) => Effect.sync(() => updated.delete(key)), { concurrency: 4 })
             )
 
             yield* Ref.set(queryCache, updated)
@@ -385,7 +385,7 @@ export const createBiomeCache = (
                     })
                   )
                 }),
-              { concurrency: 'unbounded' }
+              { concurrency: 4 }
             ),
             Effect.map(ReadonlyArray.getSomes)
           )
@@ -415,7 +415,7 @@ export const createBiomeCache = (
                     lastAccess: timestamp,
                   })
                 }),
-              { concurrency: 'unbounded' }
+              { concurrency: 4 }
             )
           )
 
@@ -588,7 +588,7 @@ export const createBiomeCache = (
                   }
                   return Option.none()
                 }),
-              { concurrency: 'unbounded' }
+              { concurrency: 4 }
             ),
             Effect.map(ReadonlyArray.getSomes)
           )
@@ -657,7 +657,7 @@ export const createBiomeCache = (
                   const expired = yield* isExpired(entry.timestamp)
                   return { entry: [key, entry] as const, expired }
                 }),
-              { concurrency: 'unbounded' }
+              { concurrency: 4 }
             )
           )
           const validSpatial = spatialChecks.filter((c) => !c.expired).map((c) => c.entry)
@@ -675,7 +675,7 @@ export const createBiomeCache = (
                   const expired = yield* isExpired(entry.timestamp)
                   return { entry: [key, entry] as const, expired }
                 }),
-              { concurrency: 'unbounded' }
+              { concurrency: 4 }
             )
           )
           const validQuery = queryChecks.filter((c) => !c.expired).map((c) => c.entry)
@@ -693,7 +693,7 @@ export const createBiomeCache = (
                   const expired = yield* isExpired(cluster.lastUpdate)
                   return { entry: [key, cluster] as const, expired }
                 }),
-              { concurrency: 'unbounded' }
+              { concurrency: 4 }
             )
           )
           const validClusters = clusterChecks.filter((c) => !c.expired).map((c) => c.entry)
@@ -741,7 +741,7 @@ export const createBiomeCache = (
                       this.updateCluster(cluster.centerCoordinate, biomeDistribution)
                     )
                   }),
-                { concurrency: 'unbounded' }
+                { concurrency: 4 }
               )
             })
           )

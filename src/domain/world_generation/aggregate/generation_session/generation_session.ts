@@ -10,7 +10,7 @@
 
 import type * as WorldTypes from '@domain/world/types/core'
 import type * as GenerationErrors from '@domain/world/types/errors'
-import { Chunk, Clock, Context, Effect, ReadonlyArray, STM } from 'effect'
+import { Chunk, Context, DateTime, Effect, ReadonlyArray, STM } from 'effect'
 import * as ErrorHandling from './index'
 import * as ProgressTracking from './index'
 import * as SessionEvents from './index'
@@ -36,7 +36,7 @@ export const create = (
   configuration?: Partial<SessionConfiguration>
 ): Effect.Effect<GenerationSession, GenerationErrors.CreationError> =>
   Effect.gen(function* () {
-    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const now = yield* DateTime.nowAsDate
 
     // デフォルト設定のマージ
     const defaultConfig: SessionConfiguration = {
@@ -102,7 +102,7 @@ export const start = (session: GenerationSession): STM.STM<GenerationSession, Ge
       )
     }
 
-    const now = yield* STM.fromEffect(Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms)))
+    const now = yield* STM.fromEffect(DateTime.nowAsDate)
 
     // バッチ作成
     const batches = yield* STM.fromEffect(createChunkBatches(session))
@@ -140,7 +140,7 @@ export const completeBatch = (
     // 進捗更新
     const updatedProgress = yield* STM.fromEffect(ProgressTracking.updateProgress(session.progress, results.length, 0))
 
-    const now = yield* STM.fromEffect(Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms)))
+    const now = yield* STM.fromEffect(DateTime.nowAsDate)
 
     const updatedSession: GenerationSession = {
       ...session,
@@ -172,7 +172,7 @@ export const failBatch = (
   error: GenerationErrors.GenerationError
 ): STM.STM<GenerationSession, GenerationErrors.SessionError> =>
   STM.gen(function* () {
-    const now = yield* STM.fromEffect(Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms)))
+    const now = yield* STM.fromEffect(DateTime.nowAsDate)
 
     // エラーハンドリング
     const sessionError = ErrorHandling.createSessionError(error, batchId)
@@ -233,7 +233,7 @@ export const pause = (
       )
     }
 
-    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const now = yield* DateTime.nowAsDate
 
     const updatedState = yield* SessionState.pauseSession(session.state, reason)
     const updatedProgress = ProgressTracking.pauseTracking(session.progress)
@@ -263,7 +263,7 @@ export const resume = (session: GenerationSession): Effect.Effect<GenerationSess
       )
     }
 
-    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const now = yield* DateTime.nowAsDate
 
     const updatedState = yield* SessionState.resumeSession(session.state)
     const updatedProgress = ProgressTracking.resumeTracking(session.progress)
@@ -287,7 +287,7 @@ export const resume = (session: GenerationSession): Effect.Effect<GenerationSess
  */
 const completeSession = (session: GenerationSession): STM.STM<GenerationSession, GenerationErrors.SessionError> =>
   STM.gen(function* () {
-    const now = yield* STM.fromEffect(Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms)))
+    const now = yield* STM.fromEffect(DateTime.nowAsDate)
 
     const updatedState = yield* STM.fromEffect(SessionState.completeSession(session.state))
     const updatedProgress = ProgressTracking.completeTracking(session.progress)
@@ -332,7 +332,7 @@ const createChunkBatches = (
     const chunks = Chunk.fromIterable(sortedCoordinates)
     const batchChunks = Chunk.chunksOf(chunks, chunkBatchSize)
 
-    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const now = yield* DateTime.nowAsDate
 
     return ReadonlyArray.mapWithIndex(Chunk.toReadonlyArray(batchChunks), (batchChunk, batchIndex) => {
       const batchId = `batch_${session.id}_${batchIndex}`

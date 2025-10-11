@@ -1,4 +1,4 @@
-import { Array, Clock, Effect, HashSet, Match, Option, Record, Schema, pipe } from 'effect'
+import { Array, DateTime, Effect, HashSet, Match, Option, Record, Schema, pipe } from 'effect'
 import {
   CraftingGrid,
   CraftingItemStack,
@@ -273,11 +273,7 @@ export const canCraftWithGrid = (
 /**
  * ### 内部ユーティリティ
  */
-const currentDate = (): Effect.Effect<Date, never> =>
-  pipe(
-    Clock.currentTimeMillis,
-    Effect.map((millis) => new Date(millis))
-  )
+const currentDate = (): Effect.Effect<Date, never> => DateTime.nowAsDate
 
 const touchMetadata = (metadata: RecipeMetadata): Effect.Effect<RecipeMetadata, never> =>
   pipe(

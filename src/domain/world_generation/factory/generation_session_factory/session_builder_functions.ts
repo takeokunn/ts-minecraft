@@ -847,10 +847,9 @@ export const build = (
     if (!validationState.isValid) {
       const { SessionFactoryError } = yield* Effect.promise(() => import('./index'))
       return yield* Effect.fail(
-        new SessionFactoryError({
-          category: 'configuration_invalid',
-          message: `Session validation failed: ${validationState.errors.join(', ')}`,
-        })
+        SessionFactoryError.configurationInvalid(
+          `Session validation failed: ${validationState.errors.join(', ')}`
+        )
       )
     }
 

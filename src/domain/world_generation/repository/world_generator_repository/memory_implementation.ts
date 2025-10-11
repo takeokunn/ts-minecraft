@@ -15,7 +15,7 @@ import type {
   WorldSeed,
 } from '@domain/world/types'
 import { createRepositoryError, createWorldGeneratorNotFoundError } from '@domain/world/types'
-import { Clock, Effect, Layer, Option, pipe, ReadonlyArray, Ref } from 'effect'
+import { Clock, DateTime, Effect, Layer, Option, pipe, ReadonlyArray, Ref } from 'effect'
 import {
   WorldGeneratorRepository,
   type CacheConfiguration,
@@ -130,7 +130,7 @@ const makeWorldGeneratorRepositoryMemory = (
         // Effect.whenパターン: 条件付きメトリクス更新
         yield* Effect.when(config.performance.enableMetrics, () =>
           Effect.gen(function* () {
-            const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+            const now = yield* DateTime.nowAsDate
             yield* updateStatistics((stats) => ({
               ...stats,
               lastGenerationTime: now,
@@ -328,7 +328,13 @@ const makeWorldGeneratorRepositoryMemory = (
         const { successful, failed } = yield* pipe(
           generators,
           Effect.reduce(
-            { successful: [] as WorldId[], failed: [] as { worldId: WorldId; error: AllRepositoryErrors }[] },
+            {
+              successful: [] satisfies WorldId[] as WorldId[],
+              failed: [] satisfies Array<{ worldId: WorldId; error: AllRepositoryErrors }> as Array<{
+                worldId: WorldId
+                error: AllRepositoryErrors
+              }>,
+            },
             (acc, generator) =>
               Effect.try({
                 try: () => {
@@ -384,7 +390,13 @@ const makeWorldGeneratorRepositoryMemory = (
         const { successful, failed } = pipe(
           worldIds,
           ReadonlyArray.reduce(
-            { successful: [] as WorldId[], failed: [] as { worldId: WorldId; error: AllRepositoryErrors }[] },
+            {
+              successful: [] satisfies WorldId[] as WorldId[],
+              failed: [] satisfies Array<{ worldId: WorldId; error: AllRepositoryErrors }> as Array<{
+                worldId: WorldId
+                error: AllRepositoryErrors
+              }>,
+            },
             (acc, worldId) =>
               pipe(
                 Option.fromNullable(storage.generators.get(worldId)),
@@ -465,7 +477,12 @@ const makeWorldGeneratorRepositoryMemory = (
           averageChunkGenerationTime: 0, // TODO: Calculate from metrics
           totalChunksGenerated: storage.statistics.totalChunksGenerated,
           lastGenerationTime: storage.statistics.lastGenerationTime,
-          performanceMetrics: {} as PerformanceMetrics, // TODO: Aggregate metrics
+          performanceMetrics: {
+            averageGenerationTimeMs: 0,
+            peakMemoryUsageMB: 0,
+            cacheHitRate: 0,
+            errorRate: 0,
+          } satisfies PerformanceMetrics,
         }
       }).pipe(
         Effect.catchAll((error) =>
@@ -486,7 +503,7 @@ const makeWorldGeneratorRepositoryMemory = (
               }),
             onSome: (q) =>
               Effect.gen(function* () {
-                const generators = yield* findByQuery(q as WorldGeneratorQuery)
+                const generators = yield* findByQuery(q)
                 return generators.length
               }),
           })

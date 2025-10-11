@@ -14,8 +14,9 @@
  */
 
 import type * as GenerationSession from '@domain/world/aggregate/generation_session'
-import { Clock, Effect, Function, Match, Option, ReadonlyArray, Schema } from 'effect'
+import { DateTime, Effect, Function, Match, Option, ReadonlyArray, Schema } from 'effect'
 import type { ConfigurationProfile, SessionFactoryError, SessionTemplateType } from './index'
+import { SessionFactoryError } from './index'
 import { SessionTemplateRegistryService } from './template_registry_service'
 
 // ================================
@@ -160,10 +161,7 @@ const createSessionTemplateResolver = (): SessionTemplateResolver => ({
 
       if (Option.isNone(template)) {
         return yield* Effect.fail(
-          new SessionFactoryError({
-            category: 'configuration_invalid',
-            message: `Unknown template type: ${type}`,
-          })
+          SessionFactoryError.configurationInvalid(`Unknown template type: ${type}`)
         )
       }
 
@@ -203,10 +201,7 @@ const createSessionTemplateResolver = (): SessionTemplateResolver => ({
 
       if (Option.isNone(template)) {
         return yield* Effect.fail(
-          new SessionFactoryError({
-            category: 'configuration_invalid',
-            message: `Unknown custom template: ${name}`,
-          })
+          SessionFactoryError.configurationInvalid(`Unknown custom template: ${name}`)
         )
       }
 
@@ -314,14 +309,11 @@ const createSessionTemplateResolver = (): SessionTemplateResolver => ({
 
       if (Option.isNone(baseTemplate)) {
         return yield* Effect.fail(
-          new SessionFactoryError({
-            category: 'configuration_invalid',
-            message: `Unknown base template type: ${baseType}`,
-          })
+          SessionFactoryError.configurationInvalid(`Unknown base template type: ${baseType}`)
         )
       }
 
-      const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+      const now = yield* DateTime.nowAsDate
       return {
         ...baseTemplate.value,
         ...modifications,
@@ -369,12 +361,7 @@ export const getTemplate = (type: SessionTemplateType): Effect.Effect<SessionTem
     const template = yield* registry.get(type)
 
     if (Option.isNone(template)) {
-      return yield* Effect.fail(
-        new SessionFactoryError({
-          category: 'configuration_invalid',
-          message: `Template not found: ${type}`,
-        })
-      )
+      return yield* Effect.fail(SessionFactoryError.configurationInvalid(`Template not found: ${type}`))
     }
 
     return template.value

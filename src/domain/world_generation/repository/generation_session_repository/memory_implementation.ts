@@ -14,7 +14,8 @@ import type {
   WorldId,
 } from '@domain/world/types'
 import { createGenerationSessionNotFoundError, createRepositoryError } from '@domain/world/types'
-import { Clock, Effect, Layer, Match, Option, pipe, ReadonlyArray, Ref } from 'effect'
+import { Clock, DateTime, Effect, Layer, Match, Option, pipe, ReadonlyArray, Ref } from 'effect'
+import { makeUnsafeGenerationSessionId } from '../../aggregate/generation_session/shared/index'
 import type {
   ChunkGenerationTask,
   GenerationProgress,
@@ -85,7 +86,7 @@ const makeGenerationSessionRepositoryMemory = (
     const generateSessionId = (): Effect.Effect<GenerationSessionId, never> =>
       Effect.gen(function* () {
         const timestamp = yield* Clock.currentTimeMillis
-        return `session-${timestamp}-${Math.random().toString(36).substr(2, 9)}` as GenerationSessionId
+        return makeUnsafeGenerationSessionId(`session-${timestamp}-${Math.random().toString(36).substr(2, 9)}`)
       })
 
     const addHistoryEntry = (
@@ -95,7 +96,7 @@ const makeGenerationSessionRepositoryMemory = (
       actor: string = 'system'
     ): Effect.Effect<void, never> =>
       Effect.gen(function* () {
-        const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+        const now = yield* DateTime.nowAsDate
         yield* Ref.update(storageRef, (storage) => {
           const sessionHistory = storage.history.get(sessionId) || []
           const newEntry = {
@@ -133,7 +134,7 @@ const makeGenerationSessionRepositoryMemory = (
     ): Effect.Effect<GenerationSession, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const sessionId = yield* generateSessionId()
-        const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+        const now = yield* DateTime.nowAsDate
 
         const session: GenerationSession = {
           id: sessionId,
@@ -333,7 +334,7 @@ const makeGenerationSessionRepositoryMemory = (
     const updateSession = (session: GenerationSession): Effect.Effect<void, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const storage = yield* Ref.get(storageRef)
-        const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+        const now = yield* DateTime.nowAsDate
 
         yield* pipe(
           storage.sessions.has(session.id),
@@ -412,7 +413,7 @@ const makeGenerationSessionRepositoryMemory = (
               Effect.exit,
               Effect.map((exit) => ({ sessionId, exit }))
             ),
-          { concurrency: 'unbounded' }
+          { concurrency: 4 }
         )
 
         const [successful, failed] = pipe(
@@ -454,7 +455,7 @@ const makeGenerationSessionRepositoryMemory = (
           })
         )
 
-        const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+        const now = yield* DateTime.nowAsDate
         const updatedSession: GenerationSession = {
           ...session,
           state,
@@ -482,7 +483,7 @@ const makeGenerationSessionRepositoryMemory = (
     ): Effect.Effect<void, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const storage = yield* Ref.get(storageRef)
-        const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+        const now = yield* DateTime.nowAsDate
 
         const session = yield* pipe(
           Option.fromNullable(storage.sessions.get(sessionId)),
@@ -528,7 +529,7 @@ const makeGenerationSessionRepositoryMemory = (
     ): Effect.Effect<void, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const storage = yield* Ref.get(storageRef)
-        const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+        const now = yield* DateTime.nowAsDate
 
         const session = yield* pipe(
           Option.fromNullable(storage.sessions.get(sessionId)),
@@ -560,7 +561,7 @@ const makeGenerationSessionRepositoryMemory = (
     ): Effect.Effect<void, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const storage = yield* Ref.get(storageRef)
-        const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+        const now = yield* DateTime.nowAsDate
 
         const session = yield* pipe(
           Option.fromNullable(storage.sessions.get(sessionId)),
@@ -662,7 +663,7 @@ const makeGenerationSessionRepositoryMemory = (
         )
 
         const timestamp = yield* Clock.currentTimeMillis
-        const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+        const now = yield* DateTime.nowAsDate
         const checkpointId = `checkpoint-${timestamp}`
 
         yield* Ref.update(storageRef, (storage) => {
@@ -691,7 +692,7 @@ const makeGenerationSessionRepositoryMemory = (
     ): Effect.Effect<void, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const storage = yield* Ref.get(storageRef)
-        const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+        const now = yield* DateTime.nowAsDate
 
         const sessionCheckpoints = yield* pipe(
           Option.fromNullable(storage.checkpoints.get(sessionId)),
@@ -825,7 +826,7 @@ const makeGenerationSessionRepositoryMemory = (
               }),
             onSome: (q) =>
               Effect.gen(function* () {
-                const sessions = yield* findByQuery(q as SessionQuery)
+                const sessions = yield* findByQuery(q)
                 return sessions.length
               }),
           })
@@ -871,7 +872,7 @@ const makeGenerationSessionRepositoryMemory = (
             onSome: (s) => Effect.succeed(s),
           })
         )
-        const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+        const now = yield* DateTime.nowAsDate
         const corruptedChunks = session.chunks.filter((c) => c.status === 'failed').map((c) => c.position)
 
         return {

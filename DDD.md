@@ -1,481 +1,266 @@
-# DDD アーキテクチャ調査報告書
+# DDD改善実行計画
 
-## 📋 調査概要
+## 背景
+- `src/domain` 配下の集約やサービスに Three.js, DOM API, 永続化技術が入り込み、ドメインと技術基盤の結合度が高い。
+- `src/app` と `src/infrastructure` の責務が重複し、ユースケース実装がプレゼンテーション層や Live 実装に散在している。
+- テスト・型チェックの対象が限定的で、レイヤ横断の退行を把握しづらい。
 
-**調査対象**: `src/`配下のディレクトリ構造のDDD（ドメイン駆動設計）適合性検証
+## 目的
+- ドメイン層をユビキタス言語・ビジネスルール・ポート定義のみに絞り、技術的詳細を排除する。
+- アプリケーション層でユースケースを明文化し、プレゼンテーション層からドメインへの直接依存を解消する。
+- インフラ層へ技術的詳細を集約し、依存関係の一方向性を保証できる構成へ再設計する。
 
-**調査日**: 2025-10-07
+### 成功指標
+- ドメイン層の `import` 先が自層もしくは純粋な型定義のみとなり、UI／永続化／外部ライブラリを参照しない。
+- 主要ユースケース（起動、停止、シーン切替、入力処理等）がアプリケーション層のサービスとして実装される。
+- ポートとアダプタの組合せに対する契約テストが整備され、CI でレイヤ侵食が検知できる。
+- tsconfig とテストスイートが `src` 全体を対象とし、フェーズ完了後のテストで回帰がゼロである。
 
-**プロジェクト**: TypeScript Minecraft Clone (Effect-TS 3.17+ 基盤)
+## 対象スコープ
+- `src/domain`, `src/app`, `src/infrastructure`, `src/presentation` の構造見直し。
+- Three.js, ブラウザ API, IndexedDB 等の技術依存箇所の抽象化。
+- tsconfig, テスト設定、依存注入のエントリポイント（例: `src/main.ts`）の整理。
 
----
-
-## 🔍 構造分析結果
-
-### 現在のディレクトリ構成
-
-```
+## 推奨ディレクトリ構造
+```text
 src/
-├── domain/                          # ドメイン層
-│   ├── {23個の境界づけられたコンテキスト}
-│   │   ├── aggregate/               ✅ DDD準拠
-│   │   ├── value_object/            ✅ DDD準拠
-│   │   ├── domain_service/          ✅ DDD準拠
-│   │   ├── application_service/     ❌ レイヤー違反（9コンテキストに存在）
-│   │   ├── repository/              ✅ DDD準拠
-│   │   ├── factory/                 ✅ DDD準拠
-│   │   └── types/                   ✅ DDD準拠
-│   └── shared/                      ⚠️ 責務要明確化
-├── application/                     ❌ 不完全（1コンテキストのみ）
-├── infrastructure/                  ✅ DDD準拠
-├── presentation/                    ✅ DDD準拠
-└── bootstrap/                       ✅ 適切な構造
+  domain/
+    <bounded-context>/
+      aggregates/
+      entities/
+      value-objects/
+      services/
+      ports/
+      events/
+      policies/
+    shared/
+  application/
+    usecases/
+      commands/
+      queries/
+    facades/
+    dto/
+    mappers/
+  infrastructure/
+    adapters/
+      rendering/
+      persistence/
+      input/
+      audio/
+    config/
+    di/
+    persistence/
+    three/
+  presentation/
+    ui/
+    controllers/
+    hooks/
+    state/
+  shared/
+    kernel/
+    utils/
+    types/
+  tests/
+    unit/
+      domain/
+      application/
+    contract/
+    integration/
+    e2e/
 ```
-
-### 境界づけられたコンテキスト一覧
-
-検出された23のコンテキスト:
-
-1. chunk（チャンク管理）
-2. world（ワールド管理）
-3. camera（カメラ制御）
-4. inventory（インベントリ管理）
-5. player（プレイヤー管理）
-6. physics（物理演算）
-7. crafting（クラフトシステム）
-8. equipment（装備システム）
-9. block（ブロック管理）
-10. entities（エンティティ管理）
-11. chunk_manager（チャンクライフサイクル管理）
-12. chunk_loader（チャンク読み込み）
-13. chunk_system（チャンクシステム）
-14. game_loop（ゲームループ）
-15. input（入力制御）
-16. scene（シーン管理）
-17. view_distance（視野距離管理）
-18. interaction（インタラクション管理）
-19. combat（戦闘システム）
-20. agriculture（農業システム）
-21. materials（マテリアル管理）
-22. furniture（家具システム）
-23. performance（パフォーマンス監視）
-
----
-
-## 🚨 検出された問題点
-
-### 【重大】問題1: application_service のレイヤー違反
-
-#### 検出結果
-
-```bash
-$ find src/domain -type d -name "application_service" | wc -l
-9
-```
-
-**違反しているコンテキスト**:
-
-1. `src/domain/chunk/application_service/`
-2. `src/domain/camera/application_service/`
-3. `src/domain/world/application_service/`
-4. `src/domain/inventory/application_service/`
-5. `src/domain/physics/application_service/`
-6. `src/domain/crafting/application_service/`
-7. `src/domain/equipment/application_service/`
-8. `src/domain/interaction/application_service/`
-9. `src/domain/chunk_manager/application_service/`
-
-#### DDD原則との矛盾
-
-**Eric Evans『Domain-Driven Design』より**:
-
-> "Application Services orchestrate the execution of domain logic but do not contain business rules themselves. They belong to the Application Layer, not the Domain Layer."
-
-**問題の本質**:
-
-- ドメイン層がアプリケーション層の概念を含む
-- レイヤー分離原則に違反
-- Effect-TSのLayer-based DIとの不整合
-
-#### 期待される構造
-
-```
-# 現状（違反）
-src/domain/inventory/application_service/
-
-# あるべき姿
-src/application/inventory/
-```
-
----
-
-### 【中程度】問題2: Worldコンテキストの肥大化
-
-#### 構造分析
-
-```
-src/domain/world/aggregate/
-├── biome_system/           # バイオーム管理（独立した責務）
-├── world_generator/        # ワールド生成（独立した責務）
-└── generation_session/     # セッション管理（独立した責務）
-```
-
-**問題点**:
-
-1. 単一責任原則違反 - 1コンテキストが3つの独立集約を管理
-2. 変更の影響範囲が不明確
-3. チーム開発の阻害要因
-
-#### 推奨される分割
-
-```
-src/domain/
-├── biome/                  # 新設：バイオーム専用コンテキスト
-├── world_generation/       # 新設：ワールド生成専用コンテキスト
-└── world/                  # 既存：調整役として残す
-```
-
----
-
-### 【中程度】問題3: Player/Entities の型重複
-
-#### 検出された重複
-
-**`src/domain/player/types.ts`**:
-
-```typescript
-export const WorldIdSchema = Schema.String.pipe(...)
-```
-
-**`src/domain/entities/types/core.ts`**:
-
-```typescript
-export const WorldIdSchema = ...  // ← 重複定義！
-```
-
-**問題点**:
-
-- WorldId、PlayerIdなどの共通型が複数箇所で定義
-- 共有カーネル（Shared Kernel）の不在
-- 相互依存による保守性低下
-
-#### 推奨される統合
-
-```
-src/domain/shared/entities/  # 共有カーネル（新設）
-├── player_id.ts             # PlayerIdの正式定義
-├── world_id.ts              # WorldIdの正式定義
-├── entity_id.ts
-├── block_id.ts
-└── item_id.ts
-```
-
----
-
-## 📊 定量的評価
-
-### DDD準拠率
-
-| 評価項目                         | 現状    | 目標    |
-| -------------------------------- | ------- | ------- |
-| レイヤー分離                     | 61%     | 95%     |
-| 集約設計                         | 78%     | 90%     |
-| 値オブジェクト活用               | 92%     | 95%     |
-| 境界づけられたコンテキスト明確性 | 85%     | 95%     |
-| **総合スコア**                   | **74%** | **94%** |
-
-### 影響範囲
-
-| 項目                                | 数値      |
-| ----------------------------------- | --------- |
-| application_service混在コンテキスト | 9         |
-| 影響を受けるファイル数              | 約200     |
-| import更新が必要な箇所              | 約187     |
-| 型重複箇所                          | 約423     |
-| **総変更箇所**                      | **約700** |
-
----
-
-## 🎯 リファクタリング要件
-
-### FR-1: Application Serviceの完全移動
-
-**目的**: DDDレイヤー分離原則への準拠
-
-**実装内容**:
-
-1. `src/application/`配下に各コンテキストのディレクトリ作成
-2. `domain/{context}/application_service/`を`application/{context}/`へ移動
-3. import文の更新（約187箇所）
-4. Effect-TS Layer定義の修正
-
-**検証方法**:
-
-```bash
-find src/domain -name "application_service" -type d
-# 期待結果: 0件
-
-pnpm typecheck && pnpm test && pnpm build
-# 期待結果: すべて成功
-```
-
----
-
-### FR-2: Worldコンテキストの分割
-
-**目的**: 単一責任原則への準拠と保守性向上
-
-**実装内容**:
-
-#### 新設コンテキスト1: `domain/biome/`
-
-```
-src/domain/biome/
-├── aggregate/biome_system/
-├── domain_service/biome_classification/
-├── value_object/biome_properties/
-└── repository/biome_repository/
-```
-
-**責務**: バイオーム分類、気候モデル、バイオーム遷移
-
-#### 新設コンテキスト2: `domain/world_generation/`
-
-```
-src/domain/world_generation/
-├── aggregate/
-│   ├── world_generator/
-│   └── generation_session/
-├── domain_service/procedural_generation/
-└── factory/world_generator_factory/
-```
-
-**責務**: ワールド生成アルゴリズム、ノイズ生成
-
-#### 調整後の`domain/world/`
-
-```
-src/domain/world/
-├── domain_service/world_validation/
-├── value_object/
-│   ├── coordinates/        # 座標系（共通）
-│   ├── world_seed/
-│   └── dimension_id/
-└── types/
-```
-
-**責務**: ワールド座標系、ディメンション管理
-
----
-
-### FR-3: 共有カーネルの確立
-
-**目的**: 型重複の解消と共有ドメイン概念の明確化
-
-**実装内容**:
-
-```
-src/domain/shared/
-├── entities/                    # 新設
-│   ├── player_id.ts
-│   ├── world_id.ts
-│   ├── entity_id.ts
-│   ├── block_id.ts
-│   ├── item_id.ts
-│   └── README.md                # 共有カーネルポリシー
-├── value_object/units/          # 既存
-│   ├── meters/
-│   ├── milliseconds/
-│   └── timestamp/
-└── effect/                      # 既存
-```
-
-**共有カーネルポリシー**:
-
-- 複数コンテキストで使用される基本エンティティIDのみ含む
-- 変更時は全依存コンテキストの合意が必要
-- ビジネスロジックは含まない
-
----
-
-## 🚀 実装アプローチ
-
-### アプローチ選択: 一括実施（高リスク）
-
-**ユーザー選択**:
-
-- 実施方法: 一括実施（1-2週間）
-- 対象範囲: 3つのリファクタリングを同時実施
-- テスト戦略: リファクタリング完了後に一括整備
-
-**リスク評価**:
-
-| リスク項目       | 発生確率 | 影響度 | 総合リスク |
-| ---------------- | -------- | ------ | ---------- |
-| ビルドエラー     | 85%      | 高     | 🔴 極大    |
-| 循環参照発生     | 70%      | 中     | 🟠 大      |
-| テスト失敗       | 90%      | 高     | 🔴 極大    |
-| ロールバック不可 | 60%      | 極大   | 🔴 極大    |
-
-**総合リスクレベル**: **🔴 CRITICAL（極めて危険）**
-
----
-
-## 📅 実装スケジュール
-
-### 現実的スケジュール（一括実施）
-
-| フェーズ  | 期間         | 作業内容                    | リスク |
-| --------- | ------------ | --------------------------- | ------ |
-| Day 1-2   | 構造変更     | ディレクトリ移動、World分割 | 高     |
-| Day 3-5   | Import修正   | 約700箇所の一括更新         | 極大   |
-| Day 6-7   | 型エラー修正 | 循環参照解消、型整合性確保  | 極大   |
-| Day 8-10  | Layer再構築  | Effect-TS依存関係の再定義   | 高     |
-| Day 11-14 | テスト整備   | 全テストの修正と実行        | 極大   |
-
-**予想作業時間**: 160時間（20営業日 = 4週間）
-
-**楽観的見積もり**: 2週間
-**現実的見積もり**: 4-5週間
-**悲観的見積もり**: 7週間
-
----
-
-## ⚠️ 実装時の注意事項
-
-### 技術的制約
-
-1. **Effect-TS Layer依存関係**
-   - Layerの提供順序が重要
-   - 循環依存は絶対に回避
-   - テストなしでの正しさ検証は不可能
-
-2. **TypeScript制約**
-   - 循環参照の検出と解消
-   - import pathマッピングの整合性
-
-### 品質保証
-
-**ビルド検証**:
-
-```bash
-pnpm typecheck  # 型エラー0件
-pnpm lint       # Lint警告0件
-pnpm build      # ビルド成功
-```
-
-**テスト検証**:
-
-```bash
-pnpm test            # 全テスト通過
-pnpm test:integration # 統合テスト通過
-pnpm test:e2e        # E2Eテスト通過
-```
-
----
-
-## 🎓 技術的知見
-
-### Effect-TS Layer設計の変更
-
-#### 変更前（レイヤー混在）
-
-```typescript
-// src/domain/inventory/layers.ts ❌
-export const InventoryDomainLive = Layer.mergeAll(
-  ItemRegistryLive, // Domain Service
-  ValidationServiceLive, // Domain Service
-  InventoryManagerLive, // Application Service ❌
-  TransactionManagerLive // Application Service ❌
-)
-```
-
-#### 変更後（レイヤー分離）
-
-```typescript
-// src/domain/inventory/layers.ts ✅
-export const InventoryDomainLive = Layer.mergeAll(
-  ItemRegistryLive,
-  ValidationServiceLive
-  // ドメインサービスのみ
-)
-
-// src/application/inventory/layers.ts ✅
-export const InventoryApplicationLive = Layer.mergeAll(InventoryManagerLive, TransactionManagerLive).pipe(
-  Layer.provide(InventoryDomainLive) // ドメイン層への依存
-)
-```
-
-### DDD境界づけられたコンテキストの粒度
-
-**適切な粒度の判断基準**:
-
-1. 変更理由の単一性
-2. チーム所有権の明確性
-3. 独立したリリースサイクル
-
-**本プロジェクトの評価**:
-
-- ✅ 23コンテキスト中20は適切な粒度
-- ⚠️ World: 3つの独立集約を含み肥大化
-- ⚠️ Player/Entities: 型定義の重複
-
----
-
-## 📝 結論
-
-### 構造的健全性: 74/100
-
-**評価理由**:
-
-- ✅ DDDの基本構造（aggregate, value_object, domain_service等）は適切
-- ✅ Effect-TS 3.17+との統合は良好
-- ❌ レイヤー分離に重大な違反（9コンテキスト）
-- ⚠️ 一部コンテキストの粒度調整が必要
-
-### リファクタリング推奨度
-
-**FR-1（Application Service移動）**: **必須・最優先**
-
-- DDD原則への準拠
-- Effect-TS Layer設計の改善
-- テスタビリティ向上
-
-**FR-2（World分割）**: **推奨・中優先**
-
-- 単一責任原則への準拠
-- 保守性向上
-- チーム開発の効率化
-
-**FR-3（共有カーネル）**: **推奨・低優先**
-
-- 型重複の解消
-- 依存関係の明確化
-
-### 実装リスク評価
-
-**選択されたアプローチ（一括実施）**:
-
-- 実現可能性: **35/100**
-- 推奨度: **0/10**
-- 予想期間: 4-7週間（理論値2週間に対し2-3倍）
-
-**技術的推奨アプローチ（段階的実施）**:
-
-- 実現可能性: **85/100**
-- 推奨度: **9/10**
-- 予想期間: 10週間（確実に完了）
-
----
-
-## 📚 参考文献
-
-- Eric Evans『Domain-Driven Design』(2003)
-- Martin Fowler『Refactoring』(2018)
-- Effect-TS 3.17+ Official Documentation
-- TypeScript Handbook - Module Resolution
-
----
-
-**調査担当**: Claude Code (Anthropic AI)
-**調査基準**: DDD原則、Effect-TSベストプラクティス、TypeScript設計パターン
+- `<bounded-context>` 配下はドメイン言語単位で切り出し、各文脈が `aggregates` や `services` を独立保守できる構造とする。
+- `application/usecases` はユースケースの意図（コマンド／クエリ）別に整理し、入出力 DTO を `dto` で管理する。
+- `infrastructure/adapters` はポート実装を技術カテゴリで束ね、設定値や DI 構成は `config`・`di` に集約する。
+- `presentation` はユーザー入力と表示の責務に限定し、アプリケーション層ファサードと UI アダプタ間の境界を明確にする。
+- `tests` では契約テストを `contract` に配置し、レイヤ間の整合性検知を自動化する。
+
+## レイヤ別実装ガイド
+### ドメイン層
+- 値オブジェクトは不変・比較可能を前提に `value-objects` へ配置し、ファクトリ関数で生成過程を統一する。
+- 集約（`aggregates`）はルート単位でフォルダを分け、状態遷移をドメインイベントで表現する。
+- ポート定義は `ports` に Interface を配置し、戻り値は `dto` 相当の純データ構造を使用する。
+- ドメインサービスは Pure Function もしくは依存注入可能なクラスで表現し、副作用はポート経由に限定する。
+
+### アプリケーション層
+- ユースケースは `usecases/commands`（状態変更）と `usecases/queries`（参照）に分類し、単一責務で記述する。
+- ファサードは UI から利用される公開 API として `facades` に配置し、ユースケースを委譲する。
+- DTO マッピングは `mappers` に集約し、ドメイン値オブジェクトとの相互変換を明文化する。
+- ユースケース内ではドメインポートを依存として受け取り、例外はドメイン定義のエラー型にラップする。
+
+### インフラ層
+- `adapters` 配下でポート実装を技術カテゴリ毎に分割し、Three.js など外部ライブラリ依存はここで完結させる。
+- 設定値・環境依存は `config` にまとめ、DI コンテナから参照できるようにする。
+- `di` には依存注入の登録スクリプトを配置し、アプリケーション層からは抽象ファクトリを介してアクセスする。
+- 外部 API やストレージへのアクセスはリトライ方針やシリアライザをアダプタ内で完結させ、ドメインへ例外を漏らさない。
+
+### プレゼンテーション層
+- UI コンポーネントは `ui`、イベントハンドラ・状態管理は `controllers` や `hooks` に配置し、 Application ファサードのみを呼び出す。
+- 入力検証やフォーム管理はプレゼンテーション層で完結させ、ドメインに渡す前に DTO へ変換する。
+- 表示用の ViewModel を導入する場合は `state` でユースケース結果を整形し、副作用はファサード越しに処理する。
+
+### 共有・テスト層
+- `shared/kernel` に cross-layer で利用する基盤ユーティリティ（ログ、設定読み込み等）を配置する。
+- テストは契約・統合・ E2E の順に粒度を上げ、共通フィクスチャやテストダブルは `tests/shared` で再利用する。
+- 依存方向を検査するスクリプトや ESLint ルールは `scripts` もしくは `config` へ配置し、CI での自動検証に備える。
+
+## 実装ガイドライン詳細
+### ポート／アダプタ実装手順
+1. ドメインサービスが外部リソースへ依存している箇所を洗い出し、責務単位でポート Interface を `domain/<context>/ports` に定義する。
+2. ポートの入出力をドメイン DTO として `domain/<context>/dto` または `application/dto` に追加し、型を共有する。
+3. `infrastructure/adapters/<tech>/` にポート実装を配置し、外部ライブラリの初期化をアダプタ内で完結させる。
+4. アダプタは `di/container.ts`（新設）で登録し、 Application 層ユースケースに注入する。
+5. 契約テストを `tests/contract/<port>` に追加し、アダプタがポート契約を満たすことを検証する。
+
+### ユースケース実装手順
+1. ユースケースのトリガ（UI イベントやシステムイベント）を整理し、期待する入力／出力 DTO を `application/dto` に定義する。
+2. `application/usecases/commands` または `queries` にクラス／関数を追加し、 execute メソッドにビジネスフローを記述する。
+3. ドメインサービス／ポートをコンストラクタ注入し、副作用はポート呼び出しに限定する。
+4. 成功・失敗の戻り値は Result 型や Either を利用し、プレゼンテーション層に伝搬しやすい形に正規化する。
+5. ユースケース単位の統合テストを `tests/integration/application` に追加し、プレゼンテーション層と切り離して検証する。
+
+### 依存注入と設定
+- `infrastructure/di/container.ts` をエントリポイントとし、アダプタ登録と設定読み込みを一元化する。
+- プレゼンテーション層のエントリ（例: `src/main.ts`）では DI コンテナからアプリケーションファサードを取得し、 UI へ渡す。
+- 設定値は `.env` や JSON を `config` で管理し、環境別設定は `config/environments/<env>.ts` へ切り出す。
+- 循環依存を防ぐため、 DI コンテナで抽象 Interface をキーに登録し、具体実装はインフラ層に限定する。
+
+### テストと静的検証
+- 契約テストはポートインターフェースをモック化せず、実アダプタとテストダブルの外部サービスで整合性を確認する。
+- レイヤ依存チェックは `scripts/check-deps.ts` を追加し、 `madge` などで循環と依存方向を検証する。
+- 型チェックは `tsconfig.json` を `references` 付きのプロジェクトリファレンス構造に変更し、レイヤ毎に `tsconfig.*.json` を用意する。
+- ESLint/TSLint 等で `no-restricted-imports` を用い、ドメイン側からインフラ層への直接参照を禁止する。
+
+## 対象外
+- 新規ゲームロジックの追加や仕様変更。
+- デプロイパイプラインや CI/CD 設定の刷新。
+- Three.js 自体のバージョンアップや最適化対応。
+
+## 前提条件
+- 現状のレイヤ構造と主要なユースケースフローを把握しているメンバーがアサインされる。
+- 既存テストがローカルで再現可能であり、必要に応じて追加テストを実行できる。
+- ドメインモデルのユビキタス言語が定義済みで、命名変更の判断ができる。
+
+## 現状課題
+1. ドメイン層が Three.js, DOM API, 永続化ストレージへ直接アクセスしており、集約の不変条件検証が技術的実装に依存している。
+2. `*Live` 実装や Effect Layer がドメイン配下に存在し、ポートとアダプタの分離が成立していない。
+3. 環境検出や永続化戦略がドメイン層に散在し、条件分岐の複雑さがビジネスロジックを汚染している。
+4. アプリケーション層に定義されるべきユースケースがプレゼンテーションやインフラ層へ分散し、オーケストレーションが見えづらい。
+5. 型チェックとテスト範囲が `src/domain/block/**/*` に限定され、レイヤ間契約の退行検知が困難。
+
+## ステークホルダーと責任
+| 区分 | 主責任 | 主担当タスク |
+| --- | --- | --- |
+| テックリード | 方針決定・レビュー承認 | フェーズ進行判断・設計レビュー |
+| ドメイン担当 | ドメインモデル整理 | ポート定義、ユビキタス言語維持 |
+| アプリ担当 | ユースケース再設計 | サービス層実装とファサード整備 |
+| インフラ担当 | アダプタ再実装 | Three.js, 永続化アダプタ、設定 |
+| QA/テスト | 品質保証 | テスト拡充、契約テストケース作成 |
+
+## コミュニケーションとレビュー
+- フェーズ開始時にキックオフを実施し、対象領域と完了条件を確認する。
+- 各フェーズ完了時にペアレビュー（テックリード + 該当担当）で差分を精査する。
+- フェーズ横断課題は週次で改善ログに記録し、次フェーズ計画へ反映する。
+- 破壊的変更が発生する場合は、実装前に ADR を簡潔に作成し共有する。
+
+## 実行方針
+- ドメイン層ではインターフェース・値オブジェクト・ドメインサービス契約のみを保持し、副作用を伴う処理を排除する。
+- インフラ層へ Live 実装を再配置し、Three.js・ブラウザ API・永続化実装・環境判定等の技術的詳細を集約する。
+- アプリケーション層にユースケース／ファサードを整備し、プレゼンテーション層にはアダプタ実装のみを残す。
+- 依存注入は Bootstrap 層ではなく Infrastructure 層中心に構築し、Application 層がドメインポートを受け取る形へ刷新する。
+- 型チェックとテスト範囲を全レイヤに拡張し、回帰を早期に検知する。
+
+## フェーズ別アクション
+### フェーズ1: ドメイン層の隔離
+- **主タスク**
+  - Camera, Inventory, Chunk 周辺で外部 API を直接利用している箇所をリスト化し、責務を判定する。
+  - ドメイン層にポート（例: `CameraPort`, `ContainerPersistencePort`）とドメイン DTO を定義し、戻り値・引数を再設計する。
+  - `*Live` 実装と Effect Layer を削除または移動し、ドメイン層には契約のみを残す。
+- **成果物**
+  - ポート一覧と責務対応表。
+  - リファクタリング後のドメイン層コード差分。
+- **実装方法**
+  1. `rg` で Three.js や `window` 等のキーワードを検索し、ドメイン層からの技術依存箇所を列挙する。
+  2. 各箇所についてドメイン概念を整理し、必要な入力・出力をドメイン DTO として定義する。
+  3. 既存の `*Live` 実装を `infrastructure/adapters` へ移動させる前段として、 Interface を `domain/<context>/ports` に追加する。
+  4. ドメインサービスからはポート Interface のみを参照するよう書き換え、副作用を除去する。
+- **完了条件**
+  - ドメイン層から外部ライブラリへの直接参照が存在しない。
+  - ポート経由でのみ技術的依存が解決されている。
+
+### フェーズ2: インフラ層の再配置
+- **主タスク**
+  - フェーズ1で切り出したポートに対するアダプタを `src/infrastructure` 配下で実装する。
+  - Three.js, IndexedDB, LocalStorage 等の環境依存処理をアダプタにまとめ、設定値をインフラ層で一元管理する。
+  - 環境検出や永続化戦略分岐を Infrastructure のコンフィギュレーションへ集約する。
+- **成果物**
+  - ポート別アダプタ実装と設定ファイル。
+  - 環境依存一覧とアダプタ対応表。
+- **実装方法**
+  1. フェーズ1で定義したポートを基に、 `infrastructure/adapters/<tech>` にクラス／ファクトリを作成する。
+  2. アダプタ内部で外部ライブラリ初期化を行い、例外をドメイン定義のエラー型へ変換する。
+  3. `infrastructure/di/container.ts` にアダプタ登録を追加し、設定値は `infrastructure/config` から読み込む。
+  4. 契約テストを `tests/contract` に用意し、ポート Interface と実装の整合性を検証する。
+- **完了条件**
+  - インフラ層からドメイン層への依存がポート経由に限定される。
+  - プレゼンテーション層が直接技術的詳細へ触れない。
+
+### フェーズ3: アプリケーション層のユースケース再設計
+- **主タスク**
+  - ゲーム起動／停止、シーン遷移、入力処理など主要ユースケースを洗い出し、 Application 層サービスへ再配置する。
+  - Application 層でドメインポートを注入し、プレゼンテーション層にはファサード API を提供する。
+  - Bootstrap での Layer 組み立てを簡素化し、 Infrastructure が提供する Layer を Application へ供給する構成へ統一する。
+- **成果物**
+  - ユースケース一覧と依存ポート図。
+  - Application 層サービスコードとファサード API ドキュメント。
+- **実装方法**
+  1. 既存 UI ハンドラとゲームループ処理を棚卸しし、ユースケース単位のイベントシーケンスを作成する。
+  2. `application/usecases` にコマンド／クエリを実装し、必要なポートをコンストラクタ注入する。
+  3. `application/facades` でユースケースを束ね、 UI へ公開する関数群を定義する。
+  4. 変更後のフローを `docs` などでシーケンス図として更新し、レビュー時の理解を支援する。
+- **完了条件**
+  - プレゼンテーション層が Application 層ファサードのみに依存する。
+  - ユースケース単位でユビキタス言語が反映される。
+
+### フェーズ4: テストと型チェック拡充
+- **主タスク**
+  - tsconfig の `include` 範囲を `src` 全体へ広げ、型チェック設定を調整する。
+  - ポート毎の契約テスト／単体テストを整備し、 Infrastructure アダプタとの整合性を担保する。
+  - ユースケース単位の統合テストを追加し、プレゼンテーション層からドメイン層までのシナリオを検証する。
+- **成果物**
+  - 更新された tsconfig とテストコード。
+  - テストカバレッジレポートと回帰防止リスト。
+- **実装方法**
+  1. `tsconfig.json` をプロジェクトリファレンス構成に更新し、レイヤ毎の `tsconfig.*.json` を追加する。
+  2. 契約テスト・統合テスト・ E2E テストを追加し、 `pnpm test` でレイヤ横断の検証を自動化する。
+  3. `scripts/check-deps.ts` を追加し、 `madge` による依存方向チェックを CI へ組み込む。
+  4. カバレッジ閾値を設定し、主要ユースケースが網羅されていることを確認する。
+- **完了条件**
+  - CI テストでレイヤ侵食が検出できる。
+  - テスト失敗時に原因レイヤが特定可能である。
+
+### フェーズ5: リリース準備と振り返り
+- **主タスク**
+  - 変更点をまとめた開発者向けガイドを作成し、リリースノート下書きを共有する。
+  - 実装者・レビュアーで振り返りを行い、以降の改善タスクを棚卸しする。
+- **成果物**
+  - ガイドラインと残課題リスト。
+  - 改善ログと次期アクション候補。
+- **実装方法**
+  1. フェーズ 1〜4 の成果と残課題をテンプレート化し、 `docs/adr` へ反映する。
+  2. アプリケーション層のファサード API 変更点をまとめたチートシートを作成し、プレゼンテーション担当へ展開する。
+  3. 残課題は Issue 化し、優先度・担当・完了条件を明記して次期スプリントへ引き継ぐ。
+- **完了条件**
+  - 既知の残課題がチケット化され、次期スプリントで扱える状態になっている。
+
+## リスクと対応策
+- **ユースケースの抜け漏れ**: 既存イベントログやプレゼンテーション層のハンドラを網羅的に棚卸しし、チェックリスト化する。
+- **三層間の循環依存復活**: 依存方向を自動検証するスクリプト（例: `madge`）を導入し、CI に組み込む。
+- **ドメインモデルの肥大化**: 値オブジェクト化の基準を策定し、レビュー時に逸脱を検知する。
+- **テストコストの増大**: 契約テストを最小構成から開始し、優先度に応じて段階的に拡張する。
+
+## 成果物と合否判定基準
+- ドメイン層の `import` が自層または抽象ポートのみに限定される。
+- Infrastructure 層にポート実装が集約され、 Three.js やストレージ API へのアクセスが移される。
+- Application 層のユースケースファサードが明確になり、プレゼンテーション層はそれらのみに依存する。
+- tsconfig とテストスイートが全レイヤをカバーし、 CI でドメイン侵食が検出できる仕組みが整っている。
+- 以上の条件が各フェーズ完了レビューで満たされているとテックリードが判断した時点で計画完了とする。

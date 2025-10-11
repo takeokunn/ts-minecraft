@@ -237,7 +237,7 @@ export const InventoryManagerApplicationServiceLive = Layer.effect(
           })
 
           const results = yield* Effect.forEach(commands, (command) => commandHandlers.handleCommand(command), {
-            concurrency: 'unbounded',
+            concurrency: 4,
           })
 
           yield* Effect.logInfo('Batch commands completed', {

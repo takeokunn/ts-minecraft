@@ -28,6 +28,7 @@ import {
   PlayerVitalsSchema,
   SATURATION_CONSTANTS,
 } from './index'
+import type { PlayerMotion } from './types'
 
 // -----------------------------------------------------------------------------
 // 型エイリアス
@@ -142,6 +143,8 @@ const eventOf = (input: unknown) => decodeWith(PlayerEventSchema, 'PlayerEvent',
 
 const aggregateOf = (input: unknown) => decodeWith(PlayerAggregateSchema, 'PlayerAggregate', input)
 
+type PlayerMotionInput = Schema.Schema.Input<typeof PlayerMotionSchema> | PlayerMotion
+
 // -----------------------------------------------------------------------------
 // 操作結果型
 // -----------------------------------------------------------------------------
@@ -226,7 +229,7 @@ export const updateVitals = (
 
 export const updatePosition = (
   aggregate: PlayerAggregate,
-  params: { readonly position: PlayerPosition; readonly motion: unknown },
+  params: { readonly position: PlayerPosition; readonly motion: PlayerMotionInput },
   context: PlayerUpdateContext
 ): Effect.Effect<PlayerOperationResult, ConstraintError> =>
   pipe(

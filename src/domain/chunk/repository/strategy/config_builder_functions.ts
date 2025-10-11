@@ -4,10 +4,11 @@
  * RepositoryConfigBuilderの機能を純粋関数として実装
  */
 
-import { Layer } from 'effect'
+import { Effect, Layer, Option } from 'effect'
 import type { ChunkRepository } from '../../chunk_repository'
 import type { RepositoryError } from '../../types'
 import type { RepositoryConfigBuilderState } from './config_builder_state'
+import { IncompleteRepositoryConfigError } from './errors'
 import type { RepositoryConfig, RepositoryStrategyType } from './repository_strategy'
 import { createRepositoryLayer } from './repository_strategy'
 
@@ -105,17 +106,27 @@ export const setEnableEncryption = (
 /**
  * RepositoryConfig構築
  */
-export const buildConfig = (state: RepositoryConfigBuilderState): RepositoryConfig =>
-  state.strategy
-    ? (state as RepositoryConfig)
-    : (() => {
-        throw new Error('Strategy must be specified')
-      })()
+export const buildConfig = (
+  state: RepositoryConfigBuilderState
+): Effect.Effect<RepositoryConfig, IncompleteRepositoryConfigError> =>
+  Option.fromNullable(state.strategy).pipe(
+    Option.match({
+      onNone: () =>
+        Effect.fail(
+          new IncompleteRepositoryConfigError({
+            missingField: 'strategy',
+            currentState: state,
+            message: 'リポジトリ戦略が設定されていません。build()を呼ぶ前にsetStrategy()を実行してください',
+          })
+        ),
+      onSome: () => Effect.succeed(state as RepositoryConfig),
+    })
+  )
 
 /**
  * Layer構築
  */
-export const buildLayer = (state: RepositoryConfigBuilderState): Layer.Layer<ChunkRepository, RepositoryError> => {
-  const config = buildConfig(state)
-  return createRepositoryLayer(config.strategy)
-}
+export const buildLayer = (
+  state: RepositoryConfigBuilderState
+): Effect.Effect<Layer.Layer<ChunkRepository, RepositoryError>, IncompleteRepositoryConfigError> =>
+  buildConfig(state).pipe(Effect.map((config) => createRepositoryLayer(config.strategy)))

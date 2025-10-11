@@ -427,7 +427,7 @@ export const getSlotPositionsInRange = (
 
     return yield* pipe(
       ReadonlyArray.range(start, end + 1),
-      Effect.forEach((i) => createSlotPosition(i), { concurrency: 'unbounded' })
+      Effect.forEach((i) => createSlotPosition(i), { concurrency: 4 })
     )
   })
 

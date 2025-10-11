@@ -169,7 +169,7 @@ export const decayCooldowns = (combatant: Combatant, elapsed: Cooldown): Effect.
           const remaining = yield* makeCooldown(bounded)
           return { attack: entry.attack, remaining }
         }),
-      { concurrency: 'unbounded' }
+      { concurrency: 4 }
     )
     return {
       ...combatant,

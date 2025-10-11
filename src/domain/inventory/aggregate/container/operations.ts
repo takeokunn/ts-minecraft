@@ -234,7 +234,7 @@ export const removeItemFromContainer = (
       Effect.filterOrFail(
         (qty) => qty <= validatedSlot.itemStack.count,
         () =>
-          new ContainerError({
+          ContainerError.make({
             reason: 'INVALID_SLOT_INDEX',
             message: `数量不足: ${removeQuantity} > ${validatedSlot.itemStack.count}`,
             containerId: aggregate.id,
@@ -314,7 +314,7 @@ export const sortContainer = (
       Effect.filterOrFail(
         (autoSort) => autoSort,
         () =>
-          new ContainerError({
+          ContainerError.make({
             reason: 'INVALID_CONFIGURATION',
             message: 'このコンテナは自動ソートが無効です',
             containerId: aggregate.id,
@@ -443,7 +443,7 @@ const checkAccess = (
     // 権限の有効期限チェック
     if (permission.expiresAt) {
       const now = yield* DateTime.now
-      const expiresAt = DateTime.unsafeFromDate(new Date(permission.expiresAt))
+      const expiresAt = DateTime.unsafeMake(permission.expiresAt)
       if (now > expiresAt) {
         return false
       }

@@ -136,7 +136,7 @@ export const SceneCameraApplicationServiceLive = Layer.effect(
         ),
         Match.tag('Group', ({ targets, centeringMode, weight }) =>
           Effect.gen(function* () {
-            const positions = yield* Effect.all(targets.map(resolveTargetPosition), { concurrency: 'unbounded' })
+            const positions = yield* Effect.all(targets.map(resolveTargetPosition), { concurrency: 4 })
 
             return pipe(
               centeringMode,
@@ -331,10 +331,10 @@ export const SceneCameraApplicationServiceLive = Layer.effect(
             [
               Clock.currentTimeMillis,
               generateSceneCameraId(),
-              Effect.all(initialSetup.targets.map(resolveTargetPosition), { concurrency: 'unbounded' }),
+              Effect.all(initialSetup.targets.map(resolveTargetPosition), { concurrency: 4 }),
               calculateCameraPositionFromFollow(initialSetup.followMode, initialSetup.initialPosition),
             ],
-            { concurrency: 'unbounded' }
+            { concurrency: 4 }
           )
 
           // カメラ状態の作成
@@ -377,7 +377,7 @@ export const SceneCameraApplicationServiceLive = Layer.effect(
               Effect.sync(() => sceneCameras.set(sceneCameraId, cameraState)),
               Effect.sync(() => performanceMetrics.set(sceneCameraId, cameraState.statistics)),
             ],
-            { concurrency: 'unbounded' }
+            { concurrency: 4 }
           )
 
           return sceneCameraId
@@ -438,7 +438,7 @@ export const SceneCameraApplicationServiceLive = Layer.effect(
           const cameraState = yield* findSceneCamera(sceneCameraId)
 
           // ターゲット位置の解決
-          const targetPositions = yield* Effect.all(targets.map(resolveTargetPosition), { concurrency: 'unbounded' })
+          const targetPositions = yield* Effect.all(targets.map(resolveTargetPosition), { concurrency: 4 })
 
           const updatedState = {
             ...cameraState,
@@ -669,7 +669,7 @@ export const SceneCameraApplicationServiceLive = Layer.effect(
                         })
                       })
                     ),
-                    { concurrency: 'unbounded' }
+                    { concurrency: 4 }
                   )
 
                   scenes.delete(sceneId)
@@ -710,7 +710,7 @@ export const SceneCameraApplicationServiceLive = Layer.effect(
               return createSequenceExecutionResult.started(mockSequence.id, 1000)
             })
           ),
-          { concurrency: 'unbounded' }
+          { concurrency: 4 }
         ),
 
       switchBetweenCameras: (fromCameraId, toCameraId, transitionConfig) =>
@@ -861,7 +861,7 @@ export const SceneCameraApplicationServiceLive = Layer.effect(
                     })
                   )
                 ),
-                { concurrency: 'unbounded' }
+                { concurrency: 4 }
               )
 
               return { camerasOptimized, memoryFreed }

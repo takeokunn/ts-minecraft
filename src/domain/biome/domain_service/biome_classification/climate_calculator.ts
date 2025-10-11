@@ -508,7 +508,7 @@ export const ClimateCalculatorServiceLive = Layer.effect(
                     })
                   : Option.none()
               }),
-            { concurrency: 'unbounded' }
+            { concurrency: 4 }
           ),
           Effect.map(ReadonlyArray.getSomes)
         )
@@ -534,7 +534,7 @@ export const ClimateCalculatorServiceLive = Layer.effect(
                   precipitation: climate.precipitation * (1 + yearlyVariation * 0.5),
                 }
               }),
-            { concurrency: 'unbounded' }
+            { concurrency: 4 }
           )
         )
 

@@ -55,7 +55,7 @@ export const syncMeshToBody = (mesh: THREE.Mesh, body: CANNON.Body): Effect.Effe
 export const syncBodies = (pairs: Array<{ body: CANNON.Body; mesh: THREE.Mesh }>): Effect.Effect<void, never> =>
   pipe(
     pairs,
-    Effect.forEach((pair) => syncBodyToMesh(pair.body, pair.mesh), { concurrency: 'unbounded', discard: true })
+    Effect.forEach((pair) => syncBodyToMesh(pair.body, pair.mesh), { concurrency: 4, discard: true })
   )
 
 /**

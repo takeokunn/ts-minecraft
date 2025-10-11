@@ -234,7 +234,7 @@ export const ChunkFactoryServiceLive = Layer.effect(
 
               return yield* service.createValidatedChunk(spec.position, blocks, metadataInput)
             }),
-          { concurrency: 'unbounded' }
+          { concurrency: 4 }
         ),
     }
 

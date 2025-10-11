@@ -93,5 +93,5 @@ export const batchSimulate = (params: {
         soilDelta: params.soilDelta,
         growthSteps: params.growthSteps,
       }),
-    { concurrency: 'unbounded' }
+    { concurrency: 4 }
   )

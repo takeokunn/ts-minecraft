@@ -572,7 +572,7 @@ export const ChunkQueryRepositoryLive = Layer.effect(
                   averageAccessTime: 10, // 簡易推定
                 }
               }),
-            { concurrency: 'unbounded' }
+            { concurrency: 4 }
           )
         }),
 
@@ -702,7 +702,7 @@ export const ChunkQueryRepositoryLive = Layer.effect(
                 // 自分だけの場合は孤立
                 return neighbors.length === 1
               }),
-            { concurrency: 'unbounded' }
+            { concurrency: 4 }
           )
         }),
 

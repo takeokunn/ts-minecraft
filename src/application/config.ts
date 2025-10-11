@@ -1,7 +1,7 @@
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
 import { Effect, Option, Schema } from 'effect'
 import * as Either from 'effect/Either'
-import { ConfigurationValidationError, JsonValue, createErrorContext } from './errors'
+import { ConfigurationSerializationError, ConfigurationValidationError, JsonValue, createErrorContext } from './errors'
 import {
   DebugConfigSchema,
   GameApplicationConfig as GameApplicationConfigSchema,
@@ -46,11 +46,30 @@ type FailureParams = {
   readonly cause: DecodeError
 }
 
-const toJsonValue = (input: unknown): JsonValue => {
-  const serialized = JSON.stringify(input)
-  const materialized = serialized === undefined ? null : JSON.parse(serialized)
-  return decodeJsonValue(materialized)
-}
+const toJsonValue = (input: unknown): Effect.Effect<JsonValue, ConfigurationSerializationError> =>
+  Effect.gen(function* () {
+    const serialized = yield* Effect.try({
+      try: () => JSON.stringify(input),
+      catch: (error) =>
+        new ConfigurationSerializationError({
+          operation: 'serialize',
+          input,
+          cause: error,
+        }),
+    })
+
+    const materialized = yield* Effect.try({
+      try: () => (serialized === undefined ? null : JSON.parse(serialized)),
+      catch: (error) =>
+        new ConfigurationSerializationError({
+          operation: 'deserialize',
+          input: serialized,
+          cause: error,
+        }),
+    })
+
+    return decodeJsonValue(materialized)
+  })
 
 const configurationFailure = ({
   operation,
@@ -66,14 +85,14 @@ const configurationFailure = ({
       details: [
         {
           key: 'reason',
-          value: toJsonValue(message),
+          value: yield* toJsonValue(message),
         },
       ],
     })
     const error = new ConfigurationValidationError({
       context,
       field,
-      value: toJsonValue(candidate),
+      value: yield* toJsonValue(candidate),
       constraint: message,
     })
     return yield* Effect.fail(error)

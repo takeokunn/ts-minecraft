@@ -582,19 +582,19 @@ export const OrePlacerServiceLive = Layer.effect(
 
 // ヘルパー関数群（実装の詳細は省略）
 const determineVeinPlacements = (bounds: BoundingBox, config: OrePlacementConfig, seed: WorldSeed) =>
-  Effect.succeed([] as ReadonlyArray<{ center: WorldCoordinate; oreType: OreType; profile: OreDensityProfile }>)
+  Effect.succeed([] satisfies ReadonlyArray<{ center: WorldCoordinate; oreType: OreType; profile: OreDensityProfile }>)
 
 const generateAllVeins = (
   placements: ReadonlyArray<{ center: WorldCoordinate; oreType: OreType; profile: OreDensityProfile }>,
   config: OrePlacementConfig,
   seed: WorldSeed
-) => Effect.succeed([] as ReadonlyArray<OreVein>)
+) => Effect.succeed([] satisfies ReadonlyArray<OreVein>)
 
 const determineClusterPlacements = (bounds: BoundingBox, config: OrePlacementConfig, seed: WorldSeed) =>
-  Effect.succeed([] as ReadonlyArray<{ center: WorldCoordinate; oreType: OreType }>)
+  Effect.succeed([] satisfies ReadonlyArray<{ center: WorldCoordinate; oreType: OreType }>)
 
 const determineScatterPlacements = (bounds: BoundingBox, config: OrePlacementConfig, seed: WorldSeed) =>
-  Effect.succeed([] as ReadonlyArray<{ center: WorldCoordinate; oreType: OreType }>)
+  Effect.succeed([] satisfies ReadonlyArray<{ center: WorldCoordinate; oreType: OreType }>)
 
 const applyGeologicalConstraints = (
   placements: ReadonlyArray<{ center: WorldCoordinate; oreType: OreType }>,
@@ -623,12 +623,12 @@ const calculateTotalEconomicValue = (
 const validatePlacementWarnings = (
   placements: ReadonlyArray<{ center: WorldCoordinate }>,
   config: OrePlacementConfig
-) => Effect.succeed([] as ReadonlyArray<string>)
+) => Effect.succeed([] satisfies ReadonlyArray<string>)
 
 const calculateBoundsVolume = (bounds: BoundingBox) =>
   Math.abs(bounds.max.x - bounds.min.x) * Math.abs(bounds.max.y - bounds.min.y) * Math.abs(bounds.max.z - bounds.min.z)
 
-const veinToOrePlacements = (vein: OreVein) => [] as ReadonlyArray<WorldCoordinate>
+const veinToOrePlacements = (vein: OreVein) => [] satisfies ReadonlyArray<WorldCoordinate>
 
 const determineVeinOrientation = (center: WorldCoordinate, oreType: OreType, seed: WorldSeed) =>
   Effect.succeed({
@@ -653,7 +653,7 @@ const calculateVeinGradeDistribution = (
   orientation: { strike: number; dip: number; plunge: number },
   profile: OreDensityProfile,
   seed: WorldSeed
-) => Effect.succeed([] as ReadonlyArray<WorldCoordinate>)
+) => Effect.succeed([] satisfies ReadonlyArray<WorldCoordinate>)
 
 const determineGeologicalInfo = (center: WorldCoordinate, oreType: OreType, profile: OreDensityProfile) =>
   Effect.succeed({

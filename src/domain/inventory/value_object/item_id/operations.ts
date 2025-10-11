@@ -293,7 +293,7 @@ export const getDisplayName = (itemId: ItemId): string => {
 export const validateItemIds = (inputs: readonly string[]): Effect.Effect<readonly ItemId[], readonly ItemIdError[]> =>
   Effect.gen(function* () {
     const results = yield* Effect.forEach(inputs, (input) => pipe(createItemId(input), Effect.either), {
-      concurrency: 'unbounded',
+      concurrency: 4,
     })
 
     const { errors, validItems } = pipe(

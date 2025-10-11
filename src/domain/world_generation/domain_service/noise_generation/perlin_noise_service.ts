@@ -339,7 +339,7 @@ export const PerlinNoiseServiceLive = Layer.effect(
               const worldZ = bounds.min.z + (z / (resolution - 1)) * (bounds.max.z - bounds.min.z)
               return PerlinNoiseService.sample2D(makeUnsafeWorldCoordinate2D(worldX, worldZ), config)
             },
-            { concurrency: 'unbounded' }
+            { concurrency: 4 }
           )
         )
 
@@ -398,7 +398,7 @@ export const PerlinNoiseServiceLive = Layer.effect(
             {
               totalValue: 0,
               totalAmplitude: 0,
-              octaveContributions: [] as ReadonlyArray<number>,
+              octaveContributions: [] satisfies ReadonlyArray<number>,
             },
             (acc, octaveConfig) =>
               Effect.gen(function* () {

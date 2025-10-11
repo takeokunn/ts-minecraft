@@ -44,7 +44,32 @@ export const FactoryErrorSchema = Schema.TaggedError('FactoryError', {
   cause: Schema.optional(Schema.Unknown),
 })
 
-export class FactoryError extends Schema.TaggedError<typeof FactoryErrorSchema>()('FactoryError', FactoryErrorSchema) {}
+export type FactoryError = Schema.Schema.Type<typeof FactoryErrorSchema>
+
+type FactoryErrorExtras = Partial<Omit<FactoryError, 'category' | 'message'>>
+
+const makeFactoryError = (category: FactoryError['category'], message: string, extras?: FactoryErrorExtras): FactoryError =>
+  FactoryErrorSchema.make({
+    category,
+    message,
+    ...extras,
+  })
+
+export const FactoryErrorFactory = {
+  make: (input: FactoryError): FactoryError => FactoryErrorSchema.make(input),
+  parameterValidation: (message: string, extras?: FactoryErrorExtras) =>
+    makeFactoryError('parameter_validation', message, extras),
+  dependencyResolution: (message: string, extras?: FactoryErrorExtras) =>
+    makeFactoryError('dependency_resolution', message, extras),
+  resourceAllocation: (message: string, extras?: FactoryErrorExtras) =>
+    makeFactoryError('resource_allocation', message, extras),
+  configurationConflict: (message: string, extras?: FactoryErrorExtras) =>
+    makeFactoryError('configuration_conflict', message, extras),
+  performanceConstraint: (message: string, extras?: FactoryErrorExtras) =>
+    makeFactoryError('performance_constraint', message, extras),
+} as const
+
+export const FactoryError = FactoryErrorFactory
 
 // ================================
 // Factory Parameters

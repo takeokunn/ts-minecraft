@@ -19,6 +19,14 @@ export const GenerationSessionIdSchema = Schema.String.pipe(
 export const createGenerationSessionId = (value: string): GenerationSessionId =>
   Schema.decodeSync(GenerationSessionIdSchema)(value)
 
+/**
+ * Schema検証済みのデータをGenerationSessionIdに変換する（unsafe）
+ * @param value - 検証済みの文字列
+ * @returns GenerationSessionId
+ * @remarks 必ずSchema検証後、またはIDジェネレーター出力後にのみ使用すること
+ */
+export const makeUnsafeGenerationSessionId = (value: string): GenerationSessionId => value as GenerationSessionId
+
 export const SessionConfigurationSchema = Schema.Struct({
   maxConcurrentChunks: Schema.Number.pipe(
     Schema.int(),

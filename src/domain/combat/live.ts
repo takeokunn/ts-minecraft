@@ -114,7 +114,7 @@ export const CombatServiceLive = Layer.effect(
           const refreshed = yield* Effect.forEach(
             session.combatants,
             (combatant) => decayCooldowns(combatant, elapsed),
-            { concurrency: 'unbounded' }
+            { concurrency: 4 }
           )
           const nextSession: CombatSession = {
             id: session.id,

@@ -379,10 +379,10 @@ export const BiomeMapperServiceLive = Layer.effect(
               Effect.forEach(
                 ({ climateData, worldX, worldZ }) =>
                   BiomeMapperService.mapPrimaryBiome(climateData, makeUnsafeWorldCoordinate2D(worldX, worldZ), seed),
-                { concurrency: 'unbounded' }
+                { concurrency: 4 }
               )
             ),
-          { concurrency: 'unbounded' }
+          { concurrency: 4 }
         )
       ),
 
@@ -422,7 +422,7 @@ export const BiomeMapperServiceLive = Layer.effect(
                 )
               )
             },
-            { concurrency: 'unbounded' }
+            { concurrency: 4 }
           ),
           Effect.map(ReadonlyArray.flatten)
         )
@@ -466,7 +466,7 @@ export const BiomeMapperServiceLive = Layer.effect(
                 transitionType: getTransitionType(elevation),
               }))
             ),
-          { concurrency: 'unbounded' }
+          { concurrency: 4 }
         )
       ),
 

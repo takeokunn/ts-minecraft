@@ -1,4 +1,5 @@
-import { Schema } from 'effect'
+import { Effect, Schema } from 'effect'
+import type { AllRepositoryErrors } from '@/domain/inventory/repository/types'
 import type {
   InventoryId,
   InventorySlot,
@@ -601,11 +602,15 @@ export interface ISpecificationService {
  */
 export interface ISpecificationRepository {
   readonly _tag: 'SpecificationRepository'
-  save<T>(specification: ISpecification<T>): Promise<void>
-  findByTag(tag: string): Promise<ISpecification<unknown>[]>
-  findByType<T>(type: new () => T): Promise<ISpecification<T>[]>
-  delete<T>(specification: ISpecification<T>): Promise<void>
-  exists<T>(specification: ISpecification<T>): Promise<boolean>
+  readonly save: <T>(specification: ISpecification<T>) => Effect.Effect<void, AllRepositoryErrors>
+  readonly findByTag: (
+    tag: string
+  ) => Effect.Effect<ReadonlyArray<ISpecification<unknown>>, AllRepositoryErrors>
+  readonly findByType: <T>(
+    type: new () => T
+  ) => Effect.Effect<ReadonlyArray<ISpecification<T>>, AllRepositoryErrors>
+  readonly delete: <T>(specification: ISpecification<T>) => Effect.Effect<void, AllRepositoryErrors>
+  readonly exists: <T>(specification: ISpecification<T>) => Effect.Effect<boolean, AllRepositoryErrors>
 }
 
 // =============================================================================

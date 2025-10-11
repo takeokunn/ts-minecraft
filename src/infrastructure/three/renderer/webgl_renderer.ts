@@ -11,7 +11,7 @@ import { RendererError } from '../errors'
  * WebGLRenderer初期化パラメータ
  */
 export const WebGLRendererParamsSchema = Schema.Struct({
-  canvas: Schema.optional(Schema.Unknown),
+  canvas: Schema.optional(Schema.InstanceOf(HTMLCanvasElement)),
   antialias: Schema.optional(Schema.Boolean),
   alpha: Schema.optional(Schema.Boolean),
   powerPreference: Schema.optional(Schema.Literal('default', 'high-performance', 'low-power')),
@@ -28,7 +28,7 @@ export const createRenderer = (params?: WebGLRendererParams): Effect.Effect<THRE
   Effect.try({
     try: () => {
       const renderer = new THREE.WebGLRenderer({
-        canvas: params?.canvas as HTMLCanvasElement | undefined,
+        canvas: params?.canvas,
         antialias: params?.antialias,
         alpha: params?.alpha,
         powerPreference: params?.powerPreference,

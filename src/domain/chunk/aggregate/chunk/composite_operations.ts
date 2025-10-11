@@ -242,7 +242,7 @@ export const ChunkBatchCompositeOperations = {
   batchAsyncUpdate: (
     chunks: ReadonlyArray<ChunkData>,
     operation: (chunk: ChunkData, index: number) => Effect.Effect<ChunkData>
-  ): Effect.Effect<ReadonlyArray<ChunkData>> => Effect.forEach(chunks, operation, { concurrency: 'unbounded' }),
+  ): Effect.Effect<ReadonlyArray<ChunkData>> => Effect.forEach(chunks, operation, { concurrency: 8 }),
 
   conditionalBatchUpdate: (
     chunks: ReadonlyArray<ChunkData>,

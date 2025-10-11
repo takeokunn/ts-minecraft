@@ -141,7 +141,7 @@ const buildInventorySlots = (
     })
   )
 
-  return Effect.forEach(slotEffects, (effect) => effect, { concurrency: 'unbounded' })
+  return Effect.forEach(slotEffects, (effect) => effect, { concurrency: 4 })
 }
 
 const toInventoryView = (
@@ -153,7 +153,7 @@ const toInventoryView = (
     const hotbar = yield* Effect.forEach(
       inventory.hotbar,
       (slot) => parseHotbarIndex(slot).pipe(Effect.mapError(renderSchemaError)),
-      { concurrency: 'unbounded' }
+      { concurrency: 4 }
     )
     const selectedSlot = yield* selectSlotIndex(inventory, inventory.hotbar).pipe(Effect.mapError(renderSchemaError))
     const slots = yield* buildInventorySlots(inventory, inventory.hotbar, config, selectedSlot)

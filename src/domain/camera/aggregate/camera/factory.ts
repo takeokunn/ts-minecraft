@@ -6,7 +6,7 @@
  */
 
 import { CameraError, CameraId } from '@domain/camera/types'
-import { Clock, Effect, Option } from 'effect'
+import { DateTime, Effect, Option } from 'effect'
 import {
   CameraDistance,
   CameraRotation,
@@ -61,7 +61,7 @@ export namespace CameraFactory {
       const validatedSettings = yield* validateCameraSettings(cameraSettings)
 
       // 現在時刻を取得
-      const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+      const now = yield* DateTime.nowAsDate
 
       // Camera Aggregateの作成
       const camera = Camera({
@@ -107,7 +107,7 @@ export namespace CameraFactory {
       yield* validateSnapshot(snapshot)
 
       // 現在時刻を取得（lastUpdatedがない場合）
-      const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+      const now = yield* DateTime.nowAsDate
 
       // Camera Aggregateの復元
       const camera = Camera({

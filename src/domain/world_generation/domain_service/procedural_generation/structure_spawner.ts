@@ -751,8 +751,8 @@ export const StructureSpawnerServiceLive = Layer.effect(
           Effect.reduce(
             {
               currentStructures: initialStructures,
-              historicalEvents: [] as ReadonlyArray<HistoricalEvent>,
-              demographicChanges: [] as ReadonlyArray<DemographicChange>,
+              historicalEvents: [] satisfies ReadonlyArray<HistoricalEvent>,
+              demographicChanges: [] satisfies ReadonlyArray<DemographicChange>,
             },
             (state, _step) =>
               Effect.gen(function* () {
@@ -801,7 +801,7 @@ export const StructureSpawnerServiceLive = Layer.effect(
 
 // ヘルパー関数群（実装の詳細は省略）
 const calculatePlacementCandidates = (bounds: BoundingBox, config: StructureSpawnConfig, context: TerrainContext) =>
-  Effect.succeed([] as ReadonlyArray<{ location: WorldCoordinate; blueprint: StructureBlueprint }>)
+  Effect.succeed([] satisfies ReadonlyArray<{ location: WorldCoordinate; blueprint: StructureBlueprint }>)
 
 const evaluatePlacementPriority = (
   candidates: ReadonlyArray<{ location: WorldCoordinate; blueprint: StructureBlueprint }>,
@@ -814,7 +814,7 @@ const performStagedPlacement = (
   config: StructureSpawnConfig,
   seed: WorldSeed,
   context: TerrainContext
-) => Effect.succeed([] as ReadonlyArray<StructureInstance>)
+) => Effect.succeed([] satisfies ReadonlyArray<StructureInstance>)
 
 const applyTerrainAdaptations = (
   structures: ReadonlyArray<StructureInstance>,
@@ -824,10 +824,10 @@ const applyTerrainAdaptations = (
 
 const buildCivilizationNetwork = (structures: ReadonlyArray<StructureInstance>, config: StructureSpawnConfig) =>
   Effect.succeed({
-    settlements: [] as ReadonlyArray<Settlement>,
-    tradeRoutes: [] as ReadonlyArray<TradeRoute>,
-    culturalInfluence: [] as ReadonlyArray<CulturalInfluence>,
-    powerStructures: [] as ReadonlyArray<PowerStructure>,
+    settlements: [] satisfies ReadonlyArray<Settlement>,
+    tradeRoutes: [] satisfies ReadonlyArray<TradeRoute>,
+    culturalInfluence: [] satisfies ReadonlyArray<CulturalInfluence>,
+    powerStructures: [] satisfies ReadonlyArray<PowerStructure>,
   })
 
 const applyHistoricalWeathering = (
@@ -852,7 +852,7 @@ const calculateTerrainModifications = (structures: ReadonlyArray<StructureInstan
 const calculateAverageComplexity = (structures: ReadonlyArray<StructureInstance>) => 0.6
 
 const validateStructureWarnings = (structures: ReadonlyArray<StructureInstance>, config: StructureSpawnConfig) =>
-  Effect.succeed([] as ReadonlyArray<string>)
+  Effect.succeed([] satisfies ReadonlyArray<string>)
 
 const validateIndividualPlacement = (
   blueprint: StructureBlueprint,
@@ -861,7 +861,7 @@ const validateIndividualPlacement = (
 ) =>
   Effect.succeed({
     isValid: true,
-    issues: [] as ReadonlyArray<string>,
+    issues: [] satisfies ReadonlyArray<string>,
   })
 
 const concretizeBlueprint = (blueprint: StructureBlueprint, location: WorldCoordinate, seed: WorldSeed) =>
@@ -873,7 +873,7 @@ const calculateBlockPlacements = (
   config: StructureSpawnConfig
 ) =>
   Effect.succeed(
-    [] as ReadonlyArray<{
+    [] satisfies ReadonlyArray<{
       coordinate: WorldCoordinate
       material: string
       componentId: string
@@ -885,7 +885,7 @@ const placeFunctionalElements = (
   blueprint: StructureBlueprint,
   location: WorldCoordinate,
   config: StructureSpawnConfig
-) => Effect.succeed([] as ReadonlyArray<{ type: string; coordinate: WorldCoordinate }>)
+) => Effect.succeed([] satisfies ReadonlyArray<{ type: string; coordinate: WorldCoordinate }>)
 
 const initializeStructureCondition = (blueprint: StructureBlueprint, config: StructureSpawnConfig, seed: WorldSeed) =>
   Effect.succeed({
@@ -910,13 +910,13 @@ const calculateStructureBounds = (
 const assessTerrainSuitability = (blueprint: StructureBlueprint, location: WorldCoordinate, context: TerrainContext) =>
   Effect.succeed({
     score: 0.8,
-    issues: [] as ReadonlyArray<string>,
+    issues: [] satisfies ReadonlyArray<string>,
   })
 
 const assessSpaceRequirements = (blueprint: StructureBlueprint, location: WorldCoordinate, context: TerrainContext) =>
   Effect.succeed({
     score: 0.9,
-    issues: [] as ReadonlyArray<string>,
+    issues: [] satisfies ReadonlyArray<string>,
   })
 
 const assessNeighborCompatibility = (
@@ -926,19 +926,19 @@ const assessNeighborCompatibility = (
 ) =>
   Effect.succeed({
     score: 0.85,
-    issues: [] as ReadonlyArray<string>,
+    issues: [] satisfies ReadonlyArray<string>,
   })
 
 const generateAdaptationSuggestions = (
   blueprint: StructureBlueprint,
   location: WorldCoordinate,
   issues: ReadonlyArray<string>
-) => Effect.succeed([] as ReadonlyArray<string>)
+) => Effect.succeed([] satisfies ReadonlyArray<string>)
 
 const determineFoundationLevel = (location: WorldCoordinate, heightMap: HeightMap) => Effect.succeed(location.y)
 
 const calculateSlopeAdaptations = (blueprint: StructureBlueprint, location: WorldCoordinate, heightMap: HeightMap) =>
-  Effect.succeed([] as ReadonlyArray<{ type: string; modification: string }>)
+  Effect.succeed([] satisfies ReadonlyArray<{ type: string; modification: string }>)
 
 const modifyBlueprintForTerrain = (
   blueprint: StructureBlueprint,
@@ -950,19 +950,19 @@ const calculateRequiredTerrainModifications = (
   blueprint: StructureBlueprint,
   location: WorldCoordinate,
   heightMap: HeightMap
-) => Effect.succeed([] as ReadonlyArray<{ coordinate: WorldCoordinate; modification: string }>)
+) => Effect.succeed([] satisfies ReadonlyArray<{ coordinate: WorldCoordinate; modification: string }>)
 
 const identifySettlements = (structures: ReadonlyArray<StructureInstance>) =>
-  Effect.succeed([] as ReadonlyArray<Settlement>)
+  Effect.succeed([] satisfies ReadonlyArray<Settlement>)
 
 const analyzeTradeRoutes = (structures: ReadonlyArray<StructureInstance>, settlements: ReadonlyArray<Settlement>) =>
-  Effect.succeed([] as ReadonlyArray<TradeRoute>)
+  Effect.succeed([] satisfies ReadonlyArray<TradeRoute>)
 
 const calculateCulturalInfluence = (structures: ReadonlyArray<StructureInstance>) =>
-  Effect.succeed([] as ReadonlyArray<CulturalInfluence>)
+  Effect.succeed([] satisfies ReadonlyArray<CulturalInfluence>)
 
 const analyzePowerStructures = (structures: ReadonlyArray<StructureInstance>) =>
-  Effect.succeed([] as ReadonlyArray<PowerStructure>)
+  Effect.succeed([] satisfies ReadonlyArray<PowerStructure>)
 
 const simulatePopulationChange = (structures: ReadonlyArray<StructureInstance>, config: StructureSpawnConfig) =>
   Effect.succeed({} as DemographicChange)
@@ -971,13 +971,13 @@ const simulateStructureDevelopment = (
   structures: ReadonlyArray<StructureInstance>,
   population: DemographicChange,
   config: StructureSpawnConfig
-) => Effect.succeed([] as ReadonlyArray<HistoricalEvent>)
+) => Effect.succeed([] satisfies ReadonlyArray<HistoricalEvent>)
 
 const simulateNewConstruction = (
   structures: ReadonlyArray<StructureInstance>,
   population: DemographicChange,
   config: StructureSpawnConfig
-) => Effect.succeed([] as ReadonlyArray<StructureInstance>)
+) => Effect.succeed([] satisfies ReadonlyArray<StructureInstance>)
 
 const simulateDecayAndDestruction = (structures: ReadonlyArray<StructureInstance>, config: StructureSpawnConfig) =>
   Effect.succeed(structures)

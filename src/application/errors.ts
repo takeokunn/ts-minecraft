@@ -166,6 +166,15 @@ export class ConfigurationValidationError extends Schema.TaggedError<Configurati
   }
 ) {}
 
+export class ConfigurationSerializationError extends Schema.TaggedError<ConfigurationSerializationError>()(
+  'ConfigurationSerializationError',
+  {
+    operation: Schema.Literal('serialize', 'deserialize'),
+    input: Schema.Unknown,
+    cause: Schema.Unknown,
+  }
+) {}
+
 export class SystemSynchronizationError extends Schema.TaggedError<SystemSynchronizationError>()(
   'SystemSynchronizationError',
   {

@@ -404,9 +404,9 @@ const makeWorldCollisionService: Effect.Effect<WorldCollisionService, never, Can
           Effect.forEach(
             (batch) =>
               Effect.forEach(batch, ({ position, blockType }) => addBlockCollision(position, blockType), {
-                concurrency: 'unbounded',
+                concurrency: 4,
               }),
-            { concurrency: 'unbounded' }
+            { concurrency: 4 }
           ),
           Effect.map(ReadonlyArray.flatten)
         )
@@ -431,8 +431,8 @@ const makeWorldCollisionService: Effect.Effect<WorldCollisionService, never, Can
           positionBatches,
           Effect.forEach(
             (batch) =>
-              Effect.forEach(batch, (position) => removeBlockCollision(position), { concurrency: 'unbounded' }),
-            { concurrency: 'unbounded' }
+              Effect.forEach(batch, (position) => removeBlockCollision(position), { concurrency: 4 }),
+            { concurrency: 4 }
           )
         )
 
@@ -575,7 +575,7 @@ const makeWorldCollisionService: Effect.Effect<WorldCollisionService, never, Can
                   penetrationDepth,
                 })
               }),
-            { concurrency: 'unbounded' }
+            { concurrency: 4 }
           ),
           Effect.map(ReadonlyArray.getSomes)
         )
@@ -643,7 +643,7 @@ const makeWorldCollisionService: Effect.Effect<WorldCollisionService, never, Can
 
                 return Option.none()
               }),
-            { concurrency: 'unbounded' }
+            { concurrency: 4 }
           ),
           Effect.map(ReadonlyArray.getSomes)
         )
@@ -698,7 +698,7 @@ const makeWorldCollisionService: Effect.Effect<WorldCollisionService, never, Can
                 cannonPhysics.removeBody(bodyId),
                 Effect.catchAll(() => Effect.void) // エラーは無視
               ),
-            { concurrency: 'unbounded' }
+            { concurrency: 4 }
           )
         )
 

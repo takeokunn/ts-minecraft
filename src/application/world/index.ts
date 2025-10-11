@@ -783,7 +783,7 @@ export const WorldApplicationServiceUtils = {
       // チャンク生成を完全並行実行
       const chunkIds = yield* pipe(
         positions,
-        Effect.forEach(({ x, z }) => service.generateChunk(worldId, x, z, priority), { concurrency: 'unbounded' }),
+        Effect.forEach(({ x, z }) => service.generateChunk(worldId, x, z, priority), { concurrency: 4 }),
         Effect.map(ReadonlyArray.compact)
       )
 

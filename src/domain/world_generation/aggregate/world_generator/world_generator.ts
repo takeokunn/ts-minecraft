@@ -10,7 +10,7 @@
 
 import type * as WorldTypes from '@domain/world/types/core'
 import type * as GenerationErrors from '@domain/world/types/errors'
-import { Clock, Context, Effect, Schema, STM } from 'effect'
+import { Context, DateTime, Effect, Schema, STM } from 'effect'
 import * as BusinessRules from './index'
 import * as GenerationEvents from './index'
 import * as GenerationState from './index'
@@ -55,7 +55,7 @@ export const create = (
     // ビジネスルール検証
     yield* BusinessRules.validateCreationContext(context)
 
-    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const now = yield* DateTime.nowAsDate
 
     const state = yield* GenerationState.createInitial()
 
@@ -106,7 +106,7 @@ export const generateChunk = (
       GenerationState.completeChunkGeneration(updatedState, command.coordinate, chunkData)
     )
 
-    const updatedAt = yield* STM.fromEffect(Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms)))
+    const updatedAt = yield* STM.fromEffect(DateTime.nowAsDate)
 
     const updatedGenerator: WorldGenerator = {
       ...generator,
@@ -141,7 +141,7 @@ export const updateSettings = (
       ...(command.noiseConfig && { noiseConfig: command.noiseConfig }),
     }
 
-    const updatedAt = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const updatedAt = yield* DateTime.nowAsDate
 
     const updatedGenerator: WorldGenerator = {
       ...generator,
@@ -191,7 +191,7 @@ const generateChunkData = (
     // この実装はDomain Service層に委譲する
     // 実際の地形生成、バイオーム計算、構造物配置など
 
-    const generatedAt = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const generatedAt = yield* DateTime.nowAsDate
 
     // プレースホルダー実装
     const chunkData: WorldTypes.ChunkData = {

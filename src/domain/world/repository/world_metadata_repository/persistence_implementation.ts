@@ -15,7 +15,7 @@ import {
   createStorageError,
   createVersioningError,
 } from '@domain/world/types'
-import { WorldCoordinateSchema, WorldIdSchema, WorldSeedSchema } from '@domain/world/types/core'
+import { WorldBorderSchema, WorldCoordinateSchema, WorldIdSchema, WorldSeedSchema } from '@domain/world/types/core'
 import * as Schema from '@effect/schema/Schema'
 import * as crypto from 'crypto'
 import { DateTime, Effect, Layer, Match, Option, pipe, ReadonlyArray, Ref } from 'effect'
@@ -133,9 +133,7 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
 
     const SpawnLocationPersistenceSchema = Schema.Struct({
       playerId: Schema.String,
-      x: Schema.Number,
-      y: Schema.Number,
-      z: Schema.Number,
+      location: WorldCoordinateSchema,
     })
 
     const WorldSettingsPersistenceSchema = Schema.Struct({
@@ -148,15 +146,7 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
       hardcore: Schema.Boolean,
       pvp: Schema.Boolean,
       spawnProtection: Schema.Number,
-      worldBorder: Schema.Struct({
-        centerX: WorldCoordinateSchema,
-        centerZ: WorldCoordinateSchema,
-        size: Schema.Number,
-        warningBlocks: Schema.Number,
-        warningTime: Schema.Number,
-        damageAmount: Schema.Number,
-        damageBuffer: Schema.Number,
-      }),
+      worldBorder: WorldBorderSchema,
       gameRules: Schema.Record(Schema.String, Schema.Union(Schema.Boolean, Schema.Number, Schema.String)),
       dataPackSettings: Schema.Struct({
         enabled: Schema.Array(Schema.String),
@@ -252,7 +242,7 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
             Effect.fail(createStorageError(`Failed to create directory ${dir}: ${error}`, 'initialize', error))
           )
         ),
-      { concurrency: 'unbounded' }
+      { concurrency: 4 }
     )
 
     // === File Operations ===
@@ -1515,7 +1505,7 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
           yield* Effect.forEach(
             Array.from(indexMap.entries()),
             ([indexName, worldIds]) => writeFile(getIndexFilePath(indexName), worldIds),
-            { concurrency: 'unbounded' }
+            { concurrency: 4 }
           )
         }),
 
@@ -1595,7 +1585,7 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
       warmupCache: (worldIds: ReadonlyArray<WorldId>) =>
         Effect.gen(function* () {
           yield* Effect.forEach(worldIds, (worldId) => Effect.ignore(this.findMetadata(worldId)), {
-            concurrency: 'unbounded',
+            concurrency: 4,
           })
         }),
 
@@ -1613,7 +1603,7 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
                   error: result._tag === 'Left' ? result.left : undefined,
                 }))
               ),
-            { concurrency: 'unbounded' }
+            { concurrency: 4 }
           )
 
           const successful = pipe(
@@ -1655,7 +1645,7 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
                   })
                 )
               }),
-            { concurrency: 'unbounded' }
+            { concurrency: 4 }
           )
 
           return pipe(
@@ -1674,7 +1664,7 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
                 Effect.either(this.deleteMetadata(worldId)),
                 Effect.map((result) => result._tag === 'Right')
               ),
-            { concurrency: 'unbounded' }
+            { concurrency: 4 }
           )
 
           return pipe(
@@ -1689,7 +1679,7 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
           const results = yield* Effect.forEach(
             worldIds,
             (worldId) => Effect.either(this.compressMetadata(worldId, compressionConfig)),
-            { concurrency: 'unbounded' }
+            { concurrency: 4 }
           )
 
           return pipe(
@@ -1764,7 +1754,7 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
 
                 return { errors, corrupted }
               }),
-            { concurrency: 'unbounded' }
+            { concurrency: 4 }
           )
 
           const allErrors = pipe(

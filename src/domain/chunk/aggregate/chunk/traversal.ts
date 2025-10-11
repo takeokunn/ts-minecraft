@@ -211,7 +211,7 @@ export const ChunkTraversalComposers = {
   ): Effect.Effect<ChunkData> =>
     pipe(
       operations,
-      Effect.forEach((operation) => operation(chunk), { concurrency: 'unbounded' }),
+      Effect.forEach((operation) => operation(chunk), { concurrency: 4 }),
       Effect.map((results) => results.at(-1) ?? chunk)
     ),
 

@@ -197,7 +197,7 @@ export const createComponentStorage = <T>() => {
 
   // 高速イテレーション用
   const iterate = <R, E>(f: (entity: EntityId, component: T) => Effect.Effect<void, E, R>): Effect.Effect<void, E, R> =>
-    Effect.forEach(
+    Effect.forEach<readonly number[], void, E, R, never>(
       Array.from({ length: array.size }, (_, i) => i),
       (index) => {
         const entity = array.indexToEntity[index]
@@ -212,8 +212,8 @@ export const createComponentStorage = <T>() => {
           })
         )
       },
-      { concurrency: 'unbounded', discard: true }
-    ) as Effect.Effect<void, E, R>
+      { concurrency: 4, discard: true }
+    )
 
   // バッチ取得（高速）
   const getAll = (): Effect.Effect<ReadonlyArray<[EntityId, T]>, never> =>

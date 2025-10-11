@@ -181,7 +181,7 @@ export const ValidationServiceLive = Layer.succeed(
                 )
               )
             }),
-          { concurrency: 'unbounded' }
+          { concurrency: 4 }
         )
 
         const appliedCorrections = pipe(
@@ -241,7 +241,7 @@ export const ValidationServiceLive = Layer.succeed(
                 description: `${factor.name} assessment`,
               }
             }),
-          { concurrency: 'unbounded' }
+          { concurrency: 4 }
         )
 
         const totalScore = pipe(

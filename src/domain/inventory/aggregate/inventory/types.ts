@@ -147,7 +147,7 @@ export const INVENTORY_CONSTANTS = {
 
 // ===== Error Types =====
 
-export class InventoryAggregateError extends Schema.TaggedError<InventoryAggregateError>()('InventoryAggregateError', {
+export const InventoryAggregateErrorSchema = Schema.TaggedError('InventoryAggregateError', {
   reason: Schema.Literal(
     'SLOT_OCCUPIED',
     'SLOT_EMPTY',
@@ -163,53 +163,54 @@ export class InventoryAggregateError extends Schema.TaggedError<InventoryAggrega
   slotIndex: Schema.optional(SlotIndexSchema),
   itemId: Schema.optional(ItemIdSchema),
   metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Any })),
-}) {
-  static slotOccupied(slotIndex: SlotIndex, itemId?: ItemId): InventoryAggregateError {
-    return new InventoryAggregateError({
+})
+
+export type InventoryAggregateError = Schema.Schema.Type<typeof InventoryAggregateErrorSchema>
+
+export const InventoryAggregateErrorFactory = {
+  make: (input: Schema.Schema.Type<typeof InventoryAggregateErrorSchema>): InventoryAggregateError =>
+    InventoryAggregateErrorSchema.make(input),
+
+  slotOccupied: (slotIndex: SlotIndex, itemId?: ItemId): InventoryAggregateError =>
+    InventoryAggregateErrorSchema.make({
       reason: 'SLOT_OCCUPIED',
       message: `スロット${slotIndex}は既に占有されています`,
       slotIndex,
       itemId,
-    })
-  }
+    }),
 
-  static slotEmpty(slotIndex: SlotIndex): InventoryAggregateError {
-    return new InventoryAggregateError({
+  slotEmpty: (slotIndex: SlotIndex): InventoryAggregateError =>
+    InventoryAggregateErrorSchema.make({
       reason: 'SLOT_EMPTY',
       message: `スロット${slotIndex}は空です`,
       slotIndex,
-    })
-  }
+    }),
 
-  static invalidSlotIndex(slotIndex: number): InventoryAggregateError {
-    return new InventoryAggregateError({
+  invalidSlotIndex: (slotIndex: number): InventoryAggregateError =>
+    InventoryAggregateErrorSchema.make({
       reason: 'INVALID_SLOT_INDEX',
       message: `不正なスロットインデックス: ${slotIndex}`,
       slotIndex: makeUnsafeSlotIndex(slotIndex),
-    })
-  }
+    }),
 
-  static itemNotStackable(itemId: ItemId): InventoryAggregateError {
-    return new InventoryAggregateError({
+  itemNotStackable: (itemId: ItemId): InventoryAggregateError =>
+    InventoryAggregateErrorSchema.make({
       reason: 'ITEM_NOT_STACKABLE',
       message: `アイテム${itemId}はスタックできません`,
       itemId,
-    })
-  }
+    }),
 
-  static stackSizeExceeded(itemId: ItemId, attempted: number, max: number): InventoryAggregateError {
-    return new InventoryAggregateError({
+  stackSizeExceeded: (itemId: ItemId, attempted: number, max: number): InventoryAggregateError =>
+    InventoryAggregateErrorSchema.make({
       reason: 'STACK_SIZE_EXCEEDED',
       message: `アイテム${itemId}のスタックサイズ上限を超過: ${attempted} > ${max}`,
       itemId,
-    })
-  }
+    }),
 
-  static insufficientQuantity(itemId: ItemId, requested: number, available: number): InventoryAggregateError {
-    return new InventoryAggregateError({
+  insufficientQuantity: (itemId: ItemId, requested: number, available: number): InventoryAggregateError =>
+    InventoryAggregateErrorSchema.make({
       reason: 'INSUFFICIENT_QUANTITY',
       message: `アイテム${itemId}の数量が不足: ${requested} > ${available}`,
       itemId,
-    })
-  }
-}
+    }),
+} as const

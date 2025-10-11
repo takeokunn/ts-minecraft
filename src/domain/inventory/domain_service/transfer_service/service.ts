@@ -6,7 +6,7 @@
  * 転送最適化などの高度なビジネスロジックを提供します。
  */
 
-import { Context, Data, Effect } from 'effect'
+import { Context, Effect } from 'effect'
 import type { Inventory, InventoryErrorReason, ItemId } from '../../types'
 
 // =============================================================================
@@ -80,18 +80,94 @@ export interface OptimizedTransferOptions {
 // Domain Errors
 // =============================================================================
 
-export class TransferError extends Data.TaggedError('TransferError')<{
-  readonly reason: InventoryErrorReason
-  readonly details?: string
-}> {}
+export const TransferErrorSchema = Schema.TaggedStruct('TransferError', {
+  reason: Schema.String,
+  details: Schema.optional(Schema.String),
+}).pipe(
+  Schema.annotations({
+    title: 'Transfer Error',
+    description: 'Error when item transfer operation fails',
+  })
+)
+export type TransferError = Schema.Schema.Type<typeof TransferErrorSchema>
 
-export class BatchTransferError extends Data.TaggedError('BatchTransferError')<{
-  readonly failedTransfers: ReadonlyArray<{
+/**
+ * TransferErrorのメッセージを取得する操作関数
+ */
+export const getTransferErrorMessage = (error: TransferError): string =>
+  error.details ? `${error.reason}: ${error.details}` : error.reason
+
+/**
+ * TransferErrorを作成するFactory関数
+ */
+export const createTransferError = (
+  reason: InventoryErrorReason,
+  details?: string
+): Effect.Effect<TransferError, Schema.ParseError> =>
+  Schema.decode(TransferErrorSchema)({
+    _tag: 'TransferError' as const,
+    reason,
+    details,
+  })
+
+/**
+ * 型ガード関数
+ */
+export const isTransferError = (error: unknown): error is TransferError => Schema.is(TransferErrorSchema)(error)
+
+export const BatchTransferErrorSchema = Schema.TaggedStruct('BatchTransferError', {
+  failedTransfers: Schema.Array(
+    Schema.Struct({
+      index: Schema.Number,
+      error: Schema.suspend(() => TransferErrorSchema),
+    })
+  ),
+  partialResults: Schema.Array(
+    Schema.Struct({
+      success: Schema.Boolean,
+      sourceInventory: Schema.Unknown,
+      targetInventory: Schema.Unknown,
+      transferredCount: Schema.Number,
+      remainingCount: Schema.Number,
+      targetSlot: Schema.Number,
+      message: Schema.optional(Schema.String),
+    })
+  ),
+}).pipe(
+  Schema.annotations({
+    title: 'Batch Transfer Error',
+    description: 'Error when batch transfer fails with partial results',
+  })
+)
+export type BatchTransferError = Schema.Schema.Type<typeof BatchTransferErrorSchema>
+
+/**
+ * BatchTransferErrorのメッセージを取得する操作関数
+ */
+export const getBatchTransferErrorMessage = (error: BatchTransferError): string =>
+  `Batch transfer failed with ${error.failedTransfers.length} failed transfers`
+
+/**
+ * BatchTransferErrorを作成するFactory関数
+ */
+export const createBatchTransferError = (
+  failedTransfers: ReadonlyArray<{
     index: number
     error: TransferError
-  }>
-  readonly partialResults: ReadonlyArray<TransferResult>
-}> {}
+  }>,
+  partialResults: ReadonlyArray<TransferResult>
+): Effect.Effect<BatchTransferError, Schema.ParseError> =>
+  Schema.decode(BatchTransferErrorSchema)({
+    _tag: 'BatchTransferError' as const,
+    failedTransfers,
+    partialResults,
+  })
+
+/**
+ * 型ガード関数
+ */
+export const isBatchTransferError = (error: unknown): error is BatchTransferError =>
+  Schema.is(BatchTransferErrorSchema)(error)
 
 // =============================================================================
 // Transfer Service Interface

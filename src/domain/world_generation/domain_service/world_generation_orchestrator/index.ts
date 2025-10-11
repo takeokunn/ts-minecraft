@@ -133,7 +133,7 @@ export const WorldGenerationOrchestratorUtils = {
       const orchestrator = yield* WorldGenerationOrchestrator
 
       return yield* Effect.forEach(commands, (command) => orchestrator.generateChunk(command), {
-        concurrency: 'unbounded',
+        concurrency: 4,
       })
     }),
 

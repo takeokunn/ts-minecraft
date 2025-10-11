@@ -103,7 +103,14 @@ export interface CacheManagerErrorType extends Schema.Schema.Type<typeof CacheMa
 
 // === Service Interface ===
 
+export interface CacheEntryOptions {
+  readonly ttl?: number
+  readonly priority?: number
+  readonly layer?: string
+}
+
 export interface CacheManagerService {
+
   /**
    * キャッシュエントリを取得します
    */
@@ -118,11 +125,7 @@ export interface CacheManagerService {
   readonly set: (
     key: string,
     value: unknown,
-    options?: {
-      ttl?: number
-      priority?: number
-      layer?: string
-    }
+    options?: CacheEntryOptions
   ) => Effect.Effect<void, CacheManagerErrorType>
 
   /**
@@ -172,7 +175,7 @@ export interface CacheManagerService {
    * 複数のエントリを一括設定します
    */
   readonly setMultiple: (
-    entries: Array<{ key: string; value: unknown; options?: any }>
+    entries: Array<{ key: string; value: unknown; options?: CacheEntryOptions }>
   ) => Effect.Effect<void, CacheManagerErrorType>
 
   /**
@@ -448,7 +451,7 @@ const makeCacheManagerService = Effect.gen(function* () {
       return results
     })
 
-  const setMultiple = (entries: Array<{ key: string; value: unknown; options?: any }>) =>
+  const setMultiple = (entries: Array<{ key: string; value: unknown; options?: CacheEntryOptions }>) =>
     Effect.gen(function* () {
       // for-of撲滅 → Effect.forEach
       yield* pipe(
@@ -645,6 +648,7 @@ export const DEFAULT_CACHE_CONFIG: Schema.Schema.Type<typeof CacheConfiguration>
 
 export type {
   CacheConfiguration as CacheConfigurationType,
+  CacheEntryOptions,
   CacheEntry as CacheEntryType,
   CacheLayer as CacheLayerType,
   CacheStatistics as CacheStatisticsType,

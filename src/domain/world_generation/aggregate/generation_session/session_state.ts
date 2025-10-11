@@ -10,7 +10,7 @@
 import type * as WorldTypes from '@domain/world/types/core'
 import type * as GenerationErrors from '@domain/world/types/errors'
 import * as Coordinates from '@domain/world/value_object/coordinates/index'
-import { Clock, Effect, Schema } from 'effect'
+import { DateTime, Effect, Schema } from 'effect'
 
 // ================================
 // Session Status
@@ -116,7 +116,7 @@ export type SessionState = typeof SessionStateSchema.Type
  */
 export const createInitial = (): Effect.Effect<SessionState> =>
   Effect.gen(function* () {
-    const lastStateChange = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const lastStateChange = yield* DateTime.nowAsDate
 
     return {
       status: 'created',
@@ -138,7 +138,7 @@ export const createInitial = (): Effect.Effect<SessionState> =>
  */
 export const startSession = (state: SessionState, batches: readonly ChunkBatch[]): Effect.Effect<SessionState> =>
   Effect.gen(function* () {
-    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const now = yield* DateTime.nowAsDate
 
     // バッチをキューに追加
     const queuedBatchIds = batches.map((batch) => batch.id)
@@ -186,7 +186,7 @@ export const startBatch = (
     // キューからバッチを削除
     const queuedBatches = state.executionContext.queuedBatches.filter((id) => id !== batchId)
 
-    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const now = yield* DateTime.nowAsDate
 
     const startedBatch: ChunkBatch = {
       ...batch,
@@ -226,7 +226,7 @@ export const completeBatch = (
       return yield* Effect.fail(GenerationErrors.createStateError(`Batch ${batchId} not found in active batches`))
     }
 
-    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const now = yield* DateTime.nowAsDate
 
     const completedBatch: ChunkBatch = {
       ...activeBatch,
@@ -267,7 +267,7 @@ export const failBatch = (
       return yield* Effect.fail(GenerationErrors.createStateError(`Batch ${batchId} not found in active batches`))
     }
 
-    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const now = yield* DateTime.nowAsDate
 
     const failedBatch: ChunkBatch = {
       ...activeBatch,
@@ -307,8 +307,12 @@ export const scheduleRetry = (
       return yield* Effect.fail(GenerationErrors.createStateError(`Batch ${batchId} not found in active batches`))
     }
 
-    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
-    const scheduleTime = retryAt || new Date(now.getTime() + 5000) // 5秒後にデフォルト
+    const now = yield* DateTime.nowAsDate
+    const scheduleTime =
+      retryAt ??
+      DateTime.toDate(
+        DateTime.unsafeMake(now.getTime() + 5_000) // 5秒後にデフォルト
+      )
 
     const retryingBatch: ChunkBatch = {
       ...activeBatch,
@@ -338,7 +342,7 @@ export const scheduleRetry = (
  */
 export const pauseSession = (state: SessionState, reason: string): Effect.Effect<SessionState> =>
   Effect.gen(function* () {
-    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const now = yield* DateTime.nowAsDate
 
     return {
       ...state,
@@ -362,7 +366,7 @@ export const pauseSession = (state: SessionState, reason: string): Effect.Effect
  */
 export const resumeSession = (state: SessionState): Effect.Effect<SessionState> =>
   Effect.gen(function* () {
-    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const now = yield* DateTime.nowAsDate
 
     return {
       ...state,
@@ -386,7 +390,7 @@ export const resumeSession = (state: SessionState): Effect.Effect<SessionState> 
  */
 export const completeSession = (state: SessionState): Effect.Effect<SessionState> =>
   Effect.gen(function* () {
-    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const now = yield* DateTime.nowAsDate
 
     return {
       ...state,
@@ -413,7 +417,7 @@ export const cancelSession = (
   cancellationToken: string
 ): Effect.Effect<SessionState> =>
   Effect.gen(function* () {
-    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const now = yield* DateTime.nowAsDate
 
     return {
       ...state,

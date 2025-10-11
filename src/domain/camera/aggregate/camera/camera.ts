@@ -10,7 +10,7 @@
 
 import type { CameraError, CameraEvent, CameraId } from '@domain/camera/types'
 import { createCameraEvent } from '@domain/camera/types'
-import { Array, Clock, Data, Effect, Match, Option, pipe } from 'effect'
+import { Array, Data, DateTime, Effect, Match, Option, pipe } from 'effect'
 import type { AnimationState, CameraRotation, CameraSettings, Position3D, ViewMode } from '../../value_object/index'
 
 /**
@@ -73,7 +73,7 @@ export namespace CameraOps {
       const event = createPositionUpdatedEvent(camera.id, camera.position, newPosition)
 
       // 現在時刻を取得
-      const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+      const now = yield* DateTime.nowAsDate
 
       // 新しいAggregateインスタンスの返却
       return Camera({
@@ -103,7 +103,7 @@ export namespace CameraOps {
       const event = createRotationUpdatedEvent(camera.id, camera.rotation, constrainedRotation)
 
       // 現在時刻を取得
-      const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+      const now = yield* DateTime.nowAsDate
 
       return Camera({
         ...camera,
@@ -131,7 +131,7 @@ export namespace CameraOps {
       const event = createViewModeChangedEvent(camera.id, camera.viewMode, newMode)
 
       // 現在時刻を取得
-      const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+      const now = yield* DateTime.nowAsDate
 
       return Camera({
         ...adjustedCamera,
@@ -159,7 +159,7 @@ export namespace CameraOps {
       const event = createAnimationStartedEvent(camera.id, animation)
 
       // 現在時刻を取得
-      const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+      const now = yield* DateTime.nowAsDate
 
       return Camera({
         ...updatedCamera,
@@ -183,7 +183,7 @@ export namespace CameraOps {
           onSome: (animation) =>
             Effect.gen(function* () {
               const event = createAnimationStoppedEvent(camera.id, animation)
-              const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+              const now = yield* DateTime.nowAsDate
 
               return Camera({
                 ...camera,
@@ -218,7 +218,7 @@ export namespace CameraOps {
       const event = createSettingsChangedEvent(camera.id, camera.settings, validatedSettings)
 
       // 現在時刻を取得
-      const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+      const now = yield* DateTime.nowAsDate
 
       return Camera({
         ...camera,
@@ -233,7 +233,7 @@ export namespace CameraOps {
    */
   export const enable = (camera: Camera): Effect.Effect<Camera> =>
     Effect.gen(function* () {
-      const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+      const now = yield* DateTime.nowAsDate
 
       return Camera({
         ...camera,
@@ -248,7 +248,7 @@ export namespace CameraOps {
    */
   export const disable = (camera: Camera): Effect.Effect<Camera> =>
     Effect.gen(function* () {
-      const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+      const now = yield* DateTime.nowAsDate
 
       const disabledCamera = Camera({
         ...camera,

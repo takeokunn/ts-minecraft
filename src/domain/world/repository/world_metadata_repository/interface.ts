@@ -6,7 +6,14 @@
  * 高度なメタデータ検索とパフォーマンス最適化
  */
 
-import type { AllRepositoryErrors, WorldCoordinate, WorldGeneratorId, WorldId, WorldSeed } from '@domain/world/types'
+import type {
+  AllRepositoryErrors,
+  WorldCoordinate,
+  WorldCoordinate2D,
+  WorldGeneratorId,
+  WorldId,
+  WorldSeed,
+} from '@domain/world/types'
 import { Context, Effect, Option, ReadonlyArray } from 'effect'
 
 // === Metadata Core Types ===
@@ -46,8 +53,7 @@ export interface WorldSettings {
   readonly pvp: boolean
   readonly spawnProtection: number
   readonly worldBorder: {
-    readonly centerX: WorldCoordinate
-    readonly centerZ: WorldCoordinate
+    readonly center: WorldCoordinate2D
     readonly size: number
     readonly warningBlocks: number
     readonly warningTime: number
@@ -92,9 +98,7 @@ export interface WorldStatistics {
     readonly lastPlayerActivity: Date
     readonly spawnLocations: ReadonlyArray<{
       readonly playerId: string
-      readonly x: WorldCoordinate
-      readonly y: WorldCoordinate
-      readonly z: WorldCoordinate
+      readonly location: WorldCoordinate
     }>
   }
   readonly lastUpdated: Date

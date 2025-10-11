@@ -9,7 +9,7 @@
 
 import type * as WorldTypes from '@domain/world/types/core'
 import * as Coordinates from '@domain/world/value_object/coordinates/index'
-import { Brand, Clock, Context, Effect, Schema, Stream } from 'effect'
+import { Brand, Clock, Context, DateTime, Effect, Schema, Stream } from 'effect'
 import type { GenerationContext, UpdateSettingsCommand, WorldGeneratorId } from './index'
 
 // ================================
@@ -233,7 +233,7 @@ export const createWorldGeneratorCreated = (
 ): Effect.Effect<WorldGeneratorCreated> =>
   Effect.gen(function* () {
     const eventId = yield* generateEventId()
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const timestamp = yield* DateTime.nowAsDate
 
     return Schema.decodeSync(WorldGeneratorCreatedSchema)({
       eventId,
@@ -266,7 +266,7 @@ export const createChunkGenerationStarted = (
 ): Effect.Effect<ChunkGenerationStarted> =>
   Effect.gen(function* () {
     const eventId = yield* generateEventId()
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const timestamp = yield* DateTime.nowAsDate
 
     return Schema.decodeSync(ChunkGenerationStartedSchema)({
       eventId,
@@ -294,7 +294,7 @@ export const createChunkGenerated = (
 ): Effect.Effect<ChunkGenerated> =>
   Effect.gen(function* () {
     const eventId = yield* generateEventId()
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const timestamp = yield* DateTime.nowAsDate
 
     // パフォーマンスメトリクス計算
     const performanceMetrics = {
@@ -332,7 +332,7 @@ export const createChunkGenerationFailed = (
 ): Effect.Effect<ChunkGenerationFailed> =>
   Effect.gen(function* () {
     const eventId = yield* generateEventId()
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const timestamp = yield* DateTime.nowAsDate
 
     return Schema.decodeSync(ChunkGenerationFailedSchema)({
       eventId,
@@ -361,7 +361,7 @@ export const createSettingsUpdated = (
 ): Effect.Effect<SettingsUpdated> =>
   Effect.gen(function* () {
     const eventId = yield* generateEventId()
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const timestamp = yield* DateTime.nowAsDate
 
     return Schema.decodeSync(SettingsUpdatedSchema)({
       eventId,
@@ -371,7 +371,7 @@ export const createSettingsUpdated = (
       eventType: 'SettingsUpdated',
       payload: {
         generatorId,
-        changes: command as Record<string, unknown>,
+        changes: command satisfies Record<string, unknown>,
         previousVersion,
         newVersion,
       },

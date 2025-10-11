@@ -395,7 +395,7 @@ const makeMemoryMonitorService = Effect.gen(function* () {
               yield* deallocateMemory(allocId)
               return alloc.request.size
             }),
-          { concurrency: 'unbounded' }
+          { concurrency: 4 }
         ),
         Effect.map((sizes) => sizes.reduce((sum, size) => sum + size, 0))
       )
@@ -411,7 +411,7 @@ const makeMemoryMonitorService = Effect.gen(function* () {
               yield* deallocateMemory(allocId)
               return alloc.request.size
             }),
-          { concurrency: 'unbounded' }
+          { concurrency: 4 }
         ),
         Effect.map((sizes) => sizes.reduce((sum, size) => sum + size, 0))
       )

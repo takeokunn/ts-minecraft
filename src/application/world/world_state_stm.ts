@@ -13,11 +13,16 @@
  * @see {@link file://FIBER_STM_QUEUE_POOL_STREAM_DESIGN.md} M-1: ワールド状態のSTM管理
  */
 
+import type { ChunkData } from '@/domain/chunk/aggregate/chunk'
 import type { ChunkId } from '@/domain/shared/entities/chunk_id'
 import type { PlayerId } from '@/domain/shared/entities/player_id'
 import { WorldIdOperations } from '@/domain/shared/entities/world_id'
 import type { WorldMetadata } from '@/domain/world/repository/world_metadata_repository/interface'
-import { Context, Effect, Layer, STM } from 'effect'
+import { Context, DateTime, Effect, Layer, STM } from 'effect'
+import { createWorldSeed } from '@/domain/world/types/core/world_types'
+import { createWorldGeneratorId } from '@/domain/world_generation/aggregate/world_generator'
+import { makeUnsafeWorldCoordinate2D } from '@/domain/world/value_object/coordinates'
+import { WorldClock } from '@/domain/world/time'
 
 /**
  * WorldStateSTM Service定義
@@ -32,7 +37,7 @@ export interface WorldStateSTM {
    * ChunkIdをキーとしたチャンクデータの保持。
    * STM.TRefにより、複数スレッドからの同時更新が原子的に処理される。
    */
-  readonly loadedChunks: STM.TRef<ReadonlyMap<ChunkId, unknown>>
+  readonly loadedChunks: STM.TRef<ReadonlyMap<ChunkId, ChunkData>>
 
   /**
    * アクティブプレイヤーSet（STM.TRef管理）
@@ -57,10 +62,10 @@ export interface WorldStateSTM {
    * 他の操作との競合時は自動的にリトライされる。
    *
    * @param chunkId - 追加するチャンクID
-   * @param chunk - チャンクデータ（型は後続のrefactoringでChunk型に変更予定）
+   * @param chunk - チャンクデータ（ChunkData）
    * @returns チャンク追加Effect（エラー時は自動リトライ）
    */
-  readonly addChunk: (chunkId: ChunkId, chunk: unknown) => Effect.Effect<void>
+  readonly addChunk: (chunkId: ChunkId, chunk: ChunkData) => Effect.Effect<void>
 
   /**
    * チャンク削除（トランザクショナル）
@@ -81,7 +86,7 @@ export interface WorldStateSTM {
    * @param chunkId - 取得するチャンクID
    * @returns チャンクデータ（存在しない場合はundefined）
    */
-  readonly getChunk: (chunkId: ChunkId) => Effect.Effect<unknown | undefined>
+  readonly getChunk: (chunkId: ChunkId) => Effect.Effect<ChunkData | undefined>
 
   /**
    * 全ロード済みチャンク取得（トランザクショナル読み取り）
@@ -90,7 +95,7 @@ export interface WorldStateSTM {
    *
    * @returns ロード済みチャンクMap
    */
-  readonly getAllChunks: () => Effect.Effect<ReadonlyMap<ChunkId, unknown>>
+  readonly getAllChunks: () => Effect.Effect<ReadonlyMap<ChunkId, ChunkData>>
 
   /**
    * プレイヤー追加（トランザクショナル）
@@ -152,12 +157,12 @@ export interface WorldStateSTM {
    * - テレポート後の状態復元
    *
    * @param playerId - 参加するプレイヤーID
-   * @param chunks - ロードするチャンクの配列 ([ChunkId, Chunk]のペア)
+   * @param chunks - ロードするチャンクの配列 ([ChunkId, ChunkData]のペア)
    * @returns 複合操作Effect
    */
   readonly addPlayerAndLoadChunks: (
     playerId: PlayerId,
-    chunks: ReadonlyArray<readonly [ChunkId, unknown]>
+    chunks: ReadonlyArray<readonly [ChunkId, ChunkData]>
   ) => Effect.Effect<void>
 
   /**
@@ -220,7 +225,7 @@ export const makeWorldStateSTMLive = (initialMetadata: WorldMetadata) =>
        * ロード済みチャンクMap TRef
        * 初期値: 空のMap
        */
-      const loadedChunks = yield* STM.TRef.make<ReadonlyMap<ChunkId, unknown>>(new Map())
+      const loadedChunks = yield* STM.TRef.make<ReadonlyMap<ChunkId, ChunkData>>(new Map<ChunkId, ChunkData>())
 
       /**
        * アクティブプレイヤーSet TRef
@@ -234,6 +239,12 @@ export const makeWorldStateSTMLive = (initialMetadata: WorldMetadata) =>
        */
       const worldMetadata = yield* STM.TRef.make<WorldMetadata>(initialMetadata)
 
+      /**
+       * 時刻取得サービス
+       * WorldClock経由で現在時刻を参照透明に取得する
+       */
+      const worldClock = yield* WorldClock
+
       // === 単一操作関数 ===
 
       /**
@@ -242,7 +253,7 @@ export const makeWorldStateSTMLive = (initialMetadata: WorldMetadata) =>
        * STM.commitでトランザクション境界を明示。
        * 既存Mapに新しいチャンクを追加した新しいMapをセット。
        */
-      const addChunk = (chunkId: ChunkId, chunk: unknown): Effect.Effect<void> =>
+      const addChunk = (chunkId: ChunkId, chunk: ChunkData): Effect.Effect<void> =>
         STM.commit(
           STM.gen(function* () {
             const current = yield* STM.TRef.get(loadedChunks)
@@ -267,7 +278,7 @@ export const makeWorldStateSTMLive = (initialMetadata: WorldMetadata) =>
       /**
        * チャンク取得実装（読み取り専用）
        */
-      const getChunk = (chunkId: ChunkId): Effect.Effect<unknown | undefined> =>
+      const getChunk = (chunkId: ChunkId): Effect.Effect<ChunkData | undefined> =>
         STM.commit(
           STM.gen(function* () {
             const current = yield* STM.TRef.get(loadedChunks)
@@ -278,7 +289,8 @@ export const makeWorldStateSTMLive = (initialMetadata: WorldMetadata) =>
       /**
        * 全チャンク取得実装（読み取り専用）
        */
-      const getAllChunks = (): Effect.Effect<ReadonlyMap<ChunkId, unknown>> => STM.commit(STM.TRef.get(loadedChunks))
+      const getAllChunks = (): Effect.Effect<ReadonlyMap<ChunkId, ChunkData>> =>
+        STM.commit(STM.TRef.get(loadedChunks))
 
       /**
        * プレイヤー追加実装
@@ -314,17 +326,20 @@ export const makeWorldStateSTMLive = (initialMetadata: WorldMetadata) =>
        * メタデータ更新実装（部分更新）
        */
       const updateMetadata = (update: Partial<WorldMetadata>): Effect.Effect<void> =>
-        STM.commit(
-          STM.gen(function* () {
-            const current = yield* STM.TRef.get(worldMetadata)
-            const updated: WorldMetadata = {
-              ...current,
-              ...update,
-              lastModified: new Date(), // 更新日時を自動設定
-            }
-            yield* STM.TRef.set(worldMetadata, updated)
-          })
-        )
+        Effect.gen(function* () {
+          const now = yield* worldClock.currentDate
+          yield* STM.commit(
+            STM.gen(function* () {
+              const current = yield* STM.TRef.get(worldMetadata)
+              const updated: WorldMetadata = {
+                ...current,
+                ...update,
+                lastModified: now, // 更新日時を自動設定
+              }
+              yield* STM.TRef.set(worldMetadata, updated)
+            })
+          )
+        })
 
       /**
        * メタデータ取得実装（読み取り専用）
@@ -345,7 +360,7 @@ export const makeWorldStateSTMLive = (initialMetadata: WorldMetadata) =>
        */
       const addPlayerAndLoadChunks = (
         playerId: PlayerId,
-        chunks: ReadonlyArray<readonly [ChunkId, unknown]>
+        chunks: ReadonlyArray<readonly [ChunkId, ChunkData]>
       ): Effect.Effect<void> =>
         STM.commit(
           STM.gen(function* () {
@@ -392,29 +407,32 @@ export const makeWorldStateSTMLive = (initialMetadata: WorldMetadata) =>
        * 統計情報の不整合を防ぐ。
        */
       const updateStatisticsAndSync = (loadedChunkCount: number, activePlayerCount: number): Effect.Effect<void> =>
-        STM.commit(
-          STM.gen(function* () {
-            const current = yield* STM.TRef.get(worldMetadata)
-            const updated: WorldMetadata = {
-              ...current,
-              statistics: {
-                ...current.statistics,
-                size: {
-                  ...current.statistics.size,
-                  loadedChunks: loadedChunkCount,
+        Effect.gen(function* () {
+          const now = yield* worldClock.currentDate
+          yield* STM.commit(
+            STM.gen(function* () {
+              const current = yield* STM.TRef.get(worldMetadata)
+              const updated: WorldMetadata = {
+                ...current,
+                statistics: {
+                  ...current.statistics,
+                  size: {
+                    ...current.statistics.size,
+                    loadedChunks: loadedChunkCount,
+                  },
+                  player: {
+                    ...current.statistics.player,
+                    playerCount: activePlayerCount,
+                    lastPlayerActivity: now,
+                  },
+                  lastUpdated: now,
                 },
-                player: {
-                  ...current.statistics.player,
-                  playerCount: activePlayerCount,
-                  lastPlayerActivity: new Date(),
-                },
-                lastUpdated: new Date(),
-              },
-              lastModified: new Date(),
-            }
-            yield* STM.TRef.set(worldMetadata, updated)
-          })
-        )
+                lastModified: now,
+              }
+              yield* STM.TRef.set(worldMetadata, updated)
+            })
+          )
+        })
 
       // === Service返却 ===
 
@@ -444,17 +462,22 @@ export const makeWorldStateSTMLive = (initialMetadata: WorldMetadata) =>
  * 開発環境用のデフォルトメタデータで初期化。
  * 本番環境では適切なメタデータを渡してmakeWorldStateSTMLive()を使用すること。
  */
+const defaultTimestamp = DateTime.toDate(DateTime.unsafeNow())
+const DEFAULT_WORLD_SEED = createWorldSeed(1_234_567_890)
+const DEFAULT_GENERATOR_ID = createWorldGeneratorId('wg_default_generator')
+const DEFAULT_WORLD_BORDER_CENTER = makeUnsafeWorldCoordinate2D(0, 0)
+
 export const WorldStateSTMLive = makeWorldStateSTMLive({
   id: WorldIdOperations.makeUnsafe('default_world'),
   name: 'Default World',
   description: 'Default world for development',
-  seed: 'default_seed', // TODO: WorldSeed型実装後にWorldSeedOperations.makeUnsafe()を使用
-  generatorId: 'default_generator', // TODO: WorldGeneratorId型実装後に適切な関数を使用
+  seed: DEFAULT_WORLD_SEED,
+  generatorId: DEFAULT_GENERATOR_ID,
   version: '1.0.0',
   gameVersion: '0.1.0',
-  createdAt: new Date(),
-  lastModified: new Date(),
-  lastAccessed: new Date(),
+  createdAt: defaultTimestamp,
+  lastModified: defaultTimestamp,
+  lastAccessed: defaultTimestamp,
   tags: [],
   properties: {},
   settings: {
@@ -468,8 +491,7 @@ export const WorldStateSTMLive = makeWorldStateSTMLive({
     pvp: true,
     spawnProtection: 16,
     worldBorder: {
-      centerX: 0, // TODO: WorldCoordinate型実装後にWorldCoordinateOperations.makeUnsafe()を使用
-      centerZ: 0,
+      center: DEFAULT_WORLD_BORDER_CENTER,
       size: 60000000,
       warningBlocks: 5,
       warningTime: 15,
@@ -507,10 +529,10 @@ export const WorldStateSTMLive = makeWorldStateSTMLive({
     player: {
       playerCount: 0,
       totalPlayTime: 0,
-      lastPlayerActivity: new Date(),
+      lastPlayerActivity: defaultTimestamp,
       spawnLocations: [],
     },
-    lastUpdated: new Date(),
+    lastUpdated: defaultTimestamp,
   },
   checksum: '',
 })

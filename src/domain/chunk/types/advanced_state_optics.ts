@@ -218,7 +218,7 @@ export const ParallelChunkStateOptics = {
       const results = yield* pipe(
         batches,
         Effect.forEach((batch) => Effect.all(EffectChunk.toReadonlyArray(batch).map(operation)), {
-          concurrency: 'unbounded',
+          concurrency: 4,
         }),
         Effect.map(ReadonlyArray.flatten)
       )

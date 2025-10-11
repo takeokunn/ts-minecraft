@@ -102,7 +102,7 @@ export const OptimizedChunkOptics = {
                 Match.exhaustive
               )
             }),
-          { concurrency: 'unbounded' }
+          { concurrency: 8 }
         )
       )
 
@@ -136,6 +136,7 @@ export const OptimizedChunkOptics = {
       // 3D領域をEffectChunkで並列処理
       const yRange = Array.from({ length: sourceRegion.height }, (_, i) => i)
 
+      // メモリ枯渇防止: 3重ネストunbounded削除
       yield* pipe(
         EffectChunk.fromIterable(yRange),
         EffectChunk.forEach(
@@ -154,19 +155,16 @@ export const OptimizedChunkOptics = {
                         EffectChunk.fromIterable(xRange),
                         EffectChunk.forEach((x) =>
                           Effect.sync(() => {
-                            // ソース座標
                             const srcX = sourceRegion.x + x
                             const srcY = sourceRegion.y + y
                             const srcZ = sourceRegion.z + z
                             const srcIndex = srcY * 256 + srcZ * 16 + srcX
 
-                            // ターゲット座標
                             const tgtX = targetOffset.x + x
                             const tgtY = targetOffset.y + y
                             const tgtZ = targetOffset.z + z
                             const tgtIndex = tgtY * 256 + tgtZ * 16 + tgtX
 
-                            // 境界チェック（Match.valueによる安全な条件分岐）
                             return pipe(
                               srcIndex < sourceChunk.blocks.length &&
                                 tgtIndex < targetChunk.blocks.length &&
@@ -183,14 +181,14 @@ export const OptimizedChunkOptics = {
                             )
                           })
                         ),
-                        { concurrency: 'unbounded' }
+                        { concurrency: 8 }
                       )
                     }),
-                  { concurrency: 'unbounded' }
+                  { concurrency: 4 }
                 )
               )
             }),
-          { concurrency: 'unbounded' }
+          { concurrency: 2 }
         )
       )
 
@@ -362,7 +360,7 @@ export const StreamingChunkOptics = {
                 processed: processor(blockChunk, startIndex),
               }
             }),
-          { concurrency: 'unbounded' } // 完全な並列実行
+          { concurrency: 16 }
         ),
         EffectChunk.runCollect
       )

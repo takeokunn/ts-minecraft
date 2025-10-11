@@ -164,7 +164,7 @@ export const processBatchChunks = (chunks: ReadonlyArray<ChunkData>, serializati
     // ✅ Stream化: 大量チャンクの段階的処理でメモリ効率化
     const results = yield* pipe(
       Stream.fromIterable(chunks),
-      Stream.mapEffect((chunk) => processChunkCompletely(chunk, serializationFormat), { concurrency: 'unbounded' }),
+      Stream.mapEffect((chunk) => processChunkCompletely(chunk, serializationFormat), { concurrency: 4 }),
       Stream.buffer({ capacity: 16 }), // バッファリングで効率化
       Stream.tap((result) => Effect.logDebug(`Processed chunk: ${result.summary.serializedSize} bytes`)),
       Stream.runCollect

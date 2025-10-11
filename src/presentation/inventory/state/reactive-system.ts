@@ -29,7 +29,7 @@ export const InventoryReactiveSystemLive = Layer.effect(
       Ref.get(trackedRef).pipe(
         Effect.flatMap((set) =>
           Effect.forEach(HashSet.values(set), syncPlayer, {
-            concurrency: 'unbounded',
+            concurrency: 4,
           })
         ),
         Effect.asVoid

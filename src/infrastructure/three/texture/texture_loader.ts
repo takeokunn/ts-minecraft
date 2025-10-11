@@ -43,4 +43,4 @@ export const withLoadedTexture = <A, E>(
  * 複数テクスチャの並列読み込み
  */
 export const loadTextureAll = (paths: readonly string[]): Effect.Effect<readonly THREE.Texture[], TextureError> =>
-  Effect.all(paths.map(loadTexture), { concurrency: 'unbounded' })
+  Effect.all(paths.map(loadTexture), { concurrency: 4 })

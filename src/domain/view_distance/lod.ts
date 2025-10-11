@@ -106,7 +106,7 @@ export const createLODSelector = (): LODSelector => ({
   selectForObject: selectDecision,
   selectBatch: (objects, context) =>
     Effect.forEach(objects, (object) => selectDecision(object, context), {
-      concurrency: 'unbounded',
+      concurrency: 4,
     }),
 })
 

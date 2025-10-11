@@ -3,7 +3,7 @@
  * DDD原則に基づく複雑なコンテナ設定の隠蔽
  */
 
-import { Context, DateTime, Effect, Layer, Schema } from 'effect'
+import { Context, DateTime, Effect, Layer, ReadonlyArray, Schema, pipe } from 'effect'
 import { nanoid } from 'nanoid'
 import type { PlayerId } from '../../types'
 import type {
@@ -18,7 +18,13 @@ import type {
   ContainerType,
   WorldPosition,
 } from './types'
-import { CONTAINER_CONSTANTS, CONTAINER_SLOT_CONFIGURATIONS, ContainerAggregateSchema, ContainerError } from './types'
+import {
+  CONTAINER_CONSTANTS,
+  CONTAINER_SLOT_CONFIGURATIONS,
+  ContainerAggregateSchema,
+  ContainerError,
+  makeUnsafeContainerId,
+} from './types'
 
 // ===== Factory Interface =====
 
@@ -37,11 +43,6 @@ export interface ContainerFactory {
    * 既存データからContainer集約を復元
    */
   readonly restore: (data: unknown) => Effect.Effect<ContainerAggregate, ContainerError>
-
-  /**
-   * Container集約のビルダーを作成
-   */
-  readonly builder: () => ContainerBuilder
 
   /**
    * タイプ別のデフォルト設定を取得
@@ -63,277 +64,303 @@ export interface ContainerCreateOptions {
   readonly customSlots?: ReadonlyArray<{ index: ContainerSlotIndex; slot: ContainerSlot }>
 }
 
-// ===== Builder Pattern Implementation =====
+// ===== Builder State Schema =====
 
-export interface ContainerBuilder {
-  /**
-   * コンテナタイプを設定
-   */
-  readonly setType: (type: ContainerType) => ContainerBuilder
+/**
+ * Builderの内部状態を表すSchema
+ */
+export const ContainerBuilderStateSchema = Schema.Struct({
+  id: Schema.NullOr(Schema.Unknown), // ContainerId
+  type: Schema.NullOr(Schema.Unknown), // ContainerType
+  ownerId: Schema.NullOr(Schema.Unknown), // PlayerId
+  position: Schema.NullOr(Schema.Unknown), // WorldPosition
+  accessLevel: Schema.Unknown, // ContainerAccessLevel
+  configuration: Schema.NullOr(Schema.Unknown), // ContainerConfiguration
+  slots: Schema.Array(Schema.Unknown), // Array<ContainerSlot>
+  permissions: Schema.Array(Schema.Unknown), // Array<ContainerPermission>
+  version: Schema.Number,
+  createdAt: Schema.NullOr(Schema.String),
+  lastModified: Schema.NullOr(Schema.String),
+})
 
-  /**
-   * オーナーIDを設定
-   */
-  readonly setOwnerId: (ownerId: PlayerId) => ContainerBuilder
+export type ContainerBuilderState = Schema.Schema.Type<typeof ContainerBuilderStateSchema>
 
-  /**
-   * 位置を設定
-   */
-  readonly setPosition: (position: WorldPosition) => ContainerBuilder
+// ===== Builder Pure Functions =====
 
-  /**
-   * カスタムIDを設定（テスト用）
-   */
-  readonly setId: (id: ContainerId) => ContainerBuilder
+/**
+ * 初期Builder状態を作成
+ */
+export const createContainerBuilderState = (): ContainerBuilderState => ({
+  id: null,
+  type: null,
+  ownerId: null,
+  position: null,
+  accessLevel: 'private' as ContainerAccessLevel,
+  configuration: null,
+  slots: [],
+  permissions: [],
+  version: CONTAINER_CONSTANTS.DEFAULT_VERSION,
+  createdAt: null,
+  lastModified: null,
+})
 
-  /**
-   * アクセスレベルを設定
-   */
-  readonly setAccessLevel: (level: ContainerAccessLevel) => ContainerBuilder
+/**
+ * タイプに基づくデフォルト設定を取得
+ */
+const getDefaultConfigurationForType = (type: ContainerType): ContainerConfiguration => {
+  const slotConfig = CONTAINER_SLOT_CONFIGURATIONS[type]
 
-  /**
-   * 設定を追加
-   */
-  readonly setConfiguration: (config: ContainerConfiguration) => ContainerBuilder
-
-  /**
-   * スロットを設定
-   */
-  readonly setSlot: (index: ContainerSlotIndex, slot: ContainerSlot) => ContainerBuilder
-
-  /**
-   * 許可を追加
-   */
-  readonly addPermission: (permission: ContainerPermission) => ContainerBuilder
-
-  /**
-   * バージョンを設定
-   */
-  readonly setVersion: (version: number) => ContainerBuilder
-
-  /**
-   * 集約をビルド
-   */
-  readonly build: () => Effect.Effect<ContainerAggregate, ContainerError>
+  return {
+    maxSlots: slotConfig.maxSlots,
+    autoSort: false,
+    hopperInteraction: ['chest', 'hopper', 'furnace', 'blast_furnace', 'smoker'].includes(type),
+    redstoneControlled: ['dispenser', 'dropper', 'hopper'].includes(type),
+  }
 }
 
-// ===== Builder Implementation =====
-
-class ContainerBuilderImpl implements ContainerBuilder {
-  private id: ContainerId | null = null
-  private type: ContainerType | null = null
-  private ownerId: PlayerId | null = null
-  private position: WorldPosition | null = null
-  private accessLevel: ContainerAccessLevel = 'private'
-  private configuration: ContainerConfiguration | null = null
-  private slots: Array<ContainerSlot> = []
-  private permissions: Array<ContainerPermission> = []
-  private version: number = CONTAINER_CONSTANTS.DEFAULT_VERSION
-  private createdAt: string | null = null
-  private lastModified: string | null = null
-
-  setType(type: ContainerType): ContainerBuilder {
-    this.type = type
-    // タイプに基づいてデフォルト設定を適用
-    this.configuration = this.getDefaultConfigurationForType(type)
-    this.slots = Array(this.configuration.maxSlots).fill(null)
-    return this
-  }
-
-  setOwnerId(ownerId: PlayerId): ContainerBuilder {
-    this.ownerId = ownerId
-    return this
-  }
-
-  setPosition(position: WorldPosition): ContainerBuilder {
-    this.position = position
-    return this
-  }
-
-  setId(id: ContainerId): ContainerBuilder {
-    this.id = id
-    return this
-  }
-
-  setAccessLevel(level: ContainerAccessLevel): ContainerBuilder {
-    this.accessLevel = level
-    return this
-  }
-
-  setConfiguration(config: ContainerConfiguration): ContainerBuilder {
-    this.configuration = config
-    // スロット数の調整
-    this.slots = Array(config.maxSlots).fill(null)
-    return this
-  }
-
-  setSlot(index: ContainerSlotIndex, slot: ContainerSlot): ContainerBuilder {
-    if (this.configuration && index < this.configuration.maxSlots) {
-      this.slots[index] = slot
-    }
-    return this
-  }
-
-  addPermission(permission: ContainerPermission): ContainerBuilder {
-    this.permissions.push(permission)
-    return this
-  }
-
-  setVersion(version: number): ContainerBuilder {
-    this.version = version
-    return this
-  }
-
-  build(): Effect.Effect<ContainerAggregate, ContainerError> {
-    return Effect.gen(
-      function* () {
-        // 必須フィールドの検証
-        if (!this.type) {
-          yield* Effect.fail(
-            new ContainerError({
-              reason: 'INVALID_CONFIGURATION',
-              message: 'コンテナタイプが設定されていません',
-            })
-          )
-        }
-
-        if (!this.ownerId) {
-          yield* Effect.fail(
-            new ContainerError({
-              reason: 'INVALID_CONFIGURATION',
-              message: 'オーナーIDが設定されていません',
-            })
-          )
-        }
-
-        if (!this.position) {
-          yield* Effect.fail(
-            new ContainerError({
-              reason: 'INVALID_CONFIGURATION',
-              message: '位置が設定されていません',
-            })
-          )
-        }
-
-        if (!this.configuration) {
-          yield* Effect.fail(
-            new ContainerError({
-              reason: 'INVALID_CONFIGURATION',
-              message: '設定が初期化されていません',
-            })
-          )
-        }
-
-        // IDの生成または検証
-        const id = this.id ?? makeUnsafeContainerId(`container_${nanoid()}`)
-
-        // タイムスタンプの生成（未設定の場合）
-        const now = yield* DateTime.now
-        const timestamp = DateTime.formatIso(now)
-        const createdAt = this.createdAt ?? timestamp
-        const lastModified = this.lastModified ?? timestamp
-
-        // 集約データの構築
-        const aggregateData = {
-          id,
-          type: this.type,
-          ownerId: this.ownerId,
-          position: this.position,
-          configuration: this.configuration,
-          accessLevel: this.accessLevel,
-          slots: this.slots,
-          permissions: this.permissions,
-          isOpen: false,
-          currentViewers: [],
-          version: this.version,
-          createdAt,
-          lastModified,
-          uncommittedEvents: [],
-        }
-
-        // スキーマ検証
-        const aggregate = yield* Schema.decodeUnknown(ContainerAggregateSchema)(aggregateData).pipe(
-          Effect.mapError(
-            (error) =>
-              new ContainerError({
-                reason: 'INVALID_CONFIGURATION',
-                message: `Container集約の検証に失敗: ${String(error)}`,
-              })
-          )
-        )
-
-        return aggregate
-      }.bind(this)
-    )
-  }
-
-  private getDefaultConfigurationForType(type: ContainerType): ContainerConfiguration {
-    const slotConfig = CONTAINER_SLOT_CONFIGURATIONS[type]
-
+/**
+ * コンテナタイプを設定
+ */
+export const withContainerType =
+  (type: ContainerType) =>
+  (state: ContainerBuilderState): ContainerBuilderState => {
+    const configuration = getDefaultConfigurationForType(type)
     return {
-      maxSlots: slotConfig.maxSlots,
-      autoSort: false,
-      hopperInteraction: ['chest', 'hopper', 'furnace', 'blast_furnace', 'smoker'].includes(type),
-      redstoneControlled: ['dispenser', 'dropper', 'hopper'].includes(type),
+      ...state,
+      type,
+      configuration,
+      slots: Array(configuration.maxSlots).fill(null),
     }
   }
-}
+
+/**
+ * オーナーIDを設定
+ */
+export const withOwnerId =
+  (ownerId: PlayerId) =>
+  (state: ContainerBuilderState): ContainerBuilderState => ({
+    ...state,
+    ownerId,
+  })
+
+/**
+ * 位置を設定
+ */
+export const withPosition =
+  (position: WorldPosition) =>
+  (state: ContainerBuilderState): ContainerBuilderState => ({
+    ...state,
+    position,
+  })
+
+/**
+ * カスタムIDを設定
+ */
+export const withContainerId =
+  (id: ContainerId) =>
+  (state: ContainerBuilderState): ContainerBuilderState => ({
+    ...state,
+    id,
+  })
+
+/**
+ * アクセスレベルを設定
+ */
+export const withAccessLevel =
+  (accessLevel: ContainerAccessLevel) =>
+  (state: ContainerBuilderState): ContainerBuilderState => ({
+    ...state,
+    accessLevel,
+  })
+
+/**
+ * 設定を追加
+ */
+export const withConfiguration =
+  (configuration: ContainerConfiguration) =>
+  (state: ContainerBuilderState): ContainerBuilderState => ({
+    ...state,
+    configuration,
+    slots: Array(configuration.maxSlots).fill(null),
+  })
+
+/**
+ * スロットを設定
+ */
+export const withSlot =
+  (index: ContainerSlotIndex, slot: ContainerSlot) =>
+  (state: ContainerBuilderState): ContainerBuilderState => {
+    if (state.configuration && index < state.configuration.maxSlots) {
+      const newSlots = [...state.slots]
+      newSlots[index] = slot
+      return {
+        ...state,
+        slots: newSlots,
+      }
+    }
+    return state
+  }
+
+/**
+ * 許可を追加
+ */
+export const withPermission =
+  (permission: ContainerPermission) =>
+  (state: ContainerBuilderState): ContainerBuilderState => ({
+    ...state,
+    permissions: [...state.permissions, permission],
+  })
+
+/**
+ * バージョンを設定
+ */
+export const withVersion =
+  (version: number) =>
+  (state: ContainerBuilderState): ContainerBuilderState => ({
+    ...state,
+    version,
+  })
+
+/**
+ * Builder状態からContainer集約を構築
+ */
+export const buildContainerFromState = (
+  state: ContainerBuilderState
+): Effect.Effect<ContainerAggregate, ContainerError> =>
+  Effect.gen(function* () {
+    // 必須フィールドの検証
+    if (!state.type) {
+      yield* Effect.fail(
+        ContainerError.make({
+          reason: 'INVALID_CONFIGURATION',
+          message: 'コンテナタイプが設定されていません',
+        })
+      )
+    }
+
+    if (!state.ownerId) {
+      yield* Effect.fail(
+        ContainerError.make({
+          reason: 'INVALID_CONFIGURATION',
+          message: 'オーナーIDが設定されていません',
+        })
+      )
+    }
+
+    if (!state.position) {
+      yield* Effect.fail(
+        ContainerError.make({
+          reason: 'INVALID_CONFIGURATION',
+          message: '位置が設定されていません',
+        })
+      )
+    }
+
+    if (!state.configuration) {
+      yield* Effect.fail(
+        ContainerError.make({
+          reason: 'INVALID_CONFIGURATION',
+          message: '設定が初期化されていません',
+        })
+      )
+    }
+
+    // IDの生成または検証
+    const id = state.id ?? makeUnsafeContainerId(`container_${nanoid()}`)
+
+    // タイムスタンプの生成（未設定の場合）
+    const now = yield* DateTime.now
+    const timestamp = DateTime.formatIso(now)
+    const createdAt = state.createdAt ?? timestamp
+    const lastModified = state.lastModified ?? timestamp
+
+    // 集約データの構築
+    const aggregateData = {
+      id,
+      type: state.type,
+      ownerId: state.ownerId,
+      position: state.position,
+      configuration: state.configuration,
+      accessLevel: state.accessLevel,
+      slots: state.slots,
+      permissions: state.permissions,
+      isOpen: false,
+      currentViewers: [],
+      version: state.version,
+      createdAt,
+      lastModified,
+      uncommittedEvents: [] as Array<ContainerDomainEvent>,
+    }
+
+    // スキーマ検証
+    const aggregate = yield* Schema.decodeUnknown(ContainerAggregateSchema)(aggregateData).pipe(
+      Effect.mapError((error) =>
+        ContainerError.make({
+          reason: 'INVALID_CONFIGURATION',
+          message: `Container集約の検証に失敗: ${String(error)}`,
+        })
+      )
+    )
+
+    return aggregate
+  })
 
 // ===== Factory Implementation =====
 
 export const ContainerFactoryLive = ContainerFactory.of({
   create: (type: ContainerType, ownerId: PlayerId, position: WorldPosition, options?: ContainerCreateOptions) =>
     Effect.gen(function* () {
-      const builder = new ContainerBuilderImpl()
-
-      let builderWithDefaults = builder.setType(type).setOwnerId(ownerId).setPosition(position)
+      // pure functionパターンでBuilder状態を構築
+      let state = pipe(
+        createContainerBuilderState(),
+        withContainerType(type),
+        withOwnerId(ownerId),
+        withPosition(position)
+      )
 
       if (options?.id) {
-        builderWithDefaults = builderWithDefaults.setId(options.id)
+        state = withContainerId(options.id)(state)
       }
 
       if (options?.accessLevel) {
-        builderWithDefaults = builderWithDefaults.setAccessLevel(options.accessLevel)
+        state = withAccessLevel(options.accessLevel)(state)
       }
 
       if (options?.configuration) {
-        const defaultConfig = builderWithDefaults.getDefaultConfigurationForType(type)
+        const defaultConfig = getDefaultConfigurationForType(type)
         const mergedConfig = { ...defaultConfig, ...options.configuration }
-        builderWithDefaults = builderWithDefaults.setConfiguration(mergedConfig)
+        state = withConfiguration(mergedConfig)(state)
       }
 
       if (options?.permissions) {
-        builderWithDefaults = pipe(
+        state = pipe(
           options.permissions,
-          ReadonlyArray.reduce(builderWithDefaults, (acc, permission) => acc.addPermission(permission))
+          ReadonlyArray.reduce(state, (acc, permission) => withPermission(permission)(acc))
         )
       }
 
       if (options?.customSlots) {
-        builderWithDefaults = pipe(
+        state = pipe(
           options.customSlots,
-          ReadonlyArray.reduce(builderWithDefaults, (acc, { index, slot }) => acc.setSlot(index, slot))
+          ReadonlyArray.reduce(state, (acc, { index, slot }) => withSlot(index, slot)(acc))
         )
       }
 
-      return yield* builderWithDefaults.build()
+      return yield* buildContainerFromState(state)
     }),
 
   restore: (data: unknown) =>
     Effect.gen(function* () {
       // スキーマ検証による安全な復元
       return yield* Schema.decodeUnknown(ContainerAggregateSchema)(data).pipe(
-        Effect.mapError(
-          (error) =>
-            new ContainerError({
-              reason: 'INVALID_CONFIGURATION',
-              message: `データからの復元に失敗: ${String(error)}`,
-            })
+        Effect.mapError((error) =>
+          ContainerError.make({
+            reason: 'INVALID_CONFIGURATION',
+            message: `データからの復元に失敗: ${String(error)}`,
+          })
         )
       )
     }),
-
-  builder: () => new ContainerBuilderImpl(),
 
   getDefaultConfiguration: (type: ContainerType) => {
     const slotConfig = CONTAINER_SLOT_CONFIGURATIONS[type]

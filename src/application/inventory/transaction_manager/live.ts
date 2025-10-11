@@ -80,7 +80,7 @@ export const TransactionManagerApplicationServiceLive = Layer.effect(
                     transfer.targetSlot,
                     transfer.quantity
                   ),
-                { concurrency: 'unbounded' }
+                { concurrency: 4 }
               )
 
               // 成功時の統計更新
@@ -354,7 +354,7 @@ export const TransactionManagerApplicationServiceLive = Layer.effect(
                   ),
                   Match.orElse(() => Effect.succeed({ type: 'none' as const, txId }))
                 ),
-              { concurrency: 'unbounded' }
+              { concurrency: 4 }
             ),
             Effect.map((results) => ({
               timedOutTransactions: results

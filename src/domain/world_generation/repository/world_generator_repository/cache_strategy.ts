@@ -263,7 +263,7 @@ export const makeLRUCacheStrategy = <K, V>(
     const warmup = (entries: ReadonlyArray<readonly [K, V]>): Effect.Effect<void, AllRepositoryErrors> =>
       pipe(
         entries,
-        Effect.forEach(([key, value]) => set(key, value), { concurrency: 'unbounded' }),
+        Effect.forEach(([key, value]) => set(key, value), { concurrency: 4 }),
         Effect.asVoid
       )
 
@@ -451,7 +451,7 @@ export const makeTTLCacheStrategy = <K, V>(
     const warmup = (entries: ReadonlyArray<readonly [K, V]>): Effect.Effect<void, AllRepositoryErrors> =>
       pipe(
         entries,
-        Effect.forEach(([key, value]) => set(key, value), { concurrency: 'unbounded' }),
+        Effect.forEach(([key, value]) => set(key, value), { concurrency: 4 }),
         Effect.asVoid
       )
 

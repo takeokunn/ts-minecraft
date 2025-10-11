@@ -34,21 +34,40 @@ export type GameEvent =
 /**
  * キュー満杯エラー
  */
-export class QueueFullError {
-  readonly _tag = 'QueueFullError'
-  constructor(readonly message: string) {}
-}
+export const QueueFullErrorSchema = Schema.TaggedStruct('QueueFullError', {
+  message: Schema.String,
+})
+
+export type QueueFullError = Schema.Schema.Type<typeof QueueFullErrorSchema>
+
+/**
+ * QueueFullErrorを生成するヘルパー関数
+ */
+export const createQueueFullError = (message: string): QueueFullError =>
+  Schema.decodeSync(QueueFullErrorSchema)({
+    _tag: 'QueueFullError' as const,
+    message,
+  })
 
 /**
  * イベント処理エラー
  */
-export class EventProcessingError {
-  readonly _tag = 'EventProcessingError'
-  constructor(
-    readonly event: GameEvent,
-    readonly cause: unknown
-  ) {}
-}
+export const EventProcessingErrorSchema = Schema.TaggedStruct('EventProcessingError', {
+  event: Schema.Unknown, // GameEventのスキーマ定義がないためUnknownを使用
+  cause: Schema.Unknown,
+})
+
+export type EventProcessingError = Schema.Schema.Type<typeof EventProcessingErrorSchema>
+
+/**
+ * EventProcessingErrorを生成するヘルパー関数
+ */
+export const createEventProcessingError = (event: GameEvent, cause: unknown): EventProcessingError =>
+  Schema.decodeSync(EventProcessingErrorSchema)({
+    _tag: 'EventProcessingError' as const,
+    event,
+    cause,
+  })
 
 /**
  * GameEventQueue Service
@@ -135,7 +154,7 @@ export const GameEventQueueLive = Layer.effect(
         pipe(
           Queue.offer(queue, event),
           Effect.flatMap((accepted) =>
-            accepted ? Effect.void : Effect.fail(new QueueFullError('Game event queue is full, event dropped'))
+            accepted ? Effect.void : Effect.fail(createQueueFullError('Game event queue is full, event dropped'))
           )
         ),
 
@@ -146,7 +165,7 @@ export const GameEventQueueLive = Layer.effect(
         Effect.flatMap((event) =>
           pipe(
             handleEvent(event),
-            Effect.catchAll((error) => Effect.fail(new EventProcessingError(event, error)))
+            Effect.catchAll((error) => Effect.fail(createEventProcessingError(event, error)))
           )
         ),
         Effect.forever

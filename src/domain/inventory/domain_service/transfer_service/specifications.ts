@@ -435,7 +435,7 @@ export const CanTransferSpecification: TransferSpecification & {
   isSatisfiedBy: (request: TransferRequest): Effect.Effect<boolean, never> =>
     pipe(
       allTransferSpecifications,
-      Effect.forEach((spec) => spec.isSatisfiedBy(request), { concurrency: 'unbounded' }),
+      Effect.forEach((spec) => spec.isSatisfiedBy(request), { concurrency: 4 }),
       Effect.map((results) => ReadonlyArray.every(results, (satisfied) => satisfied))
     ),
 
@@ -444,7 +444,7 @@ export const CanTransferSpecification: TransferSpecification & {
   getConstraints: (request: TransferRequest): Effect.Effect<ReadonlyArray<TransferConstraint>, never> =>
     pipe(
       allTransferSpecifications,
-      Effect.forEach((spec) => spec.getConstraints(request), { concurrency: 'unbounded' }),
+      Effect.forEach((spec) => spec.getConstraints(request), { concurrency: 4 }),
       Effect.map((constraintArrays) => ReadonlyArray.flatten(constraintArrays))
     ),
 

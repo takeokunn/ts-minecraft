@@ -399,7 +399,7 @@ const executeCraftingWorkflowImpl = (
           ),
           calculateCraftingExperience(operation),
         ],
-        { concurrency: 'unbounded' }
+        { concurrency: 4 }
       )
 
       yield* Effect.logInfo('Crafting workflow completed successfully', {
@@ -476,7 +476,7 @@ const executeTradeWorkflowImpl = (
         reserveTradeItems(operation.player1Offers, inventoryService),
         reserveTradeItems(operation.player2Offers, inventoryService),
       ],
-      { concurrency: 'unbounded' }
+      { concurrency: 4 }
     )
 
     return yield* Effect.gen(function* () {
@@ -510,7 +510,7 @@ const executeTradeWorkflowImpl = (
               .pipe(Effect.map(() => offer.itemStack))
           ),
         ],
-        { concurrency: 'unbounded' }
+        { concurrency: 4 }
       )
 
       // フェーズ5: 取引価値計算

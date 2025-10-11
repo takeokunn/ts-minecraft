@@ -285,7 +285,7 @@ export const PlayerCameraApplicationServiceLive = Layer.effect(
                   // カメラID生成と初期回転を並行実行
                   const [cameraId, initialRotation] = yield* Effect.all(
                     [generateCameraId(), cameraControlService.getDefaultRotation()],
-                    { concurrency: 'unbounded' }
+                    { concurrency: 4 }
                   )
 
                   const playerCameraState = {
@@ -307,7 +307,7 @@ export const PlayerCameraApplicationServiceLive = Layer.effect(
                       settingsRepo.savePlayerSettings(playerId, settings),
                       updatePlayerStatistics(playerId, 'initialization'),
                     ],
-                    { concurrency: 'unbounded' }
+                    { concurrency: 4 }
                   )
 
                   return cameraId
@@ -583,7 +583,7 @@ export const PlayerCameraApplicationServiceLive = Layer.effect(
               () => Effect.void // エラーは無視してスキップ
             )
           ),
-          { concurrency: 'unbounded' }
+          { concurrency: 4 }
         ),
 
       getPlayerCameraStatistics: (playerId) =>

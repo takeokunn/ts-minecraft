@@ -70,7 +70,7 @@ export const CameraModeManagerApplicationServiceLive = Layer.effect(
               )
             })
           ),
-          { concurrency: 'unbounded' }
+          { concurrency: 4 }
         ),
 
       scheduleViewModeTransition: (cameraId, targetMode, scheduledTime, transitionConfig) =>

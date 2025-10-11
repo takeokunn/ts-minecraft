@@ -4,7 +4,7 @@
 
 import * as Coordinates from '@/domain/biome/value_object/coordinates/index.js'
 import * as WorldSeed from '@domain/world/value_object/world_seed/index.js'
-import { Clock, Context, Effect, Schema } from 'effect'
+import { Clock, Context, DateTime, Effect, Schema } from 'effect'
 import {
   BiomeDistributionPayloadSchema,
   BiomeSystemConfigurationSchema,
@@ -71,7 +71,7 @@ export const createBiomeSystemCreated = (
 ): Effect.Effect<BiomeSystemCreated> =>
   Effect.gen(function* () {
     const eventId = yield* generateEventId()
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const timestamp = yield* Effect.map(DateTime.now, DateTime.toDate)
 
     return Schema.decodeSync(BiomeSystemCreatedSchema)({
       eventId,
@@ -90,7 +90,7 @@ export const createBiomeDistributionGenerated = (
 ): Effect.Effect<BiomeDistributionGenerated> =>
   Effect.gen(function* () {
     const eventId = yield* generateEventId()
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const timestamp = yield* Effect.map(DateTime.now, DateTime.toDate)
 
     return Schema.decodeSync(BiomeDistributionGeneratedSchema)({
       eventId,
@@ -108,7 +108,7 @@ export const createClimateModelUpdated = (
 ): Effect.Effect<ClimateModelUpdated> =>
   Effect.gen(function* () {
     const eventId = yield* generateEventId()
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const timestamp = yield* Effect.map(DateTime.now, DateTime.toDate)
 
     return Schema.decodeSync(ClimateModelUpdatedSchema)({
       eventId,

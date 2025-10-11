@@ -473,7 +473,7 @@ export const ProgressiveLoadingUtils = {
       // チャンクロードを完全並行実行
       const requests = yield* pipe(
         positions,
-        Effect.forEach(({ x, z }) => service.requestChunkLoad(x, z, playerId, priority), { concurrency: 'unbounded' })
+        Effect.forEach(({ x, z }) => service.requestChunkLoad(x, z, playerId, priority), { concurrency: 4 })
       )
 
       return requests

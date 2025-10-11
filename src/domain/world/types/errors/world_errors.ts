@@ -3,7 +3,7 @@
  * 世界ドメインの構造化エラー定義
  */
 
-import { Data, DateTime, Effect, Schema } from 'effect'
+import { DateTime, Effect, Schema } from 'effect'
 import { ChunkPosition, DimensionId, Vector3D, WorldId } from '../core'
 
 // === 基本エラー情報型 ===
@@ -39,16 +39,6 @@ export const ErrorContextSchema = Schema.Struct({
 // === 世界管理エラー ===
 
 /** 世界が存在しないエラー */
-export class WorldNotFoundError extends Data.TaggedError('WorldNotFoundError')<{
-  readonly worldId: WorldId
-  readonly context: ErrorContext
-  readonly suggestedAction?: string
-}> {
-  get message() {
-    return `World not found: ${this.worldId}${this.suggestedAction ? ` - ${this.suggestedAction}` : ''}`
-  }
-}
-
 export const WorldNotFoundErrorSchema = Schema.TaggedStruct('WorldNotFoundError', {
   worldId: Schema.suspend(() => import('../core').then((m) => m.WorldIdSchema)),
   context: ErrorContextSchema,
@@ -59,19 +49,12 @@ export const WorldNotFoundErrorSchema = Schema.TaggedStruct('WorldNotFoundError'
     description: 'Error when attempting to access a non-existent world',
   })
 )
+export type WorldNotFoundError = Schema.Schema.Type<typeof WorldNotFoundErrorSchema>
+
+export const getWorldNotFoundErrorMessage = (error: WorldNotFoundError): string =>
+  `World not found: ${error.worldId}${error.suggestedAction ? ` - ${error.suggestedAction}` : ''}`
 
 /** 世界作成失敗エラー */
-export class WorldCreationError extends Data.TaggedError('WorldCreationError')<{
-  readonly worldId: WorldId
-  readonly reason: string
-  readonly context: ErrorContext
-  readonly cause?: unknown
-}> {
-  get message() {
-    return `Failed to create world ${this.worldId}: ${this.reason}`
-  }
-}
-
 export const WorldCreationErrorSchema = Schema.TaggedStruct('WorldCreationError', {
   worldId: Schema.suspend(() => import('../core').then((m) => m.WorldIdSchema)),
   reason: Schema.String,
@@ -83,20 +66,12 @@ export const WorldCreationErrorSchema = Schema.TaggedStruct('WorldCreationError'
     description: 'Error when world creation fails',
   })
 )
+export type WorldCreationError = Schema.Schema.Type<typeof WorldCreationErrorSchema>
+
+export const getWorldCreationErrorMessage = (error: WorldCreationError): string =>
+  `Failed to create world ${error.worldId}: ${error.reason}`
 
 /** 世界読み込み失敗エラー */
-export class WorldLoadError extends Data.TaggedError('WorldLoadError')<{
-  readonly worldId: WorldId
-  readonly stage: 'initialization' | 'chunk_loading' | 'player_spawn' | 'world_generation'
-  readonly reason: string
-  readonly context: ErrorContext
-  readonly recoverable: boolean
-}> {
-  get message() {
-    return `Failed to load world ${this.worldId} at stage '${this.stage}': ${this.reason}`
-  }
-}
-
 export const WorldLoadErrorSchema = Schema.TaggedStruct('WorldLoadError', {
   worldId: Schema.suspend(() => import('../core').then((m) => m.WorldIdSchema)),
   stage: Schema.Literal('initialization', 'chunk_loading', 'player_spawn', 'world_generation'),
@@ -109,20 +84,12 @@ export const WorldLoadErrorSchema = Schema.TaggedStruct('WorldLoadError', {
     description: 'Error during world loading process',
   })
 )
+export type WorldLoadError = Schema.Schema.Type<typeof WorldLoadErrorSchema>
+
+export const getWorldLoadErrorMessage = (error: WorldLoadError): string =>
+  `Failed to load world ${error.worldId} at stage '${error.stage}': ${error.reason}`
 
 /** 世界保存失敗エラー */
-export class WorldSaveError extends Data.TaggedError('WorldSaveError')<{
-  readonly worldId: WorldId
-  readonly affectedChunks: readonly ChunkPosition[]
-  readonly reason: string
-  readonly context: ErrorContext
-  readonly dataLoss: boolean
-}> {
-  get message() {
-    return `Failed to save world ${this.worldId}: ${this.reason} (${this.affectedChunks.length} chunks affected)`
-  }
-}
-
 export const WorldSaveErrorSchema = Schema.TaggedStruct('WorldSaveError', {
   worldId: Schema.suspend(() => import('../core').then((m) => m.WorldIdSchema)),
   affectedChunks: Schema.Array(Schema.suspend(() => import('../core').then((m) => m.ChunkPositionSchema))),
@@ -135,21 +102,14 @@ export const WorldSaveErrorSchema = Schema.TaggedStruct('WorldSaveError', {
     description: 'Error when saving world data fails',
   })
 )
+export type WorldSaveError = Schema.Schema.Type<typeof WorldSaveErrorSchema>
+
+export const getWorldSaveErrorMessage = (error: WorldSaveError): string =>
+  `Failed to save world ${error.worldId}: ${error.reason} (${error.affectedChunks.length} chunks affected)`
 
 // === 座標・境界エラー ===
 
 /** 座標が無効エラー */
-export class InvalidCoordinateError extends Data.TaggedError('InvalidCoordinateError')<{
-  readonly coordinate: Vector3D
-  readonly reason: string
-  readonly validRange?: { min: Vector3D; max: Vector3D }
-  readonly context: ErrorContext
-}> {
-  get message() {
-    return `Invalid coordinate (${this.coordinate.x}, ${this.coordinate.y}, ${this.coordinate.z}): ${this.reason}`
-  }
-}
-
 export const InvalidCoordinateErrorSchema = Schema.TaggedStruct('InvalidCoordinateError', {
   coordinate: Schema.suspend(() => import('../core').then((m) => m.Vector3DSchema)),
   reason: Schema.String,
@@ -166,19 +126,12 @@ export const InvalidCoordinateErrorSchema = Schema.TaggedStruct('InvalidCoordina
     description: 'Error when coordinates are outside valid range',
   })
 )
+export type InvalidCoordinateError = Schema.Schema.Type<typeof InvalidCoordinateErrorSchema>
+
+export const getInvalidCoordinateErrorMessage = (error: InvalidCoordinateError): string =>
+  `Invalid coordinate (${error.coordinate.x}, ${error.coordinate.y}, ${error.coordinate.z}): ${error.reason}`
 
 /** 世界境界外エラー */
-export class OutOfWorldBoundsError extends Data.TaggedError('OutOfWorldBoundsError')<{
-  readonly position: Vector3D
-  readonly worldBounds: { min: Vector3D; max: Vector3D }
-  readonly context: ErrorContext
-  readonly autoCorrect?: Vector3D
-}> {
-  get message() {
-    return `Position (${this.position.x}, ${this.position.y}, ${this.position.z}) is outside world bounds`
-  }
-}
-
 export const OutOfWorldBoundsErrorSchema = Schema.TaggedStruct('OutOfWorldBoundsError', {
   position: Schema.suspend(() => import('../core').then((m) => m.Vector3DSchema)),
   worldBounds: Schema.Struct({
@@ -193,18 +146,12 @@ export const OutOfWorldBoundsErrorSchema = Schema.TaggedStruct('OutOfWorldBounds
     description: 'Error when position is outside world boundaries',
   })
 )
+export type OutOfWorldBoundsError = Schema.Schema.Type<typeof OutOfWorldBoundsErrorSchema>
+
+export const getOutOfWorldBoundsErrorMessage = (error: OutOfWorldBoundsError): string =>
+  `Position (${error.position.x}, ${error.position.y}, ${error.position.z}) is outside world bounds`
 
 /** チャンク境界外エラー */
-export class OutOfChunkBoundsError extends Data.TaggedError('OutOfChunkBoundsError')<{
-  readonly position: Vector3D
-  readonly chunkPosition: ChunkPosition
-  readonly context: ErrorContext
-}> {
-  get message() {
-    return `Position (${this.position.x}, ${this.position.y}, ${this.position.z}) is outside chunk bounds at (${this.chunkPosition.x}, ${this.chunkPosition.z})`
-  }
-}
-
 export const OutOfChunkBoundsErrorSchema = Schema.TaggedStruct('OutOfChunkBoundsError', {
   position: Schema.suspend(() => import('../core').then((m) => m.Vector3DSchema)),
   chunkPosition: Schema.suspend(() => import('../core').then((m) => m.ChunkPositionSchema)),
@@ -215,21 +162,14 @@ export const OutOfChunkBoundsErrorSchema = Schema.TaggedStruct('OutOfChunkBounds
     description: 'Error when position is outside chunk boundaries',
   })
 )
+export type OutOfChunkBoundsError = Schema.Schema.Type<typeof OutOfChunkBoundsErrorSchema>
+
+export const getOutOfChunkBoundsErrorMessage = (error: OutOfChunkBoundsError): string =>
+  `Position (${error.position.x}, ${error.position.y}, ${error.position.z}) is outside chunk bounds at (${error.chunkPosition.x}, ${error.chunkPosition.z})`
 
 // === 次元エラー ===
 
 /** 次元が存在しないエラー */
-export class DimensionNotFoundError extends Data.TaggedError('DimensionNotFoundError')<{
-  readonly dimensionId: DimensionId
-  readonly worldId: WorldId
-  readonly context: ErrorContext
-  readonly availableDimensions: readonly DimensionId[]
-}> {
-  get message() {
-    return `Dimension '${this.dimensionId}' not found in world '${this.worldId}'`
-  }
-}
-
 export const DimensionNotFoundErrorSchema = Schema.TaggedStruct('DimensionNotFoundError', {
   dimensionId: Schema.suspend(() => import('../core').then((m) => m.DimensionIdSchema)),
   worldId: Schema.suspend(() => import('../core').then((m) => m.WorldIdSchema)),
@@ -241,20 +181,12 @@ export const DimensionNotFoundErrorSchema = Schema.TaggedStruct('DimensionNotFou
     description: 'Error when attempting to access non-existent dimension',
   })
 )
+export type DimensionNotFoundError = Schema.Schema.Type<typeof DimensionNotFoundErrorSchema>
+
+export const getDimensionNotFoundErrorMessage = (error: DimensionNotFoundError): string =>
+  `Dimension '${error.dimensionId}' not found in world '${error.worldId}'`
 
 /** 次元切り替え失敗エラー */
-export class DimensionSwitchError extends Data.TaggedError('DimensionSwitchError')<{
-  readonly fromDimension: DimensionId
-  readonly toDimension: DimensionId
-  readonly playerId: string
-  readonly reason: string
-  readonly context: ErrorContext
-}> {
-  get message() {
-    return `Failed to switch player ${this.playerId} from '${this.fromDimension}' to '${this.toDimension}': ${this.reason}`
-  }
-}
-
 export const DimensionSwitchErrorSchema = Schema.TaggedStruct('DimensionSwitchError', {
   fromDimension: Schema.suspend(() => import('../core').then((m) => m.DimensionIdSchema)),
   toDimension: Schema.suspend(() => import('../core').then((m) => m.DimensionIdSchema)),
@@ -267,22 +199,14 @@ export const DimensionSwitchErrorSchema = Schema.TaggedStruct('DimensionSwitchEr
     description: 'Error when player dimension switching fails',
   })
 )
+export type DimensionSwitchError = Schema.Schema.Type<typeof DimensionSwitchErrorSchema>
+
+export const getDimensionSwitchErrorMessage = (error: DimensionSwitchError): string =>
+  `Failed to switch player ${error.playerId} from '${error.fromDimension}' to '${error.toDimension}': ${error.reason}`
 
 // === パフォーマンス関連エラー ===
 
 /** メモリ不足エラー */
-export class InsufficientMemoryError extends Data.TaggedError('InsufficientMemoryError')<{
-  readonly requestedMemory: number // bytes
-  readonly availableMemory: number // bytes
-  readonly operation: string
-  readonly context: ErrorContext
-  readonly suggestedActions: readonly string[]
-}> {
-  get message() {
-    return `Insufficient memory for ${this.operation}: requested ${this.requestedMemory} bytes, available ${this.availableMemory} bytes`
-  }
-}
-
 export const InsufficientMemoryErrorSchema = Schema.TaggedStruct('InsufficientMemoryError', {
   requestedMemory: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
   availableMemory: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
@@ -295,20 +219,12 @@ export const InsufficientMemoryErrorSchema = Schema.TaggedStruct('InsufficientMe
     description: 'Error when system runs out of memory',
   })
 )
+export type InsufficientMemoryError = Schema.Schema.Type<typeof InsufficientMemoryErrorSchema>
+
+export const getInsufficientMemoryErrorMessage = (error: InsufficientMemoryError): string =>
+  `Insufficient memory for ${error.operation}: requested ${error.requestedMemory} bytes, available ${error.availableMemory} bytes`
 
 /** タイムアウトエラー */
-export class OperationTimeoutError extends Data.TaggedError('OperationTimeoutError')<{
-  readonly operation: string
-  readonly timeoutMs: number
-  readonly elapsedMs: number
-  readonly context: ErrorContext
-  readonly retryable: boolean
-}> {
-  get message() {
-    return `Operation '${this.operation}' timed out after ${this.elapsedMs}ms (limit: ${this.timeoutMs}ms)`
-  }
-}
-
 export const OperationTimeoutErrorSchema = Schema.TaggedStruct('OperationTimeoutError', {
   operation: Schema.String,
   timeoutMs: Schema.Number.pipe(Schema.int(), Schema.positive()),
@@ -321,22 +237,14 @@ export const OperationTimeoutErrorSchema = Schema.TaggedStruct('OperationTimeout
     description: 'Error when operation exceeds time limit',
   })
 )
+export type OperationTimeoutError = Schema.Schema.Type<typeof OperationTimeoutErrorSchema>
+
+export const getOperationTimeoutErrorMessage = (error: OperationTimeoutError): string =>
+  `Operation '${error.operation}' timed out after ${error.elapsedMs}ms (limit: ${error.timeoutMs}ms)`
 
 // === 設定エラー ===
 
 /** 無効な世界設定エラー */
-export class InvalidWorldSettingsError extends Data.TaggedError('InvalidWorldSettingsError')<{
-  readonly settingName: string
-  readonly providedValue: unknown
-  readonly expectedType: string
-  readonly validValues?: readonly unknown[]
-  readonly context: ErrorContext
-}> {
-  get message() {
-    return `Invalid world setting '${this.settingName}': expected ${this.expectedType}, got ${typeof this.providedValue}`
-  }
-}
-
 export const InvalidWorldSettingsErrorSchema = Schema.TaggedStruct('InvalidWorldSettingsError', {
   settingName: Schema.String,
   providedValue: Schema.Unknown,
@@ -349,24 +257,14 @@ export const InvalidWorldSettingsErrorSchema = Schema.TaggedStruct('InvalidWorld
     description: 'Error when world settings are invalid',
   })
 )
+export type InvalidWorldSettingsError = Schema.Schema.Type<typeof InvalidWorldSettingsErrorSchema>
+
+export const getInvalidWorldSettingsErrorMessage = (error: InvalidWorldSettingsError): string =>
+  `Invalid world setting '${error.settingName}': expected ${error.expectedType}, got ${typeof error.providedValue}`
 
 // === エラー統合型 ===
 
 /** 世界ドメインの全エラー型 */
-export type WorldDomainError =
-  | WorldNotFoundError
-  | WorldCreationError
-  | WorldLoadError
-  | WorldSaveError
-  | InvalidCoordinateError
-  | OutOfWorldBoundsError
-  | OutOfChunkBoundsError
-  | DimensionNotFoundError
-  | DimensionSwitchError
-  | InsufficientMemoryError
-  | OperationTimeoutError
-  | InvalidWorldSettingsError
-
 export const WorldDomainErrorSchema = Schema.Union(
   WorldNotFoundErrorSchema,
   WorldCreationErrorSchema,
@@ -387,7 +285,9 @@ export const WorldDomainErrorSchema = Schema.Union(
   })
 )
 
-// === エラー作成ヘルパー関数 ===
+export type WorldDomainError = Schema.Schema.Type<typeof WorldDomainErrorSchema>
+
+// === エラー作成Factory関数 ===
 
 /** ErrorContext作成ヘルパー */
 export const createErrorContext = (overrides: Partial<ErrorContext> = {}): Effect.Effect<ErrorContext> =>
@@ -400,53 +300,290 @@ export const createErrorContext = (overrides: Partial<ErrorContext> = {}): Effec
     }
   })
 
-/** WorldNotFoundError作成ヘルパー */
+/** WorldNotFoundError作成Factory */
 export const createWorldNotFoundError = (
   worldId: WorldId,
   context?: Partial<ErrorContext>,
   suggestedAction?: string
-): Effect.Effect<WorldNotFoundError> =>
+): Effect.Effect<WorldNotFoundError, Schema.ParseError> =>
   Effect.gen(function* () {
-    const errorContext = yield* createErrorContext(context)
-    return new WorldNotFoundError({
+    const now = yield* DateTime.now
+    const timestamp = DateTime.toDate(now)
+    return yield* Schema.decode(WorldNotFoundErrorSchema)({
+      _tag: 'WorldNotFoundError' as const,
       worldId,
-      context: errorContext,
+      context: { timestamp, ...context },
       suggestedAction,
     })
   })
 
-/** InvalidCoordinateError作成ヘルパー */
+/** WorldCreationError作成Factory */
+export const createWorldCreationError = (
+  worldId: WorldId,
+  reason: string,
+  context?: Partial<ErrorContext>,
+  cause?: unknown
+): Effect.Effect<WorldCreationError, Schema.ParseError> =>
+  Effect.gen(function* () {
+    const now = yield* DateTime.now
+    const timestamp = DateTime.toDate(now)
+    return yield* Schema.decode(WorldCreationErrorSchema)({
+      _tag: 'WorldCreationError' as const,
+      worldId,
+      reason,
+      context: { timestamp, ...context },
+      cause,
+    })
+  })
+
+/** WorldLoadError作成Factory */
+export const createWorldLoadError = (
+  worldId: WorldId,
+  stage: 'initialization' | 'chunk_loading' | 'player_spawn' | 'world_generation',
+  reason: string,
+  recoverable: boolean,
+  context?: Partial<ErrorContext>
+): Effect.Effect<WorldLoadError, Schema.ParseError> =>
+  Effect.gen(function* () {
+    const now = yield* DateTime.now
+    const timestamp = DateTime.toDate(now)
+    return yield* Schema.decode(WorldLoadErrorSchema)({
+      _tag: 'WorldLoadError' as const,
+      worldId,
+      stage,
+      reason,
+      context: { timestamp, ...context },
+      recoverable,
+    })
+  })
+
+/** WorldSaveError作成Factory */
+export const createWorldSaveError = (
+  worldId: WorldId,
+  affectedChunks: readonly ChunkPosition[],
+  reason: string,
+  dataLoss: boolean,
+  context?: Partial<ErrorContext>
+): Effect.Effect<WorldSaveError, Schema.ParseError> =>
+  Effect.gen(function* () {
+    const now = yield* DateTime.now
+    const timestamp = DateTime.toDate(now)
+    return yield* Schema.decode(WorldSaveErrorSchema)({
+      _tag: 'WorldSaveError' as const,
+      worldId,
+      affectedChunks,
+      reason,
+      context: { timestamp, ...context },
+      dataLoss,
+    })
+  })
+
+/** InvalidCoordinateError作成Factory */
 export const createInvalidCoordinateError = (
   coordinate: Vector3D,
   reason: string,
   context?: Partial<ErrorContext>,
   validRange?: { min: Vector3D; max: Vector3D }
-): Effect.Effect<InvalidCoordinateError> =>
+): Effect.Effect<InvalidCoordinateError, Schema.ParseError> =>
   Effect.gen(function* () {
-    const errorContext = yield* createErrorContext(context)
-    return new InvalidCoordinateError({
+    const now = yield* DateTime.now
+    const timestamp = DateTime.toDate(now)
+    return yield* Schema.decode(InvalidCoordinateErrorSchema)({
+      _tag: 'InvalidCoordinateError' as const,
       coordinate,
       reason,
-      context: errorContext,
+      context: { timestamp, ...context },
       validRange,
     })
   })
 
-/** OperationTimeoutError作成ヘルパー */
+/** OutOfWorldBoundsError作成Factory */
+export const createOutOfWorldBoundsError = (
+  position: Vector3D,
+  worldBounds: { min: Vector3D; max: Vector3D },
+  context?: Partial<ErrorContext>,
+  autoCorrect?: Vector3D
+): Effect.Effect<OutOfWorldBoundsError, Schema.ParseError> =>
+  Effect.gen(function* () {
+    const now = yield* DateTime.now
+    const timestamp = DateTime.toDate(now)
+    return yield* Schema.decode(OutOfWorldBoundsErrorSchema)({
+      _tag: 'OutOfWorldBoundsError' as const,
+      position,
+      worldBounds,
+      context: { timestamp, ...context },
+      autoCorrect,
+    })
+  })
+
+/** OutOfChunkBoundsError作成Factory */
+export const createOutOfChunkBoundsError = (
+  position: Vector3D,
+  chunkPosition: ChunkPosition,
+  context?: Partial<ErrorContext>
+): Effect.Effect<OutOfChunkBoundsError, Schema.ParseError> =>
+  Effect.gen(function* () {
+    const now = yield* DateTime.now
+    const timestamp = DateTime.toDate(now)
+    return yield* Schema.decode(OutOfChunkBoundsErrorSchema)({
+      _tag: 'OutOfChunkBoundsError' as const,
+      position,
+      chunkPosition,
+      context: { timestamp, ...context },
+    })
+  })
+
+/** DimensionNotFoundError作成Factory */
+export const createDimensionNotFoundError = (
+  dimensionId: DimensionId,
+  worldId: WorldId,
+  availableDimensions: readonly DimensionId[],
+  context?: Partial<ErrorContext>
+): Effect.Effect<DimensionNotFoundError, Schema.ParseError> =>
+  Effect.gen(function* () {
+    const now = yield* DateTime.now
+    const timestamp = DateTime.toDate(now)
+    return yield* Schema.decode(DimensionNotFoundErrorSchema)({
+      _tag: 'DimensionNotFoundError' as const,
+      dimensionId,
+      worldId,
+      context: { timestamp, ...context },
+      availableDimensions,
+    })
+  })
+
+/** DimensionSwitchError作成Factory */
+export const createDimensionSwitchError = (
+  fromDimension: DimensionId,
+  toDimension: DimensionId,
+  playerId: string,
+  reason: string,
+  context?: Partial<ErrorContext>
+): Effect.Effect<DimensionSwitchError, Schema.ParseError> =>
+  Effect.gen(function* () {
+    const now = yield* DateTime.now
+    const timestamp = DateTime.toDate(now)
+    return yield* Schema.decode(DimensionSwitchErrorSchema)({
+      _tag: 'DimensionSwitchError' as const,
+      fromDimension,
+      toDimension,
+      playerId,
+      reason,
+      context: { timestamp, ...context },
+    })
+  })
+
+/** InsufficientMemoryError作成Factory */
+export const createInsufficientMemoryError = (
+  requestedMemory: number,
+  availableMemory: number,
+  operation: string,
+  suggestedActions: readonly string[],
+  context?: Partial<ErrorContext>
+): Effect.Effect<InsufficientMemoryError, Schema.ParseError> =>
+  Effect.gen(function* () {
+    const now = yield* DateTime.now
+    const timestamp = DateTime.toDate(now)
+    return yield* Schema.decode(InsufficientMemoryErrorSchema)({
+      _tag: 'InsufficientMemoryError' as const,
+      requestedMemory,
+      availableMemory,
+      operation,
+      context: { timestamp, ...context },
+      suggestedActions,
+    })
+  })
+
+/** OperationTimeoutError作成Factory */
 export const createOperationTimeoutError = (
   operation: string,
   timeoutMs: number,
   elapsedMs: number,
-  context?: Partial<ErrorContext>,
-  retryable: boolean = true
-): Effect.Effect<OperationTimeoutError> =>
+  retryable: boolean,
+  context?: Partial<ErrorContext>
+): Effect.Effect<OperationTimeoutError, Schema.ParseError> =>
   Effect.gen(function* () {
-    const errorContext = yield* createErrorContext(context)
-    return new OperationTimeoutError({
+    const now = yield* DateTime.now
+    const timestamp = DateTime.toDate(now)
+    return yield* Schema.decode(OperationTimeoutErrorSchema)({
+      _tag: 'OperationTimeoutError' as const,
       operation,
       timeoutMs,
       elapsedMs,
-      context: errorContext,
+      context: { timestamp, ...context },
       retryable,
     })
   })
+
+/** InvalidWorldSettingsError作成Factory */
+export const createInvalidWorldSettingsError = (
+  settingName: string,
+  providedValue: unknown,
+  expectedType: string,
+  context?: Partial<ErrorContext>,
+  validValues?: readonly unknown[]
+): Effect.Effect<InvalidWorldSettingsError, Schema.ParseError> =>
+  Effect.gen(function* () {
+    const now = yield* DateTime.now
+    const timestamp = DateTime.toDate(now)
+    return yield* Schema.decode(InvalidWorldSettingsErrorSchema)({
+      _tag: 'InvalidWorldSettingsError' as const,
+      settingName,
+      providedValue,
+      expectedType,
+      context: { timestamp, ...context },
+      validValues,
+    })
+  })
+
+// === 型ガード関数 ===
+
+/** WorldNotFoundError型ガード */
+export const isWorldNotFoundError = (error: unknown): error is WorldNotFoundError =>
+  Schema.is(WorldNotFoundErrorSchema)(error)
+
+/** WorldCreationError型ガード */
+export const isWorldCreationError = (error: unknown): error is WorldCreationError =>
+  Schema.is(WorldCreationErrorSchema)(error)
+
+/** WorldLoadError型ガード */
+export const isWorldLoadError = (error: unknown): error is WorldLoadError => Schema.is(WorldLoadErrorSchema)(error)
+
+/** WorldSaveError型ガード */
+export const isWorldSaveError = (error: unknown): error is WorldSaveError => Schema.is(WorldSaveErrorSchema)(error)
+
+/** InvalidCoordinateError型ガード */
+export const isInvalidCoordinateError = (error: unknown): error is InvalidCoordinateError =>
+  Schema.is(InvalidCoordinateErrorSchema)(error)
+
+/** OutOfWorldBoundsError型ガード */
+export const isOutOfWorldBoundsError = (error: unknown): error is OutOfWorldBoundsError =>
+  Schema.is(OutOfWorldBoundsErrorSchema)(error)
+
+/** OutOfChunkBoundsError型ガード */
+export const isOutOfChunkBoundsError = (error: unknown): error is OutOfChunkBoundsError =>
+  Schema.is(OutOfChunkBoundsErrorSchema)(error)
+
+/** DimensionNotFoundError型ガード */
+export const isDimensionNotFoundError = (error: unknown): error is DimensionNotFoundError =>
+  Schema.is(DimensionNotFoundErrorSchema)(error)
+
+/** DimensionSwitchError型ガード */
+export const isDimensionSwitchError = (error: unknown): error is DimensionSwitchError =>
+  Schema.is(DimensionSwitchErrorSchema)(error)
+
+/** InsufficientMemoryError型ガード */
+export const isInsufficientMemoryError = (error: unknown): error is InsufficientMemoryError =>
+  Schema.is(InsufficientMemoryErrorSchema)(error)
+
+/** OperationTimeoutError型ガード */
+export const isOperationTimeoutError = (error: unknown): error is OperationTimeoutError =>
+  Schema.is(OperationTimeoutErrorSchema)(error)
+
+/** InvalidWorldSettingsError型ガード */
+export const isInvalidWorldSettingsError = (error: unknown): error is InvalidWorldSettingsError =>
+  Schema.is(InvalidWorldSettingsErrorSchema)(error)
+
+/** WorldDomainError型ガード */
+export const isWorldDomainError = (error: unknown): error is WorldDomainError =>
+  Schema.is(WorldDomainErrorSchema)(error)

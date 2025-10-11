@@ -118,10 +118,21 @@ export const ParallelChunkGeneratorLive = Layer.succeed(
   ParallelChunkGeneratorTag.of({
     generateParallel: (coordinates, options) =>
       Effect.gen(function* () {
-        const concurrency = options?.concurrency ?? 4
+        // 動的並行数制御: CPUコア数に基づく自動調整
+        const calculateConcurrency = (): number => {
+          if (options?.concurrency !== undefined) {
+            return options.concurrency
+          }
+          const cpuCount = typeof navigator !== 'undefined' && navigator.hardwareConcurrency 
+            ? navigator.hardwareConcurrency 
+            : 4
+          return Math.min(Math.max(cpuCount, 2), 8)
+        }
+
+        const concurrency = calculateConcurrency()
 
         yield* Effect.logInfo(
-          `Starting parallel chunk generation: ${coordinates.length} chunks, concurrency: ${concurrency}`
+          `Starting parallel chunk generation: ${coordinates.length} chunks, concurrency: ${concurrency} (CPU cores: ${typeof navigator !== 'undefined' ? navigator.hardwareConcurrency ?? 'unknown' : 'unknown'})`
         )
 
         // Streamベースの並列処理（メモリ効率化）

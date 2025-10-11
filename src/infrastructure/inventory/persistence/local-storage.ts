@@ -108,7 +108,7 @@ const removeItems = (keys: ReadonlyArray<string>, context: string) =>
         try: () => localStorage.removeItem(key),
         catch: (cause) => toSaveFailed(backend, context, `Failed to remove key ${key}`, cause),
       }),
-    { concurrency: 'unbounded' }
+    { concurrency: 4 }
   ).pipe(Effect.asVoid)
 
 const decodePlayerIdFromKey = (key: string): Effect.Effect<PlayerId, StorageError> =>
@@ -138,7 +138,7 @@ const gatherKeys = (prefix: string): Effect.Effect<ReadonlyArray<string>, Storag
           try: () => localStorage.key(index),
           catch: (cause) => toLoadFailed(backend, 'list-keys', 'Failed to enumerate keys', cause),
         }),
-      { concurrency: 'unbounded' }
+      { concurrency: 4 }
     )
 
     return rawKeys.filter((maybeKey): maybeKey is string => typeof maybeKey === 'string' && maybeKey.startsWith(prefix))
@@ -205,7 +205,7 @@ export const LocalStorageInventoryService = Layer.effect(
       listStoredInventories: () =>
         Effect.gen(function* () {
           const keys = yield* gatherKeys(inventoryPrefix)
-          const decoded = yield* Effect.forEach(keys, decodePlayerIdFromKey, { concurrency: 'unbounded' })
+          const decoded = yield* Effect.forEach(keys, decodePlayerIdFromKey, { concurrency: 4 })
           return decoded
         }),
 
@@ -272,7 +272,7 @@ export const LocalStorageInventoryService = Layer.effect(
                 },
                 catch: (cause) => toLoadFailed(backend, 'storage-info', `Failed to compute size for ${key}`, cause),
               }),
-            { concurrency: 'unbounded' }
+            { concurrency: 4 }
           )
 
           const totalSize = bytes.reduce((acc, current) => acc + current, 0)
