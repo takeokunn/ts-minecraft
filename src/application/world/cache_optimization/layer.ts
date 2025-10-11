@@ -5,6 +5,7 @@
  */
 
 import { Context, Effect, Layer, Option, ReadonlyArray, Ref, Schema, pipe } from 'effect'
+import { ErrorCauseSchema } from '@shared/schema/error'
 import { CacheManagerService, CacheManagerServiceLive } from './cache_manager'
 
 /**
@@ -25,7 +26,7 @@ export const PreloadingStrategy = Schema.Struct({
 export const CacheOptimizationError = Schema.TaggedError<CacheOptimizationErrorType>()('CacheOptimizationError', {
   message: Schema.String,
   optimizerId: Schema.String,
-  cause: Schema.optional(Schema.Unknown),
+  cause: Schema.optional(ErrorCauseSchema),
 })
 
 export interface CacheOptimizationErrorType extends Schema.Schema.Type<typeof CacheOptimizationError> {}

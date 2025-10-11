@@ -4,6 +4,8 @@ import * as NoiseConfiguration from '@domain/world/config/noise_configuration.js
 import * as WorldSeed from '@domain/world/config/world_seed.js'
 import * as Schema from '@effect/schema/Schema'
 
+import { JsonValueSchema } from '@/shared/schema/json'
+
 /**
  * WorldConfigurationBuilder状態スキーマ
  * 全フィールドはoptionalで初期状態は空オブジェクト
@@ -13,7 +15,7 @@ export const WorldConfigurationBuilderStateSchema = Schema.Struct({
   parameters: Schema.optional(GenerationParameters.GenerationParametersSchema),
   biomeConfig: Schema.optional(BiomeProperties.BiomeConfigurationSchema),
   noiseConfig: Schema.optional(NoiseConfiguration.NoiseConfigurationSchema),
-  metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
+  metadata: Schema.optional(Schema.Record({ key: Schema.String, value: JsonValueSchema })),
 })
 
 export type WorldConfigurationBuilderState = Schema.Schema.Type<typeof WorldConfigurationBuilderStateSchema>

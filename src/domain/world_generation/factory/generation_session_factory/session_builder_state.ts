@@ -9,6 +9,7 @@ import type * as GenerationSession from '@domain/world/aggregate/generation_sess
 import type * as WorldGenerator from '@domain/world/aggregate/world_generator'
 import * as Coordinates from '@domain/world/value_object/coordinates/index'
 import { Duration, Schema } from 'effect'
+import { JsonValueSchema } from '@/shared/schema/json'
 
 // ================================
 // Schema Definitions
@@ -63,13 +64,13 @@ export const GenerationSessionBuilderStateSchema = Schema.Struct({
   customOptions: Schema.optional(
     Schema.Record({
       key: Schema.String,
-      value: Schema.Unknown,
+      value: JsonValueSchema,
     })
   ),
   metadata: Schema.optional(
     Schema.Record({
       key: Schema.String,
-      value: Schema.Unknown,
+      value: JsonValueSchema,
     })
   ),
 })

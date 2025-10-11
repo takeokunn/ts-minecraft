@@ -1,5 +1,5 @@
 import { Clock, Effect, Match, Schema } from 'effect'
-import type { FurnitureRepository } from './index'
+import type { Furniture, FurnitureRepository } from './index'
 import {
   appendPage,
   Bed,
@@ -64,19 +64,19 @@ const toTickEffect = Effect.gen(function* () {
   return yield* Schema.decodeUnknown(TickSchema)(Math.floor(millis / 50)).pipe(Effect.mapError(toValidationError))
 })
 
-const expectBed = (entity: unknown, id: FurnitureId) =>
+const expectBed = (entity: Furniture, id: FurnitureId) =>
   Match.value(entity).pipe(
     Match.when({ _tag: 'Bed' }, (bed: Bed) => Effect.succeed(bed)),
     Match.orElse(() => Effect.fail(FurnitureError.validation([`Furniture ${id} is not a bed`])))
   )
 
-const expectBook = (entity: unknown, id: FurnitureId) =>
+const expectBook = (entity: Furniture, id: FurnitureId) =>
   Match.value(entity).pipe(
     Match.when({ _tag: 'Book' }, (book: Book) => Effect.succeed(book)),
     Match.orElse(() => Effect.fail(FurnitureError.validation([`Furniture ${id} is not a book`])))
   )
 
-const expectSign = (entity: unknown, id: FurnitureId) =>
+const expectSign = (entity: Furniture, id: FurnitureId) =>
   Match.value(entity).pipe(
     Match.when({ _tag: 'Sign' }, (sign: Sign) => Effect.succeed(sign)),
     Match.orElse(() => Effect.fail(FurnitureError.validation([`Furniture ${id} is not a sign`])))

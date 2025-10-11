@@ -11,6 +11,7 @@ import type {
   SceneTarget,
   SequenceExecutionError,
   SequenceId,
+  DynamicTrackingConfig,
 } from './index'
 import { createSceneCameraApplicationError, createSequenceExecutionResult } from './index'
 
@@ -60,8 +61,13 @@ export const SceneCameraApplicationServiceLive = Layer.effect(
     const scenes = new Map<SceneId, Set<SceneCameraId>>()
     const sceneCameras = new Map<SceneCameraId, SceneCameraState>()
     const activeSequences = new Map<SceneCameraId, CinematicSequence>()
-    const sequenceStates = new Map<SequenceId, any>() // SequenceExecutionState
-    const trackingStates = new Map<SceneCameraId, any>() // DynamicTrackingState
+    type DynamicTrackingState = {
+      readonly target: SceneTarget
+      readonly config: DynamicTrackingConfig
+      readonly startTime: number
+      readonly isActive: boolean
+    }
+    const trackingStates = new Map<SceneCameraId, DynamicTrackingState>()
     const performanceMetrics = new Map<SceneCameraId, SceneCameraStatistics>()
 
     // === Helper Functions ===

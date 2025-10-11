@@ -1,7 +1,7 @@
 import * as CANNON from 'cannon-es'
 import { Effect, Schema } from 'effect'
 import { PhysicsConstraintError } from '../errors'
-import { toCannonBody } from '../schemas/body_schema'
+import { CannonBodySchema, toCannonBody } from '../schemas/body_schema'
 
 /**
  * PointToPointConstraint - 点対点拘束のEffect-TSラッパー
@@ -11,7 +11,7 @@ import { toCannonBody } from '../schemas/body_schema'
 
 // PointToPointConstraintパラメータ Schema
 export const PointToPointConstraintParamsSchema = Schema.Struct({
-  bodyA: Schema.Unknown.pipe(
+  bodyA: CannonBodySchema.pipe(
     Schema.annotations({
       description: 'First body (CANNON.Body)',
     })
@@ -25,7 +25,7 @@ export const PointToPointConstraintParamsSchema = Schema.Struct({
       description: 'Pivot point in bodyA local coordinates',
     })
   ),
-  bodyB: Schema.Unknown.pipe(
+  bodyB: CannonBodySchema.pipe(
     Schema.annotations({
       description: 'Second body (CANNON.Body)',
     })
@@ -79,7 +79,7 @@ export const createPointToPointConstraint = (
       return constraint
     },
     catch: (error) =>
-      new PhysicsConstraintError({
+      PhysicsConstraintError.make({
         type: 'point-to-point',
         cause: error,
         message: 'Failed to create point-to-point constraint',
@@ -102,7 +102,7 @@ export const addConstraintToWorld = (
       world.addConstraint(constraint)
     },
     catch: (error) =>
-      new PhysicsConstraintError({
+      PhysicsConstraintError.make({
         type: 'point-to-point',
         cause: error,
         message: 'Failed to add point-to-point constraint to world',

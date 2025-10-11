@@ -167,9 +167,8 @@ export const InventoryAggregateErrorSchema = Schema.TaggedError('InventoryAggreg
 
 export type InventoryAggregateError = Schema.Schema.Type<typeof InventoryAggregateErrorSchema>
 
-export const InventoryAggregateErrorFactory = {
-  make: (input: Schema.Schema.Type<typeof InventoryAggregateErrorSchema>): InventoryAggregateError =>
-    InventoryAggregateErrorSchema.make(input),
+export const InventoryAggregateError = {
+  ...makeErrorFactory(InventoryAggregateErrorSchema),
 
   slotOccupied: (slotIndex: SlotIndex, itemId?: ItemId): InventoryAggregateError =>
     InventoryAggregateErrorSchema.make({

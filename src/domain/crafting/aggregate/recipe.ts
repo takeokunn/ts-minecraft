@@ -114,7 +114,7 @@ export const validateRecipeStructure = (recipe: CraftingRecipe): Effect.Effect<v
     onTrue: () => Effect.void,
     onFalse: () =>
       Effect.fail(
-        new InvalidRecipeError({
+        InvalidRecipeError.make({
           recipeId: recipe.id,
           issues,
         })
@@ -262,7 +262,7 @@ export const canCraftWithGrid = (
         onTrue: () => Effect.succeed(true),
         onFalse: () =>
           Effect.fail(
-            new PatternMismatchError({
+            PatternMismatchError.make({
               recipeId: aggregate.id,
               reason: 'provided grid does not match the recipe definition',
             })

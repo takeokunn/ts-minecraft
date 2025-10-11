@@ -6,8 +6,9 @@
  * 複雑なビジネスロジックを提供します。
  */
 
-import { Context, Effect } from 'effect'
+import { Context, Effect, Schema } from 'effect'
 import type { Inventory, InventoryErrorReason, ItemId, ItemMetadata, ItemStack } from '../../types'
+import { InventorySchema, ItemMetadataSchema } from '../../inventory-types'
 
 // =============================================================================
 // Stacking Service Types
@@ -39,10 +40,12 @@ export type StackIncompatibilityReason =
 /**
  * メタデータ競合情報
  */
+export type MetadataValue = ItemMetadata[keyof ItemMetadata] | null | undefined
+
 export interface MetadataConflict {
   readonly field: keyof ItemMetadata
-  readonly sourceValue: unknown
-  readonly targetValue: unknown
+  readonly sourceValue: MetadataValue
+  readonly targetValue: MetadataValue
   readonly resolutionStrategy: MetadataResolutionStrategy
 }
 
@@ -163,14 +166,14 @@ export const StackOptimizationErrorSchema = Schema.TaggedStruct('StackOptimizati
         targetSlot: Schema.optional(Schema.Number),
         itemsBefore: Schema.Number,
         itemsAfter: Schema.Number,
-        metadata: Schema.optional(Schema.Unknown),
+        metadata: Schema.optional(ItemMetadataSchema),
       }),
       error: Schema.suspend(() => StackingErrorSchema),
     })
   ),
   partialResult: Schema.optional(
     Schema.Struct({
-      optimizedInventory: Schema.Unknown,
+      optimizedInventory: InventorySchema,
       stacksConsolidated: Schema.Number,
       spaceSaved: Schema.Number,
       operationsPerformed: Schema.Array(
@@ -180,7 +183,7 @@ export const StackOptimizationErrorSchema = Schema.TaggedStruct('StackOptimizati
           targetSlot: Schema.optional(Schema.Number),
           itemsBefore: Schema.Number,
           itemsAfter: Schema.Number,
-          metadata: Schema.optional(Schema.Unknown),
+          metadata: Schema.optional(ItemMetadataSchema),
         })
       ),
       warnings: Schema.Array(Schema.String),

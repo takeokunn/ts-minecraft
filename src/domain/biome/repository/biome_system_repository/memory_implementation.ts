@@ -16,6 +16,7 @@ import type {
   BiomeSystemRepository,
   BiomeSystemRepositoryConfig,
   ClimateGrid,
+  ClimateTransition,
   SpatialBounds,
   SpatialCoordinate,
   SpatialQuery,
@@ -295,7 +296,7 @@ const makeBiomeSystemRepositoryMemory = (
     const getClimateData = (coordinate: SpatialCoordinate) => Effect.succeed(Option.none<ClimateData>())
     const interpolateClimateData = (coordinate: SpatialCoordinate) => Effect.succeed({} as ClimateData)
     const createClimateGrid = (bounds: SpatialBounds, resolution: number) => Effect.succeed({} as ClimateGrid)
-    const setClimateTransition = (transition: any) => Effect.void
+    const setClimateTransition = (transition: ClimateTransition) => Effect.void
     const rebuildSpatialIndex = () => Effect.void
     const getIndexStatistics = () =>
       Effect.gen(function* () {
@@ -366,8 +367,10 @@ const makeBiomeSystemRepositoryMemory = (
       })
 
     const analyzeTransitions = (bounds: SpatialBounds) => Effect.succeed([])
-    const exportBiomeData = (bounds: SpatialBounds, format: any) => Effect.succeed(new Uint8Array())
-    const importBiomeData = (data: Uint8Array, format: any, bounds: SpatialBounds) => Effect.void
+    const exportBiomeData = (bounds: SpatialBounds, format: 'json' | 'binary' | 'image') =>
+      Effect.succeed(new Uint8Array())
+    const importBiomeData = (data: Uint8Array, format: 'json' | 'binary' | 'image', bounds: SpatialBounds) =>
+      Effect.void
     const generateBiomeMap = (bounds: SpatialBounds, resolution: number) =>
       Effect.succeed({
         imageData: new Uint8Array(),

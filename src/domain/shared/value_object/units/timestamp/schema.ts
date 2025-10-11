@@ -22,7 +22,7 @@ export const TimestampSchema = Schema.Number.pipe(
   Schema.annotations({
     title: 'Timestamp',
     description: 'Unix Epoch milliseconds timestamp (non-negative)',
-    examples: [0, 1609459200000, Date.now()],
+    examples: [0, 1609459200000, 1704067200000],
   })
 )
 

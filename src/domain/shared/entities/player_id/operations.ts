@@ -17,13 +17,12 @@ export const generate = (): Effect.Effect<PlayerId, never> =>
  */
 export const make = (value: string): Effect.Effect<PlayerId, PlayerIdError> =>
   Schema.decode(PlayerIdSchema)(value).pipe(
-    Effect.mapError(
-      (error) =>
-        new PlayerIdError({
-          message: 'Invalid player ID format',
-          value,
-          cause: error,
-        })
+    Effect.mapError((error) =>
+      PlayerIdError.make({
+        message: 'Invalid player ID format',
+        value,
+        cause: error,
+      })
     )
   )
 

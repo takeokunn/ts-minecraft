@@ -4,6 +4,7 @@
 
 import { Effect, Schema } from 'effect'
 import type { BiomeRegistry } from './index'
+import type { BiomeDistribution, BiomeSystemConfiguration } from './shared/index.js'
 
 export const TransitionRuleSchema = Schema.Struct({
   id: Schema.String,
@@ -41,8 +42,8 @@ export const calculateTransitions = (
   rules: readonly TransitionRule[],
   dominantBiome: string,
   neighborBiomes: readonly string[],
-  settings: any
-): Effect.Effect<readonly any[], never> => Effect.succeed([])
+  settings: BiomeSystemConfiguration['transitionSettings']
+): Effect.Effect<BiomeDistribution['transitionZones'], never> => Effect.succeed([])
 
 export const optimizeRules = (rules: readonly TransitionRule[]): Effect.Effect<readonly TransitionRule[], never> =>
   Effect.succeed(rules)

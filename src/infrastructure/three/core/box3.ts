@@ -7,6 +7,7 @@ import { Effect, Schema } from 'effect'
 import * as THREE from 'three'
 import type { Vector3 } from './vector3'
 import * as V3 from './vector3'
+import { ErrorCauseSchema } from '@shared/schema/error'
 
 /**
  * Box3 Schema定義（Brand型）
@@ -25,7 +26,9 @@ export type Box3 = Schema.Schema.Type<typeof Box3Schema>
 export const Box3Error = Schema.TaggedError('Box3Error')({
   operation: Schema.String,
   reason: Schema.String,
-  cause: Schema.Unknown,
+  box: Schema.optional(Box3Schema),
+  points: Schema.optional(Schema.Array(V3.Vector3Schema)),
+  cause: Schema.optional(ErrorCauseSchema),
 })
 export type Box3Error = Schema.Schema.Type<typeof Box3Error>
 
@@ -176,7 +179,7 @@ export const fromPoints = (points: ReadonlyArray<Vector3>): Effect.Effect<Box3, 
         new Box3Error({
           operation: 'fromPoints',
           reason: 'Cannot create Box3 from empty points array',
-          cause: points,
+          points,
         })
       )
     }

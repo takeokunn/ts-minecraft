@@ -16,6 +16,8 @@
  */
 
 import { Context, Effect, Schema } from 'effect'
+import type { JsonRecord } from '@shared/schema/json'
+import { ItemStackSchema } from '../../inventory-types'
 
 // Core Types Import
 import type {
@@ -703,7 +705,7 @@ export type InventoryData = {
   readonly playerId: PlayerId
   readonly type: InventoryType
   readonly slots: readonly InventorySlot[]
-  readonly metadata: Record<string, unknown>
+  readonly metadata: JsonRecord
   readonly createdAt: Date
   readonly updatedAt: Date
 }
@@ -808,7 +810,7 @@ export type TradeResult = {
 export const ItemAddResultSchema = Schema.Struct({
   success: Schema.Boolean,
   addedQuantity: Schema.Number,
-  remainingStack: Schema.NullOr(Schema.Unknown),
+  remainingStack: Schema.NullOr(ItemStackSchema),
   affectedSlots: Schema.Array(Schema.Number),
 })
 

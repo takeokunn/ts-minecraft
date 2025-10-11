@@ -56,4 +56,4 @@ export const makeItemBuilderConfig = (
  * @param config - 既にバリデーション済みの設定
  * @returns 型変換のみ行ったItemBuilderConfig
  */
-export const makeUnsafeItemBuilderConfig = (config: unknown): ItemBuilderConfig => config as ItemBuilderConfig
+export const makeUnsafeItemBuilderConfig = (config: ItemBuilderConfig): ItemBuilderConfig => config

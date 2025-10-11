@@ -6,6 +6,8 @@
  */
 
 import { Array, Brand, Clock, Data, Effect, Option, ReadonlyMap, Schema } from 'effect'
+import { ErrorCauseSchema, toErrorCause, type ErrorCause } from '@/shared/schema/error'
+import { JsonValueSchema, toJsonValue, type JsonValue } from '@/shared/schema/json'
 import type { ViewMode } from '../../value_object/index'
 
 // ========================================
@@ -254,7 +256,7 @@ export type ViewModePreferencesRepositoryError = Data.TaggedEnum<{
   }
   readonly InvalidPreference: {
     readonly field: string
-    readonly value: unknown
+    readonly value: JsonValue
     readonly reason: string
   }
   readonly DuplicateRecord: {
@@ -271,7 +273,7 @@ export type ViewModePreferencesRepositoryError = Data.TaggedEnum<{
   }
   readonly StorageError: {
     readonly message: string
-    readonly cause: Option<unknown>
+    readonly cause: Option.Option<ErrorCause>
   }
   readonly EncodingFailed: {
     readonly dataType: string
@@ -448,7 +450,7 @@ export const ViewModePreferencesRepositoryErrorSchema = Schema.Union(
   }),
   Schema.TaggedStruct('InvalidPreference', {
     field: Schema.String,
-    value: Schema.Unknown,
+    value: JsonValueSchema,
     reason: Schema.String,
   }),
   Schema.TaggedStruct('DuplicateRecord', {
@@ -465,7 +467,7 @@ export const ViewModePreferencesRepositoryErrorSchema = Schema.Union(
   }),
   Schema.TaggedStruct('StorageError', {
     message: Schema.String,
-    cause: Schema.OptionFromNullable(Schema.Unknown),
+    cause: Schema.OptionFromNullable(ErrorCauseSchema),
   }),
   Schema.TaggedStruct('EncodingFailed', {
     dataType: Schema.String,
@@ -510,7 +512,7 @@ export const createViewModePreferencesError = {
     Data.tagged('RecordNotFound', { recordId }),
 
   invalidPreference: (field: string, value: unknown, reason: string): ViewModePreferencesRepositoryError =>
-    Data.tagged('InvalidPreference', { field, value, reason }),
+    Data.tagged('InvalidPreference', { field, value: toJsonValue(value), reason }),
 
   duplicateRecord: (playerId: PlayerId, timestamp: number): ViewModePreferencesRepositoryError =>
     Data.tagged('DuplicateRecord', { playerId, timestamp }),
@@ -524,7 +526,7 @@ export const createViewModePreferencesError = {
   storageError: (message: string, cause?: unknown): ViewModePreferencesRepositoryError =>
     Data.tagged('StorageError', {
       message,
-      cause: cause ? Option.some(cause) : Option.none(),
+      cause: Option.fromNullable(toErrorCause(cause)),
     }),
 
   encodingFailed: (dataType: string, reason: string): ViewModePreferencesRepositoryError =>

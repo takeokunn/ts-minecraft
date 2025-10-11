@@ -19,7 +19,8 @@
  */
 
 import { DateTime, Effect, Function, Match, Option, Schema } from 'effect'
-import type { CreateWorldGeneratorParams, FactoryError, PresetType } from './index'
+import { FactoryError } from './index'
+import type { CreateWorldGeneratorParams, FactoryError as FactoryErrorType, PresetType } from './index'
 import { PresetRegistryService } from './preset_registry_service'
 
 // ================================
@@ -74,7 +75,7 @@ export type PresetDefinition = typeof PresetDefinitionSchema.Type
 /**
  * プリセット取得
  */
-export const getPreset = (type: PresetType): Effect.Effect<PresetDefinition, FactoryError> =>
+export const getPreset = (type: PresetType): Effect.Effect<PresetDefinition, FactoryErrorType> =>
   Effect.gen(function* () {
     const registry = yield* PresetRegistryService
     const result = yield* registry.get(type)
@@ -82,13 +83,7 @@ export const getPreset = (type: PresetType): Effect.Effect<PresetDefinition, Fac
     return yield* Function.pipe(
       result,
       Option.match({
-        onNone: () =>
-          Effect.fail(
-            new FactoryError({
-              category: 'parameter_validation',
-              message: `Unknown preset type: ${type}`,
-            })
-          ),
+        onNone: () => Effect.fail(FactoryError.parameterValidation(`Unknown preset type: ${type}`)),
         onSome: (preset) => Effect.succeed(preset),
       })
     )
@@ -97,8 +92,9 @@ export const getPreset = (type: PresetType): Effect.Effect<PresetDefinition, Fac
 /**
  * プリセット生成パラメータ取得
  */
-export const getPresetParams = (type: PresetType): Effect.Effect<CreateWorldGeneratorParams, FactoryError> =>
-  Effect.map(getPreset(type), (preset) => preset.generation)
+export const getPresetParams = (
+  type: PresetType
+): Effect.Effect<CreateWorldGeneratorParams, FactoryErrorType> => Effect.map(getPreset(type), (preset) => preset.generation)
 
 /**
  * 利用可能プリセット一覧
@@ -121,7 +117,9 @@ export const listPresetsByCategory = (category: PresetDefinition['category']): E
 /**
  * プリセット情報取得
  */
-export const getPresetInfo = (type: PresetType): Effect.Effect<Omit<PresetDefinition, 'generation'>, FactoryError> =>
+export const getPresetInfo = (
+  type: PresetType
+): Effect.Effect<Omit<PresetDefinition, 'generation'>, FactoryErrorType> =>
   Effect.map(getPreset(type), ({ generation, ...info }) => info)
 
 /**
@@ -134,7 +132,7 @@ export const checkPresetCompatibility = (
     needsModSupport?: boolean
     allowExperimental?: boolean
   }
-): Effect.Effect<boolean, FactoryError> =>
+): Effect.Effect<boolean, FactoryErrorType> =>
   Effect.gen(function* () {
     const preset = yield* getPreset(type)
 
@@ -167,7 +165,7 @@ export const getRecommendedPreset = (requirements: {
   performance: 'low' | 'medium' | 'high'
   quality: 'fast' | 'balanced' | 'quality'
   features: string[]
-}): Effect.Effect<PresetType, FactoryError> =>
+}): Effect.Effect<PresetType, FactoryErrorType> =>
   Effect.gen(function* () {
     const allPresets = listPresets()
 
@@ -200,12 +198,7 @@ export const getRecommendedPreset = (requirements: {
     yield* Function.pipe(
       Match.value(best.score),
       Match.when(0, () =>
-        Effect.fail(
-          new FactoryError({
-            category: 'parameter_validation',
-            message: 'No suitable preset found for requirements',
-          })
-        )
+        Effect.fail(FactoryError.parameterValidation('No suitable preset found for requirements'))
       ),
       Match.orElse(() => Effect.void)
     )
@@ -220,7 +213,7 @@ export const createCustomPreset = (
   name: string,
   description: string,
   params: CreateWorldGeneratorParams
-): Effect.Effect<PresetDefinition, FactoryError> =>
+): Effect.Effect<PresetDefinition, FactoryErrorType> =>
   Effect.gen(function* () {
     const now = yield* DateTime.nowAsDate
     return {

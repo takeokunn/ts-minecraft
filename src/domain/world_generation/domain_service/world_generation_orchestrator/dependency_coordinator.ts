@@ -1,4 +1,5 @@
 import { Clock, Context, Effect, Layer, Option, pipe, ReadonlyArray, Ref, Schema } from 'effect'
+import { JsonValueSchema } from '@shared/schema/json'
 
 /**
  * Dependency Coordinator Service
@@ -34,7 +35,7 @@ export const DependencyNode = Schema.Struct({
     memory: Schema.Number.pipe(Schema.positive()),
     io: Schema.Number.pipe(Schema.between(0, 1)),
   }),
-  metadata: Schema.Record(Schema.String, Schema.Unknown),
+  metadata: Schema.Record(Schema.String, JsonValueSchema),
 })
 
 export const DependencyGraph = Schema.Struct({
@@ -117,12 +118,38 @@ export const DependencyCoordinatorError = Schema.TaggedError<DependencyCoordinat
     message: Schema.String,
     coordinationId: Schema.String,
     nodeId: Schema.optional(Schema.String),
-    cause: Schema.optional(Schema.Unknown),
+    cause: Schema.optional(JsonValueSchema),
     recovery: Schema.optional(Schema.String),
   }
 )
 
 export interface DependencyCoordinatorErrorType extends Schema.Schema.Type<typeof DependencyCoordinatorError> {}
+
+type TaskExecutionResult = unknown
+
+type TaskExecutors = Record<string, Effect.Effect<TaskExecutionResult, unknown>>
+
+type TaskExecutionResults = Record<string, TaskExecutionResult>
+
+type ExecutionHistoryEntry = {
+  readonly taskId: string
+  readonly startTime: number
+  readonly endTime: number
+  readonly result: TaskExecutionResult
+}
+
+type ExecutionStatistics = {
+  readonly totalExecutions: number
+  readonly activeAllocations: number
+  readonly averageExecutionTime: number
+  readonly resourceUtilization: {
+    readonly cpu: number
+    readonly memory: number
+    readonly io: number
+  }
+}
+
+type DependencyGraphEdge = Schema.Schema.Type<typeof DependencyGraph>['edges'][number]
 
 // === Service Interface ===
 
@@ -148,8 +175,8 @@ export interface DependencyCoordinatorService {
    */
   readonly coordinateExecution: (
     executionPlan: string[],
-    taskExecutors: Record<string, Effect.Effect<any, any>>
-  ) => Effect.Effect<Record<string, any>, DependencyCoordinatorErrorType>
+    taskExecutors: TaskExecutors
+  ) => Effect.Effect<TaskExecutionResults, DependencyCoordinatorErrorType>
 
   /**
    * リソースを割り当てます
@@ -189,7 +216,7 @@ export interface DependencyCoordinatorService {
   /**
    * 実行統計を取得します
    */
-  readonly getExecutionStatistics: () => Effect.Effect<Record<string, any>, DependencyCoordinatorErrorType>
+  readonly getExecutionStatistics: () => Effect.Effect<ExecutionStatistics, DependencyCoordinatorErrorType>
 }
 
 // === Live Implementation ===
@@ -206,8 +233,7 @@ const makeDependencyCoordinatorService = Effect.gen(function* () {
   })
 
   const activeAllocations = yield* Ref.make<Map<string, Schema.Schema.Type<typeof ResourceAllocation>>>(new Map())
-  const executionHistory = yield* Ref.make <
-    Array<{ taskId: string; startTime: number; endTime: number; result: any }>([])
+  const executionHistory = yield* Ref.make<Array<ExecutionHistoryEntry>>([])
 
   const buildDependencyGraph = (
     nodes: Schema.Schema.Type<typeof DependencyNode>[],
@@ -275,13 +301,13 @@ const makeDependencyCoordinatorService = Effect.gen(function* () {
       return optimizedPlan
     })
 
-  const coordinateExecution = (executionPlan: string[], taskExecutors: Record<string, Effect.Effect<any, any>>) =>
+  const coordinateExecution = (executionPlan: string[], taskExecutors: TaskExecutors) =>
     Effect.gen(function* () {
       yield* Effect.logInfo(`調整実行開始: ${executionPlan.length}タスク`)
 
       const results = yield* pipe(
         executionPlan,
-        Effect.reduce({} as Record<string, any>, (acc, taskId) =>
+        Effect.reduce({} as TaskExecutionResults, (acc, taskId) =>
           pipe(
             Option.fromNullable(taskExecutors[taskId]),
             Option.match({
@@ -425,23 +451,29 @@ const makeDependencyCoordinatorService = Effect.gen(function* () {
       const history = yield* Ref.get(executionHistory)
       const allocs = yield* Ref.get(activeAllocations)
 
-      return {
+      const statistics: ExecutionStatistics = {
         totalExecutions: history.length,
         activeAllocations: allocs.size,
-        averageExecutionTime: pipe(history.length > 0, (hasHistory) =>
-          hasHistory ? history.reduce((sum, h) => sum + (h.endTime - h.startTime), 0) / history.length : 0
-        ),
+        averageExecutionTime:
+          history.length > 0
+            ? history.reduce((sum, entry) => sum + (entry.endTime - entry.startTime), 0) / history.length
+            : 0,
         resourceUtilization: {
-          cpu: Array.from(allocs.values()).reduce((sum, a) => sum + a.allocatedCpu, 0),
-          memory: Array.from(allocs.values()).reduce((sum, a) => sum + a.allocatedMemory, 0),
-          io: Array.from(allocs.values()).reduce((sum, a) => sum + a.allocatedIo, 0),
+          cpu: Array.from(allocs.values()).reduce((sum, allocation) => sum + allocation.allocatedCpu, 0),
+          memory: Array.from(allocs.values()).reduce((sum, allocation) => sum + allocation.allocatedMemory, 0),
+          io: Array.from(allocs.values()).reduce((sum, allocation) => sum + allocation.allocatedIo, 0),
         },
       }
+
+      return statistics
     })
 
   // === Helper Functions ===
 
-  const detectCycles = (nodes: Map<string, Schema.Schema.Type<typeof DependencyNode>>, edges: any[]) =>
+  const detectCycles = (
+    nodes: Map<string, Schema.Schema.Type<typeof DependencyNode>>,
+    edges: ReadonlyArray<DependencyGraphEdge>
+  ) =>
     Effect.gen(function* () {
       const visited = new Set<string>()
       const recursionStack = new Set<string>()
@@ -482,7 +514,10 @@ const makeDependencyCoordinatorService = Effect.gen(function* () {
       return cycles
     })
 
-  const calculateCriticalPathInternal = (nodes: Map<string, Schema.Schema.Type<typeof DependencyNode>>, edges: any[]) =>
+  const calculateCriticalPathInternal = (
+    nodes: Map<string, Schema.Schema.Type<typeof DependencyNode>>,
+    edges: ReadonlyArray<DependencyGraphEdge>
+  ) =>
     Effect.gen(function* () {
       // 最長経路計算（簡略化）
       const durations = new Map(

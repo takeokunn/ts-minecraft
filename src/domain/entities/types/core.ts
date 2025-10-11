@@ -1,5 +1,7 @@
 import { Schema } from 'effect'
 
+import { JsonValueSchema } from '@/shared/schema/json'
+
 const nonEmptyText = Schema.String.pipe(Schema.minLength(1))
 
 // -----------------------------------------------------------------------------
@@ -147,7 +149,7 @@ export type PlayerAbilities = Schema.Schema.Type<typeof PlayerAbilitiesSchema>
 const EquipmentPieceSchema = Schema.Struct({
   slot: Schema.String,
   itemId: Schema.String,
-  metadata: Schema.optional(Schema.Unknown),
+  metadata: Schema.optional(JsonValueSchema),
 }).pipe(
   Schema.annotations({
     title: 'PlayerEquipmentPiece',
@@ -164,7 +166,7 @@ export const PlayerEquipmentSchema = Schema.Struct({
   id: Schema.String,
   ownerId: PlayerIdSchema,
   slots: EquipmentSlotsSchema,
-  metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
+  metadata: Schema.optional(Schema.Record({ key: Schema.String, value: JsonValueSchema })),
   version: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
   createdAt: Schema.Number,
   updatedAt: Schema.Number,
@@ -179,10 +181,10 @@ export type PlayerEquipment = Schema.Schema.Type<typeof PlayerEquipmentSchema>
 export const PlayerInventorySchema = Schema.Struct({
   id: Schema.String,
   ownerId: PlayerIdSchema,
-  slots: Schema.Array(Schema.optional(Schema.Unknown)),
+  slots: Schema.Array(Schema.optional(JsonValueSchema)),
   hotbar: Schema.Array(Schema.Number.pipe(Schema.int(), Schema.nonNegative())),
   selectedSlot: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
-  metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
+  metadata: Schema.optional(Schema.Record({ key: Schema.String, value: JsonValueSchema })),
   version: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
   createdAt: Schema.Number,
   updatedAt: Schema.Number,

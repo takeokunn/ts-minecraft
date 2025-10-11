@@ -46,7 +46,7 @@ export const createBoxShape = (params: BoxShapeParams): Effect.Effect<CANNON.Box
       return new CANNON.Box(new CANNON.Vec3(x, y, z))
     },
     catch: (error) =>
-      new PhysicsShapeError({
+      PhysicsShapeError.make({
         type: 'box',
         cause: error,
         message: `Failed to create box shape with halfExtents: ${JSON.stringify(params.halfExtents)}`,

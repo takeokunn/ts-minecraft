@@ -16,12 +16,12 @@
 import type { ChunkData } from '@/domain/chunk/aggregate/chunk'
 import type { ChunkId } from '@/domain/shared/entities/chunk_id'
 import type { PlayerId } from '@/domain/shared/entities/player_id'
-import { WorldIdOperations } from '@/domain/shared/entities/world_id'
+import { WorldIdSchema } from '@/domain/shared/entities/world_id/schema'
 import type { WorldMetadata } from '@/domain/world/repository/world_metadata_repository/interface'
-import { Context, DateTime, Effect, Layer, STM } from 'effect'
+import { Context, DateTime, Effect, Layer, STM, Schema } from 'effect'
 import { createWorldSeed } from '@/domain/world/types/core/world_types'
 import { createWorldGeneratorId } from '@/domain/world_generation/aggregate/world_generator'
-import { makeUnsafeWorldCoordinate2D } from '@/domain/world/value_object/coordinates'
+import { WorldCoordinate2DSchema } from '@/domain/world/value_object/coordinates'
 import { WorldClock } from '@/domain/world/time'
 
 /**
@@ -463,12 +463,13 @@ export const makeWorldStateSTMLive = (initialMetadata: WorldMetadata) =>
  * 本番環境では適切なメタデータを渡してmakeWorldStateSTMLive()を使用すること。
  */
 const defaultTimestamp = DateTime.toDate(DateTime.unsafeNow())
+const DEFAULT_WORLD_ID = Schema.decodeUnknownSync(WorldIdSchema)('default_world')
 const DEFAULT_WORLD_SEED = createWorldSeed(1_234_567_890)
 const DEFAULT_GENERATOR_ID = createWorldGeneratorId('wg_default_generator')
-const DEFAULT_WORLD_BORDER_CENTER = makeUnsafeWorldCoordinate2D(0, 0)
+const DEFAULT_WORLD_BORDER_CENTER = Schema.decodeUnknownSync(WorldCoordinate2DSchema)({ x: 0, z: 0 })
 
 export const WorldStateSTMLive = makeWorldStateSTMLive({
-  id: WorldIdOperations.makeUnsafe('default_world'),
+  id: DEFAULT_WORLD_ID,
   name: 'Default World',
   description: 'Default world for development',
   seed: DEFAULT_WORLD_SEED,

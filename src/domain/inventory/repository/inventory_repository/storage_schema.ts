@@ -1,4 +1,5 @@
 import { Schema } from 'effect'
+import { TimestampSchema } from '@domain/shared/value_object/units/timestamp'
 
 /**
  * LocalStorage保存用のInventory型定義
@@ -46,7 +47,7 @@ const ArmorSlotsStorageSchema = Schema.Struct({
  * InventoryMetadata用のストレージスキーマ
  */
 const InventoryMetadataStorageSchema = Schema.Struct({
-  lastUpdated: Schema.Number,
+  lastUpdated: TimestampSchema,
   checksum: Schema.String,
 })
 
@@ -56,7 +57,12 @@ const InventoryMetadataStorageSchema = Schema.Struct({
 const InventoryStorageItemSchema = Schema.Struct({
   id: Schema.String,
   playerId: Schema.String, // PlayerIdはStringとして保存
-  slots: Schema.Array(Schema.Union(ItemStackStorageSchema, Schema.Null)).pipe(Schema.maxItems(54)),
+  slots: Schema.Record({ key: Schema.String, value: Schema.Union(ItemStackStorageSchema, Schema.Null) }).pipe(
+    Schema.filter(
+      (slots) => Object.keys(slots).length <= 54,
+      { message: 'Inventory slots cannot exceed 54 entries' }
+    )
+  ),
   hotbar: Schema.Array(Schema.Number.pipe(Schema.int(), Schema.nonNegative())).pipe(Schema.maxItems(9)),
   selectedSlot: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
   armor: ArmorSlotsStorageSchema,
@@ -71,7 +77,7 @@ const InventoryStorageItemSchema = Schema.Struct({
 const InventorySnapshotStorageSchema = Schema.Struct({
   snapshotId: Schema.String,
   inventory: InventoryStorageItemSchema,
-  timestamp: Schema.Number,
+  timestamp: TimestampSchema,
   reason: Schema.optional(Schema.String),
 })
 
@@ -83,7 +89,7 @@ const InventorySnapshotStorageSchema = Schema.Struct({
 export const InventoryRepositoryStorageSchema = Schema.Struct({
   inventories: Schema.optional(Schema.Record({ key: Schema.String, value: InventoryStorageItemSchema })),
   snapshots: Schema.optional(Schema.Record({ key: Schema.String, value: InventorySnapshotStorageSchema })),
-  timestamp: Schema.optional(Schema.Number),
+  timestamp: Schema.optional(TimestampSchema),
 })
 
 export type InventoryRepositoryStorageData = Schema.Schema.Type<typeof InventoryRepositoryStorageSchema>

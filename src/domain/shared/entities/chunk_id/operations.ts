@@ -7,13 +7,12 @@ import { ChunkIdSchema, type ChunkId } from './schema'
  */
 export const make = (value: string): Effect.Effect<ChunkId, ChunkIdError> =>
   Schema.decode(ChunkIdSchema)(value).pipe(
-    Effect.mapError(
-      (error) =>
-        new ChunkIdError({
-          message: 'Invalid chunk ID format',
-          value,
-          cause: error,
-        })
+    Effect.mapError((error) =>
+      ChunkIdError.make({
+        message: 'Invalid chunk ID format',
+        value,
+        cause: error,
+      })
     )
   )
 
@@ -45,7 +44,7 @@ export const toCoordinates = (id: ChunkId): Effect.Effect<{ x: number; z: number
     const parts = id.split('_')
     if (parts.length !== 3 || parts[0] !== 'chunk') {
       return yield* Effect.fail(
-        new ChunkIdError({
+        ChunkIdError.make({
           message: `Invalid chunk ID format: ${id}`,
           value: id,
         })
@@ -57,7 +56,7 @@ export const toCoordinates = (id: ChunkId): Effect.Effect<{ x: number; z: number
 
     if (Number.isNaN(x) || Number.isNaN(z)) {
       return yield* Effect.fail(
-        new ChunkIdError({
+        ChunkIdError.make({
           message: `Invalid coordinates in chunk ID: ${id}`,
           value: id,
         })

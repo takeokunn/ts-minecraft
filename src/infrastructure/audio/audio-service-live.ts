@@ -34,6 +34,7 @@ import {
   SourceNotFoundError,
   type Volume,
 } from './audio-types'
+import { toErrorCause } from '@shared/schema/error'
 
 interface ActiveSource {
   audio: THREE.PositionalAudio | THREE.Audio
@@ -116,7 +117,7 @@ const makeAudioService = Effect.gen(function* () {
           AudioLoadError({
             soundId,
             message: `Failed to fetch sound: ${error}`,
-            cause: error,
+            cause: toErrorCause(error),
           }),
       })
 
@@ -126,7 +127,7 @@ const makeAudioService = Effect.gen(function* () {
           AudioLoadError({
             soundId,
             message: `Failed to decode audio: ${error}`,
-            cause: error,
+            cause: toErrorCause(error),
           }),
       })
 

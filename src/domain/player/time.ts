@@ -8,7 +8,7 @@ export interface PlayerClockService {
 
 export const PlayerClock = Context.Tag<PlayerClockService>('@domain/player/clock')
 
-const decodeTimestamp = (value: unknown) =>
+const decodeTimestamp = (value: number) =>
   pipe(
     Schema.decodeUnknownEither(TimestampSchema)(value),
     Either.mapLeft((issue) => PlayerErrorBuilders.clock(issue)),

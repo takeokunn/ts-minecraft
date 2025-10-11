@@ -16,13 +16,12 @@ import { DimensionIdSchema, NETHER, OVERWORLD, THE_END, type DimensionId } from 
  */
 export const make = (value: string): Effect.Effect<DimensionId, DimensionIdError> =>
   Effect.decode(DimensionIdSchema)(value).pipe(
-    Effect.mapError(
-      (error) =>
-        new DimensionIdError({
-          message: 'Invalid dimension ID',
-          value,
-          cause: error,
-        })
+    Effect.mapError((error) =>
+      DimensionIdError.make({
+        message: 'Invalid dimension ID',
+        value,
+        cause: error,
+      })
     )
   )
 

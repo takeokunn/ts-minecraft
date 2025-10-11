@@ -6,7 +6,8 @@
  */
 
 import { CameraError, CameraId } from '@domain/camera/types'
-import { DateTime, Effect, Option } from 'effect'
+import type { CameraMode } from '@domain/camera/types'
+import { Clock, DateTime, Effect, Option } from 'effect'
 import {
   CameraDistance,
   CameraRotation,
@@ -18,6 +19,7 @@ import {
   ViewMode,
   ViewModeFactory,
 } from '../../value_object/index'
+import { ViewModeOps } from '../../value_object/view_mode/operations'
 import { Camera } from './index'
 
 /**
@@ -333,15 +335,15 @@ const calculateLookAtRotation = (
 /**
  * カメラ初期化イベントの作成
  */
-const createCameraInitializedEvent = (cameraId: CameraId, viewMode: ViewMode) => {
-  // ViewModeをCameraModeに変換
-  // TODO: ViewMode と CameraMode の型を統一する
-  return Effect.succeed(
-    Data.struct({
+const createCameraInitializedEvent = (cameraId: CameraId, viewMode: ViewMode) =>
+  Effect.gen(function* () {
+    const timestamp = yield* Clock.currentTimeMillis
+    return Data.struct({
       _tag: 'CameraInitialized' as const,
       cameraId,
-      viewMode: 'first-person' as const,
-      timestamp: Date.now(),
+      viewMode: viewModeToCameraMode(viewMode),
+      timestamp,
     })
-  )
-}
+  })
+
+const viewModeToCameraMode = (viewMode: ViewMode): CameraMode => ViewModeOps.getTag(viewMode) as CameraMode

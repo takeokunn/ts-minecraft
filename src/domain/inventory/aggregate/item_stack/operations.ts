@@ -33,9 +33,13 @@ export const mergeItemStacks = (
     // アイテムID一致チェック
     yield* Effect.when(sourceStack.itemId !== targetStack.itemId, () =>
       Effect.fail(
-        new ItemStackError('MERGE_DIFFERENT_ITEMS', 'Cannot merge different item types', {
-          sourceItemId: sourceStack.itemId,
-          targetItemId: targetStack.itemId,
+        ItemStackError.make({
+          reason: 'MERGE_DIFFERENT_ITEMS',
+          message: 'Cannot merge different item types',
+          metadata: {
+            sourceItemId: sourceStack.itemId,
+            targetItemId: targetStack.itemId,
+          },
         })
       )
     )
@@ -45,10 +49,14 @@ export const mergeItemStacks = (
     // スタック上限チェック
     yield* Effect.when(totalCount > ITEM_STACK_CONSTANTS.MAX_STACK_SIZE, () =>
       Effect.fail(
-        new ItemStackError('STACK_LIMIT_EXCEEDED', 'Merge would exceed max stack size', {
-          currentCount: targetStack.count,
-          attemptedAdd: sourceStack.count,
-          maxAllowed: ITEM_STACK_CONSTANTS.MAX_STACK_SIZE,
+        ItemStackError.make({
+          reason: 'STACK_LIMIT_EXCEEDED',
+          message: 'Merge would exceed max stack size',
+          metadata: {
+            currentCount: targetStack.count,
+            attemptedAdd: sourceStack.count,
+            maxAllowed: ITEM_STACK_CONSTANTS.MAX_STACK_SIZE,
+          },
         })
       )
     )
@@ -143,7 +151,7 @@ export const consumeItemStack = (
     // 消費数量の検証
     if (quantity <= 0) {
       yield* Effect.fail(
-        new ItemStackError({
+        ItemStackError.make({
           reason: 'INVALID_STACK_SIZE',
           message: `不正な消費数量: ${quantity}`,
           stackId: stack.id,
@@ -202,7 +210,7 @@ export const damageItemStack = (
     // 耐久度が設定されていない場合はエラー
     if (!stack.durability) {
       yield* Effect.fail(
-        new ItemStackError({
+        ItemStackError.make({
           reason: 'INVALID_DURABILITY',
           message: '耐久度が設定されていないアイテムです',
           stackId: stack.id,
@@ -213,7 +221,7 @@ export const damageItemStack = (
     // ダメージ量の検証
     if (damageAmount < 0 || damageAmount > 1) {
       yield* Effect.fail(
-        new ItemStackError({
+        ItemStackError.make({
           reason: 'INVALID_DURABILITY',
           message: `不正なダメージ量: ${damageAmount}`,
           stackId: stack.id,
@@ -264,7 +272,7 @@ export const repairItemStack = (
     // 耐久度が設定されていない場合はエラー
     if (!stack.durability) {
       yield* Effect.fail(
-        new ItemStackError({
+        ItemStackError.make({
           reason: 'INVALID_DURABILITY',
           message: '耐久度が設定されていないアイテムです',
           stackId: stack.id,
@@ -275,7 +283,7 @@ export const repairItemStack = (
     // 修復量の検証
     if (repairAmount < 0 || repairAmount > 1) {
       yield* Effect.fail(
-        new ItemStackError({
+        ItemStackError.make({
           reason: 'INVALID_DURABILITY',
           message: `不正な修復量: ${repairAmount}`,
           stackId: stack.id,

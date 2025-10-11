@@ -4,7 +4,7 @@
  * ワールド生成オーケストレータのLayer定義
  */
 
-import { Effect, Layer, Schema } from 'effect'
+import { Clock, Effect, Layer, Schema } from 'effect'
 import { DependencyCoordinatorService, DependencyCoordinatorServiceLive } from './dependency_coordinator'
 import { ErrorRecoveryService, ErrorRecoveryServiceLive } from './error_recovery'
 import { GenerationPipelineService, GenerationPipelineServiceLive } from './generation_pipeline'
@@ -31,8 +31,38 @@ const makeWorldGenerationOrchestrator = Effect.gen(function* () {
   const recoveryService = yield* ErrorRecoveryService
 
   // 内部状態管理
-  const activeSessions = new Map<string, any>()
+  const activeSessions = new Set<string>()
   const sessionCounter = { value: 0 }
+
+  const mapStage = (stage: string | undefined): Schema.Schema.Type<typeof GenerationProgress>['stage'] => {
+    switch (stage) {
+      case 'terrain_generation':
+      case 'terrain':
+        return 'terrain'
+      case 'biome_assignment':
+      case 'biomes':
+        return 'biomes'
+      case 'cave_carving':
+      case 'caves':
+        return 'caves'
+      case 'ore_placement':
+      case 'ores':
+        return 'ores'
+      case 'structure_spawning':
+      case 'structures':
+        return 'structures'
+      case 'post_processing':
+      case 'validation':
+      case 'finalizing':
+        return 'finalizing'
+      case 'completed':
+        return 'completed'
+      case 'failed':
+        return 'failed'
+      default:
+        return 'initializing'
+    }
+  }
 
   const generateWorld = (command: Schema.Schema.Type<typeof GenerateWorldCommand>) =>
     Effect.gen(function* () {
@@ -40,6 +70,7 @@ const makeWorldGenerationOrchestrator = Effect.gen(function* () {
       yield* Effect.logInfo(`ワールド生成開始: ${command.worldName} (${generationId})`)
 
       // パイプライン作成
+      activeSessions.add(generationId)
       yield* pipelineService.createPipeline(
         generationId,
         {
@@ -91,10 +122,12 @@ const makeWorldGenerationOrchestrator = Effect.gen(function* () {
       }
 
       yield* Effect.logInfo(`ワールド生成完了: ${command.worldName}`)
+      activeSessions.delete(generationId)
       return result
     }).pipe(
       Effect.catchAll((error) =>
         Effect.gen(function* () {
+          activeSessions.delete(generationId)
           yield* Effect.logError(`ワールド生成エラー: ${error}`)
           return yield* Effect.fail({
             _tag: 'WorldGenerationOrchestratorError' as const,
@@ -175,7 +208,7 @@ const makeWorldGenerationOrchestrator = Effect.gen(function* () {
       const progress: Schema.Schema.Type<typeof GenerationProgress> = {
         _tag: 'GenerationProgress',
         generationId: query.generationId,
-        stage: pipelineState.currentStage ? (pipelineState.currentStage as any) : 'initializing',
+        stage: mapStage(pipelineState.currentStage ?? pipelineState.status),
         progress: pipelineState.progress,
         chunksProcessed: pipelineState.completedStages.length,
         totalChunks: 10, // プレースホルダー
@@ -220,10 +253,7 @@ const makeWorldGenerationOrchestrator = Effect.gen(function* () {
       )
     )
 
-  const listActiveSessions = () =>
-    Effect.gen(function* () {
-      return Array.from(activeSessions.keys())
-    })
+  const listActiveSessions = () => Effect.succeed(Array.from(activeSessions))
 
   const healthCheck = () =>
     Effect.gen(function* () {

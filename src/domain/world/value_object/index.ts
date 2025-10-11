@@ -391,6 +391,23 @@ export {
   type WindChillIndex,
 } from './biome_properties/index'
 
+type GenerationParametersConfig = ReturnType<typeof GenerationParametersFactory.createMinecraftDefault> & {
+  readonly structures?: { readonly density?: number }
+}
+
+type WorldBorderConfig = Readonly<Record<keyof typeof WORLD_COORDINATE_LIMITS, number>>
+
+export type WorldConfiguration = {
+  readonly seed: WorldSeed
+  readonly coordinates: {
+    readonly spawn: WorldCoordinate
+    readonly worldBorder: WorldBorderConfig
+  }
+  readonly generation: GenerationParametersConfig
+  readonly noise: AdvancedNoiseSettings
+  readonly biome: BiomePropertiesBundle
+}
+
 /**
  * World Value Object 統合ファクトリ
  */
@@ -398,8 +415,8 @@ export const WorldValueObjectFactory = {
   /**
    * Minecraftデフォルトワールド作成
    */
-  createMinecraftDefault: () => {
-    return {
+  createMinecraftDefault: (): WorldConfiguration => {
+    const world: WorldConfiguration = {
       seed: WorldSeedOperations.generateRandomSeed(),
       coordinates: {
         spawn: CoordinateTransforms.createWorldCoordinate(0, 64, 0),
@@ -409,28 +426,32 @@ export const WorldValueObjectFactory = {
       noise: NoiseConfigurationFactory.createTerrainNoise(),
       biome: BiomePropertiesFactory.createTemperateForest(),
     }
+
+    return world
   },
 
   /**
    * カスタムワールド作成
    */
-  createCustomWorld: (params: CustomWorldParams) => {
-    return {
-      seed: params.seed || WorldSeedOperations.generateRandomSeed(),
-      coordinates: params.coordinates || {
+  createCustomWorld: (params: CustomWorldParams): WorldConfiguration => {
+    const world: WorldConfiguration = {
+      seed: params.seed ?? WorldSeedOperations.generateRandomSeed(),
+      coordinates: params.coordinates ?? {
         spawn: CoordinateTransforms.createWorldCoordinate(0, 64, 0),
         worldBorder: WORLD_COORDINATE_LIMITS,
       },
-      generation: params.generation || GenerationParametersFactory.createMinecraftDefault(),
-      noise: params.noise || NoiseConfigurationFactory.createTerrainNoise(),
-      biome: params.biome || BiomePropertiesFactory.createTemperateForest(),
+      generation: params.generation ?? GenerationParametersFactory.createMinecraftDefault(),
+      noise: params.noise ?? NoiseConfigurationFactory.createTerrainNoise(),
+      biome: params.biome ?? BiomePropertiesFactory.createTemperateForest(),
     }
+
+    return world
   },
 
   /**
    * 地形タイプ別ワールド作成
    */
-  createByTerrainType: (terrainType: TerrainType) =>
+  createByTerrainType: (terrainType: TerrainType): WorldConfiguration =>
     pipe(
       Match.value(terrainType),
       Match.when('flat', () => createFlatWorld()),
@@ -443,8 +464,8 @@ export const WorldValueObjectFactory = {
   /**
    * 気候帯別ワールド作成
    */
-  createByClimate: (climate: ClimateClassification) => {
-    return {
+  createByClimate: (climate: ClimateClassification): WorldConfiguration => {
+    const world: WorldConfiguration = {
       seed: WorldSeedOperations.generateRandomSeed(),
       coordinates: {
         spawn: CoordinateTransforms.createWorldCoordinate(0, 64, 0),
@@ -454,6 +475,8 @@ export const WorldValueObjectFactory = {
       noise: NoiseConfigurationFactory.createTerrainNoise(),
       biome: BiomePropertiesFactory.createFromClimate(climate),
     }
+
+    return world
   },
 } as const
 
@@ -461,14 +484,14 @@ export const WorldValueObjectFactory = {
  * カスタムワールド作成パラメータ
  */
 export type CustomWorldParams = {
-  seed?: WorldSeed
-  coordinates?: {
-    spawn: WorldCoordinate
-    worldBorder: typeof WORLD_COORDINATE_LIMITS
+  readonly seed?: WorldSeed
+  readonly coordinates?: {
+    readonly spawn: WorldCoordinate
+    readonly worldBorder: WorldBorderConfig
   }
-  generation?: any // GenerationParameters型（実装済み）
-  noise?: AdvancedNoiseSettings
-  biome?: BiomePropertiesBundle
+  readonly generation?: GenerationParametersConfig
+  readonly noise?: AdvancedNoiseSettings
+  readonly biome?: BiomePropertiesBundle
 }
 
 /**
@@ -531,7 +554,7 @@ export const WorldValueObjectValidation = {
   /**
    * 完全ワールド設定の整合性検証
    */
-  validateCompleteWorld: (world: any): boolean =>
+  validateCompleteWorld: (world: WorldConfiguration): boolean =>
     pipe(
       Effect.try({
         try: () => {
@@ -560,7 +583,7 @@ export const WorldValueObjectValidation = {
   /**
    * 世界シードの複合検証
    */
-  validateSeedCompatibility: (seed: WorldSeed, generation: any): boolean => {
+  validateSeedCompatibility: (seed: WorldSeed, generation: GenerationParametersConfig): boolean => {
     // シードと生成パラメータの互換性確認
     const seedQuality = WorldSeedOperations.evaluateQuality(seed)
     return seedQuality.overallScore > 0.5
@@ -569,7 +592,7 @@ export const WorldValueObjectValidation = {
   /**
    * パフォーマンス影響度評価
    */
-  evaluatePerformanceImpact: (world: any): PerformanceImpact => {
+  evaluatePerformanceImpact: (world: WorldConfiguration): PerformanceImpact => {
     let complexity = 0
 
     // ノイズ複雑度
@@ -581,7 +604,7 @@ export const WorldValueObjectValidation = {
     if (world.biome.soil.horizons?.length > 3) complexity += 0.1
 
     // 構造物密度
-    if (world.generation?.structures?.density > 0.8) complexity += 0.2
+    if ((world.generation.structures?.density ?? 0) > 0.8) complexity += 0.2
 
     return {
       level: complexity < 0.3 ? 'low' : complexity < 0.6 ? 'medium' : 'high',
@@ -621,16 +644,48 @@ export const WorldValueObjectTypeGuards = {
   /**
    * CompleteWorldConfigurationの型ガード
    */
-  isCompleteWorldConfiguration: (value: unknown): value is any => {
-    return (
-      typeof value === 'object' &&
-      value !== null &&
-      'seed' in value &&
-      'coordinates' in value &&
-      'generation' in value &&
-      'noise' in value &&
-      'biome' in value
-    )
+  isCompleteWorldConfiguration: (value: unknown): value is WorldConfiguration => {
+    if (typeof value !== 'object' || value === null) {
+      return false
+    }
+
+    const candidate = value as Partial<WorldConfiguration>
+
+    if (!candidate.seed || !candidate.coordinates || !candidate.generation || !candidate.noise || !candidate.biome) {
+      return false
+    }
+
+    const { spawn, worldBorder } = candidate.coordinates
+
+    if (!spawn || !CoordinateTransforms.isValidWorldCoordinate(spawn)) {
+      return false
+    }
+
+    if (!worldBorder) {
+      return false
+    }
+
+    const borderKeys = Object.keys(WORLD_COORDINATE_LIMITS) as Array<keyof typeof WORLD_COORDINATE_LIMITS>
+    const record = worldBorder as Partial<Record<keyof typeof WORLD_COORDINATE_LIMITS, number>>
+    const hasValidBorder = borderKeys.every((key) => typeof record[key] === 'number')
+
+    if (!hasValidBorder) {
+      return false
+    }
+
+    if (typeof candidate.noise !== 'object' || candidate.noise === null) {
+      return false
+    }
+
+    if (typeof candidate.biome !== 'object' || candidate.biome === null) {
+      return false
+    }
+
+    if (typeof candidate.generation !== 'object' || candidate.generation === null) {
+      return false
+    }
+
+    return WorldValueObjectValidation.validateCompleteWorld(candidate as WorldConfiguration)
   },
 } as const
 
@@ -638,8 +693,8 @@ export const WorldValueObjectTypeGuards = {
  * 内部ヘルパー関数（簡略実装）
  */
 
-function createFlatWorld(): any {
-  return {
+function createFlatWorld(): WorldConfiguration {
+  const world: WorldConfiguration = {
     seed: WorldSeedOperations.fromString('flat_world'),
     coordinates: {
       spawn: CoordinateTransforms.createWorldCoordinate(0, 4, 0),
@@ -649,10 +704,12 @@ function createFlatWorld(): any {
     noise: { ...NoiseConfigurationFactory.createTerrainNoise(), amplitude: makeUnsafeAmplitude(0.1) },
     biome: BiomePropertiesFactory.createTemperateForest(),
   }
+
+  return world
 }
 
-function createAmplifiedWorld(): any {
-  return {
+function createAmplifiedWorld(): WorldConfiguration {
+  const world: WorldConfiguration = {
     seed: WorldSeedOperations.generateRandomSeed(),
     coordinates: {
       spawn: CoordinateTransforms.createWorldCoordinate(0, 128, 0),
@@ -662,10 +719,12 @@ function createAmplifiedWorld(): any {
     noise: { ...NoiseConfigurationFactory.createTerrainNoise(), amplitude: makeUnsafeAmplitude(500) },
     biome: BiomePropertiesFactory.createTemperateForest(),
   }
+
+  return world
 }
 
-function createLargeBiomesWorld(): any {
-  return {
+function createLargeBiomesWorld(): WorldConfiguration {
+  const world: WorldConfiguration = {
     seed: WorldSeedOperations.generateRandomSeed(),
     coordinates: {
       spawn: CoordinateTransforms.createWorldCoordinate(0, 64, 0),
@@ -675,10 +734,12 @@ function createLargeBiomesWorld(): any {
     noise: { ...NoiseConfigurationFactory.createTerrainNoise(), scale: makeUnsafeScale(4.0) },
     biome: BiomePropertiesFactory.createTemperateForest(),
   }
+
+  return world
 }
 
-function createIslandWorld(): any {
-  return {
+function createIslandWorld(): WorldConfiguration {
+  const world: WorldConfiguration = {
     seed: WorldSeedOperations.generateRandomSeed(),
     coordinates: {
       spawn: CoordinateTransforms.createWorldCoordinate(0, 64, 0),
@@ -688,6 +749,8 @@ function createIslandWorld(): any {
     noise: NoiseConfigurationFactory.createTerrainNoise(),
     biome: BiomePropertiesFactory.createTropicalRainforest(),
   }
+
+  return world
 }
 
 function generatePerformanceRecommendations(complexity: number): string[] {

@@ -8,7 +8,21 @@
  */
 
 import { Brand, Clock, Context, DateTime, Effect, Schema, Stream } from 'effect'
-import type { GenerationRequest, GenerationSessionId, ProgressStatistics, SessionError } from './index'
+import { JsonValueSchema, type JsonValue } from '@shared/schema/json'
+import {
+  GenerationSessionIdSchema,
+  GenerationRequestSchema,
+  SessionConfigurationSchema,
+} from './shared/index'
+import { ProgressStatisticsSchema } from './progress_tracking'
+import { SessionErrorSchema } from './error_handling'
+import type {
+  GenerationRequest,
+  GenerationSessionId,
+  ProgressStatistics,
+  SessionConfiguration,
+  SessionError,
+} from './index'
 
 // ================================
 // Base Event Schema
@@ -37,16 +51,11 @@ export const SessionCreatedSchema = BaseSessionEventSchema.pipe(
     Schema.Struct({
       eventType: Schema.Literal('SessionCreated'),
       payload: Schema.Struct({
-        sessionId: Schema.String, // GenerationSessionId
+        sessionId: GenerationSessionIdSchema,
         worldGeneratorId: Schema.String,
-        request: Schema.Unknown, // GenerationRequestSchema
-        configuration: Schema.Unknown, // SessionConfigurationSchema
-        metadata: Schema.optional(
-          Schema.Record({
-            key: Schema.String,
-            value: Schema.Unknown,
-          })
-        ),
+        request: GenerationRequestSchema,
+        configuration: SessionConfigurationSchema,
+        metadata: Schema.optional(Schema.Record({ key: Schema.String, value: JsonValueSchema })),
       }),
     })
   )
@@ -62,7 +71,7 @@ export const SessionStartedSchema = BaseSessionEventSchema.pipe(
     Schema.Struct({
       eventType: Schema.Literal('SessionStarted'),
       payload: Schema.Struct({
-        sessionId: Schema.String, // GenerationSessionId
+        sessionId: GenerationSessionIdSchema,
         totalBatches: Schema.Number.pipe(Schema.int(), Schema.greaterThan(0)),
         totalChunks: Schema.Number.pipe(Schema.int(), Schema.greaterThan(0)),
         estimatedDuration: Schema.optional(Schema.Number), // ミリ秒
@@ -81,10 +90,10 @@ export const SessionPausedSchema = BaseSessionEventSchema.pipe(
     Schema.Struct({
       eventType: Schema.Literal('SessionPaused'),
       payload: Schema.Struct({
-        sessionId: Schema.String, // GenerationSessionId
+        sessionId: GenerationSessionIdSchema,
         reason: Schema.String,
-        activeBatches: Schema.Array(Schema.String), // バッチID配列
-        progress: Schema.Unknown, // ProgressStatistics
+        activeBatches: Schema.Array(Schema.String),
+        progress: ProgressStatisticsSchema,
       }),
     })
   )
@@ -100,7 +109,7 @@ export const SessionResumedSchema = BaseSessionEventSchema.pipe(
     Schema.Struct({
       eventType: Schema.Literal('SessionResumed'),
       payload: Schema.Struct({
-        sessionId: Schema.String, // GenerationSessionId
+        sessionId: GenerationSessionIdSchema,
         pausedDuration: Schema.Number, // ミリ秒
         remainingBatches: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
       }),
@@ -118,8 +127,8 @@ export const SessionCompletedSchema = BaseSessionEventSchema.pipe(
     Schema.Struct({
       eventType: Schema.Literal('SessionCompleted'),
       payload: Schema.Struct({
-        sessionId: Schema.String, // GenerationSessionId
-        finalStatistics: Schema.Unknown, // ProgressStatistics
+        sessionId: GenerationSessionIdSchema,
+        finalStatistics: ProgressStatisticsSchema,
         totalDuration: Schema.Number, // ミリ秒
         successRate: Schema.Number.pipe(Schema.between(0, 1)),
         summary: Schema.Struct({
@@ -144,9 +153,9 @@ export const SessionFailedSchema = BaseSessionEventSchema.pipe(
     Schema.Struct({
       eventType: Schema.Literal('SessionFailed'),
       payload: Schema.Struct({
-        sessionId: Schema.String, // GenerationSessionId
-        error: Schema.Unknown, // SessionError
-        progress: Schema.Unknown, // ProgressStatistics
+        sessionId: GenerationSessionIdSchema,
+        error: SessionErrorSchema,
+        progress: ProgressStatisticsSchema,
         partialResults: Schema.Struct({
           completedBatches: Schema.Number.pipe(Schema.int()),
           completedChunks: Schema.Number.pipe(Schema.int()),
@@ -170,7 +179,7 @@ export const BatchStartedSchema = BaseSessionEventSchema.pipe(
     Schema.Struct({
       eventType: Schema.Literal('BatchStarted'),
       payload: Schema.Struct({
-        sessionId: Schema.String, // GenerationSessionId
+        sessionId: GenerationSessionIdSchema,
         batchId: Schema.String,
         chunkCount: Schema.Number.pipe(Schema.int(), Schema.greaterThan(0)),
         priority: Schema.Number.pipe(Schema.between(1, 10)),
@@ -213,9 +222,9 @@ export const BatchFailedSchema = BaseSessionEventSchema.pipe(
     Schema.Struct({
       eventType: Schema.Literal('BatchFailed'),
       payload: Schema.Struct({
-        sessionId: Schema.String, // GenerationSessionId
+        sessionId: GenerationSessionIdSchema,
         batchId: Schema.String,
-        error: Schema.Unknown, // SessionError
+        error: SessionErrorSchema,
         attempt: Schema.Number.pipe(Schema.int(), Schema.greaterThan(0)),
         willRetry: Schema.Boolean,
         retryScheduledAt: Schema.optional(Schema.DateTimeUtc),
@@ -234,10 +243,10 @@ export const BatchRetriedSchema = BaseSessionEventSchema.pipe(
     Schema.Struct({
       eventType: Schema.Literal('BatchRetried'),
       payload: Schema.Struct({
-        sessionId: Schema.String, // GenerationSessionId
+        sessionId: GenerationSessionIdSchema,
         batchId: Schema.String,
         retryAttempt: Schema.Number.pipe(Schema.int(), Schema.greaterThan(1)),
-        previousError: Schema.Unknown, // SessionError
+        previousError: SessionErrorSchema,
         retryDelay: Schema.Number, // ミリ秒
       }),
     })
@@ -258,8 +267,8 @@ export const ProgressUpdatedSchema = BaseSessionEventSchema.pipe(
     Schema.Struct({
       eventType: Schema.Literal('ProgressUpdated'),
       payload: Schema.Struct({
-        sessionId: Schema.String, // GenerationSessionId
-        progress: Schema.Unknown, // ProgressStatistics
+        sessionId: GenerationSessionIdSchema,
+        progress: ProgressStatisticsSchema,
         milestone: Schema.optional(
           Schema.Struct({
             percentage: Schema.Number.pipe(Schema.between(0, 100)),
@@ -315,11 +324,16 @@ export const createSessionCreated = (
   sessionId: GenerationSessionId,
   worldGeneratorId: string,
   request: GenerationRequest,
+  configuration: SessionConfiguration,
+  metadata?: Record<string, JsonValue>,
   correlationId?: string
 ): Effect.Effect<SessionCreated> =>
   Effect.gen(function* () {
     const eventId = yield* generateEventId()
     const timestamp = yield* DateTime.nowAsDate
+    const encodedMetadata = metadata
+      ? Schema.decodeSync(Schema.Record({ key: Schema.String, value: JsonValueSchema }))(metadata)
+      : undefined
 
     return Schema.decodeSync(SessionCreatedSchema)({
       eventId,
@@ -332,7 +346,8 @@ export const createSessionCreated = (
         sessionId,
         worldGeneratorId,
         request,
-        configuration: {}, // 実際の設定を渡す
+        configuration,
+        metadata: encodedMetadata,
       },
     })
   })
@@ -343,6 +358,7 @@ export const createSessionCreated = (
 export const createSessionStarted = (
   sessionId: GenerationSessionId,
   totalBatches: number,
+  totalChunks: number,
   aggregateVersion: number = 2
 ): Effect.Effect<SessionStarted> =>
   Effect.gen(function* () {
@@ -358,7 +374,7 @@ export const createSessionStarted = (
       payload: {
         sessionId,
         totalBatches,
-        totalChunks: totalBatches * 16, // 仮定: バッチあたり16チャンク
+        totalChunks,
       },
     })
   })
@@ -369,6 +385,8 @@ export const createSessionStarted = (
 export const createSessionPaused = (
   sessionId: GenerationSessionId,
   reason: string,
+  activeBatches: readonly string[],
+  progress: ProgressStatistics,
   aggregateVersion?: number
 ): Effect.Effect<SessionPaused> =>
   Effect.gen(function* () {
@@ -384,8 +402,8 @@ export const createSessionPaused = (
       payload: {
         sessionId,
         reason,
-        activeBatches: [], // 実際のアクティブバッチIDを渡す
-        progress: {}, // 実際の進捗を渡す
+        activeBatches: [...activeBatches],
+        progress,
       },
     })
   })
@@ -395,6 +413,8 @@ export const createSessionPaused = (
  */
 export const createSessionResumed = (
   sessionId: GenerationSessionId,
+  pausedDuration: number,
+  remainingBatches: number,
   aggregateVersion?: number
 ): Effect.Effect<SessionResumed> =>
   Effect.gen(function* () {
@@ -409,8 +429,8 @@ export const createSessionResumed = (
       eventType: 'SessionResumed',
       payload: {
         sessionId,
-        pausedDuration: 0, // 実際の一時停止時間を計算
-        remainingBatches: 0, // 実際の残りバッチ数を渡す
+        pausedDuration,
+        remainingBatches,
       },
     })
   })
@@ -421,6 +441,8 @@ export const createSessionResumed = (
 export const createSessionCompleted = (
   sessionId: GenerationSessionId,
   statistics: ProgressStatistics,
+  totalDuration: number,
+  summary: { readonly totalBatches: number; readonly failedBatches: number },
   aggregateVersion?: number
 ): Effect.Effect<SessionCompleted> =>
   Effect.gen(function* () {
@@ -436,14 +458,14 @@ export const createSessionCompleted = (
       payload: {
         sessionId,
         finalStatistics: statistics,
-        totalDuration: 0, // 実際の実行時間を計算
+        totalDuration,
         successRate: statistics.successRate,
         summary: {
           totalChunks: statistics.totalChunks,
           successfulChunks: statistics.completedChunks,
           failedChunks: statistics.failedChunks,
-          totalBatches: 0, // 実際のバッチ数を渡す
-          failedBatches: 0, // 実際の失敗バッチ数を渡す
+          totalBatches: summary.totalBatches,
+          failedBatches: summary.failedBatches,
         },
       },
     })
@@ -456,6 +478,8 @@ export const createBatchCompleted = (
   sessionId: GenerationSessionId,
   batchId: string,
   chunksGenerated: number,
+  duration: number,
+  performanceMetrics: Record<string, number>,
   aggregateVersion?: number
 ): Effect.Effect<BatchCompleted> =>
   Effect.gen(function* () {
@@ -472,10 +496,8 @@ export const createBatchCompleted = (
         sessionId,
         batchId,
         chunksGenerated,
-        duration: 0, // 実際の実行時間を計算
-        performanceMetrics: {
-          chunksPerSecond: 0, // 実際のメトリクスを計算
-        },
+        duration,
+        performanceMetrics,
       },
     })
   })

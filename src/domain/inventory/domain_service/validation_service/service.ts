@@ -6,7 +6,8 @@
  * 複雑な検証ロジックを提供します。
  */
 
-import { Context, Effect } from 'effect'
+import { Context, Effect, Schema } from 'effect'
+import { JsonValueSchema } from '@/shared/schema/json'
 import type { Inventory, InventoryErrorReason } from '../../types'
 
 // =============================================================================
@@ -158,7 +159,7 @@ export const CorrectionErrorSchema = Schema.TaggedStruct('CorrectionError', {
         action: Schema.Literal('REMOVE', 'UPDATE', 'MOVE', 'RESET'),
         target: Schema.Literal('SLOT', 'METADATA', 'HOTBAR', 'ARMOR'),
         slotIndex: Schema.optional(Schema.Number),
-        newValue: Schema.optional(Schema.Unknown),
+        newValue: Schema.optional(JsonValueSchema),
         reason: Schema.String,
       }),
       error: Schema.String,

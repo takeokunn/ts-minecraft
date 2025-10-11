@@ -8,6 +8,7 @@
 import { taggedUnion } from '@domain/world/utils'
 import type { Brand as BrandType } from 'effect'
 import { Schema } from 'effect'
+import { JsonValueSchema } from '@shared/schema/json'
 
 /**
  * フラグ重要度Brand型（1-10）
@@ -122,7 +123,7 @@ export type ConditionOperator = typeof ConditionOperatorSchema.Type
 export const FeatureConditionSchema = Schema.Struct({
   property: Schema.String,
   operator: ConditionOperatorSchema,
-  value: Schema.Unknown,
+  value: JsonValueSchema,
   description: Schema.String.pipe(Schema.optional),
 }).pipe(
   Schema.annotations({
@@ -211,7 +212,7 @@ export const FeatureFlagConfigSchema = Schema.Struct({
   // 設定パラメータ
   parameters: Schema.Record({
     key: Schema.String,
-    value: Schema.Union(Schema.Boolean, Schema.Number, Schema.String, Schema.Array(Schema.Unknown)),
+    value: Schema.Union(Schema.Boolean, Schema.Number, Schema.String, Schema.Array(JsonValueSchema)),
   }).pipe(Schema.optional),
 
   // メタデータ

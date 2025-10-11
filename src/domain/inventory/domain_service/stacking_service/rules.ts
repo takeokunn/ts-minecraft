@@ -8,7 +8,7 @@
 
 import { Effect, Match, Option, pipe, ReadonlyArray } from 'effect'
 import type { ItemId, ItemMetadata, ItemStack } from '../../types'
-import type { MetadataConflict, StackCompatibility, StackIncompatibilityReason } from './index'
+import type { MetadataConflict, MetadataValue, StackCompatibility, StackIncompatibilityReason } from './index'
 
 // =============================================================================
 // Core Stacking Rules
@@ -613,7 +613,7 @@ const applyResolutionStrategy = (
   conflict: MetadataConflict,
   sourceMetadata: ItemMetadata,
   targetMetadata: ItemMetadata
-): Effect.Effect<unknown, never> =>
+): Effect.Effect<MetadataValue, never> =>
   Effect.gen(function* () {
     return pipe(
       conflict.resolutionStrategy,
@@ -632,7 +632,7 @@ const applyResolutionStrategy = (
 /**
  * メタデータ値のマージ
  */
-const mergeMetadataValues = (sourceValue: unknown, targetValue: unknown): unknown => {
+const mergeMetadataValues = (sourceValue: MetadataValue, targetValue: MetadataValue): MetadataValue => {
   if (Array.isArray(sourceValue) && Array.isArray(targetValue)) {
     return [...new Set([...sourceValue, ...targetValue])]
   }
@@ -642,7 +642,7 @@ const mergeMetadataValues = (sourceValue: unknown, targetValue: unknown): unknow
 /**
  * メタデータ値の平均
  */
-const averageMetadataValues = (sourceValue: unknown, targetValue: unknown): unknown => {
+const averageMetadataValues = (sourceValue: MetadataValue, targetValue: MetadataValue): MetadataValue => {
   if (typeof sourceValue === 'number' && typeof targetValue === 'number') {
     return (sourceValue + targetValue) / 2
   }
@@ -652,7 +652,7 @@ const averageMetadataValues = (sourceValue: unknown, targetValue: unknown): unkn
 /**
  * メタデータ値の最大値
  */
-const maxMetadataValues = (sourceValue: unknown, targetValue: unknown): unknown => {
+const maxMetadataValues = (sourceValue: MetadataValue, targetValue: MetadataValue): MetadataValue => {
   if (typeof sourceValue === 'number' && typeof targetValue === 'number') {
     return Math.max(sourceValue, targetValue)
   }
@@ -662,7 +662,7 @@ const maxMetadataValues = (sourceValue: unknown, targetValue: unknown): unknown 
 /**
  * メタデータ値の最小値
  */
-const minMetadataValues = (sourceValue: unknown, targetValue: unknown): unknown => {
+const minMetadataValues = (sourceValue: MetadataValue, targetValue: MetadataValue): MetadataValue => {
   if (typeof sourceValue === 'number' && typeof targetValue === 'number') {
     return Math.min(sourceValue, targetValue)
   }

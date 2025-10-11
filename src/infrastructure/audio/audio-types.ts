@@ -1,4 +1,5 @@
 import { Vector3Schema } from '@domain/entities/types'
+import type { ErrorCause } from '@shared/schema/error'
 import { Data, pipe, Schema } from 'effect'
 // Using string types for PlayerId and BlockTypeId to avoid circular dependencies
 
@@ -248,7 +249,7 @@ export const AudioLoadError = Data.tagged<{
   readonly _tag: 'AudioLoadError'
   readonly soundId: SoundId
   readonly message: string
-  readonly cause?: unknown
+  readonly cause?: ErrorCause
 }>('AudioLoadError')
 
 export type AudioLoadError = ReturnType<typeof AudioLoadError>

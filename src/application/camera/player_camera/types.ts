@@ -9,6 +9,14 @@ import type {
   ViewMode,
   ViewModeTransitionConfig,
 } from '@domain/camera/types'
+import {
+  AnimationStateSchema,
+  CameraRotationSchema,
+  CameraSettingsSchema,
+  Position3DSchema,
+} from '@domain/camera/types'
+import { ViewModeSchema } from '@domain/camera/value_object'
+import { ViewModeTransitionConfigSchema } from '@application/camera/camera_mode_manager'
 import { Array, Brand, Clock, Data, Effect, Option, Schema } from 'effect'
 
 // ========================================
@@ -188,11 +196,11 @@ export type CameraApplicationError = Data.TaggedEnum<{
     readonly limit: number
   }
   InvalidInputFormat: {
-    readonly input: unknown
+    readonly input: PlayerCameraInput
     readonly expectedFormat: string
   }
   ConfigurationValidationFailed: {
-    readonly config: unknown
+    readonly config: ViewModeTransitionConfig
     readonly validationErrors: Array.ReadonlyArray<string>
   }
   ResourceAllocationFailed: {
@@ -232,12 +240,12 @@ export const PlayerCameraInputSchema = Schema.Union(
     timestamp: Schema.Number,
   }),
   Schema.TaggedStruct('ViewModeSwitch', {
-    targetMode: Schema.Unknown, // ViewModeSchemaを参照
+    targetMode: ViewModeSchema,
     preservePosition: Schema.Boolean,
     animationDuration: Schema.OptionFromSelf(Schema.Number),
   }),
   Schema.TaggedStruct('SettingsUpdate', {
-    settings: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+    settings: Schema.partial(CameraSettingsSchema),
     immediate: Schema.Boolean,
   })
 )
@@ -245,46 +253,46 @@ export const PlayerCameraInputSchema = Schema.Union(
 export const PlayerCameraStateSchema = Schema.Struct({
   playerId: Schema.String,
   cameraId: Schema.String,
-  position: Schema.Unknown, // Position3DSchemaを参照
-  rotation: Schema.Unknown, // CameraRotationSchemaを参照
-  viewMode: Schema.Unknown, // ViewModeSchemaを参照
-  settings: Schema.Unknown, // CameraSettingsSchemaを参照
+  position: Position3DSchema,
+  rotation: CameraRotationSchema,
+  viewMode: ViewModeSchema,
+  settings: CameraSettingsSchema,
   isInitialized: Schema.Boolean,
   lastUpdate: Schema.Number,
-  animationState: Schema.OptionFromSelf(Schema.Unknown), // AnimationStateSchemaを参照
+  animationState: Schema.OptionFromSelf(AnimationStateSchema),
 }).pipe(Schema.fromBrand(Brand.nominal<PlayerCameraState>()))
 
 export const ViewModeTransitionResultSchema = Schema.Union(
   Schema.TaggedStruct('Success', {
-    fromMode: Schema.Unknown, // ViewModeSchemaを参照
-    toMode: Schema.Unknown, // ViewModeSchemaを参照
+    fromMode: ViewModeSchema,
+    toMode: ViewModeSchema,
     duration: Schema.Number,
     animated: Schema.Boolean,
   }),
   Schema.TaggedStruct('Failed', {
     reason: Schema.Union(
       Schema.TaggedStruct('ModeNotSupported', {
-        mode: Schema.Unknown, // ViewModeSchemaを参照
+        mode: ViewModeSchema,
       }),
       Schema.TaggedStruct('AnimationInProgress', {
-        currentAnimation: Schema.Unknown, // AnimationStateSchemaを参照
+        currentAnimation: AnimationStateSchema,
       }),
       Schema.TaggedStruct('InvalidState', {
         currentState: PlayerCameraStateSchema,
       }),
       Schema.TaggedStruct('ConfigurationError', {
-        config: Schema.Unknown, // ViewModeTransitionConfigSchemaを参照
+        config: ViewModeTransitionConfigSchema,
       }),
       Schema.TaggedStruct('ResourceUnavailable', {
         resource: Schema.String,
       })
     ),
-    fromMode: Schema.Unknown, // ViewModeSchemaを参照
-    targetMode: Schema.Unknown, // ViewModeSchemaを参照
+    fromMode: ViewModeSchema,
+    targetMode: ViewModeSchema,
   }),
   Schema.TaggedStruct('InProgress', {
-    fromMode: Schema.Unknown, // ViewModeSchemaを参照
-    toMode: Schema.Unknown, // ViewModeSchemaを参照
+    fromMode: ViewModeSchema,
+    toMode: ViewModeSchema,
     progress: Schema.Number.pipe(Schema.between(0, 1)),
     estimatedRemaining: Schema.Number.pipe(Schema.positive()),
   })
@@ -298,8 +306,8 @@ export const CameraApplicationErrorSchema = Schema.Union(
     playerId: Schema.String,
   }),
   Schema.TaggedStruct('ViewModeSwitchNotAllowed', {
-    currentMode: Schema.Unknown, // ViewModeSchemaを参照
-    targetMode: Schema.Unknown, // ViewModeSchemaを参照
+    currentMode: ViewModeSchema,
+    targetMode: ViewModeSchema,
     reason: Schema.String,
   }),
   Schema.TaggedStruct('SystemNotInitialized', {}),
@@ -314,11 +322,11 @@ export const CameraApplicationErrorSchema = Schema.Union(
     limit: Schema.Number,
   }),
   Schema.TaggedStruct('InvalidInputFormat', {
-    input: Schema.Unknown,
+    input: PlayerCameraInputSchema,
     expectedFormat: Schema.String,
   }),
   Schema.TaggedStruct('ConfigurationValidationFailed', {
-    config: Schema.Unknown,
+    config: ViewModeTransitionConfigSchema,
     validationErrors: Schema.Array(Schema.String),
   }),
   Schema.TaggedStruct('ResourceAllocationFailed', {
@@ -424,7 +432,7 @@ export const createCameraApplicationError = {
       limit,
     }),
 
-  invalidInputFormat: (input: unknown, expectedFormat: string): CameraApplicationError =>
+  invalidInputFormat: (input: PlayerCameraInput, expectedFormat: string): CameraApplicationError =>
     Data.struct({
       _tag: 'InvalidInputFormat' as const,
       input,
@@ -432,7 +440,7 @@ export const createCameraApplicationError = {
     }),
 
   configurationValidationFailed: (
-    config: unknown,
+    config: ViewModeTransitionConfig,
     validationErrors: Array.ReadonlyArray<string>
   ): CameraApplicationError =>
     Data.struct({

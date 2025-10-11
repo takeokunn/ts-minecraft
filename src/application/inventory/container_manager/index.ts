@@ -4,4 +4,5 @@
  * エクスポートモジュール
  */
 
-export { ContainerManagerApplicationServiceLive } from './service'
+export { ContainerManagerApplicationServiceLive } from './live'
+export * from './service'

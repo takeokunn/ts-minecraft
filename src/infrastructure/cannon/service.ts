@@ -1,5 +1,5 @@
 import * as CANNON from 'cannon-es'
-import { Context, Effect, Layer, Pool, Scope } from 'effect'
+import { Context, Effect, Layer, Pool, Resource, Scope } from 'effect'
 import { PhysicsWorldError } from './errors'
 import { addBody, createWorld, raycast, removeBody, step, type WorldParams } from './world/world'
 
@@ -10,6 +10,11 @@ import { addBody, createWorld, raycast, removeBody, step, type WorldParams } fro
  */
 
 export interface PhysicsWorldService {
+  /**
+   * Worldリソース（Resource.manualベース）
+   */
+  readonly worldResource: Resource.Resource<CANNON.World, PhysicsWorldError>
+
   /**
    * 物理シミュレーションのステップ実行
    */
@@ -46,104 +51,101 @@ export interface PhysicsWorldService {
    * 内部のCANNON.Worldインスタンスを取得（高度な操作用）
    */
   readonly getWorld: () => Effect.Effect<CANNON.World, PhysicsWorldError>
+
+  /**
+   * Worldリソースを再作成
+   */
+  readonly refresh: Effect.Effect<void, PhysicsWorldError>
 }
 
 export const PhysicsWorldService = Context.GenericTag<PhysicsWorldService>(
   '@minecraft/infrastructure/cannon/PhysicsWorldService'
 )
 
+const defaultWorldParams = (): WorldParams => ({
+  gravity: { x: 0, y: -9.82, z: 0 },
+  broadphase: 'sap',
+  solver: {
+    iterations: 10,
+    tolerance: 0.1,
+  },
+})
+
+const cleanupWorld = (world: CANNON.World): Effect.Effect<void> =>
+  Effect.sync(() => {
+    world.bodies.forEach((body) => world.removeBody(body))
+  })
+
+const makePhysicsWorldLayer = (params: WorldParams): Layer.Layer<PhysicsWorldService> =>
+  Layer.scoped(
+    PhysicsWorldService,
+    Effect.gen(function* () {
+      const worldResource = yield* Resource.manual(
+        Effect.acquireRelease(createWorld(params), cleanupWorld)
+      )
+
+      const useWorld = <A, E>(
+        f: (world: CANNON.World) => Effect.Effect<A, E>
+      ): Effect.Effect<A, PhysicsWorldError | E> => Effect.flatMap(Resource.get(worldResource), f)
+
+      return PhysicsWorldService.of({
+        worldResource,
+        refresh: Resource.refresh(worldResource),
+        getWorld: Resource.get(worldResource),
+        step: (deltaTime) => useWorld((world) => step(world, deltaTime)),
+        addBody: (body) => useWorld((world) => addBody(world, body)),
+        removeBody: (body) => useWorld((world) => removeBody(world, body)),
+        raycast: (from, to) => useWorld((world) => raycast(world, from, to)),
+      })
+    })
+  )
+
 /**
  * PhysicsWorldService Live Implementation
  *
  * Effect.Scopeによるリソース管理を実装
  */
-export const PhysicsWorldServiceLive = Layer.scoped(
-  PhysicsWorldService,
-  Effect.gen(function* () {
-    // デフォルトパラメータでWorld生成
-    const defaultParams: WorldParams = {
-      gravity: { x: 0, y: -9.82, z: 0 },
-      broadphase: 'sap',
-      solver: {
-        iterations: 10,
-        tolerance: 0.1,
-      },
-    }
-
-    // World生成（Effect.acquireReleaseでリソース管理）
-    const world = yield* Effect.acquireRelease(createWorld(defaultParams), (w) =>
-      Effect.sync(() => {
-        // Cannon.jsはdisposeメソッドを持たないが、
-        // 全Bodyを削除してクリーンアップ
-        w.bodies.forEach((body) => w.removeBody(body))
-      })
-    )
-
-    return {
-      step: (deltaTime) => step(world, deltaTime),
-      addBody: (body) => addBody(world, body),
-      removeBody: (body) => removeBody(world, body),
-      raycast: (from, to) => raycast(world, from, to),
-      getWorld: () => Effect.succeed(world),
-    }
-  })
-)
+export const PhysicsWorldServiceLive = makePhysicsWorldLayer(defaultWorldParams())
 
 /**
  * カスタムパラメータでPhysicsWorldServiceを生成
  */
 export const makePhysicsWorldServiceLive = (params: WorldParams): Layer.Layer<PhysicsWorldService> =>
-  Layer.scoped(
-    PhysicsWorldService,
-    Effect.gen(function* () {
-      const world = yield* Effect.acquireRelease(createWorld(params), (w) =>
-        Effect.sync(() => {
-          w.bodies.forEach((body) => w.removeBody(body))
-        })
-      )
+  makePhysicsWorldLayer(params)
 
-      return {
-        step: (deltaTime) => step(world, deltaTime),
-        addBody: (body) => addBody(world, body),
-        removeBody: (body) => removeBody(world, body),
-        raycast: (from, to) => raycast(world, from, to),
-        getWorld: () => Effect.succeed(world),
-      }
-    })
-  )
-
-/**
- * ✅ Pool-based CANNON.World管理
- * 複数の物理シミュレーションを独立実行する場合に使用
- * 例: マルチワールド、オフライン物理計算、分散シミュレーション
- */
 export const makePhysicsWorldPool = (
   poolSize: number = 2,
-  params?: WorldParams
-): Effect.Effect<Pool.Pool<CANNON.World, PhysicsWorldError>, never, Scope.Scope> => {
-  const worldParams = params || {
-    gravity: { x: 0, y: -9.82, z: 0 },
-    broadphase: 'sap',
-    solver: {
-      iterations: 10,
-      tolerance: 0.1,
-    },
-  }
-
-  return Pool.make({
-    acquire: Effect.acquireRelease(createWorld(worldParams), (world) =>
-      Effect.sync(() => {
-        world.bodies.forEach((body) => world.removeBody(body))
-      })
-    ),
+  params: WorldParams = defaultWorldParams()
+): Effect.Effect<Pool.Pool<CANNON.World, PhysicsWorldError>, never, Scope.Scope> =>
+  Pool.make({
+    acquire: Effect.acquireRelease(createWorld(params), cleanupWorld),
     size: poolSize,
-  })
-}
+  }).pipe(
+    Effect.annotateLogs('physics.pool.operation', 'make'),
+    Effect.annotateLogs('physics.pool.size', poolSize)
+  )
 
-/**
- * PoolからCANNON.Worldを取得して処理実行
- */
-export const withPooledPhysicsWorld = <A, E>(
+export const withPhysicsWorldFromPool = <A, E>(
   pool: Pool.Pool<CANNON.World, PhysicsWorldError>,
   f: (world: CANNON.World) => Effect.Effect<A, E>
-): Effect.Effect<A, E | PhysicsWorldError> => Pool.use(pool, f)
+): Effect.Effect<A, E | PhysicsWorldError> =>
+  Pool.use(pool, f)
+
+export const makePhysicsWorldPoolResource = (
+  poolSize: number = 2,
+  params: WorldParams = defaultWorldParams()
+): Effect.Effect<
+  Resource.Resource<Pool.Pool<CANNON.World, PhysicsWorldError>, PhysicsWorldError>,
+  never,
+  Scope.Scope
+> =>
+  Resource.manual(makePhysicsWorldPool(poolSize, params)).pipe(
+    Effect.annotateLogs('physics.pool.operation', 'resource'),
+    Effect.annotateLogs('physics.pool.size', poolSize)
+  )
+
+export const usePhysicsWorldFromResource = <A, E>(
+  resource: Resource.Resource<Pool.Pool<CANNON.World, PhysicsWorldError>, PhysicsWorldError>,
+  f: (world: CANNON.World) => Effect.Effect<A, E>
+): Effect.Effect<A, E | PhysicsWorldError> =>
+  Effect.flatMap(Resource.get(resource), (pool) => Pool.use(pool, f))

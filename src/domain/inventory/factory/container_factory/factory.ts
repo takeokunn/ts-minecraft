@@ -107,7 +107,7 @@ const validateContainerConfig = (config: ContainerConfig): Effect.Effect<void, C
       Effect.when({
         onTrue: () =>
           Effect.fail(
-            new CreationError({
+            CreationError.make({
               reason: 'Invalid container configuration',
               invalidFields: allErrors,
               context: { config },
@@ -188,7 +188,7 @@ const insertItemIntoSlot = (slot: ContainerSlot, item: ItemStack): Effect.Effect
       ),
       Match.orElse(() =>
         Effect.fail(
-          new OperationError({
+          OperationError.make({
             reason: 'Cannot insert item into slot',
             operation: 'insertItem',
             context: { slot, item },
@@ -216,7 +216,7 @@ const extractItemFromSlot = (
               Match.value(extractAmount <= 0),
               Match.when(true, () =>
                 Effect.fail(
-                  new OperationError({
+                  OperationError.make({
                     reason: 'Extract amount must be positive',
                     operation: 'extractItem',
                     context: { slot, amount },
@@ -265,7 +265,7 @@ const placeInitialItems = (
             Match.value(slotIndex < 0 || slotIndex >= mutableSlots.length),
             Match.when(true, () =>
               Effect.fail(
-                new CreationError({
+                CreationError.make({
                   reason: `Invalid slot index ${slotIndex}`,
                   invalidFields: ['slotIndex'],
                   context: { itemPlacement, totalSlots: mutableSlots.length },
@@ -432,7 +432,7 @@ export const ContainerFactoryLive: ContainerFactory = {
                 Option.match({
                   onNone: () =>
                     Effect.fail(
-                      new OperationError({
+                      OperationError.make({
                         reason: 'No available slot for item insertion',
                         operation: 'insertItem',
                         context: { container: container.id, item },
@@ -458,7 +458,7 @@ export const ContainerFactoryLive: ContainerFactory = {
                 Match.value(targetSlotIndex < 0 || targetSlotIndex >= container.slots.length),
                 Match.when(true, () =>
                   Effect.fail(
-                    new OperationError({
+                    OperationError.make({
                       reason: `Invalid slot index ${targetSlotIndex}`,
                       operation: 'insertItem',
                       context: { container: container.id, slotIndex: targetSlotIndex },
@@ -491,7 +491,7 @@ export const ContainerFactoryLive: ContainerFactory = {
         Match.value(slotIndex < 0 || slotIndex >= container.slots.length),
         Match.when(true, () =>
           Effect.fail(
-            new OperationError({
+            OperationError.make({
               reason: `Invalid slot index ${slotIndex}`,
               operation: 'extractItem',
               context: { container: container.id, slotIndex },
@@ -530,7 +530,7 @@ export const ContainerFactoryLive: ContainerFactory = {
             ),
             Match.when(true, () =>
               Effect.fail(
-                new OperationError({
+                OperationError.make({
                   reason: 'Invalid slot indices for move operation',
                   operation: 'moveItem',
                   context: { container: container.id, fromSlot, toSlot },
@@ -645,7 +645,7 @@ export const ContainerFactoryLive: ContainerFactory = {
         Effect.when({
           onTrue: () =>
             Effect.fail(
-              new ValidationError({
+              ValidationError.make({
                 reason: 'Container validation failed',
                 missingFields: allErrors,
                 context: { container },

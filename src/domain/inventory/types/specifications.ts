@@ -1,4 +1,6 @@
 import { Effect, Schema } from 'effect'
+import { JsonRecordSchema, JsonValueSchema } from '@shared/schema/json'
+import type { JsonValue } from '@shared/schema/json'
 import type { AllRepositoryErrors } from '@/domain/inventory/repository/types'
 import type {
   InventoryId,
@@ -210,7 +212,7 @@ export const ValidationResultSchema = Schema.Struct({
   isValid: Schema.Boolean,
   errors: Schema.Array(Schema.String),
   warnings: Schema.Array(Schema.String),
-  metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Any })),
+  metadata: Schema.optional(JsonRecordSchema),
 }).pipe(
   Schema.annotations({
     title: 'ValidationResult',
@@ -231,7 +233,7 @@ export const TransferRequestSchema = Schema.Struct({
   itemId: Schema.String,
   quantity: Schema.Number.pipe(Schema.int(), Schema.positive()),
   userId: Schema.String,
-  metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Any })),
+  metadata: Schema.optional(JsonRecordSchema),
 }).pipe(
   Schema.annotations({
     title: 'TransferRequest',
@@ -265,7 +267,7 @@ export type TransferValidationResult = Schema.Schema.Type<typeof TransferValidat
 export const TransferLimitationSchema = Schema.Struct({
   type: Schema.Literal('PERMISSION', 'CAPACITY', 'ITEM_TYPE', 'QUANTITY', 'COOLDOWN'),
   description: Schema.String,
-  value: Schema.optional(Schema.Unknown),
+  value: Schema.optional(JsonValueSchema),
   expires: Schema.optional(Schema.Number),
 }).pipe(
   Schema.annotations({
@@ -352,13 +354,13 @@ export const CraftingRecipeSchema = Schema.Struct({
     Schema.Struct({
       itemId: Schema.String,
       quantity: Schema.Number.pipe(Schema.int(), Schema.positive()),
-      metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Any })),
+      metadata: Schema.optional(JsonRecordSchema),
     })
   ),
   result: Schema.Struct({
     itemId: Schema.String,
     quantity: Schema.Number.pipe(Schema.int(), Schema.positive()),
-    metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Any })),
+    metadata: Schema.optional(JsonRecordSchema),
   }),
   craftingType: Schema.Literal('CRAFTING_TABLE', 'FURNACE', 'ANVIL', 'BREWING_STAND'),
   requirements: Schema.optional(Schema.Array(Schema.String)),
@@ -398,8 +400,8 @@ export const UsageContextSchema = Schema.Struct({
   inventoryId: Schema.String,
   slotNumber: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
   action: Schema.String,
-  target: Schema.optional(Schema.Unknown),
-  environment: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Any })),
+  target: Schema.optional(JsonValueSchema),
+  environment: Schema.optional(JsonRecordSchema),
   timestamp: Schema.Number,
 }).pipe(
   Schema.annotations({
@@ -567,7 +569,7 @@ export const SpecificationViolationSchema = Schema.Struct({
   message: Schema.String,
   severity: Schema.Literal('ERROR', 'WARNING', 'INFO'),
   field: Schema.optional(Schema.String),
-  value: Schema.optional(Schema.Unknown),
+  value: Schema.optional(JsonValueSchema),
   suggestedFix: Schema.optional(Schema.String),
 }).pipe(
   Schema.annotations({

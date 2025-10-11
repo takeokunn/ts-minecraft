@@ -5,6 +5,7 @@
 
 import { Context, DateTime, Effect, Layer, Match, pipe, Schema } from 'effect'
 import { nanoid } from 'nanoid'
+import { PlayerIdSchema } from '../../types/core'
 import type { PlayerId } from '../../types'
 import type {
   ArmorSlot,
@@ -20,10 +21,17 @@ import {
   InventoryAggregateError,
   InventoryAggregateErrorFactory,
   InventoryAggregateSchema,
+  InventoryDomainEventSchema,
+  InventoryIdSchema,
+  InventorySlotSchema,
   makeUnsafeHotbarSlot,
   makeUnsafeInventoryId,
   makeUnsafeSlotIndex,
+  ArmorSlotSchema,
+  HotbarSlotSchema,
+  SlotIndexSchema,
 } from './types'
+import { JsonValueSchema } from '@/shared/schema/json'
 
 // ===== Factory Interface =====
 
@@ -50,21 +58,17 @@ export const InventoryFactory = Context.GenericTag<InventoryFactory>(
  * Builderの内部状態を表すSchema
  */
 export const InventoryBuilderStateSchema = Schema.Struct({
-  id: Schema.NullOr(Schema.Unknown), // InventoryId
-  playerId: Schema.NullOr(Schema.Unknown), // PlayerId
-  slots: Schema.Array(Schema.Unknown), // Array<InventorySlot>
-  hotbar: Schema.Array(Schema.Unknown), // ReadonlyArray<SlotIndex>
-  armor: Schema.Struct({
-    helmet: Schema.Unknown,
-    chestplate: Schema.Unknown,
-    leggings: Schema.Unknown,
-    boots: Schema.Unknown,
-  }),
-  offhand: Schema.Unknown, // InventorySlot
-  selectedSlot: Schema.Unknown, // HotbarSlot
+  id: Schema.NullOr(InventoryIdSchema),
+  playerId: Schema.NullOr(PlayerIdSchema),
+  slots: Schema.Array(InventorySlotSchema),
+  hotbar: Schema.Array(SlotIndexSchema),
+  armor: ArmorSlotSchema,
+  offhand: InventorySlotSchema,
+  selectedSlot: HotbarSlotSchema,
   version: Schema.Number,
   lastModifiedMs: Schema.NullOr(Schema.Number),
-  uncommittedEvents: Schema.Array(Schema.Unknown), // Array<InventoryDomainEvent>
+  uncommittedEvents: Schema.Array(InventoryDomainEventSchema),
+  metadata: Schema.optional(JsonValueSchema),
 })
 
 export type InventoryBuilderState = Schema.Schema.Type<typeof InventoryBuilderStateSchema>
@@ -90,6 +94,7 @@ export const createInventoryBuilderState = (): InventoryBuilderState => ({
   version: 1,
   lastModifiedMs: null,
   uncommittedEvents: [],
+  metadata: undefined,
 })
 
 /**

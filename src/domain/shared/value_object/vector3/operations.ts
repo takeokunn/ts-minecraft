@@ -4,16 +4,23 @@
  */
 
 import { Effect, Schema } from 'effect'
+import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
+import { ErrorCauseSchema } from '@/shared/schema/error'
 import { Vector3Schema, type Vector3 } from './schema'
 
 /**
  * Vector3エラー型
  */
-export class Vector3Error extends Schema.TaggedError<Vector3Error>()('Vector3Error', {
+export const Vector3ErrorSchema = Schema.TaggedError('Vector3Error', {
   operation: Schema.String,
   reason: Schema.String,
-  cause: Schema.optional(Schema.Unknown),
-}) {}
+  vector: Schema.optional(Vector3Schema),
+  cause: Schema.optional(ErrorCauseSchema),
+})
+
+export type Vector3Error = Schema.Schema.Type<typeof Vector3ErrorSchema>
+
+export const Vector3Error = makeErrorFactory(Vector3ErrorSchema)
 
 // -----------------------------------------------------------------------------
 // Constructors
@@ -24,13 +31,12 @@ export class Vector3Error extends Schema.TaggedError<Vector3Error>()('Vector3Err
  */
 export const make = (x: number, y: number, z: number): Effect.Effect<Vector3, Vector3Error> =>
   Schema.decode(Vector3Schema)({ x, y, z }).pipe(
-    Effect.mapError(
-      (error) =>
-        new Vector3Error({
-          operation: 'make',
-          reason: 'Invalid vector components',
-          cause: error,
-        })
+    Effect.mapError((error) =>
+      Vector3Error.make({
+        operation: 'make',
+        reason: 'Invalid vector components',
+        cause: error instanceof Error ? error : { message: String(error) },
+      })
     )
   )
 
@@ -90,10 +96,10 @@ export const divide = (a: Vector3, b: Vector3): Effect.Effect<Vector3, Vector3Er
   Effect.gen(function* () {
     if (b.x === 0 || b.y === 0 || b.z === 0) {
       return yield* Effect.fail(
-        new Vector3Error({
+        Vector3Error.make({
           operation: 'divide',
           reason: 'Division by zero',
-          cause: b,
+          vector: b,
         })
       )
     }
@@ -127,10 +133,10 @@ export const normalize = (v: Vector3): Effect.Effect<Vector3, Vector3Error> =>
     const len = length(v)
     if (len === 0) {
       return yield* Effect.fail(
-        new Vector3Error({
+        Vector3Error.make({
           operation: 'normalize',
           reason: 'Cannot normalize zero vector',
-          cause: v,
+          vector: v,
         })
       )
     }

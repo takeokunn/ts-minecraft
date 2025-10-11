@@ -12,7 +12,8 @@ import * as NoiseConfiguration from '@domain/world/value_object/noise_configurat
 import * as WorldSeed from '@domain/world/value_object/world_seed/index'
 import { Effect, Function, Match } from 'effect'
 import type { ValidationState, WorldGeneratorBuilderState } from './builder_state'
-import type { CreateWorldGeneratorParams, FactoryError, PresetType } from './index'
+import { FactoryError } from './index'
+import type { CreateWorldGeneratorParams, FactoryError as FactoryErrorType, PresetType } from './index'
 
 // ================================
 // Basic Configuration Functions
@@ -322,7 +323,7 @@ export const unless = (
  *
  * 検証結果をValidationStateとして返します。
  */
-export const validate = (state: WorldGeneratorBuilderState): Effect.Effect<ValidationState, FactoryError> =>
+export const validate = (state: WorldGeneratorBuilderState): Effect.Effect<ValidationState, FactoryErrorType> =>
   Effect.gen(function* () {
     const errors: string[] = []
 
@@ -358,7 +359,7 @@ export const validate = (state: WorldGeneratorBuilderState): Effect.Effect<Valid
 /**
  * Builder状態が有効かチェック
  */
-export const isValid = (state: WorldGeneratorBuilderState): Effect.Effect<boolean, FactoryError> =>
+export const isValid = (state: WorldGeneratorBuilderState): Effect.Effect<boolean, FactoryErrorType> =>
   Effect.map(validate(state), (validationState) => validationState.isValid)
 
 // ================================
@@ -372,7 +373,7 @@ export const isValid = (state: WorldGeneratorBuilderState): Effect.Effect<boolea
  */
 export const buildWorldGenerator = (
   state: WorldGeneratorBuilderState
-): Effect.Effect<WorldGenerator.WorldGenerator, FactoryError> =>
+): Effect.Effect<WorldGenerator.WorldGenerator, FactoryErrorType> =>
   Effect.gen(function* () {
     // 検証
     const validation = yield* validate(state)
@@ -380,15 +381,9 @@ export const buildWorldGenerator = (
     yield* Function.pipe(
       Match.value(validation.isValid),
       Match.when(false, () =>
-        Effect.gen(function* () {
-          const { FactoryError: FactoryErrorClass } = yield* Effect.promise(() => import('./validation.js'))
-          return yield* Effect.fail(
-            new FactoryErrorClass({
-              category: 'parameter_validation',
-              message: `Builder validation failed: ${validation.errors.join(', ')}`,
-            })
-          )
-        })
+        Effect.fail(
+          FactoryError.parameterValidation(`Builder validation failed: ${validation.errors.join(', ')}`)
+        )
       ),
       Match.orElse(() => Effect.void)
     )
@@ -410,7 +405,7 @@ export const buildWorldGenerator = (
  */
 export const buildWithDefaults = (
   state: WorldGeneratorBuilderState
-): Effect.Effect<WorldGenerator.WorldGenerator, FactoryError> =>
+): Effect.Effect<WorldGenerator.WorldGenerator, FactoryErrorType> =>
   Function.pipe(
     state,
     withRandomSeed,
@@ -428,7 +423,7 @@ export const buildWithDefaults = (
  */
 export const buildParams = (
   state: WorldGeneratorBuilderState
-): Effect.Effect<CreateWorldGeneratorParams, FactoryError> =>
+): Effect.Effect<CreateWorldGeneratorParams, FactoryErrorType> =>
   Effect.succeed({
     seed: state.seed,
     parameters: state.parameters,

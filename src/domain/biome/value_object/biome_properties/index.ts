@@ -225,6 +225,11 @@ export type EnvironmentalParameters = {
   seasonality: 'low' | 'moderate' | 'high'
 }
 
+type TemperaturePreset = (typeof CLIMATE_TEMPERATURE_PRESETS)[keyof typeof CLIMATE_TEMPERATURE_PRESETS]
+type HumidityPreset = (typeof HUMIDITY_PRESETS)[keyof typeof HUMIDITY_PRESETS]
+type VegetationPreset = (typeof VEGETATION_DENSITY_PRESETS)[keyof typeof VEGETATION_DENSITY_PRESETS]
+type SoilPreset = (typeof SOIL_COMPOSITION_PRESETS)[keyof typeof SOIL_COMPOSITION_PRESETS]
+
 /**
  * バイオーム特性定数
  */
@@ -488,7 +493,7 @@ function createBiomeFromEnvironment(params: EnvironmentalParameters): BiomePrope
 }
 
 // 簡略的なプリセット→オブジェクト変換ヘルパー
-function createTemperatureFromPreset(preset: any): TemperatureRange {
+function createTemperatureFromPreset(preset: TemperaturePreset): TemperatureRange {
   return {
     id: 'temp_range_generated',
     name: preset.description,
@@ -535,7 +540,7 @@ function createTemperatureFromPreset(preset: any): TemperatureRange {
   }
 }
 
-function createHumidityFromPreset(preset: any): HumidityLevels {
+function createHumidityFromPreset(preset: HumidityPreset): HumidityLevels {
   return {
     id: 'humidity_generated',
     name: preset.description,
@@ -576,7 +581,7 @@ function createHumidityFromPreset(preset: any): HumidityLevels {
   }
 }
 
-function createVegetationFromPreset(preset: any): VegetationDensityConfig {
+function createVegetationFromPreset(preset: VegetationPreset): VegetationDensityConfig {
   return {
     id: 'vegetation_generated',
     name: preset.description,
@@ -631,7 +636,7 @@ function createVegetationFromPreset(preset: any): VegetationDensityConfig {
   }
 }
 
-function createSoilFromPreset(preset: any): SoilComposition {
+function createSoilFromPreset(preset: SoilPreset): SoilComposition {
   return {
     id: 'soil_generated',
     name: preset.description,

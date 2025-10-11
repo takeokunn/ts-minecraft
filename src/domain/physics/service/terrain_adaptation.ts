@@ -1,8 +1,9 @@
 import type { PlayerId, Vector3D } from '@domain/entities'
 import { Context, Effect, Layer, Match, Option, pipe, ReadonlyArray, Ref } from 'effect'
+import { toErrorCause, type ErrorCause } from '@shared/schema/error'
 import type { BlockType } from '../../block/types'
 import { CannonPhysicsService } from './cannon'
-import { WorldCollisionService } from './world_collision'
+import { WorldCollisionService, type BlockCollisionInfo } from './world_collision'
 
 /**
  * Terrain Adaptation Service
@@ -23,6 +24,10 @@ interface TerrainMovementProperties {
   readonly soundDamping: number // 音の減衰 (0.0-1.0)
 }
 
+interface TerrainMovementState extends TerrainMovementProperties {
+  readonly submersionLevel: number
+}
+
 // デフォルト地形特性
 export const DEFAULT_TERRAIN_PROPERTIES: TerrainMovementProperties = {
   friction: 0.8,
@@ -33,6 +38,11 @@ export const DEFAULT_TERRAIN_PROPERTIES: TerrainMovementProperties = {
   stepHeight: 0.6, // Minecraftの標準ステップ高
   soundDamping: 0.0,
 } as const
+
+export const DEFAULT_TERRAIN_STATE: TerrainMovementState = {
+  ...DEFAULT_TERRAIN_PROPERTIES,
+  submersionLevel: 0,
+}
 
 // 特殊地形プロパティ
 export const TERRAIN_PROPERTIES: ReadonlyMap<string, TerrainMovementProperties> = new Map([
@@ -113,18 +123,18 @@ export interface TerrainAdaptationError {
   readonly message: string
   readonly playerId?: PlayerId
   readonly reason: 'PhysicsError' | 'InvalidTerrain' | 'CollisionError' | 'AdaptationFailed'
-  readonly cause?: unknown
+  readonly cause?: ErrorCause
 }
 
 // プレイヤー地形状態
 export interface PlayerTerrainState {
   readonly playerId: PlayerId
-  readonly currentTerrain: TerrainMovementProperties
+  readonly currentTerrain: TerrainMovementState
   readonly submersionLevel: number // 0.0-1.0 (完全に水中の場合は1.0)
   readonly isSwimming: boolean
   readonly isClimbing: boolean
   readonly lastTerrainChange: number
-  readonly adaptationBuffer: TerrainMovementProperties[] // 地形変化の緩和バッファ
+  readonly adaptationBuffer: TerrainMovementState[] // 地形変化の緩和バッファ
 }
 
 // Terrain Adaptation Service インターフェース
@@ -212,8 +222,8 @@ const makeTerrainAdaptationService: Effect.Effect<
     Effect.gen(function* () {
       const initialState: PlayerTerrainState = {
         playerId,
-        currentTerrain: DEFAULT_TERRAIN_PROPERTIES,
-        submersionLevel: 0.0,
+        currentTerrain: DEFAULT_TERRAIN_STATE,
+        submersionLevel: DEFAULT_TERRAIN_STATE.submersionLevel,
         isSwimming: false,
         isClimbing: false,
         lastTerrainChange: yield* Clock.currentTimeMillis,
@@ -293,7 +303,7 @@ const makeTerrainAdaptationService: Effect.Effect<
 
       // 足元と胴体周辺のブロックを検査
       const terrainSamples = yield* Effect.gen(function* () {
-        const samples = []
+        const samples: BlockCollisionInfo[] = []
 
         // 足元 (Y-0.1)
         const footCollision = yield* worldCollision
@@ -308,7 +318,7 @@ const makeTerrainAdaptationService: Effect.Effect<
                 message: 'Failed to check foot terrain',
                 playerId,
                 reason: 'CollisionError',
-                cause: error,
+                cause: toErrorCause(error),
               })
             )
           )
@@ -327,7 +337,7 @@ const makeTerrainAdaptationService: Effect.Effect<
                 message: 'Failed to check body terrain',
                 playerId,
                 reason: 'CollisionError',
-                cause: error,
+                cause: toErrorCause(error),
               })
             )
           )
@@ -346,7 +356,7 @@ const makeTerrainAdaptationService: Effect.Effect<
                 message: 'Failed to check head terrain',
                 playerId,
                 reason: 'CollisionError',
-                cause: error,
+                cause: toErrorCause(error),
               })
             )
           )
@@ -355,11 +365,13 @@ const makeTerrainAdaptationService: Effect.Effect<
         return samples
       })
 
+      const climbableDetected = yield* isClimbableTerrain(worldCollision, terrainSamples, playerId)
+
       // 主要地形タイプの決定（最も影響の大きいブロック）
       const dominantTerrain = yield* Effect.gen(function* () {
         // 空配列チェック
         if (terrainSamples.length === 0) {
-          return { ...DEFAULT_TERRAIN_PROPERTIES, submersionLevel: 0 }
+          return { ...DEFAULT_TERRAIN_STATE }
         }
 
         // 水中判定
@@ -374,10 +386,7 @@ const makeTerrainAdaptationService: Effect.Effect<
           Option.fromNullable(specialBlocks),
           Option.match({
             onNone: () =>
-              Effect.succeed({
-                ...DEFAULT_TERRAIN_PROPERTIES,
-                submersionLevel: 0,
-              }),
+              Effect.succeed({ ...DEFAULT_TERRAIN_STATE }),
             onSome: (blocks) =>
               Effect.gen(function* () {
                 // Create a BlockType-like object for getTerrainProperties
@@ -446,6 +455,9 @@ const makeTerrainAdaptationService: Effect.Effect<
               soundDamping:
                 currentState.currentTerrain.soundDamping * (1 - adaptationSpeed) +
                 dominantTerrain.soundDamping * adaptationSpeed,
+              submersionLevel:
+                currentState.currentTerrain.submersionLevel * (1 - adaptationSpeed) +
+                dominantTerrain.submersionLevel * adaptationSpeed,
             })
           ),
           Match.orElse(() => Effect.succeed(dominantTerrain))
@@ -455,9 +467,9 @@ const makeTerrainAdaptationService: Effect.Effect<
       const newState: PlayerTerrainState = {
         ...currentState,
         currentTerrain: smoothedTerrain,
-        submersionLevel: (dominantTerrain as any).submersionLevel || 0,
-        isSwimming: ((dominantTerrain as any).submersionLevel || 0) >= 0.6,
-        isClimbing: false, // TODO: 実装予定
+        submersionLevel: dominantTerrain.submersionLevel,
+        isSwimming: dominantTerrain.submersionLevel >= 0.6,
+        isClimbing: climbableDetected,
         lastTerrainChange: yield* Clock.currentTimeMillis,
         adaptationBuffer: [...currentState.adaptationBuffer.slice(-4), smoothedTerrain],
       }
@@ -465,6 +477,35 @@ const makeTerrainAdaptationService: Effect.Effect<
       yield* Ref.update(playerTerrainStatesRef, (states) => states.set(playerId, newState))
 
       return newState
+    })
+
+  const isClimbableTerrain = (
+    worldCollision: WorldCollisionService,
+    samples: ReadonlyArray<BlockCollisionInfo>,
+    playerId: PlayerId
+  ): Effect.Effect<boolean, TerrainAdaptationError> =>
+    Effect.gen(function* () {
+      for (const sample of samples) {
+        const properties = yield* worldCollision
+          .getBlockProperties(sample.blockType)
+          .pipe(
+            Effect.mapError(
+              (error): TerrainAdaptationError => ({
+                _tag: 'TerrainAdaptationError',
+                message: 'Failed to load terrain block properties',
+                playerId,
+                reason: 'CollisionError',
+                cause: toErrorCause(error),
+              })
+            )
+          )
+
+        if (properties.isClimbable) {
+          return true
+        }
+      }
+
+      return false
     })
 
   // 自動ステップアップ処理
@@ -497,7 +538,7 @@ const makeTerrainAdaptationService: Effect.Effect<
               message: 'Failed to check step collision',
               playerId,
               reason: 'CollisionError',
-              cause: error,
+              cause: toErrorCause(error),
             })
           )
         )

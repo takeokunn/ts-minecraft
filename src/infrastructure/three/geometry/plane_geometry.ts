@@ -25,7 +25,11 @@ export type PlaneGeometryParams = Schema.Schema.Type<typeof PlaneGeometryParamsS
 export const createPlaneGeometry = (params: PlaneGeometryParams): Effect.Effect<THREE.PlaneGeometry, GeometryError> =>
   Effect.try({
     try: () => new THREE.PlaneGeometry(params.width, params.height, params.widthSegments, params.heightSegments),
-    catch: (error) => new GeometryError({ type: 'plane', cause: error }),
+    catch: (error) =>
+      GeometryError.make({
+        type: 'plane',
+        cause: error,
+      }),
   })
 
 /**

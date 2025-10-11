@@ -1,3 +1,5 @@
+import { Schema } from 'effect'
+
 /**
  * Noise Configuration Value Object - バレルエクスポート
  *
@@ -282,6 +284,10 @@ export const NoiseConfigurationValidation = {
   },
 } as const
 
+const isBasicNoiseSettings = Schema.is(BasicNoiseSettingsSchema)
+const isCompleteOctaveConfig = Schema.is(CompleteOctaveConfigSchema)
+const isAmplitudeCurve = Schema.is(AmplitudeCurveSchema)
+
 /**
  * 型ガード
  */
@@ -289,42 +295,17 @@ export const NoiseConfigurationTypeGuards = {
   /**
    * BasicNoiseSettingsの型ガード
    */
-  isBasicNoiseSettings: (value: unknown): value is BasicNoiseSettings => {
-    return (
-      typeof value === 'object' &&
-      value !== null &&
-      'type' in value &&
-      'frequency' in value &&
-      'amplitude' in value &&
-      'octaves' in value
-    )
-  },
+  isBasicNoiseSettings,
 
   /**
    * CompleteOctaveConfigの型ガード
    */
-  isCompleteOctaveConfig: (value: unknown): value is CompleteOctaveConfig => {
-    return (
-      typeof value === 'object' &&
-      value !== null &&
-      'octaves' in value &&
-      'combination' in value &&
-      Array.isArray((value as any).octaves)
-    )
-  },
+  isCompleteOctaveConfig,
 
   /**
    * AmplitudeCurveの型ガード
    */
-  isAmplitudeCurve: (value: unknown): value is AmplitudeCurve => {
-    return (
-      typeof value === 'object' &&
-      value !== null &&
-      'id' in value &&
-      'controlPoints' in value &&
-      Array.isArray((value as any).controlPoints)
-    )
-  },
+  isAmplitudeCurve,
 } as const
 
 /**

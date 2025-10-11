@@ -1,4 +1,5 @@
 import { Schema } from 'effect'
+import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
 
 /**
  * ### 基本的なブランド型
@@ -190,15 +191,23 @@ export type RecipeValidationResult = Schema.Schema.Type<typeof RecipeValidationR
 /**
  * ### エラー定義
  */
-export class InvalidRecipeError extends Schema.TaggedError<InvalidRecipeError>()('InvalidRecipeError', {
+export const InvalidRecipeErrorSchema = Schema.TaggedError('InvalidRecipeError', {
   recipeId: RecipeIdSchema,
   issues: Schema.Array(RecipeValidationIssueSchema),
-}) {}
+})
 
-export class PatternMismatchError extends Schema.TaggedError<PatternMismatchError>()('PatternMismatchError', {
+export type InvalidRecipeError = Schema.Schema.Type<typeof InvalidRecipeErrorSchema>
+
+export const InvalidRecipeError = makeErrorFactory(InvalidRecipeErrorSchema)
+
+export const PatternMismatchErrorSchema = Schema.TaggedError('PatternMismatchError', {
   recipeId: RecipeIdSchema,
   reason: Schema.String,
-}) {}
+})
+
+export type PatternMismatchError = Schema.Schema.Type<typeof PatternMismatchErrorSchema>
+
+export const PatternMismatchError = makeErrorFactory(PatternMismatchErrorSchema)
 
 /**
  * ### ヘルパー関数

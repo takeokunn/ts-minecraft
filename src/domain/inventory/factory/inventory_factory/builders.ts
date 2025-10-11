@@ -99,7 +99,7 @@ const validateBuilderConfig = (config: InventoryBuilderConfig): Effect.Effect<vo
         (c) => !c.playerId,
         () =>
           Effect.fail(
-            new ValidationError({
+            ValidationError.make({
               reason: 'playerId is required',
               missingFields: ['playerId'],
               context: { config },
@@ -115,7 +115,7 @@ const validateBuilderConfig = (config: InventoryBuilderConfig): Effect.Effect<vo
         (c) => !c.type,
         () =>
           Effect.fail(
-            new ValidationError({
+            ValidationError.make({
               reason: 'type is required',
               missingFields: ['type'],
               context: { config },
@@ -131,7 +131,7 @@ const validateBuilderConfig = (config: InventoryBuilderConfig): Effect.Effect<vo
         (c) => c.slotCount !== undefined && (c.slotCount < 0 || c.slotCount > 54),
         () =>
           Effect.fail(
-            new ValidationError({
+            ValidationError.make({
               reason: 'slotCount must be between 0 and 54',
               missingFields: ['slotCount'],
               context: { config },
@@ -147,7 +147,7 @@ const validateBuilderConfig = (config: InventoryBuilderConfig): Effect.Effect<vo
         (c) => c.startingItems && c.slotCount !== undefined && c.startingItems.length > c.slotCount,
         () =>
           Effect.fail(
-            new ValidationError({
+            ValidationError.make({
               reason: 'startingItems count exceeds slotCount',
               missingFields: ['startingItems'],
               context: { config },
@@ -257,7 +257,7 @@ export const createInventoryBuilder = (initialConfig: InventoryBuilderConfig = {
           ),
           Match.orElse((fields) =>
             Effect.fail(
-              new CreationError({
+              CreationError.make({
                 reason: 'Missing required fields for build',
                 invalidFields: fields,
                 context: { config },

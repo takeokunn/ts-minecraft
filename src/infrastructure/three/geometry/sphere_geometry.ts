@@ -39,7 +39,11 @@ export const createSphereGeometry = (
         params.thetaStart,
         params.thetaLength
       ),
-    catch: (error) => new GeometryError({ type: 'sphere', cause: error }),
+    catch: (error) =>
+      GeometryError.make({
+        type: 'sphere',
+        cause: error,
+      }),
   })
 
 /**

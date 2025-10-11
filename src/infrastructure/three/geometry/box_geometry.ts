@@ -37,7 +37,11 @@ export const createBoxGeometry = (params: BoxGeometryParams): Effect.Effect<THRE
         params.heightSegments,
         params.depthSegments
       ),
-    catch: (error) => new GeometryError({ type: 'box', cause: error }),
+    catch: (error) =>
+      GeometryError.make({
+        type: 'box',
+        cause: error,
+      }),
   })
 
 /**

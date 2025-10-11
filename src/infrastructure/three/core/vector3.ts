@@ -5,6 +5,7 @@
 
 import { Effect, Schema } from 'effect'
 import * as THREE from 'three'
+import { ErrorCauseSchema } from '@shared/schema/error'
 
 /**
  * Vector3 Schema定義（Brand型）
@@ -24,7 +25,8 @@ export type Vector3 = Schema.Schema.Type<typeof Vector3Schema>
 export const Vector3Error = Schema.TaggedError('Vector3Error')({
   operation: Schema.String,
   reason: Schema.String,
-  cause: Schema.Unknown,
+  vector: Schema.optional(Vector3Schema),
+  cause: Schema.optional(ErrorCauseSchema),
 })
 export type Vector3Error = Schema.Schema.Type<typeof Vector3Error>
 
@@ -89,7 +91,7 @@ export const divide = (a: Vector3, b: Vector3): Effect.Effect<Vector3, Vector3Er
         new Vector3Error({
           operation: 'divide',
           reason: 'Division by zero',
-          cause: b,
+          vector: b,
         })
       )
     }
@@ -122,7 +124,7 @@ export const normalize = (v: Vector3): Effect.Effect<Vector3, Vector3Error> =>
         new Vector3Error({
           operation: 'normalize',
           reason: 'Cannot normalize zero vector',
-          cause: v,
+          vector: v,
         })
       )
     }

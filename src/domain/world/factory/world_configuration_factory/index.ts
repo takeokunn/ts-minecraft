@@ -20,6 +20,7 @@ export {
   WorldConfigurationFactoryLive,
   WorldConfigurationFactoryTag,
   WorldConfigurationSchema,
+  type ConfigurationFactoryError,
   type ConfigurationComparisonResult,
   type ConfigurationComplexity,
   // Advanced Types

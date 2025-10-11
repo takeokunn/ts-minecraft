@@ -1,4 +1,5 @@
 import { Brand, Schema } from 'effect'
+import { JsonValueSchema } from '@/shared/schema/json'
 import {
   CustomModelData,
   DisplayName,
@@ -211,7 +212,7 @@ export const EnchantmentEffectSchema: Schema.Schema<EnchantmentEffect> = Schema.
     _tag: Schema.Literal('Custom'),
     name: Schema.String.pipe(Schema.nonEmptyString()),
     description: Schema.String.pipe(Schema.nonEmptyString()),
-    effect: Schema.Unknown,
+    effect: JsonValueSchema,
   })
 )
 

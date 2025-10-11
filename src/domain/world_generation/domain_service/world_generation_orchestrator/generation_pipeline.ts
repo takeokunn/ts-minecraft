@@ -1,4 +1,5 @@
 import { Clock, Context, Effect, Fiber, Layer, Match, Option, pipe, Schema, STM } from 'effect'
+import { JsonRecordSchema, JsonValueSchema } from '@shared/schema/json'
 import type { GenerationStageType, PipelineContextType } from './index'
 
 /**
@@ -73,7 +74,7 @@ export const PipelineState = Schema.Struct({
   progress: Schema.Number.pipe(Schema.between(0, 100)),
   metrics: Schema.Record(Schema.String, Schema.Number),
   errors: Schema.Array(Schema.String),
-  checkpoints: Schema.Record(Schema.String, Schema.Unknown),
+  checkpoints: Schema.Record(Schema.String, JsonValueSchema),
 })
 
 // === Stage Execution Result ===
@@ -83,11 +84,11 @@ export const StageExecutionResult = Schema.Struct({
   stage: Schema.String,
   status: Schema.Union(Schema.Literal('success'), Schema.Literal('failed'), Schema.Literal('skipped')),
   duration: Schema.Number.pipe(Schema.positive()),
-  output: Schema.Unknown,
+  output: JsonValueSchema,
   metrics: Schema.Record(Schema.String, Schema.Number),
   warnings: Schema.Array(Schema.String),
   errors: Schema.Array(Schema.String),
-  checkpoint: Schema.optional(Schema.Unknown),
+  checkpoint: Schema.optional(JsonRecordSchema),
 })
 
 // === Pipeline Error ===
@@ -96,7 +97,7 @@ export const GenerationPipelineError = Schema.TaggedError<GenerationPipelineErro
   message: Schema.String,
   pipelineId: Schema.String,
   stage: Schema.optional(Schema.String),
-  cause: Schema.optional(Schema.Unknown),
+  cause: Schema.optional(JsonValueSchema),
   recovery: Schema.optional(Schema.String),
 })
 
@@ -174,7 +175,7 @@ const makeGenerationPipelineService = Effect.gen(function* () {
   // 内部状態管理（STMを使用した並行安全な状態管理）
   const pipelines = yield* STM.ref<Map<string, Schema.Schema.Type<typeof PipelineState>>>(new Map())
   const configurations = yield* STM.ref<Map<string, Schema.Schema.Type<typeof PipelineConfiguration>>>(new Map())
-  const executionFibers = yield* STM.ref<Map<string, Fiber.RuntimeFiber<any, any>>>(new Map())
+  const executionFibers = yield* STM.ref<Map<string, Fiber.RuntimeFiber<unknown, unknown>>>(new Map())
 
   const createPipeline = (
     pipelineId: string,

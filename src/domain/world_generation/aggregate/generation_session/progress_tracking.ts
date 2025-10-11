@@ -373,7 +373,7 @@ const calculatePerformanceMetrics = (
 /**
  * 履歴記録判定
  */
-const shouldAddToHistory = (history: readonly any[], now: Date): boolean => {
+const shouldAddToHistory = (history: ProgressData['trackingHistory'], now: Date): boolean => {
   if (history.length === 0) return true
 
   const lastEntry = history[history.length - 1]

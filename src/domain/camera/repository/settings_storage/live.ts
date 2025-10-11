@@ -62,6 +62,12 @@ interface PlayerUsageData {
   readonly customBindingsCount: number
 }
 
+type ExportPayload = {
+  readonly globalSettings: GlobalCameraSettings
+  readonly playerSettings?: PlayerCameraSettings
+  readonly presets?: ReadonlyArray<CameraPresetSettings>
+}
+
 /**
  * Storage Operations
  */
@@ -548,7 +554,7 @@ export const SettingsStorageRepositoryLive = Layer.effect(
         exportSettings: (playerId: Option<PlayerId>, includePresets: boolean) =>
           Effect.gen(function* () {
             const state = yield* Ref.get(storageRef)
-            const exportData: any = {
+            const exportData: ExportPayload = {
               globalSettings: state.globalSettings,
             }
 

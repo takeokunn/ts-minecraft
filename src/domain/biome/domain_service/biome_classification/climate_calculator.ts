@@ -7,6 +7,7 @@
  */
 
 import type { WorldCoordinate2D } from '@/domain/biome/value_object/coordinates'
+import { WorldCoordinate2DSchema } from '@/domain/biome/value_object/coordinates'
 import { type GenerationError } from '@domain/world/types/errors'
 import type { WorldSeed } from '@domain/world/value_object/world_seed'
 import { Context, Effect, Layer, Match, Option, pipe, ReadonlyArray, Schema } from 'effect'
@@ -33,7 +34,7 @@ export const ClimateDataSchema = Schema.Struct({
   ),
 
   // 高度な気候指標
-  coordinate: Schema.Unknown, // WorldCoordinate2D
+  coordinate: WorldCoordinate2DSchema,
   elevation: Schema.Number.pipe(Schema.finite(), Schema.between(-2048, 2047)),
   latitude: Schema.Number.pipe(Schema.between(-90, 90)).pipe(Schema.optional),
 

@@ -21,6 +21,7 @@ import {
   toLoadFailed,
   toNotAvailable,
   toSaveFailed,
+  toStorageFailureCause,
 } from '..'
 import type { Inventory, InventoryState, PlayerId } from '../../../domain/inventory'
 import { InventorySchema, InventoryStateSchema, PlayerIdSchema } from '../../../domain/inventory'
@@ -38,7 +39,7 @@ const availabilityProbe = Effect.try({
     localStorage.removeItem(probeKey)
     return true
   },
-  catch: (cause) => toNotAvailable(backend, 'LocalStorage is not accessible', cause),
+  catch: (cause) => toNotAvailable(backend, 'LocalStorage is not accessible', toStorageFailureCause(cause)),
 })
 
 const requireAvailability = availabilityProbe.pipe(
@@ -57,7 +58,7 @@ const formatParseError = (error: Schema.ParseError): string => TreeFormatter.for
 const decodeJson = <A>(value: string, schema: Schema.Schema<A>, context: string) =>
   Effect.try({
     try: () => JSON.parse(value),
-    catch: (cause) => toCorrupted(backend, `${context}: JSON decode failed`, cause),
+    catch: (cause) => toCorrupted(backend, `${context}: JSON decode failed`, toStorageFailureCause(cause)),
   }).pipe(
     Effect.flatMap(Schema.decodeUnknown(schema)),
     Effect.mapError((error) => toCorrupted(backend, formatParseError(error), error))
@@ -69,7 +70,13 @@ const encodeJson = <A>(value: A, schema: Schema.Schema<A>, context: string) =>
     Effect.flatMap((encoded) =>
       Effect.try({
         try: () => JSON.stringify(encoded),
-        catch: (cause) => toSaveFailed(backend, `${context}: JSON encode failed`, 'Failed to serialise value', cause),
+        catch: (cause) =>
+          toSaveFailed(
+            backend,
+            `${context}: JSON encode failed`,
+            'Failed to serialise value',
+            toStorageFailureCause(cause)
+          ),
       })
     )
   )
@@ -77,7 +84,7 @@ const encodeJson = <A>(value: A, schema: Schema.Schema<A>, context: string) =>
 const readItem = <A>(key: string, schema: Schema.Schema<A>, context: string) =>
   Effect.try({
     try: () => localStorage.getItem(key),
-    catch: (cause) => toLoadFailed(backend, context, 'Failed to read LocalStorage item', cause),
+    catch: (cause) => toLoadFailed(backend, context, 'Failed to read LocalStorage item', toStorageFailureCause(cause)),
   }).pipe(
     Effect.flatMap((raw) =>
       pipe(
@@ -95,7 +102,8 @@ const writeItem = <A>(key: string, value: A, schema: Schema.Schema<A>, context: 
     Effect.flatMap((serialized) =>
       Effect.try({
         try: () => localStorage.setItem(key, serialized),
-        catch: (cause) => toSaveFailed(backend, context, 'Failed to write LocalStorage item', cause),
+        catch: (cause) =>
+          toSaveFailed(backend, context, 'Failed to write LocalStorage item', toStorageFailureCause(cause)),
       })
     )
   )
@@ -106,7 +114,8 @@ const removeItems = (keys: ReadonlyArray<string>, context: string) =>
     (key) =>
       Effect.try({
         try: () => localStorage.removeItem(key),
-        catch: (cause) => toSaveFailed(backend, context, `Failed to remove key ${key}`, cause),
+        catch: (cause) =>
+          toSaveFailed(backend, context, `Failed to remove key ${key}`, toStorageFailureCause(cause)),
       }),
     { concurrency: 4 }
   ).pipe(Effect.asVoid)
@@ -136,7 +145,8 @@ const gatherKeys = (prefix: string): Effect.Effect<ReadonlyArray<string>, Storag
       (index) =>
         Effect.try({
           try: () => localStorage.key(index),
-          catch: (cause) => toLoadFailed(backend, 'list-keys', 'Failed to enumerate keys', cause),
+          catch: (cause) =>
+            toLoadFailed(backend, 'list-keys', 'Failed to enumerate keys', toStorageFailureCause(cause)),
         }),
       { concurrency: 4 }
     )
@@ -270,7 +280,13 @@ export const LocalStorageInventoryService = Layer.effect(
                     Option.getOrElse(() => 0)
                   )
                 },
-                catch: (cause) => toLoadFailed(backend, 'storage-info', `Failed to compute size for ${key}`, cause),
+                catch: (cause) =>
+                  toLoadFailed(
+                    backend,
+                    'storage-info',
+                    `Failed to compute size for ${key}`,
+                    toStorageFailureCause(cause)
+                  ),
               }),
             { concurrency: 4 }
           )

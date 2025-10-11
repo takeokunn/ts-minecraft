@@ -11,6 +11,7 @@ import * as Coordinates from '@domain/world/value_object/coordinates/index'
 import { Duration, Effect, Function, Match, Option, ReadonlyArray } from 'effect'
 import type { CreateSessionParams, SessionFactoryError, SessionTemplateType } from './index'
 import type { GenerationSessionBuilderState, SessionValidationState } from './session_builder_state'
+import type { JsonValue } from '@/shared/schema/json'
 
 // ================================
 // Default Configurations
@@ -653,7 +654,7 @@ export const optimizeForStability = (state: GenerationSessionBuilderState): Gene
  */
 export const withMetadata = (
   state: GenerationSessionBuilderState,
-  metadata: Record<string, unknown>
+  metadata: Record<string, JsonValue>
 ): GenerationSessionBuilderState => ({
   ...state,
   metadata: { ...state.metadata, ...metadata },
@@ -665,7 +666,7 @@ export const withMetadata = (
 export const withCustomOption = (
   state: GenerationSessionBuilderState,
   key: string,
-  value: unknown
+  value: JsonValue
 ): GenerationSessionBuilderState => ({
   ...state,
   customOptions: { ...state.customOptions, [key]: value },
@@ -676,7 +677,7 @@ export const withCustomOption = (
  */
 export const withCustomOptions = (
   state: GenerationSessionBuilderState,
-  options: Record<string, unknown>
+  options: Record<string, JsonValue>
 ): GenerationSessionBuilderState => ({
   ...state,
   customOptions: { ...state.customOptions, ...options },

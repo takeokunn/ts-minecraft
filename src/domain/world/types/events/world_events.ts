@@ -5,7 +5,21 @@
 
 import { uuid } from '@domain/world/utils'
 import { DateTime, Effect, Schema } from 'effect'
-import { ChunkPosition, DimensionId, GameTime, Vector3D, WorldId, WorldState } from '../core'
+import { JsonValueSchema } from '@/shared/schema/json'
+import {
+  ChunkPosition,
+  ChunkPositionSchema,
+  DimensionId,
+  DimensionIdSchema,
+  GameTime,
+  GameTimeSchema,
+  Vector3D,
+  Vector3DSchema,
+  WorldId,
+  WorldIdSchema,
+  WorldState,
+  WorldStateSchema,
+} from '../core'
 
 // === 基本イベント型 ===
 
@@ -64,10 +78,10 @@ export const WorldCreationStartedEventSchema = Schema.Struct({
   type: Schema.Literal('WorldCreationStarted'),
   metadata: EventMetadataSchema,
   payload: Schema.Struct({
-    worldId: Schema.suspend(() => import('../core').then((m) => m.WorldIdSchema)),
+    worldId: Schema.suspend(() => WorldIdSchema),
     worldName: Schema.String,
     seed: Schema.Number.pipe(Schema.int()),
-    settings: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+    settings: Schema.Record({ key: Schema.String, value: JsonValueSchema }),
     requestedBy: Schema.String,
   }),
 }).pipe(
@@ -93,10 +107,10 @@ export const WorldCreationCompletedEventSchema = Schema.Struct({
   type: Schema.Literal('WorldCreationCompleted'),
   metadata: EventMetadataSchema,
   payload: Schema.Struct({
-    worldId: Schema.suspend(() => import('../core').then((m) => m.WorldIdSchema)),
-    finalState: Schema.suspend(() => import('../core').then((m) => m.WorldStateSchema)),
+    worldId: Schema.suspend(() => WorldIdSchema),
+    finalState: Schema.suspend(() => WorldStateSchema),
     generationTime: Schema.Number.pipe(Schema.nonNegative()),
-    initialChunks: Schema.Array(Schema.suspend(() => import('../core').then((m) => m.ChunkPositionSchema))),
+    initialChunks: Schema.Array(Schema.suspend(() => ChunkPositionSchema)),
   }),
 }).pipe(
   Schema.annotations({
@@ -121,9 +135,9 @@ export const WorldCreationFailedEventSchema = Schema.Struct({
   type: Schema.Literal('WorldCreationFailed'),
   metadata: EventMetadataSchema,
   payload: Schema.Struct({
-    worldId: Schema.suspend(() => import('../core').then((m) => m.WorldIdSchema)),
+    worldId: Schema.suspend(() => WorldIdSchema),
     reason: Schema.String,
-    errorDetails: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+    errorDetails: Schema.Record({ key: Schema.String, value: JsonValueSchema }),
     rollbackRequired: Schema.Boolean,
   }),
 }).pipe(
@@ -151,9 +165,9 @@ export const WorldLoadedEventSchema = Schema.Struct({
   type: Schema.Literal('WorldLoaded'),
   metadata: EventMetadataSchema,
   payload: Schema.Struct({
-    worldId: Schema.suspend(() => import('../core').then((m) => m.WorldIdSchema)),
+    worldId: Schema.suspend(() => WorldIdSchema),
     loadTime: Schema.Number.pipe(Schema.nonNegative()),
-    loadedChunks: Schema.Array(Schema.suspend(() => import('../core').then((m) => m.ChunkPositionSchema))),
+    loadedChunks: Schema.Array(Schema.suspend(() => ChunkPositionSchema)),
     playerCount: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
   }),
 }).pipe(
@@ -179,9 +193,9 @@ export const WorldUnloadedEventSchema = Schema.Struct({
   type: Schema.Literal('WorldUnloaded'),
   metadata: EventMetadataSchema,
   payload: Schema.Struct({
-    worldId: Schema.suspend(() => import('../core').then((m) => m.WorldIdSchema)),
+    worldId: Schema.suspend(() => WorldIdSchema),
     reason: Schema.Literal('player_disconnect', 'server_shutdown', 'manual', 'timeout'),
-    finalState: Schema.suspend(() => import('../core').then((m) => m.WorldStateSchema)),
+    finalState: Schema.suspend(() => WorldStateSchema),
     saveRequired: Schema.Boolean,
   }),
 }).pipe(
@@ -208,9 +222,9 @@ export const WorldSavedEventSchema = Schema.Struct({
   type: Schema.Literal('WorldSaved'),
   metadata: EventMetadataSchema,
   payload: Schema.Struct({
-    worldId: Schema.suspend(() => import('../core').then((m) => m.WorldIdSchema)),
+    worldId: Schema.suspend(() => WorldIdSchema),
     saveTime: Schema.Number.pipe(Schema.nonNegative()),
-    savedChunks: Schema.Array(Schema.suspend(() => import('../core').then((m) => m.ChunkPositionSchema))),
+    savedChunks: Schema.Array(Schema.suspend(() => ChunkPositionSchema)),
     dataSizeBytes: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
     incrementalSave: Schema.Boolean,
   }),
@@ -241,10 +255,10 @@ export const PlayerJoinedWorldEventSchema = Schema.Struct({
   type: Schema.Literal('PlayerJoinedWorld'),
   metadata: EventMetadataSchema,
   payload: Schema.Struct({
-    worldId: Schema.suspend(() => import('../core').then((m) => m.WorldIdSchema)),
+    worldId: Schema.suspend(() => WorldIdSchema),
     playerId: Schema.String,
     playerName: Schema.String,
-    spawnPosition: Schema.suspend(() => import('../core').then((m) => m.Vector3DSchema)),
+    spawnPosition: Schema.suspend(() => Vector3DSchema),
     gameMode: Schema.String,
     firstJoin: Schema.Boolean,
   }),
@@ -272,10 +286,10 @@ export const PlayerLeftWorldEventSchema = Schema.Struct({
   type: Schema.Literal('PlayerLeftWorld'),
   metadata: EventMetadataSchema,
   payload: Schema.Struct({
-    worldId: Schema.suspend(() => import('../core').then((m) => m.WorldIdSchema)),
+    worldId: Schema.suspend(() => WorldIdSchema),
     playerId: Schema.String,
     reason: Schema.Literal('disconnect', 'quit', 'kicked', 'timeout'),
-    lastPosition: Schema.suspend(() => import('../core').then((m) => m.Vector3DSchema)),
+    lastPosition: Schema.suspend(() => Vector3DSchema),
     sessionDuration: Schema.Number.pipe(Schema.nonNegative()),
   }),
 }).pipe(
@@ -303,10 +317,10 @@ export const DimensionCreatedEventSchema = Schema.Struct({
   type: Schema.Literal('DimensionCreated'),
   metadata: EventMetadataSchema,
   payload: Schema.Struct({
-    worldId: Schema.suspend(() => import('../core').then((m) => m.WorldIdSchema)),
-    dimensionId: Schema.suspend(() => import('../core').then((m) => m.DimensionIdSchema)),
+    worldId: Schema.suspend(() => WorldIdSchema),
+    dimensionId: Schema.suspend(() => DimensionIdSchema),
     dimensionType: Schema.String,
-    settings: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+    settings: Schema.Record({ key: Schema.String, value: JsonValueSchema }),
   }),
 }).pipe(
   Schema.annotations({
@@ -334,12 +348,12 @@ export const PlayerChangedDimensionEventSchema = Schema.Struct({
   type: Schema.Literal('PlayerChangedDimension'),
   metadata: EventMetadataSchema,
   payload: Schema.Struct({
-    worldId: Schema.suspend(() => import('../core').then((m) => m.WorldIdSchema)),
+    worldId: Schema.suspend(() => WorldIdSchema),
     playerId: Schema.String,
-    fromDimension: Schema.suspend(() => import('../core').then((m) => m.DimensionIdSchema)),
-    toDimension: Schema.suspend(() => import('../core').then((m) => m.DimensionIdSchema)),
-    fromPosition: Schema.suspend(() => import('../core').then((m) => m.Vector3DSchema)),
-    toPosition: Schema.suspend(() => import('../core').then((m) => m.Vector3DSchema)),
+    fromDimension: Schema.suspend(() => DimensionIdSchema),
+    toDimension: Schema.suspend(() => DimensionIdSchema),
+    fromPosition: Schema.suspend(() => Vector3DSchema),
+    toPosition: Schema.suspend(() => Vector3DSchema),
     transferTime: Schema.Number.pipe(Schema.nonNegative()),
   }),
 }).pipe(
@@ -367,9 +381,9 @@ export const WorldTimeChangedEventSchema = Schema.Struct({
   type: Schema.Literal('WorldTimeChanged'),
   metadata: EventMetadataSchema,
   payload: Schema.Struct({
-    worldId: Schema.suspend(() => import('../core').then((m) => m.WorldIdSchema)),
-    oldTime: Schema.suspend(() => import('../core').then((m) => m.GameTimeSchema)),
-    newTime: Schema.suspend(() => import('../core').then((m) => m.GameTimeSchema)),
+    worldId: Schema.suspend(() => WorldIdSchema),
+    oldTime: Schema.suspend(() => GameTimeSchema),
+    newTime: Schema.suspend(() => GameTimeSchema),
     reason: Schema.Literal('natural', 'command', 'skip'),
   }),
 }).pipe(
@@ -396,10 +410,10 @@ export const WeatherChangedEventSchema = Schema.Struct({
   type: Schema.Literal('WeatherChanged'),
   metadata: EventMetadataSchema,
   payload: Schema.Struct({
-    worldId: Schema.suspend(() => import('../core').then((m) => m.WorldIdSchema)),
+    worldId: Schema.suspend(() => WorldIdSchema),
     oldWeather: Schema.String,
     newWeather: Schema.String,
-    duration: Schema.suspend(() => import('../core').then((m) => m.GameTimeSchema)),
+    duration: Schema.suspend(() => GameTimeSchema),
     natural: Schema.Boolean,
   }),
 }).pipe(
@@ -427,12 +441,12 @@ export const WorldSettingsUpdatedEventSchema = Schema.Struct({
   type: Schema.Literal('WorldSettingsUpdated'),
   metadata: EventMetadataSchema,
   payload: Schema.Struct({
-    worldId: Schema.suspend(() => import('../core').then((m) => m.WorldIdSchema)),
+    worldId: Schema.suspend(() => WorldIdSchema),
     updatedSettings: Schema.Record({
       key: Schema.String,
       value: Schema.Struct({
-        old: Schema.Unknown,
-        new: Schema.Unknown,
+        old: JsonValueSchema,
+        new: JsonValueSchema,
       }),
     }),
     updatedBy: Schema.String,

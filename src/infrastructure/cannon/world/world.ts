@@ -71,7 +71,7 @@ export const createWorld = (params: WorldParams): Effect.Effect<CANNON.World, Ph
       return world
     },
     catch: (error) =>
-      new PhysicsWorldError({
+      PhysicsWorldError.make({
         operation: 'createWorld',
         cause: error,
         message: 'Failed to create physics world',
@@ -92,7 +92,7 @@ export const step = (world: CANNON.World, deltaTime: number): Effect.Effect<void
       world.fixedStep(1 / 60, deltaTime, 3)
     },
     catch: (error) =>
-      new PhysicsWorldError({
+      PhysicsWorldError.make({
         operation: 'step',
         cause: error,
         message: `Failed to step physics world with deltaTime: ${deltaTime}`,
@@ -112,7 +112,7 @@ export const addBody = (world: CANNON.World, body: CANNON.Body): Effect.Effect<v
       world.addBody(body)
     },
     catch: (error) =>
-      new PhysicsWorldError({
+      PhysicsWorldError.make({
         operation: 'addBody',
         cause: error,
         message: 'Failed to add body to world',
@@ -132,7 +132,7 @@ export const removeBody = (world: CANNON.World, body: CANNON.Body): Effect.Effec
       world.removeBody(body)
     },
     catch: (error) =>
-      new PhysicsWorldError({
+      PhysicsWorldError.make({
         operation: 'removeBody',
         cause: error,
         message: 'Failed to remove body from world',
@@ -190,7 +190,7 @@ export const raycast = (
       }
     },
     catch: (error) =>
-      new PhysicsWorldError({
+      PhysicsWorldError.make({
         operation: 'raycast',
         cause: error,
         message: 'Failed to perform raycast',

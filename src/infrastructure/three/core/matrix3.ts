@@ -6,6 +6,7 @@
 import { Effect, Schema } from 'effect'
 import * as THREE from 'three'
 import { matrix3ElementsToTuple } from '../schemas/adapters'
+import { ErrorCauseSchema } from '@shared/schema/error'
 
 /**
  * Matrix3 Schema定義（Brand型）
@@ -33,7 +34,8 @@ export type Matrix3 = Schema.Schema.Type<typeof Matrix3Schema>
 export const Matrix3Error = Schema.TaggedError('Matrix3Error')({
   operation: Schema.String,
   reason: Schema.String,
-  cause: Schema.Unknown,
+  matrix: Schema.optional(Matrix3Schema),
+  cause: Schema.optional(ErrorCauseSchema),
 })
 export type Matrix3Error = Schema.Schema.Type<typeof Matrix3Error>
 
@@ -100,7 +102,7 @@ export const invert = (m: Matrix3): Effect.Effect<Matrix3, Matrix3Error> =>
         new Matrix3Error({
           operation: 'invert',
           reason: 'Matrix is singular (determinant is zero)',
-          cause: m,
+          matrix: m,
         })
       )
     }

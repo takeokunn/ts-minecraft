@@ -36,7 +36,7 @@ export const createSphereShape = (params: SphereShapeParams): Effect.Effect<CANN
   Effect.try({
     try: () => new CANNON.Sphere(params.radius),
     catch: (error) =>
-      new PhysicsShapeError({
+      PhysicsShapeError.make({
         type: 'sphere',
         cause: error,
         message: `Failed to create sphere shape with radius: ${params.radius}`,

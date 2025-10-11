@@ -35,10 +35,16 @@ export type PerformanceMemory = Schema.Schema.Type<typeof PerformanceMemorySchem
  * }
  * ```
  */
+interface ExperimentalPerformanceMemory {
+  readonly jsHeapSizeLimit: number
+  readonly totalJSHeapSize: number
+  readonly usedJSHeapSize: number
+}
+
 export const getPerformanceMemory = (): Effect.Effect<Option.Option<PerformanceMemory>, never> =>
   Effect.sync(() => {
     // Performance.memory は非標準APIでTypeScript型定義に含まれないため、ランタイムチェック
-    const perf = performance as Performance & { memory?: unknown }
+    const perf = performance as Performance & { memory?: ExperimentalPerformanceMemory }
     return perf.memory ? Schema.decodeUnknownOption(PerformanceMemorySchema)(perf.memory) : Option.none()
   })
 

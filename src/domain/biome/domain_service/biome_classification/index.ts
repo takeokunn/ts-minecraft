@@ -10,8 +10,10 @@ export * from './climate_calculator'
 export * from './ecosystem_analyzer'
 export * from './layer'
 
+import type { BiomeMappingResult, BiomeTransitionAnalysis } from './biome_mapper'
 import { BiomeMapperService } from './biome_mapper'
 import { ClimateCalculatorService } from './climate_calculator'
+import type { EcosystemStructure } from './ecosystem_analyzer'
 import { EcosystemAnalyzerService } from './ecosystem_analyzer'
 
 /**
@@ -92,7 +94,10 @@ export const BiomeQualityAssessment = {
   /**
    * 分類精度の評価
    */
-  assessClassificationAccuracy: (predictedBiomes: ReadonlyArray<any>, referenceBiomes: ReadonlyArray<any>) => {
+  assessClassificationAccuracy: (
+    predictedBiomes: ReadonlyArray<BiomeMappingResult>,
+    referenceBiomes: ReadonlyArray<BiomeMappingResult>
+  ) => {
     const correctPredictions = predictedBiomes.filter(
       (pred, i) => pred.primaryBiome === referenceBiomes[i]?.primaryBiome
     ).length
@@ -108,7 +113,7 @@ export const BiomeQualityAssessment = {
   /**
    * 生態系の健全性評価
    */
-  assessEcosystemHealth: (ecosystemStructure: any) => {
+  assessEcosystemHealth: (ecosystemStructure: EcosystemStructure) => {
     const diversityScore = ecosystemStructure.shannonDiversity / 4 // 正規化
     const stabilityScore = (ecosystemStructure.resilience + ecosystemStructure.resistance) / 2
     const functionalScore = ecosystemStructure.primaryProductivity / 1000
@@ -125,7 +130,7 @@ export const BiomeQualityAssessment = {
   /**
    * バイオーム遷移の妥当性評価
    */
-  assessTransitionValidity: (transitions: ReadonlyArray<any>) => {
+  assessTransitionValidity: (transitions: ReadonlyArray<BiomeTransitionAnalysis>) => {
     const validTransitions = transitions.filter((t) => isValidBiomeTransition(t.fromBiome, t.toBiome))
 
     return {
@@ -139,17 +144,26 @@ export const BiomeQualityAssessment = {
 
 // ヘルパー関数
 
-const calculatePrecision = (predicted: ReadonlyArray<any>, reference: ReadonlyArray<any>): number => {
+const calculatePrecision = (
+  predicted: ReadonlyArray<BiomeMappingResult>,
+  reference: ReadonlyArray<BiomeMappingResult>
+): number => {
   // 簡略化された精度計算
   return 0.85
 }
 
-const calculateRecall = (predicted: ReadonlyArray<any>, reference: ReadonlyArray<any>): number => {
+const calculateRecall = (
+  predicted: ReadonlyArray<BiomeMappingResult>,
+  reference: ReadonlyArray<BiomeMappingResult>
+): number => {
   // 簡略化された再現率計算
   return 0.82
 }
 
-const calculateF1Score = (predicted: ReadonlyArray<any>, reference: ReadonlyArray<any>): number => {
+const calculateF1Score = (
+  predicted: ReadonlyArray<BiomeMappingResult>,
+  reference: ReadonlyArray<BiomeMappingResult>
+): number => {
   const precision = calculatePrecision(predicted, reference)
   const recall = calculateRecall(predicted, reference)
   return (2 * (precision * recall)) / (precision + recall)
@@ -188,12 +202,12 @@ const isValidBiomeTransition = (fromBiome: string, toBiome: string): boolean => 
   return validTransitions[fromBiome]?.includes(toBiome) ?? false
 }
 
-const calculateAverageSharpness = (transitions: ReadonlyArray<any>): number => {
+const calculateAverageSharpness = (transitions: ReadonlyArray<BiomeTransitionAnalysis>): number => {
   if (transitions.length === 0) return 0
   return transitions.reduce((sum, t) => sum + (t.transitionSharpness || 0), 0) / transitions.length
 }
 
-const assessEcotoneQuality = (transitions: ReadonlyArray<any>): number => {
+const assessEcotoneQuality = (transitions: ReadonlyArray<BiomeTransitionAnalysis>): number => {
   // エコトーン（移行帯）の品質評価
   return transitions.filter((t) => t.transitionType === 'ecotone').length / transitions.length
 }

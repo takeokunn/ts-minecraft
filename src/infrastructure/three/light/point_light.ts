@@ -25,7 +25,11 @@ export type PointLightParams = Schema.Schema.Type<typeof PointLightParamsSchema>
 export const createPointLight = (params?: PointLightParams): Effect.Effect<THREE.PointLight, LightError> =>
   Effect.try({
     try: () => new THREE.PointLight(params?.color, params?.intensity, params?.distance, params?.decay),
-    catch: (error) => new LightError({ type: 'point', cause: error }),
+    catch: (error) =>
+      LightError.make({
+        type: 'point',
+        cause: error,
+      }),
   })
 
 /**

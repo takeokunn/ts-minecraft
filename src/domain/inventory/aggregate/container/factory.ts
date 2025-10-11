@@ -5,6 +5,7 @@
 
 import { Context, DateTime, Effect, Layer, ReadonlyArray, Schema, pipe } from 'effect'
 import { nanoid } from 'nanoid'
+import { PlayerIdSchema } from '../../types/core'
 import type { PlayerId } from '../../types'
 import type {
   ContainerAccessLevel,
@@ -23,8 +24,18 @@ import {
   CONTAINER_SLOT_CONFIGURATIONS,
   ContainerAggregateSchema,
   ContainerError,
+  ContainerAccessLevelSchema,
   makeUnsafeContainerId,
+  ContainerIdSchema,
+  ContainerTypeSchema,
+  WorldPositionSchema,
+  ContainerConfigurationSchema,
+  ContainerSlotSchema,
+  ContainerPermissionSchema,
+  ContainerDomainEventSchema,
+  ContainerSlotIndexSchema,
 } from './types'
+import { JsonValueSchema } from '@/shared/schema/json'
 
 // ===== Factory Interface =====
 
@@ -70,17 +81,19 @@ export interface ContainerCreateOptions {
  * Builderの内部状態を表すSchema
  */
 export const ContainerBuilderStateSchema = Schema.Struct({
-  id: Schema.NullOr(Schema.Unknown), // ContainerId
-  type: Schema.NullOr(Schema.Unknown), // ContainerType
-  ownerId: Schema.NullOr(Schema.Unknown), // PlayerId
-  position: Schema.NullOr(Schema.Unknown), // WorldPosition
-  accessLevel: Schema.Unknown, // ContainerAccessLevel
-  configuration: Schema.NullOr(Schema.Unknown), // ContainerConfiguration
-  slots: Schema.Array(Schema.Unknown), // Array<ContainerSlot>
-  permissions: Schema.Array(Schema.Unknown), // Array<ContainerPermission>
+  id: Schema.NullOr(ContainerIdSchema),
+  type: Schema.NullOr(ContainerTypeSchema),
+  ownerId: Schema.NullOr(PlayerIdSchema),
+  position: Schema.NullOr(WorldPositionSchema),
+  accessLevel: ContainerAccessLevelSchema,
+  configuration: Schema.NullOr(ContainerConfigurationSchema),
+  slots: Schema.Array(ContainerSlotSchema),
+  permissions: Schema.Array(ContainerPermissionSchema),
   version: Schema.Number,
   createdAt: Schema.NullOr(Schema.String),
   lastModified: Schema.NullOr(Schema.String),
+  metadata: Schema.optional(JsonValueSchema),
+  uncommittedEvents: Schema.Array(ContainerDomainEventSchema),
 })
 
 export type ContainerBuilderState = Schema.Schema.Type<typeof ContainerBuilderStateSchema>
@@ -102,6 +115,8 @@ export const createContainerBuilderState = (): ContainerBuilderState => ({
   version: CONTAINER_CONSTANTS.DEFAULT_VERSION,
   createdAt: null,
   lastModified: null,
+  metadata: undefined,
+  uncommittedEvents: [],
 })
 
 /**

@@ -55,7 +55,11 @@ export const createMeshStandardMaterial = (
         emissive: params.emissive ? toThreeColor(params.emissive) : undefined,
         emissiveIntensity: params.emissiveIntensity,
       }),
-    catch: (error) => new MaterialError({ type: 'MeshStandardMaterial', cause: error }),
+    catch: (error) =>
+      MaterialError.make({
+        type: 'MeshStandardMaterial',
+        cause: error,
+      }),
   })
 
 /**

@@ -1,4 +1,7 @@
 import type { AnimationState, CameraId, Position3D, ViewMode } from '@domain/camera/types'
+import { AnimationStateSchema, Position3DSchema } from '@domain/camera/types'
+import { ViewModeSchema } from '@domain/camera/value_object'
+import { JsonRecordSchema } from '@shared/schema/json'
 import { Array, Brand, Data, Option, Schema } from 'effect'
 
 // ========================================
@@ -614,58 +617,198 @@ export const ViewModeTransitionConfigSchema = Schema.Struct({
   preserveRotation: Schema.Boolean,
   preserveTargets: Schema.Boolean,
   interpolationSteps: Schema.Number.pipe(Schema.int(), Schema.positive()),
-  customParameters: Schema.OptionFromSelf(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
+  customParameters: Schema.OptionFromSelf(JsonRecordSchema),
 }).pipe(Schema.fromBrand(Brand.nominal<ViewModeTransitionConfig>()))
+
+export const AlertLevelSchema = Schema.Union(
+  Schema.TaggedStruct('Relaxed', {}),
+  Schema.TaggedStruct('Normal', {}),
+  Schema.TaggedStruct('Cautious', {}),
+  Schema.TaggedStruct('Alert', {}),
+  Schema.TaggedStruct('Combat', {})
+)
+
+export const WeatherConditionSchema = Schema.Union(
+  Schema.TaggedStruct('Clear', {}),
+  Schema.TaggedStruct('Rain', { intensity: Schema.Number }),
+  Schema.TaggedStruct('Storm', {
+    intensity: Schema.Number,
+    hasLightning: Schema.Boolean,
+  }),
+  Schema.TaggedStruct('Snow', { intensity: Schema.Number }),
+  Schema.TaggedStruct('Fog', { density: Schema.Number })
+)
+
+export const TimeOfDaySchema = Schema.Union(
+  Schema.TaggedStruct('Dawn', {}),
+  Schema.TaggedStruct('Morning', {}),
+  Schema.TaggedStruct('Noon', {}),
+  Schema.TaggedStruct('Afternoon', {}),
+  Schema.TaggedStruct('Dusk', {}),
+  Schema.TaggedStruct('Night', {}),
+  Schema.TaggedStruct('Midnight', {})
+)
+
+export const DangerLevelSchema = Schema.Union(
+  Schema.TaggedStruct('Safe', {}),
+  Schema.TaggedStruct('Low', {}),
+  Schema.TaggedStruct('Medium', {}),
+  Schema.TaggedStruct('High', {}),
+  Schema.TaggedStruct('Extreme', {})
+)
+
+export const LightConditionSchema = Schema.Union(
+  Schema.TaggedStruct('Bright', {}),
+  Schema.TaggedStruct('Normal', {}),
+  Schema.TaggedStruct('Dim', {}),
+  Schema.TaggedStruct('Dark', {}),
+  Schema.TaggedStruct('Underground', {})
+)
+
+export const VisibilityConditionsSchema = Schema.Struct({
+  fogDensity: Schema.Number,
+  lightCondition: LightConditionSchema,
+  obstructions: Schema.Array(Schema.String),
+  renderDistance: Schema.Number,
+}).pipe(Schema.fromBrand(Brand.nominal<VisibilityConditions>()))
+
+const VelocitySchema = Schema.Struct({
+  x: Schema.Number,
+  y: Schema.Number,
+  z: Schema.Number,
+})
+
+export const PlayerContextStateSchema = Schema.Struct({
+  position: Position3DSchema,
+  velocity: Schema.OptionFromSelf(VelocitySchema),
+  isMoving: Schema.Boolean,
+  isCombat: Schema.Boolean,
+  isBuilding: Schema.Boolean,
+  isFlying: Schema.Boolean,
+  health: Schema.Number,
+  alertLevel: AlertLevelSchema,
+}).pipe(Schema.fromBrand(Brand.nominal<PlayerContextState>()))
+
+export const EnvironmentFactorsSchema = Schema.Struct({
+  biome: Schema.String,
+  weather: WeatherConditionSchema,
+  timeOfDay: TimeOfDaySchema,
+  lightLevel: Schema.Number,
+  dangerLevel: DangerLevelSchema,
+  visibilityConditions: VisibilityConditionsSchema,
+}).pipe(Schema.fromBrand(Brand.nominal<EnvironmentFactors>()))
+
+export const PerformanceConstraintsSchema = Schema.Struct({
+  maxFPS: Schema.Number,
+  targetFPS: Schema.Number,
+  memoryLimitMB: Schema.Number,
+  cpuBudgetPercent: Schema.Number,
+  gpuBudgetPercent: Schema.Number,
+  networkBandwidthKbps: Schema.OptionFromSelf(Schema.Number),
+}).pipe(Schema.fromBrand(Brand.nominal<PerformanceConstraints>()))
+
+export const AnimationPreferenceSchema = Schema.Union(
+  Schema.TaggedStruct('None', {}),
+  Schema.TaggedStruct('Minimal', {}),
+  Schema.TaggedStruct('Normal', {}),
+  Schema.TaggedStruct('Enhanced', {}),
+  Schema.TaggedStruct('Cinematic', {})
+)
+
+export const AccessibilityOptionsSchema = Schema.Struct({
+  reduceMotion: Schema.Boolean,
+  highContrast: Schema.Boolean,
+  largeText: Schema.Boolean,
+  colorBlindSupport: Schema.Boolean,
+  soundEnhancement: Schema.Boolean,
+}).pipe(Schema.fromBrand(Brand.nominal<AccessibilityOptions>()))
+
+export const UserPreferencesSchema = Schema.Struct({
+  preferredModes: Schema.Array(ViewModeSchema),
+  automaticSwitching: Schema.Boolean,
+  animationPreference: AnimationPreferenceSchema,
+  accessibilityOptions: AccessibilityOptionsSchema,
+  customKeybindings: Schema.Record({ key: Schema.String, value: Schema.String }),
+}).pipe(Schema.fromBrand(Brand.nominal<UserPreferences>()))
+
+export const SystemCapabilitiesSchema = Schema.Struct({
+  supportedModes: Schema.Array(ViewModeSchema),
+  maxConcurrentAnimations: Schema.Number,
+  gpuAcceleration: Schema.Boolean,
+  advancedShaders: Schema.Boolean,
+  vrSupport: Schema.Boolean,
+  multiDisplaySupport: Schema.Boolean,
+}).pipe(Schema.fromBrand(Brand.nominal<SystemCapabilities>()))
+
+export const GameModeSchema = Schema.Union(
+  Schema.TaggedStruct('Survival', {}),
+  Schema.TaggedStruct('Creative', {}),
+  Schema.TaggedStruct('Adventure', {}),
+  Schema.TaggedStruct('Spectator', {}),
+  Schema.TaggedStruct('Hardcore', {}),
+  Schema.TaggedStruct('Custom', { modeName: Schema.String })
+)
+
+export const ViewModeContextSchema = Schema.Struct({
+  currentGameMode: GameModeSchema,
+  playerState: PlayerContextStateSchema,
+  environmentFactors: EnvironmentFactorsSchema,
+  performanceConstraints: PerformanceConstraintsSchema,
+  userPreferences: UserPreferencesSchema,
+  systemCapabilities: SystemCapabilitiesSchema,
+}).pipe(Schema.fromBrand(Brand.nominal<ViewModeContext>()))
+
+export const ViewModeTransitionFailureReasonSchema = Schema.Union(
+  Schema.TaggedStruct('ModeNotSupported', {
+    mode: ViewModeSchema,
+  }),
+  Schema.TaggedStruct('AnimationInProgress', {
+    currentAnimation: AnimationStateSchema,
+  }),
+  Schema.TaggedStruct('InvalidConfiguration', {
+    config: ViewModeTransitionConfigSchema,
+  }),
+  Schema.TaggedStruct('ResourceUnavailable', {
+    resource: Schema.String,
+  }),
+  Schema.TaggedStruct('PermissionDenied', {
+    requiredPermission: Schema.String,
+  }),
+  Schema.TaggedStruct('SystemBusy', {
+    activeOperations: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+  }),
+  Schema.TaggedStruct('NetworkError', {
+    networkDetails: Schema.String,
+  }),
+  Schema.TaggedStruct('TimeoutExceeded', {
+    timeoutMs: Schema.Number.pipe(Schema.positive()),
+  })
+)
 
 export const ViewModeTransitionResultSchema = Schema.Union(
   Schema.TaggedStruct('Success', {
-    fromMode: Schema.Unknown, // ViewModeSchemaを参照
-    toMode: Schema.Unknown, // ViewModeSchemaを参照
+    fromMode: ViewModeSchema,
+    toMode: ViewModeSchema,
     duration: Schema.Number.pipe(Schema.positive()),
     animated: Schema.Boolean,
     transitionId: TransitionIdSchema,
   }),
   Schema.TaggedStruct('Failed', {
-    reason: Schema.Union(
-      Schema.TaggedStruct('ModeNotSupported', {
-        mode: Schema.Unknown, // ViewModeSchemaを参照
-      }),
-      Schema.TaggedStruct('AnimationInProgress', {
-        currentAnimation: Schema.Unknown, // AnimationStateSchemaを参照
-      }),
-      Schema.TaggedStruct('InvalidConfiguration', {
-        config: ViewModeTransitionConfigSchema,
-      }),
-      Schema.TaggedStruct('ResourceUnavailable', {
-        resource: Schema.String,
-      }),
-      Schema.TaggedStruct('PermissionDenied', {
-        requiredPermission: Schema.String,
-      }),
-      Schema.TaggedStruct('SystemBusy', {
-        activeOperations: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
-      }),
-      Schema.TaggedStruct('NetworkError', {
-        networkDetails: Schema.String,
-      }),
-      Schema.TaggedStruct('TimeoutExceeded', {
-        timeoutMs: Schema.Number.pipe(Schema.positive()),
-      })
-    ),
-    fromMode: Schema.Unknown, // ViewModeSchemaを参照
-    targetMode: Schema.Unknown, // ViewModeSchemaを参照
+    reason: ViewModeTransitionFailureReasonSchema,
+    fromMode: ViewModeSchema,
+    targetMode: ViewModeSchema,
     errorDetails: Schema.OptionFromSelf(Schema.String),
   }),
   Schema.TaggedStruct('InProgress', {
-    fromMode: Schema.Unknown, // ViewModeSchemaを参照
-    toMode: Schema.Unknown, // ViewModeSchemaを参照
+    fromMode: ViewModeSchema,
+    toMode: ViewModeSchema,
     progress: Schema.Number.pipe(Schema.between(0, 1)),
     estimatedRemaining: Schema.Number.pipe(Schema.positive()),
     transitionId: TransitionIdSchema,
   }),
   Schema.TaggedStruct('Cancelled', {
-    fromMode: Schema.Unknown, // ViewModeSchemaを参照
-    targetMode: Schema.Unknown, // ViewModeSchemaを参照
+    fromMode: ViewModeSchema,
+    targetMode: ViewModeSchema,
     reason: Schema.String,
     progress: Schema.Number.pipe(Schema.between(0, 1)),
   })
@@ -674,12 +817,12 @@ export const ViewModeTransitionResultSchema = Schema.Union(
 export const CameraModeManagerApplicationErrorSchema = Schema.Union(
   Schema.TaggedStruct('ModeTransitionFailed', {
     cameraId: Schema.String,
-    fromMode: Schema.Unknown, // ViewModeSchemaを参照
-    toMode: Schema.Unknown, // ViewModeSchemaを参照
-    reason: Schema.Unknown, // ViewModeTransitionFailureReasonSchemaを参照
+    fromMode: ViewModeSchema,
+    toMode: ViewModeSchema,
+    reason: ViewModeTransitionFailureReasonSchema,
   }),
   Schema.TaggedStruct('InvalidModeConfiguration', {
-    mode: Schema.Unknown, // ViewModeSchemaを参照
+    mode: ViewModeSchema,
     configurationErrors: Schema.Array(Schema.String),
   }),
   Schema.TaggedStruct('ConcurrentTransitionConflict', {
@@ -693,7 +836,7 @@ export const CameraModeManagerApplicationErrorSchema = Schema.Union(
     scheduledTime: Schema.Number,
   }),
   Schema.TaggedStruct('ContextResolutionFailed', {
-    context: Schema.Unknown, // ViewModeContextSchemaを参照
+    context: ViewModeContextSchema,
     missingFactors: Schema.Array(Schema.String),
   }),
   Schema.TaggedStruct('RecommendationSystemUnavailable', {
@@ -706,7 +849,7 @@ export const CameraModeManagerApplicationErrorSchema = Schema.Union(
     limit: Schema.Number,
   }),
   Schema.TaggedStruct('UnsupportedModeCombo', {
-    modes: Schema.Array(Schema.Unknown), // ViewModeSchemaの配列を参照
+    modes: Schema.Array(ViewModeSchema),
     reason: Schema.String,
   })
 )

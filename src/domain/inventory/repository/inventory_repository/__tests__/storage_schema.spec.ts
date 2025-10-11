@@ -1,7 +1,10 @@
 import { PlayerId } from '@domain/shared/entities/player_id'
+import { makeUnsafe as makeUnsafeTimestamp } from '@domain/shared/value_object/units/timestamp'
 import { Schema } from 'effect'
 import { describe, expect, it } from 'vitest'
 import { InventoryRepositoryStorageSchema } from '../storage_schema'
+
+const TIMESTAMP = makeUnsafeTimestamp(1_700_000_000_000)
 
 describe('InventoryRepositoryStorageSchema', () => {
   describe('有効なデータのデコード', () => {
@@ -11,7 +14,10 @@ describe('InventoryRepositoryStorageSchema', () => {
           player_123: {
             id: 'inventory-player_123',
             playerId: 'player_123' as PlayerId,
-            slots: [{ itemId: 'minecraft:stone', count: 64, metadata: undefined }, null],
+            slots: {
+              0: { itemId: 'minecraft:stone', count: 64, metadata: undefined },
+              1: null,
+            },
             hotbar: [0, 1, 2, 3, 4, 5, 6, 7, 8],
             selectedSlot: 0,
             armor: {
@@ -23,13 +29,13 @@ describe('InventoryRepositoryStorageSchema', () => {
             offhand: null,
             version: 1,
             metadata: {
-              lastUpdated: Date.now(),
+              lastUpdated: TIMESTAMP,
               checksum: 'abc123',
             },
           },
         },
         snapshots: undefined,
-        timestamp: Date.now(),
+        timestamp: TIMESTAMP,
       }
 
       const result = Schema.decodeUnknownSync(InventoryRepositoryStorageSchema)(validData)
@@ -45,7 +51,7 @@ describe('InventoryRepositoryStorageSchema', () => {
             inventory: {
               id: 'inventory-player_456',
               playerId: 'player_456' as PlayerId,
-              slots: [],
+              slots: {},
               hotbar: [0, 1, 2, 3, 4, 5, 6, 7, 8],
               selectedSlot: 0,
               armor: {
@@ -57,11 +63,11 @@ describe('InventoryRepositoryStorageSchema', () => {
               offhand: null,
               version: 0,
               metadata: {
-                lastUpdated: Date.now(),
+                lastUpdated: TIMESTAMP,
                 checksum: 'xyz789',
               },
             },
-            timestamp: Date.now(),
+            timestamp: TIMESTAMP,
             reason: 'Manual save',
           },
         },
@@ -89,7 +95,7 @@ describe('InventoryRepositoryStorageSchema', () => {
           player_789: {
             id: 'inventory-player_789',
             playerId: 'player_789' as PlayerId,
-            slots: [],
+            slots: {},
             hotbar: [0, 1, 2, 3, 4, 5, 6, 7, 8],
             selectedSlot: 0,
             armor: {
@@ -101,7 +107,7 @@ describe('InventoryRepositoryStorageSchema', () => {
             offhand: null,
             version: 0,
             metadata: {
-              lastUpdated: Date.now(),
+              lastUpdated: TIMESTAMP,
               checksum: 'checksum',
             },
           },
@@ -120,7 +126,7 @@ describe('InventoryRepositoryStorageSchema', () => {
           player_111: {
             id: 'inventory-player_111',
             playerId: 'player_111' as PlayerId,
-            slots: [],
+            slots: {},
             hotbar: [0, 1, 2, 3, 4, 5, 6, 7, 8],
             selectedSlot: -1, // 負の値
             armor: {
@@ -132,7 +138,7 @@ describe('InventoryRepositoryStorageSchema', () => {
             offhand: null,
             version: 0,
             metadata: {
-              lastUpdated: Date.now(),
+              lastUpdated: TIMESTAMP,
               checksum: 'checksum',
             },
           },
@@ -148,7 +154,7 @@ describe('InventoryRepositoryStorageSchema', () => {
           player_222: {
             id: 'inventory-player_222',
             playerId: 'player_222' as PlayerId,
-            slots: [],
+            slots: {},
             hotbar: [0, 1, 2, 3, 4, 5, 6, 7, 8],
             selectedSlot: 0,
             armor: {
@@ -160,7 +166,7 @@ describe('InventoryRepositoryStorageSchema', () => {
             offhand: null,
             version: -1, // 負の値
             metadata: {
-              lastUpdated: Date.now(),
+              lastUpdated: TIMESTAMP,
               checksum: 'checksum',
             },
           },
@@ -176,7 +182,7 @@ describe('InventoryRepositoryStorageSchema', () => {
           player_333: {
             id: 'inventory-player_333',
             playerId: 'player_333' as PlayerId,
-            slots: Array.from({ length: 55 }, () => null), // 54を超える
+            slots: Object.fromEntries(Array.from({ length: 55 }, (_, index) => [index, null])), // 54を超える
             hotbar: [0, 1, 2, 3, 4, 5, 6, 7, 8],
             selectedSlot: 0,
             armor: {
@@ -188,7 +194,7 @@ describe('InventoryRepositoryStorageSchema', () => {
             offhand: null,
             version: 0,
             metadata: {
-              lastUpdated: Date.now(),
+              lastUpdated: TIMESTAMP,
               checksum: 'checksum',
             },
           },
@@ -216,7 +222,7 @@ describe('InventoryRepositoryStorageSchema', () => {
             offhand: null,
             version: 0,
             metadata: {
-              lastUpdated: Date.now(),
+              lastUpdated: TIMESTAMP,
               checksum: 'checksum',
             },
           },
@@ -248,7 +254,7 @@ describe('InventoryRepositoryStorageSchema', () => {
             offhand: null,
             version: 0,
             metadata: {
-              lastUpdated: Date.now(),
+              lastUpdated: TIMESTAMP,
               checksum: 'checksum',
             },
           },
@@ -287,7 +293,7 @@ describe('InventoryRepositoryStorageSchema', () => {
             offhand: null,
             version: 0,
             metadata: {
-              lastUpdated: Date.now(),
+              lastUpdated: TIMESTAMP,
               checksum: 'checksum',
             },
           },

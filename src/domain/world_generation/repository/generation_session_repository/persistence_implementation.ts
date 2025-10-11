@@ -21,6 +21,7 @@ import {
 } from '@domain/world/types'
 import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
 import * as NodePath from '@effect/platform-node/NodePath'
+import { JsonValueSchema } from '@shared/schema/json'
 import { Clock, DateTime, Effect, Function, Layer, Option, pipe, ReadonlyArray, Ref, Schema } from 'effect'
 import { makeUnsafeGenerationSessionId } from '../../aggregate/generation_session/shared/index'
 import type {
@@ -41,9 +42,9 @@ import { createDefaultSessionMetadata, defaultGenerationSessionRepositoryConfig 
 // === Persistence Schema ===
 
 const PersistenceSessionSchema = Schema.Struct({
-  sessions: Schema.Record(Schema.String, Schema.Unknown), // GenerationSession
-  checkpoints: Schema.Record(Schema.String, Schema.Record(Schema.String, Schema.Unknown)),
-  history: Schema.Record(Schema.String, Schema.Array(Schema.Unknown)),
+  sessions: Schema.Record(Schema.String, JsonValueSchema),
+  checkpoints: Schema.Record(Schema.String, Schema.Record(Schema.String, JsonValueSchema)),
+  history: Schema.Record(Schema.String, Schema.Array(JsonValueSchema)),
   metadata: Schema.Struct({
     version: Schema.String,
     createdAt: Schema.String,
@@ -59,7 +60,7 @@ type PersistenceSessionData = typeof PersistenceSessionSchema.Type
 
 const SessionRecoveryDataSchema = Schema.Struct({
   sessionId: Schema.String,
-  recoveryData: Schema.Unknown,
+  recoveryData: JsonValueSchema,
   timestamp: Schema.String,
   corruptionLevel: Schema.Number,
   recoveryAttempts: Schema.Number,
@@ -791,23 +792,52 @@ const makeGenerationSessionRepositoryPersistence = (
           (s) => s.state === 'completed' && s.startedAt && s.completedAt
         )
 
+        const totalCompletionTime = completedSessionsWithTiming.reduce((sum, s) => {
+          const completedAt = Option.fromNullable(s.completedAt)
+          const startedAt = Option.fromNullable(s.startedAt)
+          return pipe(
+            Option.all([completedAt, startedAt]),
+            Option.match({
+              onNone: () => sum,
+              onSome: ([completed, started]) => sum + (completed.getTime() - started.getTime()),
+            })
+          )
+        }, 0)
+
         const averageCompletionTime =
-          completedSessionsWithTiming.length > 0
-            ? completedSessionsWithTiming.reduce((sum, s) => {
-                const completedAt = Option.fromNullable(s.completedAt)
-                const startedAt = Option.fromNullable(s.startedAt)
-                return pipe(
-                  Option.all([completedAt, startedAt]),
-                  Option.match({
-                    onNone: () => sum,
-                    onSome: ([completed, started]) => sum + (completed.getTime() - started.getTime()),
-                  })
-                )
-              }, 0) / completedSessionsWithTiming.length
-            : 0
+          completedSessionsWithTiming.length > 0 ? totalCompletionTime / completedSessionsWithTiming.length : 0
 
         const totalChunksGenerated = sessions.reduce((sum, s) => sum + s.progress.completedChunks, 0)
         const failureRate = totalSessions > 0 ? failedSessions / totalSessions : 0
+
+        const totalActiveDuration = sessions.reduce((sum, session) => {
+          const startedAt = session.startedAt
+          const end = session.completedAt ?? session.lastActivityAt
+          if (startedAt && end) {
+            return sum + Math.max(0, end.getTime() - startedAt.getTime())
+          }
+          return sum
+        }, 0)
+
+        const averageChunksPerSecond =
+          totalActiveDuration > 0 ? (totalChunksGenerated * 1000) / totalActiveDuration : 0
+
+        const recoveryAggregate = sessions.reduce(
+          (acc, session) =>
+            session.chunks.reduce((innerAcc, task) => {
+              if (task.retryCount > 0) {
+                innerAcc.attempts += 1
+                if (task.status === 'completed') {
+                  innerAcc.successes += 1
+                }
+              }
+              return innerAcc
+            }, acc),
+          { attempts: 0, successes: 0 }
+        )
+
+        const recoverySuccessRate =
+          recoveryAggregate.attempts > 0 ? recoveryAggregate.successes / recoveryAggregate.attempts : 1
 
         return {
           totalSessions,
@@ -815,10 +845,10 @@ const makeGenerationSessionRepositoryPersistence = (
           completedSessions,
           failedSessions,
           averageCompletionTime,
-          averageChunksPerSecond: 0, // TODO: Calculate from session data
+          averageChunksPerSecond,
           totalChunksGenerated,
           failureRate,
-          recoverySuccessRate: 0.9, // Mock value
+          recoverySuccessRate,
         }
       })
 
@@ -865,7 +895,7 @@ const makeGenerationSessionRepositoryPersistence = (
         estimatedRecoveryTime: null,
         recommendedStrategy: 'restart',
       } satisfies SessionRecoveryInfo)
-    const recoverSession = (sessionId: GenerationSessionId, options?: any) => Effect.void
+    const recoverSession = (sessionId: GenerationSessionId, _options?: Record<string, unknown>) => Effect.void
     const getSessionHistory = (sessionId: GenerationSessionId) => Effect.succeed([])
     const archiveCompletedSessions = (olderThan: Date) => Effect.succeed(0)
     const cleanupOldCheckpoints = (sessionId: GenerationSessionId, keepCount?: number) => Effect.succeed(0)

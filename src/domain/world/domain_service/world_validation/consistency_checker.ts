@@ -7,8 +7,14 @@
  */
 
 import { type GenerationError } from '@domain/world/types/errors'
-import type { WorldCoordinate2D } from '@domain/world/value_object/coordinates'
-import { Context, Effect, Layer, Match, pipe, Schema } from 'effect'
+import {
+  BoundingBoxSchema,
+  WorldCoordinate2DSchema,
+  makeUnsafeWorldCoordinate2D,
+  type BoundingBox,
+  type WorldCoordinate2D,
+} from '@domain/world/value_object/coordinates'
+import { Context, Effect, Layer, Match, ReadonlyArray, Schema, pipe } from 'effect'
 import type { BiomeMappingResult, ClimateData } from '../biome_classification'
 
 /**
@@ -22,11 +28,12 @@ export const ConsistencyCheckResultSchema = Schema.Struct({
     'elevation_coherence',
     'boundary_smoothness',
     'physical_constraints',
-    'ecological_viability'
+    'ecological_viability',
+    'regional_consistency'
   ),
 
-  coordinate: Schema.Unknown, // WorldCoordinate2D
-  region: Schema.Unknown.pipe(Schema.optional), // BoundingBox
+  coordinate: WorldCoordinate2DSchema,
+  region: BoundingBoxSchema.pipe(Schema.optional),
 
   // 検証結果
   passed: Schema.Boolean,
@@ -91,8 +98,8 @@ export interface ConsistencyCheckerService {
   ) => Effect.Effect<ConsistencyCheckResult, GenerationError>
 
   readonly checkRegionalConsistency: (
-    region: ReadonlyArray<ReadonlyArray<unknown>>, // ワールドデータ
-    bounds: unknown // BoundingBox (複数domainで定義があり、どれを使うか仕様確定していない)
+    region: ReadonlyArray<ReadonlyArray<BiomeMappingResult>>, // ワールドデータ
+    bounds?: BoundingBox
   ) => Effect.Effect<ReadonlyArray<ConsistencyCheckResult>, GenerationError>
 }
 
@@ -170,11 +177,97 @@ export const ConsistencyCheckerServiceLive = Layer.effect(
             checksPerformed: ['biome_climate_match', 'transition_validity'],
           },
         } satisfies ConsistencyCheckResult
-      }),
+    }),
 
     checkRegionalConsistency: (region, bounds) =>
       Effect.gen(function* () {
-        return []
+        const flattenedRegion = ReadonlyArray.flatten(region)
+        if (flattenedRegion.length === 0) {
+          return []
+        }
+
+        const analysisBounds = bounds
+        const lowConfidenceCells = flattenedRegion.filter((cell) => cell.mappingConfidence < 0.6)
+        const outOfBoundsCells = analysisBounds
+          ? flattenedRegion.filter((cell) => !isCoordinateWithinBounds(cell.coordinate, analysisBounds))
+          : []
+
+        const distinctBiomeCount = new Set(flattenedRegion.map((cell) => cell.primaryBiome)).size
+        const averageConfidence =
+          flattenedRegion.reduce((total, cell) => total + cell.mappingConfidence, 0) / flattenedRegion.length
+        const lowConfidenceRatio = lowConfidenceCells.length / flattenedRegion.length
+        const severity = determineSeverity(lowConfidenceRatio, outOfBoundsCells.length)
+
+        const metrics: Record<string, number> = {
+          totalCells: flattenedRegion.length,
+          averageConfidence,
+          lowConfidenceRatio,
+          lowConfidenceCount: lowConfidenceCells.length,
+          distinctBiomeCount,
+          outOfBoundsCells: outOfBoundsCells.length,
+          boundsVolume: analysisBounds ? calculateBoundsVolume(analysisBounds) : 0,
+        }
+
+        const issues: ConsistencyCheckResult['issues'] = []
+
+        if (lowConfidenceCells.length > 0) {
+          issues.push({
+            code: 'LOW_CONFIDENCE_AREA',
+            description: `低信頼度セルが${lowConfidenceCells.length}箇所検出されました（全体の${(lowConfidenceRatio * 100).toFixed(1)}%）。`,
+            severity: selectIssueSeverity(lowConfidenceRatio),
+            affectedArea: lowConfidenceCells.length,
+            suggestions: [
+              'BiomeMapperServiceのノイズ設定を再調整する',
+              '気候データのサンプリング密度を向上させる',
+            ],
+          })
+        }
+
+        if (outOfBoundsCells.length > 0 && analysisBounds) {
+          issues.push({
+            code: 'OUT_OF_BOUNDS_COORDINATE',
+            description: `BoundingBox外の座標が${outOfBoundsCells.length}箇所検出されました。`,
+            severity: outOfBoundsCells.length > 5 ? 'high' : 'medium',
+            affectedArea: outOfBoundsCells.length,
+            suggestions: ['BiomeMapperService.mapRegionalBiomesの入力境界を再確認する'],
+          })
+        }
+
+        const corrections: ConsistencyCheckResult['corrections'] =
+          lowConfidenceCells.length === 0 && outOfBoundsCells.length === 0
+            ? undefined
+            : [
+                {
+                  type: 'regional_rebalancing',
+                  priority: Math.min(1, lowConfidenceRatio + outOfBoundsCells.length * 0.05),
+                  impact: 'バイオーム信頼度と境界整合性の改善',
+                  implementation:
+                    '高リスクセルを中心に気候推定値を再計算し、必要に応じてChunk再生成パイプラインを再実行する',
+                },
+              ]
+
+        const result: ConsistencyCheckResult = {
+          checkType: 'regional_consistency',
+          coordinate: pickReferenceCoordinate(flattenedRegion, analysisBounds),
+          region: analysisBounds,
+          passed: severity === 'info' && outOfBoundsCells.length === 0,
+          severity,
+          confidence: Math.max(0, 1 - (lowConfidenceRatio + outOfBoundsCells.length * 0.05)),
+          issues,
+          metrics,
+          corrections,
+          checkMetadata: {
+            algorithm: 'regional_consistency_v1',
+            dataQuality: Math.max(0, 1 - lowConfidenceRatio),
+            checksPerformed: [
+              'confidence_distribution',
+              'bounding_box_validation',
+              'biome_diversity_assessment',
+            ],
+          },
+        }
+
+        return [result]
       }),
   })
 )
@@ -191,4 +284,66 @@ const validateBiomeClimateMatch = (biome: unknown, climate: ClimateData): boolea
     Match.when('tundra', () => temp < 0),
     Match.orElse(() => true)
   )
+}
+
+const determineSeverity = (
+  lowConfidenceRatio: number,
+  outOfBoundsCount: number
+): ConsistencyCheckResult['severity'] => {
+  if (outOfBoundsCount > 0 && lowConfidenceRatio >= 0.2) {
+    return 'critical'
+  }
+  if (outOfBoundsCount > 0) {
+    return 'error'
+  }
+  if (lowConfidenceRatio >= 0.3) {
+    return 'critical'
+  }
+  if (lowConfidenceRatio >= 0.15) {
+    return 'error'
+  }
+  if (lowConfidenceRatio >= 0.08) {
+    return 'warning'
+  }
+  return 'info'
+}
+
+const selectIssueSeverity = (lowConfidenceRatio: number): 'low' | 'medium' | 'high' | 'critical' => {
+  if (lowConfidenceRatio >= 0.3) {
+    return 'critical'
+  }
+  if (lowConfidenceRatio >= 0.2) {
+    return 'high'
+  }
+  return 'medium'
+}
+
+const pickReferenceCoordinate = (
+  region: ReadonlyArray<BiomeMappingResult>,
+  bounds?: BoundingBox
+): WorldCoordinate2D => {
+  if (bounds) {
+    const centerX = (Number(bounds.min.x) + Number(bounds.max.x)) / 2
+    const centerZ = (Number(bounds.min.z) + Number(bounds.max.z)) / 2
+    return makeUnsafeWorldCoordinate2D(centerX, centerZ)
+  }
+  const fallback = region.at(0)
+  return fallback?.coordinate ?? makeUnsafeWorldCoordinate2D(0, 0)
+}
+
+const isCoordinateWithinBounds = (coordinate: WorldCoordinate2D, bounds: BoundingBox): boolean => {
+  const { x, z } = coordinate
+  return (
+    Number(x) >= Number(bounds.min.x) &&
+    Number(x) <= Number(bounds.max.x) &&
+    Number(z) >= Number(bounds.min.z) &&
+    Number(z) <= Number(bounds.max.z)
+  )
+}
+
+const calculateBoundsVolume = (bounds: BoundingBox): number => {
+  const dx = Math.max(0, Number(bounds.max.x) - Number(bounds.min.x))
+  const dy = Math.max(0, Number(bounds.max.y) - Number(bounds.min.y))
+  const dz = Math.max(0, Number(bounds.max.z) - Number(bounds.min.z))
+  return dx * dy * dz
 }

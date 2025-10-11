@@ -1,5 +1,7 @@
 import { Clock, Effect, HashMap, Layer, Option, Ref, Schema, TreeFormatter } from 'effect'
+import { now as timestampNow } from '@domain/shared/value_object/units/timestamp'
 import { makeUnsafe as makeUnsafePlayerId } from '../../../shared/entities/player_id/operations'
+import { makeUnsafeSlotPosition } from '../../value_object/slot_position/types'
 import type {
   Inventory,
   InventoryQuery,
@@ -31,6 +33,58 @@ export const DefaultPersistentConfig: PersistentConfig = {
   compressionEnabled: false,
   encryptionEnabled: false,
 }
+
+type InventorySlotsRecord = Record<string, ItemStack | null>
+
+type SerializableInventory = Omit<Inventory, 'slots'> & {
+  readonly slots: InventorySlotsRecord
+}
+
+type SerializableSnapshot = Omit<InventorySnapshot, 'inventory'> & {
+  readonly inventory: SerializableInventory
+}
+
+const toSlotsRecord = (slots: Map<SlotPosition, ItemStack>): InventorySlotsRecord => {
+  const record: InventorySlotsRecord = {}
+  slots.forEach((stack, position) => {
+    record[String(position)] = stack
+  })
+  return record
+}
+
+const fromSlotsRecord = (record: InventorySlotsRecord | undefined): Map<SlotPosition, ItemStack> => {
+  if (!record) {
+    return new Map()
+  }
+
+  const entries: Array<[SlotPosition, ItemStack]> = []
+  Object.entries(record).forEach(([position, stack]) => {
+    if (stack !== null && stack !== undefined) {
+      entries.push([makeUnsafeSlotPosition(Number(position)), stack])
+    }
+  })
+  return new Map(entries)
+}
+
+const serializeInventory = (inventory: Inventory): SerializableInventory => ({
+  ...inventory,
+  slots: toSlotsRecord(inventory.slots),
+})
+
+const deserializeInventory = (inventory: SerializableInventory): Inventory => ({
+  ...inventory,
+  slots: fromSlotsRecord(inventory.slots),
+})
+
+const serializeSnapshot = (snapshot: InventorySnapshot): SerializableSnapshot => ({
+  ...snapshot,
+  inventory: serializeInventory(snapshot.inventory),
+})
+
+const deserializeSnapshot = (snapshot: SerializableSnapshot): InventorySnapshot => ({
+  ...snapshot,
+  inventory: deserializeInventory(snapshot.inventory),
+})
 
 /**
  * InventoryRepository Persistent Implementation
@@ -78,16 +132,18 @@ export const InventoryRepositoryPersistent = (config: PersistentConfig = Default
         // Inventory復元: ObjectからMapへ変換
         const inventories = new Map<PlayerId, Inventory>()
         if (validated.inventories) {
-          Object.entries(validated.inventories).forEach(([playerId, inventory]) => {
-            inventories.set(makeUnsafePlayerId(playerId), inventory)
+          const inventoriesFromStorage = validated.inventories as Record<string, SerializableInventory>
+          Object.entries(inventoriesFromStorage).forEach(([playerId, storedInventory]) => {
+            inventories.set(makeUnsafePlayerId(playerId), deserializeInventory(storedInventory))
           })
         }
 
         // Snapshot復元: ObjectからMapへ変換
         const snapshots = new Map<string, InventorySnapshot>()
         if (validated.snapshots) {
-          Object.entries(validated.snapshots).forEach(([id, snapshot]) => {
-            snapshots.set(id, snapshot)
+          const snapshotsFromStorage = validated.snapshots as Record<string, SerializableSnapshot>
+          Object.entries(snapshotsFromStorage).forEach(([id, storedSnapshot]) => {
+            snapshots.set(id, deserializeSnapshot(storedSnapshot))
           })
         }
 
@@ -102,23 +158,14 @@ export const InventoryRepositoryPersistent = (config: PersistentConfig = Default
         const timestamp = yield* Clock.currentTimeMillis
 
         // Map を Object に変換してシリアライズ可能にする
-        const inventoriesObj: Record<string, any> = {}
+        const inventoriesObj: Record<string, SerializableInventory> = {}
         HashMap.forEach(inventories, (inventory, playerId) => {
-          inventoriesObj[playerId] = {
-            ...inventory,
-            slots: Object.fromEntries(inventory.slots),
-          }
+          inventoriesObj[playerId] = serializeInventory(inventory)
         })
 
-        const snapshotsObj: Record<string, any> = {}
+        const snapshotsObj: Record<string, SerializableSnapshot> = {}
         HashMap.forEach(snapshots, (snapshot, id) => {
-          snapshotsObj[id] = {
-            ...snapshot,
-            inventory: {
-              ...snapshot.inventory,
-              slots: Object.fromEntries(snapshot.inventory.slots),
-            },
-          }
+          snapshotsObj[id] = serializeSnapshot(snapshot)
         })
 
         const data = JSON.stringify({
@@ -213,10 +260,11 @@ export const InventoryRepositoryPersistent = (config: PersistentConfig = Default
                       updatedSlots.set(position, itemStack)
                     }
 
+                    const timestamp = yield* timestampNow()
                     const updatedInventory: Inventory = {
                       ...inventory,
                       slots: updatedSlots,
-                      lastUpdated: yield* Clock.currentTimeMillis,
+                      lastUpdated: timestamp,
                       version: inventory.version + 1,
                     }
 
@@ -241,10 +289,11 @@ export const InventoryRepositoryPersistent = (config: PersistentConfig = Default
                     const updatedSlots = new Map(inventory.slots)
                     updatedSlots.delete(position)
 
+                    const timestamp = yield* timestampNow()
                     const updatedInventory: Inventory = {
                       ...inventory,
                       slots: updatedSlots,
-                      lastUpdated: yield* Clock.currentTimeMillis,
+                      lastUpdated: timestamp,
                       version: inventory.version + 1,
                     }
 
@@ -350,7 +399,7 @@ export const InventoryRepositoryPersistent = (config: PersistentConfig = Default
                 onNone: () => Effect.fail(createInventoryNotFoundError(playerId)),
                 onSome: (inventory) =>
                   Effect.gen(function* () {
-                    const timestamp = yield* Clock.currentTimeMillis
+                    const timestamp = yield* timestampNow()
                     const randomPart = Math.random().toString(36).substr(2, 9)
                     const snapshotId = `snapshot-${timestamp}-${randomPart}`
                     const snapshot: InventorySnapshot = {
@@ -382,9 +431,10 @@ export const InventoryRepositoryPersistent = (config: PersistentConfig = Default
                   Effect.fail(createRepositoryError('restoreFromSnapshot', `Snapshot not found: ${snapshotId}`)),
                 onSome: (snapshot) =>
                   Effect.gen(function* () {
+                    const lastUpdated = yield* timestampNow()
                     const restoredInventory: Inventory = {
                       ...snapshot.inventory,
-                      lastUpdated: yield* Clock.currentTimeMillis,
+                      lastUpdated,
                       version: snapshot.inventory.version + 1,
                     }
 

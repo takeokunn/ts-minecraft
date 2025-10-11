@@ -17,17 +17,25 @@ const textureLoader = new THREE.TextureLoader()
  * Effect.tryPromiseで非同期処理をEffect型にラップ
  */
 export const loadTexture = (path: string): Effect.Effect<THREE.Texture, TextureError> =>
-  Effect.tryPromise({
-    try: () =>
-      new Promise<THREE.Texture>((resolve, reject) => {
-        textureLoader.load(
-          path,
-          (texture) => resolve(texture),
-          undefined, // onProgress
-          (error) => reject(error)
+  Effect.async<THREE.Texture, TextureError>((resume) => {
+    textureLoader.load(
+      path,
+      (texture) => resume(Effect.succeed(texture)),
+      undefined,
+      (error) =>
+        resume(
+          Effect.fail(
+            TextureError.make({
+              operation: 'load',
+              path,
+              cause: error,
+            })
+          ).pipe(
+            Effect.annotateLogs('texture.operation', 'load'),
+            Effect.annotateLogs('texture.path', path)
+          )
         )
-      }),
-    catch: (error) => new TextureError({ operation: 'load', path, cause: error }),
+    )
   })
 
 /**

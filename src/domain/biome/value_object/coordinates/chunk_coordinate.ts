@@ -211,7 +211,7 @@ export const ChunkCoordinateErrorSchema = taggedUnion('_tag', [
   }),
   Schema.Struct({
     _tag: Schema.Literal('InvalidChunkCoordinate'),
-    coordinate: Schema.Unknown,
+    coordinate: ChunkCoordinateSchema,
     message: Schema.String,
   }),
   Schema.Struct({

@@ -6,12 +6,15 @@
  *
  * ポリシー:
  * - 制御構文は Effect combinator / Match による表現のみを使用
- * - Brand 型・ADT を駆使して `as` / `any` / `unknown` / 非 null 断言を排除
+ * - Brand 型・ADT を駆使して型アサーション / `unknown` / 非 null 断言を排除
  * - class は一切使用せず Data.tagged の ADT でエラー体系を定義
  */
 
+import type { ParseError } from '@effect/schema/ParseResult'
+import { isParseError } from '@effect/schema/ParseResult'
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
 import { Context, Data, Effect, Option, pipe, Schema } from 'effect'
+import { isJsonSerializable, toJsonValue, type JsonValue } from '@/shared/schema/json'
 import type { Inventory, InventoryState, PlayerId } from '../../domain/inventory'
 import { PlayerIdSchema } from '../../domain/inventory'
 
@@ -77,7 +80,7 @@ export const defaultStorageConfig: StorageConfig = Schema.decodeUnknownSync(Stor
 interface FailureFields {
   readonly backend: StorageBackend
   readonly message: string
-  readonly cause: Option.Option<unknown>
+  readonly cause: Option.Option<StorageFailureCause>
 }
 
 interface FailureWithContext extends FailureFields {
@@ -123,35 +126,63 @@ export const StorageErrors = {
   QuotaExceeded: Data.tagged<StorageQuotaExceededError>('QuotaExceeded'),
 }
 
-const withCause = (value: unknown) => Option.fromNullable(value)
+export type StorageFailureCause = ParseError | Error | JsonValue
+
+export const toStorageFailureCause = (value: unknown): StorageFailureCause | null => {
+  if (value === null || value === undefined) {
+    return null
+  }
+
+  if (isParseError(value)) {
+    return value
+  }
+
+  if (value instanceof Error) {
+    return value
+  }
+
+  if (isJsonSerializable(value)) {
+    return toJsonValue(value)
+  }
+
+  return String(value)
+}
+
+const withCause = (value: StorageFailureCause | null | undefined) => Option.fromNullable(value ?? null)
 
 const formatParseError = (error: Schema.ParseError): string => TreeFormatter.formatErrorSync(error)
 
-export const toNotAvailable = (backend: StorageBackend, message: string, cause?: unknown): StorageError =>
-  StorageErrors.NotAvailable({ backend, message, cause: withCause(cause) })
+export const toNotAvailable = (
+  backend: StorageBackend,
+  message: string,
+  cause?: StorageFailureCause | null
+): StorageError => StorageErrors.NotAvailable({ backend, message, cause: withCause(cause) })
 
 export const toSaveFailed = (
   backend: StorageBackend,
   context: string,
   message: string,
-  cause?: unknown
+  cause?: StorageFailureCause | null
 ): StorageError => StorageErrors.SaveFailed({ backend, context, message, cause: withCause(cause) })
 
 export const toLoadFailed = (
   backend: StorageBackend,
   context: string,
   message: string,
-  cause?: unknown
+  cause?: StorageFailureCause | null
 ): StorageError => StorageErrors.LoadFailed({ backend, context, message, cause: withCause(cause) })
 
-export const toCorrupted = (backend: StorageBackend, message: string, cause?: unknown): StorageError =>
-  StorageErrors.Corrupted({ backend, message, cause: withCause(cause) })
+export const toCorrupted = (
+  backend: StorageBackend,
+  message: string,
+  cause?: StorageFailureCause | null
+): StorageError => StorageErrors.Corrupted({ backend, message, cause: withCause(cause) })
 
 export const toQuotaExceeded = (
   backend: StorageBackend,
   message: string,
   quotaBytes: number,
-  cause?: unknown
+  cause?: StorageFailureCause | null
 ): StorageError => StorageErrors.QuotaExceeded({ backend, message, quotaBytes, cause: withCause(cause) })
 
 // =============================================================================

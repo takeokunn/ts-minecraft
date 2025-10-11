@@ -9,6 +9,7 @@
 import { Clock, Effect, Layer, Match, pipe } from 'effect'
 import type {
   AnimationDuration,
+  AnimationTimeline,
   Camera,
   CameraDistance,
   CameraError,
@@ -390,14 +391,23 @@ const calculateThirdPersonPosition = (
 /**
  * カメラパスからタイムラインを作成
  */
-const createTimelineFromPath = (path: CameraPath): Effect.Effect<any, CameraError> =>
-  Effect.gen(function* () {
-    // タイムライン作成ロジック（スタブ実装）
-    return {
-      keyframes: path.keyframes,
-      duration: path.duration,
-      interpolationType: path.interpolationType,
-    }
+const createTimelineFromPath = (path: CameraPath): Effect.Effect<AnimationTimeline, CameraError> =>
+  Effect.succeed({
+    keyframes: path.keyframes.map((keyframe) => ({
+      time: keyframe.time,
+      position: {
+        x: Number(keyframe.position.x),
+        y: Number(keyframe.position.y),
+        z: Number(keyframe.position.z),
+      },
+      rotation: {
+        pitch: Number(keyframe.rotation.pitch),
+        yaw: Number(keyframe.rotation.yaw),
+      },
+      easing: keyframe.easingType,
+    })),
+    duration: path.duration,
+    loop: path.looping,
   })
 
 /**

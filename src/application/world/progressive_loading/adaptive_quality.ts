@@ -1,4 +1,6 @@
 import { Clock, Context, Effect, Layer, Match, Option, pipe, Ref, Schema } from 'effect'
+import { ErrorCauseSchema } from '@shared/schema/error'
+import { JsonValueSchema } from '@shared/schema/json'
 
 /**
  * Adaptive Quality Service
@@ -124,8 +126,8 @@ export const QualityAdjustment = Schema.Struct({
   changes: Schema.Array(
     Schema.Struct({
       setting: Schema.String,
-      fromValue: Schema.Unknown,
-      toValue: Schema.Unknown,
+      fromValue: JsonValueSchema,
+      toValue: JsonValueSchema,
       impact: Schema.Union(Schema.Literal('major'), Schema.Literal('moderate'), Schema.Literal('minor')),
     })
   ),
@@ -142,7 +144,7 @@ export const QualityAdjustment = Schema.Struct({
 export const AdaptiveQualityError = Schema.TaggedError<AdaptiveQualityErrorType>()('AdaptiveQualityError', {
   message: Schema.String,
   adapterId: Schema.String,
-  cause: Schema.optional(Schema.Unknown),
+  cause: Schema.optional(ErrorCauseSchema),
 })
 
 export interface AdaptiveQualityErrorType extends Schema.Schema.Type<typeof AdaptiveQualityError> {}

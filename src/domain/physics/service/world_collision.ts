@@ -1,5 +1,6 @@
 import type { BlockTypeId, Vector3D } from '@domain/entities'
 import { Context, Effect, Layer, Option, pipe, ReadonlyArray, Ref } from 'effect'
+import { toErrorCause, type ErrorCause } from '@shared/schema/error'
 import { CannonPhysicsService } from './cannon'
 
 /**
@@ -11,7 +12,7 @@ import { CannonPhysicsService } from './cannon'
 export interface WorldCollisionError {
   readonly _tag: 'WorldCollisionError'
   readonly message: string
-  readonly cause?: unknown
+  readonly cause?: ErrorCause
 }
 
 // ブロック衝突情報
@@ -22,6 +23,17 @@ export interface BlockCollisionInfo {
   readonly collisionNormal: Vector3D
   readonly penetrationDepth: number
 }
+
+type CollisionUpdateTarget =
+  | {
+      readonly type: 'add'
+      readonly position: Vector3D
+      readonly blockType: BlockTypeId
+    }
+  | {
+      readonly type: 'remove'
+      readonly position: Vector3D
+    }
 
 // レイキャスト結果
 export interface RaycastHit {
@@ -286,7 +298,7 @@ const makeWorldCollisionService: Effect.Effect<WorldCollisionService, never, Can
     // ブロックの物理プロパティを取得
     const getBlockProperties = (blockType: BlockTypeId) =>
       Effect.gen(function* () {
-        const blockTypeStr = blockType as unknown as string
+        const blockTypeStr = String(blockType)
         const properties = DEFAULT_BLOCK_PROPERTIES[blockTypeStr]
 
         if (!properties) {
@@ -326,7 +338,7 @@ const makeWorldCollisionService: Effect.Effect<WorldCollisionService, never, Can
             (error): WorldCollisionError => ({
               _tag: 'WorldCollisionError',
               message: `Failed to add block collision at ${posKey}`,
-              cause: error,
+              cause: toErrorCause(error),
             })
           )
         )
@@ -362,7 +374,7 @@ const makeWorldCollisionService: Effect.Effect<WorldCollisionService, never, Can
             (error): WorldCollisionError => ({
               _tag: 'WorldCollisionError',
               message: `Failed to remove block collision at ${posKey}`,
-              cause: error,
+              cause: toErrorCause(error),
             })
           )
         )
@@ -457,7 +469,7 @@ const makeWorldCollisionService: Effect.Effect<WorldCollisionService, never, Can
             (error): WorldCollisionError => ({
               _tag: 'WorldCollisionError',
               message: 'Raycast failed',
-              cause: error,
+              cause: toErrorCause(error),
             })
           )
         )
@@ -632,12 +644,16 @@ const makeWorldCollisionService: Effect.Effect<WorldCollisionService, never, Can
                 if (currentBlockType && currentBlockType !== ('air' as unknown as BlockTypeId)) {
                   // ブロックが存在するが衝突がない場合は追加
                   if (!hasCollision) {
-                    return Option.some({ type: 'add' as const, position: blockPos, blockType: currentBlockType })
+                    return Option.some<CollisionUpdateTarget>({
+                      type: 'add',
+                      position: blockPos,
+                      blockType: currentBlockType,
+                    })
                   }
                 } else {
                   // ブロックが存在しないが衝突がある場合は削除
                   if (hasCollision) {
-                    return Option.some({ type: 'remove' as const, position: blockPos })
+                    return Option.some<CollisionUpdateTarget>({ type: 'remove', position: blockPos })
                   }
                 }
 
@@ -651,8 +667,10 @@ const makeWorldCollisionService: Effect.Effect<WorldCollisionService, never, Can
         // 追加・削除対象を分離
         const blocksToAdd = pipe(
           updateTargets,
-          ReadonlyArray.filter((t) => t.type === 'add'),
-          ReadonlyArray.map((t) => ({ position: t.position, blockType: (t as any).blockType }))
+          ReadonlyArray.filter(
+            (target): target is Extract<CollisionUpdateTarget, { type: 'add' }> => target.type === 'add'
+          ),
+          ReadonlyArray.map((target) => ({ position: target.position, blockType: target.blockType }))
         )
 
         const blocksToRemove = pipe(
@@ -723,7 +741,7 @@ const makeWorldCollisionService: Effect.Effect<WorldCollisionService, never, Can
         const collisionInfos = yield* sphereWorldCollision(center, radius)
 
         const blocks = collisionInfos.map((info) => ({
-          id: info.blockType as unknown as string,
+          id: String(info.blockType),
           position: info.blockPosition,
           blockType: info.blockType,
           bodyId: info.bodyId,

@@ -243,7 +243,7 @@ export const SettingsConversionUtils = {
   /**
    * JSON文字列からの設定復元
    */
-  parseSettingsFromJson: (jsonString: string): any =>
+  parseSettingsFromJson: (jsonString: string): unknown =>
     pipe(
       Effect.try({
         try: () => JSON.parse(jsonString),
@@ -255,7 +255,7 @@ export const SettingsConversionUtils = {
   /**
    * 設定をJSON文字列に変換
    */
-  settingsToJson: (settings: any): string => {
+  settingsToJson: (settings: unknown): string => {
     return JSON.stringify(settings, null, 2)
   },
 } as const

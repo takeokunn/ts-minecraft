@@ -20,6 +20,8 @@ import * as GenerationParameters from '@domain/world/value_object/generation_par
 import * as NoiseConfiguration from '@domain/world/value_object/noise_configuration/index'
 import * as WorldSeed from '@domain/world/value_object/world_seed/index'
 import { Context, Effect, Function, Layer, Match, ReadonlyArray, Schema } from 'effect'
+import { JsonValueSchema } from '@/shared/schema/json'
+import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
 
 // ================================
 // Factory Error Types
@@ -28,13 +30,33 @@ import { Context, Effect, Function, Layer, Match, ReadonlyArray, Schema } from '
 export const ConfigurationFactoryErrorSchema = Schema.TaggedError('ConfigurationFactoryError', {
   category: Schema.Literal('configuration_invalid', 'preset_not_found', 'compatibility_error'),
   message: Schema.String,
-  context: Schema.optional(Schema.Unknown),
+  context: Schema.optional(JsonValueSchema),
 })
 
-export class ConfigurationFactoryError extends Schema.TaggedError<typeof ConfigurationFactoryErrorSchema>()(
-  'ConfigurationFactoryError',
-  ConfigurationFactoryErrorSchema
-) {}
+export type ConfigurationFactoryError = Schema.Schema.Type<typeof ConfigurationFactoryErrorSchema>
+
+type ConfigurationFactoryErrorExtras = Partial<Omit<ConfigurationFactoryError, 'category' | 'message'>>
+
+const makeConfigurationFactoryError = (
+  category: ConfigurationFactoryError['category'],
+  message: string,
+  extras?: ConfigurationFactoryErrorExtras
+): ConfigurationFactoryError =>
+  ConfigurationFactoryErrorSchema.make({
+    category,
+    message,
+    ...extras,
+  })
+
+export const ConfigurationFactoryError = {
+  ...makeErrorFactory(ConfigurationFactoryErrorSchema),
+  configurationInvalid: (message: string, extras?: ConfigurationFactoryErrorExtras) =>
+    makeConfigurationFactoryError('configuration_invalid', message, extras),
+  presetNotFound: (message: string, extras?: ConfigurationFactoryErrorExtras) =>
+    makeConfigurationFactoryError('preset_not_found', message, extras),
+  compatibilityError: (message: string, extras?: ConfigurationFactoryErrorExtras) =>
+    makeConfigurationFactoryError('compatibility_error', message, extras),
+} as const
 
 // ================================
 // Configuration Types
@@ -48,7 +70,7 @@ export const WorldConfigurationSchema = Schema.Struct({
   metadata: Schema.optional(
     Schema.Record({
       key: Schema.String,
-      value: Schema.Unknown,
+      value: JsonValueSchema,
     })
   ),
 })
@@ -98,7 +120,7 @@ export const CreateConfigurationParamsSchema = Schema.Struct({
   customParameters: Schema.optional(
     Schema.Record({
       key: Schema.String,
-      value: Schema.Unknown,
+      value: JsonValueSchema,
     })
   ),
   target: Schema.optional(Schema.Literal('client', 'server', 'hybrid')),
@@ -181,8 +203,8 @@ export const ConfigurationComparisonResultSchema = Schema.Struct({
   differences: Schema.Array(
     Schema.Struct({
       field: Schema.String,
-      value1: Schema.Unknown,
-      value2: Schema.Unknown,
+      value1: JsonValueSchema,
+      value2: JsonValueSchema,
       impact: Schema.Literal('low', 'medium', 'high', 'critical'),
     })
   ),
@@ -242,9 +264,7 @@ const createWorldConfigurationFactory = (): WorldConfigurationFactory => ({
         )
         if (!validation.isValid && validation.issues.some((i) => i.severity === 'critical')) {
           return yield* Effect.fail(
-            new ConfigurationFactoryError({
-              category: 'compatibility_error',
-              message: 'Configuration validation failed with critical issues',
+            ConfigurationFactoryError.compatibilityError('Configuration validation failed with critical issues', {
               context: { validation },
             })
           )
@@ -318,14 +338,7 @@ const loadPresetConfiguration = (
     Match.when('memory_optimized', () => createMemoryOptimizedConfiguration()),
     Match.when('quality_focused', () => createQualityFocusedConfiguration()),
     Match.when('balanced', () => createBalancedConfiguration()),
-    Match.orElse(() =>
-      Effect.fail(
-        new ConfigurationFactoryError({
-          category: 'preset_not_found',
-          message: `Unknown preset: ${preset}`,
-        })
-      )
-    )
+    Match.orElse(() => Effect.fail(ConfigurationFactoryError.presetNotFound(`Unknown preset: ${preset}`)))
   )
 
 const createDefaultConfiguration = (): Effect.Effect<WorldConfiguration, ConfigurationFactoryError> =>
@@ -495,21 +508,14 @@ const validateCreateParams = (
       Effect.try({
         try: () => Schema.decodeSync(CreateConfigurationParamsSchema)(params),
         catch: (error) =>
-          new ConfigurationFactoryError({
-            category: 'configuration_invalid',
-            message: 'Schema validation failed',
-            cause: error,
-          }),
+          ConfigurationFactoryError.configurationInvalid('Schema validation failed', { context: { error } }),
       })
     )
 
     // ビジネスルール検証
     if (validatedParams.memoryBudget && validatedParams.memoryBudget <= 0) {
       return yield* Effect.fail(
-        new ConfigurationFactoryError({
-          category: 'configuration_invalid',
-          message: 'Memory budget must be positive',
-        })
+        ConfigurationFactoryError.configurationInvalid('Memory budget must be positive')
       )
     }
 

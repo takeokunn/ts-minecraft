@@ -7,6 +7,7 @@
 
 import type { ItemStack } from '@/domain/inventory/aggregate/item_stack'
 import type { InventoryId, ItemId, PlayerId } from '@/domain/inventory/types'
+import type { JsonValue } from '@/shared/schema/json'
 import { Context, Effect } from 'effect'
 import type { InventoryApplicationError } from '../types'
 
@@ -222,7 +223,7 @@ export interface TransactionManagerApplicationService {
         readonly operationType: string
         readonly operationId: string
         readonly status: 'pending' | 'completed' | 'failed'
-        readonly details: unknown
+        readonly details: JsonValue
       }>
       readonly rollbackReason?: string
     },
@@ -338,7 +339,7 @@ export interface TransactionManagerApplicationService {
     readonly operations: ReadonlyArray<{
       readonly nodeId: string
       readonly operationType: string
-      readonly operationData: unknown
+      readonly operationData: JsonValue
     }>
     readonly timeoutMs: number
   }) => Effect.Effect<
@@ -387,7 +388,7 @@ export interface TransactionManagerApplicationService {
    */
   readonly getTransactionDebugInfo: (transactionId: string) => Effect.Effect<
     {
-      readonly transactionState: unknown
+      readonly transactionState: JsonValue
       readonly lockHierarchy: ReadonlyArray<{
         readonly resourceId: string
         readonly lockType: 'read' | 'write'

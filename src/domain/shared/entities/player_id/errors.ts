@@ -1,12 +1,20 @@
 import { Schema } from 'effect'
+import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
+
+import { ErrorCauseSchema } from '@/shared/schema/error'
+import { JsonValueSchema } from '@/shared/schema/json'
 
 /**
  * PlayerIdエラー
  *
  * PlayerId生成・検証時のエラー
  */
-export class PlayerIdError extends Schema.TaggedError<PlayerIdError>()('PlayerIdError', {
+export const PlayerIdErrorSchema = Schema.TaggedError('PlayerIdError', {
   message: Schema.String,
-  value: Schema.optional(Schema.Unknown),
-  cause: Schema.optional(Schema.Unknown),
-}) {}
+  value: Schema.optional(JsonValueSchema),
+  cause: Schema.optional(ErrorCauseSchema),
+})
+
+export type PlayerIdError = Schema.Schema.Type<typeof PlayerIdErrorSchema>
+
+export const PlayerIdError = makeErrorFactory(PlayerIdErrorSchema)

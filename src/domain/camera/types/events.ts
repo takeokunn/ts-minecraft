@@ -1,4 +1,6 @@
 import { Clock, Data, Effect, Schema } from 'effect'
+import { JsonValueSchema } from '@/shared/schema/json'
+import type { JsonValue } from '@/shared/schema/json'
 import type {
   CameraDistance,
   CameraMode,
@@ -7,7 +9,7 @@ import type {
   Rotation2D as Rotation2DBrand,
   Sensitivity,
 } from './constants.js'
-import { Position3DSchema, Rotation2DSchema } from './constants.js'
+import { CameraModeSchema, Position3DSchema, Rotation2DSchema } from './constants.js'
 
 // ========================================
 // Event Base Types
@@ -104,7 +106,7 @@ export type CameraEvent = Data.TaggedEnum<{
   CollisionDetected: {
     readonly cameraId: CameraId
     readonly position: Position3D
-    readonly obstruction: unknown
+    readonly obstruction: JsonValue
     readonly timestamp: number
   }
   CameraLocked: {
@@ -186,15 +188,15 @@ export const AnimationStateSchema = Schema.Struct({
 export const CameraInitializedSchema = Schema.Struct({
   _tag: Schema.Literal('CameraInitialized'),
   cameraId: CameraIdSchema,
-  viewMode: Schema.Literal('first-person', 'third-person'),
+  viewMode: CameraModeSchema,
   timestamp: Schema.Number,
 })
 
 export const ViewModeChangedSchema = Schema.Struct({
   _tag: Schema.Literal('ViewModeChanged'),
   cameraId: CameraIdSchema,
-  fromMode: Schema.Literal('first-person', 'third-person'),
-  toMode: Schema.Literal('first-person', 'third-person'),
+  fromMode: CameraModeSchema,
+  toMode: CameraModeSchema,
   timestamp: Schema.Number,
 })
 
@@ -247,7 +249,7 @@ export const CollisionDetectedSchema = Schema.Struct({
   _tag: Schema.Literal('CollisionDetected'),
   cameraId: CameraIdSchema,
   position: Position3DSchema,
-  obstruction: Schema.Unknown,
+  obstruction: JsonValueSchema,
   timestamp: Schema.Number,
 })
 

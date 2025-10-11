@@ -7,6 +7,7 @@ import { Effect, Schema } from 'effect'
 import * as THREE from 'three'
 import type { Quaternion } from './quaternion'
 import * as Quat from './quaternion'
+import { ErrorCauseSchema } from '@shared/schema/error'
 
 /**
  * 回転順序の定義
@@ -33,7 +34,8 @@ export type Euler = Schema.Schema.Type<typeof EulerSchema>
 export const EulerError = Schema.TaggedError('EulerError')({
   operation: Schema.String,
   reason: Schema.String,
-  cause: Schema.Unknown,
+  euler: Schema.optional(EulerSchema),
+  cause: Schema.optional(ErrorCauseSchema),
 })
 export type EulerError = Schema.Schema.Type<typeof EulerError>
 
@@ -63,7 +65,7 @@ export const fromThreeEuler = (e: THREE.Euler): Effect.Effect<Euler, EulerError>
           new EulerError({
             operation: 'fromThreeEuler',
             reason: 'Invalid Euler order',
-            cause: error,
+            cause: error instanceof Error ? error : { message: String(error) },
           })
       )
     )

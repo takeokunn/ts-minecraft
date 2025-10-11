@@ -7,6 +7,7 @@
 
 import { taggedUnion } from '@domain/world/utils'
 import { Effect, Schema } from 'effect'
+import { JsonValueSchema } from '@shared/schema/json'
 import { BLOCK_COORDINATE_LIMITS, BlockCoordinate, BlockRange } from './block_coordinate'
 import {
   CHUNK_CONSTANTS,
@@ -25,7 +26,7 @@ export const CoordinateTransformErrorSchema = taggedUnion('_tag', [
   Schema.Struct({
     _tag: Schema.Literal('ConversionOverflow'),
     operation: Schema.String,
-    input: Schema.Unknown,
+    input: JsonValueSchema,
     message: Schema.String,
   }),
   Schema.Struct({
@@ -37,7 +38,7 @@ export const CoordinateTransformErrorSchema = taggedUnion('_tag', [
   }),
   Schema.Struct({
     _tag: Schema.Literal('BoundaryViolation'),
-    coordinate: Schema.Unknown,
+    coordinate: Schema.Struct({ x: Schema.Number, z: Schema.Number }),
     boundary: Schema.String,
     message: Schema.String,
   }),

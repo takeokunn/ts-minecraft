@@ -27,7 +27,11 @@ export const createPerspectiveCamera = (
 ): Effect.Effect<THREE.PerspectiveCamera, CameraError> =>
   Effect.try({
     try: () => new THREE.PerspectiveCamera(params.fov, params.aspect, params.near, params.far),
-    catch: (error) => new CameraError({ type: 'perspective', cause: error }),
+    catch: (error) =>
+      CameraError.make({
+        type: 'perspective',
+        cause: error,
+      }),
   })
 
 /**

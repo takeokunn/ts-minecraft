@@ -382,9 +382,9 @@ export const CameraRepositoryLayerUtils = {
     operation: import('effect').Effect.Effect<T, E>
   ): import('effect').Effect.Effect<
     T,
-    RepositoryError | SettingsRepositoryError | AnimationHistoryRepositoryError | ViewModePreferencesRepositoryError
+    RepositoryLayerErrors | E
   > => {
-    return operation as any // 簡易実装
+    return operation as import('effect').Effect.Effect<T, RepositoryLayerErrors | E>
   },
 
   /**
@@ -412,6 +412,12 @@ export const CameraRepositoryLayerUtils = {
     )
   },
 } as const
+
+type RepositoryLayerErrors =
+  | RepositoryError
+  | SettingsRepositoryError
+  | AnimationHistoryRepositoryError
+  | ViewModePreferencesRepositoryError
 
 /**
  * Repository Layer Statistics

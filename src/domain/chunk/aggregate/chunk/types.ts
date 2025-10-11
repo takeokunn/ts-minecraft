@@ -1,4 +1,5 @@
 import { Brand, Data, Effect, Schema } from 'effect'
+import type { ErrorCause } from '@/shared/schema/error'
 import type { ChunkMetadata } from '../../value_object/chunk_metadata'
 import { ChunkMetadataSchema } from '../../value_object/chunk_metadata'
 import type { ChunkPosition } from '../../value_object/chunk_position'
@@ -58,7 +59,7 @@ export const ChunkBoundsError = Data.tagged<ChunkBoundsError>('ChunkBoundsError'
 export interface ChunkSerializationError {
   readonly _tag: 'ChunkSerializationError'
   readonly message: string
-  readonly originalError?: unknown
+  readonly originalError?: ErrorCause
 }
 
 export const ChunkSerializationError = Data.tagged<ChunkSerializationError>('ChunkSerializationError')

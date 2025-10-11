@@ -1,4 +1,5 @@
 import { Brand, Data, Effect, Option, pipe, Schema } from 'effect'
+import { toErrorCause, type ErrorCause } from '@shared/schema/error'
 
 /**
  * チャンク座標の値オブジェクト
@@ -37,7 +38,7 @@ export interface ChunkPositionError {
     readonly x?: number
     readonly z?: number
   }
-  readonly cause?: unknown
+  readonly cause?: ErrorCause
 }
 
 export const ChunkPositionError = Data.tagged<ChunkPositionError>('ChunkPositionError')
@@ -69,7 +70,7 @@ export const createChunkPosition = (x: number, z: number): Effect.Effect<ChunkPo
       ChunkPositionError({
         message: 'チャンク座標の構築に失敗しました',
         details: { x, z },
-        cause: issue,
+        cause: toErrorCause(issue),
       })
     )
   )

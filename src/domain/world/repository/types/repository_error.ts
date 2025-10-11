@@ -6,8 +6,19 @@
  * Effect-TS 3.17+ の Schema.TaggedStruct による構造化エラー
  */
 
-import type { GenerationSessionId } from '@/domain/world_generation/aggregate/generation_session'
-import type { BiomeId, WorldId } from '@domain/world/types/core'
+import {
+  GenerationSessionIdSchema,
+  type GenerationSessionId,
+} from '@/domain/world_generation/aggregate/generation_session'
+import { ErrorCauseSchema, toErrorCause } from '@/shared/schema/error'
+import { JsonValueSchema } from '@/shared/schema/json'
+import type { JsonValue } from '@/shared/schema/json'
+import {
+  BiomeIdSchema,
+  WorldIdSchema,
+  type BiomeId,
+  type WorldId,
+} from '@domain/world/types/core'
 import { DateTime, Effect, Match, Schema } from 'effect'
 
 // === Core Repository Errors ===
@@ -17,7 +28,7 @@ import { DateTime, Effect, Match, Schema } from 'effect'
  */
 export const RepositoryErrorSchema = Schema.TaggedStruct('RepositoryError', {
   message: Schema.String,
-  cause: Schema.optional(Schema.Unknown),
+  cause: Schema.optional(ErrorCauseSchema),
   timestamp: Schema.Number.pipe(Schema.int(), Schema.positive()),
   operation: Schema.String,
 })
@@ -29,7 +40,7 @@ export type RepositoryError = Schema.Schema.Type<typeof RepositoryErrorSchema>
 export const PersistenceErrorSchema = Schema.TaggedStruct('PersistenceError', {
   message: Schema.String,
   storageType: Schema.Literal('memory', 'indexeddb', 'filesystem', 'database'),
-  cause: Schema.optional(Schema.Unknown),
+  cause: Schema.optional(ErrorCauseSchema),
   timestamp: Schema.Number.pipe(Schema.int(), Schema.positive()),
 })
 export type PersistenceError = Schema.Schema.Type<typeof PersistenceErrorSchema>
@@ -64,7 +75,7 @@ export type StorageCapacityError = Schema.Schema.Type<typeof StorageCapacityErro
  * World Generator未発見エラー
  */
 export const WorldGeneratorNotFoundErrorSchema = Schema.TaggedStruct('WorldGeneratorNotFoundError', {
-  worldId: Schema.Unknown, // WorldId Brand型
+  worldId: WorldIdSchema,
   message: Schema.String,
   timestamp: Schema.Number.pipe(Schema.int(), Schema.positive()),
 })
@@ -74,7 +85,7 @@ export type WorldGeneratorNotFoundError = Schema.Schema.Type<typeof WorldGenerat
  * World Generator重複エラー
  */
 export const DuplicateWorldGeneratorErrorSchema = Schema.TaggedStruct('DuplicateWorldGeneratorError', {
-  worldId: Schema.Unknown, // WorldId Brand型
+  worldId: WorldIdSchema,
   message: Schema.String,
   timestamp: Schema.Number.pipe(Schema.int(), Schema.positive()),
 })
@@ -84,7 +95,7 @@ export type DuplicateWorldGeneratorError = Schema.Schema.Type<typeof DuplicateWo
  * Generator設定無効エラー
  */
 export const InvalidGeneratorConfigErrorSchema = Schema.TaggedStruct('InvalidGeneratorConfigError', {
-  worldId: Schema.Unknown, // WorldId Brand型
+  worldId: WorldIdSchema,
   configErrors: Schema.Array(Schema.String),
   message: Schema.String,
   timestamp: Schema.Number.pipe(Schema.int(), Schema.positive()),
@@ -97,7 +108,7 @@ export type InvalidGeneratorConfigError = Schema.Schema.Type<typeof InvalidGener
  * Generation Session未発見エラー
  */
 export const GenerationSessionNotFoundErrorSchema = Schema.TaggedStruct('GenerationSessionNotFoundError', {
-  sessionId: Schema.Unknown, // GenerationSessionId Brand型
+  sessionId: GenerationSessionIdSchema,
   message: Schema.String,
   timestamp: Schema.Number.pipe(Schema.int(), Schema.positive()),
 })
@@ -107,7 +118,7 @@ export type GenerationSessionNotFoundError = Schema.Schema.Type<typeof Generatio
  * Session状態不正エラー
  */
 export const InvalidSessionStateErrorSchema = Schema.TaggedStruct('InvalidSessionStateError', {
-  sessionId: Schema.Unknown, // GenerationSessionId Brand型
+  sessionId: GenerationSessionIdSchema,
   currentState: Schema.String,
   expectedStates: Schema.Array(Schema.String),
   message: Schema.String,
@@ -119,9 +130,9 @@ export type InvalidSessionStateError = Schema.Schema.Type<typeof InvalidSessionS
  * Session復旧失敗エラー
  */
 export const SessionRecoveryErrorSchema = Schema.TaggedStruct('SessionRecoveryError', {
-  sessionId: Schema.Unknown, // GenerationSessionId Brand型
+  sessionId: GenerationSessionIdSchema,
   failureReason: Schema.String,
-  recoverableData: Schema.optional(Schema.Unknown),
+  recoverableData: Schema.optional(JsonValueSchema),
   message: Schema.String,
   timestamp: Schema.Number.pipe(Schema.int(), Schema.positive()),
 })
@@ -133,7 +144,7 @@ export type SessionRecoveryError = Schema.Schema.Type<typeof SessionRecoveryErro
  * Biome未発見エラー
  */
 export const BiomeNotFoundErrorSchema = Schema.TaggedStruct('BiomeNotFoundError', {
-  biomeId: Schema.Unknown, // BiomeId Brand型
+  biomeId: BiomeIdSchema,
   coordinates: Schema.optional(
     Schema.Struct({
       x: Schema.Number,
@@ -179,7 +190,7 @@ export type BiomeCacheError = Schema.Schema.Type<typeof BiomeCacheErrorSchema>
  * Metadata未発見エラー
  */
 export const MetadataNotFoundErrorSchema = Schema.TaggedStruct('MetadataNotFoundError', {
-  worldId: Schema.Unknown, // WorldId Brand型
+  worldId: WorldIdSchema,
   metadataType: Schema.String,
   message: Schema.String,
   timestamp: Schema.Number.pipe(Schema.int(), Schema.positive()),
@@ -253,7 +264,7 @@ export const createRepositoryError = (
       _tag: 'RepositoryError' as const,
       message,
       operation,
-      cause,
+      cause: toErrorCause(cause),
       timestamp,
     })
   })
@@ -272,7 +283,7 @@ export const createPersistenceError = (
       _tag: 'PersistenceError' as const,
       message,
       storageType,
-      cause,
+      cause: toErrorCause(cause),
       timestamp,
     })
   })
@@ -454,7 +465,7 @@ export const createInvalidSessionStateError = (
 export const createSessionRecoveryError = (
   sessionId: GenerationSessionId,
   failureReason: string,
-  recoverableData?: unknown,
+  recoverableData?: JsonValue,
   message?: string
 ): Effect.Effect<SessionRecoveryError, Schema.ParseError> =>
   Effect.gen(function* () {

@@ -4,6 +4,8 @@
  */
 
 import { DateTime, Effect, Schema } from 'effect'
+import { JsonValueSchema } from '@/shared/schema/json'
+import type { JsonValue } from '@/shared/schema/json'
 import type { ErrorContext } from './index'
 
 // === スキーマ検証エラー ===
@@ -13,7 +15,7 @@ export const SchemaValidationErrorSchema = Schema.TaggedStruct('SchemaValidation
   schemaName: Schema.String,
   fieldPath: Schema.String,
   expectedType: Schema.String,
-  actualValue: Schema.Unknown,
+  actualValue: JsonValueSchema,
   actualType: Schema.String,
   context: Schema.suspend(() => import('./index').then((m) => m.ErrorContextSchema)),
   validationRule: Schema.optional(Schema.String),
@@ -181,7 +183,7 @@ export const TypeMismatchErrorSchema = Schema.TaggedStruct('TypeMismatchError', 
   fieldName: Schema.String,
   expectedType: Schema.String,
   actualType: Schema.String,
-  value: Schema.Unknown,
+  value: JsonValueSchema,
   context: Schema.suspend(() => import('./index').then((m) => m.ErrorContextSchema)),
   convertible: Schema.optional(Schema.Boolean),
 }).pipe(
@@ -199,7 +201,7 @@ export const getTypeMismatchErrorMessage = (error: TypeMismatchError): string =>
 /** Brand型検証エラー */
 export const BrandValidationErrorSchema = Schema.TaggedStruct('BrandValidationError', {
   brandName: Schema.String,
-  value: Schema.Unknown,
+  value: JsonValueSchema,
   reason: Schema.String,
   context: Schema.suspend(() => import('./index').then((m) => m.ErrorContextSchema)),
   validationConstraints: Schema.Array(Schema.String),
@@ -257,7 +259,7 @@ export const getCircularReferenceErrorMessage = (error: CircularReferenceError):
 /** 重複値エラー */
 export const DuplicateValueErrorSchema = Schema.TaggedStruct('DuplicateValueError', {
   fieldName: Schema.String,
-  value: Schema.Unknown,
+  value: JsonValueSchema,
   existingId: Schema.optional(Schema.String),
   context: Schema.suspend(() => import('./index').then((m) => m.ErrorContextSchema)),
 }).pipe(
@@ -359,7 +361,7 @@ export const createSchemaValidationError = (
   schemaName: string,
   fieldPath: string,
   expectedType: string,
-  actualValue: unknown,
+  actualValue: JsonValue,
   context?: Partial<ErrorContext>,
   validationRule?: string
 ): Effect.Effect<SchemaValidationError, Schema.ParseError> =>
@@ -530,7 +532,7 @@ export const createTypeMismatchError = (
   fieldName: string,
   expectedType: string,
   actualType: string,
-  value: unknown,
+  value: JsonValue,
   context?: Partial<ErrorContext>,
   convertible?: boolean
 ): Effect.Effect<TypeMismatchError, Schema.ParseError> =>
@@ -551,7 +553,7 @@ export const createTypeMismatchError = (
 /** BrandValidationError作成Factory */
 export const createBrandValidationError = (
   brandName: string,
-  value: unknown,
+  value: JsonValue,
   reason: string,
   validationConstraints: readonly string[],
   context?: Partial<ErrorContext>
@@ -608,7 +610,7 @@ export const createCircularReferenceError = (
 /** DuplicateValueError作成Factory */
 export const createDuplicateValueError = (
   fieldName: string,
-  value: unknown,
+  value: JsonValue,
   context?: Partial<ErrorContext>,
   existingId?: string
 ): Effect.Effect<DuplicateValueError, Schema.ParseError> =>

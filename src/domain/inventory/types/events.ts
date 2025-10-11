@@ -1,4 +1,6 @@
 import { Clock, Effect, Schema } from 'effect'
+import { JsonRecordSchema } from '@shared/schema/json'
+import type { JsonRecord } from '@shared/schema/json'
 
 // =============================================================================
 // Base Domain Event
@@ -169,7 +171,7 @@ export const ItemAddedEventSchema = Schema.Struct({
     })
   ),
   metadata: Schema.optional(
-    Schema.Record({ key: Schema.String, value: Schema.Any }).pipe(
+    JsonRecordSchema.pipe(
       Schema.annotations({
         description: 'Item metadata such as enchantments, durability, etc.',
       })
@@ -471,7 +473,7 @@ export const ItemBrokenEventSchema = Schema.Struct({
       quantity: Schema.Number.pipe(Schema.int(), Schema.positive()),
     }).pipe(
       Schema.annotations({
-        description: 'Item that replaced the broken item, if any',
+        description: 'Item that replaced the broken item, if present',
       })
     )
   ),
@@ -733,7 +735,7 @@ export const createItemAddedEvent = (params: {
   itemId: string
   quantity: number
   previousQuantity: number
-  metadata?: Record<string, unknown>
+  metadata?: JsonRecord
   source?: string
   aggregateVersion: number
 }): ItemAddedEvent => ({

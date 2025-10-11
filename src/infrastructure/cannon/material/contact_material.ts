@@ -1,7 +1,7 @@
 import * as CANNON from 'cannon-es'
 import { Effect, Schema } from 'effect'
 import { PhysicsMaterialError } from '../errors'
-import { toCannonMaterial } from '../schemas/material_schema'
+import { CannonMaterialSchema, toCannonMaterial } from '../schemas/material_schema'
 
 /**
  * ContactMaterial - Cannon.js接触マテリアルのEffect-TSラッパー
@@ -11,12 +11,12 @@ import { toCannonMaterial } from '../schemas/material_schema'
 
 // ContactMaterialパラメータ Schema
 export const ContactMaterialParamsSchema = Schema.Struct({
-  materialA: Schema.Unknown.pipe(
+  materialA: CannonMaterialSchema.pipe(
     Schema.annotations({
       description: 'First material (CANNON.Material)',
     })
   ),
-  materialB: Schema.Unknown.pipe(
+  materialB: CannonMaterialSchema.pipe(
     Schema.annotations({
       description: 'Second material (CANNON.Material)',
     })
@@ -78,7 +78,7 @@ export const createContactMaterial = (
       return contactMaterial
     },
     catch: (error) =>
-      new PhysicsMaterialError({
+      PhysicsMaterialError.make({
         operation: 'createContactMaterial',
         cause: error,
         message: 'Failed to create contact material',
@@ -101,7 +101,7 @@ export const addContactMaterialToWorld = (
       world.addContactMaterial(contactMaterial)
     },
     catch: (error) =>
-      new PhysicsMaterialError({
+      PhysicsMaterialError.make({
         operation: 'addContactMaterialToWorld',
         cause: error,
         message: 'Failed to add contact material to world',
@@ -118,7 +118,7 @@ export const createMaterial = (name: string): Effect.Effect<CANNON.Material, Phy
   Effect.try({
     try: () => new CANNON.Material(name),
     catch: (error) =>
-      new PhysicsMaterialError({
+      PhysicsMaterialError.make({
         operation: 'createMaterial',
         cause: error,
         message: `Failed to create material: ${name}`,

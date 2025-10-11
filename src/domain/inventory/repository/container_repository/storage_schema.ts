@@ -4,6 +4,7 @@
  */
 
 import { Schema } from 'effect'
+import { JsonValueSchema } from '@/shared/schema/json'
 
 /**
  * LocalStorage保存用のContainerSlot型定義
@@ -17,11 +18,11 @@ const ContainerSlotStorageSchema = Schema.Union(
         itemId: Schema.String, // ItemId Brand解除
         quantity: Schema.Number.pipe(Schema.int(), Schema.positive()),
         durability: Schema.optional(Schema.Number.pipe(Schema.between(0, 1))),
-        metadata: Schema.optional(Schema.Unknown),
+        metadata: Schema.optional(JsonValueSchema),
       })
     ),
     locked: Schema.optional(Schema.Boolean),
-    metadata: Schema.optional(Schema.Unknown),
+    metadata: Schema.optional(JsonValueSchema),
   })
 )
 

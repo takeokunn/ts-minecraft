@@ -1,5 +1,6 @@
 import type { PlayerId, Vector3D } from '@domain/entities'
 import { Clock, Context, Effect, Layer, Match, pipe, Ref } from 'effect'
+import type { ErrorCause } from '@shared/schema/error'
 import * as THREE from 'three'
 import { Player } from '../entities'
 
@@ -13,7 +14,7 @@ export interface PlayerCameraError {
   readonly _tag: 'PlayerCameraError'
   readonly message: string
   readonly playerId?: PlayerId
-  readonly cause?: unknown
+  readonly cause?: ErrorCause
 }
 
 // カメラモード

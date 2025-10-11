@@ -9,6 +9,7 @@
 import { type GenerationError } from '@domain/world/types/errors'
 import {
   makeUnsafeWorldCoordinate2D,
+  type BoundingBox,
   type WorldCoordinate2D,
   type WorldCoordinate3D,
 } from '@domain/world/value_object/coordinates'
@@ -107,7 +108,7 @@ export interface SimplexNoiseService {
    * 指定領域のシンプレックスノイズフィールドを生成
    */
   readonly generateField: (
-    bounds: any, // BoundingBox
+    bounds: BoundingBox,
     resolution: number,
     config: SimplexNoiseConfig
   ) => Effect.Effect<NoiseField, GenerationError>

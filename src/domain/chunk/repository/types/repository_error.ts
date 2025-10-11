@@ -1,4 +1,8 @@
 import { Clock, Data, Effect, Match, pipe, Schema } from 'effect'
+import { toErrorCause } from '@/shared/schema/error'
+import type { ErrorCause } from '@/shared/schema/error'
+import { toJsonValue } from '@/shared/schema/json'
+import type { JsonValue } from '@/shared/schema/json'
 
 /**
  * Chunk Repository Domain - Error Types
@@ -31,14 +35,14 @@ export type RepositoryError = Data.TaggedEnum<{
   StorageError: {
     readonly operation: string
     readonly reason: string
-    readonly originalError: unknown
+    readonly originalError: ErrorCause
     readonly timestamp: number
   }
 
   /** バリデーションエラー */
   ValidationError: {
     readonly field: string
-    readonly value: unknown
+    readonly value: JsonValue
     readonly constraint: string
     readonly timestamp: number
   }
@@ -88,6 +92,9 @@ export const RepositoryError = Data.taggedEnum<RepositoryError>()
 
 // ===== Error Factory Functions ===== //
 
+type ErrorCauseInput = Error | JsonValue | { readonly message: string } | undefined | null
+type JsonValueInput = JsonValue | Error | undefined | null
+
 /**
  * RepositoryError ファクトリ関数
  */
@@ -112,23 +119,23 @@ export const RepositoryErrors = {
       })
     }),
 
-  storage: (operation: string, reason: string, originalError?: unknown): Effect.Effect<RepositoryError> =>
+  storage: (operation: string, reason: string, originalError?: ErrorCauseInput): Effect.Effect<RepositoryError> =>
     Effect.gen(function* () {
       const timestamp = yield* Clock.currentTimeMillis
       return RepositoryError.StorageError({
         operation,
         reason,
-        originalError: originalError ?? 'Unknown error',
+        originalError: toErrorCause(originalError ?? 'Unknown error'),
         timestamp,
       })
     }),
 
-  validation: (field: string, value: unknown, constraint: string): Effect.Effect<RepositoryError> =>
+  validation: (field: string, value: JsonValueInput, constraint: string): Effect.Effect<RepositoryError> =>
     Effect.gen(function* () {
       const timestamp = yield* Clock.currentTimeMillis
       return RepositoryError.ValidationError({
         field,
-        value,
+        value: toJsonValue(value),
         constraint,
         timestamp,
       })

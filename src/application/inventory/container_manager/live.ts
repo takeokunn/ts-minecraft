@@ -6,10 +6,17 @@
  */
 
 import type { ContainerAggregate, ContainerId } from '@/domain/inventory/aggregate/container'
-import type { InventoryCommand, InventoryQuery, ItemStack, PlayerId } from '@/domain/inventory/types'
+import type { InventoryQuery, ItemId, ItemStack, PlayerId } from '@/domain/inventory/types'
 import { Context, DateTime, Effect, Layer } from 'effect'
 import type { InventoryApplicationError } from '../types'
-import { ContainerManagerApplicationService as ContainerManagerApplicationServiceInterface } from './index'
+import {
+  ContainerManagerApplicationService as ContainerManagerApplicationServiceInterface,
+  type BatchOperationResult,
+  type ContainerBatchOperation,
+  type ContainerDebugInfo,
+  type ContainerOperationLog,
+  type ContainerPermissions,
+} from './service'
 
 /**
  * ContainerManagerApplicationService の Live 実装
@@ -70,9 +77,8 @@ const ContainerManagerApplicationServiceImpl: ContainerManagerApplicationService
 
   setPermissions: (
     containerId: ContainerId,
-    playerId: PlayerId,
-    targetPlayerId: PlayerId,
-    permissions: readonly ('read' | 'write' | 'admin')[]
+    ownerId: PlayerId,
+    permissions: ContainerPermissions
   ): Effect.Effect<void, InventoryApplicationError> => Effect.succeed(undefined),
 
   lockContainer: (
@@ -96,7 +102,8 @@ const ContainerManagerApplicationServiceImpl: ContainerManagerApplicationService
     }),
 
   getPlayerContainers: (
-    query: InventoryQuery
+    playerId: PlayerId,
+    includeShared: boolean
   ): Effect.Effect<
     readonly {
       readonly containerId: ContainerId
@@ -109,17 +116,32 @@ const ContainerManagerApplicationServiceImpl: ContainerManagerApplicationService
   > => Effect.succeed([]),
 
   searchItems: (
-    query: InventoryQuery
+    containerId: ContainerId,
+    itemId: ItemId,
+    playerId: PlayerId
   ): Effect.Effect<
     readonly { readonly slotIndex: number; readonly itemStack: ItemStack }[],
     InventoryApplicationError
   > => Effect.succeed([]),
 
-  searchAcrossContainers: (query: InventoryQuery): Effect.Effect<void, InventoryApplicationError> =>
-    Effect.succeed(undefined),
+  searchAcrossContainers: (
+    itemId: ItemId,
+    playerId: PlayerId,
+    searchRadius?: number
+  ): Effect.Effect<
+    ReadonlyArray<{
+      readonly containerId: ContainerId
+      readonly containerType: string
+      readonly position: { readonly x: number; readonly y: number; readonly z: number }
+      readonly slotIndex: number
+      readonly itemStack: ItemStack
+    }>,
+    InventoryApplicationError
+  > => Effect.succeed([]),
 
   getContainerStats: (
-    query: InventoryQuery
+    containerId: ContainerId,
+    playerId: PlayerId
   ): Effect.Effect<
     {
       readonly totalSlots: number
@@ -152,41 +174,23 @@ const ContainerManagerApplicationServiceImpl: ContainerManagerApplicationService
 
   getAccessHistory: (
     query: InventoryQuery
-  ): Effect.Effect<
-    readonly {
-      readonly timestamp: Date
-      readonly playerId: string & import('effect/Brand').Brand<'PlayerId'>
-      readonly action: 'open' | 'close' | 'store' | 'retrieve' | 'transfer'
-      readonly itemId?: string & import('effect/Brand').Brand<'ItemId'>
-      readonly quantity?: number
-      readonly details: string
-    }[],
-    InventoryApplicationError
-  > => Effect.succeed([]),
+  ): Effect.Effect<ReadonlyArray<ContainerOperationLog>, InventoryApplicationError> => Effect.succeed([]),
 
-  bulkOperation: (
-    command: InventoryCommand
-  ): Effect.Effect<
-    readonly { readonly success: boolean; readonly operation: unknown; readonly error?: string }[],
-    InventoryApplicationError
-  > => Effect.succeed([]),
+  batchOperations: (
+    operations: ReadonlyArray<ContainerBatchOperation>,
+    playerId: PlayerId
+  ): Effect.Effect<ReadonlyArray<BatchOperationResult>, InventoryApplicationError> =>
+    Effect.succeed(
+      operations.map((operation): BatchOperationResult => ({
+        success: false,
+        operation,
+        error: 'Not implemented',
+      }))
+    ),
 
   getContainerHealth: (
     query: InventoryQuery
-  ): Effect.Effect<
-    {
-      readonly containerState: ContainerAggregate
-      readonly permissions: unknown
-      readonly lockStatus: unknown
-      readonly recentOperations: readonly unknown[]
-      readonly performanceMetrics: {
-        readonly averageOperationTime: number
-        readonly totalOperations: number
-        readonly errorRate: number
-      }
-    },
-    InventoryApplicationError
-  > =>
+  ): Effect.Effect<ContainerDebugInfo, InventoryApplicationError> =>
     Effect.fail({
       _tag: 'CONTAINER_NOT_FOUND',
       message: 'Container health check failed',

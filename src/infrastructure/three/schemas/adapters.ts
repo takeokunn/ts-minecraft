@@ -77,14 +77,13 @@ export const matrix4ElementsToTuple = (
   elements: ReadonlyArray<number>
 ): Effect.Effect<Matrix4Elements, MatrixDimensionError> =>
   Schema.decodeUnknown(Matrix4ElementsSchema)(elements).pipe(
-    Effect.mapError(
-      () =>
-        new MatrixDimensionError({
-          matrixType: 'Matrix4',
-          expected: 16,
-          actual: elements.length,
-          message: `Matrix4には16要素が必要ですが、${elements.length}要素でした`,
-        })
+    Effect.mapError(() =>
+      MatrixDimensionError.make({
+        matrixType: 'Matrix4',
+        expected: 16,
+        actual: elements.length,
+        message: `Matrix4には16要素が必要ですが、${elements.length}要素でした`,
+      })
     )
   )
 
@@ -100,14 +99,13 @@ export const matrix3ElementsToTuple = (
   elements: ReadonlyArray<number>
 ): Effect.Effect<Matrix3Elements, MatrixDimensionError> =>
   Schema.decodeUnknown(Matrix3ElementsSchema)(elements).pipe(
-    Effect.mapError(
-      () =>
-        new MatrixDimensionError({
-          matrixType: 'Matrix3',
-          expected: 9,
-          actual: elements.length,
-          message: `Matrix3には9要素が必要ですが、${elements.length}要素でした`,
-        })
+    Effect.mapError(() =>
+      MatrixDimensionError.make({
+        matrixType: 'Matrix3',
+        expected: 9,
+        actual: elements.length,
+        message: `Matrix3には9要素が必要ですが、${elements.length}要素でした`,
+      })
     )
   )
 

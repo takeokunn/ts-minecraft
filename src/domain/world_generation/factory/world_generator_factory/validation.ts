@@ -20,6 +20,7 @@
 
 import * as WorldSeed from '@domain/world/value_object/world_seed/index'
 import { Effect, Function, Match, pipe, Schema } from 'effect'
+import { JsonValueSchema } from '@/shared/schema/json'
 import type { CreateWorldGeneratorParams, FactoryError } from './index'
 
 // ================================
@@ -61,8 +62,8 @@ export const ValidationIssueSchema = Schema.Struct({
   ),
   message: Schema.String,
   field: Schema.optional(Schema.String),
-  expectedValue: Schema.optional(Schema.Unknown),
-  actualValue: Schema.optional(Schema.Unknown),
+  expectedValue: Schema.optional(JsonValueSchema),
+  actualValue: Schema.optional(JsonValueSchema),
   suggestion: Schema.optional(Schema.String),
   code: Schema.optional(Schema.String),
 })

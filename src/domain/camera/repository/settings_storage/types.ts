@@ -7,6 +7,8 @@
 
 import type { CameraSettings, FOV, Sensitivity } from '@domain/camera/types'
 import { Brand, Clock, Data, Effect, Option, ReadonlyMap, Schema } from 'effect'
+import { ErrorCauseSchema, toErrorCause, type ErrorCause } from '@/shared/schema/error'
+import { JsonValueSchema, toJsonValue, type JsonSerializable, type JsonValue } from '@/shared/schema/json'
 import type { ViewMode } from '../../value_object/index'
 
 // ========================================
@@ -217,7 +219,7 @@ export type SettingsRepositoryError = Data.TaggedEnum<{
   }
   readonly ValidationFailed: {
     readonly field: string
-    readonly value: unknown
+    readonly value: JsonValue
     readonly reason: string
   }
   readonly PresetNotFound: {
@@ -232,7 +234,7 @@ export type SettingsRepositoryError = Data.TaggedEnum<{
   }
   readonly StorageError: {
     readonly message: string
-    readonly cause: Option<unknown>
+    readonly cause: Option.Option<ErrorCause>
   }
   readonly EncodingFailed: {
     readonly settingsType: string
@@ -393,7 +395,7 @@ export const SettingsRepositoryErrorSchema = Schema.Union(
   }),
   Schema.TaggedStruct('ValidationFailed', {
     field: Schema.String,
-    value: Schema.Unknown,
+    value: JsonValueSchema,
     reason: Schema.String,
   }),
   Schema.TaggedStruct('PresetNotFound', {
@@ -408,7 +410,7 @@ export const SettingsRepositoryErrorSchema = Schema.Union(
   }),
   Schema.TaggedStruct('StorageError', {
     message: Schema.String,
-    cause: Schema.OptionFromNullable(Schema.Unknown),
+    cause: Schema.OptionFromNullable(ErrorCauseSchema),
   }),
   Schema.TaggedStruct('EncodingFailed', {
     settingsType: Schema.String,
@@ -434,8 +436,8 @@ export const createSettingsRepositoryError = {
   duplicateSettings: (settingsType: string, identifier: string): SettingsRepositoryError =>
     Data.tagged('DuplicateSettings', { settingsType, identifier }),
 
-  validationFailed: (field: string, value: unknown, reason: string): SettingsRepositoryError =>
-    Data.tagged('ValidationFailed', { field, value, reason }),
+  validationFailed: (field: string, value: JsonSerializable, reason: string): SettingsRepositoryError =>
+    Data.tagged('ValidationFailed', { field, value: toJsonValue(value), reason }),
 
   presetNotFound: (presetName: string): SettingsRepositoryError => Data.tagged('PresetNotFound', { presetName }),
 
@@ -448,7 +450,7 @@ export const createSettingsRepositoryError = {
   storageError: (message: string, cause?: unknown): SettingsRepositoryError =>
     Data.tagged('StorageError', {
       message,
-      cause: cause ? Option.some(cause) : Option.none(),
+      cause: Option.fromNullable(toErrorCause(cause)),
     }),
 
   encodingFailed: (settingsType: string, reason: string): SettingsRepositoryError =>

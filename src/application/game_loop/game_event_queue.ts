@@ -13,10 +13,16 @@
  */
 
 import type { BlockCoordinate } from '@/domain/biome/value_object/coordinates'
+import { BlockCoordinateSchema } from '@/domain/biome/value_object/coordinates'
+import { Position3DSchema } from '@/domain/camera/value_object/camera_position'
 import type { Position3D } from '@/domain/camera/value_object/camera_position/types'
+import { BlockTypeIdSchema } from '@/domain/shared/entities/block_type_id'
 import type { BlockTypeId } from '@/domain/shared/entities/block_type_id'
+import { PlayerIdSchema } from '@/domain/shared/entities/player_id/schema'
 import type { PlayerId } from '@/domain/shared/entities/player_id'
 import { Context, Effect, Layer, Match, Queue, Stream, pipe } from 'effect'
+import { ErrorCauseSchema } from '@shared/schema/error'
+import type { ErrorCause } from '@shared/schema/error'
 
 /**
  * ゲームイベント定義
@@ -30,6 +36,25 @@ export type GameEvent =
   | { readonly _tag: 'PlayerMoved'; readonly playerId: PlayerId; readonly position: Position3D }
   | { readonly _tag: 'BlockPlaced'; readonly position: BlockCoordinate; readonly blockType: BlockTypeId }
   | { readonly _tag: 'ChunkLoaded'; readonly chunkId: string }
+
+const PlayerMovedEventSchema = Schema.Struct({
+  _tag: Schema.Literal('PlayerMoved'),
+  playerId: PlayerIdSchema,
+  position: Position3DSchema,
+})
+
+const BlockPlacedEventSchema = Schema.Struct({
+  _tag: Schema.Literal('BlockPlaced'),
+  position: BlockCoordinateSchema,
+  blockType: BlockTypeIdSchema,
+})
+
+const ChunkLoadedEventSchema = Schema.Struct({
+  _tag: Schema.Literal('ChunkLoaded'),
+  chunkId: Schema.String,
+})
+
+const GameEventSchema = Schema.Union(PlayerMovedEventSchema, BlockPlacedEventSchema, ChunkLoadedEventSchema)
 
 /**
  * キュー満杯エラー
@@ -53,8 +78,8 @@ export const createQueueFullError = (message: string): QueueFullError =>
  * イベント処理エラー
  */
 export const EventProcessingErrorSchema = Schema.TaggedStruct('EventProcessingError', {
-  event: Schema.Unknown, // GameEventのスキーマ定義がないためUnknownを使用
-  cause: Schema.Unknown,
+  event: GameEventSchema,
+  cause: ErrorCauseSchema,
 })
 
 export type EventProcessingError = Schema.Schema.Type<typeof EventProcessingErrorSchema>
@@ -62,7 +87,7 @@ export type EventProcessingError = Schema.Schema.Type<typeof EventProcessingErro
 /**
  * EventProcessingErrorを生成するヘルパー関数
  */
-export const createEventProcessingError = (event: GameEvent, cause: unknown): EventProcessingError =>
+export const createEventProcessingError = (event: GameEvent, cause: ErrorCause): EventProcessingError =>
   Schema.decodeSync(EventProcessingErrorSchema)({
     _tag: 'EventProcessingError' as const,
     event,
@@ -143,11 +168,14 @@ const handleEvent = (event: GameEvent): Effect.Effect<void> =>
  * - キュー満杯時はenqueueが失敗
  * - 1000イベントまでバッファリング可能
  */
-export const GameEventQueueLive = Layer.effect(
+export const GameEventQueueLive = Layer.scoped(
   GameEventQueueTag,
   Effect.gen(function* () {
-    // 容量1000のboundedキュー作成
-    const queue = yield* Queue.bounded<GameEvent>(1000)
+    // 容量1000のboundedキューをScope配下で確保し、終了時に自動解放
+    const queue = yield* Effect.acquireRelease(
+      Queue.bounded<GameEvent>(1000),
+      (q) => Queue.shutdown(q)
+    )
 
     return GameEventQueueTag.of({
       enqueue: (event) =>

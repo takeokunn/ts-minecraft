@@ -1,4 +1,5 @@
 import { Data, Effect, Match, Option, Schema, pipe } from 'effect'
+import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
 
 const decode = <A, I>(schema: Schema.Schema<A, I>) => Schema.decode(schema)
 const decodeSync = <A, I>(schema: Schema.Schema<A, I>) => Schema.decodeSync(schema)
@@ -313,25 +314,35 @@ export type InventoryGUIEvent =
   | ReturnType<typeof QuickMove>
   | ReturnType<typeof QuickDrop>
 
-export class SlotNotFoundError extends Schema.TaggedError<SlotNotFoundError>()('SlotNotFoundError', {
+export const SlotNotFoundErrorSchema = Schema.TaggedError('SlotNotFoundError', {
   slot: SlotIndexSchema,
-}) {}
+})
+export type SlotNotFoundError = Schema.Schema.Type<typeof SlotNotFoundErrorSchema>
+export const SlotNotFoundError = makeErrorFactory(SlotNotFoundErrorSchema)
 
-export class InvalidDropError extends Schema.TaggedError<InvalidDropError>()('InvalidDropError', {
+export const InvalidDropErrorSchema = Schema.TaggedError('InvalidDropError', {
   reason: Schema.String,
-}) {}
+})
+export type InvalidDropError = Schema.Schema.Type<typeof InvalidDropErrorSchema>
+export const InvalidDropError = makeErrorFactory(InvalidDropErrorSchema)
 
-export class AnimationFailedError extends Schema.TaggedError<AnimationFailedError>()('AnimationFailedError', {
+export const AnimationFailedErrorSchema = Schema.TaggedError('AnimationFailedError', {
   slot: SlotIndexSchema,
-}) {}
+})
+export type AnimationFailedError = Schema.Schema.Type<typeof AnimationFailedErrorSchema>
+export const AnimationFailedError = makeErrorFactory(AnimationFailedErrorSchema)
 
-export class RenderFailureError extends Schema.TaggedError<RenderFailureError>()('RenderFailureError', {
+export const RenderFailureErrorSchema = Schema.TaggedError('RenderFailureError', {
   message: Schema.String,
-}) {}
+})
+export type RenderFailureError = Schema.Schema.Type<typeof RenderFailureErrorSchema>
+export const RenderFailureError = makeErrorFactory(RenderFailureErrorSchema)
 
-export class DomainFailureError extends Schema.TaggedError<DomainFailureError>()('DomainFailureError', {
+export const DomainFailureErrorSchema = Schema.TaggedError('DomainFailureError', {
   message: Schema.String,
-}) {}
+})
+export type DomainFailureError = Schema.Schema.Type<typeof DomainFailureErrorSchema>
+export const DomainFailureError = makeErrorFactory(DomainFailureErrorSchema)
 
 export type InventoryGUIError =
   | SlotNotFoundError

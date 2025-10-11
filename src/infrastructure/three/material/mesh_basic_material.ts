@@ -47,7 +47,11 @@ export const createMeshBasicMaterial = (
         wireframe: params.wireframe,
         visible: params.visible,
       }),
-    catch: (error) => new MaterialError({ type: 'MeshBasicMaterial', cause: error }),
+    catch: (error) =>
+      MaterialError.make({
+        type: 'MeshBasicMaterial',
+        cause: error,
+      }),
   })
 
 /**

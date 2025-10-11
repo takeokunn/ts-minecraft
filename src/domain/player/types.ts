@@ -257,12 +257,14 @@ export const PlayerCreationInputSchema = Schema.Struct({
   gameMode: PlayerGameModeSchema,
   position: PlayerPositionSchema,
   timestamp: TimestampSchema,
-}).pipe(Schema.brand('PlayerCreationInput'))
+})
 
 export type PlayerCreationInput = Schema.Schema.Type<typeof PlayerCreationInputSchema>
+export type PlayerCreationInputInput = Schema.Schema.Input<typeof PlayerCreationInputSchema>
 
 export const PlayerUpdateContextSchema = Schema.Struct({
   timestamp: TimestampSchema,
-}).pipe(Schema.brand('PlayerUpdateContext'))
+})
 
 export type PlayerUpdateContext = Schema.Schema.Type<typeof PlayerUpdateContextSchema>
+export type PlayerUpdateContextInput = Schema.Schema.Input<typeof PlayerUpdateContextSchema>

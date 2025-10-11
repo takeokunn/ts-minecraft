@@ -1,4 +1,5 @@
 import type { PlayerId, Vector3D } from '@domain/entities'
+import { toErrorCause, type ErrorCause } from '@shared/schema/error'
 import * as CANNON from 'cannon-es'
 import { Context, Effect, Layer, pipe, ReadonlyArray } from 'effect'
 
@@ -21,6 +22,13 @@ export const PHYSICS_CONSTANTS = {
   ANGULAR_DAMPING: 0.01,
 } as const
 
+const hasNumericSolverProperty = <K extends PropertyKey>(
+  solver: CANNON.Solver,
+  key: K
+): solver is CANNON.Solver & Record<K, number> =>
+  Object.prototype.hasOwnProperty.call(solver, key) &&
+  typeof (solver as Record<PropertyKey, number | undefined>)[key] === 'number'
+
 // 物理ボディの状態
 export interface PhysicsBodyState {
   readonly position: Vector3D
@@ -35,7 +43,7 @@ export interface PhysicsBodyState {
 export interface PhysicsEngineError {
   readonly _tag: 'PhysicsEngineError'
   readonly message: string
-  readonly cause?: unknown
+  readonly cause?: ErrorCause
 }
 
 // Character Controller設定
@@ -134,11 +142,11 @@ const makeCannonPhysicsService: Effect.Effect<CannonPhysicsService> = Effect.gen
         world.broadphase.useBoundingBoxes = true
 
         // ソルバー設定 (Cannon-es 0.20+)
-        if ('iterations' in world.solver) {
-          ;(world.solver as any).iterations = 10
+        if (hasNumericSolverProperty(world.solver, 'iterations')) {
+          world.solver.iterations = 10
         }
-        if ('tolerance' in world.solver) {
-          ;(world.solver as any).tolerance = 0.1
+        if (hasNumericSolverProperty(world.solver, 'tolerance')) {
+          world.solver.tolerance = 0.1
         }
 
         // コンタクトマテリアル設定
@@ -218,7 +226,7 @@ const makeCannonPhysicsService: Effect.Effect<CannonPhysicsService> = Effect.gen
           (error): PhysicsEngineError => ({
             _tag: 'PhysicsEngineError',
             message: `Failed to create player controller: ${error}`,
-            cause: error,
+            cause: toErrorCause(error),
           })
         )
       )
@@ -244,7 +252,7 @@ const makeCannonPhysicsService: Effect.Effect<CannonPhysicsService> = Effect.gen
           (error): PhysicsEngineError => ({
             _tag: 'PhysicsEngineError',
             message: `Physics step failed: ${error}`,
-            cause: error,
+            cause: toErrorCause(error),
           })
         )
       )
@@ -306,7 +314,7 @@ const makeCannonPhysicsService: Effect.Effect<CannonPhysicsService> = Effect.gen
           (error): PhysicsEngineError => ({
             _tag: 'PhysicsEngineError',
             message: `Failed to get player state: ${error}`,
-            cause: error,
+            cause: toErrorCause(error),
           })
         )
       )
@@ -334,7 +342,7 @@ const makeCannonPhysicsService: Effect.Effect<CannonPhysicsService> = Effect.gen
           (error): PhysicsEngineError => ({
             _tag: 'PhysicsEngineError',
             message: `Failed to apply movement force: ${error}`,
-            cause: error,
+            cause: toErrorCause(error),
           })
         )
       )
@@ -361,7 +369,7 @@ const makeCannonPhysicsService: Effect.Effect<CannonPhysicsService> = Effect.gen
           (error): PhysicsEngineError => ({
             _tag: 'PhysicsEngineError',
             message: `Failed to jump player: ${error}`,
-            cause: error,
+            cause: toErrorCause(error),
           })
         )
       )
@@ -404,7 +412,7 @@ const makeCannonPhysicsService: Effect.Effect<CannonPhysicsService> = Effect.gen
           (error): PhysicsEngineError => ({
             _tag: 'PhysicsEngineError',
             message: `Ground raycast failed: ${error}`,
-            cause: error,
+            cause: toErrorCause(error),
           })
         )
       )
@@ -442,7 +450,7 @@ const makeCannonPhysicsService: Effect.Effect<CannonPhysicsService> = Effect.gen
           (error): PhysicsEngineError => ({
             _tag: 'PhysicsEngineError',
             message: `Failed to add static block: ${error}`,
-            cause: error,
+            cause: toErrorCause(error),
           })
         )
       )
@@ -473,7 +481,7 @@ const makeCannonPhysicsService: Effect.Effect<CannonPhysicsService> = Effect.gen
           (error): PhysicsEngineError => ({
             _tag: 'PhysicsEngineError',
             message: `Failed to remove body: ${error}`,
-            cause: error,
+            cause: toErrorCause(error),
           })
         )
       )

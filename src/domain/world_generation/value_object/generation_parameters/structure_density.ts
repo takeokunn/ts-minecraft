@@ -8,6 +8,7 @@
 import { taggedUnion } from '@domain/world/utils'
 import type { Brand as BrandType } from 'effect'
 import { Schema } from 'effect'
+import { JsonValueSchema } from '@shared/schema/json'
 
 /**
  * 密度値Brand型（0.0から1.0）
@@ -295,7 +296,7 @@ export const CreateStructureDensityParamsSchema = Schema.Struct({
   enabledStructures: Schema.Array(StructureTypeSchema).pipe(Schema.optional),
   customSettings: Schema.Record({
     key: Schema.String,
-    value: Schema.Unknown,
+    value: JsonValueSchema,
   }).pipe(Schema.optional),
 })
 
@@ -309,7 +310,7 @@ export const StructureDensityErrorSchema = taggedUnion('_tag', [
     _tag: Schema.Literal('InvalidDensityValue'),
     structure: StructureTypeSchema,
     parameter: Schema.String,
-    value: Schema.Unknown,
+    value: JsonValueSchema,
     message: Schema.String,
   }),
   Schema.Struct({

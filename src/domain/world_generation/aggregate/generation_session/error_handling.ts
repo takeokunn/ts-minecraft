@@ -9,6 +9,7 @@
  */
 
 import type * as GenerationErrors from '@domain/world/types/errors'
+import { JsonValueSchema } from '@shared/schema/json'
 import { DateTime, Effect, Schema } from 'effect'
 
 // ================================
@@ -71,7 +72,7 @@ export const SessionErrorSchema = Schema.Struct({
   details: Schema.optional(
     Schema.Record({
       key: Schema.String,
-      value: Schema.Unknown,
+      value: JsonValueSchema,
     })
   ),
   stackTrace: Schema.optional(Schema.String),
@@ -84,7 +85,7 @@ export const SessionErrorSchema = Schema.Struct({
     additionalInfo: Schema.optional(
       Schema.Record({
         key: Schema.String,
-        value: Schema.Unknown,
+        value: JsonValueSchema,
       })
     ),
   }),

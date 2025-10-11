@@ -288,7 +288,7 @@ export const enchantedDiamondPickaxe = (count = 1): Effect.Effect<ItemStack, Ite
     (builder) => builder.withQuality('epic'),
     (builder) => builder.withRarity('epic'),
     (builder) => builder.withCustomName("Miner's Dream"),
-    (builder) => builder.addLoreLine('Mines faster than any other tool'),
+    (builder) => builder.addLoreLine('Mines faster than every other tool'),
     (builder) => builder.build()
   )
 

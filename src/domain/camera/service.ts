@@ -1,5 +1,15 @@
 import type { CameraConfig, CameraError, CameraState } from '@domain/camera/types'
-import { Context, Effect } from 'effect'
+import {
+  CameraDistanceSchema,
+  CameraModeSchema,
+  DeltaTimeSchema,
+  FOVSchema,
+  MouseDeltaSchema,
+  Position3DSchema,
+  SensitivitySchema,
+} from '@domain/camera/types'
+import { CameraConfig as CameraConfigSchema } from './types'
+import { Context, Effect, Schema } from 'effect'
 import * as THREE from 'three'
 
 /**
@@ -13,16 +23,26 @@ import * as THREE from 'three'
  * - 型安全性の強化
  * - Schema検証による実行時安全性
  */
+export type CameraConfigInput = Schema.Schema.Input<typeof CameraConfigSchema>
+export type CameraModeInput = Schema.Schema.Input<typeof CameraModeSchema>
+export type DeltaTimeInput = Schema.Schema.Input<typeof DeltaTimeSchema>
+export type Position3DInput = Schema.Schema.Input<typeof Position3DSchema>
+export type MouseDeltaInput = Schema.Schema.Input<typeof MouseDeltaSchema>
+export type FOVInput = Schema.Schema.Input<typeof FOVSchema>
+export type SensitivityInput = Schema.Schema.Input<typeof SensitivitySchema>
+export type CameraDistanceInput = Schema.Schema.Input<typeof CameraDistanceSchema>
+export type SmoothingInput = number
+
 export interface CameraService {
   /**
    * カメラの初期化 - Schema検証付き
    */
-  readonly initialize: (config: unknown) => Effect.Effect<THREE.PerspectiveCamera, CameraError>
+  readonly initialize: (config: CameraConfigInput) => Effect.Effect<THREE.PerspectiveCamera, CameraError>
 
   /**
    * カメラモードの切り替え - Schema検証付き
    */
-  readonly switchMode: (mode: unknown) => Effect.Effect<void, CameraError>
+  readonly switchMode: (mode: CameraModeInput) => Effect.Effect<void, CameraError>
 
   /**
    * カメラの更新 - Schema検証付き
@@ -30,7 +50,7 @@ export interface CameraService {
    * @param deltaTime - フレーム間の経過時間（秒）
    * @param targetPosition - プレイヤーの位置
    */
-  readonly update: (deltaTime: unknown, targetPosition: unknown) => Effect.Effect<void, CameraError>
+  readonly update: (deltaTime: DeltaTimeInput, targetPosition: Position3DInput) => Effect.Effect<void, CameraError>
 
   /**
    * マウス入力による視点操作 - Schema検証付き
@@ -38,27 +58,27 @@ export interface CameraService {
    * @param deltaX - マウスX方向の移動量
    * @param deltaY - マウスY方向の移動量
    */
-  readonly rotate: (deltaX: unknown, deltaY: unknown) => Effect.Effect<void, CameraError>
+  readonly rotate: (deltaX: MouseDeltaInput, deltaY: MouseDeltaInput) => Effect.Effect<void, CameraError>
 
   /**
    * FOV（視野角）の設定 - Schema検証付き
    */
-  readonly setFOV: (fov: unknown) => Effect.Effect<void, CameraError>
+  readonly setFOV: (fov: FOVInput) => Effect.Effect<void, CameraError>
 
   /**
    * カメラ感度の設定 - Schema検証付き
    */
-  readonly setSensitivity: (sensitivity: unknown) => Effect.Effect<void, CameraError>
+  readonly setSensitivity: (sensitivity: SensitivityInput) => Effect.Effect<void, CameraError>
 
   /**
    * 三人称視点の距離設定 - Schema検証付き
    */
-  readonly setThirdPersonDistance: (distance: unknown) => Effect.Effect<void, CameraError>
+  readonly setThirdPersonDistance: (distance: CameraDistanceInput) => Effect.Effect<void, CameraError>
 
   /**
    * カメラのスムージング設定 - Schema検証付き
    */
-  readonly setSmoothing: (smoothing: unknown) => Effect.Effect<void, CameraError>
+  readonly setSmoothing: (smoothing: SmoothingInput) => Effect.Effect<void, CameraError>
 
   /**
    * 現在のカメラ状態を取得
@@ -83,7 +103,7 @@ export interface CameraService {
   /**
    * カメラのアスペクト比更新 - Schema検証付き
    */
-  readonly updateAspectRatio: (width: unknown, height: unknown) => Effect.Effect<void, CameraError>
+  readonly updateAspectRatio: (width: number, height: number) => Effect.Effect<void, CameraError>
 
   /**
    * リソースの解放

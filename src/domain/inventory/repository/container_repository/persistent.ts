@@ -1,4 +1,5 @@
 import { Clock, Effect, HashMap, Layer, Option, ReadonlyArray, Ref, Schema, pipe } from 'effect'
+import type { JsonRecord } from '@shared/schema/json'
 import { makeUnsafeContainerId } from '../../aggregate/container/types'
 import type {
   Container,
@@ -163,7 +164,7 @@ export const ContainerRepositoryPersistent = (config: ContainerPersistentConfig 
             // Map を Object に変換してシリアライズ可能にする
             const containersObj = pipe(
               HashMap.toEntries(containers),
-              ReadonlyArray.reduce({} as Record<string, unknown>, (acc, [id, container]) => ({
+              ReadonlyArray.reduce({} as JsonRecord, (acc, [id, container]) => ({
                 ...acc,
                 [id]: {
                   ...container,
@@ -174,7 +175,7 @@ export const ContainerRepositoryPersistent = (config: ContainerPersistentConfig 
 
             const snapshotsObj = pipe(
               HashMap.toEntries(snapshots),
-              ReadonlyArray.reduce({} as Record<string, unknown>, (acc, [id, snapshot]) => ({
+              ReadonlyArray.reduce({} as JsonRecord, (acc, [id, snapshot]) => ({
                 ...acc,
                 [id]: {
                   ...snapshot,

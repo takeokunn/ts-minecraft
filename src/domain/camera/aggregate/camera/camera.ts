@@ -8,10 +8,11 @@
  * DDD原則に基づき、ビジネスルールを内包し、不変性を保証します。
  */
 
-import type { CameraError, CameraEvent, CameraId } from '@domain/camera/types'
-import { createCameraEvent } from '@domain/camera/types'
-import { Array, Data, DateTime, Effect, Match, Option, pipe } from 'effect'
+import type { CameraError, CameraEvent, CameraId, CameraMode } from '@domain/camera/types'
+import { CAMERA_MODES, createCameraEvent } from '@domain/camera/types'
+import { Array, Clock, Data, DateTime, Effect, Match, Option, pipe } from 'effect'
 import type { AnimationState, CameraRotation, CameraSettings, Position3D, ViewMode } from '../../value_object/index'
+import { ViewModeOps } from '../../value_object/view_mode/operations'
 
 /**
  * Camera Aggregate Root Interface
@@ -361,6 +362,8 @@ const validateCameraSettings = (settings: CameraSettings): Effect.Effect<CameraS
     return settings // 仮実装
   })
 
+const viewModeToCameraMode = (viewMode: ViewMode): CameraMode => ViewModeOps.getTag(viewMode) as CameraMode
+
 // ========================================
 // イベント作成ヘルパー関数
 // ========================================
@@ -381,19 +384,17 @@ const createViewModeChangedEvent = (
   cameraId: CameraId,
   oldMode: ViewMode,
   newMode: ViewMode
-): Effect.Effect<CameraEvent> => {
-  // ViewModeをCameraModeに変換する必要がある場合の処理
-  // TODO: ViewMode と CameraMode の型を統一する
-  return Effect.succeed(
-    Data.struct({
+): Effect.Effect<CameraEvent> =>
+  Effect.gen(function* () {
+    const timestamp = yield* Clock.currentTimeMillis
+    return Data.struct({
       _tag: 'ViewModeChanged' as const,
       cameraId,
-      fromMode: 'first-person' as const,
-      toMode: 'first-person' as const,
-      timestamp: Date.now(),
+      fromMode: viewModeToCameraMode(oldMode),
+      toMode: viewModeToCameraMode(newMode),
+      timestamp,
     })
-  )
-}
+  })
 
 const createAnimationStartedEvent = (cameraId: CameraId, animation: AnimationState): Effect.Effect<CameraEvent> =>
   createCameraEvent.animationStarted(cameraId, animation)

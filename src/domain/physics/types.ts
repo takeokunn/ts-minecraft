@@ -1,5 +1,6 @@
 import { BlockTypeIdSchema } from '@domain/entities'
 import { Brand, Schema } from 'effect'
+import { ErrorCauseSchema } from '@/shared/schema/error'
 import { Vector3Schema } from './types/core'
 
 /**
@@ -59,7 +60,7 @@ export type FluidPhysicsResult = Schema.Schema.Type<typeof FluidPhysicsResultSch
  */
 export const PhysicsErrorSchema = Schema.TaggedStruct('PhysicsError', {
   message: Schema.String,
-  cause: Schema.optional(Schema.Unknown),
+  cause: Schema.optional(ErrorCauseSchema),
 })
 
 export type PhysicsError = Schema.Schema.Type<typeof PhysicsErrorSchema>

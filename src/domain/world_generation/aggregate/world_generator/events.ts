@@ -9,8 +9,18 @@
 
 import type * as WorldTypes from '@domain/world/types/core'
 import * as Coordinates from '@domain/world/value_object/coordinates/index'
+import { ChunkDataSchema } from '@domain/chunk'
+import { JsonValueSchema, type JsonValue } from '@shared/schema/json'
 import { Brand, Clock, Context, DateTime, Effect, Schema, Stream } from 'effect'
-import type { GenerationContext, UpdateSettingsCommand, WorldGeneratorId } from './index'
+import {
+  GenerationContextSchema,
+  ContextMetadataSchema,
+  UpdateSettingsCommandSchema,
+  WorldGeneratorIdSchema,
+  type GenerationContext,
+  type UpdateSettingsCommand,
+  type WorldGeneratorId,
+} from './index'
 
 // ================================
 // Event Base Schema
@@ -42,9 +52,9 @@ export const WorldGeneratorCreatedSchema = BaseEventSchema.pipe(
     Schema.Struct({
       eventType: Schema.Literal('WorldGeneratorCreated'),
       payload: Schema.Struct({
-        generatorId: Schema.String, // WorldGeneratorId
-        context: Schema.Unknown, // GenerationContextSchema
-        metadata: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+        generatorId: WorldGeneratorIdSchema,
+        context: GenerationContextSchema,
+        metadata: ContextMetadataSchema,
       }),
     })
   )
@@ -60,10 +70,10 @@ export const ChunkGenerationStartedSchema = BaseEventSchema.pipe(
     Schema.Struct({
       eventType: Schema.Literal('ChunkGenerationStarted'),
       payload: Schema.Struct({
-        generatorId: Schema.String, // WorldGeneratorId
-        coordinate: Schema.Unknown, // ChunkCoordinateSchema
+        generatorId: WorldGeneratorIdSchema,
+        coordinate: Coordinates.ChunkCoordinateSchema,
         priority: Schema.Number.pipe(Schema.between(1, 10)),
-        options: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
+        options: Schema.optional(Schema.Record({ key: Schema.String, value: JsonValueSchema })),
         estimatedDuration: Schema.optional(Schema.Number),
       }),
     })
@@ -80,9 +90,9 @@ export const ChunkGeneratedSchema = BaseEventSchema.pipe(
     Schema.Struct({
       eventType: Schema.Literal('ChunkGenerated'),
       payload: Schema.Struct({
-        generatorId: Schema.String, // WorldGeneratorId
-        coordinate: Schema.Unknown, // ChunkCoordinateSchema
-        chunkData: Schema.Unknown, // ChunkDataSchema
+        generatorId: WorldGeneratorIdSchema,
+        coordinate: Coordinates.ChunkCoordinateSchema,
+        chunkData: ChunkDataSchema,
         actualDuration: Schema.Number,
         performanceMetrics: Schema.Record({ key: Schema.String, value: Schema.Number }),
       }),
@@ -100,12 +110,12 @@ export const ChunkGenerationFailedSchema = BaseEventSchema.pipe(
     Schema.Struct({
       eventType: Schema.Literal('ChunkGenerationFailed'),
       payload: Schema.Struct({
-        generatorId: Schema.String, // WorldGeneratorId
-        coordinate: Schema.Unknown, // ChunkCoordinateSchema
+        generatorId: WorldGeneratorIdSchema,
+        coordinate: Coordinates.ChunkCoordinateSchema,
         error: Schema.Struct({
           code: Schema.String,
           message: Schema.String,
-          details: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
+          details: Schema.optional(Schema.Record({ key: Schema.String, value: JsonValueSchema })),
         }),
         attempt: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(1)),
         willRetry: Schema.Boolean,
@@ -124,8 +134,8 @@ export const SettingsUpdatedSchema = BaseEventSchema.pipe(
     Schema.Struct({
       eventType: Schema.Literal('SettingsUpdated'),
       payload: Schema.Struct({
-        generatorId: Schema.String, // WorldGeneratorId
-        changes: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+        generatorId: WorldGeneratorIdSchema,
+        changes: UpdateSettingsCommandSchema,
         previousVersion: Schema.Number.pipe(Schema.int()),
         newVersion: Schema.Number.pipe(Schema.int()),
         reason: Schema.optional(Schema.String),
@@ -144,9 +154,9 @@ export const GeneratorPausedSchema = BaseEventSchema.pipe(
     Schema.Struct({
       eventType: Schema.Literal('GeneratorPaused'),
       payload: Schema.Struct({
-        generatorId: Schema.String, // WorldGeneratorId
+        generatorId: WorldGeneratorIdSchema,
         reason: Schema.String,
-        activeGenerations: Schema.Array(Schema.String), // ChunkCoordinate文字列
+        activeGenerations: Schema.Array(Coordinates.ChunkCoordinateSchema),
         resumeAt: Schema.optional(Schema.DateTimeUtc),
       }),
     })
@@ -163,9 +173,9 @@ export const GeneratorResumedSchema = BaseEventSchema.pipe(
     Schema.Struct({
       eventType: Schema.Literal('GeneratorResumed'),
       payload: Schema.Struct({
-        generatorId: Schema.String, // WorldGeneratorId
+        generatorId: WorldGeneratorIdSchema,
         pausedDuration: Schema.Number, // ミリ秒
-        restoredGenerations: Schema.Array(Schema.String), // ChunkCoordinate文字列
+        restoredGenerations: Schema.Array(Coordinates.ChunkCoordinateSchema),
       }),
     })
   )
@@ -245,11 +255,7 @@ export const createWorldGeneratorCreated = (
       payload: {
         generatorId,
         context,
-        metadata: {
-          worldType: context.metadata.worldType,
-          difficulty: context.metadata.difficulty,
-          gameMode: context.metadata.gameMode,
-        },
+        metadata: context.metadata,
       },
     })
   })
@@ -262,11 +268,14 @@ export const createChunkGenerationStarted = (
   coordinate: Coordinates.ChunkCoordinate,
   priority: number,
   aggregateVersion: number,
-  options?: any
+  options?: Record<string, unknown>
 ): Effect.Effect<ChunkGenerationStarted> =>
   Effect.gen(function* () {
     const eventId = yield* generateEventId()
     const timestamp = yield* DateTime.nowAsDate
+    const encodedOptions = options
+      ? Schema.decodeSync(Schema.Record({ key: Schema.String, value: JsonValueSchema }))(options)
+      : undefined
 
     return Schema.decodeSync(ChunkGenerationStartedSchema)({
       eventId,
@@ -278,7 +287,7 @@ export const createChunkGenerationStarted = (
         generatorId,
         coordinate,
         priority,
-        options,
+        options: encodedOptions,
       },
     })
   })
@@ -343,7 +352,12 @@ export const createChunkGenerationFailed = (
       payload: {
         generatorId,
         coordinate,
-        error,
+        error: {
+          ...error,
+          details: error.details
+            ? Schema.decodeSync(Schema.Record({ key: Schema.String, value: JsonValueSchema }))(error.details)
+            : undefined,
+        },
         attempt,
         willRetry,
       },
@@ -371,7 +385,7 @@ export const createSettingsUpdated = (
       eventType: 'SettingsUpdated',
       payload: {
         generatorId,
-        changes: command satisfies Record<string, unknown>,
+        changes: command,
         previousVersion,
         newVersion,
       },

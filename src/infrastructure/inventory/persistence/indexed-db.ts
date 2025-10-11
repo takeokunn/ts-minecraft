@@ -22,6 +22,7 @@ import {
   toLoadFailed,
   toNotAvailable,
   toSaveFailed,
+  toStorageFailureCause,
 } from '..'
 import type { Inventory, InventoryState, PlayerId } from '../../../domain/inventory'
 import { InventorySchema, InventoryStateSchema, PlayerIdSchema } from '../../../domain/inventory'
@@ -45,31 +46,42 @@ const requireAvailability = Effect.sync(() => typeof indexedDB !== 'undefined').
 
 const formatParseError = (error: Schema.ParseError): string => TreeFormatter.formatErrorSync(error)
 
-const tryPromise = <A>(tag: 'load' | 'save' | 'delete' | 'clear', context: string, thunk: () => Promise<A>) =>
+const tryPromise = <A>(
+  tag: 'load' | 'save' | 'delete' | 'clear',
+  context: string,
+  thunk: () => PromiseLike<A>
+) =>
   Effect.tryPromise({
     try: thunk,
     catch: (cause) =>
       pipe(
         tag,
         Match.value,
-        Match.when('load', () => toLoadFailed(backend, context, 'IndexedDB read failure', cause)),
-        Match.when('save', () => toSaveFailed(backend, context, 'IndexedDB write failure', cause)),
-        Match.when('delete', () => toSaveFailed(backend, context, 'IndexedDB delete failure', cause)),
-        Match.when('clear', () => toSaveFailed(backend, context, 'IndexedDB clear failure', cause)),
+        Match.when('load', () => toLoadFailed(backend, context, 'IndexedDB read failure', toStorageFailureCause(cause))),
+        Match.when('save', () => toSaveFailed(backend, context, 'IndexedDB write failure', toStorageFailureCause(cause))),
+        Match.when('delete', () => toSaveFailed(backend, context, 'IndexedDB delete failure', toStorageFailureCause(cause))),
+        Match.when('clear', () => toSaveFailed(backend, context, 'IndexedDB clear failure', toStorageFailureCause(cause))),
         Match.exhaustive
       ),
-  })
+  }).pipe(
+    Effect.annotateLogs('inventory.storage.operation', tag),
+    Effect.annotateLogs('inventory.storage.context', context)
+  )
 
 const decodeFromStore = <A>(value: unknown, schema: Schema.Schema<A>, context: string) =>
   pipe(
     Schema.decodeUnknown(schema)(value),
-    Effect.mapError((error) => toCorrupted(backend, `${context}: ${formatParseError(error)}`, error))
+    Effect.mapError((error) => toCorrupted(backend, `${context}: ${formatParseError(error)}`, error)),
+    Effect.annotateLogs('inventory.storage.operation', 'decode'),
+    Effect.annotateLogs('inventory.storage.context', context)
   )
 
 const encodeToStore = <A>(value: A, schema: Schema.Schema<A>, context: string) =>
   pipe(
     Schema.encode(schema)(value),
-    Effect.mapError((error) => toCorrupted(backend, `${context}: ${formatParseError(error)}`, error))
+    Effect.mapError((error) => toCorrupted(backend, `${context}: ${formatParseError(error)}`, error)),
+    Effect.annotateLogs('inventory.storage.operation', 'encode'),
+    Effect.annotateLogs('inventory.storage.context', context)
   )
 
 const randomNonce = Effect.gen(function* () {

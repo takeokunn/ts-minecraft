@@ -6,12 +6,13 @@
  * 遷移領域とエコトーンの適切な処理
  */
 
-import type { WorldCoordinate2D } from '@/domain/biome/value_object/coordinates'
-import { makeUnsafeWorldCoordinate2D } from '@/domain/biome/value_object/coordinates'
+import type { BoundingBox, WorldCoordinate2D } from '@/domain/biome/value_object/coordinates'
+import { WorldCoordinate2DSchema, makeUnsafeWorldCoordinate2D } from '@/domain/biome/value_object/coordinates'
 import { type GenerationError } from '@domain/world/types/errors'
 import type { WorldSeed } from '@domain/world/value_object/world_seed'
 import { Context, Effect, Layer, Match, pipe, ReadonlyArray, Schema } from 'effect'
 import type { ClimateData } from './index'
+import { ClimateClassificationSchema, ClimateDataSchema } from './climate_calculator'
 
 /**
  * Minecraftバイオーム種別
@@ -122,7 +123,7 @@ export const BiomeMappingResultSchema = Schema.Struct({
   ).pipe(Schema.optional),
 
   // 位置情報
-  coordinate: Schema.Unknown, // WorldCoordinate2D
+  coordinate: WorldCoordinate2DSchema,
 
   // 生成パラメータ
   biomeParameters: Schema.Struct({
@@ -149,8 +150,8 @@ export const BiomeMappingResultSchema = Schema.Struct({
   ).pipe(Schema.optional),
 
   // 入力データ
-  sourceClimate: Schema.Unknown, // ClimateData
-  sourceClassification: Schema.Unknown, // ClimateClassification
+  sourceClimate: ClimateDataSchema,
+  sourceClassification: ClimateClassificationSchema,
 
   // メタデータ
   mappingMetadata: Schema.Struct({
@@ -169,6 +170,29 @@ export const BiomeMappingResultSchema = Schema.Struct({
 )
 
 export type BiomeMappingResult = typeof BiomeMappingResultSchema.Type
+
+export type BiomeTransitionAnalysis = {
+  readonly fromBiome: MinecraftBiomeType
+  readonly toBiome: MinecraftBiomeType
+  readonly transitionDistance: number
+  readonly transitionSharpness: number
+  readonly ecotoneCharacteristics: ReadonlyArray<string>
+}
+
+type BiomeParameters = {
+  readonly temperature: number
+  readonly humidity: number
+  readonly continentalness: number
+  readonly erosion: number
+  readonly depth: number
+  readonly weirdness: number
+}
+
+type CustomBiomeRule = {
+  readonly biome: MinecraftBiomeType
+  readonly conditions: ReadonlyArray<string>
+  readonly priority: number
+}
 
 /**
  * Biome Mapper Service Interface
@@ -190,7 +214,7 @@ export interface BiomeMapperService {
    * 複数座標での地域バイオーム分布計算
    */
   readonly mapRegionalBiomes: (
-    bounds: any, // BoundingBox
+    bounds: BoundingBox,
     resolution: number,
     seed: WorldSeed
   ) => Effect.Effect<ReadonlyArray<ReadonlyArray<BiomeMappingResult>>, GenerationError>
@@ -203,13 +227,7 @@ export interface BiomeMapperService {
     searchRadius: number,
     seed: WorldSeed
   ) => Effect.Effect<
-    ReadonlyArray<{
-      fromBiome: MinecraftBiomeType
-      toBiome: MinecraftBiomeType
-      transitionDistance: number
-      transitionSharpness: number
-      ecotoneCharacteristics: ReadonlyArray<string>
-    }>,
+    ReadonlyArray<BiomeTransitionAnalysis>,
     GenerationError
   >
 
@@ -279,7 +297,7 @@ export interface BiomeMapperService {
    */
   readonly applyCustomBiomes: (
     baseMappingResult: BiomeMappingResult,
-    customBiomeRules: ReadonlyArray<any> // CustomBiomeRule
+    customBiomeRules: ReadonlyArray<CustomBiomeRule>
   ) => Effect.Effect<BiomeMappingResult, GenerationError>
 }
 
@@ -599,7 +617,7 @@ export const BiomeMapperServiceLive = Layer.effect(
       return Effect.succeed(optimizedMap)
     },
 
-    applyCustomBiomes: (baseMappingResult, customBiomeRules) =>
+    applyCustomBiomes: (baseMappingResult, _customBiomeRules) =>
       Effect.gen(function* () {
         // カスタムバイオーム適用（簡略化）
         return baseMappingResult
@@ -616,17 +634,7 @@ const calculateBiomeParameters = (
   climateData: ClimateData,
   coordinate: WorldCoordinate2D,
   seed: WorldSeed
-): Effect.Effect<
-  {
-    temperature: number
-    humidity: number
-    continentalness: number
-    erosion: number
-    depth: number
-    weirdness: number
-  },
-  GenerationError
-> =>
+): Effect.Effect<BiomeParameters, GenerationError> =>
   Effect.succeed({
     temperature: climateData.temperature / 30, // -1 to 1
     humidity: climateData.humidity / 100, // 0 to 1
@@ -640,7 +648,7 @@ const calculateBiomeParameters = (
  * 主要バイオームの決定
  */
 const determinePrimaryBiome = (
-  params: any,
+  params: BiomeParameters,
   climateData: ClimateData
 ): Effect.Effect<MinecraftBiomeType, GenerationError> => {
   const temp = params.temperature
@@ -688,8 +696,8 @@ const determinePrimaryBiome = (
  */
 const determineVariants = (
   primaryBiome: MinecraftBiomeType,
-  params: any,
-  seed: WorldSeed
+  _params: BiomeParameters,
+  _seed: WorldSeed
 ): Effect.Effect<{ variant?: string; subBiomes?: MinecraftBiomeType[] }, GenerationError> => {
   const variants: { variant?: string; subBiomes?: MinecraftBiomeType[] } = {}
 
@@ -724,7 +732,7 @@ const determineVariants = (
 const detectTransitionBiomes = (
   coordinate: WorldCoordinate2D,
   primaryBiome: MinecraftBiomeType,
-  params: any,
+  _params: BiomeParameters,
   seed: WorldSeed
 ): Effect.Effect<
   ReadonlyArray<{
@@ -738,14 +746,17 @@ const detectTransitionBiomes = (
 /**
  * マッピング信頼度の計算
  */
-const calculateMappingConfidence = (params: any, climateData: ClimateData): Effect.Effect<number, GenerationError> =>
+const calculateMappingConfidence = (
+  _params: BiomeParameters,
+  climateData: ClimateData
+): Effect.Effect<number, GenerationError> =>
   Effect.succeed(climateData.dataQuality * 0.9)
 
 /**
  * 代替バイオームの計算
  */
 const calculateAlternativeBiomes = (
-  params: any,
+  _params: BiomeParameters,
   primaryBiome: MinecraftBiomeType
 ): Effect.Effect<ReadonlyArray<{ biome: MinecraftBiomeType; probability: number }>, GenerationError> =>
   Effect.succeed([])
@@ -755,7 +766,7 @@ const calculateAlternativeBiomes = (
  */
 const identifySpecialFeatures = (
   primaryBiome: MinecraftBiomeType,
-  params: any,
+  _params: BiomeParameters,
   coordinate: WorldCoordinate2D
 ): Effect.Effect<ReadonlyArray<string>, GenerationError> => Effect.succeed([])
 

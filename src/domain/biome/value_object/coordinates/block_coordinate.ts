@@ -224,12 +224,12 @@ export const BlockCoordinateErrorSchema = taggedUnion('_tag', [
   }),
   Schema.Struct({
     _tag: Schema.Literal('InvalidBlockCoordinate'),
-    coordinate: Schema.Unknown,
+    coordinate: BlockCoordinateSchema,
     message: Schema.String,
   }),
   Schema.Struct({
     _tag: Schema.Literal('InvalidBlockRange'),
-    range: Schema.Unknown,
+    range: BlockRangeSchema,
     reason: Schema.String,
     message: Schema.String,
   }),

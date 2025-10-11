@@ -1,4 +1,6 @@
 import { Clock, Context, Effect, Layer, Match, Ref, Schema } from 'effect'
+import { ErrorCauseSchema } from '@shared/schema/error'
+import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
 
 /**
  * Metrics Collector Service
@@ -120,14 +122,23 @@ export const MetricsConfiguration = Schema.Struct({
 
 // === Metrics Collector Error ===
 
-export const MetricsCollectorError = Schema.TaggedError<MetricsCollectorErrorType>()('MetricsCollectorError', {
+export const MetricsCollectorErrorSchema = Schema.TaggedError('MetricsCollectorError', {
   message: Schema.String,
   collectorId: Schema.String,
   metric: Schema.optional(Schema.String),
-  cause: Schema.optional(Schema.Unknown),
+  cause: Schema.optional(ErrorCauseSchema),
 })
 
-export interface MetricsCollectorErrorType extends Schema.Schema.Type<typeof MetricsCollectorError> {}
+export type MetricsCollectorErrorType = Schema.Schema.Type<typeof MetricsCollectorErrorSchema>
+
+export const MetricsCollectorError = {
+  ...makeErrorFactory(MetricsCollectorErrorSchema),
+  timerNotFound: (timerId: string): MetricsCollectorErrorType =>
+    MetricsCollectorErrorSchema.make({
+      message: `タイマーが見つかりません: ${timerId}`,
+      collectorId: 'timer',
+    }),
+} as const
 
 // === Service Interface ===
 
@@ -343,12 +354,7 @@ const makeMetricsCollectorService = Effect.gen(function* () {
       const validTimer = yield* pipe(
         Option.fromNullable(timer),
         Option.match({
-          onNone: () =>
-            Effect.fail({
-              _tag: 'MetricsCollectorError' as const,
-              message: `タイマーが見つかりません: ${timerId}`,
-              collectorId: 'timer',
-            }),
+          onNone: () => Effect.fail(MetricsCollectorError.timerNotFound(timerId)),
           onSome: (t) => Effect.succeed(t),
         })
       )

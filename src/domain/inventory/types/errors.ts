@@ -1,4 +1,6 @@
 import { Clock, Effect, Schema } from 'effect'
+import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
+import { JsonValueSchema } from '@/shared/schema/json'
 
 // =============================================================================
 // Inventory Error Types using Schema.TaggedError
@@ -8,7 +10,7 @@ import { Clock, Effect, Schema } from 'effect'
  * インベントリエラー - 基底クラス
  * 全てのインベントリ関連エラーの基底型
  */
-export class InventoryError extends Schema.TaggedError<InventoryError>()('InventoryError', {
+export const InventoryErrorSchema = Schema.TaggedError('InventoryError', {
   message: Schema.String.pipe(
     Schema.annotations({
       description: 'Human-readable error message',
@@ -26,7 +28,9 @@ export class InventoryError extends Schema.TaggedError<InventoryError>()('Invent
       description: 'Error occurrence timestamp',
     })
   ),
-}) {}
+})
+export type InventoryError = Schema.Schema.Type<typeof InventoryErrorSchema>
+export const InventoryError = makeErrorFactory(InventoryErrorSchema)
 
 // =============================================================================
 // Validation Error Hierarchy
@@ -36,14 +40,14 @@ export class InventoryError extends Schema.TaggedError<InventoryError>()('Invent
  * バリデーションエラー
  * 入力値の検証失敗時のエラー
  */
-export class ValidationError extends Schema.TaggedError<ValidationError>()('ValidationError', {
+export const ValidationErrorSchema = Schema.TaggedError('ValidationError', {
   message: Schema.String,
   field: Schema.String.pipe(
     Schema.annotations({
       description: 'Field name that failed validation',
     })
   ),
-  value: Schema.Unknown.pipe(
+  value: JsonValueSchema.pipe(
     Schema.annotations({
       description: 'Invalid value that caused the error',
     })
@@ -53,13 +57,15 @@ export class ValidationError extends Schema.TaggedError<ValidationError>()('Vali
       description: 'Expected type or format',
     })
   ),
-}) {}
+})
+export type ValidationError = Schema.Schema.Type<typeof ValidationErrorSchema>
+export const ValidationError = makeErrorFactory(ValidationErrorSchema)
 
 /**
  * スロットバリデーションエラー
  * スロット番号やスロット状態の検証失敗
  */
-export class SlotValidationError extends Schema.TaggedError<SlotValidationError>()('SlotValidationError', {
+export const SlotValidationErrorSchema = Schema.TaggedError('SlotValidationError', {
   message: Schema.String,
   slotNumber: Schema.Number.pipe(
     Schema.int(),
@@ -77,13 +83,15 @@ export class SlotValidationError extends Schema.TaggedError<SlotValidationError>
       description: 'Specific reason for slot validation failure',
     })
   ),
-}) {}
+})
+export type SlotValidationError = Schema.Schema.Type<typeof SlotValidationErrorSchema>
+export const SlotValidationError = makeErrorFactory(SlotValidationErrorSchema)
 
 /**
  * アイテムバリデーションエラー
  * アイテムデータの検証失敗
  */
-export class ItemValidationError extends Schema.TaggedError<ItemValidationError>()('ItemValidationError', {
+export const ItemValidationErrorSchema = Schema.TaggedError('ItemValidationError', {
   message: Schema.String,
   itemId: Schema.optional(
     Schema.String.pipe(
@@ -97,40 +105,41 @@ export class ItemValidationError extends Schema.TaggedError<ItemValidationError>
       description: 'Invalid item property name',
     })
   ),
-  value: Schema.Unknown.pipe(
+  value: JsonValueSchema.pipe(
     Schema.annotations({
       description: 'Invalid property value',
     })
   ),
-}) {}
+})
+export type ItemValidationError = Schema.Schema.Type<typeof ItemValidationErrorSchema>
+export const ItemValidationError = makeErrorFactory(ItemValidationErrorSchema)
 
 /**
  * 制約違反エラー
  * ビジネスルールや制約の違反
  */
-export class ConstraintViolationError extends Schema.TaggedError<ConstraintViolationError>()(
-  'ConstraintViolationError',
-  {
-    message: Schema.String,
-    constraint: Schema.String.pipe(
+export const ConstraintViolationErrorSchema = Schema.TaggedError('ConstraintViolationError', {
+  message: Schema.String,
+  constraint: Schema.String.pipe(
+    Schema.annotations({
+      description: 'Name of violated constraint',
+    })
+  ),
+  currentValue: JsonValueSchema.pipe(
+    Schema.annotations({
+      description: 'Current value that violates the constraint',
+    })
+  ),
+  allowedRange: Schema.optional(
+    Schema.String.pipe(
       Schema.annotations({
-        description: 'Name of violated constraint',
+        description: 'Description of allowed values or range',
       })
-    ),
-    currentValue: Schema.Unknown.pipe(
-      Schema.annotations({
-        description: 'Current value that violates the constraint',
-      })
-    ),
-    allowedRange: Schema.optional(
-      Schema.String.pipe(
-        Schema.annotations({
-          description: 'Description of allowed values or range',
-        })
-      )
-    ),
-  }
-) {}
+    )
+  ),
+})
+export type ConstraintViolationError = Schema.Schema.Type<typeof ConstraintViolationErrorSchema>
+export const ConstraintViolationError = makeErrorFactory(ConstraintViolationErrorSchema)
 
 // =============================================================================
 // Operation Error Hierarchy
@@ -140,7 +149,7 @@ export class ConstraintViolationError extends Schema.TaggedError<ConstraintViola
  * 操作エラー
  * インベントリ操作の実行失敗
  */
-export class OperationError extends Schema.TaggedError<OperationError>()('OperationError', {
+export const OperationErrorSchema = Schema.TaggedError('OperationError', {
   message: Schema.String,
   operation: Schema.String.pipe(
     Schema.annotations({
@@ -152,13 +161,15 @@ export class OperationError extends Schema.TaggedError<OperationError>()('Operat
       description: 'Target inventory identifier',
     })
   ),
-}) {}
+})
+export type OperationError = Schema.Schema.Type<typeof OperationErrorSchema>
+export const OperationError = makeErrorFactory(OperationErrorSchema)
 
 /**
  * 容量不足エラー
  * インベントリに十分な空きスペースがない
  */
-export class InsufficientSpaceError extends Schema.TaggedError<InsufficientSpaceError>()('InsufficientSpaceError', {
+export const InsufficientSpaceErrorSchema = Schema.TaggedError('InsufficientSpaceError', {
   message: Schema.String,
   inventoryId: Schema.String,
   requiredSlots: Schema.Number.pipe(
@@ -182,13 +193,15 @@ export class InsufficientSpaceError extends Schema.TaggedError<InsufficientSpace
       })
     )
   ),
-}) {}
+})
+export type InsufficientSpaceError = Schema.Schema.Type<typeof InsufficientSpaceErrorSchema>
+export const InsufficientSpaceError = makeErrorFactory(InsufficientSpaceErrorSchema)
 
 /**
  * アイテム未発見エラー
  * 指定されたアイテムが見つからない
  */
-export class ItemNotFoundError extends Schema.TaggedError<ItemNotFoundError>()('ItemNotFoundError', {
+export const ItemNotFoundErrorSchema = Schema.TaggedError('ItemNotFoundError', {
   message: Schema.String,
   inventoryId: Schema.String,
   itemId: Schema.String.pipe(
@@ -213,13 +226,15 @@ export class ItemNotFoundError extends Schema.TaggedError<ItemNotFoundError>()('
       })
     )
   ),
-}) {}
+})
+export type ItemNotFoundError = Schema.Schema.Type<typeof ItemNotFoundErrorSchema>
+export const ItemNotFoundError = makeErrorFactory(ItemNotFoundErrorSchema)
 
 /**
  * 転送失敗エラー
  * アイテム転送操作の失敗
  */
-export class TransferFailureError extends Schema.TaggedError<TransferFailureError>()('TransferFailureError', {
+export const TransferFailureErrorSchema = Schema.TaggedError('TransferFailureError', {
   message: Schema.String,
   sourceInventoryId: Schema.String.pipe(
     Schema.annotations({
@@ -244,7 +259,9 @@ export class TransferFailureError extends Schema.TaggedError<TransferFailureErro
       description: 'Specific reason for transfer failure',
     })
   ),
-}) {}
+})
+export type TransferFailureError = Schema.Schema.Type<typeof TransferFailureErrorSchema>
+export const TransferFailureError = makeErrorFactory(TransferFailureErrorSchema)
 
 // =============================================================================
 // System Error Hierarchy
@@ -254,7 +271,7 @@ export class TransferFailureError extends Schema.TaggedError<TransferFailureErro
  * システムエラー
  * システムレベルの障害
  */
-export class SystemError extends Schema.TaggedError<SystemError>()('SystemError', {
+export const SystemErrorSchema = Schema.TaggedError('SystemError', {
   message: Schema.String,
   component: Schema.String.pipe(
     Schema.annotations({
@@ -268,13 +285,15 @@ export class SystemError extends Schema.TaggedError<SystemError>()('SystemError'
       })
     )
   ),
-}) {}
+})
+export type SystemError = Schema.Schema.Type<typeof SystemErrorSchema>
+export const SystemError = makeErrorFactory(SystemErrorSchema)
 
 /**
  * データ破損エラー
  * インベントリデータの整合性エラー
  */
-export class CorruptionError extends Schema.TaggedError<CorruptionError>()('CorruptionError', {
+export const CorruptionErrorSchema = Schema.TaggedError('CorruptionError', {
   message: Schema.String,
   inventoryId: Schema.String,
   corruptionType: Schema.Literal(
@@ -300,13 +319,15 @@ export class CorruptionError extends Schema.TaggedError<CorruptionError>()('Corr
       })
     )
   ),
-}) {}
+})
+export type CorruptionError = Schema.Schema.Type<typeof CorruptionErrorSchema>
+export const CorruptionError = makeErrorFactory(CorruptionErrorSchema)
 
 /**
  * 並行性エラー
  * 並行アクセスによる競合状態
  */
-export class ConcurrencyError extends Schema.TaggedError<ConcurrencyError>()('ConcurrencyError', {
+export const ConcurrencyErrorSchema = Schema.TaggedError('ConcurrencyError', {
   message: Schema.String,
   inventoryId: Schema.String,
   operation: Schema.String.pipe(
@@ -333,7 +354,9 @@ export class ConcurrencyError extends Schema.TaggedError<ConcurrencyError>()('Co
       })
     )
   ),
-}) {}
+})
+export type ConcurrencyError = Schema.Schema.Type<typeof ConcurrencyErrorSchema>
+export const ConcurrencyError = makeErrorFactory(ConcurrencyErrorSchema)
 
 // =============================================================================
 // Permission Error Hierarchy
@@ -343,7 +366,7 @@ export class ConcurrencyError extends Schema.TaggedError<ConcurrencyError>()('Co
  * 権限エラー
  * アクセス権限の不足
  */
-export class PermissionError extends Schema.TaggedError<PermissionError>()('PermissionError', {
+export const PermissionErrorSchema = Schema.TaggedError('PermissionError', {
   message: Schema.String,
   playerId: Schema.String.pipe(
     Schema.annotations({
@@ -361,13 +384,15 @@ export class PermissionError extends Schema.TaggedError<PermissionError>()('Perm
       description: 'Attempted operation',
     })
   ),
-}) {}
+})
+export type PermissionError = Schema.Schema.Type<typeof PermissionErrorSchema>
+export const PermissionError = makeErrorFactory(PermissionErrorSchema)
 
 /**
  * 所有権エラー
  * リソースの所有権に関するエラー
  */
-export class OwnershipError extends Schema.TaggedError<OwnershipError>()('OwnershipError', {
+export const OwnershipErrorSchema = Schema.TaggedError('OwnershipError', {
   message: Schema.String,
   playerId: Schema.String,
   inventoryId: Schema.String,
@@ -377,7 +402,9 @@ export class OwnershipError extends Schema.TaggedError<OwnershipError>()('Owners
     })
   ),
   operation: Schema.String,
-}) {}
+})
+export type OwnershipError = Schema.Schema.Type<typeof OwnershipErrorSchema>
+export const OwnershipError = makeErrorFactory(OwnershipErrorSchema)
 
 // =============================================================================
 // Union Type for All Inventory Errors
@@ -415,7 +442,7 @@ export const createInventoryError = (params: {
 }): Effect.Effect<InventoryError> =>
   Effect.gen(function* () {
     const timestamp = yield* Clock.currentTimeMillis
-    return new InventoryError({
+    return InventoryError.make({
       ...params,
       timestamp,
     })
@@ -429,7 +456,7 @@ export const createValidationError = (params: {
   field: string
   value: unknown
   expectedType: string
-}): ValidationError => new ValidationError(params)
+}): ValidationError => ValidationError.make(params)
 
 /**
  * スロットバリデーションエラーを生成
@@ -439,7 +466,7 @@ export const createSlotValidationError = (params: {
   slotNumber: number
   inventoryId: string
   reason: 'OUT_OF_BOUNDS' | 'INVALID_TYPE' | 'LOCKED' | 'RESTRICTED'
-}): SlotValidationError => new SlotValidationError(params)
+}): SlotValidationError => SlotValidationError.make(params)
 
 /**
  * アイテムバリデーションエラーを生成
@@ -449,7 +476,7 @@ export const createItemValidationError = (params: {
   itemId?: string
   property: string
   value: unknown
-}): ItemValidationError => new ItemValidationError(params)
+}): ItemValidationError => ItemValidationError.make(params)
 
 /**
  * 制約違反エラーを生成
@@ -459,7 +486,7 @@ export const createConstraintViolationError = (params: {
   constraint: string
   currentValue: unknown
   allowedRange?: string
-}): ConstraintViolationError => new ConstraintViolationError(params)
+}): ConstraintViolationError => ConstraintViolationError.make(params)
 
 /**
  * 容量不足エラーを生成
@@ -470,7 +497,7 @@ export const createInsufficientSpaceError = (params: {
   requiredSlots: number
   availableSlots: number
   itemId?: string
-}): InsufficientSpaceError => new InsufficientSpaceError(params)
+}): InsufficientSpaceError => InsufficientSpaceError.make(params)
 
 /**
  * アイテム未発見エラーを生成
@@ -481,7 +508,7 @@ export const createItemNotFoundError = (params: {
   itemId: string
   slotNumber?: number
   expectedQuantity?: number
-}): ItemNotFoundError => new ItemNotFoundError(params)
+}): ItemNotFoundError => ItemNotFoundError.make(params)
 
 /**
  * 転送失敗エラーを生成
@@ -493,7 +520,7 @@ export const createTransferFailureError = (params: {
   itemId: string
   quantity: number
   reason: 'SOURCE_INSUFFICIENT' | 'TARGET_FULL' | 'ITEM_INCOMPATIBLE' | 'PERMISSION_DENIED' | 'NETWORK_ERROR'
-}): TransferFailureError => new TransferFailureError(params)
+}): TransferFailureError => TransferFailureError.make(params)
 
 /**
  * データ破損エラーを生成
@@ -509,7 +536,7 @@ export const createCorruptionError = (params: {
     | 'SIZE_MISMATCH'
   affectedFields: string[]
   checksum?: string
-}): CorruptionError => new CorruptionError(params)
+}): CorruptionError => CorruptionError.make(params)
 
 /**
  * 並行性エラーを生成
@@ -521,7 +548,7 @@ export const createConcurrencyError = (params: {
   conflictType: 'OPTIMISTIC_LOCK_FAILURE' | 'DEADLOCK' | 'RESOURCE_BUSY' | 'VERSION_MISMATCH'
   currentVersion?: string
   expectedVersion?: string
-}): ConcurrencyError => new ConcurrencyError(params)
+}): ConcurrencyError => ConcurrencyError.make(params)
 
 /**
  * 権限エラーを生成
@@ -532,7 +559,7 @@ export const createPermissionError = (params: {
   inventoryId: string
   requiredPermission: string
   operation: string
-}): PermissionError => new PermissionError(params)
+}): PermissionError => PermissionError.make(params)
 
 /**
  * 所有権エラーを生成
@@ -543,7 +570,7 @@ export const createOwnershipError = (params: {
   inventoryId: string
   ownerId: string
   operation: string
-}): OwnershipError => new OwnershipError(params)
+}): OwnershipError => OwnershipError.make(params)
 
 // =============================================================================
 // Error Guard Functions (Type Predicates)

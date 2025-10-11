@@ -9,6 +9,10 @@
 import { type GenerationError } from '@domain/world/types/errors'
 import {
   makeUnsafeWorldCoordinate2D,
+  BoundingBoxSchema,
+  WorldCoordinate2DSchema,
+  WorldCoordinateSchema,
+  type BoundingBox,
   type WorldCoordinate2D,
   type WorldCoordinate3D,
 } from '@domain/world/value_object/coordinates'
@@ -57,7 +61,7 @@ export type PerlinNoiseConfig = typeof PerlinNoiseConfigSchema.Type
  */
 export const NoiseSampleSchema = Schema.Struct({
   value: Schema.Number.pipe(Schema.finite(), Schema.between(-1, 1)),
-  coordinate: Schema.Unknown, // WorldCoordinate2D/3D
+  coordinate: Schema.Union(WorldCoordinate2DSchema, WorldCoordinateSchema),
   metadata: Schema.Struct({
     octaveContributions: Schema.Array(Schema.Number),
     totalOctaves: Schema.Number.pipe(Schema.int()),
@@ -78,7 +82,7 @@ export type NoiseSample = typeof NoiseSampleSchema.Type
  * ノイズフィールド（領域ノイズ）
  */
 export const NoiseFieldSchema = Schema.Struct({
-  bounds: Schema.Unknown, // BoundingBox
+  bounds: BoundingBoxSchema,
   resolution: Schema.Number.pipe(Schema.int(), Schema.positive()),
   samples: Schema.Array(Schema.Array(NoiseSampleSchema)),
   statistics: Schema.Struct({
@@ -131,7 +135,7 @@ export interface PerlinNoiseService {
    * 指定領域のノイズフィールドを生成
    */
   readonly generateField: (
-    bounds: any, // BoundingBox
+    bounds: BoundingBox,
     resolution: number,
     config: PerlinNoiseConfig
   ) => Effect.Effect<NoiseField, GenerationError>
@@ -603,7 +607,10 @@ const lerp = (a: number, b: number, t: number): number => a + t * (b - a)
 /**
  * メモリ使用量の推定
  */
-const estimateFieldMemoryUsage = (resolution: number, samples: any[][]): number => resolution * resolution * 128 // 128バイト/サンプルと仮定
+const estimateFieldMemoryUsage = (
+  resolution: number,
+  samples: ReadonlyArray<ReadonlyArray<NoiseSample>>
+): number => resolution * resolution * 128 // 128バイト/サンプルと仮定
 
 /**
  * Ken Perlinの排列テーブル（簡略版）

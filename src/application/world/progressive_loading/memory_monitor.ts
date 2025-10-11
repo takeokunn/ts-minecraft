@@ -1,4 +1,5 @@
 import { Clock, Context, Effect, Layer, Match, Option, pipe, ReadonlyArray, Ref, Schema } from 'effect'
+import { ErrorCauseSchema } from '@shared/schema/error'
 
 /**
  * Memory Monitor Service
@@ -134,7 +135,7 @@ export const MemoryStatistics = Schema.Struct({
 export const MemoryMonitorError = Schema.TaggedError<MemoryMonitorErrorType>()('MemoryMonitorError', {
   message: Schema.String,
   monitorId: Schema.String,
-  cause: Schema.optional(Schema.Unknown),
+  cause: Schema.optional(ErrorCauseSchema),
 })
 
 export interface MemoryMonitorErrorType extends Schema.Schema.Type<typeof MemoryMonitorError> {}

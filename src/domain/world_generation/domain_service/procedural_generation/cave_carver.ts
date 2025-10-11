@@ -8,10 +8,17 @@
 import { type GenerationError } from '@domain/world/types/errors'
 import {
   makeUnsafeWorldCoordinate,
+  WorldCoordinateSchema,
   type BoundingBox,
   type WorldCoordinate,
 } from '@domain/world/value_object/coordinates'
 import type { WorldSeed } from '@domain/world/value_object/world_seed'
+import {
+  AdvancedNoiseSettingsSchema,
+  NoiseConfigurationFactory,
+  type AdvancedNoiseSettings,
+} from '@domain/world/value_object/noise_configuration'
+import { JsonValueSchema } from '@shared/schema/json'
 import { Clock, Context, Effect, Layer, Schema } from 'effect'
 
 /**
@@ -22,7 +29,7 @@ export const CaveNetworkSchema = Schema.Struct({
   caves: Schema.Array(
     Schema.Struct({
       id: Schema.String,
-      center: Schema.Unknown, // WorldCoordinateSchema参照
+      center: WorldCoordinateSchema,
       radius: Schema.Number.pipe(Schema.positive()),
       depth: Schema.Number.pipe(Schema.positive()),
       connections: Schema.Array(Schema.String), // 他の洞窟への接続ID
@@ -34,7 +41,7 @@ export const CaveNetworkSchema = Schema.Struct({
       id: Schema.String,
       startCave: Schema.String,
       endCave: Schema.String,
-      path: Schema.Array(Schema.Unknown), // WorldCoordinateSchema配列
+      path: Schema.Array(WorldCoordinateSchema),
       width: Schema.Number.pipe(Schema.positive()),
       height: Schema.Number.pipe(Schema.positive()),
       tunnelType: Schema.Literal('main', 'branch', 'connection', 'emergency'),
@@ -42,7 +49,7 @@ export const CaveNetworkSchema = Schema.Struct({
   ),
   waterSources: Schema.Array(
     Schema.Struct({
-      coordinate: Schema.Unknown, // WorldCoordinateSchema参照
+      coordinate: WorldCoordinateSchema,
       flowRate: Schema.Number.pipe(Schema.nonNegative()),
       depth: Schema.Number.pipe(Schema.positive()),
       sourceType: Schema.Literal('spring', 'seep', 'underground_river', 'lake'),
@@ -63,6 +70,11 @@ export const CaveNetworkSchema = Schema.Struct({
 )
 
 export type CaveNetwork = typeof CaveNetworkSchema.Type
+
+type CaveNode = CaveNetwork['caves'][number]
+type TunnelDefinition = CaveNetwork['tunnels'][number]
+type WaterSourceDefinition = CaveNetwork['waterSources'][number]
+type CaveMetadata = CaveNetwork['metadata']
 
 /**
  * 洞窟彫刻設定
@@ -88,9 +100,9 @@ export const CaveCarveConfigSchema = Schema.Struct({
   }),
 
   // ノイズ設定
-  primaryNoise: Schema.Unknown, // AdvancedNoiseSettingsSchema参照
-  erosionNoise: Schema.Unknown, // 浸食パターン用
-  structuralNoise: Schema.Unknown, // 構造安定性用
+  primaryNoise: AdvancedNoiseSettingsSchema,
+  erosionNoise: AdvancedNoiseSettingsSchema,
+  structuralNoise: AdvancedNoiseSettingsSchema,
 
   // 物理法則
   enableGravity: Schema.Boolean,
@@ -125,7 +137,7 @@ export const CaveCarveResultSchema = Schema.Struct({
   network: CaveNetworkSchema,
   carvedBlocks: Schema.Array(
     Schema.Struct({
-      coordinate: Schema.Unknown, // WorldCoordinateSchema参照
+      coordinate: WorldCoordinateSchema,
       originalMaterial: Schema.String,
       carveReason: Schema.Literal('cave', 'tunnel', 'water_erosion', 'structural'),
       confidence: Schema.Number.pipe(Schema.between(0, 1)),
@@ -133,7 +145,7 @@ export const CaveCarveResultSchema = Schema.Struct({
   ),
   addedBlocks: Schema.Array(
     Schema.Struct({
-      coordinate: Schema.Unknown, // WorldCoordinateSchema参照
+      coordinate: WorldCoordinateSchema,
       material: Schema.String,
       placementReason: Schema.Literal('support', 'decoration', 'water', 'minerals'),
     })
@@ -141,7 +153,7 @@ export const CaveCarveResultSchema = Schema.Struct({
   flowPaths: Schema.Array(
     Schema.Struct({
       sourceId: Schema.String,
-      path: Schema.Array(Schema.Unknown), // WorldCoordinateSchema配列
+      path: Schema.Array(WorldCoordinateSchema),
       flowType: Schema.Literal('water', 'air', 'lava'),
       volume: Schema.Number.pipe(Schema.positive()),
     })
@@ -156,7 +168,7 @@ export const CaveCarveResultSchema = Schema.Struct({
   warnings: Schema.Array(Schema.String).pipe(Schema.optional),
   debugInfo: Schema.Record({
     key: Schema.String,
-    value: Schema.Unknown,
+    value: JsonValueSchema,
   }).pipe(Schema.optional),
 }).pipe(
   Schema.annotations({
@@ -487,7 +499,7 @@ const determineCaveSizes = (
   candidates: ReadonlyArray<WorldCoordinate>,
   config: CaveCarveConfig,
   seed: WorldSeed
-): Effect.Effect<ReadonlyArray<any>, GenerationError> =>
+): Effect.Effect<ReadonlyArray<CaveNode>, GenerationError> =>
   Effect.succeed(
     candidates.map((coord, index) => {
       const sizeNoise = Math.sin(index + Number(seed)) * 0.5 + 0.5
@@ -503,7 +515,7 @@ const determineCaveSizes = (
         depth: radius * 0.8,
         connections: [],
         caveType: caveTypes[typeIndex] || 'cavern',
-      }
+      } satisfies CaveNode
     })
   )
 
@@ -511,41 +523,44 @@ const determineCaveSizes = (
  * 洞窟間接続の計算
  */
 const calculateCaveConnections = (
-  caves: ReadonlyArray<any>,
+  caves: ReadonlyArray<CaveNode>,
   config: CaveCarveConfig
-): Effect.Effect<ReadonlyArray<any>, GenerationError> => Effect.succeed([]) // 簡略化実装
+): Effect.Effect<ReadonlyArray<TunnelDefinition>, GenerationError> =>
+  Effect.succeed([] satisfies ReadonlyArray<TunnelDefinition>) // 簡略化実装
 
 /**
  * 接続トンネルの生成
  */
 const generateConnectingTunnels = (
-  connections: ReadonlyArray<any>,
+  connections: ReadonlyArray<TunnelDefinition>,
   config: CaveCarveConfig
-): Effect.Effect<ReadonlyArray<any>, GenerationError> => Effect.succeed([]) // 簡略化実装
+): Effect.Effect<ReadonlyArray<TunnelDefinition>, GenerationError> =>
+  Effect.succeed([] satisfies ReadonlyArray<TunnelDefinition>) // 簡略化実装
 
 /**
  * 水源の配置
  */
 const placeWaterSources = (
-  caves: ReadonlyArray<any>,
+  caves: ReadonlyArray<CaveNode>,
   config: CaveCarveConfig,
-  seed: WorldSeed
-): Effect.Effect<ReadonlyArray<any>, GenerationError> => Effect.succeed([]) // 簡略化実装
+  _seed: WorldSeed
+): Effect.Effect<ReadonlyArray<WaterSourceDefinition>, GenerationError> =>
+  Effect.succeed([] satisfies ReadonlyArray<WaterSourceDefinition>) // 簡略化実装
 
 /**
  * ネットワーク統計の計算
  */
 const calculateNetworkMetadata = (
-  caves: ReadonlyArray<any>,
-  tunnels: ReadonlyArray<any>,
-  waterSources: ReadonlyArray<any>
-): Effect.Effect<any, GenerationError> =>
+  caves: ReadonlyArray<CaveNode>,
+  tunnels: ReadonlyArray<TunnelDefinition>,
+  _waterSources: ReadonlyArray<WaterSourceDefinition>
+): Effect.Effect<CaveMetadata, GenerationError> =>
   Effect.succeed({
     totalVolume: caves.reduce((sum, cave) => sum + (cave.radius ** 3 * Math.PI * 4) / 3, 0),
     complexity: Math.min(caves.length / 10, 1),
     accessibility: caves.length > 0 ? tunnels.length / caves.length : 0,
     structuralIntegrity: 1.0, // 簡略化
-  })
+  } satisfies CaveMetadata)
 
 // その他のヘルパー関数（実装の詳細は省略）
 const carveAllCaves = (caves: ReadonlyArray<{ center: WorldCoordinate; radius: number }>, config: CaveCarveConfig) =>
@@ -582,7 +597,11 @@ const validateCarveWarnings = (network: CaveNetwork, config: CaveCarveConfig) =>
 const generateSphericalCoordinates = (center: WorldCoordinate, radius: number) =>
   Effect.succeed([] satisfies ReadonlyArray<WorldCoordinate>)
 
-const applyNaturalizationNoise = (coords: ReadonlyArray<WorldCoordinate>, noise: number, seed: WorldSeed) =>
+const applyNaturalizationNoise = (
+  coords: ReadonlyArray<WorldCoordinate>,
+  _noise: AdvancedNoiseSettings,
+  _seed: WorldSeed
+) =>
   Effect.succeed(coords)
 
 const calculateCaveSupports = (coords: ReadonlyArray<WorldCoordinate>, config: CaveCarveConfig) =>
@@ -593,7 +612,7 @@ const applyGravityEffect = (coords: ReadonlyArray<WorldCoordinate>, center: Worl
 const calculateStraightPath = (start: WorldCoordinate, end: WorldCoordinate) =>
   Effect.succeed([start, end] as ReadonlyArray<WorldCoordinate>)
 
-const applyCurvature = (path: ReadonlyArray<WorldCoordinate>, noise: number) => Effect.succeed(path)
+const applyCurvature = (path: ReadonlyArray<WorldCoordinate>, _noise: AdvancedNoiseSettings) => Effect.succeed(path)
 
 const expandPathToTunnel = (path: ReadonlyArray<WorldCoordinate>, width: number, height: number) =>
   Effect.succeed([] satisfies ReadonlyArray<WorldCoordinate>)
@@ -649,9 +668,9 @@ export const DEFAULT_CAVE_CONFIG: CaveCarveConfig = {
   minDepth: -100,
   maxDepth: 50,
   preferredDepthRange: { min: -50, max: 20 },
-  primaryNoise: {}, // 実際のノイズ設定
-  erosionNoise: {},
-  structuralNoise: {},
+  primaryNoise: NoiseConfigurationFactory.createCaveNoise(),
+  erosionNoise: NoiseConfigurationFactory.createCaveNoise(),
+  structuralNoise: NoiseConfigurationFactory.createCaveNoise(),
   enableGravity: true,
   enableWaterFlow: true,
   enableRockStability: true,

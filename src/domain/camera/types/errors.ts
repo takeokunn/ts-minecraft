@@ -1,4 +1,6 @@
 import { Data, Option } from 'effect'
+import { toErrorCause, type ErrorCause } from '@shared/schema/error'
+import { toJsonValue, toJsonValueOption, type JsonSerializable, type JsonValue } from '@shared/schema/json'
 
 // ========================================
 // Camera Domain Core Errors (Data.taggedEnum)
@@ -8,14 +10,14 @@ import { Data, Option } from 'effect'
  * カメラドメインのコアエラー型（Data.taggedEnum ADT）
  */
 export const CameraError = Data.taggedEnum<{
-  InitializationFailed: { message: string; cause: Option.Option<unknown> }
+  InitializationFailed: { message: string; cause: Option.Option<ErrorCause> }
   CameraNotInitialized: { operation: string; message: string }
-  InvalidConfiguration: { message: string; config: Option.Option<unknown> }
+  InvalidConfiguration: { message: string; config: Option.Option<JsonValue> }
   InvalidMode: { message: string; mode: string; validModes: readonly string[] }
-  InvalidParameter: { message: string; parameter: string; value: unknown; expected: Option.Option<string> }
-  ResourceError: { message: string; cause: Option.Option<unknown> }
-  AnimationError: { message: string; context: Option.Option<unknown> }
-  CollisionError: { message: string; details: Option.Option<unknown> }
+  InvalidParameter: { message: string; parameter: string; value: JsonValue; expected: Option.Option<string> }
+  ResourceError: { message: string; cause: Option.Option<ErrorCause> }
+  AnimationError: { message: string; context: Option.Option<JsonValue> }
+  CollisionError: { message: string; details: Option.Option<JsonValue> }
 }>()
 
 export type CameraError = Data.TaggedEnum.Type<typeof CameraError>
@@ -96,9 +98,15 @@ export type CameraDomainError = CameraError | PositionError | RotationError | Se
 /**
  * カメラエラーファクトリー（Data.taggedEnum パターン）
  */
+const mapErrorCauseOption = (value: unknown): Option.Option<ErrorCause> =>
+  Option.fromNullable(toErrorCause(value))
+
+const mapJsonValueOption = (value: JsonSerializable | undefined): Option.Option<JsonValue> =>
+  Option.fromNullable(toJsonValueOption(value))
+
 export const createCameraError = {
   initializationFailed: (message: string, cause?: unknown) =>
-    CameraError.InitializationFailed({ message, cause: Option.fromNullable(cause) }),
+    CameraError.InitializationFailed({ message, cause: mapErrorCauseOption(cause) }),
 
   notInitialized: (operation: string) =>
     CameraError.CameraNotInitialized({
@@ -106,8 +114,8 @@ export const createCameraError = {
       message: `Operation '${operation}' called before camera initialization`,
     }),
 
-  invalidConfiguration: (message: string, config?: unknown) =>
-    CameraError.InvalidConfiguration({ message, config: Option.fromNullable(config) }),
+  invalidConfiguration: (message: string, config?: JsonSerializable) =>
+    CameraError.InvalidConfiguration({ message, config: mapJsonValueOption(config) }),
 
   invalidMode: (mode: string, validModes: readonly string[]) =>
     CameraError.InvalidMode({
@@ -116,22 +124,22 @@ export const createCameraError = {
       validModes,
     }),
 
-  invalidParameter: (parameter: string, value: unknown, expected?: string) =>
+  invalidParameter: (parameter: string, value: JsonSerializable, expected?: string) =>
     CameraError.InvalidParameter({
       message: `Invalid parameter '${parameter}'${expected ? `: ${expected}` : ''}`,
       parameter,
-      value,
+      value: toJsonValue(value),
       expected: Option.fromNullable(expected),
     }),
 
   resourceError: (message: string, cause?: unknown) =>
-    CameraError.ResourceError({ message, cause: Option.fromNullable(cause) }),
+    CameraError.ResourceError({ message, cause: mapErrorCauseOption(cause) }),
 
-  animationError: (message: string, context?: unknown) =>
-    CameraError.AnimationError({ message, context: Option.fromNullable(context) }),
+  animationError: (message: string, context?: JsonSerializable) =>
+    CameraError.AnimationError({ message, context: mapJsonValueOption(context) }),
 
-  collisionError: (message: string, details?: unknown) =>
-    CameraError.CollisionError({ message, details: Option.fromNullable(details) }),
+  collisionError: (message: string, details?: JsonSerializable) =>
+    CameraError.CollisionError({ message, details: mapJsonValueOption(details) }),
 } as const
 
 /**

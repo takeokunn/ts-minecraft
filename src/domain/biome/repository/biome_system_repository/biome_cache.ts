@@ -68,6 +68,8 @@ interface QueryCacheEntry {
   readonly bounds: SpatialBounds
 }
 
+type BiomeQueryFilters = Record<string, unknown>
+
 // === Cache Statistics ===
 
 export interface BiomeCacheStatistics {
@@ -195,7 +197,7 @@ export const createBiomeCache = (
       return `${gridX},${gridZ}`
     }
 
-    const hashQuery = (bounds: SpatialBounds, filters?: any): string => {
+    const hashQuery = (bounds: SpatialBounds, filters?: BiomeQueryFilters): string => {
       const data = JSON.stringify({ bounds, filters })
       // ReadonlyArray.reduceを使用したハッシュ計算
       const hash = pipe(

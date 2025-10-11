@@ -1,4 +1,5 @@
 import { Clock, Context, Effect, Layer, Match, pipe, Ref, Schedule } from 'effect'
+import type { ErrorCause } from '@shared/schema/error'
 
 /**
  * Physics Performance Service
@@ -113,7 +114,7 @@ export interface PhysicsPerformanceError {
   readonly _tag: 'PhysicsPerformanceError'
   readonly message: string
   readonly reason: 'MetricsError' | 'OptimizationError' | 'ConfigurationError'
-  readonly cause?: unknown
+  readonly cause?: ErrorCause
 }
 
 // Physics Performance Service インターフェース

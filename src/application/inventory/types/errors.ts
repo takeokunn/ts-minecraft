@@ -6,6 +6,8 @@
  */
 
 import { Clock, DateTime, Effect, Match, pipe, Schema } from 'effect'
+import { ErrorCauseSchema, type ErrorCause, ErrorDetailSchema, type ErrorDetail } from '@shared/schema/error'
+import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
 
 /**
  * アプリケーションサービスエラーの基底型
@@ -34,8 +36,8 @@ export interface InventoryApplicationError {
     | 'CRAFTING_FAILED'
     | 'TRADE_FAILED'
   readonly message: string
-  readonly details?: unknown
-  readonly cause?: Error
+  readonly details?: ErrorDetail
+  readonly cause?: ErrorCause
   readonly timestamp?: DateTime.Utc
 
   // コンテキスト別の詳細情報
@@ -475,8 +477,8 @@ export const InventoryApplicationErrorSchema = Schema.Struct({
     'TRADE_FAILED'
   ),
   message: Schema.String,
-  details: Schema.optional(Schema.Unknown),
-  cause: Schema.optional(Schema.Unknown),
+  details: Schema.optional(ErrorDetailSchema),
+  cause: Schema.optional(ErrorCauseSchema),
   timestamp: Schema.optional(Schema.DateTimeUtc),
   inventoryId: Schema.optional(Schema.String),
   containerId: Schema.optional(Schema.String),
@@ -499,14 +501,15 @@ export const InventoryApplicationErrorSchema = Schema.Struct({
 /**
  * シリアライゼーションエラー
  */
-export class InventorySerializationError extends Schema.TaggedError<InventorySerializationError>()(
-  'InventorySerializationError',
-  {
-    operation: Schema.Literal('serialize', 'deserialize'),
-    serialized: Schema.String,
-    cause: Schema.Unknown,
-  }
-) {}
+export const InventorySerializationErrorSchema = Schema.TaggedError('InventorySerializationError', {
+  operation: Schema.Literal('serialize', 'deserialize'),
+  serialized: Schema.String,
+  cause: ErrorCauseSchema,
+})
+
+export type InventorySerializationError = Schema.Schema.Type<typeof InventorySerializationErrorSchema>
+
+export const InventorySerializationError = makeErrorFactory(InventorySerializationErrorSchema)
 
 /**
  * エラーのシリアライゼーション/デシリアライゼーション
@@ -515,7 +518,7 @@ export const serializeError = (error: InventoryApplicationError): Effect.Effect<
   Effect.try({
     try: () => JSON.stringify(error),
     catch: (cause) =>
-      new InventorySerializationError({
+      InventorySerializationError.make({
         operation: 'serialize',
         serialized: String(error),
         cause,
@@ -529,7 +532,7 @@ export const deserializeError = (
     const parsed = yield* Effect.try({
       try: () => JSON.parse(serialized),
       catch: (cause) =>
-        new InventorySerializationError({
+        InventorySerializationError.make({
           operation: 'deserialize',
           serialized,
           cause,
@@ -537,13 +540,12 @@ export const deserializeError = (
     })
 
     return yield* Schema.decodeUnknown(InventoryApplicationErrorSchema)(parsed).pipe(
-      Effect.mapError(
-        (cause) =>
-          new InventorySerializationError({
-            operation: 'deserialize',
-            serialized,
-            cause,
-          })
+      Effect.mapError((cause) =>
+        InventorySerializationError.make({
+          operation: 'deserialize',
+          serialized,
+          cause,
+        })
       )
     )
   })

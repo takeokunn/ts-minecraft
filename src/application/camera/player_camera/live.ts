@@ -30,7 +30,14 @@ import type {
 // Aggregate Dependencies
 
 // Value Object Dependencies
-import type { CameraId, CameraSettings, MouseDelta, PlayerId, ViewMode } from '@/domain/camera/value_object/index'
+import type {
+  AnimationState,
+  CameraId,
+  CameraSettings,
+  MouseDelta,
+  PlayerId,
+  ViewMode,
+} from '@/domain/camera/value_object/index'
 
 /**
  * Player Camera Application Service Live Implementation
@@ -55,7 +62,7 @@ export const PlayerCameraApplicationServiceLive = Layer.effect(
 
     // === Internal State Management ===
     const playerCameras = new Map<PlayerId, PlayerCameraState>()
-    const activeAnimations = new Map<PlayerId, any>() // AnimationState
+    const activeAnimations = new Map<PlayerId, AnimationState>()
     const performanceMetrics = new Map<PlayerId, PlayerCameraStatistics>()
 
     // === Helper Functions ===

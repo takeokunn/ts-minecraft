@@ -7,6 +7,7 @@
 
 import type { CameraId, CameraRotation, Position3D } from '@domain/camera/types'
 import { Brand, Clock, Data, Effect, Option, Schema } from 'effect'
+import { ErrorCauseSchema, toErrorCause, type ErrorCause } from '@/shared/schema/error'
 import type { EasingType, ViewMode } from '../../value_object/index'
 
 // ========================================
@@ -223,7 +224,7 @@ export type AnimationHistoryRepositoryError = Data.TaggedEnum<{
   }
   readonly StorageError: {
     readonly message: string
-    readonly cause: Option<unknown>
+    readonly cause: Option.Option<ErrorCause>
   }
   readonly EncodingFailed: {
     readonly recordType: string
@@ -415,7 +416,7 @@ export const AnimationHistoryRepositoryErrorSchema = Schema.Union(
   }),
   Schema.TaggedStruct('StorageError', {
     message: Schema.String,
-    cause: Schema.OptionFromNullable(Schema.Unknown),
+    cause: Schema.OptionFromNullable(ErrorCauseSchema),
   }),
   Schema.TaggedStruct('EncodingFailed', {
     recordType: Schema.String,
@@ -449,6 +450,9 @@ export const AnimationHistoryExportDataSchema = Schema.Struct({
 /**
  * Animation History Repository Error Factory
  */
+const mapErrorCauseOption = (value: unknown | undefined): Option.Option<ErrorCause> =>
+  Option.fromNullable(toErrorCause(value))
+
 export const createAnimationHistoryError = {
   animationRecordNotFound: (recordId: AnimationRecordId): AnimationHistoryRepositoryError =>
     Data.tagged('AnimationRecordNotFound', { recordId }),
@@ -467,7 +471,7 @@ export const createAnimationHistoryError = {
   storageError: (message: string, cause?: unknown): AnimationHistoryRepositoryError =>
     Data.tagged('StorageError', {
       message,
-      cause: cause ? Option.some(cause) : Option.none(),
+      cause: mapErrorCauseOption(cause),
     }),
 
   encodingFailed: (recordType: string, reason: string): AnimationHistoryRepositoryError =>

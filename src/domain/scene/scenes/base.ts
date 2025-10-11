@@ -288,7 +288,9 @@ export interface SceneFactory<A extends SceneState = SceneState> {
   readonly create: () => Effect.Effect<SceneRuntime<A>>
 }
 
-export const SceneFactoryTag = Context.GenericTag<SceneFactory<any>>('@minecraft/domain/scene/scenes/SceneFactory')
+export const SceneFactoryTag = Context.GenericTag<SceneFactory<SceneState>>(
+  '@minecraft/domain/scene/scenes/SceneFactory'
+)
 
 export const makeSceneLayer = <A extends SceneState, C extends SceneController<A> = SceneController<A>>(
   definition: SceneDefinition<A, C>

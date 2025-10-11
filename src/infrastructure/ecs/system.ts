@@ -6,6 +6,8 @@
  */
 
 import { Clock, Context, Data, Effect, Match, Option, pipe, Schema } from 'effect'
+import { ErrorCauseSchema, toErrorCause } from '@/shared/schema/error'
+import type { ErrorCause } from '@/shared/schema/error'
 
 /**
  * システムエラー - ECSシステム実行時のエラー
@@ -13,13 +15,17 @@ import { Clock, Context, Data, Effect, Match, Option, pipe, Schema } from 'effec
 export const SystemError = Data.tagged<{
   readonly systemName: string
   readonly message: string
-  readonly cause: Option.Option<unknown>
+  readonly cause: Option.Option<ErrorCause>
 }>('SystemError')
 
 export type SystemError = ReturnType<typeof SystemError>
 
-export const makeSystemError = (systemName: string, message: string, cause?: unknown): SystemError =>
-  SystemError({ systemName, message, cause: Option.fromNullable(cause) })
+export const makeSystemError = (
+  systemName: string,
+  message: string,
+  cause?: unknown
+): SystemError =>
+  SystemError({ systemName, message, cause: Option.fromNullable(toErrorCause(cause)) })
 
 export const isSystemError = (error: unknown): error is SystemError =>
   typeof error === 'object' && error !== null && (error as { readonly _tag?: string })._tag === 'SystemError'
@@ -69,7 +75,7 @@ export type SystemMetadata = Schema.Schema.Type<typeof SystemMetadata>
  * ECSシステムインターフェース
  * ゲームループ内で実行される処理単位を定義
  */
-export interface System<Context = unknown> {
+export interface System<Context = Record<string, never>> {
   readonly name: string
   readonly update: (context: Context, deltaTime: number) => Effect.Effect<void, SystemError>
 }
@@ -77,7 +83,7 @@ export interface System<Context = unknown> {
 /**
  * システムサービス - DIコンテナ用のタグ
  */
-export const System = Context.GenericTag<System<unknown>>('@minecraft/infrastructure/System')
+export const System = Context.GenericTag<System<Record<string, never>>>( '@minecraft/infrastructure/System')
 
 /**
  * システム作成ヘルパー

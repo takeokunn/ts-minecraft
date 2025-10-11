@@ -8,6 +8,7 @@
  */
 
 import type * as WorldTypes from '@domain/world/types/core'
+import { ChunkDataSchema } from '@domain/chunk'
 import type * as GenerationErrors from '@domain/world/types/errors'
 import * as Coordinates from '@domain/world/value_object/coordinates/index'
 import { DateTime, Effect, Schema } from 'effect'
@@ -59,7 +60,7 @@ export const ChunkBatchSchema = Schema.Struct({
   completedAt: Schema.optional(Schema.DateTimeUtc),
   attempts: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
   lastError: Schema.optional(Schema.String),
-  results: Schema.optional(Schema.Array(Schema.Unknown)), // ChunkData[]
+  results: Schema.optional(Schema.Array(ChunkDataSchema)),
   estimatedDuration: Schema.optional(Schema.Number),
   actualDuration: Schema.optional(Schema.Number),
   retryScheduledAt: Schema.optional(Schema.DateTimeUtc),
@@ -259,7 +260,7 @@ export const completeBatch = (
 export const failBatch = (
   state: SessionState,
   batchId: string,
-  error: any
+  error: GenerationErrors.GenerationError
 ): Effect.Effect<SessionState, GenerationErrors.StateError> =>
   Effect.gen(function* () {
     const activeBatch = state.executionContext.activeBatches[batchId]
@@ -273,7 +274,7 @@ export const failBatch = (
       ...activeBatch,
       status: 'failed',
       completedAt: now,
-      lastError: error.message || 'Unknown error',
+      lastError: error.message ?? 'Unknown error',
     }
 
     // アクティブバッチから削除し、失敗バッチに追加

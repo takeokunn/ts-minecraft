@@ -1,4 +1,5 @@
 import { Clock, Context, Effect, Layer, Match, Option, pipe, Ref, Schema } from 'effect'
+import { JsonRecordSchema, JsonValueSchema } from '@shared/schema/json'
 
 /**
  * Error Recovery Service
@@ -22,7 +23,7 @@ export const RecoveryAction = Schema.Struct({
   strategy: RecoveryStrategy,
   maxAttempts: Schema.Number.pipe(Schema.positive(), Schema.int()),
   backoffMs: Schema.Number.pipe(Schema.positive()),
-  fallbackConfig: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
+  fallbackConfig: Schema.optional(JsonRecordSchema),
   conditions: Schema.Array(Schema.String), // 実行条件
   timeout: Schema.Number.pipe(Schema.positive()),
 })
@@ -58,7 +59,7 @@ export const ErrorContext = Schema.Struct({
       errorMessage: Schema.optional(Schema.String),
     })
   ),
-  metadata: Schema.Record(Schema.String, Schema.Unknown),
+  metadata: Schema.Record(Schema.String, JsonValueSchema),
 })
 
 // === Recovery Configuration ===
@@ -112,12 +113,30 @@ export const ErrorRecoveryServiceError = Schema.TaggedError<ErrorRecoveryService
   {
     message: Schema.String,
     recoveryId: Schema.String,
-    errorContext: Schema.optional(Schema.Unknown),
-    cause: Schema.optional(Schema.Unknown),
+    errorContext: Schema.optional(JsonRecordSchema),
+    cause: Schema.optional(JsonValueSchema),
   }
 )
 
 export interface ErrorRecoveryServiceErrorType extends Schema.Schema.Type<typeof ErrorRecoveryServiceError> {}
+
+type RecoveryContextData = Record<string, unknown>
+
+type CheckpointState = Record<string, unknown>
+
+type RecoveryResult = unknown
+
+type RecoveryTask = Effect.Effect<RecoveryResult, unknown>
+
+type RecoveryStatistics = {
+  readonly totalErrors: number
+  readonly errorsByClassification: Partial<Record<Schema.Schema.Type<typeof ErrorClassification>, number>>
+  readonly averageRetryCount: number
+  readonly circuitBreakerStates: Partial<
+    Record<Schema.Schema.Type<typeof CircuitBreaker>['state'], number>
+  >
+  readonly successfulRecoveries: number
+}
 
 // === Service Interface ===
 
@@ -127,7 +146,7 @@ export interface ErrorRecoveryService {
    */
   readonly classifyError: (
     error: Error,
-    context: Record<string, any>
+    context: RecoveryContextData
   ) => Effect.Effect<ErrorClassification, ErrorRecoveryServiceErrorType>
 
   /**
@@ -143,21 +162,21 @@ export interface ErrorRecoveryService {
   readonly attemptRecovery: (
     errorContext: Schema.Schema.Type<typeof ErrorContext>,
     recoveryAction: Schema.Schema.Type<typeof RecoveryAction>,
-    originalTask: Effect.Effect<any, any>
-  ) => Effect.Effect<any, ErrorRecoveryServiceErrorType>
+    originalTask: RecoveryTask
+  ) => Effect.Effect<RecoveryResult, ErrorRecoveryServiceErrorType>
 
   /**
    * チェックポイントを作成します
    */
   readonly createCheckpoint: (
     id: string,
-    state: Record<string, any>
+    state: CheckpointState
   ) => Effect.Effect<void, ErrorRecoveryServiceErrorType>
 
   /**
    * チェックポイントから復元します
    */
-  readonly restoreFromCheckpoint: (id: string) => Effect.Effect<Record<string, any>, ErrorRecoveryServiceErrorType>
+  readonly restoreFromCheckpoint: (id: string) => Effect.Effect<CheckpointState, ErrorRecoveryServiceErrorType>
 
   /**
    * サーキットブレーカーの状態を取得します
@@ -177,7 +196,7 @@ export interface ErrorRecoveryService {
   /**
    * 回復統計を取得します
    */
-  readonly getRecoveryStatistics: () => Effect.Effect<Record<string, any>, ErrorRecoveryServiceErrorType>
+  readonly getRecoveryStatistics: () => Effect.Effect<RecoveryStatistics, ErrorRecoveryServiceErrorType>
 
   /**
    * エラー履歴を取得します
@@ -191,12 +210,12 @@ export interface ErrorRecoveryService {
 
 const makeErrorRecoveryService = Effect.gen(function* () {
   // 内部状態管理
-  const checkpoints = yield* Ref.make<Map<string, Record<string, any>>>(new Map())
+  const checkpoints = yield* Ref.make<Map<string, CheckpointState>>(new Map())
   const circuitBreakers = yield* Ref.make<Map<string, Schema.Schema.Type<typeof CircuitBreaker>>>(new Map())
   const errorHistory = yield* Ref.make<Schema.Schema.Type<typeof ErrorContext>[]>([])
   const recoveryConfig = yield* Ref.make<Schema.Schema.Type<typeof RecoveryConfiguration>>(DEFAULT_RECOVERY_CONFIG)
 
-  const classifyError = (error: Error, context: Record<string, any>) =>
+  const classifyError = (error: Error, context: RecoveryContextData) =>
     Effect.gen(function* () {
       const config = yield* Ref.get(recoveryConfig)
 
@@ -263,7 +282,7 @@ const makeErrorRecoveryService = Effect.gen(function* () {
   const attemptRecovery = (
     errorContext: Schema.Schema.Type<typeof ErrorContext>,
     recoveryAction: Schema.Schema.Type<typeof RecoveryAction>,
-    originalTask: Effect.Effect<any, any>
+    originalTask: RecoveryTask
   ) =>
     Effect.gen(function* () {
       yield* Effect.logInfo(`回復試行開始: ${recoveryAction.strategy} (試行 ${errorContext.retryCount + 1})`)
@@ -304,9 +323,9 @@ const makeErrorRecoveryService = Effect.gen(function* () {
       return result
     })
 
-  const createCheckpoint = (id: string, state: Record<string, any>) =>
+  const createCheckpoint = (id: string, state: CheckpointState) =>
     Effect.gen(function* () {
-      yield* Ref.update(checkpoints, (map) => map.set(id, structuredClone(state)))
+      yield* Ref.update(checkpoints, (map) => map.set(id, structuredClone(state) as CheckpointState))
       yield* Effect.logDebug(`チェックポイント作成: ${id}`)
     })
 
@@ -326,7 +345,7 @@ const makeErrorRecoveryService = Effect.gen(function* () {
           onSome: (checkpoint) =>
             Effect.gen(function* () {
               yield* Effect.logInfo(`チェックポイントから復元: ${id}`)
-              return structuredClone(checkpoint)
+              return structuredClone(checkpoint) as CheckpointState
             }),
         })
       )
@@ -375,11 +394,11 @@ const makeErrorRecoveryService = Effect.gen(function* () {
                     now < retryTime,
                     Effect.if({
                       onTrue: () =>
-                        Effect.fail({
-                          _tag: 'ErrorRecoveryServiceError' as const,
+                        Effect.fail<never, ErrorRecoveryServiceErrorType>({
+                          _tag: 'ErrorRecoveryServiceError',
                           message: `サーキットブレーカーが開いています: ${id}`,
                           recoveryId: id,
-                        } as any),
+                        }),
                       onFalse: () => Effect.void,
                     })
                   ),
@@ -451,14 +470,14 @@ const makeErrorRecoveryService = Effect.gen(function* () {
       const history = yield* Ref.get(errorHistory)
       const breakers = yield* Ref.get(circuitBreakers)
 
-      const stats = {
+      const stats: RecoveryStatistics = {
         totalErrors: history.length,
         errorsByClassification: history.reduce(
           (acc, ctx) => {
             acc[ctx.classification] = (acc[ctx.classification] || 0) + 1
             return acc
           },
-          {} as Record<string, number>
+          {} as Partial<Record<Schema.Schema.Type<typeof ErrorClassification>, number>>
         ),
         averageRetryCount: pipe(history.length > 0, (hasHistory) =>
           hasHistory ? history.reduce((sum, ctx) => sum + ctx.retryCount, 0) / history.length : 0
@@ -468,7 +487,7 @@ const makeErrorRecoveryService = Effect.gen(function* () {
             acc[breaker.state] = (acc[breaker.state] || 0) + 1
             return acc
           },
-          {} as Record<string, number>
+          {} as Partial<Record<Schema.Schema.Type<typeof CircuitBreaker>['state'], number>>
         ),
         successfulRecoveries: history.filter((ctx) =>
           ctx.previousAttempts.some((attempt) => attempt.result === 'success')
@@ -500,7 +519,7 @@ const makeErrorRecoveryService = Effect.gen(function* () {
       )
     )
 
-  const executeRetryStrategy = (task: Effect.Effect<any, any>, action: Schema.Schema.Type<typeof RecoveryAction>) =>
+  const executeRetryStrategy = (task: RecoveryTask, action: Schema.Schema.Type<typeof RecoveryAction>) =>
     pipe(
       task,
       Effect.retry({

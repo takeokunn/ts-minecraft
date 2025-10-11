@@ -5,7 +5,7 @@
  * プレイヤー設定、学習アルゴリズム、統計分析、推奨システムの統合実装
  */
 
-import { Array, Clock, Data, Effect, Either, HashMap, Layer, Match, Option, pipe, Ref, Schema } from 'effect'
+import { Array, Brand, Clock, Data, Effect, Either, HashMap, Layer, Match, Option, pipe, Ref, Schema } from 'effect'
 import type { ViewMode } from '../../value_object/index'
 import type {
   AdaptiveAdjustments,
@@ -32,6 +32,9 @@ import type {
   ViewModePreferencesRepositoryError,
   ViewModeRecommendation,
   ViewModeTrend,
+  ViewModeUsageData,
+  ContextSwitchPattern,
+  SatisfactionDataPoint,
 } from './index'
 import {
   createDefaultPreferences,
@@ -57,7 +60,7 @@ interface ViewModePreferencesStorageState {
   readonly popularityData: HashMap.HashMap<string, ViewModePopularity> // Key: viewMode_context
   readonly learnedPatterns: HashMap.HashMap<PlayerId, LearnedPatterns>
   readonly smartSwitchSettings: HashMap.HashMap<PlayerId, SmartSwitchSettings>
-  readonly statisticsCache: HashMap.HashMap<string, any>
+  readonly statisticsCache: HashMap.HashMap<string, PreferenceAnalyticsData>
   readonly metadata: {
     readonly totalUsers: number
     readonly totalRecords: number
@@ -83,6 +86,24 @@ const CacheKeys = {
       ? `trends_${timeRange.startTime}_${timeRange.endTime}_${context._tag}`
       : `trends_${timeRange.startTime}_${timeRange.endTime}`,
 } as const
+
+const toGameContext = (tag: string): Option<GameContext> => {
+  switch (tag) {
+    case 'Exploration':
+    case 'Combat':
+    case 'Building':
+    case 'Flying':
+    case 'Spectating':
+    case 'Cinematic':
+    case 'Menu':
+    case 'Inventory':
+    case 'Crafting':
+    case 'Chat':
+      return Option.some(Data.tagged(tag, {}))
+    default:
+      return Option.none()
+  }
+}
 
 /**
  * Storage Operations
@@ -407,29 +428,31 @@ const StorageOps = {
 
     const preferredModes = pipe(
       Array.from(modeUsage.entries()),
-      Array.map(
-        ([mode, data]) =>
-          ({
-            viewMode: mode,
-            usageCount: data.count,
-            totalDuration: data.totalDuration,
-            averageDuration: data.totalDuration / data.count,
-            contexts: Array.from(data.contexts),
-            satisfactionScore: 3.5,
-          }) as any
+      Array.map(([mode, data]) =>
+        Brand.nominal<ViewModeUsageData>()({
+          viewMode: mode,
+          usageCount: data.count,
+          totalDuration: data.totalDuration,
+          averageDuration: data.totalDuration / data.count,
+          contexts: Array.from(data.contexts),
+          satisfactionScore: 3.5,
+        })
       )
-    )
+    ) satisfies Array.ReadonlyArray<ViewModeUsageData>
 
-    return {
+    const contextSwitchPatterns: Array.ReadonlyArray<ContextSwitchPattern> = []
+    const satisfactionTrend: Array.ReadonlyArray<SatisfactionDataPoint> = []
+
+    return Brand.nominal<PreferenceAnalyticsData>()({
       playerId,
       totalSwitches,
       averageSwitchFrequency,
       preferredModes,
-      contextSwitchPatterns: [],
-      satisfactionTrend: [],
+      contextSwitchPatterns,
+      satisfactionTrend,
       efficiencyScore: Math.min(100, Math.max(0, 100 - averageSwitchFrequency * 5)),
       adaptabilityScore: Math.min(100, modeUsage.size * 25),
-    } as PreferenceAnalyticsData
+    })
   },
 
   /**
@@ -631,14 +654,18 @@ export const ViewModePreferencesRepositoryLive = Layer.effect(
               HashMap.entries(playerContextualPrefs),
               Array.reduce(new Map<GameContext, ViewModePreference>(), (acc, [key, preference]) => {
                 const contextName = key.split('_')[1]
-                return contextName
-                  ? (() => {
-                      const newMap = new Map(acc)
-                      const context = Data.tagged(contextName as any, {})
-                      newMap.set(context, preference)
-                      return newMap
-                    })()
-                  : acc
+                if (!contextName) {
+                  return acc
+                }
+
+                const maybeContext = toGameContext(contextName)
+                if (Option.isNone(maybeContext)) {
+                  return acc
+                }
+
+                const newMap = new Map(acc)
+                newMap.set(maybeContext.value, preference)
+                return newMap
               })
             )
 

@@ -887,7 +887,10 @@ const makeGenerationSessionRepositoryMemory = (
         }
       })
 
-    const recoverSession = (sessionId: GenerationSessionId, options?: any): Effect.Effect<void, AllRepositoryErrors> =>
+    const recoverSession = (
+      sessionId: GenerationSessionId,
+      options?: Record<string, unknown>
+    ): Effect.Effect<void, AllRepositoryErrors> =>
       Effect.gen(function* () {
         yield* updateSessionState(sessionId, 'recovering')
         // Mock recovery process

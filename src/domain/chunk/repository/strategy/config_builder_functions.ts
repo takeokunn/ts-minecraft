@@ -113,7 +113,7 @@ export const buildConfig = (
     Option.match({
       onNone: () =>
         Effect.fail(
-          new IncompleteRepositoryConfigError({
+          IncompleteRepositoryConfigError.make({
             missingField: 'strategy',
             currentState: state,
             message: 'リポジトリ戦略が設定されていません。build()を呼ぶ前にsetStrategy()を実行してください',

@@ -6,6 +6,7 @@
  */
 
 import { Clock, Context, Data, Effect, Layer, Match, Option, pipe, Ref } from 'effect'
+import { toErrorCause, type ErrorCause } from '@shared/schema/error'
 import type { System, SystemError, SystemMetadata, SystemPriority } from './system'
 import { isSystemError, makeSystemError, priorityToNumber, SystemExecutionState } from './system'
 
@@ -15,7 +16,7 @@ import { isSystemError, makeSystemError, priorityToNumber, SystemExecutionState 
 export const SystemRegistryError = Data.tagged<{
   readonly message: string
   readonly systemName: Option.Option<string>
-  readonly cause: Option.Option<unknown>
+  readonly cause: Option.Option<ErrorCause>
 }>('SystemRegistryError')
 
 export type SystemRegistryError = ReturnType<typeof SystemRegistryError>
@@ -24,7 +25,7 @@ export const makeSystemRegistryError = (message: string, systemName?: string, ca
   SystemRegistryError({
     message,
     systemName: Option.fromNullable(systemName),
-    cause: Option.fromNullable(cause),
+    cause: Option.fromNullable(toErrorCause(cause)),
   })
 
 export const isSystemRegistryError = (error: unknown): error is SystemRegistryError =>

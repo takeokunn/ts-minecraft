@@ -10,6 +10,7 @@ import type { Quaternion } from './quaternion'
 import * as Quat from './quaternion'
 import type { Vector3 } from './vector3'
 import * as V3 from './vector3'
+import { ErrorCauseSchema } from '@shared/schema/error'
 
 /**
  * Matrix4 Schema定義（Brand型）
@@ -44,7 +45,8 @@ export type Matrix4 = Schema.Schema.Type<typeof Matrix4Schema>
 export const Matrix4Error = Schema.TaggedError('Matrix4Error')({
   operation: Schema.String,
   reason: Schema.String,
-  cause: Schema.Unknown,
+  matrix: Schema.optional(Matrix4Schema),
+  cause: Schema.optional(ErrorCauseSchema),
 })
 export type Matrix4Error = Schema.Schema.Type<typeof Matrix4Error>
 
@@ -158,7 +160,7 @@ export const invert = (m: Matrix4): Effect.Effect<Matrix4, Matrix4Error> =>
         new Matrix4Error({
           operation: 'invert',
           reason: 'Matrix is singular (determinant is zero)',
-          cause: m,
+          matrix: m,
         })
       )
     }

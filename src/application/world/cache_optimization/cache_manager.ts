@@ -1,4 +1,6 @@
 import { Clock, Context, Effect, Layer, Match, Option, ReadonlyArray, Ref, Schema, pipe } from 'effect'
+import { JsonRecordSchema, JsonValueSchema } from '@shared/schema/json'
+import type { JsonRecord, JsonValue } from '@shared/schema/json'
 
 /**
  * Cache Manager Service
@@ -20,14 +22,14 @@ export const CacheStrategy = Schema.Union(
 export const CacheEntry = Schema.Struct({
   _tag: Schema.Literal('CacheEntry'),
   key: Schema.String,
-  value: Schema.Unknown,
+  value: JsonValueSchema,
   size: Schema.Number.pipe(Schema.positive()),
   createdAt: Schema.Number,
   lastAccessedAt: Schema.Number,
   accessCount: Schema.Number.pipe(Schema.nonNegativeInteger()),
   ttl: Schema.optional(Schema.Number.pipe(Schema.positive())),
   priority: Schema.Number.pipe(Schema.between(0, 1)),
-  metadata: Schema.Record(Schema.String, Schema.Unknown),
+  metadata: JsonRecordSchema,
 })
 
 export const CacheLayer = Schema.Struct({
@@ -96,7 +98,7 @@ export const CacheManagerError = Schema.TaggedError<CacheManagerErrorType>()('Ca
   message: Schema.String,
   managerId: Schema.String,
   operation: Schema.optional(Schema.String),
-  cause: Schema.optional(Schema.Unknown),
+  cause: Schema.optional(JsonValueSchema),
 })
 
 export interface CacheManagerErrorType extends Schema.Schema.Type<typeof CacheManagerError> {}
@@ -116,7 +118,7 @@ export interface CacheManagerService {
    */
   readonly get: <T>(
     key: string,
-    validator?: (value: unknown) => value is T
+    validator?: (value: JsonValue) => value is T
   ) => Effect.Effect<Option.Option<T>, CacheManagerErrorType>
 
   /**
@@ -124,7 +126,7 @@ export interface CacheManagerService {
    */
   readonly set: (
     key: string,
-    value: unknown,
+    value: JsonValue,
     options?: CacheEntryOptions
   ) => Effect.Effect<void, CacheManagerErrorType>
 
@@ -168,14 +170,14 @@ export interface CacheManagerService {
    */
   readonly getMultiple: <T>(
     keys: string[],
-    validator?: (value: unknown) => value is T
+    validator?: (value: JsonValue) => value is T
   ) => Effect.Effect<Map<string, T>, CacheManagerErrorType>
 
   /**
    * 複数のエントリを一括設定します
    */
   readonly setMultiple: (
-    entries: Array<{ key: string; value: unknown; options?: CacheEntryOptions }>
+    entries: Array<{ key: string; value: JsonValue; options?: CacheEntryOptions }>
   ) => Effect.Effect<void, CacheManagerErrorType>
 
   /**
@@ -199,7 +201,7 @@ const makeCacheManagerService = Effect.gen(function* () {
     totalEvictions: 0,
   })
 
-  const get = <T>(key: string, validator?: (value: unknown) => value is T) =>
+  const get = <T>(key: string, validator?: (value: JsonValue) => value is T) =>
     Effect.gen(function* () {
       const entries = yield* Ref.get(cacheEntries)
       const now = yield* Clock.currentTimeMillis
@@ -232,7 +234,7 @@ const makeCacheManagerService = Effect.gen(function* () {
       )
     })
 
-  const set = (key: string, value: unknown, options?: { ttl?: number; priority?: number; layer?: string }) =>
+  const set = (key: string, value: JsonValue, options?: { ttl?: number; priority?: number; layer?: string }) =>
     Effect.gen(function* () {
       const config = yield* Ref.get(configuration)
       const now = yield* Clock.currentTimeMillis
@@ -425,7 +427,7 @@ const makeCacheManagerService = Effect.gen(function* () {
       return entries.has(key)
     })
 
-  const getMultiple = <T>(keys: string[], validator?: (value: unknown) => value is T) =>
+  const getMultiple = <T>(keys: string[], validator?: (value: JsonValue) => value is T) =>
     Effect.gen(function* () {
       // keysのfor-of撲滅 → Effect.reduce
       const results = yield* pipe(
@@ -451,7 +453,7 @@ const makeCacheManagerService = Effect.gen(function* () {
       return results
     })
 
-  const setMultiple = (entries: Array<{ key: string; value: unknown; options?: CacheEntryOptions }>) =>
+  const setMultiple = (entries: Array<{ key: string; value: JsonValue; options?: CacheEntryOptions }>) =>
     Effect.gen(function* () {
       // for-of撲滅 → Effect.forEach
       yield* pipe(
@@ -565,7 +567,7 @@ const makeCacheManagerService = Effect.gen(function* () {
     })
 
   // 型判定if-else-if → 三項演算子チェーン
-  const estimateSize = (value: unknown): number =>
+  const estimateSize = (value: JsonValue): number =>
     typeof value === 'string'
       ? value.length * 2 // UTF-16
       : typeof value === 'object' && value !== null

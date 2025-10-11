@@ -15,6 +15,8 @@
 
 import type * as GenerationSession from '@domain/world/aggregate/generation_session'
 import { DateTime, Effect, Function, Match, Option, ReadonlyArray, Schema } from 'effect'
+import { JsonValueSchema } from '@/shared/schema/json'
+import type { JsonValue } from '@/shared/schema/json'
 import type { ConfigurationProfile, SessionFactoryError, SessionTemplateType } from './index'
 import { SessionFactoryError } from './index'
 import { SessionTemplateRegistryService } from './template_registry_service'
@@ -86,7 +88,7 @@ export const TemplateResolutionResultSchema = Schema.Struct({
   resolvedConfiguration: GenerationSession.SessionConfigurationSchema,
   appliedCustomizations: Schema.Record({
     key: Schema.String,
-    value: Schema.Unknown,
+    value: JsonValueSchema,
   }),
   warnings: Schema.Array(Schema.String),
   recommendations: Schema.Array(Schema.String),
@@ -104,7 +106,7 @@ export interface SessionTemplateResolver {
    */
   readonly resolve: (
     type: SessionTemplateType,
-    customizations?: Record<string, unknown>
+    customizations?: Record<string, JsonValue>
   ) => Effect.Effect<TemplateResolutionResult, SessionFactoryError>
 
   /**
@@ -112,7 +114,7 @@ export interface SessionTemplateResolver {
    */
   readonly resolveCustom: (
     name: string,
-    customizations?: Record<string, unknown>
+    customizations?: Record<string, JsonValue>
   ) => Effect.Effect<TemplateResolutionResult, SessionFactoryError>
 
   /**
@@ -154,7 +156,7 @@ export interface SessionTemplateResolver {
 // ================================
 
 const createSessionTemplateResolver = (): SessionTemplateResolver => ({
-  resolve: (type: SessionTemplateType, customizations?: Record<string, unknown>) =>
+  resolve: (type: SessionTemplateType, customizations?: Record<string, JsonValue>) =>
     Effect.gen(function* () {
       const registry = yield* SessionTemplateRegistryService
       const template = yield* registry.get(type)
@@ -194,7 +196,7 @@ const createSessionTemplateResolver = (): SessionTemplateResolver => ({
       }
     }),
 
-  resolveCustom: (name: string, customizations?: Record<string, unknown>) =>
+  resolveCustom: (name: string, customizations?: Record<string, JsonValue>) =>
     Effect.gen(function* () {
       const registry = yield* SessionTemplateRegistryService
       const template = yield* registry.getCustom(name)
@@ -339,7 +341,7 @@ const createSessionTemplateResolver = (): SessionTemplateResolver => ({
  */
 const applyCustomizations = (
   configuration: GenerationSession.SessionConfiguration,
-  customizations: Record<string, unknown>
+  customizations: Record<string, JsonValue>
 ): Effect.Effect<GenerationSession.SessionConfiguration, SessionFactoryError> =>
   Effect.succeed({
     ...configuration,

@@ -164,7 +164,7 @@ export const IndexedDBChunkRepositoryLive = Layer.effect(
       findById: (id: ChunkId) =>
         Effect.flatMap(
           transaction(db, [CHUNK_STORE], 'readonly', (tx) =>
-            requestToPromise<ChunkRecord | undefined>(() => tx.objectStore(CHUNK_STORE).get(idKey(id)))
+            requestToEffect(() => tx.objectStore(CHUNK_STORE).get(idKey(id)))
           ),
           (record) =>
             pipe(
@@ -176,7 +176,7 @@ export const IndexedDBChunkRepositoryLive = Layer.effect(
       findByPosition: (position: ChunkPosition) =>
         Effect.flatMap(
           transaction(db, [CHUNK_STORE], 'readonly', (tx) =>
-            requestToPromise<ReadonlyArray<ChunkRecord>>(() =>
+            requestToEffect(() =>
               tx.objectStore(CHUNK_STORE).index('position').getAll([position.x, position.z])
             )
           ),
@@ -190,7 +190,7 @@ export const IndexedDBChunkRepositoryLive = Layer.effect(
 
       findByRegion: (region: ChunkRegion) =>
         transaction(db, [CHUNK_STORE], 'readonly', (tx) =>
-          requestToPromise(() => tx.objectStore(CHUNK_STORE).getAll())
+          requestToEffect(() => tx.objectStore(CHUNK_STORE).getAll())
         ).pipe(
           Effect.map((records: ReadonlyArray<ChunkRecord>) =>
             records

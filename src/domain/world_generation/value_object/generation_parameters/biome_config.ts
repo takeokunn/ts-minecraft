@@ -8,6 +8,7 @@
 import { taggedUnion } from '@domain/world/utils'
 import type { Brand as BrandType } from 'effect'
 import { Schema } from 'effect'
+import { JsonValueSchema } from '@shared/schema/json'
 
 /**
  * 温度値Brand型（摂氏-50度から50度）
@@ -378,7 +379,7 @@ export const CreateBiomeConfigParamsSchema = Schema.Struct({
   elevation: Schema.Number.pipe(Schema.optional),
   customSettings: Schema.Record({
     key: Schema.String,
-    value: Schema.Unknown,
+    value: JsonValueSchema,
   }).pipe(Schema.optional),
 })
 
@@ -391,7 +392,7 @@ export const BiomeConfigErrorSchema = taggedUnion('_tag', [
   Schema.Struct({
     _tag: Schema.Literal('InvalidClimateData'),
     parameter: Schema.String,
-    value: Schema.Unknown,
+    value: JsonValueSchema,
     reason: Schema.String,
     message: Schema.String,
   }),

@@ -22,6 +22,7 @@ import {
   WindSpeedSchema,
 } from '@domain/world/value_object/generation_parameters/biome_config'
 import * as Schema from '@effect/schema/Schema'
+import { JsonValueSchema } from '@shared/schema/json'
 import { Clock, DateTime, Effect, Layer, Option, pipe, ReadonlyArray, Ref } from 'effect'
 import * as fs from 'fs'
 import * as path from 'path'
@@ -59,7 +60,7 @@ const StoredBiomeDefinition = Schema.Struct({
   category: Schema.String,
   temperature: TemperatureSchema,
   humidity: HumiditySchema,
-  properties: Schema.Record(Schema.String, Schema.Unknown),
+  properties: Schema.Record(Schema.String, JsonValueSchema),
   createdAt: Schema.DateFromString,
   updatedAt: Schema.DateFromString,
 })
@@ -73,7 +74,7 @@ const StoredBiomePlacement = Schema.Struct({
   radius: Schema.Number,
   priority: Schema.Number,
   placedAt: Schema.DateFromString,
-  metadata: Schema.Record(Schema.String, Schema.Unknown),
+  metadata: Schema.Record(Schema.String, JsonValueSchema),
 })
 
 const StoredClimateData = Schema.Struct({
@@ -119,11 +120,14 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
     })
 
     // Initialize storage directories
-    yield* Effect.promise(() => fs.promises.mkdir(persistenceConfig.dataPath, { recursive: true })).pipe(
-      Effect.catchAll((error) =>
-        Effect.fail(createStorageError(`Failed to create data directory: ${error}`, 'initialize', error))
+    yield* Effect.promise(() => fs.promises.mkdir(persistenceConfig.dataPath, { recursive: true }))
+      .pipe(
+        Effect.annotateLogs('biome.persistence.operation', 'mkdir'),
+        Effect.annotateLogs('biome.persistence.path', persistenceConfig.dataPath),
+        Effect.catchAll((error) =>
+          Effect.fail(createStorageError(`Failed to create data directory: ${error}`, 'initialize', error))
+        )
       )
-    )
 
     // === File Operations ===
 
@@ -139,28 +143,37 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
     const writeFile = (filePath: string, data: unknown): Effect.Effect<void, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const directory = path.dirname(filePath)
-        yield* Effect.promise(() => fs.promises.mkdir(directory, { recursive: true }))
+        yield* Effect.promise(() => fs.promises.mkdir(directory, { recursive: true })).pipe(
+          Effect.annotateLogs('biome.persistence.operation', 'mkdir'),
+          Effect.annotateLogs('biome.persistence.path', directory)
+        )
 
         const jsonContent = JSON.stringify(data, null, 2)
 
         const content = yield* Effect.if(persistenceConfig.compressionEnabled, {
           onTrue: () =>
             Effect.gen(function* () {
-              const compressed = yield* Effect.promise(
-                () =>
-                  new Promise<Buffer>((resolve, reject) => {
-                    zlib.gzip(jsonContent, (err, result) => {
-                      if (err) reject(err)
-                      else resolve(result)
-                    })
-                  })
+              const compressed = yield* Effect.async<Buffer, AllRepositoryErrors>((resume) => {
+                zlib.gzip(jsonContent, (err, result) => {
+                  if (err) {
+                    resume(Effect.fail(createStorageError(`Compression failed: ${err}`, 'writeFile', err)))
+                  } else {
+                    resume(Effect.succeed(result))
+                  }
+                })
+              }).pipe(
+                Effect.annotateLogs('biome.persistence.operation', 'compress'),
+                Effect.annotateLogs('biome.persistence.dataLength', jsonContent.length)
               )
               return compressed.toString('base64')
             }),
           onFalse: () => Effect.succeed(jsonContent),
         })
 
-        yield* Effect.promise(() => fs.promises.writeFile(filePath, content, 'utf8'))
+        yield* Effect.promise(() => fs.promises.writeFile(filePath, content, 'utf8')).pipe(
+          Effect.annotateLogs('biome.persistence.operation', 'writeFile'),
+          Effect.annotateLogs('biome.persistence.path', filePath)
+        )
       }).pipe(
         Effect.catchAll((error) =>
           Effect.fail(createStorageError(`Failed to write file ${filePath}: ${error}`, 'writeFile', error))
@@ -177,24 +190,33 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
             .access(filePath)
             .then(() => true)
             .catch(() => false)
+        ).pipe(
+          Effect.annotateLogs('biome.persistence.operation', 'access'),
+          Effect.annotateLogs('biome.persistence.path', filePath)
         )
 
         return yield* Effect.if(exists, {
           onTrue: () =>
             Effect.gen(function* () {
-              const rawContent = yield* Effect.promise(() => fs.promises.readFile(filePath, 'utf8'))
+              const rawContent = yield* Effect.promise(() => fs.promises.readFile(filePath, 'utf8')).pipe(
+                Effect.annotateLogs('biome.persistence.operation', 'readFile'),
+                Effect.annotateLogs('biome.persistence.path', filePath)
+              )
 
               const content = yield* Effect.if(persistenceConfig.compressionEnabled, {
                 onTrue: () =>
-                  Effect.promise(
-                    () =>
-                      new Promise<string>((resolve, reject) => {
-                        const buffer = Buffer.from(rawContent, 'base64')
-                        zlib.gunzip(buffer, (err, result) => {
-                          if (err) reject(err)
-                          else resolve(result.toString('utf8'))
-                        })
-                      })
+                  Effect.async<string, AllRepositoryErrors>((resume) => {
+                    const buffer = Buffer.from(rawContent, 'base64')
+                    zlib.gunzip(buffer, (err, result) => {
+                      if (err) {
+                        resume(Effect.fail(createStorageError(`Decompression failed: ${err}`, 'readFile', err)))
+                      } else {
+                        resume(Effect.succeed(result.toString('utf8')))
+                      }
+                    })
+                  }).pipe(
+                    Effect.annotateLogs('biome.persistence.operation', 'decompress'),
+                    Effect.annotateLogs('biome.persistence.bufferLength', rawContent.length)
                   ),
                 onFalse: () => Effect.succeed(rawContent),
               })

@@ -48,6 +48,13 @@ const hasNetworkInformation = (): boolean => {
  *
  * @returns NetworkConnectionのOption（取得不可時はnone）
  */
+interface NetworkInformationLike {
+  readonly effectiveType?: string
+  readonly downlink?: number
+  readonly rtt?: number
+  readonly saveData?: boolean
+}
+
 export const getNetworkConnection = (): Effect.Effect<Option.Option<NetworkConnection>, never> =>
   Effect.sync(() => {
     if (!hasNetworkInformation()) {
@@ -55,7 +62,7 @@ export const getNetworkConnection = (): Effect.Effect<Option.Option<NetworkConne
     }
 
     // Navigator.connection は非標準APIでTypeScript型定義に含まれないため、ランタイムチェック
-    const nav = navigator as Navigator & { connection?: unknown }
+    const nav = navigator as Navigator & { connection?: NetworkInformationLike }
     return Schema.decodeUnknownOption(NetworkConnectionSchema)(nav.connection)
   })
 

@@ -15,7 +15,11 @@ export const createTexture = (
 ): Effect.Effect<THREE.Texture, TextureError> =>
   Effect.try({
     try: () => new THREE.Texture(data),
-    catch: (error) => new TextureError({ operation: 'create', cause: error }),
+    catch: (error) =>
+      TextureError.make({
+        operation: 'create',
+        cause: error,
+      }),
   })
 
 /**

@@ -42,7 +42,11 @@ export const setFog = (scene: THREE.Scene, fog: THREE.Fog | THREE.FogExp2 | null
 export const addToScene = (scene: THREE.Scene, object: THREE.Object3D): Effect.Effect<void, SceneError> =>
   Effect.try({
     try: () => scene.add(object),
-    catch: (error) => new SceneError({ operation: 'add', cause: error }),
+    catch: (error) =>
+      SceneError.make({
+        operation: 'add',
+        cause: error,
+      }),
   })
 
 /**
@@ -51,7 +55,11 @@ export const addToScene = (scene: THREE.Scene, object: THREE.Object3D): Effect.E
 export const removeFromScene = (scene: THREE.Scene, object: THREE.Object3D): Effect.Effect<void, SceneError> =>
   Effect.try({
     try: () => scene.remove(object),
-    catch: (error) => new SceneError({ operation: 'remove', cause: error }),
+    catch: (error) =>
+      SceneError.make({
+        operation: 'remove',
+        cause: error,
+      }),
   })
 
 /**
@@ -60,7 +68,11 @@ export const removeFromScene = (scene: THREE.Scene, object: THREE.Object3D): Eff
 export const clearScene = (scene: THREE.Scene): Effect.Effect<void, SceneError> =>
   Effect.try({
     try: () => scene.clear(),
-    catch: (error) => new SceneError({ operation: 'clear', cause: error }),
+    catch: (error) =>
+      SceneError.make({
+        operation: 'clear',
+        cause: error,
+      }),
   })
 
 /**

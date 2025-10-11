@@ -19,6 +19,8 @@ import type {
   WorldGenerator,
 } from './index'
 
+type GenerationParametersConfig = GenerationContext['parameters']
+
 // ================================
 // Business Constants
 // ================================
@@ -444,7 +446,7 @@ export const validateStateIntegrity = (state: GenerationState): Effect.Effect<vo
 /**
  * 生成負荷の見積もり
  */
-const estimateGenerationLoad = (parameters: any): number => {
+const estimateGenerationLoad = (parameters: GenerationParametersConfig): number => {
   // 簡易的な負荷計算
   let load = 0
 
@@ -468,7 +470,7 @@ const estimateGenerationLoad = (parameters: any): number => {
 /**
  * メモリ使用量の見積もり
  */
-const estimateMemoryUsage = (parameters: any): number => {
+const estimateMemoryUsage = (parameters: GenerationParametersConfig): number => {
   // 簡易的なメモリ計算 (バイト単位)
   let memory = 0
 

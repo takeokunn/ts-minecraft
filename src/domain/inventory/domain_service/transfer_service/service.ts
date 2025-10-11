@@ -6,8 +6,9 @@
  * 転送最適化などの高度なビジネスロジックを提供します。
  */
 
-import { Context, Effect } from 'effect'
+import { Context, Effect, Schema } from 'effect'
 import type { Inventory, InventoryErrorReason, ItemId } from '../../types'
+import { InventorySchema } from '../../inventory-types'
 
 // =============================================================================
 // Transfer Service Types
@@ -125,8 +126,8 @@ export const BatchTransferErrorSchema = Schema.TaggedStruct('BatchTransferError'
   partialResults: Schema.Array(
     Schema.Struct({
       success: Schema.Boolean,
-      sourceInventory: Schema.Unknown,
-      targetInventory: Schema.Unknown,
+      sourceInventory: InventorySchema,
+      targetInventory: InventorySchema,
       transferredCount: Schema.Number,
       remainingCount: Schema.Number,
       targetSlot: Schema.Number,

@@ -25,7 +25,11 @@ export const createDirectionalLight = (
 ): Effect.Effect<THREE.DirectionalLight, LightError> =>
   Effect.try({
     try: () => new THREE.DirectionalLight(params?.color, params?.intensity),
-    catch: (error) => new LightError({ type: 'directional', cause: error }),
+    catch: (error) =>
+      LightError.make({
+        type: 'directional',
+        cause: error,
+      }),
   })
 
 /**

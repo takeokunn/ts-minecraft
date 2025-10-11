@@ -1,4 +1,5 @@
 import { Clock, Data, DateTime, Effect, Either, Match, pipe } from 'effect'
+import * as Schema from '@effect/schema/Schema'
 import {
   BreedingOutcome,
   BreedingStats,
@@ -60,19 +61,31 @@ export interface CropAggregateSnapshot {
 
 const invalidStructure = (field: string, detail: string): DomainError => SchemaViolation({ field, message: detail })
 
-const ensureRecord = (value: unknown, field: string): Effect.Effect<Record<string, unknown>, DomainError> =>
-  typeof value === 'object' && value !== null
-    ? Effect.succeed(value as Record<string, unknown>)
-    : Effect.fail(invalidStructure(field, 'object expected'))
+const BreedingStatsInputSchema = Schema.Struct({
+  fertility: Schema.Number,
+  resilience: Schema.Number,
+  harmony: Schema.Number,
+})
 
-const ensureNumber = (value: unknown, field: string): Effect.Effect<number, DomainError> =>
-  typeof value === 'number'
-    ? Effect.succeed(value)
-    : typeof value === 'string' && value.trim() !== '' && Number.isFinite(Number(value))
-      ? Effect.succeed(Number(value))
-      : Effect.fail(invalidStructure(field, 'number expected'))
+type BreedingStatsInput = Schema.Schema.Input<typeof BreedingStatsInputSchema>
 
-const ensureTimestamp = (value: unknown, field: string): Effect.Effect<Timestamp, DomainError> =>
+const TimestampInputSchema = Schema.Union(Schema.Number, Schema.String)
+type TimestampInput = Schema.Schema.Input<typeof TimestampInputSchema>
+
+const CropAggregateInputSchema = Schema.Struct({
+  id: Schema.String,
+  stage: Schema.Number,
+  moisture: Schema.Number,
+  soil: Schema.Number,
+  stats: BreedingStatsInputSchema,
+  plantedAt: TimestampInputSchema,
+  updatedAt: TimestampInputSchema,
+})
+
+const ensureTimestamp = (
+  value: TimestampInput | Date | Timestamp | null | undefined,
+  field: string
+): Effect.Effect<Timestamp, DomainError> =>
   Effect.suspend(() =>
     Match.value(value).pipe(
       Match.when(Match.number, (num) => Effect.succeed(fromEpochMillis(num))),
@@ -208,37 +221,27 @@ export const snapshotCrop = (crop: CropAggregate): Effect.Effect<CropAggregateSn
     }
   })
 
-const parseStats = (value: unknown): Effect.Effect<BreedingStats, DomainError> =>
+const parseStats = (value: BreedingStatsInput): Effect.Effect<BreedingStats, DomainError> =>
   Effect.gen(function* () {
-    const record = yield* ensureRecord(value, 'stats')
-    const fertility = yield* ensureNumber(record['fertility'], 'stats.fertility')
-    const resilience = yield* ensureNumber(record['resilience'], 'stats.resilience')
-    const harmony = yield* ensureNumber(record['harmony'], 'stats.harmony')
-    return yield* makeBreedingStats({ fertility, resilience, harmony })
+    const decoded = yield* Schema.decode(BreedingStatsInputSchema)(value).pipe(
+      Effect.mapError(() => invalidStructure('stats', 'fertility/resilience/harmony numeric fields expected'))
+    )
+    return yield* makeBreedingStats(decoded)
   })
 
 export const validateCropAggregate = (input: unknown): Effect.Effect<CropAggregate, DomainError> =>
   Effect.gen(function* () {
-    const record = yield* ensureRecord(input, 'cropAggregate')
-
-    const idValue = record['id']
-    yield* pipe(
-      typeof idValue !== 'string',
-      Effect.when({
-        onTrue: () => Effect.fail(invalidStructure('cropAggregate.id', 'string identifier expected')),
-        onFalse: () => Effect.void,
-      })
+    const decoded = yield* Schema.decodeUnknown(CropAggregateInputSchema)(input).pipe(
+      Effect.mapError(() => invalidStructure('cropAggregate', 'invalid crop aggregate structure'))
     )
-    const identifier = yield* makeIdentifier(idValue as string)
 
-    const stage = yield* ensureNumber(record['stage'], 'cropAggregate.stage').pipe(Effect.flatMap(makeGrowthStage))
-    const moisture = yield* ensureNumber(record['moisture'], 'cropAggregate.moisture').pipe(
-      Effect.flatMap(makeMoistureLevel)
-    )
-    const soil = yield* ensureNumber(record['soil'], 'cropAggregate.soil').pipe(Effect.flatMap(makeSoilQuality))
-    const stats = yield* parseStats(record['stats'])
-    const plantedAt = yield* ensureTimestamp(record['plantedAt'], 'cropAggregate.plantedAt')
-    const updatedAt = yield* ensureTimestamp(record['updatedAt'], 'cropAggregate.updatedAt')
+    const identifier = yield* makeIdentifier(decoded.id)
+    const stage = yield* makeGrowthStage(decoded.stage)
+    const moisture = yield* makeMoistureLevel(decoded.moisture)
+    const soil = yield* makeSoilQuality(decoded.soil)
+    const stats = yield* parseStats(decoded.stats)
+    const plantedAt = yield* ensureTimestamp(decoded.plantedAt, 'cropAggregate.plantedAt')
+    const updatedAt = yield* ensureTimestamp(decoded.updatedAt, 'cropAggregate.updatedAt')
 
     return {
       id: identifier,

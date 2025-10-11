@@ -4,10 +4,12 @@
  */
 
 import { Schema } from 'effect'
+import { JsonRecordSchema } from '@shared/schema/json'
 import { unsafeCoerce } from 'effect/Function'
 import type { ItemId } from '../../types'
 import { ItemIdSchema } from '../../value_object/item_id/schema'
 import { ItemMetadataSchema } from '../../value_object/item_metadata/schema'
+import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
 
 // ===== Brand Types =====
 
@@ -48,7 +50,7 @@ export const ItemNBTDataSchema = Schema.Struct({
   unbreakable: Schema.optional(Schema.Boolean),
   hideFlags: Schema.optional(Schema.Number.pipe(Schema.int())),
   customModelData: Schema.optional(Schema.Number.pipe(Schema.int())),
-  attributes: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Any })),
+  attributes: Schema.optional(JsonRecordSchema),
   tags: Schema.optional(Schema.Array(Schema.String)),
 })
 export type ItemNBTData = Schema.Schema.Type<typeof ItemNBTDataSchema>
@@ -146,7 +148,7 @@ export const ITEM_STACK_CONSTANTS = {
 
 // ===== Error Types =====
 
-export class ItemStackError extends Schema.TaggedError<ItemStackError>()('ItemStackError', {
+export const ItemStackErrorSchema = Schema.TaggedError('ItemStackError', {
   reason: Schema.Literal(
     'INVALID_STACK_SIZE',
     'INCOMPATIBLE_ITEMS',
@@ -156,64 +158,61 @@ export class ItemStackError extends Schema.TaggedError<ItemStackError>()('ItemSt
     'MERGE_OVERFLOW',
     'SPLIT_UNDERFLOW',
     'ENCHANTMENT_CONFLICT',
-    'NBT_MISMATCH'
+    'NBT_MISMATCH',
+    'MERGE_DIFFERENT_ITEMS',
+    'STACK_LIMIT_EXCEEDED'
   ),
   message: Schema.String,
   stackId: Schema.optional(ItemStackIdSchema),
   itemId: Schema.optional(ItemIdSchema),
   quantity: Schema.optional(ItemCountSchema),
-  metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Any })),
-}) {
-  static invalidStackSize(stackId: ItemStackId, size: number): ItemStackError {
-    return new ItemStackError({
+  metadata: Schema.optional(JsonRecordSchema),
+})
+export type ItemStackError = Schema.Schema.Type<typeof ItemStackErrorSchema>
+
+const baseItemStackError = makeErrorFactory(ItemStackErrorSchema)
+
+export const ItemStackError = {
+  ...baseItemStackError,
+  invalidStackSize: (stackId: ItemStackId, size: number): ItemStackError =>
+    ItemStackErrorSchema.make({
       reason: 'INVALID_STACK_SIZE',
       message: `不正なスタックサイズ: ${size}`,
       stackId,
       quantity: makeUnsafeItemCount(size),
-    })
-  }
-
-  static incompatibleItems(sourceId: ItemStackId, targetId: ItemStackId): ItemStackError {
-    return new ItemStackError({
+    }),
+  incompatibleItems: (sourceId: ItemStackId, targetId: ItemStackId): ItemStackError =>
+    ItemStackErrorSchema.make({
       reason: 'INCOMPATIBLE_ITEMS',
       message: `互換性のないアイテム: ${sourceId} と ${targetId}`,
       stackId: sourceId,
-    })
-  }
-
-  static insufficientQuantity(stackId: ItemStackId, requested: number, available: number): ItemStackError {
-    return new ItemStackError({
+    }),
+  insufficientQuantity: (stackId: ItemStackId, requested: number, available: number): ItemStackError =>
+    ItemStackErrorSchema.make({
       reason: 'INSUFFICIENT_QUANTITY',
       message: `数量不足: ${requested} > ${available}`,
       stackId,
       quantity: makeUnsafeItemCount(requested),
-    })
-  }
-
-  static itemBroken(stackId: ItemStackId, itemId: ItemId): ItemStackError {
-    return new ItemStackError({
+    }),
+  itemBroken: (stackId: ItemStackId, itemId: ItemId): ItemStackError =>
+    ItemStackErrorSchema.make({
       reason: 'ITEM_BROKEN',
       message: `アイテムが破損しています: ${itemId}`,
       stackId,
       itemId,
-    })
-  }
-
-  static mergeOverflow(sourceId: ItemStackId, targetId: ItemStackId, totalSize: number): ItemStackError {
-    return new ItemStackError({
+    }),
+  mergeOverflow: (sourceId: ItemStackId, targetId: ItemStackId, totalSize: number): ItemStackError =>
+    ItemStackErrorSchema.make({
       reason: 'MERGE_OVERFLOW',
       message: `マージによるスタックサイズオーバーフロー: ${totalSize}`,
       stackId: sourceId,
       quantity: makeUnsafeItemCount(totalSize),
-    })
-  }
-
-  static splitUnderflow(stackId: ItemStackId, splitSize: number): ItemStackError {
-    return new ItemStackError({
+    }),
+  splitUnderflow: (stackId: ItemStackId, splitSize: number): ItemStackError =>
+    ItemStackErrorSchema.make({
       reason: 'SPLIT_UNDERFLOW',
       message: `分割によるスタックサイズアンダーフロー: ${splitSize}`,
       stackId,
       quantity: makeUnsafeItemCount(splitSize),
-    })
-  }
-}
+    }),
+} as const

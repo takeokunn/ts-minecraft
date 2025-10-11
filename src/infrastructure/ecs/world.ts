@@ -6,6 +6,7 @@
  */
 
 import { Clock, Context, Effect, Layer, Match, Option, pipe, Predicate, Ref, Schema } from 'effect'
+import { ErrorCauseSchema } from '@/shared/schema/error'
 import { unsafeCoerce } from 'effect/Function'
 import type { EntityId } from './entity'
 import { createEntityId, EntityIdSchema } from './entity'
@@ -22,7 +23,7 @@ export const WorldError = Schema.TaggedStruct('WorldError', {
   message: Schema.String,
   entityId: Schema.optional(EntityIdSchema),
   componentType: Schema.optional(Schema.String),
-  cause: Schema.optional(Schema.Unknown),
+  cause: Schema.optional(ErrorCauseSchema),
 })
 
 export type WorldError = Schema.Schema.Type<typeof WorldError>
@@ -37,7 +38,7 @@ const createWorldError = (data: {
   message: string
   entityId?: EntityId
   componentType?: string
-  cause?: unknown
+  cause?: Schema.Schema.Input<typeof ErrorCauseSchema>
 }): WorldError => ({
   _tag: 'WorldError' as const,
   ...data,
@@ -46,9 +47,9 @@ const createWorldError = (data: {
 /**
  * コンポーネントストレージ - 型消去されたコンポーネントデータ
  */
-interface ComponentStorage {
+interface ComponentStorage<T = unknown> {
   readonly type: string
-  readonly data: Map<EntityId, unknown>
+  readonly data: Map<EntityId, T>
 }
 
 /**

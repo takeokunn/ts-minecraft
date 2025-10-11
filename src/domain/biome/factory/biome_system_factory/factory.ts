@@ -18,6 +18,8 @@
 import type * as BiomeSystem from '@/domain/biome/aggregate/biome_system'
 import * as BiomeProperties from '@/domain/biome/value_object/biome_properties/index'
 import * as Coordinates from '@/domain/biome/value_object/coordinates/index'
+import { JsonValueSchema } from '@shared/schema/json'
+import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
 import { Context, Effect, Function, Layer, Match, Schema } from 'effect'
 
 // ================================
@@ -27,13 +29,33 @@ import { Context, Effect, Function, Layer, Match, Schema } from 'effect'
 export const BiomeFactoryErrorSchema = Schema.TaggedError('BiomeFactoryError', {
   category: Schema.Literal('biome_creation', 'climate_calculation', 'ecosystem_assembly'),
   message: Schema.String,
-  context: Schema.optional(Schema.Unknown),
+  context: Schema.optional(Schema.Record({ key: Schema.String, value: JsonValueSchema })),
 })
 
-export class BiomeFactoryError extends Schema.TaggedError<typeof BiomeFactoryErrorSchema>()(
-  'BiomeFactoryError',
-  BiomeFactoryErrorSchema
-) {}
+export type BiomeFactoryError = Schema.Schema.Type<typeof BiomeFactoryErrorSchema>
+
+type BiomeFactoryErrorExtras = Partial<Omit<BiomeFactoryError, 'category' | 'message'>>
+
+const makeBiomeFactoryError = (
+  category: BiomeFactoryError['category'],
+  message: string,
+  extras?: BiomeFactoryErrorExtras
+): BiomeFactoryError =>
+  BiomeFactoryErrorSchema.make({
+    category,
+    message,
+    ...extras,
+  })
+
+export const BiomeFactoryError = {
+  ...makeErrorFactory(BiomeFactoryErrorSchema),
+  biomeCreation: (message: string, extras?: BiomeFactoryErrorExtras) =>
+    makeBiomeFactoryError('biome_creation', message, extras),
+  climateCalculation: (message: string, extras?: BiomeFactoryErrorExtras) =>
+    makeBiomeFactoryError('climate_calculation', message, extras),
+  ecosystemAssembly: (message: string, extras?: BiomeFactoryErrorExtras) =>
+    makeBiomeFactoryError('ecosystem_assembly', message, extras),
+} as const
 
 // ================================
 // Factory Parameters
@@ -84,7 +106,7 @@ export const CreateBiomeSystemParamsSchema = Schema.Struct({
   metadata: Schema.optional(
     Schema.Record({
       key: Schema.String,
-      value: Schema.Unknown,
+      value: JsonValueSchema,
     })
   ),
 })
@@ -174,9 +196,7 @@ const createBiomeSystemFactory = (): BiomeSystemFactory => ({
             customBiomes: effectiveParams.customBiomes,
           }),
         catch: (error) =>
-          new BiomeFactoryError({
-            category: 'biome_creation',
-            message: 'Failed to create BiomeSystem',
+          BiomeFactoryError.biomeCreation('Failed to create BiomeSystem', {
             context: { params: effectiveParams, error },
           }),
       })
@@ -186,9 +206,7 @@ const createBiomeSystemFactory = (): BiomeSystemFactory => ({
         const validation = yield* validateBiomeSystem(biomeSystem, effectiveParams.validationLevel)
         if (!validation.isValid && validation.issues.some((i) => i.level === 'critical')) {
           return yield* Effect.fail(
-            new BiomeFactoryError({
-              category: 'ecosystem_assembly',
-              message: 'BiomeSystem validation failed with critical issues',
+            BiomeFactoryError.ecosystemAssembly('BiomeSystem validation failed with critical issues', {
               context: { validation },
             })
           )
@@ -445,12 +463,7 @@ const applyPreset = (
       })
     ),
     Match.orElse(() =>
-      Effect.fail(
-        new BiomeFactoryError({
-          category: 'biome_creation',
-          message: `Unknown preset: ${preset}`,
-        })
-      )
+      Effect.fail(BiomeFactoryError.biomeCreation(`Unknown preset: ${preset}`))
     )
   )
 
@@ -467,30 +480,20 @@ const validateCreateParams = (
       Effect.try({
         try: () => Schema.decodeSync(CreateBiomeSystemParamsSchema)(params),
         catch: (error) =>
-          new BiomeFactoryError({
-            category: 'biome_creation',
-            message: 'Schema validation failed',
-            cause: error,
-          }),
+          BiomeFactoryError.biomeCreation('Schema validation failed', { context: { error } }),
       })
     )
 
     // ビジネスルール検証
     if (validatedParams.memoryLimit && validatedParams.memoryLimit < 0) {
       return yield* Effect.fail(
-        new BiomeFactoryError({
-          category: 'biome_creation',
-          message: 'Memory limit must be non-negative',
-        })
+        BiomeFactoryError.biomeCreation('Memory limit must be non-negative')
       )
     }
 
     if (validatedParams.customBiomes && validatedParams.customBiomes.length > 50) {
       return yield* Effect.fail(
-        new BiomeFactoryError({
-          category: 'biome_creation',
-          message: 'Too many custom biomes (max: 50)',
-        })
+        BiomeFactoryError.biomeCreation('Too many custom biomes (max: 50)')
       )
     }
 

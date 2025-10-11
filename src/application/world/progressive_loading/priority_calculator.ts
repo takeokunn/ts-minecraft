@@ -1,4 +1,5 @@
 import { Clock, Context, Effect, Layer, Match, pipe, Ref, Schema } from 'effect'
+import { ErrorCauseSchema } from '@shared/schema/error'
 
 /**
  * Priority Calculator Service
@@ -137,8 +138,8 @@ export const MLModelPrediction = Schema.Struct({
 
 export const PriorityCalculatorError = Schema.TaggedError<PriorityCalculatorErrorType>()('PriorityCalculatorError', {
   message: Schema.String,
-  context: Schema.optional(Schema.Unknown),
-  cause: Schema.optional(Schema.Unknown),
+  context: Schema.optional(PriorityContext),
+  cause: Schema.optional(ErrorCauseSchema),
 })
 
 export interface PriorityCalculatorErrorType extends Schema.Schema.Type<typeof PriorityCalculatorError> {}

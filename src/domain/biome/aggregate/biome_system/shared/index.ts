@@ -1,5 +1,6 @@
 import * as Coordinates from '@/domain/biome/value_object/coordinates/index.js'
 import * as WorldSeed from '@domain/world/value_object/world_seed/index.js'
+import { JsonRecordSchema } from '@shared/schema/json'
 import { Brand, Schema } from 'effect'
 
 export type BiomeSystemId = string & Brand.Brand<'BiomeSystemId'>
@@ -43,7 +44,7 @@ export const BiomeSystemSchema = Schema.Struct({
   id: BiomeSystemIdSchema,
   configuration: BiomeSystemConfigurationSchema,
   worldSeed: WorldSeed.WorldSeedSchema,
-  metadata: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+  metadata: JsonRecordSchema,
   createdAt: Schema.DateTimeUtc,
   updatedAt: Schema.DateTimeUtc,
 })
@@ -79,5 +80,5 @@ export type BiomeDistribution = typeof BiomeDistributionSchema.Type
 
 export const BiomeDistributionPayloadSchema = Schema.Struct({
   coordinate: Coordinates.ChunkCoordinateSchema,
-  distribution: Schema.Unknown,
+  distribution: BiomeDistributionSchema,
 })

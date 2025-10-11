@@ -3,6 +3,7 @@
  */
 
 import * as BiomeProperties from '@/domain/biome/value_object/biome_properties/index'
+import type { BiomeDistribution } from './shared/index.js'
 import { Effect, Schema } from 'effect'
 
 export const BiomeRegistrySchema = Schema.Struct({
@@ -50,5 +51,5 @@ export const createDefault = (): Effect.Effect<BiomeRegistry, never> =>
 
 export const findCompatibleBiomes = (
   registry: BiomeRegistry,
-  climateFactors: any
+  climateFactors: BiomeDistribution['climateFactors']
 ): Effect.Effect<readonly string[], never> => Effect.succeed(registry.biomes.map((b) => b.id))

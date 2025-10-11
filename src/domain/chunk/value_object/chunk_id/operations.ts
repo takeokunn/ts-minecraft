@@ -8,7 +8,7 @@ const chunkUuidPrefix = `${chunkPrefix}_uuid`
 const chunkVersionPrefix = `${chunkPrefix}_v`
 
 const invalidIdError = (message: string, value?: unknown) =>
-  new ChunkIdError({
+  ChunkIdError.make({
     message,
     value,
   })

@@ -1,5 +1,7 @@
 import type { Brand } from 'effect'
 import { Data, Effect, Schema } from 'effect'
+import { JsonValueSchema, toJsonValue } from '@/shared/schema/json'
+import type { JsonValue } from '@/shared/schema/json'
 import { DomainClock } from '../../shared/effect'
 import type { ChunkMetadata } from '../value_object/chunk_metadata'
 import type { ChunkPosition } from '../value_object/chunk_position'
@@ -83,7 +85,7 @@ export interface ChangeSet {
     readonly y: number
     readonly z: number
     readonly blockId: string
-    readonly metadata?: unknown
+    readonly metadata?: JsonValue
   }>
   readonly timestamp: ChunkTimestamp
 }
@@ -96,7 +98,7 @@ export const ChangeSetSchema = Schema.Struct({
       y: Schema.Number.pipe(Schema.int()),
       z: Schema.Number.pipe(Schema.int()),
       blockId: Schema.String.pipe(Schema.minLength(1)),
-      metadata: Schema.optional(Schema.Unknown),
+      metadata: Schema.optional(JsonValueSchema),
     })
   ),
   timestamp: ChunkTimestampSchema,
@@ -231,7 +233,7 @@ export type ChunkError = Data.TaggedEnum<{
   /** バリデーションエラー */
   ValidationError: {
     readonly field: string
-    readonly value: unknown
+    readonly value: JsonValue
     readonly constraint: string
   }
 
@@ -244,7 +246,7 @@ export type ChunkError = Data.TaggedEnum<{
   /** シリアライゼーションエラー */
   SerializationError: {
     readonly format: string
-    readonly originalError: unknown
+    readonly originalError: JsonValue
   }
 
   /** データ破損エラー */
@@ -380,18 +382,20 @@ export const ChunkOperations = {
     ChunkOperation.Serialize({ data, format, metadata }),
 } as const
 
+type JsonValueInput = JsonValue | Error | undefined | null
+
 /**
  * ChunkError ファクトリ関数
  */
 export const ChunkErrors = {
-  validation: (field: string, value: unknown, constraint: string): ChunkError =>
-    ChunkError.ValidationError({ field, value, constraint }),
+  validation: (field: string, value: JsonValueInput, constraint: string): ChunkError =>
+    ChunkError.ValidationError({ field, value: toJsonValue(value), constraint }),
 
   bounds: (coordinates: { x: number; y: number; z: number }, bounds: { min: number; max: number }): ChunkError =>
     ChunkError.BoundsError({ coordinates, bounds }),
 
-  serialization: (format: string, originalError: unknown): ChunkError =>
-    ChunkError.SerializationError({ format, originalError }),
+  serialization: (format: string, originalError: JsonValueInput): ChunkError =>
+    ChunkError.SerializationError({ format, originalError: toJsonValue(originalError) }),
 
   corruption: (checksum: string, expected: string): ChunkError => ChunkError.CorruptionError({ checksum, expected }),
 

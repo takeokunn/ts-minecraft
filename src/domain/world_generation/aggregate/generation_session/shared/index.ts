@@ -1,4 +1,5 @@
 import * as Coordinates from '@domain/world/value_object/coordinates/index'
+import { JsonValueSchema } from '@shared/schema/json'
 import { Brand, Schema } from 'effect'
 import * as ErrorHandling from '../error_handling'
 import * as ProgressTracking from '../progress_tracking'
@@ -73,7 +74,7 @@ export const GenerationRequestSchema = Schema.Struct({
   metadata: Schema.optional(
     Schema.Record({
       key: Schema.String,
-      value: Schema.Unknown,
+      value: JsonValueSchema,
     })
   ),
 })

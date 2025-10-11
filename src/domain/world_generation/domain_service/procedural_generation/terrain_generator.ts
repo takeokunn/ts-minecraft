@@ -8,25 +8,33 @@
 import { type GenerationError } from '@domain/world/types/errors'
 import {
   makeUnsafeWorldCoordinate,
+  BoundingBoxSchema,
+  WorldCoordinateSchema,
   type BoundingBox,
   type WorldCoordinate,
   type WorldCoordinate2D,
 } from '@domain/world/value_object/coordinates'
 import type { WorldSeed } from '@domain/world/value_object/world_seed'
+import {
+  AdvancedNoiseSettings,
+  AdvancedNoiseSettingsSchema,
+  NoiseConfigurationFactory,
+} from '@domain/world/value_object/noise_configuration'
+import { JsonValueSchema, JsonRecordSchema } from '@shared/schema/json'
 import { Clock, Context, Effect, Layer, Match, Option, pipe, ReadonlyArray, Schema } from 'effect'
 
 /**
  * 高度マップ - ワールド座標における高度データ
  */
 export const HeightMapSchema = Schema.Struct({
-  bounds: Schema.Unknown, // BoundingBoxSchema参照
+  bounds: BoundingBoxSchema,
   resolution: Schema.Number.pipe(Schema.int(), Schema.positive()),
   heights: Schema.Array(Schema.Array(Schema.Number.pipe(Schema.finite(), Schema.between(-2048, 2047)))),
   metadata: Schema.Struct({
     generationTime: Schema.Number,
     algorithm: Schema.String,
     seed: Schema.BigInt,
-    noiseSettings: Schema.Unknown, // NoiseSettingsSchema参照
+    noiseSettings: AdvancedNoiseSettingsSchema,
   }),
 }).pipe(
   Schema.annotations({
@@ -45,7 +53,7 @@ export type HeightMap = typeof HeightMapSchema.Type
  * バイオームマップ - ワールド座標におけるバイオームデータ
  */
 export const BiomeMapSchema = Schema.Struct({
-  bounds: Schema.Unknown, // BoundingBoxSchema参照
+  bounds: BoundingBoxSchema,
   resolution: Schema.Number.pipe(Schema.int(), Schema.positive()),
   biomes: Schema.Array(Schema.Array(Schema.String)),
   metadata: Schema.Struct({
@@ -69,7 +77,7 @@ export type BiomeMap = typeof BiomeMapSchema.Type
 export const TerrainContextSchema = Schema.Struct({
   heightMap: HeightMapSchema,
   biomeMap: BiomeMapSchema,
-  existingStructures: Schema.Array(Schema.Unknown), // StructureInstanceSchema参照（循環参照回避）
+  existingStructures: Schema.Array(JsonRecordSchema),
 }).pipe(
   Schema.annotations({
     identifier: 'TerrainContext',
@@ -122,8 +130,8 @@ export const TerrainGenerationConfigSchema = Schema.Struct({
   heightVariation: Schema.Number.pipe(Schema.between(0, 1000)),
 
   // ノイズ設定
-  primaryNoise: Schema.Unknown, // AdvancedNoiseSettingsSchema参照
-  secondaryNoise: Schema.Unknown.pipe(Schema.optional),
+  primaryNoise: AdvancedNoiseSettingsSchema,
+  secondaryNoise: AdvancedNoiseSettingsSchema.pipe(Schema.optional),
 
   // レイヤー構成
   layers: Schema.Array(TerrainLayerSchema),
@@ -150,18 +158,20 @@ export type TerrainGenerationConfig = typeof TerrainGenerationConfigSchema.Type
 /**
  * 地形生成結果
  */
+const BlockPlacementMetadataSchema = Schema.Struct({
+  density: Schema.Number.pipe(Schema.nonNegative()).pipe(Schema.optional),
+  surface: Schema.Boolean.pipe(Schema.optional),
+}).pipe(Schema.optional)
+
+const BlockPlacementSchema = Schema.Struct({
+  coordinate: WorldCoordinateSchema,
+  blockType: Schema.String,
+  metadata: BlockPlacementMetadataSchema,
+})
+
 export const TerrainGenerationResultSchema = Schema.Struct({
   heightMap: HeightMapSchema,
-  blockPlacements: Schema.Array(
-    Schema.Struct({
-      coordinate: Schema.Unknown, // WorldCoordinateSchema参照
-      blockType: Schema.String,
-      metadata: Schema.Record({
-        key: Schema.String,
-        value: Schema.Unknown,
-      }).pipe(Schema.optional),
-    })
-  ),
+  blockPlacements: Schema.Array(BlockPlacementSchema),
   statistics: Schema.Struct({
     totalBlocks: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
     generationTime: Schema.Number.pipe(Schema.positive()),
@@ -174,7 +184,7 @@ export const TerrainGenerationResultSchema = Schema.Struct({
   warnings: Schema.Array(Schema.String).pipe(Schema.optional),
   debugInfo: Schema.Record({
     key: Schema.String,
-    value: Schema.Unknown,
+    value: JsonValueSchema,
   }).pipe(Schema.optional),
 }).pipe(
   Schema.annotations({
@@ -185,6 +195,16 @@ export const TerrainGenerationResultSchema = Schema.Struct({
 )
 
 export type TerrainGenerationResult = typeof TerrainGenerationResultSchema.Type
+
+type LayerPlacement = {
+  readonly coordinate: WorldCoordinate
+  readonly material: TerrainLayer['materialType']
+  readonly density: number
+}
+
+type BlockPlacementMetadata = typeof BlockPlacementMetadataSchema.Type
+
+export type BlockPlacement = typeof BlockPlacementSchema.Type
 
 /**
  * TerrainGenerator Service Interface
@@ -226,14 +246,7 @@ export interface TerrainGeneratorService {
     heightMap: HeightMap,
     layers: ReadonlyArray<TerrainLayer>,
     config: TerrainGenerationConfig
-  ) => Effect.Effect<
-    ReadonlyArray<{
-      coordinate: WorldCoordinate
-      material: string
-      density: number
-    }>,
-    GenerationError
-  >
+  ) => Effect.Effect<ReadonlyArray<LayerPlacement>, GenerationError>
 
   /**
    * 地表面の決定（草、砂、石など）
@@ -314,9 +327,10 @@ export const TerrainGeneratorServiceLive = Layer.effect(
         const surfacePlacements = yield* generateSurfacePlacements(heightMap, config)
 
         // 4. 統計情報の計算
+        const endTime = yield* Clock.currentTimeMillis
         const statistics = {
           totalBlocks: blockPlacements.length + surfacePlacements.length,
-          generationTime: yield* Clock.currentTimeMillis,
+          generationTime: endTime - startTime,
           memoryUsed: estimateMemoryUsage(blockPlacements, surfacePlacements),
           layerCounts: calculateLayerCounts(blockPlacements, surfacePlacements),
         }
@@ -383,7 +397,7 @@ export const TerrainGeneratorServiceLive = Layer.effect(
                                   const finalDensity = layer.density * densityModifier
 
                                   if (finalDensity > 0.5) {
-                                    return Option.some({
+                                    return Option.some<LayerPlacement>({
                                       coordinate: makeUnsafeWorldCoordinate(x, surfaceHeight, z),
                                       material: layer.materialType,
                                       density: finalDensity,
@@ -486,7 +500,7 @@ export const TerrainGeneratorServiceLive = Layer.effect(
  */
 const generateBaseHeights = (
   bounds: BoundingBox,
-  noiseSettings: any,
+  _noiseSettings: AdvancedNoiseSettings,
   seed: WorldSeed
 ): Effect.Effect<ReadonlyArray<number>, GenerationError> =>
   Effect.gen(function* () {
@@ -513,7 +527,7 @@ const generateBaseHeights = (
  */
 const applySecondaryNoise = (
   baseHeights: ReadonlyArray<number>,
-  secondaryNoise: any,
+  _secondaryNoise: AdvancedNoiseSettings,
   seed: WorldSeed
 ): Effect.Effect<ReadonlyArray<number>, GenerationError> =>
   Effect.gen(function* () {
@@ -548,7 +562,7 @@ const chunkArray = <T>(array: ReadonlyArray<T>, size: number): T[][] =>
  */
 const calculateNoiseAt = (
   coordinate: WorldCoordinate2D,
-  noiseSettings: any,
+  _noiseSettings: AdvancedNoiseSettings,
   seed: WorldSeed
 ): Effect.Effect<number, GenerationError> =>
   Effect.succeed(
@@ -566,24 +580,24 @@ const calculateDensityModifier = (x: number, z: number, influence: number): Effe
  * ブロック配置の生成
  */
 const generateBlockPlacements = (
-  layerPlacements: ReadonlyArray<any>,
-  config: TerrainGenerationConfig
-): Effect.Effect<ReadonlyArray<any>, GenerationError> =>
+  layerPlacements: ReadonlyArray<LayerPlacement>,
+  _config: TerrainGenerationConfig
+): Effect.Effect<ReadonlyArray<BlockPlacement>, GenerationError> =>
   Effect.succeed(
     layerPlacements.map((placement) => ({
       coordinate: placement.coordinate,
       blockType: placement.material,
-      metadata: { density: placement.density },
+      metadata: { density: placement.density } satisfies BlockPlacementMetadata,
     }))
   )
 
 /**
  * 地表面配置の生成
  */
-const const generateSurfacePlacements = (
+const generateSurfacePlacements = (
   heightMap: HeightMap,
   config: TerrainGenerationConfig
-): Effect.Effect<ReadonlyArray<any>, GenerationError> =>
+): Effect.Effect<ReadonlyArray<BlockPlacement>, GenerationError> =>
   Effect.gen(function* () {
     // メモリ枯渇防止: unbounded削除
     const placements = yield* pipe(
@@ -600,9 +614,9 @@ const const generateSurfacePlacements = (
                     const surfaceType = yield* determineSurfaceType(x, z, height, config)
 
                     return {
-                      coordinate: { x, y: height, z },
+                      coordinate: makeUnsafeWorldCoordinate(x, height, z),
                       blockType: surfaceType,
-                      metadata: { surface: true },
+                      metadata: { surface: true } satisfies BlockPlacementMetadata,
                     }
                   }),
                 { concurrency: 4 }
@@ -630,7 +644,7 @@ const determineSurfaceType = (
 /**
  * メモリ使用量の推定
  */
-const estimateMemoryUsage = (...placements: ReadonlyArray<any>[]): number => {
+const estimateMemoryUsage = (...placements: ReadonlyArray<BlockPlacement>[]): number => {
   const totalItems = placements.reduce((sum, arr) => sum + arr.length, 0)
   return totalItems * 64 // 64バイト/アイテムと仮定
 }
@@ -638,7 +652,7 @@ const estimateMemoryUsage = (...placements: ReadonlyArray<any>[]): number => {
 /**
  * レイヤー数の計算
  */
-const calculateLayerCounts = (...placements: ReadonlyArray<any>[]): Record<string, number> => {
+const calculateLayerCounts = (...placements: ReadonlyArray<BlockPlacement>[]): Record<string, number> => {
   const counts: Record<string, number> = {}
 
   placements.flat().forEach((placement) => {
@@ -665,7 +679,8 @@ export const DEFAULT_TERRAIN_CONFIG: TerrainGenerationConfig = {
   minHeight: -2048,
   maxHeight: 2047,
   heightVariation: 200,
-  primaryNoise: {}, // 実際にはNoiseSettingsを設定
+  primaryNoise: NoiseConfigurationFactory.createTerrainNoise(),
+  secondaryNoise: NoiseConfigurationFactory.createCaveNoise(),
   layers: [
     {
       name: 'bedrock',

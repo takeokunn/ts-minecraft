@@ -3,7 +3,7 @@
  * DateTime API移行後のTimestamp操作関数のテスト
  */
 
-import { DateTime, Effect, unsafeCoerce } from 'effect'
+import { Clock, DateTime, Effect, unsafeCoerce } from 'effect'
 import { describe, expect, it } from 'vitest'
 import { fromISOString, toDateTime, toISOString } from '../operations'
 import { type Timestamp } from '../schema'
@@ -21,8 +21,8 @@ describe('Timestamp DateTime Operations', () => {
       expect(DateTime.toEpochMillis(dateTime)).toBe(1704067200000)
     })
 
-    it('現在時刻のTimestampを正しく変換できる', () => {
-      const now = Date.now()
+    it('現在時刻のTimestampを正しく変換できる', async () => {
+      const now = await Effect.runPromise(Clock.currentTimeMillis)
       const timestamp = makeTimestamp(now)
       const dateTime = toDateTime(timestamp)
 
@@ -105,7 +105,7 @@ describe('Timestamp DateTime Operations', () => {
     })
 
     it('現在時刻でのラウンドトリップが正確', async () => {
-      const now = Date.now()
+      const now = await Effect.runPromise(Clock.currentTimeMillis)
       const originalTimestamp = makeTimestamp(now)
 
       const isoString = toISOString(originalTimestamp)

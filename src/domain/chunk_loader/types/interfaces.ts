@@ -90,7 +90,7 @@ export const LoadError = {
 }
 
 const makeDecoder =
-  <A>(schema: Schema.Schema<A, any, never>, onError: (error: ParseResult.ParseError) => LoadError) =>
+  <A>(schema: Schema.Schema<unknown, A, never>, onError: (error: ParseResult.ParseError) => LoadError) =>
   (value: unknown): Effect.Effect<A, LoadError> =>
     pipe(Schema.decodeUnknown(schema)(value), Effect.mapError(onError))
 

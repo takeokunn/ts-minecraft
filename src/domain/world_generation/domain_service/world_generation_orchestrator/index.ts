@@ -106,21 +106,25 @@ export { WorldGenerationOrchestratorLive, WorldGenerationOrchestratorServicesLay
 // === Helper Functions ===
 
 import { Effect, Schema } from 'effect'
+import { GenerationParametersFactory } from '@domain/world/value_object/index'
+import type { WorldSeed } from '@domain/world/value_object/world_seed/index'
+import { WorldSeedOps } from '@domain/world/value_object/world_seed/operations'
 import { GenerateChunkCommand, GenerationProgress, WorldGenerationOrchestrator } from './orchestrator'
 
 export const WorldGenerationOrchestratorUtils = {
   /**
    * 基本的なワールド生成を実行する便利関数
    */
-  generateBasicWorld: (worldName: string, seed?: any) =>
+  generateBasicWorld: (worldName: string, seed?: WorldSeed) =>
     Effect.gen(function* () {
       const orchestrator = yield* WorldGenerationOrchestrator
+      const worldSeed = seed ?? (yield* WorldSeedOps.random())
 
       return yield* orchestrator.generateWorld({
         _tag: 'GenerateWorldCommand',
         worldName,
-        seed: seed || { value: Math.random() },
-        parameters: {}, // デフォルトパラメータ
+        seed: worldSeed,
+        parameters: GenerationParametersFactory.createMinecraftDefault(),
         priority: 'normal',
       })
     }),

@@ -31,12 +31,7 @@ export const EntityIdMapperLive = Layer.effect(
           const ecsId = HashMap.get(map, domainId)
 
           if (Option.isNone(ecsId)) {
-            return yield* Effect.fail(
-              new EntityIdMappingError({
-                direction: 'domain_to_ecs',
-                id: domainId,
-              })
-            )
+            return yield* Effect.fail(EntityIdMappingError.domainToEcsMissing(String(domainId)))
           }
 
           return ecsId.value
@@ -48,12 +43,7 @@ export const EntityIdMapperLive = Layer.effect(
           const domainId = HashMap.get(map, ecsId)
 
           if (Option.isNone(domainId)) {
-            return yield* Effect.fail(
-              new EntityIdMappingError({
-                direction: 'ecs_to_domain',
-                id: String(ecsId),
-              })
-            )
+            return yield* Effect.fail(EntityIdMappingError.ecsToDomainMissing(String(ecsId)))
           }
 
           return domainId.value

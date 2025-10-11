@@ -23,7 +23,11 @@ export type AmbientLightParams = Schema.Schema.Type<typeof AmbientLightParamsSch
 export const createAmbientLight = (params?: AmbientLightParams): Effect.Effect<THREE.AmbientLight, LightError> =>
   Effect.try({
     try: () => new THREE.AmbientLight(params?.color, params?.intensity),
-    catch: (error) => new LightError({ type: 'ambient', cause: error }),
+    catch: (error) =>
+      LightError.make({
+        type: 'ambient',
+        cause: error,
+      }),
   })
 
 /**

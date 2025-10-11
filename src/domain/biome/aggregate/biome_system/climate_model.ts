@@ -43,6 +43,25 @@ export const ClimateModelSchema = Schema.Struct({
 
 export type ClimateModel = typeof ClimateModelSchema.Type
 
+type GlobalClimateAdjustment = {
+  readonly temperatureShift: number
+  readonly humidityShift: number
+  readonly seasonalIntensityChange: number
+}
+
+type RegionalClimateAdjustment = {
+  readonly region: {
+    readonly centerX: number
+    readonly centerZ: number
+    readonly radius: number
+  }
+  readonly climateModifiers: {
+    readonly temperatureModifier: number
+    readonly humidityModifier: number
+    readonly elevationModifier: number
+  }
+}
+
 export const create = (
   worldSeed: WorldSeed.WorldSeed,
   globalSettings: ClimateModel['globalSettings']
@@ -79,6 +98,30 @@ export const calculateClimateFactors = (
 
 export const update = (
   model: ClimateModel,
-  globalFactors?: any,
-  regionalFactors?: any
-): Effect.Effect<ClimateModel, never> => Effect.succeed(model)
+  globalFactors?: GlobalClimateAdjustment,
+  regionalFactors?: ReadonlyArray<RegionalClimateAdjustment>
+): Effect.Effect<ClimateModel, never> =>
+  Effect.succeed({
+    globalSettings: globalFactors
+      ? {
+          ...model.globalSettings,
+          baseTemperature: model.globalSettings.baseTemperature + globalFactors.temperatureShift,
+          humidityBase: model.globalSettings.humidityBase + globalFactors.humidityShift,
+          seasonalIntensity: model.globalSettings.seasonalIntensity + globalFactors.seasonalIntensityChange,
+        }
+      : model.globalSettings,
+    regionalModifiers: regionalFactors
+      ? [
+          ...model.regionalModifiers,
+          ...regionalFactors.map((factor) => ({
+            region: factor.region,
+            modifiers: {
+              temperatureModifier: factor.climateModifiers.temperatureModifier,
+              humidityModifier: factor.climateModifiers.humidityModifier,
+              elevationModifier: factor.climateModifiers.elevationModifier,
+            },
+          })),
+        ]
+      : model.regionalModifiers,
+    noiseFactors: model.noiseFactors,
+  })

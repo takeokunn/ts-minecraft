@@ -1,7 +1,7 @@
 import * as CANNON from 'cannon-es'
 import { Effect, Schema } from 'effect'
 import { PhysicsConstraintError } from '../errors'
-import { toCannonBody } from '../schemas/body_schema'
+import { CannonBodySchema, toCannonBody } from '../schemas/body_schema'
 
 /**
  * DistanceConstraint - 距離拘束のEffect-TSラッパー
@@ -11,12 +11,12 @@ import { toCannonBody } from '../schemas/body_schema'
 
 // DistanceConstraintパラメータ Schema
 export const DistanceConstraintParamsSchema = Schema.Struct({
-  bodyA: Schema.Unknown.pipe(
+  bodyA: CannonBodySchema.pipe(
     Schema.annotations({
       description: 'First body (CANNON.Body)',
     })
   ),
-  bodyB: Schema.Unknown.pipe(
+  bodyB: CannonBodySchema.pipe(
     Schema.annotations({
       description: 'Second body (CANNON.Body)',
     })
@@ -61,7 +61,7 @@ export const createDistanceConstraint = (
       return constraint
     },
     catch: (error) =>
-      new PhysicsConstraintError({
+      PhysicsConstraintError.make({
         type: 'distance',
         cause: error,
         message: `Failed to create distance constraint with distance: ${params.distance}`,
@@ -84,7 +84,7 @@ export const addDistanceConstraintToWorld = (
       world.addConstraint(constraint)
     },
     catch: (error) =>
-      new PhysicsConstraintError({
+      PhysicsConstraintError.make({
         type: 'distance',
         cause: error,
         message: 'Failed to add distance constraint to world',

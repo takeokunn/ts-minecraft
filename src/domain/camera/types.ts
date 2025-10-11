@@ -4,6 +4,8 @@
 // ========================================
 
 import { Schema } from 'effect'
+import { toErrorCause, type ErrorCause } from '@shared/schema/error'
+import { toJsonValue, type JsonValue } from '@shared/schema/json'
 
 // 新しい types/ ディレクトリからの再エクスポート
 export type {
@@ -45,7 +47,7 @@ export {
 /**
  * @deprecated types/constants.js の CameraModeSchema を使用してください
  */
-export const CameraMode = Schema.Literal('first-person', 'third-person')
+export const CameraMode = Schema.Literal('first-person', 'third-person', 'spectator', 'cinematic')
 
 /**
  * カメラ設定（拡張版）
@@ -104,8 +106,8 @@ export interface LegacyCameraError {
   readonly _tag: 'CameraError'
   readonly message: string
   readonly reason: CameraErrorReason
-  readonly cause?: unknown
-  readonly context?: Record<string, unknown>
+  readonly cause?: ErrorCause
+  readonly context?: Record<string, JsonValue>
 }
 
 export const LegacyCameraError = (
@@ -113,13 +115,20 @@ export const LegacyCameraError = (
   reason: CameraErrorReason,
   cause?: unknown,
   context?: Record<string, unknown>
-): LegacyCameraError => ({
-  _tag: 'CameraError',
-  message,
-  reason,
-  ...(cause !== undefined && { cause }),
-  ...(context !== undefined && { context }),
-})
+): LegacyCameraError => {
+  const normalizedCause = toErrorCause(cause)
+  const normalizedContext = context
+    ? Object.fromEntries(Object.entries(context).map(([key, value]) => [key, toJsonValue(value)]))
+    : undefined
+
+  return {
+    _tag: 'CameraError',
+    message,
+    reason,
+    ...(normalizedCause !== undefined && { cause: normalizedCause }),
+    ...(normalizedContext !== undefined && { context: normalizedContext }),
+  }
+}
 
 /**
  * @deprecated types/events.js の Position3DSchema を使用してください

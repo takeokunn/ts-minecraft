@@ -4,6 +4,7 @@
  */
 
 import { Schema } from 'effect'
+import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
 import { unsafeCoerce } from 'effect/Function'
 import type { ItemId, PlayerId } from '../../types'
 
@@ -303,9 +304,8 @@ export const ContainerErrorSchema = Schema.TaggedError('ContainerError', {
 
 export type ContainerError = Schema.Schema.Type<typeof ContainerErrorSchema>
 
-export const ContainerErrorFactory = {
-  make: (input: Schema.Schema.Type<typeof ContainerErrorSchema>): ContainerError =>
-    ContainerErrorSchema.make(input),
+export const ContainerError = {
+  ...makeErrorFactory(ContainerErrorSchema),
 
   accessDenied: (containerId: ContainerId, playerId: PlayerId): ContainerError =>
     ContainerErrorSchema.make({
@@ -376,5 +376,3 @@ export const ContainerErrorFactory = {
       containerId,
     }),
 } as const
-
-export const ContainerError = ContainerErrorFactory

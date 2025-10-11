@@ -9,8 +9,11 @@
 import { type GenerationError } from '@domain/world/types/errors'
 import {
   makeUnsafeWorldCoordinate2D,
+  type BoundingBox,
   type WorldCoordinate2D,
   type WorldCoordinate3D,
+  WorldCoordinate2DSchema,
+  WorldCoordinateSchema,
 } from '@domain/world/value_object/coordinates'
 import { Context, Effect, Layer, Match, pipe, ReadonlyArray, Schema } from 'effect'
 import { PerlinNoiseService, SimplexNoiseService } from './index'
@@ -114,7 +117,7 @@ export const FractalNoiseSampleSchema = Schema.extend(
   Schema.pick(
     Schema.Struct({
       value: Schema.Number.pipe(Schema.finite(), Schema.between(-1, 1)),
-      coordinate: Schema.Unknown,
+      coordinate: Schema.Union(WorldCoordinate2DSchema, WorldCoordinateSchema),
     })
   ),
   Schema.Struct({
@@ -145,6 +148,8 @@ export const FractalNoiseSampleSchema = Schema.extend(
 )
 
 export type FractalNoiseSample = typeof FractalNoiseSampleSchema.Type
+
+type OctaveDetail = FractalNoiseSample['octaveDetails'][number]
 
 /**
  * Fractal Noise Service Interface
@@ -206,7 +211,7 @@ export interface FractalNoiseService {
    * フラクタル次元の解析
    */
   readonly analyzeFractalDimension: (
-    bounds: any, // BoundingBox
+    bounds: BoundingBox,
     sampleCount: number,
     config: FractalNoiseConfig
   ) => Effect.Effect<FractalStatistics, GenerationError>
@@ -291,7 +296,7 @@ export const FractalNoiseServiceLive = Layer.effect(
                 frequency: config.baseFrequency,
                 totalValue: 0,
                 totalAmplitude: 0,
-                octaveDetails: [] satisfies ReadonlyArray<any>,
+                octaveDetails: [] as Array<OctaveDetail>,
               },
               (acc, octave) =>
                 Effect.gen(function* () {
@@ -372,7 +377,7 @@ export const FractalNoiseServiceLive = Layer.effect(
                 frequency: config.baseFrequency,
                 totalValue: 0,
                 totalAmplitude: 0,
-                octaveDetails: [] satisfies ReadonlyArray<any>,
+                octaveDetails: [] as Array<OctaveDetail>,
               },
               (acc, octave) =>
                 Effect.gen(function* () {
@@ -455,7 +460,7 @@ export const FractalNoiseServiceLive = Layer.effect(
                 frequency: config.baseFrequency,
                 signal: 0,
                 weight: 1.0,
-                octaveDetails: [] satisfies ReadonlyArray<any>,
+                octaveDetails: [] as Array<OctaveDetail>,
               },
               (acc, octave) =>
                 Effect.gen(function* () {

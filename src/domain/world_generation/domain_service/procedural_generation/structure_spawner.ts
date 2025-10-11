@@ -6,8 +6,14 @@
  */
 
 import { type GenerationError } from '@domain/world/types/errors'
-import type { BoundingBox, WorldCoordinate } from '@domain/world/value_object/coordinates'
+import {
+  BoundingBoxSchema,
+  WorldCoordinateSchema,
+  type BoundingBox,
+  type WorldCoordinate,
+} from '@domain/world/value_object/coordinates'
 import type { WorldSeed } from '@domain/world/value_object/world_seed'
+import { JsonRecordSchema } from '@shared/schema/json'
 import { Context, Effect, Layer, Schema } from 'effect'
 import type { HeightMap, TerrainContext } from './terrain_generator'
 
@@ -107,14 +113,11 @@ export const StructureBlueprintSchema = Schema.Struct({
         'courtyard',
         'defense'
       ),
-      relativePosition: Schema.Unknown, // WorldCoordinateSchema参照
+      relativePosition: WorldCoordinateSchema,
       material: Schema.String,
       orientation: Schema.Number.pipe(Schema.between(0, 360)).pipe(Schema.optional),
       scale: Schema.Number.pipe(Schema.positive()).pipe(Schema.optional),
-      metadata: Schema.Record({
-        key: Schema.String,
-        value: Schema.Unknown,
-      }).pipe(Schema.optional),
+      metadata: JsonRecordSchema.pipe(Schema.optional),
     })
   ),
 
@@ -192,8 +195,8 @@ export const StructureInstanceSchema = Schema.Struct({
 
   // 配置情報
   location: Schema.Struct({
-    center: Schema.Unknown, // WorldCoordinateSchema参照
-    bounds: Schema.Unknown, // BoundingBoxSchema参照
+    center: WorldCoordinateSchema,
+    bounds: BoundingBoxSchema,
     orientation: Schema.Number.pipe(Schema.between(0, 360)),
     scale: Schema.Number.pipe(Schema.positive()),
   }),
@@ -201,7 +204,7 @@ export const StructureInstanceSchema = Schema.Struct({
   // 実際の建築要素
   blocks: Schema.Array(
     Schema.Struct({
-      coordinate: Schema.Unknown, // WorldCoordinateSchema参照
+      coordinate: WorldCoordinateSchema,
       material: Schema.String,
       componentId: Schema.String,
       integrity: Schema.Number.pipe(Schema.between(0, 1)),
@@ -226,11 +229,8 @@ export const StructureInstanceSchema = Schema.Struct({
         'garden',
         'well'
       ),
-      coordinate: Schema.Unknown, // WorldCoordinateSchema参照
-      properties: Schema.Record({
-        key: Schema.String,
-        value: Schema.Unknown,
-      }).pipe(Schema.optional),
+      coordinate: WorldCoordinateSchema,
+      properties: JsonRecordSchema.pipe(Schema.optional),
     })
   ),
 
@@ -348,7 +348,7 @@ export const StructureSpawnResultSchema = Schema.Struct({
   civilizationAnalysis: Schema.Struct({
     settlementHierarchy: Schema.Array(
       Schema.Struct({
-        center: Schema.Unknown, // WorldCoordinateSchema参照
+        center: WorldCoordinateSchema,
         influence: Schema.Number.pipe(Schema.positive()),
         population: Schema.Number.pipe(Schema.int(), Schema.positive()),
         connections: Schema.Array(Schema.String),
@@ -356,14 +356,14 @@ export const StructureSpawnResultSchema = Schema.Struct({
     ),
     tradeNetworks: Schema.Array(
       Schema.Struct({
-        route: Schema.Array(Schema.Unknown), // WorldCoordinateSchema配列
+        route: Schema.Array(WorldCoordinateSchema),
         importance: Schema.Number.pipe(Schema.between(0, 1)),
         tradeGoodsType: Schema.Array(Schema.String),
       })
     ),
     culturalRegions: Schema.Array(
       Schema.Struct({
-        bounds: Schema.Unknown, // BoundingBoxSchema参照
+        bounds: BoundingBoxSchema,
         culturalStyle: Schema.String,
         architecturalFeatures: Schema.Array(Schema.String),
       })
@@ -380,10 +380,7 @@ export const StructureSpawnResultSchema = Schema.Struct({
   }),
 
   warnings: Schema.Array(Schema.String).pipe(Schema.optional),
-  debugInfo: Schema.Record({
-    key: Schema.String,
-    value: Schema.Unknown,
-  }).pipe(Schema.optional),
+  debugInfo: JsonRecordSchema.pipe(Schema.optional),
 }).pipe(
   Schema.annotations({
     identifier: 'StructureSpawnResult',

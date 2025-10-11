@@ -6,27 +6,42 @@
  */
 
 import { Context, Effect, Match, pipe, Schema } from 'effect'
+import { JsonRecordSchema } from '@shared/schema/json'
+import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
+import type { JsonRecord } from '@shared/schema/json'
 import type { ItemId, ItemStack } from '../../types'
 import type { ItemCategory, ItemQuality, ItemRarity } from '../../types/item_enums'
 
 // ItemStack Factory固有のエラー型（Schema.TaggedErrorパターン）
-export class ItemCreationError extends Schema.TaggedError<ItemCreationError>()('ItemCreationError', {
+export const ItemCreationErrorSchema = Schema.TaggedError('ItemCreationError', {
   reason: Schema.String,
   invalidFields: Schema.Array(Schema.String),
-  context: Schema.Record({ key: Schema.String, value: Schema.Any }).pipe(Schema.optional),
-}) {}
+  context: JsonRecordSchema.pipe(Schema.optional),
+})
 
-export class ItemValidationError extends Schema.TaggedError<ItemValidationError>()('ItemValidationError', {
+export type ItemCreationError = Schema.Schema.Type<typeof ItemCreationErrorSchema>
+
+export const ItemCreationError = makeErrorFactory(ItemCreationErrorSchema)
+
+export const ItemValidationErrorSchema = Schema.TaggedError('ItemValidationError', {
   reason: Schema.String,
   missingFields: Schema.Array(Schema.String),
-  context: Schema.Record({ key: Schema.String, value: Schema.Any }).pipe(Schema.optional),
-}) {}
+  context: JsonRecordSchema.pipe(Schema.optional),
+})
 
-export class ItemStackError extends Schema.TaggedError<ItemStackError>()('ItemStackError', {
+export type ItemValidationError = Schema.Schema.Type<typeof ItemValidationErrorSchema>
+
+export const ItemValidationError = makeErrorFactory(ItemValidationErrorSchema)
+
+export const ItemStackErrorSchema = Schema.TaggedError('ItemStackError', {
   reason: Schema.String,
-  stackingRules: Schema.Record({ key: Schema.String, value: Schema.Any }).pipe(Schema.optional),
-  context: Schema.Record({ key: Schema.String, value: Schema.Any }).pipe(Schema.optional),
-}) {}
+  stackingRules: JsonRecordSchema.pipe(Schema.optional),
+  context: JsonRecordSchema.pipe(Schema.optional),
+})
+
+export type ItemStackError = Schema.Schema.Type<typeof ItemStackErrorSchema>
+
+export const ItemStackError = makeErrorFactory(ItemStackErrorSchema)
 
 // アイテムカテゴリ・品質・レアリティは types/item_enums.ts から import
 
@@ -52,7 +67,7 @@ export interface ItemConfig {
   readonly enchantments?: ReadonlyArray<EnchantmentDefinition>
   readonly customName?: string
   readonly lore?: ReadonlyArray<string>
-  readonly nbtData?: Record<string, unknown>
+  readonly nbtData?: JsonRecord
   readonly stackable?: boolean
   readonly maxStackSize?: number
 }
@@ -98,7 +113,7 @@ export interface ItemFactory {
   readonly createFood: (
     itemId: ItemId,
     count?: number,
-    customEffects?: Record<string, unknown>
+    customEffects?: JsonRecord
   ) => Effect.Effect<ItemStack, ItemCreationError>
 
   readonly createBlock: (itemId: ItemId, count?: number) => Effect.Effect<ItemStack, ItemCreationError>
@@ -142,7 +157,7 @@ export interface ItemBuilderConfig {
   readonly enchantments?: ReadonlyArray<EnchantmentDefinition>
   readonly customName?: string
   readonly lore?: ReadonlyArray<string>
-  readonly nbtData?: Record<string, unknown>
+  readonly nbtData?: JsonRecord
   readonly stackable?: boolean
   readonly maxStackSize?: number
 }
@@ -158,7 +173,7 @@ export interface ItemBuilder {
   readonly withCustomName: (name: string) => ItemBuilder
   readonly withLore: (lore: ReadonlyArray<string>) => ItemBuilder
   readonly addLoreLine: (line: string) => ItemBuilder
-  readonly withNBT: (nbtData: Record<string, unknown>) => ItemBuilder
+  readonly withNBT: (nbtData: JsonRecord) => ItemBuilder
   readonly withStackable: (stackable: boolean, maxStackSize?: number) => ItemBuilder
   readonly addEnchantment: (enchantment: EnchantmentDefinition) => ItemBuilder
   readonly removeEnchantment: (enchantmentId: string) => ItemBuilder

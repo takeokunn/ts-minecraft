@@ -142,7 +142,7 @@ const validateBuilderConfig = (config: ItemBuilderConfig): Effect.Effect<void, I
       onEmpty: () => Effect.void,
       onNonEmpty: (issues) =>
         Effect.fail(
-          new ValidationError({
+          ValidationError.make({
             reason: 'Builder configuration validation failed',
             missingFields: [...issues],
             context: { config },
@@ -233,7 +233,7 @@ const makeBuilder = (config: ItemBuilderConfig): ItemBuilder => {
             Option.match({
               onNone: () =>
                 Effect.fail(
-                  new CreationError({
+                  CreationError.make({
                     reason: 'Missing required fields for build',
                     invalidFields: ['itemId'],
                     context: { config },

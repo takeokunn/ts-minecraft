@@ -105,7 +105,7 @@ const validateBuilderConfig = (config: ContainerBuilderConfig): Effect.Effect<vo
         (c) => !c.id,
         () =>
           Effect.fail(
-            new ValidationError({
+            ValidationError.make({
               reason: 'id is required',
               missingFields: ['id'],
               context: { config },
@@ -121,7 +121,7 @@ const validateBuilderConfig = (config: ContainerBuilderConfig): Effect.Effect<vo
         (c) => !c.type,
         () =>
           Effect.fail(
-            new ValidationError({
+            ValidationError.make({
               reason: 'type is required',
               missingFields: ['type'],
               context: { config },
@@ -140,7 +140,7 @@ const validateBuilderConfig = (config: ContainerBuilderConfig): Effect.Effect<vo
           return Match.value(c.totalSlots === spec.defaultSlotCount).pipe(
             Match.when(false, () =>
               Effect.fail(
-                new ValidationError({
+                ValidationError.make({
                   reason: `totalSlots for ${c.type} should be ${spec.defaultSlotCount}`,
                   missingFields: ['totalSlots'],
                   context: { config },
@@ -163,7 +163,7 @@ const validateBuilderConfig = (config: ContainerBuilderConfig): Effect.Effect<vo
           return Match.value(Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(z)).pipe(
             Match.when(false, () =>
               Effect.fail(
-                new ValidationError({
+                ValidationError.make({
                   reason: 'position coordinates must be finite numbers',
                   missingFields: ['position'],
                   context: { config },
@@ -296,7 +296,7 @@ export const createContainerBuilder = (initialConfig: ContainerBuilderConfig = {
           ),
           Match.orElse((fields) =>
             Effect.fail(
-              new CreationError({
+              CreationError.make({
                 reason: 'Missing required fields for build',
                 invalidFields: fields,
                 context: { config },

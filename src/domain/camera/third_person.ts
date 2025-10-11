@@ -3,7 +3,18 @@ import { Vector3Schema } from '@domain/camera/types'
 import * as Schema from '@effect/schema/Schema'
 import { Effect, Layer, Match, Option, pipe, Ref } from 'effect'
 import * as THREE from 'three'
-import type { CameraService } from './index'
+import type {
+  CameraService,
+  CameraConfigInput,
+  CameraDistanceInput,
+  CameraModeInput,
+  DeltaTimeInput,
+  FOVInput,
+  MouseDeltaInput,
+  Position3DInput,
+  SensitivityInput,
+  SmoothingInput,
+} from './service'
 import { createCameraError, DEFAULT_CAMERA_CONFIG, validateCameraConfig, validateCameraMode } from './index'
 
 /**
@@ -97,7 +108,7 @@ const ensureCameraExists = (
 /**
  * 数値パラメータ検証ヘルパー
  */
-const validateNumber = (value: unknown, parameterName: string): Effect.Effect<number, CameraError> =>
+const validateNumber = (value: number, parameterName: string): Effect.Effect<number, CameraError> =>
   pipe(
     Schema.decodeUnknown(Schema.Number)(value),
     Effect.mapError(() => createCameraError.invalidParameter(parameterName, value))
@@ -106,7 +117,7 @@ const validateNumber = (value: unknown, parameterName: string): Effect.Effect<nu
 /**
  * Vector3位置情報の検証
  */
-const validateVector3 = (position: unknown, paramName: string = 'position'): Effect.Effect<Vector3, CameraError> => {
+const validateVector3 = (position: Position3DInput, paramName: string = 'position'): Effect.Effect<Vector3, CameraError> => {
   return pipe(
     position,
     Schema.decodeUnknown(Vector3Schema as unknown as Schema.Schema<Vector3, unknown>),
@@ -118,7 +129,7 @@ const validateVector3 = (position: unknown, paramName: string = 'position'): Eff
  * ThirdPersonCameraサービスの実装を作成
  */
 const createThirdPersonCameraService = (stateRef: Ref.Ref<ThirdPersonState>): CameraService => ({
-  initialize: (config: unknown): Effect.Effect<THREE.PerspectiveCamera, CameraError> =>
+  initialize: (config: CameraConfigInput): Effect.Effect<THREE.PerspectiveCamera, CameraError> =>
     Effect.gen(function* () {
       // 設定の検証
       const validatedConfig = yield* validateCameraConfig(config)
@@ -173,7 +184,7 @@ const createThirdPersonCameraService = (stateRef: Ref.Ref<ThirdPersonState>): Ca
       return camera
     }),
 
-  switchMode: (mode: unknown): Effect.Effect<void, CameraError, never> =>
+  switchMode: (mode: CameraModeInput): Effect.Effect<void, CameraError, never> =>
     Effect.gen(function* () {
       const state = yield* Ref.get(stateRef)
       const validatedMode = yield* validateCameraMode(mode)
@@ -203,7 +214,7 @@ const createThirdPersonCameraService = (stateRef: Ref.Ref<ThirdPersonState>): Ca
       ) as Effect.Effect<void, CameraError, never>
     }),
 
-  update: (deltaTime: unknown, targetPosition: unknown): Effect.Effect<void, CameraError> =>
+  update: (deltaTime: DeltaTimeInput, targetPosition: Position3DInput): Effect.Effect<void, CameraError> =>
     Effect.gen(function* () {
       const validDeltaTime = yield* validateNumber(deltaTime, 'deltaTime')
       const validTargetPosition = yield* validateVector3(targetPosition, 'targetPosition')
@@ -257,7 +268,7 @@ const createThirdPersonCameraService = (stateRef: Ref.Ref<ThirdPersonState>): Ca
       yield* Ref.set(stateRef, newState)
     }),
 
-  rotate: (deltaX: unknown, deltaY: unknown): Effect.Effect<void, CameraError> =>
+  rotate: (deltaX: MouseDeltaInput, deltaY: MouseDeltaInput): Effect.Effect<void, CameraError> =>
     Effect.gen(function* () {
       const validDeltaX = yield* validateNumber(deltaX, 'deltaX')
       const validDeltaY = yield* validateNumber(deltaY, 'deltaY')
@@ -293,7 +304,7 @@ const createThirdPersonCameraService = (stateRef: Ref.Ref<ThirdPersonState>): Ca
       yield* Ref.set(stateRef, newState)
     }),
 
-  setFOV: (fov: unknown): Effect.Effect<void, CameraError> =>
+  setFOV: (fov: FOVInput): Effect.Effect<void, CameraError> =>
     Effect.gen(function* () {
       const validFov = yield* validateNumber(fov, 'fov')
       const state = yield* Ref.get(stateRef)
@@ -316,7 +327,7 @@ const createThirdPersonCameraService = (stateRef: Ref.Ref<ThirdPersonState>): Ca
       yield* Ref.set(stateRef, newState)
     }),
 
-  setSensitivity: (sensitivity: unknown): Effect.Effect<void, CameraError> =>
+  setSensitivity: (sensitivity: SensitivityInput): Effect.Effect<void, CameraError> =>
     Effect.gen(function* () {
       const validSensitivity = yield* validateNumber(sensitivity, 'sensitivity')
       const state = yield* Ref.get(stateRef)
@@ -335,7 +346,7 @@ const createThirdPersonCameraService = (stateRef: Ref.Ref<ThirdPersonState>): Ca
       yield* Ref.set(stateRef, newState)
     }),
 
-  setThirdPersonDistance: (distance: unknown): Effect.Effect<void, CameraError> =>
+  setThirdPersonDistance: (distance: CameraDistanceInput): Effect.Effect<void, CameraError> =>
     Effect.gen(function* () {
       const validDistance = yield* validateNumber(distance, 'distance')
       const state = yield* Ref.get(stateRef)
@@ -351,7 +362,7 @@ const createThirdPersonCameraService = (stateRef: Ref.Ref<ThirdPersonState>): Ca
       yield* Ref.set(stateRef, newState)
     }),
 
-  setSmoothing: (smoothing: unknown): Effect.Effect<void, CameraError> =>
+  setSmoothing: (smoothing: SmoothingInput): Effect.Effect<void, CameraError> =>
     Effect.gen(function* () {
       const validSmoothing = yield* validateNumber(smoothing, 'smoothing')
       const state = yield* Ref.get(stateRef)
@@ -422,7 +433,7 @@ const createThirdPersonCameraService = (stateRef: Ref.Ref<ThirdPersonState>): Ca
       yield* Ref.set(stateRef, newState)
     }),
 
-  updateAspectRatio: (width: unknown, height: unknown): Effect.Effect<void, CameraError> =>
+  updateAspectRatio: (width: number, height: number): Effect.Effect<void, CameraError> =>
     Effect.gen(function* () {
       const validWidth = yield* validateNumber(width, 'width')
       const validHeight = yield* validateNumber(height, 'height')

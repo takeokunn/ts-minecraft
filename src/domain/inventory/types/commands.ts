@@ -1,4 +1,6 @@
 import { Clock, Effect, Schema } from 'effect'
+import { JsonRecordSchema } from '@shared/schema/json'
+import type { JsonRecord } from '@shared/schema/json'
 
 // =============================================================================
 // Base Command Types
@@ -34,7 +36,7 @@ export const BaseCommandSchema = Schema.Struct({
     )
   ),
   metadata: Schema.optional(
-    Schema.Record({ key: Schema.String, value: Schema.Any }).pipe(
+    JsonRecordSchema.pipe(
       Schema.annotations({
         description: 'Additional command metadata',
       })
@@ -182,7 +184,7 @@ export const AddItemCommandSchema = Schema.Struct({
     )
   ),
   metadata: Schema.optional(
-    Schema.Record({ key: Schema.String, value: Schema.Any }).pipe(
+    JsonRecordSchema.pipe(
       Schema.annotations({
         description: 'Item metadata such as enchantments, durability, etc.',
       })
@@ -555,7 +557,7 @@ export const UpdateItemMetadataCommandSchema = Schema.Struct({
   _tag: Schema.Literal('UpdateItemMetadata'),
   inventoryId: Schema.String,
   slotNumber: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
-  metadata: Schema.Record({ key: Schema.String, value: Schema.Any }).pipe(
+  metadata: JsonRecordSchema.pipe(
     Schema.annotations({
       description: 'New metadata to apply to the item',
     })
@@ -734,7 +736,7 @@ export const createAddItemCommand = (params: {
   itemId: string
   quantity: number
   targetSlot?: number
-  metadata?: Record<string, unknown>
+  metadata?: JsonRecord
   allowPartial?: boolean
   source?: string
   userId: string

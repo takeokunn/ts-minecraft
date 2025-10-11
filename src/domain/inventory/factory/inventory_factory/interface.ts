@@ -6,29 +6,34 @@
  */
 
 import { Context, Effect, Schema } from 'effect'
+import { JsonRecordSchema } from '@shared/schema/json'
 import type { Inventory, ItemStack, PlayerId } from '../../types'
+import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
 
 // Inventory Factory固有のエラー型（Schema.TaggedErrorパターン）
-export class InventoryCreationError extends Schema.TaggedError<InventoryCreationError>()('InventoryCreationError', {
+export const InventoryCreationErrorSchema = Schema.TaggedError('InventoryCreationError', {
   reason: Schema.String,
   invalidFields: Schema.Array(Schema.String),
-  context: Schema.Record({ key: Schema.String, value: Schema.Any }).pipe(Schema.optional),
-}) {}
+  context: JsonRecordSchema.pipe(Schema.optional),
+})
+export type InventoryCreationError = Schema.Schema.Type<typeof InventoryCreationErrorSchema>
+export const InventoryCreationError = makeErrorFactory(InventoryCreationErrorSchema)
 
-export class InventoryValidationError extends Schema.TaggedError<InventoryValidationError>()(
-  'InventoryValidationError',
-  {
-    reason: Schema.String,
-    missingFields: Schema.Array(Schema.String),
-    context: Schema.Record({ key: Schema.String, value: Schema.Any }).pipe(Schema.optional),
-  }
-) {}
+export const InventoryValidationErrorSchema = Schema.TaggedError('InventoryValidationError', {
+  reason: Schema.String,
+  missingFields: Schema.Array(Schema.String),
+  context: JsonRecordSchema.pipe(Schema.optional),
+})
+export type InventoryValidationError = Schema.Schema.Type<typeof InventoryValidationErrorSchema>
+export const InventoryValidationError = makeErrorFactory(InventoryValidationErrorSchema)
 
-export class InventoryMergeError extends Schema.TaggedError<InventoryMergeError>()('InventoryMergeError', {
+export const InventoryMergeErrorSchema = Schema.TaggedError('InventoryMergeError', {
   reason: Schema.String,
   conflictingFields: Schema.Array(Schema.String),
-  context: Schema.Record({ key: Schema.String, value: Schema.Any }).pipe(Schema.optional),
-}) {}
+  context: JsonRecordSchema.pipe(Schema.optional),
+})
+export type InventoryMergeError = Schema.Schema.Type<typeof InventoryMergeErrorSchema>
+export const InventoryMergeError = makeErrorFactory(InventoryMergeErrorSchema)
 
 // インベントリータイプ（DDD Value Object）
 export type InventoryType = 'player' | 'creative' | 'survival' | 'spectator' | 'adventure'

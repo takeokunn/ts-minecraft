@@ -87,7 +87,7 @@ export const createBody = (params: BodyParams): Effect.Effect<CANNON.Body, Physi
       return body
     },
     catch: (error) =>
-      new PhysicsBodyError({
+      PhysicsBodyError.make({
         operation: 'createBody',
         cause: error,
         message: `Failed to create body with mass: ${params.mass}`,
@@ -107,7 +107,7 @@ export const addShape = (body: CANNON.Body, shape: CANNON.Shape): Effect.Effect<
       body.addShape(shape)
     },
     catch: (error) =>
-      new PhysicsBodyError({
+      PhysicsBodyError.make({
         operation: 'addShape',
         cause: error,
         message: 'Failed to add shape to body',
@@ -138,7 +138,7 @@ export const applyForce = (
       }
     },
     catch: (error) =>
-      new PhysicsBodyError({
+      PhysicsBodyError.make({
         operation: 'applyForce',
         cause: error,
         message: 'Failed to apply force to body',
@@ -169,7 +169,7 @@ export const applyImpulse = (
       }
     },
     catch: (error) =>
-      new PhysicsBodyError({
+      PhysicsBodyError.make({
         operation: 'applyImpulse',
         cause: error,
         message: 'Failed to apply impulse to body',
@@ -192,7 +192,7 @@ export const updatePosition = (
       body.position.set(position.x, position.y, position.z)
     },
     catch: (error) =>
-      new PhysicsBodyError({
+      PhysicsBodyError.make({
         operation: 'updatePosition',
         cause: error,
         message: 'Failed to update body position',
@@ -215,7 +215,7 @@ export const updateVelocity = (
       body.velocity.set(velocity.x, velocity.y, velocity.z)
     },
     catch: (error) =>
-      new PhysicsBodyError({
+      PhysicsBodyError.make({
         operation: 'updateVelocity',
         cause: error,
         message: 'Failed to update body velocity',

@@ -18,6 +18,7 @@ import {
   PoolStrategy,
   ResourceUsagePercent,
 } from './index'
+import { DestructionReasonSchema, LifecycleStageSchema, PoolStrategySchema } from './core'
 
 // ========================================
 // Event ID and Metadata
@@ -380,7 +381,7 @@ export const EventMetadataSchema = Schema.Struct({
 export const PoolManagementEventSchema = Schema.Union(
   Schema.TaggedStruct('PoolCreated', {
     poolId: Schema.String,
-    strategy: Schema.Unknown, // PoolStrategySchemaを参照
+    strategy: PoolStrategySchema,
     maxCapacity: Schema.Number.pipe(Schema.int(), Schema.positive()),
     metadata: EventMetadataSchema,
   }),
@@ -392,8 +393,8 @@ export const PoolManagementEventSchema = Schema.Union(
   }),
   Schema.TaggedStruct('PoolConfigurationChanged', {
     poolId: Schema.String,
-    oldStrategy: Schema.Unknown,
-    newStrategy: Schema.Unknown,
+    oldStrategy: PoolStrategySchema,
+    newStrategy: PoolStrategySchema,
     metadata: EventMetadataSchema,
   }),
   Schema.TaggedStruct('PoolCapacityChanged', {
@@ -424,7 +425,7 @@ export const ChunkLifecycleEventSchema = Schema.Union(
     chunkId: Schema.String,
     poolId: Schema.String,
     markedAt: Schema.Date,
-    reason: Schema.Unknown, // DestructionReasonSchemaを参照
+    reason: DestructionReasonSchema,
     metadata: EventMetadataSchema,
   }),
   Schema.TaggedStruct('ChunkDestroyed', {
@@ -437,8 +438,8 @@ export const ChunkLifecycleEventSchema = Schema.Union(
   Schema.TaggedStruct('LifecycleStageChanged', {
     chunkId: Schema.String,
     poolId: Schema.String,
-    fromStage: Schema.Unknown, // LifecycleStageSchemaを参照
-    toStage: Schema.Unknown, // LifecycleStageSchemaを参照
+    fromStage: LifecycleStageSchema,
+    toStage: LifecycleStageSchema,
     changedAt: Schema.Date,
     metadata: EventMetadataSchema,
   })

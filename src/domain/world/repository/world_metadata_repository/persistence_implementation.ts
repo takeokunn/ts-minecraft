@@ -7,6 +7,7 @@
  */
 
 import { WorldGeneratorIdSchema } from '@/domain/world_generation/aggregate/world_generator'
+import { JsonValueSchema } from '@/shared/schema/json'
 import type { AllRepositoryErrors, WorldId } from '@domain/world/types'
 import {
   createCompressionError,
@@ -125,8 +126,8 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
     const MetadataChangePersistenceSchema = Schema.Struct({
       type: Schema.Literal('create', 'update', 'delete'),
       path: Schema.String,
-      oldValue: Schema.optional(Schema.Unknown),
-      newValue: Schema.optional(Schema.Unknown),
+      oldValue: Schema.optional(JsonValueSchema),
+      newValue: Schema.optional(JsonValueSchema),
       timestamp: Schema.DateFromString,
       reason: Schema.optional(Schema.String),
     })
@@ -197,7 +198,7 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
       lastModified: Schema.DateFromString,
       lastAccessed: Schema.DateFromString,
       tags: Schema.Array(Schema.String),
-      properties: Schema.Record(Schema.String, Schema.Unknown),
+      properties: Schema.Record(Schema.String, JsonValueSchema),
       settings: WorldSettingsPersistenceSchema,
       statistics: WorldStatisticsPersistenceSchema,
       checksum: Schema.String,
@@ -272,31 +273,40 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
     }
 
     const compressData = (data: string): Effect.Effect<Buffer, AllRepositoryErrors> =>
-      Effect.tryPromise({
-        try: () =>
-          new Promise<Buffer>((resolve, reject) => {
-            zlib.gzip(data, (err, result) => {
-              err ? reject(err) : resolve(result)
-            })
-          }),
-        catch: (error) => createCompressionError('', `Compression failed: ${error}`, error),
-      })
+      Effect.async<Buffer, AllRepositoryErrors>((resume) => {
+        zlib.gzip(data, (err, result) => {
+          if (err) {
+            resume(Effect.fail(createCompressionError('', `Compression failed: ${err}`, err)))
+          } else {
+            resume(Effect.succeed(result))
+          }
+        })
+      }).pipe(
+        Effect.annotateLogs('world.metadata.operation', 'compress'),
+        Effect.annotateLogs('world.metadata.dataLength', data.length)
+      )
 
     const decompressData = (compressedData: Buffer): Effect.Effect<string, AllRepositoryErrors> =>
-      Effect.tryPromise({
-        try: () =>
-          new Promise<string>((resolve, reject) => {
-            zlib.gunzip(compressedData, (err, result) => {
-              err ? reject(err) : resolve(result.toString('utf8'))
-            })
-          }),
-        catch: (error) => createCompressionError('', `Decompression failed: ${error}`, error),
-      })
+      Effect.async<string, AllRepositoryErrors>((resume) => {
+        zlib.gunzip(compressedData, (err, result) => {
+          if (err) {
+            resume(Effect.fail(createCompressionError('', `Decompression failed: ${err}`, err)))
+          } else {
+            resume(Effect.succeed(result.toString('utf8')))
+          }
+        })
+      }).pipe(
+        Effect.annotateLogs('world.metadata.operation', 'decompress'),
+        Effect.annotateLogs('world.metadata.bufferLength', compressedData.length)
+      )
 
     const writeFile = (filePath: string, data: unknown): Effect.Effect<void, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const directory = path.dirname(filePath)
-        yield* Effect.promise(() => fs.promises.mkdir(directory, { recursive: true }))
+        yield* Effect.promise(() => fs.promises.mkdir(directory, { recursive: true })).pipe(
+          Effect.annotateLogs('world.metadata.operation', 'mkdir'),
+          Effect.annotateLogs('world.metadata.path', directory)
+        )
 
         let content = JSON.stringify(data, null, 2)
 
@@ -312,9 +322,16 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
           onTrue: () =>
             Effect.gen(function* () {
               const compressed = yield* compressData(content)
-              yield* Effect.promise(() => fs.promises.writeFile(filePath + '.gz', compressed))
+              yield* Effect.promise(() => fs.promises.writeFile(filePath + '.gz', compressed)).pipe(
+                Effect.annotateLogs('world.metadata.operation', 'writeFile'),
+                Effect.annotateLogs('world.metadata.path', filePath + '.gz')
+              )
             }),
-          onFalse: () => Effect.promise(() => fs.promises.writeFile(filePath, content, 'utf8')),
+          onFalse: () =>
+            Effect.promise(() => fs.promises.writeFile(filePath, content, 'utf8')).pipe(
+              Effect.annotateLogs('world.metadata.operation', 'writeFile'),
+              Effect.annotateLogs('world.metadata.path', filePath)
+            ),
         })
       }).pipe(
         Effect.catchAll((error) =>
@@ -332,6 +349,9 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
           Effect.tryPromise(() => fs.promises.access(compressedPath)),
           Effect.option,
           Effect.map(Option.isSome)
+        ).pipe(
+          Effect.annotateLogs('world.metadata.operation', 'access'),
+          Effect.annotateLogs('world.metadata.path', compressedPath)
         )
         const useCompression = persistenceConfig.enableCompression && fileExists
 
@@ -340,6 +360,9 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
           Effect.tryPromise(() => fs.promises.access(actualPath)),
           Effect.option,
           Effect.map(Option.isSome)
+        ).pipe(
+          Effect.annotateLogs('world.metadata.operation', 'access'),
+          Effect.annotateLogs('world.metadata.path', actualPath)
         )
 
         return yield* Effect.if(exists, {
@@ -348,10 +371,17 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
               let content = yield* Effect.if(useCompression, {
                 onTrue: () =>
                   Effect.gen(function* () {
-                    const compressedBuffer = yield* Effect.promise(() => fs.promises.readFile(actualPath))
+                    const compressedBuffer = yield* Effect.promise(() => fs.promises.readFile(actualPath)).pipe(
+                      Effect.annotateLogs('world.metadata.operation', 'readFile'),
+                      Effect.annotateLogs('world.metadata.path', actualPath)
+                    )
                     return yield* decompressData(compressedBuffer)
                   }),
-                onFalse: () => Effect.promise(() => fs.promises.readFile(actualPath, 'utf8')),
+                onFalse: () =>
+                  Effect.promise(() => fs.promises.readFile(actualPath, 'utf8')).pipe(
+                    Effect.annotateLogs('world.metadata.operation', 'readFile'),
+                    Effect.annotateLogs('world.metadata.path', actualPath)
+                  ),
               })
 
               content = yield* Effect.if(persistenceConfig.enableEncryption && persistenceConfig.encryptionKey, {

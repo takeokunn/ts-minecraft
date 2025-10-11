@@ -14,6 +14,7 @@ import type {
   WorldId,
   WorldSeed,
 } from '@domain/world/types'
+import { WorldGeneratorSchema } from '@domain/world_generation/aggregate/world_generator'
 import {
   createDataIntegrityError,
   createPersistenceError,
@@ -22,6 +23,7 @@ import {
 import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
 import * as NodePath from '@effect/platform-node/NodePath'
 import { Clock, DateTime, Effect, Layer, Option, pipe, ReadonlyArray, Ref, Schema } from 'effect'
+import { Buffer } from 'node:buffer'
 import type {
   CacheConfiguration,
   WorldGeneratorBatchResult,
@@ -33,8 +35,17 @@ import type {
 
 // === Persistence Storage Schema ===
 
+const RepositoryPerformanceMetricsSchema = Schema.Struct({
+  averageGenerationTimeMs: Schema.Number.pipe(Schema.nonNegative()),
+  peakMemoryUsageMB: Schema.Number.pipe(Schema.nonNegative()),
+  cacheHitRate: Schema.Number.pipe(Schema.between(0, 1)),
+  errorRate: Schema.Number.pipe(Schema.between(0, 1)),
+})
+
+type RepositoryPerformanceMetrics = typeof RepositoryPerformanceMetricsSchema.Type
+
 const PersistenceDataSchema = Schema.Struct({
-  generators: Schema.Record(Schema.String, Schema.Unknown), // WorldGenerator schema would go here
+  generators: Schema.Record(Schema.String, WorldGeneratorSchema),
   metadata: Schema.Struct({
     version: Schema.String,
     createdAt: Schema.String,
@@ -44,7 +55,7 @@ const PersistenceDataSchema = Schema.Struct({
   statistics: Schema.Struct({
     totalChunksGenerated: Schema.Number,
     lastGenerationTime: Schema.Union(Schema.String, Schema.Null),
-    performanceMetrics: Schema.Record(Schema.String, Schema.Unknown),
+    performanceMetrics: Schema.Record(Schema.String, RepositoryPerformanceMetricsSchema),
   }),
 })
 
@@ -345,22 +356,45 @@ const makeWorldGeneratorRepositoryPersistence = (
         // Load current data
         const data = yield* loadDataFromFile()
 
-        // Update generators
         const now = yield* DateTime.nowAsDate
+
+        const updatedGenerators = {
+          ...data.generators,
+          [generator.worldId]: generator,
+        }
+
+        const generatorsArray = Object.values(updatedGenerators)
+        const summary = summarizeGenerators(generatorsArray)
+        const metricsEntries = generatorsArray.map((gen) => [gen.worldId, buildPerformanceMetric(gen)] as const)
+        const newMetrics = new Map<WorldId, PerformanceMetrics>(metricsEntries)
+        const statsSnapshot = yield* Ref.get(statisticsRef)
+        const lastGenerationTime =
+          config.performance.enableMetrics && summary.totalChunks > statsSnapshot.totalChunksGenerated
+            ? now
+            : statsSnapshot.lastGenerationTime
+
         const updatedData: PersistenceData = {
           ...data,
-          generators: {
-            ...data.generators,
-            [generator.worldId]: generator,
-          },
+          generators: updatedGenerators,
           metadata: {
             ...data.metadata,
             lastModified: now.toISOString(),
+          },
+          statistics: {
+            totalChunksGenerated: summary.totalChunks,
+            lastGenerationTime: lastGenerationTime ? lastGenerationTime.toISOString() : null,
+            performanceMetrics: Object.fromEntries(metricsEntries),
           },
         }
 
         // Save to file
         yield* saveDataToFile(updatedData)
+
+        yield* Ref.set(statisticsRef, {
+          totalChunksGenerated: summary.totalChunks,
+          lastGenerationTime,
+          performanceMetrics: newMetrics,
+        })
       })
 
     const findById = (worldId: WorldId): Effect.Effect<Option.Option<WorldGenerator>, AllRepositoryErrors> =>
@@ -434,6 +468,12 @@ const makeWorldGeneratorRepositoryPersistence = (
         // Update data
         const { [worldId]: removed, ...remainingGenerators } = data.generators
         const now = yield* DateTime.nowAsDate
+        const generatorsArray = Object.values(remainingGenerators)
+        const summary = summarizeGenerators(generatorsArray)
+        const metricsEntries = generatorsArray.map((gen) => [gen.worldId, buildPerformanceMetric(gen)] as const)
+        const newMetrics = new Map<WorldId, PerformanceMetrics>(metricsEntries)
+        const statsSnapshot = yield* Ref.get(statisticsRef)
+
         const updatedData: PersistenceData = {
           ...data,
           generators: remainingGenerators,
@@ -441,9 +481,22 @@ const makeWorldGeneratorRepositoryPersistence = (
             ...data.metadata,
             lastModified: now.toISOString(),
           },
+          statistics: {
+            totalChunksGenerated: summary.totalChunks,
+            lastGenerationTime: statsSnapshot.lastGenerationTime
+              ? statsSnapshot.lastGenerationTime.toISOString()
+              : null,
+            performanceMetrics: Object.fromEntries(metricsEntries),
+          },
         }
 
         yield* saveDataToFile(updatedData)
+
+        yield* Ref.set(statisticsRef, {
+          totalChunksGenerated: summary.totalChunks,
+          lastGenerationTime: statsSnapshot.lastGenerationTime,
+          performanceMetrics: newMetrics,
+        })
       })
 
     const exists = (worldId: WorldId): Effect.Effect<boolean, AllRepositoryErrors> =>
@@ -479,7 +532,13 @@ const makeWorldGeneratorRepositoryPersistence = (
     ): Effect.Effect<ReadonlyArray<WorldGenerator>, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const all = yield* findAll()
-        return all.filter((g) => Object.entries(settings).every(([key, value]) => (g.settings as any)[key] === value))
+        return all.filter((g) =>
+          Object.entries(settings).every(([key, value]) => {
+            const typedKey = key as keyof GenerationSettings
+            const generatorValue = g.settings[typedKey]
+            return value === undefined || generatorValue === value
+          })
+        )
       })
 
     const findByQuery = (
@@ -509,7 +568,7 @@ const makeWorldGeneratorRepositoryPersistence = (
           Option.fromNullable(query.active),
           Option.match({
             onNone: () => generators,
-            onSome: (active) => generators.filter((g) => g.isActive === active),
+            onSome: (active) => generators.filter((g) => isGeneratorActive(g) === active),
           })
         )
 
@@ -522,20 +581,84 @@ const makeWorldGeneratorRepositoryPersistence = (
     const saveMany = (
       generators: ReadonlyArray<WorldGenerator>
     ): Effect.Effect<WorldGeneratorBatchResult, AllRepositoryErrors> =>
-      Effect.succeed({
-        successful: generators.map((g) => g.worldId),
-        failed: [],
-        totalProcessed: generators.length,
-      })
+      Effect.gen(function* () {
+        const results = yield* Effect.forEach(
+          generators,
+          (generator) =>
+            Effect.either(save(generator)).pipe(
+              Effect.map((result) => ({ generator, result }))
+            ),
+          { concurrency: Math.min(generators.length, config.performance.batchSize ?? 4) }
+        )
+
+        const successful: WorldId[] = []
+        const failed: Array<{ worldId: WorldId; error: AllRepositoryErrors }> = []
+
+        for (const { generator, result } of results) {
+          if (result._tag === 'Right') {
+            successful.push(generator.worldId)
+          } else {
+            failed.push({ worldId: generator.worldId, error: result.left })
+          }
+        }
+
+        return {
+          successful,
+          failed,
+          totalProcessed: generators.length,
+        }
+      }).pipe(
+        Effect.catchAll((error) =>
+          Effect.fail(
+            createPersistenceError(
+              `Failed to save multiple world generators: ${String(error)}`,
+              'filesystem',
+              error
+            )
+          )
+        )
+      )
 
     const deleteMany = (
       worldIds: ReadonlyArray<WorldId>
     ): Effect.Effect<WorldGeneratorBatchResult, AllRepositoryErrors> =>
-      Effect.succeed({
-        successful: [...worldIds],
-        failed: [],
-        totalProcessed: worldIds.length,
-      })
+      Effect.gen(function* () {
+        const results = yield* Effect.forEach(
+          worldIds,
+          (worldId) =>
+            Effect.either(deleteGenerator(worldId)).pipe(
+              Effect.map((result) => ({ worldId, result }))
+            ),
+          { concurrency: Math.min(worldIds.length, config.performance.batchSize ?? 4) }
+        )
+
+        const successful: WorldId[] = []
+        const failed: Array<{ worldId: WorldId; error: AllRepositoryErrors }> = []
+
+        for (const { worldId, result } of results) {
+          if (result._tag === 'Right') {
+            successful.push(worldId)
+          } else {
+            failed.push({ worldId, error: result.left })
+          }
+        }
+
+        return {
+          successful,
+          failed,
+          totalProcessed: worldIds.length,
+        }
+      }).pipe(
+        Effect.catchAll((error) =>
+          Effect.fail(
+            createPersistenceError(
+              `Failed to delete multiple world generators: ${String(error)}`,
+              'filesystem',
+              error
+            )
+          )
+        )
+      )
 
     const findManyByIds = (
       worldIds: ReadonlyArray<WorldId>
@@ -555,21 +678,27 @@ const makeWorldGeneratorRepositoryPersistence = (
     const getStatistics = (): Effect.Effect<WorldGeneratorStatistics, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const all = yield* findAll()
-        const stats = yield* Ref.get(statisticsRef)
+        const statsSnapshot = yield* Ref.get(statisticsRef)
+        const summary = summarizeGenerators(all)
+
+        const averageChunkGenerationTime =
+          summary.totalChunks > 0 ? summary.totalTime / summary.totalChunks : 0
+        const totalAttempts = summary.totalChunks + summary.failureCount
+        const errorRate = totalAttempts > 0 ? summary.failureCount / totalAttempts : 0
 
         return {
           totalGenerators: all.length,
-          activeGenerators: all.filter((g) => g.isActive).length,
-          inactiveGenerators: all.filter((g) => !g.isActive).length,
-          averageChunkGenerationTime: 0,
-          totalChunksGenerated: stats.totalChunksGenerated,
-          lastGenerationTime: stats.lastGenerationTime,
+          activeGenerators: summary.activeCount,
+          inactiveGenerators: all.length - summary.activeCount,
+          averageChunkGenerationTime,
+          totalChunksGenerated: summary.totalChunks,
+          lastGenerationTime: statsSnapshot.lastGenerationTime,
           performanceMetrics: {
-            averageGenerationTimeMs: 0,
-            peakMemoryUsageMB: 0,
+            averageGenerationTimeMs: averageChunkGenerationTime,
+            peakMemoryUsageMB: summary.memoryBytes / (1024 * 1024),
             cacheHitRate: 0,
-            errorRate: 0,
-          } satisfies PerformanceMetrics,
+            errorRate,
+          },
         }
       })
 
@@ -689,6 +818,30 @@ const makeWorldGeneratorRepositoryPersistence = (
         const data = yield* loadDataFromFile()
         const generators = Object.entries(data.generators).map(([id, gen]) => [id, gen] as const)
         yield* Ref.set(cacheRef, new Map(generators))
+
+        const generatorsArray = Object.values(data.generators)
+        const summary = summarizeGenerators(generatorsArray)
+        const metrics = new Map<WorldId, PerformanceMetrics>()
+        for (const gen of generatorsArray) {
+          metrics.set(gen.worldId, buildPerformanceMetric(gen))
+        }
+
+        const lastGenerationTime = pipe(
+          Option.fromNullable(data.statistics?.lastGenerationTime ?? null),
+          Option.flatMap((value) =>
+            pipe(
+              DateTime.make(value),
+              Option.map(DateTime.toDate)
+            )
+          ),
+          Option.getOrElse(() => null)
+        )
+
+        yield* Ref.set(statisticsRef, {
+          totalChunksGenerated: summary.totalChunks,
+          lastGenerationTime,
+          performanceMetrics: metrics,
+        })
       })
 
     const cleanup = (): Effect.Effect<void, AllRepositoryErrors> =>
@@ -726,6 +879,65 @@ const makeWorldGeneratorRepositoryPersistence = (
       cleanup,
     }
   })
+
+const isGeneratorActive = (generator: WorldGenerator): boolean => {
+  const candidate = generator as { isActive?: unknown }
+  if (typeof candidate.isActive === 'boolean') {
+    return candidate.isActive
+  }
+  return generator.state.status !== 'idle'
+}
+
+const estimateGeneratorMemoryBytes = (generator: WorldGenerator): number => {
+  try {
+    return Buffer.byteLength(
+      JSON.stringify({
+        context: generator.context,
+        statistics: generator.state.statistics,
+      })
+    )
+  } catch {
+    return 0
+  }
+}
+
+const buildPerformanceMetric = (generator: WorldGenerator): PerformanceMetrics => {
+  const stats = generator.state.statistics
+  const attempts = stats.totalChunksGenerated + stats.failureCount
+  return {
+    averageGenerationTimeMs: stats.averageGenerationTime,
+    peakMemoryUsageMB: estimateGeneratorMemoryBytes(generator) / (1024 * 1024),
+    cacheHitRate: 0,
+    errorRate: attempts > 0 ? stats.failureCount / attempts : 0,
+  }
+}
+
+const summarizeGenerators = (generators: ReadonlyArray<WorldGenerator>) => {
+  let totalChunks = 0
+  let totalTime = 0
+  let failureCount = 0
+  let activeCount = 0
+  let memoryBytes = 0
+
+  for (const generator of generators) {
+    const stats = generator.state.statistics
+    totalChunks += stats.totalChunksGenerated
+    totalTime += stats.totalGenerationTime
+    failureCount += stats.failureCount
+    if (isGeneratorActive(generator)) {
+      activeCount += 1
+    }
+    memoryBytes += estimateGeneratorMemoryBytes(generator)
+  }
+
+  return {
+    totalChunks,
+    totalTime,
+    failureCount,
+    activeCount,
+    memoryBytes,
+  }
+}
 
 // === Layer Creation ===
 

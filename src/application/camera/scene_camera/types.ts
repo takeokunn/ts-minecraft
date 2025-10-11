@@ -6,6 +6,10 @@ import type {
   PlayerId,
   Position3D,
 } from '@domain/camera/types'
+import { CameraRotationSchema, Position3DSchema } from '@domain/camera/types'
+import { BoundingBoxSchema as CameraBoundingBoxSchema } from '@/domain/camera/value_object/camera_position'
+import { EntityIdSchema } from '@/domain/shared/entities/entity_id/schema'
+import { PlayerIdSchema } from '@/domain/shared/entities/player_id/schema'
 import { Array, Brand, Data, Option, Schema } from 'effect'
 
 // ========================================
@@ -533,72 +537,212 @@ export const SceneCameraIdSchema = Schema.String.pipe(Schema.fromBrand(Brand.nom
 export const SequenceIdSchema = Schema.String.pipe(Schema.fromBrand(Brand.nominal<SequenceId>()))
 export const ScheduleIdSchema = Schema.String.pipe(Schema.fromBrand(Brand.nominal<ScheduleId>()))
 
+const OrbitDirectionSchema = Schema.Union(
+  Schema.TaggedStruct('Clockwise', {}),
+  Schema.TaggedStruct('CounterClockwise', {}),
+  Schema.TaggedStruct('PingPong', {})
+)
+
+const CenteringModeSchema = Schema.Union(
+  Schema.TaggedStruct('Arithmetic', {}),
+  Schema.TaggedStruct('Weighted', {}),
+  Schema.TaggedStruct('Closest', {}),
+  Schema.TaggedStruct('Bounds', {})
+)
+
+const CameraPrioritySchema = Schema.Union(
+  Schema.TaggedStruct('Low', {}),
+  Schema.TaggedStruct('Normal', {}),
+  Schema.TaggedStruct('High', {}),
+  Schema.TaggedStruct('Critical', {})
+)
+
+const ExposureSettingsSchema = Schema.Struct({
+  autoExposure: Schema.Boolean,
+  minLuminance: Schema.Number,
+  maxLuminance: Schema.Number,
+  adaptationSpeed: Schema.Number,
+}).pipe(Schema.fromBrand(Brand.nominal<ExposureSettings>()))
+
+const ColorGradingSettingsSchema = Schema.Struct({
+  contrast: Schema.Number,
+  brightness: Schema.Number,
+  saturation: Schema.Number,
+  temperature: Schema.Number,
+  tint: Schema.Number,
+}).pipe(Schema.fromBrand(Brand.nominal<ColorGradingSettings>()))
+
+const CinematicSettingsSchema = Schema.Struct({
+  enableMotionBlur: Schema.Boolean,
+  enableDepthOfField: Schema.Boolean,
+  enableFilmicEffects: Schema.Boolean,
+  fieldOfView: Schema.Number,
+  aspectRatio: Schema.Number,
+  nearPlane: Schema.Number,
+  farPlane: Schema.Number,
+  exposureSettings: ExposureSettingsSchema,
+  colorGrading: ColorGradingSettingsSchema,
+}).pipe(Schema.fromBrand(Brand.nominal<CinematicSettings>()))
+
+const CameraConstraintsSchema = Schema.Struct({
+  minDistance: Schema.Number,
+  maxDistance: Schema.Number,
+  minHeight: Schema.Number,
+  maxHeight: Schema.Number,
+  boundingBox: Schema.OptionFromSelf(CameraBoundingBoxSchema),
+  avoidCollisions: Schema.Boolean,
+  respectWorldBounds: Schema.Boolean,
+}).pipe(Schema.fromBrand(Brand.nominal<CameraConstraints>()))
+
+export const SceneTargetSchema: Schema.Schema<SceneTarget> = Schema.suspend(() =>
+  Schema.Union(
+    Schema.TaggedStruct('StaticPosition', {
+      position: Position3DSchema,
+      weight: Schema.Number.pipe(Schema.between(0, 1)),
+    }),
+    Schema.TaggedStruct('DynamicEntity', {
+      entityId: EntityIdSchema,
+      offset: Position3DSchema,
+      weight: Schema.Number.pipe(Schema.between(0, 1)),
+    }),
+    Schema.TaggedStruct('Player', {
+      playerId: PlayerIdSchema,
+      offset: Position3DSchema,
+      weight: Schema.Number.pipe(Schema.between(0, 1)),
+    }),
+    Schema.TaggedStruct('CustomTracker', {
+      trackerId: Schema.String,
+      weight: Schema.Number.pipe(Schema.between(0, 1)),
+    }),
+    Schema.TaggedStruct('Group', {
+      targets: Schema.Array(SceneTargetSchema),
+      centeringMode: CenteringModeSchema,
+      weight: Schema.Number.pipe(Schema.between(0, 1)),
+    })
+  )
+)
+
 export const FollowModeSchema = Schema.Union(
   Schema.TaggedStruct('Static', {}),
   Schema.TaggedStruct('FollowTarget', {
-    target: Schema.Unknown, // SceneTargetSchemaを参照
+    target: SceneTargetSchema,
     smoothing: Schema.Number.pipe(Schema.between(0, 1)),
     maxDistance: Schema.Number.pipe(Schema.positive()),
   }),
   Schema.TaggedStruct('Orbit', {
-    center: Schema.Unknown, // Position3DSchemaを参照
+    center: Position3DSchema,
     radius: Schema.Number.pipe(Schema.positive()),
     speed: Schema.Number.pipe(Schema.positive()),
-    direction: Schema.Union(
-      Schema.TaggedStruct('Clockwise', {}),
-      Schema.TaggedStruct('CounterClockwise', {}),
-      Schema.TaggedStruct('PingPong', {})
-    ),
+    direction: OrbitDirectionSchema,
   }),
   Schema.TaggedStruct('Path', {
-    waypoints: Schema.Array(Schema.Unknown), // Position3DSchemaの配列
+    waypoints: Schema.Array(Position3DSchema),
     speed: Schema.Number.pipe(Schema.positive()),
     looping: Schema.Boolean,
   }),
   Schema.TaggedStruct('LookAt', {
-    target: Schema.Unknown, // SceneTargetSchemaを参照
+    target: SceneTargetSchema,
     distance: Schema.Number.pipe(Schema.positive()),
     angle: Schema.Number,
   })
 )
 
-export const SceneTargetSchema = Schema.Union(
-  Schema.TaggedStruct('StaticPosition', {
-    position: Schema.Unknown, // Position3DSchemaを参照
-    weight: Schema.Number.pipe(Schema.between(0, 1)),
-  }),
-  Schema.TaggedStruct('DynamicEntity', {
-    entityId: Schema.String,
-    offset: Schema.Unknown, // Position3DSchemaを参照
-    weight: Schema.Number.pipe(Schema.between(0, 1)),
-  }),
-  Schema.TaggedStruct('Player', {
-    playerId: Schema.String,
-    offset: Schema.Unknown, // Position3DSchemaを参照
-    weight: Schema.Number.pipe(Schema.between(0, 1)),
-  }),
-  Schema.TaggedStruct('CustomTracker', {
-    trackerId: Schema.String,
-    weight: Schema.Number.pipe(Schema.between(0, 1)),
-    // updateCallback removed: 関数フィールドはSchemaに含めず、型定義(SceneTarget)で定義
-  }),
-  Schema.TaggedStruct('Group', {
-    targets: Schema.Array(Schema.Unknown), // 再帰的SceneTargetSchema
-    centeringMode: Schema.Union(
-      Schema.TaggedStruct('Arithmetic', {}),
-      Schema.TaggedStruct('Weighted', {}),
-      Schema.TaggedStruct('Closest', {}),
-      Schema.TaggedStruct('Bounds', {})
-    ),
-    weight: Schema.Number.pipe(Schema.between(0, 1)),
+const SceneCameraSetupSchema = Schema.Struct({
+  initialPosition: Position3DSchema,
+  initialRotation: CameraRotationSchema,
+  followMode: FollowModeSchema,
+  cinematicSettings: CinematicSettingsSchema,
+  targets: Schema.Array(SceneTargetSchema),
+  constraints: CameraConstraintsSchema,
+  priority: CameraPrioritySchema,
+}).pipe(Schema.fromBrand(Brand.nominal<SceneCameraSetup>()))
+
+const EasingTypeSchema = Schema.Union(
+  Schema.TaggedStruct('Linear', {}),
+  Schema.TaggedStruct('EaseIn', {}),
+  Schema.TaggedStruct('EaseOut', {}),
+  Schema.TaggedStruct('EaseInOut', {}),
+  Schema.TaggedStruct('Bounce', {}),
+  Schema.TaggedStruct('Elastic', {}),
+  Schema.TaggedStruct('Back', {}),
+  Schema.TaggedStruct('Custom', {
+    curve: Schema.Array(Schema.Number),
   })
 )
+
+const FadeTypeSchema = Schema.Union(
+  Schema.TaggedStruct('FadeIn', {}),
+  Schema.TaggedStruct('FadeOut', {}),
+  Schema.TaggedStruct('FadeToBlack', {}),
+  Schema.TaggedStruct('FadeToWhite', {}),
+  Schema.TaggedStruct('CrossFade', {
+    nextSequence: SequenceIdSchema,
+  })
+)
+
+const CameraEffectSchema = Schema.Union(
+  Schema.TaggedStruct('Shake', {
+    intensity: Schema.Number,
+    frequency: Schema.Number,
+    duration: Schema.Number,
+  }),
+  Schema.TaggedStruct('Zoom', {
+    targetFOV: Schema.Number,
+    duration: Schema.Number,
+  }),
+  Schema.TaggedStruct('Focus', {
+    target: Position3DSchema,
+    blurRadius: Schema.Number,
+    transitionTime: Schema.Number,
+  }),
+  Schema.TaggedStruct('Fade', {
+    fadeType: FadeTypeSchema,
+    duration: Schema.Number,
+    color: Schema.String,
+  })
+)
+
+const CameraKeyframeSchema = Schema.Struct({
+  time: Schema.Number.pipe(Schema.nonNegative()),
+  position: Position3DSchema,
+  rotation: CameraRotationSchema,
+  fieldOfView: Schema.Number.pipe(Schema.positive()),
+  easing: EasingTypeSchema,
+  effects: Schema.Array(CameraEffectSchema),
+}).pipe(Schema.fromBrand(Brand.nominal<CameraKeyframe>()))
+
+const TransitionSettingsSchema = Schema.Struct({
+  fadeInDuration: Schema.Number.pipe(Schema.nonNegative()),
+  fadeOutDuration: Schema.Number.pipe(Schema.nonNegative()),
+  smoothTransition: Schema.Boolean,
+  preserveOrientation: Schema.Boolean,
+}).pipe(Schema.fromBrand(Brand.nominal<TransitionSettings>()))
+
+const SequenceCategorySchema = Schema.Union(
+  Schema.TaggedStruct('Cinematic', {}),
+  Schema.TaggedStruct('Gameplay', {}),
+  Schema.TaggedStruct('Cutscene', {}),
+  Schema.TaggedStruct('Debug', {}),
+  Schema.TaggedStruct('Demo', {}),
+  Schema.TaggedStruct('Custom', {
+    categoryName: Schema.String,
+  })
+)
+
+const SequenceMetadataSchema = Schema.Struct({
+  creator: Schema.String,
+  version: Schema.String,
+  created: Schema.Number,
+  lastModified: Schema.Number,
+  tags: Schema.Array(Schema.String),
+  category: SequenceCategorySchema,
+}).pipe(Schema.fromBrand(Brand.nominal<SequenceMetadata>()))
 
 export const CinematicSequenceSchema = Schema.Struct({
   id: SequenceIdSchema,
   name: Schema.String,
   description: Schema.OptionFromSelf(Schema.String),
-  keyframes: Schema.Array(Schema.Unknown), // CameraKeyframeSchemaを参照
+  keyframes: Schema.Array(CameraKeyframeSchema),
   duration: Schema.Number.pipe(Schema.positive()),
   loopMode: Schema.Union(
     Schema.TaggedStruct('None', {}),
@@ -608,8 +752,8 @@ export const CinematicSequenceSchema = Schema.Struct({
       sequencePool: Schema.Array(SequenceIdSchema),
     })
   ),
-  transitionSettings: Schema.Unknown, // TransitionSettingsSchemaを参照
-  metadata: Schema.Unknown, // SequenceMetadataSchemaを参照
+  transitionSettings: TransitionSettingsSchema,
+  metadata: SequenceMetadataSchema,
 }).pipe(Schema.fromBrand(Brand.nominal<CinematicSequence>()))
 
 export const SceneCameraApplicationErrorSchema = Schema.Union(
@@ -623,7 +767,7 @@ export const SceneCameraApplicationErrorSchema = Schema.Union(
     sequenceId: SequenceIdSchema,
   }),
   Schema.TaggedStruct('InvalidCameraSetup', {
-    setup: Schema.Unknown, // SceneCameraSetupSchemaを参照
+    setup: SceneCameraSetupSchema,
     validationErrors: Schema.Array(Schema.String),
   }),
   Schema.TaggedStruct('TargetResolutionFailed', {

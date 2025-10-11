@@ -5,6 +5,7 @@
 import * as Coordinates from '@/domain/biome/value_object/coordinates/index.js'
 import * as WorldSeed from '@domain/world/value_object/world_seed/index.js'
 import { Clock, Context, DateTime, Effect, Schema } from 'effect'
+import { UpdateClimateModelCommandSchema, type UpdateClimateModelCommand } from './biome_system.js'
 import {
   BiomeDistributionPayloadSchema,
   BiomeSystemConfigurationSchema,
@@ -47,7 +48,7 @@ export const ClimateModelUpdatedSchema = BaseBiomeEventSchema.pipe(
     Schema.Struct({
       eventType: Schema.Literal('ClimateModelUpdated'),
       payload: Schema.Struct({
-        updateCommand: Schema.Unknown,
+        updateCommand: UpdateClimateModelCommandSchema,
       }),
     })
   )
@@ -56,6 +57,8 @@ export const ClimateModelUpdatedSchema = BaseBiomeEventSchema.pipe(
 export type BiomeSystemCreated = typeof BiomeSystemCreatedSchema.Type
 export type BiomeDistributionGenerated = typeof BiomeDistributionGeneratedSchema.Type
 export type ClimateModelUpdated = typeof ClimateModelUpdatedSchema.Type
+
+type BiomeEvent = BiomeSystemCreated | BiomeDistributionGenerated | ClimateModelUpdated
 
 const generateEventId = (): Effect.Effect<string & Schema.Schema.Brand<typeof Schema.String, 'BiomeEventId'>> =>
   Effect.sync(() => {
@@ -104,7 +107,7 @@ export const createBiomeDistributionGenerated = (
 
 export const createClimateModelUpdated = (
   biomeSystemId: BiomeSystemId,
-  updateCommand: any
+  updateCommand: UpdateClimateModelCommand
 ): Effect.Effect<ClimateModelUpdated> =>
   Effect.gen(function* () {
     const eventId = yield* generateEventId()
@@ -121,14 +124,14 @@ export const createClimateModelUpdated = (
   })
 
 interface BiomeEventPublisher {
-  readonly publish: (event: any) => Effect.Effect<void, Error>
+  readonly publish: (event: BiomeEvent) => Effect.Effect<void, Error>
 }
 
 export const BiomeEventPublisherTag = Context.GenericTag<BiomeEventPublisher>(
   '@minecraft/domain/world/BiomeEventPublisher'
 )
 
-export const publish = (event: any): Effect.Effect<void, Error> =>
+export const publish = (event: BiomeEvent): Effect.Effect<void, Error> =>
   Effect.gen(function* () {
     const publisher = yield* BiomeEventPublisherTag
     yield* publisher.publish(event)

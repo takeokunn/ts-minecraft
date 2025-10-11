@@ -101,6 +101,7 @@ export type {
 // === Integrated Progressive Loading Service ===
 
 import { Clock, Context, Effect, Option, pipe, ReadonlyArray, Schema } from 'effect'
+import { ErrorCauseSchema } from '@shared/schema/error'
 import {
   AdaptiveQualityService,
   LoadingSchedulerService,
@@ -117,7 +118,7 @@ import {
 export const ProgressiveLoadingError = Schema.TaggedError<ProgressiveLoadingErrorType>()('ProgressiveLoadingError', {
   message: Schema.String,
   serviceId: Schema.String,
-  cause: Schema.optional(Schema.Unknown),
+  cause: Schema.optional(ErrorCauseSchema),
 })
 
 export interface ProgressiveLoadingErrorType extends Schema.Schema.Type<typeof ProgressiveLoadingError> {}

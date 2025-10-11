@@ -41,7 +41,7 @@ export const defaultWorldFactoryConfig: WorldFactoryConfig = {
  */
 export const createWorldDomainFactoryLayer = (
   config: Partial<WorldFactoryConfig> = {}
-): Layer.Layer<never, never, any> => {
+): Layer.Layer<never, never, unknown> => {
   const finalConfig = { ...defaultWorldFactoryConfig, ...config }
 
   // ルールベース設計: Layer構成を宣言的に定義

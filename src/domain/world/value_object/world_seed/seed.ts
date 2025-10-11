@@ -6,6 +6,7 @@
  */
 
 import { taggedUnion } from '@domain/world/utils'
+import { JsonValueSchema } from '@shared/schema/json'
 import type { Brand as BrandType } from 'effect'
 import { Schema } from 'effect'
 
@@ -105,7 +106,7 @@ export type CreateWorldSeedParams = typeof CreateWorldSeedParamsSchema.Type
 export const WorldSeedErrorSchema = taggedUnion('_tag', [
   Schema.Struct({
     _tag: Schema.Literal('InvalidSeedValue'),
-    value: Schema.Unknown,
+    value: JsonValueSchema,
     message: Schema.String,
   }),
   Schema.Struct({
@@ -116,7 +117,7 @@ export const WorldSeedErrorSchema = taggedUnion('_tag', [
   Schema.Struct({
     _tag: Schema.Literal('ValidationError'),
     field: Schema.String,
-    value: Schema.Unknown,
+    value: JsonValueSchema,
     message: Schema.String,
   }),
 ])

@@ -22,13 +22,12 @@ export const generate = (): Effect.Effect<DomainEntityId, never> =>
  */
 export const make = (value: string): Effect.Effect<DomainEntityId, DomainEntityIdError> =>
   Schema.decode(DomainEntityIdSchema)(value).pipe(
-    Effect.mapError(
-      (error) =>
-        new DomainEntityIdError({
-          message: 'Invalid domain entity ID format',
-          value,
-          cause: error,
-        })
+    Effect.mapError((error) =>
+      DomainEntityIdError.make({
+        message: 'Invalid domain entity ID format',
+        value,
+        cause: error,
+      })
     )
   )
 

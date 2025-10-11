@@ -4,7 +4,9 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 
 export const uuid = () => Schema.pattern(UUID_REGEX)
 
-export const taggedUnion = <Members extends ReadonlyArray<Schema.Schema<any>> | Record<string, Schema.Schema<any>>>(
+type AnySchema = Schema.Schema<unknown, unknown, never>
+
+export const taggedUnion = <Members extends ReadonlyArray<AnySchema> | Record<string, AnySchema>>(
   _tag: string,
   members: Members
 ) => {

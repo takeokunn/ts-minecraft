@@ -13,7 +13,11 @@ import { SceneError } from '../errors'
 export const addChild = (parent: THREE.Object3D, child: THREE.Object3D): Effect.Effect<void, SceneError> =>
   Effect.try({
     try: () => parent.add(child),
-    catch: (error) => new SceneError({ operation: 'addChild', cause: error }),
+    catch: (error) =>
+      SceneError.make({
+        operation: 'addChild',
+        cause: error,
+      }),
   })
 
 /**
@@ -22,7 +26,11 @@ export const addChild = (parent: THREE.Object3D, child: THREE.Object3D): Effect.
 export const removeChild = (parent: THREE.Object3D, child: THREE.Object3D): Effect.Effect<void, SceneError> =>
   Effect.try({
     try: () => parent.remove(child),
-    catch: (error) => new SceneError({ operation: 'removeChild', cause: error }),
+    catch: (error) =>
+      SceneError.make({
+        operation: 'removeChild',
+        cause: error,
+      }),
   })
 
 /**
@@ -85,7 +93,11 @@ export const updateMatrixWorld = (object: THREE.Object3D, force?: boolean): Effe
 export const removeFromParent = (object: THREE.Object3D): Effect.Effect<void, SceneError> =>
   Effect.try({
     try: () => object.removeFromParent(),
-    catch: (error) => new SceneError({ operation: 'removeFromParent', cause: error }),
+    catch: (error) =>
+      SceneError.make({
+        operation: 'removeFromParent',
+        cause: error,
+      }),
   })
 
 /**
@@ -94,5 +106,9 @@ export const removeFromParent = (object: THREE.Object3D): Effect.Effect<void, Sc
 export const cloneObject = (object: THREE.Object3D): Effect.Effect<THREE.Object3D, SceneError> =>
   Effect.try({
     try: () => object.clone(),
-    catch: (error) => new SceneError({ operation: 'clone', cause: error }),
+    catch: (error) =>
+      SceneError.make({
+        operation: 'clone',
+        cause: error,
+      }),
   })

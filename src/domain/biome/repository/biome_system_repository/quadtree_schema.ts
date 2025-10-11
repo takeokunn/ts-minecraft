@@ -7,6 +7,7 @@
 
 import { BiomeIdSchema } from '@/domain/biome/value_object/biome_id'
 import { WorldXSchema, WorldZSchema } from '@/domain/biome/value_object/coordinates/world_coordinate'
+import { JsonValueSchema } from '@shared/schema/json'
 import { Schema } from 'effect'
 
 // === Spatial Types ===
@@ -54,7 +55,7 @@ export const BiomePlacementSchema = Schema.Struct({
   radius: Schema.Number.pipe(Schema.positive()),
   priority: Schema.Number,
   placedAt: Schema.Date,
-  metadata: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+  metadata: Schema.Record({ key: Schema.String, value: JsonValueSchema }),
 }).pipe(
   Schema.annotations({
     identifier: 'BiomePlacement',

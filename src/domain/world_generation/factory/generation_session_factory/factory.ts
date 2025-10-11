@@ -23,6 +23,10 @@ import type * as GenerationSession from '@domain/world/aggregate/generation_sess
 import type * as WorldGenerator from '@domain/world/aggregate/world_generator'
 import * as Coordinates from '@domain/world/value_object/coordinates/index'
 import { Chunk, Context, Duration, Effect, Function, Layer, Match, Schema } from 'effect'
+import { ErrorCauseSchema } from '@/shared/schema/error'
+import { JsonValueSchema } from '@/shared/schema/json'
+import type { JsonValue } from '@/shared/schema/json'
+import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
 
 // ================================
 // Factory Error Types
@@ -38,8 +42,8 @@ export const SessionFactoryErrorSchema = Schema.TaggedError('SessionFactoryError
   ),
   message: Schema.String,
   sessionId: Schema.optional(GenerationSession.GenerationSessionIdSchema),
-  context: Schema.optional(Schema.Unknown),
-  cause: Schema.optional(Schema.Unknown),
+  context: Schema.optional(JsonValueSchema),
+  cause: Schema.optional(ErrorCauseSchema),
 })
 
 export type SessionFactoryError = Schema.Schema.Type<typeof SessionFactoryErrorSchema>
@@ -59,8 +63,8 @@ const makeWithCategory = (
     ...extras,
   })
 
-export const SessionFactoryErrorFactory = {
-  make: (input: SessionFactoryError): SessionFactoryError => SessionFactoryErrorSchema.make(input),
+export const SessionFactoryError = {
+  ...makeErrorFactory(SessionFactoryErrorSchema),
   sessionCreation: (message: string, extras?: SessionFactoryErrorExtras) =>
     makeWithCategory('session_creation', message, extras),
   configurationInvalid: (message: string, extras?: SessionFactoryErrorExtras) =>
@@ -72,8 +76,6 @@ export const SessionFactoryErrorFactory = {
   workflowConflict: (message: string, extras?: SessionFactoryErrorExtras) =>
     makeWithCategory('workflow_conflict', message, extras),
 } as const
-
-export const SessionFactoryError = SessionFactoryErrorFactory
 
 // ================================
 // Factory Parameters
@@ -109,7 +111,7 @@ export const CreateSessionParamsSchema = Schema.Struct({
   customOptions: Schema.optional(
     Schema.Record({
       key: Schema.String,
-      value: Schema.Unknown,
+      value: JsonValueSchema,
     })
   ),
 })
@@ -149,7 +151,7 @@ export const CreateFromTemplateParamsSchema = Schema.Struct({
   customizations: Schema.optional(
     Schema.Record({
       key: Schema.String,
-      value: Schema.Unknown,
+      value: JsonValueSchema,
     })
   ),
 })
@@ -428,9 +430,20 @@ const buildSessionConfiguration = (
 /**
  * セッション依存関係解決
  */
-const resolveSessionDependencies = (params: CreateSessionParams): Effect.Effect<unknown, SessionFactoryError> =>
+const resolveSessionDependencies = (
+  params: CreateSessionParams
+): Effect.Effect<
+  {
+    readonly noiseServices: ReadonlyArray<string>
+    readonly biomeProfiles: ReadonlyArray<string>
+    readonly requiredLayers: ReadonlyArray<string>
+  },
+  SessionFactoryError
+> =>
   Effect.succeed({
-    // 依存関係の解決ロジック
+    noiseServices: params.configuration?.noise?.services ?? [],
+    biomeProfiles: params.configuration?.biome?.profiles ?? [],
+    requiredLayers: params.configuration?.structure?.layers ?? [],
   })
 
 /**
@@ -498,7 +511,12 @@ const mergeRequests = (
     coordinates: requests.flatMap((r) => r.coordinates),
     priority: Math.max(...requests.map((r) => r.priority)),
     options: requests[0]?.options,
-    metadata: requests.reduce((acc, r) => ({ ...acc, ...r.metadata }), {}),
+    metadata: (() => {
+      const entries = requests.flatMap((r) => (r.metadata ? Object.entries(r.metadata) : [])) as Array<
+        [string, JsonValue]
+      >
+      return entries.length > 0 ? (Object.fromEntries(entries) as GenerationSession.GenerationRequest['metadata']) : undefined
+    })(),
   })
 
 /**
@@ -686,10 +704,26 @@ const buildRequestFromCoordinates = (
     options: template.defaultOptions,
   })
 
+type RequestCustomizations = {
+  readonly options?: GenerationSession.GenerationRequest['options']
+  readonly metadata?: GenerationSession.GenerationRequest['metadata']
+}
+
 const applyRequestCustomizations = (
   request: GenerationSession.GenerationRequest,
-  customizations: Record<string, unknown> | undefined
-): Effect.Effect<GenerationSession.GenerationRequest, SessionFactoryError> => Effect.succeed(request)
+  customizations: RequestCustomizations | undefined
+): Effect.Effect<GenerationSession.GenerationRequest, SessionFactoryError> =>
+  Effect.succeed({
+    ...request,
+    options: customizations?.options ?? request.options,
+    metadata:
+      customizations?.metadata !== undefined
+        ? {
+            ...(request.metadata ?? {}),
+            ...customizations.metadata,
+          }
+        : request.metadata,
+  })
 
 const loadExistingSession = (sessionId: GenerationSession.GenerationSessionId) =>
   Effect.succeed({} as GenerationSession.GenerationSession)

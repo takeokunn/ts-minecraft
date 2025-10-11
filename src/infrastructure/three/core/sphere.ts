@@ -7,6 +7,7 @@ import { Effect, Schema } from 'effect'
 import * as THREE from 'three'
 import type { Vector3 } from './vector3'
 import * as V3 from './vector3'
+import { ErrorCauseSchema } from '@shared/schema/error'
 
 /**
  * Sphere Schema定義（Brand型）
@@ -25,7 +26,9 @@ export type Sphere = Schema.Schema.Type<typeof SphereSchema>
 export const SphereError = Schema.TaggedError('SphereError')({
   operation: Schema.String,
   reason: Schema.String,
-  cause: Schema.Unknown,
+  sphere: Schema.optional(SphereSchema),
+  points: Schema.optional(Schema.Array(V3.Vector3Schema)),
+  cause: Schema.optional(ErrorCauseSchema),
 })
 export type SphereError = Schema.Schema.Type<typeof SphereError>
 
@@ -171,7 +174,7 @@ export const fromPoints = (points: ReadonlyArray<Vector3>): Effect.Effect<Sphere
         new SphereError({
           operation: 'fromPoints',
           reason: 'Cannot create Sphere from empty points array',
-          cause: points,
+          points,
         })
       )
     }

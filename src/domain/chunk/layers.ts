@@ -3,11 +3,13 @@
  * Domain層の依存関係を提供（Repository層のみ）
  */
 
+import { Layer } from 'effect'
+import { ChunkDomainServices } from './domain_service'
 import { ChunkDevelopmentLayer } from './repository/layers'
 
 /**
  * Chunk Domain Layer
  * - Repository: ChunkDevelopmentLayer (CQRS + InMemory)
- * - Domain Service: 純粋関数のためLayerなし
+ * - Domain Service: ChunkDomainServices (Validation / Serialization / Optimization)
  */
-export const ChunkDomainLive = ChunkDevelopmentLayer
+export const ChunkDomainLive = Layer.mergeAll(ChunkDevelopmentLayer, ChunkDomainServices)

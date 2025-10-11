@@ -1,6 +1,8 @@
 import * as BiomeProperties from '@/domain/biome/value_object/biome_properties/index'
 import * as Schema from '@effect/schema/Schema'
 
+import { JsonValueSchema } from '@/shared/schema/json'
+
 /**
  * BiomeSystemBuilder状態スキーマ
  * 全フィールドはoptionalで初期状態は空オブジェクト
@@ -18,7 +20,7 @@ export const BiomeSystemBuilderStateSchema = Schema.Struct({
   parallelProcessing: Schema.optional(Schema.Boolean),
   memoryLimit: Schema.optional(Schema.Number),
   customBiomes: Schema.optional(Schema.ReadonlyArray(BiomeProperties.BiomeTypeSchema)),
-  metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
+  metadata: Schema.optional(Schema.Record({ key: Schema.String, value: JsonValueSchema })),
 })
 
 export type BiomeSystemBuilderState = Schema.Schema.Type<typeof BiomeSystemBuilderStateSchema>

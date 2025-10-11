@@ -1,4 +1,10 @@
+import * as BiomeProperties from '@/domain/biome/value_object/biome_properties/index'
+import * as Coordinates from '@domain/world/value_object/coordinates/index'
+import * as GenerationParameters from '@domain/world/value_object/generation_parameters/index'
+import * as WorldSeed from '@domain/world/value_object/world_seed/index'
+import { BiomeIdSchema } from '@domain/world/types'
 import { Context, Effect, pipe, Schema } from 'effect'
+import { JsonRecordSchema, JsonValueSchema } from '@shared/schema/json'
 
 /**
  * World Generation Orchestrator Application Service
@@ -15,8 +21,13 @@ export const WorldGenerationOrchestratorError = Schema.TaggedError<WorldGenerati
     message: Schema.String,
     reason: Schema.String,
     generationId: Schema.optional(Schema.String),
-    chunkPosition: Schema.optional(Schema.Unknown),
-    cause: Schema.optional(Schema.Unknown),
+    chunkPosition: Schema.optional(
+      Schema.Struct({
+        x: Coordinates.ChunkCoordinateSchema,
+        z: Coordinates.ChunkCoordinateSchema,
+      })
+    ),
+    cause: Schema.optional(JsonValueSchema),
     recovery: Schema.optional(Schema.String),
   }
 )
@@ -29,8 +40,8 @@ export interface WorldGenerationOrchestratorErrorType
 export const GenerateWorldCommand = Schema.Struct({
   _tag: Schema.Literal('GenerateWorldCommand'),
   worldName: Schema.String.pipe(Schema.minLength(1)),
-  seed: Schema.Unknown, // WorldSeed
-  parameters: Schema.Unknown, // GenerationParameters
+  seed: WorldSeed.WorldSeedSchema,
+  parameters: GenerationParameters.GenerationParametersSchema,
   bounds: Schema.optional(
     Schema.Struct({
       minX: Schema.Number,
@@ -46,17 +57,20 @@ export const GenerateWorldCommand = Schema.Struct({
 
 export const GenerateChunkCommand = Schema.Struct({
   _tag: Schema.Literal('GenerateChunkCommand'),
-  chunkPosition: Schema.Unknown, // ChunkCoordinate
-  worldSeed: Schema.Unknown, // WorldSeed
-  parameters: Schema.Unknown, // GenerationParameters
-  biomeOverride: Schema.optional(Schema.Unknown), // BiomeProperties
+  chunkPosition: Schema.Struct({
+    x: Coordinates.ChunkCoordinateSchema,
+    z: Coordinates.ChunkCoordinateSchema,
+  }),
+  worldSeed: WorldSeed.WorldSeedSchema,
+  parameters: GenerationParameters.GenerationParametersSchema,
+  biomeOverride: Schema.optional(BiomeProperties.BiomeConfigurationSchema),
   requestId: Schema.optional(Schema.String),
 })
 
 export const UpdateSettingsCommand = Schema.Struct({
   _tag: Schema.Literal('UpdateSettingsCommand'),
   generationId: Schema.String,
-  newParameters: Schema.Unknown, // Partial<GenerationParameters>
+  newParameters: Schema.partial(GenerationParameters.GenerationParametersSchema),
   applyImmediately: Schema.Boolean,
 })
 
@@ -83,17 +97,20 @@ export const WorldGenerationResult = Schema.Struct({
   chunksGenerated: Schema.Number.pipe(Schema.nonNegativeInteger()),
   totalChunks: Schema.Number.pipe(Schema.nonNegativeInteger()),
   duration: Schema.Number.pipe(Schema.positive()),
-  metrics: Schema.Record(Schema.String, Schema.Unknown),
+  metrics: Schema.Record(Schema.String, Schema.Number),
   errors: Schema.Array(Schema.String),
 })
 
 export const ChunkGenerationResult = Schema.Struct({
   _tag: Schema.Literal('ChunkGenerationResult'),
-  chunkPosition: Schema.Unknown, // ChunkCoordinate
+  chunkPosition: Schema.Struct({
+    x: Coordinates.ChunkCoordinateSchema,
+    z: Coordinates.ChunkCoordinateSchema,
+  }),
   status: Schema.Union(Schema.Literal('success'), Schema.Literal('partial'), Schema.Literal('failed')),
   generationTime: Schema.Number.pipe(Schema.positive()),
   features: Schema.Array(Schema.String),
-  biomes: Schema.Array(Schema.Unknown), // BiomeId[]
+  biomes: Schema.Array(BiomeIdSchema),
   structures: Schema.Array(Schema.String),
   errors: Schema.Array(Schema.String),
 })
@@ -116,7 +133,12 @@ export const GenerationProgress = Schema.Struct({
   chunksProcessed: Schema.Number.pipe(Schema.nonNegativeInteger()),
   totalChunks: Schema.Number.pipe(Schema.nonNegativeInteger()),
   estimatedTimeRemaining: Schema.optional(Schema.Number.pipe(Schema.positive())),
-  currentChunk: Schema.optional(Schema.Unknown), // ChunkCoordinate
+  currentChunk: Schema.optional(
+    Schema.Struct({
+      x: Coordinates.ChunkCoordinateSchema,
+      z: Coordinates.ChunkCoordinateSchema,
+    })
+  ),
   errors: Schema.Array(Schema.String),
   warnings: Schema.Array(Schema.String),
 })
@@ -139,10 +161,13 @@ export const PipelineContext = Schema.Struct({
   _tag: Schema.Literal('PipelineContext'),
   generationId: Schema.String,
   currentStage: GenerationStage,
-  chunkPosition: Schema.Unknown, // ChunkCoordinate
-  worldSeed: Schema.Unknown, // WorldSeed
-  parameters: Schema.Unknown, // GenerationParameters
-  intermediateResults: Schema.Record(Schema.String, Schema.Unknown),
+  chunkPosition: Schema.Struct({
+    x: Coordinates.ChunkCoordinateSchema,
+    z: Coordinates.ChunkCoordinateSchema,
+  }),
+  worldSeed: WorldSeed.WorldSeedSchema,
+  parameters: GenerationParameters.GenerationParametersSchema,
+  intermediateResults: JsonRecordSchema,
   metrics: Schema.Record(Schema.String, Schema.Number),
 })
 

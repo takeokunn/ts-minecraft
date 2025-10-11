@@ -5,6 +5,8 @@
 
 import { Effect, Schema } from 'effect'
 import * as THREE from 'three'
+import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
+import { ErrorCauseSchema } from '@shared/schema/error'
 
 /**
  * Color Schema (RGB: 0.0-1.0)
@@ -32,10 +34,12 @@ export const makeColor = (r: number, g: number, b: number): Effect.Effect<Color,
 /**
  * Hex文字列からColor生成
  */
-export class ColorParseError extends Schema.TaggedError<ColorParseError>()('ColorParseError', {
+export const ColorParseErrorSchema = Schema.TaggedError('ColorParseError', {
   hex: Schema.String,
-  cause: Schema.Unknown,
-}) {}
+  cause: ErrorCauseSchema,
+})
+export type ColorParseError = Schema.Schema.Type<typeof ColorParseErrorSchema>
+export const ColorParseError = makeErrorFactory(ColorParseErrorSchema)
 
 export const fromHex = (hex: string): Effect.Effect<Color, ColorParseError> =>
   Effect.gen(function* () {
@@ -44,7 +48,7 @@ export const fromHex = (hex: string): Effect.Effect<Color, ColorParseError> =>
       r: threeColor.r,
       g: threeColor.g,
       b: threeColor.b,
-    }).pipe(Effect.mapError((error) => new ColorParseError({ hex, cause: error })))
+    }).pipe(Effect.mapError((error) => ColorParseError.make({ hex, cause: error })))
   })
 
 /**

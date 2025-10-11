@@ -1,4 +1,6 @@
 import { Clock, Context, Effect, Layer, Match, Option, pipe, Queue, ReadonlyArray, Ref, Schema } from 'effect'
+import { ErrorCauseSchema } from '@shared/schema/error'
+import { JsonValueSchema } from '@shared/schema/json'
 
 /**
  * Loading Scheduler Service
@@ -31,7 +33,7 @@ export const LoadingRequest = Schema.Struct({
   timestamp: Schema.Number,
   deadline: Schema.optional(Schema.Number),
   dependencies: Schema.Array(Schema.String),
-  metadata: Schema.Record(Schema.String, Schema.Unknown),
+  metadata: Schema.Record(Schema.String, JsonValueSchema),
 })
 
 export const LoadingBatch = Schema.Struct({
@@ -190,7 +192,7 @@ export const LoadingSchedulerError = Schema.TaggedError<LoadingSchedulerErrorTyp
   message: Schema.String,
   schedulerId: Schema.String,
   requestId: Schema.optional(Schema.String),
-  cause: Schema.optional(Schema.Unknown),
+  cause: Schema.optional(ErrorCauseSchema),
 })
 
 export interface LoadingSchedulerErrorType extends Schema.Schema.Type<typeof LoadingSchedulerError> {}

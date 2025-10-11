@@ -18,13 +18,12 @@ export const generate = (): Effect.Effect<EntityId, never> =>
  */
 export const make = (value: string): Effect.Effect<EntityId, EntityIdError> =>
   Schema.decode(EntityIdSchema)(value).pipe(
-    Effect.mapError(
-      (error) =>
-        new EntityIdError({
-          message: 'Invalid entity ID format',
-          value,
-          cause: error,
-        })
+    Effect.mapError((error) =>
+      EntityIdError.make({
+        message: 'Invalid entity ID format',
+        value,
+        cause: error,
+      })
     )
   )
 

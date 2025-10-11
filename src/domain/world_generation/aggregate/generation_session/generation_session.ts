@@ -10,6 +10,7 @@
 
 import type * as WorldTypes from '@domain/world/types/core'
 import type * as GenerationErrors from '@domain/world/types/errors'
+import type { JsonValue } from '@shared/schema/json'
 import { Chunk, Context, DateTime, Effect, ReadonlyArray, STM } from 'effect'
 import * as ErrorHandling from './index'
 import * as ProgressTracking from './index'
@@ -69,7 +70,10 @@ export const create = (
     yield* validateGenerationRequest(request)
     yield* validateConfiguration(mergedConfig)
 
-    const state = yield* SessionState.createInitial()
+  const state = yield* SessionState.createInitial()
+  const metadataRecord: Record<string, JsonValue> | undefined = request.metadata
+    ? { ...request.metadata }
+    : undefined
 
     const session: GenerationSession = {
       id,
@@ -85,7 +89,9 @@ export const create = (
     }
 
     // 作成イベント発行
-    yield* SessionEvents.publish(SessionEvents.createSessionCreated(id, worldGeneratorId, request))
+    yield* SessionEvents.publish(
+      SessionEvents.createSessionCreated(id, worldGeneratorId, request, mergedConfig, metadataRecord)
+    )
 
     return session
   })
@@ -120,7 +126,11 @@ export const start = (session: GenerationSession): STM.STM<GenerationSession, Ge
     }
 
     // 開始イベント発行
-    yield* STM.fromEffect(SessionEvents.publish(SessionEvents.createSessionStarted(session.id, batches.length)))
+    const totalChunks = batches.reduce((sum, batch) => sum + batch.coordinates.length, 0)
+
+    yield* STM.fromEffect(
+      SessionEvents.publish(SessionEvents.createSessionStarted(session.id, batches.length, totalChunks))
+    )
 
     return updatedSession
   })
@@ -157,7 +167,15 @@ export const completeBatch = (
 
     // バッチ完了イベント発行
     yield* STM.fromEffect(
-      SessionEvents.publish(SessionEvents.createBatchCompleted(session.id, batchId, results.length))
+      SessionEvents.publish(
+        SessionEvents.createBatchCompleted(
+          session.id,
+          batchId,
+          results.length,
+          0,
+          { chunksGenerated: results.length }
+        )
+      )
     )
 
     return updatedSession
@@ -247,7 +265,10 @@ export const pause = (
     }
 
     // 一時停止イベント発行
-    yield* SessionEvents.publish(SessionEvents.createSessionPaused(session.id, reason))
+    const activeBatchIds = Object.keys(updatedState.executionContext.activeBatches)
+    yield* SessionEvents.publish(
+      SessionEvents.createSessionPaused(session.id, reason, activeBatchIds, updatedProgress.statistics)
+    )
 
     return updatedSession
   })
@@ -277,7 +298,13 @@ export const resume = (session: GenerationSession): Effect.Effect<GenerationSess
     }
 
     // 再開イベント発行
-    yield* SessionEvents.publish(SessionEvents.createSessionResumed(session.id))
+    const pausedDuration =
+      session.state.lastStateChange != null ? now.getTime() - session.state.lastStateChange.getTime() : 0
+    const remainingBatches = updatedState.executionContext.queuedBatches.length
+
+    yield* SessionEvents.publish(
+      SessionEvents.createSessionResumed(session.id, pausedDuration, remainingBatches)
+    )
 
     return updatedSession
   })
@@ -301,9 +328,25 @@ const completeSession = (session: GenerationSession): STM.STM<GenerationSession,
       lastActivity: now,
     }
 
+    const startedAt = completedSession.startedAt ?? completedSession.createdAt
+    const totalDuration = completedSession.completedAt
+      ? completedSession.completedAt.getTime() - startedAt.getTime()
+      : 0
+    const totalBatchesCount =
+      completedSession.state.executionContext.completedBatches.length +
+      completedSession.state.executionContext.failedBatches.length
+    const failedBatchesCount = completedSession.state.executionContext.failedBatches.length
+
     // 完了イベント発行
     yield* STM.fromEffect(
-      SessionEvents.publish(SessionEvents.createSessionCompleted(session.id, updatedProgress.statistics))
+      SessionEvents.publish(
+        SessionEvents.createSessionCompleted(
+          session.id,
+          updatedProgress.statistics,
+          totalDuration,
+          { totalBatches: totalBatchesCount, failedBatches: failedBatchesCount }
+        )
+      )
     )
 
     return completedSession

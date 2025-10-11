@@ -3,7 +3,7 @@
  * THREE.WebGLRendererの完全関数型ラッパー実装
  */
 
-import { Context, Effect, Layer, Pool, Schema, Scope } from 'effect'
+import { Context, Effect, Layer, Resource, Schema } from 'effect'
 import * as THREE from 'three'
 import { RendererError } from '../errors'
 
@@ -37,7 +37,11 @@ export const createRenderer = (params?: WebGLRendererParams): Effect.Effect<THRE
       })
       return renderer
     },
-    catch: (error) => new RendererError({ operation: 'create', cause: error }),
+    catch: (error) =>
+      RendererError.make({
+        operation: 'create',
+        cause: error,
+      }),
   })
 
 /**
@@ -85,7 +89,11 @@ export const render = (
     try: () => {
       renderer.render(scene, camera)
     },
-    catch: (error) => new RendererError({ operation: 'render', cause: error }),
+    catch: (error) =>
+      RendererError.make({
+        operation: 'render',
+        cause: error,
+      }),
   })
 
 /**
@@ -187,12 +195,14 @@ export const getDomElement = (renderer: THREE.WebGLRenderer): Effect.Effect<HTML
  * WebGLRendererService定義
  */
 export interface WebGLRendererService {
-  readonly renderer: THREE.WebGLRenderer
+  readonly rendererResource: Resource.Resource<THREE.WebGLRenderer, RendererError>
+  readonly getRenderer: Effect.Effect<THREE.WebGLRenderer, RendererError>
   readonly render: (scene: THREE.Scene, camera: THREE.Camera) => Effect.Effect<void, RendererError>
-  readonly setSize: (width: number, height: number, updateStyle?: boolean) => Effect.Effect<void, never>
-  readonly setPixelRatio: (ratio: number) => Effect.Effect<void, never>
-  readonly setClearColor: (color: number | string | THREE.Color, alpha?: number) => Effect.Effect<void, never>
-  readonly getDomElement: Effect.Effect<HTMLCanvasElement, never>
+  readonly setSize: (width: number, height: number, updateStyle?: boolean) => Effect.Effect<void, RendererError>
+  readonly setPixelRatio: (ratio: number) => Effect.Effect<void, RendererError>
+  readonly setClearColor: (color: number | string | THREE.Color, alpha?: number) => Effect.Effect<void, RendererError>
+  readonly getDomElement: Effect.Effect<HTMLCanvasElement, RendererError>
+  readonly refresh: Effect.Effect<void, RendererError>
 }
 
 export const WebGLRendererService = Context.GenericTag<WebGLRendererService>(
@@ -206,41 +216,26 @@ export const WebGLRendererServiceLive = (params?: WebGLRendererParams) =>
   Layer.scoped(
     WebGLRendererService,
     Effect.gen(function* () {
-      // Rendererを作成し、Scopeに登録（自動dispose）
-      const renderer = yield* Effect.acquireRelease(createRenderer(params), (r) => dispose(r))
+      const rendererResource = yield* Resource.manual(
+        Effect.acquireRelease(createRenderer(params), (renderer) => dispose(renderer))
+      )
+
+      const useRenderer = <A, E>(
+        f: (renderer: THREE.WebGLRenderer) => Effect.Effect<A, E>
+      ): Effect.Effect<A, RendererError | E> => Effect.flatMap(Resource.get(rendererResource), f)
 
       return WebGLRendererService.of({
-        renderer,
-        render: (scene, camera) => render(renderer, scene, camera),
-        setSize: (width, height, updateStyle) => setSize(renderer, width, height, updateStyle),
-        setPixelRatio: (ratio) => setPixelRatio(renderer, ratio),
-        setClearColor: (color, alpha) => setClearColor(renderer, color, alpha),
-        getDomElement: getDomElement(renderer),
+        rendererResource,
+        getRenderer: Resource.get(rendererResource),
+        render: (scene, camera) => useRenderer((renderer) => render(renderer, scene, camera)),
+        setSize: (width, height, updateStyle) => useRenderer((renderer) => setSize(renderer, width, height, updateStyle)),
+        setPixelRatio: (ratio) => useRenderer((renderer) => setPixelRatio(renderer, ratio)),
+        setClearColor: (color, alpha) => useRenderer((renderer) => setClearColor(renderer, color, alpha)),
+        getDomElement: useRenderer((renderer) => getDomElement(renderer)),
+        refresh: Resource.refresh(rendererResource),
       })
     })
   )
-
-/**
- * ✅ Pool-based WebGLRenderer管理
- * 複数のRendererインスタンスをプールで効率管理
- * オフスクリーンレンダリングやマルチビューポートで使用
- */
-export const makeWebGLRendererPool = (
-  poolSize: number = 3,
-  params?: WebGLRendererParams
-): Effect.Effect<Pool.Pool<THREE.WebGLRenderer, RendererError>, never, Scope.Scope> =>
-  Pool.make({
-    acquire: Effect.acquireRelease(createRenderer(params), (renderer) => dispose(renderer)),
-    size: poolSize,
-  })
-
-/**
- * PoolからRendererを取得して処理実行
- */
-export const withPooledRenderer = <A, E>(
-  pool: Pool.Pool<THREE.WebGLRenderer, RendererError>,
-  f: (renderer: THREE.WebGLRenderer) => Effect.Effect<A, E>
-): Effect.Effect<A, E | RendererError> => Pool.use(pool, f)
 
 /**
  * デフォルトパラメータでのWebGLRendererServiceLive

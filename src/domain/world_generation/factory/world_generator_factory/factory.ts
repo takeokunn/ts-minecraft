@@ -26,6 +26,9 @@ import * as GenerationParameters from '@domain/world/value_object/generation_par
 import * as NoiseConfiguration from '@domain/world/value_object/noise_configuration/index'
 import * as WorldSeed from '@domain/world/value_object/world_seed/index'
 import { Context, Effect, Function, Layer, Match, Schema } from 'effect'
+import { ErrorCauseSchema } from '@/shared/schema/error'
+import { JsonValueSchema } from '@/shared/schema/json'
+import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
 
 // ================================
 // Factory Error Types
@@ -40,8 +43,8 @@ export const FactoryErrorSchema = Schema.TaggedError('FactoryError', {
     'performance_constraint'
   ),
   message: Schema.String,
-  context: Schema.optional(Schema.Unknown),
-  cause: Schema.optional(Schema.Unknown),
+  context: Schema.optional(JsonValueSchema),
+  cause: Schema.optional(ErrorCauseSchema),
 })
 
 export type FactoryError = Schema.Schema.Type<typeof FactoryErrorSchema>
@@ -55,8 +58,8 @@ const makeFactoryError = (category: FactoryError['category'], message: string, e
     ...extras,
   })
 
-export const FactoryErrorFactory = {
-  make: (input: FactoryError): FactoryError => FactoryErrorSchema.make(input),
+export const FactoryError = {
+  ...makeErrorFactory(FactoryErrorSchema),
   parameterValidation: (message: string, extras?: FactoryErrorExtras) =>
     makeFactoryError('parameter_validation', message, extras),
   dependencyResolution: (message: string, extras?: FactoryErrorExtras) =>
@@ -68,8 +71,6 @@ export const FactoryErrorFactory = {
   performanceConstraint: (message: string, extras?: FactoryErrorExtras) =>
     makeFactoryError('performance_constraint', message, extras),
 } as const
-
-export const FactoryError = FactoryErrorFactory
 
 // ================================
 // Factory Parameters
@@ -131,7 +132,7 @@ export const CreateFromPresetParamsSchema = Schema.Struct({
   customizations: Schema.optional(
     Schema.Record({
       key: Schema.String,
-      value: Schema.Unknown,
+      value: JsonValueSchema,
     })
   ),
 })
@@ -238,12 +239,7 @@ const createWorldGeneratorFactory = (): WorldGeneratorFactory => ({
       // WorldGenerator作成
       const generator = yield* Effect.tryPromise({
         try: () => WorldGenerator.create(id, context),
-        catch: (error) =>
-          new FactoryError({
-            category: 'resource_allocation',
-            message: 'Failed to create WorldGenerator',
-            cause: error,
-          }),
+        catch: (error) => FactoryError.resourceAllocation('Failed to create WorldGenerator', { cause: error }),
       })
 
       // 後処理
@@ -302,12 +298,7 @@ const createWorldGeneratorFactory = (): WorldGeneratorFactory => ({
 
       return yield* Effect.tryPromise({
         try: () => WorldGenerator.create(newId, modifiedContext),
-        catch: (error) =>
-          new FactoryError({
-            category: 'resource_allocation',
-            message: 'Failed to clone WorldGenerator',
-            cause: error,
-          }),
+        catch: (error) => FactoryError.resourceAllocation('Failed to clone WorldGenerator', { cause: error }),
       })
     }),
 
@@ -317,21 +308,13 @@ const createWorldGeneratorFactory = (): WorldGeneratorFactory => ({
       yield* Function.pipe(
         Match.value(configs.length),
         Match.when(0, () =>
-          Effect.fail(
-            new FactoryError({
-              category: 'parameter_validation',
-              message: 'Empty configuration array provided',
-            })
-          )
+          Effect.fail(FactoryError.parameterValidation('Empty configuration array provided'))
         ),
         Match.when(
           (len) => len > 10,
           () =>
             Effect.fail(
-              new FactoryError({
-                category: 'performance_constraint',
-                message: 'Batch size exceeds maximum limit (10)',
-              })
+              FactoryError.performanceConstraint('Batch size exceeds maximum limit (10)')
             )
         ),
         Match.orElse(() => Effect.void)
@@ -372,12 +355,7 @@ const validateCreateParams = (params: CreateWorldGeneratorParams): Effect.Effect
   pipe(
     Effect.try({
       try: () => Schema.decodeSync(CreateWorldGeneratorParamsSchema)(params),
-      catch: (error) =>
-        new FactoryError({
-          category: 'parameter_validation',
-          message: 'Invalid create parameters',
-          cause: error,
-        }),
+      catch: (error) => FactoryError.parameterValidation('Invalid create parameters', { cause: error }),
     }),
     Effect.asVoid
   )
@@ -462,14 +440,7 @@ const loadPresetConfiguration = (preset: PresetType): Effect.Effect<CreateWorldG
     Match.when('debug', () => createDebugPreset()),
     Match.when('custom', () => createCustomPreset()),
     Match.when('experimental', () => createExperimentalPreset()),
-    Match.orElse(() =>
-      Effect.fail(
-        new FactoryError({
-          category: 'parameter_validation',
-          message: `Unknown preset type: ${preset}`,
-        })
-      )
-    )
+    Match.orElse(() => Effect.fail(FactoryError.parameterValidation(`Unknown preset type: ${preset}`)))
   )
 
 // プリセット生成関数群

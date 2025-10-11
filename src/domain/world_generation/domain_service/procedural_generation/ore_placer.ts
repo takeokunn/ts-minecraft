@@ -10,9 +10,13 @@ import {
   makeUnsafeWorldCoordinate,
   type BoundingBox,
   type WorldCoordinate,
+  WorldCoordinateSchema,
+  BoundingBoxSchema,
 } from '@domain/world/value_object/coordinates'
 import type { WorldSeed } from '@domain/world/value_object/world_seed'
 import { Context, Effect, Layer, Schema } from 'effect'
+import { AdvancedNoiseSettingsSchema } from '@domain/world/value_object/noise_configuration/index'
+import { JsonValueSchema, JsonRecordSchema } from '@shared/schema/json'
 
 /**
  * 鉱石タイプ定義
@@ -105,7 +109,7 @@ export const OreVeinSchema = Schema.Struct({
   oreType: OreTypeSchema,
 
   // 空間的構造
-  centerCoordinate: Schema.Unknown, // WorldCoordinateSchema参照
+  centerCoordinate: WorldCoordinateSchema,
   orientation: Schema.Struct({
     strike: Schema.Number.pipe(Schema.between(0, 360)), // 走向（度）
     dip: Schema.Number.pipe(Schema.between(0, 90)), // 傾斜（度）
@@ -121,7 +125,7 @@ export const OreVeinSchema = Schema.Struct({
   // 品位分布
   gradeDistribution: Schema.Array(
     Schema.Struct({
-      coordinate: Schema.Unknown, // WorldCoordinateSchema参照
+      coordinate: WorldCoordinateSchema,
       grade: Schema.Number.pipe(Schema.between(0, 1)), // 品位（0-1）
       confidence: Schema.Number.pipe(Schema.between(0, 1)),
     })
@@ -135,6 +139,7 @@ export const OreVeinSchema = Schema.Struct({
   // 関連鉱脈
   relatedVeins: Schema.Array(Schema.String).pipe(Schema.optional),
   generation: Schema.Number.pipe(Schema.int(), Schema.positive()), // 形成世代
+  metadata: Schema.optional(JsonRecordSchema),
 }).pipe(
   Schema.annotations({
     identifier: 'OreVein',
@@ -163,9 +168,9 @@ export const OrePlacementConfigSchema = Schema.Struct({
   metamorphismLevel: Schema.Number.pipe(Schema.between(0, 1)),
 
   // ノイズ設定
-  distributionNoise: Schema.Unknown, // AdvancedNoiseSettingsSchema参照
-  gradeNoise: Schema.Unknown, // 品位分布用ノイズ
-  structuralNoise: Schema.Unknown, // 構造制御用ノイズ
+  distributionNoise: AdvancedNoiseSettingsSchema,
+  gradeNoise: AdvancedNoiseSettingsSchema,
+  structuralNoise: AdvancedNoiseSettingsSchema,
 
   // 生成制約
   avoidCaves: Schema.Boolean,
@@ -200,7 +205,7 @@ export const OrePlacementResultSchema = Schema.Struct({
 
   orePlacements: Schema.Array(
     Schema.Struct({
-      coordinate: Schema.Unknown, // WorldCoordinateSchema参照
+      coordinate: WorldCoordinateSchema,
       oreType: OreTypeSchema,
       grade: Schema.Number.pipe(Schema.between(0, 1)),
       veinId: Schema.String.pipe(Schema.optional),
@@ -236,7 +241,7 @@ export const OrePlacementResultSchema = Schema.Struct({
   warnings: Schema.Array(Schema.String).pipe(Schema.optional),
   debugInfo: Schema.Record({
     key: Schema.String,
-    value: Schema.Unknown,
+    value: JsonValueSchema,
   }).pipe(Schema.optional),
 }).pipe(
   Schema.annotations({

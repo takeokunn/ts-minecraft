@@ -29,7 +29,7 @@ export const createPlaneShape = (): Effect.Effect<CANNON.Plane, PhysicsShapeErro
   Effect.try({
     try: () => new CANNON.Plane(),
     catch: (error) =>
-      new PhysicsShapeError({
+      PhysicsShapeError.make({
         type: 'plane',
         cause: error,
         message: 'Failed to create plane shape',

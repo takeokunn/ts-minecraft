@@ -7,6 +7,7 @@
 
 import type { CameraId, CameraRotation, CameraSettings, Position3D } from '@domain/camera/types'
 import { Brand, Data, Option, Schema } from 'effect'
+import { ErrorCauseSchema, toErrorCause, type ErrorCause } from '@/shared/schema/error'
 import type { ViewMode } from '../../value_object/index'
 
 // ========================================
@@ -77,7 +78,7 @@ export type RepositoryError = Data.TaggedEnum<{
   }
   readonly StorageError: {
     readonly message: string
-    readonly cause: Option<unknown>
+    readonly cause: Option.Option<ErrorCause>
   }
   readonly EncodingFailed: {
     readonly entityType: string
@@ -178,7 +179,7 @@ export const RepositoryErrorSchema = Schema.Union(
   }),
   Schema.TaggedStruct('StorageError', {
     message: Schema.String,
-    cause: Schema.OptionFromNullable(Schema.Unknown),
+    cause: Schema.OptionFromNullable(ErrorCauseSchema),
   }),
   Schema.TaggedStruct('EncodingFailed', {
     entityType: Schema.String,
@@ -256,7 +257,7 @@ export const createRepositoryError = {
   storageError: (message: string, cause?: unknown): RepositoryError =>
     Data.tagged('StorageError', {
       message,
-      cause: cause ? Option.some(cause) : Option.none(),
+      cause: Option.fromNullable(toErrorCause(cause)),
     }),
 
   encodingFailed: (entityType: string, reason: string): RepositoryError =>

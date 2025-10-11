@@ -1,4 +1,5 @@
 import { Effect, HashMap, Layer, Option, Ref } from 'effect'
+import { now as timestampNow } from '@domain/shared/value_object/units/timestamp'
 import type {
   Inventory,
   InventoryQuery,
@@ -88,10 +89,11 @@ export const InventoryRepositoryMemory = Layer.effect(
                     updatedSlots.set(position, itemStack)
                   }
 
+                  const timestamp = yield* timestampNow()
                   const updatedInventory: Inventory = {
                     ...inventory,
                     slots: updatedSlots,
-                    lastUpdated: yield* Clock.currentTimeMillis,
+                    lastUpdated: timestamp,
                     version: inventory.version + 1,
                   }
 
@@ -115,10 +117,11 @@ export const InventoryRepositoryMemory = Layer.effect(
                   const updatedSlots = new Map(inventory.slots)
                   updatedSlots.delete(position)
 
+                  const timestamp = yield* timestampNow()
                   const updatedInventory: Inventory = {
                     ...inventory,
                     slots: updatedSlots,
-                    lastUpdated: yield* Clock.currentTimeMillis,
+                    lastUpdated: timestamp,
                     version: inventory.version + 1,
                   }
 
@@ -220,12 +223,13 @@ export const InventoryRepositoryMemory = Layer.effect(
               onSome: (inventory) =>
                 Effect.gen(function* () {
                   const snapshotId = yield* Ref.updateAndGet(snapshotCounter, (n) => n + 1)
+                  const createdAt = yield* timestampNow()
                   const snapshot: InventorySnapshot = {
                     id: `snapshot-${snapshotId}`,
                     name: snapshotName,
                     playerId,
                     inventory: structuredClone(inventory),
-                    createdAt: yield* Clock.currentTimeMillis,
+                    createdAt,
                   }
 
                   yield* Ref.update(snapshotStore, (store) => HashMap.set(store, snapshot.id, snapshot))
@@ -248,9 +252,10 @@ export const InventoryRepositoryMemory = Layer.effect(
                 Effect.fail(createRepositoryError('restoreFromSnapshot', `Snapshot not found: ${snapshotId}`)),
               onSome: (snapshot) =>
                 Effect.gen(function* () {
+                  const lastUpdated = yield* timestampNow()
                   const restoredInventory: Inventory = {
                     ...snapshot.inventory,
-                    lastUpdated: yield* Clock.currentTimeMillis,
+                    lastUpdated,
                     version: snapshot.inventory.version + 1,
                   }
 

@@ -31,21 +31,22 @@ export type {
 // === Integrated Performance Monitoring Service ===
 
 import { Clock, Context, Effect, Match, Ref, Schema } from 'effect'
+import { ErrorCauseSchema } from '@shared/schema/error'
+import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
 import { MetricsCollectorService } from './service'
 
 /**
  * Performance Monitoring Service Error
  */
-export const PerformanceMonitoringError = Schema.TaggedError<PerformanceMonitoringErrorType>()(
-  'PerformanceMonitoringError',
-  {
-    message: Schema.String,
-    monitorId: Schema.String,
-    cause: Schema.optional(Schema.Unknown),
-  }
-)
+export const PerformanceMonitoringErrorSchema = Schema.TaggedError('PerformanceMonitoringError', {
+  message: Schema.String,
+  monitorId: Schema.String,
+  cause: Schema.optional(ErrorCauseSchema),
+})
 
-export interface PerformanceMonitoringErrorType extends Schema.Schema.Type<typeof PerformanceMonitoringError> {}
+export type PerformanceMonitoringErrorType = Schema.Schema.Type<typeof PerformanceMonitoringErrorSchema>
+
+export const PerformanceMonitoringError = makeErrorFactory(PerformanceMonitoringErrorSchema)
 
 /**
  * Bottleneck Detection Result

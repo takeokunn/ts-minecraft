@@ -287,7 +287,9 @@ function getDefaultBiomeSettings(type: BiomeType): BiomeConfig {
   }
 }
 
-function createStructureDensityFromPreset(presetConfig: any): OverallStructureDensity {
+function createStructureDensityFromPreset(
+  presetConfig: (typeof DENSITY_PRESETS)[keyof typeof DENSITY_PRESETS]
+): OverallStructureDensity {
   // プリセットから構造物密度設定を生成
   return {
     globalMultiplier: makeUnsafeDensityValue(presetConfig.globalMultiplier),

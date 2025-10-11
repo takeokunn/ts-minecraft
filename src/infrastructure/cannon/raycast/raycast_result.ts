@@ -1,6 +1,7 @@
 import * as CANNON from 'cannon-es'
 import { Effect, Schema } from 'effect'
 import { PhysicsRaycastError } from '../errors'
+import { CannonBodySchema, makeCannonBodyUnsafe } from '../schemas/body_schema'
 
 /**
  * RaycastResult - Cannon.jsレイキャストのEffect-TSラッパー
@@ -39,7 +40,7 @@ export const RaycastResultSchema = Schema.Struct({
       description: 'Normal vector at the hit point',
     })
   ),
-  body: Schema.Unknown.pipe(
+  body: Schema.Union(Schema.Null, CannonBodySchema).pipe(
     Schema.annotations({
       description: 'The body that was hit (CANNON.Body or null)',
     })
@@ -87,7 +88,7 @@ export const raycastAll = (
             y: result.hitNormalWorld.y,
             z: result.hitNormalWorld.z,
           },
-          body: result.body,
+          body: result.body ? makeCannonBodyUnsafe(result.body) : null,
         })
       }
 
@@ -96,7 +97,7 @@ export const raycastAll = (
       return results
     },
     catch: (error) =>
-      new PhysicsRaycastError({
+      PhysicsRaycastError.make({
         cause: error,
         message: 'Failed to perform raycastAll',
       }),
@@ -140,11 +141,11 @@ export const raycastClosest = (
           y: result.hitNormalWorld.y,
           z: result.hitNormalWorld.z,
         },
-        body: result.body,
+        body: result.body ? makeCannonBodyUnsafe(result.body) : null,
       }
     },
     catch: (error) =>
-      new PhysicsRaycastError({
+      PhysicsRaycastError.make({
         cause: error,
         message: 'Failed to perform raycastClosest',
       }),

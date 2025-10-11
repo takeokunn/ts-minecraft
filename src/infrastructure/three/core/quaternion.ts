@@ -7,6 +7,7 @@ import { Effect, Schema } from 'effect'
 import * as THREE from 'three'
 import type { Vector3 } from './vector3'
 import * as V3 from './vector3'
+import { ErrorCauseSchema } from '@shared/schema/error'
 
 /**
  * Quaternion Schema定義（Brand型）
@@ -27,7 +28,8 @@ export type Quaternion = Schema.Schema.Type<typeof QuaternionSchema>
 export const QuaternionError = Schema.TaggedError('QuaternionError')({
   operation: Schema.String,
   reason: Schema.String,
-  cause: Schema.Unknown,
+  quaternion: Schema.optional(QuaternionSchema),
+  cause: Schema.optional(ErrorCauseSchema),
 })
 export type QuaternionError = Schema.Schema.Type<typeof QuaternionError>
 
@@ -66,7 +68,7 @@ export const fromAxisAngle = (axis: Vector3, angle: number): Effect.Effect<Quate
           new QuaternionError({
             operation: 'fromAxisAngle',
             reason: 'Invalid axis for quaternion creation',
-            cause: error,
+            cause: error instanceof Error ? error : { message: String(error) },
           })
       )
     )

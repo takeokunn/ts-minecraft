@@ -6,7 +6,7 @@
  * 外部依存は一切持たない純粋関数として実装されています。
  */
 
-import { Effect, Layer } from 'effect'
+import { Effect, Layer, Match } from 'effect'
 import type { CameraDistance, CameraError, CameraRotation, Position3D, Vector3D } from '../../value_object'
 import {
   AngleConversion,
@@ -15,8 +15,9 @@ import {
   createPosition3D,
   Position3DOps,
 } from '../../value_object'
-import type { BoundingBox, SphericalCoordinate, ViewBounds } from './index'
+import type { BoundingBox, PositionConstraints, SphericalCoordinate, ViewBounds } from './index'
 import { CameraControlService } from './index'
+import { CollisionDetectionService } from '../collision_detection'
 
 /**
  * カメラ制御サービスのLive実装
@@ -68,7 +69,11 @@ export const CameraControlServiceLive = Layer.succeed(
 
         // 地形衝突検証（実装時は地形データが必要）
         if (constraints.terrainCollision) {
-          constrainedPosition = yield* checkTerrainCollision(constrainedPosition)
+          constrainedPosition = yield* checkTerrainCollision(constrainedPosition, constraints)
+
+          // 衝突解決後に境界・高さを再評価
+          constrainedPosition = yield* clampToBounds(constrainedPosition, constraints.worldBounds)
+          constrainedPosition = yield* clampHeight(constrainedPosition, constraints.minHeight, constraints.maxHeight)
         }
 
         return constrainedPosition
@@ -225,9 +230,28 @@ const clampHeight = (
  * 地形衝突チェック（スタブ実装）
  * 実際の実装では地形データが必要
  */
-const checkTerrainCollision = (position: Position3D): Effect.Effect<Position3D, CameraError> =>
+const checkTerrainCollision = (
+  position: Position3D,
+  constraints: PositionConstraints
+): Effect.Effect<Position3D, CameraError> =>
   Effect.gen(function* () {
-    // TODO: 実際の地形データとの衝突検出
-    // 現在はスタブとして元の位置をそのまま返す
-    return position
+    const worldCollisionData = constraints.worldCollisionData
+
+    if (!worldCollisionData) {
+      return position
+    }
+
+    const collisionDetection = yield* CollisionDetectionService
+    const radius = constraints.collisionRadius ?? 0.6
+
+    const collisionResult = yield* collisionDetection.checkCameraCollision(position, radius, worldCollisionData)
+
+    return yield* Match.value(collisionResult).pipe(
+      Match.when({ _tag: 'Collision' }, (collision) =>
+        collisionDetection
+          .findSafePosition(position, position, radius, worldCollisionData)
+          .pipe(Effect.catchAll(() => Effect.succeed(collision.hitPosition)))
+      ),
+      Match.orElse(() => Effect.succeed(position))
+    )
   })

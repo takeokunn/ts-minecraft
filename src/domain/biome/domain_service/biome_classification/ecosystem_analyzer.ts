@@ -7,10 +7,12 @@
  */
 
 import type { WorldCoordinate2D } from '@/domain/biome/value_object/coordinates'
+import { WorldCoordinate2DSchema } from '@/domain/biome/value_object/coordinates'
 import { type GenerationError } from '@domain/world/types/errors'
 import type { WorldSeed } from '@domain/world/value_object/world_seed'
 import { Context, Effect, Layer, Schema } from 'effect'
 import type { BiomeMappingResult, ClimateData, MinecraftBiomeType } from './index'
+import { MinecraftBiomeTypeSchema } from './biome_mapper'
 
 /**
  * 生態学的機能群
@@ -36,8 +38,8 @@ export type EcologicalGuild = typeof EcologicalGuildSchema.Type
  */
 export const EcosystemStructureSchema = Schema.Struct({
   // 基本情報
-  biomeType: Schema.Unknown, // MinecraftBiomeType
-  coordinate: Schema.Unknown, // WorldCoordinate2D
+  biomeType: MinecraftBiomeTypeSchema,
+  coordinate: WorldCoordinate2DSchema,
   area: Schema.Number.pipe(Schema.positive()),
 
   // 生物多様性指標
@@ -155,6 +157,88 @@ export const SpeciesInteractionSchema = Schema.Struct({
 
 export type SpeciesInteraction = typeof SpeciesInteractionSchema.Type
 
+type GuildComposition = Record<
+  EcologicalGuild,
+  {
+    readonly abundance: number
+    readonly biomass: number
+    readonly diversity: number
+  }
+>
+
+type TrophicLevel = EcosystemStructure['trophicLevels'][number]
+
+type LimitingFactor = EcosystemStructure['limitingFactors'][number]
+
+type SeasonalVariation = NonNullable<EcosystemStructure['seasonalVariation']>
+
+type DisturbanceImpact = {
+  readonly mortalityRate: number
+  readonly displacementRate: number
+  readonly productivityChange: number
+}
+
+type RecoveryPotential = {
+  readonly timeToRecover: number
+  readonly recoveryTrajectory: string
+  readonly alternativeStates: ReadonlyArray<string>
+}
+
+type NitrogenCycleStats = {
+  readonly fixation: number
+  readonly mineralization: number
+  readonly nitrification: number
+  readonly denitrification: number
+}
+
+type CarbonCycleStats = {
+  readonly sequestration: number
+  readonly respiration: number
+  readonly productivity: number
+}
+
+type PhosphorusCycleStats = {
+  readonly availability: number
+  readonly cycling: number
+  readonly limitation: number
+}
+
+type ProvisioningServices = {
+  readonly food: number
+  readonly freshwater: number
+  readonly fiberAndFuel: number
+  readonly geneticResources: number
+}
+
+type RegulatingServices = {
+  readonly climateRegulation: number
+  readonly waterRegulation: number
+  readonly diseaseControl: number
+  readonly pollination: number
+}
+
+type CulturalServices = {
+  readonly recreation: number
+  readonly spiritual: number
+  readonly educational: number
+  readonly aesthetic: number
+}
+
+type SupportingServices = {
+  readonly soilFormation: number
+  readonly nutrientCycling: number
+  readonly primaryProduction: number
+  readonly oxygenProduction: number
+}
+
+type EcosystemServicesSummary = {
+  readonly provisioning: ProvisioningServices
+  readonly regulating: RegulatingServices
+  readonly cultural: CulturalServices
+  readonly supporting: SupportingServices
+  readonly totalValue: number
+}
+
 /**
  * Ecosystem Analyzer Service Interface
  *
@@ -248,36 +332,7 @@ export interface EcosystemAnalyzerService {
   readonly assessEcosystemServices: (
     ecosystemStructure: EcosystemStructure,
     climateData: ClimateData
-  ) => Effect.Effect<
-    {
-      provisioning: {
-        food: number
-        freshwater: number
-        fiberAndFuel: number
-        geneticResources: number
-      }
-      regulating: {
-        climateRegulation: number
-        waterRegulation: number
-        diseaseControl: number
-        pollination: number
-      }
-      cultural: {
-        recreation: number
-        spiritual: number
-        educational: number
-        aesthetic: number
-      }
-      supporting: {
-        soilFormation: number
-        nutrientCycling: number
-        primaryProduction: number
-        oxygenProduction: number
-      }
-      totalValue: number
-    },
-    GenerationError
-  >
+  ) => Effect.Effect<EcosystemServicesSummary, GenerationError>
 
   /**
    * 環境撹乱への応答予測
@@ -288,16 +343,8 @@ export interface EcosystemAnalyzerService {
     intensity: number
   ) => Effect.Effect<
     {
-      shortTermImpact: {
-        mortalityRate: number
-        displacementRate: number
-        productivityChange: number
-      }
-      recoveryPotential: {
-        timeToRecover: number
-        recoveryTrajectory: string
-        alternativeStates: ReadonlyArray<string>
-      }
+      shortTermImpact: DisturbanceImpact
+      recoveryPotential: RecoveryPotential
       adaptiveCapacity: number
       vulnerabilityIndex: number
     },
@@ -512,13 +559,15 @@ export const EcosystemAnalyzerServiceLive = Layer.effect(
             Object.values(supporting).reduce((sum, val) => sum + val, 0)) /
           4
 
-        return {
+        const summary: EcosystemServicesSummary = {
           provisioning,
           regulating,
           cultural,
           supporting,
           totalValue,
         }
+
+        return summary
       }),
 
     predictDisturbanceResponse: (ecosystemStructure, disturbanceType, intensity) =>
@@ -591,17 +640,25 @@ const calculateEndemism = (
 const analyzeGuildComposition = (
   biomeType: MinecraftBiomeType,
   climateData: ClimateData
-): Effect.Effect<Record<string, any>, GenerationError> =>
+): Effect.Effect<GuildComposition, GenerationError> =>
   Effect.succeed({
     primary_producers: { abundance: 1000, biomass: 500, diversity: 0.8 },
     herbivores: { abundance: 200, biomass: 100, diversity: 0.6 },
     carnivores: { abundance: 50, biomass: 80, diversity: 0.4 },
+    omnivores: { abundance: 100, biomass: 60, diversity: 0.5 },
+    decomposers: { abundance: 500, biomass: 150, diversity: 0.7 },
+    pollinators: { abundance: 120, biomass: 20, diversity: 0.4 },
+    seed_dispersers: { abundance: 80, biomass: 15, diversity: 0.3 },
+    nitrogen_fixers: { abundance: 60, biomass: 10, diversity: 0.2 },
+    mycorrhizal_fungi: { abundance: 400, biomass: 90, diversity: 0.6 },
+    parasites: { abundance: 40, biomass: 5, diversity: 0.2 },
+    symbionts: { abundance: 70, biomass: 12, diversity: 0.3 },
   })
 
 const buildTrophicStructure = (
   biomeType: MinecraftBiomeType,
-  guildComposition: any
-): Effect.Effect<any[], GenerationError> =>
+  guildComposition: GuildComposition
+): Effect.Effect<ReadonlyArray<TrophicLevel>, GenerationError> =>
   Effect.succeed([
     { level: 1, biomass: 500, energyFlow: 1000, efficiency: 0.1 },
     { level: 2, biomass: 100, energyFlow: 100, efficiency: 0.1 },
@@ -622,15 +679,16 @@ const calculateResilience = (
 const calculateResistance = (biomeType: MinecraftBiomeType): Effect.Effect<number, GenerationError> =>
   Effect.succeed(Math.random() * 0.8 + 0.2)
 
-const calculateConnectance = (guildComposition: any): Effect.Effect<number, GenerationError> =>
+const calculateConnectance = (guildComposition: GuildComposition): Effect.Effect<number, GenerationError> =>
   Effect.succeed(Math.random() * 0.5 + 0.3)
 
 const identifyLimitingFactors = (
   climateData: ClimateData,
   biomeMapping: BiomeMappingResult
-): Effect.Effect<any[], GenerationError> => Effect.succeed(['water_availability', 'nutrient_limitation'])
+): Effect.Effect<ReadonlyArray<LimitingFactor>, GenerationError> =>
+  Effect.succeed(['water_availability', 'nutrient_limitation'])
 
-const analyzeSeasonalVariation = (climateData: ClimateData): Effect.Effect<any, GenerationError> =>
+const analyzeSeasonalVariation = (climateData: ClimateData): Effect.Effect<SeasonalVariation, GenerationError> =>
   Effect.succeed({
     amplitude: climateData.precipitationSeasonality,
     phase: 172, // 夏至
@@ -684,7 +742,7 @@ const calculateWebStability = (
 const analyzeNitrogenCycle = (
   ecosystem: EcosystemStructure,
   climate: ClimateData
-): Effect.Effect<any, GenerationError> =>
+): Effect.Effect<NitrogenCycleStats, GenerationError> =>
   Effect.succeed({
     fixation: 100,
     mineralization: 80,
@@ -692,7 +750,10 @@ const analyzeNitrogenCycle = (
     denitrification: 20,
   })
 
-const analyzeCarbonCycle = (ecosystem: EcosystemStructure, climate: ClimateData): Effect.Effect<any, GenerationError> =>
+const analyzeCarbonCycle = (
+  ecosystem: EcosystemStructure,
+  climate: ClimateData
+): Effect.Effect<CarbonCycleStats, GenerationError> =>
   Effect.succeed({
     sequestration: 500,
     respiration: 400,
@@ -702,7 +763,7 @@ const analyzeCarbonCycle = (ecosystem: EcosystemStructure, climate: ClimateData)
 const analyzePhosphorusCycle = (
   ecosystem: EcosystemStructure,
   climate: ClimateData
-): Effect.Effect<any, GenerationError> =>
+): Effect.Effect<PhosphorusCycleStats, GenerationError> =>
   Effect.succeed({
     availability: 0.7,
     cycling: 0.8,
@@ -712,7 +773,7 @@ const analyzePhosphorusCycle = (
 const assessProvisioningServices = (
   ecosystem: EcosystemStructure,
   climate: ClimateData
-): Effect.Effect<any, GenerationError> =>
+): Effect.Effect<ProvisioningServices, GenerationError> =>
   Effect.succeed({
     food: 0.8,
     freshwater: 0.6,
@@ -723,7 +784,7 @@ const assessProvisioningServices = (
 const assessRegulatingServices = (
   ecosystem: EcosystemStructure,
   climate: ClimateData
-): Effect.Effect<any, GenerationError> =>
+): Effect.Effect<RegulatingServices, GenerationError> =>
   Effect.succeed({
     climateRegulation: 0.8,
     waterRegulation: 0.7,
@@ -731,7 +792,9 @@ const assessRegulatingServices = (
     pollination: 0.9,
   })
 
-const assessCulturalServices = (ecosystem: EcosystemStructure): Effect.Effect<any, GenerationError> =>
+const assessCulturalServices = (
+  ecosystem: EcosystemStructure
+): Effect.Effect<CulturalServices, GenerationError> =>
   Effect.succeed({
     recreation: 0.7,
     spiritual: 0.5,
@@ -739,7 +802,9 @@ const assessCulturalServices = (ecosystem: EcosystemStructure): Effect.Effect<an
     aesthetic: 0.9,
   })
 
-const assessSupportingServices = (ecosystem: EcosystemStructure): Effect.Effect<any, GenerationError> =>
+const assessSupportingServices = (
+  ecosystem: EcosystemStructure
+): Effect.Effect<SupportingServices, GenerationError> =>
   Effect.succeed({
     soilFormation: 0.8,
     nutrientCycling: 0.9,
@@ -751,7 +816,7 @@ const calculateShortTermImpact = (
   ecosystem: EcosystemStructure,
   disturbanceType: string,
   intensity: number
-): Effect.Effect<any, GenerationError> =>
+): Effect.Effect<DisturbanceImpact, GenerationError> =>
   Effect.succeed({
     mortalityRate: intensity * 0.5,
     displacementRate: intensity * 0.3,
@@ -761,7 +826,7 @@ const calculateShortTermImpact = (
 const assessRecoveryPotential = (
   ecosystem: EcosystemStructure,
   disturbanceType: string
-): Effect.Effect<any, GenerationError> =>
+): Effect.Effect<RecoveryPotential, GenerationError> =>
   Effect.succeed({
     timeToRecover: 5, // 年
     recoveryTrajectory: 'gradual',

@@ -47,13 +47,12 @@ export const IdGenerator = createIdGenerator()
  */
 export const make = (value: number): Effect.Effect<ECSEntityId, ECSEntityIdError> =>
   Schema.decode(ECSEntityIdSchema)(value).pipe(
-    Effect.mapError(
-      (error) =>
-        new ECSEntityIdError({
-          message: 'Invalid ECS entity ID: must be non-negative integer',
-          value,
-          cause: error,
-        })
+    Effect.mapError((error) =>
+      ECSEntityIdError.make({
+        message: 'Invalid ECS entity ID: must be non-negative integer',
+        value,
+        cause: error,
+      })
     )
   )
 

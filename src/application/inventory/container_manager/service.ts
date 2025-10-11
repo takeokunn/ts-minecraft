@@ -7,8 +7,61 @@
 
 import type { ContainerAggregate, ContainerId } from '@/domain/inventory/aggregate/container'
 import type { ItemId, ItemStack, PlayerId } from '@/domain/inventory/types'
+import type { JsonValue } from '@/shared/schema/json'
 import { Context, Effect } from 'effect'
 import type { InventoryApplicationError } from '../types'
+
+export type ContainerAccessLevel = 'read' | 'write' | 'admin'
+
+export interface ContainerPermissions {
+  readonly publicAccess: boolean
+  readonly allowedPlayers: ReadonlyArray<PlayerId>
+  readonly accessLevel: ContainerAccessLevel
+}
+
+export interface ContainerOperationLog {
+  readonly timestamp: Date
+  readonly playerId: PlayerId
+  readonly action: 'open' | 'close' | 'store' | 'retrieve' | 'transfer'
+  readonly itemId?: ItemId
+  readonly quantity?: number
+  readonly details: string
+}
+
+export type ContainerBatchOperation = {
+  readonly type: 'store' | 'retrieve' | 'transfer'
+  readonly containerId: ContainerId
+  readonly itemStack?: ItemStack
+  readonly slotIndex?: number
+  readonly targetContainerId?: ContainerId
+  readonly quantity?: number
+}
+
+export type BatchOperationResult = {
+  readonly success: boolean
+  readonly operation: ContainerBatchOperation
+  readonly error?: string
+}
+
+export type ContainerLockStatus =
+  | { readonly type: 'unlocked'; readonly isLocked: false }
+  | {
+      readonly type: 'password' | 'key' | 'biometric'
+      readonly isLocked: true
+      readonly metadata?: JsonValue
+    }
+
+export interface ContainerDebugInfo {
+  readonly containerState: ContainerAggregate
+  readonly permissions: ContainerPermissions
+  readonly lockStatus: ContainerLockStatus
+  readonly recentOperations: ReadonlyArray<ContainerOperationLog>
+  readonly performanceMetrics: {
+    readonly averageOperationTime: number
+    readonly totalOperations: number
+    readonly errorRate: number
+  }
+}
 
 /**
  * コンテナ管理アプリケーションサービス
@@ -133,11 +186,7 @@ export interface ContainerManagerApplicationService {
   readonly setPermissions: (
     containerId: ContainerId,
     ownerId: PlayerId,
-    permissions: {
-      readonly publicAccess: boolean
-      readonly allowedPlayers: ReadonlyArray<PlayerId>
-      readonly accessLevel: 'read' | 'write' | 'admin'
-    }
+    permissions: ContainerPermissions
   ) => Effect.Effect<void, InventoryApplicationError>
 
   /**
@@ -320,17 +369,7 @@ export interface ContainerManagerApplicationService {
     containerId: ContainerId,
     playerId: PlayerId,
     limit?: number
-  ) => Effect.Effect<
-    ReadonlyArray<{
-      readonly timestamp: Date
-      readonly playerId: PlayerId
-      readonly action: 'open' | 'close' | 'store' | 'retrieve' | 'transfer'
-      readonly itemId?: ItemId
-      readonly quantity?: number
-      readonly details: string
-    }>,
-    InventoryApplicationError
-  >
+  ) => Effect.Effect<ReadonlyArray<ContainerOperationLog>, InventoryApplicationError>
 
   /**
    * 大容量操作をバッチ処理します
@@ -340,23 +379,9 @@ export interface ContainerManagerApplicationService {
    * @returns バッチ処理結果
    */
   readonly batchOperations: (
-    operations: ReadonlyArray<{
-      readonly type: 'store' | 'retrieve' | 'transfer'
-      readonly containerId: ContainerId
-      readonly itemStack?: ItemStack
-      readonly slotIndex?: number
-      readonly targetContainerId?: ContainerId
-      readonly quantity?: number
-    }>,
+    operations: ReadonlyArray<ContainerBatchOperation>,
     playerId: PlayerId
-  ) => Effect.Effect<
-    ReadonlyArray<{
-      readonly success: boolean
-      readonly operation: unknown
-      readonly error?: string
-    }>,
-    InventoryApplicationError
-  >
+  ) => Effect.Effect<ReadonlyArray<BatchOperationResult>, InventoryApplicationError>
 
   /**
    * デバッグ情報を取得します
@@ -364,20 +389,7 @@ export interface ContainerManagerApplicationService {
    * @param containerId - コンテナID
    * @returns デバッグ情報
    */
-  readonly getDebugInfo: (containerId: ContainerId) => Effect.Effect<
-    {
-      readonly containerState: ContainerAggregate
-      readonly permissions: unknown
-      readonly lockStatus: unknown
-      readonly recentOperations: ReadonlyArray<unknown>
-      readonly performanceMetrics: {
-        readonly averageOperationTime: number
-        readonly totalOperations: number
-        readonly errorRate: number
-      }
-    },
-    InventoryApplicationError
-  >
+  readonly getDebugInfo: (containerId: ContainerId) => Effect.Effect<ContainerDebugInfo, InventoryApplicationError>
 }
 
 /**

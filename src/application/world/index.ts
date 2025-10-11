@@ -87,6 +87,8 @@ export type { MetricsCollectorErrorType, PerformanceMonitoringErrorType } from '
 
 import { WorldGenerationOrchestrator } from '@/domain/world_generation/domain_service/world_generation_orchestrator/index'
 import { Clock, Context, Effect, Ref, Schema, STM } from 'effect'
+import { ErrorCauseSchema } from '@shared/schema/error'
+import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
 import { CacheOptimizationService } from './cache_optimization/index'
 import { PerformanceMonitoringService } from './performance_monitoring/index'
 import { ProgressiveLoadingService } from './progressive_loading/index'
@@ -94,22 +96,21 @@ import { ProgressiveLoadingService } from './progressive_loading/index'
 /**
  * World Application Service Error
  */
-export const WorldApplicationServiceError = Schema.TaggedError<WorldApplicationServiceErrorType>()(
-  'WorldApplicationServiceError',
-  {
-    message: Schema.String,
-    serviceType: Schema.Union(
-      Schema.Literal('generation'),
-      Schema.Literal('loading'),
-      Schema.Literal('cache'),
-      Schema.Literal('monitoring'),
-      Schema.Literal('integration')
-    ),
-    cause: Schema.optional(Schema.Unknown),
-  }
-)
+export const WorldApplicationServiceErrorSchema = Schema.TaggedError('WorldApplicationServiceError', {
+  message: Schema.String,
+  serviceType: Schema.Union(
+    Schema.Literal('generation'),
+    Schema.Literal('loading'),
+    Schema.Literal('cache'),
+    Schema.Literal('monitoring'),
+    Schema.Literal('integration')
+  ),
+  cause: Schema.optional(ErrorCauseSchema),
+})
 
-export interface WorldApplicationServiceErrorType extends Schema.Schema.Type<typeof WorldApplicationServiceError> {}
+export type WorldApplicationServiceErrorType = Schema.Schema.Type<typeof WorldApplicationServiceErrorSchema>
+
+export const WorldApplicationServiceError = makeErrorFactory(WorldApplicationServiceErrorSchema)
 
 /**
  * World System Configuration

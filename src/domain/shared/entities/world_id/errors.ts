@@ -1,4 +1,5 @@
 import { Effect, Schema } from 'effect'
+import { ErrorCauseSchema, toErrorCause } from '@/shared/schema/error'
 
 /**
  * WorldIdエラー
@@ -6,7 +7,7 @@ import { Effect, Schema } from 'effect'
 export const WorldIdErrorSchema = Schema.TaggedStruct('WorldIdError', {
   message: Schema.String,
   value: Schema.String,
-  cause: Schema.optional(Schema.Unknown),
+  cause: Schema.optional(ErrorCauseSchema),
 }).pipe(
   Schema.annotations({
     title: 'WorldId Error',
@@ -33,7 +34,7 @@ export const createWorldIdError = (
     _tag: 'WorldIdError' as const,
     message,
     value,
-    cause,
+    cause: toErrorCause(cause),
   })
 
 /**

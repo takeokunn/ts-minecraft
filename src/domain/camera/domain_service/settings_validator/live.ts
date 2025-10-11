@@ -21,6 +21,7 @@ import type {
 } from '../../value_object'
 import { CameraSettingsOps, SettingsValidation } from '../../value_object'
 import type {
+  AccessibilityRequirements,
   AnimationValidationResult,
   CompatibilityIssue,
   HardwareLimits,
@@ -618,7 +619,7 @@ const applyPlatformLimits = (
  */
 const applyAccessibilityRequirements = (
   settings: CameraSettings,
-  requirements: any
+  requirements: AccessibilityRequirements
 ): Effect.Effect<CameraSettings, SettingsValidationError> =>
   Effect.gen(function* () {
     // アクセシビリティ要件を適用

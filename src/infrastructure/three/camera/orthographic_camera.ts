@@ -37,7 +37,11 @@ export const createOrthographicCamera = (
         params.near ?? 0.1,
         params.far ?? 2000
       ),
-    catch: (error) => new CameraError({ type: 'orthographic', cause: error }),
+    catch: (error) =>
+      CameraError.make({
+        type: 'orthographic',
+        cause: error,
+      }),
   })
 
 /**

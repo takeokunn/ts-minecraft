@@ -42,11 +42,13 @@ type DecodeError = Schema.DecodeUnknownError
 type FailureParams = {
   readonly operation: string
   readonly field: string
-  readonly candidate: unknown
+  readonly candidate: JsonSerializableInput
   readonly cause: DecodeError
 }
 
-const toJsonValue = (input: unknown): Effect.Effect<JsonValue, ConfigurationSerializationError> =>
+type JsonSerializableInput = JsonValue | GameApplicationConfigPatchInput | GameApplicationConfigInput
+
+const toJsonValue = (input: JsonSerializableInput): Effect.Effect<JsonValue, ConfigurationSerializationError> =>
   Effect.gen(function* () {
     const serialized = yield* Effect.try({
       try: () => JSON.stringify(input),

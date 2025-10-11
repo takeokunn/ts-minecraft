@@ -4,6 +4,7 @@
  */
 
 import { Context, DateTime, Effect, Layer, Schema } from 'effect'
+import type { JsonRecord } from '@shared/schema/json'
 import { nanoid } from 'nanoid'
 import type { ItemId } from '../../types'
 import type { Durability, Enchantment, ItemCount, ItemNBTData, ItemStackEntity, ItemStackId } from './types'
@@ -43,7 +44,7 @@ export interface ItemStackCreateOptions {
   readonly id?: ItemStackId
   readonly durability?: Durability
   readonly nbtData?: ItemNBTData
-  readonly metadata?: Record<string, unknown>
+  readonly metadata?: JsonRecord
 }
 
 // ===== Builder State (Pure Functions Pattern) =====
@@ -57,7 +58,7 @@ export type ItemStackBuilderState = {
   readonly count?: ItemCount
   readonly durability?: Durability
   readonly nbtData: ItemNBTData
-  readonly metadata: Record<string, unknown>
+  readonly metadata: JsonRecord
   readonly version: number
   readonly createdAt?: string
   readonly lastModified?: string
@@ -181,10 +182,7 @@ export const withTag = (state: ItemStackBuilderState, tag: string): ItemStackBui
 /**
  * メタデータを設定
  */
-export const withMetadata = (
-  state: ItemStackBuilderState,
-  metadata: Record<string, unknown>
-): ItemStackBuilderState => ({
+export const withMetadata = (state: ItemStackBuilderState, metadata: JsonRecord): ItemStackBuilderState => ({
   ...state,
   metadata: { ...state.metadata, ...metadata },
 })
@@ -205,7 +203,7 @@ export const buildItemStack = (state: ItemStackBuilderState): Effect.Effect<Item
     // 必須フィールドの検証
     if (!state.itemId) {
       yield* Effect.fail(
-        new ItemStackError({
+        ItemStackError.make({
           reason: 'INCOMPATIBLE_ITEMS',
           message: 'アイテムIDが設定されていません',
         })
@@ -214,7 +212,7 @@ export const buildItemStack = (state: ItemStackBuilderState): Effect.Effect<Item
 
     if (!state.count) {
       yield* Effect.fail(
-        new ItemStackError({
+        ItemStackError.make({
           reason: 'INVALID_STACK_SIZE',
           message: 'アイテム数量が設定されていません',
         })
@@ -245,12 +243,11 @@ export const buildItemStack = (state: ItemStackBuilderState): Effect.Effect<Item
 
     // スキーマ検証
     const entity = yield* Schema.decodeUnknown(ItemStackEntitySchema)(entityData).pipe(
-      Effect.mapError(
-        (error) =>
-          new ItemStackError({
-            reason: 'INCOMPATIBLE_ITEMS',
-            message: `ItemStackエンティティの検証に失敗: ${String(error)}`,
-          })
+      Effect.mapError((error) =>
+        ItemStackError.make({
+          reason: 'INCOMPATIBLE_ITEMS',
+          message: `ItemStackエンティティの検証に失敗: ${String(error)}`,
+        })
       )
     )
 
@@ -289,12 +286,11 @@ export const ItemStackFactoryLive = ItemStackFactory.of({
     Effect.gen(function* () {
       // スキーマ検証による安全な復元
       return yield* Schema.decodeUnknown(ItemStackEntitySchema)(data).pipe(
-        Effect.mapError(
-          (error) =>
-            new ItemStackError({
-              reason: 'INCOMPATIBLE_ITEMS',
-              message: `データからの復元に失敗: ${String(error)}`,
-            })
+        Effect.mapError((error) =>
+          ItemStackError.make({
+            reason: 'INCOMPATIBLE_ITEMS',
+            message: `データからの復元に失敗: ${String(error)}`,
+          })
         )
       )
     }),
@@ -336,12 +332,11 @@ export const createDurableItemStack = (
     const validDurability = yield* Schema.decodeUnknown(
       Schema.Number.pipe(Schema.between(0, 1), Schema.brand('Durability'))
     )(durability).pipe(
-      Effect.mapError(
-        (error) =>
-          new ItemStackError({
-            reason: 'INVALID_DURABILITY',
-            message: `不正な耐久度: ${durability}`,
-          })
+      Effect.mapError(() =>
+        ItemStackError.make({
+          reason: 'INVALID_DURABILITY',
+          message: `不正な耐久度: ${durability}`,
+        })
       )
     )
 

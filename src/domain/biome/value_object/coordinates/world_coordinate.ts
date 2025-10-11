@@ -161,7 +161,7 @@ export const WorldCoordinateErrorSchema = taggedUnion('_tag', [
   }),
   Schema.Struct({
     _tag: Schema.Literal('InvalidCoordinate'),
-    coordinate: Schema.Unknown,
+    coordinate: WorldCoordinateSchema,
     message: Schema.String,
   }),
   Schema.Struct({
