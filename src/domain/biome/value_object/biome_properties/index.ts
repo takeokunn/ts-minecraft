@@ -16,6 +16,8 @@ export {
   CreateTemperatureRangeParamsSchema,
   DiurnalTemperatureVariationSchema,
   HeatIndexSchema,
+  makeUnsafeTemperatureCelsius,
+  makeUnsafeTemperatureDelta,
   SeasonalTemperatureVariationSchema,
   SeasonTypeSchema,
   TemperatureCelsiusSchema,
@@ -35,7 +37,7 @@ export {
   type TemperatureRange,
   type TemperatureRangeError,
   type WindChillIndex,
-} from './humidity_levels'
+} from './temperature_range'
 
 // 湿度レベル設定
 export {
@@ -49,6 +51,10 @@ export {
   HumidityClassificationSchema,
   HumidityLevelsErrorSchema,
   HumidityLevelsSchema,
+  makeUnsafeAbsoluteHumidity,
+  makeUnsafeDewPoint,
+  makeUnsafeRelativeHumidity,
+  makeUnsafeVaporPressure,
   PrecipitationTypeSchema,
   RelativeHumiditySchema,
   SeasonalHumidityVariationSchema,
@@ -78,6 +84,10 @@ export {
   DistributionPatternSchema,
   EnvironmentalResponseSchema,
   GrowthStageSchema,
+  makeUnsafeBiomass,
+  makeUnsafeCoverageRatio,
+  makeUnsafeSpeciesDiversityIndex,
+  makeUnsafeVegetationDensity,
   SpeciesDiversityIndexSchema,
   VEGETATION_DENSITY_PRESETS,
   VegetationDensityConfigSchema,
@@ -99,13 +109,17 @@ export {
   type VegetationInteraction,
   type VegetationLayer,
   type VegetationType,
-} from './humidity_levels'
+} from './vegetation_density'
 
 // 土壌組成設定
 export {
   BIOME_SOIL_MAPPING,
   CreateSoilCompositionParamsSchema,
   ElectricConductivitySchema,
+  makeUnsafeElectricConductivity,
+  makeUnsafeOrganicMatterContent,
+  makeUnsafeParticleRatio,
+  makeUnsafeSoilPH,
   OrganicMatterCompositionSchema,
   OrganicMatterContentSchema,
   ParticleRatioSchema,
@@ -133,7 +147,7 @@ export {
   type SoilPhysicalProperties,
   type SoilStructure,
   type SoilTexture,
-} from './humidity_levels'
+} from './soil_composition'
 
 /**
  * バイオーム特性ファクトリ
@@ -480,17 +494,17 @@ function createTemperatureFromPreset(preset: any): TemperatureRange {
     name: preset.description,
     climate: 'temperate',
     annual: {
-      mean: preset.annual.mean as TemperatureCelsius,
-      minimum: preset.annual.minimum as TemperatureCelsius,
-      maximum: preset.annual.maximum as TemperatureCelsius,
-      range: preset.annual.range as TemperatureDelta,
+      mean: makeUnsafeTemperatureCelsius(preset.annual.mean),
+      minimum: makeUnsafeTemperatureCelsius(preset.annual.minimum),
+      maximum: makeUnsafeTemperatureCelsius(preset.annual.maximum),
+      range: makeUnsafeTemperatureDelta(preset.annual.range),
     },
     seasonal: [],
     diurnal: {
-      minimum: (preset.annual.mean - 5) as TemperatureCelsius,
-      maximum: (preset.annual.mean + 5) as TemperatureCelsius,
-      average: preset.annual.mean as TemperatureCelsius,
-      amplitude: 10 as TemperatureDelta,
+      minimum: makeUnsafeTemperatureCelsius(preset.annual.mean - 5),
+      maximum: makeUnsafeTemperatureCelsius(preset.annual.mean + 5),
+      average: makeUnsafeTemperatureCelsius(preset.annual.mean),
+      amplitude: makeUnsafeTemperatureDelta(10),
       peakHour: 14,
       minimumHour: 6,
     },
@@ -518,7 +532,7 @@ function createTemperatureFromPreset(preset: any): TemperatureRange {
         saltTolerance: 0.3,
       },
     },
-  } as TemperatureRange
+  }
 }
 
 function createHumidityFromPreset(preset: any): HumidityLevels {
@@ -527,16 +541,16 @@ function createHumidityFromPreset(preset: any): HumidityLevels {
     name: preset.description,
     classification: preset.classification,
     annual: {
-      mean: preset.annual.mean as RelativeHumidity,
-      minimum: preset.annual.minimum as RelativeHumidity,
-      maximum: preset.annual.maximum as RelativeHumidity,
+      mean: makeUnsafeRelativeHumidity(preset.annual.mean),
+      minimum: makeUnsafeRelativeHumidity(preset.annual.minimum),
+      maximum: makeUnsafeRelativeHumidity(preset.annual.maximum),
       standardDeviation: 10,
       percentiles: {
-        p25: (preset.annual.mean - 15) as RelativeHumidity,
-        p50: preset.annual.mean as RelativeHumidity,
-        p75: (preset.annual.mean + 15) as RelativeHumidity,
-        p90: (preset.annual.mean + 20) as RelativeHumidity,
-        p95: (preset.annual.mean + 25) as RelativeHumidity,
+        p25: makeUnsafeRelativeHumidity(preset.annual.mean - 15),
+        p50: makeUnsafeRelativeHumidity(preset.annual.mean),
+        p75: makeUnsafeRelativeHumidity(preset.annual.mean + 15),
+        p90: makeUnsafeRelativeHumidity(preset.annual.mean + 20),
+        p95: makeUnsafeRelativeHumidity(preset.annual.mean + 25),
       },
       variability: {
         coefficientOfVariation: 0.2,
@@ -545,21 +559,21 @@ function createHumidityFromPreset(preset: any): HumidityLevels {
     },
     seasonal: [],
     diurnal: {
-      maximum: (preset.annual.mean + 20) as RelativeHumidity,
+      maximum: makeUnsafeRelativeHumidity(preset.annual.mean + 20),
       maximumHour: 6,
-      minimum: (preset.annual.mean - 20) as RelativeHumidity,
+      minimum: makeUnsafeRelativeHumidity(preset.annual.mean - 20),
       minimumHour: 14,
-      average: preset.annual.mean as RelativeHumidity,
+      average: makeUnsafeRelativeHumidity(preset.annual.mean),
       amplitude: 40,
       pattern: 'regular',
     },
     waterVapor: {
-      absoluteHumidity: 15 as AbsoluteHumidity,
-      vaporPressure: 20 as VaporPressure,
-      saturationVaporPressure: 25 as VaporPressure,
-      dewPoint: 10 as DewPoint,
+      absoluteHumidity: makeUnsafeAbsoluteHumidity(15),
+      vaporPressure: makeUnsafeVaporPressure(20),
+      saturationVaporPressure: makeUnsafeVaporPressure(25),
+      dewPoint: makeUnsafeDewPoint(10),
     },
-  } as HumidityLevels
+  }
 }
 
 function createVegetationFromPreset(preset: any): VegetationDensityConfig {
@@ -567,10 +581,10 @@ function createVegetationFromPreset(preset: any): VegetationDensityConfig {
     id: 'vegetation_generated',
     name: preset.description,
     overall: {
-      totalDensity: preset.density as VegetationDensity,
-      totalBiomass: preset.biomass as Biomass,
-      totalCoverage: preset.coverage as CoverageRatio,
-      speciesDiversity: preset.diversity as SpeciesDiversityIndex,
+      totalDensity: makeUnsafeVegetationDensity(preset.density),
+      totalBiomass: makeUnsafeBiomass(preset.biomass),
+      totalCoverage: makeUnsafeCoverageRatio(preset.coverage),
+      speciesDiversity: makeUnsafeSpeciesDiversityIndex(preset.diversity),
     },
     layers: [
       {
@@ -578,9 +592,9 @@ function createVegetationFromPreset(preset: any): VegetationDensityConfig {
         name: 'Primary vegetation',
         type: 'trees',
         height: { minimum: 0, maximum: 30, average: 15 },
-        density: preset.density as VegetationDensity,
-        coverage: preset.coverage as CoverageRatio,
-        biomass: preset.biomass as Biomass,
+        density: makeUnsafeVegetationDensity(preset.density),
+        coverage: makeUnsafeCoverageRatio(preset.coverage),
+        biomass: makeUnsafeBiomass(preset.biomass),
         distribution: { pattern: 'random' },
       },
     ],
@@ -608,13 +622,13 @@ function createVegetationFromPreset(preset: any): VegetationDensityConfig {
       },
     },
     carryingCapacity: {
-      maxBiomass: (preset.biomass * 1.5) as Biomass,
-      maxDensity: (preset.density * 1.2) as VegetationDensity,
+      maxBiomass: makeUnsafeBiomass(preset.biomass * 1.5),
+      maxDensity: makeUnsafeVegetationDensity(preset.density * 1.2),
       limitingFactors: ['light', 'water', 'nutrients'],
       growthRate: 0.1,
       carryingCapacityModel: 'logistic',
     },
-  } as VegetationDensityConfig
+  }
 }
 
 function createSoilFromPreset(preset: any): SoilComposition {
@@ -622,16 +636,16 @@ function createSoilFromPreset(preset: any): SoilComposition {
     id: 'soil_generated',
     name: preset.description,
     particleDistribution: {
-      coarseSand: (preset.particles?.sand * 0.4 || 0.2) as ParticleRatio,
-      mediumSand: (preset.particles?.sand * 0.4 || 0.2) as ParticleRatio,
-      fineSand: (preset.particles?.sand * 0.2 || 0.1) as ParticleRatio,
-      silt: (preset.particles?.silt || 0.3) as ParticleRatio,
-      clay: (preset.particles?.clay || 0.2) as ParticleRatio,
+      coarseSand: makeUnsafeParticleRatio(preset.particles?.sand * 0.4 || 0.2),
+      mediumSand: makeUnsafeParticleRatio(preset.particles?.sand * 0.4 || 0.2),
+      fineSand: makeUnsafeParticleRatio(preset.particles?.sand * 0.2 || 0.1),
+      silt: makeUnsafeParticleRatio(preset.particles?.silt || 0.3),
+      clay: makeUnsafeParticleRatio(preset.particles?.clay || 0.2),
       total: 1.0,
     },
     chemistry: {
-      pH: preset.pH as SoilPH,
-      electricConductivity: 1.0 as ElectricConductivity,
+      pH: makeUnsafeSoilPH(preset.pH),
+      electricConductivity: makeUnsafeElectricConductivity(1.0),
       cationExchangeCapacity: 15,
       baseSaturation: 75,
       macronutrients: {
@@ -641,7 +655,7 @@ function createSoilFromPreset(preset: any): SoilComposition {
       },
     },
     organicMatter: {
-      totalOrganicMatter: preset.organicMatter as OrganicMatterContent,
+      totalOrganicMatter: makeUnsafeOrganicMatterContent(preset.organicMatter),
       organicCarbon: preset.organicMatter * 58,
       carbonNitrogenRatio: 12,
       decompositionStage: 'well_decomposed',
@@ -660,5 +674,5 @@ function createSoilFromPreset(preset: any): SoilComposition {
       drainage: preset.drainage,
       permeability: 'moderate',
     },
-  } as SoilComposition
+  }
 }

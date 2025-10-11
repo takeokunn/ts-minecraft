@@ -1,4 +1,5 @@
 import { Effect, pipe, Schema } from 'effect'
+import { unsafeCoerce } from 'effect/Function'
 import type { ItemId } from './schema'
 import { ItemIdSchema } from './schema'
 
@@ -15,6 +16,13 @@ export const create = (value: string): Effect.Effect<ItemId, Error> =>
  * ItemIdの安全な作成（同期版）
  */
 export const createSync = (value: string): ItemId => Schema.decodeSync(ItemIdSchema)(value)
+
+/**
+ * ItemIdの作成（検証なし）
+ *
+ * 注意: 既に検証済みの値のみに使用すること
+ */
+export const makeUnsafe = (value: string): ItemId => unsafeCoerce<string, ItemId>(value)
 
 /**
  * namespace:name形式のItemIdを作成

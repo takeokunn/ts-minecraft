@@ -414,14 +414,28 @@ const performCollisionDetection = (
  * First Personビューモードの作成
  */
 const createFirstPersonViewMode = (): ViewMode => {
-  return {} as ViewMode // 仮実装
+  return ViewMode.FirstPerson({
+    settings: {
+      eyeHeight: 1.6,
+      bobIntensity: 0.05,
+      enableHeadBobbing: true,
+    },
+  })
 }
 
 /**
  * Third Personビューモードの作成
  */
 const createThirdPersonViewMode = (distance: CameraDistance): ViewMode => {
-  return {} as ViewMode // 仮実装
+  return ViewMode.ThirdPerson({
+    distance,
+    settings: {
+      minDistance: 1.0,
+      maxDistance: 50.0,
+      shoulderOffset: { x: 0.5, y: 0, z: 0 },
+      enableCollision: true,
+    },
+  })
 }
 
 /**

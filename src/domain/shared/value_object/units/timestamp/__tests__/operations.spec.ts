@@ -3,13 +3,13 @@
  * DateTime API移行後のTimestamp操作関数のテスト
  */
 
-import { DateTime, Effect, Schema } from 'effect'
+import { DateTime, Effect, unsafeCoerce } from 'effect'
 import { describe, expect, it } from 'vitest'
 import { fromISOString, toDateTime, toISOString } from '../operations'
-import { TimestampSchema } from '../schema'
+import { type Timestamp } from '../schema'
 
 // テスト用のヘルパー関数
-const makeTimestamp = (value: number) => Schema.make(TimestampSchema)(value)
+const makeTimestamp = (value: number): Timestamp => unsafeCoerce<number, Timestamp>(value)
 
 describe('Timestamp DateTime Operations', () => {
   describe('toDateTime', () => {

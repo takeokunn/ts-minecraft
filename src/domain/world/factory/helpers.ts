@@ -4,6 +4,9 @@
  * ワールドファクトリーの便利なワークフローとユーティリティ関数を提供します。
  */
 
+import type { BiomeSystem } from '@/domain/biome/aggregate/biome_system/shared'
+import type { GenerationSession } from '@/domain/world_generation/aggregate/generation_session/shared'
+import type { WorldGenerator } from '@/domain/world_generation/aggregate/world_generator/shared'
 import {
   createExplorationSession,
   createQualitySession,
@@ -18,6 +21,7 @@ import type * as Coordinates from '@domain/world/value_object/coordinates/index'
 import { Effect } from 'effect'
 import { createDefaultBiomeSystem } from './biome_system_factory/index'
 import { SUPPORTED_FACTORY_TYPES } from './index'
+import type { WorldConfiguration } from './world_configuration_factory/factory'
 import { createQuickConfiguration } from './world_configuration_factory/index'
 
 /**
@@ -28,10 +32,10 @@ export const createCompleteWorldSetup = (
   coordinates: readonly Coordinates.ChunkCoordinate[]
 ): Effect.Effect<
   {
-    generator: any
-    session: any
-    biomeSystem: any
-    configuration: any
+    generator: WorldGenerator
+    session: GenerationSession
+    biomeSystem: BiomeSystem
+    configuration: WorldConfiguration
   },
   never
 > =>
@@ -60,8 +64,8 @@ export const createFastWorldSetup = (
   coordinates: readonly Coordinates.ChunkCoordinate[]
 ): Effect.Effect<
   {
-    generator: any
-    session: any
+    generator: WorldGenerator
+    session: GenerationSession
   },
   never
 > =>
@@ -79,9 +83,9 @@ export const createQualityWorldSetup = (
   coordinates: readonly Coordinates.ChunkCoordinate[]
 ): Effect.Effect<
   {
-    generator: any
-    session: any
-    biomeSystem: any
+    generator: WorldGenerator
+    session: GenerationSession
+    biomeSystem: BiomeSystem
   },
   never
 > =>

@@ -7,7 +7,10 @@ import { PlayerIdSchema, type PlayerId } from './schema'
  * 新しいPlayerIdを生成
  */
 export const generate = (): Effect.Effect<PlayerId, never> =>
-  Effect.map(Effect.sync(() => `player_${uuidv4()}`), (value) => Schema.make(PlayerIdSchema)(value))
+  Effect.map(
+    Effect.sync(() => `player_${uuidv4()}`),
+    (value) => Schema.make(PlayerIdSchema)(value)
+  )
 
 /**
  * 文字列からPlayerIdを作成（検証付き）

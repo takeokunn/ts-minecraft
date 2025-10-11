@@ -8,6 +8,7 @@
 import { taggedUnion } from '@domain/world/utils'
 import type { Brand as BrandType } from 'effect'
 import { Schema } from 'effect'
+import { unsafeCoerce } from 'effect/Function'
 
 /**
  * 粒径比率Brand型（0.0から1.0）
@@ -89,6 +90,20 @@ export const ElectricConductivitySchema = Schema.Number.pipe(
     examples: [0.1, 0.5, 2.0, 4.0, 8.0],
   })
 )
+
+/**
+ * makeUnsafe ヘルパー関数
+ * パフォーマンスクリティカルな地形生成コードで使用
+ */
+export const makeUnsafeParticleRatio = (value: number): ParticleRatio => unsafeCoerce<number, ParticleRatio>(value)
+
+export const makeUnsafeSoilPH = (value: number): SoilPH => unsafeCoerce<number, SoilPH>(value)
+
+export const makeUnsafeOrganicMatterContent = (value: number): OrganicMatterContent =>
+  unsafeCoerce<number, OrganicMatterContent>(value)
+
+export const makeUnsafeElectricConductivity = (value: number): ElectricConductivity =>
+  unsafeCoerce<number, ElectricConductivity>(value)
 
 /**
  * 土壌テクスチャ分類

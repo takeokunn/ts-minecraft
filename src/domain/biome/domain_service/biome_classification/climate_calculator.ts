@@ -9,7 +9,7 @@
 import type { WorldCoordinate2D } from '@/domain/biome/value_object/coordinates'
 import { type GenerationError } from '@domain/world/types/errors'
 import type { WorldSeed } from '@domain/world/value_object/world_seed'
-import { Context, Effect, Layer, Schema } from 'effect'
+import { Context, Effect, Layer, Match, Option, pipe, ReadonlyArray, Schema } from 'effect'
 
 /**
  * 気候データスキーマ
@@ -525,13 +525,9 @@ export const ClimateCalculatorServiceLive = Layer.effect(
             (year) =>
               Effect.gen(function* () {
                 const yearlyVariation = Math.sin(year * 0.1) * 0.1 + Math.random() * 0.05
-                const modifiedSeed = BigInt(Number(seed) + year)
+                const modifiedSeed = BigInt(Number(seed) + year) satisfies bigint as WorldSeed
 
-                const climate = yield* ClimateCalculatorService.calculateClimate(
-                  coordinate,
-                  0,
-                  modifiedSeed as WorldSeed
-                )
+                const climate = yield* ClimateCalculatorService.calculateClimate(coordinate, 0, modifiedSeed)
 
                 return {
                   temperature: climate.temperature * (1 + yearlyVariation),
@@ -670,41 +666,41 @@ const classifyKoppen = (climate: ClimateData): Effect.Effect<string, GenerationE
   const temp = climate.temperature
   const prec = climate.precipitation
 
-  return Effect.succeed(
-    pipe(
-      { temp, prec },
-      Match.value,
-      Match.when(
-        ({ temp, prec }) => temp > 18 && prec > 2000,
-        () => 'Af' as const // 熱帯雨林
-      ),
-      Match.when(
-        ({ temp, prec }) => temp > 18 && prec > 1000,
-        () => 'Am' as const // 熱帯モンスーン
-      ),
-      Match.when(
-        ({ temp }) => temp > 18,
-        () => 'Aw' as const // 熱帯サバナ
-      ),
-      Match.when(
-        ({ temp, prec }) => temp > -3 && prec > 1500,
-        () => 'Cfb' as const // 西岸海洋性
-      ),
-      Match.when(
-        ({ temp, prec }) => temp > -3 && prec > 800,
-        () => 'Cfa' as const // 温暖湿潤
-      ),
-      Match.when(
-        ({ temp }) => temp > -3,
-        () => 'BSk' as const // ステップ
-      ),
-      Match.when(
-        ({ prec }) => prec > 1000,
-        () => 'Dfb' as const // 冷帯湿潤
-      ),
-      Match.orElse(() => 'Dfc' as const) // 亜寒帯
-    )
-  )
+  const koppenClass = pipe(
+    { temp, prec },
+    Match.value,
+    Match.when(
+      ({ temp, prec }) => temp > 18 && prec > 2000,
+      () => 'Af' // 熱帯雨林
+    ),
+    Match.when(
+      ({ temp, prec }) => temp > 18 && prec > 1000,
+      () => 'Am' // 熱帯モンスーン
+    ),
+    Match.when(
+      ({ temp }) => temp > 18,
+      () => 'Aw' // 熱帯サバナ
+    ),
+    Match.when(
+      ({ temp, prec }) => temp > -3 && prec > 1500,
+      () => 'Cfb' // 西岸海洋性
+    ),
+    Match.when(
+      ({ temp, prec }) => temp > -3 && prec > 800,
+      () => 'Cfa' // 温暖湿潤
+    ),
+    Match.when(
+      ({ temp }) => temp > -3,
+      () => 'BSk' // ステップ
+    ),
+    Match.when(
+      ({ prec }) => prec > 1000,
+      () => 'Dfb' // 冷帯湿潤
+    ),
+    Match.orElse(() => 'Dfc') // 亜寒帯
+  ) satisfies string
+
+  return Effect.succeed(koppenClass)
 }
 
 /**
@@ -714,45 +710,45 @@ const classifyWhittaker = (climate: ClimateData): Effect.Effect<string, Generati
   const temp = climate.temperature
   const prec = climate.precipitation
 
-  return Effect.succeed(
-    pipe(
-      { temp, prec },
-      Match.value,
-      Match.when(
-        ({ temp, prec }) => temp > 20 && prec > 2000,
-        () => 'tropical_rainforest' as const
-      ),
-      Match.when(
-        ({ temp, prec }) => temp > 20 && prec > 1000,
-        () => 'tropical_seasonal_forest' as const
-      ),
-      Match.when(
-        ({ temp }) => temp > 20,
-        () => 'desert' as const
-      ),
-      Match.when(
-        ({ temp, prec }) => temp > 10 && prec > 1500,
-        () => 'temperate_rainforest' as const
-      ),
-      Match.when(
-        ({ temp, prec }) => temp > 10 && prec > 800,
-        () => 'temperate_deciduous_forest' as const
-      ),
-      Match.when(
-        ({ temp, prec }) => temp > 10 && prec > 300,
-        () => 'temperate_grassland' as const
-      ),
-      Match.when(
-        ({ temp }) => temp > 10,
-        () => 'desert' as const
-      ),
-      Match.when(
-        ({ temp, prec }) => temp > -5 && prec > 400,
-        () => 'boreal_forest' as const
-      ),
-      Match.orElse(() => 'tundra' as const)
-    )
-  )
+  const whittakerBiome = pipe(
+    { temp, prec },
+    Match.value,
+    Match.when(
+      ({ temp, prec }) => temp > 20 && prec > 2000,
+      () => 'tropical_rainforest'
+    ),
+    Match.when(
+      ({ temp, prec }) => temp > 20 && prec > 1000,
+      () => 'tropical_seasonal_forest'
+    ),
+    Match.when(
+      ({ temp }) => temp > 20,
+      () => 'desert'
+    ),
+    Match.when(
+      ({ temp, prec }) => temp > 10 && prec > 1500,
+      () => 'temperate_rainforest'
+    ),
+    Match.when(
+      ({ temp, prec }) => temp > 10 && prec > 800,
+      () => 'temperate_deciduous_forest'
+    ),
+    Match.when(
+      ({ temp, prec }) => temp > 10 && prec > 300,
+      () => 'temperate_grassland'
+    ),
+    Match.when(
+      ({ temp }) => temp > 10,
+      () => 'desert'
+    ),
+    Match.when(
+      ({ temp, prec }) => temp > -5 && prec > 400,
+      () => 'boreal_forest'
+    ),
+    Match.orElse(() => 'tundra')
+  ) satisfies string
+
+  return Effect.succeed(whittakerBiome)
 }
 
 /**

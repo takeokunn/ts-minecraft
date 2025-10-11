@@ -3,6 +3,7 @@
  * メートル毎秒単位の速度Brand型定義
  */
 
+import { unsafeCoerce } from 'effect/Function'
 import * as Schema from 'effect/Schema'
 
 /**
@@ -29,7 +30,7 @@ export type MetersPerSecond = Schema.Schema.Type<typeof MetersPerSecondSchema>
 /**
  * MetersPerSecond constants
  */
-export const VELOCITY_ZERO: MetersPerSecond = Schema.make(MetersPerSecondSchema)(0)
-export const WALKING_SPEED: MetersPerSecond = Schema.make(MetersPerSecondSchema)(4.317) // Minecraft walking speed
-export const SPRINTING_SPEED: MetersPerSecond = Schema.make(MetersPerSecondSchema)(5.612) // Minecraft sprinting speed
-export const GRAVITY_ACCELERATION: MetersPerSecond = Schema.make(MetersPerSecondSchema)(9.8) // Earth gravity (positive for downward)
+export const VELOCITY_ZERO: MetersPerSecond = unsafeCoerce<number, MetersPerSecond>(0)
+export const WALKING_SPEED: MetersPerSecond = unsafeCoerce<number, MetersPerSecond>(4.317) // Minecraft walking speed
+export const SPRINTING_SPEED: MetersPerSecond = unsafeCoerce<number, MetersPerSecond>(5.612) // Minecraft sprinting speed
+export const GRAVITY_ACCELERATION: MetersPerSecond = unsafeCoerce<number, MetersPerSecond>(9.8) // Earth gravity (positive for downward)

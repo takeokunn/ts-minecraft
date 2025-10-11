@@ -104,8 +104,7 @@ export const makeUnsafeAbsoluteHumidity = (value: number): AbsoluteHumidity =>
 
 export const makeUnsafeDewPoint = (value: number): DewPoint => unsafeCoerce<number, DewPoint>(value)
 
-export const makeUnsafeVaporPressure = (value: number): VaporPressure =>
-  unsafeCoerce<number, VaporPressure>(value)
+export const makeUnsafeVaporPressure = (value: number): VaporPressure => unsafeCoerce<number, VaporPressure>(value)
 
 /**
  * 湿度分類

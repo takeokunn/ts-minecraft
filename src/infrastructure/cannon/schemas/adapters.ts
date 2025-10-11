@@ -5,8 +5,8 @@
  * Vec3/Quaternion等の構造的に同一だが型が異なるオブジェクトの変換を提供。
  */
 
-import { unsafeCoerce } from 'effect/Function'
 import * as CANNON from 'cannon-es'
+import { unsafeCoerce } from 'effect/Function'
 import * as THREE from 'three'
 
 /**

@@ -3,6 +3,7 @@
  * メートル単位の距離Brand型定義
  */
 
+import { unsafeCoerce } from 'effect/Function'
 import * as Schema from 'effect/Schema'
 
 /**
@@ -29,6 +30,6 @@ export type Meters = Schema.Schema.Type<typeof MetersSchema>
 /**
  * Meters constants
  */
-export const METERS_ZERO: Meters = Schema.make(MetersSchema)(0)
-export const ONE_METER: Meters = Schema.make(MetersSchema)(1)
-export const ONE_BLOCK: Meters = Schema.make(MetersSchema)(1) // Minecraft 1 block = 1 meter
+export const METERS_ZERO: Meters = unsafeCoerce<number, Meters>(0)
+export const ONE_METER: Meters = unsafeCoerce<number, Meters>(1)
+export const ONE_BLOCK: Meters = unsafeCoerce<number, Meters>(1) // Minecraft 1 block = 1 meter

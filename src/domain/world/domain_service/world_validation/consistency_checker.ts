@@ -91,8 +91,8 @@ export interface ConsistencyCheckerService {
   ) => Effect.Effect<ConsistencyCheckResult, GenerationError>
 
   readonly checkRegionalConsistency: (
-    region: ReadonlyArray<ReadonlyArray<any>>, // ワールドデータ
-    bounds: any // BoundingBox
+    region: ReadonlyArray<ReadonlyArray<unknown>>, // ワールドデータ
+    bounds: unknown // BoundingBox (複数domainで定義があり、どれを使うか仕様確定していない)
   ) => Effect.Effect<ReadonlyArray<ConsistencyCheckResult>, GenerationError>
 }
 
@@ -179,7 +179,7 @@ export const ConsistencyCheckerServiceLive = Layer.effect(
   })
 )
 
-const validateBiomeClimateMatch = (biome: any, climate: ClimateData): boolean => {
+const validateBiomeClimateMatch = (biome: unknown, climate: ClimateData): boolean => {
   // 簡略化されたバイオーム-気候適合性チェック
   const temp = climate.temperature
   const precip = climate.precipitation

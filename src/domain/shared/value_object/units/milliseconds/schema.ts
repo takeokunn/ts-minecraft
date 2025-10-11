@@ -3,6 +3,7 @@
  * ミリ秒単位のBrand型定義
  */
 
+import { unsafeCoerce } from 'effect/Function'
 import * as Schema from 'effect/Schema'
 
 /**
@@ -29,6 +30,6 @@ export type Milliseconds = Schema.Schema.Type<typeof MillisecondsSchema>
 /**
  * Milliseconds constants
  */
-export const MILLISECONDS_ZERO: Milliseconds = Schema.make(MillisecondsSchema)(0)
-export const FRAME_16MS: Milliseconds = Schema.make(MillisecondsSchema)(16.67) // 60 FPS
-export const ONE_SECOND: Milliseconds = Schema.make(MillisecondsSchema)(1000)
+export const MILLISECONDS_ZERO: Milliseconds = unsafeCoerce<number, Milliseconds>(0)
+export const FRAME_16MS: Milliseconds = unsafeCoerce<number, Milliseconds>(16.67) // 60 FPS
+export const ONE_SECOND: Milliseconds = unsafeCoerce<number, Milliseconds>(1000)

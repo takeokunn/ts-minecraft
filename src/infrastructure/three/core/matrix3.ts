@@ -5,6 +5,7 @@
 
 import { Effect, Schema } from 'effect'
 import * as THREE from 'three'
+import { matrix3ElementsToTuple } from '../schemas/adapters'
 
 /**
  * Matrix3 Schema定義（Brand型）
@@ -57,7 +58,7 @@ export const zero: Matrix3 = make([0, 0, 0, 0, 0, 0, 0, 0, 0])
  * Three.js Matrix3からEffect型への変換
  */
 export const fromThreeMatrix = (m: THREE.Matrix3): Effect.Effect<Matrix3, never> =>
-  Effect.sync(() => make(m.elements as [number, number, number, number, number, number, number, number, number]))
+  Effect.sync(() => make(matrix3ElementsToTuple(m.elements)))
 
 /**
  * Effect型からThree.js Matrix3への変換
@@ -71,7 +72,7 @@ export const multiply = (a: Matrix3, b: Matrix3): Matrix3 => {
   const threeA = toThreeMatrix(a)
   const threeB = toThreeMatrix(b)
   threeA.multiply(threeB)
-  return make(threeA.elements as [number, number, number, number, number, number, number, number, number])
+  return make(matrix3ElementsToTuple(threeA.elements))
 }
 
 /**
@@ -80,7 +81,7 @@ export const multiply = (a: Matrix3, b: Matrix3): Matrix3 => {
 export const transpose = (m: Matrix3): Matrix3 => {
   const threeM = toThreeMatrix(m)
   threeM.transpose()
-  return make(threeM.elements as [number, number, number, number, number, number, number, number, number])
+  return make(matrix3ElementsToTuple(threeM.elements))
 }
 
 /**
@@ -106,7 +107,7 @@ export const invert = (m: Matrix3): Effect.Effect<Matrix3, Matrix3Error> =>
 
     const threeM = toThreeMatrix(m)
     threeM.invert()
-    return make(threeM.elements as [number, number, number, number, number, number, number, number, number])
+    return make(matrix3ElementsToTuple(threeM.elements))
   })
 
 /**
@@ -115,7 +116,7 @@ export const invert = (m: Matrix3): Effect.Effect<Matrix3, Matrix3Error> =>
 export const multiplyScalar = (m: Matrix3, s: number): Matrix3 => {
   const threeM = toThreeMatrix(m)
   threeM.multiplyScalar(s)
-  return make(threeM.elements as [number, number, number, number, number, number, number, number, number])
+  return make(matrix3ElementsToTuple(threeM.elements))
 }
 
 /**

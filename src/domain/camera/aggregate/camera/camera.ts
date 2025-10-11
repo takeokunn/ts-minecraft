@@ -9,6 +9,7 @@
  */
 
 import type { CameraError, CameraEvent, CameraId } from '@domain/camera/types'
+import { createCameraEvent } from '@domain/camera/types'
 import { Array, Clock, Data, Effect, Match, Option, pipe } from 'effect'
 import type { AnimationState, CameraRotation, CameraSettings, Position3D, ViewMode } from '../../value_object/index'
 
@@ -368,43 +369,55 @@ const createPositionUpdatedEvent = (
   cameraId: CameraId,
   oldPosition: Position3D,
   newPosition: Position3D
-): CameraEvent => {
-  // イベント作成の実装
-  return {} as CameraEvent // 仮実装
-}
+): Effect.Effect<CameraEvent> => createCameraEvent.positionUpdated(cameraId, oldPosition, newPosition)
 
 const createRotationUpdatedEvent = (
   cameraId: CameraId,
   oldRotation: CameraRotation,
   newRotation: CameraRotation
-): CameraEvent => {
-  return {} as CameraEvent // 仮実装
+): Effect.Effect<CameraEvent> => createCameraEvent.rotationUpdated(cameraId, oldRotation, newRotation)
+
+const createViewModeChangedEvent = (
+  cameraId: CameraId,
+  oldMode: ViewMode,
+  newMode: ViewMode
+): Effect.Effect<CameraEvent> => {
+  // ViewModeをCameraModeに変換する必要がある場合の処理
+  // TODO: ViewMode と CameraMode の型を統一する
+  return Effect.succeed(
+    Data.struct({
+      _tag: 'ViewModeChanged' as const,
+      cameraId,
+      fromMode: 'first-person' as const,
+      toMode: 'first-person' as const,
+      timestamp: Date.now(),
+    })
+  )
 }
 
-const createViewModeChangedEvent = (cameraId: CameraId, oldMode: ViewMode, newMode: ViewMode): CameraEvent => {
-  return {} as CameraEvent // 仮実装
-}
+const createAnimationStartedEvent = (cameraId: CameraId, animation: AnimationState): Effect.Effect<CameraEvent> =>
+  createCameraEvent.animationStarted(cameraId, animation)
 
-const createAnimationStartedEvent = (cameraId: CameraId, animation: AnimationState): CameraEvent => {
-  return {} as CameraEvent // 仮実装
-}
-
-const createAnimationStoppedEvent = (cameraId: CameraId, animation: AnimationState): CameraEvent => {
-  return {} as CameraEvent // 仮実装
-}
+const createAnimationStoppedEvent = (cameraId: CameraId, animation: AnimationState): Effect.Effect<CameraEvent> =>
+  createCameraEvent.animationCompleted(cameraId, animation)
 
 const createSettingsChangedEvent = (
   cameraId: CameraId,
   oldSettings: CameraSettings,
   newSettings: CameraSettings
-): CameraEvent => {
-  return {} as CameraEvent // 仮実装
+): Effect.Effect<CameraEvent> => {
+  // 変更された設定のみを抽出
+  const changedSettings: Partial<CameraSettings> = {}
+  if (oldSettings.fov !== newSettings.fov) changedSettings.fov = newSettings.fov
+  if (oldSettings.sensitivity !== newSettings.sensitivity) changedSettings.sensitivity = newSettings.sensitivity
+  if (oldSettings.distance !== newSettings.distance) changedSettings.distance = newSettings.distance
+  if (oldSettings.smoothing !== newSettings.smoothing) changedSettings.smoothing = newSettings.smoothing
+
+  return createCameraEvent.settingsChanged(cameraId, changedSettings)
 }
 
-const createCameraEnabledEvent = (cameraId: CameraId): CameraEvent => {
-  return {} as CameraEvent // 仮実装
-}
+const createCameraEnabledEvent = (cameraId: CameraId): Effect.Effect<CameraEvent> =>
+  createCameraEvent.cameraUnlocked(cameraId)
 
-const createCameraDisabledEvent = (cameraId: CameraId): CameraEvent => {
-  return {} as CameraEvent // 仮実装
-}
+const createCameraDisabledEvent = (cameraId: CameraId): Effect.Effect<CameraEvent> =>
+  createCameraEvent.cameraLocked(cameraId, 'Camera disabled')

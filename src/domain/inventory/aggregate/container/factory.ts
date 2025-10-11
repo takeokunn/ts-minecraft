@@ -225,7 +225,7 @@ class ContainerBuilderImpl implements ContainerBuilder {
         }
 
         // IDの生成または検証
-        const id = this.id ?? (`container_${nanoid()}` as ContainerId)
+        const id = this.id ?? makeUnsafeContainerId(`container_${nanoid()}`)
 
         // タイムスタンプの生成（未設定の場合）
         const now = yield* DateTime.now

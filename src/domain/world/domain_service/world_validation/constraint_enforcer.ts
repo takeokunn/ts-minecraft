@@ -6,7 +6,7 @@ import type { GenerationError } from '@domain/world/types/errors'
 import { Context, Effect, Layer } from 'effect'
 
 export interface ConstraintEnforcerService {
-  readonly enforceConstraints: (data: any) => Effect.Effect<any, GenerationError>
+  readonly enforceConstraints: (data: unknown) => Effect.Effect<unknown, GenerationError>
 }
 
 export const ConstraintEnforcerService = Context.GenericTag<ConstraintEnforcerService>(

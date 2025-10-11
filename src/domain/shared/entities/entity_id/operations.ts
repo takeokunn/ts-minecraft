@@ -7,7 +7,10 @@ import { EntityIdSchema, type EntityId } from './schema'
  * 新しいEntityIdを生成
  */
 export const generate = (): Effect.Effect<EntityId, never> =>
-  Effect.map(Effect.sync(() => `entity_${uuidv4()}`), (value) => Schema.make(EntityIdSchema)(value))
+  Effect.map(
+    Effect.sync(() => `entity_${uuidv4()}`),
+    (value) => Schema.make(EntityIdSchema)(value)
+  )
 
 /**
  * 文字列からEntityIdを安全に作成

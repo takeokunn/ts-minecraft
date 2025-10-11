@@ -435,7 +435,12 @@ const adjustCameraForFollowMode = (camera: Camera, mode: FollowMode): Effect.Eff
 const createAnimationFromSequence = (sequence: CinematicSequence): Effect.Effect<AnimationState, CameraError> =>
   Effect.gen(function* () {
     // シーケンスからEffect-TSのAnimationStateを作成
-    return {} as AnimationState // 仮実装
+    const timestamp = yield* Clock.currentTimeMillis
+    return AnimationState.Playing({
+      startTime: timestamp,
+      duration: sequence.duration,
+      currentProgress: 0,
+    })
   })
 
 /**

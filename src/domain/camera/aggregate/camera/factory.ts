@@ -334,6 +334,14 @@ const calculateLookAtRotation = (
  * カメラ初期化イベントの作成
  */
 const createCameraInitializedEvent = (cameraId: CameraId, viewMode: ViewMode) => {
-  // イベント作成の実装
-  return {} as any // 仮実装
+  // ViewModeをCameraModeに変換
+  // TODO: ViewMode と CameraMode の型を統一する
+  return Effect.succeed(
+    Data.struct({
+      _tag: 'CameraInitialized' as const,
+      cameraId,
+      viewMode: 'first-person' as const,
+      timestamp: Date.now(),
+    })
+  )
 }

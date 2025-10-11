@@ -5,6 +5,7 @@
 
 import { Effect, Schema } from 'effect'
 import * as THREE from 'three'
+import { matrix4ElementsToTuple } from '../schemas/adapters'
 import type { Quaternion } from './quaternion'
 import * as Quat from './quaternion'
 import type { Vector3 } from './vector3'
@@ -85,28 +86,7 @@ export const zero: Matrix4 = make([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
  * Three.js Matrix4からEffect型への変換
  */
 export const fromThreeMatrix = (m: THREE.Matrix4): Effect.Effect<Matrix4, never> =>
-  Effect.sync(() =>
-    make(
-      m.elements as [
-        number,
-        number,
-        number,
-        number,
-        number,
-        number,
-        number,
-        number,
-        number,
-        number,
-        number,
-        number,
-        number,
-        number,
-        number,
-        number,
-      ]
-    )
-  )
+  Effect.sync(() => make(matrix4ElementsToTuple(m.elements)))
 
 /**
  * Effect型からThree.js Matrix4への変換
@@ -119,26 +99,7 @@ export const toThreeMatrix = (m: Matrix4): THREE.Matrix4 => new THREE.Matrix4().
 export const compose = (position: Vector3, rotation: Quaternion, scale: Vector3): Matrix4 => {
   const threeM = new THREE.Matrix4()
   threeM.compose(V3.toThreeVector(position), Quat.toThreeQuaternion(rotation), V3.toThreeVector(scale))
-  return make(
-    threeM.elements as [
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-    ]
-  )
+  return make(matrix4ElementsToTuple(threeM.elements))
 }
 
 /**
@@ -169,26 +130,7 @@ export const multiply = (a: Matrix4, b: Matrix4): Matrix4 => {
   const threeA = toThreeMatrix(a)
   const threeB = toThreeMatrix(b)
   threeA.multiply(threeB)
-  return make(
-    threeA.elements as [
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-    ]
-  )
+  return make(matrix4ElementsToTuple(threeA.elements))
 }
 
 /**
@@ -197,26 +139,7 @@ export const multiply = (a: Matrix4, b: Matrix4): Matrix4 => {
 export const transpose = (m: Matrix4): Matrix4 => {
   const threeM = toThreeMatrix(m)
   threeM.transpose()
-  return make(
-    threeM.elements as [
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-    ]
-  )
+  return make(matrix4ElementsToTuple(threeM.elements))
 }
 
 /**
@@ -242,26 +165,7 @@ export const invert = (m: Matrix4): Effect.Effect<Matrix4, Matrix4Error> =>
 
     const threeM = toThreeMatrix(m)
     threeM.invert()
-    return make(
-      threeM.elements as [
-        number,
-        number,
-        number,
-        number,
-        number,
-        number,
-        number,
-        number,
-        number,
-        number,
-        number,
-        number,
-        number,
-        number,
-        number,
-        number,
-      ]
-    )
+    return make(matrix4ElementsToTuple(threeM.elements))
   })
 
 /**
@@ -270,26 +174,7 @@ export const invert = (m: Matrix4): Effect.Effect<Matrix4, Matrix4Error> =>
 export const multiplyScalar = (m: Matrix4, s: number): Matrix4 => {
   const threeM = toThreeMatrix(m)
   threeM.multiplyScalar(s)
-  return make(
-    threeM.elements as [
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-    ]
-  )
+  return make(matrix4ElementsToTuple(threeM.elements))
 }
 
 /**
@@ -298,26 +183,7 @@ export const multiplyScalar = (m: Matrix4, s: number): Matrix4 => {
 export const makeTranslation = (x: number, y: number, z: number): Matrix4 => {
   const threeM = new THREE.Matrix4()
   threeM.makeTranslation(x, y, z)
-  return make(
-    threeM.elements as [
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-    ]
-  )
+  return make(matrix4ElementsToTuple(threeM.elements))
 }
 
 /**
@@ -326,26 +192,7 @@ export const makeTranslation = (x: number, y: number, z: number): Matrix4 => {
 export const makeRotation = (q: Quaternion): Matrix4 => {
   const threeM = new THREE.Matrix4()
   threeM.makeRotationFromQuaternion(Quat.toThreeQuaternion(q))
-  return make(
-    threeM.elements as [
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-    ]
-  )
+  return make(matrix4ElementsToTuple(threeM.elements))
 }
 
 /**
@@ -354,26 +201,7 @@ export const makeRotation = (q: Quaternion): Matrix4 => {
 export const makeScale = (x: number, y: number, z: number): Matrix4 => {
   const threeM = new THREE.Matrix4()
   threeM.makeScale(x, y, z)
-  return make(
-    threeM.elements as [
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-    ]
-  )
+  return make(matrix4ElementsToTuple(threeM.elements))
 }
 
 /**
@@ -389,26 +217,7 @@ export const makePerspective = (fov: number, aspect: number, near: number, far: 
     near,
     far
   )
-  return make(
-    threeM.elements as [
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-    ]
-  )
+  return make(matrix4ElementsToTuple(threeM.elements))
 }
 
 /**
@@ -424,26 +233,7 @@ export const makeOrthographic = (
 ): Matrix4 => {
   const threeM = new THREE.Matrix4()
   threeM.makeOrthographic(left, right, top, bottom, near, far)
-  return make(
-    threeM.elements as [
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-    ]
-  )
+  return make(matrix4ElementsToTuple(threeM.elements))
 }
 
 /**

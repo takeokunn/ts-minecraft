@@ -477,18 +477,18 @@ export const BiomeMapperServiceLive = Layer.effect(
           Match.value,
           Match.when(
             ({ depth }) => depth > 30,
-            () => 'deep_ocean' as MinecraftBiomeType
+            () => 'deep_ocean'
           ),
           Match.when(
             ({ temperature }) => temperature > 15,
-            () => 'warm_ocean' as MinecraftBiomeType
+            () => 'warm_ocean'
           ),
           Match.when(
             ({ temperature }) => temperature > 0,
-            () => 'lukewarm_ocean' as MinecraftBiomeType
+            () => 'lukewarm_ocean'
           ),
-          Match.orElse(() => 'cold_ocean' as MinecraftBiomeType)
-        )
+          Match.orElse(() => 'cold_ocean')
+        ) satisfies MinecraftBiomeType
 
         return {
           primaryBiome: oceanBiome,
@@ -520,14 +520,14 @@ export const BiomeMapperServiceLive = Layer.effect(
           Match.value,
           Match.when(
             ({ depth }) => depth < -40,
-            () => 'deep_dark' as MinecraftBiomeType
+            () => 'deep_dark'
           ),
           Match.when(
             ({ randomValue }) => randomValue < 0.3,
-            () => 'lush_caves' as MinecraftBiomeType
+            () => 'lush_caves'
           ),
-          Match.orElse(() => 'dripstone_caves' as MinecraftBiomeType)
-        )
+          Match.orElse(() => 'dripstone_caves')
+        ) satisfies MinecraftBiomeType
 
         return {
           primaryBiome: caveBiome,
@@ -559,7 +559,7 @@ export const BiomeMapperServiceLive = Layer.effect(
           ReadonlyArray.groupBy((neighbor) => neighbor.primaryBiome),
           (groups) =>
             Object.entries(groups).map(([biome, items]) => ({
-              biome: biome as MinecraftBiomeType,
+              biome: biome satisfies string as MinecraftBiomeType,
               count: items.length,
             })),
           ReadonlyArray.sortBy((a, b) => b.count - a.count)
@@ -646,40 +646,41 @@ const determinePrimaryBiome = (
   const temp = params.temperature
   const humidity = params.humidity
 
-  return pipe(
+  const biomeType = pipe(
     { temp, humidity },
     Match.value,
     Match.when(
       ({ temp, humidity }) => temp > 0.8 && humidity > 0.8,
-      () => 'jungle' as MinecraftBiomeType
+      () => 'jungle'
     ),
     Match.when(
       ({ temp, humidity }) => temp > 0.8 && humidity > 0.4,
-      () => 'plains' as MinecraftBiomeType
+      () => 'plains'
     ),
     Match.when(
       ({ temp }) => temp > 0.8,
-      () => 'desert' as MinecraftBiomeType
+      () => 'desert'
     ),
     Match.when(
       ({ temp, humidity }) => temp > 0.2 && humidity > 0.6,
-      () => 'forest' as MinecraftBiomeType
+      () => 'forest'
     ),
     Match.when(
       ({ temp }) => temp > 0.2,
-      () => 'plains' as MinecraftBiomeType
+      () => 'plains'
     ),
     Match.when(
       ({ temp, humidity }) => temp > -0.5 && humidity > 0.5,
-      () => 'taiga' as MinecraftBiomeType
+      () => 'taiga'
     ),
     Match.when(
       ({ temp }) => temp > -0.5,
-      () => 'snowy_taiga' as MinecraftBiomeType
+      () => 'snowy_taiga'
     ),
-    Match.orElse(() => 'snowy_tundra' as MinecraftBiomeType),
-    Effect.succeed
-  )
+    Match.orElse(() => 'snowy_tundra')
+  ) satisfies MinecraftBiomeType
+
+  return Effect.succeed(biomeType)
 }
 
 /**
@@ -800,23 +801,24 @@ const getBiomeForElevation = (
   coordinate: WorldCoordinate2D,
   seed: WorldSeed
 ): Effect.Effect<MinecraftBiomeType, GenerationError> =>
-  pipe(
-    elevation,
-    Match.value,
-    Match.when(
-      (e) => e > 150,
-      () => 'stony_peaks' as MinecraftBiomeType
-    ),
-    Match.when(
-      (e) => e > 100,
-      () => 'windswept_hills' as MinecraftBiomeType
-    ),
-    Match.when(
-      (e) => e > 80,
-      () => 'meadow' as MinecraftBiomeType
-    ),
-    Match.orElse(() => 'plains' as MinecraftBiomeType),
-    Effect.succeed
+  Effect.succeed(
+    pipe(
+      elevation,
+      Match.value,
+      Match.when(
+        (e) => e > 150,
+        () => 'stony_peaks'
+      ),
+      Match.when(
+        (e) => e > 100,
+        () => 'windswept_hills'
+      ),
+      Match.when(
+        (e) => e > 80,
+        () => 'meadow'
+      ),
+      Match.orElse(() => 'plains')
+    ) satisfies MinecraftBiomeType
   )
 
 /**

@@ -224,7 +224,7 @@ const createItemMetadata = (config: ItemConfig): ItemMetadata | undefined => {
     ),
   ])
 
-  const durabilityEntries = pipe(
+  const durabilityEntries: ReadonlyArray<readonly [string, unknown]> = pipe(
     Option.fromNullable(config.maxDurability),
     Option.flatMap((maxDurability) =>
       pipe(
@@ -239,12 +239,12 @@ const createItemMetadata = (config: ItemConfig): ItemMetadata | undefined => {
         )
       )
     ),
-    Option.getOrElse(() => [] as ReadonlyArray<readonly [string, unknown]>)
+    Option.getOrElse(() => [])
   )
 
   const allEntries = [...baseEntries, ...durabilityEntries]
-
-  return getNonEmptyOrUndefined(allEntries) as ItemMetadata | undefined
+  const result = getNonEmptyOrUndefined(allEntries)
+  return result as ItemMetadata | undefined
 }
 
 const normalizeMetadata = (metadata?: ItemMetadata): ItemMetadata | undefined =>
@@ -258,11 +258,11 @@ const normalizeMetadata = (metadata?: ItemMetadata): ItemMetadata | undefined =>
 const checkEnchantmentConflicts = (
   enchantments: ReadonlyArray<EnchantmentDefinition>
 ): Effect.Effect<void, ItemCreationError> => {
-  const conflicts = enchantments.flatMap((outer, index) =>
+  const conflicts: ReadonlyArray<string> = enchantments.flatMap((outer, index) =>
     pipe(
       Option.fromNullable(outer.conflictsWith),
       Option.match({
-        onNone: () => [] as string[],
+        onNone: (): ReadonlyArray<string> => [],
         onSome: (conflictsWith) =>
           enchantments
             .slice(index + 1)
@@ -427,16 +427,17 @@ export const ItemFactoryLive: ItemFactory = {
       count,
     }),
 
-  addEnchantment: (item, enchantment) =>
-    pipe(
-      [
-        enchantment,
-        ...((item.metadata?.enchantments ?? []).map((existing) => ({
-          ...enchantment,
-          id: existing.id,
-          level: existing.level,
-        })) as ReadonlyArray<EnchantmentDefinition>),
-      ],
+  addEnchantment: (item, enchantment) => {
+    const existingEnchantmentDefs: ReadonlyArray<EnchantmentDefinition> = (item.metadata?.enchantments ?? []).map(
+      (existing) => ({
+        ...enchantment,
+        id: existing.id,
+        level: existing.level,
+      })
+    )
+
+    return pipe(
+      [enchantment, ...existingEnchantmentDefs],
       checkEnchantmentConflicts,
       Effect.map(() => {
         const existingEnchantments = item.metadata?.enchantments ?? []
@@ -453,7 +454,8 @@ export const ItemFactoryLive: ItemFactory = {
           metadata: updatedMetadata,
         }
       })
-    ),
+    )
+  },
 
   removeEnchantment: (item, enchantmentId) =>
     pipe(

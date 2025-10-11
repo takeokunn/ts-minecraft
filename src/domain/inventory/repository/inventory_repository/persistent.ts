@@ -1,4 +1,5 @@
 import { Clock, Effect, HashMap, Layer, Option, Ref, Schema, TreeFormatter } from 'effect'
+import { makeUnsafe as makeUnsafePlayerId } from '../../../shared/entities/player_id/operations'
 import type {
   Inventory,
   InventoryQuery,
@@ -78,7 +79,7 @@ export const InventoryRepositoryPersistent = (config: PersistentConfig = Default
         const inventories = new Map<PlayerId, Inventory>()
         if (validated.inventories) {
           Object.entries(validated.inventories).forEach(([playerId, inventory]) => {
-            inventories.set(playerId as PlayerId, inventory as Inventory)
+            inventories.set(makeUnsafePlayerId(playerId), inventory)
           })
         }
 
@@ -86,7 +87,7 @@ export const InventoryRepositoryPersistent = (config: PersistentConfig = Default
         const snapshots = new Map<string, InventorySnapshot>()
         if (validated.snapshots) {
           Object.entries(validated.snapshots).forEach(([id, snapshot]) => {
-            snapshots.set(id, snapshot as InventorySnapshot)
+            snapshots.set(id, snapshot)
           })
         }
 

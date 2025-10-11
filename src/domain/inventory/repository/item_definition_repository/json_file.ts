@@ -1,4 +1,5 @@
 import { Clock, Effect, Array as EffectArray, HashMap, Layer, Option, Ref, pipe } from 'effect'
+import { makeUnsafe as makeUnsafeItemId } from '../../../../shared/entities/item_id/operations'
 import type {
   ItemCategory,
   ItemCraftingRecipe,
@@ -74,7 +75,7 @@ export const ItemDefinitionRepositoryJsonFile = (config: JsonFileConfig = Defaul
                   pipe(
                     Object.entries(defs),
                     EffectArray.reduce(new Map<ItemId, ItemDefinition>(), (map, [id, definition]) => {
-                      map.set(id as ItemId, definition as ItemDefinition)
+                      map.set(makeUnsafeItemId(id), definition)
                       return map
                     }),
                     (definitions) => Ref.set(definitionCache, HashMap.fromIterable(definitions))
@@ -91,7 +92,7 @@ export const ItemDefinitionRepositoryJsonFile = (config: JsonFileConfig = Defaul
                   pipe(
                     Object.entries(recs),
                     EffectArray.reduce(new Map<ItemId, ItemCraftingRecipe>(), (map, [id, recipe]) => {
-                      map.set(id as ItemId, recipe as ItemCraftingRecipe)
+                      map.set(makeUnsafeItemId(id), recipe)
                       return map
                     }),
                     (recipes) => Ref.set(recipeCache, HashMap.fromIterable(recipes))
@@ -108,7 +109,7 @@ export const ItemDefinitionRepositoryJsonFile = (config: JsonFileConfig = Defaul
                   pipe(
                     Object.entries(tables),
                     EffectArray.reduce(new Map<ItemId, ItemDropTable>(), (map, [id, dropTable]) => {
-                      map.set(id as ItemId, dropTable as ItemDropTable)
+                      map.set(makeUnsafeItemId(id), dropTable)
                       return map
                     }),
                     (dropTables) => Ref.set(dropTableCache, HashMap.fromIterable(dropTables))

@@ -178,7 +178,7 @@ export type CameraMode = (typeof VALID_CAMERA_MODES)[number]
  * カメラモードの型ガード
  */
 export const isCameraMode = (value: unknown): value is CameraMode =>
-  typeof value === 'string' && VALID_CAMERA_MODES.includes(value as CameraMode)
+  typeof value === 'string' && (VALID_CAMERA_MODES as readonly string[]).includes(value)
 
 /**
  * 有効なFOVかチェック

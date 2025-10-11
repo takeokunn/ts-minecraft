@@ -135,21 +135,21 @@ const placeItemsInSlots = (
     const slots = [...inventory.slots]
 
     // アイテムを空きスロットに配置
+    type PlacementAcc = { slots: Array<ItemStack | null>; itemIndex: number }
+    const initialAcc: PlacementAcc = { slots, itemIndex: 0 }
     const placementResult = pipe(
       items,
-      ReadonlyArray.reduce(
-        { slots, itemIndex: 0 } as { slots: Array<ItemStack | null>; itemIndex: number },
-        (acc, item) =>
-          pipe(
-            acc.slots.findIndex((slot, idx) => slot === null && idx >= acc.itemIndex),
-            (emptySlotIndex) =>
-              emptySlotIndex === -1
-                ? acc
-                : pipe([...acc.slots], (newSlots) => {
-                    newSlots[emptySlotIndex] = item
-                    return { slots: newSlots, itemIndex: acc.itemIndex + 1 }
-                  })
-          )
+      ReadonlyArray.reduce(initialAcc, (acc, item) =>
+        pipe(
+          acc.slots.findIndex((slot, idx) => slot === null && idx >= acc.itemIndex),
+          (emptySlotIndex) =>
+            emptySlotIndex === -1
+              ? acc
+              : pipe([...acc.slots], (newSlots) => {
+                  newSlots[emptySlotIndex] = item
+                  return { slots: newSlots, itemIndex: acc.itemIndex + 1 }
+                })
+        )
       )
     )
 
@@ -176,9 +176,10 @@ const placeItemsInSlots = (
 const optimizeStacks = (inventory: Inventory): Effect.Effect<Inventory, InventoryCreationError> =>
   Effect.gen(function* () {
     // 同一アイテムのスタック統合ロジック
+    const initialSlots: Array<ItemStack | null> = [...inventory.slots]
     const optimizedSlots = pipe(
       ReadonlyArray.makeBy(inventory.slots.length, (i) => i),
-      ReadonlyArray.reduce([...inventory.slots] as Array<ItemStack | null>, (slots, i) =>
+      ReadonlyArray.reduce(initialSlots, (slots, i) =>
         pipe(
           Option.fromNullable(slots[i]),
           Option.match({
@@ -350,9 +351,11 @@ export const InventoryFactoryLive: InventoryFactory = {
   mergeInventories: (primary, secondary) =>
     Effect.gen(function* () {
       // セカンダリのアイテムをプライマリに統合
+      type MergeAcc = { mergedSlots: Array<ItemStack | null>; conflicts: string[] }
+      const initialMergeAcc: MergeAcc = { mergedSlots: [...primary.slots], conflicts: [] }
       const mergeResult = pipe(
         ReadonlyArray.makeBy(Math.min(secondary.slots.length, primary.slots.length), (i) => i),
-        ReadonlyArray.reduce({ mergedSlots: [...primary.slots], conflicts: [] as string[] }, (acc, i) =>
+        ReadonlyArray.reduce(initialMergeAcc, (acc, i) =>
           pipe(
             Option.fromNullable(secondary.slots[i]),
             Option.match({

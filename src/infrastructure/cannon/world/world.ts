@@ -62,14 +62,10 @@ export const createWorld = (params: WorldParams): Effect.Effect<CANNON.World, Ph
       }
       // naive はデフォルトなので設定不要
 
-      // Solver設定
-      if (params.solver) {
-        if ('iterations' in world.solver) {
-          ;(world.solver as CANNON.GSSolver).iterations = params.solver.iterations
-        }
-        if ('tolerance' in world.solver) {
-          ;(world.solver as CANNON.GSSolver).tolerance = params.solver.tolerance
-        }
+      // Solver設定（GSSolverの場合のみ適用）
+      if (params.solver && world.solver instanceof CANNON.GSSolver) {
+        world.solver.iterations = params.solver.iterations
+        world.solver.tolerance = params.solver.tolerance
       }
 
       return world

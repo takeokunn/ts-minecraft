@@ -1,6 +1,12 @@
 import * as CANNON from 'cannon-es'
 import { Effect } from 'effect'
 import * as THREE from 'three'
+import {
+  cannonQuatToThreeQuatUnsafe,
+  cannonVec3ToThreeVec3Unsafe,
+  threeQuatToCannonQuatUnsafe,
+  threeVec3ToCannonVec3Unsafe,
+} from './schemas/adapters'
 
 /**
  * Three.js Integration - Cannon.jsとThree.jsの連携ヘルパー
@@ -17,11 +23,11 @@ import * as THREE from 'three'
  */
 export const syncBodyToMesh = (body: CANNON.Body, mesh: THREE.Mesh): Effect.Effect<void, never> =>
   Effect.sync(() => {
-    // 位置を同期
-    mesh.position.copy(body.position as unknown as THREE.Vector3)
+    // 位置を同期（ゼロコスト型変換）
+    mesh.position.copy(cannonVec3ToThreeVec3Unsafe(body.position))
 
-    // 回転（Quaternion）を同期
-    mesh.quaternion.copy(body.quaternion as unknown as THREE.Quaternion)
+    // 回転（Quaternion）を同期（ゼロコスト型変換）
+    mesh.quaternion.copy(cannonQuatToThreeQuatUnsafe(body.quaternion))
   })
 
 /**
@@ -33,11 +39,11 @@ export const syncBodyToMesh = (body: CANNON.Body, mesh: THREE.Mesh): Effect.Effe
  */
 export const syncMeshToBody = (mesh: THREE.Mesh, body: CANNON.Body): Effect.Effect<void, never> =>
   Effect.sync(() => {
-    // 位置を同期
-    body.position.copy(mesh.position as unknown as CANNON.Vec3)
+    // 位置を同期（ゼロコスト型変換）
+    body.position.copy(threeVec3ToCannonVec3Unsafe(mesh.position))
 
-    // 回転（Quaternion）を同期
-    body.quaternion.copy(mesh.quaternion as unknown as CANNON.Quaternion)
+    // 回転（Quaternion）を同期（ゼロコスト型変換）
+    body.quaternion.copy(threeQuatToCannonQuatUnsafe(mesh.quaternion))
   })
 
 /**

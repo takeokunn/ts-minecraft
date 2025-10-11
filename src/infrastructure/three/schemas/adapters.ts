@@ -6,7 +6,6 @@
  */
 
 import { unsafeCoerce } from 'effect/Function'
-import * as THREE from 'three'
 
 /**
  * THREE.Matrix4.elementsをタプル型に変換（型安全）

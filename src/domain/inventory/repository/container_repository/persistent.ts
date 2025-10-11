@@ -1,4 +1,5 @@
 import { Clock, Effect, HashMap, Layer, Option, ReadonlyArray, Ref, Schema, pipe } from 'effect'
+import { makeUnsafeContainerId } from '../../aggregate/container/types'
 import type {
   Container,
   ContainerId,
@@ -93,10 +94,10 @@ export const ContainerRepositoryPersistent = (config: ContainerPersistentConfig 
             ReadonlyArray.map(([id, container]) => {
               const cont: Container = {
                 ...container,
-                id: id as ContainerId,
+                id: makeUnsafeContainerId(id),
                 slots: new Map(Object.entries(container.slots)),
               }
-              return [id as ContainerId, cont] as const
+              return [makeUnsafeContainerId(id), cont] as const
             })
           )
 
@@ -116,10 +117,10 @@ export const ContainerRepositoryPersistent = (config: ContainerPersistentConfig 
               const snap: ContainerSnapshot = {
                 ...snapshot,
                 id,
-                containerId: snapshot.containerId as ContainerId,
+                containerId: makeUnsafeContainerId(snapshot.containerId),
                 container: {
                   ...snapshot.container,
-                  id: snapshot.container.id as ContainerId,
+                  id: makeUnsafeContainerId(snapshot.container.id),
                   slots: new Map(Object.entries(snapshot.container.slots)),
                 },
               }

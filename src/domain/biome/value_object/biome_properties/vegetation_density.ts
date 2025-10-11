@@ -8,6 +8,7 @@
 import { taggedUnion } from '@domain/world/utils'
 import type { Brand as BrandType } from 'effect'
 import { Schema } from 'effect'
+import { unsafeCoerce } from 'effect/Function'
 
 /**
  * 植生密度Brand型（0.0から1.0）
@@ -90,6 +91,20 @@ export const SpeciesDiversityIndexSchema = Schema.Number.pipe(
     examples: [0.5, 1.2, 2.0, 3.1, 4.2],
   })
 )
+
+/**
+ * makeUnsafe ヘルパー関数
+ * パフォーマンスクリティカルな地形生成コードで使用
+ */
+export const makeUnsafeVegetationDensity = (value: number): VegetationDensity =>
+  unsafeCoerce<number, VegetationDensity>(value)
+
+export const makeUnsafeBiomass = (value: number): Biomass => unsafeCoerce<number, Biomass>(value)
+
+export const makeUnsafeCoverageRatio = (value: number): CoverageRatio => unsafeCoerce<number, CoverageRatio>(value)
+
+export const makeUnsafeSpeciesDiversityIndex = (value: number): SpeciesDiversityIndex =>
+  unsafeCoerce<number, SpeciesDiversityIndex>(value)
 
 /**
  * 植生タイプ

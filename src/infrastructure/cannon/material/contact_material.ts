@@ -1,6 +1,7 @@
 import * as CANNON from 'cannon-es'
 import { Effect, Schema } from 'effect'
 import { PhysicsMaterialError } from '../errors'
+import { toCannonMaterial } from '../schemas/material_schema'
 
 /**
  * ContactMaterial - Cannon.js接触マテリアルのEffect-TSラッパー
@@ -64,8 +65,8 @@ export const createContactMaterial = (
 ): Effect.Effect<CANNON.ContactMaterial, PhysicsMaterialError> =>
   Effect.try({
     try: () => {
-      const materialA = params.materialA as CANNON.Material
-      const materialB = params.materialB as CANNON.Material
+      const materialA = toCannonMaterial(params.materialA)
+      const materialB = toCannonMaterial(params.materialB)
 
       const contactMaterial = new CANNON.ContactMaterial(materialA, materialB, {
         friction: params.friction,

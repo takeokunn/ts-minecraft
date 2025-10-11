@@ -1,6 +1,7 @@
 import * as CANNON from 'cannon-es'
 import { Effect, Schema } from 'effect'
 import { PhysicsConstraintError } from '../errors'
+import { toCannonBody } from '../schemas/body_schema'
 
 /**
  * DistanceConstraint - 距離拘束のEffect-TSラッパー
@@ -52,8 +53,8 @@ export const createDistanceConstraint = (
 ): Effect.Effect<CANNON.DistanceConstraint, PhysicsConstraintError> =>
   Effect.try({
     try: () => {
-      const bodyA = params.bodyA as CANNON.Body
-      const bodyB = params.bodyB as CANNON.Body
+      const bodyA = toCannonBody(params.bodyA)
+      const bodyB = toCannonBody(params.bodyB)
 
       const constraint = new CANNON.DistanceConstraint(bodyA, bodyB, params.distance, params.maxForce)
 

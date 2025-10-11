@@ -11,7 +11,10 @@ import { DomainEntityIdSchema, type DomainEntityId } from './schema'
  * 新しいDomainEntityIdを生成
  */
 export const generate = (): Effect.Effect<DomainEntityId, never> =>
-  Effect.sync(() => `entity_${uuidv4()}` as DomainEntityId)
+  Effect.map(
+    Effect.sync(() => `entity_${uuidv4()}`),
+    (value) => Schema.make(DomainEntityIdSchema)(value)
+  )
 
 /**
  * 文字列からDomainEntityIdを安全に作成
@@ -33,7 +36,7 @@ export const make = (value: string): Effect.Effect<DomainEntityId, DomainEntityI
  * 型キャストのみ実施（危険：バリデーション無し）
  * 信頼できるソースからのデータのみに使用
  */
-export const makeUnsafe = (value: string): DomainEntityId => value as DomainEntityId
+export const makeUnsafe = (value: string): DomainEntityId => Schema.make(DomainEntityIdSchema)(value)
 
 /**
  * DomainEntityIdを文字列に変換

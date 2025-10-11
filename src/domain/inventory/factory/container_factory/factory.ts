@@ -86,7 +86,7 @@ const validateContainerConfig = (config: ContainerConfig): Effect.Effect<void, C
           ReadonlyArray.filterMap((opt) => opt)
         )
       ),
-      Option.getOrElse(() => [] as ReadonlyArray<string>)
+      Option.getOrElse((): ReadonlyArray<string> => [])
     )
 
     const itemErrors = pipe(
@@ -661,9 +661,10 @@ export const ContainerFactoryLive: ContainerFactory = {
     Effect.gen(function* () {
       yield* ContainerFactoryLive.validateContainer(container)
 
+      const initialSlots: ContainerSlot[] = [...container.slots]
       const optimizedSlots = pipe(
         ReadonlyArray.makeBy(container.slots.length, (i) => i),
-        ReadonlyArray.reduce([...container.slots] as ContainerSlot[], (slots, i) => {
+        ReadonlyArray.reduce(initialSlots, (slots, i) => {
           const slot1 = slots[i]
 
           return pipe(!slot1.item || slot1.type !== 'storage', (shouldSkip) =>

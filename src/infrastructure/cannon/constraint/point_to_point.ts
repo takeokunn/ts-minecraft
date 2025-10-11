@@ -1,6 +1,7 @@
 import * as CANNON from 'cannon-es'
 import { Effect, Schema } from 'effect'
 import { PhysicsConstraintError } from '../errors'
+import { toCannonBody } from '../schemas/body_schema'
 
 /**
  * PointToPointConstraint - 点対点拘束のEffect-TSラッパー
@@ -64,8 +65,8 @@ export const createPointToPointConstraint = (
 ): Effect.Effect<CANNON.PointToPointConstraint, PhysicsConstraintError> =>
   Effect.try({
     try: () => {
-      const bodyA = params.bodyA as CANNON.Body
-      const bodyB = params.bodyB as CANNON.Body
+      const bodyA = toCannonBody(params.bodyA)
+      const bodyB = toCannonBody(params.bodyB)
 
       const constraint = new CANNON.PointToPointConstraint(
         bodyA,
