@@ -1,10 +1,5 @@
 import { Brand, Clock, Effect, Match, pipe, Schema } from 'effect'
-import {
-  AnimationDuration,
-  AnimationDurationSchema,
-  AnimationProgressSchema,
-  TimestampSchema,
-} from './schema'
+import { AnimationDuration, AnimationDurationSchema, AnimationProgressSchema, TimestampSchema } from './schema'
 import {
   AnimationError,
   AnimationProgress,
@@ -78,43 +73,43 @@ export const EasingFunctions = {
     pipe(
       easing,
       Match.value,
-      Match.tag('Linear', () => t as number),
-      Match.tag('EaseIn', ({ power }) => Math.pow(t as number, power)),
-      Match.tag('EaseOut', ({ power }) => 1 - Math.pow(1 - (t as number), power)),
+      Match.tag('Linear', () => t),
+      Match.tag('EaseIn', ({ power }) => Math.pow(t, power)),
+      Match.tag('EaseOut', ({ power }) => 1 - Math.pow(1 - t, power)),
       Match.tag('EaseInOut', ({ power }) => {
-        const tNum = t as number
+        const tNum = t
         return tNum < 0.5 ? Math.pow(2 * tNum, power) / 2 : 1 - Math.pow(2 * (1 - tNum), power) / 2
       }),
       Match.tag('Bounce', ({ amplitude, period }) => {
-        const tNum = t as number
+        const tNum = t
         if (tNum === 1) return 1
         return amplitude * Math.pow(2, -10 * tNum) * Math.sin(((tNum - period / 4) * (2 * Math.PI)) / period) + 1
       }),
       Match.tag('Elastic', ({ amplitude, period }) => {
-        const tNum = t as number
+        const tNum = t
         if (tNum === 0 || tNum === 1) return tNum
         return amplitude * Math.pow(2, -10 * tNum) * Math.sin(((tNum - period / 4) * (2 * Math.PI)) / period) + 1
       }),
       Match.tag('Back', ({ overshoot }) => {
-        const tNum = t as number
+        const tNum = t
         const c1 = 1.70158 * overshoot
         const c3 = c1 + 1
         return c3 * tNum * tNum * tNum - c1 * tNum * tNum
       }),
       Match.tag('Cubic', ({ controlPoint1, controlPoint2 }) => {
         // ベジェ曲線の実装
-        const tNum = t as number
+        const tNum = t
         const u = 1 - tNum
         return 3 * u * u * tNum * controlPoint1.y + 3 * u * tNum * tNum * controlPoint2.y + tNum * tNum * tNum
       }),
       Match.tag('Spring', ({ tension, friction }) => {
         // スプリングアニメーションの簡易実装
-        const tNum = t as number
+        const tNum = t
         const omega = Math.sqrt(tension)
         const zeta = friction / (2 * Math.sqrt(tension))
         return 1 - Math.exp(-zeta * omega * tNum) * Math.cos(omega * Math.sqrt(1 - zeta * zeta) * tNum)
       }),
-      Match.tag('Custom', ({ easingFunction }) => easingFunction(t as number)),
+      Match.tag('Custom', ({ easingFunction }) => easingFunction(t)),
       Match.exhaustive
     ),
 
@@ -122,14 +117,14 @@ export const EasingFunctions = {
    * 事前定義されたイージング関数
    */
   presets: {
-    linear: (): EasingType => EasingType.Linear(),
-    easeIn: (power: number = 2): EasingType => EasingType.EaseIn(power),
-    easeOut: (power: number = 2): EasingType => EasingType.EaseOut(power),
-    easeInOut: (power: number = 2): EasingType => EasingType.EaseInOut(power),
-    bounce: (amplitude: number = 1, period: number = 0.3): EasingType => EasingType.Bounce(amplitude, period),
-    elastic: (amplitude: number = 1, period: number = 0.3): EasingType => EasingType.Elastic(amplitude, period),
-    back: (overshoot: number = 1.7): EasingType => EasingType.Back(overshoot),
-    spring: (tension: number = 300, friction: number = 30): EasingType => EasingType.Spring(tension, friction),
+    linear: (): EasingType => ({ _tag: 'Linear' }),
+    easeIn: (power: number = 2): EasingType => ({ _tag: 'EaseIn', power }),
+    easeOut: (power: number = 2): EasingType => ({ _tag: 'EaseOut', power }),
+    easeInOut: (power: number = 2): EasingType => ({ _tag: 'EaseInOut', power }),
+    bounce: (amplitude: number = 1, period: number = 0.3): EasingType => ({ _tag: 'Bounce', amplitude, period }),
+    elastic: (amplitude: number = 1, period: number = 0.3): EasingType => ({ _tag: 'Elastic', amplitude, period }),
+    back: (overshoot: number = 1.7): EasingType => ({ _tag: 'Back', overshoot }),
+    spring: (tension: number = 300, friction: number = 30): EasingType => ({ _tag: 'Spring', tension, friction }),
   },
 }
 
@@ -339,22 +334,18 @@ export const InterpolationOps = {
       )
     }
 
-    const t = progress as number
+    const t = progress
 
     // 現在の時間に対応するキーフレームペアを見つける
-    let fromIndex = 0
-    let toIndex = 1
+    const keyframePair = pipe(
+      ReadonlyArray.range(0, keyframes.length - 1),
+      ReadonlyArray.findFirst((i) => t >= keyframes[i].time && t <= keyframes[i + 1].time),
+      Option.map((i) => ({ fromIndex: i, toIndex: i + 1 })),
+      Option.getOrElse(() => ({ fromIndex: 0, toIndex: 1 }))
+    )
 
-    for (let i = 0; i < keyframes.length - 1; i++) {
-      if (t >= keyframes[i].time && t <= keyframes[i + 1].time) {
-        fromIndex = i
-        toIndex = i + 1
-        break
-      }
-    }
-
-    const fromKeyframe = keyframes[fromIndex]
-    const toKeyframe = keyframes[toIndex]
+    const fromKeyframe = keyframes[keyframePair.fromIndex]
+    const toKeyframe = keyframes[keyframePair.toIndex]
 
     // キーフレーム間での正規化された時間
     const segmentProgress = (t - fromKeyframe.time) / (toKeyframe.time - fromKeyframe.time)
@@ -427,7 +418,7 @@ export const CameraAnimationOps = {
 
       const easedProgress = animation.positionAnimation
         ? EasingFunctions.apply(progress, animation.positionAnimation.easingType)
-        : (progress as number)
+        : progress
 
       const updatedPositionAnimation = animation.positionAnimation
         ? Brand.nominal<PositionAnimation>()({

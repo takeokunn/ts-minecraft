@@ -1,6 +1,6 @@
 import type { EquipmentDomainError } from '@domain/equipment/types'
 import { makeRequirementViolation } from '@domain/equipment/types'
-import { Effect, Schema } from 'effect'
+import { Effect, Match, Schema } from 'effect'
 
 export type EquipmentSlotLiteral =
   | 'main_hand'
@@ -34,10 +34,9 @@ export const EquipmentSlotSchema = Schema.Literal(...equipmentSlotLiterals).pipe
 
 export type EquipmentSlot = Schema.Schema.Type<typeof EquipmentSlotSchema>
 
-const decodeSlot = Schema.decodeUnknownSync(EquipmentSlotSchema)
-const encodeSlot = Schema.encodeSync(EquipmentSlotSchema)
+const toSlot = (literal: EquipmentSlotLiteral): EquipmentSlot => literal as EquipmentSlot
 
-export const allSlots: ReadonlyArray<EquipmentSlot> = equipmentSlotLiterals.map((literal) => decodeSlot(literal))
+export const allSlots: ReadonlyArray<EquipmentSlot> = equipmentSlotLiterals.map(toSlot)
 
 export type SlotCategory =
   | { readonly _tag: 'Hand'; readonly dominance: 'main' | 'off' }
@@ -57,7 +56,7 @@ const slotCategoryTable: Record<EquipmentSlotLiteral, SlotCategory> = {
   belt: { _tag: 'Accessory', type: 'belt' },
 }
 
-const toLiteral = (slot: EquipmentSlot): EquipmentSlotLiteral => encodeSlot(slot)
+const toLiteral = (slot: EquipmentSlot): EquipmentSlotLiteral => slot as EquipmentSlotLiteral
 
 export const getSlotCategory = (slot: EquipmentSlot): Effect.Effect<SlotCategory> =>
   Effect.succeed(slotCategoryTable[toLiteral(slot)])
@@ -68,15 +67,12 @@ export const ensureSlotAllowed = (
 ): Effect.Effect<EquipmentSlot, EquipmentDomainError> => {
   const literal = toLiteral(slot)
   const category = slotCategoryTable[literal]
-  const ok = (() => {
-    if (category._tag === 'Hand') {
-      return tag.startsWith('weapon') || tag.startsWith('tool')
-    }
-    if (category._tag === 'Armor') {
-      return tag.startsWith('armor')
-    }
-    return tag.startsWith('accessory') || tag.startsWith('trinket')
-  })()
+  const ok = Match.value(category).pipe(
+    Match.tag('Hand', () => tag.startsWith('weapon') || tag.startsWith('tool')),
+    Match.tag('Armor', () => tag.startsWith('armor')),
+    Match.tag('Accessory', () => tag.startsWith('accessory') || tag.startsWith('trinket')),
+    Match.exhaustive
+  )
 
   return ok
     ? Effect.succeed(slot)

@@ -1,4 +1,4 @@
-import { Effect, Array as EffectArray, Match, pipe, Schema } from 'effect'
+import { Effect, Array as EffectArray, Match, Option, pipe, ReadonlyArray, Schema } from 'effect'
 import {
   CustomModelDataSchema,
   DisplayNameSchema,
@@ -147,24 +147,28 @@ export const addEnchantment = (
   Effect.gen(function* () {
     const currentEnchantments = metadata.enchantments ?? []
 
-    // 既存のエンチャントと競合をチェック
-    const conflictingEnchantment = currentEnchantments.find((existing) =>
+    // 競合エンチャント検出
+    const conflictingEnchantment = ReadonlyArray.findFirst(currentEnchantments, (existing) =>
       isEnchantmentConflicting(existing.id, enchantment.id)
     )
 
-    if (conflictingEnchantment) {
-      return yield* Effect.fail(
-        ItemMetadataError.ConflictingEnchantments({
-          enchantment1: conflictingEnchantment.id,
+    // バリデーション: 競合エンチャントが存在しないこと
+    yield* Effect.succeed(conflictingEnchantment).pipe(
+      Effect.filterOrFail(Option.isNone, () => {
+        const conflict = Option.getOrThrow(conflictingEnchantment)
+        return ItemMetadataError.ConflictingEnchantments({
+          enchantment1: conflict.id,
           enchantment2: enchantment.id,
         })
-      )
-    }
+      })
+    )
 
-    // 同じエンチャントが既に存在する場合は置き換え
-    const updatedEnchantments = currentEnchantments
-      .filter((existing) => existing.id !== enchantment.id)
-      .concat([enchantment])
+    // 同じエンチャントを置き換え
+    const updatedEnchantments = pipe(
+      currentEnchantments,
+      ReadonlyArray.filter((existing) => existing.id !== enchantment.id),
+      ReadonlyArray.append(enchantment)
+    )
 
     return yield* createItemMetadata({
       ...metadata,
@@ -482,28 +486,22 @@ export const executeMetadataOperation = (
 export const getEnchantmentEffect = (enchantment: Enchantment): EnchantmentEffect => {
   const { id, level } = enchantment
 
-  switch (id) {
-    case 'minecraft:sharpness':
-      return EnchantmentEffect.Sharpness({ damageBonus: level * 0.5 })
-    case 'minecraft:protection':
-      return EnchantmentEffect.Protection({ type: 'all' })
-    case 'minecraft:efficiency':
-      return EnchantmentEffect.Efficiency({ speedMultiplier: 1 + level * 0.3 })
-    case 'minecraft:fortune':
-      return EnchantmentEffect.Fortune({ dropMultiplier: 1 + level * 0.5 })
-    case 'minecraft:silk_touch':
-      return EnchantmentEffect.SilkTouch({})
-    case 'minecraft:unbreaking':
-      return EnchantmentEffect.Unbreaking({ durabilityMultiplier: 1 + level / 3 })
-    case 'minecraft:mending':
-      return EnchantmentEffect.Mending({})
-    case 'minecraft:infinity':
-      return EnchantmentEffect.Infinity({})
-    default:
-      return EnchantmentEffect.Custom({
+  return pipe(
+    Match.value(id),
+    Match.when('minecraft:sharpness', () => EnchantmentEffect.Sharpness({ damageBonus: level * 0.5 })),
+    Match.when('minecraft:protection', () => EnchantmentEffect.Protection({ type: 'all' })),
+    Match.when('minecraft:efficiency', () => EnchantmentEffect.Efficiency({ speedMultiplier: 1 + level * 0.3 })),
+    Match.when('minecraft:fortune', () => EnchantmentEffect.Fortune({ dropMultiplier: 1 + level * 0.5 })),
+    Match.when('minecraft:silk_touch', () => EnchantmentEffect.SilkTouch({})),
+    Match.when('minecraft:unbreaking', () => EnchantmentEffect.Unbreaking({ durabilityMultiplier: 1 + level / 3 })),
+    Match.when('minecraft:mending', () => EnchantmentEffect.Mending({})),
+    Match.when('minecraft:infinity', () => EnchantmentEffect.Infinity({})),
+    Match.orElse(() =>
+      EnchantmentEffect.Custom({
         name: id,
         description: `Custom enchantment: ${id}`,
         effect: { level },
       })
-  }
+    )
+  )
 }

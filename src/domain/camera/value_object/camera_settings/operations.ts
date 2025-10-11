@@ -1,4 +1,4 @@
-import { Brand, Effect, pipe, Schema } from 'effect'
+import { Brand, Effect, Match, pipe, Schema } from 'effect'
 import {
   AspectRatio,
   AspectRatioSchema,
@@ -408,13 +408,26 @@ export const QualityPresets = {
   /**
    * 設定からプリセットを推定
    */
-  detectPreset: (settings: CameraSettings): QualityPreset => {
-    if (settings.qualityLevel <= 1 && settings.renderDistance <= 4) return 'low'
-    if (settings.qualityLevel <= 3 && settings.renderDistance <= 8) return 'medium'
-    if (settings.qualityLevel <= 4 && settings.renderDistance <= 16) return 'high'
-    if (settings.qualityLevel >= 5 && settings.renderDistance >= 16) return 'ultra'
-    return 'custom'
-  },
+  detectPreset: (settings: CameraSettings): QualityPreset =>
+    Match.value(settings).pipe(
+      Match.when(
+        (s) => s.qualityLevel <= 1 && s.renderDistance <= 4,
+        () => 'low' as const
+      ),
+      Match.when(
+        (s) => s.qualityLevel <= 3 && s.renderDistance <= 8,
+        () => 'medium' as const
+      ),
+      Match.when(
+        (s) => s.qualityLevel <= 4 && s.renderDistance <= 16,
+        () => 'high' as const
+      ),
+      Match.when(
+        (s) => s.qualityLevel >= 5 && s.renderDistance >= 16,
+        () => 'ultra' as const
+      ),
+      Match.orElse(() => 'custom' as const)
+    ),
 }
 
 /**

@@ -1,4 +1,8 @@
-import { Clock, Data, Effect, Schema } from 'effect'
+import type { ErrorCause } from '@shared/schema/error'
+import { toErrorCause } from '@shared/schema/error'
+import type { JsonValue } from '@shared/schema/json'
+import { toJsonValue, type JsonSerializable } from '@shared/schema/json'
+import { Clock, Data, Effect, Match, pipe, Random, Schema } from 'effect'
 
 /**
  * Chunk Repository Domain - Error Types
@@ -31,14 +35,14 @@ export type RepositoryError = Data.TaggedEnum<{
   StorageError: {
     readonly operation: string
     readonly reason: string
-    readonly originalError: unknown
+    readonly originalError: ErrorCause
     readonly timestamp: number
   }
 
   /** バリデーションエラー */
   ValidationError: {
     readonly field: string
-    readonly value: unknown
+    readonly value: JsonValue
     readonly constraint: string
     readonly timestamp: number
   }
@@ -88,6 +92,9 @@ export const RepositoryError = Data.taggedEnum<RepositoryError>()
 
 // ===== Error Factory Functions ===== //
 
+type ErrorCauseInput = Error | JsonValue | { readonly message: string } | undefined | null
+type JsonValueInput = JsonSerializable | undefined
+
 /**
  * RepositoryError ファクトリ関数
  */
@@ -112,23 +119,23 @@ export const RepositoryErrors = {
       })
     }),
 
-  storage: (operation: string, reason: string, originalError?: unknown): Effect.Effect<RepositoryError> =>
+  storage: (operation: string, reason: string, originalError?: ErrorCauseInput): Effect.Effect<RepositoryError> =>
     Effect.gen(function* () {
       const timestamp = yield* Clock.currentTimeMillis
       return RepositoryError.StorageError({
         operation,
         reason,
-        originalError: originalError ?? 'Unknown error',
+        originalError: toErrorCause(originalError ?? 'Unknown error'),
         timestamp,
       })
     }),
 
-  validation: (field: string, value: unknown, constraint: string): Effect.Effect<RepositoryError> =>
+  validation: (field: string, value: JsonValueInput, constraint: string): Effect.Effect<RepositoryError> =>
     Effect.gen(function* () {
       const timestamp = yield* Clock.currentTimeMillis
       return RepositoryError.ValidationError({
         field,
-        value,
+        value: toJsonValue(value),
         constraint,
         timestamp,
       })
@@ -236,39 +243,30 @@ export const isResourceLimitError = (
 /**
  * エラー回復ユーティリティ
  */
-export const isRetryableError = (error: RepositoryError): boolean => {
-  switch (error._tag) {
-    case 'NetworkError':
-    case 'TimeoutError':
-    case 'StorageError':
-      return true
-    case 'ChunkNotFound':
-    case 'DuplicateChunk':
-    case 'ValidationError':
-    case 'DataIntegrityError':
-    case 'PermissionError':
-    case 'ResourceLimitError':
-      return false
-    default:
-      return false
-  }
-}
+export const isRetryableError = (error: RepositoryError): boolean =>
+  pipe(
+    Match.value(error),
+    Match.tag('NetworkError', () => true),
+    Match.tag('TimeoutError', () => true),
+    Match.tag('StorageError', () => true),
+    Match.orElse(() => false)
+  )
 
-export const isTransientError = (error: RepositoryError): boolean => {
-  switch (error._tag) {
-    case 'NetworkError':
-    case 'TimeoutError':
-      return true
-    default:
-      return false
-  }
-}
+export const isTransientError = (error: RepositoryError): boolean =>
+  pipe(
+    Match.value(error),
+    Match.tag('NetworkError', () => true),
+    Match.tag('TimeoutError', () => true),
+    Match.orElse(() => false)
+  )
 
-export const getRetryDelay = (error: RepositoryError, attempt: number): number => {
-  if (!isRetryableError(error)) return 0
-
-  // Exponential backoff with jitter
-  const baseDelay = Math.min(1000 * Math.pow(2, attempt), 30000)
-  const jitter = Math.random() * 0.1 * baseDelay
-  return baseDelay + jitter
-}
+export const getRetryDelay = (error: RepositoryError, attempt: number): Effect.Effect<number> =>
+  isRetryableError(error)
+    ? Effect.gen(function* () {
+        // Exponential backoff with jitter（Random Serviceを使用）
+        const baseDelay = Math.min(1000 * Math.pow(2, attempt), 30000)
+        const jitterFactor = yield* Random.nextIntBetween(0, 100)
+        const jitter = (jitterFactor / 1000) * baseDelay // 0~10%のjitter
+        return baseDelay + jitter
+      })
+    : Effect.succeed(0)

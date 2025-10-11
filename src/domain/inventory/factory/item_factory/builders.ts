@@ -8,6 +8,7 @@
 import { Effect, Function, Match, Option, pipe } from 'effect'
 import * as RA from 'effect/Array'
 import type { ItemId } from '../../types'
+import { ItemCategorySchema, ItemQualitySchema, ItemRaritySchema } from '../../types/item_enums'
 import { ItemFactoryLive } from './factory'
 import type {
   EnchantmentDefinition,
@@ -15,8 +16,6 @@ import type {
   ItemBuilderConfig,
   ItemBuilderFactory,
   ItemCategory,
-  ItemQuality,
-  ItemRarity,
   ItemValidationError,
 } from './interface'
 import { ItemCreationError as CreationError, ItemValidationError as ValidationError } from './interface'
@@ -29,89 +28,89 @@ const getCategoryDefaultConfig = (category: ItemCategory): ItemBuilderConfig =>
     category,
     Match.value,
     Match.when('tool', () => ({
-      category: 'tool' as ItemCategory,
+      category: ItemCategorySchema.make('tool'),
       stackable: false,
       maxStackSize: 1,
       durability: 1.0,
       maxDurability: 100,
-      quality: 'common' as ItemQuality,
-      rarity: 'common' as ItemRarity,
+      quality: ItemQualitySchema.make('common'),
+      rarity: ItemRaritySchema.make('common'),
       count: 1,
     })),
     Match.when('weapon', () => ({
-      category: 'weapon' as ItemCategory,
+      category: ItemCategorySchema.make('weapon'),
       stackable: false,
       maxStackSize: 1,
       durability: 1.0,
       maxDurability: 150,
-      quality: 'common' as ItemQuality,
-      rarity: 'common' as ItemRarity,
+      quality: ItemQualitySchema.make('common'),
+      rarity: ItemRaritySchema.make('common'),
       count: 1,
     })),
     Match.when('armor', () => ({
-      category: 'armor' as ItemCategory,
+      category: ItemCategorySchema.make('armor'),
       stackable: false,
       maxStackSize: 1,
       durability: 1.0,
       maxDurability: 200,
-      quality: 'common' as ItemQuality,
-      rarity: 'common' as ItemRarity,
+      quality: ItemQualitySchema.make('common'),
+      rarity: ItemRaritySchema.make('common'),
       count: 1,
     })),
     Match.when('food', () => ({
-      category: 'food' as ItemCategory,
+      category: ItemCategorySchema.make('food'),
       stackable: true,
       maxStackSize: 16,
-      quality: 'common' as ItemQuality,
-      rarity: 'common' as ItemRarity,
+      quality: ItemQualitySchema.make('common'),
+      rarity: ItemRaritySchema.make('common'),
       count: 1,
     })),
     Match.when('block', () => ({
-      category: 'block' as ItemCategory,
+      category: ItemCategorySchema.make('block'),
       stackable: true,
       maxStackSize: 64,
-      quality: 'common' as ItemQuality,
-      rarity: 'common' as ItemRarity,
+      quality: ItemQualitySchema.make('common'),
+      rarity: ItemRaritySchema.make('common'),
       count: 1,
     })),
     Match.when('resource', () => ({
-      category: 'resource' as ItemCategory,
+      category: ItemCategorySchema.make('resource'),
       stackable: true,
       maxStackSize: 64,
-      quality: 'common' as ItemQuality,
-      rarity: 'common' as ItemRarity,
+      quality: ItemQualitySchema.make('common'),
+      rarity: ItemRaritySchema.make('common'),
       count: 1,
     })),
     Match.when('consumable', () => ({
-      category: 'consumable' as ItemCategory,
+      category: ItemCategorySchema.make('consumable'),
       stackable: true,
       maxStackSize: 8,
-      quality: 'common' as ItemQuality,
-      rarity: 'common' as ItemRarity,
+      quality: ItemQualitySchema.make('common'),
+      rarity: ItemRaritySchema.make('common'),
       count: 1,
     })),
     Match.when('redstone', () => ({
-      category: 'redstone' as ItemCategory,
+      category: ItemCategorySchema.make('redstone'),
       stackable: true,
       maxStackSize: 64,
-      quality: 'common' as ItemQuality,
-      rarity: 'common' as ItemRarity,
+      quality: ItemQualitySchema.make('common'),
+      rarity: ItemRaritySchema.make('common'),
       count: 1,
     })),
     Match.when('decoration', () => ({
-      category: 'decoration' as ItemCategory,
+      category: ItemCategorySchema.make('decoration'),
       stackable: true,
       maxStackSize: 64,
-      quality: 'common' as ItemQuality,
-      rarity: 'common' as ItemRarity,
+      quality: ItemQualitySchema.make('common'),
+      rarity: ItemRaritySchema.make('common'),
       count: 1,
     })),
     Match.when('misc', () => ({
-      category: 'misc' as ItemCategory,
+      category: ItemCategorySchema.make('misc'),
       stackable: true,
       maxStackSize: 64,
-      quality: 'common' as ItemQuality,
-      rarity: 'common' as ItemRarity,
+      quality: ItemQualitySchema.make('common'),
+      rarity: ItemRaritySchema.make('common'),
       count: 1,
     })),
     Match.exhaustive
@@ -143,7 +142,7 @@ const validateBuilderConfig = (config: ItemBuilderConfig): Effect.Effect<void, I
       onEmpty: () => Effect.void,
       onNonEmpty: (issues) =>
         Effect.fail(
-          new ValidationError({
+          ValidationError.make({
             reason: 'Builder configuration validation failed',
             missingFields: [...issues],
             context: { config },
@@ -234,7 +233,7 @@ const makeBuilder = (config: ItemBuilderConfig): ItemBuilder => {
             Option.match({
               onNone: () =>
                 Effect.fail(
-                  new CreationError({
+                  CreationError.make({
                     reason: 'Missing required fields for build',
                     invalidFields: ['itemId'],
                     context: { config },

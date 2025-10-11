@@ -3,8 +3,13 @@
  * DDD原則に基づく集約境界とビジネスルール
  */
 
+import { JsonValueSchema } from '@shared/schema/json'
+import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
 import { Schema } from 'effect'
+import { unsafeCoerce } from 'effect/Function'
 import type { ItemId, PlayerId } from '../../types'
+import { ItemIdSchema, PlayerIdSchema } from '../../types'
+import { ItemStackEntitySchema, ItemStackIdSchema } from '../item_stack'
 
 // ===== Brand Types =====
 
@@ -21,6 +26,13 @@ export const ContainerSlotIndexSchema = Schema.Number.pipe(
   Schema.brand('ContainerSlotIndex')
 )
 export type ContainerSlotIndex = Schema.Schema.Type<typeof ContainerSlotIndexSchema>
+
+// ===== makeUnsafe Functions =====
+
+export const makeUnsafeContainerId = (value: string): ContainerId => unsafeCoerce<string, ContainerId>(value)
+
+export const makeUnsafeContainerSlotIndex = (value: number): ContainerSlotIndex =>
+  unsafeCoerce<number, ContainerSlotIndex>(value)
 
 // ===== Enums and Literals =====
 
@@ -58,25 +70,21 @@ export type WorldPosition = Schema.Schema.Type<typeof WorldPositionSchema>
 export const ContainerSlotSchema = Schema.Union(
   Schema.Null,
   Schema.Struct({
-    itemStack: Schema.suspend(() => import('../item_stack/index').then((m) => m.ItemStackEntitySchema)),
+    itemStack: Schema.suspend(() => ItemStackEntitySchema),
     locked: Schema.optional(Schema.Boolean),
-    metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
+    metadata: Schema.optional(Schema.Record({ key: Schema.String, value: JsonValueSchema })),
   })
 )
 export type ContainerSlot = Schema.Schema.Type<typeof ContainerSlotSchema>
 
 export const ContainerConfigurationSchema = Schema.Struct({
   maxSlots: Schema.Number.pipe(Schema.int(), Schema.positive()),
-  allowedItemTypes: Schema.optional(
-    Schema.Array(Schema.suspend(() => import('../../types/index').then((m) => m.ItemIdSchema)))
-  ),
-  restrictedItemTypes: Schema.optional(
-    Schema.Array(Schema.suspend(() => import('../../types/index').then((m) => m.ItemIdSchema)))
-  ),
+  allowedItemTypes: Schema.optional(Schema.Array(Schema.suspend(() => ItemIdSchema))),
+  restrictedItemTypes: Schema.optional(Schema.Array(Schema.suspend(() => ItemIdSchema))),
   slotFilters: Schema.optional(
     Schema.Record({
-      key: ContainerSlotIndexSchema,
-      value: Schema.Array(Schema.suspend(() => import('../../types/index').then((m) => m.ItemIdSchema))),
+      key: Schema.String,
+      value: Schema.Array(Schema.suspend(() => ItemIdSchema)),
     })
   ),
   autoSort: Schema.optional(Schema.Boolean),
@@ -86,7 +94,7 @@ export const ContainerConfigurationSchema = Schema.Struct({
 export type ContainerConfiguration = Schema.Schema.Type<typeof ContainerConfigurationSchema>
 
 export const ContainerPermissionSchema = Schema.Struct({
-  playerId: Schema.suspend(() => import('../../types/index').then((m) => m.PlayerIdSchema)),
+  playerId: Schema.suspend(() => PlayerIdSchema),
   canView: Schema.Boolean,
   canInsert: Schema.Boolean,
   canExtract: Schema.Boolean,
@@ -101,7 +109,7 @@ export const ContainerAggregateSchema = Schema.Struct({
   // 集約ルート識別子
   id: ContainerIdSchema,
   type: ContainerTypeSchema,
-  ownerId: Schema.suspend(() => import('../../types/index').then((m) => m.PlayerIdSchema)),
+  ownerId: Schema.suspend(() => PlayerIdSchema),
 
   // 位置情報
   position: WorldPositionSchema,
@@ -118,7 +126,7 @@ export const ContainerAggregateSchema = Schema.Struct({
 
   // 状態管理
   isOpen: Schema.Boolean,
-  currentViewers: Schema.Array(Schema.suspend(() => import('../../types/index').then((m) => m.PlayerIdSchema))),
+  currentViewers: Schema.Array(Schema.suspend(() => PlayerIdSchema)),
 
   // 集約メタデータ
   version: Schema.Number.pipe(Schema.int(), Schema.positive()),
@@ -137,7 +145,7 @@ export type ContainerAggregate = Schema.Schema.Type<typeof ContainerAggregateSch
 export const ContainerOpenedEventSchema = Schema.Struct({
   type: Schema.Literal('ContainerOpened'),
   aggregateId: ContainerIdSchema,
-  playerId: Schema.suspend(() => import('../../types/index').then((m) => m.PlayerIdSchema)),
+  playerId: Schema.suspend(() => PlayerIdSchema),
   containerType: ContainerTypeSchema,
   position: WorldPositionSchema,
   timestamp: Schema.DateTimeUtc,
@@ -146,7 +154,7 @@ export const ContainerOpenedEventSchema = Schema.Struct({
 export const ContainerClosedEventSchema = Schema.Struct({
   type: Schema.Literal('ContainerClosed'),
   aggregateId: ContainerIdSchema,
-  playerId: Schema.suspend(() => import('../../types/index').then((m) => m.PlayerIdSchema)),
+  playerId: Schema.suspend(() => PlayerIdSchema),
   containerType: ContainerTypeSchema,
   sessionDuration: Schema.Number.pipe(Schema.positive()),
   timestamp: Schema.DateTimeUtc,
@@ -155,22 +163,22 @@ export const ContainerClosedEventSchema = Schema.Struct({
 export const ItemPlacedInContainerEventSchema = Schema.Struct({
   type: Schema.Literal('ItemPlacedInContainer'),
   aggregateId: ContainerIdSchema,
-  playerId: Schema.suspend(() => import('../../types/index').then((m) => m.PlayerIdSchema)),
+  playerId: Schema.suspend(() => PlayerIdSchema),
   slotIndex: ContainerSlotIndexSchema,
-  itemId: Schema.suspend(() => import('../../types/index').then((m) => m.ItemIdSchema)),
+  itemId: Schema.suspend(() => ItemIdSchema),
   quantity: Schema.Number.pipe(Schema.int(), Schema.positive()),
-  itemStackId: Schema.suspend(() => import('../item_stack/index').then((m) => m.ItemStackIdSchema)),
+  itemStackId: Schema.suspend(() => ItemStackIdSchema),
   timestamp: Schema.DateTimeUtc,
 })
 
 export const ItemRemovedFromContainerEventSchema = Schema.Struct({
   type: Schema.Literal('ItemRemovedFromContainer'),
   aggregateId: ContainerIdSchema,
-  playerId: Schema.suspend(() => import('../../types/index').then((m) => m.PlayerIdSchema)),
+  playerId: Schema.suspend(() => PlayerIdSchema),
   slotIndex: ContainerSlotIndexSchema,
-  itemId: Schema.suspend(() => import('../../types/index').then((m) => m.ItemIdSchema)),
+  itemId: Schema.suspend(() => ItemIdSchema),
   quantity: Schema.Number.pipe(Schema.int(), Schema.positive()),
-  itemStackId: Schema.suspend(() => import('../item_stack/index').then((m) => m.ItemStackIdSchema)),
+  itemStackId: Schema.suspend(() => ItemStackIdSchema),
   timestamp: Schema.DateTimeUtc,
   reason: Schema.Literal('extracted', 'consumed', 'hopper', 'automation'),
 })
@@ -178,7 +186,7 @@ export const ItemRemovedFromContainerEventSchema = Schema.Struct({
 export const ContainerSortedEventSchema = Schema.Struct({
   type: Schema.Literal('ContainerSorted'),
   aggregateId: ContainerIdSchema,
-  playerId: Schema.suspend(() => import('../../types/index').then((m) => m.PlayerIdSchema)),
+  playerId: Schema.suspend(() => PlayerIdSchema),
   sortType: Schema.Literal('alphabetical', 'quantity', 'type', 'custom'),
   affectedSlots: Schema.Array(ContainerSlotIndexSchema),
   timestamp: Schema.DateTimeUtc,
@@ -187,8 +195,8 @@ export const ContainerSortedEventSchema = Schema.Struct({
 export const ContainerPermissionGrantedEventSchema = Schema.Struct({
   type: Schema.Literal('ContainerPermissionGranted'),
   aggregateId: ContainerIdSchema,
-  ownerId: Schema.suspend(() => import('../../types/index').then((m) => m.PlayerIdSchema)),
-  grantedTo: Schema.suspend(() => import('../../types/index').then((m) => m.PlayerIdSchema)),
+  ownerId: Schema.suspend(() => PlayerIdSchema),
+  grantedTo: Schema.suspend(() => PlayerIdSchema),
   permission: ContainerPermissionSchema,
   timestamp: Schema.DateTimeUtc,
 })
@@ -271,97 +279,101 @@ export const CONTAINER_SLOT_CONFIGURATIONS = {
 
 // ===== Error Types =====
 
-export const ContainerErrorSchema = Schema.TaggedError('ContainerError')(
-  Schema.Struct({
-    reason: Schema.Literal(
-      'CONTAINER_NOT_FOUND',
-      'ACCESS_DENIED',
-      'SLOT_OCCUPIED',
-      'SLOT_EMPTY',
-      'INVALID_SLOT_INDEX',
-      'CONTAINER_FULL',
-      'INVALID_ITEM_TYPE',
-      'PERMISSION_EXPIRED',
-      'TOO_MANY_VIEWERS',
-      'CONTAINER_LOCKED',
-      'INVALID_CONFIGURATION'
-    ),
-    message: Schema.String,
-    containerId: Schema.optional(ContainerIdSchema),
-    playerId: Schema.optional(Schema.suspend(() => import('../../types/index').then((m) => m.PlayerIdSchema))),
-    slotIndex: Schema.optional(ContainerSlotIndexSchema),
-    itemId: Schema.optional(Schema.suspend(() => import('../../types/index').then((m) => m.ItemIdSchema))),
-    metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
-  })
-)
+export const ContainerErrorSchema = Schema.TaggedError('ContainerError', {
+  reason: Schema.Literal(
+    'CONTAINER_NOT_FOUND',
+    'ACCESS_DENIED',
+    'SLOT_OCCUPIED',
+    'SLOT_EMPTY',
+    'INVALID_SLOT_INDEX',
+    'CONTAINER_FULL',
+    'INVALID_ITEM_TYPE',
+    'PERMISSION_EXPIRED',
+    'TOO_MANY_VIEWERS',
+    'CONTAINER_LOCKED',
+    'INVALID_CONFIGURATION'
+  ),
+  message: Schema.String,
+  containerId: Schema.optional(ContainerIdSchema),
+  playerId: Schema.optional(Schema.suspend(() => PlayerIdSchema)),
+  slotIndex: Schema.optional(ContainerSlotIndexSchema),
+  itemId: Schema.optional(Schema.suspend(() => ItemIdSchema)),
+  metadata: Schema.optional(Schema.Record({ key: Schema.String, value: JsonValueSchema })),
+  issues: Schema.optional(Schema.Array(Schema.String)),
+  originalError: Schema.optional(Schema.Unknown),
+})
 
-export class ContainerError extends Schema.TaggedError('ContainerError')<{
-  readonly reason: typeof ContainerErrorSchema.Type.reason
-  readonly message: string
-  readonly containerId?: ContainerId
-  readonly playerId?: PlayerId
-  readonly slotIndex?: ContainerSlotIndex
-  readonly itemId?: ItemId
-  readonly metadata?: Record<string, unknown>
-}> {
-  static accessDenied(containerId: ContainerId, playerId: PlayerId): ContainerError {
-    return new ContainerError({
+export type ContainerError = Schema.Schema.Type<typeof ContainerErrorSchema>
+
+export const ContainerError = {
+  ...makeErrorFactory(ContainerErrorSchema),
+
+  accessDenied: (containerId: ContainerId, playerId: PlayerId): ContainerError =>
+    ContainerErrorSchema.make({
       reason: 'ACCESS_DENIED',
       message: `プレイヤー${playerId}はコンテナ${containerId}にアクセスできません`,
       containerId,
       playerId,
-    })
-  }
+    }),
 
-  static slotOccupied(containerId: ContainerId, slotIndex: ContainerSlotIndex): ContainerError {
-    return new ContainerError({
+  slotOccupied: (containerId: ContainerId, slotIndex: ContainerSlotIndex): ContainerError =>
+    ContainerErrorSchema.make({
       reason: 'SLOT_OCCUPIED',
       message: `スロット${slotIndex}は既に占有されています`,
       containerId,
       slotIndex,
-    })
-  }
+    }),
 
-  static slotEmpty(containerId: ContainerId, slotIndex: ContainerSlotIndex): ContainerError {
-    return new ContainerError({
+  slotEmpty: (containerId: ContainerId, slotIndex: ContainerSlotIndex): ContainerError =>
+    ContainerErrorSchema.make({
       reason: 'SLOT_EMPTY',
       message: `スロット${slotIndex}は空です`,
       containerId,
       slotIndex,
-    })
-  }
+    }),
 
-  static containerFull(containerId: ContainerId): ContainerError {
-    return new ContainerError({
+  containerFull: (containerId: ContainerId): ContainerError =>
+    ContainerErrorSchema.make({
       reason: 'CONTAINER_FULL',
       message: `コンテナ${containerId}は満杯です`,
       containerId,
-    })
-  }
+    }),
 
-  static invalidSlotIndex(containerId: ContainerId, slotIndex: number): ContainerError {
-    return new ContainerError({
+  invalidSlotIndex: (containerId: ContainerId, slotIndex: number): ContainerError =>
+    ContainerErrorSchema.make({
       reason: 'INVALID_SLOT_INDEX',
       message: `不正なスロットインデックス: ${slotIndex}`,
       containerId,
-      slotIndex: slotIndex as ContainerSlotIndex,
-    })
-  }
+      slotIndex: makeUnsafeContainerSlotIndex(slotIndex),
+    }),
 
-  static tooManyViewers(containerId: ContainerId): ContainerError {
-    return new ContainerError({
+  tooManyViewers: (containerId: ContainerId): ContainerError =>
+    ContainerErrorSchema.make({
       reason: 'TOO_MANY_VIEWERS',
       message: `コンテナ${containerId}の視聴者数が上限に達しています`,
       containerId,
-    })
-  }
+    }),
 
-  static invalidItemType(containerId: ContainerId, itemId: ItemId): ContainerError {
-    return new ContainerError({
+  invalidItemType: (containerId: ContainerId, itemId: ItemId): ContainerError =>
+    ContainerErrorSchema.make({
       reason: 'INVALID_ITEM_TYPE',
       message: `アイテム${itemId}はこのコンテナに配置できません`,
       containerId,
       itemId,
-    })
-  }
-}
+    }),
+
+  permissionExpired: (containerId: ContainerId, playerId: PlayerId): ContainerError =>
+    ContainerErrorSchema.make({
+      reason: 'PERMISSION_EXPIRED',
+      message: `プレイヤー${playerId}のコンテナ${containerId}へのアクセス権限が期限切れです`,
+      containerId,
+      playerId,
+    }),
+
+  containerLocked: (containerId: ContainerId): ContainerError =>
+    ContainerErrorSchema.make({
+      reason: 'CONTAINER_LOCKED',
+      message: `コンテナ${containerId}はロックされています`,
+      containerId,
+    }),
+} as const

@@ -2,7 +2,7 @@ import type { BlockTypeId } from '@domain/entities'
 import type { FluidPhysicsResult, FluidType } from '@domain/physics/types'
 import { Effect, Match, pipe } from 'effect'
 import type { Vector3 } from '../../world/types'
-import { PHYSICS_CONSTANTS } from '../types/constants'
+import { PHYSICS_CONSTANTS } from '../constant'
 
 /**
  * 流体物理システム

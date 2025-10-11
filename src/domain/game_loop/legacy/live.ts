@@ -4,26 +4,29 @@ import { pipe } from 'effect/Function'
 import * as Layer from 'effect/Layer'
 import * as Match from 'effect/Match'
 import * as Option from 'effect/Option'
+import * as ParseResult from 'effect/ParseResult'
 import * as Schema from 'effect/Schema'
 import * as SynchronizedRef from 'effect/SynchronizedRef'
 
-import {
-  DefaultGameLoopConfig,
+import type {
   FrameCount,
-  FrameCountSchema,
   FrameDuration,
-  FrameDurationSchema,
   FrameId,
-  FrameIdSchema,
   FramesPerSecond,
   GameLoopConfig,
   GameLoopState,
+  PerformanceMetrics,
+  Timestamp,
+} from '../types'
+import {
+  DefaultGameLoopConfig,
+  FrameCountSchema,
+  FrameDurationSchema,
+  FrameIdSchema,
   GameLoopStateSchema,
   InitializationError,
-  PerformanceMetrics,
   RuntimeCallbackError,
   StateTransitionError,
-  Timestamp,
   currentTimestamp,
   effectFromEither,
   fpsToNumber,
@@ -56,14 +59,10 @@ interface InternalState {
   readonly callbacks: ReadonlyArray<FrameCallback>
 }
 
-const idleState = Schema.decodeSync(GameLoopStateSchema)('idle')
-const runningState = Schema.decodeSync(GameLoopStateSchema)('running')
-const pausedState = Schema.decodeSync(GameLoopStateSchema)('paused')
-const stoppedState = Schema.decodeSync(GameLoopStateSchema)('stopped')
-
-const zeroFrameCount = Schema.decodeSync(FrameCountSchema)(0)
-const zeroDelta = Schema.decodeSync(FrameDurationSchema)(0)
-const zeroFrameId = Schema.decodeSync(FrameIdSchema)('frame_0')
+const idleState = 'idle'
+const runningState = 'running'
+const pausedState = 'paused'
+const stoppedState = 'stopped'
 
 const deriveMetrics = (state: InternalState): PerformanceMetrics => ({
   averageFps: state.currentFps,
@@ -73,12 +72,12 @@ const deriveMetrics = (state: InternalState): PerformanceMetrics => ({
 })
 
 const parseErrorToInitialization = (error: Schema.ParseError): InitializationError =>
-  InitializationError({ reason: Schema.formatError(error) })
+  InitializationError({ reason: ParseResult.TreeFormatter.formatErrorSync(error) })
 
 const parseErrorToRuntime = (id: string, error: Schema.ParseError, at: Timestamp): RuntimeCallbackError =>
   toRuntimeCallbackError({
     callbackId: id,
-    causeMessage: Schema.formatError(error),
+    causeMessage: ParseResult.TreeFormatter.formatErrorSync(error),
     occurredAt: at,
   })
 
@@ -110,6 +109,10 @@ const makeFrameIdentifier = (count: FrameCount): Either.Either<Schema.ParseError
 export const GameLoopServiceLive: Layer.Layer<GameLoopService> = Layer.scoped(
   GameLoopServiceTag,
   Effect.gen(function* () {
+    const zeroFrameCount = yield* effectFromEither(makeFrameCount(0))
+    const zeroDelta = yield* effectFromEither(makeFrameDuration(0))
+    const zeroFrameId = yield* effectFromEither(makeFrameId(0))
+
     const initialState: InternalState = {
       config: DefaultGameLoopConfig,
       status: idleState,

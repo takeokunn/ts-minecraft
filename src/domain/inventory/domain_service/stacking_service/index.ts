@@ -6,7 +6,7 @@
  */
 
 // Service Interface and Implementation
-export { StackOptimizationError, StackingError, StackingService, StackingServiceLive } from './service'
+export { StackOptimizationError, StackingError, StackingService } from './service'
 export type {
   MetadataConflict,
   MetadataResolutionStrategy,

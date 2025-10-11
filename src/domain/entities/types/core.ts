@@ -1,59 +1,20 @@
 import { Schema } from 'effect'
 
+import { JsonValueSchema } from '@shared/schema/json'
+
 const nonEmptyText = Schema.String.pipe(Schema.minLength(1))
 
 // -----------------------------------------------------------------------------
 // Branded Scalar Types
 // -----------------------------------------------------------------------------
 
-export const EntityIdSchema = nonEmptyText.pipe(
-  Schema.maxLength(64),
-  Schema.brand('EntityId'),
-  Schema.annotations({
-    title: 'EntityId',
-    description: 'Unique identifier for any entity',
-  })
-)
-export type EntityId = Schema.Schema.Type<typeof EntityIdSchema>
-
-export const PlayerIdSchema = nonEmptyText.pipe(
-  Schema.maxLength(64),
-  Schema.brand('PlayerId'),
-  Schema.annotations({
-    title: 'PlayerId',
-    description: 'Stable identifier for a player entity',
-  })
-)
-export type PlayerId = Schema.Schema.Type<typeof PlayerIdSchema>
-
-export const BlockIdSchema = nonEmptyText.pipe(
-  Schema.brand('BlockId'),
-  Schema.annotations({
-    title: 'BlockId',
-    description: 'Identifier for a block definition',
-  })
-)
-export type BlockId = Schema.Schema.Type<typeof BlockIdSchema>
-
-export const BlockTypeIdSchema = Schema.Number.pipe(
-  Schema.int(),
-  Schema.nonNegative(),
-  Schema.brand('BlockTypeId'),
-  Schema.annotations({
-    title: 'BlockTypeId',
-    description: 'Numeric identifier for a block type in registries',
-  })
-)
-export type BlockTypeId = Schema.Schema.Type<typeof BlockTypeIdSchema>
-
-export const ItemIdSchema = nonEmptyText.pipe(
-  Schema.brand('ItemId'),
-  Schema.annotations({
-    title: 'ItemId',
-    description: 'Identifier for items',
-  })
-)
-export type ItemId = Schema.Schema.Type<typeof ItemIdSchema>
+// 共有カーネルから再エクスポート
+export { BlockIdSchema, type BlockId } from '@domain/shared/entities/block_id'
+export { BlockTypeIdSchema, type BlockTypeId } from '@domain/shared/entities/block_type_id'
+export { EntityIdSchema, type EntityId } from '@domain/shared/entities/entity_id'
+export { ItemIdSchema, type ItemId } from '@domain/shared/entities/item_id'
+export { PlayerIdSchema, type PlayerId } from '@domain/shared/entities/player_id'
+export { WorldIdSchema, type WorldId } from '@domain/shared/entities/world_id'
 
 export const SessionIdSchema = nonEmptyText.pipe(
   Schema.brand('SessionId'),
@@ -63,15 +24,6 @@ export const SessionIdSchema = nonEmptyText.pipe(
   })
 )
 export type SessionId = Schema.Schema.Type<typeof SessionIdSchema>
-
-export const WorldIdSchema = nonEmptyText.pipe(
-  Schema.brand('WorldId'),
-  Schema.annotations({
-    title: 'WorldId',
-    description: 'Identifier for a world or dimension instance',
-  })
-)
-export type WorldId = Schema.Schema.Type<typeof WorldIdSchema>
 
 export const EntityCountSchema = Schema.Number.pipe(
   Schema.int(),
@@ -104,15 +56,8 @@ export const ComponentTypeNameSchema = nonEmptyText.pipe(
 )
 export type ComponentTypeName = Schema.Schema.Type<typeof ComponentTypeNameSchema>
 
-export const DeltaTimeSchema = Schema.Number.pipe(
-  Schema.nonNegative(),
-  Schema.brand('DeltaTime'),
-  Schema.annotations({
-    title: 'DeltaTime',
-    description: 'Simulation step in milliseconds',
-  })
-)
-export type DeltaTime = Schema.Schema.Type<typeof DeltaTimeSchema>
+// Re-export from units with alias
+export { MillisecondsSchema as DeltaTimeSchema, type Milliseconds as DeltaTime } from '../../shared/value_object/units'
 
 // -----------------------------------------------------------------------------
 // Spatial Types
@@ -204,7 +149,7 @@ export type PlayerAbilities = Schema.Schema.Type<typeof PlayerAbilitiesSchema>
 const EquipmentPieceSchema = Schema.Struct({
   slot: Schema.String,
   itemId: Schema.String,
-  metadata: Schema.optional(Schema.Unknown),
+  metadata: Schema.optional(JsonValueSchema),
 }).pipe(
   Schema.annotations({
     title: 'PlayerEquipmentPiece',
@@ -221,7 +166,7 @@ export const PlayerEquipmentSchema = Schema.Struct({
   id: Schema.String,
   ownerId: PlayerIdSchema,
   slots: EquipmentSlotsSchema,
-  metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
+  metadata: Schema.optional(Schema.Record({ key: Schema.String, value: JsonValueSchema })),
   version: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
   createdAt: Schema.Number,
   updatedAt: Schema.Number,
@@ -236,10 +181,10 @@ export type PlayerEquipment = Schema.Schema.Type<typeof PlayerEquipmentSchema>
 export const PlayerInventorySchema = Schema.Struct({
   id: Schema.String,
   ownerId: PlayerIdSchema,
-  slots: Schema.Array(Schema.optional(Schema.Unknown)),
+  slots: Schema.Array(Schema.optional(JsonValueSchema)),
   hotbar: Schema.Array(Schema.Number.pipe(Schema.int(), Schema.nonNegative())),
   selectedSlot: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
-  metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
+  metadata: Schema.optional(Schema.Record({ key: Schema.String, value: JsonValueSchema })),
   version: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
   createdAt: Schema.Number,
   updatedAt: Schema.Number,
@@ -313,6 +258,7 @@ export type PlayerUpdateData = Schema.Schema.Type<typeof PlayerUpdateDataSchema>
 // -----------------------------------------------------------------------------
 
 export const BrandedTypes = {
+  // DomainEntityId.makeUnsafe使用に移行推奨
   createEntityId: (value: string): EntityId => Schema.decodeSync(EntityIdSchema)(value),
   createPlayerId: (value: string): PlayerId => Schema.decodeSync(PlayerIdSchema)(value),
   createBlockId: (value: string): BlockId => Schema.decodeSync(BlockIdSchema)(value),
@@ -322,9 +268,11 @@ export const BrandedTypes = {
   createWorldId: (value: string): WorldId => Schema.decodeSync(WorldIdSchema)(value),
   createEntityCount: (value: number): EntityCount => Schema.decodeSync(EntityCountSchema)(value),
   createEntityCapacity: (value: number): EntityCapacity => Schema.decodeSync(EntityCapacitySchema)(value),
-  createComponentTypeName: (value: string): ComponentTypeName => Schema.decodeSync(ComponentTypeNameSchema)(value),
+  createComponentTypeName: (value: string): ComponentTypeName =>
+    Schema.decodeSync(ComponentTypeNameSchema)(value),
   createDeltaTime: (value: number): DeltaTime => Schema.decodeSync(DeltaTimeSchema)(value),
-  createVector3D: (x: number, y: number, z: number): Vector3D => Schema.decodeSync(Vector3Schema)({ x, y, z }),
+  createVector3D: (x: number, y: number, z: number): Vector3D =>
+    Schema.decodeSync(Vector3Schema)({ x, y, z }),
   createBlockPosition: (x: number, y: number, z: number): BlockPosition =>
     Schema.decodeSync(BlockPositionSchema)({ x, y, z }),
   createRotation: (pitch: number, yaw: number, roll: number = 0): Rotation =>

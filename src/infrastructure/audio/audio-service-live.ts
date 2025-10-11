@@ -1,4 +1,5 @@
 import type { Vector3D } from '@domain/entities/types'
+import { toErrorCause } from '@shared/schema/error'
 import {
   Clock,
   Duration,
@@ -116,7 +117,7 @@ const makeAudioService = Effect.gen(function* () {
           AudioLoadError({
             soundId,
             message: `Failed to fetch sound: ${error}`,
-            cause: error,
+            cause: toErrorCause(error),
           }),
       })
 
@@ -126,7 +127,7 @@ const makeAudioService = Effect.gen(function* () {
           AudioLoadError({
             soundId,
             message: `Failed to decode audio: ${error}`,
-            cause: error,
+            cause: toErrorCause(error),
           }),
       })
 
@@ -222,12 +223,14 @@ const makeAudioService = Effect.gen(function* () {
         Match.when(false, () =>
           Effect.sync(() => {
             positionalAudio.onEnded = () => {
-              Effect.runSync(
+              Effect.runPromise(
                 pipe(
                   Ref.update(activeSources, HashMap.remove(sourceId)),
                   Effect.zipRight(Queue.offer(eventQueue, finishedEvent))
                 )
-              )
+              ).catch((error) => {
+                console.error('Failed to handle audio end event:', error)
+              })
             }
           })
         ),
@@ -335,12 +338,14 @@ const makeAudioService = Effect.gen(function* () {
       yield* Effect.when(
         Effect.sync(() => {
           audio.onEnded = () => {
-            Effect.runSync(
+            Effect.runPromise(
               pipe(
                 Ref.update(activeSources, HashMap.remove(sourceId)),
                 Effect.zipRight(Queue.offer(eventQueue, finishedEvent))
               )
-            )
+            ).catch((error) => {
+              console.error('Failed to handle audio end event:', error)
+            })
           }
         }),
         () => shouldLoop === false

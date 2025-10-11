@@ -2,39 +2,69 @@
 // Error Types and Classes Export
 // ========================================
 
-// Error Classes (Schema.TaggedError)
-export {
-  CameraAnimationError,
-  CameraCollisionError,
-  CameraInitializationError,
-  CameraNotInitializedError,
-  CameraResourceError,
-  InvalidCameraModeError,
-  InvalidConfigurationError,
-  InvalidDistanceError,
-  InvalidFOVError,
-  InvalidParameterError,
-  InvalidPositionError,
-  InvalidRotationError,
-  InvalidSensitivityError,
-  PositionOutOfBoundsError,
-  RotationLimitExceededError,
-} from './errors.js'
+// Error ADTs (Data.taggedEnum)
+export { CameraError, PositionError, RotationError, SettingsError } from './errors'
 
 // Error Union Types
-export type { CameraDomainError, CameraError, PositionError, RotationError, SettingsError } from './errors.js'
+export type { CameraDomainError } from './errors'
 
 // Error Factory Functions
-export { createCameraError, createPositionError, createRotationError, createSettingsError } from './errors.js'
+export { createCameraError, createPositionError, createRotationError, createSettingsError } from './errors'
 
-// Error Schemas (placeholder - implement when needed)
-// export {
-//   CameraDomainErrorSchema,
-//   CameraErrorSchema,
-//   PositionErrorSchema,
-//   RotationErrorSchema,
-//   SettingsErrorSchema,
-// } from './errors.js'
+// ========================================
+// CQRS Types Export
+// ========================================
+
+export type {
+  CameraCommand,
+  GetCameraSnapshotQuery,
+  GetCameraStateQuery,
+  ListActiveCamerasQuery,
+  SwitchCameraModeCommand,
+  UpdateCameraPositionCommand,
+  UpdateCameraRotationCommand,
+  UpdateCameraSettingsCommand,
+} from './commands'
+
+export {
+  CameraCommandBaseSchema,
+  CameraCommandMetadataSchema,
+  CameraCommandSchema,
+  SwitchCameraModeCommandSchema,
+  UpdateCameraPositionCommandSchema,
+  UpdateCameraRotationCommandSchema,
+  UpdateCameraSettingsCommandSchema,
+  isCameraCommand,
+  validateCameraCommand,
+} from './commands'
+
+export {
+  CameraQueryMetadataSchema,
+  CameraQuerySchema,
+  GetCameraSnapshotQuerySchema,
+  GetCameraStateQuerySchema,
+  ListActiveCamerasQuerySchema,
+  isCameraQuery,
+  validateCameraQuery,
+} from './queries'
+
+export type { CameraQuery } from './queries'
+
+// ========================================
+// Camera View Types Export
+// ========================================
+
+export type { CameraOrientation, CameraProjection, CameraSnapshot, CameraTransform } from './camera_view'
+export {
+  CameraQuaternionSchema,
+  CameraOrientationSchema,
+  CameraProjectionSchema,
+  CameraSnapshotSchema,
+  CameraVector3Schema,
+  CameraTransformSchema,
+  makeCameraSync,
+} from './camera_view'
+export type { CameraProjectionBrand, CameraTransformBrand } from './camera_view'
 
 // ========================================
 // Constants and Brand Types Export
@@ -53,7 +83,7 @@ export type {
   Rotation2D,
   Sensitivity,
   YawAngle,
-} from './constants.js'
+} from './constants'
 
 // Constants
 export {
@@ -69,7 +99,7 @@ export {
   CAMERA_PRIORITY,
   CAMERA_STATE,
   VALID_CAMERA_MODES,
-} from './constants.js'
+} from './constants'
 
 // Type Guards
 export {
@@ -84,7 +114,7 @@ export {
   isValidRotation2D,
   isValidSensitivity,
   isValidYaw,
-} from './constants.js'
+} from './constants'
 
 // Validation Schemas
 export {
@@ -99,7 +129,7 @@ export {
   Rotation2DSchema,
   SensitivitySchema,
   YawAngleSchema,
-} from './constants.js'
+} from './constants'
 
 // Brand Type Factory Functions
 export {
@@ -113,17 +143,17 @@ export {
   createRotation2D,
   createSensitivity,
   createYawAngle,
-} from './constants.js'
+} from './constants'
 
 // Schema Factory Functions
-export { createBrandedNumberSchema } from './constants.js'
+export { createBrandedNumberSchema } from './constants'
 
 // ========================================
 // Events Export
 // ========================================
 
 // Event Types
-export type { AnimationState, CameraEvent, CameraId, CameraRotation, CameraSettings } from './constants'
+export type { AnimationState, CameraEvent, CameraId, CameraRotation, CameraSettings } from './events'
 
 // Event Schemas
 export {
@@ -132,10 +162,10 @@ export {
   CameraIdSchema,
   CameraRotationSchema,
   CameraSettingsSchema,
-} from './constants'
+} from './events'
 
 // Event Factory Functions
-export { createCameraEvent } from './constants'
+export { createCameraEvent } from './events'
 
 // Event Type Guards
 export {
@@ -146,29 +176,18 @@ export {
   isRotationUpdatedEvent,
   isSettingsChangedEvent,
   isViewModeChangedEvent,
-} from './constants'
+} from './events'
 
 // ========================================
-// Re-export Everything as Namespace
+// Re-export Everything as Namespace - DISABLED to avoid circular dependencies
 // ========================================
 
 /**
  * Camera Domain Types Namespace
  *
- * 使用例:
- * ```typescript
- * import { CameraTypes } from '@domain/camera/types'
- *
- * // エラー作成
- * const error = CameraTypes.createCameraError.invalidMode('invalid-mode', ['first-person', 'third-person'])
- *
- * // イベント作成
- * const event = CameraTypes.createCameraEvent.cameraInitialized('camera-1', 'first-person')
- *
- * // 定数使用
- * const defaultFOV = CameraTypes.CAMERA_DEFAULTS.FOV
- * ```
+ * All exports are done explicitly above to avoid circular dependency issues.
+ * Wildcard re-exports can cause module initialization order problems in Vitest.
  */
-export * from './constants'
-export * from './errors'
-export * from './events'
+// export * from './constants'
+// export * from './errors'
+// export * from './events'

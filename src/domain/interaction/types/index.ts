@@ -3,6 +3,10 @@ import { Data, Match, Schema } from 'effect'
 import { pipe } from 'effect/Function'
 import { BlockFaceSchema, Vector3Schema } from '../value_object'
 
+// 共有カーネルから再エクスポート
+export { PlayerIdSchema, type PlayerId } from '@domain/shared/entities/player_id'
+export { BlockIdSchema, type BlockId } from '../../shared/entities/block_id'
+
 const IdentifierSchema = Schema.String.pipe(
   Schema.nonEmptyString({ message: () => '識別子は1文字以上である必要があります' }),
   Schema.maxLength(64, { message: () => '識別子は64文字以内である必要があります' }),
@@ -11,12 +15,7 @@ const IdentifierSchema = Schema.String.pipe(
   })
 )
 
-export const BlockIdSchema = IdentifierSchema.pipe(Schema.brand('BlockId'))
-export const PlayerIdSchema = IdentifierSchema.pipe(Schema.brand('PlayerId'))
 export const SessionIdSchema = IdentifierSchema.pipe(Schema.brand('SessionId'))
-
-export type BlockId = Schema.Schema.Type<typeof BlockIdSchema>
-export type PlayerId = Schema.Schema.Type<typeof PlayerIdSchema>
 export type SessionId = Schema.Schema.Type<typeof SessionIdSchema>
 
 export const TickSchema = Schema.Number.pipe(
@@ -179,3 +178,6 @@ export const matchInteractionError = <A>(
     ),
     Match.exhaustive
   )
+
+// Explicit type re-exports for Rollup/Vite
+export type { BlockId, EpochMilliseconds, InteractionCommand, InteractionEvent, PlayerId, Progress, SessionId }

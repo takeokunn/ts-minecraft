@@ -238,15 +238,12 @@ export const KeyframeAnimationSchema = Schema.Struct({
   keyframes: Schema.Array(KeyframeSchema).pipe(
     Schema.minItems(2), // 最低2つのキーフレームが必要
     Schema.filter(
-      (keyframes) => {
+      (keyframes) =>
         // キーフレームが時間順にソートされていることを確認
-        for (let i = 1; i < keyframes.length; i++) {
-          if (keyframes[i].time <= keyframes[i - 1].time) {
-            return false
-          }
-        }
-        return true
-      },
+        pipe(
+          ReadonlyArray.range(1, keyframes.length),
+          ReadonlyArray.every((i) => keyframes[i].time > keyframes[i - 1].time)
+        ),
       {
         message: () => 'Keyframes must be sorted by time in ascending order',
       }

@@ -31,6 +31,8 @@ export {
   type WorldCoordinate,
 } from './aggregate'
 
+export * from './cqrs'
+
 // 値オブジェクト（Value Objects） - 各ドメインコンセプト
 export {
   BiomeType,
@@ -38,6 +40,7 @@ export {
   BlockDataError,
   ChunkDistance,
   ChunkHash,
+  ChunkIdSchema,
   ChunkMetadataError,
   ChunkMetadataSchema,
   ChunkPositionSchema,
@@ -74,25 +77,49 @@ export {
 
 // 型定義（Types） - 定数・エラー・イベント
 export {
-  BlockChangedEvent,
+  BlockChangedEventSchema,
   CHUNK_HEIGHT,
   CHUNK_MAX_Y,
   CHUNK_MIN_Y,
   // 定数
   CHUNK_SIZE,
   CHUNK_VOLUME,
-  ChunkCorruptedEvent,
-  // イベント
-  ChunkCreatedEvent,
+  ChunkCorruptedEventSchema,
+  ChunkCreatedEventSchema,
+  ChunkDeletedEventSchema,
+  ChunkEventBaseSchema,
+  ChunkEventContextSchema,
+  ChunkEventMetadataSchema,
+  ChunkEventSchema,
+  ChunkEventSchemas,
+  ChunkEventTypeSchema,
   ChunkIdError,
-  ChunkLoadedEvent,
-  ChunkModifiedEvent,
+  ChunkLoadedEventSchema,
+  ChunkModifiedEventSchema,
   // エラー
+  ChunkOptimizedEventSchema,
   ChunkPositionError,
-  ChunkSavedEvent,
-  ChunkUnloadedEvent,
+  ChunkSavedEventSchema,
+  ChunkValidatedEventSchema,
+  ChunkUnloadedEventSchema,
+  type BlockChangedEvent,
+  type ChunkCorruptedEvent,
+  // イベント
+  type ChunkCreatedEvent,
+  type ChunkDeletedEvent,
+  type ChunkEventContext,
+  type ChunkEventMetadata,
+  type ChunkEventType,
+  type ChunkEvent,
+  type BaseChunkEvent,
   // インターフェース
   type ChunkDataProvider,
+  type ChunkLoadedEvent,
+  type ChunkModifiedEvent,
+  type ChunkOptimizedEvent,
+  type ChunkSavedEvent,
+  type ChunkUnloadedEvent,
+  type ChunkValidatedEvent,
 } from './types'
 
 // ドメインサービス（Domain Services）

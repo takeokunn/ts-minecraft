@@ -139,20 +139,25 @@ export const InMemoryChunkRepositoryLive = Layer.effect(
           const key = idKey(id)
           const timestamp = yield* now
           const result = yield* Ref.updateAndGet(stateRef, (state) => {
-            const entry = state.chunks.get(key)
-            if (!entry) {
-              return updateStatistics(state, { hit: false })
-            }
-
-            const updatedEntry = touchEntry(entry, timestamp)
-            return {
-              ...updateStatistics(state, { hit: true }),
-              chunks: mapSet(state.chunks, key, updatedEntry),
-            }
+            return pipe(
+              Option.fromNullable(state.chunks.get(key)),
+              Option.match({
+                onNone: () => updateStatistics(state, { hit: false }),
+                onSome: (entry) => {
+                  const updatedEntry = touchEntry(entry, timestamp)
+                  return {
+                    ...updateStatistics(state, { hit: true }),
+                    chunks: mapSet(state.chunks, key, updatedEntry),
+                  }
+                },
+              })
+            )
           })
 
-          const entry = result.chunks.get(key)
-          return entry ? Option.some(entry.chunk) : Option.none()
+          return pipe(
+            Option.fromNullable(result.chunks.get(key)),
+            Option.map((entry) => entry.chunk)
+          )
         }),
 
       findByPosition: (position: ChunkPosition) =>
@@ -160,20 +165,25 @@ export const InMemoryChunkRepositoryLive = Layer.effect(
           const key = positionKey(position)
           const timestamp = yield* now
           const result = yield* Ref.updateAndGet(stateRef, (state) => {
-            const entry = state.chunks.get(key)
-            if (!entry) {
-              return updateStatistics(state, { hit: false })
-            }
-
-            const updatedEntry = touchEntry(entry, timestamp)
-            return {
-              ...updateStatistics(state, { hit: true }),
-              chunks: mapSet(state.chunks, key, updatedEntry),
-            }
+            return pipe(
+              Option.fromNullable(state.chunks.get(key)),
+              Option.match({
+                onNone: () => updateStatistics(state, { hit: false }),
+                onSome: (entry) => {
+                  const updatedEntry = touchEntry(entry, timestamp)
+                  return {
+                    ...updateStatistics(state, { hit: true }),
+                    chunks: mapSet(state.chunks, key, updatedEntry),
+                  }
+                },
+              })
+            )
           })
 
-          const entry = result.chunks.get(key)
-          return entry ? Option.some(entry.chunk) : Option.none()
+          return pipe(
+            Option.fromNullable(result.chunks.get(key)),
+            Option.map((entry) => entry.chunk)
+          )
         }),
 
       findByRegion: (region: ChunkRegion) => Effect.map(Ref.get(stateRef), (state) => regionChunks(state, region)),

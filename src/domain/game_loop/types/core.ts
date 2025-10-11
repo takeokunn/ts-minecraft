@@ -13,23 +13,18 @@ import * as Schema from 'effect/Schema'
 
 /**
  * タイムスタンプ（ミリ秒）
+ * Re-export from units
  */
-export const TimestampSchema = Schema.Number.pipe(
-  Schema.nonNegative(),
-  Schema.brand('Timestamp'),
-  Schema.annotations({ description: 'Epoch millisecond timestamp' })
-)
-export type Timestamp = Schema.Schema.Type<typeof TimestampSchema>
+export { TimestampSchema, type Timestamp } from '../../shared/value_object/units'
 
 /**
  * デルタタイム（ミリ秒）
+ * Re-export from units with alias
  */
-export const FrameDurationSchema = Schema.Number.pipe(
-  Schema.nonNegative(),
-  Schema.brand('FrameDuration'),
-  Schema.annotations({ description: 'Frame-to-frame duration in milliseconds' })
-)
-export type FrameDuration = Schema.Schema.Type<typeof FrameDurationSchema>
+export {
+  MillisecondsSchema as FrameDurationSchema,
+  type Milliseconds as FrameDuration,
+} from '../../shared/value_object/units'
 
 /**
  * フレームカウント
@@ -72,8 +67,13 @@ export const GameLoopConfigSchema = Schema.Struct({
 })
 export type GameLoopConfig = Schema.Schema.Type<typeof GameLoopConfigSchema>
 
+const decodeTimestampSync = Schema.decodeSync(TimestampSchema)
+const decodeFrameDurationSync = Schema.decodeSync(FrameDurationSchema)
+const decodeFrameCountSync = Schema.decodeSync(FrameCountSchema)
+const decodeFpsSync = Schema.decodeSync(FramesPerSecondSchema)
+
 export const DefaultGameLoopConfig: GameLoopConfig = {
-  targetFps: Schema.decodeSync(FramesPerSecondSchema)(60),
+  targetFps: decodeFpsSync(60),
   maxFrameSkip: 5,
   enablePerformanceMonitoring: true,
   adaptiveQuality: true,
@@ -198,8 +198,8 @@ export const effectFromEither = <E, A>(either: Either.Either<E, A>): Effect.Effe
   )
 
 export const GameLoopBrandedTypes = {
-  createTimestamp: Schema.decodeSync(TimestampSchema),
-  createDeltaTime: Schema.decodeSync(FrameDurationSchema),
-  createFrameCount: Schema.decodeSync(FrameCountSchema),
-  createFps: Schema.decodeSync(FramesPerSecondSchema),
+  createTimestamp: (value: number): Timestamp => decodeTimestampSync(value),
+  createDeltaTime: (value: number): FrameDuration => decodeFrameDurationSync(value),
+  createFrameCount: (value: number): FrameCount => decodeFrameCountSync(value),
+  createFps: (value: number): FramesPerSecond => decodeFpsSync(value),
 }

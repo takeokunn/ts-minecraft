@@ -5,7 +5,7 @@
  * Function.flowパターンによる組み合わせ可能なプリセット関数群
  */
 
-import { Effect, pipe } from 'effect'
+import { Effect, Match, pipe } from 'effect'
 import type { Inventory, ItemStack, PlayerId } from '../../types'
 import { InventoryBrandedTypes } from '../../types'
 import {
@@ -236,51 +236,35 @@ export const customSlotInventory = (playerId: PlayerId, slotCount: number, type:
 export const getPresetByType = (
   type: InventoryType,
   playerId: PlayerId
-): Effect.Effect<Inventory, InventoryCreationError> => {
-  switch (type) {
-    case 'player':
-      return standardPlayerInventory(playerId)
-    case 'creative':
-      return creativeInventory(playerId)
-    case 'survival':
-      return survivalInventory(playerId)
-    case 'spectator':
-      return spectatorInventory(playerId)
-    case 'adventure':
-      return adventureInventory(playerId)
-    default:
-      return standardPlayerInventory(playerId)
-  }
-}
+): Effect.Effect<Inventory, InventoryCreationError> =>
+  pipe(
+    Match.value(type),
+    Match.when('player', () => standardPlayerInventory(playerId)),
+    Match.when('creative', () => creativeInventory(playerId)),
+    Match.when('survival', () => survivalInventory(playerId)),
+    Match.when('spectator', () => spectatorInventory(playerId)),
+    Match.when('adventure', () => adventureInventory(playerId)),
+    Match.orElse(() => standardPlayerInventory(playerId))
+  )
 
 // プリセット名から生成（文字列ベース）
 export const createPresetInventory = (
   presetName: string,
   playerId: PlayerId
-): Effect.Effect<Inventory, InventoryCreationError> => {
-  switch (presetName) {
-    case 'standard':
-      return standardPlayerInventory(playerId)
-    case 'creative':
-      return creativeInventory(playerId)
-    case 'survival':
-      return survivalInventory(playerId)
-    case 'spectator':
-      return spectatorInventory(playerId)
-    case 'adventure':
-      return adventureInventory(playerId)
-    case 'newPlayer':
-      return newPlayerInventory(playerId)
-    case 'pvpArena':
-      return pvpArenaInventory(playerId)
-    case 'building':
-      return buildingInventory(playerId)
-    case 'redstone':
-      return redstoneInventory(playerId)
-    default:
-      return standardPlayerInventory(playerId)
-  }
-}
+): Effect.Effect<Inventory, InventoryCreationError> =>
+  pipe(
+    Match.value(presetName),
+    Match.when('standard', () => standardPlayerInventory(playerId)),
+    Match.when('creative', () => creativeInventory(playerId)),
+    Match.when('survival', () => survivalInventory(playerId)),
+    Match.when('spectator', () => spectatorInventory(playerId)),
+    Match.when('adventure', () => adventureInventory(playerId)),
+    Match.when('newPlayer', () => newPlayerInventory(playerId)),
+    Match.when('pvpArena', () => pvpArenaInventory(playerId)),
+    Match.when('building', () => buildingInventory(playerId)),
+    Match.when('redstone', () => redstoneInventory(playerId)),
+    Match.orElse(() => standardPlayerInventory(playerId))
+  )
 
 // ===== プリセット一覧 =====
 

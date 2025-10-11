@@ -57,7 +57,7 @@ const translate = (box: AABB, offset: Vector3): Effect.Effect<AABB, PhysicsError
 const detect = (params: {
   readonly position: Vector3
   readonly velocity: Vector3
-  readonly deltaTime: unknown
+  readonly deltaTime: number
   readonly body: AABB
   readonly sample: (query: AABB) => ReadonlyArray<AABB>
 }): Effect.Effect<CollisionResult, PhysicsError> =>

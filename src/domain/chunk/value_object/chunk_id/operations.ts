@@ -1,21 +1,16 @@
+import type { JsonSerializable } from '@shared/schema/json'
+import { formatParseIssues } from '@shared/schema/tagged_error_factory'
 import { Clock, Effect, Match, Option, Random, Schema, pipe } from 'effect'
+import { ChunkIdError, ChunkIdSchema, makeUnsafeChunkId, type ChunkId } from '../../../shared/entities/chunk_id'
 import { createChunkPosition, type ChunkPosition } from '../chunk_position'
-import {
-  ChunkIdError,
-  ChunkIdSchema,
-  ChunkId as MakeChunkId,
-  ChunkIdVersion as MakeChunkIdVersion,
-  type ChunkId,
-  type ChunkIdVersion,
-  type ChunkUUID,
-} from './index'
+import { ChunkIdVersion as MakeChunkIdVersion, type ChunkIdVersion, type ChunkUUID } from './types'
 
 const chunkPrefix = 'chunk'
 const chunkUuidPrefix = `${chunkPrefix}_uuid`
 const chunkVersionPrefix = `${chunkPrefix}_v`
 
-const invalidIdError = (message: string, value?: unknown) =>
-  ChunkIdError({
+const invalidIdError = (message: string, value?: JsonSerializable) =>
+  ChunkIdError.make({
     message,
     value,
   })
@@ -36,14 +31,14 @@ export const createChunkIdFromPosition = (
 ): Effect.Effect<ChunkId, ChunkIdError> =>
   pipe(
     ensurePositiveVersion(version),
-    Effect.zipRight(Effect.succeed(MakeChunkId(`${chunkVersionPrefix}${version}_${position.x}_${position.z}`)))
+    Effect.zipRight(Effect.succeed(makeUnsafeChunkId(`${chunkVersionPrefix}${version}_${position.x}_${position.z}`)))
   )
 
 /**
  * UUIDベースのチャンクIDを生成
  */
 export const createChunkIdFromUUID = (uuid: ChunkUUID): Effect.Effect<ChunkId, ChunkIdError> =>
-  Effect.succeed(MakeChunkId(`${chunkUuidPrefix}_${uuid}`))
+  Effect.succeed(makeUnsafeChunkId(`${chunkUuidPrefix}_${uuid}`))
 
 /**
  * ランダムなチャンクIDを生成
@@ -52,23 +47,29 @@ export const generateRandomChunkId = (): Effect.Effect<ChunkId, ChunkIdError> =>
   Effect.gen(function* () {
     const randomBytes = yield* Random.nextIntBetween(100_000, 999_999)
     const timestamp = yield* Clock.currentTimeMillis
-    return MakeChunkId(`${chunkPrefix}_${timestamp}_${randomBytes}`)
+    return makeUnsafeChunkId(`${chunkPrefix}_${timestamp}_${randomBytes}`)
   })
 
 /**
  * チャンクIDの検証
  */
-export const validateChunkId = (value: unknown): Effect.Effect<ChunkId, ChunkIdError> =>
+export const validateChunkId = (value: JsonSerializable): Effect.Effect<ChunkId, ChunkIdError> =>
   pipe(
     Schema.decode(ChunkIdSchema)(value),
-    Effect.map(MakeChunkId),
-    Effect.mapError((error) => invalidIdError(`チャンクIDの検証に失敗しました: ${String(error)}`, value))
+    Effect.mapError((parseError: Schema.ParseError) =>
+      ChunkIdError.make({
+        message: 'チャンクIDの検証に失敗しました',
+        value,
+        issues: formatParseIssues(parseError),
+        originalError: parseError,
+      })
+    )
   )
 
 /**
  * チャンクIDからタイプを判定
  */
-export const getChunkIdType = (chunkId: ChunkId): 'versioned' | 'uuid' | 'timestamped' | 'unknown' =>
+export const getChunkIdType = (chunkId: ChunkId): 'versioned' | 'uuid' | 'timestamped' | 'unclassified' =>
   pipe(
     chunkId,
     Match.value,
@@ -84,7 +85,7 @@ export const getChunkIdType = (chunkId: ChunkId): 'versioned' | 'uuid' | 'timest
       (id) => id.includes('_'),
       () => 'timestamped' as const
     ),
-    Match.orElse(() => 'unknown' as const)
+    Match.orElse(() => 'unclassified' as const)
   )
 
 /**
@@ -115,7 +116,7 @@ export const extractNamespace = (chunkId: ChunkId): string => chunkId.split('_')
 /**
  * チャンクIDを正規化
  */
-export const normalizeChunkId = (chunkId: ChunkId): ChunkId => MakeChunkId(chunkId.toLowerCase().trim())
+export const normalizeChunkId = (chunkId: ChunkId): ChunkId => makeUnsafeChunkId(chunkId.toLowerCase().trim())
 
 /**
  * チャンクIDの短縮形を生成
@@ -140,7 +141,9 @@ export const createChunkIdHierarchy = (chunkId: ChunkId, depth: number = 2): Rea
 /**
  * チャンクIDのバッチ検証
  */
-export const validateChunkIds = (values: ReadonlyArray<unknown>): Effect.Effect<ReadonlyArray<ChunkId>, ChunkIdError> =>
+export const validateChunkIds = (
+  values: ReadonlyArray<JsonSerializable>
+): Effect.Effect<ReadonlyArray<ChunkId>, ChunkIdError> =>
   Effect.forEach(values, validateChunkId, {
-    concurrency: 'unbounded',
+    concurrency: 4,
   })

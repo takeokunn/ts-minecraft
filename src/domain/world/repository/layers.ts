@@ -4,21 +4,19 @@
  * 全Repository実装Layerの統合（Memory・Persistence・Mixed）
  */
 
-import { Layer } from 'effect'
+import { Layer, Match, Schema, pipe } from 'effect'
 // Import types inline to avoid circular dependency
-import type { BiomeSystemRepositoryConfig } from './biome_system_repository'
-import { BiomeSystemRepositoryMemoryLive, BiomeSystemRepositoryPersistenceLive } from './biome_system_repository'
-import type { GenerationSessionRepositoryConfig } from './generation_session_repository'
+import type { GenerationSessionRepositoryConfig } from '@/domain/world_generation/repository/generation_session_repository'
 import {
   GenerationSessionRepositoryMemoryLive,
   GenerationSessionRepositoryPersistenceLive,
-} from './generation_session_repository'
-import type { WorldGeneratorRepositoryConfig } from './world_generator_repository'
+} from '@/domain/world_generation/repository/generation_session_repository'
+import type { WorldGeneratorRepositoryConfig } from '@/domain/world_generation/repository/world_generator_repository'
 import {
   WorldGeneratorRepositoryCacheLive,
   WorldGeneratorRepositoryMemoryLive,
   WorldGeneratorRepositoryPersistenceLive,
-} from './world_generator_repository'
+} from '@/domain/world_generation/repository/world_generator_repository'
 import type { WorldMetadataRepositoryConfig } from './world_metadata_repository'
 import { WorldMetadataRepositoryMemoryLive, WorldMetadataRepositoryPersistenceLive } from './world_metadata_repository'
 
@@ -28,10 +26,16 @@ import { WorldMetadataRepositoryMemoryLive, WorldMetadataRepositoryPersistenceLi
 export interface WorldRepositoryLayerConfig {
   readonly worldGenerator: WorldGeneratorRepositoryConfig
   readonly generationSession: GenerationSessionRepositoryConfig
-  readonly biomeSystem: BiomeSystemRepositoryConfig
   readonly worldMetadata: WorldMetadataRepositoryConfig
   readonly implementation: 'memory' | 'persistence' | 'mixed'
 }
+
+export const WorldRepositoryLayerConfigSchema = Schema.Struct({
+  worldGenerator: Schema.suspend(() => Schema.decodeUnknown(WorldGeneratorRepositoryConfigSchema)),
+  generationSession: Schema.suspend(() => Schema.decodeUnknown(GenerationSessionRepositoryConfigSchema)),
+  worldMetadata: Schema.suspend(() => Schema.decodeUnknown(WorldMetadataRepositoryConfigSchema)),
+  implementation: Schema.Literal('memory', 'persistence', 'mixed'),
+})
 
 /**
  * デフォルト設定
@@ -48,34 +52,6 @@ export const defaultWorldRepositoryLayerConfig: WorldRepositoryLayerConfig = {
     recovery: { enabled: true, strategy: 'smart', maxRetries: 3 },
     cache: { enabled: true, maxSize: 500, ttlSeconds: 600 },
     performance: { enableProfiling: false, enableMetrics: true, batchSize: 25 },
-  },
-  biomeSystem: {
-    storage: { type: 'memory', maxBiomes: 100000 },
-    spatialIndex: {
-      type: 'quadtree',
-      maxDepth: 12,
-      maxEntriesPerNode: 16,
-      minNodeSize: 64,
-    },
-    cache: {
-      enabled: true,
-      maxSize: 10000,
-      ttlSeconds: 300,
-      spatialCacheEnabled: true,
-      climateCacheEnabled: true,
-    },
-    climate: {
-      gridResolution: 16,
-      interpolationMethod: 'bilinear',
-      enableTransitions: true,
-      transitionSmoothing: 0.5,
-    },
-    performance: {
-      enableProfiling: false,
-      enableMetrics: true,
-      batchSize: 1000,
-      indexOptimizationInterval: 3600000,
-    },
   },
   worldMetadata: {
     storage: { type: 'memory', maxWorlds: 1000, enableEncryption: false },
@@ -135,7 +111,6 @@ export const WorldRepositoryMemoryLayer = (config: WorldRepositoryLayerConfig = 
   Layer.mergeAll(
     WorldGeneratorRepositoryMemoryLive(config.worldGenerator),
     GenerationSessionRepositoryMemoryLive(config.generationSession),
-    BiomeSystemRepositoryMemoryLive(config.biomeSystem),
     WorldMetadataRepositoryMemoryLive(config.worldMetadata)
   )
 
@@ -150,7 +125,6 @@ export const WorldRepositoryPersistenceLayer = (
   Layer.mergeAll(
     WorldGeneratorRepositoryPersistenceLive(config.worldGenerator),
     GenerationSessionRepositoryPersistenceLive(config.generationSession),
-    BiomeSystemRepositoryPersistenceLive(config.biomeSystem),
     WorldMetadataRepositoryPersistenceLive(config.worldMetadata)
   )
 
@@ -165,8 +139,6 @@ export const WorldRepositoryMixedLayer = (config: WorldRepositoryLayerConfig = d
     WorldGeneratorRepositoryCacheLive(config.worldGenerator),
     // Memory for sessions (temporary, high-performance needed)
     GenerationSessionRepositoryMemoryLive(config.generationSession),
-    // Memory for biome system (spatial queries need speed)
-    BiomeSystemRepositoryMemoryLive(config.biomeSystem),
     // Persistence for metadata (long-term storage needed)
     WorldMetadataRepositoryPersistenceLive(config.worldMetadata)
   )
@@ -176,15 +148,11 @@ export const WorldRepositoryMixedLayer = (config: WorldRepositoryLayerConfig = d
 /**
  * 設定に基づく自動Layer選択
  */
-export const WorldRepositoryLayer = (config: WorldRepositoryLayerConfig = defaultWorldRepositoryLayerConfig) => {
-  switch (config.implementation) {
-    case 'memory':
-      return WorldRepositoryMemoryLayer(config)
-    case 'persistence':
-      return WorldRepositoryPersistenceLayer(config)
-    case 'mixed':
-      return WorldRepositoryMixedLayer(config)
-    default:
-      return WorldRepositoryMemoryLayer(config)
-  }
-}
+export const WorldRepositoryLayer = (config: WorldRepositoryLayerConfig = defaultWorldRepositoryLayerConfig) =>
+  pipe(
+    Match.value(config.implementation),
+    Match.when('memory', () => WorldRepositoryMemoryLayer(config)),
+    Match.when('persistence', () => WorldRepositoryPersistenceLayer(config)),
+    Match.when('mixed', () => WorldRepositoryMixedLayer(config)),
+    Match.orElse(() => WorldRepositoryMemoryLayer(config))
+  )

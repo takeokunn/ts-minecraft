@@ -1,4 +1,14 @@
 export * from './core'
-export * from './core.spec'
 export * from './errors'
-export * from './errors.spec'
+
+// Explicit type re-exports for Rollup/Vite
+export type {
+  FrameCount,
+  FrameDuration,
+  FrameId,
+  FramesPerSecond,
+  GameLoopConfig,
+  GameLoopState,
+  PerformanceMetrics,
+  Timestamp,
+} from './core'

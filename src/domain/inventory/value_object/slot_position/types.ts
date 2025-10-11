@@ -1,4 +1,6 @@
+import type { JsonValue } from '@shared/schema/json'
 import { Brand, Data } from 'effect'
+import { unsafeCoerce } from 'effect/Function'
 
 /**
  * SlotPosition Brand型（0-35範囲）
@@ -81,7 +83,7 @@ export type SlotPositionError = Data.TaggedEnum<{
   }
   InvalidHotbarIndex: { readonly index: number; readonly validRange: string }
   InvalidArmorSlot: { readonly slot: string; readonly validSlots: readonly string[] }
-  CoordinateConversionFailed: { readonly from: unknown; readonly to: string; readonly reason: string }
+  CoordinateConversionFailed: { readonly from: JsonValue; readonly to: string; readonly reason: string }
   SectionMismatch: { readonly position: SlotPosition; readonly expectedSection: string; readonly actualSection: string }
   GridSizeExceeded: { readonly requestedSize: number; readonly maxSize: number }
 }>
@@ -147,3 +149,9 @@ export type AdjacentSlots = {
     readonly bottomRight?: SlotPosition
   }
 }
+
+/**
+ * SlotPosition を安全でない方法で作成（パフォーマンス重視）
+ * 高頻度呼び出し箇所でのみ使用すること
+ */
+export const makeUnsafeSlotPosition = (position: number): SlotPosition => unsafeCoerce<number, SlotPosition>(position)

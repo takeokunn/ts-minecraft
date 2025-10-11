@@ -1,3 +1,5 @@
+import type { JsonValue } from '@shared/schema/json'
+import { JsonValueSchema } from '@shared/schema/json'
 import { Clock, Data, Effect, Schema } from 'effect'
 import type {
   CameraDistance,
@@ -6,8 +8,8 @@ import type {
   Position3D as Position3DBrand,
   Rotation2D as Rotation2DBrand,
   Sensitivity,
-} from './index'
-import { Position3DSchema, Rotation2DSchema } from './index'
+} from './constants'
+import { CameraModeSchema, Position3DSchema, Rotation2DSchema } from './constants'
 
 // ========================================
 // Event Base Types
@@ -104,7 +106,7 @@ export type CameraEvent = Data.TaggedEnum<{
   CollisionDetected: {
     readonly cameraId: CameraId
     readonly position: Position3D
-    readonly obstruction: unknown
+    readonly obstruction: JsonValue
     readonly timestamp: number
   }
   CameraLocked: {
@@ -186,15 +188,15 @@ export const AnimationStateSchema = Schema.Struct({
 export const CameraInitializedSchema = Schema.Struct({
   _tag: Schema.Literal('CameraInitialized'),
   cameraId: CameraIdSchema,
-  viewMode: Schema.Literal('first-person', 'third-person'),
+  viewMode: CameraModeSchema,
   timestamp: Schema.Number,
 })
 
 export const ViewModeChangedSchema = Schema.Struct({
   _tag: Schema.Literal('ViewModeChanged'),
   cameraId: CameraIdSchema,
-  fromMode: Schema.Literal('first-person', 'third-person'),
-  toMode: Schema.Literal('first-person', 'third-person'),
+  fromMode: CameraModeSchema,
+  toMode: CameraModeSchema,
   timestamp: Schema.Number,
 })
 
@@ -247,7 +249,7 @@ export const CollisionDetectedSchema = Schema.Struct({
   _tag: Schema.Literal('CollisionDetected'),
   cameraId: CameraIdSchema,
   position: Position3DSchema,
-  obstruction: Schema.Unknown,
+  obstruction: JsonValueSchema,
   timestamp: Schema.Number,
 })
 
@@ -423,7 +425,7 @@ export const createCameraEvent = {
       })
     }),
 
-  collisionDetected: (cameraId: CameraId, position: Position3D, obstruction: unknown): Effect.Effect<CameraEvent> =>
+  collisionDetected: (cameraId: CameraId, position: Position3D, obstruction: JsonValue): Effect.Effect<CameraEvent> =>
     Effect.gen(function* () {
       const timestamp = yield* Clock.currentTimeMillis
       return Data.struct({

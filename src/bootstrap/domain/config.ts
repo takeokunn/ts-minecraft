@@ -1,11 +1,6 @@
 import { Effect, Schema } from 'effect'
-import {
-  DebugModeSchema,
-  EpochMilliseconds,
-  EpochMillisecondsSchema,
-  FramesPerSecondSchema,
-  MemoryMegabytesSchema,
-} from './value'
+import type { EpochMilliseconds } from './value'
+import { DebugModeSchema, EpochMillisecondsSchema, FramesPerSecondSchema, MemoryMegabytesSchema } from './value'
 
 export const BootstrapConfigSchema = Schema.Struct({
   debug: DebugModeSchema,
@@ -21,19 +16,18 @@ export const BootstrapConfigSchema = Schema.Struct({
 export type BootstrapConfig = Schema.Schema.Type<typeof BootstrapConfigSchema>
 export type BootstrapConfigInput = Schema.Schema.From<typeof BootstrapConfigSchema>
 
-const decodeBootstrapConfig = Schema.decode(BootstrapConfigSchema)
-const decodeBootstrapConfigSync = Schema.decodeSync(BootstrapConfigSchema)
+export const decodeBootstrapConfig = Schema.decode(BootstrapConfigSchema)
 
 export const bootstrapConfig = (input: BootstrapConfigInput): Effect.Effect<BootstrapConfig> =>
   decodeBootstrapConfig(input)
 
-const bootstrapDefaultsInput: BootstrapConfigInput = {
+export const bootstrapDefaultsInput: BootstrapConfigInput = {
   debug: false,
   fps: 60,
   memoryLimit: 2048,
 }
 
-export const BootstrapConfigDefaults: BootstrapConfig = decodeBootstrapConfigSync(bootstrapDefaultsInput)
+export const BootstrapConfigDefaults = bootstrapDefaultsInput as BootstrapConfig
 
 export const BootstrapConfigSnapshotSchema = Schema.Struct({
   config: BootstrapConfigSchema,
@@ -48,7 +42,7 @@ export const BootstrapConfigSnapshotSchema = Schema.Struct({
 export type BootstrapConfigSnapshot = Schema.Schema.Type<typeof BootstrapConfigSnapshotSchema>
 export type BootstrapConfigSnapshotInput = Schema.Schema.From<typeof BootstrapConfigSnapshotSchema>
 
-const decodeSnapshot = Schema.decode(BootstrapConfigSnapshotSchema)
+export const decodeSnapshot = Schema.decode(BootstrapConfigSnapshotSchema)
 
 export const bootstrapConfigSnapshot = (input: BootstrapConfigSnapshotInput): Effect.Effect<BootstrapConfigSnapshot> =>
   decodeSnapshot(input)

@@ -1,7 +1,8 @@
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
+import type { JsonSerializable } from '@shared/schema/json'
 import { Effect, Option, Schema } from 'effect'
 import * as Either from 'effect/Either'
-import { ConfigurationValidationError, JsonValue, createErrorContext } from './errors'
+import { ConfigurationSerializationError, ConfigurationValidationError, JsonValue, createErrorContext } from './errors'
 import {
   DebugConfigSchema,
   GameApplicationConfig as GameApplicationConfigSchema,
@@ -30,7 +31,7 @@ export const GameApplicationConfigPatch = Schema.Struct({
 export type GameApplicationConfigPatch = Schema.Schema.Type<typeof GameApplicationConfigPatch>
 export type GameApplicationConfigPatchInput = Schema.Schema.Input<typeof GameApplicationConfigPatch>
 
-const decodeJsonValue = Schema.decodeUnknownSync(JsonValue)
+const decodeJsonValue = Schema.decodeUnknown(JsonValue)
 const encodeConfigSync = Schema.encodeSync(GameApplicationConfigSchema)
 const decodeConfigEither = Schema.decodeUnknownEither(GameApplicationConfigSchema)
 const decodePatchEither = Schema.decodeUnknownEither(GameApplicationConfigPatch)
@@ -42,15 +43,36 @@ type DecodeError = Schema.DecodeUnknownError
 type FailureParams = {
   readonly operation: string
   readonly field: string
-  readonly candidate: unknown
+  readonly candidate: JsonSerializableInput
   readonly cause: DecodeError
 }
 
-const toJsonValue = (input: unknown): JsonValue => {
-  const serialized = JSON.stringify(input)
-  const materialized = serialized === undefined ? null : JSON.parse(serialized)
-  return decodeJsonValue(materialized)
-}
+type JsonSerializableInput = JsonSerializable | GameApplicationConfigPatchInput | GameApplicationConfigInput
+
+const toJsonValue = (input: JsonSerializableInput): Effect.Effect<JsonValue, ConfigurationSerializationError> =>
+  Effect.gen(function* () {
+    const serialized = yield* Effect.try({
+      try: () => JSON.stringify(input),
+      catch: (error) =>
+        new ConfigurationSerializationError({
+          operation: 'serialize',
+          input,
+          cause: error,
+        }),
+    })
+
+    const materialized = yield* Effect.try({
+      try: () => (serialized === undefined ? null : JSON.parse(serialized)),
+      catch: (error) =>
+        new ConfigurationSerializationError({
+          operation: 'deserialize',
+          input: serialized,
+          cause: error,
+        }),
+    })
+
+    return yield* decodeJsonValue(materialized)
+  })
 
 const configurationFailure = ({
   operation,
@@ -66,14 +88,14 @@ const configurationFailure = ({
       details: [
         {
           key: 'reason',
-          value: toJsonValue(message),
+          value: yield* toJsonValue(message),
         },
       ],
     })
-    const error = ConfigurationValidationError.make({
+    const error = new ConfigurationValidationError({
       context,
       field,
-      value: toJsonValue(candidate),
+      value: yield* toJsonValue(candidate),
       constraint: message,
     })
     return yield* Effect.fail(error)

@@ -35,14 +35,17 @@ export type PerformanceMemory = Schema.Schema.Type<typeof PerformanceMemorySchem
  * }
  * ```
  */
+interface ExperimentalPerformanceMemory {
+  readonly jsHeapSizeLimit: number
+  readonly totalJSHeapSize: number
+  readonly usedJSHeapSize: number
+}
+
 export const getPerformanceMemory = (): Effect.Effect<Option.Option<PerformanceMemory>, never> =>
   Effect.sync(() => {
-    const perf = performance as any
-    if (!perf.memory) {
-      return Option.none()
-    }
-
-    return Schema.decodeUnknownOption(PerformanceMemorySchema)(perf.memory)
+    // Performance.memory は非標準APIでTypeScript型定義に含まれないため、ランタイムチェック
+    const perf = performance as Performance & { memory?: ExperimentalPerformanceMemory }
+    return perf.memory ? Schema.decodeUnknownOption(PerformanceMemorySchema)(perf.memory) : Option.none()
   })
 
 /**
@@ -77,6 +80,20 @@ export const defaultPerformanceMemory: PerformanceMemory = {
   usedJSHeapSize: 0,
   totalJSHeapSize: 0,
   jsHeapSizeLimit: 0,
+}
+
+/**
+ * PerformanceMemoryを確実に取得（デフォルト値あり）- 同期版
+ *
+ * @returns PerformanceMemoryデータ（取得不可時はdefaultPerformanceMemory）
+ */
+export const getPerformanceMemoryOrDefaultSync = (): PerformanceMemory => {
+  const perf = performance as Performance & { memory?: ExperimentalPerformanceMemory }
+  if (!perf.memory) {
+    return defaultPerformanceMemory
+  }
+  const result = Schema.decodeUnknownOption(PerformanceMemorySchema)(perf.memory)
+  return Option.getOrElse(() => defaultPerformanceMemory)(result)
 }
 
 /**

@@ -243,19 +243,18 @@ export const SettingsConversionUtils = {
   /**
    * JSON文字列からの設定復元
    */
-  parseSettingsFromJson: (jsonString: string): any =>
-    pipe(
-      Effect.try({
-        try: () => JSON.parse(jsonString),
-        catch: (error) => new Error(`Invalid JSON format: ${error}`),
-      }),
-      Effect.runSync
-    ),
+  parseSettingsFromJson: (jsonString: string): unknown => {
+    try {
+      return JSON.parse(jsonString)
+    } catch (error) {
+      throw new Error(`Invalid JSON format: ${error}`)
+    }
+  },
 
   /**
    * 設定をJSON文字列に変換
    */
-  settingsToJson: (settings: any): string => {
+  settingsToJson: (settings: unknown): string => {
     return JSON.stringify(settings, null, 2)
   },
 } as const

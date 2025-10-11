@@ -4,7 +4,7 @@
  * アイテムレジストリドメインサービスの純粋なドメインロジック実装。
  */
 
-import { Effect, Layer } from 'effect'
+import { Effect, Layer, Match, Option, pipe } from 'effect'
 import {
   getAllDefaultItemDefinitions,
   getDefaultItemDefinition,
@@ -29,11 +29,13 @@ export const ItemRegistryServiceLive = Layer.succeed(
       Effect.gen(function* () {
         const definition = yield* getDefaultItemDefinition(itemId)
 
-        if (!definition) {
-          yield* Effect.fail(new ItemRegistryError('ITEM_NOT_FOUND', itemId))
-        }
-
-        return definition!
+        return yield* pipe(
+          Option.fromNullable(definition),
+          Option.match({
+            onNone: () => Effect.fail(new ItemRegistryError('ITEM_NOT_FOUND', itemId)),
+            onSome: (def) => Effect.succeed(def),
+          })
+        )
       }),
 
     /**
@@ -62,34 +64,42 @@ export const ItemRegistryServiceLive = Layer.succeed(
         const sourceDefinition = yield* getDefaultItemDefinition(sourceItemId)
         const targetDefinition = yield* getDefaultItemDefinition(targetItemId)
 
-        if (!sourceDefinition || !targetDefinition) {
-          yield* Effect.fail(new ItemRegistryError('ITEM_NOT_FOUND', !sourceDefinition ? sourceItemId : targetItemId))
-        }
+        // 定義が存在するか検証
+        const [validatedSource, validatedTarget] = yield* pipe(
+          [sourceDefinition, targetDefinition] as const,
+          Match.value,
+          Match.when(
+            ([src, tgt]) => !src || !tgt,
+            ([src]) => Effect.fail(new ItemRegistryError('ITEM_NOT_FOUND', !src ? sourceItemId : targetItemId))
+          ),
+          Match.orElse(([src, tgt]) => Effect.succeed([src!, tgt!] as const))
+        )
 
         const reasons: string[] = []
 
         // 同じアイテムかチェック
-        if (sourceItemId !== targetItemId) {
-          reasons.push('Different item types')
-        }
+        pipe(
+          Match.value(sourceItemId !== targetItemId),
+          Match.when(true, () => reasons.push('Different item types')),
+          Match.when(false, () => undefined),
+          Match.exhaustive
+        )
 
         // スタッキングルールチェック
-        if (!sourceDefinition!.constraints.stackingRules.allowStacking) {
-          reasons.push('Source item does not allow stacking')
-        }
+        pipe(
+          Match.value(validatedSource.constraints.stackingRules.allowStacking),
+          Match.when(false, () => reasons.push('Source item does not allow stacking')),
+          Match.orElse(() => undefined)
+        )
 
-        if (!targetDefinition!.constraints.stackingRules.allowStacking) {
-          reasons.push('Target item does not allow stacking')
-        }
+        pipe(
+          Match.value(validatedTarget.constraints.stackingRules.allowStacking),
+          Match.when(false, () => reasons.push('Target item does not allow stacking')),
+          Match.orElse(() => undefined)
+        )
 
-        // メタデータ要件チェック
-        if (
-          sourceDefinition!.constraints.stackingRules.requiresIdenticalMetadata &&
-          targetDefinition!.constraints.stackingRules.requiresIdenticalMetadata
-        ) {
-          // 実際のメタデータ比較は別のレイヤーで行う
-          // ここではルールの存在のみチェック
-        }
+        // メタデータ要件チェック（ルールの存在のみ確認）
+        // 実際のメタデータ比較は別のレイヤーで行う
 
         return {
           compatible: reasons.length === 0,
@@ -104,11 +114,12 @@ export const ItemRegistryServiceLive = Layer.succeed(
       Effect.gen(function* () {
         const exists = yield* itemExists(itemId)
 
-        if (!exists) {
-          yield* Effect.fail(new ItemRegistryError('ITEM_NOT_FOUND', itemId))
-        }
-
-        return yield* getItemStackLimit(itemId)
+        return yield* pipe(
+          Match.value(exists),
+          Match.when(false, () => Effect.fail(new ItemRegistryError('ITEM_NOT_FOUND', itemId))),
+          Match.when(true, () => getItemStackLimit(itemId)),
+          Match.exhaustive
+        )
       }),
 
     /**

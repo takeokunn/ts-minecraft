@@ -3,14 +3,19 @@
  * DDD原則に基づく集約境界の厳密な管理
  */
 
+import { JsonValueSchema } from '@shared/schema/json'
 import { Effect, Schema } from 'effect'
+import { unsafeCoerce } from 'effect/Function'
 import type { ItemId } from '../../types'
+import { PlayerIdSchema } from '../../types/core'
+import { ItemIdSchema } from '../../value_object/item_id/schema'
+import { ItemStackEntitySchema } from '../item_stack/types'
 
 // ===== Brand Types =====
 
 export const InventoryIdSchema = Schema.String.pipe(
   Schema.nonEmptyString(),
-  Schema.pattern(/^inv_[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{12}$/),
+  Schema.pattern(/^inv_[A-Za-z0-9_-]+$/),
   Schema.brand('InventoryId')
 )
 export type InventoryId = Schema.Schema.Type<typeof InventoryIdSchema>
@@ -21,13 +26,21 @@ export type SlotIndex = Schema.Schema.Type<typeof SlotIndexSchema>
 export const HotbarSlotSchema = Schema.Number.pipe(Schema.int(), Schema.between(0, 8), Schema.brand('HotbarSlot'))
 export type HotbarSlot = Schema.Schema.Type<typeof HotbarSlotSchema>
 
+// ===== makeUnsafe Functions =====
+
+export const makeUnsafeInventoryId = (value: string): InventoryId => unsafeCoerce<string, InventoryId>(value)
+
+export const makeUnsafeSlotIndex = (value: number): SlotIndex => unsafeCoerce<number, SlotIndex>(value)
+
+export const makeUnsafeHotbarSlot = (value: number): HotbarSlot => unsafeCoerce<number, HotbarSlot>(value)
+
 // ===== Value Objects =====
 
 export const InventorySlotSchema = Schema.Union(
   Schema.Null,
   Schema.Struct({
-    itemStack: Schema.suspend(() => import('../item_stack/types').then((m) => m.ItemStackEntitySchema)),
-    metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
+    itemStack: ItemStackEntitySchema,
+    metadata: Schema.optional(Schema.Record({ key: Schema.String, value: JsonValueSchema })),
   })
 )
 export type InventorySlot = Schema.Schema.Type<typeof InventorySlotSchema>
@@ -44,7 +57,7 @@ export type ArmorSlot = Schema.Schema.Type<typeof ArmorSlotSchema>
 
 export const InventoryAggregateSchema = Schema.Struct({
   id: InventoryIdSchema,
-  playerId: Schema.suspend(() => import('../../types/index').then((m) => m.PlayerIdSchema)),
+  playerId: PlayerIdSchema,
   slots: Schema.Array(InventorySlotSchema).pipe(Schema.minItems(36), Schema.maxItems(36)),
   hotbar: Schema.Array(SlotIndexSchema).pipe(Schema.minItems(9), Schema.maxItems(9)),
   armor: ArmorSlotSchema,
@@ -62,19 +75,19 @@ export type InventoryAggregate = Schema.Schema.Type<typeof InventoryAggregateSch
 export const ItemAddedEventSchema = Schema.Struct({
   type: Schema.Literal('ItemAdded'),
   aggregateId: InventoryIdSchema,
-  playerId: Schema.suspend(() => import('../../types/index').then((m) => m.PlayerIdSchema)),
-  itemId: Schema.suspend(() => import('../../types/index').then((m) => m.ItemIdSchema)),
+  playerId: PlayerIdSchema,
+  itemId: ItemIdSchema,
   quantity: Schema.Number.pipe(Schema.int(), Schema.positive()),
   slotIndex: SlotIndexSchema,
   timestamp: Schema.DateTimeUtc,
-  metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
+  metadata: Schema.optional(Schema.Record({ key: Schema.String, value: JsonValueSchema })),
 })
 
 export const ItemRemovedEventSchema = Schema.Struct({
   type: Schema.Literal('ItemRemoved'),
   aggregateId: InventoryIdSchema,
-  playerId: Schema.suspend(() => import('../../types/index').then((m) => m.PlayerIdSchema)),
-  itemId: Schema.suspend(() => import('../../types/index').then((m) => m.ItemIdSchema)),
+  playerId: PlayerIdSchema,
+  itemId: ItemIdSchema,
   quantity: Schema.Number.pipe(Schema.int(), Schema.positive()),
   slotIndex: SlotIndexSchema,
   timestamp: Schema.DateTimeUtc,
@@ -84,7 +97,7 @@ export const ItemRemovedEventSchema = Schema.Struct({
 export const ItemsSwappedEventSchema = Schema.Struct({
   type: Schema.Literal('ItemsSwapped'),
   aggregateId: InventoryIdSchema,
-  playerId: Schema.suspend(() => import('../../types/index').then((m) => m.PlayerIdSchema)),
+  playerId: PlayerIdSchema,
   fromSlot: SlotIndexSchema,
   toSlot: SlotIndexSchema,
   timestamp: Schema.DateTimeUtc,
@@ -93,7 +106,7 @@ export const ItemsSwappedEventSchema = Schema.Struct({
 export const HotbarChangedEventSchema = Schema.Struct({
   type: Schema.Literal('HotbarChanged'),
   aggregateId: InventoryIdSchema,
-  playerId: Schema.suspend(() => import('../../types/index').then((m) => m.PlayerIdSchema)),
+  playerId: PlayerIdSchema,
   previousSlot: HotbarSlotSchema,
   newSlot: HotbarSlotSchema,
   timestamp: Schema.DateTimeUtc,
@@ -135,79 +148,71 @@ export const INVENTORY_CONSTANTS = {
 
 // ===== Error Types =====
 
-export const InventoryAggregateErrorSchema = Schema.TaggedError('InventoryAggregateError')(
-  Schema.Struct({
-    reason: Schema.Literal(
-      'SLOT_OCCUPIED',
-      'SLOT_EMPTY',
-      'INVALID_SLOT_INDEX',
-      'ITEM_NOT_STACKABLE',
-      'STACK_SIZE_EXCEEDED',
-      'INSUFFICIENT_QUANTITY',
-      'INVALID_ITEM_TYPE',
-      'ARMOR_SLOT_MISMATCH',
-      'AGGREGATE_VERSION_CONFLICT'
-    ),
-    message: Schema.String,
-    slotIndex: Schema.optional(SlotIndexSchema),
-    itemId: Schema.optional(Schema.suspend(() => import('../../types/index').then((m) => m.ItemIdSchema))),
-    metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
-  })
-)
+export const InventoryAggregateErrorSchema = Schema.TaggedError('InventoryAggregateError', {
+  reason: Schema.Literal(
+    'SLOT_OCCUPIED',
+    'SLOT_EMPTY',
+    'INVALID_SLOT_INDEX',
+    'ITEM_NOT_STACKABLE',
+    'STACK_SIZE_EXCEEDED',
+    'INSUFFICIENT_QUANTITY',
+    'INVALID_ITEM_TYPE',
+    'ARMOR_SLOT_MISMATCH',
+    'AGGREGATE_VERSION_CONFLICT'
+  ),
+  message: Schema.String,
+  slotIndex: Schema.optional(SlotIndexSchema),
+  itemId: Schema.optional(ItemIdSchema),
+  metadata: Schema.optional(Schema.Record({ key: Schema.String, value: JsonValueSchema })),
+  issues: Schema.optional(Schema.Array(Schema.String)),
+  originalError: Schema.optional(Schema.Unknown),
+})
 
-export class InventoryAggregateError extends Schema.TaggedError('InventoryAggregateError')<{
-  readonly reason: typeof InventoryAggregateErrorSchema.Type.reason
-  readonly message: string
-  readonly slotIndex?: SlotIndex
-  readonly itemId?: ItemId
-  readonly metadata?: Record<string, unknown>
-}> {
-  static slotOccupied(slotIndex: SlotIndex, itemId?: ItemId): InventoryAggregateError {
-    return new InventoryAggregateError({
+export type InventoryAggregateError = Schema.Schema.Type<typeof InventoryAggregateErrorSchema>
+
+export const InventoryAggregateError = {
+  ...makeErrorFactory(InventoryAggregateErrorSchema),
+
+  slotOccupied: (slotIndex: SlotIndex, itemId?: ItemId): InventoryAggregateError =>
+    InventoryAggregateErrorSchema.make({
       reason: 'SLOT_OCCUPIED',
       message: `スロット${slotIndex}は既に占有されています`,
       slotIndex,
       itemId,
-    })
-  }
+    }),
 
-  static slotEmpty(slotIndex: SlotIndex): InventoryAggregateError {
-    return new InventoryAggregateError({
+  slotEmpty: (slotIndex: SlotIndex): InventoryAggregateError =>
+    InventoryAggregateErrorSchema.make({
       reason: 'SLOT_EMPTY',
       message: `スロット${slotIndex}は空です`,
       slotIndex,
-    })
-  }
+    }),
 
-  static invalidSlotIndex(slotIndex: number): InventoryAggregateError {
-    return new InventoryAggregateError({
+  invalidSlotIndex: (slotIndex: number): InventoryAggregateError =>
+    InventoryAggregateErrorSchema.make({
       reason: 'INVALID_SLOT_INDEX',
       message: `不正なスロットインデックス: ${slotIndex}`,
-      slotIndex: slotIndex as SlotIndex,
-    })
-  }
+      slotIndex: makeUnsafeSlotIndex(slotIndex),
+    }),
 
-  static itemNotStackable(itemId: ItemId): InventoryAggregateError {
-    return new InventoryAggregateError({
+  itemNotStackable: (itemId: ItemId): InventoryAggregateError =>
+    InventoryAggregateErrorSchema.make({
       reason: 'ITEM_NOT_STACKABLE',
       message: `アイテム${itemId}はスタックできません`,
       itemId,
-    })
-  }
+    }),
 
-  static stackSizeExceeded(itemId: ItemId, attempted: number, max: number): InventoryAggregateError {
-    return new InventoryAggregateError({
+  stackSizeExceeded: (itemId: ItemId, attempted: number, max: number): InventoryAggregateError =>
+    InventoryAggregateErrorSchema.make({
       reason: 'STACK_SIZE_EXCEEDED',
       message: `アイテム${itemId}のスタックサイズ上限を超過: ${attempted} > ${max}`,
       itemId,
-    })
-  }
+    }),
 
-  static insufficientQuantity(itemId: ItemId, requested: number, available: number): InventoryAggregateError {
-    return new InventoryAggregateError({
+  insufficientQuantity: (itemId: ItemId, requested: number, available: number): InventoryAggregateError =>
+    InventoryAggregateErrorSchema.make({
       reason: 'INSUFFICIENT_QUANTITY',
       message: `アイテム${itemId}の数量が不足: ${requested} > ${available}`,
       itemId,
-    })
-  }
-}
+    }),
+} as const

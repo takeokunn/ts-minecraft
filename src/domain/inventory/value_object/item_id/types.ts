@@ -1,4 +1,5 @@
 import { Brand, Data } from 'effect'
+import { unsafeCoerce } from 'effect/Function'
 
 /**
  * ItemId Brand型（minecraft:stone形式）
@@ -100,3 +101,22 @@ export type ItemComparison = Data.TaggedEnum<{
  * ItemComparison コンストラクタ
  */
 export const ItemComparison = Data.taggedEnum<ItemComparison>()
+
+/**
+ * Namespace を安全でない方法で作成（パフォーマンス重視）
+ * 高頻度呼び出し箇所でのみ使用すること
+ */
+export const makeUnsafeNamespace = (value: string): Namespace => unsafeCoerce<string, Namespace>(value)
+
+/**
+ * ItemName を安全でない方法で作成（パフォーマンス重視）
+ * 高頻度呼び出し箇所でのみ使用すること
+ */
+export const makeUnsafeItemName = (value: string): ItemName => unsafeCoerce<string, ItemName>(value)
+
+/**
+ * ItemId を安全でない方法で作成（パフォーマンス重視）
+ * 静的な定義やテストで使用する。実行時バリデーションは行わないため、
+ * 正しいフォーマット（namespace:name）であることを呼び出し側で保証すること
+ */
+export const makeUnsafeItemId = (value: string): ItemId => unsafeCoerce<string, ItemId>(value)

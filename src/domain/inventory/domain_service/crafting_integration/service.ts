@@ -6,7 +6,8 @@
  * レシピの実行可能性、材料の可用性、結果の配置などを処理します。
  */
 
-import { Context, Data, Effect } from 'effect'
+import type { JsonValue } from '@shared/schema/json'
+import { Context, Effect } from 'effect'
 import type { Inventory, ItemId, ItemStack } from '../../types'
 
 // =============================================================================
@@ -45,7 +46,7 @@ export interface RecipeIngredient {
 export interface RecipeResult {
   readonly itemId: ItemId
   readonly count: number
-  readonly metadata?: unknown
+  readonly metadata?: JsonValue
 }
 
 /**
@@ -129,10 +130,41 @@ export interface IngredientCollectionResult {
 // Domain Errors
 // =============================================================================
 
-export class CraftingIntegrationError extends Data.TaggedError('CraftingIntegrationError')<{
-  readonly reason: string
-  readonly details?: string
-}> {}
+export const CraftingIntegrationErrorSchema = Schema.TaggedStruct('CraftingIntegrationError', {
+  reason: Schema.String,
+  details: Schema.optional(Schema.String),
+}).pipe(
+  Schema.annotations({
+    title: 'Crafting Integration Error',
+    description: 'Error when crafting integration operation fails',
+  })
+)
+export type CraftingIntegrationError = Schema.Schema.Type<typeof CraftingIntegrationErrorSchema>
+
+/**
+ * CraftingIntegrationErrorのメッセージを取得する操作関数
+ */
+export const getCraftingIntegrationErrorMessage = (error: CraftingIntegrationError): string =>
+  error.details ? `${error.reason}: ${error.details}` : error.reason
+
+/**
+ * CraftingIntegrationErrorを作成するFactory関数
+ */
+export const createCraftingIntegrationError = (
+  reason: string,
+  details?: string
+): Effect.Effect<CraftingIntegrationError, Schema.ParseError> =>
+  Schema.decode(CraftingIntegrationErrorSchema)({
+    _tag: 'CraftingIntegrationError' as const,
+    reason,
+    details,
+  })
+
+/**
+ * 型ガード関数
+ */
+export const isCraftingIntegrationError = (error: unknown): error is CraftingIntegrationError =>
+  Schema.is(CraftingIntegrationErrorSchema)(error)
 
 // =============================================================================
 // Crafting Integration Service Interface

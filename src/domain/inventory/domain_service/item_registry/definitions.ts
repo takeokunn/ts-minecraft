@@ -5,8 +5,9 @@
  * Minecraftの標準アイテムを中心とした定義を提供します。
  */
 
-import { Effect } from 'effect'
+import { Effect, Array as EffectArray, pipe } from 'effect'
 import type { ItemId } from '../../types'
+import { makeUnsafeItemId } from '../../value_object/item_id/types'
 import type { ItemCategory, ItemDefinition } from './index'
 
 // =============================================================================
@@ -19,16 +20,16 @@ import type { ItemCategory, ItemDefinition } from './index'
 const DEFAULT_ITEM_DEFINITIONS = new Map<ItemId, ItemDefinition>([
   // ツール系
   [
-    'minecraft:diamond_pickaxe' as ItemId,
+    makeUnsafeItemId('minecraft:diamond_pickaxe'),
     {
-      itemId: 'minecraft:diamond_pickaxe' as ItemId,
+      itemId: makeUnsafeItemId('minecraft:diamond_pickaxe'),
       displayName: 'Diamond Pickaxe',
       category: 'TOOL' as ItemCategory,
       properties: {
         maxStackSize: 1,
         durability: {
           maxDurability: 1561,
-          repairMaterials: ['minecraft:diamond' as ItemId],
+          repairMaterials: [makeUnsafeItemId('minecraft:diamond')],
         },
         enchantable: true,
         rarity: 'RARE',
@@ -53,16 +54,16 @@ const DEFAULT_ITEM_DEFINITIONS = new Map<ItemId, ItemDefinition>([
 
   // 武器系
   [
-    'minecraft:diamond_sword' as ItemId,
+    makeUnsafeItemId('minecraft:diamond_sword'),
     {
-      itemId: 'minecraft:diamond_sword' as ItemId,
+      itemId: makeUnsafeItemId('minecraft:diamond_sword'),
       displayName: 'Diamond Sword',
       category: 'WEAPON' as ItemCategory,
       properties: {
         maxStackSize: 1,
         durability: {
           maxDurability: 1561,
-          repairMaterials: ['minecraft:diamond' as ItemId],
+          repairMaterials: [makeUnsafeItemId('minecraft:diamond')],
         },
         enchantable: true,
         rarity: 'RARE',
@@ -87,9 +88,9 @@ const DEFAULT_ITEM_DEFINITIONS = new Map<ItemId, ItemDefinition>([
 
   // 食べ物系
   [
-    'minecraft:bread' as ItemId,
+    makeUnsafeItemId('minecraft:bread'),
     {
-      itemId: 'minecraft:bread' as ItemId,
+      itemId: makeUnsafeItemId('minecraft:bread'),
       displayName: 'Bread',
       category: 'FOOD' as ItemCategory,
       properties: {
@@ -121,9 +122,9 @@ const DEFAULT_ITEM_DEFINITIONS = new Map<ItemId, ItemDefinition>([
 
   // ブロック系
   [
-    'minecraft:cobblestone' as ItemId,
+    makeUnsafeItemId('minecraft:cobblestone'),
     {
-      itemId: 'minecraft:cobblestone' as ItemId,
+      itemId: makeUnsafeItemId('minecraft:cobblestone'),
       displayName: 'Cobblestone',
       category: 'BUILDING_BLOCK' as ItemCategory,
       properties: {
@@ -151,9 +152,9 @@ const DEFAULT_ITEM_DEFINITIONS = new Map<ItemId, ItemDefinition>([
 
   // 燃料系
   [
-    'minecraft:coal' as ItemId,
+    makeUnsafeItemId('minecraft:coal'),
     {
-      itemId: 'minecraft:coal' as ItemId,
+      itemId: makeUnsafeItemId('minecraft:coal'),
       displayName: 'Coal',
       category: 'MISCELLANEOUS' as ItemCategory,
       properties: {
@@ -319,28 +320,32 @@ export const searchDefaultItems = (criteria: {
   Effect.gen(function* () {
     const allItems = Array.from(DEFAULT_ITEM_DEFINITIONS.values())
 
-    return allItems.filter((item) => {
+    // フィルタリングルールを関数の配列として定義
+    const filterRules: ReadonlyArray<(item: ItemDefinition) => boolean> = [
       // カテゴリフィルタ
-      if (criteria.category && item.category !== criteria.category) {
-        return false
-      }
+      (item) => !criteria.category || item.category === criteria.category,
+      // 名前パターンフィルタ - Match.valueによる宣言的記述
+      (item) =>
+        pipe(
+          Match.value(criteria.namePattern),
+          Match.when(Match.undefined, () => true),
+          Match.orElse((pattern) => {
+            const regex = new RegExp(pattern, 'i')
+            return regex.test(item.displayName) || regex.test(item.itemId)
+          })
+        ),
+      // タグフィルタ - Match.valueによる宣言的記述
+      (item) =>
+        pipe(
+          Match.value(criteria.tags),
+          Match.when(Match.undefined, () => true),
+          Match.when(EffectArray.isEmptyReadonlyArray, () => true),
+          Match.orElse((tags) => tags.some((tag) => item.metadata.tags.includes(tag)))
+        ),
+    ]
 
-      // 名前パターンフィルタ
-      if (criteria.namePattern) {
-        const pattern = new RegExp(criteria.namePattern, 'i')
-        if (!pattern.test(item.displayName) && !pattern.test(item.itemId)) {
-          return false
-        }
-      }
-
-      // タグフィルタ
-      if (criteria.tags && criteria.tags.length > 0) {
-        const hasMatchingTag = criteria.tags.some((tag) => item.metadata.tags.includes(tag))
-        if (!hasMatchingTag) {
-          return false
-        }
-      }
-
-      return true
-    })
+    return pipe(
+      allItems,
+      EffectArray.filter((item) => filterRules.every((rule) => rule(item)))
+    )
   })

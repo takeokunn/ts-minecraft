@@ -251,7 +251,7 @@ const processPlayerAction = (playerId: PlayerId, action: PlayerAction) =>
 #### Performance API による詳細測定
 
 ```typescript
-import * as Stats from 'stats.js'
+import * as Stats from 'stats'
 
 // パフォーマンス監視の設定
 const setupPerformanceMonitoring = Effect.gen(function* () {

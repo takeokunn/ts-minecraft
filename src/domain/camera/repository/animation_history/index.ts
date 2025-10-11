@@ -5,7 +5,7 @@
  * アニメーション記録・統計・パフォーマンス分析・履歴管理を統合
  */
 
-import { Clock, Data, Effect, Option, Schema } from 'effect'
+import { Clock, Data, Effect, Match, Option, Schema } from 'effect'
 import type { AnimationQueryOptions, AnimationRecord, TimeRange } from './types'
 import { createAnimationRecord } from './types'
 
@@ -50,6 +50,7 @@ export type {
 } from './types'
 
 export {
+  AnimationHistoryExportDataSchema,
   AnimationHistoryRepositoryErrorSchema,
   AnimationMetadataSchema,
   AnimationPrioritySchema,
@@ -212,13 +213,26 @@ export const AnimationAnalysisUtils = {
   /**
    * アニメーション品質グレードを判定
    */
-  getQualityGrade: (performanceScore: number): 'S' | 'A' | 'B' | 'C' | 'D' => {
-    if (performanceScore >= 90) return 'S'
-    if (performanceScore >= 80) return 'A'
-    if (performanceScore >= 70) return 'B'
-    if (performanceScore >= 60) return 'C'
-    return 'D'
-  },
+  getQualityGrade: (performanceScore: number): 'S' | 'A' | 'B' | 'C' | 'D' =>
+    Match.value(performanceScore).pipe(
+      Match.when(
+        (score) => score >= 90,
+        () => 'S' as const
+      ),
+      Match.when(
+        (score) => score >= 80,
+        () => 'A' as const
+      ),
+      Match.when(
+        (score) => score >= 70,
+        () => 'B' as const
+      ),
+      Match.when(
+        (score) => score >= 60,
+        () => 'C' as const
+      ),
+      Match.orElse(() => 'D' as const)
+    ),
 } as const
 
 // ========================================

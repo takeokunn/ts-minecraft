@@ -1,3 +1,4 @@
+import type { JsonValue } from '@shared/schema/json'
 import { Context, Effect } from 'effect'
 import type { ArmorSlots, Inventory, InventoryState, ItemId, ItemRegistryError, ItemStack, PlayerId } from './index'
 
@@ -33,7 +34,7 @@ export type InventoryServiceError =
       readonly available: number
     }
   | { readonly _tag: 'SplitTargetMustBeCompatible'; readonly sourceSlot: number; readonly targetSlot: number }
-  | { readonly _tag: 'InventoryStateValidationFailed'; readonly reason: unknown }
+  | { readonly _tag: 'InventoryStateValidationFailed'; readonly reason: JsonValue }
 
 export const InventoryServiceError = {
   invalidSlotIndex: (slotIndex: number): InventoryServiceError => ({ _tag: 'InvalidSlotIndex', slotIndex }),
@@ -55,7 +56,7 @@ export const InventoryServiceError = {
     sourceSlot,
     targetSlot,
   }),
-  inventoryStateValidationFailed: (reason: unknown): InventoryServiceError => ({
+  inventoryStateValidationFailed: (reason: JsonValue): InventoryServiceError => ({
     _tag: 'InventoryStateValidationFailed',
     reason,
   }),

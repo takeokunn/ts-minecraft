@@ -241,7 +241,7 @@ export const BlockOperations = {
 ```typescript
 // src/domain/world/entities/Chunk.ts
 import { Schema, Effect } from 'effect'
-import { Block } from './Block.js'
+import { Block } from './Block'
 
 export const ChunkCoordinate = Schema.Struct({
   x: Schema.Number.pipe(Schema.int()),
@@ -483,8 +483,8 @@ export const PlayerOperations = {
 ```typescript
 // src/application/services/WorldService.ts
 import { Context, Effect, Layer } from 'effect'
-import { Chunk, ChunkCoordinate } from '../../domain/world/entities/Chunk.js'
-import { Block } from '../../domain/world/entities/Block.js'
+import { Chunk, ChunkCoordinate } from '../../domain/world/entities/Chunk'
+import { Block } from '../../domain/world/entities/Block'
 
 // サービスインターフェース定義
 export interface WorldService {
@@ -668,7 +668,7 @@ export const WorldServiceLive = Layer.effect(WorldService, makeWorldService)
 ```typescript
 // src/application/services/PlayerService.ts
 import { Context, Effect, Layer } from 'effect'
-import { Player, PlayerOperations } from '../../domain/player/entities/Player.js'
+import { Player, PlayerOperations } from '../../domain/player/entities/Player'
 
 export interface PlayerService {
   readonly createPlayer: (id: string) => Effect.Effect<Player, PlayerError>
@@ -798,8 +798,8 @@ export const PlayerServiceLive = Layer.effect(PlayerService, makePlayerService)
 // src/infrastructure/rendering/ThreeJSRenderer.ts
 import { Context, Effect, Layer } from 'effect'
 import * as THREE from 'three'
-import { Chunk } from '../../domain/world/entities/Chunk.js'
-import { Player } from '../../domain/player/entities/Player.js'
+import { Chunk } from '../../domain/world/entities/Chunk'
+import { Player } from '../../domain/player/entities/Player'
 
 export interface RenderService {
   readonly initialize: (canvas: HTMLCanvasElement) => Effect.Effect<void, RenderError>
@@ -1164,9 +1164,9 @@ export const RenderServiceLive = Layer.effect(RenderService, makeRenderService)
 ```typescript
 // src/application/GameApplication.ts
 import { Context, Effect, Layer, Schedule } from 'effect'
-import { WorldService } from './services/WorldService.js'
-import { PlayerService, InputState } from './services/PlayerService.js'
-import { RenderService } from '../infrastructure/rendering/ThreeJSRenderer.js'
+import { WorldService } from './services/WorldService'
+import { PlayerService, InputState } from './services/PlayerService'
+import { RenderService } from '../infrastructure/rendering/ThreeJSRenderer'
 
 export interface GameApplication {
   readonly initialize: (canvas: HTMLCanvasElement) => Effect.Effect<void, GameError>
@@ -1423,8 +1423,8 @@ export const AppLayer = Layer.mergeAll(WorldServiceLive, PlayerServiceLive, Rend
 ```typescript
 // src/main.ts
 import { Effect } from 'effect'
-import { GameApplication, AppLayer, GameError } from './application/GameApplication.js'
-import { InputState } from './application/services/PlayerService.js'
+import { GameApplication, AppLayer, GameError } from './application/GameApplication'
+import { InputState } from './application/services/PlayerService'
 
 // 入力状態管理
 interface InputManagerInterface {

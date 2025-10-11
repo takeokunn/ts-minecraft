@@ -15,8 +15,8 @@ export type TargetFramesPerSecond = Schema.Schema.Type<typeof TargetFramesPerSec
 export const FrameCount = Schema.Number.pipe(Schema.int(), Schema.nonNegative(), Schema.brand('FrameCount'))
 export type FrameCount = Schema.Schema.Type<typeof FrameCount>
 
-export const Milliseconds = Schema.Number.pipe(Schema.nonNegative(), Schema.brand('Milliseconds'))
-export type Milliseconds = Schema.Schema.Type<typeof Milliseconds>
+// Re-export from units
+export { MillisecondsSchema as Milliseconds, type Milliseconds } from '../domain/shared/value_object/units'
 
 export const MemoryBytes = Schema.Number.pipe(Schema.nonNegative(), Schema.brand('MemoryBytes'))
 export type MemoryBytes = Schema.Schema.Type<typeof MemoryBytes>
@@ -27,8 +27,8 @@ export type CpuPercentage = Schema.Schema.Type<typeof CpuPercentage>
 export const ResourcePercentage = Schema.Number.pipe(Schema.between(0, 1), Schema.brand('ResourcePercentage'))
 export type ResourcePercentage = Schema.Schema.Type<typeof ResourcePercentage>
 
-export const Timestamp = Schema.Number.pipe(Schema.int(), Schema.nonNegative(), Schema.brand('Timestamp'))
-export type Timestamp = Schema.Schema.Type<typeof Timestamp>
+// Re-export from units
+export { TimestampSchema as Timestamp, type Timestamp } from '../domain/shared/value_object/units'
 
 export const SlotCount = Schema.Number.pipe(Schema.int(), Schema.nonNegative(), Schema.brand('SlotCount'))
 export type SlotCount = Schema.Schema.Type<typeof SlotCount>
@@ -106,8 +106,6 @@ export type GameApplicationConfigInput = Schema.Schema.Input<typeof GameApplicat
 export const SystemStatus = Schema.Literal('idle', 'initializing', 'running', 'paused', 'error')
 export type SystemStatus = Schema.Schema.Type<typeof SystemStatus>
 
-const decodeSystemStatus = Schema.decodeSync(SystemStatus)
-
 export const SystemStatusValues: {
   readonly Idle: SystemStatus
   readonly Initializing: SystemStatus
@@ -115,11 +113,11 @@ export const SystemStatusValues: {
   readonly Paused: SystemStatus
   readonly Error: SystemStatus
 } = {
-  Idle: decodeSystemStatus('idle'),
-  Initializing: decodeSystemStatus('initializing'),
-  Running: decodeSystemStatus('running'),
-  Paused: decodeSystemStatus('paused'),
-  Error: decodeSystemStatus('error'),
+  Idle: 'idle',
+  Initializing: 'initializing',
+  Running: 'running',
+  Paused: 'paused',
+  Error: 'error',
 }
 
 export const GameLoopState = Schema.Struct({
@@ -178,14 +176,12 @@ export type ECSState = Schema.Schema.Type<typeof ECSState>
 export const HealthStatus = Schema.Literal('healthy', 'unhealthy')
 export type HealthStatus = Schema.Schema.Type<typeof HealthStatus>
 
-const decodeHealthStatus = Schema.decodeSync(HealthStatus)
-
 export const HealthStatusValues: {
   readonly Healthy: HealthStatus
   readonly Unhealthy: HealthStatus
 } = {
-  Healthy: decodeHealthStatus('healthy'),
-  Unhealthy: decodeHealthStatus('unhealthy'),
+  Healthy: 'healthy',
+  Unhealthy: 'unhealthy',
 }
 
 export const SystemHealthCheck = Schema.Struct({
@@ -216,7 +212,7 @@ export const SystemHealthCheck = Schema.Struct({
 })
 export type SystemHealthCheck = Schema.Schema.Type<typeof SystemHealthCheck>
 
-const ErrorSeverity = Schema.Literal('low', 'medium', 'high', 'critical')
+export const ErrorSeverity = Schema.Literal('low', 'medium', 'high', 'critical')
 export type ErrorSeverity = Schema.Schema.Type<typeof ErrorSeverity>
 
 export const RecordedError = Schema.Struct({
@@ -251,9 +247,7 @@ export type GameApplicationState = Schema.Schema.Type<typeof GameApplicationStat
 
 // ===== デフォルト設定 =====
 
-const ensureGameApplicationConfig = Schema.decodeSync(GameApplicationConfig)
-
-export const DEFAULT_GAME_APPLICATION_CONFIG = ensureGameApplicationConfig({
+export const DEFAULT_GAME_APPLICATION_CONFIG: GameApplicationConfig = {
   rendering: {
     targetFps: 60,
     enableVSync: true,
@@ -283,4 +277,4 @@ export const DEFAULT_GAME_APPLICATION_CONFIG = ensureGameApplicationConfig({
     showPerformanceStats: false,
     enableHotReload: false,
   },
-}) satisfies GameApplicationConfig
+} as GameApplicationConfig

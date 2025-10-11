@@ -1,3 +1,4 @@
+import { JsonValueSchema } from '@shared/schema/json'
 import { Schema } from 'effect'
 
 // =============================================================================
@@ -22,35 +23,15 @@ export type InventoryId = Schema.Schema.Type<typeof InventoryIdSchema>
 
 /**
  * プレイヤー識別子
- * プレイヤーの一意識別子（UUID形式推奨）
+ * 共有カーネルから再エクスポート
  */
-export const PlayerIdSchema = Schema.String.pipe(
-  Schema.pattern(/^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$/),
-  Schema.brand('PlayerId'),
-  Schema.annotations({
-    title: 'PlayerId',
-    description: 'Unique identifier for a player (UUID format)',
-    examples: ['550e8400-e29b-41d4-a716-446655440000'],
-  })
-)
-
-export type PlayerId = Schema.Schema.Type<typeof PlayerIdSchema>
+export { PlayerIdSchema, type PlayerId } from '@domain/shared/entities/player_id'
 
 /**
  * アイテム識別子
- * Minecraftアイテムの一意識別子（namespace:name形式）
+ * 共有カーネルから再エクスポート
  */
-export const ItemIdSchema = Schema.String.pipe(
-  Schema.pattern(/^[a-z_]+:[a-z_]+$/),
-  Schema.brand('ItemId'),
-  Schema.annotations({
-    title: 'ItemId',
-    description: 'Unique identifier for an item (namespace:name format)',
-    examples: ['minecraft:stone', 'minecraft:diamond_sword', 'custom:magic_wand'],
-  })
-)
-
-export type ItemId = Schema.Schema.Type<typeof ItemIdSchema>
+export { ItemIdSchema, type ItemId } from '../../../shared/entities/item_id'
 
 /**
  * スロット番号
@@ -232,10 +213,7 @@ export const ItemMetadataSchema = Schema.Struct({
     )
   ),
   nbtData: Schema.optional(
-    Schema.Record({
-      key: Schema.String,
-      value: Schema.Unknown,
-    }).pipe(
+    Schema.Record({ key: Schema.String, value: JsonValueSchema }).pipe(
       Schema.annotations({
         description: 'Custom NBT data for mod compatibility',
       })

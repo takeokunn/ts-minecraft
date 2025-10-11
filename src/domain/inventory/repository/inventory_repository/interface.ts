@@ -41,7 +41,7 @@ export interface InventoryRepository {
    *   ]),
    *   metadata: { isHotbarEnabled: true },
    *   version: 1,
-   *   lastUpdated: Date.now()
+   *   lastUpdated: yield* Clock.currentTimeMillis
    * }
    *
    * yield* repo.save(inventory)
@@ -242,10 +242,11 @@ export interface InventoryRepository {
    *
    * @example
    * ```typescript
+   * const now = yield* Clock.currentTimeMillis
    * const query: InventoryQuery = {
    *   minCapacity: 36,
    *   hasItems: ['stone', 'wood'],
-   *   updatedAfter: Date.now() - 86400000, // 24時間以内
+   *   updatedAfter: now - 86400000, // 24時間以内
    *   excludeEmpty: true
    * }
    *

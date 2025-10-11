@@ -1,6 +1,8 @@
+import { physicsStepDuration } from '@application/observability/metrics'
 import type { PlayerId, Vector3D } from '@domain/entities'
+import { toErrorCause, type ErrorCause } from '@shared/schema/error'
 import * as CANNON from 'cannon-es'
-import { Context, Effect, Layer, pipe } from 'effect'
+import { Clock, Context, Effect, Layer, pipe, ReadonlyArray } from 'effect'
 
 /**
  * Cannon-es物理エンジン統合サービス
@@ -21,6 +23,13 @@ export const PHYSICS_CONSTANTS = {
   ANGULAR_DAMPING: 0.01,
 } as const
 
+const hasNumericSolverProperty = <K extends PropertyKey>(
+  solver: CANNON.Solver,
+  key: K
+): solver is CANNON.Solver & Record<K, number> =>
+  Object.prototype.hasOwnProperty.call(solver, key) &&
+  typeof (solver as Record<PropertyKey, number | undefined>)[key] === 'number'
+
 // 物理ボディの状態
 export interface PhysicsBodyState {
   readonly position: Vector3D
@@ -35,7 +44,7 @@ export interface PhysicsBodyState {
 export interface PhysicsEngineError {
   readonly _tag: 'PhysicsEngineError'
   readonly message: string
-  readonly cause?: unknown
+  readonly cause?: ErrorCause
 }
 
 // Character Controller設定
@@ -134,11 +143,11 @@ const makeCannonPhysicsService: Effect.Effect<CannonPhysicsService> = Effect.gen
         world.broadphase.useBoundingBoxes = true
 
         // ソルバー設定 (Cannon-es 0.20+)
-        if ('iterations' in world.solver) {
-          ;(world.solver as any).iterations = 10
+        if (hasNumericSolverProperty(world.solver, 'iterations')) {
+          world.solver.iterations = 10
         }
-        if ('tolerance' in world.solver) {
-          ;(world.solver as any).tolerance = 0.1
+        if (hasNumericSolverProperty(world.solver, 'tolerance')) {
+          world.solver.tolerance = 0.1
         }
 
         // コンタクトマテリアル設定
@@ -155,10 +164,8 @@ const makeCannonPhysicsService: Effect.Effect<CannonPhysicsService> = Effect.gen
         world.addContactMaterial(playerGroundContact)
         world.defaultContactMaterial.friction = PHYSICS_CONSTANTS.FRICTION
         world.defaultContactMaterial.restitution = PHYSICS_CONSTANTS.RESTITUTION
-
-        console.log('Cannon-es physics world initialized')
       })
-    })
+    }).pipe(Effect.tap(() => Effect.logInfo('Cannon-es physics world initialized')))
 
   // プレイヤーCharacter Controllerの作成
   const createPlayerController = (
@@ -167,12 +174,16 @@ const makeCannonPhysicsService: Effect.Effect<CannonPhysicsService> = Effect.gen
     config: Partial<CharacterControllerConfig> = {}
   ) =>
     Effect.gen(function* () {
+      if (!world) {
+        return yield* Effect.fail<PhysicsEngineError>({
+          _tag: 'PhysicsEngineError',
+          message: 'Physics world not initialized',
+          cause: undefined,
+        })
+      }
+
       return yield* pipe(
         Effect.sync(() => {
-          if (!world) {
-            throw new Error('Physics world not initialized')
-          }
-
           const finalConfig: CharacterControllerConfig = {
             mass: PHYSICS_CONSTANTS.PLAYER_MASS,
             radius: PHYSICS_CONSTANTS.PLAYER_RADIUS,
@@ -207,14 +218,16 @@ const makeCannonPhysicsService: Effect.Effect<CannonPhysicsService> = Effect.gen
           bodies.set(bodyId, body)
           playerControllers.set(bodyId, playerId)
 
-          console.log(`Player controller created for ${playerId} with bodyId: ${bodyId}`)
           return bodyId
         }),
+        Effect.tap((bodyId) =>
+          Effect.logInfo(`Player controller created`).pipe(Effect.annotateLogs({ playerId: String(playerId), bodyId }))
+        ),
         Effect.mapError(
           (error): PhysicsEngineError => ({
             _tag: 'PhysicsEngineError',
             message: `Failed to create player controller: ${error}`,
-            cause: error,
+            cause: toErrorCause(error),
           })
         )
       )
@@ -223,12 +236,18 @@ const makeCannonPhysicsService: Effect.Effect<CannonPhysicsService> = Effect.gen
   // 物理ステップの実行
   const step = (deltaTime: number) =>
     Effect.gen(function* () {
-      return yield* pipe(
-        Effect.sync(() => {
-          if (!world) {
-            throw new Error('Physics world not initialized')
-          }
+      if (!world) {
+        return yield* Effect.fail<PhysicsEngineError>({
+          _tag: 'PhysicsEngineError',
+          message: 'Physics world not initialized',
+          cause: undefined,
+        })
+      }
 
+      const startTime = yield* Clock.currentTimeMillis
+
+      const result = yield* pipe(
+        Effect.sync(() => {
           // 固定タイムステップで物理演算を実行
           world.fixedStep(PHYSICS_CONSTANTS.TIME_STEP, deltaTime)
         }),
@@ -236,22 +255,33 @@ const makeCannonPhysicsService: Effect.Effect<CannonPhysicsService> = Effect.gen
           (error): PhysicsEngineError => ({
             _tag: 'PhysicsEngineError',
             message: `Physics step failed: ${error}`,
-            cause: error,
+            cause: toErrorCause(error),
           })
         )
       )
+
+      // メトリクス記録: 物理演算ステップ時間を記録
+      const endTime = yield* Clock.currentTimeMillis
+      const duration = endTime - startTime
+      yield* physicsStepDuration(duration)
+
+      return result
     })
 
   // プレイヤーボディの状態取得
   const getPlayerState = (bodyId: string) =>
     Effect.gen(function* () {
+      const body = bodies.get(bodyId)
+      if (!body) {
+        return yield* Effect.fail<PhysicsEngineError>({
+          _tag: 'PhysicsEngineError',
+          message: `Body not found: ${bodyId}`,
+          cause: undefined,
+        })
+      }
+
       return yield* pipe(
         Effect.sync(() => {
-          const body = bodies.get(bodyId)
-          if (!body) {
-            throw new Error(`Body not found: ${bodyId}`)
-          }
-
           // 地面判定のためのレイキャスト
           const rayStart = body.position.clone()
           const rayEnd = rayStart.clone()
@@ -294,7 +324,7 @@ const makeCannonPhysicsService: Effect.Effect<CannonPhysicsService> = Effect.gen
           (error): PhysicsEngineError => ({
             _tag: 'PhysicsEngineError',
             message: `Failed to get player state: ${error}`,
-            cause: error,
+            cause: toErrorCause(error),
           })
         )
       )
@@ -303,13 +333,17 @@ const makeCannonPhysicsService: Effect.Effect<CannonPhysicsService> = Effect.gen
   // プレイヤーに移動力を適用
   const applyMovementForce = (bodyId: string, force: Vector3D) =>
     Effect.gen(function* () {
+      const body = bodies.get(bodyId)
+      if (!body) {
+        return yield* Effect.fail<PhysicsEngineError>({
+          _tag: 'PhysicsEngineError',
+          message: `Body not found: ${bodyId}`,
+          cause: undefined,
+        })
+      }
+
       return yield* pipe(
         Effect.sync(() => {
-          const body = bodies.get(bodyId)
-          if (!body) {
-            throw new Error(`Body not found: ${bodyId}`)
-          }
-
           // 水平方向のみに力を適用（Y方向は重力とジャンプで管理）
           const worldForce = new CANNON.Vec3(force.x, 0, force.z)
           body.applyForce(worldForce)
@@ -318,7 +352,7 @@ const makeCannonPhysicsService: Effect.Effect<CannonPhysicsService> = Effect.gen
           (error): PhysicsEngineError => ({
             _tag: 'PhysicsEngineError',
             message: `Failed to apply movement force: ${error}`,
-            cause: error,
+            cause: toErrorCause(error),
           })
         )
       )
@@ -327,13 +361,17 @@ const makeCannonPhysicsService: Effect.Effect<CannonPhysicsService> = Effect.gen
   // プレイヤーのジャンプ
   const jumpPlayer = (bodyId: string, jumpVelocity: number) =>
     Effect.gen(function* () {
+      const body = bodies.get(bodyId)
+      if (!body) {
+        return yield* Effect.fail<PhysicsEngineError>({
+          _tag: 'PhysicsEngineError',
+          message: `Body not found: ${bodyId}`,
+          cause: undefined,
+        })
+      }
+
       return yield* pipe(
         Effect.sync(() => {
-          const body = bodies.get(bodyId)
-          if (!body) {
-            throw new Error(`Body not found: ${bodyId}`)
-          }
-
           // Y方向に瞬間的な速度を与える
           body.velocity.y = jumpVelocity
         }),
@@ -341,7 +379,7 @@ const makeCannonPhysicsService: Effect.Effect<CannonPhysicsService> = Effect.gen
           (error): PhysicsEngineError => ({
             _tag: 'PhysicsEngineError',
             message: `Failed to jump player: ${error}`,
-            cause: error,
+            cause: toErrorCause(error),
           })
         )
       )
@@ -350,12 +388,16 @@ const makeCannonPhysicsService: Effect.Effect<CannonPhysicsService> = Effect.gen
   // 地面・ブロックとの衝突検知
   const raycastGround = (position: Vector3D, distance: number) =>
     Effect.gen(function* () {
+      if (!world) {
+        return yield* Effect.fail<PhysicsEngineError>({
+          _tag: 'PhysicsEngineError',
+          message: 'Physics world not initialized',
+          cause: undefined,
+        })
+      }
+
       return yield* pipe(
         Effect.sync(() => {
-          if (!world) {
-            throw new Error('Physics world not initialized')
-          }
-
           const rayStart = new CANNON.Vec3(position.x, position.y, position.z)
           const rayEnd = new CANNON.Vec3(position.x, position.y - distance, position.z)
 
@@ -380,7 +422,7 @@ const makeCannonPhysicsService: Effect.Effect<CannonPhysicsService> = Effect.gen
           (error): PhysicsEngineError => ({
             _tag: 'PhysicsEngineError',
             message: `Ground raycast failed: ${error}`,
-            cause: error,
+            cause: toErrorCause(error),
           })
         )
       )
@@ -389,12 +431,16 @@ const makeCannonPhysicsService: Effect.Effect<CannonPhysicsService> = Effect.gen
   // 静的ブロックボディの追加
   const addStaticBlock = (position: Vector3D, size: Vector3D) =>
     Effect.gen(function* () {
+      if (!world) {
+        return yield* Effect.fail<PhysicsEngineError>({
+          _tag: 'PhysicsEngineError',
+          message: 'Physics world not initialized',
+          cause: undefined,
+        })
+      }
+
       return yield* pipe(
         Effect.sync(() => {
-          if (!world) {
-            throw new Error('Physics world not initialized')
-          }
-
           const shape = new CANNON.Box(new CANNON.Vec3(size.x / 2, size.y / 2, size.z / 2))
           const body = new CANNON.Body({
             mass: 0, // 静的オブジェクト
@@ -414,7 +460,7 @@ const makeCannonPhysicsService: Effect.Effect<CannonPhysicsService> = Effect.gen
           (error): PhysicsEngineError => ({
             _tag: 'PhysicsEngineError',
             message: `Failed to add static block: ${error}`,
-            cause: error,
+            cause: toErrorCause(error),
           })
         )
       )
@@ -423,13 +469,17 @@ const makeCannonPhysicsService: Effect.Effect<CannonPhysicsService> = Effect.gen
   // ボディの削除
   const removeBody = (bodyId: string) =>
     Effect.gen(function* () {
+      const body = bodies.get(bodyId)
+      if (!body) {
+        return yield* Effect.fail<PhysicsEngineError>({
+          _tag: 'PhysicsEngineError',
+          message: `Body not found: ${bodyId}`,
+          cause: undefined,
+        })
+      }
+
       return yield* pipe(
         Effect.sync(() => {
-          const body = bodies.get(bodyId)
-          if (!body) {
-            throw new Error(`Body not found: ${bodyId}`)
-          }
-
           if (world) {
             world.removeBody(body)
           }
@@ -441,7 +491,7 @@ const makeCannonPhysicsService: Effect.Effect<CannonPhysicsService> = Effect.gen
           (error): PhysicsEngineError => ({
             _tag: 'PhysicsEngineError',
             message: `Failed to remove body: ${error}`,
-            cause: error,
+            cause: toErrorCause(error),
           })
         )
       )
@@ -453,18 +503,18 @@ const makeCannonPhysicsService: Effect.Effect<CannonPhysicsService> = Effect.gen
       return yield* Effect.sync(() => {
         if (world) {
           // 全てのボディを削除
-          for (const body of bodies.values()) {
-            world.removeBody(body)
-          }
+          pipe(
+            bodies.values(),
+            ReadonlyArray.fromIterable,
+            ReadonlyArray.forEach((body) => world.removeBody(body))
+          )
         }
 
         bodies.clear()
         playerControllers.clear()
         world = null
-
-        console.log('Cannon-es physics world cleaned up')
       })
-    })
+    }).pipe(Effect.tap(() => Effect.logInfo('Cannon-es physics world cleaned up')))
 
   const service: CannonPhysicsService = {
     initializeWorld,

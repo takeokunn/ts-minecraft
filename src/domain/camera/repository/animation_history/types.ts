@@ -6,7 +6,8 @@
  */
 
 import type { CameraId, CameraRotation, Position3D } from '@domain/camera/types'
-import { Brand, Clock, Data, Effect, Option, Schema } from 'effect'
+import { ErrorCauseSchema, toErrorCause, type ErrorCause } from '@shared/schema/error'
+import { Brand, Clock, Data, Effect, Option, Random, Schema } from 'effect'
 import type { EasingType, ViewMode } from '../../value_object/index'
 
 // ========================================
@@ -223,7 +224,7 @@ export type AnimationHistoryRepositoryError = Data.TaggedEnum<{
   }
   readonly StorageError: {
     readonly message: string
-    readonly cause: Option<unknown>
+    readonly cause: Option.Option<ErrorCause>
   }
   readonly EncodingFailed: {
     readonly recordType: string
@@ -264,61 +265,61 @@ export const TimeRangeSchema = Schema.Struct({
 /**
  * Animation Type Schema
  */
-export const AnimationTypeSchema = Schema.TaggedEnum<AnimationType>()({
-  PositionChange: Schema.Struct({
+export const AnimationTypeSchema = Schema.Union(
+  Schema.TaggedStruct('PositionChange', {
     reason: Schema.Literal('player-movement', 'manual', 'collision-avoidance'),
   }),
-  RotationChange: Schema.Struct({
+  Schema.TaggedStruct('RotationChange', {
     reason: Schema.Literal('mouse-input', 'look-at', 'animation'),
   }),
-  ViewModeSwitch: Schema.Struct({
+  Schema.TaggedStruct('ViewModeSwitch', {
     fromMode: Schema.String,
     toMode: Schema.String,
   }),
-  Cinematic: Schema.Struct({
+  Schema.TaggedStruct('Cinematic', {
     sequenceName: Schema.String,
   }),
-  FOVChange: Schema.Struct({
+  Schema.TaggedStruct('FOVChange', {
     reason: Schema.Literal('zoom', 'settings', 'animation'),
   }),
-  Collision: Schema.Struct({
+  Schema.TaggedStruct('Collision', {
     adjustmentType: Schema.Literal('avoidance', 'recovery'),
-  }),
-})
+  })
+)
 
 /**
  * Interruption Reason Schema
  */
-export const InterruptionReasonSchema = Schema.TaggedEnum<InterruptionReason>()({
-  PlayerInput: Schema.Struct({}),
-  Collision: Schema.Struct({
+export const InterruptionReasonSchema = Schema.Union(
+  Schema.TaggedStruct('PlayerInput', {}),
+  Schema.TaggedStruct('Collision', {
     position: Schema.Struct({
       x: Schema.Number,
       y: Schema.Number,
       z: Schema.Number,
     }),
   }),
-  NewAnimation: Schema.Struct({
+  Schema.TaggedStruct('NewAnimation', {
     newAnimationId: AnimationRecordIdSchema,
   }),
-  SystemShutdown: Schema.Struct({}),
-  PerformanceIssue: Schema.Struct({
+  Schema.TaggedStruct('SystemShutdown', {}),
+  Schema.TaggedStruct('PerformanceIssue', {
     frameDrops: Schema.Number.pipe(Schema.nonNegative()),
   }),
-  ManualOverride: Schema.Struct({
+  Schema.TaggedStruct('ManualOverride', {
     source: Schema.String,
-  }),
-})
+  })
+)
 
 /**
  * Animation Priority Schema
  */
-export const AnimationPrioritySchema = Schema.TaggedEnum<AnimationPriority>()({
-  Low: Schema.Struct({}),
-  Normal: Schema.Struct({}),
-  High: Schema.Struct({}),
-  Critical: Schema.Struct({}),
-})
+export const AnimationPrioritySchema = Schema.Union(
+  Schema.TaggedStruct('Low', {}),
+  Schema.TaggedStruct('Normal', {}),
+  Schema.TaggedStruct('High', {}),
+  Schema.TaggedStruct('Critical', {})
+)
 
 /**
  * Animation Metadata Schema
@@ -380,12 +381,12 @@ export const AnimationQueryOptionsSchema = Schema.Struct({
   filterByType: Schema.OptionFromNullable(AnimationTypeSchema),
   filterBySuccess: Schema.OptionFromNullable(Schema.Boolean),
   filterByPriority: Schema.OptionFromNullable(AnimationPrioritySchema),
-  sortBy: Schema.TaggedEnum<AnimationSortBy>()({
-    StartTime: Schema.Struct({ ascending: Schema.Boolean }),
-    Duration: Schema.Struct({ ascending: Schema.Boolean }),
-    PerformanceScore: Schema.Struct({ ascending: Schema.Boolean }),
-    Priority: Schema.Struct({ ascending: Schema.Boolean }),
-  }),
+  sortBy: Schema.Union(
+    Schema.TaggedStruct('StartTime', { ascending: Schema.Boolean }),
+    Schema.TaggedStruct('Duration', { ascending: Schema.Boolean }),
+    Schema.TaggedStruct('PerformanceScore', { ascending: Schema.Boolean }),
+    Schema.TaggedStruct('Priority', { ascending: Schema.Boolean })
+  ),
   includeMetadata: Schema.Boolean,
   limit: Schema.OptionFromNullable(Schema.Number.pipe(Schema.positive())),
 }).pipe(Schema.brand('AnimationQueryOptions'))
@@ -393,42 +394,53 @@ export const AnimationQueryOptionsSchema = Schema.Struct({
 /**
  * Animation History Repository Error Schema
  */
-export const AnimationHistoryRepositoryErrorSchema = Schema.TaggedEnum<AnimationHistoryRepositoryError>()({
-  AnimationRecordNotFound: Schema.Struct({
+export const AnimationHistoryRepositoryErrorSchema = Schema.Union(
+  Schema.TaggedStruct('AnimationRecordNotFound', {
     recordId: AnimationRecordIdSchema,
   }),
-  CameraNotFound: Schema.Struct({
+  Schema.TaggedStruct('CameraNotFound', {
     cameraId: Schema.String.pipe(Schema.brand('CameraId')),
   }),
-  InvalidTimeRange: Schema.Struct({
+  Schema.TaggedStruct('InvalidTimeRange', {
     startTime: Schema.Number,
     endTime: Schema.Number,
     reason: Schema.String,
   }),
-  QueryLimitExceeded: Schema.Struct({
+  Schema.TaggedStruct('QueryLimitExceeded', {
     requestedLimit: Schema.Number,
     maxAllowed: Schema.Number,
   }),
-  StatisticsCalculationFailed: Schema.Struct({
+  Schema.TaggedStruct('StatisticsCalculationFailed', {
     cameraId: Schema.String.pipe(Schema.brand('CameraId')),
     reason: Schema.String,
   }),
-  StorageError: Schema.Struct({
+  Schema.TaggedStruct('StorageError', {
     message: Schema.String,
-    cause: Schema.OptionFromNullable(Schema.Unknown),
+    cause: Schema.OptionFromNullable(ErrorCauseSchema),
   }),
-  EncodingFailed: Schema.Struct({
+  Schema.TaggedStruct('EncodingFailed', {
     recordType: Schema.String,
     reason: Schema.String,
   }),
-  DecodingFailed: Schema.Struct({
+  Schema.TaggedStruct('DecodingFailed', {
     recordType: Schema.String,
     reason: Schema.String,
   }),
-  ConcurrencyError: Schema.Struct({
+  Schema.TaggedStruct('ConcurrencyError', {
     operation: Schema.String,
     conflictingRecord: Schema.OptionFromNullable(AnimationRecordIdSchema),
-  }),
+  })
+)
+
+/**
+ * Animation History Export Data Schema - エクスポートデータ検証用
+ * exportHistory/importHistory で使用
+ */
+export const AnimationHistoryExportDataSchema = Schema.Struct({
+  cameraId: Schema.String.pipe(Schema.brand('CameraId')),
+  timeRange: TimeRangeSchema,
+  records: Schema.Array(AnimationRecordSchema),
+  exportedAt: Schema.Number.pipe(Schema.positive()),
 })
 
 // ========================================
@@ -438,6 +450,9 @@ export const AnimationHistoryRepositoryErrorSchema = Schema.TaggedEnum<Animation
 /**
  * Animation History Repository Error Factory
  */
+const mapErrorCauseOption = (value: unknown | undefined): Option.Option<ErrorCause> =>
+  Option.fromNullable(toErrorCause(value))
+
 export const createAnimationHistoryError = {
   animationRecordNotFound: (recordId: AnimationRecordId): AnimationHistoryRepositoryError =>
     Data.tagged('AnimationRecordNotFound', { recordId }),
@@ -456,7 +471,7 @@ export const createAnimationHistoryError = {
   storageError: (message: string, cause?: unknown): AnimationHistoryRepositoryError =>
     Data.tagged('StorageError', {
       message,
-      cause: cause ? Option.some(cause) : Option.none(),
+      cause: mapErrorCauseOption(cause),
     }),
 
   encodingFailed: (recordType: string, reason: string): AnimationHistoryRepositoryError =>
@@ -491,7 +506,8 @@ export const createAnimationRecord = {
   ): Effect.Effect<AnimationRecord> =>
     Effect.gen(function* () {
       const now = yield* Clock.currentTimeMillis
-      const random = yield* Effect.sync(() => Math.random().toString(36).slice(2))
+      const randomValue = yield* Random.nextIntBetween(0, 36 ** 11 - 1)
+      const random = randomValue.toString(36).padStart(11, '0')
       return {
         id: `anim_${now}_${random}` as AnimationRecordId,
         cameraId,

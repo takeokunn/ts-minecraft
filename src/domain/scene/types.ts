@@ -1,5 +1,8 @@
 import { Data, Option, Schema } from 'effect'
 
+// 共有カーネルから再エクスポート
+export { WorldIdSchema, type WorldId } from '../shared/entities/world_id'
+
 // ===== Brand 定義 =====
 
 export const SceneIdSchema = Schema.String.pipe(Schema.brand('SceneId'))
@@ -10,9 +13,6 @@ export const TransitionDurationSchema = Schema.Number.pipe(
   Schema.brand('TransitionDuration')
 )
 export type TransitionDuration = Schema.Schema.Type<typeof TransitionDurationSchema>
-
-export const WorldIdSchema = Schema.String.pipe(Schema.brand('WorldId'))
-export type WorldId = Schema.Schema.Type<typeof WorldIdSchema>
 
 export const SaveIdSchema = Schema.String.pipe(Schema.brand('SaveId'))
 export type SaveId = Schema.Schema.Type<typeof SaveIdSchema>
@@ -92,7 +92,7 @@ export interface LoadingScene {
 export type SceneState = ActiveScene | LoadingScene
 export type SceneKind = SceneState['_tag']
 
-const defaultSceneProgress = Schema.decodeUnknownSync(SceneProgressSchema)(0)
+const defaultSceneProgress = 0 satisfies SceneProgress
 
 export const MainMenuSceneSchema = Schema.Struct({
   _tag: Schema.Literal('MainMenu'),

@@ -559,7 +559,7 @@ TypeScript設定（`tsconfig.json`）でのパスエイリアス：
       "@/application/*": ["src/application/*"],
       "@/infrastructure/*": ["src/infrastructure/*"],
       "@/presentation/*": ["src/presentation/*"],
-      "@/shared/*": ["src/shared/*"],
+      "@shared/*": ["src/shared/*"],
       "@/types/*": ["src/types/*"],
       "@/workers/*": ["src/workers/*"],
       "@/bootstrap/*": ["src/bootstrap/*"]

@@ -60,7 +60,7 @@ import { types } from './types'
 import config from './config.json' // .jsonは残す
 
 // ❌ 誤り
-import { types } from './types.js'
+import { types } from './types'
 import { types } from './types.ts'
 ```
 

@@ -552,6 +552,111 @@ const debuggedEffect = pipe(
 - **プロジェクト内資料**: [Effect-TS Fundamentals](../../tutorials/effect-ts-fundamentals/README.md)
 - **実践例**: プロジェクト内の既存移行コード参照
 
+## パターン別移行例
+
+### 1. TestClock/TestRandom導入
+
+#### Before: 実時間依存テスト
+
+```typescript
+it('waits for 5 seconds', async () => {
+  await new Promise(resolve => setTimeout(resolve, 5000))
+  const result = await generateChunk()
+  expect(result).toBeDefined()
+})
+```
+
+#### After: TestClock使用
+
+```typescript
+it.effect('controls time precisely', () =>
+  Effect.gen(function* () {
+    yield* Effect.sleep(Duration.seconds(5))
+    yield* TestClock.adjust(Duration.seconds(5))
+
+    const result = yield* generateChunk()
+    expect(result).toBeDefined()
+  }).pipe(Effect.provide(testLayer))
+)
+```
+
+### 2. Effect.catchTags導入
+
+#### Before: Effect.catchAllで全エラー捕捉
+
+```typescript
+const result = yield* generateChunk().pipe(
+  Effect.catchAll((error) => {
+    if ('_tag' in error && error._tag === 'ChunkGenerationError') {
+      // ChunkGenerationError処理
+    } else if ('_tag' in error && error._tag === 'BiomeNotFoundError') {
+      // BiomeNotFoundError処理
+    }
+    return Effect.succeed(fallback)
+  })
+)
+```
+
+#### After: Effect.catchTagsで型安全に分岐
+
+```typescript
+const result = yield* generateChunk().pipe(
+  Effect.catchTags({
+    ChunkGenerationError: (error) =>
+      Effect.succeed(createFallbackChunk(error)),
+    BiomeNotFoundError: (error) =>
+      Effect.fail(WorldGenerationError.biomeRequired(error)),
+  })
+)
+```
+
+### 3. Supervisor導入
+
+#### Before: Fiber状態の追跡なし
+
+```typescript
+const gameLoop = yield* Effect.fork(
+  Effect.forever(
+    Effect.gen(function* () {
+      yield* updateGameState()
+      yield* Effect.sleep(Duration.millis(16))
+    })
+  )
+)
+```
+
+#### After: Supervisor導入
+
+```typescript
+export const GameLoopSupervisorLayer = Layer.scoped(
+  GameLoopSupervisor,
+  Effect.gen(function* () {
+    const supervisor = yield* Supervisor.track
+    const fiber = yield* Effect.fork(GameLoopSupervisor).pipe(
+      Effect.supervised(supervisor)
+    )
+    yield* Effect.addFinalizer(() => Fiber.interrupt(fiber))
+    return {}
+  })
+)
+```
+
+### 4. Metric/Tracing統合
+
+#### Before: console.logでログ出力
+
+```typescript
+console.log(`Chunk generation took ${duration}ms`)
+```
+
+#### After: Metric計測
+
+```typescript
+yield* chunkGenerationDuration(duration)
+yield* chunkGenerationCounter.increment()
+yield* Effect.logInfo(`Chunk generated`, { duration, coord })
+```
+
 ## まとめ
 
 `★ Insight ─────────────────────────────────────`

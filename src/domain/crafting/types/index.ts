@@ -1,14 +1,14 @@
+import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
 import { Schema } from 'effect'
 
 /**
  * ### 基本的なブランド型
  *
- * - ItemId: アイテム識別子
+ * - ItemId: アイテム識別子（共有カーネルから再エクスポート）
  * - ItemTag: アイテムタグ
  * - ItemQuantity: スタックの数量 (1-64)
  */
-export const ItemIdSchema = Schema.String.pipe(Schema.minLength(1), Schema.maxLength(128), Schema.brand('ItemId'))
-export type ItemId = Schema.Schema.Type<typeof ItemIdSchema>
+export { SimpleItemIdSchema as ItemIdSchema, type ItemId } from '../../../shared/entities/item_id'
 
 export const ItemTagSchema = Schema.String.pipe(Schema.minLength(1), Schema.maxLength(64), Schema.brand('ItemTag'))
 export type ItemTag = Schema.Schema.Type<typeof ItemTagSchema>
@@ -191,15 +191,23 @@ export type RecipeValidationResult = Schema.Schema.Type<typeof RecipeValidationR
 /**
  * ### エラー定義
  */
-export class InvalidRecipeError extends Schema.TaggedError<InvalidRecipeError>()('InvalidRecipeError', {
+export const InvalidRecipeErrorSchema = Schema.TaggedError('InvalidRecipeError', {
   recipeId: RecipeIdSchema,
   issues: Schema.Array(RecipeValidationIssueSchema),
-}) {}
+})
 
-export class PatternMismatchError extends Schema.TaggedError<PatternMismatchError>()('PatternMismatchError', {
+export type InvalidRecipeError = Schema.Schema.Type<typeof InvalidRecipeErrorSchema>
+
+export const InvalidRecipeError = makeErrorFactory(InvalidRecipeErrorSchema)
+
+export const PatternMismatchErrorSchema = Schema.TaggedError('PatternMismatchError', {
   recipeId: RecipeIdSchema,
   reason: Schema.String,
-}) {}
+})
+
+export type PatternMismatchError = Schema.Schema.Type<typeof PatternMismatchErrorSchema>
+
+export const PatternMismatchError = makeErrorFactory(PatternMismatchErrorSchema)
 
 /**
  * ### ヘルパー関数
@@ -207,3 +215,6 @@ export class PatternMismatchError extends Schema.TaggedError<PatternMismatchErro
 export const decodeItemStack = Schema.decode(CraftingItemStackSchema)
 export const decodeRecipe = Schema.decode(CraftingRecipeSchema)
 export const decodeGrid = Schema.decode(CraftingGridSchema)
+
+// Grid操作関数を再エクスポート
+export { buildEmptyGrid, replaceSlot, slotAt } from '../helpers'

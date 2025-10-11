@@ -148,8 +148,8 @@ export type MaterialEvent = Data.TaggedEnum<{
 
 export const MaterialEvent = Data.taggedEnum<MaterialEvent>()
 
-export const parseMaterialId = Schema.decodeUnknownSync(MaterialId)
-export const parseBlockId = Schema.decodeUnknownSync(BlockId)
-export const parseItemId = Schema.decodeUnknownSync(ItemId)
-export const parseHarvestLevel = Schema.decodeUnknownSync(HarvestLevel)
-export const parseFortuneLevel = Schema.decodeUnknownSync(FortuneLevel)
+export const parseMaterialId = Schema.decodeUnknown(MaterialId)
+export const parseBlockId = Schema.decodeUnknown(BlockId)
+export const parseItemId = Schema.decodeUnknown(ItemId)
+export const parseHarvestLevel = Schema.decodeUnknown(HarvestLevel)
+export const parseFortuneLevel = Schema.decodeUnknown(FortuneLevel)

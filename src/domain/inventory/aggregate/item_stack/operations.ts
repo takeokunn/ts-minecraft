@@ -3,18 +3,16 @@
  * merge, split, consume等の核となるビジネスロジック
  */
 
-import { Clock, Effect, Option } from 'effect'
+import { DateTime, Effect, Option } from 'effect'
 import { incrementEntityVersion, ItemStackFactory } from './factory'
 import type {
-  Durability,
-  ItemCount,
   ItemStackConsumedEvent,
   ItemStackDamageEvent,
   ItemStackEntity,
   ItemStackMergedEvent,
   ItemStackSplitEvent,
 } from './types'
-import { ITEM_STACK_CONSTANTS, ItemStackError } from './types'
+import { DurabilitySchema, ITEM_STACK_CONSTANTS, ItemCountSchema, ItemStackError, makeUnsafeItemCount } from './types'
 
 // ===== Core Operations =====
 
@@ -24,52 +22,60 @@ import { ITEM_STACK_CONSTANTS, ItemStackError } from './types'
 export const mergeItemStacks = (
   sourceStack: ItemStackEntity,
   targetStack: ItemStackEntity
-): Effect.Effect<{ readonly mergedStack: ItemStackEntity; readonly event: ItemStackMergedEvent }, ItemStackError> =>
+): Effect.Effect<
+  {
+    readonly mergedStack: ItemStackEntity
+    readonly event: ItemStackMergedEvent
+  },
+  ItemStackError
+> =>
   Effect.gen(function* () {
-    // 同じアイテムIDかチェック
-    yield* Effect.when(
-      () => sourceStack.itemId !== targetStack.itemId,
-      () => Effect.fail(ItemStackError.incompatibleItems(sourceStack.id, targetStack.id))
-    )
-
-    // NBTデータの互換性チェック
-    const isCompatible = yield* checkNBTCompatibility(sourceStack, targetStack)
-    yield* Effect.when(
-      () => !isCompatible,
-      () =>
-        Effect.fail(
-          new ItemStackError({
-            reason: 'NBT_MISMATCH',
-            message: 'NBTデータが互換性がありません',
-            stackId: sourceStack.id,
-          })
-        )
+    // アイテムID一致チェック
+    yield* Effect.when(sourceStack.itemId !== targetStack.itemId, () =>
+      Effect.fail(
+        ItemStackError.make({
+          reason: 'MERGE_DIFFERENT_ITEMS',
+          message: 'Cannot merge different item types',
+          metadata: {
+            sourceItemId: sourceStack.itemId,
+            targetItemId: targetStack.itemId,
+          },
+        })
+      )
     )
 
     const totalCount = sourceStack.count + targetStack.count
 
-    // スタックサイズ上限チェック
-    yield* Effect.when(
-      () => totalCount > ITEM_STACK_CONSTANTS.MAX_STACK_SIZE,
-      () => Effect.fail(ItemStackError.mergeOverflow(sourceStack.id, targetStack.id, totalCount))
+    // スタック上限チェック
+    yield* Effect.when(totalCount > ITEM_STACK_CONSTANTS.MAX_STACK_SIZE, () =>
+      Effect.fail(
+        ItemStackError.make({
+          reason: 'STACK_LIMIT_EXCEEDED',
+          message: 'Merge would exceed max stack size',
+          metadata: {
+            currentCount: targetStack.count,
+            attemptedAdd: sourceStack.count,
+            maxAllowed: ITEM_STACK_CONSTANTS.MAX_STACK_SIZE,
+          },
+        })
+      )
     )
 
-    // マージされたスタックを作成
-    const versionedTarget = yield* incrementEntityVersion(targetStack)
-    const mergedStack: ItemStackEntity = {
-      ...versionedTarget,
-      count: totalCount as ItemCount,
-    }
+    const mergedStack = incrementEntityVersion({
+      ...targetStack,
+      count: ItemCountSchema.make(totalCount),
+    })
 
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms).toISOString())
+    const now = yield* DateTime.now
+    const timestamp = DateTime.formatIso(now)
     const event: ItemStackMergedEvent = {
       type: 'ItemStackMerged',
       sourceStackId: sourceStack.id,
       targetStackId: targetStack.id,
       itemId: sourceStack.itemId,
       mergedQuantity: sourceStack.count,
-      finalQuantity: totalCount as ItemCount,
-      timestamp: timestamp as any,
+      finalQuantity: ItemCountSchema.make(totalCount),
+      timestamp,
     }
 
     return { mergedStack, event }
@@ -91,10 +97,9 @@ export const splitItemStack = (
 > =>
   Effect.gen(function* () {
     // 分割数量の検証
-    yield* Effect.when(
-      () => splitQuantity <= 0 || splitQuantity >= sourceStack.count,
-      () => Effect.fail(ItemStackError.splitUnderflow(sourceStack.id, splitQuantity))
-    )
+    if (splitQuantity <= 0 || splitQuantity >= sourceStack.count) {
+      yield* Effect.fail(ItemStackError.splitUnderflow(sourceStack.id, splitQuantity))
+    }
 
     const remainingQuantity = sourceStack.count - splitQuantity
 
@@ -102,26 +107,27 @@ export const splitItemStack = (
     const versionedSource = yield* incrementEntityVersion(sourceStack)
     const remainingStack: ItemStackEntity = {
       ...versionedSource,
-      count: remainingQuantity as ItemCount,
+      count: ItemCountSchema.make(remainingQuantity),
     }
 
     // 新しいスタックを作成
     const factory = yield* ItemStackFactory
-    const newStack = yield* factory.create(sourceStack.itemId, splitQuantity as ItemCount, {
+    const newStack = yield* factory.create(sourceStack.itemId, ItemCountSchema.make(splitQuantity), {
       durability: sourceStack.durability,
       nbtData: sourceStack.nbtData,
       metadata: sourceStack.metadata,
     })
 
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms).toISOString())
+    const now = yield* DateTime.now
+    const timestamp = DateTime.formatIso(now)
     const event: ItemStackSplitEvent = {
       type: 'ItemStackSplit',
       sourceStackId: sourceStack.id,
       newStackId: newStack.id,
       itemId: sourceStack.itemId,
-      splitQuantity: splitQuantity as ItemCount,
-      remainingQuantity: remainingQuantity as ItemCount,
-      timestamp: timestamp as any,
+      splitQuantity: ItemCountSchema.make(splitQuantity),
+      remainingQuantity: ItemCountSchema.make(remainingQuantity),
+      timestamp,
     }
 
     return { remainingStack, newStack, event }
@@ -143,34 +149,32 @@ export const consumeItemStack = (
 > =>
   Effect.gen(function* () {
     // 消費数量の検証
-    yield* Effect.when(
-      () => quantity <= 0,
-      () =>
-        Effect.fail(
-          new ItemStackError({
-            reason: 'INVALID_STACK_SIZE',
-            message: `不正な消費数量: ${quantity}`,
-            stackId: stack.id,
-            quantity: quantity as ItemCount,
-          })
-        )
-    )
+    if (quantity <= 0) {
+      yield* Effect.fail(
+        ItemStackError.make({
+          reason: 'INVALID_STACK_SIZE',
+          message: `不正な消費数量: ${quantity}`,
+          stackId: stack.id,
+          quantity: makeUnsafeItemCount(quantity),
+        })
+      )
+    }
 
-    yield* Effect.when(
-      () => quantity > stack.count,
-      () => Effect.fail(ItemStackError.insufficientQuantity(stack.id, quantity, stack.count))
-    )
+    if (quantity > stack.count) {
+      yield* Effect.fail(ItemStackError.insufficientQuantity(stack.id, quantity, stack.count))
+    }
 
     const remainingQuantity = stack.count - quantity
 
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms).toISOString())
+    const now = yield* DateTime.now
+    const timestamp = DateTime.formatIso(now)
     const event: ItemStackConsumedEvent = {
       type: 'ItemStackConsumed',
       stackId: stack.id,
       itemId: stack.itemId,
-      consumedQuantity: quantity as ItemCount,
-      remainingQuantity: remainingQuantity as ItemCount,
-      timestamp: timestamp as any,
+      consumedQuantity: ItemCountSchema.make(quantity),
+      remainingQuantity: ItemCountSchema.make(remainingQuantity),
+      timestamp,
       reason,
     }
 
@@ -183,7 +187,7 @@ export const consumeItemStack = (
     const versionedStack = yield* incrementEntityVersion(stack)
     const updatedStack: ItemStackEntity = {
       ...versionedStack,
-      count: remainingQuantity as ItemCount,
+      count: ItemCountSchema.make(remainingQuantity),
     }
 
     return { updatedStack: Option.some(updatedStack), event }
@@ -204,44 +208,41 @@ export const damageItemStack = (
 > =>
   Effect.gen(function* () {
     // 耐久度が設定されていない場合はエラー
-    yield* Effect.when(
-      () => !stack.durability,
-      () =>
-        Effect.fail(
-          new ItemStackError({
-            reason: 'INVALID_DURABILITY',
-            message: '耐久度が設定されていないアイテムです',
-            stackId: stack.id,
-          })
-        )
-    )
+    if (!stack.durability) {
+      yield* Effect.fail(
+        ItemStackError.make({
+          reason: 'INVALID_DURABILITY',
+          message: '耐久度が設定されていないアイテムです',
+          stackId: stack.id,
+        })
+      )
+    }
 
     // ダメージ量の検証
-    yield* Effect.when(
-      () => damageAmount < 0 || damageAmount > 1,
-      () =>
-        Effect.fail(
-          new ItemStackError({
-            reason: 'INVALID_DURABILITY',
-            message: `不正なダメージ量: ${damageAmount}`,
-            stackId: stack.id,
-          })
-        )
-    )
+    if (damageAmount < 0 || damageAmount > 1) {
+      yield* Effect.fail(
+        ItemStackError.make({
+          reason: 'INVALID_DURABILITY',
+          message: `不正なダメージ量: ${damageAmount}`,
+          stackId: stack.id,
+        })
+      )
+    }
 
     const previousDurability = stack.durability!
     const newDurability = Math.max(0, previousDurability - damageAmount)
     const isBroken = newDurability <= ITEM_STACK_CONSTANTS.BROKEN_THRESHOLD
 
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms).toISOString())
+    const now = yield* DateTime.now
+    const timestamp = DateTime.formatIso(now)
     const event: ItemStackDamageEvent = {
       type: 'ItemStackDamaged',
       stackId: stack.id,
       itemId: stack.itemId,
       previousDurability: previousDurability,
-      newDurability: newDurability as Durability,
+      newDurability: DurabilitySchema.make(newDurability),
       damageAmount,
-      timestamp: timestamp as any,
+      timestamp,
       broken: isBroken,
     }
 
@@ -254,7 +255,7 @@ export const damageItemStack = (
     const versionedStack = yield* incrementEntityVersion(stack)
     const updatedStack: ItemStackEntity = {
       ...versionedStack,
-      durability: newDurability as Durability,
+      durability: DurabilitySchema.make(newDurability),
     }
 
     return { updatedStack: Option.some(updatedStack), event }
@@ -269,37 +270,33 @@ export const repairItemStack = (
 ): Effect.Effect<ItemStackEntity, ItemStackError> =>
   Effect.gen(function* () {
     // 耐久度が設定されていない場合はエラー
-    yield* Effect.when(
-      () => !stack.durability,
-      () =>
-        Effect.fail(
-          new ItemStackError({
-            reason: 'INVALID_DURABILITY',
-            message: '耐久度が設定されていないアイテムです',
-            stackId: stack.id,
-          })
-        )
-    )
+    if (!stack.durability) {
+      yield* Effect.fail(
+        ItemStackError.make({
+          reason: 'INVALID_DURABILITY',
+          message: '耐久度が設定されていないアイテムです',
+          stackId: stack.id,
+        })
+      )
+    }
 
     // 修復量の検証
-    yield* Effect.when(
-      () => repairAmount < 0 || repairAmount > 1,
-      () =>
-        Effect.fail(
-          new ItemStackError({
-            reason: 'INVALID_DURABILITY',
-            message: `不正な修復量: ${repairAmount}`,
-            stackId: stack.id,
-          })
-        )
-    )
+    if (repairAmount < 0 || repairAmount > 1) {
+      yield* Effect.fail(
+        ItemStackError.make({
+          reason: 'INVALID_DURABILITY',
+          message: `不正な修復量: ${repairAmount}`,
+          stackId: stack.id,
+        })
+      )
+    }
 
     const newDurability = Math.min(ITEM_STACK_CONSTANTS.MAX_DURABILITY, stack.durability! + repairAmount)
 
     const versionedStack = yield* incrementEntityVersion(stack)
     return {
       ...versionedStack,
-      durability: newDurability as Durability,
+      durability: DurabilitySchema.make(newDurability),
     }
   })
 

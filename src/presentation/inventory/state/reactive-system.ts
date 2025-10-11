@@ -15,7 +15,7 @@ export const InventoryReactiveSystemTag = Context.GenericTag<InventoryReactiveSy
   '@minecraft/presentation/inventory/InventoryReactiveSystem'
 )
 
-export const InventoryReactiveSystemLive = Layer.effect(
+export const InventoryReactiveSystemLive = Layer.scoped(
   InventoryReactiveSystemTag,
   Effect.gen(function* () {
     const viewModel = yield* InventoryViewModelTag
@@ -29,7 +29,7 @@ export const InventoryReactiveSystemLive = Layer.effect(
       Ref.get(trackedRef).pipe(
         Effect.flatMap((set) =>
           Effect.forEach(HashSet.values(set), syncPlayer, {
-            concurrency: 'unbounded',
+            concurrency: 4,
           })
         ),
         Effect.asVoid
@@ -48,7 +48,7 @@ export const InventoryReactiveSystemLive = Layer.effect(
       Stream.repeatEffect(syncAll)
         .pipe(Stream.schedule(Schedule.spaced(Duration.millis(tickMillis))))
         .pipe(Stream.runDrain)
-        .pipe(Effect.fork)
+        .pipe(Effect.forkScoped)
 
     const stop = (fiber: Fiber.RuntimeFiber<void, InventoryGUIError>) => Fiber.interrupt(fiber)
 

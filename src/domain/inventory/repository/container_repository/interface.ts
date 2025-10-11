@@ -41,7 +41,7 @@ export interface ContainerRepository {
    *   ]),
    *   metadata: { locked: false, title: 'Treasure Chest' },
    *   permissions: { public: false, allowedPlayers: ['player-1'] },
-   *   lastAccessed: Date.now(),
+   *   lastAccessed: yield* Clock.currentTimeMillis,
    *   version: 1
    * }
    *

@@ -1,10 +1,11 @@
-import { Effect, Match, pipe, Schema } from 'effect'
+import { Effect, Match, pipe, ReadonlyArray, Schema } from 'effect'
 import { GridCoordinateSchema, SlotPositionSchema } from './schema'
 import {
   AdjacentSlots,
   CoordinateConfig,
   CoordinateTransform,
   GridCoordinate,
+  makeUnsafeSlotPosition,
   SlotPattern,
   SlotPosition,
   SlotPositionError,
@@ -12,6 +13,12 @@ import {
   SlotSection,
   TransformResult,
 } from './types'
+
+/**
+ * Brand型から数値を安全に抽出するヘルパー関数
+ * Schema.Numberでバリデーションスキップして数値に変換
+ */
+const slotPositionToNumber = (value: SlotPosition): number => Schema.Number.make(value, { disableValidation: true })
 
 /**
  * SlotPosition ファクトリー関数
@@ -49,7 +56,7 @@ export const createGridCoordinate = (row: number, column: number): Effect.Effect
  */
 export const positionToGrid = (position: SlotPosition): Effect.Effect<GridCoordinate, SlotPositionError> =>
   Effect.gen(function* () {
-    const pos = position as number
+    const pos = slotPositionToNumber(position)
     const row = Math.floor(pos / 9)
     const column = pos % 9
 
@@ -88,7 +95,7 @@ export const hotbarToPosition = (hotbarIndex: number): Effect.Effect<SlotPositio
  */
 export const positionToHotbar = (position: SlotPosition): Effect.Effect<number, SlotPositionError> =>
   Effect.gen(function* () {
-    const pos = position as number
+    const pos = slotPositionToNumber(position)
 
     if (pos < 0 || pos > 8) {
       return yield* Effect.fail(
@@ -128,7 +135,7 @@ export const positionToArmorSlot = (
   position: SlotPosition
 ): Effect.Effect<'helmet' | 'chestplate' | 'leggings' | 'boots', SlotPositionError> =>
   Effect.gen(function* () {
-    const pos = position as number
+    const pos = slotPositionToNumber(position)
     const armorSlots = {
       36: 'helmet' as const,
       37: 'chestplate' as const,
@@ -136,7 +143,7 @@ export const positionToArmorSlot = (
       39: 'boots' as const,
     }
 
-    const armorType = armorSlots[pos as keyof typeof armorSlots]
+    const armorType = armorSlots[pos as 36 | 37 | 38 | 39]
     if (!armorType) {
       return yield* Effect.fail(
         SlotPositionError.InvalidArmorSlot({
@@ -153,39 +160,55 @@ export const positionToArmorSlot = (
  * スロット位置が属するセクションを判定
  */
 export const getSlotSection = (position: SlotPosition): SlotSection => {
-  const pos = position as number
+  const pos = slotPositionToNumber(position)
 
-  if (pos >= 0 && pos <= 8) {
-    return SlotSection.Hotbar({
-      startIndex: 0,
-      endIndex: 8,
-      priority: 'highest',
-    })
-  } else if (pos >= 9 && pos <= 35) {
-    return SlotSection.MainInventory({
-      startIndex: 9,
-      endIndex: 35,
-      priority: 'normal',
-    })
-  } else if (pos >= 36 && pos <= 39) {
-    return SlotSection.ArmorSlots({
-      helmet: 36,
-      chestplate: 37,
-      leggings: 38,
-      boots: 39,
-    })
-  } else if (pos === 40) {
-    return SlotSection.OffhandSlot({
-      index: 40,
-    })
-  } else {
-    // デフォルトでメインインベントリとして扱う
-    return SlotSection.MainInventory({
-      startIndex: 9,
-      endIndex: 35,
-      priority: 'normal',
-    })
-  }
+  return pipe(
+    pos,
+    Match.value,
+    Match.when(
+      (p) => p >= 0 && p <= 8,
+      () =>
+        SlotSection.Hotbar({
+          startIndex: 0,
+          endIndex: 8,
+          priority: 'highest',
+        })
+    ),
+    Match.when(
+      (p) => p >= 9 && p <= 35,
+      () =>
+        SlotSection.MainInventory({
+          startIndex: 9,
+          endIndex: 35,
+          priority: 'normal',
+        })
+    ),
+    Match.when(
+      (p) => p >= 36 && p <= 39,
+      () =>
+        SlotSection.ArmorSlots({
+          helmet: 36,
+          chestplate: 37,
+          leggings: 38,
+          boots: 39,
+        })
+    ),
+    Match.when(
+      (p) => p === 40,
+      () =>
+        SlotSection.OffhandSlot({
+          index: 40,
+        })
+    ),
+    Match.orElse(() =>
+      // デフォルトでメインインベントリとして扱う
+      SlotSection.MainInventory({
+        startIndex: 9,
+        endIndex: 35,
+        priority: 'normal',
+      })
+    )
+  )
 }
 
 /**
@@ -338,7 +361,7 @@ export const getAdjacentSlots = (
  * スロット位置がホットバーかどうかを判定
  */
 export const isHotbarSlot = (position: SlotPosition): boolean => {
-  const pos = position as number
+  const pos = slotPositionToNumber(position)
   return pos >= 0 && pos <= 8
 }
 
@@ -346,7 +369,7 @@ export const isHotbarSlot = (position: SlotPosition): boolean => {
  * スロット位置がメインインベントリかどうかを判定
  */
 export const isMainInventorySlot = (position: SlotPosition): boolean => {
-  const pos = position as number
+  const pos = slotPositionToNumber(position)
   return pos >= 9 && pos <= 35
 }
 
@@ -354,16 +377,14 @@ export const isMainInventorySlot = (position: SlotPosition): boolean => {
  * スロット位置が防具スロットかどうかを判定
  */
 export const isArmorSlot = (position: SlotPosition): boolean => {
-  const pos = position as number
+  const pos = slotPositionToNumber(position)
   return pos >= 36 && pos <= 39
 }
 
 /**
  * スロット位置がオフハンドスロットかどうかを判定
  */
-export const isOffhandSlot = (position: SlotPosition): boolean => {
-  return (position as number) === 40
-}
+export const isOffhandSlot = (position: SlotPosition): boolean => slotPositionToNumber(position) === 40
 
 /**
  * スロット位置間の距離を計算
@@ -391,8 +412,8 @@ export const getSlotPositionsInRange = (
   endPosition: SlotPosition
 ): Effect.Effect<readonly SlotPosition[], SlotPositionError> =>
   Effect.gen(function* () {
-    const start = startPosition as number
-    const end = endPosition as number
+    const start = slotPositionToNumber(startPosition)
+    const end = slotPositionToNumber(endPosition)
 
     if (start > end) {
       return yield* Effect.fail(
@@ -404,13 +425,10 @@ export const getSlotPositionsInRange = (
       )
     }
 
-    const positions: SlotPosition[] = []
-    for (let i = start; i <= end; i++) {
-      const position = yield* createSlotPosition(i)
-      positions.push(position)
-    }
-
-    return positions
+    return yield* pipe(
+      ReadonlyArray.range(start, end + 1),
+      Effect.forEach((i) => createSlotPosition(i), { concurrency: 4 })
+    )
   })
 
 /**
@@ -422,17 +440,18 @@ export const getAvailablePositions = (
   pipe(
     pattern,
     Match.value,
-    Match.tag('Standard', () => getSlotPositionsInRange(0 as SlotPosition, 35 as SlotPosition)),
-    Match.tag('Compact', () => getSlotPositionsInRange(0 as SlotPosition, 26 as SlotPosition)),
-    Match.tag('Wide', () => getSlotPositionsInRange(0 as SlotPosition, 8 as SlotPosition)),
+    Match.tag('Standard', () => getSlotPositionsInRange(makeUnsafeSlotPosition(0), makeUnsafeSlotPosition(35))),
+    Match.tag('Compact', () => getSlotPositionsInRange(makeUnsafeSlotPosition(0), makeUnsafeSlotPosition(26))),
+    Match.tag('Wide', () => getSlotPositionsInRange(makeUnsafeSlotPosition(0), makeUnsafeSlotPosition(8))),
     Match.tag('Creative', () => Effect.succeed([])),
-    Match.tag('Crafting', (crafting) => {
-      if (crafting.gridSize === '2x2') {
-        return getSlotPositionsInRange(0 as SlotPosition, 4 as SlotPosition)
-      } else {
-        return getSlotPositionsInRange(0 as SlotPosition, 9 as SlotPosition)
-      }
-    }),
+    Match.tag('Crafting', (crafting) =>
+      pipe(
+        crafting.gridSize,
+        Match.value,
+        Match.when('2x2', () => getSlotPositionsInRange(makeUnsafeSlotPosition(0), makeUnsafeSlotPosition(4))),
+        Match.orElse(() => getSlotPositionsInRange(makeUnsafeSlotPosition(0), makeUnsafeSlotPosition(9)))
+      )
+    ),
     Match.tag('Furnace', (furnace) => Effect.succeed([furnace.input, furnace.fuel, furnace.output])),
     Match.tag('Anvil', (anvil) => Effect.succeed([anvil.left, anvil.right, anvil.result])),
     Match.exhaustive
@@ -489,13 +508,13 @@ export const executeTransform = (transform: CoordinateTransform): Effect.Effect<
  * スロット位置の並び替え（昇順）
  */
 export const sortPositions = (positions: readonly SlotPosition[]): readonly SlotPosition[] =>
-  [...positions].sort((a, b) => (a as number) - (b as number))
+  [...positions].sort((a, b) => slotPositionToNumber(a) - slotPositionToNumber(b))
 
 /**
  * スロット位置の並び替え（降順）
  */
 export const sortPositionsDescending = (positions: readonly SlotPosition[]): readonly SlotPosition[] =>
-  [...positions].sort((a, b) => (b as number) - (a as number))
+  [...positions].sort((a, b) => slotPositionToNumber(b) - slotPositionToNumber(a))
 
 /**
  * スロット位置がグリッドの境界にあるかを判定

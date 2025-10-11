@@ -5,11 +5,10 @@
  * Schema.Structを使用した型安全でシリアライズ可能な実装
  */
 
-import { ComponentTypeNameSchema } from '@domain/entities/types'
-import { Schema } from 'effect'
+import type { ComponentTypeName } from '@domain/entities/types'
 import { makeComponentDefinition } from './component-definition'
 
-const toComponentType = Schema.decodeUnknownSync(ComponentTypeNameSchema)
+const toComponentType = (value: string): ComponentTypeName => value as ComponentTypeName
 
 /**
  * 位置コンポーネント - 3D空間内の座標

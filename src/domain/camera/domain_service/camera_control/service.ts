@@ -15,6 +15,7 @@ import type {
   SmoothingFactor,
   Vector3D,
 } from '../../value_object'
+import type { WorldCollisionData } from '../collision_detection'
 
 /**
  * カメラ制御ドメインサービスの型定義
@@ -102,6 +103,8 @@ export interface PositionConstraints {
   readonly maxHeight: number
   readonly terrainCollision: boolean
   readonly entityCollision: boolean
+  readonly collisionRadius?: number
+  readonly worldCollisionData?: WorldCollisionData
 }
 
 /**

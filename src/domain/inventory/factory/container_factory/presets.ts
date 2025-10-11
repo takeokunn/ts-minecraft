@@ -5,7 +5,7 @@
  * Function.flowパターンによる組み合わせ可能なコンテナ生成関数群
  */
 
-import { Effect, pipe } from 'effect'
+import { Effect, Match, pipe } from 'effect'
 import type { Container } from '../../types'
 import { InventoryBrandedTypes } from '../../types'
 import {
@@ -369,80 +369,63 @@ export const availableContainerPresets = [
 
 export type ContainerPresetName = (typeof availableContainerPresets)[number]
 
-// プリセット名から生成
-export const createPresetContainer = (
+// プリセット名から生成（オーバーロード）
+export function createPresetContainer(
+  presetName: 'ender_chest',
+  id: string,
+  playerId?: string
+): Effect.Effect<Container, ContainerCreationError>
+export function createPresetContainer(
+  presetName: 'colored_shulker_box',
+  id: string,
+  color?: string
+): Effect.Effect<Container, ContainerCreationError>
+export function createPresetContainer(
+  presetName: Exclude<ContainerPresetName, 'ender_chest' | 'colored_shulker_box'>,
+  id: string
+): Effect.Effect<Container, ContainerCreationError>
+export function createPresetContainer(
   presetName: ContainerPresetName,
   id: string,
-  ...args: any[]
-): Effect.Effect<Container, ContainerCreationError> => {
-  switch (presetName) {
+  arg?: string
+): Effect.Effect<Container, ContainerCreationError> {
+  return pipe(
+    Match.value(presetName),
     // 基本ストレージ
-    case 'standard_chest':
-      return standardChest(id)
-    case 'double_chest':
-      return doubleChest(id)
-    case 'ender_chest':
-      return enderChest(id, args[0] || 'player')
-    case 'barrel':
-      return barrel(id)
-    case 'colored_shulker_box':
-      return coloredShulkerBox(id, args[0] || 'white')
-
+    Match.when('standard_chest', () => standardChest(id)),
+    Match.when('double_chest', () => doubleChest(id)),
+    Match.when('ender_chest', () => enderChest(id, arg || 'player')),
+    Match.when('barrel', () => barrel(id)),
+    Match.when('colored_shulker_box', () => coloredShulkerBox(id, arg || 'white')),
     // 製作・加工
-    case 'standard_furnace':
-      return standardFurnace(id)
-    case 'blast_furnace':
-      return blastFurnace(id)
-    case 'smoker':
-      return smoker(id)
-    case 'brewing_stand':
-      return brewingStand(id)
-    case 'crafting_table':
-      return craftingTable(id)
-    case 'enchanting_table':
-      return enchantingTable(id)
-    case 'anvil':
-      return anvil(id)
-    case 'grindstone':
-      return grindstone(id)
-
+    Match.when('standard_furnace', () => standardFurnace(id)),
+    Match.when('blast_furnace', () => blastFurnace(id)),
+    Match.when('smoker', () => smoker(id)),
+    Match.when('brewing_stand', () => brewingStand(id)),
+    Match.when('crafting_table', () => craftingTable(id)),
+    Match.when('enchanting_table', () => enchantingTable(id)),
+    Match.when('anvil', () => anvil(id)),
+    Match.when('grindstone', () => grindstone(id)),
     // 自動化・レッドストーン
-    case 'hopper':
-      return hopper(id)
-    case 'dropper':
-      return dropper(id)
-    case 'dispenser':
-      return dispenser(id)
-
+    Match.when('hopper', () => hopper(id)),
+    Match.when('dropper', () => dropper(id)),
+    Match.when('dispenser', () => dispenser(id)),
     // 特殊用途
-    case 'fueled_furnace':
-      return fueledFurnace(id)
-    case 'starter_tool_chest':
-      return starterToolChest(id)
-    case 'building_material_chest':
-      return buildingMaterialChest(id)
-    case 'redstone_circuit_chest':
-      return redstoneCircuitChest(id)
-
+    Match.when('fueled_furnace', () => fueledFurnace(id)),
+    Match.when('starter_tool_chest', () => starterToolChest(id)),
+    Match.when('building_material_chest', () => buildingMaterialChest(id)),
+    Match.when('redstone_circuit_chest', () => redstoneCircuitChest(id)),
     // オーナーシップ
-    case 'private_chest':
-      return privateChest(id, args[0] || 'player')
-    case 'shared_chest':
-      return sharedChest(id, args[0] || 'player')
-    case 'locked_chest':
-      return lockedChest(id, args[0] || 'default_key')
-
+    Match.when('private_chest', () => privateChest(id, arg || 'player')),
+    Match.when('shared_chest', () => sharedChest(id, arg || 'player')),
+    Match.when('locked_chest', () => lockedChest(id, arg || 'default_key')),
     // 専門用途
-    case 'ore_smelting_furnace':
-      return oreSmeltingFurnace(id)
-    case 'food_cooking_smoker':
-      return foodCookingSmoker(id)
-    case 'potion_brewing_stand':
-      return potionBrewingStand(id)
-
-    default:
-      return standardChest(id) // fallback
-  }
+    Match.when('ore_smelting_furnace', () => oreSmeltingFurnace(id)),
+    Match.when('food_cooking_smoker', () => foodCookingSmoker(id)),
+    Match.when('potion_brewing_stand', () => potionBrewingStand(id)),
+    // fallback
+    Match.orElse(() => standardChest(id))
+  )
 }
 
 // プリセット情報

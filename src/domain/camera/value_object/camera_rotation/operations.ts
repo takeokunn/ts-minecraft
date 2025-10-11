@@ -1,4 +1,4 @@
-import { Brand, Effect, pipe, Schema } from 'effect'
+import { Brand, Effect, Match, pipe, Schema } from 'effect'
 import {
   CameraRotation,
   Degrees,
@@ -170,20 +170,40 @@ export const AngleConversion = {
    * 角度の正規化（-180～180度）
    */
   normalizeDegrees: (degrees: number): Degrees => {
-    let normalized = degrees % 360
-    if (normalized > 180) normalized -= 360
-    if (normalized < -180) normalized += 360
-    return Brand.nominal<Degrees>()(normalized)
+    const normalized = degrees % 360
+    return Brand.nominal<Degrees>()(
+      Match.value(normalized).pipe(
+        Match.when(
+          (n) => n > 180,
+          (n) => n - 360
+        ),
+        Match.when(
+          (n) => n < -180,
+          (n) => n + 360
+        ),
+        Match.orElse((n) => n)
+      )
+    )
   },
 
   /**
    * ラジアンの正規化（-π～π）
    */
   normalizeRadians: (radians: number): Radians => {
-    let normalized = radians % (2 * Math.PI)
-    if (normalized > Math.PI) normalized -= 2 * Math.PI
-    if (normalized < -Math.PI) normalized += 2 * Math.PI
-    return Brand.nominal<Radians>()(normalized)
+    const normalized = radians % (2 * Math.PI)
+    return Brand.nominal<Radians>()(
+      Match.value(normalized).pipe(
+        Match.when(
+          (n) => n > Math.PI,
+          (n) => n - 2 * Math.PI
+        ),
+        Match.when(
+          (n) => n < -Math.PI,
+          (n) => n + 2 * Math.PI
+        ),
+        Match.orElse((n) => n)
+      )
+    )
   },
 }
 

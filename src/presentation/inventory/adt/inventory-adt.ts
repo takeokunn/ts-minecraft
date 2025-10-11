@@ -1,25 +1,17 @@
+import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
 import { Data, Effect, Match, Option, Schema, pipe } from 'effect'
 
 const decode = <A, I>(schema: Schema.Schema<A, I>) => Schema.decode(schema)
-const decodeSync = <A, I>(schema: Schema.Schema<A, I>) => Schema.decodeSync(schema)
 
-export const PlayerIdSchema = Schema.String.pipe(
-  Schema.minLength(1),
-  Schema.maxLength(64),
-  Schema.pattern(/^[A-Za-z0-9_-]+$/),
-  Schema.brand('PlayerId')
-)
-export type PlayerId = Schema.Schema.Type<typeof PlayerIdSchema>
+// PlayerIdは共有カーネルから再エクスポート
+export { PlayerIdSchema, type PlayerId } from '@domain/shared/entities/player_id'
+export { SimpleItemIdSchema as ItemIdSchema, type ItemId } from '../../../domain/shared/entities/item_id'
 export const parsePlayerId = decode(PlayerIdSchema)
 export const playerIdToString = (value: PlayerId): string => value
 
-export const ItemIdSchema = Schema.String.pipe(
-  Schema.minLength(1),
-  Schema.pattern(/^[A-Za-z0-9_:.-]+$/),
-  Schema.brand('ItemId')
-)
-export type ItemId = Schema.Schema.Type<typeof ItemIdSchema>
-export const parseItemId = decode(ItemIdSchema)
+// 共有カーネルから再エクスポート
+import { SimpleItemIdSchema } from '../../../domain/shared/entities/item_id'
+export const parseItemId = decode(SimpleItemIdSchema)
 
 export const SlotIndexSchema = Schema.Number.pipe(Schema.int(), Schema.nonNegative(), Schema.brand('SlotIndex'))
 export type SlotIndex = Schema.Schema.Type<typeof SlotIndexSchema>
@@ -187,7 +179,7 @@ export const InventoryGUIConfigSchema = Schema.Struct({
 })
 export type InventoryGUIConfig = Schema.Schema.Type<typeof InventoryGUIConfigSchema>
 
-export const defaultInventoryGUIConfig: InventoryGUIConfig = decodeSync(InventoryGUIConfigSchema)({
+export const defaultInventoryGUIConfig: InventoryGUIConfig = {
   slotSize: 48,
   slotSpacing: 4,
   hotbarSlots: 9,
@@ -208,7 +200,7 @@ export const defaultInventoryGUIConfig: InventoryGUIConfig = decodeSync(Inventor
     tooltipBackground: 'rgba(0, 0, 0, 0.9)',
     tooltipText: '#ffffff',
   },
-})
+} as InventoryGUIConfig
 
 export interface InventoryView {
   readonly playerId: PlayerId
@@ -321,42 +313,42 @@ export type InventoryGUIEvent =
   | ReturnType<typeof QuickMove>
   | ReturnType<typeof QuickDrop>
 
-export interface SlotNotFoundError {
-  readonly _tag: 'SlotNotFoundError'
-  readonly slot: SlotIndex
-}
-export const SlotNotFoundError = Data.tagged<SlotNotFoundError>('SlotNotFoundError')
+export const SlotNotFoundErrorSchema = Schema.TaggedError('SlotNotFoundError', {
+  slot: SlotIndexSchema,
+})
+export type SlotNotFoundError = Schema.Schema.Type<typeof SlotNotFoundErrorSchema>
+export const SlotNotFoundError = makeErrorFactory(SlotNotFoundErrorSchema)
 
-export interface InvalidDropError {
-  readonly _tag: 'InvalidDropError'
-  readonly reason: string
-}
-export const InvalidDropError = Data.tagged<InvalidDropError>('InvalidDropError')
+export const InvalidDropErrorSchema = Schema.TaggedError('InvalidDropError', {
+  reason: Schema.String,
+})
+export type InvalidDropError = Schema.Schema.Type<typeof InvalidDropErrorSchema>
+export const InvalidDropError = makeErrorFactory(InvalidDropErrorSchema)
 
-export interface AnimationFailedError {
-  readonly _tag: 'AnimationFailedError'
-  readonly slot: SlotIndex
-}
-export const AnimationFailedError = Data.tagged<AnimationFailedError>('AnimationFailedError')
+export const AnimationFailedErrorSchema = Schema.TaggedError('AnimationFailedError', {
+  slot: SlotIndexSchema,
+})
+export type AnimationFailedError = Schema.Schema.Type<typeof AnimationFailedErrorSchema>
+export const AnimationFailedError = makeErrorFactory(AnimationFailedErrorSchema)
 
-export interface RenderFailureError {
-  readonly _tag: 'RenderFailureError'
-  readonly message: string
-}
-export const RenderFailureError = Data.tagged<RenderFailureError>('RenderFailureError')
+export const RenderFailureErrorSchema = Schema.TaggedError('RenderFailureError', {
+  message: Schema.String,
+})
+export type RenderFailureError = Schema.Schema.Type<typeof RenderFailureErrorSchema>
+export const RenderFailureError = makeErrorFactory(RenderFailureErrorSchema)
 
-export interface DomainFailureError {
-  readonly _tag: 'DomainFailureError'
-  readonly message: string
-}
-export const DomainFailureError = Data.tagged<DomainFailureError>('DomainFailureError')
+export const DomainFailureErrorSchema = Schema.TaggedError('DomainFailureError', {
+  message: Schema.String,
+})
+export type DomainFailureError = Schema.Schema.Type<typeof DomainFailureErrorSchema>
+export const DomainFailureError = makeErrorFactory(DomainFailureErrorSchema)
 
 export type InventoryGUIError =
-  | ReturnType<typeof SlotNotFoundError>
-  | ReturnType<typeof InvalidDropError>
-  | ReturnType<typeof AnimationFailedError>
-  | ReturnType<typeof RenderFailureError>
-  | ReturnType<typeof DomainFailureError>
+  | SlotNotFoundError
+  | InvalidDropError
+  | AnimationFailedError
+  | RenderFailureError
+  | DomainFailureError
 
 export type InventoryEventHandler = (event: InventoryGUIEvent) => Effect.Effect<void, InventoryGUIError>
 
@@ -428,20 +420,18 @@ export const slotAcceptsItem = (slot: InventorySlot, item: ItemStack) =>
   )
 
 const capitalize = (chunk: string) =>
-  pipe(decodeSync(Schema.String)(chunk), (value) =>
-    pipe(
-      Option.fromNullable(value.at(0)),
-      Option.match({
-        onNone: () => value,
-        onSome: (first) => `${first.toUpperCase()}${value.slice(1)}`,
-      })
-    )
+  pipe(
+    Option.fromNullable(chunk.at(0)),
+    Option.match({
+      onNone: () => chunk,
+      onSome: (first) => `${first.toUpperCase()}${chunk.slice(1)}`,
+    })
   )
 
 export const formatItemName = (item: ItemStack) =>
   pipe(
     Option.fromNullable(item.metadata?.displayName),
-    Option.map(decodeSync(Schema.String)),
+    Option.map((value) => value),
     Option.getOrElse(() =>
       pipe(
         item.itemId.split(':'),

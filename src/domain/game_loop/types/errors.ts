@@ -1,6 +1,7 @@
 import * as Data from 'effect/Data'
 import * as Either from 'effect/Either'
 import { pipe } from 'effect/Function'
+import * as ParseResult from 'effect/ParseResult'
 import * as Schema from 'effect/Schema'
 
 import type { FramesPerSecond, Timestamp } from './index'
@@ -104,7 +105,7 @@ export const stringifyGameLoopError = (error: GameLoopError): string =>
     Either.getOrElse((issue) =>
       JSON.stringify({
         _tag: 'CodecFailure',
-        message: Schema.formatError(issue),
+        message: ParseResult.TreeFormatter.formatErrorSync(issue),
       })
     )
   )

@@ -1,5 +1,13 @@
-import { Layer } from 'effect'
-import { SessionManagerLive } from './application_service'
+/**
+ * @fileoverview Interaction Domain Layer
+ * Domain層の依存関係を提供（Repository層のみ）
+ */
+
 import { SessionStoreLive } from './repository'
 
-export const InteractionDomainLive = Layer.mergeAll(SessionStoreLive, SessionManagerLive)
+/**
+ * Interaction Domain Layer
+ * - Repository: SessionStoreLive
+ * - Domain Service: validatePlacement等の純粋関数（Layerなし）
+ */
+export const InteractionDomainLive = SessionStoreLive

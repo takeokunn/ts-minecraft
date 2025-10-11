@@ -8,7 +8,7 @@
 import { Effect, Match, Option, pipe } from 'effect'
 import * as ReadonlyArray from 'effect/Array'
 import type { Inventory, ItemStack } from '../../types'
-import { createEmptyInventory } from '../../types'
+import { createEmptyInventoryEffect } from '../../types'
 import type {
   InventoryConfig,
   InventoryCreationError,
@@ -84,27 +84,37 @@ const getTypeDefaults = (type: InventoryType): Partial<InventoryConfig> =>
 const validateConfig = (config: InventoryConfig): Effect.Effect<void, InventoryCreationError> =>
   Effect.gen(function* () {
     // playerIdの検証
-    yield* Effect.filterOrFail(
-      config.playerId,
-      (id) => id && id.trim() !== '',
-      () =>
-        new CreationError({
-          reason: 'Invalid inventory configuration',
-          invalidFields: ['playerId is required'],
-          context: { config },
-        })
+    yield* Effect.succeed(config.playerId).pipe(
+      Effect.filterOrFail(
+        (id) => id && id.trim() !== '',
+        () =>
+          CreationError.make({
+            reason: 'Invalid inventory configuration',
+            invalidFields: ['playerId is required'],
+            context: {
+              playerId: String(config.playerId),
+              type: config.type,
+              slotCount: config.slotCount,
+            },
+          })
+      )
     )
 
     // slotCountの検証
-    yield* Effect.filterOrFail(
-      config.slotCount,
-      (count) => count >= 0 && count <= 54,
-      () =>
-        new CreationError({
-          reason: 'Invalid inventory configuration',
-          invalidFields: ['slotCount must be between 0 and 54'],
-          context: { config },
-        })
+    yield* Effect.succeed(config.slotCount).pipe(
+      Effect.filterOrFail(
+        (count) => count >= 0 && count <= 54,
+        () =>
+          CreationError.make({
+            reason: 'Invalid inventory configuration',
+            invalidFields: ['slotCount must be between 0 and 54'],
+            context: {
+              playerId: String(config.playerId),
+              type: config.type,
+              slotCount: config.slotCount,
+            },
+          })
+      )
     )
 
     // startingItemsの検証
@@ -113,16 +123,27 @@ const validateConfig = (config: InventoryConfig): Effect.Effect<void, InventoryC
         config.startingItems!,
         (items) => items.length <= config.slotCount,
         () =>
-          new CreationError({
+          CreationError.make({
             reason: 'Invalid inventory configuration',
             invalidFields: ['startingItems count exceeds slotCount'],
-            context: { config },
+            context: {
+              playerId: String(config.playerId),
+              type: config.type,
+              slotCount: config.slotCount,
+            },
           })
       )
     )
 
     return yield* Effect.void
   })
+
+const summarizeInventory = (inventory: Inventory) => ({
+  playerId: String(inventory.playerId),
+  slotCount: inventory.slots.length,
+  hotbarCount: inventory.hotbar.length,
+  selectedSlot: inventory.selectedSlot,
+})
 
 // アイテムを適切なスロットに配置（Pure Function with Effect）
 const placeItemsInSlots = (
@@ -133,34 +154,35 @@ const placeItemsInSlots = (
     const slots = [...inventory.slots]
 
     // アイテムを空きスロットに配置
+    type PlacementAcc = { slots: Array<ItemStack | null>; itemIndex: number }
+    const initialAcc: PlacementAcc = { slots, itemIndex: 0 }
     const placementResult = pipe(
       items,
-      ReadonlyArray.reduce(
-        { slots, itemIndex: 0 } as { slots: Array<ItemStack | null>; itemIndex: number },
-        (acc, item) =>
-          pipe(
-            acc.slots.findIndex((slot, idx) => slot === null && idx >= acc.itemIndex),
-            (emptySlotIndex) =>
-              emptySlotIndex === -1
-                ? acc
-                : pipe([...acc.slots], (newSlots) => {
-                    newSlots[emptySlotIndex] = item
-                    return { slots: newSlots, itemIndex: acc.itemIndex + 1 }
-                  })
-          )
+      ReadonlyArray.reduce(initialAcc, (acc, item) =>
+        pipe(
+          acc.slots.findIndex((slot, idx) => slot === null && idx >= acc.itemIndex),
+          (emptySlotIndex) =>
+            emptySlotIndex === -1
+              ? acc
+              : pipe([...acc.slots], (newSlots) => {
+                  newSlots[emptySlotIndex] = item
+                  return { slots: newSlots, itemIndex: acc.itemIndex + 1 }
+                })
+        )
       )
     )
 
     // すべてのアイテムが配置できたか検証
-    yield* Effect.filterOrFail(
-      placementResult.itemIndex,
-      (index) => index >= items.length,
-      () =>
-        new CreationError({
-          reason: 'Not enough empty slots for all starting items',
-          invalidFields: ['startingItems'],
-          context: { availableSlots: slots.length, requestedItems: items.length },
-        })
+    yield* Effect.succeed(placementResult.itemIndex).pipe(
+      Effect.filterOrFail(
+        (index) => index >= items.length,
+        () =>
+          CreationError.make({
+            reason: 'Not enough empty slots for all starting items',
+            invalidFields: ['startingItems'],
+            context: { availableSlots: slots.length, requestedItems: items.length },
+          })
+      )
     )
 
     return yield* Effect.succeed({
@@ -173,9 +195,10 @@ const placeItemsInSlots = (
 const optimizeStacks = (inventory: Inventory): Effect.Effect<Inventory, InventoryCreationError> =>
   Effect.gen(function* () {
     // 同一アイテムのスタック統合ロジック
+    const initialSlots: Array<ItemStack | null> = [...inventory.slots]
     const optimizedSlots = pipe(
       ReadonlyArray.makeBy(inventory.slots.length, (i) => i),
-      ReadonlyArray.reduce([...inventory.slots] as Array<ItemStack | null>, (slots, i) =>
+      ReadonlyArray.reduce(initialSlots, (slots, i) =>
         pipe(
           Option.fromNullable(slots[i]),
           Option.match({
@@ -233,7 +256,7 @@ export const InventoryFactoryLive: InventoryFactory = {
 
       yield* validateConfig(fullConfig)
 
-      const baseInventory = createEmptyInventory(fullConfig.playerId)
+      const baseInventory = yield* createEmptyInventoryEffect(fullConfig.playerId)
 
       return yield* Effect.succeed(baseInventory)
     }),
@@ -261,32 +284,36 @@ export const InventoryFactoryLive: InventoryFactory = {
     Effect.gen(function* () {
       yield* validateConfig(config)
 
-      const baseInventory = createEmptyInventory(config.playerId)
+      const baseInventory = yield* createEmptyInventoryEffect(config.playerId)
 
       // スロット数調整
       const adjustedSlots = Array(config.slotCount).fill(null)
 
-      // 機能別設定適用（Effect.ifパターン）
-      const withHotbar = yield* Effect.if(config.enableHotbar, {
-        onTrue: () => Effect.succeed(baseInventory.hotbar),
-        onFalse: () => Effect.succeed([]),
-      })
+      // 機能別設定適用（Match.whenパターン）
+      const withHotbar = yield* pipe(
+        Match.value(config.enableHotbar),
+        Match.when(true, () => Effect.succeed(baseInventory.hotbar)),
+        Match.orElse(() => Effect.succeed([]))
+      )
 
-      const withArmor = yield* Effect.if(config.enableArmor, {
-        onTrue: () => Effect.succeed(baseInventory.armor),
-        onFalse: () =>
+      const withArmor = yield* pipe(
+        Match.value(config.enableArmor),
+        Match.when(true, () => Effect.succeed(baseInventory.armor)),
+        Match.orElse(() =>
           Effect.succeed({
             helmet: null,
             chestplate: null,
             leggings: null,
             boots: null,
-          }),
-      })
+          })
+        )
+      )
 
-      const withOffhand = yield* Effect.if(config.enableOffhand, {
-        onTrue: () => Effect.succeed(baseInventory.offhand),
-        onFalse: () => Effect.succeed(null),
-      })
+      const withOffhand = yield* pipe(
+        Match.value(config.enableOffhand),
+        Match.when(true, () => Effect.succeed(baseInventory.offhand)),
+        Match.orElse(() => Effect.succeed(null))
+      )
 
       let result: Inventory = {
         ...baseInventory,
@@ -297,10 +324,11 @@ export const InventoryFactoryLive: InventoryFactory = {
       }
 
       // 初期アイテム配置
-      result = yield* Effect.if(config.startingItems !== undefined && config.startingItems.length > 0, {
-        onTrue: () => placeItemsInSlots(result, config.startingItems!),
-        onFalse: () => Effect.succeed(result),
-      })
+      result = yield* pipe(
+        Match.value(config.startingItems !== undefined && config.startingItems.length > 0),
+        Match.when(true, () => placeItemsInSlots(result, config.startingItems!)),
+        Match.orElse(() => Effect.succeed(result))
+      )
 
       return yield* Effect.succeed(result)
     }),
@@ -342,9 +370,11 @@ export const InventoryFactoryLive: InventoryFactory = {
   mergeInventories: (primary, secondary) =>
     Effect.gen(function* () {
       // セカンダリのアイテムをプライマリに統合
+      type MergeAcc = { mergedSlots: Array<ItemStack | null>; conflicts: string[] }
+      const initialMergeAcc: MergeAcc = { mergedSlots: [...primary.slots], conflicts: [] }
       const mergeResult = pipe(
         ReadonlyArray.makeBy(Math.min(secondary.slots.length, primary.slots.length), (i) => i),
-        ReadonlyArray.reduce({ mergedSlots: [...primary.slots], conflicts: [] as string[] }, (acc, i) =>
+        ReadonlyArray.reduce(initialMergeAcc, (acc, i) =>
           pipe(
             Option.fromNullable(secondary.slots[i]),
             Option.match({
@@ -370,15 +400,16 @@ export const InventoryFactoryLive: InventoryFactory = {
       )
 
       // コンフリクトチェック
-      yield* Effect.filterOrFail(
-        mergeResult.conflicts.length,
-        (len) => len === 0,
-        () =>
-          new MergeError({
-            reason: 'Slot conflicts during merge',
-            conflictingFields: mergeResult.conflicts,
-            context: { primaryId: primary.playerId, secondaryId: secondary.playerId },
-          })
+      yield* Effect.succeed(mergeResult.conflicts.length).pipe(
+        Effect.filterOrFail(
+          (len) => len === 0,
+          () =>
+            MergeError.make({
+              reason: 'Slot conflicts during merge',
+              conflictingFields: mergeResult.conflicts,
+              context: { primaryId: String(primary.playerId), secondaryId: String(secondary.playerId) },
+            })
+        )
       )
 
       const merged: Inventory = {
@@ -393,51 +424,55 @@ export const InventoryFactoryLive: InventoryFactory = {
   validateInventory: (inventory) =>
     Effect.gen(function* () {
       // playerIdの検証
-      yield* Effect.filterOrFail(
-        inventory.playerId,
-        (id) => id && id.trim() !== '',
-        () =>
-          new ValidationError({
-            reason: 'Inventory validation failed',
-            missingFields: ['playerId is required'],
-            context: { inventory },
-          })
+      yield* Effect.succeed(inventory.playerId).pipe(
+        Effect.filterOrFail(
+          (id) => id && id.trim() !== '',
+          () =>
+            ValidationError.make({
+              reason: 'Inventory validation failed',
+              missingFields: ['playerId is required'],
+              context: { inventory: summarizeInventory(inventory) },
+            })
+        )
       )
 
       // slotsの検証
-      yield* Effect.filterOrFail(
-        inventory.slots.length,
-        (len) => len === 36,
-        () =>
-          new ValidationError({
-            reason: 'Inventory validation failed',
-            missingFields: ['slots array must have exactly 36 elements'],
-            context: { inventory },
-          })
+      yield* Effect.succeed(inventory.slots.length).pipe(
+        Effect.filterOrFail(
+          (len) => len === 36,
+          () =>
+            ValidationError.make({
+              reason: 'Inventory validation failed',
+              missingFields: ['slots array must have exactly 36 elements'],
+              context: { inventory: summarizeInventory(inventory) },
+            })
+        )
       )
 
       // hotbarの検証
-      yield* Effect.filterOrFail(
-        inventory.hotbar.length,
-        (len) => len === 9,
-        () =>
-          new ValidationError({
-            reason: 'Inventory validation failed',
-            missingFields: ['hotbar array must have exactly 9 elements'],
-            context: { inventory },
-          })
+      yield* Effect.succeed(inventory.hotbar.length).pipe(
+        Effect.filterOrFail(
+          (len) => len === 9,
+          () =>
+            ValidationError.make({
+              reason: 'Inventory validation failed',
+              missingFields: ['hotbar array must have exactly 9 elements'],
+              context: { inventory: summarizeInventory(inventory) },
+            })
+        )
       )
 
       // selectedSlotの検証
-      yield* Effect.filterOrFail(
-        inventory.selectedSlot,
-        (slot) => slot >= 0 && slot <= 8,
-        () =>
-          new ValidationError({
-            reason: 'Inventory validation failed',
-            missingFields: ['selectedSlot must be between 0 and 8'],
-            context: { inventory },
-          })
+      yield* Effect.succeed(inventory.selectedSlot).pipe(
+        Effect.filterOrFail(
+          (slot) => slot >= 0 && slot <= 8,
+          () =>
+            ValidationError.make({
+              reason: 'Inventory validation failed',
+              missingFields: ['selectedSlot must be between 0 and 8'],
+              context: { inventory: summarizeInventory(inventory) },
+            })
+        )
       )
 
       // ホットバーインデックスの検証
@@ -450,15 +485,16 @@ export const InventoryFactoryLive: InventoryFactory = {
         )
       )
 
-      yield* Effect.filterOrFail(
-        hotbarErrors.length,
-        (len) => len === 0,
-        () =>
-          new ValidationError({
-            reason: 'Inventory validation failed',
-            missingFields: hotbarErrors,
-            context: { inventory },
-          })
+      yield* Effect.succeed(hotbarErrors.length).pipe(
+        Effect.filterOrFail(
+          (len) => len === 0,
+          () =>
+            ValidationError.make({
+              reason: 'Inventory validation failed',
+              missingFields: hotbarErrors,
+              context: { inventory: summarizeInventory(inventory) },
+            })
+        )
       )
 
       return yield* Effect.void

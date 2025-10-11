@@ -1,4 +1,6 @@
+import { toErrorCause } from '@shared/schema/error'
 import { Clock, Effect, Match, Schema, pipe } from 'effect'
+import { makeUnsafeChunkId } from '../../../shared/entities/chunk_id'
 import { CHUNK_MAX_Y, CHUNK_MIN_Y, CHUNK_SIZE, CHUNK_VOLUME } from '../../types'
 import type { ChunkMetadata } from '../../value_object/chunk_metadata'
 import {
@@ -7,18 +9,17 @@ import {
   type ChunkData,
   type ChunkId,
   type ChunkPosition,
-  type WorldCoordinate,
+  type LocalCoordinate,
   ChunkBoundsError,
   ChunkDataSchema,
   ChunkSerializationError,
   BlockId as MakeBlockId,
-  ChunkId as MakeChunkId,
 } from './index'
 
 const inclusiveRange = (start: number, end: number): ReadonlyArray<number> =>
   start > end ? [] : Array.from({ length: end - start + 1 }, (_, index) => start + index)
 
-const buildChunkId = (position: ChunkPosition): ChunkId => MakeChunkId(`${position.x}_${position.z}`)
+const buildChunkId = (position: ChunkPosition): ChunkId => makeUnsafeChunkId(`chunk_${position.x}_${position.z}`)
 
 const getBlockIndex = (x: number, y: number, z: number): number => {
   const normalizedY = y - CHUNK_MIN_Y
@@ -29,14 +30,14 @@ const isValidCoordinate = (x: number, y: number, z: number): boolean =>
   x >= 0 && x < CHUNK_SIZE && y >= CHUNK_MIN_Y && y < CHUNK_MAX_Y && z >= 0 && z < CHUNK_SIZE
 
 const ensureCoordinateBounds = (
-  x: WorldCoordinate,
-  y: WorldCoordinate,
-  z: WorldCoordinate
+  x: LocalCoordinate,
+  y: LocalCoordinate,
+  z: LocalCoordinate
 ): Effect.Effect<
   {
-    readonly x: WorldCoordinate
-    readonly y: WorldCoordinate
-    readonly z: WorldCoordinate
+    readonly x: LocalCoordinate
+    readonly y: LocalCoordinate
+    readonly z: LocalCoordinate
     readonly index: number
   },
   ChunkBoundsError
@@ -58,19 +59,19 @@ const ensureCoordinateBounds = (
     Effect.map((coords) => ({ ...coords, index: getBlockIndex(coords.x, coords.y, coords.z) }))
   )
 
-const computeNormalizedBounds = (start: WorldCoordinate, end: WorldCoordinate, min: number, max: number) => {
+const computeNormalizedBounds = (start: LocalCoordinate, end: LocalCoordinate, min: number, max: number) => {
   const low = Math.max(min, Math.min(start, end))
   const high = Math.min(max, Math.max(start, end))
   return { low, high }
 }
 
 const regionRanges = (
-  startX: WorldCoordinate,
-  startY: WorldCoordinate,
-  startZ: WorldCoordinate,
-  endX: WorldCoordinate,
-  endY: WorldCoordinate,
-  endZ: WorldCoordinate
+  startX: LocalCoordinate,
+  startY: LocalCoordinate,
+  startZ: LocalCoordinate,
+  endX: LocalCoordinate,
+  endY: LocalCoordinate,
+  endZ: LocalCoordinate
 ): Effect.Effect<
   {
     readonly xRange: ReadonlyArray<number>
@@ -108,9 +109,9 @@ const updateTimestamp = (metadata: ChunkMetadata, timestamp: number): ChunkMetad
 
 const buildAggregate = (state: ChunkData): ChunkAggregate => {
   const getBlock = (
-    x: WorldCoordinate,
-    y: WorldCoordinate,
-    z: WorldCoordinate
+    x: LocalCoordinate,
+    y: LocalCoordinate,
+    z: LocalCoordinate
   ): Effect.Effect<BlockId, ChunkBoundsError> =>
     pipe(
       ensureCoordinateBounds(x, y, z),
@@ -144,6 +145,7 @@ const buildAggregate = (state: ChunkData): ChunkAggregate => {
           const newBlocks = new Uint16Array(state.blocks)
           const timestamp = yield* Clock.currentTimeMillis
 
+          // メモリ枯渇防止: 3重ネストunbounded削除
           yield* Effect.forEach(
             xRange,
             (x) =>
@@ -157,11 +159,11 @@ const buildAggregate = (state: ChunkData): ChunkAggregate => {
                         const index = getBlockIndex(x, y, z)
                         newBlocks[index] = blockId
                       }),
-                    { concurrency: 'unbounded' }
+                    { concurrency: 8 }
                   ),
-                { concurrency: 'unbounded' }
+                { concurrency: 4 }
               ),
-            { concurrency: 'unbounded' }
+            { concurrency: 2 }
           )
 
           const newData: ChunkData = {
@@ -269,7 +271,7 @@ export const createChunkAggregate = (
     Effect.mapError((error) =>
       ChunkSerializationError({
         message: 'チャンクデータの検証に失敗しました',
-        originalError: error,
+        originalError: toErrorCause(error),
       })
     ),
     Effect.map((validated) => ({

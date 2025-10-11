@@ -1,4 +1,6 @@
 import { GameApplicationLive } from '@application/game-application-live'
+import { GameEventQueueLive, GameLoopSupervisorLive } from '@application/game_loop'
+import { ObservabilityLayer } from '@application/observability/layer'
 import { GameLoopServiceLive } from '@domain/game_loop'
 import { InputServiceLive } from '@domain/input'
 import { InteractionDomainLive } from '@domain/interaction'
@@ -14,14 +16,16 @@ import {
   projectInitialization,
   projectReadiness,
 } from './application'
-import {
-  AppError,
+import type {
   BootstrapConfig,
-  BootstrapConfigDefaults,
   BootstrapConfigInput,
   BootstrapConfigSnapshot,
   EpochMilliseconds,
   LifecycleState,
+} from './domain'
+import {
+  AppError,
+  BootstrapConfigDefaults,
   bootstrapConfig,
   epochMilliseconds,
   makeConfigError,
@@ -64,9 +68,8 @@ const hydrateConfig = (provider: ConfigProvider.ConfigProvider) =>
   loadFromProvider(provider).pipe(Effect.flatMap(decodeConfig))
 
 const materializeSnapshot = (config: BootstrapConfig): Effect.Effect<BootstrapConfigSnapshot> =>
-  Clock.currentTimeMillis.pipe(
-    Effect.flatMap(epochMilliseconds),
-    Effect.map((loadedAt) => materializeConfigSnapshot(config, loadedAt))
+  Effect.flatMap(Clock.currentTimeMillis, (millis) =>
+    Effect.map(epochMilliseconds(millis), (loadedAt) => materializeConfigSnapshot(config, loadedAt))
   )
 
 const hydrateSnapshot = (provider: ConfigProvider.ConfigProvider) =>
@@ -80,9 +83,8 @@ const initializedTimestamp = (state: LifecycleState, timestamp: EpochMillisecond
   )
 
 const createLifecycleSnapshot = (state: LifecycleState, config: BootstrapConfig) =>
-  Clock.currentTimeMillis.pipe(
-    Effect.flatMap(epochMilliseconds),
-    Effect.flatMap((timestamp) =>
+  Effect.flatMap(Clock.currentTimeMillis, (millis) =>
+    Effect.flatMap(epochMilliseconds(millis), (timestamp) =>
       instantiateLifecycleSnapshot({
         state,
         updatedAt: timestamp,
@@ -189,10 +191,23 @@ export const makeAppService = Effect.gen(function* () {
 
 export const AppServiceLayer = Layer.scoped(AppServiceTag, makeAppService)
 
-const BaseServicesLayer = Layer.mergeAll(GameLoopServiceLive, SceneManagerLive, InputServiceLive, InteractionDomainLive)
+const BaseServicesLayer = Layer.mergeAll(
+  GameLoopServiceLive,
+  GameEventQueueLive,
+  GameLoopSupervisorLive,
+  SceneManagerLive,
+  InputServiceLive,
+  InteractionDomainLive
+)
 
 const ApplicationLayer = GameApplicationLive.pipe(Layer.provide(BaseServicesLayer))
 
-export const MainLayer = Layer.mergeAll(BaseServicesLayer, ApplicationLayer, ConfigLayer, AppServiceLayer)
+export const MainLayer = Layer.mergeAll(
+  ObservabilityLayer,
+  BaseServicesLayer,
+  ApplicationLayer,
+  ConfigLayer,
+  AppServiceLayer
+)
 
 export const TestLayer = Layer.mergeAll(ConfigLayer, AppServiceLayer)

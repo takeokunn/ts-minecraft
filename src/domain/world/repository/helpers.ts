@@ -4,7 +4,7 @@
  * リポジトリ層のユーティリティ関数とヘルスチェック機能を提供します。
  */
 
-import { Clock, Effect } from 'effect'
+import { DateTime, Effect } from 'effect'
 import type { WorldRepositoryServices } from './index'
 
 /**
@@ -65,7 +65,8 @@ export const getRepositoryPerformanceStats = (services: WorldRepositoryServices)
  */
 export const collectRepositoryMetrics = (services: WorldRepositoryServices) =>
   Effect.gen(function* () {
-    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const nowDateTime = yield* DateTime.now
+    const now = DateTime.toDate(nowDateTime)
     return {
       timestamp: now.toISOString(),
       version: '1.0.0',

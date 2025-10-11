@@ -1,4 +1,4 @@
-import { Array, Clock, Effect, HashSet, Match, Option, Record, Schema, pipe } from 'effect'
+import { Array, DateTime, Effect, HashSet, Match, Option, Record, Schema, pipe } from 'effect'
 import {
   CraftingGrid,
   CraftingItemStack,
@@ -43,8 +43,8 @@ export const SuccessRateSchema = Schema.Number.pipe(
 export type SuccessRate = Schema.Schema.Type<typeof SuccessRateSchema>
 
 const RecipeMetadataSchema = Schema.Struct({
-  createdAt: Schema.Date,
-  updatedAt: Schema.Date,
+  createdAt: Schema.DateFromSelf,
+  updatedAt: Schema.DateFromSelf,
   version: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(1)),
   tags: Schema.Array(ItemTagSchema),
   createdBy: Schema.optional(Schema.String),
@@ -114,7 +114,7 @@ export const validateRecipeStructure = (recipe: CraftingRecipe): Effect.Effect<v
     onTrue: () => Effect.void,
     onFalse: () =>
       Effect.fail(
-        new InvalidRecipeError({
+        InvalidRecipeError.make({
           recipeId: recipe.id,
           issues,
         })
@@ -253,33 +253,27 @@ export const canCraftWithGrid = (
 ): Effect.Effect<boolean, PatternMismatchError> =>
   pipe(
     Match.value(aggregate.recipe).pipe(
-      Match.tags({
-        shaped: (recipe) => Effect.succeed(matchShapedRecipe(recipe, grid)),
-        shapeless: (recipe) => Effect.succeed(matchShapelessRecipe(recipe, grid)),
-      })
+      Match.tag('shaped', (recipe) => matchShapedRecipe(recipe, grid)),
+      Match.tag('shapeless', (recipe) => matchShapelessRecipe(recipe, grid)),
+      Match.exhaustive
     ),
-    Effect.flatMap((matches) =>
+    (matches) =>
       Effect.if(Effect.succeed(matches), {
         onTrue: () => Effect.succeed(true),
         onFalse: () =>
           Effect.fail(
-            new PatternMismatchError({
+            PatternMismatchError.make({
               recipeId: aggregate.id,
               reason: 'provided grid does not match the recipe definition',
             })
           ),
       })
-    )
   )
 
 /**
  * ### 内部ユーティリティ
  */
-const currentDate = (): Effect.Effect<Date, never> =>
-  pipe(
-    Clock.currentTimeMillis,
-    Effect.map((millis) => new Date(millis))
-  )
+const currentDate = (): Effect.Effect<Date, never> => DateTime.nowAsDate
 
 const touchMetadata = (metadata: RecipeMetadata): Effect.Effect<RecipeMetadata, never> =>
   pipe(
@@ -293,10 +287,9 @@ const touchMetadata = (metadata: RecipeMetadata): Effect.Effect<RecipeMetadata, 
 
 const collectRecipeIssues = (recipe: CraftingRecipe): ReadonlyArray<RecipeValidationIssue> =>
   Match.value(recipe).pipe(
-    Match.tags({
-      shaped: collectShapedRecipeIssues,
-      shapeless: collectShapelessRecipeIssues,
-    })
+    Match.tag('shaped', collectShapedRecipeIssues),
+    Match.tag('shapeless', collectShapelessRecipeIssues),
+    Match.exhaustive
   )
 
 const collectShapedRecipeIssues = (recipe: ShapedRecipe): ReadonlyArray<RecipeValidationIssue> => {
@@ -495,8 +488,7 @@ const matchesIngredientByKey = (recipe: ShapedRecipe, key: RecipePatternKey, sta
 
 export const matcherMatchesItem = (matcher: ItemMatcher, stack: CraftingItemStack): boolean =>
   Match.value(matcher).pipe(
-    Match.tags({
-      exact: ({ item }) => item.itemId === stack.itemId && item.quantity <= stack.quantity,
-      tag: ({ tag, quantity }) => stack.metadata?.tags?.includes(tag) === true && stack.quantity >= quantity,
-    })
+    Match.tag('exact', ({ item }) => item.itemId === stack.itemId && item.quantity <= stack.quantity),
+    Match.tag('tag', ({ tag, quantity }) => stack.metadata?.tags?.includes(tag) === true && stack.quantity >= quantity),
+    Match.exhaustive
   )

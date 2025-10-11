@@ -1,4 +1,4 @@
-import { Clock, Effect, Match, pipe, Array as ReadonlyArray, Schema } from 'effect'
+import { Clock, Effect, Match, Option, pipe, Array as ReadonlyArray, Schema } from 'effect'
 import {
   ChunkCommand,
   ChunkEvent,
@@ -51,11 +51,14 @@ const extractRequest = (collection: ReadonlyArray<ChunkRequest>, id: ChunkReques
   pipe(
     collection,
     ReadonlyArray.findFirst((candidate) => candidate.id === id),
-    Effect.fromOption(() => ChunkSystemError.RequestNotFound({ id })),
-    Effect.map((request) => ({
-      request,
-      rest: ReadonlyArray.filter(collection, (candidate) => candidate.id !== id),
-    }))
+    Option.match({
+      onNone: () => Effect.fail(ChunkSystemError.RequestNotFound({ id })),
+      onSome: (request) =>
+        Effect.succeed({
+          request,
+          rest: ReadonlyArray.filter(collection, (candidate) => candidate.id !== id),
+        }),
+    })
   )
 
 const locateRequest = (state: ChunkSystemState, id: ChunkRequest['id']) =>

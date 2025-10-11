@@ -4,9 +4,11 @@
  */
 
 import { uuid } from '@domain/world/utils'
-import { Clock, Effect, Schema } from 'effect'
-import { ChunkPosition, WorldId } from '../core'
-import { EventMetadata } from './index'
+import { JsonValueSchema, type JsonRecord } from '@shared/schema/json'
+import { DateTime, Effect, Schema } from 'effect'
+import { ChunkPosition, ChunkPositionSchema, WorldId, WorldIdSchema } from '../core'
+import type { EventMetadata } from './world_events'
+import { EventMetadataSchema } from './world_events'
 
 // === システム起動・停止イベント ===
 
@@ -18,7 +20,7 @@ export interface SystemStartedEvent {
     readonly systemVersion: string
     readonly startupTime: number // milliseconds
     readonly initializedModules: readonly string[]
-    readonly configurationLoaded: Record<string, unknown>
+    readonly configurationLoaded: JsonRecord
     readonly resourcesAllocated: {
       readonly memory: number // bytes
       readonly threads: number
@@ -29,12 +31,12 @@ export interface SystemStartedEvent {
 
 export const SystemStartedEventSchema = Schema.Struct({
   type: Schema.Literal('SystemStarted'),
-  metadata: Schema.suspend(() => import('./index').then((m) => m.EventMetadataSchema)),
+  metadata: Schema.suspend(() => EventMetadataSchema),
   payload: Schema.Struct({
     systemVersion: Schema.String,
     startupTime: Schema.Number.pipe(Schema.nonNegative()),
     initializedModules: Schema.Array(Schema.String),
-    configurationLoaded: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+    configurationLoaded: Schema.Record({ key: Schema.String, value: JsonValueSchema }),
     resourcesAllocated: Schema.Struct({
       memory: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
       threads: Schema.Number.pipe(Schema.int(), Schema.positive()),
@@ -68,7 +70,7 @@ export interface SystemShutdownEvent {
 
 export const SystemShutdownEventSchema = Schema.Struct({
   type: Schema.Literal('SystemShutdown'),
-  metadata: Schema.suspend(() => import('./index').then((m) => m.EventMetadataSchema)),
+  metadata: Schema.suspend(() => EventMetadataSchema),
   payload: Schema.Struct({
     reason: Schema.Literal('manual', 'error', 'restart', 'update'),
     gracefulShutdown: Schema.Boolean,
@@ -106,7 +108,7 @@ export interface MemoryWarningEvent {
 
 export const MemoryWarningEventSchema = Schema.Struct({
   type: Schema.Literal('MemoryWarning'),
-  metadata: Schema.suspend(() => import('./index').then((m) => m.EventMetadataSchema)),
+  metadata: Schema.suspend(() => EventMetadataSchema),
   payload: Schema.Struct({
     currentUsage: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
     maxAvailable: Schema.Number.pipe(Schema.int(), Schema.positive()),
@@ -146,7 +148,7 @@ export interface GarbageCollectionEvent {
 
 export const GarbageCollectionEventSchema = Schema.Struct({
   type: Schema.Literal('GarbageCollection'),
-  metadata: Schema.suspend(() => import('./index').then((m) => m.EventMetadataSchema)),
+  metadata: Schema.suspend(() => EventMetadataSchema),
   payload: Schema.Struct({
     trigger: Schema.Literal('automatic', 'manual', 'emergency'),
     beforeCollection: Schema.Struct({
@@ -188,10 +190,10 @@ export interface ChunkLoadedEvent {
 
 export const ChunkLoadedEventSchema = Schema.Struct({
   type: Schema.Literal('ChunkLoaded'),
-  metadata: Schema.suspend(() => import('./index').then((m) => m.EventMetadataSchema)),
+  metadata: Schema.suspend(() => EventMetadataSchema),
   payload: Schema.Struct({
-    worldId: Schema.suspend(() => import('../core').then((m) => m.WorldIdSchema)),
-    chunkPosition: Schema.suspend(() => import('../core').then((m) => m.ChunkPositionSchema)),
+    worldId: Schema.suspend(() => WorldIdSchema),
+    chunkPosition: Schema.suspend(() => ChunkPositionSchema),
     loadTime: Schema.Number.pipe(Schema.nonNegative()),
     source: Schema.Literal('disk', 'generation', 'network', 'cache'),
     dataSizeBytes: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
@@ -220,10 +222,10 @@ export interface ChunkUnloadedEvent {
 
 export const ChunkUnloadedEventSchema = Schema.Struct({
   type: Schema.Literal('ChunkUnloaded'),
-  metadata: Schema.suspend(() => import('./index').then((m) => m.EventMetadataSchema)),
+  metadata: Schema.suspend(() => EventMetadataSchema),
   payload: Schema.Struct({
-    worldId: Schema.suspend(() => import('../core').then((m) => m.WorldIdSchema)),
-    chunkPosition: Schema.suspend(() => import('../core').then((m) => m.ChunkPositionSchema)),
+    worldId: Schema.suspend(() => WorldIdSchema),
+    chunkPosition: Schema.suspend(() => ChunkPositionSchema),
     reason: Schema.Literal('no_players', 'memory_pressure', 'manual', 'server_shutdown'),
     timeLoaded: Schema.Number.pipe(Schema.nonNegative()),
     saved: Schema.Boolean,
@@ -254,7 +256,7 @@ export interface PerformanceThresholdExceededEvent {
 
 export const PerformanceThresholdExceededEventSchema = Schema.Struct({
   type: Schema.Literal('PerformanceThresholdExceeded'),
-  metadata: Schema.suspend(() => import('./index').then((m) => m.EventMetadataSchema)),
+  metadata: Schema.suspend(() => EventMetadataSchema),
   payload: Schema.Struct({
     metric: Schema.String,
     currentValue: Schema.Number,
@@ -305,7 +307,7 @@ export interface PerformanceStatsUpdatedEvent {
 
 export const PerformanceStatsUpdatedEventSchema = Schema.Struct({
   type: Schema.Literal('PerformanceStatsUpdated'),
-  metadata: Schema.suspend(() => import('./index').then((m) => m.EventMetadataSchema)),
+  metadata: Schema.suspend(() => EventMetadataSchema),
   payload: Schema.Struct({
     interval: Schema.Number.pipe(Schema.positive()),
     stats: Schema.Struct({
@@ -358,13 +360,13 @@ export interface BackupStartedEvent {
 
 export const BackupStartedEventSchema = Schema.Struct({
   type: Schema.Literal('BackupStarted'),
-  metadata: Schema.suspend(() => import('./index').then((m) => m.EventMetadataSchema)),
+  metadata: Schema.suspend(() => EventMetadataSchema),
   payload: Schema.Struct({
     backupId: Schema.String.pipe(uuid()),
     backupType: Schema.Literal('full', 'incremental', 'differential'),
     targetLocation: Schema.String,
     estimatedSize: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
-    worldsIncluded: Schema.Array(Schema.suspend(() => import('../core').then((m) => m.WorldIdSchema))),
+    worldsIncluded: Schema.Array(Schema.suspend(() => WorldIdSchema)),
     compression: Schema.Boolean,
   }),
 }).pipe(
@@ -391,7 +393,7 @@ export interface BackupCompletedEvent {
 
 export const BackupCompletedEventSchema = Schema.Struct({
   type: Schema.Literal('BackupCompleted'),
-  metadata: Schema.suspend(() => import('./index').then((m) => m.EventMetadataSchema)),
+  metadata: Schema.suspend(() => EventMetadataSchema),
   payload: Schema.Struct({
     backupId: Schema.String.pipe(uuid()),
     actualSize: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
@@ -419,7 +421,7 @@ export interface ErrorOccurredEvent {
     readonly severity: 'low' | 'medium' | 'high' | 'critical'
     readonly message: string
     readonly stackTrace?: string
-    readonly context: Record<string, unknown>
+    readonly context: JsonRecord
     readonly recoverable: boolean
     readonly affectedSystems: readonly string[]
   }
@@ -427,13 +429,13 @@ export interface ErrorOccurredEvent {
 
 export const ErrorOccurredEventSchema = Schema.Struct({
   type: Schema.Literal('ErrorOccurred'),
-  metadata: Schema.suspend(() => import('./index').then((m) => m.EventMetadataSchema)),
+  metadata: Schema.suspend(() => EventMetadataSchema),
   payload: Schema.Struct({
     errorType: Schema.String,
     severity: Schema.Literal('low', 'medium', 'high', 'critical'),
     message: Schema.String,
     stackTrace: Schema.optional(Schema.String),
-    context: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+    context: Schema.Record({ key: Schema.String, value: JsonValueSchema }),
     recoverable: Schema.Boolean,
     affectedSystems: Schema.Array(Schema.String),
   }),
@@ -486,11 +488,12 @@ export const createSystemStartedEvent = (
   systemVersion: string,
   startupTime: number,
   initializedModules: readonly string[],
-  configurationLoaded: Record<string, unknown>,
+  configurationLoaded: JsonRecord,
   resourcesAllocated: { memory: number; threads: number; storage: number }
 ): Effect.Effect<SystemStartedEvent> =>
   Effect.gen(function* () {
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const now = yield* DateTime.now
+    const timestamp = DateTime.toDate(now)
     return {
       type: 'SystemStarted',
       metadata: {
@@ -521,7 +524,8 @@ export const createMemoryWarningEvent = (
   affectedOperations: readonly string[]
 ): Effect.Effect<MemoryWarningEvent> =>
   Effect.gen(function* () {
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const now = yield* DateTime.now
+    const timestamp = DateTime.toDate(now)
     return {
       type: 'MemoryWarning',
       metadata: {
@@ -553,7 +557,8 @@ export const createChunkLoadedEvent = (
   playersInRange: readonly string[]
 ): Effect.Effect<ChunkLoadedEvent> =>
   Effect.gen(function* () {
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const now = yield* DateTime.now
+    const timestamp = DateTime.toDate(now)
     return {
       type: 'ChunkLoaded',
       metadata: {

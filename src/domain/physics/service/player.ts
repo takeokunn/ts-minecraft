@@ -1,4 +1,5 @@
 import type { PlayerId, Vector3D } from '@domain/entities'
+import { toErrorCause, type ErrorCause } from '@shared/schema/error'
 import { Clock, Context, Effect, Layer, Match, pipe } from 'effect'
 import { Player } from '../../entities/Player'
 import { Direction, JUMP_VELOCITY, MOVEMENT_SPEEDS } from '../../player/PlayerState'
@@ -14,7 +15,7 @@ export interface PlayerPhysicsError {
   readonly _tag: 'PlayerPhysicsError'
   readonly message: string
   readonly playerId?: PlayerId
-  readonly cause?: unknown
+  readonly cause?: ErrorCause
 }
 
 // Player物理設定
@@ -123,7 +124,7 @@ const makePlayerPhysicsService: Effect.Effect<PlayerPhysicsService, never, Canno
               _tag: 'PlayerPhysicsError',
               message: `Failed to create physics controller for player ${player.id}`,
               playerId: player.id,
-              cause: error,
+              cause: toErrorCause(error),
             })
           )
         )
@@ -136,7 +137,7 @@ const makePlayerPhysicsService: Effect.Effect<PlayerPhysicsService, never, Canno
               _tag: 'PlayerPhysicsError',
               message: `Failed to get initial physics state for player ${player.id}`,
               playerId: player.id,
-              cause: error,
+              cause: toErrorCause(error),
             })
           )
         )
@@ -150,7 +151,9 @@ const makePlayerPhysicsService: Effect.Effect<PlayerPhysicsService, never, Canno
           fallStartY: player.position.y,
         }
 
-        console.log(`Player physics initialized for ${player.id} with bodyId: ${bodyId}`)
+        yield* Effect.logInfo('Player physics initialized').pipe(
+          Effect.annotateLogs({ playerId: String(player.id), bodyId })
+        )
         return playerPhysicsState
       })
 
@@ -176,32 +179,41 @@ const makePlayerPhysicsService: Effect.Effect<PlayerPhysicsService, never, Canno
         )
 
         // 移動方向ベクトルの計算（水平面のみ）
-        const moveVector = yield* Effect.sync(() => {
-          const baseVector = { x: 0, y: 0, z: 0 }
+        const baseVector = { x: 0, y: 0, z: 0 }
 
-          // Forward/Backward
-          if (direction.forward) {
+        // Forward/Backward
+        yield* Effect.when(direction.forward, () =>
+          Effect.sync(() => {
             baseVector.z -= 1
-          }
-          if (direction.backward) {
+          })
+        )
+
+        yield* Effect.when(direction.backward, () =>
+          Effect.sync(() => {
             baseVector.z += 1
-          }
+          })
+        )
 
-          // Left/Right
-          if (direction.left) {
+        // Left/Right
+        yield* Effect.when(direction.left, () =>
+          Effect.sync(() => {
             baseVector.x -= 1
-          }
-          if (direction.right) {
-            baseVector.x += 1
-          }
+          })
+        )
 
-          // ベクトルを正規化
+        yield* Effect.when(direction.right, () =>
+          Effect.sync(() => {
+            baseVector.x += 1
+          })
+        )
+
+        // ベクトルを正規化
+        const moveVector = yield* Effect.sync(() => {
           const length = Math.sqrt(baseVector.x * baseVector.x + baseVector.z * baseVector.z)
           if (length > 0) {
             baseVector.x /= length
             baseVector.z /= length
           }
-
           return baseVector
         })
 
@@ -224,7 +236,7 @@ const makePlayerPhysicsService: Effect.Effect<PlayerPhysicsService, never, Canno
               _tag: 'PlayerPhysicsError',
               message: `Failed to apply movement force to player ${physicsState.playerId}`,
               playerId: physicsState.playerId,
-              cause: error,
+              cause: toErrorCause(error),
             })
           )
         )
@@ -237,7 +249,7 @@ const makePlayerPhysicsService: Effect.Effect<PlayerPhysicsService, never, Canno
               _tag: 'PlayerPhysicsError',
               message: `Failed to get updated physics state for player ${physicsState.playerId}`,
               playerId: physicsState.playerId,
-              cause: error,
+              cause: toErrorCause(error),
             })
           )
         )
@@ -286,7 +298,7 @@ const makePlayerPhysicsService: Effect.Effect<PlayerPhysicsService, never, Canno
                     _tag: 'PlayerPhysicsError',
                     message: `Failed to jump player ${physicsState.playerId}`,
                     playerId: physicsState.playerId,
-                    cause: error,
+                    cause: toErrorCause(error),
                   })
                 )
               )
@@ -299,7 +311,7 @@ const makePlayerPhysicsService: Effect.Effect<PlayerPhysicsService, never, Canno
                     _tag: 'PlayerPhysicsError',
                     message: `Failed to get physics state after jump for player ${physicsState.playerId}`,
                     playerId: physicsState.playerId,
-                    cause: error,
+                    cause: toErrorCause(error),
                   })
                 )
               )
@@ -373,7 +385,7 @@ const makePlayerPhysicsService: Effect.Effect<PlayerPhysicsService, never, Canno
               _tag: 'PlayerPhysicsError',
               message: `Failed to update physics state for player ${physicsState.playerId}`,
               playerId: physicsState.playerId,
-              cause: error,
+              cause: toErrorCause(error),
             })
           )
         )
@@ -407,12 +419,14 @@ const makePlayerPhysicsService: Effect.Effect<PlayerPhysicsService, never, Canno
               _tag: 'PlayerPhysicsError',
               message: `Failed to destroy physics for player ${physicsState.playerId}`,
               playerId: physicsState.playerId,
-              cause: error,
+              cause: toErrorCause(error),
             })
           )
         )
 
-        console.log(`Player physics destroyed for ${physicsState.playerId}`)
+        yield* Effect.logInfo('Player physics destroyed').pipe(
+          Effect.annotateLogs({ playerId: String(physicsState.playerId) })
+        )
       })
 
     const service: PlayerPhysicsService = {

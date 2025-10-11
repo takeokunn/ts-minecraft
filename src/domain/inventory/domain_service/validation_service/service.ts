@@ -6,7 +6,8 @@
  * 複雑な検証ロジックを提供します。
  */
 
-import { Context, Data, Effect } from 'effect'
+import { JsonValueSchema, type JsonValue } from '@shared/schema/json'
+import { Context, Effect, Schema } from 'effect'
 import type { Inventory, InventoryErrorReason } from '../../types'
 
 // =============================================================================
@@ -32,8 +33,8 @@ export interface ValidationViolation {
   readonly severity: 'CRITICAL' | 'ERROR' | 'WARNING'
   readonly description: string
   readonly affectedSlots: ReadonlyArray<number>
-  readonly detectedValue: unknown
-  readonly expectedValue?: unknown
+  readonly detectedValue: JsonValue
+  readonly expectedValue?: JsonValue
   readonly canAutoCorrect: boolean
 }
 
@@ -81,7 +82,7 @@ export interface CorrectionStep {
   readonly action: 'REMOVE' | 'UPDATE' | 'MOVE' | 'RESET'
   readonly target: 'SLOT' | 'METADATA' | 'HOTBAR' | 'ARMOR'
   readonly slotIndex?: number
-  readonly newValue?: unknown
+  readonly newValue?: JsonValue
   readonly reason: string
 }
 
@@ -116,17 +117,86 @@ export interface ValidationOptions {
 // Domain Errors
 // =============================================================================
 
-export class ValidationError extends Data.TaggedError('ValidationError')<{
-  readonly reason: InventoryErrorReason
-  readonly details?: string
-}> {}
+export const ValidationErrorSchema = Schema.TaggedStruct('ValidationError', {
+  reason: Schema.String,
+  details: Schema.optional(Schema.String),
+}).pipe(
+  Schema.annotations({
+    title: 'Validation Error',
+    description: 'Error when inventory validation fails',
+  })
+)
+export type ValidationError = Schema.Schema.Type<typeof ValidationErrorSchema>
 
-export class CorrectionError extends Data.TaggedError('CorrectionError')<{
-  readonly failedCorrections: ReadonlyArray<{
+/**
+ * ValidationErrorのメッセージを取得する操作関数
+ */
+export const getValidationErrorMessage = (error: ValidationError): string =>
+  error.details ? `${error.reason}: ${error.details}` : error.reason
+
+/**
+ * ValidationErrorを作成するFactory関数
+ */
+export const createValidationError = (
+  reason: InventoryErrorReason,
+  details?: string
+): Effect.Effect<ValidationError, Schema.ParseError> =>
+  Schema.decode(ValidationErrorSchema)({
+    _tag: 'ValidationError' as const,
+    reason,
+    details,
+  })
+
+/**
+ * 型ガード関数
+ */
+export const isValidationError = (error: unknown): error is ValidationError => Schema.is(ValidationErrorSchema)(error)
+
+export const CorrectionErrorSchema = Schema.TaggedStruct('CorrectionError', {
+  failedCorrections: Schema.Array(
+    Schema.Struct({
+      step: Schema.Struct({
+        action: Schema.Literal('REMOVE', 'UPDATE', 'MOVE', 'RESET'),
+        target: Schema.Literal('SLOT', 'METADATA', 'HOTBAR', 'ARMOR'),
+        slotIndex: Schema.optional(Schema.Number),
+        newValue: Schema.optional(JsonValueSchema),
+        reason: Schema.String,
+      }),
+      error: Schema.String,
+    })
+  ),
+}).pipe(
+  Schema.annotations({
+    title: 'Correction Error',
+    description: 'Error when auto-correction of inventory issues fails',
+  })
+)
+export type CorrectionError = Schema.Schema.Type<typeof CorrectionErrorSchema>
+
+/**
+ * CorrectionErrorのメッセージを取得する操作関数
+ */
+export const getCorrectionErrorMessage = (error: CorrectionError): string =>
+  `Correction failed with ${error.failedCorrections.length} failed corrections`
+
+/**
+ * CorrectionErrorを作成するFactory関数
+ */
+export const createCorrectionError = (
+  failedCorrections: ReadonlyArray<{
     step: CorrectionStep
     error: string
   }>
-}> {}
+): Effect.Effect<CorrectionError, Schema.ParseError> =>
+  Schema.decode(CorrectionErrorSchema)({
+    _tag: 'CorrectionError' as const,
+    failedCorrections,
+  })
+
+/**
+ * 型ガード関数
+ */
+export const isCorrectionError = (error: unknown): error is CorrectionError => Schema.is(CorrectionErrorSchema)(error)
 
 // =============================================================================
 // Validation Service Interface

@@ -1,4 +1,6 @@
-import { Clock, Effect, HashMap, Layer, Option, ReadonlyArray, Ref, pipe } from 'effect'
+import type { JsonRecord } from '@shared/schema/json'
+import { Clock, Effect, HashMap, Layer, Option, Random, ReadonlyArray, Ref, Schema, pipe } from 'effect'
+import { makeUnsafeContainerId } from '../../aggregate/container/types'
 import type {
   Container,
   ContainerId,
@@ -10,6 +12,7 @@ import type {
 } from '../../types'
 import { createContainerNotFoundError, createRepositoryError, createStorageError } from '../types'
 import { ContainerRepository } from './index'
+import { ContainerRepositoryStorageSchema } from './storage_schema'
 
 /**
  * Persistent Storage Configuration
@@ -61,6 +64,17 @@ export const ContainerRepositoryPersistent = (config: ContainerPersistentConfig 
       }
 
       // ストレージ操作のヘルパー関数
+
+      // Schema.decodeUnknownを使用した型安全なデータ読み込み
+      const decodeFromStorage = (rawData: string) =>
+        Effect.try({
+          try: () => JSON.parse(rawData),
+          catch: (error) => createStorageError('localStorage', 'load', `JSON parse failed: ${error}`),
+        }).pipe(
+          Effect.flatMap(Schema.decodeUnknown(ContainerRepositoryStorageSchema)),
+          Effect.mapError((error) => createStorageError('localStorage', 'load', `Schema validation failed: ${error}`))
+        )
+
       const loadFromStorage = Effect.gen(function* () {
         // IndexedDBチェック - Effect.whenで早期エラー返却
         yield* Effect.when(config.indexedDBEnabled && typeof window !== 'undefined' && window.indexedDB, () =>
@@ -68,47 +82,54 @@ export const ContainerRepositoryPersistent = (config: ContainerPersistentConfig 
         )
 
         // LocalStorageからのデータ読み込みと復元
-        const result = yield* Effect.try({
-          try: () => {
-            const data = localStorage.getItem(config.storageKey)
-            if (!data) return null
+        const result = yield* Effect.gen(function* () {
+          const rawData = localStorage.getItem(config.storageKey)
+          if (!rawData) return null
 
-            const parsed = JSON.parse(data)
+          // Schema.decodeUnknownで型安全にデータを検証
+          const validated = yield* decodeFromStorage(rawData)
 
-            // コンテナの復元
-            const containerEntries = pipe(
-              parsed.containers ? Object.entries(parsed.containers) : [],
-              ReadonlyArray.map(([id, container]) => {
-                const cont = container as Container
-                cont.slots = new Map(Object.entries(cont.slots || {}))
-                return [id as ContainerId, cont] as const
-              })
+          // コンテナの復元
+          const containerEntries = pipe(
+            validated.containers ? Object.entries(validated.containers) : [],
+            ReadonlyArray.map(([id, container]) => {
+              const cont: Container = {
+                ...container,
+                id: makeUnsafeContainerId(id),
+                slots: new Map(Object.entries(container.slots)),
+              }
+              return [makeUnsafeContainerId(id), cont] as const
+            })
+          )
+
+          const positionEntries = pipe(
+            containerEntries,
+            ReadonlyArray.filterMap(([, cont]) =>
+              cont.position && cont.worldId
+                ? Option.some([getPositionKey(cont.position, cont.worldId), cont.id] as const)
+                : Option.none()
             )
+          )
 
-            const positionEntries = pipe(
-              containerEntries,
-              ReadonlyArray.filterMap(([, cont]) =>
-                cont.position && cont.worldId
-                  ? Option.some([getPositionKey(cont.position, cont.worldId), cont.id] as const)
-                  : Option.none()
-              )
-            )
+          // スナップショットの復元
+          const snapshotEntries = pipe(
+            validated.snapshots ? Object.entries(validated.snapshots) : [],
+            ReadonlyArray.map(([id, snapshot]) => {
+              const snap: ContainerSnapshot = {
+                ...snapshot,
+                id,
+                containerId: makeUnsafeContainerId(snapshot.containerId),
+                container: {
+                  ...snapshot.container,
+                  id: makeUnsafeContainerId(snapshot.container.id),
+                  slots: new Map(Object.entries(snapshot.container.slots)),
+                },
+              }
+              return [id, snap] as const
+            })
+          )
 
-            // スナップショットの復元
-            const snapshotEntries = pipe(
-              parsed.snapshots ? Object.entries(parsed.snapshots) : [],
-              ReadonlyArray.map(([id, snapshot]) => {
-                const snap = snapshot as ContainerSnapshot
-                if (snap.container.slots) {
-                  snap.container.slots = new Map(Object.entries(snap.container.slots))
-                }
-                return [id, snap] as const
-              })
-            )
-
-            return { containerEntries, positionEntries, snapshotEntries }
-          },
-          catch: (error) => createStorageError('localStorage', 'load', `Failed to load data: ${error}`),
+          return { containerEntries, positionEntries, snapshotEntries }
         })
 
         // キャッシュへの保存
@@ -143,7 +164,7 @@ export const ContainerRepositoryPersistent = (config: ContainerPersistentConfig 
             // Map を Object に変換してシリアライズ可能にする
             const containersObj = pipe(
               HashMap.toEntries(containers),
-              ReadonlyArray.reduce({} as Record<string, unknown>, (acc, [id, container]) => ({
+              ReadonlyArray.reduce({} as JsonRecord, (acc, [id, container]) => ({
                 ...acc,
                 [id]: {
                   ...container,
@@ -154,7 +175,7 @@ export const ContainerRepositoryPersistent = (config: ContainerPersistentConfig 
 
             const snapshotsObj = pipe(
               HashMap.toEntries(snapshots),
-              ReadonlyArray.reduce({} as Record<string, unknown>, (acc, [id, snapshot]) => ({
+              ReadonlyArray.reduce({} as JsonRecord, (acc, [id, snapshot]) => ({
                 ...acc,
                 [id]: {
                   ...snapshot,
@@ -406,7 +427,8 @@ export const ContainerRepositoryPersistent = (config: ContainerPersistentConfig 
                 onSome: (container) =>
                   Effect.gen(function* () {
                     const timestamp = yield* Clock.currentTimeMillis
-                    const randomPart = Math.random().toString(36).substr(2, 9)
+                    const randomNum = yield* Random.nextIntBetween(0, Number.MAX_SAFE_INTEGER)
+                    const randomPart = randomNum.toString(36).substring(2, 11)
                     const snapshotId = `container-snapshot-${timestamp}-${randomPart}`
                     const snapshot: ContainerSnapshot = {
                       id: snapshotId,

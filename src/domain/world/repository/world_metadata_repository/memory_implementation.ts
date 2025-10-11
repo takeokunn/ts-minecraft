@@ -8,7 +8,7 @@
 
 import type { AllRepositoryErrors, WorldId } from '@domain/world/types'
 import { createCompressionError, createRepositoryError, createVersioningError } from '@domain/world/types'
-import { Effect, Layer, Option, pipe, ReadonlyArray, Ref } from 'effect'
+import { DateTime, Effect, Layer, Match, Option, pipe, ReadonlyArray, Ref } from 'effect'
 import { WorldClock } from '../..'
 import type {
   BackupConfig,
@@ -20,7 +20,6 @@ import type {
   generateVersionString,
   MetadataChange,
   MetadataQuery,
-  MetadataSearchResult,
   MetadataVersion,
   VersionHistory,
   WorldMetadata,
@@ -370,102 +369,78 @@ export const WorldMetadataRepositoryMemoryImplementation = (
       searchMetadata: (query: MetadataQuery) =>
         Effect.gen(function* () {
           const store = yield* Ref.get(metadataStore)
-          let candidates = Array.from(store.values())
 
-          // Apply filters
-          if (query.worldId) {
-            candidates = candidates.filter((m) => m.id === query.worldId)
-          }
+          const candidates = pipe(
+            Array.from(store.values()),
+            // Apply filters using pure function composition
+            ReadonlyArray.filter((m) => !query.worldId || m.id === query.worldId),
+            ReadonlyArray.filter((m) => !query.name || m.name.toLowerCase().includes(query.name.toLowerCase())),
+            ReadonlyArray.filter(
+              (m) => !query.tags || query.tags.length === 0 || query.tags.some((tag) => m.tags.includes(tag))
+            ),
+            ReadonlyArray.filter((m) => !query.generatorId || m.generatorId === query.generatorId),
+            ReadonlyArray.filter((m) => !query.gameMode || m.settings.gameMode === query.gameMode),
+            ReadonlyArray.filter((m) => !query.difficulty || m.settings.difficulty === query.difficulty),
+            ReadonlyArray.filter((m) => !query.worldType || m.settings.worldType === query.worldType),
+            ReadonlyArray.filter((m) => !query.createdAfter || m.createdAt >= query.createdAfter),
+            ReadonlyArray.filter((m) => !query.createdBefore || m.createdAt <= query.createdBefore),
+            ReadonlyArray.filter((m) => !query.modifiedAfter || m.lastModified >= query.modifiedAfter),
+            ReadonlyArray.filter((m) => !query.modifiedBefore || m.lastModified <= query.modifiedBefore),
+            ReadonlyArray.filter(
+              (m) => query.minSize === undefined || m.statistics.size.uncompressedSize >= query.minSize
+            ),
+            ReadonlyArray.filter(
+              (m) => query.maxSize === undefined || m.statistics.size.uncompressedSize <= query.maxSize
+            ),
+            // Sort results if sortBy is specified
+            (items) =>
+              query.sortBy
+                ? pipe(
+                    items,
+                    ReadonlyArray.sort((a, b) => {
+                      const comparison = pipe(
+                        Match.value(query.sortBy),
+                        Match.when('name', () => a.name.localeCompare(b.name)),
+                        Match.when(
+                          'created',
+                          () =>
+                            DateTime.toEpochMillis(DateTime.unsafeFromDate(a.createdAt)) -
+                            DateTime.toEpochMillis(DateTime.unsafeFromDate(b.createdAt))
+                        ),
+                        Match.when(
+                          'modified',
+                          () =>
+                            DateTime.toEpochMillis(DateTime.unsafeFromDate(a.lastModified)) -
+                            DateTime.toEpochMillis(DateTime.unsafeFromDate(b.lastModified))
+                        ),
+                        Match.when(
+                          'size',
+                          () => a.statistics.size.uncompressedSize - b.statistics.size.uncompressedSize
+                        ),
+                        Match.when(
+                          'accessed',
+                          () =>
+                            DateTime.toEpochMillis(DateTime.unsafeFromDate(a.lastAccessed)) -
+                            DateTime.toEpochMillis(DateTime.unsafeFromDate(b.lastAccessed))
+                        ),
+                        Match.orElse(() => 0)
+                      )
+                      return query.sortOrder === 'desc' ? -comparison : comparison
+                    })
+                  )
+                : items,
+            // Limit results if specified
+            (items) => (query.limit ? pipe(items, ReadonlyArray.take(query.limit)) : items),
+            // Create search results
+            ReadonlyArray.map((metadata) => ({
+              metadata,
+              relevanceScore: 1.0,
+              matchedFields: ['name'] as const,
+              snippet: metadata.description ? metadata.description.substring(0, 100) + '...' : undefined,
+            }))
+          )
 
-          if (query.name) {
-            candidates = candidates.filter((m) => m.name.toLowerCase().includes(query.name!.toLowerCase()))
-          }
-
-          if (query.tags && query.tags.length > 0) {
-            candidates = candidates.filter((m) => query.tags!.some((tag) => m.tags.includes(tag)))
-          }
-
-          if (query.generatorId) {
-            candidates = candidates.filter((m) => m.generatorId === query.generatorId)
-          }
-
-          if (query.gameMode) {
-            candidates = candidates.filter((m) => m.settings.gameMode === query.gameMode)
-          }
-
-          if (query.difficulty) {
-            candidates = candidates.filter((m) => m.settings.difficulty === query.difficulty)
-          }
-
-          if (query.worldType) {
-            candidates = candidates.filter((m) => m.settings.worldType === query.worldType)
-          }
-
-          if (query.createdAfter) {
-            candidates = candidates.filter((m) => m.createdAt >= query.createdAfter!)
-          }
-
-          if (query.createdBefore) {
-            candidates = candidates.filter((m) => m.createdAt <= query.createdBefore!)
-          }
-
-          if (query.modifiedAfter) {
-            candidates = candidates.filter((m) => m.lastModified >= query.modifiedAfter!)
-          }
-
-          if (query.modifiedBefore) {
-            candidates = candidates.filter((m) => m.lastModified <= query.modifiedBefore!)
-          }
-
-          if (query.minSize !== undefined) {
-            candidates = candidates.filter((m) => m.statistics.size.uncompressedSize >= query.minSize!)
-          }
-
-          if (query.maxSize !== undefined) {
-            candidates = candidates.filter((m) => m.statistics.size.uncompressedSize <= query.maxSize!)
-          }
-
-          // Sort results
-          if (query.sortBy) {
-            candidates.sort((a, b) => {
-              let comparison = 0
-
-              switch (query.sortBy) {
-                case 'name':
-                  comparison = a.name.localeCompare(b.name)
-                  break
-                case 'created':
-                  comparison = a.createdAt.getTime() - b.createdAt.getTime()
-                  break
-                case 'modified':
-                  comparison = a.lastModified.getTime() - b.lastModified.getTime()
-                  break
-                case 'size':
-                  comparison = a.statistics.size.uncompressedSize - b.statistics.size.uncompressedSize
-                  break
-                case 'accessed':
-                  comparison = a.lastAccessed.getTime() - b.lastAccessed.getTime()
-                  break
-              }
-
-              return query.sortOrder === 'desc' ? -comparison : comparison
-            })
-          }
-
-          // Limit results
-          if (query.limit) {
-            candidates = candidates.slice(0, query.limit)
-          }
-
-          // Create search results
-          const results: MetadataSearchResult[] = candidates.map((metadata) => ({
-            metadata,
-            relevanceScore: 1.0, // Simplified scoring
-            matchedFields: ['name'], // Simplified field matching
-            snippet: metadata.description ? metadata.description.substring(0, 100) + '...' : undefined,
-          }))
-
-          return results
+          return candidates
         }),
 
       // === Settings Management ===
@@ -760,7 +735,9 @@ export const WorldMetadataRepositoryMemoryImplementation = (
             onTrue: () =>
               Effect.sync(() => {
                 const oldest = Array.from(worldVersions.entries()).sort(
-                  ([, a], [, b]) => a.timestamp.getTime() - b.timestamp.getTime()
+                  ([, a], [, b]) =>
+                    DateTime.toEpochMillis(DateTime.unsafeFromDate(a.timestamp)) -
+                    DateTime.toEpochMillis(DateTime.unsafeFromDate(b.timestamp))
                 )[0]
                 worldVersions.delete(oldest[0])
                 return worldVersions
@@ -884,11 +861,15 @@ export const WorldMetadataRepositoryMemoryImplementation = (
                       onTrue: () =>
                         Effect.succeed(
                           versionEntries
-                            .sort(([, a], [, b]) => b.timestamp.getTime() - a.timestamp.getTime())
+                            .sort(
+                              ([, a], [, b]) =>
+                                DateTime.toEpochMillis(DateTime.unsafeFromDate(b.timestamp)) -
+                                DateTime.toEpochMillis(DateTime.unsafeFromDate(a.timestamp))
+                            )
                             .slice(retentionPolicy.maxVersions)
                             .map(([v]) => v)
                         ),
-                      onFalse: () => Effect.succeed([] as string[]),
+                      onFalse: () => Effect.succeed([] as const satisfies ReadonlyArray<string>),
                     }
                   )
 
@@ -896,12 +877,13 @@ export const WorldMetadataRepositoryMemoryImplementation = (
                   const versionsByAgePolicy = yield* Effect.if(retentionPolicy.maxAgeDays !== undefined, {
                     onTrue: () =>
                       Effect.gen(function* () {
-                        const now = yield* currentMillis
+                        const nowDateTime = yield* DateTime.now
+                        const now = DateTime.toEpochMillis(nowDateTime)
                         const cutoffMillis = now - retentionPolicy.maxAgeDays! * 24 * 60 * 60 * 1000
-                        const cutoffDate = new Date(cutoffMillis)
+                        const cutoffDate = DateTime.toDate(DateTime.unsafeMake(cutoffMillis))
                         return versionEntries.filter(([, version]) => version.timestamp < cutoffDate).map(([v]) => v)
                       }),
-                    onFalse: () => Effect.succeed([] as string[]),
+                    onFalse: () => Effect.succeed([] as const satisfies ReadonlyArray<string>),
                   })
 
                   const versionsToDelete = [...new Set([...versionsByMaxPolicy, ...versionsByAgePolicy])]
@@ -1034,7 +1016,11 @@ export const WorldMetadataRepositoryMemoryImplementation = (
             .map((id) => backupMap.get(id))
             .filter((backup): backup is BackupInfo => backup !== undefined)
 
-          return backups.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+          return backups.sort(
+            (a, b) =>
+              DateTime.toEpochMillis(DateTime.unsafeFromDate(b.timestamp)) -
+              DateTime.toEpochMillis(DateTime.unsafeFromDate(a.timestamp))
+          )
         }),
 
       restoreBackup: (worldId: WorldId, backupId: string) =>
@@ -1125,13 +1111,14 @@ export const WorldMetadataRepositoryMemoryImplementation = (
 
       getIndexStatistics: () =>
         Effect.gen(function* () {
-          const now = yield* currentMillis
+          const nowDateTime = yield* DateTime.now
+          const now = DateTime.toEpochMillis(nowDateTime)
           const lastOptimizedMillis = now - 24 * 60 * 60 * 1000
           return {
             totalIndexes: 5,
             totalSize: 800 * 1024,
             fragmentationRatio: 0.15,
-            lastOptimized: new Date(lastOptimizedMillis),
+            lastOptimized: DateTime.toDate(DateTime.unsafeMake(lastOptimizedMillis)),
           }
         }),
 
@@ -1202,12 +1189,14 @@ export const WorldMetadataRepositoryMemoryImplementation = (
         Effect.gen(function* () {
           yield* pipe(
             worldIds,
-            Effect.forEach((worldId) =>
-              Effect.gen(function* () {
-                yield* Effect.ignore(this.findMetadata(worldId))
-                yield* Effect.ignore(this.getSettings(worldId))
-                yield* Effect.ignore(this.getStatistics(worldId))
-              })
+            Effect.forEach(
+              (worldId) =>
+                Effect.gen(function* () {
+                  yield* Effect.ignore(this.findMetadata(worldId))
+                  yield* Effect.ignore(this.getSettings(worldId))
+                  yield* Effect.ignore(this.getStatistics(worldId))
+                }),
+              { concurrency: 4 }
             )
           )
         }),
@@ -1218,15 +1207,23 @@ export const WorldMetadataRepositoryMemoryImplementation = (
         Effect.gen(function* () {
           const results = yield* pipe(
             metadataList,
-            Effect.forEach((metadata) => Effect.either(this.saveMetadata(metadata)))
+            Effect.forEach((metadata) => Effect.either(this.saveMetadata(metadata)), {
+              concurrency: 4,
+            })
           )
 
           return pipe(
             results,
-            ReadonlyArray.reduce({ successful: 0, failed: 0, errors: [] as AllRepositoryErrors[] }, (acc, result) =>
-              result._tag === 'Right'
-                ? { ...acc, successful: acc.successful + 1 }
-                : { ...acc, failed: acc.failed + 1, errors: [...acc.errors, result.left] }
+            ReadonlyArray.reduce(
+              {
+                successful: 0,
+                failed: 0,
+                errors: [] as const satisfies ReadonlyArray<AllRepositoryErrors>,
+              },
+              (acc, result) =>
+                result._tag === 'Right'
+                  ? { ...acc, successful: acc.successful + 1 }
+                  : { ...acc, failed: acc.failed + 1, errors: [...acc.errors, result.left] }
             )
           )
         }),
@@ -1235,23 +1232,25 @@ export const WorldMetadataRepositoryMemoryImplementation = (
         Effect.gen(function* () {
           const results = yield* pipe(
             updates,
-            Effect.forEach((update) =>
-              Effect.gen(function* () {
-                const currentMetadata = yield* this.findMetadata(update.worldId)
+            Effect.forEach(
+              (update) =>
+                Effect.gen(function* () {
+                  const currentMetadata = yield* this.findMetadata(update.worldId)
 
-                return yield* pipe(
-                  currentMetadata,
-                  Option.match({
-                    onNone: () => Effect.succeed(false),
-                    onSome: (metadata) =>
-                      Effect.gen(function* () {
-                        const updatedMetadata = { ...metadata, ...update.metadata }
-                        const result = yield* Effect.either(this.updateMetadata(updatedMetadata))
-                        return result._tag === 'Right'
-                      }),
-                  })
-                )
-              })
+                  return yield* pipe(
+                    currentMetadata,
+                    Option.match({
+                      onNone: () => Effect.succeed(false),
+                      onSome: (metadata) =>
+                        Effect.gen(function* () {
+                          const updatedMetadata = { ...metadata, ...update.metadata }
+                          const result = yield* Effect.either(this.updateMetadata(updatedMetadata))
+                          return result._tag === 'Right'
+                        }),
+                    })
+                  )
+                }),
+              { concurrency: 4 }
             )
           )
 
@@ -1266,7 +1265,9 @@ export const WorldMetadataRepositoryMemoryImplementation = (
         Effect.gen(function* () {
           const results = yield* pipe(
             worldIds,
-            Effect.forEach((worldId) => Effect.either(this.deleteMetadata(worldId)))
+            Effect.forEach((worldId) => Effect.either(this.deleteMetadata(worldId)), {
+              concurrency: 4,
+            })
           )
 
           return pipe(
@@ -1280,7 +1281,9 @@ export const WorldMetadataRepositoryMemoryImplementation = (
         Effect.gen(function* () {
           const results = yield* pipe(
             worldIds,
-            Effect.forEach((worldId) => Effect.either(this.compressMetadata(worldId, compressionConfig)))
+            Effect.forEach((worldId) => Effect.either(this.compressMetadata(worldId, compressionConfig)), {
+              concurrency: 4,
+            })
           )
 
           return pipe(
@@ -1319,7 +1322,11 @@ export const WorldMetadataRepositoryMemoryImplementation = (
           const validationResults = pipe(
             Array.from(store.entries()),
             ReadonlyArray.reduce(
-              { errors: [] as string[], warnings: [] as string[], corruptedMetadata: [] as WorldId[] },
+              {
+                errors: [] as const satisfies ReadonlyArray<string>,
+                warnings: [] as const satisfies ReadonlyArray<string>,
+                corruptedMetadata: [] as const satisfies ReadonlyArray<WorldId>,
+              },
               (acc, [worldId, metadata]) => {
                 const expectedChecksum = calculateMetadataChecksum(metadata)
                 const hasChecksumMismatch = metadata.checksum !== expectedChecksum
@@ -1383,13 +1390,20 @@ export const WorldMetadataRepositoryMemoryImplementation = (
                   const totalCompressedSize = metadataList.reduce((sum, m) => sum + m.statistics.size.compressedSize, 0)
                   return totalSize > 0 ? totalCompressedSize / totalSize : 1.0
                 })(),
-                oldestWorld: [...metadataList].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())[0]
-                  .createdAt,
-                newestWorld: [...metadataList].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())[
-                  metadataList.length - 1
-                ].createdAt,
+                oldestWorld: [...metadataList].sort(
+                  (a, b) =>
+                    DateTime.toEpochMillis(DateTime.unsafeFromDate(a.createdAt)) -
+                    DateTime.toEpochMillis(DateTime.unsafeFromDate(b.createdAt))
+                )[0].createdAt,
+                newestWorld: [...metadataList].sort(
+                  (a, b) =>
+                    DateTime.toEpochMillis(DateTime.unsafeFromDate(a.createdAt)) -
+                    DateTime.toEpochMillis(DateTime.unsafeFromDate(b.createdAt))
+                )[metadataList.length - 1].createdAt,
                 mostActiveWorld: [...metadataList].sort(
-                  (a, b) => b.lastAccessed.getTime() - a.lastAccessed.getTime()
+                  (a, b) =>
+                    DateTime.toEpochMillis(DateTime.unsafeFromDate(b.lastAccessed)) -
+                    DateTime.toEpochMillis(DateTime.unsafeFromDate(a.lastAccessed))
                 )[0].id,
               }),
           })

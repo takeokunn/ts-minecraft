@@ -65,7 +65,6 @@ export interface EquipmentPieceComponents {
 }
 
 const decodePiece = Schema.decodeUnknown(EquipmentPieceSchema)
-const decodePieceSync = Schema.decodeUnknownSync(EquipmentPieceSchema)
 
 const pieceError = (message: string): EquipmentDomainError => makeSchemaViolation({ field: 'EquipmentPiece', message })
 
@@ -74,9 +73,13 @@ export const createEquipmentPiece = (
 ): Effect.Effect<EquipmentPiece, EquipmentDomainError> =>
   Effect.gen(function* () {
     const primaryTag = components.tags[0]
-    if (primaryTag !== undefined) {
-      yield* ensureSlotAllowed(components.slot, primaryTag)
-    }
+    yield* pipe(
+      primaryTag !== undefined,
+      Effect.when({
+        onTrue: () => ensureSlotAllowed(components.slot, primaryTag!),
+        onFalse: () => Effect.void,
+      })
+    )
 
     const adjustedWeight = applyTierWeight(components.tier, components.weight)
     const mergedStats = mergeStats([components.stats])
@@ -88,21 +91,23 @@ export const createEquipmentPiece = (
     }).pipe(Effect.mapError(() => pieceError('invalid equipment piece components')))
   })
 
-export const withUpdatedTimestamp = (piece: EquipmentPiece, timestamp: UnixTime): EquipmentPiece =>
-  decodePieceSync({ ...piece, updatedAt: timestamp })
+export const withUpdatedTimestamp = (piece: EquipmentPiece, timestamp: UnixTime): EquipmentPiece => ({
+  ...piece,
+  updatedAt: timestamp,
+}) as EquipmentPiece
 
 export const assignBonusStats = (piece: EquipmentPiece, bonus: EquipmentStats): EquipmentPiece =>
-  decodePieceSync({
+  ({
     ...piece,
     stats: mergeStats([piece.stats, bonus]),
-  })
+  }) as EquipmentPiece
 
 export const promoteTier = (piece: EquipmentPiece, nextTier: EquipmentTier): EquipmentPiece =>
-  decodePieceSync({
+  ({
     ...piece,
     tier: nextTier,
     weight: applyTierWeight(nextTier, piece.weight),
-  })
+  }) as EquipmentPiece
 
 export const ensureFitsSlot = (
   piece: EquipmentPiece,

@@ -1,3 +1,6 @@
+import { TimestampSchema } from '@domain/shared/value_object/units/timestamp'
+import { ErrorCauseSchema } from '@shared/schema/error'
+import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
 import { Context, Effect, Layer, Match, Option, pipe, Schema } from 'effect'
 import * as ReadonlyArray from 'effect/Array'
 import * as HashSet from 'effect/HashSet'
@@ -13,15 +16,18 @@ type InventoryCommand =
   | { readonly _tag: 'SortInventory'; readonly playerId: PlayerId }
   | { readonly _tag: 'SnapshotInventory'; readonly playerId: PlayerId }
 
-export type InventoryApiError = {
-  readonly _tag: 'DomainFailure'
-  readonly cause: InventoryServiceError
-}
-
-const fromDomainError = (cause: InventoryServiceError): InventoryApiError => ({
-  _tag: 'DomainFailure',
-  cause,
+export const InventoryApiErrorSchema = Schema.TaggedError('DomainFailure', {
+  cause: ErrorCauseSchema,
 })
+
+export type InventoryApiError = Schema.Schema.Type<typeof InventoryApiErrorSchema>
+
+export const InventoryApiError = {
+  ...makeErrorFactory(InventoryApiErrorSchema),
+  fromDomainError: (cause: InventoryServiceError): InventoryApiError => InventoryApiErrorSchema.make({ cause }),
+} as const
+
+const fromDomainError = InventoryApiError.fromDomainError
 
 // ================================================================
 // 応答DTO
@@ -42,7 +48,7 @@ const InventorySnapshotSchema = Schema.Struct({
   hotbarSelection: Schema.Number,
   uniqueItemIds: Schema.Array(Schema.String),
   version: Schema.Number,
-  lastUpdated: Schema.Number,
+  lastUpdated: TimestampSchema,
   checksum: Schema.String,
 })
 

@@ -4,9 +4,9 @@ import { AppService, MainLayer } from './bootstrap'
 const program = Effect.gen(function* () {
   const app = yield* AppService
   const initResult = yield* app.initialize
+  yield* Effect.logInfo('App initialized').pipe(Effect.annotateLogs({ result: JSON.stringify(initResult) }))
   const status = yield* app.readiness
-  console.log('App initialized:', initResult)
-  console.log('App readiness status:', status)
+  yield* Effect.logInfo('App readiness status').pipe(Effect.annotateLogs({ status: JSON.stringify(status) }))
   return status
 })
 
@@ -14,12 +14,12 @@ const runtime = ManagedRuntime.make(MainLayer)
 
 const main = Effect.gen(function* () {
   const status = yield* program
-  console.log('Application ready:', status)
+  yield* Effect.logInfo('Application ready').pipe(Effect.annotateLogs({ status: JSON.stringify(status) }))
   return status
 }).pipe(
   Effect.catchAll((error) =>
     Effect.gen(function* () {
-      console.error('Application failed:', error)
+      yield* Effect.logError('Application failed').pipe(Effect.annotateLogs({ error: String(error) }))
       return yield* Effect.fail(error)
     })
   )

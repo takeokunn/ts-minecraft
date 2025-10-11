@@ -3,14 +3,10 @@
 // New Types System (main exports)
 export * from '@domain/camera/types'
 
-// Helper functions
+// CQRS Components
+export * from './cqrs'
 
-// Player Camera specific exports (explicit to avoid conflicts)
-export {
-  DEFAULT_CAMERA_SETTINGS as DefaultPlayerCameraSettings,
-  PlayerCameraService,
-  PlayerCameraServiceLive,
-} from './service'
+// Helper functions
 
 // Value Object specific exports (explicit to avoid conflicts)
 export {
