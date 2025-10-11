@@ -3,6 +3,9 @@
 // New Types System (main exports)
 export * from '@domain/camera/types'
 
+// CQRS Components
+export * from './cqrs'
+
 // Helper functions
 
 // Value Object specific exports (explicit to avoid conflicts)

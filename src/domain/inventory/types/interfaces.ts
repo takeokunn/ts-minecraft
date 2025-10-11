@@ -858,25 +858,21 @@ export const InventoryStatisticsSchema = Schema.Struct({
  * ItemAddResult パーサー
  */
 export const parseItemAddResult = Schema.decodeUnknown(ItemAddResultSchema)
-export const parseItemAddResultSync = Schema.decodeUnknownSync(ItemAddResultSchema)
 
 /**
  * TransferResult パーサー
  */
 export const parseTransferResult = Schema.decodeUnknown(TransferResultSchema)
-export const parseTransferResultSync = Schema.decodeUnknownSync(TransferResultSchema)
 
 /**
  * IntegrityResult パーサー
  */
 export const parseIntegrityResult = Schema.decodeUnknown(IntegrityResultSchema)
-export const parseIntegrityResultSync = Schema.decodeUnknownSync(IntegrityResultSchema)
 
 /**
  * InventoryStatistics パーサー
  */
 export const parseInventoryStatistics = Schema.decodeUnknown(InventoryStatisticsSchema)
-export const parseInventoryStatisticsSync = Schema.decodeUnknownSync(InventoryStatisticsSchema)
 
 // =============================================================================
 // Validation Functions

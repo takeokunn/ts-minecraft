@@ -1,5 +1,12 @@
 import type { CameraConfig, CameraError, CameraSnapshot, CameraState } from '@domain/camera/types'
-import { CameraVector3Schema, createCameraError, DEFAULT_CAMERA_CONFIG, validateCameraConfig, validateCameraMode } from './index'
+import {
+  CameraVector3Schema,
+  createCameraError,
+  DEFAULT_CAMERA_CONFIG,
+  makeCameraSync,
+  validateCameraConfig,
+  validateCameraMode,
+} from './index'
 import * as Schema from '@effect/schema/Schema'
 import { Effect, Layer, Match, pipe, Ref } from 'effect'
 import type {
@@ -107,26 +114,27 @@ const createQuaternion = (pitch: number, yaw: number) => {
   }
 }
 
-const toSnapshot = (state: FirstPersonState): CameraSnapshot => ({
-  projection: {
-    fov: state.config.fov,
-    aspect: state.config.aspect,
-    near: state.config.near,
-    far: state.config.far,
-  },
-  transform: {
-    position: { ...state.state.position },
-    target: { ...state.state.target },
-    orientation: {
-      rotation: {
-        pitch: state.state.rotation.pitch,
-        yaw: state.state.rotation.yaw,
-        roll: 0,
-      },
-      quaternion: createQuaternion(state.state.rotation.pitch, state.state.rotation.yaw),
+const toSnapshot = (state: FirstPersonState): CameraSnapshot =>
+  makeCameraSync({
+    projection: {
+      fov: state.config.fov,
+      aspect: state.config.aspect,
+      near: state.config.near,
+      far: state.config.far,
     },
-  },
-})
+    transform: {
+      position: { ...state.state.position },
+      target: { ...state.state.target },
+      orientation: {
+        rotation: {
+          pitch: state.state.rotation.pitch,
+          yaw: state.state.rotation.yaw,
+          roll: 0,
+        },
+        quaternion: createQuaternion(state.state.rotation.pitch, state.state.rotation.yaw),
+      },
+    },
+  })
 
 /**
  * FirstPersonCameraサービスの実装を作成

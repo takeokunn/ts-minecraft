@@ -4,7 +4,7 @@
  * チャンク座標同士の演算とファクトリ関数
  */
 
-import { Array, Effect, Function, ReadonlyArray, Schema } from 'effect'
+import { Array, Effect, Function, Schema } from 'effect'
 import {
   CHUNK_COORDINATE_LIMITS,
   ChunkCoordinate,
@@ -51,17 +51,20 @@ export const make = (x: number, z: number): Effect.Effect<ChunkCoordinate, Chunk
       })
     }
 
-    return yield* Effect.try({
-      try: () => ({
-        x: Schema.decodeSync(ChunkXSchema)(x),
-        z: Schema.decodeSync(ChunkZSchema)(z),
-      }),
-      catch: () => ({
-        _tag: 'InvalidChunkCoordinate' as const,
-        coordinate: { x, z },
-        message: `Failed to create chunk coordinate: x=${x}, z=${z}`,
-      }),
+    const decodeError = (cause: unknown) => ({
+      _tag: 'InvalidChunkCoordinate' as const,
+      coordinate: { x, z },
+      message: `Failed to create chunk coordinate: x=${x}, z=${z}`,
+      cause,
     })
+
+    const chunkX = yield* Schema.decode(ChunkXSchema)(x).pipe(Effect.mapError(decodeError))
+    const chunkZ = yield* Schema.decode(ChunkZSchema)(z).pipe(Effect.mapError(decodeError))
+
+    return {
+      x: chunkX,
+      z: chunkZ,
+    }
   })
 
 /**

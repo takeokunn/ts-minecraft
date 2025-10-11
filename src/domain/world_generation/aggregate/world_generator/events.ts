@@ -226,13 +226,14 @@ export type WorldGeneratorEvent = typeof WorldGeneratorEventSchema.Type
 /**
  * ユニークなイベントIDを生成
  */
+const EventIdSchema = Schema.String.pipe(Schema.brand('EventId'))
+
 const generateEventId = (): Effect.Effect<string & Brand.Brand<'EventId'>> =>
   Effect.gen(function* () {
     const timestamp = yield* Clock.currentTimeMillis
-    // Random Serviceで決定的なID生成（再現性保証）
-    const randomValue = yield* Random.nextIntBetween(0, 2176782336) // 36^6
+    const randomValue = yield* Random.nextIntBetween(0, 2176782336)
     const randomStr = randomValue.toString(36).padStart(6, '0')
-    return Schema.decodeSync(Schema.String.pipe(Schema.brand('EventId')))(`evt_${timestamp}_${randomStr}`)
+    return yield* Schema.decode(EventIdSchema)(`evt_${timestamp}_${randomStr}`)
   })
 
 /**
@@ -247,7 +248,7 @@ export const createWorldGeneratorCreated = (
     const eventId = yield* generateEventId()
     const timestamp = yield* DateTime.nowAsDate
 
-    return Schema.decodeSync(WorldGeneratorCreatedSchema)({
+    return yield* Schema.decode(WorldGeneratorCreatedSchema)({
       eventId,
       aggregateId: generatorId,
       aggregateVersion: 1,
@@ -276,10 +277,10 @@ export const createChunkGenerationStarted = (
     const eventId = yield* generateEventId()
     const timestamp = yield* DateTime.nowAsDate
     const encodedOptions = options
-      ? Schema.decodeSync(Schema.Record({ key: Schema.String, value: JsonValueSchema }))(options)
+      ? yield* Schema.decode(Schema.Record({ key: Schema.String, value: JsonValueSchema }))(options)
       : undefined
 
-    return Schema.decodeSync(ChunkGenerationStartedSchema)({
+    return yield* Schema.decode(ChunkGenerationStartedSchema)({
       eventId,
       aggregateId: generatorId,
       aggregateVersion,
@@ -314,7 +315,7 @@ export const createChunkGenerated = (
       biomeVariety: new Set(chunkData.biomes).size,
     }
 
-    return Schema.decodeSync(ChunkGeneratedSchema)({
+    return yield* Schema.decode(ChunkGeneratedSchema)({
       eventId,
       aggregateId: generatorId,
       aggregateVersion: aggregateVersion ?? 1,
@@ -345,7 +346,11 @@ export const createChunkGenerationFailed = (
     const eventId = yield* generateEventId()
     const timestamp = yield* DateTime.nowAsDate
 
-    return Schema.decodeSync(ChunkGenerationFailedSchema)({
+    const decodedDetails = error.details
+      ? yield* Schema.decode(Schema.Record({ key: Schema.String, value: JsonValueSchema }))(error.details)
+      : undefined
+
+    return yield* Schema.decode(ChunkGenerationFailedSchema)({
       eventId,
       aggregateId: generatorId,
       aggregateVersion: aggregateVersion ?? 1,
@@ -356,9 +361,7 @@ export const createChunkGenerationFailed = (
         coordinate,
         error: {
           ...error,
-          details: error.details
-            ? Schema.decodeSync(Schema.Record({ key: Schema.String, value: JsonValueSchema }))(error.details)
-            : undefined,
+          details: decodedDetails,
         },
         attempt,
         willRetry,
@@ -379,7 +382,7 @@ export const createSettingsUpdated = (
     const eventId = yield* generateEventId()
     const timestamp = yield* DateTime.nowAsDate
 
-    return Schema.decodeSync(SettingsUpdatedSchema)({
+    return yield* Schema.decode(SettingsUpdatedSchema)({
       eventId,
       aggregateId: generatorId,
       aggregateVersion: newVersion,

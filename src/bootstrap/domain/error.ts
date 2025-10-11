@@ -1,6 +1,7 @@
 import type { ParseError } from '@effect/schema/ParseResult'
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
 import { Data, Option, pipe, Schema } from 'effect'
+import * as Either from 'effect/Either'
 import * as ReadonlyArray from 'effect/Array'
 import * as Match from 'effect/Match'
 import type { LifecycleIntent, LifecycleState } from './lifecycle'
@@ -18,7 +19,15 @@ const NormalizedMessageSchema = Schema.String.pipe(
 
 type NormalizedMessage = Schema.Schema.Type<typeof NormalizedMessageSchema>
 
-const normalize = Schema.decodeUnknownSync(NormalizedMessageSchema)
+const decodeNormalizedMessage = Schema.decodeUnknownEither(NormalizedMessageSchema)
+
+const normalize = (value: unknown): NormalizedMessage =>
+  pipe(
+    decodeNormalizedMessage(value),
+    Either.getOrElse((error) => {
+      throw new Error(TreeFormatter.formatErrorSync(error))
+    })
+  )
 
 const fallbackMessage: NormalizedMessage = normalize('Invalid configuration message')
 

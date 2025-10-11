@@ -17,7 +17,6 @@ export type BootstrapConfig = Schema.Schema.Type<typeof BootstrapConfigSchema>
 export type BootstrapConfigInput = Schema.Schema.From<typeof BootstrapConfigSchema>
 
 export const decodeBootstrapConfig = Schema.decode(BootstrapConfigSchema)
-export const decodeBootstrapConfigSync = Schema.decodeSync(BootstrapConfigSchema)
 
 export const bootstrapConfig = (input: BootstrapConfigInput): Effect.Effect<BootstrapConfig> =>
   decodeBootstrapConfig(input)
@@ -28,7 +27,7 @@ export const bootstrapDefaultsInput: BootstrapConfigInput = {
   memoryLimit: 2048,
 }
 
-export const BootstrapConfigDefaults: BootstrapConfig = decodeBootstrapConfigSync(bootstrapDefaultsInput)
+export const BootstrapConfigDefaults = bootstrapDefaultsInput as BootstrapConfig
 
 export const BootstrapConfigSnapshotSchema = Schema.Struct({
   config: BootstrapConfigSchema,

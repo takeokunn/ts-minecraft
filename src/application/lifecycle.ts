@@ -4,8 +4,8 @@ import * as HashMap from 'effect/HashMap'
 import { InvalidStateTransitionError, JsonValue, createErrorContext } from './errors'
 import type { ApplicationLifecycleState } from './types'
 
-const lifecycleArray = Schema.decodeSync(Schema.Array(Schema.String))
-const decodeJsonValue = Schema.decodeUnknownSync(JsonValue)
+const lifecycleArray = Schema.decodeUnknown(Schema.Array(Schema.String))
+const decodeJsonValue = Schema.decodeUnknown(JsonValue)
 
 const allowedTransitions = HashMap.fromIterable<
   ApplicationLifecycleState,
@@ -36,13 +36,18 @@ const invalidTransition = (
 ): Effect.Effect<never, InvalidStateTransitionError> =>
   Effect.gen(function* () {
     const valid = validTargets(current)
+    const currentJson = yield* decodeJsonValue(current)
+    const targetJson = yield* decodeJsonValue(target)
+    const validList = yield* lifecycleArray(valid)
+    const validTransitionsJson = yield* decodeJsonValue(validList)
+
     const context = yield* createErrorContext({
       system: 'GameApplication',
       operation: 'guardTransition',
       details: [
-        { key: 'current', value: decodeJsonValue(current) },
-        { key: 'target', value: decodeJsonValue(target) },
-        { key: 'validTransitions', value: decodeJsonValue(lifecycleArray(valid)) },
+        { key: 'current', value: currentJson },
+        { key: 'target', value: targetJson },
+        { key: 'validTransitions', value: validTransitionsJson },
       ],
     })
     return yield* Effect.fail(

@@ -20,7 +20,7 @@
 
 import * as WorldSeed from '@domain/world/value_object/world_seed/index'
 import { JsonValueSchema } from '@shared/schema/json'
-import { Effect, Function, Match, Schema } from 'effect'
+import { Effect, Function, Match, Schema, Either } from 'effect'
 import type { CreateWorldGeneratorParams, FactoryError } from './factory'
 import { CreateWorldGeneratorParamsSchema } from './factory'
 
@@ -234,23 +234,22 @@ function validateRequiredParameters(params: CreateWorldGeneratorParams): Effect.
  * パラメータ型検証
  */
 function validateParameterTypes(params: CreateWorldGeneratorParams): Effect.Effect<ValidationIssue[], never> {
-  const issues: ValidationIssue[] = []
-
-  try {
-    // Schema検証でパラメータ型をチェック
-    Schema.decodeSync(CreateWorldGeneratorParamsSchema)(params)
-  } catch {
-    issues.push(
-      createIssue({
-        severity: 'error',
-        category: 'parameter_invalid',
-        message: 'Parameter type validation failed',
-        suggestion: 'Check parameter types match expected schema',
+  return Effect.succeed(
+    pipe(
+      Schema.decodeEither(CreateWorldGeneratorParamsSchema)(params),
+      Either.match({
+        onLeft: () => [
+          createIssue({
+            severity: 'error',
+            category: 'parameter_invalid',
+            message: 'Parameter type validation failed',
+            suggestion: 'Check parameter types match expected schema',
+          }),
+        ],
+        onRight: () => [],
       })
     )
-  }
-
-  return Effect.succeed(issues)
+  )
 }
 
 /**
@@ -574,13 +573,10 @@ function generateRecommendations(issues: ValidationIssue[]): string[] {
  * シード有効性チェック
  */
 function isValidSeed(seed: unknown): boolean {
-  try {
-    // WorldSeedSchemaでデコードを試行して有効性を確認
-    Schema.decodeSync(WorldSeed.WorldSeedValueObjectSchema)(seed)
-    return true
-  } catch {
-    return false
-  }
+  return pipe(
+    Schema.decodeEither(WorldSeed.WorldSeedValueObjectSchema)(seed),
+    Either.match({ onLeft: () => false, onRight: () => true })
+  )
 }
 
 /**

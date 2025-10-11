@@ -26,8 +26,8 @@ import { EventBus } from '@infrastructure/events'
 import {
   RendererService,
   RendererServiceLive,
-  parseAlpha as parseRendererAlpha,
-  parseRgbColor,
+  decodeAlpha as decodeRendererAlpha,
+  decodeRgbColor,
 } from '@infrastructure/rendering'
 import { Clock, Context, Duration, Effect, HashMap, Layer, Match, Option, Ref, Schema, pipe } from 'effect'
 
@@ -66,17 +66,9 @@ export interface SaveManager {
 
 export const SaveManager = Context.GenericTag<SaveManager>('@minecraft/domain/scene/SaveManager')
 
-export const parseTransitionDuration = Schema.decodeUnknownSync(TransitionDurationSchema)
-export const parseSceneProgress = Schema.decodeUnknownSync(SceneProgressSchema)
-export const parseTimestamp = Schema.decodeUnknownSync(SceneTimestampSchema)
-
-const defaultTransitionEffect = TransitionEffect.Fade({ duration: parseTransitionDuration(500) })
-const zeroProgress = parseSceneProgress(0)
-const fullProgress = parseSceneProgress(1)
-const opaqueAlpha = parseRendererAlpha(1)
-const mainMenuClearColor = parseRgbColor(0x000000)
-const settingsClearColor = parseRgbColor(0x202020)
-const errorClearColor = parseRgbColor(0x440000)
+const decodeTransitionDuration = Schema.decodeUnknown(TransitionDurationSchema)
+const decodeSceneProgress = Schema.decodeUnknown(SceneProgressSchema)
+const decodeSceneTimestamp = Schema.decodeUnknown(SceneTimestampSchema)
 
 const resourceKindFromPath = (path: string): ResourceKind =>
   Match.value(path).pipe(
@@ -95,24 +87,6 @@ const resourceKindFromPath = (path: string): ResourceKind =>
     Match.orElse(() => 'data'),
     Match.exhaustive
   )
-
-const transitionDurationOf = (effect: TransitionEffect) =>
-  Match.value(effect).pipe(
-    Match.tag('Fade', (fade) => fade.duration),
-    Match.tag('Slide', (slide) => slide.duration),
-    Match.tag('Instant', () => parseTransitionDuration(0)),
-    Match.exhaustive
-  )
-
-const executeTransitionEffect = (effect: TransitionEffect) =>
-  Match.value(effect).pipe(
-    Match.tag('Fade', (fade) => Effect.sleep(Duration.millis(Number(fade.duration)))),
-    Match.tag('Slide', (slide) => Effect.sleep(Duration.millis(Number(slide.duration)))),
-    Match.tag('Instant', () => Effect.void),
-    Match.exhaustive
-  )
-
-const clampProgress = (value: number): SceneProgress => parseSceneProgress(Math.min(1, Math.max(0, value)))
 
 const toSnapshot = (params: {
   readonly scene: SceneState
@@ -159,14 +133,16 @@ const mergeResource = (ref: Ref.Ref<HashMap.HashMap<string, PreloadedResource>>,
   Ref.update(ref, (map) => HashMap.set(map, resource.id, resource))
 
 const preloadResource = (resources: Ref.Ref<HashMap.HashMap<string, PreloadedResource>>, path: string) =>
-  Effect.flatMap(Effect.map(Clock.currentTimeMillis, parseTimestamp), (timestamp) =>
-    mergeResource(resources, {
-      id: path,
-      type: resourceKindFromPath(path),
-      data: Option.none(),
-      size: 0,
-      loadedAt: timestamp,
-    })
+  Effect.flatMap(Clock.currentTimeMillis, (millis) =>
+    Effect.flatMap(decodeSceneTimestamp(millis), (timestamp) =>
+      mergeResource(resources, {
+        id: path,
+        type: resourceKindFromPath(path),
+        data: Option.none(),
+        size: 0,
+        loadedAt: timestamp,
+      })
+    )
   )
 
 const ensureSceneValid = (scene: ActiveScene) =>
@@ -185,6 +161,35 @@ export const makeSceneService = Effect.gen(function* () {
   const renderer = yield* RendererService
   const worldManager = yield* WorldManager
   const saveManager = yield* SaveManager
+
+  const defaultTransitionDuration = yield* decodeTransitionDuration(500)
+  const zeroTransitionDuration = yield* decodeTransitionDuration(0)
+  const zeroProgress = yield* decodeSceneProgress(0)
+  const fullProgress = yield* decodeSceneProgress(1)
+  const opaqueAlpha = yield* decodeRendererAlpha(1)
+  const mainMenuClearColor = yield* decodeRgbColor(0x000000)
+  const settingsClearColor = yield* decodeRgbColor(0x202020)
+  const errorClearColor = yield* decodeRgbColor(0x440000)
+
+  const defaultTransitionEffect = TransitionEffect.Fade({ duration: defaultTransitionDuration })
+
+  const transitionDurationOf = (effect: TransitionEffect) =>
+    Match.value(effect).pipe(
+      Match.tag('Fade', (fade) => fade.duration),
+      Match.tag('Slide', (slide) => slide.duration),
+      Match.tag('Instant', () => zeroTransitionDuration),
+      Match.exhaustive
+    )
+
+  const executeTransitionEffect = (effect: TransitionEffect) =>
+    Match.value(effect).pipe(
+      Match.tag('Fade', (fade) => Effect.sleep(Duration.millis(Number(fade.duration)))),
+      Match.tag('Slide', (slide) => Effect.sleep(Duration.millis(Number(slide.duration)))),
+      Match.tag('Instant', () => Effect.void),
+      Match.exhaustive
+    )
+
+  const clampProgress = (value: number) => decodeSceneProgress(Math.min(1, Math.max(0, value)))
 
   const currentScene = yield* Ref.make<SceneState>(Scenes.MainMenu())
   const transitionFlag = yield* Ref.make(false)
@@ -258,7 +263,7 @@ export const makeSceneService = Effect.gen(function* () {
               Effect.gen(function* () {
                 yield* job
                 const accumulated = yield* Ref.updateAndGet(progressRef, (value) => value + weight)
-                const progress = clampProgress(accumulated)
+                const progress = yield* clampProgress(accumulated)
                 yield* emitLoadingProgress(progress, label)
                 yield* Ref.set(currentScene, Scenes.Loading({ target: scene, progress }))
               }),
@@ -336,7 +341,7 @@ export const makeSceneService = Effect.gen(function* () {
   const saveSnapshot = () =>
     Effect.gen(function* () {
       const scene = yield* Ref.get(currentScene)
-      const timestamp = yield* Effect.map(Clock.currentTimeMillis, parseTimestamp)
+      const timestamp = yield* Effect.flatMap(Clock.currentTimeMillis, (millis) => decodeSceneTimestamp(millis))
 
       const snapshot = yield* Match.value(scene).pipe(
         Match.tag('GameWorld', ({ worldId, playerState }) =>
@@ -402,17 +407,19 @@ export const makeSceneService = Effect.gen(function* () {
     })
 
   const registerFailure = (error: Error) =>
-    Effect.flatMap(Effect.map(Clock.currentTimeMillis, parseTimestamp), (timestamp) => {
-      const scene = Scenes.Error({
-        error: {
-          message: error.message,
-          stack: Option.fromNullable(error.stack),
-          timestamp,
-        },
-        recoverable: false,
+    Effect.flatMap(Clock.currentTimeMillis, (millis) =>
+      Effect.flatMap(decodeSceneTimestamp(millis), (timestamp) => {
+        const scene = Scenes.Error({
+          error: {
+            message: error.message,
+            stack: Option.fromNullable(error.stack),
+            timestamp,
+          },
+          recoverable: false,
+        })
+        return Ref.set(currentScene, scene).pipe(Effect.zipRight(emitTransitionCompleted(scene)), Effect.as(scene))
       })
-      return Ref.set(currentScene, scene).pipe(Effect.zipRight(emitTransitionCompleted(scene)), Effect.as(scene))
-    })
+    )
 
   return SceneService.of({
     transitionTo,
@@ -446,12 +453,16 @@ export const SceneWorldManagerLayer = Layer.succeed(WorldManager, {
 export const SceneSaveManagerLayer = Layer.succeed(SaveManager, {
   save: () => Effect.void,
   load: () =>
-    Effect.map(Clock.currentTimeMillis, (millis) => ({
-      scene: Scenes.MainMenu(),
-      world: Option.none<WorldSnapshot>(),
-      player: Option.none<PlayerState>(),
-      createdAt: parseTimestamp(millis),
-    })),
+    Effect.gen(function* () {
+      const millis = yield* Clock.currentTimeMillis
+      const timestamp = yield* decodeSceneTimestamp(millis)
+      return {
+        scene: Scenes.MainMenu(),
+        world: Option.none<WorldSnapshot>(),
+        player: Option.none<PlayerState>(),
+        createdAt: timestamp,
+      }
+    }),
   autoSave: () => Effect.void,
 })
 

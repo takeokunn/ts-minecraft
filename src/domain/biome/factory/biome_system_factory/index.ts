@@ -33,7 +33,7 @@ export {
   type ValidationIssue,
   type ValidationLevel,
   type ValidationResult,
-} from './factory.js'
+} from './factory'
 
 // New Builder Pattern exports (Schema + Pure Functions)
 export {
@@ -43,7 +43,7 @@ export {
   type BiomePresetType as BuilderBiomePresetType,
   type PerformanceProfile as BuilderPerformanceProfile,
   type ValidationLevel as BuilderValidationLevel,
-} from './builder_state.js'
+} from './builder_state'
 
 export {
   build,
@@ -60,7 +60,7 @@ export {
   withTransitions,
   withValidation,
   type ValidationResult as BuilderValidationResult,
-} from './builder_functions.js'
+} from './builder_functions'
 
 // ================================
 // Convenience Functions
@@ -68,9 +68,9 @@ export {
 
 import type * as BiomeSystem from '@/domain/biome/aggregate/biome_system'
 import { Effect, pipe } from 'effect'
-import * as BuilderFunctions from './builder_functions.js'
-import * as BuilderState from './builder_state.js'
-import type { BiomePresetType, PerformanceProfile } from './factory.js'
+import * as BuilderFunctions from './builder_functions'
+import * as BuilderState from './builder_state'
+import type { BiomePresetType, PerformanceProfile } from './factory'
 
 export const createDefaultBiomeSystem = (): Effect.Effect<BiomeSystem.BiomeSystem, never> =>
   pipe(

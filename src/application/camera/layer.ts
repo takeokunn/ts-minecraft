@@ -9,6 +9,7 @@ import { CameraModeManagerApplicationServiceLive } from './camera_mode_manager/i
 import { CameraSystemOrchestratorServiceLive } from './camera_system_orchestrator/index'
 import { PlayerCameraApplicationServiceLive } from './player_camera/index'
 import { SceneCameraApplicationServiceLive } from './scene_camera/index'
+import { CameraAPIServiceLive } from './api-service'
 
 /**
  * 全Camera Application Serviceの統合Layer
@@ -20,5 +21,6 @@ export const CameraApplicationServicesLayer = Layer.mergeAll(
   PlayerCameraApplicationServiceLive,
   SceneCameraApplicationServiceLive,
   CameraModeManagerApplicationServiceLive,
-  CameraSystemOrchestratorServiceLive
+  CameraSystemOrchestratorServiceLive,
+  CameraAPIServiceLive
 )

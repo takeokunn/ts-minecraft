@@ -177,6 +177,12 @@ export const ConfigServiceLive = Layer.effect(
 )
 ```
 
+- **適用範囲**: ドメイン層/インフラ層では常に`Effect`を返し、評価はエントリポイント（`main.ts`やテストブートストラップ）で`Effect.runPromise`などの非同期境界APIに限定する。
+- **許容ケース**:
+  - テストハーネスやCLIなど**同期APIしか提供されない境界**での一時的なブリッジ
+  - `decodeConstant`のような**同期専用ヘルパー**（定数初期化専用・失敗時即クラッシュが許容される前提）
+- **移行指針**: `Effect.runSync(Schema.decode(...))`のようなネストは廃止し、同期版が必要な場合は後述の`Schema.decodeSync`ヘルパーに置き換える。
+
 #### 原則: Schema.decodeUnknownSync最小化
 
 **現状**: 94箇所残存（優先的削減対象）
@@ -194,6 +200,28 @@ export const ConfigServiceLive = Layer.effect(
   })
 )
 ```
+
+#### 判断フロー: Schema.decodeSyncの使用基準
+
+| 入力の性質 | 推奨API | 代表的な利用箇所 |
+| --- | --- | --- |
+| 外部/信頼不可入力 (`unknown`) | `Schema.decodeUnknown` | Web APIレスポンス、設定ファイル、ユーザ入力 |
+| 内部で型付け済みの値 (`I` 型) | `Schema.decodeSync` | Brand付Value Objectの同期コンストラクタ（`makeXXXSync` / `unsafe`系） |
+| コンパイル時に確定した定数 | `satisfies` / 型リテラル | デフォルト設定、リソーステーブル |
+
+- `Schema.decodeSync`は**信頼済みの入力**に限定し、例外が発生した場合は開発者バグとして即座に検知する用途で使用する。
+- 外部データの検証や非同期処理内では、必ず`Schema.decodeUnknown`（Effect版）を経由し、`Effect.gen`内で`yield*`する。
+- 同期/非同期の両方を提供する場合は以下のペア構成を採用する：
+
+```typescript
+export const parseBiomeId = (input: unknown) =>
+  Schema.decodeUnknown(BiomeIdSchema)(input) // Effect版（外部入力用）
+
+export const makeBiomeIdSync = (value: string) =>
+  Schema.decodeSync(BiomeIdSchema)(value) // Sync版（信頼済み入力専用）
+```
+
+- `Schema.decodeUnknownSync`は例外スローかつ`unknown`を受け取るため使用禁止。必要であれば`parse`関数（Effect）と`makeSync`関数（Sync）に分離する。
 
 ### 2.4 Layer設計ガイドライン
 
@@ -1816,98 +1844,87 @@ describe('Time-dependent operations', () => {
 
 ## 13. リファクタリング計画
 
-### 13.1 Priority 1: Camera BCのThree.js依存除去
+### 13.0 フェーズ構成と並列実行方針
 
-**目標**: Domain層からThree.js依存を完全除去
+| Phase | 主要目的 | 並列実行ポリシー | 目標時期 |
+| --- | --- | --- | --- |
+| Phase 1: Domain抽象整備 | プラットフォーム非依存の型・コマンド/クエリ定義を整備 | BCごとに独立して着手可能。レビューはDomain境界単位で並列実施。 | Q2 2025 |
+| Phase 2: Adapter実装 | Three.jsや永続化層への変換・ハンドラ実装 | Domain定義が完成したBCから順に着手。複数BCで同時進行可。 | Q3 2025 |
+| Phase 3: Application/Presentation統合 | Applicationサービス、UI拡張を接続 | Phase 1/2完了済みBC単位で並列に統合。UI/サービスは相互に独立。 | Q4 2025 |
 
-**対象ファイル**:
+- 各フェーズは前フェーズの成果物を入力とするが、フェーズ内のBC/モジュールは疎結合なため並列開発が可能。
+- チェックポイントは「BC単位のDomain契約確定」「AdapterのI/O契約確定」「Application API公開完了」で同期する。
 
-- `src/domain/camera/first_person.ts`
-- `src/domain/camera/third_person.ts`
-- `src/domain/camera/aggregate/camera/camera.ts`
+### 13.1 Phase 1: Domain抽象整備（並列可）
 
-**実装計画**:
+**目的**: 各BCのDomainモデルを外部依存から切り離し、Effect/Schemaベースの契約を確立する。
 
-```typescript
-// Phase 1: Domain層にプラットフォーム非依存の型定義
-export const CameraProjection = Schema.Struct({
-  fov: Schema.Number,
-  aspect: Schema.Number,
-  near: Schema.Number,
-  far: Schema.Number
-})
+- `camera` BC
+  - `src/domain/camera/first_person.ts`, `third_person.ts` からThree.js依存を排除し、`CameraProjection`/`CameraTransform`を純粋な値オブジェクトとして再定義。
+  - `src/domain/camera/aggregate/camera/camera.ts` に新しいプロジェクション/トランスフォームを適用。
+- `chunk` BC
+  - Chunkコマンド/クエリスキーマ（`ChunkGenerationCommand`, `ChunkQuery` など）を `Schema.Struct` で定義。
+  - Domainイベントを `Schema.Union` で表現し、外部依存を除去。
+- `world_generation` BC
+  - `WorldGeneratorId` などBrand型の同期生成ヘルパーを `Schema.decodeSync` ベースで整備。
+  - 生成コンテキスト/状態スキーマを `Schema.Struct` で統一。
+- **並列実行ガイド**: 各BCは他BCに依存しないため、3チームまで同時着手可。レビューはBCごとに独立したチェックリスト（スキーマ整合性・Effect境界の有無）を使用。
 
-export const CameraTransform = Schema.Struct({
-  position: Vector3,
-  rotation: Quaternion
-})
+##### プロンプト & 依存関係
 
-// Phase 2: Infrastructure層でThree.js変換
-export const toThreeCamera = (
-  projection: CameraProjection,
-  transform: CameraTransform
-): THREE.PerspectiveCamera => {
-  const camera = new THREE.PerspectiveCamera(
-    projection.fov,
-    projection.aspect,
-    projection.near,
-    projection.far
-  )
-  camera.position.copy(transform.position)
-  camera.quaternion.copy(transform.rotation)
-  return camera
-}
-```
+| タスク | プロンプト | 依存関係 |
+| --- | --- | --- |
+| Camera Domain抽象整備 | 「`src/domain/camera/` の Schema を Three.js 非依存に再定義し、`CameraProjection`/`CameraTransform` のBrand型と `makeCamera*Sync` ヘルパーを実装する。」 | なし |
+| Chunk Domain抽象整備 | 「Chunk コマンド/クエリ/イベントを `Schema.Struct`/`Schema.Union` で整理し、外部依存を排除する。」 | なし |
+| World Generation Domain抽象整備 | 「`WorldGeneratorId` などのBrand型を `Schema.decodeSync` で生成し、生成コンテキスト/状態スキーマを統一する。」 | なし |
 
-**期限**: Q2 2025
+### 13.2 Phase 2: Adapter実装（並列可）
 
-### 13.2 Priority 2: CQRS拡張
+**目的**: Phase 1で定義したDomain契約を使い、外部ライブラリや永続化層との橋渡しを行う。
 
-**目標**: inventory BC以外の主要BCへCQRS適用
+- `camera` BC
+  - `infrastructure/camera` に `toThreeCamera` アダプタを配置し、`CameraProjection`/`CameraTransform` から `THREE.PerspectiveCamera` を生成。
+  - `CameraCommandHandler` / `CameraQueryHandler` を Layer 経由で提供。
+- `chunk` BC
+  - Chunk生成ワーカーとのBounded Queueアダプタを実装し、Domainコマンドをインフラのメッセージへ変換。
+  - Query側はキャッシュサービスを Layer として導入。
+- `world_generation` BC
+  - ノイズ生成、バイオーム計算を effectful service として抽象化し、`WorldGenerator` Domainから呼び出す。
+  - 永続化レイヤー向けに `Schema.Json` へのエンコード/デコードアダプタを追加。
+- **並列実行ガイド**: Domain契約が確定したBCから順に着手。アダプタごとにI/O契約が明確なため、レビューも個別に実施可能。Phase 2内で他BCの進行待ちが発生しないよう、「契約レビュー → Adapter実装 → ハンドラ統合」をBC単位のスプリントで回す。
 
-**対象BC**:
+##### プロンプト & 依存関係
 
-- camera BC
-- chunk BC
-- world_generation BC
+| タスク | プロンプト | 依存関係 |
+| --- | --- | --- |
+| Camera Adapter実装 | 「`CameraProjection`/`CameraTransform` を入力として `toThreeCamera` を構築し、`CameraCommandHandler`/`CameraQueryHandler` を Layer で公開する。」 | Phase 1: Camera Domain抽象整備 |
+| Chunk Adapter実装 | 「Chunk Domainコマンドをワーカーメッセージへ変換する Bounded Queue アダプタとキャッシュ Layer を実装する。」 | Phase 1: Chunk Domain抽象整備 |
+| World Generation Adapter実装 | 「ノイズ/バイオームサービスを effectful Layer として抽象化し、`WorldGenerator` と永続化層の変換ロジックを提供する。」 | Phase 1: World Generation Domain抽象整備 |
 
-**実装計画**:
+### 13.3 Phase 3: Application/Presentation統合（並列可）
 
-```typescript
-// Phase 1: Commands/Queries型定義
-export const CameraCommands = Schema.Union(
-  UpdatePositionCommand,
-  UpdateRotationCommand,
-  SwitchModeCommand
-)
+**目的**: 完成したDomain/AdapterをApplicationサービスとUIに接続し、プレイヤー体験を拡張する。
 
-export const CameraQueries = Schema.Union(
-  GetCameraQuery,
-  GetCameraStateQuery
-)
+- Applicationサービス
+  - `CameraAPIService`, `ChunkAPIService`, `WorldGenerationAPIService` を `Layer.mergeAll` で統合し、Effect APIを公開。
+  - CQRSのReadモデル同期を Event Stream として整理。
+- Presentation層
+  - HUDコンポーネント（体力/満腹度/経験値）
+  - メニューシステム（メインメニュー/ポーズメニュー）
+  - 設定画面
+  - クラフティングUI
+- **並列実行ガイド**: ApplicationサービスとUIは`Layer`境界で接続するため、サービス実装とUI実装を別ストリームで進行可能。UIチームはダミーサービスLayerを使用してスタブ開発を行い、サービスチームはDomainイベント/コマンドのI/O確定後に切り替える。
 
-// Phase 2: CommandHandler/QueryHandler実装
-export const CameraCommandHandler = ...
-export const CameraQueryHandler = ...
+##### プロンプト & 依存関係
 
-// Phase 3: Application層統合
-export const CameraAPIService = ...
-```
-
-**期限**: Q3 2025
-
-### 13.3 Priority 3: Presentation層拡張
-
-**目標**: HUD/メニューシステム実装
-
-**実装範囲**:
-
-- [ ] HUDコンポーネント（体力/満腹度/経験値）
-- [ ] メニューシステム（メインメニュー/ポーズメニュー）
-- [ ] 設定画面
-- [ ] クラフティングUI
-
-**期限**: Q4 2025
+| タスク | プロンプト | 依存関係 |
+| --- | --- | --- |
+| Camera API統合 | 「`CameraAPIService` を Layer.mergeAll で公開し、Command/Query Handler を統合して外部 API を提供する。」 | Phase 2: Camera Adapter実装 |
+| Chunk API統合 | 「`ChunkAPIService` を構築し、生成ワーカーと CQRS Read モデルを接続する。」 | Phase 2: Chunk Adapter実装 |
+| World Generation API統合 | 「`WorldGenerationAPIService` を Layer で公開し、ノイズ/バイオームサービスとイベントストリームを連結する。」 | Phase 2: World Generation Adapter実装 |
+| HUDコンポーネント | 「`CameraAPIService` から取得したステータスを表示する HUD を実装し、スタブ Layer で先行開発する。」 | Camera API統合（サービス側はスタブ可） |
+| メニュー/設定UI | 「Application Layer の設定 API と紐付くメニュー UI を実装し、Effect で状態遷移を管理する。」 | 各対象サービスの API スタブ |
+| クラフティングUI | 「クラフティングドメイン Service を利用し、レシピ検索とレイアウト更新を並列 Effect で処理する。」 | 対応 Application Service（スタブから本番へ切替） |
 
 ## 参考リンク
 

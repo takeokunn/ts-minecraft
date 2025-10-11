@@ -12,7 +12,7 @@ export { SimpleItemIdSchema as ItemIdSchema, type ItemId } from '../../shared/en
 
 // 共有カーネルから再エクスポート（互換性のためSimpleItemIdSchemaを使用）
 import { SimpleItemIdSchema } from '../../shared/entities/item_id'
-export const ItemId = (value: string): ItemId => Schema.decodeUnknownSync(SimpleItemIdSchema)(value)
+export const ItemId = (value: string): ItemId => value as ItemId
 
 export const ItemMetadataSchema = Schema.Struct({
   durability: Schema.optional(Schema.Number.pipe(Schema.nonNegative())),

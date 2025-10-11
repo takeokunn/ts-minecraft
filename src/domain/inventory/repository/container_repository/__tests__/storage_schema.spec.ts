@@ -2,11 +2,12 @@
  * @fileoverview ContainerStorageDataSchemaのテスト
  */
 
-import { Schema } from 'effect'
+import { Effect, Schema } from 'effect'
 import { describe, expect, it } from 'vitest'
 import { ContainerRepositoryStorageSchema, ContainerStorageDataSchema } from '../storage_schema'
 
 describe('ContainerStorageDataSchema', () => {
+  const decodeContainer = (value: unknown) => Effect.runSync(Schema.decodeUnknown(ContainerStorageDataSchema)(value))
   it('有効なストレージデータをデコードできる', () => {
     const validData = {
       id: 'container_12345678-1234-1234-1234-123456789012',
@@ -16,7 +17,7 @@ describe('ContainerStorageDataSchema', () => {
       version: 1,
     }
 
-    const result = Schema.decodeUnknownSync(ContainerStorageDataSchema)(validData)
+    const result = decodeContainer(validData)
     expect(result.id).toBe(validData.id)
     expect(result.type).toBe('chest')
     expect(result.capacity).toBe(27)
@@ -39,7 +40,7 @@ describe('ContainerStorageDataSchema', () => {
       version: 1,
     }
 
-    const result = Schema.decodeUnknownSync(ContainerStorageDataSchema)(validData)
+    const result = decodeContainer(validData)
     expect(result.slots['0']).toBeDefined()
     expect(result.slots['0']?.itemStack?.itemId).toBe('minecraft:stone')
   })
@@ -53,7 +54,7 @@ describe('ContainerStorageDataSchema', () => {
       version: 1,
     }
 
-    expect(() => Schema.decodeUnknownSync(ContainerStorageDataSchema)(invalidData)).toThrow()
+    expect(() => decodeContainer(invalidData)).toThrow()
   })
 
   it('無効なコンテナタイプでエラーになる', () => {
@@ -65,7 +66,7 @@ describe('ContainerStorageDataSchema', () => {
       version: 1,
     }
 
-    expect(() => Schema.decodeUnknownSync(ContainerStorageDataSchema)(invalidData)).toThrow()
+    expect(() => decodeContainer(invalidData)).toThrow()
   })
 
   it('無効なバージョンでエラーになる', () => {
@@ -77,7 +78,7 @@ describe('ContainerStorageDataSchema', () => {
       version: 0, // 0以下
     }
 
-    expect(() => Schema.decodeUnknownSync(ContainerStorageDataSchema)(invalidData)).toThrow()
+    expect(() => decodeContainer(invalidData)).toThrow()
   })
 
   it('オプショナルフィールドを含むデータをデコードできる', () => {
@@ -98,7 +99,7 @@ describe('ContainerStorageDataSchema', () => {
       version: 1,
     }
 
-    const result = Schema.decodeUnknownSync(ContainerStorageDataSchema)(validData)
+    const result = decodeContainer(validData)
     expect(result.ownerId).toBe('player_abc123')
     expect(result.position).toEqual({ x: 100, y: 64, z: 200 })
     expect(result.permissions?.owner).toBe('player_abc123')
@@ -106,6 +107,8 @@ describe('ContainerStorageDataSchema', () => {
 })
 
 describe('ContainerRepositoryStorageSchema', () => {
+  const decodeRepository = (value: unknown) =>
+    Effect.runSync(Schema.decodeUnknown(ContainerRepositoryStorageSchema)(value))
   it('完全なリポジトリストレージデータをデコードできる', () => {
     const validData = {
       containers: {
@@ -136,7 +139,7 @@ describe('ContainerRepositoryStorageSchema', () => {
       lastSaved: 1234567890,
     }
 
-    const result = Schema.decodeUnknownSync(ContainerRepositoryStorageSchema)(validData)
+    const result = decodeRepository(validData)
     expect(result.containers).toBeDefined()
     expect(result.snapshots).toBeDefined()
     expect(result.version).toBe(1)
@@ -148,7 +151,7 @@ describe('ContainerRepositoryStorageSchema', () => {
       lastSaved: 1234567890,
     }
 
-    const result = Schema.decodeUnknownSync(ContainerRepositoryStorageSchema)(validData)
+    const result = decodeRepository(validData)
     expect(result.containers).toBeUndefined()
     expect(result.snapshots).toBeUndefined()
   })
@@ -159,6 +162,6 @@ describe('ContainerRepositoryStorageSchema', () => {
       lastSaved: -1, // 負の値
     }
 
-    expect(() => Schema.decodeUnknownSync(ContainerRepositoryStorageSchema)(invalidData)).toThrow()
+    expect(() => decodeRepository(invalidData)).toThrow()
   })
 })

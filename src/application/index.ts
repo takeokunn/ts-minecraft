@@ -19,6 +19,8 @@ export * from './interaction'
 export * from './inventory'
 export * from './physics'
 export * from './world'
+export * from './player'
+export * from './world_generation'
 
 export type {
   ApplicationLifecycleState,

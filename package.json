@@ -11,14 +11,14 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "editorconfig": "editorconfig-checker",
-    "check": "pnpm typecheck && pnpm format:check && pnpm editorconfig",
+    "check": "pnpm typecheck && pnpm format:check && pnpm editorconfig && pnpm validate:no-js-extensions",
     "check:fix": "pnpm format",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",
-    "fix:extensions": "bash scripts/remove-extensions.sh",
-    "validate:imports": "tsx scripts/validate-imports.ts"
+    "fix:js-extensions": "bash scripts/remove-js-extensions.sh",
+    "validate:no-js-extensions": "tsx scripts/validate-no-js-extensions.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

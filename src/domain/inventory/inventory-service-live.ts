@@ -34,8 +34,14 @@ const toJsonValue = (input: Schema.ParseError | JsonValue): JsonValue => {
   }
 }
 
-const normalizeItemId = (itemId: ItemId | string): ItemId =>
-  typeof itemId === 'string' ? Schema.decodeUnknownSync(ItemIdSchema)(itemId) : itemId
+const normalizeItemId = (itemId: ItemId | string): Effect.Effect<ItemId, InventoryServiceError> =>
+  typeof itemId === 'string'
+    ? Schema.decodeUnknown(ItemIdSchema)(itemId).pipe(
+        Effect.mapError((error) =>
+          InventoryServiceError.inventoryStateValidationFailed(toJsonValue(error))
+        )
+      )
+    : Effect.succeed(itemId)
 
 const sameStack = (left: ItemStack, right: ItemStack): boolean =>
   left.itemId === right.itemId && JSON.stringify(left.metadata ?? null) === JSON.stringify(right.metadata ?? null)
@@ -780,9 +786,10 @@ export const InventoryServiceLive = Layer.effect(
         ),
 
       findItemSlots: (playerId, itemIdInput) =>
-        withInventory(playerId, (inventory) => {
-          const itemId = normalizeItemId(itemIdInput)
-          const indices = pipe(
+        withInventory(playerId, (inventory) =>
+          Effect.gen(function* () {
+            const itemId = yield* normalizeItemId(itemIdInput)
+            const indices = pipe(
             inventory.slots,
             ReadonlyArray.filterMapWithIndex((i, item) =>
               pipe(
@@ -792,13 +799,15 @@ export const InventoryServiceLive = Layer.effect(
               )
             )
           )
-          return Effect.succeed(indices)
-        }),
+            return indices
+          })
+        ),
 
       countItem: (playerId, itemIdInput) =>
-        withInventory(playerId, (inventory) => {
-          const itemId = normalizeItemId(itemIdInput)
-          return pipe(
+        withInventory(playerId, (inventory) =>
+          Effect.gen(function* () {
+            const itemId = yield* normalizeItemId(itemIdInput)
+            return pipe(
             inventory.slots,
             ReadonlyArray.reduce(0, (amount, slot) =>
               pipe(
@@ -812,7 +821,8 @@ export const InventoryServiceLive = Layer.effect(
             ),
             Effect.succeed
           )
-        }),
+          })
+        ),
 
       hasSpaceForItem: (playerId, item) =>
         Effect.gen(function* () {

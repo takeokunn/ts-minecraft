@@ -292,8 +292,8 @@ export interface BiomeSystemBuilder {
 //
 // 使用例:
 // import { pipe } from 'effect/Function'
-// import * as BuilderState from './builder_state.js'
-// import * as BuilderFunctions from './builder_functions.js'
+// import * as BuilderState from './builder_state'
+// import * as BuilderFunctions from './builder_functions'
 //
 // const system = yield* pipe(
 //   BuilderState.initialBiomeSystemBuilderState,
@@ -304,8 +304,8 @@ export interface BiomeSystemBuilder {
 
 export const createBiomeSystemBuilder = (): Effect.Effect<never, BiomeFactoryError> => {
   // Builder interface is deprecated - use pure functions instead
-  // Import: import * as BuilderState from './builder_state.js'
-  // Import: import * as BuilderFunctions from './builder_functions.js'
+  // Import: import * as BuilderState from './builder_state'
+  // Import: import * as BuilderFunctions from './builder_functions'
   //
   // Usage:
   // const system = yield* pipe(
@@ -476,11 +476,10 @@ const validateCreateParams = (
 ): Effect.Effect<CreateBiomeSystemParams, BiomeFactoryError> =>
   Effect.gen(function* () {
     // Schema検証
-    const validatedParams = yield* pipe(
-      Effect.try({
-        try: () => Schema.decodeSync(CreateBiomeSystemParamsSchema)(params),
-        catch: (error) => BiomeFactoryError.biomeCreation('Schema validation failed', { context: { error } }),
-      })
+    const validatedParams = yield* Schema.decode(CreateBiomeSystemParamsSchema)(params).pipe(
+      Effect.mapError((error) =>
+        BiomeFactoryError.biomeCreation('Schema validation failed', { context: { error } })
+      )
     )
 
     // ビジネスルール検証

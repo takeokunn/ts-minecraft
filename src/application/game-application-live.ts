@@ -1,4 +1,4 @@
-import { Clock, Effect, Layer, Schema } from 'effect'
+import { Clock, Effect, Layer } from 'effect'
 import * as Option from 'effect/Option'
 import * as SynchronizedRef from 'effect/SynchronizedRef'
 import { mergeConfig } from './config'
@@ -9,7 +9,7 @@ import { applyConfig, computeHealth, createInitialState, synchronizeLifecycle, t
 import type { ApplicationLifecycleState, GameApplicationState, Milliseconds } from './types'
 import { DEFAULT_GAME_APPLICATION_CONFIG } from './types'
 
-const defaultTickDelta = Schema.decodeSync(Milliseconds)(16)
+const defaultTickDelta = 16 as Milliseconds
 
 type LifecycleTransitionPlan = {
   readonly guard: ApplicationLifecycleState

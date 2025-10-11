@@ -1,12 +1,14 @@
 import { PlayerId } from '@domain/shared/entities/player_id'
 import { makeUnsafe as makeUnsafeTimestamp } from '@domain/shared/value_object/units/timestamp'
-import { Schema } from 'effect'
+import { Effect, Schema } from 'effect'
 import { describe, expect, it } from 'vitest'
 import { InventoryRepositoryStorageSchema } from '../storage_schema'
 
 const TIMESTAMP = makeUnsafeTimestamp(1_700_000_000_000)
 
 describe('InventoryRepositoryStorageSchema', () => {
+  const decode = (value: unknown) => Effect.runSync(Schema.decodeUnknown(InventoryRepositoryStorageSchema)(value))
+
   describe('有効なデータのデコード', () => {
     it('完全なインベントリデータをデコードできる', () => {
       const validData = {
@@ -38,7 +40,7 @@ describe('InventoryRepositoryStorageSchema', () => {
         timestamp: TIMESTAMP,
       }
 
-      const result = Schema.decodeUnknownSync(InventoryRepositoryStorageSchema)(validData)
+      const result = decode(validData)
       expect(result).toEqual(validData)
     })
 
@@ -73,7 +75,7 @@ describe('InventoryRepositoryStorageSchema', () => {
         },
       }
 
-      const result = Schema.decodeUnknownSync(InventoryRepositoryStorageSchema)(validData)
+      const result = decode(validData)
       expect(result.snapshots).toBeDefined()
       expect(result.snapshots!['snap_1'].snapshotId).toBe('snap_1')
     })
@@ -84,7 +86,7 @@ describe('InventoryRepositoryStorageSchema', () => {
         snapshots: undefined,
       }
 
-      const result = Schema.decodeUnknownSync(InventoryRepositoryStorageSchema)(emptyData)
+      const result = decode(emptyData)
       expect(result.inventories).toBeUndefined()
       expect(result.snapshots).toBeUndefined()
     })
@@ -114,7 +116,7 @@ describe('InventoryRepositoryStorageSchema', () => {
         },
       }
 
-      const result = Schema.decodeUnknownSync(InventoryRepositoryStorageSchema)(dataWithOptionals)
+      const result = decode(dataWithOptionals)
       expect(result.timestamp).toBeUndefined()
     })
   })
@@ -145,7 +147,7 @@ describe('InventoryRepositoryStorageSchema', () => {
         },
       }
 
-      expect(() => Schema.decodeUnknownSync(InventoryRepositoryStorageSchema)(invalidData)).toThrow()
+      expect(() => decode(invalidData)).toThrow()
     })
 
     it('versionが負の値の場合はエラー', () => {
@@ -173,7 +175,7 @@ describe('InventoryRepositoryStorageSchema', () => {
         },
       }
 
-      expect(() => Schema.decodeUnknownSync(InventoryRepositoryStorageSchema)(invalidData)).toThrow()
+      expect(() => decode(invalidData)).toThrow()
     })
 
     it('slots配列が上限を超える場合はエラー', () => {
@@ -201,7 +203,7 @@ describe('InventoryRepositoryStorageSchema', () => {
         },
       }
 
-      expect(() => Schema.decodeUnknownSync(InventoryRepositoryStorageSchema)(invalidData)).toThrow()
+      expect(() => decode(invalidData)).toThrow()
     })
 
     it('hotbar配列が上限を超える場合はエラー', () => {
@@ -229,7 +231,7 @@ describe('InventoryRepositoryStorageSchema', () => {
         },
       }
 
-      expect(() => Schema.decodeUnknownSync(InventoryRepositoryStorageSchema)(invalidData)).toThrow()
+      expect(() => decode(invalidData)).toThrow()
     })
   })
 
@@ -261,7 +263,7 @@ describe('InventoryRepositoryStorageSchema', () => {
         },
       }
 
-      expect(() => Schema.decodeUnknownSync(InventoryRepositoryStorageSchema)(dataWithZeroCount)).toThrow()
+      expect(() => decode(dataWithZeroCount)).toThrow()
     })
 
     it('アイテムメタデータの構造を検証', () => {
@@ -300,7 +302,7 @@ describe('InventoryRepositoryStorageSchema', () => {
         },
       }
 
-      const result = Schema.decodeUnknownSync(InventoryRepositoryStorageSchema)(dataWithMetadata)
+      const result = decode(dataWithMetadata)
       const inventory = result.inventories!['player_666']
       const item = inventory.slots['0']
 

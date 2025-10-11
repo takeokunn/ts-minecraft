@@ -37,16 +37,16 @@ export {
   type WorldConfigurationBuilder,
   // Main Factory Interface
   type WorldConfigurationFactory,
-} from './factory.js'
+} from './factory'
 
 // New Builder Pattern exports (Schema + Pure Functions)
 export {
   initialWorldConfigurationBuilderState,
   WorldConfigurationBuilderStateSchema,
   type WorldConfigurationBuilderState,
-} from './builder_state.js'
+} from './builder_state'
 
-export { build, withBiomeConfig, withMetadata, withNoiseConfig, withParameters, withSeed } from './builder_functions.js'
+export { build, withBiomeConfig, withMetadata, withNoiseConfig, withParameters, withSeed } from './builder_functions'
 
 // ================================
 // Convenience Functions
@@ -60,8 +60,8 @@ import type {
   OptimizationMode,
   ValidationStrictness,
   WorldConfiguration,
-} from './factory.js'
-import { WorldConfigurationFactoryTag } from './factory.js'
+} from './factory'
+import { WorldConfigurationFactoryTag } from './factory'
 
 export const createQuickConfiguration = (): Effect.Effect<WorldConfiguration, never> =>
   Effect.gen(function* () {

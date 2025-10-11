@@ -10,7 +10,8 @@ export const InputTimestampSchema = Schema.Number.pipe(
   Schema.annotations({ title: 'InputTimestamp' })
 )
 export type InputTimestamp = Schema.Schema.Type<typeof InputTimestampSchema>
-export const InputTimestamp = Schema.decodeSync(InputTimestampSchema)
+export const InputTimestamp = (value: number): InputTimestamp =>
+  Schema.decodeSync(InputTimestampSchema)(value)
 
 export const KeyCodeSchema = Schema.String.pipe(
   Schema.nonEmptyString(),
@@ -19,7 +20,7 @@ export const KeyCodeSchema = Schema.String.pipe(
   Schema.annotations({ title: 'KeyCode' })
 )
 export type KeyCode = Schema.Schema.Type<typeof KeyCodeSchema>
-export const KeyCode = Schema.decodeSync(KeyCodeSchema)
+export const KeyCode = (value: string): KeyCode => Schema.decodeSync(KeyCodeSchema)(value)
 
 export const MouseButtonSchema = Schema.Union(
   Schema.Literal('left'),
@@ -27,7 +28,8 @@ export const MouseButtonSchema = Schema.Union(
   Schema.Literal('right')
 ).pipe(Schema.brand('MouseButton'))
 export type MouseButton = Schema.Schema.Type<typeof MouseButtonSchema>
-export const MouseButton = Schema.decodeSync(MouseButtonSchema)
+export const MouseButton = (value: Schema.Schema.Input<typeof MouseButtonSchema>): MouseButton =>
+  Schema.decodeSync(MouseButtonSchema)(value)
 
 export const AxisIdSchema = Schema.Number.pipe(
   Schema.int(),
@@ -37,7 +39,7 @@ export const AxisIdSchema = Schema.Number.pipe(
   Schema.annotations({ title: 'AxisId' })
 )
 export type AxisId = Schema.Schema.Type<typeof AxisIdSchema>
-export const AxisId = Schema.decodeSync(AxisIdSchema)
+export const AxisId = (value: number): AxisId => Schema.decodeSync(AxisIdSchema)(value)
 
 export const AxisValueSchema = Schema.Number.pipe(
   Schema.between(-1, 1),
@@ -45,7 +47,7 @@ export const AxisValueSchema = Schema.Number.pipe(
   Schema.annotations({ title: 'AxisValue' })
 )
 export type AxisValue = Schema.Schema.Type<typeof AxisValueSchema>
-export const AxisValue = Schema.decodeSync(AxisValueSchema)
+export const AxisValue = (value: number): AxisValue => Schema.decodeSync(AxisValueSchema)(value)
 
 export const ActionIdSchema = Schema.String.pipe(
   Schema.nonEmptyString(),
@@ -53,7 +55,7 @@ export const ActionIdSchema = Schema.String.pipe(
   Schema.annotations({ title: 'ActionId' })
 )
 export type ActionId = Schema.Schema.Type<typeof ActionIdSchema>
-export const ActionId = Schema.decodeSync(ActionIdSchema)
+export const ActionId = (value: string): ActionId => Schema.decodeSync(ActionIdSchema)(value)
 
 // ============================================================================
 // ベクトル型
@@ -64,7 +66,8 @@ export const Vector2Schema = Schema.Struct({
   y: Schema.Number,
 }).pipe(Schema.brand('Vector2'))
 export type Vector2 = Schema.Schema.Type<typeof Vector2Schema>
-export const Vector2 = Schema.decodeSync(Vector2Schema)
+export const Vector2 = (value: Schema.Schema.Input<typeof Vector2Schema>): Vector2 =>
+  Schema.decodeSync(Vector2Schema)(value)
 
 export const MouseDeltaSchema = Schema.Struct({
   deltaX: Schema.Number,
@@ -72,7 +75,8 @@ export const MouseDeltaSchema = Schema.Struct({
   occurredAt: InputTimestampSchema,
 }).pipe(Schema.brand('MouseDelta'))
 export type MouseDelta = Schema.Schema.Type<typeof MouseDeltaSchema>
-export const MouseDelta = Schema.decodeSync(MouseDeltaSchema)
+export const MouseDelta = (value: Schema.Schema.Input<typeof MouseDeltaSchema>): MouseDelta =>
+  Schema.decodeSync(MouseDeltaSchema)(value)
 
 // ============================================================================
 // 入力イベント定義

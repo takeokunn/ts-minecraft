@@ -194,7 +194,7 @@ export type GameApplicationError = GameApplicationInitError | GameApplicationRun
 
 // ===== エラーヘルパー関数 =====
 
-const ensureTimestamp = Schema.decodeSync(Timestamp)
+const ensureTimestamp = (value: number) => Schema.decodeUnknown(Timestamp)(value)
 
 export const createErrorContext = ({
   system,
@@ -206,7 +206,7 @@ export const createErrorContext = ({
   readonly details?: ReadonlyArray<{ readonly key: string; readonly value: JsonValue }>
 }): Effect.Effect<ErrorContext> =>
   Effect.gen(function* () {
-    const timestamp = ensureTimestamp(yield* Clock.currentTimeMillis)
+    const timestamp = yield* ensureTimestamp(yield* Clock.currentTimeMillis)
     return {
       timestamp,
       system,

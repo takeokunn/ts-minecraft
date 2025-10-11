@@ -119,12 +119,14 @@ export const PhysicsSpatialBrandedTypes = {
   BoundingBox: BoundingBoxSchema,
 
   // 作成ヘルパー関数
-  createVector3D: (x: number, y: number, z: number): Vector3D => Schema.decodeSync(Vector3Schema)({ x, y, z }),
+  createVector3D: (x: number, y: number, z: number): Vector3D =>
+    Schema.decodeSync(Vector3Schema)({ x, y, z }),
 
   createRotation: (pitch: number, yaw: number, roll = 0): Rotation =>
     Schema.decodeSync(RotationSchema)({ pitch, yaw, roll }),
 
-  createBoundingBox: (min: Vector3D, max: Vector3D): BoundingBox => Schema.decodeSync(BoundingBoxSchema)({ min, max }),
+  createBoundingBox: (min: Vector3D, max: Vector3D): BoundingBox =>
+    Schema.decodeSync(BoundingBoxSchema)({ min, max }),
 }
 
 // ===== core.tsからの型の再エクスポート =====

@@ -85,7 +85,8 @@ export interface ChunkMetadataError {
 
 export const ChunkMetadataError = Data.tagged<ChunkMetadataError>('ChunkMetadataError')
 
-export const makeHeightValue = (value: number): HeightValue => Schema.decodeSync(HeightValueSchema)(value)
+export const makeHeightValue = (value: number): HeightValue =>
+  Schema.decodeSync(HeightValueSchema)(value)
 
 /**
  * HeightValueを検証なしで作成（型アサーションを集約）

@@ -78,10 +78,10 @@ export const CoordinateTransforms = {
         })
       }
 
-      return {
-        x: Schema.decodeSync(Schema.Number.pipe(Schema.brand('ChunkX')))(chunkX),
-        z: Schema.decodeSync(Schema.Number.pipe(Schema.brand('ChunkZ')))(chunkZ),
-      }
+      const x = yield* Schema.decode(Schema.Number.pipe(Schema.brand('ChunkX')))(chunkX)
+      const z = yield* Schema.decode(Schema.Number.pipe(Schema.brand('ChunkZ')))(chunkZ)
+
+      return { x, z }
     }),
 
   /**
@@ -94,19 +94,24 @@ export const CoordinateTransforms = {
       const blockY = Math.floor(world.y)
       const blockZ = Math.floor(world.z)
 
-      return yield* Effect.try({
-        try: () => ({
-          x: Schema.decodeSync(Schema.Number.pipe(Schema.brand('BlockX')))(blockX),
-          y: Schema.decodeSync(Schema.Number.pipe(Schema.brand('BlockY')))(blockY),
-          z: Schema.decodeSync(Schema.Number.pipe(Schema.brand('BlockZ')))(blockZ),
-        }),
-        catch: (error) => ({
-          _tag: 'ConversionOverflow' as const,
-          operation: 'worldToBlock',
-          input: world,
-          message: `Failed to convert world to block coordinate: ${error}`,
-        }),
+      const convertError = (error: unknown) => ({
+        _tag: 'ConversionOverflow' as const,
+        operation: 'worldToBlock',
+        input: world,
+        message: `Failed to convert world to block coordinate: ${String(error)}`,
       })
+
+      const x = yield* Schema.decode(Schema.Number.pipe(Schema.brand('BlockX')))(blockX).pipe(
+        Effect.mapError(convertError)
+      )
+      const y = yield* Schema.decode(Schema.Number.pipe(Schema.brand('BlockY')))(blockY).pipe(
+        Effect.mapError(convertError)
+      )
+      const z = yield* Schema.decode(Schema.Number.pipe(Schema.brand('BlockZ')))(blockZ).pipe(
+        Effect.mapError(convertError)
+      )
+
+      return { x, y, z }
     }),
 
   /**
@@ -114,19 +119,24 @@ export const CoordinateTransforms = {
    */
   blockToWorld: (block: BlockCoordinate): Effect.Effect<WorldCoordinate, CoordinateTransformError> =>
     Effect.gen(function* () {
-      return yield* Effect.try({
-        try: () => ({
-          x: Schema.decodeSync(Schema.Number.pipe(Schema.brand('WorldX')))(block.x),
-          y: Schema.decodeSync(Schema.Number.pipe(Schema.brand('WorldY')))(block.y),
-          z: Schema.decodeSync(Schema.Number.pipe(Schema.brand('WorldZ')))(block.z),
-        }),
-        catch: (error) => ({
-          _tag: 'ConversionOverflow' as const,
-          operation: 'blockToWorld',
-          input: block,
-          message: `Failed to convert block to world coordinate: ${error}`,
-        }),
+      const convertError = (error: unknown) => ({
+        _tag: 'ConversionOverflow' as const,
+        operation: 'blockToWorld',
+        input: block,
+        message: `Failed to convert block to world coordinate: ${String(error)}`,
       })
+
+      const x = yield* Schema.decode(Schema.Number.pipe(Schema.brand('WorldX')))(block.x).pipe(
+        Effect.mapError(convertError)
+      )
+      const y = yield* Schema.decode(Schema.Number.pipe(Schema.brand('WorldY')))(block.y).pipe(
+        Effect.mapError(convertError)
+      )
+      const z = yield* Schema.decode(Schema.Number.pipe(Schema.brand('WorldZ')))(block.z).pipe(
+        Effect.mapError(convertError)
+      )
+
+      return { x, y, z }
     }),
 
   /**
@@ -137,19 +147,24 @@ export const CoordinateTransforms = {
       const worldX = chunk.x * CHUNK_CONSTANTS.SIZE
       const worldZ = chunk.z * CHUNK_CONSTANTS.SIZE
 
-      return yield* Effect.try({
-        try: () => ({
-          x: Schema.decodeSync(Schema.Number.pipe(Schema.brand('WorldX')))(worldX),
-          y: Schema.decodeSync(Schema.Number.pipe(Schema.brand('WorldY')))(CHUNK_CONSTANTS.MIN_Y),
-          z: Schema.decodeSync(Schema.Number.pipe(Schema.brand('WorldZ')))(worldZ),
-        }),
-        catch: (error) => ({
-          _tag: 'ConversionOverflow' as const,
-          operation: 'chunkToWorld',
-          input: chunk,
-          message: `Failed to convert chunk to world coordinate: ${error}`,
-        }),
+      const convertError = (error: unknown) => ({
+        _tag: 'ConversionOverflow' as const,
+        operation: 'chunkToWorld',
+        input: chunk,
+        message: `Failed to convert chunk to world coordinate: ${String(error)}`,
       })
+
+      const x = yield* Schema.decode(Schema.Number.pipe(Schema.brand('WorldX')))(worldX).pipe(
+        Effect.mapError(convertError)
+      )
+      const y = yield* Schema.decode(Schema.Number.pipe(Schema.brand('WorldY')))(CHUNK_CONSTANTS.MIN_Y).pipe(
+        Effect.mapError(convertError)
+      )
+      const z = yield* Schema.decode(Schema.Number.pipe(Schema.brand('WorldZ')))(worldZ).pipe(
+        Effect.mapError(convertError)
+      )
+
+      return { x, y, z }
     }),
 
   /**
@@ -161,18 +176,21 @@ export const CoordinateTransforms = {
       const localX = ((world.x % CHUNK_CONSTANTS.SIZE) + CHUNK_CONSTANTS.SIZE) % CHUNK_CONSTANTS.SIZE
       const localZ = ((world.z % CHUNK_CONSTANTS.SIZE) + CHUNK_CONSTANTS.SIZE) % CHUNK_CONSTANTS.SIZE
 
-      return yield* Effect.try({
-        try: () => ({
-          x: Schema.decodeSync(Schema.Number.pipe(Schema.brand('LocalX')))(localX),
-          z: Schema.decodeSync(Schema.Number.pipe(Schema.brand('LocalZ')))(localZ),
-        }),
-        catch: (error) => ({
-          _tag: 'ConversionOverflow' as const,
-          operation: 'worldToLocal',
-          input: world,
-          message: `Failed to convert world to local coordinate: ${error}`,
-        }),
+      const convertError = (error: unknown) => ({
+        _tag: 'ConversionOverflow' as const,
+        operation: 'worldToLocal',
+        input: world,
+        message: `Failed to convert world to local coordinate: ${String(error)}`,
       })
+
+      const x = yield* Schema.decode(Schema.Number.pipe(Schema.brand('LocalX')))(localX).pipe(
+        Effect.mapError(convertError)
+      )
+      const z = yield* Schema.decode(Schema.Number.pipe(Schema.brand('LocalZ')))(localZ).pipe(
+        Effect.mapError(convertError)
+      )
+
+      return { x, z }
     }),
 
   /**
@@ -187,19 +205,21 @@ export const CoordinateTransforms = {
       const worldX = chunk.x * CHUNK_CONSTANTS.SIZE + local.x
       const worldZ = chunk.z * CHUNK_CONSTANTS.SIZE + local.z
 
-      return yield* Effect.try({
-        try: () => ({
-          x: Schema.decodeSync(Schema.Number.pipe(Schema.brand('WorldX')))(worldX),
-          y,
-          z: Schema.decodeSync(Schema.Number.pipe(Schema.brand('WorldZ')))(worldZ),
-        }),
-        catch: (error) => ({
-          _tag: 'ConversionOverflow' as const,
-          operation: 'localToWorld',
-          input: { chunk, local, y },
-          message: `Failed to convert local to world coordinate: ${error}`,
-        }),
+      const convertError = (error: unknown) => ({
+        _tag: 'ConversionOverflow' as const,
+        operation: 'localToWorld',
+        input: { chunk, local, y },
+        message: `Failed to convert local to world coordinate: ${String(error)}`,
       })
+
+      const x = yield* Schema.decode(Schema.Number.pipe(Schema.brand('WorldX')))(worldX).pipe(
+        Effect.mapError(convertError)
+      )
+      const z = yield* Schema.decode(Schema.Number.pipe(Schema.brand('WorldZ')))(worldZ).pipe(
+        Effect.mapError(convertError)
+      )
+
+      return { x, y, z }
     }),
 
   /**

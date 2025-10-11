@@ -480,10 +480,9 @@ const validateConfiguration = (config: WorldConfiguration): Effect.Effect<boolea
   pipe(
     Effect.gen(function* () {
       // スキーマ検証
-      yield* Effect.try({
-        try: () => Schema.decodeSync(WorldConfigurationSchema)(config),
-        catch: () => new Error('Schema validation failed'),
-      })
+      yield* Schema.decode(WorldConfigurationSchema)(config).pipe(
+        Effect.mapError(() => new Error('Schema validation failed'))
+      )
 
       // ビジネスルール検証
       const isParametersValid = yield* GenerationParameters.validate(config.parameters)
@@ -504,12 +503,10 @@ const validateCreateParams = (
 ): Effect.Effect<CreateConfigurationParams, ConfigurationFactoryError> =>
   Effect.gen(function* () {
     // Schema検証
-    const validatedParams = yield* pipe(
-      Effect.try({
-        try: () => Schema.decodeSync(CreateConfigurationParamsSchema)(params),
-        catch: (error) =>
-          ConfigurationFactoryError.configurationInvalid('Schema validation failed', { context: { error } }),
-      })
+    const validatedParams = yield* Schema.decode(CreateConfigurationParamsSchema)(params).pipe(
+      Effect.mapError((error) =>
+        ConfigurationFactoryError.configurationInvalid('Schema validation failed', { context: { error } })
+      )
     )
 
     // ビジネスルール検証
@@ -807,8 +804,8 @@ export interface WorldConfigurationBuilder {
 //
 // 使用例:
 // import { pipe } from 'effect/Function'
-// import * as BuilderState from './builder_state.js'
-// import * as BuilderFunctions from './builder_functions.js'
+// import * as BuilderState from './builder_state'
+// import * as BuilderFunctions from './builder_functions'
 //
 // const config = yield* pipe(
 //   BuilderState.initialWorldConfigurationBuilderState,
@@ -819,8 +816,8 @@ export interface WorldConfigurationBuilder {
 
 export const createWorldConfigurationBuilder = (): Effect.Effect<never, ConfigurationFactoryError> => {
   // Builder interface is deprecated - use pure functions instead
-  // Import: import * as BuilderState from './builder_state.js'
-  // Import: import * as BuilderFunctions from './builder_functions.js'
+  // Import: import * as BuilderState from './builder_state'
+  // Import: import * as BuilderFunctions from './builder_functions'
   //
   // Usage:
   // const config = yield* pipe(

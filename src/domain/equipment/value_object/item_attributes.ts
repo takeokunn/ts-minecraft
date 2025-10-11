@@ -1,6 +1,7 @@
 import type { EquipmentDomainError, WeightKg } from '@domain/equipment/types'
 import { makeRequirementViolation, WeightSchema } from '@domain/equipment/types'
-import { Effect, Match, pipe, Schema } from 'effect'
+import * as Schema from '@effect/schema/Schema'
+import { Effect } from 'effect'
 
 export const EquipmentTierSchema = Schema.Literal('common', 'rare', 'epic', 'legendary').pipe(
   Schema.brand('EquipmentTier')
@@ -15,20 +16,19 @@ export const EquipmentStatsSchema = Schema.Struct({
 })
 export type EquipmentStats = Schema.Schema.Type<typeof EquipmentStatsSchema>
 
-const decodeWeight = Schema.decodeUnknownSync(WeightSchema)
-const encodeTier = Schema.encodeSync(EquipmentTierSchema)
+type EquipmentTierLiteral = Schema.Schema.Input<typeof EquipmentTierSchema>
 
-const getTierMultiplier = (tier: EquipmentTier): number => {
-  const literal = encodeTier(tier)
-  return pipe(
-    Match.value(literal),
-    Match.when('common', () => 1),
-    Match.when('rare', () => 0.95),
-    Match.when('epic', () => 0.9),
-    Match.when('legendary', () => 0.85),
-    Match.exhaustive
-  )
+const tierMultipliers: Record<EquipmentTierLiteral, number> = {
+  common: 1,
+  rare: 0.95,
+  epic: 0.9,
+  legendary: 0.85,
 }
+
+const toLiteral = (tier: EquipmentTier): EquipmentTierLiteral => tier as EquipmentTierLiteral
+const toWeight = (value: number): WeightKg => value as WeightKg
+
+const getTierMultiplier = (tier: EquipmentTier): number => tierMultipliers[toLiteral(tier)]
 
 export const mergeStats = (stats: ReadonlyArray<EquipmentStats>): EquipmentStats =>
   stats.reduce<EquipmentStats>(
@@ -42,7 +42,7 @@ export const mergeStats = (stats: ReadonlyArray<EquipmentStats>): EquipmentStats
   )
 
 export const applyTierWeight = (tier: EquipmentTier, weight: WeightKg): WeightKg =>
-  decodeWeight(Number(weight) * getTierMultiplier(tier))
+  toWeight(Number(weight) * getTierMultiplier(tier))
 
 export const ensureWeightWithinLimit = (
   limit: WeightKg,

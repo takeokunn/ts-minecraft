@@ -3,6 +3,7 @@ import {
   CameraVector3Schema,
   createCameraError,
   DEFAULT_CAMERA_CONFIG,
+  makeCameraSync,
   validateCameraConfig,
   validateCameraMode,
 } from './index'
@@ -135,26 +136,27 @@ const directionToRotation = (
   return { pitch, yaw }
 }
 
-const toSnapshot = (state: ThirdPersonState): CameraSnapshot => ({
-  projection: {
-    fov: state.config.fov,
-    aspect: state.config.aspect,
-    near: state.config.near,
-    far: state.config.far,
-  },
-  transform: {
-    position: { ...state.state.position },
-    target: { ...state.state.target },
-    orientation: {
-      rotation: {
-        pitch: state.state.rotation.pitch,
-        yaw: state.state.rotation.yaw,
-        roll: 0,
-      },
-      quaternion: createQuaternion(state.state.rotation.pitch, state.state.rotation.yaw, 0),
+const toSnapshot = (state: ThirdPersonState): CameraSnapshot =>
+  makeCameraSync({
+    projection: {
+      fov: state.config.fov,
+      aspect: state.config.aspect,
+      near: state.config.near,
+      far: state.config.far,
     },
-  },
-})
+    transform: {
+      position: { ...state.state.position },
+      target: { ...state.state.target },
+      orientation: {
+        rotation: {
+          pitch: state.state.rotation.pitch,
+          yaw: state.state.rotation.yaw,
+          roll: 0,
+        },
+        quaternion: createQuaternion(state.state.rotation.pitch, state.state.rotation.yaw, 0),
+      },
+    },
+  })
 
 const createDefaultThirdPersonState = (): ThirdPersonState => {
   const config: CameraConfig = { ...DEFAULT_CAMERA_CONFIG, mode: 'third-person' as CameraMode }
@@ -356,17 +358,40 @@ const createThirdPersonCameraService = (stateRef: Ref.Ref<ThirdPersonState>): Ca
       const validDistance = yield* validateNumber(distance, 'distance')
       const clampedDistance = Math.max(1, Math.min(50, validDistance))
 
-      yield* Ref.update(stateRef, (current) => ({
-        ...current,
-        spherical: {
-          ...current.spherical,
-          radius: clampedDistance,
-        },
+      const state = yield* Ref.get(stateRef)
+      yield* ensureInitialized(state, 'setThirdPersonDistance')
+
+      const spherical = {
+        ...state.spherical,
+        radius: clampedDistance,
+      }
+
+      const target = {
+        x: state.targetPosition.x,
+        y: state.targetPosition.y + state.config.thirdPersonHeight,
+        z: state.targetPosition.z,
+      }
+
+      const position = sphericalToCartesian(spherical, target)
+      const rotation = directionToRotation(position, target)
+
+      const newState: ThirdPersonState = {
+        ...state,
+        spherical,
+        smoothedPosition: position,
+        smoothedTarget: target,
         config: {
-          ...current.config,
+          ...state.config,
           thirdPersonDistance: clampedDistance,
         },
-      }))
+        state: {
+          position,
+          rotation,
+          target,
+        },
+      }
+
+      yield* Ref.set(stateRef, newState)
     }),
 
   setSmoothing: (smoothing: SmoothingInput): Effect.Effect<void, CameraError> =>

@@ -31,7 +31,7 @@ export const GameApplicationConfigPatch = Schema.Struct({
 export type GameApplicationConfigPatch = Schema.Schema.Type<typeof GameApplicationConfigPatch>
 export type GameApplicationConfigPatchInput = Schema.Schema.Input<typeof GameApplicationConfigPatch>
 
-const decodeJsonValue = Schema.decodeUnknownSync(JsonValue)
+const decodeJsonValue = Schema.decodeUnknown(JsonValue)
 const encodeConfigSync = Schema.encodeSync(GameApplicationConfigSchema)
 const decodeConfigEither = Schema.decodeUnknownEither(GameApplicationConfigSchema)
 const decodePatchEither = Schema.decodeUnknownEither(GameApplicationConfigPatch)
@@ -71,7 +71,7 @@ const toJsonValue = (input: JsonSerializableInput): Effect.Effect<JsonValue, Con
         }),
     })
 
-    return decodeJsonValue(materialized)
+    return yield* decodeJsonValue(materialized)
   })
 
 const configurationFailure = ({

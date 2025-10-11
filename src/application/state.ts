@@ -1,4 +1,4 @@
-import { Match, Schema } from 'effect'
+import { Match } from 'effect'
 import type { SystemStatus as Status } from './types'
 import {
   ApplicationLifecycleState,
@@ -18,15 +18,15 @@ import {
   Timestamp,
 } from './types'
 
-const ensureState = Schema.decodeSync(GameApplicationState)
-const toFramesPerSecond = Schema.decodeSync(FramesPerSecond)
-const toFrameCount = Schema.decodeSync(FrameCount)
-const toMilliseconds = Schema.decodeSync(Milliseconds)
-const toMemoryBytes = Schema.decodeSync(MemoryBytes)
-const toCpuPercentage = Schema.decodeSync(CpuPercentage)
-const toResourcePercentage = Schema.decodeSync(ResourcePercentage)
-const toSlotCount = Schema.decodeSync(SlotCount)
-const toTimestamp = Schema.decodeSync(Timestamp)
+const ensureState = (state: GameApplicationState): GameApplicationState => state
+const toFramesPerSecond = (value: number): FramesPerSecond => value as FramesPerSecond
+const toFrameCount = (value: number): FrameCount => value as FrameCount
+const toMilliseconds = (value: number): Milliseconds => value as Milliseconds
+const toMemoryBytes = (value: number): MemoryBytes => value as MemoryBytes
+const toCpuPercentage = (value: number): CpuPercentage => value as CpuPercentage
+const toResourcePercentage = (value: number): ResourcePercentage => value as ResourcePercentage
+const toSlotCount = (value: number): SlotCount => value as SlotCount
+const toTimestamp = (value: number): Timestamp => value as Timestamp
 
 const lifecycleToSystemStatus = (lifecycle: ApplicationLifecycleState): Status =>
   Match.value(lifecycle).pipe(

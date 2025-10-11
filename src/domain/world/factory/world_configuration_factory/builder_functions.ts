@@ -1,13 +1,13 @@
 import * as BiomeProperties from '@/domain/biome/value_object/biome_properties/index'
-import * as GenerationParameters from '@domain/world/config/generation_parameters.js'
-import * as NoiseConfiguration from '@domain/world/config/noise_configuration.js'
-import * as WorldSeed from '@domain/world/config/world_seed.js'
+import * as GenerationParameters from '@domain/world/config/generation_parameters'
+import * as NoiseConfiguration from '@domain/world/config/noise_configuration'
+import * as WorldSeed from '@domain/world/config/world_seed'
 import type { JsonRecord } from '@shared/schema/json'
 import * as Effect from 'effect/Effect'
-import type { WorldConfigurationBuilderState } from './builder_state.js'
-import type { ConfigurationFactoryError } from './errors.js'
-import { createDefaultConfiguration } from './factory.js'
-import type { WorldConfiguration } from './types.js'
+import type { WorldConfigurationBuilderState } from './builder_state'
+import type { ConfigurationFactoryError } from './errors'
+import { createDefaultConfiguration } from './factory'
+import type { WorldConfiguration } from './types'
 
 /**
  * Seed設定関数

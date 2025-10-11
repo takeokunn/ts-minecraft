@@ -430,9 +430,9 @@ WebGLとWebGPUの両方をサポートする統合アーキテクチャにより
 
 ```typescript
 import { pass, mrt, output, emissive, vec2 } from 'three/tsl'
-import { bloom } from 'three/addons/tsl/display/BloomNode.js'
-import { ssao } from 'three/addons/tsl/display/SSAONode.js'
-import { ssr } from 'three/addons/tsl/display/SSRNode.js'
+import { bloom } from 'three/addons/tsl/display/BloomNode'
+import { ssao } from 'three/addons/tsl/display/SSAONode'
+import { ssr } from 'three/addons/tsl/display/SSRNode'
 
 // シェーダー設定スキーマ（Schema-First パターン）
 const TSLConfigSchema = Schema.Struct({

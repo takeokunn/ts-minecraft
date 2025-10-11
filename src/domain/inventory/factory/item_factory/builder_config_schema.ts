@@ -6,6 +6,8 @@
  */
 
 import { Schema } from '@effect/schema'
+import { pipe } from 'effect/Function'
+import * as Either from 'effect/Either'
 import { ItemCategorySchema, ItemQualitySchema, ItemRaritySchema } from '../../types/item_enums'
 
 /**
@@ -43,7 +45,13 @@ export type ItemBuilderConfig = Schema.Schema.Type<typeof ItemBuilderConfigSchem
  */
 export const makeItemBuilderConfig = (
   config: Schema.Schema.Encoded<typeof ItemBuilderConfigSchema>
-): ItemBuilderConfig => Schema.decodeUnknownSync(ItemBuilderConfigSchema)(config)
+): ItemBuilderConfig =>
+  pipe(
+    Schema.decodeUnknownEither(ItemBuilderConfigSchema)(config),
+    Either.getOrElse((error) => {
+      throw error
+    })
+  )
 
 /**
  * パフォーマンス重視用（信頼できる入力のみ使用）

@@ -8,19 +8,19 @@
  * - 生態系シミュレーション
  */
 
-import * as Coordinates from '@/domain/biome/value_object/coordinates/index.js'
-import type * as GenerationErrors from '@domain/world/types/errors/generation_errors.js'
+import * as Coordinates from '@/domain/biome/value_object/coordinates/index'
+import type * as GenerationErrors from '@domain/world/types/errors/generation_errors'
 import { Clock, Context, DateTime, Effect, Schema, STM } from 'effect'
-import * as BiomeRegistry from './biome_registry.js'
-import * as BiomeTransitions from './biome_transitions.js'
-import * as ClimateModel from './climate_model.js'
-import * as BiomeEvents from './events.js'
+import * as BiomeRegistry from './biome_registry'
+import * as BiomeTransitions from './biome_transitions'
+import * as ClimateModel from './climate_model'
+import * as BiomeEvents from './events'
 import {
   type BiomeDistribution,
   type BiomeSystem,
   type BiomeSystemConfiguration,
   type BiomeSystemId,
-} from './shared.js'
+} from './shared'
 
 // ================================
 // Commands

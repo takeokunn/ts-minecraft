@@ -7,6 +7,13 @@
  */
 
 // ========================================
+// Camera API Service
+// ========================================
+
+export { CameraAPIService, CameraAPIServiceLive, type CameraAPIError } from './api-service'
+export type { CameraAPIService } from './api-service'
+
+// ========================================
 // Player Camera Application Service
 // ========================================
 
@@ -142,6 +149,7 @@ export const CameraApplicationServiceLayerModule = {
     'SceneCameraApplicationService',
     'CameraModeManagerApplicationService',
     'CameraSystemOrchestratorService',
+    'CameraAPIService',
   ] as const,
 
   responsibilities: [
@@ -149,6 +157,7 @@ export const CameraApplicationServiceLayerModule = {
     'シーンカメラ・シネマティック機能',
     'ビューモード切り替え・最適化',
     'システム全体のオーケストレーション',
+    'Camera CQRS APIサービスの提供',
   ] as const,
 
   features: [

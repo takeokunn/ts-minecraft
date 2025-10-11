@@ -106,8 +106,6 @@ export type GameApplicationConfigInput = Schema.Schema.Input<typeof GameApplicat
 export const SystemStatus = Schema.Literal('idle', 'initializing', 'running', 'paused', 'error')
 export type SystemStatus = Schema.Schema.Type<typeof SystemStatus>
 
-const decodeSystemStatus = Schema.decodeSync(SystemStatus)
-
 export const SystemStatusValues: {
   readonly Idle: SystemStatus
   readonly Initializing: SystemStatus
@@ -115,11 +113,11 @@ export const SystemStatusValues: {
   readonly Paused: SystemStatus
   readonly Error: SystemStatus
 } = {
-  Idle: decodeSystemStatus('idle'),
-  Initializing: decodeSystemStatus('initializing'),
-  Running: decodeSystemStatus('running'),
-  Paused: decodeSystemStatus('paused'),
-  Error: decodeSystemStatus('error'),
+  Idle: 'idle',
+  Initializing: 'initializing',
+  Running: 'running',
+  Paused: 'paused',
+  Error: 'error',
 }
 
 export const GameLoopState = Schema.Struct({
@@ -178,14 +176,12 @@ export type ECSState = Schema.Schema.Type<typeof ECSState>
 export const HealthStatus = Schema.Literal('healthy', 'unhealthy')
 export type HealthStatus = Schema.Schema.Type<typeof HealthStatus>
 
-const decodeHealthStatus = Schema.decodeSync(HealthStatus)
-
 export const HealthStatusValues: {
   readonly Healthy: HealthStatus
   readonly Unhealthy: HealthStatus
 } = {
-  Healthy: decodeHealthStatus('healthy'),
-  Unhealthy: decodeHealthStatus('unhealthy'),
+  Healthy: 'healthy',
+  Unhealthy: 'unhealthy',
 }
 
 export const SystemHealthCheck = Schema.Struct({
@@ -251,9 +247,7 @@ export type GameApplicationState = Schema.Schema.Type<typeof GameApplicationStat
 
 // ===== デフォルト設定 =====
 
-const ensureGameApplicationConfig = Schema.decodeSync(GameApplicationConfig)
-
-export const DEFAULT_GAME_APPLICATION_CONFIG = ensureGameApplicationConfig({
+export const DEFAULT_GAME_APPLICATION_CONFIG: GameApplicationConfig = {
   rendering: {
     targetFps: 60,
     enableVSync: true,
@@ -283,4 +277,4 @@ export const DEFAULT_GAME_APPLICATION_CONFIG = ensureGameApplicationConfig({
     showPerformanceStats: false,
     enableHotReload: false,
   },
-}) satisfies GameApplicationConfig
+} as GameApplicationConfig

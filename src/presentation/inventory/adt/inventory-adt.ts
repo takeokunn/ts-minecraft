@@ -2,7 +2,6 @@ import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
 import { Data, Effect, Match, Option, Schema, pipe } from 'effect'
 
 const decode = <A, I>(schema: Schema.Schema<A, I>) => Schema.decode(schema)
-const decodeSync = <A, I>(schema: Schema.Schema<A, I>) => Schema.decodeSync(schema)
 
 // PlayerIdは共有カーネルから再エクスポート
 export { PlayerIdSchema, type PlayerId } from '@domain/shared/entities/player_id'
@@ -180,7 +179,7 @@ export const InventoryGUIConfigSchema = Schema.Struct({
 })
 export type InventoryGUIConfig = Schema.Schema.Type<typeof InventoryGUIConfigSchema>
 
-export const defaultInventoryGUIConfig: InventoryGUIConfig = decodeSync(InventoryGUIConfigSchema)({
+export const defaultInventoryGUIConfig: InventoryGUIConfig = {
   slotSize: 48,
   slotSpacing: 4,
   hotbarSlots: 9,
@@ -201,7 +200,7 @@ export const defaultInventoryGUIConfig: InventoryGUIConfig = decodeSync(Inventor
     tooltipBackground: 'rgba(0, 0, 0, 0.9)',
     tooltipText: '#ffffff',
   },
-})
+} as InventoryGUIConfig
 
 export interface InventoryView {
   readonly playerId: PlayerId
@@ -421,20 +420,18 @@ export const slotAcceptsItem = (slot: InventorySlot, item: ItemStack) =>
   )
 
 const capitalize = (chunk: string) =>
-  pipe(decodeSync(Schema.String)(chunk), (value) =>
-    pipe(
-      Option.fromNullable(value.at(0)),
-      Option.match({
-        onNone: () => value,
-        onSome: (first) => `${first.toUpperCase()}${value.slice(1)}`,
-      })
-    )
+  pipe(
+    Option.fromNullable(chunk.at(0)),
+    Option.match({
+      onNone: () => chunk,
+      onSome: (first) => `${first.toUpperCase()}${chunk.slice(1)}`,
+    })
   )
 
 export const formatItemName = (item: ItemStack) =>
   pipe(
     Option.fromNullable(item.metadata?.displayName),
-    Option.map(decodeSync(Schema.String)),
+    Option.map((value) => value),
     Option.getOrElse(() =>
       pipe(
         item.itemId.split(':'),

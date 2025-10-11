@@ -267,16 +267,16 @@ export const AudioHelpers = {
     const clamped = Math.max(0, Math.min(1, value))
     // Handle very small numbers that may cause precision issues
     const normalized = clamped < 0.0001 ? 0 : clamped
-    return pipe(normalized, Schema.decodeSync(Volume))
+    return normalized as Volume
   },
 
-  createPitch: (value: number): Pitch => pipe(Math.max(0.5, Math.min(2, value)), Schema.decodeSync(Pitch)),
+  createPitch: (value: number): Pitch => Math.max(0.5, Math.min(2, value)) as Pitch,
 
-  createAudioDistance: (value: number): AudioDistance => pipe(Math.max(0, value), Schema.decodeSync(AudioDistance)),
+  createAudioDistance: (value: number): AudioDistance => Math.max(0, value) as AudioDistance,
 
-  createSoundId: (value: string): SoundId => Schema.decodeSync(SoundId)(value),
+  createSoundId: (value: string): SoundId => value as SoundId,
 
-  createSourceId: (value: string): SourceId => Schema.decodeSync(SourceId)(value),
+  createSourceId: (value: string): SourceId => value as SourceId,
 
-  identityQuaternion: (): Quaternion => Schema.decodeSync(Quaternion)({ x: 0, y: 0, z: 0, w: 1 }),
+  identityQuaternion: (): Quaternion => ({ x: 0, y: 0, z: 0, w: 1 }) as Quaternion,
 }

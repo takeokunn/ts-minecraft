@@ -67,8 +67,13 @@ export const GameLoopConfigSchema = Schema.Struct({
 })
 export type GameLoopConfig = Schema.Schema.Type<typeof GameLoopConfigSchema>
 
+const decodeTimestampSync = Schema.decodeSync(TimestampSchema)
+const decodeFrameDurationSync = Schema.decodeSync(FrameDurationSchema)
+const decodeFrameCountSync = Schema.decodeSync(FrameCountSchema)
+const decodeFpsSync = Schema.decodeSync(FramesPerSecondSchema)
+
 export const DefaultGameLoopConfig: GameLoopConfig = {
-  targetFps: Schema.decodeSync(FramesPerSecondSchema)(60),
+  targetFps: decodeFpsSync(60),
   maxFrameSkip: 5,
   enablePerformanceMonitoring: true,
   adaptiveQuality: true,
@@ -193,8 +198,8 @@ export const effectFromEither = <E, A>(either: Either.Either<E, A>): Effect.Effe
   )
 
 export const GameLoopBrandedTypes = {
-  createTimestamp: Schema.decodeSync(TimestampSchema),
-  createDeltaTime: Schema.decodeSync(FrameDurationSchema),
-  createFrameCount: Schema.decodeSync(FrameCountSchema),
-  createFps: Schema.decodeSync(FramesPerSecondSchema),
+  createTimestamp: (value: number): Timestamp => decodeTimestampSync(value),
+  createDeltaTime: (value: number): FrameDuration => decodeFrameDurationSync(value),
+  createFrameCount: (value: number): FrameCount => decodeFrameCountSync(value),
+  createFps: (value: number): FramesPerSecond => decodeFpsSync(value),
 }

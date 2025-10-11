@@ -1,5 +1,6 @@
 export * from './business_rules.js'
 export * from './events.js'
 export * from './generation_state.js'
+export * from './generation_context.js'
 export * from './shared/index.js'
 export * from './world_generator.js'

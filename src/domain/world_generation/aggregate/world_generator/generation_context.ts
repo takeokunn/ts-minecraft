@@ -92,7 +92,7 @@ export const create = (
     // Random Serviceで決定的なID生成（再現性保証）
     const randomValue = yield* Random.nextIntBetween(0, 2176782336) // 36^6
     const randomStr = randomValue.toString(36).padStart(6, '0')
-    const contextId = Schema.decodeSync(GenerationContextIdSchema)(`ctx_${timestamp}_${randomStr}`)
+    const contextId = yield* Schema.decode(GenerationContextIdSchema)(`ctx_${timestamp}_${randomStr}`)
 
     // デフォルト値の設定
     const seed = params.seed ?? WorldSeed.generateRandom()

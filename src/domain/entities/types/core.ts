@@ -268,9 +268,11 @@ export const BrandedTypes = {
   createWorldId: (value: string): WorldId => Schema.decodeSync(WorldIdSchema)(value),
   createEntityCount: (value: number): EntityCount => Schema.decodeSync(EntityCountSchema)(value),
   createEntityCapacity: (value: number): EntityCapacity => Schema.decodeSync(EntityCapacitySchema)(value),
-  createComponentTypeName: (value: string): ComponentTypeName => Schema.decodeSync(ComponentTypeNameSchema)(value),
+  createComponentTypeName: (value: string): ComponentTypeName =>
+    Schema.decodeSync(ComponentTypeNameSchema)(value),
   createDeltaTime: (value: number): DeltaTime => Schema.decodeSync(DeltaTimeSchema)(value),
-  createVector3D: (x: number, y: number, z: number): Vector3D => Schema.decodeSync(Vector3Schema)({ x, y, z }),
+  createVector3D: (x: number, y: number, z: number): Vector3D =>
+    Schema.decodeSync(Vector3Schema)({ x, y, z }),
   createBlockPosition: (x: number, y: number, z: number): BlockPosition =>
     Schema.decodeSync(BlockPositionSchema)({ x, y, z }),
   createRotation: (pitch: number, yaw: number, roll: number = 0): Rotation =>

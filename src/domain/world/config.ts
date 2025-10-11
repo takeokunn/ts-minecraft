@@ -1,6 +1,7 @@
 import type { WorldRepositoryLayerConfig } from '@domain/world/repository'
 import { WorldRepositoryLayerConfigSchema } from '@domain/world/repository/layers'
 import { Context, Effect, Layer, Match, Schema } from 'effect'
+import * as Either from 'effect/Either'
 
 const PerformanceModeSchema = Schema.Literal('quality', 'balanced', 'performance')
 const BooleanSchema = Schema.Boolean
@@ -111,7 +112,7 @@ const defaultRepositoryConfig: WorldRepositoryLayerConfig = {
 }
 
 const makeConfigSync = (config: Partial<WorldDomainConfig> = {}): WorldDomainConfig => {
-  const decoded = Schema.decodeUnknownSync(WorldDomainConfigRawSchema)({
+  const candidate = {
     repository: config.repository ?? defaultRepositoryConfig,
     enableDomainEvents: config.enableDomainEvents ?? true,
     enablePerformanceMetrics: config.enablePerformanceMetrics ?? true,
@@ -121,7 +122,15 @@ const makeConfigSync = (config: Partial<WorldDomainConfig> = {}): WorldDomainCon
     enableFactoryValidation: config.enableFactoryValidation ?? true,
     performanceMode: config.performanceMode ?? 'balanced',
     debugMode: config.debugMode ?? false,
+  }
+
+  const decoded = Either.match(Schema.decodeUnknownEither(WorldDomainConfigRawSchema)(candidate), {
+    onLeft: (error) => {
+      throw error
+    },
+    onRight: (value) => value,
   })
+
   return {
     ...decoded,
     repository: decoded.repository as WorldRepositoryLayerConfig,

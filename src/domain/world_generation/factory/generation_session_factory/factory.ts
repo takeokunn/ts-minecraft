@@ -387,14 +387,12 @@ const createGenerationSessionFactory = (): GenerationSessionFactory => ({
  * セッションパラメータ検証
  */
 const validateSessionParams = (params: CreateSessionParams): Effect.Effect<void, SessionFactoryError> =>
-  pipe(
-    Effect.try({
-      try: () => Schema.decodeSync(CreateSessionParamsSchema)(params),
-      catch: (error) =>
-        SessionFactoryError.configurationInvalid('Invalid session parameters', {
-          cause: error,
-        }),
-    }),
+  Schema.decode(CreateSessionParamsSchema)(params).pipe(
+    Effect.mapError((error) =>
+      SessionFactoryError.configurationInvalid('Invalid session parameters', {
+        cause: error,
+      })
+    ),
     Effect.asVoid
   )
 

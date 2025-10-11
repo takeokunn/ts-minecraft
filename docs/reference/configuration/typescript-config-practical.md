@@ -775,7 +775,7 @@ import { PhysicsLayer } from '@/infrastructure/physics/PhysicsLayer'
 
 // 5. ゲームエンジン統合
 import * as THREE from 'three'
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
 
 // ❌ 非推奨: デフォルトインポート
 import Effect from 'effect' // Tree-shakingされない

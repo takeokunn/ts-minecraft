@@ -162,8 +162,8 @@ export interface SessionConfigurationBuilder {
 //
 // 使用例:
 // import { pipe } from 'effect/Function'
-// import * as BuilderState from './configuration_builder_state.js'
-// import * as BuilderFunctions from './configuration_builder_functions.js'
+// import * as BuilderState from './configuration_builder_state'
+// import * as BuilderFunctions from './configuration_builder_functions'
 //
 // const config = yield* pipe(
 //   BuilderState.initialSessionConfigurationBuilderState,

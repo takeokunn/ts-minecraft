@@ -21,7 +21,18 @@ export const create = (value: string): Effect.Effect<ItemId, Error> =>
 /**
  * ItemIdの安全な作成（同期版）
  */
-export const createSync = (value: string): ItemId => Schema.decodeSync(ItemIdSchema)(value)
+export const createSync = (value: string): ItemId => {
+  try {
+    return Schema.decodeSync(ItemIdSchema)(value)
+  } catch (error) {
+    const issues =
+      (error as any)?.issues?.map((issue: any) => {
+        const path = issue.path?.join('.') || 'unknown'
+        return `${path}: ${issue.message}`
+      }) || []
+    throw new Error(`ItemIdの作成に失敗: ${issues.join('; ') || String(error)}`)
+  }
+}
 
 /**
  * ItemIdの作成（検証なし）

@@ -306,13 +306,15 @@ export type SessionEvent = typeof SessionEventSchema.Type
 /**
  * ユニークなイベントIDを生成
  */
+const SessionEventIdSchema = Schema.String.pipe(Schema.brand('SessionEventId'))
+
 const generateEventId = (): Effect.Effect<string & Brand.Brand<'SessionEventId'>> =>
   Effect.gen(function* () {
     const timestamp = yield* Clock.currentTimeMillis
     // Random Serviceで決定的なID生成（再現性保証）
     const randomValue = yield* Random.nextIntBetween(0, 2176782336) // 36^6
     const randomStr = randomValue.toString(36).padStart(6, '0')
-    return Schema.decodeSync(Schema.String.pipe(Schema.brand('SessionEventId')))(`sevt_${timestamp}_${randomStr}`)
+    return yield* Schema.decode(SessionEventIdSchema)(`sevt_${timestamp}_${randomStr}`)
   })
 
 /**
@@ -330,10 +332,10 @@ export const createSessionCreated = (
     const eventId = yield* generateEventId()
     const timestamp = yield* DateTime.nowAsDate
     const encodedMetadata = metadata
-      ? Schema.decodeSync(Schema.Record({ key: Schema.String, value: JsonValueSchema }))(metadata)
+      ? yield* Schema.decode(Schema.Record({ key: Schema.String, value: JsonValueSchema }))(metadata)
       : undefined
 
-    return Schema.decodeSync(SessionCreatedSchema)({
+    return yield* Schema.decode(SessionCreatedSchema)({
       eventId,
       sessionId,
       aggregateVersion: 1,
@@ -363,7 +365,7 @@ export const createSessionStarted = (
     const eventId = yield* generateEventId()
     const timestamp = yield* DateTime.nowAsDate
 
-    return Schema.decodeSync(SessionStartedSchema)({
+    return yield* Schema.decode(SessionStartedSchema)({
       eventId,
       sessionId,
       aggregateVersion,
@@ -391,7 +393,7 @@ export const createSessionPaused = (
     const eventId = yield* generateEventId()
     const timestamp = yield* DateTime.nowAsDate
 
-    return Schema.decodeSync(SessionPausedSchema)({
+    return yield* Schema.decode(SessionPausedSchema)({
       eventId,
       sessionId,
       aggregateVersion: aggregateVersion ?? 1,
@@ -419,7 +421,7 @@ export const createSessionResumed = (
     const eventId = yield* generateEventId()
     const timestamp = yield* DateTime.nowAsDate
 
-    return Schema.decodeSync(SessionResumedSchema)({
+    return yield* Schema.decode(SessionResumedSchema)({
       eventId,
       sessionId,
       aggregateVersion: aggregateVersion ?? 1,
@@ -447,7 +449,7 @@ export const createSessionCompleted = (
     const eventId = yield* generateEventId()
     const timestamp = yield* DateTime.nowAsDate
 
-    return Schema.decodeSync(SessionCompletedSchema)({
+    return yield* Schema.decode(SessionCompletedSchema)({
       eventId,
       sessionId,
       aggregateVersion: aggregateVersion ?? 1,
@@ -484,7 +486,7 @@ export const createBatchCompleted = (
     const eventId = yield* generateEventId()
     const timestamp = yield* DateTime.nowAsDate
 
-    return Schema.decodeSync(BatchCompletedSchema)({
+    return yield* Schema.decode(BatchCompletedSchema)({
       eventId,
       sessionId,
       aggregateVersion: aggregateVersion ?? 1,
@@ -514,7 +516,7 @@ export const createBatchFailed = (
     const eventId = yield* generateEventId()
     const timestamp = yield* DateTime.nowAsDate
 
-    return Schema.decodeSync(BatchFailedSchema)({
+    return yield* Schema.decode(BatchFailedSchema)({
       eventId,
       sessionId,
       aggregateVersion: aggregateVersion ?? 1,

@@ -20,7 +20,18 @@ export const create = (value: string): Effect.Effect<BlockId, Error> =>
 /**
  * BlockIdの安全な作成（同期版）
  */
-export const createSync = (value: string): BlockId => Schema.decodeSync(BlockIdSchema)(value)
+export const createSync = (value: string): BlockId => {
+  try {
+    return Schema.decodeSync(BlockIdSchema)(value)
+  } catch (error) {
+    const issues =
+      (error as any)?.issues?.map((issue: any) => {
+        const path = issue.path?.join('.') || 'unknown'
+        return `${path}: ${issue.message}`
+      }) || []
+    throw new Error(`BlockIdの作成に失敗: ${issues.join('; ') || String(error)}`)
+  }
+}
 
 /**
  * BlockIdの等価性チェック

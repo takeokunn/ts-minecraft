@@ -1,4 +1,3 @@
-import * as Schema from '@effect/schema/Schema'
 import { Clock, Effect } from 'effect'
 import { pipe } from 'effect/Function'
 import {
@@ -13,7 +12,6 @@ import {
   ViewControlConfig,
   ViewControlContext,
   ViewControlResult,
-  ViewControlResultSchema,
   ViewDistanceError,
   ViewDistanceEvent,
   ViewDistanceToolkit,
@@ -48,14 +46,12 @@ const makeController = (toolkit: ViewDistanceToolkit): ViewController => ({
 
       const appliedOptimizations = ['frustum-updated', 'lod-evaluated', 'culling-performed']
 
-      const result = yield* Effect.sync(() =>
-        Schema.decodeUnknownSync(ViewControlResultSchema)({
-          frustum: summary,
-          lodDecisions,
-          cullingDecisions,
-          appliedOptimizations,
-        })
-      )
+      const result: ViewControlResult = {
+        frustum: summary,
+        lodDecisions,
+        cullingDecisions,
+        appliedOptimizations,
+      }
 
       const frustumEvent = yield* frustumComputedEvent(frustum)
       const lodEvent = LODBatchEvaluatedEvent({ decisions: lodDecisions })

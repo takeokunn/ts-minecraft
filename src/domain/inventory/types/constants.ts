@@ -12,13 +12,10 @@ import {
   SlotTypeSchema,
 } from './core'
 
-const decode = <A>(schema: Schema.Schema<A>, value: unknown): A => Schema.decodeUnknownSync(schema)(value)
-
-const itemQuantity = (value: number): ItemQuantity => decode(ItemQuantitySchema, value)
-const enchantmentLevel = (value: number): EnchantmentLevel => decode(EnchantmentLevelSchema, value)
-const durability = (value: number): Durability => decode(DurabilitySchema, value)
-const slotTypeArraySchema = Schema.Array(SlotTypeSchema)
-const slotTypes = (...values: SlotType[]): ReadonlyArray<SlotType> => decode(slotTypeArraySchema, values)
+const itemQuantity = (value: number): ItemQuantity => value as ItemQuantity
+const enchantmentLevel = (value: number): EnchantmentLevel => value as EnchantmentLevel
+const durability = (value: number): Durability => value as Durability
+const slotTypes = (...values: SlotType[]): ReadonlyArray<SlotType> => values
 
 type InventorySizes = {
   readonly PLAYER_MAIN: number

@@ -16,6 +16,12 @@ export * from './domain_service/noise_generation/index'
 export * from './domain_service/procedural_generation/index'
 export * from './domain_service/world_generation_orchestrator/index'
 
+// === CQRS Types ===
+export * from './types'
+
+// === CQRS Handlers ===
+export * from './cqrs'
+
 // === Factories ===
 export * from './factory/generation_session_factory/index'
 export * from './factory/world_generator_factory/index'

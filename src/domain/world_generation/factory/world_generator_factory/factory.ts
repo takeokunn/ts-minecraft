@@ -25,6 +25,7 @@ import * as BiomeProperties from '@domain/world/value_object/biome_properties/in
 import * as GenerationParameters from '@domain/world/value_object/generation_parameters/index'
 import * as NoiseConfiguration from '@domain/world/value_object/noise_configuration/index'
 import * as WorldSeed from '@domain/world/value_object/world_seed/index'
+import * as GenerationContext from '@domain/world_generation/aggregate/world_generator/generation_context'
 import { ErrorCauseSchema } from '@shared/schema/error'
 import { JsonValueSchema, type JsonSerializable } from '@shared/schema/json'
 import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
@@ -76,6 +77,20 @@ export const FactoryError = {
     makeFactoryError('performance_constraint', message, extras),
 } as const
 
+const DEFAULT_CONTEXT_METADATA: GenerationContext.ContextMetadata = {
+  name: 'Default World Generator',
+  description: 'Standard world generation context',
+  tags: ['default', 'balanced'],
+  difficulty: 'normal',
+  gameMode: 'survival',
+  worldType: 'default',
+}
+
+const cloneDefaultMetadata = (): GenerationContext.ContextMetadata => ({
+  ...DEFAULT_CONTEXT_METADATA,
+  tags: [...DEFAULT_CONTEXT_METADATA.tags],
+})
+
 // ================================
 // Factory Parameters
 // ================================
@@ -85,6 +100,7 @@ export const FactoryError = {
  * ファクトリで必要な全ての設定を型安全に定義
  */
 export const CreateWorldGeneratorParamsSchema = Schema.Struct({
+  metadata: Schema.optional(GenerationContext.ContextMetadataSchema),
   // 基本設定
   seed: Schema.optional(WorldSeed.WorldSeedSchema),
 
@@ -351,19 +367,20 @@ const createWorldGeneratorFactory = (): WorldGeneratorFactory => ({
  * パラメータ検証
  */
 const validateCreateParams = (params: CreateWorldGeneratorParams): Effect.Effect<void, FactoryError> =>
-  pipe(
-    Effect.try({
-      try: () => Schema.decodeSync(CreateWorldGeneratorParamsSchema)(params),
-      catch: (error) => FactoryError.parameterValidation('Invalid create parameters', { cause: error }),
-    }),
-    Effect.asVoid
-  )
+  Schema.decode(CreateWorldGeneratorParamsSchema)(params)
+    .pipe(
+      Effect.mapError((error) =>
+        FactoryError.parameterValidation('Invalid create parameters', { cause: error })
+      )
+    )
+    .pipe(Effect.asVoid)
 
 /**
  * デフォルト値適用
  */
 const applyDefaults = (params: CreateWorldGeneratorParams): Effect.Effect<CreateWorldGeneratorParams, FactoryError> =>
   Effect.succeed({
+    metadata: params.metadata ?? cloneDefaultMetadata(),
     seed: params.seed ?? WorldSeed.createRandom(),
     parameters: params.parameters ?? GenerationParameters.createDefault(),
     biomeConfig: params.biomeConfig ?? BiomeProperties.createDefaultConfiguration(),
@@ -401,12 +418,17 @@ const buildGenerationContext = (
   params: CreateWorldGeneratorParams,
   _dependencies: WorldGeneratorDependencies
 ): Effect.Effect<WorldGenerator.GenerationContext, FactoryError> =>
-  Effect.succeed({
+  GenerationContext.create({
+    metadata: params.metadata!,
     seed: params.seed!,
     parameters: params.parameters!,
     biomeConfig: params.biomeConfig!,
     noiseConfig: params.noiseConfig!,
-  })
+  }).pipe(
+    Effect.mapError((error) =>
+      FactoryError.parameterValidation('Failed to build generation context', { cause: error })
+    )
+  )
 
 /**
  * WorldGenerator ID生成
@@ -549,10 +571,34 @@ const validateSourceGenerator = (source: WorldGenerator.WorldGenerator) => Effec
 
 const buildCloneConfiguration = (params: CloneParams) => Effect.succeed(params)
 
-const resetGenerationContext = (context: WorldGenerator.GenerationContext) => Effect.succeed(context)
+const resetGenerationContext = (context: WorldGenerator.GenerationContext) =>
+  GenerationContext.clone(context, context.metadata).pipe(
+    Effect.mapError((error) =>
+      FactoryError.configurationConflict('Failed to reset generation context', { cause: error })
+    )
+  )
 
-const applyModifications = (context: WorldGenerator.GenerationContext, modifications: CreateWorldGeneratorParams) =>
-  Effect.succeed(context)
+const applyModifications = (context: WorldGenerator.GenerationContext, modifications: CreateWorldGeneratorParams) => {
+  const updates: Partial<
+    Omit<GenerationContext.GenerationContext, 'id' | 'version' | 'createdAt' | 'updatedAt'>
+  > = {
+    ...(modifications.metadata && { metadata: modifications.metadata }),
+    ...(modifications.seed && { seed: modifications.seed }),
+    ...(modifications.parameters && { parameters: modifications.parameters }),
+    ...(modifications.biomeConfig && { biomeConfig: modifications.biomeConfig }),
+    ...(modifications.noiseConfig && { noiseConfig: modifications.noiseConfig }),
+  }
+
+  if (Object.keys(updates).length === 0) {
+    return Effect.succeed(context)
+  }
+
+  return GenerationContext.update(context, updates).pipe(
+    Effect.mapError((error) =>
+      FactoryError.configurationConflict('Failed to apply context modifications', { cause: error })
+    )
+  )
+}
 
 const performPreValidation = (params: CreateWorldGeneratorParams, level: string) => Effect.succeed(undefined)
 

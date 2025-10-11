@@ -2,10 +2,10 @@
  * @fileoverview Biome System Events - バイオームシステムイベント
  */
 
-import * as Coordinates from '@/domain/biome/value_object/coordinates/index.js'
-import * as WorldSeed from '@domain/world/value_object/world_seed/index.js'
+import * as Coordinates from '@/domain/biome/value_object/coordinates/index'
+import * as WorldSeed from '@domain/world/value_object/world_seed/index'
 import { Clock, Context, DateTime, Effect, Random, Schema } from 'effect'
-import { UpdateClimateModelCommandSchema, type UpdateClimateModelCommand } from './biome_system.js'
+import { UpdateClimateModelCommandSchema, type UpdateClimateModelCommand } from './biome_system'
 import {
   BiomeDistributionPayloadSchema,
   BiomeSystemConfigurationSchema,
@@ -13,7 +13,7 @@ import {
   type BiomeDistribution,
   type BiomeSystemConfiguration,
   type BiomeSystemId,
-} from './shared.js'
+} from './shared'
 
 export const BaseBiomeEventSchema = Schema.Struct({
   eventId: Schema.String.pipe(Schema.brand('BiomeEventId')),

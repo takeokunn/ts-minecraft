@@ -34,10 +34,9 @@ export const EquipmentSlotSchema = Schema.Literal(...equipmentSlotLiterals).pipe
 
 export type EquipmentSlot = Schema.Schema.Type<typeof EquipmentSlotSchema>
 
-const decodeSlot = Schema.decodeUnknownSync(EquipmentSlotSchema)
-const encodeSlot = Schema.encodeSync(EquipmentSlotSchema)
+const toSlot = (literal: EquipmentSlotLiteral): EquipmentSlot => literal as EquipmentSlot
 
-export const allSlots: ReadonlyArray<EquipmentSlot> = equipmentSlotLiterals.map((literal) => decodeSlot(literal))
+export const allSlots: ReadonlyArray<EquipmentSlot> = equipmentSlotLiterals.map(toSlot)
 
 export type SlotCategory =
   | { readonly _tag: 'Hand'; readonly dominance: 'main' | 'off' }
@@ -57,7 +56,7 @@ const slotCategoryTable: Record<EquipmentSlotLiteral, SlotCategory> = {
   belt: { _tag: 'Accessory', type: 'belt' },
 }
 
-const toLiteral = (slot: EquipmentSlot): EquipmentSlotLiteral => encodeSlot(slot)
+const toLiteral = (slot: EquipmentSlot): EquipmentSlotLiteral => slot as EquipmentSlotLiteral
 
 export const getSlotCategory = (slot: EquipmentSlot): Effect.Effect<SlotCategory> =>
   Effect.succeed(slotCategoryTable[toLiteral(slot)])

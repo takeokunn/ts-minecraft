@@ -14,15 +14,14 @@ export type EpochMilliseconds = Schema.Schema.Type<typeof EpochMillisecondsSchem
 export type EpochMillisecondsInput = Schema.Schema.From<typeof EpochMillisecondsSchema>
 
 export const decodeEpochMilliseconds = Schema.decode(EpochMillisecondsSchema)
-export const decodeEpochMillisecondsSync = Schema.decodeSync(EpochMillisecondsSchema)
 
 export const epochMilliseconds = (value: EpochMillisecondsInput): Effect.Effect<EpochMilliseconds> =>
   decodeEpochMilliseconds(value)
 
 export const unsafeEpochMilliseconds = (value: EpochMillisecondsInput): EpochMilliseconds =>
-  decodeEpochMillisecondsSync(value)
+  Schema.decodeSync(EpochMillisecondsSchema)(value)
 
-export const epochZero: EpochMilliseconds = decodeEpochMillisecondsSync(0)
+export const epochZero: EpochMilliseconds = unsafeEpochMilliseconds(0)
 
 export const reviveEpochZero = (): EpochMilliseconds => epochZero
 

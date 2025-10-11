@@ -69,7 +69,7 @@ export type QueueFullError = Schema.Schema.Type<typeof QueueFullErrorSchema>
  * QueueFullErrorを生成するヘルパー関数
  */
 export const createQueueFullError = (message: string): QueueFullError =>
-  Schema.decodeSync(QueueFullErrorSchema)({
+  ({
     _tag: 'QueueFullError' as const,
     message,
   })
@@ -88,7 +88,7 @@ export type EventProcessingError = Schema.Schema.Type<typeof EventProcessingErro
  * EventProcessingErrorを生成するヘルパー関数
  */
 export const createEventProcessingError = (event: GameEvent, cause: ErrorCause): EventProcessingError =>
-  Schema.decodeSync(EventProcessingErrorSchema)({
+  ({
     _tag: 'EventProcessingError' as const,
     event,
     cause,

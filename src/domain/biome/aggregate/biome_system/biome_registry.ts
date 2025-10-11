@@ -4,7 +4,7 @@
 
 import * as BiomeProperties from '@/domain/biome/value_object/biome_properties/index'
 import { Effect, Schema } from 'effect'
-import type { BiomeDistribution } from './shared/index.js'
+import type { BiomeDistribution } from './shared/index'
 
 export const BiomeRegistrySchema = Schema.Struct({
   biomes: Schema.Array(

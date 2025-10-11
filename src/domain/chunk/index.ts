@@ -31,6 +31,8 @@ export {
   type WorldCoordinate,
 } from './aggregate'
 
+export * from './cqrs'
+
 // 値オブジェクト（Value Objects） - 各ドメインコンセプト
 export {
   BiomeType,
@@ -84,32 +86,40 @@ export {
   CHUNK_VOLUME,
   ChunkCorruptedEventSchema,
   ChunkCreatedEventSchema,
-  ChunkEvent,
+  ChunkDeletedEventSchema,
+  ChunkEventBaseSchema,
+  ChunkEventContextSchema,
+  ChunkEventMetadataSchema,
   ChunkEventSchema,
+  ChunkEventSchemas,
+  ChunkEventTypeSchema,
   ChunkIdError,
   ChunkLoadedEventSchema,
   ChunkModifiedEventSchema,
   // エラー
+  ChunkOptimizedEventSchema,
   ChunkPositionError,
   ChunkSavedEventSchema,
+  ChunkValidatedEventSchema,
   ChunkUnloadedEventSchema,
-  createBlockChangedEvent,
-  createChunkCorruptedEvent,
-  createChunkCreatedEvent,
-  createChunkLoadedEvent,
-  createChunkModifiedEvent,
-  createChunkSavedEvent,
-  createChunkUnloadedEvent,
   type BlockChangedEvent,
   type ChunkCorruptedEvent,
   // イベント
   type ChunkCreatedEvent,
+  type ChunkDeletedEvent,
+  type ChunkEventContext,
+  type ChunkEventMetadata,
+  type ChunkEventType,
+  type ChunkEvent,
+  type BaseChunkEvent,
   // インターフェース
   type ChunkDataProvider,
   type ChunkLoadedEvent,
   type ChunkModifiedEvent,
+  type ChunkOptimizedEvent,
   type ChunkSavedEvent,
   type ChunkUnloadedEvent,
+  type ChunkValidatedEvent,
 } from './types'
 
 // ドメインサービス（Domain Services）

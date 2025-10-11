@@ -4,7 +4,7 @@
 
 import { Effect, Schema } from 'effect'
 import type { BiomeRegistry } from './index'
-import type { BiomeDistribution, BiomeSystemConfiguration } from './shared/index.js'
+import type { BiomeDistribution, BiomeSystemConfiguration } from './shared/index'
 
 export const TransitionRuleSchema = Schema.Struct({
   id: Schema.String,

@@ -3,19 +3,58 @@
 // ========================================
 
 // Error ADTs (Data.taggedEnum)
-export { CameraError, PositionError, RotationError, SettingsError } from './errors.js'
+export { CameraError, PositionError, RotationError, SettingsError } from './errors'
 
 // Error Union Types
-export type { CameraDomainError } from './errors.js'
+export type { CameraDomainError } from './errors'
 
 // Error Factory Functions
-export { createCameraError, createPositionError, createRotationError, createSettingsError } from './errors.js'
+export { createCameraError, createPositionError, createRotationError, createSettingsError } from './errors'
+
+// ========================================
+// CQRS Types Export
+// ========================================
+
+export type {
+  CameraCommand,
+  GetCameraSnapshotQuery,
+  GetCameraStateQuery,
+  ListActiveCamerasQuery,
+  SwitchCameraModeCommand,
+  UpdateCameraPositionCommand,
+  UpdateCameraRotationCommand,
+  UpdateCameraSettingsCommand,
+} from './commands'
+
+export {
+  CameraCommandBaseSchema,
+  CameraCommandMetadataSchema,
+  CameraCommandSchema,
+  SwitchCameraModeCommandSchema,
+  UpdateCameraPositionCommandSchema,
+  UpdateCameraRotationCommandSchema,
+  UpdateCameraSettingsCommandSchema,
+  isCameraCommand,
+  validateCameraCommand,
+} from './commands'
+
+export {
+  CameraQueryMetadataSchema,
+  CameraQuerySchema,
+  GetCameraSnapshotQuerySchema,
+  GetCameraStateQuerySchema,
+  ListActiveCamerasQuerySchema,
+  isCameraQuery,
+  validateCameraQuery,
+} from './queries'
+
+export type { CameraQuery } from './queries'
 
 // ========================================
 // Camera View Types Export
 // ========================================
 
-export type { CameraOrientation, CameraProjection, CameraSnapshot, CameraTransform } from './camera_view.js'
+export type { CameraOrientation, CameraProjection, CameraSnapshot, CameraTransform } from './camera_view'
 export {
   CameraQuaternionSchema,
   CameraOrientationSchema,
@@ -23,7 +62,9 @@ export {
   CameraSnapshotSchema,
   CameraVector3Schema,
   CameraTransformSchema,
-} from './camera_view.js'
+  makeCameraSync,
+} from './camera_view'
+export type { CameraProjectionBrand, CameraTransformBrand } from './camera_view'
 
 // ========================================
 // Constants and Brand Types Export
@@ -42,7 +83,7 @@ export type {
   Rotation2D,
   Sensitivity,
   YawAngle,
-} from './constants.js'
+} from './constants'
 
 // Constants
 export {
@@ -58,7 +99,7 @@ export {
   CAMERA_PRIORITY,
   CAMERA_STATE,
   VALID_CAMERA_MODES,
-} from './constants.js'
+} from './constants'
 
 // Type Guards
 export {
@@ -73,7 +114,7 @@ export {
   isValidRotation2D,
   isValidSensitivity,
   isValidYaw,
-} from './constants.js'
+} from './constants'
 
 // Validation Schemas
 export {
@@ -88,7 +129,7 @@ export {
   Rotation2DSchema,
   SensitivitySchema,
   YawAngleSchema,
-} from './constants.js'
+} from './constants'
 
 // Brand Type Factory Functions
 export {
@@ -102,17 +143,17 @@ export {
   createRotation2D,
   createSensitivity,
   createYawAngle,
-} from './constants.js'
+} from './constants'
 
 // Schema Factory Functions
-export { createBrandedNumberSchema } from './constants.js'
+export { createBrandedNumberSchema } from './constants'
 
 // ========================================
 // Events Export
 // ========================================
 
 // Event Types
-export type { AnimationState, CameraEvent, CameraId, CameraRotation, CameraSettings } from './events.js'
+export type { AnimationState, CameraEvent, CameraId, CameraRotation, CameraSettings } from './events'
 
 // Event Schemas
 export {
@@ -121,10 +162,10 @@ export {
   CameraIdSchema,
   CameraRotationSchema,
   CameraSettingsSchema,
-} from './events.js'
+} from './events'
 
 // Event Factory Functions
-export { createCameraEvent } from './events.js'
+export { createCameraEvent } from './events'
 
 // Event Type Guards
 export {
@@ -135,7 +176,7 @@ export {
   isRotationUpdatedEvent,
   isSettingsChangedEvent,
   isViewModeChangedEvent,
-} from './events.js'
+} from './events'
 
 // ========================================
 // Re-export Everything as Namespace - DISABLED to avoid circular dependencies

@@ -2,9 +2,9 @@ import * as BiomeProperties from '@/domain/biome/value_object/biome_properties/i
 import * as Coordinates from '@domain/world/value_object/coordinates/index'
 import * as GenerationParameters from '@domain/world/value_object/generation_parameters/index'
 import * as NoiseConfiguration from '@domain/world/value_object/noise_configuration/index'
-import * as WorldSeed from '@domain/world/value_object/world_seed/index'
 import { Brand, Schema } from 'effect'
 import * as GenerationState from '../generation_state'
+import * as GenerationContext from '../generation_context'
 
 /**
  * WorldGeneratorのBrand型識別子
@@ -39,17 +39,9 @@ export const AggregateVersionSchema = Schema.Number.pipe(
   })
 )
 
-/**
- * 生成コンテキスト
- */
-export const GenerationContextSchema = Schema.Struct({
-  seed: WorldSeed.WorldSeedSchema,
-  parameters: GenerationParameters.GenerationParametersSchema,
-  biomeConfig: BiomeProperties.BiomeConfigurationSchema,
-  noiseConfig: NoiseConfiguration.NoiseConfigurationSchema,
-})
+export const GenerationContextSchema = GenerationContext.GenerationContextSchema
 
-export type GenerationContext = typeof GenerationContextSchema.Type
+export type GenerationContext = GenerationContext.GenerationContext
 
 /**
  * 設定更新コマンド

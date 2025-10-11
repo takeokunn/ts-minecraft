@@ -1,6 +1,6 @@
 import * as Coordinates from '@domain/world/value_object/coordinates/index'
 import { JsonValueSchema } from '@shared/schema/json'
-import { Brand, Schema } from 'effect'
+import { Brand, Effect, Schema } from 'effect'
 import * as ErrorHandling from '../error_handling'
 import * as ProgressTracking from '../progress_tracking'
 import * as SessionState from '../session_state'

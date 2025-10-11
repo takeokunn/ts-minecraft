@@ -204,7 +204,7 @@ export const BlockOperations = {
 ```typescript
 // src/domain/world/entities/Chunk.ts
 import { Schema, Effect, Match, pipe } from 'effect'
-import { Block, Position } from './Block.js'
+import { Block, Position } from './Block'
 
 // チャンク座標の定義 - 16×16ブロックの領域
 export const ChunkCoordinate = Schema.Struct({
@@ -570,7 +570,7 @@ export const PlayerOperations = {
 ```typescript
 // src/domain/__tests__/PlayerOperations.test.ts
 import { describe, it, expect } from 'vitest'
-import { Player, PlayerOperations } from '../player/entities/Player.js'
+import { Player, PlayerOperations } from '../player/entities/Player'
 
 describe('PlayerOperations', () => {
   // テスト用のモックプレイヤー

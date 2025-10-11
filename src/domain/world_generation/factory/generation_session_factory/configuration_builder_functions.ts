@@ -1,4 +1,4 @@
-import * as GenerationSession from '@domain/world/aggregate/generation_session.js'
+import * as GenerationSession from '@domain/world/aggregate/generation_session'
 import { Function, Match } from 'effect'
 import * as Effect from 'effect/Effect'
 import type {
@@ -7,8 +7,8 @@ import type {
   LoadCondition,
   OptimizationParams,
   SessionConfigurationBuilderState,
-} from './configuration_builder_state.js'
-import type { SessionFactoryError } from './errors.js'
+} from './configuration_builder_state'
+import type { SessionFactoryError } from './errors'
 
 /**
  * Profile適用関数

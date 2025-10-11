@@ -41,8 +41,6 @@ const SlotsSchema = Schema.Struct({
 
 export type Slots = Schema.Schema.Type<typeof SlotsSchema>
 
-const decodeSlotsSync = Schema.decodeUnknownSync(SlotsSchema)
-
 export const EquipmentSetSchema = Schema.Struct({
   id: EquipmentSetIdSchema,
   ownerId: EquipmentOwnerIdSchema,
@@ -56,21 +54,18 @@ export const EquipmentSetSchema = Schema.Struct({
 export type EquipmentSet = Schema.Schema.Type<typeof EquipmentSetSchema>
 
 const decodeSet = Schema.decodeUnknown(EquipmentSetSchema)
-const decodeSetSync = Schema.decodeUnknownSync(EquipmentSetSchema)
-
-const emptySlots = (): Slots =>
-  decodeSlotsSync({
-    main_hand: undefined,
-    off_hand: undefined,
-    helmet: undefined,
-    chestplate: undefined,
-    leggings: undefined,
-    boots: undefined,
-    ring: undefined,
-    necklace: undefined,
-    gloves: undefined,
-    belt: undefined,
-  })
+const emptySlots = (): Slots => ({
+  main_hand: undefined,
+  off_hand: undefined,
+  helmet: undefined,
+  chestplate: undefined,
+  leggings: undefined,
+  boots: undefined,
+  ring: undefined,
+  necklace: undefined,
+  gloves: undefined,
+  belt: undefined,
+})
 
 const setError = (message: string): EquipmentDomainError => makeSchemaViolation({ field: 'EquipmentSet', message })
 
@@ -118,8 +113,10 @@ export const createEquipmentSet = (
 
 const slotOccupied = (set: EquipmentSet, slot: EquipmentSlot): boolean => set.slots[slotKey(slot)] !== undefined
 
-const buildSlots = (base: Slots, updates: Record<EquipmentSlotLiteral, EquipmentPiece | undefined>): Slots =>
-  decodeSlotsSync({ ...base, ...updates })
+const buildSlots = (base: Slots, updates: Record<EquipmentSlotLiteral, EquipmentPiece | undefined>): Slots => ({
+  ...base,
+  ...updates,
+})
 
 export const equipPiece = (
   set: EquipmentSet,
@@ -150,12 +147,12 @@ export const equipPiece = (
     const carriedWeight = computeWeight(slots)
     yield* ensureWeightWithinLimit(set.weightLimit, carriedWeight)
 
-    return decodeSetSync({
+    return {
       ...set,
       slots,
       carriedWeight,
       updatedAt: timestamp,
-    })
+    } as EquipmentSet
   })
 
 export const unequipSlot = (set: EquipmentSet, slot: EquipmentSlot, timestamp: UnixTime): EquipmentSet => {
@@ -164,12 +161,12 @@ export const unequipSlot = (set: EquipmentSet, slot: EquipmentSlot, timestamp: U
     [literal]: undefined,
   } as Record<EquipmentSlotLiteral, EquipmentPiece | undefined>)
   const carriedWeight = computeWeight(slots)
-  return decodeSetSync({
+  return {
     ...set,
     slots,
     carriedWeight,
     updatedAt: timestamp,
-  })
+  } as EquipmentSet
 }
 
 export const findPiece = (set: EquipmentSet, slot: EquipmentSlot): EquipmentPiece | undefined =>
@@ -187,11 +184,11 @@ export const updatePieces = (set: EquipmentSet, updater: (piece: EquipmentPiece)
   ) as Record<EquipmentSlotLiteral, EquipmentPiece | undefined>
   const slots = buildSlots(set.slots, entries)
   const carriedWeight = computeWeight(slots)
-  return decodeSetSync({
+  return {
     ...set,
     slots,
     carriedWeight,
-  })
+  } as EquipmentSet
 }
 
 export const emptyEquipmentSet = (
@@ -200,7 +197,7 @@ export const emptyEquipmentSet = (
   timestamp: UnixTime,
   weightLimit: WeightKg
 ): EquipmentSet =>
-  decodeSetSync({
+  ({
     id,
     ownerId,
     slots: emptySlots(),
@@ -209,4 +206,4 @@ export const emptyEquipmentSet = (
     version: 1 as EquipmentSetVersion,
     createdAt: timestamp,
     updatedAt: timestamp,
-  })
+  } as EquipmentSet)

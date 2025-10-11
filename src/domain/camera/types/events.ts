@@ -8,8 +8,8 @@ import type {
   Position3D as Position3DBrand,
   Rotation2D as Rotation2DBrand,
   Sensitivity,
-} from './constants.js'
-import { CameraModeSchema, Position3DSchema, Rotation2DSchema } from './constants.js'
+} from './constants'
+import { CameraModeSchema, Position3DSchema, Rotation2DSchema } from './constants'
 
 // ========================================
 // Event Base Types

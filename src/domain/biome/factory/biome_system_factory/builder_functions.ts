@@ -2,9 +2,9 @@ import * as BiomeSystem from '@/domain/biome/aggregate/biome_system'
 import * as BiomeProperties from '@/domain/biome/value_object/biome_properties/index'
 import { type JsonRecord } from '@shared/schema/json'
 import * as Effect from 'effect/Effect'
-import type { BiomePresetType, BiomeSystemBuilderState, PerformanceProfile, ValidationLevel } from './builder_state.js'
-import type { BiomeFactoryError } from './errors.js'
-import { createBiomeSystemFactory } from './factory.js'
+import type { BiomePresetType, BiomeSystemBuilderState, PerformanceProfile, ValidationLevel } from './builder_state'
+import type { BiomeFactoryError } from './errors'
+import { createBiomeSystemFactory } from './factory'
 
 /**
  * Preset設定関数

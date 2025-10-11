@@ -19,7 +19,7 @@ export interface CullingStrategy {
 
 const toDecision = (object: CullableObject, visible: boolean): Effect.Effect<CullingDecision, ViewDistanceError> =>
   Effect.sync(() =>
-    Schema.decodeUnknownSync(CullingDecisionSchema)({
+    ({
       objectId: object.id,
       visible,
       reason: pipe(
@@ -28,7 +28,7 @@ const toDecision = (object: CullableObject, visible: boolean): Effect.Effect<Cul
         Match.when(true, () => 'visible'),
         Match.orElse(() => 'outside-frustum')
       ),
-    })
+    } as CullingDecision)
   )
 
 export const createCullingStrategy = (): CullingStrategy => ({

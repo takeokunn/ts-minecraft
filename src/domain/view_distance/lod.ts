@@ -4,7 +4,6 @@ import { pipe } from 'effect/Function'
 import {
   InvalidConfigurationError,
   LODDecision,
-  LODDecisionSchema,
   LODLevel,
   LODLevelSchema,
   ManagedObject,
@@ -37,11 +36,11 @@ const decodeLODLevel = (value: number) =>
     Effect.mapError(() => InvalidConfigurationError({ issues: [`invalid LOD level calculated: ${value}`] }))
   )
 
-const decodeLODDecision = (decision: {
+const makeLODDecision = (decision: {
   readonly objectId: string
   readonly level: LODLevel
   readonly confidence: number
-}) => Effect.sync(() => Schema.decodeUnknownSync(LODDecisionSchema)(decision))
+}): LODDecision => decision as LODDecision
 
 const squaredDistance = (a: Vector3, b: Vector3): number => {
   const dx = a.x - b.x
@@ -95,7 +94,7 @@ const selectDecision = (
     const adjustedLevel = yield* adjustForPerformance(baseLevel, context.performance)
     const confidence = computeConfidence(distance, context.maxViewDistance)
 
-    return yield* decodeLODDecision({
+    return makeLODDecision({
       objectId: object.id,
       level: adjustedLevel,
       confidence,
