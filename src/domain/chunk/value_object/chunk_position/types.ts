@@ -1,5 +1,5 @@
-import { Brand, Data, Effect, Option, pipe, Schema } from 'effect'
 import { toErrorCause, type ErrorCause } from '@shared/schema/error'
+import { Brand, Data, Effect, Option, pipe, Schema } from 'effect'
 
 /**
  * チャンク座標の値オブジェクト

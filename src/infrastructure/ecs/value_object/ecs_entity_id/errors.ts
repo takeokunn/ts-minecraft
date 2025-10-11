@@ -1,6 +1,6 @@
-import { Schema } from 'effect'
+import { ErrorCauseSchema } from '@shared/schema/error'
 import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
-import { ErrorCauseSchema } from '@/shared/schema/error'
+import { Schema } from 'effect'
 
 // -----------------------------------------------------------------------------
 // ECSEntityId エラー定義

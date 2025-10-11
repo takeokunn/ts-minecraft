@@ -6,8 +6,8 @@
  */
 
 import type { CameraId, CameraRotation, CameraSettings, Position3D } from '@domain/camera/types'
+import { ErrorCauseSchema, toErrorCause, type ErrorCause } from '@shared/schema/error'
 import { Brand, Data, Option, Schema } from 'effect'
-import { ErrorCauseSchema, toErrorCause, type ErrorCause } from '@/shared/schema/error'
 import type { ViewMode } from '../../value_object/index'
 
 // ========================================

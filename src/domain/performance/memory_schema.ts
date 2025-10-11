@@ -83,6 +83,20 @@ export const defaultPerformanceMemory: PerformanceMemory = {
 }
 
 /**
+ * PerformanceMemoryを確実に取得（デフォルト値あり）- 同期版
+ *
+ * @returns PerformanceMemoryデータ（取得不可時はdefaultPerformanceMemory）
+ */
+export const getPerformanceMemoryOrDefaultSync = (): PerformanceMemory => {
+  const perf = performance as Performance & { memory?: ExperimentalPerformanceMemory }
+  if (!perf.memory) {
+    return defaultPerformanceMemory
+  }
+  const result = Schema.decodeUnknownOption(PerformanceMemorySchema)(perf.memory)
+  return Option.getOrElse(() => defaultPerformanceMemory)(result)
+}
+
+/**
  * PerformanceMemoryを確実に取得（デフォルト値あり）
  *
  * @returns PerformanceMemoryデータ（取得不可時はdefaultPerformanceMemory）

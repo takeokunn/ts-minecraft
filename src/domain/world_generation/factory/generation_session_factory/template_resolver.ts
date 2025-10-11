@@ -14,11 +14,10 @@
  */
 
 import type * as GenerationSession from '@domain/world/aggregate/generation_session'
+import type { JsonValue } from '@shared/schema/json'
+import { JsonValueSchema } from '@shared/schema/json'
 import { DateTime, Effect, Function, Match, Option, ReadonlyArray, Schema } from 'effect'
-import { JsonValueSchema } from '@/shared/schema/json'
-import type { JsonValue } from '@/shared/schema/json'
 import type { ConfigurationProfile, SessionFactoryError, SessionTemplateType } from './index'
-import { SessionFactoryError } from './index'
 import { SessionTemplateRegistryService } from './template_registry_service'
 
 // ================================
@@ -162,9 +161,7 @@ const createSessionTemplateResolver = (): SessionTemplateResolver => ({
       const template = yield* registry.get(type)
 
       if (Option.isNone(template)) {
-        return yield* Effect.fail(
-          SessionFactoryError.configurationInvalid(`Unknown template type: ${type}`)
-        )
+        return yield* Effect.fail(SessionFactoryError.configurationInvalid(`Unknown template type: ${type}`))
       }
 
       const templateDef = template.value
@@ -202,9 +199,7 @@ const createSessionTemplateResolver = (): SessionTemplateResolver => ({
       const template = yield* registry.getCustom(name)
 
       if (Option.isNone(template)) {
-        return yield* Effect.fail(
-          SessionFactoryError.configurationInvalid(`Unknown custom template: ${name}`)
-        )
+        return yield* Effect.fail(SessionFactoryError.configurationInvalid(`Unknown custom template: ${name}`))
       }
 
       const templateDef = template.value
@@ -310,9 +305,7 @@ const createSessionTemplateResolver = (): SessionTemplateResolver => ({
       const baseTemplate = yield* registry.get(baseType)
 
       if (Option.isNone(baseTemplate)) {
-        return yield* Effect.fail(
-          SessionFactoryError.configurationInvalid(`Unknown base template type: ${baseType}`)
-        )
+        return yield* Effect.fail(SessionFactoryError.configurationInvalid(`Unknown base template type: ${baseType}`))
       }
 
       const now = yield* DateTime.nowAsDate

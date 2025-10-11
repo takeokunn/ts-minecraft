@@ -10,9 +10,9 @@ import type { WorldCoordinate2D } from '@/domain/biome/value_object/coordinates'
 import { WorldCoordinate2DSchema } from '@/domain/biome/value_object/coordinates'
 import { type GenerationError } from '@domain/world/types/errors'
 import type { WorldSeed } from '@domain/world/value_object/world_seed'
-import { Context, Effect, Layer, Schema } from 'effect'
-import type { BiomeMappingResult, ClimateData, MinecraftBiomeType } from './index'
+import { Context, Effect, Layer, Random, Schema } from 'effect'
 import { MinecraftBiomeTypeSchema } from './biome_mapper'
+import type { BiomeMappingResult, ClimateData, MinecraftBiomeType } from './index'
 
 /**
  * 生態学的機能群
@@ -630,12 +630,20 @@ const calculateSpeciesRichness = (biomeType: MinecraftBiomeType): Effect.Effect<
 const calculateShannonDiversity = (
   biomeType: MinecraftBiomeType,
   seed: WorldSeed
-): Effect.Effect<number, GenerationError> => Effect.succeed(Math.random() * 3 + 1) // 1-4の範囲
+): Effect.Effect<number, GenerationError> =>
+  Effect.gen(function* () {
+    const value = yield* Random.nextIntBetween(100, 400)
+    return value / 100
+  })
 
 const calculateEndemism = (
   biomeMapping: BiomeMappingResult,
   climateData: ClimateData
-): Effect.Effect<number, GenerationError> => Effect.succeed(Math.random() * 0.3) // 0-30%
+): Effect.Effect<number, GenerationError> =>
+  Effect.gen(function* () {
+    const value = yield* Random.nextIntBetween(0, 30)
+    return value / 100
+  })
 
 const analyzeGuildComposition = (
   biomeType: MinecraftBiomeType,
@@ -669,7 +677,10 @@ const calculatePrimaryProductivity = (climateData: ClimateData): Effect.Effect<n
   Effect.succeed(climateData.temperature * climateData.precipitation * 0.001)
 
 const calculateTurnoverRate = (biomeType: MinecraftBiomeType): Effect.Effect<number, GenerationError> =>
-  Effect.succeed(Math.random() * 2 + 0.5)
+  Effect.gen(function* () {
+    const value = yield* Random.nextIntBetween(50, 250)
+    return value / 100
+  })
 
 const calculateResilience = (
   biomeMapping: BiomeMappingResult,
@@ -677,10 +688,16 @@ const calculateResilience = (
 ): Effect.Effect<number, GenerationError> => Effect.succeed(Math.min(1, climateData.dataQuality * 0.8))
 
 const calculateResistance = (biomeType: MinecraftBiomeType): Effect.Effect<number, GenerationError> =>
-  Effect.succeed(Math.random() * 0.8 + 0.2)
+  Effect.gen(function* () {
+    const value = yield* Random.nextIntBetween(20, 100)
+    return value / 100
+  })
 
 const calculateConnectance = (guildComposition: GuildComposition): Effect.Effect<number, GenerationError> =>
-  Effect.succeed(Math.random() * 0.5 + 0.3)
+  Effect.gen(function* () {
+    const value = yield* Random.nextIntBetween(30, 80)
+    return value / 100
+  })
 
 const identifyLimitingFactors = (
   climateData: ClimateData,
@@ -792,9 +809,7 @@ const assessRegulatingServices = (
     pollination: 0.9,
   })
 
-const assessCulturalServices = (
-  ecosystem: EcosystemStructure
-): Effect.Effect<CulturalServices, GenerationError> =>
+const assessCulturalServices = (ecosystem: EcosystemStructure): Effect.Effect<CulturalServices, GenerationError> =>
   Effect.succeed({
     recreation: 0.7,
     spiritual: 0.5,
@@ -802,9 +817,7 @@ const assessCulturalServices = (
     aesthetic: 0.9,
   })
 
-const assessSupportingServices = (
-  ecosystem: EcosystemStructure
-): Effect.Effect<SupportingServices, GenerationError> =>
+const assessSupportingServices = (ecosystem: EcosystemStructure): Effect.Effect<SupportingServices, GenerationError> =>
   Effect.succeed({
     soilFormation: 0.8,
     nutrientCycling: 0.9,

@@ -253,6 +253,16 @@ export const AnimationEvent = {
 } as const
 
 /**
+ * アニメーション補間可能な値の型
+ * カメラアニメーションで補間可能な全ての値の型を定義
+ */
+export type AnimatableValue =
+  | { readonly x: number; readonly y: number; readonly z: number } // Position3D/Vector3
+  | { readonly pitch: number; readonly yaw: number; readonly roll: number } // Rotation
+  | { readonly x: number; readonly y: number; readonly z: number; readonly w: number } // Quaternion
+  | number // FOV, scalar values
+
+/**
  * アニメーションエラーのADT
  */
 export type AnimationError =
@@ -263,7 +273,7 @@ export type AnimationError =
       readonly _tag: 'InvalidEasingParameter'
       readonly easingType: string
       readonly parameter: string
-      readonly value: unknown
+      readonly value: number | string | boolean
     }
   | { readonly _tag: 'KeyframeValidationFailed'; readonly keyframeIndex: number; readonly reason: string }
   | { readonly _tag: 'AnimationNotFound'; readonly animationId: string }
@@ -271,8 +281,8 @@ export type AnimationError =
   | { readonly _tag: 'AnimationStateConflict'; readonly currentState: string; readonly requestedOperation: string }
   | {
       readonly _tag: 'InterpolationFailed'
-      readonly from: unknown
-      readonly to: unknown
+      readonly from: AnimatableValue
+      readonly to: AnimatableValue
       readonly progress: number
       readonly reason: string
     }
@@ -297,7 +307,7 @@ export const AnimationError = {
   InvalidEasingParameter: (props: {
     readonly easingType: string
     readonly parameter: string
-    readonly value: unknown
+    readonly value: number | string | boolean
   }): AnimationError => ({ _tag: 'InvalidEasingParameter' as const, ...props }),
   KeyframeValidationFailed: (props: { readonly keyframeIndex: number; readonly reason: string }): AnimationError => ({
     _tag: 'KeyframeValidationFailed' as const,
@@ -316,8 +326,8 @@ export const AnimationError = {
     readonly requestedOperation: string
   }): AnimationError => ({ _tag: 'AnimationStateConflict' as const, ...props }),
   InterpolationFailed: (props: {
-    readonly from: unknown
-    readonly to: unknown
+    readonly from: AnimatableValue
+    readonly to: AnimatableValue
     readonly progress: number
     readonly reason: string
   }): AnimationError => ({ _tag: 'InterpolationFailed' as const, ...props }),

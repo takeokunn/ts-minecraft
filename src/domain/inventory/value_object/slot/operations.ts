@@ -1,3 +1,4 @@
+import { toJsonValue } from '@shared/schema/json'
 import { Effect, Match, pipe, Schema } from 'effect'
 import { SlotConstraintSchema, SlotIdSchema, SlotSchema } from './schema'
 import { AcceptanceResult, Slot, SlotConstraint, SlotError, SlotId, SlotState, SlotType } from './types'
@@ -36,7 +37,7 @@ export const createSlotConstraint = (
     Effect.mapError(() =>
       SlotError.InvalidConstraint({
         field: 'constraint',
-        value: { maxStackSize, allowedItemTypes, isLocked, isHotbar },
+        value: toJsonValue({ maxStackSize, allowedItemTypes, isLocked, isHotbar }),
         expected: 'valid slot constraint',
       })
     )
@@ -220,7 +221,7 @@ export const addItem = (slot: Slot, itemId: string, quantity: number): Effect.Ef
             Effect.mapError(() =>
               SlotError.InvalidConstraint({
                 field: 'slot',
-                value: newSlot,
+                value: toJsonValue(newSlot),
                 expected: 'valid Slot object',
               })
             )
@@ -249,7 +250,7 @@ export const addItem = (slot: Slot, itemId: string, quantity: number): Effect.Ef
             Effect.mapError(() =>
               SlotError.InvalidConstraint({
                 field: 'slot',
-                value: newSlot,
+                value: toJsonValue(newSlot),
                 expected: 'valid Slot object',
               })
             )
@@ -302,7 +303,7 @@ export const removeItem = (
           Effect.mapError(() =>
             SlotError.InvalidConstraint({
               field: 'slot',
-              value: newSlot,
+              value: toJsonValue(newSlot),
               expected: 'valid Slot object',
             })
           )
@@ -352,7 +353,7 @@ export const clearSlot = (slot: Slot): Effect.Effect<Slot, SlotError> =>
       Effect.mapError(() =>
         SlotError.InvalidConstraint({
           field: 'slot',
-          value: newSlot,
+          value: toJsonValue(newSlot),
           expected: 'valid Slot object',
         })
       )

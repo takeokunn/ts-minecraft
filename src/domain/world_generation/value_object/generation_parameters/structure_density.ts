@@ -6,9 +6,9 @@
  */
 
 import { taggedUnion } from '@domain/world/utils'
+import { JsonValueSchema } from '@shared/schema/json'
 import type { Brand as BrandType } from 'effect'
 import { Schema } from 'effect'
-import { JsonValueSchema } from '@shared/schema/json'
 
 /**
  * 密度値Brand型（0.0から1.0）

@@ -137,6 +137,15 @@ export const makeUnsafeWorldCoordinate2D = (x: number, z: number): WorldCoordina
   }) as WorldCoordinate2D
 
 /**
+ * WorldCoordinate各軸への直接変換（バリデーションなし）
+ *
+ * 既にバリデーション済みの値を各軸の型に変換する。
+ */
+export const worldCoordinateToWorldX = (value: WorldCoordinate['x']): WorldX => value
+export const worldCoordinateToWorldY = (value: WorldCoordinate['y']): WorldY => value
+export const worldCoordinateToWorldZ = (value: WorldCoordinate['z']): WorldZ => value
+
+/**
  * 座標作成パラメータ
  */
 export const CreateWorldCoordinateParamsSchema = Schema.Struct({

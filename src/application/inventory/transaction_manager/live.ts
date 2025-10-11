@@ -9,7 +9,7 @@ import type { TransferService } from '@/domain/inventory/domain_service/transfer
 import type { ValidationService } from '@/domain/inventory/domain_service/validation_service'
 import type { ContainerRepository } from '@/domain/inventory/repository/container_repository'
 import type { InventoryRepository } from '@/domain/inventory/repository/inventory_repository'
-import type { JsonValue } from '@/shared/schema/json'
+import type { JsonValue } from '@shared/schema/json'
 import { Clock, DateTime, Effect, Array as EffectArray, Layer, Match, Option, pipe, Ref } from 'effect'
 import type { InventoryService } from '../..'
 import type { InventoryApplicationError } from '../types'

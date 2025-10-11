@@ -3,7 +3,7 @@
  * merge, split, consume等の核となるビジネスロジック
  */
 
-import { DateTime, Effect, Option, Schema } from 'effect'
+import { DateTime, Effect, Option } from 'effect'
 import { incrementEntityVersion, ItemStackFactory } from './factory'
 import type {
   ItemStackConsumedEvent,
@@ -63,7 +63,7 @@ export const mergeItemStacks = (
 
     const mergedStack = incrementEntityVersion({
       ...targetStack,
-      count: Schema.make(ItemCountSchema)(totalCount),
+      count: ItemCountSchema.make(totalCount),
     })
 
     const now = yield* DateTime.now
@@ -74,7 +74,7 @@ export const mergeItemStacks = (
       targetStackId: targetStack.id,
       itemId: sourceStack.itemId,
       mergedQuantity: sourceStack.count,
-      finalQuantity: Schema.make(ItemCountSchema)(totalCount),
+      finalQuantity: ItemCountSchema.make(totalCount),
       timestamp,
     }
 
@@ -107,12 +107,12 @@ export const splitItemStack = (
     const versionedSource = yield* incrementEntityVersion(sourceStack)
     const remainingStack: ItemStackEntity = {
       ...versionedSource,
-      count: Schema.make(ItemCountSchema)(remainingQuantity),
+      count: ItemCountSchema.make(remainingQuantity),
     }
 
     // 新しいスタックを作成
     const factory = yield* ItemStackFactory
-    const newStack = yield* factory.create(sourceStack.itemId, Schema.make(ItemCountSchema)(splitQuantity), {
+    const newStack = yield* factory.create(sourceStack.itemId, ItemCountSchema.make(splitQuantity), {
       durability: sourceStack.durability,
       nbtData: sourceStack.nbtData,
       metadata: sourceStack.metadata,
@@ -125,8 +125,8 @@ export const splitItemStack = (
       sourceStackId: sourceStack.id,
       newStackId: newStack.id,
       itemId: sourceStack.itemId,
-      splitQuantity: Schema.make(ItemCountSchema)(splitQuantity),
-      remainingQuantity: Schema.make(ItemCountSchema)(remainingQuantity),
+      splitQuantity: ItemCountSchema.make(splitQuantity),
+      remainingQuantity: ItemCountSchema.make(remainingQuantity),
       timestamp,
     }
 
@@ -172,8 +172,8 @@ export const consumeItemStack = (
       type: 'ItemStackConsumed',
       stackId: stack.id,
       itemId: stack.itemId,
-      consumedQuantity: Schema.make(ItemCountSchema)(quantity),
-      remainingQuantity: Schema.make(ItemCountSchema)(remainingQuantity),
+      consumedQuantity: ItemCountSchema.make(quantity),
+      remainingQuantity: ItemCountSchema.make(remainingQuantity),
       timestamp,
       reason,
     }
@@ -187,7 +187,7 @@ export const consumeItemStack = (
     const versionedStack = yield* incrementEntityVersion(stack)
     const updatedStack: ItemStackEntity = {
       ...versionedStack,
-      count: Schema.make(ItemCountSchema)(remainingQuantity),
+      count: ItemCountSchema.make(remainingQuantity),
     }
 
     return { updatedStack: Option.some(updatedStack), event }
@@ -240,7 +240,7 @@ export const damageItemStack = (
       stackId: stack.id,
       itemId: stack.itemId,
       previousDurability: previousDurability,
-      newDurability: Schema.make(DurabilitySchema)(newDurability),
+      newDurability: DurabilitySchema.make(newDurability),
       damageAmount,
       timestamp,
       broken: isBroken,
@@ -255,7 +255,7 @@ export const damageItemStack = (
     const versionedStack = yield* incrementEntityVersion(stack)
     const updatedStack: ItemStackEntity = {
       ...versionedStack,
-      durability: Schema.make(DurabilitySchema)(newDurability),
+      durability: DurabilitySchema.make(newDurability),
     }
 
     return { updatedStack: Option.some(updatedStack), event }
@@ -296,7 +296,7 @@ export const repairItemStack = (
     const versionedStack = yield* incrementEntityVersion(stack)
     return {
       ...versionedStack,
-      durability: Schema.make(DurabilitySchema)(newDurability),
+      durability: DurabilitySchema.make(newDurability),
     }
   })
 

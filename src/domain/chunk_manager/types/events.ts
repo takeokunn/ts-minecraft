@@ -5,8 +5,10 @@
  * Event Sourcingパターンに基づき、ドメイン内で発生する全てのイベントを型安全に定義します。
  */
 
-import { Brand, Clock, Data, DateTime, Effect, Schema } from 'effect'
+import { type JsonValue } from '@shared/schema/json'
+import { Brand, Clock, Data, DateTime, Effect, Random, Schema } from 'effect'
 import { ChunkId } from '../../chunk/value_object/chunk_id/index'
+import { DestructionReasonSchema, LifecycleStageSchema, PoolStrategySchema } from './core'
 import {
   ChunkLifetime,
   ChunkPoolId,
@@ -18,7 +20,6 @@ import {
   PoolStrategy,
   ResourceUsagePercent,
 } from './index'
-import { DestructionReasonSchema, LifecycleStageSchema, PoolStrategySchema } from './core'
 
 // ========================================
 // Event ID and Metadata
@@ -295,8 +296,8 @@ export type ConfigurationEvent = Data.TaggedEnum<{
   /** 設定変更イベント */
   ConfigurationChanged: {
     configKey: string
-    oldValue: unknown
-    newValue: unknown
+    oldValue: JsonValue
+    newValue: JsonValue
     changedBy: string
     reason: string
     metadata: EventMetadata
@@ -452,7 +453,8 @@ export const ChunkLifecycleEventSchema = Schema.Union(
 export const createEventId = (): Effect.Effect<EventId> =>
   Effect.gen(function* () {
     const timestamp = yield* Clock.currentTimeMillis
-    const random = yield* Effect.sync(() => Math.random().toString(36).substring(2, 11))
+    const randomValue = yield* Random.nextIntBetween(0, 36 ** 9 - 1)
+    const random = randomValue.toString(36).padStart(9, '0')
     return `event-${timestamp}-${random}` as EventId
   })
 
@@ -688,8 +690,8 @@ export const ConfigurationEvent = Data.taggedEnum<ConfigurationEvent>()
 
 export const createConfigurationChangedEvent = (
   configKey: string,
-  oldValue: unknown,
-  newValue: unknown,
+  oldValue: JsonValue,
+  newValue: JsonValue,
   changedBy: string,
   reason: string,
   aggregateVersion: number

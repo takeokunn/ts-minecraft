@@ -3,9 +3,9 @@
  * Meters型のエラー定義
  */
 
-import * as Schema from 'effect/Schema'
-import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
 import { JsonValueSchema, toJsonValue, type JsonSerializable } from '@shared/schema/json'
+import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
+import * as Schema from 'effect/Schema'
 
 /**
  * Meters validation error

@@ -327,10 +327,7 @@ const makeWorldGeneratorRepositoryMemory = (
       Effect.gen(function* () {
         const results = yield* Effect.forEach(
           generators,
-          (generator) =>
-            Effect.either(save(generator)).pipe(
-              Effect.map((result) => ({ generator, result }))
-            ),
+          (generator) => Effect.either(save(generator)).pipe(Effect.map((result) => ({ generator, result }))),
           { concurrency: Math.min(generators.length, 4) }
         )
 
@@ -361,10 +358,7 @@ const makeWorldGeneratorRepositoryMemory = (
       Effect.gen(function* () {
         const results = yield* Effect.forEach(
           worldIds,
-          (worldId) =>
-            Effect.either(deleteGenerator(worldId)).pipe(
-              Effect.map((result) => ({ worldId, result }))
-            ),
+          (worldId) => Effect.either(deleteGenerator(worldId)).pipe(Effect.map((result) => ({ worldId, result }))),
           { concurrency: Math.min(worldIds.length, 4) }
         )
 
@@ -417,8 +411,7 @@ const makeWorldGeneratorRepositoryMemory = (
         const cacheHitRate = cacheTotal > 0 ? cacheStats.hits / cacheTotal : 0
         const totalAttempts = summary.totalChunks + summary.failureCount
         const errorRate = totalAttempts > 0 ? summary.failureCount / totalAttempts : 0
-        const averageChunkGenerationTime =
-          summary.totalChunks > 0 ? summary.totalTime / summary.totalChunks : 0
+        const averageChunkGenerationTime = summary.totalChunks > 0 ? summary.totalTime / summary.totalChunks : 0
 
         return {
           totalGenerators: generators.length,
@@ -645,13 +638,12 @@ const buildPerformanceMetric = (generator: WorldGenerator): PerformanceMetrics =
   }
 }
 
-const isGeneratorActive = (generator: WorldGenerator): boolean => {
-  const candidate = generator as { isActive?: unknown }
-  if (typeof candidate.isActive === 'boolean') {
-    return candidate.isActive
-  }
-  return generator.state.status !== 'idle'
-}
+const hasIsActiveFlag = (candidate: WorldGenerator): candidate is WorldGenerator & { readonly isActive: boolean } =>
+  Object.prototype.hasOwnProperty.call(candidate, 'isActive') &&
+  typeof (candidate as { isActive: boolean }).isActive === 'boolean'
+
+const isGeneratorActive = (generator: WorldGenerator): boolean =>
+  hasIsActiveFlag(generator) ? generator.isActive : generator.state.status !== 'idle'
 
 const summarizeGenerators = (generators: Iterable<WorldGenerator>) => {
   let totalChunks = 0

@@ -1,6 +1,6 @@
-import { Clock, Context, Effect, Layer, Match, Option, ReadonlyArray, Ref, Schema, pipe } from 'effect'
+import type { JsonValue } from '@shared/schema/json'
 import { JsonRecordSchema, JsonValueSchema } from '@shared/schema/json'
-import type { JsonRecord, JsonValue } from '@shared/schema/json'
+import { Clock, Context, Effect, Layer, Match, Option, ReadonlyArray, Ref, Schema, pipe } from 'effect'
 
 /**
  * Cache Manager Service
@@ -112,7 +112,6 @@ export interface CacheEntryOptions {
 }
 
 export interface CacheManagerService {
-
   /**
    * キャッシュエントリを取得します
    */

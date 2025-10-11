@@ -41,13 +41,15 @@ export interface SpatialBounds {
 /**
  * バイオーム配置データ
  */
+import type { JsonRecord } from '@/shared/schema/json'
+
 export interface BiomePlacement {
   readonly biomeId: BiomeId
   readonly coordinate: SpatialCoordinate
   readonly radius: number
   readonly priority: number
   readonly placedAt: Date
-  readonly metadata: Record<string, unknown>
+  readonly metadata: JsonRecord
 }
 
 /**

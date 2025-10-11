@@ -4,8 +4,8 @@
  * リポジトリ設定構築で発生する可能性のあるエラー型定義
  */
 
-import { Schema } from 'effect'
 import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
+import { Schema } from 'effect'
 import { RepositoryConfigBuilderStateSchema } from './config_builder_state'
 
 /**

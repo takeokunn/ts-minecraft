@@ -1,5 +1,6 @@
 import type { ParseError } from '@effect/schema/ParseResult'
 import { TreeFormatter } from '@effect/schema/TreeFormatter'
+import type { JsonValue } from '@shared/schema/json'
 import { Effect, Either, Match, pipe, ReadonlyArray, Schema } from 'effect'
 import {
   HEALTH_CONSTANTS,
@@ -11,10 +12,8 @@ import {
   PlayerAggregateSchema,
   PlayerCommand,
   PlayerCommandSchema,
-  PlayerCreationInput,
   PlayerCreationInputSchema,
   PlayerErrorBuilders,
-  type PlayerConstraintDetails,
   PlayerEvent,
   PlayerEventSchema,
   PlayerGameMode,
@@ -28,9 +27,9 @@ import {
   PlayerUpdateContextSchema,
   PlayerVitalsSchema,
   SATURATION_CONSTANTS,
+  type PlayerConstraintDetails,
 } from './index'
 import type { PlayerMotion } from './types'
-import type { JsonValue } from '@/shared/schema/json'
 
 // -----------------------------------------------------------------------------
 // 型エイリアス
@@ -57,7 +56,10 @@ const decodeWith = <A, I>(schema: Schema.Schema<I, A>, label: string, value: I) 
   )
 
 const ensureContext = (context: PlayerUpdateContextInput) =>
-  decodeWith(PlayerUpdateContextSchema, 'PlayerUpdateContext', context) as Effect.Effect<PlayerUpdateContext, ConstraintError>
+  decodeWith(PlayerUpdateContextSchema, 'PlayerUpdateContext', context) as Effect.Effect<
+    PlayerUpdateContext,
+    ConstraintError
+  >
 
 const ensureTimestampOrder = (current: PlayerAggregate, context: PlayerUpdateContext) =>
   pipe(
@@ -165,12 +167,8 @@ export interface PlayerOperationResult {
 export const createPlayer = (input: PlayerCreationInputInput): Effect.Effect<PlayerOperationResult, ConstraintError> =>
   pipe(
     decodeWith(PlayerCreationInputSchema, 'PlayerCreationInput', input),
-    Effect.flatMap((payload) =>
-      stationaryMotion.pipe(Effect.map((motion) => ({ payload, motion })))
-    ),
-    Effect.flatMap(({ payload, motion }) =>
-      defaultVitals.pipe(Effect.map((vitals) => ({ payload, motion, vitals })))
-    ),
+    Effect.flatMap((payload) => stationaryMotion.pipe(Effect.map((motion) => ({ payload, motion })))),
+    Effect.flatMap(({ payload, motion }) => defaultVitals.pipe(Effect.map((vitals) => ({ payload, motion, vitals })))),
     Effect.flatMap(({ payload, motion, vitals }) =>
       aggregateOf({
         id: payload.id,

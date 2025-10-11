@@ -1,4 +1,4 @@
-import { Match, pipe, Schema } from 'effect'
+import { Match, pipe } from 'effect'
 import { MaxStackSizeSchema } from './schema'
 import { MaxStackSize, StackConstraint } from './types'
 
@@ -9,25 +9,25 @@ export const STACK_CONSTRAINTS: Record<string, StackConstraint> = {
   // 単体アイテム（スタック不可）
   'minecraft:diamond_sword': {
     category: 'tool',
-    maxSize: Schema.make(MaxStackSizeSchema)(1),
+    maxSize: MaxStackSizeSchema.make(1),
     stackable: false,
     description: 'Weapons and tools cannot be stacked',
   },
   'minecraft:iron_pickaxe': {
     category: 'tool',
-    maxSize: Schema.make(MaxStackSizeSchema)(1),
+    maxSize: MaxStackSizeSchema.make(1),
     stackable: false,
     description: 'Weapons and tools cannot be stacked',
   },
   'minecraft:bow': {
     category: 'tool',
-    maxSize: Schema.make(MaxStackSizeSchema)(1),
+    maxSize: MaxStackSizeSchema.make(1),
     stackable: false,
     description: 'Weapons and tools cannot be stacked',
   },
   'minecraft:saddle': {
     category: 'single',
-    maxSize: Schema.make(MaxStackSizeSchema)(1),
+    maxSize: MaxStackSizeSchema.make(1),
     stackable: false,
     description: 'Unique items cannot be stacked',
   },
@@ -35,31 +35,31 @@ export const STACK_CONSTRAINTS: Record<string, StackConstraint> = {
   // 16個制限アイテム
   'minecraft:ender_pearl': {
     category: 'material',
-    maxSize: Schema.make(MaxStackSizeSchema)(16),
+    maxSize: MaxStackSizeSchema.make(16),
     stackable: true,
     description: 'Ender pearls stack up to 16',
   },
   'minecraft:snowball': {
     category: 'material',
-    maxSize: Schema.make(MaxStackSizeSchema)(16),
+    maxSize: MaxStackSizeSchema.make(16),
     stackable: true,
     description: 'Snowballs stack up to 16',
   },
   'minecraft:egg': {
     category: 'material',
-    maxSize: Schema.make(MaxStackSizeSchema)(16),
+    maxSize: MaxStackSizeSchema.make(16),
     stackable: true,
     description: 'Eggs stack up to 16',
   },
   'minecraft:oak_sign': {
     category: 'block',
-    maxSize: Schema.make(MaxStackSizeSchema)(16),
+    maxSize: MaxStackSizeSchema.make(16),
     stackable: true,
     description: 'Signs stack up to 16',
   },
   'minecraft:item_frame': {
     category: 'material',
-    maxSize: Schema.make(MaxStackSizeSchema)(16),
+    maxSize: MaxStackSizeSchema.make(16),
     stackable: true,
     description: 'Item frames stack up to 16',
   },
@@ -67,37 +67,37 @@ export const STACK_CONSTRAINTS: Record<string, StackConstraint> = {
   // 64個制限アイテム（標準）
   'minecraft:cobblestone': {
     category: 'block',
-    maxSize: Schema.make(MaxStackSizeSchema)(64),
+    maxSize: MaxStackSizeSchema.make(64),
     stackable: true,
     description: 'Standard building blocks stack up to 64',
   },
   'minecraft:stone': {
     category: 'block',
-    maxSize: Schema.make(MaxStackSizeSchema)(64),
+    maxSize: MaxStackSizeSchema.make(64),
     stackable: true,
     description: 'Standard building blocks stack up to 64',
   },
   'minecraft:dirt': {
     category: 'block',
-    maxSize: Schema.make(MaxStackSizeSchema)(64),
+    maxSize: MaxStackSizeSchema.make(64),
     stackable: true,
     description: 'Standard building blocks stack up to 64',
   },
   'minecraft:iron_ingot': {
     category: 'material',
-    maxSize: Schema.make(MaxStackSizeSchema)(64),
+    maxSize: MaxStackSizeSchema.make(64),
     stackable: true,
     description: 'Raw materials stack up to 64',
   },
   'minecraft:gold_ingot': {
     category: 'material',
-    maxSize: Schema.make(MaxStackSizeSchema)(64),
+    maxSize: MaxStackSizeSchema.make(64),
     stackable: true,
     description: 'Raw materials stack up to 64',
   },
   'minecraft:diamond': {
     category: 'material',
-    maxSize: Schema.make(MaxStackSizeSchema)(64),
+    maxSize: MaxStackSizeSchema.make(64),
     stackable: true,
     description: 'Raw materials stack up to 64',
   },
@@ -105,25 +105,25 @@ export const STACK_CONSTRAINTS: Record<string, StackConstraint> = {
   // 食べ物（多くは64個）
   'minecraft:bread': {
     category: 'food',
-    maxSize: Schema.make(MaxStackSizeSchema)(64),
+    maxSize: MaxStackSizeSchema.make(64),
     stackable: true,
     description: 'Food items stack up to 64',
   },
   'minecraft:apple': {
     category: 'food',
-    maxSize: Schema.make(MaxStackSizeSchema)(64),
+    maxSize: MaxStackSizeSchema.make(64),
     stackable: true,
     description: 'Food items stack up to 64',
   },
   'minecraft:cooked_beef': {
     category: 'food',
-    maxSize: Schema.make(MaxStackSizeSchema)(64),
+    maxSize: MaxStackSizeSchema.make(64),
     stackable: true,
     description: 'Food items stack up to 64',
   },
   'minecraft:golden_apple': {
     category: 'food',
-    maxSize: Schema.make(MaxStackSizeSchema)(64),
+    maxSize: MaxStackSizeSchema.make(64),
     stackable: true,
     description: 'Special food items stack up to 64',
   },
@@ -131,19 +131,19 @@ export const STACK_CONSTRAINTS: Record<string, StackConstraint> = {
   // スープ・シチュー系（スタック不可）
   'minecraft:mushroom_stew': {
     category: 'food',
-    maxSize: Schema.make(MaxStackSizeSchema)(1),
+    maxSize: MaxStackSizeSchema.make(1),
     stackable: false,
     description: 'Bowl-based foods cannot be stacked',
   },
   'minecraft:rabbit_stew': {
     category: 'food',
-    maxSize: Schema.make(MaxStackSizeSchema)(1),
+    maxSize: MaxStackSizeSchema.make(1),
     stackable: false,
     description: 'Bowl-based foods cannot be stacked',
   },
   'minecraft:beetroot_soup': {
     category: 'food',
-    maxSize: Schema.make(MaxStackSizeSchema)(1),
+    maxSize: MaxStackSizeSchema.make(1),
     stackable: false,
     description: 'Bowl-based foods cannot be stacked',
   },
@@ -159,19 +159,19 @@ export const getDefaultStackConstraint = (
     Match.value(category),
     Match.when('single', () => ({
       category: 'single' as const,
-      maxSize: Schema.make(MaxStackSizeSchema)(1),
+      maxSize: MaxStackSizeSchema.make(1),
       stackable: false,
       description: 'Single item only',
     })),
     Match.when('tool', () => ({
       category: 'tool' as const,
-      maxSize: Schema.make(MaxStackSizeSchema)(1),
+      maxSize: MaxStackSizeSchema.make(1),
       stackable: false,
       description: 'Single item only',
     })),
     Match.orElse((cat) => ({
       category: cat,
-      maxSize: Schema.make(MaxStackSizeSchema)(64),
+      maxSize: MaxStackSizeSchema.make(64),
       stackable: true,
       description: 'Standard stackable item',
     }))

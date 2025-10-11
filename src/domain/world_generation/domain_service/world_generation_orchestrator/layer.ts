@@ -4,7 +4,7 @@
  * ワールド生成オーケストレータのLayer定義
  */
 
-import { Clock, Effect, Layer, Schema } from 'effect'
+import { Clock, Duration, Effect, Layer, Schema } from 'effect'
 import { DependencyCoordinatorService, DependencyCoordinatorServiceLive } from './dependency_coordinator'
 import { ErrorRecoveryService, ErrorRecoveryServiceLive } from './error_recovery'
 import { GenerationPipelineService, GenerationPipelineServiceLive } from './generation_pipeline'
@@ -148,7 +148,7 @@ const makeWorldGenerationOrchestrator = Effect.gen(function* () {
       const startTime = yield* Clock.currentTimeMillis
 
       // チャンク生成実行（簡略化）
-      yield* Effect.sleep('500 millis') // 生成処理のシミュレーション
+      yield* Effect.sleep(Duration.millis(500)) // 生成処理のシミュレーション
 
       const result: Schema.Schema.Type<typeof ChunkGenerationResult> = {
         _tag: 'ChunkGenerationResult',
@@ -164,6 +164,12 @@ const makeWorldGenerationOrchestrator = Effect.gen(function* () {
       yield* Effect.logInfo(`チャンク生成完了: ${requestId}`)
       return result
     }).pipe(
+      Effect.annotateLogs({
+        chunkX: String(command.chunkPosition.x),
+        chunkZ: String(command.chunkPosition.z),
+        requestId: command.requestId || 'auto-generated',
+        operation: 'orchestrator_generate_chunk',
+      }),
       Effect.catchAll((error) =>
         Effect.gen(function* () {
           yield* Effect.logError(`チャンク生成エラー: ${error}`)
@@ -174,7 +180,15 @@ const makeWorldGenerationOrchestrator = Effect.gen(function* () {
             chunkPosition: command.chunkPosition,
             cause: error,
           })
-        })
+        }).pipe(
+          Effect.annotateLogs({
+            chunkX: String(command.chunkPosition.x),
+            chunkZ: String(command.chunkPosition.z),
+            requestId: command.requestId || 'auto-generated',
+            operation: 'orchestrator_generate_chunk',
+            error: 'true',
+          })
+        )
       )
     )
 

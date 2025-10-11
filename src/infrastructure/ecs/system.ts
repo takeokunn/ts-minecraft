@@ -5,9 +5,9 @@
  * Effect-TSを使用した関数型でコンポジタブルな実装
  */
 
+import type { ErrorCause } from '@shared/schema/error'
+import { toErrorCause } from '@shared/schema/error'
 import { Clock, Context, Data, Effect, Match, Option, pipe, Schema } from 'effect'
-import { ErrorCauseSchema, toErrorCause } from '@/shared/schema/error'
-import type { ErrorCause } from '@/shared/schema/error'
 
 /**
  * システムエラー - ECSシステム実行時のエラー
@@ -20,11 +20,7 @@ export const SystemError = Data.tagged<{
 
 export type SystemError = ReturnType<typeof SystemError>
 
-export const makeSystemError = (
-  systemName: string,
-  message: string,
-  cause?: unknown
-): SystemError =>
+export const makeSystemError = (systemName: string, message: string, cause?: unknown): SystemError =>
   SystemError({ systemName, message, cause: Option.fromNullable(toErrorCause(cause)) })
 
 export const isSystemError = (error: unknown): error is SystemError =>
@@ -83,7 +79,7 @@ export interface System<Context = Record<string, never>> {
 /**
  * システムサービス - DIコンテナ用のタグ
  */
-export const System = Context.GenericTag<System<Record<string, never>>>( '@minecraft/infrastructure/System')
+export const System = Context.GenericTag<System<Record<string, never>>>('@minecraft/infrastructure/System')
 
 /**
  * システム作成ヘルパー

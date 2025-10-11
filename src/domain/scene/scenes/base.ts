@@ -1,3 +1,4 @@
+import type { JsonRecord } from '@/shared/schema/json'
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
 import { Context, Data, Effect, Layer, Match, Ref, Schema } from 'effect'
 import { ActiveScene, SceneId, SceneIdSchema, SceneKind, SceneState, SceneStateSchema } from '..'
@@ -108,7 +109,7 @@ export interface SceneSnapshot<A extends SceneState> {
   readonly id: SceneId
   readonly kind: SceneKind
   readonly isActive: boolean
-  readonly metadata: Readonly<Record<string, unknown>>
+  readonly metadata: Readonly<JsonRecord>
   readonly state: A
 }
 
@@ -134,7 +135,7 @@ export interface SceneContext<A extends SceneState, C extends SceneController<A>
 export interface SceneDefinition<A extends SceneState, C extends SceneController<A> = SceneController<A>> {
   readonly id: string
   readonly type: SceneKind
-  readonly metadata: Readonly<Record<string, unknown>>
+  readonly metadata: Readonly<JsonRecord>
   readonly blueprint: SceneBlueprint<A, C>
   readonly onInitialize?: (context: SceneContext<A, C>) => Effect.Effect<void, SceneInitializationError>
   readonly onUpdate?: (context: SceneContext<A, C>, delta: FrameTime) => Effect.Effect<void, SceneUpdateError>

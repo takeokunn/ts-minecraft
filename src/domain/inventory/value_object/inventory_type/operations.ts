@@ -1,3 +1,4 @@
+import { toJsonValue } from '@shared/schema/json'
 import { Effect, Match, pipe, Schema } from 'effect'
 import { InventoryCapacitySchema, InventoryLayoutSchema, InventoryStatsSchema, InventoryTypeSchema } from './schema'
 import {
@@ -88,7 +89,7 @@ export const createShulkerBox = (color: string): Effect.Effect<InventoryType, In
       return yield* Effect.fail(
         InventoryTypeError.InvalidConfiguration({
           field: 'color',
-          value: color,
+          value: toJsonValue(color),
           expected: `one of: ${validColors.join(', ')}`,
         })
       )
@@ -119,7 +120,7 @@ export const calculateCapacity = (inventoryType: InventoryType): Effect.Effect<I
       Effect.mapError(() =>
         InventoryTypeError.InvalidConfiguration({
           field: 'capacity',
-          value: { totalSlots, maxStacksPerSlot, maxItemsTotal },
+          value: toJsonValue({ totalSlots, maxStacksPerSlot, maxItemsTotal }),
           expected: 'valid capacity configuration',
         })
       )
@@ -310,7 +311,7 @@ export const createInventoryLayout = (
       Effect.mapError(() =>
         InventoryTypeError.InvalidConfiguration({
           field: 'layout',
-          value: { gridWidth, gridHeight, specialSlots, playerSlots, displayName },
+          value: toJsonValue({ gridWidth, gridHeight, specialSlots, playerSlots, displayName }),
           expected: 'valid inventory layout',
         })
       )
@@ -397,7 +398,15 @@ export const calculateInventoryStats = (
       Effect.mapError(() =>
         InventoryTypeError.InvalidConfiguration({
           field: 'stats',
-          value: { totalSlots, usedSlots, emptySlots, totalItems, uniqueItems, averageStackSize, utilization },
+          value: toJsonValue({
+            totalSlots,
+            usedSlots,
+            emptySlots,
+            totalItems,
+            uniqueItems,
+            averageStackSize,
+            utilization,
+          }),
           expected: 'valid inventory statistics',
         })
       )

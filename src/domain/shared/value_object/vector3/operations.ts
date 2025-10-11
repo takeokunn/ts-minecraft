@@ -3,9 +3,9 @@
  * Vector3の操作関数群（不変操作）
  */
 
+import { ErrorCauseSchema } from '@shared/schema/error'
+import { formatParseIssues, makeErrorFactory } from '@shared/schema/tagged_error_factory'
 import { Effect, Schema } from 'effect'
-import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
-import { ErrorCauseSchema } from '@/shared/schema/error'
 import { Vector3Schema, type Vector3 } from './schema'
 
 /**
@@ -16,6 +16,8 @@ export const Vector3ErrorSchema = Schema.TaggedError('Vector3Error', {
   reason: Schema.String,
   vector: Schema.optional(Vector3Schema),
   cause: Schema.optional(ErrorCauseSchema),
+  issues: Schema.optional(Schema.Array(Schema.String)),
+  originalError: Schema.optional(Schema.Unknown),
 })
 
 export type Vector3Error = Schema.Schema.Type<typeof Vector3ErrorSchema>
@@ -31,11 +33,12 @@ export const Vector3Error = makeErrorFactory(Vector3ErrorSchema)
  */
 export const make = (x: number, y: number, z: number): Effect.Effect<Vector3, Vector3Error> =>
   Schema.decode(Vector3Schema)({ x, y, z }).pipe(
-    Effect.mapError((error) =>
+    Effect.mapError((parseError: Schema.ParseError) =>
       Vector3Error.make({
         operation: 'make',
         reason: 'Invalid vector components',
-        cause: error instanceof Error ? error : { message: String(error) },
+        issues: formatParseIssues(parseError),
+        originalError: parseError,
       })
     )
   )
@@ -44,7 +47,8 @@ export const make = (x: number, y: number, z: number): Effect.Effect<Vector3, Ve
  * Vector3コンストラクタ（同期版）- 検証なし（パフォーマンス最適化用）
  * 注意: 既に検証済みの値にのみ使用すること
  */
-export const makeUnsafe = (x: number, y: number, z: number): Vector3 => Schema.make(Vector3Schema)({ x, y, z })
+export const makeUnsafe = (x: number, y: number, z: number): Vector3 =>
+  Vector3Schema.make({ x, y, z }, { disableValidation: true })
 
 // -----------------------------------------------------------------------------
 // Constants

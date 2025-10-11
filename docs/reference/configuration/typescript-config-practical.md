@@ -104,7 +104,7 @@ TypeScript MinecraftプロジェクトのTypeScript 5.9+設定について詳し
       "@/application/*": ["src/application/*"], // アプリケーション層（ユースケース）
       "@/infrastructure/*": ["src/infrastructure/*"], // インフラ層（ECS・レンダリング）
       "@/presentation/*": ["src/presentation/*"], // プレゼンテーション層（UI）
-      "@/shared/*": ["src/shared/*"], // 共有コード
+      "@shared/*": ["src/shared/*"], // 共有コード
       "@/types/*": ["src/types/*"], // ゲーム固有型定義
       "@/test/*": ["test/*"], // テストコード
       "@/workers/*": ["src/workers/*"] // Web Worker（チャンク・物理演算）
@@ -373,7 +373,7 @@ TypeScript MinecraftプロジェクトのTypeScript 5.9+設定について詳し
       "@/domain/*": ["src/domain/*"], // ドメイン層（Schema中心）
       "@/application/*": ["src/application/*"], // ユースケース（Effect中心）
       "@/infrastructure/*": ["src/infrastructure/*"], // インフラ層（Layer中心）
-      "@/shared/*": ["src/shared/*"], // 共有型・ユーティリティ
+      "@shared/*": ["src/shared/*"], // 共有型・ユーティリティ
       "@effect/*": ["node_modules/effect/*"], // Effect直接参照
       "@effect/schema": ["node_modules/@effect/schema"], // Schema専用
       "@effect/platform": ["node_modules/@effect/platform"] // Platform専用
@@ -715,7 +715,7 @@ export const createGameService = <T extends Record<string, any>>(implementation:
       "@/application/*": ["src/application/*"], // ゲームユースケース
       "@/infrastructure/*": ["src/infrastructure/*"], // レンダリング・物理演算
       "@/presentation/*": ["src/presentation/*"], // UI・入力制御
-      "@/shared/*": ["src/shared/*"], // 共有ユーティリティ
+      "@shared/*": ["src/shared/*"], // 共有ユーティリティ
 
       // Effect-TS解決パス（重要）
       "@effect/*": ["node_modules/effect/*"],

@@ -1,3 +1,5 @@
+import type { JsonSerializable } from '@shared/schema/json'
+import { formatParseIssues } from '@shared/schema/tagged_error_factory'
 import { Clock, Effect, Match, Option, Random, Schema, pipe } from 'effect'
 import { ChunkIdError, ChunkIdSchema, makeUnsafeChunkId, type ChunkId } from '../../../shared/entities/chunk_id'
 import { createChunkPosition, type ChunkPosition } from '../chunk_position'
@@ -7,7 +9,7 @@ const chunkPrefix = 'chunk'
 const chunkUuidPrefix = `${chunkPrefix}_uuid`
 const chunkVersionPrefix = `${chunkPrefix}_v`
 
-const invalidIdError = (message: string, value?: unknown) =>
+const invalidIdError = (message: string, value?: JsonSerializable) =>
   ChunkIdError.make({
     message,
     value,
@@ -51,16 +53,23 @@ export const generateRandomChunkId = (): Effect.Effect<ChunkId, ChunkIdError> =>
 /**
  * チャンクIDの検証
  */
-export const validateChunkId = (value: unknown): Effect.Effect<ChunkId, ChunkIdError> =>
+export const validateChunkId = (value: JsonSerializable): Effect.Effect<ChunkId, ChunkIdError> =>
   pipe(
     Schema.decode(ChunkIdSchema)(value),
-    Effect.mapError((error) => invalidIdError(`チャンクIDの検証に失敗しました: ${String(error)}`, value))
+    Effect.mapError((parseError: Schema.ParseError) =>
+      ChunkIdError.make({
+        message: 'チャンクIDの検証に失敗しました',
+        value,
+        issues: formatParseIssues(parseError),
+        originalError: parseError,
+      })
+    )
   )
 
 /**
  * チャンクIDからタイプを判定
  */
-export const getChunkIdType = (chunkId: ChunkId): 'versioned' | 'uuid' | 'timestamped' | 'unknown' =>
+export const getChunkIdType = (chunkId: ChunkId): 'versioned' | 'uuid' | 'timestamped' | 'unclassified' =>
   pipe(
     chunkId,
     Match.value,
@@ -76,7 +85,7 @@ export const getChunkIdType = (chunkId: ChunkId): 'versioned' | 'uuid' | 'timest
       (id) => id.includes('_'),
       () => 'timestamped' as const
     ),
-    Match.orElse(() => 'unknown' as const)
+    Match.orElse(() => 'unclassified' as const)
   )
 
 /**
@@ -132,7 +141,9 @@ export const createChunkIdHierarchy = (chunkId: ChunkId, depth: number = 2): Rea
 /**
  * チャンクIDのバッチ検証
  */
-export const validateChunkIds = (values: ReadonlyArray<unknown>): Effect.Effect<ReadonlyArray<ChunkId>, ChunkIdError> =>
+export const validateChunkIds = (
+  values: ReadonlyArray<JsonSerializable>
+): Effect.Effect<ReadonlyArray<ChunkId>, ChunkIdError> =>
   Effect.forEach(values, validateChunkId, {
     concurrency: 4,
   })

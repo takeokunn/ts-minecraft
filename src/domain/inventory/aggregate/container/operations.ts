@@ -3,7 +3,7 @@
  * コンテナ固有のビジネスロジック実装
  */
 
-import { Clock, DateTime, Effect, Match, Option, pipe, Schema } from 'effect'
+import { Clock, DateTime, Effect, Match, Option, pipe } from 'effect'
 import type { ItemId, PlayerId } from '../../types'
 import type { ItemStackEntity } from '../item_stack/types'
 import { ItemCountSchema, makeUnsafeItemStackId } from '../item_stack/types'
@@ -255,7 +255,7 @@ export const removeItemFromContainer = (
       const newCount = validatedSlot.itemStack.count - removeQuantity
       const updatedItemStack: ItemStackEntity = {
         ...validatedSlot.itemStack,
-        count: Schema.make(ItemCountSchema)(newCount),
+        count: ItemCountSchema.make(newCount),
       }
       updatedSlots[slotIndex] = { ...validatedSlot.slot, itemStack: updatedItemStack }
 
@@ -263,7 +263,7 @@ export const removeItemFromContainer = (
       const now = yield* Clock.currentTimeMillis
       const removedStack: ItemStackEntity = {
         ...validatedSlot.itemStack,
-        count: Schema.make(ItemCountSchema)(removeQuantity),
+        count: ItemCountSchema.make(removeQuantity),
         id: makeUnsafeItemStackId(`stack_removed_${now}`),
       }
       removedItemStack = Option.some(removedStack)

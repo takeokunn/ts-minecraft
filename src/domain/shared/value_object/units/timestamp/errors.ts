@@ -3,9 +3,9 @@
  * Timestamp型のエラー定義
  */
 
-import * as Schema from 'effect/Schema'
+import { JsonValueSchema } from '@shared/schema/json'
 import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
-import { JsonValueSchema } from '@/shared/schema/json'
+import * as Schema from 'effect/Schema'
 
 /**
  * Timestamp validation error

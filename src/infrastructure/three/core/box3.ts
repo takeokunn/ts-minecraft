@@ -3,11 +3,11 @@
  * 3Dバウンディングボックスの型安全な不変操作を提供
  */
 
+import { ErrorCauseSchema } from '@shared/schema/error'
 import { Effect, Schema } from 'effect'
 import * as THREE from 'three'
 import type { Vector3 } from './vector3'
 import * as V3 from './vector3'
-import { ErrorCauseSchema } from '@shared/schema/error'
 
 /**
  * Box3 Schema定義（Brand型）
@@ -34,8 +34,12 @@ export type Box3Error = Schema.Schema.Type<typeof Box3Error>
 
 /**
  * Box3コンストラクタ - min/maxベクトルから構築
+ *
+ * @internal
+ * Infrastructure層内部専用。値の検証を行わないため、信頼できる値のみに使用すること。
+ * Three.jsとの連携において、構造的に同一であることが保証されている値の変換に使用。
  */
-export const make = (min: Vector3, max: Vector3): Box3 => Schema.decodeUnknownSync(Box3Schema)({ min, max })
+export const make = (min: Vector3, max: Vector3): Box3 => ({ min, max }) as Box3
 
 /**
  * 空のBox3（無限小）

@@ -10,7 +10,7 @@ import type { WorldCoordinate2D } from '@/domain/biome/value_object/coordinates'
 import { WorldCoordinate2DSchema } from '@/domain/biome/value_object/coordinates'
 import { type GenerationError } from '@domain/world/types/errors'
 import type { WorldSeed } from '@domain/world/value_object/world_seed'
-import { Context, Effect, Layer, Match, Option, pipe, ReadonlyArray, Schema } from 'effect'
+import { Context, Effect, Layer, Match, Option, pipe, Random, ReadonlyArray, Schema } from 'effect'
 
 /**
  * 気候データスキーマ
@@ -457,7 +457,8 @@ export const ClimateCalculatorServiceLive = Layer.effect(
           (season * 90 + Math.sin(coordinate.x * 0.001) * 30 + Math.cos(coordinate.z * 0.001) * 30) % 360
 
         // 標高による風速増加
-        const windSpeed = Math.max(1, 5 + elevation * 0.002 + Math.random() * 3)
+        const windSpeedVariation = yield* Random.nextIntBetween(0, 300).pipe(Effect.map((n) => n / 100))
+        const windSpeed = Math.max(1, 5 + elevation * 0.002 + windSpeedVariation)
 
         // 風による降水・温度修正
         const precipitationModifier = 1 + Math.sin((seasonalWindDirection * Math.PI) / 180) * 0.3
@@ -525,7 +526,8 @@ export const ClimateCalculatorServiceLive = Layer.effect(
           Effect.forEach(
             (year) =>
               Effect.gen(function* () {
-                const yearlyVariation = Math.sin(year * 0.1) * 0.1 + Math.random() * 0.05
+                const randomVariation = yield* Random.nextIntBetween(0, 5).pipe(Effect.map((n) => n / 100))
+                const yearlyVariation = Math.sin(year * 0.1) * 0.1 + randomVariation
                 const modifiedSeed = BigInt(Number(seed) + year) satisfies bigint as WorldSeed
 
                 const climate = yield* ClimateCalculatorService.calculateClimate(coordinate, 0, modifiedSeed)
@@ -765,10 +767,10 @@ const calculateClassificationConfidence = (climate: ClimateData): Effect.Effect<
  * 境界距離の計算
  */
 const calculateBorderDistance = (climate: ClimateData): Effect.Effect<number, GenerationError> =>
-  Effect.succeed(() => {
+  Effect.gen(function* () {
     // 簡略化された境界距離
-    return Math.random() * 100
-  })()
+    return yield* Random.nextIntBetween(0, 100)
+  })
 
 /**
  * 代替分類の計算

@@ -1,6 +1,6 @@
+import type { JsonValue } from '@shared/schema/json'
+import { JsonValueSchema } from '@shared/schema/json'
 import { Clock, Data, Effect, Schema } from 'effect'
-import { JsonValueSchema } from '@/shared/schema/json'
-import type { JsonValue } from '@/shared/schema/json'
 import type {
   CameraDistance,
   CameraMode,
@@ -425,7 +425,7 @@ export const createCameraEvent = {
       })
     }),
 
-  collisionDetected: (cameraId: CameraId, position: Position3D, obstruction: unknown): Effect.Effect<CameraEvent> =>
+  collisionDetected: (cameraId: CameraId, position: Position3D, obstruction: JsonValue): Effect.Effect<CameraEvent> =>
     Effect.gen(function* () {
       const timestamp = yield* Clock.currentTimeMillis
       return Data.struct({

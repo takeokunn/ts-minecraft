@@ -30,9 +30,9 @@ export type {
 
 // === Integrated Performance Monitoring Service ===
 
-import { Clock, Context, Effect, Match, Ref, Schema } from 'effect'
 import { ErrorCauseSchema } from '@shared/schema/error'
 import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
+import { Clock, Context, Duration, Effect, Match, Random, Ref, Schema } from 'effect'
 import { MetricsCollectorService } from './service'
 
 /**
@@ -429,7 +429,8 @@ export const makePerformanceMonitoringService = Effect.gen(function* () {
             const opStart = yield* Clock.currentTimeMillis
 
             // Effect.catchAllでエラーを捕捉してerrorCountをインクリメント
-            const isError = yield* Effect.sleep(`${Math.random() * 10 + 5} millis`).pipe(
+            const randomDelay = yield* Random.nextIntBetween(5, 15)
+            const isError = yield* Effect.sleep(Duration.millis(randomDelay)).pipe(
               Effect.map(() => false),
               Effect.catchAll(() => Effect.succeed(true))
             )

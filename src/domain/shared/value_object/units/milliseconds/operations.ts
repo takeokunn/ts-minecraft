@@ -23,28 +23,31 @@ export const make = (value: number): Effect.Effect<Milliseconds, Schema.ParseErr
  * 数値からMilliseconds型を生成（バリデーションなし）
  * 信頼できるソースからの値のみ使用すること
  */
-export const makeUnsafe = (value: number): Milliseconds => Schema.make(MillisecondsSchema)(value)
+export const makeUnsafe = (value: number): Milliseconds => MillisecondsSchema.make(value, { disableValidation: true })
 
 /**
  * Add two Milliseconds
  */
-export const add = (a: Milliseconds, b: Milliseconds): Milliseconds => Schema.make(MillisecondsSchema)(a + b)
+export const add = (a: Milliseconds, b: Milliseconds): Milliseconds =>
+  MillisecondsSchema.make(a + b, { disableValidation: true })
 
 /**
  * Subtract two Milliseconds
  */
 export const subtract = (a: Milliseconds, b: Milliseconds): Milliseconds =>
-  Schema.make(MillisecondsSchema)(Math.max(0, a - b))
+  MillisecondsSchema.make(Math.max(0, a - b), { disableValidation: true })
 
 /**
  * Multiply Milliseconds by scalar
  */
-export const multiply = (ms: Milliseconds, scalar: number): Milliseconds => Schema.make(MillisecondsSchema)(ms * scalar)
+export const multiply = (ms: Milliseconds, scalar: number): Milliseconds =>
+  MillisecondsSchema.make(ms * scalar, { disableValidation: true })
 
 /**
  * Divide Milliseconds by scalar
  */
-export const divide = (ms: Milliseconds, scalar: number): Milliseconds => Schema.make(MillisecondsSchema)(ms / scalar)
+export const divide = (ms: Milliseconds, scalar: number): Milliseconds =>
+  MillisecondsSchema.make(ms / scalar, { disableValidation: true })
 
 /**
  * Convert to seconds
@@ -54,13 +57,14 @@ export const toSeconds = (ms: Milliseconds): number => ms / 1000
 /**
  * Convert from seconds
  */
-export const fromSeconds = (seconds: number): Milliseconds => Schema.make(MillisecondsSchema)(seconds * 1000)
+export const fromSeconds = (seconds: number): Milliseconds =>
+  MillisecondsSchema.make(seconds * 1000, { disableValidation: true })
 
 /**
  * Clamp Milliseconds between min and max
  */
 export const clamp = (value: Milliseconds, min: Milliseconds, max: Milliseconds): Milliseconds =>
-  Schema.make(MillisecondsSchema)(Math.max(min, Math.min(max, value)))
+  MillisecondsSchema.make(Math.max(min, Math.min(max, value)), { disableValidation: true })
 
 /**
  * Check if Milliseconds is zero
@@ -80,9 +84,11 @@ export const compare = (a: Milliseconds, b: Milliseconds): -1 | 0 | 1 => Order.n
 /**
  * Get minimum of two Milliseconds
  */
-export const min = (a: Milliseconds, b: Milliseconds): Milliseconds => Schema.make(MillisecondsSchema)(Math.min(a, b))
+export const min = (a: Milliseconds, b: Milliseconds): Milliseconds =>
+  MillisecondsSchema.make(Math.min(a, b), { disableValidation: true })
 
 /**
  * Get maximum of two Milliseconds
  */
-export const max = (a: Milliseconds, b: Milliseconds): Milliseconds => Schema.make(MillisecondsSchema)(Math.max(a, b))
+export const max = (a: Milliseconds, b: Milliseconds): Milliseconds =>
+  MillisecondsSchema.make(Math.max(a, b), { disableValidation: true })

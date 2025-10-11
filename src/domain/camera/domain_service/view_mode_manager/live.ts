@@ -6,7 +6,7 @@
  * 制約確認等の核となるビジネスロジックを実装しています。
  */
 
-import { Clock, Effect, Layer, Match, pipe } from 'effect'
+import { Clock, Effect, Layer, Match, pipe, Random } from 'effect'
 import type {
   AnimationDuration,
   AnimationTimeline,
@@ -498,7 +498,9 @@ const checkEnvironmentCompatibility = (
 const generateTransitionId = (): Effect.Effect<string, CameraError> =>
   Effect.gen(function* () {
     const timestamp = yield* Clock.currentTimeMillis
-    return `transition_${timestamp}_${Math.random().toString(36).substr(2, 9)}`
+    const randomValue = yield* Random.nextIntBetween(0, 36 ** 9 - 1)
+    const randomId = randomValue.toString(36).padStart(9, '0')
+    return `transition_${timestamp}_${randomId}`
   })
 
 /**

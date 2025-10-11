@@ -8,8 +8,8 @@
 
 import { type GenerationError } from '@domain/world/types/errors'
 import {
-  makeUnsafeWorldCoordinate2D,
   BoundingBoxSchema,
+  makeUnsafeWorldCoordinate2D,
   WorldCoordinate2DSchema,
   WorldCoordinateSchema,
   type BoundingBox,
@@ -607,10 +607,8 @@ const lerp = (a: number, b: number, t: number): number => a + t * (b - a)
 /**
  * メモリ使用量の推定
  */
-const estimateFieldMemoryUsage = (
-  resolution: number,
-  samples: ReadonlyArray<ReadonlyArray<NoiseSample>>
-): number => resolution * resolution * 128 // 128バイト/サンプルと仮定
+const estimateFieldMemoryUsage = (resolution: number, samples: ReadonlyArray<ReadonlyArray<NoiseSample>>): number =>
+  resolution * resolution * 128 // 128バイト/サンプルと仮定
 
 /**
  * Ken Perlinの排列テーブル（簡略版）

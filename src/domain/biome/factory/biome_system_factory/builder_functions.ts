@@ -1,5 +1,6 @@
 import * as BiomeSystem from '@/domain/biome/aggregate/biome_system'
 import * as BiomeProperties from '@/domain/biome/value_object/biome_properties/index'
+import { type JsonRecord } from '@shared/schema/json'
 import * as Effect from 'effect/Effect'
 import type { BiomePresetType, BiomeSystemBuilderState, PerformanceProfile, ValidationLevel } from './builder_state.js'
 import type { BiomeFactoryError } from './errors.js'
@@ -100,10 +101,7 @@ export const withCustomBiomes = (
 /**
  * Metadata設定関数（マージ）
  */
-export const withMetadata = (
-  state: BiomeSystemBuilderState,
-  metadata: Record<string, unknown>
-): BiomeSystemBuilderState => ({
+export const withMetadata = (state: BiomeSystemBuilderState, metadata: JsonRecord): BiomeSystemBuilderState => ({
   ...state,
   metadata: { ...state.metadata, ...metadata },
 })

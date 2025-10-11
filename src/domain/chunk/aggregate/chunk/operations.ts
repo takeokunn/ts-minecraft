@@ -7,7 +7,7 @@ import {
   ChunkStateGuards,
   ChunkStateOptics,
   ChunkStateOpticsHelpers,
-  ChunkStatesEffect,
+  ChunkStates,
 } from '../../types'
 import type { ChunkMetadata } from '../../value_object/chunk_metadata'
 import { makeUnsafeHeightValue } from '../../value_object/chunk_metadata'
@@ -132,9 +132,7 @@ export const ChunkStateOperations = {
         return pipe(
           Option.fromNullable(onComplete),
           Option.filter(() => newProgress >= 100),
-          Option.flatMap((complete) =>
-            Option.some(Effect.runSync(ChunkStatesEffect.loaded(complete.data, complete.metadata)))
-          ),
+          Option.flatMap((complete) => Option.some(ChunkStates.loaded(complete.data, complete.metadata))),
           Option.getOrElse(() => progressed)
         )
       }),
@@ -192,7 +190,7 @@ export const ChunkStateOperations = {
             pipe(
               Option.fromNullable(ChunkStateOptics.savingData.get(withData)),
               Option.zipWith(Option.fromNullable(ChunkStateOptics.savingMetadata.get(withData)), (data, metadata) =>
-                Effect.runSync(ChunkStatesEffect.loaded(data, metadata))
+                ChunkStates.loaded(data, metadata)
               )
             )
           ),

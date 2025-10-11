@@ -5,7 +5,7 @@
  */
 
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
-import { Clock, Effect, Layer, Match, Option, Random, Schema, pipe } from 'effect'
+import { Clock, Duration, Effect, Layer, Match, Option, Random, Schema, pipe } from 'effect'
 import { clear, createStore, del, get, keys, set } from 'idb-keyval'
 import type { StorageError } from '..'
 import {
@@ -27,7 +27,7 @@ import {
 import type { Inventory, InventoryState, PlayerId } from '../../../domain/inventory'
 import { InventorySchema, InventoryStateSchema, PlayerIdSchema } from '../../../domain/inventory'
 
-const backend = Schema.decodeUnknownSync(StorageBackendSchema)('indexedDB')
+const backend = 'indexedDB' satisfies StorageBackend
 
 const inventoryStore = createStore('minecraft-inventory-db', 'inventories')
 const stateStore = createStore('minecraft-inventory-db', 'states')
@@ -46,24 +46,40 @@ const requireAvailability = Effect.sync(() => typeof indexedDB !== 'undefined').
 
 const formatParseError = (error: Schema.ParseError): string => TreeFormatter.formatErrorSync(error)
 
-const tryPromise = <A>(
-  tag: 'load' | 'save' | 'delete' | 'clear',
-  context: string,
-  thunk: () => PromiseLike<A>
-) =>
+const tryPromise = <A>(tag: 'load' | 'save' | 'delete' | 'clear', context: string, thunk: () => PromiseLike<A>) =>
   Effect.tryPromise({
     try: thunk,
     catch: (cause) =>
       pipe(
         tag,
         Match.value,
-        Match.when('load', () => toLoadFailed(backend, context, 'IndexedDB read failure', toStorageFailureCause(cause))),
-        Match.when('save', () => toSaveFailed(backend, context, 'IndexedDB write failure', toStorageFailureCause(cause))),
-        Match.when('delete', () => toSaveFailed(backend, context, 'IndexedDB delete failure', toStorageFailureCause(cause))),
-        Match.when('clear', () => toSaveFailed(backend, context, 'IndexedDB clear failure', toStorageFailureCause(cause))),
+        Match.when('load', () =>
+          toLoadFailed(backend, context, 'IndexedDB read failure', toStorageFailureCause(cause))
+        ),
+        Match.when('save', () =>
+          toSaveFailed(backend, context, 'IndexedDB write failure', toStorageFailureCause(cause))
+        ),
+        Match.when('delete', () =>
+          toSaveFailed(backend, context, 'IndexedDB delete failure', toStorageFailureCause(cause))
+        ),
+        Match.when('clear', () =>
+          toSaveFailed(backend, context, 'IndexedDB clear failure', toStorageFailureCause(cause))
+        ),
         Match.exhaustive
       ),
   }).pipe(
+    Effect.timeout(Duration.seconds(5)),
+    Effect.catchTag('TimeoutException', () =>
+      pipe(
+        tag,
+        Match.value,
+        Match.when('load', () => toLoadFailed(backend, context, 'IndexedDB read timeout after 5 seconds')),
+        Match.when('save', () => toSaveFailed(backend, context, 'IndexedDB write timeout after 5 seconds')),
+        Match.when('delete', () => toSaveFailed(backend, context, 'IndexedDB delete timeout after 5 seconds')),
+        Match.when('clear', () => toSaveFailed(backend, context, 'IndexedDB clear timeout after 5 seconds')),
+        Match.exhaustive
+      )
+    ),
     Effect.annotateLogs('inventory.storage.operation', tag),
     Effect.annotateLogs('inventory.storage.context', context)
   )

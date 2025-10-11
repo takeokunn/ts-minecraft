@@ -1,3 +1,6 @@
+import { BoundingBoxSchema as CameraBoundingBoxSchema } from '@/domain/camera/value_object/camera_position'
+import { EntityIdSchema } from '@/domain/shared/entities/entity_id/schema'
+import { PlayerIdSchema } from '@/domain/shared/entities/player_id/schema'
 import type {
   AnimationState,
   CameraRotation,
@@ -7,9 +10,6 @@ import type {
   Position3D,
 } from '@domain/camera/types'
 import { CameraRotationSchema, Position3DSchema } from '@domain/camera/types'
-import { BoundingBoxSchema as CameraBoundingBoxSchema } from '@/domain/camera/value_object/camera_position'
-import { EntityIdSchema } from '@/domain/shared/entities/entity_id/schema'
-import { PlayerIdSchema } from '@/domain/shared/entities/player_id/schema'
 import { Array, Brand, Data, Option, Schema } from 'effect'
 
 // ========================================

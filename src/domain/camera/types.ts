@@ -3,9 +3,9 @@
 // 後方互換性のために一時的に保持していますが、新しいコードでは types/index.js を使用してください
 // ========================================
 
-import { Schema } from 'effect'
 import { toErrorCause, type ErrorCause } from '@shared/schema/error'
-import { toJsonValue, type JsonValue } from '@shared/schema/json'
+import { toJsonValue, type JsonSerializable, type JsonValue } from '@shared/schema/json'
+import { Schema } from 'effect'
 
 // 新しい types/ ディレクトリからの再エクスポート
 export type {
@@ -13,8 +13,11 @@ export type {
   CameraDomainError,
   CameraError,
   CameraEvent,
+  CameraOrientation,
   CameraRotation,
+  CameraSnapshot,
   CameraSettings,
+  CameraTransform,
   FOV,
   CameraMode as NewCameraMode,
   Position3D,
@@ -25,6 +28,12 @@ export {
   CAMERA_DEFAULTS,
   CAMERA_LIMITS,
   CAMERA_MODES,
+  CameraQuaternionSchema,
+  CameraOrientationSchema,
+  CameraProjectionSchema,
+  CameraSnapshotSchema,
+  CameraVector3Schema,
+  CameraTransformSchema,
   CameraDistanceSchema,
   CameraRotationSchema,
   CameraSettingsSchema,
@@ -55,6 +64,7 @@ export const CameraMode = Schema.Literal('first-person', 'third-person', 'specta
 export const CameraConfig = Schema.Struct({
   mode: CameraMode,
   fov: Schema.Number.pipe(Schema.between(30, 120)),
+  aspect: Schema.Number.pipe(Schema.positive()),
   near: Schema.Number.pipe(Schema.positive()),
   far: Schema.Number.pipe(Schema.positive()),
   sensitivity: Schema.Number.pipe(Schema.between(0.1, 10)),
@@ -114,7 +124,7 @@ export const LegacyCameraError = (
   message: string,
   reason: CameraErrorReason,
   cause?: unknown,
-  context?: Record<string, unknown>
+  context?: Record<string, JsonSerializable>
 ): LegacyCameraError => {
   const normalizedCause = toErrorCause(cause)
   const normalizedContext = context

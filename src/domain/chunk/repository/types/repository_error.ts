@@ -1,8 +1,8 @@
-import { Clock, Data, Effect, Match, pipe, Schema } from 'effect'
-import { toErrorCause } from '@/shared/schema/error'
-import type { ErrorCause } from '@/shared/schema/error'
-import { toJsonValue } from '@/shared/schema/json'
-import type { JsonValue } from '@/shared/schema/json'
+import type { ErrorCause } from '@shared/schema/error'
+import { toErrorCause } from '@shared/schema/error'
+import type { JsonValue } from '@shared/schema/json'
+import { toJsonValue, type JsonSerializable } from '@shared/schema/json'
+import { Clock, Data, Effect, Match, pipe, Random, Schema } from 'effect'
 
 /**
  * Chunk Repository Domain - Error Types
@@ -93,7 +93,7 @@ export const RepositoryError = Data.taggedEnum<RepositoryError>()
 // ===== Error Factory Functions ===== //
 
 type ErrorCauseInput = Error | JsonValue | { readonly message: string } | undefined | null
-type JsonValueInput = JsonValue | Error | undefined | null
+type JsonValueInput = JsonSerializable | undefined
 
 /**
  * RepositoryError ファクトリ関数
@@ -260,12 +260,13 @@ export const isTransientError = (error: RepositoryError): boolean =>
     Match.orElse(() => false)
   )
 
-export const getRetryDelay = (error: RepositoryError, attempt: number): number =>
+export const getRetryDelay = (error: RepositoryError, attempt: number): Effect.Effect<number> =>
   isRetryableError(error)
-    ? (() => {
-        // Exponential backoff with jitter
+    ? Effect.gen(function* () {
+        // Exponential backoff with jitter（Random Serviceを使用）
         const baseDelay = Math.min(1000 * Math.pow(2, attempt), 30000)
-        const jitter = Math.random() * 0.1 * baseDelay
+        const jitterFactor = yield* Random.nextIntBetween(0, 100)
+        const jitter = (jitterFactor / 1000) * baseDelay // 0~10%のjitter
         return baseDelay + jitter
-      })()
-    : 0
+      })
+    : Effect.succeed(0)

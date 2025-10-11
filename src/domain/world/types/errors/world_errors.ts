@@ -3,11 +3,20 @@
  * 世界ドメインの構造化エラー定義
  */
 
+import { ErrorCauseSchema, toErrorCause } from '@shared/schema/error'
+import type { JsonValue } from '@shared/schema/json'
+import { JsonValueSchema } from '@shared/schema/json'
 import { DateTime, Effect, Schema } from 'effect'
-import { ErrorCauseSchema, toErrorCause } from '@/shared/schema/error'
-import { JsonValueSchema } from '@/shared/schema/json'
-import type { JsonValue } from '@/shared/schema/json'
-import { ChunkPosition, DimensionId, Vector3D, WorldId } from '../core'
+import {
+  ChunkPosition,
+  ChunkPositionSchema,
+  DimensionId,
+  DimensionIdSchema,
+  Vector3D,
+  Vector3DSchema,
+  WorldId,
+  WorldIdSchema,
+} from '../core'
 
 // === 基本エラー情報型 ===
 

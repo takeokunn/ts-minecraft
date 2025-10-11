@@ -112,13 +112,14 @@ export const updateViewFrustum = (
   )
 
 export const summarizeFrustum = (frustum: ViewFrustum): Effect.Effect<FrustumSummary, never> =>
-  Effect.sync(() =>
-    Schema.decodeUnknownSync(FrustumSummarySchema)({
-      id: frustum.id,
-      nearDistance: frustum.nearDistance,
-      farDistance: frustum.farDistance,
-      timestamp: frustum.timestamp,
-    })
+  Effect.sync(
+    () =>
+      ({
+        id: frustum.id,
+        nearDistance: frustum.nearDistance,
+        farDistance: frustum.farDistance,
+        timestamp: frustum.timestamp,
+      }) as FrustumSummary
   )
 
 export const frustumComputedEvent = (

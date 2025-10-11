@@ -1,5 +1,5 @@
-import { Effect, HashMap, Layer, Option, Ref } from 'effect'
 import { now as timestampNow } from '@domain/shared/value_object/units/timestamp'
+import { Effect, HashMap, Layer, Option, Ref } from 'effect'
 import type {
   Inventory,
   InventoryQuery,

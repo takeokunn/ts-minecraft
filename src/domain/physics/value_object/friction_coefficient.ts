@@ -30,10 +30,11 @@ const create = (
     }
   })
 
-// Factory関数化してruntime初期化問題を回避
-const createFromMaterial = (material: Schema.Schema.Type<typeof PhysicsMaterialSchema>): FrictionCoefficient => {
+const createFromMaterial = (
+  material: Schema.Schema.Type<typeof PhysicsMaterialSchema>
+): Effect.Effect<FrictionCoefficient, PhysicsError> => {
   const frictionValue = MATERIAL_FRICTION[material]
-  return Effect.runSync(create(material, frictionValue !== undefined ? frictionValue : 0.5))
+  return create(material, frictionValue !== undefined ? frictionValue : 0.5)
 }
 
 const fromMaterial = createFromMaterial

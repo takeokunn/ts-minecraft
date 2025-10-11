@@ -7,7 +7,7 @@
 
 import type { ItemStack } from '@/domain/inventory/aggregate/item_stack'
 import type { InventoryId, ItemId, PlayerId } from '@/domain/inventory/types'
-import type { JsonValue } from '@/shared/schema/json'
+import type { JsonValue } from '@shared/schema/json'
 import { Context, Effect } from 'effect'
 import type { InventoryApplicationError } from '../types'
 

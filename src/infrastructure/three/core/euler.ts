@@ -3,11 +3,11 @@
  * オイラー角による回転表現の型安全な不変操作を提供
  */
 
+import { ErrorCauseSchema } from '@shared/schema/error'
 import { Effect, Schema } from 'effect'
 import * as THREE from 'three'
 import type { Quaternion } from './quaternion'
 import * as Quat from './quaternion'
-import { ErrorCauseSchema } from '@shared/schema/error'
 
 /**
  * 回転順序の定義
@@ -41,13 +41,18 @@ export type EulerError = Schema.Schema.Type<typeof EulerError>
 
 /**
  * Eulerコンストラクタ - プリミティブ値から構築
+ *
+ * @internal
+ * Infrastructure層内部専用。値の検証を行わないため、信頼できる値のみに使用すること。
+ * Three.jsとの連携において、構造的に同一であることが保証されている値の変換に使用。
+ *
  * @param x X軸周りの回転（ラジアン）
  * @param y Y軸周りの回転（ラジアン）
  * @param z Z軸周りの回転（ラジアン）
  * @param order 回転適用順序（デフォルト: 'XYZ'）
  */
 export const make = (x: number, y: number, z: number, order: EulerOrder = 'XYZ'): Euler =>
-  Schema.decodeUnknownSync(EulerSchema)({ x, y, z, order })
+  ({ x, y, z, order }) as Euler
 
 /**
  * ゼロ回転（無回転）

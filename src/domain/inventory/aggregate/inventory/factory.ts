@@ -3,10 +3,12 @@
  * DDD原則に基づく複雑なオブジェクト生成の隠蔽
  */
 
-import { Context, DateTime, Effect, Layer, Match, pipe, Schema } from 'effect'
+import { JsonValueSchema } from '@shared/schema/json'
+import { formatParseIssues } from '@shared/schema/tagged_error_factory'
+import { Brand, Context, DateTime, Effect, Layer, Match, pipe, Schema } from 'effect'
 import { nanoid } from 'nanoid'
-import { PlayerIdSchema } from '../../types/core'
 import type { PlayerId } from '../../types'
+import { PlayerIdSchema } from '../../types/core'
 import type {
   ArmorSlot,
   HotbarSlot,
@@ -17,6 +19,8 @@ import type {
   SlotIndex,
 } from './types'
 import {
+  ArmorSlotSchema,
+  HotbarSlotSchema,
   INVENTORY_CONSTANTS,
   InventoryAggregateError,
   InventoryAggregateErrorFactory,
@@ -27,11 +31,20 @@ import {
   makeUnsafeHotbarSlot,
   makeUnsafeInventoryId,
   makeUnsafeSlotIndex,
-  ArmorSlotSchema,
-  HotbarSlotSchema,
   SlotIndexSchema,
 } from './types'
-import { JsonValueSchema } from '@/shared/schema/json'
+
+// ===== Branded Types for Persistence =====
+
+/**
+ * 永続化されたInventoryデータの型
+ *
+ * `unknown`を使用する理由:
+ * - 外部ストレージ（IndexedDB/LocalStorage）から取得されたデータは実行時検証が必須
+ * - Branded Typeにより、型安全な境界を明示的に定義
+ * - restore関数内でSchema検証を通過して初めてInventoryAggregateとして扱える
+ */
+export type PersistedInventory = Brand.Brand<unknown, 'PersistedInventory'>
 
 // ===== Factory Interface =====
 
@@ -43,9 +56,10 @@ export interface InventoryFactory {
 
   /**
    * 既存データからInventory集約を復元
+   *
+   * @param data - 永続化されたInventoryデータ（実行時検証が必要）
    */
-  readonly restore: (data: unknown) => Effect.Effect<InventoryAggregate, InventoryAggregateError>
-
+  readonly restore: (data: PersistedInventory) => Effect.Effect<InventoryAggregate, InventoryAggregateError>
 }
 
 export const InventoryFactory = Context.GenericTag<InventoryFactory>(
@@ -231,10 +245,12 @@ export const buildInventoryFromState = (
       lastModified,
       uncommittedEvents: state.uncommittedEvents,
     }).pipe(
-      Effect.mapError((error) =>
+      Effect.mapError((parseError: Schema.ParseError) =>
         InventoryAggregateErrorFactory.make({
           reason: 'INVALID_ITEM_TYPE',
-          message: `Inventory集約の検証に失敗: ${String(error)}`,
+          message: 'Inventory集約の検証に失敗',
+          issues: formatParseIssues(parseError),
+          originalError: parseError,
         })
       )
     )
@@ -253,14 +269,19 @@ export const InventoryFactoryLive = InventoryFactory.of({
       return yield* buildInventoryFromState(state)
     }),
 
-  restore: (data: unknown) =>
+  restore: (data: PersistedInventory) =>
     Effect.gen(function* () {
       // スキーマ検証による安全な復元
+      // ParseErrorの構造化情報を保持してエラー診断を容易にする
       return yield* Schema.decodeUnknown(InventoryAggregateSchema)(data).pipe(
-        Effect.mapError((error) =>
+        Effect.mapError((parseError: Schema.ParseError) =>
           InventoryAggregateErrorFactory.make({
             reason: 'INVALID_ITEM_TYPE',
-            message: `データからの復元に失敗: ${String(error)}`,
+            message: `データからの復元に失敗: Schema検証エラー`,
+            metadata: {
+              issues: formatParseIssues(parseError),
+              parseError: String(parseError),
+            },
           })
         )
       )

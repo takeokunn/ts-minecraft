@@ -11,7 +11,7 @@ import { unsafeCoerce } from 'effect/Function'
 /**
  * CANNON.Material Brand型
  */
-export const CannonMaterialSchema = Schema.Unknown.pipe(Schema.brand('CannonMaterial'))
+export const CannonMaterialSchema = Schema.instanceOf(CANNON.Material).pipe(Schema.brand('CannonMaterial'))
 
 export type CannonMaterial = Schema.Schema.Type<typeof CannonMaterialSchema>
 

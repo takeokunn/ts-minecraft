@@ -5,10 +5,8 @@ import * as WorldFactories from '@domain/world/factory'
 import * as WorldRepositories from '@domain/world/repository'
 import * as WorldTypes from '@domain/world/types'
 import * as WorldValueObjects from '@domain/world/value_object'
-import { Effect } from 'effect'
 import {
   defaultWorldDomainConfig,
-  selectWorldDomainConfig,
   WorldDomainHelpers,
   WorldDomainLayer,
   WorldDomainPerformanceLayer,
@@ -39,9 +37,6 @@ export interface WorldDomainInterface {
   }
 }
 
-const performanceConfig = Effect.runSync(selectWorldDomainConfig('performance'))
-const qualityConfig = Effect.runSync(selectWorldDomainConfig('quality'))
-
 export const WorldDomain: WorldDomainInterface = {
   Types: WorldTypes,
   ValueObjects: WorldValueObjects,
@@ -52,9 +47,11 @@ export const WorldDomain: WorldDomainInterface = {
   Factories: WorldFactories,
   Helpers: WorldDomainHelpers,
   Config: {
+    // 後方互換性のため同期版を提供（モジュール初期化時に実行されないよう関数内で生成）
     default: defaultWorldDomainConfig,
-    performance: performanceConfig,
-    quality: qualityConfig,
+    // Layer版の設定を優先的に使用すること
+    performance: defaultWorldDomainConfig, // Layer版: PerformanceWorldDomainConfigLayer
+    quality: defaultWorldDomainConfig, // Layer版: QualityWorldDomainConfigLayer
   },
   Layers: {
     default: WorldDomainLayer,

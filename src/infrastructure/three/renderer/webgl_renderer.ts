@@ -228,7 +228,8 @@ export const WebGLRendererServiceLive = (params?: WebGLRendererParams) =>
         rendererResource,
         getRenderer: Resource.get(rendererResource),
         render: (scene, camera) => useRenderer((renderer) => render(renderer, scene, camera)),
-        setSize: (width, height, updateStyle) => useRenderer((renderer) => setSize(renderer, width, height, updateStyle)),
+        setSize: (width, height, updateStyle) =>
+          useRenderer((renderer) => setSize(renderer, width, height, updateStyle)),
         setPixelRatio: (ratio) => useRenderer((renderer) => setPixelRatio(renderer, ratio)),
         setClearColor: (color, alpha) => useRenderer((renderer) => setClearColor(renderer, color, alpha)),
         getDomElement: useRenderer((renderer) => getDomElement(renderer)),

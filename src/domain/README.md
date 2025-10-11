@@ -17,11 +17,13 @@ Domain Layerは、アプリケーションのビジネスロジックとドメ�
 
 ```typescript
 // Entity定義
+import { JsonValueSchema } from '@shared/schema/json'
+
 export const Block = Schema.Struct({
   id: Schema.String,
   type: BlockType,
   position: Position,
-  metadata: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
+  metadata: Schema.optional(Schema.Record(Schema.String, JsonValueSchema)),
 })
 
 // Service定義

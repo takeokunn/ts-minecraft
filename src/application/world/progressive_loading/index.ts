@@ -100,8 +100,8 @@ export type {
 
 // === Integrated Progressive Loading Service ===
 
-import { Clock, Context, Effect, Option, pipe, ReadonlyArray, Schema } from 'effect'
 import { ErrorCauseSchema } from '@shared/schema/error'
+import { Clock, Context, Effect, Option, pipe, Random, ReadonlyArray, Schema } from 'effect'
 import {
   AdaptiveQualityService,
   LoadingSchedulerService,
@@ -495,9 +495,13 @@ export const ProgressiveLoadingUtils = {
         Effect.repeat(
           Effect.gen(function* () {
             // 実際の環境では適切なメトリクス取得APIを使用
-            const fps = 60 + Math.random() * 10 - 5 // 55-65 FPS
-            const memory = 0.6 + Math.random() * 0.2 // 60-80%
-            const cpu = 0.3 + Math.random() * 0.3 // 30-60%
+            const fpsOffset = yield* Random.nextIntBetween(-5, 5) // -5 to 5
+            const memoryOffset = yield* Random.nextIntBetween(0, 20) // 0-20 -> 0.0-0.2
+            const cpuOffset = yield* Random.nextIntBetween(0, 30) // 0-30 -> 0.0-0.3
+
+            const fps = 60 + fpsOffset // 55-65 FPS
+            const memory = 0.6 + memoryOffset / 100 // 60-80%
+            const cpu = 0.3 + cpuOffset / 100 // 30-60%
 
             yield* service.updatePerformanceMetrics(fps, memory, cpu)
 

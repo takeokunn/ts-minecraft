@@ -70,10 +70,8 @@ export const create = (
     yield* validateGenerationRequest(request)
     yield* validateConfiguration(mergedConfig)
 
-  const state = yield* SessionState.createInitial()
-  const metadataRecord: Record<string, JsonValue> | undefined = request.metadata
-    ? { ...request.metadata }
-    : undefined
+    const state = yield* SessionState.createInitial()
+    const metadataRecord: Record<string, JsonValue> | undefined = request.metadata ? { ...request.metadata } : undefined
 
     const session: GenerationSession = {
       id,
@@ -168,13 +166,7 @@ export const completeBatch = (
     // バッチ完了イベント発行
     yield* STM.fromEffect(
       SessionEvents.publish(
-        SessionEvents.createBatchCompleted(
-          session.id,
-          batchId,
-          results.length,
-          0,
-          { chunksGenerated: results.length }
-        )
+        SessionEvents.createBatchCompleted(session.id, batchId, results.length, 0, { chunksGenerated: results.length })
       )
     )
 
@@ -193,7 +185,7 @@ export const failBatch = (
     const now = yield* STM.fromEffect(DateTime.nowAsDate)
 
     // エラーハンドリング
-    const sessionError = ErrorHandling.createSessionError(error, batchId)
+    const sessionError = yield* STM.fromEffect(ErrorHandling.createSessionError(error, batchId))
     const errorHistory = [...session.errorHistory, sessionError]
 
     // リトライ判定
@@ -302,9 +294,7 @@ export const resume = (session: GenerationSession): Effect.Effect<GenerationSess
       session.state.lastStateChange != null ? now.getTime() - session.state.lastStateChange.getTime() : 0
     const remainingBatches = updatedState.executionContext.queuedBatches.length
 
-    yield* SessionEvents.publish(
-      SessionEvents.createSessionResumed(session.id, pausedDuration, remainingBatches)
-    )
+    yield* SessionEvents.publish(SessionEvents.createSessionResumed(session.id, pausedDuration, remainingBatches))
 
     return updatedSession
   })
@@ -340,12 +330,10 @@ const completeSession = (session: GenerationSession): STM.STM<GenerationSession,
     // 完了イベント発行
     yield* STM.fromEffect(
       SessionEvents.publish(
-        SessionEvents.createSessionCompleted(
-          session.id,
-          updatedProgress.statistics,
-          totalDuration,
-          { totalBatches: totalBatchesCount, failedBatches: failedBatchesCount }
-        )
+        SessionEvents.createSessionCompleted(session.id, updatedProgress.statistics, totalDuration, {
+          totalBatches: totalBatchesCount,
+          failedBatches: failedBatchesCount,
+        })
       )
     )
 

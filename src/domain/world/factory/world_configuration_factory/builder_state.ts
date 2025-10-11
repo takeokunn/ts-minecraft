@@ -4,7 +4,7 @@ import * as NoiseConfiguration from '@domain/world/config/noise_configuration.js
 import * as WorldSeed from '@domain/world/config/world_seed.js'
 import * as Schema from '@effect/schema/Schema'
 
-import { JsonValueSchema } from '@/shared/schema/json'
+import { JsonValueSchema } from '@shared/schema/json'
 
 /**
  * WorldConfigurationBuilder状態スキーマ

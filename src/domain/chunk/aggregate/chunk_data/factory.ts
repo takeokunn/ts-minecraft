@@ -1,3 +1,5 @@
+import { toJsonValue } from '@shared/schema/json'
+import { formatParseIssues } from '@shared/schema/tagged_error_factory'
 import { Clock, Effect, Match, Schema, pipe } from 'effect'
 import { CHUNK_SIZE, CHUNK_VOLUME } from '../../types'
 import { type ChunkMetadata, HeightValue as MakeHeightValue } from '../../value_object/chunk_metadata'
@@ -235,10 +237,13 @@ export const createChunkDataAggregate = (
 ): Effect.Effect<ChunkDataAggregate, ChunkDataValidationError> =>
   pipe(
     Schema.decode(ChunkDataSchema)(data),
-    Effect.mapError((error) =>
+    Effect.mapError((parseError: Schema.ParseError) =>
       ChunkDataValidationError({
         message: 'チャンクデータの検証に失敗しました',
-        value: data,
+        field: parseError.path?.join('.') ?? 'root',
+        value: toJsonValue(data),
+        issues: formatParseIssues(parseError),
+        originalError: parseError,
       })
     ),
     Effect.map((validated) =>
@@ -283,13 +288,18 @@ export const createEmptyChunkDataAggregate = (
 /**
  * チャンクデータの検証ユーティリティ
  */
-export const validateChunkData = (data: unknown): Effect.Effect<ChunkData, ChunkDataValidationError> =>
+export const validateChunkData = (
+  data: Schema.Schema.Input<typeof ChunkDataSchema>
+): Effect.Effect<ChunkData, ChunkDataValidationError> =>
   pipe(
     Schema.decode(ChunkDataSchema)(data),
-    Effect.mapError((error) =>
+    Effect.mapError((parseError: Schema.ParseError) =>
       ChunkDataValidationError({
-        message: `チャンクデータの検証に失敗しました: ${String(error)}`,
-        value: data,
+        message: 'チャンクデータの検証に失敗しました',
+        field: parseError.path?.join('.') ?? 'root',
+        value: toJsonValue(data),
+        issues: formatParseIssues(parseError),
+        originalError: parseError,
       })
     )
   )

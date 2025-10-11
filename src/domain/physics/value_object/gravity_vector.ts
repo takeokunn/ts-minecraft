@@ -50,10 +50,10 @@ const normalize = (vector: Vector3): Effect.Effect<Vector3, PhysicsError> =>
   })
 
 const make = (params: {
-  readonly direction?: unknown
-  readonly magnitude?: unknown
-  readonly multiplier?: unknown
-  readonly terminalVelocity?: unknown
+  readonly direction?: Vector3
+  readonly magnitude?: number
+  readonly multiplier?: number
+  readonly terminalVelocity?: number
 }): Effect.Effect<GravityVector, PhysicsError> =>
   Effect.gen(function* () {
     const direction = yield* pipe(params.direction ?? vector3({ x: 0, y: -1, z: 0 }), parseVector3)
@@ -102,48 +102,42 @@ const calculateFallDamage = (fallDistance: PositiveFloat): ReturnType<typeof non
     Match.orElse((distance) => nonNegativeFloat((distance - 3) * 0.5))
   )
 
-// Factory関数化してruntime初期化問題を回避
-const createForMedium = (inFluid: boolean): GravityVector =>
+const createForMedium = (inFluid: boolean): Effect.Effect<GravityVector, PhysicsError> =>
   inFluid
-    ? Effect.runSync(
-        make({
-          direction: vector3({ x: 0, y: -1, z: 0 }),
-          magnitude: PHYSICS_CONSTANTS.gravity.y * -0.4 * -1,
-          multiplier: 0.4,
-          terminalVelocity: PHYSICS_CONSTANTS.terminalVelocity * 0.4,
-        })
-      )
-    : Effect.runSync(
-        make({
-          direction: vector3({ x: 0, y: -1, z: 0 }),
-          magnitude: PHYSICS_CONSTANTS.gravity.y * -1,
-        })
-      )
+    ? make({
+        direction: vector3({ x: 0, y: -1, z: 0 }),
+        magnitude: PHYSICS_CONSTANTS.gravity.y * -0.4 * -1,
+        multiplier: 0.4,
+        terminalVelocity: PHYSICS_CONSTANTS.terminalVelocity * 0.4,
+      })
+    : make({
+        direction: vector3({ x: 0, y: -1, z: 0 }),
+        magnitude: PHYSICS_CONSTANTS.gravity.y * -1,
+      })
 
 const forMedium = createForMedium
 
-const withMultiplier = (gravity: GravityVector, multiplier: UnitInterval): GravityVector =>
-  Effect.runSync(
-    decodeWith(GravityVectorSchema)({
-      direction: gravity.direction,
-      magnitude: gravity.magnitude,
-      terminalVelocity: gravity.terminalVelocity,
-      multiplier,
-      _tag: 'GravityVector',
-    })
-  )
+const withMultiplier = (gravity: GravityVector, multiplier: UnitInterval): Effect.Effect<GravityVector, PhysicsError> =>
+  decodeWith(GravityVectorSchema)({
+    direction: gravity.direction,
+    magnitude: gravity.magnitude,
+    terminalVelocity: gravity.terminalVelocity,
+    multiplier,
+    _tag: 'GravityVector',
+  })
 
 const inspect = (gravity: GravityVector): string =>
   `gravity: (${gravity.direction.x.toFixed(3)}, ${gravity.direction.y.toFixed(3)}, ${gravity.direction.z.toFixed(3)}) * ${gravity.magnitude.toFixed(3)} | terminal=${gravity.terminalVelocity.toFixed(2)} | multiplier=${gravity.multiplier}`
 
-// プリセット用factory関数
-const createDefault = (): GravityVector => Effect.runSync(make({}))
-const createFluid = (): GravityVector =>
-  Effect.runSync(make({ multiplier: 0.4, magnitude: PHYSICS_CONSTANTS.gravity.y * -0.4 }))
+const createDefault = (): Effect.Effect<GravityVector, PhysicsError> => make({})
+const createFluid = (): Effect.Effect<GravityVector, PhysicsError> =>
+  make({ multiplier: 0.4, magnitude: PHYSICS_CONSTANTS.gravity.y * -0.4 })
 
 export const GravityVector = {
   schema: GravityVectorSchema,
   create: make,
+  createDefault,
+  createFluid,
   normalize,
   apply,
   calculateJumpVelocity,
@@ -151,6 +145,4 @@ export const GravityVector = {
   forMedium,
   withMultiplier,
   inspect,
-  default: createDefault(),
-  fluid: createFluid(),
 }

@@ -1,5 +1,18 @@
-import { Clock, Context, Effect, Layer, Match, Option, pipe, ReadonlyArray, Ref, Schema } from 'effect'
 import { ErrorCauseSchema } from '@shared/schema/error'
+import {
+  Clock,
+  Context,
+  Duration,
+  Effect,
+  Layer,
+  Match,
+  Option,
+  pipe,
+  Random,
+  ReadonlyArray,
+  Ref,
+  Schema,
+} from 'effect'
 
 /**
  * Memory Monitor Service
@@ -243,7 +256,7 @@ const makeMemoryMonitorService = Effect.gen(function* () {
           yield* Ref.set(isMonitoring, true)
 
           // 監視ループを開始
-          yield* Effect.fork(monitoringLoop())
+          yield* Effect.forkScoped(monitoringLoop())
 
           yield* Effect.logInfo('メモリ監視開始')
         })
@@ -284,8 +297,9 @@ const makeMemoryMonitorService = Effect.gen(function* () {
   const allocateMemory = (request: Schema.Schema.Type<typeof AllocationRequest>) =>
     Effect.gen(function* () {
       const now = yield* Clock.currentTimeMillis
-      const randomId = yield* Effect.sync(() => Math.random().toString(36).substr(2, 9))
-      const allocationId = `alloc_${now}_${randomId}`
+      const randomValue = yield* Random.nextIntBetween(0, 36 ** 9 - 1)
+      const nonce = randomValue.toString(36).padStart(9, '0')
+      const allocationId = `alloc_${now}_${nonce}`
 
       // メモリプレッシャーチェック
       const pressureLevel = yield* getPressureLevel()
@@ -351,7 +365,7 @@ const makeMemoryMonitorService = Effect.gen(function* () {
       yield* Effect.logInfo(`ガベージコレクション実行 (アグレッシブ: ${aggressive})`)
 
       // GC実行シミュレーション
-      yield* Effect.sleep('100 millis')
+      yield* Effect.sleep(Duration.millis(100))
 
       // 統計更新
       yield* Ref.update(statistics, (stats) => ({
@@ -504,10 +518,11 @@ const makeMemoryMonitorService = Effect.gen(function* () {
   const collectMemoryMetrics = () =>
     Effect.gen(function* () {
       // 実際の環境では process.memoryUsage() や navigator.memory を使用
+      const randomGBOffset = yield* Random.nextIntBetween(0, 2 * 1024 * 1024 * 1024) // 0-2GB
       const mockMetrics: Schema.Schema.Type<typeof MemoryMetrics> = {
         _tag: 'MemoryMetrics',
         totalMemory: 8 * 1024 * 1024 * 1024, // 8GB
-        usedMemory: (4 + Math.random() * 2) * 1024 * 1024 * 1024, // 4-6GB
+        usedMemory: 4 * 1024 * 1024 * 1024 + randomGBOffset, // 4-6GB
         freeMemory: 0, // 計算される
         heapUsed: 512 * 1024 * 1024, // 512MB
         heapTotal: 1024 * 1024 * 1024, // 1GB
@@ -682,7 +697,7 @@ export const MemoryMonitorService = Context.GenericTag<MemoryMonitorService>(
 
 // === Layer ===
 
-export const MemoryMonitorServiceLive = Layer.effect(MemoryMonitorService, makeMemoryMonitorService)
+export const MemoryMonitorServiceLive = Layer.scoped(MemoryMonitorService, makeMemoryMonitorService)
 
 // === Default Configuration ===
 

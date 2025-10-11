@@ -1,5 +1,5 @@
-import { Clock, Context, Effect, Fiber, Layer, Match, Option, pipe, Schema, STM } from 'effect'
 import { JsonRecordSchema, JsonValueSchema } from '@shared/schema/json'
+import { Clock, Context, Duration, Effect, Fiber, Layer, Match, Option, pipe, Schema, STM } from 'effect'
 import type { GenerationStageType, PipelineContextType } from './index'
 
 /**
@@ -175,7 +175,7 @@ const makeGenerationPipelineService = Effect.gen(function* () {
   // 内部状態管理（STMを使用した並行安全な状態管理）
   const pipelines = yield* STM.ref<Map<string, Schema.Schema.Type<typeof PipelineState>>>(new Map())
   const configurations = yield* STM.ref<Map<string, Schema.Schema.Type<typeof PipelineConfiguration>>>(new Map())
-  const executionFibers = yield* STM.ref<Map<string, Fiber.RuntimeFiber<unknown, unknown>>>(new Map())
+  const executionFibers = yield* STM.ref<Map<string, Fiber.RuntimeFiber<void, never>>>(new Map())
 
   const createPipeline = (
     pipelineId: string,
@@ -452,49 +452,49 @@ const makeGenerationPipelineService = Effect.gen(function* () {
   const executeTerrainGeneration = () =>
     Effect.gen(function* () {
       yield* Effect.logInfo('地形生成実行中...')
-      yield* Effect.sleep('500 millis') // シミュレーション
+      yield* Effect.sleep(Duration.millis(500)) // シミュレーション
       return { terrain: 'generated' }
     })
 
   const executeBiomeAssignment = () =>
     Effect.gen(function* () {
       yield* Effect.logInfo('バイオーム割り当て実行中...')
-      yield* Effect.sleep('300 millis')
+      yield* Effect.sleep(Duration.millis(300))
       return { biomes: 'assigned' }
     })
 
   const executeCaveCarving = () =>
     Effect.gen(function* () {
       yield* Effect.logInfo('洞窟彫刻実行中...')
-      yield* Effect.sleep('400 millis')
+      yield* Effect.sleep(Duration.millis(400))
       return { caves: 'carved' }
     })
 
   const executeOrePlacement = () =>
     Effect.gen(function* () {
       yield* Effect.logInfo('鉱石配置実行中...')
-      yield* Effect.sleep('200 millis')
+      yield* Effect.sleep(Duration.millis(200))
       return { ores: 'placed' }
     })
 
   const executeStructureSpawning = () =>
     Effect.gen(function* () {
       yield* Effect.logInfo('構造物生成実行中...')
-      yield* Effect.sleep('600 millis')
+      yield* Effect.sleep(Duration.millis(600))
       return { structures: 'spawned' }
     })
 
   const executePostProcessing = () =>
     Effect.gen(function* () {
       yield* Effect.logInfo('後処理実行中...')
-      yield* Effect.sleep('100 millis')
+      yield* Effect.sleep(Duration.millis(100))
       return { postProcessing: 'completed' }
     })
 
   const executeValidation = () =>
     Effect.gen(function* () {
       yield* Effect.logInfo('検証実行中...')
-      yield* Effect.sleep('150 millis')
+      yield* Effect.sleep(Duration.millis(150))
       return { validation: 'passed' }
     })
 

@@ -1,5 +1,5 @@
-import { Clock, Context, Effect, Layer, Match, pipe, Ref, Schema } from 'effect'
 import { ErrorCauseSchema } from '@shared/schema/error'
+import { Clock, Context, Effect, Layer, Match, pipe, Ref, Schema } from 'effect'
 
 /**
  * Priority Calculator Service
@@ -276,7 +276,7 @@ const makePriorityCalculatorService = Effect.gen(function* () {
     Effect.gen(function* () {
       // 機械学習モデル予測（簡略化実装）
       const features = extractMLFeatures(context)
-      const prediction = simulateMLPrediction(features)
+      const prediction = yield* simulateMLPrediction(features)
 
       yield* Effect.logDebug(`ML予測完了: 優先度=${prediction.priority}, 信頼度=${prediction.confidence}`)
       return prediction
@@ -678,23 +678,27 @@ ${result.factors
     }
   }
 
-  const simulateMLPrediction = (features: Record<string, number>): Schema.Schema.Type<typeof MLModelPrediction> => {
-    // 簡略化されたML予測シミュレーション
-    const distanceWeight = Math.exp(-features.distance / 100)
-    const performanceWeight = features.fps / 60
-    const timeWeight = features.isNight ? 0.8 : 1.0
+  const simulateMLPrediction = (
+    features: Record<string, number>
+  ): Effect.Effect<Schema.Schema.Type<typeof MLModelPrediction>, never> =>
+    Effect.gen(function* () {
+      // 簡略化されたML予測シミュレーション
+      const distanceWeight = Math.exp(-features.distance / 100)
+      const performanceWeight = features.fps / 60
+      const timeWeight = features.isNight ? 0.8 : 1.0
 
-    const priority = distanceWeight * 0.5 + performanceWeight * 0.3 + timeWeight * 0.2
-    const confidence = 0.75 + Math.random() * 0.2 // 0.75-0.95の範囲
+      const priority = distanceWeight * 0.5 + performanceWeight * 0.3 + timeWeight * 0.2
+      const confidenceOffset = yield* Random.nextIntBetween(0, 20) // 0-20 -> 0.0-0.2
+      const confidence = 0.75 + confidenceOffset / 100 // 0.75-0.95の範囲
 
-    return {
-      _tag: 'MLModelPrediction',
-      priority,
-      confidence,
-      features,
-      modelVersion: 'v1.0.0-simulation',
-    }
-  }
+      return {
+        _tag: 'MLModelPrediction',
+        priority,
+        confidence,
+        features,
+        modelVersion: 'v1.0.0-simulation',
+      }
+    })
 
   return PriorityCalculatorService.of({
     calculatePriority,

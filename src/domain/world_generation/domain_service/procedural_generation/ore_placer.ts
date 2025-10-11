@@ -8,15 +8,14 @@
 import { type GenerationError } from '@domain/world/types/errors'
 import {
   makeUnsafeWorldCoordinate,
+  WorldCoordinateSchema,
   type BoundingBox,
   type WorldCoordinate,
-  WorldCoordinateSchema,
-  BoundingBoxSchema,
 } from '@domain/world/value_object/coordinates'
-import type { WorldSeed } from '@domain/world/value_object/world_seed'
-import { Context, Effect, Layer, Schema } from 'effect'
 import { AdvancedNoiseSettingsSchema } from '@domain/world/value_object/noise_configuration/index'
-import { JsonValueSchema, JsonRecordSchema } from '@shared/schema/json'
+import type { WorldSeed } from '@domain/world/value_object/world_seed'
+import { JsonRecordSchema, JsonValueSchema } from '@shared/schema/json'
+import { Context, Effect, Layer, Schema } from 'effect'
 
 /**
  * 鉱石タイプ定義
@@ -372,8 +371,7 @@ export const OrePlacerServiceLive = Layer.effect(
         // 5. 地質的制約の適用
         const validatedPlacements = yield* applyGeologicalConstraints(
           [...generatedVeins.flatMap((v) => veinToOrePlacements(v)), ...clusterPlacements, ...scatterPlacements],
-          config,
-          existingTerrain
+          config
         )
 
         // 6. 地化学的分析
@@ -551,7 +549,7 @@ export const OrePlacerServiceLive = Layer.effect(
         )
         const extractionDifficulty = pipe(
           evaluations,
-          ReadonlyArray.reduce({} as Record<OreType, number>, (acc, eval) => ({
+          ReadonlyArray.reduce({} satisfies Record<OreType, number>, (acc, eval) => ({
             ...acc,
             [eval.oreType]: eval.difficulty,
           }))
@@ -603,8 +601,7 @@ const determineScatterPlacements = (bounds: BoundingBox, config: OrePlacementCon
 
 const applyGeologicalConstraints = (
   placements: ReadonlyArray<{ center: WorldCoordinate; oreType: OreType }>,
-  config: OrePlacementConfig,
-  terrain: unknown
+  config: OrePlacementConfig
 ) => Effect.succeed(placements)
 
 const performGeochemicalAnalysis = (
@@ -613,9 +610,9 @@ const performGeochemicalAnalysis = (
 ) =>
   Effect.succeed({
     totalOreVolume: 1000,
-    averageGrade: {} as Record<OreType, number>,
-    spatialDistribution: {} as Record<string, number>,
-    correlationMatrix: {} as Record<string, Record<string, number>>,
+    averageGrade: {} satisfies Record<OreType, number>,
+    spatialDistribution: {} satisfies Record<string, number>,
+    correlationMatrix: {} satisfies Record<string, Record<string, number>>,
   })
 
 const estimateMemoryUsage = (...args: ReadonlyArray<unknown>[]) => 1024

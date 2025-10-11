@@ -28,6 +28,7 @@ import { createCameraError } from '@domain/camera/types/errors'
 import { Effect, pipe, Predicate, Schema } from 'effect'
 import type { CameraConfig, CameraState } from '../types'
 import { CameraConfig as CameraConfigSchema, CameraState as CameraStateSchema } from '../types'
+import { DEFAULT_CAMERA_CONFIG } from './constant'
 
 export const isCameraError = (error: unknown): error is CameraError =>
   Predicate.isRecord(error) &&
@@ -51,7 +52,11 @@ export { createCameraError }
  */
 export const validateCameraConfig = (config: unknown): Effect.Effect<CameraConfig, CameraError> =>
   pipe(
-    Schema.decodeUnknown(CameraConfigSchema)(config),
+    Schema.decodeUnknown(CameraConfigSchema)(
+      typeof config === 'object' && config !== null
+        ? { ...DEFAULT_CAMERA_CONFIG, ...(config as Record<string, unknown>) }
+        : DEFAULT_CAMERA_CONFIG
+    ),
     Effect.mapError((parseError) =>
       createCameraError.invalidConfiguration(`カメラ設定の検証に失敗しました: ${parseError.message}`, config)
     )

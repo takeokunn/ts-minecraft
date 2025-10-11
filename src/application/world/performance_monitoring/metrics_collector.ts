@@ -1,6 +1,6 @@
-import { Clock, Context, Effect, Layer, Match, Ref, Schema } from 'effect'
 import { ErrorCauseSchema } from '@shared/schema/error'
 import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
+import { Clock, Context, Effect, Layer, Match, Random, Ref, Schema } from 'effect'
 
 /**
  * Metrics Collector Service
@@ -271,7 +271,7 @@ const makeMetricsCollectorService = Effect.gen(function* () {
           yield* Ref.set(isCollecting, true)
 
           // 収集ループを開始
-          yield* Effect.fork(collectionLoop())
+          yield* Effect.forkScoped(collectionLoop())
 
           yield* Effect.logInfo('メトリクス収集開始')
         })
@@ -332,7 +332,9 @@ const makeMetricsCollectorService = Effect.gen(function* () {
   const startTimer = (name: string, labels?: Record<string, string>) =>
     Effect.gen(function* () {
       const now = yield* Clock.currentTimeMillis
-      const timerId = `timer_${now}_${Math.random().toString(36).substr(2, 9)}`
+      const randomValue = yield* Random.nextIntBetween(0, 36 ** 9 - 1)
+      const nonce = randomValue.toString(36).padStart(9, '0')
+      const timerId = `timer_${now}_${nonce}`
       const timer = {
         name,
         startTime: now,
@@ -604,10 +606,15 @@ const makeMetricsCollectorService = Effect.gen(function* () {
       // システムメトリクスの収集（簡略化）
       const now = yield* Clock.currentTimeMillis
 
-      yield* recordGauge('memory_usage', 4 * 1024 * 1024 * 1024 + Math.random() * 1024 * 1024 * 1024)
-      yield* recordGauge('cpu_usage', 0.3 + Math.random() * 0.4)
-      yield* recordGauge('cache_hit_rate', 0.7 + Math.random() * 0.2)
-      yield* recordCounter('generation_throughput', 10 + Math.random() * 5)
+      const memoryOffset = yield* Random.nextIntBetween(0, 1024 * 1024 * 1024) // 0-1GB
+      const cpuOffset = yield* Random.nextIntBetween(0, 40) // 0-40 -> 0.0-0.4
+      const cacheHitOffset = yield* Random.nextIntBetween(0, 20) // 0-20 -> 0.0-0.2
+      const throughputOffset = yield* Random.nextIntBetween(0, 5) // 0-5
+
+      yield* recordGauge('memory_usage', 4 * 1024 * 1024 * 1024 + memoryOffset)
+      yield* recordGauge('cpu_usage', 0.3 + cpuOffset / 100)
+      yield* recordGauge('cache_hit_rate', 0.7 + cacheHitOffset / 100)
+      yield* recordCounter('generation_throughput', 10 + throughputOffset)
 
       yield* Effect.logDebug('システムメトリクス収集完了')
     })
@@ -726,7 +733,7 @@ export const MetricsCollectorService = Context.GenericTag<MetricsCollectorServic
 
 // === Layer ===
 
-export const MetricsCollectorServiceLive = Layer.effect(MetricsCollectorService, makeMetricsCollectorService)
+export const MetricsCollectorServiceLive = Layer.scoped(MetricsCollectorService, makeMetricsCollectorService)
 
 // === Default Configuration ===
 

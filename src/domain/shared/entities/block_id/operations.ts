@@ -8,7 +8,13 @@ import { BlockIdSchema } from './schema'
 export const create = (value: string): Effect.Effect<BlockId, Error> =>
   pipe(
     Schema.decode(BlockIdSchema)(value),
-    Effect.mapError((error) => new Error(`BlockIdの作成に失敗: ${String(error)}`))
+    Effect.mapError((parseError) => {
+      const issues = (parseError as any).issues?.map((issue: any) => {
+        const path = issue.path?.join('.') || 'unknown'
+        return `${path}: ${issue.message}`
+      }) || []
+      return new Error(`BlockIdの作成に失敗: ${issues.join('; ') || String(parseError)}`)
+    })
   )
 
 /**

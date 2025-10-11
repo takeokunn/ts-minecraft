@@ -181,16 +181,16 @@ const ContainerManagerApplicationServiceImpl: ContainerManagerApplicationService
     playerId: PlayerId
   ): Effect.Effect<ReadonlyArray<BatchOperationResult>, InventoryApplicationError> =>
     Effect.succeed(
-      operations.map((operation): BatchOperationResult => ({
-        success: false,
-        operation,
-        error: 'Not implemented',
-      }))
+      operations.map(
+        (operation): BatchOperationResult => ({
+          success: false,
+          operation,
+          error: 'Not implemented',
+        })
+      )
     ),
 
-  getContainerHealth: (
-    query: InventoryQuery
-  ): Effect.Effect<ContainerDebugInfo, InventoryApplicationError> =>
+  getContainerHealth: (query: InventoryQuery): Effect.Effect<ContainerDebugInfo, InventoryApplicationError> =>
     Effect.fail({
       _tag: 'CONTAINER_NOT_FOUND',
       message: 'Container health check failed',

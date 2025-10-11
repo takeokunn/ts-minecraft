@@ -16,13 +16,13 @@ import type { BlockCoordinate } from '@/domain/biome/value_object/coordinates'
 import { BlockCoordinateSchema } from '@/domain/biome/value_object/coordinates'
 import { Position3DSchema } from '@/domain/camera/value_object/camera_position'
 import type { Position3D } from '@/domain/camera/value_object/camera_position/types'
-import { BlockTypeIdSchema } from '@/domain/shared/entities/block_type_id'
 import type { BlockTypeId } from '@/domain/shared/entities/block_type_id'
-import { PlayerIdSchema } from '@/domain/shared/entities/player_id/schema'
+import { BlockTypeIdSchema } from '@/domain/shared/entities/block_type_id'
 import type { PlayerId } from '@/domain/shared/entities/player_id'
-import { Context, Effect, Layer, Match, Queue, Stream, pipe } from 'effect'
-import { ErrorCauseSchema } from '@shared/schema/error'
+import { PlayerIdSchema } from '@/domain/shared/entities/player_id/schema'
 import type { ErrorCause } from '@shared/schema/error'
+import { ErrorCauseSchema } from '@shared/schema/error'
+import { Context, Effect, Layer, Match, Queue, Stream, pipe } from 'effect'
 
 /**
  * ゲームイベント定義
@@ -172,10 +172,7 @@ export const GameEventQueueLive = Layer.scoped(
   GameEventQueueTag,
   Effect.gen(function* () {
     // 容量1000のboundedキューをScope配下で確保し、終了時に自動解放
-    const queue = yield* Effect.acquireRelease(
-      Queue.bounded<GameEvent>(1000),
-      (q) => Queue.shutdown(q)
-    )
+    const queue = yield* Effect.acquireRelease(Queue.bounded<GameEvent>(1000), (q) => Queue.shutdown(q))
 
     return GameEventQueueTag.of({
       enqueue: (event) =>

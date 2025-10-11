@@ -3,10 +3,10 @@
  * 3x3行列の型安全な不変操作を提供
  */
 
+import { ErrorCauseSchema } from '@shared/schema/error'
 import { Effect, Schema } from 'effect'
 import * as THREE from 'three'
 import { matrix3ElementsToTuple } from '../schemas/adapters'
-import { ErrorCauseSchema } from '@shared/schema/error'
 
 /**
  * Matrix3 Schema定義（Brand型）
@@ -41,10 +41,14 @@ export type Matrix3Error = Schema.Schema.Type<typeof Matrix3Error>
 
 /**
  * Matrix3コンストラクタ - 要素配列から構築
+ *
+ * @internal
+ * Infrastructure層内部専用。値の検証を行わないため、信頼できる値のみに使用すること。
+ * Three.jsとの連携において、構造的に同一であることが保証されている値の変換に使用。
  */
 export const make = (
   elements: readonly [number, number, number, number, number, number, number, number, number]
-): Matrix3 => Schema.decodeUnknownSync(Matrix3Schema)({ elements })
+): Matrix3 => ({ elements }) as Matrix3
 
 /**
  * 単位行列

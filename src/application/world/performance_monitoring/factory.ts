@@ -4,7 +4,7 @@
  * パフォーマンス監視サービスのファクトリー関数
  */
 
-import { Clock, Effect, Ref, Schema } from 'effect'
+import { Clock, Duration, Effect, Random, Ref, Schema } from 'effect'
 import { MetricsCollectorService } from './metrics_collector/index'
 import {
   BenchmarkResult,
@@ -240,7 +240,8 @@ export const makePerformanceMonitoringService = Effect.gen(function* () {
             const opStart = yield* Clock.currentTimeMillis
 
             // Effect.catchAllでエラーを捕捉してerrorCountをインクリメント
-            const isError = yield* Effect.sleep(`${Math.random() * 10 + 5} millis`).pipe(
+            const randomDelay = yield* Random.nextIntBetween(5, 15)
+            const isError = yield* Effect.sleep(Duration.millis(randomDelay)).pipe(
               Effect.map(() => false),
               Effect.catchAll(() => Effect.succeed(true))
             )

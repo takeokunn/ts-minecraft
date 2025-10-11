@@ -1,4 +1,4 @@
-import { Clock, Effect, Layer, Match, Option, pipe, ReadonlyArray, Ref } from 'effect'
+import { Clock, Effect, Layer, Match, Option, pipe, Random, ReadonlyArray, Ref } from 'effect'
 import type { ChunkData } from '../../aggregate/chunk_data'
 import type { ChunkPosition } from '../../value_object/chunk_position'
 import type { ChunkRepository } from '../chunk_repository'
@@ -34,6 +34,8 @@ interface CacheEntry<T> {
   readonly timestamp: number
   readonly hitCount: number
 }
+
+type CacheValue = ReadonlyArray<ChunkData> | ReadonlyArray<ChunkPosition>
 
 // ===== Helper Functions ===== //
 
@@ -209,13 +211,13 @@ export const ChunkQueryRepositoryLive = Layer.effect(
     const performanceMetricsRef = yield* Ref.make<ReadonlyArray<QueryPerformanceMetric>>([])
 
     // 簡易キャッシュ
-    const cacheRef = yield* Ref.make<Map<string, CacheEntry<unknown>>>(new Map())
+    const cacheRef = yield* Ref.make<Map<string, CacheEntry<CacheValue>>>(new Map())
 
     // キャッシュヘルパー
     const getCached = <T>(key: string, ttlMs: number = 60000): Effect.Effect<T | null, never> =>
       Effect.gen(function* () {
         const cache = yield* Ref.get(cacheRef)
-        // Map<string, CacheEntry<unknown>>からCacheEntry<T>への型安全な取得
+        // Map<string, CacheEntry<CacheValue>>からCacheEntry<T>への型安全な取得
         const entry = cache.get(key) as CacheEntry<T> | undefined
 
         return yield* pipe(
@@ -485,8 +487,8 @@ export const ChunkQueryRepositoryLive = Layer.effect(
             maxZ: position.z + 3,
           })
 
-          // Option.matchで隣接チャンクをundefinedに変換
-          const extractValue = (opt: { _tag: string; value?: unknown }) => (opt._tag === 'Some' ? opt.value : undefined)
+          // Option値をundefinedへ変換
+          const extractValue = (opt: Option.Option<ChunkData>) => (Option.isSome(opt) ? opt.value : undefined)
 
           const neighborhood: ChunkNeighborhood = {
             center,
@@ -657,13 +659,14 @@ export const ChunkQueryRepositoryLive = Layer.effect(
 
           // 数値範囲をReadonlyArray.makeByで生成
           const timeSteps = Math.floor((timeRange.to - timeRange.from) / intervalMs) + 1
-          return pipe(
-            ReadonlyArray.makeBy(timeSteps, (i) => timeRange.from + i * intervalMs),
-            ReadonlyArray.map((timestamp) => ({
-              timestamp,
-              value: Math.floor(Math.random() * 100), // プレースホルダー
-            }))
+          const timestamps = ReadonlyArray.makeBy(timeSteps, (i) => timeRange.from + i * intervalMs)
+
+          // プレースホルダー値をRandom Serviceで生成
+          const dataPoints = yield* Effect.forEach(timestamps, (timestamp) =>
+            Random.nextIntBetween(0, 100).pipe(Effect.map((value) => ({ timestamp, value })))
           )
+
+          return dataPoints
         }),
 
       // ===== Optimization and Maintenance Queries ===== //
@@ -672,13 +675,18 @@ export const ChunkQueryRepositoryLive = Layer.effect(
         Effect.gen(function* () {
           const allChunks = yield* chunkRepo.findByQuery({})
 
-          const candidates = allChunks
-            .map((chunk) => ({
-              chunk,
-              reason: 'メモリ使用量が高い', // 実際の実装では分析ロジック
-              priority: Math.floor(Math.random() * 10) + 1, // 実際の実装では優先度計算
-            }))
-            .filter((c) => c.priority > 5)
+          // 各チャンクの優先度をRandom Serviceで生成
+          const candidatesWithPriority = yield* Effect.forEach(allChunks, (chunk) =>
+            Random.nextIntBetween(1, 11).pipe(
+              Effect.map((priority) => ({
+                chunk,
+                reason: 'メモリ使用量が高い', // 実際の実装では分析ロジック
+                priority, // 実際の実装では優先度計算
+              }))
+            )
+          )
+
+          const candidates = candidatesWithPriority.filter((c) => c.priority > 5)
 
           return candidates
         }),

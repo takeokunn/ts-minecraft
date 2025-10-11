@@ -212,7 +212,7 @@ export const makeBreedingStatsEither = (input: {
   readonly fertility: number
   readonly resilience: number
   readonly harmony: number
-}) => Effect.runSync(Effect.either(makeBreedingStats(input)))
+}): Effect.Effect<Either.Either<BreedingStats, DomainError>, never> => Effect.either(makeBreedingStats(input))
 
 export const mergeBreedingStats = (
   current: BreedingStats,

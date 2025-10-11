@@ -1,4 +1,5 @@
-import { Array, Context, Effect, Option } from 'effect'
+import type { Position3D } from '@domain/camera/types'
+import { Array, Brand, Context, Data, Effect, Option } from 'effect'
 import type {
   CinematicSequence,
   SceneCameraApplicationError,
@@ -236,7 +237,7 @@ export interface SceneCameraApplicationService {
 /**
  * カメラ同期操作
  */
-export type CameraSyncOperation = import('effect').Data.TaggedEnum<{
+export type CameraSyncOperation = Data.TaggedEnum<{
   StartSequence: {
     readonly sequence: CinematicSequence
     readonly startTime: Option<number>
@@ -252,7 +253,7 @@ export type CameraSyncOperation = import('effect').Data.TaggedEnum<{
 /**
  * カメラ遷移設定
  */
-export type CameraTransitionConfig = import('effect').Brand.Brand<
+export type CameraTransitionConfig = Brand.Brand<
   {
     readonly duration: number
     readonly easing: string
@@ -265,7 +266,7 @@ export type CameraTransitionConfig = import('effect').Brand.Brand<
 /**
  * 遷移ブレンドモード
  */
-export type TransitionBlendMode = import('effect').Data.TaggedEnum<{
+export type TransitionBlendMode = Data.TaggedEnum<{
   Cut: {} // 瞬間切り替え
   Fade: { readonly color: string }
   Dissolve: { readonly pattern: string }
@@ -276,18 +277,18 @@ export type TransitionBlendMode = import('effect').Data.TaggedEnum<{
 /**
  * ワイプ方向
  */
-export type WipeDirection = import('effect').Data.TaggedEnum<{
+export type WipeDirection = Data.TaggedEnum<{
   LeftToRight: {}
   RightToLeft: {}
   TopToBottom: {}
   BottomToTop: {}
-  Circular: { readonly center: import('@domain/camera/types.js').Position3D }
+  Circular: { readonly center: Position3D }
 }>
 
 /**
  * 動的追跡設定
  */
-export type DynamicTrackingConfig = import('effect').Brand.Brand<
+export type DynamicTrackingConfig = Brand.Brand<
   {
     readonly smoothing: number
     readonly maxSpeed: number
@@ -301,7 +302,7 @@ export type DynamicTrackingConfig = import('effect').Brand.Brand<
 /**
  * シーン統計情報
  */
-export type SceneStatistics = import('effect').Brand.Brand<
+export type SceneStatistics = Brand.Brand<
   {
     readonly totalCameras: number
     readonly activeCameras: number
@@ -316,7 +317,7 @@ export type SceneStatistics = import('effect').Brand.Brand<
 /**
  * 最適化対象
  */
-export type OptimizationTargets = import('effect').Brand.Brand<
+export type OptimizationTargets = Brand.Brand<
   {
     readonly reduceMemoryUsage: boolean
     readonly improveFrameRate: boolean
@@ -331,7 +332,7 @@ export type OptimizationTargets = import('effect').Brand.Brand<
 /**
  * 最適化結果
  */
-export type OptimizationResult = import('effect').Brand.Brand<
+export type OptimizationResult = Brand.Brand<
   {
     readonly camerasOptimized: number
     readonly sequencesOptimized: number
@@ -345,7 +346,7 @@ export type OptimizationResult = import('effect').Brand.Brand<
 /**
  * シーケンス検証結果
  */
-export type SequenceValidationResult = import('effect').Data.TaggedEnum<{
+export type SequenceValidationResult = Data.TaggedEnum<{
   Valid: {
     readonly estimatedDuration: number
     readonly requiredResources: Array.ReadonlyArray<string>
@@ -359,7 +360,7 @@ export type SequenceValidationResult = import('effect').Data.TaggedEnum<{
 /**
  * 検証エラー
  */
-export type ValidationError = import('effect').Brand.Brand<
+export type ValidationError = Brand.Brand<
   {
     readonly type: string
     readonly message: string
@@ -372,7 +373,7 @@ export type ValidationError = import('effect').Brand.Brand<
 /**
  * 検証警告
  */
-export type ValidationWarning = import('effect').Brand.Brand<
+export type ValidationWarning = Brand.Brand<
   {
     readonly type: string
     readonly message: string
@@ -384,7 +385,7 @@ export type ValidationWarning = import('effect').Brand.Brand<
 /**
  * エラー深刻度
  */
-export type ErrorSeverity = import('effect').Data.TaggedEnum<{
+export type ErrorSeverity = Data.TaggedEnum<{
   Low: {}
   Medium: {}
   High: {}
@@ -394,7 +395,7 @@ export type ErrorSeverity = import('effect').Data.TaggedEnum<{
 /**
  * シーンカメラデバッグ情報
  */
-export type SceneCameraDebugInfo = import('effect').Brand.Brand<
+export type SceneCameraDebugInfo = Brand.Brand<
   {
     readonly currentState: SceneCameraState
     readonly recentOperations: Array.ReadonlyArray<string>
@@ -408,7 +409,7 @@ export type SceneCameraDebugInfo = import('effect').Brand.Brand<
 /**
  * メモリ使用詳細
  */
-export type MemoryBreakdown = import('effect').Brand.Brand<
+export type MemoryBreakdown = Brand.Brand<
   {
     readonly sequences: number
     readonly keyframes: number
@@ -423,7 +424,7 @@ export type MemoryBreakdown = import('effect').Brand.Brand<
 /**
  * シーケンスデバッグ詳細
  */
-export type SequenceDebugDetails = import('effect').Brand.Brand<
+export type SequenceDebugDetails = Brand.Brand<
   {
     readonly sequenceId: SequenceId
     readonly currentKeyframe: number

@@ -8,8 +8,8 @@
 import type * as GenerationSession from '@domain/world/aggregate/generation_session'
 import type * as WorldGenerator from '@domain/world/aggregate/world_generator'
 import * as Coordinates from '@domain/world/value_object/coordinates/index'
+import { JsonValueSchema } from '@shared/schema/json'
 import { Duration, Schema } from 'effect'
-import { JsonValueSchema } from '@/shared/schema/json'
 
 // ================================
 // Schema Definitions

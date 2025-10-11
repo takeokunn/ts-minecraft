@@ -3,8 +3,8 @@
  * localStorage読み書き時の型安全性を保証
  */
 
+import { JsonValueSchema } from '@shared/schema/json'
 import { Schema } from 'effect'
-import { JsonValueSchema } from '@/shared/schema/json'
 
 /**
  * LocalStorage保存用のContainerSlot型定義

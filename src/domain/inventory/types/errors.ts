@@ -1,6 +1,6 @@
-import { Clock, Effect, Schema } from 'effect'
+import { JsonValueSchema, toJsonValue } from '@shared/schema/json'
 import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
-import { JsonValueSchema } from '@/shared/schema/json'
+import { Clock, Effect, Schema } from 'effect'
 
 // =============================================================================
 // Inventory Error Types using Schema.TaggedError
@@ -454,9 +454,13 @@ export const createInventoryError = (params: {
 export const createValidationError = (params: {
   message: string
   field: string
-  value: unknown
+  value: JsonSerializable
   expectedType: string
-}): ValidationError => ValidationError.make(params)
+}): ValidationError =>
+  ValidationError.make({
+    ...params,
+    value: toJsonValue(params.value),
+  })
 
 /**
  * スロットバリデーションエラーを生成
@@ -475,8 +479,12 @@ export const createItemValidationError = (params: {
   message: string
   itemId?: string
   property: string
-  value: unknown
-}): ItemValidationError => ItemValidationError.make(params)
+  value: JsonSerializable
+}): ItemValidationError =>
+  ItemValidationError.make({
+    ...params,
+    value: toJsonValue(params.value),
+  })
 
 /**
  * 制約違反エラーを生成
@@ -484,9 +492,13 @@ export const createItemValidationError = (params: {
 export const createConstraintViolationError = (params: {
   message: string
   constraint: string
-  currentValue: unknown
+  currentValue: JsonSerializable
   allowedRange?: string
-}): ConstraintViolationError => ConstraintViolationError.make(params)
+}): ConstraintViolationError =>
+  ConstraintViolationError.make({
+    ...params,
+    currentValue: toJsonValue(params.currentValue),
+  })
 
 /**
  * 容量不足エラーを生成

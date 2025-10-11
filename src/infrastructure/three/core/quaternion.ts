@@ -3,11 +3,11 @@
  * クォータニオン（四元数）による回転表現の型安全な不変操作を提供
  */
 
+import { ErrorCauseSchema } from '@shared/schema/error'
 import { Effect, Schema } from 'effect'
 import * as THREE from 'three'
 import type { Vector3 } from './vector3'
 import * as V3 from './vector3'
-import { ErrorCauseSchema } from '@shared/schema/error'
 
 /**
  * Quaternion Schema定義（Brand型）
@@ -35,9 +35,12 @@ export type QuaternionError = Schema.Schema.Type<typeof QuaternionError>
 
 /**
  * Quaternionコンストラクタ - プリミティブ値から構築
+ *
+ * @internal
+ * Infrastructure層内部専用。値の検証を行わないため、信頼できる値のみに使用すること。
+ * Three.jsとの連携において、構造的に同一であることが保証されている値の変換に使用。
  */
-export const make = (x: number, y: number, z: number, w: number): Quaternion =>
-  Schema.decodeUnknownSync(QuaternionSchema)({ x, y, z, w })
+export const make = (x: number, y: number, z: number, w: number): Quaternion => ({ x, y, z, w }) as Quaternion
 
 /**
  * 単位クォータニオン（無回転）

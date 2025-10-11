@@ -1,6 +1,6 @@
 import { BlockTypeIdSchema } from '@domain/entities'
+import { ErrorCauseSchema } from '@shared/schema/error'
 import { Brand, Schema } from 'effect'
-import { ErrorCauseSchema } from '@/shared/schema/error'
 import { Vector3Schema } from './types/core'
 
 /**

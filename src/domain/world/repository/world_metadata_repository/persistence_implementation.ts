@@ -7,7 +7,6 @@
  */
 
 import { WorldGeneratorIdSchema } from '@/domain/world_generation/aggregate/world_generator'
-import { JsonValueSchema } from '@/shared/schema/json'
 import type { AllRepositoryErrors, WorldId } from '@domain/world/types'
 import {
   createCompressionError,
@@ -18,8 +17,9 @@ import {
 } from '@domain/world/types'
 import { WorldBorderSchema, WorldCoordinateSchema, WorldIdSchema, WorldSeedSchema } from '@domain/world/types/core'
 import * as Schema from '@effect/schema/Schema'
+import { JsonValueSchema, type JsonValue } from '@shared/schema/json'
 import * as crypto from 'crypto'
-import { DateTime, Effect, Layer, Match, Option, pipe, ReadonlyArray, Ref } from 'effect'
+import { DateTime, Duration, Effect, Layer, Match, Option, pipe, ReadonlyArray, Ref } from 'effect'
 import * as fs from 'fs'
 import * as path from 'path'
 import * as zlib from 'zlib'
@@ -282,6 +282,10 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
           }
         })
       }).pipe(
+        Effect.timeout(Duration.seconds(5)),
+        Effect.catchTag('TimeoutException', () =>
+          Effect.fail(createCompressionError('', 'Compression timeout after 5 seconds'))
+        ),
         Effect.annotateLogs('world.metadata.operation', 'compress'),
         Effect.annotateLogs('world.metadata.dataLength', data.length)
       )
@@ -296,11 +300,15 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
           }
         })
       }).pipe(
+        Effect.timeout(Duration.seconds(5)),
+        Effect.catchTag('TimeoutException', () =>
+          Effect.fail(createCompressionError('', 'Decompression timeout after 5 seconds'))
+        ),
         Effect.annotateLogs('world.metadata.operation', 'decompress'),
         Effect.annotateLogs('world.metadata.bufferLength', compressedData.length)
       )
 
-    const writeFile = (filePath: string, data: unknown): Effect.Effect<void, AllRepositoryErrors> =>
+    const writeFile = (filePath: string, data: JsonValue): Effect.Effect<void, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const directory = path.dirname(filePath)
         yield* Effect.promise(() => fs.promises.mkdir(directory, { recursive: true })).pipe(
@@ -334,6 +342,10 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
             ),
         })
       }).pipe(
+        Effect.timeout(Duration.seconds(5)),
+        Effect.catchTag('TimeoutException', () =>
+          Effect.fail(createStorageError(`File write timeout after 5 seconds: ${filePath}`, 'writeFile'))
+        ),
         Effect.catchAll((error) =>
           Effect.fail(createStorageError(`Failed to write file ${filePath}: ${error}`, 'writeFile', error))
         )

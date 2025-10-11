@@ -16,7 +16,7 @@ export const make = (value: string): Effect.Effect<WorldId, WorldIdError | Schem
  *
  * 注意: 既に検証済みの値のみに使用すること
  */
-export const makeUnsafe = (value: string): WorldId => Schema.make(WorldIdSchema)(value)
+export const makeUnsafe = (value: string): WorldId => WorldIdSchema.make(value, { disableValidation: true })
 
 /**
  * WorldIdを文字列に変換

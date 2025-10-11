@@ -8,10 +8,11 @@
 import type * as GenerationSession from '@domain/world/aggregate/generation_session'
 import type * as WorldGenerator from '@domain/world/aggregate/world_generator'
 import * as Coordinates from '@domain/world/value_object/coordinates/index'
+import type { JsonValue } from '@shared/schema/json'
 import { Duration, Effect, Function, Match, Option, ReadonlyArray } from 'effect'
-import type { CreateSessionParams, SessionFactoryError, SessionTemplateType } from './index'
+import type { CreateSessionParams, SessionFactoryError, SessionTemplateType } from './factory'
+import { GenerationSessionFactoryTag, SessionFactoryError as SessionFactoryErrorFactory } from './factory'
 import type { GenerationSessionBuilderState, SessionValidationState } from './session_builder_state'
-import type { JsonValue } from '@/shared/schema/json'
 
 // ================================
 // Default Configurations
@@ -846,9 +847,8 @@ export const build = (
   Effect.gen(function* () {
     const validationState = yield* validate(state)
     if (!validationState.isValid) {
-      const { SessionFactoryError } = yield* Effect.promise(() => import('./index'))
       return yield* Effect.fail(
-        SessionFactoryError.configurationInvalid(
+        SessionFactoryErrorFactory.configurationInvalid(
           `Session validation failed: ${validationState.errors.join(', ')}`
         )
       )
@@ -856,7 +856,6 @@ export const build = (
 
     const params = yield* buildParams(state)
 
-    const { GenerationSessionFactoryTag } = yield* Effect.promise(() => import('@domain/world/factory.js'))
     const factory = yield* Effect.service(GenerationSessionFactoryTag)
 
     return yield* factory.create(params)

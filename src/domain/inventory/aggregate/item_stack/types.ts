@@ -3,13 +3,13 @@
  * DDD原則に基づくエンティティの実装
  */
 
-import { Schema } from 'effect'
 import { JsonRecordSchema } from '@shared/schema/json'
+import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
+import { Schema } from 'effect'
 import { unsafeCoerce } from 'effect/Function'
 import type { ItemId } from '../../types'
 import { ItemIdSchema } from '../../value_object/item_id/schema'
 import { ItemMetadataSchema } from '../../value_object/item_metadata/schema'
-import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
 
 // ===== Brand Types =====
 
@@ -167,6 +167,8 @@ export const ItemStackErrorSchema = Schema.TaggedError('ItemStackError', {
   itemId: Schema.optional(ItemIdSchema),
   quantity: Schema.optional(ItemCountSchema),
   metadata: Schema.optional(JsonRecordSchema),
+  issues: Schema.optional(Schema.Array(Schema.String)),
+  originalError: Schema.optional(Schema.Unknown),
 })
 export type ItemStackError = Schema.Schema.Type<typeof ItemStackErrorSchema>
 

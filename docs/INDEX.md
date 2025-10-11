@@ -92,10 +92,12 @@
 
 1. **Issue実装フロー**: [GitHub Issue管理](./how-to/development/github-issue-management.md)
 2. **エントリーポイント**: [エントリーポイント](./how-to/development/entry-points.md)
-3. **Effect-TS移行**: [マイグレーションガイド](./how-to/migration/effect-ts-migration.md)
-4. **実装パターン**: [サービスパターン](./explanations/design-patterns/service-patterns.md)
-5. **型安全設計**: [型安全パターン](./tutorials/design-patterns/type-safety-patterns.md)
-6. **トラブルシューティング**: [よくあるエラー](./how-to/troubleshooting/common-errors.md)
+3. **Effect-TS実装ガイドライン**: [実装ガイドライン](./how-to/development/effect-ts-guidelines.md) - TestClock/catchTags/Supervisor/Metric
+4. **Effect-TS完全準拠**: [完全準拠ガイドライン](./reference/effect-ts-compliance.md) - 禁止/推奨パターン一覧
+5. **Effect-TS移行**: [移行ガイド](./tutorials/effect-ts-migration-guide.md) - Before/After実例
+6. **実装パターン**: [サービスパターン](./explanations/design-patterns/service-patterns.md)
+7. **型安全設計**: [型安全パターン](./tutorials/design-patterns/type-safety-patterns.md)
+8. **トラブルシューティング**: [よくあるエラー](./how-to/troubleshooting/common-errors.md)
 
 ## Issue駆動開発
 

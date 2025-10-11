@@ -1,7 +1,7 @@
 import type { ParseError } from '@effect/schema/ParseResult'
 import { isParseError } from '@effect/schema/ParseResult'
+import type { JsonValue } from '@shared/schema/json'
 import { Data, Option } from 'effect'
-import type { JsonValue } from '@/shared/schema/json'
 
 interface IdentityShape {
   readonly reason: string
@@ -52,7 +52,9 @@ export type PlayerConstraintDetails = ReadonlyMap<string, JsonValue>
 
 export type PlayerErrorCause = ParseError | Error | JsonValue
 
-const toJsonValue = (value: JsonValue | Record<string, JsonValue> | Array<JsonValue> | Error | string | number | boolean | null | undefined): JsonValue | undefined => {
+const toJsonValue = (
+  value: JsonValue | Record<string, JsonValue> | Array<JsonValue> | Error | string | number | boolean | null | undefined
+): JsonValue | undefined => {
   if (value === null) {
     return null
   }
@@ -105,7 +107,9 @@ export const normalizePlayerErrorCause = (
     return value
   }
 
-  const json = toJsonValue(value as JsonValue | Record<string, JsonValue> | Array<JsonValue> | string | number | boolean | null)
+  const json = toJsonValue(
+    value as JsonValue | Record<string, JsonValue> | Array<JsonValue> | string | number | boolean | null
+  )
   if (json !== undefined) {
     return json
   }
@@ -145,8 +149,7 @@ export const PlayerErrorBuilders = {
   missing: (entity: string, identifier: string) => PlayerError.MissingEntity({ entity, identifier }),
   persistence: (operation: string, cause?: PlayerErrorCause | null) =>
     PlayerError.PersistenceFailure({ operation, cause: Option.fromNullable(cause ?? null) }),
-  clock: (cause?: PlayerErrorCause | null) =>
-    PlayerError.ClockFailure({ cause: Option.fromNullable(cause ?? null) }),
+  clock: (cause?: PlayerErrorCause | null) => PlayerError.ClockFailure({ cause: Option.fromNullable(cause ?? null) }),
 }
 
 export const PlayerConstantErrorBuilders = {

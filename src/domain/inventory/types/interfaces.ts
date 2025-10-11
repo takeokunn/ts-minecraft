@@ -15,8 +15,8 @@
  * @author TypeScript Minecraft Clone Team
  */
 
-import { Context, Effect, Schema } from 'effect'
 import type { JsonRecord } from '@shared/schema/json'
+import { Context, Effect, Schema } from 'effect'
 import { ItemStackSchema } from '../../inventory-types'
 
 // Core Types Import
@@ -912,11 +912,16 @@ export const isValidInventoryStatistics = Schema.is(InventoryStatisticsSchema)
  * Inventoryドメインが外部ドメインから受け取る入力型。
  * ドメイン間の境界を明確化する。
  */
-export type InventoryDomainInput = {
-  readonly playerService?: unknown // Player Domain からの入力
-  readonly craftingService?: unknown // Crafting Domain からの入力
-  readonly economyService?: unknown // Economy Domain からの入力
-  readonly worldService?: unknown // World Domain からの入力
+export type InventoryDomainInput<
+  TPlayerService = never,
+  TCraftingService = never,
+  TEconomyService = never,
+  TWorldService = never,
+> = {
+  readonly playerService?: TPlayerService // Player Domain からの入力
+  readonly craftingService?: TCraftingService // Crafting Domain からの入力
+  readonly economyService?: TEconomyService // Economy Domain からの入力
+  readonly worldService?: TWorldService // World Domain からの入力
 }
 
 /**

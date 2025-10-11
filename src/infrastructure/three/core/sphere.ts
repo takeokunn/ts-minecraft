@@ -3,11 +3,11 @@
  * 球体（バウンディングスフィア）の型安全な不変操作を提供
  */
 
+import { ErrorCauseSchema } from '@shared/schema/error'
 import { Effect, Schema } from 'effect'
 import * as THREE from 'three'
 import type { Vector3 } from './vector3'
 import * as V3 from './vector3'
-import { ErrorCauseSchema } from '@shared/schema/error'
 
 /**
  * Sphere Schema定義（Brand型）
@@ -34,9 +34,12 @@ export type SphereError = Schema.Schema.Type<typeof SphereError>
 
 /**
  * Sphereコンストラクタ - 中心と半径から構築
+ *
+ * @internal
+ * Infrastructure層内部専用。値の検証を行わないため、信頼できる値のみに使用すること。
+ * Three.jsとの連携において、構造的に同一であることが保証されている値の変換に使用。
  */
-export const make = (center: Vector3, radius: number): Sphere =>
-  Schema.decodeUnknownSync(SphereSchema)({ center, radius })
+export const make = (center: Vector3, radius: number): Sphere => ({ center, radius }) as Sphere
 
 /**
  * 空のSphere（半径0）
@@ -65,16 +68,10 @@ export const expandByPoint = (sphere: Sphere, point: Vector3): Sphere => {
 
   const newRadius = (sphere.radius + distance) / 2
   const direction = V3.subtract(point, sphere.center)
-  const normalized = V3.normalize(direction)
-
-  return Effect.runSync(
-    Effect.gen(function* () {
-      const norm = yield* normalized
-      const offset = V3.scale(norm, newRadius - sphere.radius)
-      const newCenter = V3.add(sphere.center, offset)
-      return make(newCenter, newRadius)
-    })
-  )
+  const normalized = V3.normalizeSync(direction)
+  const offset = V3.scale(normalized, newRadius - sphere.radius)
+  const newCenter = V3.add(sphere.center, offset)
+  return make(newCenter, newRadius)
 }
 
 /**
@@ -88,15 +85,10 @@ export const union = (a: Sphere, b: Sphere): Sphere => {
 
   const newRadius = (a.radius + b.radius + centerDist) / 2
   const direction = V3.subtract(b.center, a.center)
-
-  return Effect.runSync(
-    Effect.gen(function* () {
-      const normalized = yield* V3.normalize(direction)
-      const offset = V3.scale(normalized, newRadius - a.radius)
-      const newCenter = V3.add(a.center, offset)
-      return make(newCenter, newRadius)
-    })
-  )
+  const normalized = V3.normalizeSync(direction)
+  const offset = V3.scale(normalized, newRadius - a.radius)
+  const newCenter = V3.add(a.center, offset)
+  return make(newCenter, newRadius)
 }
 
 /**
@@ -130,13 +122,9 @@ export const clampPoint = (sphere: Sphere, point: Vector3): Vector3 => {
     return point
   }
 
-  return Effect.runSync(
-    Effect.gen(function* () {
-      const normalized = yield* V3.normalize(direction)
-      const offset = V3.scale(normalized, sphere.radius)
-      return V3.add(sphere.center, offset)
-    })
-  )
+  const normalized = V3.normalizeSync(direction)
+  const offset = V3.scale(normalized, sphere.radius)
+  return V3.add(sphere.center, offset)
 }
 
 /**

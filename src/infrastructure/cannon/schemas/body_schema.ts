@@ -13,9 +13,9 @@ import { unsafeCoerce } from 'effect/Function'
  * CANNON.Body Brand型
  *
  * CANNON.Bodyは外部ライブラリの複雑なオブジェクトのため、
- * Schema.Unknownをベースにしつつ、型安全性を提供する。
+ * instanceOfで実行時確認した上でBrand型を付与する。
  */
-export const CannonBodySchema = Schema.Unknown.pipe(Schema.brand('CannonBody'))
+export const CannonBodySchema = Schema.instanceOf(CANNON.Body).pipe(Schema.brand('CannonBody'))
 
 export type CannonBody = Schema.Schema.Type<typeof CannonBodySchema>
 
@@ -38,7 +38,7 @@ export const toCannonBody = (body: CannonBody): CANNON.Body => unsafeCoerce<Cann
 /**
  * 型安全性に関する注記:
  *
- * CANNON.Bodyは以下の理由でSchema.Unknownを使用:
+ * CANNON.Bodyは以下の理由でSchema.instanceOf + Brandを使用:
  *
  * 1. CANNON.jsは外部ライブラリで複雑な内部状態を持つ
  * 2. プロパティが多数あり、全てをSchemaで定義すると保守性が低下

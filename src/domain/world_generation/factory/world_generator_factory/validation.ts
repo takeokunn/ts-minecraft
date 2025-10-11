@@ -19,9 +19,10 @@
  */
 
 import * as WorldSeed from '@domain/world/value_object/world_seed/index'
-import { Effect, Function, Match, pipe, Schema } from 'effect'
-import { JsonValueSchema } from '@/shared/schema/json'
-import type { CreateWorldGeneratorParams, FactoryError } from './index'
+import { JsonValueSchema } from '@shared/schema/json'
+import { Effect, Function, Match, Schema } from 'effect'
+import type { CreateWorldGeneratorParams, FactoryError } from './factory'
+import { CreateWorldGeneratorParamsSchema } from './factory'
 
 // ================================
 // Validation Result Types
@@ -235,28 +236,19 @@ function validateRequiredParameters(params: CreateWorldGeneratorParams): Effect.
 function validateParameterTypes(params: CreateWorldGeneratorParams): Effect.Effect<ValidationIssue[], never> {
   const issues: ValidationIssue[] = []
 
-  pipe(
-    Effect.try({
-      try: () => {
-        // Schema検証でパラメータ型をチェック
-        const { CreateWorldGeneratorParamsSchema } = require('@domain/world/factory.js')
-        Schema.decodeSync(CreateWorldGeneratorParamsSchema)(params)
-      },
-      catch: (error) =>
-        createIssue({
-          severity: 'error',
-          category: 'parameter_invalid',
-          message: 'Parameter type validation failed',
-          suggestion: 'Check parameter types match expected schema',
-        }),
-    }),
-    Effect.catchAll((issue) =>
-      Effect.sync(() => {
-        issues.push(issue)
+  try {
+    // Schema検証でパラメータ型をチェック
+    Schema.decodeSync(CreateWorldGeneratorParamsSchema)(params)
+  } catch {
+    issues.push(
+      createIssue({
+        severity: 'error',
+        category: 'parameter_invalid',
+        message: 'Parameter type validation failed',
+        suggestion: 'Check parameter types match expected schema',
       })
-    ),
-    Effect.runSync
-  )
+    )
+  }
 
   return Effect.succeed(issues)
 }
@@ -582,16 +574,13 @@ function generateRecommendations(issues: ValidationIssue[]): string[] {
  * シード有効性チェック
  */
 function isValidSeed(seed: unknown): boolean {
-  return pipe(
-    Effect.try({
-      try: () => {
-        WorldSeed.validateSeed(seed as WorldSeed.WorldSeed)
-        return true
-      },
-      catch: () => false as const,
-    }),
-    Effect.runSync
-  )
+  try {
+    // WorldSeedSchemaでデコードを試行して有効性を確認
+    Schema.decodeSync(WorldSeed.WorldSeedValueObjectSchema)(seed)
+    return true
+  } catch {
+    return false
+  }
 }
 
 /**

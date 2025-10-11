@@ -22,11 +22,11 @@
 import type * as GenerationSession from '@domain/world/aggregate/generation_session'
 import type * as WorldGenerator from '@domain/world/aggregate/world_generator'
 import * as Coordinates from '@domain/world/value_object/coordinates/index'
-import { Chunk, Context, Duration, Effect, Function, Layer, Match, Schema } from 'effect'
-import { ErrorCauseSchema } from '@/shared/schema/error'
-import { JsonValueSchema } from '@/shared/schema/json'
-import type { JsonValue } from '@/shared/schema/json'
+import { ErrorCauseSchema } from '@shared/schema/error'
+import type { JsonValue } from '@shared/schema/json'
+import { JsonValueSchema } from '@shared/schema/json'
 import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
+import { Chunk, Context, Duration, Effect, Function, Layer, Match, Schema } from 'effect'
 
 // ================================
 // Factory Error Types
@@ -48,9 +48,7 @@ export const SessionFactoryErrorSchema = Schema.TaggedError('SessionFactoryError
 
 export type SessionFactoryError = Schema.Schema.Type<typeof SessionFactoryErrorSchema>
 
-type SessionFactoryErrorExtras = Partial<
-  Omit<SessionFactoryError, 'category' | 'message'>
->
+type SessionFactoryErrorExtras = Partial<Omit<SessionFactoryError, 'category' | 'message'>>
 
 const makeWithCategory = (
   category: SessionFactoryError['category'],
@@ -266,9 +264,7 @@ const createGenerationSessionFactory = (): GenerationSessionFactory => ({
     Effect.gen(function* () {
       // バッチサイズ検証
       if (params.requests.length === 0) {
-        return yield* Effect.fail(
-          SessionFactoryError.configurationInvalid('Empty batch request provided')
-        )
+        return yield* Effect.fail(SessionFactoryError.configurationInvalid('Empty batch request provided'))
       }
 
       // バッチ処理戦略適用
@@ -361,9 +357,7 @@ const createGenerationSessionFactory = (): GenerationSessionFactory => ({
     Effect.gen(function* () {
       // 優先度検証
       if (priority < 1 || priority > 10) {
-        return yield* Effect.fail(
-          SessionFactoryError.configurationInvalid('Priority must be between 1 and 10')
-        )
+        return yield* Effect.fail(SessionFactoryError.configurationInvalid('Priority must be between 1 and 10'))
       }
 
       // 優先度特化設定
@@ -512,10 +506,12 @@ const mergeRequests = (
     priority: Math.max(...requests.map((r) => r.priority)),
     options: requests[0]?.options,
     metadata: (() => {
-      const entries = requests.flatMap((r) => (r.metadata ? Object.entries(r.metadata) : [])) as Array<
+      const entries = requests.flatMap((r) => (r.metadata ? Object.entries(r.metadata) : [])) satisfies Array<
         [string, JsonValue]
       >
-      return entries.length > 0 ? (Object.fromEntries(entries) as GenerationSession.GenerationRequest['metadata']) : undefined
+      return entries.length > 0
+        ? (Object.fromEntries(entries) satisfies GenerationSession.GenerationRequest['metadata'])
+        : undefined
     })(),
   })
 
@@ -551,9 +547,7 @@ const loadSessionTemplate = (template: SessionTemplateType): Effect.Effect<Sessi
     Match.when('terrain_modification', () => createTerrainModificationTemplate()),
     Match.when('bulk_generation', () => createBulkGenerationTemplate()),
     Match.when('streaming_generation', () => createStreamingGenerationTemplate()),
-    Match.orElse(() =>
-      Effect.fail(SessionFactoryError.configurationInvalid(`Unknown session template: ${template}`))
-    )
+    Match.orElse(() => Effect.fail(SessionFactoryError.configurationInvalid(`Unknown session template: ${template}`)))
   )
 
 /**
@@ -726,7 +720,7 @@ const applyRequestCustomizations = (
   })
 
 const loadExistingSession = (sessionId: GenerationSession.GenerationSessionId) =>
-  Effect.succeed({} as GenerationSession.GenerationSession)
+  Effect.fail(SessionFactoryError.make(`Session not found: ${sessionId}`, 'recovery', { sessionId }))
 
 const applyRecoveryStrategy = (existingSession: GenerationSession.GenerationSession, params: RecoverSessionParams) =>
   Effect.succeed(existingSession)

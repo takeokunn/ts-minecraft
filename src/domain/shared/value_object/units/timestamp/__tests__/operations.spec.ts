@@ -3,8 +3,8 @@
  * DateTime API移行後のTimestamp操作関数のテスト
  */
 
-import { Clock, DateTime, Effect, unsafeCoerce } from 'effect'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from '@effect/vitest'
+import { Clock, DateTime, Effect, TestClock, unsafeCoerce } from 'effect'
 import { fromISOString, toDateTime, toISOString } from '../operations'
 import { type Timestamp } from '../schema'
 
@@ -21,13 +21,18 @@ describe('Timestamp DateTime Operations', () => {
       expect(DateTime.toEpochMillis(dateTime)).toBe(1704067200000)
     })
 
-    it('現在時刻のTimestampを正しく変換できる', async () => {
-      const now = await Effect.runPromise(Clock.currentTimeMillis)
-      const timestamp = makeTimestamp(now)
-      const dateTime = toDateTime(timestamp)
+    it.effect('現在時刻のTimestampを正しく変換できる', () =>
+      Effect.gen(function* () {
+        // TestClockでは時刻は0から開始、5秒進める
+        yield* TestClock.adjust('5 seconds')
+        const now = yield* Clock.currentTimeMillis
+        const timestamp = makeTimestamp(now)
+        const dateTime = toDateTime(timestamp)
 
-      expect(DateTime.toEpochMillis(dateTime)).toBe(now)
-    })
+        expect(DateTime.toEpochMillis(dateTime)).toBe(now)
+        expect(now).toBe(5000) // 5秒 = 5000ms
+      })
+    )
 
     it('過去の日時を正しく変換できる', () => {
       const timestamp = makeTimestamp(0) // Unix epoch
@@ -61,58 +66,73 @@ describe('Timestamp DateTime Operations', () => {
   })
 
   describe('fromISOString', () => {
-    it('ISO 8601形式の文字列からTimestampを生成できる', async () => {
-      const isoString = '2024-01-01T00:00:00.000Z'
-      const result = await Effect.runPromise(fromISOString(isoString))
+    it.effect('ISO 8601形式の文字列からTimestampを生成できる', () =>
+      Effect.gen(function* () {
+        const isoString = '2024-01-01T00:00:00.000Z'
+        const result = yield* fromISOString(isoString)
 
-      expect(result).toBe(1704067200000)
-    })
+        expect(result).toBe(1704067200000)
+      })
+    )
 
-    it('ミリ秒を含むISO文字列を正しくパースできる', async () => {
-      const isoString = '2024-01-01T00:00:00.123Z'
-      const result = await Effect.runPromise(fromISOString(isoString))
+    it.effect('ミリ秒を含むISO文字列を正しくパースできる', () =>
+      Effect.gen(function* () {
+        const isoString = '2024-01-01T00:00:00.123Z'
+        const result = yield* fromISOString(isoString)
 
-      expect(result).toBe(1704067200123)
-    })
+        expect(result).toBe(1704067200123)
+      })
+    )
 
-    it('タイムゾーン付きISO文字列を正しくパースできる', async () => {
-      const isoString = '2024-01-01T09:00:00.000+09:00'
-      const result = await Effect.runPromise(fromISOString(isoString))
+    it.effect('タイムゾーン付きISO文字列を正しくパースできる', () =>
+      Effect.gen(function* () {
+        const isoString = '2024-01-01T09:00:00.000+09:00'
+        const result = yield* fromISOString(isoString)
 
-      // 9時間前のUTC時刻 (2024-01-01T00:00:00.000Z)
-      expect(result).toBe(1704067200000)
-    })
+        // 9時間前のUTC時刻 (2024-01-01T00:00:00.000Z)
+        expect(result).toBe(1704067200000)
+      })
+    )
 
-    it('Unix epochの文字列を正しくパースできる', async () => {
-      const isoString = '1970-01-01T00:00:00.000Z'
-      const result = await Effect.runPromise(fromISOString(isoString))
+    it.effect('Unix epochの文字列を正しくパースできる', () =>
+      Effect.gen(function* () {
+        const isoString = '1970-01-01T00:00:00.000Z'
+        const result = yield* fromISOString(isoString)
 
-      expect(result).toBe(0)
-    })
+        expect(result).toBe(0)
+      })
+    )
   })
 
   describe('toDateTime → toISOString → fromISOString のラウンドトリップ', () => {
-    it('変換の往復で値が保持される', async () => {
-      const originalTimestamp = makeTimestamp(1704067200123)
+    it.effect('変換の往復で値が保持される', () =>
+      Effect.gen(function* () {
+        const originalTimestamp = makeTimestamp(1704067200123)
 
-      // Timestamp → ISO String
-      const isoString = toISOString(originalTimestamp)
+        // Timestamp → ISO String
+        const isoString = toISOString(originalTimestamp)
 
-      // ISO String → Timestamp
-      const restoredTimestamp = await Effect.runPromise(fromISOString(isoString))
+        // ISO String → Timestamp
+        const restoredTimestamp = yield* fromISOString(isoString)
 
-      expect(restoredTimestamp).toBe(originalTimestamp)
-    })
+        expect(restoredTimestamp).toBe(originalTimestamp)
+      })
+    )
 
-    it('現在時刻でのラウンドトリップが正確', async () => {
-      const now = await Effect.runPromise(Clock.currentTimeMillis)
-      const originalTimestamp = makeTimestamp(now)
+    it.effect('現在時刻でのラウンドトリップが正確', () =>
+      Effect.gen(function* () {
+        // TestClockで10秒進める
+        yield* TestClock.adjust('10 seconds')
+        const now = yield* Clock.currentTimeMillis
+        const originalTimestamp = makeTimestamp(now)
 
-      const isoString = toISOString(originalTimestamp)
-      const restoredTimestamp = await Effect.runPromise(fromISOString(isoString))
+        const isoString = toISOString(originalTimestamp)
+        const restoredTimestamp = yield* fromISOString(isoString)
 
-      expect(restoredTimestamp).toBe(originalTimestamp)
-    })
+        expect(restoredTimestamp).toBe(originalTimestamp)
+        expect(now).toBe(10000) // 10秒 = 10000ms
+      })
+    )
   })
 
   describe('DateTime互換性', () => {

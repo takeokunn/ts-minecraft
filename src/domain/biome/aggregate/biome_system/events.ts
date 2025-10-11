@@ -4,7 +4,7 @@
 
 import * as Coordinates from '@/domain/biome/value_object/coordinates/index.js'
 import * as WorldSeed from '@domain/world/value_object/world_seed/index.js'
-import { Clock, Context, DateTime, Effect, Schema } from 'effect'
+import { Clock, Context, DateTime, Effect, Random, Schema } from 'effect'
 import { UpdateClimateModelCommandSchema, type UpdateClimateModelCommand } from './biome_system.js'
 import {
   BiomeDistributionPayloadSchema,
@@ -61,9 +61,10 @@ export type ClimateModelUpdated = typeof ClimateModelUpdatedSchema.Type
 type BiomeEvent = BiomeSystemCreated | BiomeDistributionGenerated | ClimateModelUpdated
 
 const generateEventId = (): Effect.Effect<string & Schema.Schema.Brand<typeof Schema.String, 'BiomeEventId'>> =>
-  Effect.sync(() => {
-    const timestamp = yield * Clock.currentTimeMillis
-    const random = Math.random().toString(36).slice(2, 11)
+  Effect.gen(function* () {
+    const timestamp = yield* Clock.currentTimeMillis
+    const randomValue = yield* Random.nextIntBetween(0, 36 ** 9 - 1)
+    const random = randomValue.toString(36).padStart(9, '0')
     return Schema.decodeSync(Schema.String.pipe(Schema.brand('BiomeEventId')))(`bevt_${timestamp}_${random}`)
   })
 

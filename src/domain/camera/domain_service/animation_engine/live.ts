@@ -6,7 +6,7 @@
  * 核となるビジネスロジックを実装しています。
  */
 
-import { Clock, Effect, Layer, Match, pipe } from 'effect'
+import { Clock, Effect, Layer, Match, pipe, Random } from 'effect'
 import type {
   AnimationDuration,
   AnimationState,
@@ -546,7 +546,11 @@ const getCurrentTime = (): Effect.Effect<Timestamp, CameraError> =>
  * アニメーションID生成（スタブ実装）
  */
 const generateAnimationId = (): Effect.Effect<string, CameraError> =>
-  Effect.succeed(`anim_${Math.random().toString(36).substr(2, 9)}`)
+  Effect.gen(function* () {
+    const randomValue = yield* Random.nextIntBetween(0, 36 ** 9 - 1)
+    const randomId = randomValue.toString(36).padStart(9, '0')
+    return `anim_${randomId}`
+  })
 
 /**
  * アニメーションエラー作成ヘルパー

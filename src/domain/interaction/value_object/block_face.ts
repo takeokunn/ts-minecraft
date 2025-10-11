@@ -110,7 +110,7 @@ export const fromNormalVector = (vector: Vector3) =>
     )
   )
 
-export const safeFromNormalVector = (vector: Vector3) => Effect.runSync(Effect.either(fromNormalVector(vector)))
+export const safeFromNormalVector = (vector: Vector3) => Effect.either(fromNormalVector(vector))
 
 export const opposite = (face: BlockFace) => pipe(Effect.succeed(opposites[face]), Effect.flatMap(fromLiteral))
 

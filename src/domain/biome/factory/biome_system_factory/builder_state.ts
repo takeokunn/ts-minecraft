@@ -1,7 +1,7 @@
 import * as BiomeProperties from '@/domain/biome/value_object/biome_properties/index'
 import * as Schema from '@effect/schema/Schema'
 
-import { JsonValueSchema } from '@/shared/schema/json'
+import { JsonValueSchema } from '@shared/schema/json'
 
 /**
  * BiomeSystemBuilder状態スキーマ

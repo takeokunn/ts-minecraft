@@ -26,14 +26,8 @@ import type {
   PerformanceThresholds,
   TimeRange,
 } from './index'
-import {
-  AnimationHistoryExportDataSchema,
-  createAnimationHistoryError,
-  isAnimationRecordNotFoundError,
-  isCameraNotFoundError,
-  isInvalidTimeRangeError,
-  isStorageError,
-} from './index'
+import { AnimationHistoryExportDataSchema, createAnimationHistoryError } from './index'
+import { AnimationHistoryRepository } from './service'
 
 // ========================================
 // Internal Storage Types
@@ -347,23 +341,17 @@ const handleAnimationHistoryOperation = <T>(
 ): Effect.Effect<T, AnimationHistoryRepositoryError> =>
   pipe(
     operation,
-    Effect.catchAll((error) =>
-      pipe(
-        error,
-        Match.value,
-        Match.when(isAnimationRecordNotFoundError, () =>
-          Effect.fail(createAnimationHistoryError.animationRecordNotFound('unknown' as AnimationRecordId))
-        ),
-        Match.when(isCameraNotFoundError, () =>
-          Effect.fail(createAnimationHistoryError.cameraNotFound('unknown' as CameraId))
-        ),
-        Match.when(isInvalidTimeRangeError, () =>
-          Effect.fail(createAnimationHistoryError.invalidTimeRange(0, 0, String(error)))
-        ),
-        Match.when(isStorageError, (e) => Effect.fail(createAnimationHistoryError.storageError(String(e)))),
-        Match.orElse(() => Effect.fail(createAnimationHistoryError.storageError(String(error))))
-      )
-    )
+    Effect.catchTags({
+      AnimationRecordNotFound: () =>
+        Effect.fail(createAnimationHistoryError.animationRecordNotFound('unknown' as AnimationRecordId)),
+      CameraNotFound: () => Effect.fail(createAnimationHistoryError.cameraNotFound('unknown' as CameraId)),
+      InvalidTimeRange: (e: Extract<AnimationHistoryRepositoryError, { _tag: 'InvalidTimeRange' }>) =>
+        Effect.fail(createAnimationHistoryError.invalidTimeRange(e.startTime, e.endTime, e.reason)),
+      StorageError: (e: Extract<AnimationHistoryRepositoryError, { _tag: 'StorageError' }>) =>
+        Effect.fail(createAnimationHistoryError.storageError(e.message)),
+    }),
+    // 未知のエラーはStorageErrorとして扱う
+    Effect.catchAll((error) => Effect.fail(createAnimationHistoryError.storageError(String(error))))
   )
 
 // ========================================
@@ -374,619 +362,617 @@ const handleAnimationHistoryOperation = <T>(
  * Animation History Repository Live Implementation
  */
 export const AnimationHistoryRepositoryLive = Layer.effect(
-  import('./service.js').then((m) => m.AnimationHistoryRepository),
+  AnimationHistoryRepository,
   Effect.gen(function* () {
     // インメモリストレージの初期化
     const initialState = yield* StorageOps.createInitialState()
     const storageRef = yield* Ref.make(initialState)
 
-    return import('./service.js')
-      .then((m) => m.AnimationHistoryRepository)
-      .of({
-        // ========================================
-        // Basic Animation Record Management
-        // ========================================
+    return AnimationHistoryRepository.of({
+      // ========================================
+      // Basic Animation Record Management
+      // ========================================
 
-        recordAnimation: (cameraId: CameraId, animationRecord: AnimationRecord) =>
-          Effect.gen(function* () {
-            yield* Ref.update(storageRef, (state) => StorageOps.addAnimationRecord(state, cameraId, animationRecord))
-            yield* Effect.logDebug(`Animation recorded: ${animationRecord.id} for camera: ${cameraId}`)
-          }).pipe(handleAnimationHistoryOperation),
+      recordAnimation: (cameraId: CameraId, animationRecord: AnimationRecord) =>
+        Effect.gen(function* () {
+          yield* Ref.update(storageRef, (state) => StorageOps.addAnimationRecord(state, cameraId, animationRecord))
+          yield* Effect.logDebug(`Animation recorded: ${animationRecord.id} for camera: ${cameraId}`)
+        }).pipe(handleAnimationHistoryOperation),
 
-        getAnimationHistory: (cameraId: CameraId, timeRange: TimeRange, options?: AnimationQueryOptions) =>
-          Effect.gen(function* () {
-            const state = yield* Ref.get(storageRef)
-            const allRecords = HashMap.get(state.animationRecords, cameraId).pipe(Option.getOrElse(() => []))
+      getAnimationHistory: (cameraId: CameraId, timeRange: TimeRange, options?: AnimationQueryOptions) =>
+        Effect.gen(function* () {
+          const state = yield* Ref.get(storageRef)
+          const allRecords = HashMap.get(state.animationRecords, cameraId).pipe(Option.getOrElse(() => []))
 
-            const filteredRecords = pipe(StorageOps.filterByTimeRange(allRecords, timeRange), (records) =>
-              pipe(
-                Option.fromNullable(options),
-                Option.match({
-                  onNone: () => records,
-                  onSome: (opts) => StorageOps.applyQueryOptions(records, opts),
-                })
-              )
-            )
-
-            return filteredRecords
-          }).pipe(handleAnimationHistoryOperation),
-
-        getLastAnimation: (cameraId: CameraId) =>
-          Effect.gen(function* () {
-            const state = yield* Ref.get(storageRef)
-            const records = HashMap.get(state.animationRecords, cameraId).pipe(Option.getOrElse(() => []))
-
-            return pipe(
-              records,
-              Array.matchLeft({
-                onEmpty: () => Option.none<AnimationRecord>(),
-                onNonEmpty: (recs) =>
-                  Option.some(
-                    recs.reduce((latest, current) => (current.startTime > latest.startTime ? current : latest))
-                  ),
-              })
-            )
-          }).pipe(handleAnimationHistoryOperation),
-
-        getAnimationRecord: (recordId: AnimationRecordId) =>
-          Effect.gen(function* () {
-            const state = yield* Ref.get(storageRef)
-            return HashMap.get(state.recordIndex, recordId)
-          }).pipe(handleAnimationHistoryOperation),
-
-        updateAnimationRecord: (recordId: AnimationRecordId, updates: Partial<AnimationRecord>) =>
-          Effect.gen(function* () {
-            yield* Ref.update(storageRef, (state) =>
-              pipe(
-                HashMap.get(state.recordIndex, recordId),
-                Option.match({
-                  onNone: () => state,
-                  onSome: (existingRecord) => {
-                    const updatedRecord = { ...existingRecord, ...updates }
-                    const updatedRecordIndex = HashMap.set(state.recordIndex, recordId, updatedRecord)
-
-                    // アニメーション記録リストも更新
-                    const updatedAnimationRecords = pipe(
-                      Array.fromIterable(HashMap.entries(state.animationRecords)),
-                      Array.findFirst(([_, records]) => records.findIndex((r) => r.id === recordId) !== -1),
-                      Option.match({
-                        onNone: () => state.animationRecords,
-                        onSome: ([cameraId, records]) => {
-                          const recordIndex = records.findIndex((r) => r.id === recordId)
-                          const updatedRecords = [...records]
-                          updatedRecords[recordIndex] = updatedRecord
-                          return HashMap.set(state.animationRecords, cameraId, updatedRecords)
-                        },
-                      })
-                    )
-
-                    return {
-                      ...state,
-                      recordIndex: updatedRecordIndex,
-                      animationRecords: updatedAnimationRecords,
-                    }
-                  },
-                })
-              )
-            )
-            yield* Effect.logDebug(`Animation record updated: ${recordId}`)
-          }).pipe(handleAnimationHistoryOperation),
-
-        deleteAnimationRecord: (recordId: AnimationRecordId) =>
-          Effect.gen(function* () {
-            yield* Ref.update(storageRef, (state) => {
-              // インデックスから削除
-              const updatedRecordIndex = HashMap.remove(state.recordIndex, recordId)
-
-              // アニメーション記録リストからも削除
-              const updatedAnimationRecords = pipe(
-                Array.fromIterable(HashMap.entries(state.animationRecords)),
-                Array.findFirst(([_, records]) => {
-                  const filteredRecords = records.filter((r) => r.id !== recordId)
-                  return filteredRecords.length !== records.length
-                }),
-                Option.match({
-                  onNone: () => state.animationRecords,
-                  onSome: ([cameraId, records]) => {
-                    const filteredRecords = records.filter((r) => r.id !== recordId)
-                    return HashMap.set(state.animationRecords, cameraId, filteredRecords)
-                  },
-                })
-              )
-
-              return {
-                ...state,
-                recordIndex: updatedRecordIndex,
-                animationRecords: updatedAnimationRecords,
-                metadata: {
-                  ...state.metadata,
-                  totalRecords: state.metadata.totalRecords - 1,
-                },
-              }
-            })
-            yield* Effect.logDebug(`Animation record deleted: ${recordId}`)
-          }).pipe(handleAnimationHistoryOperation),
-
-        // ========================================
-        // Bulk Operations
-        // ========================================
-
-        recordAnimationBatch: (records: Array.ReadonlyArray<[CameraId, AnimationRecord]>) =>
-          Effect.gen(function* () {
-            yield* Ref.update(storageRef, (state) =>
-              records.reduce((acc, [cameraId, record]) => StorageOps.addAnimationRecord(acc, cameraId, record), state)
-            )
-            yield* Effect.logDebug(`Batch animation recording completed: ${records.length} records`)
-          }).pipe(handleAnimationHistoryOperation),
-
-        getMultipleCameraHistory: (
-          cameraIds: Array.ReadonlyArray<CameraId>,
-          timeRange: TimeRange,
-          options?: AnimationQueryOptions
-        ) =>
-          Effect.gen(function* () {
-            const state = yield* Ref.get(storageRef)
-            const resultMap = pipe(
-              cameraIds,
-              Array.reduce(new Map<CameraId, Array.ReadonlyArray<AnimationRecord>>(), (map, cameraId) => {
-                const allRecords = HashMap.get(state.animationRecords, cameraId).pipe(Option.getOrElse(() => []))
-
-                const filteredRecords = pipe(StorageOps.filterByTimeRange(allRecords, timeRange), (records) =>
-                  pipe(
-                    Option.fromNullable(options),
-                    Option.match({
-                      onNone: () => records,
-                      onSome: (opts) => StorageOps.applyQueryOptions(records, opts),
-                    })
-                  )
-                )
-
-                map.set(cameraId, filteredRecords)
-                return map
-              })
-            )
-
-            return resultMap
-          }).pipe(handleAnimationHistoryOperation),
-
-        clearHistory: (cameraId: CameraId, olderThan: Date) =>
-          Effect.gen(function* () {
-            const [newState, deletedCount] = yield* Ref.modify(storageRef, (state) => {
-              const [cleanedState, count] = StorageOps.cleanup(state, cameraId, olderThan)
-              return [count, cleanedState]
-            })
-
-            yield* Effect.logInfo(`History cleanup completed for camera ${cameraId}: ${deletedCount} records deleted`)
-            return deletedCount
-          }).pipe(handleAnimationHistoryOperation),
-
-        clearAllHistory: (olderThan: Date) =>
-          Effect.gen(function* () {
-            const result = yield* Ref.modify(storageRef, (state) => {
-              const cleanupResult = pipe(
-                Array.fromIterable(HashMap.keys(state.animationRecords)),
-                Array.reduce({ state, totalDeleted: 0 }, (acc, cameraId) => {
-                  const [newState, deletedCount] = StorageOps.cleanup(acc.state, cameraId, olderThan)
-                  return {
-                    state: newState,
-                    totalDeleted: acc.totalDeleted + deletedCount,
-                  }
-                })
-              )
-              return [cleanupResult.totalDeleted, cleanupResult.state]
-            })
-
-            yield* Effect.logInfo(`Global history cleanup completed: ${result} records deleted`)
-            return result
-          }).pipe(handleAnimationHistoryOperation),
-
-        // ========================================
-        // Statistics and Analytics
-        // ========================================
-
-        getAnimationStatistics: (cameraId: CameraId, timeRange: TimeRange) =>
-          Effect.gen(function* () {
-            const state = yield* Ref.get(storageRef)
-            const cacheKey = CacheKeys.statisticsKey(cameraId, timeRange)
-
-            // キャッシュチェック
-            const cachedStats = HashMap.get(state.statisticsCache, cacheKey)
-            return yield* pipe(
-              cachedStats,
-              Option.match({
-                onSome: (stats) => Effect.succeed(stats),
-                onNone: () =>
-                  Effect.gen(function* () {
-                    const records = HashMap.get(state.animationRecords, cameraId).pipe(Option.getOrElse(() => []))
-
-                    const filteredRecords = StorageOps.filterByTimeRange(records, timeRange)
-                    const statistics = StorageOps.calculateStatistics(filteredRecords, timeRange)
-
-                    // キャッシュに保存
-                    yield* Ref.update(storageRef, (currentState) => ({
-                      ...currentState,
-                      statisticsCache: HashMap.set(currentState.statisticsCache, cacheKey, statistics),
-                    }))
-
-                    return statistics
-                  }),
-              })
-            )
-          }).pipe(handleAnimationHistoryOperation),
-
-        getGlobalAnimationStatistics: (timeRange: TimeRange) =>
-          Effect.gen(function* () {
-            const state = yield* Ref.get(storageRef)
-            const cacheKey = CacheKeys.globalStatsKey(timeRange)
-
-            const cachedStats = HashMap.get(state.statisticsCache, cacheKey)
-            return yield* pipe(
-              cachedStats,
-              Option.match({
-                onSome: (stats) => Effect.succeed(stats),
-                onNone: () =>
-                  Effect.gen(function* () {
-                    // 全カメラの記録を統合
-                    const allRecords = pipe(
-                      Array.fromIterable(HashMap.values(state.animationRecords)),
-                      Array.flatMap((records) => Array.from(records))
-                    )
-
-                    const filteredRecords = StorageOps.filterByTimeRange(allRecords, timeRange)
-                    const statistics = StorageOps.calculateStatistics(filteredRecords, timeRange)
-
-                    yield* Ref.update(storageRef, (currentState) => ({
-                      ...currentState,
-                      statisticsCache: HashMap.set(currentState.statisticsCache, cacheKey, statistics),
-                    }))
-
-                    return statistics
-                  }),
-              })
-            )
-          }).pipe(handleAnimationHistoryOperation),
-
-        getPerformanceMetrics: (cameraId: CameraId, timeRange: TimeRange) =>
-          Effect.gen(function* () {
-            const state = yield* Ref.get(storageRef)
-            const cacheKey = CacheKeys.performanceKey(cameraId, timeRange)
-
-            const cachedMetrics = HashMap.get(state.performanceCache, cacheKey)
-            return yield* pipe(
-              cachedMetrics,
-              Option.match({
-                onSome: (metrics) => Effect.succeed(metrics),
-                onNone: () =>
-                  Effect.gen(function* () {
-                    const records = HashMap.get(state.animationRecords, cameraId).pipe(Option.getOrElse(() => []))
-
-                    const filteredRecords = StorageOps.filterByTimeRange(records, timeRange)
-                    const metrics = StorageOps.calculatePerformanceMetrics(filteredRecords)
-
-                    yield* Ref.update(storageRef, (currentState) => ({
-                      ...currentState,
-                      performanceCache: HashMap.set(currentState.performanceCache, cacheKey, metrics),
-                    }))
-
-                    return metrics
-                  }),
-              })
-            )
-          }).pipe(handleAnimationHistoryOperation),
-
-        getAnimationTypeDistribution: (cameraId: CameraId, timeRange: TimeRange) =>
-          Effect.gen(function* () {
-            const statistics = yield* this.getAnimationStatistics(cameraId, timeRange)
-            return statistics.animationTypeDistribution
-          }).pipe(handleAnimationHistoryOperation),
-
-        getMostFrequentAnimationTypes: (cameraId: CameraId, timeRange: TimeRange, limit: number) =>
-          Effect.gen(function* () {
-            const distribution = yield* this.getAnimationTypeDistribution(cameraId, timeRange)
-
-            const typeCounts: Array<[AnimationType, number]> = [
-              [Data.tagged('PositionChange', { reason: 'player-movement' }), distribution.positionChanges],
-              [Data.tagged('RotationChange', { reason: 'mouse-input' }), distribution.rotationChanges],
-              [
-                Data.tagged('ViewModeSwitch', {
-                  fromMode: 'first-person' as 'first-person' | 'third-person' | 'spectator' | 'cinematic',
-                  toMode: 'third-person' as 'first-person' | 'third-person' | 'spectator' | 'cinematic',
-                }),
-                distribution.viewModeSwitches,
-              ],
-              [Data.tagged('Cinematic', { sequenceName: 'default' }), distribution.cinematics],
-              [Data.tagged('FOVChange', { reason: 'zoom' }), distribution.fovChanges],
-              [Data.tagged('Collision', { adjustmentType: 'avoidance' }), distribution.collisionAdjustments],
-            ]
-
-            return typeCounts.sort((a, b) => b[1] - a[1]).slice(0, limit)
-          }).pipe(handleAnimationHistoryOperation),
-
-        // ========================================
-        // Performance Analysis (Simplified Implementations)
-        // ========================================
-
-        findPerformanceIssues: (cameraId: CameraId, timeRange: TimeRange, thresholds: PerformanceThresholds) =>
-          Effect.gen(function* () {
-            const records = yield* this.getAnimationHistory(cameraId, timeRange)
-
-            return records.filter(
-              (record) =>
-                record.metadata.frameRate < thresholds.minFrameRate ||
-                record.metadata.renderTime > thresholds.maxRenderTime ||
-                record.metadata.memoryUsageMB > thresholds.maxMemoryUsage
-            )
-          }).pipe(handleAnimationHistoryOperation),
-
-        analyzeInterruptions: (cameraId: CameraId, timeRange: TimeRange) =>
-          Effect.gen(function* () {
-            const records = yield* this.getAnimationHistory(cameraId, timeRange)
-            const interruptedRecords = records.filter((r) => Option.isSome(r.interruption))
-
-            const analysis: InterruptionAnalysis = {
-              totalInterruptions: interruptedRecords.length,
-              interruptionsByReason: new Map(), // 簡易実装
-              averageProgressWhenInterrupted: 0.5, // 簡易実装
-              mostCommonInterruptionTime: 1000, // 簡易実装
-              interruptionImpactScore: 50, // 簡易実装
-            }
-
-            return analysis
-          }).pipe(handleAnimationHistoryOperation),
-
-        analyzePerformanceTrends: (cameraId: CameraId, timeRange: TimeRange, bucketSize: number) =>
-          Effect.gen(function* () {
-            const records = yield* this.getAnimationHistory(cameraId, timeRange)
-
-            // 簡易実装: 時間バケットごとの分析
-            const bucketCount = Math.ceil((timeRange.endTime - timeRange.startTime) / bucketSize)
-
-            const trends = pipe(
-              Array.makeBy(bucketCount, (i) => i),
-              Array.filterMap((i) => {
-                const bucketStart = timeRange.startTime + i * bucketSize
-                const bucketEnd = Math.min(bucketStart + bucketSize, timeRange.endTime)
-
-                const bucketRecords = records.filter((r) => r.startTime >= bucketStart && r.startTime < bucketEnd)
-
-                return pipe(
-                  bucketRecords,
-                  Array.matchLeft({
-                    onEmpty: () => Option.none(),
-                    onNonEmpty: (recs) =>
-                      Option.some({
-                        timestamp: bucketStart,
-                        averageFrameRate: recs.reduce((sum, r) => sum + r.metadata.frameRate, 0) / recs.length,
-                        averageRenderTime: recs.reduce((sum, r) => sum + r.metadata.renderTime, 0) / recs.length,
-                        memoryUsage: Math.max(...recs.map((r) => r.metadata.memoryUsageMB)),
-                        animationCount: recs.length,
-                      }),
-                  })
-                )
-              })
-            )
-
-            return trends
-          }).pipe(handleAnimationHistoryOperation),
-
-        // ========================================
-        // Query and Search Operations (Simplified)
-        // ========================================
-
-        searchAnimations: (searchCriteria: AnimationSearchCriteria) =>
-          Effect.gen(function* () {
-            const state = yield* Ref.get(storageRef)
-
-            // カメラIDフィルタ
-            const allRecords = pipe(
-              searchCriteria.cameraIds,
-              Option.match({
-                onSome: (cameraIds) =>
-                  pipe(
-                    cameraIds,
-                    Array.flatMap((cameraId) =>
-                      HashMap.get(state.animationRecords, cameraId).pipe(
-                        Option.match({
-                          onNone: () => [],
-                          onSome: (records) => Array.from(records),
-                        })
-                      )
-                    )
-                  ),
-                onNone: () =>
-                  pipe(
-                    Array.fromIterable(HashMap.values(state.animationRecords)),
-                    Array.flatMap((records) => Array.from(records))
-                  ),
-              })
-            )
-
-            // 時間範囲フィルタ
-            const filteredRecords = pipe(
-              searchCriteria.timeRange,
-              Option.match({
-                onNone: () => allRecords,
-                onSome: (timeRange) => StorageOps.filterByTimeRange(allRecords, timeRange),
-              })
-            )
-
-            // その他のフィルタは簡易実装
-            return filteredRecords
-          }).pipe(handleAnimationHistoryOperation),
-
-        animationRecordExists: (recordId: AnimationRecordId) =>
-          Effect.gen(function* () {
-            const state = yield* Ref.get(storageRef)
-            return HashMap.has(state.recordIndex, recordId)
-          }).pipe(handleAnimationHistoryOperation),
-
-        countAnimations: (cameraId: CameraId, timeRange: TimeRange, filter?: AnimationCountFilter) =>
-          Effect.gen(function* () {
-            const records = yield* this.getAnimationHistory(cameraId, timeRange)
-
-            const filteredRecords = pipe(
-              Option.fromNullable(filter),
+          const filteredRecords = pipe(StorageOps.filterByTimeRange(allRecords, timeRange), (records) =>
+            pipe(
+              Option.fromNullable(options),
               Option.match({
                 onNone: () => records,
-                onSome: (f) =>
-                  pipe(
-                    records,
-                    // アニメーションタイプフィルタ
-                    (recs) =>
-                      pipe(
-                        f.animationType,
-                        Option.match({
-                          onNone: () => recs,
-                          onSome: (filterType) => recs.filter((r) => r.animationType._tag === filterType._tag),
-                        })
-                      ),
-                    // 成功フィルタ
-                    (recs) =>
-                      pipe(
-                        f.successOnly,
-                        Option.match({
-                          onNone: () => recs,
-                          onSome: (filterSuccess) => recs.filter((r) => r.success === filterSuccess),
-                        })
-                      ),
-                    // 中断除外フィルタ
-                    (recs) =>
-                      pipe(
-                        f.excludeInterrupted,
-                        Option.match({
-                          onNone: () => recs,
-                          onSome: (shouldExclude) =>
-                            shouldExclude ? recs.filter((r) => Option.isNone(r.interruption)) : recs,
-                        })
-                      )
-                  ),
+                onSome: (opts) => StorageOps.applyQueryOptions(records, opts),
+              })
+            )
+          )
+
+          return filteredRecords
+        }).pipe(handleAnimationHistoryOperation),
+
+      getLastAnimation: (cameraId: CameraId) =>
+        Effect.gen(function* () {
+          const state = yield* Ref.get(storageRef)
+          const records = HashMap.get(state.animationRecords, cameraId).pipe(Option.getOrElse(() => []))
+
+          return pipe(
+            records,
+            Array.matchLeft({
+              onEmpty: () => Option.none<AnimationRecord>(),
+              onNonEmpty: (recs) =>
+                Option.some(
+                  recs.reduce((latest, current) => (current.startTime > latest.startTime ? current : latest))
+                ),
+            })
+          )
+        }).pipe(handleAnimationHistoryOperation),
+
+      getAnimationRecord: (recordId: AnimationRecordId) =>
+        Effect.gen(function* () {
+          const state = yield* Ref.get(storageRef)
+          return HashMap.get(state.recordIndex, recordId)
+        }).pipe(handleAnimationHistoryOperation),
+
+      updateAnimationRecord: (recordId: AnimationRecordId, updates: Partial<AnimationRecord>) =>
+        Effect.gen(function* () {
+          yield* Ref.update(storageRef, (state) =>
+            pipe(
+              HashMap.get(state.recordIndex, recordId),
+              Option.match({
+                onNone: () => state,
+                onSome: (existingRecord) => {
+                  const updatedRecord = { ...existingRecord, ...updates }
+                  const updatedRecordIndex = HashMap.set(state.recordIndex, recordId, updatedRecord)
+
+                  // アニメーション記録リストも更新
+                  const updatedAnimationRecords = pipe(
+                    Array.fromIterable(HashMap.entries(state.animationRecords)),
+                    Array.findFirst(([_, records]) => records.findIndex((r) => r.id === recordId) !== -1),
+                    Option.match({
+                      onNone: () => state.animationRecords,
+                      onSome: ([cameraId, records]) => {
+                        const recordIndex = records.findIndex((r) => r.id === recordId)
+                        const updatedRecords = [...records]
+                        updatedRecords[recordIndex] = updatedRecord
+                        return HashMap.set(state.animationRecords, cameraId, updatedRecords)
+                      },
+                    })
+                  )
+
+                  return {
+                    ...state,
+                    recordIndex: updatedRecordIndex,
+                    animationRecords: updatedAnimationRecords,
+                  }
+                },
+              })
+            )
+          )
+          yield* Effect.logDebug(`Animation record updated: ${recordId}`)
+        }).pipe(handleAnimationHistoryOperation),
+
+      deleteAnimationRecord: (recordId: AnimationRecordId) =>
+        Effect.gen(function* () {
+          yield* Ref.update(storageRef, (state) => {
+            // インデックスから削除
+            const updatedRecordIndex = HashMap.remove(state.recordIndex, recordId)
+
+            // アニメーション記録リストからも削除
+            const updatedAnimationRecords = pipe(
+              Array.fromIterable(HashMap.entries(state.animationRecords)),
+              Array.findFirst(([_, records]) => {
+                const filteredRecords = records.filter((r) => r.id !== recordId)
+                return filteredRecords.length !== records.length
+              }),
+              Option.match({
+                onNone: () => state.animationRecords,
+                onSome: ([cameraId, records]) => {
+                  const filteredRecords = records.filter((r) => r.id !== recordId)
+                  return HashMap.set(state.animationRecords, cameraId, filteredRecords)
+                },
               })
             )
 
-            return filteredRecords.length
-          }).pipe(handleAnimationHistoryOperation),
-
-        // ========================================
-        // Data Export and Import (Simplified)
-        // ========================================
-
-        exportHistory: (cameraId: CameraId, timeRange: TimeRange, options?: ExportOptions) =>
-          Effect.gen(function* () {
-            const records = yield* this.getAnimationHistory(cameraId, timeRange)
-            const now = yield* Clock.currentTimeMillis
-            const exportData = {
-              cameraId,
-              timeRange,
-              records: pipe(
-                Option.fromNullable(options),
-                Option.match({
-                  onNone: () => records,
-                  onSome: (opts) =>
-                    opts.includeMetadata !== false ? records : records.map((r) => ({ ...r, metadata: undefined })),
-                })
-              ),
-              exportedAt: now,
-            }
-            return JSON.stringify(exportData, null, 2)
-          }).pipe(handleAnimationHistoryOperation),
-
-        importHistory: (cameraId: CameraId, jsonData: string, options?: ImportOptions) =>
-          Effect.gen(function* () {
-            const result: ImportResult = {
-              success: true,
-              importedRecords: 0,
-              skippedRecords: 0,
-              errors: [],
-              processingTimeMs: 0,
-            }
-
-            const validatedDataResult = yield* Effect.try({
-              try: () => JSON.parse(jsonData),
-              catch: (error) => createAnimationHistoryError.decodingFailed('AnimationHistoryExportData', String(error)),
-            }).pipe(
-              Effect.flatMap(Schema.decodeUnknown(AnimationHistoryExportDataSchema)),
-              Effect.mapError((error) =>
-                createAnimationHistoryError.decodingFailed('AnimationHistoryExportData', String(error))
-              ),
-              Effect.either
-            )
-
-            return yield* pipe(
-              validatedDataResult,
-              Either.match({
-                onLeft: (error) =>
-                  Effect.succeed({
-                    ...result,
-                    success: false,
-                    errors: [error._tag === 'DecodingFailed' ? error.reason : String(error)],
-                  }),
-                onRight: (_data) =>
-                  Effect.gen(function* () {
-                    // 簡易実装: データのインポート処理
-                    yield* Effect.logInfo(`Importing animation history for camera: ${cameraId}`)
-                    return result
-                  }),
-              })
-            )
-          }).pipe(handleAnimationHistoryOperation),
-
-        // ========================================
-        // Maintenance Operations (Simplified)
-        // ========================================
-
-        validateDataIntegrity: (cameraId?: CameraId) =>
-          Effect.gen(function* () {
-            const result: IntegrityCheckResult = {
-              isValid: true,
-              checkedRecords: 0,
-              corruptedRecords: [],
-              missingReferences: [],
-              fixedIssues: 0,
-              remainingIssues: 0,
-            }
-
-            yield* Effect.logInfo('Data integrity check completed')
-            return result
-          }).pipe(handleAnimationHistoryOperation),
-
-        optimizeStorage: () =>
-          Effect.gen(function* () {
-            const state = yield* Ref.get(storageRef)
-            const beforeSize = JSON.stringify(state).length
-
-            // 簡易最適化: キャッシュクリア
-            const now = yield* Clock.currentTimeMillis
-            yield* Ref.update(storageRef, (currentState) => ({
-              ...currentState,
-              performanceCache: HashMap.empty(),
-              statisticsCache: HashMap.empty(),
+            return {
+              ...state,
+              recordIndex: updatedRecordIndex,
+              animationRecords: updatedAnimationRecords,
               metadata: {
-                ...currentState.metadata,
-                lastOptimizationDate: now,
+                ...state.metadata,
+                totalRecords: state.metadata.totalRecords - 1,
               },
-            }))
-
-            const afterSize = beforeSize // 簡易実装では変化なし
-
-            const result: OptimizationResult = {
-              beforeSizeBytes: beforeSize,
-              afterSizeBytes: afterSize,
-              compressionRatio: 1.0,
-              duplicatesRemoved: 0,
-              fragmentationReduced: 0,
-              processingTimeMs: 0,
             }
+          })
+          yield* Effect.logDebug(`Animation record deleted: ${recordId}`)
+        }).pipe(handleAnimationHistoryOperation),
 
-            yield* Effect.logInfo('Storage optimization completed')
-            return result
-          }).pipe(handleAnimationHistoryOperation),
+      // ========================================
+      // Bulk Operations
+      // ========================================
 
-        cleanupOrphanedRecords: () =>
-          Effect.gen(function* () {
-            // 簡易実装: 孤立レコードのクリーンアップ
-            yield* Effect.logInfo('Orphaned records cleanup completed')
-            return 0
-          }).pipe(handleAnimationHistoryOperation),
-      })
+      recordAnimationBatch: (records: Array.ReadonlyArray<[CameraId, AnimationRecord]>) =>
+        Effect.gen(function* () {
+          yield* Ref.update(storageRef, (state) =>
+            records.reduce((acc, [cameraId, record]) => StorageOps.addAnimationRecord(acc, cameraId, record), state)
+          )
+          yield* Effect.logDebug(`Batch animation recording completed: ${records.length} records`)
+        }).pipe(handleAnimationHistoryOperation),
+
+      getMultipleCameraHistory: (
+        cameraIds: Array.ReadonlyArray<CameraId>,
+        timeRange: TimeRange,
+        options?: AnimationQueryOptions
+      ) =>
+        Effect.gen(function* () {
+          const state = yield* Ref.get(storageRef)
+          const resultMap = pipe(
+            cameraIds,
+            Array.reduce(new Map<CameraId, Array.ReadonlyArray<AnimationRecord>>(), (map, cameraId) => {
+              const allRecords = HashMap.get(state.animationRecords, cameraId).pipe(Option.getOrElse(() => []))
+
+              const filteredRecords = pipe(StorageOps.filterByTimeRange(allRecords, timeRange), (records) =>
+                pipe(
+                  Option.fromNullable(options),
+                  Option.match({
+                    onNone: () => records,
+                    onSome: (opts) => StorageOps.applyQueryOptions(records, opts),
+                  })
+                )
+              )
+
+              map.set(cameraId, filteredRecords)
+              return map
+            })
+          )
+
+          return resultMap
+        }).pipe(handleAnimationHistoryOperation),
+
+      clearHistory: (cameraId: CameraId, olderThan: Date) =>
+        Effect.gen(function* () {
+          const [newState, deletedCount] = yield* Ref.modify(storageRef, (state) => {
+            const [cleanedState, count] = StorageOps.cleanup(state, cameraId, olderThan)
+            return [count, cleanedState]
+          })
+
+          yield* Effect.logInfo(`History cleanup completed for camera ${cameraId}: ${deletedCount} records deleted`)
+          return deletedCount
+        }).pipe(handleAnimationHistoryOperation),
+
+      clearAllHistory: (olderThan: Date) =>
+        Effect.gen(function* () {
+          const result = yield* Ref.modify(storageRef, (state) => {
+            const cleanupResult = pipe(
+              Array.fromIterable(HashMap.keys(state.animationRecords)),
+              Array.reduce({ state, totalDeleted: 0 }, (acc, cameraId) => {
+                const [newState, deletedCount] = StorageOps.cleanup(acc.state, cameraId, olderThan)
+                return {
+                  state: newState,
+                  totalDeleted: acc.totalDeleted + deletedCount,
+                }
+              })
+            )
+            return [cleanupResult.totalDeleted, cleanupResult.state]
+          })
+
+          yield* Effect.logInfo(`Global history cleanup completed: ${result} records deleted`)
+          return result
+        }).pipe(handleAnimationHistoryOperation),
+
+      // ========================================
+      // Statistics and Analytics
+      // ========================================
+
+      getAnimationStatistics: (cameraId: CameraId, timeRange: TimeRange) =>
+        Effect.gen(function* () {
+          const state = yield* Ref.get(storageRef)
+          const cacheKey = CacheKeys.statisticsKey(cameraId, timeRange)
+
+          // キャッシュチェック
+          const cachedStats = HashMap.get(state.statisticsCache, cacheKey)
+          return yield* pipe(
+            cachedStats,
+            Option.match({
+              onSome: (stats) => Effect.succeed(stats),
+              onNone: () =>
+                Effect.gen(function* () {
+                  const records = HashMap.get(state.animationRecords, cameraId).pipe(Option.getOrElse(() => []))
+
+                  const filteredRecords = StorageOps.filterByTimeRange(records, timeRange)
+                  const statistics = StorageOps.calculateStatistics(filteredRecords, timeRange)
+
+                  // キャッシュに保存
+                  yield* Ref.update(storageRef, (currentState) => ({
+                    ...currentState,
+                    statisticsCache: HashMap.set(currentState.statisticsCache, cacheKey, statistics),
+                  }))
+
+                  return statistics
+                }),
+            })
+          )
+        }).pipe(handleAnimationHistoryOperation),
+
+      getGlobalAnimationStatistics: (timeRange: TimeRange) =>
+        Effect.gen(function* () {
+          const state = yield* Ref.get(storageRef)
+          const cacheKey = CacheKeys.globalStatsKey(timeRange)
+
+          const cachedStats = HashMap.get(state.statisticsCache, cacheKey)
+          return yield* pipe(
+            cachedStats,
+            Option.match({
+              onSome: (stats) => Effect.succeed(stats),
+              onNone: () =>
+                Effect.gen(function* () {
+                  // 全カメラの記録を統合
+                  const allRecords = pipe(
+                    Array.fromIterable(HashMap.values(state.animationRecords)),
+                    Array.flatMap((records) => Array.from(records))
+                  )
+
+                  const filteredRecords = StorageOps.filterByTimeRange(allRecords, timeRange)
+                  const statistics = StorageOps.calculateStatistics(filteredRecords, timeRange)
+
+                  yield* Ref.update(storageRef, (currentState) => ({
+                    ...currentState,
+                    statisticsCache: HashMap.set(currentState.statisticsCache, cacheKey, statistics),
+                  }))
+
+                  return statistics
+                }),
+            })
+          )
+        }).pipe(handleAnimationHistoryOperation),
+
+      getPerformanceMetrics: (cameraId: CameraId, timeRange: TimeRange) =>
+        Effect.gen(function* () {
+          const state = yield* Ref.get(storageRef)
+          const cacheKey = CacheKeys.performanceKey(cameraId, timeRange)
+
+          const cachedMetrics = HashMap.get(state.performanceCache, cacheKey)
+          return yield* pipe(
+            cachedMetrics,
+            Option.match({
+              onSome: (metrics) => Effect.succeed(metrics),
+              onNone: () =>
+                Effect.gen(function* () {
+                  const records = HashMap.get(state.animationRecords, cameraId).pipe(Option.getOrElse(() => []))
+
+                  const filteredRecords = StorageOps.filterByTimeRange(records, timeRange)
+                  const metrics = StorageOps.calculatePerformanceMetrics(filteredRecords)
+
+                  yield* Ref.update(storageRef, (currentState) => ({
+                    ...currentState,
+                    performanceCache: HashMap.set(currentState.performanceCache, cacheKey, metrics),
+                  }))
+
+                  return metrics
+                }),
+            })
+          )
+        }).pipe(handleAnimationHistoryOperation),
+
+      getAnimationTypeDistribution: (cameraId: CameraId, timeRange: TimeRange) =>
+        Effect.gen(function* () {
+          const statistics = yield* this.getAnimationStatistics(cameraId, timeRange)
+          return statistics.animationTypeDistribution
+        }).pipe(handleAnimationHistoryOperation),
+
+      getMostFrequentAnimationTypes: (cameraId: CameraId, timeRange: TimeRange, limit: number) =>
+        Effect.gen(function* () {
+          const distribution = yield* this.getAnimationTypeDistribution(cameraId, timeRange)
+
+          const typeCounts: Array<[AnimationType, number]> = [
+            [Data.tagged('PositionChange', { reason: 'player-movement' }), distribution.positionChanges],
+            [Data.tagged('RotationChange', { reason: 'mouse-input' }), distribution.rotationChanges],
+            [
+              Data.tagged('ViewModeSwitch', {
+                fromMode: 'first-person' as 'first-person' | 'third-person' | 'spectator' | 'cinematic',
+                toMode: 'third-person' as 'first-person' | 'third-person' | 'spectator' | 'cinematic',
+              }),
+              distribution.viewModeSwitches,
+            ],
+            [Data.tagged('Cinematic', { sequenceName: 'default' }), distribution.cinematics],
+            [Data.tagged('FOVChange', { reason: 'zoom' }), distribution.fovChanges],
+            [Data.tagged('Collision', { adjustmentType: 'avoidance' }), distribution.collisionAdjustments],
+          ]
+
+          return typeCounts.sort((a, b) => b[1] - a[1]).slice(0, limit)
+        }).pipe(handleAnimationHistoryOperation),
+
+      // ========================================
+      // Performance Analysis (Simplified Implementations)
+      // ========================================
+
+      findPerformanceIssues: (cameraId: CameraId, timeRange: TimeRange, thresholds: PerformanceThresholds) =>
+        Effect.gen(function* () {
+          const records = yield* this.getAnimationHistory(cameraId, timeRange)
+
+          return records.filter(
+            (record) =>
+              record.metadata.frameRate < thresholds.minFrameRate ||
+              record.metadata.renderTime > thresholds.maxRenderTime ||
+              record.metadata.memoryUsageMB > thresholds.maxMemoryUsage
+          )
+        }).pipe(handleAnimationHistoryOperation),
+
+      analyzeInterruptions: (cameraId: CameraId, timeRange: TimeRange) =>
+        Effect.gen(function* () {
+          const records = yield* this.getAnimationHistory(cameraId, timeRange)
+          const interruptedRecords = records.filter((r) => Option.isSome(r.interruption))
+
+          const analysis: InterruptionAnalysis = {
+            totalInterruptions: interruptedRecords.length,
+            interruptionsByReason: new Map(), // 簡易実装
+            averageProgressWhenInterrupted: 0.5, // 簡易実装
+            mostCommonInterruptionTime: 1000, // 簡易実装
+            interruptionImpactScore: 50, // 簡易実装
+          }
+
+          return analysis
+        }).pipe(handleAnimationHistoryOperation),
+
+      analyzePerformanceTrends: (cameraId: CameraId, timeRange: TimeRange, bucketSize: number) =>
+        Effect.gen(function* () {
+          const records = yield* this.getAnimationHistory(cameraId, timeRange)
+
+          // 簡易実装: 時間バケットごとの分析
+          const bucketCount = Math.ceil((timeRange.endTime - timeRange.startTime) / bucketSize)
+
+          const trends = pipe(
+            Array.makeBy(bucketCount, (i) => i),
+            Array.filterMap((i) => {
+              const bucketStart = timeRange.startTime + i * bucketSize
+              const bucketEnd = Math.min(bucketStart + bucketSize, timeRange.endTime)
+
+              const bucketRecords = records.filter((r) => r.startTime >= bucketStart && r.startTime < bucketEnd)
+
+              return pipe(
+                bucketRecords,
+                Array.matchLeft({
+                  onEmpty: () => Option.none(),
+                  onNonEmpty: (recs) =>
+                    Option.some({
+                      timestamp: bucketStart,
+                      averageFrameRate: recs.reduce((sum, r) => sum + r.metadata.frameRate, 0) / recs.length,
+                      averageRenderTime: recs.reduce((sum, r) => sum + r.metadata.renderTime, 0) / recs.length,
+                      memoryUsage: Math.max(...recs.map((r) => r.metadata.memoryUsageMB)),
+                      animationCount: recs.length,
+                    }),
+                })
+              )
+            })
+          )
+
+          return trends
+        }).pipe(handleAnimationHistoryOperation),
+
+      // ========================================
+      // Query and Search Operations (Simplified)
+      // ========================================
+
+      searchAnimations: (searchCriteria: AnimationSearchCriteria) =>
+        Effect.gen(function* () {
+          const state = yield* Ref.get(storageRef)
+
+          // カメラIDフィルタ
+          const allRecords = pipe(
+            searchCriteria.cameraIds,
+            Option.match({
+              onSome: (cameraIds) =>
+                pipe(
+                  cameraIds,
+                  Array.flatMap((cameraId) =>
+                    HashMap.get(state.animationRecords, cameraId).pipe(
+                      Option.match({
+                        onNone: () => [],
+                        onSome: (records) => Array.from(records),
+                      })
+                    )
+                  )
+                ),
+              onNone: () =>
+                pipe(
+                  Array.fromIterable(HashMap.values(state.animationRecords)),
+                  Array.flatMap((records) => Array.from(records))
+                ),
+            })
+          )
+
+          // 時間範囲フィルタ
+          const filteredRecords = pipe(
+            searchCriteria.timeRange,
+            Option.match({
+              onNone: () => allRecords,
+              onSome: (timeRange) => StorageOps.filterByTimeRange(allRecords, timeRange),
+            })
+          )
+
+          // その他のフィルタは簡易実装
+          return filteredRecords
+        }).pipe(handleAnimationHistoryOperation),
+
+      animationRecordExists: (recordId: AnimationRecordId) =>
+        Effect.gen(function* () {
+          const state = yield* Ref.get(storageRef)
+          return HashMap.has(state.recordIndex, recordId)
+        }).pipe(handleAnimationHistoryOperation),
+
+      countAnimations: (cameraId: CameraId, timeRange: TimeRange, filter?: AnimationCountFilter) =>
+        Effect.gen(function* () {
+          const records = yield* this.getAnimationHistory(cameraId, timeRange)
+
+          const filteredRecords = pipe(
+            Option.fromNullable(filter),
+            Option.match({
+              onNone: () => records,
+              onSome: (f) =>
+                pipe(
+                  records,
+                  // アニメーションタイプフィルタ
+                  (recs) =>
+                    pipe(
+                      f.animationType,
+                      Option.match({
+                        onNone: () => recs,
+                        onSome: (filterType) => recs.filter((r) => r.animationType._tag === filterType._tag),
+                      })
+                    ),
+                  // 成功フィルタ
+                  (recs) =>
+                    pipe(
+                      f.successOnly,
+                      Option.match({
+                        onNone: () => recs,
+                        onSome: (filterSuccess) => recs.filter((r) => r.success === filterSuccess),
+                      })
+                    ),
+                  // 中断除外フィルタ
+                  (recs) =>
+                    pipe(
+                      f.excludeInterrupted,
+                      Option.match({
+                        onNone: () => recs,
+                        onSome: (shouldExclude) =>
+                          shouldExclude ? recs.filter((r) => Option.isNone(r.interruption)) : recs,
+                      })
+                    )
+                ),
+            })
+          )
+
+          return filteredRecords.length
+        }).pipe(handleAnimationHistoryOperation),
+
+      // ========================================
+      // Data Export and Import (Simplified)
+      // ========================================
+
+      exportHistory: (cameraId: CameraId, timeRange: TimeRange, options?: ExportOptions) =>
+        Effect.gen(function* () {
+          const records = yield* this.getAnimationHistory(cameraId, timeRange)
+          const now = yield* Clock.currentTimeMillis
+          const exportData = {
+            cameraId,
+            timeRange,
+            records: pipe(
+              Option.fromNullable(options),
+              Option.match({
+                onNone: () => records,
+                onSome: (opts) =>
+                  opts.includeMetadata !== false ? records : records.map((r) => ({ ...r, metadata: undefined })),
+              })
+            ),
+            exportedAt: now,
+          }
+          return JSON.stringify(exportData, null, 2)
+        }).pipe(handleAnimationHistoryOperation),
+
+      importHistory: (cameraId: CameraId, jsonData: string, options?: ImportOptions) =>
+        Effect.gen(function* () {
+          const result: ImportResult = {
+            success: true,
+            importedRecords: 0,
+            skippedRecords: 0,
+            errors: [],
+            processingTimeMs: 0,
+          }
+
+          const validatedDataResult = yield* Effect.try({
+            try: () => JSON.parse(jsonData),
+            catch: (error) => createAnimationHistoryError.decodingFailed('AnimationHistoryExportData', String(error)),
+          }).pipe(
+            Effect.flatMap(Schema.decodeUnknown(AnimationHistoryExportDataSchema)),
+            Effect.mapError((error) =>
+              createAnimationHistoryError.decodingFailed('AnimationHistoryExportData', String(error))
+            ),
+            Effect.either
+          )
+
+          return yield* pipe(
+            validatedDataResult,
+            Either.match({
+              onLeft: (error) =>
+                Effect.succeed({
+                  ...result,
+                  success: false,
+                  errors: [error._tag === 'DecodingFailed' ? error.reason : String(error)],
+                }),
+              onRight: (_data) =>
+                Effect.gen(function* () {
+                  // 簡易実装: データのインポート処理
+                  yield* Effect.logInfo(`Importing animation history for camera: ${cameraId}`)
+                  return result
+                }),
+            })
+          )
+        }).pipe(handleAnimationHistoryOperation),
+
+      // ========================================
+      // Maintenance Operations (Simplified)
+      // ========================================
+
+      validateDataIntegrity: (cameraId?: CameraId) =>
+        Effect.gen(function* () {
+          const result: IntegrityCheckResult = {
+            isValid: true,
+            checkedRecords: 0,
+            corruptedRecords: [],
+            missingReferences: [],
+            fixedIssues: 0,
+            remainingIssues: 0,
+          }
+
+          yield* Effect.logInfo('Data integrity check completed')
+          return result
+        }).pipe(handleAnimationHistoryOperation),
+
+      optimizeStorage: () =>
+        Effect.gen(function* () {
+          const state = yield* Ref.get(storageRef)
+          const beforeSize = JSON.stringify(state).length
+
+          // 簡易最適化: キャッシュクリア
+          const now = yield* Clock.currentTimeMillis
+          yield* Ref.update(storageRef, (currentState) => ({
+            ...currentState,
+            performanceCache: HashMap.empty(),
+            statisticsCache: HashMap.empty(),
+            metadata: {
+              ...currentState.metadata,
+              lastOptimizationDate: now,
+            },
+          }))
+
+          const afterSize = beforeSize // 簡易実装では変化なし
+
+          const result: OptimizationResult = {
+            beforeSizeBytes: beforeSize,
+            afterSizeBytes: afterSize,
+            compressionRatio: 1.0,
+            duplicatesRemoved: 0,
+            fragmentationReduced: 0,
+            processingTimeMs: 0,
+          }
+
+          yield* Effect.logInfo('Storage optimization completed')
+          return result
+        }).pipe(handleAnimationHistoryOperation),
+
+      cleanupOrphanedRecords: () =>
+        Effect.gen(function* () {
+          // 簡易実装: 孤立レコードのクリーンアップ
+          yield* Effect.logInfo('Orphaned records cleanup completed')
+          return 0
+        }).pipe(handleAnimationHistoryOperation),
+    })
   })
 )

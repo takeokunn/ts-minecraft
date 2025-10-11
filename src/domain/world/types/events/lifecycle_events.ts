@@ -4,8 +4,8 @@
  */
 
 import { uuid } from '@domain/world/utils'
+import { JsonValueSchema, type JsonRecord } from '@shared/schema/json'
 import { DateTime, Effect, Schema } from 'effect'
-import { JsonValueSchema } from '@/shared/schema/json'
 import { ChunkPosition, ChunkPositionSchema, WorldId, WorldIdSchema } from '../core'
 import type { EventMetadata } from './world_events'
 import { EventMetadataSchema } from './world_events'
@@ -20,7 +20,7 @@ export interface SystemStartedEvent {
     readonly systemVersion: string
     readonly startupTime: number // milliseconds
     readonly initializedModules: readonly string[]
-    readonly configurationLoaded: Record<string, unknown>
+    readonly configurationLoaded: JsonRecord
     readonly resourcesAllocated: {
       readonly memory: number // bytes
       readonly threads: number
@@ -421,7 +421,7 @@ export interface ErrorOccurredEvent {
     readonly severity: 'low' | 'medium' | 'high' | 'critical'
     readonly message: string
     readonly stackTrace?: string
-    readonly context: Record<string, unknown>
+    readonly context: JsonRecord
     readonly recoverable: boolean
     readonly affectedSystems: readonly string[]
   }
@@ -488,7 +488,7 @@ export const createSystemStartedEvent = (
   systemVersion: string,
   startupTime: number,
   initializedModules: readonly string[],
-  configurationLoaded: Record<string, unknown>,
+  configurationLoaded: JsonRecord,
   resourcesAllocated: { memory: number; threads: number; storage: number }
 ): Effect.Effect<SystemStartedEvent> =>
   Effect.gen(function* () {

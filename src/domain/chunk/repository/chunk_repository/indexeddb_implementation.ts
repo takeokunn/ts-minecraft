@@ -1,4 +1,5 @@
-import { Clock, Effect, Layer, Match, Option, pipe } from 'effect'
+import type { JsonValue } from '@shared/schema/json'
+import { Clock, Duration, Effect, Layer, Match, Option, pipe } from 'effect'
 import type { ChunkData } from '../../aggregate/chunk_data'
 import type { ChunkId } from '../../value_object/chunk_id'
 import type { ChunkPosition } from '../../value_object/chunk_position'
@@ -28,7 +29,7 @@ interface ChunkRecord {
 
 interface MetadataRecord {
   readonly key: string
-  readonly value: unknown
+  readonly value: JsonValue
 }
 
 const positionKey = (position: ChunkPosition): string => `chunk_${position.x}_${position.z}`
@@ -37,8 +38,15 @@ const idKey = (id: ChunkId): string => `chunk_${id}`
 const estimateChunkSize = (chunk: ChunkData): number => JSON.stringify(chunk).length
 
 const openDatabase = (): Effect.Effect<IDBDatabase, RepositoryError> =>
-  Effect.async((resume) => {
+  Effect.async((resume, signal) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION)
+
+    // AbortSignal対応：割り込み時にイベントハンドラをクリーンアップ
+    signal.addEventListener('abort', () => {
+      request.onerror = null
+      request.onsuccess = null
+      request.onupgradeneeded = null
+    })
 
     request.onerror = () => {
       resume(Effect.fail(RepositoryErrors.storage('openDatabase', 'Failed to open IndexedDB', request.error)))
@@ -79,20 +87,48 @@ const transaction = <T>(
   mode: IDBTransactionMode,
   operation: (tx: IDBTransaction) => Effect.Effect<T>
 ): Effect.Effect<T, RepositoryError> =>
-  Effect.gen(function* () {
-    const tx = db.transaction(stores, mode)
-    return yield* operation(tx)
-  }).pipe(Effect.catchAll((error) => Effect.fail(RepositoryErrors.storage('transaction', 'Transaction failed', error))))
+  pipe(
+    // Acquire: トランザクション作成
+    Effect.sync(() => db.transaction(stores, mode)),
+    // Use: 操作実行
+    Effect.flatMap((tx) =>
+      pipe(
+        operation(tx),
+        // 割り込み時のクリーンアップ：tx.abort()を保証
+        Effect.onInterrupt(() =>
+          Effect.sync(() => {
+            if (!tx.error && tx.objectStoreNames.length > 0) {
+              try {
+                tx.abort()
+              } catch {
+                // 既にabort済みの場合は無視
+              }
+            }
+          })
+        )
+      )
+    ),
+    // 5秒のタイムアウト（IndexedDB操作はローカルストレージのため短め）
+    Effect.timeout(Duration.seconds(5)),
+    Effect.catchTag('TimeoutException', () =>
+      Effect.fail(RepositoryErrors.storage('transaction', 'IndexedDB transaction timeout after 5 seconds'))
+    ),
+    Effect.catchAll((error) => Effect.fail(RepositoryErrors.storage('transaction', 'Transaction failed', error)))
+  )
 
 const requestToEffect = <T>(executor: () => IDBRequest<T>): Effect.Effect<T> =>
-  Effect.promise(
-    () =>
-      new Promise((resolve, reject) => {
-        const request = executor()
-        request.onsuccess = () => resolve(request.result)
-        request.onerror = () => reject(request.error)
-      })
-  )
+  Effect.async((resume, signal) => {
+    const request = executor()
+
+    // AbortSignal対応：割り込み時にイベントハンドラをクリーンアップ
+    signal.addEventListener('abort', () => {
+      request.onsuccess = null
+      request.onerror = null
+    })
+
+    request.onsuccess = () => resume(Effect.succeed(request.result))
+    request.onerror = () => resume(Effect.fail(request.error))
+  })
 
 const toRecord = (chunk: ChunkData) =>
   Effect.map(Clock.currentTimeMillis, (timestamp) => ({
@@ -176,9 +212,7 @@ export const IndexedDBChunkRepositoryLive = Layer.effect(
       findByPosition: (position: ChunkPosition) =>
         Effect.flatMap(
           transaction(db, [CHUNK_STORE], 'readonly', (tx) =>
-            requestToEffect(() =>
-              tx.objectStore(CHUNK_STORE).index('position').getAll([position.x, position.z])
-            )
+            requestToEffect(() => tx.objectStore(CHUNK_STORE).index('position').getAll([position.x, position.z]))
           ),
           (records) =>
             pipe(

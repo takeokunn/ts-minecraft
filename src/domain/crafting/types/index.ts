@@ -1,5 +1,5 @@
-import { Schema } from 'effect'
 import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
+import { Schema } from 'effect'
 
 /**
  * ### 基本的なブランド型

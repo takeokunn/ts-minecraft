@@ -7,8 +7,8 @@
  */
 
 import { Context, Effect, Schema } from 'effect'
-import type { Inventory, InventoryErrorReason, ItemId, ItemMetadata, ItemStack } from '../../types'
 import { InventorySchema, ItemMetadataSchema } from '../../inventory-types'
+import type { Inventory, InventoryErrorReason, ItemId, ItemMetadata, ItemStack } from '../../types'
 
 // =============================================================================
 // Stacking Service Types

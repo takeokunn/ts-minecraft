@@ -1,5 +1,5 @@
+import { JsonValueSchema } from '@shared/schema/json'
 import { Brand, Schema } from 'effect'
-import { JsonValueSchema } from '@/shared/schema/json'
 import {
   CustomModelData,
   DisplayName,

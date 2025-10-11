@@ -5,13 +5,6 @@ export * from '@domain/camera/types'
 
 // Helper functions
 
-// Player Camera specific exports (explicit to avoid conflicts)
-export {
-  DEFAULT_CAMERA_SETTINGS as DefaultPlayerCameraSettings,
-  PlayerCameraService,
-  PlayerCameraServiceLive,
-} from './service'
-
 // Value Object specific exports (explicit to avoid conflicts)
 export {
   createCameraDistance as createCameraDistanceVO,

@@ -9,7 +9,7 @@
  */
 
 import type { CameraError, CameraEvent, CameraId, CameraMode } from '@domain/camera/types'
-import { CAMERA_MODES, createCameraEvent } from '@domain/camera/types'
+import { createCameraEvent } from '@domain/camera/types'
 import { Array, Clock, Data, DateTime, Effect, Match, Option, pipe } from 'effect'
 import type { AnimationState, CameraRotation, CameraSettings, Position3D, ViewMode } from '../../value_object/index'
 import { ViewModeOps } from '../../value_object/view_mode/operations'

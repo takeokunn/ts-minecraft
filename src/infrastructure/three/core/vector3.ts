@@ -3,9 +3,9 @@
  * 3次元ベクトルの型安全な不変操作を提供
  */
 
+import { ErrorCauseSchema } from '@shared/schema/error'
 import { Effect, Schema } from 'effect'
 import * as THREE from 'three'
-import { ErrorCauseSchema } from '@shared/schema/error'
 
 /**
  * Vector3 Schema定義（Brand型）
@@ -32,8 +32,12 @@ export type Vector3Error = Schema.Schema.Type<typeof Vector3Error>
 
 /**
  * Vector3コンストラクタ - プリミティブ値から構築
+ *
+ * @internal
+ * Infrastructure層内部専用。値の検証を行わないため、信頼できる値のみに使用すること。
+ * Three.jsとの連携において、構造的に同一であることが保証されている値の変換に使用。
  */
-export const make = (x: number, y: number, z: number): Vector3 => Schema.decodeUnknownSync(Vector3Schema)({ x, y, z })
+export const make = (x: number, y: number, z: number): Vector3 => ({ x, y, z }) as Vector3
 
 /**
  * ゼロベクトル定数
@@ -112,6 +116,23 @@ export const length = (v: Vector3): number => Math.sqrt(v.x * v.x + v.y * v.y + 
  * ベクトルの長さの二乗（高速計算用）
  */
 export const lengthSquared = (v: Vector3): number => v.x * v.x + v.y * v.y + v.z * v.z
+
+/**
+ * ベクトルの正規化（単位ベクトル化）- 同期版
+ *
+ * ゼロベクトルの場合は例外をthrowします
+ */
+export const normalizeSync = (v: Vector3): Vector3 => {
+  const len = length(v)
+  if (len === 0) {
+    throw new Vector3Error({
+      operation: 'normalize',
+      reason: 'Cannot normalize zero vector',
+      vector: v,
+    })
+  }
+  return scale(v, 1 / len)
+}
 
 /**
  * ベクトルの正規化（単位ベクトル化）

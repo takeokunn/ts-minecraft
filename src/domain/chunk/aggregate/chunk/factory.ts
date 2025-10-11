@@ -1,5 +1,5 @@
+import { toErrorCause } from '@shared/schema/error'
 import { Clock, Effect, Match, Schema, pipe } from 'effect'
-import { toErrorCause } from '@/shared/schema/error'
 import { makeUnsafeChunkId } from '../../../shared/entities/chunk_id'
 import { CHUNK_MAX_Y, CHUNK_MIN_Y, CHUNK_SIZE, CHUNK_VOLUME } from '../../types'
 import type { ChunkMetadata } from '../../value_object/chunk_metadata'

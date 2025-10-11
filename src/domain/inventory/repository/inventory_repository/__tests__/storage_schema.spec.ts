@@ -240,9 +240,9 @@ describe('InventoryRepositoryStorageSchema', () => {
           player_555: {
             id: 'inventory-player_555',
             playerId: 'player_555' as PlayerId,
-            slots: [
-              { itemId: 'minecraft:stone', count: 0, metadata: undefined }, // ゼロ
-            ],
+            slots: {
+              0: { itemId: 'minecraft:stone', count: 0, metadata: undefined }, // ゼロ
+            },
             hotbar: [0, 1, 2, 3, 4, 5, 6, 7, 8],
             selectedSlot: 0,
             armor: {
@@ -270,8 +270,8 @@ describe('InventoryRepositoryStorageSchema', () => {
           player_666: {
             id: 'inventory-player_666',
             playerId: 'player_666' as PlayerId,
-            slots: [
-              {
+            slots: {
+              0: {
                 itemId: 'minecraft:diamond_sword',
                 count: 1,
                 metadata: {
@@ -281,7 +281,7 @@ describe('InventoryRepositoryStorageSchema', () => {
                   lore: ['A powerful weapon'],
                 },
               },
-            ],
+            },
             hotbar: [0, 1, 2, 3, 4, 5, 6, 7, 8],
             selectedSlot: 0,
             armor: {
@@ -302,7 +302,7 @@ describe('InventoryRepositoryStorageSchema', () => {
 
       const result = Schema.decodeUnknownSync(InventoryRepositoryStorageSchema)(dataWithMetadata)
       const inventory = result.inventories!['player_666']
-      const item = inventory.slots[0]
+      const item = inventory.slots['0']
 
       expect(item).not.toBeNull()
       if (item && 'itemId' in item) {

@@ -6,9 +6,9 @@
  */
 
 import type { CameraSettings, FOV, Sensitivity } from '@domain/camera/types'
+import { ErrorCauseSchema, toErrorCause, type ErrorCause } from '@shared/schema/error'
+import { JsonValueSchema, toJsonValue, type JsonSerializable, type JsonValue } from '@shared/schema/json'
 import { Brand, Clock, Data, Effect, Option, ReadonlyMap, Schema } from 'effect'
-import { ErrorCauseSchema, toErrorCause, type ErrorCause } from '@/shared/schema/error'
-import { JsonValueSchema, toJsonValue, type JsonSerializable, type JsonValue } from '@/shared/schema/json'
 import type { ViewMode } from '../../value_object/index'
 
 // ========================================

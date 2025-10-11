@@ -17,9 +17,9 @@ export type FluidState = Schema.Schema.Type<typeof FluidStateSchema>
 
 const create = (params: {
   readonly kind: FluidKind
-  readonly immersion: unknown
-  readonly resistance: unknown
-  readonly buoyancy: unknown
+  readonly immersion: number
+  readonly resistance: number
+  readonly buoyancy: number
 }): Effect.Effect<FluidState, PhysicsError> =>
   Effect.gen(function* () {
     const immersion = yield* parseUnitInterval(params.immersion)
@@ -35,35 +35,28 @@ const create = (params: {
     }
   })
 
-// Lazy evaluation（関数化）でruntime初期化問題を回避
-const presets: Record<FluidKind, () => FluidState> = {
+const presets: Record<FluidKind, () => Effect.Effect<FluidState, PhysicsError>> = {
   none: () =>
-    Effect.runSync(
-      create({
-        kind: 'none',
-        immersion: unitInterval(0),
-        resistance: unitInterval(1),
-        buoyancy: 0,
-      })
-    ),
+    create({
+      kind: 'none',
+      immersion: unitInterval(0),
+      resistance: unitInterval(1),
+      buoyancy: 0,
+    }),
   water: () =>
-    Effect.runSync(
-      create({
-        kind: 'water',
-        immersion: unitInterval(1),
-        resistance: unitInterval(0.6),
-        buoyancy: 0.02,
-      })
-    ),
+    create({
+      kind: 'water',
+      immersion: unitInterval(1),
+      resistance: unitInterval(0.6),
+      buoyancy: 0.02,
+    }),
   lava: () =>
-    Effect.runSync(
-      create({
-        kind: 'lava',
-        immersion: unitInterval(1),
-        resistance: unitInterval(0.4),
-        buoyancy: 0.01,
-      })
-    ),
+    create({
+      kind: 'lava',
+      immersion: unitInterval(1),
+      resistance: unitInterval(0.4),
+      buoyancy: 0.01,
+    }),
 }
 
 const FluidKindValue: Record<'none' | 'water' | 'lava', FluidKind> = {
@@ -99,11 +92,14 @@ const blend = (
 ): Effect.Effect<FluidState, PhysicsError> =>
   Effect.gen(function* () {
     const immersionValue = yield* parseUnitInterval(Math.max(feetLevel, headLevel))
+    const feetPreset = yield* presets[feetKind]()
+    const selectedPreset = yield* presets[feetKind === 'none' ? headKind : feetKind]()
+
     return yield* create({
       kind: feetKind === 'none' ? headKind : feetKind,
       immersion: immersionValue,
-      resistance: feetKind === 'none' ? unitInterval(1) : presets[feetKind]().resistance,
-      buoyancy: presets[feetKind === 'none' ? headKind : feetKind]().buoyancy,
+      resistance: feetKind === 'none' ? unitInterval(1) : feetPreset.resistance,
+      buoyancy: selectedPreset.buoyancy,
     })
   })
 
@@ -137,15 +133,9 @@ export const FluidState = {
   schema: FluidStateSchema,
   create,
   presets: {
-    get none() {
-      return presets.none()
-    },
-    get water() {
-      return presets.water()
-    },
-    get lava() {
-      return presets.lava()
-    },
+    none: presets.none,
+    water: presets.water,
+    lava: presets.lava,
   },
   classify,
   blend,

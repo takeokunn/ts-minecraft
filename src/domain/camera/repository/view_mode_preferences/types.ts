@@ -5,9 +5,9 @@
  * プレイヤー設定、コンテキスト依存設定、人気度分析の型安全性確保
  */
 
-import { Array, Brand, Clock, Data, Effect, Option, ReadonlyMap, Schema } from 'effect'
-import { ErrorCauseSchema, toErrorCause, type ErrorCause } from '@/shared/schema/error'
-import { JsonValueSchema, toJsonValue, type JsonValue } from '@/shared/schema/json'
+import { ErrorCauseSchema, toErrorCause, type ErrorCause } from '@shared/schema/error'
+import { JsonValueSchema, toJsonValue, type JsonSerializable, type JsonValue } from '@shared/schema/json'
+import { Array, Brand, Clock, Data, Effect, Option, Random, ReadonlyMap, Schema } from 'effect'
 import type { ViewMode } from '../../value_object/index'
 
 // ========================================
@@ -511,7 +511,7 @@ export const createViewModePreferencesError = {
   recordNotFound: (recordId: PreferenceRecordId): ViewModePreferencesRepositoryError =>
     Data.tagged('RecordNotFound', { recordId }),
 
-  invalidPreference: (field: string, value: unknown, reason: string): ViewModePreferencesRepositoryError =>
+  invalidPreference: (field: string, value: JsonSerializable, reason: string): ViewModePreferencesRepositoryError =>
     Data.tagged('InvalidPreference', { field, value: toJsonValue(value), reason }),
 
   duplicateRecord: (playerId: PlayerId, timestamp: number): ViewModePreferencesRepositoryError =>
@@ -588,7 +588,8 @@ export const createDefaultPreferences = {
   ): Effect.Effect<ViewModePreferenceRecord> =>
     Effect.gen(function* () {
       const timestamp = yield* Clock.currentTimeMillis
-      const randomId = yield* Effect.sync(() => Math.random().toString(36).slice(2, 11))
+      const randomValue = yield* Random.nextIntBetween(0, 36 ** 9 - 1)
+      const randomId = randomValue.toString(36).padStart(9, '0')
       return {
         id: `pref_${timestamp}_${randomId}` as PreferenceRecordId,
         playerId,

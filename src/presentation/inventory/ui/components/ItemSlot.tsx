@@ -9,36 +9,50 @@ export interface ItemSlotVisualStyle {
   readonly opacity: number
 }
 
-const backgroundColorOf = (slot: InventorySlot, theme: InventoryTheme): Effect.Effect<string> =>
+const backgroundColorOfSync = (slot: InventorySlot, theme: InventoryTheme): string =>
   pipe(
     slot.visual.isDisabled,
     Match.value,
-    Match.when(true, () => Effect.succeed(theme.slotDisabled)),
+    Match.when(true, () => theme.slotDisabled),
     Match.orElse(() =>
       pipe(
         slot.visual.isHighlighted,
         Match.value,
-        Match.when(true, () => Effect.succeed(theme.slotSelected)),
-        Match.orElse(() => Effect.succeed(theme.slotBackground))
+        Match.when(true, () => theme.slotSelected),
+        Match.orElse(() => theme.slotBackground)
       )
     )
   )
 
-const borderOf = (slot: InventorySlot, theme: InventoryTheme): Effect.Effect<string> =>
+const borderOfSync = (slot: InventorySlot, theme: InventoryTheme): string =>
   pipe(
     slot.visual.isHighlighted,
     Match.value,
-    Match.when(true, () => Effect.succeed(`2px solid ${theme.slotHover}`)),
-    Match.orElse(() => Effect.succeed(`1px solid ${theme.slotBorder}`))
+    Match.when(true, () => `2px solid ${theme.slotHover}`),
+    Match.orElse(() => `1px solid ${theme.slotBorder}`)
   )
 
-const opacityOf = (slot: InventorySlot): Effect.Effect<number> =>
+const opacityOfSync = (slot: InventorySlot): number =>
   pipe(
     slot.visual.isDisabled,
     Match.value,
-    Match.when(true, () => Effect.succeed(0.4)),
-    Match.orElse(() => Effect.succeed(1))
+    Match.when(true, () => 0.4),
+    Match.orElse(() => 1)
   )
+
+export const deriveItemSlotVisualStyleSync = (slot: InventorySlot, theme: InventoryTheme): ItemSlotVisualStyle => ({
+  backgroundColor: backgroundColorOfSync(slot, theme),
+  border: borderOfSync(slot, theme),
+  opacity: opacityOfSync(slot),
+})
+
+const backgroundColorOf = (slot: InventorySlot, theme: InventoryTheme): Effect.Effect<string> =>
+  Effect.succeed(backgroundColorOfSync(slot, theme))
+
+const borderOf = (slot: InventorySlot, theme: InventoryTheme): Effect.Effect<string> =>
+  Effect.succeed(borderOfSync(slot, theme))
+
+const opacityOf = (slot: InventorySlot): Effect.Effect<number> => Effect.succeed(opacityOfSync(slot))
 
 export const deriveItemSlotVisualStyle = (
   slot: InventorySlot,
@@ -57,7 +71,7 @@ export interface ItemSlotProps {
 }
 
 export const ItemSlot = ({ slot, theme, onSelect }: ItemSlotProps): JSX.Element => {
-  const visual = Effect.runSync(deriveItemSlotVisualStyle(slot, theme))
+  const visual = deriveItemSlotVisualStyleSync(slot, theme)
   const handleClick = () => onSelect(slot)
 
   return (

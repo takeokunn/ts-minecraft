@@ -1,9 +1,20 @@
 import {
-  ChunkBoundsError,
-  ChunkDataValidationError,
-  ChunkIdError,
-  ChunkDataProvider as ChunkDataProviderTag,
-} from '@/domain/chunk/types'
+  makeUnsafeWorldX,
+  makeUnsafeWorldY,
+  makeUnsafeWorldZ,
+} from '@/domain/biome/value_object/coordinates/world_coordinate'
+import {
+  CHUNK_HEIGHT,
+  CHUNK_MAX_Y,
+  CHUNK_MIN_Y,
+  CHUNK_SIZE,
+  chunkToWorldPosition,
+  createChunkAggregate,
+  createChunkPosition,
+} from '@/domain/chunk'
+import { ChunkValidationService } from '@/domain/chunk/domain_service'
+import type { ChunkRepository as ChunkRepositoryService, RepositoryError } from '@/domain/chunk/repository'
+import { ChunkRepository } from '@/domain/chunk/repository'
 import type {
   BlockData,
   ChunkAggregate,
@@ -15,17 +26,12 @@ import type {
   WorldCoordinate,
 } from '@/domain/chunk/types'
 import {
-  CHUNK_HEIGHT,
-  CHUNK_MAX_Y,
-  CHUNK_MIN_Y,
-  CHUNK_SIZE,
-  createChunkAggregate,
-  createChunkPosition,
-  chunkToWorldPosition,
-} from '@/domain/chunk'
-import { ChunkValidationService } from '@/domain/chunk/domain_service'
-import { ChunkRepository } from '@/domain/chunk/repository'
-import type { ChunkRepository as ChunkRepositoryService, RepositoryError } from '@/domain/chunk/repository'
+  ChunkBoundsError,
+  ChunkDataProvider as ChunkDataProviderTag,
+  ChunkDataValidationError,
+  ChunkIdError,
+  ChunkSerializationError,
+} from '@/domain/chunk/types'
 import { Clock, Effect, Layer } from 'effect'
 import { pipe } from 'effect/Function'
 import * as Match from 'effect/Match'
@@ -52,8 +58,7 @@ const toWorldNumbers = (position: {
 
 const computeBlockIndex = (x: number, y: number, z: number): number => y * BLOCKS_PER_LAYER + z * CHUNK_SIZE + x
 
-const formatAggregateError = (error: unknown): string =>
-  typeof error === 'object' && error !== null && '_tag' in error ? String((error as { _tag: string })._tag) : 'Unknown'
+const formatAggregateError = (error: ChunkBoundsError | ChunkSerializationError): string => error.message
 
 const toChunkBoundsErrorFromRepository = (error: RepositoryError, coordinates: WorldNumbers): ChunkBoundsError =>
   ChunkBoundsError({
@@ -102,10 +107,7 @@ const resolveChunkContext = (
   ChunkBoundsError | ChunkPositionError
 > =>
   Effect.gen(function* () {
-    const chunkPosition = yield* createChunkPosition(
-      Math.floor(world.x / CHUNK_SIZE),
-      Math.floor(world.z / CHUNK_SIZE)
-    )
+    const chunkPosition = yield* createChunkPosition(Math.floor(world.x / CHUNK_SIZE), Math.floor(world.z / CHUNK_SIZE))
 
     const chunkOption = yield* repository.findByPosition(chunkPosition)
     const chunk = yield* pipe(
@@ -194,17 +196,15 @@ export const ChunkDataProviderLive = Layer.succeed(
         const validationServiceOption = yield* Effect.serviceOption(ChunkValidationService)
 
         if (Option.isSome(validationServiceOption)) {
-          yield* validationServiceOption.value
-            .validateChunkAggregate(chunk)
-            .pipe(
-              Effect.mapError(() =>
-                ChunkDataValidationError({
-                  message: 'チャンク検証に失敗しました',
-                  field: 'aggregate',
-                  value: chunk.id,
-                })
-              )
+          yield* validationServiceOption.value.validateChunkAggregate(chunk).pipe(
+            Effect.mapError(() =>
+              ChunkDataValidationError({
+                message: 'チャンク検証に失敗しました',
+                field: 'aggregate',
+                value: chunk.id,
+              })
             )
+          )
           return
         }
 
@@ -319,9 +319,9 @@ export const ChunkDataProviderLive = Layer.succeed(
       Effect.gen(function* () {
         const origin = chunkToWorldPosition(chunkPos)
         return {
-          x: origin.x as unknown as WorldCoordinate,
-          y: CHUNK_MIN_Y as unknown as WorldCoordinate,
-          z: origin.z as unknown as WorldCoordinate,
+          x: makeUnsafeWorldX(origin.x),
+          y: makeUnsafeWorldY(CHUNK_MIN_Y),
+          z: makeUnsafeWorldZ(origin.z),
         }
       }),
 
@@ -332,10 +332,7 @@ export const ChunkDataProviderLive = Layer.succeed(
     }): Effect.Effect<ChunkPosition, ChunkPositionError> =>
       Effect.gen(function* () {
         const world = toWorldNumbers(worldPos)
-        return yield* createChunkPosition(
-          Math.floor(world.x / CHUNK_SIZE),
-          Math.floor(world.z / CHUNK_SIZE)
-        )
+        return yield* createChunkPosition(Math.floor(world.x / CHUNK_SIZE), Math.floor(world.z / CHUNK_SIZE))
       }),
   }) satisfies ChunkDataProvider
 )

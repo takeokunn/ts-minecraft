@@ -1,4 +1,5 @@
-import { Clock, Effect, Schema } from 'effect'
+import { JsonValueSchema } from '@shared/schema/json'
+import { Clock, Effect, Random, Schema } from 'effect'
 
 // =============================================================================
 // Base Query Types
@@ -300,7 +301,7 @@ export const CheckItemAvailabilityQuerySchema = Schema.Struct({
     Schema.Struct({
       itemId: Schema.String,
       quantity: Schema.Number.pipe(Schema.int(), Schema.positive()),
-      metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Any })),
+      metadata: Schema.optional(Schema.Record({ key: Schema.String, value: JsonValueSchema })),
       minDurability: Schema.optional(Schema.Number.pipe(Schema.between(0, 1))),
     })
   ).pipe(
@@ -663,10 +664,16 @@ const createBaseQuery = (userId: string): Effect.Effect<Omit<BaseQuery, 'queryId
 /**
  * ユニークなクエリIDを生成
  */
-const generateQueryId = (): string => {
-  // UUIDv4の簡易実装（本来はuuidライブラリを使用）
-  return `qry_${Math.random().toString(16).substring(2, 10)}-${Math.random().toString(16).substring(2, 6)}-4${Math.random().toString(16).substring(2, 5)}-${Math.random().toString(16).substring(2, 5)}-${Math.random().toString(16).substring(2, 14)}`
-}
+const generateQueryId = (): Effect.Effect<string> =>
+  Effect.gen(function* () {
+    const r1 = yield* Random.nextIntBetween(0, 0xffffffff)
+    const r2 = yield* Random.nextIntBetween(0, 0xffff)
+    const r3 = yield* Random.nextIntBetween(0, 0xfff)
+    const r4 = yield* Random.nextIntBetween(0, 0xffff)
+    const r5 = yield* Random.nextIntBetween(0, 0xffffffffffff)
+
+    return `qry_${r1.toString(16).padStart(8, '0')}-${r2.toString(16).padStart(4, '0')}-4${r3.toString(16).padStart(3, '0')}-${r4.toString(16).padStart(4, '0')}-${r5.toString(16).padStart(12, '0')}`
+  })
 
 /**
  * インベントリ取得クエリを生成

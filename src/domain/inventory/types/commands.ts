@@ -1,6 +1,6 @@
-import { Clock, Effect, Schema } from 'effect'
-import { JsonRecordSchema } from '@shared/schema/json'
 import type { JsonRecord } from '@shared/schema/json'
+import { JsonRecordSchema } from '@shared/schema/json'
+import { Clock, Effect, Random, Schema } from 'effect'
 
 // =============================================================================
 // Base Command Types
@@ -721,12 +721,18 @@ const createBaseCommand = (userId: string): Effect.Effect<Omit<BaseCommand, 'com
   })
 
 /**
- * ユニークなコマンドIDを生成
+ * ユニークなコマンドIDを生成（Random Serviceを使用）
  */
-const generateCommandId = (): string => {
-  // UUIDv4の簡易実装（本来はuuidライブラリを使用）
-  return `cmd_${Math.random().toString(16).substring(2, 10)}-${Math.random().toString(16).substring(2, 6)}-4${Math.random().toString(16).substring(2, 5)}-${Math.random().toString(16).substring(2, 5)}-${Math.random().toString(16).substring(2, 14)}`
-}
+const generateCommandId = (): Effect.Effect<string> =>
+  Effect.gen(function* () {
+    const r1 = yield* Random.nextIntBetween(0, 0xffffffff)
+    const r2 = yield* Random.nextIntBetween(0, 0xffff)
+    const r3 = yield* Random.nextIntBetween(0, 0xfff)
+    const r4 = yield* Random.nextIntBetween(0, 0xffff)
+    const r5 = yield* Random.nextIntBetween(0, 0xffffffffffff)
+
+    return `cmd_${r1.toString(16).padStart(8, '0')}-${r2.toString(16).padStart(4, '0')}-4${r3.toString(16).padStart(3, '0')}-${r4.toString(16).padStart(4, '0')}-${r5.toString(16).padStart(12, '0')}`
+  })
 
 /**
  * アイテム追加コマンドを生成
@@ -740,18 +746,23 @@ export const createAddItemCommand = (params: {
   allowPartial?: boolean
   source?: string
   userId: string
-}): AddItemCommand => ({
-  ...createBaseCommand(params.userId),
-  commandId: generateCommandId(),
-  _tag: 'AddItem',
-  inventoryId: params.inventoryId,
-  itemId: params.itemId,
-  quantity: params.quantity,
-  targetSlot: params.targetSlot,
-  metadata: params.metadata,
-  allowPartial: params.allowPartial ?? true,
-  source: params.source,
-})
+}): Effect.Effect<AddItemCommand> =>
+  Effect.gen(function* () {
+    const baseCommand = yield* createBaseCommand(params.userId)
+    const commandId = yield* generateCommandId()
+    return {
+      ...baseCommand,
+      commandId,
+      _tag: 'AddItem' as const,
+      inventoryId: params.inventoryId,
+      itemId: params.itemId,
+      quantity: params.quantity,
+      targetSlot: params.targetSlot,
+      metadata: params.metadata,
+      allowPartial: params.allowPartial ?? true,
+      source: params.source,
+    }
+  })
 
 /**
  * アイテム削除コマンドを生成
@@ -764,17 +775,22 @@ export const createRemoveItemCommand = (params: {
   reason: string
   destination?: string
   userId: string
-}): RemoveItemCommand => ({
-  ...createBaseCommand(params.userId),
-  commandId: generateCommandId(),
-  _tag: 'RemoveItem',
-  inventoryId: params.inventoryId,
-  slotNumber: params.slotNumber,
-  quantity: params.quantity,
-  itemId: params.itemId,
-  reason: params.reason,
-  destination: params.destination,
-})
+}): Effect.Effect<RemoveItemCommand> =>
+  Effect.gen(function* () {
+    const baseCommand = yield* createBaseCommand(params.userId)
+    const commandId = yield* generateCommandId()
+    return {
+      ...baseCommand,
+      commandId,
+      _tag: 'RemoveItem' as const,
+      inventoryId: params.inventoryId,
+      slotNumber: params.slotNumber,
+      quantity: params.quantity,
+      itemId: params.itemId,
+      reason: params.reason,
+      destination: params.destination,
+    }
+  })
 
 /**
  * アイテム転送コマンドを生成
@@ -788,18 +804,23 @@ export const createTransferItemCommand = (params: {
   allowPartial?: boolean
   validatePermissions?: boolean
   userId: string
-}): TransferItemCommand => ({
-  ...createBaseCommand(params.userId),
-  commandId: generateCommandId(),
-  _tag: 'TransferItem',
-  sourceInventoryId: params.sourceInventoryId,
-  targetInventoryId: params.targetInventoryId,
-  sourceSlot: params.sourceSlot,
-  targetSlot: params.targetSlot,
-  quantity: params.quantity,
-  allowPartial: params.allowPartial ?? true,
-  validatePermissions: params.validatePermissions ?? true,
-})
+}): Effect.Effect<TransferItemCommand> =>
+  Effect.gen(function* () {
+    const baseCommand = yield* createBaseCommand(params.userId)
+    const commandId = yield* generateCommandId()
+    return {
+      ...baseCommand,
+      commandId,
+      _tag: 'TransferItem' as const,
+      sourceInventoryId: params.sourceInventoryId,
+      targetInventoryId: params.targetInventoryId,
+      sourceSlot: params.sourceSlot,
+      targetSlot: params.targetSlot,
+      quantity: params.quantity,
+      allowPartial: params.allowPartial ?? true,
+      validatePermissions: params.validatePermissions ?? true,
+    }
+  })
 
 /**
  * アイテム移動コマンドを生成
@@ -811,16 +832,21 @@ export const createMoveItemCommand = (params: {
   quantity?: number
   allowSwap?: boolean
   userId: string
-}): MoveItemCommand => ({
-  ...createBaseCommand(params.userId),
-  commandId: generateCommandId(),
-  _tag: 'MoveItem',
-  inventoryId: params.inventoryId,
-  fromSlot: params.fromSlot,
-  toSlot: params.toSlot,
-  quantity: params.quantity,
-  allowSwap: params.allowSwap ?? false,
-})
+}): Effect.Effect<MoveItemCommand> =>
+  Effect.gen(function* () {
+    const baseCommand = yield* createBaseCommand(params.userId)
+    const commandId = yield* generateCommandId()
+    return {
+      ...baseCommand,
+      commandId,
+      _tag: 'MoveItem' as const,
+      inventoryId: params.inventoryId,
+      fromSlot: params.fromSlot,
+      toSlot: params.toSlot,
+      quantity: params.quantity,
+      allowSwap: params.allowSwap ?? false,
+    }
+  })
 
 // =============================================================================
 // Command Pattern Matching Utilities

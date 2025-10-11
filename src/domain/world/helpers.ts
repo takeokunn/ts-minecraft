@@ -1,24 +1,29 @@
+import { BiomeSystemSchema, type BiomeSystem } from '@domain/biome/aggregate/biome_system/shared'
 import { WorldApplicationService, type WorldApplicationServiceErrorType } from '@domain/world/application_service'
 import { WorldFactories } from '@domain/world/factory'
 import type { WorldSeed } from '@domain/world/value_object/world_seed'
 import { WorldSeedFactory } from '@domain/world/value_object/world_seed/index'
+import { WorldGeneratorSchema, type WorldGenerator } from '@domain/world_generation/aggregate/world_generator/shared'
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
+import type { JsonValue } from '@shared/schema/json'
 import { DateTime, Effect, Match, Option, Random, Schema } from 'effect'
 import { WorldClock, WorldDomainConfig, defaultWorldDomainConfig } from './index'
 
 const WorldDataSchema = Schema.Struct({
   seed: Schema.Number,
-  generator: Schema.Any,
-  biomeSystem: Schema.Any,
+  generator: Schema.suspend(() => WorldGeneratorSchema),
+  biomeSystem: Schema.suspend(() => BiomeSystemSchema),
   metadata: Schema.optional(
     Schema.Struct({
       name: Schema.optional(Schema.String),
       version: Schema.optional(Schema.String),
       type: Schema.optional(Schema.String),
-      created: Schema.optional(Schema.Number),
+      created: Schema.optional(Schema.DateTimeUtc),
     })
   ),
 })
+
+type WorldData = Schema.Schema.Type<typeof WorldDataSchema>
 
 export interface WorldDataValidationResult {
   readonly isValid: boolean
@@ -40,8 +45,8 @@ const resolveSeed = (seed: number | undefined) =>
 
 export interface WorldSnapshot {
   readonly seed: WorldSeed
-  readonly generator: unknown
-  readonly biomeSystem: unknown
+  readonly generator: WorldGenerator
+  readonly biomeSystem: BiomeSystem
   readonly metadata: {
     readonly createdAt: Date
     readonly version: string
@@ -49,7 +54,7 @@ export interface WorldSnapshot {
   }
 }
 
-const validateWorldDataInternal = (data: unknown): Effect.Effect<WorldDataValidationResult> =>
+const validateWorldDataInternal = (data: JsonValue): Effect.Effect<WorldDataValidationResult> =>
   Effect.matchEffect(Schema.decodeUnknown(WorldDataSchema)(data), {
     onFailure: (error) =>
       Effect.succeed({
@@ -95,46 +100,35 @@ const optimizeWorldSettingsInternal = (config: Partial<WorldDomainConfig>) =>
     )
   )
 
-const exportWorldMetadataInternal = (world: unknown) =>
+const exportWorldMetadataInternal = (world: JsonValue) =>
   Effect.gen(function* () {
-    const validation = yield* validateWorldDataInternal(world)
     const nowDateTime = yield* DateTime.now
     const now = DateTime.toDate(nowDateTime)
+    const decoded = Schema.decodeUnknownEither(WorldDataSchema)(world)
 
-    return Match.value(validation.isValid).pipe(
-      Match.when(true, () => {
-        const typed = world as {
-          readonly metadata?: {
-            readonly name?: string
-            readonly version?: string
-            readonly type?: string
-            readonly created?: number
-          }
-          readonly generator?: { readonly statistics?: { readonly totalGenerated?: number } }
-          readonly biomeSystem?: { readonly registry?: { readonly count?: number } }
-          readonly seed?: number
-        }
-
-        return {
-          name: typed.metadata?.name ?? 'Unnamed World',
-          seed: typed.seed,
-          created: typed.metadata?.created ? DateTime.toDate(DateTime.unsafeMake(typed.metadata.created)) : now,
-          version: typed.metadata?.version ?? '1.0.0',
-          type: typed.metadata?.type ?? 'unknown',
-          chunks: typed.generator?.statistics?.totalGenerated ?? 0,
-          biomes: typed.biomeSystem?.registry?.count ?? 0,
-        }
-      }),
-      Match.orElse(() => ({
-        name: 'Invalid World',
-        seed: undefined,
-        created: now,
-        version: 'unknown',
-        type: 'invalid',
+    if (decoded._tag === 'Right') {
+      const typed: WorldData = decoded.right
+      const createdAt = typed.metadata?.created ?? now
+      return {
+        name: typed.metadata?.name ?? 'Unnamed World',
+        seed: typed.seed,
+        created: createdAt,
+        version: typed.metadata?.version ?? '1.0.0',
+        type: typed.metadata?.type ?? 'unspecified',
         chunks: 0,
         biomes: 0,
-      }))
-    )
+      }
+    }
+
+    return {
+      name: 'Invalid World',
+      seed: undefined,
+      created: now,
+      version: 'unavailable',
+      type: 'invalid',
+      chunks: 0,
+      biomes: 0,
+    }
   })
 
 const createQuickWorldInternal = (seed?: number) =>
@@ -176,7 +170,7 @@ export const WorldDomainHelpers = {
 }
 
 const WorldDomainDataSchema = Schema.Struct({
-  repository: Schema.Any,
+  repository: Schema.suspend(() => WorldRepositoryLayerConfigSchema),
   enableDomainEvents: Schema.Boolean,
   enablePerformanceMetrics: Schema.Boolean,
   enableDomainValidation: Schema.Boolean,

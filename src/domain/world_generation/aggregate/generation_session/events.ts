@@ -7,14 +7,8 @@
  * - エラー・回復イベント
  */
 
-import { Brand, Clock, Context, DateTime, Effect, Schema, Stream } from 'effect'
 import { JsonValueSchema, type JsonValue } from '@shared/schema/json'
-import {
-  GenerationSessionIdSchema,
-  GenerationRequestSchema,
-  SessionConfigurationSchema,
-} from './shared/index'
-import { ProgressStatisticsSchema } from './progress_tracking'
+import { Brand, Clock, Context, DateTime, Effect, Random, Schema, Stream } from 'effect'
 import { SessionErrorSchema } from './error_handling'
 import type {
   GenerationRequest,
@@ -23,6 +17,8 @@ import type {
   SessionConfiguration,
   SessionError,
 } from './index'
+import { ProgressStatisticsSchema } from './progress_tracking'
+import { GenerationRequestSchema, GenerationSessionIdSchema, SessionConfigurationSchema } from './shared/index'
 
 // ================================
 // Base Event Schema
@@ -313,8 +309,10 @@ export type SessionEvent = typeof SessionEventSchema.Type
 const generateEventId = (): Effect.Effect<string & Brand.Brand<'SessionEventId'>> =>
   Effect.gen(function* () {
     const timestamp = yield* Clock.currentTimeMillis
-    const random = Math.random().toString(36).substr(2, 9)
-    return Schema.decodeSync(Schema.String.pipe(Schema.brand('SessionEventId')))(`sevt_${timestamp}_${random}`)
+    // Random Serviceで決定的なID生成（再現性保証）
+    const randomValue = yield* Random.nextIntBetween(0, 2176782336) // 36^6
+    const randomStr = randomValue.toString(36).padStart(6, '0')
+    return Schema.decodeSync(Schema.String.pipe(Schema.brand('SessionEventId')))(`sevt_${timestamp}_${randomStr}`)
   })
 
 /**
@@ -528,9 +526,7 @@ export const createBatchFailed = (
         error,
         attempt: error.context.attempt,
         willRetry,
-        retryScheduledAt: willRetry
-          ? DateTime.toDate(DateTime.unsafeMake(timestamp.getTime() + 5000))
-          : undefined,
+        retryScheduledAt: willRetry ? DateTime.toDate(DateTime.unsafeMake(timestamp.getTime() + 5000)) : undefined,
       },
     })
   })

@@ -16,9 +16,9 @@ import {
 
 /**
  * Brand型から数値を安全に抽出するヘルパー関数
- * Schema.make(Schema.Number)を使用してBrand型を数値に変換
+ * Schema.Numberでバリデーションスキップして数値に変換
  */
-const slotPositionToNumber = (value: SlotPosition): number => Schema.make(Schema.Number)(value)
+const slotPositionToNumber = (value: SlotPosition): number => Schema.Number.make(value, { disableValidation: true })
 
 /**
  * SlotPosition ファクトリー関数

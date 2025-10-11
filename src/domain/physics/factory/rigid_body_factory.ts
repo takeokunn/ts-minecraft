@@ -7,10 +7,10 @@ export interface RigidBodyCreationOptions {
   readonly entityId: string
   readonly bodyType: RigidBodyType
   readonly material: Parameters<typeof RigidBodyAggregate.create>[0]['material']
-  readonly mass: unknown
+  readonly mass: number
   readonly position: Vector3
-  readonly restitution?: unknown
-  readonly friction?: unknown
+  readonly restitution?: number
+  readonly friction?: number
 }
 
 export const RigidBodyFactory = {

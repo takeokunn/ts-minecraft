@@ -1,4 +1,6 @@
 import { GameApplicationLive } from '@application/game-application-live'
+import { GameEventQueueLive, GameLoopSupervisorLive } from '@application/game_loop'
+import { ObservabilityLayer } from '@application/observability/layer'
 import { GameLoopServiceLive } from '@domain/game_loop'
 import { InputServiceLive } from '@domain/input'
 import { InteractionDomainLive } from '@domain/interaction'
@@ -189,10 +191,23 @@ export const makeAppService = Effect.gen(function* () {
 
 export const AppServiceLayer = Layer.scoped(AppServiceTag, makeAppService)
 
-const BaseServicesLayer = Layer.mergeAll(GameLoopServiceLive, SceneManagerLive, InputServiceLive, InteractionDomainLive)
+const BaseServicesLayer = Layer.mergeAll(
+  GameLoopServiceLive,
+  GameEventQueueLive,
+  GameLoopSupervisorLive,
+  SceneManagerLive,
+  InputServiceLive,
+  InteractionDomainLive
+)
 
 const ApplicationLayer = GameApplicationLive.pipe(Layer.provide(BaseServicesLayer))
 
-export const MainLayer = Layer.mergeAll(BaseServicesLayer, ApplicationLayer, ConfigLayer, AppServiceLayer)
+export const MainLayer = Layer.mergeAll(
+  ObservabilityLayer,
+  BaseServicesLayer,
+  ApplicationLayer,
+  ConfigLayer,
+  AppServiceLayer
+)
 
 export const TestLayer = Layer.mergeAll(ConfigLayer, AppServiceLayer)

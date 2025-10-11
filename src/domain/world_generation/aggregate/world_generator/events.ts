@@ -7,14 +7,14 @@
  * - 型安全なイベント発行・購読
  */
 
+import { ChunkDataSchema } from '@domain/chunk'
 import type * as WorldTypes from '@domain/world/types/core'
 import * as Coordinates from '@domain/world/value_object/coordinates/index'
-import { ChunkDataSchema } from '@domain/chunk'
-import { JsonValueSchema, type JsonValue } from '@shared/schema/json'
-import { Brand, Clock, Context, DateTime, Effect, Schema, Stream } from 'effect'
+import { JsonValueSchema, type JsonRecord } from '@shared/schema/json'
+import { Brand, Clock, Context, DateTime, Effect, Random, Schema, Stream } from 'effect'
 import {
-  GenerationContextSchema,
   ContextMetadataSchema,
+  GenerationContextSchema,
   UpdateSettingsCommandSchema,
   WorldGeneratorIdSchema,
   type GenerationContext,
@@ -229,8 +229,10 @@ export type WorldGeneratorEvent = typeof WorldGeneratorEventSchema.Type
 const generateEventId = (): Effect.Effect<string & Brand.Brand<'EventId'>> =>
   Effect.gen(function* () {
     const timestamp = yield* Clock.currentTimeMillis
-    const random = Math.random().toString(36).substr(2, 9)
-    return Schema.decodeSync(Schema.String.pipe(Schema.brand('EventId')))(`evt_${timestamp}_${random}`)
+    // Random Serviceで決定的なID生成（再現性保証）
+    const randomValue = yield* Random.nextIntBetween(0, 2176782336) // 36^6
+    const randomStr = randomValue.toString(36).padStart(6, '0')
+    return Schema.decodeSync(Schema.String.pipe(Schema.brand('EventId')))(`evt_${timestamp}_${randomStr}`)
   })
 
 /**
@@ -268,7 +270,7 @@ export const createChunkGenerationStarted = (
   coordinate: Coordinates.ChunkCoordinate,
   priority: number,
   aggregateVersion: number,
-  options?: Record<string, unknown>
+  options?: JsonRecord
 ): Effect.Effect<ChunkGenerationStarted> =>
   Effect.gen(function* () {
     const eventId = yield* generateEventId()
@@ -334,7 +336,7 @@ export const createChunkGenerated = (
 export const createChunkGenerationFailed = (
   generatorId: WorldGeneratorId,
   coordinate: Coordinates.ChunkCoordinate,
-  error: { code: string; message: string; details?: Record<string, unknown> },
+  error: { code: string; message: string; details?: JsonRecord },
   attempt: number,
   willRetry: boolean,
   aggregateVersion?: number

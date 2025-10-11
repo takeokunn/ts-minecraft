@@ -5,15 +5,15 @@
  * チャンク生成の並列化をFiber + Effect.forEachで実現
  */
 
-import type { ChunkData } from '@/domain/world/types/core/world_types'
-import type { ChunkCoordinate } from '@/domain/world/value_object/coordinates/chunk_coordinate'
 import { WorldStateSTMTag } from '@/application/world/world_state_stm'
-import { PerlinNoiseService, type PerlinNoiseConfig } from '@domain/world_generation/domain_service/noise_generation'
+import type { ChunkData } from '@/domain/world/types/core/world_types'
+import type { WorldSeed } from '@/domain/world/value_object'
 import { ChunkCoordinateSchema, makeUnsafeWorldCoordinate2D } from '@/domain/world/value_object/coordinates'
-import { Clock, Context, DateTime, Effect, Fiber, Layer, Schema, Stream } from 'effect'
+import type { ChunkCoordinate } from '@/domain/world/value_object/coordinates/chunk_coordinate'
+import { PerlinNoiseService, type PerlinNoiseConfig } from '@domain/world_generation/domain_service/noise_generation'
 import { ErrorCauseSchema } from '@shared/schema/error'
 import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
-import type { WorldSeed } from '@/domain/world/value_object'
+import { Clock, Context, DateTime, Effect, Fiber, Layer, Schema, Stream } from 'effect'
 
 /**
  * チャンク生成エラー
@@ -131,7 +131,11 @@ const generateSingleChunk = (coordinate: ChunkCoordinate): Effect.Effect<ChunkDa
     const worldType = metadata.settings.worldType
 
     const variance =
-      worldType === 'amplified' ? HEIGHT_VARIANCE * 2 : worldType === 'superflat' ? HEIGHT_VARIANCE * 0.25 : HEIGHT_VARIANCE
+      worldType === 'amplified'
+        ? HEIGHT_VARIANCE * 2
+        : worldType === 'superflat'
+          ? HEIGHT_VARIANCE * 0.25
+          : HEIGHT_VARIANCE
     const baseHeight = worldType === 'superflat' ? SEA_LEVEL : BASE_HEIGHT
 
     const noiseConfig = buildNoiseConfig(normalizeSeed(metadata.seed))
@@ -195,12 +199,24 @@ const generateSingleChunk = (coordinate: ChunkCoordinate): Effect.Effect<ChunkDa
 
     return chunkData
   }).pipe(
+    Effect.annotateLogs({
+      chunkX: String(coordinate.x),
+      chunkZ: String(coordinate.z),
+      operation: 'chunk_generation',
+    }),
     Effect.catchAll((error) =>
       Effect.fail(
         ChunkGenerationError.make({
           message: `Failed to generate chunk at (${coordinate.x}, ${coordinate.z})`,
           coordinate,
           cause: error,
+        })
+      ).pipe(
+        Effect.annotateLogs({
+          chunkX: String(coordinate.x),
+          chunkZ: String(coordinate.z),
+          operation: 'chunk_generation',
+          error: 'true',
         })
       )
     )
@@ -221,16 +237,15 @@ export const ParallelChunkGeneratorLive = Layer.succeed(
           if (options?.concurrency !== undefined) {
             return options.concurrency
           }
-          const cpuCount = typeof navigator !== 'undefined' && navigator.hardwareConcurrency 
-            ? navigator.hardwareConcurrency 
-            : 4
+          const cpuCount =
+            typeof navigator !== 'undefined' && navigator.hardwareConcurrency ? navigator.hardwareConcurrency : 4
           return Math.min(Math.max(cpuCount, 2), 8)
         }
 
         const concurrency = calculateConcurrency()
 
         yield* Effect.logInfo(
-          `Starting parallel chunk generation: ${coordinates.length} chunks, concurrency: ${concurrency} (CPU cores: ${typeof navigator !== 'undefined' ? navigator.hardwareConcurrency ?? 'unknown' : 'unknown'})`
+          `Starting parallel chunk generation: ${coordinates.length} chunks, concurrency: ${concurrency} (CPU cores: ${typeof navigator !== 'undefined' ? (navigator.hardwareConcurrency ?? 'unknown') : 'unknown'})`
         )
 
         // Streamベースの並列処理（メモリ効率化）

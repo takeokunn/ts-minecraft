@@ -18,12 +18,17 @@ interface InventoryPanelProps {
   readonly onEvent: InventoryEventHandler
 }
 
-const emit = (handler: InventoryEventHandler, event: InventoryGUIEvent) =>
-  handler(event).pipe(
-    Effect.catchAllCause((cause) => Effect.logError(cause)),
-    Effect.asVoid,
-    Effect.runSync
-  )
+const emit = (handler: InventoryEventHandler, event: InventoryGUIEvent) => {
+  handler(event)
+    .pipe(
+      Effect.catchAllCause((cause) => Effect.logError(cause)),
+      Effect.asVoid,
+      Effect.runPromise
+    )
+    .catch((error) => {
+      console.error('Failed to handle inventory event:', error)
+    })
+}
 
 const toggleEvent = (model: InventoryPanelModel) =>
   pipe(

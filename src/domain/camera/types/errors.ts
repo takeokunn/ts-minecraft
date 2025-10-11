@@ -1,6 +1,6 @@
-import { Data, Option } from 'effect'
 import { toErrorCause, type ErrorCause } from '@shared/schema/error'
 import { toJsonValue, toJsonValueOption, type JsonSerializable, type JsonValue } from '@shared/schema/json'
+import { Data, Option } from 'effect'
 
 // ========================================
 // Camera Domain Core Errors (Data.taggedEnum)
@@ -98,8 +98,7 @@ export type CameraDomainError = CameraError | PositionError | RotationError | Se
 /**
  * カメラエラーファクトリー（Data.taggedEnum パターン）
  */
-const mapErrorCauseOption = (value: unknown): Option.Option<ErrorCause> =>
-  Option.fromNullable(toErrorCause(value))
+const mapErrorCauseOption = (value: unknown): Option.Option<ErrorCause> => Option.fromNullable(toErrorCause(value))
 
 const mapJsonValueOption = (value: JsonSerializable | undefined): Option.Option<JsonValue> =>
   Option.fromNullable(toJsonValueOption(value))

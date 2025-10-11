@@ -1,11 +1,12 @@
 import type { WorldRepositoryLayerConfig } from '@domain/world/repository'
-import { Effect, Match, Schema } from 'effect'
+import { WorldRepositoryLayerConfigSchema } from '@domain/world/repository/layers'
+import { Context, Effect, Layer, Match, Schema } from 'effect'
 
 const PerformanceModeSchema = Schema.Literal('quality', 'balanced', 'performance')
 const BooleanSchema = Schema.Boolean
 
 const WorldDomainConfigRawSchema = Schema.Struct({
-  repository: Schema.Any,
+  repository: WorldRepositoryLayerConfigSchema,
   enableDomainEvents: BooleanSchema,
   enablePerformanceMetrics: BooleanSchema,
   enableDomainValidation: BooleanSchema,
@@ -109,6 +110,24 @@ const defaultRepositoryConfig: WorldRepositoryLayerConfig = {
   implementation: 'memory',
 }
 
+const makeConfigSync = (config: Partial<WorldDomainConfig> = {}): WorldDomainConfig => {
+  const decoded = Schema.decodeUnknownSync(WorldDomainConfigRawSchema)({
+    repository: config.repository ?? defaultRepositoryConfig,
+    enableDomainEvents: config.enableDomainEvents ?? true,
+    enablePerformanceMetrics: config.enablePerformanceMetrics ?? true,
+    enableDomainValidation: config.enableDomainValidation ?? true,
+    enableAggregateEventSourcing: config.enableAggregateEventSourcing ?? true,
+    enableApplicationServices: config.enableApplicationServices ?? true,
+    enableFactoryValidation: config.enableFactoryValidation ?? true,
+    performanceMode: config.performanceMode ?? 'balanced',
+    debugMode: config.debugMode ?? false,
+  })
+  return {
+    ...decoded,
+    repository: decoded.repository as WorldRepositoryLayerConfig,
+  }
+}
+
 const makeConfig = (config: Partial<WorldDomainConfig> = {}) =>
   Effect.map(
     Schema.decodeUnknown(WorldDomainConfigRawSchema)({
@@ -128,7 +147,33 @@ const makeConfig = (config: Partial<WorldDomainConfig> = {}) =>
     })
   )
 
-export const defaultWorldDomainConfig = Effect.runSync(makeConfig())
+export const defaultWorldDomainConfig = makeConfigSync()
+
+export const selectWorldDomainConfigSync = (mode: 'default' | 'performance' | 'quality'): WorldDomainConfig =>
+  Match.value(mode).pipe(
+    Match.when('default', () => makeConfigSync()),
+    Match.when('performance', () =>
+      makeConfigSync({
+        performanceMode: 'performance',
+        enableDomainValidation: false,
+        enableFactoryValidation: false,
+        debugMode: false,
+        repository: {
+          ...defaultWorldRepositoryLayerConfig,
+          implementation: 'memory' as const,
+        },
+      })
+    ),
+    Match.when('quality', () =>
+      makeConfigSync({
+        performanceMode: 'quality',
+        enableDomainValidation: true,
+        enableFactoryValidation: true,
+        debugMode: true,
+      })
+    ),
+    Match.exhaustive
+  )
 
 export const selectWorldDomainConfig = (mode: 'default' | 'performance' | 'quality') =>
   Match.value(mode).pipe(
@@ -157,6 +202,62 @@ export const selectWorldDomainConfig = (mode: 'default' | 'performance' | 'quali
   )
 
 export const createWorldDomainConfig = (config: Partial<WorldDomainConfig>) => makeConfig(config)
+
+// ===== Layer-based Configuration ===== //
+
+/**
+ * WorldDomainConfig用のContext Tag
+ */
+export class WorldDomainConfigService extends Context.Tag('WorldDomainConfigService')<
+  WorldDomainConfigService,
+  WorldDomainConfig
+>() {}
+
+/**
+ * デフォルト設定のLayer
+ * Layer.memoを使用して遅延初期化し、同一インスタンスを再利用
+ */
+export const DefaultWorldDomainConfigLayer = Layer.memo(Layer.effect(WorldDomainConfigService, makeConfig()))
+
+/**
+ * パフォーマンス重視設定のLayer
+ */
+export const PerformanceWorldDomainConfigLayer = Layer.memo(
+  Layer.effect(
+    WorldDomainConfigService,
+    makeConfig({
+      performanceMode: 'performance',
+      enableDomainValidation: false,
+      enableFactoryValidation: false,
+      debugMode: false,
+      repository: {
+        ...defaultRepositoryConfig,
+        implementation: 'memory' as const,
+      },
+    })
+  )
+)
+
+/**
+ * 品質重視設定のLayer
+ */
+export const QualityWorldDomainConfigLayer = Layer.memo(
+  Layer.effect(
+    WorldDomainConfigService,
+    makeConfig({
+      performanceMode: 'quality',
+      enableDomainValidation: true,
+      enableFactoryValidation: true,
+      debugMode: true,
+    })
+  )
+)
+
+/**
+ * 後方互換性のため、同期版の設定値も残す
+ * モジュール初期化時のEffect.runSyncを避けるため、関数呼び出しで取得する形式に変更
+ */
+export const defaultWorldDomainConfig = makeConfigSync()
 
 export const WorldDomainConfigSchema = WorldDomainConfigRawSchema
 export const WorldDomainPerformanceModeSchema = PerformanceModeSchema

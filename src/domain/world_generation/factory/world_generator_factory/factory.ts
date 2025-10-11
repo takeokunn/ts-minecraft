@@ -25,10 +25,10 @@ import * as BiomeProperties from '@domain/world/value_object/biome_properties/in
 import * as GenerationParameters from '@domain/world/value_object/generation_parameters/index'
 import * as NoiseConfiguration from '@domain/world/value_object/noise_configuration/index'
 import * as WorldSeed from '@domain/world/value_object/world_seed/index'
-import { Context, Effect, Function, Layer, Match, Schema } from 'effect'
-import { ErrorCauseSchema } from '@/shared/schema/error'
-import { JsonValueSchema } from '@/shared/schema/json'
+import { ErrorCauseSchema } from '@shared/schema/error'
+import { JsonValueSchema, type JsonSerializable } from '@shared/schema/json'
 import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
+import { Context, Effect, Function, Layer, Match, Schema } from 'effect'
 
 // ================================
 // Factory Error Types
@@ -51,7 +51,11 @@ export type FactoryError = Schema.Schema.Type<typeof FactoryErrorSchema>
 
 type FactoryErrorExtras = Partial<Omit<FactoryError, 'category' | 'message'>>
 
-const makeFactoryError = (category: FactoryError['category'], message: string, extras?: FactoryErrorExtras): FactoryError =>
+const makeFactoryError = (
+  category: FactoryError['category'],
+  message: string,
+  extras?: FactoryErrorExtras
+): FactoryError =>
   FactoryErrorSchema.make({
     category,
     message,
@@ -307,15 +311,10 @@ const createWorldGeneratorFactory = (): WorldGeneratorFactory => ({
       // バッチサイズ検証
       yield* Function.pipe(
         Match.value(configs.length),
-        Match.when(0, () =>
-          Effect.fail(FactoryError.parameterValidation('Empty configuration array provided'))
-        ),
+        Match.when(0, () => Effect.fail(FactoryError.parameterValidation('Empty configuration array provided'))),
         Match.when(
           (len) => len > 10,
-          () =>
-            Effect.fail(
-              FactoryError.performanceConstraint('Batch size exceeds maximum limit (10)')
-            )
+          () => Effect.fail(FactoryError.performanceConstraint('Batch size exceeds maximum limit (10)'))
         ),
         Match.orElse(() => Effect.void)
       )
@@ -382,14 +381,16 @@ const applyDefaults = (params: CreateWorldGeneratorParams): Effect.Effect<Create
 /**
  * 依存関係解決
  */
-const resolveDependencies = (params: CreateWorldGeneratorParams): Effect.Effect<unknown, FactoryError> =>
-  Effect.gen(function* () {
-    // ドメインサービス依存関係の解決
-    const domainServices = yield* Effect.service(WorldDomainServices.WorldDomainServiceLayer)
+interface WorldGeneratorDependencies {
+  readonly domainServices: typeof WorldDomainServices.WorldDomainServices
+}
 
+const resolveDependencies = (
+  _params: CreateWorldGeneratorParams
+): Effect.Effect<WorldGeneratorDependencies, FactoryError> =>
+  Effect.gen(function* () {
     return {
-      domainServices,
-      // 他の必要な依存関係...
+      domainServices: WorldDomainServices.WorldDomainServices,
     }
   })
 
@@ -398,7 +399,7 @@ const resolveDependencies = (params: CreateWorldGeneratorParams): Effect.Effect<
  */
 const buildGenerationContext = (
   params: CreateWorldGeneratorParams,
-  dependencies: unknown
+  _dependencies: WorldGeneratorDependencies
 ): Effect.Effect<WorldGenerator.GenerationContext, FactoryError> =>
   Effect.succeed({
     seed: params.seed!,
@@ -526,13 +527,14 @@ const createExperimentalPreset = (): Effect.Effect<CreateWorldGeneratorParams, F
   })
 
 // その他のヘルパー関数（実装を簡略化）
-const applyCustomizations = (config: CreateWorldGeneratorParams, customizations?: Record<string, unknown>) =>
+const applyCustomizations = (config: CreateWorldGeneratorParams, customizations?: Record<string, JsonSerializable>) =>
   Effect.succeed(config)
 
 const applySeedOverride = (config: CreateWorldGeneratorParams, seed?: WorldSeed.WorldSeed) =>
   Effect.succeed(seed ? { ...config, seed } : config)
 
-const generateConfigFromSeed = (seed: WorldSeed.WorldSeed) => Effect.succeed({ seed } as CreateWorldGeneratorParams)
+const generateConfigFromSeed = (seed: WorldSeed.WorldSeed) =>
+  Effect.succeed({ seed } satisfies CreateWorldGeneratorParams)
 
 const mergeWithPreset = (config: CreateWorldGeneratorParams, preset: PresetType) =>
   Effect.gen(function* () {

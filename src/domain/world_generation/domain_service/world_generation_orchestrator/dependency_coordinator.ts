@@ -1,5 +1,5 @@
+import { JsonValueSchema, type JsonSerializable } from '@shared/schema/json'
 import { Clock, Context, Effect, Layer, Option, pipe, ReadonlyArray, Ref, Schema } from 'effect'
-import { JsonValueSchema } from '@shared/schema/json'
 
 /**
  * Dependency Coordinator Service
@@ -125,9 +125,9 @@ export const DependencyCoordinatorError = Schema.TaggedError<DependencyCoordinat
 
 export interface DependencyCoordinatorErrorType extends Schema.Schema.Type<typeof DependencyCoordinatorError> {}
 
-type TaskExecutionResult = unknown
+type TaskExecutionResult = JsonSerializable | void
 
-type TaskExecutors = Record<string, Effect.Effect<TaskExecutionResult, unknown>>
+type TaskExecutors = Record<string, Effect.Effect<TaskExecutionResult, DependencyCoordinatorErrorType>>
 
 type TaskExecutionResults = Record<string, TaskExecutionResult>
 
@@ -307,7 +307,7 @@ const makeDependencyCoordinatorService = Effect.gen(function* () {
 
       const results = yield* pipe(
         executionPlan,
-        Effect.reduce({} as TaskExecutionResults, (acc, taskId) =>
+        Effect.reduce({} satisfies TaskExecutionResults, (acc, taskId) =>
           pipe(
             Option.fromNullable(taskExecutors[taskId]),
             Option.match({

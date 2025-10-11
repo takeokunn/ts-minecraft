@@ -1,5 +1,5 @@
+import { JsonRecordSchema, JsonValueSchema, type JsonRecord, type JsonValue } from '@shared/schema/json'
 import { Clock, Context, Effect, Layer, Match, Option, pipe, Ref, Schema } from 'effect'
-import { JsonRecordSchema, JsonValueSchema } from '@shared/schema/json'
 
 /**
  * Error Recovery Service
@@ -120,21 +120,19 @@ export const ErrorRecoveryServiceError = Schema.TaggedError<ErrorRecoveryService
 
 export interface ErrorRecoveryServiceErrorType extends Schema.Schema.Type<typeof ErrorRecoveryServiceError> {}
 
-type RecoveryContextData = Record<string, unknown>
+type RecoveryContextData = JsonRecord
 
-type CheckpointState = Record<string, unknown>
+type CheckpointState = JsonRecord
 
-type RecoveryResult = unknown
+type RecoveryResult = JsonValue
 
-type RecoveryTask = Effect.Effect<RecoveryResult, unknown>
+type RecoveryTask = Effect.Effect<RecoveryResult, never>
 
 type RecoveryStatistics = {
   readonly totalErrors: number
   readonly errorsByClassification: Partial<Record<Schema.Schema.Type<typeof ErrorClassification>, number>>
   readonly averageRetryCount: number
-  readonly circuitBreakerStates: Partial<
-    Record<Schema.Schema.Type<typeof CircuitBreaker>['state'], number>
-  >
+  readonly circuitBreakerStates: Partial<Record<Schema.Schema.Type<typeof CircuitBreaker>['state'], number>>
   readonly successfulRecoveries: number
 }
 
@@ -168,10 +166,7 @@ export interface ErrorRecoveryService {
   /**
    * チェックポイントを作成します
    */
-  readonly createCheckpoint: (
-    id: string,
-    state: CheckpointState
-  ) => Effect.Effect<void, ErrorRecoveryServiceErrorType>
+  readonly createCheckpoint: (id: string, state: CheckpointState) => Effect.Effect<void, ErrorRecoveryServiceErrorType>
 
   /**
    * チェックポイントから復元します
@@ -325,7 +320,7 @@ const makeErrorRecoveryService = Effect.gen(function* () {
 
   const createCheckpoint = (id: string, state: CheckpointState) =>
     Effect.gen(function* () {
-      yield* Ref.update(checkpoints, (map) => map.set(id, structuredClone(state) as CheckpointState))
+      yield* Ref.update(checkpoints, (map) => map.set(id, structuredClone(state) satisfies CheckpointState))
       yield* Effect.logDebug(`チェックポイント作成: ${id}`)
     })
 
@@ -345,7 +340,7 @@ const makeErrorRecoveryService = Effect.gen(function* () {
           onSome: (checkpoint) =>
             Effect.gen(function* () {
               yield* Effect.logInfo(`チェックポイントから復元: ${id}`)
-              return structuredClone(checkpoint) as CheckpointState
+              return structuredClone(checkpoint) satisfies CheckpointState
             }),
         })
       )
@@ -477,7 +472,7 @@ const makeErrorRecoveryService = Effect.gen(function* () {
             acc[ctx.classification] = (acc[ctx.classification] || 0) + 1
             return acc
           },
-          {} as Partial<Record<Schema.Schema.Type<typeof ErrorClassification>, number>>
+          {} satisfies Partial<Record<Schema.Schema.Type<typeof ErrorClassification>, number>>
         ),
         averageRetryCount: pipe(history.length > 0, (hasHistory) =>
           hasHistory ? history.reduce((sum, ctx) => sum + ctx.retryCount, 0) / history.length : 0

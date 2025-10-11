@@ -5,10 +5,10 @@
  * NBT、品質、レアリティ、エンチャントなどの複雑なアイテム属性を管理
  */
 
-import { Context, Effect, Match, pipe, Schema } from 'effect'
+import type { JsonRecord } from '@shared/schema/json'
 import { JsonRecordSchema } from '@shared/schema/json'
 import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
-import type { JsonRecord } from '@shared/schema/json'
+import { Context, Effect, Match, pipe, Schema } from 'effect'
 import type { ItemId, ItemStack } from '../../types'
 import type { ItemCategory, ItemQuality, ItemRarity } from '../../types/item_enums'
 

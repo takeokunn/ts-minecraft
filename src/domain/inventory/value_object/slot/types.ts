@@ -1,3 +1,4 @@
+import type { JsonValue } from '@shared/schema/json'
 import { Brand, Data } from 'effect'
 
 /**
@@ -65,7 +66,7 @@ export type SlotError = Data.TaggedEnum<{
   }
   InvalidPosition: { readonly row: number; readonly column: number; readonly expected: string }
   SlotNotFound: { readonly slotId: SlotId }
-  InvalidConstraint: { readonly field: string; readonly value: unknown; readonly expected: string }
+  InvalidConstraint: { readonly field: string; readonly value: JsonValue; readonly expected: string }
 }>
 
 /**

@@ -92,7 +92,7 @@ export interface LoadingScene {
 export type SceneState = ActiveScene | LoadingScene
 export type SceneKind = SceneState['_tag']
 
-const defaultSceneProgress = Schema.decodeUnknownSync(SceneProgressSchema)(0)
+const defaultSceneProgress = 0 satisfies SceneProgress
 
 export const MainMenuSceneSchema = Schema.Struct({
   _tag: Schema.Literal('MainMenu'),

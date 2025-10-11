@@ -18,7 +18,7 @@
 import type * as BiomeSystem from '@/domain/biome/aggregate/biome_system'
 import * as BiomeProperties from '@/domain/biome/value_object/biome_properties/index'
 import * as Coordinates from '@/domain/biome/value_object/coordinates/index'
-import { JsonValueSchema } from '@shared/schema/json'
+import { JsonValueSchema, type JsonRecord } from '@shared/schema/json'
 import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
 import { Context, Effect, Function, Layer, Match, Schema } from 'effect'
 
@@ -277,7 +277,7 @@ export interface BiomeSystemBuilder {
   readonly withParallelProcessing: (enable: boolean) => BiomeSystemBuilder
   readonly withMemoryLimit: (limit: number) => BiomeSystemBuilder
   readonly withCustomBiomes: (biomes: readonly BiomeProperties.BiomeType[]) => BiomeSystemBuilder
-  readonly withMetadata: (metadata: Record<string, unknown>) => BiomeSystemBuilder
+  readonly withMetadata: (metadata: JsonRecord) => BiomeSystemBuilder
   readonly build: () => Effect.Effect<BiomeSystem.BiomeSystem, BiomeFactoryError>
   readonly buildWithValidation: () => Effect.Effect<
     { system: BiomeSystem.BiomeSystem; validation: ValidationResult },
@@ -302,7 +302,7 @@ export interface BiomeSystemBuilder {
 //   BuilderFunctions.build
 // )
 
-export const createBiomeSystemBuilder = () => {
+export const createBiomeSystemBuilder = (): Effect.Effect<never, BiomeFactoryError> => {
   // Builder interface is deprecated - use pure functions instead
   // Import: import * as BuilderState from './builder_state.js'
   // Import: import * as BuilderFunctions from './builder_functions.js'
@@ -313,7 +313,9 @@ export const createBiomeSystemBuilder = () => {
   //   (state) => BuilderFunctions.withPreset(state, 'default'),
   //   BuilderFunctions.build
   // )
-  throw new Error('BiomeSystemBuilder interface is deprecated. Use Schema + pure functions pattern.')
+  return Effect.fail(
+    BiomeFactoryError.biomeCreation('BiomeSystemBuilder interface is deprecated. Use Schema + pure functions pattern.')
+  )
 }
 
 // ================================
@@ -462,9 +464,7 @@ const applyPreset = (
         performanceProfile: 'quality',
       })
     ),
-    Match.orElse(() =>
-      Effect.fail(BiomeFactoryError.biomeCreation(`Unknown preset: ${preset}`))
-    )
+    Match.orElse(() => Effect.fail(BiomeFactoryError.biomeCreation(`Unknown preset: ${preset}`)))
   )
 
 // ================================
@@ -479,22 +479,17 @@ const validateCreateParams = (
     const validatedParams = yield* pipe(
       Effect.try({
         try: () => Schema.decodeSync(CreateBiomeSystemParamsSchema)(params),
-        catch: (error) =>
-          BiomeFactoryError.biomeCreation('Schema validation failed', { context: { error } }),
+        catch: (error) => BiomeFactoryError.biomeCreation('Schema validation failed', { context: { error } }),
       })
     )
 
     // ビジネスルール検証
     if (validatedParams.memoryLimit && validatedParams.memoryLimit < 0) {
-      return yield* Effect.fail(
-        BiomeFactoryError.biomeCreation('Memory limit must be non-negative')
-      )
+      return yield* Effect.fail(BiomeFactoryError.biomeCreation('Memory limit must be non-negative'))
     }
 
     if (validatedParams.customBiomes && validatedParams.customBiomes.length > 50) {
-      return yield* Effect.fail(
-        BiomeFactoryError.biomeCreation('Too many custom biomes (max: 50)')
-      )
+      return yield* Effect.fail(BiomeFactoryError.biomeCreation('Too many custom biomes (max: 50)'))
     }
 
     return validatedParams

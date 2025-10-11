@@ -1,4 +1,4 @@
-import type { CameraConfig, CameraError, CameraState } from '@domain/camera/types'
+import type { CameraConfig, CameraError, CameraSnapshot, CameraState } from '@domain/camera/types'
 import {
   CameraDistanceSchema,
   CameraModeSchema,
@@ -8,9 +8,8 @@ import {
   Position3DSchema,
   SensitivitySchema,
 } from '@domain/camera/types'
-import { CameraConfig as CameraConfigSchema } from './types'
 import { Context, Effect, Schema } from 'effect'
-import * as THREE from 'three'
+import { CameraConfig as CameraConfigSchema } from './types'
 
 /**
  * CameraService - カメラ管理サービス
@@ -37,7 +36,7 @@ export interface CameraService {
   /**
    * カメラの初期化 - Schema検証付き
    */
-  readonly initialize: (config: CameraConfigInput) => Effect.Effect<THREE.PerspectiveCamera, CameraError>
+  readonly initialize: (config: CameraConfigInput) => Effect.Effect<CameraSnapshot, CameraError>
 
   /**
    * カメラモードの切り替え - Schema検証付き
@@ -93,7 +92,7 @@ export interface CameraService {
   /**
    * 現在のThree.jsカメラインスタンスを取得
    */
-  readonly getCamera: () => Effect.Effect<THREE.PerspectiveCamera | null, never>
+  readonly getCamera: () => Effect.Effect<CameraSnapshot | null, never>
 
   /**
    * カメラのリセット
@@ -103,7 +102,7 @@ export interface CameraService {
   /**
    * カメラのアスペクト比更新 - Schema検証付き
    */
-  readonly updateAspectRatio: (width: number, height: number) => Effect.Effect<void, CameraError>
+  readonly updateAspectRatio: (aspect: number) => Effect.Effect<void, CameraError>
 
   /**
    * リソースの解放

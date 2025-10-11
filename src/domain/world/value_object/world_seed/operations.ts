@@ -5,7 +5,7 @@
  * 不変性を保証する関数型プログラミングパターンを採用
  */
 
-import { Clock, Effect, Equal, Hash, ReadonlyArray, Schema } from 'effect'
+import { Clock, Effect, Equal, Hash, Random, ReadonlyArray, Schema } from 'effect'
 import {
   CreateWorldSeedParams,
   CreateWorldSeedParamsSchema,
@@ -106,7 +106,7 @@ export const WorldSeedOps = {
    */
   random: (): Effect.Effect<WorldSeed, WorldSeedError> =>
     Effect.gen(function* () {
-      const randomValue = Math.floor(Math.random() * 4294967296) - 2147483648
+      const randomValue = yield* Random.nextIntBetween(-2147483648, 2147483647)
 
       return yield* WorldSeedOps.create({
         value: randomValue,
@@ -259,7 +259,7 @@ const generateSeedValue = (params: CreateWorldSeedParams): Effect.Effect<WorldSe
     }
 
     // デフォルト: ランダム生成
-    const randomValue = Math.floor(Math.random() * 4294967296) - 2147483648
+    const randomValue = yield* Random.nextIntBetween(-2147483648, 2147483647)
     return yield* Schema.decodeUnknown(WorldSeedSchema)(randomValue)
   })
 

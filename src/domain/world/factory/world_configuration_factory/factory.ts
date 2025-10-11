@@ -19,9 +19,9 @@ import * as BiomeProperties from '@/domain/biome/value_object/biome_properties/i
 import * as GenerationParameters from '@domain/world/value_object/generation_parameters/index'
 import * as NoiseConfiguration from '@domain/world/value_object/noise_configuration/index'
 import * as WorldSeed from '@domain/world/value_object/world_seed/index'
-import { Context, Effect, Function, Layer, Match, ReadonlyArray, Schema } from 'effect'
-import { JsonValueSchema } from '@/shared/schema/json'
+import { JsonValueSchema, type JsonRecord } from '@shared/schema/json'
 import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
+import { Context, Effect, Function, Layer, Match, ReadonlyArray, Schema } from 'effect'
 
 // ================================
 // Factory Error Types
@@ -514,9 +514,7 @@ const validateCreateParams = (
 
     // ビジネスルール検証
     if (validatedParams.memoryBudget && validatedParams.memoryBudget <= 0) {
-      return yield* Effect.fail(
-        ConfigurationFactoryError.configurationInvalid('Memory budget must be positive')
-      )
+      return yield* Effect.fail(ConfigurationFactoryError.configurationInvalid('Memory budget must be positive'))
     }
 
     return validatedParams
@@ -578,7 +576,7 @@ const applyOptimization = (
 
 const applyCustomParameters = (
   config: WorldConfiguration,
-  customParams: Record<string, unknown>
+  customParams: JsonRecord
 ): Effect.Effect<WorldConfiguration, ConfigurationFactoryError> =>
   Effect.succeed({
     ...config,
@@ -598,25 +596,18 @@ const validateConfigurationAdvanced = (
     let score = 100
 
     // 基本検証
-    pipe(
-      Effect.try({
-        try: () => Schema.decodeSync(WorldConfigurationSchema)(config),
-        catch: (error) => error,
-      }),
-      Effect.catchAll((error) =>
-        Effect.sync(() => {
-          issues.push({
-            severity: 'error',
-            category: 'syntax',
-            message: 'Configuration schema validation failed',
-            suggestion: 'Check configuration structure',
-            autoFixable: false,
-          })
-          score -= 30
-        })
-      ),
-      Effect.runSync
-    )
+    try {
+      Schema.decodeSync(WorldConfigurationSchema)(config)
+    } catch {
+      issues.push({
+        severity: 'error',
+        category: 'syntax',
+        message: 'Configuration schema validation failed',
+        suggestion: 'Check configuration structure',
+        autoFixable: false,
+      })
+      score -= 30
+    }
 
     // パフォーマンス検証
     const memoryUsage = estimateMemoryUsage(config)
@@ -805,7 +796,7 @@ export interface WorldConfigurationBuilder {
   readonly withParameters: (params: GenerationParameters.GenerationParameters) => WorldConfigurationBuilder
   readonly withBiomeConfig: (config: BiomeProperties.BiomeConfiguration) => WorldConfigurationBuilder
   readonly withNoiseConfig: (config: NoiseConfiguration.NoiseConfiguration) => WorldConfigurationBuilder
-  readonly withMetadata: (metadata: Record<string, unknown>) => WorldConfigurationBuilder
+  readonly withMetadata: (metadata: JsonRecord) => WorldConfigurationBuilder
   readonly build: () => Effect.Effect<WorldConfiguration, ConfigurationFactoryError>
 }
 
@@ -826,7 +817,7 @@ export interface WorldConfigurationBuilder {
 //   BuilderFunctions.build
 // )
 
-export const createWorldConfigurationBuilder = () => {
+export const createWorldConfigurationBuilder = (): Effect.Effect<never, ConfigurationFactoryError> => {
   // Builder interface is deprecated - use pure functions instead
   // Import: import * as BuilderState from './builder_state.js'
   // Import: import * as BuilderFunctions from './builder_functions.js'
@@ -837,7 +828,11 @@ export const createWorldConfigurationBuilder = () => {
   //   (state) => BuilderFunctions.withSeed(state, seed),
   //   BuilderFunctions.build
   // )
-  throw new Error('WorldConfigurationBuilder interface is deprecated. Use Schema + pure functions pattern.')
+  return Effect.fail(
+    ConfigurationFactoryError.compatibilityError(
+      'WorldConfigurationBuilder interface is deprecated. Use Schema + pure functions pattern.'
+    )
+  )
 }
 
 // ================================

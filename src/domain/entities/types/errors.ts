@@ -1,5 +1,5 @@
+import { JsonValueSchema } from '@shared/schema/json'
 import { Schema } from 'effect'
-import { JsonValueSchema } from '@/shared/schema/json'
 import { EntityIdSchema, EntityStatusSchema, EntityTypeSchema, PlayerIdSchema, Vector3Schema } from './index'
 
 const timestamp = Schema.Number.pipe(

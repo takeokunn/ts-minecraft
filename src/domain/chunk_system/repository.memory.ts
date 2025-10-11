@@ -1,7 +1,7 @@
 import { Effect, Layer, Queue, Ref, Stream } from 'effect'
 import { ChunkEvent, ChunkSystemError, ChunkSystemRepository, ChunkSystemState } from './index'
 
-const wrapRepository = <A>(effect: Effect.Effect<A, unknown>) =>
+const wrapRepository = <A, E>(effect: Effect.Effect<A, E>) =>
   effect.pipe(
     Effect.mapError((cause) =>
       ChunkSystemError.RepositoryFailure({
@@ -16,11 +16,12 @@ const broadcastAll = (queue: Queue.Queue<ChunkEvent>, events: ReadonlyArray<Chun
   })
 
 export const memoryRepositoryLayer = (initial: ChunkSystemState): Layer.Layer<ChunkSystemRepository> =>
-  Layer.effect(
+  Layer.scoped(
     ChunkSystemRepository,
     Effect.gen(function* () {
       const stateRef = yield* Ref.make(initial)
-      const eventQueue = yield* Queue.unbounded<ChunkEvent>()
+      // Queue生成時にacquireReleaseでshutdownを保証
+      const eventQueue = yield* Effect.acquireRelease(Queue.unbounded<ChunkEvent>(), (q) => Queue.shutdown(q))
       const observe: Stream.Stream<ChunkEvent, ChunkSystemError> = Stream.fromQueue(eventQueue)
       return ChunkSystemRepository.of({
         load: wrapRepository(Ref.get(stateRef)),

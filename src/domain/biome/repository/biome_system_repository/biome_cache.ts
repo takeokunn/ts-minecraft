@@ -68,7 +68,7 @@ interface QueryCacheEntry {
   readonly bounds: SpatialBounds
 }
 
-type BiomeQueryFilters = Record<string, unknown>
+type BiomeQueryFilters = JsonRecord
 
 // === Cache Statistics ===
 

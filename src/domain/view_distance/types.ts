@@ -296,17 +296,48 @@ export const deriveCullableFromManaged = (
 export const emptyViewControlResult: ViewControlResult = {
   frustum: {
     id: 'frustum:empty',
-    farDistance: Schema.decodeUnknownSync(CameraDistanceSchema)(0),
-    nearDistance: Schema.decodeUnknownSync(CameraDistanceSchema)(0),
-    timestamp: Schema.decodeUnknownSync(EpochMillisSchema)(0),
+    farDistance: 0 satisfies CameraDistance,
+    nearDistance: 0 satisfies CameraDistance,
+    timestamp: 0 satisfies EpochMillis,
   },
   lodDecisions: [],
   cullingDecisions: [],
   appliedOptimizations: [],
 }
 
-export const createManagedObject = Schema.decodeUnknownSync(ManagedObjectSchema)
-export const createCullableObject = Schema.decodeUnknownSync(CullableObjectSchema)
-export const createCameraState = Schema.decodeUnknownSync(CameraStateSchema)
-export const createViewControlConfig = Schema.decodeUnknownSync(ViewControlConfigSchema)
-export const createPerformanceMetrics = Schema.decodeUnknownSync(PerformanceMetricsSchema)
+/**
+ * @internal
+ * ドメイン層内部専用。値の検証を行わないため、信頼できる値のみに使用すること。
+ */
+export const createManagedObject = (value: Schema.Schema.Encoded<typeof ManagedObjectSchema>): ManagedObject =>
+  value as ManagedObject
+
+/**
+ * @internal
+ * ドメイン層内部専用。値の検証を行わないため、信頼できる値のみに使用すること。
+ */
+export const createCullableObject = (value: Schema.Schema.Encoded<typeof CullableObjectSchema>): CullableObject =>
+  value as CullableObject
+
+/**
+ * @internal
+ * ドメイン層内部専用。値の検証を行わないため、信頼できる値のみに使用すること。
+ */
+export const createCameraState = (value: Schema.Schema.Encoded<typeof CameraStateSchema>): CameraState =>
+  value as CameraState
+
+/**
+ * @internal
+ * ドメイン層内部専用。値の検証を行わないため、信頼できる値のみに使用すること。
+ */
+export const createViewControlConfig = (
+  value: Schema.Schema.Encoded<typeof ViewControlConfigSchema>
+): ViewControlConfig => value as ViewControlConfig
+
+/**
+ * @internal
+ * ドメイン層内部専用。値の検証を行わないため、信頼できる値のみに使用すること。
+ */
+export const createPerformanceMetrics = (
+  value: Schema.Schema.Encoded<typeof PerformanceMetricsSchema>
+): PerformanceMetrics => value as PerformanceMetrics

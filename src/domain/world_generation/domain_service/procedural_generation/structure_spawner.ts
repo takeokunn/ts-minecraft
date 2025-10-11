@@ -617,7 +617,7 @@ export const StructureSpawnerServiceLive = Layer.effect(
             location,
             issues: validation.issues,
             message: 'Structure placement validation failed',
-          } as GenerationError)
+          } satisfies GenerationError)
         }
 
         // 2. 設計図の具体化
@@ -836,7 +836,7 @@ const applyHistoricalWeathering = (
 const calculatePlacementStatistics = (structures: ReadonlyArray<StructureInstance>, bounds: BoundingBox) =>
   Effect.succeed({
     totalStructures: structures.length,
-    structuresByType: {} as Record<StructureType, number>,
+    structuresByType: {} satisfies Record<StructureType, number>,
     averageSpacing: 100,
     clusteringIndex: 0.5,
     terrainCoverage: 0.1,
@@ -962,7 +962,11 @@ const analyzePowerStructures = (structures: ReadonlyArray<StructureInstance>) =>
   Effect.succeed([] satisfies ReadonlyArray<PowerStructure>)
 
 const simulatePopulationChange = (structures: ReadonlyArray<StructureInstance>, config: StructureSpawnConfig) =>
-  Effect.succeed({} as DemographicChange)
+  Effect.succeed({
+    timestamp: Date.now(),
+    populationChange: 0,
+    migration: 0,
+  } satisfies DemographicChange)
 
 const simulateStructureDevelopment = (
   structures: ReadonlyArray<StructureInstance>,

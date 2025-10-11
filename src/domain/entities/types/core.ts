@@ -1,6 +1,6 @@
 import { Schema } from 'effect'
 
-import { JsonValueSchema } from '@/shared/schema/json'
+import { JsonValueSchema } from '@shared/schema/json'
 
 const nonEmptyText = Schema.String.pipe(Schema.minLength(1))
 

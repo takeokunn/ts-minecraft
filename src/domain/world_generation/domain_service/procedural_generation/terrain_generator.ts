@@ -7,25 +7,27 @@
 
 import { type GenerationError } from '@domain/world/types/errors'
 import {
-  makeUnsafeWorldCoordinate,
   BoundingBoxSchema,
+  makeUnsafeWorldCoordinate,
   WorldCoordinateSchema,
   type BoundingBox,
   type WorldCoordinate,
   type WorldCoordinate2D,
 } from '@domain/world/value_object/coordinates'
-import type { WorldSeed } from '@domain/world/value_object/world_seed'
 import {
   AdvancedNoiseSettings,
   AdvancedNoiseSettingsSchema,
   NoiseConfigurationFactory,
 } from '@domain/world/value_object/noise_configuration'
-import { JsonValueSchema, JsonRecordSchema } from '@shared/schema/json'
+import type { WorldSeed } from '@domain/world/value_object/world_seed'
+import { JsonRecordSchema, JsonValueSchema } from '@shared/schema/json'
 import { Clock, Context, Effect, Layer, Match, Option, pipe, ReadonlyArray, Schema } from 'effect'
 
 /**
  * 高度マップ - ワールド座標における高度データ
  */
+import { chunkGenerationCounter, chunkGenerationDuration } from '@application/observability/metrics'
+
 export const HeightMapSchema = Schema.Struct({
   bounds: BoundingBoxSchema,
   resolution: Schema.Number.pipe(Schema.int(), Schema.positive()),
@@ -311,7 +313,15 @@ export const TerrainGeneratorServiceLive = Layer.effect(
         }
 
         return heightMap
-      }),
+      }).pipe(
+        Effect.annotateLogs({
+          bounds: JSON.stringify(bounds),
+          seed: seed.toString(),
+          minHeight: String(config.minHeight),
+          maxHeight: String(config.maxHeight),
+          operation: 'generate_height_map',
+        })
+      ),
 
     generateTerrain: (heightMap, config) =>
       Effect.gen(function* () {
@@ -328,12 +338,17 @@ export const TerrainGeneratorServiceLive = Layer.effect(
 
         // 4. 統計情報の計算
         const endTime = yield* Clock.currentTimeMillis
+        const duration = endTime - startTime
         const statistics = {
           totalBlocks: blockPlacements.length + surfacePlacements.length,
-          generationTime: endTime - startTime,
+          generationTime: duration,
           memoryUsed: estimateMemoryUsage(blockPlacements, surfacePlacements),
           layerCounts: calculateLayerCounts(blockPlacements, surfacePlacements),
         }
+
+        // 5. メトリクス記録
+        yield* chunkGenerationDuration(duration)
+        yield* chunkGenerationCounter.increment()
 
         return {
           heightMap,
@@ -346,7 +361,14 @@ export const TerrainGeneratorServiceLive = Layer.effect(
             heightRange: `${config.minHeight}-${config.maxHeight}`,
           },
         }
-      }),
+      }).pipe(
+        Effect.annotateLogs({
+          totalBlocks: String(blockPlacements.length + surfacePlacements.length),
+          generationTime: String(endTime - startTime),
+          layerCount: String(config.layers.length),
+          operation: 'generate_terrain',
+        })
+      ),
 
     calculateHeightAt: (coordinate, config, seed) =>
       Effect.gen(function* () {

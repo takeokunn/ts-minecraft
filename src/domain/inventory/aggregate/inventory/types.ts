@@ -3,6 +3,7 @@
  * DDD原則に基づく集約境界の厳密な管理
  */
 
+import { JsonValueSchema } from '@shared/schema/json'
 import { Effect, Schema } from 'effect'
 import { unsafeCoerce } from 'effect/Function'
 import type { ItemId } from '../../types'
@@ -39,7 +40,7 @@ export const InventorySlotSchema = Schema.Union(
   Schema.Null,
   Schema.Struct({
     itemStack: ItemStackEntitySchema,
-    metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Any })),
+    metadata: Schema.optional(Schema.Record({ key: Schema.String, value: JsonValueSchema })),
   })
 )
 export type InventorySlot = Schema.Schema.Type<typeof InventorySlotSchema>
@@ -79,7 +80,7 @@ export const ItemAddedEventSchema = Schema.Struct({
   quantity: Schema.Number.pipe(Schema.int(), Schema.positive()),
   slotIndex: SlotIndexSchema,
   timestamp: Schema.DateTimeUtc,
-  metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Any })),
+  metadata: Schema.optional(Schema.Record({ key: Schema.String, value: JsonValueSchema })),
 })
 
 export const ItemRemovedEventSchema = Schema.Struct({
@@ -162,7 +163,9 @@ export const InventoryAggregateErrorSchema = Schema.TaggedError('InventoryAggreg
   message: Schema.String,
   slotIndex: Schema.optional(SlotIndexSchema),
   itemId: Schema.optional(ItemIdSchema),
-  metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Any })),
+  metadata: Schema.optional(Schema.Record({ key: Schema.String, value: JsonValueSchema })),
+  issues: Schema.optional(Schema.Array(Schema.String)),
+  originalError: Schema.optional(Schema.Unknown),
 })
 
 export type InventoryAggregateError = Schema.Schema.Type<typeof InventoryAggregateErrorSchema>

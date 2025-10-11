@@ -4,8 +4,8 @@
  */
 
 import { uuid } from '@domain/world/utils'
+import { JsonValueSchema, type JsonRecord, type JsonValue } from '@shared/schema/json'
 import { DateTime, Effect, Schema } from 'effect'
-import { JsonValueSchema } from '@/shared/schema/json'
 import {
   ChunkPosition,
   ChunkPositionSchema,
@@ -69,7 +69,7 @@ export interface WorldCreationStartedEvent {
     readonly worldId: WorldId
     readonly worldName: string
     readonly seed: number
-    readonly settings: Record<string, unknown>
+    readonly settings: JsonRecord
     readonly requestedBy: string
   }
 }
@@ -126,7 +126,7 @@ export interface WorldCreationFailedEvent {
   readonly payload: {
     readonly worldId: WorldId
     readonly reason: string
-    readonly errorDetails: Record<string, unknown>
+    readonly errorDetails: JsonRecord
     readonly rollbackRequired: boolean
   }
 }
@@ -309,7 +309,7 @@ export interface DimensionCreatedEvent {
     readonly worldId: WorldId
     readonly dimensionId: DimensionId
     readonly dimensionType: string
-    readonly settings: Record<string, unknown>
+    readonly settings: JsonRecord
   }
 }
 
@@ -431,7 +431,7 @@ export interface WorldSettingsUpdatedEvent {
   readonly metadata: EventMetadata
   readonly payload: {
     readonly worldId: WorldId
-    readonly updatedSettings: Record<string, { old: unknown; new: unknown }>
+    readonly updatedSettings: Record<string, { old: JsonValue; new: JsonValue }>
     readonly updatedBy: string
     readonly requiresRestart: boolean
   }
@@ -530,7 +530,7 @@ export const createWorldCreationStartedEvent = (
   worldId: WorldId,
   worldName: string,
   seed: number,
-  settings: Record<string, unknown>,
+  settings: JsonRecord,
   requestedBy: string,
   aggregateVersion: number = 0
 ): Effect.Effect<WorldCreationStartedEvent> =>

@@ -10,7 +10,7 @@ import { JsonValueSchema } from './json'
  * - `message` フィールドのみを持つシリアライズ済みエラーレコード
  */
 export const ErrorCauseSchema = Schema.Union(
-  Schema.InstanceOf(Error),
+  Schema.instanceOf(Error),
   JsonValueSchema,
   Schema.Struct({
     message: Schema.String,

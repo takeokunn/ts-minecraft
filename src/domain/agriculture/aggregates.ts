@@ -1,5 +1,5 @@
-import { Clock, Data, DateTime, Effect, Either, Match, pipe } from 'effect'
 import * as Schema from '@effect/schema/Schema'
+import { Clock, Data, DateTime, Effect, Either, Match, pipe } from 'effect'
 import {
   BreedingOutcome,
   BreedingStats,

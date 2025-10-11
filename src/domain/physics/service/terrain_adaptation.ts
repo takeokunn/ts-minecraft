@@ -1,6 +1,6 @@
 import type { PlayerId, Vector3D } from '@domain/entities'
-import { Context, Effect, Layer, Match, Option, pipe, ReadonlyArray, Ref } from 'effect'
 import { toErrorCause, type ErrorCause } from '@shared/schema/error'
+import { Context, Effect, Layer, Match, Option, pipe, ReadonlyArray, Ref } from 'effect'
 import type { BlockType } from '../../block/types'
 import { CannonPhysicsService } from './cannon'
 import { WorldCollisionService, type BlockCollisionInfo } from './world_collision'
@@ -231,7 +231,7 @@ const makeTerrainAdaptationService: Effect.Effect<
       }
 
       yield* Ref.update(playerTerrainStatesRef, (states) => states.set(playerId, initialState))
-      console.log(`Terrain adaptation initialized for player ${playerId}`)
+      yield* Effect.logInfo('Terrain adaptation initialized').pipe(Effect.annotateLogs({ playerId: String(playerId) }))
     })
 
   // 地形タイプから移動特性を取得
@@ -385,8 +385,7 @@ const makeTerrainAdaptationService: Effect.Effect<
         return yield* pipe(
           Option.fromNullable(specialBlocks),
           Option.match({
-            onNone: () =>
-              Effect.succeed({ ...DEFAULT_TERRAIN_STATE }),
+            onNone: () => Effect.succeed({ ...DEFAULT_TERRAIN_STATE }),
             onSome: (blocks) =>
               Effect.gen(function* () {
                 // Create a BlockType-like object for getTerrainProperties
@@ -486,19 +485,17 @@ const makeTerrainAdaptationService: Effect.Effect<
   ): Effect.Effect<boolean, TerrainAdaptationError> =>
     Effect.gen(function* () {
       for (const sample of samples) {
-        const properties = yield* worldCollision
-          .getBlockProperties(sample.blockType)
-          .pipe(
-            Effect.mapError(
-              (error): TerrainAdaptationError => ({
-                _tag: 'TerrainAdaptationError',
-                message: 'Failed to load terrain block properties',
-                playerId,
-                reason: 'CollisionError',
-                cause: toErrorCause(error),
-              })
-            )
+        const properties = yield* worldCollision.getBlockProperties(sample.blockType).pipe(
+          Effect.mapError(
+            (error): TerrainAdaptationError => ({
+              _tag: 'TerrainAdaptationError',
+              message: 'Failed to load terrain block properties',
+              playerId,
+              reason: 'CollisionError',
+              cause: toErrorCause(error),
+            })
           )
+        )
 
         if (properties.isClimbable) {
           return true
@@ -663,7 +660,7 @@ const makeTerrainAdaptationService: Effect.Effect<
         return newStates
       })
 
-      console.log(`Terrain adaptation cleaned up for player ${playerId}`)
+      yield* Effect.logInfo('Terrain adaptation cleaned up').pipe(Effect.annotateLogs({ playerId: String(playerId) }))
     })
 
   const service: TerrainAdaptationService = {

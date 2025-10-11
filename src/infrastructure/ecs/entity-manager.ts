@@ -15,6 +15,11 @@ import {
 import type { SystemError } from './system'
 import { SystemRegistryService } from './system-registry'
 
+type UntypedComponentDefinition = ComponentDefinition<unknown>
+type UntypedComponentStorage = ComponentStorage<unknown>
+type UntypedComponentValue = unknown
+type UntypedComponentMap = ReadonlyMap<UntypedComponentDefinition, UntypedComponentValue>
+
 // =====================================
 // Entity Manager Errors
 // =====================================
@@ -92,16 +97,14 @@ export interface EntityManager {
     definition: ComponentDefinition<A>
   ) => Effect.Effect<Option.Option<A>, EntityManagerError>
   readonly hasComponent: <A>(entityId: EntityId, definition: ComponentDefinition<A>) => Effect.Effect<boolean, never>
-  readonly getEntityComponents: (
-    entityId: EntityId
-  ) => Effect.Effect<ReadonlyMap<ComponentDefinition<unknown>, unknown>, EntityManagerError>
+  readonly getEntityComponents: (entityId: EntityId) => Effect.Effect<UntypedComponentMap, EntityManagerError>
 
   // クエリ
   readonly getEntitiesWithComponent: <A>(
     definition: ComponentDefinition<A>
   ) => Effect.Effect<ReadonlyArray<EntityId>, never>
   readonly getEntitiesWithComponents: (
-    definitions: ReadonlyArray<ComponentDefinition<unknown>>
+    definitions: ReadonlyArray<UntypedComponentDefinition>
   ) => Effect.Effect<ReadonlyArray<EntityId>, never>
   readonly getEntitiesByTag: (tag: string) => Effect.Effect<ReadonlyArray<EntityId>, never>
   readonly getAllEntities: () => Effect.Effect<ReadonlyArray<EntityId>, never>
@@ -136,13 +139,13 @@ export const EntityManagerLive = Effect.gen(function* () {
   const componentDefinitions = yield* componentRegistry.definitions
   const definitionIndex = componentDefinitions.reduce(
     (map, definition) => HashMap.set(map, definition.type, definition),
-    HashMap.empty<ComponentTypeName, ComponentDefinition<unknown>>()
+    HashMap.empty<ComponentTypeName, UntypedComponentDefinition>()
   )
 
   const lookupDefinition = (
     componentType: ComponentTypeName,
     context: string
-  ): Effect.Effect<ComponentDefinition<unknown>, EntityManagerError> =>
+  ): Effect.Effect<UntypedComponentDefinition, EntityManagerError> =>
     pipe(
       HashMap.get(definitionIndex, componentType),
       Option.match({
@@ -156,7 +159,7 @@ export const EntityManagerLive = Effect.gen(function* () {
 
   const decodeComponent = <A>(
     definition: ComponentDefinition<A>,
-    value: unknown,
+    value: UntypedComponentValue,
     context: string
   ): Effect.Effect<A, EntityManagerError> =>
     definition
@@ -172,7 +175,7 @@ export const EntityManagerLive = Effect.gen(function* () {
 
   // Internal state
   const entities = new Map<EntityId, EntityMetadata>()
-  const componentStorages = new Map<ComponentTypeName, ComponentStorage<unknown>>()
+  const componentStorages = new Map<ComponentTypeName, UntypedComponentStorage>()
   const entityComponents = new Map<EntityId, Set<ComponentTypeName>>()
   const archetypeManager = createArchetypeManager()
   const tagIndex = new Map<string, Set<EntityId>>()
@@ -180,12 +183,12 @@ export const EntityManagerLive = Effect.gen(function* () {
   let entityGeneration = 0
 
   // Helper: コンポーネントストレージの取得または作成
-  const getOrCreateStorage = (componentType: ComponentTypeName): ComponentStorage<unknown> => {
+  const getOrCreateStorage = (componentType: ComponentTypeName): UntypedComponentStorage => {
     return pipe(
       Option.fromNullable(componentStorages.get(componentType)),
       Option.match({
         onNone: () => {
-          const storage = createComponentStorage<unknown>()
+          const storage = createComponentStorage<UntypedComponentValue>()
           componentStorages.set(componentType, storage)
           return storage
         },
@@ -418,7 +421,7 @@ export const EntityManagerLive = Effect.gen(function* () {
   // エンティティのすべてのコンポーネント取得
   const getEntityComponents = (entityId: EntityId) =>
     Effect.gen(function* () {
-      const result = new Map<ComponentDefinition<unknown>, unknown>()
+      const result = new Map<UntypedComponentDefinition, UntypedComponentValue>()
       const components = yield* pipe(
         Option.fromNullable(entityComponents.get(entityId)),
         Option.match({
@@ -478,7 +481,7 @@ export const EntityManagerLive = Effect.gen(function* () {
     })
 
   // クエリ：複数コンポーネントを持つエンティティ（AND）
-  const getEntitiesWithComponents = (definitions: ReadonlyArray<ComponentDefinition<unknown>>) =>
+  const getEntitiesWithComponents = (definitions: ReadonlyArray<UntypedComponentDefinition>) =>
     Effect.gen(function* () {
       return yield* pipe(
         definitions.length === 0,

@@ -1,6 +1,7 @@
-import { Clock, Data, Effect, Layer, Match, Option, pipe } from 'effect'
+import { Clock, Data, Effect, Layer, Match, Option, pipe, Random } from 'effect'
 import type {
   CinematicSequence,
+  DynamicTrackingConfig,
   FollowMode,
   SceneCameraApplicationError,
   SceneCameraApplicationService,
@@ -11,7 +12,6 @@ import type {
   SceneTarget,
   SequenceExecutionError,
   SequenceId,
-  DynamicTrackingConfig,
 } from './index'
 import { createSceneCameraApplicationError, createSequenceExecutionResult } from './index'
 
@@ -78,8 +78,9 @@ export const SceneCameraApplicationServiceLive = Layer.effect(
     const generateSceneCameraId = (): Effect.Effect<SceneCameraId, never> =>
       Effect.gen(function* () {
         const timestamp = yield* Clock.currentTimeMillis
-        const random = yield* Effect.sync(() => Math.random().toString(36).substr(2, 9))
-        return `scene-camera-${timestamp}-${random}` as SceneCameraId
+        const randomValue = yield* Random.nextIntBetween(0, 36 ** 9 - 1)
+        const nonce = randomValue.toString(36).padStart(9, '0')
+        return `scene-camera-${timestamp}-${nonce}` as SceneCameraId
       })
 
     /**
@@ -88,8 +89,9 @@ export const SceneCameraApplicationServiceLive = Layer.effect(
     const generateSequenceId = (): Effect.Effect<SequenceId, never> =>
       Effect.gen(function* () {
         const timestamp = yield* Clock.currentTimeMillis
-        const random = yield* Effect.sync(() => Math.random().toString(36).substr(2, 9))
-        return `sequence-${timestamp}-${random}` as SequenceId
+        const randomValue = yield* Random.nextIntBetween(0, 36 ** 9 - 1)
+        const nonce = randomValue.toString(36).padStart(9, '0')
+        return `sequence-${timestamp}-${nonce}` as SequenceId
       })
 
     /**

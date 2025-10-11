@@ -86,9 +86,9 @@ export type { MetricsCollectorErrorType, PerformanceMonitoringErrorType } from '
 // === Integrated World Application Service ===
 
 import { WorldGenerationOrchestrator } from '@/domain/world_generation/domain_service/world_generation_orchestrator/index'
-import { Clock, Context, Effect, Ref, Schema, STM } from 'effect'
 import { ErrorCauseSchema } from '@shared/schema/error'
 import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
+import { Clock, Context, Effect, Ref, Schema, STM } from 'effect'
 import { CacheOptimizationService } from './cache_optimization/index'
 import { PerformanceMonitoringService } from './performance_monitoring/index'
 import { ProgressiveLoadingService } from './progressive_loading/index'

@@ -3,10 +3,10 @@
  * ColorのImmutableラッパー実装
  */
 
+import { ErrorCauseSchema } from '@shared/schema/error'
+import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
 import { Effect, Schema } from 'effect'
 import * as THREE from 'three'
-import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
-import { ErrorCauseSchema } from '@shared/schema/error'
 
 /**
  * Color Schema (RGB: 0.0-1.0)

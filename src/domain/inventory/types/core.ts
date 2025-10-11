@@ -1,3 +1,4 @@
+import { JsonValueSchema } from '@shared/schema/json'
 import { Schema } from 'effect'
 
 // =============================================================================
@@ -212,7 +213,7 @@ export const ItemMetadataSchema = Schema.Struct({
     )
   ),
   nbtData: Schema.optional(
-    Schema.Record({ key: Schema.String, value: Schema.Any }).pipe(
+    Schema.Record({ key: Schema.String, value: JsonValueSchema }).pipe(
       Schema.annotations({
         description: 'Custom NBT data for mod compatibility',
       })

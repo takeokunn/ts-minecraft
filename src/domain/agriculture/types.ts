@@ -74,8 +74,8 @@ export const makeIdentifier = (value: string): Effect.Effect<Identifier, DomainE
     return IdentifierBrand(trimmed)
   })
 
-export const makeIdentifierEither = (value: string): Either.Either<Identifier, DomainError> =>
-  Effect.runSync(Effect.either(makeIdentifier(value)))
+export const makeIdentifierEither = (value: string): Effect.Effect<Either.Either<Identifier, DomainError>, never> =>
+  Effect.either(makeIdentifier(value))
 
 export const makeBoundedNumber = (params: {
   readonly field: string
@@ -107,7 +107,7 @@ export const makeBoundedNumberEither = (params: {
   readonly field: string
   readonly range: DomainRange
   readonly value: number
-}): Either.Either<number, DomainError> => Effect.runSync(Effect.either(makeBoundedNumber(params)))
+}): Effect.Effect<Either.Either<number, DomainError>, never> => Effect.either(makeBoundedNumber(params))
 
 export type DomainInvariant<T> = Readonly<{
   readonly description: string

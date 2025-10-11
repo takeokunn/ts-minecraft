@@ -6,6 +6,7 @@
  * レシピの実行可能性、材料の可用性、結果の配置などを処理します。
  */
 
+import type { JsonValue } from '@shared/schema/json'
 import { Context, Effect } from 'effect'
 import type { Inventory, ItemId, ItemStack } from '../../types'
 
@@ -45,7 +46,7 @@ export interface RecipeIngredient {
 export interface RecipeResult {
   readonly itemId: ItemId
   readonly count: number
-  readonly metadata?: unknown
+  readonly metadata?: JsonValue
 }
 
 /**

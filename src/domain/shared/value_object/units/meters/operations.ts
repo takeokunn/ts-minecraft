@@ -23,37 +23,39 @@ export const make = (value: number): Effect.Effect<Meters, Schema.ParseError> =>
  * 数値からMeters型を生成（バリデーションなし）
  * 信頼できるソースからの値のみ使用すること
  */
-export const makeUnsafe = (value: number): Meters => Schema.make(MetersSchema)(value)
+export const makeUnsafe = (value: number): Meters => MetersSchema.make(value, { disableValidation: true })
 
 /**
  * Add two Meters
  */
-export const add = (a: Meters, b: Meters): Meters => Schema.make(MetersSchema)(a + b)
+export const add = (a: Meters, b: Meters): Meters => MetersSchema.make(a + b, { disableValidation: true })
 
 /**
  * Subtract two Meters
  */
-export const subtract = (a: Meters, b: Meters): Meters => Schema.make(MetersSchema)(a - b)
+export const subtract = (a: Meters, b: Meters): Meters => MetersSchema.make(a - b, { disableValidation: true })
 
 /**
  * Multiply Meters by scalar
  */
-export const multiply = (meters: Meters, scalar: number): Meters => Schema.make(MetersSchema)(meters * scalar)
+export const multiply = (meters: Meters, scalar: number): Meters =>
+  MetersSchema.make(meters * scalar, { disableValidation: true })
 
 /**
  * Divide Meters by scalar
  */
-export const divide = (meters: Meters, scalar: number): Meters => Schema.make(MetersSchema)(meters / scalar)
+export const divide = (meters: Meters, scalar: number): Meters =>
+  MetersSchema.make(meters / scalar, { disableValidation: true })
 
 /**
  * Get absolute value of Meters
  */
-export const abs = (meters: Meters): Meters => Schema.make(MetersSchema)(Math.abs(meters))
+export const abs = (meters: Meters): Meters => MetersSchema.make(Math.abs(meters), { disableValidation: true })
 
 /**
  * Negate Meters
  */
-export const negate = (meters: Meters): Meters => Schema.make(MetersSchema)(-meters)
+export const negate = (meters: Meters): Meters => MetersSchema.make(-meters, { disableValidation: true })
 
 /**
  * Compare two Meters
@@ -63,18 +65,18 @@ export const compare = (a: Meters, b: Meters): -1 | 0 | 1 => Order.number(a, b)
 /**
  * Get minimum of two Meters
  */
-export const min = (a: Meters, b: Meters): Meters => Schema.make(MetersSchema)(Math.min(a, b))
+export const min = (a: Meters, b: Meters): Meters => MetersSchema.make(Math.min(a, b), { disableValidation: true })
 
 /**
  * Get maximum of two Meters
  */
-export const max = (a: Meters, b: Meters): Meters => Schema.make(MetersSchema)(Math.max(a, b))
+export const max = (a: Meters, b: Meters): Meters => MetersSchema.make(Math.max(a, b), { disableValidation: true })
 
 /**
  * Clamp Meters between min and max
  */
 export const clamp = (value: Meters, minValue: Meters, maxValue: Meters): Meters =>
-  Schema.make(MetersSchema)(Math.max(minValue, Math.min(maxValue, value)))
+  MetersSchema.make(Math.max(minValue, Math.min(maxValue, value)), { disableValidation: true })
 
 /**
  * Check if Meters is zero
@@ -99,7 +101,7 @@ export const toCentimeters = (meters: Meters): number => meters * 100
 /**
  * Convert from centimeters
  */
-export const fromCentimeters = (cm: number): Meters => Schema.make(MetersSchema)(cm / 100)
+export const fromCentimeters = (cm: number): Meters => MetersSchema.make(cm / 100, { disableValidation: true })
 
 /**
  * Convert to kilometers
@@ -109,12 +111,12 @@ export const toKilometers = (meters: Meters): number => meters / 1000
 /**
  * Convert from kilometers
  */
-export const fromKilometers = (km: number): Meters => Schema.make(MetersSchema)(km * 1000)
+export const fromKilometers = (km: number): Meters => MetersSchema.make(km * 1000, { disableValidation: true })
 
 /**
  * Round Meters to specified decimal places
  */
 export const round = (meters: Meters, decimalPlaces = 0): Meters => {
   const multiplier = Math.pow(10, decimalPlaces)
-  return Schema.make(MetersSchema)(Math.round(meters * multiplier) / multiplier)
+  return MetersSchema.make(Math.round(meters * multiplier) / multiplier, { disableValidation: true })
 }

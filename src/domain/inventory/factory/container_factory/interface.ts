@@ -5,11 +5,11 @@
  * Chest、Furnace、Hopper等のMinecraftコンテナシステムを管理
  */
 
-import { Context, Effect, Schema } from 'effect'
-import { JsonRecordSchema } from '@shared/schema/json'
 import type { JsonRecord } from '@shared/schema/json'
-import type { ItemId, ItemStack } from '../../types'
+import { JsonRecordSchema } from '@shared/schema/json'
 import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
+import { Context, Effect, Schema } from 'effect'
+import type { ItemId, ItemStack } from '../../types'
 
 // Container Factory固有のエラー型（Schema.TaggedErrorパターン）
 export const ContainerCreationErrorSchema = Schema.TaggedError('ContainerCreationError', {

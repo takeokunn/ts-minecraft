@@ -29,9 +29,9 @@ export const performCompleteChunkValidation = (chunk: ChunkData) =>
     const isIntegrityValid = yield* validation.validateIntegrity(chunk)
     yield* Effect.when(!isIntegrityValid, () =>
       Effect.fail(
-        new ChunkDataValidationError({
+        ChunkDataValidationError({
           message: 'チャンクの整合性検証に失敗しました',
-          data: chunk,
+          value: chunk,
         })
       )
     )
@@ -105,9 +105,9 @@ export const serializeWithIntegrityCheck = (chunk: ChunkData, format: Serializat
 
     yield* Effect.when(!isValid, () =>
       Effect.fail(
-        new ChunkDataValidationError({
+        ChunkDataValidationError({
           message: 'シリアライゼーション後の整合性検証に失敗しました',
-          data: chunk,
+          value: chunk,
         })
       )
     )

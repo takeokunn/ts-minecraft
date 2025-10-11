@@ -7,8 +7,8 @@
  */
 
 import { Context, Effect, Schema } from 'effect'
-import type { Inventory, InventoryErrorReason, ItemId } from '../../types'
 import { InventorySchema } from '../../inventory-types'
+import type { Inventory, InventoryErrorReason, ItemId } from '../../types'
 
 // =============================================================================
 // Transfer Service Types

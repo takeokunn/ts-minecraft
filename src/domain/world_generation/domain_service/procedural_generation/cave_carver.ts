@@ -12,14 +12,14 @@ import {
   type BoundingBox,
   type WorldCoordinate,
 } from '@domain/world/value_object/coordinates'
-import type { WorldSeed } from '@domain/world/value_object/world_seed'
 import {
   AdvancedNoiseSettingsSchema,
   NoiseConfigurationFactory,
   type AdvancedNoiseSettings,
 } from '@domain/world/value_object/noise_configuration'
+import type { WorldSeed } from '@domain/world/value_object/world_seed'
 import { JsonValueSchema } from '@shared/schema/json'
-import { Clock, Context, Effect, Layer, Schema } from 'effect'
+import { Clock, Context, Effect, Layer, Option, pipe, Random, ReadonlyArray, Schema } from 'effect'
 
 /**
  * 洞窟ネットワーク - 連結された洞窟システム
@@ -473,20 +473,28 @@ const generateCaveCandidates = (
     const targetCaveCount = Math.floor(volume * config.density * 0.0001)
 
     // for文 → ReadonlyArray.filterMap（洞窟候補生成）
-    const candidates = pipe(
+    // Random Serviceで決定的な座標生成（WorldSeed依存）
+    const candidates = yield* pipe(
       ReadonlyArray.range(0, targetCaveCount),
-      ReadonlyArray.filterMap(() => {
-        // ノイズベースの配置決定
-        const x = bounds.min.x + (bounds.max.x - bounds.min.x) * Math.random()
-        const y = bounds.min.y + (bounds.max.y - bounds.min.y) * Math.random()
-        const z = bounds.min.z + (bounds.max.z - bounds.min.z) * Math.random()
+      Effect.forEach(() =>
+        Effect.gen(function* () {
+          // ノイズベースの配置決定（Random Serviceで再現性保証）
+          const randX = yield* Random.nextIntBetween(0, 1000)
+          const randY = yield* Random.nextIntBetween(0, 1000)
+          const randZ = yield* Random.nextIntBetween(0, 1000)
 
-        // 深度制約の適用
-        if (y >= config.minDepth && y <= config.maxDepth) {
-          return Option.some(makeUnsafeWorldCoordinate(x, y, z))
-        }
-        return Option.none()
-      })
+          const x = bounds.min.x + (bounds.max.x - bounds.min.x) * (randX / 1000)
+          const y = bounds.min.y + (bounds.max.y - bounds.min.y) * (randY / 1000)
+          const z = bounds.min.z + (bounds.max.z - bounds.min.z) * (randZ / 1000)
+
+          // 深度制約の適用
+          if (y >= config.minDepth && y <= config.maxDepth) {
+            return Option.some(makeUnsafeWorldCoordinate(x, y, z))
+          }
+          return Option.none()
+        })
+      ),
+      Effect.map(ReadonlyArray.getSomes)
     )
 
     return candidates
@@ -601,8 +609,7 @@ const applyNaturalizationNoise = (
   coords: ReadonlyArray<WorldCoordinate>,
   _noise: AdvancedNoiseSettings,
   _seed: WorldSeed
-) =>
-  Effect.succeed(coords)
+) => Effect.succeed(coords)
 
 const calculateCaveSupports = (coords: ReadonlyArray<WorldCoordinate>, config: CaveCarveConfig) =>
   Effect.succeed([] satisfies ReadonlyArray<WorldCoordinate>)
@@ -610,7 +617,7 @@ const calculateCaveSupports = (coords: ReadonlyArray<WorldCoordinate>, config: C
 const applyGravityEffect = (coords: ReadonlyArray<WorldCoordinate>, center: WorldCoordinate) => Effect.succeed(coords)
 
 const calculateStraightPath = (start: WorldCoordinate, end: WorldCoordinate) =>
-  Effect.succeed([start, end] as ReadonlyArray<WorldCoordinate>)
+  Effect.succeed([start, end] satisfies ReadonlyArray<WorldCoordinate>)
 
 const applyCurvature = (path: ReadonlyArray<WorldCoordinate>, _noise: AdvancedNoiseSettings) => Effect.succeed(path)
 

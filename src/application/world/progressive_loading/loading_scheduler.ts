@@ -1,6 +1,6 @@
-import { Clock, Context, Effect, Layer, Match, Option, pipe, Queue, ReadonlyArray, Ref, Schema } from 'effect'
 import { ErrorCauseSchema } from '@shared/schema/error'
 import { JsonValueSchema } from '@shared/schema/json'
+import { Clock, Context, Effect, Layer, Match, Option, pipe, Queue, ReadonlyArray, Ref, Schema } from 'effect'
 
 /**
  * Loading Scheduler Service
@@ -10,6 +10,8 @@ import { JsonValueSchema } from '@shared/schema/json'
  */
 
 // === Loading Priority Types ===
+
+import { loadingSchedulerQueueSize } from '@application/observability/metrics'
 
 export const LoadingPriority = Schema.Union(
   Schema.Literal('critical'), // プレイヤー周辺の必須チャンク
@@ -155,7 +157,7 @@ interface InProgressRequest {
 
 /**
  * Queue化された内部状態
- * 
+ *
  * 優先度別Queueとキャンセル管理を実装
  */
 interface QueuedSchedulerState {
@@ -308,7 +310,9 @@ const makeLoadingSchedulerService = Effect.gen(function* () {
   // === Helper Functions ===
 
   // Queue選択ヘルパー
-  const selectQueue = (priority: Schema.Schema.Type<typeof LoadingPriority>): Effect.Effect<Queue.Queue<Schema.Schema.Type<typeof LoadingRequest>>> =>
+  const selectQueue = (
+    priority: Schema.Schema.Type<typeof LoadingPriority>
+  ): Effect.Effect<Queue.Queue<Schema.Schema.Type<typeof LoadingRequest>>> =>
     Effect.gen(function* () {
       const state = yield* Ref.get(schedulerState)
       return Match.value(priority).pipe(
@@ -322,7 +326,9 @@ const makeLoadingSchedulerService = Effect.gen(function* () {
     })
 
   // 優先度降格ヘルパー
-  const downgradePriority = (priority: Schema.Schema.Type<typeof LoadingPriority>): Schema.Schema.Type<typeof LoadingPriority> =>
+  const downgradePriority = (
+    priority: Schema.Schema.Type<typeof LoadingPriority>
+  ): Schema.Schema.Type<typeof LoadingPriority> =>
     Match.value(priority).pipe(
       Match.when('critical', () => 'high' as const),
       Match.when('high', () => 'normal' as const),
@@ -332,19 +338,21 @@ const makeLoadingSchedulerService = Effect.gen(function* () {
       Match.exhaustive
     )
 
-  const scheduleLoad = (request: Schema.Schema.Type<typeof LoadingRequest>): Effect.Effect<void, LoadingSchedulerErrorType> =>
+  const scheduleLoad = (
+    request: Schema.Schema.Type<typeof LoadingRequest>
+  ): Effect.Effect<void, LoadingSchedulerErrorType> =>
     Effect.gen(function* () {
       yield* Effect.logDebug(`読み込みリクエストをスケジュール: ${request.id}`)
 
       const queue = yield* selectQueue(request.priority)
-      
+
       // Queue投入（バックプレッシャー制御）
       const offered = yield* Queue.offer(queue, request)
 
       if (!offered) {
         // Queue満杯時は優先度降格して再試行
         const downgradedPriority = downgradePriority(request.priority)
-        
+
         if (downgradedPriority === request.priority) {
           // backgroundは無制限なのでここには到達しないはず
           yield* Effect.logError(`全キュー満杯: ${request.id}`)
@@ -357,7 +365,16 @@ const makeLoadingSchedulerService = Effect.gen(function* () {
       }
 
       yield* Effect.logInfo(`リクエストキューに追加: ${request.id} (優先度: ${request.priority})`)
-    })
+    }).pipe(
+      Effect.annotateLogs({
+        requestId: request.id,
+        chunkX: String(request.chunkPosition.x),
+        chunkZ: String(request.chunkPosition.z),
+        priority: request.priority,
+        requester: request.requester,
+        operation: 'schedule_load',
+      })
+    )
 
   const scheduleBatch = (batch: Schema.Schema.Type<typeof LoadingBatch>) =>
     Effect.gen(function* () {
@@ -386,7 +403,10 @@ const makeLoadingSchedulerService = Effect.gen(function* () {
       yield* Effect.logDebug(`プレイヤー移動状態更新: ${state.playerId}`)
     })
 
-  const getNextTask = (): Effect.Effect<Option.Option<Schema.Schema.Type<typeof LoadingRequest>>, LoadingSchedulerErrorType> =>
+  const getNextTask = (): Effect.Effect<
+    Option.Option<Schema.Schema.Type<typeof LoadingRequest>>,
+    LoadingSchedulerErrorType
+  > =>
     Effect.gen(function* () {
       const config = yield* Ref.get(configuration)
       const state = yield* Ref.get(schedulerState)
@@ -397,13 +417,7 @@ const makeLoadingSchedulerService = Effect.gen(function* () {
       }
 
       // 優先度順にQueueをポーリング
-      const queues = [
-        state.criticalQueue,
-        state.highQueue,
-        state.normalQueue,
-        state.lowQueue,
-        state.backgroundQueue,
-      ]
+      const queues = [state.criticalQueue, state.highQueue, state.normalQueue, state.lowQueue, state.backgroundQueue]
 
       for (const queue of queues) {
         const taskOption = yield* Queue.poll(queue)
@@ -439,7 +453,11 @@ const makeLoadingSchedulerService = Effect.gen(function* () {
       return Option.none()
     })
 
-  const reportCompletion = (requestId: string, success: boolean, metrics?: Record<string, number>): Effect.Effect<void, LoadingSchedulerErrorType> =>
+  const reportCompletion = (
+    requestId: string,
+    success: boolean,
+    metrics?: Record<string, number>
+  ): Effect.Effect<void, LoadingSchedulerErrorType> =>
     Effect.gen(function* () {
       const now = yield* Clock.currentTimeMillis
 
@@ -525,7 +543,10 @@ const makeLoadingSchedulerService = Effect.gen(function* () {
       }
     })
 
-  const getQueueStatistics = (): Effect.Effect<Schema.Schema.Type<typeof LoadingQueueStatistics>, LoadingSchedulerErrorType> =>
+  const getQueueStatistics = (): Effect.Effect<
+    Schema.Schema.Type<typeof LoadingQueueStatistics>,
+    LoadingSchedulerErrorType
+  > =>
     Effect.gen(function* () {
       const state = yield* Ref.get(schedulerState)
 
@@ -535,9 +556,14 @@ const makeLoadingSchedulerService = Effect.gen(function* () {
       const lowSize = yield* Queue.size(state.lowQueue)
       const backgroundSize = yield* Queue.size(state.backgroundQueue)
 
+      const totalPending = criticalSize + highSize + normalSize + lowSize + backgroundSize
+
+      // メトリクス記録: キュー長をゲージとして記録
+      yield* loadingSchedulerQueueSize.set(totalPending)
+
       return {
         _tag: 'LoadingQueueStatistics' as const,
-        pendingCount: criticalSize + highSize + normalSize + lowSize + backgroundSize,
+        pendingCount: totalPending,
         inProgressCount: state.inProgress.size,
         completedCount: state.completed.size,
         failedCount: state.failed.size,

@@ -1,7 +1,6 @@
-import { Clock, Effect, HashMap, Layer, Option, Ref, Schema, TreeFormatter } from 'effect'
 import { now as timestampNow } from '@domain/shared/value_object/units/timestamp'
+import { Clock, Effect, HashMap, Layer, Option, Random, Ref, Schema, TreeFormatter } from 'effect'
 import { makeUnsafe as makeUnsafePlayerId } from '../../../shared/entities/player_id/operations'
-import { makeUnsafeSlotPosition } from '../../value_object/slot_position/types'
 import type {
   Inventory,
   InventoryQuery,
@@ -13,6 +12,7 @@ import type {
   SlotPosition,
   StackOperationRequest,
 } from '../../types'
+import { makeUnsafeSlotPosition } from '../../value_object/slot_position/types'
 import { createInventoryNotFoundError, createRepositoryError, createStorageError } from '../types'
 import { InventoryRepository } from './index'
 import { InventoryRepositoryStorageSchema } from './storage_schema'
@@ -400,7 +400,8 @@ export const InventoryRepositoryPersistent = (config: PersistentConfig = Default
                 onSome: (inventory) =>
                   Effect.gen(function* () {
                     const timestamp = yield* timestampNow()
-                    const randomPart = Math.random().toString(36).substr(2, 9)
+                    const randomNum = yield* Random.nextIntBetween(0, Number.MAX_SAFE_INTEGER)
+                    const randomPart = randomNum.toString(36).substring(2, 11)
                     const snapshotId = `snapshot-${timestamp}-${randomPart}`
                     const snapshot: InventorySnapshot = {
                       id: snapshotId,

@@ -19,7 +19,7 @@ import { TimestampSchema } from './schema'
  * Effect Clockを使用して現在のタイムスタンプを取得
  */
 export const now = (): Effect.Effect<Timestamp> =>
-  Effect.map(Clock.currentTimeMillis, (millis) => Schema.make(TimestampSchema)(millis))
+  Effect.map(Clock.currentTimeMillis, (millis) => TimestampSchema.make(millis, { disableValidation: true }))
 
 /**
  * Create Timestamp from number with validation
@@ -35,14 +35,14 @@ export const make = (value: number): Effect.Effect<Timestamp, Schema.ParseError>
  * 数値からTimestamp型を生成（バリデーションなし）
  * 信頼できるソースからの値のみ使用すること
  */
-export const makeUnsafe = (value: number): Timestamp => Schema.make(TimestampSchema)(value)
+export const makeUnsafe = (value: number): Timestamp => TimestampSchema.make(value, { disableValidation: true })
 
 /**
  * Create Timestamp from Date
  *
  * DateオブジェクトからTimestampを生成
  */
-export const fromDate = (date: Date): Timestamp => Schema.make(TimestampSchema)(date.getTime())
+export const fromDate = (date: Date): Timestamp => TimestampSchema.make(date.getTime(), { disableValidation: true })
 
 /**
  * Convert Timestamp to DateTime.Utc
@@ -57,7 +57,7 @@ export const toDateTime = (timestamp: Timestamp): DateTime.Utc => DateTime.unsaf
  * TimestampにMillisecondsを加算
  */
 export const addMilliseconds = (timestamp: Timestamp, duration: Milliseconds): Timestamp =>
-  Schema.make(TimestampSchema)(timestamp + duration)
+  TimestampSchema.make(timestamp + duration, { disableValidation: true })
 
 /**
  * Subtract Milliseconds from Timestamp
@@ -65,7 +65,7 @@ export const addMilliseconds = (timestamp: Timestamp, duration: Milliseconds): T
  * TimestampからMillisecondsを減算（負にならないようにクランプ）
  */
 export const subtractMilliseconds = (timestamp: Timestamp, duration: Milliseconds): Timestamp =>
-  Schema.make(TimestampSchema)(Math.max(0, timestamp - duration))
+  TimestampSchema.make(Math.max(0, timestamp - duration), { disableValidation: true })
 
 /**
  * Calculate duration between two Timestamps
@@ -73,7 +73,7 @@ export const subtractMilliseconds = (timestamp: Timestamp, duration: Millisecond
  * 2つのTimestamp間の経過時間を計算（Millisecondsで返す）
  */
 export const diff = (start: Timestamp, end: Timestamp): Milliseconds =>
-  Schema.make(MillisecondsSchema)(Math.abs(end - start))
+  MillisecondsSchema.make(Math.abs(end - start), { disableValidation: true })
 
 /**
  * Compare two Timestamps
@@ -99,20 +99,21 @@ export const isAfter = (a: Timestamp, b: Timestamp): boolean => a > b
 /**
  * Get minimum of two Timestamps
  */
-export const min = (a: Timestamp, b: Timestamp): Timestamp => Schema.make(TimestampSchema)(Math.min(a, b))
+export const min = (a: Timestamp, b: Timestamp): Timestamp =>
+  TimestampSchema.make(Math.min(a, b), { disableValidation: true })
 
 /**
  * Get maximum of two Timestamps
  */
-export const max = (a: Timestamp, b: Timestamp): Timestamp => Schema.make(TimestampSchema)(Math.max(a, b))
+export const max = (a: Timestamp, b: Timestamp): Timestamp =>
+  TimestampSchema.make(Math.max(a, b), { disableValidation: true })
 
 /**
  * Convert to ISO 8601 string
  *
  * ISO 8601形式の文字列に変換
  */
-export const toISOString = (timestamp: Timestamp): string =>
-  DateTime.formatIso(DateTime.unsafeMake(timestamp))
+export const toISOString = (timestamp: Timestamp): string => DateTime.formatIso(DateTime.unsafeMake(timestamp))
 
 /**
  * Parse from ISO 8601 string

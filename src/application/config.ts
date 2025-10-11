@@ -1,4 +1,5 @@
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
+import type { JsonSerializable } from '@shared/schema/json'
 import { Effect, Option, Schema } from 'effect'
 import * as Either from 'effect/Either'
 import { ConfigurationSerializationError, ConfigurationValidationError, JsonValue, createErrorContext } from './errors'
@@ -46,7 +47,7 @@ type FailureParams = {
   readonly cause: DecodeError
 }
 
-type JsonSerializableInput = JsonValue | GameApplicationConfigPatchInput | GameApplicationConfigInput
+type JsonSerializableInput = JsonSerializable | GameApplicationConfigPatchInput | GameApplicationConfigInput
 
 const toJsonValue = (input: JsonSerializableInput): Effect.Effect<JsonValue, ConfigurationSerializationError> =>
   Effect.gen(function* () {

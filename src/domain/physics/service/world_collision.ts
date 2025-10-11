@@ -1,6 +1,7 @@
 import type { BlockTypeId, Vector3D } from '@domain/entities'
-import { Context, Effect, Layer, Option, pipe, ReadonlyArray, Ref } from 'effect'
+import { makeUnsafe as makeUnsafeBlockTypeId } from '@domain/shared/entities/block_type_id/operations'
 import { toErrorCause, type ErrorCause } from '@shared/schema/error'
+import { Context, Effect, Layer, Option, pipe, ReadonlyArray, Ref } from 'effect'
 import { CannonPhysicsService } from './cannon'
 
 /**
@@ -292,7 +293,9 @@ const makeWorldCollisionService: Effect.Effect<WorldCollisionService, never, Can
         const finalConfig = { ...DEFAULT_COLLISION_CONFIG, ...config }
         yield* Ref.set(configRef, finalConfig)
 
-        console.log('World collision system initialized with config:', finalConfig)
+        yield* Effect.logInfo('World collision system initialized').pipe(
+          Effect.annotateLogs({ config: JSON.stringify(finalConfig) })
+        )
       })
 
     // ブロックの物理プロパティを取得
@@ -423,7 +426,8 @@ const makeWorldCollisionService: Effect.Effect<WorldCollisionService, never, Can
           Effect.map(ReadonlyArray.flatten)
         )
 
-        console.log(`Added ${bodyIds.filter((id) => id !== '').length} block collisions in batches`)
+        const successCount = bodyIds.filter((id) => id !== '').length
+        yield* Effect.logInfo('Block collisions added in batches').pipe(Effect.annotateLogs({ count: successCount }))
         return Array.from(bodyIds)
       })
 
@@ -442,13 +446,14 @@ const makeWorldCollisionService: Effect.Effect<WorldCollisionService, never, Can
         yield* pipe(
           positionBatches,
           Effect.forEach(
-            (batch) =>
-              Effect.forEach(batch, (position) => removeBlockCollision(position), { concurrency: 4 }),
+            (batch) => Effect.forEach(batch, (position) => removeBlockCollision(position), { concurrency: 4 }),
             { concurrency: 4 }
           )
         )
 
-        console.log(`Removed ${positions.length} block collisions in batches`)
+        yield* Effect.logInfo('Block collisions removed in batches').pipe(
+          Effect.annotateLogs({ count: positions.length })
+        )
       })
 
     // レイキャスト実行
@@ -581,7 +586,7 @@ const makeWorldCollisionService: Effect.Effect<WorldCollisionService, never, Can
 
                 return Option.some({
                   blockPosition: blockPos,
-                  blockType: 'stone' as unknown as BlockTypeId, // 仮の値
+                  blockType: makeUnsafeBlockTypeId(1), // 仮の値（1 = stone）
                   bodyId,
                   collisionNormal: normal,
                   penetrationDepth,
@@ -641,7 +646,7 @@ const makeWorldCollisionService: Effect.Effect<WorldCollisionService, never, Can
                 const posKey = positionToKey(blockPos)
                 const hasCollision = blockBodies.has(posKey)
 
-                if (currentBlockType && currentBlockType !== ('air' as unknown as BlockTypeId)) {
+                if (currentBlockType && currentBlockType !== makeUnsafeBlockTypeId(0)) {
                   // ブロックが存在するが衝突がない場合は追加
                   if (!hasCollision) {
                     return Option.some<CollisionUpdateTarget>({
@@ -684,7 +689,9 @@ const makeWorldCollisionService: Effect.Effect<WorldCollisionService, never, Can
 
         yield* Effect.when(blocksToRemove.length > 0, () => removeBlocksBatch(Array.from(blocksToRemove)))
 
-        console.log(`Updated collisions: +${blocksToAdd.length}, -${blocksToRemove.length}`)
+        yield* Effect.logInfo('Updated collisions').pipe(
+          Effect.annotateLogs({ added: blocksToAdd.length, removed: blocksToRemove.length })
+        )
       })
 
     // 衝突統計の取得
@@ -731,7 +738,7 @@ const makeWorldCollisionService: Effect.Effect<WorldCollisionService, never, Can
           cacheMisses: 0,
         })
 
-        console.log('World collision service cleaned up')
+        yield* Effect.logInfo('World collision service cleaned up')
       })
 
     // 球体衝突チェック (簡易版)

@@ -42,9 +42,7 @@ export type JsonSerializable =
   | JsonPrimitive
   | Error
 
-const isPlainObject = (
-  value: JsonSerializable
-): value is { readonly [key: string]: JsonSerializable } =>
+const isPlainObject = (value: JsonSerializable): value is { readonly [key: string]: JsonSerializable } =>
   typeof value === 'object' && value !== null && !Array.isArray(value) && !(value instanceof Error)
 
 /**

@@ -12,7 +12,7 @@ import type * as GenerationErrors from '@domain/world/types/errors'
 import * as GenerationParameters from '@domain/world/value_object/generation_parameters/index'
 import * as NoiseConfiguration from '@domain/world/value_object/noise_configuration/index'
 import * as WorldSeed from '@domain/world/value_object/world_seed/index'
-import { Brand, Clock, DateTime, Effect, Schema } from 'effect'
+import { Brand, Clock, DateTime, Effect, Random, Schema } from 'effect'
 
 // ================================
 // Generation Context ID
@@ -89,9 +89,10 @@ export const create = (
   Effect.gen(function* () {
     const now = yield* DateTime.nowAsDate
     const timestamp = yield* Clock.currentTimeMillis
-    const contextId = Schema.decodeSync(GenerationContextIdSchema)(
-      `ctx_${timestamp}_${Math.random().toString(36).substr(2, 9)}`
-    )
+    // Random Serviceで決定的なID生成（再現性保証）
+    const randomValue = yield* Random.nextIntBetween(0, 2176782336) // 36^6
+    const randomStr = randomValue.toString(36).padStart(6, '0')
+    const contextId = Schema.decodeSync(GenerationContextIdSchema)(`ctx_${timestamp}_${randomStr}`)
 
     // デフォルト値の設定
     const seed = params.seed ?? WorldSeed.generateRandom()

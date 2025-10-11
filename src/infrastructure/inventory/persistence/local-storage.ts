@@ -26,7 +26,7 @@ import {
 import type { Inventory, InventoryState, PlayerId } from '../../../domain/inventory'
 import { InventorySchema, InventoryStateSchema, PlayerIdSchema } from '../../../domain/inventory'
 
-const backend = Schema.decodeUnknownSync(StorageBackendSchema)('localStorage')
+const backend = 'localStorage' satisfies StorageBackend
 
 const inventoryPrefix = 'minecraft:inventory:'
 const backupPrefix = 'minecraft:inventory:backup:'
@@ -56,29 +56,11 @@ const requireAvailability = availabilityProbe.pipe(
 const formatParseError = (error: Schema.ParseError): string => TreeFormatter.formatErrorSync(error)
 
 const decodeJson = <A>(value: string, schema: Schema.Schema<A>, context: string) =>
-  Effect.try({
-    try: () => JSON.parse(value),
-    catch: (cause) => toCorrupted(backend, `${context}: JSON decode failed`, toStorageFailureCause(cause)),
-  }).pipe(
-    Effect.flatMap(Schema.decodeUnknown(schema)),
-    Effect.mapError((error) => toCorrupted(backend, formatParseError(error), error))
-  )
+  Schema.parseJson(schema)(value).pipe(Effect.mapError((error) => toCorrupted(backend, formatParseError(error), error)))
 
 const encodeJson = <A>(value: A, schema: Schema.Schema<A>, context: string) =>
-  Schema.encode(schema)(value).pipe(
-    Effect.mapError((error) => toCorrupted(backend, formatParseError(error), error)),
-    Effect.flatMap((encoded) =>
-      Effect.try({
-        try: () => JSON.stringify(encoded),
-        catch: (cause) =>
-          toSaveFailed(
-            backend,
-            `${context}: JSON encode failed`,
-            'Failed to serialise value',
-            toStorageFailureCause(cause)
-          ),
-      })
-    )
+  Schema.encodeJson(schema)(value).pipe(
+    Effect.mapError((error) => toSaveFailed(backend, `${context}: JSON encode failed`, formatParseError(error), error))
   )
 
 const readItem = <A>(key: string, schema: Schema.Schema<A>, context: string) =>
@@ -114,8 +96,7 @@ const removeItems = (keys: ReadonlyArray<string>, context: string) =>
     (key) =>
       Effect.try({
         try: () => localStorage.removeItem(key),
-        catch: (cause) =>
-          toSaveFailed(backend, context, `Failed to remove key ${key}`, toStorageFailureCause(cause)),
+        catch: (cause) => toSaveFailed(backend, context, `Failed to remove key ${key}`, toStorageFailureCause(cause)),
       }),
     { concurrency: 4 }
   ).pipe(Effect.asVoid)

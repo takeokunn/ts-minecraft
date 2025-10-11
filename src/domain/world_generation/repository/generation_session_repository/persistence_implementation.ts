@@ -6,23 +6,27 @@
  * セッション復旧・チェックポイント・履歴管理機能
  */
 
-import type {
-  AllRepositoryErrors,
-  ChunkPosition,
-  GenerationSessionId,
-  GenerationSettings,
-  WorldId,
-} from '@domain/world/types'
 import {
+  ChunkGenerationResultSchema,
+  ChunkPositionSchema,
   createDataIntegrityError,
   createGenerationSessionNotFoundError,
   createPersistenceError,
   createRepositoryError,
+  GenerationSessionIdSchema,
+  GenerationSettingsSchema,
+  GenerationStageSchema,
+  WorldIdSchema,
+  type AllRepositoryErrors,
+  type ChunkPosition,
+  type GenerationSessionId,
+  type GenerationSettings,
+  type WorldId,
 } from '@domain/world/types'
 import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
 import * as NodePath from '@effect/platform-node/NodePath'
-import { JsonValueSchema } from '@shared/schema/json'
-import { Clock, DateTime, Effect, Function, Layer, Option, pipe, ReadonlyArray, Ref, Schema } from 'effect'
+import { JsonValueSchema, type JsonValue } from '@shared/schema/json'
+import { Clock, DateTime, Effect, Function, Layer, Option, pipe, Random, ReadonlyArray, Ref, Schema } from 'effect'
 import { makeUnsafeGenerationSessionId } from '../../aggregate/generation_session/shared/index'
 import type {
   ChunkGenerationTask,
@@ -32,6 +36,7 @@ import type {
   GenerationSessionRepository,
   GenerationSessionRepositoryConfig,
   SessionBatchResult,
+  SessionHistoryEntry,
   SessionQuery,
   SessionRecoveryInfo,
   SessionState,
@@ -41,10 +46,82 @@ import { createDefaultSessionMetadata, defaultGenerationSessionRepositoryConfig 
 
 // === Persistence Schema ===
 
+const DateTimeOrNullSchema = Schema.Union(Schema.DateTimeUtc, Schema.Null)
+
+const SessionStateSchema = Schema.Literal(
+  'initializing',
+  'active',
+  'paused',
+  'completing',
+  'completed',
+  'failed',
+  'cancelled',
+  'recovering'
+)
+
+const GenerationProgressSchema = Schema.Struct({
+  totalChunks: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+  completedChunks: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+  failedChunks: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+  pendingChunks: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+  currentStage: GenerationStageSchema,
+  overallProgress: Schema.Number.pipe(Schema.between(0, 1)),
+  estimatedTimeRemaining: Schema.Union(Schema.Number, Schema.Null),
+  chunksPerSecond: Schema.Number.pipe(Schema.nonNegative()),
+  stageTiming: Schema.Record(GenerationStageSchema, Schema.Number.pipe(Schema.nonNegative())),
+})
+
+const ChunkGenerationTaskSchema = Schema.Struct({
+  position: ChunkPositionSchema,
+  stage: GenerationStageSchema,
+  status: Schema.String,
+  startedAt: DateTimeOrNullSchema,
+  completedAt: DateTimeOrNullSchema,
+  retryCount: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+  result: Schema.Union(ChunkGenerationResultSchema, Schema.Null),
+  error: Schema.Union(Schema.String, Schema.Null),
+  dependencies: Schema.Array(ChunkPositionSchema),
+})
+
+const GenerationSessionMetadataSchema = Schema.Struct({
+  version: Schema.String,
+  environment: Schema.Literal('development', 'production', 'test'),
+  generator: Schema.String,
+  seed: Schema.String,
+  tags: Schema.Array(Schema.String),
+  priority: Schema.Literal('low', 'normal', 'high', 'critical'),
+  autoPause: Schema.Boolean,
+  autoRecover: Schema.Boolean,
+  maxRetries: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+  timeout: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+  checkpointInterval: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+})
+
+const HistoryEntrySchema = Schema.Struct({
+  timestamp: Schema.DateTimeUtc,
+  action: Schema.String,
+  details: JsonValueSchema,
+  actor: Schema.String,
+})
+
+const GenerationSessionSchema = Schema.Struct({
+  id: GenerationSessionIdSchema,
+  worldId: WorldIdSchema,
+  state: SessionStateSchema,
+  settings: GenerationSettingsSchema,
+  createdAt: Schema.DateTimeUtc,
+  startedAt: DateTimeOrNullSchema,
+  completedAt: DateTimeOrNullSchema,
+  lastActivityAt: Schema.DateTimeUtc,
+  progress: GenerationProgressSchema,
+  chunks: Schema.Array(ChunkGenerationTaskSchema),
+  metadata: GenerationSessionMetadataSchema,
+})
+
 const PersistenceSessionSchema = Schema.Struct({
-  sessions: Schema.Record(Schema.String, JsonValueSchema),
+  sessions: Schema.Record(Schema.String, GenerationSessionSchema),
   checkpoints: Schema.Record(Schema.String, Schema.Record(Schema.String, JsonValueSchema)),
-  history: Schema.Record(Schema.String, Schema.Array(JsonValueSchema)),
+  history: Schema.Record(Schema.String, Schema.Array(HistoryEntrySchema)),
   metadata: Schema.Struct({
     version: Schema.String,
     createdAt: Schema.String,
@@ -52,6 +129,20 @@ const PersistenceSessionSchema = Schema.Struct({
     checksum: Schema.String,
     sessionCount: Schema.Number,
   }),
+})
+
+// Metadata file schema for checksum validation
+const FileMetadataSchema = Schema.Struct({
+  checksum: Schema.String,
+})
+
+// Checkpoint data schema
+const CheckpointDataSchema = Schema.Struct({
+  checkpointId: Schema.String,
+  sessionId: Schema.String,
+  session: GenerationSessionSchema,
+  createdAt: Schema.String,
+  version: Schema.String,
 })
 
 type PersistenceSessionData = typeof PersistenceSessionSchema.Type
@@ -137,6 +228,37 @@ const makeGenerationSessionRepositoryPersistence = (
       lastActivityAt: null,
     })
 
+    const appendHistoryEntry = (
+      data: PersistenceSessionData,
+      sessionId: GenerationSessionId,
+      entry: SessionHistoryEntry
+    ): PersistenceSessionData => {
+      const existingEntries = data.history[sessionId] ?? []
+      const maxEntries = config.cleanup.maxHistoryEntries
+      const updatedEntries = [...existingEntries, entry]
+      const prunedEntries = updatedEntries.slice(-maxEntries) satisfies ReadonlyArray<SessionHistoryEntry>
+
+      return {
+        ...data,
+        history: {
+          ...data.history,
+          [sessionId]: prunedEntries,
+        },
+      }
+    }
+
+    const makeHistoryEntry = (
+      action: string,
+      details: JsonValue,
+      actor: string,
+      timestamp: Date
+    ): SessionHistoryEntry => ({
+      timestamp,
+      action,
+      details,
+      actor,
+    })
+
     // === File Operations ===
 
     const ensureDirectoryExists = (dirPath: string): Effect.Effect<void, AllRepositoryErrors> =>
@@ -192,17 +314,17 @@ const makeGenerationSessionRepositoryPersistence = (
                             onTrue: () =>
                               Effect.gen(function* () {
                                 const metadataContent = yield* fs.readFileString(metadataFile)
-                                // パターンB: Effect.try + JSON.parse
-                                const metadata = yield* Effect.try({
-                                  try: () => JSON.parse(metadataContent),
-                                  catch: (error) =>
+                                // Schema.parseJson with FileMetadataSchema
+                                const metadata = yield* Schema.parseJson(FileMetadataSchema)(metadataContent).pipe(
+                                  Effect.mapError((error) =>
                                     createDataIntegrityError(
                                       `Metadata JSON parse failed: ${String(error)}`,
                                       ['metadata'],
                                       metadataContent,
                                       error
-                                    ),
-                                })
+                                    )
+                                  )
+                                )
                                 const actualChecksum = calculateChecksum(content)
 
                                 yield* pipe(
@@ -230,15 +352,8 @@ const makeGenerationSessionRepositoryPersistence = (
 
                 const decompressed = config.enableCompression ? yield* decompressData(content) : content
 
-                // Pattern B: Effect.try + Effect.flatMap + Schema.decodeUnknown
-                const validated = yield* Effect.try({
-                  try: () => JSON.parse(decompressed),
-                  catch: (error) =>
-                    new Error(
-                      `Failed to parse session data JSON: ${error instanceof Error ? error.message : String(error)}`
-                    ),
-                }).pipe(
-                  Effect.flatMap(Schema.decodeUnknown(PersistenceSessionSchema)),
+                // Schema.parseJson統合: JSON.parse + Schema.decodeUnknown を一気に実行
+                const validated = yield* Schema.parseJson(PersistenceSessionSchema)(decompressed).pipe(
                   Effect.mapError((error) => ({
                     _tag: 'SchemaValidationError' as const,
                     message: `PersistenceSessionSchema validation failed: ${error}`,
@@ -261,7 +376,7 @@ const makeGenerationSessionRepositoryPersistence = (
       Effect.gen(function* () {
         yield* ensureDirectoryExists(sessionPath)
 
-        const content = JSON.stringify(data, null, 2)
+        const content = yield* Schema.encodeJson(PersistenceSessionSchema)(data, { pretty: true })
 
         // Compress if enabled
         const compressedContent = config.enableCompression ? yield* compressData(content) : content
@@ -274,12 +389,11 @@ const makeGenerationSessionRepositoryPersistence = (
                 const now = yield* DateTime.nowAsDate
                 const checksum = calculateChecksum(compressedContent)
                 const metadata = {
-                  ...data.metadata,
                   checksum,
-                  lastModified: now.toISOString(),
                 }
 
-                yield* fs.writeFileString(metadataFile, JSON.stringify(metadata, null, 2))
+                const metadataJson = yield* Schema.encodeJson(FileMetadataSchema)(metadata, { pretty: true })
+                yield* fs.writeFileString(metadataFile, metadataJson)
               }),
             onFalse: () => Effect.void,
           })
@@ -308,8 +422,10 @@ const makeGenerationSessionRepositoryPersistence = (
     const generateSessionId = (): Effect.Effect<GenerationSessionId> =>
       Effect.gen(function* () {
         const timestamp = yield* Clock.currentTimeMillis
-        const random = yield* Effect.sync(() => Math.random().toString(36).substr(2, 9))
-        return makeUnsafeGenerationSessionId(`session-${timestamp}-${random}`)
+        // Random Serviceでセキュアな乱数生成（再現性保証）
+        const randomValue = yield* Random.nextIntBetween(0, 2176782336) // 36^6
+        const randomStr = randomValue.toString(36).padStart(6, '0')
+        return makeUnsafeGenerationSessionId(`session-${timestamp}-${randomStr}`)
       })
 
     // === Session CRUD Operations ===
@@ -354,7 +470,14 @@ const makeGenerationSessionRepositoryPersistence = (
         const data = yield* loadSessionsFromFile()
 
         // Update sessions
-        const updatedData: PersistenceSessionData = {
+        const historyDetails: JsonValue = {
+          worldId: String(worldId),
+          priority: session.metadata.priority,
+          generator: session.metadata.generator,
+        }
+        const historyEntry = makeHistoryEntry('session_created', historyDetails, 'system', now)
+
+        const baseData: PersistenceSessionData = {
           ...data,
           sessions: {
             ...data.sessions,
@@ -367,7 +490,9 @@ const makeGenerationSessionRepositoryPersistence = (
           },
         }
 
-        yield* saveSessionsToFile(updatedData)
+        const dataWithHistory = appendHistoryEntry(baseData, sessionId, historyEntry)
+
+        yield* saveSessionsToFile(dataWithHistory)
 
         yield* Ref.update(statisticsRef, (stats) => ({
           ...stats,
@@ -517,7 +642,10 @@ const makeGenerationSessionRepositoryPersistence = (
     const findActiveSessions = (): Effect.Effect<ReadonlyArray<GenerationSession>, AllRepositoryErrors> =>
       findByQuery({ state: 'active' })
 
-    const updateSession = (session: GenerationSession): Effect.Effect<void, AllRepositoryErrors> =>
+    const updateSession = (
+      session: GenerationSession,
+      historyEntry?: SessionHistoryEntry
+    ): Effect.Effect<void, AllRepositoryErrors> =>
       Effect.gen(function* () {
         // Check if session exists
         const data = yield* loadSessionsFromFile()
@@ -539,7 +667,7 @@ const makeGenerationSessionRepositoryPersistence = (
         yield* Ref.update(sessionCacheRef, (cache) => new Map(cache).set(session.id, updatedSession))
 
         // Update file
-        const updatedData: PersistenceSessionData = {
+        const baseData: PersistenceSessionData = {
           ...data,
           sessions: {
             ...data.sessions,
@@ -551,7 +679,9 @@ const makeGenerationSessionRepositoryPersistence = (
           },
         }
 
-        yield* saveSessionsToFile(updatedData)
+        const dataWithHistory = historyEntry ? appendHistoryEntry(baseData, session.id, historyEntry) : baseData
+
+        yield* saveSessionsToFile(dataWithHistory)
       })
 
     const deleteSession = (sessionId: GenerationSessionId): Effect.Effect<void, AllRepositoryErrors> =>
@@ -650,7 +780,13 @@ const makeGenerationSessionRepositoryPersistence = (
             (state === 'completed' || state === 'failed') && !session.completedAt ? now : session.completedAt,
         }
 
-        yield* updateSession(updatedSession)
+        const historyDetails: JsonValue = {
+          from: session.state,
+          to: state,
+        }
+        const historyEntry = makeHistoryEntry('session_state_changed', historyDetails, 'system', now)
+
+        yield* updateSession(updatedSession, historyEntry)
       })
 
     const updateProgress = (
@@ -704,7 +840,7 @@ const makeGenerationSessionRepositoryPersistence = (
           version: '1.0.0',
         }
 
-        const content = JSON.stringify(checkpointData, null, 2)
+        const content = yield* Schema.encodeJson(CheckpointDataSchema)(checkpointData, { pretty: true })
         const compressedContent = config.enableCompression ? yield* compressData(content) : content
 
         yield* fs.writeFileString(checkpointFile, compressedContent)
@@ -735,24 +871,30 @@ const makeGenerationSessionRepositoryPersistence = (
         const content = yield* fs.readFileString(checkpointFile)
         const decompressed = config.enableCompression ? yield* decompressData(content) : content
 
-        // パターンB前半: Effect.try + JSON.parse（Schema検証は将来追加）
-        const checkpointData = yield* Effect.try({
-          try: () => JSON.parse(decompressed),
-          catch: (error) =>
+        // Schema.parseJson統合: JSON.parse + Schema検証を一気に実行
+        const checkpointData = yield* Schema.parseJson(CheckpointDataSchema)(decompressed).pipe(
+          Effect.mapError((error) =>
             createDataIntegrityError(
               `Checkpoint JSON parse failed: ${String(error)}`,
               ['checkpointData'],
               decompressed,
               error
-            ),
-        })
+            )
+          )
+        )
         const now = yield* DateTime.nowAsDate
         const restoredSession: GenerationSession = {
           ...checkpointData.session,
           lastActivityAt: now,
         }
 
-        yield* updateSession(restoredSession)
+        const historyDetails: JsonValue = {
+          checkpointId,
+          restoredAt: now.toISOString(),
+        }
+        const historyEntry = makeHistoryEntry('checkpoint_restored', historyDetails, 'system', now)
+
+        yield* updateSession(restoredSession, historyEntry)
       }).pipe(
         Effect.catchAll((error) =>
           Effect.fail(createPersistenceError(`Failed to restore from checkpoint: ${error}`, 'filesystem', error))
@@ -819,8 +961,7 @@ const makeGenerationSessionRepositoryPersistence = (
           return sum
         }, 0)
 
-        const averageChunksPerSecond =
-          totalActiveDuration > 0 ? (totalChunksGenerated * 1000) / totalActiveDuration : 0
+        const averageChunksPerSecond = totalActiveDuration > 0 ? (totalChunksGenerated * 1000) / totalActiveDuration : 0
 
         const recoveryAggregate = sessions.reduce(
           (acc, session) =>
@@ -890,13 +1031,28 @@ const makeGenerationSessionRepositoryPersistence = (
     const getPendingChunks = (sessionId: GenerationSessionId) => Effect.succeed([])
     const analyzeRecovery = (sessionId: GenerationSessionId): Effect.Effect<SessionRecoveryInfo, AllRepositoryErrors> =>
       Effect.succeed({
+        sessionId,
         canRecover: false,
-        failedChunks: [],
-        estimatedRecoveryTime: null,
-        recommendedStrategy: 'restart',
+        lastCheckpoint: null,
+        corruptedChunks: [],
+        recoverableChunks: [],
+        estimatedRecoveryTime: 0,
+        riskLevel: 'medium',
+        recommendations: [],
       } satisfies SessionRecoveryInfo)
-    const recoverSession = (sessionId: GenerationSessionId, _options?: Record<string, unknown>) => Effect.void
-    const getSessionHistory = (sessionId: GenerationSessionId) => Effect.succeed([])
+    const recoverSession = (
+      _sessionId: GenerationSessionId,
+      _options?: {
+        readonly strategy?: 'conservative' | 'aggressive'
+        readonly skipCorrupted?: boolean
+        readonly maxRetries?: number
+      }
+    ): Effect.Effect<void, AllRepositoryErrors> => Effect.void
+    const getSessionHistory = (sessionId: GenerationSessionId) =>
+      Effect.gen(function* () {
+        const data = yield* loadSessionsFromFile()
+        return (data.history[sessionId] ?? []) satisfies ReadonlyArray<SessionHistoryEntry>
+      })
     const archiveCompletedSessions = (olderThan: Date) => Effect.succeed(0)
     const cleanupOldCheckpoints = (sessionId: GenerationSessionId, keepCount?: number) => Effect.succeed(0)
     const findOrphanedSessions = () => Effect.succeed([])

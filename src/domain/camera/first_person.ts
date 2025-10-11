@@ -1,13 +1,12 @@
-import type { CameraConfig, CameraError, CameraState, Vector3 } from '@domain/camera/types'
-import { Vector3Schema } from '@domain/camera/types'
+import type { CameraConfig, CameraError, CameraSnapshot, CameraState } from '@domain/camera/types'
+import { CameraVector3Schema, createCameraError, DEFAULT_CAMERA_CONFIG, validateCameraConfig, validateCameraMode } from './index'
 import * as Schema from '@effect/schema/Schema'
-import { Effect, Layer, Match, Option, pipe, Ref } from 'effect'
-import * as THREE from 'three'
+import { Effect, Layer, Match, pipe, Ref } from 'effect'
 import type {
-  CameraService,
   CameraConfigInput,
   CameraDistanceInput,
   CameraModeInput,
+  CameraService,
   DeltaTimeInput,
   FOVInput,
   MouseDeltaInput,
@@ -15,13 +14,12 @@ import type {
   SensitivityInput,
   SmoothingInput,
 } from './service'
-import { createCameraError, DEFAULT_CAMERA_CONFIG, validateCameraConfig, validateCameraMode } from './index'
 
 /**
  * 一人称カメラの内部状態
  */
 interface FirstPersonState {
-  camera: THREE.PerspectiveCamera | null
+  initialized: boolean
   config: CameraConfig
   state: CameraState
   targetPosition: { x: number; y: number; z: number }
@@ -59,16 +57,15 @@ const lerp = (start: number, end: number, factor: number): number => {
 /**
  * カメラの存在を検証するヘルパー - 型安全性強化
  */
-const ensureCameraExists = (
-  state: FirstPersonState,
-  operation?: string
-): Effect.Effect<THREE.PerspectiveCamera, CameraError> =>
+const ensureInitialized = (state: FirstPersonState, operation: string): Effect.Effect<FirstPersonState, CameraError> =>
   pipe(
-    Option.fromNullable(state.camera),
-    Option.match({
-      onNone: () => Effect.fail(createCameraError.notInitialized(operation || 'unknown operation')),
-      onSome: (camera) => Effect.succeed(camera),
-    })
+    state.initialized,
+    Match.value,
+    Match.when(
+      false,
+      () => Effect.fail(createCameraError.notInitialized(operation))
+    ),
+    Match.orElse(() => Effect.succeed(state))
   )
 
 /**
@@ -83,41 +80,65 @@ const validateNumber = (value: number, parameterName: string): Effect.Effect<num
 /**
  * Vector3位置情報の検証
  */
-const validateVector3 = (position: Position3DInput, paramName: string = 'position'): Effect.Effect<Vector3, CameraError> => {
+const validateVector3 = (
+  position: Position3DInput,
+  paramName: string = 'position'
+): Effect.Effect<{ x: number; y: number; z: number }, CameraError> => {
   return pipe(
     position,
-    Schema.decodeUnknown(Vector3Schema),
+    Schema.decodeUnknown(CameraVector3Schema),
     Effect.mapError(() => createCameraError.invalidParameter(paramName, position, 'Vector3 with x, y, z coordinates'))
   )
 }
+
+const createQuaternion = (pitch: number, yaw: number) => {
+  const halfPitch = pitch / 2
+  const halfYaw = yaw / 2
+  const cosPitch = Math.cos(halfPitch)
+  const sinPitch = Math.sin(halfPitch)
+  const cosYaw = Math.cos(halfYaw)
+  const sinYaw = Math.sin(halfYaw)
+
+  return {
+    x: -sinPitch * sinYaw,
+    y: sinPitch * cosYaw,
+    z: cosPitch * sinYaw,
+    w: cosPitch * cosYaw,
+  }
+}
+
+const toSnapshot = (state: FirstPersonState): CameraSnapshot => ({
+  projection: {
+    fov: state.config.fov,
+    aspect: state.config.aspect,
+    near: state.config.near,
+    far: state.config.far,
+  },
+  transform: {
+    position: { ...state.state.position },
+    target: { ...state.state.target },
+    orientation: {
+      rotation: {
+        pitch: state.state.rotation.pitch,
+        yaw: state.state.rotation.yaw,
+        roll: 0,
+      },
+      quaternion: createQuaternion(state.state.rotation.pitch, state.state.rotation.yaw),
+    },
+  },
+})
 
 /**
  * FirstPersonCameraサービスの実装を作成
  */
 const createFirstPersonCameraService = (stateRef: Ref.Ref<FirstPersonState>): CameraService => ({
-  initialize: (config: CameraConfigInput): Effect.Effect<THREE.PerspectiveCamera, CameraError> =>
+  initialize: (config: CameraConfigInput): Effect.Effect<CameraSnapshot, CameraError> =>
     Effect.gen(function* () {
       // 設定の検証
       const validatedConfig = yield* validateCameraConfig(config)
 
-      const camera = yield* Effect.try({
-        try: () => {
-          const cam = new THREE.PerspectiveCamera(
-            validatedConfig.fov,
-            window.innerWidth / window.innerHeight,
-            validatedConfig.near,
-            validatedConfig.far
-          )
-          // 初期位置設定
-          cam.position.set(0, 1.7, 0) // プレイヤーの目の高さ
-          cam.rotation.order = 'YXZ' // ヨー→ピッチの順で回転
-          return cam
-        },
-        catch: (error) => createCameraError.initializationFailed('カメラの初期化に失敗しました', error),
-      })
-
       const initialState: FirstPersonState = {
-        camera,
+        initialized: true,
         config: validatedConfig,
         state: {
           position: { x: 0, y: 1.7, z: 0 },
@@ -129,7 +150,7 @@ const createFirstPersonCameraService = (stateRef: Ref.Ref<FirstPersonState>): Ca
       }
 
       yield* Ref.set(stateRef, initialState)
-      return camera
+      return toSnapshot(initialState)
     }),
 
   switchMode: (mode: CameraModeInput): Effect.Effect<void, CameraError, never> =>
@@ -140,25 +161,17 @@ const createFirstPersonCameraService = (stateRef: Ref.Ref<FirstPersonState>): Ca
       return yield* pipe(
         validatedMode,
         Match.value,
-        Match.when(
-          'first-person',
-          (): Effect.Effect<void, CameraError> =>
-            pipe(
-              state.config.mode,
-              Match.value,
-              Match.when('first-person', (): Effect.Effect<void, CameraError> => Effect.succeed(undefined)),
-              Match.orElse((): Effect.Effect<void, CameraError> => {
-                const newConfig = { ...state.config, mode: validatedMode }
-                const newState: FirstPersonState = {
-                  ...state,
-                  config: newConfig,
-                }
-                return Ref.set(stateRef, newState)
-              })
-            )
+        Match.when('first-person', () =>
+          pipe(
+            state.config.mode,
+            Match.value,
+            Match.when('first-person', () => Effect.succeed(undefined)),
+            Match.orElse(() => Ref.update(stateRef, (s) => ({ ...s, config: { ...s.config, mode: 'first-person' } })))
+          )
         ),
-        Match.when('third-person', (): Effect.Effect<void, CameraError> => Effect.succeed(undefined)), // 一人称カメラでは三人称モードを無視
-        Match.orElse((m): Effect.Effect<void, CameraError> => Effect.fail(createCameraError.invalidMode(String(m))))
+        Match.orElse((m): Effect.Effect<void, CameraError> =>
+          Effect.fail(createCameraError.invalidMode(String(m), ['first-person']))
+        )
       )
     }),
 
@@ -167,30 +180,29 @@ const createFirstPersonCameraService = (stateRef: Ref.Ref<FirstPersonState>): Ca
       const validDeltaTime = yield* validateNumber(deltaTime, 'deltaTime')
       const validTargetPosition = yield* validateVector3(targetPosition, 'targetPosition')
 
-      const state = yield* Ref.get(stateRef)
-      const camera = yield* ensureCameraExists(state, 'update')
+      const currentState = yield* Ref.get(stateRef)
+      yield* ensureInitialized(currentState, 'update')
 
       // スムージングファクターの計算
-      const smoothingFactor = 1.0 - Math.pow(1.0 - state.config.smoothing, validDeltaTime * 60)
+      const smoothingFactor = 1.0 - Math.pow(1.0 - currentState.config.smoothing, validDeltaTime * 60)
 
       // 位置のスムージング
-      state.smoothedPosition.x = lerp(state.smoothedPosition.x, validTargetPosition.x, smoothingFactor)
-      state.smoothedPosition.y = lerp(state.smoothedPosition.y, validTargetPosition.y + 1.7, smoothingFactor)
-      state.smoothedPosition.z = lerp(state.smoothedPosition.z, validTargetPosition.z, smoothingFactor)
+      const smoothedPosition = {
+        x: lerp(currentState.smoothedPosition.x, validTargetPosition.x, smoothingFactor),
+        y: lerp(currentState.smoothedPosition.y, validTargetPosition.y + 1.7, smoothingFactor),
+        z: lerp(currentState.smoothedPosition.z, validTargetPosition.z, smoothingFactor),
+      }
 
-      // カメラ位置の更新
-      camera.position.set(state.smoothedPosition.x, state.smoothedPosition.y, state.smoothedPosition.z)
-
-      // 状態の更新
       const newState: FirstPersonState = {
-        ...state,
+        ...currentState,
         targetPosition: validTargetPosition,
+        smoothedPosition,
         state: {
-          ...state.state,
+          ...currentState.state,
           position: {
-            x: state.smoothedPosition.x,
-            y: state.smoothedPosition.y,
-            z: state.smoothedPosition.z,
+            x: smoothedPosition.x,
+            y: smoothedPosition.y,
+            z: smoothedPosition.z,
           },
           target: {
             x: validTargetPosition.x,
@@ -209,7 +221,7 @@ const createFirstPersonCameraService = (stateRef: Ref.Ref<FirstPersonState>): Ca
       const validDeltaY = yield* validateNumber(deltaY, 'deltaY')
 
       const state = yield* Ref.get(stateRef)
-      const camera = yield* ensureCameraExists(state, 'rotate')
+      yield* ensureInitialized(state, 'rotate')
 
       // マウス感度を適用
       const sensitivityFactor = state.config.sensitivity * 0.002
@@ -219,11 +231,6 @@ const createFirstPersonCameraService = (stateRef: Ref.Ref<FirstPersonState>): Ca
       // 新しいヨーとピッチを計算
       const newYaw = normalizeYaw(state.state.rotation.yaw - rotationX)
       const newPitch = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, state.state.rotation.pitch - rotationY))
-
-      // カメラの回転を更新
-      camera.rotation.order = 'YXZ'
-      camera.rotation.y = newYaw
-      camera.rotation.x = newPitch
 
       // 状態の更新
       const newState: FirstPersonState = {
@@ -244,13 +251,10 @@ const createFirstPersonCameraService = (stateRef: Ref.Ref<FirstPersonState>): Ca
     Effect.gen(function* () {
       const validFov = yield* validateNumber(fov, 'fov')
       const state = yield* Ref.get(stateRef)
-      const camera = yield* ensureCameraExists(state, 'setFOV')
+      yield* ensureInitialized(state, 'setFOV')
 
       // FOVの範囲チェック
       const clampedFov = Math.max(30, Math.min(120, validFov))
-
-      camera.fov = clampedFov
-      camera.updateProjectionMatrix()
 
       const newState: FirstPersonState = {
         ...state,
@@ -284,8 +288,7 @@ const createFirstPersonCameraService = (stateRef: Ref.Ref<FirstPersonState>): Ca
 
   setThirdPersonDistance: (_distance: CameraDistanceInput): Effect.Effect<void, CameraError> =>
     Effect.gen(function* () {
-      const validDistance = yield* validateNumber(distance, 'distance')
-      // ファーストパーソンモードでは距離設定は無効
+      yield* validateNumber(_distance, 'distance')
       yield* Effect.succeed(undefined)
     }),
 
@@ -317,21 +320,16 @@ const createFirstPersonCameraService = (stateRef: Ref.Ref<FirstPersonState>): Ca
       return state.config
     }),
 
-  getCamera: (): Effect.Effect<THREE.PerspectiveCamera | null, never> =>
+  getCamera: (): Effect.Effect<CameraSnapshot | null, never> =>
     Effect.gen(function* () {
       const state = yield* Ref.get(stateRef)
-      return state.camera
+      return state.initialized ? toSnapshot(state) : null
     }),
 
   reset: (): Effect.Effect<void, CameraError> =>
     Effect.gen(function* () {
       const state = yield* Ref.get(stateRef)
-      const camera = yield* ensureCameraExists(state, 'reset')
-
-      // カメラを初期状態にリセット
-      camera.position.set(0, 1.7, 0)
-      camera.rotation.set(0, 0, 0)
-      camera.rotation.order = 'YXZ'
+      yield* ensureInitialized(state, 'reset')
 
       const newState: FirstPersonState = {
         ...state,
@@ -347,35 +345,30 @@ const createFirstPersonCameraService = (stateRef: Ref.Ref<FirstPersonState>): Ca
       yield* Ref.set(stateRef, newState)
     }),
 
-  updateAspectRatio: (width: number, height: number): Effect.Effect<void, CameraError> =>
+  updateAspectRatio: (aspect: number): Effect.Effect<void, CameraError> =>
     Effect.gen(function* () {
-      const validWidth = yield* validateNumber(width, 'width')
-      const validHeight = yield* validateNumber(height, 'height')
+      const validAspect = yield* validateNumber(aspect, 'aspect')
       const state = yield* Ref.get(stateRef)
-      const camera = yield* ensureCameraExists(state, 'updateAspectRatio')
-      camera.aspect = validWidth / validHeight
-      camera.updateProjectionMatrix()
+      yield* ensureInitialized(state, 'updateAspectRatio')
+
+      const newState: FirstPersonState = {
+        ...state,
+        config: {
+          ...state.config,
+          aspect: validAspect,
+        },
+      }
+
+      yield* Ref.set(stateRef, newState)
     }),
 
   dispose: (): Effect.Effect<void, never> =>
     Effect.gen(function* () {
       const state = yield* Ref.get(stateRef)
 
-      yield* pipe(
-        Option.fromNullable(state.camera),
-        Option.match({
-          onNone: () => Effect.succeed(undefined),
-          onSome: (camera) =>
-            Effect.sync(() => {
-              // Three.jsカメラのリソースをクリア
-              camera.clear()
-            }),
-        })
-      )
-
       // 状態をリセット
       const newState: FirstPersonState = {
-        camera: null,
+        initialized: false,
         config: DEFAULT_CAMERA_CONFIG,
         state: {
           position: { x: 0, y: 1.7, z: 0 },
@@ -397,7 +390,7 @@ export const FirstPersonCameraLive = Layer.effect(
   CameraService,
   Effect.gen(function* () {
     const stateRef = yield* Ref.make<FirstPersonState>({
-      camera: null,
+      initialized: false,
       config: DEFAULT_CAMERA_CONFIG,
       state: {
         position: { x: 0, y: 1.7, z: 0 },

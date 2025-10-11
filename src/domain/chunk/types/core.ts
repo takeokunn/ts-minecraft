@@ -1,7 +1,7 @@
+import type { JsonValue } from '@shared/schema/json'
+import { JsonValueSchema, toJsonValue, type JsonSerializable } from '@shared/schema/json'
 import type { Brand } from 'effect'
 import { Data, Effect, Schema } from 'effect'
-import { JsonValueSchema, toJsonValue } from '@/shared/schema/json'
-import type { JsonValue } from '@/shared/schema/json'
 import { DomainClock } from '../../shared/effect'
 import type { ChunkMetadata } from '../value_object/chunk_metadata'
 import type { ChunkPosition } from '../value_object/chunk_position'
@@ -382,7 +382,7 @@ export const ChunkOperations = {
     ChunkOperation.Serialize({ data, format, metadata }),
 } as const
 
-type JsonValueInput = JsonValue | Error | undefined | null
+type JsonValueInput = JsonSerializable | undefined
 
 /**
  * ChunkError ファクトリ関数

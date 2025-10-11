@@ -3,9 +3,9 @@
  * MetersPerSecond型のエラー定義
  */
 
-import * as Schema from 'effect/Schema'
+import { JsonValueSchema } from '@shared/schema/json'
 import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
-import { JsonValueSchema } from '@/shared/schema/json'
+import * as Schema from 'effect/Schema'
 
 /**
  * MetersPerSecond validation error
@@ -25,8 +25,5 @@ export const MetersPerSecondError = makeErrorFactory(MetersPerSecondErrorSchema)
 /**
  * Helper to create MetersPerSecondError
  */
-export const makeMetersPerSecondError = (
-  value: unknown,
-  reason: string,
-  context?: string
-): MetersPerSecondError => MetersPerSecondError.make({ value, reason, context })
+export const makeMetersPerSecondError = (value: unknown, reason: string, context?: string): MetersPerSecondError =>
+  MetersPerSecondError.make({ value, reason, context })

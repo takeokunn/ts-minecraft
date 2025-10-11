@@ -3,6 +3,7 @@
  * 4x4変換行列の型安全な不変操作を提供
  */
 
+import { ErrorCauseSchema } from '@shared/schema/error'
 import { Effect, Schema } from 'effect'
 import * as THREE from 'three'
 import { matrix4ElementsToTuple } from '../schemas/adapters'
@@ -10,7 +11,6 @@ import type { Quaternion } from './quaternion'
 import * as Quat from './quaternion'
 import type { Vector3 } from './vector3'
 import * as V3 from './vector3'
-import { ErrorCauseSchema } from '@shared/schema/error'
 
 /**
  * Matrix4 Schema定義（Brand型）
@@ -52,6 +52,10 @@ export type Matrix4Error = Schema.Schema.Type<typeof Matrix4Error>
 
 /**
  * Matrix4コンストラクタ - 要素配列から構築
+ *
+ * @internal
+ * Infrastructure層内部専用。値の検証を行わないため、信頼できる値のみに使用すること。
+ * Three.jsとの連携において、構造的に同一であることが保証されている値の変換に使用。
  */
 export const make = (
   elements: readonly [
@@ -72,7 +76,7 @@ export const make = (
     number,
     number,
   ]
-): Matrix4 => Schema.decodeUnknownSync(Matrix4Schema)({ elements })
+): Matrix4 => ({ elements }) as Matrix4
 
 /**
  * 単位行列

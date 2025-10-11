@@ -1,4 +1,5 @@
-import { Array, Context, Effect } from 'effect'
+import { type JsonRecord } from '@shared/schema/json'
+import { Array, Brand, Context, Data, Effect } from 'effect'
 
 /**
  * Camera System Orchestrator Service Interface
@@ -63,7 +64,7 @@ export interface CameraSystemOrchestratorService {
 /**
  * カメラシステム設定
  */
-export type CameraSystemConfig = import('effect').Brand.Brand<
+export type CameraSystemConfig = Brand.Brand<
   {
     readonly maxConcurrentCameras: number
     readonly defaultPerformanceProfile: string
@@ -76,7 +77,7 @@ export type CameraSystemConfig = import('effect').Brand.Brand<
 /**
  * ワールド状態
  */
-export type WorldState = import('effect').Brand.Brand<
+export type WorldState = Brand.Brand<
   {
     readonly timeOfDay: number
     readonly weather: string
@@ -89,7 +90,7 @@ export type WorldState = import('effect').Brand.Brand<
 /**
  * システム更新結果
  */
-export type CameraSystemTickResult = import('effect').Brand.Brand<
+export type CameraSystemTickResult = Brand.Brand<
   {
     readonly processedCameras: number
     readonly activeAnimations: number
@@ -102,17 +103,17 @@ export type CameraSystemTickResult = import('effect').Brand.Brand<
 /**
  * グローバルカメライベント
  */
-export type GlobalCameraEvent = import('effect').Data.TaggedEnum<{
+export type GlobalCameraEvent = Data.TaggedEnum<{
   SystemShutdown: {}
   PerformanceWarning: { readonly metric: string; readonly value: number }
   ResourceExhaustion: { readonly resource: string }
-  ConfigurationChanged: { readonly changes: Record<string, unknown> }
+  ConfigurationChanged: { readonly changes: JsonRecord }
 }>
 
 /**
  * システム統計情報
  */
-export type CameraSystemStatistics = import('effect').Brand.Brand<
+export type CameraSystemStatistics = Brand.Brand<
   {
     readonly totalCameras: number
     readonly activeCameras: number
@@ -126,7 +127,7 @@ export type CameraSystemStatistics = import('effect').Brand.Brand<
 /**
  * パフォーマンス目標
  */
-export type PerformanceTargets = import('effect').Brand.Brand<
+export type PerformanceTargets = Brand.Brand<
   {
     readonly targetFPS: number
     readonly maxMemoryMB: number
@@ -138,7 +139,7 @@ export type PerformanceTargets = import('effect').Brand.Brand<
 /**
  * パフォーマンス最適化結果
  */
-export type PerformanceOptimizationResult = import('effect').Brand.Brand<
+export type PerformanceOptimizationResult = Brand.Brand<
   {
     readonly optimizationsApplied: Array.ReadonlyArray<string>
     readonly performanceGain: number
@@ -149,7 +150,7 @@ export type PerformanceOptimizationResult = import('effect').Brand.Brand<
 /**
  * カメラシステムエラー
  */
-export type CameraSystemError = import('effect').Data.TaggedEnum<{
+export type CameraSystemError = Data.TaggedEnum<{
   InitializationFailed: { readonly reason: string }
   SystemBusy: { readonly activeOperations: number }
   ResourceUnavailable: { readonly resource: string }

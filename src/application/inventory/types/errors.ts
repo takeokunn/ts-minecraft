@@ -5,9 +5,10 @@
  * DDD + Effect-TSエラーハンドリングパターン
  */
 
-import { Clock, DateTime, Effect, Match, pipe, Schema } from 'effect'
-import { ErrorCauseSchema, type ErrorCause, ErrorDetailSchema, type ErrorDetail } from '@shared/schema/error'
+import { ErrorCauseSchema, ErrorDetailSchema, type ErrorCause, type ErrorDetail } from '@shared/schema/error'
+import type { JsonRecord } from '@shared/schema/json'
 import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
+import { Clock, DateTime, Effect, Match, pipe, Schema } from 'effect'
 
 /**
  * アプリケーションサービスエラーの基底型
@@ -244,7 +245,7 @@ export const TransactionDeadlockError = (
 export const InvalidOperationError = (
   operation: string,
   reason: string,
-  context?: unknown
+  context?: JsonRecord
 ): Effect.Effect<InventoryApplicationError> =>
   Effect.gen(function* () {
     const timestamp = yield* currentTimestamp
@@ -299,7 +300,7 @@ export const ResourceBusyError = (
 export const ValidationFailedError = (
   validationRules: ReadonlyArray<string>,
   violatedRules: ReadonlyArray<string>,
-  context?: unknown
+  context?: JsonRecord
 ): Effect.Effect<InventoryApplicationError> =>
   Effect.gen(function* () {
     const timestamp = yield* currentTimestamp

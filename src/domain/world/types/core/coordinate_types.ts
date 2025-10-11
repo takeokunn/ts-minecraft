@@ -5,6 +5,7 @@
 
 import { Brand, Schema } from 'effect'
 import { WORLD_CONSTANTS } from '../constants'
+import type { ChunkCoordinate, ChunkPosition } from './index'
 
 // === 基本座標型の詳細定義 ===
 
@@ -312,22 +313,22 @@ export const Rotation3DSchema = Schema.Struct({
 /** 座標変換関数の型定義 */
 export interface CoordinateTransforms {
   // ブロック ⟷ チャンク変換
-  readonly blockToChunk: (coord: BlockCoordinate) => import('./index').ChunkCoordinate
-  readonly chunkToBlock: (coord: import('./index').ChunkCoordinate) => BlockCoordinate
+  readonly blockToChunk: (coord: BlockCoordinate) => ChunkCoordinate
+  readonly chunkToBlock: (coord: ChunkCoordinate) => BlockCoordinate
 
   // ブロック ⟷ ピクセル変換
   readonly blockToPixel: (coord: BlockCoordinate) => PixelCoordinate
   readonly pixelToBlock: (coord: PixelCoordinate) => BlockCoordinate
 
   // チャンク ⟷ リージョン変換
-  readonly chunkToRegion: (coord: import('./index').ChunkCoordinate) => RegionCoordinate
-  readonly regionToChunk: (coord: RegionCoordinate) => import('./index').ChunkCoordinate
+  readonly chunkToRegion: (coord: ChunkCoordinate) => RegionCoordinate
+  readonly regionToChunk: (coord: RegionCoordinate) => ChunkCoordinate
 
   // ローカル ⟷ ワールド変換
-  readonly localToWorld: (local: ChunkLocalPosition, chunkPos: import('./index').ChunkPosition) => BlockPosition
+  readonly localToWorld: (local: ChunkLocalPosition, chunkPos: ChunkPosition) => BlockPosition
   readonly worldToLocal: (world: BlockPosition) => {
     local: ChunkLocalPosition
-    chunkPos: import('./index').ChunkPosition
+    chunkPos: ChunkPosition
   }
 
   // 角度変換

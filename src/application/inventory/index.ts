@@ -9,8 +9,12 @@ export {
   sortInventoryCommand,
 } from './api-service'
 
-export type { InventoryAPIService, InventoryApiError, InventorySnapshot } from './api-service'
-export type InventoryAPIServiceDefinition = import('./api-service').InventoryAPIService
+export type {
+  InventoryAPIService,
+  InventoryAPIService as InventoryAPIServiceDefinition,
+  InventoryApiError,
+  InventorySnapshot,
+} from './api-service'
 
 // FR-1: Application Services
 export * from './container_manager'

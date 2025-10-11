@@ -1,3 +1,4 @@
+import { ViewModeTransitionConfigSchema } from '@application/camera/camera_mode_manager'
 import type {
   AnimationState,
   CameraId,
@@ -16,7 +17,6 @@ import {
   Position3DSchema,
 } from '@domain/camera/types'
 import { ViewModeSchema } from '@domain/camera/value_object'
-import { ViewModeTransitionConfigSchema } from '@application/camera/camera_mode_manager'
 import { Array, Brand, Clock, Data, Effect, Option, Schema } from 'effect'
 
 // ========================================

@@ -7,6 +7,7 @@
  * Phase 2-B Track 7: Effect.if完全撲滅 - ADTパターン適用済み
  */
 
+import type { JsonValue } from '@shared/schema/json'
 import { Effect, HashSet, Match, Option, ReadonlyArray, pipe } from 'effect'
 import type { Inventory, ItemId, ItemStack } from '../../types'
 import type { ValidationOptions, ValidationViolation } from './index'
@@ -25,8 +26,8 @@ const createValidationViolation = (params: {
   readonly severity: ValidationViolation['severity']
   readonly description: string
   readonly affectedSlots: ReadonlyArray<number>
-  readonly detectedValue: unknown
-  readonly expectedValue?: unknown
+  readonly detectedValue: JsonValue
+  readonly expectedValue?: JsonValue
   readonly canAutoCorrect: boolean
 }): ValidationViolation => params
 

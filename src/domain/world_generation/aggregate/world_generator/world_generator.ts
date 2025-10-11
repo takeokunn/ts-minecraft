@@ -203,7 +203,14 @@ const generateChunkData = (
     }
 
     return chunkData
-  })
+  }).pipe(
+    Effect.annotateLogs({
+      chunkX: String(command.coordinate.x),
+      chunkZ: String(command.coordinate.z),
+      worldGeneratorId: context.worldId,
+      operation: 'generate_chunk_data',
+    })
+  )
 
 // ================================
 // Context.GenericTag (依存性注入)

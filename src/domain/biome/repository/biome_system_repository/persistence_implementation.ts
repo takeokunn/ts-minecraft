@@ -23,7 +23,7 @@ import {
 } from '@domain/world/value_object/generation_parameters/biome_config'
 import * as Schema from '@effect/schema/Schema'
 import { JsonValueSchema } from '@shared/schema/json'
-import { Clock, DateTime, Effect, Layer, Option, pipe, ReadonlyArray, Ref } from 'effect'
+import { DateTime, Effect, Layer, Option, pipe, ReadonlyArray, Ref } from 'effect'
 import * as fs from 'fs'
 import * as path from 'path'
 import * as zlib from 'zlib'
@@ -120,14 +120,13 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
     })
 
     // Initialize storage directories
-    yield* Effect.promise(() => fs.promises.mkdir(persistenceConfig.dataPath, { recursive: true }))
-      .pipe(
-        Effect.annotateLogs('biome.persistence.operation', 'mkdir'),
-        Effect.annotateLogs('biome.persistence.path', persistenceConfig.dataPath),
-        Effect.catchAll((error) =>
-          Effect.fail(createStorageError(`Failed to create data directory: ${error}`, 'initialize', error))
-        )
-      )
+    yield* Effect.tryPromise({
+      try: () => fs.promises.mkdir(persistenceConfig.dataPath, { recursive: true }),
+      catch: (error) => createPersistenceError(`Failed to create data directory: ${error}`, 'filesystem', error),
+    }).pipe(
+      Effect.annotateLogs('biome.persistence.operation', 'mkdir'),
+      Effect.annotateLogs('biome.persistence.path', persistenceConfig.dataPath)
+    )
 
     // === File Operations ===
 
@@ -143,7 +142,10 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
     const writeFile = (filePath: string, data: unknown): Effect.Effect<void, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const directory = path.dirname(filePath)
-        yield* Effect.promise(() => fs.promises.mkdir(directory, { recursive: true })).pipe(
+        yield* Effect.tryPromise({
+          try: () => fs.promises.mkdir(directory, { recursive: true }),
+          catch: (error) => createPersistenceError(`Failed to create directory: ${error}`, 'filesystem', error),
+        }).pipe(
           Effect.annotateLogs('biome.persistence.operation', 'mkdir'),
           Effect.annotateLogs('biome.persistence.path', directory)
         )
@@ -153,10 +155,10 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
         const content = yield* Effect.if(persistenceConfig.compressionEnabled, {
           onTrue: () =>
             Effect.gen(function* () {
-              const compressed = yield* Effect.async<Buffer, AllRepositoryErrors>((resume) => {
+              const compressed = yield* Effect.async<Buffer, CompressionError>((resume) => {
                 zlib.gzip(jsonContent, (err, result) => {
                   if (err) {
-                    resume(Effect.fail(createStorageError(`Compression failed: ${err}`, 'writeFile', err)))
+                    resume(Effect.fail(createCompressionError('gzip', 'compress', `Compression failed: ${err}`)))
                   } else {
                     resume(Effect.succeed(result))
                   }
@@ -170,14 +172,22 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
           onFalse: () => Effect.succeed(jsonContent),
         })
 
-        yield* Effect.promise(() => fs.promises.writeFile(filePath, content, 'utf8')).pipe(
+        yield* Effect.tryPromise({
+          try: () => fs.promises.writeFile(filePath, content, 'utf8'),
+          catch: (error) => createPersistenceError(`Failed to write file: ${error}`, 'filesystem', error),
+        }).pipe(
           Effect.annotateLogs('biome.persistence.operation', 'writeFile'),
           Effect.annotateLogs('biome.persistence.path', filePath)
         )
       }).pipe(
-        Effect.catchAll((error) =>
-          Effect.fail(createStorageError(`Failed to write file ${filePath}: ${error}`, 'writeFile', error))
-        )
+        Effect.catchTags({
+          PersistenceError: (error) =>
+            Effect.fail(
+              createPersistenceError(`Failed to write file ${filePath}: ${error.message}`, 'filesystem', error)
+            ),
+          CompressionError: (error) =>
+            Effect.fail(createCompressionError('gzip', 'compress', `Compression error for ${filePath}: ${error.message}`)),
+        })
       )
 
     const readFile = <T>(
@@ -198,18 +208,21 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
         return yield* Effect.if(exists, {
           onTrue: () =>
             Effect.gen(function* () {
-              const rawContent = yield* Effect.promise(() => fs.promises.readFile(filePath, 'utf8')).pipe(
+              const rawContent = yield* Effect.tryPromise({
+                try: () => fs.promises.readFile(filePath, 'utf8'),
+                catch: (error) => createPersistenceError(`Failed to read file: ${error}`, 'filesystem', error),
+              }).pipe(
                 Effect.annotateLogs('biome.persistence.operation', 'readFile'),
                 Effect.annotateLogs('biome.persistence.path', filePath)
               )
 
               const content = yield* Effect.if(persistenceConfig.compressionEnabled, {
                 onTrue: () =>
-                  Effect.async<string, AllRepositoryErrors>((resume) => {
+                  Effect.async<string, CompressionError>((resume) => {
                     const buffer = Buffer.from(rawContent, 'base64')
                     zlib.gunzip(buffer, (err, result) => {
                       if (err) {
-                        resume(Effect.fail(createStorageError(`Decompression failed: ${err}`, 'readFile', err)))
+                        resume(Effect.fail(createCompressionError('gzip', 'decompress', `Decompression failed: ${err}`)))
                       } else {
                         resume(Effect.succeed(result.toString('utf8')))
                       }
@@ -225,14 +238,14 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
               const decoded = yield* Effect.try({
                 try: () => JSON.parse(content),
                 catch: (error) =>
-                  createDataIntegrityError(`JSON parse failed for ${filePath}: ${String(error)}`, 'readFile', error),
+                  createDataIntegrityError(`JSON parse failed for ${filePath}: ${String(error)}`, ['jsonContent']),
               }).pipe(
                 Effect.flatMap(Schema.decodeUnknown(schema)),
-                Effect.catchAll((error) =>
-                  Effect.fail(
-                    createDataIntegrityError(`Schema validation failed for ${filePath}: ${error}`, 'readFile', error)
-                  )
-                )
+                Effect.catchTags({
+                  ParseError: (error) =>
+                    Effect.fail(createDataIntegrityError(`Schema validation failed for ${filePath}`, ['schema'], error.message)),
+                  DataIntegrityError: (error) => Effect.fail(error),
+                })
               )
 
               return Option.some(decoded)
@@ -240,9 +253,13 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
           onFalse: () => Effect.succeed(Option.none<T>()),
         })
       }).pipe(
-        Effect.catchAll((error) =>
-          Effect.fail(createStorageError(`Failed to read file ${filePath}: ${error}`, 'readFile', error))
-        )
+        Effect.catchTags({
+          PersistenceError: (error) =>
+            Effect.fail(createPersistenceError(`Failed to read file ${filePath}: ${error.message}`, 'filesystem', error)),
+          CompressionError: (error) =>
+            Effect.fail(createCompressionError('gzip', 'decompress', `Decompression error for ${filePath}: ${error.message}`)),
+          DataIntegrityError: (error) => Effect.fail(error),
+        })
       )
 
     // === Load data from storage ===
@@ -260,9 +277,10 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
 
         yield* Effect.when(exists, () =>
           Effect.gen(function* () {
-            const files = yield* Effect.promise(() => fs.promises.readdir(biomesDir)).pipe(
-              Effect.catchAll(() => Effect.succeed([]))
-            )
+            const files = yield* Effect.tryPromise({
+              try: () => fs.promises.readdir(biomesDir),
+              catch: () => createPersistenceError('Failed to read directory', 'filesystem'),
+            }).pipe(Effect.catchTag('PersistenceError', () => Effect.succeed([])))
 
             const jsonFiles = files.filter((file) => file.endsWith('.json'))
 

@@ -1,6 +1,6 @@
-import { Clock, Context, Effect, Layer, Match, Option, pipe, Ref, Schema } from 'effect'
 import { ErrorCauseSchema } from '@shared/schema/error'
 import { JsonValueSchema } from '@shared/schema/json'
+import { Clock, Context, Effect, Layer, Match, Option, pipe, Ref, Schema } from 'effect'
 
 /**
  * Adaptive Quality Service
@@ -249,7 +249,7 @@ const makeAdaptiveQualityService = Effect.gen(function* () {
           yield* Ref.set(isAdapting, true)
 
           // 適応ループを開始
-          yield* Effect.fork(adaptationLoop())
+          yield* Effect.forkScoped(adaptationLoop())
 
           yield* Effect.logInfo('適応的品質調整開始')
         })
@@ -542,8 +542,8 @@ const makeAdaptiveQualityService = Effect.gen(function* () {
       const now = yield* Clock.currentTimeMillis
       const changes: Array<{
         setting: string
-        fromValue: unknown
-        toValue: unknown
+        fromValue: number
+        toValue: number
         impact: 'major' | 'moderate' | 'minor'
       }> = []
 
@@ -719,7 +719,7 @@ export const AdaptiveQualityService = Context.GenericTag<AdaptiveQualityService>
 
 // === Layer ===
 
-export const AdaptiveQualityServiceLive = Layer.effect(AdaptiveQualityService, makeAdaptiveQualityService)
+export const AdaptiveQualityServiceLive = Layer.scoped(AdaptiveQualityService, makeAdaptiveQualityService)
 
 // === Default Configurations ===
 

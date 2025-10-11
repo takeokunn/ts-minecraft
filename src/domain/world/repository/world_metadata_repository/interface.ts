@@ -14,7 +14,8 @@ import type {
   WorldId,
   WorldSeed,
 } from '@domain/world/types'
-import { Context, Effect, Option, ReadonlyArray } from 'effect'
+import type { JsonValue } from '@shared/schema/json'
+import { Context, Effect, Option, ReadonlyArray, Schema } from 'effect'
 
 // === Metadata Core Types ===
 
@@ -33,7 +34,7 @@ export interface WorldMetadata {
   readonly lastModified: Date
   readonly lastAccessed: Date
   readonly tags: ReadonlyArray<string>
-  readonly properties: Record<string, unknown>
+  readonly properties: Record<string, JsonValue>
   readonly settings: WorldSettings
   readonly statistics: WorldStatistics
   readonly checksum: string
@@ -124,8 +125,8 @@ export interface MetadataVersion {
 export interface MetadataChange {
   readonly type: 'create' | 'update' | 'delete'
   readonly path: string
-  readonly oldValue?: unknown
-  readonly newValue?: unknown
+  readonly oldValue?: JsonValue
+  readonly newValue?: JsonValue
   readonly timestamp: Date
   readonly reason?: string
 }
@@ -650,6 +651,58 @@ export interface WorldMetadataRepositoryConfig {
   }
 }
 
+export const WorldMetadataRepositoryConfigSchema = Schema.Struct({
+  storage: Schema.Struct({
+    type: Schema.Literal('memory', 'indexeddb', 'filesystem'),
+    location: Schema.optional(Schema.String),
+    maxWorlds: Schema.optional(Schema.Number),
+    enableEncryption: Schema.optional(Schema.Boolean),
+  }),
+  compression: Schema.Struct({
+    algorithm: Schema.Literal('gzip', 'deflate', 'brotli', 'lz4'),
+    level: Schema.Number,
+    chunkSize: Schema.Number,
+    enableDictionary: Schema.Boolean,
+    enableStreaming: Schema.Boolean,
+    enableDeduplication: Schema.Boolean,
+  }),
+  versioning: Schema.Struct({
+    enabled: Schema.Boolean,
+    maxVersionsPerWorld: Schema.Number,
+    automaticVersioning: Schema.Boolean,
+    versioningStrategy: Schema.Literal('time-based', 'change-based', 'size-based'),
+  }),
+  backup: Schema.Struct({
+    enabled: Schema.Boolean,
+    retentionDays: Schema.Number,
+    compressionEnabled: Schema.Boolean,
+    encryptionEnabled: Schema.Boolean,
+    incrementalBackup: Schema.Boolean,
+    scheduleInterval: Schema.Number,
+    maxBackupSize: Schema.Number,
+    excludePatterns: Schema.Array(Schema.String),
+  }),
+  indexing: Schema.Struct({
+    enabled: Schema.Boolean,
+    indexTypes: Schema.Array(Schema.Literal('name', 'tags', 'created', 'modified', 'size')),
+    rebuildInterval: Schema.Number,
+    optimizationInterval: Schema.Number,
+  }),
+  cache: Schema.Struct({
+    enabled: Schema.Boolean,
+    maxSize: Schema.Number,
+    ttlSeconds: Schema.Number,
+    enableStatisticsCache: Schema.Boolean,
+    enableSettingsCache: Schema.Boolean,
+  }),
+  performance: Schema.Struct({
+    enableProfiling: Schema.Boolean,
+    enableMetrics: Schema.Boolean,
+    batchSize: Schema.Number,
+    concurrencyLimit: Schema.Number,
+  }),
+})
+
 // === Default Configuration ===
 
 export const defaultWorldMetadataRepositoryConfig: WorldMetadataRepositoryConfig = {
@@ -702,6 +755,8 @@ export const defaultWorldMetadataRepositoryConfig: WorldMetadataRepositoryConfig
     concurrencyLimit: 10,
   },
 }
+
+export { WorldMetadataRepositoryConfigSchema }
 
 // === Utility Functions ===
 

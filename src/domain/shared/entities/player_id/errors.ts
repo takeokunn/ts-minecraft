@@ -1,8 +1,8 @@
-import { Schema } from 'effect'
 import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
+import { Schema } from 'effect'
 
-import { ErrorCauseSchema } from '@/shared/schema/error'
-import { JsonValueSchema } from '@/shared/schema/json'
+import { ErrorCauseSchema } from '@shared/schema/error'
+import { JsonValueSchema } from '@shared/schema/json'
 
 /**
  * PlayerIdエラー

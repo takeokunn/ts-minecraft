@@ -1,9 +1,9 @@
+import { now as timestampNow, type Timestamp } from '@domain/shared/value_object/units/timestamp'
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
-import { Effect, Layer, Option, Ref, Schema, pipe } from 'effect'
 import type { JsonValue } from '@shared/schema/json'
 import { JsonValueSchema } from '@shared/schema/json'
+import { Effect, Layer, Option, Ref, Schema, pipe } from 'effect'
 import * as ReadonlyArray from 'effect/Array'
-import { now as timestampNow, type Timestamp } from '@domain/shared/value_object/units/timestamp'
 import {
   Inventory,
   InventoryService,
@@ -149,13 +149,9 @@ export const InventoryServiceLive = Layer.effect(
       pipe(
         ReadonlyArray.makeBy(SLOT_COUNT, (i) => i),
         ReadonlyArray.forEach((index) => {
-          pipe(
-            Effect.when(
-              () => remaining > 0,
-              () => Effect.sync(() => tryStack(index))
-            ),
-            Effect.runSync
-          )
+          if (remaining > 0) {
+            tryStack(index)
+          }
         })
       )
 
@@ -163,24 +159,17 @@ export const InventoryServiceLive = Layer.effect(
       pipe(
         ReadonlyArray.makeBy(SLOT_COUNT, (i) => i),
         ReadonlyArray.forEach((index) => {
-          pipe(
-            Effect.when(
-              () => remaining > 0 && slots[index] === null,
-              () =>
-                Effect.sync(() => {
-                  const toPlace = definition.stackable ? Math.min(definition.maxStackSize, remaining) : 1
-                  slots[index] = {
-                    itemId: item.itemId,
-                    count: toPlace,
-                    metadata: item.metadata ? { ...item.metadata } : undefined,
-                  }
-                  remaining -= toPlace
-                  added += toPlace
-                  touched.add(index)
-                })
-            ),
-            Effect.runSync
-          )
+          if (remaining > 0 && slots[index] === null) {
+            const toPlace = definition.stackable ? Math.min(definition.maxStackSize, remaining) : 1
+            slots[index] = {
+              itemId: item.itemId,
+              count: toPlace,
+              metadata: item.metadata ? { ...item.metadata } : undefined,
+            }
+            remaining -= toPlace
+            added += toPlace
+            touched.add(index)
+          }
         })
       )
 
@@ -206,10 +195,14 @@ export const InventoryServiceLive = Layer.effect(
                 affectedSlots: Array.from(touched.values()).sort((a, b) => a - b),
               }
 
-      const snapshot = updateInventory(original, (draft) => ({
-        ...draft,
-        slots,
-      }), timestamp)
+      const snapshot = updateInventory(
+        original,
+        (draft) => ({
+          ...draft,
+          slots,
+        }),
+        timestamp
+      )
 
       return { snapshot, result }
     }
@@ -273,14 +266,18 @@ export const InventoryServiceLive = Layer.effect(
           const index = yield* ensureSlotIndex(slotIndex)
           const inventory = yield* getOrCreateInventory(playerId)
           const timestamp = yield* timestampNow()
-          const updated = updateInventory(inventory, (draft) => {
-            const nextSlots = [...draft.slots]
-            nextSlots[index] = item ? cloneItem(item) : null
-            return {
-              ...draft,
-              slots: nextSlots,
-            }
-          }, timestamp)
+          const updated = updateInventory(
+            inventory,
+            (draft) => {
+              const nextSlots = [...draft.slots]
+              nextSlots[index] = item ? cloneItem(item) : null
+              return {
+                ...draft,
+                slots: nextSlots,
+              }
+            },
+            timestamp
+          )
           yield* saveInventory(updated)
         }),
 
@@ -322,14 +319,18 @@ export const InventoryServiceLive = Layer.effect(
                       )
                   )
                   const timestamp = yield* timestampNow()
-                  const updated = updateInventory(inventory, (draft) => {
-                    const nextSlots = [...draft.slots]
-                    nextSlots[index] = quantity === curr.count ? null : { ...curr, count: curr.count - quantity }
-                    return {
-                      ...draft,
-                      slots: nextSlots,
-                    }
-                  }, timestamp)
+                  const updated = updateInventory(
+                    inventory,
+                    (draft) => {
+                      const nextSlots = [...draft.slots]
+                      nextSlots[index] = quantity === curr.count ? null : { ...curr, count: curr.count - quantity }
+                      return {
+                        ...draft,
+                        slots: nextSlots,
+                      }
+                    },
+                    timestamp
+                  )
                   yield* saveInventory(updated)
                   return {
                     itemId: curr.itemId,
@@ -379,55 +380,51 @@ export const InventoryServiceLive = Layer.effect(
                       )
                   )
                   const timestamp = yield* timestampNow()
-                  const updated = updateInventory(inventory, (draft) => {
-                    const nextSlots = [...draft.slots]
-                    const remaining = src.count - transferAmount
-                    const movedItem: ItemStack = {
-                      itemId: src.itemId,
-                      count: transferAmount,
-                      metadata: src.metadata ? { ...src.metadata } : undefined,
-                    }
+                  const updated = updateInventory(
+                    inventory,
+                    (draft) => {
+                      const nextSlots = [...draft.slots]
+                      const remaining = src.count - transferAmount
+                      const movedItem: ItemStack = {
+                        itemId: src.itemId,
+                        count: transferAmount,
+                        metadata: src.metadata ? { ...src.metadata } : undefined,
+                      }
 
-                    pipe(
-                      Option.fromNullable(destination),
-                      Option.match({
-                        onNone: () => {
-                          nextSlots[toIndex] = movedItem
-                          nextSlots[fromIndex] = remaining > 0 ? { ...src, count: remaining } : null
-                        },
-                        onSome: (dest) => {
-                          pipe(
-                            Effect.if(sameStack(dest, src) && definition.stackable, {
-                              onTrue: () =>
-                                Effect.sync(() => {
-                                  const total = dest.count + transferAmount
-                                  const toPlace = Math.min(definition.maxStackSize, total)
-                                  const remainder = total - toPlace
-                                  nextSlots[toIndex] = { ...dest, count: toPlace }
-                                  nextSlots[fromIndex] =
-                                    remainder > 0
-                                      ? { ...src, count: remaining + remainder }
-                                      : remaining > 0
-                                        ? { ...src, count: remaining }
-                                        : null
-                                }),
-                              onFalse: () =>
-                                Effect.sync(() => {
-                                  nextSlots[toIndex] = movedItem
-                                  nextSlots[fromIndex] = dest
-                                }),
-                            }),
-                            Effect.runSync
-                          )
-                        },
-                      })
-                    )
+                      pipe(
+                        Option.fromNullable(destination),
+                        Option.match({
+                          onNone: () => {
+                            nextSlots[toIndex] = movedItem
+                            nextSlots[fromIndex] = remaining > 0 ? { ...src, count: remaining } : null
+                          },
+                          onSome: (dest) => {
+                            if (sameStack(dest, src) && definition.stackable) {
+                              const total = dest.count + transferAmount
+                              const toPlace = Math.min(definition.maxStackSize, total)
+                              const remainder = total - toPlace
+                              nextSlots[toIndex] = { ...dest, count: toPlace }
+                              nextSlots[fromIndex] =
+                                remainder > 0
+                                  ? { ...src, count: remaining + remainder }
+                                  : remaining > 0
+                                    ? { ...src, count: remaining }
+                                    : null
+                            } else {
+                              nextSlots[toIndex] = movedItem
+                              nextSlots[fromIndex] = dest
+                            }
+                          },
+                        })
+                      )
 
-                    return {
-                      ...draft,
-                      slots: nextSlots,
-                    }
-                  }, timestamp)
+                      return {
+                        ...draft,
+                        slots: nextSlots,
+                      }
+                    },
+                    timestamp
+                  )
                   yield* saveInventory(updated)
                 }),
             })
@@ -444,16 +441,20 @@ export const InventoryServiceLive = Layer.effect(
           )
           const inventory = yield* getOrCreateInventory(playerId)
           const timestamp = yield* timestampNow()
-          const updated = updateInventory(inventory, (draft) => {
-            const nextSlots = [...draft.slots]
-            const temp = nextSlots[first]
-            nextSlots[first] = nextSlots[second]
-            nextSlots[second] = temp
-            return {
-              ...draft,
-              slots: nextSlots,
-            }
-          }, timestamp)
+          const updated = updateInventory(
+            inventory,
+            (draft) => {
+              const nextSlots = [...draft.slots]
+              const temp = nextSlots[first]
+              nextSlots[first] = nextSlots[second]
+              nextSlots[second] = temp
+              return {
+                ...draft,
+                slots: nextSlots,
+              }
+            },
+            timestamp
+          )
           yield* saveInventory(updated)
         }),
 
@@ -508,35 +509,32 @@ export const InventoryServiceLive = Layer.effect(
                   )
                   const definition = yield* itemRegistry.ensureDefinition(src.itemId)
                   const timestamp = yield* timestampNow()
-                  const updated = updateInventory(inventory, (draft) => {
-                    const nextSlots = [...draft.slots]
-                    const remaining = src.count - amount
-                    const existingTargetCount = targetItem?.count ?? 0
-                    const desiredTargetCount = existingTargetCount + amount
-                    pipe(
-                      Effect.when(
-                        () => desiredTargetCount > definition.maxStackSize,
-                        () =>
-                          Effect.fail(
-                            InventoryServiceError.splitTargetMustBeCompatible({
-                              sourceSlot: sourceIndex,
-                              targetSlot: targetIndex,
-                            })
-                          )
-                      ),
-                      Effect.runSync
-                    )
-                    nextSlots[sourceIndex] = remaining > 0 ? { ...src, count: remaining } : null
-                    nextSlots[targetIndex] = {
-                      itemId: src.itemId,
-                      count: desiredTargetCount,
-                      metadata: src.metadata ? { ...src.metadata } : undefined,
-                    }
-                    return {
-                      ...draft,
-                      slots: nextSlots,
-                    }
-                  }, timestamp)
+                  const updated = updateInventory(
+                    inventory,
+                    (draft) => {
+                      const nextSlots = [...draft.slots]
+                      const remaining = src.count - amount
+                      const existingTargetCount = targetItem?.count ?? 0
+                      const desiredTargetCount = existingTargetCount + amount
+                      if (desiredTargetCount > definition.maxStackSize) {
+                        throw InventoryServiceError.splitTargetMustBeCompatible({
+                          sourceSlot: sourceIndex,
+                          targetSlot: targetIndex,
+                        })
+                      }
+                      nextSlots[sourceIndex] = remaining > 0 ? { ...src, count: remaining } : null
+                      nextSlots[targetIndex] = {
+                        itemId: src.itemId,
+                        count: desiredTargetCount,
+                        metadata: src.metadata ? { ...src.metadata } : undefined,
+                      }
+                      return {
+                        ...draft,
+                        slots: nextSlots,
+                      }
+                    },
+                    timestamp
+                  )
                   yield* saveInventory(updated)
                 }),
             })
@@ -593,18 +591,22 @@ export const InventoryServiceLive = Layer.effect(
                   const toTarget = Math.min(definition.maxStackSize, total)
                   const remainder = total - toTarget
                   const timestamp = yield* timestampNow()
-                  const updated = updateInventory(inventory, (draft) => {
-                    const nextSlots = [...draft.slots]
-                    nextSlots[targetIndex] = {
-                      ...tgt,
-                      count: toTarget,
-                    }
-                    nextSlots[sourceIndex] = remainder > 0 ? { ...src, count: remainder } : null
-                    return {
-                      ...draft,
-                      slots: nextSlots,
-                    }
-                  }, timestamp)
+                  const updated = updateInventory(
+                    inventory,
+                    (draft) => {
+                      const nextSlots = [...draft.slots]
+                      nextSlots[targetIndex] = {
+                        ...tgt,
+                        count: toTarget,
+                      }
+                      nextSlots[sourceIndex] = remainder > 0 ? { ...src, count: remainder } : null
+                      return {
+                        ...draft,
+                        slots: nextSlots,
+                      }
+                    },
+                    timestamp
+                  )
                   yield* saveInventory(updated)
                 }),
             })
@@ -662,14 +664,18 @@ export const InventoryServiceLive = Layer.effect(
           const index = yield* ensureHotbarIndex(hotbarIndex)
           const inventory = yield* getOrCreateInventory(playerId)
           const timestamp = yield* timestampNow()
-          const updated = updateInventory(inventory, (draft) => {
-            const nextHotbar = [...draft.hotbar]
-            nextHotbar[index] = slot
-            return {
-              ...draft,
-              hotbar: nextHotbar,
-            }
-          }, timestamp)
+          const updated = updateInventory(
+            inventory,
+            (draft) => {
+              const nextHotbar = [...draft.hotbar]
+              nextHotbar[index] = slot
+              return {
+                ...draft,
+                hotbar: nextHotbar,
+              }
+            },
+            timestamp
+          )
           yield* saveInventory(updated)
         }),
 

@@ -19,8 +19,8 @@
  */
 
 import { DateTime, Effect, Function, Match, Option, Schema } from 'effect'
-import { FactoryError } from './index'
 import type { CreateWorldGeneratorParams, FactoryError as FactoryErrorType, PresetType } from './index'
+import { FactoryError } from './index'
 import { PresetRegistryService } from './preset_registry_service'
 
 // ================================
@@ -92,9 +92,8 @@ export const getPreset = (type: PresetType): Effect.Effect<PresetDefinition, Fac
 /**
  * プリセット生成パラメータ取得
  */
-export const getPresetParams = (
-  type: PresetType
-): Effect.Effect<CreateWorldGeneratorParams, FactoryErrorType> => Effect.map(getPreset(type), (preset) => preset.generation)
+export const getPresetParams = (type: PresetType): Effect.Effect<CreateWorldGeneratorParams, FactoryErrorType> =>
+  Effect.map(getPreset(type), (preset) => preset.generation)
 
 /**
  * 利用可能プリセット一覧
@@ -197,9 +196,7 @@ export const getRecommendedPreset = (requirements: {
 
     yield* Function.pipe(
       Match.value(best.score),
-      Match.when(0, () =>
-        Effect.fail(FactoryError.parameterValidation('No suitable preset found for requirements'))
-      ),
+      Match.when(0, () => Effect.fail(FactoryError.parameterValidation('No suitable preset found for requirements'))),
       Match.orElse(() => Effect.void)
     )
 

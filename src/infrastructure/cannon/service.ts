@@ -80,9 +80,7 @@ const makePhysicsWorldLayer = (params: WorldParams): Layer.Layer<PhysicsWorldSer
   Layer.scoped(
     PhysicsWorldService,
     Effect.gen(function* () {
-      const worldResource = yield* Resource.manual(
-        Effect.acquireRelease(createWorld(params), cleanupWorld)
-      )
+      const worldResource = yield* Resource.manual(Effect.acquireRelease(createWorld(params), cleanupWorld))
 
       const useWorld = <A, E>(
         f: (world: CANNON.World) => Effect.Effect<A, E>
@@ -120,16 +118,12 @@ export const makePhysicsWorldPool = (
   Pool.make({
     acquire: Effect.acquireRelease(createWorld(params), cleanupWorld),
     size: poolSize,
-  }).pipe(
-    Effect.annotateLogs('physics.pool.operation', 'make'),
-    Effect.annotateLogs('physics.pool.size', poolSize)
-  )
+  }).pipe(Effect.annotateLogs('physics.pool.operation', 'make'), Effect.annotateLogs('physics.pool.size', poolSize))
 
 export const withPhysicsWorldFromPool = <A, E>(
   pool: Pool.Pool<CANNON.World, PhysicsWorldError>,
   f: (world: CANNON.World) => Effect.Effect<A, E>
-): Effect.Effect<A, E | PhysicsWorldError> =>
-  Pool.use(pool, f)
+): Effect.Effect<A, E | PhysicsWorldError> => Pool.use(pool, f)
 
 export const makePhysicsWorldPoolResource = (
   poolSize: number = 2,
@@ -147,5 +141,4 @@ export const makePhysicsWorldPoolResource = (
 export const usePhysicsWorldFromResource = <A, E>(
   resource: Resource.Resource<Pool.Pool<CANNON.World, PhysicsWorldError>, PhysicsWorldError>,
   f: (world: CANNON.World) => Effect.Effect<A, E>
-): Effect.Effect<A, E | PhysicsWorldError> =>
-  Effect.flatMap(Resource.get(resource), (pool) => Pool.use(pool, f))
+): Effect.Effect<A, E | PhysicsWorldError> => Effect.flatMap(Resource.get(resource), (pool) => Pool.use(pool, f))

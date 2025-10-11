@@ -6,9 +6,9 @@
  */
 
 import { taggedUnion } from '@domain/world/utils'
+import { JsonValueSchema } from '@shared/schema/json'
 import type { Brand as BrandType } from 'effect'
 import { Schema } from 'effect'
-import { JsonValueSchema } from '@shared/schema/json'
 
 /**
  * 温度値Brand型（摂氏-50度から50度）

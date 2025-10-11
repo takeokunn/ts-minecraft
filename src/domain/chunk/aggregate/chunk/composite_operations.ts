@@ -493,7 +493,9 @@ export const PerformanceMonitoring = {
       const startTime = yield* Effect.sync(() => performance.now())
       const result = yield* operation
       const endTime = yield* Effect.sync(() => performance.now())
-      yield* Effect.sync(() => console.debug(`${operationName} took ${endTime - startTime}ms`))
+      yield* Effect.logDebug('Operation completed').pipe(
+        Effect.annotateLogs({ operation: operationName, durationMs: endTime - startTime })
+      )
       return result
     }),
 
@@ -508,7 +510,9 @@ export const PerformanceMonitoring = {
         (diff) => diff > 1024 * 1024,
         Match.value,
         Match.when(true, () =>
-          Effect.sync(() => console.warn(`Memory usage increased by ${(afterMemory - beforeMemory) / 1024 / 1024}MB`))
+          Effect.logWarning('Memory usage increased').pipe(
+            Effect.annotateLogs({ increaseMB: (afterMemory - beforeMemory) / 1024 / 1024 })
+          )
         ),
         Match.orElse(() => Effect.unit)
       )

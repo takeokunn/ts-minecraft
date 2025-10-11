@@ -1,5 +1,5 @@
-import { Schema } from 'effect'
 import { TimestampSchema } from '@domain/shared/value_object/units/timestamp'
+import { Schema } from 'effect'
 
 /**
  * LocalStorage保存用のInventory型定義
@@ -58,10 +58,9 @@ const InventoryStorageItemSchema = Schema.Struct({
   id: Schema.String,
   playerId: Schema.String, // PlayerIdはStringとして保存
   slots: Schema.Record({ key: Schema.String, value: Schema.Union(ItemStackStorageSchema, Schema.Null) }).pipe(
-    Schema.filter(
-      (slots) => Object.keys(slots).length <= 54,
-      { message: 'Inventory slots cannot exceed 54 entries' }
-    )
+    Schema.filter((slots) => Object.keys(slots).length <= 54, {
+      message: () => 'Inventory slots cannot exceed 54 entries',
+    })
   ),
   hotbar: Schema.Array(Schema.Number.pipe(Schema.int(), Schema.nonNegative())).pipe(Schema.maxItems(9)),
   selectedSlot: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),

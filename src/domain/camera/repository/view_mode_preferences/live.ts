@@ -5,10 +5,26 @@
  * プレイヤー設定、学習アルゴリズム、統計分析、推奨システムの統合実装
  */
 
-import { Array, Brand, Clock, Data, Effect, Either, HashMap, Layer, Match, Option, pipe, Ref, Schema } from 'effect'
+import {
+  Array,
+  Brand,
+  Clock,
+  Data,
+  Effect,
+  Either,
+  HashMap,
+  Layer,
+  Match,
+  Option,
+  pipe,
+  Random,
+  Ref,
+  Schema,
+} from 'effect'
 import type { ViewMode } from '../../value_object/index'
 import type {
   AdaptiveAdjustments,
+  ContextSwitchPattern,
   GameContext,
   GlobalPreferenceStatistics,
   ImportOptions,
@@ -21,6 +37,7 @@ import type {
   PreferenceRecordId,
   ReanalysisResult,
   RecommendationReason,
+  SatisfactionDataPoint,
   SmartSwitchSettings,
   StatisticsRecalculationResult,
   TimeRange,
@@ -33,18 +50,9 @@ import type {
   ViewModeRecommendation,
   ViewModeTrend,
   ViewModeUsageData,
-  ContextSwitchPattern,
-  SatisfactionDataPoint,
 } from './index'
-import {
-  createDefaultPreferences,
-  createViewModePreferencesError,
-  isAnalyticsCalculationFailedError,
-  isPreferenceNotFoundError,
-  isRecordNotFoundError,
-  isStorageError,
-  PreferenceExportDataSchema,
-} from './index'
+import { createDefaultPreferences, createViewModePreferencesError, PreferenceExportDataSchema } from './index'
+import { ViewModePreferencesRepository } from './service'
 
 // ========================================
 // Internal Storage Types
@@ -528,23 +536,17 @@ const handlePreferencesOperation = <T>(
 ): Effect.Effect<T, ViewModePreferencesRepositoryError> =>
   pipe(
     operation,
-    Effect.catchAll((error) =>
-      pipe(
-        error,
-        Match.value,
-        Match.when(isPreferenceNotFoundError, () =>
-          Effect.fail(createViewModePreferencesError.preferenceNotFound('unknown' as PlayerId))
-        ),
-        Match.when(isRecordNotFoundError, () =>
-          Effect.fail(createViewModePreferencesError.recordNotFound('unknown' as PreferenceRecordId))
-        ),
-        Match.when(isStorageError, (e) => Effect.fail(createViewModePreferencesError.storageError(String(e)))),
-        Match.when(isAnalyticsCalculationFailedError, (e) =>
-          Effect.fail(createViewModePreferencesError.analyticsCalculationFailed('unknown' as PlayerId, String(e)))
-        ),
-        Match.orElse(() => Effect.fail(createViewModePreferencesError.storageError(String(error))))
-      )
-    )
+    Effect.catchTags({
+      PreferenceNotFound: () => Effect.fail(createViewModePreferencesError.preferenceNotFound('unknown' as PlayerId)),
+      RecordNotFound: () => Effect.fail(createViewModePreferencesError.recordNotFound('unknown' as PreferenceRecordId)),
+      StorageError: (e: Extract<ViewModePreferencesRepositoryError, { _tag: 'StorageError' }>) =>
+        Effect.fail(createViewModePreferencesError.storageError(e.message)),
+      AnalyticsCalculationFailed: (
+        e: Extract<ViewModePreferencesRepositoryError, { _tag: 'AnalyticsCalculationFailed' }>
+      ) => Effect.fail(createViewModePreferencesError.analyticsCalculationFailed(e.playerId, e.reason)),
+    }),
+    // 未知のエラーはStorageErrorとして扱う
+    Effect.catchAll((error) => Effect.fail(createViewModePreferencesError.storageError(String(error))))
   )
 
 // ========================================
@@ -555,663 +557,665 @@ const handlePreferencesOperation = <T>(
  * View Mode Preferences Repository Live Implementation
  */
 export const ViewModePreferencesRepositoryLive = Layer.effect(
-  import('./service.js').then((m) => m.ViewModePreferencesRepository),
+  ViewModePreferencesRepository,
   Effect.gen(function* () {
     // インメモリストレージの初期化
     const initialState = yield* StorageOps.createInitialState()
     const storageRef = yield* Ref.make(initialState)
 
-    return import('./service.js')
-      .then((m) => m.ViewModePreferencesRepository)
-      .of({
-        // ========================================
-        // Player Preference Management
-        // ========================================
+    return ViewModePreferencesRepository.of({
+      // ========================================
+      // Player Preference Management
+      // ========================================
 
-        savePlayerPreference: (playerId: PlayerId, preference: ViewModePreference) =>
-          Effect.gen(function* () {
-            yield* Ref.updateEffect(storageRef, (state) => StorageOps.savePlayerPreference(state, playerId, preference))
-            yield* Effect.logDebug(`Player preference saved: ${playerId}`)
-          }).pipe(handlePreferencesOperation),
+      savePlayerPreference: (playerId: PlayerId, preference: ViewModePreference) =>
+        Effect.gen(function* () {
+          yield* Ref.updateEffect(storageRef, (state) => StorageOps.savePlayerPreference(state, playerId, preference))
+          yield* Effect.logDebug(`Player preference saved: ${playerId}`)
+        }).pipe(handlePreferencesOperation),
 
-        loadPlayerPreference: (playerId: PlayerId) =>
-          Effect.gen(function* () {
-            const state = yield* Ref.get(storageRef)
-            const preference = HashMap.get(state.playerPreferences, playerId)
+      loadPlayerPreference: (playerId: PlayerId) =>
+        Effect.gen(function* () {
+          const state = yield* Ref.get(storageRef)
+          const preference = HashMap.get(state.playerPreferences, playerId)
 
-            return yield* pipe(
-              preference,
-              Option.match({
-                onNone: () =>
-                  Effect.gen(function* () {
-                    // デフォルト設定を返す
-                    const defaultPreference = yield* createDefaultPreferences.viewModePreference(playerId)
-                    yield* Ref.updateEffect(storageRef, (currentState) =>
-                      StorageOps.savePlayerPreference(currentState, playerId, defaultPreference)
-                    )
-                    return defaultPreference
-                  }),
-                onSome: (pref) => Effect.succeed(pref),
-              })
+          return yield* pipe(
+            preference,
+            Option.match({
+              onNone: () =>
+                Effect.gen(function* () {
+                  // デフォルト設定を返す
+                  const defaultPreference = yield* createDefaultPreferences.viewModePreference(playerId)
+                  yield* Ref.updateEffect(storageRef, (currentState) =>
+                    StorageOps.savePlayerPreference(currentState, playerId, defaultPreference)
+                  )
+                  return defaultPreference
+                }),
+              onSome: (pref) => Effect.succeed(pref),
+            })
+          )
+        }).pipe(handlePreferencesOperation),
+
+      deletePlayerPreference: (playerId: PlayerId) =>
+        Effect.gen(function* () {
+          yield* Ref.update(storageRef, (state) => ({
+            ...state,
+            playerPreferences: HashMap.remove(state.playerPreferences, playerId),
+            contextualPreferences: HashMap.filter(state.contextualPreferences, (_, key) => !key.startsWith(playerId)),
+            usageRecords: HashMap.remove(state.usageRecords, playerId),
+            learnedPatterns: HashMap.remove(state.learnedPatterns, playerId),
+            smartSwitchSettings: HashMap.remove(state.smartSwitchSettings, playerId),
+          }))
+          yield* Effect.logDebug(`Player preference deleted: ${playerId}`)
+        }).pipe(handlePreferencesOperation),
+
+      playerPreferenceExists: (playerId: PlayerId) =>
+        Effect.gen(function* () {
+          const state = yield* Ref.get(storageRef)
+          return HashMap.has(state.playerPreferences, playerId)
+        }).pipe(handlePreferencesOperation),
+
+      // ========================================
+      // Contextual Preference Management
+      // ========================================
+
+      saveContextualPreference: (playerId: PlayerId, context: GameContext, preference: ViewModePreference) =>
+        Effect.gen(function* () {
+          const key = CacheKeys.contextualKey(playerId, context)
+          yield* Ref.update(storageRef, (state) => ({
+            ...state,
+            contextualPreferences: HashMap.set(state.contextualPreferences, key, preference),
+          }))
+          yield* Effect.logDebug(`Contextual preference saved: ${playerId} in ${context._tag}`)
+        }).pipe(handlePreferencesOperation),
+
+      loadContextualPreference: (playerId: PlayerId, context: GameContext) =>
+        Effect.gen(function* () {
+          const state = yield* Ref.get(storageRef)
+          const key = CacheKeys.contextualKey(playerId, context)
+          return HashMap.get(state.contextualPreferences, key)
+        }).pipe(handlePreferencesOperation),
+
+      getContextDefaultViewMode: (playerId: PlayerId, context: GameContext) =>
+        Effect.gen(function* () {
+          const preference = yield* this.loadPlayerPreference(playerId)
+          const contextualMode = preference.contextualModes.get(context)
+          return contextualMode || preference.defaultMode
+        }).pipe(handlePreferencesOperation),
+
+      getAllContextualPreferences: (playerId: PlayerId) =>
+        Effect.gen(function* () {
+          const state = yield* Ref.get(storageRef)
+          const playerContextualPrefs = HashMap.filter(state.contextualPreferences, (_, key) =>
+            key.startsWith(playerId)
+          )
+
+          const resultMap = pipe(
+            HashMap.entries(playerContextualPrefs),
+            Array.reduce(new Map<GameContext, ViewModePreference>(), (acc, [key, preference]) => {
+              const contextName = key.split('_')[1]
+              if (!contextName) {
+                return acc
+              }
+
+              const maybeContext = toGameContext(contextName)
+              if (Option.isNone(maybeContext)) {
+                return acc
+              }
+
+              const newMap = new Map(acc)
+              newMap.set(maybeContext.value, preference)
+              return newMap
+            })
+          )
+
+          return resultMap
+        }).pipe(handlePreferencesOperation),
+
+      // ========================================
+      // Usage History and Analytics
+      // ========================================
+
+      recordPreferenceUsage: (record: ViewModePreferenceRecord) =>
+        Effect.gen(function* () {
+          yield* Ref.updateEffect(storageRef, (state) =>
+            Effect.gen(function* () {
+              const updatedState = StorageOps.addUsageRecord(state, record)
+              return yield* StorageOps.updatePopularityData(updatedState, record.viewMode, Option.some(record.context))
+            })
+          )
+          yield* Effect.logDebug(`Usage recorded: ${record.viewMode} in ${record.context._tag}`)
+        }).pipe(handlePreferencesOperation),
+
+      getPreferenceHistory: (playerId: PlayerId, options?: PreferenceQueryOptions) =>
+        Effect.gen(function* () {
+          const state = yield* Ref.get(storageRef)
+          const records = HashMap.get(state.usageRecords, playerId).pipe(Option.getOrElse(() => []))
+
+          if (options) {
+            return StorageOps.filterRecords(records, options)
+          }
+
+          return records
+        }).pipe(handlePreferencesOperation),
+
+      getPlayerAnalytics: (playerId: PlayerId, timeRange?: TimeRange) =>
+        Effect.gen(function* () {
+          const state = yield* Ref.get(storageRef)
+          const cacheKey = CacheKeys.analyticsKey(playerId, timeRange)
+
+          const cached = HashMap.get(state.statisticsCache, cacheKey)
+
+          return yield* pipe(
+            cached,
+            Option.match({
+              onNone: () =>
+                Effect.gen(function* () {
+                  const analytics = StorageOps.calculatePlayerAnalytics(state, playerId, timeRange)
+
+                  yield* Ref.update(storageRef, (currentState) => ({
+                    ...currentState,
+                    statisticsCache: HashMap.set(currentState.statisticsCache, cacheKey, analytics),
+                  }))
+
+                  return analytics
+                }),
+              onSome: (value) => Effect.succeed(value),
+            })
+          )
+        }).pipe(handlePreferencesOperation),
+
+      getRecommendedViewMode: (playerId: PlayerId, context: GameContext, currentTime: number) =>
+        Effect.gen(function* () {
+          const state = yield* Ref.get(storageRef)
+          return StorageOps.calculateRecommendation(state, playerId, context, currentTime)
+        }).pipe(handlePreferencesOperation),
+
+      // ========================================
+      // Popularity and Statistics
+      // ========================================
+
+      getPopularPreferences: (context: Option<GameContext>, limit?: number) =>
+        Effect.gen(function* () {
+          const state = yield* Ref.get(storageRef)
+          let popularityEntries = Array.from(HashMap.values(state.popularityData))
+
+          // コンテキストフィルタ
+          if (Option.isSome(context)) {
+            popularityEntries = popularityEntries.filter(
+              (entry) => Option.isSome(entry.context) && entry.context.value._tag === context.value._tag
             )
-          }).pipe(handlePreferencesOperation),
+          }
 
-        deletePlayerPreference: (playerId: PlayerId) =>
-          Effect.gen(function* () {
-            yield* Ref.update(storageRef, (state) => ({
-              ...state,
-              playerPreferences: HashMap.remove(state.playerPreferences, playerId),
-              contextualPreferences: HashMap.filter(state.contextualPreferences, (_, key) => !key.startsWith(playerId)),
-              usageRecords: HashMap.remove(state.usageRecords, playerId),
-              learnedPatterns: HashMap.remove(state.learnedPatterns, playerId),
-              smartSwitchSettings: HashMap.remove(state.smartSwitchSettings, playerId),
-            }))
-            yield* Effect.logDebug(`Player preference deleted: ${playerId}`)
-          }).pipe(handlePreferencesOperation),
+          // 使用回数でソート
+          popularityEntries = popularityEntries.sort((a, b) => b.usageCount - a.usageCount)
 
-        playerPreferenceExists: (playerId: PlayerId) =>
-          Effect.gen(function* () {
-            const state = yield* Ref.get(storageRef)
-            return HashMap.has(state.playerPreferences, playerId)
-          }).pipe(handlePreferencesOperation),
+          // 制限適用
+          if (limit && limit > 0) {
+            popularityEntries = popularityEntries.slice(0, limit)
+          }
 
-        // ========================================
-        // Contextual Preference Management
-        // ========================================
+          return popularityEntries
+        }).pipe(handlePreferencesOperation),
 
-        saveContextualPreference: (playerId: PlayerId, context: GameContext, preference: ViewModePreference) =>
-          Effect.gen(function* () {
-            const key = CacheKeys.contextualKey(playerId, context)
-            yield* Ref.update(storageRef, (state) => ({
-              ...state,
-              contextualPreferences: HashMap.set(state.contextualPreferences, key, preference),
-            }))
-            yield* Effect.logDebug(`Contextual preference saved: ${playerId} in ${context._tag}`)
-          }).pipe(handlePreferencesOperation),
+      getGlobalPreferenceStatistics: (timeRange?: TimeRange) =>
+        Effect.gen(function* () {
+          const state = yield* Ref.get(storageRef)
+          return StorageOps.calculateGlobalStatistics(state, timeRange)
+        }).pipe(handlePreferencesOperation),
 
-        loadContextualPreference: (playerId: PlayerId, context: GameContext) =>
-          Effect.gen(function* () {
-            const state = yield* Ref.get(storageRef)
-            const key = CacheKeys.contextualKey(playerId, context)
-            return HashMap.get(state.contextualPreferences, key)
-          }).pipe(handlePreferencesOperation),
+      getViewModeTrends: (timeRange: TimeRange, context?: GameContext) =>
+        Effect.gen(function* () {
+          const state = yield* Ref.get(storageRef)
+          const bucketSize = (timeRange.endTime - timeRange.startTime) / 10
 
-        getContextDefaultViewMode: (playerId: PlayerId, context: GameContext) =>
-          Effect.gen(function* () {
-            const preference = yield* this.loadPlayerPreference(playerId)
-            const contextualMode = preference.contextualModes.get(context)
-            return contextualMode || preference.defaultMode
-          }).pipe(handlePreferencesOperation),
-
-        getAllContextualPreferences: (playerId: PlayerId) =>
-          Effect.gen(function* () {
-            const state = yield* Ref.get(storageRef)
-            const playerContextualPrefs = HashMap.filter(state.contextualPreferences, (_, key) =>
-              key.startsWith(playerId)
-            )
-
-            const resultMap = pipe(
-              HashMap.entries(playerContextualPrefs),
-              Array.reduce(new Map<GameContext, ViewModePreference>(), (acc, [key, preference]) => {
-                const contextName = key.split('_')[1]
-                if (!contextName) {
-                  return acc
-                }
-
-                const maybeContext = toGameContext(contextName)
-                if (Option.isNone(maybeContext)) {
-                  return acc
-                }
-
-                const newMap = new Map(acc)
-                newMap.set(maybeContext.value, preference)
-                return newMap
-              })
-            )
-
-            return resultMap
-          }).pipe(handlePreferencesOperation),
-
-        // ========================================
-        // Usage History and Analytics
-        // ========================================
-
-        recordPreferenceUsage: (record: ViewModePreferenceRecord) =>
-          Effect.gen(function* () {
-            yield* Ref.updateEffect(storageRef, (state) =>
+          const trends = yield* pipe(
+            Array.makeBy(10, (i) => i),
+            Effect.forEach((i) =>
               Effect.gen(function* () {
-                const updatedState = StorageOps.addUsageRecord(state, record)
-                return yield* StorageOps.updatePopularityData(
-                  updatedState,
-                  record.viewMode,
-                  Option.some(record.context)
-                )
-              })
-            )
-            yield* Effect.logDebug(`Usage recorded: ${record.viewMode} in ${record.context._tag}`)
-          }).pipe(handlePreferencesOperation),
-
-        getPreferenceHistory: (playerId: PlayerId, options?: PreferenceQueryOptions) =>
-          Effect.gen(function* () {
-            const state = yield* Ref.get(storageRef)
-            const records = HashMap.get(state.usageRecords, playerId).pipe(Option.getOrElse(() => []))
-
-            if (options) {
-              return StorageOps.filterRecords(records, options)
-            }
-
-            return records
-          }).pipe(handlePreferencesOperation),
-
-        getPlayerAnalytics: (playerId: PlayerId, timeRange?: TimeRange) =>
-          Effect.gen(function* () {
-            const state = yield* Ref.get(storageRef)
-            const cacheKey = CacheKeys.analyticsKey(playerId, timeRange)
-
-            const cached = HashMap.get(state.statisticsCache, cacheKey)
-
-            return yield* pipe(
-              cached,
-              Option.match({
-                onNone: () =>
-                  Effect.gen(function* () {
-                    const analytics = StorageOps.calculatePlayerAnalytics(state, playerId, timeRange)
-
-                    yield* Ref.update(storageRef, (currentState) => ({
-                      ...currentState,
-                      statisticsCache: HashMap.set(currentState.statisticsCache, cacheKey, analytics),
-                    }))
-
-                    return analytics
-                  }),
-                onSome: (value) => Effect.succeed(value),
-              })
-            )
-          }).pipe(handlePreferencesOperation),
-
-        getRecommendedViewMode: (playerId: PlayerId, context: GameContext, currentTime: number) =>
-          Effect.gen(function* () {
-            const state = yield* Ref.get(storageRef)
-            return StorageOps.calculateRecommendation(state, playerId, context, currentTime)
-          }).pipe(handlePreferencesOperation),
-
-        // ========================================
-        // Popularity and Statistics
-        // ========================================
-
-        getPopularPreferences: (context: Option<GameContext>, limit?: number) =>
-          Effect.gen(function* () {
-            const state = yield* Ref.get(storageRef)
-            let popularityEntries = Array.from(HashMap.values(state.popularityData))
-
-            // コンテキストフィルタ
-            if (Option.isSome(context)) {
-              popularityEntries = popularityEntries.filter(
-                (entry) => Option.isSome(entry.context) && entry.context.value._tag === context.value._tag
-              )
-            }
-
-            // 使用回数でソート
-            popularityEntries = popularityEntries.sort((a, b) => b.usageCount - a.usageCount)
-
-            // 制限適用
-            if (limit && limit > 0) {
-              popularityEntries = popularityEntries.slice(0, limit)
-            }
-
-            return popularityEntries
-          }).pipe(handlePreferencesOperation),
-
-        getGlobalPreferenceStatistics: (timeRange?: TimeRange) =>
-          Effect.gen(function* () {
-            const state = yield* Ref.get(storageRef)
-            return StorageOps.calculateGlobalStatistics(state, timeRange)
-          }).pipe(handlePreferencesOperation),
-
-        getViewModeTrends: (timeRange: TimeRange, context?: GameContext) =>
-          Effect.gen(function* () {
-            const state = yield* Ref.get(storageRef)
-            const bucketSize = (timeRange.endTime - timeRange.startTime) / 10
-
-            const trends = pipe(
-              Array.makeBy(10, (i) => {
                 const timePoint = timeRange.startTime + i * bucketSize
+                const usageCount = yield* Random.nextIntBetween(0, 100)
+                const changePercentageRaw = yield* Random.nextIntBetween(-1000, 1000)
+                const changePercentage = changePercentageRaw / 100
+                const trendStrengthRaw = yield* Random.nextIntBetween(-100, 100)
+                const trendStrength = trendStrengthRaw / 100
                 return {
                   viewMode: 'first-person' as const,
                   context: context ? Option.some(context) : Option.none(),
                   timePoint,
-                  usageCount: Math.floor(Math.random() * 100),
-                  changePercentage: (Math.random() - 0.5) * 20,
-                  trendStrength: Math.random() * 2 - 1,
+                  usageCount,
+                  changePercentage,
+                  trendStrength,
                 } as ViewModeTrend
               })
             )
+          )
 
-            return trends
-          }).pipe(handlePreferencesOperation),
+          return trends
+        }).pipe(handlePreferencesOperation),
 
-        getContextViewModeDistribution: (context: GameContext, timeRange?: TimeRange) =>
-          Effect.gen(function* () {
-            const state = yield* Ref.get(storageRef)
+      getContextViewModeDistribution: (context: GameContext, timeRange?: TimeRange) =>
+        Effect.gen(function* () {
+          const state = yield* Ref.get(storageRef)
 
-            // 全使用記録を取得
-            const allRecords = pipe(
-              HashMap.values(state.usageRecords),
-              Array.flatMap((records) => Array.from(records))
-            )
+          // 全使用記録を取得
+          const allRecords = pipe(
+            HashMap.values(state.usageRecords),
+            Array.flatMap((records) => Array.from(records))
+          )
 
-            // フィルタリング
-            const filteredRecords = pipe(
-              allRecords,
-              Array.filter((record) => record.context._tag === context._tag),
-              (records) =>
-                timeRange
-                  ? pipe(
-                      records,
-                      Array.filter(
-                        (record) => record.timestamp >= timeRange.startTime && record.timestamp <= timeRange.endTime
-                      )
-                    )
-                  : records
-            )
-
-            // 分布データを一度に集計
-            const [modeDistribution, userDistribution, durationMap] = pipe(
-              filteredRecords,
-              Array.reduce(
-                [new Map<ViewMode, number>(), new Map<ViewMode, number>(), new Map<ViewMode, number[]>()] as const,
-                ([modeMap, userMap, durMap], record) => {
-                  const newModeMap = new Map(modeMap)
-                  const newUserMap = new Map(userMap)
-                  const newDurMap = new Map(durMap)
-
-                  newModeMap.set(record.viewMode, (modeMap.get(record.viewMode) || 0) + 1)
-                  newUserMap.set(record.viewMode, (userMap.get(record.viewMode) || 0) + 1)
-
-                  const durations = durMap.get(record.viewMode) || []
-                  newDurMap.set(record.viewMode, [...durations, record.duration])
-
-                  return [newModeMap, newUserMap, newDurMap] as const
-                }
-              )
-            )
-
-            // 平均期間を計算
-            const averageDuration = pipe(
-              Array.from(durationMap.entries()),
-              Array.reduce(new Map<ViewMode, number>(), (acc, [mode, durations]) => {
-                const newMap = new Map(acc)
-                const avg = durations.reduce((sum, d) => sum + d, 0) / durations.length
-                newMap.set(mode, avg)
-                return newMap
-              })
-            )
-
-            const distribution: ViewModeDistribution = {
-              context,
-              totalUsage: filteredRecords.length,
-              modeDistribution,
-              userDistribution,
-              averageDuration,
-            }
-
-            return distribution
-          }).pipe(handlePreferencesOperation),
-
-        // ========================================
-        // Smart Features and Learning (Simplified Implementations)
-        // ========================================
-
-        updateSmartSwitchSettings: (playerId: PlayerId, settings: SmartSwitchSettings) =>
-          Effect.gen(function* () {
-            yield* Ref.update(storageRef, (state) => ({
-              ...state,
-              smartSwitchSettings: HashMap.set(state.smartSwitchSettings, playerId, settings),
-            }))
-            yield* Effect.logDebug(`Smart switch settings updated: ${playerId}`)
-          }).pipe(handlePreferencesOperation),
-
-        learnPlayerPatterns: (playerId: PlayerId, timeRange: TimeRange) =>
-          Effect.gen(function* () {
-            const state = yield* Ref.get(storageRef)
-            const records = HashMap.get(state.usageRecords, playerId).pipe(Option.getOrElse(() => []))
-
-            const filteredRecords = records.filter(
-              (record) => record.timestamp >= timeRange.startTime && record.timestamp <= timeRange.endTime
-            )
-
-            // 簡易学習パターン生成
-            const contextPreferences = new Map<GameContext, ViewMode>()
-            const contextUsage = new Map<GameContext, Map<ViewMode, number>>()
-
-            filteredRecords.forEach((record) => {
-              if (!contextUsage.has(record.context)) {
-                contextUsage.set(record.context, new Map())
-              }
-              const modeUsage = contextUsage.get(record.context)!
-              modeUsage.set(record.viewMode, (modeUsage.get(record.viewMode) || 0) + 1)
-            })
-
-            // HashMap.entries を関数型スタイルで処理
-            pipe(
-              Array.from(contextUsage.entries()),
-              ReadonlyArray.forEach(([context, modeMap]) => {
-                const mostUsedMode = pipe(
-                  Array.from(modeMap.entries()),
-                  ReadonlyArray.sort((a, b) => b[1] - a[1]),
-                  ReadonlyArray.head,
-                  Option.map(([mode]) => mode)
-                )
-                if (Option.isSome(mostUsedMode)) {
-                  contextPreferences.set(context, mostUsedMode.value)
-                }
-              })
-            )
-
-            const lastLearned = yield* Clock.currentTimeMillis
-            const patterns: LearnedPatterns = {
-              playerId,
-              contextPreferences,
-              timeBasedPatterns: [], // 簡易実装では空配列
-              sequencePatterns: [], // 簡易実装では空配列
-              confidenceScore: 0.8,
-              lastLearned,
-            }
-
-            yield* Ref.update(storageRef, (currentState) => ({
-              ...currentState,
-              learnedPatterns: HashMap.set(currentState.learnedPatterns, playerId, patterns),
-            }))
-
-            return patterns
-          }).pipe(handlePreferencesOperation),
-
-        recordSatisfactionFeedback: (recordId: PreferenceRecordId, score: number, feedback?: string) =>
-          Effect.gen(function* () {
-            yield* Ref.update(storageRef, (state) => {
-              // 記録を見つけて満足度を更新
-              const updatedEntry = pipe(
-                Array.from(HashMap.entries(state.usageRecords)),
-                ReadonlyArray.findFirst(([, records]) => records.some((r) => r.id === recordId)),
-                Option.map(([playerId, records]) => {
-                  const updatedRecords = pipe(
+          // フィルタリング
+          const filteredRecords = pipe(
+            allRecords,
+            Array.filter((record) => record.context._tag === context._tag),
+            (records) =>
+              timeRange
+                ? pipe(
                     records,
-                    ReadonlyArray.map((record) =>
-                      record.id === recordId ? { ...record, satisfactionScore: Option.some(score) } : record
+                    Array.filter(
+                      (record) => record.timestamp >= timeRange.startTime && record.timestamp <= timeRange.endTime
                     )
                   )
-                  return [playerId, updatedRecords] as const
-                })
-              )
+                : records
+          )
 
-              return Option.match(updatedEntry, {
-                onNone: () => state,
-                onSome: ([playerId, updatedRecords]) => ({
-                  ...state,
-                  usageRecords: HashMap.set(state.usageRecords, playerId, updatedRecords),
-                }),
-              })
-            })
-            yield* Effect.logDebug(`Satisfaction feedback recorded: ${recordId} -> ${score}`)
-          }).pipe(handlePreferencesOperation),
+          // 分布データを一度に集計
+          const [modeDistribution, userDistribution, durationMap] = pipe(
+            filteredRecords,
+            Array.reduce(
+              [new Map<ViewMode, number>(), new Map<ViewMode, number>(), new Map<ViewMode, number[]>()] as const,
+              ([modeMap, userMap, durMap], record) => {
+                const newModeMap = new Map(modeMap)
+                const newUserMap = new Map(userMap)
+                const newDurMap = new Map(durMap)
 
-        adjustAdaptiveSettings: (playerId: PlayerId, adjustments: AdaptiveAdjustments) =>
-          Effect.gen(function* () {
-            const lastModified = yield* Clock.currentTimeMillis
-            yield* Ref.update(storageRef, (state) => {
-              const currentPreference = HashMap.get(state.playerPreferences, playerId)
-              if (Option.isSome(currentPreference)) {
-                const updated: ViewModePreference = {
-                  ...currentPreference.value,
-                  contextSensitivity: Option.getOrElse(
-                    adjustments.contextSensitivity,
-                    () => currentPreference.value.contextSensitivity
-                  ),
-                  lastModified,
-                  version: currentPreference.value.version + 1,
-                }
-                return {
-                  ...state,
-                  playerPreferences: HashMap.set(state.playerPreferences, playerId, updated),
-                }
+                newModeMap.set(record.viewMode, (modeMap.get(record.viewMode) || 0) + 1)
+                newUserMap.set(record.viewMode, (userMap.get(record.viewMode) || 0) + 1)
+
+                const durations = durMap.get(record.viewMode) || []
+                newDurMap.set(record.viewMode, [...durations, record.duration])
+
+                return [newModeMap, newUserMap, newDurMap] as const
               }
-              return state
+            )
+          )
+
+          // 平均期間を計算
+          const averageDuration = pipe(
+            Array.from(durationMap.entries()),
+            Array.reduce(new Map<ViewMode, number>(), (acc, [mode, durations]) => {
+              const newMap = new Map(acc)
+              const avg = durations.reduce((sum, d) => sum + d, 0) / durations.length
+              newMap.set(mode, avg)
+              return newMap
             })
-            yield* Effect.logDebug(`Adaptive settings adjusted: ${playerId}`)
-          }).pipe(handlePreferencesOperation),
+          )
 
-        // ========================================
-        // Bulk Operations (Simplified)
-        // ========================================
+          const distribution: ViewModeDistribution = {
+            context,
+            totalUsage: filteredRecords.length,
+            modeDistribution,
+            userDistribution,
+            averageDuration,
+          }
 
-        savePlayerPreferencesBatch: (preferences: Array.ReadonlyArray<[PlayerId, ViewModePreference]>) =>
-          Effect.gen(function* () {
-            yield* Ref.updateEffect(storageRef, (state) =>
-              Effect.reduce(preferences, state, (acc, [playerId, preference]) =>
-                StorageOps.savePlayerPreference(acc, playerId, preference)
+          return distribution
+        }).pipe(handlePreferencesOperation),
+
+      // ========================================
+      // Smart Features and Learning (Simplified Implementations)
+      // ========================================
+
+      updateSmartSwitchSettings: (playerId: PlayerId, settings: SmartSwitchSettings) =>
+        Effect.gen(function* () {
+          yield* Ref.update(storageRef, (state) => ({
+            ...state,
+            smartSwitchSettings: HashMap.set(state.smartSwitchSettings, playerId, settings),
+          }))
+          yield* Effect.logDebug(`Smart switch settings updated: ${playerId}`)
+        }).pipe(handlePreferencesOperation),
+
+      learnPlayerPatterns: (playerId: PlayerId, timeRange: TimeRange) =>
+        Effect.gen(function* () {
+          const state = yield* Ref.get(storageRef)
+          const records = HashMap.get(state.usageRecords, playerId).pipe(Option.getOrElse(() => []))
+
+          const filteredRecords = records.filter(
+            (record) => record.timestamp >= timeRange.startTime && record.timestamp <= timeRange.endTime
+          )
+
+          // 簡易学習パターン生成
+          const contextPreferences = new Map<GameContext, ViewMode>()
+          const contextUsage = new Map<GameContext, Map<ViewMode, number>>()
+
+          filteredRecords.forEach((record) => {
+            if (!contextUsage.has(record.context)) {
+              contextUsage.set(record.context, new Map())
+            }
+            const modeUsage = contextUsage.get(record.context)!
+            modeUsage.set(record.viewMode, (modeUsage.get(record.viewMode) || 0) + 1)
+          })
+
+          // HashMap.entries を関数型スタイルで処理
+          pipe(
+            Array.from(contextUsage.entries()),
+            ReadonlyArray.forEach(([context, modeMap]) => {
+              const mostUsedMode = pipe(
+                Array.from(modeMap.entries()),
+                ReadonlyArray.sort((a, b) => b[1] - a[1]),
+                ReadonlyArray.head,
+                Option.map(([mode]) => mode)
               )
-            )
-            yield* Effect.logDebug(`Batch preferences saved: ${preferences.length} entries`)
-          }).pipe(handlePreferencesOperation),
+              if (Option.isSome(mostUsedMode)) {
+                contextPreferences.set(context, mostUsedMode.value)
+              }
+            })
+          )
 
-        recordUsageBatch: (records: Array.ReadonlyArray<ViewModePreferenceRecord>) =>
-          Effect.gen(function* () {
-            yield* Ref.update(storageRef, (state) =>
-              records.reduce((acc, record) => StorageOps.addUsageRecord(acc, record), state)
-            )
-            yield* Effect.logDebug(`Batch usage recorded: ${records.length} records`)
-          }).pipe(handlePreferencesOperation),
+          const lastLearned = yield* Clock.currentTimeMillis
+          const patterns: LearnedPatterns = {
+            playerId,
+            contextPreferences,
+            timeBasedPatterns: [], // 簡易実装では空配列
+            sequencePatterns: [], // 簡易実装では空配列
+            confidenceScore: 0.8,
+            lastLearned,
+          }
 
-        cleanupOldRecords: (olderThan: Date, keepRecentCount?: number) =>
-          Effect.gen(function* () {
-            const cutoffTime = olderThan.getTime()
-            let totalDeleted = 0
+          yield* Ref.update(storageRef, (currentState) => ({
+            ...currentState,
+            learnedPatterns: HashMap.set(currentState.learnedPatterns, playerId, patterns),
+          }))
 
-            yield* Ref.update(storageRef, (state) => {
-              const { updatedRecords, totalDeleted: deleted } = pipe(
-                Array.from(HashMap.entries(state.usageRecords)),
-                ReadonlyArray.reduce(
-                  { updatedRecords: state.usageRecords, totalDeleted: 0 },
-                  ({ updatedRecords, totalDeleted }, [playerId, records]) => {
-                    const filteredRecords = pipe(
-                      records,
-                      ReadonlyArray.sort((a, b) => b.timestamp - a.timestamp),
-                      ReadonlyArray.filter((record) => record.timestamp >= cutoffTime),
-                      (sorted) =>
-                        keepRecentCount && sorted.length > keepRecentCount
-                          ? ReadonlyArray.take(sorted, keepRecentCount)
-                          : sorted
-                    )
+          return patterns
+        }).pipe(handlePreferencesOperation),
 
-                    return {
-                      updatedRecords: HashMap.set(updatedRecords, playerId, filteredRecords),
-                      totalDeleted: totalDeleted + (records.length - filteredRecords.length),
-                    }
-                  }
+      recordSatisfactionFeedback: (recordId: PreferenceRecordId, score: number, feedback?: string) =>
+        Effect.gen(function* () {
+          yield* Ref.update(storageRef, (state) => {
+            // 記録を見つけて満足度を更新
+            const updatedEntry = pipe(
+              Array.from(HashMap.entries(state.usageRecords)),
+              ReadonlyArray.findFirst(([, records]) => records.some((r) => r.id === recordId)),
+              Option.map(([playerId, records]) => {
+                const updatedRecords = pipe(
+                  records,
+                  ReadonlyArray.map((record) =>
+                    record.id === recordId ? { ...record, satisfactionScore: Option.some(score) } : record
+                  )
                 )
-              )
+                return [playerId, updatedRecords] as const
+              })
+            )
 
-              totalDeleted = deleted
+            return Option.match(updatedEntry, {
+              onNone: () => state,
+              onSome: ([playerId, updatedRecords]) => ({
+                ...state,
+                usageRecords: HashMap.set(state.usageRecords, playerId, updatedRecords),
+              }),
+            })
+          })
+          yield* Effect.logDebug(`Satisfaction feedback recorded: ${recordId} -> ${score}`)
+        }).pipe(handlePreferencesOperation),
+
+      adjustAdaptiveSettings: (playerId: PlayerId, adjustments: AdaptiveAdjustments) =>
+        Effect.gen(function* () {
+          const lastModified = yield* Clock.currentTimeMillis
+          yield* Ref.update(storageRef, (state) => {
+            const currentPreference = HashMap.get(state.playerPreferences, playerId)
+            if (Option.isSome(currentPreference)) {
+              const updated: ViewModePreference = {
+                ...currentPreference.value,
+                contextSensitivity: Option.getOrElse(
+                  adjustments.contextSensitivity,
+                  () => currentPreference.value.contextSensitivity
+                ),
+                lastModified,
+                version: currentPreference.value.version + 1,
+              }
               return {
                 ...state,
-                usageRecords: updatedRecords,
-                metadata: {
-                  ...state.metadata,
-                  totalRecords: state.metadata.totalRecords - totalDeleted,
-                },
+                playerPreferences: HashMap.set(state.playerPreferences, playerId, updated),
               }
-            })
-
-            yield* Effect.logInfo(`Cleanup completed: ${totalDeleted} old records removed`)
-            return totalDeleted
-          }).pipe(handlePreferencesOperation),
-
-        // ========================================
-        // Import/Export Operations (Simplified)
-        // ========================================
-
-        exportPlayerPreferences: (playerId: PlayerId, includeHistory: boolean) =>
-          Effect.gen(function* () {
-            const state = yield* Ref.get(storageRef)
-            const preference = HashMap.get(state.playerPreferences, playerId)
-            const records = includeHistory ? HashMap.get(state.usageRecords, playerId) : Option.none()
-
-            const exportedAt = yield* Clock.currentTimeMillis
-            const exportData = {
-              playerId,
-              preference: Option.getOrUndefined(preference),
-              records: Option.getOrElse(records, () => []),
-              exportedAt,
             }
+            return state
+          })
+          yield* Effect.logDebug(`Adaptive settings adjusted: ${playerId}`)
+        }).pipe(handlePreferencesOperation),
 
-            return JSON.stringify(exportData, null, 2)
-          }).pipe(handlePreferencesOperation),
+      // ========================================
+      // Bulk Operations (Simplified)
+      // ========================================
 
-        importPlayerPreferences: (playerId: PlayerId, jsonData: string, options?: ImportOptions) =>
-          Effect.gen(function* () {
-            const result: ImportResult = {
-              success: true,
-              importedPreferences: 0,
-              importedRecords: 0,
-              skippedItems: 0,
-              errors: [],
-              warnings: [],
-            }
+      savePlayerPreferencesBatch: (preferences: Array.ReadonlyArray<[PlayerId, ViewModePreference]>) =>
+        Effect.gen(function* () {
+          yield* Ref.updateEffect(storageRef, (state) =>
+            Effect.reduce(preferences, state, (acc, [playerId, preference]) =>
+              StorageOps.savePlayerPreference(acc, playerId, preference)
+            )
+          )
+          yield* Effect.logDebug(`Batch preferences saved: ${preferences.length} entries`)
+        }).pipe(handlePreferencesOperation),
 
-            const validatedDataResult = yield* Effect.try({
-              try: () => JSON.parse(jsonData),
-              catch: (error) => createViewModePreferencesError.decodingFailed('PreferenceExportData', String(error)),
-            }).pipe(
-              Effect.flatMap(Schema.decodeUnknown(PreferenceExportDataSchema)),
-              Effect.mapError((error) =>
-                createViewModePreferencesError.decodingFailed('PreferenceExportData', String(error))
-              ),
-              Effect.either
+      recordUsageBatch: (records: Array.ReadonlyArray<ViewModePreferenceRecord>) =>
+        Effect.gen(function* () {
+          yield* Ref.update(storageRef, (state) =>
+            records.reduce((acc, record) => StorageOps.addUsageRecord(acc, record), state)
+          )
+          yield* Effect.logDebug(`Batch usage recorded: ${records.length} records`)
+        }).pipe(handlePreferencesOperation),
+
+      cleanupOldRecords: (olderThan: Date, keepRecentCount?: number) =>
+        Effect.gen(function* () {
+          const cutoffTime = olderThan.getTime()
+          let totalDeleted = 0
+
+          yield* Ref.update(storageRef, (state) => {
+            const { updatedRecords, totalDeleted: deleted } = pipe(
+              Array.from(HashMap.entries(state.usageRecords)),
+              ReadonlyArray.reduce(
+                { updatedRecords: state.usageRecords, totalDeleted: 0 },
+                ({ updatedRecords, totalDeleted }, [playerId, records]) => {
+                  const filteredRecords = pipe(
+                    records,
+                    ReadonlyArray.sort((a, b) => b.timestamp - a.timestamp),
+                    ReadonlyArray.filter((record) => record.timestamp >= cutoffTime),
+                    (sorted) =>
+                      keepRecentCount && sorted.length > keepRecentCount
+                        ? ReadonlyArray.take(sorted, keepRecentCount)
+                        : sorted
+                  )
+
+                  return {
+                    updatedRecords: HashMap.set(updatedRecords, playerId, filteredRecords),
+                    totalDeleted: totalDeleted + (records.length - filteredRecords.length),
+                  }
+                }
+              )
             )
 
-            const validatedData = yield* pipe(
-              validatedDataResult,
-              Either.match({
-                onLeft: (error) =>
-                  Effect.succeed({
-                    ...result,
-                    success: false,
-                    errors: [error._tag === 'DecodingFailed' ? error.reason : String(error)],
-                  }),
-                onRight: (data) => Effect.succeed(data),
-              })
-            )
-
-            if (!validatedData.success) {
-              return validatedData
-            }
-
-            // 簡易実装: データのインポート処理
-            yield* Effect.logInfo(`Importing preferences for player: ${playerId}`)
-            result.importedPreferences = 1
-
-            return result
-          }).pipe(handlePreferencesOperation),
-
-        validatePreferences: (jsonData: string) =>
-          Effect.gen(function* () {
-            const result: ValidationResult = {
-              isValid: true,
-              preferencesValid: true,
-              recordsValid: true,
-              errors: [],
-              warnings: [],
-              suggestions: [],
-            }
-
-            const validationResult = yield* Effect.try({
-              try: () => JSON.parse(jsonData),
-              catch: (error) => createViewModePreferencesError.decodingFailed('PreferenceExportData', String(error)),
-            }).pipe(
-              Effect.flatMap(Schema.decodeUnknown(PreferenceExportDataSchema)),
-              Effect.mapError((error) =>
-                createViewModePreferencesError.decodingFailed('PreferenceExportData', String(error))
-              ),
-              Effect.either
-            )
-
-            return yield* pipe(
-              validationResult,
-              Either.match({
-                onLeft: (error) =>
-                  Effect.succeed({
-                    ...result,
-                    isValid: false,
-                    preferencesValid: false,
-                    errors: [error._tag === 'DecodingFailed' ? error.reason : String(error)],
-                  }),
-                onRight: (_data) =>
-                  Effect.succeed({
-                    ...result,
-                    suggestions: ['Export data structure is valid'],
-                  }),
-              })
-            )
-          }).pipe(handlePreferencesOperation),
-
-        // ========================================
-        // Maintenance and Analytics (Simplified)
-        // ========================================
-
-        validateDataIntegrity: () =>
-          Effect.gen(function* () {
-            const result: IntegrityCheckResult = {
-              isHealthy: true,
-              checkedPlayers: 0,
-              corruptedPreferences: [],
-              orphanedRecords: [],
-              inconsistentData: [],
-              fixedIssues: 0,
-            }
-
-            yield* Effect.logInfo('Data integrity check completed')
-            return result
-          }).pipe(handlePreferencesOperation),
-
-        recalculateStatistics: () =>
-          Effect.gen(function* () {
-            const lastAnalysisDate = yield* Clock.currentTimeMillis
-            yield* Ref.update(storageRef, (state) => ({
+            totalDeleted = deleted
+            return {
               ...state,
-              statisticsCache: HashMap.empty(),
+              usageRecords: updatedRecords,
               metadata: {
                 ...state.metadata,
-                lastAnalysisDate,
+                totalRecords: state.metadata.totalRecords - totalDeleted,
               },
-            }))
-
-            const result: StatisticsRecalculationResult = {
-              recalculatedStatistics: 1,
-              updatedTrends: 1,
-              processedRecords: 100,
-              processingTimeMs: 50,
-              cacheUpdated: true,
             }
+          })
 
-            yield* Effect.logInfo('Statistics recalculation completed')
-            return result
-          }).pipe(handlePreferencesOperation),
+          yield* Effect.logInfo(`Cleanup completed: ${totalDeleted} old records removed`)
+          return totalDeleted
+        }).pipe(handlePreferencesOperation),
 
-        reanalyzeUsagePatterns: (playerId?: PlayerId) =>
-          Effect.gen(function* () {
-            const result: ReanalysisResult = {
-              analyzedPlayers: playerId ? 1 : 10,
-              updatedPatterns: 5,
-              newInsights: ['Users prefer third-person mode for building'],
-              improvedAccuracy: 0.15,
-              processingTimeMs: 100,
-            }
+      // ========================================
+      // Import/Export Operations (Simplified)
+      // ========================================
 
-            yield* Effect.logInfo(
-              `Usage pattern reanalysis completed${playerId ? ` for player: ${playerId}` : ' for all players'}`
-            )
-            return result
-          }).pipe(handlePreferencesOperation),
-      })
+      exportPlayerPreferences: (playerId: PlayerId, includeHistory: boolean) =>
+        Effect.gen(function* () {
+          const state = yield* Ref.get(storageRef)
+          const preference = HashMap.get(state.playerPreferences, playerId)
+          const records = includeHistory ? HashMap.get(state.usageRecords, playerId) : Option.none()
+
+          const exportedAt = yield* Clock.currentTimeMillis
+          const exportData = {
+            playerId,
+            preference: Option.getOrUndefined(preference),
+            records: Option.getOrElse(records, () => []),
+            exportedAt,
+          }
+
+          return JSON.stringify(exportData, null, 2)
+        }).pipe(handlePreferencesOperation),
+
+      importPlayerPreferences: (playerId: PlayerId, jsonData: string, options?: ImportOptions) =>
+        Effect.gen(function* () {
+          const result: ImportResult = {
+            success: true,
+            importedPreferences: 0,
+            importedRecords: 0,
+            skippedItems: 0,
+            errors: [],
+            warnings: [],
+          }
+
+          const validatedDataResult = yield* Effect.try({
+            try: () => JSON.parse(jsonData),
+            catch: (error) => createViewModePreferencesError.decodingFailed('PreferenceExportData', String(error)),
+          }).pipe(
+            Effect.flatMap(Schema.decodeUnknown(PreferenceExportDataSchema)),
+            Effect.mapError((error) =>
+              createViewModePreferencesError.decodingFailed('PreferenceExportData', String(error))
+            ),
+            Effect.either
+          )
+
+          const validatedData = yield* pipe(
+            validatedDataResult,
+            Either.match({
+              onLeft: (error) =>
+                Effect.succeed({
+                  ...result,
+                  success: false,
+                  errors: [error._tag === 'DecodingFailed' ? error.reason : String(error)],
+                }),
+              onRight: (data) => Effect.succeed(data),
+            })
+          )
+
+          if (!validatedData.success) {
+            return validatedData
+          }
+
+          // 簡易実装: データのインポート処理
+          yield* Effect.logInfo(`Importing preferences for player: ${playerId}`)
+          result.importedPreferences = 1
+
+          return result
+        }).pipe(handlePreferencesOperation),
+
+      validatePreferences: (jsonData: string) =>
+        Effect.gen(function* () {
+          const result: ValidationResult = {
+            isValid: true,
+            preferencesValid: true,
+            recordsValid: true,
+            errors: [],
+            warnings: [],
+            suggestions: [],
+          }
+
+          const validationResult = yield* Effect.try({
+            try: () => JSON.parse(jsonData),
+            catch: (error) => createViewModePreferencesError.decodingFailed('PreferenceExportData', String(error)),
+          }).pipe(
+            Effect.flatMap(Schema.decodeUnknown(PreferenceExportDataSchema)),
+            Effect.mapError((error) =>
+              createViewModePreferencesError.decodingFailed('PreferenceExportData', String(error))
+            ),
+            Effect.either
+          )
+
+          return yield* pipe(
+            validationResult,
+            Either.match({
+              onLeft: (error) =>
+                Effect.succeed({
+                  ...result,
+                  isValid: false,
+                  preferencesValid: false,
+                  errors: [error._tag === 'DecodingFailed' ? error.reason : String(error)],
+                }),
+              onRight: (_data) =>
+                Effect.succeed({
+                  ...result,
+                  suggestions: ['Export data structure is valid'],
+                }),
+            })
+          )
+        }).pipe(handlePreferencesOperation),
+
+      // ========================================
+      // Maintenance and Analytics (Simplified)
+      // ========================================
+
+      validateDataIntegrity: () =>
+        Effect.gen(function* () {
+          const result: IntegrityCheckResult = {
+            isHealthy: true,
+            checkedPlayers: 0,
+            corruptedPreferences: [],
+            orphanedRecords: [],
+            inconsistentData: [],
+            fixedIssues: 0,
+          }
+
+          yield* Effect.logInfo('Data integrity check completed')
+          return result
+        }).pipe(handlePreferencesOperation),
+
+      recalculateStatistics: () =>
+        Effect.gen(function* () {
+          const lastAnalysisDate = yield* Clock.currentTimeMillis
+          yield* Ref.update(storageRef, (state) => ({
+            ...state,
+            statisticsCache: HashMap.empty(),
+            metadata: {
+              ...state.metadata,
+              lastAnalysisDate,
+            },
+          }))
+
+          const result: StatisticsRecalculationResult = {
+            recalculatedStatistics: 1,
+            updatedTrends: 1,
+            processedRecords: 100,
+            processingTimeMs: 50,
+            cacheUpdated: true,
+          }
+
+          yield* Effect.logInfo('Statistics recalculation completed')
+          return result
+        }).pipe(handlePreferencesOperation),
+
+      reanalyzeUsagePatterns: (playerId?: PlayerId) =>
+        Effect.gen(function* () {
+          const result: ReanalysisResult = {
+            analyzedPlayers: playerId ? 1 : 10,
+            updatedPatterns: 5,
+            newInsights: ['Users prefer third-person mode for building'],
+            improvedAccuracy: 0.15,
+            processingTimeMs: 100,
+          }
+
+          yield* Effect.logInfo(
+            `Usage pattern reanalysis completed${playerId ? ` for player: ${playerId}` : ' for all players'}`
+          )
+          return result
+        }).pipe(handlePreferencesOperation),
+    })
   })
 )

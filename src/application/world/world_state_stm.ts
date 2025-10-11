@@ -18,11 +18,11 @@ import type { ChunkId } from '@/domain/shared/entities/chunk_id'
 import type { PlayerId } from '@/domain/shared/entities/player_id'
 import { WorldIdSchema } from '@/domain/shared/entities/world_id/schema'
 import type { WorldMetadata } from '@/domain/world/repository/world_metadata_repository/interface'
-import { Context, DateTime, Effect, Layer, STM, Schema } from 'effect'
-import { createWorldSeed } from '@/domain/world/types/core/world_types'
-import { createWorldGeneratorId } from '@/domain/world_generation/aggregate/world_generator'
-import { WorldCoordinate2DSchema } from '@/domain/world/value_object/coordinates'
 import { WorldClock } from '@/domain/world/time'
+import { createWorldSeed } from '@/domain/world/types/core/world_types'
+import { WorldCoordinate2DSchema } from '@/domain/world/value_object/coordinates'
+import { createWorldGeneratorId } from '@/domain/world_generation/aggregate/world_generator'
+import { Context, DateTime, Effect, Layer, STM, Schema } from 'effect'
 
 /**
  * WorldStateSTM Service定義
@@ -289,8 +289,7 @@ export const makeWorldStateSTMLive = (initialMetadata: WorldMetadata) =>
       /**
        * 全チャンク取得実装（読み取り専用）
        */
-      const getAllChunks = (): Effect.Effect<ReadonlyMap<ChunkId, ChunkData>> =>
-        STM.commit(STM.TRef.get(loadedChunks))
+      const getAllChunks = (): Effect.Effect<ReadonlyMap<ChunkId, ChunkData>> => STM.commit(STM.TRef.get(loadedChunks))
 
       /**
        * プレイヤー追加実装
@@ -463,10 +462,10 @@ export const makeWorldStateSTMLive = (initialMetadata: WorldMetadata) =>
  * 本番環境では適切なメタデータを渡してmakeWorldStateSTMLive()を使用すること。
  */
 const defaultTimestamp = DateTime.toDate(DateTime.unsafeNow())
-const DEFAULT_WORLD_ID = Schema.decodeUnknownSync(WorldIdSchema)('default_world')
+const DEFAULT_WORLD_ID = 'default_world' satisfies WorldId
 const DEFAULT_WORLD_SEED = createWorldSeed(1_234_567_890)
 const DEFAULT_GENERATOR_ID = createWorldGeneratorId('wg_default_generator')
-const DEFAULT_WORLD_BORDER_CENTER = Schema.decodeUnknownSync(WorldCoordinate2DSchema)({ x: 0, z: 0 })
+const DEFAULT_WORLD_BORDER_CENTER = { x: 0, z: 0 } satisfies WorldCoordinate2D
 
 export const WorldStateSTMLive = makeWorldStateSTMLive({
   id: DEFAULT_WORLD_ID,

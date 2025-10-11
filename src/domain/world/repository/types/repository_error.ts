@@ -10,15 +10,10 @@ import {
   GenerationSessionIdSchema,
   type GenerationSessionId,
 } from '@/domain/world_generation/aggregate/generation_session'
-import { ErrorCauseSchema, toErrorCause } from '@/shared/schema/error'
-import { JsonValueSchema } from '@/shared/schema/json'
-import type { JsonValue } from '@/shared/schema/json'
-import {
-  BiomeIdSchema,
-  WorldIdSchema,
-  type BiomeId,
-  type WorldId,
-} from '@domain/world/types/core'
+import { BiomeIdSchema, WorldIdSchema, type BiomeId, type WorldId } from '@domain/world/types/core'
+import { ErrorCauseSchema, toErrorCause } from '@shared/schema/error'
+import type { JsonValue } from '@shared/schema/json'
+import { JsonValueSchema } from '@shared/schema/json'
 import { DateTime, Effect, Match, Schema } from 'effect'
 
 // === Core Repository Errors ===
@@ -544,6 +539,17 @@ export const createCompressionError = (
       timestamp,
     })
   })
+
+/**
+ * Storage エラー作成（createPersistenceErrorのエイリアス）
+ * @deprecated Use createPersistenceError instead
+ */
+export const createStorageError = (
+  message: string,
+  operation: string,
+  cause?: unknown
+): Effect.Effect<PersistenceError, Schema.ParseError> =>
+  createPersistenceError(message, 'filesystem', cause)
 
 /**
  * Version Compatibility エラー作成

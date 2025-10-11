@@ -5,8 +5,8 @@
  * class構文を一切使用せず、pipe/flowによる関数合成とEffect.genで実装
  */
 
-import { Effect, Layer, Match, Option, pipe, ReadonlyArray, Schema } from 'effect'
 import type { JsonRecord, JsonValue } from '@shared/schema/json'
+import { Effect, Layer, Match, Option, pipe, ReadonlyArray } from 'effect'
 import type { ItemMetadata, ItemStack } from '../../types'
 import { ItemQualitySchema } from '../../types/item_enums'
 import {
@@ -63,63 +63,63 @@ const getCategoryDefaults = (category: ItemCategory): Partial<ItemConfig> =>
       maxStackSize: 1,
       durability: 1.0,
       maxDurability: 100,
-      quality: Schema.make(ItemQualitySchema)('common'),
+      quality: ItemQualitySchema.make('common'),
     })),
     Match.when('weapon', () => ({
       stackable: false,
       maxStackSize: 1,
       durability: 1.0,
       maxDurability: 150,
-      quality: Schema.make(ItemQualitySchema)('common'),
+      quality: ItemQualitySchema.make('common'),
     })),
     Match.when('armor', () => ({
       stackable: false,
       maxStackSize: 1,
       durability: 1.0,
       maxDurability: 200,
-      quality: Schema.make(ItemQualitySchema)('common'),
+      quality: ItemQualitySchema.make('common'),
     })),
     Match.when('food', () => ({
       stackable: true,
       maxStackSize: 16,
       durability: undefined,
-      quality: Schema.make(ItemQualitySchema)('common'),
+      quality: ItemQualitySchema.make('common'),
     })),
     Match.when('block', () => ({
       stackable: true,
       maxStackSize: 64,
       durability: undefined,
-      quality: Schema.make(ItemQualitySchema)('common'),
+      quality: ItemQualitySchema.make('common'),
     })),
     Match.when('resource', () => ({
       stackable: true,
       maxStackSize: 64,
       durability: undefined,
-      quality: Schema.make(ItemQualitySchema)('common'),
+      quality: ItemQualitySchema.make('common'),
     })),
     Match.when('consumable', () => ({
       stackable: true,
       maxStackSize: 8,
       durability: undefined,
-      quality: Schema.make(ItemQualitySchema)('common'),
+      quality: ItemQualitySchema.make('common'),
     })),
     Match.when('redstone', () => ({
       stackable: true,
       maxStackSize: 64,
       durability: undefined,
-      quality: Schema.make(ItemQualitySchema)('common'),
+      quality: ItemQualitySchema.make('common'),
     })),
     Match.when('decoration', () => ({
       stackable: true,
       maxStackSize: 64,
       durability: undefined,
-      quality: Schema.make(ItemQualitySchema)('common'),
+      quality: ItemQualitySchema.make('common'),
     })),
     Match.when('misc', () => ({
       stackable: true,
       maxStackSize: 64,
       durability: undefined,
-      quality: Schema.make(ItemQualitySchema)('common'),
+      quality: ItemQualitySchema.make('common'),
     })),
     Match.exhaustive
   )

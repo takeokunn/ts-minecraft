@@ -1,3 +1,5 @@
+import { toJsonValue } from '@shared/schema/json'
+import { formatParseIssues } from '@shared/schema/tagged_error_factory'
 import { Context, Effect, Layer, Match, Schema, pipe } from 'effect'
 import { type ChunkAggregate, ChunkBoundsError, type ChunkData, ChunkDataSchema } from '../../aggregate/chunk'
 import { ChunkDataValidationError } from '../../aggregate/chunk_data'
@@ -58,7 +60,7 @@ const ensureArrayLength = (data: Uint16Array, expected: number): Effect.Effect<U
         ChunkDataValidationError({
           message: `チャンクデータサイズが不正です。期待値: ${expected}, 実際: ${candidate.length}`,
           field: 'blocks',
-          value: candidate,
+          value: toJsonValue(candidate),
         })
     )
   )
@@ -82,8 +84,10 @@ const ensureChunkCoordinate = (
     )
   )
 
-const decodeChunkData = (input: unknown) => Schema.decodeUnknown(ChunkDataSchema)(input)
-const decodeMetadata = (input: unknown) => Schema.decodeUnknown(ChunkMetadataSchema)(input)
+const decodeChunkData = (input: Schema.Schema.Input<typeof ChunkDataSchema>) =>
+  Schema.decodeUnknown(ChunkDataSchema)(input)
+const decodeMetadata = (input: Schema.Schema.Input<typeof ChunkMetadataSchema>) =>
+  Schema.decodeUnknown(ChunkMetadataSchema)(input)
 
 export const ChunkValidationServiceLive = Layer.effect(
   ChunkValidationService,
@@ -106,7 +110,7 @@ export const ChunkValidationServiceLive = Layer.effect(
               ChunkDataValidationError({
                 message: 'チャンクデータはUint16Array型である必要があります',
                 field: 'blocks',
-                value: candidate,
+                value: toJsonValue(candidate),
               })
           ),
           Effect.flatMap((typed) => ensureArrayLength(typed, CHUNK_VOLUME))
@@ -115,11 +119,13 @@ export const ChunkValidationServiceLive = Layer.effect(
       validateMetadata: (metadata) =>
         pipe(
           decodeMetadata(metadata),
-          Effect.mapError((error) =>
+          Effect.mapError((parseError: Schema.ParseError) =>
             ChunkDataValidationError({
-              message: `チャンクメタデータの検証に失敗しました: ${String(error)}`,
-              field: 'metadata',
-              value: metadata,
+              message: 'チャンクメタデータの検証に失敗しました',
+              field: parseError.path?.join('.') ?? 'metadata',
+              value: toJsonValue(metadata),
+              issues: formatParseIssues(parseError),
+              originalError: parseError,
             })
           )
         ),
@@ -127,11 +133,13 @@ export const ChunkValidationServiceLive = Layer.effect(
       validateIntegrity: (chunk) =>
         pipe(
           decodeChunkData(chunk),
-          Effect.mapError((error) =>
+          Effect.mapError((parseError: Schema.ParseError) =>
             ChunkDataValidationError({
-              message: `チャンクデータのスキーマ検証に失敗しました: ${String(error)}`,
-              field: 'chunk',
-              value: chunk,
+              message: 'チャンクデータのスキーマ検証に失敗しました',
+              field: parseError.path?.join('.') ?? 'chunk',
+              value: toJsonValue(chunk),
+              issues: formatParseIssues(parseError),
+              originalError: parseError,
             })
           ),
           Effect.tap(() => service.validatePosition(chunk.position)),
@@ -153,7 +161,7 @@ export const ChunkValidationServiceLive = Layer.effect(
                 ChunkDataValidationError({
                   message: `チェックサムの計算に失敗しました: ${String(error)}`,
                   field: 'checksum',
-                  value: data,
+                  value: toJsonValue(data),
                 })
               )
             )
@@ -168,7 +176,7 @@ export const ChunkValidationServiceLive = Layer.effect(
                   ChunkDataValidationError({
                     message: `チェックサムが一致しません。期待値: ${expectedChecksum}, 実際: ${calculated}`,
                     field: 'checksum',
-                    value: data,
+                    value: toJsonValue(data),
                   })
                 )
               )

@@ -177,7 +177,7 @@ export const ConsistencyCheckerServiceLive = Layer.effect(
             checksPerformed: ['biome_climate_match', 'transition_validity'],
           },
         } satisfies ConsistencyCheckResult
-    }),
+      }),
 
     checkRegionalConsistency: (region, bounds) =>
       Effect.gen(function* () {
@@ -216,10 +216,7 @@ export const ConsistencyCheckerServiceLive = Layer.effect(
             description: `低信頼度セルが${lowConfidenceCells.length}箇所検出されました（全体の${(lowConfidenceRatio * 100).toFixed(1)}%）。`,
             severity: selectIssueSeverity(lowConfidenceRatio),
             affectedArea: lowConfidenceCells.length,
-            suggestions: [
-              'BiomeMapperServiceのノイズ設定を再調整する',
-              '気候データのサンプリング密度を向上させる',
-            ],
+            suggestions: ['BiomeMapperServiceのノイズ設定を再調整する', '気候データのサンプリング密度を向上させる'],
           })
         }
 
@@ -259,11 +256,7 @@ export const ConsistencyCheckerServiceLive = Layer.effect(
           checkMetadata: {
             algorithm: 'regional_consistency_v1',
             dataQuality: Math.max(0, 1 - lowConfidenceRatio),
-            checksPerformed: [
-              'confidence_distribution',
-              'bounding_box_validation',
-              'biome_diversity_assessment',
-            ],
+            checksPerformed: ['confidence_distribution', 'bounding_box_validation', 'biome_diversity_assessment'],
           },
         }
 
@@ -272,7 +265,7 @@ export const ConsistencyCheckerServiceLive = Layer.effect(
   })
 )
 
-const validateBiomeClimateMatch = (biome: unknown, climate: ClimateData): boolean => {
+const validateBiomeClimateMatch = (biome: string, climate: ClimateData): boolean => {
   // 簡略化されたバイオーム-気候適合性チェック
   const temp = climate.temperature
   const precip = climate.precipitation

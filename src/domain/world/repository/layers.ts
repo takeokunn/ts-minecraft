@@ -4,7 +4,7 @@
  * 全Repository実装Layerの統合（Memory・Persistence・Mixed）
  */
 
-import { Layer, Match, pipe } from 'effect'
+import { Layer, Match, Schema, pipe } from 'effect'
 // Import types inline to avoid circular dependency
 import type { GenerationSessionRepositoryConfig } from '@/domain/world_generation/repository/generation_session_repository'
 import {
@@ -29,6 +29,13 @@ export interface WorldRepositoryLayerConfig {
   readonly worldMetadata: WorldMetadataRepositoryConfig
   readonly implementation: 'memory' | 'persistence' | 'mixed'
 }
+
+export const WorldRepositoryLayerConfigSchema = Schema.Struct({
+  worldGenerator: Schema.suspend(() => Schema.decodeUnknown(WorldGeneratorRepositoryConfigSchema)),
+  generationSession: Schema.suspend(() => Schema.decodeUnknown(GenerationSessionRepositoryConfigSchema)),
+  worldMetadata: Schema.suspend(() => Schema.decodeUnknown(WorldMetadataRepositoryConfigSchema)),
+  implementation: Schema.Literal('memory', 'persistence', 'mixed'),
+})
 
 /**
  * デフォルト設定

@@ -6,8 +6,8 @@
  */
 
 import type { CameraId, CameraRotation, Position3D } from '@domain/camera/types'
-import { Brand, Clock, Data, Effect, Option, Schema } from 'effect'
-import { ErrorCauseSchema, toErrorCause, type ErrorCause } from '@/shared/schema/error'
+import { ErrorCauseSchema, toErrorCause, type ErrorCause } from '@shared/schema/error'
+import { Brand, Clock, Data, Effect, Option, Random, Schema } from 'effect'
 import type { EasingType, ViewMode } from '../../value_object/index'
 
 // ========================================
@@ -506,7 +506,8 @@ export const createAnimationRecord = {
   ): Effect.Effect<AnimationRecord> =>
     Effect.gen(function* () {
       const now = yield* Clock.currentTimeMillis
-      const random = yield* Effect.sync(() => Math.random().toString(36).slice(2))
+      const randomValue = yield* Random.nextIntBetween(0, 36 ** 11 - 1)
+      const random = randomValue.toString(36).padStart(11, '0')
       return {
         id: `anim_${now}_${random}` as AnimationRecordId,
         cameraId,

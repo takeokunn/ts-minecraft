@@ -1,3 +1,4 @@
+import { toJsonValue } from '@shared/schema/json'
 import { Array as Arr, Clock, Context, Effect, Layer, Match, Number as Num, Option, Order, pipe } from 'effect'
 import type { ChunkData } from '../../aggregate/chunk'
 import { ChunkDataValidationError } from '../../aggregate/chunk_data'
@@ -121,7 +122,7 @@ const toValidationError = (error: ChunkMetadataError): ChunkDataValidationError 
   ChunkDataValidationError({
     message: error.message,
     field: error.issues.at(0)?.field,
-    value: error.issues,
+    value: toJsonValue(error.issues),
   })
 
 const toBlockArray = (blocks: Uint16Array): ReadonlyArray<number> => Array.from(blocks)

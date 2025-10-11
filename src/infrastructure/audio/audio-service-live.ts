@@ -1,4 +1,5 @@
 import type { Vector3D } from '@domain/entities/types'
+import { toErrorCause } from '@shared/schema/error'
 import {
   Clock,
   Duration,
@@ -34,7 +35,6 @@ import {
   SourceNotFoundError,
   type Volume,
 } from './audio-types'
-import { toErrorCause } from '@shared/schema/error'
 
 interface ActiveSource {
   audio: THREE.PositionalAudio | THREE.Audio
@@ -223,12 +223,14 @@ const makeAudioService = Effect.gen(function* () {
         Match.when(false, () =>
           Effect.sync(() => {
             positionalAudio.onEnded = () => {
-              Effect.runSync(
+              Effect.runPromise(
                 pipe(
                   Ref.update(activeSources, HashMap.remove(sourceId)),
                   Effect.zipRight(Queue.offer(eventQueue, finishedEvent))
                 )
-              )
+              ).catch((error) => {
+                console.error('Failed to handle audio end event:', error)
+              })
             }
           })
         ),
@@ -336,12 +338,14 @@ const makeAudioService = Effect.gen(function* () {
       yield* Effect.when(
         Effect.sync(() => {
           audio.onEnded = () => {
-            Effect.runSync(
+            Effect.runPromise(
               pipe(
                 Ref.update(activeSources, HashMap.remove(sourceId)),
                 Effect.zipRight(Queue.offer(eventQueue, finishedEvent))
               )
-            )
+            ).catch((error) => {
+              console.error('Failed to handle audio end event:', error)
+            })
           }
         }),
         () => shouldLoop === false

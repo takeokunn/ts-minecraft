@@ -9,7 +9,13 @@ import { ItemIdSchema } from './schema'
 export const create = (value: string): Effect.Effect<ItemId, Error> =>
   pipe(
     Schema.decode(ItemIdSchema)(value),
-    Effect.mapError((error) => new Error(`ItemIdの作成に失敗: ${String(error)}`))
+    Effect.mapError((parseError) => {
+      const issues = (parseError as any).issues?.map((issue: any) => {
+        const path = issue.path?.join('.') || 'unknown'
+        return `${path}: ${issue.message}`
+      }) || []
+      return new Error(`ItemIdの作成に失敗: ${issues.join('; ') || String(parseError)}`)
+    })
   )
 
 /**

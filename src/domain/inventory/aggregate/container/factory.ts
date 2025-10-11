@@ -3,10 +3,12 @@
  * DDD原則に基づく複雑なコンテナ設定の隠蔽
  */
 
-import { Context, DateTime, Effect, Layer, ReadonlyArray, Schema, pipe } from 'effect'
+import { JsonValueSchema } from '@shared/schema/json'
+import { formatParseIssues } from '@shared/schema/tagged_error_factory'
+import { Brand, Context, DateTime, Effect, Layer, ReadonlyArray, Schema, pipe } from 'effect'
 import { nanoid } from 'nanoid'
-import { PlayerIdSchema } from '../../types/core'
 import type { PlayerId } from '../../types'
+import { PlayerIdSchema } from '../../types/core'
 import type {
   ContainerAccessLevel,
   ContainerAggregate,
@@ -22,20 +24,30 @@ import type {
 import {
   CONTAINER_CONSTANTS,
   CONTAINER_SLOT_CONFIGURATIONS,
-  ContainerAggregateSchema,
-  ContainerError,
   ContainerAccessLevelSchema,
-  makeUnsafeContainerId,
+  ContainerAggregateSchema,
+  ContainerConfigurationSchema,
+  ContainerDomainEventSchema,
+  ContainerError,
   ContainerIdSchema,
+  ContainerPermissionSchema,
+  ContainerSlotSchema,
   ContainerTypeSchema,
   WorldPositionSchema,
-  ContainerConfigurationSchema,
-  ContainerSlotSchema,
-  ContainerPermissionSchema,
-  ContainerDomainEventSchema,
-  ContainerSlotIndexSchema,
+  makeUnsafeContainerId,
 } from './types'
-import { JsonValueSchema } from '@/shared/schema/json'
+
+// ===== Branded Types for Persistence =====
+
+/**
+ * 永続化されたContainerデータの型
+ *
+ * `unknown`を使用する理由:
+ * - 外部ストレージ（IndexedDB/LocalStorage）から取得されたデータは実行時検証が必須
+ * - Branded Typeにより、型安全な境界を明示的に定義
+ * - restore関数内でSchema検証を通過して初めてContainerAggregateとして扱える
+ */
+export type PersistedContainer = Brand.Brand<unknown, 'PersistedContainer'>
 
 // ===== Factory Interface =====
 
@@ -52,8 +64,10 @@ export interface ContainerFactory {
 
   /**
    * 既存データからContainer集約を復元
+   *
+   * @param data - 永続化されたContainerデータ（実行時検証が必要）
    */
-  readonly restore: (data: unknown) => Effect.Effect<ContainerAggregate, ContainerError>
+  readonly restore: (data: PersistedContainer) => Effect.Effect<ContainerAggregate, ContainerError>
 
   /**
    * タイプ別のデフォルト設定を取得
@@ -309,10 +323,12 @@ export const buildContainerFromState = (
 
     // スキーマ検証
     const aggregate = yield* Schema.decodeUnknown(ContainerAggregateSchema)(aggregateData).pipe(
-      Effect.mapError((error) =>
+      Effect.mapError((parseError: Schema.ParseError) =>
         ContainerError.make({
           reason: 'INVALID_CONFIGURATION',
-          message: `Container集約の検証に失敗: ${String(error)}`,
+          message: 'Container集約の検証に失敗',
+          issues: formatParseIssues(parseError),
+          originalError: parseError,
         })
       )
     )
@@ -364,14 +380,19 @@ export const ContainerFactoryLive = ContainerFactory.of({
       return yield* buildContainerFromState(state)
     }),
 
-  restore: (data: unknown) =>
+  restore: (data: PersistedContainer) =>
     Effect.gen(function* () {
       // スキーマ検証による安全な復元
+      // ParseErrorの構造化情報を保持してエラー診断を容易にする
       return yield* Schema.decodeUnknown(ContainerAggregateSchema)(data).pipe(
-        Effect.mapError((error) =>
+        Effect.mapError((parseError: Schema.ParseError) =>
           ContainerError.make({
             reason: 'INVALID_CONFIGURATION',
-            message: `データからの復元に失敗: ${String(error)}`,
+            message: `データからの復元に失敗: Schema検証エラー`,
+            metadata: {
+              issues: formatParseIssues(parseError),
+              parseError: String(parseError),
+            },
           })
         )
       )

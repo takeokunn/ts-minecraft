@@ -1,4 +1,4 @@
-import { Array, Clock, Data, Effect, Layer, Match, Option, pipe } from 'effect'
+import { Array, Clock, Data, Effect, Layer, Match, Option, pipe, Random } from 'effect'
 import type {
   CameraApplicationError,
   KeyboardAction,
@@ -98,7 +98,9 @@ export const PlayerCameraApplicationServiceLive = Layer.effect(
     const generateCameraId = (): Effect.Effect<CameraId, never> =>
       Effect.gen(function* () {
         const now = yield* Clock.currentTimeMillis
-        return `camera-${now}-${Math.random().toString(36).substr(2, 9)}` as CameraId
+        const randomValue = yield* Random.nextIntBetween(0, 36 ** 9 - 1)
+        const nonce = randomValue.toString(36).padStart(9, '0')
+        return `camera-${now}-${nonce}` as CameraId
       })
 
     /**

@@ -38,7 +38,7 @@ export const asRepositoryStrategyType = <T extends string>(type: T): RepositoryS
  * 環境情報
  */
 export interface EnvironmentInfo {
-  readonly platform: 'browser' | 'node' | 'webworker' | 'unknown'
+  readonly platform: 'browser' | 'node' | 'webworker' | 'unclassified'
   readonly hasBrowserAPI: boolean
   readonly hasIndexedDB: boolean
   readonly hasWebWorkers: boolean
@@ -83,95 +83,101 @@ export interface PerformanceRequirements {
  * 実行環境を自動検出
  */
 export const detectEnvironment = (): Effect.Effect<EnvironmentInfo, RepositoryError> =>
-  Effect.try({
-    try: () => {
-      // プラットフォーム検出
-      const platform = pipe(
-        Match.value({
-          hasWindow: typeof window !== 'undefined',
-          hasNode: typeof process !== 'undefined' && process.versions?.node,
-          hasWebWorker: typeof self !== 'undefined' && typeof importScripts === 'function',
-        }),
-        Match.when({ hasWindow: true }, () => 'browser' as const),
-        Match.when({ hasNode: true }, () => 'node' as const),
-        Match.when({ hasWebWorker: true }, () => 'webworker' as const),
-        Match.orElse(() => 'unknown' as const)
-      )
+  Effect.gen(function* () {
+    // プラットフォーム検出
+    const platform = pipe(
+      Match.value({
+        hasWindow: typeof window !== 'undefined',
+        hasNode: typeof process !== 'undefined' && process.versions?.node,
+        hasWebWorker: typeof self !== 'undefined' && typeof importScripts === 'function',
+      }),
+      Match.when({ hasWindow: true }, () => 'browser' as const),
+      Match.when({ hasNode: true }, () => 'node' as const),
+      Match.when({ hasWebWorker: true }, () => 'webworker' as const),
+      Match.orElse(() => 'unclassified' as const)
+    )
 
-      // API利用可能性チェック
-      const hasBrowserAPI = typeof window !== 'undefined'
-      const hasIndexedDB = typeof indexedDB !== 'undefined'
-      const hasWebWorkers = typeof Worker !== 'undefined'
-      const hasFileSystem = typeof process !== 'undefined' && typeof require !== 'undefined'
+    // API利用可能性チェック
+    const hasBrowserAPI = typeof window !== 'undefined'
+    const hasIndexedDB = typeof indexedDB !== 'undefined'
+    const hasWebWorkers = typeof Worker !== 'undefined'
+    const hasFileSystem = typeof process !== 'undefined' && typeof require !== 'undefined'
 
-      // メモリ制約推定
-      const memoryConstraints = pipe(
-        platform,
-        Match.value,
-        Match.when('browser', () => {
-          // ブラウザのメモリ使用量を取得
-          return 'memory' in performance
-            ? pipe(Effect.runSync(getPerformanceMemoryOrDefault()), (memory) =>
+    // メモリ制約推定（Effect内で取得）
+    const memoryConstraints = yield* pipe(
+      platform,
+      Match.value,
+      Match.when('browser', () =>
+        'memory' in performance
+          ? pipe(
+              getPerformanceMemoryOrDefault(),
+              Effect.map((memory) =>
                 memory.usedJSHeapSize > memory.jsHeapSizeLimit * 0.8
                   ? ('low' as const)
                   : memory.usedJSHeapSize > memory.jsHeapSizeLimit * 0.5
                     ? ('medium' as const)
                     : ('high' as const)
               )
-            : ('medium' as const)
-        }),
-        Match.when('node', () => {
-          // Node.jsのメモリ使用量を取得
-          return process.memoryUsage
-            ? pipe(
+            )
+          : Effect.succeed('medium' as const)
+      ),
+      Match.when('node', () =>
+        process.memoryUsage
+          ? Effect.sync(() =>
+              pipe(
                 process.memoryUsage(),
                 (usage) => usage.heapTotal / (1024 * 1024),
                 (totalMB) =>
                   totalMB < 128 ? ('low' as const) : totalMB < 512 ? ('medium' as const) : ('high' as const)
               )
-            : ('medium' as const)
-        }),
-        Match.orElse(() => 'medium' as const)
-      )
+            )
+          : Effect.succeed('medium' as const)
+      ),
+      Match.orElse(() => Effect.succeed('medium' as const))
+    )
 
-      // パフォーマンスプロファイル推定
-      const performanceProfile = pipe(
-        platform,
-        Match.value,
-        Match.when('browser', () => {
-          // ブラウザのネットワーク状態を取得
-          return 'connection' in navigator
-            ? pipe(
-                Effect.runSync(getEffectiveConnectionType()),
-                Match.value,
-                Match.when('slow-2g', () => 'low' as const),
-                Match.when('2g', () => 'low' as const),
-                Match.when('3g', () => 'medium' as const),
-                Match.orElse(() => 'high' as const)
+    // パフォーマンスプロファイル推定（Effect内で取得）
+    const performanceProfile = yield* pipe(
+      platform,
+      Match.value,
+      Match.when('browser', () =>
+        'connection' in navigator
+          ? pipe(
+              getEffectiveConnectionType(),
+              Effect.map((type) =>
+                pipe(
+                  type,
+                  Match.value,
+                  Match.when('slow-2g', () => 'low' as const),
+                  Match.when('2g', () => 'low' as const),
+                  Match.when('3g', () => 'medium' as const),
+                  Match.orElse(() => 'high' as const)
+                )
               )
-            : ('high' as const)
-        }),
-        Match.orElse(() => 'high' as const)
-      )
+            )
+          : Effect.succeed('high' as const)
+      ),
+      Match.orElse(() => Effect.succeed('high' as const))
+    )
 
-      // 並行処理サポート
-      const concurrencySupport = hasWebWorkers || platform === 'node'
+    // 並行処理サポート
+    const concurrencySupport = hasWebWorkers || platform === 'node'
 
-      const envInfo: EnvironmentInfo = {
-        platform,
-        hasBrowserAPI,
-        hasIndexedDB,
-        hasWebWorkers,
-        hasFileSystem,
-        memoryConstraints,
-        performanceProfile,
-        concurrencySupport,
-      }
-
-      return envInfo
-    },
-    catch: (error) => RepositoryErrors.storage('environment_detection', 'Failed to detect environment', error),
-  })
+    return {
+      platform,
+      hasBrowserAPI,
+      hasIndexedDB,
+      hasWebWorkers,
+      hasFileSystem,
+      memoryConstraints,
+      performanceProfile,
+      concurrencySupport,
+    } satisfies EnvironmentInfo
+  }).pipe(
+    Effect.catchAll((error) =>
+      Effect.fail(RepositoryErrors.storage('environment_detection', 'Failed to detect environment', error))
+    )
+  )
 
 // ===== Strategy Selection ===== //
 

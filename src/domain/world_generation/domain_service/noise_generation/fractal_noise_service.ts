@@ -9,13 +9,13 @@
 import { type GenerationError } from '@domain/world/types/errors'
 import {
   makeUnsafeWorldCoordinate2D,
+  WorldCoordinate2DSchema,
+  WorldCoordinateSchema,
   type BoundingBox,
   type WorldCoordinate2D,
   type WorldCoordinate3D,
-  WorldCoordinate2DSchema,
-  WorldCoordinateSchema,
 } from '@domain/world/value_object/coordinates'
-import { Context, Effect, Layer, Match, pipe, ReadonlyArray, Schema } from 'effect'
+import { Context, Effect, Layer, Match, pipe, Random, ReadonlyArray, Schema } from 'effect'
 import { PerlinNoiseService, SimplexNoiseService } from './index'
 
 /**
@@ -296,7 +296,7 @@ export const FractalNoiseServiceLive = Layer.effect(
                 frequency: config.baseFrequency,
                 totalValue: 0,
                 totalAmplitude: 0,
-                octaveDetails: [] as Array<OctaveDetail>,
+                octaveDetails: [] satisfies Array<OctaveDetail>,
               },
               (acc, octave) =>
                 Effect.gen(function* () {
@@ -377,7 +377,7 @@ export const FractalNoiseServiceLive = Layer.effect(
                 frequency: config.baseFrequency,
                 totalValue: 0,
                 totalAmplitude: 0,
-                octaveDetails: [] as Array<OctaveDetail>,
+                octaveDetails: [] satisfies Array<OctaveDetail>,
               },
               (acc, octave) =>
                 Effect.gen(function* () {
@@ -460,7 +460,7 @@ export const FractalNoiseServiceLive = Layer.effect(
                 frequency: config.baseFrequency,
                 signal: 0,
                 weight: 1.0,
-                octaveDetails: [] as Array<OctaveDetail>,
+                octaveDetails: [] satisfies Array<OctaveDetail>,
               },
               (acc, octave) =>
                 Effect.gen(function* () {
@@ -567,14 +567,18 @@ export const FractalNoiseServiceLive = Layer.effect(
 
       analyzeFractalDimension: (bounds, sampleCount, config) =>
         Effect.gen(function* () {
-          // ランダムサンプリング位置の生成
-          const randomPositions = pipe(
+          // ランダムサンプリング位置の生成（Random Serviceで再現性保証）
+          const randomPositions = yield* pipe(
             ReadonlyArray.range(0, sampleCount),
-            ReadonlyArray.map(() =>
-              makeUnsafeWorldCoordinate2D(
-                bounds.min.x + Math.random() * (bounds.max.x - bounds.min.x),
-                bounds.min.z + Math.random() * (bounds.max.z - bounds.min.z)
-              )
+            Effect.forEach(() =>
+              Effect.gen(function* () {
+                const randX = yield* Random.nextIntBetween(0, 1000)
+                const randZ = yield* Random.nextIntBetween(0, 1000)
+                return makeUnsafeWorldCoordinate2D(
+                  bounds.min.x + (randX / 1000) * (bounds.max.x - bounds.min.x),
+                  bounds.min.z + (randZ / 1000) * (bounds.max.z - bounds.min.z)
+                )
+              })
             )
           )
 
@@ -616,7 +620,7 @@ export const FractalNoiseServiceLive = Layer.effect(
               }))
             ),
           }
-        }),,
+        }),
 
       analyzeSpectrum: (samples, sampleRate) =>
         Effect.gen(function* () {

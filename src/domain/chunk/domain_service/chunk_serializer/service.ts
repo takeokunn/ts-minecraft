@@ -1,12 +1,12 @@
+import { toErrorCause } from '@shared/schema/error'
 import { Context, Effect, Layer, Match, Option, Schema, pipe } from 'effect'
 import { Buffer } from 'node:buffer'
 import { brotliCompressSync, brotliDecompressSync, deflateSync, gunzipSync, gzipSync, inflateSync } from 'node:zlib'
 import { type ChunkData, ChunkBoundsError, ChunkDataSchema, ChunkSerializationError } from '../../aggregate/chunk'
 import { ChunkDataValidationError } from '../../aggregate/chunk_data'
-import { ChunkMetadataSchema } from '../../value_object/chunk_metadata'
 import type { ChunkMetadata } from '../../value_object/chunk_metadata'
+import { ChunkMetadataSchema } from '../../value_object/chunk_metadata'
 import { ChunkPositionSchema } from '../../value_object/chunk_position'
-import { toErrorCause } from '@/shared/schema/error'
 
 export type SerializationFormat =
   | { readonly _tag: 'Binary'; readonly compression?: boolean }
@@ -42,9 +42,13 @@ export const SerializationFormat = {
   }),
 }
 
-const makeSerializationError = (message: string, cause: unknown): ChunkSerializationError => {
+type ErrorCauseInput = Parameters<typeof toErrorCause>[0]
+
+const makeSerializationError = (message: string, cause: ErrorCauseInput): ChunkSerializationError => {
   const normalized = toErrorCause(cause)
-  return normalized !== undefined ? ChunkSerializationError({ message, originalError: normalized }) : ChunkSerializationError({ message })
+  return normalized !== undefined
+    ? ChunkSerializationError({ message, originalError: normalized })
+    : ChunkSerializationError({ message })
 }
 
 export interface ChunkSerializationService {
@@ -370,22 +374,19 @@ export const ChunkSerializationServiceLive = Layer.effect(
           Match.when('gzip', () =>
             Effect.try({
               try: () => Uint8Array.from(gzipSync(Buffer.from(data))),
-              catch: (error) =>
-                makeSerializationError(`gzip圧縮に失敗しました: ${String(error)}`, error),
+              catch: (error) => makeSerializationError(`gzip圧縮に失敗しました: ${String(error)}`, error),
             })
           ),
           Match.when('deflate', () =>
             Effect.try({
               try: () => Uint8Array.from(deflateSync(Buffer.from(data))),
-              catch: (error) =>
-                makeSerializationError(`deflate圧縮に失敗しました: ${String(error)}`, error),
+              catch: (error) => makeSerializationError(`deflate圧縮に失敗しました: ${String(error)}`, error),
             })
           ),
           Match.when('brotli', () =>
             Effect.try({
               try: () => Uint8Array.from(brotliCompressSync(Buffer.from(data))),
-              catch: (error) =>
-                makeSerializationError(`brotli圧縮に失敗しました: ${String(error)}`, error),
+              catch: (error) => makeSerializationError(`brotli圧縮に失敗しました: ${String(error)}`, error),
             })
           ),
           Match.orElse((unsupported) =>
@@ -404,22 +405,19 @@ export const ChunkSerializationServiceLive = Layer.effect(
           Match.when('gzip', () =>
             Effect.try({
               try: () => Uint8Array.from(gunzipSync(Buffer.from(data))),
-              catch: (error) =>
-                makeSerializationError(`gzip解凍に失敗しました: ${String(error)}`, error),
+              catch: (error) => makeSerializationError(`gzip解凍に失敗しました: ${String(error)}`, error),
             })
           ),
           Match.when('deflate', () =>
             Effect.try({
               try: () => Uint8Array.from(inflateSync(Buffer.from(data))),
-              catch: (error) =>
-                makeSerializationError(`deflate解凍に失敗しました: ${String(error)}`, error),
+              catch: (error) => makeSerializationError(`deflate解凍に失敗しました: ${String(error)}`, error),
             })
           ),
           Match.when('brotli', () =>
             Effect.try({
               try: () => Uint8Array.from(brotliDecompressSync(Buffer.from(data))),
-              catch: (error) =>
-                makeSerializationError(`brotli解凍に失敗しました: ${String(error)}`, error),
+              catch: (error) => makeSerializationError(`brotli解凍に失敗しました: ${String(error)}`, error),
             })
           ),
           Match.orElse((unsupported) =>
@@ -440,12 +438,10 @@ export const ChunkSerializationServiceLive = Layer.effect(
               .map((byte) => byte.toString(16).padStart(2, '0'))
               .join('')
           }).pipe(
-          Effect.catchAll((error) =>
-            Effect.fail(
-              makeSerializationError(`チェックサム計算に失敗しました: ${String(error)}`, error)
+            Effect.catchAll((error) =>
+              Effect.fail(makeSerializationError(`チェックサム計算に失敗しました: ${String(error)}`, error))
             )
           )
-        )
         ),
 
       estimateSize: (chunk, format) =>

@@ -97,7 +97,7 @@ TypeScript MinecraftプロジェクトのTypeScript 5.x設定について詳し�
       "@/application/*": ["src/application/*"], // アプリケーション層
       "@/infrastructure/*": ["src/infrastructure/*"], // インフラ層
       "@/presentation/*": ["src/presentation/*"], // プレゼンテーション層
-      "@/shared/*": ["src/shared/*"], // 共有コード
+      "@shared/*": ["src/shared/*"], // 共有コード
       "@/types/*": ["src/types/*"], // 型定義
       "@/test/*": ["test/*"] // テストコード
     },
@@ -363,7 +363,7 @@ TypeScript MinecraftプロジェクトのTypeScript 5.x設定について詳し�
       "@/domain/*": ["src/domain/*"], // ドメイン層（Schema中心）
       "@/application/*": ["src/application/*"], // ユースケース（Effect中心）
       "@/infrastructure/*": ["src/infrastructure/*"], // インフラ層（Layer中心）
-      "@/shared/*": ["src/shared/*"], // 共有型・ユーティリティ
+      "@shared/*": ["src/shared/*"], // 共有型・ユーティリティ
       "@effect/*": ["node_modules/effect/*"], // Effect直接参照
       "@effect/schema": ["node_modules/@effect/schema"], // Schema専用
       "@effect/platform": ["node_modules/@effect/platform"] // Platform専用

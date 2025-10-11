@@ -1,5 +1,5 @@
 import type { CameraId, ViewMode } from '@domain/camera/types'
-import { Array, Context, Effect, Option } from 'effect'
+import { Array, Brand, Context, Data, Effect, Option } from 'effect'
 import type {
   CameraModeManagerApplicationError,
   CameraModeSwitchOperation,
@@ -178,7 +178,7 @@ export interface CameraModeManagerApplicationService {
 /**
  * スケジュール状態
  */
-export type ScheduleStatus = import('effect').Data.TaggedEnum<{
+export type ScheduleStatus = Data.TaggedEnum<{
   Pending: {}
   InProgress: {}
   Completed: {}
@@ -189,7 +189,7 @@ export type ScheduleStatus = import('effect').Data.TaggedEnum<{
 /**
  * 時間範囲
  */
-export type TimeRange = import('effect').Brand.Brand<
+export type TimeRange = Brand.Brand<
   {
     readonly startTime: number
     readonly endTime: number
@@ -200,7 +200,7 @@ export type TimeRange = import('effect').Brand.Brand<
 /**
  * モード遷移統計
  */
-export type ModeTransitionStatistics = import('effect').Brand.Brand<
+export type ModeTransitionStatistics = Brand.Brand<
   {
     readonly totalTransitions: number
     readonly successfulTransitions: number
@@ -216,7 +216,7 @@ export type ModeTransitionStatistics = import('effect').Brand.Brand<
 /**
  * パフォーマンス目標
  */
-export type PerformanceTargets = import('effect').Brand.Brand<
+export type PerformanceTargets = Brand.Brand<
   {
     readonly targetFPS: number
     readonly maxMemoryUsageMB: number
@@ -230,7 +230,7 @@ export type PerformanceTargets = import('effect').Brand.Brand<
 /**
  * パフォーマンス最適化結果
  */
-export type PerformanceOptimizationResult = import('effect').Brand.Brand<
+export type PerformanceOptimizationResult = Brand.Brand<
   {
     readonly optimizationsApplied: Array.ReadonlyArray<string>
     readonly estimatedFPSImprovement: number
@@ -243,7 +243,7 @@ export type PerformanceOptimizationResult = import('effect').Brand.Brand<
 /**
  * 遷移検証結果
  */
-export type TransitionValidationResult = import('effect').Data.TaggedEnum<{
+export type TransitionValidationResult = Data.TaggedEnum<{
   Valid: {
     readonly estimatedDuration: number
     readonly warnings: Array.ReadonlyArray<string>
@@ -257,7 +257,7 @@ export type TransitionValidationResult = import('effect').Data.TaggedEnum<{
 /**
  * 検証エラー
  */
-export type ValidationError = import('effect').Brand.Brand<
+export type ValidationError = Brand.Brand<
   {
     readonly field: string
     readonly message: string
@@ -269,7 +269,7 @@ export type ValidationError = import('effect').Brand.Brand<
 /**
  * エラー深刻度
  */
-export type ErrorSeverity = import('effect').Data.TaggedEnum<{
+export type ErrorSeverity = Data.TaggedEnum<{
   Info: {}
   Warning: {}
   Error: {}

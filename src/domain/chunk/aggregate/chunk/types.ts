@@ -1,5 +1,5 @@
+import type { ErrorCause } from '@shared/schema/error'
 import { Brand, Data, Effect, Schema } from 'effect'
-import type { ErrorCause } from '@/shared/schema/error'
 import type { ChunkMetadata } from '../../value_object/chunk_metadata'
 import { ChunkMetadataSchema } from '../../value_object/chunk_metadata'
 import type { ChunkPosition } from '../../value_object/chunk_position'

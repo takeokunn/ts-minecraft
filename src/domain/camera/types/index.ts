@@ -12,6 +12,20 @@ export type { CameraDomainError } from './errors.js'
 export { createCameraError, createPositionError, createRotationError, createSettingsError } from './errors.js'
 
 // ========================================
+// Camera View Types Export
+// ========================================
+
+export type { CameraOrientation, CameraProjection, CameraSnapshot, CameraTransform } from './camera_view.js'
+export {
+  CameraQuaternionSchema,
+  CameraOrientationSchema,
+  CameraProjectionSchema,
+  CameraSnapshotSchema,
+  CameraVector3Schema,
+  CameraTransformSchema,
+} from './camera_view.js'
+
+// ========================================
 // Constants and Brand Types Export
 // ========================================
 

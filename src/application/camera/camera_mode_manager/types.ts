@@ -1,7 +1,7 @@
 import type { AnimationState, CameraId, Position3D, ViewMode } from '@domain/camera/types'
 import { AnimationStateSchema, Position3DSchema } from '@domain/camera/types'
 import { ViewModeSchema } from '@domain/camera/value_object'
-import { JsonRecordSchema } from '@shared/schema/json'
+import { type JsonRecord, JsonRecordSchema } from '@shared/schema/json'
 import { Array, Brand, Data, Option, Schema } from 'effect'
 
 // ========================================
@@ -20,7 +20,7 @@ export type ViewModeTransitionConfig = Brand.Brand<
     readonly preserveRotation: boolean
     readonly preserveTargets: boolean
     readonly interpolationSteps: number
-    readonly customParameters: Option<Record<string, unknown>>
+    readonly customParameters: Option<JsonRecord>
   },
   'ViewModeTransitionConfig'
 >
@@ -471,7 +471,7 @@ export type DifficultyLevel = Data.TaggedEnum<{
   Easy: {}
   Normal: {}
   Hard: {}
-  Custom: { readonly customSettings: Record<string, unknown> }
+  Custom: { readonly customSettings: JsonRecord }
 }>
 
 /**

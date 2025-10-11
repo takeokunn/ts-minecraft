@@ -5,8 +5,8 @@
  * Effect-TSのRefを使用した安全な状態管理
  */
 
-import { Clock, Context, Data, Effect, Layer, Match, Option, pipe, Ref } from 'effect'
 import { toErrorCause, type ErrorCause } from '@shared/schema/error'
+import { Clock, Context, Data, Effect, Layer, Match, Option, pipe, Ref } from 'effect'
 import type { System, SystemError, SystemMetadata, SystemPriority } from './system'
 import { isSystemError, makeSystemError, priorityToNumber, SystemExecutionState } from './system'
 
@@ -21,7 +21,23 @@ export const SystemRegistryError = Data.tagged<{
 
 export type SystemRegistryError = ReturnType<typeof SystemRegistryError>
 
-export const makeSystemRegistryError = (message: string, systemName?: string, cause?: unknown): SystemRegistryError =>
+type ErrorMessageRecord = {
+  readonly message: string
+}
+
+const isErrorMessageRecord = (value: unknown): value is ErrorMessageRecord => {
+  if (typeof value !== 'object' || value === null) {
+    return false
+  }
+  const record = value as Record<string, unknown>
+  return 'message' in record && typeof record.message === 'string'
+}
+
+export const makeSystemRegistryError = (
+  message: string,
+  systemName?: string,
+  cause?: Error | ErrorCause | undefined
+): SystemRegistryError =>
   SystemRegistryError({
     message,
     systemName: Option.fromNullable(systemName),
@@ -327,13 +343,18 @@ export const SystemRegistryServiceLive = Layer.effect(
             onSome: (entry) => {
               const errorMessage = pipe(
                 error.cause,
-                Option.flatMap((cause) =>
-                  typeof cause === 'object' && cause !== null && 'message' in cause
-                    ? Option.some(String((cause as { message?: unknown }).message ?? error.message))
-                    : typeof cause === 'string'
-                      ? Option.some(cause)
-                      : Option.none()
-                ),
+                Option.flatMap((cause) => {
+                  if (cause instanceof Error) {
+                    return Option.some(cause.message)
+                  }
+                  if (typeof cause === 'string') {
+                    return Option.some(cause)
+                  }
+                  if (isErrorMessageRecord(cause)) {
+                    return Option.some(cause.message)
+                  }
+                  return Option.none()
+                }),
                 Option.getOrElse(() => error.message)
               )
               const newExecutionState: SystemExecutionState = {
@@ -392,7 +413,7 @@ export const SystemRegistryServiceLive = Layer.effect(
     /**
      * すべての有効なシステムを実行
      */
-    const update = (context: unknown, deltaTime: number) =>
+    const update = (context: Record<string, never>, deltaTime: number) =>
       Effect.gen(function* () {
         const currentState = yield* Ref.get(stateRef)
         if (!currentState.globalEnabled) {

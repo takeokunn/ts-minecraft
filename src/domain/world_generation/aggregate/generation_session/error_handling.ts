@@ -10,7 +10,7 @@
 
 import type * as GenerationErrors from '@domain/world/types/errors'
 import { JsonValueSchema } from '@shared/schema/json'
-import { DateTime, Effect, Schema } from 'effect'
+import { DateTime, Effect, Match, pipe, Random, Schema } from 'effect'
 
 // ================================
 // Error Categories
@@ -140,33 +140,37 @@ export const createSessionError = (
   error: GenerationErrors.GenerationError,
   batchId?: string,
   context?: Partial<SessionError['context']>
-): SessionError => {
-  const now = DateTime.toDate(DateTime.unsafeNow())
-  const errorId = `err_${now.getTime()}_${Math.random().toString(36).substr(2, 9)}`
+): Effect.Effect<SessionError> =>
+  Effect.gen(function* () {
+    const now = DateTime.toDate(DateTime.unsafeNow())
+    // Random Serviceで決定的なID生成（ランタイム起動時のシード依存）
+    const randomValue = yield* Random.nextIntBetween(0, 2176782336) // 36^6
+    const randomStr = randomValue.toString(36).padStart(6, '0')
+    const errorId = `err_${now.getTime()}_${randomStr}`
 
-  // エラー分類
-  const category = categorizeError(error)
-  const severity = determineSeverity(error, category)
+    // エラー分類
+    const category = categorizeError(error)
+    const severity = determineSeverity(error, category)
 
-  return {
-    id: errorId,
-    batchId,
-    category,
-    severity,
-    code: error.code || 'UNKNOWN_ERROR',
-    message: error.message,
-    details: error.details,
-    stackTrace: error.stack,
-    timestamp: now,
-    context: {
-      sessionId: context?.sessionId || '',
-      chunkCoordinate: context?.chunkCoordinate,
-      attempt: context?.attempt || 1,
-      operation: context?.operation || 'unknown',
-      additionalInfo: context?.additionalInfo,
-    },
-  }
-}
+    return {
+      id: errorId,
+      batchId,
+      category,
+      severity,
+      code: error.code || 'UNKNOWN_ERROR',
+      message: error.message,
+      details: error.details,
+      stackTrace: error.stack,
+      timestamp: now,
+      context: {
+        sessionId: context?.sessionId || '',
+        chunkCoordinate: context?.chunkCoordinate,
+        attempt: context?.attempt || 1,
+        operation: context?.operation || 'unknown',
+        additionalInfo: context?.additionalInfo,
+      },
+    }
+  })
 
 /**
  * リトライ判定
@@ -212,8 +216,9 @@ export const calculateRetryDelay = (retryStrategy: RetryStrategy, attempt: numbe
     const cappedDelay = Math.min(delay, retryStrategy.maxDelayMs)
 
     // ジッター適用（if文 → 三項演算子）
+    const jitterValue = yield* Random.nextIntBetween(0, 100)
     const finalDelay = retryStrategy.jitterEnabled
-      ? cappedDelay + Math.random() * 0.1 * cappedDelay // 最大10%のジッター
+      ? cappedDelay + (jitterValue / 1000) * cappedDelay // 最大10%のジッター
       : cappedDelay
 
     return Math.round(finalDelay)

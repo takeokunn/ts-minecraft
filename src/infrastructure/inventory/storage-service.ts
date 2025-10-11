@@ -13,8 +13,8 @@
 import type { ParseError } from '@effect/schema/ParseResult'
 import { isParseError } from '@effect/schema/ParseResult'
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
+import { isJsonSerializable, toJsonValue, type JsonValue } from '@shared/schema/json'
 import { Context, Data, Effect, Option, pipe, Schema } from 'effect'
-import { isJsonSerializable, toJsonValue, type JsonValue } from '@/shared/schema/json'
 import type { Inventory, InventoryState, PlayerId } from '../../domain/inventory'
 import { PlayerIdSchema } from '../../domain/inventory'
 
@@ -65,13 +65,13 @@ export const StorageConfigSchema = Schema.Struct({
 
 export type StorageConfig = Schema.Schema.Type<typeof StorageConfigSchema>
 
-export const defaultStorageConfig: StorageConfig = Schema.decodeUnknownSync(StorageConfigSchema)({
+export const defaultStorageConfig = {
   backend: 'hybrid',
   autoSave: true,
   saveInterval: 5_000,
   backupSlots: 3,
   compression: false,
-})
+} satisfies StorageConfig
 
 // =============================================================================
 // エラー体系 (ADT)

@@ -1,5 +1,5 @@
+import { ErrorCauseSchema, toErrorCause } from '@shared/schema/error'
 import { Effect, Schema } from 'effect'
-import { ErrorCauseSchema, toErrorCause } from '@/shared/schema/error'
 
 /**
  * WorldIdエラー

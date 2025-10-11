@@ -67,6 +67,24 @@ export const getNetworkConnection = (): Effect.Effect<Option.Option<NetworkConne
   })
 
 /**
+ * effectiveTypeのみ取得 - 同期版
+ *
+ * @returns 接続タイプ（取得不可時は'unknown'）
+ */
+export const getEffectiveConnectionTypeSync = (): 'slow-2g' | '2g' | '3g' | '4g' | 'unknown' => {
+  if (!hasNetworkInformation()) {
+    return 'unknown'
+  }
+
+  const nav = navigator as Navigator & { connection?: NetworkInformationLike }
+  const result = Schema.decodeUnknownOption(NetworkConnectionSchema)(nav.connection)
+  return Option.match(result, {
+    onNone: () => 'unknown' as const,
+    onSome: (conn) => conn.effectiveType,
+  })
+}
+
+/**
  * effectiveTypeのみ取得
  *
  * @returns 接続タイプ（取得不可時は'unknown'）

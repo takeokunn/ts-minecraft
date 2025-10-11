@@ -3,10 +3,11 @@
  * 検証システムの構造化エラー定義
  */
 
+import type { JsonValue } from '@shared/schema/json'
+import { JsonValueSchema } from '@shared/schema/json'
 import { DateTime, Effect, Schema } from 'effect'
-import { JsonValueSchema } from '@/shared/schema/json'
-import type { JsonValue } from '@/shared/schema/json'
-import type { ErrorContext } from './index'
+import type { ErrorContext } from './world_errors'
+import { ErrorContextSchema } from './world_errors'
 
 // === スキーマ検証エラー ===
 
@@ -17,7 +18,7 @@ export const SchemaValidationErrorSchema = Schema.TaggedStruct('SchemaValidation
   expectedType: Schema.String,
   actualValue: JsonValueSchema,
   actualType: Schema.String,
-  context: Schema.suspend(() => import('./index').then((m) => m.ErrorContextSchema)),
+  context: Schema.suspend(() => ErrorContextSchema),
   validationRule: Schema.optional(Schema.String),
 }).pipe(
   Schema.annotations({
@@ -36,7 +37,7 @@ export const MissingRequiredFieldErrorSchema = Schema.TaggedStruct('MissingRequi
   schemaName: Schema.String,
   missingFields: Schema.Array(Schema.String),
   providedFields: Schema.Array(Schema.String),
-  context: Schema.suspend(() => import('./index').then((m) => m.ErrorContextSchema)),
+  context: Schema.suspend(() => ErrorContextSchema),
 }).pipe(
   Schema.annotations({
     title: 'Missing Required Field Error',
@@ -54,7 +55,7 @@ export const UnexpectedFieldErrorSchema = Schema.TaggedStruct('UnexpectedFieldEr
   schemaName: Schema.String,
   unexpectedFields: Schema.Array(Schema.String),
   allowedFields: Schema.Array(Schema.String),
-  context: Schema.suspend(() => import('./index').then((m) => m.ErrorContextSchema)),
+  context: Schema.suspend(() => ErrorContextSchema),
   strict: Schema.Boolean,
 }).pipe(
   Schema.annotations({
@@ -76,7 +77,7 @@ export const NumberOutOfRangeErrorSchema = Schema.TaggedStruct('NumberOutOfRange
   value: Schema.Number,
   minValue: Schema.Number,
   maxValue: Schema.Number,
-  context: Schema.suspend(() => import('./index').then((m) => m.ErrorContextSchema)),
+  context: Schema.suspend(() => ErrorContextSchema),
   inclusive: Schema.Boolean,
 }).pipe(
   Schema.annotations({
@@ -97,7 +98,7 @@ export const StringLengthErrorSchema = Schema.TaggedStruct('StringLengthError', 
   actualLength: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
   minLength: Schema.optional(Schema.Number.pipe(Schema.int(), Schema.nonNegative())),
   maxLength: Schema.optional(Schema.Number.pipe(Schema.int(), Schema.nonNegative())),
-  context: Schema.suspend(() => import('./index').then((m) => m.ErrorContextSchema)),
+  context: Schema.suspend(() => ErrorContextSchema),
 }).pipe(
   Schema.annotations({
     title: 'String Length Error',
@@ -120,7 +121,7 @@ export const ArraySizeErrorSchema = Schema.TaggedStruct('ArraySizeError', {
   actualSize: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
   minSize: Schema.optional(Schema.Number.pipe(Schema.int(), Schema.nonNegative())),
   maxSize: Schema.optional(Schema.Number.pipe(Schema.int(), Schema.nonNegative())),
-  context: Schema.suspend(() => import('./index').then((m) => m.ErrorContextSchema)),
+  context: Schema.suspend(() => ErrorContextSchema),
 }).pipe(
   Schema.annotations({
     title: 'Array Size Error',
@@ -145,7 +146,7 @@ export const PatternMismatchErrorSchema = Schema.TaggedStruct('PatternMismatchEr
   value: Schema.String,
   pattern: Schema.String,
   description: Schema.optional(Schema.String),
-  context: Schema.suspend(() => import('./index').then((m) => m.ErrorContextSchema)),
+  context: Schema.suspend(() => ErrorContextSchema),
   examples: Schema.optional(Schema.Array(Schema.String)),
 }).pipe(
   Schema.annotations({
@@ -163,7 +164,7 @@ export const getPatternMismatchErrorMessage = (error: PatternMismatchError): str
 export const InvalidUUIDErrorSchema = Schema.TaggedStruct('InvalidUUIDError', {
   fieldName: Schema.String,
   value: Schema.String,
-  context: Schema.suspend(() => import('./index').then((m) => m.ErrorContextSchema)),
+  context: Schema.suspend(() => ErrorContextSchema),
 }).pipe(
   Schema.annotations({
     title: 'Invalid UUID Error',
@@ -184,7 +185,7 @@ export const TypeMismatchErrorSchema = Schema.TaggedStruct('TypeMismatchError', 
   expectedType: Schema.String,
   actualType: Schema.String,
   value: JsonValueSchema,
-  context: Schema.suspend(() => import('./index').then((m) => m.ErrorContextSchema)),
+  context: Schema.suspend(() => ErrorContextSchema),
   convertible: Schema.optional(Schema.Boolean),
 }).pipe(
   Schema.annotations({
@@ -203,7 +204,7 @@ export const BrandValidationErrorSchema = Schema.TaggedStruct('BrandValidationEr
   brandName: Schema.String,
   value: JsonValueSchema,
   reason: Schema.String,
-  context: Schema.suspend(() => import('./index').then((m) => m.ErrorContextSchema)),
+  context: Schema.suspend(() => ErrorContextSchema),
   validationConstraints: Schema.Array(Schema.String),
 }).pipe(
   Schema.annotations({
@@ -224,7 +225,7 @@ export const ReferenceIntegrityErrorSchema = Schema.TaggedStruct('ReferenceInteg
   referenceField: Schema.String,
   referencedId: Schema.String,
   referencedType: Schema.String,
-  context: Schema.suspend(() => import('./index').then((m) => m.ErrorContextSchema)),
+  context: Schema.suspend(() => ErrorContextSchema),
   cascadeDelete: Schema.optional(Schema.Boolean),
 }).pipe(
   Schema.annotations({
@@ -241,7 +242,7 @@ export const getReferenceIntegrityErrorMessage = (error: ReferenceIntegrityError
 /** 循環参照エラー */
 export const CircularReferenceErrorSchema = Schema.TaggedStruct('CircularReferenceError', {
   referenceChain: Schema.Array(Schema.String),
-  context: Schema.suspend(() => import('./index').then((m) => m.ErrorContextSchema)),
+  context: Schema.suspend(() => ErrorContextSchema),
 }).pipe(
   Schema.annotations({
     title: 'Circular Reference Error',
@@ -261,7 +262,7 @@ export const DuplicateValueErrorSchema = Schema.TaggedStruct('DuplicateValueErro
   fieldName: Schema.String,
   value: JsonValueSchema,
   existingId: Schema.optional(Schema.String),
-  context: Schema.suspend(() => import('./index').then((m) => m.ErrorContextSchema)),
+  context: Schema.suspend(() => ErrorContextSchema),
 }).pipe(
   Schema.annotations({
     title: 'Duplicate Value Error',
@@ -279,7 +280,7 @@ export const getDuplicateValueErrorMessage = (error: DuplicateValueError): strin
 /** 複数検証エラー */
 export const MultipleValidationErrorSchema = Schema.TaggedStruct('MultipleValidationError', {
   errors: Schema.Array(Schema.suspend(() => ValidationDomainErrorSchema)),
-  context: Schema.suspend(() => import('./index').then((m) => m.ErrorContextSchema)),
+  context: Schema.suspend(() => ErrorContextSchema),
   severity: Schema.Literal('warning', 'error', 'critical'),
 }).pipe(
   Schema.annotations({

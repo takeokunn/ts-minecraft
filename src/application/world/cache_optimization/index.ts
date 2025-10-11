@@ -20,9 +20,9 @@ export {
 
 export type {
   CacheConfigurationType,
+  CacheEntryOptions,
   CacheEntryType,
   CacheLayerType,
-  CacheEntryOptions,
   CacheManagerErrorType,
   CacheStatisticsType,
 } from './cache_manager'

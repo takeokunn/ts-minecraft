@@ -1,7 +1,6 @@
-import { Effect, Schema } from 'effect'
-import { JsonRecordSchema, JsonValueSchema } from '@shared/schema/json'
-import type { JsonValue } from '@shared/schema/json'
 import type { AllRepositoryErrors } from '@/domain/inventory/repository/types'
+import { JsonRecordSchema, JsonValueSchema } from '@shared/schema/json'
+import { Effect, Schema } from 'effect'
 import type {
   InventoryId,
   InventorySlot,
@@ -36,7 +35,7 @@ export interface ISpecification<T> {
  */
 export interface IAsyncSpecification<T, E = never> {
   readonly _tag: string
-  isSatisfiedBy(candidate: T): import('effect/Effect').Effect<boolean, E>
+  isSatisfiedBy(candidate: T): Effect.Effect<boolean, E>
   and(other: IAsyncSpecification<T, E>): IAsyncSpecification<T, E>
   or(other: IAsyncSpecification<T, E>): IAsyncSpecification<T, E>
   not(): IAsyncSpecification<T, E>
@@ -605,12 +604,8 @@ export interface ISpecificationService {
 export interface ISpecificationRepository {
   readonly _tag: 'SpecificationRepository'
   readonly save: <T>(specification: ISpecification<T>) => Effect.Effect<void, AllRepositoryErrors>
-  readonly findByTag: (
-    tag: string
-  ) => Effect.Effect<ReadonlyArray<ISpecification<unknown>>, AllRepositoryErrors>
-  readonly findByType: <T>(
-    type: new () => T
-  ) => Effect.Effect<ReadonlyArray<ISpecification<T>>, AllRepositoryErrors>
+  readonly findByTag: (tag: string) => Effect.Effect<ReadonlyArray<ISpecification<unknown>>, AllRepositoryErrors>
+  readonly findByType: <T>(type: new () => T) => Effect.Effect<ReadonlyArray<ISpecification<T>>, AllRepositoryErrors>
   readonly delete: <T>(specification: ISpecification<T>) => Effect.Effect<void, AllRepositoryErrors>
   readonly exists: <T>(specification: ISpecification<T>) => Effect.Effect<boolean, AllRepositoryErrors>
 }

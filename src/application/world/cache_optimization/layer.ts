@@ -4,8 +4,8 @@
  * キャッシュ最適化サービスのLayer定義
  */
 
-import { Context, Effect, Layer, Option, ReadonlyArray, Ref, Schema, pipe } from 'effect'
 import { ErrorCauseSchema } from '@shared/schema/error'
+import { Context, Effect, Layer, Option, ReadonlyArray, Ref, Schema, pipe } from 'effect'
 import { CacheManagerService, CacheManagerServiceLive } from './cache_manager'
 
 /**
@@ -193,7 +193,7 @@ const makeCacheOptimizationService = Effect.gen(function* () {
                 yield* Ref.set(isAutoOptimizing, true)
 
                 // 自動最適化ループを開始
-                yield* Effect.fork(optimizationLoop())
+                yield* Effect.forkScoped(optimizationLoop())
 
                 yield* Effect.logInfo('自動キャッシュ最適化開始')
               })
@@ -321,7 +321,7 @@ export const CacheOptimizationService = Context.GenericTag<CacheOptimizationServ
 
 // === Layer ===
 
-export const CacheOptimizationServiceLive = Layer.effect(CacheOptimizationService, makeCacheOptimizationService).pipe(
+export const CacheOptimizationServiceLive = Layer.scoped(CacheOptimizationService, makeCacheOptimizationService).pipe(
   Layer.provide(CacheManagerServiceLive)
 )
 

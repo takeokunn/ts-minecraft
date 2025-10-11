@@ -1,5 +1,5 @@
-import { Clock, Context, Effect, Layer, Match, pipe, Ref, Schedule } from 'effect'
 import type { ErrorCause } from '@shared/schema/error'
+import { Clock, Context, Effect, Layer, Match, pipe, Ref, Schedule } from 'effect'
 
 /**
  * Physics Performance Service
@@ -232,7 +232,9 @@ const makePhysicsPerformanceService: Effect.Effect<PhysicsPerformanceService> = 
         lastOptimization: now,
       }))
 
-      console.log(`Physics performance monitoring initialized at ${initialLevel} level`)
+      yield* Effect.logInfo('Physics performance monitoring initialized').pipe(
+        Effect.annotateLogs({ level: initialLevel })
+      )
     })
 
   // フレームメトリクスの記録
@@ -325,7 +327,7 @@ const makePhysicsPerformanceService: Effect.Effect<PhysicsPerformanceService> = 
         lastOptimization: now,
       }))
 
-      console.log(`Performance level manually set to: ${level}`)
+      yield* Effect.logInfo('Performance level manually set').pipe(Effect.annotateLogs({ level }))
     })
 
   // 適応的品質調整の有効/無効
@@ -336,7 +338,7 @@ const makePhysicsPerformanceService: Effect.Effect<PhysicsPerformanceService> = 
         adaptiveMode: enabled,
       }))
 
-      console.log(`Adaptive performance mode: ${enabled ? 'enabled' : 'disabled'}`)
+      yield* Effect.logInfo('Adaptive performance mode').pipe(Effect.annotateLogs({ enabled }))
     })
 
   // パフォーマンス分析と最適化推奨
@@ -481,7 +483,7 @@ const makePhysicsPerformanceService: Effect.Effect<PhysicsPerformanceService> = 
         lastOptimization: now,
       }))
 
-      console.log('Performance statistics reset')
+      yield* Effect.logInfo('Performance statistics reset')
     })
 
   // 最適化設定の取得
@@ -511,7 +513,7 @@ const makePhysicsPerformanceService: Effect.Effect<PhysicsPerformanceService> = 
 })
 
 // Live Layer実装
-export const PhysicsPerformanceServiceLive = Layer.effect(PhysicsPerformanceService, makePhysicsPerformanceService)
+export const PhysicsPerformanceServiceLive = Layer.scoped(PhysicsPerformanceService, makePhysicsPerformanceService)
 
 // パフォーマンス自動監視エフェクト（オプション）
 export const startPerformanceMonitoring = (intervalMs: number = 1000) =>
@@ -522,7 +524,9 @@ export const startPerformanceMonitoring = (intervalMs: number = 1000) =>
     const monitoringEffect = Effect.gen(function* () {
       const result = yield* performanceService.analyzeAndOptimize()
       if (result.optimizationApplied) {
-        console.log('Automatic performance optimization applied:', result.recommendations)
+        yield* Effect.logInfo('Automatic performance optimization applied').pipe(
+          Effect.annotateLogs({ recommendations: JSON.stringify(result.recommendations) })
+        )
       }
     })
 
@@ -530,10 +534,12 @@ export const startPerformanceMonitoring = (intervalMs: number = 1000) =>
     return yield* pipe(
       monitoringEffect,
       Effect.repeat(Schedule.spaced(`${intervalMs} millis`)),
-      Effect.catchAll((error) => {
-        console.warn('Performance monitoring error:', error)
-        return Effect.succeed(undefined)
-      }),
-      Effect.fork // バックグラウンドで実行
+      Effect.catchAll((error) =>
+        Effect.logWarning('Performance monitoring error').pipe(
+          Effect.annotateLogs({ error: String(error) }),
+          Effect.zipRight(Effect.succeed(undefined))
+        )
+      ),
+      Effect.forkScoped // バックグラウンドで実行
     )
   })

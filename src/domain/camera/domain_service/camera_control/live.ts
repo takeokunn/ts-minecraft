@@ -15,9 +15,9 @@ import {
   createPosition3D,
   Position3DOps,
 } from '../../value_object'
+import { CollisionDetectionService } from '../collision_detection'
 import type { BoundingBox, PositionConstraints, SphericalCoordinate, ViewBounds } from './index'
 import { CameraControlService } from './index'
-import { CollisionDetectionService } from '../collision_detection'
 
 /**
  * カメラ制御サービスのLive実装

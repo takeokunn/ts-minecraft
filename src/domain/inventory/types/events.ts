@@ -1,6 +1,6 @@
-import { Clock, Effect, Schema } from 'effect'
-import { JsonRecordSchema } from '@shared/schema/json'
 import type { JsonRecord } from '@shared/schema/json'
+import { JsonRecordSchema } from '@shared/schema/json'
+import { Clock, Effect, Random, Schema } from 'effect'
 
 // =============================================================================
 // Base Domain Event
@@ -700,10 +700,16 @@ const createBaseEvent = (
 /**
  * ユニークなイベントIDを生成
  */
-const generateEventId = (): string => {
-  // UUIDv4の簡易実装（本来はuuidライブラリを使用）
-  return `evt_${Math.random().toString(16).substring(2, 10)}-${Math.random().toString(16).substring(2, 6)}-4${Math.random().toString(16).substring(2, 5)}-${Math.random().toString(16).substring(2, 5)}-${Math.random().toString(16).substring(2, 14)}`
-}
+const generateEventId = (): Effect.Effect<string> =>
+  Effect.gen(function* () {
+    const r1 = yield* Random.nextIntBetween(0, 0xffffffff)
+    const r2 = yield* Random.nextIntBetween(0, 0xffff)
+    const r3 = yield* Random.nextIntBetween(0, 0xfff)
+    const r4 = yield* Random.nextIntBetween(0, 0xffff)
+    const r5 = yield* Random.nextIntBetween(0, 0xffffffffffff)
+
+    return `evt_${r1.toString(16).padStart(8, '0')}-${r2.toString(16).padStart(4, '0')}-4${r3.toString(16).padStart(3, '0')}-${r4.toString(16).padStart(4, '0')}-${r5.toString(16).padStart(12, '0')}`
+  })
 
 /**
  * インベントリ作成イベントを生成

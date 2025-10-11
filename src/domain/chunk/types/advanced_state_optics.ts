@@ -11,6 +11,9 @@ import type { ChunkMetadata } from '../value_object/chunk_metadata'
 import type { ChunkDataBytes, ChunkState, ChunkTimestamp, LoadProgress } from './index'
 import { ChunkStateGuards } from './index'
 
+type ChunkStateOptic<A> = Optic.Optic<ChunkState, ChunkState, never, A, never, A, ChunkState>
+type StateWithProperty<K extends keyof ChunkState> = Extract<ChunkState, { [P in K]: ChunkState[P] }>
+
 /**
  * 高度なChunkState操作用のOptics拡張
  * 複雑な状態遷移と条件付き操作を提供
@@ -27,9 +30,9 @@ export const AdvancedChunkStateOptics = {
    */
   conditional: <A>(
     condition: (state: ChunkState) => boolean,
-    whenTrue: Optic.Optic<ChunkState, unknown, never, A, never, A, ChunkState>,
-    whenFalse: Optic.Optic<ChunkState, unknown, never, A, never, A, ChunkState>
-  ): Optic.Optic<ChunkState, unknown, never, A, never, A, ChunkState> => {
+    whenTrue: ChunkStateOptic<A>,
+    whenFalse: ChunkStateOptic<A>
+  ): ChunkStateOptic<A> => {
     // @fp-ts/opticでは動的選択が難しいため、プレースホルダー実装
     return whenTrue
   },
@@ -76,7 +79,7 @@ export const AdvancedChunkStateOptics = {
    */
   conditionalProperty: <K extends keyof ChunkState>(propertyName: K) =>
     Optic.id<ChunkState>()
-      .filter((state): state is ChunkState & Record<K, unknown> => propertyName in state)
+      .filter((state): state is StateWithProperty<K> => propertyName in state)
       .at(propertyName),
 } as const
 
@@ -413,14 +416,13 @@ export const SafeChunkStateOptics = {
    */
   safeGet:
     <A>(optic: Optic.Optic<ChunkState, ChunkState, A, A>, fallback: A) =>
-    (state: ChunkState): A =>
-      pipe(
-        Effect.try({
-          try: () => optic.get(state) ?? fallback,
-          catch: () => fallback,
-        }),
-        Effect.runSync
-      ),
+    (state: ChunkState): A => {
+      try {
+        return optic.get(state) ?? fallback
+      } catch {
+        return fallback
+      }
+    },
 
   /**
    * 安全な状態プロパティ更新
@@ -429,15 +431,13 @@ export const SafeChunkStateOptics = {
    */
   safeSet:
     <A>(optic: Optic.Optic<ChunkState, ChunkState, A, A>, value: A) =>
-    (state: ChunkState): Either.Either<ChunkState, string> =>
-      pipe(
-        Effect.try({
-          try: () => optic.replace(value)(state),
-          catch: (error) => `Failed to set state property: ${error}`,
-        }),
-        Effect.either,
-        Effect.runSync
-      ),
+    (state: ChunkState): Either.Either<ChunkState, string> => {
+      try {
+        return Either.right(optic.replace(value)(state))
+      } catch (error) {
+        return Either.left(`Failed to set state property: ${error}`)
+      }
+    },
 
   /**
    * リトライ機能付き状態操作

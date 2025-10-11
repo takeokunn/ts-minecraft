@@ -2,6 +2,7 @@ import * as BiomeProperties from '@/domain/biome/value_object/biome_properties/i
 import * as GenerationParameters from '@domain/world/config/generation_parameters.js'
 import * as NoiseConfiguration from '@domain/world/config/noise_configuration.js'
 import * as WorldSeed from '@domain/world/config/world_seed.js'
+import type { JsonRecord } from '@shared/schema/json'
 import * as Effect from 'effect/Effect'
 import type { WorldConfigurationBuilderState } from './builder_state.js'
 import type { ConfigurationFactoryError } from './errors.js'
@@ -57,7 +58,7 @@ export const withNoiseConfig = (
  */
 export const withMetadata = (
   state: WorldConfigurationBuilderState,
-  metadata: Record<string, unknown>
+  metadata: JsonRecord
 ): WorldConfigurationBuilderState => ({
   ...state,
   metadata: { ...state.metadata, ...metadata },

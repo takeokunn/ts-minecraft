@@ -1,10 +1,12 @@
+import { BiomeSystemSchema } from '@domain/biome/aggregate/biome_system/shared'
+import { WorldGeneratorSchema } from '@domain/world_generation/aggregate/world_generator/shared'
 import { Schema } from 'effect'
 import { WorldDomainConfig, WorldDomainConfigSchema } from './index'
 
 const WorldDataSchema = Schema.Struct({
   seed: Schema.Number,
-  generator: Schema.Any,
-  biomeSystem: Schema.Any,
+  generator: Schema.suspend(() => WorldGeneratorSchema),
+  biomeSystem: Schema.suspend(() => BiomeSystemSchema),
 })
 
 export const WorldDomainTypeGuards = {

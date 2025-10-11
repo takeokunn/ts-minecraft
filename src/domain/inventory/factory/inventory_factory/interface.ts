@@ -5,10 +5,10 @@
  * Blockドメインのファクトリーパターンを参考に、純粋関数のみで実装
  */
 
-import { Context, Effect, Schema } from 'effect'
 import { JsonRecordSchema } from '@shared/schema/json'
-import type { Inventory, ItemStack, PlayerId } from '../../types'
 import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
+import { Context, Effect, Schema } from 'effect'
+import type { Inventory, ItemStack, PlayerId } from '../../types'
 
 // Inventory Factory固有のエラー型（Schema.TaggedErrorパターン）
 export const InventoryCreationErrorSchema = Schema.TaggedError('InventoryCreationError', {

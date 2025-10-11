@@ -3,8 +3,9 @@
  * DDD原則に基づく複雑なエンティティ生成の隠蔽
  */
 
-import { Context, DateTime, Effect, Layer, Schema } from 'effect'
 import type { JsonRecord } from '@shared/schema/json'
+import { formatParseIssues } from '@shared/schema/tagged_error_factory'
+import { Brand, Context, DateTime, Effect, Layer, Schema } from 'effect'
 import { nanoid } from 'nanoid'
 import type { ItemId } from '../../types'
 import type { Durability, Enchantment, ItemCount, ItemNBTData, ItemStackEntity, ItemStackId } from './types'
@@ -15,6 +16,18 @@ import {
   ItemStackError,
   makeUnsafeItemStackId,
 } from './types'
+
+// ===== Branded Types for Persistence =====
+
+/**
+ * 永続化されたItemStackデータの型
+ *
+ * `unknown`を使用する理由:
+ * - 外部ストレージ（IndexedDB/LocalStorage）から取得されたデータは実行時検証が必須
+ * - Branded Typeにより、型安全な境界を明示的に定義
+ * - restore関数内でSchema検証を通過して初めてItemStackEntityとして扱える
+ */
+export type PersistedItemStack = Brand.Brand<unknown, 'PersistedItemStack'>
 
 // ===== Factory Interface =====
 
@@ -30,8 +43,10 @@ export interface ItemStackFactory {
 
   /**
    * 既存データからItemStackエンティティを復元
+   *
+   * @param data - 永続化されたItemStackデータ（実行時検証が必要）
    */
-  readonly restore: (data: unknown) => Effect.Effect<ItemStackEntity, ItemStackError>
+  readonly restore: (data: PersistedItemStack) => Effect.Effect<ItemStackEntity, ItemStackError>
 }
 
 export const ItemStackFactory = Context.GenericTag<ItemStackFactory>(
@@ -243,10 +258,12 @@ export const buildItemStack = (state: ItemStackBuilderState): Effect.Effect<Item
 
     // スキーマ検証
     const entity = yield* Schema.decodeUnknown(ItemStackEntitySchema)(entityData).pipe(
-      Effect.mapError((error) =>
+      Effect.mapError((parseError: Schema.ParseError) =>
         ItemStackError.make({
           reason: 'INCOMPATIBLE_ITEMS',
-          message: `ItemStackエンティティの検証に失敗: ${String(error)}`,
+          message: 'ItemStackエンティティの検証に失敗',
+          issues: formatParseIssues(parseError),
+          originalError: parseError,
         })
       )
     )
@@ -282,14 +299,19 @@ export const ItemStackFactoryLive = ItemStackFactory.of({
       return yield* buildItemStack(state)
     }),
 
-  restore: (data: unknown) =>
+  restore: (data: PersistedItemStack) =>
     Effect.gen(function* () {
       // スキーマ検証による安全な復元
+      // ParseErrorの構造化情報を保持してエラー診断を容易にする
       return yield* Schema.decodeUnknown(ItemStackEntitySchema)(data).pipe(
-        Effect.mapError((error) =>
+        Effect.mapError((parseError: Schema.ParseError) =>
           ItemStackError.make({
             reason: 'INCOMPATIBLE_ITEMS',
-            message: `データからの復元に失敗: ${String(error)}`,
+            message: `データからの復元に失敗: Schema検証エラー`,
+            metadata: {
+              issues: formatParseIssues(parseError),
+              parseError: String(parseError),
+            },
           })
         )
       )

@@ -7,7 +7,7 @@
 
 import type { ContainerAggregate, ContainerId } from '@/domain/inventory/aggregate/container'
 import type { ItemId, ItemStack, PlayerId } from '@/domain/inventory/types'
-import type { JsonValue } from '@/shared/schema/json'
+import type { JsonValue } from '@shared/schema/json'
 import { Context, Effect } from 'effect'
 import type { InventoryApplicationError } from '../types'
 

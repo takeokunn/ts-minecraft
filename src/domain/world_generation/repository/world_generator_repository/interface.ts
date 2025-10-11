@@ -14,7 +14,7 @@ import type {
   WorldId,
   WorldSeed,
 } from '@domain/world/types'
-import { Context, Effect, Option, ReadonlyArray } from 'effect'
+import { Context, Effect, Option, ReadonlyArray, Schema } from 'effect'
 
 // === World Generator Query Types ===
 
@@ -310,6 +310,33 @@ export interface WorldGeneratorRepositoryConfig {
   }
 }
 
+export const WorldGeneratorRepositoryConfigSchema = Schema.Struct({
+  storage: Schema.Struct({
+    type: Schema.Literal('memory', 'indexeddb', 'filesystem'),
+    location: Schema.optional(Schema.String),
+    maxSize: Schema.optional(Schema.Number),
+  }),
+  cache: Schema.Struct({
+    enabled: Schema.Boolean,
+    maxSize: Schema.Number,
+    ttlSeconds: Schema.Number,
+    strategy: Schema.Literal('lru', 'lfu', 'ttl', 'hybrid'),
+    compressionEnabled: Schema.Boolean,
+  }),
+  backup: Schema.Struct({
+    enabled: Schema.Boolean,
+    intervalMinutes: Schema.Number,
+    maxBackups: Schema.Number,
+    compressionLevel: Schema.Number,
+    encryptionEnabled: Schema.Boolean,
+  }),
+  performance: Schema.Struct({
+    enableMetrics: Schema.Boolean,
+    enableProfiling: Schema.Boolean,
+    batchSize: Schema.Number,
+  }),
+})
+
 /**
  * Repository実装ファクトリー
  */
@@ -358,6 +385,7 @@ export const defaultWorldGeneratorRepositoryConfig: WorldGeneratorRepositoryConf
 
 // === Type Exports ===
 
+export { WorldGeneratorRepositoryConfigSchema }
 export type {
   BackupConfiguration,
   CacheConfiguration,

@@ -1,5 +1,5 @@
-import { Clock, Effect, HashMap, Layer, Option, ReadonlyArray, Ref, Schema, pipe } from 'effect'
 import type { JsonRecord } from '@shared/schema/json'
+import { Clock, Effect, HashMap, Layer, Option, Random, ReadonlyArray, Ref, Schema, pipe } from 'effect'
 import { makeUnsafeContainerId } from '../../aggregate/container/types'
 import type {
   Container,
@@ -427,7 +427,8 @@ export const ContainerRepositoryPersistent = (config: ContainerPersistentConfig 
                 onSome: (container) =>
                   Effect.gen(function* () {
                     const timestamp = yield* Clock.currentTimeMillis
-                    const randomPart = Math.random().toString(36).substr(2, 9)
+                    const randomNum = yield* Random.nextIntBetween(0, Number.MAX_SAFE_INTEGER)
+                    const randomPart = randomNum.toString(36).substring(2, 11)
                     const snapshotId = `container-snapshot-${timestamp}-${randomPart}`
                     const snapshot: ContainerSnapshot = {
                       id: snapshotId,

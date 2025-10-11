@@ -6,20 +6,19 @@
  * JSON形式でのデータ保存・読み込み・バックアップ対応
  */
 
-import type {
-  AllRepositoryErrors,
-  GenerationSettings,
-  PerformanceMetrics,
-  WorldGenerator,
-  WorldId,
-  WorldSeed,
-} from '@domain/world/types'
-import { WorldGeneratorSchema } from '@domain/world_generation/aggregate/world_generator'
 import {
   createDataIntegrityError,
   createPersistenceError,
   createWorldGeneratorNotFoundError,
+  WorldIdSchema,
+  type AllRepositoryErrors,
+  type GenerationSettings,
+  type PerformanceMetrics,
+  type WorldGenerator,
+  type WorldId,
+  type WorldSeed,
 } from '@domain/world/types'
+import { WorldGeneratorSchema as AggregateWorldGeneratorSchema } from '@domain/world_generation/aggregate/world_generator'
 import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
 import * as NodePath from '@effect/platform-node/NodePath'
 import { Clock, DateTime, Effect, Layer, Option, pipe, ReadonlyArray, Ref, Schema } from 'effect'
@@ -44,8 +43,16 @@ const RepositoryPerformanceMetricsSchema = Schema.Struct({
 
 type RepositoryPerformanceMetrics = typeof RepositoryPerformanceMetricsSchema.Type
 
+const WorldGeneratorPersistenceSchema = AggregateWorldGeneratorSchema.pipe(
+  Schema.extend(
+    Schema.Struct({
+      worldId: WorldIdSchema,
+    })
+  )
+)
+
 const PersistenceDataSchema = Schema.Struct({
-  generators: Schema.Record(Schema.String, WorldGeneratorSchema),
+  generators: Schema.Record(Schema.String, WorldGeneratorPersistenceSchema),
   metadata: Schema.Struct({
     version: Schema.String,
     createdAt: Schema.String,
@@ -584,10 +591,7 @@ const makeWorldGeneratorRepositoryPersistence = (
       Effect.gen(function* () {
         const results = yield* Effect.forEach(
           generators,
-          (generator) =>
-            Effect.either(save(generator)).pipe(
-              Effect.map((result) => ({ generator, result }))
-            ),
+          (generator) => Effect.either(save(generator)).pipe(Effect.map((result) => ({ generator, result }))),
           { concurrency: Math.min(generators.length, config.performance.batchSize ?? 4) }
         )
 
@@ -610,11 +614,7 @@ const makeWorldGeneratorRepositoryPersistence = (
       }).pipe(
         Effect.catchAll((error) =>
           Effect.fail(
-            createPersistenceError(
-              `Failed to save multiple world generators: ${String(error)}`,
-              'filesystem',
-              error
-            )
+            createPersistenceError(`Failed to save multiple world generators: ${String(error)}`, 'filesystem', error)
           )
         )
       )
@@ -625,10 +625,7 @@ const makeWorldGeneratorRepositoryPersistence = (
       Effect.gen(function* () {
         const results = yield* Effect.forEach(
           worldIds,
-          (worldId) =>
-            Effect.either(deleteGenerator(worldId)).pipe(
-              Effect.map((result) => ({ worldId, result }))
-            ),
+          (worldId) => Effect.either(deleteGenerator(worldId)).pipe(Effect.map((result) => ({ worldId, result }))),
           { concurrency: Math.min(worldIds.length, config.performance.batchSize ?? 4) }
         )
 
@@ -651,11 +648,7 @@ const makeWorldGeneratorRepositoryPersistence = (
       }).pipe(
         Effect.catchAll((error) =>
           Effect.fail(
-            createPersistenceError(
-              `Failed to delete multiple world generators: ${String(error)}`,
-              'filesystem',
-              error
-            )
+            createPersistenceError(`Failed to delete multiple world generators: ${String(error)}`, 'filesystem', error)
           )
         )
       )
@@ -681,8 +674,7 @@ const makeWorldGeneratorRepositoryPersistence = (
         const statsSnapshot = yield* Ref.get(statisticsRef)
         const summary = summarizeGenerators(all)
 
-        const averageChunkGenerationTime =
-          summary.totalChunks > 0 ? summary.totalTime / summary.totalChunks : 0
+        const averageChunkGenerationTime = summary.totalChunks > 0 ? summary.totalTime / summary.totalChunks : 0
         const totalAttempts = summary.totalChunks + summary.failureCount
         const errorRate = totalAttempts > 0 ? summary.failureCount / totalAttempts : 0
 
@@ -828,12 +820,7 @@ const makeWorldGeneratorRepositoryPersistence = (
 
         const lastGenerationTime = pipe(
           Option.fromNullable(data.statistics?.lastGenerationTime ?? null),
-          Option.flatMap((value) =>
-            pipe(
-              DateTime.make(value),
-              Option.map(DateTime.toDate)
-            )
-          ),
+          Option.flatMap((value) => pipe(DateTime.make(value), Option.map(DateTime.toDate))),
           Option.getOrElse(() => null)
         )
 
@@ -880,13 +867,12 @@ const makeWorldGeneratorRepositoryPersistence = (
     }
   })
 
-const isGeneratorActive = (generator: WorldGenerator): boolean => {
-  const candidate = generator as { isActive?: unknown }
-  if (typeof candidate.isActive === 'boolean') {
-    return candidate.isActive
-  }
-  return generator.state.status !== 'idle'
-}
+const hasIsActiveFlag = (candidate: WorldGenerator): candidate is WorldGenerator & { readonly isActive: boolean } =>
+  Object.prototype.hasOwnProperty.call(candidate, 'isActive') &&
+  typeof (candidate as { isActive: boolean }).isActive === 'boolean'
+
+const isGeneratorActive = (generator: WorldGenerator): boolean =>
+  hasIsActiveFlag(generator) ? generator.isActive : generator.state.status !== 'idle'
 
 const estimateGeneratorMemoryBytes = (generator: WorldGenerator): number => {
   try {

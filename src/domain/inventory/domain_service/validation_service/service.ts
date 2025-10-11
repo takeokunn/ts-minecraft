@@ -6,8 +6,8 @@
  * 複雑な検証ロジックを提供します。
  */
 
+import { JsonValueSchema, type JsonValue } from '@shared/schema/json'
 import { Context, Effect, Schema } from 'effect'
-import { JsonValueSchema } from '@/shared/schema/json'
 import type { Inventory, InventoryErrorReason } from '../../types'
 
 // =============================================================================
@@ -33,8 +33,8 @@ export interface ValidationViolation {
   readonly severity: 'CRITICAL' | 'ERROR' | 'WARNING'
   readonly description: string
   readonly affectedSlots: ReadonlyArray<number>
-  readonly detectedValue: unknown
-  readonly expectedValue?: unknown
+  readonly detectedValue: JsonValue
+  readonly expectedValue?: JsonValue
   readonly canAutoCorrect: boolean
 }
 
@@ -82,7 +82,7 @@ export interface CorrectionStep {
   readonly action: 'REMOVE' | 'UPDATE' | 'MOVE' | 'RESET'
   readonly target: 'SLOT' | 'METADATA' | 'HOTBAR' | 'ARMOR'
   readonly slotIndex?: number
-  readonly newValue?: unknown
+  readonly newValue?: JsonValue
   readonly reason: string
 }
 

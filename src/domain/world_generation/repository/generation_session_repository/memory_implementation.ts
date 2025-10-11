@@ -14,7 +14,8 @@ import type {
   WorldId,
 } from '@domain/world/types'
 import { createGenerationSessionNotFoundError, createRepositoryError } from '@domain/world/types'
-import { Clock, DateTime, Effect, Layer, Match, Option, pipe, ReadonlyArray, Ref } from 'effect'
+import { toJsonValue, type JsonRecord, type JsonSerializable, type JsonValue } from '@shared/schema/json'
+import { Clock, DateTime, Duration, Effect, Layer, Match, Option, pipe, Random, ReadonlyArray, Ref } from 'effect'
 import { makeUnsafeGenerationSessionId } from '../../aggregate/generation_session/shared/index'
 import type {
   ChunkGenerationTask,
@@ -24,6 +25,7 @@ import type {
   GenerationSessionRepository,
   GenerationSessionRepositoryConfig,
   SessionBatchResult,
+  SessionHistoryEntry,
   SessionQuery,
   SessionRecoveryInfo,
   SessionState,
@@ -52,7 +54,7 @@ interface MemoryStorage {
     Array<{
       readonly timestamp: Date
       readonly action: string
-      readonly details: unknown
+      readonly details: JsonValue
       readonly actor: string
     }>
   >
@@ -86,13 +88,16 @@ const makeGenerationSessionRepositoryMemory = (
     const generateSessionId = (): Effect.Effect<GenerationSessionId, never> =>
       Effect.gen(function* () {
         const timestamp = yield* Clock.currentTimeMillis
-        return makeUnsafeGenerationSessionId(`session-${timestamp}-${Math.random().toString(36).substr(2, 9)}`)
+        // Random Serviceでセキュアな乱数生成（再現性保証）
+        const randomValue = yield* Random.nextIntBetween(0, 2176782336) // 36^6
+        const randomStr = randomValue.toString(36).padStart(6, '0')
+        return makeUnsafeGenerationSessionId(`session-${timestamp}-${randomStr}`)
       })
 
     const addHistoryEntry = (
       sessionId: GenerationSessionId,
       action: string,
-      details: unknown = {},
+      details: JsonSerializable = {},
       actor: string = 'system'
     ): Effect.Effect<void, never> =>
       Effect.gen(function* () {
@@ -102,7 +107,7 @@ const makeGenerationSessionRepositoryMemory = (
           const newEntry = {
             timestamp: now,
             action,
-            details,
+            details: toJsonValue(details),
             actor,
           }
 
@@ -889,27 +894,19 @@ const makeGenerationSessionRepositoryMemory = (
 
     const recoverSession = (
       sessionId: GenerationSessionId,
-      options?: Record<string, unknown>
+      options?: JsonRecord
     ): Effect.Effect<void, AllRepositoryErrors> =>
       Effect.gen(function* () {
         yield* updateSessionState(sessionId, 'recovering')
         // Mock recovery process
-        yield* Effect.sleep('1 second')
+        yield* Effect.sleep(Duration.seconds(1))
         yield* updateSessionState(sessionId, 'active')
         yield* addHistoryEntry(sessionId, 'session_recovered', options)
       })
 
     const getSessionHistory = (
       sessionId: GenerationSessionId
-    ): Effect.Effect<
-      ReadonlyArray<{
-        readonly timestamp: Date
-        readonly action: string
-        readonly details: unknown
-        readonly actor: string
-      }>,
-      AllRepositoryErrors
-    > =>
+    ): Effect.Effect<ReadonlyArray<SessionHistoryEntry>, AllRepositoryErrors> =>
       Effect.gen(function* () {
         const storage = yield* Ref.get(storageRef)
         const history = storage.history.get(sessionId) || []

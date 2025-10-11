@@ -1,7 +1,8 @@
+import { physicsStepDuration } from '@application/observability/metrics'
 import type { PlayerId, Vector3D } from '@domain/entities'
 import { toErrorCause, type ErrorCause } from '@shared/schema/error'
 import * as CANNON from 'cannon-es'
-import { Context, Effect, Layer, pipe, ReadonlyArray } from 'effect'
+import { Clock, Context, Effect, Layer, pipe, ReadonlyArray } from 'effect'
 
 /**
  * Cannon-es物理エンジン統合サービス
@@ -163,10 +164,8 @@ const makeCannonPhysicsService: Effect.Effect<CannonPhysicsService> = Effect.gen
         world.addContactMaterial(playerGroundContact)
         world.defaultContactMaterial.friction = PHYSICS_CONSTANTS.FRICTION
         world.defaultContactMaterial.restitution = PHYSICS_CONSTANTS.RESTITUTION
-
-        console.log('Cannon-es physics world initialized')
       })
-    })
+    }).pipe(Effect.tap(() => Effect.logInfo('Cannon-es physics world initialized')))
 
   // プレイヤーCharacter Controllerの作成
   const createPlayerController = (
@@ -219,9 +218,11 @@ const makeCannonPhysicsService: Effect.Effect<CannonPhysicsService> = Effect.gen
           bodies.set(bodyId, body)
           playerControllers.set(bodyId, playerId)
 
-          console.log(`Player controller created for ${playerId} with bodyId: ${bodyId}`)
           return bodyId
         }),
+        Effect.tap((bodyId) =>
+          Effect.logInfo(`Player controller created`).pipe(Effect.annotateLogs({ playerId: String(playerId), bodyId }))
+        ),
         Effect.mapError(
           (error): PhysicsEngineError => ({
             _tag: 'PhysicsEngineError',
@@ -243,7 +244,9 @@ const makeCannonPhysicsService: Effect.Effect<CannonPhysicsService> = Effect.gen
         })
       }
 
-      return yield* pipe(
+      const startTime = yield* Clock.currentTimeMillis
+
+      const result = yield* pipe(
         Effect.sync(() => {
           // 固定タイムステップで物理演算を実行
           world.fixedStep(PHYSICS_CONSTANTS.TIME_STEP, deltaTime)
@@ -256,6 +259,13 @@ const makeCannonPhysicsService: Effect.Effect<CannonPhysicsService> = Effect.gen
           })
         )
       )
+
+      // メトリクス記録: 物理演算ステップ時間を記録
+      const endTime = yield* Clock.currentTimeMillis
+      const duration = endTime - startTime
+      yield* physicsStepDuration(duration)
+
+      return result
     })
 
   // プレイヤーボディの状態取得
@@ -503,10 +513,8 @@ const makeCannonPhysicsService: Effect.Effect<CannonPhysicsService> = Effect.gen
         bodies.clear()
         playerControllers.clear()
         world = null
-
-        console.log('Cannon-es physics world cleaned up')
       })
-    })
+    }).pipe(Effect.tap(() => Effect.logInfo('Cannon-es physics world cleaned up')))
 
   const service: CannonPhysicsService = {
     initializeWorld,

@@ -105,10 +105,10 @@ export { WorldGenerationOrchestratorLive, WorldGenerationOrchestratorServicesLay
 
 // === Helper Functions ===
 
-import { Effect, Schema } from 'effect'
 import { GenerationParametersFactory } from '@domain/world/value_object/index'
 import type { WorldSeed } from '@domain/world/value_object/world_seed/index'
 import { WorldSeedOps } from '@domain/world/value_object/world_seed/operations'
+import { Effect, Schema } from 'effect'
 import { GenerateChunkCommand, GenerationProgress, WorldGenerationOrchestrator } from './orchestrator'
 
 export const WorldGenerationOrchestratorUtils = {

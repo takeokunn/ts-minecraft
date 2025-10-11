@@ -1,6 +1,6 @@
 import type { PlayerId, Vector3D } from '@domain/entities'
-import { Clock, Context, Effect, Layer, Match, pipe } from 'effect'
 import { toErrorCause, type ErrorCause } from '@shared/schema/error'
+import { Clock, Context, Effect, Layer, Match, pipe } from 'effect'
 import { Player } from '../../entities/Player'
 import { Direction, JUMP_VELOCITY, MOVEMENT_SPEEDS } from '../../player/PlayerState'
 import { CannonPhysicsService, type PhysicsBodyState } from './cannon'
@@ -151,7 +151,9 @@ const makePlayerPhysicsService: Effect.Effect<PlayerPhysicsService, never, Canno
           fallStartY: player.position.y,
         }
 
-        console.log(`Player physics initialized for ${player.id} with bodyId: ${bodyId}`)
+        yield* Effect.logInfo('Player physics initialized').pipe(
+          Effect.annotateLogs({ playerId: String(player.id), bodyId })
+        )
         return playerPhysicsState
       })
 
@@ -422,7 +424,9 @@ const makePlayerPhysicsService: Effect.Effect<PlayerPhysicsService, never, Canno
           )
         )
 
-        console.log(`Player physics destroyed for ${physicsState.playerId}`)
+        yield* Effect.logInfo('Player physics destroyed').pipe(
+          Effect.annotateLogs({ playerId: String(physicsState.playerId) })
+        )
       })
 
     const service: PlayerPhysicsService = {

@@ -1,19 +1,19 @@
-import { DefaultSettings, ViewMode } from '@/domain/camera/value_object/view_mode'
 import type { CameraDistance } from '@/domain/camera/value_object/view_mode'
+import { DefaultSettings, ViewMode } from '@/domain/camera/value_object/view_mode'
 import type { CameraId } from '@domain/camera/types'
-import { Array, Clock, Data, Effect, Layer, Option } from 'effect'
+import { Array, Clock, Data, Effect, Layer, Option, Random } from 'effect'
 import type {
   CameraModeManagerApplicationService,
-  ScheduleId,
-  TransitionId,
-  ViewModeContext,
-  RecommendationReason,
-  ViewModeRecommendation,
-  ViewModeTransitionResult,
-  ViewModeTransitionConfig,
   ModeTransitionStatistics,
   PerformanceOptimizationResult,
+  RecommendationReason,
+  ScheduleId,
   ScheduleStatus,
+  TransitionId,
+  ViewModeContext,
+  ViewModeRecommendation,
+  ViewModeTransitionConfig,
+  ViewModeTransitionResult,
 } from './index'
 import { createViewModeTransitionResult } from './index'
 
@@ -71,15 +71,17 @@ export const CameraModeManagerApplicationServiceLive = Layer.effect(
     const generateTransitionId = (): Effect.Effect<TransitionId, never> =>
       Effect.gen(function* () {
         const timestamp = yield* Clock.currentTimeMillis
-        const random = yield* Effect.sync(() => Math.random().toString(36).substr(2, 9))
-        return `transition-${timestamp}-${random}` as TransitionId
+        const randomValue = yield* Random.nextIntBetween(0, 36 ** 9 - 1)
+        const nonce = randomValue.toString(36).padStart(9, '0')
+        return `transition-${timestamp}-${nonce}` as TransitionId
       })
 
     const generateScheduleId = (): Effect.Effect<ScheduleId, never> =>
       Effect.gen(function* () {
         const timestamp = yield* Clock.currentTimeMillis
-        const random = yield* Effect.sync(() => Math.random().toString(36).substr(2, 9))
-        return `schedule-${timestamp}-${random}` as ScheduleId
+        const randomValue = yield* Random.nextIntBetween(0, 36 ** 9 - 1)
+        const nonce = randomValue.toString(36).padStart(9, '0')
+        return `schedule-${timestamp}-${nonce}` as ScheduleId
       })
 
     return CameraModeManagerApplicationService.of({

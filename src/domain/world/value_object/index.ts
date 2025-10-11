@@ -5,7 +5,7 @@
  * Effect-TS 3.17+ 型安全性・数学的精度・Minecraft互換性の統合
  */
 
-import { Effect, Match, pipe } from 'effect'
+import { Match, pipe } from 'effect'
 
 // ワールドシード管理
 export {
@@ -554,31 +554,29 @@ export const WorldValueObjectValidation = {
   /**
    * 完全ワールド設定の整合性検証
    */
-  validateCompleteWorld: (world: WorldConfiguration): boolean =>
-    pipe(
-      Effect.try({
-        try: () => {
-          // 座標系の妥当性
-          if (!CoordinateTransforms.isValidWorldCoordinate(world.coordinates.spawn)) {
-            return false
-          }
+  validateCompleteWorld: (world: WorldConfiguration): boolean => {
+    // Effect.tryを使わずに直接実行
+    try {
+      // 座標系の妥当性
+      if (!CoordinateTransforms.isValidWorldCoordinate(world.coordinates.spawn)) {
+        return false
+      }
 
-          // ノイズ設定の妥当性
-          if (!NoiseConfigurationValidation.validateNoiseSettings(world.noise)) {
-            return false
-          }
+      // ノイズ設定の妥当性
+      if (!NoiseConfigurationValidation.validateNoiseSettings(world.noise)) {
+        return false
+      }
 
-          // バイオーム特性の整合性
-          if (!BiomePropertiesValidation.validateEnvironmentalConsistency(world.biome)) {
-            return false
-          }
+      // バイオーム特性の整合性
+      if (!BiomePropertiesValidation.validateEnvironmentalConsistency(world.biome)) {
+        return false
+      }
 
-          return true
-        },
-        catch: () => false as const,
-      }),
-      Effect.runSync
-    ),
+      return true
+    } catch {
+      return false
+    }
+  },
 
   /**
    * 世界シードの複合検証

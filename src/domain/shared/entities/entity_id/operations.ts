@@ -9,7 +9,7 @@ import { EntityIdSchema, type EntityId } from './schema'
 export const generate = (): Effect.Effect<EntityId, never> =>
   Effect.map(
     Effect.sync(() => `entity_${uuidv4()}`),
-    (value) => Schema.make(EntityIdSchema)(value)
+    (value) => EntityIdSchema.make(value, { disableValidation: true })
   )
 
 /**
@@ -33,7 +33,7 @@ export const make = (value: string): Effect.Effect<EntityId, EntityIdError> =>
  * 注意: 既に検証済みの値のみに使用すること
  * パフォーマンスクリティカルな箇所でのみ使用
  */
-export const makeUnsafe = (value: string): EntityId => Schema.make(EntityIdSchema)(value)
+export const makeUnsafe = (value: string): EntityId => EntityIdSchema.make(value, { disableValidation: true })
 
 /**
  * EntityIdを文字列に変換

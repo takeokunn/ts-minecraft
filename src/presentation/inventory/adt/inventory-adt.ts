@@ -1,5 +1,5 @@
-import { Data, Effect, Match, Option, Schema, pipe } from 'effect'
 import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
+import { Data, Effect, Match, Option, Schema, pipe } from 'effect'
 
 const decode = <A, I>(schema: Schema.Schema<A, I>) => Schema.decode(schema)
 const decodeSync = <A, I>(schema: Schema.Schema<A, I>) => Schema.decodeSync(schema)

@@ -27,7 +27,8 @@ export const make = (value: number): Effect.Effect<MetersPerSecond, Schema.Parse
  * 数値からMetersPerSecond型を生成（バリデーションなし）
  * 信頼できるソースからの値のみ使用すること
  */
-export const makeUnsafe = (value: number): MetersPerSecond => Schema.make(MetersPerSecondSchema)(value)
+export const makeUnsafe = (value: number): MetersPerSecond =>
+  MetersPerSecondSchema.make(value, { disableValidation: true })
 
 /**
  * Calculate velocity from distance and time
@@ -37,7 +38,9 @@ export const makeUnsafe = (value: number): MetersPerSecond => Schema.make(Meters
 export const fromDistanceAndTime = (distance: Meters, time: Milliseconds): MetersPerSecond => {
   const timeInSeconds = MillisecondsOps.toSeconds(time)
   const isZero = timeInSeconds === 0
-  return isZero ? Schema.make(MetersPerSecondSchema)(0) : Schema.make(MetersPerSecondSchema)(distance / timeInSeconds)
+  return isZero
+    ? MetersPerSecondSchema.make(0, { disableValidation: true })
+    : MetersPerSecondSchema.make(distance / timeInSeconds, { disableValidation: true })
 }
 
 /**
@@ -47,43 +50,44 @@ export const fromDistanceAndTime = (distance: Meters, time: Milliseconds): Meter
  */
 export const toDistance = (velocity: MetersPerSecond, time: Milliseconds): Meters => {
   const timeInSeconds = MillisecondsOps.toSeconds(time)
-  return Schema.make(MetersSchema)(velocity * timeInSeconds)
+  return MetersSchema.make(velocity * timeInSeconds, { disableValidation: true })
 }
 
 /**
  * Add two velocities
  */
 export const add = (a: MetersPerSecond, b: MetersPerSecond): MetersPerSecond =>
-  Schema.make(MetersPerSecondSchema)(a + b)
+  MetersPerSecondSchema.make(a + b, { disableValidation: true })
 
 /**
  * Subtract two velocities
  */
 export const subtract = (a: MetersPerSecond, b: MetersPerSecond): MetersPerSecond =>
-  Schema.make(MetersPerSecondSchema)(a - b)
+  MetersPerSecondSchema.make(a - b, { disableValidation: true })
 
 /**
  * Multiply velocity by scalar
  */
 export const multiply = (velocity: MetersPerSecond, scalar: number): MetersPerSecond =>
-  Schema.make(MetersPerSecondSchema)(velocity * scalar)
+  MetersPerSecondSchema.make(velocity * scalar, { disableValidation: true })
 
 /**
  * Divide velocity by scalar
  */
 export const divide = (velocity: MetersPerSecond, scalar: number): MetersPerSecond =>
-  Schema.make(MetersPerSecondSchema)(velocity / scalar)
+  MetersPerSecondSchema.make(velocity / scalar, { disableValidation: true })
 
 /**
  * Get absolute value of velocity
  */
 export const abs = (velocity: MetersPerSecond): MetersPerSecond =>
-  Schema.make(MetersPerSecondSchema)(Math.abs(velocity))
+  MetersPerSecondSchema.make(Math.abs(velocity), { disableValidation: true })
 
 /**
  * Negate velocity (reverse direction)
  */
-export const negate = (velocity: MetersPerSecond): MetersPerSecond => Schema.make(MetersPerSecondSchema)(-velocity)
+export const negate = (velocity: MetersPerSecond): MetersPerSecond =>
+  MetersPerSecondSchema.make(-velocity, { disableValidation: true })
 
 /**
  * Apply acceleration over time (v' = v + a * t)
@@ -96,7 +100,7 @@ export const applyAcceleration = (
   time: Milliseconds
 ): MetersPerSecond => {
   const timeInSeconds = MillisecondsOps.toSeconds(time)
-  return Schema.make(MetersPerSecondSchema)(velocity + acceleration * timeInSeconds)
+  return MetersPerSecondSchema.make(velocity + acceleration * timeInSeconds, { disableValidation: true })
 }
 
 /**
@@ -107,7 +111,7 @@ export const applyAcceleration = (
 export const applyDamping = (velocity: MetersPerSecond, dampingFactor: number, time: Milliseconds): MetersPerSecond => {
   const timeInSeconds = MillisecondsOps.toSeconds(time)
   const decayFactor = Math.pow(dampingFactor, timeInSeconds)
-  return Schema.make(MetersPerSecondSchema)(velocity * decayFactor)
+  return MetersPerSecondSchema.make(velocity * decayFactor, { disableValidation: true })
 }
 
 /**
@@ -117,7 +121,7 @@ export const applyDamping = (velocity: MetersPerSecond, dampingFactor: number, t
  */
 export const clamp = (velocity: MetersPerSecond, maxVelocity: MetersPerSecond): MetersPerSecond => {
   const absMax = Math.abs(maxVelocity)
-  return Schema.make(MetersPerSecondSchema)(Math.max(-absMax, Math.min(absMax, velocity)))
+  return MetersPerSecondSchema.make(Math.max(-absMax, Math.min(absMax, velocity)), { disableValidation: true })
 }
 
 /**
@@ -148,16 +152,17 @@ export const toKilometersPerHour = (velocity: MetersPerSecond): number => veloci
 /**
  * Convert from kilometers per hour
  */
-export const fromKilometersPerHour = (kph: number): MetersPerSecond => Schema.make(MetersPerSecondSchema)(kph / 3.6)
+export const fromKilometersPerHour = (kph: number): MetersPerSecond =>
+  MetersPerSecondSchema.make(kph / 3.6, { disableValidation: true })
 
 /**
  * Get minimum of two velocities
  */
 export const min = (a: MetersPerSecond, b: MetersPerSecond): MetersPerSecond =>
-  Schema.make(MetersPerSecondSchema)(Math.min(a, b))
+  MetersPerSecondSchema.make(Math.min(a, b), { disableValidation: true })
 
 /**
  * Get maximum of two velocities
  */
 export const max = (a: MetersPerSecond, b: MetersPerSecond): MetersPerSecond =>
-  Schema.make(MetersPerSecondSchema)(Math.max(a, b))
+  MetersPerSecondSchema.make(Math.max(a, b), { disableValidation: true })

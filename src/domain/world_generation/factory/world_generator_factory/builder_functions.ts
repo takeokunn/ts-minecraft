@@ -12,8 +12,8 @@ import * as NoiseConfiguration from '@domain/world/value_object/noise_configurat
 import * as WorldSeed from '@domain/world/value_object/world_seed/index'
 import { Effect, Function, Match } from 'effect'
 import type { ValidationState, WorldGeneratorBuilderState } from './builder_state'
-import { FactoryError } from './index'
-import type { CreateWorldGeneratorParams, FactoryError as FactoryErrorType, PresetType } from './index'
+import type { CreateWorldGeneratorParams, FactoryError as FactoryErrorType, PresetType } from './factory'
+import { FactoryError, WorldGeneratorFactoryTag } from './factory'
 
 // ================================
 // Basic Configuration Functions
@@ -32,7 +32,7 @@ export const withSeed = (
     Match.type<WorldSeed.WorldSeed | string | number>(),
     Match.when(Match.string, (s) => WorldSeed.createFromString(s)),
     Match.when(Match.number, (n) => WorldSeed.createFromNumber(n)),
-    Match.orElse((seed) => seed as WorldSeed.WorldSeed)
+    Match.orElse((seed) => seed satisfies WorldSeed.WorldSeed)
   )(seed)
 
   return {
@@ -381,9 +381,7 @@ export const buildWorldGenerator = (
     yield* Function.pipe(
       Match.value(validation.isValid),
       Match.when(false, () =>
-        Effect.fail(
-          FactoryError.parameterValidation(`Builder validation failed: ${validation.errors.join(', ')}`)
-        )
+        Effect.fail(FactoryError.parameterValidation(`Builder validation failed: ${validation.errors.join(', ')}`))
       ),
       Match.orElse(() => Effect.void)
     )
@@ -392,7 +390,6 @@ export const buildWorldGenerator = (
     const params = yield* buildParams(state)
 
     // ファクトリを使用してWorldGenerator作成
-    const { WorldGeneratorFactoryTag } = yield* Effect.promise(() => import('@domain/world/factory.js'))
     const factory = yield* Effect.service(WorldGeneratorFactoryTag)
 
     return yield* factory.create(params)

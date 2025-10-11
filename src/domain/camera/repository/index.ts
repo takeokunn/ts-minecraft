@@ -5,6 +5,8 @@
  * 永続化抽象化、技術的関心事の分離、Effect-TSパターンの統一実装
  */
 
+import { Clock, Effect, Layer } from 'effect'
+
 // ========================================
 // Camera State Repository
 // ========================================
@@ -40,10 +42,6 @@ export {
   // Module Info
   CameraStateRepositoryModule,
   CameraStateRepositoryOps,
-  RepositoryErrorSchema,
-  RepositoryTypeGuards,
-  SnapshotTimestampSchema,
-  VersionNumberSchema,
   createRepositoryError,
   isDecodingError,
   isEncodingError,
@@ -51,6 +49,10 @@ export {
   isEntityNotFoundError,
   isStorageError,
   isValidationError,
+  RepositoryErrorSchema,
+  RepositoryTypeGuards,
+  SnapshotTimestampSchema,
+  VersionNumberSchema,
 } from './camera_state/index'
 
 // ========================================
@@ -88,7 +90,15 @@ export type {
 
 export {
   CameraPresetSettingsSchema,
+  createDefaultSettings,
+  createSettingsRepositoryError,
   GlobalCameraSettingsSchema,
+  isPresetNotFoundError,
+  // Type Guards
+  isSettingsNotFoundError,
+  isStorageError as isSettingsStorageError,
+  isValidationError as isSettingsValidationError,
+  isUnauthorizedError,
   PlayerCameraSettingsSchema,
   QualityLevelSchema,
   SettingsConversionUtils,
@@ -109,14 +119,6 @@ export {
   // Utilities
   SettingsValidationUtils,
   ViewModeSettingsSchema,
-  createDefaultSettings,
-  createSettingsRepositoryError,
-  isPresetNotFoundError,
-  // Type Guards
-  isSettingsNotFoundError,
-  isStorageError as isSettingsStorageError,
-  isValidationError as isSettingsValidationError,
-  isUnauthorizedError,
 } from './settings_storage/index'
 
 // ========================================
@@ -174,9 +176,9 @@ export {
   AnimationRecordSchema,
   TimeRangeSchema as AnimationTimeRangeSchema,
   AnimationTypeSchema,
-  InterruptionReasonSchema,
   createAnimationHistoryError,
   createAnimationRecord,
+  InterruptionReasonSchema,
   isCameraNotFoundError as isAnimationCameraNotFoundError,
   isConcurrencyError as isAnimationConcurrencyError,
   // Type Guards
@@ -206,16 +208,16 @@ export type {
   PreferenceAnalyticsData,
   PreferenceQueryOptions,
   PreferenceRecordId,
-  PreferenceSortBy,
-  PreferenceTrigger,
   ImportOptions as PreferencesImportOptions,
   ImportResult as PreferencesImportResult,
   IntegrityCheckResult as PreferencesIntegrityCheckResult,
   KeyBinding as PreferencesKeyBinding,
+  PreferenceSortBy,
   // Repository Types
   PlayerId as PreferencesPlayerId,
   TimeRange as PreferencesTimeRange,
   ValidationResult as PreferencesValidationResult,
+  PreferenceTrigger,
   ReanalysisResult,
   RecommendationReason,
   SatisfactionDataPoint,
@@ -237,34 +239,9 @@ export type {
 } from './view_mode_preferences/index'
 
 export {
-  GameContextSchema,
-  // Utilities
-  PreferenceAnalysisUtils,
-  PreferenceQueryHelpers,
-  PreferenceQueryOptionsSchema,
-  PreferenceRecommendationHelpers,
-  PreferenceRecordIdSchema,
-  PreferenceTriggerSchema,
-  KeyBindingSchema as PreferencesKeyBindingSchema,
-  // Schema & Factory Functions
-  PlayerIdSchema as PreferencesPlayerIdSchema,
-  TimeRangeSchema as PreferencesTimeRangeSchema,
-  TrendDirectionSchema,
-  ViewModePopularitySchema,
-  ViewModePreferenceRecordSchema,
-  ViewModePreferenceSchema,
-  // Repository Context & Operations
-  ViewModePreferencesRepository,
-  ViewModePreferencesRepositoryErrorSchema,
-  // Live Implementation
-  ViewModePreferencesRepositoryLive,
-
-  // Module Info
-  ViewModePreferencesRepositoryModule,
-  ViewModePreferencesRepositoryOps,
-  ViewModePreferencesRepositoryTypeGuards,
   createDefaultPreferences,
   createViewModePreferencesError,
+  GameContextSchema,
   isAnalyticsCalculationFailedError,
   isAutomaticTrigger,
   isBuildingContext,
@@ -279,6 +256,31 @@ export {
   isStorageError as isPreferencesStorageError,
   isRecordNotFoundError,
   isSystemTrigger,
+  // Utilities
+  PreferenceAnalysisUtils,
+  PreferenceQueryHelpers,
+  PreferenceQueryOptionsSchema,
+  PreferenceRecommendationHelpers,
+  PreferenceRecordIdSchema,
+  KeyBindingSchema as PreferencesKeyBindingSchema,
+  // Schema & Factory Functions
+  PlayerIdSchema as PreferencesPlayerIdSchema,
+  TimeRangeSchema as PreferencesTimeRangeSchema,
+  PreferenceTriggerSchema,
+  TrendDirectionSchema,
+  ViewModePopularitySchema,
+  ViewModePreferenceRecordSchema,
+  ViewModePreferenceSchema,
+  // Repository Context & Operations
+  ViewModePreferencesRepository,
+  ViewModePreferencesRepositoryErrorSchema,
+  // Live Implementation
+  ViewModePreferencesRepositoryLive,
+
+  // Module Info
+  ViewModePreferencesRepositoryModule,
+  ViewModePreferencesRepositoryOps,
+  ViewModePreferencesRepositoryTypeGuards,
 } from './view_mode_preferences/index'
 
 // ========================================
@@ -326,13 +328,11 @@ export const CameraRepositoryLayerModule = {
  *
  * 全Repository実装をまとめたLayerの組み合わせ
  */
-export const CameraRepositoryLayerLive = import('effect').then(({ Layer }) =>
-  Layer.mergeAll(
-    CameraStateRepositoryLive,
-    SettingsStorageRepositoryLive,
-    AnimationHistoryRepositoryLive,
-    ViewModePreferencesRepositoryLive
-  )
+export const CameraRepositoryLayerLive = Layer.mergeAll(
+  CameraStateRepositoryLive,
+  SettingsStorageRepositoryLive,
+  AnimationHistoryRepositoryLive,
+  ViewModePreferencesRepositoryLive
 )
 
 /**
@@ -378,38 +378,31 @@ export const CameraRepositoryLayerUtils = {
   /**
    * Repository操作の共通エラーハンドリング
    */
-  handleRepositoryError: <T, E>(
-    operation: import('effect').Effect.Effect<T, E>
-  ): import('effect').Effect.Effect<
-    T,
-    RepositoryLayerErrors | E
-  > => {
-    return operation as import('effect').Effect.Effect<T, RepositoryLayerErrors | E>
+  handleRepositoryError: <T, E>(operation: Effect.Effect<T, E>): Effect.Effect<T, RepositoryLayerErrors | E> => {
+    return operation as Effect.Effect<T, RepositoryLayerErrors | E>
   },
 
   /**
    * Repository間のデータ整合性チェック
    */
-  validateCrossRepositoryConsistency: (cameraId: string): import('effect').Effect.Effect<boolean, RepositoryError> => {
-    return import('effect').then(({ Effect }) => Effect.succeed(true)) // 簡易実装
+  validateCrossRepositoryConsistency: (cameraId: string): Effect.Effect<boolean, RepositoryError> => {
+    return Effect.succeed(true) // 簡易実装
   },
 
   /**
    * Repository層の統計情報を取得
    */
-  getLayerStatistics: (): import('effect').Effect.Effect<RepositoryLayerStatistics, RepositoryError> => {
-    return import('effect').then(({ Clock, Effect }) =>
-      Effect.gen(function* () {
-        const now = yield* Clock.currentTimeMillis
-        return {
-          totalRepositories: 4,
-          activeConnections: 4,
-          totalRecords: 1000,
-          storageUsageBytes: 1024 * 1024,
-          lastOptimizationTime: now,
-        }
-      })
-    )
+  getLayerStatistics: (): Effect.Effect<RepositoryLayerStatistics, RepositoryError> => {
+    return Effect.gen(function* () {
+      const now = yield* Clock.currentTimeMillis
+      return {
+        totalRepositories: 4,
+        activeConnections: 4,
+        totalRecords: 1000,
+        storageUsageBytes: 1024 * 1024,
+        lastOptimizationTime: now,
+      }
+    })
   },
 } as const
 

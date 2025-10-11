@@ -197,7 +197,7 @@ export default defineConfig(({ command, mode }) => {
         '@/application': resolve(process.cwd(), 'src/application'),
         '@/infrastructure': resolve(process.cwd(), 'src/infrastructure'),
         '@/presentation': resolve(process.cwd(), 'src/presentation'),
-        '@/shared': resolve(process.cwd(), 'src/shared'),
+        '@shared': resolve(process.cwd(), 'src/shared'),
         '@/test': resolve(process.cwd(), 'test'),
       },
       extensions: ['.ts', '.tsx', '.js', '.mjs', '.json'],

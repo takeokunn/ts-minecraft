@@ -6,8 +6,8 @@
  */
 
 import { taggedUnion } from '@domain/world/utils'
-import { Effect, Schema } from 'effect'
 import { JsonValueSchema } from '@shared/schema/json'
+import { Effect, Schema } from 'effect'
 import { BLOCK_COORDINATE_LIMITS, BlockCoordinate, BlockRange } from './block_coordinate'
 import {
   CHUNK_CONSTANTS,

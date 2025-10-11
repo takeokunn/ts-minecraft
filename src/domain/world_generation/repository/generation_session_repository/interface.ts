@@ -16,7 +16,8 @@ import type {
   GenerationStageStatus,
   WorldId,
 } from '@domain/world/types'
-import { Context, Effect, Option, ReadonlyArray } from 'effect'
+import type { JsonValue } from '@shared/schema/json'
+import { Context, Effect, Option, ReadonlyArray, Schema } from 'effect'
 
 // === Generation Session Types ===
 
@@ -317,7 +318,19 @@ export interface GenerationSessionRepository {
     }>,
     AllRepositoryErrors
   >
+}
 
+export interface SessionHistoryEntry {
+  readonly timestamp: Date
+  readonly action: string
+  readonly details: JsonValue
+  readonly actor: string
+}
+
+/**
+ * セッション復旧機能インターフェース
+ */
+export interface SessionRecoveryOperations {
   /**
    * セッション復旧可能性分析
    */
@@ -340,15 +353,9 @@ export interface GenerationSessionRepository {
   /**
    * セッション履歴取得
    */
-  readonly getSessionHistory: (sessionId: GenerationSessionId) => Effect.Effect<
-    ReadonlyArray<{
-      readonly timestamp: Date
-      readonly action: string
-      readonly details: unknown
-      readonly actor: string
-    }>,
-    AllRepositoryErrors
-  >
+  readonly getSessionHistory: (
+    sessionId: GenerationSessionId
+  ) => Effect.Effect<ReadonlyArray<SessionHistoryEntry>, AllRepositoryErrors>
 
   /**
    * 完了セッションアーカイブ
@@ -456,6 +463,31 @@ export interface GenerationSessionRepositoryConfig {
   }
 }
 
+export const GenerationSessionRepositoryConfigSchema = Schema.Struct({
+  storage: Schema.Struct({
+    type: Schema.Literal('memory', 'indexeddb', 'filesystem'),
+    location: Schema.optional(Schema.String),
+    maxSessions: Schema.optional(Schema.Number),
+  }),
+  checkpointing: Schema.Struct({
+    enabled: Schema.Boolean,
+    intervalMs: Schema.Number,
+    maxCheckpoints: Schema.Number,
+    compressionEnabled: Schema.Boolean,
+  }),
+  recovery: Schema.Struct({
+    autoRecoveryEnabled: Schema.Boolean,
+    maxRetryAttempts: Schema.Number,
+    retryDelayMs: Schema.Number,
+    corruptionThreshold: Schema.Number,
+  }),
+  cleanup: Schema.Struct({
+    archiveAfterDays: Schema.Number,
+    deleteAfterDays: Schema.Number,
+    maxHistoryEntries: Schema.Number,
+  }),
+})
+
 // === Default Configuration ===
 
 export const defaultGenerationSessionRepositoryConfig: GenerationSessionRepositoryConfig = {
@@ -481,6 +513,8 @@ export const defaultGenerationSessionRepositoryConfig: GenerationSessionReposito
     maxHistoryEntries: 100,
   },
 }
+
+export { GenerationSessionRepositoryConfigSchema }
 
 // === Utility Functions ===
 

@@ -9,7 +9,7 @@ import { PlayerIdSchema, type PlayerId } from './schema'
 export const generate = (): Effect.Effect<PlayerId, never> =>
   Effect.map(
     Effect.sync(() => `player_${uuidv4()}`),
-    (value) => Schema.make(PlayerIdSchema)(value)
+    (value) => PlayerIdSchema.make(value, { disableValidation: true })
   )
 
 /**
@@ -31,7 +31,7 @@ export const make = (value: string): Effect.Effect<PlayerId, PlayerIdError> =>
  *
  * 注意: 既に検証済みの値のみに使用すること
  */
-export const makeUnsafe = (value: string): PlayerId => Schema.make(PlayerIdSchema)(value)
+export const makeUnsafe = (value: string): PlayerId => PlayerIdSchema.make(value, { disableValidation: true })
 
 /**
  * PlayerIdを文字列に変換
