@@ -11,7 +11,7 @@ import { ChunkDataSchema } from '@domain/chunk'
 import type * as WorldTypes from '@domain/world/types/core'
 import type * as GenerationErrors from '@domain/world/types/errors'
 import * as Coordinates from '@domain/world/value_object/coordinates/index'
-import { DateTime, Effect, Schema } from 'effect'
+import { DateTime, Effect, Match, Option, Schema, pipe } from 'effect'
 
 // ================================
 // Session Status
@@ -176,13 +176,19 @@ export const startBatch = (
 ): Effect.Effect<SessionState, GenerationErrors.StateError> =>
   Effect.gen(function* () {
     // 並行性チェック
-    if (state.executionContext.currentConcurrency >= state.executionContext.maxConcurrentBatches) {
-      return yield* Effect.fail(
-        GenerationErrors.createStateError(
-          `Maximum concurrent batches (${state.executionContext.maxConcurrentBatches}) exceeded`
-        )
-      )
-    }
+    yield* pipe(
+      Match.value(state.executionContext),
+      Match.when(
+        (context) => context.currentConcurrency >= context.maxConcurrentBatches,
+        (context) =>
+          Effect.fail(
+            GenerationErrors.createStateError(
+              `Maximum concurrent batches (${context.maxConcurrentBatches}) exceeded`
+            )
+          )
+      ),
+      Match.orElse(() => Effect.void)
+    )
 
     // キューからバッチを削除
     const queuedBatches = state.executionContext.queuedBatches.filter((id) => id !== batchId)
@@ -222,10 +228,7 @@ export const completeBatch = (
   results: readonly WorldTypes.ChunkData[]
 ): Effect.Effect<SessionState, GenerationErrors.StateError> =>
   Effect.gen(function* () {
-    const activeBatch = state.executionContext.activeBatches[batchId]
-    if (!activeBatch) {
-      return yield* Effect.fail(GenerationErrors.createStateError(`Batch ${batchId} not found in active batches`))
-    }
+    const activeBatch = yield* requireActiveBatch(state, batchId, `Batch ${batchId} not found in active batches`)
 
     const now = yield* DateTime.nowAsDate
 
@@ -263,10 +266,7 @@ export const failBatch = (
   error: GenerationErrors.GenerationError
 ): Effect.Effect<SessionState, GenerationErrors.StateError> =>
   Effect.gen(function* () {
-    const activeBatch = state.executionContext.activeBatches[batchId]
-    if (!activeBatch) {
-      return yield* Effect.fail(GenerationErrors.createStateError(`Batch ${batchId} not found in active batches`))
-    }
+    const activeBatch = yield* requireActiveBatch(state, batchId, `Batch ${batchId} not found in active batches`)
 
     const now = yield* DateTime.nowAsDate
 
@@ -303,10 +303,7 @@ export const scheduleRetry = (
   retryAt?: Date
 ): Effect.Effect<SessionState, GenerationErrors.StateError> =>
   Effect.gen(function* () {
-    const activeBatch = state.executionContext.activeBatches[batchId]
-    if (!activeBatch) {
-      return yield* Effect.fail(GenerationErrors.createStateError(`Batch ${batchId} not found in active batches`))
-    }
+    const activeBatch = yield* requireActiveBatch(state, batchId, `Batch ${batchId} not found in active batches`)
 
     const now = yield* DateTime.nowAsDate
     const scheduleTime =
@@ -453,11 +450,14 @@ export const getBatch = (state: SessionState, batchId: string): ChunkBatch | nul
  * 実行可能なバッチ取得
  */
 export const getNextExecutableBatch = (state: SessionState): string | null => {
-  if (state.executionContext.currentConcurrency >= state.executionContext.maxConcurrentBatches) {
-    return null
-  }
-
-  return state.executionContext.queuedBatches[0] || null
+  return pipe(
+    Match.value(state.executionContext),
+    Match.when(
+      (context) => context.currentConcurrency >= context.maxConcurrentBatches,
+      () => null
+    ),
+    Match.orElse(() => state.executionContext.queuedBatches[0] ?? null)
+  )
 }
 
 /**
@@ -499,6 +499,18 @@ export const isSessionCompleted = (state: SessionState): boolean => {
     (state.executionContext.completedBatches.length > 0 || state.executionContext.failedBatches.length > 0)
   )
 }
+
+const requireActiveBatch = (
+  state: SessionState,
+  batchId: string,
+  message: string
+): Effect.Effect<ChunkBatch, GenerationErrors.StateError> =>
+  pipe(
+    Match.value(Option.fromNullable(state.executionContext.activeBatches[batchId])),
+    Match.tag('Some', ({ value }) => Effect.succeed(value)),
+    Match.tag('None', () => Effect.fail(GenerationErrors.createStateError(message))),
+    Match.exhaustive
+  )
 
 // ================================
 // Exports

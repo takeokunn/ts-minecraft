@@ -22,7 +22,7 @@ import { WorldClock } from '@/domain/world/time'
 import { createWorldSeed } from '@/domain/world/types/core/world_types'
 import { WorldCoordinate2DSchema } from '@/domain/world/value_object/coordinates'
 import { createWorldGeneratorId } from '@/domain/world_generation/aggregate/world_generator'
-import { Context, DateTime, Effect, Layer, STM, Schema } from 'effect'
+import { Context, DateTime, Effect, Layer, ReadonlyArray, STM, Schema, pipe } from 'effect'
 
 /**
  * WorldStateSTM Service定義
@@ -369,10 +369,13 @@ export const makeWorldStateSTMLive = (initialMetadata: WorldMetadata) =>
 
             // チャンク一括ロード
             const currentChunks = yield* STM.TRef.get(loadedChunks)
-            const updatedChunks = new Map(currentChunks)
-            for (const [chunkId, chunk] of chunks) {
-              updatedChunks.set(chunkId, chunk)
-            }
+            const updatedChunks = pipe(
+              chunks,
+              ReadonlyArray.reduce(new Map(currentChunks), (acc, [chunkId, chunk]) => {
+                acc.set(chunkId, chunk)
+                return acc
+              })
+            )
             yield* STM.TRef.set(loadedChunks, updatedChunks)
           })
         )
@@ -391,10 +394,13 @@ export const makeWorldStateSTMLive = (initialMetadata: WorldMetadata) =>
 
             // チャンク一括アンロード
             const currentChunks = yield* STM.TRef.get(loadedChunks)
-            const updatedChunks = new Map(currentChunks)
-            for (const chunkId of chunkIds) {
-              updatedChunks.delete(chunkId)
-            }
+            const updatedChunks = pipe(
+              chunkIds,
+              ReadonlyArray.reduce(new Map(currentChunks), (acc, chunkId) => {
+                acc.delete(chunkId)
+                return acc
+              })
+            )
             yield* STM.TRef.set(loadedChunks, updatedChunks)
           })
         )

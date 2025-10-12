@@ -210,14 +210,18 @@ export const StackingServiceLive = Layer.succeed(
         }> = []
 
         // スタック数制限チェック
-        if (stack.count > 64) {
-          violations.push({
-            constraint: 'MAX_STACK_SIZE',
-            description: `Stack count ${stack.count} exceeds maximum 64`,
-            severity: 'ERROR',
-            suggestedFix: 'Split the stack into multiple stacks',
-          })
-        }
+        pipe(
+          Match.value(stack.count > 64),
+          Match.when(true, () =>
+            violations.push({
+              constraint: 'MAX_STACK_SIZE',
+              description: `Stack count ${stack.count} exceeds maximum 64`,
+              severity: 'ERROR',
+              suggestedFix: 'Split the stack into multiple stacks',
+            })
+          ),
+          Match.orElse(() => undefined)
+        )
 
         // アイテム固有制約チェック
         const itemConstraints = yield* checkItemSpecificConstraints(stack)
@@ -388,42 +392,47 @@ const consolidateItemGroup = (
           shouldContinue: true,
         },
         (acc, { sourceSlot, targetSlot }) =>
-          Effect.gen(function* () {
-            if (!acc.shouldContinue) {
-              return acc
-            }
+          pipe(
+            Match.value(acc.shouldContinue),
+            Match.when(false, () => Effect.succeed(acc)),
+            Match.orElse(() =>
+              pipe(
+                Option.all([
+                  Option.fromNullable(acc.inventory.slots[sourceSlot]),
+                  Option.fromNullable(acc.inventory.slots[targetSlot]),
+                ]),
+                Option.filter(([sourceStack, targetStack]) => sourceStack.count + targetStack.count <= 64),
+                Option.match({
+                  onNone: () => Effect.succeed(acc),
+                  onSome: ([sourceStack, targetStack]) =>
+                    Effect.succeed(() => {
+                      const newSlots = [...acc.inventory.slots]
+                      const consolidatedStack = {
+                        ...targetStack,
+                        count: sourceStack.count + targetStack.count,
+                      }
+                      newSlots[targetSlot] = consolidatedStack
+                      newSlots[sourceSlot] = null
 
-            const sourceStack = acc.inventory.slots[sourceSlot]
-            const targetStack = acc.inventory.slots[targetSlot]
+                      const newOperation = {
+                        type: 'CONSOLIDATE' as const,
+                        sourceSlot,
+                        targetSlot,
+                        itemsBefore: sourceStack.count + targetStack.count,
+                        itemsAfter: consolidatedStack.count,
+                      }
 
-            if (sourceStack && targetStack && sourceStack.count + targetStack.count <= 64) {
-              // スタック統合実行
-              const newSlots = [...acc.inventory.slots]
-              const consolidatedStack = {
-                ...targetStack,
-                count: sourceStack.count + targetStack.count,
-              }
-              newSlots[targetSlot] = consolidatedStack
-              newSlots[sourceSlot] = null
-
-              const newOperation = {
-                type: 'CONSOLIDATE' as const,
-                sourceSlot,
-                targetSlot,
-                itemsBefore: sourceStack.count + targetStack.count,
-                itemsAfter: consolidatedStack.count,
-              }
-
-              return {
-                inventory: { ...acc.inventory, slots: newSlots },
-                stacksConsolidated: acc.stacksConsolidated + 1,
-                operations: [...acc.operations, newOperation],
-                shouldContinue: false, // 1回統合したらbreak
-              }
-            }
-
-            return acc
-          })
+                      return {
+                        inventory: { ...acc.inventory, slots: newSlots },
+                        stacksConsolidated: acc.stacksConsolidated + 1,
+                        operations: [...acc.operations, newOperation],
+                        shouldContinue: false,
+                      }
+                    }).pipe(Effect.flatMap((compute) => Effect.succeed(compute())))
+                })
+              )
+            )
+          )
       )
     )
 

@@ -4,7 +4,7 @@
  */
 
 import { describe, expect, it } from '@effect/vitest'
-import { Clock, Duration, Effect, Fiber, Random, Schedule, TestClock } from 'effect'
+import { Clock, Duration, Effect, Fiber, Match, Random, Schedule, TestClock, pipe } from 'effect'
 
 describe('TestClock Example Tests', () => {
   describe('TestClock - 仮想時間制御', () => {
@@ -91,18 +91,14 @@ describe('TestClock Example Tests', () => {
     )
   })
 
-  describe('it.effect vs 通常のit', () => {
-    it('通常のitではEffect.runPromiseが必要', async () => {
-      const result = await Effect.runPromise(
-        Effect.gen(function* () {
-          // この場合、実際のシステムクロックを使用
-          const time = yield* Clock.currentTimeMillis
-          return time > 0
-        })
-      )
-
-      expect(result).toBe(true)
-    })
+  describe('it.effect活用例', () => {
+    it.effect('通常のitを使わずにEffectをそのまま検証できる', () =>
+      Effect.gen(function* () {
+        // TestClockが自動適用される
+        const time = yield* Clock.currentTimeMillis
+        expect(time).toBe(0)
+      })
+    )
 
     it.effect('it.effectではyield*で直接実行可能', () =>
       Effect.gen(function* () {
@@ -151,10 +147,11 @@ describe('TestClock 実践的な使用例', () => {
 
       const flakyOperation = Effect.gen(function* () {
         attempts++
-        if (attempts < 3) {
-          return yield* Effect.fail('Not ready')
-        }
-        return 'success'
+        return yield* pipe(
+          Match.value(attempts < 3),
+          Match.when(true, () => Effect.fail('Not ready' as const)),
+          Match.orElse(() => Effect.succeed('success'))
+        )
       })
 
       // Schedule.spacedを使用

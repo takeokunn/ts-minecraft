@@ -305,36 +305,44 @@ const makeCacheManagerService = Effect.gen(function* () {
       const entries = yield* Ref.get(cacheEntries)
       const entriesArray = Array.from(entries.values())
 
-      if (entriesArray.length === 0) return 0
-
-      const evictionCandidates = yield* selectEvictionCandidates(entriesArray, strategy)
-      const currentSize = yield* calculateTotalSize()
-      const targetSizeActual = targetSize || Math.floor(currentSize * 0.8) // 20%削減がデフォルト
-
-      // for-of + if-break撲滅 → Effect.reduce (早期終了付き)
-      const { evictedCount, freedSize } = yield* pipe(
-        evictionCandidates,
-        Effect.reduce({ evictedCount: 0, freedSize: 0 }, (acc, candidate) =>
+      return yield* Match.value(entriesArray.length === 0).pipe(
+        Match.when(true, () => Effect.succeed(0)),
+        Match.orElse(() =>
           Effect.gen(function* () {
-            // 早期終了条件
-            yield* Effect.when(currentSize - acc.freedSize <= targetSizeActual, () => Effect.succeed(acc))
+            const evictionCandidates = yield* selectEvictionCandidates(entriesArray, strategy)
+            const currentSize = yield* calculateTotalSize()
+            const targetSizeActual = targetSize || Math.floor(currentSize * 0.8)
 
-            yield* deleteInternal(candidate.key)
-            return {
-              evictedCount: acc.evictedCount + 1,
-              freedSize: acc.freedSize + candidate.size,
-            }
-          }).pipe(Effect.catchAll(() => Effect.succeed(acc)))
-        )
+            const { evictedCount, freedSize } = yield* pipe(
+              evictionCandidates,
+              Effect.reduce({ evictedCount: 0, freedSize: 0 }, (acc, candidate) =>
+                Effect.gen(function* () {
+                  yield* Match.value(currentSize - acc.freedSize <= targetSizeActual).pipe(
+                    Match.when(true, () => Effect.succeed(acc)),
+                    Match.orElse(() => Effect.unit()),
+                    Match.exhaustive
+                  )
+
+                  yield* deleteInternal(candidate.key)
+                  return {
+                    evictedCount: acc.evictedCount + 1,
+                    freedSize: acc.freedSize + candidate.size,
+                  }
+                }).pipe(Effect.catchAll(() => Effect.succeed(acc)))
+              )
+            )
+
+            yield* Ref.update(globalStats, (stats) => ({
+              ...stats,
+              totalEvictions: stats.totalEvictions + evictedCount,
+            }))
+
+            yield* Effect.logInfo(`エビクション完了: ${evictedCount}エントリ, ${freedSize}バイト解放`)
+            return evictedCount
+          })
+        ),
+        Match.exhaustive
       )
-
-      yield* Ref.update(globalStats, (stats) => ({
-        ...stats,
-        totalEvictions: stats.totalEvictions + evictedCount,
-      }))
-
-      yield* Effect.logInfo(`エビクション完了: ${evictedCount}エントリ, ${freedSize}バイト解放`)
-      return evictedCount
     })
 
   const optimize = () =>

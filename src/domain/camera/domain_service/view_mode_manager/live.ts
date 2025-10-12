@@ -6,7 +6,7 @@
  * 制約確認等の核となるビジネスロジックを実装しています。
  */
 
-import { Clock, Effect, Layer, Match, pipe, Random } from 'effect'
+import { Clock, Effect, Layer, Match, Option, pipe, Random } from 'effect'
 import type {
   AnimationDuration,
   AnimationTimeline,
@@ -67,10 +67,7 @@ export const ViewModeManagerServiceLive = Layer.succeed(
         let updatedCamera = yield* CameraOps.setPosition(camera, eyePosition)
         updatedCamera = yield* CameraOps.setViewMode(updatedCamera, firstPersonMode)
 
-        return yield* Effect.if(transitionSettings !== undefined, {
-          onTrue: () => applyTransitionToCamera(updatedCamera, transitionSettings),
-          onFalse: () => Effect.succeed(updatedCamera),
-        })
+        return yield* applyTransitionOption(updatedCamera, transitionSettings)
       }),
 
     /**
@@ -92,10 +89,7 @@ export const ViewModeManagerServiceLive = Layer.succeed(
         let updatedCamera = yield* CameraOps.setPosition(camera, cameraPosition)
         updatedCamera = yield* CameraOps.setViewMode(updatedCamera, thirdPersonMode)
 
-        return yield* Effect.if(transitionSettings !== undefined, {
-          onTrue: () => applyTransitionToCamera(updatedCamera, transitionSettings),
-          onFalse: () => Effect.succeed(updatedCamera),
-        })
+        return yield* applyTransitionOption(updatedCamera, transitionSettings)
       }),
 
     /**
@@ -113,10 +107,7 @@ export const ViewModeManagerServiceLive = Layer.succeed(
         let updatedCamera = yield* CameraOps.setPosition(camera, initialPosition)
         updatedCamera = yield* CameraOps.setViewMode(updatedCamera, spectatorMode)
 
-        return yield* Effect.if(transitionSettings !== undefined, {
-          onTrue: () => applyTransitionToCamera(updatedCamera, transitionSettings),
-          onFalse: () => Effect.succeed(updatedCamera),
-        })
+        return yield* applyTransitionOption(updatedCamera, transitionSettings)
       }),
 
     /**
@@ -133,36 +124,39 @@ export const ViewModeManagerServiceLive = Layer.succeed(
           effects: cinematicSettings.cinematicEffects,
         })
 
-        let updatedCamera = camera
-
-        // 初期位置の設定
-        updatedCamera = yield* pipe(
+        const cameraWithInitialPosition = yield* pipe(
           Option.fromNullable(cinematicSettings.cameraPath),
-          Option.filter((path) => path.keyframes.length > 0),
-          Option.match({
-            onNone: () => Effect.succeed(updatedCamera),
-            onSome: (cameraPath) =>
-              Effect.gen(function* () {
-                const firstKeyframe = cameraPath.keyframes[0]
-                let updated = yield* CameraOps.setPosition(updatedCamera, firstKeyframe.position)
-                updated = yield* CameraOps.setRotation(updated, firstKeyframe.rotation)
-                return updated
-              }),
-          })
+          Match.value,
+          Match.tag('None', () => Effect.succeed(camera)),
+          Match.tag('Some', ({ value: cameraPath }) =>
+            pipe(
+              Match.value(cameraPath.keyframes.length > 0),
+              Match.when(false, () => Effect.succeed(camera)),
+              Match.orElse(() =>
+                Effect.gen(function* () {
+                  const firstKeyframe = cameraPath.keyframes[0]
+                  let positionedCamera = yield* CameraOps.setPosition(camera, firstKeyframe.position)
+                  positionedCamera = yield* CameraOps.setRotation(positionedCamera, firstKeyframe.rotation)
+                  return positionedCamera
+                })
+              ),
+              Match.exhaustive
+            )
+          ),
+          Match.exhaustive
         )
 
-        // FOVオーバーライド
-        updatedCamera = yield* Effect.if(cinematicSettings.fovOverride !== undefined, {
-          onTrue: () => CameraOps.setFOV(updatedCamera, cinematicSettings.fovOverride!),
-          onFalse: () => Effect.succeed(updatedCamera),
-        })
+        const cameraWithFOV = yield* pipe(
+          Option.fromNullable(cinematicSettings.fovOverride),
+          Match.value,
+          Match.tag('None', () => Effect.succeed(cameraWithInitialPosition)),
+          Match.tag('Some', ({ value }) => CameraOps.setFOV(cameraWithInitialPosition, value)),
+          Match.exhaustive
+        )
 
-        updatedCamera = yield* CameraOps.setViewMode(updatedCamera, cinematicMode)
+        const updatedCamera = yield* CameraOps.setViewMode(cameraWithFOV, cinematicMode)
 
-        return yield* Effect.if(transitionSettings !== undefined, {
-          onTrue: () => applyTransitionToCamera(updatedCamera, transitionSettings),
-          onFalse: () => Effect.succeed(updatedCamera),
-        })
+        return yield* applyTransitionOption(updatedCamera, transitionSettings)
       }),
 
     /**
@@ -173,31 +167,37 @@ export const ViewModeManagerServiceLive = Layer.succeed(
         // 権限チェック
         const hasPermission = yield* checkViewModePermission(targetMode, context.permissions)
 
-        return yield* Effect.if(!hasPermission, {
-          onTrue: () => Effect.succeed(false),
-          onFalse: () =>
+        return yield* pipe(
+          Match.value(hasPermission),
+          Match.when(false, () => Effect.succeed(false)),
+          Match.orElse(() =>
             Effect.gen(function* () {
-              // 状態チェック
               const stateAllowed = yield* checkGameStateCompatibility(targetMode, context.gameState)
 
-              return yield* Effect.if(!stateAllowed, {
-                onTrue: () => Effect.succeed(false),
-                onFalse: () =>
+              return yield* pipe(
+                Match.value(stateAllowed),
+                Match.when(false, () => Effect.succeed(false)),
+                Match.orElse(() =>
                   Effect.gen(function* () {
-                    // 環境チェック
                     const environmentAllowed = yield* checkEnvironmentCompatibility(
                       targetMode,
                       context.environmentState
                     )
 
-                    return yield* Effect.if(!environmentAllowed, {
-                      onTrue: () => Effect.succeed(false),
-                      onFalse: () => Effect.succeed(true),
-                    })
-                  }),
-              })
-            }),
-        })
+                    return yield* pipe(
+                      Match.value(environmentAllowed),
+                      Match.when(false, () => Effect.succeed(false)),
+                      Match.orElse(() => Effect.succeed(true)),
+                      Match.exhaustive
+                    )
+                  })
+                ),
+                Match.exhaustive
+              )
+            })
+          ),
+          Match.exhaustive
+        )
       }),
 
     /**
@@ -229,27 +229,29 @@ export const ViewModeManagerServiceLive = Layer.succeed(
         const startTime = currentTime
         const progress = Math.min(1.0, (currentTime - startTime) / (transition.duration as number))
 
-        return yield* Effect.if(progress >= 1.0, {
-          onTrue: () =>
+        return yield* pipe(
+          Match.value(progress >= 1.0),
+          Match.when(true, () =>
             Effect.gen(function* () {
-              // トランジション完了
               const finalCamera = yield* applyFinalTransitionState(camera, transition)
               return TransitionExecutionResult.Completed({
                 finalCamera,
                 executionTime: transition.duration as number,
               })
-            }),
-          onFalse: () =>
+            })
+          ),
+          Match.orElse(() =>
             Effect.gen(function* () {
-              // トランジション進行中
               const currentCamera = yield* applyTransitionProgress(camera, transition, progress)
               return TransitionExecutionResult.InProgress({
                 progress,
                 currentCamera,
                 estimatedCompletion: startTime + (transition.duration as number),
               })
-            }),
-        })
+            })
+          ),
+          Match.exhaustive
+        )
       }),
 
     /**
@@ -312,14 +314,14 @@ export const ViewModeManagerServiceLive = Layer.succeed(
       Effect.gen(function* () {
         const history = yield* ViewModeManagerService.getViewModeHistory(camera, 2)
 
-        return yield* Effect.if(history.length < 2, {
-          onTrue: () => Effect.succeed(camera),
-          onFalse: () =>
+        return yield* pipe(
+          Match.value(history.length < 2),
+          Match.when(true, () => Effect.succeed(camera)),
+          Match.orElse(() =>
             Effect.gen(function* () {
               const previousEntry = history[1]
               const previousMode = previousEntry.mode
 
-              // 前回のビューモードに応じて適切な切り替えメソッドを呼び出し
               return yield* pipe(
                 previousMode,
                 Match.value,
@@ -338,7 +340,7 @@ export const ViewModeManagerServiceLive = Layer.succeed(
                     ViewModeManagerService.switchToThirdPerson(
                       camera,
                       previousEntry.context.playerState.position,
-                      5.0 as CameraDistance, // デフォルト距離
+                      5.0 as CameraDistance,
                       transitionSettings
                     )
                 ),
@@ -353,8 +355,10 @@ export const ViewModeManagerServiceLive = Layer.succeed(
                 ),
                 Match.orElse(() => Effect.succeed(camera))
               )
-            }),
-        })
+            })
+          ),
+          Match.exhaustive
+        )
       }),
   })
 )
@@ -422,6 +426,19 @@ const applyTransitionToCamera = (
     return camera
   })
 
+const applyTransitionOption = (
+  camera: Camera,
+  settings: ViewModeTransitionSettings | undefined
+): Effect.Effect<Camera, CameraError> =>
+  pipe(
+    settings,
+    Option.fromNullable,
+    Match.value,
+    Match.tag('None', () => Effect.succeed(camera)),
+    Match.tag('Some', ({ value }) => applyTransitionToCamera(camera, value)),
+    Match.exhaustive
+  )
+
 /**
  * ビューモード権限チェック
  */
@@ -429,46 +446,39 @@ const checkViewModePermission = (
   mode: ViewMode,
   permissions: ViewModePermissions
 ): Effect.Effect<boolean, CameraError> =>
-  Effect.gen(function* () {
-    return yield* Effect.if(ViewModeOps.isFirstPerson(mode), {
-      onTrue: () => Effect.succeed(permissions.canUseFirstPerson),
-      onFalse: () =>
-        Effect.if(ViewModeOps.isThirdPerson(mode), {
-          onTrue: () => Effect.succeed(permissions.canUseThirdPerson),
-          onFalse: () =>
-            Effect.if(ViewModeOps.isSpectator(mode), {
-              onTrue: () => Effect.succeed(permissions.canUseSpectator),
-              onFalse: () => Effect.succeed(permissions.canUseCinematic),
-            }),
-        }),
-    })
-  })
+  pipe(
+    mode,
+    Match.value,
+    Match.when((candidate) => ViewModeOps.isFirstPerson(candidate), () =>
+      Effect.succeed(permissions.canUseFirstPerson)
+    ),
+    Match.when((candidate) => ViewModeOps.isThirdPerson(candidate), () =>
+      Effect.succeed(permissions.canUseThirdPerson)
+    ),
+    Match.when((candidate) => ViewModeOps.isSpectator(candidate), () =>
+      Effect.succeed(permissions.canUseSpectator)
+    ),
+    Match.orElse(() => Effect.succeed(permissions.canUseCinematic)),
+    Match.exhaustive
+  )
 
 /**
  * ゲーム状態互換性チェック
  */
 const checkGameStateCompatibility = (mode: ViewMode, gameState: GameState): Effect.Effect<boolean, CameraError> =>
-  Effect.gen(function* () {
-    // カットシーン中はシネマティックモードのみ許可
-    return yield* Effect.if(gameState.cutscene, {
-      onTrue: () => Effect.succeed(ViewModeOps.isCinematic(mode)),
-      onFalse: () =>
-        Effect.gen(function* () {
-          // 一時停止中は特別な制限はなし
-          return yield* Effect.if(gameState.paused, {
-            onTrue: () => Effect.succeed(true),
-            onFalse: () =>
-              Effect.gen(function* () {
-                // ローディング中はスペクテイターモードのみ許可
-                return yield* Effect.if(gameState.loading, {
-                  onTrue: () => Effect.succeed(ViewModeOps.isSpectator(mode)),
-                  onFalse: () => Effect.succeed(true),
-                })
-              }),
-          })
-        }),
-    })
-  })
+  pipe(
+    Match.value(gameState.cutscene),
+    Match.when(true, () => Effect.succeed(ViewModeOps.isCinematic(mode))),
+    Match.orElse(() =>
+      pipe(
+        Match.value(gameState.loading),
+        Match.when(true, () => Effect.succeed(ViewModeOps.isSpectator(mode))),
+        Match.orElse(() => Effect.succeed(true)),
+        Match.exhaustive
+      )
+    ),
+    Match.exhaustive
+  )
 
 /**
  * 環境互換性チェック
@@ -477,20 +487,19 @@ const checkEnvironmentCompatibility = (
   mode: ViewMode,
   environment: EnvironmentState
 ): Effect.Effect<boolean, CameraError> =>
-  Effect.gen(function* () {
-    // 狭い空間では一人称視点が推奨
-    return yield* Effect.if(environment.confined && ViewModeOps.isThirdPerson(mode), {
-      onTrue: () => Effect.succeed(false),
-      onFalse: () =>
-        Effect.gen(function* () {
-          // 乗り物内では一人称視点が適切
-          return yield* Effect.if(environment.inVehicle && ViewModeOps.isThirdPerson(mode), {
-            onTrue: () => Effect.succeed(false),
-            onFalse: () => Effect.succeed(true),
-          })
-        }),
-    })
-  })
+  pipe(
+    Match.value(environment.confined && ViewModeOps.isThirdPerson(mode)),
+    Match.when(true, () => Effect.succeed(false)),
+    Match.orElse(() =>
+      pipe(
+        Match.value(environment.inVehicle && ViewModeOps.isThirdPerson(mode)),
+        Match.when(true, () => Effect.succeed(false)),
+        Match.orElse(() => Effect.succeed(true)),
+        Match.exhaustive
+      )
+    ),
+    Match.exhaustive
+  )
 
 /**
  * トランジションID生成

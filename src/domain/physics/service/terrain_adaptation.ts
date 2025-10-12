@@ -368,60 +368,64 @@ const makeTerrainAdaptationService: Effect.Effect<
       const climbableDetected = yield* isClimbableTerrain(worldCollision, terrainSamples, playerId)
 
       // 主要地形タイプの決定（最も影響の大きいブロック）
-      const dominantTerrain = yield* Effect.gen(function* () {
-        // 空配列チェック
-        if (terrainSamples.length === 0) {
-          return { ...DEFAULT_TERRAIN_STATE }
-        }
+      const dominantTerrain = yield* pipe(
+        Match.value(terrainSamples.length === 0),
+        Match.when(
+          (empty) => empty,
+          () => Effect.succeed({ ...DEFAULT_TERRAIN_STATE })
+        ),
+        Match.orElse(() =>
+          Effect.gen(function* () {
+            const submersionLevel = pipe(
+              terrainSamples,
+              ReadonlyArray.filter((block) => block.id === 'water'),
+              (waterBlocks) => Math.min(1.0, waterBlocks.length / 3)
+            )
 
-        // 水中判定
-        const waterBlocks = terrainSamples.filter((block) => block.id === 'water')
-        const submersionLevel = Math.min(1.0, waterBlocks.length / 3) // 3サンプル中の水の割合
+            const specialBlocks = terrainSamples.find((block) => TERRAIN_PROPERTIES.has(block.id))
 
-        // 最も特殊な地形特性を優先
-        const specialBlocks = terrainSamples.find((block) => TERRAIN_PROPERTIES.has(block.id))
+            return yield* pipe(
+              Option.fromNullable(specialBlocks),
+              Option.match({
+                onNone: () => Effect.succeed({ ...DEFAULT_TERRAIN_STATE, submersionLevel }),
+                onSome: (blocks) =>
+                  Effect.gen(function* () {
+                    const blockTypeLike: BlockType = {
+                      id: blocks.id,
+                      name: blocks.id,
+                      tags: [],
+                      category: 'natural' as const,
+                      texture: { top: '', bottom: '', north: '', south: '', east: '', west: '' },
+                      physics: {
+                        solid: true,
+                        gravity: false,
+                        hardness: 1.0,
+                        resistance: 1.0,
+                        luminance: 0,
+                        opacity: 15,
+                        flammable: false,
+                        replaceable: false,
+                        waterloggable: false,
+                      },
+                      tool: 'none' as const,
+                      minToolLevel: 0,
+                      drops: [],
+                      sound: {
+                        break: 'block.stone.break',
+                        place: 'block.stone.place',
+                        step: 'block.stone.step',
+                      },
+                      stackSize: 64,
+                    }
 
-        // Match APIで地形タイプ処理
-        return yield* pipe(
-          Option.fromNullable(specialBlocks),
-          Option.match({
-            onNone: () => Effect.succeed({ ...DEFAULT_TERRAIN_STATE }),
-            onSome: (blocks) =>
-              Effect.gen(function* () {
-                // Create a BlockType-like object for getTerrainProperties
-                const blockTypeLike: BlockType = {
-                  id: blocks.id,
-                  name: blocks.id,
-                  tags: [],
-                  category: 'natural' as const,
-                  texture: { top: '', bottom: '', north: '', south: '', east: '', west: '' },
-                  physics: {
-                    solid: true,
-                    gravity: false,
-                    hardness: 1.0,
-                    resistance: 1.0,
-                    luminance: 0,
-                    opacity: 15,
-                    flammable: false,
-                    replaceable: false,
-                    waterloggable: false,
-                  },
-                  tool: 'none' as const,
-                  minToolLevel: 0,
-                  drops: [],
-                  sound: {
-                    break: 'block.stone.break',
-                    place: 'block.stone.place',
-                    step: 'block.stone.step',
-                  },
-                  stackSize: 64,
-                }
-                const properties = yield* getTerrainProperties(blockTypeLike)
-                return { ...properties, submersionLevel }
-              }),
+                    const properties = yield* getTerrainProperties(blockTypeLike)
+                    return { ...properties, submersionLevel }
+                  }),
+              })
+            )
           })
         )
-      })
+      )
 
       // 地形変化の緩和（急激な変化を防ぐ）
       const smoothedTerrain = yield* Effect.gen(function* () {
@@ -483,27 +487,25 @@ const makeTerrainAdaptationService: Effect.Effect<
     samples: ReadonlyArray<BlockCollisionInfo>,
     playerId: PlayerId
   ): Effect.Effect<boolean, TerrainAdaptationError> =>
-    Effect.gen(function* () {
-      for (const sample of samples) {
-        const properties = yield* worldCollision.getBlockProperties(sample.blockType).pipe(
-          Effect.mapError(
-            (error): TerrainAdaptationError => ({
-              _tag: 'TerrainAdaptationError',
-              message: 'Failed to load terrain block properties',
-              playerId,
-              reason: 'CollisionError',
-              cause: toErrorCause(error),
-            })
-          )
-        )
-
-        if (properties.isClimbable) {
-          return true
-        }
-      }
-
-      return false
-    })
+    pipe(
+      samples,
+      Effect.reduce(false, (isClimbable, sample) =>
+        isClimbable
+          ? Effect.succeed(true)
+          : worldCollision.getBlockProperties(sample.blockType).pipe(
+              Effect.mapError(
+                (error): TerrainAdaptationError => ({
+                  _tag: 'TerrainAdaptationError',
+                  message: 'Failed to load terrain block properties',
+                  playerId,
+                  reason: 'CollisionError',
+                  cause: toErrorCause(error),
+                })
+              ),
+              Effect.map((properties) => properties.isClimbable)
+            )
+      )
+    )
 
   // 自動ステップアップ処理
   const processStepUp = (playerId: PlayerId, playerPosition: Vector3D, velocity: Vector3D, stepHeight: number) =>
@@ -511,82 +513,98 @@ const makeTerrainAdaptationService: Effect.Effect<
       // 前方への移動がない場合はスキップ
       const horizontalSpeed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z)
 
-      if (horizontalSpeed < 0.1) {
-        return { position: playerPosition, velocity }
-      }
-
-      // 前方の衝突判定
-      const forwardDistance = 0.4
-      const forwardPosition: Vector3D = {
-        x: playerPosition.x + (velocity.x / horizontalSpeed) * forwardDistance,
-        y: playerPosition.y,
-        z: playerPosition.z + (velocity.z / horizontalSpeed) * forwardDistance,
-      }
-
-      const forwardCollision = yield* worldCollision
-        .checkSphereCollision({
-          center: forwardPosition,
-          radius: 0.3,
-        })
-        .pipe(
-          Effect.mapError(
-            (error): TerrainAdaptationError => ({
-              _tag: 'TerrainAdaptationError',
-              message: 'Failed to check step collision',
-              playerId,
-              reason: 'CollisionError',
-              cause: toErrorCause(error),
-            })
-          )
-        )
-
-      // 衝突がない場合は通常移動
-      if (forwardCollision.blocks.length === 0) {
-        return { position: playerPosition, velocity }
-      }
-
-      // ステップアップ可能な高さをチェック（関数型変換）
-      const testHeights = pipe(
-        ReadonlyArray.range(1, Math.floor(stepHeight / 0.1)),
-        ReadonlyArray.map((i) => i * 0.1)
+      const continueMovement = pipe(
+        Match.value(horizontalSpeed < 0.1),
+        Match.when(true, () => Option.some({ position: playerPosition, velocity })),
+        Match.orElse(() => Option.none<{ position: Vector3D; velocity: Vector3D }>())
       )
 
-      const stepUpResult = yield* pipe(
-        testHeights,
-        Effect.findFirst((testHeight) =>
-          Effect.gen(function* () {
-            const stepUpPosition: Vector3D = {
-              ...forwardPosition,
-              y: playerPosition.y + testHeight,
-            }
+      const handleStepUp = Effect.gen(function* () {
+        // 前方の衝突判定
+        const forwardDistance = 0.4
+        const forwardPosition: Vector3D = {
+          x: playerPosition.x + (velocity.x / horizontalSpeed) * forwardDistance,
+          y: playerPosition.y,
+          z: playerPosition.z + (velocity.z / horizontalSpeed) * forwardDistance,
+        }
 
-            const stepUpCollision = yield* worldCollision
-              .checkSphereCollision({
-                center: stepUpPosition,
-                radius: 0.3,
-              })
-              .pipe(Effect.orElse(() => Effect.succeed({ blocks: [], hasCollision: false })))
-
-            if (!stepUpCollision.hasCollision) {
-              // ステップアップ成功
-              return Option.some({
-                position: { ...playerPosition, y: playerPosition.y + testHeight },
-                velocity: { ...velocity, y: Math.max(0, velocity.y) },
-              })
-            }
-
-            return Option.none()
+        const forwardCollision = yield* worldCollision
+          .checkSphereCollision({
+            center: forwardPosition,
+            radius: 0.3,
           })
-        ),
-        Effect.catchAll(() => Effect.succeed(Option.none()))
-      )
+          .pipe(
+            Effect.mapError(
+              (error): TerrainAdaptationError => ({
+                _tag: 'TerrainAdaptationError',
+                message: 'Failed to check step collision',
+                playerId,
+                reason: 'CollisionError',
+                cause: toErrorCause(error),
+              })
+            )
+          )
 
-      // Match APIで結果処理
+        return yield* pipe(
+          Match.value(forwardCollision.blocks.length === 0),
+          Match.when(true, () => Effect.succeed({ position: playerPosition, velocity })),
+          Match.orElse(() =>
+            Effect.gen(function* () {
+              // ステップアップ可能な高さをチェック（関数型変換）
+              const testHeights = pipe(
+              ReadonlyArray.range(1, Math.floor(stepHeight / 0.1)),
+              ReadonlyArray.map((i) => i * 0.1)
+            )
+
+            const stepUpResult = yield* pipe(
+              testHeights,
+              Effect.findFirst((testHeight) =>
+                Effect.gen(function* () {
+                  const stepUpPosition: Vector3D = {
+                    ...forwardPosition,
+                    y: playerPosition.y + testHeight,
+                  }
+
+                  const stepUpCollision = yield* worldCollision
+                    .checkSphereCollision({
+                      center: stepUpPosition,
+                      radius: 0.3,
+                    })
+                    .pipe(Effect.orElse(() => Effect.succeed({ blocks: [], hasCollision: false })))
+
+                  return pipe(
+                    Match.value(stepUpCollision.hasCollision),
+                    Match.when(
+                      (hasCollision) => hasCollision,
+                      () =>
+                        Option.some({
+                          position: { ...playerPosition, y: playerPosition.y + testHeight },
+                          velocity: { ...velocity, y: Math.max(0, velocity.y) },
+                        })
+                    ),
+                    Match.orElse(() => Option.none())
+                  )
+                })
+              ),
+              Effect.catchAll(() => Effect.succeed(Option.none()))
+            )
+
+            return yield* pipe(
+              stepUpResult,
+              Option.match({
+                onNone: () => Effect.succeed({ position: playerPosition, velocity }),
+                onSome: (result) => Effect.succeed(result),
+              })
+            )
+            })
+        )
+      })
+
       return yield* pipe(
-        stepUpResult,
+        continueMovement,
         Option.match({
-          onNone: () => Effect.succeed({ position: playerPosition, velocity }),
           onSome: (result) => Effect.succeed(result),
+          onNone: () => handleStepUp,
         })
       )
     })
@@ -638,17 +656,20 @@ const makeTerrainAdaptationService: Effect.Effect<
     Effect.gen(function* () {
       const states = yield* Ref.get(playerTerrainStatesRef)
       const state = states.get(playerId)
-
-      if (!state) {
-        return yield* Effect.fail({
-          _tag: 'TerrainAdaptationError',
-          message: `Player terrain state not found: ${playerId}`,
-          playerId,
-          reason: 'InvalidTerrain',
-        } as TerrainAdaptationError)
-      }
-
-      return state
+      return yield* pipe(
+        Match.value(state),
+        Match.when(
+          (value): value is undefined => value === undefined,
+          () =>
+            Effect.fail({
+              _tag: 'TerrainAdaptationError',
+              message: `Player terrain state not found: ${playerId}`,
+              playerId,
+              reason: 'InvalidTerrain',
+            } as TerrainAdaptationError)
+        ),
+        Match.orElse((value) => Effect.succeed(value))
+      )
     })
 
   // 地形適応のクリーンアップ

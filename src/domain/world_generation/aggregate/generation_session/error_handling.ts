@@ -345,84 +345,83 @@ export const suggestRecoveryStrategy = (
   },
   never
 > =>
-  Effect.gen(function* () {
-    // 重要度による判定（if文 → Effect.if）
-    return yield* Effect.if(error.severity === 'critical', {
-      onTrue: () =>
-        Effect.succeed({
+  pipe(
+    Match.value(error.severity),
+    Match.when(
+      (severity) => severity === 'critical',
+      () =>
+        ({
           strategy: 'abort' as const,
           reason: 'Critical error detected - aborting session',
           confidence: 0.9,
-        }),
-      onFalse: () =>
-        Effect.succeed(
-          // カテゴリによる判定（switch文 → Match.value）
-          pipe(
-            error.category,
-            Match.value,
-            Match.when(
-              (c) => c === 'transient',
-              () =>
-                ({
-                  strategy: 'retry' as const,
-                  reason: 'Transient error - likely to succeed on retry',
-                  confidence: 0.8,
-                }) as const
-            ),
-            Match.when(
-              (c) => c === 'resource',
-              () =>
-                analysis.errorsByCategory.resource > 5
-                  ? ({
-                      strategy: 'abort' as const,
-                      reason: 'Multiple resource errors - system may be overloaded',
-                      confidence: 0.7,
-                    } as const)
-                  : ({
-                      strategy: 'retry' as const,
-                      reason: 'Resource error - may be temporary',
-                      confidence: 0.6,
-                    } as const)
-            ),
-            Match.when(
-              (c) => c === 'configuration',
-              () =>
-                ({
-                  strategy: 'abort' as const,
-                  reason: 'Configuration error - manual intervention required',
-                  confidence: 0.9,
-                }) as const
-            ),
-            Match.when(
-              (c) => c === 'validation',
-              () =>
-                ({
-                  strategy: 'skip' as const,
-                  reason: 'Validation error - skip invalid chunk',
-                  confidence: 0.8,
-                }) as const
-            ),
-            Match.when(
-              (c) => c === 'timeout',
-              () =>
-                ({
-                  strategy: 'retry' as const,
-                  reason: 'Timeout error - may succeed with retry',
-                  confidence: 0.7,
-                }) as const
-            ),
-            Match.orElse(
-              () =>
-                ({
-                  strategy: 'retry' as const,
-                  reason: 'Unknown error category - trying retry',
-                  confidence: 0.5,
-                }) as const
-            )
-          )
+        }) as const
+    ),
+    Match.orElse(() =>
+      pipe(
+        Match.value(error.category),
+        Match.when(
+          (c) => c === 'transient',
+          () =>
+            ({
+              strategy: 'retry' as const,
+              reason: 'Transient error - likely to succeed on retry',
+              confidence: 0.8,
+            }) as const
         ),
-    })
-  })
+        Match.when(
+          (c) => c === 'resource',
+          () =>
+            (analysis.errorsByCategory.resource > 5
+              ? {
+                  strategy: 'abort' as const,
+                  reason: 'Multiple resource errors - system may be overloaded',
+                  confidence: 0.7,
+                }
+              : {
+                  strategy: 'retry' as const,
+                  reason: 'Resource error - may be temporary',
+                  confidence: 0.6,
+                }) as const
+        ),
+        Match.when(
+          (c) => c === 'configuration',
+          () =>
+            ({
+              strategy: 'abort' as const,
+              reason: 'Configuration error - manual intervention required',
+              confidence: 0.9,
+            }) as const
+        ),
+        Match.when(
+          (c) => c === 'validation',
+          () =>
+            ({
+              strategy: 'skip' as const,
+              reason: 'Validation error - skip invalid chunk',
+              confidence: 0.8,
+            }) as const
+        ),
+        Match.when(
+          (c) => c === 'timeout',
+          () =>
+            ({
+              strategy: 'retry' as const,
+              reason: 'Timeout error - may succeed with retry',
+              confidence: 0.7,
+            }) as const
+        ),
+        Match.orElse(
+          () =>
+            ({
+              strategy: 'retry' as const,
+              reason: 'Unknown error category - trying retry',
+              confidence: 0.5,
+            }) as const
+        )
+      )
+    ),
+    Effect.succeed
+  )
 
 // ================================
 // Helper Functions
@@ -522,33 +521,34 @@ const determineSeverity = (error: GenerationErrors.GenerationError, category: Er
 /**
  * エラートレンド分析
  */
-const analyzeErrorTrend = (errors: readonly SessionError[]): 'increasing' | 'decreasing' | 'stable' => {
-  // 早期return → そのまま維持（純粋な条件チェック）
-  if (errors.length < 4) return 'stable'
-
-  // 最近のエラーを時間順にソート
-  const sortedErrors = [...errors].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime())
-
-  // 前半と後半で比較
-  const midpoint = Math.floor(sortedErrors.length / 2)
-  const firstHalf = sortedErrors.slice(0, midpoint)
-  const secondHalf = sortedErrors.slice(midpoint)
-
-  // if文 → pipe + Match.value
-  return pipe(
-    { secondHalfLen: secondHalf.length, firstHalfLen: firstHalf.length },
-    Match.value,
+const analyzeErrorTrend = (errors: readonly SessionError[]): 'increasing' | 'decreasing' | 'stable' =>
+  pipe(
+    Match.value(errors.length),
     Match.when(
-      ({ secondHalfLen, firstHalfLen }) => secondHalfLen > firstHalfLen * 1.5,
-      () => 'increasing' as const
+      (length) => length < 4,
+      () => 'stable' as const
     ),
-    Match.when(
-      ({ secondHalfLen, firstHalfLen }) => secondHalfLen < firstHalfLen * 0.5,
-      () => 'decreasing' as const
-    ),
-    Match.orElse(() => 'stable' as const)
+    Match.orElse(() => {
+      const sortedErrors = [...errors].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime())
+      const midpoint = Math.floor(sortedErrors.length / 2)
+      const firstHalf = sortedErrors.slice(0, midpoint)
+      const secondHalf = sortedErrors.slice(midpoint)
+
+      return pipe(
+        { secondHalfLen: secondHalf.length, firstHalfLen: firstHalf.length },
+        Match.value,
+        Match.when(
+          ({ secondHalfLen, firstHalfLen }) => secondHalfLen > firstHalfLen * 1.5,
+          () => 'increasing' as const
+        ),
+        Match.when(
+          ({ secondHalfLen, firstHalfLen }) => secondHalfLen < firstHalfLen * 0.5,
+          () => 'decreasing' as const
+        ),
+        Match.orElse(() => 'stable' as const)
+      )
+    })
   )
-}
 
 // ================================
 // Exports

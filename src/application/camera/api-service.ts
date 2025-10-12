@@ -3,8 +3,10 @@ import { Context, Effect, Layer } from 'effect'
 import type { CameraCommand, CameraQuery, CameraSnapshot } from '@/domain/camera/types'
 import {
   CameraCommandHandler,
+  CameraCommandHandlerLive,
   type CameraCommandHandlerError,
   CameraQueryHandler,
+  CameraQueryHandlerLive,
   type CameraQueryHandlerError,
   type CameraQueryResult,
 } from '@/domain/camera/cqrs'
@@ -18,7 +20,7 @@ export interface CameraAPIService {
 
 export const CameraAPIService = Context.GenericTag<CameraAPIService>('@minecraft/application/camera/APIService')
 
-export const CameraAPIServiceLive = Layer.effect(
+const CameraAPIServiceLayer = Layer.effect(
   CameraAPIService,
   Effect.gen(function* () {
     const commandHandler = yield* CameraCommandHandler
@@ -29,4 +31,10 @@ export const CameraAPIServiceLive = Layer.effect(
       executeQuery: (query) => queryHandler.execute(query),
     })
   })
+)
+
+export const CameraAPIServiceLive = Layer.mergeAll(
+  CameraCommandHandlerLive,
+  CameraQueryHandlerLive,
+  CameraAPIServiceLayer
 )

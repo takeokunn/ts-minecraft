@@ -8,6 +8,7 @@ import {
   type ChunkStatistics,
 } from '../repository/chunk_repository/interface'
 import type { RepositoryError } from '../repository/types'
+import { ChunkReadModel } from './read_model'
 
 export const ChunkQueryError = Data.taggedEnum<{
   ChunkNotFound: { readonly chunkId?: ChunkId; readonly position?: ChunkPosition }
@@ -32,48 +33,69 @@ export const ChunkQueryHandler = Context.GenericTag<ChunkQueryHandler>(
 
 const ensureChunkById = (
   repository: ChunkRepositoryService,
+  readModel: ChunkReadModel,
   chunkId: ChunkId
 ): Effect.Effect<ChunkData, ChunkQueryHandlerError> =>
-  repository.findById(chunkId).pipe(
+  readModel.getById(chunkId).pipe(
     Effect.flatMap(
       Option.match({
-        onNone: () => Effect.fail(ChunkQueryError.ChunkNotFound({ chunkId })),
         onSome: Effect.succeed,
+        onNone: () =>
+          repository.findById(chunkId).pipe(
+            Effect.flatMap(
+              Option.match({
+                onNone: () => Effect.fail(ChunkQueryError.ChunkNotFound({ chunkId })),
+                onSome: (chunk) => readModel.upsert(chunk).pipe(Effect.as(chunk)),
+              })
+            )
+          ),
       })
     )
   )
 
 const ensureChunkByPosition = (
   repository: ChunkRepositoryService,
+  readModel: ChunkReadModel,
   position: ChunkPosition
 ): Effect.Effect<ChunkData, ChunkQueryHandlerError> =>
-  repository.findByPosition(position).pipe(
+  readModel.getByPosition(position).pipe(
     Effect.flatMap(
       Option.match({
-        onNone: () => Effect.fail(ChunkQueryError.ChunkNotFound({ position })),
         onSome: Effect.succeed,
+        onNone: () =>
+          repository.findByPosition(position).pipe(
+            Effect.flatMap(
+              Option.match({
+                onNone: () => Effect.fail(ChunkQueryError.ChunkNotFound({ position })),
+                onSome: (chunk) => readModel.upsert(chunk).pipe(Effect.as(chunk)),
+              })
+            )
+          ),
       })
     )
   )
 
 const handleGetChunkById = (
   repository: ChunkRepositoryService,
+  readModel: ChunkReadModel,
   chunkId: ChunkId
 ): Effect.Effect<ChunkQueryResult, ChunkQueryHandlerError> =>
-  ensureChunkById(repository, chunkId).pipe(
+  ensureChunkById(repository, readModel, chunkId).pipe(
     Effect.map((chunk) => ({ _tag: 'ChunkFound', chunk } as const))
   )
 
 const handleGetChunkByPosition = (
   repository: ChunkRepositoryService,
+  readModel: ChunkReadModel,
   position: ChunkPosition
 ): Effect.Effect<ChunkQueryResult, ChunkQueryHandlerError> =>
-  ensureChunkByPosition(repository, position).pipe(
+  ensureChunkByPosition(repository, readModel, position).pipe(
     Effect.map((chunk) => ({ _tag: 'ChunkFound', chunk } as const))
   )
 
 const handleListChunksInRegion = (
   repository: ChunkRepositoryService,
+  readModel: ChunkReadModel,
   region: { readonly minX: number; readonly maxX: number; readonly minZ: number; readonly maxZ: number }
 ): Effect.Effect<ChunkQueryResult, ChunkQueryHandlerError> => {
   const chunkRegion: ChunkRegion = {
@@ -83,8 +105,17 @@ const handleListChunksInRegion = (
     maxZ: region.maxZ,
   }
 
-  return repository.findByRegion(chunkRegion).pipe(
-    Effect.map((chunks) => ({ _tag: 'ChunkList', chunks } as const))
+  return readModel.listRegion(chunkRegion).pipe(
+    Effect.flatMap((chunks) =>
+      chunks.length > 0
+        ? Effect.succeed({ _tag: 'ChunkList', chunks } as const)
+        : repository.findByRegion(chunkRegion).pipe(
+            Effect.tap((fetched) =>
+              Effect.forEach(fetched, readModel.upsert, { concurrency: 'unbounded' })
+            ),
+            Effect.map((fetched) => ({ _tag: 'ChunkList', chunks: fetched } as const))
+          )
+    )
   )
 }
 
@@ -95,12 +126,13 @@ const handleGetStatistics = (
 
 const executeQuery = (
   repository: ChunkRepositoryService,
+  readModel: ChunkReadModel,
   query: ChunkQuery
 ): Effect.Effect<ChunkQueryResult, ChunkQueryHandlerError> =>
   Match.value(query).pipe(
-    Match.tag('GetChunkById', (q) => handleGetChunkById(repository, q.chunkId)),
-    Match.tag('GetChunkByPosition', (q) => handleGetChunkByPosition(repository, q.position)),
-    Match.tag('ListChunksInRegion', (q) => handleListChunksInRegion(repository, q.region)),
+    Match.tag('GetChunkById', (q) => handleGetChunkById(repository, readModel, q.chunkId)),
+    Match.tag('GetChunkByPosition', (q) => handleGetChunkByPosition(repository, readModel, q.position)),
+    Match.tag('ListChunksInRegion', (q) => handleListChunksInRegion(repository, readModel, q.region)),
     Match.tag('GetChunkStatistics', () => handleGetStatistics(repository)),
     Match.exhaustive
   )
@@ -109,9 +141,10 @@ export const ChunkQueryHandlerLive = Layer.effect(
   ChunkQueryHandler,
   Effect.gen(function* () {
     const repository = yield* ChunkRepository
+    const readModel = yield* ChunkReadModel
 
     return ChunkQueryHandler.of({
-      execute: (query) => executeQuery(repository, query),
+      execute: (query) => executeQuery(repository, readModel, query),
     })
   })
 )

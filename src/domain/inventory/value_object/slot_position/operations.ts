@@ -78,16 +78,20 @@ export const gridToPosition = (grid: GridCoordinate): Effect.Effect<SlotPosition
  */
 export const hotbarToPosition = (hotbarIndex: number): Effect.Effect<SlotPosition, SlotPositionError> =>
   Effect.gen(function* () {
-    if (hotbarIndex < 0 || hotbarIndex > 8) {
-      return yield* Effect.fail(
-        SlotPositionError.InvalidHotbarIndex({
-          index: hotbarIndex,
-          validRange: '0-8',
-        })
-      )
-    }
-
-    return yield* createSlotPosition(hotbarIndex)
+    return yield* pipe(
+      Match.value(hotbarIndex),
+      Match.when(
+        (index) => index < 0 || index > 8,
+        (index) =>
+          Effect.fail(
+            SlotPositionError.InvalidHotbarIndex({
+              index,
+              validRange: '0-8',
+            })
+          )
+      ),
+      Match.orElse((index) => createSlotPosition(index))
+    )
   })
 
 /**
@@ -97,17 +101,21 @@ export const positionToHotbar = (position: SlotPosition): Effect.Effect<number, 
   Effect.gen(function* () {
     const pos = slotPositionToNumber(position)
 
-    if (pos < 0 || pos > 8) {
-      return yield* Effect.fail(
-        SlotPositionError.SectionMismatch({
-          position,
-          expectedSection: 'Hotbar',
-          actualSection: 'MainInventory',
-        })
-      )
-    }
-
-    return pos
+    return yield* pipe(
+      Match.value(pos),
+      Match.when(
+        (value) => value < 0 || value > 8,
+        () =>
+          Effect.fail(
+            SlotPositionError.SectionMismatch({
+              position,
+              expectedSection: 'Hotbar',
+              actualSection: 'MainInventory',
+            })
+          )
+      ),
+      Match.orElse((value) => Effect.succeed(value))
+    )
   })
 
 /**
@@ -143,17 +151,20 @@ export const positionToArmorSlot = (
       39: 'boots' as const,
     }
 
-    const armorType = armorSlots[pos as 36 | 37 | 38 | 39]
-    if (!armorType) {
-      return yield* Effect.fail(
-        SlotPositionError.InvalidArmorSlot({
-          slot: pos.toString(),
-          validSlots: ['helmet', 'chestplate', 'leggings', 'boots'],
-        })
-      )
-    }
-
-    return armorType
+    return yield* pipe(
+      Match.value(armorSlots[pos as 36 | 37 | 38 | 39]),
+      Match.when(
+        (armorType): armorType is undefined => armorType === undefined,
+        () =>
+          Effect.fail(
+            SlotPositionError.InvalidArmorSlot({
+              slot: pos.toString(),
+              validSlots: ['helmet', 'chestplate', 'leggings', 'boots'],
+            })
+          )
+      ),
+      Match.orElse((armorType) => Effect.succeed(armorType))
+    )
   })
 
 /**
@@ -307,52 +318,62 @@ export const getAdjacentSlots = (
 
     const adjacent: AdjacentSlots = {}
 
-    // 上のスロット
-    if (row > 0) {
-      const aboveGrid = yield* createGridCoordinate(row - 1, column)
-      adjacent.above = yield* gridToPosition(aboveGrid)
-    }
+    const assignNeighbor = <K extends keyof AdjacentSlots>(
+      key: K,
+      rowOffset: number,
+      columnOffset: number,
+      condition: boolean
+    ) =>
+      pipe(
+        Match.value(condition),
+        Match.when(
+          (eligible) => eligible,
+          () =>
+            Effect.gen(function* () {
+              const targetGrid = yield* createGridCoordinate(row + rowOffset, column + columnOffset)
+              const targetPosition = yield* gridToPosition(targetGrid)
+              yield* Effect.sync(() => {
+                adjacent[key] = targetPosition
+              })
+            })
+        ),
+        Match.orElse(() => Effect.void)
+      )
 
-    // 下のスロット
-    if (row < 3) {
-      const belowGrid = yield* createGridCoordinate(row + 1, column)
-      adjacent.below = yield* gridToPosition(belowGrid)
-    }
+    const assignDiagonal = (
+      key: keyof NonNullable<AdjacentSlots['diagonal']>,
+      rowOffset: number,
+      columnOffset: number,
+      condition: boolean
+    ) =>
+      pipe(
+        Match.value(condition),
+        Match.when(
+          (eligible) => eligible,
+          () =>
+            Effect.gen(function* () {
+              const targetGrid = yield* createGridCoordinate(row + rowOffset, column + columnOffset)
+              const targetPosition = yield* gridToPosition(targetGrid)
+              yield* Effect.sync(() => {
+                adjacent.diagonal ??= {}
+                adjacent.diagonal[key] = targetPosition
+              })
+            })
+        ),
+        Match.orElse(() => Effect.void)
+      )
 
-    // 左のスロット
-    if (column > 0) {
-      const leftGrid = yield* createGridCoordinate(row, column - 1)
-      adjacent.left = yield* gridToPosition(leftGrid)
-    }
+    yield* assignNeighbor('above', -1, 0, row > 0)
+    yield* assignNeighbor('below', 1, 0, row < 3)
+    yield* assignNeighbor('left', 0, -1, column > 0)
+    yield* assignNeighbor('right', 0, 1, column < 8)
 
-    // 右のスロット
-    if (column < 8) {
-      const rightGrid = yield* createGridCoordinate(row, column + 1)
-      adjacent.right = yield* gridToPosition(rightGrid)
-    }
-
-    // 対角線上のスロット
     adjacent.diagonal = {}
 
-    if (row > 0 && column > 0) {
-      const topLeftGrid = yield* createGridCoordinate(row - 1, column - 1)
-      adjacent.diagonal.topLeft = yield* gridToPosition(topLeftGrid)
-    }
-
-    if (row > 0 && column < 8) {
-      const topRightGrid = yield* createGridCoordinate(row - 1, column + 1)
-      adjacent.diagonal.topRight = yield* gridToPosition(topRightGrid)
-    }
-
-    if (row < 3 && column > 0) {
-      const bottomLeftGrid = yield* createGridCoordinate(row + 1, column - 1)
-      adjacent.diagonal.bottomLeft = yield* gridToPosition(bottomLeftGrid)
-    }
-
-    if (row < 3 && column < 8) {
-      const bottomRightGrid = yield* createGridCoordinate(row + 1, column + 1)
-      adjacent.diagonal.bottomRight = yield* gridToPosition(bottomRightGrid)
-    }
+    yield* assignDiagonal('topLeft', -1, -1, row > 0 && column > 0)
+    yield* assignDiagonal('topRight', -1, 1, row > 0 && column < 8)
+    yield* assignDiagonal('bottomLeft', 1, -1, row < 3 && column > 0)
+    yield* assignDiagonal('bottomRight', 1, 1, row < 3 && column < 8)
 
     return adjacent
   })
@@ -415,19 +436,25 @@ export const getSlotPositionsInRange = (
     const start = slotPositionToNumber(startPosition)
     const end = slotPositionToNumber(endPosition)
 
-    if (start > end) {
-      return yield* Effect.fail(
-        SlotPositionError.PositionOutOfRange({
-          position: start,
-          min: 0,
-          max: end,
-        })
-      )
-    }
-
     return yield* pipe(
-      ReadonlyArray.range(start, end + 1),
-      Effect.forEach((i) => createSlotPosition(i), { concurrency: 4 })
+      Match.value({ start, end }),
+      Match.when(
+        ({ start, end }) => start > end,
+        ({ start, end }) =>
+          Effect.fail(
+            SlotPositionError.PositionOutOfRange({
+              position: start,
+              min: 0,
+              max: end,
+            })
+          )
+      ),
+      Match.orElse(({ start, end }) =>
+        pipe(
+          ReadonlyArray.range(start, end + 1),
+          Effect.forEach((i) => createSlotPosition(i), { concurrency: 4 })
+        )
+      )
     )
   })
 

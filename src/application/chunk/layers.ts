@@ -4,6 +4,7 @@
  */
 
 import { ChunkDomainLive } from '@/domain/chunk/layers'
+import { ChunkInfrastructureLayer } from '@/infrastructure/chunk'
 import { Layer } from 'effect'
 import { ChunkDataProviderLive } from './chunk_data_provider'
 import { ChunkAPIServiceLive } from './api-service'
@@ -15,4 +16,7 @@ export const ChunkApplicationServicesLayer = Layer.mergeAll(ChunkDataProviderLiv
  * - Application Services: ChunkDataProviderLive, ChunkAPIServiceLive
  * - 依存: ChunkDomainLive (Repository層)
  */
-export const ChunkApplicationLive = ChunkApplicationServicesLayer.pipe(Layer.provide(ChunkDomainLive))
+export const ChunkApplicationLive = Layer.mergeAll(
+  ChunkApplicationServicesLayer,
+  ChunkInfrastructureLayer
+).pipe(Layer.provide(ChunkDomainLive))

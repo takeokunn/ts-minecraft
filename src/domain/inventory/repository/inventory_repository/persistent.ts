@@ -1,5 +1,5 @@
 import { now as timestampNow } from '@domain/shared/value_object/units/timestamp'
-import { Clock, Effect, HashMap, Layer, Option, Random, Ref, Schema, TreeFormatter } from 'effect'
+import { Clock, Effect, HashMap, Layer, Match, Option, pipe, Random, Ref, Schema, TreeFormatter } from 'effect'
 import { makeUnsafe as makeUnsafePlayerId } from '../../../shared/entities/player_id/operations'
 import type {
   Inventory,
@@ -52,19 +52,34 @@ const toSlotsRecord = (slots: Map<SlotPosition, ItemStack>): InventorySlotsRecor
   return record
 }
 
-const fromSlotsRecord = (record: InventorySlotsRecord | undefined): Map<SlotPosition, ItemStack> => {
-  if (!record) {
-    return new Map()
-  }
-
-  const entries: Array<[SlotPosition, ItemStack]> = []
-  Object.entries(record).forEach(([position, stack]) => {
-    if (stack !== null && stack !== undefined) {
-      entries.push([makeUnsafeSlotPosition(Number(position)), stack])
-    }
-  })
-  return new Map(entries)
-}
+const fromSlotsRecord = (record: InventorySlotsRecord | undefined): Map<SlotPosition, ItemStack> =>
+  pipe(
+    record,
+    Option.fromNullable,
+    Match.value,
+    Match.tag('None', () => new Map()),
+    Match.tag('Some', ({ value }) =>
+      pipe(
+        Object.entries(value),
+        (entries) =>
+          entries.reduce<Array<[SlotPosition, ItemStack]>>((acc, [position, stack]) => {
+            return pipe(
+              stack,
+              Option.fromNullable,
+              Match.value,
+              Match.tag('None', () => acc),
+              Match.tag('Some', ({ value: stackValue }) => {
+                acc.push([makeUnsafeSlotPosition(Number(position)), stackValue])
+                return acc
+              }),
+              Match.exhaustive
+            )
+          }, []),
+        (entries) => new Map(entries)
+      )
+    ),
+    Match.exhaustive
+  )
 
 const serializeInventory = (inventory: Inventory): SerializableInventory => ({
   ...inventory,
@@ -109,47 +124,68 @@ export const InventoryRepositoryPersistent = (config: PersistentConfig = Default
           catch: (error) => createStorageError('localStorage', 'load', `Failed to get item: ${error}`),
         })
 
-        // データが存在しない場合は空の状態を返す
-        if (!rawData) {
-          return Effect.void
-        }
+        return yield* pipe(
+          Option.fromNullable(rawData),
+          Match.value,
+          Match.tag('None', () => Effect.void),
+          Match.tag('Some', ({ value }) =>
+            Effect.gen(function* () {
+              const validated = yield* Effect.try({
+                try: () => JSON.parse(value),
+                catch: (cause) => createStorageError('localStorage', 'load', `JSON parse failed: ${cause}`),
+              }).pipe(
+                Effect.flatMap(Schema.decodeUnknown(InventoryRepositoryStorageSchema)),
+                Effect.mapError((error) =>
+                  createStorageError(
+                    'localStorage',
+                    'load',
+                    `Schema validation failed: ${TreeFormatter.formatErrorSync(error)}`
+                  )
+                )
+              )
 
-        // JSON.parse → Schema.decodeUnknown による型安全な検証
-        const validated = yield* Effect.try({
-          try: () => JSON.parse(rawData),
-          catch: (cause) => createStorageError('localStorage', 'load', `JSON parse failed: ${cause}`),
-        }).pipe(
-          Effect.flatMap(Schema.decodeUnknown(InventoryRepositoryStorageSchema)),
-          Effect.mapError((error) =>
-            createStorageError(
-              'localStorage',
-              'load',
-              `Schema validation failed: ${TreeFormatter.formatErrorSync(error)}`
-            )
-          )
+              const inventories = yield* pipe(
+                Option.fromNullable(validated.inventories),
+                Match.value,
+                Match.tag('None', () => Effect.succeed(new Map<PlayerId, Inventory>())),
+                Match.tag('Some', ({ value: record }) =>
+                  Effect.succeed(
+                    new Map(
+                      Object.entries(record as Record<string, SerializableInventory>).map(
+                        ([playerId, storedInventory]) => [
+                          makeUnsafePlayerId(playerId),
+                          deserializeInventory(storedInventory),
+                        ]
+                      )
+                    )
+                  )
+                ),
+                Match.exhaustive
+              )
+
+              const snapshots = yield* pipe(
+                Option.fromNullable(validated.snapshots),
+                Match.value,
+                Match.tag('None', () => Effect.succeed(new Map<string, InventorySnapshot>())),
+                Match.tag('Some', ({ value: record }) =>
+                  Effect.succeed(
+                    new Map(
+                      Object.entries(record as Record<string, SerializableSnapshot>).map((entry) => [
+                        entry[0],
+                        deserializeSnapshot(entry[1]),
+                      ])
+                    )
+                  )
+                ),
+                Match.exhaustive
+              )
+
+              yield* Ref.set(inventoryCache, HashMap.fromIterable(inventories))
+              yield* Ref.set(snapshotCache, HashMap.fromIterable(snapshots))
+            })
+          ),
+          Match.exhaustive
         )
-
-        // Inventory復元: ObjectからMapへ変換
-        const inventories = new Map<PlayerId, Inventory>()
-        if (validated.inventories) {
-          const inventoriesFromStorage = validated.inventories as Record<string, SerializableInventory>
-          Object.entries(inventoriesFromStorage).forEach(([playerId, storedInventory]) => {
-            inventories.set(makeUnsafePlayerId(playerId), deserializeInventory(storedInventory))
-          })
-        }
-
-        // Snapshot復元: ObjectからMapへ変換
-        const snapshots = new Map<string, InventorySnapshot>()
-        if (validated.snapshots) {
-          const snapshotsFromStorage = validated.snapshots as Record<string, SerializableSnapshot>
-          Object.entries(snapshotsFromStorage).forEach(([id, storedSnapshot]) => {
-            snapshots.set(id, deserializeSnapshot(storedSnapshot))
-          })
-        }
-
-        // キャッシュへの保存
-        yield* Ref.set(inventoryCache, HashMap.fromIterable(inventories))
-        yield* Ref.set(snapshotCache, HashMap.fromIterable(snapshots))
       })
 
       const saveToStorage = Effect.gen(function* () {
@@ -187,19 +223,38 @@ export const InventoryRepositoryPersistent = (config: PersistentConfig = Default
 
       // 定期保存の設定
       const setupAutoSave = Effect.gen(function* () {
-        if (config.autoSaveInterval && config.autoSaveInterval > 0) {
-          const intervalEffect = Effect.gen(function* () {
-            const dirty = yield* Ref.get(isDirty)
-            if (dirty) {
-              yield* saveToStorage
-            }
-          })
+        yield* pipe(
+          Option.fromNullable(config.autoSaveInterval),
+          Match.value,
+          Match.tag('None', () => Effect.void),
+          Match.tag('Some', ({ value }) =>
+            pipe(
+              Match.value(value > 0),
+              Match.when(false, () => Effect.void),
+              Match.orElse(() =>
+                Effect.gen(function* () {
+                  const intervalEffect = Effect.gen(function* () {
+                    const dirty = yield* Ref.get(isDirty)
+                    return yield* pipe(
+                      Match.value(dirty),
+                      Match.when(false, () => Effect.void),
+                      Match.orElse(() => saveToStorage),
+                      Match.exhaustive
+                    )
+                  })
 
-          // 定期実行の設定（実際の実装では適切なスケジューラーを使用）
-          // setInterval(() => {
-          //   Effect.runPromise(intervalEffect)
-          // }, config.autoSaveInterval)
-        }
+                  // 定期実行の設定（実際の実装では適切なスケジューラーを使用）
+                  // setInterval(() => {
+                  //   Effect.runPromise(intervalEffect)
+                  // }, value)
+                  return Effect.void
+                })
+              ),
+              Match.exhaustive
+            )
+          ),
+          Match.exhaustive
+        )
       })
 
       // 初期化時にデータをロード
@@ -232,9 +287,11 @@ export const InventoryRepositoryPersistent = (config: PersistentConfig = Default
                   Effect.sync(() => {
                     const results: Array<readonly [SlotPosition, ItemStack]> = []
                     inventory.slots.forEach((stack, position) => {
-                      if (stack.itemId === itemId) {
-                        results.push([position, stack] as const)
-                      }
+                      pipe(
+                        Match.value(stack.itemId === itemId),
+                        Match.when(true, () => results.push([position, stack] as const)),
+                        Match.exhaustive
+                      )
                     })
                     return results
                   }),
@@ -254,11 +311,13 @@ export const InventoryRepositoryPersistent = (config: PersistentConfig = Default
                 onSome: (inventory) =>
                   Effect.gen(function* () {
                     const updatedSlots = new Map(inventory.slots)
-                    if (itemStack === null) {
-                      updatedSlots.delete(position)
-                    } else {
-                      updatedSlots.set(position, itemStack)
-                    }
+                    yield* pipe(
+                      Option.fromNullable(itemStack),
+                      Match.value,
+                      Match.tag('None', () => Effect.sync(() => updatedSlots.delete(position))),
+                      Match.tag('Some', ({ value }) => Effect.sync(() => updatedSlots.set(position, value))),
+                      Match.exhaustive
+                    )
 
                     const timestamp = yield* timestampNow()
                     const updatedInventory: Inventory = {
@@ -339,37 +398,66 @@ export const InventoryRepositoryPersistent = (config: PersistentConfig = Default
             const cache = yield* Ref.get(inventoryCache)
             const inventories = Array.from(HashMap.values(cache))
 
-            return inventories.filter((inventory) => {
-              // 容量フィルター
-              if (query.minCapacity !== undefined && inventory.capacity < query.minCapacity) {
-                return false
-              }
-              if (query.maxCapacity !== undefined && inventory.capacity > query.maxCapacity) {
-                return false
-              }
-
-              // アイテム所持フィルター
-              if (query.hasItems !== undefined && query.hasItems.length > 0) {
-                const inventoryItems = new Set(Array.from(inventory.slots.values()).map((stack) => stack.itemId))
-                const hasAllItems = query.hasItems.every((itemId) => inventoryItems.has(itemId))
-                if (!hasAllItems) return false
-              }
-
-              // 更新日時フィルター
-              if (query.updatedAfter !== undefined && inventory.lastUpdated < query.updatedAfter) {
-                return false
-              }
-              if (query.updatedBefore !== undefined && inventory.lastUpdated > query.updatedBefore) {
-                return false
-              }
-
-              // 空フィルター
-              if (query.excludeEmpty === true && inventory.slots.size === 0) {
-                return false
-              }
-
-              return true
-            })
+            return inventories.filter((inventory) =>
+              pipe(
+                [
+                  pipe(
+                    Option.fromNullable(query.minCapacity),
+                    Match.value,
+                    Match.tag('None', () => true),
+                    Match.tag('Some', ({ value }) => inventory.capacity >= value),
+                    Match.exhaustive
+                  ),
+                  pipe(
+                    Option.fromNullable(query.maxCapacity),
+                    Match.value,
+                    Match.tag('None', () => true),
+                    Match.tag('Some', ({ value }) => inventory.capacity <= value),
+                    Match.exhaustive
+                  ),
+                  pipe(
+                    Option.fromNullable(query.hasItems),
+                    Match.value,
+                    Match.tag('None', () => true),
+                    Match.tag('Some', ({ value }) =>
+                      pipe(
+                        Match.value(value.length === 0),
+                        Match.when(true, () => true),
+                        Match.orElse(() => {
+                          const inventoryItems = new Set(
+                            Array.from(inventory.slots.values()).map((stack) => stack.itemId)
+                          )
+                          return value.every((itemId) => inventoryItems.has(itemId))
+                        }),
+                        Match.exhaustive
+                      )
+                    ),
+                    Match.exhaustive
+                  ),
+                  pipe(
+                    Option.fromNullable(query.updatedAfter),
+                    Match.value,
+                    Match.tag('None', () => true),
+                    Match.tag('Some', ({ value }) => inventory.lastUpdated >= value),
+                    Match.exhaustive
+                  ),
+                  pipe(
+                    Option.fromNullable(query.updatedBefore),
+                    Match.value,
+                    Match.tag('None', () => true),
+                    Match.tag('Some', ({ value }) => inventory.lastUpdated <= value),
+                    Match.exhaustive
+                  ),
+                  pipe(
+                    Match.value(query.excludeEmpty === true && inventory.slots.size === 0),
+                    Match.when(true, () => false),
+                    Match.orElse(() => true),
+                    Match.exhaustive
+                  ),
+                ],
+                (conditions) => conditions.every(Boolean)
+              )
+            )
           }),
 
         transfer: (request: InventoryTransferRequest) =>
@@ -456,9 +544,12 @@ export const InventoryRepositoryPersistent = (config: PersistentConfig = Default
         cleanup: () =>
           Effect.gen(function* () {
             const dirty = yield* Ref.get(isDirty)
-            if (dirty) {
-              yield* saveToStorage
-            }
+            yield* pipe(
+              Match.value(dirty),
+              Match.when(false, () => Effect.void),
+              Match.orElse(() => saveToStorage),
+              Match.exhaustive
+            )
           }),
       })
     })

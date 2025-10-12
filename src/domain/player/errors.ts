@@ -1,7 +1,7 @@
 import type { ParseError } from '@effect/schema/ParseResult'
 import { isParseError } from '@effect/schema/ParseResult'
 import type { JsonValue } from '@shared/schema/json'
-import { Data, Option } from 'effect'
+import { Data, Match, Option, ReadonlyArray, pipe } from 'effect'
 
 interface IdentityShape {
   readonly reason: string
@@ -52,69 +52,95 @@ export type PlayerConstraintDetails = ReadonlyMap<string, JsonValue>
 
 export type PlayerErrorCause = ParseError | Error | JsonValue
 
+const isPrimitiveJson = (input: unknown): input is string | number | boolean =>
+  typeof input === 'string' || typeof input === 'number' || typeof input === 'boolean'
+
+const isJsonRecord = (input: unknown): input is Record<string, JsonValue | undefined> =>
+  typeof input === 'object' && input !== null && !Array.isArray(input)
+
 const toJsonValue = (
   value: JsonValue | Record<string, JsonValue> | Array<JsonValue> | Error | string | number | boolean | null | undefined
 ): JsonValue | undefined => {
-  if (value === null) {
-    return null
-  }
+  const result = pipe(
+    Match.value(value),
+    Match.when(
+      (candidate): candidate is null => candidate === null,
+      () => null
+    ),
+    Match.when(isPrimitiveJson, (primitive) => primitive as JsonValue),
+    Match.when(Array.isArray, (array) =>
+      pipe(
+        array,
+        ReadonlyArray.reduce(Option.some<ReadonlyArray<JsonValue>>([]), (acc, item) =>
+          pipe(
+            acc,
+            Option.flatMap((converted) =>
+              pipe(
+                toJsonValue(item),
+                Option.fromNullable,
+                Option.map((jsonItem) => pipe(converted, ReadonlyArray.append(jsonItem)))
+              )
+            )
+          )
+        )
+        ),
+        Option.match({
+          onNone: () => undefined,
+          onSome: (converted) => converted,
+        })
+      )
+    ),
+    Match.when(isJsonRecord, (record) =>
+      pipe(
+        Object.entries(record),
+        ReadonlyArray.reduce(Option.some<Record<string, JsonValue>>({}), (acc, [key, entry]) =>
+          pipe(
+            acc,
+            Option.flatMap((converted) =>
+              pipe(
+                toJsonValue(entry),
+                Option.fromNullable,
+                Option.map((jsonEntry) => ({
+                  ...converted,
+                  [key]: jsonEntry,
+                }))
+              )
+            )
+          )
+        )
+        ),
+        Option.match({
+          onNone: () => undefined,
+          onSome: (converted) => converted,
+        })
+      )
+    ),
+    Match.orElse(() => undefined)
+  )
 
-  const valueType = typeof value
-
-  if (valueType === 'string' || valueType === 'number' || valueType === 'boolean') {
-    return value as JsonValue
-  }
-
-  if (Array.isArray(value)) {
-    const converted: JsonValue[] = []
-    for (const item of value) {
-      const jsonItem = toJsonValue(item)
-      if (jsonItem === undefined) {
-        return undefined
-      }
-      converted.push(jsonItem)
-    }
-    return converted
-  }
-
-  if (valueType === 'object') {
-    const converted: Record<string, JsonValue> = {}
-    for (const [key, entry] of Object.entries(value as Record<string, JsonValue | undefined>)) {
-      const jsonEntry = toJsonValue(entry)
-      if (jsonEntry === undefined) {
-        return undefined
-      }
-      converted[key] = jsonEntry
-    }
-    return converted
-  }
-
-  return undefined
+  return result
 }
 
 export const normalizePlayerErrorCause = (
   value: PlayerErrorCause | JsonValue | Error | string | number | boolean | null | undefined
 ): PlayerErrorCause | null => {
-  if (value === null || value === undefined) {
-    return null
-  }
-
-  if (value instanceof Error) {
-    return value
-  }
-
-  if (isParseError(value)) {
-    return value
-  }
-
-  const json = toJsonValue(
-    value as JsonValue | Record<string, JsonValue> | Array<JsonValue> | string | number | boolean | null
+  const jsonCandidate = toJsonValue(
+    value as JsonValue | Record<string, JsonValue> | Array<JsonValue> | string | number | boolean | null | undefined
   )
-  if (json !== undefined) {
-    return json
-  }
 
-  return String(value)
+  return pipe(
+    Match.value(value),
+    Match.when(
+      (candidate): candidate is null | undefined => candidate === null || candidate === undefined,
+      () => null
+    ),
+    Match.when(
+      (candidate): candidate is Error => candidate instanceof Error,
+      (error) => error
+    ),
+    Match.when(isParseError, (parseError) => parseError),
+    Match.orElse(() => (jsonCandidate !== undefined ? jsonCandidate : String(value)))
+  )
 }
 
 interface ConstantRangeShape {

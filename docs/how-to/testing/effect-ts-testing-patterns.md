@@ -1040,13 +1040,12 @@ describe('Deterministic Random Testing (Effect-TS 3.17+)', () => {
   it.effect('generates deterministic random values automatically', () =>
     Effect.gen(function* () {
       // it.effectは自動的に決定論的乱数を提供（TestRandom.feedDoubles不要）
-      const values: number[] = []
-
-      // 同じシードで実行されるため、常に同じ乱数シーケンスが生成される
-      for (let i = 0; i < 5; i++) {
-        const randomValue = yield* Random.next
-        values.push(randomValue)
-      }
+      const values = yield* pipe(
+        ReadonlyArray.range(0, 4),
+        Effect.reduce([] as ReadonlyArray<number>, (acc) =>
+          Effect.map(Random.next, (randomValue) => [...acc, randomValue])
+        )
+      )
 
       // 決定論的なため、常に同じ結果が得られる
       expect(values).toHaveLength(5)
@@ -1056,19 +1055,27 @@ describe('Deterministic Random Testing (Effect-TS 3.17+)', () => {
 
   it.effect('generates deterministic biome distribution', () =>
     Effect.gen(function* () {
-      const biomes: string[] = []
+      const biomes = yield* pipe(
+        ReadonlyArray.range(0, 9),
+        Effect.reduce([] as ReadonlyArray<string>, (acc) =>
+          Effect.gen(function* () {
+            const randomValue = yield* Random.next
 
-      for (let i = 0; i < 10; i++) {
-        const randomValue = yield* Random.next
+            const biome =
+              randomValue < 0.2
+                ? 'plains'
+                : randomValue < 0.4
+                  ? 'forest'
+                  : randomValue < 0.6
+                    ? 'mountains'
+                    : randomValue < 0.8
+                      ? 'desert'
+                      : 'ocean'
 
-        const biome = randomValue < 0.2 ? 'plains'
-          : randomValue < 0.4 ? 'forest'
-          : randomValue < 0.6 ? 'mountains'
-          : randomValue < 0.8 ? 'desert'
-          : 'ocean'
-
-        biomes.push(biome)
-      }
+            return [...acc, biome]
+          })
+        )
+      )
 
       // 決定論的乱数により、常に同じバイオーム分布が生成される
       expect(biomes).toHaveLength(10)

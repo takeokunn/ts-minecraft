@@ -1,10 +1,12 @@
 import { GameApplicationLive } from '@application/game-application-live'
+import { SettingsApplicationServiceLive } from '@application/settings'
 import { GameEventQueueLive, GameLoopSupervisorLive } from '@application/game_loop'
 import { ObservabilityLayer } from '@application/observability/layer'
 import { GameLoopServiceLive } from '@domain/game_loop'
 import { InputServiceLive } from '@domain/input'
 import { InteractionDomainLive } from '@domain/interaction'
 import { SceneManagerLive } from '@domain/scene/manager/live'
+import { MenuActionsLive, MenuControllerLive, MenuInputLayer, MenuStateStoreLive } from '@presentation/menu'
 import { Clock, ConfigProvider, Effect, Config as EffectConfig, Either, Layer } from 'effect'
 import * as Match from 'effect/Match'
 import * as Option from 'effect/Option'
@@ -200,7 +202,9 @@ const BaseServicesLayer = Layer.mergeAll(
   InteractionDomainLive
 )
 
-const ApplicationLayer = GameApplicationLive.pipe(Layer.provide(BaseServicesLayer))
+const ApplicationLayer = Layer.mergeAll(GameApplicationLive, SettingsApplicationServiceLive).pipe(
+  Layer.provide(BaseServicesLayer)
+)
 
 export const MainLayer = Layer.mergeAll(
   ObservabilityLayer,
@@ -211,3 +215,12 @@ export const MainLayer = Layer.mergeAll(
 )
 
 export const TestLayer = Layer.mergeAll(ConfigLayer, AppServiceLayer)
+
+export const PresentationLayer = Layer.mergeAll(
+  MenuStateStoreLive,
+  MenuControllerLive,
+  MenuActionsLive,
+  MenuInputLayer
+)
+
+export const MainPresentationLayer = Layer.mergeAll(MainLayer, PresentationLayer)

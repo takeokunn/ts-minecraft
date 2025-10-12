@@ -10,6 +10,7 @@ import {
   PerspectiveCalculatorServiceLive,
   ViewFrustumServiceLive,
 } from './domain_service'
+import { CameraCommandHandlerLive, CameraQueryHandlerLive, CameraReadModelLive } from './cqrs'
 import {
   CameraConfigurationRepositoryLive,
   CameraPresetRepositoryLive,
@@ -22,6 +23,7 @@ import {
  * Camera Domain Layer
  * - Domain Service: 4 services
  * - Repository: 5 repositories
+ * - CQRS Handler: Command / Query
  */
 export const CameraDomainLive = Layer.mergeAll(
   // Domain Services
@@ -34,5 +36,10 @@ export const CameraDomainLive = Layer.mergeAll(
   CameraPresetRepositoryLive,
   CameraStateRepositoryLive,
   PlayerCameraRepositoryLive,
-  SceneCameraRepositoryLive
+  SceneCameraRepositoryLive,
+  // Read Model
+  CameraReadModelLive,
+  // CQRS Handlers
+  CameraCommandHandlerLive,
+  CameraQueryHandlerLive
 )

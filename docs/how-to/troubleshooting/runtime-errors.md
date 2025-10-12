@@ -73,15 +73,21 @@ const properProcessing = Effect.gen(function* () {
 
 // ✅ 中断可能な長時間処理
 const interruptibleLongRunningTask = Effect.gen(function* () {
-  for (let i = 0; i < 1000; i++) {
-    yield* Effect.yieldNow() // 中断ポイント
-    yield* heavyComputation(i)
+  yield* pipe(
+    ReadonlyArray.range(0, 999),
+    Effect.forEach(
+      (i) =>
+        Effect.gen(function* () {
+          yield* Effect.yieldNow()
+          yield* heavyComputation(i)
 
-    // 定期的な中断チェック
-    if (i % 100 === 0) {
-      yield* Effect.checkInterrupt
-    }
-  }
+          if (i % 100 === 0) {
+            yield* Effect.checkInterrupt
+          }
+        }),
+      { discard: true }
+    )
+  )
 })
 ```
 
@@ -569,9 +575,7 @@ const createSafeTextureLoader = () =>
         Effect.gen(function* () {
           const textures = yield* Ref.get(loadedTextures)
 
-          for (const [url, texture] of textures) {
-            texture.dispose()
-          }
+          textures.forEach((texture) => texture.dispose())
 
           yield* Ref.set(loadedTextures, new Map())
           yield* Effect.logInfo(`Disposed ${textures.size} textures`)

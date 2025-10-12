@@ -1,2 +1,10 @@
 export * from './metrics'
-export { WorldGenerationAPIService, WorldGenerationAPIServiceLive, type WorldGenerationAPIError } from './api-service'
+export {
+  WorldGenerationAPIService,
+  WorldGenerationAPIServiceLive,
+  WorldGenerationEventStreamError,
+  WorldGenerationEventStreamErrorSchema,
+  type WorldGenerationAPIError,
+  type WorldGenerationEventStreamError,
+} from './api-service'
+export { WorldGenerationApplicationLive, WorldGenerationApplicationServicesLayer } from './layers'

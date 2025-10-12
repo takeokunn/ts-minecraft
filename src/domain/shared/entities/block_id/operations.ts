@@ -1,4 +1,4 @@
-import { Effect, pipe, Schema } from 'effect'
+import { Effect, Either, pipe, Schema } from 'effect'
 import type { BlockId } from './schema'
 import { BlockIdSchema } from './schema'
 
@@ -20,18 +20,23 @@ export const create = (value: string): Effect.Effect<BlockId, Error> =>
 /**
  * BlockIdの安全な作成（同期版）
  */
-export const createSync = (value: string): BlockId => {
-  try {
-    return Schema.decodeSync(BlockIdSchema)(value)
-  } catch (error) {
-    const issues =
-      (error as any)?.issues?.map((issue: any) => {
-        const path = issue.path?.join('.') || 'unknown'
-        return `${path}: ${issue.message}`
-      }) || []
-    throw new Error(`BlockIdの作成に失敗: ${issues.join('; ') || String(error)}`)
-  }
-}
+const formatIssues = (error: unknown): string =>
+  ((error as any)?.issues?.map((issue: any) => {
+    const path = issue.path?.join('.') || 'unknown'
+    return `${path}: ${issue.message}`
+  }) ?? []).join('; ')
+
+export const createSync = (value: string): BlockId =>
+  pipe(
+    Schema.decodeEither(BlockIdSchema)(value),
+    Either.match({
+      onLeft: (error) => {
+        const formatted = formatIssues(error)
+        throw new Error(`BlockIdの作成に失敗: ${formatted || String(error)}`)
+      },
+      onRight: (id) => id,
+    })
+  )
 
 /**
  * BlockIdの等価性チェック

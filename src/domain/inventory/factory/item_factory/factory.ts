@@ -39,12 +39,12 @@ const filterMapArray = <A, B>(
 
 const getNonEmptyOrUndefined = <K extends PropertyKey, V>(
   entries: ReadonlyArray<readonly [K, V]>
-): Record<K, V> | undefined => {
-  if (entries.length === 0) {
-    return undefined
-  }
-  return Object.fromEntries(entries) as Record<K, V>
-}
+): Record<K, V> | undefined =>
+  pipe(
+    Match.value(entries.length === 0),
+    Match.when(true, () => undefined),
+    Match.orElse(() => Object.fromEntries(entries) as Record<K, V>)
+  )
 
 const summarizeStack = (stack: ItemStack) => ({
   id: String(stack.id),

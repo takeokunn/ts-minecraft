@@ -4,7 +4,7 @@
  * セッションテンプレートレジストリのLive Layer実装
  */
 
-import { Effect, Layer, Option, Ref } from 'effect'
+import { Effect, Layer, Match, Option, Ref, pipe } from 'effect'
 import { DEFAULT_TIMESTAMP } from '../../constants'
 import type { SessionTemplateDefinition, SessionTemplateType } from './index'
 import { SessionTemplateRegistryService } from './template_registry_service'
@@ -287,61 +287,82 @@ export const SessionTemplateRegistryLive = Layer.effect(
       search: (query) =>
         Ref.get(templates).pipe(
           Effect.map((m) =>
-            Array.from(m.entries())
-              .filter(([_, template]) => {
-                // ユースケースフィルタ
-                if (query.useCases) {
-                  const hasMatchingUseCase = query.useCases.some((useCase) =>
+            Array.from(m.entries()).filter(([_, template]) => {
+              const matchesUseCases = pipe(
+                Match.value(query.useCases),
+                Match.when(
+                  (useCases): useCases is undefined => useCases === undefined,
+                  () => true
+                ),
+                Match.orElse((useCases) =>
+                  useCases.some((useCase) =>
                     template.useCases.some((templateUseCase) =>
                       templateUseCase.toLowerCase().includes(useCase.toLowerCase())
                     )
                   )
-                  if (!hasMatchingUseCase) return false
-                }
+                )
+              )
 
-                // パフォーマンスフィルタ
-                if (query.performance) {
-                  if (
-                    query.performance.expectedCpuUsage &&
-                    template.performance.expectedCpuUsage !== query.performance.expectedCpuUsage
-                  ) {
-                    return false
-                  }
-                  if (
-                    query.performance.expectedMemoryUsage &&
-                    template.performance.expectedMemoryUsage !== query.performance.expectedMemoryUsage
-                  ) {
-                    return false
-                  }
-                }
+              const matchesCpu = pipe(
+                Match.value(query.performance?.expectedCpuUsage),
+                Match.when(
+                  (expected): expected is undefined => expected === undefined,
+                  () => true
+                ),
+                Match.orElse((expected) => template.performance.expectedCpuUsage === expected)
+              )
 
-                // 要件フィルタ
-                if (query.requirements) {
-                  if (
-                    query.requirements.minCpuCores &&
-                    template.requirements.minCpuCores > query.requirements.minCpuCores
-                  ) {
-                    return false
-                  }
-                  if (
-                    query.requirements.minMemoryMB &&
-                    template.requirements.minMemoryMB > query.requirements.minMemoryMB
-                  ) {
-                    return false
-                  }
-                }
+              const matchesMemory = pipe(
+                Match.value(query.performance?.expectedMemoryUsage),
+                Match.when(
+                  (expected): expected is undefined => expected === undefined,
+                  () => true
+                ),
+                Match.orElse((expected) => template.performance.expectedMemoryUsage === expected)
+              )
 
-                // タグフィルタ
-                if (query.tags) {
-                  const hasMatchingTag = query.tags.some((tag) =>
-                    template.metadata.tags.some((templateTag) => templateTag.toLowerCase().includes(tag.toLowerCase()))
+              const matchesCpuRequirement = pipe(
+                Match.value(query.requirements?.minCpuCores),
+                Match.when(
+                  (min): min is undefined => min === undefined,
+                  () => true
+                ),
+                Match.orElse((min) => template.requirements.minCpuCores <= min)
+              )
+
+              const matchesMemoryRequirement = pipe(
+                Match.value(query.requirements?.minMemoryMB),
+                Match.when(
+                  (min): min is undefined => min === undefined,
+                  () => true
+                ),
+                Match.orElse((min) => template.requirements.minMemoryMB <= min)
+              )
+
+              const matchesTags = pipe(
+                Match.value(query.tags),
+                Match.when(
+                  (tags): tags is undefined => tags === undefined,
+                  () => true
+                ),
+                Match.orElse((tags) =>
+                  tags.some((tag) =>
+                    template.metadata.tags.some((templateTag) =>
+                      templateTag.toLowerCase().includes(tag.toLowerCase())
+                    )
                   )
-                  if (!hasMatchingTag) return false
-                }
+                )
+              )
 
-                return true
-              })
-              .map(([type, _]) => type)
+              return (
+                matchesUseCases &&
+                matchesCpu &&
+                matchesMemory &&
+                matchesCpuRequirement &&
+                matchesMemoryRequirement &&
+                matchesTags
+              )
+            }).map(([type, _]) => type)
           )
         ),
     })

@@ -45,18 +45,19 @@ export const addItem = (
       })
     )
 
-    if (Option.isSome(resultFromStackable)) {
-      return resultFromStackable.value
-    }
-
-    // 空きスロットを探す
-    const emptySlot = findEmptySlot(aggregate)
     return yield* pipe(
-      emptySlot,
+      resultFromStackable,
       Option.match({
+        onSome: (updatedAggregate) => Effect.succeed(updatedAggregate),
         onNone: () =>
-          Effect.fail(InventoryAggregateErrorFactory.slotOccupied(makeUnsafeSlotIndex(-1), itemStack.itemId)),
-        onSome: (slotIndex) => addToEmptySlot(aggregate, slotIndex, itemStack),
+          pipe(
+            findEmptySlot(aggregate),
+            Option.match({
+              onNone: () =>
+                Effect.fail(InventoryAggregateErrorFactory.slotOccupied(makeUnsafeSlotIndex(-1), itemStack.itemId)),
+              onSome: (slotIndex) => addToEmptySlot(aggregate, slotIndex, itemStack),
+            })
+          ),
       })
     )
   })
@@ -212,22 +213,30 @@ export const removeAllItems = (
       Effect.reduce(aggregate, (current, i) =>
         Effect.gen(function* () {
           const slot = current.slots[i]
-          if (slot?.itemStack?.itemId === itemId) {
-            return yield* removeItem(current, makeUnsafeSlotIndex(i), slot.itemStack.count)
-          }
-          return current
+          return yield* pipe(
+            Option.fromNullable(slot?.itemStack),
+            Option.filter((stack) => stack.itemId === itemId),
+            Option.match({
+              onNone: () => Effect.succeed(current),
+              onSome: (stack) => removeItem(current, makeUnsafeSlotIndex(i), stack.count),
+            })
+          )
         })
       )
     )
   })
 
 export const findItemSlots = (aggregate: InventoryAggregate, itemId: ItemId): ReadonlyArray<SlotIndex> =>
-  aggregate.slots.reduce<SlotIndex[]>((acc, slot, index) => {
-    if (slot?.itemStack?.itemId === itemId) {
-      acc.push(makeUnsafeSlotIndex(index))
-    }
-    return acc
-  }, [])
+  aggregate.slots.reduce<SlotIndex[]>((acc, slot, index) =>
+    pipe(
+      Option.fromNullable(slot?.itemStack),
+      Option.filter((stack) => stack.itemId === itemId),
+      Option.match({
+        onSome: () => [...acc, makeUnsafeSlotIndex(index)],
+        onNone: () => acc,
+      })
+    ),
+  [] as SlotIndex[])
 
 export const isFull = (aggregate: InventoryAggregate): boolean => aggregate.slots.every((slot) => slot !== null)
 

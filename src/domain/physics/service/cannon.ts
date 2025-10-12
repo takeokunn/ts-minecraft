@@ -2,7 +2,7 @@ import { physicsStepDuration } from '@application/observability/metrics'
 import type { PlayerId, Vector3D } from '@domain/entities'
 import { toErrorCause, type ErrorCause } from '@shared/schema/error'
 import * as CANNON from 'cannon-es'
-import { Clock, Context, Effect, Layer, pipe, ReadonlyArray } from 'effect'
+import { Clock, Context, Effect, Layer, Match, Option, pipe, ReadonlyArray } from 'effect'
 
 /**
  * Cannon-es物理エンジン統合サービス
@@ -129,6 +129,38 @@ const makeCannonPhysicsService: Effect.Effect<CannonPhysicsService> = Effect.gen
 
   const generateBodyId = (): string => `body_${++nextBodyId}`
 
+  const worldNotInitialized = (): PhysicsEngineError => ({
+    _tag: 'PhysicsEngineError',
+    message: 'Physics world not initialized',
+    cause: undefined,
+  })
+
+  const requireWorld = <R>(onWorld: (activeWorld: CANNON.World) => Effect.Effect<R, PhysicsEngineError>) =>
+    pipe(
+      Option.fromNullable(world),
+      Option.match({
+        onNone: () => Effect.fail(worldNotInitialized()),
+        onSome: onWorld,
+      })
+    )
+
+  const requireBody = <R>(
+    bodyId: string,
+    onBody: (body: CANNON.Body) => Effect.Effect<R, PhysicsEngineError>
+  ): Effect.Effect<R, PhysicsEngineError> =>
+    pipe(
+      Option.fromNullable(bodies.get(bodyId)),
+      Option.match({
+        onNone: () =>
+          Effect.fail<PhysicsEngineError>({
+            _tag: 'PhysicsEngineError',
+            message: `Body not found: ${bodyId}`,
+            cause: undefined,
+          }),
+        onSome: onBody,
+      })
+    )
+
   // 物理世界の初期化
   const initializeWorld = () =>
     Effect.gen(function* () {
@@ -142,13 +174,19 @@ const makeCannonPhysicsService: Effect.Effect<CannonPhysicsService> = Effect.gen
         world.broadphase = new CANNON.SAPBroadphase(world)
         world.broadphase.useBoundingBoxes = true
 
+        const setNumericSolverProperty = <K extends PropertyKey>(key: K, value: number) =>
+          pipe(
+            Match.value(hasNumericSolverProperty(world!.solver, key)),
+            Match.when(true, () => {
+              ;(world!.solver as Record<PropertyKey, number>)[key] = value
+              return undefined
+            }),
+            Match.orElse(() => undefined)
+          )
+
         // ソルバー設定 (Cannon-es 0.20+)
-        if (hasNumericSolverProperty(world.solver, 'iterations')) {
-          world.solver.iterations = 10
-        }
-        if (hasNumericSolverProperty(world.solver, 'tolerance')) {
-          world.solver.tolerance = 0.1
-        }
+        setNumericSolverProperty('iterations', 10)
+        setNumericSolverProperty('tolerance', 0.1)
 
         // コンタクトマテリアル設定
         const groundMaterial = new CANNON.Material('ground')
@@ -174,15 +212,7 @@ const makeCannonPhysicsService: Effect.Effect<CannonPhysicsService> = Effect.gen
     config: Partial<CharacterControllerConfig> = {}
   ) =>
     Effect.gen(function* () {
-      if (!world) {
-        return yield* Effect.fail<PhysicsEngineError>({
-          _tag: 'PhysicsEngineError',
-          message: 'Physics world not initialized',
-          cause: undefined,
-        })
-      }
-
-      return yield* pipe(
+      return yield* requireWorld((activeWorld) =>
         Effect.sync(() => {
           const finalConfig: CharacterControllerConfig = {
             mass: PHYSICS_CONSTANTS.PLAYER_MASS,
@@ -211,7 +241,7 @@ const makeCannonPhysicsService: Effect.Effect<CannonPhysicsService> = Effect.gen
           body.updateMassProperties()
 
           // ワールドに追加
-          world.addBody(body)
+          activeWorld.addBody(body)
 
           // 管理データに追加
           const bodyId = generateBodyId()
@@ -236,27 +266,21 @@ const makeCannonPhysicsService: Effect.Effect<CannonPhysicsService> = Effect.gen
   // 物理ステップの実行
   const step = (deltaTime: number) =>
     Effect.gen(function* () {
-      if (!world) {
-        return yield* Effect.fail<PhysicsEngineError>({
-          _tag: 'PhysicsEngineError',
-          message: 'Physics world not initialized',
-          cause: undefined,
-        })
-      }
-
       const startTime = yield* Clock.currentTimeMillis
 
-      const result = yield* pipe(
-        Effect.sync(() => {
-          // 固定タイムステップで物理演算を実行
-          world.fixedStep(PHYSICS_CONSTANTS.TIME_STEP, deltaTime)
-        }),
-        Effect.mapError(
-          (error): PhysicsEngineError => ({
-            _tag: 'PhysicsEngineError',
-            message: `Physics step failed: ${error}`,
-            cause: toErrorCause(error),
-          })
+      const result = yield* requireWorld((activeWorld) =>
+        pipe(
+          Effect.sync(() => {
+            // 固定タイムステップで物理演算を実行
+            activeWorld.fixedStep(PHYSICS_CONSTANTS.TIME_STEP, deltaTime)
+          }),
+          Effect.mapError(
+            (error): PhysicsEngineError => ({
+              _tag: 'PhysicsEngineError',
+              message: `Physics step failed: ${error}`,
+              cause: toErrorCause(error),
+            })
+          )
         )
       )
 
@@ -271,80 +295,66 @@ const makeCannonPhysicsService: Effect.Effect<CannonPhysicsService> = Effect.gen
   // プレイヤーボディの状態取得
   const getPlayerState = (bodyId: string) =>
     Effect.gen(function* () {
-      const body = bodies.get(bodyId)
-      if (!body) {
-        return yield* Effect.fail<PhysicsEngineError>({
-          _tag: 'PhysicsEngineError',
-          message: `Body not found: ${bodyId}`,
-          cause: undefined,
-        })
-      }
+      return yield* requireWorld((activeWorld) =>
+        requireBody(bodyId, (body) =>
+          pipe(
+            Effect.sync(() => {
+              // 地面判定のためのレイキャスト
+              const rayStart = body.position.clone()
+              const rayEnd = rayStart.clone()
+              rayEnd.y -= PHYSICS_CONSTANTS.PLAYER_RADIUS + 0.1
 
-      return yield* pipe(
-        Effect.sync(() => {
-          // 地面判定のためのレイキャスト
-          const rayStart = body.position.clone()
-          const rayEnd = rayStart.clone()
-          rayEnd.y -= PHYSICS_CONSTANTS.PLAYER_RADIUS + 0.1
+              const raycastResult = new CANNON.RaycastResult()
+              activeWorld.raycastClosest(rayStart, rayEnd, {}, raycastResult)
 
-          const raycastResult = new CANNON.RaycastResult()
-          world?.raycastClosest(rayStart, rayEnd, {}, raycastResult)
+              const isOnGround =
+                raycastResult.hasHit && raycastResult.distance < PHYSICS_CONSTANTS.PLAYER_RADIUS + 0.05
 
-          const isOnGround = raycastResult.hasHit && raycastResult.distance < PHYSICS_CONSTANTS.PLAYER_RADIUS + 0.05
+              const state: PhysicsBodyState = {
+                position: {
+                  x: body.position.x,
+                  y: body.position.y,
+                  z: body.position.z,
+                },
+                velocity: {
+                  x: body.velocity.x,
+                  y: body.velocity.y,
+                  z: body.velocity.z,
+                },
+                angularVelocity: {
+                  x: body.angularVelocity.x,
+                  y: body.angularVelocity.y,
+                  z: body.angularVelocity.z,
+                },
+                quaternion: {
+                  x: body.quaternion.x,
+                  y: body.quaternion.y,
+                  z: body.quaternion.z,
+                  w: body.quaternion.w,
+                },
+                isOnGround,
+                isColliding: body.collisionResponse,
+              }
 
-          const state: PhysicsBodyState = {
-            position: {
-              x: body.position.x,
-              y: body.position.y,
-              z: body.position.z,
-            },
-            velocity: {
-              x: body.velocity.x,
-              y: body.velocity.y,
-              z: body.velocity.z,
-            },
-            angularVelocity: {
-              x: body.angularVelocity.x,
-              y: body.angularVelocity.y,
-              z: body.angularVelocity.z,
-            },
-            quaternion: {
-              x: body.quaternion.x,
-              y: body.quaternion.y,
-              z: body.quaternion.z,
-              w: body.quaternion.w,
-            },
-            isOnGround,
-            isColliding: body.collisionResponse,
-          }
-
-          return state
-        }),
-        Effect.mapError(
-          (error): PhysicsEngineError => ({
-            _tag: 'PhysicsEngineError',
-            message: `Failed to get player state: ${error}`,
-            cause: toErrorCause(error),
-          })
+              return state
+            }),
+            Effect.mapError(
+              (error): PhysicsEngineError => ({
+                _tag: 'PhysicsEngineError',
+                message: `Failed to get player state: ${error}`,
+                cause: toErrorCause(error),
+              })
+            )
+          )
         )
       )
     })
 
   // プレイヤーに移動力を適用
   const applyMovementForce = (bodyId: string, force: Vector3D) =>
-    Effect.gen(function* () {
-      const body = bodies.get(bodyId)
-      if (!body) {
-        return yield* Effect.fail<PhysicsEngineError>({
-          _tag: 'PhysicsEngineError',
-          message: `Body not found: ${bodyId}`,
-          cause: undefined,
-        })
-      }
-
-      return yield* pipe(
+    requireBody(bodyId, (body) =>
+      pipe(
         Effect.sync(() => {
-          // 水平方向のみに力を適用（Y方向は重力とジャンプで管理）
           const worldForce = new CANNON.Vec3(force.x, 0, force.z)
           body.applyForce(worldForce)
         }),
@@ -356,23 +366,13 @@ const makeCannonPhysicsService: Effect.Effect<CannonPhysicsService> = Effect.gen
           })
         )
       )
-    })
+    )
 
   // プレイヤーのジャンプ
   const jumpPlayer = (bodyId: string, jumpVelocity: number) =>
-    Effect.gen(function* () {
-      const body = bodies.get(bodyId)
-      if (!body) {
-        return yield* Effect.fail<PhysicsEngineError>({
-          _tag: 'PhysicsEngineError',
-          message: `Body not found: ${bodyId}`,
-          cause: undefined,
-        })
-      }
-
-      return yield* pipe(
+    requireBody(bodyId, (body) =>
+      pipe(
         Effect.sync(() => {
-          // Y方向に瞬間的な速度を与える
           body.velocity.y = jumpVelocity
         }),
         Effect.mapError(
@@ -383,29 +383,22 @@ const makeCannonPhysicsService: Effect.Effect<CannonPhysicsService> = Effect.gen
           })
         )
       )
-    })
+    )
 
   // 地面・ブロックとの衝突検知
   const raycastGround = (position: Vector3D, distance: number) =>
-    Effect.gen(function* () {
-      if (!world) {
-        return yield* Effect.fail<PhysicsEngineError>({
-          _tag: 'PhysicsEngineError',
-          message: 'Physics world not initialized',
-          cause: undefined,
-        })
-      }
-
-      return yield* pipe(
+    requireWorld((activeWorld) =>
+      pipe(
         Effect.sync(() => {
           const rayStart = new CANNON.Vec3(position.x, position.y, position.z)
           const rayEnd = new CANNON.Vec3(position.x, position.y - distance, position.z)
 
           const raycastResult = new CANNON.RaycastResult()
-          world.raycastClosest(rayStart, rayEnd, {}, raycastResult)
+          activeWorld.raycastClosest(rayStart, rayEnd, {}, raycastResult)
 
-          if (raycastResult.hasHit) {
-            return {
+          return pipe(
+            Match.value(raycastResult.hasHit),
+            Match.when(true, () => ({
               hit: true,
               distance: raycastResult.distance,
               normal: {
@@ -413,10 +406,9 @@ const makeCannonPhysicsService: Effect.Effect<CannonPhysicsService> = Effect.gen
                 y: raycastResult.hitNormalWorld.y,
                 z: raycastResult.hitNormalWorld.z,
               },
-            }
-          }
-
-          return null
+            })),
+            Match.orElse(() => null)
+          )
         }),
         Effect.mapError(
           (error): PhysicsEngineError => ({
@@ -426,30 +418,22 @@ const makeCannonPhysicsService: Effect.Effect<CannonPhysicsService> = Effect.gen
           })
         )
       )
-    })
+    )
 
   // 静的ブロックボディの追加
   const addStaticBlock = (position: Vector3D, size: Vector3D) =>
-    Effect.gen(function* () {
-      if (!world) {
-        return yield* Effect.fail<PhysicsEngineError>({
-          _tag: 'PhysicsEngineError',
-          message: 'Physics world not initialized',
-          cause: undefined,
-        })
-      }
-
-      return yield* pipe(
+    requireWorld((activeWorld) =>
+      pipe(
         Effect.sync(() => {
           const shape = new CANNON.Box(new CANNON.Vec3(size.x / 2, size.y / 2, size.z / 2))
           const body = new CANNON.Body({
-            mass: 0, // 静的オブジェクト
+            mass: 0,
             shape,
             position: new CANNON.Vec3(position.x, position.y, position.z),
             material: new CANNON.Material('ground'),
           })
 
-          world.addBody(body)
+          activeWorld.addBody(body)
 
           const bodyId = generateBodyId()
           bodies.set(bodyId, body)
@@ -464,25 +448,20 @@ const makeCannonPhysicsService: Effect.Effect<CannonPhysicsService> = Effect.gen
           })
         )
       )
-    })
+    )
 
   // ボディの削除
   const removeBody = (bodyId: string) =>
-    Effect.gen(function* () {
-      const body = bodies.get(bodyId)
-      if (!body) {
-        return yield* Effect.fail<PhysicsEngineError>({
-          _tag: 'PhysicsEngineError',
-          message: `Body not found: ${bodyId}`,
-          cause: undefined,
-        })
-      }
-
-      return yield* pipe(
+    requireBody(bodyId, (body) =>
+      pipe(
         Effect.sync(() => {
-          if (world) {
-            world.removeBody(body)
-          }
+          pipe(
+            Option.fromNullable(world),
+            Option.match({
+              onNone: () => undefined,
+              onSome: (activeWorld) => activeWorld.removeBody(body),
+            })
+          )
 
           bodies.delete(bodyId)
           playerControllers.delete(bodyId)
@@ -495,20 +474,24 @@ const makeCannonPhysicsService: Effect.Effect<CannonPhysicsService> = Effect.gen
           })
         )
       )
-    })
+    )
 
   // 物理世界のクリーンアップ
   const cleanup = () =>
     Effect.gen(function* () {
       return yield* Effect.sync(() => {
-        if (world) {
-          // 全てのボディを削除
-          pipe(
-            bodies.values(),
-            ReadonlyArray.fromIterable,
-            ReadonlyArray.forEach((body) => world.removeBody(body))
-          )
-        }
+        pipe(
+          Option.fromNullable(world),
+          Option.match({
+            onNone: () => undefined,
+            onSome: (activeWorld) =>
+              pipe(
+                bodies.values(),
+                ReadonlyArray.fromIterable,
+                ReadonlyArray.forEach((body) => activeWorld.removeBody(body))
+              ),
+          })
+        )
 
         bodies.clear()
         playerControllers.clear()

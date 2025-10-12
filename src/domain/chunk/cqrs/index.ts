@@ -15,3 +15,5 @@ export {
   type ChunkQueryError,
   type ChunkQueryResult,
 } from './query_handler'
+
+export { ChunkReadModel, ChunkReadModelLive } from './read_model'

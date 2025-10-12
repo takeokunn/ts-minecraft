@@ -184,33 +184,34 @@ export const WorldMetadataRepositoryMemoryImplementation = (
       findMetadata: (worldId: WorldId) =>
         Effect.gen(function* () {
           // Try cache first
-          const cacheResult = yield* Effect.if(config.cache.enabled, {
-            onTrue: () =>
+          const cacheResult = yield* Match.value(config.cache.enabled).pipe(
+            Match.when(false, () => Effect.succeed(Option.none<WorldMetadata>())),
+            Match.orElse(() =>
               Effect.gen(function* () {
                 const cache = yield* Ref.get(metadataCache)
-                const cached = cache.get(worldId)
+                const cached = Option.fromNullable(cache.get(worldId))
 
-                return yield* pipe(
-                  Option.fromNullable(cached),
-                  Option.match({
-                    onNone: () => Effect.succeed(Option.none<WorldMetadata>()),
-                    onSome: (cachedData) =>
-                      Effect.gen(function* () {
-                        const now = yield* currentMillis
-                        return yield* Effect.if(!isCacheExpired(now, cachedData.timestamp), {
-                          onTrue: () =>
-                            Effect.gen(function* () {
-                              yield* Ref.update(cacheStats, (stats) => ({ ...stats, hitCount: stats.hitCount + 1 }))
-                              return Option.some(cachedData.metadata)
-                            }),
-                          onFalse: () => Effect.succeed(Option.none<WorldMetadata>()),
-                        })
-                      }),
-                  })
-                )
-              }),
-            onFalse: () => Effect.succeed(Option.none<WorldMetadata>()),
-          })
+                return yield* Option.match(cached, {
+                  onNone: () => Effect.succeed(Option.none<WorldMetadata>()),
+                  onSome: (cachedData) =>
+                    Effect.gen(function* () {
+                      const now = yield* currentMillis
+                      return yield* Match.value(!isCacheExpired(now, cachedData.timestamp)).pipe(
+                        Match.when(true, () =>
+                          Effect.gen(function* () {
+                            yield* Ref.update(cacheStats, (stats) => ({ ...stats, hitCount: stats.hitCount + 1 }))
+                            return Option.some(cachedData.metadata)
+                          })
+                        ),
+                        Match.orElse(() => Effect.succeed(Option.none<WorldMetadata>())),
+                        Match.exhaustive
+                      )
+                    }),
+                })
+              })
+            ),
+            Match.exhaustive
+          )
 
           return yield* pipe(
             cacheResult,
@@ -224,17 +225,21 @@ export const WorldMetadataRepositoryMemoryImplementation = (
 
                   yield* Ref.update(cacheStats, (stats) => ({ ...stats, missCount: stats.missCount + 1 }))
 
-                  yield* Effect.when(metadata !== undefined && config.cache.enabled, () =>
-                    Effect.gen(function* () {
-                      const cache = yield* Ref.get(metadataCache)
-                      const updatedCache = new Map(cache)
-                      const timestamp = yield* currentMillis
-                      updatedCache.set(worldId, {
-                        metadata,
-                        timestamp,
+                  yield* Match.value(metadata !== undefined && config.cache.enabled).pipe(
+                    Match.when(true, () =>
+                      Effect.gen(function* () {
+                        const cache = yield* Ref.get(metadataCache)
+                        const updatedCache = new Map(cache)
+                        const timestamp = yield* currentMillis
+                        updatedCache.set(worldId, {
+                          metadata: metadata!,
+                          timestamp,
+                        })
+                        yield* Ref.set(metadataCache, updatedCache)
                       })
-                      yield* Ref.set(metadataCache, updatedCache)
-                    })
+                    ),
+                    Match.orElse(() => Effect.unit()),
+                    Match.exhaustive
                   )
 
                   return Option.fromNullable(metadata)
@@ -483,28 +488,32 @@ export const WorldMetadataRepositoryMemoryImplementation = (
       getSettings: (worldId: WorldId) =>
         Effect.gen(function* () {
           // Try cache first
-          const cacheResult = yield* Effect.if(config.cache.enabled && config.cache.enableSettingsCache, {
-            onTrue: () =>
-              Effect.gen(function* () {
-                const cache = yield* Ref.get(settingsCache)
-                const cached = cache.get(worldId)
+          const cacheResult = yield* pipe(
+            Match.value(config.cache.enabled && config.cache.enableSettingsCache),
+            Match.when(
+              (enabled) => enabled,
+              () =>
+                Effect.gen(function* () {
+                  const cache = yield* Ref.get(settingsCache)
+                  const cached = cache.get(worldId)
 
-                return yield* pipe(
-                  Option.fromNullable(cached),
-                  Option.match({
-                    onNone: () => Effect.succeed(Option.none<WorldSettings>()),
-                    onSome: (cachedData) =>
-                      Effect.gen(function* () {
-                        const now = yield* currentMillis
-                        return !isCacheExpired(now, cachedData.timestamp)
-                          ? Option.some(cachedData.settings)
-                          : Option.none<WorldSettings>()
-                      }),
-                  })
-                )
-              }),
-            onFalse: () => Effect.succeed(Option.none<WorldSettings>()),
-          })
+                  return yield* pipe(
+                    Option.fromNullable(cached),
+                    Option.match({
+                      onNone: () => Effect.succeed(Option.none<WorldSettings>()),
+                      onSome: (cachedData) =>
+                        Effect.gen(function* () {
+                          const now = yield* currentMillis
+                          return !isCacheExpired(now, cachedData.timestamp)
+                            ? Option.some(cachedData.settings)
+                            : Option.none<WorldSettings>()
+                        }),
+                    })
+                  )
+                })
+            ),
+            Match.orElse(() => Effect.succeed(Option.none<WorldSettings>()))
+          )
 
           return yield* pipe(
             cacheResult,
@@ -606,28 +615,32 @@ export const WorldMetadataRepositoryMemoryImplementation = (
       getStatistics: (worldId: WorldId) =>
         Effect.gen(function* () {
           // Try cache first
-          const cacheResult = yield* Effect.if(config.cache.enabled && config.cache.enableStatisticsCache, {
-            onTrue: () =>
-              Effect.gen(function* () {
-                const cache = yield* Ref.get(statisticsCache)
-                const cached = cache.get(worldId)
+          const cacheResult = yield* pipe(
+            Match.value(config.cache.enabled && config.cache.enableStatisticsCache),
+            Match.when(
+              (enabled) => enabled,
+              () =>
+                Effect.gen(function* () {
+                  const cache = yield* Ref.get(statisticsCache)
+                  const cached = cache.get(worldId)
 
-                return yield* pipe(
-                  Option.fromNullable(cached),
-                  Option.match({
-                    onNone: () => Effect.succeed(Option.none<WorldStatistics>()),
-                    onSome: (cachedData) =>
-                      Effect.gen(function* () {
-                        const now = yield* currentMillis
-                        return !isCacheExpired(now, cachedData.timestamp)
-                          ? Option.some(cachedData.statistics)
-                          : Option.none<WorldStatistics>()
-                      }),
-                  })
-                )
-              }),
-            onFalse: () => Effect.succeed(Option.none<WorldStatistics>()),
-          })
+                  return yield* pipe(
+                    Option.fromNullable(cached),
+                    Option.match({
+                      onNone: () => Effect.succeed(Option.none<WorldStatistics>()),
+                      onSome: (cachedData) =>
+                        Effect.gen(function* () {
+                          const now = yield* currentMillis
+                          return !isCacheExpired(now, cachedData.timestamp)
+                            ? Option.some(cachedData.statistics)
+                            : Option.none<WorldStatistics>()
+                        }),
+                    })
+                  )
+                })
+            ),
+            Match.orElse(() => Effect.succeed(Option.none<WorldStatistics>()))
+          )
 
           return yield* pipe(
             cacheResult,
@@ -731,19 +744,23 @@ export const WorldMetadataRepositoryMemoryImplementation = (
           const worldVersions = versionMap.get(worldId) || new Map()
 
           // Check version limit and remove oldest if necessary
-          const updatedWorldVersions = yield* Effect.if(worldVersions.size >= config.versioning.maxVersionsPerWorld, {
-            onTrue: () =>
-              Effect.sync(() => {
-                const oldest = Array.from(worldVersions.entries()).sort(
-                  ([, a], [, b]) =>
-                    DateTime.toEpochMillis(DateTime.unsafeFromDate(a.timestamp)) -
-                    DateTime.toEpochMillis(DateTime.unsafeFromDate(b.timestamp))
-                )[0]
-                worldVersions.delete(oldest[0])
-                return worldVersions
-              }),
-            onFalse: () => Effect.succeed(worldVersions),
-          })
+          const updatedWorldVersions = yield* pipe(
+            Match.value(worldVersions.size >= config.versioning.maxVersionsPerWorld),
+            Match.when(
+              (exceeds) => exceeds,
+              () =>
+                Effect.sync(() => {
+                  const oldest = Array.from(worldVersions.entries()).sort(
+                    ([, a], [, b]) =>
+                      DateTime.toEpochMillis(DateTime.unsafeFromDate(a.timestamp)) -
+                      DateTime.toEpochMillis(DateTime.unsafeFromDate(b.timestamp))
+                  )[0]
+                  worldVersions.delete(oldest[0])
+                  return worldVersions
+                })
+            ),
+            Match.orElse(() => Effect.succeed(worldVersions))
+          )
 
           updatedWorldVersions.set(version.version, version)
 
@@ -835,10 +852,21 @@ export const WorldMetadataRepositoryMemoryImplementation = (
           const v1 = yield* this.getVersion(worldId, version1)
           const v2 = yield* this.getVersion(worldId, version2)
 
-          return yield* Effect.if(Option.isNone(v1) || Option.isNone(v2), {
-            onTrue: () => Effect.fail(createVersioningError(worldId, 'One or both versions not found', null)),
-            onFalse: () => Effect.succeed([...Option.getOrThrow(v1).changes, ...Option.getOrThrow(v2).changes]),
-          })
+          return yield* pipe(
+            v1,
+            Option.match({
+              onNone: () => Effect.fail(createVersioningError(worldId, 'One or both versions not found', null)),
+              onSome: (versionOne) =>
+                pipe(
+                  v2,
+                  Option.match({
+                    onNone: () => Effect.fail(createVersioningError(worldId, 'One or both versions not found', null)),
+                    onSome: (versionTwo) =>
+                      Effect.succeed([...versionOne.changes, ...versionTwo.changes] as ReadonlyArray<MetadataChange>),
+                  })
+                ),
+            })
+          )
         }),
 
       cleanupOldVersions: (worldId: WorldId, retentionPolicy: { maxVersions?: number; maxAgeDays?: number }) =>
@@ -855,10 +883,14 @@ export const WorldMetadataRepositoryMemoryImplementation = (
                   const versionEntries = Array.from(versions.entries())
 
                   // Apply max versions retention policy
-                  const versionsByMaxPolicy = yield* Effect.if(
-                    retentionPolicy.maxVersions !== undefined && versionEntries.length > retentionPolicy.maxVersions,
-                    {
-                      onTrue: () =>
+                  const versionsByMaxPolicy = yield* pipe(
+                    Match.value(
+                      retentionPolicy.maxVersions !== undefined &&
+                        versionEntries.length > retentionPolicy.maxVersions
+                    ),
+                    Match.when(
+                      (shouldApply) => shouldApply,
+                      () =>
                         Effect.succeed(
                           versionEntries
                             .sort(
@@ -868,23 +900,28 @@ export const WorldMetadataRepositoryMemoryImplementation = (
                             )
                             .slice(retentionPolicy.maxVersions)
                             .map(([v]) => v)
-                        ),
-                      onFalse: () => Effect.succeed([] as const satisfies ReadonlyArray<string>),
-                    }
+                        )
+                    ),
+                    Match.orElse(() => Effect.succeed([] as ReadonlyArray<string>))
                   )
 
-                  // Apply max age retention policy
-                  const versionsByAgePolicy = yield* Effect.if(retentionPolicy.maxAgeDays !== undefined, {
-                    onTrue: () =>
-                      Effect.gen(function* () {
-                        const nowDateTime = yield* DateTime.now
-                        const now = DateTime.toEpochMillis(nowDateTime)
-                        const cutoffMillis = now - retentionPolicy.maxAgeDays! * 24 * 60 * 60 * 1000
-                        const cutoffDate = DateTime.toDate(DateTime.unsafeMake(cutoffMillis))
-                        return versionEntries.filter(([, version]) => version.timestamp < cutoffDate).map(([v]) => v)
-                      }),
-                    onFalse: () => Effect.succeed([] as const satisfies ReadonlyArray<string>),
-                  })
+                  const versionsByAgePolicy = yield* pipe(
+                    Match.value(retentionPolicy.maxAgeDays !== undefined),
+                    Match.when(
+                      (shouldApply) => shouldApply,
+                      () =>
+                        Effect.gen(function* () {
+                          const nowDateTime = yield* DateTime.now
+                          const now = DateTime.toEpochMillis(nowDateTime)
+                          const cutoffMillis = now - retentionPolicy.maxAgeDays! * 24 * 60 * 60 * 1000
+                          const cutoffDate = DateTime.toDate(DateTime.unsafeMake(cutoffMillis))
+                          return versionEntries
+                            .filter(([, version]) => version.timestamp < cutoffDate)
+                            .map(([v]) => v)
+                        })
+                    ),
+                    Match.orElse(() => Effect.succeed([] as ReadonlyArray<string>))
+                  )
 
                   const versionsToDelete = [...new Set([...versionsByMaxPolicy, ...versionsByAgePolicy])]
 
@@ -1142,32 +1179,37 @@ export const WorldMetadataRepositoryMemoryImplementation = (
 
       clearCache: (worldId?: WorldId) =>
         Effect.gen(function* () {
-          yield* Effect.if(worldId !== undefined, {
-            onTrue: () =>
-              Effect.gen(function* () {
-                const metaCache = yield* Ref.get(metadataCache)
-                const statsCache = yield* Ref.get(statisticsCache)
-                const setCache = yield* Ref.get(settingsCache)
+          yield* pipe(
+            Match.value(worldId),
+            Match.when(
+              (id): id is WorldId => id !== undefined,
+              (id) =>
+                Effect.gen(function* () {
+                  const metaCache = yield* Ref.get(metadataCache)
+                  const statsCache = yield* Ref.get(statisticsCache)
+                  const setCache = yield* Ref.get(settingsCache)
 
-                const updatedMetaCache = new Map(metaCache)
-                const updatedStatsCache = new Map(statsCache)
-                const updatedSetCache = new Map(setCache)
+                  const updatedMetaCache = new Map(metaCache)
+                  const updatedStatsCache = new Map(statsCache)
+                  const updatedSetCache = new Map(setCache)
 
-                updatedMetaCache.delete(worldId)
-                updatedStatsCache.delete(worldId)
-                updatedSetCache.delete(worldId)
+                  updatedMetaCache.delete(id)
+                  updatedStatsCache.delete(id)
+                  updatedSetCache.delete(id)
 
-                yield* Ref.set(metadataCache, updatedMetaCache)
-                yield* Ref.set(statisticsCache, updatedStatsCache)
-                yield* Ref.set(settingsCache, updatedSetCache)
-              }),
-            onFalse: () =>
+                  yield* Ref.set(metadataCache, updatedMetaCache)
+                  yield* Ref.set(statisticsCache, updatedStatsCache)
+                  yield* Ref.set(settingsCache, updatedSetCache)
+                })
+            ),
+            Match.orElse(() =>
               Effect.gen(function* () {
                 yield* Ref.set(metadataCache, new Map())
                 yield* Ref.set(statisticsCache, new Map())
                 yield* Ref.set(settingsCache, new Map())
-              }),
-          })
+              })
+            )
+          )
         }),
 
       getCacheStatistics: () =>
@@ -1365,48 +1407,49 @@ export const WorldMetadataRepositoryMemoryImplementation = (
           const store = yield* Ref.get(metadataStore)
           const metadataList = Array.from(store.values())
 
-          return yield* Effect.if(metadataList.length === 0, {
-            onTrue: () =>
-              Effect.gen(function* () {
-                const now = yield* currentDate
-                return {
-                  totalWorlds: 0,
-                  totalSize: 0,
-                  averageWorldSize: 0,
-                  compressionRatio: 1.0,
-                  oldestWorld: now,
-                  newestWorld: now,
-                  mostActiveWorld: '' as WorldId,
-                }
-              }),
-            onFalse: () =>
-              Effect.succeed({
+          return yield* pipe(
+            Match.value(metadataList.length === 0),
+            Match.when(
+              (empty) => empty,
+              () =>
+                Effect.gen(function* () {
+                  const now = yield* currentDate
+                  return {
+                    totalWorlds: 0,
+                    totalSize: 0,
+                    averageWorldSize: 0,
+                    compressionRatio: 1.0,
+                    oldestWorld: now,
+                    newestWorld: now,
+                    mostActiveWorld: '' as WorldId,
+                  }
+                })
+            ),
+            Match.orElse(() => {
+              const totalSize = metadataList.reduce((sum, m) => sum + m.statistics.size.uncompressedSize, 0)
+              const totalCompressedSize = metadataList.reduce((sum, m) => sum + m.statistics.size.compressedSize, 0)
+              const sortedByCreated = [...metadataList].sort(
+                (a, b) =>
+                  DateTime.toEpochMillis(DateTime.unsafeFromDate(a.createdAt)) -
+                  DateTime.toEpochMillis(DateTime.unsafeFromDate(b.createdAt))
+              )
+              const sortedByAccessed = [...metadataList].sort(
+                (a, b) =>
+                  DateTime.toEpochMillis(DateTime.unsafeFromDate(b.lastAccessed)) -
+                  DateTime.toEpochMillis(DateTime.unsafeFromDate(a.lastAccessed))
+              )
+
+              return Effect.succeed({
                 totalWorlds: metadataList.length,
-                totalSize: metadataList.reduce((sum, m) => sum + m.statistics.size.uncompressedSize, 0),
-                averageWorldSize:
-                  metadataList.reduce((sum, m) => sum + m.statistics.size.uncompressedSize, 0) / metadataList.length,
-                compressionRatio: (() => {
-                  const totalSize = metadataList.reduce((sum, m) => sum + m.statistics.size.uncompressedSize, 0)
-                  const totalCompressedSize = metadataList.reduce((sum, m) => sum + m.statistics.size.compressedSize, 0)
-                  return totalSize > 0 ? totalCompressedSize / totalSize : 1.0
-                })(),
-                oldestWorld: [...metadataList].sort(
-                  (a, b) =>
-                    DateTime.toEpochMillis(DateTime.unsafeFromDate(a.createdAt)) -
-                    DateTime.toEpochMillis(DateTime.unsafeFromDate(b.createdAt))
-                )[0].createdAt,
-                newestWorld: [...metadataList].sort(
-                  (a, b) =>
-                    DateTime.toEpochMillis(DateTime.unsafeFromDate(a.createdAt)) -
-                    DateTime.toEpochMillis(DateTime.unsafeFromDate(b.createdAt))
-                )[metadataList.length - 1].createdAt,
-                mostActiveWorld: [...metadataList].sort(
-                  (a, b) =>
-                    DateTime.toEpochMillis(DateTime.unsafeFromDate(b.lastAccessed)) -
-                    DateTime.toEpochMillis(DateTime.unsafeFromDate(a.lastAccessed))
-                )[0].id,
-              }),
-          })
+                totalSize,
+                averageWorldSize: totalSize / metadataList.length,
+                compressionRatio: totalSize > 0 ? totalCompressedSize / totalSize : 1.0,
+                oldestWorld: sortedByCreated[0].createdAt,
+                newestWorld: sortedByCreated[sortedByCreated.length - 1].createdAt,
+                mostActiveWorld: sortedByAccessed[0].id,
+              })
+            })
+          )
         }),
     }
   })

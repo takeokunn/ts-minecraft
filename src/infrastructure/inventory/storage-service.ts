@@ -14,7 +14,7 @@ import type { ParseError } from '@effect/schema/ParseResult'
 import { isParseError } from '@effect/schema/ParseResult'
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
 import { isJsonSerializable, toJsonValue, type JsonValue } from '@shared/schema/json'
-import { Context, Data, Effect, Option, pipe, Schema } from 'effect'
+import { Context, Data, Effect, Match, Option, pipe, Schema } from 'effect'
 import type { Inventory, InventoryState, PlayerId } from '../../domain/inventory'
 import { PlayerIdSchema } from '../../domain/inventory'
 
@@ -129,23 +129,18 @@ export const StorageErrors = {
 export type StorageFailureCause = ParseError | Error | JsonValue
 
 export const toStorageFailureCause = (value: unknown): StorageFailureCause | null => {
-  if (value === null || value === undefined) {
-    return null
-  }
+  const jsonCandidate = Match.value(value).pipe(
+    Match.when(isJsonSerializable, (json) => toJsonValue(json)),
+    Match.orElse(() => undefined)
+  )
 
-  if (isParseError(value)) {
-    return value
-  }
-
-  if (value instanceof Error) {
-    return value
-  }
-
-  if (isJsonSerializable(value)) {
-    return toJsonValue(value)
-  }
-
-  return String(value)
+  return Match.value(value).pipe(
+    Match.when((candidate): candidate is null | undefined => candidate === null || candidate === undefined, () => null),
+    Match.when(isParseError, (error) => error),
+    Match.when((candidate): candidate is Error => candidate instanceof Error, (error) => error),
+    Match.orElse(() => jsonCandidate ?? String(value)),
+    Match.exhaustive
+  )
 }
 
 const withCause = (value: StorageFailureCause | null | undefined) => Option.fromNullable(value ?? null)

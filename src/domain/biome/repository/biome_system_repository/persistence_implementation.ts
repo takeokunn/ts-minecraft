@@ -152,25 +152,32 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
 
         const jsonContent = JSON.stringify(data, null, 2)
 
-        const content = yield* Effect.if(persistenceConfig.compressionEnabled, {
-          onTrue: () =>
+        const content = yield* pipe(
+          Match.value(persistenceConfig.compressionEnabled),
+          Match.when(true, () =>
             Effect.gen(function* () {
               const compressed = yield* Effect.async<Buffer, CompressionError>((resume) => {
                 zlib.gzip(jsonContent, (err, result) => {
-                  if (err) {
-                    resume(Effect.fail(createCompressionError('gzip', 'compress', `Compression failed: ${err}`)))
-                  } else {
-                    resume(Effect.succeed(result))
-                  }
+                  resume(
+                    pipe(
+                      Option.fromNullable(err),
+                      Option.match({
+                        onSome: (error) =>
+                          Effect.fail(createCompressionError('gzip', 'compress', `Compression failed: ${error}`)),
+                        onNone: () => Effect.succeed(result as Buffer),
+                      })
+                    )
+                  )
                 })
               }).pipe(
                 Effect.annotateLogs('biome.persistence.operation', 'compress'),
                 Effect.annotateLogs('biome.persistence.dataLength', jsonContent.length)
               )
               return compressed.toString('base64')
-            }),
-          onFalse: () => Effect.succeed(jsonContent),
-        })
+            })
+          ),
+          Match.orElse(() => Effect.succeed(jsonContent))
+        )
 
         yield* Effect.tryPromise({
           try: () => fs.promises.writeFile(filePath, content, 'utf8'),
@@ -205,8 +212,9 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
           Effect.annotateLogs('biome.persistence.path', filePath)
         )
 
-        return yield* Effect.if(exists, {
-          onTrue: () =>
+        return yield* pipe(
+          Match.value(exists),
+          Match.when(true, () =>
             Effect.gen(function* () {
               const rawContent = yield* Effect.tryPromise({
                 try: () => fs.promises.readFile(filePath, 'utf8'),
@@ -216,25 +224,33 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
                 Effect.annotateLogs('biome.persistence.path', filePath)
               )
 
-              const content = yield* Effect.if(persistenceConfig.compressionEnabled, {
-                onTrue: () =>
+              const content = yield* pipe(
+                Match.value(persistenceConfig.compressionEnabled),
+                Match.when(true, () =>
                   Effect.async<string, CompressionError>((resume) => {
                     const buffer = Buffer.from(rawContent, 'base64')
                     zlib.gunzip(buffer, (err, result) => {
-                      if (err) {
-                        resume(Effect.fail(createCompressionError('gzip', 'decompress', `Decompression failed: ${err}`)))
-                      } else {
-                        resume(Effect.succeed(result.toString('utf8')))
-                      }
+                      resume(
+                        pipe(
+                          Option.fromNullable(err),
+                          Option.match({
+                            onSome: (error) =>
+                              Effect.fail(
+                                createCompressionError('gzip', 'decompress', `Decompression failed: ${error}`)
+                              ),
+                            onNone: () => Effect.succeed(result.toString('utf8')),
+                          })
+                        )
+                      )
                     })
                   }).pipe(
                     Effect.annotateLogs('biome.persistence.operation', 'decompress'),
                     Effect.annotateLogs('biome.persistence.bufferLength', rawContent.length)
-                  ),
-                onFalse: () => Effect.succeed(rawContent),
-              })
+                  )
+                ),
+                Match.orElse(() => Effect.succeed(rawContent))
+              )
 
-              // パターンB: Effect.try + Effect.flatMap + Schema.decodeUnknown
               const decoded = yield* Effect.try({
                 try: () => JSON.parse(content),
                 catch: (error) =>
@@ -249,9 +265,10 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
               )
 
               return Option.some(decoded)
-            }),
-          onFalse: () => Effect.succeed(Option.none<T>()),
-        })
+            })
+          ),
+          Match.orElse(() => Effect.succeed(Option.none<T>()))
+        )
       }).pipe(
         Effect.catchTags({
           PersistenceError: (error) =>

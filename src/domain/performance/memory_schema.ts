@@ -29,10 +29,15 @@ export type PerformanceMemory = Schema.Schema.Type<typeof PerformanceMemorySchem
  * @returns PerformanceMemoryデータ（存在しない場合はOption.none()）
  * @example
  * ```typescript
- * const memory = yield* getPerformanceMemory()
- * if (Option.isSome(memory)) {
- *   console.log(`Used: ${memory.value.usedJSHeapSize} bytes`)
- * }
+ * yield* pipe(
+ *   getPerformanceMemory(),
+ *   Effect.flatMap(
+ *     Option.match({
+ *       onNone: () => Effect.unit,
+ *       onSome: (memory) => Effect.log(`Used: ${memory.usedJSHeapSize} bytes`),
+ *     })
+ *   )
+ * )
  * ```
  */
 interface ExperimentalPerformanceMemory {
@@ -45,7 +50,10 @@ export const getPerformanceMemory = (): Effect.Effect<Option.Option<PerformanceM
   Effect.sync(() => {
     // Performance.memory は非標準APIでTypeScript型定義に含まれないため、ランタイムチェック
     const perf = performance as Performance & { memory?: ExperimentalPerformanceMemory }
-    return perf.memory ? Schema.decodeUnknownOption(PerformanceMemorySchema)(perf.memory) : Option.none()
+    return pipe(
+      Option.fromNullable(perf.memory),
+      Option.flatMap((memory) => Schema.decodeUnknownOption(PerformanceMemorySchema)(memory))
+    )
   })
 
 /**
@@ -89,11 +97,10 @@ export const defaultPerformanceMemory: PerformanceMemory = {
  */
 export const getPerformanceMemoryOrDefaultSync = (): PerformanceMemory => {
   const perf = performance as Performance & { memory?: ExperimentalPerformanceMemory }
-  if (!perf.memory) {
-    return defaultPerformanceMemory
-  }
-  const result = Schema.decodeUnknownOption(PerformanceMemorySchema)(perf.memory)
-  return Option.getOrElse(() => defaultPerformanceMemory)(result)
+  const decoded = Option.fromNullable(perf.memory).pipe(
+    Option.flatMap((memory) => Schema.decodeUnknownOption(PerformanceMemorySchema)(memory))
+  )
+  return Option.getOrElse(() => defaultPerformanceMemory)(decoded)
 }
 
 /**

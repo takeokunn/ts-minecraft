@@ -30,7 +30,7 @@ TypeScript Minecraft Cloneにおける、DDD（ドメイン駆動設計）原則
 ### ドメイン中心設計
 
 ```typescript
-import { Schema, Brand, Effect, Context, Match, pipe, Option } from 'effect'
+import { Schema, Brand, Effect, Context, Match, pipe, Option, ReadonlyArray } from 'effect'
 
 // すべての設計はドメインロジックを中心に構築
 export const DesignPrinciples = {
@@ -1336,21 +1336,31 @@ export const makeWorldGenerationService = Effect.gen(function* () {
 
     generateStructures: (coord, biomeMap) =>
       Effect.gen(function* () {
-        const structures: StructureInstance[] = []
+        const structures = yield* pipe(
+          ReadonlyArray.fromIterable(biomeMap.biomes),
+          Effect.reduce([] as ReadonlyArray<StructureInstance>, (acc, biome) =>
+            Effect.gen(function* () {
+              const structureTypes = yield* getStructureTypesForBiome(biome)
 
-        // バイオーム別構造物生成確率
-        for (const biome of biomeMap.biomes) {
-          const structureTypes = yield* getStructureTypesForBiome(biome)
+              const generatedStructures = yield* pipe(
+                ReadonlyArray.fromIterable(structureTypes),
+                Effect.reduce([] as ReadonlyArray<StructureInstance>, (innerAcc, structureType) =>
+                  Effect.gen(function* () {
+                    const shouldGenerate = yield* rollStructureGeneration(structureType, coord)
+                    if (!shouldGenerate) {
+                      return innerAcc
+                    }
 
-          for (const structureType of structureTypes) {
-            const shouldGenerate = yield* rollStructureGeneration(structureType, coord)
+                    const structure = yield* generateStructureInstance(structureType, coord, biomeMap)
+                    return [...innerAcc, structure]
+                  })
+                )
+              )
 
-            if (shouldGenerate) {
-              const structure = yield* generateStructureInstance(structureType, coord, biomeMap)
-              structures.push(structure)
-            }
-          }
-        }
+              return [...acc, ...generatedStructures]
+            })
+          )
+        )
 
         return structures
       }),
@@ -1361,9 +1371,10 @@ export const makeWorldGenerationService = Effect.gen(function* () {
         let chunkData = yield* generateBaseTerrainBlocks(terrain)
 
         // 構造物配置
-        for (const structure of structures) {
-          chunkData = yield* placeStructure(chunkData, structure)
-        }
+        chunkData = yield* pipe(
+          ReadonlyArray.fromIterable(structures),
+          Effect.reduce(chunkData, (acc, structure) => placeStructure(acc, structure))
+        )
 
         // 植生・デコレーション配置
         chunkData = yield* populateVegetation(chunkData, terrain.biomeMap)
@@ -1403,48 +1414,61 @@ export const makeDataIntegrityService = Effect.gen(function* () {
   return DataIntegrityService.of({
     validateWorldConsistency: (world) =>
       Effect.gen(function* () {
-        const issues: IntegrityIssue[] = []
+        const dimensionIssues = pipe(
+          ReadonlyArray.fromIterable(world.dimensions),
+          ReadonlyArray.flatMap(([dimId, dimension]) => {
+            const mismatchIssues: ReadonlyArray<IntegrityIssue> = dimension.id !== dimId
+              ? [
+                  {
+                    type: 'DimensionIdMismatch' as const,
+                    dimensionId: dimId,
+                    severity: 'high',
+                  },
+                ]
+              : []
 
-        // ディメンション参照整合性チェック
-        for (const [dimId, dimension] of world.dimensions) {
-          if (dimension.id !== dimId) {
-            issues.push({
-              type: 'DimensionIdMismatch',
-              dimensionId: dimId,
-              severity: 'high',
-            })
-          }
+            const chunkLoadIssues: ReadonlyArray<IntegrityIssue> =
+              dimension.chunkManagement.activeChunks.size > 1000
+                ? [
+                    {
+                      type: 'ExcessiveLoadedChunks' as const,
+                      dimensionId: dimId,
+                      count: dimension.chunkManagement.activeChunks.size,
+                      severity: 'medium',
+                    },
+                  ]
+                : []
 
-          // チャンク管理データ整合性
-          const activeChunkCount = dimension.chunkManagement.activeChunks.size
-          if (activeChunkCount > 1000) {
-            // 閾値チェック
-            issues.push({
-              type: 'ExcessiveLoadedChunks',
-              dimensionId: dimId,
-              count: activeChunkCount,
-              severity: 'medium',
-            })
-          }
-        }
-
-        // 世界時間整合性チェック
-        if (world.worldTime.dayTime < 0 || world.worldTime.dayTime >= 24000) {
-          issues.push({
-            type: 'InvalidDayTime',
-            value: world.worldTime.dayTime,
-            severity: 'high',
+            return [...mismatchIssues, ...chunkLoadIssues]
           })
-        }
+        )
 
-        // ワールドボーダー整合性
-        if (world.worldBorder.size <= 0 || world.worldBorder.size > 60000000) {
-          issues.push({
-            type: 'InvalidWorldBorderSize',
-            size: world.worldBorder.size,
-            severity: 'medium',
-          })
-        }
+        const issues = (
+          [] as ReadonlyArray<IntegrityIssue>
+        )
+          .concat(dimensionIssues)
+          .concat(
+            world.worldTime.dayTime < 0 || world.worldTime.dayTime >= 24000
+              ? [
+                  {
+                    type: 'InvalidDayTime' as const,
+                    value: world.worldTime.dayTime,
+                    severity: 'high',
+                  },
+                ]
+              : []
+          )
+          .concat(
+            world.worldBorder.size <= 0 || world.worldBorder.size > 60000000
+              ? [
+                  {
+                    type: 'InvalidWorldBorderSize' as const,
+                    size: world.worldBorder.size,
+                    severity: 'medium',
+                  },
+                ]
+              : []
+          )
 
         return {
           worldId: world.id,
@@ -1456,19 +1480,31 @@ export const makeDataIntegrityService = Effect.gen(function* () {
 
     validateChunkBoundaries: (chunks) =>
       Effect.gen(function* () {
-        const boundaryIssues: BoundaryIssue[] = []
+        const boundaryIssues = yield* pipe(
+          ReadonlyArray.fromIterable(chunks),
+          Effect.reduce([] as ReadonlyArray<BoundaryIssue>, (acc, [coord, chunk]) =>
+            Effect.gen(function* () {
+              const neighbors = yield* getNeighborChunkCoordinates(coord)
 
-        for (const [coord, chunk] of chunks) {
-          const neighbors = yield* getNeighborChunkCoordinates(coord)
+              const issuesForChunk = yield* pipe(
+                ReadonlyArray.fromIterable(neighbors),
+                Effect.reduce([] as ReadonlyArray<BoundaryIssue>, (innerAcc, neighborCoord) =>
+                  Effect.gen(function* () {
+                    const neighborChunk = chunks.get(neighborCoord)
+                    if (!neighborChunk) {
+                      return innerAcc
+                    }
 
-          for (const neighborCoord of neighbors) {
-            const neighborChunk = chunks.get(neighborCoord)
-            if (neighborChunk) {
-              const inconsistencies = yield* findBoundaryInconsistencies(chunk, neighborChunk)
-              boundaryIssues.push(...inconsistencies)
-            }
-          }
-        }
+                    const inconsistencies = yield* findBoundaryInconsistencies(chunk, neighborChunk)
+                    return [...innerAcc, ...inconsistencies]
+                  })
+                )
+              )
+
+              return [...acc, ...issuesForChunk]
+            })
+          )
+        )
 
         return {
           totalChunks: chunks.size,
@@ -1480,34 +1516,53 @@ export const makeDataIntegrityService = Effect.gen(function* () {
 
     repairCorruptedData: (issues) =>
       Effect.gen(function* () {
-        let repairedCount = 0
-        let failedCount = 0
-        const repairLog: string[] = []
-
-        for (const issue of issues) {
-          try {
-            const repairResult = yield* pipe(
-              issue.type,
-              Match.value,
-              Match.when('DimensionIdMismatch', () => repairDimensionIdMismatch(issue)),
-              Match.when('ExcessiveLoadedChunks', () => unloadExcessChunks(issue)),
-              Match.when('InvalidDayTime', () => fixDayTime(issue)),
-              Match.when('InvalidWorldBorderSize', () => resetWorldBorder(issue)),
-              Match.orElse(() => Effect.fail(new UnrepairableIssueError(issue)))
-            )
-
-            if (repairResult.success) {
-              repairedCount++
-              repairLog.push(`Repaired: ${issue.type}`)
-            } else {
-              failedCount++
-              repairLog.push(`Failed to repair: ${issue.type} - ${repairResult.reason}`)
-            }
-          } catch (error) {
-            failedCount++
-            repairLog.push(`Error repairing ${issue.type}: ${error.message}`)
-          }
-        }
+        const { repairedCount, failedCount, repairLog } = yield* pipe(
+          issues,
+          Effect.reduce(
+            {
+              repairedCount: 0,
+              failedCount: 0,
+              repairLog: [] as ReadonlyArray<string>,
+            },
+            (state, issue) =>
+              pipe(
+                pipe(
+                  issue.type,
+                  Match.value,
+                  Match.when('DimensionIdMismatch', () => repairDimensionIdMismatch(issue)),
+                  Match.when('ExcessiveLoadedChunks', () => unloadExcessChunks(issue)),
+                  Match.when('InvalidDayTime', () => fixDayTime(issue)),
+                  Match.when('InvalidWorldBorderSize', () => resetWorldBorder(issue)),
+                  Match.orElse(() => Effect.fail(new UnrepairableIssueError(issue)))
+                ),
+                Effect.match(
+                  (error) => ({
+                    repairedCount: state.repairedCount,
+                    failedCount: state.failedCount + 1,
+                    repairLog: [
+                      ...state.repairLog,
+                      `Error repairing ${issue.type}: ${(error as Error).message}`,
+                    ],
+                  }),
+                  (repairResult) =>
+                    repairResult.success
+                      ? {
+                          repairedCount: state.repairedCount + 1,
+                          failedCount: state.failedCount,
+                          repairLog: [...state.repairLog, `Repaired: ${issue.type}`],
+                        }
+                      : {
+                          repairedCount: state.repairedCount,
+                          failedCount: state.failedCount + 1,
+                          repairLog: [
+                            ...state.repairLog,
+                            `Failed to repair: ${issue.type} - ${repairResult.reason}`,
+                          ],
+                        }
+                )
+              )
+          )
+        )
 
         return {
           totalIssues: issues.length,
@@ -1783,25 +1838,28 @@ export const makeEventDispatcher = Effect.gen(function* () {
       Effect.gen(function* () {
         const currentHandlers = yield* Ref.get(handlers)
 
-        for (const event of events) {
-          const eventHandlers = currentHandlers.get(event.eventType) || []
-
-          yield* Effect.all(
-            eventHandlers.map((handler) =>
-              pipe(
-                handler.handle(event),
-                Effect.catchAll((error) =>
-                  logger.error(`Event handler failed: ${error.message}`, {
-                    eventType: event.eventType,
-                    eventId: event.id,
-                    handlerName: handler.constructor.name,
-                  })
-                )
-              )
-            ),
-            { concurrency: 5 }
+        yield* pipe(
+          events,
+          Effect.forEach(
+            (event) =>
+              Effect.all(
+                (currentHandlers.get(event.eventType) || []).map((handler) =>
+                  pipe(
+                    handler.handle(event),
+                    Effect.catchAll((error) =>
+                      logger.error(`Event handler failed: ${error.message}`, {
+                        eventType: event.eventType,
+                        eventId: event.id,
+                        handlerName: handler.constructor.name,
+                      })
+                    )
+                  )
+                ),
+                { concurrency: 5 }
+              ),
+            { discard: true }
           )
-        }
+        )
       }),
 
     subscribe: (eventType, handler) =>
@@ -1928,11 +1986,12 @@ export namespace PerformanceOptimizations {
         metadata?: number
       }>
     ): BlockDataSoA => {
-      let result = soa
-      for (const op of operations) {
-        result = SoAOperations.setBlock(result, op.index, op.type, op.state || 0, op.light || 0, op.metadata || 0)
-      }
-      return result
+      return pipe(
+        operations,
+        ReadonlyArray.reduce(soa, (acc, op) =>
+          SoAOperations.setBlock(acc, op.index, op.type, op.state ?? 0, op.light ?? 0, op.metadata ?? 0)
+        )
+      )
     },
 
     // メモリ使用量計算
@@ -2203,11 +2262,15 @@ describe('World Data Structure Integration Tests', () => {
       const world = yield* createLargeTestWorld(1000) // 1000チャンク
 
       // 大量のランダム変更を適用
-      let modifiedWorld = world
-      for (let i = 0; i < 1000; i++) {
-        const randomOperation = yield* generateRandomWorldOperation()
-        modifiedWorld = yield* applyWorldOperation(modifiedWorld, randomOperation)
-      }
+      const modifiedWorld = yield* pipe(
+        ReadonlyArray.range(0, 999),
+        Effect.reduce(world, (currentWorld) =>
+          Effect.gen(function* () {
+            const randomOperation = yield* generateRandomWorldOperation()
+            return yield* applyWorldOperation(currentWorld, randomOperation)
+          })
+        )
+      )
 
       // データ整合性チェック
       const integrityReport = yield* integrityService.validateWorldConsistency(modifiedWorld)
@@ -2300,17 +2363,19 @@ describe('Performance Benchmarks', () => {
       const startTime = performance.now()
 
       // 大量のブロック設定操作
-      let modifiedSoA = soa
-      for (let i = 0; i < 65536; i++) {
-        modifiedSoA = PerformanceOptimizations.SoAOperations.setBlock(
-          modifiedSoA,
-          i,
-          Math.floor(Math.random() * 256), // ランダムブロックタイプ
-          Math.floor(Math.random() * 16), // ランダム状態
-          Math.floor(Math.random() * 16), // ランダム光レベル
-          Math.floor(Math.random() * 256) // ランダムメタデータ
+      const modifiedSoA = pipe(
+        ReadonlyArray.range(0, 65535),
+        ReadonlyArray.reduce(soa, (acc, index) =>
+          PerformanceOptimizations.SoAOperations.setBlock(
+            acc,
+            index,
+            Math.floor(Math.random() * 256),
+            Math.floor(Math.random() * 16),
+            Math.floor(Math.random() * 16),
+            Math.floor(Math.random() * 256)
+          )
         )
-      }
+      )
 
       const endTime = performance.now()
       const totalTime = endTime - startTime

@@ -540,20 +540,17 @@ const makeMetricsCollectorService = Effect.gen(function* () {
         Effect.gen(function* () {
           const isActive = yield* Ref.get(isCollecting)
 
-          // 早期return → Effect.ifの変換
-          return yield* Effect.if(isActive, {
-            onTrue: () =>
+          return yield* Match.value(isActive).pipe(
+            Match.when(true, () =>
               Effect.gen(function* () {
-                // システムメトリクス収集
                 yield* collectSystemMetrics()
-
-                // 古いメトリクスのクリーンアップ
                 yield* cleanupOldMetrics()
-
                 return true
-              }),
-            onFalse: () => Effect.succeed(false),
-          })
+              })
+            ),
+            Match.orElse(() => Effect.succeed(false)),
+            Match.exhaustive
+          )
         }),
         { schedule: Effect.Schedule.spaced(`${config.collectionInterval} millis`) }
       )

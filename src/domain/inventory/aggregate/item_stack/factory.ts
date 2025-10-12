@@ -5,7 +5,7 @@
 
 import type { JsonRecord } from '@shared/schema/json'
 import { formatParseIssues } from '@shared/schema/tagged_error_factory'
-import { Brand, Context, DateTime, Effect, Layer, Schema } from 'effect'
+import { Brand, Context, DateTime, Effect, Layer, Match, Option, Schema, pipe } from 'effect'
 import { nanoid } from 'nanoid'
 import type { ItemId } from '../../types'
 import type { Durability, Enchantment, ItemCount, ItemNBTData, ItemStackEntity, ItemStackId } from './types'
@@ -215,24 +215,25 @@ export const withVersion = (state: ItemStackBuilderState, version: number): Item
  */
 export const buildItemStack = (state: ItemStackBuilderState): Effect.Effect<ItemStackEntity, ItemStackError> =>
   Effect.gen(function* () {
-    // 必須フィールドの検証
-    if (!state.itemId) {
-      yield* Effect.fail(
-        ItemStackError.make({
-          reason: 'INCOMPATIBLE_ITEMS',
-          message: 'アイテムIDが設定されていません',
-        })
+    const requireField = <T>(value: T | undefined, message: string, reason: ItemStackError['_tag']) =>
+      pipe(
+        Match.value(value),
+        Match.when(
+          (candidate): candidate is T => candidate !== undefined,
+          (candidate) => Effect.succeed(candidate)
+        ),
+        Match.orElse(() =>
+          Effect.fail(
+            ItemStackError.make({
+              reason,
+              message,
+            })
+          )
+        )
       )
-    }
 
-    if (!state.count) {
-      yield* Effect.fail(
-        ItemStackError.make({
-          reason: 'INVALID_STACK_SIZE',
-          message: 'アイテム数量が設定されていません',
-        })
-      )
-    }
+    const itemId = yield* requireField(state.itemId, 'アイテムIDが設定されていません', 'INCOMPATIBLE_ITEMS')
+    const count = yield* requireField(state.count, 'アイテム数量が設定されていません', 'INVALID_STACK_SIZE')
 
     // IDの生成または検証
     const id = state.id ?? makeUnsafeItemStackId(`stack_${nanoid()}`)
@@ -246,8 +247,8 @@ export const buildItemStack = (state: ItemStackBuilderState): Effect.Effect<Item
     // エンティティデータの構築
     const entityData = {
       id,
-      itemId: state.itemId,
-      count: state.count,
+      itemId,
+      count,
       ...(state.durability && { durability: state.durability }),
       ...(Object.keys(state.metadata).length > 0 && { metadata: state.metadata }),
       ...(Object.keys(state.nbtData).length > 0 && { nbtData: state.nbtData }),
@@ -280,21 +281,43 @@ export const ItemStackFactoryLive = ItemStackFactory.of({
       state = withItemId(state, itemId)
       state = withCount(state, count)
 
-      if (options?.id) {
-        state = withId(state, options.id)
-      }
+      state = pipe(
+        Option.fromNullable(options),
+        Option.match({
+          onNone: () => state,
+          onSome: (opts) => {
+            const withIdState = pipe(
+              Match.value(opts.id),
+              Match.when((value): value is ItemStackId => value !== undefined, (value) => withId(state, value)),
+              Match.orElse(() => state)
+            )
 
-      if (options?.durability) {
-        state = withDurability(state, options.durability)
-      }
+            const withDurabilityState = pipe(
+              Match.value(opts.durability),
+              Match.when((value): value is Durability => value !== undefined, (value) =>
+                withDurability(withIdState, value)
+              ),
+              Match.orElse(() => withIdState)
+            )
 
-      if (options?.nbtData) {
-        state = withNBTData(state, options.nbtData)
-      }
+            const withNBTState = pipe(
+              Match.value(opts.nbtData),
+              Match.when((value): value is ItemNBTData => value !== undefined, (value) =>
+                withNBTData(withDurabilityState, value)
+              ),
+              Match.orElse(() => withDurabilityState)
+            )
 
-      if (options?.metadata) {
-        state = withMetadata(state, options.metadata)
-      }
+            return pipe(
+              Match.value(opts.metadata),
+              Match.when((value): value is JsonRecord => value !== undefined, (value) =>
+                withMetadata(withNBTState, value)
+              ),
+              Match.orElse(() => withNBTState)
+            )
+          },
+        })
+      )
 
       return yield* buildItemStack(state)
     }),

@@ -4,7 +4,7 @@
  * ワールド生成オーケストレータのLayer定義
  */
 
-import { Clock, Duration, Effect, Layer, Schema } from 'effect'
+import { Clock, Duration, Effect, Layer, Match, Schema, pipe } from 'effect'
 import { DependencyCoordinatorService, DependencyCoordinatorServiceLive } from './dependency_coordinator'
 import { ErrorRecoveryService, ErrorRecoveryServiceLive } from './error_recovery'
 import { GenerationPipelineService, GenerationPipelineServiceLive } from './generation_pipeline'
@@ -34,35 +34,42 @@ const makeWorldGenerationOrchestrator = Effect.gen(function* () {
   const activeSessions = new Set<string>()
   const sessionCounter = { value: 0 }
 
-  const mapStage = (stage: string | undefined): Schema.Schema.Type<typeof GenerationProgress>['stage'] => {
-    switch (stage) {
-      case 'terrain_generation':
-      case 'terrain':
-        return 'terrain'
-      case 'biome_assignment':
-      case 'biomes':
-        return 'biomes'
-      case 'cave_carving':
-      case 'caves':
-        return 'caves'
-      case 'ore_placement':
-      case 'ores':
-        return 'ores'
-      case 'structure_spawning':
-      case 'structures':
-        return 'structures'
-      case 'post_processing':
-      case 'validation':
-      case 'finalizing':
-        return 'finalizing'
-      case 'completed':
-        return 'completed'
-      case 'failed':
-        return 'failed'
-      default:
-        return 'initializing'
-    }
-  }
+  const mapStage = (stage: string | undefined): Schema.Schema.Type<typeof GenerationProgress>['stage'] =>
+    pipe(
+      Match.value(stage),
+      Match.when(
+        (value): value is 'terrain_generation' | 'terrain' =>
+          value === 'terrain_generation' || value === 'terrain',
+        () => 'terrain' as const
+      ),
+      Match.when(
+        (value): value is 'biome_assignment' | 'biomes' =>
+          value === 'biome_assignment' || value === 'biomes',
+        () => 'biomes' as const
+      ),
+      Match.when(
+        (value): value is 'cave_carving' | 'caves' =>
+          value === 'cave_carving' || value === 'caves',
+        () => 'caves' as const
+      ),
+      Match.when(
+        (value): value is 'ore_placement' | 'ores' => value === 'ore_placement' || value === 'ores',
+        () => 'ores' as const
+      ),
+      Match.when(
+        (value): value is 'structure_spawning' | 'structures' =>
+          value === 'structure_spawning' || value === 'structures',
+        () => 'structures' as const
+      ),
+      Match.when(
+        (value): value is 'post_processing' | 'validation' | 'finalizing' =>
+          value === 'post_processing' || value === 'validation' || value === 'finalizing',
+        () => 'finalizing' as const
+      ),
+      Match.when((value): value is 'completed' => value === 'completed', () => 'completed' as const),
+      Match.when((value): value is 'failed' => value === 'failed', () => 'failed' as const),
+      Match.orElse(() => 'initializing' as const)
+    )
 
   const generateWorld = (command: Schema.Schema.Type<typeof GenerateWorldCommand>) =>
     Effect.gen(function* () {

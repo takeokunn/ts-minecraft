@@ -757,30 +757,43 @@ export const validate = (
   state: GenerationSessionBuilderState
 ): Effect.Effect<SessionValidationState, SessionFactoryError> =>
   Effect.gen(function* () {
-    const errors: string[] = []
-    const warnings: string[] = []
+    const coordinateErrors = Function.pipe(
+      Match.value(state.coordinates ?? []),
+      Match.when(
+        (coordinates) => coordinates.length === 0,
+        () => ['No coordinates specified for generation']
+      ),
+      Match.orElse(() => [] as string[])
+    )
 
-    // 座標チェック
-    if (!state.coordinates || state.coordinates.length === 0) {
-      errors.push('No coordinates specified for generation')
-    }
-
-    // 設定一貫性チェック
-    if (
-      state.executionMode === 'sync' &&
-      state.configuration?.maxConcurrentChunks &&
-      state.configuration.maxConcurrentChunks > 1
-    ) {
-      warnings.push('Sync execution mode with multiple concurrent chunks may not be optimal')
-    }
+    const configurationWarnings = Function.pipe(
+      Match.value({
+        executionMode: state.executionMode,
+        maxConcurrentChunks: state.configuration?.maxConcurrentChunks,
+      }),
+      Match.when(
+        ({ executionMode, maxConcurrentChunks }) =>
+          executionMode === 'sync' && maxConcurrentChunks !== undefined && maxConcurrentChunks > 1,
+        () => ['Sync execution mode with multiple concurrent chunks may not be optimal']
+      ),
+      Match.orElse(() => [] as string[])
+    )
 
     // リソース推定
     const estimatedResourceUsage = yield* estimateResources(state)
     const estimatedDuration = calculateEstimatedDuration(state)
 
-    if (estimatedResourceUsage.memory > 1024) {
-      warnings.push('High memory usage estimated')
-    }
+    const resourceWarnings = Function.pipe(
+      Match.value(estimatedResourceUsage.memory),
+      Match.when(
+        (memory) => memory > 1024,
+        () => ['High memory usage estimated']
+      ),
+      Match.orElse(() => [] as string[])
+    )
+
+    const errors = coordinateErrors
+    const warnings = [...configurationWarnings, ...resourceWarnings]
 
     return {
       isValid: errors.length === 0,
@@ -846,13 +859,20 @@ export const build = (
 ): Effect.Effect<GenerationSession.GenerationSession, SessionFactoryError> =>
   Effect.gen(function* () {
     const validationState = yield* validate(state)
-    if (!validationState.isValid) {
-      return yield* Effect.fail(
-        SessionFactoryErrorFactory.configurationInvalid(
-          `Session validation failed: ${validationState.errors.join(', ')}`
-        )
-      )
-    }
+
+    yield* Function.pipe(
+      Match.value(validationState),
+      Match.when(
+        ({ isValid }) => !isValid,
+        ({ errors }) =>
+          Effect.fail(
+            SessionFactoryErrorFactory.configurationInvalid(
+              `Session validation failed: ${errors.join(', ')}`
+            )
+          )
+      ),
+      Match.orElse(() => Effect.void)
+    )
 
     const params = yield* buildParams(state)
 
@@ -878,8 +898,16 @@ function generateAreaCoordinates(
       Function.pipe(
         ReadonlyArray.range(-radius, radius + 1),
         ReadonlyArray.filterMap((z) => {
-          if (x * x + z * z > radius * radius) return Option.none()
-          return Option.some(Coordinates.createChunkCoordinate(center.x + x, center.z + z))
+          return Function.pipe(
+            Match.value(x * x + z * z),
+            Match.when(
+              (distanceSquared) => distanceSquared > radius * radius,
+              () => Option.none<Coordinates.ChunkCoordinate>()
+            ),
+            Match.orElse(() =>
+              Option.some(Coordinates.createChunkCoordinate(center.x + x, center.z + z))
+            )
+          )
         })
       )
     )

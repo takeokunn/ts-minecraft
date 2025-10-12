@@ -4,7 +4,7 @@
  * チャンク座標同士の演算とファクトリ関数
  */
 
-import { Array, Effect, Function, Schema } from 'effect'
+import { Array, Effect, Function, Match, Option, Schema, pipe } from 'effect'
 import {
   CHUNK_COORDINATE_LIMITS,
   ChunkCoordinate,
@@ -28,28 +28,24 @@ export const CHUNK_ORIGIN: ChunkCoordinate = {
  */
 export const make = (x: number, z: number): Effect.Effect<ChunkCoordinate, ChunkCoordinateError> =>
   Effect.gen(function* () {
-    // 範囲チェック
-    if (x < CHUNK_COORDINATE_LIMITS.MIN_X || x > CHUNK_COORDINATE_LIMITS.MAX_X) {
-      return yield* Effect.fail({
-        _tag: 'ChunkOutOfBounds' as const,
-        axis: 'x' as const,
-        value: x,
-        min: CHUNK_COORDINATE_LIMITS.MIN_X,
-        max: CHUNK_COORDINATE_LIMITS.MAX_X,
-        message: `Chunk X coordinate ${x} is out of bounds [${CHUNK_COORDINATE_LIMITS.MIN_X}, ${CHUNK_COORDINATE_LIMITS.MAX_X}]`,
-      })
-    }
+    const ensureBounds = (axis: 'x' | 'z', value: number, min: number, max: number) =>
+      pipe(
+        Match.value(value < min || value > max),
+        Match.when(true, () =>
+          Effect.fail<ChunkCoordinateError>({
+            _tag: 'ChunkOutOfBounds',
+            axis,
+            value,
+            min,
+            max,
+            message: `Chunk ${axis.toUpperCase()} coordinate ${value} is out of bounds [${min}, ${max}]`,
+          })
+        ),
+        Match.orElse(() => Effect.unit)
+      )
 
-    if (z < CHUNK_COORDINATE_LIMITS.MIN_Z || z > CHUNK_COORDINATE_LIMITS.MAX_Z) {
-      return yield* Effect.fail({
-        _tag: 'ChunkOutOfBounds' as const,
-        axis: 'z' as const,
-        value: z,
-        min: CHUNK_COORDINATE_LIMITS.MIN_Z,
-        max: CHUNK_COORDINATE_LIMITS.MAX_Z,
-        message: `Chunk Z coordinate ${z} is out of bounds [${CHUNK_COORDINATE_LIMITS.MIN_Z}, ${CHUNK_COORDINATE_LIMITS.MAX_Z}]`,
-      })
-    }
+    yield* ensureBounds('x', x, CHUNK_COORDINATE_LIMITS.MIN_X, CHUNK_COORDINATE_LIMITS.MAX_X)
+    yield* ensureBounds('z', z, CHUNK_COORDINATE_LIMITS.MIN_Z, CHUNK_COORDINATE_LIMITS.MAX_Z)
 
     const decodeError = (cause: unknown) => ({
       _tag: 'InvalidChunkCoordinate' as const,
@@ -149,24 +145,32 @@ export const hash = (coord: ChunkCoordinate): string => `${coord.x},${coord.z}`
 export const fromHash = (hash: string): Effect.Effect<ChunkCoordinate, ChunkCoordinateError> =>
   Effect.gen(function* () {
     const parts = hash.split(',')
-    if (parts.length !== 2) {
-      return yield* Effect.fail({
-        _tag: 'InvalidChunkCoordinate' as const,
-        coordinate: hash,
-        message: `Invalid chunk coordinate hash: ${hash}`,
-      })
-    }
+    yield* pipe(
+      Match.value(parts.length !== 2),
+      Match.when(true, () =>
+        Effect.fail<ChunkCoordinateError>({
+          _tag: 'InvalidChunkCoordinate',
+          coordinate: hash,
+          message: `Invalid chunk coordinate hash: ${hash}`,
+        })
+      ),
+      Match.orElse(() => Effect.unit)
+    )
 
     const x = Number.parseInt(parts[0], 10)
     const z = Number.parseInt(parts[1], 10)
 
-    if (Number.isNaN(x) || Number.isNaN(z)) {
-      return yield* Effect.fail({
-        _tag: 'InvalidChunkCoordinate' as const,
-        coordinate: hash,
-        message: `Invalid chunk coordinate hash (NaN): ${hash}`,
-      })
-    }
+    yield* pipe(
+      Match.value(Number.isNaN(x) || Number.isNaN(z)),
+      Match.when(true, () =>
+        Effect.fail<ChunkCoordinateError>({
+          _tag: 'InvalidChunkCoordinate',
+          coordinate: hash,
+          message: `Invalid chunk coordinate hash (NaN): ${hash}`,
+        })
+      ),
+      Match.orElse(() => Effect.unit)
+    )
 
     return yield* make(x, z)
   })
@@ -186,8 +190,13 @@ export const getChunksInRadius = (center: ChunkCoordinate, radius: number): read
         ReadonlyArray.filterMap((z) => {
           const dx = x - center.x
           const dz = z - center.z
-          if (dx * dx + dz * dz > radiusSquared) return undefined
-          return makeUnsafe(x, z)
+          const distanceSquared = dx * dx + dz * dz
+
+          return pipe(
+            Match.value(distanceSquared <= radiusSquared),
+            Match.when(true, () => Option.some(makeUnsafe(x, z))),
+            Match.orElse(() => Option.none<ChunkCoordinate>())
+          )
         })
       )
     )

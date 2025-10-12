@@ -6,7 +6,7 @@
  */
 
 import type { CameraError, CameraId } from '@domain/camera/types'
-import { Array, Effect, Option } from 'effect'
+import { Array, Effect, Match, Option, pipe } from 'effect'
 import { CameraRotation, Position3D } from '../../value_object/index'
 import { Camera, CameraFactory } from '../camera'
 import {
@@ -111,17 +111,23 @@ export namespace SceneCameraFactory {
     strategy?: TargetStrategy
   ): Effect.Effect<SceneCamera, CameraError> =>
     Effect.gen(function* () {
-      if (targets.length === 0) {
-        return yield* Effect.fail(
-          CameraError({
-            _tag: 'InvalidParameterError',
-            message: 'At least one target is required',
-          })
-        )
-      }
+      const validatedTargets = yield* pipe(
+        Match.value(targets),
+        Match.when(
+          (list) => list.length === 0,
+          () =>
+            Effect.fail(
+              CameraError({
+                _tag: 'InvalidParameterError',
+                message: 'At least one target is required',
+              })
+            )
+        ),
+        Match.orElse((list) => Effect.succeed(list))
+      )
 
       // ターゲットの中心位置を計算
-      const centerPosition = calculateCenterPosition(targets)
+      const centerPosition = calculateCenterPosition(validatedTargets)
 
       // カメラの初期位置（中心から少し離れた位置）
       const initialPosition = {
@@ -141,7 +147,7 @@ export namespace SceneCameraFactory {
       // Multiple Target追従モード
       const targetStrategy = strategy ?? TargetStrategy.Center({})
       const followMode = FollowMode.MultipleTargets({
-        targets,
+        targets: validatedTargets,
         strategy: targetStrategy,
       })
 
@@ -156,14 +162,20 @@ export namespace SceneCameraFactory {
     sequence: CinematicSequence
   ): Effect.Effect<SceneCamera, CameraError> =>
     Effect.gen(function* () {
-      if (sequence.keyframes.length === 0) {
-        return yield* Effect.fail(
-          CameraError({
-            _tag: 'InvalidParameterError',
-            message: 'Cinematic sequence must have at least one keyframe',
-          })
-        )
-      }
+      yield* pipe(
+        Match.value(sequence.keyframes.length),
+        Match.when(
+          (count) => count === 0,
+          () =>
+            Effect.fail(
+              CameraError({
+                _tag: 'InvalidParameterError',
+                message: 'Cinematic sequence must have at least one keyframe',
+              })
+            )
+        ),
+        Match.orElse(() => Effect.void)
+      )
 
       // 最初のキーフレームから初期状態を取得
       const firstKeyframe = sequence.keyframes[0]
@@ -246,20 +258,26 @@ export namespace SceneCameraFactory {
     height?: number
   ): Effect.Effect<CinematicSequence, CameraError> =>
     Effect.gen(function* () {
-      if (waypoints.length < 2) {
-        return yield* Effect.fail(
-          CameraError({
-            _tag: 'InvalidParameterError',
-            message: 'Flyby sequence requires at least 2 waypoints',
-          })
-        )
-      }
+      const validatedWaypoints = yield* pipe(
+        Match.value(waypoints),
+        Match.when(
+          (points) => points.length < 2,
+          () =>
+            Effect.fail(
+              CameraError({
+                _tag: 'InvalidParameterError',
+                message: 'Flyby sequence requires at least 2 waypoints',
+              })
+            )
+        ),
+        Match.orElse((points) => Effect.succeed(points))
+      )
 
       const flyHeight = height ?? 10
-      const timeStep = duration / waypoints.length
+      const timeStep = duration / validatedWaypoints.length
 
       // 各ウェイポイントからキーフレームを生成
-      const keyframes = waypoints.map((waypoint, index) => {
+      const keyframes = validatedWaypoints.map((waypoint, index) => {
         const position = {
           x: waypoint.x,
           y: waypoint.y + flyHeight,
@@ -267,7 +285,8 @@ export namespace SceneCameraFactory {
         } as Position3D
 
         // 次のウェイポイントを向く回転（最後は現在方向を保持）
-        const nextWaypoint = index < waypoints.length - 1 ? waypoints[index + 1] : waypoints[index]
+        const nextWaypoint =
+          index < validatedWaypoints.length - 1 ? validatedWaypoints[index + 1] : validatedWaypoints[index]
 
         const rotation = calculateLookAtRotationSync(position, nextWaypoint)
 

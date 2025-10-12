@@ -243,37 +243,42 @@ export const validateArmorSlots = (inventory: Inventory): Effect.Effect<Readonly
     return yield* pipe(
       armorItems,
       Effect.forEach(({ slot, item }) =>
-        Effect.gen(function* () {
-          if (item === null) return Option.none<ValidationViolation>()
+        pipe(
+          Option.fromNullable(item),
+          Option.match({
+            onNone: () => Effect.succeed(Option.none<ValidationViolation>()),
+            onSome: (armorItem) =>
+              Effect.gen(function* () {
+                const isValidArmor = yield* isValidArmorForSlot(armorItem.itemId, slot)
+                const result = pipe(
+                  Match.value(isValidArmor),
+                  Match.when(true, () => ValidationResult.Valid({})),
+                  Match.orElse(() => ValidationResult.InvalidArmorSlot({ slot, itemId: armorItem.itemId }))
+                )
 
-          const isValidArmor = yield* isValidArmorForSlot(item.itemId, slot)
-          const result = pipe(
-            Match.value(isValidArmor),
-            Match.when(true, () => ValidationResult.Valid({})),
-            Match.orElse(() => ValidationResult.InvalidArmorSlot({ slot, itemId: item.itemId }))
-          )
-
-          return yield* pipe(
-            result,
-            Match.tag({
-              Valid: () => Effect.succeed(Option.none<ValidationViolation>()),
-              InvalidArmorSlot: ({ slot: armorSlot, itemId }) =>
-                Effect.succeed(
-                  Option.some(
-                    createValidationViolation({
-                      type: 'INVALID_ARMOR_SLOT',
-                      severity: 'ERROR',
-                      description: `Invalid armor item ${itemId} in ${armorSlot} slot`,
-                      affectedSlots: [],
-                      detectedValue: itemId,
-                      canAutoCorrect: false,
-                    })
-                  )
-                ),
-              _: () => Effect.succeed(Option.none<ValidationViolation>()),
-            })
-          )
-        })
+                return yield* pipe(
+                  result,
+                  Match.tag({
+                    Valid: () => Effect.succeed(Option.none<ValidationViolation>()),
+                    InvalidArmorSlot: ({ slot: armorSlot, itemId }) =>
+                      Effect.succeed(
+                        Option.some(
+                          createValidationViolation({
+                            type: 'INVALID_ARMOR_SLOT',
+                            severity: 'ERROR',
+                            description: `Invalid armor item ${itemId} in ${armorSlot} slot`,
+                            affectedSlots: [],
+                            detectedValue: itemId,
+                            canAutoCorrect: false,
+                          })
+                        )
+                      ),
+                    _: () => Effect.succeed(Option.none<ValidationViolation>()),
+                  })
+                )
+              }),
+          })
+        ))
       ),
       Effect.map(ReadonlyArray.filterMap((x) => x))
     )

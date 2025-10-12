@@ -6,6 +6,7 @@
  */
 
 import { makeUnsafeWorldX, makeUnsafeWorldZ } from '@/domain/biome/value_object/coordinates'
+import { Match, Option, pipe } from 'effect'
 import type { BiomePlacement, QuadTreeNode, QuadTreeState, SpatialBounds, SpatialCoordinate } from './quadtree_schema'
 
 // === Helper Functions ===
@@ -92,36 +93,39 @@ const insertNode = (
   maxDepth: number,
   maxEntries: number
 ): QuadTreeNode => {
-  // 境界外チェック - 同じ参照を返す (O(1))
-  if (!coordinateInBounds(placement.coordinate, node.bounds)) {
-    return node
-  }
+  return pipe(
+    Match.value(coordinateInBounds(placement.coordinate, node.bounds)),
+    Match.when(false, () => node),
+    Match.orElse(() =>
+      pipe(
+        Match.value(node.isLeaf),
+        Match.when(true, () => {
+          const newBiomes = [...node.biomes, placement]
 
-  if (node.isLeaf) {
-    // 新しいbiomes配列を作成 (既存配列は不変)
-    const newBiomes = [...node.biomes, placement]
+          return pipe(
+            Match.value(newBiomes.length > maxEntries && depth < maxDepth),
+            Match.when(true, () => splitNode({ ...node, biomes: newBiomes }, depth, maxDepth, maxEntries)),
+            Match.orElse(() => ({ ...node, biomes: newBiomes }))
+          )
+        }),
+        Match.orElse(() =>
+          pipe(
+            Option.fromNullable(node.children),
+            Option.match({
+              onNone: () => node,
+              onSome: (children) => {
+                const newChildren = children.map((child) =>
+                  insertNode(child, placement, depth + 1, maxDepth, maxEntries)
+                ) as [QuadTreeNode, QuadTreeNode, QuadTreeNode, QuadTreeNode]
 
-    // 分割が必要か判定
-    if (newBiomes.length > maxEntries && depth < maxDepth) {
-      return splitNode({ ...node, biomes: newBiomes }, depth, maxDepth, maxEntries)
-    }
-
-    // 新しいリーフノードを返す
-    return { ...node, biomes: newBiomes }
-  } else if (node.children) {
-    // 子ノードに再帰的に挿入 (構造共有)
-    const newChildren = node.children.map((child) => insertNode(child, placement, depth + 1, maxDepth, maxEntries)) as [
-      QuadTreeNode,
-      QuadTreeNode,
-      QuadTreeNode,
-      QuadTreeNode,
-    ]
-
-    // 新しい内部ノードを返す (children配列のみ変更)
-    return { ...node, children: newChildren }
-  }
-
-  return node
+                return { ...node, children: newChildren }
+              },
+            })
+          )
+        )
+      )
+    )
+  )
 }
 
 /**
@@ -182,18 +186,29 @@ export const query = (state: QuadTreeState, bounds: SpatialBounds): ReadonlyArra
  * ノード内を検索 (内部関数・再帰)
  */
 const queryNode = (node: QuadTreeNode, bounds: SpatialBounds, results: BiomePlacement[]): void => {
-  // 境界が交差しない場合は早期リターン
-  if (!boundsIntersect(node.bounds, bounds)) {
-    return
-  }
-
-  if (node.isLeaf) {
-    // リーフノードの場合、全バイオームをチェック
-    node.biomes.filter((biome) => coordinateInBounds(biome.coordinate, bounds)).forEach((biome) => results.push(biome))
-  } else if (node.children) {
-    // 内部ノードの場合、子ノードを再帰検索
-    node.children.forEach((child) => queryNode(child, bounds, results))
-  }
+  pipe(
+    Match.value(boundsIntersect(node.bounds, bounds)),
+    Match.when(false, () => undefined),
+    Match.orElse(() =>
+      pipe(
+        Match.value(node.isLeaf),
+        Match.when(true, () =>
+          node.biomes
+            .filter((biome) => coordinateInBounds(biome.coordinate, bounds))
+            .forEach((biome) => results.push(biome))
+        ),
+        Match.orElse(() =>
+          pipe(
+            Option.fromNullable(node.children),
+            Option.match({
+              onNone: () => undefined,
+              onSome: (children) => children.forEach((child) => queryNode(child, bounds, results)),
+            })
+          )
+        )
+      )
+    )
+  )
 }
 
 /**
@@ -209,9 +224,6 @@ export const findNearestBiome = (
   coordinate: SpatialCoordinate,
   maxDistance: number = Infinity
 ): BiomePlacement | null => {
-  let nearest: BiomePlacement | null = null
-  let minDistance = maxDistance
-
   // 検索範囲の境界を作成
   const searchBounds: SpatialBounds = {
     minX: makeUnsafeWorldX(coordinate.x - maxDistance),
@@ -224,13 +236,20 @@ export const findNearestBiome = (
   const candidates = query(state, searchBounds)
 
   // 最も近いバイオームを検索
-  return candidates.reduce<BiomePlacement | undefined>((nearest, candidate) => {
-    const distance = calculateDistance(coordinate, candidate.coordinate)
-    if (!nearest || distance < calculateDistance(coordinate, nearest.coordinate)) {
-      return candidate
-    }
-    return nearest
+  const nearest = candidates.reduce<BiomePlacement | undefined>((currentNearest, candidate) => {
+    const candidateDistance = calculateDistance(coordinate, candidate.coordinate)
+
+    return pipe(
+      Option.fromNullable(currentNearest),
+      Option.match({
+        onNone: () => (candidateDistance <= maxDistance ? candidate : undefined),
+        onSome: (existing) =>
+          candidateDistance < calculateDistance(coordinate, existing.coordinate) ? candidate : existing,
+      })
+    )
   }, undefined)
+
+  return nearest ?? null
 }
 
 /**
@@ -261,12 +280,22 @@ export const getStatistics = (
     stats.depthSum += depth
     stats.maxDepthFound = Math.max(stats.maxDepthFound, depth)
 
-    if (node.isLeaf) {
-      stats.leafNodes++
-      stats.totalBiomes += node.biomes.length
-    } else if (node.children) {
-      node.children.forEach((child) => traverse(child, depth + 1))
-    }
+    pipe(
+      Match.value(node.isLeaf),
+      Match.when(true, () => {
+        stats.leafNodes++
+        stats.totalBiomes += node.biomes.length
+      }),
+      Match.orElse(() =>
+        pipe(
+          Option.fromNullable(node.children),
+          Option.match({
+            onNone: () => undefined,
+            onSome: (children) => children.forEach((child) => traverse(child, depth + 1)),
+          })
+        )
+      )
+    )
   }
 
   traverse(state.root, 0)

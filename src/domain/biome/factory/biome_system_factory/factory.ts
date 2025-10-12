@@ -20,7 +20,7 @@ import * as BiomeProperties from '@/domain/biome/value_object/biome_properties/i
 import * as Coordinates from '@/domain/biome/value_object/coordinates/index'
 import { JsonValueSchema, type JsonRecord } from '@shared/schema/json'
 import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
-import { Context, Effect, Function, Layer, Match, Schema } from 'effect'
+import { Context, Effect, Function, Layer, Match, Option, Schema, pipe } from 'effect'
 
 // ================================
 // Factory Error Types
@@ -202,16 +202,29 @@ const createBiomeSystemFactory = (): BiomeSystemFactory => ({
       })
 
       // 検証実行
-      if (effectiveParams.validationLevel) {
-        const validation = yield* validateBiomeSystem(biomeSystem, effectiveParams.validationLevel)
-        if (!validation.isValid && validation.issues.some((i) => i.level === 'critical')) {
-          return yield* Effect.fail(
-            BiomeFactoryError.ecosystemAssembly('BiomeSystem validation failed with critical issues', {
-              context: { validation },
-            })
-          )
-        }
-      }
+      yield* pipe(
+        Option.fromNullable(effectiveParams.validationLevel),
+        Option.match({
+          onNone: () => Effect.unit,
+          onSome: (level) =>
+            Effect.gen(function* () {
+              const validation = yield* validateBiomeSystem(biomeSystem, level)
+              const hasCriticalIssues = validation.issues.some((issue) => issue.level === 'critical')
+
+              return yield* pipe(
+                Match.value(validation.isValid || !hasCriticalIssues),
+                Match.when(true, () => Effect.unit),
+                Match.orElse(() =>
+                  Effect.fail(
+                    BiomeFactoryError.ecosystemAssembly('BiomeSystem validation failed with critical issues', {
+                      context: { validation },
+                    })
+                  )
+                )
+              )
+            }),
+        })
+      )
 
       return biomeSystem
     }),
@@ -483,13 +496,23 @@ const validateCreateParams = (
     )
 
     // ビジネスルール検証
-    if (validatedParams.memoryLimit && validatedParams.memoryLimit < 0) {
-      return yield* Effect.fail(BiomeFactoryError.biomeCreation('Memory limit must be non-negative'))
-    }
+    yield* pipe(
+      Option.fromNullable(validatedParams.memoryLimit),
+      Option.filter((limit) => limit < 0),
+      Option.match({
+        onNone: () => Effect.unit,
+        onSome: () => Effect.fail(BiomeFactoryError.biomeCreation('Memory limit must be non-negative')),
+      })
+    )
 
-    if (validatedParams.customBiomes && validatedParams.customBiomes.length > 50) {
-      return yield* Effect.fail(BiomeFactoryError.biomeCreation('Too many custom biomes (max: 50)'))
-    }
+    yield* pipe(
+      Option.fromNullable(validatedParams.customBiomes),
+      Option.filter((biomes) => biomes.length > 50),
+      Option.match({
+        onNone: () => Effect.unit,
+        onSome: () => Effect.fail(BiomeFactoryError.biomeCreation('Too many custom biomes (max: 50)')),
+      })
+    )
 
     return validatedParams
   })
@@ -549,97 +572,120 @@ const validateBiomeSystem = (
   level: ValidationLevel
 ): Effect.Effect<ValidationResult, BiomeFactoryError> =>
   Effect.gen(function* () {
-    const issues: ValidationIssue[] = []
-    let score = 100
+    const memoryUsage = estimateMemoryUsage(system)
+    const includeStandardChecks = ['standard', 'strict', 'exhaustive'].includes(level)
+    const includeStrictChecks = ['strict', 'exhaustive'].includes(level)
+    const includeExhaustiveChecks = level === 'exhaustive'
 
-    // 基本検証
-    if (!system.climate) {
-      issues.push({
-        level: 'error',
-        category: 'climate',
-        message: 'Climate data is missing',
-        suggestion: 'Provide valid climate configuration',
-      })
-      score -= 30
-    }
+    const lowBiodiversity = pipe(
+      Option.fromNullable(system.ecosystem?.biodiversity),
+      Option.exists((value) => value < 0.3)
+    )
 
-    if (!system.ecosystem) {
-      issues.push({
-        level: 'error',
-        category: 'ecosystem',
-        message: 'Ecosystem data is missing',
-        suggestion: 'Configure ecosystem parameters',
-      })
-      score -= 25
-    }
+    const inconsistentClimate = pipe(
+      Option.fromNullable(system.climate),
+      Option.exists((climate) => climate.temperature > 30 && climate.humidity < 0.2)
+    )
 
-    // レベル別詳細検証
-    if (level === 'standard' || level === 'strict' || level === 'exhaustive') {
-      // パフォーマンス検証
-      const memoryUsage = estimateMemoryUsage(system)
-      if (memoryUsage > 100) {
-        // MB
-        issues.push({
-          level: 'warning',
-          category: 'memory',
-          message: `High memory usage: ${memoryUsage}MB`,
-          suggestion: 'Consider reducing complexity or enabling optimization',
-        })
-        score -= 10
-      }
-
-      // 生態系バランス検証
-      if (system.ecosystem?.biodiversity < 0.3) {
-        issues.push({
-          level: 'warning',
-          category: 'ecosystem',
-          message: 'Low biodiversity detected',
-          suggestion: 'Increase ecosystem complexity',
-        })
-        score -= 5
-      }
-    }
-
-    if (level === 'strict' || level === 'exhaustive') {
-      // 気候一貫性検証
-      if (system.climate?.temperature > 30 && system.climate?.humidity < 0.2) {
-        issues.push({
-          level: 'warning',
+    const checks = [
+      {
+        condition: system.climate === undefined || system.climate === null,
+        issue: {
+          level: 'error',
           category: 'climate',
-          message: 'Inconsistent climate parameters',
-          suggestion: 'Adjust temperature-humidity relationship',
-        })
-        score -= 8
-      }
-    }
-
-    if (level === 'exhaustive') {
-      // 詳細パフォーマンス分析
-      const processingTime = yield* measureProcessingTime(system)
-      const cacheEfficiency = calculateCacheEfficiency(system)
-
-      return {
-        isValid: issues.filter((i) => i.level === 'error' || i.level === 'critical').length === 0,
-        issues,
-        score: Math.max(0, score),
-        performance: {
-          memoryUsage: estimateMemoryUsage(system),
-          processingTime,
-          cacheEfficiency,
-        },
-      }
-    }
-
-    return {
-      isValid: issues.filter((i) => i.level === 'error' || i.level === 'critical').length === 0,
-      issues,
-      score: Math.max(0, score),
-      performance: {
-        memoryUsage: estimateMemoryUsage(system),
-        processingTime: 0,
-        cacheEfficiency: 0,
+          message: 'Climate data is missing',
+          suggestion: 'Provide valid climate configuration',
+        } satisfies ValidationIssue,
+        penalty: 30,
       },
-    }
+      {
+        condition: system.ecosystem === undefined || system.ecosystem === null,
+        issue: {
+          level: 'error',
+          category: 'ecosystem',
+          message: 'Ecosystem data is missing',
+          suggestion: 'Configure ecosystem parameters',
+        } satisfies ValidationIssue,
+        penalty: 25,
+      },
+      ...(includeStandardChecks
+        ? [
+            {
+              condition: memoryUsage > 100,
+              issue: {
+                level: 'warning',
+                category: 'memory',
+                message: `High memory usage: ${memoryUsage}MB`,
+                suggestion: 'Consider reducing complexity or enabling optimization',
+              } satisfies ValidationIssue,
+              penalty: 10,
+            },
+            {
+              condition: lowBiodiversity,
+              issue: {
+                level: 'warning',
+                category: 'ecosystem',
+                message: 'Low biodiversity detected',
+                suggestion: 'Increase ecosystem complexity',
+              } satisfies ValidationIssue,
+              penalty: 5,
+            },
+          ]
+        : []),
+      ...(includeStrictChecks
+        ? [
+            {
+              condition: inconsistentClimate,
+              issue: {
+                level: 'warning',
+                category: 'climate',
+                message: 'Inconsistent climate parameters',
+                suggestion: 'Adjust temperature-humidity relationship',
+              } satisfies ValidationIssue,
+              penalty: 8,
+            },
+          ]
+        : []),
+    ] as const
+
+    const triggeredChecks = checks.filter((check) => check.condition)
+    const issues = triggeredChecks.map((check) => check.issue)
+    const penalty = triggeredChecks.reduce((sum, check) => sum + check.penalty, 0)
+    const score = Math.max(0, 100 - penalty)
+    const hasBlockingIssues = issues.some((issue) => issue.level === 'error' || issue.level === 'critical')
+
+    return yield* pipe(
+      Match.value(includeExhaustiveChecks),
+      Match.when(true, () =>
+        Effect.gen(function* () {
+          const processingTime = yield* measureProcessingTime(system)
+          const cacheEfficiency = calculateCacheEfficiency(system)
+
+          return {
+            isValid: !hasBlockingIssues,
+            issues,
+            score,
+            performance: {
+              memoryUsage,
+              processingTime,
+              cacheEfficiency,
+            },
+          }
+        })
+      ),
+      Match.orElse(() =>
+        Effect.succeed({
+          isValid: !hasBlockingIssues,
+          issues,
+          score,
+          performance: {
+            memoryUsage,
+            processingTime: 0,
+            cacheEfficiency: 0,
+          },
+        })
+      )
+    )
   })
 
 // ================================
@@ -714,13 +760,15 @@ const measureProcessingTime = (system: BiomeSystem.BiomeSystem): Effect.Effect<n
     return end - start
   })
 
-const calculateCacheEfficiency = (system: BiomeSystem.BiomeSystem): number => {
-  // キャッシュ効率計算（0-1）
-  if (!system.cacheEnabled) return 0
-  // 簡単な効率計算
-  const biomeCount = system.biomes?.length ?? 0
-  return Math.min(0.95, 0.5 + biomeCount * 0.01)
-}
+const calculateCacheEfficiency = (system: BiomeSystem.BiomeSystem): number =>
+  pipe(
+    Match.value(system.cacheEnabled),
+    Match.when(false, () => 0),
+    Match.orElse(() => {
+      const biomeCount = system.biomes?.length ?? 0
+      return Math.min(0.95, 0.5 + biomeCount * 0.01)
+    })
+  )
 
 // ================================
 // Context.GenericTag

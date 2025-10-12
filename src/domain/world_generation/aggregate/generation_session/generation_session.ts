@@ -11,7 +11,7 @@
 import type * as WorldTypes from '@domain/world/types/core'
 import type * as GenerationErrors from '@domain/world/types/errors'
 import type { JsonValue } from '@shared/schema/json'
-import { Chunk, Context, DateTime, Effect, ReadonlyArray, STM } from 'effect'
+import { Chunk, Context, DateTime, Effect, Match, Option, pipe, ReadonlyArray, STM } from 'effect'
 import * as ErrorHandling from './index'
 import * as ProgressTracking from './index'
 import * as SessionEvents from './index'
@@ -99,12 +99,13 @@ export const create = (
  */
 export const start = (session: GenerationSession): STM.STM<GenerationSession, GenerationErrors.SessionError> =>
   STM.gen(function* () {
-    // 状態チェック
-    if (session.state.status !== 'created') {
-      return yield* STM.fail(
-        GenerationErrors.createSessionError(`Cannot start session in ${session.state.status} state`)
+    yield* pipe(
+      Match.value(session.state.status),
+      Match.when('created', () => STM.unit),
+      Match.orElse((status) =>
+        STM.fail(GenerationErrors.createSessionError(`Cannot start session in ${status} state`))
       )
-    }
+    )
 
     const now = yield* STM.fromEffect(DateTime.nowAsDate)
 
@@ -159,18 +160,22 @@ export const completeBatch = (
     }
 
     // セッション完了チェック
-    if (ProgressTracking.isCompleted(updatedProgress)) {
-      return yield* completeSession(updatedSession)
-    }
-
-    // バッチ完了イベント発行
-    yield* STM.fromEffect(
-      SessionEvents.publish(
-        SessionEvents.createBatchCompleted(session.id, batchId, results.length, 0, { chunksGenerated: results.length })
+    return yield* pipe(
+      Match.value(ProgressTracking.isCompleted(updatedProgress)),
+      Match.when(true, () => completeSession(updatedSession)),
+      Match.orElse(() =>
+        STM.gen(function* () {
+          yield* STM.fromEffect(
+            SessionEvents.publish(
+              SessionEvents.createBatchCompleted(session.id, batchId, results.length, 0, {
+                chunksGenerated: results.length,
+              })
+            )
+          )
+          return updatedSession
+        })
       )
     )
-
-    return updatedSession
   })
 
 /**
@@ -193,29 +198,37 @@ export const failBatch = (
       ErrorHandling.shouldRetryBatch(session.configuration.retryPolicy, sessionError)
     )
 
-    let updatedState = session.state
-    let updatedProgress = session.progress
-
-    if (shouldRetry) {
-      // リトライスケジュール
-      updatedState = yield* STM.fromEffect(SessionState.scheduleRetry(session.state, batchId))
-    } else {
-      // バッチ失敗として記録
-      updatedState = yield* STM.fromEffect(SessionState.failBatch(session.state, batchId, sessionError))
-
-      // 進捗更新 (失敗として)
-      const batch = SessionState.getBatch(session.state, batchId)
-      if (batch) {
-        updatedProgress = yield* STM.fromEffect(
-          ProgressTracking.updateProgress(session.progress, 0, batch.coordinates.length)
+    const retryOutcome = yield* pipe(
+      Match.value(shouldRetry),
+      Match.when(true, () =>
+        STM.map(
+          STM.fromEffect(SessionState.scheduleRetry(session.state, batchId)),
+          (nextState) => ({ state: nextState, progress: session.progress })
         )
-      }
-    }
+      ),
+      Match.orElse(() =>
+        STM.gen(function* () {
+          const failedState = yield* STM.fromEffect(SessionState.failBatch(session.state, batchId, sessionError))
+          const batch = SessionState.getBatch(session.state, batchId)
+          const updatedProgress = yield* pipe(
+            Option.fromNullable(batch),
+            Option.match({
+              onNone: () => STM.succeed(session.progress),
+              onSome: (existingBatch) =>
+                STM.fromEffect(
+                  ProgressTracking.updateProgress(session.progress, 0, existingBatch.coordinates.length)
+                ),
+            })
+          )
+          return { state: failedState, progress: updatedProgress }
+        })
+      )
+    )
 
     const updatedSession: GenerationSession = {
       ...session,
-      state: updatedState,
-      progress: updatedProgress,
+      state: retryOutcome.state,
+      progress: retryOutcome.progress,
       errorHistory,
       version: session.version + 1,
       lastActivity: now,
@@ -237,11 +250,13 @@ export const pause = (
   reason: string
 ): Effect.Effect<GenerationSession, GenerationErrors.SessionError> =>
   Effect.gen(function* () {
-    if (session.state.status !== 'running') {
-      return yield* Effect.fail(
-        GenerationErrors.createSessionError(`Cannot pause session in ${session.state.status} state`)
+    yield* pipe(
+      Match.value(session.state.status),
+      Match.when('running', () => Effect.void),
+      Match.orElse((status) =>
+        Effect.fail(GenerationErrors.createSessionError(`Cannot pause session in ${status} state`))
       )
-    }
+    )
 
     const now = yield* DateTime.nowAsDate
 
@@ -270,11 +285,13 @@ export const pause = (
  */
 export const resume = (session: GenerationSession): Effect.Effect<GenerationSession, GenerationErrors.SessionError> =>
   Effect.gen(function* () {
-    if (session.state.status !== 'paused') {
-      return yield* Effect.fail(
-        GenerationErrors.createSessionError(`Cannot resume session in ${session.state.status} state`)
+    yield* pipe(
+      Match.value(session.state.status),
+      Match.when('paused', () => Effect.void),
+      Match.orElse((status) =>
+        Effect.fail(GenerationErrors.createSessionError(`Cannot resume session in ${status} state`))
       )
-    }
+    )
 
     const now = yield* DateTime.nowAsDate
 
@@ -383,26 +400,35 @@ const createChunkBatches = (
  */
 const validateGenerationRequest = (request: GenerationRequest): Effect.Effect<void, GenerationErrors.ValidationError> =>
   Effect.gen(function* () {
-    if (request.coordinates.length === 0) {
-      return yield* Effect.fail(
-        GenerationErrors.createValidationError('Generation request must contain at least one coordinate')
-      )
-    }
+    yield* pipe(
+      Match.value(request.coordinates.length === 0),
+      Match.when(true, () =>
+        Effect.fail(
+          GenerationErrors.createValidationError('Generation request must contain at least one coordinate')
+        )
+      ),
+      Match.orElse(() => Effect.void)
+    )
 
-    if (request.coordinates.length > 10000) {
-      return yield* Effect.fail(
-        GenerationErrors.createValidationError('Generation request contains too many coordinates (max: 10000)')
-      )
-    }
+    yield* pipe(
+      Match.value(request.coordinates.length > 10000),
+      Match.when(true, () =>
+        Effect.fail(
+          GenerationErrors.createValidationError('Generation request contains too many coordinates (max: 10000)')
+        )
+      ),
+      Match.orElse(() => Effect.void)
+    )
 
-    // 重複座標チェック
     const uniqueCoords = new Set(request.coordinates.map((coord) => `${coord.x},${coord.z}`))
 
-    if (uniqueCoords.size !== request.coordinates.length) {
-      return yield* Effect.fail(
-        GenerationErrors.createValidationError('Generation request contains duplicate coordinates')
-      )
-    }
+    yield* pipe(
+      Match.value(uniqueCoords.size !== request.coordinates.length),
+      Match.when(true, () =>
+        Effect.fail(GenerationErrors.createValidationError('Generation request contains duplicate coordinates'))
+      ),
+      Match.orElse(() => Effect.void)
+    )
   })
 
 /**
@@ -410,15 +436,21 @@ const validateGenerationRequest = (request: GenerationRequest): Effect.Effect<vo
  */
 const validateConfiguration = (config: SessionConfiguration): Effect.Effect<void, GenerationErrors.ValidationError> =>
   Effect.gen(function* () {
-    if (config.retryPolicy.baseDelayMs > config.retryPolicy.maxDelayMs) {
-      return yield* Effect.fail(GenerationErrors.createValidationError('Base delay cannot be greater than max delay'))
-    }
+    yield* pipe(
+      Match.value(config.retryPolicy.baseDelayMs > config.retryPolicy.maxDelayMs),
+      Match.when(true, () =>
+        Effect.fail(GenerationErrors.createValidationError('Base delay cannot be greater than max delay'))
+      ),
+      Match.orElse(() => Effect.void)
+    )
 
-    if (config.timeoutPolicy.chunkTimeoutMs > config.timeoutPolicy.sessionTimeoutMs) {
-      return yield* Effect.fail(
-        GenerationErrors.createValidationError('Chunk timeout cannot be greater than session timeout')
-      )
-    }
+    yield* pipe(
+      Match.value(config.timeoutPolicy.chunkTimeoutMs > config.timeoutPolicy.sessionTimeoutMs),
+      Match.when(true, () =>
+        Effect.fail(GenerationErrors.createValidationError('Chunk timeout cannot be greater than session timeout'))
+      ),
+      Match.orElse(() => Effect.void)
+    )
   })
 
 // ================================

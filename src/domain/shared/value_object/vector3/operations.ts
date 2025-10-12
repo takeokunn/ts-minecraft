@@ -5,7 +5,7 @@
 
 import { ErrorCauseSchema } from '@shared/schema/error'
 import { formatParseIssues, makeErrorFactory } from '@shared/schema/tagged_error_factory'
-import { Effect, Schema } from 'effect'
+import { Effect, Match, Schema, pipe } from 'effect'
 import { Vector3Schema, type Vector3 } from './schema'
 
 /**
@@ -98,16 +98,21 @@ export const multiply = (a: Vector3, b: Vector3): Vector3 => makeUnsafe(a.x * b.
  */
 export const divide = (a: Vector3, b: Vector3): Effect.Effect<Vector3, Vector3Error> =>
   Effect.gen(function* () {
-    if (b.x === 0 || b.y === 0 || b.z === 0) {
-      return yield* Effect.fail(
-        Vector3Error.make({
-          operation: 'divide',
-          reason: 'Division by zero',
-          vector: b,
-        })
-      )
-    }
-    return makeUnsafe(a.x / b.x, a.y / b.y, a.z / b.z)
+    return yield* pipe(
+      Match.value(b.x === 0 || b.y === 0 || b.z === 0),
+      Match.when(
+        (hasZero) => hasZero,
+        () =>
+          Effect.fail(
+            Vector3Error.make({
+              operation: 'divide',
+              reason: 'Division by zero',
+              vector: b,
+            })
+          )
+      ),
+      Match.orElse(() => Effect.succeed(makeUnsafe(a.x / b.x, a.y / b.y, a.z / b.z)))
+    )
   })
 
 /**
@@ -135,16 +140,21 @@ export const lengthSquared = (v: Vector3): number => v.x * v.x + v.y * v.y + v.z
 export const normalize = (v: Vector3): Effect.Effect<Vector3, Vector3Error> =>
   Effect.gen(function* () {
     const len = length(v)
-    if (len === 0) {
-      return yield* Effect.fail(
-        Vector3Error.make({
-          operation: 'normalize',
-          reason: 'Cannot normalize zero vector',
-          vector: v,
-        })
-      )
-    }
-    return scale(v, 1 / len)
+    return yield* pipe(
+      Match.value(len === 0),
+      Match.when(
+        (isZero) => isZero,
+        () =>
+          Effect.fail(
+            Vector3Error.make({
+              operation: 'normalize',
+              reason: 'Cannot normalize zero vector',
+              vector: v,
+            })
+          )
+      ),
+      Match.orElse(() => Effect.succeed(scale(v, 1 / len)))
+    )
   })
 
 // -----------------------------------------------------------------------------

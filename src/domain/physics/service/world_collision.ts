@@ -1,7 +1,7 @@
 import type { BlockTypeId, Vector3D } from '@domain/entities'
 import { makeUnsafe as makeUnsafeBlockTypeId } from '@domain/shared/entities/block_type_id/operations'
 import { toErrorCause, type ErrorCause } from '@shared/schema/error'
-import { Context, Effect, Layer, Option, pipe, ReadonlyArray, Ref } from 'effect'
+import { Context, Effect, Layer, Match, Option, pipe, ReadonlyArray, Ref } from 'effect'
 import { CannonPhysicsService } from './cannon'
 
 /**
@@ -304,15 +304,19 @@ const makeWorldCollisionService: Effect.Effect<WorldCollisionService, never, Can
         const blockTypeStr = String(blockType)
         const properties = DEFAULT_BLOCK_PROPERTIES[blockTypeStr]
 
-        if (!properties) {
-          return yield* Effect.fail<WorldCollisionError>({
-            _tag: 'WorldCollisionError',
-            message: `Unknown block type: ${blockTypeStr}`,
-            cause: undefined,
-          })
-        }
-
-        return properties
+        return yield* pipe(
+          Match.value(properties),
+          Match.when(
+            (maybe): maybe is undefined => maybe === undefined,
+            () =>
+              Effect.fail<WorldCollisionError>({
+                _tag: 'WorldCollisionError',
+                message: `Unknown block type: ${blockTypeStr}`,
+                cause: undefined,
+              })
+          ),
+          Match.orElse((found) => Effect.succeed(found))
+        )
       })
 
     // ブロックの物理ボディを追加
@@ -321,40 +325,67 @@ const makeWorldCollisionService: Effect.Effect<WorldCollisionService, never, Can
         const posKey = positionToKey(position)
         const blockBodies = yield* Ref.get(blockBodiesRef)
 
-        // すでに存在する場合はスキップ
-        if (blockBodies.has(posKey)) {
-          return blockBodies.get(posKey)!
-        }
-
-        // ブロック物理プロパティを取得
-        const properties = yield* getBlockProperties(blockType)
-
-        // 透明ブロックや流体は物理ボディを作らない
-        if (properties && properties.isTransparent && !properties.isClimbable) {
-          return ''
-        }
-
-        // Cannon-es静的ボディを作成
+        const existingBody = blockBodies.get(posKey)
         const bodyId = yield* pipe(
-          cannonPhysics.addStaticBlock(position, { x: 1, y: 1, z: 1 }),
-          Effect.mapError(
-            (error): WorldCollisionError => ({
-              _tag: 'WorldCollisionError',
-              message: `Failed to add block collision at ${posKey}`,
-              cause: toErrorCause(error),
+          Match.value(existingBody),
+          Match.when(
+            (maybe): maybe is string => maybe !== undefined && maybe !== '',
+            (found) => Effect.succeed(found)
+          ),
+          Match.orElse(() =>
+            Effect.gen(function* () {
+              const properties = yield* getBlockProperties(blockType)
+
+              return yield* pipe(
+                Match.value(properties),
+                Match.when(
+                  (props) => props.isTransparent && !props.isClimbable,
+                  () => Effect.succeed('')
+                ),
+                Match.orElse(() =>
+                  pipe(
+                    cannonPhysics.addStaticBlock(position, { x: 1, y: 1, z: 1 }),
+                    Effect.mapError(
+                      (error): WorldCollisionError => ({
+                        _tag: 'WorldCollisionError',
+                        message: `Failed to add block collision at ${posKey}`,
+                        cause: toErrorCause(error),
+                      })
+                    )
+                  )
+                )
+              )
             })
           )
         )
 
-        // キャッシュを更新
-        yield* Ref.update(blockBodiesRef, (bodies) => bodies.set(posKey, bodyId))
-        yield* Ref.update(bodyBlocksRef, (blocks) => blocks.set(bodyId, position))
-
-        // 統計を更新
-        yield* Ref.update(statsRef, (stats) => ({
-          ...stats,
-          totalBodies: stats.totalBodies + 1,
-        }))
+        yield* pipe(
+          Match.value(existingBody),
+          Match.when(
+            (maybe) => maybe === undefined,
+            () =>
+              Effect.gen(function* () {
+               yield* Ref.update(blockBodiesRef, (bodies) => bodies.set(posKey, bodyId))
+                yield* pipe(
+                  Match.value(bodyId),
+                  Match.when(
+                    (id) => id === '',
+                    () => Effect.void
+                  ),
+                  Match.orElse((id) =>
+                    Effect.gen(function* () {
+                      yield* Ref.update(bodyBlocksRef, (blocks) => blocks.set(id, position))
+                      yield* Ref.update(statsRef, (stats) => ({
+                        ...stats,
+                        totalBodies: stats.totalBodies + 1,
+                      }))
+                    })
+                  )
+                )
+              })
+          ),
+          Match.orElse(() => Effect.void)
+        )
 
         return bodyId
       })
@@ -366,40 +397,47 @@ const makeWorldCollisionService: Effect.Effect<WorldCollisionService, never, Can
         const blockBodies = yield* Ref.get(blockBodiesRef)
         const bodyId = blockBodies.get(posKey)
 
-        if (!bodyId) {
-          return // すでに削除済み
-        }
-
-        // Cannon-esボディを削除
         yield* pipe(
-          cannonPhysics.removeBody(bodyId),
-          Effect.mapError(
-            (error): WorldCollisionError => ({
-              _tag: 'WorldCollisionError',
-              message: `Failed to remove block collision at ${posKey}`,
-              cause: toErrorCause(error),
+          Match.value(bodyId),
+          Match.when(
+            (maybe) => maybe === undefined,
+            () => Effect.void
+          ),
+          Match.orElse((existingBodyId) =>
+            Effect.gen(function* () {
+              // Cannon-esボディを削除
+              yield* pipe(
+                cannonPhysics.removeBody(existingBodyId),
+                Effect.mapError(
+                  (error): WorldCollisionError => ({
+                    _tag: 'WorldCollisionError',
+                    message: `Failed to remove block collision at ${posKey}`,
+                    cause: toErrorCause(error),
+                  })
+                )
+              )
+
+              yield* Ref.update(blockBodiesRef, (bodies) => {
+                const newBodies = new Map(bodies)
+                newBodies.delete(posKey)
+                return newBodies
+              })
+
+              yield* Ref.update(bodyBlocksRef, (blocks) => {
+                const newBlocks = new Map(blocks)
+                newBlocks.delete(existingBodyId)
+                return newBlocks
+              })
+
+              yield* Ref.update(statsRef, (stats) => ({
+                ...stats,
+                totalBodies: Math.max(0, stats.totalBodies - 1),
+              }))
             })
           )
         )
 
-        // キャッシュから削除
-        yield* Ref.update(blockBodiesRef, (bodies) => {
-          const newBodies = new Map(bodies)
-          newBodies.delete(posKey)
-          return newBodies
-        })
-
-        yield* Ref.update(bodyBlocksRef, (blocks) => {
-          const newBlocks = new Map(blocks)
-          newBlocks.delete(bodyId)
-          return newBlocks
-        })
-
-        // 統計を更新
-        yield* Ref.update(statsRef, (stats) => ({
-          ...stats,
-          totalBodies: Math.max(0, stats.totalBodies - 1),
-        }))
+        return undefined
       })
 
     // 複数ブロックの一括追加
@@ -479,37 +517,38 @@ const makeWorldCollisionService: Effect.Effect<WorldCollisionService, never, Can
           )
         )
 
-        if (!result) {
-          return {
-            hit: false,
-            hitPoint: { x: 0, y: 0, z: 0 },
-            hitNormal: { x: 0, y: 1, z: 0 },
-            distance: maxDistance,
-          } as RaycastHit
-        }
+        const hitResult = yield* pipe(
+          Match.value(result),
+          Match.when(
+            (maybe): maybe is undefined | null => maybe == null,
+            () =>
+              Effect.succeed({
+                hit: false,
+                hitPoint: { x: 0, y: 0, z: 0 },
+                hitNormal: { x: 0, y: 1, z: 0 },
+                distance: maxDistance,
+              } as RaycastHit)
+          ),
+          Match.orElse((hit) =>
+            Effect.succeed({
+              hit: true,
+              hitPoint: {
+                x: origin.x + normalizedDir.x * hit.distance,
+                y: origin.y + normalizedDir.y * hit.distance,
+                z: origin.z + normalizedDir.z * hit.distance,
+              },
+              hitNormal: hit.normal,
+              distance: hit.distance,
+              blockPosition: {
+                x: Math.floor(origin.x + normalizedDir.x * hit.distance),
+                y: Math.floor(origin.y + normalizedDir.y * hit.distance),
+                z: Math.floor(origin.z + normalizedDir.z * hit.distance),
+              },
+            } satisfies RaycastHit)
+          )
+        )
 
-        // ヒット点を計算
-        const hitPoint = {
-          x: origin.x + normalizedDir.x * result.distance,
-          y: origin.y + normalizedDir.y * result.distance,
-          z: origin.z + normalizedDir.z * result.distance,
-        }
-
-        // ヒットしたブロックの位置を計算
-        const blockPosition = {
-          x: Math.floor(hitPoint.x),
-          y: Math.floor(hitPoint.y),
-          z: Math.floor(hitPoint.z),
-        }
-
-        return {
-          hit: true,
-          hitPoint,
-          hitNormal: result.normal,
-          distance: result.distance,
-          blockPosition,
-          // blockType: 不明 (ワールドサービスから取得が必要)
-        } as RaycastHit
+        return hitResult
       })
 
     // 球体vs世界の衝突チェック
@@ -554,43 +593,55 @@ const makeWorldCollisionService: Effect.Effect<WorldCollisionService, never, Can
                 const posKey = positionToKey(blockPos)
                 const bodyId = blockBodies.get(posKey)
 
-                if (!bodyId) {
-                  return Option.none()
-                }
+                const bodyOption = Option.fromNullable(bodyId)
 
-                // ブロック中心との距離をチェック
-                const blockCenter = { x: blockPos.x + 0.5, y: blockPos.y + 0.5, z: blockPos.z + 0.5 }
-                const dx = center.x - blockCenter.x
-                const dy = center.y - blockCenter.y
-                const dz = center.z - blockCenter.z
-                const distanceSquared = dx * dx + dy * dy + dz * dz
+                return yield* pipe(
+                  Match.value(bodyOption),
+                  Match.when(
+                    Option.isNone,
+                    () => Effect.succeed(Option.none())
+                  ),
+                  Match.orElse(() =>
+                    Effect.gen(function* () {
+                      const blockCenter = { x: blockPos.x + 0.5, y: blockPos.y + 0.5, z: blockPos.z + 0.5 }
+                      const dx = center.x - blockCenter.x
+                      const dy = center.y - blockCenter.y
+                      const dz = center.z - blockCenter.z
+                      const distanceSquared = dx * dx + dy * dy + dz * dz
+                      const minDistance = radius + 0.5
 
-                // ブロックとの衝突判定（簡易版）
-                const minDistance = radius + 0.5 // ブロック半径0.5
-                if (distanceSquared >= minDistance * minDistance) {
-                  return Option.none()
-                }
+                      return yield* pipe(
+                        Match.value(distanceSquared),
+                        Match.when(
+                          (value) => value >= minDistance * minDistance,
+                          () => Effect.succeed(Option.none())
+                        ),
+                        Match.orElse(() =>
+                          Effect.gen(function* () {
+                            const distance = Math.sqrt(distanceSquared)
+                            const penetrationDepth = minDistance - distance
+                            const normal =
+                              distance > 0
+                                ? {
+                                    x: dx / distance,
+                                    y: dy / distance,
+                                    z: dz / distance,
+                                  }
+                                : { x: 0, y: 1, z: 0 }
 
-                const distance = Math.sqrt(distanceSquared)
-                const penetrationDepth = minDistance - distance
-
-                // 衝突法線を計算
-                const normal =
-                  distance > 0
-                    ? {
-                        x: dx / distance,
-                        y: dy / distance,
-                        z: dz / distance,
-                      }
-                    : { x: 0, y: 1, z: 0 }
-
-                return Option.some({
-                  blockPosition: blockPos,
-                  blockType: makeUnsafeBlockTypeId(1), // 仮の値（1 = stone）
-                  bodyId,
-                  collisionNormal: normal,
-                  penetrationDepth,
-                })
+                            return Option.some({
+                              blockPosition: blockPos,
+                              blockType: makeUnsafeBlockTypeId(1),
+                              bodyId: bodyOption.value,
+                              collisionNormal: normal,
+                              penetrationDepth,
+                            })
+                          })
+                        )
+                      )
+                    })
+                  )
+                )
               }),
             { concurrency: 4 }
           ),
@@ -646,23 +697,27 @@ const makeWorldCollisionService: Effect.Effect<WorldCollisionService, never, Can
                 const posKey = positionToKey(blockPos)
                 const hasCollision = blockBodies.has(posKey)
 
-                if (currentBlockType && currentBlockType !== makeUnsafeBlockTypeId(0)) {
-                  // ブロックが存在するが衝突がない場合は追加
-                  if (!hasCollision) {
-                    return Option.some<CollisionUpdateTarget>({
-                      type: 'add',
-                      position: blockPos,
-                      blockType: currentBlockType,
-                    })
-                  }
-                } else {
-                  // ブロックが存在しないが衝突がある場合は削除
-                  if (hasCollision) {
-                    return Option.some<CollisionUpdateTarget>({ type: 'remove', position: blockPos })
-                  }
-                }
-
-                return Option.none()
+                return yield* pipe(
+                  Match.value({ currentBlockType, hasCollision }),
+                  Match.when(
+                    ({ currentBlockType, hasCollision }) =>
+                      currentBlockType && currentBlockType !== makeUnsafeBlockTypeId(0) && !hasCollision,
+                    ({ currentBlockType }) =>
+                      Effect.succeed(
+                        Option.some<CollisionUpdateTarget>({
+                          type: 'add',
+                          position: blockPos,
+                          blockType: currentBlockType!,
+                        })
+                      )
+                  ),
+                  Match.when(
+                    ({ currentBlockType, hasCollision }) =>
+                      (!currentBlockType || currentBlockType === makeUnsafeBlockTypeId(0)) && hasCollision,
+                    () => Effect.succeed(Option.some<CollisionUpdateTarget>({ type: 'remove', position: blockPos }))
+                  ),
+                  Match.orElse(() => Effect.succeed(Option.none()))
+                )
               }),
             { concurrency: 4 }
           ),

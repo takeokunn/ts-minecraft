@@ -6,7 +6,7 @@
  */
 
 import type { CameraId } from '@domain/camera/types'
-import { Array, Clock, Effect, HashMap, Layer, Option, pipe, Ref, Schema } from 'effect'
+import { Array, Clock, Effect, HashMap, Layer, Match, Option, pipe, Ref, Schema } from 'effect'
 import type {
   Camera,
   CameraRepositoryStatistics,
@@ -146,16 +146,8 @@ const StorageOps = {
     Effect.gen(function* () {
       const now = yield* Clock.currentTimeMillis
       const cutoffTime = olderThan.getTime()
-      let deletedCount = 0
-
-      // 古いカメラを削除
-      const filteredCameras = HashMap.filter(state.cameras, (camera) => {
-        if (camera.lastUpdateTime < cutoffTime) {
-          deletedCount++
-          return false
-        }
-        return true
-      })
+      const filteredCameras = HashMap.filter(state.cameras, (camera) => camera.lastUpdateTime >= cutoffTime)
+      const deletedCount = HashMap.size(state.cameras) - HashMap.size(filteredCameras)
 
       // 古いスナップショットを削除
       const filteredSnapshots = HashMap.map(state.snapshots, (snapshots) =>
@@ -329,21 +321,22 @@ export const CameraStateRepositoryLive = Layer.effect(
             Option.getOrElse(() => [] as Array.ReadonlyArray<CameraSnapshot>)
           )
 
-          let filteredSnapshots = allSnapshots
+          const viewModeFiltered = pipe(
+            options.filterByViewMode,
+            Option.match({
+              onNone: () => allSnapshots,
+              onSome: ({ value }) => allSnapshots.filter((snapshot) => snapshot.viewMode === value),
+            })
+          )
 
-          // ViewModeフィルタリング
-          if (Option.isSome(options.filterByViewMode)) {
-            filteredSnapshots = filteredSnapshots.filter(
-              (snapshot) => snapshot.viewMode === options.filterByViewMode.value
-            )
-          }
-
-          // 履歴件数制限
-          if (options.maxHistoryItems > 0 && filteredSnapshots.length > options.maxHistoryItems) {
-            filteredSnapshots = filteredSnapshots.slice(-options.maxHistoryItems)
-          }
-
-          return filteredSnapshots
+          return pipe(
+            Match.value({ snapshots: viewModeFiltered, maxItems: options.maxHistoryItems }),
+            Match.when(
+              ({ snapshots, maxItems }) => maxItems > 0 && snapshots.length > maxItems,
+              ({ snapshots, maxItems }) => snapshots.slice(-maxItems)
+            ),
+            Match.orElse(({ snapshots }) => snapshots)
+          )
         }).pipe(handleRepositoryOperation),
 
       /**
@@ -407,13 +400,11 @@ export const CameraStateRepositoryLive = Layer.effect(
           const snapshots = HashMap.get(state.snapshots, cameraId).pipe(
             Option.getOrElse(() => [] as Array.ReadonlyArray<CameraSnapshot>)
           )
-
-          if (snapshots.length === 0) {
-            return Option.none<number>()
-          }
-
-          const latestSnapshot = snapshots[snapshots.length - 1]
-          return Option.some(latestSnapshot.version)
+          return Match.value(snapshots.length)
+            .pipe(
+              Match.when((count) => count === 0, () => Option.none<number>()),
+              Match.orElse(() => Option.some(snapshots[snapshots.length - 1].version))
+            )
         }).pipe(handleRepositoryOperation),
 
       /**

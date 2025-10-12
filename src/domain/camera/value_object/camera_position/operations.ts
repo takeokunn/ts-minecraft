@@ -1,4 +1,4 @@
-import { Brand, Effect, pipe, Schema } from 'effect'
+import { Brand, Effect, Match, pipe, Schema } from 'effect'
 import {
   Axis,
   BoundingBox,
@@ -84,31 +84,34 @@ export const createLerpFactor = (factor: number): Effect.Effect<LerpFactor, Posi
  */
 export const createDirection3D = (x: number, y: number, z: number): Effect.Effect<Direction3D, PositionError> => {
   const magnitude = Math.sqrt(x * x + y * y + z * z)
-
-  if (magnitude === 0) {
-    return Effect.fail(
-      PositionError.InvalidCoordinate({
-        axis: 'x', // 代表値
-        value: 0,
-        expected: 'non-zero vector for normalization',
-      })
-    )
-  }
-
-  const normalized = {
-    x: x / magnitude,
-    y: y / magnitude,
-    z: z / magnitude,
-  }
-
   return pipe(
-    Schema.decodeUnknown(Direction3DSchema)(normalized),
-    Effect.mapError(() =>
-      PositionError.InvalidCoordinate({
-        axis: 'x', // 代表値
-        value: magnitude,
-        expected: 'normalizable vector',
-      })
+    Match.value(magnitude),
+    Match.when(
+      (value) => value === 0,
+      () =>
+        Effect.fail(
+          PositionError.InvalidCoordinate({
+            axis: 'x', // 代表値
+            value: 0,
+            expected: 'non-zero vector for normalization',
+          })
+        )
+    ),
+    Match.orElse((length) =>
+      pipe(
+        Schema.decodeUnknown(Direction3DSchema)({
+          x: x / length,
+          y: y / length,
+          z: z / length,
+        }),
+        Effect.mapError(() =>
+          PositionError.InvalidCoordinate({
+            axis: 'x', // 代表値
+            value: length,
+            expected: 'normalizable vector',
+          })
+        )
+      )
     )
   )
 }

@@ -345,12 +345,10 @@ export const CraftingIntegrationServiceLive = Layer.succeed(
           )
         )
 
-        return results.sort((a, b) => {
-          // 実行可能なレシピを優先し、次に複雑度の低いものを優先
-          if (a.canCraft && !b.canCraft) return -1
-          if (!a.canCraft && b.canCraft) return 1
-          return a.craftingComplexity - b.craftingComplexity
-        })
+        const priority = (entry: { canCraft: boolean; craftingComplexity: number }) =>
+          (entry.canCraft ? 0 : 1) * 1_000_000 + entry.craftingComplexity
+
+        return results.sort((a, b) => priority(a) - priority(b))
       }),
 
     /**
@@ -522,43 +520,46 @@ const consumeSpecificItem = (
           remainingToConsume: count,
         },
         (acc, { index, slot }) =>
-          Effect.gen(function* () {
-            // 早期return - 意図的保持（残り消費量ゼロ）
-            if (acc.remainingToConsume === 0) {
-              return acc
-            }
+          pipe(
+            Match.value(acc.remainingToConsume === 0),
+            Match.when(true, () => Effect.succeed(acc)),
+            Match.orElse(() =>
+              pipe(
+                Option.fromNullable(slot?.itemStack),
+                Option.filter((stack) => stack.itemId === itemId),
+                Option.match({
+                  onNone: () => Effect.succeed(acc),
+                  onSome: (stack) => {
+                    const consumeFromThisSlot = Math.min(stack.count, acc.remainingToConsume)
 
-            // 早期return - 意図的保持（対象アイテム判定）
-            if (slot?.itemStack?.itemId !== itemId) {
-              return acc
-            }
+                    return pipe(
+                      Match.value(consumeFromThisSlot === stack.count),
+                      Match.when(true, () => Effect.succeed(null as typeof slot)),
+                      Match.orElse(() =>
+                        Effect.succeed({
+                          ...slot,
+                          itemStack: {
+                            ...stack,
+                            count: stack.count - consumeFromThisSlot,
+                          },
+                        })
+                      ),
+                      Effect.map((updatedSlot) => {
+                        const newSlotsArray = [...acc.newSlots]
+                        newSlotsArray[index] = updatedSlot
 
-            const consumeFromThisSlot = Math.min(slot.itemStack.count, acc.remainingToConsume)
-
-            // Match.whenによる完全消費チェック
-            const updatedSlot = yield* pipe(
-              Match.value(consumeFromThisSlot === slot.itemStack.count),
-              Match.when(true, () => Effect.succeed(null as typeof slot)),
-              Match.orElse(() =>
-                Effect.succeed({
-                  ...slot,
-                  itemStack: {
-                    ...slot.itemStack,
-                    count: slot.itemStack.count - consumeFromThisSlot,
+                        return {
+                          newSlots: newSlotsArray,
+                          fromSlots: [...acc.fromSlots, index],
+                          remainingToConsume: acc.remainingToConsume - consumeFromThisSlot,
+                        }
+                      })
+                    )
                   },
                 })
               )
             )
-
-            const newSlotsArray = [...acc.newSlots]
-            newSlotsArray[index] = updatedSlot
-
-            return {
-              newSlots: newSlotsArray,
-              fromSlots: [...acc.fromSlots, index],
-              remainingToConsume: acc.remainingToConsume - consumeFromThisSlot,
-            }
-          })
+          )
       )
     )
 

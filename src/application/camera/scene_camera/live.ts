@@ -466,38 +466,48 @@ export const SceneCameraApplicationServiceLive = Layer.effect(
 
           return yield* pipe(
             canExecute,
-            Effect.if({
-              onTrue: () =>
-                Effect.gen(function* () {
-                  // シーケンス実行の開始
-                  const animation = yield* animationEngine.createSequenceAnimation(sequence)
+            Effect.flatMap((executed) =>
+              pipe(
+                Match.value(executed),
+                Match.when(
+                  (can) => can,
+                  () =>
+                    Effect.gen(function* () {
+                      // シーケンス実行の開始
+                      const animation = yield* animationEngine.createSequenceAnimation(sequence)
 
-                  const updatedState = {
-                    ...cameraState,
-                    currentSequence: Option.some(sequence),
-                    animationState: Option.some(animation),
-                    lastUpdate: now,
-                  } as SceneCameraState
+                      const updatedState = {
+                        ...cameraState,
+                        currentSequence: Option.some(sequence),
+                        animationState: Option.some(animation),
+                        lastUpdate: now,
+                      } as SceneCameraState
 
-                  sceneCameras.set(sceneCameraId, updatedState)
-                  activeSequences.set(sceneCameraId, sequence)
+                      sceneCameras.set(sceneCameraId, updatedState)
+                      activeSequences.set(sceneCameraId, sequence)
 
-                  yield* updateSceneCameraStatistics(sceneCameraId, 'sequenceStart')
+                      yield* updateSceneCameraStatistics(sceneCameraId, 'sequenceStart')
 
-                  // アニメーション履歴の記録
-                  yield* animationHistoryRepo.recordSequenceStart(sceneCameraId, sequence.id)
+                      // アニメーション履歴の記録
+                      yield* animationHistoryRepo.recordSequenceStart(sceneCameraId, sequence.id)
 
-                  return createSequenceExecutionResult.started(sequence.id, sequence.duration)
-                }),
-              onFalse: () => {
-                const error = Data.struct({
-                  _tag: 'AnimationSystemError' as const,
-                  details: 'Cannot start sequence: camera is busy or invalid sequence',
-                }) as SequenceExecutionError
-
-                return Effect.succeed(createSequenceExecutionResult.failed(sequence.id, error, 0))
-              },
-            })
+                      return createSequenceExecutionResult.started(sequence.id, sequence.duration)
+                    })
+                ),
+                Match.orElse(() =>
+                  Effect.succeed(
+                    createSequenceExecutionResult.failed(
+                      sequence.id,
+                      Data.struct({
+                        _tag: 'AnimationSystemError' as const,
+                        details: 'Cannot start sequence: camera is busy or invalid sequence',
+                      }) as SequenceExecutionError,
+                      0
+                    )
+                  )
+                )
+              )
+            )
           )
         }),
 

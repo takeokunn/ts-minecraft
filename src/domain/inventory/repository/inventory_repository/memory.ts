@@ -1,5 +1,5 @@
 import { now as timestampNow } from '@domain/shared/value_object/units/timestamp'
-import { Effect, HashMap, Layer, Option, Ref } from 'effect'
+import { Effect, HashMap, Layer, Match, Option, Ref, pipe } from 'effect'
 import type {
   Inventory,
   InventoryQuery,
@@ -54,15 +54,11 @@ export const InventoryRepositoryMemory = Layer.effect(
             Option.match({
               onNone: () => Effect.succeed([]),
               onSome: (inventory) =>
-                Effect.sync(() => {
-                  const results: Array<readonly [SlotPosition, ItemStack]> = []
-                  inventory.slots.forEach((stack, position) => {
-                    if (stack.itemId === itemId) {
-                      results.push([position, stack] as const)
-                    }
-                  })
-                  return results
-                }),
+                Effect.sync(() =>
+                  Array.from(inventory.slots.entries())
+                    .filter(([, stack]) => stack.itemId === itemId)
+                    .map(([position, stack]) => [position, stack] as const)
+                ),
             })
           )
         }),
@@ -78,26 +74,38 @@ export const InventoryRepositoryMemory = Layer.effect(
               onNone: () => Effect.fail(createInventoryNotFoundError(playerId)),
               onSome: (inventory) =>
                 Effect.gen(function* () {
-                  if (position < 0 || position >= inventory.capacity) {
-                    yield* Effect.fail(createSlotNotFoundError(playerId, position))
-                  }
+                  yield* pipe(
+                    Match.value(position),
+                    Match.when(
+                      (pos) => pos < 0 || pos >= inventory.capacity,
+                      (pos) => Effect.fail(createSlotNotFoundError(playerId, pos))
+                    ),
+                    Match.orElse(() =>
+                      Effect.gen(function* () {
+                        const updatedSlots = new Map(inventory.slots)
+                        yield* pipe(
+                          Option.fromNullable(itemStack),
+                          Option.match({
+                            onNone: () => Effect.sync(() => updatedSlots.delete(position)),
+                            onSome: (stack) =>
+                              Effect.sync(() => {
+                                updatedSlots.set(position, stack)
+                              }),
+                          })
+                        )
 
-                  const updatedSlots = new Map(inventory.slots)
-                  if (itemStack === null) {
-                    updatedSlots.delete(position)
-                  } else {
-                    updatedSlots.set(position, itemStack)
-                  }
+                        const timestamp = yield* timestampNow()
+                        const updatedInventory: Inventory = {
+                          ...inventory,
+                          slots: updatedSlots,
+                          lastUpdated: timestamp,
+                          version: inventory.version + 1,
+                        }
 
-                  const timestamp = yield* timestampNow()
-                  const updatedInventory: Inventory = {
-                    ...inventory,
-                    slots: updatedSlots,
-                    lastUpdated: timestamp,
-                    version: inventory.version + 1,
-                  }
-
-                  yield* Ref.update(inventoryStore, (store) => HashMap.set(store, playerId, updatedInventory))
+                        yield* Ref.update(inventoryStore, (store) => HashMap.set(store, playerId, updatedInventory))
+                      })
+                    )
+                  )
                 }),
             })
           )
@@ -165,35 +173,66 @@ export const InventoryRepositoryMemory = Layer.effect(
           const inventories = Array.from(HashMap.values(store))
 
           return inventories.filter((inventory) => {
-            // 容量フィルター
-            if (query.minCapacity !== undefined && inventory.capacity < query.minCapacity) {
-              return false
-            }
-            if (query.maxCapacity !== undefined && inventory.capacity > query.maxCapacity) {
-              return false
-            }
+            const meetsMinCapacity = pipe(
+              Match.value(query.minCapacity),
+              Match.when(
+                (min): min is undefined => min === undefined,
+                () => true
+              ),
+              Match.orElse((min) => inventory.capacity >= min)
+            )
 
-            // アイテム所持フィルター
-            if (query.hasItems !== undefined && query.hasItems.length > 0) {
-              const inventoryItems = new Set(Array.from(inventory.slots.values()).map((stack) => stack.itemId))
-              const hasAllItems = query.hasItems.every((itemId) => inventoryItems.has(itemId))
-              if (!hasAllItems) return false
-            }
+            const meetsMaxCapacity = pipe(
+              Match.value(query.maxCapacity),
+              Match.when(
+                (max): max is undefined => max === undefined,
+                () => true
+              ),
+              Match.orElse((max) => inventory.capacity <= max)
+            )
 
-            // 更新日時フィルター
-            if (query.updatedAfter !== undefined && inventory.lastUpdated < query.updatedAfter) {
-              return false
-            }
-            if (query.updatedBefore !== undefined && inventory.lastUpdated > query.updatedBefore) {
-              return false
-            }
+            const containsItems = pipe(
+              Match.value(query.hasItems),
+              Match.when(
+                (items): items is undefined => items === undefined || items.length === 0,
+                () => true
+              ),
+              Match.orElse((items) => {
+                const inventoryItems = new Set(Array.from(inventory.slots.values()).map((stack) => stack.itemId))
+                return items.every((itemId) => inventoryItems.has(itemId))
+              })
+            )
 
-            // 空フィルター
-            if (query.excludeEmpty === true && inventory.slots.size === 0) {
-              return false
-            }
+            const updatedAfter = pipe(
+              Match.value(query.updatedAfter),
+              Match.when(
+                (date): date is undefined => date === undefined,
+                () => true
+              ),
+              Match.orElse((date) => inventory.lastUpdated >= date)
+            )
 
-            return true
+            const updatedBefore = pipe(
+              Match.value(query.updatedBefore),
+              Match.when(
+                (date): date is undefined => date === undefined,
+                () => true
+              ),
+              Match.orElse((date) => inventory.lastUpdated <= date)
+            )
+
+            const includeEmpty = pipe(
+              Match.value(query.excludeEmpty),
+              Match.when(
+                (flag): flag is undefined | false => flag !== true,
+                () => true
+              ),
+              Match.orElse(() => inventory.slots.size > 0)
+            )
+
+            return (
+              meetsMinCapacity && meetsMaxCapacity && containsItems && updatedAfter && updatedBefore && includeEmpty
+            )
           })
         }),
 

@@ -21,7 +21,7 @@ import {
 import { WorldGeneratorSchema as AggregateWorldGeneratorSchema } from '@domain/world_generation/aggregate/world_generator'
 import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
 import * as NodePath from '@effect/platform-node/NodePath'
-import { Clock, DateTime, Effect, Layer, Option, pipe, ReadonlyArray, Ref, Schema } from 'effect'
+import { Clock, DateTime, Effect, Layer, Option, pipe, ReadonlyArray, Ref, Schema, Either } from 'effect'
 import { Buffer } from 'node:buffer'
 import type {
   CacheConfiguration,
@@ -31,6 +31,10 @@ import type {
   WorldGeneratorRepositoryConfig,
   WorldGeneratorStatistics,
 } from './index'
+import {
+  WorldGenerationAdapterService,
+  type WorldGeneratorEncoded,
+} from '@/domain/world_generation/adapter/world_generation_adapter'
 
 // === Persistence Storage Schema ===
 
@@ -155,6 +159,24 @@ const makeWorldGeneratorRepositoryPersistence = (
   Effect.gen(function* () {
     const fs = yield* NodeFileSystem.FileSystem
     const path = yield* NodePath.Path
+    const adapter = yield* WorldGenerationAdapterService
+
+    // Helper to encode generators for persistence
+    const encodeGeneratorsForPersistence = (
+      generators: Record<string, WorldGenerator>
+    ): Effect.Effect<Record<string, WorldGeneratorEncoded>, Schema.ParseError> =>
+      pipe(
+        Object.entries(generators),
+        Effect.forEach(
+          ([id, generator]) =>
+            pipe(
+              adapter.encodeWorldGenerator(generator),
+              Effect.map((encoded) => [id, encoded] as const)
+            ),
+          { concurrency: 4 }
+        ),
+        Effect.map((entries) => Object.fromEntries(entries))
+      )
 
     // Initialize storage directories
     const dataPath = path.resolve(config.dataDirectory)
@@ -284,7 +306,12 @@ const makeWorldGeneratorRepositoryPersistence = (
       Effect.gen(function* () {
         yield* ensureDirectoryExists(dataPath)
 
-        const content = JSON.stringify(data, null, 2)
+        const encodedGenerators = yield* encodeGeneratorsForPersistence(data.generators)
+        const contentPayload = {
+          ...data,
+          generators: encodedGenerators,
+        }
+        const content = JSON.stringify(contentPayload, null, 2)
 
         // Effect.whenパターン: チェックサム計算・保存
         yield* Effect.when(config.enableChecksums, () =>
@@ -328,7 +355,15 @@ const makeWorldGeneratorRepositoryPersistence = (
         const now = yield* DateTime.nowAsDate
         const backupId = `backup-${timestamp}`
         const backupFile = path.join(backupPath, `${backupId}.json`)
-        const content = JSON.stringify(data, null, 2)
+        const encodedGenerators = yield* encodeGeneratorsForPersistence(data.generators)
+        const content = JSON.stringify(
+          {
+            ...data,
+            generators: encodedGenerators,
+          },
+          null,
+          2
+        )
 
         const compressedContent = yield* compressData(content, config.backup.compressionLevel)
         yield* fs.writeFileString(backupFile, compressedContent)
@@ -595,20 +630,29 @@ const makeWorldGeneratorRepositoryPersistence = (
           { concurrency: Math.min(generators.length, config.performance.batchSize ?? 4) }
         )
 
-        const successful: WorldId[] = []
-        const failed: Array<{ worldId: WorldId; error: AllRepositoryErrors }> = []
-
-        for (const { generator, result } of results) {
-          if (result._tag === 'Right') {
-            successful.push(generator.worldId)
-          } else {
-            failed.push({ worldId: generator.worldId, error: result.left })
-          }
-        }
+        const aggregated = pipe(
+          results,
+          ReadonlyArray.reduce(
+            {
+              successful: [] as ReadonlyArray<WorldId>,
+              failed: [] as ReadonlyArray<{ worldId: WorldId; error: AllRepositoryErrors }>,
+            },
+            (acc, { generator, result }) =>
+              result._tag === 'Right'
+                ? {
+                    ...acc,
+                    successful: pipe(acc.successful, ReadonlyArray.append(generator.worldId)),
+                  }
+                : {
+                    ...acc,
+                    failed: pipe(acc.failed, ReadonlyArray.append({ worldId: generator.worldId, error: result.left })),
+                  }
+          )
+        )
 
         return {
-          successful,
-          failed,
+          successful: aggregated.successful,
+          failed: aggregated.failed,
           totalProcessed: generators.length,
         }
       }).pipe(
@@ -629,20 +673,29 @@ const makeWorldGeneratorRepositoryPersistence = (
           { concurrency: Math.min(worldIds.length, config.performance.batchSize ?? 4) }
         )
 
-        const successful: WorldId[] = []
-        const failed: Array<{ worldId: WorldId; error: AllRepositoryErrors }> = []
-
-        for (const { worldId, result } of results) {
-          if (result._tag === 'Right') {
-            successful.push(worldId)
-          } else {
-            failed.push({ worldId, error: result.left })
-          }
-        }
+        const aggregated = pipe(
+          results,
+          ReadonlyArray.reduce(
+            {
+              successful: [] as ReadonlyArray<WorldId>,
+              failed: [] as ReadonlyArray<{ worldId: WorldId; error: AllRepositoryErrors }>,
+            },
+            (acc, { worldId, result }) =>
+              result._tag === 'Right'
+                ? {
+                    ...acc,
+                    successful: pipe(acc.successful, ReadonlyArray.append(worldId)),
+                  }
+                : {
+                    ...acc,
+                    failed: pipe(acc.failed, ReadonlyArray.append({ worldId, error: result.left })),
+                  }
+          )
+        )
 
         return {
-          successful,
-          failed,
+          successful: aggregated.successful,
+          failed: aggregated.failed,
           totalProcessed: worldIds.length,
         }
       }).pipe(
@@ -773,7 +826,17 @@ const makeWorldGeneratorRepositoryPersistence = (
           try: () => JSON.parse(decompressed),
           catch: (error) =>
             createDataIntegrityError(`Backup JSON parse failed: ${String(error)}`, ['backupData'], decompressed, error),
-        })
+        }).pipe(
+          Effect.flatMap(Schema.decodeUnknown(PersistenceDataSchema)),
+          Effect.mapError((error) =>
+            createDataIntegrityError(
+              'Backup schema validation failed',
+              ['backupData'],
+              decompressed,
+              error
+            )
+          )
+        )
 
         yield* saveDataToFile(data)
         yield* Ref.set(cacheRef, new Map()) // Clear cache to force reload
@@ -813,10 +876,13 @@ const makeWorldGeneratorRepositoryPersistence = (
 
         const generatorsArray = Object.values(data.generators)
         const summary = summarizeGenerators(generatorsArray)
-        const metrics = new Map<WorldId, PerformanceMetrics>()
-        for (const gen of generatorsArray) {
-          metrics.set(gen.worldId, buildPerformanceMetric(gen))
-        }
+        const metrics = pipe(
+          generatorsArray,
+          ReadonlyArray.reduce(new Map<WorldId, PerformanceMetrics>(), (acc, gen) => {
+            acc.set(gen.worldId, buildPerformanceMetric(gen))
+            return acc
+          })
+        )
 
         const lastGenerationTime = pipe(
           Option.fromNullable(data.statistics?.lastGenerationTime ?? null),
@@ -874,18 +940,20 @@ const hasIsActiveFlag = (candidate: WorldGenerator): candidate is WorldGenerator
 const isGeneratorActive = (generator: WorldGenerator): boolean =>
   hasIsActiveFlag(generator) ? generator.isActive : generator.state.status !== 'idle'
 
-const estimateGeneratorMemoryBytes = (generator: WorldGenerator): number => {
-  try {
-    return Buffer.byteLength(
-      JSON.stringify({
-        context: generator.context,
-        statistics: generator.state.statistics,
-      })
-    )
-  } catch {
-    return 0
-  }
-}
+const estimateGeneratorMemoryBytes = (generator: WorldGenerator): number =>
+  pipe(
+    Either.try({
+      try: () =>
+        Buffer.byteLength(
+          JSON.stringify({
+            context: generator.context,
+            statistics: generator.state.statistics,
+          })
+        ),
+      catch: () => 0,
+    }),
+    Either.getOrElse((fallback) => fallback)
+  )
 
 const buildPerformanceMetric = (generator: WorldGenerator): PerformanceMetrics => {
   const stats = generator.state.statistics
@@ -898,32 +966,29 @@ const buildPerformanceMetric = (generator: WorldGenerator): PerformanceMetrics =
   }
 }
 
-const summarizeGenerators = (generators: ReadonlyArray<WorldGenerator>) => {
-  let totalChunks = 0
-  let totalTime = 0
-  let failureCount = 0
-  let activeCount = 0
-  let memoryBytes = 0
-
-  for (const generator of generators) {
-    const stats = generator.state.statistics
-    totalChunks += stats.totalChunksGenerated
-    totalTime += stats.totalGenerationTime
-    failureCount += stats.failureCount
-    if (isGeneratorActive(generator)) {
-      activeCount += 1
-    }
-    memoryBytes += estimateGeneratorMemoryBytes(generator)
-  }
-
-  return {
-    totalChunks,
-    totalTime,
-    failureCount,
-    activeCount,
-    memoryBytes,
-  }
-}
+const summarizeGenerators = (generators: ReadonlyArray<WorldGenerator>) =>
+  pipe(
+    generators,
+    ReadonlyArray.reduce(
+      {
+        totalChunks: 0,
+        totalTime: 0,
+        failureCount: 0,
+        activeCount: 0,
+        memoryBytes: 0,
+      },
+      (acc, generator) => {
+        const stats = generator.state.statistics
+        return {
+          totalChunks: acc.totalChunks + stats.totalChunksGenerated,
+          totalTime: acc.totalTime + stats.totalGenerationTime,
+          failureCount: acc.failureCount + stats.failureCount,
+          activeCount: acc.activeCount + (isGeneratorActive(generator) ? 1 : 0),
+          memoryBytes: acc.memoryBytes + estimateGeneratorMemoryBytes(generator),
+        }
+      }
+    )
+  )
 
 // === Layer Creation ===
 

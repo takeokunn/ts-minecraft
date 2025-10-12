@@ -3,6 +3,7 @@ export type { GameApplicationConfigPatch, GameApplicationConfigPatchInput } from
 export { createErrorContext, getErrorSeverity, isRecoverable } from './errors'
 export { GameApplication } from './game-application'
 export { GameApplicationLive } from './game-application-live'
+export * from './settings'
 export * from './inventory'
 export { guardLifecycleTransition, permittedTargets } from './lifecycle'
 export { applyConfig, computeHealth, createInitialState, synchronizeLifecycle, tickState, withStartTime } from './state'

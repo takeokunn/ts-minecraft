@@ -4,7 +4,7 @@
  */
 
 import { describe, expect, it } from '@effect/vitest'
-import { Clock, Duration, Effect, Fiber, Queue, TestClock } from 'effect'
+import { Clock, Duration, Effect, Fiber, Queue, TestClock, pipe } from 'effect'
 
 /**
  * スケジュールされたタスクの型定義
@@ -142,11 +142,16 @@ describe('Loading Scheduler with TestClock', () => {
         })
 
       // 3つのタスクを順次実行
-      for (const id of ['task-1', 'task-2', 'task-3']) {
-        const fiber = yield* Effect.fork(createOrderedTask(id))
-        yield* TestClock.adjust(Duration.seconds(1))
-        yield* Fiber.join(fiber)
-      }
+      yield* pipe(
+        ['task-1', 'task-2', 'task-3'] as const,
+        Effect.forEach((id) =>
+          Effect.gen(function* () {
+            const fiber = yield* Effect.fork(createOrderedTask(id))
+            yield* TestClock.adjust(Duration.seconds(1))
+            yield* Fiber.join(fiber)
+          })
+        )
+      )
 
       // 実行順序が保持されることを確認
       expect(executionOrder).toEqual(['task-1', 'task-2', 'task-3'])

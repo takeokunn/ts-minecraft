@@ -457,92 +457,99 @@ const executeTradeWorkflowImpl = (
     yield* Effect.logDebug('Phase 1: Validating trade preconditions')
     yield* validateTradeConditions(operation, validationService)
 
-    // フェーズ2: 両プレイヤーの承諾確認
-    if (!operation.acceptedByPlayer1 || !operation.acceptedByPlayer2) {
-      return {
-        transactionId,
-        tradeCompleted: false,
-        player1Received: [],
-        player2Received: [],
-        tradeValue: { player1Value: 0, player2Value: 0 },
-        completedAt: yield* DateTime.now,
-      }
-    }
-
-    // フェーズ3: アイテム予約（並行実行）
-    yield* Effect.logDebug('Phase 3: Reserving trade items (parallel)')
-    const [player1Items, player2Items] = yield* Effect.all(
-      [
-        reserveTradeItems(operation.player1Offers, inventoryService),
-        reserveTradeItems(operation.player2Offers, inventoryService),
-      ],
-      { concurrency: 4 }
-    )
-
-    return yield* Effect.gen(function* () {
-      // フェーズ4: アイテム移動実行（並行実行）
-      yield* Effect.logDebug('Phase 4: Executing item transfers (parallel)')
-
-      const [player2Received, player1Received] = yield* Effect.all(
-        [
-          // プレイヤー1 → プレイヤー2
-          EffectArray.forEach(operation.player1Offers, (offer) =>
-            transferService
-              .transferItem(
-                offer.inventoryId,
-                operation.player2Id,
-                offer.slotIndex,
-                undefined,
-                offer.itemStack.quantity
-              )
-              .pipe(Effect.map(() => offer.itemStack))
-          ),
-          // プレイヤー2 → プレイヤー1
-          EffectArray.forEach(operation.player2Offers, (offer) =>
-            transferService
-              .transferItem(
-                offer.inventoryId,
-                operation.player1Id,
-                offer.slotIndex,
-                undefined,
-                offer.itemStack.quantity
-              )
-              .pipe(Effect.map(() => offer.itemStack))
-          ),
-        ],
-        { concurrency: 4 }
-      )
-
-      // フェーズ5: 取引価値計算
-      const tradeValue = yield* calculateTradeValue(player1Received, player2Received)
-
-      yield* Effect.logInfo('Trade workflow completed successfully', {
-        transactionId,
-        tradeId: operation.tradeId,
-        player1ReceivedCount: player1Received.length,
-        player2ReceivedCount: player2Received.length,
-      })
-
-      return {
-        transactionId,
-        tradeCompleted: true,
-        player1Received,
-        player2Received,
-        tradeValue,
-        completedAt: yield* DateTime.now,
-      }
-    }).pipe(
-      Effect.catchAll((error) =>
-        Effect.gen(function* () {
-          // エラー時のロールバック
-          yield* Effect.logError('Trade workflow failed, rolling back', {
-            transactionId,
-            error: String(error),
+    return yield* pipe(
+      Match.value(operation.acceptedByPlayer1 && operation.acceptedByPlayer2),
+      Match.when(
+        (accepted) => !accepted,
+        () =>
+          Effect.gen(function* () {
+            return {
+              transactionId,
+              tradeCompleted: false,
+              player1Received: [],
+              player2Received: [],
+              tradeValue: { player1Value: 0, player2Value: 0 },
+              completedAt: yield* DateTime.now,
+            }
           })
+      ),
+      Match.orElse(() =>
+        Effect.gen(function* () {
+          // フェーズ3: アイテム予約（並行実行）
+          yield* Effect.logDebug('Phase 3: Reserving trade items (parallel)')
+          const [player1Items, player2Items] = yield* Effect.all(
+            [
+              reserveTradeItems(operation.player1Offers, inventoryService),
+              reserveTradeItems(operation.player2Offers, inventoryService),
+            ],
+            { concurrency: 4 }
+          )
 
-          yield* rollbackTradeItems([...player1Items, ...player2Items], inventoryService)
+          return yield* Effect.gen(function* () {
+            // フェーズ4: アイテム移動実行（並行実行）
+            yield* Effect.logDebug('Phase 4: Executing item transfers (parallel)')
 
-          return yield* Effect.fail(error)
+            const [player2Received, player1Received] = yield* Effect.all(
+              [
+                EffectArray.forEach(operation.player1Offers, (offer) =>
+                  transferService
+                    .transferItem(
+                      offer.inventoryId,
+                      operation.player2Id,
+                      offer.slotIndex,
+                      undefined,
+                      offer.itemStack.quantity
+                    )
+                    .pipe(Effect.map(() => offer.itemStack))
+                ),
+                EffectArray.forEach(operation.player2Offers, (offer) =>
+                  transferService
+                    .transferItem(
+                      offer.inventoryId,
+                      operation.player1Id,
+                      offer.slotIndex,
+                      undefined,
+                      offer.itemStack.quantity
+                    )
+                    .pipe(Effect.map(() => offer.itemStack))
+                ),
+              ],
+              { concurrency: 4 }
+            )
+
+            const tradeValue = yield* calculateTradeValue(player1Received, player2Received)
+
+            yield* Effect.logInfo('Trade workflow completed successfully', {
+              transactionId,
+              tradeId: operation.tradeId,
+              player1ReceivedCount: player1Received.length,
+              player2ReceivedCount: player2Received.length,
+            })
+
+            const completedAt = yield* DateTime.now
+
+            return {
+              transactionId,
+              tradeCompleted: true,
+              player1Received,
+              player2Received,
+              tradeValue,
+              completedAt,
+            }
+          }).pipe(
+            Effect.catchAll((error) =>
+              Effect.gen(function* () {
+                yield* Effect.logError('Trade workflow failed, rolling back', {
+                  transactionId,
+                  error: String(error),
+                })
+
+                yield* rollbackTradeItems([...player1Items, ...player2Items], inventoryService)
+
+                return yield* Effect.fail(error)
+              })
+            )
+          )
         })
       )
     )

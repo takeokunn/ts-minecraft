@@ -1,5 +1,6 @@
 import { Effect, ManagedRuntime } from 'effect'
-import { AppService, MainLayer } from './bootstrap'
+import { AppService, MainPresentationLayer } from './bootstrap'
+import { initApp } from './app'
 
 const program = Effect.gen(function* () {
   const app = yield* AppService
@@ -10,7 +11,9 @@ const program = Effect.gen(function* () {
   return status
 })
 
-const runtime = ManagedRuntime.make(MainLayer)
+const runtime = ManagedRuntime.make(MainPresentationLayer)
+
+initApp(runtime)
 
 const main = Effect.gen(function* () {
   const status = yield* program

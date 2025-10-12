@@ -4,7 +4,7 @@
  */
 
 import { describe, expect, it } from '@effect/vitest'
-import { Effect, Random, TestRandom } from 'effect'
+import { Effect, Match, Random, TestRandom, pipe } from 'effect'
 
 /**
  * バイオームタイプ定義
@@ -15,14 +15,16 @@ type BiomeType = 'plains' | 'forest' | 'mountains' | 'desert' | 'ocean' | 'tundr
  * バイオーム分類関数
  * 0-1の乱数値に基づいてバイオームを決定
  */
-const classifyBiome = (randomValue: number): BiomeType => {
-  if (randomValue < 0.2) return 'plains'
-  if (randomValue < 0.4) return 'forest'
-  if (randomValue < 0.6) return 'mountains'
-  if (randomValue < 0.75) return 'desert'
-  if (randomValue < 0.9) return 'ocean'
-  return 'tundra'
-}
+const classifyBiome = (randomValue: number): BiomeType =>
+  pipe(
+    Match.value(randomValue),
+    Match.when((value) => value < 0.2, () => 'plains' as BiomeType),
+    Match.when((value) => value < 0.4, () => 'forest' as BiomeType),
+    Match.when((value) => value < 0.6, () => 'mountains' as BiomeType),
+    Match.when((value) => value < 0.75, () => 'desert' as BiomeType),
+    Match.when((value) => value < 0.9, () => 'ocean' as BiomeType),
+    Match.orElse(() => 'tundra' as BiomeType)
+  )
 
 /**
  * バイオーム分類Effect
@@ -38,12 +40,16 @@ const generateBiome = Effect.gen(function* () {
  */
 const generateBiomes = (count: number) =>
   Effect.gen(function* () {
-    const biomes: BiomeType[] = []
-    for (let i = 0; i < count; i++) {
-      const biome = yield* generateBiome
-      biomes.push(biome)
-    }
-    return biomes
+    return yield* pipe(
+      Match.value(count <= 0),
+      Match.when(true, () => Effect.succeed<ReadonlyArray<BiomeType>>([])),
+      Match.orElse(() =>
+        Effect.gen(function* () {
+          const biomes = yield* Effect.replicateEffect(generateBiome, count)
+          return biomes as ReadonlyArray<BiomeType>
+        })
+      )
+    )
   })
 
 /**

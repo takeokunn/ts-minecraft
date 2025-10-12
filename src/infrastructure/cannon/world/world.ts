@@ -1,5 +1,5 @@
 import * as CANNON from 'cannon-es'
-import { Effect, Schema } from 'effect'
+import { Effect, Match, Option, Schema } from 'effect'
 import { PhysicsWorldError } from '../errors'
 
 /**
@@ -56,17 +56,25 @@ export const createWorld = (params: WorldParams): Effect.Effect<CANNON.World, Ph
       // 重力設定
       world.gravity.set(params.gravity.x, params.gravity.y, params.gravity.z)
 
-      // Broadphase設定
-      if (params.broadphase === 'sap') {
-        world.broadphase = new CANNON.SAPBroadphase(world)
-      }
-      // naive はデフォルトなので設定不要
+      Match.value(params.broadphase).pipe(
+        Match.when('sap', () => {
+          world.broadphase = new CANNON.SAPBroadphase(world)
+        }),
+        Match.orElse(() => undefined),
+        Match.exhaustive
+      )
 
-      // Solver設定（GSSolverの場合のみ適用）
-      if (params.solver && world.solver instanceof CANNON.GSSolver) {
-        world.solver.iterations = params.solver.iterations
-        world.solver.tolerance = params.solver.tolerance
-      }
+      Option.fromNullable(params.solver).pipe(
+        Option.filter(() => world.solver instanceof CANNON.GSSolver),
+        Option.match({
+          onNone: () => undefined,
+          onSome: (solver) => {
+            const gsSolver = world.solver as CANNON.GSSolver
+            gsSolver.iterations = solver.iterations
+            gsSolver.tolerance = solver.tolerance
+          },
+        })
+      )
 
       return world
     },
@@ -169,25 +177,25 @@ export const raycast = (
       const result = new CANNON.RaycastResult()
       world.raycastClosest(rayStart, rayEnd, {}, result)
 
-      if (!result.hasHit) {
-        return null
-      }
-
-      return {
-        hasHit: result.hasHit,
-        distance: result.distance,
-        hitPoint: {
-          x: result.hitPointWorld.x,
-          y: result.hitPointWorld.y,
-          z: result.hitPointWorld.z,
-        },
-        hitNormal: {
-          x: result.hitNormalWorld.x,
-          y: result.hitNormalWorld.y,
-          z: result.hitNormalWorld.z,
-        },
-        body: result.body,
-      }
+      return Match.value(result.hasHit).pipe(
+        Match.when(false, () => null),
+        Match.orElse(() => ({
+          hasHit: result.hasHit,
+          distance: result.distance,
+          hitPoint: {
+            x: result.hitPointWorld.x,
+            y: result.hitPointWorld.y,
+            z: result.hitPointWorld.z,
+          },
+          hitNormal: {
+            x: result.hitNormalWorld.x,
+            y: result.hitNormalWorld.y,
+            z: result.hitNormalWorld.z,
+          },
+          body: result.body,
+        })),
+        Match.exhaustive
+      )
     },
     catch: (error) =>
       PhysicsWorldError.make({

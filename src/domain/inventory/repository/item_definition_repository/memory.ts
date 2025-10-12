@@ -1,4 +1,4 @@
-import { Effect, HashMap, Layer, Ref } from 'effect'
+import { Effect, HashMap, Layer, Match, Option, ReadonlyArray, Ref, pipe } from 'effect'
 import type {
   ItemCategory,
   ItemCraftingRecipe,
@@ -32,13 +32,13 @@ export const ItemDefinitionRepositoryMemory = Layer.effect(
       save: (definition: ItemDefinition) =>
         Effect.gen(function* () {
           const store = yield* Ref.get(definitionStore)
-          const exists = HashMap.has(store, definition.id)
-
-          if (exists) {
-            yield* Effect.fail(createDuplicateItemDefinitionError(definition.id))
-          }
-
-          yield* Ref.update(definitionStore, (store) => HashMap.set(store, definition.id, definition))
+          yield* pipe(
+            Match.value(HashMap.has(store, definition.id)),
+            Match.when(true, () => Effect.fail(createDuplicateItemDefinitionError(definition.id))),
+            Match.orElse(() =>
+              Ref.update(definitionStore, (current) => HashMap.set(current, definition.id, definition))
+            )
+          )
         }),
 
       findById: (id: ItemId) =>
@@ -107,9 +107,11 @@ export const ItemDefinitionRepositoryMemory = Layer.effect(
           const store = yield* Ref.get(definitionStore)
           const duplicates = definitions.filter((def) => HashMap.has(store, def.id))
 
-          if (duplicates.length > 0) {
-            yield* Effect.fail(createDuplicateItemDefinitionError(duplicates[0].id))
-          }
+          yield* pipe(
+            Match.value(duplicates.length > 0),
+            Match.when(true, () => Effect.fail(createDuplicateItemDefinitionError(duplicates[0].id))),
+            Match.orElse(() => Effect.unit)
+          )
 
           yield* Ref.update(definitionStore, (store) => {
             let updatedStore = store
@@ -126,55 +128,95 @@ export const ItemDefinitionRepositoryMemory = Layer.effect(
           const definitions = Array.from(HashMap.values(store))
 
           return definitions.filter((definition) => {
-            // 名前フィルター
-            if (query.nameContains && !definition.name.toLowerCase().includes(query.nameContains.toLowerCase())) {
-              return false
-            }
+            const matchesName = pipe(
+              Option.fromNullable(query.nameContains),
+              Option.match({
+                onNone: () => true,
+                onSome: (needle) => definition.name.toLowerCase().includes(needle.toLowerCase()),
+              })
+            )
 
-            // カテゴリフィルター
-            if (query.categories && !query.categories.includes(definition.category)) {
-              return false
-            }
+            const matchesCategory = pipe(
+              Option.fromNullable(query.categories),
+              Option.match({
+                onNone: () => true,
+                onSome: (categories) => categories.includes(definition.category),
+              })
+            )
 
-            // 必須タグフィルター
-            if (query.hasTags && query.hasTags.length > 0) {
-              const defTags = definition.tags || []
-              const hasAllTags = query.hasTags.every((tag) => defTags.includes(tag))
-              if (!hasAllTags) return false
-            }
+            const definitionTags = definition.tags ?? []
 
-            // 除外タグフィルター
-            if (query.excludeTags && query.excludeTags.length > 0) {
-              const defTags = definition.tags || []
-              const hasExcludedTag = query.excludeTags.some((tag) => defTags.includes(tag))
-              if (hasExcludedTag) return false
-            }
+            const matchesRequiredTags = pipe(
+              Option.fromNullable(query.hasTags),
+              Option.filter((tags) => tags.length > 0),
+              Option.match({
+                onNone: () => true,
+                onSome: (tags) => tags.every((tag) => definitionTags.includes(tag)),
+              })
+            )
 
-            // 耐久性フィルター
-            if (query.minDurability !== undefined && (definition.durability || 0) < query.minDurability) {
-              return false
-            }
-            if (query.maxDurability !== undefined && (definition.durability || 0) > query.maxDurability) {
-              return false
-            }
+            const matchesExcludedTags = pipe(
+              Option.fromNullable(query.excludeTags),
+              Option.filter((tags) => tags.length > 0),
+              Option.match({
+                onNone: () => true,
+                onSome: (tags) => tags.every((tag) => !definitionTags.includes(tag)),
+              })
+            )
 
-            // スタック可能性フィルター
-            if (query.stackable !== undefined) {
-              const isStackable = definition.stackSize > 1
-              if (query.stackable !== isStackable) return false
-            }
+            const durability = definition.durability ?? 0
 
-            // クラフト可能性フィルター
-            if (query.craftable !== undefined && definition.craftable !== query.craftable) {
-              return false
-            }
+            const matchesMinDurability = pipe(
+              Option.fromNullable(query.minDurability),
+              Option.match({
+                onNone: () => true,
+                onSome: (min) => durability >= min,
+              })
+            )
 
-            // レアリティフィルター
-            if (query.rarity && definition.rarity !== query.rarity) {
-              return false
-            }
+            const matchesMaxDurability = pipe(
+              Option.fromNullable(query.maxDurability),
+              Option.match({
+                onNone: () => true,
+                onSome: (max) => durability <= max,
+              })
+            )
 
-            return true
+            const matchesStackable = pipe(
+              Option.fromNullable(query.stackable),
+              Option.match({
+                onNone: () => true,
+                onSome: (shouldBeStackable) => (definition.stackSize > 1) === shouldBeStackable,
+              })
+            )
+
+            const matchesCraftable = pipe(
+              Option.fromNullable(query.craftable),
+              Option.match({
+                onNone: () => true,
+                onSome: (craftable) => definition.craftable === craftable,
+              })
+            )
+
+            const matchesRarity = pipe(
+              Option.fromNullable(query.rarity),
+              Option.match({
+                onNone: () => true,
+                onSome: (rarity) => definition.rarity === rarity,
+              })
+            )
+
+            return (
+              matchesName &&
+              matchesCategory &&
+              matchesRequiredTags &&
+              matchesExcludedTags &&
+              matchesMinDurability &&
+              matchesMaxDurability &&
+              matchesStackable &&
+              matchesCraftable &&
+              matchesRarity
+            )
           })
         }),
 
@@ -193,13 +235,13 @@ export const ItemDefinitionRepositoryMemory = Layer.effect(
       update: (definition: ItemDefinition) =>
         Effect.gen(function* () {
           const store = yield* Ref.get(definitionStore)
-          const exists = HashMap.has(store, definition.id)
-
-          if (!exists) {
-            yield* Effect.fail(createItemNotFoundError(definition.id))
-          }
-
-          yield* Ref.update(definitionStore, (store) => HashMap.set(store, definition.id, definition))
+          yield* pipe(
+            Match.value(HashMap.has(store, definition.id)),
+            Match.when(false, () => Effect.fail(createItemNotFoundError(definition.id))),
+            Match.orElse(() =>
+              Ref.update(definitionStore, (current) => HashMap.set(current, definition.id, definition))
+            )
+          )
         }),
 
       initialize: () =>

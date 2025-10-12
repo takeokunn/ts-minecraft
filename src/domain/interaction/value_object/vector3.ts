@@ -25,13 +25,16 @@ export const Vector3Error = Data.taggedEnum({
 
 export type Vector3Error = typeof Vector3Error.Type
 
-const formatParseError = (error: Schema.ParseError): string => {
-  try {
-    return TreeFormatter.formatError(error, { includeStackTrace: false })
-  } catch {
-    return 'Vector3を構築できません'
-  }
-}
+const formatParseErrorFallback = 'Vector3を構築できません'
+
+const formatParseError = (error: Schema.ParseError): string =>
+  pipe(
+    Either.try({
+      try: () => TreeFormatter.formatErrorSync(error),
+      catch: () => formatParseErrorFallback,
+    }),
+    Either.getOrElse((fallback) => fallback)
+  )
 
 const toSchemaViolation = (error: Schema.ParseError) =>
   Vector3Error.SchemaViolation({ message: formatParseError(error) })

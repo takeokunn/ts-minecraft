@@ -17,11 +17,27 @@ export const CameraQueryMetadataSchema = Schema.Struct({
   ),
 })
 
+export type CameraQueryMetadata = Schema.Schema.Type<typeof CameraQueryMetadataSchema>
+
+export const CameraQueryBaseSchema = Schema.Struct({
+  ...CameraQueryMetadataSchema.fields,
+})
+
+export type CameraQueryBase = Schema.Schema.Type<typeof CameraQueryBaseSchema>
+
+export const CameraQueryTagSchema = Schema.Union(
+  Schema.Literal('GetCameraSnapshot'),
+  Schema.Literal('GetCameraState'),
+  Schema.Literal('ListActiveCameras')
+)
+
+export type CameraQueryTag = Schema.Schema.Type<typeof CameraQueryTagSchema>
+
 /**
  * カメラスナップショット取得クエリ
  */
 export const GetCameraSnapshotQuerySchema = Schema.Struct({
-  ...CameraQueryMetadataSchema.fields,
+  ...CameraQueryBaseSchema.fields,
   _tag: Schema.Literal('GetCameraSnapshot'),
   cameraId: CameraIdSchema,
 })
@@ -32,7 +48,7 @@ export type GetCameraSnapshotQuery = Schema.Schema.Type<typeof GetCameraSnapshot
  * カメラ状態取得クエリ
  */
 export const GetCameraStateQuerySchema = Schema.Struct({
-  ...CameraQueryMetadataSchema.fields,
+  ...CameraQueryBaseSchema.fields,
   _tag: Schema.Literal('GetCameraState'),
   cameraId: CameraIdSchema,
 })
@@ -43,7 +59,7 @@ export type GetCameraStateQuery = Schema.Schema.Type<typeof GetCameraStateQueryS
  * アクティブカメラ一覧取得クエリ
  */
 export const ListActiveCamerasQuerySchema = Schema.Struct({
-  ...CameraQueryMetadataSchema.fields,
+  ...CameraQueryBaseSchema.fields,
   _tag: Schema.Literal('ListActiveCameras'),
 })
 
@@ -59,6 +75,12 @@ export const CameraQuerySchema = Schema.Union(
 )
 
 export type CameraQuery = Schema.Schema.Type<typeof CameraQuerySchema>
+
+export const CameraQuerySchemas = {
+  GetCameraSnapshot: GetCameraSnapshotQuerySchema,
+  GetCameraState: GetCameraStateQuerySchema,
+  ListActiveCameras: ListActiveCamerasQuerySchema,
+} as const
 
 export const validateCameraQuery = Schema.decodeUnknown(CameraQuerySchema)
 export const isCameraQuery = Schema.is(CameraQuerySchema)

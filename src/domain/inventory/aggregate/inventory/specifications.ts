@@ -46,11 +46,14 @@ export const HasSufficientSpaceSpecification = (itemId: ItemId, requiredQuantity
       const stackableSpace = pipe(
         aggregate.slots,
         ReadonlyArray.reduce(0, (acc, slot) => {
-          if (slot?.itemStack?.itemId === itemId) {
-            const remaining = INVENTORY_CONSTANTS.MAX_STACK_SIZE - slot.itemStack.count
-            return acc + remaining
-          }
-          return acc
+          return pipe(
+            Match.value(slot?.itemStack?.itemId === itemId),
+            Match.when(
+              (matches) => matches,
+              () => acc + (INVENTORY_CONSTANTS.MAX_STACK_SIZE - (slot?.itemStack?.count ?? 0))
+            ),
+            Match.orElse(() => acc)
+          )
         })
       )
 
@@ -67,10 +70,14 @@ export const CanRemoveItemSpecification = (itemId: ItemId, requiredQuantity: num
   isSatisfiedBy: (aggregate: InventoryAggregate): Effect.Effect<boolean, InventoryAggregateError> =>
     Effect.gen(function* () {
       const total = aggregate.slots.reduce((acc, slot) => {
-        if (slot?.itemStack?.itemId === itemId) {
-          return acc + slot.itemStack.count
-        }
-        return acc
+        return pipe(
+          Match.value(slot?.itemStack?.itemId === itemId),
+          Match.when(
+            (matches) => matches,
+            () => acc + (slot?.itemStack?.count ?? 0)
+          ),
+          Match.orElse(() => acc)
+        )
       }, 0)
 
       return total >= requiredQuantity
@@ -105,54 +112,37 @@ export const InventoryIntegritySpecification: InventorySpecification = {
   description: 'インベントリ全体の整合性を検証',
   isSatisfiedBy: (aggregate: InventoryAggregate): Effect.Effect<boolean, InventoryAggregateError> =>
     Effect.gen(function* () {
-      // スロット数の検証
-      const slotsValid = yield* pipe(
-        Match.value(aggregate.slots.length !== INVENTORY_CONSTANTS.MAIN_INVENTORY_SIZE),
-        Match.when(true, () => Effect.succeed(false)),
-        Match.orElse(() => Effect.succeed(true))
-      )
-      if (!slotsValid) return false
+      const baseValidity =
+        aggregate.slots.length === INVENTORY_CONSTANTS.MAIN_INVENTORY_SIZE &&
+        aggregate.hotbar.length === INVENTORY_CONSTANTS.HOTBAR_SIZE &&
+        aggregate.hotbar.every(
+          (hotbarIndex) => hotbarIndex >= 0 && hotbarIndex < INVENTORY_CONSTANTS.MAIN_INVENTORY_SIZE
+        )
 
-      // ホットバー数の検証
-      const hotbarValid = yield* pipe(
-        Match.value(aggregate.hotbar.length !== INVENTORY_CONSTANTS.HOTBAR_SIZE),
-        Match.when(true, () => Effect.succeed(false)),
-        Match.orElse(() => Effect.succeed(true))
-      )
-      if (!hotbarValid) return false
+      return yield* pipe(
+        Match.value(baseValidity),
+        Match.when(false, () => Effect.succeed(false)),
+        Match.orElse(() =>
+          Effect.gen(function* () {
+            const stackChecks = yield* pipe(
+              aggregate.slots,
+              Effect.forEach(
+                (slot) =>
+                  slot?.itemStack ? ValidStackSizeSpecification.isSatisfiedBy(slot.itemStack) : Effect.succeed(true),
+                { concurrency: 4 }
+              )
+            )
 
-      // ホットバーインデックスの検証
-      const hasInvalidHotbarIndex = pipe(
-        aggregate.hotbar,
-        ReadonlyArray.some((hotbarIndex) => hotbarIndex < 0 || hotbarIndex >= INVENTORY_CONSTANTS.MAIN_INVENTORY_SIZE)
-      )
+            const stackValid = stackChecks.every(Boolean)
 
-      const hotbarIndexValid = yield* pipe(
-        Match.value(hasInvalidHotbarIndex),
-        Match.when(true, () => Effect.succeed(false)),
-        Match.orElse(() => Effect.succeed(true))
+            return yield* pipe(
+              Match.value(stackValid),
+              Match.when(false, () => Effect.succeed(false)),
+              Match.orElse(() => ValidHotbarSlotSpecification.isSatisfiedBy(aggregate.selectedSlot))
+            )
+          })
+        )
       )
-      if (!hotbarIndexValid) return false
-
-      // スタックサイズの検証
-      const hasInvalidStack = yield* pipe(
-        aggregate.slots,
-        Effect.forEach(
-          (slot) =>
-            slot?.itemStack ? ValidStackSizeSpecification.isSatisfiedBy(slot.itemStack) : Effect.succeed(true),
-          { concurrency: 4 }
-        ),
-        Effect.map(ReadonlyArray.some((valid) => !valid))
-      )
-
-      const stackValid = yield* pipe(
-        Match.value(hasInvalidStack),
-        Match.when(true, () => Effect.succeed(false)),
-        Match.orElse(() => Effect.succeed(true))
-      )
-      if (!stackValid) return false
-
-      return yield* ValidHotbarSlotSpecification.isSatisfiedBy(aggregate.selectedSlot)
     }),
 }
 

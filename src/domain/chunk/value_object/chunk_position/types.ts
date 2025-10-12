@@ -1,5 +1,5 @@
 import { toErrorCause, type ErrorCause } from '@shared/schema/error'
-import { Brand, Data, Effect, Option, pipe, Schema } from 'effect'
+import { Brand, Data, Effect, Either, Option, pipe, Schema } from 'effect'
 
 /**
  * チャンク座標の値オブジェクト
@@ -78,17 +78,20 @@ export const createChunkPosition = (x: number, z: number): Effect.Effect<ChunkPo
 /**
  * チャンク座標を同期的に生成
  */
-export const createChunkPositionSync = (x: number, z: number): ChunkPosition => {
-  try {
-    return Schema.decodeSync(ChunkPositionSchema)({ x, z })
-  } catch (issue) {
-    throw ChunkPositionError({
-      message: 'チャンク座標の構築に失敗しました',
-      details: { x, z },
-      cause: toErrorCause(issue),
+export const createChunkPositionSync = (x: number, z: number): ChunkPosition =>
+  pipe(
+    Schema.decodeEither(ChunkPositionSchema)({ x, z }),
+    Either.match({
+      onLeft: (issue) => {
+        throw ChunkPositionError({
+          message: 'チャンク座標の構築に失敗しました',
+          details: { x, z },
+          cause: toErrorCause(issue),
+        })
+      },
+      onRight: (position) => position,
     })
-  }
-}
+  )
 
 /**
  * ワールド座標からチャンク座標へ変換

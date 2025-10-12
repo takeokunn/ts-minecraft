@@ -12,6 +12,20 @@
 
 export { CameraAPIService, CameraAPIServiceLive, type CameraAPIError } from './api-service'
 export type { CameraAPIService } from './api-service'
+export { CameraAPIServiceStub, CameraHUDPreviewLayer } from './api-service.stub'
+
+// ========================================
+// Camera HUD Service
+// ========================================
+
+export {
+  CameraHUDService,
+  CameraHUDServiceLive,
+  CameraHUDServiceError,
+  type CameraHUDViewModel,
+  type CameraHUDServiceError,
+} from './hud-service'
+export type { CameraHUDService } from './hud-service'
 
 // ========================================
 // Player Camera Application Service
@@ -150,6 +164,7 @@ export const CameraApplicationServiceLayerModule = {
     'CameraModeManagerApplicationService',
     'CameraSystemOrchestratorService',
     'CameraAPIService',
+    'CameraHUDService',
   ] as const,
 
   responsibilities: [
@@ -158,6 +173,7 @@ export const CameraApplicationServiceLayerModule = {
     'ビューモード切り替え・最適化',
     'システム全体のオーケストレーション',
     'Camera CQRS APIサービスの提供',
+    'HUD向けカメラステータスの提供',
   ] as const,
 
   features: [

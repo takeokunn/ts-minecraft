@@ -212,18 +212,24 @@ export const PlayerCameraApplicationServiceLive = Layer.effect(
             const nextMode = yield* viewModeManager.getNextMode(playerState.viewMode)
             const canSwitch = yield* canSwitchViewMode(playerState.viewMode, nextMode, playerState)
 
-            return yield* Effect.if(canSwitch, {
-              onTrue: () =>
+            return yield* Match.value(canSwitch).pipe(
+              Match.when(true, () =>
                 Effect.gen(function* () {
-                  const updatedMode = yield* viewModeManager.switchToMode(playerState.viewMode, nextMode, Option.none())
+                  const updatedMode = yield* viewModeManager.switchToMode(
+                    playerState.viewMode,
+                    nextMode,
+                    Option.none()
+                  )
                   return {
                     ...playerState,
                     viewMode: updatedMode,
                     lastUpdate: now,
                   } as PlayerCameraState
-                }),
-              onFalse: () => Effect.succeed(playerState),
-            })
+                })
+              ),
+              Match.orElse(() => Effect.succeed(playerState)),
+              Match.exhaustive
+            )
           })
         ),
         Match.exhaustive
@@ -338,14 +344,18 @@ export const PlayerCameraApplicationServiceLive = Layer.effect(
               Effect.gen(function* () {
                 const canSwitch = yield* canSwitchViewMode(playerState.viewMode, targetMode, playerState)
 
-                yield* Effect.when(!canSwitch, () =>
-                  Effect.fail(
-                    createCameraApplicationError.viewModeSwitchNotAllowed(
-                      playerState.viewMode,
-                      targetMode,
-                      'Mode switch not allowed in current state'
+                yield* Match.value(canSwitch).pipe(
+                  Match.when(false, () =>
+                    Effect.fail(
+                      createCameraApplicationError.viewModeSwitchNotAllowed(
+                        playerState.viewMode,
+                        targetMode,
+                        'Mode switch not allowed in current state'
+                      )
                     )
-                  )
+                  ),
+                  Match.orElse(() => Effect.unit()),
+                  Match.exhaustive
                 )
 
                 const newMode = yield* viewModeManager.switchToMode(playerState.viewMode, targetMode, animationDuration)
@@ -413,21 +423,20 @@ export const PlayerCameraApplicationServiceLive = Layer.effect(
 
           const canSwitch = yield* canSwitchViewMode(playerState.viewMode, targetMode, playerState)
 
-          return yield* Effect.if(canSwitch, {
-            onFalse: () => {
+          return yield* Match.value(canSwitch).pipe(
+            Match.when(false, () => {
               const reason = Data.struct({
                 _tag: 'ModeNotSupported' as const,
                 mode: targetMode,
               }) as ViewModeTransitionFailureReason
 
               return Effect.succeed(createViewModeTransitionResult.failed(reason, playerState.viewMode, targetMode))
-            },
-            onTrue: () =>
+            }),
+            Match.orElse(() =>
               Effect.gen(function* () {
-                // アニメーション付き切り替え
                 const animationDuration = Option.getOrElse(
                   Option.flatMap(transitionConfig, (config) => Option.some(config.duration)),
-                  () => 500 // デフォルト500ms
+                  () => 500
                 )
 
                 const animation = yield* animationEngine.createViewModeTransition(
@@ -451,13 +460,13 @@ export const PlayerCameraApplicationServiceLive = Layer.effect(
 
                 playerCameras.set(playerId, updatedState)
                 yield* updatePlayerStatistics(playerId, 'viewModeSwitch')
-
-                // 設定の学習記録
                 yield* preferencesRepo.recordViewModeSwitch(playerId, playerState.viewMode, targetMode)
 
                 return createViewModeTransitionResult.success(playerState.viewMode, targetMode, animationDuration, true)
-              }),
-          })
+              })
+            ),
+            Match.exhaustive
+          )
         }),
 
       applySettingsUpdate: (playerId, settingsUpdate) =>
@@ -534,10 +543,11 @@ export const PlayerCameraApplicationServiceLive = Layer.effect(
             Option.match({
               onSome: (animation) =>
                 Effect.gen(function* () {
-                  yield* Effect.if(immediate, {
-                    onTrue: () => animationEngine.stopAnimation(animation),
-                    onFalse: () => animationEngine.fadeOutAnimation(animation, 200), // 200ms フェードアウト
-                  })
+                  yield* Match.value(immediate).pipe(
+                    Match.when(true, () => animationEngine.stopAnimation(animation)),
+                    Match.orElse(() => animationEngine.fadeOutAnimation(animation, 200)),
+                    Match.exhaustive
+                  )
 
                   const updatedState = {
                     ...playerState,
@@ -640,11 +650,17 @@ export const PlayerCameraApplicationServiceLive = Layer.effect(
             })
           )
 
-          if (Option.isSome(memoryOptimization)) {
-            const opt = Option.getOrThrow(memoryOptimization)
-            optimizations.push(opt.optimization)
-            improvementFactor += opt.improvement
-          }
+          yield* pipe(
+            memoryOptimization,
+            Option.match({
+              onNone: () => Effect.void,
+              onSome: (opt) =>
+                Effect.sync(() => {
+                  optimizations.push(opt.optimization)
+                  improvementFactor += opt.improvement
+                }),
+            })
+          )
 
           // アニメーションの最適化
           const animationOptimization = yield* Effect.when(activeAnimations.size > 50, () =>
@@ -659,11 +675,17 @@ export const PlayerCameraApplicationServiceLive = Layer.effect(
             )
           )
 
-          if (Option.isSome(animationOptimization)) {
-            const opt = Option.getOrThrow(animationOptimization)
-            optimizations.push(opt.optimization)
-            improvementFactor += opt.improvement
-          }
+          yield* pipe(
+            animationOptimization,
+            Option.match({
+              onNone: () => Effect.void,
+              onSome: (opt) =>
+                Effect.sync(() => {
+                  optimizations.push(opt.optimization)
+                  improvementFactor += opt.improvement
+                }),
+            })
+          )
 
           return {
             optimizationsApplied: optimizations,

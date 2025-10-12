@@ -1,5 +1,5 @@
 import * as CANNON from 'cannon-es'
-import { Effect, Schema } from 'effect'
+import { Effect, Match, Option, Schema } from 'effect'
 import { PhysicsBodyError } from '../errors'
 
 /**
@@ -130,12 +130,10 @@ export const applyForce = (
   Effect.try({
     try: () => {
       const forceVec = new CANNON.Vec3(force.x, force.y, force.z)
-      if (worldPoint) {
-        const pointVec = new CANNON.Vec3(worldPoint.x, worldPoint.y, worldPoint.z)
-        body.applyForce(forceVec, pointVec)
-      } else {
-        body.applyForce(forceVec)
-      }
+      Option.match(Option.fromNullable(worldPoint), {
+        onSome: (point) => body.applyForce(forceVec, new CANNON.Vec3(point.x, point.y, point.z)),
+        onNone: () => body.applyForce(forceVec),
+      })
     },
     catch: (error) =>
       PhysicsBodyError.make({
@@ -161,12 +159,10 @@ export const applyImpulse = (
   Effect.try({
     try: () => {
       const impulseVec = new CANNON.Vec3(impulse.x, impulse.y, impulse.z)
-      if (worldPoint) {
-        const pointVec = new CANNON.Vec3(worldPoint.x, worldPoint.y, worldPoint.z)
-        body.applyImpulse(impulseVec, pointVec)
-      } else {
-        body.applyImpulse(impulseVec)
-      }
+      Option.match(Option.fromNullable(worldPoint), {
+        onSome: (point) => body.applyImpulse(impulseVec, new CANNON.Vec3(point.x, point.y, point.z)),
+        onNone: () => body.applyImpulse(impulseVec),
+      })
     },
     catch: (error) =>
       PhysicsBodyError.make({

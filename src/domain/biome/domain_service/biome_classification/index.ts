@@ -10,6 +10,7 @@ export * from './climate_calculator'
 export * from './ecosystem_analyzer'
 export * from './layer'
 
+import { Match, Option, ReadonlyArray, pipe } from 'effect'
 import type { BiomeMappingResult, BiomeTransitionAnalysis } from './biome_mapper'
 import { BiomeMapperService } from './biome_mapper'
 import { ClimateCalculatorService } from './climate_calculator'
@@ -174,19 +175,14 @@ const generateHealthRecommendations = (
   stability: number,
   functional: number
 ): ReadonlyArray<string> => {
-  const recommendations: string[] = []
-
-  if (diversity < 0.5) {
-    recommendations.push('increase_species_diversity')
-  }
-  if (stability < 0.5) {
-    recommendations.push('enhance_ecosystem_resilience')
-  }
-  if (functional < 0.5) {
-    recommendations.push('improve_primary_productivity')
-  }
-
-  return recommendations
+  return pipe(
+    [
+      Option.when(diversity < 0.5, () => 'increase_species_diversity'),
+      Option.when(stability < 0.5, () => 'enhance_ecosystem_resilience'),
+      Option.when(functional < 0.5, () => 'improve_primary_productivity'),
+    ],
+    ReadonlyArray.filterMap((recommendation) => recommendation)
+  )
 }
 
 const isValidBiomeTransition = (fromBiome: string, toBiome: string): boolean => {
@@ -202,12 +198,20 @@ const isValidBiomeTransition = (fromBiome: string, toBiome: string): boolean => 
   return validTransitions[fromBiome]?.includes(toBiome) ?? false
 }
 
-const calculateAverageSharpness = (transitions: ReadonlyArray<BiomeTransitionAnalysis>): number => {
-  if (transitions.length === 0) return 0
-  return transitions.reduce((sum, t) => sum + (t.transitionSharpness || 0), 0) / transitions.length
-}
+const calculateAverageSharpness = (transitions: ReadonlyArray<BiomeTransitionAnalysis>): number =>
+  pipe(
+    Match.value(transitions.length === 0),
+    Match.when(true, () => 0),
+    Match.orElse(() =>
+      transitions.reduce((sum, t) => sum + (t.transitionSharpness || 0), 0) / transitions.length
+    )
+  )
 
-const assessEcotoneQuality = (transitions: ReadonlyArray<BiomeTransitionAnalysis>): number => {
-  // エコトーン（移行帯）の品質評価
-  return transitions.filter((t) => t.transitionType === 'ecotone').length / transitions.length
-}
+const assessEcotoneQuality = (transitions: ReadonlyArray<BiomeTransitionAnalysis>): number =>
+  pipe(
+    Match.value(transitions.length === 0),
+    Match.when(true, () => 0),
+    Match.orElse(() =>
+      transitions.filter((t) => t.transitionType === 'ecotone').length / transitions.length
+    )
+  )

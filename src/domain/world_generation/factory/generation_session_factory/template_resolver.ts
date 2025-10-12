@@ -160,37 +160,58 @@ const createSessionTemplateResolver = (): SessionTemplateResolver => ({
       const registry = yield* SessionTemplateRegistryService
       const template = yield* registry.get(type)
 
-      if (Option.isNone(template)) {
-        return yield* Effect.fail(SessionFactoryError.configurationInvalid(`Unknown template type: ${type}`))
-      }
+      return yield* pipe(
+        Match.value(template),
+        Match.tag('None', () =>
+          Effect.fail(SessionFactoryError.configurationInvalid(`Unknown template type: ${type}`))
+        ),
+        Match.tag('Some', ({ value: templateDef }) =>
+          Effect.gen(function* () {
+            const resolvedConfiguration = yield* pipe(
+              Match.value(customizations),
+              Match.when(
+                (params): params is Record<string, JsonValue> => params !== undefined,
+                (params) => applyCustomizations(templateDef.configuration, params)
+              ),
+              Match.orElse(() => Effect.succeed(templateDef.configuration))
+            )
 
-      const templateDef = template.value
-      let resolvedConfiguration = templateDef.configuration
+            const warnings: string[] = []
+            const recommendations: string[] = []
 
-      // カスタマイゼーション適用
-      if (customizations) {
-        resolvedConfiguration = yield* applyCustomizations(resolvedConfiguration, customizations)
-      }
+            pipe(
+              Match.value(templateDef.performance.expectedCpuUsage),
+              Match.when(
+                (usage) => usage === 'high',
+                () => {
+                  recommendations.push('Consider monitoring CPU usage during execution')
+                }
+              ),
+              Match.orElse(() => undefined)
+            )
 
-      const warnings: string[] = []
-      const recommendations: string[] = []
+            pipe(
+              Match.value(templateDef.performance.expectedMemoryUsage),
+              Match.when(
+                (usage) => usage === 'high',
+                () => {
+                  recommendations.push('Ensure sufficient memory is available')
+                }
+              ),
+              Match.orElse(() => undefined)
+            )
 
-      // 推奨事項生成
-      if (templateDef.performance.expectedCpuUsage === 'high') {
-        recommendations.push('Consider monitoring CPU usage during execution')
-      }
-
-      if (templateDef.performance.expectedMemoryUsage === 'high') {
-        recommendations.push('Ensure sufficient memory is available')
-      }
-
-      return {
-        template: templateDef,
-        resolvedConfiguration,
-        appliedCustomizations: customizations ?? {},
-        warnings,
-        recommendations,
-      }
+            return {
+              template: templateDef,
+              resolvedConfiguration,
+              appliedCustomizations: customizations ?? {},
+              warnings,
+              recommendations,
+            }
+          })
+        ),
+        Match.exhaustive
+      )
     }),
 
   resolveCustom: (name: string, customizations?: Record<string, JsonValue>) =>
@@ -198,24 +219,33 @@ const createSessionTemplateResolver = (): SessionTemplateResolver => ({
       const registry = yield* SessionTemplateRegistryService
       const template = yield* registry.getCustom(name)
 
-      if (Option.isNone(template)) {
-        return yield* Effect.fail(SessionFactoryError.configurationInvalid(`Unknown custom template: ${name}`))
-      }
+      return yield* pipe(
+        Match.value(template),
+        Match.tag('None', () =>
+          Effect.fail(SessionFactoryError.configurationInvalid(`Unknown custom template: ${name}`))
+        ),
+        Match.tag('Some', ({ value: templateDef }) =>
+          Effect.gen(function* () {
+            const resolvedConfiguration = yield* pipe(
+              Match.value(customizations),
+              Match.when(
+                (params): params is Record<string, JsonValue> => params !== undefined,
+                (params) => applyCustomizations(templateDef.configuration, params)
+              ),
+              Match.orElse(() => Effect.succeed(templateDef.configuration))
+            )
 
-      const templateDef = template.value
-      let resolvedConfiguration = templateDef.configuration
-
-      if (customizations) {
-        resolvedConfiguration = yield* applyCustomizations(resolvedConfiguration, customizations)
-      }
-
-      return {
-        template: templateDef,
-        resolvedConfiguration,
-        appliedCustomizations: customizations ?? {},
-        warnings: [],
-        recommendations: [],
-      }
+            return {
+              template: templateDef,
+              resolvedConfiguration,
+              appliedCustomizations: customizations ?? {},
+              warnings: [],
+              recommendations: [],
+            }
+          })
+        ),
+        Match.exhaustive
+      )
     }),
 
   recommend: (criteria) =>
@@ -229,50 +259,79 @@ const createSessionTemplateResolver = (): SessionTemplateResolver => ({
         Effect.forEach((templateType) =>
           Effect.gen(function* () {
             const template = yield* registry.get(templateType)
-            if (Option.isNone(template)) return Option.none<readonly [SessionTemplateType, number]>()
 
-            const templateDef = template.value
-            let score = 0
+            return yield* pipe(
+              Match.value(template),
+              Match.tag('None', () => Effect.succeed(Option.none<readonly [SessionTemplateType, number]>())),
+              Match.tag('Some', ({ value: templateDef }) =>
+                Effect.gen(function* () {
+                  const chunkScore = pipe(
+                    Match.value(criteria.chunkCount),
+                    Match.when(
+                      (chunkCount): chunkCount is number =>
+                        chunkCount !== undefined && chunkCount > 0 && templateDef.configuration.maxConcurrentChunks > 0,
+                      (chunkCount) => {
+                        const optimalConcurrency = templateDef.configuration.maxConcurrentChunks
+                        const efficiencyScore = Math.min(
+                          chunkCount / optimalConcurrency,
+                          optimalConcurrency / chunkCount
+                        )
+                        return efficiencyScore * 30
+                      }
+                    ),
+                    Match.orElse(() => 0)
+                  )
 
-            // チャンク数に基づくスコアリング
-            if (criteria.chunkCount) {
-              const optimalConcurrency = templateDef.configuration.maxConcurrentChunks
-              const efficiencyScore = Math.min(
-                criteria.chunkCount / optimalConcurrency,
-                optimalConcurrency / criteria.chunkCount
-              )
-              score += efficiencyScore * 30
-            }
+                  const useCaseScore = pipe(
+                    Match.value(criteria.useCases),
+                    Match.when(
+                      (useCases): useCases is string[] => !!useCases && useCases.length > 0,
+                      (useCases) => {
+                        const matchingUseCases = useCases.filter((useCase) =>
+                          templateDef.useCases.some((templateUseCase) =>
+                            templateUseCase.toLowerCase().includes(useCase.toLowerCase())
+                          )
+                        )
+                        return (matchingUseCases.length / useCases.length) * 40
+                      }
+                    ),
+                    Match.orElse(() => 0)
+                  )
 
-            // ユースケース一致度
-            if (criteria.useCases) {
-              const matchingUseCases = criteria.useCases.filter((useCase) =>
-                templateDef.useCases.some((templateUseCase) =>
-                  templateUseCase.toLowerCase().includes(useCase.toLowerCase())
-                )
-              )
-              score += (matchingUseCases.length / criteria.useCases.length) * 40
-            }
+                  const performanceScore = Function.pipe(
+                    Match.value(criteria.performance),
+                    Match.when(
+                      'speed',
+                      () => (templateDef.performance.expectedDuration === 'fast' ? 20 : 0)
+                    ),
+                    Match.when(
+                      'quality',
+                      () => (templateDef.configuration.maxConcurrentChunks <= 2 ? 20 : 0)
+                    ),
+                    Match.when(
+                      'memory',
+                      () => (templateDef.performance.expectedMemoryUsage === 'low' ? 20 : 0)
+                    ),
+                    Match.orElse(() => 0)
+                  )
 
-            // パフォーマンス要件
-            if (criteria.performance) {
-              const performanceMatch = Function.pipe(
-                Match.value(criteria.performance),
-                Match.when('speed', () => (templateDef.performance.expectedDuration === 'fast' ? 20 : 0)),
-                Match.when('quality', () => (templateDef.configuration.maxConcurrentChunks <= 2 ? 20 : 0)),
-                Match.when('memory', () => (templateDef.performance.expectedMemoryUsage === 'low' ? 20 : 0)),
-                Match.orElse(() => 0)
-              )
-              score += performanceMatch
-            }
+                  const profileScore = pipe(
+                    Match.value(criteria.profile),
+                    Match.when(
+                      (profile): profile is ConfigurationProfile => profile !== undefined,
+                      (profile) =>
+                        templateDef.requirements.supportedProfiles.includes(profile) ? 10 : -10
+                    ),
+                    Match.orElse(() => 0)
+                  )
 
-            // プロファイル互換性
-            if (criteria.profile) {
-              const isSupported = templateDef.requirements.supportedProfiles.includes(criteria.profile)
-              score += isSupported ? 10 : -10
-            }
+                  const score = chunkScore + useCaseScore + performanceScore + profileScore
 
-            return Option.some([templateType, score] as const)
+                  return Option.some([templateType, score] as const)
+                })
+              ),
+              Match.exhaustive
+            )
           })
         )
       )
@@ -304,24 +363,31 @@ const createSessionTemplateResolver = (): SessionTemplateResolver => ({
       const registry = yield* SessionTemplateRegistryService
       const baseTemplate = yield* registry.get(baseType)
 
-      if (Option.isNone(baseTemplate)) {
-        return yield* Effect.fail(SessionFactoryError.configurationInvalid(`Unknown base template type: ${baseType}`))
-      }
-
-      const now = yield* DateTime.nowAsDate
-      return {
-        ...baseTemplate.value,
-        ...modifications,
-        configuration: {
-          ...baseTemplate.value.configuration,
-          ...modifications.configuration,
-        },
-        metadata: {
-          ...baseTemplate.value.metadata,
-          ...modifications.metadata,
-          lastModified: now,
-        },
-      }
+      return yield* pipe(
+        Match.value(baseTemplate),
+        Match.tag('None', () =>
+          Effect.fail(SessionFactoryError.configurationInvalid(`Unknown base template type: ${baseType}`))
+        ),
+        Match.tag('Some', ({ value }) =>
+          Effect.gen(function* () {
+            const now = yield* DateTime.nowAsDate
+            return {
+              ...value,
+              ...modifications,
+              configuration: {
+                ...value.configuration,
+                ...modifications.configuration,
+              },
+              metadata: {
+                ...value.metadata,
+                ...modifications.metadata,
+                lastModified: now,
+              },
+            }
+          })
+        ),
+        Match.exhaustive
+      )
     }),
 })
 
@@ -355,11 +421,14 @@ export const getTemplate = (type: SessionTemplateType): Effect.Effect<SessionTem
     const registry = yield* SessionTemplateRegistryService
     const template = yield* registry.get(type)
 
-    if (Option.isNone(template)) {
-      return yield* Effect.fail(SessionFactoryError.configurationInvalid(`Template not found: ${type}`))
-    }
-
-    return template.value
+    return yield* pipe(
+      Match.value(template),
+      Match.tag('None', () =>
+        Effect.fail(SessionFactoryError.configurationInvalid(`Template not found: ${type}`))
+      ),
+      Match.tag('Some', ({ value }) => Effect.succeed(value)),
+      Match.exhaustive
+    )
   })
 
 export const listTemplates = (): Effect.Effect<readonly SessionTemplateType[]> =>

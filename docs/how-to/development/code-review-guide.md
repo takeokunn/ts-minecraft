@@ -385,12 +385,12 @@ const processGameUpdate = (update: GameUpdate) =>
 // ❌ 直列処理（非効率）
 const loadPlayerData = (playerIds: string[]) =>
   Effect.gen(function* (_) {
-    const players = []
-    for (const id of playerIds) {
-      const player = yield* _(loadPlayer(id))
-      players.push(player)
-    }
-    return players
+    return yield* Effect.reduce(
+      playerIds,
+      [] as ReadonlyArray<Player>,
+      (acc, id) =>
+        Effect.map(loadPlayer(id), (player) => [...acc, player])
+    )
   })
 
 // ✅ 並行処理（効率的）

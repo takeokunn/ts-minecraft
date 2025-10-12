@@ -4,7 +4,7 @@
  */
 
 import { ErrorCauseSchema } from '@shared/schema/error'
-import { Effect, Schema } from 'effect'
+import { Effect, Match, Schema } from 'effect'
 import * as THREE from 'three'
 import { matrix3ElementsToTuple } from '../schemas/adapters'
 
@@ -101,19 +101,26 @@ export const determinant = (m: Matrix3): number => toThreeMatrix(m).determinant(
 export const invert = (m: Matrix3): Effect.Effect<Matrix3, Matrix3Error> =>
   Effect.gen(function* () {
     const det = determinant(m)
-    if (Math.abs(det) < Number.EPSILON) {
-      return yield* Effect.fail(
-        new Matrix3Error({
-          operation: 'invert',
-          reason: 'Matrix is singular (determinant is zero)',
-          matrix: m,
-        })
-      )
-    }
 
-    const threeM = toThreeMatrix(m)
-    threeM.invert()
-    return make(matrix3ElementsToTuple(threeM.elements))
+    return yield* Match.value(Math.abs(det) < Number.EPSILON).pipe(
+      Match.when(true, () =>
+        Effect.fail(
+          new Matrix3Error({
+            operation: 'invert',
+            reason: 'Matrix is singular (determinant is zero)',
+            matrix: m,
+          })
+        )
+      ),
+      Match.orElse(() =>
+        Effect.sync(() => {
+          const threeM = toThreeMatrix(m)
+          threeM.invert()
+          return make(matrix3ElementsToTuple(threeM.elements))
+        })
+      ),
+      Match.exhaustive
+    )
   })
 
 /**

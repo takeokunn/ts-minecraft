@@ -15,7 +15,7 @@ import {
 import { AdvancedNoiseSettingsSchema } from '@domain/world/value_object/noise_configuration/index'
 import type { WorldSeed } from '@domain/world/value_object/world_seed'
 import { JsonRecordSchema, JsonValueSchema } from '@shared/schema/json'
-import { Context, Effect, Layer, Schema } from 'effect'
+import { Context, Effect, Layer, Match, Option, pipe, ReadonlyArray, Schema } from 'effect'
 
 /**
  * 鉱石タイプ定義
@@ -451,18 +451,32 @@ export const OrePlacerServiceLive = Layer.effect(
                   ReadonlyArray.range(Math.floor(-radius), Math.ceil(radius) + 1),
                   ReadonlyArray.filterMap((z) => {
                     const distance = Math.sqrt(x * x + y * y + z * z)
-                    if (distance > radius) return Option.none()
 
-                    // 中心からの距離に基づく品位減衰
-                    const gradeModifier = 1 - (distance / radius) * 0.5
-                    const finalGrade = grade * gradeModifier
+                    return pipe(
+                      Match.value(distance),
+                      Match.when(
+                        (value) => value > radius,
+                        () => Option.none<{ coordinate: WorldCoordinate; grade: number }>()
+                      ),
+                      Match.orElse((validDistance) => {
+                        const gradeModifier = 1 - (validDistance / radius) * 0.5
+                        const finalGrade = grade * gradeModifier
 
-                    if (finalGrade <= 0.1) return Option.none() // 最低品位閾値
-
-                    return Option.some({
-                      coordinate: makeUnsafeWorldCoordinate(center.x + x, center.y + y, center.z + z),
-                      grade: finalGrade,
-                    })
+                        return pipe(
+                          Match.value(finalGrade),
+                          Match.when(
+                            (value) => value <= 0.1,
+                            () => Option.none<{ coordinate: WorldCoordinate; grade: number }>()
+                          ),
+                          Match.orElse(() =>
+                            Option.some({
+                              coordinate: makeUnsafeWorldCoordinate(center.x + x, center.y + y, center.z + z),
+                              grade: finalGrade,
+                            })
+                          )
+                        )
+                      })
+                    )
                   })
                 )
               )
@@ -479,20 +493,29 @@ export const OrePlacerServiceLive = Layer.effect(
         const depthValidation = pipe(
           result.veins,
           ReadonlyArray.filterMap((vein) => {
-            const profile = config.oreProfiles.find((p) => p.oreType === vein.oreType)
-            if (!profile) return Option.none()
-
             const veinDepth = vein.centerCoordinate.y
-            if (
-              veinDepth < profile.depthDistribution.depthRange.min ||
-              veinDepth > profile.depthDistribution.depthRange.max
-            ) {
-              return Option.some({
-                issue: `${vein.oreType} vein at inappropriate depth: ${veinDepth}`,
-                suggestion: `Relocate ${vein.oreType} vein to depth range ${profile.depthDistribution.depthRange.min}-${profile.depthDistribution.depthRange.max}`,
+
+            return pipe(
+              Option.fromNullable(config.oreProfiles.find((p) => p.oreType === vein.oreType)),
+              Option.match({
+                onNone: () => Option.none(),
+                onSome: (profile) =>
+                  pipe(
+                    Match.value(veinDepth),
+                    Match.when(
+                      (depth) =>
+                        depth < profile.depthDistribution.depthRange.min ||
+                        depth > profile.depthDistribution.depthRange.max,
+                      (depth) =>
+                        Option.some({
+                          issue: `${vein.oreType} vein at inappropriate depth: ${depth}`,
+                          suggestion: `Relocate ${vein.oreType} vein to depth range ${profile.depthDistribution.depthRange.min}-${profile.depthDistribution.depthRange.max}`,
+                        })
+                    ),
+                    Match.orElse(() => Option.none())
+                  ),
               })
-            }
-            return Option.none()
+            )
           })
         )
 
@@ -522,19 +545,24 @@ export const OrePlacerServiceLive = Layer.effect(
         const evaluations = pipe(
           result.veins,
           ReadonlyArray.filterMap((vein) => {
-            const profile = config.oreProfiles.find((p) => p.oreType === vein.oreType)
-            if (!profile) return Option.none()
+            return pipe(
+              Option.fromNullable(config.oreProfiles.find((p) => p.oreType === vein.oreType)),
+              Option.match({
+                onNone: () => Option.none(),
+                onSome: (profile) => {
+                  const veinValue = calculateVeinValue(vein, profile)
+                  const difficulty = calculateExtractionDifficulty(vein, profile)
 
-            const veinValue = calculateVeinValue(vein, profile)
-            const difficulty = calculateExtractionDifficulty(vein, profile)
-
-            return Option.some({
-              veinId: vein.id,
-              oreType: vein.oreType,
-              value: veinValue,
-              difficulty,
-              isViable: veinValue / difficulty > 1.0, // 採算性閾値
-            })
+                  return Option.some({
+                    veinId: vein.id,
+                    oreType: vein.oreType,
+                    value: veinValue,
+                    difficulty,
+                    isViable: veinValue / difficulty > 1.0, // 採算性閾値
+                  })
+                },
+              })
+            )
           })
         )
 

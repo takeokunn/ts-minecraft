@@ -13,7 +13,7 @@ import type { ChunkCoordinate } from '@/domain/world/value_object/coordinates/ch
 import { PerlinNoiseService, type PerlinNoiseConfig } from '@domain/world_generation/domain_service/noise_generation'
 import { ErrorCauseSchema } from '@shared/schema/error'
 import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
-import { Clock, Context, DateTime, Effect, Fiber, Layer, Schema, Stream } from 'effect'
+import { Clock, Context, DateTime, Effect, Fiber, HashSet, Layer, Match, Option, Order, ReadonlyArray, Schema, Stream, pipe } from 'effect'
 
 /**
  * チャンク生成エラー
@@ -101,26 +101,39 @@ const buildNoiseConfig = (seed: bigint): PerlinNoiseConfig => ({
 
 type SeedLike = WorldSeed | number | bigint | { readonly value: number | bigint }
 
-const normalizeSeed = (seed: SeedLike | null | undefined): bigint => {
-  if (seed === null || seed === undefined) {
-    return 0n
-  }
-
-  if (typeof seed === 'bigint') {
-    return seed
-  }
-
-  if (typeof seed === 'number') {
-    return BigInt(Math.trunc(seed))
-  }
-
-  if (typeof seed === 'object' && 'value' in seed) {
-    const value = seed.value
-    return typeof value === 'bigint' ? value : BigInt(Math.trunc(value))
-  }
-
-  return 0n
-}
+const normalizeSeed = (seed: SeedLike | null | undefined): bigint =>
+  pipe(
+    Option.fromNullable(seed),
+    Match.value,
+    Match.tag('None', () => 0n),
+    Match.tag('Some', ({ value }) =>
+      pipe(
+        Match.value(value),
+        Match.when((candidate): candidate is bigint => typeof candidate === 'bigint', (candidate) => candidate),
+        Match.when((candidate): candidate is number => typeof candidate === 'number', (candidate) =>
+          BigInt(Math.trunc(candidate))
+        ),
+        Match.when(
+          (candidate): candidate is { readonly value: number | bigint } =>
+            typeof candidate === 'object' && candidate !== null && 'value' in candidate,
+          (candidate) =>
+            pipe(
+              candidate.value,
+              Match.value,
+              Match.when((inner): inner is bigint => typeof inner === 'bigint', (inner) => inner),
+              Match.when((inner): inner is number => typeof inner === 'number', (inner) =>
+                BigInt(Math.trunc(inner))
+              ),
+              Match.orElse(() => 0n),
+              Match.exhaustive
+            )
+        ),
+        Match.orElse(() => 0n),
+        Match.exhaustive
+      )
+    ),
+    Match.exhaustive
+  )
 
 const generateSingleChunk = (coordinate: ChunkCoordinate): Effect.Effect<ChunkData, ChunkGenerationError> =>
   Effect.gen(function* () {
@@ -130,13 +143,19 @@ const generateSingleChunk = (coordinate: ChunkCoordinate): Effect.Effect<ChunkDa
     const perlin = yield* PerlinNoiseService
     const worldType = metadata.settings.worldType
 
-    const variance =
-      worldType === 'amplified'
-        ? HEIGHT_VARIANCE * 2
-        : worldType === 'superflat'
-          ? HEIGHT_VARIANCE * 0.25
-          : HEIGHT_VARIANCE
-    const baseHeight = worldType === 'superflat' ? SEA_LEVEL : BASE_HEIGHT
+    const variance = pipe(
+      Match.value(worldType),
+      Match.when('amplified', () => HEIGHT_VARIANCE * 2),
+      Match.when('superflat', () => HEIGHT_VARIANCE * 0.25),
+      Match.orElse(() => HEIGHT_VARIANCE),
+      Match.exhaustive
+    )
+    const baseHeight = pipe(
+      Match.value(worldType),
+      Match.when('superflat', () => SEA_LEVEL),
+      Match.orElse(() => BASE_HEIGHT),
+      Match.exhaustive
+    )
 
     const noiseConfig = buildNoiseConfig(normalizeSeed(metadata.seed))
 
@@ -145,39 +164,79 @@ const generateSingleChunk = (coordinate: ChunkCoordinate): Effect.Effect<ChunkDa
     const worldBaseX = chunkX * CHUNK_SIZE
     const worldBaseZ = chunkZ * CHUNK_SIZE
 
-    const heightMap: number[] = []
-    const biomes: number[] = []
-    const structures = new Set<string>()
+    const localPositions = pipe(
+      ReadonlyArray.range(0, CHUNK_SIZE - 1),
+      ReadonlyArray.flatMap((localZ) =>
+        pipe(
+          ReadonlyArray.range(0, CHUNK_SIZE - 1),
+          ReadonlyArray.map((localX) => ({
+            localX,
+            localZ,
+            worldCoord: makeUnsafeWorldCoordinate2D(worldBaseX + localX, worldBaseZ + localZ),
+          }))
+        )
+      )
+    )
 
-    for (let localZ = 0; localZ < CHUNK_SIZE; localZ++) {
-      for (let localX = 0; localX < CHUNK_SIZE; localX++) {
-        const worldCoord = makeUnsafeWorldCoordinate2D(worldBaseX + localX, worldBaseZ + localZ)
-        const noiseSample = yield* perlin.sample2D(worldCoord, noiseConfig)
+    const samples = yield* pipe(
+      localPositions,
+      Effect.forEach(({ localX, localZ, worldCoord }) =>
+        Effect.gen(function* () {
+          const noiseSample = yield* perlin.sample2D(worldCoord, noiseConfig)
 
-        // ノイズ値(-1〜1)を高さに変換
-        const normalized = (noiseSample.value + 1) / 2
-        const targetHeight = Math.round(baseHeight + (normalized - 0.5) * 2 * variance)
-        const clampedHeight = Math.max(-64, Math.min(256, targetHeight))
-        heightMap.push(clampedHeight)
+          const normalized = (noiseSample.value + 1) / 2
+          const targetHeight = Math.round(baseHeight + (normalized - 0.5) * 2 * variance)
+          const clampedHeight = Math.max(-64, Math.min(256, targetHeight))
 
-        // 簡易的なバイオーム決定
-        const biomeId =
-          clampedHeight >= baseHeight + variance * 0.5
-            ? 2 // 山岳
-            : clampedHeight <= SEA_LEVEL - variance * 0.25
-              ? 1 // 低地/海岸
-              : 0 // 平原
-        biomes.push(biomeId)
+          const biomeId =
+            clampedHeight >= baseHeight + variance * 0.5
+              ? 2
+              : clampedHeight <= SEA_LEVEL - variance * 0.25
+                ? 1
+                : 0
 
-        if (noiseSample.value > 0.88) {
-          structures.add('peak_outcrop')
-        } else if (noiseSample.value < -0.92) {
-          structures.add('subterranean_cavern')
-        } else if ((chunkX + chunkZ) % 32 === 0 && localX === 8 && localZ === 8) {
-          structures.add('waystone')
-        }
-      }
-    }
+          const structure = pipe(
+            Match.value(noiseSample.value),
+            Match.when((value) => value > 0.88, () => Option.some('peak_outcrop')),
+            Match.when((value) => value < -0.92, () => Option.some('subterranean_cavern')),
+            Match.orElse(() =>
+              pipe(
+                Match.value((chunkX + chunkZ) % 32 === 0 && localX === 8 && localZ === 8),
+                Match.when(true, () => Option.some('waystone')),
+                Match.orElse(() => Option.none<string>()),
+                Match.exhaustive
+              )
+            ),
+            Match.exhaustive
+          )
+
+          return {
+            height: clampedHeight,
+            biomeId,
+            structure,
+          }
+        })
+      )
+    )
+
+    const heightMap = pipe(samples, ReadonlyArray.map((sample) => sample.height), Array.from)
+    const biomes = pipe(samples, ReadonlyArray.map((sample) => sample.biomeId), Array.from)
+    const structures = pipe(
+      samples,
+      ReadonlyArray.reduce(HashSet.empty<string>(), (acc, sample) =>
+        pipe(
+          sample.structure,
+          Option.match({
+            onNone: () => acc,
+            onSome: (tag) => HashSet.add(acc, tag),
+          })
+        )
+      ),
+      HashSet.values,
+      ReadonlyArray.fromIterable,
+      ReadonlyArray.sort(Order.string),
+      Array.from
+    )
 
     const generatedAt = yield* DateTime.nowAsDate
     const duration = (yield* Clock.currentTimeMillis) - start
@@ -186,7 +245,7 @@ const generateSingleChunk = (coordinate: ChunkCoordinate): Effect.Effect<ChunkDa
       coordinate,
       heightMap,
       biomes,
-      structures: Array.from(structures).sort(),
+      structures,
       generatedAt,
     }
 
@@ -233,14 +292,25 @@ export const ParallelChunkGeneratorLive = Layer.succeed(
     generateParallel: (coordinates, options) =>
       Effect.gen(function* () {
         // 動的並行数制御: CPUコア数に基づく自動調整
-        const calculateConcurrency = (): number => {
-          if (options?.concurrency !== undefined) {
-            return options.concurrency
-          }
-          const cpuCount =
-            typeof navigator !== 'undefined' && navigator.hardwareConcurrency ? navigator.hardwareConcurrency : 4
-          return Math.min(Math.max(cpuCount, 2), 8)
-        }
+        const calculateConcurrency = (): number =>
+          pipe(
+            Option.fromNullable(options?.concurrency),
+            Match.value,
+            Match.tag('None', () => {
+              const cpuCount = pipe(
+                Match.value(
+                  typeof navigator !== 'undefined' && typeof navigator.hardwareConcurrency === 'number'
+                ),
+                Match.when(true, () => navigator.hardwareConcurrency as number),
+                Match.orElse(() => 4),
+                Match.exhaustive
+              )
+
+              return Math.min(Math.max(cpuCount, 2), 8)
+            }),
+            Match.tag('Some', ({ value }) => value),
+            Match.exhaustive
+          )
 
         const concurrency = calculateConcurrency()
 

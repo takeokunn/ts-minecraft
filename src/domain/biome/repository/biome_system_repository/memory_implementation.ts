@@ -145,69 +145,78 @@ const makeBiomeSystemRepositoryMemory = (
           Option.match({
             onNone: () => Effect.succeed(Option.none<BiomeId>()),
             onSome: (cached) =>
-              Effect.if(config.cache.enabled, {
-                onTrue: () =>
-                  Effect.gen(function* () {
-                    const now = yield* Clock.currentTimeMillis
-                    const ttl = config.cache.ttlSeconds * 1000
-                    // TTLチェック
-                    return yield* Effect.if(now - cached.timestamp < ttl, {
-                      onTrue: () =>
-                        Effect.gen(function* () {
-                          yield* Ref.update(storageRef, (s) => ({
-                            ...s,
-                            cache: {
-                              ...s.cache,
-                              statistics: { ...s.cache.statistics, hits: s.cache.statistics.hits + 1 },
-                            },
-                          }))
-                          return Option.some(cached.biomeId)
-                        }),
-                      onFalse: () => Effect.succeed(Option.none<BiomeId>()),
+              pipe(
+                Match.value(config.cache.enabled),
+                Match.when(
+                  (enabled) => enabled,
+                  () =>
+                    Effect.gen(function* () {
+                      const now = yield* Clock.currentTimeMillis
+                      const ttl = config.cache.ttlSeconds * 1000
+                      return yield* pipe(
+                        Match.value(now - cached.timestamp < ttl),
+                        Match.when(
+                          (valid) => valid,
+                          () =>
+                            Effect.gen(function* () {
+                              yield* Ref.update(storageRef, (s) => ({
+                                ...s,
+                                cache: {
+                                  ...s.cache,
+                                  statistics: { ...s.cache.statistics, hits: s.cache.statistics.hits + 1 },
+                                },
+                              }))
+                              return Option.some(cached.biomeId)
+                            })
+                        ),
+                        Match.orElse(() => Effect.succeed(Option.none<BiomeId>()))
+                      )
                     })
-                  }),
-                onFalse: () => Effect.succeed(Option.none<BiomeId>()),
-              }),
+                ),
+                Match.orElse(() => Effect.succeed(Option.none<BiomeId>()))
+              ),
           })
         )
 
-        // キャッシュヒット時は即座にreturn
-        if (Option.isSome(cachedResult)) {
-          return cachedResult
-        }
-
-        // Query spatial index with pure function
-        const spatialIndex = yield* Ref.get(spatialIndexRef)
-        const nearest = findNearestBiome(spatialIndex, coordinate, 100) // 100 block search radius
-
-        yield* Ref.update(storageRef, (s) => ({
-          ...s,
-          cache: {
-            ...s.cache,
-            statistics: { ...s.cache.statistics, misses: s.cache.statistics.misses + 1 },
-          },
-        }))
-
-        // Option.matchでnearest判定
         return yield* pipe(
-          Option.fromNullable(nearest),
+          cachedResult,
           Option.match({
-            onNone: () => Effect.succeed(Option.none<BiomeId>()),
-            onSome: (validNearest) =>
+            onSome: (value) => Effect.succeed(Option.some(value)),
+            onNone: () =>
               Effect.gen(function* () {
-                // Update cache
-                const timestamp = yield* Clock.currentTimeMillis
+                const spatialIndex = yield* Ref.get(spatialIndexRef)
+                const nearest = findNearestBiome(spatialIndex, coordinate, 100)
+
                 yield* Ref.update(storageRef, (s) => ({
                   ...s,
                   cache: {
                     ...s.cache,
-                    biomeCache: new Map(s.cache.biomeCache).set(key, {
-                      biomeId: validNearest.biomeId,
-                      timestamp,
-                    }),
+                    statistics: { ...s.cache.statistics, misses: s.cache.statistics.misses + 1 },
                   },
                 }))
-                return Option.some(validNearest.biomeId)
+
+                return yield* pipe(
+                  Option.fromNullable(nearest),
+                  Option.match({
+                    onNone: () => Effect.succeed(Option.none<BiomeId>()),
+                    onSome: (validNearest) =>
+                      Effect.gen(function* () {
+                        const timestamp = yield* Clock.currentTimeMillis
+                        yield* Ref.update(storageRef, (s) => ({
+                          ...s,
+                          cache: {
+                            ...s.cache,
+                            biomeCache: new Map(s.cache.biomeCache).set(key, {
+                              biomeId: validNearest.biomeId,
+                              timestamp,
+                            }),
+                            statistics: { ...s.cache.statistics, hits: s.cache.statistics.hits + 1 },
+                          },
+                        }))
+                        return Option.some(validNearest.biomeId)
+                      }),
+                  })
+                )
               }),
           })
         )

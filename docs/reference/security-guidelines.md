@@ -122,18 +122,18 @@ export const sanitizeHTML = (input: string): Effect.Effect<string, SanitizationE
         .replace(/\//g, '&#x2F;')
 
       // 危険なタグの除去
-      for (const tag of DANGEROUS_TAGS) {
-        const tagRegex = new RegExp(`<\\/?${tag}[^>]*>`, 'gi')
-        sanitized = sanitized.replace(tagRegex, '')
-      }
+      sanitized = DANGEROUS_TAGS.reduce(
+        (acc, tag) => acc.replace(new RegExp(`<\/?${tag}[^>]*>`, 'gi'), ''),
+        sanitized
+      )
 
       // 危険な属性の除去
-      for (const attr of DANGEROUS_ATTRIBUTES) {
-        const attrRegex = new RegExp(`\\b${attr}\\s*=\\s*['""][^'"]*['"]`, 'gi')
-        sanitized = sanitized.replace(attrRegex, '')
-      }
+      sanitized = DANGEROUS_ATTRIBUTES.reduce(
+        (acc, attr) => acc.replace(new RegExp(`\b${attr}\s*=\s*['"]([^'"]*)['"]`, 'gi'), ''),
+        sanitized
+      )
 
-      // JavaScriptプロトコルの除去
+// JavaScriptプロトコルの除去
       sanitized = sanitized.replace(/javascript:/gi, '')
       sanitized = sanitized.replace(/vbscript:/gi, '')
       sanitized = sanitized.replace(/data:/gi, '')
@@ -190,14 +190,13 @@ export const sanitizeHTML = (input: string): Effect.Effect<string, SanitizationE
       const dangerousProtocols = ['javascript:', 'vbscript:', 'data:', 'file:']
       const lowercaseUrl = url.toLowerCase().trim()
 
-      for (const protocol of dangerousProtocols) {
-        if (lowercaseUrl.startsWith(protocol)) {
-          yield* Effect.fail(new SanitizationError({
-            message: `Dangerous protocol detected: ${protocol}`,
-            input: url.substring(0, 100),
-            sanitizationType: 'url'
-          }))
-        }
+      const invalidProtocol = dangerousProtocols.find((protocol) => lowercaseUrl.startswith(protocol))
+      if (invalidProtocol) {
+        yield* Effect.fail(new SanitizationError({
+          message: `Dangerous protocol detected: ${invalidProtocol}`,
+          input: url.substring(0, 100),
+          sanitizationType: 'url'
+        }))
       }
 
       // 許可されたプロトコルのみ
@@ -372,11 +371,11 @@ const makeSecureSessionManager = (secretKey: string): SecureSessionManagerInterf
 
   const cleanupExpiredSessions = (): void => {
     const now = new Date()
-    for (const [sessionId, session] of sessions) {
+    sessions.forEach((session, sessionId) => {
       if (session.expiresAt < now) {
         Effect.runSync(destroySession(sessionId))
       }
-    }
+    })
   }
 
   // セッション作成
@@ -482,9 +481,7 @@ const makeSecureSessionManager = (secretKey: string): SecureSessionManagerInterf
     return Effect.sync(() => {
       const userSessions = this.userSessions.get(userId)
       if (userSessions) {
-        for (const sessionId of userSessions) {
-          this.sessions.delete(sessionId)
-        }
+        userSessions.forEach((sessionId) => this.sessions.delete(sessionId))
         this.userSessions.delete(userId)
         console.log(`🔐 All sessions destroyed for user: ${userId}`)
       }
@@ -499,9 +496,9 @@ const makeSecureSessionManager = (secretKey: string): SecureSessionManagerInterf
         window.crypto.getRandomValues(array)
       } else {
         // Fallback for Node.js environment
-        for (let i = 0; i < array.length; i++) {
-          array[i] = Math.floor(Math.random() * 256)
-        }
+        array.forEach((_, index) => {
+          array[index] = Math.floor(Math.random() * 256)
+        })
       }
 
       return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('')
@@ -577,22 +574,22 @@ const makeSecureSessionManager = (secretKey: string): SecureSessionManagerInterf
       // 簡易HMAC実装（実際の実装では crypto.subtle.sign を使用）
       let hash = 0
       const combined = key + data
-      for (let i = 0; i < combined.length; i++) {
-        const char = combined.charCodeAt(i)
+      Array.from(combined).forEach((character) => {
+        const char = character.charCodeAt(0)
         hash = ((hash << 5) - hash) + char
         hash = hash & hash // 32bit整数に変換
-      }
+      })
       return Math.abs(hash).toString(16)
     })
   }
 
   private cleanupExpiredSessions(): void {
     const now = new Date()
-    for (const [sessionId, session] of this.sessions) {
+    this.sessions.forEach((session, sessionId) => {
       if (session.expiresAt < now) {
         Effect.runSync(this.destroySession(sessionId))
       }
-    }
+    })
   }
 
   // セッション統計
@@ -707,13 +704,8 @@ const makeAuthorizationManager = (): AuthorizationManagerInterface => {
       if (rolePermissions.includes(permission)) return true
 
       // ワイルドカード権限チェック
-      for (const rolePermission of rolePermissions) {
-        if (rolePermission === '*') return true
-
-        if (rolePermission.endsWith('*')) {
-          const prefix = rolePermission.slice(0, -1)
-          if (permission.startsWith(prefix)) return true
-        }
+      if (rolePermissions.some((rolePermission) => rolePermission === '*' || (rolePermission.endsWith('*') && permission.startsWith(rolePermission.slice(0, -1))))) {
+        return true
       }
 
       return false
@@ -843,9 +835,9 @@ export const makeDataEncryption = (
       if (typeof window !== 'undefined' && window.crypto) {
         window.crypto.getRandomValues(array)
       } else {
-        for (let i = 0; i < length; i++) {
-          array[i] = Math.floor(Math.random() * 256)
-        }
+        array.forEach((_, index) => {
+          array[index] = Math.floor(Math.random() * 256)
+        })
       }
       return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('')
     })
@@ -858,14 +850,14 @@ export const makeDataEncryption = (
       const keyLength = key.length
       const ivLength = iv.length
 
-      for (let i = 0; i < text.length; i++) {
-        const textChar = text.charCodeAt(i)
-        const keyChar = key.charCodeAt(i % keyLength)
-        const ivChar = parseInt(iv[(i * 2) % ivLength] + iv[(i * 2 + 1) % ivLength], 16)
+      Array.from(text).forEach((char, index) => {
+        const textChar = char.charCodeAt(0)
+        const keyChar = key.charCodeAt(index % keyLength)
+        const ivChar = parseInt(iv[(index * 2) % ivLength] + iv[(index * 2 + 1) % ivLength], 16)
 
         const encrypted = textChar ^ keyChar ^ ivChar
         result += String.fromCharCode(encrypted)
-      }
+      })
 
       return btoa(result) // Base64エンコード
     })
@@ -878,14 +870,14 @@ export const makeDataEncryption = (
       const keyLength = key.length
       const ivLength = iv.length
 
-      for (let i = 0; i < encrypted.length; i++) {
-        const encryptedChar = encrypted.charCodeAt(i)
-        const keyChar = key.charCodeAt(i % keyLength)
-        const ivChar = parseInt(iv[(i * 2) % ivLength] + iv[(i * 2 + 1) % ivLength], 16)
+      Array.from(encrypted).forEach((char, index) => {
+        const encryptedChar = char.charCodeAt(0)
+        const keyChar = key.charCodeAt(index % keyLength)
+        const ivChar = parseInt(iv[(index * 2) % ivLength] + iv[(index * 2 + 1) % ivLength], 16)
 
         const decrypted = encryptedChar ^ keyChar ^ ivChar
         result += String.fromCharCode(decrypted)
-      }
+      })
 
       return result
     })
@@ -896,11 +888,11 @@ export const makeDataEncryption = (
       // 簡易HMAC（実際の実装では適切なHMAC-SHA256を使用）
       let hash = 0
       const combined = key + data
-      for (let i = 0; i < combined.length; i++) {
-        const char = combined.charCodeAt(i)
+      Array.from(combined).forEach((character) => {
+        const char = character.charCodeAt(0)
         hash = ((hash << 5) - hash) + char
         hash = hash & hash
-      }
+      })
       return Math.abs(hash).toString(16).padStart(8, '0')
     })
   }
@@ -908,19 +900,17 @@ export const makeDataEncryption = (
   private pbkdf2(password: string, salt: string, iterations: number, keyLength: number): Effect.Effect<string, never> {
     return Effect.sync(() => {
       // 簡易PBKDF2実装（実際の実装では crypto.subtle.deriveBits使用）
-      let result = password + salt
+      const finalHash = Array.from({ length: iterations }).reduce((current, _) => {
+        const hashValue = Array.from(current).reduce((hash, character) => {
+          const charCode = character.charCodeAt(0)
+          const updated = ((hash << 5) - hash) + charCode
+          return updated & updated
+        }, 0)
 
-      for (let i = 0; i < iterations; i++) {
-        let hash = 0
-        for (let j = 0; j < result.length; j++) {
-          const char = result.charCodeAt(j)
-          hash = ((hash << 5) - hash) + char
-          hash = hash & hash
-        }
-        result = Math.abs(hash).toString(16)
-      }
+        return Math.abs(hashValue).toString(16)
+      }, password + salt)
 
-      return result.padStart(keyLength / 4, '0').substring(0, keyLength / 4)
+      return finalHash.padStart(keyLength / 4, '0').substring(0, keyLength / 4)
     })
   }
 }
@@ -1212,24 +1202,32 @@ export const makePrivacyManager = (): Effect.Effect<PrivacyManager, never, never
         errors: []
       }
 
-      for (const [dataType, policy] of this.dataRetentionPolicies) {
-        if (!policy.autoDelete) continue
+      const manager = this
+      yield* Effect.forEach(
+        Array.from(this.dataRetentionPolicies),
+        ([dataType, policy]) =>
+          Effect.gen(function* () {
+            if (!policy.autoDelete) {
+              return
+            }
 
-        try {
-          const cutoffDate = new Date(Date.now() - policy.retentionPeriod)
-          const deletedCount = yield* this.cleanupExpiredData(dataType, cutoffDate)
+            try {
+              const cutoffDate = new Date(Date.now() - policy.retentionPeriod)
+              const deletedCount = yield* manager.cleanupExpiredData(dataType, cutoffDate)
 
-          report.processedRecords++
-          report.deletedRecords += deletedCount
+              report.processedRecords++
+              report.deletedRecords += deletedCount
 
-          console.log(`🧹 Cleaned up ${deletedCount} records of type ${dataType}`)
-        } catch (error) {
-          report.errors.push({
-            dataType,
-            error: String(error)
-          })
-        }
-      }
+              console.log(`🧹 Cleaned up ${deletedCount} records of type ${dataType}`)
+            } catch (error) {
+              report.errors.push({
+                dataType,
+                error: String(error)
+              })
+            }
+          }),
+        { discard: true }
+      )
 
       report.endTime = new Date()
       return report
@@ -1651,14 +1649,12 @@ export const makeSecurityMonitor = (): Effect.Effect<SecurityMonitor, never, nev
   }
 
   private findPreviousUserEvent(userId: string): SecurityEvent | null {
-    for (const threatData of this.threats.values()) {
-      const userEvent = threatData.events
-        .filter(e => e.userId === userId)
-        .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())[0]
+    const events = Array.from(this.threats.values())
+      .flatMap(threatData => threatData.events)
+      .filter(event => event.userId === userId)
+      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
 
-      if (userEvent) return userEvent
-    }
-    return null
+    return events[0] ?? null
   }
 
   private isGeographicallyAnomalous(ip1: string, ip2: string): boolean {
@@ -1701,11 +1697,11 @@ export const makeSecurityMonitor = (): Effect.Effect<SecurityMonitor, never, nev
     // 定期的な脅威データクリーンアップ
     setInterval(() => {
       const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000)
-      for (const [key, threatData] of this.threats) {
+      this.threats.forEach((threatData, key) => {
         if (threatData.lastSeen.getTime() < oneDayAgo) {
           this.threats.delete(key)
         }
-      }
+      })
     }, 60 * 60 * 1000) // 1時間間隔
   }
 
@@ -1742,13 +1738,10 @@ export const makeSecurityMonitor = (): Effect.Effect<SecurityMonitor, never, nev
   }
 
   private getThreatCategories(): Record<string, number> {
-    const categories: Record<string, number> = {}
-
-    for (const threat of this.threats.values()) {
-      categories[threat.category] = (categories[threat.category] || 0) + 1
-    }
-
-    return categories
+    return Array.from(this.threats.values()).reduce<Record<string, number>>((acc, threat) => {
+      const count = acc[threat.category] || 0
+      return { ...acc, [threat.category]: count + 1 }
+    }, {})
   }
 }
 

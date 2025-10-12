@@ -5,7 +5,7 @@
 
 import type { JsonValue } from '@shared/schema/json'
 import { JsonValueSchema } from '@shared/schema/json'
-import { DateTime, Effect, Schema } from 'effect'
+import { DateTime, Effect, Match, Option, ReadonlyArray, Schema } from 'effect'
 import type { ErrorContext } from './world_errors'
 import { ErrorContextSchema } from './world_errors'
 
@@ -109,9 +109,13 @@ export const StringLengthErrorSchema = Schema.TaggedStruct('StringLengthError', 
 export type StringLengthError = Schema.Schema.Type<typeof StringLengthErrorSchema>
 
 export const getStringLengthErrorMessage = (error: StringLengthError): string => {
-  const constraints = []
-  if (error.minLength !== undefined) constraints.push(`min: ${error.minLength}`)
-  if (error.maxLength !== undefined) constraints.push(`max: ${error.maxLength}`)
+  const constraints = pipe(
+    [
+      Option.fromNullable(error.minLength).pipe(Option.map((min) => `min: ${min}`)),
+      Option.fromNullable(error.maxLength).pipe(Option.map((max) => `max: ${max}`)),
+    ],
+    ReadonlyArray.filterMap((constraint) => constraint)
+  )
   return `String length ${error.actualLength} for '${error.fieldName}' violates constraints: ${constraints.join(', ')}`
 }
 
@@ -132,9 +136,13 @@ export const ArraySizeErrorSchema = Schema.TaggedStruct('ArraySizeError', {
 export type ArraySizeError = Schema.Schema.Type<typeof ArraySizeErrorSchema>
 
 export const getArraySizeErrorMessage = (error: ArraySizeError): string => {
-  const constraints = []
-  if (error.minSize !== undefined) constraints.push(`min: ${error.minSize}`)
-  if (error.maxSize !== undefined) constraints.push(`max: ${error.maxSize}`)
+  const constraints = pipe(
+    [
+      Option.fromNullable(error.minSize).pipe(Option.map((min) => `min: ${min}`)),
+      Option.fromNullable(error.maxSize).pipe(Option.map((max) => `max: ${max}`)),
+    ],
+    ReadonlyArray.filterMap((constraint) => constraint)
+  )
   return `Array size ${error.actualSize} for '${error.fieldName}' violates constraints: ${constraints.join(', ')}`
 }
 
@@ -293,38 +301,25 @@ export type MultipleValidationError = Schema.Schema.Type<typeof MultipleValidati
 
 export const getMultipleValidationErrorMessage = (error: MultipleValidationError): string =>
   `Multiple validation errors (${error.errors.length}): ${error.errors
-    .map((e) => {
-      switch (e._tag) {
-        case 'SchemaValidationError':
-          return getSchemaValidationErrorMessage(e)
-        case 'MissingRequiredFieldError':
-          return getMissingRequiredFieldErrorMessage(e)
-        case 'UnexpectedFieldError':
-          return getUnexpectedFieldErrorMessage(e)
-        case 'NumberOutOfRangeError':
-          return getNumberOutOfRangeErrorMessage(e)
-        case 'StringLengthError':
-          return getStringLengthErrorMessage(e)
-        case 'ArraySizeError':
-          return getArraySizeErrorMessage(e)
-        case 'PatternMismatchError':
-          return getPatternMismatchErrorMessage(e)
-        case 'InvalidUUIDError':
-          return getInvalidUUIDErrorMessage(e)
-        case 'TypeMismatchError':
-          return getTypeMismatchErrorMessage(e)
-        case 'BrandValidationError':
-          return getBrandValidationErrorMessage(e)
-        case 'ReferenceIntegrityError':
-          return getReferenceIntegrityErrorMessage(e)
-        case 'CircularReferenceError':
-          return getCircularReferenceErrorMessage(e)
-        case 'DuplicateValueError':
-          return getDuplicateValueErrorMessage(e)
-        case 'MultipleValidationError':
-          return getMultipleValidationErrorMessage(e)
-      }
-    })
+    .map((e) =>
+      Match.value(e).pipe(
+        Match.tag('SchemaValidationError', getSchemaValidationErrorMessage),
+        Match.tag('MissingRequiredFieldError', getMissingRequiredFieldErrorMessage),
+        Match.tag('UnexpectedFieldError', getUnexpectedFieldErrorMessage),
+        Match.tag('NumberOutOfRangeError', getNumberOutOfRangeErrorMessage),
+        Match.tag('StringLengthError', getStringLengthErrorMessage),
+        Match.tag('ArraySizeError', getArraySizeErrorMessage),
+        Match.tag('PatternMismatchError', getPatternMismatchErrorMessage),
+        Match.tag('InvalidUUIDError', getInvalidUUIDErrorMessage),
+        Match.tag('TypeMismatchError', getTypeMismatchErrorMessage),
+        Match.tag('BrandValidationError', getBrandValidationErrorMessage),
+        Match.tag('ReferenceIntegrityError', getReferenceIntegrityErrorMessage),
+        Match.tag('CircularReferenceError', getCircularReferenceErrorMessage),
+        Match.tag('DuplicateValueError', getDuplicateValueErrorMessage),
+        Match.tag('MultipleValidationError', getMultipleValidationErrorMessage),
+        Match.exhaustive
+      )
+    )
     .slice(0, 3)
     .join('; ')}${error.errors.length > 3 ? '...' : ''}`
 

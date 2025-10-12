@@ -1,58 +1,110 @@
 import { PlayerId } from '@domain/shared/entities/player_id'
 import { makeUnsafe as makeUnsafeTimestamp } from '@domain/shared/value_object/units/timestamp'
-import { Effect, Schema } from 'effect'
-import { describe, expect, it } from 'vitest'
+import { Effect, Option, Schema, pipe } from 'effect'
+import { describe, expect, it } from '@effect/vitest'
 import { InventoryRepositoryStorageSchema } from '../storage_schema'
 
 const TIMESTAMP = makeUnsafeTimestamp(1_700_000_000_000)
 
 describe('InventoryRepositoryStorageSchema', () => {
-  const decode = (value: unknown) => Effect.runSync(Schema.decodeUnknown(InventoryRepositoryStorageSchema)(value))
+  const decode = Schema.decodeUnknown(InventoryRepositoryStorageSchema)
+  const decodeEither = Schema.decodeUnknownEither(InventoryRepositoryStorageSchema)
 
   describe('有効なデータのデコード', () => {
-    it('完全なインベントリデータをデコードできる', () => {
-      const validData = {
-        inventories: {
-          player_123: {
-            id: 'inventory-player_123',
-            playerId: 'player_123' as PlayerId,
-            slots: {
-              0: { itemId: 'minecraft:stone', count: 64, metadata: undefined },
-              1: null,
-            },
-            hotbar: [0, 1, 2, 3, 4, 5, 6, 7, 8],
-            selectedSlot: 0,
-            armor: {
-              helmet: null,
-              chestplate: null,
-              leggings: null,
-              boots: null,
-            },
-            offhand: null,
-            version: 1,
-            metadata: {
-              lastUpdated: TIMESTAMP,
-              checksum: 'abc123',
+    it.effect('完全なインベントリデータをデコードできる', () =>
+      Effect.gen(function* () {
+        const validData = {
+          inventories: {
+            player_123: {
+              id: 'inventory-player_123',
+              playerId: 'player_123' as PlayerId,
+              slots: {
+                0: { itemId: 'minecraft:stone', count: 64, metadata: undefined },
+                1: null,
+              },
+              hotbar: [0, 1, 2, 3, 4, 5, 6, 7, 8],
+              selectedSlot: 0,
+              armor: {
+                helmet: null,
+                chestplate: null,
+                leggings: null,
+                boots: null,
+              },
+              offhand: null,
+              version: 1,
+              metadata: {
+                lastUpdated: TIMESTAMP,
+                checksum: 'abc123',
+              },
             },
           },
-        },
-        snapshots: undefined,
-        timestamp: TIMESTAMP,
-      }
+          snapshots: undefined,
+          timestamp: TIMESTAMP,
+        }
 
-      const result = decode(validData)
-      expect(result).toEqual(validData)
-    })
+        const result = yield* decode(validData)
+        expect(result).toEqual(validData)
+      })
+    )
 
-    it('スナップショット付きデータをデコードできる', () => {
-      const validData = {
-        inventories: {},
-        snapshots: {
-          snap_1: {
-            snapshotId: 'snap_1',
-            inventory: {
-              id: 'inventory-player_456',
-              playerId: 'player_456' as PlayerId,
+    it.effect('スナップショット付きデータをデコードできる', () =>
+      Effect.gen(function* () {
+        const validData = {
+          inventories: {},
+          snapshots: {
+            snap_1: {
+              snapshotId: 'snap_1',
+              inventory: {
+                id: 'inventory-player_456',
+                playerId: 'player_456' as PlayerId,
+                slots: {},
+                hotbar: [0, 1, 2, 3, 4, 5, 6, 7, 8],
+                selectedSlot: 0,
+                armor: {
+                  helmet: null,
+                  chestplate: null,
+                  leggings: null,
+                  boots: null,
+                },
+                offhand: null,
+                version: 0,
+                metadata: {
+                  lastUpdated: TIMESTAMP,
+                  checksum: 'xyz789',
+                },
+              },
+              timestamp: TIMESTAMP,
+              reason: 'Manual save',
+            },
+          },
+        }
+
+        const result = yield* decode(validData)
+        expect(result.snapshots).toBeDefined()
+        expect(result.snapshots!['snap_1'].snapshotId).toBe('snap_1')
+      })
+    )
+
+    it.effect('空のデータ構造をデコードできる', () =>
+      Effect.gen(function* () {
+        const emptyData = {
+          inventories: undefined,
+          snapshots: undefined,
+        }
+
+        const result = yield* decode(emptyData)
+        expect(result.inventories).toBeUndefined()
+        expect(result.snapshots).toBeUndefined()
+      })
+    )
+
+    it.effect('省略可能なフィールドを持つデータをデコードできる', () =>
+      Effect.gen(function* () {
+        const dataWithOptionals = {
+          inventories: {
+            player_789: {
+              id: 'inventory-player_789',
+              playerId: 'player_789' as PlayerId,
               slots: {},
               hotbar: [0, 1, 2, 3, 4, 5, 6, 7, 8],
               selectedSlot: 0,
@@ -66,59 +118,16 @@ describe('InventoryRepositoryStorageSchema', () => {
               version: 0,
               metadata: {
                 lastUpdated: TIMESTAMP,
-                checksum: 'xyz789',
+                checksum: 'checksum',
               },
             },
-            timestamp: TIMESTAMP,
-            reason: 'Manual save',
           },
-        },
-      }
+        }
 
-      const result = decode(validData)
-      expect(result.snapshots).toBeDefined()
-      expect(result.snapshots!['snap_1'].snapshotId).toBe('snap_1')
-    })
-
-    it('空のデータ構造をデコードできる', () => {
-      const emptyData = {
-        inventories: undefined,
-        snapshots: undefined,
-      }
-
-      const result = decode(emptyData)
-      expect(result.inventories).toBeUndefined()
-      expect(result.snapshots).toBeUndefined()
-    })
-
-    it('省略可能なフィールドを持つデータをデコードできる', () => {
-      const dataWithOptionals = {
-        inventories: {
-          player_789: {
-            id: 'inventory-player_789',
-            playerId: 'player_789' as PlayerId,
-            slots: {},
-            hotbar: [0, 1, 2, 3, 4, 5, 6, 7, 8],
-            selectedSlot: 0,
-            armor: {
-              helmet: null,
-              chestplate: null,
-              leggings: null,
-              boots: null,
-            },
-            offhand: null,
-            version: 0,
-            metadata: {
-              lastUpdated: TIMESTAMP,
-              checksum: 'checksum',
-            },
-          },
-        },
-      }
-
-      const result = decode(dataWithOptionals)
-      expect(result.timestamp).toBeUndefined()
-    })
+        const result = yield* decode(dataWithOptionals)
+        expect(result.timestamp).toBeUndefined()
+      })
+    )
   })
 
   describe('無効なデータの検証', () => {
@@ -147,7 +156,8 @@ describe('InventoryRepositoryStorageSchema', () => {
         },
       }
 
-      expect(() => decode(invalidData)).toThrow()
+      const result = decodeEither(invalidData)
+      expect(result._tag).toBe('Left')
     })
 
     it('versionが負の値の場合はエラー', () => {
@@ -175,7 +185,8 @@ describe('InventoryRepositoryStorageSchema', () => {
         },
       }
 
-      expect(() => decode(invalidData)).toThrow()
+      const result = decodeEither(invalidData)
+      expect(result._tag).toBe('Left')
     })
 
     it('slots配列が上限を超える場合はエラー', () => {
@@ -203,7 +214,8 @@ describe('InventoryRepositoryStorageSchema', () => {
         },
       }
 
-      expect(() => decode(invalidData)).toThrow()
+      const result = decodeEither(invalidData)
+      expect(result._tag).toBe('Left')
     })
 
     it('hotbar配列が上限を超える場合はエラー', () => {
@@ -231,7 +243,8 @@ describe('InventoryRepositoryStorageSchema', () => {
         },
       }
 
-      expect(() => decode(invalidData)).toThrow()
+      const result = decodeEither(invalidData)
+      expect(result._tag).toBe('Left')
     })
   })
 
@@ -263,7 +276,8 @@ describe('InventoryRepositoryStorageSchema', () => {
         },
       }
 
-      expect(() => decode(dataWithZeroCount)).toThrow()
+      const result = decodeEither(dataWithZeroCount)
+      expect(result._tag).toBe('Left')
     })
 
     it('アイテムメタデータの構造を検証', () => {
@@ -307,10 +321,19 @@ describe('InventoryRepositoryStorageSchema', () => {
       const item = inventory.slots['0']
 
       expect(item).not.toBeNull()
-      if (item && 'itemId' in item) {
-        expect(item.metadata?.durability).toBe(0.5)
-        expect(item.metadata?.enchantments).toHaveLength(1)
-      }
+      pipe(
+        Option.fromNullable(item),
+        Option.filter((value): value is { itemId: string } & typeof value => 'itemId' in value),
+        Option.match({
+          onSome: (stack) => {
+            expect(stack.metadata?.durability).toBe(0.5)
+            expect(stack.metadata?.enchantments).toHaveLength(1)
+          },
+          onNone: () => {
+            throw new Error('Expected item stack with itemId')
+          },
+        })
+      )
     })
   })
 })

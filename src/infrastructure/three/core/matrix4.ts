@@ -4,7 +4,7 @@
  */
 
 import { ErrorCauseSchema } from '@shared/schema/error'
-import { Effect, Schema } from 'effect'
+import { Effect, Match, Schema } from 'effect'
 import * as THREE from 'three'
 import { matrix4ElementsToTuple } from '../schemas/adapters'
 import type { Quaternion } from './quaternion'
@@ -159,19 +159,25 @@ export const determinant = (m: Matrix4): number => toThreeMatrix(m).determinant(
 export const invert = (m: Matrix4): Effect.Effect<Matrix4, Matrix4Error> =>
   Effect.gen(function* () {
     const det = determinant(m)
-    if (Math.abs(det) < Number.EPSILON) {
-      return yield* Effect.fail(
-        new Matrix4Error({
-          operation: 'invert',
-          reason: 'Matrix is singular (determinant is zero)',
-          matrix: m,
+    return yield* Match.value(Math.abs(det) < Number.EPSILON).pipe(
+      Match.when(true, () =>
+        Effect.fail(
+          new Matrix4Error({
+            operation: 'invert',
+            reason: 'Matrix is singular (determinant is zero)',
+            matrix: m,
+          })
+        )
+      ),
+      Match.orElse(() =>
+        Effect.sync(() => {
+          const threeM = toThreeMatrix(m)
+          threeM.invert()
+          return make(matrix4ElementsToTuple(threeM.elements))
         })
-      )
-    }
-
-    const threeM = toThreeMatrix(m)
-    threeM.invert()
-    return make(matrix4ElementsToTuple(threeM.elements))
+      ),
+      Match.exhaustive
+    )
   })
 
 /**

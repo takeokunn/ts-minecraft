@@ -416,13 +416,15 @@ export const SafeChunkStateOptics = {
    */
   safeGet:
     <A>(optic: Optic.Optic<ChunkState, ChunkState, A, A>, fallback: A) =>
-    (state: ChunkState): A => {
-      try {
-        return optic.get(state) ?? fallback
-      } catch {
-        return fallback
-      }
-    },
+    (state: ChunkState): A =>
+      pipe(
+        Either.try({
+          try: () => optic.get(state),
+          catch: () => fallback,
+        }),
+        Either.getOrElse((value) => value),
+        (value) => value ?? fallback
+      ),
 
   /**
    * 安全な状態プロパティ更新
@@ -431,13 +433,11 @@ export const SafeChunkStateOptics = {
    */
   safeSet:
     <A>(optic: Optic.Optic<ChunkState, ChunkState, A, A>, value: A) =>
-    (state: ChunkState): Either.Either<ChunkState, string> => {
-      try {
-        return Either.right(optic.replace(value)(state))
-      } catch (error) {
-        return Either.left(`Failed to set state property: ${error}`)
-      }
-    },
+    (state: ChunkState): Either.Either<ChunkState, string> =>
+      Either.try({
+        try: () => optic.replace(value)(state),
+        catch: (error) => `Failed to set state property: ${String(error)}`,
+      }),
 
   /**
    * リトライ機能付き状態操作

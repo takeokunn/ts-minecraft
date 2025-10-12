@@ -4,7 +4,7 @@
  * DDD原則に基づく自己検証機能とドメイン固有の制約実装
  */
 
-import { Effect, Match, ReadonlyArray, Schema } from 'effect'
+import { Clock, Effect, Match, Option, ReadonlyArray, Schema, pipe } from 'effect'
 import { EntropyLevel, WorldSeed, WorldSeedError, WorldSeedErrorSchema, WorldSeedOps } from './index'
 
 /**
@@ -72,9 +72,12 @@ export const WorldSeedValidation = {
 
       // 基本構造検証
       const structureValidation = yield* validateStructure(seed)
-      if (!structureValidation.isValid) {
-        errors.push(...structureValidation.errors)
-      }
+      const structureErrors = pipe(
+        Match.value(structureValidation),
+        Match.when(({ isValid }) => !isValid, ({ errors }) => errors),
+        Match.orElse(() => [] as WorldSeedError[])
+      )
+      errors.push(...structureErrors)
 
       // ビジネスルール検証
       const businessValidation = yield* validateBusinessRules(seed, options)
@@ -82,18 +85,25 @@ export const WorldSeedValidation = {
       warnings.push(...businessValidation.warnings)
 
       // 品質検証（オプション）
-      if (options.checkQuality ?? true) {
-        const qualityValidation = yield* validateQuality(seed, options)
-        warnings.push(...qualityValidation.warnings)
-        suggestions.push(...qualityValidation.suggestions)
-      }
+      const qualityValidation = yield* pipe(
+        Match.value(options.checkQuality ?? true),
+        Match.when(true, () => validateQuality(seed, options)),
+        Match.orElse(() => Effect.succeed({ warnings: [] as string[], suggestions: [] as string[] }))
+      )
+      warnings.push(...qualityValidation.warnings)
+      suggestions.push(...qualityValidation.suggestions)
 
       // カスタムルール検証
-      if (options.customRules && options.customRules.length > 0) {
-        const customValidation = yield* validateCustomRules(seed, options.customRules)
-        errors.push(...customValidation.errors)
-        warnings.push(...customValidation.warnings)
-      }
+      const customValidation = yield* pipe(
+        Option.fromNullable(options.customRules),
+        Option.filter((rules) => rules.length > 0),
+        Option.match({
+          onNone: () => Effect.succeed({ errors: [] as WorldSeedError[], warnings: [] as string[] }),
+          onSome: (rules) => validateCustomRules(seed, rules),
+        })
+      )
+      errors.push(...customValidation.errors)
+      warnings.push(...customValidation.warnings)
 
       const result: ValidationResult = {
         isValid: errors.length === 0,
@@ -190,14 +200,23 @@ const validateStructure = (seed: WorldSeed): Effect.Effect<ValidationResult, nev
       )(seed)
     )
 
-    if (schemaValidation._tag === 'Left') {
-      errors.push({
-        _tag: 'ValidationError',
-        field: 'structure',
-        value: seed,
-        message: 'Invalid seed structure',
-      })
-    }
+    const structuralErrors = pipe(
+      Match.value(schemaValidation),
+      Match.when(
+        (result): result is { _tag: 'Left' } => result._tag === 'Left',
+        () =>
+          [
+            {
+              _tag: 'ValidationError' as const,
+              field: 'structure',
+              value: seed,
+              message: 'Invalid seed structure',
+            },
+          ]
+      ),
+      Match.orElse(() => [] as WorldSeedError[])
+    )
+    errors.push(...structuralErrors)
 
     return {
       isValid: errors.length === 0,
@@ -218,45 +237,75 @@ const validateBusinessRules = (
   warnings: string[]
 }> =>
   Effect.gen(function* () {
-    const errors: WorldSeedError[] = []
-    const warnings: string[] = []
+    const forbiddenOutcome = pipe(
+      Match.value(FORBIDDEN_SEEDS.has(seed.value)),
+      Match.when(true, () =>
+        pipe(
+          Match.value(options.strictMode ?? false),
+          Match.when(true, () => ({
+            errors: [
+              {
+                _tag: 'InvalidSeedValue' as const,
+                value: seed.value,
+                message: `Forbidden seed value: ${seed.value}`,
+              },
+            ],
+            warnings: [] as string[],
+          })),
+          Match.orElse(() => ({
+            errors: [] as WorldSeedError[],
+            warnings: [`Warning: Using potentially problematic seed value: ${seed.value}`],
+          }))
+        )
+      ),
+      Match.orElse(() => ({ errors: [] as WorldSeedError[], warnings: [] as string[] }))
+    )
 
-    // 禁止シード値チェック
-    if (FORBIDDEN_SEEDS.has(seed.value)) {
-      if (options.strictMode) {
-        errors.push({
-          _tag: 'InvalidSeedValue',
-          value: seed.value,
-          message: `Forbidden seed value: ${seed.value}`,
-        })
-      } else {
-        warnings.push(`Warning: Using potentially problematic seed value: ${seed.value}`)
-      }
-    }
-
-    // タイムスタンプ妥当性
     const now = yield* Clock.currentTimeMillis
-    if (seed.timestamp > now) {
-      warnings.push('Seed timestamp is in the future')
-    }
 
-    // 1年以上前のタイムスタンプ
-    if (seed.timestamp < now - 365 * 24 * 60 * 60 * 1000) {
-      warnings.push('Seed is very old (over 1 year)')
-    }
+    const futureWarnings = pipe(
+      Match.value(seed.timestamp > now),
+      Match.when(true, () => ['Seed timestamp is in the future']),
+      Match.orElse(() => [] as string[])
+    )
 
-    // 低エントロピー警告
-    if (seed.entropy === 'low' && !(options.allowLowEntropy ?? false)) {
-      if (options.strictMode) {
-        errors.push({
-          _tag: 'InvalidSeedValue',
-          value: seed.value,
-          message: 'Low entropy seeds not allowed in strict mode',
-        })
-      } else {
-        warnings.push('Low entropy seed may produce predictable results')
-      }
-    }
+    const staleWarnings = pipe(
+      Match.value(seed.timestamp < now - 365 * 24 * 60 * 60 * 1000),
+      Match.when(true, () => ['Seed is very old (over 1 year)']),
+      Match.orElse(() => [] as string[])
+    )
+
+    const lowEntropyOutcome = pipe(
+      Match.value(seed.entropy === 'low' && !(options.allowLowEntropy ?? false)),
+      Match.when(true, () =>
+        pipe(
+          Match.value(options.strictMode ?? false),
+          Match.when(true, () => ({
+            errors: [
+              {
+                _tag: 'InvalidSeedValue' as const,
+                value: seed.value,
+                message: 'Low entropy seeds not allowed in strict mode',
+              },
+            ],
+            warnings: [] as string[],
+          })),
+          Match.orElse(() => ({
+            errors: [] as WorldSeedError[],
+            warnings: ['Low entropy seed may produce predictable results'],
+          }))
+        )
+      ),
+      Match.orElse(() => ({ errors: [] as WorldSeedError[], warnings: [] as string[] }))
+    )
+
+    const errors = [...forbiddenOutcome.errors, ...lowEntropyOutcome.errors]
+    const warnings = [
+      ...forbiddenOutcome.warnings,
+      ...futureWarnings,
+      ...staleWarnings,
+      ...lowEntropyOutcome.warnings,
+    ]
 
     return { errors, warnings }
   })
@@ -277,30 +326,71 @@ const validateQuality = (
 
     const quality = yield* WorldSeedOps.evaluateQuality(seed)
 
-    // スコア基準チェック
-    if (quality.score < QUALITY_THRESHOLDS.MINIMUM_SCORE) {
-      warnings.push(`Very low quality seed (score: ${quality.score})`)
-      suggestions.push('Consider generating a new random seed')
-    } else if (quality.score < QUALITY_THRESHOLDS.RECOMMENDED_SCORE) {
-      warnings.push(`Low quality seed (score: ${quality.score})`)
-      suggestions.push('Seed may work but better alternatives are available')
-    }
+    const scoreOutcome = pipe(
+      Match.value(quality.score),
+      Match.when(
+        (score) => score < QUALITY_THRESHOLDS.MINIMUM_SCORE,
+        (score) => ({
+          warnings: [`Very low quality seed (score: ${score})`],
+          suggestions: ['Consider generating a new random seed'],
+        })
+      ),
+      Match.when(
+        (score) =>
+          score >= QUALITY_THRESHOLDS.MINIMUM_SCORE && score < QUALITY_THRESHOLDS.RECOMMENDED_SCORE,
+        (score) => ({
+          warnings: [`Low quality seed (score: ${score})`],
+          suggestions: ['Seed may work but better alternatives are available'],
+        })
+      ),
+      Match.orElse(() => ({ warnings: [] as string[], suggestions: [] as string[] }))
+    )
 
-    // 分布チェック
-    if (quality.distribution.uniformity < QUALITY_THRESHOLDS.MINIMUM_UNIFORMITY) {
-      warnings.push('Poor bit distribution detected')
-      suggestions.push('Try a seed with more varied bit patterns')
-    }
+    const uniformityOutcome = pipe(
+      Match.value(quality.distribution.uniformity),
+      Match.when(
+        (uniformity) => uniformity < QUALITY_THRESHOLDS.MINIMUM_UNIFORMITY,
+        () => ({
+          warnings: ['Poor bit distribution detected'],
+          suggestions: ['Try a seed with more varied bit patterns'],
+        })
+      ),
+      Match.orElse(() => ({ warnings: [] as string[], suggestions: [] as string[] }))
+    )
 
-    if (quality.distribution.complexity < QUALITY_THRESHOLDS.MINIMUM_COMPLEXITY) {
-      warnings.push('Low complexity pattern detected')
-      suggestions.push('Use a seed with more complex bit transitions')
-    }
+    const complexityOutcome = pipe(
+      Match.value(quality.distribution.complexity),
+      Match.when(
+        (complexity) => complexity < QUALITY_THRESHOLDS.MINIMUM_COMPLEXITY,
+        () => ({
+          warnings: ['Low complexity pattern detected'],
+          suggestions: ['Use a seed with more complex bit transitions'],
+        })
+      ),
+      Match.orElse(() => ({ warnings: [] as string[], suggestions: [] as string[] }))
+    )
 
-    // 高品質シードの場合
-    if (quality.score >= QUALITY_THRESHOLDS.EXCELLENT_SCORE) {
-      suggestions.push('Excellent seed quality - perfect for production use')
-    }
+    const excellenceSuggestions = pipe(
+      Match.value(quality.score),
+      Match.when(
+        (score) => score >= QUALITY_THRESHOLDS.EXCELLENT_SCORE,
+        () => ['Excellent seed quality - perfect for production use']
+      ),
+      Match.orElse(() => [] as string[])
+    )
+
+    warnings.push(
+      ...scoreOutcome.warnings,
+      ...uniformityOutcome.warnings,
+      ...complexityOutcome.warnings
+    )
+
+    suggestions.push(
+      ...scoreOutcome.suggestions,
+      ...uniformityOutcome.suggestions,
+      ...complexityOutcome.suggestions,
+      ...excellenceSuggestions
+    )
 
     return { warnings, suggestions }
   })

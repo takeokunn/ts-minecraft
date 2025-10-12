@@ -190,16 +190,22 @@ export const createCameraSettings = (
     const validatedRenderDistance = yield* SettingsFactory.createRenderDistance(renderDistance)
     const validatedQualityLevel = yield* SettingsFactory.createQualityLevel(qualityLevel)
 
-    // 追加の制約チェック
-    if (validatedNearPlane >= validatedFarPlane) {
-      return yield* Effect.fail(
-        SettingsError.SettingsConflict({
-          setting1: 'nearPlane',
-          setting2: 'farPlane',
-          reason: 'Near plane must be less than far plane',
-        })
+    yield* pipe(
+      Match.value(validatedNearPlane < validatedFarPlane),
+      Match.when(
+        (isValid) => isValid,
+        () => Effect.void
+      ),
+      Match.orElse(() =>
+        Effect.fail(
+          SettingsError.SettingsConflict({
+            setting1: 'nearPlane',
+            setting2: 'farPlane',
+            reason: 'Near plane must be less than far plane',
+          })
+        )
       )
-    }
+    )
 
     return Brand.nominal<CameraSettings>()({
       fov: validatedFov,
@@ -454,17 +460,21 @@ export const SettingsValidation = {
   /**
    * 設定間の互換性チェック
    */
-  checkCompatibility: (settings: CameraSettings): Effect.Effect<void, SettingsError> => {
-    if (settings.nearPlane >= settings.farPlane) {
-      return Effect.fail(
-        SettingsError.SettingsConflict({
-          setting1: 'nearPlane',
-          setting2: 'farPlane',
-          reason: 'Near plane must be less than far plane',
-        })
+  checkCompatibility: (settings: CameraSettings): Effect.Effect<void, SettingsError> =>
+    pipe(
+      Match.value(settings.nearPlane < settings.farPlane),
+      Match.when(
+        (isValid) => isValid,
+        () => Effect.void
+      ),
+      Match.orElse(() =>
+        Effect.fail(
+          SettingsError.SettingsConflict({
+            setting1: 'nearPlane',
+            setting2: 'farPlane',
+            reason: 'Near plane must be less than far plane',
+          })
+        )
       )
-    }
-
-    return Effect.void
-  },
+    ),
 }

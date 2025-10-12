@@ -525,17 +525,19 @@ export const EcosystemAnalyzerServiceLive = Layer.effect(
                 const diversityScore = ecosystem.shannonDiversity * ecosystem.speciesRichness
                 const endemismLevel = ecosystem.endemism
 
-                if (diversityScore <= threshold) {
-                  return Option.none()
-                }
-
-                return Option.some({
-                  coordinate: ecosystem.coordinate as WorldCoordinate2D,
-                  diversityScore,
-                  endemismLevel,
-                  threatLevel: 1 - ecosystem.resilience, // 脅威レベルは復元力の逆
-                  conservationPriority: diversityScore * endemismLevel,
-                })
+                return pipe(
+                  Match.value(diversityScore <= threshold),
+                  Match.when(true, () => Option.none()),
+                  Match.orElse(() =>
+                    Option.some({
+                      coordinate: ecosystem.coordinate as WorldCoordinate2D,
+                      diversityScore,
+                      endemismLevel,
+                      threatLevel: 1 - ecosystem.resilience,
+                      conservationPriority: diversityScore * endemismLevel,
+                    })
+                  )
+                )
               })
             )
           )
@@ -718,24 +720,26 @@ const generateInteraction = (
   seed: WorldSeed
 ): Effect.Effect<SpeciesInteraction | null, GenerationError> =>
   Effect.succeed(
-    (() => {
-      // 簡略化された相互作用生成
-      if (guild1 === 'herbivores' && guild2 === 'carnivores') {
-        return {
-          interactionType: 'predation' as const,
-          species1: guild1,
-          species2: guild2,
-          interactionStrength: 0.5,
-          directionality: 'unidirectional' as const,
-          spatialScale: 'local' as const,
-          temporalScale: 'immediate' as const,
-          environmentalDependency: 0.3,
-          evidenceStrength: 0.8,
-          ecologicalImportance: 0.7,
-        } satisfies SpeciesInteraction
-      }
-      return null
-    })()
+    pipe(
+      Match.value(guild1 === 'herbivores' && guild2 === 'carnivores'),
+      Match.when(
+        (isPredation) => isPredation,
+        () =>
+          ({
+            interactionType: 'predation' as const,
+            species1: guild1,
+            species2: guild2,
+            interactionStrength: 0.5,
+            directionality: 'unidirectional' as const,
+            spatialScale: 'local' as const,
+            temporalScale: 'immediate' as const,
+            environmentalDependency: 0.3,
+            evidenceStrength: 0.8,
+            ecologicalImportance: 0.7,
+          } satisfies SpeciesInteraction)
+      ),
+      Match.orElse(() => null)
+    )
   )
 
 // 他のヘルパー関数は簡略化のため省略...

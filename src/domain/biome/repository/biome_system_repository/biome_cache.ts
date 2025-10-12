@@ -364,27 +364,28 @@ export const createBiomeCache = (
                   const expired = yield* isExpired(entry.timestamp)
                   // 期限切れの場合はOption.none
                   return yield* pipe(
-                    expired,
-                    Effect.if({
-                      onTrue: () => Effect.succeed(Option.none()),
-                      onFalse: () =>
-                        Effect.gen(function* () {
-                          const coordinate = makeUnsafeWorldCoordinate2D(
-                            parseFloat(key.split(',')[0]),
-                            parseFloat(key.split(',')[1])
-                          )
+                    Match.value(expired),
+                    Match.when(
+                      (isExpired) => isExpired,
+                      () => Effect.succeed(Option.none())
+                    ),
+                    Match.orElse(() =>
+                      Effect.gen(function* () {
+                        const coordinate = makeUnsafeWorldCoordinate2D(
+                          parseFloat(key.split(',')[0]),
+                          parseFloat(key.split(',')[1])
+                        )
 
-                          // 境界チェック
-                          return coordinateInBounds(coordinate, bounds)
-                            ? Option.some({
-                                biomeId: entry.biomeId,
-                                coordinate,
-                                distance: 0,
-                                confidence: entry.confidence,
-                              })
-                            : Option.none()
-                        }),
-                    })
+                        return coordinateInBounds(coordinate, bounds)
+                          ? Option.some({
+                              biomeId: entry.biomeId,
+                              coordinate,
+                              distance: 0,
+                              confidence: entry.confidence,
+                            })
+                          : Option.none()
+                      })
+                    )
                   )
                 }),
               { concurrency: 4 }
@@ -500,29 +501,31 @@ export const createBiomeCache = (
 
       getCluster: (coordinate: SpatialCoordinate) =>
         Effect.gen(function* () {
-          // 設定無効時は即座にOption.none
-          return yield* Effect.if(config.enableSpatialClustering, {
-            onTrue: () =>
-              Effect.gen(function* () {
-                const gridKey = getGridKey(coordinate)
-                const clusters = yield* Ref.get(spatialClusters)
-                const cluster = clusters.get(gridKey)
+          return yield* pipe(
+            Match.value(config.enableSpatialClustering),
+            Match.when(
+              (enabled) => enabled,
+              () =>
+                Effect.gen(function* () {
+                  const gridKey = getGridKey(coordinate)
+                  const clusters = yield* Ref.get(spatialClusters)
+                  const cluster = clusters.get(gridKey)
 
-                // Option.matchで有効期限チェック
-                return yield* pipe(
-                  Option.fromNullable(cluster),
-                  Option.match({
-                    onNone: () => Effect.succeed(Option.none<SpatialCluster>()),
-                    onSome: (c) =>
-                      Effect.gen(function* () {
-                        const expired = yield* isExpired(c.lastUpdate)
-                        return expired ? Option.none<SpatialCluster>() : Option.some(c)
-                      }),
-                  })
-                )
-              }),
-            onFalse: () => Effect.succeed(Option.none<SpatialCluster>()),
-          })
+                  return yield* pipe(
+                    Option.fromNullable(cluster),
+                    Option.match({
+                      onNone: () => Effect.succeed(Option.none<SpatialCluster>()),
+                      onSome: (c) =>
+                        Effect.gen(function* () {
+                          const expired = yield* isExpired(c.lastUpdate)
+                          return expired ? Option.none<SpatialCluster>() : Option.some(c)
+                        }),
+                    })
+                  )
+                })
+            ),
+            Match.orElse(() => Effect.succeed(Option.none<SpatialCluster>()))
+          )
         }),
 
       updateCluster: (coordinate: SpatialCoordinate, biomeDistribution: Map<BiomeId, number>) =>
@@ -582,13 +585,23 @@ export const createBiomeCache = (
               (cluster) =>
                 Effect.gen(function* () {
                   const expired = yield* isExpired(cluster.lastUpdate)
-                  if (expired) return Option.none()
-
-                  const distance = calculateDistance(coordinate, cluster.centerCoordinate)
-                  if (distance <= radius) {
-                    return Option.some(cluster)
-                  }
-                  return Option.none()
+                  return yield* pipe(
+                    Match.value(expired),
+                    Match.when(true, () => Effect.succeed(Option.none<SpatialCluster>())),
+                    Match.orElse(() =>
+                      pipe(
+                        calculateDistance(coordinate, cluster.centerCoordinate),
+                        (distance) =>
+                          pipe(
+                            Match.value(distance <= radius),
+                            Match.when(true, () => Option.some(cluster)),
+                            Match.orElse(() => Option.none<SpatialCluster>())
+                          )
+                      )
+                    ),
+                    Match.exhaustive,
+                    Effect.succeed
+                  )
                 }),
               { concurrency: 4 }
             ),

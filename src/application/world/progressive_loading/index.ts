@@ -307,35 +307,35 @@ export const makeProgressiveLoadingService = Effect.gen(function* () {
 
   const getSystemStatus = () =>
     Effect.gen(function* () {
-      const queueState = yield* scheduler.getQueueState()
-      const memoryMetrics = yield* memoryMonitor.getCurrentMetrics()
-      const memoryPressure = yield* memoryMonitor.getPressureLevel()
-      const currentProfile = yield* adaptiveQuality.getCurrentProfile()
+      const [queueState, memoryMetrics, memoryPressure, currentProfile] = yield* Effect.all([
+        scheduler.getQueueState(),
+        memoryMonitor.getMetrics(),
+        memoryMonitor.getPressureLevel(),
+        adaptiveQuality.getCurrentState(),
+      ])
 
-      const status = {
+      return {
         scheduler: {
-          pendingRequests: queueState.pending.length,
-          inProgressRequests: queueState.inProgress.length,
+          pendingRequests: queueState.pendingRequests,
+          inProgressRequests: queueState.inProgressRequests,
           totalProcessed: queueState.totalProcessed,
         },
         memory: {
-          usagePercentage: (memoryMetrics.usedMemory / memoryMetrics.totalMemory) * 100,
+          usagePercentage: memoryMetrics.usagePercentage,
           pressureLevel: memoryPressure,
-          totalAllocations: 0, // 実装に応じて取得
+          totalAllocations: memoryMetrics.totalAllocations,
         },
         quality: {
-          currentLevel: currentProfile.overallLevel,
-          lastAdjustment: 'なし', // 調整履歴から取得
-          adaptationActive: true, // 実際の状態を確認
+          currentLevel: currentProfile.currentProfile,
+          lastAdjustment: currentProfile.lastAdjustmentReason ?? 'n/a',
+          adaptationActive: currentProfile.adaptationActive,
         },
         overall: {
-          healthy: memoryPressure !== 'critical' && queueState.failed.length < 5,
-          warnings: [],
-          errors: queueState.failed.map((f) => f.error),
+          healthy: queueState.health.overallHealthy && memoryPressure !== 'critical',
+          warnings: queueState.health.warnings,
+          errors: queueState.health.errors,
         },
       }
-
-      return status
     })
 
   const requestChunkLoad = (
@@ -529,23 +529,35 @@ export const ProgressiveLoadingUtils = {
       const service = yield* ProgressiveLoadingService
       const status = yield* service.getSystemStatus()
 
-      const issues = []
-
-      if (!status.overall.healthy) {
-        issues.push('システム全体の健全性に問題があります')
-      }
-
-      if (status.memory.usagePercentage > 90) {
-        issues.push(`メモリ使用率が高すぎます: ${status.memory.usagePercentage.toFixed(1)}%`)
-      }
-
-      if (status.scheduler.pendingRequests > 100) {
-        issues.push(`保留中のリクエストが多すぎます: ${status.scheduler.pendingRequests}`)
-      }
-
-      if (status.overall.errors.length > 0) {
-        issues.push(`エラーが発生しています: ${status.overall.errors.join(', ')}`)
-      }
+      const issues = pipe(
+        [
+          pipe(
+            Match.value(status.overall.healthy),
+            Match.when(false, () => 'システム全体の健全性に問題があります'),
+            Match.orElse(() => null),
+            Match.exhaustive
+          ),
+          pipe(
+            Match.value(status.memory.usagePercentage > 90),
+            Match.when(true, () => `メモリ使用率が高すぎます: ${status.memory.usagePercentage.toFixed(1)}%`),
+            Match.orElse(() => null),
+            Match.exhaustive
+          ),
+          pipe(
+            Match.value(status.scheduler.pendingRequests > 100),
+            Match.when(true, () => `保留中のリクエストが多すぎます: ${status.scheduler.pendingRequests}`),
+            Match.orElse(() => null),
+            Match.exhaustive
+          ),
+          pipe(
+            Match.value(status.overall.errors.length > 0),
+            Match.when(true, () => `エラーが発生しています: ${status.overall.errors.join(', ')}`),
+            Match.orElse(() => null),
+            Match.exhaustive
+          ),
+        ],
+        ReadonlyArray.compact
+      )
 
       return {
         healthy: issues.length === 0,

@@ -263,19 +263,22 @@ const createGenerationSessionFactory = (): GenerationSessionFactory => ({
   createBatch: (params: CreateBatchSessionParams) =>
     Effect.gen(function* () {
       // バッチサイズ検証
-      if (params.requests.length === 0) {
-        return yield* Effect.fail(SessionFactoryError.configurationInvalid('Empty batch request provided'))
-      }
+      const validatedRequests = yield* Effect.succeed(params.requests).pipe(
+        Effect.filterOrFail(
+          (requests) => requests.length > 0,
+          () => SessionFactoryError.configurationInvalid('Empty batch request provided')
+        )
+      )
 
       // バッチ処理戦略適用
       const processingStrategy = params.processingStrategy ?? 'mixed'
-      const batchSize = params.batchSize ?? Math.min(params.requests.length, 10)
+      const batchSize = params.batchSize ?? Math.min(validatedRequests.length, 10)
 
       // リクエストをバッチに分割
-      const requestBatches = yield* createRequestBatches(params.requests, batchSize)
+      const requestBatches = yield* createRequestBatches(validatedRequests, batchSize)
 
       // 統合リクエスト作成
-      const mergedRequest = yield* mergeRequests(params.requests)
+      const mergedRequest = yield* mergeRequests(validatedRequests)
 
       // バッチ設定構築
       const batchConfiguration = yield* buildBatchConfiguration(params.configuration, processingStrategy)
@@ -323,9 +326,10 @@ const createGenerationSessionFactory = (): GenerationSessionFactory => ({
       const recoveredSession = yield* applyRecoveryStrategy(existingSession, params)
 
       // 進捗状態復元
-      if (params.preserveProgress) {
-        yield* restoreProgress(recoveredSession, existingSession)
-      }
+      yield* Effect.when(
+        restoreProgress(recoveredSession, existingSession),
+        params.preserveProgress === true
+      )
 
       return recoveredSession
     }),
@@ -356,20 +360,23 @@ const createGenerationSessionFactory = (): GenerationSessionFactory => ({
   createPriority: (params: CreateSessionParams, priority: number) =>
     Effect.gen(function* () {
       // 優先度検証
-      if (priority < 1 || priority > 10) {
-        return yield* Effect.fail(SessionFactoryError.configurationInvalid('Priority must be between 1 and 10'))
-      }
+      const validatedPriority = yield* Effect.succeed(priority).pipe(
+        Effect.filterOrFail(
+          (value) => value >= 1 && value <= 10,
+          () => SessionFactoryError.configurationInvalid('Priority must be between 1 and 10')
+        )
+      )
 
       // 優先度特化設定
       const priorityParams: CreateSessionParams = {
         ...params,
-        priority,
+        priority: validatedPriority,
         configuration: {
           ...params.configuration,
           priorityPolicy: {
             enablePriorityQueuing: true,
-            priorityThreshold: priority,
-            highPriorityWeight: priority >= 8 ? 5.0 : 2.0,
+            priorityThreshold: validatedPriority,
+            highPriorityWeight: validatedPriority >= 8 ? 5.0 : 2.0,
           },
         },
         enableMetrics: true,

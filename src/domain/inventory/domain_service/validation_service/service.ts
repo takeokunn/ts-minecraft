@@ -234,25 +234,31 @@ export interface ValidationService {
    *
    * @example
    * ```typescript
-   * const result = yield* validationService.validateInventory(inventory, {
-   *   checkItemRegistry: true,
-   *   validateMetadata: true,
-   *   checkStackLimits: true,
-   *   verifyHotbarIntegrity: true,
-   *   validateArmorSlots: true,
-   *   checkDurabilityRanges: true,
-   *   detectDuplicates: true,
-   *   performDeepValidation: true
-   * })
-   *
-   * if (!result.isValid) {
-   *   yield* Effect.log(`検証失敗: ${result.violations.length}個の違反を検出`)
-   *   for (const violation of result.violations) {
-   *     yield* Effect.log(`- ${violation.description}`)
-   *   }
-   * }
-   * ```
-   */
+ * const result = yield* validationService.validateInventory(inventory, {
+ *   checkItemRegistry: true,
+ *   validateMetadata: true,
+ *   checkStackLimits: true,
+ *   verifyHotbarIntegrity: true,
+ *   validateArmorSlots: true,
+ *   checkDurabilityRanges: true,
+ *   detectDuplicates: true,
+ *   performDeepValidation: true
+ * })
+ *
+ * yield* pipe(
+ *   Match.value(result.isValid),
+ *   Match.when(false, () =>
+ *     Effect.gen(function* () {
+ *       yield* Effect.log(`検証失敗: ${result.violations.length}個の違反を検出`)
+ *       yield* Effect.forEach(result.violations, (violation) =>
+ *         Effect.log(`- ${violation.description}`)
+ *       )
+ *     })
+ *   ),
+ *   Match.orElse(() => Effect.unit)
+ * )
+ * ```
+ */
   readonly validateInventory: (
     inventory: Inventory,
     options: ValidationOptions
@@ -268,13 +274,15 @@ export interface ValidationService {
    * @returns 基本的な検証結果
    *
    * @example
-   * ```typescript
-   * const isValid = yield* validationService.quickIntegrityCheck(inventory)
-   * if (!isValid) {
-   *   yield* Effect.log('インベントリに基本的な問題があります')
-   * }
-   * ```
-   */
+ * ```typescript
+ * const isValid = yield* validationService.quickIntegrityCheck(inventory)
+ * yield* pipe(
+ *   Match.value(isValid),
+ *   Match.when(false, () => Effect.log('インベントリに基本的な問題があります')),
+ *   Match.orElse(() => Effect.unit)
+ * )
+ * ```
+ */
   readonly quickIntegrityCheck: (inventory: Inventory) => Effect.Effect<boolean, never>
 
   /**
@@ -288,13 +296,18 @@ export interface ValidationService {
    * @returns スロット固有の検証結果
    *
    * @example
-   * ```typescript
-   * const result = yield* validationService.validateSlot(inventory, 5)
-   * if (result.violations.length > 0) {
-   *   yield* Effect.log(`スロット5に問題: ${result.violations[0].description}`)
-   * }
-   * ```
-   */
+ * ```typescript
+ * const result = yield* validationService.validateSlot(inventory, 5)
+ * yield* pipe(
+ *   Option.fromNullable(result.violations[0]),
+ *   Option.match({
+ *     onNone: () => Effect.unit,
+ *     onSome: (violation) =>
+ *       Effect.log(`スロット5に問題: ${violation.description}`),
+ *   })
+ * )
+ * ```
+ */
   readonly validateSlot: (
     inventory: Inventory,
     slotIndex: number
@@ -317,13 +330,15 @@ export interface ValidationService {
    * @returns ホットバー検証結果
    *
    * @example
-   * ```typescript
-   * const result = yield* validationService.validateHotbar(inventory)
-   * if (!result.isValid) {
-   *   yield* Effect.log('ホットバー設定に問題があります')
-   * }
-   * ```
-   */
+ * ```typescript
+ * const result = yield* validationService.validateHotbar(inventory)
+ * yield* pipe(
+ *   Match.value(result.isValid),
+ *   Match.when(false, () => Effect.log('ホットバー設定に問題があります')),
+ *   Match.orElse(() => Effect.unit)
+ * )
+ * ```
+ */
   readonly validateHotbar: (inventory: Inventory) => Effect.Effect<
     {
       readonly isValid: boolean
@@ -345,13 +360,13 @@ export interface ValidationService {
    * @returns 防具検証結果
    *
    * @example
-   * ```typescript
-   * const result = yield* validationService.validateArmorSlots(inventory)
-   * for (const issue of result.issues) {
-   *   yield* Effect.log(`防具問題: ${issue.description}`)
-   * }
-   * ```
-   */
+ * ```typescript
+ * const result = yield* validationService.validateArmorSlots(inventory)
+ * yield* Effect.forEach(result.issues, (issue) =>
+ *   Effect.log(`防具問題: ${issue.description}`)
+ * )
+ * ```
+ */
   readonly validateArmorSlots: (inventory: Inventory) => Effect.Effect<
     {
       readonly isValid: boolean
@@ -418,15 +433,17 @@ export interface ValidationService {
    * @returns 健全性スコアと詳細
    *
    * @example
-   * ```typescript
-   * const health = yield* validationService.calculateHealthScore(inventory)
-   * yield* Effect.log(`インベントリ健全性: ${health.score}/100`)
-   *
-   * if (health.score < 80) {
-   *   yield* Effect.log('最適化をお勧めします')
-   * }
-   * ```
-   */
+ * ```typescript
+ * const health = yield* validationService.calculateHealthScore(inventory)
+ * yield* Effect.log(`インベントリ健全性: ${health.score}/100`)
+ *
+ * yield* pipe(
+ *   Match.value(health.score < 80),
+ *   Match.when(true, () => Effect.log('最適化をお勧めします')),
+ *   Match.orElse(() => Effect.unit)
+ * )
+ * ```
+ */
   readonly calculateHealthScore: (inventory: Inventory) => Effect.Effect<
     {
       readonly score: number

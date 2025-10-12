@@ -5,7 +5,7 @@
  */
 
 import { ErrorCauseSchema } from '@shared/schema/error'
-import { Context, Effect, Layer, Option, ReadonlyArray, Ref, Schema, pipe } from 'effect'
+import { Context, Effect, Layer, Match, Option, ReadonlyArray, Ref, Schema, pipe } from 'effect'
 import { CacheManagerService, CacheManagerServiceLive } from './cache_manager'
 
 /**
@@ -153,12 +153,10 @@ const makeCacheOptimizationService = Effect.gen(function* () {
                     const chunkKey = `chunk_${x}_${z}`
                     const hasChunk = yield* cacheManager.has(chunkKey)
 
-                    // if早期return → Effect.if利用
-                    return yield* Effect.if(hasChunk, {
-                      onTrue: () => Effect.succeed(count),
-                      onFalse: () =>
+                    return yield* Match.value(hasChunk).pipe(
+                      Match.when(true, () => Effect.succeed(count)),
+                      Match.orElse(() =>
                         Effect.gen(function* () {
-                          // チャンクデータの生成とキャッシュ（簡略化）
                           const chunkData = { x, z, generated: true, playerId }
 
                           yield* cacheManager.set(chunkKey, chunkData, {
@@ -167,8 +165,10 @@ const makeCacheOptimizationService = Effect.gen(function* () {
                           })
 
                           return count + 1
-                        }),
-                    })
+                        })
+                      ),
+                      Match.exhaustive
+                    )
                   })
                 )
               )
@@ -184,20 +184,16 @@ const makeCacheOptimizationService = Effect.gen(function* () {
     Effect.gen(function* () {
       const isActive = yield* Ref.get(isAutoOptimizing)
 
-      return yield* pipe(
-        isActive,
-        (active) => !active,
-        (canStart) =>
-          canStart
-            ? Effect.gen(function* () {
-                yield* Ref.set(isAutoOptimizing, true)
-
-                // 自動最適化ループを開始
-                yield* Effect.forkScoped(optimizationLoop())
-
-                yield* Effect.logInfo('自動キャッシュ最適化開始')
-              })
-            : Effect.logWarning('自動最適化は既に開始されています')
+      return yield* Match.value(isActive).pipe(
+        Match.when(true, () => Effect.logWarning('自動最適化は既に開始されています')),
+        Match.orElse(() =>
+          Effect.gen(function* () {
+            yield* Ref.set(isAutoOptimizing, true)
+            yield* Effect.forkScoped(optimizationLoop())
+            yield* Effect.logInfo('自動キャッシュ最適化開始')
+          })
+        ),
+        Match.exhaustive
       )
     })
 
@@ -279,24 +275,20 @@ const makeCacheOptimizationService = Effect.gen(function* () {
         Effect.gen(function* () {
           const isActive = yield* Ref.get(isAutoOptimizing)
 
-          // if早期return → Effect.if利用
-          return yield* Effect.if(isActive, {
-            onTrue: () =>
+          return yield* Match.value(isActive).pipe(
+            Match.when(true, () =>
               Effect.gen(function* () {
-                // 定期的な最適化実行
                 yield* cacheManager.optimize()
-
-                // 効率レポートチェック
                 const report = yield* getEfficiencyReport()
-
                 yield* Effect.when(report.hitRate < 0.5, () =>
                   Effect.logWarning(`キャッシュ効率が低下: ヒット率=${(report.hitRate * 100).toFixed(1)}%`)
                 )
-
                 return true
-              }),
-            onFalse: () => Effect.succeed(false),
-          })
+              })
+            ),
+            Match.orElse(() => Effect.succeed(false)),
+            Match.exhaustive
+          )
         }),
         { schedule: Effect.Schedule.spaced('30 seconds') }
       )

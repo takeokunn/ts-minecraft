@@ -289,9 +289,7 @@ const handleBlockUpdate = (position: WorldPosition) =>
 
     // 隣接ブロックに変更を通知
     const neighbors = getNeighborPositions(position)
-    for (const neighborPos of neighbors) {
-      yield* updateService.neighborChanged(neighborPos, position)
-    }
+    yield* pipe(neighbors, Effect.forEach((neighborPos) => updateService.neighborChanged(neighborPos, position), { discard: true }))
 
     // 5秒後に再チェック
     yield* updateService.scheduleUpdate(position, 5000)
@@ -441,9 +439,7 @@ const breakBlock = (position: WorldPosition, player: PlayerId, tool?: ItemStack)
     const drops = yield* interactionService.onBlockBreak(position, player, tool)
 
     // ドロップアイテムをワールドにスポーン
-    for (const drop of drops) {
-      yield* spawnItem(position, drop)
-    }
+    yield* pipe(drops, Effect.forEach((drop) => spawnItem(position, drop), { discard: true }))
 
     return drops
   })
@@ -529,9 +525,7 @@ const propagateRedstoneSignal = (source: WorldPosition, power: number) =>
 
     // 隣接ブロックの状態更新
     const neighbors = getNeighborPositions(source)
-    for (const pos of neighbors) {
-      yield* redstone.updateNetwork(pos)
-    }
+    yield* pipe(neighbors, Effect.forEach((pos) => redstone.updateNetwork(pos), { discard: true }))
   })
 
 // 流体の流れシミュレーション
@@ -542,23 +536,28 @@ const simulateWaterFlow = (source: WorldPosition) =>
 
     const neighbors = getNeighborPositions(source)
 
-    for (const neighborPos of neighbors) {
-      const neighbor = yield* world.getBlock(neighborPos)
+    yield* pipe(
+      neighbors,
+      Effect.forEach(
+        (neighborPos) =>
+          Effect.gen(function* () {
+            const neighbor = yield* world.getBlock(neighborPos)
 
-      // 流れる条件のチェック
-      if (canWaterFlowTo(neighbor)) {
-        // 流体レベル計算
-        const sourceLevel = yield* getWaterLevel(source)
-        const targetLevel = Math.max(0, sourceLevel - 1)
+            if (!canWaterFlowTo(neighbor)) {
+              return
+            }
 
-        if (targetLevel > 0) {
-          yield* world.setBlock(neighborPos, 'minecraft:water' as BlockId, { level: targetLevel })
+            const sourceLevel = yield* getWaterLevel(source)
+            const targetLevel = Math.max(0, sourceLevel - 1)
 
-          // 継続的な流れをスケジュール
-          yield* BlockUpdateService.scheduleUpdate(neighborPos, 5000)
-        }
-      }
-    }
+            if (targetLevel > 0) {
+              yield* world.setBlock(neighborPos, 'minecraft:water' as BlockId, { level: targetLevel })
+              yield* BlockUpdateService.scheduleUpdate(neighborPos, 5000)
+            }
+          }),
+        { discard: true }
+      )
+    )
   })
 
 // ブロック接続の更新
@@ -570,14 +569,16 @@ const updateBlockConnections = (position: WorldPosition) =>
     // フェンス、壁などの接続可能ブロック
     if (isConnectableBlock(block.id)) {
       const neighbors = getNeighborPositions(position)
-      const connections: Record<string, boolean> = {}
-
-      for (const neighborPos of neighbors) {
-        const neighbor = yield* world.getBlock(neighborPos)
-        const direction = getDirection(position, neighborPos)
-
-        connections[direction] = canConnect(block, neighbor)
-      }
+      const connections = yield* pipe(
+        neighbors,
+        Effect.reduce({} as Record<string, boolean>, (acc, neighborPos) =>
+          Effect.gen(function* () {
+            const neighbor = yield* world.getBlock(neighborPos)
+            const direction = getDirection(position, neighborPos)
+            return { ...acc, [direction]: canConnect(block, neighbor) }
+          })
+        )
+      )
 
       // 接続状態を更新
       yield* world.updateBlockState(position, { connections })
@@ -671,15 +672,18 @@ const generateChunkMesh = (chunk: Chunk) =>
 // 面結合最適化
 const greedyMeshing = (blocks: ReadonlyArray<BlockData>) =>
   Effect.gen(function* () {
-    const faces: Face[] = []
     const processed = new Set<string>()
 
-    // X軸方向のスライス処理
-    for (let x = 0; x <= 16; x++) {
-      const mask = createMask(blocks, x, 'x')
-      const sliceFaces = yield* generateFacesFromMask(mask, x)
-      faces.push(...sliceFaces)
-    }
+    const faces = yield* pipe(
+      ReadonlyArray.range(0, 16),
+      Effect.reduce([] as ReadonlyArray<Face>, (acc, x) =>
+        Effect.gen(function* () {
+          const mask = createMask(blocks, x, 'x')
+          const sliceFaces = yield* generateFacesFromMask(mask, x)
+          return [...acc, ...sliceFaces]
+        })
+      )
+    )
 
     // Y軸、Z軸方向も同様に処理
     // ...
@@ -812,9 +816,12 @@ const buildRedstoneCircuit = Effect.gen(function* () {
   yield* placeBlock({ x: 0, y: 64, z: 0 }, 'minecraft:redstone_torch' as BlockId, player)
 
   // レッドストーンワイヤを配置
-  for (let i = 1; i <= 5; i++) {
-    yield* placeBlock({ x: i, y: 64, z: 0 }, 'minecraft:redstone_wire' as BlockId, player)
-  }
+  yield* pipe(
+    ReadonlyArray.range(1, 6),
+    Effect.forEach((i) => placeBlock({ x: i, y: 64, z: 0 }, 'minecraft:redstone_wire' as BlockId, player), {
+      discard: true,
+    })
+  )
 
   // ピストンを配置
   yield* placeBlock({ x: 6, y: 64, z: 0 }, 'minecraft:piston' as BlockId, player)

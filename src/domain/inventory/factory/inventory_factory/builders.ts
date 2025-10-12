@@ -234,9 +234,13 @@ export const createInventoryBuilder = (initialConfig: InventoryBuilderConfig = {
         yield* validateBuilderConfig(config)
 
         // Match.whenによる必須フィールド検証
-        const missingFields: string[] = []
-        if (!config.playerId) missingFields.push('playerId')
-        if (!config.type) missingFields.push('type')
+        const missingFields = pipe(
+          [
+            Option.when(config.playerId === undefined, () => 'playerId'),
+            Option.when(config.type === undefined, () => 'type'),
+          ],
+          ReadonlyArray.filterMap((field) => field)
+        )
 
         return yield* pipe(
           Match.value(missingFields),

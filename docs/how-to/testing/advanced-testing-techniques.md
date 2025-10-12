@@ -590,7 +590,9 @@ describe('3D Rendering Visual Tests', () => {
       { x: 0, y: 60, z: 0, name: 'top-view' },
     ]
 
-    for (const angle of angles) {
+    await angles.reduce(async (previous, angle) => {
+      await previous
+
       await page.evaluate((pos) => {
         window.game.setCameraPosition(pos.x, pos.y, pos.z)
         window.game.setCameraTarget(0, 0, 0)
@@ -600,9 +602,11 @@ describe('3D Rendering Visual Tests', () => {
 
       const screenshot = await page.locator('canvas#game-viewport').screenshot()
       expect(screenshot).toMatchSnapshot(`castle-${angle.name}.png`, {
-        threshold: 0.08, // 複雑構造は少し緩い閾値
+        threshold: 0.08,
       })
-    }
+
+      return Promise.resolve()
+    }, Promise.resolve())
   })
 
   test('パーティクルエフェクトのフレーム一貫性', async ({ page }) => {
@@ -616,11 +620,11 @@ describe('3D Rendering Visual Tests', () => {
       })
     })
 
-    // アニメーションフレームを段階的にキャプチャ
-    const frames = []
-    const frameTimes = [0, 0.5, 1.0, 1.5, 2.0] // 秒
+    const frameTimes = [0, 0.5, 1.0, 1.5, 2.0]
 
-    for (const time of frameTimes) {
+    const frames = await frameTimes.reduce(async (accPromise, time) => {
+      const acc = await accPromise
+
       await page.evaluate((t) => {
         window.game.setAnimationTime(t)
         window.game.updateParticles()
@@ -629,17 +633,19 @@ describe('3D Rendering Visual Tests', () => {
       await page.waitForFunction(() => window.game.isRenderComplete())
 
       const screenshot = await page.locator('canvas#game-viewport').screenshot()
-      frames.push(screenshot)
-
       expect(screenshot).toMatchSnapshot(`explosion-frame-${time}s.png`)
-    }
 
-    // フレーム間の変化量検証
-    for (let i = 1; i < frames.length; i++) {
-      const diff = await compareImages(frames[i - 1], frames[i])
-      expect(diff.differencePercentage).toBeGreaterThan(5) // 5%以上変化
-      expect(diff.differencePercentage).toBeLessThan(50) // 50%未満変化
-    }
+      return [...acc, screenshot as unknown as Uint8Array]
+    }, Promise.resolve([] as Uint8Array[]))
+
+    await Promise.all(
+      frames.slice(1).map((frame, index) =>
+        compareImages(frames[index], frame).then((diff) => {
+          expect(diff.differencePercentage).toBeGreaterThan(5)
+          expect(diff.differencePercentage).toBeLessThan(50)
+        })
+      )
+    )
   })
 })
 ```
@@ -680,31 +686,30 @@ describe('Shader Visual Validation Tests', () => {
 
     // 時間経過による波の変化を検証
     const timeSteps = [0, 0.5, 1.0, 1.5, 2.0]
-    const renderedFrames = []
 
-    for (const time of timeSteps) {
+    const renderedFrames = await timeSteps.reduce(async (accPromise, time) => {
+      const acc = await accPromise
+
       waterShader.uniforms.time.value = time
       renderer.render(scene, camera)
 
-      // レンダリング結果をImageDataとして取得
       const imageData = await getImageDataFromRenderer(renderer)
-      renderedFrames.push(imageData)
 
-      // ベースライン画像と比較
       expect(imageData).toMatchImageSnapshot(`water-shader-t${time}.png`, {
         customSnapshotIdentifier: `water-shader-time-${time}`,
         failureThresholdType: 'percent',
         failureThreshold: 0.1,
       })
-    }
 
-    // 波の周期性検証（t=0とt=2πで同じになるはず）
-    if (timeSteps.includes(0) && timeSteps.includes(2 * Math.PI)) {
-      const initialFrame = renderedFrames[0]
-      const cyclicFrame = renderedFrames[timeSteps.indexOf(2 * Math.PI)]
+      return [...acc, imageData]
+    }, Promise.resolve([] as Uint8Array[]))
 
-      const diff = compareImageData(initialFrame, cyclicFrame)
-      expect(diff.percentage).toBeLessThan(5) // 5%未満の差異
+    const zeroIndex = timeSteps.indexOf(0)
+    const cycleIndex = timeSteps.indexOf(2 * Math.PI)
+
+    if (zeroIndex !== -1 && cycleIndex !== -1) {
+      const diff = compareImageData(renderedFrames[zeroIndex]!, renderedFrames[cycleIndex]!)
+      expect(diff.percentage).toBeLessThan(5)
     }
   })
 
@@ -722,7 +727,9 @@ describe('Shader Visual Validation Tests', () => {
       { x: 0, y: 0, z: -1, name: 'back' },
     ]
 
-    for (const lightDir of lightDirections) {
+    await lightDirections.reduce(async (previous, lightDir) => {
+      await previous
+
       lightingShader.uniforms.lightDirection.value = new THREE.Vector3(lightDir.x, lightDir.y, lightDir.z).normalize()
 
       renderer.render(scene, camera)
@@ -730,12 +737,13 @@ describe('Shader Visual Validation Tests', () => {
 
       expect(imageData).toMatchImageSnapshot(`lighting-${lightDir.name}.png`, { threshold: 0.05 })
 
-      // 明暗の方向性確認（光源方向の面が明るいはず）
       const brightness = analyzeBrightnessByRegion(imageData)
       if (lightDir.name === 'top-right') {
         expect(brightness.topRight).toBeGreaterThan(brightness.bottomLeft)
       }
-    }
+
+      return Promise.resolve()
+    }, Promise.resolve())
   })
 
   test('影生成シェーダーの精度検証', async () => {
@@ -788,29 +796,25 @@ async function getImageDataFromRenderer(renderer: THREE.WebGLRenderer): Promise<
   return context.getImageData(0, 0, canvas.width, canvas.height)
 }
 
-function compareImageData(imageData1: ImageData, imageData2: ImageData): { percentage: number } {
-  // ピクセル単位での比較実装
-  let diffPixels = 0
+const compareImageData = (imageData1: ImageData, imageData2: ImageData): { percentage: number } => {
   const totalPixels = imageData1.width * imageData1.height
 
-  for (let i = 0; i < imageData1.data.length; i += 4) {
-    const r1 = imageData1.data[i]
-    const g1 = imageData1.data[i + 1]
-    const b1 = imageData1.data[i + 2]
-    const a1 = imageData1.data[i + 3]
+  const diffPixels = ReadonlyArray.range(0, imageData1.data.length / 4 - 1).reduce((count, index) => {
+    const offset = index * 4
+    const r1 = imageData1.data[offset]
+    const g1 = imageData1.data[offset + 1]
+    const b1 = imageData1.data[offset + 2]
+    const a1 = imageData1.data[offset + 3]
 
-    const r2 = imageData2.data[i]
-    const g2 = imageData2.data[i + 1]
-    const b2 = imageData2.data[i + 2]
-    const a2 = imageData2.data[i + 3]
+    const r2 = imageData2.data[offset]
+    const g2 = imageData2.data[offset + 1]
+    const b2 = imageData2.data[offset + 2]
+    const a2 = imageData2.data[offset + 3]
 
     const colorDistance = Math.sqrt((r1 - r2) ** 2 + (g1 - g2) ** 2 + (b1 - b2) ** 2 + (a1 - a2) ** 2)
 
-    if (colorDistance > 30) {
-      // 閾値
-      diffPixels++
-    }
-  }
+    return colorDistance > 30 ? count + 1 : count
+  }, 0)
 
   return { percentage: (diffPixels / totalPixels) * 100 }
 }
@@ -992,7 +996,9 @@ describe('API Contract Tests', () => {
         },
       ]
 
-      for (const scenario of testScenarios) {
+      await testScenarios.reduce(async (previous, scenario) => {
+        await previous
+
         if (scenario.expectSuccess) {
           const player = await clientPlayerService.create(scenario.input)
           expect(player.name).toBe(scenario.input.name)
@@ -1003,7 +1009,9 @@ describe('API Contract Tests', () => {
             _tag: scenario.expectedError,
           })
         }
-      }
+
+        return Promise.resolve()
+      }, Promise.resolve())
     })
 
     it('APIバージョン互換性の検証', async () => {
@@ -1126,7 +1134,9 @@ describe('API Contract Tests', () => {
         },
       ]
 
-      for (const testCase of testCases) {
+      await testCases.reduce(async (previous, testCase) => {
+        await previous
+
         const result = await Effect.runPromise(
           movePlayerSafely('test-player', testCase.position).pipe(Effect.either, Effect.provide(WorldServiceLive))
         )
@@ -1139,7 +1149,9 @@ describe('API Contract Tests', () => {
             expect(result.left.constructor.name).toBe(testCase.expectedError)
           }
         }
-      }
+
+        return Promise.resolve()
+      }, Promise.resolve())
     })
   })
 })
@@ -1381,24 +1393,27 @@ describe('Golden File Tests', () => {
 
       // シミュレーション実行
       const simulationSteps = Math.floor(physicsScenario.simulationTime / physicsScenario.timeStep)
-      const snapshots = []
-
-      for (let step = 0; step < simulationSteps; step++) {
+      const snapshots = await ReadonlyArray.range(0, simulationSteps - 1).reduce(async (accPromise, step) => {
+        const acc = await accPromise
         physics.update(physicsScenario.timeStep)
 
-        // 1秒ごとにスナップショット
         if (step % 60 === 0) {
-          snapshots.push({
-            time: step * physicsScenario.timeStep,
-            entities: physics.getAllEntities().map((e) => ({
-              type: e.type,
-              position: { x: e.position.x, y: e.position.y, z: e.position.z },
-              velocity: { x: e.velocity.x, y: e.velocity.y, z: e.velocity.z },
-              energy: e.getKineticEnergy(),
-            })),
-          })
+          return [
+            ...acc,
+            {
+              time: step * physicsScenario.timeStep,
+              entities: physics.getAllEntities().map((e) => ({
+                type: e.type,
+                position: { x: e.position.x, y: e.position.y, z: e.position.z },
+                velocity: { x: e.velocity.x, y: e.velocity.y, z: e.velocity.z },
+                energy: e.getKineticEnergy(),
+              })),
+            },
+          ]
         }
-      }
+
+        return acc
+      }, Promise.resolve([] as Array<{ time: number; entities: Array<{ type: string; position: any; velocity: any; energy: number }> }>))
 
       const goldenPhysicsData = {
         scenario: physicsScenario,
@@ -1448,23 +1463,18 @@ async function compareWithGolden(fileName: string, actual: any): Promise<void> {
   }
 }
 
-function sampleHeightMap(world: World, gridWidth: number, gridHeight: number): number[][] {
-  const heightMap: number[][] = []
+const sampleHeightMap = (world: World, gridWidth: number, gridHeight: number): number[][] => {
   const stepX = world.size.width / gridWidth
   const stepZ = world.size.height / gridHeight
 
-  for (let z = 0; z < gridHeight; z++) {
-    const row: number[] = []
-    for (let x = 0; x < gridWidth; x++) {
+  return ReadonlyArray.range(0, gridHeight - 1).map((z) =>
+    ReadonlyArray.range(0, gridWidth - 1).map((x) => {
       const worldX = Math.floor(x * stepX)
       const worldZ = Math.floor(z * stepZ)
       const height = world.getHeightAt(worldX, worldZ)
-      row.push(Math.round(height * 100) / 100) // 小数点2桁で丸める
-    }
-    heightMap.push(row)
-  }
-
-  return heightMap
+      return Math.round(height * 100) / 100
+    })
+  )
 }
 
 function analyzeBiomeDistribution(world: World): Record<string, number> {
@@ -1521,7 +1531,9 @@ describe('Security Testing Suite', () => {
     ]
 
     it('プレイヤー名の入力検証', async () => {
-      for (const maliciousInput of maliciousInputs) {
+      await maliciousInputs.reduce(async (previous, maliciousInput) => {
+        await previous
+
         const result = await Effect.runPromise(
           validatePlayerName(maliciousInput).pipe(Effect.either)
         )
@@ -1532,14 +1544,15 @@ describe('Security Testing Suite', () => {
           expect(result.left).toBeInstanceOf(ValidationError)
           expect(result.left.message).toContain('Invalid player name')
 
-          // ログにセキュリティイベントが記録されることを確認
           expect(securityLogger.getLastEvent()).toMatchObject({
             type: 'MALICIOUS_INPUT_DETECTED',
             input: maliciousInput,
             validation: 'PLAYER_NAME'
           })
         }
-      }
+
+        return Promise.resolve()
+      }, Promise.resolve())
     })
 
     it('チャットメッセージのサニタイゼーション', async () => {
@@ -1558,13 +1571,15 @@ describe('Security Testing Suite', () => {
         }
       ]
 
-      for (const testCase of testCases) {
+      await testCases.reduce(async (previous, testCase) => {
+        await previous
+
         const sanitized = await sanitizeChatMessage(testCase.input)
         expect(sanitized).toBe(testCase.expected)
-
-        // サニタイズ後にスクリプトが実行できないことを確認
         expect(sanitized).not.toMatch(/<script|javascript:|on\w+=/i)
-      }
+
+        return Promise.resolve()
+      }, Promise.resolve())
     })
 
     it('ファイルパスの検証（パストラバーサル防止）', async () => {
@@ -1578,15 +1593,18 @@ describe('Security Testing Suite', () => {
         '/root/.ssh/id_rsa'
       ]
 
-      for (const maliciousPath of maliciousPaths) {
+      await maliciousPaths.reduce(async (previous, maliciousPath) => {
+        await previous
+
         await expect(loadWorldFile(maliciousPath)).rejects.toThrow(SecurityError)
 
-        // セキュリティログの確認
         expect(securityLogger.getLastEvent()).toMatchObject({
           type: 'PATH_TRAVERSAL_ATTEMPT',
           path: maliciousPath
         })
-      }
+
+        return Promise.resolve()
+      }, Promise.resolve())
     })
   })
 
@@ -1606,7 +1624,9 @@ describe('Security Testing Suite', () => {
         { type: 'set_permission', target: 'self', permission: 'admin' }
       ]
 
-      for (const command of adminCommands) {
+      await adminCommands.reduce(async (previous, command) => {
+        await previous
+
         const result = await Effect.runPromise(
           executeCommand(normalPlayer, command).pipe(Effect.either)
         )
@@ -1616,14 +1636,15 @@ describe('Security Testing Suite', () => {
         if (Either.isLeft(result)) {
           expect(result.left).toBeInstanceOf(UnauthorizedError)
 
-          // 権限昇格試行がログに記録されることを確認
           expect(securityLogger.getLastEvent()).toMatchObject({
             type: 'PRIVILEGE_ESCALATION_ATTEMPT',
             playerId: normalPlayer.id,
             command: command.type
           })
         }
-      }
+
+        return Promise.resolve()
+      }, Promise.resolve())
     })
 
     it('セッションハイジャック防止', async () => {
@@ -1661,15 +1682,17 @@ describe('Security Testing Suite', () => {
       const startTime = Date.now()
 
       // 大量のアクションを短時間で実行
-      for (const action of actions) {
+      const results = await actions.reduce(async (accPromise, action) => {
+        const acc = await accPromise
+
         const result = await Effect.runPromise(
           performAction(player, action).pipe(Effect.either)
         )
-        results.push(result)
 
-        // わずかな遅延（現実的なクライアント動作）
-        await new Promise(resolve => setTimeout(resolve, 1))
-      }
+        await new Promise((resolve) => setTimeout(resolve, 1))
+
+        return [...acc, result]
+      }, Promise.resolve([] as Array<Either.Either<unknown, unknown>>))
 
       const endTime = Date.now()
       const duration = endTime - startTime
@@ -1681,7 +1704,7 @@ describe('Security Testing Suite', () => {
       )
 
       expect(rateLimitFailures.length).toBeGreaterThan(900) // 大部分が制限される
-      expect(duration).toBeLessThan(60000) // 1分以内で処理完了（DoS防止）
+      expect(duration).toBeLessThan(60000)
 
       // レート制限イベントがログに記録されることを確認
       expect(securityLogger.getEvents().filter(e =>
@@ -1771,23 +1794,20 @@ interface SecurityTestHelper {
     target: string,
     attempts: number = 1000
   ): Promise<{ successful: number, blocked: number }> {
-    let successful = 0
-    let blocked = 0
-
-    for (let i = 0; i < attempts; i++) {
+    return ReadonlyArray.range(0, attempts - 1).reduce(async (accPromise, i) => {
+      const acc = await accPromise
       const password = `password${i}`
 
       try {
         await authenticateUser(target, password)
-        successful++
+        return { ...acc, successful: acc.successful + 1 }
       } catch (error) {
         if (error instanceof BruteForceProtectionError) {
-          blocked++
+          return { ...acc, blocked: acc.blocked + 1 }
         }
+        return acc
       }
-    }
-
-    return { successful, blocked }
+    }, Promise.resolve({ successful: 0, blocked: 0 }))
   }
 
   static generateMaliciousPayloads(): string[] {

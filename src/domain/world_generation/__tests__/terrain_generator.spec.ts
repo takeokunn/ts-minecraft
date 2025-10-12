@@ -4,7 +4,7 @@
  */
 
 import { describe, expect, it } from '@effect/vitest'
-import { Clock, Duration, Effect, Fiber, TestClock } from 'effect'
+import { Clock, Duration, Effect, Fiber, Match, ReadonlyArray, TestClock, pipe } from 'effect'
 
 /**
  * チャンク生成のモックEffect
@@ -103,36 +103,40 @@ describe('Terrain Generator with TestClock', () => {
 
       const result = yield* Effect.either(Fiber.join(fiber))
 
-      // タイムアウトでNoneが返ることを確認
-      if (result._tag === 'Right') {
-        expect(result.right._tag).toBe('None')
-      } else {
-        // タイムアウトエラーの場合もあり得る
-        expect(result._tag).toBe('Left')
-      }
+      // タイムアウトでNoneが返る or Leftが返ることを宣言的に検証
+      pipe(
+        Match.value(result),
+        Match.tag('Right', ({ right }) => expect(right._tag).toBe('None')),
+        Match.tag('Left', () => expect(result._tag).toBe('Left')),
+        Match.exhaustive
+      )
     })
   )
 
   it.effect('should measure generation time accurately', () =>
     Effect.gen(function* () {
-      const measurements: number[] = []
+      const iterationIndices = ReadonlyArray.fromIterable(Array.from({ length: 3 }, (_, i) => i))
 
-      // 3つのチャンクを順次生成
-      for (let i = 0; i < 3; i++) {
-        const startTime = yield* Clock.currentTimeMillis
-        const fiber = yield* Effect.fork(generateChunkMock({ x: i, z: 0 }))
+      const measurements = yield* pipe(
+        iterationIndices,
+        Effect.reduce([] as ReadonlyArray<number>, (acc, index) =>
+          Effect.gen(function* () {
+            const startTime = yield* Clock.currentTimeMillis
+            const fiber = yield* Effect.fork(generateChunkMock({ x: index, z: 0 }))
 
-        yield* TestClock.adjust(Duration.seconds(5))
+            yield* TestClock.adjust(Duration.seconds(5))
 
-        const chunk = yield* Fiber.join(fiber)
-        const endTime = yield* Clock.currentTimeMillis
+            const chunk = yield* Fiber.join(fiber)
+            const endTime = yield* Clock.currentTimeMillis
 
-        measurements.push(endTime - startTime)
-        expect(chunk.generationTime).toBe(5000)
-      }
+            expect(chunk.generationTime).toBe(5000)
+            return pipe(acc, ReadonlyArray.append(endTime - startTime))
+          })
+        )
+      )
 
       // 各生成が正確に5秒かかることを確認
-      expect(measurements).toEqual([5000, 5000, 5000])
+      expect(Array.from(measurements)).toEqual([5000, 5000, 5000])
 
       // 合計15秒経過していることを確認
       const totalTime = yield* Clock.currentTimeMillis

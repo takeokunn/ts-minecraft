@@ -115,9 +115,15 @@ const detect = (params: {
       )
     )
 
-    if (collisionCount > 0 && !collidedAxes.x && !collidedAxes.y && !collidedAxes.z) {
-      collidedAxes = { x: true, y: true, z: true }
-    }
+    collidedAxes = pipe(
+      Match.value({ collisionCount, collidedAxes }),
+      Match.when(
+        ({ collisionCount, collidedAxes }) =>
+          collisionCount > 0 && !collidedAxes.x && !collidedAxes.y && !collidedAxes.z,
+        () => ({ x: true, y: true, z: true })
+      ),
+      Match.orElse(({ collidedAxes }) => collidedAxes)
+    )
 
     const resolvedPosition = pipe(
       collisionCount,

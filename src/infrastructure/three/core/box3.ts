@@ -4,7 +4,7 @@
  */
 
 import { ErrorCauseSchema } from '@shared/schema/error'
-import { Effect, Schema } from 'effect'
+import { Effect, Match, Schema, pipe } from 'effect'
 import * as THREE from 'three'
 import type { Vector3 } from './vector3'
 import * as V3 from './vector3'
@@ -147,10 +147,14 @@ export const isEmpty = (box: Box3): boolean => {
  * Box3の体積を計算
  */
 export const getVolume = (box: Box3): number => {
-  if (isEmpty(box)) return 0
-
-  const size = getSize(box)
-  return size.x * size.y * size.z
+  return pipe(
+    Match.value(isEmpty(box)),
+    Match.when(true, () => 0),
+    Match.orElse(() => {
+      const size = getSize(box)
+      return size.x * size.y * size.z
+    })
+  )
 }
 
 /**
@@ -178,16 +182,19 @@ export const equals = (a: Box3, b: Box3, epsilon: number = Number.EPSILON): bool
  */
 export const fromPoints = (points: ReadonlyArray<Vector3>): Effect.Effect<Box3, Box3Error> =>
   Effect.gen(function* () {
-    if (points.length === 0) {
-      return yield* Effect.fail(
-        new Box3Error({
-          operation: 'fromPoints',
-          reason: 'Cannot create Box3 from empty points array',
-          points,
-        })
-      )
-    }
+    yield* pipe(
+      Match.value(points.length === 0),
+      Match.when(true, () =>
+        Effect.fail(
+          new Box3Error({
+            operation: 'fromPoints',
+            reason: 'Cannot create Box3 from empty points array',
+            points,
+          })
+        )
+      ),
+      Match.orElse(() => Effect.void)
+    )
 
-    const box = points.reduce((acc, point) => expandByPoint(acc, point), empty)
-    return box
+    return points.reduce((acc, point) => expandByPoint(acc, point), empty)
   })

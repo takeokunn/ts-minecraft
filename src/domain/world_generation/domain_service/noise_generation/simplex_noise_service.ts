@@ -13,7 +13,7 @@ import {
   type WorldCoordinate2D,
   type WorldCoordinate3D,
 } from '@domain/world/value_object/coordinates'
-import { Context, Effect, Layer, pipe, ReadonlyArray, Schema } from 'effect'
+import { Context, Effect, Layer, Match, Option, ReadonlyArray, Schema, pipe } from 'effect'
 import type { NoiseField, NoiseSample } from './index'
 
 /**
@@ -181,14 +181,7 @@ export const SimplexNoiseServiceLive = Layer.effect(
         const y0 = y - Y0
 
         // 4. シンプレックス内の位置決定
-        let i1: number, j1: number
-        if (x0 > y0) {
-          i1 = 1
-          j1 = 0 // 下の三角形
-        } else {
-          i1 = 0
-          j1 = 1 // 上の三角形
-        }
+        const { i1, j1 } = simplexOffsets2D(x0, y0)
 
         // 5. 他の2つの頂点の相対座標計算
         const x1 = x0 - i1 + unskewFactor
@@ -204,30 +197,15 @@ export const SimplexNoiseServiceLive = Layer.effect(
         const gi2 = permMod12[ii + 1 + perm[jj + 1]]
 
         // 7. 各頂点からの寄与計算
-        let n0 = 0,
-          n1 = 0,
-          n2 = 0
+        const t0 = 0.5 - x0 * x0 - y0 * y0
+        const t1 = 0.5 - x1 * x1 - y1 * y1
+        const t2 = 0.5 - x2 * x2 - y2 * y2
 
-        // 頂点0からの寄与
-        let t0 = 0.5 - x0 * x0 - y0 * y0
-        if (t0 >= 0) {
-          t0 *= t0
-          n0 = t0 * t0 * dot2D(grad3[gi0], x0, y0)
-        }
-
-        // 頂点1からの寄与
-        let t1 = 0.5 - x1 * x1 - y1 * y1
-        if (t1 >= 0) {
-          t1 *= t1
-          n1 = t1 * t1 * dot2D(grad3[gi1], x1, y1)
-        }
-
-        // 頂点2からの寄与
-        let t2 = 0.5 - x2 * x2 - y2 * y2
-        if (t2 >= 0) {
-          t2 *= t2
-          n2 = t2 * t2 * dot2D(grad3[gi2], x2, y2)
-        }
+        const [n0, n1, n2] = [
+          compute2DContribution(t0, grad3[gi0], x0, y0),
+          compute2DContribution(t1, grad3[gi1], x1, y1),
+          compute2DContribution(t2, grad3[gi2], x2, y2),
+        ]
 
         // 8. 最終値の計算と正規化
         const rawValue = 70.0 * (n0 + n1 + n2)
@@ -277,56 +255,7 @@ export const SimplexNoiseServiceLive = Layer.effect(
         const z0 = z - Z0
 
         // シンプレックス内の位置決定（3D）
-        let i1: number, j1: number, k1: number
-        let i2: number, j2: number, k2: number
-
-        if (x0 >= y0) {
-          if (y0 >= z0) {
-            i1 = 1
-            j1 = 0
-            k1 = 0
-            i2 = 1
-            j2 = 1
-            k2 = 0
-          } else if (x0 >= z0) {
-            i1 = 1
-            j1 = 0
-            k1 = 0
-            i2 = 1
-            j2 = 0
-            k2 = 1
-          } else {
-            i1 = 0
-            j1 = 0
-            k1 = 1
-            i2 = 1
-            j2 = 0
-            k2 = 1
-          }
-        } else {
-          if (y0 < z0) {
-            i1 = 0
-            j1 = 0
-            k1 = 1
-            i2 = 0
-            j2 = 1
-            k2 = 1
-          } else if (x0 < z0) {
-            i1 = 0
-            j1 = 1
-            k1 = 0
-            i2 = 0
-            j2 = 1
-            k2 = 1
-          } else {
-            i1 = 0
-            j1 = 1
-            k1 = 0
-            i2 = 1
-            j2 = 1
-            k2 = 0
-          }
-        }
+        const { i1, j1, k1, i2, j2, k2 } = simplexOffsets3D(x0, y0, z0)
 
         // 4つの頂点の相対座標
         const x1 = x0 - i1 + G3
@@ -349,34 +278,17 @@ export const SimplexNoiseServiceLive = Layer.effect(
         const gi3 = permMod12[ii + 1 + perm[jj + 1 + perm[kk + 1]]]
 
         // 各頂点からの寄与計算
-        let n0 = 0,
-          n1 = 0,
-          n2 = 0,
-          n3 = 0
+        const t0 = 0.6 - x0 * x0 - y0 * y0 - z0 * z0
+        const t1 = 0.6 - x1 * x1 - y1 * y1 - z1 * z1
+        const t2 = 0.6 - x2 * x2 - y2 * y2 - z2 * z2
+        const t3 = 0.6 - x3 * x3 - y3 * y3 - z3 * z3
 
-        let t0 = 0.6 - x0 * x0 - y0 * y0 - z0 * z0
-        if (t0 >= 0) {
-          t0 *= t0
-          n0 = t0 * t0 * dot3D(grad3[gi0], x0, y0, z0)
-        }
-
-        let t1 = 0.6 - x1 * x1 - y1 * y1 - z1 * z1
-        if (t1 >= 0) {
-          t1 *= t1
-          n1 = t1 * t1 * dot3D(grad3[gi1], x1, y1, z1)
-        }
-
-        let t2 = 0.6 - x2 * x2 - y2 * y2 - z2 * z2
-        if (t2 >= 0) {
-          t2 *= t2
-          n2 = t2 * t2 * dot3D(grad3[gi2], x2, y2, z2)
-        }
-
-        let t3 = 0.6 - x3 * x3 - y3 * y3 - z3 * z3
-        if (t3 >= 0) {
-          t3 *= t3
-          n3 = t3 * t3 * dot3D(grad3[gi3], x3, y3, z3)
-        }
+        const [n0, n1, n2, n3] = [
+          compute3DContribution(t0, grad3[gi0], x0, y0, z0),
+          compute3DContribution(t1, grad3[gi1], x1, y1, z1),
+          compute3DContribution(t2, grad3[gi2], x2, y2, z2),
+          compute3DContribution(t3, grad3[gi3], x3, y3, z3),
+        ]
 
         // 最終値の計算
         const rawValue = 32.0 * (n0 + n1 + n2 + n3)
@@ -573,24 +485,38 @@ export const SimplexNoiseServiceLive = Layer.effect(
 
     optimizeConfig: (baseConfig, targetCharacteristics) =>
       Effect.gen(function* () {
-        let optimizedConfig = { ...baseConfig }
-
-        // 滑らかさの最適化
-        if (targetCharacteristics.smoothness !== undefined) {
-          optimizedConfig.frequency *= 1 - targetCharacteristics.smoothness * 0.5
-          optimizedConfig.persistence *= targetCharacteristics.smoothness * 0.5 + 0.5
-        }
-
-        // 等方性の最適化
-        if (targetCharacteristics.isotropy !== undefined) {
-          optimizedConfig.gradientSelection = targetCharacteristics.isotropy > 0.7 ? 'simplex' : 'optimized'
-        }
-
-        // パフォーマンスの最適化
-        if (targetCharacteristics.performance !== undefined) {
-          optimizedConfig.enableSIMD = targetCharacteristics.performance > 0.5
-          optimizedConfig.cachingEnabled = targetCharacteristics.performance > 0.3
-        }
+        const optimizedConfig = pipe(
+          baseConfig,
+          (config) =>
+            applyOptional(
+              config,
+              Option.fromNullable(targetCharacteristics.smoothness),
+              (current, smoothness) => ({
+                ...current,
+                frequency: current.frequency * (1 - smoothness * 0.5),
+                persistence: current.persistence * (smoothness * 0.5 + 0.5),
+              })
+            ),
+          (config) =>
+            applyOptional(
+              config,
+              Option.fromNullable(targetCharacteristics.isotropy),
+              (current, isotropy) => ({
+                ...current,
+                gradientSelection: isotropy > 0.7 ? 'simplex' : 'optimized',
+              })
+            ),
+          (config) =>
+            applyOptional(
+              config,
+              Option.fromNullable(targetCharacteristics.performance),
+              (current, performance) => ({
+                ...current,
+                enableSIMD: performance > 0.5,
+                cachingEnabled: performance > 0.3,
+              })
+            )
+        )
 
         return optimizedConfig
       }),
@@ -598,6 +524,78 @@ export const SimplexNoiseServiceLive = Layer.effect(
 )
 
 // ヘルパー関数とデータ構造
+
+const simplexOffsets2D = (x0: number, y0: number): { i1: number; j1: number } =>
+  pipe(
+    Match.value<[number, number]>([x0, y0]),
+    Match.when(([xComponent, yComponent]) => xComponent > yComponent, () => ({ i1: 1, j1: 0 })),
+    Match.orElse(() => ({ i1: 0, j1: 1 }))
+  )
+
+const simplexOffsets3D = (
+  x0: number,
+  y0: number,
+  z0: number
+): { i1: number; j1: number; k1: number; i2: number; j2: number; k2: number } =>
+  pipe(
+    Match.value<[number, number, number]>([x0, y0, z0]),
+    Match.when(([x, y, z]) => x >= y && y >= z, () => ({ i1: 1, j1: 0, k1: 0, i2: 1, j2: 1, k2: 0 })),
+    Match.when(([x, y, z]) => x >= z && z >= y && y < z, () => ({ i1: 1, j1: 0, k1: 0, i2: 1, j2: 0, k2: 1 })),
+    Match.when(([x, y, z]) => z > x && x >= y, () => ({ i1: 0, j1: 0, k1: 1, i2: 1, j2: 0, k2: 1 })),
+    Match.when(([x, y, z]) => z > y && y > x, () => ({ i1: 0, j1: 0, k1: 1, i2: 0, j2: 1, k2: 1 })),
+    Match.when(([x, y, z]) => y >= z && z > x, () => ({ i1: 0, j1: 1, k1: 0, i2: 0, j2: 1, k2: 1 })),
+    Match.orElse(() => ({ i1: 0, j1: 1, k1: 0, i2: 1, j2: 1, k2: 0 }))
+  )
+
+const compute2DContribution = (
+  rawT: number,
+  gradient: readonly number[],
+  xComponent: number,
+  yComponent: number
+): number =>
+  pipe(
+    Match.value(rawT),
+    Match.when(
+      (candidate) => candidate >= 0,
+      (candidate) => {
+        const squared = candidate * candidate
+        return squared * squared * dot2D(gradient, xComponent, yComponent)
+      }
+    ),
+    Match.orElse(() => 0)
+  )
+
+const compute3DContribution = (
+  rawT: number,
+  gradient: readonly number[],
+  xComponent: number,
+  yComponent: number,
+  zComponent: number
+): number =>
+  pipe(
+    Match.value(rawT),
+    Match.when(
+      (candidate) => candidate >= 0,
+      (candidate) => {
+        const squared = candidate * candidate
+        return squared * squared * dot3D(gradient, xComponent, yComponent, zComponent)
+      }
+    ),
+    Match.orElse(() => 0)
+  )
+
+const applyOptional = <Value, Payload>(
+  value: Value,
+  optional: Option.Option<Payload>,
+  updater: (value: Value, payload: Payload) => Value
+): Value =>
+  pipe(
+    optional,
+    Option.match({
+      onNone: () => value,
+      onSome: (payload) => updater(value, payload),
+    })
+  )
 
 /**
  * 2Dドット積

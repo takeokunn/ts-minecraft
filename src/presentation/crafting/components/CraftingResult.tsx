@@ -1,4 +1,6 @@
 import type { JSX } from 'react'
+import { pipe } from 'effect/Function'
+import * as Option from 'effect/Option'
 
 import type { CraftingResultView } from '../types'
 
@@ -12,11 +14,16 @@ export const CraftingResult = ({ result, disabled = false, onCraft }: CraftingRe
   <button
     type="button"
     disabled={!result || disabled}
-    onClick={() => {
-      if (result && !disabled) {
-        onCraft?.(result)
-      }
-    }}
+    onClick={() =>
+      pipe(
+        Option.fromNullable(result),
+        Option.filter(() => !disabled),
+        Option.match({
+          onNone: () => undefined,
+          onSome: (value) => onCraft?.(value),
+        })
+      )
+    }
     style={{
       display: 'flex',
       flexDirection: 'column',

@@ -498,10 +498,15 @@ const processBatchUpdates = (updates: readonly BlockUpdate[]) =>
           const chunk = yield* chunkManager.getChunk(chunkCoord)
 
           // チャンク内での一括更新
-          for (const update of chunkUpdates) {
-            const localPos = worldToLocalPosition(update.position)
-            yield* chunk.setBlock(localPos, update.block)
-          }
+          yield* Effect.forEach(
+            chunkUpdates,
+            (update) =>
+              Effect.gen(function* () {
+                const localPos = worldToLocalPosition(update.position)
+                yield* chunk.setBlock(localPos, update.block)
+              }),
+            { discard: true }
+          )
 
           return { chunkCoord, updatedBlocks: chunkUpdates.length }
         }),
@@ -797,23 +802,27 @@ export const createBatchSchema = <A, I, R>(itemSchema: Schema.Schema<A, I, R>, b
   return Schema.transformOrFail(Schema.Array(itemSchema), Schema.Array(itemSchema), {
     decode: (items, options, ast) =>
       Effect.gen(function* () {
-        const results: A[] = []
+        const batches = pipe(
+          ReadonlyArray.chunksOf(items, batchSize),
+          ReadonlyArray.mapWithIndex((index, batch) => ({ index, batch }))
+        )
 
-        // バッチ処理でスタックオーバーフロー防止
-        for (let i = 0; i < items.length; i += batchSize) {
-          const batch = items.slice(i, i + batchSize)
-          const batchResults = yield* Effect.forEach(batch, (item) => itemSchema.decode(item, options), {
-            concurrency: 'unbounded',
-          })
-          results.push(...batchResults)
+        return yield* Effect.reduce(
+          batches,
+          [] as ReadonlyArray<A>,
+          (acc, { index, batch }) =>
+            Effect.gen(function* () {
+              const batchResults = yield* Effect.forEach(batch, (item) => itemSchema.decode(item, options), {
+                concurrency: 'unbounded',
+              })
 
-          // 進行状況ログ
-          if (i % (batchSize * 10) === 0) {
-            yield* Effect.logInfo(`Processed ${i}/${items.length} items`)
-          }
-        }
+              if (index % 10 === 0) {
+                yield* Effect.logInfo(`Processed ${Math.min((index + 1) * batchSize, items.length)}/${items.length} items`)
+              }
 
-        return results
+              return [...acc, ...batchResults]
+            })
+        )
       }),
     encode: (items) => Effect.forEach(items, (item) => itemSchema.encode(item), { concurrency: 'unbounded' }),
   })

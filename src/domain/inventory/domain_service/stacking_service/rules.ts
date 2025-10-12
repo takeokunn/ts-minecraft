@@ -633,38 +633,42 @@ const applyResolutionStrategy = (
  * メタデータ値のマージ
  */
 const mergeMetadataValues = (sourceValue: MetadataValue, targetValue: MetadataValue): MetadataValue => {
-  if (Array.isArray(sourceValue) && Array.isArray(targetValue)) {
-    return [...new Set([...sourceValue, ...targetValue])]
-  }
-  return targetValue
+  return pipe(
+    Match.value(Array.isArray(sourceValue) && Array.isArray(targetValue)),
+    Match.when(true, () => [...new Set([...sourceValue, ...targetValue])]),
+    Match.orElse(() => targetValue)
+  )
 }
 
 /**
  * メタデータ値の平均
  */
 const averageMetadataValues = (sourceValue: MetadataValue, targetValue: MetadataValue): MetadataValue => {
-  if (typeof sourceValue === 'number' && typeof targetValue === 'number') {
-    return (sourceValue + targetValue) / 2
-  }
-  return targetValue
+  return pipe(
+    Match.value(typeof sourceValue === 'number' && typeof targetValue === 'number'),
+    Match.when(true, () => (sourceValue as number + targetValue as number) / 2),
+    Match.orElse(() => targetValue)
+  )
 }
 
 /**
  * メタデータ値の最大値
  */
 const maxMetadataValues = (sourceValue: MetadataValue, targetValue: MetadataValue): MetadataValue => {
-  if (typeof sourceValue === 'number' && typeof targetValue === 'number') {
-    return Math.max(sourceValue, targetValue)
-  }
-  return targetValue
+  return pipe(
+    Match.value(typeof sourceValue === 'number' && typeof targetValue === 'number'),
+    Match.when(true, () => Math.max(sourceValue as number, targetValue as number)),
+    Match.orElse(() => targetValue)
+  )
 }
 
 /**
  * メタデータ値の最小値
  */
 const minMetadataValues = (sourceValue: MetadataValue, targetValue: MetadataValue): MetadataValue => {
-  if (typeof sourceValue === 'number' && typeof targetValue === 'number') {
-    return Math.min(sourceValue, targetValue)
-  }
-  return targetValue
+  return pipe(
+    Match.value(typeof sourceValue === 'number' && typeof targetValue === 'number'),
+    Match.when(true, () => Math.min(sourceValue as number, targetValue as number)),
+    Match.orElse(() => targetValue)
+  )
 }

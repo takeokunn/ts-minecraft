@@ -62,16 +62,18 @@ export const toThreeSphere = (s: Sphere): THREE.Sphere => new THREE.Sphere(V3.to
  */
 export const expandByPoint = (sphere: Sphere, point: Vector3): Sphere => {
   const distance = V3.distance(sphere.center, point)
-  if (distance <= sphere.radius) {
-    return sphere
-  }
-
-  const newRadius = (sphere.radius + distance) / 2
-  const direction = V3.subtract(point, sphere.center)
-  const normalized = V3.normalizeSync(direction)
-  const offset = V3.scale(normalized, newRadius - sphere.radius)
-  const newCenter = V3.add(sphere.center, offset)
-  return make(newCenter, newRadius)
+  return pipe(
+    Match.value(distance <= sphere.radius),
+    Match.when(true, () => sphere),
+    Match.orElse(() => {
+      const newRadius = (sphere.radius + distance) / 2
+      const direction = V3.subtract(point, sphere.center)
+      const normalized = V3.normalizeSync(direction)
+      const offset = V3.scale(normalized, newRadius - sphere.radius)
+      const newCenter = V3.add(sphere.center, offset)
+      return make(newCenter, newRadius)
+    })
+  )
 }
 
 /**
@@ -80,15 +82,38 @@ export const expandByPoint = (sphere: Sphere, point: Vector3): Sphere => {
 export const union = (a: Sphere, b: Sphere): Sphere => {
   const centerDist = V3.distance(a.center, b.center)
 
-  if (centerDist + b.radius <= a.radius) return a
-  if (centerDist + a.radius <= b.radius) return b
+  const dominance = pipe(
+    Match.value(centerDist + b.radius <= a.radius),
+    Match.when(
+      (dominant) => dominant,
+      () => Option.some(a)
+    ),
+    Match.orElse(() =>
+      pipe(
+        Match.value(centerDist + a.radius <= b.radius),
+        Match.when(
+          (dominant) => dominant,
+          () => Option.some(b)
+        ),
+        Match.orElse(() => Option.none<Sphere>())
+      )
+    )
+  )
 
-  const newRadius = (a.radius + b.radius + centerDist) / 2
-  const direction = V3.subtract(b.center, a.center)
-  const normalized = V3.normalizeSync(direction)
-  const offset = V3.scale(normalized, newRadius - a.radius)
-  const newCenter = V3.add(a.center, offset)
-  return make(newCenter, newRadius)
+  return pipe(
+    dominance,
+    Option.match({
+      onSome: (sphere) => sphere,
+      onNone: () => {
+        const newRadius = (a.radius + b.radius + centerDist) / 2
+        const direction = V3.subtract(b.center, a.center)
+        const normalized = V3.normalizeSync(direction)
+        const offset = V3.scale(normalized, newRadius - a.radius)
+        const newCenter = V3.add(a.center, offset)
+        return make(newCenter, newRadius)
+      },
+    })
+  )
 }
 
 /**
@@ -118,13 +143,15 @@ export const clampPoint = (sphere: Sphere, point: Vector3): Vector3 => {
   const direction = V3.subtract(point, sphere.center)
   const distanceSq = V3.lengthSquared(direction)
 
-  if (distanceSq <= sphere.radius * sphere.radius) {
-    return point
-  }
-
-  const normalized = V3.normalizeSync(direction)
-  const offset = V3.scale(normalized, sphere.radius)
-  return V3.add(sphere.center, offset)
+  return pipe(
+    Match.value(distanceSq <= sphere.radius * sphere.radius),
+    Match.when(true, () => point),
+    Match.orElse(() => {
+      const normalized = V3.normalizeSync(direction)
+      const offset = V3.scale(normalized, sphere.radius)
+      return V3.add(sphere.center, offset)
+    })
+  )
 }
 
 /**
@@ -157,17 +184,22 @@ export const equals = (a: Sphere, b: Sphere, epsilon: number = Number.EPSILON): 
  */
 export const fromPoints = (points: ReadonlyArray<Vector3>): Effect.Effect<Sphere, SphereError> =>
   Effect.gen(function* () {
-    if (points.length === 0) {
-      return yield* Effect.fail(
-        new SphereError({
-          operation: 'fromPoints',
-          reason: 'Cannot create Sphere from empty points array',
-          points,
-        })
-      )
-    }
+    yield* pipe(
+      Match.value(points.length === 0),
+      Match.when(
+        (empty) => empty,
+        () =>
+          Effect.fail(
+            new SphereError({
+              operation: 'fromPoints',
+              reason: 'Cannot create Sphere from empty points array',
+              points,
+            })
+          )
+      ),
+      Match.orElse(() => Effect.void)
+    )
 
-    // 簡易実装: バウンディングボックスの中心と最遠点で近似
     const min = points.reduce((acc, p) => V3.min(acc, p), points[0])
     const max = points.reduce((acc, p) => V3.max(acc, p), points[0])
     const center = V3.scale(V3.add(min, max), 0.5)

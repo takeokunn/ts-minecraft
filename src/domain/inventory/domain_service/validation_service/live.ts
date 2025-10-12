@@ -5,7 +5,7 @@
  * Effect-TSパターンに従い、包括的な検証機能を提供します。
  */
 
-import { Effect, HashSet, Layer, pipe, ReadonlyArray } from 'effect'
+import { Effect, HashSet, Layer, Option, pipe, ReadonlyArray } from 'effect'
 import type { Inventory } from '../../types'
 import {
   runAllValidators,
@@ -426,17 +426,13 @@ const generateSlotSuggestions = (
   })
 
 const generateHotbarRecommendations = (duplicates: number[], outOfBounds: number[]): string[] => {
-  const recommendations: string[] = []
-
-  if (duplicates.length > 0) {
-    recommendations.push('Remove duplicate hotbar slot references')
-  }
-
-  if (outOfBounds.length > 0) {
-    recommendations.push('Fix out-of-bounds hotbar slot references')
-  }
-
-  return recommendations
+  return pipe(
+    [
+      Option.when(duplicates.length > 0, () => 'Remove duplicate hotbar slot references'),
+      Option.when(outOfBounds.length > 0, () => 'Fix out-of-bounds hotbar slot references'),
+    ],
+    ReadonlyArray.filterMap((recommendation) => recommendation)
+  )
 }
 
 const applyCorrectionSuggestion = (
@@ -492,11 +488,8 @@ const generateImprovementSuggestions = (
   factors: Array<{ name: string; score: number }>
 ): Effect.Effect<string[], never> =>
   Effect.gen(function* () {
-    const suggestions: string[] = []
-
-    if (totalScore < 80) {
-      suggestions.push('Consider optimizing inventory layout')
-    }
-
-    return suggestions
+    return pipe(
+      [Option.when(totalScore < 80, () => 'Consider optimizing inventory layout')],
+      ReadonlyArray.filterMap((suggestion) => suggestion)
+    )
   })

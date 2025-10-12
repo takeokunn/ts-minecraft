@@ -1,4 +1,4 @@
-import { Effect, Schema } from 'effect'
+import { Effect, Match, Schema, pipe } from 'effect'
 import { ChunkIdError } from './errors'
 import { ChunkIdSchema, type ChunkId } from './schema'
 
@@ -42,26 +42,38 @@ export const fromCoordinates = (x: number, z: number): ChunkId => makeUnsafe(`ch
 export const toCoordinates = (id: ChunkId): Effect.Effect<{ x: number; z: number }, ChunkIdError> =>
   Effect.gen(function* () {
     const parts = id.split('_')
-    if (parts.length !== 3 || parts[0] !== 'chunk') {
-      return yield* Effect.fail(
-        ChunkIdError.make({
-          message: `Invalid chunk ID format: ${id}`,
-          value: id,
-        })
-      )
-    }
+    yield* pipe(
+      Match.value(parts.length === 3 && parts[0] === 'chunk'),
+      Match.when(
+        (isValidFormat) => !isValidFormat,
+        () =>
+          Effect.fail(
+            ChunkIdError.make({
+              message: `Invalid chunk ID format: ${id}`,
+              value: id,
+            })
+          )
+      ),
+      Match.orElse(() => Effect.void)
+    )
 
     const x = Number.parseInt(parts[1]!, 10)
     const z = Number.parseInt(parts[2]!, 10)
 
-    if (Number.isNaN(x) || Number.isNaN(z)) {
-      return yield* Effect.fail(
-        ChunkIdError.make({
-          message: `Invalid coordinates in chunk ID: ${id}`,
-          value: id,
-        })
-      )
-    }
+    yield* pipe(
+      Match.value(Number.isNaN(x) || Number.isNaN(z)),
+      Match.when(
+        (hasNaN) => hasNaN,
+        () =>
+          Effect.fail(
+            ChunkIdError.make({
+              message: `Invalid coordinates in chunk ID: ${id}`,
+              value: id,
+            })
+          )
+      ),
+      Match.orElse(() => Effect.void)
+    )
 
     return { x, z }
   })

@@ -503,38 +503,50 @@ const interpolateKeyframeProperty = <T>(
   progress: number,
   easingType: EasingType
 ): Effect.Effect<T | undefined, CameraError> =>
-  Effect.gen(function* () {
-    // 境界値チェック（意図的保持）
-    if (!current) return undefined
-    if (!next) return current
-
-    // 型に応じた補間処理（Match.valueで型判定）
-    return yield* pipe(
-      current,
-      Match.value,
-      Match.when(
-        (c) => typeof c === 'object' && c !== null && 'x' in c,
-        (c) => Position3DOps.lerp(c as Position3D, next as Position3D, progress) as Effect.Effect<T, CameraError>
-      ),
-      Match.when(
-        (c) => typeof c === 'object' && c !== null && 'pitch' in c,
-        (c) =>
-          CameraRotationOps.slerp(c as CameraRotation, next as CameraRotation, progress) as Effect.Effect<
-            T,
-            CameraError
-          >
-      ),
-      Match.when(
-        (c) => typeof c === 'number',
-        (c) =>
-          Effect.sync(() => {
-            const easedProgress = EasingFunctions.getFunction(easingType)(progress)
-            return InterpolationOps.lerp(c, next as number, easedProgress) as T
-          })
-      ),
-      Match.orElse((c) => Effect.succeed(c))
+  pipe(
+    Match.value(current),
+    Match.when(
+      (value): value is undefined | null => value == null,
+      () => Effect.succeed<T | undefined>(undefined)
+    ),
+    Match.orElse((currentValue) =>
+      pipe(
+        Match.value(next),
+        Match.when(
+          (value): value is undefined | null => value == null,
+          () => Effect.succeed(currentValue as T)
+        ),
+        Match.orElse((nextValue) =>
+          pipe(
+            currentValue,
+            Match.value,
+            Match.when(
+              (c) => typeof c === 'object' && c !== null && 'x' in c,
+              (c) =>
+                Position3DOps.lerp(c as Position3D, nextValue as Position3D, progress) as Effect.Effect<T, CameraError>
+            ),
+            Match.when(
+              (c) => typeof c === 'object' && c !== null && 'pitch' in c,
+              (c) =>
+                CameraRotationOps.slerp(c as CameraRotation, nextValue as CameraRotation, progress) as Effect.Effect<
+                  T,
+                  CameraError
+                >
+            ),
+            Match.when(
+              (c) => typeof c === 'number',
+              (c) =>
+                Effect.sync(() => {
+                  const easedProgress = EasingFunctions.getFunction(easingType)(progress)
+                  return InterpolationOps.lerp(c, nextValue as number, easedProgress) as T
+                })
+            ),
+            Match.orElse((c) => Effect.succeed(c))
+          )
+        )
+      )
     )
-  })
+  )
 
 /**
  * 現在時刻の取得

@@ -10,7 +10,7 @@
 
 import * as Coordinates from '@/domain/biome/value_object/coordinates/index'
 import type * as GenerationErrors from '@domain/world/types/errors/generation_errors'
-import { Clock, Context, DateTime, Effect, Schema, STM } from 'effect'
+import { Clock, Context, DateTime, Effect, Match, Option, Schema, STM, pipe } from 'effect'
 import * as BiomeRegistry from './biome_registry'
 import * as BiomeTransitions from './biome_transitions'
 import * as ClimateModel from './climate_model'
@@ -166,69 +166,76 @@ export const generateBiomeDistribution = (
 
     // キャッシュチェック
     const cached = system.distributionCache[coordinateKey]
-    if (cached && !command.options?.forceRegeneration) {
-      return [system, cached]
-    }
-
-    // 気候因子計算
-    const climateFactors = yield* STM.fromEffect(
-      ClimateModel.calculateClimateFactors(system.climateModel, command.coordinate)
+    const cachedResult = pipe(
+      Option.fromNullable(cached),
+      Option.filter(() => !(command.options?.forceRegeneration ?? false))
     )
 
-    // バイオーム選択
-    const biomeSelection = yield* STM.fromEffect(selectOptimalBiomes(system.registry, climateFactors, command.options))
+    const computeFresh = STM.gen(function* () {
+      const climateFactors = yield* STM.fromEffect(
+        ClimateModel.calculateClimateFactors(system.climateModel, command.coordinate)
+      )
 
-    // 遷移ゾーン計算
-    const transitionZones = yield* STM.fromEffect(
-      calculateTransitionZones(system, command.coordinate, biomeSelection.dominantBiome, command.options)
+      const biomeSelection = yield* STM.fromEffect(
+        selectOptimalBiomes(system.registry, climateFactors, command.options)
+      )
+
+      const transitionZones = yield* STM.fromEffect(
+        calculateTransitionZones(system, command.coordinate, biomeSelection.dominantBiome, command.options)
+      )
+
+      const lastUpdated = yield* STM.fromEffect(DateTime.nowAsDate)
+
+      const distribution: BiomeDistribution = {
+        chunkCoordinate: command.coordinate,
+        dominantBiome: biomeSelection.dominantBiome,
+        biomeDistribution: biomeSelection.distribution,
+        transitionZones,
+        climateFactors,
+        lastUpdated,
+      }
+
+      const updatedCache = {
+        ...system.distributionCache,
+        [coordinateKey]: distribution,
+      }
+
+      const endTime = yield* STM.fromEffect(Clock.currentTimeMillis)
+      const generationTime = endTime - startTime
+      const newAverageTime = updateAverageGenerationTime(
+        system.statistics.averageGenerationTime,
+        generationTime,
+        system.statistics.cachedDistributions + 1
+      )
+
+      const updatedAt = yield* STM.fromEffect(DateTime.nowAsDate)
+
+      const updatedSystem: BiomeSystem = {
+        ...system,
+        distributionCache: updatedCache,
+        version: system.version + 1,
+        statistics: {
+          ...system.statistics,
+          cachedDistributions: system.statistics.cachedDistributions + 1,
+          averageGenerationTime: newAverageTime,
+        },
+        updatedAt,
+      }
+
+      yield* STM.fromEffect(
+        BiomeEvents.publish(BiomeEvents.createBiomeDistributionGenerated(system.id, command.coordinate, distribution))
+      )
+
+      return [updatedSystem, distribution] as const
+    })
+
+    return yield* pipe(
+      cachedResult,
+      Option.match({
+        onSome: (value) => STM.succeed<[BiomeSystem, BiomeDistribution]>([system, value]),
+        onNone: () => computeFresh,
+      })
     )
-
-    const lastUpdated = yield* STM.fromEffect(DateTime.nowAsDate)
-
-    const distribution: BiomeDistribution = {
-      chunkCoordinate: command.coordinate,
-      dominantBiome: biomeSelection.dominantBiome,
-      biomeDistribution: biomeSelection.distribution,
-      transitionZones,
-      climateFactors,
-      lastUpdated,
-    }
-
-    // キャッシュ更新
-    const updatedCache = {
-      ...system.distributionCache,
-      [coordinateKey]: distribution,
-    }
-
-    // 統計更新
-    const endTime = yield* STM.fromEffect(Clock.currentTimeMillis)
-    const generationTime = endTime - startTime
-    const newAverageTime = updateAverageGenerationTime(
-      system.statistics.averageGenerationTime,
-      generationTime,
-      system.statistics.cachedDistributions + 1
-    )
-
-    const updatedAt = yield* STM.fromEffect(DateTime.nowAsDate)
-
-    const updatedSystem: BiomeSystem = {
-      ...system,
-      distributionCache: updatedCache,
-      version: system.version + 1,
-      statistics: {
-        ...system.statistics,
-        cachedDistributions: system.statistics.cachedDistributions + 1,
-        averageGenerationTime: newAverageTime,
-      },
-      updatedAt,
-    }
-
-    // 生成イベント発行
-    yield* STM.fromEffect(
-      BiomeEvents.publish(BiomeEvents.createBiomeDistributionGenerated(system.id, command.coordinate, distribution))
-    )
-
-    return [updatedSystem, distribution]
   })
 
 /**
@@ -303,36 +310,40 @@ export const addTransitionRule = (
  */
 export const optimize = (system: BiomeSystem): Effect.Effect<BiomeSystem, GenerationErrors.OptimizationError> =>
   Effect.gen(function* () {
-    if (!system.configuration.optimizationSettings.enableDynamicOptimization) {
-      return system
-    }
+    const optimizationEnabled = system.configuration.optimizationSettings.enableDynamicOptimization
 
-    const now = yield* DateTime.nowAsDate
+    return yield* pipe(
+      Match.value(optimizationEnabled),
+      Match.when(false, () => Effect.succeed(system)),
+      Match.orElse(() =>
+        Effect.gen(function* () {
+          const now = yield* DateTime.nowAsDate
 
-    // キャッシュサイズ最適化
-    const optimizedCache = yield* optimizeCache(
-      system.distributionCache,
-      system.configuration.optimizationSettings.cacheSize
+          const optimizedCache = yield* optimizeCache(
+            system.distributionCache,
+            system.configuration.optimizationSettings.cacheSize
+          )
+
+          const optimizedRules = yield* BiomeTransitions.optimizeRules(system.transitionRules)
+
+          const updatedSystem: BiomeSystem = {
+            ...system,
+            distributionCache: optimizedCache,
+            transitionRules: optimizedRules,
+            version: system.version + 1,
+            statistics: {
+              ...system.statistics,
+              cachedDistributions: Object.keys(optimizedCache).length,
+              transitionRulesCount: optimizedRules.length,
+              lastOptimization: now,
+            },
+            updatedAt: now,
+          }
+
+          return updatedSystem
+        })
+      )
     )
-
-    // 遷移ルールの最適化
-    const optimizedRules = yield* BiomeTransitions.optimizeRules(system.transitionRules)
-
-    const updatedSystem: BiomeSystem = {
-      ...system,
-      distributionCache: optimizedCache,
-      transitionRules: optimizedRules,
-      version: system.version + 1,
-      statistics: {
-        ...system.statistics,
-        cachedDistributions: Object.keys(optimizedCache).length,
-        transitionRulesCount: optimizedRules.length,
-        lastOptimization: now,
-      },
-      updatedAt: now,
-    }
-
-    return updatedSystem
   })
 
 // ================================
@@ -362,11 +373,13 @@ const selectOptimalBiomes = (
     // 気候適合性による候補選択
     const candidates = yield* BiomeRegistry.findCompatibleBiomes(registry, climateFactors)
 
-    if (candidates.length === 0) {
-      return yield* Effect.fail(
-        GenerationErrors.createGenerationError('No compatible biomes found for climate conditions')
-      )
-    }
+    yield* pipe(
+      Match.value(candidates.length === 0),
+      Match.when(true, () =>
+        Effect.fail(GenerationErrors.createGenerationError('No compatible biomes found for climate conditions'))
+      ),
+      Match.orElse(() => Effect.unit)
+    )
 
     // 詳細分析が有効な場合の追加計算
     const detailedCandidates = options?.useDetailedAnalysis
@@ -395,22 +408,26 @@ const calculateTransitionZones = (
   options?: GenerateBiomeDistributionCommand['options']
 ): Effect.Effect<BiomeDistribution['transitionZones'], GenerationErrors.GenerationError> =>
   Effect.gen(function* () {
-    if (!options?.considerNeighbors) {
-      return []
-    }
+    const considerNeighbors = options?.considerNeighbors ?? false
 
-    // 隣接チャンクの情報を取得
-    const neighborBiomes = yield* getNeighborBiomes(system, coordinate)
+    return yield* pipe(
+      Match.value(considerNeighbors),
+      Match.when(false, () => Effect.succeed<BiomeDistribution['transitionZones']>([])),
+      Match.orElse(() =>
+        Effect.gen(function* () {
+          const neighborBiomes = yield* getNeighborBiomes(system, coordinate)
 
-    // 遷移ルールの適用
-    const transitions = yield* BiomeTransitions.calculateTransitions(
-      system.transitionRules,
-      dominantBiome,
-      neighborBiomes,
-      system.configuration.transitionSettings
+          const transitions = yield* BiomeTransitions.calculateTransitions(
+            system.transitionRules,
+            dominantBiome,
+            neighborBiomes,
+            system.configuration.transitionSettings
+          )
+
+          return transitions
+        })
+      )
     )
-
-    return transitions
   })
 
 /**
@@ -432,22 +449,23 @@ const selectDominantBiome = (candidates: readonly string[]): string => candidate
 const calculateBiomeDistribution = (candidates: readonly string[], dominantBiome: string): Record<string, number> => {
   const distribution: Record<string, number> = {}
 
-  if (candidates.length === 1) {
-    distribution[dominantBiome] = 1.0
-  } else {
-    distribution[dominantBiome] = 0.7
-    const remaining = 0.3 / (candidates.length - 1)
-
-    // for文 → pipe + forEach（副作用的な辞書更新）
-    pipe(
-      candidates,
-      ReadonlyArray.forEach((biome) => {
-        if (biome !== dominantBiome) {
+  pipe(
+    Match.value(candidates.length === 1),
+    Match.when(true, () => {
+      distribution[dominantBiome] = 1.0
+    }),
+    Match.orElse(() => {
+      distribution[dominantBiome] = 0.7
+      const remaining = 0.3 / (candidates.length - 1)
+      pipe(
+        candidates,
+        ReadonlyArray.filter((biome) => biome !== dominantBiome),
+        ReadonlyArray.forEach((biome) => {
           distribution[biome] = remaining
-        }
-      })
-    )
-  }
+        })
+      )
+    })
+  )
 
   return distribution
 }
@@ -511,14 +529,15 @@ const optimizeCache = (
 ): Effect.Effect<Record<string, BiomeDistribution>, never> =>
   Effect.sync(() => {
     const entries = Object.entries(cache)
-    if (entries.length <= maxSize) {
-      return cache
-    }
-
-    // LRU風の削除（最後更新時刻でソート）
     const sortedEntries = entries.sort((a, b) => b[1].lastUpdated.getTime() - a[1].lastUpdated.getTime())
 
-    return Object.fromEntries(sortedEntries.slice(0, maxSize))
+    const trimmedEntries = pipe(
+      Match.value(entries.length <= maxSize),
+      Match.when(true, () => sortedEntries),
+      Match.orElse(() => sortedEntries.slice(0, maxSize))
+    )
+
+    return Object.fromEntries(trimmedEntries)
   })
 
 // ================================

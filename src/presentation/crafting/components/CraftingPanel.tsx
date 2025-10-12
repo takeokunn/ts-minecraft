@@ -1,4 +1,6 @@
 import type { JSX } from 'react'
+import { pipe } from 'effect/Function'
+import * as Match from 'effect/Match'
 
 import type { CraftingPanelView, CraftingSlotView, CraftingResultView } from '../types'
 
@@ -36,11 +38,13 @@ export const CraftingPanel = ({ view, onSelectSlot, onCraft }: CraftingPanelProp
       <CraftingResult
         result={view.result}
         disabled={!view.canCraft || !view.result}
-        onCraft={(result) => {
-          if (view.canCraft) {
-            onCraft?.(result)
-          }
-        }}
+        onCraft={(result) =>
+          pipe(
+            Match.value(view.canCraft),
+            Match.when(true, () => onCraft?.(result)),
+            Match.exhaustive
+          )
+        }
       />
     </div>
   </section>

@@ -7,7 +7,7 @@
 
 import type { CameraMode } from '@domain/camera/types'
 import { CameraError, CameraId } from '@domain/camera/types'
-import { Clock, DateTime, Effect, Option } from 'effect'
+import { Clock, DateTime, Effect, Match, Option, pipe } from 'effect'
 import {
   CameraDistance,
   CameraRotation,
@@ -277,17 +277,20 @@ const validateCameraSettings = (settings: CameraSettings): Effect.Effect<CameraS
 const validateSnapshot = (snapshot: CameraSnapshot): Effect.Effect<void, CameraError> =>
   Effect.gen(function* () {
     // スナップショットデータの整合性チェック
-    if (!snapshot.id) {
-      return yield* Effect.fail(
-        CameraError({
-          _tag: 'InvalidParameterError',
-          message: 'Camera ID is required in snapshot',
-        })
-      )
-    }
-
-    // その他の必須フィールドチェック
-    return yield* Effect.void
+    return yield* pipe(
+      Match.value(snapshot.id),
+      Match.when(
+        (id): id is undefined | null => id == null,
+        () =>
+          Effect.fail(
+            CameraError({
+              _tag: 'InvalidParameterError',
+              message: 'Camera ID is required in snapshot',
+            })
+          )
+      ),
+      Match.orElse(() => Effect.void)
+    )
   })
 
 /**

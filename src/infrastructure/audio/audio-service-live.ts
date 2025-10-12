@@ -47,6 +47,8 @@ interface ActiveSource {
  */
 const makeAudioService = Effect.gen(function* () {
   // Initialize audio context and listener
+  const runtime = yield* Effect.runtime<never>()
+
   const audioContext = yield* Effect.try({
     try: () => {
       // @ts-expect-error - WebAudio API
@@ -223,14 +225,15 @@ const makeAudioService = Effect.gen(function* () {
         Match.when(false, () =>
           Effect.sync(() => {
             positionalAudio.onEnded = () => {
-              Effect.runPromise(
+              runtime.runFork(
                 pipe(
                   Ref.update(activeSources, HashMap.remove(sourceId)),
-                  Effect.zipRight(Queue.offer(eventQueue, finishedEvent))
+                  Effect.zipRight(Queue.offer(eventQueue, finishedEvent)),
+                  Effect.catchAll((error) =>
+                    Effect.sync(() => console.error('Failed to handle audio end event:', error))
+                  )
                 )
-              ).catch((error) => {
-                console.error('Failed to handle audio end event:', error)
-              })
+              )
             }
           })
         ),
@@ -338,14 +341,15 @@ const makeAudioService = Effect.gen(function* () {
       yield* Effect.when(
         Effect.sync(() => {
           audio.onEnded = () => {
-            Effect.runPromise(
+            runtime.runFork(
               pipe(
                 Ref.update(activeSources, HashMap.remove(sourceId)),
-                Effect.zipRight(Queue.offer(eventQueue, finishedEvent))
+                Effect.zipRight(Queue.offer(eventQueue, finishedEvent)),
+                Effect.catchAll((error) =>
+                  Effect.sync(() => console.error('Failed to handle audio end event:', error))
+                )
               )
-            ).catch((error) => {
-              console.error('Failed to handle audio end event:', error)
-            })
+            )
           }
         }),
         () => shouldLoop === false

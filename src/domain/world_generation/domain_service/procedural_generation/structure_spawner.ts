@@ -14,7 +14,7 @@ import {
 } from '@domain/world/value_object/coordinates'
 import type { WorldSeed } from '@domain/world/value_object/world_seed'
 import { JsonRecordSchema } from '@shared/schema/json'
-import { Context, Effect, Layer, Schema } from 'effect'
+import { Context, Effect, Layer, Match, pipe, ReadonlyArray, Schema } from 'effect'
 import type { HeightMap, TerrainContext } from './terrain_generator'
 
 /**
@@ -610,15 +610,21 @@ export const StructureSpawnerServiceLive = Layer.effect(
 
         // 1. 配置検証
         const validation = yield* validateIndividualPlacement(blueprint, location, config)
-        if (!validation.isValid) {
-          return yield* Effect.fail({
-            _tag: 'InvalidPlacement',
-            blueprint: blueprint.id,
-            location,
-            issues: validation.issues,
-            message: 'Structure placement validation failed',
-          } satisfies GenerationError)
-        }
+        yield* pipe(
+          Match.value(validation),
+          Match.when(
+            ({ isValid }) => !isValid,
+            ({ issues }) =>
+              Effect.fail({
+                _tag: 'InvalidPlacement',
+                blueprint: blueprint.id,
+                location,
+                issues,
+                message: 'Structure placement validation failed',
+              } satisfies GenerationError)
+          ),
+          Match.orElse(() => Effect.void)
+        )
 
         // 2. 設計図の具体化
         const concretizedBlueprint = yield* concretizeBlueprint(blueprint, location, seed)
@@ -677,10 +683,15 @@ export const StructureSpawnerServiceLive = Layer.effect(
         issues.push(...neighborCompatibility.issues)
 
         // 4. 適応提案の生成
-        if (score < 0.8) {
-          const suggestions = yield* generateAdaptationSuggestions(blueprint, location, issues)
-          adaptations.push(...suggestions)
-        }
+        const adaptationSuggestions = yield* pipe(
+          Match.value(score),
+          Match.when(
+            (value) => value < 0.8,
+            () => generateAdaptationSuggestions(blueprint, location, issues)
+          ),
+          Match.orElse(() => Effect.succeed<ReadonlyArray<string>>([]))
+        )
+        adaptations.push(...adaptationSuggestions)
 
         return {
           isValid: score > 0.5 && issues.length === 0,

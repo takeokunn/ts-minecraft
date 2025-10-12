@@ -157,28 +157,34 @@ export const withPriority = (
 export const withConstraints = (
   state: SessionConfigurationBuilderState,
   constraints: OptimizationParams['constraints']
-): SessionConfigurationBuilderState => {
-  if (!constraints) return state
+): SessionConfigurationBuilderState =>
+  Function.pipe(
+    Match.value(constraints),
+    Match.when(
+      (value): value is undefined | null => value == null,
+      () => state
+    ),
+    Match.orElse((activeConstraints) => {
+      const maxConcurrency = activeConstraints.maxConcurrentOperations
+        ? Math.min(state.maxConcurrentChunks ?? 4, activeConstraints.maxConcurrentOperations)
+        : state.maxConcurrentChunks
 
-  const maxConcurrency = constraints.maxConcurrentOperations
-    ? Math.min(state.maxConcurrentChunks ?? 4, constraints.maxConcurrentOperations)
-    : state.maxConcurrentChunks
+      const chunkTimeout = activeConstraints.maxExecutionTimeMs
+        ? Math.min(state.timeoutPolicy?.chunkTimeoutMs ?? 30000, activeConstraints.maxExecutionTimeMs / 10)
+        : state.timeoutPolicy?.chunkTimeoutMs
 
-  const chunkTimeout = constraints.maxExecutionTimeMs
-    ? Math.min(state.timeoutPolicy?.chunkTimeoutMs ?? 30000, constraints.maxExecutionTimeMs / 10)
-    : state.timeoutPolicy?.chunkTimeoutMs
-
-  return {
-    ...state,
-    maxConcurrentChunks: maxConcurrency,
-    timeoutPolicy: {
-      ...state.timeoutPolicy,
-      chunkTimeoutMs: chunkTimeout ?? 30000,
-      sessionTimeoutMs: state.timeoutPolicy?.sessionTimeoutMs ?? 600000,
-      gracefulShutdownMs: state.timeoutPolicy?.gracefulShutdownMs ?? 5000,
-    },
-  }
-}
+      return {
+        ...state,
+        maxConcurrentChunks: maxConcurrency,
+        timeoutPolicy: {
+          ...state.timeoutPolicy,
+          chunkTimeoutMs: chunkTimeout ?? 30000,
+          sessionTimeoutMs: state.timeoutPolicy?.sessionTimeoutMs ?? 600000,
+          gracefulShutdownMs: state.timeoutPolicy?.gracefulShutdownMs ?? 5000,
+        },
+      }
+    })
+  )
 
 /**
  * 最適化関数
@@ -190,21 +196,41 @@ export const optimize = (
   Effect.gen(function* () {
     let builder = applyProfile(state, params.profile)
 
-    if (params.hardwareSpec) {
-      builder = adaptToHardware(builder, params.hardwareSpec)
-    }
+    builder = Function.pipe(
+      Match.value(params.hardwareSpec),
+      Match.when(
+        (spec): spec is undefined | null => spec == null,
+        () => builder
+      ),
+      Match.orElse((spec) => adaptToHardware(builder, spec))
+    )
 
-    if (params.loadCondition) {
-      builder = adaptToLoad(builder, params.loadCondition)
-    }
+    builder = Function.pipe(
+      Match.value(params.loadCondition),
+      Match.when(
+        (condition): condition is undefined | null => condition == null,
+        () => builder
+      ),
+      Match.orElse((condition) => adaptToLoad(builder, condition))
+    )
 
-    if (params.prioritizeFor) {
-      builder = yield* applyPrioritization(builder, params.prioritizeFor)
-    }
+    builder = yield* Function.pipe(
+      Match.value(params.prioritizeFor),
+      Match.when(
+        (target): target is undefined | null => target == null,
+        () => Effect.succeed(builder)
+      ),
+      Match.orElse((target) => applyPrioritization(builder, target))
+    )
 
-    if (params.constraints) {
-      builder = withConstraints(builder, params.constraints)
-    }
+    builder = Function.pipe(
+      Match.value(params.constraints),
+      Match.when(
+        (value): value is undefined | null => value == null,
+        () => builder
+      ),
+      Match.orElse((constraint) => withConstraints(builder, constraint))
+    )
 
     return builder
   })

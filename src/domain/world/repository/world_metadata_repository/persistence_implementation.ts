@@ -274,13 +274,18 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
 
     const compressData = (data: string): Effect.Effect<Buffer, AllRepositoryErrors> =>
       Effect.async<Buffer, AllRepositoryErrors>((resume) => {
-        zlib.gzip(data, (err, result) => {
-          if (err) {
-            resume(Effect.fail(createCompressionError('', `Compression failed: ${err}`, err)))
-          } else {
-            resume(Effect.succeed(result))
-          }
-        })
+        zlib.gzip(data, (err, result) =>
+          resume(
+            pipe(
+              Match.value({ err, result }),
+              Match.when(
+                ({ err }): err is Error => err != null,
+                ({ err }) => Effect.fail(createCompressionError('', `Compression failed: ${err}`, err))
+              ),
+              Match.orElse(({ result }) => Effect.succeed(result ?? Buffer.alloc(0)))
+            )
+          )
+        )
       }).pipe(
         Effect.timeout(Duration.seconds(5)),
         Effect.catchTag('TimeoutException', () =>
@@ -292,13 +297,18 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
 
     const decompressData = (compressedData: Buffer): Effect.Effect<string, AllRepositoryErrors> =>
       Effect.async<string, AllRepositoryErrors>((resume) => {
-        zlib.gunzip(compressedData, (err, result) => {
-          if (err) {
-            resume(Effect.fail(createCompressionError('', `Decompression failed: ${err}`, err)))
-          } else {
-            resume(Effect.succeed(result.toString('utf8')))
-          }
-        })
+        zlib.gunzip(compressedData, (err, result) =>
+          resume(
+            pipe(
+              Match.value({ err, result }),
+              Match.when(
+                ({ err }): err is Error => err != null,
+                ({ err }) => Effect.fail(createCompressionError('', `Decompression failed: ${err}`, err))
+              ),
+              Match.orElse(({ result }) => Effect.succeed((result ?? Buffer.alloc(0)).toString('utf8')))
+            )
+          )
+        )
       }).pipe(
         Effect.timeout(Duration.seconds(5)),
         Effect.catchTag('TimeoutException', () =>
@@ -326,21 +336,26 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
         )
 
         // Apply compression if enabled
-        yield* Effect.if(persistenceConfig.enableCompression, {
-          onTrue: () =>
-            Effect.gen(function* () {
-              const compressed = yield* compressData(content)
-              yield* Effect.promise(() => fs.promises.writeFile(filePath + '.gz', compressed)).pipe(
-                Effect.annotateLogs('world.metadata.operation', 'writeFile'),
-                Effect.annotateLogs('world.metadata.path', filePath + '.gz')
-              )
-            }),
-          onFalse: () =>
+        yield* pipe(
+          Match.value(persistenceConfig.enableCompression),
+          Match.when(
+            (enabled) => enabled,
+            () =>
+              Effect.gen(function* () {
+                const compressed = yield* compressData(content)
+                yield* Effect.promise(() => fs.promises.writeFile(filePath + '.gz', compressed)).pipe(
+                  Effect.annotateLogs('world.metadata.operation', 'writeFile'),
+                  Effect.annotateLogs('world.metadata.path', filePath + '.gz')
+                )
+              })
+          ),
+          Match.orElse(() =>
             Effect.promise(() => fs.promises.writeFile(filePath, content, 'utf8')).pipe(
               Effect.annotateLogs('world.metadata.operation', 'writeFile'),
               Effect.annotateLogs('world.metadata.path', filePath)
-            ),
-        })
+            )
+          )
+        )
       }).pipe(
         Effect.timeout(Duration.seconds(5)),
         Effect.catchTag('TimeoutException', () =>
@@ -377,48 +392,60 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
           Effect.annotateLogs('world.metadata.path', actualPath)
         )
 
-        return yield* Effect.if(exists, {
-          onTrue: () =>
-            Effect.gen(function* () {
-              let content = yield* Effect.if(useCompression, {
-                onTrue: () =>
-                  Effect.gen(function* () {
-                    const compressedBuffer = yield* Effect.promise(() => fs.promises.readFile(actualPath)).pipe(
+        return yield* pipe(
+          Match.value(exists),
+          Match.when(
+            (flag) => flag,
+            () =>
+              Effect.gen(function* () {
+                const content = yield* pipe(
+                  Match.value(useCompression),
+                  Match.when(
+                    (enabled) => enabled,
+                    () =>
+                      Effect.gen(function* () {
+                        const compressedBuffer = yield* Effect.promise(() => fs.promises.readFile(actualPath)).pipe(
+                          Effect.annotateLogs('world.metadata.operation', 'readFile'),
+                          Effect.annotateLogs('world.metadata.path', actualPath)
+                        )
+                        return yield* decompressData(compressedBuffer)
+                      })
+                  ),
+                  Match.orElse(() =>
+                    Effect.promise(() => fs.promises.readFile(actualPath, 'utf8')).pipe(
                       Effect.annotateLogs('world.metadata.operation', 'readFile'),
                       Effect.annotateLogs('world.metadata.path', actualPath)
                     )
-                    return yield* decompressData(compressedBuffer)
-                  }),
-                onFalse: () =>
-                  Effect.promise(() => fs.promises.readFile(actualPath, 'utf8')).pipe(
-                    Effect.annotateLogs('world.metadata.operation', 'readFile'),
-                    Effect.annotateLogs('world.metadata.path', actualPath)
-                  ),
-              })
-
-              content = yield* Effect.if(persistenceConfig.enableEncryption && persistenceConfig.encryptionKey, {
-                onTrue: () => Effect.sync(() => decryptData(content, persistenceConfig.encryptionKey!)),
-                onFalse: () => Effect.succeed(content),
-              })
-
-              // パターンB: Effect.try + Effect.flatMap + Schema.decodeUnknown
-              const decoded = yield* Effect.try({
-                try: () => JSON.parse(content),
-                catch: (error) =>
-                  createDataIntegrityError(`JSON parse failed for ${filePath}: ${String(error)}`, 'readFile', error),
-              }).pipe(
-                Effect.flatMap(Schema.decodeUnknown(schema)),
-                Effect.catchAll((error) =>
-                  Effect.fail(
-                    createDataIntegrityError(`Schema validation failed for ${filePath}: ${error}`, 'readFile', error)
                   )
                 )
-              )
 
-              return Option.some(decoded)
-            }),
-          onFalse: () => Effect.succeed(Option.none()),
-        })
+                const decryptedContent = yield* pipe(
+                  Match.value(persistenceConfig.enableEncryption && persistenceConfig.encryptionKey),
+                  Match.when(
+                    (enabled) => enabled,
+                    () => Effect.sync(() => decryptData(content, persistenceConfig.encryptionKey!))
+                  ),
+                  Match.orElse(() => Effect.succeed(content))
+                )
+
+                const decoded = yield* Effect.try({
+                  try: () => JSON.parse(decryptedContent),
+                  catch: (error) =>
+                    createDataIntegrityError(`JSON parse failed for ${filePath}: ${String(error)}`, 'readFile', error),
+                }).pipe(
+                  Effect.flatMap(Schema.decodeUnknown(schema)),
+                  Effect.catchAll((error) =>
+                    Effect.fail(
+                      createDataIntegrityError(`Schema validation failed for ${filePath}: ${error}`, 'readFile', error)
+                    )
+                  )
+                )
+
+                return Option.some(decoded)
+              })
+          ),
+          Match.orElse(() => Effect.succeed(Option.none()))
+        )
       }).pipe(
         Effect.catchAll((error) =>
           Effect.fail(createStorageError(`Failed to read file ${filePath}: ${error}`, 'readFile', error))
@@ -661,8 +688,9 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
 
       findMetadata: (worldId: WorldId) =>
         Effect.gen(function* () {
-          const cachedResult = yield* Effect.if(config.cache.enabled, {
-            onTrue: () =>
+          const cachedResult = yield* pipe(
+            Match.value(config.cache.enabled),
+            Match.when(true, () =>
               Effect.gen(function* () {
                 const cache = yield* Ref.get(metadataCache)
                 const cached = cache.get(worldId)
@@ -674,20 +702,23 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
                     onSome: (cachedEntry) =>
                       Effect.gen(function* () {
                         const now = yield* currentMillis
-                        return yield* Effect.if(!isCacheExpired(now, cachedEntry.timestamp), {
-                          onTrue: () =>
+                        return yield* pipe(
+                          Match.value(!isCacheExpired(now, cachedEntry.timestamp)),
+                          Match.when(true, () =>
                             Effect.gen(function* () {
                               yield* Ref.update(cacheStats, (stats) => ({ ...stats, hitCount: stats.hitCount + 1 }))
                               return Option.some(cachedEntry.metadata)
-                            }),
-                          onFalse: () => Effect.succeed(Option.none<WorldMetadata>()),
-                        })
+                            })
+                          ),
+                          Match.orElse(() => Effect.succeed(Option.none<WorldMetadata>()))
+                        )
                       }),
                   })
                 )
-              }),
-            onFalse: () => Effect.succeed(Option.none<WorldMetadata>()),
-          })
+              })
+            ),
+            Match.orElse(() => Effect.succeed(Option.none<WorldMetadata>()))
+          )
 
           return yield* pipe(
             cachedResult,
@@ -1074,8 +1105,9 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
           const worldVersions = versionMap.get(worldId) || new Map()
 
           // Check version limit and remove oldest if necessary
-          const updatedWorldVersions = yield* Effect.if(worldVersions.size >= config.versioning.maxVersionsPerWorld, {
-            onTrue: () =>
+          const updatedWorldVersions = yield* pipe(
+            Match.value(worldVersions.size >= config.versioning.maxVersionsPerWorld),
+            Match.when(true, () =>
               Effect.sync(() => {
                 const oldest = pipe(
                   Array.from(worldVersions.entries()),
@@ -1089,16 +1121,17 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
                 pipe(
                   oldest,
                   Option.match({
-                    onNone: () => {},
+                    onNone: () => undefined,
                     onSome: (oldestEntry) => {
                       worldVersions.delete(oldestEntry[0])
                     },
                   })
                 )
                 return worldVersions
-              }),
-            onFalse: () => Effect.succeed(worldVersions),
-          })
+              })
+            ),
+            Match.orElse(() => Effect.succeed(worldVersions))
+          )
 
           updatedWorldVersions.set(version, metadataVersion)
 
@@ -1235,8 +1268,9 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
                         )
                       : []
 
-                  const versionsByAge = yield* Effect.if(Boolean(retentionPolicy.maxAgeDays), {
-                    onTrue: () =>
+                  const versionsByAge = yield* pipe(
+                    Match.value(Boolean(retentionPolicy.maxAgeDays)),
+                    Match.when(true, () =>
                       Effect.gen(function* () {
                         const nowDateTime = yield* DateTime.now
                         const now = DateTime.toEpochMillis(nowDateTime)
@@ -1247,9 +1281,10 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
                           ReadonlyArray.filter(([, version]) => version.timestamp < cutoffDate),
                           ReadonlyArray.map(([v]) => v)
                         )
-                      }),
-                    onFalse: () => Effect.succeed([]),
-                  })
+                      })
+                    ),
+                    Match.orElse(() => Effect.succeed<ReadonlyArray<number>>([]))
+                  )
 
                   const versionsToDelete = [...new Set([...versionsByMaxCount, ...versionsByAge])]
 
@@ -1318,15 +1353,17 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
         Effect.gen(function* () {
           const compressionMap = yield* Ref.get(compressionStore)
 
-          yield* Effect.if(compressionMap.has(worldId), {
-            onTrue: () =>
+          yield* pipe(
+            Match.value(compressionMap.has(worldId)),
+            Match.when(true, () =>
               Effect.gen(function* () {
                 const updated = new Map(compressionMap)
                 updated.delete(worldId)
                 yield* Ref.set(compressionStore, updated)
-              }),
-            onFalse: () => Effect.fail(createCompressionError(worldId, 'No compression data found', null)),
-          })
+              })
+            ),
+            Match.orElse(() => Effect.fail(createCompressionError(worldId, 'No compression data found', null)))
+          )
         }),
 
       getCompressionStatistics: (worldId: WorldId) =>
@@ -1484,18 +1521,21 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
                     Effect.map(Option.isSome)
                   )
 
-                  return yield* Effect.if(exists, {
-                    onTrue: () =>
+                  return yield* pipe(
+                    Match.value(exists),
+                    Match.when(true, () =>
                       Effect.succeed({
                         isValid: true,
                         issues: [],
-                      }),
-                    onFalse: () =>
+                      })
+                    ),
+                    Match.orElse(() =>
                       Effect.succeed({
                         isValid: false,
                         issues: ['Backup file does not exist'],
-                      }),
-                  })
+                      })
+                    )
+                  )
                 }),
             })
           )
@@ -1822,8 +1862,9 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
           const store = yield* Ref.get(metadataStore)
           const metadataList = Array.from(store.values())
 
-          return yield* Effect.if(metadataList.length === 0, {
-            onTrue: () =>
+          return yield* pipe(
+            Match.value(metadataList.length === 0),
+            Match.when(true, () =>
               Effect.gen(function* () {
                 const now = yield* currentDate
                 return {
@@ -1835,8 +1876,9 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
                   newestWorld: now,
                   mostActiveWorld: EMPTY_WORLD_ID,
                 }
-              }),
-            onFalse: () =>
+              })
+            ),
+            Match.orElse(() =>
               Effect.succeed({
                 totalWorlds: metadataList.length,
                 totalSize: metadataList.reduce((sum, m) => sum + m.statistics.size.uncompressedSize, 0),
@@ -1862,8 +1904,9 @@ export const WorldMetadataRepositoryPersistenceImplementation = (
                     DateTime.toEpochMillis(DateTime.unsafeFromDate(b.lastAccessed)) -
                     DateTime.toEpochMillis(DateTime.unsafeFromDate(a.lastAccessed))
                 )[0].id,
-              }),
-          })
+              })
+            )
+          )
         }),
     }
   })

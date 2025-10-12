@@ -5,7 +5,7 @@
  * 不変性を保証する関数型プログラミングパターンを採用
  */
 
-import { Clock, Effect, Equal, Hash, Random, ReadonlyArray, Schema } from 'effect'
+import { Clock, Effect, Equal, Hash, Match, Option, Random, ReadonlyArray, Schema, pipe } from 'effect'
 import {
   CreateWorldSeedParams,
   CreateWorldSeedParamsSchema,
@@ -82,23 +82,29 @@ export const WorldSeedOps = {
    */
   fromString: (input: string): Effect.Effect<WorldSeed, WorldSeedError> =>
     Effect.gen(function* () {
-      if (!input || input.trim().length === 0) {
-        return yield* Effect.fail({
-          _tag: 'InvalidSeedValue' as const,
-          value: input,
-          message: 'Seed string cannot be empty',
+      const trimmed = input.trim()
+
+      return yield* pipe(
+        Match.value(trimmed),
+        Match.when(
+          (value) => value.length === 0,
+          () =>
+            Effect.fail({
+              _tag: 'InvalidSeedValue' as const,
+              value: input,
+              message: 'Seed string cannot be empty',
+            })
+        ),
+        Match.orElse((value) => {
+          const hash = stringToSeed(value)
+          return WorldSeedOps.create({
+            value: hash,
+            humanReadable: value,
+            generator: 'string',
+            source: input,
+          })
         })
-      }
-
-      // 文字列をハッシュ化して32bit整数に変換
-      const hash = stringToSeed(input.trim())
-
-      return yield* WorldSeedOps.create({
-        value: hash,
-        humanReadable: input.trim(),
-        generator: 'string',
-        source: input,
-      })
+      )
     }),
 
   /**
@@ -227,16 +233,22 @@ export const WorldSeedOps = {
    */
   range: (start: WorldSeed, count: number): Effect.Effect<readonly WorldSeed[], WorldSeedError> =>
     Effect.gen(function* () {
-      if (count <= 0 || count > 1000) {
-        return yield* Effect.fail({
-          _tag: 'ValidationError' as const,
-          field: 'count',
-          value: count,
-          message: 'Count must be between 1 and 1000',
-        })
-      }
-
-      return yield* Effect.forEach(ReadonlyArray.range(0, count), (i) => WorldSeedOps.derive(start, i))
+      return yield* pipe(
+        Match.value(count),
+        Match.when(
+          (value) => value <= 0 || value > 1000,
+          (value) =>
+            Effect.fail({
+              _tag: 'ValidationError' as const,
+              field: 'count',
+              value,
+              message: 'Count must be between 1 and 1000',
+            })
+        ),
+        Match.orElse((value) =>
+          Effect.forEach(ReadonlyArray.range(0, value), (i) => WorldSeedOps.derive(start, i))
+        )
+      )
     }),
 }
 
@@ -249,18 +261,26 @@ export const WorldSeedOps = {
  */
 const generateSeedValue = (params: CreateWorldSeedParams): Effect.Effect<WorldSeedBrand, WorldSeedError> =>
   Effect.gen(function* () {
-    if (params.value !== undefined) {
-      if (typeof params.value === 'number') {
-        return yield* Schema.decodeUnknown(WorldSeedSchema)(params.value)
-      } else if (typeof params.value === 'string') {
-        const hash = stringToSeed(params.value)
-        return yield* Schema.decodeUnknown(WorldSeedSchema)(hash)
-      }
-    }
-
-    // デフォルト: ランダム生成
-    const randomValue = yield* Random.nextIntBetween(-2147483648, 2147483647)
-    return yield* Schema.decodeUnknown(WorldSeedSchema)(randomValue)
+    return yield* pipe(
+      Match.value(params.value),
+      Match.when(
+        (value): value is number => typeof value === 'number',
+        (value) => Schema.decodeUnknown(WorldSeedSchema)(value)
+      ),
+      Match.when(
+        (value): value is string => typeof value === 'string',
+        (value) => {
+          const hash = stringToSeed(value)
+          return Schema.decodeUnknown(WorldSeedSchema)(hash)
+        }
+      ),
+      Match.orElse(() =>
+        Effect.gen(function* () {
+          const randomValue = yield* Random.nextIntBetween(-2147483648, 2147483647)
+          return yield* Schema.decodeUnknown(WorldSeedSchema)(randomValue)
+        })
+      )
+    )
   })
 
 /**
@@ -283,9 +303,18 @@ const calculateEntropy = (value: WorldSeedBrand): EntropyLevel => {
   const absValue = Math.abs(value)
   const bitCount = absValue.toString(2).split('1').length - 1
 
-  if (bitCount <= 8) return 'low'
-  if (bitCount <= 16) return 'medium'
-  return 'high'
+  return pipe(
+    Match.value(bitCount),
+    Match.when(
+      (count) => count <= 8,
+      () => 'low' as const
+    ),
+    Match.when(
+      (count) => count <= 16,
+      () => 'medium' as const
+    ),
+    Match.orElse(() => 'high' as const)
+  )
 }
 
 /**
@@ -318,23 +347,36 @@ const calculateComplexity = (value: number): number => {
  * 推奨事項生成
  */
 const generateRecommendations = (score: number, uniformity: number, complexity: number): string[] => {
-  const recommendations: string[] = []
+  const candidates: ReadonlyArray<{ readonly message: string; readonly condition: boolean }> = [
+    {
+      message: 'Low quality seed - consider using a different value',
+      condition: score < 30,
+    },
+    {
+      message: 'Poor bit distribution - seed may produce biased results',
+      condition: uniformity < 0.3,
+    },
+    {
+      message: 'Low complexity - seed may produce predictable patterns',
+      condition: complexity < 0.3,
+    },
+    {
+      message: 'Excellent seed quality - suitable for production use',
+      condition: score >= 80,
+    },
+  ]
 
-  if (score < 30) {
-    recommendations.push('Low quality seed - consider using a different value')
-  }
-
-  if (uniformity < 0.3) {
-    recommendations.push('Poor bit distribution - seed may produce biased results')
-  }
-
-  if (complexity < 0.3) {
-    recommendations.push('Low complexity - seed may produce predictable patterns')
-  }
-
-  if (score >= 80) {
-    recommendations.push('Excellent seed quality - suitable for production use')
-  }
-
-  return recommendations
+  return pipe(
+    candidates,
+    ReadonlyArray.filterMap(({ message, condition }) =>
+      pipe(
+        Match.value(condition),
+        Match.when(
+          (result) => result,
+          () => Option.some(message)
+        ),
+        Match.orElse(() => Option.none())
+      )
+    )
+  )
 }

@@ -50,30 +50,33 @@ export const openContainer = (
       )
     )
 
-    // 既に視聴中でない場合のみ追加
-    if (!aggregate.currentViewers.includes(playerId)) {
-      const now = yield* DateTime.now
-      const timestamp = DateTime.formatIso(now)
-      const event: ContainerOpenedEvent = {
-        type: 'ContainerOpened',
-        aggregateId: aggregate.id,
-        playerId,
-        containerType: aggregate.type,
-        position: aggregate.position,
-        timestamp,
-      }
+    return yield* pipe(
+      Match.value(aggregate.currentViewers.includes(playerId)),
+      Match.when(true, () => Effect.succeed(aggregate)),
+      Match.orElse(() =>
+        Effect.gen(function* () {
+          const now = yield* DateTime.now
+          const timestamp = DateTime.formatIso(now)
+          const event: ContainerOpenedEvent = {
+            type: 'ContainerOpened',
+            aggregateId: aggregate.id,
+            playerId,
+            containerType: aggregate.type,
+            position: aggregate.position,
+            timestamp,
+          }
 
-      const updatedAgg = {
-        ...aggregate,
-        isOpen: true,
-        currentViewers: [...aggregate.currentViewers, playerId],
-        lastAccessed: timestamp,
-      }
-      const versionedAgg = yield* incrementContainerVersion(updatedAgg)
-      return addContainerUncommittedEvent(versionedAgg, event)
-    }
-
-    return aggregate
+          const updatedAgg = {
+            ...aggregate,
+            isOpen: true,
+            currentViewers: [...aggregate.currentViewers, playerId],
+            lastAccessed: timestamp,
+          }
+          const versionedAgg = yield* incrementContainerVersion(updatedAgg)
+          return addContainerUncommittedEvent(versionedAgg, event)
+        })
+      )
+    )
   })
 
 /**
@@ -244,30 +247,32 @@ export const removeItemFromContainer = (
     )
 
     const updatedSlots = [...aggregate.slots]
-    let removedItemStack: Option.Option<ItemStackEntity> = Option.none()
 
-    if (removeQuantity === validatedSlot.itemStack.count) {
-      // 完全に削除
-      updatedSlots[slotIndex] = null
-      removedItemStack = Option.some(validatedSlot.itemStack)
-    } else {
-      // 一部削除
-      const newCount = validatedSlot.itemStack.count - removeQuantity
-      const updatedItemStack: ItemStackEntity = {
-        ...validatedSlot.itemStack,
-        count: ItemCountSchema.make(newCount),
-      }
-      updatedSlots[slotIndex] = { ...validatedSlot.slot, itemStack: updatedItemStack }
+    const removedItemStack = yield* pipe(
+      Match.value(removeQuantity === validatedSlot.itemStack.count),
+      Match.when(true, () => {
+        updatedSlots[slotIndex] = null
+        return Effect.succeed(Option.some(validatedSlot.itemStack))
+      }),
+      Match.orElse(() =>
+        Effect.gen(function* () {
+          const newCount = validatedSlot.itemStack.count - removeQuantity
+          const updatedItemStack: ItemStackEntity = {
+            ...validatedSlot.itemStack,
+            count: ItemCountSchema.make(newCount),
+          }
+          updatedSlots[slotIndex] = { ...validatedSlot.slot, itemStack: updatedItemStack }
 
-      // 削除されたアイテムスタックを作成（簡略化）
-      const now = yield* Clock.currentTimeMillis
-      const removedStack: ItemStackEntity = {
-        ...validatedSlot.itemStack,
-        count: ItemCountSchema.make(removeQuantity),
-        id: makeUnsafeItemStackId(`stack_removed_${now}`),
-      }
-      removedItemStack = Option.some(removedStack)
-    }
+          const nowMillis = yield* Clock.currentTimeMillis
+          const removedStack: ItemStackEntity = {
+            ...validatedSlot.itemStack,
+            count: ItemCountSchema.make(removeQuantity),
+            id: makeUnsafeItemStackId(`stack_removed_${nowMillis}`),
+          }
+          return Option.some(removedStack)
+        })
+      )
+    )
 
     const now = yield* DateTime.now
     const timestamp = DateTime.formatIso(now)
@@ -345,11 +350,10 @@ export const sortContainer = (
     })
 
     // 新しいスロット配列を作成
-    const newSlots: Array<ContainerSlot> = Array(aggregate.configuration.maxSlots).fill(null)
-    sortedSlots.forEach(({ slot }, index) => {
-      if (index < aggregate.configuration.maxSlots) {
-        newSlots[index] = slot
-      }
+    const maxSlots = aggregate.configuration.maxSlots
+    const newSlots: Array<ContainerSlot> = Array(maxSlots).fill(null)
+    sortedSlots.slice(0, maxSlots).forEach(({ slot }, index) => {
+      newSlots[index] = slot
     })
 
     const affectedSlots = sortedSlots.map((_, index) => makeUnsafeContainerSlotIndex(index))
@@ -424,39 +428,53 @@ const checkAccess = (
   accessType: 'view' | 'insert' | 'extract' | 'modify'
 ): Effect.Effect<boolean, ContainerError> =>
   Effect.gen(function* () {
-    // オーナーは常にアクセス可能
-    if (aggregate.ownerId === playerId) {
-      return true
-    }
+    const directAccess = aggregate.ownerId === playerId || aggregate.accessLevel === 'public'
 
-    // パブリックアクセスレベルの場合
-    if (aggregate.accessLevel === 'public') {
-      return true
-    }
+    return yield* pipe(
+      Match.value(directAccess),
+      Match.when(true, () => Effect.succeed(true)),
+      Match.orElse(() => {
+        const permission = aggregate.permissions.find((p) => p.playerId === playerId)
 
-    // 個別権限をチェック
-    const permission = aggregate.permissions.find((p) => p.playerId === playerId)
-    if (!permission) {
-      return false
-    }
+        return pipe(
+          Option.fromNullable(permission),
+          Option.match({
+            onNone: () => Effect.succeed(false),
+            onSome: (perm) =>
+              Effect.gen(function* () {
+                const isExpired = yield* pipe(
+                  Option.fromNullable(perm.expiresAt),
+                  Option.match({
+                    onNone: () => Effect.succeed(false),
+                    onSome: (expiresAtIso) =>
+                      Effect.gen(function* () {
+                        const now = yield* DateTime.now
+                        const expiresAt = DateTime.unsafeMake(expiresAtIso)
+                        return now > expiresAt
+                      }),
+                  })
+                )
 
-    // 権限の有効期限チェック
-    if (permission.expiresAt) {
-      const now = yield* DateTime.now
-      const expiresAt = DateTime.unsafeMake(permission.expiresAt)
-      if (now > expiresAt) {
-        return false
-      }
-    }
-
-    // アクセスタイプ別のチェック
-    return pipe(
-      Match.value(accessType),
-      Match.when('view', () => permission.canView),
-      Match.when('insert', () => permission.canInsert),
-      Match.when('extract', () => permission.canExtract),
-      Match.when('modify', () => permission.canModify),
-      Match.orElse(() => false)
+                return yield* pipe(
+                  Match.value(isExpired),
+                  Match.when(true, () => Effect.succeed(false)),
+                  Match.orElse(() =>
+                    Effect.succeed(
+                      pipe(
+                        Match.value(accessType),
+                        Match.when('view', () => perm.canView),
+                        Match.when('insert', () => perm.canInsert),
+                        Match.when('extract', () => perm.canExtract),
+                        Match.when('modify', () => perm.canModify),
+                        Match.orElse(() => false)
+                      )
+                    )
+                  )
+                )
+              }),
+          })
+        )
+      })
     )
   })
 
@@ -471,25 +489,26 @@ const checkItemTypeAllowed = (
   Effect.gen(function* () {
     const config = aggregate.configuration
 
-    // 制限されたアイテムタイプをチェック
-    if (config.restrictedItemTypes?.includes(itemId)) {
-      return false
-    }
+    const isRestricted = pipe(
+      Option.fromNullable(config.restrictedItemTypes),
+      Option.exists((items) => items.includes(itemId))
+    )
 
-    // 許可されたアイテムタイプをチェック
-    if (config.allowedItemTypes && !config.allowedItemTypes.includes(itemId)) {
-      return false
-    }
+    const violatesAllowed = pipe(
+      Option.fromNullable(config.allowedItemTypes),
+      Option.exists((items) => !items.includes(itemId))
+    )
 
-    // スロット固有のフィルターをチェック
-    if (config.slotFilters?.[slotIndex]) {
-      const allowedForSlot = config.slotFilters[slotIndex]
-      if (!allowedForSlot.includes(itemId)) {
-        return false
-      }
-    }
+    const violatesSlotFilter = pipe(
+      Option.fromNullable(config.slotFilters?.[slotIndex]),
+      Option.exists((allowedForSlot) => !allowedForSlot.includes(itemId))
+    )
 
-    return true
+    return pipe(
+      Match.value(isRestricted || violatesAllowed || violatesSlotFilter),
+      Match.when(true, () => false),
+      Match.orElse(() => true)
+    )
   })
 
 // ===== Query Operations =====
@@ -527,12 +546,10 @@ export const findItemSlots = (aggregate: ContainerAggregate, itemId: ItemId): Re
  * 指定されたアイテムの合計数量を取得
  */
 export const getItemCount = (aggregate: ContainerAggregate, itemId: ItemId): number =>
-  aggregate.slots.reduce((total, slot) => {
-    if (slot?.itemStack?.itemId === itemId) {
-      return total + slot.itemStack.count
-    }
-    return total
-  }, 0)
+  aggregate.slots.reduce(
+    (total, slot) => (slot?.itemStack?.itemId === itemId ? total + slot.itemStack.count : total),
+    0
+  )
 
 /**
  * プレイヤーがコンテナを視聴中かチェック

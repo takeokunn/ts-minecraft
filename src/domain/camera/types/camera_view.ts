@@ -1,4 +1,4 @@
-import { Schema } from 'effect'
+import { Match, Schema } from 'effect'
 
 const defaultProjection = {
   fov: 75,
@@ -131,11 +131,14 @@ const decodeSync = <S extends Schema.Schema<any>>(
   schema: S,
   value: unknown
 ): Schema.Schema.Type<S> => {
-  const result = Schema.decodeUnknownEither(schema)(value)
-  if (result._tag === 'Left') {
-    throw result.left
-  }
-  return result.right
+  return Match.value(Schema.decodeUnknownEither(schema)(value))
+    .pipe(
+      Match.tag('Left', (result) => {
+        throw result.left
+      }),
+      Match.tag('Right', (result) => result.right),
+      Match.exhaustive
+    )
 }
 
 const mergeVector = (

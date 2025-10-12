@@ -1,5 +1,5 @@
 import * as CANNON from 'cannon-es'
-import { Effect, Schema } from 'effect'
+import { Effect, Match, Schema } from 'effect'
 import { PhysicsRaycastError } from '../errors'
 import { CannonBodySchema, makeCannonBodyUnsafe } from '../schemas/body_schema'
 
@@ -124,25 +124,25 @@ export const raycastClosest = (
       const result = new CANNON.RaycastResult()
       world.raycastClosest(rayStart, rayEnd, {}, result)
 
-      if (!result.hasHit) {
-        return null
-      }
-
-      return {
-        hasHit: result.hasHit,
-        distance: result.distance,
-        hitPoint: {
-          x: result.hitPointWorld.x,
-          y: result.hitPointWorld.y,
-          z: result.hitPointWorld.z,
-        },
-        hitNormal: {
-          x: result.hitNormalWorld.x,
-          y: result.hitNormalWorld.y,
-          z: result.hitNormalWorld.z,
-        },
-        body: result.body ? makeCannonBodyUnsafe(result.body) : null,
-      }
+      return Match.value(result.hasHit).pipe(
+        Match.when(false, () => null),
+        Match.orElse(() => ({
+          hasHit: result.hasHit,
+          distance: result.distance,
+          hitPoint: {
+            x: result.hitPointWorld.x,
+            y: result.hitPointWorld.y,
+            z: result.hitPointWorld.z,
+          },
+          hitNormal: {
+            x: result.hitNormalWorld.x,
+            y: result.hitNormalWorld.y,
+            z: result.hitNormalWorld.z,
+          },
+          body: result.body ? makeCannonBodyUnsafe(result.body) : null,
+        })),
+        Match.exhaustive
+      )
     },
     catch: (error) =>
       PhysicsRaycastError.make({

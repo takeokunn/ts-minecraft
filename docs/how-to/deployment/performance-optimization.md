@@ -937,7 +937,9 @@ async function syncGameData() {
   // オフライン中に蓄積されたデータをサーバーに同期
   const pendingData = await getFromIndexedDB('pending-sync')
 
-  for (const data of pendingData) {
+  await pendingData.reduce(async (previousPromise, data) => {
+    await previousPromise
+
     try {
       await fetch('/api/sync', {
         method: 'POST',
@@ -949,7 +951,7 @@ async function syncGameData() {
     } catch (error) {
       console.error('Failed to sync data:', error)
     }
-  }
+  }, Promise.resolve())
 }
 ```
 
@@ -1058,10 +1060,16 @@ export const loadFromCDN = async (resource: string, fallbackPath: string) => {
   const cdnUrls = [
     `${CDN_CONFIG.jsdelivr.baseUrl}/${resource}`,
     `${CDN_CONFIG.unpkg.baseUrl}/${resource}`,
-    fallbackPath, // ローカルフォールバック
+    fallbackPath,
   ]
 
-  for (const url of cdnUrls) {
+  const attempt = async (index: number): Promise<Response> => {
+    if (index >= cdnUrls.length) {
+      throw new Error(`Failed to load resource: ${resource}`)
+    }
+
+    const url = cdnUrls[index]
+
     try {
       const response = await fetch(url)
       if (response.ok) {
@@ -1070,9 +1078,11 @@ export const loadFromCDN = async (resource: string, fallbackPath: string) => {
     } catch (error) {
       console.warn(`CDN failed for ${url}:`, error)
     }
+
+    return attempt(index + 1)
   }
 
-  throw new Error(`Failed to load resource: ${resource}`)
+  return attempt(0)
 }
 
 // Three.js の CDN ロード例
@@ -1125,9 +1135,7 @@ class PerformanceMonitor {
     Effect.gen(function* () {
       // Performance Observer の初期化
       this.observer = new PerformanceObserver((list) => {
-        for (const entry of list.getEntries()) {
-          this.processPerformanceEntry(entry)
-        }
+        list.getEntries().forEach((entry) => this.processPerformanceEntry(entry))
       })
 
       // 監視する項目を設定

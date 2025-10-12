@@ -1,7 +1,7 @@
 import type { CameraDistance } from '@/domain/camera/value_object/view_mode'
 import { DefaultSettings, ViewMode } from '@/domain/camera/value_object/view_mode'
 import type { CameraId } from '@domain/camera/types'
-import { Array, Clock, Data, Effect, Layer, Option, Random } from 'effect'
+import { Array, Clock, Data, Effect, Layer, Match, Option, pipe, Random } from 'effect'
 import type {
   CameraModeManagerApplicationService,
   ModeTransitionStatistics,
@@ -136,9 +136,14 @@ export const CameraModeManagerApplicationServiceLive = Layer.effect(
 
       cancelScheduledTransition: (scheduleId) =>
         Effect.gen(function* () {
-          if (scheduledTransitions.has(scheduleId)) {
-            scheduledTransitions.delete(scheduleId)
-          }
+          yield* pipe(
+            Match.value(scheduledTransitions.has(scheduleId)),
+            Match.when(
+              (exists) => exists,
+              () => Effect.sync(() => scheduledTransitions.delete(scheduleId))
+            ),
+            Match.orElse(() => Effect.void)
+          )
         }),
 
       getAvailableViewModes: (cameraId, context) =>

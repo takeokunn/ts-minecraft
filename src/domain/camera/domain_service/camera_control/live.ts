@@ -6,7 +6,7 @@
  * 外部依存は一切持たない純粋関数として実装されています。
  */
 
-import { Effect, Layer, Match } from 'effect'
+import { Effect, Layer, Match, pipe } from 'effect'
 import type { CameraDistance, CameraError, CameraRotation, Position3D, Vector3D } from '../../value_object'
 import {
   AngleConversion,
@@ -60,24 +60,32 @@ export const CameraControlServiceLive = Layer.succeed(
      * 世界境界と高度制限を適用
      */
     applyPositionConstraints: (position, constraints) =>
-      Effect.gen(function* () {
-        // 世界境界内に制限
-        let constrainedPosition = yield* clampToBounds(position, constraints.worldBounds)
-
-        // 高度制限を適用
-        constrainedPosition = yield* clampHeight(constrainedPosition, constraints.minHeight, constraints.maxHeight)
-
-        // 地形衝突検証（実装時は地形データが必要）
-        if (constraints.terrainCollision) {
-          constrainedPosition = yield* checkTerrainCollision(constrainedPosition, constraints)
-
-          // 衝突解決後に境界・高さを再評価
-          constrainedPosition = yield* clampToBounds(constrainedPosition, constraints.worldBounds)
-          constrainedPosition = yield* clampHeight(constrainedPosition, constraints.minHeight, constraints.maxHeight)
-        }
-
-        return constrainedPosition
-      }),
+      pipe(
+        clampToBounds(position, constraints.worldBounds),
+        Effect.flatMap((boundedPosition) =>
+          clampHeight(boundedPosition, constraints.minHeight, constraints.maxHeight)
+        ),
+        Effect.flatMap((heightAdjusted) =>
+          pipe(
+            Match.value(constraints.terrainCollision),
+            Match.when(
+              (enabled) => enabled === true,
+              () =>
+                pipe(
+                  checkTerrainCollision(heightAdjusted, constraints),
+                  Effect.flatMap((collidedPosition) =>
+                    clampToBounds(collidedPosition, constraints.worldBounds).pipe(
+                      Effect.flatMap((rebounded) =>
+                        clampHeight(rebounded, constraints.minHeight, constraints.maxHeight)
+                      )
+                    )
+                  )
+                )
+            ),
+            Match.orElse(() => Effect.succeed(heightAdjusted))
+          )
+        )
+      ),
 
     /**
      * 位置スムージング
@@ -235,22 +243,28 @@ const checkTerrainCollision = (
   constraints: PositionConstraints
 ): Effect.Effect<Position3D, CameraError> =>
   Effect.gen(function* () {
-    const worldCollisionData = constraints.worldCollisionData
-
-    if (!worldCollisionData) {
-      return position
-    }
-
     const collisionDetection = yield* CollisionDetectionService
     const radius = constraints.collisionRadius ?? 0.6
 
-    const collisionResult = yield* collisionDetection.checkCameraCollision(position, radius, worldCollisionData)
-
-    return yield* Match.value(collisionResult).pipe(
-      Match.when({ _tag: 'Collision' }, (collision) =>
-        collisionDetection
-          .findSafePosition(position, position, radius, worldCollisionData)
-          .pipe(Effect.catchAll(() => Effect.succeed(collision.hitPosition)))
+    return yield* pipe(
+      Match.value(constraints.worldCollisionData),
+      Match.when(
+        (data): data is Exclude<typeof data, undefined | null> => data != null,
+        (worldCollisionData) =>
+          collisionDetection
+            .checkCameraCollision(position, radius, worldCollisionData)
+            .pipe(
+              Effect.flatMap((collisionResult) =>
+                Match.value(collisionResult).pipe(
+                  Match.when({ _tag: 'Collision' }, (collision) =>
+                    collisionDetection
+                      .findSafePosition(position, position, radius, worldCollisionData)
+                      .pipe(Effect.catchAll(() => Effect.succeed(collision.hitPosition)))
+                  ),
+                  Match.orElse(() => Effect.succeed(position))
+                )
+              )
+            )
       ),
       Match.orElse(() => Effect.succeed(position))
     )

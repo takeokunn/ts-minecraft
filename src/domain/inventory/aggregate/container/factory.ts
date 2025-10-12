@@ -5,7 +5,7 @@
 
 import { JsonValueSchema } from '@shared/schema/json'
 import { formatParseIssues } from '@shared/schema/tagged_error_factory'
-import { Brand, Context, DateTime, Effect, Layer, ReadonlyArray, Schema, pipe } from 'effect'
+import { Brand, Context, DateTime, Effect, Layer, Match, Option, ReadonlyArray, Schema, pipe } from 'effect'
 import { nanoid } from 'nanoid'
 import type { PlayerId } from '../../types'
 import { PlayerIdSchema } from '../../types/core'
@@ -219,15 +219,21 @@ export const withConfiguration =
 export const withSlot =
   (index: ContainerSlotIndex, slot: ContainerSlot) =>
   (state: ContainerBuilderState): ContainerBuilderState => {
-    if (state.configuration && index < state.configuration.maxSlots) {
-      const newSlots = [...state.slots]
-      newSlots[index] = slot
-      return {
-        ...state,
-        slots: newSlots,
-      }
-    }
-    return state
+    return pipe(
+      Match.value(state.configuration),
+      Match.when(
+        (config) => config !== undefined && index < config.maxSlots,
+        () => {
+          const newSlots = [...state.slots]
+          newSlots[index] = slot
+          return {
+            ...state,
+            slots: newSlots,
+          }
+        }
+      ),
+      Match.orElse(() => state)
+    )
   }
 
 /**
@@ -257,42 +263,27 @@ export const buildContainerFromState = (
   state: ContainerBuilderState
 ): Effect.Effect<ContainerAggregate, ContainerError> =>
   Effect.gen(function* () {
-    // 必須フィールドの検証
-    if (!state.type) {
-      yield* Effect.fail(
-        ContainerError.make({
-          reason: 'INVALID_CONFIGURATION',
-          message: 'コンテナタイプが設定されていません',
-        })
+    const requireField = <T>(value: T | undefined, message: string) =>
+      pipe(
+        Match.value(value),
+        Match.when(
+          (candidate): candidate is T => candidate !== undefined,
+          (candidate) => Effect.succeed(candidate)
+        ),
+        Match.orElse(() =>
+          Effect.fail(
+            ContainerError.make({
+              reason: 'INVALID_CONFIGURATION',
+              message,
+            })
+          )
+        )
       )
-    }
 
-    if (!state.ownerId) {
-      yield* Effect.fail(
-        ContainerError.make({
-          reason: 'INVALID_CONFIGURATION',
-          message: 'オーナーIDが設定されていません',
-        })
-      )
-    }
-
-    if (!state.position) {
-      yield* Effect.fail(
-        ContainerError.make({
-          reason: 'INVALID_CONFIGURATION',
-          message: '位置が設定されていません',
-        })
-      )
-    }
-
-    if (!state.configuration) {
-      yield* Effect.fail(
-        ContainerError.make({
-          reason: 'INVALID_CONFIGURATION',
-          message: '設定が初期化されていません',
-        })
-      )
-    }
+    const containerType = yield* requireField(state.type, 'コンテナタイプが設定されていません')
+    const ownerId = yield* requireField(state.ownerId, 'オーナーIDが設定されていません')
+    const position = yield* requireField(state.position, '位置が設定されていません')
+    const configuration = yield* requireField(state.configuration, '設定が初期化されていません')
 
     // IDの生成または検証
     const id = state.id ?? makeUnsafeContainerId(`container_${nanoid()}`)
@@ -306,10 +297,10 @@ export const buildContainerFromState = (
     // 集約データの構築
     const aggregateData = {
       id,
-      type: state.type,
-      ownerId: state.ownerId,
-      position: state.position,
-      configuration: state.configuration,
+      type: containerType,
+      ownerId,
+      position,
+      configuration,
       accessLevel: state.accessLevel,
       slots: state.slots,
       permissions: state.permissions,
@@ -349,33 +340,56 @@ export const ContainerFactoryLive = ContainerFactory.of({
         withPosition(position)
       )
 
-      if (options?.id) {
-        state = withContainerId(options.id)(state)
-      }
+      state = pipe(
+        Option.fromNullable(options),
+        Option.match({
+          onNone: () => state,
+          onSome: (opts) => {
+            const withId = pipe(
+              Match.value(opts.id),
+              Match.when((id): id is ContainerId => id !== undefined, (id) => withContainerId(id)(state)),
+              Match.orElse(() => state)
+            )
 
-      if (options?.accessLevel) {
-        state = withAccessLevel(options.accessLevel)(state)
-      }
+            const withAccess = pipe(
+              Match.value(opts.accessLevel),
+              Match.when(
+                (level): level is ContainerAccessLevel => level !== undefined,
+                (level) => withAccessLevel(level)(withId)
+              ),
+              Match.orElse(() => withId)
+            )
 
-      if (options?.configuration) {
-        const defaultConfig = getDefaultConfigurationForType(type)
-        const mergedConfig = { ...defaultConfig, ...options.configuration }
-        state = withConfiguration(mergedConfig)(state)
-      }
+            const withConfig = pipe(
+              Match.value(opts.configuration),
+              Match.when((config): config is Partial<ContainerConfiguration> => config !== undefined, (config) => {
+                const defaultConfig = getDefaultConfigurationForType(type)
+                return withConfiguration({ ...defaultConfig, ...config })(withAccess)
+              }),
+              Match.orElse(() => withAccess)
+            )
 
-      if (options?.permissions) {
-        state = pipe(
-          options.permissions,
-          ReadonlyArray.reduce(state, (acc, permission) => withPermission(permission)(acc))
-        )
-      }
+            const withPermissions = pipe(
+              Match.value(opts.permissions),
+              Match.when(
+                (permissions): permissions is ReadonlyArray<ContainerPermission> => permissions !== undefined,
+                (permissions) =>
+                  permissions.reduce<ContainerBuilderState>((acc, permission) => withPermission(permission)(acc), withConfig)
+              ),
+              Match.orElse(() => withConfig)
+            )
 
-      if (options?.customSlots) {
-        state = pipe(
-          options.customSlots,
-          ReadonlyArray.reduce(state, (acc, { index, slot }) => withSlot(index, slot)(acc))
-        )
-      }
+            return pipe(
+              Match.value(opts.customSlots),
+              Match.when(
+                (slots): slots is ReadonlyArray<{ index: ContainerSlotIndex; slot: ContainerSlot }> => slots !== undefined,
+                (slots) => slots.reduce((acc, { index, slot }) => withSlot(index, slot)(acc), withPermissions)
+              ),
+              Match.orElse(() => withPermissions)
+            )
+          },
+        })
+      )
 
       return yield* buildContainerFromState(state)
     }),

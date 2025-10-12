@@ -239,44 +239,64 @@ const makeGenerationPipelineService = Effect.gen(function* () {
             failedStages: [] satisfies string[] as string[],
           },
           (acc, stageConfig) =>
-            Effect.gen(function* () {
-              // 依存関係チェック
-              const dependenciesMet = stageConfig.dependencies.every((dep) => acc.completedStages.includes(dep))
+            pipe(
+              Match.value(stageConfig.dependencies.every((dep) => acc.completedStages.includes(dep))),
+              Match.when(
+                (dependenciesMet) => !dependenciesMet,
+                () =>
+                  Effect.gen(function* () {
+                    yield* Effect.logWarning(`ステージ ${stageConfig.stage} の依存関係が満たされていません`)
+                    return acc
+                  })
+              ),
+              Match.orElse(() =>
+                Effect.gen(function* () {
+                  yield* Effect.logInfo(`ステージ実行開始: ${stageConfig.stage}`)
 
-              yield* Effect.when(!dependenciesMet, () =>
-                Effect.logWarning(`ステージ ${stageConfig.stage} の依存関係が満たされていません`)
-              )
+                  const result = yield* pipe(
+                    executeStageInternal(pipelineId, stageConfig.stage, stageConfig),
+                    Effect.timeout(`${stageConfig.timeout} millis`)
+                  )
 
-              if (!dependenciesMet) {
-                return acc
-              }
+                  return yield* pipe(
+                    Match.value(result.status),
+                    Match.when(
+                      (status) => status === 'success',
+                      () =>
+                        Effect.gen(function* () {
+                          const newCompletedStages = [...acc.completedStages, stageConfig.stage]
+                          yield* updatePipelineState(pipelineId, {
+                            completedStages: newCompletedStages,
+                            progress: (newCompletedStages.length / sortedStages.length) * 100,
+                          })
+                          yield* Effect.logInfo(`ステージ実行成功: ${stageConfig.stage}`)
+                          return { completedStages: newCompletedStages, failedStages: acc.failedStages }
+                        })
+                    ),
+                    Match.orElse(() =>
+                      Effect.gen(function* () {
+                        const newFailedStages = [...acc.failedStages, stageConfig.stage]
+                        yield* updatePipelineState(pipelineId, { failedStages: newFailedStages })
 
-              yield* Effect.logInfo(`ステージ実行開始: ${stageConfig.stage}`)
-
-              const result = yield* pipe(
-                executeStageInternal(pipelineId, stageConfig.stage, stageConfig),
-                Effect.timeout(`${stageConfig.timeout} millis`)
-              )
-
-              if (result.status === 'success') {
-                const newCompletedStages = [...acc.completedStages, stageConfig.stage]
-                yield* updatePipelineState(pipelineId, {
-                  completedStages: newCompletedStages,
-                  progress: (newCompletedStages.length / sortedStages.length) * 100,
+                        return yield* pipe(
+                          Match.value(config.errorStrategy),
+                          Match.when(
+                            (strategy) => strategy === 'fail_fast',
+                            () => Effect.fail(new Error(`ステージ失敗: ${stageConfig.stage}`))
+                          ),
+                          Match.orElse(() =>
+                            Effect.succeed({
+                              completedStages: acc.completedStages,
+                              failedStages: newFailedStages,
+                            })
+                          )
+                        )
+                      })
+                    )
+                  )
                 })
-                yield* Effect.logInfo(`ステージ実行成功: ${stageConfig.stage}`)
-                return { completedStages: newCompletedStages, failedStages: acc.failedStages }
-              } else {
-                const newFailedStages = [...acc.failedStages, stageConfig.stage]
-                yield* updatePipelineState(pipelineId, { failedStages: newFailedStages })
-
-                yield* Effect.when(config.errorStrategy === 'fail_fast', () =>
-                  Effect.fail(new Error(`ステージ失敗: ${stageConfig.stage}`))
-                )
-
-                return { completedStages: acc.completedStages, failedStages: newFailedStages }
-              }
-            })
+              )
+            )
         ),
         Effect.catchAll((error) =>
           Effect.gen(function* () {

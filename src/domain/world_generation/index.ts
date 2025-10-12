@@ -32,3 +32,6 @@ export * from './repository/world_generator_repository/index'
 
 // === Value Objects ===
 export * from './value_object/generation_parameters/index'
+
+// === Adapter ===
+export * from './adapter/world_generation_adapter'

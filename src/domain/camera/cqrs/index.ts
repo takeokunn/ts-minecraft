@@ -12,3 +12,4 @@ export {
 } from './query_handler'
 
 export { cameraToSnapshot } from './helpers'
+export { CameraReadModel, CameraReadModelLive } from './read_model'

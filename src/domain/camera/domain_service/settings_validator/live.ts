@@ -107,20 +107,23 @@ export const SettingsValidatorServiceLive = Layer.succeed(
       Effect.gen(function* () {
         const issues = yield* findCompatibilityIssues(cameraSettings, viewModeSettings, animationSettings)
 
-        return yield* Effect.if(issues.length === 0, {
-          onTrue: () =>
+        return yield* pipe(
+          Match.value(issues.length === 0),
+          Match.when(true, () =>
             Effect.succeed(
               CompatibilityResult.Compatible({
                 confidence: 1.0,
                 notes: ['All settings are fully compatible'],
               })
-            ),
-          onFalse: () =>
+            )
+          ),
+          Match.orElse(() =>
             Effect.gen(function* () {
               const criticalIssues = issues.filter((issue) => issue.impact === 'high')
 
-              return yield* Effect.if(criticalIssues.length > 0, {
-                onTrue: () =>
+              return yield* pipe(
+                Match.value(criticalIssues.length > 0),
+                Match.when(true, () =>
                   Effect.gen(function* () {
                     const conflicts = yield* convertIssuesToConflicts(criticalIssues)
                     const requiredChanges = yield* generateRequiredChanges(criticalIssues)
@@ -129,18 +132,21 @@ export const SettingsValidatorServiceLive = Layer.succeed(
                       conflicts,
                       requiredChanges,
                     })
-                  }),
-                onFalse: () =>
+                  })
+                ),
+                Match.orElse(() =>
                   Effect.gen(function* () {
                     const suggestions = yield* generateCompatibilitySuggestions(issues)
                     return CompatibilityResult.PartiallyCompatible({
                       issues,
                       suggestions,
                     })
-                  }),
-              })
-            }),
-        })
+                  })
+                )
+              )
+            })
+          )
+        )
       }),
 
     /**
@@ -158,10 +164,13 @@ export const SettingsValidatorServiceLive = Layer.succeed(
         const platformLimited = yield* applyPlatformLimits(performanceLimited, constraints.platformLimits)
 
         // アクセシビリティ要件を適用
-        return yield* Effect.if(constraints.accessibilityRequirements !== undefined, {
-          onTrue: () => applyAccessibilityRequirements(platformLimited, constraints.accessibilityRequirements),
-          onFalse: () => Effect.succeed(platformLimited),
-        })
+        return yield* pipe(
+          Match.value(constraints.accessibilityRequirements),
+          Match.when((req): req is AccessibilityRequirements => req !== undefined, (req) =>
+            applyAccessibilityRequirements(platformLimited, req)
+          ),
+          Match.orElse(() => Effect.succeed(platformLimited))
+        )
       }),
 
     /**
@@ -245,14 +254,16 @@ export const SettingsValidatorServiceLive = Layer.succeed(
         // レンダリング距離と品質レベルの妥当性
         const maxRenderDistance = getMaxRenderDistanceForQuality(qualityLevel)
 
-        const adjustedRenderDistance = yield* Effect.if(renderDistance > maxRenderDistance, {
-          onTrue: () =>
+        const adjustedRenderDistance = yield* pipe(
+          Match.value(renderDistance > maxRenderDistance),
+          Match.when(true, () =>
             Effect.sync(() => {
               adjustments.push(`Render distance reduced to ${maxRenderDistance} for quality level ${qualityLevel}`)
               return maxRenderDistance
-            }),
-          onFalse: () => Effect.succeed(renderDistance),
-        })
+            })
+          ),
+          Match.orElse(() => Effect.succeed(renderDistance))
+        )
 
         return {
           nearPlane,
@@ -575,16 +586,17 @@ const applyHardwareLimits = (
 ): Effect.Effect<CameraSettings, SettingsValidationError> =>
   Effect.gen(function* () {
     // フレームレート制限
-    const frameRateLimited = yield* Effect.if(settings.frameRate > limits.maxFrameRate, {
-      onTrue: () => CameraSettingsOps.setFrameRate(settings, limits.maxFrameRate),
-      onFalse: () => Effect.succeed(settings),
-    })
+    const frameRateLimited = yield* pipe(
+      Match.value(settings.frameRate > limits.maxFrameRate),
+      Match.when(true, () => CameraSettingsOps.setFrameRate(settings, limits.maxFrameRate)),
+      Match.orElse(() => Effect.succeed(settings))
+    )
 
-    // 品質レベル調整
-    return yield* Effect.if(frameRateLimited.qualityLevel > limits.maxTextureQuality, {
-      onTrue: () => CameraSettingsOps.setQualityLevel(frameRateLimited, limits.maxTextureQuality),
-      onFalse: () => Effect.succeed(frameRateLimited),
-    })
+    return yield* pipe(
+      Match.value(frameRateLimited.qualityLevel > limits.maxTextureQuality),
+      Match.when(true, () => CameraSettingsOps.setQualityLevel(frameRateLimited, limits.maxTextureQuality)),
+      Match.orElse(() => Effect.succeed(frameRateLimited))
+    )
   })
 
 /**
@@ -596,10 +608,11 @@ const applyPerformanceLimits = (
 ): Effect.Effect<CameraSettings, SettingsValidationError> =>
   Effect.gen(function* () {
     // ターゲットフレームレートに調整
-    return yield* Effect.if(settings.frameRate > limits.targetFrameRate, {
-      onTrue: () => CameraSettingsOps.setFrameRate(settings, limits.targetFrameRate),
-      onFalse: () => Effect.succeed(settings),
-    })
+    return yield* pipe(
+      Match.value(settings.frameRate > limits.targetFrameRate),
+      Match.when(true, () => CameraSettingsOps.setFrameRate(settings, limits.targetFrameRate)),
+      Match.orElse(() => Effect.succeed(settings))
+    )
   })
 
 /**

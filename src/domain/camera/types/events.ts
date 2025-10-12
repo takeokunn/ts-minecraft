@@ -1,6 +1,5 @@
-import type { JsonValue } from '@shared/schema/json'
 import { JsonValueSchema } from '@shared/schema/json'
-import { Clock, Data, Effect, Schema } from 'effect'
+import { Schema } from 'effect'
 import type {
   CameraDistance,
   CameraMode,
@@ -14,11 +13,6 @@ import { CameraModeSchema, Position3DSchema, Rotation2DSchema } from './constant
 // ========================================
 // Event Base Types
 // ========================================
-
-/**
- * カメラIDのBrand型
- */
-export type CameraId = string & { readonly _brand: 'CameraId' }
 
 /**
  * Position3D型（constants.jsからの再エクスポート）
@@ -52,95 +46,28 @@ export type AnimationState = {
 }
 
 // ========================================
-// Domain Events ADT
+// Domain Event Tags
 // ========================================
 
-/**
- * カメラドメインイベント
- */
-export type CameraEvent = Data.TaggedEnum<{
-  CameraInitialized: {
-    readonly cameraId: CameraId
-    readonly viewMode: CameraMode
-    readonly timestamp: number
-  }
-  ViewModeChanged: {
-    readonly cameraId: CameraId
-    readonly fromMode: CameraMode
-    readonly toMode: CameraMode
-    readonly timestamp: number
-  }
-  PositionUpdated: {
-    readonly cameraId: CameraId
-    readonly fromPosition: Position3D
-    readonly toPosition: Position3D
-    readonly timestamp: number
-  }
-  RotationUpdated: {
-    readonly cameraId: CameraId
-    readonly fromRotation: CameraRotation
-    readonly toRotation: CameraRotation
-    readonly timestamp: number
-  }
-  SettingsChanged: {
-    readonly cameraId: CameraId
-    readonly changedSettings: Partial<CameraSettings>
-    readonly timestamp: number
-  }
-  AnimationStarted: {
-    readonly cameraId: CameraId
-    readonly animationState: AnimationState
-    readonly timestamp: number
-  }
-  AnimationCompleted: {
-    readonly cameraId: CameraId
-    readonly animationState: AnimationState
-    readonly timestamp: number
-  }
-  AnimationCancelled: {
-    readonly cameraId: CameraId
-    readonly animationState: AnimationState
-    readonly reason: string
-    readonly timestamp: number
-  }
-  CollisionDetected: {
-    readonly cameraId: CameraId
-    readonly position: Position3D
-    readonly obstruction: JsonValue
-    readonly timestamp: number
-  }
-  CameraLocked: {
-    readonly cameraId: CameraId
-    readonly reason: string
-    readonly timestamp: number
-  }
-  CameraUnlocked: {
-    readonly cameraId: CameraId
-    readonly timestamp: number
-  }
-  FOVChanged: {
-    readonly cameraId: CameraId
-    readonly fromFOV: FOV
-    readonly toFOV: FOV
-    readonly timestamp: number
-  }
-  SensitivityChanged: {
-    readonly cameraId: CameraId
-    readonly fromSensitivity: Sensitivity
-    readonly toSensitivity: Sensitivity
-    readonly timestamp: number
-  }
-  CameraShakeStarted: {
-    readonly cameraId: CameraId
-    readonly intensity: number
-    readonly duration: number
-    readonly timestamp: number
-  }
-  CameraShakeEnded: {
-    readonly cameraId: CameraId
-    readonly timestamp: number
-  }
-}>
+export const CameraEventTagSchema = Schema.Literal(
+  'CameraInitialized',
+  'ViewModeChanged',
+  'PositionUpdated',
+  'RotationUpdated',
+  'SettingsChanged',
+  'AnimationStarted',
+  'AnimationCompleted',
+  'AnimationCancelled',
+  'CollisionDetected',
+  'CameraLocked',
+  'CameraUnlocked',
+  'FOVChanged',
+  'SensitivityChanged',
+  'CameraShakeStarted',
+  'CameraShakeEnded'
+)
+
+export type CameraEventTag = Schema.Schema.Type<typeof CameraEventTagSchema>
 
 // ========================================
 // Schema Definitions
@@ -149,12 +76,13 @@ export type CameraEvent = Data.TaggedEnum<{
 /**
  * CameraIdスキーマ
  */
-export const CameraIdSchema = Schema.String.pipe(Schema.brand('CameraId'))
+export const CameraIdSchema = Schema.String.pipe(
+  Schema.trimmed(),
+  Schema.minLength(1),
+  Schema.brand('CameraId')
+)
 
-/**
- * Position3Dスキーマ（constants.jsからの再エクスポート）
- */
-export { Position3DSchema } from './index'
+export type CameraId = Schema.Schema.Type<typeof CameraIdSchema>
 
 /**
  * CameraRotationスキーマ（constants.jsのRotation2DSchemaとしての再エクスポート）
@@ -317,197 +245,29 @@ export const CameraEventSchema = Schema.Union(
   CameraShakeEndedSchema
 )
 
-// ========================================
-// Event Factory Functions
-// ========================================
+export type CameraEvent = Schema.Schema.Type<typeof CameraEventSchema>
 
-/**
- * カメライベントファクトリー
- */
-export const createCameraEvent = {
-  cameraInitialized: (cameraId: CameraId, viewMode: CameraMode): Effect.Effect<CameraEvent> =>
-    Effect.gen(function* () {
-      const timestamp = yield* Clock.currentTimeMillis
-      return Data.struct({
-        _tag: 'CameraInitialized' as const,
-        cameraId,
-        viewMode,
-        timestamp,
-      })
-    }),
-
-  viewModeChanged: (cameraId: CameraId, fromMode: CameraMode, toMode: CameraMode): Effect.Effect<CameraEvent> =>
-    Effect.gen(function* () {
-      const timestamp = yield* Clock.currentTimeMillis
-      return Data.struct({
-        _tag: 'ViewModeChanged' as const,
-        cameraId,
-        fromMode,
-        toMode,
-        timestamp,
-      })
-    }),
-
-  positionUpdated: (cameraId: CameraId, fromPosition: Position3D, toPosition: Position3D): Effect.Effect<CameraEvent> =>
-    Effect.gen(function* () {
-      const timestamp = yield* Clock.currentTimeMillis
-      return Data.struct({
-        _tag: 'PositionUpdated' as const,
-        cameraId,
-        fromPosition,
-        toPosition,
-        timestamp,
-      })
-    }),
-
-  rotationUpdated: (
-    cameraId: CameraId,
-    fromRotation: CameraRotation,
-    toRotation: CameraRotation
-  ): Effect.Effect<CameraEvent> =>
-    Effect.gen(function* () {
-      const timestamp = yield* Clock.currentTimeMillis
-      return Data.struct({
-        _tag: 'RotationUpdated' as const,
-        cameraId,
-        fromRotation,
-        toRotation,
-        timestamp,
-      })
-    }),
-
-  settingsChanged: (cameraId: CameraId, changedSettings: Partial<CameraSettings>): Effect.Effect<CameraEvent> =>
-    Effect.gen(function* () {
-      const timestamp = yield* Clock.currentTimeMillis
-      return Data.struct({
-        _tag: 'SettingsChanged' as const,
-        cameraId,
-        changedSettings,
-        timestamp,
-      })
-    }),
-
-  animationStarted: (cameraId: CameraId, animationState: AnimationState): Effect.Effect<CameraEvent> =>
-    Effect.gen(function* () {
-      const timestamp = yield* Clock.currentTimeMillis
-      return Data.struct({
-        _tag: 'AnimationStarted' as const,
-        cameraId,
-        animationState,
-        timestamp,
-      })
-    }),
-
-  animationCompleted: (cameraId: CameraId, animationState: AnimationState): Effect.Effect<CameraEvent> =>
-    Effect.gen(function* () {
-      const timestamp = yield* Clock.currentTimeMillis
-      return Data.struct({
-        _tag: 'AnimationCompleted' as const,
-        cameraId,
-        animationState,
-        timestamp,
-      })
-    }),
-
-  animationCancelled: (
-    cameraId: CameraId,
-    animationState: AnimationState,
-    reason: string
-  ): Effect.Effect<CameraEvent> =>
-    Effect.gen(function* () {
-      const timestamp = yield* Clock.currentTimeMillis
-      return Data.struct({
-        _tag: 'AnimationCancelled' as const,
-        cameraId,
-        animationState,
-        reason,
-        timestamp,
-      })
-    }),
-
-  collisionDetected: (cameraId: CameraId, position: Position3D, obstruction: JsonValue): Effect.Effect<CameraEvent> =>
-    Effect.gen(function* () {
-      const timestamp = yield* Clock.currentTimeMillis
-      return Data.struct({
-        _tag: 'CollisionDetected' as const,
-        cameraId,
-        position,
-        obstruction,
-        timestamp,
-      })
-    }),
-
-  cameraLocked: (cameraId: CameraId, reason: string): Effect.Effect<CameraEvent> =>
-    Effect.gen(function* () {
-      const timestamp = yield* Clock.currentTimeMillis
-      return Data.struct({
-        _tag: 'CameraLocked' as const,
-        cameraId,
-        reason,
-        timestamp,
-      })
-    }),
-
-  cameraUnlocked: (cameraId: CameraId): Effect.Effect<CameraEvent> =>
-    Effect.gen(function* () {
-      const timestamp = yield* Clock.currentTimeMillis
-      return Data.struct({
-        _tag: 'CameraUnlocked' as const,
-        cameraId,
-        timestamp,
-      })
-    }),
-
-  fovChanged: (cameraId: CameraId, fromFOV: FOV, toFOV: FOV): Effect.Effect<CameraEvent> =>
-    Effect.gen(function* () {
-      const timestamp = yield* Clock.currentTimeMillis
-      return Data.struct({
-        _tag: 'FOVChanged' as const,
-        cameraId,
-        fromFOV,
-        toFOV,
-        timestamp,
-      })
-    }),
-
-  sensitivityChanged: (
-    cameraId: CameraId,
-    fromSensitivity: Sensitivity,
-    toSensitivity: Sensitivity
-  ): Effect.Effect<CameraEvent> =>
-    Effect.gen(function* () {
-      const timestamp = yield* Clock.currentTimeMillis
-      return Data.struct({
-        _tag: 'SensitivityChanged' as const,
-        cameraId,
-        fromSensitivity,
-        toSensitivity,
-        timestamp,
-      })
-    }),
-
-  cameraShakeStarted: (cameraId: CameraId, intensity: number, duration: number): Effect.Effect<CameraEvent> =>
-    Effect.gen(function* () {
-      const timestamp = yield* Clock.currentTimeMillis
-      return Data.struct({
-        _tag: 'CameraShakeStarted' as const,
-        cameraId,
-        intensity,
-        duration,
-        timestamp,
-      })
-    }),
-
-  cameraShakeEnded: (cameraId: CameraId): Effect.Effect<CameraEvent> =>
-    Effect.gen(function* () {
-      const timestamp = yield* Clock.currentTimeMillis
-      return Data.struct({
-        _tag: 'CameraShakeEnded' as const,
-        cameraId,
-        timestamp,
-      })
-    }),
+export const CameraEventSchemas = {
+  CameraInitialized: CameraInitializedSchema,
+  ViewModeChanged: ViewModeChangedSchema,
+  PositionUpdated: PositionUpdatedSchema,
+  RotationUpdated: RotationUpdatedSchema,
+  SettingsChanged: SettingsChangedSchema,
+  AnimationStarted: AnimationStartedSchema,
+  AnimationCompleted: AnimationCompletedSchema,
+  AnimationCancelled: AnimationCancelledSchema,
+  CollisionDetected: CollisionDetectedSchema,
+  CameraLocked: CameraLockedSchema,
+  CameraUnlocked: CameraUnlockedSchema,
+  FOVChanged: FOVChangedSchema,
+  SensitivityChanged: SensitivityChangedSchema,
+  CameraShakeStarted: CameraShakeStartedSchema,
+  CameraShakeEnded: CameraShakeEndedSchema,
 } as const
+
+export const validateCameraEvent = Schema.decodeUnknown(CameraEventSchema)
+export const isCameraEvent = Schema.is(CameraEventSchema)
+export const parseCameraEvent = Schema.decodeSync(CameraEventSchema)
 
 // ========================================
 // Event Type Guards

@@ -479,36 +479,59 @@ const makeDependencyCoordinatorService = Effect.gen(function* () {
       const recursionStack = new Set<string>()
       const cycles: string[][] = []
 
-      const dfs = (nodeId: string, path: string[]): boolean => {
-        if (recursionStack.has(nodeId)) {
-          const cycleStart = path.indexOf(nodeId)
-          cycles.push(path.slice(cycleStart))
-          return true
-        }
+      const dfs = (nodeId: string, path: string[]): boolean =>
+        pipe(
+          Match.value(recursionStack.has(nodeId)),
+          Match.when(
+            (inStack) => inStack,
+            () => {
+              const cycleStart = path.indexOf(nodeId)
+              cycles.push(path.slice(cycleStart))
+              return true
+            }
+          ),
+          Match.orElse(() =>
+            pipe(
+              Match.value(visited.has(nodeId)),
+              Match.when(
+                (seen) => seen,
+                () => false
+              ),
+              Match.orElse(() => {
+                visited.add(nodeId)
+                recursionStack.add(nodeId)
 
-        if (visited.has(nodeId)) return false
+                const dependencies = nodes.get(nodeId)?.dependencies ?? []
+                const hasCycle = pipe(
+                  dependencies,
+                  ReadonlyArray.some((depId) => dfs(depId, [...path, nodeId]))
+                )
 
-        visited.add(nodeId)
-        recursionStack.add(nodeId)
-
-        const dependencies = nodes.get(nodeId)?.dependencies || []
-        const hasCycle = pipe(
-          dependencies,
-          ReadonlyArray.some((depId) => dfs(depId, [...path, nodeId]))
+                return pipe(
+                  Match.value(hasCycle),
+                  Match.when(
+                    (cycleDetected) => cycleDetected,
+                    () => true
+                  ),
+                  Match.orElse(() => {
+                    recursionStack.delete(nodeId)
+                    return false
+                  })
+                )
+              })
+            )
+          )
         )
-        if (hasCycle) return true
 
-        recursionStack.delete(nodeId)
-        return false
-      }
-
-      pipe(
-        Array.from(nodes.keys()),
-        ReadonlyArray.map((nodeId) => {
-          if (!visited.has(nodeId)) {
-            dfs(nodeId, [])
-          }
-        })
+      Array.from(nodes.keys()).forEach((nodeId) =>
+        pipe(
+          Match.value(visited.has(nodeId)),
+          Match.when(
+            (seen) => seen,
+            () => undefined
+          ),
+          Match.orElse(() => dfs(nodeId, []))
+        )
       )
 
       return cycles
@@ -560,32 +583,39 @@ const makeDependencyCoordinatorService = Effect.gen(function* () {
         result: string[],
         inDegree: Map<string, number>,
         adjList: Map<string, string[]>
-      ): string[] => {
-        if (queue.length === 0) return result
+      ): string[] =>
+        pipe(
+          Match.value(queue.length === 0),
+          Match.when((empty) => empty, () => result),
+          Match.orElse(() => {
+            const current = queue[0]
+            const newQueue = queue.slice(1)
+            const newResult = [...result, current]
 
-        const current = queue[0]
-        const newQueue = queue.slice(1)
-        const newResult = [...result, current]
+            const neighbors = adjList.get(current) ?? []
+            const { updatedQueue, updatedInDegree } = pipe(
+              neighbors,
+              ReadonlyArray.reduce({ updatedQueue: newQueue, updatedInDegree: inDegree }, (acc, neighbor) => {
+                const newDegree = (acc.updatedInDegree.get(neighbor) ?? 0) - 1
+                acc.updatedInDegree.set(neighbor, newDegree)
 
-        const neighbors = adjList.get(current) || []
-        const { updatedQueue, updatedInDegree } = pipe(
-          neighbors,
-          ReadonlyArray.reduce({ updatedQueue: newQueue, updatedInDegree: inDegree }, (acc, neighbor) => {
-            const newDegree = (acc.updatedInDegree.get(neighbor) || 0) - 1
-            acc.updatedInDegree.set(neighbor, newDegree)
+                return pipe(
+                  Match.value(newDegree === 0),
+                  Match.when(
+                    (zero) => zero,
+                    () => ({
+                      updatedQueue: [...acc.updatedQueue, neighbor],
+                      updatedInDegree: acc.updatedInDegree,
+                    })
+                  ),
+                  Match.orElse(() => acc)
+                )
+              })
+            )
 
-            if (newDegree === 0) {
-              return {
-                updatedQueue: [...acc.updatedQueue, neighbor],
-                updatedInDegree: acc.updatedInDegree,
-              }
-            }
-            return acc
+            return processQueue(updatedQueue, newResult, updatedInDegree, adjList)
           })
         )
-
-        return processQueue(updatedQueue, newResult, updatedInDegree, adjList)
-      }
 
       const initialQueue = pipe(
         Array.from(inDegree.entries()),

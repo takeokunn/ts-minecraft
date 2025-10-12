@@ -381,13 +381,21 @@ export const TerrainGeneratorServiceLive = Layer.effect(
         const baseHeight = config.minHeight + ((noiseValue + 1) / 2) * (config.maxHeight - config.minHeight)
 
         // 3. セカンダリノイズの適用
-        if (config.secondaryNoise) {
-          const secondaryValue = yield* calculateNoiseAt(coordinate, config.secondaryNoise, seed)
-          const modifiedHeight = baseHeight + secondaryValue * config.heightVariation * 0.1
-          return Math.round(Math.max(config.minHeight, Math.min(config.maxHeight, modifiedHeight)))
-        }
-
-        return Math.round(baseHeight)
+        return yield* pipe(
+          Match.value(config.secondaryNoise),
+          Match.when(
+            (secondary): secondary is undefined => secondary === undefined,
+            () => Effect.succeed(Math.round(baseHeight))
+          ),
+          Match.orElse((secondary) =>
+            Effect.gen(function* () {
+              const secondaryValue = yield* calculateNoiseAt(coordinate, secondary, seed)
+              const modifiedHeight = baseHeight + secondaryValue * config.heightVariation * 0.1
+              const clampedHeight = Math.max(config.minHeight, Math.min(config.maxHeight, modifiedHeight))
+              return Math.round(clampedHeight)
+            })
+          )
+        )
       }),
 
     placeLayers: (heightMap, layers, config) =>
@@ -409,25 +417,38 @@ export const TerrainGeneratorServiceLive = Layer.effect(
                           layers,
                           Effect.forEach(
                             (layer) =>
-                              Effect.gen(function* () {
-                                if (surfaceHeight >= layer.minHeight && surfaceHeight <= layer.maxHeight) {
-                                  const densityModifier =
-                                    layer.noiseInfluence > 0
-                                      ? yield* calculateDensityModifier(x, z, layer.noiseInfluence)
-                                      : 1.0
+                              pipe(
+                                Match.value(surfaceHeight),
+                                Match.when(
+                                  (height) => height >= layer.minHeight && height <= layer.maxHeight,
+                                  () =>
+                                    Effect.gen(function* () {
+                                      const densityModifier =
+                                        layer.noiseInfluence > 0
+                                          ? yield* calculateDensityModifier(x, z, layer.noiseInfluence)
+                                          : 1.0
 
-                                  const finalDensity = layer.density * densityModifier
+                                      const finalDensity = layer.density * densityModifier
 
-                                  if (finalDensity > 0.5) {
-                                    return Option.some<LayerPlacement>({
-                                      coordinate: makeUnsafeWorldCoordinate(x, surfaceHeight, z),
-                                      material: layer.materialType,
-                                      density: finalDensity,
+                                      return yield* pipe(
+                                        Match.value(finalDensity),
+                                        Match.when(
+                                          (density) => density > 0.5,
+                                          (density) =>
+                                            Effect.succeed(
+                                              Option.some<LayerPlacement>({
+                                                coordinate: makeUnsafeWorldCoordinate(x, surfaceHeight, z),
+                                                material: layer.materialType,
+                                                density,
+                                              })
+                                            )
+                                        ),
+                                        Match.orElse(() => Effect.succeed(Option.none()))
+                                      )
                                     })
-                                  }
-                                }
-                                return Option.none()
-                              }),
+                                ),
+                                Match.orElse(() => Effect.succeed(Option.none()))
+                              ),
                             { concurrency: 4 }
                           ),
                           Effect.map(ReadonlyArray.getSomes)
@@ -477,40 +498,43 @@ export const TerrainGeneratorServiceLive = Layer.effect(
 
     validateTerrain: (result, config) =>
       Effect.gen(function* () {
-        const warnings: string[] = []
-
         // 1. 高度範囲の検証
         const heights = result.heightMap.heights.flat()
         const minHeight = Math.min(...heights)
         const maxHeight = Math.max(...heights)
 
-        if (minHeight < config.minHeight) {
-          warnings.push(`Generated terrain below minimum height: ${minHeight} < ${config.minHeight}`)
-        }
-
-        if (maxHeight > config.maxHeight) {
-          warnings.push(`Generated terrain above maximum height: ${maxHeight} > ${config.maxHeight}`)
-        }
-
         // 2. ブロック密度の検証
         const totalArea = result.heightMap.heights.length * result.heightMap.heights[0].length
         const blockDensity = result.statistics.totalBlocks / totalArea
 
-        if (blockDensity < 0.1) {
-          warnings.push(`Low block density detected: ${blockDensity.toFixed(3)}`)
-        }
-
-        if (blockDensity > 10.0) {
-          warnings.push(`High block density detected: ${blockDensity.toFixed(3)}`)
-        }
-
         // 3. 生成時間の検証
-        if (result.statistics.generationTime > 10000) {
-          // 10秒以上
-          warnings.push(`Long generation time: ${result.statistics.generationTime}ms`)
-        }
+        const warnings = pipe(
+          [
+            [
+              minHeight < config.minHeight,
+              `Generated terrain below minimum height: ${minHeight} < ${config.minHeight}`,
+            ],
+            [
+              maxHeight > config.maxHeight,
+              `Generated terrain above maximum height: ${maxHeight} > ${config.maxHeight}`,
+            ],
+            [blockDensity < 0.1, `Low block density detected: ${blockDensity.toFixed(3)}`],
+            [blockDensity > 10.0, `High block density detected: ${blockDensity.toFixed(3)}`],
+            [result.statistics.generationTime > 10000, `Long generation time: ${result.statistics.generationTime}ms`],
+          ] as const,
+          ReadonlyArray.filterMap(([condition, message]) =>
+            pipe(
+              Match.value(condition),
+              Match.when(
+                (flag) => flag,
+                () => Option.some(message)
+              ),
+              Match.orElse(() => Option.none<string>())
+            )
+          )
+        )
 
-        return warnings
+        return Array.from(warnings)
       }),
   })
 )

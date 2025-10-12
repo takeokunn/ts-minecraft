@@ -468,16 +468,31 @@ export const IndexedDBManager = {
       const db = yield* openDatabase(IndexedDBSchema)
 
       // ストア作成
-      for (const [storeName, config] of Object.entries(IndexedDBSchema.stores)) {
-        const store = db.createObjectStore(storeName, {
-          keyPath: config.keyPath,
-        })
+      yield* pipe(
+        Object.entries(IndexedDBSchema.stores),
+        ReadonlyArray.fromIterable,
+        Effect.forEach(
+          ([storeName, config]) =>
+            Effect.suspend(() => {
+              const store = db.createObjectStore(storeName, {
+                keyPath: config.keyPath,
+              })
 
-        // インデックス作成
-        for (const [indexName, indexConfig] of Object.entries(config.indexes)) {
-          store.createIndex(indexName, indexName, indexConfig)
-        }
-      }
+              return pipe(
+                Object.entries(config.indexes),
+                ReadonlyArray.fromIterable,
+                Effect.forEach(
+                  ([indexName, indexConfig]) =>
+                    Effect.sync(() => {
+                      store.createIndex(indexName, indexName, indexConfig)
+                    }),
+                  { discard: true }
+                )
+              )
+            }),
+          { discard: true }
+        )
+      )
 
       return db
     }),
@@ -697,17 +712,29 @@ export const LazyChunkLoader = {
   predictChunkNeed: (playerPos: Vector3, viewDistance: number) =>
     Effect.gen(function* () {
       const center = ChunkPos.fromWorldPos(playerPos)
+      const offsets = ReadonlyArray.range(-viewDistance, viewDistance + 1)
       const needed = new Set<string>()
 
-      // 現在位置周辺
-      for (let x = -viewDistance; x <= viewDistance; x++) {
-        for (let z = -viewDistance; z <= viewDistance; z++) {
-          const distance = Math.sqrt(x * x + z * z)
-          if (distance <= viewDistance) {
-            needed.add(`${center.x + x},${center.z + z}`)
-          }
-        }
-      }
+      yield* pipe(
+        offsets,
+        Effect.forEach(
+          (x) =>
+            pipe(
+              offsets,
+              Effect.forEach(
+                (z) =>
+                  Effect.sync(() => {
+                    const distance = Math.sqrt(x * x + z * z)
+                    if (distance <= viewDistance) {
+                      needed.add(`${center.x + x},${center.z + z}`)
+                    }
+                  }),
+                { discard: true }
+              )
+            ),
+          { discard: true }
+        )
+      )
 
       return needed
     }),
@@ -738,9 +765,11 @@ export const LazyChunkLoader = {
 
       const toRemove = sortedByAccess.slice(0, cache.size - maxCachedChunks)
 
-      for (const [key] of toRemove) {
-        yield* ChunkCache.remove(key)
-      }
+      yield* pipe(
+        toRemove,
+        ReadonlyArray.fromIterable,
+        Effect.forEach(([key]) => ChunkCache.remove(key), { discard: true })
+      )
     }),
 }
 ```
@@ -776,11 +805,13 @@ export const StreamingWorldLoader = {
       })
 
       // 高優先度から順次処理
-      for (const request of sorted.slice(0, 4)) {
-        yield* loadChunk(request.worldId, request.x, request.z).pipe(
-          Effect.fork // 並行実行
-        )
-      }
+      yield* pipe(
+        sorted.slice(0, 4),
+        ReadonlyArray.fromIterable,
+        Effect.forEach((request) => loadChunk(request.worldId, request.x, request.z).pipe(Effect.fork), {
+          discard: true,
+        })
+      )
     }),
 }
 ```

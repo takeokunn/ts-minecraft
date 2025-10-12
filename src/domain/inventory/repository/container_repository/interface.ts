@@ -239,15 +239,15 @@ export interface ContainerRepository {
    * @returns 存在フラグ (成功時) | RepositoryError (失敗時)
    *
    * @example
-   * ```typescript
-   * const exists = yield* repo.exists('chest-001' as ContainerId)
-   * if (exists) {
-   *   console.log('コンテナは存在します')
-   * } else {
-   *   console.log('コンテナは存在しません')
-   * }
-   * ```
-   */
+ * ```typescript
+ * const exists = yield* repo.exists('chest-001' as ContainerId)
+ * yield* pipe(
+ *   Match.value(exists),
+ *   Match.when(true, () => Effect.log('コンテナは存在します')),
+ *   Match.orElse(() => Effect.log('コンテナは存在しません'))
+ * )
+ * ```
+ */
   readonly exists: (id: ContainerId) => Effect.Effect<boolean, AllRepositoryErrors>
 
   /**
@@ -259,15 +259,16 @@ export interface ContainerRepository {
    * @returns コンテナ数 (成功時) | RepositoryError (失敗時)
    *
    * @example
-   * ```typescript
-   * const count = yield* repo.count()
-   * console.log(`登録コンテナ数: ${count}`)
-   *
-   * if (count > 100000) {
-   *   console.warn('コンテナ数が上限に近づいています')
-   * }
-   * ```
-   */
+ * ```typescript
+ * const count = yield* repo.count()
+ * yield* Effect.log(`登録コンテナ数: ${count}`)
+ * yield* pipe(
+ *   Match.value(count > 100000),
+ *   Match.when(true, () => Effect.log('⚠️ コンテナ数が上限に近づいています')),
+ *   Match.orElse(() => Effect.unit)
+ * )
+ * ```
+ */
   readonly count: () => Effect.Effect<number, AllRepositoryErrors>
 
   /**

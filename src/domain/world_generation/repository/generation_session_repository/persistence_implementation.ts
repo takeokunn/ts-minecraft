@@ -26,7 +26,7 @@ import {
 import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
 import * as NodePath from '@effect/platform-node/NodePath'
 import { JsonValueSchema, type JsonValue } from '@shared/schema/json'
-import { Clock, DateTime, Effect, Function, Layer, Option, pipe, Random, ReadonlyArray, Ref, Schema } from 'effect'
+import { Clock, DateTime, Effect, Function, Layer, Match, Option, pipe, Random, ReadonlyArray, Ref, Schema } from 'effect'
 import { makeUnsafeGenerationSessionId } from '../../aggregate/generation_session/shared/index'
 import type {
   ChunkGenerationTask,
@@ -953,27 +953,50 @@ const makeGenerationSessionRepositoryPersistence = (
         const failureRate = totalSessions > 0 ? failedSessions / totalSessions : 0
 
         const totalActiveDuration = sessions.reduce((sum, session) => {
-          const startedAt = session.startedAt
-          const end = session.completedAt ?? session.lastActivityAt
-          if (startedAt && end) {
-            return sum + Math.max(0, end.getTime() - startedAt.getTime())
-          }
-          return sum
+          const maybeTimes = Option.all([
+            Option.fromNullable(session.startedAt),
+            Option.fromNullable(session.completedAt ?? session.lastActivityAt),
+          ])
+
+          return pipe(
+            maybeTimes,
+            Option.match({
+              onNone: () => sum,
+              onSome: ([startedAt, end]) => sum + Math.max(0, end.getTime() - startedAt.getTime()),
+            })
+          )
         }, 0)
 
         const averageChunksPerSecond = totalActiveDuration > 0 ? (totalChunksGenerated * 1000) / totalActiveDuration : 0
 
         const recoveryAggregate = sessions.reduce(
           (acc, session) =>
-            session.chunks.reduce((innerAcc, task) => {
-              if (task.retryCount > 0) {
-                innerAcc.attempts += 1
-                if (task.status === 'completed') {
-                  innerAcc.successes += 1
-                }
-              }
-              return innerAcc
-            }, acc),
+            session.chunks.reduce(
+              (innerAcc, task) =>
+                pipe(
+                  Match.value(task.retryCount > 0),
+                  Match.when(
+                    (hasRetry) => hasRetry,
+                    () =>
+                      pipe(
+                        Match.value(task.status),
+                        Match.when(
+                          (status) => status === 'completed',
+                          () => ({
+                            attempts: innerAcc.attempts + 1,
+                            successes: innerAcc.successes + 1,
+                          })
+                        ),
+                        Match.orElse(() => ({
+                          attempts: innerAcc.attempts + 1,
+                          successes: innerAcc.successes,
+                        }))
+                      )
+                  ),
+                  Match.orElse(() => innerAcc)
+                ),
+              acc
+            ),
           { attempts: 0, successes: 0 }
         )
 

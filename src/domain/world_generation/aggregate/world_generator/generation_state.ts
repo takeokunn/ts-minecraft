@@ -10,7 +10,7 @@
 import type * as WorldTypes from '@domain/world/types/core'
 import type * as GenerationErrors from '@domain/world/types/errors'
 import * as Coordinates from '@domain/world/value_object/coordinates/index'
-import { DateTime, Effect, Option, Schema } from 'effect'
+import { DateTime, Effect, Match, Option, ReadonlyArray, Schema, pipe } from 'effect'
 
 // ================================
 // Generation Status
@@ -126,13 +126,12 @@ export const startChunkGeneration = (
     const now = yield* DateTime.nowAsDate
 
     // 既に生成中または完了済みかチェック
-    if (coordinateKey in state.activeGenerations) {
-      return yield* Effect.fail(GenerationErrors.createStateError(`Chunk ${coordinateKey} is already being generated`))
-    }
+    yield* ensureChunkAbsent(
+      state.activeGenerations[coordinateKey],
+      `Chunk ${coordinateKey} is already being generated`
+    )
 
-    if (coordinateKey in state.completedChunks) {
-      return yield* Effect.fail(GenerationErrors.createStateError(`Chunk ${coordinateKey} is already completed`))
-    }
+    yield* ensureChunkAbsent(state.completedChunks[coordinateKey], `Chunk ${coordinateKey} is already completed`)
 
     const generationInfo: ChunkGenerationInfo = {
       coordinate,
@@ -174,12 +173,11 @@ export const completeChunkGeneration = (
     const coordinateKey = coordinateToKey(coordinate)
     const now = yield* DateTime.nowAsDate
 
-    const activeGeneration = state.activeGenerations[coordinateKey]
-    if (!activeGeneration) {
-      return yield* Effect.fail(
-        GenerationErrors.createStateError(`No active generation found for chunk ${coordinateKey}`)
-      )
-    }
+    const activeGeneration = yield* requireActiveGeneration(
+      state,
+      coordinateKey,
+      `No active generation found for chunk ${coordinateKey}`
+    )
 
     // 生成時間計算
     const duration = activeGeneration.startedAt ? now.getTime() - activeGeneration.startedAt.getTime() : 0
@@ -203,10 +201,11 @@ export const completeChunkGeneration = (
 
     const { [coordinateKey]: _, ...remainingActiveGenerations } = state.activeGenerations
     const newConcurrentCount = state.statistics.concurrentGenerations - 1
+    const nextStatus = determineNextStatus(remainingActiveGenerations)
 
     const updatedState: GenerationState = {
       ...state,
-      status: Object.keys(remainingActiveGenerations).length > 0 ? 'generating' : 'idle',
+      status: nextStatus,
       activeGenerations: remainingActiveGenerations,
       completedChunks: {
         ...state.completedChunks,
@@ -241,12 +240,11 @@ export const failChunkGeneration = (
     const coordinateKey = coordinateToKey(coordinate)
     const now = yield* DateTime.nowAsDate
 
-    const activeGeneration = state.activeGenerations[coordinateKey]
-    if (!activeGeneration) {
-      return yield* Effect.fail(
-        GenerationErrors.createStateError(`No active generation found for chunk ${coordinateKey}`)
-      )
-    }
+    const activeGeneration = yield* requireActiveGeneration(
+      state,
+      coordinateKey,
+      `No active generation found for chunk ${coordinateKey}`
+    )
 
     const failedInfo: ChunkGenerationInfo = {
       ...activeGeneration,
@@ -261,10 +259,11 @@ export const failChunkGeneration = (
 
     const { [coordinateKey]: _, ...remainingActiveGenerations } = state.activeGenerations
     const newConcurrentCount = state.statistics.concurrentGenerations - 1
+    const nextStatus = determineNextStatus(remainingActiveGenerations)
 
     const updatedState: GenerationState = {
       ...state,
-      status: Object.keys(remainingActiveGenerations).length > 0 ? 'generating' : 'idle',
+      status: nextStatus,
       activeGenerations: remainingActiveGenerations,
       statistics: {
         ...state.statistics,
@@ -319,27 +318,36 @@ export const getChunkGenerationStatus = (
   dataHash?: string
 }> => {
   const coordinateKey = coordinateToKey(coordinate)
-
-  // アクティブ生成をチェック
-  const activeGeneration = state.activeGenerations[coordinateKey]
-  if (activeGeneration) {
-    return Option.some({
-      status: activeGeneration.status,
-      info: activeGeneration,
-    })
-  }
-
-  // 完了済みをチェック
-  const completed = state.completedChunks[coordinateKey]
-  if (completed) {
-    return Option.some({
-      status: completed.info.status,
-      info: completed.info,
-      dataHash: completed.dataHash,
-    })
-  }
-
-  return Option.none()
+  return pipe(
+    Match.value(Option.fromNullable(state.activeGenerations[coordinateKey])),
+    Match.tag('Some', ({ value }) =>
+      Option.some({
+        status: value.status,
+        info: value,
+      })
+    ),
+    Match.tag('None', () =>
+      pipe(
+        Match.value(Option.fromNullable(state.completedChunks[coordinateKey])),
+        Match.tag('Some', ({ value }) =>
+          Option.some({
+            status: value.info.status,
+            info: value.info,
+            dataHash: value.dataHash,
+          })
+        ),
+        Match.tag('None', () =>
+          Option.none<{
+            status: GenerationStatus
+            info: ChunkGenerationInfo
+            dataHash?: string
+          }>()
+        ),
+        Match.exhaustive
+      )
+    ),
+    Match.exhaustive
+  )
 }
 
 // ================================
@@ -373,6 +381,38 @@ const calculateChunkDataHash = (chunkData: WorldTypes.ChunkData): string => {
   )
   return hash.toString(36)
 }
+
+const ensureChunkAbsent = <A>(
+  value: A | undefined,
+  message: string
+): Effect.Effect<void, GenerationErrors.StateError> =>
+  pipe(
+    Match.value(Option.fromNullable(value)),
+    Match.tag('Some', () => Effect.fail(GenerationErrors.createStateError(message))),
+    Match.tag('None', () => Effect.void),
+    Match.exhaustive
+  )
+
+const requireActiveGeneration = (
+  state: GenerationState,
+  coordinateKey: string,
+  message: string
+): Effect.Effect<ChunkGenerationInfo, GenerationErrors.StateError> =>
+  pipe(
+    Match.value(Option.fromNullable(state.activeGenerations[coordinateKey])),
+    Match.tag('Some', ({ value }) => Effect.succeed(value)),
+    Match.tag('None', () => Effect.fail(GenerationErrors.createStateError(message))),
+    Match.exhaustive
+  )
+
+const determineNextStatus = (
+  activeGenerations: GenerationState['activeGenerations']
+): GenerationStatus =>
+  pipe(
+    Match.value(Object.keys(activeGenerations).length),
+    Match.when((count) => count > 0, () => 'generating' as GenerationStatus),
+    Match.orElse(() => 'idle' as GenerationStatus)
+  )
 
 // ================================
 // Exports

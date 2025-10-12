@@ -82,13 +82,23 @@ export const EasingFunctions = {
       }),
       Match.tag('Bounce', ({ amplitude, period }) => {
         const tNum = t
-        if (tNum === 1) return 1
-        return amplitude * Math.pow(2, -10 * tNum) * Math.sin(((tNum - period / 4) * (2 * Math.PI)) / period) + 1
+        return pipe(
+          Match.value(tNum === 1),
+          Match.when(true, () => 1),
+          Match.orElse(() =>
+            amplitude * Math.pow(2, -10 * tNum) * Math.sin(((tNum - period / 4) * (2 * Math.PI)) / period) + 1
+          )
+        )
       }),
       Match.tag('Elastic', ({ amplitude, period }) => {
         const tNum = t
-        if (tNum === 0 || tNum === 1) return tNum
-        return amplitude * Math.pow(2, -10 * tNum) * Math.sin(((tNum - period / 4) * (2 * Math.PI)) / period) + 1
+        return pipe(
+          Match.value(tNum === 0 || tNum === 1),
+          Match.when(true, () => tNum),
+          Match.orElse(() =>
+            amplitude * Math.pow(2, -10 * tNum) * Math.sin(((tNum - period / 4) * (2 * Math.PI)) / period) + 1
+          )
+        )
       }),
       Match.tag('Back', ({ overshoot }) => {
         const tNum = t
@@ -254,15 +264,19 @@ export const AnimationStateOps = {
           const progress = Math.min(1, elapsed / duration)
           const currentProgress = yield* AnimationValueFactory.createProgress(progress)
 
-          if (progress >= 1) {
-            return yield* AnimationStateOps.complete(state)
-          }
-
-          return AnimationState.Playing({
-            startTime,
-            duration,
-            currentProgress,
-          })
+          return yield* pipe(
+            Match.value(progress >= 1),
+            Match.when(true, () => AnimationStateOps.complete(state)),
+            Match.orElse(() =>
+              Effect.succeed(
+                AnimationState.Playing({
+                  startTime,
+                  duration,
+                  currentProgress,
+                })
+              )
+            )
+          )
         })
       ),
       Match.orElse(() => Effect.succeed(state))
@@ -300,9 +314,8 @@ export const InterpolationOps = {
     t: number
   ): { pitch: number; yaw: number; roll: number } => {
     // ヨー角の最短経路を計算
-    let yawDiff = to.yaw - from.yaw
-    if (yawDiff > 180) yawDiff -= 360
-    if (yawDiff < -180) yawDiff += 360
+    const rawYawDiff = to.yaw - from.yaw
+    const yawDiff = ((rawYawDiff + 180) % 360 + 360) % 360 - 180
 
     return {
       pitch: InterpolationOps.lerpNumber(from.pitch, to.pitch, t),
@@ -324,43 +337,48 @@ export const InterpolationOps = {
       fov: number
     },
     AnimationError
-  > => {
-    if (keyframes.length < 2) {
-      return Effect.fail(
-        AnimationError.KeyframeValidationFailed({
-          keyframeIndex: 0,
-          reason: 'At least 2 keyframes required for interpolation',
+  > =>
+    pipe(
+      Match.value(keyframes.length < 2),
+      Match.when(
+        (insufficient) => insufficient,
+        () =>
+          Effect.fail(
+            AnimationError.KeyframeValidationFailed({
+              keyframeIndex: 0,
+              reason: 'At least 2 keyframes required for interpolation',
+            })
+          )
+      ),
+      Match.orElse(() =>
+        Effect.gen(function* () {
+          const t = progress
+
+          const keyframePair = pipe(
+            ReadonlyArray.range(0, keyframes.length - 1),
+            ReadonlyArray.findFirst((i) => t >= keyframes[i].time && t <= keyframes[i + 1].time),
+            Option.map((i) => ({ fromIndex: i, toIndex: i + 1 })),
+            Option.getOrElse(() => ({ fromIndex: 0, toIndex: 1 }))
+          )
+
+          const fromKeyframe = keyframes[keyframePair.fromIndex]
+          const toKeyframe = keyframes[keyframePair.toIndex]
+
+          const segmentProgress = (t - fromKeyframe.time) / (toKeyframe.time - fromKeyframe.time)
+
+          const easedProgress = EasingFunctions.apply(
+            Brand.nominal<AnimationProgress>()(segmentProgress),
+            fromKeyframe.easingToNext
+          )
+
+          return {
+            position: InterpolationOps.lerpPosition(fromKeyframe.position, toKeyframe.position, easedProgress),
+            rotation: InterpolationOps.lerpRotation(fromKeyframe.rotation, toKeyframe.rotation, easedProgress),
+            fov: InterpolationOps.lerpNumber(fromKeyframe.fov, toKeyframe.fov, easedProgress),
+          }
         })
       )
-    }
-
-    const t = progress
-
-    // 現在の時間に対応するキーフレームペアを見つける
-    const keyframePair = pipe(
-      ReadonlyArray.range(0, keyframes.length - 1),
-      ReadonlyArray.findFirst((i) => t >= keyframes[i].time && t <= keyframes[i + 1].time),
-      Option.map((i) => ({ fromIndex: i, toIndex: i + 1 })),
-      Option.getOrElse(() => ({ fromIndex: 0, toIndex: 1 }))
     )
-
-    const fromKeyframe = keyframes[keyframePair.fromIndex]
-    const toKeyframe = keyframes[keyframePair.toIndex]
-
-    // キーフレーム間での正規化された時間
-    const segmentProgress = (t - fromKeyframe.time) / (toKeyframe.time - fromKeyframe.time)
-
-    // イージングを適用
-    const easedProgress = EasingFunctions.apply(
-      Brand.nominal<AnimationProgress>()(segmentProgress),
-      fromKeyframe.easingToNext
-    )
-
-    return Effect.succeed({
-      position: InterpolationOps.lerpPosition(fromKeyframe.position, toKeyframe.position, easedProgress),
-      rotation: InterpolationOps.lerpRotation(fromKeyframe.rotation, toKeyframe.rotation, easedProgress),
-      fov: InterpolationOps.lerpNumber(fromKeyframe.fov, toKeyframe.fov, easedProgress),
-    })
   },
 }
 

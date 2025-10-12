@@ -177,15 +177,19 @@ export interface InventoryRepository {
    * @returns 存在フラグ (成功時) | RepositoryError (失敗時)
    *
    * @example
-   * ```typescript
-   * const exists = yield* repo.exists('player-123' as PlayerId)
-   * if (exists) {
-   *   console.log('プレイヤーのインベントリは存在します')
-   * } else {
-   *   console.log('プレイヤーのインベントリは未作成です')
-   * }
-   * ```
-   */
+ * ```typescript
+ * yield* pipe(
+ *   repo.exists('player-123' as PlayerId),
+ *   Effect.flatMap((exists) =>
+ *     pipe(
+ *       Match.value(exists),
+ *       Match.when(true, () => Effect.log('プレイヤーのインベントリは存在します')),
+ *       Match.orElse(() => Effect.log('プレイヤーのインベントリは未作成です'))
+ *     )
+ *   )
+ * )
+ * ```
+ */
   readonly exists: (playerId: PlayerId) => Effect.Effect<boolean, AllRepositoryErrors>
 
   /**
@@ -197,15 +201,16 @@ export interface InventoryRepository {
    * @returns インベントリ数 (成功時) | RepositoryError (失敗時)
    *
    * @example
-   * ```typescript
-   * const count = yield* repo.count()
-   * console.log(`登録インベントリ数: ${count}`)
-   *
-   * if (count > 10000) {
-   *   console.warn('インベントリ数が上限に近づいています')
-   * }
-   * ```
-   */
+ * ```typescript
+ * const count = yield* repo.count()
+ * yield* Effect.log(`登録インベントリ数: ${count}`)
+ * yield* pipe(
+ *   Match.value(count > 10000),
+ *   Match.when(true, () => Effect.log('⚠️ インベントリ数が上限に近づいています')),
+ *   Match.orElse(() => Effect.unit)
+ * )
+ * ```
+ */
   readonly count: () => Effect.Effect<number, AllRepositoryErrors>
 
   /**

@@ -654,28 +654,65 @@ export const FractalNoiseServiceLive = Layer.effect(
           let optimizedConfig = { ...baseConfig }
 
           // 粗さ（roughness）の最適化
-          if (targetProperties.roughness !== undefined) {
-            optimizedConfig.persistence = 0.3 + targetProperties.roughness * 0.4
-            optimizedConfig.lacunarity = 1.5 + targetProperties.roughness * 1.0
-          }
+          optimizedConfig = pipe(
+            Match.value(targetProperties.roughness),
+            Match.when(
+              (roughness): roughness is undefined | null => roughness == null,
+              () => optimizedConfig
+            ),
+            Match.orElse((roughness) => ({
+              ...optimizedConfig,
+              persistence: 0.3 + roughness * 0.4,
+              lacunarity: 1.5 + roughness * 1.0,
+            }))
+          )
 
           // 詳細レベル（detail）の最適化
-          if (targetProperties.detail !== undefined) {
-            optimizedConfig.octaves = Math.max(1, Math.round(4 + targetProperties.detail * 8))
-            optimizedConfig.baseFrequency *= 1 + targetProperties.detail * 0.5
-          }
+          optimizedConfig = pipe(
+            Match.value(targetProperties.detail),
+            Match.when(
+              (detail): detail is undefined | null => detail == null,
+              () => optimizedConfig
+            ),
+            Match.orElse((detail) => ({
+              ...optimizedConfig,
+              octaves: Math.max(1, Math.round(4 + detail * 8)),
+              baseFrequency: optimizedConfig.baseFrequency * (1 + detail * 0.5),
+            }))
+          )
 
           // 自然性（naturalness）の最適化
-          if (targetProperties.naturalness !== undefined) {
-            if (targetProperties.naturalness > 0.7) {
-              optimizedConfig.type = 'brownian_motion'
-              optimizedConfig.baseNoiseType = 'perlin'
-            } else if (targetProperties.naturalness > 0.4) {
-              optimizedConfig.type = 'turbulence'
-            } else {
-              optimizedConfig.type = 'ridged_multifractal'
-            }
-          }
+          optimizedConfig = pipe(
+            Match.value(targetProperties.naturalness),
+            Match.when(
+              (naturalness): naturalness is undefined | null => naturalness == null,
+              () => optimizedConfig
+            ),
+            Match.orElse((naturalness) =>
+              pipe(
+                Match.value(naturalness),
+                Match.when(
+                  (value) => value > 0.7,
+                  () => ({
+                    ...optimizedConfig,
+                    type: 'brownian_motion',
+                    baseNoiseType: 'perlin',
+                  })
+                ),
+                Match.when(
+                  (value) => value > 0.4,
+                  () => ({
+                    ...optimizedConfig,
+                    type: 'turbulence',
+                  })
+                ),
+                Match.orElse(() => ({
+                  ...optimizedConfig,
+                  type: 'ridged_multifractal',
+                }))
+              )
+            )
+          )
 
           return optimizedConfig
         }),

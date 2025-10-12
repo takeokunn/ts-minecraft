@@ -258,16 +258,17 @@ const makeErrorRecoveryService = Effect.gen(function* () {
       )
 
       const adjustedStrategy = yield* pipe(
-        errorContext.retryCount >= strategy.maxAttempts,
-        Effect.if({
-          onTrue: () =>
+        Match.value(errorContext.retryCount >= strategy.maxAttempts),
+        Match.when(
+          (exceeded) => exceeded,
+          () =>
             Effect.succeed({
               ...strategy,
               strategy: 'fallback' as const,
               maxAttempts: 1,
-            }),
-          onFalse: () => Effect.succeed(strategy),
-        })
+            })
+        ),
+        Match.orElse(() => Effect.succeed(strategy))
       )
 
       yield* Effect.logInfo(`回復戦略決定: ${errorContext.classification} -> ${adjustedStrategy.strategy}`)
@@ -386,16 +387,17 @@ const makeErrorRecoveryService = Effect.gen(function* () {
                 onNone: () => Effect.void,
                 onSome: (retryTime) =>
                   pipe(
-                    now < retryTime,
-                    Effect.if({
-                      onTrue: () =>
+                    Match.value(now < retryTime),
+                    Match.when(
+                      (shouldBlock) => shouldBlock,
+                      () =>
                         Effect.fail<never, ErrorRecoveryServiceErrorType>({
                           _tag: 'ErrorRecoveryServiceError',
                           message: `サーキットブレーカーが開いています: ${id}`,
                           recoveryId: id,
-                        }),
-                      onFalse: () => Effect.void,
-                    })
+                        })
+                    ),
+                    Match.orElse(() => Effect.void)
                   ),
               })
             )
@@ -416,16 +418,17 @@ const makeErrorRecoveryService = Effect.gen(function* () {
                 const shouldClose = newSuccessCount >= config.circuitBreakerConfig.halfOpenMaxCalls
 
                 yield* pipe(
-                  shouldClose,
-                  Effect.if({
-                    onTrue: () =>
+                  Match.value(shouldClose),
+                  Match.when(
+                    (close) => close,
+                    () =>
                       updateCircuitBreakerState(id, {
                         state: 'closed',
                         failureCount: 0,
                         successCount: 0,
-                      }),
-                    onFalse: () => updateCircuitBreakerState(id, { successCount: newSuccessCount }),
-                  })
+                      })
+                  ),
+                  Match.orElse(() => updateCircuitBreakerState(id, { successCount: newSuccessCount }))
                 )
               })
             ),
@@ -438,9 +441,10 @@ const makeErrorRecoveryService = Effect.gen(function* () {
             const shouldOpen = newFailureCount >= config.circuitBreakerConfig.failureThreshold
 
             yield* pipe(
-              shouldOpen,
-              Effect.if({
-                onTrue: () =>
+              Match.value(shouldOpen),
+              Match.when(
+                (open) => open,
+                () =>
                   Effect.gen(function* () {
                     const timestamp = yield* Clock.currentTimeMillis
                     return yield* updateCircuitBreakerState(id, {
@@ -449,9 +453,9 @@ const makeErrorRecoveryService = Effect.gen(function* () {
                       lastFailureTime: timestamp,
                       nextRetryTime: timestamp,
                     })
-                  }),
-                onFalse: () => updateCircuitBreakerState(id, { failureCount: newFailureCount }),
-              })
+                  })
+              ),
+              Match.orElse(() => updateCircuitBreakerState(id, { failureCount: newFailureCount }))
             )
 
             return yield* Effect.fail(error)

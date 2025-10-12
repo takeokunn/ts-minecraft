@@ -292,25 +292,16 @@ export const BiomePropertiesValidation = {
     const vegDensity = bundle.vegetation.overall.totalDensity
 
     // 高温地域での高密度植生（熱帯雨林等）
-    if (tempMean > 20 && vegDensity > 0.8) {
-      return bundle.humidity.annual.mean > 70
-    }
-
-    // 低温地域での植生制限
-    if (tempMean < 0 && vegDensity > 0.5) {
-      return false
-    }
-
-    // 湿度と土壌の整合性
-    const humidity = bundle.humidity.annual.mean
-    const soilOM = bundle.soil.organicMatter.totalOrganicMatter
-
-    // 高湿度地域での有機物蓄積
-    if (humidity > 80 && soilOM < 0.03) {
-      return false
-    }
-
-    return true
+    return pipe(
+      Match.value(true),
+      Match.when(tempMean > 20 && vegDensity > 0.8, () => bundle.humidity.annual.mean > 70),
+      Match.when(tempMean < 0 && vegDensity > 0.5, () => false),
+      Match.when(
+        bundle.humidity.annual.mean > 80 && bundle.soil.organicMatter.totalOrganicMatter < 0.03,
+        () => false
+      ),
+      Match.orElse(() => true)
+    )
   },
 
   /**
@@ -481,15 +472,13 @@ function createBiomeFromEnvironment(params: EnvironmentalParameters): BiomePrope
   // 簡略的な環境パラメータからの推定
   const { meanTemperature, annualPrecipitation } = params
 
-  if (meanTemperature > 18 && annualPrecipitation > 1500) {
-    return createTropicalRainforestProperties()
-  } else if (annualPrecipitation < 250) {
-    return createDesertProperties()
-  } else if (meanTemperature < -3) {
-    return createTundraProperties()
-  } else {
-    return createTemperateForestProperties()
-  }
+  return pipe(
+    Match.value(true),
+    Match.when(meanTemperature > 18 && annualPrecipitation > 1500, () => createTropicalRainforestProperties()),
+    Match.when(annualPrecipitation < 250, () => createDesertProperties()),
+    Match.when(meanTemperature < -3, () => createTundraProperties()),
+    Match.orElse(() => createTemperateForestProperties())
+  )
 }
 
 // 簡略的なプリセット→オブジェクト変換ヘルパー

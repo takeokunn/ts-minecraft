@@ -15,7 +15,7 @@ import type {
   WorldSeed,
 } from '@domain/world/types'
 import { createRepositoryError, createWorldGeneratorNotFoundError } from '@domain/world/types'
-import { Clock, DateTime, Effect, Layer, Option, pipe, ReadonlyArray, Ref } from 'effect'
+import { Clock, DateTime, Effect, Layer, Option, pipe, ReadonlyArray, Ref, Either } from 'effect'
 import { Buffer } from 'node:buffer'
 import {
   WorldGeneratorRepository,
@@ -331,23 +331,32 @@ const makeWorldGeneratorRepositoryMemory = (
           { concurrency: Math.min(generators.length, 4) }
         )
 
-        const successful: WorldId[] = []
-        const failed: Array<{ worldId: WorldId; error: AllRepositoryErrors }> = []
-
-        for (const { generator, result } of results) {
-          if (result._tag === 'Right') {
-            successful.push(generator.worldId)
-          } else {
-            failed.push({
-              worldId: generator.worldId,
-              error: result.left,
-            })
-          }
-        }
+        const aggregated = pipe(
+          results,
+          ReadonlyArray.reduce(
+            {
+              successful: [] as ReadonlyArray<WorldId>,
+              failed: [] as ReadonlyArray<{ worldId: WorldId; error: AllRepositoryErrors }>,
+            },
+            (acc, { generator, result }) =>
+              result._tag === 'Right'
+                ? {
+                    ...acc,
+                    successful: pipe(acc.successful, ReadonlyArray.append(generator.worldId)),
+                  }
+                : {
+                    ...acc,
+                    failed: pipe(
+                      acc.failed,
+                      ReadonlyArray.append({ worldId: generator.worldId, error: result.left })
+                    ),
+                  }
+          )
+        )
 
         return {
-          successful,
-          failed,
+          successful: aggregated.successful,
+          failed: aggregated.failed,
           totalProcessed: generators.length,
         }
       })
@@ -362,20 +371,29 @@ const makeWorldGeneratorRepositoryMemory = (
           { concurrency: Math.min(worldIds.length, 4) }
         )
 
-        const successful: WorldId[] = []
-        const failed: Array<{ worldId: WorldId; error: AllRepositoryErrors }> = []
-
-        for (const { worldId, result } of results) {
-          if (result._tag === 'Right') {
-            successful.push(worldId)
-          } else {
-            failed.push({ worldId, error: result.left })
-          }
-        }
+        const aggregated = pipe(
+          results,
+          ReadonlyArray.reduce(
+            {
+              successful: [] as ReadonlyArray<WorldId>,
+              failed: [] as ReadonlyArray<{ worldId: WorldId; error: AllRepositoryErrors }>,
+            },
+            (acc, { worldId, result }) =>
+              result._tag === 'Right'
+                ? {
+                    ...acc,
+                    successful: pipe(acc.successful, ReadonlyArray.append(worldId)),
+                  }
+                : {
+                    ...acc,
+                    failed: pipe(acc.failed, ReadonlyArray.append({ worldId, error: result.left })),
+                  }
+          )
+        )
 
         return {
-          successful,
-          failed,
+          successful: aggregated.successful,
+          failed: aggregated.failed,
           totalProcessed: worldIds.length,
         }
       })
@@ -614,18 +632,20 @@ const makeWorldGeneratorRepositoryMemory = (
     }
   })
 
-const estimateGeneratorMemoryBytes = (generator: WorldGenerator): number => {
-  try {
-    return Buffer.byteLength(
-      JSON.stringify({
-        context: generator.context,
-        statistics: generator.state.statistics,
-      })
-    )
-  } catch {
-    return 0
-  }
-}
+const estimateGeneratorMemoryBytes = (generator: WorldGenerator): number =>
+  pipe(
+    Either.try({
+      try: () =>
+        Buffer.byteLength(
+          JSON.stringify({
+            context: generator.context,
+            statistics: generator.state.statistics,
+          })
+        ),
+      catch: () => 0,
+    }),
+    Either.getOrElse((fallback) => fallback)
+  )
 
 const buildPerformanceMetric = (generator: WorldGenerator): PerformanceMetrics => {
   const stats = generator.state.statistics
@@ -645,32 +665,29 @@ const hasIsActiveFlag = (candidate: WorldGenerator): candidate is WorldGenerator
 const isGeneratorActive = (generator: WorldGenerator): boolean =>
   hasIsActiveFlag(generator) ? generator.isActive : generator.state.status !== 'idle'
 
-const summarizeGenerators = (generators: Iterable<WorldGenerator>) => {
-  let totalChunks = 0
-  let totalTime = 0
-  let failureCount = 0
-  let activeCount = 0
-  let memoryBytes = 0
-
-  for (const generator of generators) {
-    const stats = generator.state.statistics
-    totalChunks += stats.totalChunksGenerated
-    totalTime += stats.totalGenerationTime
-    failureCount += stats.failureCount
-    if (isGeneratorActive(generator)) {
-      activeCount += 1
-    }
-    memoryBytes += estimateGeneratorMemoryBytes(generator)
-  }
-
-  return {
-    totalChunks,
-    totalTime,
-    failureCount,
-    activeCount,
-    memoryBytes,
-  }
-}
+const summarizeGenerators = (generators: Iterable<WorldGenerator>) =>
+  pipe(
+    ReadonlyArray.fromIterable(generators),
+    ReadonlyArray.reduce(
+      {
+        totalChunks: 0,
+        totalTime: 0,
+        failureCount: 0,
+        activeCount: 0,
+        memoryBytes: 0,
+      },
+      (acc, generator) => {
+        const stats = generator.state.statistics
+        return {
+          totalChunks: acc.totalChunks + stats.totalChunksGenerated,
+          totalTime: acc.totalTime + stats.totalGenerationTime,
+          failureCount: acc.failureCount + stats.failureCount,
+          activeCount: acc.activeCount + (isGeneratorActive(generator) ? 1 : 0),
+          memoryBytes: acc.memoryBytes + estimateGeneratorMemoryBytes(generator),
+        }
+      }
+    )
+  )
 
 // === Layer Creation ===
 

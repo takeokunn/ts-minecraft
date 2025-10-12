@@ -56,13 +56,11 @@ export const InventoryRepositoryLayers = {
   auto: Layer.unwrapEffect(
     Effect.gen(function* () {
       const isBrowser = yield* Effect.sync(() => typeof window !== 'undefined' && typeof localStorage !== 'undefined')
-
-      if (isBrowser) {
-        return InventoryRepositoryLayers.persistentDefault
-      } else {
-        // Node.js環境では永続化未対応のためメモリ実装
-        return InventoryRepositoryLayers.memory
-      }
+      return pipe(
+        Match.value(isBrowser),
+        Match.when(true, () => InventoryRepositoryLayers.persistentDefault),
+        Match.orElse(() => InventoryRepositoryLayers.memory)
+      )
     })
   ),
 } as const
@@ -99,13 +97,11 @@ export const ItemDefinitionRepositoryLayers = {
   auto: Layer.unwrapEffect(
     Effect.gen(function* () {
       const isNodeJS = yield* Effect.sync(() => typeof process !== 'undefined' && process.versions?.node)
-
-      if (isNodeJS) {
-        return ItemDefinitionRepositoryLayers.jsonFileDefault
-      } else {
-        // ブラウザ環境ではファイルアクセス不可のためメモリ実装
-        return ItemDefinitionRepositoryLayers.memory
-      }
+      return pipe(
+        Match.value(Boolean(isNodeJS)),
+        Match.when(true, () => ItemDefinitionRepositoryLayers.jsonFileDefault),
+        Match.orElse(() => ItemDefinitionRepositoryLayers.memory)
+      )
     })
   ),
 } as const
@@ -142,13 +138,11 @@ export const ContainerRepositoryLayers = {
   auto: Layer.unwrapEffect(
     Effect.gen(function* () {
       const isBrowser = yield* Effect.sync(() => typeof window !== 'undefined' && typeof localStorage !== 'undefined')
-
-      if (isBrowser) {
-        return ContainerRepositoryLayers.persistentDefault
-      } else {
-        // Node.js環境では永続化未対応のためメモリ実装
-        return ContainerRepositoryLayers.memory
-      }
+      return pipe(
+        Match.value(isBrowser),
+        Match.when(true, () => ContainerRepositoryLayers.persistentDefault),
+        Match.orElse(() => ContainerRepositoryLayers.memory)
+      )
     })
   ),
 } as const

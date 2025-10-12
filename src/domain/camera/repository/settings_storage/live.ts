@@ -5,7 +5,7 @@
  * プレイヤー設定、グローバル設定、プリセット設定の統合管理
  */
 
-import { Array, Clock, Effect, Either, HashMap, Layer, Option, pipe, Ref, Schema } from 'effect'
+import { Array, Clock, Effect, Either, HashMap, Layer, Match, Option, pipe, Ref, Schema } from 'effect'
 import type {
   CameraPresetSettings,
   CleanupResult,
@@ -188,22 +188,28 @@ const StorageOps = {
       let deletedPresets = 0
 
       // 古いプレイヤー設定を削除
-      const filteredPlayerSettings = HashMap.filter(state.playerSettings, (settings) => {
-        if (settings.lastModified < cutoffTime) {
-          deletedPlayerSettings++
-          return false
-        }
-        return true
-      })
+      const filteredPlayerSettings = HashMap.filter(state.playerSettings, (settings) =>
+        pipe(
+          Match.value(settings.lastModified < cutoffTime),
+          Match.when(true, () => {
+            deletedPlayerSettings++
+            return false
+          }),
+          Match.orElse(() => true)
+        )
+      )
 
       // 古いプリセット設定を削除
-      const filteredPresetSettings = HashMap.filter(state.presetSettings, (preset) => {
-        if (preset.createdAt < cutoffTime) {
-          deletedPresets++
-          return false
-        }
-        return true
-      })
+      const filteredPresetSettings = HashMap.filter(state.presetSettings, (preset) =>
+        pipe(
+          Match.value(preset.createdAt < cutoffTime),
+          Match.when(true, () => {
+            deletedPresets++
+            return false
+          }),
+          Match.orElse(() => true)
+        )
+      )
 
       const cleanedState: SettingsStorageState = {
         ...state,
@@ -386,16 +392,29 @@ export const SettingsStorageRepositoryLive = Layer.effect(
           let presetNames = Array.from(HashMap.keys(state.presetSettings))
 
           // ソート処理（簡易実装）
-          if (options?.sortBy._tag === 'Name') {
-            presetNames = presetNames.sort((a, b) =>
-              options.sortBy.ascending ? a.localeCompare(b) : b.localeCompare(a)
-            )
-          }
+          presetNames = pipe(
+            Option.fromNullable(options?.sortBy),
+            Option.match({
+              onNone: () => presetNames,
+              onSome: (sortBy) =>
+                pipe(
+                  Match.value(sortBy._tag),
+                  Match.when('Name', () =>
+                    presetNames.sort((a, b) => (sortBy.ascending ? a.localeCompare(b) : b.localeCompare(a)))
+                  ),
+                  Match.orElse(() => presetNames)
+                ),
+            })
+          )
 
           // 制限処理
-          if (Option.isSome(options?.limit)) {
-            presetNames = presetNames.slice(0, options.limit.value)
-          }
+          presetNames = pipe(
+            Option.fromNullable(options?.limit),
+            Option.match({
+              onNone: () => presetNames,
+              onSome: (limit) => presetNames.slice(0, limit.value),
+            })
+          )
 
           return presetNames
         }).pipe(handleSettingsOperation),
@@ -406,22 +425,38 @@ export const SettingsStorageRepositoryLive = Layer.effect(
           let presets = Array.from(HashMap.values(state.presetSettings))
 
           // タグフィルタリング
-          if (Option.isSome(options?.filterByTag)) {
-            const filterTag = options.filterByTag.value
-            presets = presets.filter((preset) => preset.tags.includes(filterTag))
-          }
+          presets = pipe(
+            Option.fromNullable(options?.filterByTag),
+            Option.match({
+              onNone: () => presets,
+              onSome: (filterTag) => presets.filter((preset) => preset.tags.includes(filterTag.value)),
+            })
+          )
 
           // ソート処理
-          if (options?.sortBy._tag === 'CreatedAt') {
-            presets = presets.sort((a, b) =>
-              options.sortBy.ascending ? a.createdAt - b.createdAt : b.createdAt - a.createdAt
-            )
-          }
+          presets = pipe(
+            Option.fromNullable(options?.sortBy),
+            Option.match({
+              onNone: () => presets,
+              onSome: (sortBy) =>
+                pipe(
+                  Match.value(sortBy._tag),
+                  Match.when('CreatedAt', () =>
+                    presets.sort((a, b) => (sortBy.ascending ? a.createdAt - b.createdAt : b.createdAt - a.createdAt))
+                  ),
+                  Match.orElse(() => presets)
+                ),
+            })
+          )
 
           // 制限処理
-          if (Option.isSome(options?.limit)) {
-            presets = presets.slice(0, options.limit.value)
-          }
+          presets = pipe(
+            Option.fromNullable(options?.limit),
+            Option.match({
+              onNone: () => presets,
+              onSome: (limit) => presets.slice(0, limit.value),
+            })
+          )
 
           return presets
         }).pipe(handleSettingsOperation),
@@ -450,24 +485,29 @@ export const SettingsStorageRepositoryLive = Layer.effect(
           const state = yield* Ref.get(storageRef)
           const sourcePreset = HashMap.get(state.presetSettings, sourcePresetName)
 
-          if (Option.isNone(sourcePreset)) {
-            return yield* Effect.fail(createSettingsRepositoryError.presetNotFound(sourcePresetName))
-          }
+          return yield* pipe(
+            sourcePreset,
+            Option.match({
+              onNone: () => Effect.fail(createSettingsRepositoryError.presetNotFound(sourcePresetName)),
+              onSome: (preset) =>
+                Effect.gen(function* () {
+                  const now = yield* Clock.currentTimeMillis
+                  const copiedPreset: CameraPresetSettings = {
+                    ...preset,
+                    name: targetPresetName,
+                    createdAt: now,
+                    createdBy: newCreator,
+                    version: 1,
+                  }
 
-          const now = yield* Clock.currentTimeMillis
-          const copiedPreset: CameraPresetSettings = {
-            ...sourcePreset.value,
-            name: targetPresetName,
-            createdAt: now,
-            createdBy: newCreator,
-            version: 1,
-          }
+                  yield* Ref.updateEffect(storageRef, (currentState) =>
+                    StorageOps.storePresetSettings(currentState, targetPresetName, copiedPreset)
+                  )
 
-          yield* Ref.updateEffect(storageRef, (currentState) =>
-            StorageOps.storePresetSettings(currentState, targetPresetName, copiedPreset)
+                  yield* Effect.logDebug(`Preset copied: ${sourcePresetName} -> ${targetPresetName}`)
+                }),
+            })
           )
-
-          yield* Effect.logDebug(`Preset copied: ${sourcePresetName} -> ${targetPresetName}`)
         }).pipe(handleSettingsOperation),
 
       // ========================================
@@ -505,19 +545,20 @@ export const SettingsStorageRepositoryLive = Layer.effect(
           const result = yield* Ref.modify(storageRef, (state) => {
             const { newState, deletedCount } = pipe(
               playerIds,
-              ReadonlyArray.reduce({ newState: state, deletedCount: 0 }, ({ newState, deletedCount }, playerId) => {
-                if (HashMap.has(newState.playerSettings, playerId)) {
-                  return {
+              ReadonlyArray.reduce({ newState: state, deletedCount: 0 }, ({ newState, deletedCount }, playerId) =>
+                pipe(
+                  Match.value(HashMap.has(newState.playerSettings, playerId)),
+                  Match.when(true, () => ({
                     newState: {
                       ...newState,
                       playerSettings: HashMap.remove(newState.playerSettings, playerId),
                       usageAnalytics: HashMap.remove(newState.usageAnalytics, playerId),
                     },
                     deletedCount: deletedCount + 1,
-                  }
-                }
-                return { newState, deletedCount }
-              })
+                  })),
+                  Match.orElse(() => ({ newState, deletedCount }))
+                )
+              )
             )
             return [
               deletedCount,
@@ -541,19 +582,23 @@ export const SettingsStorageRepositoryLive = Layer.effect(
       exportSettings: (playerId: Option<PlayerId>, includePresets: boolean) =>
         Effect.gen(function* () {
           const state = yield* Ref.get(storageRef)
+          const maybePlayerSettings = pipe(
+            Option.fromNullable(playerId),
+            Option.flatMap((id) => HashMap.get(state.playerSettings, id.value)),
+            Option.map((settings) => settings.value)
+          )
+
           const exportData: ExportPayload = {
             globalSettings: state.globalSettings,
-          }
-
-          if (Option.isSome(playerId)) {
-            const playerSettings = HashMap.get(state.playerSettings, playerId.value)
-            if (Option.isSome(playerSettings)) {
-              exportData.playerSettings = playerSettings.value
-            }
-          }
-
-          if (includePresets) {
-            exportData.presets = Array.from(HashMap.values(state.presetSettings))
+            playerSettings: Option.match(maybePlayerSettings, {
+              onNone: () => undefined,
+              onSome: (settings) => settings,
+            }),
+            presets: pipe(
+              Match.value(includePresets),
+              Match.when(true, () => Array.from(HashMap.values(state.presetSettings))),
+              Match.orElse(() => undefined)
+            ),
           }
 
           return JSON.stringify(exportData, null, 2)
@@ -594,14 +639,16 @@ export const SettingsStorageRepositoryLive = Layer.effect(
             })
           )
 
-          if (!validatedData.success) {
-            return validatedData
-          }
-
-          // 簡易実装: データのインポート処理
-          yield* Effect.logInfo('Settings imported successfully')
-
-          return importResult
+          return yield* pipe(
+            Match.value(validatedData.success),
+            Match.when(true, () =>
+              Effect.gen(function* () {
+                yield* Effect.logInfo('Settings imported successfully')
+                return importResult
+              })
+            ),
+            Match.orElse(() => Effect.succeed(validatedData))
+          )
         }).pipe(handleSettingsOperation),
 
       validateSettings: (jsonData: string) =>
@@ -640,13 +687,11 @@ export const SettingsStorageRepositoryLive = Layer.effect(
             })
           )
 
-          if (!validatedData.isValid) {
-            return validatedData
-          }
-
-          // Schema検証が成功した場合、validatedDataを返す
-
-          return validationResult
+          return pipe(
+            Match.value(validatedData.isValid),
+            Match.when(true, () => validationResult),
+            Match.orElse(() => validatedData)
+          )
         }).pipe(handleSettingsOperation),
 
       // ========================================
@@ -664,20 +709,21 @@ export const SettingsStorageRepositoryLive = Layer.effect(
           const state = yield* Ref.get(storageRef)
           const usage = HashMap.get(state.usageAnalytics, playerId)
 
-          if (Option.isNone(usage)) {
-            return yield* Effect.fail(createSettingsRepositoryError.settingsNotFound('PlayerUsage', playerId))
-          }
-
-          const analytics: PlayerUsageAnalytics = {
-            playerId,
-            settingsChangeFrequency: usage.value.settingsChangeCount,
-            preferredViewModes: Array.from(HashMap.keys(usage.value.viewModeUsage)),
-            customBindingsCount: usage.value.customBindingsCount,
-            lastActivityDate: usage.value.lastActivityDate,
-            mostUsedPresets: Array.from(HashMap.keys(usage.value.presetUsage)),
-          }
-
-          return analytics
+          return yield* pipe(
+            usage,
+            Option.match({
+              onNone: () => Effect.fail(createSettingsRepositoryError.settingsNotFound('PlayerUsage', playerId)),
+              onSome: (data) =>
+                Effect.succeed<PlayerUsageAnalytics>({
+                  playerId,
+                  settingsChangeFrequency: data.settingsChangeCount,
+                  preferredViewModes: Array.from(HashMap.keys(data.viewModeUsage)),
+                  customBindingsCount: data.customBindingsCount,
+                  lastActivityDate: data.lastActivityDate,
+                  mostUsedPresets: Array.from(HashMap.keys(data.presetUsage)),
+                }),
+            })
+          )
         }).pipe(handleSettingsOperation),
 
       // ========================================

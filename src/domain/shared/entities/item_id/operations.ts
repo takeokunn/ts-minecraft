@@ -1,4 +1,4 @@
-import { Effect, pipe, Schema } from 'effect'
+import { Effect, Either, pipe, Schema } from 'effect'
 import { unsafeCoerce } from 'effect/Function'
 import type { ItemId } from './schema'
 import { ItemIdSchema } from './schema'
@@ -21,18 +21,23 @@ export const create = (value: string): Effect.Effect<ItemId, Error> =>
 /**
  * ItemIdの安全な作成（同期版）
  */
-export const createSync = (value: string): ItemId => {
-  try {
-    return Schema.decodeSync(ItemIdSchema)(value)
-  } catch (error) {
-    const issues =
-      (error as any)?.issues?.map((issue: any) => {
-        const path = issue.path?.join('.') || 'unknown'
-        return `${path}: ${issue.message}`
-      }) || []
-    throw new Error(`ItemIdの作成に失敗: ${issues.join('; ') || String(error)}`)
-  }
-}
+const formatIssues = (error: unknown): string =>
+  ((error as any)?.issues?.map((issue: any) => {
+    const path = issue.path?.join('.') || 'unknown'
+    return `${path}: ${issue.message}`
+  }) ?? []).join('; ')
+
+export const createSync = (value: string): ItemId =>
+  pipe(
+    Schema.decodeEither(ItemIdSchema)(value),
+    Either.match({
+      onLeft: (error) => {
+        const formatted = formatIssues(error)
+        throw new Error(`ItemIdの作成に失敗: ${formatted || String(error)}`)
+      },
+      onRight: (id) => id,
+    })
+  )
 
 /**
  * ItemIdの作成（検証なし）

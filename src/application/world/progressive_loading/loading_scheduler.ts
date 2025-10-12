@@ -349,22 +349,35 @@ const makeLoadingSchedulerService = Effect.gen(function* () {
       // Queue投入（バックプレッシャー制御）
       const offered = yield* Queue.offer(queue, request)
 
-      if (!offered) {
-        // Queue満杯時は優先度降格して再試行
-        const downgradedPriority = downgradePriority(request.priority)
+      yield* pipe(
+        Match.value(offered),
+        Match.when(
+          (result) => result === false,
+          () =>
+            Effect.gen(function* () {
+              // Queue満杯時は優先度降格して再試行
+              const downgradedPriority = downgradePriority(request.priority)
 
-        if (downgradedPriority === request.priority) {
-          // backgroundは無制限なのでここには到達しないはず
-          yield* Effect.logError(`全キュー満杯: ${request.id}`)
-          return
-        }
-
-        yield* Effect.logWarning(`Queue満杯により優先度降格: ${request.priority} → ${downgradedPriority}`)
-        yield* scheduleLoad({ ...request, priority: downgradedPriority })
-        return
-      }
-
-      yield* Effect.logInfo(`リクエストキューに追加: ${request.id} (優先度: ${request.priority})`)
+              yield* pipe(
+                Match.value(downgradedPriority),
+                Match.when(
+                  (priority) => priority === request.priority,
+                  () =>
+                    Effect.logError(`全キュー満杯: ${request.id}`)
+                ),
+                Match.orElse(() =>
+                  Effect.gen(function* () {
+                    yield* Effect.logWarning(`Queue満杯により優先度降格: ${request.priority} → ${downgradedPriority}`)
+                    yield* scheduleLoad({ ...request, priority: downgradedPriority })
+                  })
+                )
+              )
+            })
+        ),
+        Match.orElse(() =>
+          Effect.logInfo(`リクエストキューに追加: ${request.id} (優先度: ${request.priority})`)
+        )
+      )
     }).pipe(
       Effect.annotateLogs({
         requestId: request.id,
@@ -411,46 +424,75 @@ const makeLoadingSchedulerService = Effect.gen(function* () {
       const config = yield* Ref.get(configuration)
       const state = yield* Ref.get(schedulerState)
 
-      // 早期return条件チェック
-      if (state.inProgress.size >= config.maxConcurrentLoads) {
-        return Option.none()
-      }
+      const capacityExceeded = state.inProgress.size >= config.maxConcurrentLoads
 
-      // 優先度順にQueueをポーリング
-      const queues = [state.criticalQueue, state.highQueue, state.normalQueue, state.lowQueue, state.backgroundQueue]
+      return yield* pipe(
+        Match.value(capacityExceeded),
+        Match.when(
+          (exceeded) => exceeded,
+          () => Effect.succeed<Option.Option<Schema.Schema.Type<typeof LoadingRequest>>>(Option.none())
+        ),
+        Match.orElse(() =>
+          Effect.gen(function* () {
+            const queues = [
+              state.criticalQueue,
+              state.highQueue,
+              state.normalQueue,
+              state.lowQueue,
+              state.backgroundQueue,
+            ]
 
-      for (const queue of queues) {
-        const taskOption = yield* Queue.poll(queue)
+            const attemptQueue = (queue: Queue.Queue<Schema.Schema.Type<typeof LoadingRequest>>) =>
+              Effect.gen(function* () {
+                const taskOption = yield* Queue.poll(queue)
 
-        if (Option.isSome(taskOption)) {
-          const task = taskOption.value
+                return yield* pipe(
+                  Match.value(taskOption),
+                  Match.tag('None', () => Effect.succeed(Option.none<Schema.Schema.Type<typeof LoadingRequest>>())),
+                  Match.tag('Some', ({ value: task }) =>
+                    pipe(
+                      Match.value(state.cancelled.has(task.id)),
+                      Match.when(
+                        (flag) => flag,
+                        () =>
+                          Effect.gen(function* () {
+                            yield* Ref.update(schedulerState, (s) => ({
+                              ...s,
+                              cancelled: new Set([...s.cancelled].filter((id) => id !== task.id)),
+                            }))
+                            return yield* getNextTask()
+                          })
+                      ),
+                      Match.orElse(() =>
+                        Effect.gen(function* () {
+                          const now = yield* Clock.currentTimeMillis
+                          yield* Ref.update(schedulerState, (s) => ({
+                            ...s,
+                            inProgress: new Map(s.inProgress).set(task.id, {
+                              request: task,
+                              startTime: now,
+                            }),
+                          }))
 
-          // キャンセル確認
-          if (state.cancelled.has(task.id)) {
-            yield* Ref.update(schedulerState, (s) => ({
-              ...s,
-              cancelled: new Set([...s.cancelled].filter((id) => id !== task.id)),
-            }))
-            // 次のタスクを再帰的に取得
-            return yield* getNextTask()
-          }
+                          yield* Effect.logDebug(`次のタスクを取得: ${task.id}`)
+                          return Option.some(task)
+                        })
+                      )
+                    )
+                  ),
+                  Match.exhaustive
+                )
+              })
 
-          // inProgressに移動
-          const now = yield* Clock.currentTimeMillis
-          yield* Ref.update(schedulerState, (s) => ({
-            ...s,
-            inProgress: new Map(s.inProgress).set(task.id, {
-              request: task,
-              startTime: now,
-            }),
-          }))
-
-          yield* Effect.logDebug(`次のタスクを取得: ${task.id}`)
-          return Option.some(task)
-        }
-      }
-
-      return Option.none()
+            return yield* pipe(
+              queues,
+              Effect.reduce(Option.none<Schema.Schema.Type<typeof LoadingRequest>>(), (found, queue) =>
+                Option.isSome(found) ? Effect.succeed(found) : attemptQueue(queue)
+              )
+            )
+          })
+        )
+      )
     })
 
   const reportCompletion = (
@@ -461,43 +503,56 @@ const makeLoadingSchedulerService = Effect.gen(function* () {
     Effect.gen(function* () {
       const now = yield* Clock.currentTimeMillis
 
-      yield* Ref.update(schedulerState, (state) => {
-        const inProgressData = state.inProgress.get(requestId)
-        if (!inProgressData) return state
+      yield* Ref.update(schedulerState, (state) =>
+        pipe(
+          Match.value(state.inProgress.get(requestId)),
+          Match.when(
+            (entry): entry is undefined => entry === undefined,
+            () => state
+          ),
+          Match.orElse((inProgressData) => {
+            const newInProgress = new Map(state.inProgress)
+            newInProgress.delete(requestId)
 
-        const newInProgress = new Map(state.inProgress)
-        newInProgress.delete(requestId)
+            const loadTime = now - inProgressData.startTime
+            const newAverageLoadTime =
+              (state.averageLoadTime * state.totalProcessed + loadTime) / (state.totalProcessed + 1)
 
-        const loadTime = now - inProgressData.startTime
-        const newAverageLoadTime =
-          (state.averageLoadTime * state.totalProcessed + loadTime) / (state.totalProcessed + 1)
+            return pipe(
+              Match.value(success),
+              Match.when(
+                (completed) => completed,
+                () => {
+                  const newCompleted = new Set(state.completed)
+                  newCompleted.add(requestId)
 
-        if (success) {
-          const newCompleted = new Set(state.completed)
-          newCompleted.add(requestId)
+                  return {
+                    ...state,
+                    inProgress: newInProgress,
+                    completed: newCompleted,
+                    totalProcessed: state.totalProcessed + 1,
+                    averageLoadTime: newAverageLoadTime,
+                  }
+                }
+              ),
+              Match.orElse(() => {
+                const newFailed = new Map(state.failed)
+                newFailed.set(requestId, {
+                  requestId,
+                  error: 'Loading failed',
+                  retryCount: 0,
+                })
 
-          return {
-            ...state,
-            inProgress: newInProgress,
-            completed: newCompleted,
-            totalProcessed: state.totalProcessed + 1,
-            averageLoadTime: newAverageLoadTime,
-          }
-        } else {
-          const newFailed = new Map(state.failed)
-          newFailed.set(requestId, {
-            requestId,
-            error: 'Loading failed',
-            retryCount: 0,
+                return {
+                  ...state,
+                  inProgress: newInProgress,
+                  failed: newFailed,
+                }
+              })
+            )
           })
-
-          return {
-            ...state,
-            inProgress: newInProgress,
-            failed: newFailed,
-          }
-        }
-      })
+        )
+      )
 
       // パフォーマンスメトリクス更新
       yield* Effect.when(metrics !== undefined, () =>
@@ -512,20 +567,28 @@ const makeLoadingSchedulerService = Effect.gen(function* () {
       const state = yield* Ref.get(schedulerState)
 
       // inProgress確認
-      if (state.inProgress.has(requestId)) {
-        // 実行中は即座にキャンセル不可
-        yield* Effect.logWarning(`実行中のリクエストはキャンセル不可: ${requestId}`)
-        return false
-      }
+      return yield* pipe(
+        Match.value(state.inProgress.has(requestId)),
+        Match.when(
+          (running) => running,
+          () =>
+            Effect.gen(function* () {
+              yield* Effect.logWarning(`実行中のリクエストはキャンセル不可: ${requestId}`)
+              return false
+            })
+        ),
+        Match.orElse(() =>
+          Effect.gen(function* () {
+            yield* Ref.update(schedulerState, (s) => ({
+              ...s,
+              cancelled: new Set(s.cancelled).add(requestId),
+            }))
 
-      // cancelled Setに追加（getNextTask時にスキップされる）
-      yield* Ref.update(schedulerState, (s) => ({
-        ...s,
-        cancelled: new Set(s.cancelled).add(requestId),
-      }))
-
-      yield* Effect.logInfo(`リクエストキャンセル: ${requestId}${reason ? ` (理由: ${reason})` : ''}`)
-      return true
+            yield* Effect.logInfo(`リクエストキャンセル: ${requestId}${reason ? ` (理由: ${reason})` : ''}`)
+            return true
+          })
+        )
+      )
     })
 
   const getQueueState = (): Effect.Effect<Schema.Schema.Type<typeof LoadingQueueState>, LoadingSchedulerErrorType> =>
@@ -593,56 +656,67 @@ const makeLoadingSchedulerService = Effect.gen(function* () {
       const movementMap = yield* Ref.get(playerMovements)
       const movement = movementMap.get(playerId)
 
-      if (!movement) return []
+      return yield* pipe(
+        Match.value(movement),
+        Match.when(
+          (entry): entry is undefined => entry === undefined,
+          () => Effect.succeed([] as Schema.Schema.Type<typeof LoadingRequest>[])
+        ),
+        Match.orElse((movementState) =>
+          Effect.gen(function* () {
+            const chunkSize = 16 // Minecraftのチャンクサイズ
 
-      const chunkSize = 16 // Minecraftのチャンクサイズ
+            // 移動予測に基づく位置計算
+            const predictedX =
+              movementState.currentPosition.x + movementState.movementVector.velocity.x * lookAheadSeconds
+            const predictedZ =
+              movementState.currentPosition.z + movementState.movementVector.velocity.z * lookAheadSeconds
 
-      // 移動予測に基づく位置計算
-      const predictedX = movement.currentPosition.x + movement.movementVector.velocity.x * lookAheadSeconds
-      const predictedZ = movement.currentPosition.z + movement.movementVector.velocity.z * lookAheadSeconds
+            const predictedChunkX = Math.floor(predictedX / chunkSize)
+            const predictedChunkZ = Math.floor(predictedZ / chunkSize)
 
-      const predictedChunkX = Math.floor(predictedX / chunkSize)
-      const predictedChunkZ = Math.floor(predictedZ / chunkSize)
+            const now = yield* Clock.currentTimeMillis
 
-      const now = yield* Clock.currentTimeMillis
+            // 予測位置周辺のチャンクをリクエスト生成
+            const radius = Math.ceil(movementState.viewDistance / chunkSize)
+            const requests: Schema.Schema.Type<typeof LoadingRequest>[] = pipe(
+              ReadonlyArray.range(-radius, radius + 1),
+              ReadonlyArray.flatMap((dx) =>
+                pipe(
+                  ReadonlyArray.range(-radius, radius + 1),
+                  ReadonlyArray.filterMap((dz) => {
+                    const chunkX = predictedChunkX + dx
+                    const chunkZ = predictedChunkZ + dz
+                    const distance = Math.sqrt(dx * dx + dz * dz) * chunkSize
 
-      // 予測位置周辺のチャンクをリクエスト生成
-      const radius = Math.ceil(movement.viewDistance / chunkSize)
-      const requests: Schema.Schema.Type<typeof LoadingRequest>[] = pipe(
-        ReadonlyArray.range(-radius, radius + 1),
-        ReadonlyArray.flatMap((dx) =>
-          pipe(
-            ReadonlyArray.range(-radius, radius + 1),
-            ReadonlyArray.filterMap((dz) => {
-              const chunkX = predictedChunkX + dx
-              const chunkZ = predictedChunkZ + dz
-              const distance = Math.sqrt(dx * dx + dz * dz) * chunkSize
-
-              return distance > movement.viewDistance
-                ? Option.none()
-                : Option.some({
-                    _tag: 'LoadingRequest' as const,
-                    id: `predictive_${playerId}_${chunkX}_${chunkZ}_${now}`,
-                    chunkPosition: { x: chunkX, z: chunkZ },
-                    priority: distance < chunkSize * 2 ? ('high' as const) : ('background' as const),
-                    distance,
-                    estimatedSize: 1024,
-                    requester: playerId,
-                    timestamp: now,
-                    deadline: now,
-                    dependencies: [],
-                    metadata: {
-                      predictive: true,
-                      confidence: movement.movementVector.confidence,
-                    },
+                    return distance > movementState.viewDistance
+                      ? Option.none()
+                      : Option.some({
+                          _tag: 'LoadingRequest' as const,
+                          id: `predictive_${playerId}_${chunkX}_${chunkZ}_${now}`,
+                          chunkPosition: { x: chunkX, z: chunkZ },
+                          priority: distance < chunkSize * 2 ? ('high' as const) : ('background' as const),
+                          distance,
+                          estimatedSize: 1024,
+                          requester: playerId,
+                          timestamp: now,
+                          deadline: now,
+                          dependencies: [],
+                          metadata: {
+                            predictive: true,
+                            confidence: movementState.movementVector.confidence,
+                          },
+                        })
                   })
-            })
-          )
+                )
+              )
+            )
+
+            yield* Effect.logDebug(`予測リクエスト生成: ${requests.length}件 (プレイヤー: ${playerId})`)
+            return requests
+          })
         )
       )
-
-      yield* Effect.logDebug(`予測リクエスト生成: ${requests.length}件 (プレイヤー: ${playerId})`)
-      return requests
     })
 
   return LoadingSchedulerService.of({

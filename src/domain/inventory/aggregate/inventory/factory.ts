@@ -137,15 +137,21 @@ export const withInventoryId =
 export const withInventorySlot =
   (index: SlotIndex, slot: InventorySlot) =>
   (state: InventoryBuilderState): InventoryBuilderState => {
-    if (index < 0 || index >= INVENTORY_CONSTANTS.MAIN_INVENTORY_SIZE) {
-      return state // エラーはbuild時に検証
-    }
-    const newSlots = [...state.slots]
-    newSlots[index] = slot
-    return {
-      ...state,
-      slots: newSlots,
-    }
+    return pipe(
+      Match.value(index >= 0 && index < INVENTORY_CONSTANTS.MAIN_INVENTORY_SIZE),
+      Match.when(
+        (isValid) => isValid,
+        () => {
+          const newSlots = [...state.slots]
+          newSlots[index] = slot
+          return {
+            ...state,
+            slots: newSlots,
+          }
+        }
+      ),
+      Match.orElse(() => state)
+    )
   }
 
 /**
@@ -154,13 +160,17 @@ export const withInventorySlot =
 export const withHotbar =
   (hotbar: ReadonlyArray<SlotIndex>) =>
   (state: InventoryBuilderState): InventoryBuilderState => {
-    if (hotbar.length === INVENTORY_CONSTANTS.HOTBAR_SIZE) {
-      return {
-        ...state,
-        hotbar,
-      }
-    }
-    return state
+    return pipe(
+      Match.value(hotbar.length === INVENTORY_CONSTANTS.HOTBAR_SIZE),
+      Match.when(
+        (isValid) => isValid,
+        () => ({
+          ...state,
+          hotbar,
+        })
+      ),
+      Match.orElse(() => state)
+    )
   }
 
 /**

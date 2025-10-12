@@ -1,5 +1,5 @@
 import type { JsonRecord } from '@shared/schema/json'
-import { Clock, Effect, HashMap, Layer, Option, Random, ReadonlyArray, Ref, Schema, pipe } from 'effect'
+import { Clock, Effect, HashMap, Layer, Match, Option, Random, ReadonlyArray, Ref, Schema, pipe } from 'effect'
 import { makeUnsafeContainerId } from '../../aggregate/container/types'
 import type {
   Container,
@@ -82,61 +82,66 @@ export const ContainerRepositoryPersistent = (config: ContainerPersistentConfig 
         )
 
         // LocalStorageからのデータ読み込みと復元
-        const result = yield* Effect.gen(function* () {
-          const rawData = localStorage.getItem(config.storageKey)
-          if (!rawData) return null
+        const result = yield* pipe(
+          Option.fromNullable(localStorage.getItem(config.storageKey)),
+          Option.match({
+            onNone: () => Effect.succeed<Option.Option<{
+              containerEntries: ReadonlyArray<readonly [ContainerId, Container]>
+              positionEntries: ReadonlyArray<readonly [string, ContainerId]>
+              snapshotEntries: ReadonlyArray<readonly [string, ContainerSnapshot]>
+            }>> (Option.none()),
+            onSome: (rawData) =>
+              Effect.gen(function* () {
+                const validated = yield* decodeFromStorage(rawData)
 
-          // Schema.decodeUnknownで型安全にデータを検証
-          const validated = yield* decodeFromStorage(rawData)
+                const containerEntries = pipe(
+                  validated.containers ? Object.entries(validated.containers) : [],
+                  ReadonlyArray.map(([id, container]) => {
+                    const cont: Container = {
+                      ...container,
+                      id: makeUnsafeContainerId(id),
+                      slots: new Map(Object.entries(container.slots)),
+                    }
+                    return [makeUnsafeContainerId(id), cont] as const
+                  })
+                )
 
-          // コンテナの復元
-          const containerEntries = pipe(
-            validated.containers ? Object.entries(validated.containers) : [],
-            ReadonlyArray.map(([id, container]) => {
-              const cont: Container = {
-                ...container,
-                id: makeUnsafeContainerId(id),
-                slots: new Map(Object.entries(container.slots)),
-              }
-              return [makeUnsafeContainerId(id), cont] as const
-            })
-          )
+                const positionEntries = pipe(
+                  containerEntries,
+                  ReadonlyArray.filterMap(([, cont]) =>
+                    cont.position && cont.worldId
+                      ? Option.some([getPositionKey(cont.position, cont.worldId), cont.id] as const)
+                      : Option.none()
+                  )
+                )
 
-          const positionEntries = pipe(
-            containerEntries,
-            ReadonlyArray.filterMap(([, cont]) =>
-              cont.position && cont.worldId
-                ? Option.some([getPositionKey(cont.position, cont.worldId), cont.id] as const)
-                : Option.none()
-            )
-          )
+                const snapshotEntries = pipe(
+                  validated.snapshots ? Object.entries(validated.snapshots) : [],
+                  ReadonlyArray.map(([id, snapshot]) => {
+                    const snap: ContainerSnapshot = {
+                      ...snapshot,
+                      id,
+                      containerId: makeUnsafeContainerId(snapshot.containerId),
+                      container: {
+                        ...snapshot.container,
+                        id: makeUnsafeContainerId(snapshot.container.id),
+                        slots: new Map(Object.entries(snapshot.container.slots)),
+                      },
+                    }
+                    return [id, snap] as const
+                  })
+                )
 
-          // スナップショットの復元
-          const snapshotEntries = pipe(
-            validated.snapshots ? Object.entries(validated.snapshots) : [],
-            ReadonlyArray.map(([id, snapshot]) => {
-              const snap: ContainerSnapshot = {
-                ...snapshot,
-                id,
-                containerId: makeUnsafeContainerId(snapshot.containerId),
-                container: {
-                  ...snapshot.container,
-                  id: makeUnsafeContainerId(snapshot.container.id),
-                  slots: new Map(Object.entries(snapshot.container.slots)),
-                },
-              }
-              return [id, snap] as const
-            })
-          )
-
-          return { containerEntries, positionEntries, snapshotEntries }
-        })
+                return Option.some({ containerEntries, positionEntries, snapshotEntries })
+              })
+          })
+        )
 
         // キャッシュへの保存
         yield* pipe(
-          Option.fromNullable(result),
+          result,
           Option.match({
-            onNone: () => Effect.void,
+            onNone: () => Effect.succeed<void>(undefined),
             onSome: ({ containerEntries, positionEntries, snapshotEntries }) =>
               Effect.gen(function* () {
                 yield* Ref.set(containerCache, HashMap.fromIterable(containerEntries))
@@ -303,7 +308,7 @@ export const ContainerRepositoryPersistent = (config: ContainerPersistentConfig 
             yield* pipe(
               containerOption,
               Option.match({
-                onNone: () => Effect.void,
+                onNone: () => Effect.succeed<void>(undefined),
                 onSome: (container) =>
                   Effect.when(container.position !== undefined && container.worldId !== undefined, () =>
                     Effect.gen(function* () {
@@ -326,7 +331,7 @@ export const ContainerRepositoryPersistent = (config: ContainerPersistentConfig 
             yield* pipe(
               containerIdOption,
               Option.match({
-                onNone: () => Effect.void,
+                onNone: () => Effect.succeed<void>(undefined),
                 onSome: (containerId) =>
                   Effect.gen(function* () {
                     yield* Ref.update(containerCache, (cache) => HashMap.remove(cache, containerId))
@@ -390,26 +395,42 @@ export const ContainerRepositoryPersistent = (config: ContainerPersistentConfig 
               // ワールドフィルター
               ReadonlyArray.filter((c) => !query.worldId || c.worldId === query.worldId),
               // 範囲フィルター
-              ReadonlyArray.filter((c) => {
-                if (!query.withinRange || !c.position) return true
-                const { center, radius } = query.withinRange
-                const distance = Math.sqrt(
-                  Math.pow(c.position.x - center.x, 2) +
-                    Math.pow(c.position.y - center.y, 2) +
-                    Math.pow(c.position.z - center.z, 2)
+              ReadonlyArray.filter((c) =>
+                pipe(
+                  Option.all([Option.fromNullable(query.withinRange), Option.fromNullable(c.position)]),
+                  Option.match({
+                    onNone: () => true,
+                    onSome: ([{ center, radius }, position]) => {
+                      const distance = Math.sqrt(
+                        Math.pow(position.x - center.x, 2) +
+                          Math.pow(position.y - center.y, 2) +
+                          Math.pow(position.z - center.z, 2)
+                      )
+                      return distance <= radius
+                    },
+                  })
                 )
-                return distance <= radius
-              }),
+              ),
               // アクセス権フィルター
-              ReadonlyArray.filter((c) => {
-                if (!query.accessibleToPlayer) return true
-                if (!c.permissions) return true
-                return (
-                  c.permissions.public ||
-                  c.permissions.owner === query.accessibleToPlayer ||
-                  (c.permissions.allowedPlayers?.includes(query.accessibleToPlayer) ?? false)
+              ReadonlyArray.filter((c) =>
+                pipe(
+                  Option.fromNullable(query.accessibleToPlayer),
+                  Option.match({
+                    onNone: () => true,
+                    onSome: (playerId) =>
+                      pipe(
+                        Option.fromNullable(c.permissions),
+                        Option.match({
+                          onNone: () => true,
+                          onSome: (permissions) =>
+                            permissions.public ||
+                            permissions.owner === playerId ||
+                            (permissions.allowedPlayers?.includes(playerId) ?? false),
+                        })
+                      ),
+                  })
                 )
-              }),
+              ),
               // 空ではないコンテナフィルター
               ReadonlyArray.filter((c) => query.notEmpty !== true || c.slots.size > 0)
             )

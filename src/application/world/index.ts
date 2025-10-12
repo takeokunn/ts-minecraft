@@ -89,6 +89,9 @@ import { WorldGenerationOrchestrator } from '@/domain/world_generation/domain_se
 import { ErrorCauseSchema } from '@shared/schema/error'
 import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
 import { Clock, Context, Effect, Ref, Schema, STM } from 'effect'
+import { pipe } from 'effect/Function'
+import * as Match from 'effect/Match'
+import * as Option from 'effect/Option'
 import { CacheOptimizationService } from './cache_optimization/index'
 import { PerformanceMonitoringService } from './performance_monitoring/index'
 import { ProgressiveLoadingService } from './progressive_loading/index'
@@ -668,8 +671,9 @@ export const makeWorldApplicationService = Effect.gen(function* () {
 
       const overallHealthy = Object.values(services).every(Boolean)
 
-      const issues = yield* Effect.if(!services.generation, {
-        onTrue: () =>
+      const issues = yield* pipe(
+        Match.value(services.generation),
+        Match.when(false, () =>
           Effect.succeed([
             {
               service: 'generation',
@@ -677,9 +681,16 @@ export const makeWorldApplicationService = Effect.gen(function* () {
               message: 'ワールド生成サービスに問題があります',
               suggestion: 'サービスを再起動してください',
             },
-          ]),
-        onFalse: () => Effect.succeed([]),
-      })
+          ])
+        ),
+        Match.orElse(() => Effect.succeed<Array<{
+          service: string
+          severity: 'info' | 'warning' | 'error' | 'critical'
+          message: string
+          suggestion: string
+        }>>([])),
+        Match.exhaustive
+      )
 
       const healthCheck = {
         overall: overallHealthy ? 'healthy' : ('degraded' as 'healthy' | 'degraded' | 'unhealthy'),
@@ -845,12 +856,12 @@ export const WorldApplicationServiceUtils = {
       // ヘルスチェック実行
       const healthCheck = yield* service.performHealthCheck()
 
-      return yield* Effect.if(healthCheck.overall !== 'healthy', {
-        onTrue: () =>
+      return yield* pipe(
+        Match.value(healthCheck.overall !== 'healthy'),
+        Match.when(true, () =>
           Effect.gen(function* () {
             yield* Effect.logWarning('システムの健全性に問題があります。最適化を実行します。')
 
-            // パフォーマンス最適化実行
             const optimizationResult = yield* service.optimizePerformance()
 
             return {
@@ -858,14 +869,17 @@ export const WorldApplicationServiceUtils = {
               optimizationApplied: true,
               optimizationResult,
             }
-          }),
-        onFalse: () =>
+          })
+        ),
+        Match.orElse(() =>
           Effect.succeed({
             healthCheckBefore: healthCheck,
             optimizationApplied: false,
             optimizationResult: null,
-          }),
-      })
+          })
+        ),
+        Match.exhaustive
+      )
     }),
 
   /**

@@ -59,24 +59,29 @@ export const CoordinateTransforms = {
       const chunkX = Math.floor(world.x / CHUNK_CONSTANTS.SIZE)
       const chunkZ = Math.floor(world.z / CHUNK_CONSTANTS.SIZE)
 
-      // 範囲チェック
-      if (chunkX < CHUNK_COORDINATE_LIMITS.MIN_X || chunkX > CHUNK_COORDINATE_LIMITS.MAX_X) {
-        return yield* Effect.fail({
-          _tag: 'BoundaryViolation' as const,
-          coordinate: { x: chunkX, z: chunkZ },
-          boundary: 'chunk_x',
-          message: `Chunk X coordinate ${chunkX} is out of bounds`,
-        })
-      }
+      yield* Effect.succeed(chunkX).pipe(
+        Effect.filterOrFail(
+          (value) => value >= CHUNK_COORDINATE_LIMITS.MIN_X && value <= CHUNK_COORDINATE_LIMITS.MAX_X,
+          () => ({
+            _tag: 'BoundaryViolation' as const,
+            coordinate: { x: chunkX, z: chunkZ },
+            boundary: 'chunk_x',
+            message: `Chunk X coordinate ${chunkX} is out of bounds`,
+          })
+        )
+      )
 
-      if (chunkZ < CHUNK_COORDINATE_LIMITS.MIN_Z || chunkZ > CHUNK_COORDINATE_LIMITS.MAX_Z) {
-        return yield* Effect.fail({
-          _tag: 'BoundaryViolation' as const,
-          coordinate: { x: chunkX, z: chunkZ },
-          boundary: 'chunk_z',
-          message: `Chunk Z coordinate ${chunkZ} is out of bounds`,
-        })
-      }
+      yield* Effect.succeed(chunkZ).pipe(
+        Effect.filterOrFail(
+          (value) => value >= CHUNK_COORDINATE_LIMITS.MIN_Z && value <= CHUNK_COORDINATE_LIMITS.MAX_Z,
+          () => ({
+            _tag: 'BoundaryViolation' as const,
+            coordinate: { x: chunkX, z: chunkZ },
+            boundary: 'chunk_z',
+            message: `Chunk Z coordinate ${chunkZ} is out of bounds`,
+          })
+        )
+      )
 
       const x = yield* Schema.decode(Schema.Number.pipe(Schema.brand('ChunkX')))(chunkX)
       const z = yield* Schema.decode(Schema.Number.pipe(Schema.brand('ChunkZ')))(chunkZ)

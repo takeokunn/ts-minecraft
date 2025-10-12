@@ -432,38 +432,37 @@ ${result.factors
     const chunkCenterX = context.chunkPosition.x * chunkSize + 8
     const chunkCenterZ = context.chunkPosition.z * chunkSize + 8
 
-    // プレイヤーの移動方向ベクトル
     const velMag = Math.sqrt(context.playerMovement.velocity.x ** 2 + context.playerMovement.velocity.z ** 2)
 
-    if (velMag < 0.1) {
-      return {
+    return Match.value(velMag < 0.1).pipe(
+      Match.when(true, () => ({
         _tag: 'PriorityFactor',
         name: 'movement',
         weight: config.baseFactors.prediction || 0.2,
-        value: 0.5, // 静止中は中間値
+        value: 0.5,
         description: 'プレイヤーは静止中',
-      }
-    }
+      })),
+      Match.orElse(() => {
+        const toChunkX = chunkCenterX - context.playerPosition.x
+        const toChunkZ = chunkCenterZ - context.playerPosition.z
+        const toChunkMag = Math.sqrt(toChunkX ** 2 + toChunkZ ** 2)
 
-    // チャンクへの方向ベクトル
-    const toChunkX = chunkCenterX - context.playerPosition.x
-    const toChunkZ = chunkCenterZ - context.playerPosition.z
-    const toChunkMag = Math.sqrt(toChunkX ** 2 + toChunkZ ** 2)
+        const dotProduct =
+          (context.playerMovement.velocity.x * toChunkX + context.playerMovement.velocity.z * toChunkZ) /
+          (velMag * toChunkMag)
 
-    // 内積による方向性計算
-    const dotProduct =
-      (context.playerMovement.velocity.x * toChunkX + context.playerMovement.velocity.z * toChunkZ) /
-      (velMag * toChunkMag)
+        const movementValue = Math.max(0, dotProduct)
 
-    const movementValue = Math.max(0, dotProduct) // 0-1に正規化
-
-    return {
-      _tag: 'PriorityFactor',
-      name: 'movement',
-      weight: config.baseFactors.prediction || 0.2,
-      value: movementValue,
-      description: `移動方向との一致度: ${(movementValue * 100).toFixed(1)}%`,
-    }
+        return {
+          _tag: 'PriorityFactor',
+          name: 'movement',
+          weight: config.baseFactors.prediction || 0.2,
+          value: movementValue,
+          description: `移動方向との一致度: ${(movementValue * 100).toFixed(1)}%`,
+        }
+      }),
+      Match.exhaustive
+    )
   }
 
   const calculatePerformanceFactor = (

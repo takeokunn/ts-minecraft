@@ -106,29 +106,32 @@ const exportWorldMetadataInternal = (world: JsonValue) =>
     const now = DateTime.toDate(nowDateTime)
     const decoded = Schema.decodeUnknownEither(WorldDataSchema)(world)
 
-    if (decoded._tag === 'Right') {
-      const typed: WorldData = decoded.right
-      const createdAt = typed.metadata?.created ?? now
-      return {
-        name: typed.metadata?.name ?? 'Unnamed World',
-        seed: typed.seed,
-        created: createdAt,
-        version: typed.metadata?.version ?? '1.0.0',
-        type: typed.metadata?.type ?? 'unspecified',
+    return pipe(
+      Match.value(decoded),
+      Match.tag('Right', ({ right }) => {
+        const typed: WorldData = right
+        const createdAt = typed.metadata?.created ?? now
+        return {
+          name: typed.metadata?.name ?? 'Unnamed World',
+          seed: typed.seed,
+          created: createdAt,
+          version: typed.metadata?.version ?? '1.0.0',
+          type: typed.metadata?.type ?? 'unspecified',
+          chunks: 0,
+          biomes: 0,
+        }
+      }),
+      Match.tag('Left', () => ({
+        name: 'Invalid World',
+        seed: undefined,
+        created: now,
+        version: 'unavailable',
+        type: 'invalid',
         chunks: 0,
         biomes: 0,
-      }
-    }
-
-    return {
-      name: 'Invalid World',
-      seed: undefined,
-      created: now,
-      version: 'unavailable',
-      type: 'invalid',
-      chunks: 0,
-      biomes: 0,
-    }
+      })),
+      Match.exhaustive
+    )
   })
 
 const createQuickWorldInternal = (seed?: number) =>

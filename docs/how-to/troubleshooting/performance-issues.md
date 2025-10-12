@@ -611,15 +611,17 @@ const monitorFibers = Effect.gen(function* () {
   return yield* Effect.schedule(
     Effect.gen(function* () {
       const fibers = yield* Ref.get(activeFibers)
-      const stuckFibers = []
-
-      for (const fiber of fibers) {
-        const status = yield* Fiber.status(fiber)
-
-        if (status._tag === 'Suspended' && fiber.id().startsWith('long-running')) {
-          stuckFibers.push(fiber.id())
-        }
-      }
+      const stuckFibers = yield* pipe(
+        ReadonlyArray.fromIterable(fibers),
+        Effect.reduce([] as ReadonlyArray<string>, (acc, fiber) =>
+          Effect.gen(function* () {
+            const status = yield* Fiber.status(fiber)
+            return status._tag === 'Suspended' && fiber.id().startsWith('long-running')
+              ? [...acc, fiber.id()]
+              : acc
+          })
+        )
+      )
 
       if (stuckFibers.length > 0) {
         yield* Effect.logWarn('Potentially stuck fibers detected', { stuckFibers })
@@ -708,21 +710,34 @@ const optimizedChunkGeneration = Effect.gen(function* () {
 // ベンチマーク フレームワーク
 const benchmark = <A>(name: string, operation: Effect.Effect<A>, iterations: number = 1000) =>
   Effect.gen(function* () {
-    const times: number[] = []
+    const times = [] as number[]
 
     // ウォームアップ
     yield* Effect.replicateEffect(operation, 10)
 
     // 実際の測定
-    for (let i = 0; i < iterations; i++) {
-      const start = performance.now()
-      yield* operation
-      const end = performance.now()
-      times.push(end - start)
-    }
+    yield* pipe(
+      ReadonlyArray.range(0, iterations - 1),
+      Effect.forEach(
+        () =>
+          Effect.sync(() => {
+            const start = performance.now()
+            return start
+          }).pipe(
+            Effect.tap(() => operation),
+            Effect.tap((start) =>
+              Effect.sync(() => {
+                const end = performance.now()
+                times.push(end - start)
+              })
+            )
+          ),
+        { discard: true }
+      )
+    )
 
     // 統計計算
-    const sorted = times.sort((a, b) => a - b)
+    const sorted = [...times].sort((a, b) => a - b)
     const mean = times.reduce((a, b) => a + b, 0) / times.length
     const median = sorted[Math.floor(sorted.length / 2)]
     const p95 = sorted[Math.floor(sorted.length * 0.95)]
@@ -803,15 +818,13 @@ const createMemoryTracker = <T extends object>() => {
     },
 
     getAliveCount: (): number => {
-      let aliveCount = 0
-      for (const [id, ref] of trackedObjects) {
+      return ReadonlyArray.fromIterable(trackedObjects).reduce((count, [id, ref]) => {
         if (ref.deref() !== undefined) {
-          aliveCount++
-        } else {
-          trackedObjects.delete(id) // クリーンアップ
+          return count + 1
         }
-      }
-      return aliveCount
+        trackedObjects.delete(id)
+        return count
+      }, 0)
     },
   }
 }
@@ -825,14 +838,13 @@ const createMemoryTracker = <T extends object>() => {
 // ❌ 非効率的な処理
 const inefficientProcessing = Effect.gen(function* () {
   const chunks = yield* loadAllChunks
-  const processedChunks = []
 
-  for (const chunk of chunks) {
-    const processed = yield* processChunk(chunk)
-    processedChunks.push(processed)
-  }
-
-  return processedChunks
+  return yield* pipe(
+    chunks,
+    Effect.reduce([] as ReadonlyArray<Chunk>, (acc, chunk) =>
+      Effect.map(processChunk(chunk), (processed) => [...acc, processed])
+    )
+  )
 })
 
 // ✅ 効率的な処理

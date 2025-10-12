@@ -96,15 +96,12 @@ const transaction = <T>(
         operation(tx),
         // 割り込み時のクリーンアップ：tx.abort()を保証
         Effect.onInterrupt(() =>
-          Effect.sync(() => {
-            if (!tx.error && tx.objectStoreNames.length > 0) {
-              try {
-                tx.abort()
-              } catch {
-                // 既にabort済みの場合は無視
-              }
-            }
-          })
+          Effect.when(!tx.error && tx.objectStoreNames.length > 0,
+            pipe(
+              Effect.sync(() => tx.abort()),
+              Effect.catchAll(() => Effect.void)
+            )
+          )
         )
       )
     ),

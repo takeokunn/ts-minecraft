@@ -19,7 +19,7 @@ import {
 } from '@domain/world/value_object/noise_configuration'
 import type { WorldSeed } from '@domain/world/value_object/world_seed'
 import { JsonValueSchema } from '@shared/schema/json'
-import { Clock, Context, Effect, Layer, Option, pipe, Random, ReadonlyArray, Schema } from 'effect'
+import { Clock, Context, Effect, Layer, Match, Option, pipe, Random, ReadonlyArray, Schema } from 'effect'
 
 /**
  * 洞窟ネットワーク - 連結された洞窟システム
@@ -488,10 +488,14 @@ const generateCaveCandidates = (
           const z = bounds.min.z + (bounds.max.z - bounds.min.z) * (randZ / 1000)
 
           // 深度制約の適用
-          if (y >= config.minDepth && y <= config.maxDepth) {
-            return Option.some(makeUnsafeWorldCoordinate(x, y, z))
-          }
-          return Option.none()
+          return pipe(
+            Match.value(y),
+            Match.when(
+              (depth) => depth >= config.minDepth && depth <= config.maxDepth,
+              () => Option.some(makeUnsafeWorldCoordinate(x, y, z))
+            ),
+            Match.orElse(() => Option.none())
+          )
         })
       ),
       Effect.map(ReadonlyArray.getSomes)

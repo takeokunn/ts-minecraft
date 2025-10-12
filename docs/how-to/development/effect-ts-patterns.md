@@ -52,11 +52,12 @@ describe('TestRandom Example', () => {
     Effect.gen(function* () {
       yield* TestRandom.feedDoubles(0.1, 0.3, 0.7)
 
-      const values: number[] = []
-      for (let i = 0; i < 3; i++) {
-        const value = yield* Random.next
-        values.push(value)
-      }
+      const values = yield* pipe(
+        ReadonlyArray.range(0, 2),
+        Effect.reduce([] as ReadonlyArray<number>, (acc) =>
+          Effect.map(Random.next, (value) => [...acc, value])
+        )
+      )
 
       expect(values).toEqual([0.1, 0.3, 0.7])
     }).pipe(Effect.provide(testLayer))
@@ -109,12 +110,19 @@ export const GameLoopSupervisor = Effect.gen(function* () {
       const count = fibers.size
       yield* Effect.logInfo(`Active fibers: ${count}`)
 
-      for (const fiber of fibers) {
-        const status = yield* Fiber.status(fiber)
-        if (status._tag === 'Done' && !status.exit.isSuccess()) {
-          yield* Effect.logError(`Fiber failed: ${fiber.id()}`)
-        }
-      }
+      yield* pipe(
+        ReadonlyArray.fromIterable(fibers),
+        Effect.forEach(
+          (fiber) =>
+            Effect.gen(function* () {
+              const status = yield* Fiber.status(fiber)
+              if (status._tag === 'Done' && !status.exit.isSuccess()) {
+                yield* Effect.logError(`Fiber failed: ${fiber.id()}`)
+              }
+            }),
+          { discard: true }
+        )
+      )
     }),
     Schedule.spaced(Duration.seconds(10))
   )

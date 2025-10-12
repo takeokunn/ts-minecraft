@@ -19,6 +19,8 @@ export const CameraCommandMetadataSchema = Schema.Struct({
   ),
 })
 
+export type CameraCommandMetadata = Schema.Schema.Type<typeof CameraCommandMetadataSchema>
+
 /**
  * CameraCommand 共通フィールド
  */
@@ -26,6 +28,17 @@ export const CameraCommandBaseSchema = Schema.Struct({
   ...CameraCommandMetadataSchema.fields,
   cameraId: CameraIdSchema,
 })
+
+export type CameraCommandBase = Schema.Schema.Type<typeof CameraCommandBaseSchema>
+
+export const CameraCommandTagSchema = Schema.Union(
+  Schema.Literal('UpdateCameraPosition'),
+  Schema.Literal('UpdateCameraRotation'),
+  Schema.Literal('SwitchCameraMode'),
+  Schema.Literal('UpdateCameraSettings')
+)
+
+export type CameraCommandTag = Schema.Schema.Type<typeof CameraCommandTagSchema>
 
 /**
  * カメラ位置更新コマンド
@@ -89,6 +102,13 @@ export const CameraCommandSchema = Schema.Union(
 )
 
 export type CameraCommand = Schema.Schema.Type<typeof CameraCommandSchema>
+
+export const CameraCommandSchemas = {
+  UpdateCameraPosition: UpdateCameraPositionCommandSchema,
+  UpdateCameraRotation: UpdateCameraRotationCommandSchema,
+  SwitchCameraMode: SwitchCameraModeCommandSchema,
+  UpdateCameraSettings: UpdateCameraSettingsCommandSchema,
+} as const
 
 export const validateCameraCommand = Schema.decodeUnknown(CameraCommandSchema)
 export const isCameraCommand = Schema.is(CameraCommandSchema)

@@ -10,7 +10,7 @@
 
 import type * as WorldTypes from '@domain/world/types/core'
 import type * as GenerationErrors from '@domain/world/types/errors'
-import { Context, DateTime, Effect, Schema, STM } from 'effect'
+import { Context, DateTime, Effect, Match, Schema, STM, pipe } from 'effect'
 import * as BusinessRules from './index'
 import * as GenerationEvents from './index'
 import * as GenerationState from './index'
@@ -22,6 +22,7 @@ import {
   type WorldGenerator,
   type WorldGeneratorId,
 } from './index'
+import { WorldGenerationAdapterService } from '../../adapter/world_generation_adapter'
 
 // ================================
 // WorldGenerator Aggregate Root
@@ -86,9 +87,16 @@ export const generateChunk = (
     // 並行性制御 - 同時生成制限チェック
     const currentLoad = yield* STM.fromEffect(GenerationState.getCurrentGenerationLoad(generator.state))
 
-    if (currentLoad >= BusinessRules.MAX_CONCURRENT_GENERATIONS) {
-      return yield* STM.fail(GenerationErrors.createGenerationOverloadError(currentLoad))
-    }
+    yield* STM.fromEffect(
+      pipe(
+        Match.value(currentLoad),
+        Match.when(
+          (load) => load >= BusinessRules.MAX_CONCURRENT_GENERATIONS,
+          (load) => Effect.fail(GenerationErrors.createGenerationOverloadError(load))
+        ),
+        Match.orElse(() => Effect.void)
+      )
+    )
 
     // ビジネスルール検証
     yield* STM.fromEffect(BusinessRules.validateChunkGenerationRequest(generator, command))
@@ -188,26 +196,13 @@ const generateChunkData = (
   command: GenerateChunkCommand
 ): Effect.Effect<WorldTypes.ChunkData, GenerationErrors.GenerationError> =>
   Effect.gen(function* () {
-    // この実装はDomain Service層に委譲する
-    // 実際の地形生成、バイオーム計算、構造物配置など
-
-    const generatedAt = yield* DateTime.nowAsDate
-
-    // プレースホルダー実装
-    const chunkData: WorldTypes.ChunkData = {
-      coordinate: command.coordinate,
-      heightMap: new Array(256).fill(64), // 16x16の高度マップ
-      biomes: new Array(256).fill(0), // バイオームID配列
-      structures: [],
-      generatedAt,
-    }
-
-    return chunkData
+    const adapter = yield* WorldGenerationAdapterService
+    return yield* adapter.generateChunkData(context, command)
   }).pipe(
     Effect.annotateLogs({
       chunkX: String(command.coordinate.x),
       chunkZ: String(command.coordinate.z),
-      worldGeneratorId: context.worldId,
+      worldGeneratorId: context.id,
       operation: 'generate_chunk_data',
     })
   )

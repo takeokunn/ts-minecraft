@@ -232,19 +232,18 @@ const testRuntime = Effect.provide(saveGame(mockGameState), Layer.succeed(Databa
 ```typescript
 // Before: 命令型スタイル
 async function processPlayers(players: Player[]): Promise<ProcessedPlayer[]> {
-  const results: ProcessedPlayer[] = []
+  const processed = await Promise.all(
+    players.map(async (player) => {
+      try {
+        return await processPlayer(player)
+      } catch (error) {
+        console.error(`Failed to process ${player.id}:`, error)
+        return null
+      }
+    })
+  )
 
-  for (const player of players) {
-    try {
-      const processed = await processPlayer(player)
-      results.push(processed)
-    } catch (error) {
-      console.error(`Failed to process ${player.id}:`, error)
-      // エラーを無視して続行（データ損失のリスク）
-    }
-  }
-
-  return results
+  return processed.filter((result): result is ProcessedPlayer => result !== null)
 }
 
 // After: Effect.forEach を使った関数型スタイル
@@ -464,16 +463,19 @@ const fixedFunction = <A>(input: unknown): Effect.Effect<A, ValidationError> =>
 // ❌ 非効率: ネストしたEffect.genの過度な使用
 const inefficient = (items: Item[]) =>
   Effect.gen(function* (_) {
-    const results = []
-    for (const item of items) {
-      const result = yield* _(
+    return yield* Effect.reduce(
+      items,
+      [] as ReadonlyArray<unknown>,
+      (acc, item) =>
         Effect.gen(function* (_) {
-          // 重いネストは避ける
+          const result = yield* _(
+            Effect.gen(function* (_) {
+              // 重いネストは避ける
+            })
+          )
+          return [...acc, result]
         })
-      )
-      results.push(result)
-    }
-    return results
+    )
   })
 
 // ✅ 効率的: 適切なコンビネーター使用

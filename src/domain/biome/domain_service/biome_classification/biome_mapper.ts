@@ -10,7 +10,7 @@ import type { BoundingBox, WorldCoordinate2D } from '@/domain/biome/value_object
 import { makeUnsafeWorldCoordinate2D, WorldCoordinate2DSchema } from '@/domain/biome/value_object/coordinates'
 import { type GenerationError } from '@domain/world/types/errors'
 import type { WorldSeed } from '@domain/world/value_object/world_seed'
-import { Context, Effect, Layer, Match, pipe, Random, ReadonlyArray, Schema } from 'effect'
+import { Context, Effect, Layer, Match, Option, pipe, Random, ReadonlyArray, Schema } from 'effect'
 import { ClimateClassificationSchema, ClimateDataSchema } from './climate_calculator'
 import type { ClimateData } from './index'
 
@@ -606,18 +606,30 @@ export const BiomeMapperServiceLive = Layer.effect(
             const neighbors = [biomeMap[x - 1][z], biomeMap[x + 1][z], biomeMap[x][z - 1], biomeMap[x][z + 1]]
             const mostCommonBiome = findMostCommonBiome(neighbors)
 
-            if (mostCommonBiome) {
-              // Math.random() < smoothingFactor を Random Service に置換
-              const randomValue = yield* Random.nextIntBetween(0, 100)
-              const shouldSmooth = randomValue < smoothingFactor * 100
+            yield* pipe(
+              Option.fromNullable(mostCommonBiome),
+              Option.match({
+                onNone: () => Effect.unit,
+                onSome: (biome) =>
+                  Effect.gen(function* () {
+                    const randomValue = yield* Random.nextIntBetween(0, 100)
+                    const shouldSmooth = randomValue < smoothingFactor * 100
 
-              if (shouldSmooth) {
-                optimizedMap[x][z] = {
-                  ...optimizedMap[x][z],
-                  primaryBiome: mostCommonBiome,
-                }
-              }
-            }
+                    yield* pipe(
+                      Match.value(shouldSmooth),
+                      Match.when(true, () =>
+                        Effect.sync(() => {
+                          optimizedMap[x][z] = {
+                            ...optimizedMap[x][z],
+                            primaryBiome: biome,
+                          }
+                        })
+                      ),
+                      Match.orElse(() => Effect.unit)
+                    )
+                  }),
+              })
+            )
           })
         )
 
@@ -715,22 +727,46 @@ const determineVariants = (
     Effect.succeed(variants),
     Effect.tap(() =>
       Effect.gen(function* () {
-        if (primaryBiome === 'forest') {
-          const forestRoll = yield* Random.nextIntBetween(0, 100)
-          if (forestRoll < 20) {
-            variants.variant = 'birch'
-          }
-        }
+        yield* pipe(
+          Match.value(primaryBiome === 'forest'),
+          Match.when(true, () =>
+            Effect.gen(function* () {
+              const forestRoll = yield* Random.nextIntBetween(0, 100)
+              yield* pipe(
+                Match.value(forestRoll < 20),
+                Match.when(true, () =>
+                  Effect.sync(() => {
+                    variants.variant = 'birch'
+                  })
+                ),
+                Match.orElse(() => Effect.unit)
+              )
+            })
+          ),
+          Match.orElse(() => Effect.unit)
+        )
       })
     ),
     Effect.tap(() =>
       Effect.gen(function* () {
-        if (primaryBiome === 'desert') {
-          const desertRoll = yield* Random.nextIntBetween(0, 100)
-          if (desertRoll < 10) {
-            variants.variant = 'temple'
-          }
-        }
+        yield* pipe(
+          Match.value(primaryBiome === 'desert'),
+          Match.when(true, () =>
+            Effect.gen(function* () {
+              const desertRoll = yield* Random.nextIntBetween(0, 100)
+              yield* pipe(
+                Match.value(desertRoll < 10),
+                Match.when(true, () =>
+                  Effect.sync(() => {
+                    variants.variant = 'temple'
+                  })
+                ),
+                Match.orElse(() => Effect.unit)
+              )
+            })
+          ),
+          Match.orElse(() => Effect.unit)
+        )
       })
     )
   )

@@ -110,16 +110,18 @@ export const createRecipeAggregate = (
  */
 export const validateRecipeStructure = (recipe: CraftingRecipe): Effect.Effect<void, InvalidRecipeError> => {
   const issues = collectRecipeIssues(recipe)
-  return Effect.if(Effect.succeed(Array.isEmptyReadonlyArray(issues)), {
-    onTrue: () => Effect.void,
-    onFalse: () =>
+  return pipe(
+    Match.value(Array.isEmptyReadonlyArray(issues)),
+    Match.when(true, () => Effect.void),
+    Match.orElse(() =>
       Effect.fail(
         InvalidRecipeError.make({
           recipeId: recipe.id,
           issues,
         })
-      ),
-  })
+      )
+    )
+  )
 }
 
 /**
@@ -183,9 +185,10 @@ export const updateSuccessRate = (
   )
 
 export const addTag = (aggregate: RecipeAggregate, tag: ItemTag): Effect.Effect<RecipeAggregate, never> =>
-  Effect.if(Effect.succeed(Array.contains(tag)(aggregate.metadata.tags)), {
-    onTrue: () => Effect.succeed(aggregate),
-    onFalse: () =>
+  pipe(
+    Match.value(Array.contains(tag)(aggregate.metadata.tags)),
+    Match.when(true, () => Effect.succeed(aggregate)),
+    Match.orElse(() =>
       pipe(
         touchMetadata(aggregate.metadata),
         Effect.map((metadata) => ({
@@ -195,12 +198,14 @@ export const addTag = (aggregate: RecipeAggregate, tag: ItemTag): Effect.Effect<
             tags: [...aggregate.metadata.tags, tag],
           },
         }))
-      ),
-  })
+      )
+    )
+  )
 
 export const removeTag = (aggregate: RecipeAggregate, tag: ItemTag): Effect.Effect<RecipeAggregate, never> =>
-  Effect.if(Effect.succeed(Array.contains(tag)(aggregate.metadata.tags)), {
-    onTrue: () =>
+  pipe(
+    Match.value(Array.contains(tag)(aggregate.metadata.tags)),
+    Match.when(true, () =>
       pipe(
         touchMetadata(aggregate.metadata),
         Effect.map((metadata) => ({
@@ -210,9 +215,10 @@ export const removeTag = (aggregate: RecipeAggregate, tag: ItemTag): Effect.Effe
             tags: aggregate.metadata.tags.filter((current) => current !== tag),
           },
         }))
-      ),
-    onFalse: () => Effect.succeed(aggregate),
-  })
+      )
+    ),
+    Match.orElse(() => Effect.succeed(aggregate))
+  )
 
 export const updateDescription = (
   aggregate: RecipeAggregate,
@@ -258,16 +264,18 @@ export const canCraftWithGrid = (
       Match.exhaustive
     ),
     (matches) =>
-      Effect.if(Effect.succeed(matches), {
-        onTrue: () => Effect.succeed(true),
-        onFalse: () =>
+      pipe(
+        Match.value(matches),
+        Match.when(true, () => Effect.succeed(true)),
+        Match.orElse(() =>
           Effect.fail(
             PatternMismatchError.make({
               recipeId: aggregate.id,
               reason: 'provided grid does not match the recipe definition',
             })
-          ),
-      })
+          )
+        )
+      )
   )
 
 /**

@@ -1,6 +1,6 @@
 import { JsonValueSchema, toJsonValue } from '@shared/schema/json'
 import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
-import { Clock, Effect, Schema } from 'effect'
+import { Clock, Effect, Match, pipe, Schema } from 'effect'
 
 // =============================================================================
 // Inventory Error Types using Schema.TaggedError
@@ -692,71 +692,55 @@ export const isInventoryDomainError = (error: unknown): error is InventoryDomain
 export const formatErrorMessage = (error: InventoryDomainError): string => {
   const baseMessage = `[${error._tag}] ${error.message}`
 
-  if (isSlotValidationError(error)) {
-    return `${baseMessage} (Slot: ${error.slotNumber}, Reason: ${error.reason})`
-  }
-
-  if (isItemNotFoundError(error)) {
-    return `${baseMessage} (Item: ${error.itemId}${error.slotNumber !== undefined ? `, Slot: ${error.slotNumber}` : ''})`
-  }
-
-  if (isTransferFailureError(error)) {
-    return `${baseMessage} (${error.sourceInventoryId} → ${error.targetInventoryId}, Reason: ${error.reason})`
-  }
-
-  if (isCorruptionError(error)) {
-    return `${baseMessage} (Type: ${error.corruptionType}, Fields: ${error.affectedFields.join(', ')})`
-  }
-
-  return baseMessage
+  return pipe(
+    Match.value(error),
+    Match.when(isSlotValidationError, (slotError) =>
+      `${baseMessage} (Slot: ${slotError.slotNumber}, Reason: ${slotError.reason})`
+    ),
+    Match.when(isItemNotFoundError, (notFoundError) => {
+      const slotInfo = notFoundError.slotNumber !== undefined ? `, Slot: ${notFoundError.slotNumber}` : ''
+      return `${baseMessage} (Item: ${notFoundError.itemId}${slotInfo})`
+    }),
+    Match.when(isTransferFailureError, (transferError) =>
+      `${baseMessage} (${transferError.sourceInventoryId} → ${transferError.targetInventoryId}, Reason: ${transferError.reason})`
+    ),
+    Match.when(isCorruptionError, (corruptionError) =>
+      `${baseMessage} (Type: ${corruptionError.corruptionType}, Fields: ${corruptionError.affectedFields.join(', ')})`
+    ),
+    Match.orElse(() => baseMessage)
+  )
 }
 
 /**
  * エラーの重要度を判定
  */
 export const getErrorSeverity = (error: InventoryDomainError): 'low' | 'medium' | 'high' | 'critical' => {
-  if (isValidationError(error) || isItemValidationError(error)) {
-    return 'low'
-  }
-
-  if (isInsufficientSpaceError(error) || isItemNotFoundError(error)) {
-    return 'medium'
-  }
-
-  if (isTransferFailureError(error) || isPermissionError(error)) {
-    return 'high'
-  }
-
-  if (isCorruptionError(error) || isSystemError(error)) {
-    return 'critical'
-  }
-
-  return 'medium'
+  return pipe(
+    Match.value(error),
+    Match.when((err) => isValidationError(err) || isItemValidationError(err), () => 'low' as const),
+    Match.when((err) => isInsufficientSpaceError(err) || isItemNotFoundError(err), () => 'medium' as const),
+    Match.when((err) => isTransferFailureError(err) || isPermissionError(err), () => 'high' as const),
+    Match.when((err) => isCorruptionError(err) || isSystemError(err), () => 'critical' as const),
+    Match.orElse(() => 'medium' as const)
+  )
 }
 
 /**
  * エラーが回復可能かどうかを判定
  */
 export const isRecoverableError = (error: InventoryDomainError): boolean => {
-  // バリデーションエラーは入力修正で回復可能
-  if (isValidationError(error) || isItemValidationError(error) || isSlotValidationError(error)) {
-    return true
-  }
-
-  // 容量不足は別の操作で回復可能
-  if (isInsufficientSpaceError(error)) {
-    return true
-  }
-
-  // 並行性エラーは再試行で回復可能
-  if (isConcurrencyError(error) && error.conflictType !== 'DEADLOCK') {
-    return true
-  }
-
-  // システムエラーやデータ破損は通常回復不可能
-  if (isSystemError(error) || isCorruptionError(error)) {
-    return false
-  }
-
-  return true
+  return pipe(
+    Match.value(error),
+    Match.when(
+      (err) => isValidationError(err) || isItemValidationError(err) || isSlotValidationError(err),
+      () => true
+    ),
+    Match.when(isInsufficientSpaceError, () => true),
+    Match.when(
+      (err) => isConcurrencyError(err) && err.conflictType !== 'DEADLOCK',
+      () => true
+    ),
+    Match.when((err) => isSystemError(err) || isCorruptionError(err), () => false),
+    Match.orElse(() => true)
+  )
 }

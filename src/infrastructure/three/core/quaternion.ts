@@ -4,7 +4,7 @@
  */
 
 import { ErrorCauseSchema } from '@shared/schema/error'
-import { Effect, Schema } from 'effect'
+import { Effect, Match, Schema, pipe } from 'effect'
 import * as THREE from 'three'
 import type { Vector3 } from './vector3'
 import * as V3 from './vector3'
@@ -111,17 +111,21 @@ export const norm = (q: Quaternion): number => Math.sqrt(q.x * q.x + q.y * q.y +
 export const normalize = (q: Quaternion): Effect.Effect<Quaternion, QuaternionError> =>
   Effect.gen(function* () {
     const n = norm(q)
-    if (n === 0) {
-      return yield* Effect.fail(
-        new QuaternionError({
-          operation: 'normalize',
-          reason: 'Cannot normalize zero quaternion',
-          cause: q,
-        })
-      )
-    }
-
-    return make(q.x / n, q.y / n, q.z / n, q.w / n)
+    return yield* pipe(
+      Match.value(n === 0),
+      Match.when(
+        (isZero) => isZero,
+        () =>
+          Effect.fail(
+            new QuaternionError({
+              operation: 'normalize',
+              reason: 'Cannot normalize zero quaternion',
+              cause: q,
+            })
+          )
+      ),
+      Match.orElse(() => Effect.succeed(make(q.x / n, q.y / n, q.z / n, q.w / n)))
+    )
   })
 
 /**
@@ -130,18 +134,24 @@ export const normalize = (q: Quaternion): Effect.Effect<Quaternion, QuaternionEr
 export const inverse = (q: Quaternion): Effect.Effect<Quaternion, QuaternionError> =>
   Effect.gen(function* () {
     const normSq = q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w
-    if (normSq === 0) {
-      return yield* Effect.fail(
-        new QuaternionError({
-          operation: 'inverse',
-          reason: 'Cannot invert zero quaternion',
-          cause: q,
-        })
-      )
-    }
-
-    const conj = conjugate(q)
-    return make(conj.x / normSq, conj.y / normSq, conj.z / normSq, conj.w / normSq)
+    return yield* pipe(
+      Match.value(normSq === 0),
+      Match.when(
+        (isZero) => isZero,
+        () =>
+          Effect.fail(
+            new QuaternionError({
+              operation: 'inverse',
+              reason: 'Cannot invert zero quaternion',
+              cause: q,
+            })
+          )
+      ),
+      Match.orElse(() => {
+        const conj = conjugate(q)
+        return Effect.succeed(make(conj.x / normSq, conj.y / normSq, conj.z / normSq, conj.w / normSq))
+      })
+    )
   })
 
 /**
@@ -160,28 +170,37 @@ export const slerp = (a: Quaternion, b: Quaternion, t: number): Effect.Effect<Qu
     const adjustedCosom = Math.abs(cosom)
 
     const threshold = 0.9995
-    if (adjustedCosom > threshold) {
-      // 線形補間で十分（角度が小さい）
-      const x = a.x + (adjustedB.x - a.x) * clampedT
-      const y = a.y + (adjustedB.y - a.y) * clampedT
-      const z = a.z + (adjustedB.z - a.z) * clampedT
-      const w = a.w + (adjustedB.w - a.w) * clampedT
 
-      return yield* normalize(make(x, y, z, w))
-    }
+    return yield* pipe(
+      Match.value(adjustedCosom > threshold),
+      Match.when(
+        (withinLinearRange) => withinLinearRange,
+        () =>
+          Effect.gen(function* () {
+            const x = a.x + (adjustedB.x - a.x) * clampedT
+            const y = a.y + (adjustedB.y - a.y) * clampedT
+            const z = a.z + (adjustedB.z - a.z) * clampedT
+            const w = a.w + (adjustedB.w - a.w) * clampedT
 
-    // 球面線形補間
-    const omega = Math.acos(adjustedCosom)
-    const sinom = Math.sin(omega)
+            return yield* normalize(make(x, y, z, w))
+          })
+      ),
+      Match.orElse(() =>
+        Effect.gen(function* () {
+          const omega = Math.acos(adjustedCosom)
+          const sinom = Math.sin(omega)
 
-    const scale0 = Math.sin((1 - clampedT) * omega) / sinom
-    const scale1 = Math.sin(clampedT * omega) / sinom
+          const scale0 = Math.sin((1 - clampedT) * omega) / sinom
+          const scale1 = Math.sin(clampedT * omega) / sinom
 
-    return make(
-      a.x * scale0 + adjustedB.x * scale1,
-      a.y * scale0 + adjustedB.y * scale1,
-      a.z * scale0 + adjustedB.z * scale1,
-      a.w * scale0 + adjustedB.w * scale1
+          return make(
+            a.x * scale0 + adjustedB.x * scale1,
+            a.y * scale0 + adjustedB.y * scale1,
+            a.z * scale0 + adjustedB.z * scale1,
+            a.w * scale0 + adjustedB.w * scale1
+          )
+        })
+      )
     )
   })
 

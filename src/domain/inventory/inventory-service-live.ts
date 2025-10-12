@@ -2,7 +2,7 @@ import { now as timestampNow, type Timestamp } from '@domain/shared/value_object
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
 import type { JsonValue } from '@shared/schema/json'
 import { JsonValueSchema } from '@shared/schema/json'
-import { Effect, Layer, Option, Ref, Schema, pipe } from 'effect'
+import { Effect, Layer, Match, Option, Ref, Schema, pipe } from 'effect'
 import * as ReadonlyArray from 'effect/Array'
 import {
   Inventory,
@@ -24,15 +24,12 @@ import {
 const SLOT_COUNT = 36
 const HOTBAR_SIZE = 9
 
-const toJsonValue = (input: Schema.ParseError | JsonValue): JsonValue => {
-  if (Schema.is(JsonValueSchema)(input)) {
-    return input
-  }
-
-  return {
-    message: TreeFormatter.formatErrorSync(input),
-  }
-}
+const toJsonValue = (input: Schema.ParseError | JsonValue): JsonValue =>
+  pipe(
+    Match.value(input),
+    Match.when(Schema.is(JsonValueSchema), (value) => value as JsonValue),
+    Match.orElse(() => ({ message: TreeFormatter.formatErrorSync(input) }))
+  )
 
 const normalizeItemId = (itemId: ItemId | string): Effect.Effect<ItemId, InventoryServiceError> =>
   typeof itemId === 'string'
@@ -47,16 +44,18 @@ const sameStack = (left: ItemStack, right: ItemStack): boolean =>
   left.itemId === right.itemId && JSON.stringify(left.metadata ?? null) === JSON.stringify(right.metadata ?? null)
 
 const ensureSlotIndex = (slotIndex: number) =>
-  Effect.if(Number.isInteger(slotIndex) && slotIndex >= 0 && slotIndex < SLOT_COUNT, {
-    onTrue: () => Effect.succeed(slotIndex),
-    onFalse: () => Effect.fail(InventoryServiceError.invalidSlotIndex(slotIndex)),
-  })
+  pipe(
+    Match.value(Number.isInteger(slotIndex) && slotIndex >= 0 && slotIndex < SLOT_COUNT),
+    Match.when(true, () => Effect.succeed(slotIndex)),
+    Match.orElse(() => Effect.fail(InventoryServiceError.invalidSlotIndex(slotIndex)))
+  )
 
 const ensureHotbarIndex = (index: number) =>
-  Effect.if(Number.isInteger(index) && index >= 0 && index < HOTBAR_SIZE, {
-    onTrue: () => Effect.succeed(index),
-    onFalse: () => Effect.fail(InventoryServiceError.invalidHotbarIndex(index)),
-  })
+  pipe(
+    Match.value(Number.isInteger(index) && index >= 0 && index < HOTBAR_SIZE),
+    Match.when(true, () => Effect.succeed(index)),
+    Match.orElse(() => Effect.fail(InventoryServiceError.invalidHotbarIndex(index)))
+  )
 
 const cloneItem = (item: ItemStack): ItemStack => ({
   itemId: item.itemId,
@@ -131,52 +130,52 @@ export const InventoryServiceLive = Layer.effect(
       let added = 0
       const touched = new Set<number>()
 
-      const tryStack = (index: number) => {
-        const current = slots[index]
+      const tryStack = (index: number) =>
         pipe(
-          Option.fromNullable(current),
-          Option.filter((curr) => sameStack(curr, item) && definition.stackable),
-          Option.filter((curr) => curr.count < definition.maxStackSize),
-          Option.map((curr) => {
-            const capacity = definition.maxStackSize - curr.count
-            const toAdd = Math.min(capacity, remaining)
-            slots[index] = {
-              ...curr,
-              count: curr.count + toAdd,
-            }
-            remaining -= toAdd
-            added += toAdd
-            touched.add(index)
+          Match.value(remaining > 0),
+          Match.when(true, () => {
+            const current = slots[index]
+            pipe(
+              Option.fromNullable(current),
+              Option.filter((curr) => sameStack(curr, item) && definition.stackable),
+              Option.filter((curr) => curr.count < definition.maxStackSize),
+              Option.map((curr) => {
+                const capacity = definition.maxStackSize - curr.count
+                const toAdd = Math.min(capacity, remaining)
+                slots[index] = {
+                  ...curr,
+                  count: curr.count + toAdd,
+                }
+                remaining -= toAdd
+                added += toAdd
+                touched.add(index)
+              })
+            )
           })
         )
-      }
 
       // 既存スタックへの追加を試行
-      pipe(
-        ReadonlyArray.makeBy(SLOT_COUNT, (i) => i),
-        ReadonlyArray.forEach((index) => {
-          if (remaining > 0) {
-            tryStack(index)
-          }
-        })
-      )
+      pipe(ReadonlyArray.makeBy(SLOT_COUNT, (i) => i), ReadonlyArray.forEach(tryStack))
 
       // 空きスロットへの配置
       pipe(
         ReadonlyArray.makeBy(SLOT_COUNT, (i) => i),
-        ReadonlyArray.forEach((index) => {
-          if (remaining > 0 && slots[index] === null) {
-            const toPlace = definition.stackable ? Math.min(definition.maxStackSize, remaining) : 1
-            slots[index] = {
-              itemId: item.itemId,
-              count: toPlace,
-              metadata: item.metadata ? { ...item.metadata } : undefined,
-            }
-            remaining -= toPlace
-            added += toPlace
-            touched.add(index)
-          }
-        })
+        ReadonlyArray.forEach((index) =>
+          pipe(
+            Match.value(remaining > 0 && slots[index] === null),
+            Match.when(true, () => {
+              const toPlace = definition.stackable ? Math.min(definition.maxStackSize, remaining) : 1
+              slots[index] = {
+                itemId: item.itemId,
+                count: toPlace,
+                metadata: item.metadata ? { ...item.metadata } : undefined,
+              }
+              remaining -= toPlace
+              added += toPlace
+              touched.add(index)
+            })
+          )
+        )
       )
 
       const result: AddItemResult =
@@ -404,23 +403,26 @@ export const InventoryServiceLive = Layer.effect(
                             nextSlots[toIndex] = movedItem
                             nextSlots[fromIndex] = remaining > 0 ? { ...src, count: remaining } : null
                           },
-                          onSome: (dest) => {
-                            if (sameStack(dest, src) && definition.stackable) {
-                              const total = dest.count + transferAmount
-                              const toPlace = Math.min(definition.maxStackSize, total)
-                              const remainder = total - toPlace
-                              nextSlots[toIndex] = { ...dest, count: toPlace }
-                              nextSlots[fromIndex] =
-                                remainder > 0
-                                  ? { ...src, count: remaining + remainder }
-                                  : remaining > 0
-                                    ? { ...src, count: remaining }
-                                    : null
-                            } else {
-                              nextSlots[toIndex] = movedItem
-                              nextSlots[fromIndex] = dest
-                            }
-                          },
+                          onSome: (dest) =>
+                            pipe(
+                              Match.value(sameStack(dest, src) && definition.stackable),
+                              Match.when(true, () => {
+                                const total = dest.count + transferAmount
+                                const toPlace = Math.min(definition.maxStackSize, total)
+                                const remainder = total - toPlace
+                                nextSlots[toIndex] = { ...dest, count: toPlace }
+                                nextSlots[fromIndex] =
+                                  remainder > 0
+                                    ? { ...src, count: remaining + remainder }
+                                    : remaining > 0
+                                      ? { ...src, count: remaining }
+                                      : null
+                              }),
+                              Match.orElse(() => {
+                                nextSlots[toIndex] = movedItem
+                                nextSlots[fromIndex] = dest
+                              })
+                            ),
                         })
                       )
 
@@ -522,12 +524,15 @@ export const InventoryServiceLive = Layer.effect(
                       const remaining = src.count - amount
                       const existingTargetCount = targetItem?.count ?? 0
                       const desiredTargetCount = existingTargetCount + amount
-                      if (desiredTargetCount > definition.maxStackSize) {
-                        throw InventoryServiceError.splitTargetMustBeCompatible({
-                          sourceSlot: sourceIndex,
-                          targetSlot: targetIndex,
+                      pipe(
+                        Match.value(desiredTargetCount > definition.maxStackSize),
+                        Match.when(true, () => {
+                          throw InventoryServiceError.splitTargetMustBeCompatible({
+                            sourceSlot: sourceIndex,
+                            targetSlot: targetIndex,
+                          })
                         })
-                      }
+                      )
                       nextSlots[sourceIndex] = remaining > 0 ? { ...src, count: remaining } : null
                       nextSlots[targetIndex] = {
                         itemId: src.itemId,
@@ -842,17 +847,11 @@ export const InventoryServiceLive = Layer.effect(
             )
           )
           return pipe(
-            Effect.if(existingSpace >= item.count, {
-              onTrue: () => Effect.succeed(true),
-              onFalse: () =>
-                Effect.succeed(
-                  pipe(
-                    inventory.slots,
-                    ReadonlyArray.some((slot) => slot === null)
-                  )
-                ),
-            }),
-            Effect.flatten
+            Match.value(existingSpace >= item.count),
+            Match.when(true, () => Effect.succeed(true)),
+            Match.orElse(() =>
+              Effect.succeed(pipe(inventory.slots, ReadonlyArray.some((slot) => slot === null)))
+            )
           )
         }),
 

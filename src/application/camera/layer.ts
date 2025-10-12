@@ -10,6 +10,7 @@ import { CameraSystemOrchestratorServiceLive } from './camera_system_orchestrato
 import { PlayerCameraApplicationServiceLive } from './player_camera/index'
 import { SceneCameraApplicationServiceLive } from './scene_camera/index'
 import { CameraAPIServiceLive } from './api-service'
+import { CameraHUDServiceLive } from './hud-service'
 
 /**
  * 全Camera Application Serviceの統合Layer
@@ -22,5 +23,6 @@ export const CameraApplicationServicesLayer = Layer.mergeAll(
   SceneCameraApplicationServiceLive,
   CameraModeManagerApplicationServiceLive,
   CameraSystemOrchestratorServiceLive,
-  CameraAPIServiceLive
+  CameraAPIServiceLive,
+  CameraHUDServiceLive
 )

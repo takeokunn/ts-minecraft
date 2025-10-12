@@ -17,6 +17,9 @@ export { createCameraError, createPositionError, createRotationError, createSett
 
 export type {
   CameraCommand,
+  CameraCommandBase,
+  CameraCommandMetadata,
+  CameraCommandTag,
   GetCameraSnapshotQuery,
   GetCameraStateQuery,
   ListActiveCamerasQuery,
@@ -29,7 +32,9 @@ export type {
 export {
   CameraCommandBaseSchema,
   CameraCommandMetadataSchema,
+  CameraCommandSchemas,
   CameraCommandSchema,
+  CameraCommandTagSchema,
   SwitchCameraModeCommandSchema,
   UpdateCameraPositionCommandSchema,
   UpdateCameraRotationCommandSchema,
@@ -40,7 +45,10 @@ export {
 
 export {
   CameraQueryMetadataSchema,
+  CameraQueryBaseSchema,
+  CameraQuerySchemas,
   CameraQuerySchema,
+  CameraQueryTagSchema,
   GetCameraSnapshotQuerySchema,
   GetCameraStateQuerySchema,
   ListActiveCamerasQuerySchema,
@@ -48,7 +56,7 @@ export {
   validateCameraQuery,
 } from './queries'
 
-export type { CameraQuery } from './queries'
+export type { CameraQuery, CameraQueryBase, CameraQueryMetadata, CameraQueryTag } from './queries'
 
 // ========================================
 // Camera View Types Export
@@ -159,13 +167,17 @@ export type { AnimationState, CameraEvent, CameraId, CameraRotation, CameraSetti
 export {
   AnimationStateSchema,
   CameraEventSchema,
+  CameraEventSchemas,
+  CameraEventTagSchema,
   CameraIdSchema,
   CameraRotationSchema,
   CameraSettingsSchema,
+  parseCameraEvent,
+  validateCameraEvent,
+  isCameraEvent,
 } from './events'
 
-// Event Factory Functions
-export { createCameraEvent } from './events'
+export type { CameraEventTag } from './events'
 
 // Event Type Guards
 export {

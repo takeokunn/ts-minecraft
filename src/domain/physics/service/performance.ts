@@ -349,13 +349,24 @@ const makePhysicsPerformanceService: Effect.Effect<PhysicsPerformanceService> = 
       let optimizationApplied = false
 
       // 適応モードでない場合は推奨のみ
-      const earlyReturn = yield* Effect.if(!state.adaptiveMode, {
-        onTrue: () => Effect.succeed({ optimizationApplied: false, recommendations: ['Adaptive mode is disabled'] }),
-        onFalse: () => Effect.succeed(null),
-      })
-      if (earlyReturn !== null) {
-        return earlyReturn
-      }
+      const earlyReturn = yield* pipe(
+        Match.value(state.adaptiveMode),
+        Match.when(false, () =>
+          Effect.succeed(
+            Option.some({ optimizationApplied: false, recommendations: ['Adaptive mode is disabled'] })
+          )
+        ),
+        Match.orElse(() => Effect.succeed(Option.none<{ optimizationApplied: boolean; recommendations: string[] }>()))
+      )
+
+      yield* pipe(
+        earlyReturn,
+        Option.match({
+          onNone: () => Effect.unit,
+          onSome: (value) => Effect.fail(value),
+        }),
+        Effect.catchTag('Fail', (value) => Effect.succeed(value))
+      ).pipe(Effect.flatMap((value) => Effect.fail(value)))
 
       // 過去1秒間の平均パフォーマンスを分析
       const avgMetrics = state.averageMetrics
@@ -376,17 +387,27 @@ const makePhysicsPerformanceService: Effect.Effect<PhysicsPerformanceService> = 
               const currentLevels: PerformanceLevel[] = ['Ultra', 'High', 'Medium', 'Low', 'Minimum']
               const currentIndex = currentLevels.indexOf(state.currentLevel)
 
-              if (currentIndex < currentLevels.length - 1) {
-                const newLevel = currentLevels[currentIndex + 1]!
-                yield* setPerformanceLevel(newLevel)
-                recommendations.push(
-                  `Performance downgraded to ${newLevel} due to low FPS (${avgMetrics.fps.toFixed(1)})`
+              return yield* Match.value(currentIndex)
+                .pipe(
+                  Match.when(
+                    (index) => index < currentLevels.length - 1,
+                    (index) =>
+                      Effect.gen(function* () {
+                        const newLevel = currentLevels[index + 1]!
+                        yield* setPerformanceLevel(newLevel)
+                        recommendations.push(
+                          `Performance downgraded to ${newLevel} due to low FPS (${avgMetrics.fps.toFixed(1)})`
+                        )
+                        return { applied: true }
+                      })
+                  ),
+                  Match.orElse(() =>
+                    Effect.sync(() => {
+                      recommendations.push('Already at minimum performance level')
+                      return { applied: false }
+                    })
+                  )
                 )
-                return { applied: true }
-              } else {
-                recommendations.push('Already at minimum performance level')
-                return { applied: false }
-              }
             })
         ),
         Match.when(
@@ -399,16 +420,25 @@ const makePhysicsPerformanceService: Effect.Effect<PhysicsPerformanceService> = 
               const now = yield* Clock.currentTimeMillis
               const timeSinceLastOptimization = now - state.lastOptimization
 
-              if (currentIndex > 0 && timeSinceLastOptimization > 5000) {
-                // 5秒以上経過
-                const newLevel = currentLevels[currentIndex - 1]!
-                yield* setPerformanceLevel(newLevel)
-                recommendations.push(`Performance upgraded to ${newLevel} - stable high FPS detected`)
-                return { applied: true }
-              } else {
-                recommendations.push('Performance is stable - no changes needed')
-                return { applied: false }
-              }
+              return yield* Match.value({ currentIndex, timeSinceLastOptimization }).pipe(
+                Match.when(
+                  ({ currentIndex, timeSinceLastOptimization }) =>
+                    currentIndex > 0 && timeSinceLastOptimization > 5000,
+                  ({ currentIndex }) =>
+                    Effect.gen(function* () {
+                      const newLevel = currentLevels[currentIndex - 1]!
+                      yield* setPerformanceLevel(newLevel)
+                      recommendations.push(`Performance upgraded to ${newLevel} - stable high FPS detected`)
+                      return { applied: true }
+                    })
+                ),
+                Match.orElse(() =>
+                  Effect.sync(() => {
+                    recommendations.push('Performance is stable - no changes needed')
+                    return { applied: false }
+                  })
+                )
+              )
             })
         ),
         Match.when(
@@ -523,11 +553,11 @@ export const startPerformanceMonitoring = (intervalMs: number = 1000) =>
     // 定期的なパフォーマンス分析
     const monitoringEffect = Effect.gen(function* () {
       const result = yield* performanceService.analyzeAndOptimize()
-      if (result.optimizationApplied) {
-        yield* Effect.logInfo('Automatic performance optimization applied').pipe(
+      yield* Effect.when(result.optimizationApplied, () =>
+        Effect.logInfo('Automatic performance optimization applied').pipe(
           Effect.annotateLogs({ recommendations: JSON.stringify(result.recommendations) })
         )
-      }
+      )
     })
 
     // 指定間隔での実行をスケジュール

@@ -688,40 +688,53 @@ const makeChunkMemoryMonitor = (maxMemoryMB: number = 500) => Effect.gen(functio
     }
 
     // LRU順にソート
-    const sorted = Array.from(loadedChunks.entries())
-      .sort(([, a], [, b]) => a.lastAccess - b.lastAccess)
+    const sorted = Array.from(loadedChunks.entries()).sort(([, a], [, b]) => a.lastAccess - b.lastAccess)
 
-    let evictedCount = 0
-    let freedMemory = 0
-    const evictedChunks: ChunkCoordinate[] = []
-    let remainingMemory = currentMemory
+    const evictionState = yield* pipe(
+      sorted,
+      Effect.reduce(
+        {
+          updatedChunks: new Map(loadedChunks),
+          remainingMemory: currentMemory,
+          freedMemory: 0,
+          evictedCount: 0,
+          evictedChunks: [] as ChunkCoordinate[],
+        },
+        (state, [key, info]) =>
+          state.remainingMemory <= targetMemory
+            ? Effect.succeed(state)
+            : Effect.gen(function* () {
+                const updatedChunks = new Map(state.updatedChunks)
+                updatedChunks.delete(key)
 
-    const updatedChunks = new Map(loadedChunks)
+                const remainingMemory = state.remainingMemory - info.size
+                const freedMemory = state.freedMemory + info.size
+                const evictedCount = state.evictedCount + 1
+                const evictedChunks = [...state.evictedChunks, parseChunkKey(key)]
 
-    for (const [key, info] of sorted) {
-      if (remainingMemory <= targetMemory) {
-        break
-      }
+                yield* Effect.log(`♻️ Evicted chunk ${key} (${formatBytes(info.size)})`)
 
-      updatedChunks.delete(key)
-      remainingMemory -= info.size
-      freedMemory += info.size
-      evictedCount++
-      evictedChunks.push(parseChunkKey(key))
+                return {
+                  updatedChunks,
+                  remainingMemory,
+                  freedMemory,
+                  evictedCount,
+                  evictedChunks,
+                }
+              })
+      )
+    )
 
-      yield* Effect.log(`♻️ Evicted chunk ${key} (${formatBytes(info.size)})`)
-    }
+    yield* Ref.set(loadedChunksRef, evictionState.updatedChunks)
+    yield* Ref.set(currentMemoryRef, evictionState.remainingMemory)
 
-    yield* Ref.set(loadedChunksRef, updatedChunks)
-    yield* Ref.set(currentMemoryRef, remainingMemory)
-
-    yield* Effect.log(`♻️ Total evicted: ${evictedCount} chunks, freed: ${formatBytes(freedMemory)}`)
+    yield* Effect.log(`♻️ Total evicted: ${evictionState.evictedCount} chunks, freed: ${formatBytes(evictionState.freedMemory)}`)
 
     return {
-      evictedCount,
-      freedMemory,
-      evictedChunks,
-      remainingMemory
+      evictedCount: evictionState.evictedCount,
+      freedMemory: evictionState.freedMemory,
+      evictedChunks: evictionState.evictedChunks,
+      remainingMemory: evictionState.remainingMemory,
     }
   })
 
@@ -888,11 +901,11 @@ export const initializeDevTools = () => {
 
   // パフォーマンス観測
   const observer = new PerformanceObserver((list) => {
-    for (const entry of list.getEntries()) {
+    list.getEntries().forEach((entry) => {
       if (entry.entryType === 'measure') {
         console.log(`📊 ${entry.name}: ${entry.duration.toFixed(2)}ms`)
       }
-    }
+    })
   })
 
   observer.observe({ entryTypes: ['measure'] })

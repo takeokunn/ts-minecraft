@@ -36,6 +36,7 @@ import { Clock, Effect, Layer } from 'effect'
 import { pipe } from 'effect/Function'
 import * as Match from 'effect/Match'
 import * as Option from 'effect/Option'
+import { ChunkCacheServiceTag, type ChunkCacheService } from '@/infrastructure/chunk'
 
 const BLOCKS_PER_LAYER = CHUNK_SIZE * CHUNK_SIZE
 const EXPECTED_BLOCK_COUNT = CHUNK_HEIGHT * BLOCKS_PER_LAYER
@@ -82,19 +83,19 @@ const findChunkDataById = <E>(
   id: ChunkId,
   onMissing: () => E
 ): Effect.Effect<ChunkData, E> =>
-  Effect.gen(function* () {
-    const option = yield* repository.findById(id)
-    return yield* pipe(
-      option,
+  pipe(
+    repository.findById(id),
+    Effect.flatMap(
       Option.match({
         onNone: () => Effect.fail(onMissing()),
         onSome: Effect.succeed,
       })
     )
-  })
+  )
 
 const resolveChunkContext = (
   repository: ChunkRepositoryService,
+  cacheOption: Option.Option<ChunkCacheService>,
   world: WorldNumbers
 ): Effect.Effect<
   {
@@ -109,7 +110,29 @@ const resolveChunkContext = (
   Effect.gen(function* () {
     const chunkPosition = yield* createChunkPosition(Math.floor(world.x / CHUNK_SIZE), Math.floor(world.z / CHUNK_SIZE))
 
-    const chunkOption = yield* repository.findByPosition(chunkPosition)
+    const chunkOption = yield* pipe(
+      cacheOption,
+      Option.match({
+        onNone: () => repository.findByPosition(chunkPosition),
+        onSome: (cache) =>
+          Effect.gen(function* () {
+            const cached = yield* cache.get(chunkPosition)
+            return yield* Option.match(cached, {
+              onSome: (chunk) => Effect.succeed(Option.some(chunk)),
+              onNone: () =>
+                Effect.gen(function* () {
+                  const fetched = yield* repository.findByPosition(chunkPosition)
+                  yield* Option.match(fetched, {
+                    onNone: () => Effect.void,
+                    onSome: (chunk) => cache.set(chunk),
+                  })
+                  return fetched
+                }),
+            })
+          }),
+      })
+    )
+
     const chunk = yield* pipe(
       chunkOption,
       Option.match({
@@ -128,23 +151,31 @@ const resolveChunkContext = (
     const localZ = world.z - chunkPosition.z * CHUNK_SIZE
     const localY = world.y - CHUNK_MIN_Y
 
-    if (localX < 0 || localX >= CHUNK_SIZE || localZ < 0 || localZ >= CHUNK_SIZE) {
-      return yield* Effect.fail(
-        ChunkBoundsError({
-          message: `ワールド座標がチャンク範囲外です (${world.x}, ${world.y}, ${world.z})`,
-          coordinates: world,
-        })
-      )
-    }
+    yield* pipe(
+      Match.value(localX >= 0 && localX < CHUNK_SIZE && localZ >= 0 && localZ < CHUNK_SIZE),
+      Match.when(false, () =>
+        Effect.fail(
+          ChunkBoundsError({
+            message: `ワールド座標がチャンク範囲外です (${world.x}, ${world.y}, ${world.z})`,
+            coordinates: world,
+          })
+        )
+      ),
+      Match.exhaustive
+    )
 
-    if (localY < 0 || localY >= CHUNK_HEIGHT) {
-      return yield* Effect.fail(
-        ChunkBoundsError({
-          message: `Y座標がチャンク範囲外です: ${world.y}`,
-          coordinates: world,
-        })
-      )
-    }
+    yield* pipe(
+      Match.value(localY >= 0 && localY < CHUNK_HEIGHT),
+      Match.when(false, () =>
+        Effect.fail(
+          ChunkBoundsError({
+            message: `Y座標がチャンク範囲外です: ${world.y}`,
+            coordinates: world,
+          })
+        )
+      ),
+      Match.exhaustive
+    )
 
     return {
       chunk,
@@ -161,12 +192,17 @@ export const ChunkDataProviderLive = Layer.succeed(
     getChunk: (id: ChunkId): Effect.Effect<ChunkAggregate, ChunkIdError> =>
       Effect.gen(function* () {
         const repository = yield* ChunkRepository
+        const cacheOption = yield* Effect.serviceOption(ChunkCacheServiceTag)
         const chunkData = yield* findChunkDataById(repository, id, () =>
           ChunkIdError.make({
             message: `チャンクが見つかりません: ${id}`,
             value: id,
           })
         )
+        yield* Option.match(cacheOption, {
+          onNone: () => Effect.void,
+          onSome: (cache) => cache.set(chunkData),
+        })
 
         return yield* createChunkAggregate(chunkData).pipe(
           Effect.mapError((error) =>
@@ -182,12 +218,20 @@ export const ChunkDataProviderLive = Layer.succeed(
     getChunkData: (id: ChunkId): Effect.Effect<ChunkData, ChunkDataValidationError> =>
       Effect.gen(function* () {
         const repository = yield* ChunkRepository
+        const cacheOption = yield* Effect.serviceOption(ChunkCacheServiceTag)
         return yield* findChunkDataById(repository, id, () =>
           ChunkDataValidationError({
             message: `チャンクが存在しません: ${id}`,
             field: 'chunkId',
             value: id,
           })
+        ).pipe(
+          Effect.tap((chunk) =>
+            Option.match(cacheOption, {
+              onNone: () => Effect.void,
+              onSome: (cache) => cache.set(chunk),
+            })
+          )
         )
       }),
 
@@ -195,28 +239,33 @@ export const ChunkDataProviderLive = Layer.succeed(
       Effect.gen(function* () {
         const validationServiceOption = yield* Effect.serviceOption(ChunkValidationService)
 
-        if (Option.isSome(validationServiceOption)) {
-          yield* validationServiceOption.value.validateChunkAggregate(chunk).pipe(
-            Effect.mapError(() =>
-              ChunkDataValidationError({
-                message: 'チャンク検証に失敗しました',
-                field: 'aggregate',
-                value: chunk.id,
-              })
+        return yield* Option.match(validationServiceOption, {
+          onSome: (service) =>
+            service.validateChunkAggregate(chunk).pipe(
+              Effect.mapError(() =>
+                ChunkDataValidationError({
+                  message: 'チャンク検証に失敗しました',
+                  field: 'aggregate',
+                  value: chunk.id,
+                })
+              )
+            ),
+          onNone: () =>
+            pipe(
+              Match.value(chunk.data.blocks.length === EXPECTED_BLOCK_COUNT),
+              Match.when(true, () => Effect.void),
+              Match.orElse(() =>
+                Effect.fail(
+                  ChunkDataValidationError({
+                    message: `チャンクデータサイズが不正です: ${chunk.data.blocks.length}`,
+                    field: 'blocks',
+                    value: chunk.id,
+                  })
+                )
+              ),
+              Match.exhaustive
             )
-          )
-          return
-        }
-
-        if (chunk.data.blocks.length !== EXPECTED_BLOCK_COUNT) {
-          return yield* Effect.fail(
-            ChunkDataValidationError({
-              message: `チャンクデータサイズが不正です: ${chunk.data.blocks.length}`,
-              field: 'blocks',
-              value: chunk.id,
-            })
-          )
-        }
+        })
       }),
 
     getBlock: (position: {
@@ -226,18 +275,23 @@ export const ChunkDataProviderLive = Layer.succeed(
     }): Effect.Effect<BlockData, ChunkBoundsError> =>
       Effect.gen(function* () {
         const repository = yield* ChunkRepository
+        const cacheOption = yield* Effect.serviceOption(ChunkCacheServiceTag)
         const world = toWorldNumbers(position)
 
-        if (world.y < CHUNK_MIN_Y || world.y > CHUNK_MAX_Y) {
-          return yield* Effect.fail(
-            ChunkBoundsError({
-              message: `Y座標がチャンク範囲外です: ${world.y}`,
-              coordinates: world,
-            })
-          )
-        }
+        yield* pipe(
+          Match.value(world.y >= CHUNK_MIN_Y && world.y <= CHUNK_MAX_Y),
+          Match.when(false, () =>
+            Effect.fail(
+              ChunkBoundsError({
+                message: `Y座標がチャンク範囲外です: ${world.y}`,
+                coordinates: world,
+              })
+            )
+          ),
+          Match.exhaustive
+        )
 
-        const context = yield* resolveChunkContext(repository, world).pipe(
+        const context = yield* resolveChunkContext(repository, cacheOption, world).pipe(
           Effect.mapError((error) =>
             error._tag === 'ChunkBoundsError' ? error : mapPositionErrorToBounds(error, world)
           )
@@ -246,14 +300,18 @@ export const ChunkDataProviderLive = Layer.succeed(
         const blockIndex = computeBlockIndex(context.localX, context.localY, context.localZ)
         const blockValue = context.chunk.blocks[blockIndex] ?? 0
 
-        if (blockValue < 0 || blockValue > 15) {
-          return yield* Effect.fail(
-            ChunkBoundsError({
-              message: `ブロックデータが範囲外です: ${blockValue}`,
-              coordinates: world,
-            })
-          )
-        }
+        yield* pipe(
+          Match.value(blockValue >= 0 && blockValue <= 15),
+          Match.when(false, () =>
+            Effect.fail(
+              ChunkBoundsError({
+                message: `ブロックデータが範囲外です: ${blockValue}`,
+                coordinates: world,
+              })
+            )
+          ),
+          Match.exhaustive
+        )
 
         return blockValue as BlockData
       }),
@@ -268,18 +326,23 @@ export const ChunkDataProviderLive = Layer.succeed(
     ): Effect.Effect<void, ChunkBoundsError> =>
       Effect.gen(function* () {
         const repository = yield* ChunkRepository
+        const cacheOption = yield* Effect.serviceOption(ChunkCacheServiceTag)
         const world = toWorldNumbers(position)
 
-        if (world.y < CHUNK_MIN_Y || world.y > CHUNK_MAX_Y) {
-          return yield* Effect.fail(
-            ChunkBoundsError({
-              message: `Y座標がチャンク範囲外です: ${world.y}`,
-              coordinates: world,
-            })
-          )
-        }
+        yield* pipe(
+          Match.value(world.y >= CHUNK_MIN_Y && world.y <= CHUNK_MAX_Y),
+          Match.when(false, () =>
+            Effect.fail(
+              ChunkBoundsError({
+                message: `Y座標がチャンク範囲外です: ${world.y}`,
+                coordinates: world,
+              })
+            )
+          ),
+          Match.exhaustive
+        )
 
-        const context = yield* resolveChunkContext(repository, world).pipe(
+        const context = yield* resolveChunkContext(repository, cacheOption, world).pipe(
           Effect.mapError((error) =>
             error._tag === 'ChunkBoundsError' ? error : mapPositionErrorToBounds(error, world)
           )
@@ -303,7 +366,15 @@ export const ChunkDataProviderLive = Layer.succeed(
 
         yield* repository
           .save(updatedChunk)
-          .pipe(Effect.mapError((error) => toChunkBoundsErrorFromRepository(error, world)))
+          .pipe(
+            Effect.tap((saved) =>
+              Option.match(cacheOption, {
+                onNone: () => Effect.void,
+                onSome: (cache) => cache.set(saved),
+              })
+            ),
+            Effect.mapError((error) => toChunkBoundsErrorFromRepository(error, world))
+          )
       }),
 
     chunkToWorldCoordinates: (

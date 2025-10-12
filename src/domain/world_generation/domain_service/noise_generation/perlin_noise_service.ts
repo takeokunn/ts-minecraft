@@ -488,27 +488,45 @@ export const PerlinNoiseServiceLive = Layer.effect(
 
     validateConfig: (config) =>
       Effect.gen(function* () {
-        const warnings: string[] = []
-
-        // 周波数の検証
-        if (config.frequency > 100) {
-          warnings.push(`High frequency may cause aliasing: ${config.frequency}`)
-        }
-
-        // オクターブ数の検証
-        if (config.octaves > 8) {
-          warnings.push(`High octave count may impact performance: ${config.octaves}`)
-        }
-
-        // 持続性の検証
-        if (config.persistence > 0.8) {
-          warnings.push(`High persistence may reduce detail variation: ${config.persistence}`)
-        }
-
-        // ラキュナリティの検証
-        if (config.lacunarity < 1.5) {
-          warnings.push(`Low lacunarity may reduce frequency separation: ${config.lacunarity}`)
-        }
+        const warnings = pipe(
+          [] as string[],
+          (messages) =>
+            pipe(
+              Match.value(config.frequency),
+              Match.when(
+                (frequency) => frequency > 100,
+                (frequency) => [...messages, `High frequency may cause aliasing: ${frequency}`]
+              ),
+              Match.orElse(() => messages)
+            ),
+          (messages) =>
+            pipe(
+              Match.value(config.octaves),
+              Match.when(
+                (octaves) => octaves > 8,
+                (octaves) => [...messages, `High octave count may impact performance: ${octaves}`]
+              ),
+              Match.orElse(() => messages)
+            ),
+          (messages) =>
+            pipe(
+              Match.value(config.persistence),
+              Match.when(
+                (persistence) => persistence > 0.8,
+                (persistence) => [...messages, `High persistence may reduce detail variation: ${persistence}`]
+              ),
+              Match.orElse(() => messages)
+            ),
+          (messages) =>
+            pipe(
+              Match.value(config.lacunarity),
+              Match.when(
+                (lacunarity) => lacunarity < 1.5,
+                (lacunarity) => [...messages, `Low lacunarity may reduce frequency separation: ${lacunarity}`]
+              ),
+              Match.orElse(() => messages)
+            )
+        )
 
         return warnings
       }),

@@ -15,7 +15,7 @@
  */
 
 import { fpsGauge, frameTimeHistogram } from '@application/observability/metrics'
-import { Clock, Context, Duration, Effect, Fiber, Layer, Ref, Schedule, Supervisor } from 'effect'
+import { Clock, Context, Duration, Effect, Fiber, Layer, Match, Ref, Schedule, Supervisor, pipe } from 'effect'
 
 /**
  * GameLoopSupervisor Service
@@ -63,12 +63,23 @@ const monitorFibers = (
           const status = yield* Fiber.status(fiber)
 
           // Done状態かつ失敗したFiberをログ出力
-          if (status._tag === 'Done') {
-            const exit = yield* Fiber.await(fiber)
-            if (exit._tag !== 'Success') {
-              yield* Effect.logError(`[GameLoopSupervisor] Fiber failed: ${fiber.id()}`)
-            }
-          }
+          yield* pipe(
+            Match.value(status),
+            Match.tag('Done', () =>
+              Effect.gen(function* () {
+                const exit = yield* Fiber.await(fiber)
+                yield* pipe(
+                  Match.value(exit),
+                  Match.when(
+                    ({ _tag }) => _tag !== 'Success',
+                    () => Effect.logError(`[GameLoopSupervisor] Fiber failed: ${fiber.id()}`)
+                  ),
+                  Match.orElse(() => Effect.void)
+                )
+              })
+            ),
+            Match.orElse(() => Effect.void)
+          )
         }),
       { concurrency: 'unbounded', discard: true }
     )
@@ -84,24 +95,26 @@ const monitorFibers = (
 const recordFpsMetrics = (lastFrameTimeRef: Ref.Ref<number>): Effect.Effect<void> =>
   Effect.gen(function* () {
     const currentTime = yield* Clock.currentTimeMillis
-    const lastFrameTime = yield* Ref.get(lastFrameTimeRef)
+    const previousFrameTime = yield* Ref.get(lastFrameTimeRef)
 
     // 初回フレームはスキップ
-    if (lastFrameTime === 0) {
-      yield* Ref.set(lastFrameTimeRef, currentTime)
-      return
-    }
+    yield* pipe(
+      Match.value(previousFrameTime),
+      Match.when(
+        (frameTime) => frameTime === 0,
+        () => Ref.set(lastFrameTimeRef, currentTime)
+      ),
+      Match.orElse(() =>
+        Effect.gen(function* () {
+          const frameTime = currentTime - previousFrameTime
+          const fps = frameTime > 0 ? 1000 / frameTime : 0
 
-    // フレーム時間計算
-    const frameTime = currentTime - lastFrameTime
-    const fps = frameTime > 0 ? 1000 / frameTime : 0
-
-    // メトリクス記録
-    yield* frameTimeHistogram(frameTime)
-    yield* fpsGauge.set(fps)
-
-    // 次フレーム用に時刻更新
-    yield* Ref.set(lastFrameTimeRef, currentTime)
+          yield* frameTimeHistogram(frameTime)
+          yield* fpsGauge.set(fps)
+          yield* Ref.set(lastFrameTimeRef, currentTime)
+        })
+      )
+    )
   })
 
 /**

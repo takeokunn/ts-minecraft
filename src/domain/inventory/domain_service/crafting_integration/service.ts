@@ -196,16 +196,24 @@ export interface CraftingIntegrationService {
    *
    * @example
    * ```typescript
-   * const result = yield* craftingService.checkCraftability(inventory, swordRecipe)
-   *
-   * if (!result.canCraft) {
-   *   yield* Effect.log(`クラフト不可: ${result.reason}`)
-   *   for (const missing of result.missingIngredients) {
-   *     yield* Effect.log(`不足: ${missing.itemId} (${missing.required - missing.available}個)`)
-   *   }
-   * }
-   * ```
-   */
+ * const result = yield* craftingService.checkCraftability(inventory, swordRecipe)
+ *
+ * yield* pipe(
+ *   Match.value(result.canCraft),
+ *   Match.when(false, () =>
+ *     Effect.gen(function* () {
+ *       yield* Effect.log(`クラフト不可: ${result.reason}`)
+ *       yield* Effect.forEach(result.missingIngredients, (missing) =>
+ *         Effect.log(
+ *           `不足: ${missing.itemId} (${missing.required - missing.available}個)`
+ *         )
+ *       )
+ *     })
+ *   ),
+ *   Match.orElse(() => Effect.unit)
+ * )
+ * ```
+ */
   readonly checkCraftability: (
     inventory: Inventory,
     recipe: Recipe
@@ -224,18 +232,24 @@ export interface CraftingIntegrationService {
    *
    * @example
    * ```typescript
-   * const result = yield* craftingService.executeCrafting(
-   *   inventory,
-   *   breadRecipe,
-   *   5 // 5回クラフト
-   * )
-   *
-   * if (result.success) {
-   *   yield* Effect.log(`${result.craftedItems.length}個のアイテムをクラフト`)
-   *   yield* Effect.log(`経験値 ${result.experienceGained} を獲得`)
-   * }
-   * ```
-   */
+ * const result = yield* craftingService.executeCrafting(
+ *   inventory,
+ *   breadRecipe,
+ *   5 // 5回クラフト
+ * )
+ *
+ * yield* pipe(
+ *   Match.value(result.success),
+ *   Match.when(true, () =>
+ *     Effect.gen(function* () {
+ *       yield* Effect.log(`${result.craftedItems.length}個のアイテムをクラフト`)
+ *       yield* Effect.log(`経験値 ${result.experienceGained} を獲得`)
+ *     })
+ *   ),
+ *   Match.orElse(() => Effect.unit)
+ * )
+ * ```
+ */
   readonly executeCrafting: (
     inventory: Inventory,
     recipe: Recipe,
@@ -255,17 +269,19 @@ export interface CraftingIntegrationService {
    *
    * @example
    * ```typescript
-   * const collection = yield* craftingService.collectIngredients(
-   *   inventory,
-   *   swordRecipe.ingredients,
-   *   true // 代替材料使用許可
-   * )
-   *
-   * if (collection.missing.length > 0) {
-   *   yield* Effect.log('材料不足です')
-   * }
-   * ```
-   */
+ * const collection = yield* craftingService.collectIngredients(
+ *   inventory,
+ *   swordRecipe.ingredients,
+ *   true // 代替材料使用許可
+ * )
+ *
+ * yield* pipe(
+ *   Match.value(collection.missing.length > 0),
+ *   Match.when(true, () => Effect.log('材料不足です')),
+ *   Match.orElse(() => Effect.unit)
+ * )
+ * ```
+ */
   readonly collectIngredients: (
     inventory: Inventory,
     ingredients: ReadonlyArray<RecipeIngredient>,
@@ -285,17 +301,17 @@ export interface CraftingIntegrationService {
    *
    * @example
    * ```typescript
-   * const alternatives = yield* craftingService.suggestAlternativeIngredients(
-   *   inventory,
-   *   'minecraft:oak_planks',
-   *   4
-   * )
-   *
-   * for (const alt of alternatives) {
-   *   yield* Effect.log(`代替案: ${alt.itemId} (${alt.availableCount}個利用可能)`)
-   * }
-   * ```
-   */
+ * const alternatives = yield* craftingService.suggestAlternativeIngredients(
+ *   inventory,
+ *   'minecraft:oak_planks',
+ *   4
+ * )
+ *
+ * yield* Effect.forEach(alternatives, (alt) =>
+ *   Effect.log(`代替案: ${alt.itemId} (${alt.availableCount}個利用可能)`)
+ * )
+ * ```
+ */
   readonly suggestAlternativeIngredients: (
     inventory: Inventory,
     requiredItemId: ItemId,
@@ -362,18 +378,20 @@ export interface CraftingIntegrationService {
    *
    * @example
    * ```typescript
-   * const recipes = yield* craftingService.findRecipesForItem(
-   *   'minecraft:diamond_sword',
-   *   inventory
-   * )
-   *
-   * for (const result of recipes) {
-   *   if (result.canCraft) {
-   *     yield* Effect.log(`実行可能: ${result.recipe.recipeId}`)
-   *   }
-   * }
-   * ```
-   */
+ * const recipes = yield* craftingService.findRecipesForItem(
+ *   'minecraft:diamond_sword',
+ *   inventory
+ * )
+ *
+ * yield* Effect.forEach(recipes, (result) =>
+ *   pipe(
+ *     Match.value(result.canCraft),
+ *     Match.when(true, () => Effect.log(`実行可能: ${result.recipe.recipeId}`)),
+ *     Match.orElse(() => Effect.unit)
+ *   )
+ * )
+ * ```
+ */
   readonly findRecipesForItem: (
     targetItemId: ItemId,
     inventory: Inventory

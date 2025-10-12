@@ -1,5 +1,7 @@
 import type { JSX } from 'react'
 
+import { Match, pipe } from 'effect'
+
 import type { SettingsCategory, SettingsOption, ToggleSettingsOption, SliderSettingsOption, SelectSettingsOption } from '../types'
 
 interface SettingsMenuProps {
@@ -13,10 +15,11 @@ interface SettingsMenuProps {
 const renderOption = (
   option: SettingsOption,
   handlers: Pick<SettingsMenuProps, 'onToggle' | 'onSliderChange' | 'onSelectChange'>
-): JSX.Element => {
-  switch (option.type) {
-    case 'toggle':
-      return (
+): JSX.Element =>
+  pipe(
+    Match.type<SettingsOption>(),
+    Match.discriminatorsExhaustive('type')({
+      toggle: () => (
         <label
           key={option.id}
           style={{
@@ -40,9 +43,8 @@ const renderOption = (
             style={{ width: '1.5rem', height: '1.5rem' }}
           />
         </label>
-      )
-    case 'slider':
-      return (
+      ),
+      slider: () => (
         <div
           key={option.id}
           style={{
@@ -56,21 +58,23 @@ const renderOption = (
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontWeight: 600 }}>{option.label}</span>
-            <span style={{ fontSize: '0.8rem', opacity: 0.75 }}>{option.value}</span>
+            <span style={{ fontSize: '0.8rem', opacity: 0.75 }}>
+              {option.value}
+              {option.unit ? ` ${option.unit}` : ''}
+            </span>
           </div>
           {option.description ? <span style={{ fontSize: '0.75rem', opacity: 0.65 }}>{option.description}</span> : null}
           <input
             type="range"
             min={option.min}
             max={option.max}
-            step={option.step ?? 1}
+            step={option.step}
             value={option.value}
             onChange={(event) => handlers.onSliderChange?.(option, Number(event.target.value))}
           />
         </div>
-      )
-    case 'select':
-      return (
+      ),
+      select: () => (
         <div
           key={option.id}
           style={{
@@ -102,9 +106,9 @@ const renderOption = (
             ))}
           </select>
         </div>
-      )
-  }
-}
+      ),
+    })
+  )(option)
 
 export const SettingsMenu = ({ title = 'Settings', categories, onToggle, onSliderChange, onSelectChange }: SettingsMenuProps): JSX.Element => (
   <section

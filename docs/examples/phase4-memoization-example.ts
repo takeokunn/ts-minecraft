@@ -5,7 +5,7 @@
  * このファイルは実装のリファレンスとして使用してください
  */
 
-import { Effect, Layer, Match, Option, pipe } from 'effect'
+import { Effect, Layer, Match, Option, ReadonlyArray, pipe } from 'effect'
 import type { ItemId } from '../domain/inventory/types/core'
 
 // ========================================
@@ -122,11 +122,15 @@ export const benchmarkItemRegistry = Effect.gen(function* () {
 
   const start1 = yield* Effect.clockWith((clock) => clock.currentTimeMillis)
 
-  for (let i = 0; i < iterations; i++) {
-    for (const itemId of testItemIds) {
-      yield* serviceWithoutCache.getItemDefinition(itemId)
-    }
-  }
+  const iterationIndices = ReadonlyArray.fromIterable(Array.from({ length: iterations }, (_, i) => i))
+
+  yield* pipe(
+    iterationIndices,
+    Effect.forEach(
+      () => Effect.forEach(testItemIds, (itemId) => serviceWithoutCache.getItemDefinition(itemId), { discard: true }),
+      { discard: true }
+    )
+  )
 
   const end1 = yield* Effect.clockWith((clock) => clock.currentTimeMillis)
   const time1 = end1 - start1
@@ -138,11 +142,13 @@ export const benchmarkItemRegistry = Effect.gen(function* () {
 
   const start2 = yield* Effect.clockWith((clock) => clock.currentTimeMillis)
 
-  for (let i = 0; i < iterations; i++) {
-    for (const itemId of testItemIds) {
-      yield* serviceWithCache.getItemDefinition(itemId)
-    }
-  }
+  yield* pipe(
+    iterationIndices,
+    Effect.forEach(
+      () => Effect.forEach(testItemIds, (itemId) => serviceWithCache.getItemDefinition(itemId), { discard: true }),
+      { discard: true }
+    )
+  )
 
   const end2 = yield* Effect.clockWith((clock) => clock.currentTimeMillis)
   const time2 = end2 - start2

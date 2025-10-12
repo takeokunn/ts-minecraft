@@ -229,19 +229,20 @@ export const ChunkQueryRepositoryLive = Layer.effect(
                 const now = yield* Clock.currentTimeMillis
 
                 return yield* pipe(
-                  Effect.if(now - e.timestamp < ttlMs, {
-                    onTrue: () =>
+                  Match.value(now - e.timestamp < ttlMs),
+                  Match.when(
+                    (isFresh) => isFresh,
+                    () =>
                       Effect.gen(function* () {
-                        // ヒット数更新
                         yield* Ref.update(cacheRef, (currentCache) => {
                           const newCache = new Map(currentCache)
                           newCache.set(key, { ...e, hitCount: e.hitCount + 1 })
                           return newCache
                         })
                         return e.data as T | null
-                      }),
-                    onFalse: () => Effect.succeed(null),
-                  })
+                      })
+                  ),
+                  Match.orElse(() => Effect.succeed(null))
                 )
               }),
           })

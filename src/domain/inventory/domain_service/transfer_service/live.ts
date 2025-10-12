@@ -117,23 +117,28 @@ export const TransferServiceLive = Layer.succeed(
                   )
                 )
 
-                // 型ガードを使用した型安全な分岐
-                if (isTransferFailure(transferResult)) {
-                  return Effect.succeed({
-                    ...acc,
-                    failedTransfers: [
-                      ...acc.failedTransfers,
-                      { index: transferResult.index, error: transferResult.error },
-                    ],
-                  })
-                }
-
-                return Effect.succeed({
-                  sourceInventory: transferResult.sourceInventory,
-                  targetInventory: transferResult.targetInventory,
-                  results: [...acc.results, transferResult],
-                  failedTransfers: acc.failedTransfers,
-                })
+                return pipe(
+                  Match.value(isTransferFailure(transferResult)),
+                  Match.when(
+                    true,
+                    () =>
+                      Effect.succeed({
+                        ...acc,
+                        failedTransfers: [
+                          ...acc.failedTransfers,
+                          { index: transferResult.index, error: transferResult.error },
+                        ],
+                      })
+                  ),
+                  Match.orElse(() =>
+                    Effect.succeed({
+                      sourceInventory: transferResult.sourceInventory,
+                      targetInventory: transferResult.targetInventory,
+                      results: [...acc.results, transferResult],
+                      failedTransfers: acc.failedTransfers,
+                    })
+                  )
+                )
               })
           )
         )

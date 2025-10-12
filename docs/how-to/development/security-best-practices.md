@@ -453,7 +453,7 @@ const createSecureStorage = () => {
       const keys = Object.keys(localStorage)
       const secureKeys = keys.filter((key) => key.startsWith('secure_'))
 
-      for (const key of secureKeys) {
+      secureKeys.forEach((key) => {
         const data = localStorage.getItem(key)
         pipe(
           Match.value(data),
@@ -468,14 +468,13 @@ const createSecureStorage = () => {
                   Match.orElse(() => void 0)
                 )
               } catch {
-                // 無効なデータは削除
                 localStorage.removeItem(key)
               }
             }
           ),
           Match.orElse(() => void 0)
         )
-      }
+      })
     })
 
   return { setSecureItem, getSecureItem, clearExpiredSecrets }
@@ -500,7 +499,7 @@ const createSecureLogger = (): SecureLogger => {
 
     // パスワードやトークンを除去
     const sensitiveKeys = ['password', 'token', 'sessionId', 'privateKey']
-    for (const key of sensitiveKeys) {
+    sensitiveKeys.forEach((key) => {
       pipe(
         Match.value(key in sanitized),
         Match.when(true, () => {
@@ -508,7 +507,7 @@ const createSecureLogger = (): SecureLogger => {
         }),
         Match.orElse(() => void 0)
       )
-    }
+    })
 
     return sanitized
   }
@@ -826,9 +825,7 @@ const createAutomatedSecurityResponse = (): AutomatedSecurityResponse => {
       )
 
       // アクションの実行
-      for (const action of actions) {
-        yield* _(executeSecurityAction(action))
-      }
+      yield* _(Effect.forEach(actions, executeSecurityAction, { discard: true }))
 
       return actions
     })
@@ -992,19 +989,13 @@ const createSecurityAuditService = (): SecurityAuditService => {
   const verifyIntegrity = () =>
     Effect.gen(function* (_) {
       const auditEntries = yield* _(getAllAuditEntries())
-      const corruptedEntries = []
 
-      // ハッシュチェーンの整合性確認
-      for (let i = 1; i < auditEntries.length; i++) {
+      const corruptedEntries = ReadonlyArray.range(1, auditEntries.length - 1).reduce<string[]>((acc, i) => {
         const current = auditEntries[i]
         const previous = auditEntries[i - 1]
 
-        pipe(
-          Match.value(current.previousHash !== previous.hash),
-          Match.when(true, () => corruptedEntries.push(current.id)),
-          Match.orElse(() => void 0)
-        )
-      }
+        return current.previousHash !== previous.hash ? [...acc, current.id] : acc
+      }, [])
 
       return {
         isIntegrityValid: corruptedEntries.length === 0,

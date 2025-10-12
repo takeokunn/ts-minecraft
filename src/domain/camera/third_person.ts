@@ -39,13 +39,12 @@ interface ThirdPersonState {
 const normalizeAngle = (angle: number): number => {
   const twoPi = Math.PI * 2
   const normalized = angle % twoPi
-  if (normalized > Math.PI) {
-    return normalized - twoPi
-  }
-  if (normalized < -Math.PI) {
-    return normalized + twoPi
-  }
-  return normalized
+  return Match.value(normalized)
+    .pipe(
+      Match.when((value) => value > Math.PI, (value) => value - twoPi),
+      Match.when((value) => value < -Math.PI, (value) => value + twoPi),
+      Match.orElse((value) => value)
+    )
 }
 
 const lerp = (start: number, end: number, factor: number): number => start + (end - start) * factor

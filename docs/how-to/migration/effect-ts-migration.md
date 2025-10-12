@@ -617,14 +617,16 @@ const processBatchEfficiently = <A, B, E>(
 
   return Effect.gen(function* () {
     const batches = ReadonlyArray.chunksOf(items, batchSize)
-    const results: B[] = []
 
-    for (const batch of batches) {
-      const batchResults = yield* Effect.forEach(batch, processor, { concurrency })
-      results.push(...batchResults)
-    }
-
-    return results
+    return yield* pipe(
+      batches,
+      Effect.reduce([] as ReadonlyArray<B>, (acc, batch) =>
+        pipe(
+          Effect.forEach(batch, processor, { concurrency }),
+          Effect.map((batchResults) => [...acc, ...batchResults])
+        )
+      )
+    )
   })
 }
 
@@ -712,12 +714,18 @@ const handleRequest = (req: Request, res: Response) => {
 ```typescript
 // ❌ Problem: Excessive validation in hot paths
 const gameLoop = Effect.gen(function* () {
-  for (let i = 0; i < 1000; i++) {
-    const entity = entities[i]
-    // Validating every frame = performance killer
-    const validatedPosition = yield* Schema.decodeUnknown(PositionSchema)(entity.position)
-    yield* updateEntityPosition(entity.id, validatedPosition)
-  }
+  yield* pipe(
+    ReadonlyArray.range(0, 999),
+    Effect.forEach(
+      (index) =>
+        Effect.gen(function* () {
+          const entity = entities[index]
+          const validatedPosition = yield* Schema.decodeUnknown(PositionSchema)(entity.position)
+          yield* updateEntityPosition(entity.id, validatedPosition)
+        }),
+      { discard: true }
+    )
+  )
 })
 
 // ✅ Solution: Smart validation strategies
@@ -764,18 +772,16 @@ const createBoundedCache = <K, V>(maxSize: number, ttlMs: number) => {
 
   const cleanup = () => {
     const now = Date.now()
-    for (const [key, entry] of cache.entries()) {
-      if (now - entry.timestamp > ttlMs) {
-        cache.delete(key)
-      }
-    }
 
-    // If still too big, remove oldest entries
+    Array.from(cache.entries())
+      .filter(([, entry]) => now - entry.timestamp > ttlMs)
+      .forEach(([key]) => cache.delete(key))
+
     if (cache.size > maxSize) {
-      const entries = Array.from(cache.entries()).sort((a, b) => a[1].timestamp - b[1].timestamp)
-
-      const toRemove = entries.slice(0, cache.size - maxSize)
-      toRemove.forEach(([key]) => cache.delete(key))
+      Array.from(cache.entries())
+        .sort((a, b) => a[1].timestamp - b[1].timestamp)
+        .slice(0, cache.size - maxSize)
+        .forEach(([key]) => cache.delete(key))
     }
   }
 

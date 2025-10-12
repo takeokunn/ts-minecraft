@@ -3,7 +3,7 @@
  * merge, split, consume等の核となるビジネスロジック
  */
 
-import { DateTime, Effect, Option } from 'effect'
+import { DateTime, Effect, Match, Option, pipe } from 'effect'
 import { incrementEntityVersion, ItemStackFactory } from './factory'
 import type {
   ItemStackConsumedEvent,
@@ -97,9 +97,9 @@ export const splitItemStack = (
 > =>
   Effect.gen(function* () {
     // 分割数量の検証
-    if (splitQuantity <= 0 || splitQuantity >= sourceStack.count) {
-      yield* Effect.fail(ItemStackError.splitUnderflow(sourceStack.id, splitQuantity))
-    }
+    yield* Effect.when(splitQuantity <= 0 || splitQuantity >= sourceStack.count, () =>
+      Effect.fail(ItemStackError.splitUnderflow(sourceStack.id, splitQuantity))
+    )
 
     const remainingQuantity = sourceStack.count - splitQuantity
 
@@ -149,8 +149,8 @@ export const consumeItemStack = (
 > =>
   Effect.gen(function* () {
     // 消費数量の検証
-    if (quantity <= 0) {
-      yield* Effect.fail(
+    yield* Effect.when(quantity <= 0, () =>
+      Effect.fail(
         ItemStackError.make({
           reason: 'INVALID_STACK_SIZE',
           message: `不正な消費数量: ${quantity}`,
@@ -158,11 +158,11 @@ export const consumeItemStack = (
           quantity: makeUnsafeItemCount(quantity),
         })
       )
-    }
+    )
 
-    if (quantity > stack.count) {
-      yield* Effect.fail(ItemStackError.insufficientQuantity(stack.id, quantity, stack.count))
-    }
+    yield* Effect.when(quantity > stack.count, () =>
+      Effect.fail(ItemStackError.insufficientQuantity(stack.id, quantity, stack.count))
+    )
 
     const remainingQuantity = stack.count - quantity
 
@@ -179,18 +179,22 @@ export const consumeItemStack = (
     }
 
     // 完全に消費された場合
-    if (remainingQuantity === 0) {
-      return { updatedStack: Option.none(), event }
-    }
+    return yield* pipe(
+      Match.value(remainingQuantity),
+      Match.when(0, () => Effect.succeed({ updatedStack: Option.none<ItemStackEntity>(), event })),
+      Match.orElse(() =>
+        Effect.gen(function* () {
+          const versionedStack = yield* incrementEntityVersion(stack)
+          const updatedStack: ItemStackEntity = {
+            ...versionedStack,
+            count: ItemCountSchema.make(remainingQuantity),
+          }
 
-    // 一部消費の場合
-    const versionedStack = yield* incrementEntityVersion(stack)
-    const updatedStack: ItemStackEntity = {
-      ...versionedStack,
-      count: ItemCountSchema.make(remainingQuantity),
-    }
-
-    return { updatedStack: Option.some(updatedStack), event }
+          return { updatedStack: Option.some(updatedStack), event }
+        })
+      ),
+      Match.exhaustive
+    )
   })
 
 /**
@@ -207,29 +211,32 @@ export const damageItemStack = (
   ItemStackError
 > =>
   Effect.gen(function* () {
-    // 耐久度が設定されていない場合はエラー
-    if (!stack.durability) {
-      yield* Effect.fail(
-        ItemStackError.make({
-          reason: 'INVALID_DURABILITY',
-          message: '耐久度が設定されていないアイテムです',
-          stackId: stack.id,
-        })
-      )
-    }
+    const previousDurability = yield* pipe(
+      Option.fromNullable(stack.durability),
+      Match.value,
+      Match.tag('None', () =>
+        Effect.fail(
+          ItemStackError.make({
+            reason: 'INVALID_DURABILITY',
+            message: '耐久度が設定されていないアイテムです',
+            stackId: stack.id,
+          })
+        )
+      ),
+      Match.tag('Some', ({ value }) => Effect.succeed(value)),
+      Match.exhaustive
+    )
 
     // ダメージ量の検証
-    if (damageAmount < 0 || damageAmount > 1) {
-      yield* Effect.fail(
+    yield* Effect.when(damageAmount < 0 || damageAmount > 1, () =>
+      Effect.fail(
         ItemStackError.make({
           reason: 'INVALID_DURABILITY',
           message: `不正なダメージ量: ${damageAmount}`,
           stackId: stack.id,
         })
       )
-    }
-
-    const previousDurability = stack.durability!
+    )
     const newDurability = Math.max(0, previousDurability - damageAmount)
     const isBroken = newDurability <= ITEM_STACK_CONSTANTS.BROKEN_THRESHOLD
 
@@ -246,19 +253,22 @@ export const damageItemStack = (
       broken: isBroken,
     }
 
-    // アイテムが破損した場合
-    if (isBroken) {
-      return { updatedStack: Option.none(), event }
-    }
+    return yield* pipe(
+      Match.value(isBroken),
+      Match.when(true, () => Effect.succeed({ updatedStack: Option.none<ItemStackEntity>(), event })),
+      Match.orElse(() =>
+        Effect.gen(function* () {
+          const versionedStack = yield* incrementEntityVersion(stack)
+          const updatedStack: ItemStackEntity = {
+            ...versionedStack,
+            durability: DurabilitySchema.make(newDurability),
+          }
 
-    // 耐久度を更新
-    const versionedStack = yield* incrementEntityVersion(stack)
-    const updatedStack: ItemStackEntity = {
-      ...versionedStack,
-      durability: DurabilitySchema.make(newDurability),
-    }
-
-    return { updatedStack: Option.some(updatedStack), event }
+          return { updatedStack: Option.some(updatedStack), event }
+        })
+      ),
+      Match.exhaustive
+    )
   })
 
 /**
@@ -269,29 +279,34 @@ export const repairItemStack = (
   repairAmount: number
 ): Effect.Effect<ItemStackEntity, ItemStackError> =>
   Effect.gen(function* () {
-    // 耐久度が設定されていない場合はエラー
-    if (!stack.durability) {
-      yield* Effect.fail(
-        ItemStackError.make({
-          reason: 'INVALID_DURABILITY',
-          message: '耐久度が設定されていないアイテムです',
-          stackId: stack.id,
-        })
-      )
-    }
+    const currentDurability = yield* pipe(
+      Option.fromNullable(stack.durability),
+      Match.value,
+      Match.tag('None', () =>
+        Effect.fail(
+          ItemStackError.make({
+            reason: 'INVALID_DURABILITY',
+            message: '耐久度が設定されていないアイテムです',
+            stackId: stack.id,
+          })
+        )
+      ),
+      Match.tag('Some', ({ value }) => Effect.succeed(value)),
+      Match.exhaustive
+    )
 
     // 修復量の検証
-    if (repairAmount < 0 || repairAmount > 1) {
-      yield* Effect.fail(
+    yield* Effect.when(repairAmount < 0 || repairAmount > 1, () =>
+      Effect.fail(
         ItemStackError.make({
           reason: 'INVALID_DURABILITY',
           message: `不正な修復量: ${repairAmount}`,
           stackId: stack.id,
         })
       )
-    }
+    )
 
-    const newDurability = Math.min(ITEM_STACK_CONSTANTS.MAX_DURABILITY, stack.durability! + repairAmount)
+    const newDurability = Math.min(ITEM_STACK_CONSTANTS.MAX_DURABILITY, currentDurability + repairAmount)
 
     const versionedStack = yield* incrementEntityVersion(stack)
     return {
@@ -310,34 +325,24 @@ const checkNBTCompatibility = (
   stack2: ItemStackEntity
 ): Effect.Effect<boolean, ItemStackError> =>
   Effect.gen(function* () {
-    // 両方ともNBTデータがない場合は互換性あり
-    if (!stack1.nbtData && !stack2.nbtData) {
-      return true
-    }
+    return yield* pipe(
+      Match.value<[ItemStackEntity['nbtData'], ItemStackEntity['nbtData']]>([stack1.nbtData, stack2.nbtData]),
+      Match.when(([first, second]) => !first && !second, () => Effect.succeed(true)),
+      Match.when(([first, second]) => !first || !second, () => Effect.succeed(false)),
+      Match.orElse(([first, second]) => {
+        const enchantments1 = first!.enchantments ?? []
+        const enchantments2 = second!.enchantments ?? []
 
-    // 片方のみNBTデータがある場合は互換性なし
-    if (!stack1.nbtData || !stack2.nbtData) {
-      return false
-    }
+        const enchantmentsEqual = enchantments1.length === enchantments2.length
+        const metadataEqual =
+          first!.customName === second!.customName &&
+          first!.unbreakable === second!.unbreakable &&
+          first!.customModelData === second!.customModelData
 
-    // エンチャントの比較
-    const enchantments1 = stack1.nbtData.enchantments || []
-    const enchantments2 = stack2.nbtData.enchantments || []
-
-    if (enchantments1.length !== enchantments2.length) {
-      return false
-    }
-
-    // 他の重要なNBTデータの比較
-    if (
-      stack1.nbtData.customName !== stack2.nbtData.customName ||
-      stack1.nbtData.unbreakable !== stack2.nbtData.unbreakable ||
-      stack1.nbtData.customModelData !== stack2.nbtData.customModelData
-    ) {
-      return false
-    }
-
-    return true
+        return Effect.succeed(enchantmentsEqual && metadataEqual)
+      }),
+      Match.exhaustive
+    )
   })
 
 /**
@@ -362,12 +367,12 @@ export const canStackWith = (
 ): Effect.Effect<boolean, ItemStackError> =>
   Effect.gen(function* () {
     // 同じアイテムIDでない場合は不可
-    if (stack1.itemId !== stack2.itemId) {
-      return false
-    }
-
-    // NBTデータの互換性チェック
-    return yield* checkNBTCompatibility(stack1, stack2)
+    return yield* pipe(
+      Match.value(stack1.itemId === stack2.itemId),
+      Match.when(false, () => Effect.succeed(false)),
+      Match.orElse(() => checkNBTCompatibility(stack1, stack2)),
+      Match.exhaustive
+    )
   })
 
 /**
@@ -379,22 +384,25 @@ export const getMaxStackableQuantity = (
 ): Effect.Effect<number, ItemStackError> =>
   Effect.gen(function* () {
     const canStack = yield* canStackWith(stack1, stack2)
-
-    if (!canStack) {
-      return 0
-    }
-
-    return Math.min(stack1.count, ITEM_STACK_CONSTANTS.MAX_STACK_SIZE - stack2.count)
+    return yield* pipe(
+      Match.value(canStack),
+      Match.when(false, () => Effect.succeed(0)),
+      Match.orElse(() => Effect.succeed(Math.min(stack1.count, ITEM_STACK_CONSTANTS.MAX_STACK_SIZE - stack2.count))),
+      Match.exhaustive
+    )
   })
 
 /**
  * ItemStackが破損しているかチェック
  */
 export const isBroken = (stack: ItemStackEntity): boolean => {
-  if (!stack.durability) {
-    return false
-  }
-  return stack.durability <= ITEM_STACK_CONSTANTS.BROKEN_THRESHOLD
+  return pipe(
+    Option.fromNullable(stack.durability),
+    Match.value,
+    Match.tag('None', () => false),
+    Match.tag('Some', ({ value }) => value <= ITEM_STACK_CONSTANTS.BROKEN_THRESHOLD),
+    Match.exhaustive
+  )
 }
 
 /**
@@ -408,8 +416,11 @@ export const isEnchanted = (stack: ItemStackEntity): boolean => {
  * ItemStackが完全な耐久度かチェック
  */
 export const isFullDurability = (stack: ItemStackEntity): boolean => {
-  if (!stack.durability) {
-    return true // 耐久度がないアイテムは常に"完全"
-  }
-  return stack.durability >= ITEM_STACK_CONSTANTS.MAX_DURABILITY
+  return pipe(
+    Option.fromNullable(stack.durability),
+    Match.value,
+    Match.tag('None', () => true),
+    Match.tag('Some', ({ value }) => value >= ITEM_STACK_CONSTANTS.MAX_DURABILITY),
+    Match.exhaustive
+  )
 }

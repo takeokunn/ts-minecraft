@@ -112,6 +112,8 @@ export {
   type ChunkEventType,
   type ChunkEvent,
   type BaseChunkEvent,
+  validateChunkEvent,
+  isChunkEvent,
   // インターフェース
   type ChunkDataProvider,
   type ChunkLoadedEvent,

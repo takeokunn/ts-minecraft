@@ -103,11 +103,17 @@ export const executeSessionRecovery = (
     // Analyze recovery requirements
     const analysis = yield* analyzeSessionRecovery(session)
 
-    if (!analysis.canRecover) {
-      return yield* Effect.fail(
-        createSessionRecoveryError(session.id, 'Session cannot be recovered in current state', null)
-      )
-    }
+    yield* pipe(
+      Match.value(analysis),
+      Match.when(
+        ({ canRecover }) => !canRecover,
+        () =>
+          Effect.fail(
+            createSessionRecoveryError(session.id, 'Session cannot be recovered in current state', null)
+          )
+      ),
+      Match.orElse(() => Effect.void)
+    )
 
     // Execute recovery based on strategy
     let recoveredChunks = 0

@@ -1,6 +1,7 @@
 #!/usr/bin/env tsx
 
 import { Option, pipe, ReadonlyArray } from 'effect'
+import * as Match from 'effect/Match'
 import { glob } from 'glob'
 import * as fs from 'node:fs'
 
@@ -27,7 +28,13 @@ const PATH_ALIASES = {
   '@presentation': 'src/presentation',
   '@shared': 'src/shared',
   '@bootstrap': 'src/bootstrap',
-}
+} as const
+
+const PATH_ALIAS_ENTRIES = Object.entries(PATH_ALIASES) as ReadonlyArray<readonly [string, string]>
+const ALLOWED_FOURTH_LEVEL_SEGMENTS = ['types', 'index', 'constants', 'errors', 'events'] as const
+const ALLOWED_FOURTH_LEVEL = new Set<string>(ALLOWED_FOURTH_LEVEL_SEGMENTS)
+const EMPTY_VIOLATIONS: ReadonlyArray<Violation> = []
+const IMPORT_PATTERN = /import\s+.*\s+from\s+(['"])(.+?)\1/
 
 // =============================================================================
 // Utility Functions
@@ -43,95 +50,75 @@ function isTestFile(filePath: string): boolean {
 /**
  * path aliasを実際のパスに解決
  */
-function resolvePathAlias(importPath: string): string | null {
-  return pipe(
-    Object.entries(PATH_ALIASES),
+const resolvePathAlias = (importPath: string): Option.Option<string> =>
+  pipe(
+    PATH_ALIAS_ENTRIES,
     ReadonlyArray.findFirst(([alias]) => importPath.startsWith(alias)),
-    Option.map(([alias, realPath]) => importPath.replace(alias, realPath)),
-    Option.getOrNull
+    Option.map(([alias, realPath]) => importPath.replace(alias, realPath))
   )
-}
 
 /**
  * トップレベルディレクトリを取得（例: "src/domain/chunk" → "domain"）
  */
-function getTopLevelDir(filePath: string): string | null {
-  const match = filePath.match(/^src\/([^/]+)/)
-  return match?.[1] ?? null
-}
+const getTopLevelDir = (filePath: string): Option.Option<string> =>
+  pipe(
+    filePath.match(/^src\/([^/]+)/),
+    Option.fromNullable,
+    Option.map((match) => match[1])
+  )
 
 /**
  * 第2レベルディレクトリまでを取得（例: "src/domain/chunk" → "domain/chunk"）
  */
-function getModulePath(filePath: string): string | null {
-  const match = filePath.match(/^src\/([^/]+\/[^/]+)/)
-  return match?.[1] ?? null
-}
+const getModulePath = (filePath: string): Option.Option<string> =>
+  pipe(
+    filePath.match(/^src\/([^/]+\/[^/]+)/),
+    Option.fromNullable,
+    Option.map((match) => match[1])
+  )
 
 /**
  * importパスの第2レベルディレクトリまでを取得
  */
-function getImportModulePath(importPath: string): string | null {
-  const resolved = resolvePathAlias(importPath)
-  if (!resolved) return null
-  return getModulePath(resolved)
-}
+const getImportModulePath = (importPath: string): Option.Option<string> =>
+  pipe(resolvePathAlias(importPath), Option.flatMap(getModulePath))
 
 /**
- * importパスのトップレベルディレクトリを取得
+ * importパスの階層構造からindex.ts経由かどうかを判定
  */
-function getImportTopLevelDir(importPath: string): string | null {
-  const resolved = resolvePathAlias(importPath)
-  if (!resolved) return null
-  return getTopLevelDir(resolved)
-}
+const evaluateImportDepth = (parts: ReadonlyArray<string>): boolean =>
+  pipe(
+    parts.length,
+    Match.value,
+    Match.when((length) => length <= 3, () => true),
+    Match.when((length) => length === 4, () =>
+      pipe(
+        ReadonlyArray.last(parts),
+        Option.map((segment) => ALLOWED_FOURTH_LEVEL.has(segment)),
+        Option.getOrElse(() => false)
+      )
+    ),
+    Match.when((length) => length >= 5, () => true),
+    Match.orElse(() => false)
+  )
 
 /**
  * index.ts経由かどうかをチェック
- *
- * OK: '@domain/inventory' (第2レベルまで、index.ts経由)
- * NG: '@domain/inventory/inventory-service' (第3レベル、内部ファイル直接参照)
- * OK: '@domain/inventory/value_object/stack_size/operations' (深い構造、明示的なファイル)
- *
- * ルール:
- * - 第2レベルまで（src/xxx/yyy）: index.ts経由とみなす → OK
- * - 第3レベル（src/xxx/yyy/zzz）: 内部ファイル直接参照の可能性 → 要チェック
- * - 第4レベル以降（src/xxx/yyy/zzz/...）: 深い構造の明示的ファイル → OK
  */
-function isIndexImport(importPath: string): boolean {
-  // path aliasの場合のみチェック
-  if (!importPath.startsWith('@')) return true
-
-  const resolved = resolvePathAlias(importPath)
-  if (!resolved) return true // 解決できない場合はスキップ
-
-  // パスを分割
-  const parts = resolved.split('/')
-
-  // 第2レベルまで（例: src/domain/inventory）
-  if (parts.length <= 3) {
-    return true // index.ts経由とみなす
-  }
-
-  // 第4階層（例: src/domain/entities/types）
-  // typesやindexなどのサブディレクトリは許可
-  if (parts.length === 4) {
-    const lastSegment = parts[parts.length - 1]
-    // types, index, constants などの共通サブディレクトリは許可
-    if (['types', 'index', 'constants', 'errors', 'events'].includes(lastSegment)) {
-      return true
-    }
-  }
-
-  // 第5レベル以降（例: src/domain/inventory/value_object/stack_size/operations）
-  if (parts.length >= 5) {
-    return true // 深い構造の明示的なファイルとして許可
-  }
-
-  // 第3-4レベル（例: src/domain/inventory/inventory-service）
-  // → これが内部ファイル直接参照の可能性が高い
-  return false
-}
+const isIndexImport = (importPath: string): boolean =>
+  pipe(
+    Match.value(importPath),
+    Match.when((path) => !path.startsWith('@'), () => true),
+    Match.orElse(() =>
+      pipe(
+        resolvePathAlias(importPath),
+        Option.match({
+          onNone: () => true,
+          onSome: (resolved) => evaluateImportDepth(resolved.split('/')),
+        })
+      )
+    )
+  )
 
 // =============================================================================
 // Validation Rules
@@ -140,88 +127,99 @@ function isIndexImport(importPath: string): boolean {
 /**
  * FR-4: .js/.ts拡張子の検出（.jsonは除外）
  */
-function checkExtension(importPath: string): boolean {
-  return /\.(ts|js)['"]$/.test(importPath) && !/\.json['"]$/.test(importPath)
-}
+const checkExtension = (importPath: string): boolean =>
+  /\.(ts|js)['"]$/.test(importPath) && !/\.json['"]$/.test(importPath)
 
 /**
  * FR-2: 同一モジュール（第2レベル）内でのpath alias使用（テストファイルは除外）
  * 例: src/domain/chunk_manager 内から @domain/chunk_manager へのimportは禁止
  * 　　src/domain/chunk_manager から @domain/chunk へのimportは許可（異なるモジュール）
  */
-function checkSameLayerAlias(filePath: string, importPath: string): boolean {
-  if (isTestFile(filePath)) return false
-  if (!importPath.startsWith('@')) return false
-
-  const fileModulePath = getModulePath(filePath)
-  const importModulePath = getImportModulePath(importPath)
-
-  return fileModulePath !== null && importModulePath !== null && fileModulePath === importModulePath
-}
+const checkSameLayerAlias = (filePath: string, importPath: string): boolean =>
+  pipe(
+    Match.value(filePath),
+    Match.when(isTestFile, () => false),
+    Match.orElse(() =>
+      pipe(
+        Match.value(importPath),
+        Match.when((path) => !path.startsWith('@'), () => false),
+        Match.orElse(() =>
+          pipe(
+            Option.Do,
+            Option.bind('fileModulePath', () => getModulePath(filePath)),
+            Option.bind('importModulePath', () => getImportModulePath(importPath)),
+            Option.map(({ fileModulePath, importModulePath }) => fileModulePath === importModulePath),
+            Option.getOrElse(() => false)
+          )
+        )
+      )
+    )
+  )
 
 /**
  * FR-1, FR-2: index.ts経由の強制（テストファイルは除外）
  */
-function checkIndexImport(filePath: string, importPath: string): boolean {
-  if (isTestFile(filePath)) return false
-  if (!importPath.startsWith('@')) return false
-
-  return !isIndexImport(importPath)
-}
+const checkIndexImport = (filePath: string, importPath: string): boolean =>
+  pipe(
+    Match.value(filePath),
+    Match.when(isTestFile, () => false),
+    Match.orElse(() =>
+      pipe(
+        Match.value(importPath),
+        Match.when((path) => !path.startsWith('@'), () => false),
+        Match.orElse(() => isIndexImport(importPath))
+      )
+    )
+  )
 
 // =============================================================================
-// Main Validation
+// Helpers for Violation Detection
 // =============================================================================
+
+const parseImportPath = (line: string): Option.Option<string> =>
+  pipe(IMPORT_PATTERN.exec(line), Option.fromNullable, Option.map((match) => match[2]))
+
+const violationWhen = (condition: boolean, violation: () => Violation): Option.Option<Violation> =>
+  pipe(Option.some(condition), Option.filter(Boolean), Option.map(violation))
+
+const lineViolations = (filePath: string, line: string, lineNumber: number): ReadonlyArray<Violation> =>
+  pipe(
+    parseImportPath(line),
+    Option.map((importPath) => {
+      const createViolation = (message: string): Violation => ({
+        file: filePath,
+        line: lineNumber,
+        message,
+        importStatement: line.trim(),
+      })
+
+      return pipe(
+        [
+          violationWhen(checkExtension(importPath), () =>
+            createViolation('Remove .js/.ts extension from imports')
+          ),
+          violationWhen(checkSameLayerAlias(filePath, importPath), () =>
+            createViolation('Use relative path instead of path alias within same layer')
+          ),
+          violationWhen(checkIndexImport(filePath, importPath), () =>
+            createViolation('Import from index.ts instead of internal file')
+          ),
+        ],
+        ReadonlyArray.compact
+      )
+    }),
+    Option.getOrElse(() => EMPTY_VIOLATIONS)
+  )
 
 /**
  * ファイル内のimport文を検証
  */
-function validateFile(filePath: string): Violation[] {
-  const violations: Violation[] = []
-  const content = fs.readFileSync(filePath, 'utf-8')
-  const lines = content.split('\n')
-
-  lines.forEach((line, index) => {
-    // import文のパターンマッチ
-    const importMatch = line.match(/import\s+.*\s+from\s+(['"])(.+?)\1/)
-    if (!importMatch) return
-
-    const importPath = importMatch[2]
-    const lineNumber = index + 1
-
-    // FR-4: .js/.ts拡張子チェック
-    if (checkExtension(importPath)) {
-      violations.push({
-        file: filePath,
-        line: lineNumber,
-        message: 'Remove .js/.ts extension from imports',
-        importStatement: line.trim(),
-      })
-    }
-
-    // FR-2: 同一レイヤー内でのpath alias使用チェック
-    if (checkSameLayerAlias(filePath, importPath)) {
-      violations.push({
-        file: filePath,
-        line: lineNumber,
-        message: 'Use relative path instead of path alias within same layer',
-        importStatement: line.trim(),
-      })
-    }
-
-    // FR-1, FR-2: index.ts経由チェック
-    if (checkIndexImport(filePath, importPath)) {
-      violations.push({
-        file: filePath,
-        line: lineNumber,
-        message: 'Import from index.ts instead of internal file',
-        importStatement: line.trim(),
-      })
-    }
-  })
-
-  return violations
-}
+const validateFile = (filePath: string): ReadonlyArray<Violation> =>
+  pipe(
+    fs.readFileSync(filePath, 'utf-8').split('\n'),
+    ReadonlyArray.mapWithIndex((index, line) => lineViolations(filePath, line, index + 1)),
+    ReadonlyArray.flatten
+  )
 
 /**
  * メイン処理
@@ -231,39 +229,37 @@ async function main() {
     ignore: ['node_modules/**', 'dist/**'],
   })
 
-  const allViolations = pipe(
-    files,
-    ReadonlyArray.flatMap((file) => validateFile(file))
-  )
-
-  if (allViolations.length === 0) {
-    console.log('✅ All imports are valid')
-    process.exit(0)
-  }
-
-  console.log(`❌ Found ${allViolations.length} import violations:\n`)
-
-  const violationsByFile = pipe(
-    allViolations,
-    ReadonlyArray.groupBy((v) => v.file)
-  )
+  const allViolations = pipe(files, ReadonlyArray.flatMap(validateFile))
 
   pipe(
-    violationsByFile,
-    (map) => Array.from(map.entries()),
-    ReadonlyArray.forEach(([file, violations]) => {
+    allViolations,
+    Match.value,
+    Match.when(ReadonlyArray.isEmpty, () => {
+      console.log('✅ All imports are valid')
+      process.exit(0)
+    }),
+    Match.orElse((violations) => {
+      console.log(`❌ Found ${violations.length} import violations:\n`)
+
       pipe(
         violations,
-        ReadonlyArray.forEach((violation) => {
-          console.log(`${file}:${violation.line}`)
-          console.log(`  ${violation.message}`)
-          console.log(`  ${violation.importStatement}\n`)
-        })
+        ReadonlyArray.groupBy((violation) => violation.file),
+        (grouped) => Array.from(grouped.entries()),
+        ReadonlyArray.forEach(([file, fileViolations]) =>
+          pipe(
+            fileViolations,
+            ReadonlyArray.forEach((violation) => {
+              console.log(`${file}:${violation.line}`)
+              console.log(`  ${violation.message}`)
+              console.log(`  ${violation.importStatement}\n`)
+            })
+          )
+        )
       )
+
+      process.exit(1)
     })
   )
-
-  process.exit(1)
 }
 
 main().catch((error) => {

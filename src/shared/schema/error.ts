@@ -1,4 +1,4 @@
-import { Schema } from 'effect'
+import { Match, Schema, pipe } from 'effect'
 
 import { JsonValueSchema } from './json'
 
@@ -28,27 +28,22 @@ export type ErrorDetail = Schema.Schema.Type<typeof ErrorDetailSchema>
 /**
  * 任意値を ErrorCause へ正規化するユーティリティ
  */
-export const toErrorCause = (value: unknown): ErrorCause | undefined => {
-  if (value === undefined || value === null) {
-    return undefined
-  }
-
-  if (value instanceof Error) {
-    return value
-  }
-
-  if (Schema.is(JsonValueSchema)(value)) {
-    return value
-  }
-
-  if (
-    typeof value === 'object' &&
-    value !== null &&
-    'message' in (value as Record<string, unknown>) &&
-    typeof (value as { message: unknown }).message === 'string'
-  ) {
-    return { message: (value as { message: string }).message }
-  }
-
-  return { message: String(value) }
-}
+export const toErrorCause = (value: unknown): ErrorCause | undefined =>
+  pipe(
+    Match.value(value),
+    Match.when((candidate) => candidate === undefined || candidate === null, () => undefined),
+    Match.when(
+      (candidate): candidate is Error => candidate instanceof Error,
+      (error) => error
+    ),
+    Match.when(Schema.is(JsonValueSchema), (json) => json as ErrorCause),
+    Match.when(
+      (candidate): candidate is { readonly message: string } =>
+        typeof candidate === 'object' &&
+        candidate !== null &&
+        'message' in candidate &&
+        typeof (candidate as { message: unknown }).message === 'string',
+      (record) => ({ message: (record as { message: string }).message })
+    ),
+    Match.orElse((candidate) => ({ message: String(candidate) }))
+  )

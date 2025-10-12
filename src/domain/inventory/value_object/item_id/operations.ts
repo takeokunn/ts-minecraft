@@ -93,26 +93,37 @@ export const isModItem = (itemId: ItemId): boolean => getNamespace(itemId) !== '
  * アイテムIDの比較
  */
 export const compareItemIds = (itemId1: ItemId, itemId2: ItemId): ItemComparison => {
-  if (itemId1 === itemId2) {
-    return ItemComparison.Same({ itemId: itemId1 })
-  }
+  return pipe(
+    Match.value({ itemId1, itemId2 }),
+    Match.when(
+      ({ itemId1, itemId2 }) => itemId1 === itemId2,
+      ({ itemId1 }) => ItemComparison.Same({ itemId: itemId1 })
+    ),
+    Match.orElse(({ itemId1, itemId2 }) => {
+      const namespace1 = getNamespace(itemId1)
+      const namespace2 = getNamespace(itemId2)
+      const name1 = getItemName(itemId1)
+      const name2 = getItemName(itemId2)
 
-  const namespace1 = getNamespace(itemId1)
-  const namespace2 = getNamespace(itemId2)
-  const name1 = getItemName(itemId1)
-  const name2 = getItemName(itemId2)
-
-  if (namespace1 === namespace2) {
-    return ItemComparison.SameNamespace({
-      namespace: namespace1,
-      differentNames: [name1, name2],
+      return pipe(
+        Match.value({ namespace1, namespace2 }),
+        Match.when(
+          ({ namespace1, namespace2 }) => namespace1 === namespace2,
+          () =>
+            ItemComparison.SameNamespace({
+              namespace: namespace1,
+              differentNames: [name1, name2],
+            })
+        ),
+        Match.orElse(() =>
+          ItemComparison.Different({
+            item1: itemId1,
+            item2: itemId2,
+          })
+        )
+      )
     })
-  }
-
-  return ItemComparison.Different({
-    item1: itemId1,
-    item2: itemId2,
-  })
+  )
 }
 
 /**
@@ -281,10 +292,11 @@ export const getDisplayName = (itemId: ItemId): string => {
   const namespace = getNamespace(itemId)
   const name = getItemName(itemId)
 
-  if (namespace === 'minecraft') {
-    return name as string
-  }
-  return itemId as string
+  return pipe(
+    Match.value(namespace),
+    Match.when((value) => value === 'minecraft', () => name as string),
+    Match.orElse(() => itemId as string)
+  )
 }
 
 /**
@@ -303,8 +315,12 @@ export const validateItemIds = (inputs: readonly string[]): Effect.Effect<readon
       )
     )
 
-    return yield* Effect.if(errors.length > 0, {
-      onTrue: () => Effect.fail(errors),
-      onFalse: () => Effect.succeed(validItems),
-    })
+    return yield* pipe(
+      Match.value(errors.length),
+      Match.when(
+        (count) => count > 0,
+        () => Effect.fail(errors)
+      ),
+      Match.orElse(() => Effect.succeed(validItems))
+    )
   })

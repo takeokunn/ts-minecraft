@@ -30,11 +30,10 @@ export const EntityIdMapperLive = Layer.effect(
           const map = yield* Ref.get(domainToECS)
           const ecsId = HashMap.get(map, domainId)
 
-          if (Option.isNone(ecsId)) {
-            return yield* Effect.fail(EntityIdMappingError.domainToEcsMissing(String(domainId)))
-          }
-
-          return ecsId.value
+          return yield* Option.match(ecsId, {
+            onNone: () => Effect.fail(EntityIdMappingError.domainToEcsMissing(String(domainId))),
+            onSome: (value) => Effect.succeed(value),
+          })
         }),
 
       toDomain: (ecsId: ECSEntityId) =>
@@ -42,11 +41,10 @@ export const EntityIdMapperLive = Layer.effect(
           const map = yield* Ref.get(ecsToDomain)
           const domainId = HashMap.get(map, ecsId)
 
-          if (Option.isNone(domainId)) {
-            return yield* Effect.fail(EntityIdMappingError.ecsToDomainMissing(String(ecsId)))
-          }
-
-          return domainId.value
+          return yield* Option.match(domainId, {
+            onNone: () => Effect.fail(EntityIdMappingError.ecsToDomainMissing(String(ecsId))),
+            onSome: (value) => Effect.succeed(value),
+          })
         }),
 
       register: (domainId: DomainEntityId, ecsId: ECSEntityId) =>

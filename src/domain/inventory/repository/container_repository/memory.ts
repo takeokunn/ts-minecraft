@@ -1,4 +1,4 @@
-import { Effect, HashMap, Layer, Option, Ref } from 'effect'
+import { Effect, HashMap, Layer, Match, Option, ReadonlyArray, Ref, pipe } from 'effect'
 import type {
   Container,
   ContainerId,
@@ -47,6 +47,46 @@ export const ContainerRepositoryMemory = Layer.effect(
         position.z <= maxPos.z
       )
     }
+
+    const hasPlayerAccess = (container: Container, playerId: PlayerId): boolean =>
+      pipe(
+        Option.fromNullable(container.permissions),
+        Option.match({
+          onNone: () => true,
+          onSome: (permissions) => {
+            const allowedPlayers = pipe(
+              Option.fromNullable(permissions.allowedPlayers),
+              Option.match({
+                onNone: () => false,
+                onSome: (players) => players.includes(playerId),
+              })
+            )
+
+            return permissions.public || permissions.owner === playerId || allowedPlayers
+          },
+        })
+      )
+
+    const containerMatchesRange = (
+      container: Container,
+      minPosition: WorldPosition,
+      maxPosition: WorldPosition,
+      worldId: string
+    ): boolean =>
+      pipe(
+        Option.fromNullable(container.position),
+        Option.match({
+          onNone: () => false,
+          onSome: (position) =>
+            pipe(
+              Option.fromNullable(container.worldId),
+              Option.match({
+                onNone: () => false,
+                onSome: (id) => id === worldId && isInRange(position, minPosition, maxPosition),
+              })
+            ),
+        })
+      )
 
     return ContainerRepository.of({
       save: (container: Container) =>
@@ -99,24 +139,7 @@ export const ContainerRepositoryMemory = Layer.effect(
           const store = yield* Ref.get(containerStore)
           const containers = Array.from(HashMap.values(store))
 
-          return pipe(
-            containers,
-            ReadonlyArray.filter((container) => {
-              // パーミッション未設定は全員アクセス可能
-              if (!container.permissions) return true
-
-              // パブリックアクセス
-              if (container.permissions.public) return true
-
-              // 所有者
-              if (container.permissions.owner === playerId) return true
-
-              // 許可されたプレイヤー
-              if (container.permissions.allowedPlayers?.includes(playerId)) return true
-
-              return false
-            })
-          )
+          return pipe(containers, ReadonlyArray.filter((container) => hasPlayerAccess(container, playerId)))
         }),
 
       findInRange: (minPosition: WorldPosition, maxPosition: WorldPosition, worldId: string) =>
@@ -126,10 +149,7 @@ export const ContainerRepositoryMemory = Layer.effect(
 
           return pipe(
             containers,
-            ReadonlyArray.filter((container) => {
-              if (!container.position || container.worldId !== worldId) return false
-              return isInRange(container.position, minPosition, maxPosition)
-            })
+            ReadonlyArray.filter((container) => containerMatchesRange(container, minPosition, maxPosition, worldId))
           )
         }),
 
@@ -207,11 +227,17 @@ export const ContainerRepositoryMemory = Layer.effect(
           yield* Ref.update(positionIndex, (index) =>
             pipe(
               containers,
-              ReadonlyArray.reduce(index, (updatedIndex, container) => {
-                if (!container.position || !container.worldId) return updatedIndex
-                const positionKey = getPositionKey(container.position, container.worldId)
-                return HashMap.set(updatedIndex, positionKey, container.id)
-              })
+              ReadonlyArray.reduce(index, (updatedIndex, container) =>
+                pipe(
+                  Option.Do,
+                  Option.bind('position', () => Option.fromNullable(container.position)),
+                  Option.bind('worldId', () => Option.fromNullable(container.worldId)),
+                  Option.map(({ position, worldId }) =>
+                    HashMap.set(updatedIndex, getPositionKey(position, worldId), container.id)
+                  ),
+                  Option.getOrElse(() => updatedIndex)
+                )
+              )
             )
           )
         }),
@@ -224,53 +250,83 @@ export const ContainerRepositoryMemory = Layer.effect(
           return pipe(
             containers,
             ReadonlyArray.filter((container) => {
-              // タイプフィルター
-              if (query.types && !query.types.includes(container.type)) {
-                return false
-              }
+              const matchesType = pipe(
+                Option.fromNullable(query.types),
+                Option.match({
+                  onNone: () => true,
+                  onSome: (types) => types.includes(container.type),
+                })
+              )
 
-              // 容量フィルター
-              if (query.minCapacity !== undefined && container.capacity < query.minCapacity) {
-                return false
-              }
-              if (query.maxCapacity !== undefined && container.capacity > query.maxCapacity) {
-                return false
-              }
+              const matchesMinCapacity = pipe(
+                Option.fromNullable(query.minCapacity),
+                Option.match({
+                  onNone: () => true,
+                  onSome: (min) => container.capacity >= min,
+                })
+              )
 
-              // ワールドフィルター
-              if (query.worldId && container.worldId !== query.worldId) {
-                return false
-              }
+              const matchesMaxCapacity = pipe(
+                Option.fromNullable(query.maxCapacity),
+                Option.match({
+                  onNone: () => true,
+                  onSome: (max) => container.capacity <= max,
+                })
+              )
 
-              // 範囲フィルター
-              if (query.withinRange && container.position) {
-                const { center, radius } = query.withinRange
-                const distance = Math.sqrt(
-                  Math.pow(container.position.x - center.x, 2) +
-                    Math.pow(container.position.y - center.y, 2) +
-                    Math.pow(container.position.z - center.z, 2)
-                )
-                if (distance > radius) return false
-              }
+              const matchesWorld = pipe(
+                Option.fromNullable(query.worldId),
+                Option.match({
+                  onNone: () => true,
+                  onSome: (id) => container.worldId === id,
+                })
+              )
 
-              // アクセス権フィルター
-              if (query.accessibleToPlayer) {
-                if (!container.permissions) return true
+              const matchesRange = pipe(
+                Option.fromNullable(query.withinRange),
+                Option.match({
+                  onNone: () => true,
+                  onSome: ({ center, radius }) =>
+                    pipe(
+                      Option.fromNullable(container.position),
+                      Option.match({
+                        onNone: () => false,
+                        onSome: (position) => {
+                          const distance = Math.sqrt(
+                            Math.pow(position.x - center.x, 2) +
+                              Math.pow(position.y - center.y, 2) +
+                              Math.pow(position.z - center.z, 2)
+                          )
+                          return distance <= radius
+                        },
+                      })
+                    ),
+                })
+              )
 
-                const hasAccess =
-                  container.permissions.public ||
-                  container.permissions.owner === query.accessibleToPlayer ||
-                  container.permissions.allowedPlayers?.includes(query.accessibleToPlayer)
+              const matchesAccessibility = pipe(
+                Option.fromNullable(query.accessibleToPlayer),
+                Option.match({
+                  onNone: () => true,
+                  onSome: (requestedPlayerId) => hasPlayerAccess(container, requestedPlayerId),
+                })
+              )
 
-                if (!hasAccess) return false
-              }
+              const matchesNotEmpty = pipe(
+                Match.value(query.notEmpty),
+                Match.when(true, () => container.slots.size > 0),
+                Match.orElse(() => true)
+              )
 
-              // 空ではないコンテナフィルター
-              if (query.notEmpty === true && container.slots.size === 0) {
-                return false
-              }
-
-              return true
+              return (
+                matchesType &&
+                matchesMinCapacity &&
+                matchesMaxCapacity &&
+                matchesWorld &&
+                matchesRange &&
+                matchesAccessibility &&
+                matchesNotEmpty
+              )
             })
           )
         }),

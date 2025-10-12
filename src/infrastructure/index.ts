@@ -6,7 +6,9 @@
  */
 
 export * from './audio'
+export * from './chunk'
 export * from './ecs'
 export * from './inventory'
 export * from './rendering'
 export * from './scene'
+export * from './world_generation'

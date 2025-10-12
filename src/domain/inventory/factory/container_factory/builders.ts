@@ -5,7 +5,7 @@
  * class構文を使用せず、純粋関数とFunction.flowチェーンで実装
  */
 
-import { Effect, Array as EffectArray, Function, Match, pipe } from 'effect'
+import { Effect, Array as EffectArray, Function, Match, Option, pipe } from 'effect'
 import type { ItemStack } from '../../types'
 import { ContainerFactoryLive } from './factory'
 import type {
@@ -270,9 +270,13 @@ export const createContainerBuilder = (initialConfig: ContainerBuilderConfig = {
         yield* validateBuilderConfig(config)
 
         // Match.whenによる必須フィールド検証
-        const missingFields: string[] = []
-        if (!config.id) missingFields.push('id')
-        if (!config.type) missingFields.push('type')
+        const missingFields = pipe(
+          [
+            Option.when(config.id === undefined, () => 'id'),
+            Option.when(config.type === undefined, () => 'type'),
+          ],
+          ReadonlyArray.filterMap((field) => field)
+        )
 
         return yield* pipe(
           Match.value(missingFields),

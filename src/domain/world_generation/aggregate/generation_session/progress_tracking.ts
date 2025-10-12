@@ -179,14 +179,17 @@ export const updateProgress = (
       milestoneThresholds,
       ReadonlyArray.filterMap((threshold) => {
         const alreadyRecorded = data.timeTracking.milestones.some((m) => m.percentage === threshold)
-        if (!alreadyRecorded && newCompletionPercentage >= threshold) {
-          return Option.some({
-            percentage: threshold,
-            timestamp: now,
-            chunksCompleted: newCompleted,
-          })
-        }
-        return Option.none()
+        return pipe(
+          Match.value(alreadyRecorded || newCompletionPercentage < threshold),
+          Match.when(true, () => Option.none()),
+          Match.orElse(() =>
+            Option.some({
+              percentage: threshold,
+              timestamp: now,
+              chunksCompleted: newCompleted,
+            })
+          )
+        )
       })
     )
 
@@ -308,19 +311,26 @@ export const generateProgressReport = (
     const eta = performance.estimatedCompletionTime ? performance.estimatedCompletionTime.toISOString() : null
 
     // 推奨事項
-    const recommendations: string[] = []
-
-    if (statistics.successRate < 0.9) {
-      recommendations.push('Success rate is low - consider checking error logs')
-    }
-
-    if (performance.chunksPerSecond < 1.0 && statistics.totalChunks > 100) {
-      recommendations.push('Generation speed is slow - consider optimizing parameters')
-    }
-
-    if (performance.averageConcurrency < 2.0) {
-      recommendations.push('Low concurrency detected - consider increasing parallel processing')
-    }
+    const recommendations = pipe(
+      [
+        [statistics.successRate < 0.9, 'Success rate is low - consider checking error logs'],
+        [
+          performance.chunksPerSecond < 1.0 && statistics.totalChunks > 100,
+          'Generation speed is slow - consider optimizing parameters',
+        ],
+        [performance.averageConcurrency < 2.0, 'Low concurrency detected - consider increasing parallel processing'],
+      ] as const,
+      ReadonlyArray.filterMap(([condition, message]) =>
+        pipe(
+          Match.value(condition),
+          Match.when(
+            (flag) => flag,
+            () => Option.some(message)
+          ),
+          Match.orElse(() => Option.none<string>())
+        )
+      )
+    )
 
     return {
       summary,
@@ -351,13 +361,20 @@ const calculatePerformanceMetrics = (
     const averageChunkTime = statistics.completedChunks > 0 ? elapsedTime / statistics.completedChunks : 0
 
     // ETA計算
-    let estimatedTimeRemaining: number | undefined
-    let estimatedCompletionTime: Date | undefined
-
-    if (chunksPerSecond > 0 && statistics.remainingChunks > 0) {
-      estimatedTimeRemaining = (statistics.remainingChunks / chunksPerSecond) * 1000
-      estimatedCompletionTime = DateTime.toDate(DateTime.unsafeMake(now.getTime() + estimatedTimeRemaining))
-    }
+    const { estimatedTimeRemaining, estimatedCompletionTime } = pipe(
+      Match.value(chunksPerSecond > 0 && statistics.remainingChunks > 0),
+      Match.when(
+        (shouldEstimate) => shouldEstimate,
+        () => {
+          const remaining = (statistics.remainingChunks / chunksPerSecond) * 1000
+          return {
+            estimatedTimeRemaining: remaining,
+            estimatedCompletionTime: DateTime.toDate(DateTime.unsafeMake(now.getTime() + remaining)),
+          }
+        }
+      ),
+      Match.orElse(() => ({ estimatedTimeRemaining: undefined, estimatedCompletionTime: undefined }))
+    )
 
     return {
       averageChunkTime,
@@ -373,15 +390,16 @@ const calculatePerformanceMetrics = (
 /**
  * 履歴記録判定
  */
-const shouldAddToHistory = (history: ProgressData['trackingHistory'], now: Date): boolean => {
-  if (history.length === 0) return true
-
-  const lastEntry = history[history.length - 1]
-  const timeSinceLastEntry = now.getTime() - lastEntry.timestamp.getTime()
-
-  // 30秒ごと、または大きな変化がある場合に記録
-  return timeSinceLastEntry >= 30000
-}
+const shouldAddToHistory = (history: ProgressData['trackingHistory'], now: Date): boolean =>
+  pipe(
+    Match.value(history.length === 0),
+    Match.when((empty) => empty, () => true),
+    Match.orElse(() => {
+      const lastEntry = history[history.length - 1]
+      const timeSinceLastEntry = now.getTime() - lastEntry.timestamp.getTime()
+      return timeSinceLastEntry >= 30000
+    })
+  )
 
 // ================================
 // Query Functions
@@ -396,33 +414,36 @@ export const getProgressVelocity = (
   recentChunksPerSecond: number
   trendDirection: 'up' | 'down' | 'stable'
   confidence: number
-} => {
-  if (data.trackingHistory.length < 2) {
-    return {
-      recentChunksPerSecond: data.performance.chunksPerSecond,
-      trendDirection: 'stable',
-      confidence: 0,
-    }
-  }
+} =>
+  pipe(
+    Match.value(data.trackingHistory.length < 2),
+    Match.when(
+      (insufficient) => insufficient,
+      () => ({
+        recentChunksPerSecond: data.performance.chunksPerSecond,
+        trendDirection: 'stable' as const,
+        confidence: 0,
+      })
+    ),
+    Match.orElse(() => {
+      const recentEntries = data.trackingHistory.slice(-5)
+      const speeds = recentEntries.map((entry) => entry.performance.chunksPerSecond)
 
-  // 最近の5エントリで速度計算
-  const recentEntries = data.trackingHistory.slice(-5)
-  const speeds = recentEntries.map((entry) => entry.performance.chunksPerSecond)
+      const recentSpeed = speeds[speeds.length - 1]
+      const previousSpeed = speeds[0]
 
-  const recentSpeed = speeds[speeds.length - 1]
-  const previousSpeed = speeds[0]
+      const trendDirection: 'up' | 'down' | 'stable' =
+        recentSpeed > previousSpeed * 1.1 ? 'up' : recentSpeed < previousSpeed * 0.9 ? 'down' : 'stable'
 
-  const trendDirection: 'up' | 'down' | 'stable' =
-    recentSpeed > previousSpeed * 1.1 ? 'up' : recentSpeed < previousSpeed * 0.9 ? 'down' : 'stable'
+      const confidence = Math.min(recentEntries.length / 5, 1)
 
-  const confidence = Math.min(recentEntries.length / 5, 1)
-
-  return {
-    recentChunksPerSecond: recentSpeed,
-    trendDirection,
-    confidence,
-  }
-}
+      return {
+        recentChunksPerSecond: recentSpeed,
+        trendDirection,
+        confidence,
+      }
+    })
+  )
 
 /**
  * マイルストーン達成チェック

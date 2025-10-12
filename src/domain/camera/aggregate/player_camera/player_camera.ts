@@ -150,33 +150,42 @@ export namespace PlayerCameraOps {
     playerCamera: PlayerCamera,
     playerPosition: Position3D
   ): Effect.Effect<PlayerCamera, CameraError> =>
-    Effect.gen(function* () {
-      if (!playerCamera.isFollowing) {
-        return playerCamera
-      }
+    pipe(
+      Match.value(playerCamera.isFollowing),
+      Match.when(
+        (following) => following === false,
+        () => Effect.succeed(playerCamera)
+      ),
+      Match.orElse(() =>
+        Effect.gen(function* () {
+          const { camera, settings } = playerCamera
 
-      const { camera, settings } = playerCamera
+          // ビューモードに応じた位置計算
+          const newCameraPosition = yield* calculateCameraPositionForPlayer(playerPosition, camera.viewMode, settings)
 
-      // ビューモードに応じた位置計算
-      const newCameraPosition = yield* calculateCameraPositionForPlayer(playerPosition, camera.viewMode, settings)
+          // 衝突検出
+          const finalPosition = playerCamera.collisionEnabled
+            ? yield* performCollisionDetection(newCameraPosition, playerPosition)
+            : newCameraPosition
 
-      // 衝突検出
-      const finalPosition = playerCamera.collisionEnabled
-        ? yield* performCollisionDetection(newCameraPosition, playerPosition)
-        : newCameraPosition
+          // スムージングの適用
+          const smoothedPosition = applyPositionSmoothing(
+            camera.position,
+            finalPosition,
+            settings.smoothing.movement
+          )
 
-      // スムージングの適用
-      const smoothedPosition = applyPositionSmoothing(camera.position, finalPosition, settings.smoothing.movement)
+          // カメラ位置の更新
+          const updatedCamera = yield* CameraOps.updatePosition(camera, smoothedPosition)
 
-      // カメラ位置の更新
-      const updatedCamera = yield* CameraOps.updatePosition(camera, smoothedPosition)
-
-      return {
-        ...playerCamera,
-        camera: updatedCamera,
-        lastPlayerPosition: Option.some(playerPosition),
-      }
-    })
+          return {
+            ...playerCamera,
+            camera: updatedCamera,
+            lastPlayerPosition: Option.some(playerPosition),
+          }
+        })
+      )
+    )
 
   /**
    * First Personモードに切り替え

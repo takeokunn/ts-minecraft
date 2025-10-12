@@ -263,31 +263,42 @@ export const createBrandedNumberSchema = <T extends string>(
     finite?: boolean
   } = {}
 ) => {
-  let schema = Schema.Number
+  const bounds = { min: constraints.min, max: constraints.max } as const
 
-  // 制約の適用
-  if (constraints.min !== undefined && constraints.max !== undefined) {
-    schema = schema.pipe(Schema.between(constraints.min, constraints.max))
-  } else if (constraints.min !== undefined) {
-    schema = schema.pipe(Schema.greaterThanOrEqualTo(constraints.min))
-  } else if (constraints.max !== undefined) {
-    schema = schema.pipe(Schema.lessThanOrEqualTo(constraints.max))
-  }
+  const schemaWithBounds = pipe(
+    Match.value(bounds),
+    Match.when(
+      ({ min, max }) => min !== undefined && max !== undefined,
+      ({ min, max }) => Schema.Number.pipe(Schema.between(min, max))
+    ),
+    Match.when(
+      ({ min, max }) => min !== undefined && max === undefined,
+      ({ min }) => Schema.Number.pipe(Schema.greaterThanOrEqualTo(min))
+    ),
+    Match.when(
+      ({ min, max }) => min === undefined && max !== undefined,
+      ({ max }) => Schema.Number.pipe(Schema.lessThanOrEqualTo(max))
+    ),
+    Match.orElse(() => Schema.Number)
+  )
 
-  if (constraints.positive) {
-    schema = schema.pipe(Schema.positive())
-  }
-  if (constraints.nonNegative) {
-    schema = schema.pipe(Schema.nonNegative())
-  }
-  if (constraints.int) {
-    schema = schema.pipe(Schema.int())
-  }
-  if (constraints.finite) {
-    schema = schema.pipe(Schema.finite())
-  }
+  const transformedSchema = pipe(
+    [
+      [constraints.positive === true, (schema: Schema.Schema<number>) => schema.pipe(Schema.positive())],
+      [constraints.nonNegative === true, (schema: Schema.Schema<number>) => schema.pipe(Schema.nonNegative())],
+      [constraints.int === true, (schema: Schema.Schema<number>) => schema.pipe(Schema.int())],
+      [constraints.finite === true, (schema: Schema.Schema<number>) => schema.pipe(Schema.finite())],
+    ] as const,
+    ReadonlyArray.reduce(schemaWithBounds, (acc, [condition, transform]) =>
+      pipe(
+        Match.value(condition),
+        Match.when((flag) => flag, () => transform(acc)),
+        Match.orElse(() => acc)
+      )
+    )
+  )
 
-  return schema.pipe(Schema.brand(brand))
+  return transformedSchema.pipe(Schema.brand(brand))
 }
 
 // ========================================

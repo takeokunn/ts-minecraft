@@ -14,6 +14,7 @@ import {
   type WorldGenerationOrchestrator as WorldGenerationOrchestratorService,
   type WorldGenerationOrchestratorErrorType,
 } from '../domain_service/world_generation_orchestrator/orchestrator'
+import { WorldGenerationReadModel } from './read_model'
 
 export type WorldGenerationCommandHandlerError = WorldGenerationOrchestratorErrorType
 
@@ -33,17 +34,21 @@ export const WorldGenerationCommandHandler = Context.GenericTag<WorldGenerationC
 
 const handleGenerateWorld = (
   orchestrator: WorldGenerationOrchestratorService,
+  readModel: WorldGenerationReadModel,
   command: GenerateWorldCommand
 ): Effect.Effect<WorldGenerationCommandResult, WorldGenerationCommandHandlerError> =>
   orchestrator.generateWorld(command).pipe(
+    Effect.tap((result) => readModel.recordWorldResult(result)),
     Effect.map((result) => ({ _tag: 'WorldGenerated', result } as const))
   )
 
 const handleGenerateChunk = (
   orchestrator: WorldGenerationOrchestratorService,
+  readModel: WorldGenerationReadModel,
   command: GenerateChunkCommand
 ): Effect.Effect<WorldGenerationCommandResult, WorldGenerationCommandHandlerError> =>
   orchestrator.generateChunk(command).pipe(
+    Effect.tap((result) => readModel.recordChunkResult(result)),
     Effect.map((result) => ({ _tag: 'ChunkGenerated', result } as const))
   )
 
@@ -69,11 +74,12 @@ const handleCancelGeneration = (
 
 const executeCommand = (
   orchestrator: WorldGenerationOrchestratorService,
+  readModel: WorldGenerationReadModel,
   command: WorldGenerationCommand
 ): Effect.Effect<WorldGenerationCommandResult, WorldGenerationCommandHandlerError> =>
   Match.value(command).pipe(
-    Match.tag('GenerateWorldCommand', (cmd) => handleGenerateWorld(orchestrator, cmd)),
-    Match.tag('GenerateChunkCommand', (cmd) => handleGenerateChunk(orchestrator, cmd)),
+    Match.tag('GenerateWorldCommand', (cmd) => handleGenerateWorld(orchestrator, readModel, cmd)),
+    Match.tag('GenerateChunkCommand', (cmd) => handleGenerateChunk(orchestrator, readModel, cmd)),
     Match.tag('UpdateSettingsCommand', (cmd) => handleUpdateSettings(orchestrator, cmd)),
     Match.tag('CancelGenerationCommand', (cmd) => handleCancelGeneration(orchestrator, cmd)),
     Match.exhaustive
@@ -83,9 +89,10 @@ export const WorldGenerationCommandHandlerLive = Layer.effect(
   WorldGenerationCommandHandler,
   Effect.gen(function* () {
     const orchestrator = yield* WorldGenerationOrchestrator
+    const readModel = yield* WorldGenerationReadModel
 
     return WorldGenerationCommandHandler.of({
-      handle: (command) => executeCommand(orchestrator, command),
+      handle: (command) => executeCommand(orchestrator, readModel, command),
     })
   })
 )

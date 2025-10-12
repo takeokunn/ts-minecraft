@@ -10,6 +10,7 @@ import {
 } from '../repository/camera_state'
 import type { CameraId } from '../types'
 import { cameraToSnapshot } from './helpers'
+import { CameraReadModel } from './read_model'
 
 export type CameraQueryHandlerError = CameraError | RepositoryError
 
@@ -42,11 +43,20 @@ const ensureCameraExists = (
 
 const handleGetSnapshot = (
   repository: CameraStateRepositoryService,
+  readModel: CameraReadModel,
   cameraId: CameraId
 ): Effect.Effect<CameraQueryResult, CameraQueryHandlerError> =>
   Effect.gen(function* () {
-    const camera = yield* ensureCameraExists(repository, cameraId)
-    return { _tag: 'Snapshot', snapshot: cameraToSnapshot(camera) }
+    const cached = yield* readModel.getSnapshot(cameraId)
+    return yield* Option.match(cached, {
+      onNone: () =>
+        Effect.gen(function* () {
+          const camera = yield* ensureCameraExists(repository, cameraId)
+          yield* readModel.upsert(camera)
+          return { _tag: 'Snapshot', snapshot: cameraToSnapshot(camera) } as const
+        }),
+      onSome: (snapshot) => Effect.succeed({ _tag: 'Snapshot', snapshot } as const),
+    })
   })
 
 const handleGetState = (
@@ -65,10 +75,11 @@ const handleListActive = (
 
 const executeQuery = (
   repository: CameraStateRepositoryService,
+  readModel: CameraReadModel,
   query: CameraQuery
 ): Effect.Effect<CameraQueryResult, CameraQueryHandlerError> =>
   Match.value(query).pipe(
-    Match.tag('GetCameraSnapshot', (q) => handleGetSnapshot(repository, q.cameraId)),
+    Match.tag('GetCameraSnapshot', (q) => handleGetSnapshot(repository, readModel, q.cameraId)),
     Match.tag('GetCameraState', (q) => handleGetState(repository, q.cameraId)),
     Match.tag('ListActiveCameras', () => handleListActive(repository)),
     Match.exhaustive
@@ -78,9 +89,10 @@ export const CameraQueryHandlerLive = Layer.effect(
   CameraQueryHandler,
   Effect.gen(function* () {
     const repository = yield* CameraStateRepository
+    const readModel = yield* CameraReadModel
 
     return CameraQueryHandler.of({
-      execute: (query) => executeQuery(repository, query),
+      execute: (query) => executeQuery(repository, readModel, query),
     })
   })
 )

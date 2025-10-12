@@ -95,23 +95,32 @@ const CacheKeys = {
       : `trends_${timeRange.startTime}_${timeRange.endTime}`,
 } as const
 
-const toGameContext = (tag: string): Option<GameContext> => {
-  switch (tag) {
-    case 'Exploration':
-    case 'Combat':
-    case 'Building':
-    case 'Flying':
-    case 'Spectating':
-    case 'Cinematic':
-    case 'Menu':
-    case 'Inventory':
-    case 'Crafting':
-    case 'Chat':
-      return Option.some(Data.tagged(tag, {}))
-    default:
-      return Option.none()
-  }
-}
+const GameContextTags = [
+  'Exploration',
+  'Combat',
+  'Building',
+  'Flying',
+  'Spectating',
+  'Cinematic',
+  'Menu',
+  'Inventory',
+  'Crafting',
+  'Chat',
+] as const
+
+type GameContextTag = (typeof GameContextTags)[number]
+
+const GameContextTagSet: ReadonlySet<GameContextTag> = new Set(GameContextTags)
+
+const toGameContext = (tag: string): Option<GameContext> =>
+  pipe(
+    Match.value(tag),
+    Match.when(
+      (value): value is GameContextTag => GameContextTagSet.has(value as GameContextTag),
+      (value) => Option.some<GameContext>(Data.tagged(value, {}) as GameContext)
+    ),
+    Match.orElse(() => Option.none<GameContext>())
+  )
 
 /**
  * Storage Operations
@@ -653,19 +662,19 @@ export const ViewModePreferencesRepositoryLive = Layer.effect(
           const resultMap = pipe(
             HashMap.entries(playerContextualPrefs),
             Array.reduce(new Map<GameContext, ViewModePreference>(), (acc, [key, preference]) => {
-              const contextName = key.split('_')[1]
-              if (!contextName) {
-                return acc
-              }
-
-              const maybeContext = toGameContext(contextName)
-              if (Option.isNone(maybeContext)) {
-                return acc
-              }
-
-              const newMap = new Map(acc)
-              newMap.set(maybeContext.value, preference)
-              return newMap
+              return pipe(
+                key.split('_')[1],
+                Option.fromNullable,
+                Option.flatMap((contextName) => toGameContext(contextName)),
+                Option.match({
+                  onNone: () => acc,
+                  onSome: (contextValue) => {
+                    const newMap = new Map(acc)
+                    newMap.set(contextValue.value, preference)
+                    return newMap
+                  },
+                })
+              )
             })
           )
 
@@ -691,12 +700,13 @@ export const ViewModePreferencesRepositoryLive = Layer.effect(
         Effect.gen(function* () {
           const state = yield* Ref.get(storageRef)
           const records = HashMap.get(state.usageRecords, playerId).pipe(Option.getOrElse(() => []))
-
-          if (options) {
-            return StorageOps.filterRecords(records, options)
-          }
-
-          return records
+          return yield* pipe(
+            Option.fromNullable(options),
+            Option.match({
+              onNone: () => Effect.succeed(records),
+              onSome: (opts) => StorageOps.filterRecords(records, opts),
+            })
+          )
         }).pipe(handlePreferencesOperation),
 
       getPlayerAnalytics: (playerId: PlayerId, timeRange?: TimeRange) =>
@@ -740,22 +750,27 @@ export const ViewModePreferencesRepositoryLive = Layer.effect(
           const state = yield* Ref.get(storageRef)
           let popularityEntries = Array.from(HashMap.values(state.popularityData))
 
-          // コンテキストフィルタ
-          if (Option.isSome(context)) {
-            popularityEntries = popularityEntries.filter(
-              (entry) => Option.isSome(entry.context) && entry.context.value._tag === context.value._tag
-            )
-          }
+          const filteredByContext = pipe(
+            context,
+            Option.match({
+              onNone: () => popularityEntries,
+              onSome: (ctx) =>
+                popularityEntries.filter((entry) =>
+                  pipe(entry.context, Option.exists((value) => value._tag === ctx._tag))
+                ),
+            })
+          )
 
-          // 使用回数でソート
-          popularityEntries = popularityEntries.sort((a, b) => b.usageCount - a.usageCount)
+          const sorted = filteredByContext.sort((a, b) => b.usageCount - a.usageCount)
 
-          // 制限適用
-          if (limit && limit > 0) {
-            popularityEntries = popularityEntries.slice(0, limit)
-          }
-
-          return popularityEntries
+          return pipe(
+            Option.fromNullable(limit),
+            Option.filter((value) => value > 0),
+            Option.match({
+              onNone: () => sorted,
+              onSome: (value) => sorted.slice(0, value),
+            })
+          )
         }).pipe(handlePreferencesOperation),
 
       getGlobalPreferenceStatistics: (timeRange?: TimeRange) =>
@@ -889,11 +904,9 @@ export const ViewModePreferencesRepositoryLive = Layer.effect(
           const contextUsage = new Map<GameContext, Map<ViewMode, number>>()
 
           filteredRecords.forEach((record) => {
-            if (!contextUsage.has(record.context)) {
-              contextUsage.set(record.context, new Map())
-            }
-            const modeUsage = contextUsage.get(record.context)!
-            modeUsage.set(record.viewMode, (modeUsage.get(record.viewMode) || 0) + 1)
+            const modeUsage = contextUsage.get(record.context) ?? new Map<ViewMode, number>()
+            modeUsage.set(record.viewMode, (modeUsage.get(record.viewMode) ?? 0) + 1)
+            contextUsage.set(record.context, modeUsage)
           })
 
           // HashMap.entries を関数型スタイルで処理
@@ -906,9 +919,12 @@ export const ViewModePreferencesRepositoryLive = Layer.effect(
                 ReadonlyArray.head,
                 Option.map(([mode]) => mode)
               )
-              if (Option.isSome(mostUsedMode)) {
-                contextPreferences.set(context, mostUsedMode.value)
-              }
+              Option.match(mostUsedMode, {
+                onNone: () => undefined,
+                onSome: (mode) => {
+                  contextPreferences.set(context, mode)
+                },
+              })
             })
           )
 
@@ -964,22 +980,24 @@ export const ViewModePreferencesRepositoryLive = Layer.effect(
           const lastModified = yield* Clock.currentTimeMillis
           yield* Ref.update(storageRef, (state) => {
             const currentPreference = HashMap.get(state.playerPreferences, playerId)
-            if (Option.isSome(currentPreference)) {
-              const updated: ViewModePreference = {
-                ...currentPreference.value,
-                contextSensitivity: Option.getOrElse(
-                  adjustments.contextSensitivity,
-                  () => currentPreference.value.contextSensitivity
-                ),
-                lastModified,
-                version: currentPreference.value.version + 1,
-              }
-              return {
-                ...state,
-                playerPreferences: HashMap.set(state.playerPreferences, playerId, updated),
-              }
-            }
-            return state
+            return Option.match(currentPreference, {
+              onNone: () => state,
+              onSome: (pref) => {
+                const updated: ViewModePreference = {
+                  ...pref,
+                  contextSensitivity: Option.getOrElse(
+                    adjustments.contextSensitivity,
+                    () => pref.contextSensitivity
+                  ),
+                  lastModified,
+                  version: pref.version + 1,
+                }
+                return {
+                  ...state,
+                  playerPreferences: HashMap.set(state.playerPreferences, playerId, updated),
+                }
+              },
+            })
           })
           yield* Effect.logDebug(`Adaptive settings adjusted: ${playerId}`)
         }).pipe(handlePreferencesOperation),
@@ -1073,7 +1091,7 @@ export const ViewModePreferencesRepositoryLive = Layer.effect(
 
       importPlayerPreferences: (playerId: PlayerId, jsonData: string, options?: ImportOptions) =>
         Effect.gen(function* () {
-          const result: ImportResult = {
+          const baseResult: ImportResult = {
             success: true,
             importedPreferences: 0,
             importedRecords: 0,
@@ -1093,28 +1111,25 @@ export const ViewModePreferencesRepositoryLive = Layer.effect(
             Effect.either
           )
 
-          const validatedData = yield* pipe(
+          return yield* pipe(
             validatedDataResult,
             Either.match({
               onLeft: (error) =>
                 Effect.succeed({
-                  ...result,
+                  ...baseResult,
                   success: false,
                   errors: [error._tag === 'DecodingFailed' ? error.reason : String(error)],
                 }),
-              onRight: (data) => Effect.succeed(data),
+              onRight: () =>
+                Effect.gen(function* () {
+                  yield* Effect.logInfo(`Importing preferences for player: ${playerId}`)
+                  return {
+                    ...baseResult,
+                    importedPreferences: 1,
+                  }
+                }),
             })
           )
-
-          if (!validatedData.success) {
-            return validatedData
-          }
-
-          // 簡易実装: データのインポート処理
-          yield* Effect.logInfo(`Importing preferences for player: ${playerId}`)
-          result.importedPreferences = 1
-
-          return result
         }).pipe(handlePreferencesOperation),
 
       validatePreferences: (jsonData: string) =>

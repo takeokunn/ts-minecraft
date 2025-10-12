@@ -1,4 +1,4 @@
-import type { CameraSnapshot } from '@domain/camera/types'
+import type { CameraProjection, CameraSnapshot, CameraTransform } from '@domain/camera/types'
 import { Effect } from 'effect'
 import * as THREE from 'three'
 import type { CameraError } from '../errors'
@@ -42,4 +42,13 @@ export const applySnapshotToPerspectiveCamera = (
 
     const target = snapshot.transform.target
     camera.lookAt(target.x, target.y, target.z)
+  })
+
+export const toThreeCamera = (
+  projection: CameraProjection,
+  transform: CameraTransform
+): Effect.Effect<THREE.PerspectiveCamera, CameraError> =>
+  createPerspectiveCameraFromSnapshot({
+    projection,
+    transform,
   })

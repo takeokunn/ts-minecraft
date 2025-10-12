@@ -5,6 +5,7 @@
 
 import { Layer } from 'effect'
 import { ChunkDomainServices } from './domain_service'
+import { ChunkCommandHandlerLive, ChunkQueryHandlerLive, ChunkReadModelLive } from './cqrs'
 import { ChunkDevelopmentLayer } from './repository/layers'
 
 /**
@@ -12,4 +13,10 @@ import { ChunkDevelopmentLayer } from './repository/layers'
  * - Repository: ChunkDevelopmentLayer (CQRS + InMemory)
  * - Domain Service: ChunkDomainServices (Validation / Serialization / Optimization)
  */
-export const ChunkDomainLive = Layer.mergeAll(ChunkDevelopmentLayer, ChunkDomainServices)
+export const ChunkDomainLive = Layer.mergeAll(
+  ChunkDevelopmentLayer,
+  ChunkDomainServices,
+  ChunkReadModelLive,
+  ChunkCommandHandlerLive,
+  ChunkQueryHandlerLive
+)

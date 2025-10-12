@@ -4,7 +4,7 @@
  */
 
 import { ErrorCauseSchema } from '@shared/schema/error'
-import { Effect, Schema } from 'effect'
+import { Effect, Match, Schema, pipe } from 'effect'
 import * as THREE from 'three'
 
 /**
@@ -90,16 +90,21 @@ export const multiply = (a: Vector3, b: Vector3): Vector3 => make(a.x * b.x, a.y
  */
 export const divide = (a: Vector3, b: Vector3): Effect.Effect<Vector3, Vector3Error> =>
   Effect.gen(function* () {
-    if (b.x === 0 || b.y === 0 || b.z === 0) {
-      return yield* Effect.fail(
-        new Vector3Error({
-          operation: 'divide',
-          reason: 'Division by zero',
-          vector: b,
-        })
-      )
-    }
-    return make(a.x / b.x, a.y / b.y, a.z / b.z)
+    return yield* pipe(
+      Match.value(b.x === 0 || b.y === 0 || b.z === 0),
+      Match.when(
+        (hasZero) => hasZero,
+        () =>
+          Effect.fail(
+            new Vector3Error({
+              operation: 'divide',
+              reason: 'Division by zero',
+              vector: b,
+            })
+          )
+      ),
+      Match.orElse(() => Effect.succeed(make(a.x / b.x, a.y / b.y, a.z / b.z)))
+    )
   })
 
 /**
@@ -124,14 +129,17 @@ export const lengthSquared = (v: Vector3): number => v.x * v.x + v.y * v.y + v.z
  */
 export const normalizeSync = (v: Vector3): Vector3 => {
   const len = length(v)
-  if (len === 0) {
-    throw new Vector3Error({
-      operation: 'normalize',
-      reason: 'Cannot normalize zero vector',
-      vector: v,
-    })
-  }
-  return scale(v, 1 / len)
+  return pipe(
+    Match.value(len === 0),
+    Match.when(true, () => {
+      throw new Vector3Error({
+        operation: 'normalize',
+        reason: 'Cannot normalize zero vector',
+        vector: v,
+      })
+    }),
+    Match.orElse(() => scale(v, 1 / len))
+  )
 }
 
 /**
@@ -140,16 +148,21 @@ export const normalizeSync = (v: Vector3): Vector3 => {
 export const normalize = (v: Vector3): Effect.Effect<Vector3, Vector3Error> =>
   Effect.gen(function* () {
     const len = length(v)
-    if (len === 0) {
-      return yield* Effect.fail(
-        new Vector3Error({
-          operation: 'normalize',
-          reason: 'Cannot normalize zero vector',
-          vector: v,
-        })
-      )
-    }
-    return scale(v, 1 / len)
+    return yield* pipe(
+      Match.value(len === 0),
+      Match.when(
+        (isZero) => isZero,
+        () =>
+          Effect.fail(
+            new Vector3Error({
+              operation: 'normalize',
+              reason: 'Cannot normalize zero vector',
+              vector: v,
+            })
+          )
+      ),
+      Match.orElse(() => Effect.succeed(scale(v, 1 / len)))
+    )
   })
 
 /**

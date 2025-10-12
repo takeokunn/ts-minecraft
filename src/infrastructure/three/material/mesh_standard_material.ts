@@ -3,7 +3,7 @@
  * MeshStandardMaterialのEffect-TSラッパー実装
  */
 
-import { Effect, Schema } from 'effect'
+import { Effect, Match, Option, Schema } from 'effect'
 import * as THREE from 'three'
 import { ColorSchema, toThreeColor, type Color } from '../core/color'
 import { MaterialError } from '../errors'
@@ -29,11 +29,13 @@ export type MeshStandardMaterialParams = Schema.Schema.Type<typeof MeshStandardM
 /**
  * Side定数変換
  */
-const sideToThreeSide = (side?: 'front' | 'back' | 'double'): THREE.Side => {
-  if (!side || side === 'front') return THREE.FrontSide
-  if (side === 'back') return THREE.BackSide
-  return THREE.DoubleSide
-}
+const sideToThreeSide = (side?: 'front' | 'back' | 'double'): THREE.Side =>
+  Match.value(side).pipe(
+    Match.when((value) => value === undefined || value === 'front', () => THREE.FrontSide),
+    Match.when('back', () => THREE.BackSide),
+    Match.orElse(() => THREE.DoubleSide),
+    Match.exhaustive
+  )
 
 /**
  * MeshStandardMaterial生成
@@ -93,26 +95,43 @@ export const updateMeshStandardMaterial = (
   }>
 ): Effect.Effect<void, never> =>
   Effect.sync(() => {
-    if (updates.color !== undefined) {
-      material.color.copy(toThreeColor(updates.color))
-    }
-    if (updates.metalness !== undefined) {
-      material.metalness = updates.metalness
-    }
-    if (updates.roughness !== undefined) {
-      material.roughness = updates.roughness
-    }
-    if (updates.opacity !== undefined) {
-      material.opacity = updates.opacity
-    }
-    if (updates.wireframe !== undefined) {
-      material.wireframe = updates.wireframe
-    }
-    if (updates.emissive !== undefined) {
-      material.emissive.copy(toThreeColor(updates.emissive))
-    }
-    if (updates.emissiveIntensity !== undefined) {
-      material.emissiveIntensity = updates.emissiveIntensity
-    }
+    Option.match(Option.fromNullable(updates.color), {
+      onSome: (color) => material.color.copy(toThreeColor(color)),
+      onNone: () => undefined,
+    })
+    Option.match(Option.fromNullable(updates.metalness), {
+      onSome: (value) => {
+        material.metalness = value
+      },
+      onNone: () => undefined,
+    })
+    Option.match(Option.fromNullable(updates.roughness), {
+      onSome: (value) => {
+        material.roughness = value
+      },
+      onNone: () => undefined,
+    })
+    Option.match(Option.fromNullable(updates.opacity), {
+      onSome: (value) => {
+        material.opacity = value
+      },
+      onNone: () => undefined,
+    })
+    Option.match(Option.fromNullable(updates.wireframe), {
+      onSome: (value) => {
+        material.wireframe = value
+      },
+      onNone: () => undefined,
+    })
+    Option.match(Option.fromNullable(updates.emissive), {
+      onSome: (color) => material.emissive.copy(toThreeColor(color)),
+      onNone: () => undefined,
+    })
+    Option.match(Option.fromNullable(updates.emissiveIntensity), {
+      onSome: (value) => {
+        material.emissiveIntensity = value
+      },
+      onNone: () => undefined,
+    })
     material.needsUpdate = true
   })

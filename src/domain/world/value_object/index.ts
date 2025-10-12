@@ -5,7 +5,7 @@
  * Effect-TS 3.17+ 型安全性・数学的精度・Minecraft互換性の統合
  */
 
-import { Match, pipe } from 'effect'
+import { Either, Match, Option, pipe } from 'effect'
 
 // ワールドシード管理
 export {
@@ -554,29 +554,23 @@ export const WorldValueObjectValidation = {
   /**
    * 完全ワールド設定の整合性検証
    */
-  validateCompleteWorld: (world: WorldConfiguration): boolean => {
-    // Effect.tryを使わずに直接実行
-    try {
-      // 座標系の妥当性
-      if (!CoordinateTransforms.isValidWorldCoordinate(world.coordinates.spawn)) {
-        return false
-      }
-
-      // ノイズ設定の妥当性
-      if (!NoiseConfigurationValidation.validateNoiseSettings(world.noise)) {
-        return false
-      }
-
-      // バイオーム特性の整合性
-      if (!BiomePropertiesValidation.validateEnvironmentalConsistency(world.biome)) {
-        return false
-      }
-
-      return true
-    } catch {
-      return false
-    }
-  },
+  validateCompleteWorld: (world: WorldConfiguration): boolean =>
+    pipe(
+      Either.try({
+        try: () => ({
+          coordinatesValid: CoordinateTransforms.isValidWorldCoordinate(world.coordinates.spawn),
+          noiseValid: NoiseConfigurationValidation.validateNoiseSettings(world.noise),
+          biomeValid: BiomePropertiesValidation.validateEnvironmentalConsistency(world.biome),
+        }),
+        catch: (error) => error,
+      }),
+      Either.getOrElse(() => ({
+        coordinatesValid: false,
+        noiseValid: false,
+        biomeValid: false,
+      })),
+      ({ coordinatesValid, noiseValid, biomeValid }) => coordinatesValid && noiseValid && biomeValid
+    ),
 
   /**
    * 世界シードの複合検証
@@ -591,21 +585,45 @@ export const WorldValueObjectValidation = {
    * パフォーマンス影響度評価
    */
   evaluatePerformanceImpact: (world: WorldConfiguration): PerformanceImpact => {
-    let complexity = 0
+    const contributions = [
+      pipe(
+        Match.value(world.noise.octaves),
+        Match.when((octaves) => octaves > 8, () => 0.3),
+        Match.orElse(() => 0)
+      ),
+      pipe(
+        Match.value(world.noise.quality),
+        Match.when('ultra', () => 0.2),
+        Match.orElse(() => 0)
+      ),
+      pipe(
+        Match.value(world.biome.vegetation.layers.length),
+        Match.when((layers) => layers > 5, () => 0.2),
+        Match.orElse(() => 0)
+      ),
+      pipe(
+        Match.value(world.biome.soil.horizons?.length ?? 0),
+        Match.when((horizons) => horizons > 3, () => 0.1),
+        Match.orElse(() => 0)
+      ),
+      pipe(
+        Match.value(world.generation.structures?.density ?? 0),
+        Match.when((density) => density > 0.8, () => 0.2),
+        Match.orElse(() => 0)
+      ),
+    ]
 
-    // ノイズ複雑度
-    if (world.noise.octaves > 8) complexity += 0.3
-    if (world.noise.quality === 'ultra') complexity += 0.2
+    const complexity = contributions.reduce((sum, weight) => sum + weight, 0)
 
-    // バイオーム複雑度
-    if (world.biome.vegetation.layers.length > 5) complexity += 0.2
-    if (world.biome.soil.horizons?.length > 3) complexity += 0.1
-
-    // 構造物密度
-    if ((world.generation.structures?.density ?? 0) > 0.8) complexity += 0.2
+    const level = pipe(
+      Match.value(complexity),
+      Match.when((value): value is number => value < 0.3, () => 'low' as const),
+      Match.when((value) => value < 0.6, () => 'medium' as const),
+      Match.orElse(() => 'high' as const)
+    )
 
     return {
-      level: complexity < 0.3 ? 'low' : complexity < 0.6 ? 'medium' : 'high',
+      level,
       score: complexity,
       recommendations: generatePerformanceRecommendations(complexity),
     }
@@ -643,47 +661,44 @@ export const WorldValueObjectTypeGuards = {
    * CompleteWorldConfigurationの型ガード
    */
   isCompleteWorldConfiguration: (value: unknown): value is WorldConfiguration => {
-    if (typeof value !== 'object' || value === null) {
-      return false
-    }
+    const validated = pipe(
+      value,
+      Option.fromPredicate(
+        (candidate): candidate is Partial<WorldConfiguration> & Record<string, unknown> =>
+          typeof candidate === 'object' && candidate !== null
+      ),
+      Option.filter(
+        (
+          candidate
+        ): candidate is Partial<WorldConfiguration> & {
+          seed: WorldSeed
+          coordinates: WorldConfiguration['coordinates']
+          generation: WorldConfiguration['generation']
+          noise: WorldConfiguration['noise']
+          biome: WorldConfiguration['biome']
+        } =>
+          candidate.seed !== undefined &&
+          candidate.coordinates !== undefined &&
+          candidate.generation !== undefined &&
+          candidate.noise !== undefined &&
+          candidate.biome !== undefined
+      ),
+      Option.filter((candidate) => CoordinateTransforms.isValidWorldCoordinate(candidate.coordinates.spawn)),
+      Option.filter((candidate) => candidate.coordinates.worldBorder !== undefined),
+      Option.filter((candidate) => {
+        const borderKeys = Object.keys(WORLD_COORDINATE_LIMITS) as Array<keyof typeof WORLD_COORDINATE_LIMITS>
+        const record = candidate.coordinates
+          .worldBorder as Partial<Record<keyof typeof WORLD_COORDINATE_LIMITS, number>> | undefined
+        return record !== undefined && borderKeys.every((key) => typeof record[key] === 'number')
+      }),
+      Option.filter((candidate) => typeof candidate.noise === 'object' && candidate.noise !== null),
+      Option.filter((candidate) => typeof candidate.biome === 'object' && candidate.biome !== null),
+      Option.filter((candidate) => typeof candidate.generation === 'object' && candidate.generation !== null),
+      Option.filter((candidate) => WorldValueObjectValidation.validateCompleteWorld(candidate as WorldConfiguration)),
+      Option.map((candidate) => candidate as WorldConfiguration)
+    )
 
-    const candidate = value as Partial<WorldConfiguration>
-
-    if (!candidate.seed || !candidate.coordinates || !candidate.generation || !candidate.noise || !candidate.biome) {
-      return false
-    }
-
-    const { spawn, worldBorder } = candidate.coordinates
-
-    if (!spawn || !CoordinateTransforms.isValidWorldCoordinate(spawn)) {
-      return false
-    }
-
-    if (!worldBorder) {
-      return false
-    }
-
-    const borderKeys = Object.keys(WORLD_COORDINATE_LIMITS) as Array<keyof typeof WORLD_COORDINATE_LIMITS>
-    const record = worldBorder as Partial<Record<keyof typeof WORLD_COORDINATE_LIMITS, number>>
-    const hasValidBorder = borderKeys.every((key) => typeof record[key] === 'number')
-
-    if (!hasValidBorder) {
-      return false
-    }
-
-    if (typeof candidate.noise !== 'object' || candidate.noise === null) {
-      return false
-    }
-
-    if (typeof candidate.biome !== 'object' || candidate.biome === null) {
-      return false
-    }
-
-    if (typeof candidate.generation !== 'object' || candidate.generation === null) {
-      return false
-    }
-
-    return WorldValueObjectValidation.validateCompleteWorld(candidate as WorldConfiguration)
+    return Option.isSome(validated)
   },
 } as const
 
@@ -752,22 +767,26 @@ function createIslandWorld(): WorldConfiguration {
 }
 
 function generatePerformanceRecommendations(complexity: number): string[] {
-  const recommendations: string[] = []
+  const templates: ReadonlyArray<{ threshold: number; tips: ReadonlyArray<string> }> = [
+    {
+      threshold: 0.7,
+      tips: [
+        'ノイズオクターブ数を8以下に削減することを推奨',
+        '植生レイヤー数を5以下に制限することを推奨',
+      ],
+    },
+    {
+      threshold: 0.5,
+      tips: [
+        'ノイズ品質を"standard"以下に設定することを推奨',
+        '構造物密度を0.8以下に調整することを推奨',
+      ],
+    },
+    {
+      threshold: 0.3,
+      tips: ['バックグラウンド処理の活用を検討', 'チャンク読み込み最適化の実装を推奨'],
+    },
+  ]
 
-  if (complexity > 0.7) {
-    recommendations.push('ノイズオクターブ数を8以下に削減することを推奨')
-    recommendations.push('植生レイヤー数を5以下に制限することを推奨')
-  }
-
-  if (complexity > 0.5) {
-    recommendations.push('ノイズ品質を"standard"以下に設定することを推奨')
-    recommendations.push('構造物密度を0.8以下に調整することを推奨')
-  }
-
-  if (complexity > 0.3) {
-    recommendations.push('バックグラウンド処理の活用を検討')
-    recommendations.push('チャンク読み込み最適化の実装を推奨')
-  }
-
-  return recommendations
+  return templates.filter(({ threshold }) => complexity > threshold).flatMap(({ tips }) => tips.slice())
 }

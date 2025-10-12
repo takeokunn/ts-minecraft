@@ -588,14 +588,20 @@ const applyModifications = (context: WorldGenerator.GenerationContext, modificat
     ...(modifications.biomeConfig && { biomeConfig: modifications.biomeConfig }),
     ...(modifications.noiseConfig && { noiseConfig: modifications.noiseConfig }),
   }
+  const updateCount = Object.keys(updates).length
 
-  if (Object.keys(updates).length === 0) {
-    return Effect.succeed(context)
-  }
-
-  return GenerationContext.update(context, updates).pipe(
-    Effect.mapError((error) =>
-      FactoryError.configurationConflict('Failed to apply context modifications', { cause: error })
+  return Function.pipe(
+    Match.value(updateCount),
+    Match.when(
+      (count) => count === 0,
+      () => Effect.succeed(context)
+    ),
+    Match.orElse(() =>
+      GenerationContext.update(context, updates).pipe(
+        Effect.mapError((error) =>
+          FactoryError.configurationConflict('Failed to apply context modifications', { cause: error })
+        )
+      )
     )
   )
 }
