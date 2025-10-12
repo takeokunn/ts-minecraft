@@ -13,7 +13,6 @@ import { Schema } from 'effect'
 // ========================================
 
 export { SceneCameraApplicationService } from './service'
-export type { SceneCameraApplicationService } from './types'
 
 // ========================================
 // Live Implementation

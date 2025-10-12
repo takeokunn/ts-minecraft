@@ -8,8 +8,8 @@ import {
   type CameraCommandHandlerError,
   type CameraQueryHandlerError,
   type CameraQueryResult,
-} from '@/domain/camera/cqrs'
-import type { CameraCommand, CameraQuery, CameraSnapshot } from '@/domain/camera/types'
+} from '@domain/camera/cqrs'
+import type { CameraCommand, CameraQuery, CameraSnapshot } from '@domain/camera/types'
 
 export type CameraAPIError = CameraCommandHandlerError | CameraQueryHandlerError
 

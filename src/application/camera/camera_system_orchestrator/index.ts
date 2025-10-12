@@ -10,7 +10,6 @@
 // ========================================
 
 export { CameraSystemOrchestratorService } from './service'
-export type { CameraSystemOrchestratorService } from './service'
 
 // ========================================
 // Live Implementation

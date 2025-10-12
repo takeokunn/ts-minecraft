@@ -749,13 +749,17 @@ const estimateMemoryUsage = (system: BiomeSystem.BiomeSystem): number => {
 }
 
 const measureProcessingTime = (system: BiomeSystem.BiomeSystem): Effect.Effect<number> =>
-  Effect.gen(function* () {
-    // 処理時間測定（ミリ秒）
-    const start = performance.now()
-    // 実際の処理時間をシミュレート
-    yield* Effect.sleep(1)
-    const end = performance.now()
-    return end - start
+  Effect.sync(() => {
+    const biomeCount = system.biomes?.length ?? 0
+    const transitionCount = system.transitions?.length ?? 0
+    const featureCount = system.features?.length ?? 0
+
+    const base = 0.5
+    const biomeCost = biomeCount * 0.15
+    const transitionCost = transitionCount * 0.08
+    const featureCost = featureCount * 0.1
+
+    return base + biomeCost + transitionCost + featureCost
   })
 
 const calculateCacheEfficiency = (system: BiomeSystem.BiomeSystem): number =>

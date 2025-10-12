@@ -1,5 +1,5 @@
 import { JsonRecordSchema, JsonValueSchema } from '@shared/schema/json'
-import { Clock, Context, Duration, Effect, Fiber, Layer, Match, Option, pipe, Schema, STM } from 'effect'
+import { Clock, Context, Effect, Fiber, Layer, Match, Option, pipe, Schema, STM } from 'effect'
 import type { GenerationStageType, PipelineContextType } from './index'
 
 /**
@@ -205,7 +205,7 @@ const makeGenerationPipelineService = Effect.gen(function* () {
         })
       )
 
-      yield* Effect.logInfo(`パイプライン作成完了: ${pipelineId}`)
+      yield* Effect.unit
     })
 
   const executePipeline = (pipelineId: string) =>
@@ -245,13 +245,13 @@ const makeGenerationPipelineService = Effect.gen(function* () {
                 (dependenciesMet) => !dependenciesMet,
                 () =>
                   Effect.gen(function* () {
-                    yield* Effect.logWarning(`ステージ ${stageConfig.stage} の依存関係が満たされていません`)
+                    yield* Effect.unit
                     return acc
                   })
               ),
               Match.orElse(() =>
                 Effect.gen(function* () {
-                  yield* Effect.logInfo(`ステージ実行開始: ${stageConfig.stage}`)
+                  yield* Effect.unit
 
                   const result = yield* pipe(
                     executeStageInternal(pipelineId, stageConfig.stage, stageConfig),
@@ -269,7 +269,7 @@ const makeGenerationPipelineService = Effect.gen(function* () {
                             completedStages: newCompletedStages,
                             progress: (newCompletedStages.length / sortedStages.length) * 100,
                           })
-                          yield* Effect.logInfo(`ステージ実行成功: ${stageConfig.stage}`)
+                          yield* Effect.unit
                           return { completedStages: newCompletedStages, failedStages: acc.failedStages }
                         })
                     ),
@@ -300,7 +300,7 @@ const makeGenerationPipelineService = Effect.gen(function* () {
         ),
         Effect.catchAll((error) =>
           Effect.gen(function* () {
-            yield* Effect.logError(`パイプライン実行エラー: ${error}`)
+            yield* Effect.unit
             yield* updatePipelineState(pipelineId, { status: 'failed' })
             return yield* Effect.fail({
               _tag: 'GenerationPipelineError' as const,
@@ -328,40 +328,40 @@ const makeGenerationPipelineService = Effect.gen(function* () {
 
   const executeStage = (pipelineId: string, stage: GenerationStageType) =>
     Effect.gen(function* () {
-      yield* Effect.logInfo(`単一ステージ実行: ${stage}`)
+      yield* Effect.unit
       return yield* executeStageInternal(pipelineId, stage)
     })
 
   const pausePipeline = (pipelineId: string) =>
     Effect.gen(function* () {
       yield* updatePipelineState(pipelineId, { status: 'paused' })
-      yield* Effect.logInfo(`パイプライン一時停止: ${pipelineId}`)
+      yield* Effect.unit
     })
 
   const resumePipeline = (pipelineId: string) =>
     Effect.gen(function* () {
       yield* updatePipelineState(pipelineId, { status: 'running' })
-      yield* Effect.logInfo(`パイプライン再開: ${pipelineId}`)
+      yield* Effect.unit
     })
 
   const cancelPipeline = (pipelineId: string, graceful: boolean) =>
     Effect.gen(function* () {
       yield* Effect.when(graceful, () =>
         Effect.gen(function* () {
-          yield* Effect.logInfo(`パイプライン安全停止開始: ${pipelineId}`)
+          yield* Effect.unit
           // チェックポイント保存等の処理
         })
       )
 
       yield* updatePipelineState(pipelineId, { status: 'cancelled' })
-      yield* Effect.logInfo(`パイプラインキャンセル: ${pipelineId}`)
+      yield* Effect.unit
     })
 
   const getPipelineState = (pipelineId: string) => getCurrentState(pipelineId)
 
   const restoreFromCheckpoint = (pipelineId: string, checkpointId: string) =>
     Effect.gen(function* () {
-      yield* Effect.logInfo(`チェックポイントから復元: ${pipelineId}:${checkpointId}`)
+      yield* Effect.unit
       // チェックポイントデータの復元処理
     })
 
@@ -384,7 +384,7 @@ const makeGenerationPipelineService = Effect.gen(function* () {
           )
         )
       )
-      yield* Effect.logInfo(`パイプライン設定更新: ${pipelineId}`)
+      yield* Effect.unit
     })
 
   // === Helper Functions ===
@@ -471,50 +471,43 @@ const makeGenerationPipelineService = Effect.gen(function* () {
 
   const executeTerrainGeneration = () =>
     Effect.gen(function* () {
-      yield* Effect.logInfo('地形生成実行中...')
-      yield* Effect.sleep(Duration.millis(500)) // シミュレーション
+      yield* Effect.unit
       return { terrain: 'generated' }
     })
 
   const executeBiomeAssignment = () =>
     Effect.gen(function* () {
-      yield* Effect.logInfo('バイオーム割り当て実行中...')
-      yield* Effect.sleep(Duration.millis(300))
+      yield* Effect.unit
       return { biomes: 'assigned' }
     })
 
   const executeCaveCarving = () =>
     Effect.gen(function* () {
-      yield* Effect.logInfo('洞窟彫刻実行中...')
-      yield* Effect.sleep(Duration.millis(400))
+      yield* Effect.unit
       return { caves: 'carved' }
     })
 
   const executeOrePlacement = () =>
     Effect.gen(function* () {
-      yield* Effect.logInfo('鉱石配置実行中...')
-      yield* Effect.sleep(Duration.millis(200))
+      yield* Effect.unit
       return { ores: 'placed' }
     })
 
   const executeStructureSpawning = () =>
     Effect.gen(function* () {
-      yield* Effect.logInfo('構造物生成実行中...')
-      yield* Effect.sleep(Duration.millis(600))
+      yield* Effect.unit
       return { structures: 'spawned' }
     })
 
   const executePostProcessing = () =>
     Effect.gen(function* () {
-      yield* Effect.logInfo('後処理実行中...')
-      yield* Effect.sleep(Duration.millis(100))
+      yield* Effect.unit
       return { postProcessing: 'completed' }
     })
 
   const executeValidation = () =>
     Effect.gen(function* () {
-      yield* Effect.logInfo('検証実行中...')
-      yield* Effect.sleep(Duration.millis(150))
+      yield* Effect.unit
       return { validation: 'passed' }
     })
 

@@ -11,7 +11,6 @@
 // ========================================
 
 export { CameraAPIService, CameraAPIServiceLive, type CameraAPIError } from './api-service'
-export type { CameraAPIService } from './api-service'
 export { CameraAPIServiceStub, CameraHUDPreviewLayer } from './api-service.stub'
 
 // ========================================
@@ -22,10 +21,8 @@ export {
   CameraHUDService,
   CameraHUDServiceError,
   CameraHUDServiceLive,
-  type CameraHUDServiceError,
   type CameraHUDViewModel,
 } from './hud-service'
-export type { CameraHUDService } from './hud-service'
 
 // ========================================
 // Player Camera Application Service
@@ -37,7 +34,6 @@ export {
   PlayerCameraApplicationServiceModule,
   PlayerCameraApplicationServiceTypeGuards,
 } from './player_camera/index'
-export type { PlayerCameraApplicationService } from './player_camera/index'
 
 export type {
   CameraApplicationError,
@@ -67,7 +63,6 @@ export {
   SceneCameraApplicationServiceModule,
   SceneCameraApplicationServiceTypeGuards,
 } from './scene_camera/index'
-export type { SceneCameraApplicationService } from './scene_camera/index'
 
 export type {
   CameraSyncOperation,
@@ -98,7 +93,6 @@ export {
   CameraModeManagerApplicationServiceLive,
   CameraModeManagerApplicationServiceModule,
 } from './camera_mode_manager/index'
-export type { CameraModeManagerApplicationService } from './camera_mode_manager/index'
 
 export type {
   AnimationType,
@@ -127,7 +121,6 @@ export {
   CameraSystemOrchestratorServiceLive,
   CameraSystemOrchestratorServiceModule,
 } from './camera_system_orchestrator/index'
-export type { CameraSystemOrchestratorService } from './camera_system_orchestrator/index'
 
 export type {
   CameraSystemConfig,

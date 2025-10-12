@@ -1,6 +1,7 @@
-import { Effect, Either, Fiber, Match, Option, Schema, Stream, pipe } from 'effect'
+import { Effect, Either, Fiber, Schema, Stream } from 'effect'
 import type { ManagedRuntime } from 'effect/ManagedRuntime'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import type { JSX } from 'react'
 import { createRoot } from 'react-dom/client'
 
 import { InputService, InputTimestamp, KeyCode, KeyCodeSchema } from '@domain/input'
@@ -16,6 +17,7 @@ import {
   SettingsMenu,
   useMenuActions,
   type MenuController,
+  type MenuControllerError,
   type MenuViewModel,
 } from '@presentation/menu'
 import type {
@@ -31,92 +33,79 @@ type Runtime = ManagedRuntime<unknown, unknown>
 
 const useMenuController = (runtime: Runtime) => {
   const controllerRef = useRef<MenuController | null>(null)
-  const initFiberRef = useRef<Fiber.RuntimeFiber<void, never> | null>(null)
-  const streamFiberRef = useRef<Fiber.RuntimeFiber<void, never> | null>(null)
+  const initFiberRef = useRef<Fiber.RuntimeFiber<void, unknown> | null>(null)
+  const streamFiberRef = useRef<Fiber.RuntimeFiber<void, unknown> | null>(null)
   const [model, setModel] = useState<MenuViewModel | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
 
-    const effect = Effect.gen(function* () {
+    const initializationEffect = Effect.gen(function* () {
       const controller = yield* MenuControllerService
       const viewModel = yield* controller.openMain()
       return { controller, viewModel }
     })
 
-    const handleSuccess = ({ controller, viewModel }: { controller: MenuController; viewModel: MenuViewModel }) =>
-      pipe(
-        Match.value(cancelled),
-        Match.when(true, () => undefined),
-        Match.orElse(() => {
-          controllerRef.current = controller
-          setModel(viewModel)
-          setErrorMessage(null)
-
-          const streamEffect = controller.stream().pipe(
-            Stream.runForEach((next) =>
-              Effect.sync(() => {
-                setModel(next)
-                setErrorMessage(null)
-              })
-            )
-          )
-
-          const fiber = runtime.runFork(streamEffect)
-          streamFiberRef.current = fiber
-        }),
-        Match.exhaustive
-      )
-
-    const handleFailure = (error: unknown) =>
-      pipe(
-        Match.value(cancelled),
-        Match.when(true, () => undefined),
-        Match.orElse(() => {
-          console.error('メニュー初期化エラー', error)
-          setErrorMessage('メニューの初期化に失敗しました')
-        }),
-        Match.exhaustive
-      )
-
     const initFiber = runtime.runFork(
-      effect.pipe(
+      initializationEffect.pipe(
         Effect.matchEffect({
-          onFailure: (error) => Effect.sync(() => handleFailure(error)),
-          onSuccess: (result) => Effect.sync(() => handleSuccess(result)),
+          onFailure: (error) =>
+            Effect.sync(() => {
+              if (cancelled) {
+                return
+              }
+              console.error('メニュー初期化エラー', error)
+              setErrorMessage('メニューの初期化に失敗しました')
+            }),
+          onSuccess: ({ controller, viewModel }) =>
+            Effect.sync(() => {
+              if (cancelled) {
+                return
+              }
+
+              controllerRef.current = controller
+              setModel(viewModel)
+              setErrorMessage(null)
+
+              const streamEffect = controller.stream().pipe(
+                Stream.runForEach((next) =>
+                  Effect.sync(() => {
+                    if (cancelled) {
+                      return
+                    }
+                    setModel(next)
+                    setErrorMessage(null)
+                  })
+                )
+              )
+
+              streamFiberRef.current = runtime.runFork(streamEffect)
+            }),
         })
       )
     )
+
     initFiberRef.current = initFiber
 
     return () => {
       cancelled = true
-      pipe(
-        Option.fromNullable(streamFiberRef.current),
-        Match.value,
-        Match.tag('None', () => undefined),
-        Match.tag('Some', ({ value }) => {
-          runtime.runFork(
-            Fiber.interrupt(value).pipe(
-              Effect.catchAll((interruptError) =>
-                Effect.sync(() => console.error('メニューストリーム停止エラー', interruptError))
-              )
+
+      const streamFiber = streamFiberRef.current
+      if (streamFiber) {
+        runtime.runFork(
+          Fiber.interrupt(streamFiber).pipe(
+            Effect.catchAll((interruptError) =>
+              Effect.sync(() => console.error('メニューストリーム停止エラー', interruptError))
             )
           )
-        }),
-        Match.exhaustive
-      )
+        )
+      }
 
-      pipe(
-        Option.fromNullable(initFiberRef.current),
-        Match.value,
-        Match.tag('None', () => undefined),
-        Match.tag('Some', ({ value }) => {
-          runtime.runFork(Fiber.interrupt(value))
-        }),
-        Match.exhaustive
-      )
+      const initFiberCurrent = initFiberRef.current
+      if (initFiberCurrent) {
+        runtime.runFork(Fiber.interrupt(initFiberCurrent))
+      }
 
       controllerRef.current = null
       streamFiberRef.current = null
@@ -125,30 +114,28 @@ const useMenuController = (runtime: Runtime) => {
   }, [runtime])
 
   const runControllerEffect = useCallback(
-    (effectFactory: (controller: MenuController) => Effect.Effect<MenuViewModel>) => {
-      pipe(
-        Option.fromNullable(controllerRef.current),
-        Match.value,
-        Match.tag('None', () => undefined),
-        Match.tag('Some', ({ value: controller }) => {
-          setErrorMessage(null)
-          runtime.runFork(
-            effectFactory(controller).pipe(
-              Effect.matchEffect({
-                onFailure: (error) =>
-                  Effect.sync(() => {
-                    console.error('メニュー操作エラー', error)
-                    setErrorMessage('メニュー操作に失敗しました')
-                  }),
-                onSuccess: (viewModel) =>
-                  Effect.sync(() => {
-                    setModel(viewModel)
-                  }),
-              })
-            )
-          )
-        }),
-        Match.exhaustive
+    (effectFactory: (controller: MenuController) => Effect.Effect<MenuViewModel, MenuControllerError, never>) => {
+      const controller = controllerRef.current
+      if (!controller) {
+        return
+      }
+
+      setErrorMessage(null)
+
+      runtime.runFork(
+        effectFactory(controller).pipe(
+          Effect.matchEffect({
+            onFailure: (error) =>
+              Effect.sync(() => {
+                console.error('メニュー操作エラー', error)
+                setErrorMessage('メニュー操作に失敗しました')
+              }),
+            onSuccess: (viewModel) =>
+              Effect.sync(() => {
+                setModel(viewModel)
+              }),
+          })
+        )
       )
     },
     [runtime]
@@ -221,95 +208,70 @@ const useMenuController = (runtime: Runtime) => {
 
   const ingestKeyEvent = useCallback(
     (event: KeyboardEvent, tag: 'KeyPressed' | 'KeyReleased') => {
-      const toKeyCode = (keyboardEvent: KeyboardEvent): Option.Option<string> =>
-        pipe(
-          keyboardEvent.code,
-          Match.value,
-          Match.when((code) => code.startsWith('Key'), Option.some),
-          Match.when((code) => code.startsWith('Digit'), Option.some),
-          Match.when(
-            (code) => code === 'Space',
-            () => Option.some('Space')
-          ),
-          Match.orElse((code) => Option.some(code.toUpperCase())),
-          Match.exhaustive
+      const { code } = event
+      let candidate: string | null = null
+
+      if (code.startsWith('Key') || code.startsWith('Digit')) {
+        candidate = code
+      } else if (code === 'Space') {
+        candidate = 'Space'
+      } else {
+        candidate = code.toUpperCase()
+      }
+
+      const decoded = Schema.decodeEither(KeyCodeSchema)(candidate)
+      if (Either.isLeft(decoded)) {
+        return
+      }
+
+      const key = decoded.right
+      const timestamp = InputTimestamp(Date.now())
+      const modifiers = {
+        shift: event.shiftKey,
+        ctrl: event.ctrlKey,
+        alt: event.altKey,
+        meta: event.metaKey,
+      }
+
+      const inputEvent = tag === 'KeyPressed'
+        ? {
+            _tag: 'KeyPressed' as const,
+            timestamp,
+            key,
+            modifiers,
+          }
+        : {
+            _tag: 'KeyReleased' as const,
+            timestamp,
+            key,
+            modifiers,
+          }
+
+      const sendEffect = Effect.gen(function* () {
+        const input = yield* InputService
+        return yield* input.ingest(inputEvent)
+      })
+
+      runtime.runFork(
+        sendEffect.pipe(
+          Effect.catchAll((error) => Effect.sync(() => console.error('入力イベント送信エラー', error)))
         )
-
-      pipe(
-        toKeyCode(event),
-        Match.value,
-        Match.tag('None', () => undefined),
-        Match.tag('Some', ({ value: candidate }) => {
-          const keyOption = pipe(
-            Schema.decodeEither(KeyCodeSchema)(candidate),
-            Either.match({
-              onLeft: () => Option.none<ReturnType<typeof KeyCode>>(),
-              onRight: Option.some,
-            })
-          )
-
-          return pipe(
-            keyOption,
-            Match.value,
-            Match.tag('None', () => undefined),
-            Match.tag('Some', ({ value: key }) => {
-              const inputEvent = pipe(
-                Match.value(tag),
-                Match.when('KeyPressed', () => ({
-                  _tag: 'KeyPressed' as const,
-                  timestamp: InputTimestamp(Date.now()),
-                  key,
-                  modifiers: {
-                    shift: event.shiftKey,
-                    ctrl: event.ctrlKey,
-                    alt: event.altKey,
-                    meta: event.metaKey,
-                  },
-                })),
-                Match.orElse(() => ({
-                  _tag: 'KeyReleased' as const,
-                  timestamp: InputTimestamp(Date.now()),
-                  key,
-                  modifiers: {
-                    shift: event.shiftKey,
-                    ctrl: event.ctrlKey,
-                    alt: event.altKey,
-                    meta: event.metaKey,
-                  },
-                })),
-                Match.exhaustive
-              )
-
-              const sendEffect = Effect.gen(function* () {
-                const input = yield* InputService
-                return yield* input.ingest(inputEvent)
-              })
-
-              runtime.runFork(
-                sendEffect.pipe(
-                  Effect.catchAll((error) => Effect.sync(() => console.error('入力イベント送信エラー', error)))
-                )
-              )
-            }),
-            Match.exhaustive
-          )
-        }),
-        Match.exhaustive
       )
     },
     [runtime]
   )
 
   useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) =>
-      pipe(
-        Match.value(event.repeat),
-        Match.when(true, () => undefined),
-        Match.orElse(() => ingestKeyEvent(event, 'KeyPressed')),
-        Match.exhaustive
-      )
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.repeat) {
+        return
+      }
+      ingestKeyEvent(event, 'KeyPressed')
+    }
 
-    const handleKeyUp = (event: KeyboardEvent) => ingestKeyEvent(event, 'KeyReleased')
+    const handleKeyUp = (event: KeyboardEvent) => {
+      ingestKeyEvent(event, 'KeyReleased')
+    }
 
     window.addEventListener('keydown', handleKeyDown)
     window.addEventListener('keyup', handleKeyUp)
@@ -496,85 +458,83 @@ const MenuApp = ({ runtime }: { readonly runtime: Runtime }) => {
   )
 
   const handleOpenInventory = useCallback(() => {
-    pipe(
-      Option.fromNullable(inventory.handler),
-      Option.match({
-        onNone: () => undefined,
-        onSome: (handler) => runInventoryHandler(handler, InventoryOpened({})),
-      })
-    )
+    const handler = inventory.handler
+    if (handler) {
+      runInventoryHandler(handler, InventoryOpened())
+    }
   }, [inventory.handler, runInventoryHandler])
 
   const resolvedInventoryHandler: InventoryEventHandler = inventory.handler ?? (() => Effect.void)
 
   useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) =>
-      pipe(
-        Match.value(event.key),
-        Match.when('Escape', () => {
-          event.preventDefault()
-          return pipe(
-            Option.fromNullable(model),
-            Match.value,
-            Match.tag('None', () => openPause()),
-            Match.tag('Some', ({ value }) =>
-              pipe(
-                Match.value(value.route),
-                Match.when('none', () => openPause()),
-                Match.when('settings', () => onBack()),
-                Match.orElse(() => onClose()),
-                Match.exhaustive
-              )
-            ),
-            Match.exhaustive
-          )
-        }),
-        Match.orElse(() => undefined),
-        Match.exhaustive
-      )
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') {
+        return
+      }
+
+      event.preventDefault()
+
+      if (!model) {
+        openPause()
+        return
+      }
+
+      switch (model.route) {
+        case 'none':
+          openPause()
+          return
+        case 'settings':
+          onBack()
+          return
+        default:
+          onClose()
+          return
+      }
+    }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [model, onBack, onClose, openPause])
 
   const renderModel = (current: MenuViewModel) => {
-    const routeContent = pipe(
-      Match.value(current.route),
-      Match.when('main', () => <MainMenu actions={current.mainActions} onSelect={onMainSelect} />),
-      Match.when('pause', () => (
-        <PauseMenu actions={current.pauseActions} onSelect={onPauseSelect} title="Paused" sessionName="Sandbox World" />
-      )),
-      Match.when('settings', () => (
-        <SettingsOverlay
-          model={current}
-          onToggle={onToggle}
-          onSlider={onSlider}
-          onSelect={onSelect}
-          onBack={onBack}
-          onReset={onReset}
-        />
-      )),
-      Match.orElse(() => null),
-      Match.exhaustive
-    )
+    let content: JSX.Element | null = null
 
-    const showCloseButton = pipe(
-      Match.value(current.route),
-      Match.when('none', () => false),
-      Match.orElse(() => true),
-      Match.exhaustive
-    )
+    switch (current.route) {
+      case 'main':
+        content = <MainMenu actions={current.mainActions} onSelect={onMainSelect} />
+        break
+      case 'pause':
+        content = (
+          <PauseMenu
+            actions={current.pauseActions}
+            onSelect={onPauseSelect}
+            title="Paused"
+            sessionName="Sandbox World"
+          />
+        )
+        break
+      case 'settings':
+        content = (
+          <SettingsOverlay
+            model={current}
+            onToggle={onToggle}
+            onSlider={onSlider}
+            onSelect={onSelect}
+            onBack={onBack}
+            onReset={onReset}
+          />
+        )
+        break
+      default:
+        content = null
+    }
 
-    const showMenuButton = pipe(
-      Match.value(current.route),
-      Match.when('none', () => true),
-      Match.orElse(() => false),
-      Match.exhaustive
-    )
+    const showCloseButton = current.route !== 'none'
+    const showMenuButton = current.route === 'none'
 
     return (
       <>
-        {routeContent}
+        {content}
         {showCloseButton ? (
           <button
             type="button"
@@ -627,9 +587,9 @@ const MenuApp = ({ runtime }: { readonly runtime: Runtime }) => {
     >
       <HUDOverlay
         model={hud.player}
-        cameraStatus={hud.camera ?? undefined}
         onOpenSettings={openSettingsMenu}
         onOpenInventory={handleOpenInventory}
+        {...(hud.camera ? { cameraStatus: hud.camera } : {})}
       />
     </div>
   ) : null
@@ -649,10 +609,9 @@ const MenuApp = ({ runtime }: { readonly runtime: Runtime }) => {
     </div>
   ) : null
 
-  const menuNode = pipe(
-    Option.fromNullable(errorMessage),
-    Match.value,
-    Match.tag('Some', ({ value }) => (
+  let menuContent: JSX.Element | null = null
+  if (errorMessage) {
+    menuContent = (
       <div
         style={{
           position: 'absolute',
@@ -665,20 +624,12 @@ const MenuApp = ({ runtime }: { readonly runtime: Runtime }) => {
           fontSize: '1.25rem',
         }}
       >
-        {value}
+        {errorMessage}
       </div>
-    )),
-    Match.tag('None', () =>
-      pipe(
-        Option.fromNullable(model),
-        Match.value,
-        Match.tag('None', () => null),
-        Match.tag('Some', ({ value }) => renderModel(value)),
-        Match.exhaustive
-      )
-    ),
-    Match.exhaustive
-  )
+    )
+  } else if (model) {
+    menuContent = renderModel(model)
+  }
 
   const menuActions = {
     openMain,
@@ -701,23 +652,19 @@ const MenuApp = ({ runtime }: { readonly runtime: Runtime }) => {
         {hudNode}
         {inventoryPanelNode}
         <MenuDebugPanel />
-        {menuNode}
+        {menuContent}
       </div>
     </MenuActionsProvider>
   )
 }
 
 export function initApp(runtime: Runtime): void {
-  pipe(
-    Option.fromNullable(document.querySelector<HTMLDivElement>('#app')),
-    Match.value,
-    Match.tag('None', () => {
-      console.error('アプリケーションコンテナが見つかりません')
-    }),
-    Match.tag('Some', ({ value: container }) => {
-      const root = createRoot(container)
-      root.render(<MenuApp runtime={runtime} />)
-    }),
-    Match.exhaustive
-  )
+  const container = document.querySelector<HTMLDivElement>('#app')
+  if (!container) {
+    console.error('アプリケーションコンテナが見つかりません')
+    return
+  }
+
+  const root = createRoot(container)
+  root.render(<MenuApp runtime={runtime} />)
 }

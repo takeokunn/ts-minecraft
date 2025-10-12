@@ -14,7 +14,7 @@
  */
 
 import type * as GenerationSession from '@domain/world_generation/aggregate/generation_session'
-import { Effect, Schema } from 'effect'
+import { Context, Effect, Layer, Schema } from 'effect'
 import type { SessionFactoryError } from './index'
 
 // ================================
@@ -89,6 +89,19 @@ export const OptimizationParamsSchema = Schema.Struct({
 })
 
 export type OptimizationParams = typeof OptimizationParamsSchema.Type
+
+// ================================
+// Hardware Profile Service (Port)
+// ================================
+
+export interface HardwareProfileService {
+  readonly detectHardwareSpec: Effect.Effect<HardwareSpec, SessionFactoryError>
+  readonly getCurrentLoadCondition: Effect.Effect<LoadCondition, SessionFactoryError>
+}
+
+export const HardwareProfileServiceTag = Context.GenericTag<HardwareProfileService>(
+  '@minecraft/domain/world_generation/HardwareProfileService'
+)
 
 // ================================
 // Configuration Builder
@@ -202,26 +215,45 @@ export const createOptimizedConfiguration = (
  * ハードウェア仕様検出
  */
 export const detectHardwareSpec = (): Effect.Effect<HardwareSpec, SessionFactoryError> =>
-  Effect.sync(() => ({
-    cpuCores: Math.max(1, navigator.hardwareConcurrency || 4),
-    memoryMB: 4096, // デフォルト値、実際の検出が困難
-    storageSpeedMBps: 100, // デフォルト値
-    networkLatencyMs: 50, // デフォルト値
-    hasSSE: true, // 仮定
-    hasSIMD: true, // 仮定
-  }))
+  Effect.gen(function* () {
+    const service = yield* HardwareProfileServiceTag
+    return yield* service.detectHardwareSpec
+  })
 
 /**
  * 現在の負荷状況取得
  */
 export const getCurrentLoadCondition = (): Effect.Effect<LoadCondition, SessionFactoryError> =>
-  Effect.sync(() => ({
-    currentCpuUsage: 30, // デフォルト値、実際の測定が困難
-    currentMemoryUsage: 40, // デフォルト値
-    activeConnections: 0, // デフォルト値
-    queuedRequests: 0, // デフォルト値
-    networkThroughput: 0, // デフォルト値
-  }))
+  Effect.gen(function* () {
+    const service = yield* HardwareProfileServiceTag
+    return yield* service.getCurrentLoadCondition
+  })
+
+// ================================
+// Default Implementation (Pure)
+// ================================
+
+const defaultHardwareSpec: HardwareSpec = {
+  cpuCores: 4,
+  memoryMB: 4096,
+  storageSpeedMBps: 100,
+  networkLatencyMs: 50,
+  hasSSE: true,
+  hasSIMD: true,
+}
+
+const defaultLoadCondition: LoadCondition = {
+  currentCpuUsage: 30,
+  currentMemoryUsage: 40,
+  activeConnections: 0,
+  queuedRequests: 0,
+  networkThroughput: 0,
+}
+
+export const DefaultHardwareProfileServiceLive = Layer.succeed(HardwareProfileServiceTag, {
+  detectHardwareSpec: Effect.succeed(defaultHardwareSpec),
+  getCurrentLoadCondition: Effect.succeed(defaultLoadCondition),
+})
 
 // ================================
 // Exports
@@ -233,4 +265,7 @@ export {
   type LoadCondition,
   type OptimizationParams,
   type SessionConfigurationBuilder,
+  type HardwareProfileService,
+  HardwareProfileServiceTag,
+  DefaultHardwareProfileServiceLive,
 }

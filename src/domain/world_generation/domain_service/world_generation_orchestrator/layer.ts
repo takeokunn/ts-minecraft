@@ -4,7 +4,7 @@
  * ワールド生成オーケストレータのLayer定義
  */
 
-import { Clock, Duration, Effect, Layer, Match, Schema, pipe } from 'effect'
+import { Clock, Effect, Layer, Match, Schema, pipe } from 'effect'
 import { DependencyCoordinatorService, DependencyCoordinatorServiceLive } from './dependency_coordinator'
 import { ErrorRecoveryService, ErrorRecoveryServiceLive } from './error_recovery'
 import { GenerationPipelineService, GenerationPipelineServiceLive } from './generation_pipeline'
@@ -77,7 +77,7 @@ const makeWorldGenerationOrchestrator = Effect.gen(function* () {
   const generateWorld = (command: Schema.Schema.Type<typeof GenerateWorldCommand>) =>
     Effect.gen(function* () {
       const generationId = `world_gen_${++sessionCounter.value}`
-      yield* Effect.logInfo(`ワールド生成開始: ${command.worldName} (${generationId})`)
+      yield* Effect.unit
 
       // パイプライン作成
       activeSessions.add(generationId)
@@ -131,14 +131,14 @@ const makeWorldGenerationOrchestrator = Effect.gen(function* () {
         errors: pipelineResult.errors,
       }
 
-      yield* Effect.logInfo(`ワールド生成完了: ${command.worldName}`)
+      yield* Effect.unit
       activeSessions.delete(generationId)
       return result
     }).pipe(
       Effect.catchAll((error) =>
         Effect.gen(function* () {
           activeSessions.delete(generationId)
-          yield* Effect.logError(`ワールド生成エラー: ${error}`)
+          yield* Effect.unit
           return yield* Effect.fail({
             _tag: 'WorldGenerationOrchestratorError' as const,
             message: `ワールド生成に失敗しました: ${error}`,
@@ -153,36 +153,27 @@ const makeWorldGenerationOrchestrator = Effect.gen(function* () {
   const generateChunk = (command: Schema.Schema.Type<typeof GenerateChunkCommand>) =>
     Effect.gen(function* () {
       const requestId = command.requestId || `chunk_${++sessionCounter.value}`
-      yield* Effect.logInfo(`チャンク生成開始: ${JSON.stringify(command.chunkPosition)} (${requestId})`)
 
       const startTime = yield* Clock.currentTimeMillis
 
-      // チャンク生成実行（簡略化）
-      yield* Effect.sleep(Duration.millis(500)) // 生成処理のシミュレーション
+      const generatedFeatures = ['terrain', 'biomes'] as const
+      const endTime = yield* Clock.currentTimeMillis
 
       const result: Schema.Schema.Type<typeof ChunkGenerationResult> = {
         _tag: 'ChunkGenerationResult',
         chunkPosition: command.chunkPosition,
         status: 'success',
-        generationTime: yield* Clock.currentTimeMillis,
-        features: ['terrain', 'biomes'],
+        generationTime: endTime - startTime,
+        features: Array.from(generatedFeatures),
         biomes: ['plains', 'forest'],
         structures: [],
         errors: [],
       }
 
-      yield* Effect.logInfo(`チャンク生成完了: ${requestId}`)
       return result
     }).pipe(
-      Effect.annotateLogs({
-        chunkX: String(command.chunkPosition.x),
-        chunkZ: String(command.chunkPosition.z),
-        requestId: command.requestId || 'auto-generated',
-        operation: 'orchestrator_generate_chunk',
-      }),
       Effect.catchAll((error) =>
         Effect.gen(function* () {
-          yield* Effect.logError(`チャンク生成エラー: ${error}`)
           return yield* Effect.fail({
             _tag: 'WorldGenerationOrchestratorError' as const,
             message: `チャンク生成に失敗しました: ${error}`,
@@ -204,7 +195,7 @@ const makeWorldGenerationOrchestrator = Effect.gen(function* () {
 
   const updateSettings = (command: Schema.Schema.Type<typeof UpdateSettingsCommand>) =>
     Effect.gen(function* () {
-      yield* Effect.logInfo(`設定更新: ${command.generationId}`)
+      yield* Effect.unit
 
       // パイプライン設定更新
       yield* pipelineService.updateConfiguration(
@@ -212,7 +203,7 @@ const makeWorldGenerationOrchestrator = Effect.gen(function* () {
         {} // 実際の設定更新ロジック
       )
 
-      yield* Effect.logInfo(`設定更新完了: ${command.generationId}`)
+      yield* Effect.unit
     }).pipe(
       Effect.catchAll((error) =>
         Effect.fail({
@@ -255,17 +246,17 @@ const makeWorldGenerationOrchestrator = Effect.gen(function* () {
 
   const cancelGeneration = (command: Schema.Schema.Type<typeof CancelGenerationCommand>) =>
     Effect.gen(function* () {
-      yield* Effect.logInfo(`生成キャンセル: ${command.generationId} (graceful: ${command.graceful})`)
+      yield* Effect.unit
 
       yield* pipelineService.cancelPipeline(command.generationId, command.graceful)
       activeSessions.delete(command.generationId)
 
-      yield* Effect.logInfo(`生成キャンセル完了: ${command.generationId}`)
+      yield* Effect.unit
       return true
     }).pipe(
       Effect.catchAll((error) =>
         Effect.gen(function* () {
-          yield* Effect.logError(`生成キャンセルエラー: ${error}`)
+          yield* Effect.unit
           return yield* Effect.fail({
             _tag: 'WorldGenerationOrchestratorError' as const,
             message: `生成キャンセルに失敗しました: ${error}`,

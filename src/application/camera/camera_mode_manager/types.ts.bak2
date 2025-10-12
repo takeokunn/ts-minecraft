@@ -11,16 +11,19 @@ import { Brand, Data, Option, Schema } from 'effect'
 /**
  * ビューモード遷移設定
  */
-export type ViewModeTransitionConfig = {
-  readonly duration: number
-  readonly easing: EasingFunction
-  readonly animationType: AnimationType
-  readonly preservePosition: boolean
-  readonly preserveRotation: boolean
-  readonly preserveTargets: boolean
-  readonly interpolationSteps: number
-  readonly customParameters: Option.Option<JsonRecord>
-} & Brand.Brand<'ViewModeTransitionConfig'>
+export type ViewModeTransitionConfig = Brand.Brand<
+  {
+    readonly duration: number
+    readonly easing: EasingFunction
+    readonly animationType: AnimationType
+    readonly preservePosition: boolean
+    readonly preserveRotation: boolean
+    readonly preserveTargets: boolean
+    readonly interpolationSteps: number
+    readonly customParameters: Option.Option<JsonRecord>
+  },
+  'ViewModeTransitionConfig'
+>
 
 /**
  * イージング関数
@@ -97,7 +100,7 @@ export type ViewModeTransitionResult = Data.TaggedEnum<{
 /**
  * 遷移ID
  */
-export type TransitionId = string & Brand.Brand<'TransitionId'>
+export type TransitionId = Brand.Brand<string, 'TransitionId'>
 
 /**
  * ビューモード遷移失敗理由
@@ -116,15 +119,18 @@ export type ViewModeTransitionFailureReason = Data.TaggedEnum<{
 /**
  * カメラモード切り替え操作
  */
-export type CameraModeSwitchOperation = {
-  readonly cameraId: CameraId
-  readonly targetMode: ViewMode
-  readonly transitionConfig: ViewModeTransitionConfig
-  readonly priority: OperationPriority
-  readonly scheduledTime: Option.Option<number>
-  readonly dependencies: ReadonlyArray<CameraId>
-  readonly rollbackConfig: Option.Option<RollbackConfig>
-} & Brand.Brand<'CameraModeSwitchOperation'>
+export type CameraModeSwitchOperation = Brand.Brand<
+  {
+    readonly cameraId: CameraId
+    readonly targetMode: ViewMode
+    readonly transitionConfig: ViewModeTransitionConfig
+    readonly priority: OperationPriority
+    readonly scheduledTime: Option.Option<number>
+    readonly dependencies: ReadonlyArray<CameraId>
+    readonly rollbackConfig: Option.Option<RollbackConfig>
+  },
+  'CameraModeSwitchOperation'
+>
 
 /**
  * 操作優先度
@@ -140,29 +146,35 @@ export type OperationPriority = Data.TaggedEnum<{
 /**
  * ロールバック設定
  */
-export type RollbackConfig = {
-  readonly enabled: boolean
-  readonly timeoutMs: number
-  readonly fallbackMode: ViewMode
-  readonly preserveOriginalState: boolean
-} & Brand.Brand<'RollbackConfig'>
+export type RollbackConfig = Brand.Brand<
+  {
+    readonly enabled: boolean
+    readonly timeoutMs: number
+    readonly fallbackMode: ViewMode
+    readonly preserveOriginalState: boolean
+  },
+  'RollbackConfig'
+>
 
 /**
  * スケジュールID
  */
-export type ScheduleId = string & Brand.Brand<'ScheduleId'>
+export type ScheduleId = Brand.Brand<string, 'ScheduleId'>
 
 /**
  * ビューモードコンテキスト
  */
-export type ViewModeContext = {
-  readonly currentGameMode: GameMode
-  readonly playerState: PlayerContextState
-  readonly environmentFactors: EnvironmentFactors
-  readonly performanceConstraints: PerformanceConstraints
-  readonly userPreferences: UserPreferences
-  readonly systemCapabilities: SystemCapabilities
-} & Brand.Brand<'ViewModeContext'>
+export type ViewModeContext = Brand.Brand<
+  {
+    readonly currentGameMode: GameMode
+    readonly playerState: PlayerContextState
+    readonly environmentFactors: EnvironmentFactors
+    readonly performanceConstraints: PerformanceConstraints
+    readonly userPreferences: UserPreferences
+    readonly systemCapabilities: SystemCapabilities
+  },
+  'ViewModeContext'
+>
 
 /**
  * ゲームモード
@@ -179,16 +191,19 @@ export type GameMode = Data.TaggedEnum<{
 /**
  * プレイヤーコンテキスト状態
  */
-export type PlayerContextState = {
-  readonly position: Position3D
-  readonly velocity: Option.Option<{ readonly x: number; readonly y: number; readonly z: number }>
-  readonly isMoving: boolean
-  readonly isCombat: boolean
-  readonly isBuilding: boolean
-  readonly isFlying: boolean
-  readonly health: number
-  readonly alertLevel: AlertLevel
-} & Brand.Brand<'PlayerContextState'>
+export type PlayerContextState = Brand.Brand<
+  {
+    readonly position: Position3D
+    readonly velocity: Option.Option<{ readonly x: number; readonly y: number; readonly z: number }>
+    readonly isMoving: boolean
+    readonly isCombat: boolean
+    readonly isBuilding: boolean
+    readonly isFlying: boolean
+    readonly health: number
+    readonly alertLevel: AlertLevel
+  },
+  'PlayerContextState'
+>
 
 /**
  * 警戒レベル
@@ -204,14 +219,17 @@ export type AlertLevel = Data.TaggedEnum<{
 /**
  * 環境要因
  */
-export type EnvironmentFactors = {
-  readonly biome: string
-  readonly weather: WeatherCondition
-  readonly timeOfDay: TimeOfDay
-  readonly lightLevel: number
-  readonly dangerLevel: DangerLevel
-  readonly visibilityConditions: VisibilityConditions
-} & Brand.Brand<'EnvironmentFactors'>
+export type EnvironmentFactors = Brand.Brand<
+  {
+    readonly biome: string
+    readonly weather: WeatherCondition
+    readonly timeOfDay: TimeOfDay
+    readonly lightLevel: number
+    readonly dangerLevel: DangerLevel
+    readonly visibilityConditions: VisibilityConditions
+  },
+  'EnvironmentFactors'
+>
 
 /**
  * 天候状態
@@ -251,12 +269,15 @@ export type DangerLevel = Data.TaggedEnum<{
 /**
  * 視界条件
  */
-export type VisibilityConditions = {
-  readonly fogDensity: number
-  readonly lightCondition: LightCondition
-  readonly obstructions: ReadonlyArray<string>
-  readonly renderDistance: number
-} & Brand.Brand<'VisibilityConditions'>
+export type VisibilityConditions = Brand.Brand<
+  {
+    readonly fogDensity: number
+    readonly lightCondition: LightCondition
+    readonly obstructions: ReadonlyArray<string>
+    readonly renderDistance: number
+  },
+  'VisibilityConditions'
+>
 
 /**
  * 光条件
@@ -272,25 +293,31 @@ export type LightCondition = Data.TaggedEnum<{
 /**
  * パフォーマンス制約
  */
-export type PerformanceConstraints = {
-  readonly maxFPS: number
-  readonly targetFPS: number
-  readonly memoryLimitMB: number
-  readonly cpuBudgetPercent: number
-  readonly gpuBudgetPercent: number
-  readonly networkBandwidthKbps: Option.Option<number>
-} & Brand.Brand<'PerformanceConstraints'>
+export type PerformanceConstraints = Brand.Brand<
+  {
+    readonly maxFPS: number
+    readonly targetFPS: number
+    readonly memoryLimitMB: number
+    readonly cpuBudgetPercent: number
+    readonly gpuBudgetPercent: number
+    readonly networkBandwidthKbps: Option.Option<number>
+  },
+  'PerformanceConstraints'
+>
 
 /**
  * ユーザー設定
  */
-export type UserPreferences = {
-  readonly preferredModes: ReadonlyArray<ViewMode>
-  readonly automaticSwitching: boolean
-  readonly animationPreference: AnimationPreference
-  readonly accessibilityOptions: AccessibilityOptions
-  readonly customKeybindings: Record<string, string>
-} & Brand.Brand<'UserPreferences'>
+export type UserPreferences = Brand.Brand<
+  {
+    readonly preferredModes: ReadonlyArray<ViewMode>
+    readonly automaticSwitching: boolean
+    readonly animationPreference: AnimationPreference
+    readonly accessibilityOptions: AccessibilityOptions
+    readonly customKeybindings: Record<string, string>
+  },
+  'UserPreferences'
+>
 
 /**
  * アニメーション設定
@@ -306,37 +333,46 @@ export type AnimationPreference = Data.TaggedEnum<{
 /**
  * アクセシビリティオプション
  */
-export type AccessibilityOptions = {
-  readonly reduceMotion: boolean
-  readonly highContrast: boolean
-  readonly largeText: boolean
-  readonly colorBlindSupport: boolean
-  readonly soundEnhancement: boolean
-} & Brand.Brand<'AccessibilityOptions'>
+export type AccessibilityOptions = Brand.Brand<
+  {
+    readonly reduceMotion: boolean
+    readonly highContrast: boolean
+    readonly largeText: boolean
+    readonly colorBlindSupport: boolean
+    readonly soundEnhancement: boolean
+  },
+  'AccessibilityOptions'
+>
 
 /**
  * システム機能
  */
-export type SystemCapabilities = {
-  readonly supportedModes: ReadonlyArray<ViewMode>
-  readonly maxConcurrentAnimations: number
-  readonly gpuAcceleration: boolean
-  readonly advancedShaders: boolean
-  readonly vrSupport: boolean
-  readonly multiDisplaySupport: boolean
-} & Brand.Brand<'SystemCapabilities'>
+export type SystemCapabilities = Brand.Brand<
+  {
+    readonly supportedModes: ReadonlyArray<ViewMode>
+    readonly maxConcurrentAnimations: number
+    readonly gpuAcceleration: boolean
+    readonly advancedShaders: boolean
+    readonly vrSupport: boolean
+    readonly multiDisplaySupport: boolean
+  },
+  'SystemCapabilities'
+>
 
 /**
  * ビューモード推奨結果
  */
-export type ViewModeRecommendation = {
-  readonly recommendedMode: ViewMode
-  readonly confidence: number
-  readonly reasoning: ReadonlyArray<RecommendationReason>
-  readonly alternativeModes: ReadonlyArray<ViewMode>
-  readonly contextFactors: ViewModeContext
-  readonly timeToSwitch: Option.Option<number>
-} & Brand.Brand<'ViewModeRecommendation'>
+export type ViewModeRecommendation = Brand.Brand<
+  {
+    readonly recommendedMode: ViewMode
+    readonly confidence: number
+    readonly reasoning: ReadonlyArray<RecommendationReason>
+    readonly alternativeModes: ReadonlyArray<ViewMode>
+    readonly contextFactors: ViewModeContext
+    readonly timeToSwitch: Option.Option<number>
+  },
+  'ViewModeRecommendation'
+>
 
 /**
  * 推奨理由
@@ -353,13 +389,16 @@ export type RecommendationReason = Data.TaggedEnum<{
 /**
  * ゲームコンテキスト
  */
-export type GameContext = {
-  readonly worldType: WorldType
-  readonly gamePhase: GamePhase
-  readonly multiplayerInfo: Option.Option<MultiplayerInfo>
-  readonly modInfo: Option.Option<ModInfo>
-  readonly difficulty: DifficultyLevel
-} & Brand.Brand<'GameContext'>
+export type GameContext = Brand.Brand<
+  {
+    readonly worldType: WorldType
+    readonly gamePhase: GamePhase
+    readonly multiplayerInfo: Option.Option<MultiplayerInfo>
+    readonly modInfo: Option.Option<ModInfo>
+    readonly difficulty: DifficultyLevel
+  },
+  'GameContext'
+>
 
 /**
  * ワールドタイプ
@@ -389,12 +428,15 @@ export type GamePhase = Data.TaggedEnum<{
 /**
  * マルチプレイヤー情報
  */
-export type MultiplayerInfo = {
-  readonly isMultiplayer: boolean
-  readonly playerCount: number
-  readonly serverType: ServerType
-  readonly networkLatency: number
-} & Brand.Brand<'MultiplayerInfo'>
+export type MultiplayerInfo = Brand.Brand<
+  {
+    readonly isMultiplayer: boolean
+    readonly playerCount: number
+    readonly serverType: ServerType
+    readonly networkLatency: number
+  },
+  'MultiplayerInfo'
+>
 
 /**
  * サーバータイプ
@@ -410,13 +452,16 @@ export type ServerType = Data.TaggedEnum<{
 /**
  * Mod情報
  */
-export type ModInfo = {
-  readonly hasGraphicsMods: boolean
-  readonly hasCameraMods: boolean
-  readonly hasPerformanceMods: boolean
-  readonly modCount: number
-  readonly conflictingMods: ReadonlyArray<string>
-} & Brand.Brand<'ModInfo'>
+export type ModInfo = Brand.Brand<
+  {
+    readonly hasGraphicsMods: boolean
+    readonly hasCameraMods: boolean
+    readonly hasPerformanceMods: boolean
+    readonly modCount: number
+    readonly conflictingMods: ReadonlyArray<string>
+  },
+  'ModInfo'
+>
 
 /**
  * 難易度レベル
@@ -432,14 +477,17 @@ export type DifficultyLevel = Data.TaggedEnum<{
 /**
  * プレイヤー設定
  */
-export type PlayerPreferences = {
-  readonly preferredViewModes: ReadonlyArray<ViewMode>
-  readonly transitionSpeed: TransitionSpeed
-  readonly motionSickness: MotionSicknessLevel
-  readonly fieldOfViewPreference: number
-  readonly mouseSensitivity: number
-  readonly keyboardShortcuts: Record<string, string>
-} & Brand.Brand<'PlayerPreferences'>
+export type PlayerPreferences = Brand.Brand<
+  {
+    readonly preferredViewModes: ReadonlyArray<ViewMode>
+    readonly transitionSpeed: TransitionSpeed
+    readonly motionSickness: MotionSicknessLevel
+    readonly fieldOfViewPreference: number
+    readonly mouseSensitivity: number
+    readonly keyboardShortcuts: Record<string, string>
+  },
+  'PlayerPreferences'
+>
 
 /**
  * 遷移速度

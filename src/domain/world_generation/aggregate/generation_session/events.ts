@@ -576,7 +576,7 @@ export const subscribe = (
 export const InMemorySessionEventPublisher: SessionEventPublisher = {
   publish: (event) =>
     Effect.gen(function* () {
-      yield* Effect.log(`Publishing session event: ${event.eventType} for session ${event.sessionId}`)
+      yield* Effect.unit
     }),
 
   subscribe: (eventType) => Stream.empty, // プレースホルダー実装

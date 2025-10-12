@@ -1,6 +1,6 @@
 import { Clock, Effect, Layer } from 'effect'
+import { CameraSystemOrchestratorService } from './index'
 import type {
-  CameraSystemOrchestratorService,
   CameraSystemStatistics,
   CameraSystemTickResult,
   PerformanceOptimizationResult,

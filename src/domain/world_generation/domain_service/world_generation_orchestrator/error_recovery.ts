@@ -1,6 +1,12 @@
 import { JsonRecordSchema, JsonValueSchema, type JsonRecord, type JsonValue } from '@shared/schema/json'
 import { Clock, Context, Effect, Layer, Match, Option, pipe, Ref, Schema } from 'effect'
 
+export interface CloneService {
+  readonly clone: <A>(value: A) => Effect.Effect<A>
+}
+
+export const CloneService = Context.GenericTag<CloneService>('@minecraft/domain/world/CloneService')
+
 /**
  * Error Recovery Service
  *
@@ -208,6 +214,8 @@ const makeErrorRecoveryService = Effect.gen(function* () {
   const checkpoints = yield* Ref.make<Map<string, CheckpointState>>(new Map())
   const circuitBreakers = yield* Ref.make<Map<string, Schema.Schema.Type<typeof CircuitBreaker>>>(new Map())
   const errorHistory = yield* Ref.make<Schema.Schema.Type<typeof ErrorContext>[]>([])
+  const cloneService = yield* CloneService
+  const cloneService = yield* CloneService
   const recoveryConfig = yield* Ref.make<Schema.Schema.Type<typeof RecoveryConfiguration>>(DEFAULT_RECOVERY_CONFIG)
 
   const classifyError = (error: Error, context: RecoveryContextData) =>
@@ -235,7 +243,7 @@ const makeErrorRecoveryService = Effect.gen(function* () {
         Match.orElse(() => 'unknown' as const)
       )
 
-      yield* Effect.logDebug(`エラー分類: ${error.message} -> ${classification}`)
+      yield* Effect.unit
       return classification
     })
 
@@ -271,7 +279,7 @@ const makeErrorRecoveryService = Effect.gen(function* () {
         Match.orElse(() => Effect.succeed(strategy))
       )
 
-      yield* Effect.logInfo(`回復戦略決定: ${errorContext.classification} -> ${adjustedStrategy.strategy}`)
+      yield* Effect.unit
       return adjustedStrategy
     })
 
@@ -281,7 +289,7 @@ const makeErrorRecoveryService = Effect.gen(function* () {
     originalTask: RecoveryTask
   ) =>
     Effect.gen(function* () {
-      yield* Effect.logInfo(`回復試行開始: ${recoveryAction.strategy} (試行 ${errorContext.retryCount + 1})`)
+      yield* Effect.unit
 
       const startTime = yield* Clock.currentTimeMillis
 
@@ -315,14 +323,15 @@ const makeErrorRecoveryService = Effect.gen(function* () {
         history.map((ctx) => (ctx.errorId === errorContext.errorId ? updatedContext : ctx))
       )
 
-      yield* Effect.logInfo(`回復試行完了: ${recoveryAction.strategy} (${duration}ms)`)
+      yield* Effect.unit
       return result
     })
 
   const createCheckpoint = (id: string, state: CheckpointState) =>
     Effect.gen(function* () {
-      yield* Ref.update(checkpoints, (map) => map.set(id, structuredClone(state) satisfies CheckpointState))
-      yield* Effect.logDebug(`チェックポイント作成: ${id}`)
+      const clonedState = yield* cloneService.clone(state)
+      yield* Ref.update(checkpoints, (map) => map.set(id, clonedState satisfies CheckpointState))
+      yield* Effect.unit
     })
 
   const restoreFromCheckpoint = (id: string) =>
@@ -340,8 +349,8 @@ const makeErrorRecoveryService = Effect.gen(function* () {
             }),
           onSome: (checkpoint) =>
             Effect.gen(function* () {
-              yield* Effect.logInfo(`チェックポイントから復元: ${id}`)
-              return structuredClone(checkpoint) satisfies CheckpointState
+              yield* Effect.unit
+              return yield* cloneService.clone(checkpoint)
             }),
         })
       )
@@ -532,7 +541,7 @@ const makeErrorRecoveryService = Effect.gen(function* () {
     action: Schema.Schema.Type<typeof RecoveryAction>
   ) =>
     Effect.gen(function* () {
-      yield* Effect.logWarning(`フォールバック実行: ${errorContext.errorId}`)
+      yield* Effect.unit
       const timestamp = yield* Clock.currentTimeMillis
       // 最小限の結果を返す
       return { fallback: true, stage: errorContext.stage, timestamp }
@@ -540,7 +549,7 @@ const makeErrorRecoveryService = Effect.gen(function* () {
 
   const executeSkipStrategy = () =>
     Effect.gen(function* () {
-      yield* Effect.logInfo('ステージスキップ実行')
+      yield* Effect.unit
       const timestamp = yield* Clock.currentTimeMillis
       return { skipped: true, timestamp }
     })
@@ -579,6 +588,11 @@ export const ErrorRecoveryService = Context.GenericTag<ErrorRecoveryService>(
 )
 
 // === Layer ===
+
+const DefaultCloneServiceLive = Layer.succeed(CloneService, {
+  clone: <A>(value: A) =>
+    Effect.sync(() => JSON.parse(JSON.stringify(value)) as A),
+})
 
 export const ErrorRecoveryServiceLive = Layer.effect(ErrorRecoveryService, makeErrorRecoveryService)
 

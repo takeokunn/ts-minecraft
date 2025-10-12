@@ -1,9 +1,9 @@
-import type { CameraDistance } from '@/domain/camera/value_object/view_mode'
-import { DefaultSettings, ViewMode } from '@/domain/camera/value_object/view_mode'
+import type { CameraDistance } from '@domain/camera/value_object/view_mode'
+import { DefaultSettings, ViewMode } from '@domain/camera/value_object/view_mode'
 import type { CameraId } from '@domain/camera/types'
-import { Array, Clock, Data, Effect, Layer, Match, Option, pipe, Random } from 'effect'
+import { Clock, Data, Effect, Layer, Match, Option, pipe, Random } from 'effect'
+import { CameraModeManagerApplicationService } from './index'
 import type {
-  CameraModeManagerApplicationService,
   ModeTransitionStatistics,
   PerformanceOptimizationResult,
   RecommendationReason,

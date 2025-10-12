@@ -1,5 +1,5 @@
 import { type JsonRecord } from '@shared/schema/json'
-import { Array, Brand, Context, Data, Effect } from 'effect'
+import { Brand, Context, Data, Effect } from 'effect'
 
 /**
  * Camera System Orchestrator Service Interface
@@ -64,7 +64,7 @@ export interface CameraSystemOrchestratorService {
 /**
  * カメラシステム設定
  */
-export type CameraSystemConfig = Brand.Brand<
+export type CameraSystemConfig = Brand.Branded<
   {
     readonly maxConcurrentCameras: number
     readonly defaultPerformanceProfile: string
@@ -77,7 +77,7 @@ export type CameraSystemConfig = Brand.Brand<
 /**
  * ワールド状態
  */
-export type WorldState = Brand.Brand<
+export type WorldState = Brand.Branded<
   {
     readonly timeOfDay: number
     readonly weather: string
@@ -90,7 +90,7 @@ export type WorldState = Brand.Brand<
 /**
  * システム更新結果
  */
-export type CameraSystemTickResult = Brand.Brand<
+export type CameraSystemTickResult = Brand.Branded<
   {
     readonly processedCameras: number
     readonly activeAnimations: number
@@ -113,7 +113,7 @@ export type GlobalCameraEvent = Data.TaggedEnum<{
 /**
  * システム統計情報
  */
-export type CameraSystemStatistics = Brand.Brand<
+export type CameraSystemStatistics = Brand.Branded<
   {
     readonly totalCameras: number
     readonly activeCameras: number
@@ -127,7 +127,7 @@ export type CameraSystemStatistics = Brand.Brand<
 /**
  * パフォーマンス目標
  */
-export type PerformanceTargets = Brand.Brand<
+export type PerformanceTargets = Brand.Branded<
   {
     readonly targetFPS: number
     readonly maxMemoryMB: number
@@ -139,9 +139,9 @@ export type PerformanceTargets = Brand.Brand<
 /**
  * パフォーマンス最適化結果
  */
-export type PerformanceOptimizationResult = Brand.Brand<
+export type PerformanceOptimizationResult = Brand.Branded<
   {
-    readonly optimizationsApplied: Array.ReadonlyArray<string>
+    readonly optimizationsApplied: ReadonlyArray<string>
     readonly performanceGain: number
   },
   'PerformanceOptimizationResult'

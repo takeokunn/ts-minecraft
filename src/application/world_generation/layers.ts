@@ -10,6 +10,8 @@ import { WorldGenerationDomainLive } from '@/domain/world_generation/layers'
 import { WorldGenerationAdapterLayer } from '@/infrastructure/world_generation/world_generation_adapter'
 import { Layer } from 'effect'
 import { WorldGenerationAPIServiceLive } from './api-service'
+import { CloneServiceLive } from './clone-service'
+import { BrowserHardwareProfileServiceLive } from './hardware-profile-service'
 
 export const WorldGenerationApplicationServicesLayer = Layer.mergeAll(
   WorldGenerationAdapterLayer,
@@ -17,5 +19,11 @@ export const WorldGenerationApplicationServicesLayer = Layer.mergeAll(
 )
 
 export const WorldGenerationApplicationLive = WorldGenerationApplicationServicesLayer.pipe(
-  Layer.provide(WorldGenerationDomainLive.pipe(Layer.provide(BiomeDomainLive)))
+  Layer.provide(
+    WorldGenerationDomainLive.pipe(
+      Layer.provide(BiomeDomainLive),
+      Layer.provide(CloneServiceLive),
+      Layer.provide(BrowserHardwareProfileServiceLive)
+    )
+  )
 )

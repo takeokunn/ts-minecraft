@@ -240,7 +240,7 @@ const makeDependencyCoordinatorService = Effect.gen(function* () {
     config: Schema.Schema.Type<typeof CoordinationConfig>
   ) =>
     Effect.gen(function* () {
-      yield* Effect.logInfo(`依存関係グラフ構築開始: ${nodes.length}ノード`)
+      yield* Effect.unit
 
       const nodeMap = new Map(nodes.map((node) => [node.id, node]))
       // エッジ構築
@@ -266,7 +266,7 @@ const makeDependencyCoordinatorService = Effect.gen(function* () {
       // 循環依存検出
       const cycles = yield* detectCycles(nodeMap, edges)
       yield* Effect.when(cycles.length > 0 && config.deadlockDetection, () =>
-        Effect.logWarning(`循環依存検出: ${cycles.length}個`)
+        Effect.unit
       )
 
       // クリティカルパス計算
@@ -280,7 +280,7 @@ const makeDependencyCoordinatorService = Effect.gen(function* () {
         criticalPath,
       }
 
-      yield* Effect.logInfo(`依存関係グラフ構築完了: ${edges.length}エッジ, ${cycles.length}循環`)
+      yield* Effect.unit
       return graph
     })
 
@@ -289,7 +289,7 @@ const makeDependencyCoordinatorService = Effect.gen(function* () {
     resourcePool: Schema.Schema.Type<typeof ResourcePool>
   ) =>
     Effect.gen(function* () {
-      yield* Effect.logInfo('実行計画作成開始')
+      yield* Effect.unit
 
       // トポロジカルソート
       const plan = yield* topologicalSort(graph)
@@ -297,13 +297,13 @@ const makeDependencyCoordinatorService = Effect.gen(function* () {
       // リソース制約に基づく最適化
       const optimizedPlan = yield* optimizeForResources(plan, graph, resourcePool)
 
-      yield* Effect.logInfo(`実行計画作成完了: ${optimizedPlan.length}ステップ`)
+      yield* Effect.unit
       return optimizedPlan
     })
 
   const coordinateExecution = (executionPlan: string[], taskExecutors: TaskExecutors) =>
     Effect.gen(function* () {
-      yield* Effect.logInfo(`調整実行開始: ${executionPlan.length}タスク`)
+      yield* Effect.unit
 
       const results = yield* pipe(
         executionPlan,
@@ -313,7 +313,7 @@ const makeDependencyCoordinatorService = Effect.gen(function* () {
             Option.match({
               onNone: () =>
                 Effect.gen(function* () {
-                  yield* Effect.logWarning(`タスクエグゼキューター未定義: ${taskId}`)
+                  yield* Effect.unit
                   return acc
                 }),
               onSome: (executor) =>
@@ -338,7 +338,7 @@ const makeDependencyCoordinatorService = Effect.gen(function* () {
                         { taskId, startTime, endTime, result },
                       ])
 
-                      yield* Effect.logInfo(`タスク完了: ${taskId} (${endTime - startTime}ms)`)
+                      yield* Effect.unit
                       return result
                     }),
                     Effect.ensuring(releaseResources(taskId))
@@ -351,7 +351,7 @@ const makeDependencyCoordinatorService = Effect.gen(function* () {
         )
       )
 
-      yield* Effect.logInfo(`調整実行完了: ${Object.keys(results).length}タスク`)
+      yield* Effect.unit
       return results
     })
 
@@ -398,7 +398,7 @@ const makeDependencyCoordinatorService = Effect.gen(function* () {
 
       yield* Ref.update(activeAllocations, (allocs) => allocs.set(taskId, allocation))
 
-      yield* Effect.logDebug(`リソース割り当て: ${taskId} - CPU:${requirements.cpu}, MEM:${requirements.memory}MB`)
+      yield* Effect.unit
       return allocation
     })
 
@@ -409,7 +409,7 @@ const makeDependencyCoordinatorService = Effect.gen(function* () {
       yield* pipe(
         Option.fromNullable(allocs.get(taskId)),
         Option.match({
-          onNone: () => Effect.logWarning(`割り当て情報が見つかりません: ${taskId}`),
+          onNone: () => Effect.unit,
           onSome: (allocation) =>
             Effect.gen(function* () {
               // リソース解放
@@ -426,7 +426,7 @@ const makeDependencyCoordinatorService = Effect.gen(function* () {
                 return allocs
               })
 
-              yield* Effect.logDebug(`リソース解放: ${taskId}`)
+              yield* Effect.unit
             }),
         })
       )
@@ -434,13 +434,13 @@ const makeDependencyCoordinatorService = Effect.gen(function* () {
 
   const detectDeadlock = (graph: Schema.Schema.Type<typeof DependencyGraph>) =>
     Effect.gen(function* () {
-      yield* Effect.logInfo('デッドロック検出開始')
+      yield* Effect.unit
       return graph.cycles
     })
 
   const calculateCriticalPath = (graph: Schema.Schema.Type<typeof DependencyGraph>) =>
     Effect.gen(function* () {
-      yield* Effect.logInfo('クリティカルパス計算開始')
+      yield* Effect.unit
       return graph.criticalPath
     })
 

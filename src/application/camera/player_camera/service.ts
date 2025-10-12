@@ -1,13 +1,7 @@
-import type {
-  AnimationConfig,
-  CameraId,
-  PlayerCameraPreferences,
-  PlayerId,
-  Position3D,
-  Vector3D,
-  ViewMode,
-  ViewModeTransitionConfig,
-} from '@domain/camera/types'
+import type { ViewModeTransitionConfig } from '@application/camera/camera_mode_manager'
+import type { CameraId, Position3D } from '@domain/camera/types'
+import type { PlayerId } from '@domain/shared/entities/player_id'
+import type { ViewMode } from '@domain/camera/value_object'
 import { Context, Effect, Option } from 'effect'
 import type {
   CameraApplicationError,
@@ -43,7 +37,7 @@ export interface PlayerCameraApplicationService {
   readonly initializePlayerCamera: (
     playerId: PlayerId,
     initialPosition: Position3D,
-    preferences: Option<PlayerCameraPreferences>
+    preferences: Option.Option<unknown>
   ) => Effect.Effect<CameraId, CameraApplicationError>
 
   /**
@@ -69,7 +63,7 @@ export interface PlayerCameraApplicationService {
   readonly updatePlayerPosition: (
     playerId: PlayerId,
     newPosition: Position3D,
-    velocity: Option<Vector3D>
+    velocity: Option.Option<unknown>
   ) => Effect.Effect<void, CameraApplicationError>
 
   /**
@@ -83,7 +77,7 @@ export interface PlayerCameraApplicationService {
   readonly switchViewMode: (
     playerId: PlayerId,
     targetMode: ViewMode,
-    transitionConfig: Option<ViewModeTransitionConfig>
+    transitionConfig: Option.Option<ViewModeTransitionConfig>
   ) => Effect.Effect<ViewModeTransitionResult, CameraApplicationError>
 
   /**
@@ -123,7 +117,7 @@ export interface PlayerCameraApplicationService {
    */
   readonly startCameraAnimation: (
     playerId: PlayerId,
-    animationConfig: AnimationConfig
+    animationConfig: unknown
   ) => Effect.Effect<void, CameraApplicationError>
 
   /**
@@ -151,11 +145,11 @@ export interface PlayerCameraApplicationService {
    * @returns 更新結果の配列
    */
   readonly batchUpdatePlayerCameras: (
-    updates: Array.ReadonlyArray<{
+    updates: ReadonlyArray<{
       readonly playerId: PlayerId
       readonly input: PlayerCameraInput
     }>
-  ) => Effect.Effect<Array.ReadonlyArray<void>, CameraApplicationError>
+  ) => Effect.Effect<ReadonlyArray<void>, CameraApplicationError>
 
   /**
    * プレイヤーカメラの統計情報を取得します
@@ -173,7 +167,7 @@ export interface PlayerCameraApplicationService {
    * @returns 全プレイヤーの統計情報
    */
   readonly getAllPlayerCameraStatistics: () => Effect.Effect<
-    Array.ReadonlyArray<{
+    ReadonlyArray<{
       readonly playerId: PlayerId
       readonly statistics: PlayerCameraStatistics
     }>,
@@ -192,7 +186,7 @@ export interface PlayerCameraApplicationService {
     readonly targetFPS: number
   }) => Effect.Effect<
     {
-      readonly optimizationsApplied: Array.ReadonlyArray<string>
+      readonly optimizationsApplied: ReadonlyArray<string>
       readonly performanceImprovement: number
     },
     CameraApplicationError
@@ -207,7 +201,7 @@ export interface PlayerCameraApplicationService {
   readonly getDebugInfo: (playerId: PlayerId) => Effect.Effect<
     {
       readonly currentState: PlayerCameraState
-      readonly recentInputs: Array.ReadonlyArray<PlayerCameraInput>
+      readonly recentInputs: ReadonlyArray<PlayerCameraInput>
       readonly performanceMetrics: PlayerCameraStatistics
       readonly memoryUsage: number
     },

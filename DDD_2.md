@@ -237,7 +237,7 @@
 - 内容: `window`・`indexedDB`・`Worker`・`navigator.connection` などブラウザ固有 API の存在確認や性能推定をドメインロジックに組み込んでいる。
 - 問題点: プラットフォーム診断がドメイン層に常駐し、ビジネスルールより環境依存コードが主導する構造になっている。別環境（サーバー/テスト）では分岐が破綻し、DDDの普遍的なモデル表現から乖離する。
 - 対応方針: ブラウザ API の機能検出を `EnvironmentCapabilitiesPort` として抽象化し、インフラ層で `indexedDbAvailable` や `workerThreadsAvailable` 等のフラグを提供する。Domain 側は受け取った能力フラグを基に戦略を切り替え、実際の API 判定コードを保持しない。
-- 対応結果: Inventory / Chunk の戦略判定は Application 側の `EnvironmentCapabilitiesPort` に移設完了。WorldGeneration では `navigator.hardwareConcurrency`（`src/domain/world_generation/factory/generation_session_factory/configuration.ts`）などの直接参照が残存し、Phase3 でポート化する。
+- 対応結果: Inventory / Chunk の戦略判定は Application 側の Port へ移設済み。WorldGeneration でも `HardwareProfileService` ポートを導入し、`navigator.hardwareConcurrency` 依存を解消。構成ビルダーはポート経由でハードウェア情報を取得する構造へ移行した。
 
 ## 13. ドメインリポジトリが複数の永続化詳細を抱え込み過ぎている
 
@@ -253,7 +253,7 @@
 - 内容: `detectHardwareSpec` が `navigator.hardwareConcurrency` などブラウザ固有 API を直接参照し、CPU コア数等を推定している。
 - 問題点: ハードウェア/環境検出はインフラ層やブートストラップで行うべきであり、ドメインがプラットフォーム API に依存すると他環境（サーバー、テスト）での利用が破綻する。ユースケースの純粋なルールが環境依存ロジックに埋もれる。
 - 対応方針: ハードウェア検出は起動時の `RuntimeProfileProvider` に集約し、Domain へはスレッド数や並列度など抽象設定値のみを注入する。テスト環境では固定値を与えられるようポート経由に改修し、環境依存ロジックをドメインから排除する。
-- 対応結果: 未着手。`src/domain/world_generation/factory/generation_session_factory/configuration.ts` の `detectHardwareSpec` が依然残存し、Phase3 で `EnvironmentCapabilitiesPort` に移設する。
+- 対応結果: 完了。`HardwareProfileService` ポートを追加し、ハードウェア検出は外部サービスから注入する設計に変更。ドメイン側はデフォルト値のみ保持し、実際の検出はアプリケーション層 (`BrowserHardwareProfileServiceLive`) が担当する。
 
 ## 15. ドメインがブラウザの Performance API に依存
 
@@ -269,6 +269,8 @@
 - 内容: World リポジトリのインデックスが `world_generation` のリポジトリ実装と設定型をそのまま re-export し、`world` BC の外へ公開している。
 - 問題点: Bounded Context 間の境界が事実上消え、World BC を利用する側が World Generation の内部契約に直接依存してしまう。コンテキスト境界の互換性保証や独立進化が阻害され、DDD のコンテキスト分離が形骸化する。
 - 対応方針: World BC の公開 API を再設計し、他 BC の実装を再輸出せずにポート経由で連携させ、相互依存は Application 層が調停する。
+- 対応結果: 未着手。`src/domain/world/factory/index.ts` や `src/domain/world/domain_service/layer.ts` が引き続き world_generation のファクトリ/Layer を import しており、Phase3 の World/Generation 再設計で解消する。
+- 対応結果: 未着手。World 集約/ファクトリは依然として `@/domain/world_generation/*` を import しており（例: `src/domain/world/factory/index.ts`）、Phase3 の World/Generation 再設計で分離予定。
 
 ## 17. Domain 層で Layer 組み立てと構成選択を担っている
 
@@ -276,6 +278,7 @@
 - 内容: World Domain Layer が Repository 実装の選択（`memory`/`mixed`/`persistence`）、他 BC（world_generation・biome）との Layer 組み合わせ、構成モード（default/performance/quality）の解決まで行っている。
 - 問題点: 実行時構成や他 BC の束ねは Application/Bootstrap 層の責務であり、Domain が環境モードや依存 Layer を組み立てると関心が混在し、ユースケース側での柔軟な構成変更が困難になる。
 - 対応方針: Layer 組み立て・モード選択は Application/Bootstrap 層のコンポジションに移し、Domain 層では必要なポート定義とデフォルト構成情報のみに留める。
+- 対応結果: 未着手。`createWorldDomainLayer` が引き続き Layer.mergeAll で依存組み立てを担っており、Phase3 で Application 層の Composition へ移管する。
 
 ## 18. Chunk リポジトリ戦略が環境検出と WebWorker 制御を内包
 
@@ -291,6 +294,7 @@
 - 内容: Domain の設定型が `compression.algorithm`（gzip/brotli 等）、`backup`、`storage.type`（memory/persistence）など技術的パラメータを保持し、Repository インターフェースでも圧縮やバックアップ戦略が前提になっている。
 - 問題点: Domain モデルが永続化テクノロジーや運用ポリシーに固着し、実装差し替え時にドメイン型自体を変更せざるを得なくなる。DDD のポート/アダプタ分離やモデリングの独立性が損なわれる。
 - 対応方針: Domain の設定型から技術的パラメータを排除し、圧縮方式やバックアップといった詳細はインフラ構成オブジェクトへ移動させる。
+- 対応結果: 未着手。`WorldRepositoryLayerConfig` などが引き続き圧縮/バックアップ設定を保持しており、Phase3 で `WorldRepositoryPort` とインフラ設定 DTO を分離する。
 
 ## 20. Domain サービスがロギングを直接実行
 
@@ -298,6 +302,7 @@
 - 内容: `Effect.logInfo`/`Effect.logWarning`/`Effect.logError` を通じて Domain 内でログ出力・メトリクス記録を行っている。
 - 問題点: ロギングは技術的横断関心であり、Domain ロジックに組み込むと純粋性が失われる。テスト時に副作用抑制が必要になり、ユースケース側でのロギング方針変更が困難になる。
 - 対応方針: ロギングは Logger ポートを介してアプリケーションから注入し、Domain では副作用を発生させずにイベントや結果のみを返す。
+- 対応結果: 未着手。`src/domain/physics/service/terrain_adaptation.ts` や `src/domain/world_generation/domain_service/world_generation_orchestrator/dependency_coordinator.ts` に `Effect.log*` 呼び出しが残存しており、Phase3〜4 で Logger ポートへ移行する。
 
 ## 21. Node.js 固有のメモリ API へ依存
 
@@ -305,6 +310,7 @@
 - 内容: クエリ性能計測で `process.memoryUsage()` を直接呼び、ヒープ差分を算出している。
 - 問題点: `process` は Node.js 専用 API のため、ブラウザや Worker では動作せず、Repository が実行環境と結び付いてしまう。性能監視はインフラ層に切り出すべき。
 - 対応方針: メモリ計測はモニタリング用のポートを定義し、Node/ブラウザ実装をインフラ側で用意して Domain には抽象化された計測値を注入する。
+- 対応結果: 完了。Domain 配下から `process.memoryUsage` の呼び出しを削除し、メモリ監視は Application 層 (`src/application/world/progressive_loading/memory_monitor.ts`) へ移行済み。
 
 ## 22. ドメインリポジトリが待機シミュレーションを行う
 
@@ -312,6 +318,7 @@
 - 内容: セッション復旧やリカバリ分析で `Effect.sleep` を直接実行し、擬似的な待機時間を挿入している。
 - 問題点: 実際のスケジューリングや遅延シミュレーションはアプリケーション/インフラ側の責務であり、ドメインが時間制御を持つとテストや別環境での再利用が困難。
 - 対応方針: 待機処理はアプリケーション層のジョブスケジューラへ移し、Domain は遅延の必要性をイベントやフラグで伝えるだけに留める。
+- 対応結果: 未着手。`session_recovery.ts` に `Effect.sleep` が残存しており、Phase3 でリカバリジョブを Application のスケジューラへ移管する。
 
 ## 23. `structuredClone` などブラウザ API 前提のコピー処理
 
@@ -319,6 +326,7 @@
 - 内容: 状態スナップショットの複製に `structuredClone` を使用しており、ブラウザ実装を前提にしている。
 - 問題点: Node.js や一部環境では未実装のため、純粋なデータコピー手段を Domain 層に持たせると互換性が崩れる。シリアライズ/コピーはインフラ抽象を介すべき。
 - 対応方針: データ複製はシリアライザーポートに委譲し、Domain では純粋なデータ構造操作を行い、環境依存のコピー手段はインフラ側で差し替える。
+- 対応結果: Inventory 系の `structuredClone` はインフラへ移動済み。WorldGeneration でも `CloneService` ポートを導入し、`error_recovery.ts` の複製処理を抽象化した（`CloneService` のデフォルト実装はブラウザ API 非依存）。
 
 ## 24. ドメインが暗号化実装を直接扱う
 
@@ -326,6 +334,7 @@
 - 内容: Node の `crypto` モジュールで AES 暗号・復号を実装し、鍵管理まで担っている。
 - 問題点: セキュリティ実装はインフラ/アプリケーション層の責務であり、Domain が暗号モジュールに依存すると環境に縛られるうえにセキュリティ要件の差し替えが難しい。
 - 対応方針: 暗号化・鍵管理はセキュリティポートを介してインフラ層に委任し、Domain では暗号化されたデータ契約とエラー処理のみを扱う。
+- 対応結果: 完了。Domain から暗号実装が削除され、暗号化は `src/infrastructure/world/repository` 側のアダプタで扱う構成に移行済み。
 
 ## 25. Web Crypto 依存のハッシュ計算
 
@@ -333,6 +342,7 @@
 - 内容: チャンク整合性検証に `crypto.subtle.digest` を直接呼び出し、Web Crypto API を仮定している。
 - 問題点: Web Crypto が存在しない Node などでは失敗する。ハッシュ計算はポート化してインフラで差し替えられるようにするべき。
 - 対応方針: ハッシュ計算ポートを定義し、Web Crypto/Node Crypto など複数実装をインフラ側で提供することで Domain からランタイム依存を排除する。
+- 対応結果: 未着手。`chunk_serializer/service.ts` で `crypto.subtle.digest` を直接利用しており、Phase2 で `HashingPort` を導入する。
 
 ## 26. Node Buffer / zlib による圧縮処理をドメインが所有
 
@@ -340,6 +350,7 @@
 - 内容: `node:buffer` や `node:zlib` を import し、Brotli/GZip 圧縮を直接実装している。
 - 問題点: 圧縮アルゴリズムの選択・実行は技術的詳細であり、Domain 層が Node 専用 API に依存するとブラウザ移植が不可能になる。
 - 対応方針: 圧縮・展開は圧縮ポート経由で扱い、具体的なアルゴリズム選択とバッファ操作はインフラアダプタに委任する。
+- 対応結果: 未着手。`ChunkSerializationService` が `node:zlib` を直接利用しており、Phase2 で `CompressionPort` を導入する。
 
 ## 27. ガーベジコレクタ呼び出しをドメインで実行
 
@@ -347,6 +358,7 @@
 - 内容: メモリ最適化処理で `global.gc?.()` を呼び、ランタイム GC を直接起動している。
 - 問題点: GC 制御はランタイム依存の技術詳細であり、Domain ロジックがこれを持つとテストや異なる VM で破綻する。
 - 対応方針: メモリ回収要求はイベントやメトリクスとして通知し、GC トリガーはインフラ/運用層で制御する。
+- 対応結果: 未着手。`src/domain/chunk/aggregate/chunk/performance_optics.ts` に `global.gc` 呼び出しが残存しており、Phase2 でパフォーマンス通知イベントへ置換する。
 
 ## 28. IndexedDB リポジトリが人工遅延を注入
 
@@ -362,6 +374,7 @@
 - 内容: 各ステージで `Effect.sleep(Duration.millis(...))` を直接呼び、処理時間をハードコードしている。
 - 問題点: ビジネスロジックとスケジューリングが混在し、テストで高速化できない。スリープ制御はインフラ層の責務。
 - 対応方針: ステージの待機制御はスケジューラポートを介して Application 層に任せ、Domain は進行状態と要求タイミングのみを指示する。
+- 対応結果: 完了。ステージ実装から `Effect.sleep` を除去し、スケジュール制御はアプリ層に委ねる前提へ変更した（`generation_pipeline.ts`）。
 
 ## 30. CommonJS `require` 前提のファイルアクセス
 
@@ -369,6 +382,7 @@
 - 内容: `typeof require !== 'undefined'` で CommonJS 可否を判定し、`require('fs')` / `require('path')` に依存。
 - 問題点: ES Modules やブラウザ環境では `require` が存在せず、Domain がモジュールシステムに依存してしまう。
 - 対応方針: ファイルアクセスは抽象ポート越しに行い、CommonJS/E SM の分岐やモジュール解決はインフラ層のアダプタで処理する。
+- 対応結果: 完了。JSON ファイル実装は `src/infrastructure/inventory/repository/item_definition/json-file.ts` に移設され、Domain 側に `require` 分岐は残っていない。
 
 ## 31. `TextEncoder` など Web API によるサイズ計測
 
@@ -376,6 +390,7 @@
 - 内容: バイト長推定に `TextEncoder` を直接利用し、Web API の存在を前提としている。
 - 問題点: Node のバージョン差や他ランタイムで互換性が保証されず、Domain モデルの計測が環境依存となる。
 - 対応方針: エンコード/サイズ計測ポートを定義し、ブラウザ・Node それぞれの実装をインフラ側に切り出して Domain は抽象化されたインターフェースを利用する。
+- 対応結果: 未着手。`chunk_serializer/service.ts` と `world_metadata_repository/interface.ts` に `TextEncoder` が残存し、Phase2 で `EncodingPort` へ移行予定。
 
 ## 32. ワールド生成リポジトリが Node バッファと zlib を直接利用
 
@@ -383,6 +398,7 @@
 - 内容: `node:buffer`・`zlib` を import し、圧縮／展開やバイナリ処理をその場で行っている。
 - 問題点: Node 専用 API により、Domain 層がランタイムと密結合し、他環境への移植やテストダブル差し替えが困難。
 - 対応方針: バッファ操作・圧縮処理はインフラアダプタへ移し、Domain では圧縮結果の契約とバリデーションのみに集中する。
+- 対応結果: 概ね完了。世界生成リポジトリの Node 依存コードは `src/infrastructure/world_generation/repository` へ移設済みで、Domain 側にはポート定義のみが残る。
 
 ## 33. バイオームリポジトリも Node ファイルシステムへ依存
 
@@ -390,6 +406,7 @@
 - 内容: `fs`・`path`・`zlib` を使って JSON 圧縮・バックアップを実装。
 - 問題点: こちらも Domain がリソース I/O と圧縮を直に担っており、Bounded Context 全体が Node 依存になる。
 - 対応方針: リソース I/O と圧縮の責務を分離し、Domain はポートを通じてデータの保存/取得を要求するだけにする。
+- 対応結果: 完了。該当実装は `src/infrastructure/biome/repository` へ移行し、Domain 側はポート定義とエラー型のみに整理済み。
 
 ## 34. ドメインが `crypto.randomUUID` で ID を生成
 
@@ -397,6 +414,7 @@
 - 内容: 生成 ID を `crypto.randomUUID()` で直接生成している。
 - 問題点: ID 生成はインフラポートとして外出しすべきであり、ランタイム依存の関数を Domain が直接呼ぶとテスト時の決定性や差し替えが難しい。
 - 対応方針: ID 生成サービスをポート化し、テスト用の決定的実装と本番用のランダム実装をアプリケーション/インフラ層から注入する。
+- 対応結果: 未着手。`world_generator_factory` と `generation_session_factory` で `crypto.randomUUID` が残っており、Phase3 で `IdGeneratorPort` を定義する。
 
 ## 35. ドメインイベントの識別子生成もランタイム依存
 
@@ -404,6 +422,7 @@
 - 内容: イベント作成時に `crypto.randomUUID()` を直接利用。
 - 問題点: イベント ID はドメイン固有の値オブジェクトとして扱うべきで、生成戦略はポート経由で切り替えられるようにする必要がある。
 - 対応方針: イベント ID を値オブジェクト化し、生成は ID ポートを通じて行うように改修する。
+- 対応結果: 未着手。World イベント作成で `crypto.randomUUID` を呼び出しており、Phase3 にて `DomainEventIdPort` を導入予定。
 
 ## 36. 自動保存スケジューリングをドメインが内包
 
@@ -419,6 +438,7 @@
 - 内容: `archiveCompletedSessions` や `cleanupOldCheckpoints` が `Effect.succeed(0)` を返すスタブのまま。
 - 問題点: Domain 契約を満たさないダミー処理が残ると、上位層が擬似的な成功に依存してしまい、モデリング上一貫性が確保できない。
 - 対応方針: 未実装メソッドは Application/インフラ層の具体的な実装へ接続するか、不要であればインターフェース定義から削除し契約を再定義する。
+- 対応結果: 完了。メモリ実装ファイルを廃止し、リポジトリの未実装メソッドを Interface 定義から整理済み（`generation_session_repository/index.ts` ではインフラ実装へ委譲）。
 
 ## 38. リポジトリがパフォーマンスメトリクスを保持
 
@@ -426,6 +446,7 @@
 - 内容: `performanceMetricsRef` にクエリ実行時間やメモリ使用量を蓄積し、監視機能まで担っている。
 - 問題点: メトリクス収集は監視インフラの関心であり、Domain Repository が分析データを保持すると責務が肥大化する。
 - 対応方針: メトリクス収集は監視サービスのポートに移し、Domain は必要なイベント/統計を通知するだけにする。
+- 対応結果: 完了。Chunk クエリリポジトリのメトリクス保持コードを削除し、監視は Application 層の `@application/world/progressive_loading` 系サービスへ移設済み。
 
 ## 39. バックアップ生成をドメインが直接実行
 
@@ -441,6 +462,7 @@
 - 内容: `Queue.unbounded` と `Stream.fromQueue` によりイベントブロードキャストを実装し、取得者へ `observe` を提供している。
 - 問題点: イベント配送の仕組みはアプリケーション/インフラ側のメッセージングで扱うべきで、ドメインリポジトリが Pub/Sub を抱えると境界が曖昧になる。
 - 対応方針: Pub/Sub はメッセージングポートとして外出しし、Domain リポジトリはイベントを発行するだけに絞る。`Queue`/`Stream` の組み立ては Application 層が担い、監視・購読ロジックは専用のイベントバスアダプタへ移管する。
+- 対応結果: 未着手。`repository.indexeddb.ts` と `repository.memory.ts` が引き続き `Queue.unbounded` を生成しており、Phase2 でイベントバスポートを導入する。
 
 ## 41. World集約インデックスが他BCを再輸出
 
@@ -472,6 +494,7 @@
 - 内容: World BC の座標モジュールが biome BC の座標値オブジェクトを `export *` している。
 - 問題点: World 側のユビキタス言語で定義すべき値が別 BC の型に固定され、コンテキスト固有のモデリングができない。
 - 対応方針: World BC 固有の座標値オブジェクトを定義し、biome 座標との相互変換は境界サービスで扱う。
+- 対応結果: 完了。World 値オブジェクトは `src/domain/world/types/core/coordinate_types.ts` に再定義され、biome 座標の再エクスポートは撤廃済み。
 
 ## 45. Inventory Repository Layer が環境別実装を内包
 
@@ -495,6 +518,7 @@
 - 内容: `Clock.currentTimeMillis` で保存時刻を取得し、DomainClock などの抽象を介さずにシステム時刻へ依存している。
 - 問題点: テストや再現性確保のための時間抽象が無視され、環境差異に左右されるドメインロジックになる。
 - 対応方針: 時刻取得は Clock ポートを通じて注入し、Domain からは直接システムクロックを参照しない。
+- 対応結果: 完了。Inventory リポジトリのシステムクロック参照はインフラ層へ移り、Domain では `ClockPort` を通じた契約に統一した。
 
 ## 48. ドメインが乱数生成を直接使用
 
@@ -502,6 +526,7 @@
 - 内容: ID や仕様判定に `Random.nextIntBetween` を多用し、乱数サービスの差し替えを前提としていない。
 - 問題点: ドメインルールが非決定的になり、テストやリプレイが困難。乱数生成はポートとして抽象化すべき。
 - 対応方針: 乱数生成を専用ポートに切り出し、決定的なテスト実装と本番向け実装をインフラで差し替えられるようにする。
+- 対応結果: 未着手。Biome 分類・Inventory イベント・Combat 計算などで `Random.next*` を直接利用しており、Phase3 で `RandomProviderPort` を導入予定。
 
 ## 49. キャッシュ戦略が Domain 内でスケジューリング
 
@@ -509,6 +534,7 @@
 - 内容: `Schedule.fixed` で定期クリーンアップを Domain に内包している。
 - 問題点: バックグラウンド処理のスケジュールはアプリケーション/インフラの責務であり、Domain がジョブ管理まで抱えると責務が膨張する。
 - 対応方針: キャッシュクリアはアプリケーション側のスケジューラに委ね、Domain はクリーンアップ要求をイベント等で通知する。
+- 対応結果: 未着手。`cache_strategy.ts` で `Schedule.fixed` を生成しており、Phase3 でスケジューラポートへ抽象化する。
 
 ## 50. 世代セッション永続化が Node FS を直接使用
 
@@ -516,6 +542,7 @@
 - 内容: `@effect/platform-node/NodeFileSystem` や `NodePath` を import してファイル操作を行っている。
 - 問題点: Node 依存の I/O が Domain 層に入り込み、ブラウザや他環境へ移植できない。
 - 対応方針: ファイル I/O は永続化ポートの実装としてインフラ層に移し、Domain はセッション保存の契約定義に専念する。
+- 対応結果: 完了。ファイル I/O 実装は `src/infrastructure/world_generation/repository/generation_session` へ移行し、Domain にはインターフェースと DTO だけが残る。
 
 ## 51. World型ガードが world_generation の Schema に依存
 
@@ -523,6 +550,7 @@
 - 内容: World の型ガードが Biome/WorldGenerator Schema を直接参照している。
 - 問題点: World BC の検証が他 BC の型定義に固定され、境界が曖昧になる。
 - 対応方針: World BC 専用の Schema/型ガードを整備し、他 BC の Schema 依存はアプリケーション層のマッピング処理で扱う。
+- 対応結果: 未着手。`typeguards.ts` が `BiomeSystemSchema` を直接参照しており、Phase3 で World 専用 DTO と境界サービスへ分離する。
 
 ## 52. Worldファクトリヘルパーが他BCのファクトリを直接組み合わせ
 
@@ -562,6 +590,7 @@
 - 内容: `application` ディレクトリが Domain ツリー内にあり、ロードキュー管理・メトリクス集計・乱数判定まで実装している。
 - 問題点: アプリケーション層のユースケース実装が Domain に混在し、役割境界が崩壊している。
 - 対応方針: `chunk_loader/application` 以下をアプリケーション層へ移動し、Domain には必要なポートとエンティティだけを残す。
+- 対応結果: 完了。`src/domain/chunk_loader/application` ディレクトリを廃止し、実装は `src/application/chunk_loader/application` へ移設済み。
 
 ## 57. ドメインサービスがアプリケーションの計測メトリクスへ依存
 
@@ -569,6 +598,7 @@
 - 内容: `chunkGenerationCounter` などアプリケーション層の観測メトリクスを直接 import してカウンタ更新を行っている。
 - 問題点: Domain ロジックがアプリ観測基盤に結合し、層間依存とテスト容易性を損なう。
 - 対応方針: メトリクス更新をイベント通知に切り替え、カウンタ加算はアプリケーション/監視層で処理する。
+- 対応結果: 未着手。`terrain_generator.ts` が `@application/observability/metrics` を import しており、Phase3 でメトリクスポートへ差し替える。
 
 ## 58. 物理ドメインがアプリケーション監視に結合
 
@@ -576,6 +606,7 @@
 - 内容: 物理シミュレーションが `physicsStepDuration`（アプリ観測メトリクス）を直接 import している。
 - 問題点: Domain とアプリケーション層の関心が分離されておらず、メトリクス変更がドメイン再配布を伴う。
 - 対応方針: 物理シミュレーションは観測イベントを発行するだけとし、メトリクス更新はアプリケーション層の監視コンポーネントに委譲する。
+- 対応結果: 完了。物理ドメインのサービスはアプリケーション側メトリクスを import しておらず、`PhysicsEnginePort` 経由で観測イベントを返す構成へ移行済み。
 
 ## 59. 永続化モジュールに未実装スタブが残存
 
@@ -583,6 +614,7 @@
 - 内容: `compressData` / `decompressData` が `Effect.succeed(data)` のモック実装のまま放置されている。
 - 問題点: ドメイン層で未実装スタブが成功扱いになり、実際の圧縮/復元処理が行われないまま本番コードに混入する。
 - 対応方針: 圧縮処理はインフラ層の実装へ委任し、Domain 側では未実装メソッドを削除するか失敗を返す形に改めて契約を明確化する。
+- 対応結果: 完了。該当 persistence 実装は削除され、圧縮処理はインフラ層のアダプタへ移行済み。
 
 ## 60. 擬似チェックサムをドメインが実装
 
@@ -590,6 +622,7 @@
 - 内容: `calculateChecksum` が単純な文字コード加算ハッシュで代用されている。
 - 問題点: 技術的整合性を担保するべきチェックサムが健全な実装になっておらず、データ整合性保証をドメインが誤魔化している。
 - 対応方針: チェックサム生成は `ChecksumPort` に抽象化し、暗号学的ハッシュや高速ハッシュなどの実装をインフラ層に切り替えられるようにする。Domain では検証対象データの提示と結果判定のみを行い、推測可能な擬似実装は撤廃する。
+- 対応結果: 完了。擬似チェックサム実装は削除され、チェックサム生成はインフラ層のポート実装へ移行した。
 
 ## 61. biomeドメインサービスがworldドメイン型に依存
 
@@ -617,54 +650,63 @@
 - 該当箇所: `src/domain/world_generation/domain_service/procedural_generation/terrain_generator.ts:11-22`, `structure_spawner.ts:8-15`, `cave_carver.ts:8-20`
 - 内容: 地形/構造物/洞窟生成サービスが World BC の座標・ノイズ設定・シード型に直接アクセスしている。
 - 問題点: World Generation BC のコアサービスが World BC のモデルを前提にしており、BC間の独立した進化や再利用が困難になる。
+- 対応結果: 未着手。`terrain_generator.ts` などで `@domain/world/value_object` への直接依存が残っており、Phase3 で DTO 化と境界サービス導入を実施予定。
 
 ## 65. world_generationファクトリがworld集約型に依存
 
 - 該当箇所: `src/domain/world_generation/factory/world_generator_factory/factory.ts:22`, `generation_session_factory/factory.ts:22-24`
 - 内容: ファクトリ実装が World BC の集約 (`world_generator`, `generation_session`) 型を取り込み、生成ロジックを直接活用している。
 - 問題点: World Generation の生成フローが World 集約の内部構造に結合し、BC間境界を突破してしまう。
+- 対応結果: 未着手。`world_generator_factory/factory.ts` が `@domain/world/aggregate` を import しており、Phase3 で生成 DTO とポートに切り替える。
 
 ## 66. world_generationファクトリがworldドメインサービスに依存
 
 - 該当箇所: `src/domain/world_generation/factory/world_generator_factory/factory.ts:23`
 - 内容: World Generation ファクトリが `@domain/world/domain_service` を import し、World BC のサービス層を直接利用している。
 - 問題点: サービス依存が BC 間で双方向になり、アーキテクチャ循環を生む。World 側のサービス変更が World Generation のファクトリ実装に直結する。
+- 対応結果: 未着手。`world_generator_factory/factory.ts` で WorldDomainServiceLayer を組み立てており、Phase3 の分離対象。
 
 ## 67. world_generationリポジトリがworld型に結合
 
 - 該当箇所: `src/domain/world_generation/repository/generation_session_repository/interface.ts:18-25`, `persistence_implementation.ts:25-33`
 - 内容: セッションリポジトリのインターフェース／永続化が World BC の型 (`WorldId`, `GenerationSessionId` など) やエラー定義を利用している。
 - 問題点: World Generation BC の永続化層と World BC が密結合となり、単独モジュールとしての再配置が難しくなる。
+- 対応結果: 未着手。`generation_session_repository/interface.ts` が `@domain/world/types` を import しており、Phase3 で独自 DTO へ置換する。
 
 ## 68. world_generation値オブジェクトがworldユーティリティ依存
 
 - 該当箇所: `src/domain/world_generation/value_object/generation_parameters/structure_density.ts:8`, `feature_flags.ts:8`, `ore_distribution.ts:8`
 - 内容: 生成パラメータ値オブジェクトが World BC の `taggedUnion` ユーティリティを前提にしている。
 - 問題点: World Generation BC の値オブジェクトが World BC 実装にロックされ、モデル交換が難しくなる。
+- 対応結果: 未着手。`generation_parameters` 配下で `@domain/world/utils/tagged_union` を使用しており、Phase3 で Shared 層ユーティリティへ分離する。
 
 ## 69. world_generationイベントがchunkドメイン型に依存
 
 - 該当箇所: `src/domain/world_generation/aggregate/world_generator/events.ts:10`
 - 内容: ワールド生成イベントが `@domain/chunk` の `ChunkDataSchema` を直接 import している。
 - 問題点: World Generation イベントが Chunk BC の内部構造に結合し、イベントストリームの独立性を損なう。
+- 対応結果: 未着手。`world_generator/events.ts` で `ChunkDataSchema` を参照し続けており、Phase3 で専用イベント DTO を定義する。
 
 ## 70. テンプレート解決がworld集約の型を要求
 
 - 該当箇所: `src/domain/world_generation/factory/generation_session_factory/template_resolver.ts:16-38`
 - 内容: セッションテンプレート定義が World BC の `GenerationSession.SessionConfigurationSchema` を直接利用している。
 - 問題点: テンプレート解決ロジックが World BC の型変更に脆弱となり、BC間の境界が実質的に崩れる。
+- 対応結果: 未着手。`template_resolver.ts` で World 集約の Schema を import しており、Phase3 で共通 DTO に切り替える。
 
 ## 71. worldメタデータがビルド情報を保持
 
 - 該当箇所: `src/domain/world/metadata.ts:1-37`
 - 内容: `WORLD_DOMAIN_VERSION/FEATURES/STATS` に Node 対応バージョンやバンドルサイズ等の技術指標を埋め込んでいる。
 - 問題点: ドメインモデルが開発・ビルド情報を抱え、業務的意味を持たないデータが SSoT に混入する。
+- 対応結果: 未着手。`WORLD_DOMAIN_STATS` 等にビルド指標が残存しており、Phase3 でドキュメント側へ移す。
 
 ## 72. worldドメイン設定がリポジトリ層スキーマに依存
 
 - 該当箇所: `src/domain/world/config.ts:1-40`
 - 内容: `WorldDomainConfig` のスキーマが `WorldRepositoryLayerConfigSchema` を直接参照し、永続化設定を前提にしている。
 - 問題点: ドメイン設定がインフラ層詳細に結合し、リポジトリ実装を差し替えるだけでもドメイン設定の変更が必要になる。
+- 対応結果: 未着手。`world/config.ts` で Repository 層スキーマへの依存が残り、Phase3 でビジネス設定とインフラ設定を分離する。
 
 ## 73. worldドメイン設定にアプリ層トグルが含まれる
 
@@ -678,6 +720,7 @@
 - 該当箇所: `src/domain/types.ts:1-40`
 - 内容: 1ファイルに全ドメイン型を集約し、タイプセーフな境界を消している。
 - 問題点: 利用側が BC 境界を意識せず任意の型へアクセスでき、依存方向の制御が不能になる。
+- 対応結果: 未着手。`src/domain/types.ts` が引き続き複数 BC の型を再エクスポートしており、Phase2 で廃止または BC 別ファサードへ分割する。
 
 ## 75. domain/index.ts が存在しないchunk/application_serviceをエクスポート
 
@@ -698,6 +741,7 @@
 - 該当箇所: `src/domain/camera/layers.ts:13-44`
 - 内容: ドメインLayerが `CameraCommandHandlerLive` / `CameraQueryHandlerLive` を統合している。
 - 問題点: CQRSハンドラはユースケース実装（アプリ層）の責務であり、ドメイン層に混在すると境界が曖昧になる。
+- 対応結果: 未着手。`CameraDomainLive` がハンドラを含んだままであり、Phase4 で Application 層へ移す。
 
 ## 78. ChunkDomainLiveがCQRSハンドラを統合
 
@@ -718,6 +762,7 @@
 - 該当箇所: `src/domain/world_generation/layers.ts:24-45`
 - 内容: ドメインLayerが `WorldGenerationReadModelLive` を組み込んでおり、クエリ用モデルを直結している。
 - 問題点: CQRSのReadモデルはアプリ/インフラ責務であり、ドメインに常駐すると層分離が曖昧になる。
+- 対応結果: 未着手。`WorldGenerationDomainLive` に Read Model が含まれているため、Phase3 でアプリ層の CQRS に移管する。
 
 ## 81. chunk_loader配下にapplicationディレクトリが存在
 
@@ -738,66 +783,77 @@
 - 該当箇所: `src/domain/physics/service/performance.ts:1-120`
 - 内容: 物理ドメインに FPS やメモリ使用量、チューニング推奨を扱う `PhysicsPerformanceService` が存在する。
 - 問題点: パフォーマンス監視は技術的関心であり、ドメインロジックと混在すると責務が曖昧になる。
+- 対応結果: 未着手。`physics/service/performance.ts` が継続して監視責務を保持しており、Phase4 の Observability 移行でポート化する。
 
 ## 84. Worldライフサイクルイベントがインフラ監視情報を含む
 
 - 該当箇所: `src/domain/world/types/events/lifecycle_events.ts:1-160`
 - 内容: `SystemStarted` や `GarbageCollection` イベントにリソース割当・GC統計など低レベル情報が入っている。
 - 問題点: ドメインイベントがインフラ監視データを運び、業務対象のイベントストリームと混線する。
+- 対応結果: 未着手。`lifecycle_events.ts` が引き続きリソース統計を含むため、Phase3 で監視イベントを Observability ポートへ切り出す。
 
 ## 85. GameSceneがWorld IDスキーマに依存
 
 - 該当箇所: `src/domain/scene/scenes/game.ts:10-15`
 - 内容: ゲームシーン定義が `WorldIdSchema` を import し、World BC の識別子を直接利用している。
 - 問題点: Scene BC が World BC の内部型に結合し、UIシーンの独立性を失う。
+- 対応結果: 未着手。`scene/scenes/game.ts` が `WorldIdSchema` に依存しており、Phase4 でシーン固有 DTO へ置換する。
 
 ## 86. GameSceneControllerがプレイヤー挙動を直接操作
 
 - 該当箇所: `src/domain/scene/scenes/game.ts:26-107`
 - 内容: プレイヤー移動・ダメージ処理・回復などアプリケーションロジックをコントローラ内で実装している。
 - 問題点: UI/アプリ層のユースケースロジックがドメインシーンに混在し、層構造を侵す。
+- 対応結果: 未着手。`createGameSceneController` がプレイヤー状態を直接更新しており、Phase4 でアプリ層ユースケースに委譲する。
 
 ## 87. SceneManagerLiveが状態遷移とスタック制御を内包
 
 - 該当箇所: `src/domain/scene/manager/live.ts:1-140`
 - 内容: シーンマネージャが遷移中フラグや履歴スタックを操作し、アプリ層の制御フローを抱えている。
 - 問題点: ドメイン層が UI の遷移制御を持ち、ユースケース層との境界が崩れる。
+- 対応結果: 未着手。`SceneManagerLive` が状態スタックを直接管理しており、Phase4 でアプリ層のシーンコーディネータへ移管する。
 
 ## 88. ViewDistance LOD がパフォーマンスメトリクスを前提にする
 
 - 該当箇所: `src/domain/view_distance/lod.ts:13-70`
 - 内容: LOD 判定に FPS やメモリ使用率などの `PerformanceMetrics` を直接組み込んでいる。
 - 問題点: レンダリング最適化という技術的判断がドメインロジックに入り、シーン/表示層の関心と混線している。
+- 対応結果: 未着手。`view_distance/lod.ts` が `PerformanceMetrics` を要求しており、Phase4 で純粋な距離判定ロジックに切り出す。
 
 ## 89. FeatureFlags値オブジェクトが環境別設定を保持
 
 - 該当箇所: `src/domain/world_generation/value_object/generation_parameters/feature_flags.ts:268-310`
 - 内容: `environments` フィールドで `development/testing/staging/production` 別の挙動を定義している。
 - 問題点: ドメイン値オブジェクトがデプロイ環境の事情を抱え、業務モデルと運用設定が分離できない。
+- 対応結果: 未着手。`feature_flags.ts` に環境別設定が残っており、Phase3 でアプリケーション構成モジュールへ移す。
 
 ## 90. ワールド生成プリセットが運用設定を抱き込む
 
 - 該当箇所: `src/domain/world_generation/factory/world_generator_factory/preset_initialization_live.ts:40-116`
 - 内容: プリセットに `logLevel` や `recommendedThreads`、Minecraft バージョンなど技術パラメータを埋め込んでいる。
 - 問題点: ドメインプリセットが実行環境・製品仕様を包含し、業務モデルの純度が落ちる。
+- 対応結果: 未着手。`preset_initialization_live.ts` に運用パラメータが残存しており、Phase3 で設定モジュールへ移動する。
 
 ## 91. Sceneのインデックスが存在しないspecモジュールを再エクスポート
 
 - 該当箇所: `src/domain/scene/scenes/index.ts:1-8`
 - 内容: `.spec` ファイルを再エクスポートしているが、対応するモジュールは存在しない。
 - 問題点: ドメインAPIが無効なエクスポートを含み、依存側にビルド失敗やデッドリンクを招く。
+- 対応結果: 未着手。`scene/scenes/index.ts` の不要な再エクスポートを Phase4 で削除する。
 
 ## 92. ChunkLoaderインデックスがアプリケーション実装を再公開
 
 - 該当箇所: `src/domain/chunk_loader/index.ts:40-53`
 - 内容: ドメインインデックスが `ChunkLoadingProviderLive` や `makeChunkLoadingProvider`（アプリ層実装）を再エクスポートしている。
 - 問題点: ドメインAPI経由でアプリ層が露出し、依存方向の制御ができなくなる。
+- 対応結果: 未着手。`chunk_loader/index.ts` の再エクスポートが残存しており、Phase4 でポート定義のみに整理する。
 
 ## 93. Furnitureドメインがアプリケーションサービスを内包
 
 - 該当箇所: `src/domain/furniture/service.ts:21-174`
 - 内容: `FurnitureApplicationService` インターフェースと実装 (`makeFurnitureApplicationService`) をドメイン直下で提供している。
 - 問題点: アプリケーションサービスを再現し、ドメインとアプリ層の責務境界が不明瞭になる。
+- 対応結果: 未着手。`furniture/service.ts` にアプリ層相当のサービスが残り、Phase4 でユースケースをアプリケーションへ移す。
 
 ## 94. ChunkSystemの時間ユーティリティが直接sleepを呼び出す
 
@@ -811,6 +867,7 @@
 - 該当箇所: `src/domain/biome/factory/biome_system_factory/factory.ts:755-758`
 - 内容: `Effect.sleep(1)` による疑似ディレイをドメインファクトリに組み込んでいる。
 - 問題点: 実行制御がドメイン層に存在し、ロジックの決定性とテスト容易性が損なわれる。
+- 対応結果: 完了。`measureProcessingTime` から `Effect.sleep` と `performance.now` を排除し、統計的な推定値を同期計算で返すように修正した（`biome_system_factory/factory.ts`）。
 
 ## 96. Chunk Performance OpticsがGC制御のためにsleepを挿入
 
@@ -831,118 +888,52 @@
 - 該当箇所: `src/domain/world_generation/domain_service/world_generation_orchestrator/layer.ts:150-159`
 - 内容: `generateChunk` が 500ms の `Effect.sleep` を行い、生成処理を疑似的に表現している。
 - 問題点: ドメイン層がスレッド制御を持ち、ユースケースロジックと技術的シミュレーションが混ざる。
+- 対応結果: 完了。`generateChunk` から固定スリープを除去し、処理時間は計測値の差分で算出するように整理した（`world_generation_orchestrator/layer.ts`）。
 
 ## 99. テンプレートレジストリが環境/性能プロファイルを埋め込む
 
 - 該当箇所: `src/domain/world_generation/factory/generation_session_factory/template_registry_live.ts:60-119`
 - 内容: テンプレート定義に `supportedProfiles: ['development', 'testing', ...]` や CPU/メモリ要求が直書きされている。
 - 問題点: テンプレートが運用環境の事情を前提にし、ドメインテンプレートと環境設定が切り離せない。
+- 対応結果: 未着手。`template_registry_live.ts` が環境プロファイルを保持しており、Phase3 で設定ストアへ移す。
 
 ## 100. テンプレート解決サービスが運用指標でスコアリング
 
 - 該当箇所: `src/domain/world_generation/factory/generation_session_factory/template_resolver.ts:27-59`
 - 内容: テンプレート解決で `expectedCpuUsage` や `scalability` など運用指標に基づきスコアを算出している。
 - 問題点: テンプレート選定がインフラ志向の指標と密結合し、ドメインルールと運用判断が混在する。
+- 対応結果: 未着手。`template_resolver.ts` が運用指標を直接評価しており、Phase3 でアプリ層のテンプレートスコアリングサービスへ委譲する。
 
 # 修正候補一覧
 
-1. **ドメインに常駐するインフラ実装を排除する** – Repository の `Layer.effect` 実装を `src/infrastructure` など専用層へ移動し、Domain にはポート（interface）だけを残す。
-2. **ライブ実装を Domain から分離** – `<Service>Live` や `Layer.effect` をアプリケーション/インフラ層へ再配置し、Domain はタグ定義のみにとどめる。
-3. **CQRS DTO をアプリ層へ移行** – コマンド/クエリ schema を Application フォルダに移し、Domain ではユースケースに依存しないメソッドを提供する。
-4. **UI → Domain 直結を撤廃** – Presentation からは Application ファサード経由に強制し、React サンプルを修正して Domain への直接依存を削除する。
-5. **BC をユビキタス言語で再定義** – camera/chunk/world_generation 等をビジネス語彙で再切り出し、技術ドメインはサブドメインにまとめ直す。
-6. **Effect/Schema 依存度の調整** – 純粋計算部分はプレーン TypeScript 関数へ分離し、Effect を入出力境界に限定する。
-7. **物理エンジン操作をインフラ層へ移譲** – Cannon-es 操作を `src/infrastructure/physics` に移し、Domain には抽象化された PhysicsPort を定義する。
-8. **ブラウザ API への依存を抽象化** – `localStorage` などは Port 経由で注入し、クラウド/テスト環境用の実装をインフラ層で切り替える。
-9. **Node FS 依存を外部化** – `fs`/`path`/`zlib` を扱う処理をインフラ層のアダプタに移す。
-10. **Application 層の再輸出を停止** – Domain の index から Application 実装の再公開を削除し、必要時はアプリ側で import させる。
-11. **環境自動判定を Composition に移行** – Domain で `window` / `process` を判定せず、ブートストラップ時に適切な Layer を注入する。
-12. **ブラウザ API 利用可否をポート化** – `hasIndexedDB` 等の判定を Domain 外へ出し、条件付き実装はアプリケーション層で分岐する。
-13. **永続化方式ごとのアダプタを専用パッケージに分割** – `memory.ts`/`persistent.ts` を `src/infrastructure/<bc>/repository/` に再配置。
-14. **ハードウェア検出を外部サービス化** – `navigator.hardwareConcurrency` 等はシステム情報サービスを通じて提供する。
-15. **Performance API へのアクセスを抽象化** – 時刻・計測値は DomainClock や PerformancePort を介して取得する。
-16. **World と WorldGeneration の再輸出を停止** – World BC の index から他 BC の export を取り除き、必要な依存は明示的に import する。
-17. **Layer 組み立て処理をブートストラップへ移す** – Domain の Layer は純粋な `Layer` 定義にとどめ、構成選択 (`composeRepositoryLayer`) はアプリ側で実施する。
-18. **環境制御ログを Infrastructure に委譲** – WebWorker/IndexedDB の戦略はアプリケーション層で組み替え、Domain には Strategy インターフェースを定義する。
-19. **設定オブジェクトから技術パラメータを排除** – `compression` や `backup` などインフラ系設定を DomainConfig から切り出す。
-20. **ロギングは横断関心へ集約** – ドメインサービス内の `Effect.log*` 呼び出しを LoggerPort に差し替える。
-21. **Node 固有 API を抽象化** – `process.memoryUsage` を MetricsPort にラップし、各環境固有実装を用意する。
-22. **擬似待機をテストダブルに置換** – `Effect.sleep` を伴うモック機能はテスト/デモ専用サービスに切り離す。
-23. **構造体コピーを汎用ユーティリティへ** – `structuredClone` を環境非依存のコピー関数 (e.g. `DomainClonePort`) に置き換える。
-24. **暗号処理をセキュリティアダプタ化** – `crypto.createCipher` などを SecurityPort 経由に変更し、Domain は抽象化された API を利用する。
-25. **ハッシュ計算をポート化** – WebCrypto 依存をやめ、HashPort を経由してハッシュアルゴリズムを注入する。
-26. **圧縮処理の抽象化** – Node zlib への直接依存を CompressionPort 経由にする。
-27. **GC 呼び出しを禁止** – `global.gc` を Domain から排除し、メモリ管理はランタイム設定に委譲する。
-28. **人工遅延ロジックをテスト限定に** – IndexedDB リポジトリの `simulateLatency` を開発専用フラグで切り替える。
-29. **固定スリープを除去** – パイプラインの疑似待機をメトリクス収集やステートマシンへ置換し、実測値で制御する。
-30. **CommonJS 判定を削除** – ESM 対応のファイルアクセスポートを提供し、require 判定を排除する。
-31. **TextEncoder 利用をヘルパーへ集約** – バイトサイズ計算を環境非依存の UtilityPort にまとめる。
-32. **Node バッファ/zlib を扱う実装を Infrastructure へ** – Domain は圧縮ポートを要求するのみとする。
-33. **Biome 永続化でもインフラ責務を分離** – Node API を利用する処理を Infrastructure 層へ集約し、Domain から直接呼び出さない。
-34. **ID 生成を Port 化** – `randomUUID` を IDGeneratorPort に置換し、テスト時には deterministic generator を注入する。
-35. **イベント ID も Port 経由で生成** – Domain イベント生成部で IDGenerator を利用する。
-36. **オートセーブはスケジューラに委譲** – `setupAutoSave` を Application サービスへ移し、Domain では保存トリガーのみ提供する。
-37. **未実装メソッドのスタブを解消** – TODO 項目を明確な NotImplemented エラーにするか、最小限の実装を追加する。
-38. **メトリクス収集を監視層に委譲** – Repository が保持するパフォーマンスデータを Observability サービスへ移す。
-39. **バックアップ処理を Infrastructure に移す** – ファイルコピーやローテーションは専用アダプタで実装する。
-40. **イベント配信をメッセージング層へ切り出し** – Queue/Stream 操作を Domain から外し、PubSubPort を用意する。
-41. **World aggregate index を整理** – `@domain/world_generation/...` の再輸出を削除し、World BC が World Generation BC を直接公開しないよう修正する。
-42. **World Domain Service の再輸出停止** – World BC から world_generation サービスを取り除き、依存が必要なら Application 層で組み合わせる。
-43. **World Factory index の再構成** – world_generation ファクトリの再エクスポートを中止し、World BC 固有のファクトリのみ公開する。
-44. **World 値オブジェクトを独自定義** – Biome 座標の直輸入をやめ、World BC 向け座標モデルを定義する。
-45. **Inventory 環境別 Layer を Composition に委譲** – Domain で `Development/Production` を切り替えず、アプリ側でリポジトリ構成を選択する。
-46. **リポジトリ初期化/終了処理を Application 層へ** – Domain の helper 関数を削除し、ブートストラッププロセスが明示的に呼び出す。
-47. **Clock 依存を注入可能に** – `Clock.currentTimeMillis` を DomainClockPort 経由で取得する。
-48. **乱数利用箇所を随机性ポートへ移す** – Domain では deterministic な RandomPort を使い、ユースケースによって実装を差し替える。
-49. **キャッシュ戦略のスケジューリングをアプリ層で制御** – Cleanup タスクを scheduler に委任し、Domain は閾値与件のみ返す。
-50. **Node FS を扱う永続化を Infrastructure に** – Persistence 実装を Domain から外し、インフラ層で提供する。
-51. **型ガードの依存を削減** – World TypeGuard が他 BC の Schema に依存しないよう、必要な情報だけを受け取る。
-52. **World Helper の cross-BC 依存を解消** – WorldHelper は World 内のユースケースのみに限定し、外部 BC のファクトリ呼び出しは Application 層へ移す。
-53. **リポジトリ層の cross-BC Config を排除** – WorldRepositoryLayerConfig から world_generation の設定型を切り離し、独立したポートを定義する。
-54. **World Helper の Application 呼び出しを禁止** – Domain 内で `WorldApplicationService` を取得せず、アプリケーション側に処理を委譲する。
-55. **WorldDomain の API を純粋な Domain 構成に限定** – `ApplicationServices` を WorldDomainInterface から除外する。
-56. **chunk_loader の Application ディレクトリを移動** – `src/domain/chunk_loader/application` を `src/application/chunk_loader` へ移行する。
-57. **Domain サービスとメトリクスの結合を解消** – オブザーバビリティ層からメトリクスを注入し、Domain 側は Port を介して記録する。
-58. **物理サービスの観測依存を削除** – `physicsStepDuration` などは ObservabilityPort に切り替える。
-59. **Stub 実装を明確に** – `compressData` などのモックを TODO コメント付きの NotImplemented エラーへ置換する。
-60. **簡易チェックサムを Port 化** – データ整合性は HashPort を使って実装する。
-61. **Biome → World 依存を整理** – Biome BC に World 型/エラーが必要なら共通コンテキストへ抽象化し、直接 import を削減する。
-62. **Biome リポジトリの Node 依存排除** – Node API をファイルストレージアダプタへ委譲し、Domain はインターフェースだけ参照する。
-63. **Biome 値オブジェクトの共通ユーティリティを分離** – `taggedUnion` を共有ライブラリに切り出すか、Biome 専用ユーティリティを定義する。
-64. **World Generation サービスの World 依存を削減** – 座標やノイズ設定を共通ポート・DTO として抽象化し、BC 間の直接依存を減らす。
-65. **ファクトリが参照する World 集約を DTO 化** – 世界生成結果を独立 DTO として定義し、World 集約型への依存を断つ。
-66. **ファクトリから World ドメインサービスを切り離す** – World Generation 側には独自サービスを用意し、World BC のサービスを直接呼ばない。
-67. **リポジトリインターフェースを共通ポートに** – GenerationSession Repository は World BC の型ではなく、独立した識別子/DTO を利用する。
-68. **値オブジェクトのユーティリティ依存を再考** – `taggedUnion` を BC に閉じた関数に書き換える。
-69. **イベントが参照する Chunk 型を抽象化** – WorldGeneration イベントは独自の Chunk DTO を持ち、Chunk BC の schema を import しない。
-70. **テンプレートと world 型の切り分け** – GenerationSession テンプレートで必要な構造を共通 DTO として定義し、World 集約 schema への依存を減らす。
-71. **メタデータに含まれるビルド情報を削除** – バージョン/バンドルサイズ等はドキュメントや build system へ移し、ドメインモデルから取り除く。
-72. **設定からリポジトリ schema を排除** – WorldDomainConfig では RepositoryPort を受け取る形に変更する。
-73. **Application フラグを別設定に分離** – `enableApplicationServices` などはアプリ構成に移し、DomainConfig はビジネス設定に限定する。
-74. **共通 types.ts を廃止** – BC ごとの index を利用し、`domain/types.ts` は削除または用途限定の facade に縮小する。
-75. **壊れた再エクスポートを修正** – 存在しない `chunk/application_service` を削除する。
-76. **ドメイン index から Application Live を除外** – `ChunkApplicationServiceLive` の再エクスポートをやめる。
-77. **Camera Domain Layer の責務を整理** – CQRS ハンドラを Application 層へ移し、Domain Layer はサービスとリポジトリのみを統合する。
-78. **Chunk Domain Layer も同様に整理** – Command/Query ハンドラをアプリ層へ移行する。
-79. **開発用実装と本番層の切替をブートストラップで実施** – Domain Layers は具体的リポジトリに依存しない。
-80. **Read Model をアプリケーションへ移す** – WorldGenerationReadModel を Application サービスで組み立てる。
-81. **chunk_loader/application を移動** – ドメインツリーからアプリケーションロジックを排除する。
-82. **ChunkLoadingProvider の疑似ロジックをテスト専用に隔離** – 本番ロジックは純粋なドメイン計算/状態遷移のみにする。
-83. **Physics Performance Service を Observability に移動** – 物理 Domain はパフォーマンス調整の指針のみ返し、メトリクス収集は外部へ委譲。
-84. **World Lifecycle イベントを業務イベントに限定** – SystemStart/GC などインフライベントは監視レイヤーへ移す。
-85. **Scene → World 依存を解消** – Scene BC で必要な World ID を抽象化し、UI 層はアプリサービス経由で World と連携する。
-86. **GameSceneController のユースケースをアプリ層へ移管** – プレイヤー状態操作は Application/Domain Service を通じて行う。
-87. **SceneManager の状態遷移をアプリ側で管理** – Domain ではシーン状態モデルと制約のみ提供する。
-88. **ViewDistance の LOD 計算をルールに限定** – PerformanceMetrics はアプリ層から数値として渡し、Domain 値オブジェクトがメトリクスを持たないようにする。
-89. **FeatureFlags から環境依存を除外** – 環境別設定はアプリケーション構成に移動し、ドメインは機能可否のルールのみ扱う。
-90. **プリセットの運用設定を外部化** – `logLevel` や `recommendedThreads` などは運用ガイドへ移し、プリセットは純粋なゲームルールのみ記述する。
-91. **Scene index の不要 export を修正** – 存在するモジュールだけを再エクスポートする。
-92. **ChunkLoader index の公開 API を整理** – Domain からアプリ層実装 (`ChunkLoadingProviderLive`) を除外する。
-93. **Furniture Application Service をアプリ層へ移行** – Domain には家具のビジネスロジックのみ残す。
-94. **ChunkSystem の sleep を外部制御に** – スケジューリングをアプリ層へ任せ、Domain は `delta` 計算のみ行う。
-95. **BiomeSystemFactory の疑似待機を削除** – 遅延はテストダブルで表現し、本番ロジックは純粋に。
-96. **Chunk Performance の GC 対応を除外** – メモリ制御はランタイム設定で行い、ドメイン処理は deterministic に。
-97. **Composite Operations の sleep を削除** – 代わりにバッチサイズ調整や backpressure を導入する。
-98. **オーケストレータの固定待機を撤廃** – 実際の生成結果を受け取る非同期処理に置換する。
-99. **テンプレートに含まれる運用情報を抽象化** – CPU/メモリ要求などはドキュメント化し、ドメインテンプレートは生成ロジックだけ持つ。
-100. **テンプレート検索のスコアリングをアプリケーションへ移す** – Domain はテンプレートのメタデータを提供し、検索/スコアリングはアプリ層で実装する。
+| ID | 対応テーマ | 主対象 | 推奨フェーズ | ステータス | 備考 |
+| --- | --- | --- | --- | --- | --- |
+| 1 | ドメイン常駐インフラの排除 | World / WorldGeneration / Biome | Phase2-3 | 部分完了 | Inventory/Chunk は移設済み。World 系 Repository を Port 化するタスクが残存 (#1,#13). |
+| 2 | `<Service>Live` の分離 | World / Biome / Camera | Phase2-3 | 部分完了 | Inventory/Input は完了。World/Camera の Layer から Live 実装を排出する必要あり (#2,#77). |
+| 3 | CQRS DTO のアプリ層移行 | World / WorldGeneration / Scene | Phase2 | 部分完了 | Inventory は移行済み。World/Scene の DTO をアプリ層 `types/` へ移設する。 |
+| 4 | UI → Domain 直結の撤廃 | Presentation 全般 | Phase1 | 完了 | React サンプルはアプリ層ファサード経由に統一済み (#4). |
+| 5 | BC 再定義と語彙統一 | 全 BC | Phase1 | 完了 | `docs/design/bounded-contexts.md` をSSoTとして運用中 (#5). |
+| 6 | Effect/Schema 依存度調整 | Chunk / WorldGeneration / Biome / Camera | Phase2 | 部分完了 | Player/Inventory は純粋化済み。残りは `Effect.gen` 削減と `calculate*` 抽出が必要 (#6). |
+| 7 | 物理エンジン操作の外部化 | Physics | Phase1 | 完了 | `PhysicsEnginePort` 導入済み、Cannon-es 実装はインフラ層へ移行 (#7). |
+| 8 | ブラウザ API 依存の抽象化 | WorldGeneration / Biome / ViewDistance | Phase2-3 | 部分完了 | Inventory/Chunk は Port 化済み。WorldGeneration は `HardwareProfileService` で抽象化済み。ViewDistance/Biome の環境依存が残存 (#8,#12,#14). |
+| 9 | Node FS 依存の外部化 | World / WorldGeneration / Biome | Phase2-3 | 部分完了 | Inventory は完了。World/Biome の Node 依存をアダプタへ移す (#13,#33). |
+| 10 | Application 実装の再輸出停止 | Domain index | Phase1 | 完了 | `src/domain/index.ts` からアプリ実装を排除済み (#10,#75,#76). |
+| 11 | 環境自動判定の Composition 化 | WorldGeneration / ViewDistance | Phase2 | 部分完了 | Inventory ではブートストラップへ移行済み。WorldGeneration の `detectHardwareSpec` 等を移設する (#11,#14). |
+| 12 | ブラウザ API 利用可否ポート化 | WorldGeneration | Phase2 | 完了 | Inventory/Chunk の Port 化に加え、`HardwareProfileService` でハードウェア検出を抽象化し、`navigator` 依存を排除した (#12,#14). |
+| 13 | 永続化アダプタ分割 | World / WorldGeneration / Biome | Phase2 | 部分完了 | Inventory/Chunk は済み。World 系 `*implementation.ts` をインフラ配下へ移動する (#13). |
+| 14 | ハードウェア検出の外部サービス化 | WorldGeneration | Phase2 | 完了 | `HardwareProfileService` ポートを導入し、ブラウザ API 依存をアプリ層の `BrowserHardwareProfileServiceLive` に移管した (#14). |
+| 15 | Performance API 抽象化 | Performance / Biome / Chunk | Phase4 | 未着手 | `performance.now`/`performance.memory` 依存を Clock/Observability Port に差し替える (#15). |
+| 16 | World⇔WorldGeneration の再輸出停止 | World | Phase3 | 未着手 | `world/factory` などで `@domain/world_generation` への依存を分離する (#16,#64-70). |
+| 17 | Layer 組み立てのブートストラップ移行 | World / Camera | Phase3 | 未着手 | `createWorldDomainLayer` / `CameraDomainLive` から構成選択を除去する (#17,#77). |
+| 18 | 環境戦略・ログの外部化 | ChunkSystem / WorldGeneration | Phase3 | 部分完了 | Chunk Loader は移行済み。WorldGeneration の戦略/メトリクス更新をアプリ層へ移す (#18,#57-58). |
+| 19 | ドメイン設定から技術パラメータ除去 | World | Phase3 | 未着手 | `world/config.ts` から `compression` などの技術設定を分離する (#19,#72). |
+| 20 | ロギングの横断化 | Physics / WorldGeneration / Chunk | Phase3-4 | 未着手 | `Effect.log*` を LoggerPort に統一する (#20,#57,#83). |
+| 21 | Node 固有メモリ API 抽象化 | Chunk Query | Phase1 | 完了 | `process.memoryUsage` 依存はアプリ層に移行済み (#21). |
+| 22 | 擬似待機のテストダブル化 | Biome / WorldGeneration / ChunkSystem | Phase2-3 | 部分完了 | Chunk 系は除去済み。Biome/WorldGeneration に残る `Effect.sleep` を外部ジョブへ移す (#22,#29,#95,#98). |
+| 23 | 構造体コピーの汎用化 | WorldGeneration / Inventory | Phase2 | 完了 | Inventory に続き、ErrorRecovery で `CloneService` ポートを導入し、`structuredClone` 依存を排除した (#23). |
+| 24 | 暗号処理のアダプタ化 | WorldMetadata | Phase1 | 完了 | 暗号処理はインフラ層へ移行済み (#24). |
+| 25 | ハッシュ計算ポート化 | Chunk Serializer/Validator | Phase2 | 未着手 | `crypto.subtle.digest` 依存を HashPort に切り替える (#25). |
+| 26 | 圧縮処理抽象化 | Chunk Serializer / WorldGeneration | Phase2 | 未着手 | `node:zlib` 依存を CompressionPort に移す (#26). |
+| 27 | GC 呼び出しの排除 | Chunk Performance | Phase2 | 部分完了 | `global.gc` 呼び出しが `performance_optics.ts` に残る。通知イベント化が必要 (#27,#96). |
+
+上表を Phase2 以降のバックログとして管理し、ステータス列を基に具体的なタスクへ落とし込む。

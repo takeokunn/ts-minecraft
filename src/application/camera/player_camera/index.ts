@@ -7,13 +7,30 @@
  */
 
 import { Schema } from 'effect'
+import type {
+  CameraApplicationError,
+  KeyboardAction,
+  KeyModifier,
+  PerformanceMetrics,
+  PlayerCameraInput,
+  PlayerCameraSettingsUpdate,
+  PlayerCameraState,
+  PlayerCameraStatistics,
+  ViewModeTransitionFailureReason,
+  ViewModeTransitionResult,
+} from './types'
+import {
+  CameraApplicationErrorSchema,
+  PlayerCameraInputSchema,
+  PlayerCameraStateSchema,
+  ViewModeTransitionResultSchema,
+} from './types'
 
 // ========================================
 // Service Interface & Context
 // ========================================
 
 export { PlayerCameraApplicationService } from './service'
-export type { PlayerCameraApplicationService } from './types'
 
 // ========================================
 // Live Implementation
@@ -147,18 +164,10 @@ export const PlayerCameraApplicationServiceTypeGuards = {
  * 便利な型定義の再エクスポート
  * 外部から利用する際の import を簡素化
  */
-export type {
-  AnimationConfig,
-  CameraId,
-  CameraSettings,
-  MouseDelta,
-  PlayerCameraPreferences,
-  PlayerId,
-  Position3D,
-  Vector3D,
-  ViewMode,
-  ViewModeTransitionConfig,
-} from '@domain/camera/types'
+export type { CameraId, CameraSettings, MouseDelta, Position3D } from '@domain/camera/types'
+export type { PlayerId } from '@domain/shared/entities/player_id'
+export type { ViewMode } from '@domain/camera/value_object'
+export type { ViewModeTransitionConfig } from '@application/camera/camera_mode_manager'
 
 // ========================================
 // Usage Examples Documentation

@@ -487,7 +487,7 @@ export const InMemoryEventStore: EventStore = {
     Effect.gen(function* () {
       // 実装はシンプルな配列に保存
       // 本番環境では永続化ストレージを使用
-      yield* Effect.log(`Saving ${events.length} events`)
+      yield* Effect.unit
     }),
 
   load: (aggregateId, fromVersion) => Stream.empty, // プレースホルダー実装
@@ -503,7 +503,7 @@ export const InMemoryEventStore: EventStore = {
 export const InMemoryEventPublisher: EventPublisher = {
   publish: (event) =>
     Effect.gen(function* () {
-      yield* Effect.log(`Publishing event: ${event.eventType}`)
+      yield* Effect.unit
     }),
 
   subscribe: (eventType) => Stream.empty, // プレースホルダー実装

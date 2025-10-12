@@ -1,23 +1,16 @@
+import type { ViewModeTransitionConfig } from '@application/camera/camera_mode_manager'
 import { ViewModeTransitionConfigSchema } from '@application/camera/camera_mode_manager'
-import type {
-  AnimationState,
-  CameraId,
-  CameraRotation,
-  CameraSettings,
-  MouseDelta,
-  PlayerId,
-  Position3D,
-  ViewMode,
-  ViewModeTransitionConfig,
-} from '@domain/camera/types'
+import type { AnimationState, CameraId, CameraRotation, CameraSettings, MouseDelta, Position3D } from '@domain/camera/types'
 import {
   AnimationStateSchema,
   CameraRotationSchema,
   CameraSettingsSchema,
   Position3DSchema,
 } from '@domain/camera/types'
+import type { PlayerId } from '@domain/shared/entities/player_id'
+import type { ViewMode } from '@domain/camera/value_object'
 import { ViewModeSchema } from '@domain/camera/value_object'
-import { Array, Brand, Clock, Data, Effect, Option, Schema } from 'effect'
+import { Brand, Clock, Data, Effect, Option, Schema } from 'effect'
 
 // ========================================
 // Player Camera Application Types
@@ -34,13 +27,13 @@ export type PlayerCameraInput = Data.TaggedEnum<{
   }
   KeyboardInput: {
     readonly action: KeyboardAction
-    readonly modifiers: Array.ReadonlyArray<KeyModifier>
+    readonly modifiers: ReadonlyArray<KeyModifier>
     readonly timestamp: number
   }
   ViewModeSwitch: {
     readonly targetMode: ViewMode
     readonly preservePosition: boolean
-    readonly animationDuration: Option<number>
+    readonly animationDuration: Option.Option<number>
   }
   SettingsUpdate: {
     readonly settings: Partial<CameraSettings>
@@ -73,20 +66,17 @@ export type KeyModifier = Data.TaggedEnum<{
 /**
  * プレイヤーカメラ状態
  */
-export type PlayerCameraState = Brand.Brand<
-  {
-    readonly playerId: PlayerId
-    readonly cameraId: CameraId
-    readonly position: Position3D
-    readonly rotation: CameraRotation
-    readonly viewMode: ViewMode
-    readonly settings: CameraSettings
-    readonly isInitialized: boolean
-    readonly lastUpdate: number
-    readonly animationState: Option<AnimationState>
-  },
-  'PlayerCameraState'
->
+export type PlayerCameraState = {
+  readonly playerId: PlayerId
+  readonly cameraId: CameraId
+  readonly position: Position3D
+  readonly rotation: CameraRotation
+  readonly viewMode: ViewMode
+  readonly settings: CameraSettings
+  readonly isInitialized: boolean
+  readonly lastUpdate: number
+  readonly animationState: Option.Option<AnimationState>
+} & Brand.Brand<'PlayerCameraState'>
 
 /**
  * ビューモード遷移結果
@@ -125,49 +115,40 @@ export type ViewModeTransitionFailureReason = Data.TaggedEnum<{
 /**
  * プレイヤーカメラ設定更新
  */
-export type PlayerCameraSettingsUpdate = Brand.Brand<
-  {
-    readonly fov: Option<number>
-    readonly sensitivity: Option<number>
-    readonly smoothing: Option<number>
-    readonly invertY: Option<boolean>
-    readonly autoAdjustDistance: Option<boolean>
-    readonly collisionDetection: Option<boolean>
-    readonly renderDistance: Option<number>
-    readonly qualityLevel: Option<string>
-  },
-  'PlayerCameraSettingsUpdate'
->
+export type PlayerCameraSettingsUpdate = {
+  readonly fov: Option.Option<number>
+  readonly sensitivity: Option.Option<number>
+  readonly smoothing: Option.Option<number>
+  readonly invertY: Option.Option<boolean>
+  readonly autoAdjustDistance: Option.Option<boolean>
+  readonly collisionDetection: Option.Option<boolean>
+  readonly renderDistance: Option.Option<number>
+  readonly qualityLevel: Option.Option<string>
+} & Brand.Brand<'PlayerCameraSettingsUpdate'>
 
 /**
  * プレイヤーカメラ統計情報
  */
-export type PlayerCameraStatistics = Brand.Brand<
-  {
-    readonly totalInputEvents: number
-    readonly averageFrameTime: number
-    readonly cameraMovements: number
-    readonly viewModeChanges: number
-    readonly lastUpdateTime: number
-    readonly memoryUsage: number
-    readonly performanceMetrics: PerformanceMetrics
-  },
-  'PlayerCameraStatistics'
->
+export type PlayerCameraStatistics = {
+  readonly totalInputEvents: number
+  readonly averageFrameTime: number
+  readonly cameraMovements: number
+  readonly viewModeChanges: number
+  readonly lastUpdateTime: number
+  readonly memoryUsage: number
+  readonly performanceMetrics: PerformanceMetrics
+} & Brand.Brand<'PlayerCameraStatistics'>
 
 /**
  * パフォーマンスメトリクス
  */
-export type PerformanceMetrics = Brand.Brand<
-  {
-    readonly updateFrequency: number
-    readonly renderTime: number
-    readonly inputLatency: number
-    readonly memoryAllocations: number
-    readonly gpuMemoryUsage: number
-  },
-  'PerformanceMetrics'
->
+export type PerformanceMetrics = {
+  readonly updateFrequency: number
+  readonly renderTime: number
+  readonly inputLatency: number
+  readonly memoryAllocations: number
+  readonly gpuMemoryUsage: number
+} & Brand.Brand<'PerformanceMetrics'>
 
 // ========================================
 // Application Error Types
@@ -201,7 +182,7 @@ export type CameraApplicationError = Data.TaggedEnum<{
   }
   ConfigurationValidationFailed: {
     readonly config: ViewModeTransitionConfig
-    readonly validationErrors: Array.ReadonlyArray<string>
+    readonly validationErrors: ReadonlyArray<string>
   }
   ResourceAllocationFailed: {
     readonly resource: string
@@ -354,7 +335,7 @@ export const createPlayerCameraInput = {
 
   keyboardInput: (
     action: KeyboardAction,
-    modifiers: Array.ReadonlyArray<KeyModifier> = []
+    modifiers: ReadonlyArray<KeyModifier> = []
   ): Effect.Effect<PlayerCameraInput> =>
     Effect.gen(function* () {
       const timestamp = yield* Clock.currentTimeMillis
@@ -369,7 +350,7 @@ export const createPlayerCameraInput = {
   viewModeSwitch: (
     targetMode: ViewMode,
     preservePosition = true,
-    animationDuration: Option<number> = Option.none()
+    animationDuration: Option.Option<number> = Option.none()
   ): PlayerCameraInput =>
     Data.struct({
       _tag: 'ViewModeSwitch' as const,
@@ -441,7 +422,7 @@ export const createCameraApplicationError = {
 
   configurationValidationFailed: (
     config: ViewModeTransitionConfig,
-    validationErrors: Array.ReadonlyArray<string>
+    validationErrors: ReadonlyArray<string>
   ): CameraApplicationError =>
     Data.struct({
       _tag: 'ConfigurationValidationFailed' as const,

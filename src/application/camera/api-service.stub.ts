@@ -1,13 +1,14 @@
-import { Camera } from '@/domain/camera/aggregate/camera/camera'
-import { cameraToSnapshot } from '@/domain/camera/cqrs/helpers'
-import type { CameraCommand, CameraQuery, CameraQueryResult, CameraSnapshot } from '@/domain/camera/types'
-import { CameraIdSchema } from '@/domain/camera/types'
-import { createPosition3D } from '@/domain/camera/value_object/camera_position/operations'
-import { createCameraRotation } from '@/domain/camera/value_object/camera_rotation/operations'
-import { createCameraSettings } from '@/domain/camera/value_object/camera_settings/operations'
-import { ViewModeFactory } from '@/domain/camera/value_object/view_mode/operations'
+import { Camera } from '@domain/camera/aggregate/camera/camera'
+import { cameraToSnapshot } from '@domain/camera/cqrs/helpers'
+import type { CameraQueryResult } from '@domain/camera/cqrs'
+import type { CameraCommand, CameraQuery, CameraSnapshot } from '@domain/camera/types'
+import { CameraIdSchema } from '@domain/camera/types'
+import { createPosition3D } from '@domain/camera/value_object/camera_position/operations'
+import { createCameraRotation } from '@domain/camera/value_object/camera_rotation/operations'
+import { createCameraSettings } from '@domain/camera/value_object/camera_settings/operations'
+import { ViewModeFactory } from '@domain/camera/value_object/view_mode/operations'
 import { CameraAPIService } from '@application/camera/api-service'
-import { DateTime, Effect, Layer, Match, Option, Ref, Schema } from 'effect'
+import { DateTime, Effect, Layer, Option, Ref, Schema } from 'effect'
 import { CameraHUDServiceLive } from './hud-service'
 
 const makeInitialCamera = Effect.gen(function* () {
@@ -44,35 +45,33 @@ export const CameraAPIServiceStub = Layer.effect(
     const cameraRef = yield* Ref.make(initialCamera)
 
     const executeCommand = (_command: CameraCommand): Effect.Effect<CameraSnapshot, never> =>
-      cameraRef.pipe(Ref.get, Effect.map(cameraToSnapshot))
+      Effect.gen(function* () {
+        const camera = yield* Ref.get(cameraRef)
+        return cameraToSnapshot(camera)
+      })
 
     const executeQuery = (query: CameraQuery): Effect.Effect<CameraQueryResult, never> =>
-      cameraRef.pipe(
-        Ref.get,
-        Effect.flatMap((camera) =>
-          Match.value(query).pipe(
-            Match.tag('GetCameraSnapshot', () =>
-              Effect.succeed({
-                _tag: 'Snapshot',
-                snapshot: cameraToSnapshot(camera),
-              } as const)
-            ),
-            Match.tag('GetCameraState', () =>
-              Effect.succeed({
-                _tag: 'State',
-                camera,
-              } as const)
-            ),
-            Match.tag('ListActiveCameras', () =>
-              Effect.succeed({
-                _tag: 'ActiveCameras',
-                cameraIds: [camera.id],
-              } as const)
-            ),
-            Match.exhaustive
-          )
-        )
-      )
+      Effect.gen(function* () {
+        const camera = yield* Ref.get(cameraRef)
+
+        switch (query._tag) {
+          case 'GetCameraSnapshot':
+            return {
+              _tag: 'Snapshot',
+              snapshot: cameraToSnapshot(camera),
+            } as const
+          case 'GetCameraState':
+            return {
+              _tag: 'State',
+              camera,
+            } as const
+          case 'ListActiveCameras':
+            return {
+              _tag: 'ActiveCameras',
+              cameraIds: [camera.id],
+            } as const
+        }
+      })
 
     return CameraAPIService.of({
       executeCommand,

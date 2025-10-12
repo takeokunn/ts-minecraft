@@ -1,5 +1,6 @@
-import type { CameraId, ViewMode } from '@domain/camera/types'
-import { Array, Brand, Context, Data, Effect, Option } from 'effect'
+import type { CameraId } from '@domain/camera/types'
+import type { ViewMode } from '@domain/camera/value_object/view_mode'
+import { Brand, Context, Data, Effect, Option } from 'effect'
 import type {
   CameraModeManagerApplicationError,
   CameraModeSwitchOperation,
@@ -47,8 +48,8 @@ export interface CameraModeManagerApplicationService {
    * @returns 切り替え結果の配列
    */
   readonly batchSwitchCameraMode: (
-    operations: Array.ReadonlyArray<CameraModeSwitchOperation>
-  ) => Effect.Effect<Array.ReadonlyArray<ViewModeTransitionResult>, CameraModeManagerApplicationError>
+    operations: ReadonlyArray<CameraModeSwitchOperation>
+  ) => Effect.Effect<ReadonlyArray<ViewModeTransitionResult>, CameraModeManagerApplicationError>
 
   /**
    * スケジュール化されたビューモード遷移を設定します
@@ -84,7 +85,7 @@ export interface CameraModeManagerApplicationService {
   readonly getAvailableViewModes: (
     cameraId: CameraId,
     context: ViewModeContext
-  ) => Effect.Effect<Array.ReadonlyArray<ViewMode>, CameraModeManagerApplicationError>
+  ) => Effect.Effect<ReadonlyArray<ViewMode>, CameraModeManagerApplicationError>
 
   /**
    * コンテキストに基づいて最適なビューモードを推奨します
@@ -108,7 +109,7 @@ export interface CameraModeManagerApplicationService {
    */
   readonly getTransitionStatus: (
     cameraId: CameraId
-  ) => Effect.Effect<Option<ViewModeTransitionResult>, CameraModeManagerApplicationError>
+  ) => Effect.Effect<Option.Option<ViewModeTransitionResult>, CameraModeManagerApplicationError>
 
   /**
    * 全スケジュール済み遷移を取得します
@@ -116,7 +117,7 @@ export interface CameraModeManagerApplicationService {
    * @returns スケジュール済み遷移の一覧
    */
   readonly getAllScheduledTransitions: () => Effect.Effect<
-    Array.ReadonlyArray<{
+    ReadonlyArray<{
       readonly scheduleId: ScheduleId
       readonly cameraId: CameraId
       readonly targetMode: ViewMode
@@ -133,7 +134,7 @@ export interface CameraModeManagerApplicationService {
    * @returns 統計情報
    */
   readonly getModeTransitionStatistics: (
-    timeRange: Option<TimeRange>
+    timeRange: Option.Option<TimeRange>
   ) => Effect.Effect<ModeTransitionStatistics, CameraModeManagerApplicationError>
 
   /**
@@ -189,7 +190,7 @@ export type ScheduleStatus = Data.TaggedEnum<{
 /**
  * 時間範囲
  */
-export type TimeRange = Brand.Brand<
+export type TimeRange = Brand.Branded<
   {
     readonly startTime: number
     readonly endTime: number
@@ -200,7 +201,7 @@ export type TimeRange = Brand.Brand<
 /**
  * モード遷移統計
  */
-export type ModeTransitionStatistics = Brand.Brand<
+export type ModeTransitionStatistics = Brand.Branded<
   {
     readonly totalTransitions: number
     readonly successfulTransitions: number
@@ -216,7 +217,7 @@ export type ModeTransitionStatistics = Brand.Brand<
 /**
  * パフォーマンス目標
  */
-export type PerformanceTargets = Brand.Brand<
+export type PerformanceTargets = Brand.Branded<
   {
     readonly targetFPS: number
     readonly maxMemoryUsageMB: number
@@ -230,9 +231,9 @@ export type PerformanceTargets = Brand.Brand<
 /**
  * パフォーマンス最適化結果
  */
-export type PerformanceOptimizationResult = Brand.Brand<
+export type PerformanceOptimizationResult = Brand.Branded<
   {
-    readonly optimizationsApplied: Array.ReadonlyArray<string>
+    readonly optimizationsApplied: ReadonlyArray<string>
     readonly estimatedFPSImprovement: number
     readonly estimatedMemoryReduction: number
     readonly modifiedTransitions: number
@@ -246,18 +247,18 @@ export type PerformanceOptimizationResult = Brand.Brand<
 export type TransitionValidationResult = Data.TaggedEnum<{
   Valid: {
     readonly estimatedDuration: number
-    readonly warnings: Array.ReadonlyArray<string>
+    readonly warnings: ReadonlyArray<string>
   }
   Invalid: {
-    readonly errors: Array.ReadonlyArray<ValidationError>
-    readonly suggestions: Array.ReadonlyArray<string>
+    readonly errors: ReadonlyArray<ValidationError>
+    readonly suggestions: ReadonlyArray<string>
   }
 }>
 
 /**
  * 検証エラー
  */
-export type ValidationError = Brand.Brand<
+export type ValidationError = Brand.Branded<
   {
     readonly field: string
     readonly message: string

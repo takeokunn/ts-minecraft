@@ -311,7 +311,7 @@ export const WorldGenerationOrchestratorHelpers = {
         Effect.retry(
           Effect.Schedule.exponential('100 millis').pipe(Effect.Schedule.compose(Effect.Schedule.recurs(maxRetries)))
         ),
-        Effect.tapError((error) => Effect.logError(`チャンク生成に失敗しました: ${error.message}`))
+        Effect.tapError(() => Effect.unit)
       )
     }),
 }

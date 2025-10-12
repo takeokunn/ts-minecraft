@@ -10,7 +10,6 @@
 // ========================================
 
 export { CameraModeManagerApplicationService } from './service'
-export type { CameraModeManagerApplicationService } from './types'
 
 // ========================================
 // Live Implementation
@@ -24,22 +23,19 @@ export { CameraModeManagerApplicationServiceLive } from './live'
 
 export type {
   AnimationType,
-  // Error Types
   CameraModeManagerApplicationError,
   CameraModeSwitchOperation,
-  // Configuration Types
   EasingFunction,
   GameContext,
   OperationPriority,
   PlayerPreferences,
+  RecommendationReason,
   RollbackConfig,
   ScheduleId,
   SlideDirection,
   TransitionId,
-  // Context Types
   ViewModeContext,
   ViewModeRecommendation,
-  // Core Types
   ViewModeTransitionConfig,
   ViewModeTransitionFailureReason,
   ViewModeTransitionResult,
@@ -65,7 +61,7 @@ export type {
   TimeRange,
   TransitionValidationResult,
   ValidationError,
-} from './types'
+} from './service'
 
 // ========================================
 // Module Information
