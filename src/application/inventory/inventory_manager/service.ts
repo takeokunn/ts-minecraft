@@ -288,7 +288,3 @@ export interface InventoryManagerApplicationService {
 export const InventoryManagerApplicationService = Context.GenericTag<InventoryManagerApplicationService>(
   '@minecraft/domain/inventory/InventoryManagerApplicationService'
 )
-
-// Legacy alias for compatibility with application layer imports
-export type InventoryManagerService = InventoryManagerApplicationService
-export const InventoryManagerService = InventoryManagerApplicationService

@@ -3,11 +3,11 @@ import { toErrorCause, type ErrorCause } from '@shared/schema/error'
 import { Clock, Context, Effect, Layer, Match, pipe } from 'effect'
 import { Player } from '../../entities/Player'
 import { Direction, JUMP_VELOCITY, MOVEMENT_SPEEDS } from '../../player/PlayerState'
-import { CannonPhysicsService, type PhysicsBodyState } from './cannon'
+import { PhysicsEngine, type PhysicsBodyState, type PhysicsEnginePort } from './engine'
 
 /**
  * Player Physics Service
- * プレイヤー専用の物理演算サービス - Cannon-esとの統合層
+ * プレイヤー専用の物理演算サービス - 具体エンジンはポート経由で注入される
  */
 
 // Player物理状態エラー
@@ -104,9 +104,9 @@ export interface PlayerPhysicsService {
 export const PlayerPhysicsService = Context.GenericTag<PlayerPhysicsService>('@minecraft/domain/PlayerPhysicsService')
 
 // Player Physics Service実装
-const makePlayerPhysicsService: Effect.Effect<PlayerPhysicsService, never, CannonPhysicsService> = Effect.gen(
+const makePlayerPhysicsService: Effect.Effect<PlayerPhysicsService, never, PhysicsEnginePort> = Effect.gen(
   function* () {
-    const cannonPhysics = yield* CannonPhysicsService
+    const physicsEngine = yield* PhysicsEngine
 
     // プレイヤー物理の初期化
     const initializePlayerPhysics = (player: Player, config: Partial<PlayerPhysicsConfig> = {}) =>
@@ -118,7 +118,7 @@ const makePlayerPhysicsService: Effect.Effect<PlayerPhysicsService, never, Canno
 
         // Cannon-es Character Controllerを作成
         const bodyId = yield* pipe(
-          cannonPhysics.createPlayerController(player.id, player.position),
+          physicsEngine.createPlayerController(player.id, player.position),
           Effect.mapError(
             (error): PlayerPhysicsError => ({
               _tag: 'PlayerPhysicsError',
@@ -131,7 +131,7 @@ const makePlayerPhysicsService: Effect.Effect<PlayerPhysicsService, never, Canno
 
         // 初期物理状態を取得
         const physicsState = yield* pipe(
-          cannonPhysics.getPlayerState(bodyId),
+          physicsEngine.getPlayerState(bodyId),
           Effect.mapError(
             (error): PlayerPhysicsError => ({
               _tag: 'PlayerPhysicsError',
@@ -238,7 +238,7 @@ const makePlayerPhysicsService: Effect.Effect<PlayerPhysicsService, never, Canno
 
         // Cannon-esに移動力を適用
         yield* pipe(
-          cannonPhysics.applyMovementForce(physicsState.bodyId, force),
+          physicsEngine.applyMovementForce(physicsState.bodyId, force),
           Effect.mapError(
             (error): PlayerPhysicsError => ({
               _tag: 'PlayerPhysicsError',
@@ -251,7 +251,7 @@ const makePlayerPhysicsService: Effect.Effect<PlayerPhysicsService, never, Canno
 
         // 更新された物理状態を取得
         const newPhysicsState = yield* pipe(
-          cannonPhysics.getPlayerState(physicsState.bodyId),
+          physicsEngine.getPlayerState(physicsState.bodyId),
           Effect.mapError(
             (error): PlayerPhysicsError => ({
               _tag: 'PlayerPhysicsError',
@@ -300,7 +300,7 @@ const makePlayerPhysicsService: Effect.Effect<PlayerPhysicsService, never, Canno
             Effect.gen(function* () {
               // Cannon-esでジャンプ速度を適用
               yield* pipe(
-                cannonPhysics.jumpPlayer(physicsState.bodyId, physicsState.movementConfig.jumpVelocity),
+                physicsEngine.jumpPlayer(physicsState.bodyId, physicsState.movementConfig.jumpVelocity),
                 Effect.mapError(
                   (error): PlayerPhysicsError => ({
                     _tag: 'PlayerPhysicsError',
@@ -313,7 +313,7 @@ const makePlayerPhysicsService: Effect.Effect<PlayerPhysicsService, never, Canno
 
               // 更新された物理状態を取得
               const newPhysicsState = yield* pipe(
-                cannonPhysics.getPlayerState(physicsState.bodyId),
+                physicsEngine.getPlayerState(physicsState.bodyId),
                 Effect.mapError(
                   (error): PlayerPhysicsError => ({
                     _tag: 'PlayerPhysicsError',
@@ -387,7 +387,7 @@ const makePlayerPhysicsService: Effect.Effect<PlayerPhysicsService, never, Canno
       Effect.gen(function* () {
         // 最新の物理状態を取得
         const newPhysicsState = yield* pipe(
-          cannonPhysics.getPlayerState(physicsState.bodyId),
+          physicsEngine.getPlayerState(physicsState.bodyId),
           Effect.mapError(
             (error): PlayerPhysicsError => ({
               _tag: 'PlayerPhysicsError',
@@ -421,7 +421,7 @@ const makePlayerPhysicsService: Effect.Effect<PlayerPhysicsService, never, Canno
     const destroyPlayerPhysics = (physicsState: PlayerPhysicsState) =>
       Effect.gen(function* () {
         yield* pipe(
-          cannonPhysics.removeBody(physicsState.bodyId),
+          physicsEngine.removeBody(physicsState.bodyId),
           Effect.mapError(
             (error): PlayerPhysicsError => ({
               _tag: 'PlayerPhysicsError',

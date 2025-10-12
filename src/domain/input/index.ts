@@ -1,6 +1,5 @@
 export * from './errors'
 export * from './input-service'
-export * from './input-service-live'
 export * from './key-bindings'
 export * from './model'
 export * from './state'

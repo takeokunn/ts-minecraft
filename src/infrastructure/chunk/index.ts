@@ -7,6 +7,7 @@ import { ChunkWorkerRuntimeLayer } from './worker-runtime'
 export * from './worker-adapter'
 export * from './chunk-cache'
 export * from './worker-runtime'
+export * from './repository'
 
 export const ChunkInfrastructureLayer = Layer.mergeAll(
   ChunkWorkerAdapterLive,

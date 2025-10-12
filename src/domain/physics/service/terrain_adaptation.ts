@@ -2,7 +2,7 @@ import type { PlayerId, Vector3D } from '@domain/entities'
 import { toErrorCause, type ErrorCause } from '@shared/schema/error'
 import { Context, Effect, Layer, Match, Option, pipe, ReadonlyArray, Ref } from 'effect'
 import type { BlockType } from '../../block/types'
-import { CannonPhysicsService } from './cannon'
+import { PhysicsEngine, type PhysicsEnginePort } from './engine'
 import { WorldCollisionService, type BlockCollisionInfo } from './world_collision'
 
 /**
@@ -209,10 +209,10 @@ export const TerrainAdaptationService = Context.GenericTag<TerrainAdaptationServ
 const makeTerrainAdaptationService: Effect.Effect<
   TerrainAdaptationService,
   never,
-  WorldCollisionService | CannonPhysicsService
+  WorldCollisionService | PhysicsEnginePort
 > = Effect.gen(function* () {
   const worldCollision = yield* WorldCollisionService
-  const cannonPhysics = yield* CannonPhysicsService
+  const physicsEngine = yield* PhysicsEngine
 
   // プレイヤー地形状態管理
   const playerTerrainStatesRef = yield* Ref.make(new Map<PlayerId, PlayerTerrainState>())

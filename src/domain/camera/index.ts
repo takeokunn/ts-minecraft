@@ -15,16 +15,6 @@ export {
   createPosition3D as createPosition3DVO,
 } from './value_object'
 
-// Legacy exports for backward compatibility (explicit re-exports to avoid conflicts)
-export {
-  CameraParameterSchemas,
-  CameraConfig as LegacyCameraConfig,
-  LegacyCameraError,
-  CameraMode as LegacyCameraMode,
-  CameraState as LegacyCameraState,
-  Vector3Schema,
-} from '@domain/camera/types'
-
 // Constants
 export * from './constant'
 export * from './helper'

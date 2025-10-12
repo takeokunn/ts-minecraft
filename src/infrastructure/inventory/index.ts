@@ -5,3 +5,5 @@
  */
 
 export * from './persistence'
+export * from './repository'
+export * from './service'

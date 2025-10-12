@@ -1,5 +1,4 @@
-import type { WorldRepositoryLayerConfig } from '@domain/world/repository'
-import { WorldRepositoryLayerConfigSchema } from '@domain/world/repository/layers'
+import { WorldRepositoryLayerConfigSchema, type WorldRepositoryLayerConfig } from '@domain/world/repository'
 import { Context, Effect, Layer, Match, Schema } from 'effect'
 import * as Either from 'effect/Either'
 

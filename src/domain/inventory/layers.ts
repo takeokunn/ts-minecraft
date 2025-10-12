@@ -73,7 +73,7 @@ export const InventoryDomainLive = Layer.mergeAll(
  * import { InventoryCompleteLayer } from './domain/inventory/layers'
  *
  * const program = Effect.gen(function* () {
- *   const inventoryManager = yield* InventoryManagerService
+ *   const inventoryManager = yield* InventoryManagerApplicationService
  *   const result = yield* inventoryManager.createPlayerInventory(playerId)
  *   return result
  * })

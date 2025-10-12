@@ -5,3 +5,4 @@
 
 export { EquipmentServiceLive, EquipmentServiceTag, makeEquipmentService } from './service'
 export type { EquipmentService } from './service'
+export { EquipmentDomainLive } from './domain-layer'

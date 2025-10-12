@@ -3,7 +3,7 @@
  * Application層の依存関係を提供し、Domain層に依存
  */
 
-import { InventoryDomainLive } from '@/domain/inventory/layers'
+import { InventoryDomainLive } from './domain-layer'
 import { Layer } from 'effect'
 import { ContainerManagerApplicationServiceLive } from './container_manager'
 import { InventoryManagerApplicationServiceLive } from './inventory_manager'
@@ -20,7 +20,7 @@ export const InventoryApplicationServicesLayer = Layer.mergeAll(
 
 /**
  * Inventory Application Layer
- * - Application Service: InventoryManagerServiceLive, ContainerManagerServiceLive, TransactionManagerServiceLive
+ * - Application Service: InventoryManagerApplicationServiceLive, ContainerManagerServiceLive, TransactionManagerServiceLive
  * - 依存: InventoryDomainLive (Repository層 + Domain Service層 + Factory層)
  */
 export const InventoryApplicationLive = InventoryApplicationServicesLayer.pipe(Layer.provide(InventoryDomainLive))

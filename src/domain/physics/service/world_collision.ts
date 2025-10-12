@@ -2,7 +2,7 @@ import type { BlockTypeId, Vector3D } from '@domain/entities'
 import { makeUnsafe as makeUnsafeBlockTypeId } from '@domain/shared/entities/block_type_id/operations'
 import { toErrorCause, type ErrorCause } from '@shared/schema/error'
 import { Context, Effect, Layer, Match, Option, pipe, ReadonlyArray, Ref } from 'effect'
-import { CannonPhysicsService } from './cannon'
+import { PhysicsEngine, type PhysicsEnginePort } from './engine'
 
 /**
  * World Collision Service
@@ -268,9 +268,9 @@ export const WorldCollisionService = Context.GenericTag<WorldCollisionService>(
 )
 
 // World Collision Service実装
-const makeWorldCollisionService: Effect.Effect<WorldCollisionService, never, CannonPhysicsService> = Effect.gen(
+const makeWorldCollisionService: Effect.Effect<WorldCollisionService, never, PhysicsEnginePort> = Effect.gen(
   function* () {
-    const cannonPhysics = yield* CannonPhysicsService
+    const physicsEngine = yield* PhysicsEngine
 
     // 設定とキャッシュ
     const configRef = yield* Ref.make(DEFAULT_COLLISION_CONFIG)
@@ -344,7 +344,7 @@ const makeWorldCollisionService: Effect.Effect<WorldCollisionService, never, Can
                 ),
                 Match.orElse(() =>
                   pipe(
-                    cannonPhysics.addStaticBlock(position, { x: 1, y: 1, z: 1 }),
+                    physicsEngine.addStaticBlock(position, { x: 1, y: 1, z: 1 }),
                     Effect.mapError(
                       (error): WorldCollisionError => ({
                         _tag: 'WorldCollisionError',
@@ -405,9 +405,9 @@ const makeWorldCollisionService: Effect.Effect<WorldCollisionService, never, Can
           ),
           Match.orElse((existingBodyId) =>
             Effect.gen(function* () {
-              // Cannon-esボディを削除
+              // 物理エンジンからボディを削除
               yield* pipe(
-                cannonPhysics.removeBody(existingBodyId),
+                physicsEngine.removeBody(existingBodyId),
                 Effect.mapError(
                   (error): WorldCollisionError => ({
                     _tag: 'WorldCollisionError',
@@ -507,7 +507,7 @@ const makeWorldCollisionService: Effect.Effect<WorldCollisionService, never, Can
 
         // レイキャストを実行
         const result = yield* pipe(
-          cannonPhysics.raycastGround(origin, maxDistance),
+          physicsEngine.raycastGround(origin, maxDistance),
           Effect.mapError(
             (error): WorldCollisionError => ({
               _tag: 'WorldCollisionError',
@@ -775,7 +775,7 @@ const makeWorldCollisionService: Effect.Effect<WorldCollisionService, never, Can
           Effect.forEach(
             (bodyId) =>
               pipe(
-                cannonPhysics.removeBody(bodyId),
+                physicsEngine.removeBody(bodyId),
                 Effect.catchAll(() => Effect.void) // エラーは無視
               ),
             { concurrency: 4 }

@@ -1,5 +1,5 @@
 export * from './basic'
-export * from './cannon'
+export * from './engine'
 export * from './performance'
 export * from './player'
 export * from './terrain_adaptation'

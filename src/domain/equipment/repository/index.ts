@@ -1,2 +1,1 @@
-export * from './memory'
-export * from './memory.spec'
+export * from './interface'

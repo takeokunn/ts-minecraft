@@ -57,8 +57,6 @@ export const InventoryManagerApplicationServiceLive = Layer.effect(
                 error: error.message,
               })
 
-              // Legacy alias for compatibility
-              export const InventoryManagerServiceLive = InventoryManagerApplicationServiceLive
               return yield* Effect.fail(error)
             })
           )

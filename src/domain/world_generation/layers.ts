@@ -33,7 +33,7 @@ import { WorldGeneratorFactoryLive } from './factory/world_generator_factory/ind
 
 // Repository layers (注: これらは現在world/repository/layers.tsで管理されているため、ここでは参照のみ)
 // import { WorldGeneratorRepositoryMemoryLive } from './repository/world_generator_repository/index'
-// import { GenerationSessionRepositoryMemoryLive } from './repository/generation_session_repository/index'
+// import { GenerationSessionRepositoryMemoryWith } from './repository/generation_session_repository/index'
 
 /**
  * World Generation Aggregate Layer
