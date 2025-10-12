@@ -11,8 +11,21 @@ import {
   makeUnsafeWorldX,
   makeUnsafeWorldZ,
 } from '@/domain/biome/value_object/coordinates'
+import {
+  BiomePlacement,
+  BiomeSystemRepository,
+  BiomeSystemRepositoryConfig,
+  calculateDistance,
+  ClimateTransition,
+  coordinateInBounds,
+  coordinateToKey,
+  keyToCoordinate,
+  SpatialBounds,
+  SpatialCoordinate,
+  SpatialQuery,
+} from '@domain/biome/repository/biome_system_repository'
 import type { AllRepositoryErrors, BiomeDefinition, BiomeId, ClimateData } from '@domain/world/types'
-import { createBiomeId, createDataIntegrityError, createRepositoryError, createStorageError } from '@domain/world/types'
+import { createBiomeId, createDataIntegrityError, createRepositoryError } from '@domain/world/types'
 import {
   HumiditySchema,
   PrecipitationSchema,
@@ -27,20 +40,6 @@ import { DateTime, Effect, Layer, Option, pipe, ReadonlyArray, Ref } from 'effec
 import * as fs from 'fs'
 import * as path from 'path'
 import * as zlib from 'zlib'
-import {
-  BiomePlacement,
-  BiomeSystemRepository,
-  BiomeSystemRepositoryConfig,
-  calculateDistance,
-  ClimateTransition,
-  coordinateInBounds,
-  coordinateToKey,
-  defaultBiomeSystemRepositoryConfig,
-  keyToCoordinate,
-  SpatialBounds,
-  SpatialCoordinate,
-  SpatialQuery,
-} from '@domain/biome/repository/biome_system_repository'
 
 // === Configuration Types ===
 
@@ -194,7 +193,9 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
               createPersistenceError(`Failed to write file ${filePath}: ${error.message}`, 'filesystem', error)
             ),
           CompressionError: (error) =>
-            Effect.fail(createCompressionError('gzip', 'compress', `Compression error for ${filePath}: ${error.message}`)),
+            Effect.fail(
+              createCompressionError('gzip', 'compress', `Compression error for ${filePath}: ${error.message}`)
+            ),
         })
       )
 
@@ -260,7 +261,9 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
                 Effect.flatMap(Schema.decodeUnknown(schema)),
                 Effect.catchTags({
                   ParseError: (error) =>
-                    Effect.fail(createDataIntegrityError(`Schema validation failed for ${filePath}`, ['schema'], error.message)),
+                    Effect.fail(
+                      createDataIntegrityError(`Schema validation failed for ${filePath}`, ['schema'], error.message)
+                    ),
                   DataIntegrityError: (error) => Effect.fail(error),
                 })
               )
@@ -273,9 +276,13 @@ export const BiomeSystemRepositoryPersistenceImplementation = (
       }).pipe(
         Effect.catchTags({
           PersistenceError: (error) =>
-            Effect.fail(createPersistenceError(`Failed to read file ${filePath}: ${error.message}`, 'filesystem', error)),
+            Effect.fail(
+              createPersistenceError(`Failed to read file ${filePath}: ${error.message}`, 'filesystem', error)
+            ),
           CompressionError: (error) =>
-            Effect.fail(createCompressionError('gzip', 'decompress', `Decompression error for ${filePath}: ${error.message}`)),
+            Effect.fail(
+              createCompressionError('gzip', 'decompress', `Decompression error for ${filePath}: ${error.message}`)
+            ),
           DataIntegrityError: (error) => Effect.fail(error),
         })
       )

@@ -552,51 +552,52 @@ const makeTerrainAdaptationService: Effect.Effect<
             Effect.gen(function* () {
               // ステップアップ可能な高さをチェック（関数型変換）
               const testHeights = pipe(
-              ReadonlyArray.range(1, Math.floor(stepHeight / 0.1)),
-              ReadonlyArray.map((i) => i * 0.1)
-            )
+                ReadonlyArray.range(1, Math.floor(stepHeight / 0.1)),
+                ReadonlyArray.map((i) => i * 0.1)
+              )
 
-            const stepUpResult = yield* pipe(
-              testHeights,
-              Effect.findFirst((testHeight) =>
-                Effect.gen(function* () {
-                  const stepUpPosition: Vector3D = {
-                    ...forwardPosition,
-                    y: playerPosition.y + testHeight,
-                  }
+              const stepUpResult = yield* pipe(
+                testHeights,
+                Effect.findFirst((testHeight) =>
+                  Effect.gen(function* () {
+                    const stepUpPosition: Vector3D = {
+                      ...forwardPosition,
+                      y: playerPosition.y + testHeight,
+                    }
 
-                  const stepUpCollision = yield* worldCollision
-                    .checkSphereCollision({
-                      center: stepUpPosition,
-                      radius: 0.3,
-                    })
-                    .pipe(Effect.orElse(() => Effect.succeed({ blocks: [], hasCollision: false })))
+                    const stepUpCollision = yield* worldCollision
+                      .checkSphereCollision({
+                        center: stepUpPosition,
+                        radius: 0.3,
+                      })
+                      .pipe(Effect.orElse(() => Effect.succeed({ blocks: [], hasCollision: false })))
 
-                  return pipe(
-                    Match.value(stepUpCollision.hasCollision),
-                    Match.when(
-                      (hasCollision) => hasCollision,
-                      () =>
-                        Option.some({
-                          position: { ...playerPosition, y: playerPosition.y + testHeight },
-                          velocity: { ...velocity, y: Math.max(0, velocity.y) },
-                        })
-                    ),
-                    Match.orElse(() => Option.none())
-                  )
+                    return pipe(
+                      Match.value(stepUpCollision.hasCollision),
+                      Match.when(
+                        (hasCollision) => hasCollision,
+                        () =>
+                          Option.some({
+                            position: { ...playerPosition, y: playerPosition.y + testHeight },
+                            velocity: { ...velocity, y: Math.max(0, velocity.y) },
+                          })
+                      ),
+                      Match.orElse(() => Option.none())
+                    )
+                  })
+                ),
+                Effect.catchAll(() => Effect.succeed(Option.none()))
+              )
+
+              return yield* pipe(
+                stepUpResult,
+                Option.match({
+                  onNone: () => Effect.succeed({ position: playerPosition, velocity }),
+                  onSome: (result) => Effect.succeed(result),
                 })
-              ),
-              Effect.catchAll(() => Effect.succeed(Option.none()))
-            )
-
-            return yield* pipe(
-              stepUpResult,
-              Option.match({
-                onNone: () => Effect.succeed({ position: playerPosition, velocity }),
-                onSome: (result) => Effect.succeed(result),
-              })
-            )
+              )
             })
+          )
         )
       })
 

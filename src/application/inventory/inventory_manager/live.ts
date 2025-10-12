@@ -5,12 +5,12 @@
  * DDD Application層のライブ実装
  */
 
+import type { InventoryId, PlayerId } from '@/domain/inventory'
 import type { ItemStack } from '@/domain/inventory/aggregate/item_stack'
 import type { StackingService } from '@/domain/inventory/domain_service/stacking_service'
 import type { TransferService } from '@/domain/inventory/domain_service/transfer_service'
 import type { ValidationService } from '@/domain/inventory/domain_service/validation_service'
 import type { InventoryRepository } from '@/domain/inventory/repository/inventory_repository'
-import type { InventoryId, PlayerId } from '@/domain/inventory'
 import type { InventoryCommand, InventoryQuery } from '@application/inventory/types'
 import { Effect, Layer, Match, pipe } from 'effect'
 import type { InventoryService } from '../..'

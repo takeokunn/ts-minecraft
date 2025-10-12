@@ -2,8 +2,8 @@ import { GameApplication, type GameApplicationStateError } from '@application/ga
 import {
   SettingsApplicationService,
   type SettingsApplicationError,
-  type SettingsOptionUpdate,
   type SettingsMenuModel,
+  type SettingsOptionUpdate,
 } from '@application/settings'
 import { Context, Effect, Layer, Match, Ref, Stream, SubscriptionRef } from 'effect'
 
@@ -71,9 +71,7 @@ export interface MenuController {
   readonly handlePauseAction: (actionId: MenuAction['id']) => Effect.Effect<MenuViewModel, MenuControllerError>
 }
 
-export const MenuControllerTag = Context.GenericTag<MenuController>(
-  '@minecraft/presentation/menu/MenuController'
-)
+export const MenuControllerTag = Context.GenericTag<MenuController>('@minecraft/presentation/menu/MenuController')
 export const MenuControllerService = MenuControllerTag
 export type { MenuControllerError }
 
@@ -112,16 +110,17 @@ const makeMenuController = Effect.gen(function* () {
     )
 
   const setRoute = (route: MenuRoute) =>
-    updateLastRoute(route).pipe(Effect.flatMap(() => menuState.set(route)), Effect.flatMap(() => rebuild(route)))
+    updateLastRoute(route).pipe(
+      Effect.flatMap(() => menuState.set(route)),
+      Effect.flatMap(() => rebuild(route))
+    )
 
   const closeMenu = () =>
     Effect.gen(function* () {
       const current = yield* menuState.get
       const lastRoute = yield* Ref.get(lastRouteRef)
       const shouldResume =
-        current === 'pause' ||
-        (current === 'settings' && lastRoute === 'pause') ||
-        lastRoute === 'pause'
+        current === 'pause' || (current === 'settings' && lastRoute === 'pause') || lastRoute === 'pause'
       yield* Match.value(shouldResume).pipe(
         Match.when(true, () => gameApplication.resume()),
         Match.orElse(() => Effect.void)
@@ -132,10 +131,7 @@ const makeMenuController = Effect.gen(function* () {
 
   const openMainMenu = () => setRoute('main')
 
-  const openPauseMenu = () =>
-    gameApplication.pause().pipe(
-      Effect.flatMap(() => setRoute('pause'))
-    )
+  const openPauseMenu = () => gameApplication.pause().pipe(Effect.flatMap(() => setRoute('pause')))
 
   const openSettingsMenu = () =>
     Effect.gen(function* () {
@@ -173,17 +169,9 @@ const makeMenuController = Effect.gen(function* () {
 
   const handlePauseAction = (actionId: MenuAction['id']) =>
     Match.value(actionId).pipe(
-      Match.when('pause:resume', () =>
-        gameApplication.resume().pipe(
-          Effect.flatMap(() => closeMenu())
-        )
-      ),
+      Match.when('pause:resume', () => gameApplication.resume().pipe(Effect.flatMap(() => closeMenu()))),
       Match.when('pause:settings', () => openSettingsMenu()),
-      Match.when('pause:exit-to-title', () =>
-        gameApplication.stop().pipe(
-          Effect.flatMap(() => openMainMenu())
-        )
-      ),
+      Match.when('pause:exit-to-title', () => gameApplication.stop().pipe(Effect.flatMap(() => openMainMenu()))),
       Match.orElse(() => rebuild())
     )
 

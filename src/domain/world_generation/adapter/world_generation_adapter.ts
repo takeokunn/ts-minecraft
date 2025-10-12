@@ -16,13 +16,9 @@ export interface WorldGenerationAdapterService {
     command: GenerateChunkCommand
   ) => Effect.Effect<WorldTypes.ChunkData, GenerationErrors.GenerationError>
 
-  readonly encodeWorldGenerator: (
-    generator: WorldGenerator
-  ) => Effect.Effect<WorldGeneratorEncoded, Schema.ParseError>
+  readonly encodeWorldGenerator: (generator: WorldGenerator) => Effect.Effect<WorldGeneratorEncoded, Schema.ParseError>
 
-  readonly decodeWorldGenerator: (
-    encoded: WorldGeneratorEncoded
-  ) => Effect.Effect<WorldGenerator, Schema.ParseError>
+  readonly decodeWorldGenerator: (encoded: WorldGeneratorEncoded) => Effect.Effect<WorldGenerator, Schema.ParseError>
 }
 
 export const WorldGenerationAdapterService = Context.GenericTag<WorldGenerationAdapterService>(

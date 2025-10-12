@@ -20,10 +20,10 @@ export { CameraAPIServiceStub, CameraHUDPreviewLayer } from './api-service.stub'
 
 export {
   CameraHUDService,
-  CameraHUDServiceLive,
   CameraHUDServiceError,
-  type CameraHUDViewModel,
+  CameraHUDServiceLive,
   type CameraHUDServiceError,
+  type CameraHUDViewModel,
 } from './hud-service'
 export type { CameraHUDService } from './hud-service'
 

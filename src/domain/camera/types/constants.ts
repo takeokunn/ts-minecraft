@@ -292,7 +292,10 @@ export const createBrandedNumberSchema = <T extends string>(
     ReadonlyArray.reduce(schemaWithBounds, (acc, [condition, transform]) =>
       pipe(
         Match.value(condition),
-        Match.when((flag) => flag, () => transform(acc)),
+        Match.when(
+          (flag) => flag,
+          () => transform(acc)
+        ),
         Match.orElse(() => acc)
       )
     )

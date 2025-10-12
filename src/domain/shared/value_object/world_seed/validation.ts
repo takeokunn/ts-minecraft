@@ -74,7 +74,10 @@ export const WorldSeedValidation = {
       const structureValidation = yield* validateStructure(seed)
       const structureErrors = pipe(
         Match.value(structureValidation),
-        Match.when(({ isValid }) => !isValid, ({ errors }) => errors),
+        Match.when(
+          ({ isValid }) => !isValid,
+          ({ errors }) => errors
+        ),
         Match.orElse(() => [] as WorldSeedError[])
       )
       errors.push(...structureErrors)
@@ -204,15 +207,14 @@ const validateStructure = (seed: WorldSeed): Effect.Effect<ValidationResult, nev
       Match.value(schemaValidation),
       Match.when(
         (result): result is { _tag: 'Left' } => result._tag === 'Left',
-        () =>
-          [
-            {
-              _tag: 'ValidationError' as const,
-              field: 'structure',
-              value: seed,
-              message: 'Invalid seed structure',
-            },
-          ]
+        () => [
+          {
+            _tag: 'ValidationError' as const,
+            field: 'structure',
+            value: seed,
+            message: 'Invalid seed structure',
+          },
+        ]
       ),
       Match.orElse(() => [] as WorldSeedError[])
     )
@@ -300,12 +302,7 @@ const validateBusinessRules = (
     )
 
     const errors = [...forbiddenOutcome.errors, ...lowEntropyOutcome.errors]
-    const warnings = [
-      ...forbiddenOutcome.warnings,
-      ...futureWarnings,
-      ...staleWarnings,
-      ...lowEntropyOutcome.warnings,
-    ]
+    const warnings = [...forbiddenOutcome.warnings, ...futureWarnings, ...staleWarnings, ...lowEntropyOutcome.warnings]
 
     return { errors, warnings }
   })
@@ -336,8 +333,7 @@ const validateQuality = (
         })
       ),
       Match.when(
-        (score) =>
-          score >= QUALITY_THRESHOLDS.MINIMUM_SCORE && score < QUALITY_THRESHOLDS.RECOMMENDED_SCORE,
+        (score) => score >= QUALITY_THRESHOLDS.MINIMUM_SCORE && score < QUALITY_THRESHOLDS.RECOMMENDED_SCORE,
         (score) => ({
           warnings: [`Low quality seed (score: ${score})`],
           suggestions: ['Seed may work but better alternatives are available'],
@@ -379,11 +375,7 @@ const validateQuality = (
       Match.orElse(() => [] as string[])
     )
 
-    warnings.push(
-      ...scoreOutcome.warnings,
-      ...uniformityOutcome.warnings,
-      ...complexityOutcome.warnings
-    )
+    warnings.push(...scoreOutcome.warnings, ...uniformityOutcome.warnings, ...complexityOutcome.warnings)
 
     suggestions.push(
       ...scoreOutcome.suggestions,

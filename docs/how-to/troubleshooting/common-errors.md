@@ -1201,15 +1201,15 @@ npm ERR! peer dep missing: typescript@^5.0.0, required by effect@^3.17.13
 
      const issues: string[] = []
 
-    Object.entries(requiredVersions).forEach(([pkg, expectedVersion]) => {
-      const currentVersion = packageJson.dependencies?.[pkg] || packageJson.devDependencies?.[pkg]
+     Object.entries(requiredVersions).forEach(([pkg, expectedVersion]) => {
+       const currentVersion = packageJson.dependencies?.[pkg] || packageJson.devDependencies?.[pkg]
 
-      if (!currentVersion) {
-        issues.push(`Missing package: ${pkg}`)
-      } else if (!currentVersion.includes(expectedVersion)) {
-        issues.push(`Version mismatch for ${pkg}: expected ${expectedVersion}, got ${currentVersion}`)
-      }
-    })
+       if (!currentVersion) {
+         issues.push(`Missing package: ${pkg}`)
+       } else if (!currentVersion.includes(expectedVersion)) {
+         issues.push(`Version mismatch for ${pkg}: expected ${expectedVersion}, got ${currentVersion}`)
+       }
+     })
 
      if (issues.length > 0) {
        yield* Effect.fail(new DependencyError({ issues }))

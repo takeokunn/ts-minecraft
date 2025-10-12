@@ -6,7 +6,6 @@
  * 自然現象の複雑性と自己相似性を表現
  */
 
-import { type GenerationError } from '@domain/world/types/errors'
 import {
   makeUnsafeWorldCoordinate2D,
   WorldCoordinate2DSchema,
@@ -15,6 +14,7 @@ import {
   type WorldCoordinate2D,
   type WorldCoordinate3D,
 } from '@domain/biome/value_object/coordinates'
+import { type GenerationError } from '@domain/world/types/errors'
 import { Context, Effect, Layer, Match, pipe, Random, ReadonlyArray, Schema } from 'effect'
 import { PerlinNoiseService, SimplexNoiseService } from './index'
 

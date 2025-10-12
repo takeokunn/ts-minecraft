@@ -400,11 +400,13 @@ export const CameraStateRepositoryLive = Layer.effect(
           const snapshots = HashMap.get(state.snapshots, cameraId).pipe(
             Option.getOrElse(() => [] as Array.ReadonlyArray<CameraSnapshot>)
           )
-          return Match.value(snapshots.length)
-            .pipe(
-              Match.when((count) => count === 0, () => Option.none<number>()),
-              Match.orElse(() => Option.some(snapshots[snapshots.length - 1].version))
-            )
+          return Match.value(snapshots.length).pipe(
+            Match.when(
+              (count) => count === 0,
+              () => Option.none<number>()
+            ),
+            Match.orElse(() => Option.some(snapshots[snapshots.length - 1].version))
+          )
         }).pipe(handleRepositoryOperation),
 
       /**

@@ -463,18 +463,15 @@ const fixedFunction = <A>(input: unknown): Effect.Effect<A, ValidationError> =>
 // ❌ 非効率: ネストしたEffect.genの過度な使用
 const inefficient = (items: Item[]) =>
   Effect.gen(function* (_) {
-    return yield* Effect.reduce(
-      items,
-      [] as ReadonlyArray<unknown>,
-      (acc, item) =>
-        Effect.gen(function* (_) {
-          const result = yield* _(
-            Effect.gen(function* (_) {
-              // 重いネストは避ける
-            })
-          )
-          return [...acc, result]
-        })
+    return yield* Effect.reduce(items, [] as ReadonlyArray<unknown>, (acc, item) =>
+      Effect.gen(function* (_) {
+        const result = yield* _(
+          Effect.gen(function* (_) {
+            // 重いネストは避ける
+          })
+        )
+        return [...acc, result]
+      })
     )
   })
 
@@ -562,7 +559,7 @@ const debuggedEffect = pipe(
 
 ```typescript
 it('waits for 5 seconds', async () => {
-  await new Promise(resolve => setTimeout(resolve, 5000))
+  await new Promise((resolve) => setTimeout(resolve, 5000))
   const result = await generateChunk()
   expect(result).toBeDefined()
 })
@@ -587,29 +584,31 @@ it.effect('controls time precisely', () =>
 #### Before: Effect.catchAllで全エラー捕捉
 
 ```typescript
-const result = yield* generateChunk().pipe(
-  Effect.catchAll((error) => {
-    if ('_tag' in error && error._tag === 'ChunkGenerationError') {
-      // ChunkGenerationError処理
-    } else if ('_tag' in error && error._tag === 'BiomeNotFoundError') {
-      // BiomeNotFoundError処理
-    }
-    return Effect.succeed(fallback)
-  })
-)
+const result =
+  yield *
+  generateChunk().pipe(
+    Effect.catchAll((error) => {
+      if ('_tag' in error && error._tag === 'ChunkGenerationError') {
+        // ChunkGenerationError処理
+      } else if ('_tag' in error && error._tag === 'BiomeNotFoundError') {
+        // BiomeNotFoundError処理
+      }
+      return Effect.succeed(fallback)
+    })
+  )
 ```
 
 #### After: Effect.catchTagsで型安全に分岐
 
 ```typescript
-const result = yield* generateChunk().pipe(
-  Effect.catchTags({
-    ChunkGenerationError: (error) =>
-      Effect.succeed(createFallbackChunk(error)),
-    BiomeNotFoundError: (error) =>
-      Effect.fail(WorldGenerationError.biomeRequired(error)),
-  })
-)
+const result =
+  yield *
+  generateChunk().pipe(
+    Effect.catchTags({
+      ChunkGenerationError: (error) => Effect.succeed(createFallbackChunk(error)),
+      BiomeNotFoundError: (error) => Effect.fail(WorldGenerationError.biomeRequired(error)),
+    })
+  )
 ```
 
 ### 3. Supervisor導入
@@ -617,14 +616,16 @@ const result = yield* generateChunk().pipe(
 #### Before: Fiber状態の追跡なし
 
 ```typescript
-const gameLoop = yield* Effect.fork(
-  Effect.forever(
-    Effect.gen(function* () {
-      yield* updateGameState()
-      yield* Effect.sleep(Duration.millis(16))
-    })
+const gameLoop =
+  yield *
+  Effect.fork(
+    Effect.forever(
+      Effect.gen(function* () {
+        yield* updateGameState()
+        yield* Effect.sleep(Duration.millis(16))
+      })
+    )
   )
-)
 ```
 
 #### After: Supervisor導入
@@ -634,9 +635,7 @@ export const GameLoopSupervisorLayer = Layer.scoped(
   GameLoopSupervisor,
   Effect.gen(function* () {
     const supervisor = yield* Supervisor.track
-    const fiber = yield* Effect.fork(GameLoopSupervisor).pipe(
-      Effect.supervised(supervisor)
-    )
+    const fiber = yield* Effect.fork(GameLoopSupervisor).pipe(Effect.supervised(supervisor))
     yield* Effect.addFinalizer(() => Fiber.interrupt(fiber))
     return {}
   })
@@ -654,9 +653,9 @@ console.log(`Chunk generation took ${duration}ms`)
 #### After: Metric計測
 
 ```typescript
-yield* chunkGenerationDuration(duration)
-yield* chunkGenerationCounter.increment()
-yield* Effect.logInfo(`Chunk generated`, { duration, coord })
+yield * chunkGenerationDuration(duration)
+yield * chunkGenerationCounter.increment()
+yield * Effect.logInfo(`Chunk generated`, { duration, coord })
 ```
 
 ## まとめ

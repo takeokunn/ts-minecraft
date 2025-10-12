@@ -1,19 +1,19 @@
 import { Context, Effect, Layer, Match } from 'effect'
 
+import {
+  WorldGenerationOrchestrator,
+  type WorldGenerationOrchestratorErrorType,
+  type WorldGenerationOrchestrator as WorldGenerationOrchestratorService,
+} from '../domain_service/world_generation_orchestrator/orchestrator'
 import type {
   CancelGenerationCommand,
+  ChunkGenerationResultType,
   GenerateChunkCommand,
   GenerateWorldCommand,
   UpdateSettingsCommand,
   WorldGenerationCommand,
   WorldGenerationResultType,
-  ChunkGenerationResultType,
 } from '../types'
-import {
-  WorldGenerationOrchestrator,
-  type WorldGenerationOrchestrator as WorldGenerationOrchestratorService,
-  type WorldGenerationOrchestratorErrorType,
-} from '../domain_service/world_generation_orchestrator/orchestrator'
 import { WorldGenerationReadModel } from './read_model'
 
 export type WorldGenerationCommandHandlerError = WorldGenerationOrchestratorErrorType
@@ -25,7 +25,9 @@ export type WorldGenerationCommandResult =
   | { readonly _tag: 'GenerationCancelled'; readonly generationId: string; readonly cancelled: boolean }
 
 export interface WorldGenerationCommandHandler {
-  readonly handle: (command: WorldGenerationCommand) => Effect.Effect<WorldGenerationCommandResult, WorldGenerationCommandHandlerError>
+  readonly handle: (
+    command: WorldGenerationCommand
+  ) => Effect.Effect<WorldGenerationCommandResult, WorldGenerationCommandHandlerError>
 }
 
 export const WorldGenerationCommandHandler = Context.GenericTag<WorldGenerationCommandHandler>(
@@ -39,7 +41,7 @@ const handleGenerateWorld = (
 ): Effect.Effect<WorldGenerationCommandResult, WorldGenerationCommandHandlerError> =>
   orchestrator.generateWorld(command).pipe(
     Effect.tap((result) => readModel.recordWorldResult(result)),
-    Effect.map((result) => ({ _tag: 'WorldGenerated', result } as const))
+    Effect.map((result) => ({ _tag: 'WorldGenerated', result }) as const)
   )
 
 const handleGenerateChunk = (
@@ -49,27 +51,30 @@ const handleGenerateChunk = (
 ): Effect.Effect<WorldGenerationCommandResult, WorldGenerationCommandHandlerError> =>
   orchestrator.generateChunk(command).pipe(
     Effect.tap((result) => readModel.recordChunkResult(result)),
-    Effect.map((result) => ({ _tag: 'ChunkGenerated', result } as const))
+    Effect.map((result) => ({ _tag: 'ChunkGenerated', result }) as const)
   )
 
 const handleUpdateSettings = (
   orchestrator: WorldGenerationOrchestratorService,
   command: UpdateSettingsCommand
 ): Effect.Effect<WorldGenerationCommandResult, WorldGenerationCommandHandlerError> =>
-  orchestrator.updateSettings(command).pipe(
-    Effect.map(() => ({ _tag: 'SettingsUpdated', generationId: command.generationId } as const))
-  )
+  orchestrator
+    .updateSettings(command)
+    .pipe(Effect.map(() => ({ _tag: 'SettingsUpdated', generationId: command.generationId }) as const))
 
 const handleCancelGeneration = (
   orchestrator: WorldGenerationOrchestratorService,
   command: CancelGenerationCommand
 ): Effect.Effect<WorldGenerationCommandResult, WorldGenerationCommandHandlerError> =>
   orchestrator.cancelGeneration(command).pipe(
-    Effect.map((cancelled) => ({
-      _tag: 'GenerationCancelled',
-      generationId: command.generationId,
-      cancelled,
-    } as const))
+    Effect.map(
+      (cancelled) =>
+        ({
+          _tag: 'GenerationCancelled',
+          generationId: command.generationId,
+          cancelled,
+        }) as const
+    )
   )
 
 const executeCommand = (

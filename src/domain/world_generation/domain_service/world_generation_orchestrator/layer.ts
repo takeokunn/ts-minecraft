@@ -38,18 +38,15 @@ const makeWorldGenerationOrchestrator = Effect.gen(function* () {
     pipe(
       Match.value(stage),
       Match.when(
-        (value): value is 'terrain_generation' | 'terrain' =>
-          value === 'terrain_generation' || value === 'terrain',
+        (value): value is 'terrain_generation' | 'terrain' => value === 'terrain_generation' || value === 'terrain',
         () => 'terrain' as const
       ),
       Match.when(
-        (value): value is 'biome_assignment' | 'biomes' =>
-          value === 'biome_assignment' || value === 'biomes',
+        (value): value is 'biome_assignment' | 'biomes' => value === 'biome_assignment' || value === 'biomes',
         () => 'biomes' as const
       ),
       Match.when(
-        (value): value is 'cave_carving' | 'caves' =>
-          value === 'cave_carving' || value === 'caves',
+        (value): value is 'cave_carving' | 'caves' => value === 'cave_carving' || value === 'caves',
         () => 'caves' as const
       ),
       Match.when(
@@ -66,8 +63,14 @@ const makeWorldGenerationOrchestrator = Effect.gen(function* () {
           value === 'post_processing' || value === 'validation' || value === 'finalizing',
         () => 'finalizing' as const
       ),
-      Match.when((value): value is 'completed' => value === 'completed', () => 'completed' as const),
-      Match.when((value): value is 'failed' => value === 'failed', () => 'failed' as const),
+      Match.when(
+        (value): value is 'completed' => value === 'completed',
+        () => 'completed' as const
+      ),
+      Match.when(
+        (value): value is 'failed' => value === 'failed',
+        () => 'failed' as const
+      ),
       Match.orElse(() => 'initializing' as const)
     )
 

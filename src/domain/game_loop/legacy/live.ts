@@ -20,10 +20,6 @@ import type {
 } from '../types'
 import {
   DefaultGameLoopConfig,
-  FrameCountSchema,
-  FrameDurationSchema,
-  FrameIdSchema,
-  GameLoopStateSchema,
   InitializationError,
   RuntimeCallbackError,
   StateTransitionError,

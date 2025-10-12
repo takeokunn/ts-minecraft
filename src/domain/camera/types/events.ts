@@ -2,7 +2,6 @@ import { JsonValueSchema } from '@shared/schema/json'
 import { Schema } from 'effect'
 import type {
   CameraDistance,
-  CameraMode,
   FOV,
   Position3D as Position3DBrand,
   Rotation2D as Rotation2DBrand,
@@ -76,11 +75,7 @@ export type CameraEventTag = Schema.Schema.Type<typeof CameraEventTagSchema>
 /**
  * CameraIdスキーマ
  */
-export const CameraIdSchema = Schema.String.pipe(
-  Schema.trimmed(),
-  Schema.minLength(1),
-  Schema.brand('CameraId')
-)
+export const CameraIdSchema = Schema.String.pipe(Schema.trimmed(), Schema.minLength(1), Schema.brand('CameraId'))
 
 export type CameraId = Schema.Schema.Type<typeof CameraIdSchema>
 

@@ -296,20 +296,20 @@ export interface StackingService {
    *
    * @example
    * ```typescript
- * const result = yield* stackingService.combineStacks(
- *   sourceStack,
- *   targetStack,
- *   'USE_TARGET'
- * )
- *
- * yield* pipe(
- *   Option.fromNullable(result.remainingSource),
- *   Option.match({
- *     onNone: () => Effect.unit,
- *     onSome: (remaining) =>
- *       Effect.log(`結合後の残余: ${remaining.count}個`),
- *   })
- * )
+   * const result = yield* stackingService.combineStacks(
+   *   sourceStack,
+   *   targetStack,
+   *   'USE_TARGET'
+   * )
+   *
+   * yield* pipe(
+   *   Option.fromNullable(result.remainingSource),
+   *   Option.match({
+   *     onNone: () => Effect.unit,
+   *     onSome: (remaining) =>
+   *       Effect.log(`結合後の残余: ${remaining.count}個`),
+   *   })
+   * )
    * ```
    */
   readonly combineStacks: (
@@ -337,20 +337,20 @@ export interface StackingService {
    *
    * @example
    * ```typescript
- * const result = yield* stackingService.splitStack(inventory, {
- *   sourceSlot: 5,
- *   splitCount: 32,
- *   targetSlot: 'auto',
- *   preserveMetadata: true
- * })
- *
- * yield* pipe(
- *   Match.value(result.success),
- *   Match.when(true, () =>
- *     Effect.log(`分割完了: ${result.resultingStacks.length}個のスタックに分割`)
- *   ),
- *   Match.orElse(() => Effect.unit)
- * )
+   * const result = yield* stackingService.splitStack(inventory, {
+   *   sourceSlot: 5,
+   *   splitCount: 32,
+   *   targetSlot: 'auto',
+   *   preserveMetadata: true
+   * })
+   *
+   * yield* pipe(
+   *   Match.value(result.success),
+   *   Match.when(true, () =>
+   *     Effect.log(`分割完了: ${result.resultingStacks.length}個のスタックに分割`)
+   *   ),
+   *   Match.orElse(() => Effect.unit)
+   * )
    * ```
    */
   readonly splitStack: (
@@ -445,13 +445,13 @@ export interface StackingService {
    * @returns 制約違反の詳細
    *
    * @example
- * ```typescript
- * const violations = yield* stackingService.validateStackConstraints(stack)
- * yield* Effect.forEach(violations, (violation) =>
- *   Effect.log(`制約違反: ${violation.description}`)
- * )
- * ```
- */
+   * ```typescript
+   * const violations = yield* stackingService.validateStackConstraints(stack)
+   * yield* Effect.forEach(violations, (violation) =>
+   *   Effect.log(`制約違反: ${violation.description}`)
+   * )
+   * ```
+   */
   readonly validateStackConstraints: (stack: ItemStack) => Effect.Effect<
     ReadonlyArray<{
       readonly constraint: string

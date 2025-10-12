@@ -1,7 +1,11 @@
-import { Effect, Layer } from 'effect'
-import { BlockRepository, BlockRepositoryError, type BlockRepository as BlockRepositoryService } from '@domain/block/repository/block_repository'
+import {
+  BlockRepository,
+  BlockRepositoryError,
+  type BlockRepository as BlockRepositoryService,
+} from '@domain/block/repository/block_repository'
 import type { BlockDefinition } from '@domain/block/types'
 import type { BlockId } from '@domain/block/value_object'
+import { Effect, Layer } from 'effect'
 
 const makeInMemory = Effect.sync(() => {
   const storage = new Map<BlockId, BlockDefinition>()

@@ -263,20 +263,20 @@ export interface TransferService {
    *
    * @example
    * ```typescript
- * const details = yield* transferService.checkTransferability({
- *   sourceInventory: inventory1,
- *   targetInventory: inventory2,
- *   sourceSlot: 5,
- *   targetSlot: 'auto'
- * })
- *
- * yield* pipe(
- *   Match.value(details.canTransfer),
- *   Match.when(false, () => Effect.log(`転送不可: ${details.reason}`)),
- *   Match.orElse(() => Effect.unit)
- * )
- * ```
- */
+   * const details = yield* transferService.checkTransferability({
+   *   sourceInventory: inventory1,
+   *   targetInventory: inventory2,
+   *   sourceSlot: 5,
+   *   targetSlot: 'auto'
+   * })
+   *
+   * yield* pipe(
+   *   Match.value(details.canTransfer),
+   *   Match.when(false, () => Effect.log(`転送不可: ${details.reason}`)),
+   *   Match.orElse(() => Effect.unit)
+   * )
+   * ```
+   */
   readonly checkTransferability: (request: TransferRequest) => Effect.Effect<TransferabilityDetails, never>
 
   /**

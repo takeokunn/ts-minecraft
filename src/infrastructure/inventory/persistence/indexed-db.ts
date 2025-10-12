@@ -11,7 +11,6 @@ import type { StorageError } from '..'
 import {
   InventoryStorageService,
   MillisecondsSchema,
-  StorageBackendSchema,
   StorageConfig,
   StorageInfo,
   StorageKey,

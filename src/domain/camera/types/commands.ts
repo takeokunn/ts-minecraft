@@ -1,8 +1,8 @@
 import { Schema } from 'effect'
 
+import { CameraVector3Schema } from './camera_view'
 import { CameraModeSchema } from './constants'
 import { CameraIdSchema } from './events'
-import { CameraVector3Schema } from './camera_view'
 
 /**
  * カメラコマンド共通メタデータ
@@ -13,10 +13,7 @@ export const CameraCommandMetadataSchema = Schema.Struct({
     Schema.nonNegative(),
     Schema.annotations({ description: '発行タイムスタンプ (epoch millis)' })
   ),
-  actorId: Schema.String.pipe(
-    Schema.minLength(1),
-    Schema.annotations({ description: 'コマンド発行者' })
-  ),
+  actorId: Schema.String.pipe(Schema.minLength(1), Schema.annotations({ description: 'コマンド発行者' })),
 })
 
 export type CameraCommandMetadata = Schema.Schema.Type<typeof CameraCommandMetadataSchema>

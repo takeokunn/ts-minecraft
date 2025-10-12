@@ -1049,7 +1049,7 @@ describe('Deterministic Random Testing (Effect-TS 3.17+)', () => {
 
       // 決定論的なため、常に同じ結果が得られる
       expect(values).toHaveLength(5)
-      expect(values.every(v => v >= 0 && v < 1)).toBe(true)
+      expect(values.every((v) => v >= 0 && v < 1)).toBe(true)
     })
   )
 
@@ -1079,7 +1079,7 @@ describe('Deterministic Random Testing (Effect-TS 3.17+)', () => {
 
       // 決定論的乱数により、常に同じバイオーム分布が生成される
       expect(biomes).toHaveLength(10)
-      expect(biomes.every(b => ['plains', 'forest', 'mountains', 'desert', 'ocean'].includes(b))).toBe(true)
+      expect(biomes.every((b) => ['plains', 'forest', 'mountains', 'desert', 'ocean'].includes(b))).toBe(true)
     })
   )
 })
@@ -1822,12 +1822,14 @@ describe('Custom Mock Usage', () => {
 #### 1. 地形生成テスト (`src/domain/world_generation/__tests__/terrain_generator.test.ts`)
 
 **実装内容**:
+
 - チャンク生成の5秒タイムアウトテスト
 - 複数チャンクの並列生成テスト
 - タイムアウトハンドリングのテスト
 - 生成時間の正確な計測テスト
 
 **主要パターン**:
+
 ```typescript
 it.effect('should complete generation within 5 seconds', () =>
   Effect.gen(function* () {
@@ -1846,20 +1848,22 @@ it.effect('should complete generation within 5 seconds', () =>
 #### 2. プログレッシブローディングスケジューラーテスト (`src/application/world/progressive_loading/__tests__/loading_scheduler.test.ts`)
 
 **実装内容**:
+
 - 異なる優先度タスクのスケジューリングテスト
 - 同一優先度タスクの並列実行テスト
 - タスク実行順序の保証テスト
 - タスクキャンセルのテスト
 
 **主要パターン**:
+
 ```typescript
 it.effect('should schedule tasks at different intervals', () =>
   Effect.gen(function* () {
     // 異なる間隔でスケジュールされたタスクをフォーク
     const taskFibers = yield* Effect.all([
-      Effect.fork(highPriorityTask),    // 1秒
-      Effect.fork(mediumPriorityTask),  // 3秒
-      Effect.fork(lowPriorityTask)      // 5秒
+      Effect.fork(highPriorityTask), // 1秒
+      Effect.fork(mediumPriorityTask), // 3秒
+      Effect.fork(lowPriorityTask), // 5秒
     ])
 
     // 段階的に時間を進めてタスク完了を確認
@@ -1878,12 +1882,14 @@ it.effect('should schedule tasks at different intervals', () =>
 #### 3. バイオーム分類テスト (`src/domain/biome/__tests__/biome_classification.test.ts`)
 
 **実装内容**:
+
 - 決定論的バイオーム生成テスト
 - 同一シードでの再現性テスト
 - 全バイオームタイプの網羅テスト
 - バイオームバリエーション生成テスト
 
 **主要パターン**:
+
 ```typescript
 it.effect('generates predictable biome distribution', () =>
   Effect.gen(function* () {
@@ -1901,11 +1907,13 @@ it.effect('generates predictable biome distribution', () =>
 ### CI時間短縮実績
 
 **Before** (TestClock/TestRandom未使用):
+
 - チャンク生成テスト: 5秒 × 4ケース = 20秒
 - スケジューラーテスト: 5秒 × 5ケース = 25秒
 - **合計**: 約45秒
 
 **After** (TestClock/TestRandom使用):
+
 - 全テストケース: < 100ms
 - **改善率**: 約450倍高速化
 
@@ -1916,11 +1924,7 @@ it.effect('generates predictable biome distribution', () =>
 ```typescript
 import { Layer, TestClock, TestRandom, TestServices } from 'effect'
 
-export const testLayer = Layer.mergeAll(
-  TestClock.layer,
-  TestRandom.layer,
-  TestServices.layer
-)
+export const testLayer = Layer.mergeAll(TestClock.layer, TestRandom.layer, TestServices.layer)
 
 export const testClockLayer = TestClock.layer
 export const testRandomLayer = TestRandom.layer

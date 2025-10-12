@@ -112,44 +112,45 @@ const makeCannonPhysicsEngine: Effect.Effect<PhysicsEnginePort> = Effect.gen(fun
     config: Partial<CharacterControllerConfig> = {}
   ) =>
     Effect.gen(function* () {
-      return yield* requireWorld((activeWorld) =>
-        Effect.sync(() => {
-          const finalConfig: CharacterControllerConfig = {
-            mass: PHYSICS_CONSTANTS.PLAYER_MASS,
-            radius: PHYSICS_CONSTANTS.PLAYER_RADIUS,
-            height: PHYSICS_CONSTANTS.PLAYER_HEIGHT,
-            friction: PHYSICS_CONSTANTS.FRICTION,
-            restitution: PHYSICS_CONSTANTS.RESTITUTION,
-            ...config,
-          }
+      return yield* requireWorld(
+        (activeWorld) =>
+          Effect.sync(() => {
+            const finalConfig: CharacterControllerConfig = {
+              mass: PHYSICS_CONSTANTS.PLAYER_MASS,
+              radius: PHYSICS_CONSTANTS.PLAYER_RADIUS,
+              height: PHYSICS_CONSTANTS.PLAYER_HEIGHT,
+              friction: PHYSICS_CONSTANTS.FRICTION,
+              restitution: PHYSICS_CONSTANTS.RESTITUTION,
+              ...config,
+            }
 
-          // カプセル形状でプレイヤーボディを作成
-          const shape = new CANNON.Sphere(finalConfig.radius)
-          const body = new CANNON.Body({
-            mass: finalConfig.mass,
-            shape,
-            position: new CANNON.Vec3(initialPosition.x, initialPosition.y, initialPosition.z),
-            material: new CANNON.Material('player'),
-          })
+            // カプセル形状でプレイヤーボディを作成
+            const shape = new CANNON.Sphere(finalConfig.radius)
+            const body = new CANNON.Body({
+              mass: finalConfig.mass,
+              shape,
+              position: new CANNON.Vec3(initialPosition.x, initialPosition.y, initialPosition.z),
+              material: new CANNON.Material('player'),
+            })
 
-          // 物理的特性を設定
-          body.linearDamping = PHYSICS_CONSTANTS.LINEAR_DAMPING
-          body.angularDamping = PHYSICS_CONSTANTS.ANGULAR_DAMPING
+            // 物理的特性を設定
+            body.linearDamping = PHYSICS_CONSTANTS.LINEAR_DAMPING
+            body.angularDamping = PHYSICS_CONSTANTS.ANGULAR_DAMPING
 
-          // 回転を固定（プレイヤーは倒れない）
-          body.fixedRotation = true
-          body.updateMassProperties()
+            // 回転を固定（プレイヤーは倒れない）
+            body.fixedRotation = true
+            body.updateMassProperties()
 
-          // ワールドに追加
-          activeWorld.addBody(body)
+            // ワールドに追加
+            activeWorld.addBody(body)
 
-          // 管理データに追加
-          const bodyId = generateBodyId()
-          bodies.set(bodyId, body)
-          playerControllers.set(bodyId, playerId)
+            // 管理データに追加
+            const bodyId = generateBodyId()
+            bodies.set(bodyId, body)
+            playerControllers.set(bodyId, playerId)
 
-          return bodyId
-        }),
+            return bodyId
+          }),
         Effect.tap((bodyId) =>
           Effect.logInfo(`Player controller created`).pipe(Effect.annotateLogs({ playerId: String(playerId), bodyId }))
         ),
@@ -207,8 +208,7 @@ const makeCannonPhysicsEngine: Effect.Effect<PhysicsEnginePort> = Effect.gen(fun
               const raycastResult = new CANNON.RaycastResult()
               activeWorld.raycastClosest(rayStart, rayEnd, {}, raycastResult)
 
-              const isOnGround =
-                raycastResult.hasHit && raycastResult.distance < PHYSICS_CONSTANTS.PLAYER_RADIUS + 0.05
+              const isOnGround = raycastResult.hasHit && raycastResult.distance < PHYSICS_CONSTANTS.PLAYER_RADIUS + 0.05
 
               const state: PhysicsBodyState = {
                 position: {

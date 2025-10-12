@@ -23,10 +23,6 @@ import {
   type GenerationSettings,
   type WorldId,
 } from '@domain/world/types'
-import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
-import * as NodePath from '@effect/platform-node/NodePath'
-import { JsonValueSchema, type JsonValue } from '@shared/schema/json'
-import { Clock, DateTime, Effect, Function, Layer, Match, Option, pipe, Random, ReadonlyArray, Ref, Schema } from 'effect'
 import { makeUnsafeGenerationSessionId } from '@domain/world_generation/aggregate/generation_session/shared'
 import {
   ChunkGenerationTask,
@@ -44,6 +40,23 @@ import {
   SessionState,
   SessionStatistics,
 } from '@domain/world_generation/repository/generation_session_repository'
+import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
+import * as NodePath from '@effect/platform-node/NodePath'
+import { JsonValueSchema, type JsonValue } from '@shared/schema/json'
+import {
+  Clock,
+  DateTime,
+  Effect,
+  Function,
+  Layer,
+  Match,
+  Option,
+  pipe,
+  Random,
+  ReadonlyArray,
+  Ref,
+  Schema,
+} from 'effect'
 
 // === Persistence Schema ===
 

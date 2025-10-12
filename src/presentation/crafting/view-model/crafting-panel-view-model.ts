@@ -3,15 +3,11 @@
  * レシピ検索とレイアウト更新をEffect並列実行で統合し、プレゼンテーション用Viewを生成する。
  */
 
-import {
-  PatternMatchingService,
-  RecipeDiscoveryService,
-  RecipeRegistryService,
-} from '@/domain/crafting/domain_service'
 import type { RecipeAggregate } from '@/domain/crafting/aggregate'
+import { PatternMatchingService, RecipeDiscoveryService, RecipeRegistryService } from '@/domain/crafting/domain_service'
 import type { CraftingGrid, ItemTag } from '@/domain/crafting/types'
-import type { CraftingPanelView, CraftingGridView, CraftingResultView, CraftingSlotView } from '../types'
 import { Context, Effect, Fiber, Layer, Option } from 'effect'
+import type { CraftingGridView, CraftingPanelView, CraftingResultView, CraftingSlotView } from '../types'
 
 export interface CraftingPanelRenderParams {
   readonly grid: CraftingGrid

@@ -4,7 +4,7 @@
  */
 
 import { describe, expect, it } from '@effect/vitest'
-import { Effect, Match, Random, TestRandom, pipe } from 'effect'
+import { Effect, Match, Random, pipe } from 'effect'
 
 /**
  * バイオームタイプ定義
@@ -18,11 +18,26 @@ type BiomeType = 'plains' | 'forest' | 'mountains' | 'desert' | 'ocean' | 'tundr
 const classifyBiome = (randomValue: number): BiomeType =>
   pipe(
     Match.value(randomValue),
-    Match.when((value) => value < 0.2, () => 'plains' as BiomeType),
-    Match.when((value) => value < 0.4, () => 'forest' as BiomeType),
-    Match.when((value) => value < 0.6, () => 'mountains' as BiomeType),
-    Match.when((value) => value < 0.75, () => 'desert' as BiomeType),
-    Match.when((value) => value < 0.9, () => 'ocean' as BiomeType),
+    Match.when(
+      (value) => value < 0.2,
+      () => 'plains' as BiomeType
+    ),
+    Match.when(
+      (value) => value < 0.4,
+      () => 'forest' as BiomeType
+    ),
+    Match.when(
+      (value) => value < 0.6,
+      () => 'mountains' as BiomeType
+    ),
+    Match.when(
+      (value) => value < 0.75,
+      () => 'desert' as BiomeType
+    ),
+    Match.when(
+      (value) => value < 0.9,
+      () => 'ocean' as BiomeType
+    ),
     Match.orElse(() => 'tundra' as BiomeType)
   )
 
@@ -76,7 +91,7 @@ describe('Biome Classification with TestRandom', () => {
       // 決定論的乱数で生成されるため、常に同じ結果
       expect(biomes).toBeDefined()
       expect(biomes).toHaveLength(5)
-      expect(biomes.every(b => ['plains', 'forest', 'mountains', 'desert', 'ocean', 'tundra'].includes(b))).toBe(true)
+      expect(biomes.every((b) => ['plains', 'forest', 'mountains', 'desert', 'ocean', 'tundra'].includes(b))).toBe(true)
     })
   )
 
@@ -87,12 +102,16 @@ describe('Biome Classification with TestRandom', () => {
 
       // 決定論的乱数により、バイオームが生成される
       expect(biomes1).toHaveLength(5)
-      expect(biomes1.every(b => ['plains', 'forest', 'mountains', 'desert', 'ocean', 'tundra'].includes(b))).toBe(true)
+      expect(biomes1.every((b) => ['plains', 'forest', 'mountains', 'desert', 'ocean', 'tundra'].includes(b))).toBe(
+        true
+      )
 
       // 同じシード内で連続生成すると、シーケンスが進むため異なる結果になる
       const biomes2 = yield* generateBiomes(5)
       expect(biomes2).toHaveLength(5)
-      expect(biomes2.every(b => ['plains', 'forest', 'mountains', 'desert', 'ocean', 'tundra'].includes(b))).toBe(true)
+      expect(biomes2.every((b) => ['plains', 'forest', 'mountains', 'desert', 'ocean', 'tundra'].includes(b))).toBe(
+        true
+      )
     })
   )
 
@@ -106,7 +125,7 @@ describe('Biome Classification with TestRandom', () => {
       expect(uniqueBiomes.size).toBeGreaterThan(1)
 
       // 全てのバイオームが有効な型であることを確認
-      biomes.forEach(biome => {
+      biomes.forEach((biome) => {
         expect(['plains', 'forest', 'mountains', 'desert', 'ocean', 'tundra']).toContain(biome)
       })
     })
@@ -119,7 +138,7 @@ describe('Biome Classification with TestRandom', () => {
 
       // 同じテスト実行では常に同じ結果が得られる
       expect(variants).toHaveLength(3)
-      variants.forEach(v => {
+      variants.forEach((v) => {
         expect(v.biomeType).toBeDefined()
         expect(['variant', 'normal']).toContain(v.variant)
         expect(v.variantValue).toBeGreaterThanOrEqual(0)
@@ -137,7 +156,7 @@ describe('Biome Classification with TestRandom', () => {
       expect(biomes).toHaveLength(12)
 
       // 全てのバイオームが有効な型であることを確認
-      biomes.forEach(biome => {
+      biomes.forEach((biome) => {
         expect(['plains', 'forest', 'mountains', 'desert', 'ocean', 'tundra']).toContain(biome)
       })
 
@@ -156,7 +175,7 @@ describe('Biome Classification with TestRandom', () => {
       expect(biomes).toHaveLength(100)
 
       // 全てのバイオームが有効な型であることを確認
-      biomes.forEach(biome => {
+      biomes.forEach((biome) => {
         expect(['plains', 'forest', 'mountains', 'desert', 'ocean', 'tundra']).toContain(biome)
       })
 

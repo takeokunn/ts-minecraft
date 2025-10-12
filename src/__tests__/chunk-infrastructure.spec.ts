@@ -1,16 +1,16 @@
-import { describe, expect, it } from '@effect/vitest'
-import {
-  ChunkInfrastructureLayer,
-  ChunkCacheServiceTag,
-  ChunkCacheServiceLive,
-  provideChunkCacheConfig,
-  ChunkWorkerAdapterLive,
-  ChunkWorkerAdapterTag,
-} from '@/infrastructure/chunk'
 import { ChunkCommandSchema, createChunkPositionSync, createEmptyChunkDataAggregate } from '@/domain/chunk'
 import { ChunkRepository } from '@/domain/chunk/repository'
-import { ChunkRepositoryMemoryLayer } from '@/infrastructure/chunk/repository/layers'
 import type { ChunkData } from '@/domain/chunk/types'
+import {
+  ChunkCacheServiceLive,
+  ChunkCacheServiceTag,
+  ChunkInfrastructureLayer,
+  ChunkWorkerAdapterLive,
+  ChunkWorkerAdapterTag,
+  provideChunkCacheConfig,
+} from '@/infrastructure/chunk'
+import { ChunkRepositoryMemoryLayer } from '@/infrastructure/chunk/repository/layers'
+import { describe, expect, it } from '@effect/vitest'
 import { Effect, Layer, Option, Schedule, Schema } from 'effect'
 
 const createLoadCommand = (commandId: string, x: number, z: number) =>
@@ -72,8 +72,9 @@ describe('ChunkWorkerAdapter', () => {
     Effect.gen(function* () {
       const adapter = yield* ChunkWorkerAdapterTag
 
-      const commands = yield* Effect.forEach(Array.from({ length: 256 }, (_, index) => index), (index) =>
-        createLoadCommand(`00000000-0000-0000-0000-${(index + 1).toString().padStart(12, '0')}`, index, 0)
+      const commands = yield* Effect.forEach(
+        Array.from({ length: 256 }, (_, index) => index),
+        (index) => createLoadCommand(`00000000-0000-0000-0000-${(index + 1).toString().padStart(12, '0')}`, index, 0)
       )
 
       yield* Effect.forEach(commands, (command) => adapter.publish(command))
@@ -155,17 +156,15 @@ describe('ChunkWorkerRuntime', () => {
 
       yield* adapter.publish(saveCommand)
 
-      const savedChunk = yield* repository
-        .findById(chunk.id)
-        .pipe(
-          Effect.flatMap((chunkOption) =>
-            Option.match(chunkOption, {
-              onNone: () => Effect.fail('chunk-not-found'),
-              onSome: Effect.succeed,
-            })
-          ),
-          Effect.retry(Schedule.recurs(5))
-        )
+      const savedChunk = yield* repository.findById(chunk.id).pipe(
+        Effect.flatMap((chunkOption) =>
+          Option.match(chunkOption, {
+            onNone: () => Effect.fail('chunk-not-found'),
+            onSome: Effect.succeed,
+          })
+        ),
+        Effect.retry(Schedule.recurs(5))
+      )
 
       expect(savedChunk.id).toBe(chunk.id)
 

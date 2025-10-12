@@ -646,7 +646,7 @@ const mergeMetadataValues = (sourceValue: MetadataValue, targetValue: MetadataVa
 const averageMetadataValues = (sourceValue: MetadataValue, targetValue: MetadataValue): MetadataValue => {
   return pipe(
     Match.value(typeof sourceValue === 'number' && typeof targetValue === 'number'),
-    Match.when(true, () => (sourceValue as number + targetValue as number) / 2),
+    Match.when(true, () => (((sourceValue as number) + targetValue) as number) / 2),
     Match.orElse(() => targetValue)
   )
 }

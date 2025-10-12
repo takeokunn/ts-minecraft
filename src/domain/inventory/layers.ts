@@ -1,8 +1,8 @@
 import { Layer } from 'effect'
-import { createInventoryDomainServicesLayer } from './domain_service/layer'
 import { ContainerFactoryLayer } from './aggregate/container/factory'
 import { InventoryFactoryLayer as InventoryAggregateFactoryLayer } from './aggregate/inventory/factory'
 import { ItemStackFactoryLayer } from './aggregate/item_stack/factory'
+import { createInventoryDomainServicesLayer } from './domain_service/layer'
 import { ItemFactoryLayer } from './factory/item_factory/factory'
 
 export const InventoryFactoryLayer = Layer.mergeAll(

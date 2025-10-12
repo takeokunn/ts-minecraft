@@ -289,7 +289,10 @@ const handleBlockUpdate = (position: WorldPosition) =>
 
     // 隣接ブロックに変更を通知
     const neighbors = getNeighborPositions(position)
-    yield* pipe(neighbors, Effect.forEach((neighborPos) => updateService.neighborChanged(neighborPos, position), { discard: true }))
+    yield* pipe(
+      neighbors,
+      Effect.forEach((neighborPos) => updateService.neighborChanged(neighborPos, position), { discard: true })
+    )
 
     // 5秒後に再チェック
     yield* updateService.scheduleUpdate(position, 5000)
@@ -439,7 +442,10 @@ const breakBlock = (position: WorldPosition, player: PlayerId, tool?: ItemStack)
     const drops = yield* interactionService.onBlockBreak(position, player, tool)
 
     // ドロップアイテムをワールドにスポーン
-    yield* pipe(drops, Effect.forEach((drop) => spawnItem(position, drop), { discard: true }))
+    yield* pipe(
+      drops,
+      Effect.forEach((drop) => spawnItem(position, drop), { discard: true })
+    )
 
     return drops
   })
@@ -525,7 +531,10 @@ const propagateRedstoneSignal = (source: WorldPosition, power: number) =>
 
     // 隣接ブロックの状態更新
     const neighbors = getNeighborPositions(source)
-    yield* pipe(neighbors, Effect.forEach((pos) => redstone.updateNetwork(pos), { discard: true }))
+    yield* pipe(
+      neighbors,
+      Effect.forEach((pos) => redstone.updateNetwork(pos), { discard: true })
+    )
   })
 
 // 流体の流れシミュレーション

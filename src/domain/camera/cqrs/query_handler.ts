@@ -1,14 +1,13 @@
 import { Context, Effect, Layer, Match, Option } from 'effect'
 
-import type { CameraQuery, CameraSnapshot } from '../types'
-import { createCameraError, type CameraError } from '../types'
 import type { Camera } from '../aggregate/camera/camera'
 import {
   CameraStateRepository,
   type CameraStateRepository as CameraStateRepositoryService,
   type RepositoryError,
 } from '../repository/camera_state'
-import type { CameraId } from '../types'
+import type { CameraId, CameraQuery, CameraSnapshot } from '../types'
+import { createCameraError, type CameraError } from '../types'
 import { cameraToSnapshot } from './helpers'
 import { CameraReadModel } from './read_model'
 
@@ -23,9 +22,7 @@ export interface CameraQueryHandler {
   readonly execute: (query: CameraQuery) => Effect.Effect<CameraQueryResult, CameraQueryHandlerError>
 }
 
-export const CameraQueryHandler = Context.GenericTag<CameraQueryHandler>(
-  '@minecraft/domain/camera/CQRS/QueryHandler'
-)
+export const CameraQueryHandler = Context.GenericTag<CameraQueryHandler>('@minecraft/domain/camera/CQRS/QueryHandler')
 
 const ensureCameraExists = (
   repository: CameraStateRepositoryService,
@@ -34,8 +31,7 @@ const ensureCameraExists = (
   repository.findById(cameraId).pipe(
     Effect.flatMap(
       Option.match({
-        onNone: () =>
-          Effect.fail(createCameraError.invalidParameter('cameraId', cameraId, '既存のCamera ID')),
+        onNone: () => Effect.fail(createCameraError.invalidParameter('cameraId', cameraId, '既存のCamera ID')),
         onSome: Effect.succeed,
       })
     )
@@ -71,7 +67,7 @@ const handleGetState = (
 const handleListActive = (
   repository: CameraStateRepositoryService
 ): Effect.Effect<CameraQueryResult, CameraQueryHandlerError> =>
-  repository.listActive().pipe(Effect.map((cameraIds) => ({ _tag: 'ActiveCameras', cameraIds } as const)))
+  repository.listActive().pipe(Effect.map((cameraIds) => ({ _tag: 'ActiveCameras', cameraIds }) as const))
 
 const executeQuery = (
   repository: CameraStateRepositoryService,

@@ -222,7 +222,6 @@ export const ItemStackSchema = Schema.Struct({
   })
 )
 export type ItemStack = Schema.Schema.Type<typeof ItemStackSchema>
-
 ```
 
 ### Inventory - インベントリ構造

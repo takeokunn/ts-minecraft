@@ -157,21 +157,25 @@ export const AnimationAnalysisUtils = {
    * アニメーション成功率を計算
    */
   calculateSuccessRate: (statistics: AnimationStatistics): number =>
-    Match.value(statistics.totalAnimations)
-      .pipe(
-        Match.when((total) => total === 0, () => 0),
-        Match.orElse((total) => (statistics.successfulAnimations / total) * 100)
+    Match.value(statistics.totalAnimations).pipe(
+      Match.when(
+        (total) => total === 0,
+        () => 0
       ),
+      Match.orElse((total) => (statistics.successfulAnimations / total) * 100)
+    ),
 
   /**
    * 中断率を計算
    */
   calculateInterruptionRate: (statistics: AnimationStatistics): number =>
-    Match.value(statistics.totalAnimations)
-      .pipe(
-        Match.when((total) => total === 0, () => 0),
-        Match.orElse((total) => (statistics.interruptedAnimations / total) * 100)
+    Match.value(statistics.totalAnimations).pipe(
+      Match.when(
+        (total) => total === 0,
+        () => 0
       ),
+      Match.orElse((total) => (statistics.interruptedAnimations / total) * 100)
+    ),
 
   /**
    * パフォーマンススコアを計算

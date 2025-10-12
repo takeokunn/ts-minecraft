@@ -7,22 +7,6 @@
  */
 
 import { WorldGeneratorIdSchema } from '@/domain/world_generation/aggregate/world_generator'
-import type { AllRepositoryErrors, WorldId } from '@domain/world/types'
-import {
-  createCompressionError,
-  createDataIntegrityError,
-  createRepositoryError,
-  createStorageError,
-  createVersioningError,
-} from '@domain/world/types'
-import { WorldBorderSchema, WorldCoordinateSchema, WorldIdSchema, WorldSeedSchema } from '@domain/world/types/core'
-import * as Schema from '@effect/schema/Schema'
-import { JsonValueSchema, type JsonValue } from '@shared/schema/json'
-import * as crypto from 'crypto'
-import { DateTime, Duration, Effect, Layer, Match, Option, pipe, ReadonlyArray, Ref } from 'effect'
-import * as fs from 'fs'
-import * as path from 'path'
-import * as zlib from 'zlib'
 import { WorldClock } from '@domain/world'
 import {
   BackupConfig,
@@ -41,6 +25,22 @@ import {
   WorldSettings,
   WorldStatistics,
 } from '@domain/world/repository/world_metadata_repository'
+import type { AllRepositoryErrors, WorldId } from '@domain/world/types'
+import {
+  createCompressionError,
+  createDataIntegrityError,
+  createRepositoryError,
+  createStorageError,
+  createVersioningError,
+} from '@domain/world/types'
+import { WorldBorderSchema, WorldCoordinateSchema, WorldIdSchema, WorldSeedSchema } from '@domain/world/types/core'
+import * as Schema from '@effect/schema/Schema'
+import { JsonValueSchema, type JsonValue } from '@shared/schema/json'
+import * as crypto from 'crypto'
+import { DateTime, Duration, Effect, Layer, Match, Option, pipe, ReadonlyArray, Ref } from 'effect'
+import * as fs from 'fs'
+import * as path from 'path'
+import * as zlib from 'zlib'
 
 // === Persistence Configuration ===
 

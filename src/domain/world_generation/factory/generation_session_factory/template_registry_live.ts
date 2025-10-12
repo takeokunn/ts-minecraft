@@ -287,82 +287,84 @@ export const SessionTemplateRegistryLive = Layer.effect(
       search: (query) =>
         Ref.get(templates).pipe(
           Effect.map((m) =>
-            Array.from(m.entries()).filter(([_, template]) => {
-              const matchesUseCases = pipe(
-                Match.value(query.useCases),
-                Match.when(
-                  (useCases): useCases is undefined => useCases === undefined,
-                  () => true
-                ),
-                Match.orElse((useCases) =>
-                  useCases.some((useCase) =>
-                    template.useCases.some((templateUseCase) =>
-                      templateUseCase.toLowerCase().includes(useCase.toLowerCase())
+            Array.from(m.entries())
+              .filter(([_, template]) => {
+                const matchesUseCases = pipe(
+                  Match.value(query.useCases),
+                  Match.when(
+                    (useCases): useCases is undefined => useCases === undefined,
+                    () => true
+                  ),
+                  Match.orElse((useCases) =>
+                    useCases.some((useCase) =>
+                      template.useCases.some((templateUseCase) =>
+                        templateUseCase.toLowerCase().includes(useCase.toLowerCase())
+                      )
                     )
                   )
                 )
-              )
 
-              const matchesCpu = pipe(
-                Match.value(query.performance?.expectedCpuUsage),
-                Match.when(
-                  (expected): expected is undefined => expected === undefined,
-                  () => true
-                ),
-                Match.orElse((expected) => template.performance.expectedCpuUsage === expected)
-              )
+                const matchesCpu = pipe(
+                  Match.value(query.performance?.expectedCpuUsage),
+                  Match.when(
+                    (expected): expected is undefined => expected === undefined,
+                    () => true
+                  ),
+                  Match.orElse((expected) => template.performance.expectedCpuUsage === expected)
+                )
 
-              const matchesMemory = pipe(
-                Match.value(query.performance?.expectedMemoryUsage),
-                Match.when(
-                  (expected): expected is undefined => expected === undefined,
-                  () => true
-                ),
-                Match.orElse((expected) => template.performance.expectedMemoryUsage === expected)
-              )
+                const matchesMemory = pipe(
+                  Match.value(query.performance?.expectedMemoryUsage),
+                  Match.when(
+                    (expected): expected is undefined => expected === undefined,
+                    () => true
+                  ),
+                  Match.orElse((expected) => template.performance.expectedMemoryUsage === expected)
+                )
 
-              const matchesCpuRequirement = pipe(
-                Match.value(query.requirements?.minCpuCores),
-                Match.when(
-                  (min): min is undefined => min === undefined,
-                  () => true
-                ),
-                Match.orElse((min) => template.requirements.minCpuCores <= min)
-              )
+                const matchesCpuRequirement = pipe(
+                  Match.value(query.requirements?.minCpuCores),
+                  Match.when(
+                    (min): min is undefined => min === undefined,
+                    () => true
+                  ),
+                  Match.orElse((min) => template.requirements.minCpuCores <= min)
+                )
 
-              const matchesMemoryRequirement = pipe(
-                Match.value(query.requirements?.minMemoryMB),
-                Match.when(
-                  (min): min is undefined => min === undefined,
-                  () => true
-                ),
-                Match.orElse((min) => template.requirements.minMemoryMB <= min)
-              )
+                const matchesMemoryRequirement = pipe(
+                  Match.value(query.requirements?.minMemoryMB),
+                  Match.when(
+                    (min): min is undefined => min === undefined,
+                    () => true
+                  ),
+                  Match.orElse((min) => template.requirements.minMemoryMB <= min)
+                )
 
-              const matchesTags = pipe(
-                Match.value(query.tags),
-                Match.when(
-                  (tags): tags is undefined => tags === undefined,
-                  () => true
-                ),
-                Match.orElse((tags) =>
-                  tags.some((tag) =>
-                    template.metadata.tags.some((templateTag) =>
-                      templateTag.toLowerCase().includes(tag.toLowerCase())
+                const matchesTags = pipe(
+                  Match.value(query.tags),
+                  Match.when(
+                    (tags): tags is undefined => tags === undefined,
+                    () => true
+                  ),
+                  Match.orElse((tags) =>
+                    tags.some((tag) =>
+                      template.metadata.tags.some((templateTag) =>
+                        templateTag.toLowerCase().includes(tag.toLowerCase())
+                      )
                     )
                   )
                 )
-              )
 
-              return (
-                matchesUseCases &&
-                matchesCpu &&
-                matchesMemory &&
-                matchesCpuRequirement &&
-                matchesMemoryRequirement &&
-                matchesTags
-              )
-            }).map(([type, _]) => type)
+                return (
+                  matchesUseCases &&
+                  matchesCpu &&
+                  matchesMemory &&
+                  matchesCpuRequirement &&
+                  matchesMemoryRequirement &&
+                  matchesTags
+                )
+              })
+              .map(([type, _]) => type)
           )
         ),
     })

@@ -302,7 +302,10 @@ export const removeCustomTag = (metadata: ItemMetadata, key: string): Effect.Eff
     Match.tag('Some', ({ value: tags }) =>
       pipe(
         Match.value(tags),
-        Match.when((current) => !(key in current), () => Effect.succeed(metadata)),
+        Match.when(
+          (current) => !(key in current),
+          () => Effect.succeed(metadata)
+        ),
         Match.when(
           () => true,
           (current) => {
@@ -314,7 +317,10 @@ export const removeCustomTag = (metadata: ItemMetadata, key: string): Effect.Eff
                 Object.keys(remainingTags).length,
                 Match.value,
                 Match.when(0, () => undefined),
-                Match.when(() => true, () => remainingTags),
+                Match.when(
+                  () => true,
+                  () => remainingTags
+                ),
                 Match.exhaustive
               ),
             })
@@ -370,7 +376,10 @@ export const getItemCondition = (metadata: ItemMetadata): ItemCondition =>
           (percentage) => percentage >= 20,
           (percentage) => ItemCondition.Poor({ durabilityPercentage: percentage })
         ),
-        Match.when(() => true, () => ItemCondition.Broken({ canRepair: true })),
+        Match.when(
+          () => true,
+          () => ItemCondition.Broken({ canRepair: true })
+        ),
         Match.exhaustive
       )
     ),
@@ -433,7 +442,10 @@ export const calculateMetadataSize = (metadata: ItemMetadata): number =>
       pipe(
         Match.value(metadata.display?.name),
         Match.when(undefined, () => 0),
-        Match.when(() => true, (name) => (name as string).length * 2),
+        Match.when(
+          () => true,
+          (name) => (name as string).length * 2
+        ),
         Match.exhaustive
       ),
       pipe(
@@ -441,7 +453,11 @@ export const calculateMetadataSize = (metadata: ItemMetadata): number =>
         Match.when(undefined, () => 0),
         Match.when(
           (lore): lore is readonly string[] => Array.isArray(lore),
-          (lore) => pipe(lore, ReadonlyArray.reduce(0, (sum, line) => sum + line.length * 2))
+          (lore) =>
+            pipe(
+              lore,
+              ReadonlyArray.reduce(0, (sum, line) => sum + line.length * 2)
+            )
         ),
         Match.orElse(() => 0),
         Match.exhaustive
@@ -458,7 +474,10 @@ export const calculateMetadataSize = (metadata: ItemMetadata): number =>
       pipe(
         Match.value(metadata.customTags),
         Match.when(undefined, () => 0),
-        Match.when(() => true, (tags) => Object.keys(tags).length * 32),
+        Match.when(
+          () => true,
+          (tags) => Object.keys(tags).length * 32
+        ),
         Match.exhaustive
       ),
     ],
@@ -473,7 +492,10 @@ export const compareMetadata = (metadata1: ItemMetadata, metadata2: ItemMetadata
     pipe(
       Match.value(metadata1.display?.name === metadata2.display?.name),
       Match.when(true, () => Option.none<string>()),
-      Match.when(() => true, () => Option.some('display name')),
+      Match.when(
+        () => true,
+        () => Option.some('display name')
+      ),
       Match.exhaustive
     ),
     pipe(
@@ -492,13 +514,19 @@ export const compareMetadata = (metadata1: ItemMetadata, metadata2: ItemMetadata
     pipe(
       Match.value(JSON.stringify(metadata1.enchantments) === JSON.stringify(metadata2.enchantments)),
       Match.when(true, () => Option.none<string>()),
-      Match.when(() => true, () => Option.some('enchantments')),
+      Match.when(
+        () => true,
+        () => Option.some('enchantments')
+      ),
       Match.exhaustive
     ),
     pipe(
       Match.value(JSON.stringify(metadata1.durability) === JSON.stringify(metadata2.durability)),
       Match.when(true, () => Option.none<string>()),
-      Match.when(() => true, () => Option.some('durability')),
+      Match.when(
+        () => true,
+        () => Option.some('durability')
+      ),
       Match.exhaustive
     ),
   ] as const

@@ -28,8 +28,6 @@ export const MenuButton = ({ action, onSelect }: MenuButtonProps): JSX.Element =
     }}
   >
     <span style={{ fontSize: '1rem', fontWeight: 600 }}>{action.label}</span>
-    {action.description ? (
-      <span style={{ fontSize: '0.75rem', opacity: 0.7 }}>{action.description}</span>
-    ) : null}
+    {action.description ? <span style={{ fontSize: '0.75rem', opacity: 0.7 }}>{action.description}</span> : null}
   </button>
 )

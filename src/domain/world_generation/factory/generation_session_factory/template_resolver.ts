@@ -300,18 +300,9 @@ const createSessionTemplateResolver = (): SessionTemplateResolver => ({
 
                   const performanceScore = Function.pipe(
                     Match.value(criteria.performance),
-                    Match.when(
-                      'speed',
-                      () => (templateDef.performance.expectedDuration === 'fast' ? 20 : 0)
-                    ),
-                    Match.when(
-                      'quality',
-                      () => (templateDef.configuration.maxConcurrentChunks <= 2 ? 20 : 0)
-                    ),
-                    Match.when(
-                      'memory',
-                      () => (templateDef.performance.expectedMemoryUsage === 'low' ? 20 : 0)
-                    ),
+                    Match.when('speed', () => (templateDef.performance.expectedDuration === 'fast' ? 20 : 0)),
+                    Match.when('quality', () => (templateDef.configuration.maxConcurrentChunks <= 2 ? 20 : 0)),
+                    Match.when('memory', () => (templateDef.performance.expectedMemoryUsage === 'low' ? 20 : 0)),
                     Match.orElse(() => 0)
                   )
 
@@ -319,8 +310,7 @@ const createSessionTemplateResolver = (): SessionTemplateResolver => ({
                     Match.value(criteria.profile),
                     Match.when(
                       (profile): profile is ConfigurationProfile => profile !== undefined,
-                      (profile) =>
-                        templateDef.requirements.supportedProfiles.includes(profile) ? 10 : -10
+                      (profile) => (templateDef.requirements.supportedProfiles.includes(profile) ? 10 : -10)
                     ),
                     Match.orElse(() => 0)
                   )
@@ -423,9 +413,7 @@ export const getTemplate = (type: SessionTemplateType): Effect.Effect<SessionTem
 
     return yield* pipe(
       Match.value(template),
-      Match.tag('None', () =>
-        Effect.fail(SessionFactoryError.configurationInvalid(`Template not found: ${type}`))
-      ),
+      Match.tag('None', () => Effect.fail(SessionFactoryError.configurationInvalid(`Template not found: ${type}`))),
       Match.tag('Some', ({ value }) => Effect.succeed(value)),
       Match.exhaustive
     )

@@ -490,9 +490,7 @@ const validateCreateParams = (
   Effect.gen(function* () {
     // Schema検証
     const validatedParams = yield* Schema.decode(CreateBiomeSystemParamsSchema)(params).pipe(
-      Effect.mapError((error) =>
-        BiomeFactoryError.biomeCreation('Schema validation failed', { context: { error } })
-      )
+      Effect.mapError((error) => BiomeFactoryError.biomeCreation('Schema validation failed', { context: { error } }))
     )
 
     // ビジネスルール検証

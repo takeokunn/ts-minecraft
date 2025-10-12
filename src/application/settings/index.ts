@@ -6,24 +6,24 @@ export {
 } from './service'
 
 export type {
+  SelectOptionId,
   SettingsCategory,
+  SettingsCategoryId,
   SettingsMenuModel,
   SettingsOption,
   SettingsOptionId,
   SettingsOptionType,
   SettingsOptionUpdate,
+  SettingsSelectOption,
   SliderOptionId,
   ToggleOptionId,
-  SelectOptionId,
-  SettingsSelectOption,
-  SettingsCategoryId,
 } from './types'
 
 export {
   SettingsOptionNotFoundError,
-  type SettingsOptionNotFoundError,
   SettingsOptionTypeMismatchError,
-  type SettingsOptionTypeMismatchError,
   SettingsOptionValueError,
+  type SettingsOptionNotFoundError,
+  type SettingsOptionTypeMismatchError,
   type SettingsOptionValueError,
 } from './errors'

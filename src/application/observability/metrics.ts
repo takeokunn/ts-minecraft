@@ -30,12 +30,9 @@ export const chunkGenerationCounter = Metric.counter('chunk_generation_total', {
 /**
  * チャンク生成エラーカウンター
  */
-export const chunkGenerationErrorCounter = Metric.counter(
-  'chunk_generation_errors_total',
-  {
-    description: 'Total number of chunk generation errors'
-  }
-)
+export const chunkGenerationErrorCounter = Metric.counter('chunk_generation_errors_total', {
+  description: 'Total number of chunk generation errors',
+})
 
 // ==========================================
 // FPSメトリクス
@@ -44,12 +41,9 @@ export const chunkGenerationErrorCounter = Metric.counter(
 /**
  * 現在のFPS（ゲージ）
  */
-export const fpsGauge = Metric.gauge(
-  'fps_current',
-  {
-    description: 'Current frames per second'
-  }
-)
+export const fpsGauge = Metric.gauge('fps_current', {
+  description: 'Current frames per second',
+})
 
 /**
  * フレーム時間のヒストグラム
@@ -57,9 +51,7 @@ export const fpsGauge = Metric.gauge(
  */
 export const frameTimeHistogram = Metric.histogram(
   'frame_time_ms',
-  MetricBoundaries.linear({ start: 8, width: 8, count: 12 }).pipe(
-    MetricBoundaries.fromChunk
-  ),
+  MetricBoundaries.linear({ start: 8, width: 8, count: 12 }).pipe(MetricBoundaries.fromChunk),
   'Frame rendering time in milliseconds'
 )
 
@@ -72,21 +64,16 @@ export const frameTimeHistogram = Metric.histogram(
  */
 export const chunkLoadScheduleDuration = Metric.histogram(
   'chunk_load_schedule_duration_ms',
-  MetricBoundaries.linear({ start: 1, width: 5, count: 10 }).pipe(
-    MetricBoundaries.fromChunk
-  ),
+  MetricBoundaries.linear({ start: 1, width: 5, count: 10 }).pipe(MetricBoundaries.fromChunk),
   'Chunk load scheduling time in milliseconds'
 )
 
 /**
  * アクティブチャンク数（メモリ内）
  */
-export const activeChunksGauge = Metric.gauge(
-  'active_chunks',
-  {
-    description: 'Number of active chunks in memory'
-  }
-)
+export const activeChunksGauge = Metric.gauge('active_chunks', {
+  description: 'Number of active chunks in memory',
+})
 
 /**
  * ローディングキューサイズ（既存のloadingSchedulerQueueSizeと統合）
@@ -102,12 +89,9 @@ export const loadingSchedulerQueueSize = Metric.gauge('loading_scheduler_queue_s
 /**
  * 推定メモリ使用量（MB）
  */
-export const memoryUsageGauge = Metric.gauge(
-  'memory_usage_mb',
-  {
-    description: 'Estimated memory usage in megabytes'
-  }
-)
+export const memoryUsageGauge = Metric.gauge('memory_usage_mb', {
+  description: 'Estimated memory usage in megabytes',
+})
 
 // ==========================================
 // 物理演算メトリクス
@@ -125,9 +109,6 @@ export const physicsStepDuration = Metric.histogram('physics_step_duration_ms', 
 /**
  * 衝突判定回数カウンター
  */
-export const collisionCheckCounter = Metric.counter(
-  'collision_checks_total',
-  {
-    description: 'Total number of collision checks performed'
-  }
-)
+export const collisionCheckCounter = Metric.counter('collision_checks_total', {
+  description: 'Total number of collision checks performed',
+})

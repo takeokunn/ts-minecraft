@@ -5,8 +5,8 @@
  * 既存のInventoryドメインとの互換性を保った簡略実装
  */
 
-import type { ContainerAggregate, ContainerId } from '@/domain/inventory/aggregate/container'
 import type { ItemId, ItemStack, PlayerId } from '@/domain/inventory'
+import type { ContainerAggregate, ContainerId } from '@/domain/inventory/aggregate/container'
 import type { InventoryQuery } from '@application/inventory/types'
 import { Context, DateTime, Effect, Layer } from 'effect'
 import type { InventoryApplicationError } from '../types'

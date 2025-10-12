@@ -24,7 +24,12 @@ const emptyArrayError: GenerationError = {
 } as GenerationError
 
 const ensureNonEmpty = (values: ReadonlyArray<number>) =>
-  Effect.succeed(values).pipe(Effect.filterOrFail((xs) => xs.length > 0, () => emptyArrayError))
+  Effect.succeed(values).pipe(
+    Effect.filterOrFail(
+      (xs) => xs.length > 0,
+      () => emptyArrayError
+    )
+  )
 
 export const StatisticalAnalyzerServiceLive = Layer.effect(
   StatisticalAnalyzerService,

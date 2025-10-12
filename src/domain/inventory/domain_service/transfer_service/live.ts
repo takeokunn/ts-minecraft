@@ -118,16 +118,14 @@ export const makeTransferService = Effect.succeed(
 
                 return pipe(
                   Match.value(isTransferFailure(transferResult)),
-                  Match.when(
-                    true,
-                    () =>
-                      Effect.succeed({
-                        ...acc,
-                        failedTransfers: [
-                          ...acc.failedTransfers,
-                          { index: transferResult.index, error: transferResult.error },
-                        ],
-                      })
+                  Match.when(true, () =>
+                    Effect.succeed({
+                      ...acc,
+                      failedTransfers: [
+                        ...acc.failedTransfers,
+                        { index: transferResult.index, error: transferResult.error },
+                      ],
+                    })
                   ),
                   Match.orElse(() =>
                     Effect.succeed({

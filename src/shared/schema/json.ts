@@ -83,7 +83,10 @@ export const toJsonValueOption = (value: JsonSerializable | undefined): JsonValu
 export const isJsonSerializable = (value: unknown): value is JsonSerializable =>
   pipe(
     Match.value(value),
-    Match.when((candidate): candidate is null => candidate === null, () => true),
+    Match.when(
+      (candidate): candidate is null => candidate === null,
+      () => true
+    ),
     Match.when(
       (candidate): candidate is string | number | boolean => {
         const typeOfCandidate = typeof candidate
@@ -97,8 +100,7 @@ export const isJsonSerializable = (value: unknown): value is JsonSerializable =>
     ),
     Match.when(Array.isArray, (array) => array.every(isJsonSerializable)),
     Match.when(
-      (candidate): candidate is Record<string, unknown> =>
-        typeof candidate === 'object' && candidate !== null,
+      (candidate): candidate is Record<string, unknown> => typeof candidate === 'object' && candidate !== null,
       (record) => Object.values(record).every(isJsonSerializable)
     ),
     Match.orElse(() => false)

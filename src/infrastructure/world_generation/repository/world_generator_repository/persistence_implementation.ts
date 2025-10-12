@@ -7,6 +7,10 @@
  */
 
 import {
+  WorldGenerationAdapterService,
+  type WorldGeneratorEncoded,
+} from '@/domain/world_generation/adapter/world_generation_adapter'
+import {
   createDataIntegrityError,
   createPersistenceError,
   createWorldGeneratorNotFoundError,
@@ -19,10 +23,6 @@ import {
   type WorldSeed,
 } from '@domain/world/types'
 import { WorldGeneratorSchema as AggregateWorldGeneratorSchema } from '@domain/world_generation/aggregate/world_generator'
-import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
-import * as NodePath from '@effect/platform-node/NodePath'
-import { Clock, DateTime, Effect, Layer, Option, pipe, ReadonlyArray, Ref, Schema, Either } from 'effect'
-import { Buffer } from 'node:buffer'
 import {
   CacheConfiguration,
   WorldGeneratorBatchResult,
@@ -31,10 +31,10 @@ import {
   WorldGeneratorRepositoryConfig,
   WorldGeneratorStatistics,
 } from '@domain/world_generation/repository/world_generator_repository'
-import {
-  WorldGenerationAdapterService,
-  type WorldGeneratorEncoded,
-} from '@/domain/world_generation/adapter/world_generation_adapter'
+import * as NodeFileSystem from '@effect/platform-node/NodeFileSystem'
+import * as NodePath from '@effect/platform-node/NodePath'
+import { Clock, DateTime, Effect, Either, Layer, Option, pipe, ReadonlyArray, Ref, Schema } from 'effect'
+import { Buffer } from 'node:buffer'
 
 // === Persistence Storage Schema ===
 
@@ -829,12 +829,7 @@ const makeWorldGeneratorRepositoryPersistence = (
         }).pipe(
           Effect.flatMap(Schema.decodeUnknown(PersistenceDataSchema)),
           Effect.mapError((error) =>
-            createDataIntegrityError(
-              'Backup schema validation failed',
-              ['backupData'],
-              decompressed,
-              error
-            )
+            createDataIntegrityError('Backup schema validation failed', ['backupData'], decompressed, error)
           )
         )
 

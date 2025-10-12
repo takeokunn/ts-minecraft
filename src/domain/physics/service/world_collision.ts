@@ -365,7 +365,7 @@ const makeWorldCollisionService: Effect.Effect<WorldCollisionService, never, Phy
             (maybe) => maybe === undefined,
             () =>
               Effect.gen(function* () {
-               yield* Ref.update(blockBodiesRef, (bodies) => bodies.set(posKey, bodyId))
+                yield* Ref.update(blockBodiesRef, (bodies) => bodies.set(posKey, bodyId))
                 yield* pipe(
                   Match.value(bodyId),
                   Match.when(
@@ -597,10 +597,7 @@ const makeWorldCollisionService: Effect.Effect<WorldCollisionService, never, Phy
 
                 return yield* pipe(
                   Match.value(bodyOption),
-                  Match.when(
-                    Option.isNone,
-                    () => Effect.succeed(Option.none())
-                  ),
+                  Match.when(Option.isNone, () => Effect.succeed(Option.none())),
                   Match.orElse(() =>
                     Effect.gen(function* () {
                       const blockCenter = { x: blockPos.x + 0.5, y: blockPos.y + 0.5, z: blockPos.z + 0.5 }

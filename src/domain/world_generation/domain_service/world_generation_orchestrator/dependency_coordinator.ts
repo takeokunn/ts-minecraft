@@ -586,7 +586,10 @@ const makeDependencyCoordinatorService = Effect.gen(function* () {
       ): string[] =>
         pipe(
           Match.value(queue.length === 0),
-          Match.when((empty) => empty, () => result),
+          Match.when(
+            (empty) => empty,
+            () => result
+          ),
           Match.orElse(() => {
             const current = queue[0]
             const newQueue = queue.slice(1)

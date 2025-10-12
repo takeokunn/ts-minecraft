@@ -756,7 +756,10 @@ export const ViewModePreferencesRepositoryLive = Layer.effect(
               onNone: () => popularityEntries,
               onSome: (ctx) =>
                 popularityEntries.filter((entry) =>
-                  pipe(entry.context, Option.exists((value) => value._tag === ctx._tag))
+                  pipe(
+                    entry.context,
+                    Option.exists((value) => value._tag === ctx._tag)
+                  )
                 ),
             })
           )
@@ -985,10 +988,7 @@ export const ViewModePreferencesRepositoryLive = Layer.effect(
               onSome: (pref) => {
                 const updated: ViewModePreference = {
                   ...pref,
-                  contextSensitivity: Option.getOrElse(
-                    adjustments.contextSensitivity,
-                    () => pref.contextSensitivity
-                  ),
+                  contextSensitivity: Option.getOrElse(adjustments.contextSensitivity, () => pref.contextSensitivity),
                   lastModified,
                   version: pref.version + 1,
                 }

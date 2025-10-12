@@ -288,30 +288,36 @@ export const ItemStackFactoryLive = ItemStackFactory.of({
           onSome: (opts) => {
             const withIdState = pipe(
               Match.value(opts.id),
-              Match.when((value): value is ItemStackId => value !== undefined, (value) => withId(state, value)),
+              Match.when(
+                (value): value is ItemStackId => value !== undefined,
+                (value) => withId(state, value)
+              ),
               Match.orElse(() => state)
             )
 
             const withDurabilityState = pipe(
               Match.value(opts.durability),
-              Match.when((value): value is Durability => value !== undefined, (value) =>
-                withDurability(withIdState, value)
+              Match.when(
+                (value): value is Durability => value !== undefined,
+                (value) => withDurability(withIdState, value)
               ),
               Match.orElse(() => withIdState)
             )
 
             const withNBTState = pipe(
               Match.value(opts.nbtData),
-              Match.when((value): value is ItemNBTData => value !== undefined, (value) =>
-                withNBTData(withDurabilityState, value)
+              Match.when(
+                (value): value is ItemNBTData => value !== undefined,
+                (value) => withNBTData(withDurabilityState, value)
               ),
               Match.orElse(() => withDurabilityState)
             )
 
             return pipe(
               Match.value(opts.metadata),
-              Match.when((value): value is JsonRecord => value !== undefined, (value) =>
-                withMetadata(withNBTState, value)
+              Match.when(
+                (value): value is JsonRecord => value !== undefined,
+                (value) => withMetadata(withNBTState, value)
               ),
               Match.orElse(() => withNBTState)
             )

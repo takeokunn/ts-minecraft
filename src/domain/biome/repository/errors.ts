@@ -9,22 +9,14 @@ export const BiomeRepositoryErrorSchema = Schema.Struct({
 
 export type BiomeRepositoryError = typeof BiomeRepositoryErrorSchema.Type
 
-export const createRepositoryError = (
-  message: string,
-  operation?: string,
-  cause?: unknown
-): BiomeRepositoryError => ({
+export const createRepositoryError = (message: string, operation?: string, cause?: unknown): BiomeRepositoryError => ({
   _tag: 'BiomeRepositoryError',
   message,
   operation,
   cause,
 })
 
-export const createCacheError = (
-  message: string,
-  operation?: string,
-  cause?: unknown
-): BiomeRepositoryError => ({
+export const createCacheError = (message: string, operation?: string, cause?: unknown): BiomeRepositoryError => ({
   _tag: 'BiomeCacheError',
   message,
   operation,

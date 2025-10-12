@@ -9,9 +9,7 @@ export interface MenuStateStore {
   readonly stream: () => Stream.Stream<MenuRoute>
 }
 
-export const MenuStateStoreTag = Context.GenericTag<MenuStateStore>(
-  '@minecraft/presentation/menu/MenuStateStore'
-)
+export const MenuStateStoreTag = Context.GenericTag<MenuStateStore>('@minecraft/presentation/menu/MenuStateStore')
 
 const DEFAULT_ROUTE: MenuRoute = 'none'
 

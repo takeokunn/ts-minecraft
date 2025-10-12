@@ -1,5 +1,5 @@
-import { Clock, Effect, Layer, pipe } from 'effect'
 import { PlayerClock, decodeTimestamp, type PlayerClockService } from '@domain/player/time'
+import { Clock, Effect, Layer, pipe } from 'effect'
 
 const makeClock = Effect.succeed<PlayerClockService>({
   current: pipe(Clock.currentTimeMillis, Effect.flatMap(decodeTimestamp)),

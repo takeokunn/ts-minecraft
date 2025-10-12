@@ -135,9 +135,15 @@ export const toStorageFailureCause = (value: unknown): StorageFailureCause | nul
   )
 
   return Match.value(value).pipe(
-    Match.when((candidate): candidate is null | undefined => candidate === null || candidate === undefined, () => null),
+    Match.when(
+      (candidate): candidate is null | undefined => candidate === null || candidate === undefined,
+      () => null
+    ),
     Match.when(isParseError, (error) => error),
-    Match.when((candidate): candidate is Error => candidate instanceof Error, (error) => error),
+    Match.when(
+      (candidate): candidate is Error => candidate instanceof Error,
+      (error) => error
+    ),
     Match.orElse(() => jsonCandidate ?? String(value)),
     Match.exhaustive
   )

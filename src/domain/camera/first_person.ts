@@ -1,4 +1,6 @@
 import type { CameraConfig, CameraError, CameraSnapshot, CameraState } from '@domain/camera/types'
+import * as Schema from '@effect/schema/Schema'
+import { Effect, Layer, Match, pipe, Ref } from 'effect'
 import {
   CameraVector3Schema,
   createCameraError,
@@ -7,8 +9,6 @@ import {
   validateCameraConfig,
   validateCameraMode,
 } from './index'
-import * as Schema from '@effect/schema/Schema'
-import { Effect, Layer, Match, pipe, Ref } from 'effect'
 import type {
   CameraConfigInput,
   CameraDistanceInput,
@@ -68,10 +68,7 @@ const ensureInitialized = (state: FirstPersonState, operation: string): Effect.E
   pipe(
     state.initialized,
     Match.value,
-    Match.when(
-      false,
-      () => Effect.fail(createCameraError.notInitialized(operation))
-    ),
+    Match.when(false, () => Effect.fail(createCameraError.notInitialized(operation))),
     Match.orElse(() => Effect.succeed(state))
   )
 
@@ -177,8 +174,9 @@ const createFirstPersonCameraService = (stateRef: Ref.Ref<FirstPersonState>): Ca
             Match.orElse(() => Ref.update(stateRef, (s) => ({ ...s, config: { ...s.config, mode: 'first-person' } })))
           )
         ),
-        Match.orElse((m): Effect.Effect<void, CameraError> =>
-          Effect.fail(createCameraError.invalidMode(String(m), ['first-person']))
+        Match.orElse(
+          (m): Effect.Effect<void, CameraError> =>
+            Effect.fail(createCameraError.invalidMode(String(m), ['first-person']))
         )
       )
     }),

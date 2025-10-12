@@ -2,25 +2,22 @@ import * as TreeFormatter from '@effect/schema/TreeFormatter'
 import { Clock, Context, Data, Duration, Effect, Layer, Match, Option, Schema } from 'effect'
 
 import type { ChunkData, ChunkPosition } from '@/domain/chunk'
+import { ChunkCommandSchema, ChunkQuerySchema, type ChunkCommand } from '@/domain/chunk/types'
+import type { ChunkWorkerAdapter } from '@/infrastructure/chunk'
+import { ChunkWorkerAdapterError, ChunkWorkerAdapterTag } from '@/infrastructure/chunk'
 import {
   ChunkCommandHandler,
   ChunkCommandHandlerLive,
+  ChunkQueryHandler,
+  ChunkQueryHandlerLive,
   ChunkReadModelLive,
   type ChunkCommandHandlerError,
   type ChunkCommandResult,
   type ChunkQuery,
-  ChunkQueryHandler,
-  ChunkQueryHandlerLive,
   type ChunkQueryHandlerError,
   type ChunkQueryResult,
 } from '@application/chunk/cqrs'
-import { ChunkCommandSchema, ChunkQuerySchema, type ChunkCommand } from '@/domain/chunk/types'
-import {
-  ChunkQueryError,
-  type ChunkQueryError as ChunkQueryErrorType,
-} from '@application/chunk/cqrs/query_handler'
-import type { ChunkWorkerAdapter } from '@/infrastructure/chunk'
-import { ChunkWorkerAdapterError, ChunkWorkerAdapterTag } from '@/infrastructure/chunk'
+import { ChunkQueryError, type ChunkQueryError as ChunkQueryErrorType } from '@application/chunk/cqrs/query_handler'
 
 const defaultActorId = 'chunk-api-service'
 
@@ -98,11 +95,11 @@ const awaitChunkFromReadModel = (
     yield* ensureWithinTimeout(context.startedAt, context.timeoutMs, context.positions)
 
     const query = yield* decodeGetChunkByPositionQuery(position, context.requesterId)
-    const result = yield* queryHandler.execute(query).pipe(
-      Effect.catchTag(ChunkQueryError.tag, (error) =>
-        handleChunkQueryError(queryHandler, error, position, context)
+    const result = yield* queryHandler
+      .execute(query)
+      .pipe(
+        Effect.catchTag(ChunkQueryError.tag, (error) => handleChunkQueryError(queryHandler, error, position, context))
       )
-    )
 
     return yield* Match.value(result).pipe(
       Match.tag('ChunkFound', ({ chunk }) => Effect.succeed(chunk)),
@@ -142,11 +139,7 @@ const handleChunkQueryError = (
     Match.tag('ChunkNotFound', () =>
       Effect.gen(function* () {
         yield* Clock.sleep(Duration.millis(context.pollIntervalMs))
-        return yield* awaitChunkFromReadModel(
-          queryHandler,
-          position,
-          context
-        )
+        return yield* awaitChunkFromReadModel(queryHandler, position, context)
       })
     ),
     Match.orElse(() => Effect.fail(error))
@@ -204,53 +197,53 @@ export interface ChunkAPIService {
 
 export const ChunkAPIService = Context.GenericTag<ChunkAPIService>('@minecraft/application/chunk/APIService')
 
-const createRequestChunkGeneration = (
-  adapterOption: Option.Option<ChunkWorkerAdapter>
-) => (positions: ReadonlyArray<ChunkPosition>, options?: ChunkGenerationRequestOptions) =>
-  Option.match(adapterOption, {
-    onNone: () =>
-      Effect.fail(
-        ChunkAPIServiceError.WorkerUnavailable({
-          message: 'ChunkWorkerAdapterが提供されていません',
-        })
-      ),
-    onSome: (adapter) =>
-      positions.length === 0
-        ? Effect.void
-        : Effect.forEach(
+const createRequestChunkGeneration =
+  (adapterOption: Option.Option<ChunkWorkerAdapter>) =>
+  (positions: ReadonlyArray<ChunkPosition>, options?: ChunkGenerationRequestOptions) =>
+    Option.match(adapterOption, {
+      onNone: () =>
+        Effect.fail(
+          ChunkAPIServiceError.WorkerUnavailable({
+            message: 'ChunkWorkerAdapterが提供されていません',
+          })
+        ),
+      onSome: (adapter) =>
+        positions.length === 0
+          ? Effect.void
+          : Effect.forEach(
+              positions,
+              (position) =>
+                decodeLoadChunkCommand(position, options?.actorId ?? defaultActorId).pipe(
+                  Effect.flatMap((command) => adapter.publish(command))
+                ),
+              { discard: true }
+            ),
+    })
+
+const createWaitForChunks =
+  (queryHandler: ChunkQueryHandler) =>
+  (positions: ReadonlyArray<ChunkPosition>, options?: ChunkGenerationWaitOptions) =>
+    positions.length === 0
+      ? Effect.succeed([] as const)
+      : Effect.gen(function* () {
+          const pollIntervalMs = options?.pollIntervalMs ?? 50
+          const requesterId = options?.requesterId ?? defaultActorId
+          const timeoutOption = Option.fromNullable(options?.timeoutMs)
+          const startedAt = yield* Clock.currentTimeMillis
+
+          return yield* Effect.forEach(
             positions,
             (position) =>
-              decodeLoadChunkCommand(position, options?.actorId ?? defaultActorId).pipe(
-                Effect.flatMap((command) => adapter.publish(command))
-              ),
-            { discard: true }
-          ),
-  })
-
-const createWaitForChunks = (
-  queryHandler: ChunkQueryHandler
-) => (positions: ReadonlyArray<ChunkPosition>, options?: ChunkGenerationWaitOptions) =>
-  positions.length === 0
-    ? Effect.succeed([] as const)
-    : Effect.gen(function* () {
-        const pollIntervalMs = options?.pollIntervalMs ?? 50
-        const requesterId = options?.requesterId ?? defaultActorId
-        const timeoutOption = Option.fromNullable(options?.timeoutMs)
-        const startedAt = yield* Clock.currentTimeMillis
-
-        return yield* Effect.forEach(
-          positions,
-          (position) =>
-            awaitChunkFromReadModel(queryHandler, position, {
-              pollIntervalMs,
-              requesterId,
-              timeoutMs: timeoutOption,
-              startedAt,
-              positions,
-            }),
-          { discard: false }
-        )
-      })
+              awaitChunkFromReadModel(queryHandler, position, {
+                pollIntervalMs,
+                requesterId,
+                timeoutMs: timeoutOption,
+                startedAt,
+                positions,
+              }),
+            { discard: false }
+          )
+        })
 
 const ChunkAPIServiceLayer = Layer.effect(
   ChunkAPIService,
@@ -266,18 +259,13 @@ const ChunkAPIServiceLayer = Layer.effect(
       executeCommand: (command) =>
         Option.match(adapterOption, {
           onNone: () => commandHandler.handle(command),
-          onSome: (adapter) =>
-            adapter.publish(command).pipe(
-              Effect.zipRight(commandHandler.handle(command))
-            ),
+          onSome: (adapter) => adapter.publish(command).pipe(Effect.zipRight(commandHandler.handle(command))),
         }),
       executeQuery: (query) => queryHandler.execute(query),
       requestChunkGeneration,
       waitForChunks,
       requestAndWaitForChunks: (positions, options) =>
-        requestChunkGeneration(positions, options).pipe(
-          Effect.zipRight(waitForChunks(positions, options))
-        ),
+        requestChunkGeneration(positions, options).pipe(Effect.zipRight(waitForChunks(positions, options))),
     })
   })
 )

@@ -294,7 +294,10 @@ export const getDisplayName = (itemId: ItemId): string => {
 
   return pipe(
     Match.value(namespace),
-    Match.when((value) => value === 'minecraft', () => name as string),
+    Match.when(
+      (value) => value === 'minecraft',
+      () => name as string
+    ),
     Match.orElse(() => itemId as string)
   )
 }

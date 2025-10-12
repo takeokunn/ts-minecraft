@@ -278,7 +278,7 @@ export const validateArmorSlots = (inventory: Inventory): Effect.Effect<Readonly
                 )
               }),
           })
-        ))
+        )
       ),
       Effect.map(ReadonlyArray.filterMap((x) => x))
     )

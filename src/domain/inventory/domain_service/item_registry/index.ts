@@ -5,9 +5,8 @@
  */
 
 export {
-  ItemRegistryService,
   ItemRegistryErrorSchema,
-  type ItemRegistryError,
+  ItemRegistryService,
   type EdibleProperties,
   type FuelProperties,
   type ItemCategory,
@@ -16,6 +15,7 @@ export {
   type ItemDefinitionMetadata,
   type ItemProperties,
   type ItemRarity,
+  type ItemRegistryError,
   type StackingRules,
   type StorageRequirements,
   type UsageRestriction,

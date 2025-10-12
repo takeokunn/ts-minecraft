@@ -1,8 +1,8 @@
-import type { JSX } from 'react'
 import { pipe } from 'effect/Function'
 import * as Match from 'effect/Match'
+import type { JSX } from 'react'
 
-import type { CraftingPanelView, CraftingSlotView, CraftingResultView } from '../types'
+import type { CraftingPanelView, CraftingResultView, CraftingSlotView } from '../types'
 
 import { CraftingGrid } from './CraftingGrid'
 import { CraftingResult } from './CraftingResult'

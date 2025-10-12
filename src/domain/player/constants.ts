@@ -1,16 +1,4 @@
-import { Schema } from 'effect'
-import {
-  AccelerationSchema,
-  HealthValueSchema,
-  HungerValueSchema,
-  PlayerAcceleration,
-  PlayerHealthValue,
-  PlayerHungerValue,
-  PlayerSaturationValue,
-  PlayerSpeed,
-  SaturationValueSchema,
-  SpeedSchema,
-} from './index'
+import { PlayerAcceleration, PlayerHealthValue, PlayerHungerValue, PlayerSaturationValue, PlayerSpeed } from './index'
 
 export const JUMP_VELOCITY: PlayerSpeed = 8.6 as PlayerSpeed
 

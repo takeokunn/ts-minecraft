@@ -200,19 +200,19 @@ export interface ItemDefinitionRepository {
    * @returns 存在フラグ (成功時) | RepositoryError (失敗時)
    *
    * @example
- * ```typescript
- * yield* pipe(
- *   repo.exists('diamond_sword' as ItemId),
- *   Effect.flatMap((exists) =>
- *     pipe(
- *       Match.value(exists),
- *       Match.when(true, () => Effect.log('ダイヤモンドソードは定義されています')),
- *       Match.orElse(() => Effect.log('ダイヤモンドソードは未定義です'))
- *     )
- *   )
- * )
- * ```
- */
+   * ```typescript
+   * yield* pipe(
+   *   repo.exists('diamond_sword' as ItemId),
+   *   Effect.flatMap((exists) =>
+   *     pipe(
+   *       Match.value(exists),
+   *       Match.when(true, () => Effect.log('ダイヤモンドソードは定義されています')),
+   *       Match.orElse(() => Effect.log('ダイヤモンドソードは未定義です'))
+   *     )
+   *   )
+   * )
+   * ```
+   */
   readonly exists: (id: ItemId) => Effect.Effect<boolean, AllRepositoryErrors>
 
   /**
@@ -224,16 +224,16 @@ export interface ItemDefinitionRepository {
    * @returns アイテム定義数 (成功時) | RepositoryError (失敗時)
    *
    * @example
- * ```typescript
- * const count = yield* repo.count()
- * yield* Effect.log(`登録アイテム定義数: ${count}`)
- * yield* pipe(
- *   Match.value(count > 50000),
- *   Match.when(true, () => Effect.log('⚠️ アイテム定義数が上限に近づいています')),
- *   Match.orElse(() => Effect.unit)
- * )
- * ```
- */
+   * ```typescript
+   * const count = yield* repo.count()
+   * yield* Effect.log(`登録アイテム定義数: ${count}`)
+   * yield* pipe(
+   *   Match.value(count > 50000),
+   *   Match.when(true, () => Effect.log('⚠️ アイテム定義数が上限に近づいています')),
+   *   Match.orElse(() => Effect.unit)
+   * )
+   * ```
+   */
   readonly count: () => Effect.Effect<number, AllRepositoryErrors>
 
   /**

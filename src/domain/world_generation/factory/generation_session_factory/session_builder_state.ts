@@ -5,9 +5,9 @@
  * Builder Pattern → Schema + Pure Functions パターンの一部として実装されています。
  */
 
+import * as Coordinates from '@domain/biome/value_object/coordinates'
 import type * as GenerationSession from '@domain/world_generation/aggregate/generation_session'
 import type * as WorldGenerator from '@domain/world_generation/aggregate/world_generator'
-import * as Coordinates from '@domain/biome/value_object/coordinates'
 import { JsonValueSchema } from '@shared/schema/json'
 import { Duration, Schema } from 'effect'
 

@@ -1,36 +1,26 @@
-import { Effect, Layer, Match, pipe } from 'effect'
 import {
-  ContainerRepository,
   ContainerRepositoryMemory,
   ContainerRepositoryPersistent,
   ContainerRepositoryPersistentDefault,
   DefaultContainerPersistentConfig,
   type ContainerPersistentConfig,
 } from '@domain/inventory/repository/container_repository'
+import { InventoryRepositoryMemory } from '@domain/inventory/repository/inventory_repository'
+import { ItemDefinitionRepositoryMemory } from '@domain/inventory/repository/item_definition_repository'
+import { createUnifiedInventoryRepository, UnifiedInventoryRepository } from '@domain/inventory/repository/unified'
+import { Effect, Layer, Match, pipe } from 'effect'
 import {
-  InventoryRepository,
-  InventoryRepositoryMemory,
-} from '@domain/inventory/repository/inventory_repository'
-import {
+  DefaultPersistentConfig as DefaultInventoryPersistentConfig,
   InventoryRepositoryPersistent,
   InventoryRepositoryPersistentDefault,
-  DefaultPersistentConfig as DefaultInventoryPersistentConfig,
   type PersistentConfig as InventoryPersistentConfig,
 } from './inventory/persistent'
 import {
-  ItemDefinitionRepository,
-  ItemDefinitionRepositoryMemory,
-} from '@domain/inventory/repository/item_definition_repository'
-import {
+  DefaultJsonFileConfig,
   ItemDefinitionRepositoryJsonFile,
   ItemDefinitionRepositoryJsonFileDefault,
-  DefaultJsonFileConfig,
   type JsonFileConfig,
 } from './item_definition/json-file'
-import {
-  createUnifiedInventoryRepository,
-  UnifiedInventoryRepository,
-} from '@domain/inventory/repository/unified'
 
 // =============================================================================
 // Inventory Repository Layers

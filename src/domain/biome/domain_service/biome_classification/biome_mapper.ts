@@ -8,10 +8,10 @@
 
 import type { BoundingBox, WorldCoordinate2D } from '@/domain/biome/value_object/coordinates'
 import { makeUnsafeWorldCoordinate2D, WorldCoordinate2DSchema } from '@/domain/biome/value_object/coordinates'
-import { type BiomeGenerationError } from './errors'
 import type { WorldSeed } from '@domain/shared/value_object/world_seed'
 import { Context, Effect, Layer, Match, Option, pipe, Random, ReadonlyArray, Schema } from 'effect'
 import { ClimateClassificationSchema, ClimateDataSchema } from './climate_calculator'
+import { type BiomeGenerationError } from './errors'
 import type { ClimateData } from './index'
 
 /**

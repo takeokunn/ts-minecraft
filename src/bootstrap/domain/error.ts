@@ -1,8 +1,8 @@
 import type { ParseError } from '@effect/schema/ParseResult'
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
 import { Data, Option, pipe, Schema } from 'effect'
-import * as Either from 'effect/Either'
 import * as ReadonlyArray from 'effect/Array'
+import * as Either from 'effect/Either'
 import * as Match from 'effect/Match'
 import type { LifecycleIntent, LifecycleState } from './lifecycle'
 

@@ -7,9 +7,9 @@
  * - パフォーマンス制限の管理
  */
 
-import type * as GenerationErrors from '@domain/world/types/errors'
 import * as Coordinates from '@domain/biome/value_object/coordinates'
 import * as WorldSeed from '@domain/shared/value_object/world_seed/index'
+import type * as GenerationErrors from '@domain/world/types/errors'
 import { Effect } from 'effect'
 import type {
   GenerateChunkCommand,

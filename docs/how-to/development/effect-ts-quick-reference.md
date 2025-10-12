@@ -807,21 +807,20 @@ export const createBatchSchema = <A, I, R>(itemSchema: Schema.Schema<A, I, R>, b
           ReadonlyArray.mapWithIndex((index, batch) => ({ index, batch }))
         )
 
-        return yield* Effect.reduce(
-          batches,
-          [] as ReadonlyArray<A>,
-          (acc, { index, batch }) =>
-            Effect.gen(function* () {
-              const batchResults = yield* Effect.forEach(batch, (item) => itemSchema.decode(item, options), {
-                concurrency: 'unbounded',
-              })
-
-              if (index % 10 === 0) {
-                yield* Effect.logInfo(`Processed ${Math.min((index + 1) * batchSize, items.length)}/${items.length} items`)
-              }
-
-              return [...acc, ...batchResults]
+        return yield* Effect.reduce(batches, [] as ReadonlyArray<A>, (acc, { index, batch }) =>
+          Effect.gen(function* () {
+            const batchResults = yield* Effect.forEach(batch, (item) => itemSchema.decode(item, options), {
+              concurrency: 'unbounded',
             })
+
+            if (index % 10 === 0) {
+              yield* Effect.logInfo(
+                `Processed ${Math.min((index + 1) * batchSize, items.length)}/${items.length} items`
+              )
+            }
+
+            return [...acc, ...batchResults]
+          })
         )
       }),
     encode: (items) => Effect.forEach(items, (item) => itemSchema.encode(item), { concurrency: 'unbounded' }),

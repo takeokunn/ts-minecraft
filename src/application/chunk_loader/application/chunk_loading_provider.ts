@@ -1,4 +1,3 @@
-import { Clock, Effect, HashMap, Layer, Match, Option, Random, SynchronizedRef, pipe } from 'effect'
 import { SessionState, createSession, transition } from '@domain/chunk_loader/domain'
 import {
   CacheStatus,
@@ -19,6 +18,7 @@ import {
   normalizeTimestamp,
   progressFromPhase,
 } from '@domain/chunk_loader/types'
+import { Clock, Effect, HashMap, Layer, Match, Option, Random, SynchronizedRef, pipe } from 'effect'
 
 interface MetricsState {
   readonly activeSessions: number

@@ -1,7 +1,4 @@
-import { Clock, Effect, Layer, Option, Ref, pipe } from 'effect'
 import type { ChunkData } from '@domain/chunk/aggregate/chunk_data'
-import type { ChunkId } from '@domain/chunk/value_object/chunk_id'
-import type { ChunkPosition } from '@domain/chunk/value_object/chunk_position'
 import {
   BatchOperationResult,
   ChunkQuery,
@@ -9,6 +6,9 @@ import {
   ChunkRepository,
   ChunkStatistics,
 } from '@domain/chunk/repository/chunk_repository'
+import type { ChunkId } from '@domain/chunk/value_object/chunk_id'
+import type { ChunkPosition } from '@domain/chunk/value_object/chunk_position'
+import { Clock, Effect, Layer, Option, Ref, pipe } from 'effect'
 
 interface ChunkEntry {
   readonly chunk: ChunkData

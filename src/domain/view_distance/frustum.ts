@@ -8,7 +8,6 @@ import {
   EpochMillis,
   FrustumComputedEvent,
   FrustumSummary,
-  FrustumSummarySchema,
   InvalidConfigurationError,
   ViewDistance,
   ViewDistanceError,

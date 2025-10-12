@@ -1,2 +1,2 @@
-export * from './world_generation_adapter'
 export * from './repository'
+export * from './world_generation_adapter'

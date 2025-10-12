@@ -31,11 +31,7 @@ export const applySnapshotToPerspectiveCamera = (
     camera.far = snapshot.projection.far
     camera.updateProjectionMatrix()
 
-    camera.position.set(
-      snapshot.transform.position.x,
-      snapshot.transform.position.y,
-      snapshot.transform.position.z
-    )
+    camera.position.set(snapshot.transform.position.x, snapshot.transform.position.y, snapshot.transform.position.z)
 
     const quaternion = snapshot.transform.orientation.quaternion
     camera.quaternion.set(quaternion.x, quaternion.y, quaternion.z, quaternion.w)

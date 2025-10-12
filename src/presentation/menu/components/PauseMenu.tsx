@@ -11,12 +11,7 @@ interface PauseMenuProps {
   readonly onSelect: (action: MenuAction) => void
 }
 
-export const PauseMenu = ({
-  title = 'Paused',
-  sessionName,
-  actions,
-  onSelect,
-}: PauseMenuProps): JSX.Element => (
+export const PauseMenu = ({ title = 'Paused', sessionName, actions, onSelect }: PauseMenuProps): JSX.Element => (
   <section
     style={{
       position: 'absolute',

@@ -1,4 +1,4 @@
-import { Brand, Clock, Effect, Match, pipe, Schema } from 'effect'
+import { Brand, Clock, Effect, Match, Option, pipe, ReadonlyArray, Schema } from 'effect'
 import { AnimationDuration, AnimationDurationSchema, AnimationProgressSchema, TimestampSchema } from './schema'
 import {
   AnimationError,
@@ -85,9 +85,10 @@ export const EasingFunctions = {
         return pipe(
           Match.value(tNum === 1),
           Match.when(true, () => 1),
-          Match.orElse(() =>
-            amplitude * Math.pow(2, -10 * tNum) * Math.sin(((tNum - period / 4) * (2 * Math.PI)) / period) + 1
-          )
+          Match.orElse(
+            () => amplitude * Math.pow(2, -10 * tNum) * Math.sin(((tNum - period / 4) * (2 * Math.PI)) / period) + 1
+          ),
+          Match.exhaustive
         )
       }),
       Match.tag('Elastic', ({ amplitude, period }) => {
@@ -95,9 +96,10 @@ export const EasingFunctions = {
         return pipe(
           Match.value(tNum === 0 || tNum === 1),
           Match.when(true, () => tNum),
-          Match.orElse(() =>
-            amplitude * Math.pow(2, -10 * tNum) * Math.sin(((tNum - period / 4) * (2 * Math.PI)) / period) + 1
-          )
+          Match.orElse(
+            () => amplitude * Math.pow(2, -10 * tNum) * Math.sin(((tNum - period / 4) * (2 * Math.PI)) / period) + 1
+          ),
+          Match.exhaustive
         )
       }),
       Match.tag('Back', ({ overshoot }) => {
@@ -184,7 +186,8 @@ export const AnimationStateOps = {
             requestedOperation: 'pause',
           })
         )
-      )
+      ),
+      Match.exhaustive
     ),
 
   /**
@@ -212,7 +215,8 @@ export const AnimationStateOps = {
             requestedOperation: 'resume',
           })
         )
-      )
+      ),
+      Match.exhaustive
     ),
 
   /**
@@ -241,7 +245,8 @@ export const AnimationStateOps = {
         Match.value,
         Match.tag('Playing', ({ currentProgress }) => currentProgress),
         Match.tag('Paused', ({ currentProgress }) => currentProgress),
-        Match.orElse(() => Brand.nominal<AnimationProgress>()(0))
+        Match.orElse(() => Brand.nominal<AnimationProgress>()(0)),
+        Match.exhaustive
       )
 
       return AnimationState.Cancelled({
@@ -275,11 +280,13 @@ export const AnimationStateOps = {
                   currentProgress,
                 })
               )
-            )
+            ),
+            Match.exhaustive
           )
         })
       ),
-      Match.orElse(() => Effect.succeed(state))
+      Match.orElse(() => Effect.succeed(state)),
+      Match.exhaustive
     ),
 }
 
@@ -315,7 +322,7 @@ export const InterpolationOps = {
   ): { pitch: number; yaw: number; roll: number } => {
     // ヨー角の最短経路を計算
     const rawYawDiff = to.yaw - from.yaw
-    const yawDiff = ((rawYawDiff + 180) % 360 + 360) % 360 - 180
+    const yawDiff = ((((rawYawDiff + 180) % 360) + 360) % 360) - 180
 
     return {
       pitch: InterpolationOps.lerpNumber(from.pitch, to.pitch, t),
@@ -377,9 +384,9 @@ export const InterpolationOps = {
             fov: InterpolationOps.lerpNumber(fromKeyframe.fov, toKeyframe.fov, easedProgress),
           }
         })
-      )
-    )
-  },
+      ),
+      Match.exhaustive
+    ),
 }
 
 /**
@@ -431,7 +438,8 @@ export const CameraAnimationOps = {
         Match.tag('Playing', ({ currentProgress }) => currentProgress),
         Match.tag('Paused', ({ currentProgress }) => currentProgress),
         Match.tag('Completed', ({ finalProgress }) => finalProgress),
-        Match.orElse(() => Brand.nominal<AnimationProgress>()(0))
+        Match.orElse(() => Brand.nominal<AnimationProgress>()(0)),
+        Match.exhaustive
       )
 
       const easedProgress = animation.positionAnimation
@@ -464,7 +472,8 @@ export const CameraAnimationOps = {
       animation.state,
       Match.value,
       Match.tag('Completed', () => true),
-      Match.orElse(() => false)
+      Match.orElse(() => false),
+      Match.exhaustive
     ),
 
   /**
@@ -475,7 +484,8 @@ export const CameraAnimationOps = {
       animation.state,
       Match.value,
       Match.tag('Playing', () => true),
-      Match.orElse(() => false)
+      Match.orElse(() => false),
+      Match.exhaustive
     ),
 }
 

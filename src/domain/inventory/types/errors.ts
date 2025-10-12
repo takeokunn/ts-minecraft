@@ -694,18 +694,23 @@ export const formatErrorMessage = (error: InventoryDomainError): string => {
 
   return pipe(
     Match.value(error),
-    Match.when(isSlotValidationError, (slotError) =>
-      `${baseMessage} (Slot: ${slotError.slotNumber}, Reason: ${slotError.reason})`
+    Match.when(
+      isSlotValidationError,
+      (slotError) => `${baseMessage} (Slot: ${slotError.slotNumber}, Reason: ${slotError.reason})`
     ),
     Match.when(isItemNotFoundError, (notFoundError) => {
       const slotInfo = notFoundError.slotNumber !== undefined ? `, Slot: ${notFoundError.slotNumber}` : ''
       return `${baseMessage} (Item: ${notFoundError.itemId}${slotInfo})`
     }),
-    Match.when(isTransferFailureError, (transferError) =>
-      `${baseMessage} (${transferError.sourceInventoryId} → ${transferError.targetInventoryId}, Reason: ${transferError.reason})`
+    Match.when(
+      isTransferFailureError,
+      (transferError) =>
+        `${baseMessage} (${transferError.sourceInventoryId} → ${transferError.targetInventoryId}, Reason: ${transferError.reason})`
     ),
-    Match.when(isCorruptionError, (corruptionError) =>
-      `${baseMessage} (Type: ${corruptionError.corruptionType}, Fields: ${corruptionError.affectedFields.join(', ')})`
+    Match.when(
+      isCorruptionError,
+      (corruptionError) =>
+        `${baseMessage} (Type: ${corruptionError.corruptionType}, Fields: ${corruptionError.affectedFields.join(', ')})`
     ),
     Match.orElse(() => baseMessage)
   )
@@ -717,10 +722,22 @@ export const formatErrorMessage = (error: InventoryDomainError): string => {
 export const getErrorSeverity = (error: InventoryDomainError): 'low' | 'medium' | 'high' | 'critical' => {
   return pipe(
     Match.value(error),
-    Match.when((err) => isValidationError(err) || isItemValidationError(err), () => 'low' as const),
-    Match.when((err) => isInsufficientSpaceError(err) || isItemNotFoundError(err), () => 'medium' as const),
-    Match.when((err) => isTransferFailureError(err) || isPermissionError(err), () => 'high' as const),
-    Match.when((err) => isCorruptionError(err) || isSystemError(err), () => 'critical' as const),
+    Match.when(
+      (err) => isValidationError(err) || isItemValidationError(err),
+      () => 'low' as const
+    ),
+    Match.when(
+      (err) => isInsufficientSpaceError(err) || isItemNotFoundError(err),
+      () => 'medium' as const
+    ),
+    Match.when(
+      (err) => isTransferFailureError(err) || isPermissionError(err),
+      () => 'high' as const
+    ),
+    Match.when(
+      (err) => isCorruptionError(err) || isSystemError(err),
+      () => 'critical' as const
+    ),
     Match.orElse(() => 'medium' as const)
   )
 }
@@ -740,7 +757,10 @@ export const isRecoverableError = (error: InventoryDomainError): boolean => {
       (err) => isConcurrencyError(err) && err.conflictType !== 'DEADLOCK',
       () => true
     ),
-    Match.when((err) => isSystemError(err) || isCorruptionError(err), () => false),
+    Match.when(
+      (err) => isSystemError(err) || isCorruptionError(err),
+      () => false
+    ),
     Match.orElse(() => true)
   )
 }

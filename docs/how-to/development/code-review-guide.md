@@ -385,11 +385,8 @@ const processGameUpdate = (update: GameUpdate) =>
 // ❌ 直列処理（非効率）
 const loadPlayerData = (playerIds: string[]) =>
   Effect.gen(function* (_) {
-    return yield* Effect.reduce(
-      playerIds,
-      [] as ReadonlyArray<Player>,
-      (acc, id) =>
-        Effect.map(loadPlayer(id), (player) => [...acc, player])
+    return yield* Effect.reduce(playerIds, [] as ReadonlyArray<Player>, (acc, id) =>
+      Effect.map(loadPlayer(id), (player) => [...acc, player])
     )
   })
 

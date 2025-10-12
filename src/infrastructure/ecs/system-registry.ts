@@ -27,12 +27,12 @@ type ErrorMessageRecord = {
 
 const isErrorMessageRecord = (value: unknown): value is ErrorMessageRecord =>
   Match.value(value).pipe(
-    Match.when((candidate) => typeof candidate !== 'object' || candidate === null, () => false),
+    Match.when(
+      (candidate) => typeof candidate !== 'object' || candidate === null,
+      () => false
+    ),
     Match.orElse(() =>
-      pipe(
-        value as Record<string, unknown>,
-        (record) => 'message' in record && typeof record.message === 'string'
-      )
+      pipe(value as Record<string, unknown>, (record) => 'message' in record && typeof record.message === 'string')
     ),
     Match.exhaustive
   )

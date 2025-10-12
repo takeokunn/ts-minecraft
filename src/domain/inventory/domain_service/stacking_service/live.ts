@@ -427,7 +427,7 @@ const consolidateItemGroup = (
                         operations: [...acc.operations, newOperation],
                         shouldContinue: false,
                       }
-                    }).pipe(Effect.flatMap((compute) => Effect.succeed(compute())))
+                    }).pipe(Effect.flatMap((compute) => Effect.succeed(compute()))),
                 })
               )
             )

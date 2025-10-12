@@ -215,11 +215,7 @@ export const PlayerCameraApplicationServiceLive = Layer.effect(
             return yield* Match.value(canSwitch).pipe(
               Match.when(true, () =>
                 Effect.gen(function* () {
-                  const updatedMode = yield* viewModeManager.switchToMode(
-                    playerState.viewMode,
-                    nextMode,
-                    Option.none()
-                  )
+                  const updatedMode = yield* viewModeManager.switchToMode(playerState.viewMode, nextMode, Option.none())
                   return {
                     ...playerState,
                     viewMode: updatedMode,

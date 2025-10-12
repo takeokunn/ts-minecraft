@@ -59,11 +59,7 @@ export const ChunkCreatedEventSchema = Schema.Struct({
   payload: Schema.Struct({
     position: ChunkPositionSchema,
     initialData: ChunkDataSchema,
-    source: Schema.Union(
-      Schema.Literal('generated'),
-      Schema.Literal('loaded'),
-      Schema.Literal('imported')
-    ),
+    source: Schema.Union(Schema.Literal('generated'), Schema.Literal('loaded'), Schema.Literal('imported')),
   }),
 })
 
@@ -139,11 +135,7 @@ export const ChunkDeletedEventSchema = Schema.Struct({
   eventType: Schema.Literal('ChunkDeleted'),
   payload: Schema.Struct({
     position: ChunkPositionSchema,
-    reason: Schema.Union(
-      Schema.Literal('manual'),
-      Schema.Literal('cleanup'),
-      Schema.Literal('corruption')
-    ),
+    reason: Schema.Union(Schema.Literal('manual'), Schema.Literal('cleanup'), Schema.Literal('corruption')),
     backupCreated: Schema.Boolean,
   }),
 })

@@ -32,11 +32,11 @@ import {
   ChunkIdError,
   ChunkSerializationError,
 } from '@/domain/chunk/types'
+import { ChunkCacheServiceTag, type ChunkCacheService } from '@/infrastructure/chunk'
 import { Clock, Effect, Layer } from 'effect'
 import { pipe } from 'effect/Function'
 import * as Match from 'effect/Match'
 import * as Option from 'effect/Option'
-import { ChunkCacheServiceTag, type ChunkCacheService } from '@/infrastructure/chunk'
 
 const BLOCKS_PER_LAYER = CHUNK_SIZE * CHUNK_SIZE
 const EXPECTED_BLOCK_COUNT = CHUNK_HEIGHT * BLOCKS_PER_LAYER
@@ -264,7 +264,7 @@ export const ChunkDataProviderLive = Layer.succeed(
                 )
               ),
               Match.exhaustive
-            )
+            ),
         })
       }),
 
@@ -364,17 +364,15 @@ export const ChunkDataProviderLive = Layer.succeed(
           isDirty: true,
         }
 
-        yield* repository
-          .save(updatedChunk)
-          .pipe(
-            Effect.tap((saved) =>
-              Option.match(cacheOption, {
-                onNone: () => Effect.void,
-                onSome: (cache) => cache.set(saved),
-              })
-            ),
-            Effect.mapError((error) => toChunkBoundsErrorFromRepository(error, world))
-          )
+        yield* repository.save(updatedChunk).pipe(
+          Effect.tap((saved) =>
+            Option.match(cacheOption, {
+              onNone: () => Effect.void,
+              onSome: (cache) => cache.set(saved),
+            })
+          ),
+          Effect.mapError((error) => toChunkBoundsErrorFromRepository(error, world))
+        )
       }),
 
     chunkToWorldCoordinates: (

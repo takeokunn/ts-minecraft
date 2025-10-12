@@ -1,12 +1,12 @@
 import { Context, Effect, Layer, Match, Schema } from 'effect'
 
-import type { GetProgressQuery, HealthCheckQuery, ListActiveSessionsQuery, WorldGenerationQuery } from '../types'
 import {
   GenerationProgress,
   WorldGenerationOrchestrator,
-  type WorldGenerationOrchestrator as WorldGenerationOrchestratorService,
   type WorldGenerationOrchestratorErrorType,
+  type WorldGenerationOrchestrator as WorldGenerationOrchestratorService,
 } from '../domain_service/world_generation_orchestrator/orchestrator'
+import type { GetProgressQuery, HealthCheckQuery, ListActiveSessionsQuery, WorldGenerationQuery } from '../types'
 import { WorldGenerationReadModel } from './read_model'
 
 export type WorldGenerationQueryHandlerError = WorldGenerationOrchestratorErrorType
@@ -19,7 +19,9 @@ export type WorldGenerationQueryResult =
   | { readonly _tag: 'HealthStatus'; readonly status: Record<string, boolean> }
 
 export interface WorldGenerationQueryHandler {
-  readonly execute: (query: WorldGenerationQuery) => Effect.Effect<WorldGenerationQueryResult, WorldGenerationQueryHandlerError>
+  readonly execute: (
+    query: WorldGenerationQuery
+  ) => Effect.Effect<WorldGenerationQueryResult, WorldGenerationQueryHandlerError>
 }
 
 export const WorldGenerationQueryHandler = Context.GenericTag<WorldGenerationQueryHandler>(
@@ -31,27 +33,30 @@ const handleGetProgress = (
   readModel: WorldGenerationReadModel,
   query: GetProgressQuery
 ): Effect.Effect<WorldGenerationQueryResult, WorldGenerationQueryHandlerError> =>
-  orchestrator
-    .getProgress(query)
-    .pipe(Effect.tap((progress) => readModel.recordProgress(progress)), Effect.map((progress) => ({ _tag: 'GenerationProgress', progress } as const)))
+  orchestrator.getProgress(query).pipe(
+    Effect.tap((progress) => readModel.recordProgress(progress)),
+    Effect.map((progress) => ({ _tag: 'GenerationProgress', progress }) as const)
+  )
 
 const handleListActiveSessions = (
   orchestrator: WorldGenerationOrchestratorService,
   readModel: WorldGenerationReadModel,
   _query: ListActiveSessionsQuery
 ): Effect.Effect<WorldGenerationQueryResult, WorldGenerationQueryHandlerError> =>
-  orchestrator
-    .listActiveSessions()
-    .pipe(Effect.tap((sessions) => readModel.setActiveSessions(sessions)), Effect.map((sessions) => ({ _tag: 'ActiveSessions', sessions } as const)))
+  orchestrator.listActiveSessions().pipe(
+    Effect.tap((sessions) => readModel.setActiveSessions(sessions)),
+    Effect.map((sessions) => ({ _tag: 'ActiveSessions', sessions }) as const)
+  )
 
 const handleHealthCheck = (
   orchestrator: WorldGenerationOrchestratorService,
   readModel: WorldGenerationReadModel,
   _query: HealthCheckQuery
 ): Effect.Effect<WorldGenerationQueryResult, WorldGenerationQueryHandlerError> =>
-  orchestrator
-    .healthCheck()
-    .pipe(Effect.tap((status) => readModel.setHealthStatus(status)), Effect.map((status) => ({ _tag: 'HealthStatus', status } as const)))
+  orchestrator.healthCheck().pipe(
+    Effect.tap((status) => readModel.setHealthStatus(status)),
+    Effect.map((status) => ({ _tag: 'HealthStatus', status }) as const)
+  )
 
 const executeQuery = (
   orchestrator: WorldGenerationOrchestratorService,

@@ -352,9 +352,7 @@ const makePhysicsPerformanceService: Effect.Effect<PhysicsPerformanceService> = 
       const earlyReturn = yield* pipe(
         Match.value(state.adaptiveMode),
         Match.when(false, () =>
-          Effect.succeed(
-            Option.some({ optimizationApplied: false, recommendations: ['Adaptive mode is disabled'] })
-          )
+          Effect.succeed(Option.some({ optimizationApplied: false, recommendations: ['Adaptive mode is disabled'] }))
         ),
         Match.orElse(() => Effect.succeed(Option.none<{ optimizationApplied: boolean; recommendations: string[] }>()))
       )
@@ -387,27 +385,26 @@ const makePhysicsPerformanceService: Effect.Effect<PhysicsPerformanceService> = 
               const currentLevels: PerformanceLevel[] = ['Ultra', 'High', 'Medium', 'Low', 'Minimum']
               const currentIndex = currentLevels.indexOf(state.currentLevel)
 
-              return yield* Match.value(currentIndex)
-                .pipe(
-                  Match.when(
-                    (index) => index < currentLevels.length - 1,
-                    (index) =>
-                      Effect.gen(function* () {
-                        const newLevel = currentLevels[index + 1]!
-                        yield* setPerformanceLevel(newLevel)
-                        recommendations.push(
-                          `Performance downgraded to ${newLevel} due to low FPS (${avgMetrics.fps.toFixed(1)})`
-                        )
-                        return { applied: true }
-                      })
-                  ),
-                  Match.orElse(() =>
-                    Effect.sync(() => {
-                      recommendations.push('Already at minimum performance level')
-                      return { applied: false }
+              return yield* Match.value(currentIndex).pipe(
+                Match.when(
+                  (index) => index < currentLevels.length - 1,
+                  (index) =>
+                    Effect.gen(function* () {
+                      const newLevel = currentLevels[index + 1]!
+                      yield* setPerformanceLevel(newLevel)
+                      recommendations.push(
+                        `Performance downgraded to ${newLevel} due to low FPS (${avgMetrics.fps.toFixed(1)})`
+                      )
+                      return { applied: true }
                     })
-                  )
+                ),
+                Match.orElse(() =>
+                  Effect.sync(() => {
+                    recommendations.push('Already at minimum performance level')
+                    return { applied: false }
+                  })
                 )
+              )
             })
         ),
         Match.when(
@@ -422,8 +419,7 @@ const makePhysicsPerformanceService: Effect.Effect<PhysicsPerformanceService> = 
 
               return yield* Match.value({ currentIndex, timeSinceLastOptimization }).pipe(
                 Match.when(
-                  ({ currentIndex, timeSinceLastOptimization }) =>
-                    currentIndex > 0 && timeSinceLastOptimization > 5000,
+                  ({ currentIndex, timeSinceLastOptimization }) => currentIndex > 0 && timeSinceLastOptimization > 5000,
                   ({ currentIndex }) =>
                     Effect.gen(function* () {
                       const newLevel = currentLevels[currentIndex - 1]!

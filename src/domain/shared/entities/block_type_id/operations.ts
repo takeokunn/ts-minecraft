@@ -9,10 +9,11 @@ export const create = (value: number): Effect.Effect<BlockTypeId, Error> =>
   pipe(
     Schema.decode(BlockTypeIdSchema)(value),
     Effect.mapError((parseError) => {
-      const issues = (parseError as any).issues?.map((issue: any) => {
-        const path = issue.path?.join('.') || 'unknown'
-        return `${path}: ${issue.message}`
-      }) || []
+      const issues =
+        (parseError as any).issues?.map((issue: any) => {
+          const path = issue.path?.join('.') || 'unknown'
+          return `${path}: ${issue.message}`
+        }) || []
       return new Error(`BlockTypeIdの作成に失敗: ${issues.join('; ') || String(parseError)}`)
     })
   )

@@ -11,10 +11,7 @@ export const CameraQueryMetadataSchema = Schema.Struct({
     Schema.nonNegative(),
     Schema.annotations({ description: 'リクエストタイムスタンプ (epoch millis)' })
   ),
-  requesterId: Schema.String.pipe(
-    Schema.minLength(1),
-    Schema.annotations({ description: 'リクエスト発行者' })
-  ),
+  requesterId: Schema.String.pipe(Schema.minLength(1), Schema.annotations({ description: 'リクエスト発行者' })),
 })
 
 export type CameraQueryMetadata = Schema.Schema.Type<typeof CameraQueryMetadataSchema>

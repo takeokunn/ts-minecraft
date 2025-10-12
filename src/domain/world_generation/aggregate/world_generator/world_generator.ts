@@ -10,7 +10,8 @@
 
 import type * as WorldTypes from '@domain/world/types/core'
 import type * as GenerationErrors from '@domain/world/types/errors'
-import { Context, DateTime, Effect, Match, Schema, STM, pipe } from 'effect'
+import { Context, DateTime, Effect, Match, pipe, Schema, STM } from 'effect'
+import { WorldGenerationAdapterService } from '../../adapter/world_generation_adapter'
 import * as BusinessRules from './index'
 import * as GenerationEvents from './index'
 import * as GenerationState from './index'
@@ -22,7 +23,6 @@ import {
   type WorldGenerator,
   type WorldGeneratorId,
 } from './index'
-import { WorldGenerationAdapterService } from '../../adapter/world_generation_adapter'
 
 // ================================
 // WorldGenerator Aggregate Root

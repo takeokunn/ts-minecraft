@@ -1,5 +1,5 @@
-import { Layer } from 'effect'
 import { ChunkRepository } from '@domain/chunk/repository/chunk_repository'
+import { Layer } from 'effect'
 import { InMemoryChunkRepositoryLive } from './memory_implementation'
 
 /**

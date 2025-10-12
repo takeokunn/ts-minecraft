@@ -1,9 +1,8 @@
-import type { EquipmentOwnerId, EquipmentSetId, NotFound, UnixTime } from '@domain/equipment/types'
-import { makeNotFound } from '@domain/equipment/types'
-import { EquipmentRepositoryTag, type EquipmentRepository } from '@domain/equipment/repository'
-import type { EquipmentPiece, EquipmentSet } from '@domain/equipment/aggregate'
+import type { EquipmentSet } from '@domain/equipment/aggregate'
 import { equipPiece, unequipSlot } from '@domain/equipment/aggregate'
-import type { EquipmentSlot } from '@domain/equipment/value_object'
+import { EquipmentRepositoryTag, type EquipmentRepository } from '@domain/equipment/repository'
+import type { EquipmentSetId } from '@domain/equipment/types'
+import { makeNotFound } from '@domain/equipment/types'
 import { Effect, Layer, Ref } from 'effect'
 
 export const InMemoryEquipmentRepository = Layer.scoped(

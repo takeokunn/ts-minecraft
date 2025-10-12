@@ -1,8 +1,8 @@
 import { Schema } from 'effect'
 
+import { ChunkDataSchema } from '../aggregate/chunk_data'
 import { ChunkIdSchema } from '../value_object/chunk_id'
 import { ChunkPositionSchema } from '../value_object/chunk_position'
-import { ChunkDataSchema } from '../aggregate/chunk_data'
 
 /**
  * チャンクコマンド メタデータ
@@ -62,11 +62,7 @@ export const ChunkCommandSchemas = {
   UnloadChunk: UnloadChunkCommandSchema,
 } as const
 
-export const ChunkCommandSchema = Schema.Union(
-  LoadChunkCommandSchema,
-  SaveChunkCommandSchema,
-  UnloadChunkCommandSchema
-)
+export const ChunkCommandSchema = Schema.Union(LoadChunkCommandSchema, SaveChunkCommandSchema, UnloadChunkCommandSchema)
 
 export type ChunkCommand = Schema.Schema.Type<typeof ChunkCommandSchema>
 

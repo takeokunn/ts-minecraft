@@ -16,21 +16,19 @@ const makeMenuInputLayer = Effect.gen(function* () {
       Match.when({ _tag: 'KeyPressed' }, (pressed) =>
         Match.value(pressed.key).pipe(
           Match.when(ESCAPE_KEY, () =>
-            controller
-              .model()
-              .pipe(
-                Effect.flatMap((model) =>
-                  Match.value(model.route).pipe(
-                    Match.when('none', () => menuActions.openPause()),
-                    Match.when('settings', () => controller.back()),
-                    Match.when('pause', () => menuActions.close()),
-                    Match.when('main', () => menuActions.close()),
-                    Match.orElse(() => menuActions.close())
-                  )
-                ),
-                Effect.catchAll(() => Effect.void),
-                Effect.asVoid
-              )
+            controller.model().pipe(
+              Effect.flatMap((model) =>
+                Match.value(model.route).pipe(
+                  Match.when('none', () => menuActions.openPause()),
+                  Match.when('settings', () => controller.back()),
+                  Match.when('pause', () => menuActions.close()),
+                  Match.when('main', () => menuActions.close()),
+                  Match.orElse(() => menuActions.close())
+                )
+              ),
+              Effect.catchAll(() => Effect.void),
+              Effect.asVoid
+            )
           ),
           Match.orElse(() => Effect.void)
         )

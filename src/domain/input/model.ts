@@ -10,8 +10,7 @@ export const InputTimestampSchema = Schema.Number.pipe(
   Schema.annotations({ title: 'InputTimestamp' })
 )
 export type InputTimestamp = Schema.Schema.Type<typeof InputTimestampSchema>
-export const InputTimestamp = (value: number): InputTimestamp =>
-  Schema.decodeSync(InputTimestampSchema)(value)
+export const InputTimestamp = (value: number): InputTimestamp => Schema.decodeSync(InputTimestampSchema)(value)
 
 export const KeyCodeSchema = Schema.String.pipe(
   Schema.nonEmptyString(),

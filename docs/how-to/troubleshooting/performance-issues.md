@@ -616,9 +616,7 @@ const monitorFibers = Effect.gen(function* () {
         Effect.reduce([] as ReadonlyArray<string>, (acc, fiber) =>
           Effect.gen(function* () {
             const status = yield* Fiber.status(fiber)
-            return status._tag === 'Suspended' && fiber.id().startsWith('long-running')
-              ? [...acc, fiber.id()]
-              : acc
+            return status._tag === 'Suspended' && fiber.id().startsWith('long-running') ? [...acc, fiber.id()] : acc
           })
         )
       )

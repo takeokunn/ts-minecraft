@@ -35,12 +35,7 @@ export const CraftingGrid = ({ view, onSelectSlot }: CraftingGridProps): JSX.Ele
     }}
   >
     {view.slots.map((slot) => (
-      <button
-        key={slotKey(slot)}
-        type="button"
-        onClick={() => onSelectSlot?.(slot)}
-        style={slotStyle(slot)}
-      >
+      <button key={slotKey(slot)} type="button" onClick={() => onSelectSlot?.(slot)} style={slotStyle(slot)}>
         {slot.itemName ? <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{slot.itemName}</span> : null}
         {slot.itemId ? (
           <span style={{ fontSize: '0.7rem', opacity: 0.65 }}>{slot.itemId}</span>

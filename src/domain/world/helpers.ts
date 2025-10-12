@@ -1,10 +1,9 @@
 import { BiomeSystemSchema } from '@domain/biome/aggregate/biome_system/shared'
-import type { WorldSeed } from '@domain/shared/value_object/world_seed'
 import { WorldSeedFactory } from '@domain/shared/value_object/world_seed/index'
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
 import type { JsonValue } from '@shared/schema/json'
 import { DateTime, Effect, Match, Option, Random, Schema } from 'effect'
-import { WorldClock, WorldDomainConfig, selectWorldDomainConfigSync } from './index'
+import { WorldDomainConfig, selectWorldDomainConfigSync } from './index'
 
 const WorldDataSchema = Schema.Struct({
   seed: Schema.Number,
@@ -61,31 +60,31 @@ const optimizeWorldSettingsInternal = (config: Partial<WorldDomainConfig>) =>
     Schema.decodeUnknown(WorldDomainDataSchema)({ ...selectWorldDomainConfigSync('default'), ...config }),
     (fullConfig) =>
       Match.value(fullConfig.performanceMode).pipe(
-      Match.when(
-        'performance',
-        () =>
-          ({
-            ...fullConfig,
-            enableDomainValidation: false,
-            enableFactoryValidation: false,
-            repository: {
-              ...fullConfig.repository,
-              implementation: 'memory' as const,
-            },
-          }) satisfies WorldDomainConfig
-      ),
-      Match.when(
-        'quality',
-        () =>
-          ({
-            ...fullConfig,
-            enableDomainValidation: true,
-            enableFactoryValidation: true,
-            debugMode: true,
-          }) satisfies WorldDomainConfig
-      ),
-      Match.orElse(() => fullConfig)
-    )
+        Match.when(
+          'performance',
+          () =>
+            ({
+              ...fullConfig,
+              enableDomainValidation: false,
+              enableFactoryValidation: false,
+              repository: {
+                ...fullConfig.repository,
+                implementation: 'memory' as const,
+              },
+            }) satisfies WorldDomainConfig
+        ),
+        Match.when(
+          'quality',
+          () =>
+            ({
+              ...fullConfig,
+              enableDomainValidation: true,
+              enableFactoryValidation: true,
+              debugMode: true,
+            }) satisfies WorldDomainConfig
+        ),
+        Match.orElse(() => fullConfig)
+      )
   )
 
 const exportWorldMetadataInternal = (world: JsonValue) =>

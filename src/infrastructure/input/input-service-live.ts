@@ -1,4 +1,3 @@
-import { Clock, Effect, Layer, Ref } from 'effect'
 import {
   applyEvent,
   InputService,
@@ -12,6 +11,7 @@ import {
   type KeyCode,
   type MouseButton,
 } from '@domain/input'
+import { Clock, Effect, Layer, Ref } from 'effect'
 
 const makeInputServiceLive = Effect.gen(function* () {
   const now = yield* Effect.map(Clock.currentTimeMillis, (millis) => InputTimestamp(Math.floor(millis)))

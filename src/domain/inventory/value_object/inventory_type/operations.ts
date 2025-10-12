@@ -169,12 +169,11 @@ export const categorizeInventorySize = (inventoryType: InventoryType): Inventory
           description: 'Large inventory for extensive storage',
         })
     ),
-    Match.orElse(
-      (value) =>
-        InventorySize.ExtraLarge({
-          slots: value,
-          description: 'Extra large inventory for massive storage',
-        })
+    Match.orElse((value) =>
+      InventorySize.ExtraLarge({
+        slots: value,
+        description: 'Extra large inventory for massive storage',
+      })
     )
   )
 }
@@ -310,8 +309,7 @@ export const checkCompatibility = (type1: InventoryType, type2: InventoryType): 
         )
     ),
     Match.when(
-      ({ type1, type2 }) =>
-        functionalBlocks.includes(type1._tag) && functionalBlocks.includes(type2._tag),
+      ({ type1, type2 }) => functionalBlocks.includes(type1._tag) && functionalBlocks.includes(type2._tag),
       () =>
         InventoryCompatibility.RequiresConversion({
           conversionType: 'functional block migration',

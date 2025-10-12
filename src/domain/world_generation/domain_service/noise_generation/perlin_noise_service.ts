@@ -6,7 +6,6 @@
  * Minecraft互換のハッシュ関数とグラデーション実装
  */
 
-import { type GenerationError } from '@domain/world/types/errors'
 import {
   BoundingBoxSchema,
   makeUnsafeWorldCoordinate2D,
@@ -16,6 +15,7 @@ import {
   type WorldCoordinate2D,
   type WorldCoordinate3D,
 } from '@domain/biome/value_object/coordinates'
+import { type GenerationError } from '@domain/world/types/errors'
 import type { OctaveConfig } from '@domain/world/value_object/noise_configuration'
 import { Context, Effect, Layer, Match, pipe, ReadonlyArray, Schema } from 'effect'
 

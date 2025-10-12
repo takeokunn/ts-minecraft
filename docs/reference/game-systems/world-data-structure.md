@@ -1417,15 +1417,16 @@ export const makeDataIntegrityService = Effect.gen(function* () {
         const dimensionIssues = pipe(
           ReadonlyArray.fromIterable(world.dimensions),
           ReadonlyArray.flatMap(([dimId, dimension]) => {
-            const mismatchIssues: ReadonlyArray<IntegrityIssue> = dimension.id !== dimId
-              ? [
-                  {
-                    type: 'DimensionIdMismatch' as const,
-                    dimensionId: dimId,
-                    severity: 'high',
-                  },
-                ]
-              : []
+            const mismatchIssues: ReadonlyArray<IntegrityIssue> =
+              dimension.id !== dimId
+                ? [
+                    {
+                      type: 'DimensionIdMismatch' as const,
+                      dimensionId: dimId,
+                      severity: 'high',
+                    },
+                  ]
+                : []
 
             const chunkLoadIssues: ReadonlyArray<IntegrityIssue> =
               dimension.chunkManagement.activeChunks.size > 1000
@@ -1443,9 +1444,7 @@ export const makeDataIntegrityService = Effect.gen(function* () {
           })
         )
 
-        const issues = (
-          [] as ReadonlyArray<IntegrityIssue>
-        )
+        const issues = ([] as ReadonlyArray<IntegrityIssue>)
           .concat(dimensionIssues)
           .concat(
             world.worldTime.dayTime < 0 || world.worldTime.dayTime >= 24000
@@ -1539,10 +1538,7 @@ export const makeDataIntegrityService = Effect.gen(function* () {
                   (error) => ({
                     repairedCount: state.repairedCount,
                     failedCount: state.failedCount + 1,
-                    repairLog: [
-                      ...state.repairLog,
-                      `Error repairing ${issue.type}: ${(error as Error).message}`,
-                    ],
+                    repairLog: [...state.repairLog, `Error repairing ${issue.type}: ${(error as Error).message}`],
                   }),
                   (repairResult) =>
                     repairResult.success
@@ -1554,10 +1550,7 @@ export const makeDataIntegrityService = Effect.gen(function* () {
                       : {
                           repairedCount: state.repairedCount,
                           failedCount: state.failedCount + 1,
-                          repairLog: [
-                            ...state.repairLog,
-                            `Failed to repair: ${issue.type} - ${repairResult.reason}`,
-                          ],
+                          repairLog: [...state.repairLog, `Failed to repair: ${issue.type} - ${repairResult.reason}`],
                         }
                 )
               )

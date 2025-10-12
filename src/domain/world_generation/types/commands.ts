@@ -2,11 +2,11 @@ import { Schema } from 'effect'
 
 import {
   CancelGenerationCommand as CancelGenerationCommandSchema,
+  ChunkGenerationResult,
   GenerateChunkCommand as GenerateChunkCommandSchema,
   GenerateWorldCommand as GenerateWorldCommandSchema,
   UpdateSettingsCommand as UpdateSettingsCommandSchema,
   WorldGenerationResult,
-  ChunkGenerationResult,
 } from '../domain_service/world_generation_orchestrator/orchestrator'
 
 export const WorldGenerationCommandSchema = Schema.Union(

@@ -1,4 +1,3 @@
-export * from './metrics'
 export {
   WorldGenerationAPIService,
   WorldGenerationAPIServiceLive,
@@ -8,3 +7,4 @@ export {
   type WorldGenerationEventStreamError,
 } from './api-service'
 export { WorldGenerationApplicationLive, WorldGenerationApplicationServicesLayer } from './layers'
+export * from './metrics'

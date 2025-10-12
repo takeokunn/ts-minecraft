@@ -6,8 +6,8 @@
  */
 
 import { Schema } from '@effect/schema'
-import { pipe } from 'effect/Function'
 import * as Either from 'effect/Either'
+import { pipe } from 'effect/Function'
 import { ItemCategorySchema, ItemQualitySchema, ItemRaritySchema } from '../../types/item_enums'
 
 /**

@@ -245,9 +245,7 @@ export const WorldSeedOps = {
               message: 'Count must be between 1 and 1000',
             })
         ),
-        Match.orElse((value) =>
-          Effect.forEach(ReadonlyArray.range(0, value), (i) => WorldSeedOps.derive(start, i))
-        )
+        Match.orElse((value) => Effect.forEach(ReadonlyArray.range(0, value), (i) => WorldSeedOps.derive(start, i)))
       )
     }),
 }

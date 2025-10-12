@@ -1,4 +1,6 @@
 import type { CameraConfig, CameraError, CameraMode, CameraSnapshot, CameraState } from '@domain/camera/types'
+import * as Schema from '@effect/schema/Schema'
+import { Effect, Layer, Match, pipe, Ref } from 'effect'
 import {
   CameraVector3Schema,
   createCameraError,
@@ -7,8 +9,6 @@ import {
   validateCameraConfig,
   validateCameraMode,
 } from './index'
-import * as Schema from '@effect/schema/Schema'
-import { Effect, Layer, Match, pipe, Ref } from 'effect'
 import type {
   CameraConfigInput,
   CameraDistanceInput,
@@ -39,12 +39,17 @@ interface ThirdPersonState {
 const normalizeAngle = (angle: number): number => {
   const twoPi = Math.PI * 2
   const normalized = angle % twoPi
-  return Match.value(normalized)
-    .pipe(
-      Match.when((value) => value > Math.PI, (value) => value - twoPi),
-      Match.when((value) => value < -Math.PI, (value) => value + twoPi),
-      Match.orElse((value) => value)
-    )
+  return Match.value(normalized).pipe(
+    Match.when(
+      (value) => value > Math.PI,
+      (value) => value - twoPi
+    ),
+    Match.when(
+      (value) => value < -Math.PI,
+      (value) => value + twoPi
+    ),
+    Match.orElse((value) => value)
+  )
 }
 
 const lerp = (start: number, end: number, factor: number): number => start + (end - start) * factor
@@ -232,14 +237,17 @@ const createThirdPersonCameraService = (stateRef: Ref.Ref<ThirdPersonState>): Ca
             state.config.mode,
             Match.value,
             Match.when('third-person', () => Effect.succeed(undefined)),
-            Match.orElse(() => Ref.update(stateRef, (current) => ({
-              ...current,
-              config: { ...current.config, mode: 'third-person' },
-            })))
+            Match.orElse(() =>
+              Ref.update(stateRef, (current) => ({
+                ...current,
+                config: { ...current.config, mode: 'third-person' },
+              }))
+            )
           )
         ),
-        Match.orElse((m): Effect.Effect<void, CameraError> =>
-          Effect.fail(createCameraError.invalidMode(String(m), ['third-person']))
+        Match.orElse(
+          (m): Effect.Effect<void, CameraError> =>
+            Effect.fail(createCameraError.invalidMode(String(m), ['third-person']))
         )
       )
     }),

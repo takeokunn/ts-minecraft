@@ -622,21 +622,24 @@ describe('3D Rendering Visual Tests', () => {
 
     const frameTimes = [0, 0.5, 1.0, 1.5, 2.0]
 
-    const frames = await frameTimes.reduce(async (accPromise, time) => {
-      const acc = await accPromise
+    const frames = await frameTimes.reduce(
+      async (accPromise, time) => {
+        const acc = await accPromise
 
-      await page.evaluate((t) => {
-        window.game.setAnimationTime(t)
-        window.game.updateParticles()
-      }, time)
+        await page.evaluate((t) => {
+          window.game.setAnimationTime(t)
+          window.game.updateParticles()
+        }, time)
 
-      await page.waitForFunction(() => window.game.isRenderComplete())
+        await page.waitForFunction(() => window.game.isRenderComplete())
 
-      const screenshot = await page.locator('canvas#game-viewport').screenshot()
-      expect(screenshot).toMatchSnapshot(`explosion-frame-${time}s.png`)
+        const screenshot = await page.locator('canvas#game-viewport').screenshot()
+        expect(screenshot).toMatchSnapshot(`explosion-frame-${time}s.png`)
 
-      return [...acc, screenshot as unknown as Uint8Array]
-    }, Promise.resolve([] as Uint8Array[]))
+        return [...acc, screenshot as unknown as Uint8Array]
+      },
+      Promise.resolve([] as Uint8Array[])
+    )
 
     await Promise.all(
       frames.slice(1).map((frame, index) =>
@@ -687,22 +690,25 @@ describe('Shader Visual Validation Tests', () => {
     // 時間経過による波の変化を検証
     const timeSteps = [0, 0.5, 1.0, 1.5, 2.0]
 
-    const renderedFrames = await timeSteps.reduce(async (accPromise, time) => {
-      const acc = await accPromise
+    const renderedFrames = await timeSteps.reduce(
+      async (accPromise, time) => {
+        const acc = await accPromise
 
-      waterShader.uniforms.time.value = time
-      renderer.render(scene, camera)
+        waterShader.uniforms.time.value = time
+        renderer.render(scene, camera)
 
-      const imageData = await getImageDataFromRenderer(renderer)
+        const imageData = await getImageDataFromRenderer(renderer)
 
-      expect(imageData).toMatchImageSnapshot(`water-shader-t${time}.png`, {
-        customSnapshotIdentifier: `water-shader-time-${time}`,
-        failureThresholdType: 'percent',
-        failureThreshold: 0.1,
-      })
+        expect(imageData).toMatchImageSnapshot(`water-shader-t${time}.png`, {
+          customSnapshotIdentifier: `water-shader-time-${time}`,
+          failureThresholdType: 'percent',
+          failureThreshold: 0.1,
+        })
 
-      return [...acc, imageData]
-    }, Promise.resolve([] as Uint8Array[]))
+        return [...acc, imageData]
+      },
+      Promise.resolve([] as Uint8Array[])
+    )
 
     const zeroIndex = timeSteps.indexOf(0)
     const cycleIndex = timeSteps.indexOf(2 * Math.PI)
@@ -1393,27 +1399,32 @@ describe('Golden File Tests', () => {
 
       // シミュレーション実行
       const simulationSteps = Math.floor(physicsScenario.simulationTime / physicsScenario.timeStep)
-      const snapshots = await ReadonlyArray.range(0, simulationSteps - 1).reduce(async (accPromise, step) => {
-        const acc = await accPromise
-        physics.update(physicsScenario.timeStep)
+      const snapshots = await ReadonlyArray.range(0, simulationSteps - 1).reduce(
+        async (accPromise, step) => {
+          const acc = await accPromise
+          physics.update(physicsScenario.timeStep)
 
-        if (step % 60 === 0) {
-          return [
-            ...acc,
-            {
-              time: step * physicsScenario.timeStep,
-              entities: physics.getAllEntities().map((e) => ({
-                type: e.type,
-                position: { x: e.position.x, y: e.position.y, z: e.position.z },
-                velocity: { x: e.velocity.x, y: e.velocity.y, z: e.velocity.z },
-                energy: e.getKineticEnergy(),
-              })),
-            },
-          ]
-        }
+          if (step % 60 === 0) {
+            return [
+              ...acc,
+              {
+                time: step * physicsScenario.timeStep,
+                entities: physics.getAllEntities().map((e) => ({
+                  type: e.type,
+                  position: { x: e.position.x, y: e.position.y, z: e.position.z },
+                  velocity: { x: e.velocity.x, y: e.velocity.y, z: e.velocity.z },
+                  energy: e.getKineticEnergy(),
+                })),
+              },
+            ]
+          }
 
-        return acc
-      }, Promise.resolve([] as Array<{ time: number; entities: Array<{ type: string; position: any; velocity: any; energy: number }> }>))
+          return acc
+        },
+        Promise.resolve(
+          [] as Array<{ time: number; entities: Array<{ type: string; position: any; velocity: any; energy: number }> }>
+        )
+      )
 
       const goldenPhysicsData = {
         scenario: physicsScenario,

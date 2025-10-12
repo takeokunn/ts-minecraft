@@ -31,7 +31,10 @@ export type ErrorDetail = Schema.Schema.Type<typeof ErrorDetailSchema>
 export const toErrorCause = (value: unknown): ErrorCause | undefined =>
   pipe(
     Match.value(value),
-    Match.when((candidate) => candidate === undefined || candidate === null, () => undefined),
+    Match.when(
+      (candidate) => candidate === undefined || candidate === null,
+      () => undefined
+    ),
     Match.when(
       (candidate): candidate is Error => candidate instanceof Error,
       (error) => error

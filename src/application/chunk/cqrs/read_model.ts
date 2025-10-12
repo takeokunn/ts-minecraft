@@ -19,7 +19,7 @@ const resolveChunkId = (chunk: ChunkData): ChunkId =>
   makeUnsafeChunkId((chunk.id ?? getChunkHash(chunk.position)) as string)
 
 const withResolvedId = (chunk: ChunkData, chunkId: ChunkId): ChunkData =>
-  (chunk.id ? chunk : ({ ...chunk, id: chunkId } as ChunkData))
+  chunk.id ? chunk : ({ ...chunk, id: chunkId } as ChunkData)
 
 export interface ChunkReadModel {
   readonly upsert: (chunk: ChunkData) => Effect.Effect<void>
@@ -62,9 +62,7 @@ export const ChunkReadModelLive = Layer.effect(
       })
 
     const getById: ChunkReadModel['getById'] = (chunkId) =>
-      SubscriptionRef.get(subscription).pipe(
-        Effect.map((state) => HashMap.get(state.byId, chunkId))
-      )
+      SubscriptionRef.get(subscription).pipe(Effect.map((state) => HashMap.get(state.byId, chunkId)))
 
     const getByPosition: ChunkReadModel['getByPosition'] = (position) =>
       SubscriptionRef.get(subscription).pipe(

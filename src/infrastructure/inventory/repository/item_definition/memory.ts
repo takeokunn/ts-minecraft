@@ -1,4 +1,5 @@
-import { Effect, HashMap, Layer, Match, Option, ReadonlyArray, Ref, pipe } from 'effect'
+import { ItemDefinitionRepository } from '@domain/inventory/repository/item_definition_repository'
+import { createDuplicateItemDefinitionError, createItemNotFoundError } from '@domain/inventory/repository/types'
 import type {
   ItemCategory,
   ItemCraftingRecipe,
@@ -7,8 +8,7 @@ import type {
   ItemDropTable,
   ItemId,
 } from '@domain/inventory/types'
-import { createDuplicateItemDefinitionError, createItemNotFoundError } from '@domain/inventory/repository/types'
-import { ItemDefinitionRepository } from '@domain/inventory/repository/item_definition_repository'
+import { Effect, HashMap, Layer, Match, Option, ReadonlyArray, Ref, pipe } from 'effect'
 
 /**
  * ItemDefinitionRepository Memory Implementation
@@ -186,7 +186,7 @@ export const ItemDefinitionRepositoryMemory = Layer.effect(
               Option.fromNullable(query.stackable),
               Option.match({
                 onNone: () => true,
-                onSome: (shouldBeStackable) => (definition.stackSize > 1) === shouldBeStackable,
+                onSome: (shouldBeStackable) => definition.stackSize > 1 === shouldBeStackable,
               })
             )
 

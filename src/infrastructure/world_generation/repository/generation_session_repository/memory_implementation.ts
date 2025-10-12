@@ -14,8 +14,6 @@ import type {
   WorldId,
 } from '@domain/world/types'
 import { createGenerationSessionNotFoundError, createRepositoryError } from '@domain/world/types'
-import { toJsonValue, type JsonRecord, type JsonSerializable, type JsonValue } from '@shared/schema/json'
-import { Clock, DateTime, Duration, Effect, Layer, Match, Option, pipe, Random, ReadonlyArray, Ref } from 'effect'
 import { makeUnsafeGenerationSessionId } from '@domain/world_generation/aggregate/generation_session/shared'
 import {
   calculateProgress,
@@ -34,6 +32,8 @@ import {
   SessionState,
   SessionStatistics,
 } from '@domain/world_generation/repository/generation_session_repository'
+import { toJsonValue, type JsonRecord, type JsonSerializable, type JsonValue } from '@shared/schema/json'
+import { Clock, DateTime, Duration, Effect, Layer, Match, Option, pipe, Random, ReadonlyArray, Ref } from 'effect'
 
 // === Memory Storage State ===
 

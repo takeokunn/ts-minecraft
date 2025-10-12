@@ -7,9 +7,9 @@
  * - パフォーマンス最適化のための統計情報
  */
 
+import * as Coordinates from '@domain/biome/value_object/coordinates'
 import type * as WorldTypes from '@domain/world/types/core'
 import type * as GenerationErrors from '@domain/world/types/errors'
-import * as Coordinates from '@domain/biome/value_object/coordinates'
 import { DateTime, Effect, Match, Option, ReadonlyArray, Schema, pipe } from 'effect'
 
 // ================================
@@ -405,12 +405,13 @@ const requireActiveGeneration = (
     Match.exhaustive
   )
 
-const determineNextStatus = (
-  activeGenerations: GenerationState['activeGenerations']
-): GenerationStatus =>
+const determineNextStatus = (activeGenerations: GenerationState['activeGenerations']): GenerationStatus =>
   pipe(
     Match.value(Object.keys(activeGenerations).length),
-    Match.when((count) => count > 0, () => 'generating' as GenerationStatus),
+    Match.when(
+      (count) => count > 0,
+      () => 'generating' as GenerationStatus
+    ),
     Match.orElse(() => 'idle' as GenerationStatus)
   )
 

@@ -2,7 +2,13 @@ import type { JSX } from 'react'
 
 import { Match, pipe } from 'effect'
 
-import type { SettingsCategory, SettingsOption, ToggleSettingsOption, SliderSettingsOption, SelectSettingsOption } from '../types'
+import type {
+  SelectSettingsOption,
+  SettingsCategory,
+  SettingsOption,
+  SliderSettingsOption,
+  ToggleSettingsOption,
+} from '../types'
 
 interface SettingsMenuProps {
   readonly title?: string
@@ -34,7 +40,9 @@ const renderOption = (
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
             <span style={{ fontWeight: 600 }}>{option.label}</span>
-            {option.description ? <span style={{ fontSize: '0.75rem', opacity: 0.65 }}>{option.description}</span> : null}
+            {option.description ? (
+              <span style={{ fontSize: '0.75rem', opacity: 0.65 }}>{option.description}</span>
+            ) : null}
           </div>
           <input
             type="checkbox"
@@ -110,7 +118,13 @@ const renderOption = (
     })
   )(option)
 
-export const SettingsMenu = ({ title = 'Settings', categories, onToggle, onSliderChange, onSelectChange }: SettingsMenuProps): JSX.Element => (
+export const SettingsMenu = ({
+  title = 'Settings',
+  categories,
+  onToggle,
+  onSliderChange,
+  onSelectChange,
+}: SettingsMenuProps): JSX.Element => (
   <section
     style={{
       position: 'absolute',
@@ -137,7 +151,9 @@ export const SettingsMenu = ({ title = 'Settings', categories, onToggle, onSlide
     >
       <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
         <h2 style={{ margin: 0, fontSize: '1.5rem' }}>{title}</h2>
-        <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+        <ul
+          style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}
+        >
           {categories.map((category) => (
             <li key={category.id} style={{ fontWeight: 600, opacity: 0.7 }}>
               {category.label}

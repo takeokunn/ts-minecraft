@@ -1,6 +1,6 @@
 import { Vector3Schema } from '@domain/entities/types'
 import type { ErrorCause } from '@shared/schema/error'
-import { Data, pipe, Schema } from 'effect'
+import { Data, Schema } from 'effect'
 // Using string types for PlayerId and BlockTypeId to avoid circular dependencies
 
 // Audio Branded Types

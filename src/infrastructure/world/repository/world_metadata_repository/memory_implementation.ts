@@ -6,8 +6,6 @@
  * メタデータ管理・バージョニング・圧縮システム
  */
 
-import type { AllRepositoryErrors, WorldId } from '@domain/world/types'
-import { createCompressionError, createRepositoryError, createVersioningError } from '@domain/world/types'
 import { WorldClock } from '@domain/world'
 import {
   BackupConfig,
@@ -27,6 +25,8 @@ import {
   WorldSettings,
   WorldStatistics,
 } from '@domain/world/repository/world_metadata_repository'
+import type { AllRepositoryErrors, WorldId } from '@domain/world/types'
+import { createCompressionError, createRepositoryError, createVersioningError } from '@domain/world/types'
 import { DateTime, Effect, Layer, Match, Option, pipe, ReadonlyArray, Ref } from 'effect'
 
 // === Implementation ===
@@ -885,8 +885,7 @@ export const WorldMetadataRepositoryMemoryImplementation = (
                   // Apply max versions retention policy
                   const versionsByMaxPolicy = yield* pipe(
                     Match.value(
-                      retentionPolicy.maxVersions !== undefined &&
-                        versionEntries.length > retentionPolicy.maxVersions
+                      retentionPolicy.maxVersions !== undefined && versionEntries.length > retentionPolicy.maxVersions
                     ),
                     Match.when(
                       (shouldApply) => shouldApply,
@@ -915,9 +914,7 @@ export const WorldMetadataRepositoryMemoryImplementation = (
                           const now = DateTime.toEpochMillis(nowDateTime)
                           const cutoffMillis = now - retentionPolicy.maxAgeDays! * 24 * 60 * 60 * 1000
                           const cutoffDate = DateTime.toDate(DateTime.unsafeMake(cutoffMillis))
-                          return versionEntries
-                            .filter(([, version]) => version.timestamp < cutoffDate)
-                            .map(([v]) => v)
+                          return versionEntries.filter(([, version]) => version.timestamp < cutoffDate).map(([v]) => v)
                         })
                     ),
                     Match.orElse(() => Effect.succeed([] as ReadonlyArray<string>))

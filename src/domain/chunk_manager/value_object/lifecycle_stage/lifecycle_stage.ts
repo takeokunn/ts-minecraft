@@ -1,9 +1,7 @@
 import { Effect, Match } from 'effect'
 import {
   ActivationFailure,
-  ChunkLifetimeSchema,
   DeactivationFailure,
-  LifecycleStageSchema,
   type ChunkLifetime,
   type DestructionReason,
   type LifecycleStage,

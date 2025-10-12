@@ -20,7 +20,7 @@
 
 import * as WorldSeed from '@domain/shared/value_object/world_seed/index'
 import { JsonValueSchema } from '@shared/schema/json'
-import { Effect, Function, Match, Schema, Either } from 'effect'
+import { Effect, Either, Function, Match, Schema } from 'effect'
 import type { CreateWorldGeneratorParams, FactoryError } from './factory'
 import { CreateWorldGeneratorParamsSchema } from './factory'
 

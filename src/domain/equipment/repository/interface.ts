@@ -1,7 +1,7 @@
-import { Context, Effect } from 'effect'
 import type { EquipmentPiece, EquipmentSet } from '@domain/equipment/aggregate'
-import type { EquipmentSlot } from '@domain/equipment/value_object'
 import type { EquipmentOwnerId, EquipmentSetId, NotFound, UnixTime } from '@domain/equipment/types'
+import type { EquipmentSlot } from '@domain/equipment/value_object'
+import { Context, Effect } from 'effect'
 
 /**
  * Equipment Repository Interface

@@ -1,21 +1,7 @@
 import { Context, Effect } from 'effect'
 import type { ChunkData } from '../../aggregate/chunk_data'
+import type { ChunkEvent, ChunkEventType } from '../../types'
 import type { ChunkId } from '../../value_object/chunk_id'
-import type {
-  BaseChunkEvent,
-  BlockChangedEvent,
-  ChunkCorruptedEvent,
-  ChunkCreatedEvent,
-  ChunkDeletedEvent,
-  ChunkEvent,
-  ChunkEventType,
-  ChunkLoadedEvent,
-  ChunkModifiedEvent,
-  ChunkOptimizedEvent,
-  ChunkSavedEvent,
-  ChunkUnloadedEvent,
-  ChunkValidatedEvent,
-} from '../../types'
 import type { RepositoryError } from '../types'
 
 /**

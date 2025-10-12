@@ -1,16 +1,5 @@
 import { Schema } from 'effect'
-import {
-  Durability,
-  DurabilitySchema,
-  EnchantmentLevel,
-  EnchantmentLevelSchema,
-  InventoryType,
-  ItemQuality,
-  ItemQuantity,
-  ItemQuantitySchema,
-  SlotType,
-  SlotTypeSchema,
-} from './core'
+import { Durability, EnchantmentLevel, InventoryType, ItemQuality, ItemQuantity, SlotType } from './core'
 
 const itemQuantity = (value: number): ItemQuantity => value as ItemQuantity
 const enchantmentLevel = (value: number): EnchantmentLevel => value as EnchantmentLevel

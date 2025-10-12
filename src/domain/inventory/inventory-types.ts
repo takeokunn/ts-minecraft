@@ -11,7 +11,6 @@ export { PlayerIdSchema, type PlayerId } from '@domain/shared/entities/player_id
 export { SimpleItemIdSchema as ItemIdSchema, type ItemId } from '../../shared/entities/item_id'
 
 // 共有カーネルから再エクスポート（互換性のためSimpleItemIdSchemaを使用）
-import { SimpleItemIdSchema } from '../../shared/entities/item_id'
 export const ItemId = (value: string): ItemId => value as ItemId
 
 export const ItemMetadataSchema = Schema.Struct({

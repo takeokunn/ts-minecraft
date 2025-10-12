@@ -1,12 +1,7 @@
 import { Context, Effect, Layer, Match, Schema } from 'effect'
 
 import { PlayerDomainService } from '@domain/player/services'
-import {
-  PlayerGameModeSchema,
-  PlayerNameSchema,
-  PlayerPositionSchema,
-  type PlayerSnapshot,
-} from '@domain/player/types'
+import { PlayerGameModeSchema, PlayerNameSchema, PlayerPositionSchema, type PlayerSnapshot } from '@domain/player/types'
 import { PlayerIdOperations } from '@domain/shared/entities/player_id'
 import { ErrorCauseSchema, toErrorCause } from '@shared/schema/error'
 import { makeErrorFactory } from '@shared/schema/tagged_error_factory'

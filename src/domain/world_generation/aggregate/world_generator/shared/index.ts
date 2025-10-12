@@ -3,8 +3,8 @@ import * as Coordinates from '@domain/biome/value_object/coordinates'
 import * as GenerationParameters from '@domain/world/value_object/generation_parameters/index'
 import * as NoiseConfiguration from '@domain/world/value_object/noise_configuration/index'
 import { Brand, Schema } from 'effect'
-import * as GenerationState from '../generation_state'
 import * as GenerationContext from '../generation_context'
+import * as GenerationState from '../generation_state'
 
 /**
  * WorldGeneratorのBrand型識別子

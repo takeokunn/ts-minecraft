@@ -1,8 +1,4 @@
-export {
-  CameraCommandHandler,
-  CameraCommandHandlerLive,
-  type CameraCommandHandlerError,
-} from './command_handler'
+export { CameraCommandHandler, CameraCommandHandlerLive, type CameraCommandHandlerError } from './command_handler'
 
 export {
   CameraQueryHandler,

@@ -347,7 +347,10 @@ export const ContainerFactoryLive = ContainerFactory.of({
           onSome: (opts) => {
             const withId = pipe(
               Match.value(opts.id),
-              Match.when((id): id is ContainerId => id !== undefined, (id) => withContainerId(id)(state)),
+              Match.when(
+                (id): id is ContainerId => id !== undefined,
+                (id) => withContainerId(id)(state)
+              ),
               Match.orElse(() => state)
             )
 
@@ -362,10 +365,13 @@ export const ContainerFactoryLive = ContainerFactory.of({
 
             const withConfig = pipe(
               Match.value(opts.configuration),
-              Match.when((config): config is Partial<ContainerConfiguration> => config !== undefined, (config) => {
-                const defaultConfig = getDefaultConfigurationForType(type)
-                return withConfiguration({ ...defaultConfig, ...config })(withAccess)
-              }),
+              Match.when(
+                (config): config is Partial<ContainerConfiguration> => config !== undefined,
+                (config) => {
+                  const defaultConfig = getDefaultConfigurationForType(type)
+                  return withConfiguration({ ...defaultConfig, ...config })(withAccess)
+                }
+              ),
               Match.orElse(() => withAccess)
             )
 
@@ -374,7 +380,10 @@ export const ContainerFactoryLive = ContainerFactory.of({
               Match.when(
                 (permissions): permissions is ReadonlyArray<ContainerPermission> => permissions !== undefined,
                 (permissions) =>
-                  permissions.reduce<ContainerBuilderState>((acc, permission) => withPermission(permission)(acc), withConfig)
+                  permissions.reduce<ContainerBuilderState>(
+                    (acc, permission) => withPermission(permission)(acc),
+                    withConfig
+                  )
               ),
               Match.orElse(() => withConfig)
             )
@@ -382,7 +391,8 @@ export const ContainerFactoryLive = ContainerFactory.of({
             return pipe(
               Match.value(opts.customSlots),
               Match.when(
-                (slots): slots is ReadonlyArray<{ index: ContainerSlotIndex; slot: ContainerSlot }> => slots !== undefined,
+                (slots): slots is ReadonlyArray<{ index: ContainerSlotIndex; slot: ContainerSlot }> =>
+                  slots !== undefined,
                 (slots) => slots.reduce((acc, { index, slot }) => withSlot(index, slot)(acc), withPermissions)
               ),
               Match.orElse(() => withPermissions)

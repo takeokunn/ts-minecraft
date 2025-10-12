@@ -1,25 +1,25 @@
-import type { ClimateData } from '@domain/world/types/core'
-import type * as GenerationErrors from '@domain/world/types/errors'
+import {
+  BiomeMapperService,
+  type MinecraftBiomeType,
+} from '@/domain/biome/domain_service/biome_classification/biome_mapper'
+import { BiomeClassificationLayer } from '@/domain/biome/domain_service/biome_classification/layer'
+import {
+  makeUnsafeWorldCoordinate2D,
+  type WorldCoordinate2D,
+} from '@/domain/biome/value_object/coordinates/world_coordinate'
 import {
   WorldGenerationAdapterService,
   WorldGeneratorSchema,
 } from '@/domain/world_generation/adapter/world_generation_adapter'
+import type { GenerateChunkCommand, GenerationContext } from '@/domain/world_generation/aggregate/world_generator'
 import { NoiseGenerationLayer } from '@/domain/world_generation/domain_service/noise_generation/layer'
 import {
   DEFAULT_SIMPLEX_CONFIG,
   SimplexNoiseService,
 } from '@/domain/world_generation/domain_service/noise_generation/simplex_noise_service'
-import { BiomeClassificationLayer } from '@/domain/biome/domain_service/biome_classification/layer'
-import {
-  BiomeMapperService,
-  type MinecraftBiomeType,
-} from '@/domain/biome/domain_service/biome_classification/biome_mapper'
-import {
-  makeUnsafeWorldCoordinate2D,
-  type WorldCoordinate2D,
-} from '@/domain/biome/value_object/coordinates/world_coordinate'
-import type { GenerateChunkCommand, GenerationContext } from '@/domain/world_generation/aggregate/world_generator'
 import type * as WorldTypes from '@domain/world/types/core'
+import type { ClimateData } from '@domain/world/types/core'
+import type * as GenerationErrors from '@domain/world/types/errors'
 import { DateTime, Effect, Layer, Match, Order, ReadonlyArray, Schema, pipe } from 'effect'
 
 const CHUNK_SIZE = 16
@@ -51,12 +51,12 @@ const convertToHeight = (normalized: number): number => {
   return Math.max(16, Math.min(200, height))
 }
 
-const toBiomeId = (
-  biome: MinecraftBiomeType,
-  cache: Map<MinecraftBiomeType, number>
-): number => {
+const toBiomeId = (biome: MinecraftBiomeType, cache: Map<MinecraftBiomeType, number>): number => {
   return Match.value(cache.get(biome)).pipe(
-    Match.when((value): value is number => value !== undefined, (value) => value),
+    Match.when(
+      (value): value is number => value !== undefined,
+      (value) => value
+    ),
     Match.orElse(() => {
       const nextId = cache.size
       cache.set(biome, nextId)
@@ -75,8 +75,7 @@ const generateChunkDataEffect = (
   Effect.gen(function* () {
     const baseChunkX = Number(command.coordinate.x)
     const baseChunkZ = Number(command.coordinate.z)
-    const numericSeed =
-      typeof context.seed === 'bigint' ? context.seed : BigInt(Math.trunc(Number(context.seed ?? 0)))
+    const numericSeed = typeof context.seed === 'bigint' ? context.seed : BigInt(Math.trunc(Number(context.seed ?? 0)))
     const simplexConfig = {
       ...DEFAULT_SIMPLEX_CONFIG,
       seed: numericSeed,

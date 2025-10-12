@@ -54,9 +54,7 @@ describe('TestRandom Example', () => {
 
       const values = yield* pipe(
         ReadonlyArray.range(0, 2),
-        Effect.reduce([] as ReadonlyArray<number>, (acc) =>
-          Effect.map(Random.next, (value) => [...acc, value])
-        )
+        Effect.reduce([] as ReadonlyArray<number>, (acc) => Effect.map(Random.next, (value) => [...acc, value]))
       )
 
       expect(values).toEqual([0.1, 0.3, 0.7])

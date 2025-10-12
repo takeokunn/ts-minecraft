@@ -6,14 +6,14 @@
  * 効率的な地理的検索と高性能キャッシング
  */
 
-import { makeUnsafeWorldCoordinate2D } from '@/domain/biome/value_object/coordinates'
-import { BiomeId } from '@/domain/biome/value_object/biome_id'
 import type { BiomeRegistry } from '@/domain/biome/aggregate/biome_system/biome_registry'
 import type { ClimateData } from '@/domain/biome/domain_service/biome_classification/climate_calculator'
-import type { WorldCoordinate } from '@/domain/biome/value_object/coordinates/world_coordinate'
-import { Context, Effect, Option, ReadonlyArray } from 'effect'
-import type { JsonRecord } from '@shared/schema/json'
 import type { BiomeRepositoryError } from '@/domain/biome/repository/errors'
+import { BiomeId } from '@/domain/biome/value_object/biome_id'
+import { makeUnsafeWorldCoordinate2D } from '@/domain/biome/value_object/coordinates'
+import type { WorldCoordinate } from '@/domain/biome/value_object/coordinates/world_coordinate'
+import type { JsonRecord } from '@shared/schema/json'
+import { Context, Effect, Option, ReadonlyArray } from 'effect'
 
 // === Spatial Index Types ===
 
@@ -38,7 +38,6 @@ export interface SpatialBounds {
 /**
  * バイオーム配置データ
  */
-import type { JsonRecord } from '@/shared/schema/json'
 
 export interface BiomePlacement {
   readonly biomeId: BiomeId
@@ -155,7 +154,9 @@ export interface BiomeSystemRepository {
   /**
    * バイオーム定義取得
    */
-  readonly findBiomeDefinition: (biomeId: BiomeId) => Effect.Effect<Option.Option<BiomeDefinition>, BiomeRepositoryError>
+  readonly findBiomeDefinition: (
+    biomeId: BiomeId
+  ) => Effect.Effect<Option.Option<BiomeDefinition>, BiomeRepositoryError>
 
   /**
    * 全バイオーム定義取得
@@ -333,7 +334,10 @@ export interface BiomeSystemRepository {
   /**
    * 領域バイオーム更新
    */
-  readonly updateBiomesInBounds: (bounds: SpatialBounds, biomeId: BiomeId) => Effect.Effect<number, BiomeRepositoryError>
+  readonly updateBiomesInBounds: (
+    bounds: SpatialBounds,
+    biomeId: BiomeId
+  ) => Effect.Effect<number, BiomeRepositoryError>
 
   /**
    * 領域バイオーム削除

@@ -296,10 +296,7 @@ export const BiomePropertiesValidation = {
       Match.value(true),
       Match.when(tempMean > 20 && vegDensity > 0.8, () => bundle.humidity.annual.mean > 70),
       Match.when(tempMean < 0 && vegDensity > 0.5, () => false),
-      Match.when(
-        bundle.humidity.annual.mean > 80 && bundle.soil.organicMatter.totalOrganicMatter < 0.03,
-        () => false
-      ),
+      Match.when(bundle.humidity.annual.mean > 80 && bundle.soil.organicMatter.totalOrganicMatter < 0.03, () => false),
       Match.orElse(() => true)
     )
   },

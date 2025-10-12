@@ -15,17 +15,17 @@ import type {
   WorldSeed,
 } from '@domain/world/types'
 import { createRepositoryError, createWorldGeneratorNotFoundError } from '@domain/world/types'
-import { Clock, DateTime, Effect, Layer, Option, pipe, ReadonlyArray, Ref, Either } from 'effect'
-import { Buffer } from 'node:buffer'
 import {
   CacheConfiguration,
   WorldGeneratorBatchResult,
   WorldGeneratorQuery,
   WorldGeneratorRepository,
-  WorldGeneratorRepository as WorldGeneratorRepositoryService,
   WorldGeneratorRepositoryConfig,
+  WorldGeneratorRepository as WorldGeneratorRepositoryService,
   WorldGeneratorStatistics,
 } from '@domain/world_generation/repository/world_generator_repository'
+import { Clock, DateTime, Effect, Either, Layer, Option, pipe, ReadonlyArray, Ref } from 'effect'
+import { Buffer } from 'node:buffer'
 
 // === Memory Storage State ===
 
@@ -346,10 +346,7 @@ const makeWorldGeneratorRepositoryMemory = (
                   }
                 : {
                     ...acc,
-                    failed: pipe(
-                      acc.failed,
-                      ReadonlyArray.append({ worldId: generator.worldId, error: result.left })
-                    ),
+                    failed: pipe(acc.failed, ReadonlyArray.append({ worldId: generator.worldId, error: result.left })),
                   }
           )
         )

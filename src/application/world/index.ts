@@ -683,12 +683,16 @@ export const makeWorldApplicationService = Effect.gen(function* () {
             },
           ])
         ),
-        Match.orElse(() => Effect.succeed<Array<{
-          service: string
-          severity: 'info' | 'warning' | 'error' | 'critical'
-          message: string
-          suggestion: string
-        }>>([])),
+        Match.orElse(() =>
+          Effect.succeed<
+            Array<{
+              service: string
+              severity: 'info' | 'warning' | 'error' | 'critical'
+              message: string
+              suggestion: string
+            }>
+          >([])
+        ),
         Match.exhaustive
       )
 

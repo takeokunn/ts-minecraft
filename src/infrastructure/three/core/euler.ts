@@ -51,8 +51,7 @@ export type EulerError = Schema.Schema.Type<typeof EulerError>
  * @param z Z軸周りの回転（ラジアン）
  * @param order 回転適用順序（デフォルト: 'XYZ'）
  */
-export const make = (x: number, y: number, z: number, order: EulerOrder = 'XYZ'): Euler =>
-  ({ x, y, z, order }) as Euler
+export const make = (x: number, y: number, z: number, order: EulerOrder = 'XYZ'): Euler => ({ x, y, z, order }) as Euler
 
 /**
  * ゼロ回転（無回転）

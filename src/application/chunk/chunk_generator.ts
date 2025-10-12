@@ -6,14 +6,29 @@
  */
 
 import { WorldStateSTMTag } from '@/application/world/world_state_stm'
-import type { ChunkData } from '@/domain/world/types/core/world_types'
-import type { WorldSeed } from '@/domain/world/value_object'
 import { ChunkCoordinateSchema, makeUnsafeWorldCoordinate2D } from '@/domain/biome/value_object/coordinates'
 import type { ChunkCoordinate } from '@/domain/biome/value_object/coordinates/chunk_coordinate'
+import type { ChunkData } from '@/domain/world/types/core/world_types'
+import type { WorldSeed } from '@/domain/world/value_object'
 import { PerlinNoiseService, type PerlinNoiseConfig } from '@domain/world_generation/domain_service/noise_generation'
 import { ErrorCauseSchema } from '@shared/schema/error'
 import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
-import { Clock, Context, DateTime, Effect, Fiber, HashSet, Layer, Match, Option, Order, ReadonlyArray, Schema, Stream, pipe } from 'effect'
+import {
+  Clock,
+  Context,
+  DateTime,
+  Effect,
+  Fiber,
+  HashSet,
+  Layer,
+  Match,
+  Option,
+  Order,
+  ReadonlyArray,
+  Schema,
+  Stream,
+  pipe,
+} from 'effect'
 
 /**
  * チャンク生成エラー
@@ -109,9 +124,13 @@ const normalizeSeed = (seed: SeedLike | null | undefined): bigint =>
     Match.tag('Some', ({ value }) =>
       pipe(
         Match.value(value),
-        Match.when((candidate): candidate is bigint => typeof candidate === 'bigint', (candidate) => candidate),
-        Match.when((candidate): candidate is number => typeof candidate === 'number', (candidate) =>
-          BigInt(Math.trunc(candidate))
+        Match.when(
+          (candidate): candidate is bigint => typeof candidate === 'bigint',
+          (candidate) => candidate
+        ),
+        Match.when(
+          (candidate): candidate is number => typeof candidate === 'number',
+          (candidate) => BigInt(Math.trunc(candidate))
         ),
         Match.when(
           (candidate): candidate is { readonly value: number | bigint } =>
@@ -120,9 +139,13 @@ const normalizeSeed = (seed: SeedLike | null | undefined): bigint =>
             pipe(
               candidate.value,
               Match.value,
-              Match.when((inner): inner is bigint => typeof inner === 'bigint', (inner) => inner),
-              Match.when((inner): inner is number => typeof inner === 'number', (inner) =>
-                BigInt(Math.trunc(inner))
+              Match.when(
+                (inner): inner is bigint => typeof inner === 'bigint',
+                (inner) => inner
+              ),
+              Match.when(
+                (inner): inner is number => typeof inner === 'number',
+                (inner) => BigInt(Math.trunc(inner))
               ),
               Match.orElse(() => 0n),
               Match.exhaustive
@@ -189,16 +212,18 @@ const generateSingleChunk = (coordinate: ChunkCoordinate): Effect.Effect<ChunkDa
           const clampedHeight = Math.max(-64, Math.min(256, targetHeight))
 
           const biomeId =
-            clampedHeight >= baseHeight + variance * 0.5
-              ? 2
-              : clampedHeight <= SEA_LEVEL - variance * 0.25
-                ? 1
-                : 0
+            clampedHeight >= baseHeight + variance * 0.5 ? 2 : clampedHeight <= SEA_LEVEL - variance * 0.25 ? 1 : 0
 
           const structure = pipe(
             Match.value(noiseSample.value),
-            Match.when((value) => value > 0.88, () => Option.some('peak_outcrop')),
-            Match.when((value) => value < -0.92, () => Option.some('subterranean_cavern')),
+            Match.when(
+              (value) => value > 0.88,
+              () => Option.some('peak_outcrop')
+            ),
+            Match.when(
+              (value) => value < -0.92,
+              () => Option.some('subterranean_cavern')
+            ),
             Match.orElse(() =>
               pipe(
                 Match.value((chunkX + chunkZ) % 32 === 0 && localX === 8 && localZ === 8),
@@ -219,8 +244,16 @@ const generateSingleChunk = (coordinate: ChunkCoordinate): Effect.Effect<ChunkDa
       )
     )
 
-    const heightMap = pipe(samples, ReadonlyArray.map((sample) => sample.height), Array.from)
-    const biomes = pipe(samples, ReadonlyArray.map((sample) => sample.biomeId), Array.from)
+    const heightMap = pipe(
+      samples,
+      ReadonlyArray.map((sample) => sample.height),
+      Array.from
+    )
+    const biomes = pipe(
+      samples,
+      ReadonlyArray.map((sample) => sample.biomeId),
+      Array.from
+    )
     const structures = pipe(
       samples,
       ReadonlyArray.reduce(HashSet.empty<string>(), (acc, sample) =>
@@ -298,9 +331,7 @@ export const ParallelChunkGeneratorLive = Layer.succeed(
             Match.value,
             Match.tag('None', () => {
               const cpuCount = pipe(
-                Match.value(
-                  typeof navigator !== 'undefined' && typeof navigator.hardwareConcurrency === 'number'
-                ),
+                Match.value(typeof navigator !== 'undefined' && typeof navigator.hardwareConcurrency === 'number'),
                 Match.when(true, () => navigator.hardwareConcurrency as number),
                 Match.orElse(() => 4),
                 Match.exhaustive

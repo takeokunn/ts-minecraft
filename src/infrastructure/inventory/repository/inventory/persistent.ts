@@ -1,9 +1,12 @@
-import { now as timestampNow } from '@domain/shared/value_object/units/timestamp'
 import {
   InventoryRepository,
   InventoryRepositoryStorageSchema,
 } from '@domain/inventory/repository/inventory_repository'
-import { createInventoryNotFoundError, createRepositoryError, createStorageError } from '@domain/inventory/repository/types'
+import {
+  createInventoryNotFoundError,
+  createRepositoryError,
+  createStorageError,
+} from '@domain/inventory/repository/types'
 import type {
   Inventory,
   InventoryQuery,
@@ -15,8 +18,9 @@ import type {
   SlotPosition,
   StackOperationRequest,
 } from '@domain/inventory/types'
-import { makeUnsafe as makeUnsafePlayerId } from '@domain/shared/entities/player_id/operations'
 import { makeUnsafeSlotPosition } from '@domain/inventory/value_object/slot_position/types'
+import { makeUnsafe as makeUnsafePlayerId } from '@domain/shared/entities/player_id/operations'
+import { now as timestampNow } from '@domain/shared/value_object/units/timestamp'
 import { Clock, Effect, HashMap, Layer, Match, Option, pipe, Random, Ref, Schema, TreeFormatter } from 'effect'
 
 /**

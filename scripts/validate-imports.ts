@@ -90,15 +90,23 @@ const evaluateImportDepth = (parts: ReadonlyArray<string>): boolean =>
   pipe(
     parts.length,
     Match.value,
-    Match.when((length) => length <= 3, () => true),
-    Match.when((length) => length === 4, () =>
-      pipe(
-        ReadonlyArray.last(parts),
-        Option.map((segment) => ALLOWED_FOURTH_LEVEL.has(segment)),
-        Option.getOrElse(() => false)
-      )
+    Match.when(
+      (length) => length <= 3,
+      () => true
     ),
-    Match.when((length) => length >= 5, () => true),
+    Match.when(
+      (length) => length === 4,
+      () =>
+        pipe(
+          ReadonlyArray.last(parts),
+          Option.map((segment) => ALLOWED_FOURTH_LEVEL.has(segment)),
+          Option.getOrElse(() => false)
+        )
+    ),
+    Match.when(
+      (length) => length >= 5,
+      () => true
+    ),
     Match.orElse(() => false)
   )
 
@@ -108,7 +116,10 @@ const evaluateImportDepth = (parts: ReadonlyArray<string>): boolean =>
 const isIndexImport = (importPath: string): boolean =>
   pipe(
     Match.value(importPath),
-    Match.when((path) => !path.startsWith('@'), () => true),
+    Match.when(
+      (path) => !path.startsWith('@'),
+      () => true
+    ),
     Match.orElse(() =>
       pipe(
         resolvePathAlias(importPath),
@@ -142,7 +153,10 @@ const checkSameLayerAlias = (filePath: string, importPath: string): boolean =>
     Match.orElse(() =>
       pipe(
         Match.value(importPath),
-        Match.when((path) => !path.startsWith('@'), () => false),
+        Match.when(
+          (path) => !path.startsWith('@'),
+          () => false
+        ),
         Match.orElse(() =>
           pipe(
             Option.Do,
@@ -166,7 +180,10 @@ const checkIndexImport = (filePath: string, importPath: string): boolean =>
     Match.orElse(() =>
       pipe(
         Match.value(importPath),
-        Match.when((path) => !path.startsWith('@'), () => false),
+        Match.when(
+          (path) => !path.startsWith('@'),
+          () => false
+        ),
         Match.orElse(() => isIndexImport(importPath))
       )
     )
@@ -177,7 +194,11 @@ const checkIndexImport = (filePath: string, importPath: string): boolean =>
 // =============================================================================
 
 const parseImportPath = (line: string): Option.Option<string> =>
-  pipe(IMPORT_PATTERN.exec(line), Option.fromNullable, Option.map((match) => match[2]))
+  pipe(
+    IMPORT_PATTERN.exec(line),
+    Option.fromNullable,
+    Option.map((match) => match[2])
+  )
 
 const violationWhen = (condition: boolean, violation: () => Violation): Option.Option<Violation> =>
   pipe(Option.some(condition), Option.filter(Boolean), Option.map(violation))
@@ -195,9 +216,7 @@ const lineViolations = (filePath: string, line: string, lineNumber: number): Rea
 
       return pipe(
         [
-          violationWhen(checkExtension(importPath), () =>
-            createViolation('Remove .js/.ts extension from imports')
-          ),
+          violationWhen(checkExtension(importPath), () => createViolation('Remove .js/.ts extension from imports')),
           violationWhen(checkSameLayerAlias(filePath, importPath), () =>
             createViolation('Use relative path instead of path alias within same layer')
           ),

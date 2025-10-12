@@ -345,9 +345,7 @@ const makeAudioService = Effect.gen(function* () {
               pipe(
                 Ref.update(activeSources, HashMap.remove(sourceId)),
                 Effect.zipRight(Queue.offer(eventQueue, finishedEvent)),
-                Effect.catchAll((error) =>
-                  Effect.sync(() => console.error('Failed to handle audio end event:', error))
-                )
+                Effect.catchAll((error) => Effect.sync(() => console.error('Failed to handle audio end event:', error)))
               )
             )
           }

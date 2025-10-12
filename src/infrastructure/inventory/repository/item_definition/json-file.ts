@@ -1,5 +1,9 @@
-import { Clock, Effect, Array as EffectArray, HashMap, Layer, Match, Option, Ref, pipe } from 'effect'
-import { makeUnsafe as makeUnsafeItemId } from '@domain/shared/entities/item_id/operations'
+import { ItemDefinitionRepository } from '@domain/inventory/repository/item_definition_repository'
+import {
+  createDuplicateItemDefinitionError,
+  createItemNotFoundError,
+  createStorageError,
+} from '@domain/inventory/repository/types'
 import type {
   ItemCategory,
   ItemCraftingRecipe,
@@ -8,8 +12,8 @@ import type {
   ItemDropTable,
   ItemId,
 } from '@domain/inventory/types'
-import { createDuplicateItemDefinitionError, createItemNotFoundError, createStorageError } from '@domain/inventory/repository/types'
-import { ItemDefinitionRepository } from '@domain/inventory/repository/item_definition_repository'
+import { makeUnsafe as makeUnsafeItemId } from '@domain/shared/entities/item_id/operations'
+import { Clock, Effect, Array as EffectArray, HashMap, Layer, Match, Option, Ref, pipe } from 'effect'
 
 /**
  * JSON File Storage Configuration
@@ -165,21 +169,19 @@ export const ItemDefinitionRepositoryJsonFile = (config: JsonFileConfig = Defaul
 
                 yield* pipe(
                   Match.value(config.backupEnabled === true),
-                  Match.when(
-                    true,
-                    () =>
-                      pipe(
-                        Effect.gen(function* () {
-                          const backupTimestamp = yield* Clock.currentTimeMillis
-                          const backupPath = `${config.filePath}.backup-${backupTimestamp}`
-                          yield* Effect.promise(() => fs.copyFile(config.filePath, backupPath))
-                        }),
-                        Effect.catchAll((error) =>
-                          Effect.sync(() => {
-                            console.warn('Failed to create backup:', error)
-                          })
-                        )
+                  Match.when(true, () =>
+                    pipe(
+                      Effect.gen(function* () {
+                        const backupTimestamp = yield* Clock.currentTimeMillis
+                        const backupPath = `${config.filePath}.backup-${backupTimestamp}`
+                        yield* Effect.promise(() => fs.copyFile(config.filePath, backupPath))
+                      }),
+                      Effect.catchAll((error) =>
+                        Effect.sync(() => {
+                          console.warn('Failed to create backup:', error)
+                        })
                       )
+                    )
                   ),
                   Match.orElse(() => Effect.void)
                 )

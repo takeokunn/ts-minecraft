@@ -7,10 +7,6 @@
  */
 
 import { makeUnsafeWorldX, makeUnsafeWorldZ } from '@/domain/biome/value_object/coordinates'
-import type { AllRepositoryErrors, BiomeDefinition, BiomeId, ClimateData } from '@domain/world/types'
-import { createBiomeId, createBiomeSpatialIndexError, createRepositoryError } from '@domain/world/types'
-import { HumiditySchema, TemperatureSchema } from '@domain/world/value_object/generation_parameters/biome_config'
-import { Effect, Layer, Option, ReadonlyArray, Ref, Schema } from 'effect'
 import {
   BiomeStatistics,
   BiomeSystemRepository,
@@ -25,8 +21,18 @@ import {
   SpatialQuery,
   SpatialQueryResult,
 } from '@domain/biome/repository/biome_system_repository'
-import { createQuadTree, findNearestBiome, getStatistics, insertPlacement, query } from '@domain/biome/repository/biome_system_repository/quadtree_operations'
+import {
+  createQuadTree,
+  findNearestBiome,
+  getStatistics,
+  insertPlacement,
+  query,
+} from '@domain/biome/repository/biome_system_repository/quadtree_operations'
 import type { BiomePlacement } from '@domain/biome/repository/biome_system_repository/quadtree_schema'
+import type { AllRepositoryErrors, BiomeDefinition, BiomeId, ClimateData } from '@domain/world/types'
+import { createBiomeId, createBiomeSpatialIndexError, createRepositoryError } from '@domain/world/types'
+import { HumiditySchema, TemperatureSchema } from '@domain/world/value_object/generation_parameters/biome_config'
+import { Effect, Layer, Option, ReadonlyArray, Ref, Schema } from 'effect'
 
 // === Memory Storage ===
 

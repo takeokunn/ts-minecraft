@@ -550,7 +550,10 @@ export const WorldValueObjectValidation = {
     const contributions = [
       pipe(
         Match.value(world.noise.octaves),
-        Match.when((octaves) => octaves > 8, () => 0.3),
+        Match.when(
+          (octaves) => octaves > 8,
+          () => 0.3
+        ),
         Match.orElse(() => 0)
       ),
       pipe(
@@ -560,17 +563,26 @@ export const WorldValueObjectValidation = {
       ),
       pipe(
         Match.value(world.biome.vegetation.layers.length),
-        Match.when((layers) => layers > 5, () => 0.2),
+        Match.when(
+          (layers) => layers > 5,
+          () => 0.2
+        ),
         Match.orElse(() => 0)
       ),
       pipe(
         Match.value(world.biome.soil.horizons?.length ?? 0),
-        Match.when((horizons) => horizons > 3, () => 0.1),
+        Match.when(
+          (horizons) => horizons > 3,
+          () => 0.1
+        ),
         Match.orElse(() => 0)
       ),
       pipe(
         Match.value(world.generation.structures?.density ?? 0),
-        Match.when((density) => density > 0.8, () => 0.2),
+        Match.when(
+          (density) => density > 0.8,
+          () => 0.2
+        ),
         Match.orElse(() => 0)
       ),
     ]
@@ -579,8 +591,14 @@ export const WorldValueObjectValidation = {
 
     const level = pipe(
       Match.value(complexity),
-      Match.when((value): value is number => value < 0.3, () => 'low' as const),
-      Match.when((value) => value < 0.6, () => 'medium' as const),
+      Match.when(
+        (value): value is number => value < 0.3,
+        () => 'low' as const
+      ),
+      Match.when(
+        (value) => value < 0.6,
+        () => 'medium' as const
+      ),
       Match.orElse(() => 'high' as const)
     )
 
@@ -649,8 +667,9 @@ export const WorldValueObjectTypeGuards = {
       Option.filter((candidate) => candidate.coordinates.worldBorder !== undefined),
       Option.filter((candidate) => {
         const borderKeys = Object.keys(WORLD_COORDINATE_LIMITS) as Array<keyof typeof WORLD_COORDINATE_LIMITS>
-        const record = candidate.coordinates
-          .worldBorder as Partial<Record<keyof typeof WORLD_COORDINATE_LIMITS, number>> | undefined
+        const record = candidate.coordinates.worldBorder as
+          | Partial<Record<keyof typeof WORLD_COORDINATE_LIMITS, number>>
+          | undefined
         return record !== undefined && borderKeys.every((key) => typeof record[key] === 'number')
       }),
       Option.filter((candidate) => typeof candidate.noise === 'object' && candidate.noise !== null),
@@ -732,17 +751,11 @@ function generatePerformanceRecommendations(complexity: number): string[] {
   const templates: ReadonlyArray<{ threshold: number; tips: ReadonlyArray<string> }> = [
     {
       threshold: 0.7,
-      tips: [
-        'ノイズオクターブ数を8以下に削減することを推奨',
-        '植生レイヤー数を5以下に制限することを推奨',
-      ],
+      tips: ['ノイズオクターブ数を8以下に削減することを推奨', '植生レイヤー数を5以下に制限することを推奨'],
     },
     {
       threshold: 0.5,
-      tips: [
-        'ノイズ品質を"standard"以下に設定することを推奨',
-        '構造物密度を0.8以下に調整することを推奨',
-      ],
+      tips: ['ノイズ品質を"standard"以下に設定することを推奨', '構造物密度を0.8以下に調整することを推奨'],
     },
     {
       threshold: 0.3,

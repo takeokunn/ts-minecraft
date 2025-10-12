@@ -68,11 +68,10 @@ export type QueueFullError = Schema.Schema.Type<typeof QueueFullErrorSchema>
 /**
  * QueueFullErrorを生成するヘルパー関数
  */
-export const createQueueFullError = (message: string): QueueFullError =>
-  ({
-    _tag: 'QueueFullError' as const,
-    message,
-  })
+export const createQueueFullError = (message: string): QueueFullError => ({
+  _tag: 'QueueFullError' as const,
+  message,
+})
 
 /**
  * イベント処理エラー
@@ -87,12 +86,11 @@ export type EventProcessingError = Schema.Schema.Type<typeof EventProcessingErro
 /**
  * EventProcessingErrorを生成するヘルパー関数
  */
-export const createEventProcessingError = (event: GameEvent, cause: ErrorCause): EventProcessingError =>
-  ({
-    _tag: 'EventProcessingError' as const,
-    event,
-    cause,
-  })
+export const createEventProcessingError = (event: GameEvent, cause: ErrorCause): EventProcessingError => ({
+  _tag: 'EventProcessingError' as const,
+  event,
+  cause,
+})
 
 /**
  * GameEventQueue Service

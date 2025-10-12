@@ -5,8 +5,8 @@
  * 複数集約にまたがる複雑な操作と分散トランザクション管理
  */
 
-import type { ItemStack } from '@/domain/inventory/aggregate/item_stack'
 import type { InventoryId, ItemId, PlayerId } from '@/domain/inventory'
+import type { ItemStack } from '@/domain/inventory/aggregate/item_stack'
 import type { JsonValue } from '@shared/schema/json'
 import { Context, Effect } from 'effect'
 import type { InventoryApplicationError } from '../types'

@@ -5,7 +5,6 @@
  * 地形適応性と文明発展ロジックを組み込んだ知的配置システム
  */
 
-import { type GenerationError } from '@domain/world/types/errors'
 import {
   BoundingBoxSchema,
   WorldCoordinateSchema,
@@ -13,6 +12,7 @@ import {
   type WorldCoordinate,
 } from '@domain/biome/value_object/coordinates'
 import type { WorldSeed } from '@domain/shared/value_object/world_seed'
+import { type GenerationError } from '@domain/world/types/errors'
 import { JsonRecordSchema } from '@shared/schema/json'
 import { Context, Effect, Layer, Match, pipe, ReadonlyArray, Schema } from 'effect'
 import type { HeightMap, TerrainContext } from './terrain_generator'

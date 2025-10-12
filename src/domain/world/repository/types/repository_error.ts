@@ -548,8 +548,7 @@ export const createStorageError = (
   message: string,
   operation: string,
   cause?: unknown
-): Effect.Effect<PersistenceError, Schema.ParseError> =>
-  createPersistenceError(message, 'filesystem', cause)
+): Effect.Effect<PersistenceError, Schema.ParseError> => createPersistenceError(message, 'filesystem', cause)
 
 /**
  * Version Compatibility エラー作成

@@ -1,8 +1,8 @@
-import { describe, expect, it } from '@effect/vitest'
-import { ChunkAPIService, ChunkApplicationLive } from '@application/chunk'
 import { createChunkPositionSync, createEmptyChunkDataAggregate, type ChunkData } from '@/domain/chunk'
 import { ChunkCommandSchema } from '@/domain/chunk/types'
 import { ChunkWorkerAdapterTag } from '@/infrastructure/chunk'
+import { ChunkAPIService, ChunkApplicationLive } from '@application/chunk'
+import { describe, expect, it } from '@effect/vitest'
 import { Clock, Duration, Effect, Fiber, Option, Schema } from 'effect'
 
 const createSampleChunk = (x: number, z: number, suffix: string) =>

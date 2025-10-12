@@ -1,12 +1,20 @@
-import { Context, Effect, Layer, Match, Option, pipe, ReadonlyArray, Function } from 'effect'
+import { Context, Effect, Function, Layer, Match, Option, pipe, ReadonlyArray } from 'effect'
 
+import type { Camera } from '../aggregate/camera/camera'
+import { CameraOps } from '../aggregate/camera/camera'
+import {
+  CameraStateRepository,
+  type CameraStateRepository as CameraStateRepositoryService,
+  type RepositoryError,
+} from '../repository/camera_state'
 import type {
   CameraCommand,
+  CameraId,
+  CameraSnapshot,
   SwitchCameraModeCommand,
   UpdateCameraPositionCommand,
   UpdateCameraRotationCommand,
   UpdateCameraSettingsCommand,
-  CameraSnapshot,
 } from '../types'
 import {
   createCameraError,
@@ -15,19 +23,17 @@ import {
   type RotationError,
   type SettingsError,
 } from '../types'
-import type { Camera } from '../aggregate/camera/camera'
-import { CameraOps } from '../aggregate/camera/camera'
+import type { CameraSettings, ViewMode } from '../value_object'
 import {
-  CameraStateRepository,
-  type CameraStateRepository as CameraStateRepositoryService,
-  type RepositoryError,
-} from '../repository/camera_state'
-import { ViewModeFactory, ViewModeDefaultSettings, createCameraRotation, createPosition3D, ViewModeError } from '../value_object'
-import type { ViewMode, CameraSettings } from '../value_object'
-import type { CameraId } from '../types'
+  createCameraRotation,
+  createPosition3D,
+  ViewModeDefaultSettings,
+  ViewModeError,
+  ViewModeFactory,
+} from '../value_object'
+import { SettingsFactory } from '../value_object/camera_settings/operations'
 import { cameraToSnapshot } from './helpers'
 import { CameraReadModel } from './read_model'
-import { SettingsFactory } from '../value_object/camera_settings/operations'
 
 export type CameraCommandHandlerError =
   | CameraError
@@ -52,8 +58,7 @@ const ensureCameraExists = (
   repository.findById(cameraId).pipe(
     Effect.flatMap(
       Option.match({
-        onNone: () =>
-          Effect.fail(createCameraError.invalidParameter('cameraId', cameraId, '既存のCamera ID')), // CameraError
+        onNone: () => Effect.fail(createCameraError.invalidParameter('cameraId', cameraId, '既存のCamera ID')), // CameraError
         onSome: Effect.succeed,
       })
     )
@@ -66,10 +71,13 @@ const toViewMode = (mode: string): Effect.Effect<ViewMode, ViewModeError> =>
       (value): value is 'first-person' => value === 'first-person',
       () => ViewModeFactory.createFirstPerson(ViewModeDefaultSettings.firstPerson())
     ),
-    Match.when((value): value is 'third-person' => value === 'third-person', () => {
-      const thirdPerson = ViewModeDefaultSettings.thirdPerson()
-      return ViewModeFactory.createThirdPerson(thirdPerson, thirdPerson.distance)
-    }),
+    Match.when(
+      (value): value is 'third-person' => value === 'third-person',
+      () => {
+        const thirdPerson = ViewModeDefaultSettings.thirdPerson()
+        return ViewModeFactory.createThirdPerson(thirdPerson, thirdPerson.distance)
+      }
+    ),
     Match.when(
       (value): value is 'spectator' => value === 'spectator',
       () => ViewModeFactory.createSpectator(ViewModeDefaultSettings.spectator())
@@ -94,7 +102,11 @@ const buildSettingsUpdate = (
       Option.fromNullable(command.fov),
       Option.match({
         onNone: () => Effect.succeed(Option.none<readonly ['fov', CameraSettings['fov']]>()),
-        onSome: (value) => pipe(SettingsFactory.createFOV(value), Effect.map((validated) => Option.some(['fov', validated] as const))),
+        onSome: (value) =>
+          pipe(
+            SettingsFactory.createFOV(value),
+            Effect.map((validated) => Option.some(['fov', validated] as const))
+          ),
       })
     )
 
@@ -103,7 +115,10 @@ const buildSettingsUpdate = (
       Option.match({
         onNone: () => Effect.succeed(Option.none<readonly ['sensitivity', CameraSettings['sensitivity']]>()),
         onSome: (value) =>
-          pipe(SettingsFactory.createSensitivity(value), Effect.map((validated) => Option.some(['sensitivity', validated] as const))),
+          pipe(
+            SettingsFactory.createSensitivity(value),
+            Effect.map((validated) => Option.some(['sensitivity', validated] as const))
+          ),
       })
     )
 
@@ -112,7 +127,10 @@ const buildSettingsUpdate = (
       Option.match({
         onNone: () => Effect.succeed(Option.none<readonly ['smoothing', CameraSettings['smoothing']]>()),
         onSome: (value) =>
-          pipe(SettingsFactory.createSmoothing(value), Effect.map((validated) => Option.some(['smoothing', validated] as const))),
+          pipe(
+            SettingsFactory.createSmoothing(value),
+            Effect.map((validated) => Option.some(['smoothing', validated] as const))
+          ),
       })
     )
 

@@ -2,13 +2,13 @@ import { EventPublisherTag, type WorldGeneratorEvent } from '@/domain/world_gene
 import {
   WorldGenerationCommandHandler,
   WorldGenerationCommandHandlerLive,
-  type WorldGenerationCommandHandlerError,
-  type WorldGenerationCommandResult,
   WorldGenerationQueryHandler,
   WorldGenerationQueryHandlerLive,
+  WorldGenerationReadModelLive,
+  type WorldGenerationCommandHandlerError,
+  type WorldGenerationCommandResult,
   type WorldGenerationQueryHandlerError,
   type WorldGenerationQueryResult,
-  WorldGenerationReadModelLive,
 } from '@/domain/world_generation/cqrs'
 import type { WorldGenerationCommand, WorldGenerationQuery } from '@/domain/world_generation/types'
 import { ErrorCauseSchema, toErrorCause } from '@shared/schema/error'
@@ -45,11 +45,18 @@ export type WorldGenerationAPIError =
   | WorldGenerationEventStreamError
 
 export interface WorldGenerationAPIService {
-  readonly executeCommand: (command: WorldGenerationCommand) => Effect.Effect<WorldGenerationCommandResult, WorldGenerationAPIError>
-  readonly executeQuery: (query: WorldGenerationQuery) => Effect.Effect<WorldGenerationQueryResult, WorldGenerationAPIError>
+  readonly executeCommand: (
+    command: WorldGenerationCommand
+  ) => Effect.Effect<WorldGenerationCommandResult, WorldGenerationAPIError>
+  readonly executeQuery: (
+    query: WorldGenerationQuery
+  ) => Effect.Effect<WorldGenerationQueryResult, WorldGenerationAPIError>
   readonly subscribeToEvents: (
     eventType: WorldGeneratorEvent['eventType']
-  ) => Effect.Effect<Stream.Stream<WorldGeneratorEvent, WorldGenerationEventStreamError>, WorldGenerationEventStreamError>
+  ) => Effect.Effect<
+    Stream.Stream<WorldGeneratorEvent, WorldGenerationEventStreamError>,
+    WorldGenerationEventStreamError
+  >
 }
 
 export const WorldGenerationAPIService = Context.GenericTag<WorldGenerationAPIService>(

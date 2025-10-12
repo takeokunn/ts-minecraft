@@ -6,7 +6,6 @@
 
 import { Effect, Match, Option, pipe } from 'effect'
 import type { ItemId } from '../../types'
-import { ItemRegistryService, type ItemRegistryError } from './service'
 import {
   getAllDefaultItemDefinitions,
   getDefaultItemDefinition,
@@ -15,6 +14,7 @@ import {
   itemExists,
   searchDefaultItems,
 } from './definitions'
+import { ItemRegistryService, type ItemRegistryError } from './service'
 
 const itemNotFound = (itemId: ItemId) =>
   Effect.fail<ItemRegistryError>({

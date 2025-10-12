@@ -3,8 +3,8 @@
  * Application層の依存関係を提供し、Domain層に依存
  */
 
-import { createWorldDomainLayer } from '@/domain/world/layers'
 import { BiomeDomainLive } from '@/domain/biome/layers'
+import { createWorldDomainLayer } from '@/domain/world/layers'
 import { WorldGenerationDomainLive } from '@/domain/world_generation/layers'
 import { WorldRepositoryLayer } from '@/infrastructure/world/repository/layers'
 import { Layer } from 'effect'

@@ -393,7 +393,10 @@ const calculatePerformanceMetrics = (
 const shouldAddToHistory = (history: ProgressData['trackingHistory'], now: Date): boolean =>
   pipe(
     Match.value(history.length === 0),
-    Match.when((empty) => empty, () => true),
+    Match.when(
+      (empty) => empty,
+      () => true
+    ),
     Match.orElse(() => {
       const lastEntry = history[history.length - 1]
       const timeSinceLastEntry = now.getTime() - lastEntry.timestamp.getTime()

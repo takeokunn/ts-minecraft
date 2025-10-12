@@ -3,12 +3,12 @@
  * Chunk Domainのコマンドをワーカーメッセージへ変換し、Bounded Queueで管理するレイヤー。
  */
 
+import { ChunkDataSchema, ChunkIdSchema, ChunkPositionSchema } from '@/domain/chunk'
+import type { ChunkCommand } from '@/domain/chunk/types'
+import { ChunkCommandMetadataSchema } from '@/domain/chunk/types'
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
 import { Context, Data, Effect, Layer, Match, Option, Queue, Ref, Schema } from 'effect'
 import { Chunk } from 'effect/Chunk'
-import type { ChunkCommand } from '@/domain/chunk/types'
-import { ChunkCommandMetadataSchema } from '@/domain/chunk/types'
-import { ChunkDataSchema, ChunkIdSchema, ChunkPositionSchema } from '@/domain/chunk'
 
 const QUEUE_CAPACITY = 256
 
@@ -133,9 +133,8 @@ const formatMetrics = (state: AdapterMetricsState, queueSize: number) =>
 export const ChunkWorkerAdapterLive = Layer.scoped(
   ChunkWorkerAdapterTag,
   Effect.gen(function* () {
-    const queue = yield* Effect.acquireRelease(
-      Queue.bounded<ChunkWorkerMessage>(QUEUE_CAPACITY),
-      (instance) => Queue.shutdown(instance)
+    const queue = yield* Effect.acquireRelease(Queue.bounded<ChunkWorkerMessage>(QUEUE_CAPACITY), (instance) =>
+      Queue.shutdown(instance)
     )
     const metricsRef = yield* Ref.make<AdapterMetricsState>(makeInitialMetrics())
 

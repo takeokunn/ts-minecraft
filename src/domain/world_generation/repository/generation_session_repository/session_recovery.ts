@@ -107,10 +107,7 @@ export const executeSessionRecovery = (
       Match.value(analysis),
       Match.when(
         ({ canRecover }) => !canRecover,
-        () =>
-          Effect.fail(
-            createSessionRecoveryError(session.id, 'Session cannot be recovered in current state', null)
-          )
+        () => Effect.fail(createSessionRecoveryError(session.id, 'Session cannot be recovered in current state', null))
       ),
       Match.orElse(() => Effect.void)
     )

@@ -1,7 +1,7 @@
 import { PlayerId } from '@domain/shared/entities/player_id'
 import { makeUnsafe as makeUnsafeTimestamp } from '@domain/shared/value_object/units/timestamp'
-import { Effect, Option, Schema, pipe } from 'effect'
 import { describe, expect, it } from '@effect/vitest'
+import { Effect, Option, Schema, pipe } from 'effect'
 import { InventoryRepositoryStorageSchema } from '../storage_schema'
 
 const TIMESTAMP = makeUnsafeTimestamp(1_700_000_000_000)

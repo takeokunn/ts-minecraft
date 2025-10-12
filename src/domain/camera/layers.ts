@@ -4,13 +4,13 @@
  */
 
 import { Layer } from 'effect'
+import { CameraCommandHandlerLive, CameraQueryHandlerLive, CameraReadModelLive } from './cqrs'
 import {
   CameraConfigurationServiceLive,
   CameraTransformServiceLive,
   PerspectiveCalculatorServiceLive,
   ViewFrustumServiceLive,
 } from './domain_service'
-import { CameraCommandHandlerLive, CameraQueryHandlerLive, CameraReadModelLive } from './cqrs'
 import {
   CameraConfigurationRepositoryLive,
   CameraPresetRepositoryLive,

@@ -1,7 +1,7 @@
-import { Effect, Layer, Option, Ref, pipe } from 'effect'
-import { PlayerRepository, type PlayerRepositoryService } from '@domain/player/repository'
 import type { PlayerAggregate, PlayerId } from '@domain/player'
 import { PlayerErrorBuilders } from '@domain/player'
+import { PlayerRepository, type PlayerRepositoryService } from '@domain/player/repository'
+import { Effect, Layer, Option, Ref, pipe } from 'effect'
 
 const makeInMemoryRepository = Effect.gen(function* () {
   const store = yield* Ref.make<Map<PlayerId, PlayerAggregate>>(new Map())

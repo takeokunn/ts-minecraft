@@ -1,5 +1,5 @@
 import * as CANNON from 'cannon-es'
-import { Effect, Match, Option, Schema } from 'effect'
+import { Effect, Option, Schema } from 'effect'
 import { PhysicsBodyError } from '../errors'
 
 /**

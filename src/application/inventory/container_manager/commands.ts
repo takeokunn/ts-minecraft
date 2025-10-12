@@ -5,8 +5,8 @@
  * 既存のInventoryCommandベースで実装
  */
 
-import type { ContainerId } from '@/domain/inventory/aggregate/container'
 import type { ItemStack } from '@/domain/inventory'
+import type { ContainerId } from '@/domain/inventory/aggregate/container'
 import type { InventoryCommand } from '@application/inventory/types'
 import { Effect } from 'effect'
 import type { InventoryApplicationError } from '../types'

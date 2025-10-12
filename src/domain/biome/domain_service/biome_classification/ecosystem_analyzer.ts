@@ -8,10 +8,10 @@
 
 import type { WorldCoordinate2D } from '@/domain/biome/value_object/coordinates'
 import { WorldCoordinate2DSchema } from '@/domain/biome/value_object/coordinates'
-import { type BiomeGenerationError } from './errors'
 import type { WorldSeed } from '@domain/shared/value_object/world_seed'
 import { Context, Effect, Layer, Random, Schema } from 'effect'
 import { MinecraftBiomeTypeSchema } from './biome_mapper'
+import { type BiomeGenerationError } from './errors'
 import type { BiomeMappingResult, ClimateData, MinecraftBiomeType } from './index'
 
 /**
@@ -736,7 +736,7 @@ const generateInteraction = (
             environmentalDependency: 0.3,
             evidenceStrength: 0.8,
             ecologicalImportance: 0.7,
-          } satisfies SpeciesInteraction)
+          }) satisfies SpeciesInteraction
       ),
       Match.orElse(() => null)
     )
@@ -821,7 +821,9 @@ const assessCulturalServices = (ecosystem: EcosystemStructure): Effect.Effect<Cu
     aesthetic: 0.9,
   })
 
-const assessSupportingServices = (ecosystem: EcosystemStructure): Effect.Effect<SupportingServices, BiomeGenerationError> =>
+const assessSupportingServices = (
+  ecosystem: EcosystemStructure
+): Effect.Effect<SupportingServices, BiomeGenerationError> =>
   Effect.succeed({
     soilFormation: 0.8,
     nutrientCycling: 0.9,

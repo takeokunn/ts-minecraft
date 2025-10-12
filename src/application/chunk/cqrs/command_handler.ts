@@ -1,13 +1,8 @@
 import { Context, Data, Effect, Layer, Match, Option } from 'effect'
 
-import type {
-  ChunkCommand,
-  ChunkData,
-  ChunkId,
-  ChunkPosition,
-} from '@domain/chunk/types'
 import { ChunkRepository, type ChunkRepository as ChunkRepositoryService } from '@domain/chunk/repository'
 import type { RepositoryError } from '@domain/chunk/repository/types'
+import type { ChunkCommand, ChunkData, ChunkId, ChunkPosition } from '@domain/chunk/types'
 import { ChunkReadModel } from './read_model'
 
 export const ChunkCommandError = Data.taggedEnum<{
@@ -50,18 +45,20 @@ const handleSaveChunk = (
   readModel: ChunkReadModel,
   chunk: ChunkData
 ): Effect.Effect<ChunkCommandResult, ChunkCommandHandlerError> =>
-  repository
-    .save(chunk)
-    .pipe(Effect.tap((saved) => readModel.upsert(saved)), Effect.map((saved) => ({ _tag: 'ChunkSaved', chunk: saved } as const)))
+  repository.save(chunk).pipe(
+    Effect.tap((saved) => readModel.upsert(saved)),
+    Effect.map((saved) => ({ _tag: 'ChunkSaved', chunk: saved }) as const)
+  )
 
 const handleUnloadChunk = (
   repository: ChunkRepositoryService,
   readModel: ChunkReadModel,
   chunkId: ChunkId
 ): Effect.Effect<ChunkCommandResult, ChunkCommandHandlerError> =>
-  repository
-    .delete(chunkId)
-    .pipe(Effect.tap(() => readModel.remove(chunkId)), Effect.map(() => ({ _tag: 'ChunkUnloaded', chunkId } as const)))
+  repository.delete(chunkId).pipe(
+    Effect.tap(() => readModel.remove(chunkId)),
+    Effect.map(() => ({ _tag: 'ChunkUnloaded', chunkId }) as const)
+  )
 
 const executeCommand = (
   repository: ChunkRepositoryService,

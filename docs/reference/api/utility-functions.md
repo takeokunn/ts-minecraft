@@ -1100,12 +1100,15 @@ export const ArrayUtils = {
 
   // 分割（条件による）
   partition: <T>(array: readonly T[], predicate: (item: T) => boolean): readonly [readonly T[], readonly T[]] =>
-    array.reduce<readonly [readonly T[], readonly T[]]>((acc, item) => {
-      const [trueItems, falseItems] = acc
-      return predicate(item)
-        ? [[...trueItems, item], falseItems] as const
-        : [trueItems, [...falseItems, item]] as const
-    }, [[], []] as const),
+    array.reduce<readonly [readonly T[], readonly T[]]>(
+      (acc, item) => {
+        const [trueItems, falseItems] = acc
+        return predicate(item)
+          ? ([[...trueItems, item], falseItems] as const)
+          : ([trueItems, [...falseItems, item]] as const)
+      },
+      [[], []] as const
+    ),
 
   // 安全なfindIndex
   findIndex: <T>(array: readonly T[], predicate: (item: T) => boolean): Option.Option<number> => {
@@ -2502,11 +2505,8 @@ export const AdvancedEffectPBTPatterns = {
           )
 
           // アイテムをキューから取得
-          const results = yield* Effect.reduce(
-            Array.from({ length: items.length }),
-            [] as string[],
-            (acc) =>
-              Effect.map(Queue.take(queue), (item) => [...acc, item])
+          const results = yield* Effect.reduce(Array.from({ length: items.length }), [] as string[], (acc) =>
+            Effect.map(Queue.take(queue), (item) => [...acc, item])
           )
 
           return results.length === items.length

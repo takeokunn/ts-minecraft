@@ -211,18 +211,17 @@ const makePlayerPhysicsService: Effect.Effect<PlayerPhysicsService, never, Physi
         const moveVector = yield* Effect.sync(() => {
           const length = Math.sqrt(baseVector.x * baseVector.x + baseVector.z * baseVector.z)
 
-          return Match.value(length)
-            .pipe(
-              Match.when(
-                (value) => value > 0,
-                (value) => {
-                  baseVector.x /= value
-                  baseVector.z /= value
-                  return baseVector
-                }
-              ),
-              Match.orElse(() => baseVector)
-            )
+          return Match.value(length).pipe(
+            Match.when(
+              (value) => value > 0,
+              (value) => {
+                baseVector.x /= value
+                baseVector.z /= value
+                return baseVector
+              }
+            ),
+            Match.orElse(() => baseVector)
+          )
         })
 
         // 移動力の適用 - 地上と空中で制御力を変える

@@ -1,8 +1,8 @@
 import { describe, expect, it } from '@effect/vitest'
 import { Effect, Layer, Option, Ref } from 'effect'
 
-import { GameApplication } from '@application/game-application'
 import { mergeConfig } from '@application/config'
+import { GameApplication } from '@application/game-application'
 import { SettingsApplicationService, SettingsApplicationServiceLive } from '@application/settings'
 import { createInitialState, DEFAULT_GAME_APPLICATION_CONFIG, type GameApplicationState } from '@application/types'
 
@@ -39,15 +39,16 @@ const TestGameApplicationLayer = Layer.scoped(
       getLifecycleState: () => getState().pipe(Effect.map((state) => state.lifecycle)),
       tick: () => Effect.void,
       updateConfig,
-      healthCheck: () => getState().pipe(
-        Effect.map(() => ({
-          gameLoop: { status: 'healthy' as const },
-          renderer: { status: 'healthy' as const },
-          scene: { status: 'healthy' as const },
-          input: { status: 'healthy' as const },
-          ecs: { status: 'healthy' as const },
-        }))
-      ),
+      healthCheck: () =>
+        getState().pipe(
+          Effect.map(() => ({
+            gameLoop: { status: 'healthy' as const },
+            renderer: { status: 'healthy' as const },
+            scene: { status: 'healthy' as const },
+            input: { status: 'healthy' as const },
+            ecs: { status: 'healthy' as const },
+          }))
+        ),
       reset: () => replaceState(createInitialState(DEFAULT_GAME_APPLICATION_CONFIG)),
     })
   })

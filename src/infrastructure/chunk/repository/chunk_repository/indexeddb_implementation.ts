@@ -1,9 +1,4 @@
-import type { JsonValue } from '@shared/schema/json'
-import { Clock, Duration, Effect, Layer, Match, Option, pipe } from 'effect'
 import type { ChunkData } from '@domain/chunk/aggregate/chunk_data'
-import type { ChunkId } from '@domain/chunk/value_object/chunk_id'
-import type { ChunkPosition } from '@domain/chunk/value_object/chunk_position'
-import { RepositoryErrors, type RepositoryError } from '@domain/chunk/repository/types'
 import {
   BatchOperationResult,
   ChunkQuery,
@@ -11,6 +6,11 @@ import {
   ChunkRepository,
   ChunkStatistics,
 } from '@domain/chunk/repository/chunk_repository'
+import { RepositoryErrors, type RepositoryError } from '@domain/chunk/repository/types'
+import type { ChunkId } from '@domain/chunk/value_object/chunk_id'
+import type { ChunkPosition } from '@domain/chunk/value_object/chunk_position'
+import type { JsonValue } from '@shared/schema/json'
+import { Clock, Duration, Effect, Layer, Match, Option, pipe } from 'effect'
 
 const DB_NAME = 'MinecraftChunkStorage'
 const DB_VERSION = 1
@@ -96,7 +96,8 @@ const transaction = <T>(
         operation(tx),
         // 割り込み時のクリーンアップ：tx.abort()を保証
         Effect.onInterrupt(() =>
-          Effect.when(!tx.error && tx.objectStoreNames.length > 0,
+          Effect.when(
+            !tx.error && tx.objectStoreNames.length > 0,
             pipe(
               Effect.sync(() => tx.abort()),
               Effect.catchAll(() => Effect.void)

@@ -7,10 +7,10 @@
  * - 並行処理制御
  */
 
+import * as Coordinates from '@domain/biome/value_object/coordinates'
 import { ChunkDataSchema } from '@domain/chunk'
 import type * as WorldTypes from '@domain/world/types/core'
 import type * as GenerationErrors from '@domain/world/types/errors'
-import * as Coordinates from '@domain/biome/value_object/coordinates'
 import { DateTime, Effect, Match, Option, Schema, pipe } from 'effect'
 
 // ================================
@@ -182,9 +182,7 @@ export const startBatch = (
         (context) => context.currentConcurrency >= context.maxConcurrentBatches,
         (context) =>
           Effect.fail(
-            GenerationErrors.createStateError(
-              `Maximum concurrent batches (${context.maxConcurrentBatches}) exceeded`
-            )
+            GenerationErrors.createStateError(`Maximum concurrent batches (${context.maxConcurrentBatches}) exceeded`)
           )
       ),
       Match.orElse(() => Effect.void)

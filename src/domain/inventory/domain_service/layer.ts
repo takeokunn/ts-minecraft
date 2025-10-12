@@ -33,15 +33,13 @@ import { ValidationService } from './validation_service'
  * Effect.provide(program, InventoryDomainServicesLive)
  * ```
  */
-export const createInventoryDomainServicesLayer = (
-  dependencies: {
-    readonly transfer: Layer.Layer<TransferService>
-    readonly stacking: Layer.Layer<StackingService>
-    readonly validation: Layer.Layer<ValidationService>
-    readonly itemRegistry: Layer.Layer<ItemRegistryService>
-    readonly craftingIntegration: Layer.Layer<CraftingIntegrationService>
-  }
-) =>
+export const createInventoryDomainServicesLayer = (dependencies: {
+  readonly transfer: Layer.Layer<TransferService>
+  readonly stacking: Layer.Layer<StackingService>
+  readonly validation: Layer.Layer<ValidationService>
+  readonly itemRegistry: Layer.Layer<ItemRegistryService>
+  readonly craftingIntegration: Layer.Layer<CraftingIntegrationService>
+}) =>
   Layer.mergeAll(
     dependencies.transfer,
     dependencies.stacking,

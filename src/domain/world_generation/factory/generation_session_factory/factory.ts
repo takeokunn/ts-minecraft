@@ -19,9 +19,9 @@
  * - Chunk による効率的なバッチ処理
  */
 
+import * as Coordinates from '@domain/biome/value_object/coordinates'
 import type * as GenerationSession from '@domain/world_generation/aggregate/generation_session'
 import type * as WorldGenerator from '@domain/world_generation/aggregate/world_generator'
-import * as Coordinates from '@domain/biome/value_object/coordinates'
 import { ErrorCauseSchema } from '@shared/schema/error'
 import type { JsonValue } from '@shared/schema/json'
 import { JsonValueSchema } from '@shared/schema/json'
@@ -326,10 +326,7 @@ const createGenerationSessionFactory = (): GenerationSessionFactory => ({
       const recoveredSession = yield* applyRecoveryStrategy(existingSession, params)
 
       // 進捗状態復元
-      yield* Effect.when(
-        restoreProgress(recoveredSession, existingSession),
-        params.preserveProgress === true
-      )
+      yield* Effect.when(restoreProgress(recoveredSession, existingSession), params.preserveProgress === true)
 
       return recoveredSession
     }),

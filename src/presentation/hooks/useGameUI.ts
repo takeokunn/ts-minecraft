@@ -1,22 +1,21 @@
 import { useEffect, useRef, useState } from 'react'
 
+import { Duration, Effect, Fiber, Option, Schedule, Stream } from 'effect'
 import type { ManagedRuntime } from 'effect/ManagedRuntime'
-import { Duration, Effect, Fiber, Option, Schedule, Stream, pipe } from 'effect'
 
 import type { CameraHUDViewModel } from '@application/camera/hud-service'
 import { CameraHUDService } from '@application/camera/hud-service'
 import type { PlayerHUDViewModel } from '@application/player'
 import { PlayerHUDService } from '@application/player'
-import { InventoryReactiveSystemTag } from '@presentation/inventory/state/reactive-system'
-import { InventoryStateStoreTag } from '@presentation/inventory/state/store'
 import type { InventoryEventHandler, InventoryPanelModel } from '@presentation/inventory/adt'
 import { InventoryOpened, parsePlayerId } from '@presentation/inventory/adt'
+import { InventoryReactiveSystemTag } from '@presentation/inventory/state/reactive-system'
+import { InventoryStateStoreTag } from '@presentation/inventory/state/store'
 import { InventoryViewModelTag } from '@presentation/inventory/view-model'
 
+import { PlayerCameraApplicationService } from '@application/camera'
 import { InventoryManagerApplicationService } from '@application/inventory/inventory_manager'
-import { createCameraPosition, PlayerCameraApplicationService } from '@application/camera'
 import { PlayerLifecycleApplicationService } from '@application/player'
-import { PlayerIdOperations } from '@application/inventory/presentation-service'
 
 type Runtime = ManagedRuntime<unknown, unknown>
 
@@ -65,9 +64,7 @@ export const useGameUI = (runtime: Runtime) => {
         const inventoryPlayerId = yield* parsePlayerId(DEFAULT_PLAYER_ID)
 
         const inventoryManager = yield* InventoryManagerApplicationService
-        yield* inventoryManager
-          .initializePlayerInventory(playerId, 'player')
-          .pipe(Effect.catchAll(() => Effect.void))
+        yield* inventoryManager.initializePlayerInventory(playerId, 'player').pipe(Effect.catchAll(() => Effect.void))
 
         const playerCameraService = yield* PlayerCameraApplicationService
         const cameraPosition = yield* createPosition3D(
@@ -87,7 +84,9 @@ export const useGameUI = (runtime: Runtime) => {
         const inventorySystem = yield* InventoryReactiveSystemTag
 
         yield* inventorySystem.register(inventoryPlayerId)
-        yield* Effect.addFinalizer(() => inventorySystem.unregister(inventoryPlayerId).pipe(Effect.catchAll(() => Effect.void)))
+        yield* Effect.addFinalizer(() =>
+          inventorySystem.unregister(inventoryPlayerId).pipe(Effect.catchAll(() => Effect.void))
+        )
 
         const inventoryHandler = yield* inventoryViewModel.handler(inventoryPlayerId)
         inventoryHandlerRef.current = inventoryHandler
@@ -100,37 +99,31 @@ export const useGameUI = (runtime: Runtime) => {
         const refreshPanel = (view: InventoryPanelModel) =>
           Effect.when(!cancelled, () => Effect.sync(() => setInventoryPanel(view)))
 
-        const updatePanel = inventoryViewModel
-          .panelModel(inventoryPlayerId)
-          .pipe(
-            Effect.flatMap(refreshPanel),
-            Effect.catchAll((error) =>
-              Effect.sync(() => {
-                console.error('Inventory panel initialization error', error)
-              })
-            )
+        const updatePanel = inventoryViewModel.panelModel(inventoryPlayerId).pipe(
+          Effect.flatMap(refreshPanel),
+          Effect.catchAll((error) =>
+            Effect.sync(() => {
+              console.error('Inventory panel initialization error', error)
+            })
           )
+        )
 
         yield* updatePanel
 
-        yield* inventoryStateStore
-          .streamByPlayer(inventoryPlayerId)
-          .pipe(
-            Stream.runForEach((_) =>
-              inventoryViewModel
-                .panelModel(inventoryPlayerId)
-                .pipe(
-                  Effect.flatMap((panel) => refreshPanel(panel)),
-                  Effect.catchAll((error) =>
-                    Effect.sync(() => {
-                      console.error('Inventory panel update error', error)
-                    })
-                  )
-                )
-            ),
-            Effect.catchAll(() => Effect.void),
-            Effect.forkScoped
-          )
+        yield* inventoryStateStore.streamByPlayer(inventoryPlayerId).pipe(
+          Stream.runForEach((_) =>
+            inventoryViewModel.panelModel(inventoryPlayerId).pipe(
+              Effect.flatMap((panel) => refreshPanel(panel)),
+              Effect.catchAll((error) =>
+                Effect.sync(() => {
+                  console.error('Inventory panel update error', error)
+                })
+              )
+            )
+          ),
+          Effect.catchAll(() => Effect.void),
+          Effect.forkScoped
+        )
 
         const playerHUD = yield* PlayerHUDService
         const cameraHUD = yield* CameraHUDService
@@ -147,9 +140,11 @@ export const useGameUI = (runtime: Runtime) => {
           )
         )
 
-        yield* Stream.repeatEffect(hudTick)
-          .pipe(Stream.schedule(Schedule.spaced(HUD_REFRESH_INTERVAL)), Stream.runDrain, Effect.forkScoped)
-
+        yield* Stream.repeatEffect(hudTick).pipe(
+          Stream.schedule(Schedule.spaced(HUD_REFRESH_INTERVAL)),
+          Stream.runDrain,
+          Effect.forkScoped
+        )
       })
     )
 

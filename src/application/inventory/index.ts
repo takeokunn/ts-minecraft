@@ -20,6 +20,6 @@ export type {
 export * from './container_manager'
 export * from './inventory_manager'
 export * from './layers'
+export * from './presentation-service'
 export * from './transaction_manager'
 export * from './types'
-export * from './presentation-service'

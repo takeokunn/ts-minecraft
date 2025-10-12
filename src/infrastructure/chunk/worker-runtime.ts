@@ -21,10 +21,7 @@ const cacheInvalidate = (cacheOption: Option.Option<ChunkCacheService>, position
     onSome: (cache) => cache.invalidate(position),
   })
 
-const processMessage = (
-  message: ChunkWorkerMessage,
-  cacheOption: Option.Option<ChunkCacheService>
-) =>
+const processMessage = (message: ChunkWorkerMessage, cacheOption: Option.Option<ChunkCacheService>) =>
   Match.value(message).pipe(
     Match.tag('LoadChunkRequest', (msg) =>
       Effect.gen(function* () {

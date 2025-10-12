@@ -5,15 +5,15 @@
  * 地質学的原理とゲームバランスを両立した鉱脈生成
  */
 
-import { type GenerationError } from '@domain/world/types/errors'
 import {
   makeUnsafeWorldCoordinate,
   WorldCoordinateSchema,
   type BoundingBox,
   type WorldCoordinate,
 } from '@domain/biome/value_object/coordinates'
-import { AdvancedNoiseSettingsSchema } from '@domain/world/value_object/noise_configuration/index'
 import type { WorldSeed } from '@domain/shared/value_object/world_seed'
+import { type GenerationError } from '@domain/world/types/errors'
+import { AdvancedNoiseSettingsSchema } from '@domain/world/value_object/noise_configuration/index'
 import { JsonRecordSchema, JsonValueSchema } from '@shared/schema/json'
 import { Context, Effect, Layer, Match, Option, pipe, ReadonlyArray, Schema } from 'effect'
 

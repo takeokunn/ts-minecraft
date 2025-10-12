@@ -27,7 +27,10 @@ export type MeshBasicMaterialParams = Schema.Schema.Type<typeof MeshBasicMateria
  */
 const sideToThreeSide = (side?: 'front' | 'back' | 'double'): THREE.Side =>
   Match.value(side).pipe(
-    Match.when((value) => value === undefined || value === 'front', () => THREE.FrontSide),
+    Match.when(
+      (value) => value === undefined || value === 'front',
+      () => THREE.FrontSide
+    ),
     Match.when('back', () => THREE.BackSide),
     Match.orElse(() => THREE.DoubleSide),
     Match.exhaustive

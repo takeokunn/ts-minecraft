@@ -9,5 +9,10 @@ interface HealthBarProps {
 }
 
 export const HealthBar = ({ model }: HealthBarProps): JSX.Element => (
-  <ProgressBar label="Health" value={model.health} max={model.maxHealth} color="linear-gradient(90deg, #ff4d4f, #d9363e)" />
+  <ProgressBar
+    label="Health"
+    value={model.health}
+    max={model.maxHealth}
+    color="linear-gradient(90deg, #ff4d4f, #d9363e)"
+  />
 )

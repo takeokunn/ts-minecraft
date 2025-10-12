@@ -82,7 +82,6 @@ const toJsonValue = (
               )
             )
           )
-        )
         ),
         Option.match({
           onNone: () => undefined,
@@ -107,7 +106,6 @@ const toJsonValue = (
               )
             )
           )
-        )
         ),
         Option.match({
           onNone: () => undefined,

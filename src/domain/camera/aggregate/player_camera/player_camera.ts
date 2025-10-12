@@ -169,11 +169,7 @@ export namespace PlayerCameraOps {
             : newCameraPosition
 
           // スムージングの適用
-          const smoothedPosition = applyPositionSmoothing(
-            camera.position,
-            finalPosition,
-            settings.smoothing.movement
-          )
+          const smoothedPosition = applyPositionSmoothing(camera.position, finalPosition, settings.smoothing.movement)
 
           // カメラ位置の更新
           const updatedCamera = yield* CameraOps.updatePosition(camera, smoothedPosition)

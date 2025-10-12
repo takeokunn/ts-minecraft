@@ -6,11 +6,11 @@
  * バイオームクエリの最適化とメモリ効率
  */
 
-import { makeUnsafeWorldCoordinate2D } from '@/domain/biome/value_object/coordinates'
-import { createBiomeId, BiomeId } from '@/domain/biome/value_object/biome_id'
 import { createCacheError, type BiomeRepositoryError } from '@/domain/biome/repository/errors'
-import { Clock, Effect, Option, pipe, ReadonlyArray, Ref } from 'effect'
+import { BiomeId, createBiomeId } from '@/domain/biome/value_object/biome_id'
+import { makeUnsafeWorldCoordinate2D } from '@/domain/biome/value_object/coordinates'
 import type { JsonRecord } from '@shared/schema/json'
+import { Clock, Effect, Option, pipe, ReadonlyArray, Ref } from 'effect'
 import type {
   calculateDistance,
   coordinateInBounds,
@@ -590,14 +590,12 @@ export const createBiomeCache = (
                     Match.value(expired),
                     Match.when(true, () => Effect.succeed(Option.none<SpatialCluster>())),
                     Match.orElse(() =>
-                      pipe(
-                        calculateDistance(coordinate, cluster.centerCoordinate),
-                        (distance) =>
-                          pipe(
-                            Match.value(distance <= radius),
-                            Match.when(true, () => Option.some(cluster)),
-                            Match.orElse(() => Option.none<SpatialCluster>())
-                          )
+                      pipe(calculateDistance(coordinate, cluster.centerCoordinate), (distance) =>
+                        pipe(
+                          Match.value(distance <= radius),
+                          Match.when(true, () => Option.some(cluster)),
+                          Match.orElse(() => Option.none<SpatialCluster>())
+                        )
                       )
                     ),
                     Match.exhaustive,

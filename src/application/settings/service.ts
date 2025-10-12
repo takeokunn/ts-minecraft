@@ -1,15 +1,9 @@
-import { GameApplication } from '@application/game-application'
-import type { GameApplicationStateError } from '@application/game-application'
 import type { GameApplicationConfigPatchInput } from '@application/config'
+import type { GameApplicationStateError } from '@application/game-application'
+import { GameApplication } from '@application/game-application'
 import { DEFAULT_GAME_APPLICATION_CONFIG, type GameApplicationConfig } from '@application/types'
-import {
-  SettingsOptionNotFoundError,
-  SettingsOptionTypeMismatchError,
-  SettingsOptionValueError,
-  type SettingsOptionNotFoundError,
-  type SettingsOptionTypeMismatchError,
-  type SettingsOptionValueError,
-} from './errors'
+import { Context, Effect, Layer, Match, Option, Ref, Stream, SubscriptionRef } from 'effect'
+import { SettingsOptionNotFoundError, SettingsOptionTypeMismatchError, SettingsOptionValueError } from './errors'
 import type {
   SelectOptionId,
   SettingsCategory,
@@ -22,7 +16,6 @@ import type {
   SliderOptionId,
   ToggleOptionId,
 } from './types'
-import { Context, Effect, Layer, Match, Option, Ref, Stream, SubscriptionRef } from 'effect'
 
 type SettingsApplicationDomainError =
   | SettingsOptionNotFoundError
@@ -94,18 +87,15 @@ const roundTo = (value: number, precision: number): number => {
   return Math.round(value * factor) / factor
 }
 
-const sliderPatch = (
-  categoryKey: keyof GameApplicationConfig,
-  field: string,
-  min: number,
-  max: number,
-  precision: number = 2
-) => (value: number) =>
-  Effect.succeed<GameApplicationConfigPatchInput>({
-    [categoryKey]: {
-      [field]: precision === 0 ? Math.round(clampNumber(value, min, max)) : roundTo(clampNumber(value, min, max), precision),
-    },
-  })
+const sliderPatch =
+  (categoryKey: keyof GameApplicationConfig, field: string, min: number, max: number, precision: number = 2) =>
+  (value: number) =>
+    Effect.succeed<GameApplicationConfigPatchInput>({
+      [categoryKey]: {
+        [field]:
+          precision === 0 ? Math.round(clampNumber(value, min, max)) : roundTo(clampNumber(value, min, max), precision),
+      },
+    })
 
 const togglePatch =
   (categoryKey: keyof GameApplicationConfig, field: string) =>
@@ -116,29 +106,27 @@ const togglePatch =
       },
     })
 
-const selectPatch = (
-  categoryKey: keyof GameApplicationConfig,
-  field: string,
-  options: ReadonlyArray<{ readonly value: string }>
-) => (value: string) =>
-  Match.value(options.some((candidate) => candidate.value === value)).pipe(
-    Match.when(true, () =>
-      Effect.succeed<GameApplicationConfigPatchInput>({
-        [categoryKey]: {
-          [field]: value,
-        },
-      })
-    ),
-    Match.orElse(() =>
-      Effect.fail(
-        SettingsOptionValueError.make({
-          optionId: `${String(categoryKey)}.${field}`,
-          reason: 'サポートされていない値です',
-          value,
+const selectPatch =
+  (categoryKey: keyof GameApplicationConfig, field: string, options: ReadonlyArray<{ readonly value: string }>) =>
+  (value: string) =>
+    Match.value(options.some((candidate) => candidate.value === value)).pipe(
+      Match.when(true, () =>
+        Effect.succeed<GameApplicationConfigPatchInput>({
+          [categoryKey]: {
+            [field]: value,
+          },
         })
+      ),
+      Match.orElse(() =>
+        Effect.fail(
+          SettingsOptionValueError.make({
+            optionId: `${String(categoryKey)}.${field}`,
+            reason: 'サポートされていない値です',
+            value,
+          })
+        )
       )
     )
-  )
 
 const categoryDefinitions: ReadonlyArray<CategoryDefinition> = [
   { id: 'rendering', label: 'レンダリング' },
@@ -372,9 +360,7 @@ const definitionsByOptionId: Record<SettingsOptionId, SettingsOptionDefinition> 
 
 const optionTypeOf = (definition: SettingsOptionDefinition): SettingsOptionType => definition.type
 
-const ensureDefinition = (
-  id: SettingsOptionId
-): Effect.Effect<SettingsOptionDefinition, SettingsOptionNotFoundError> =>
+const ensureDefinition = (id: SettingsOptionId): Effect.Effect<SettingsOptionDefinition, SettingsOptionNotFoundError> =>
   Option.fromNullable(definitionsByOptionId[id]).pipe(
     Option.match({
       onSome: (definition) => Effect.succeed(definition),
@@ -445,21 +431,14 @@ const buildMenuModel = (config: GameApplicationConfig): SettingsMenuModel =>
       .map((definition) => buildOption(definition, config)),
   }))
 
-const currentMenuModel = (
-  gameApplication: GameApplication
-): Effect.Effect<SettingsMenuModel, never> =>
-  gameApplication
-    .getState()
-    .pipe(Effect.map((state) => buildMenuModel(state.config)))
+const currentMenuModel = (gameApplication: GameApplication): Effect.Effect<SettingsMenuModel, never> =>
+  gameApplication.getState().pipe(Effect.map((state) => buildMenuModel(state.config)))
 
 const publishModel = (
   model: SettingsMenuModel,
   cache: Ref.Ref<SettingsMenuModel>,
   updates: SubscriptionRef.SubscriptionRef<SettingsMenuModel>
-) =>
-  Ref.set(cache, model).pipe(
-    Effect.zipLeft(SubscriptionRef.set(updates, model))
-  )
+) => Ref.set(cache, model).pipe(Effect.zipLeft(SubscriptionRef.set(updates, model)))
 
 const applyToggle = (
   definition: ToggleDefinition,

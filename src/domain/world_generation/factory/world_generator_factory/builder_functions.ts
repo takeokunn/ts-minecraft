@@ -5,11 +5,11 @@
  * クラスベースのBuilderパターンから関数型アプローチへの移行です。
  */
 
-import type * as WorldGenerator from '@domain/world_generation/aggregate/world_generator'
+import * as WorldSeed from '@domain/shared/value_object/world_seed/index'
 import * as BiomeProperties from '@domain/world/value_object/biome_properties/index'
 import * as GenerationParameters from '@domain/world/value_object/generation_parameters/index'
 import * as NoiseConfiguration from '@domain/world/value_object/noise_configuration/index'
-import * as WorldSeed from '@domain/shared/value_object/world_seed/index'
+import type * as WorldGenerator from '@domain/world_generation/aggregate/world_generator'
 import { Effect, Function, Match } from 'effect'
 import type { ValidationState, WorldGeneratorBuilderState } from './builder_state'
 import type { CreateWorldGeneratorParams, FactoryError as FactoryErrorType, PresetType } from './factory'

@@ -1,29 +1,29 @@
-import type { ManagedRuntime } from 'effect/ManagedRuntime'
 import { Effect, Either, Fiber, Match, Option, Schema, Stream, pipe } from 'effect'
+import type { ManagedRuntime } from 'effect/ManagedRuntime'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 
-import type { SliderSettingsOption, ToggleSettingsOption, SelectSettingsOption } from '@presentation/menu/types'
-import type { MenuAction } from '@presentation/menu/types'
+import { InputService, InputTimestamp, KeyCode, KeyCodeSchema } from '@domain/input'
+import { useGameUI } from '@presentation/hooks/useGameUI'
+import { HUDOverlay } from '@presentation/hud'
+import { InventoryPanel } from '@presentation/inventory'
+import { InventoryOpened, type InventoryEventHandler, type InventoryGUIEvent } from '@presentation/inventory/adt'
 import {
+  MainMenu,
   MenuActionsProvider,
   MenuControllerService,
-  type MenuController,
-  type MenuViewModel,
-  MainMenu,
   PauseMenu,
   SettingsMenu,
   useMenuActions,
+  type MenuController,
+  type MenuViewModel,
 } from '@presentation/menu'
-import { InputService, InputTimestamp, KeyCode, KeyCodeSchema } from '@domain/input'
-import { HUDOverlay } from '@presentation/hud'
-import { InventoryPanel } from '@presentation/inventory'
-import {
-  InventoryOpened,
-  type InventoryEventHandler,
-  type InventoryGUIEvent,
-} from '@presentation/inventory/adt'
-import { useGameUI } from '@presentation/hooks/useGameUI'
+import type {
+  MenuAction,
+  SelectSettingsOption,
+  SliderSettingsOption,
+  ToggleSettingsOption,
+} from '@presentation/menu/types'
 
 import './style.css'
 
@@ -210,7 +210,10 @@ const useMenuController = (runtime: Runtime) => {
   const handleClose = useCallback(() => runControllerEffect((controller) => controller.close()), [runControllerEffect])
 
   const openMain = useCallback(() => runControllerEffect((controller) => controller.openMain()), [runControllerEffect])
-  const openPause = useCallback(() => runControllerEffect((controller) => controller.openPause()), [runControllerEffect])
+  const openPause = useCallback(
+    () => runControllerEffect((controller) => controller.openPause()),
+    [runControllerEffect]
+  )
   const openSettingsMenu = useCallback(
     () => runControllerEffect((controller) => controller.openSettings()),
     [runControllerEffect]
@@ -224,7 +227,10 @@ const useMenuController = (runtime: Runtime) => {
           Match.value,
           Match.when((code) => code.startsWith('Key'), Option.some),
           Match.when((code) => code.startsWith('Digit'), Option.some),
-          Match.when((code) => code === 'Space', () => Option.some('Space')),
+          Match.when(
+            (code) => code === 'Space',
+            () => Option.some('Space')
+          ),
           Match.orElse((code) => Option.some(code.toUpperCase())),
           Match.exhaustive
         )
@@ -281,9 +287,7 @@ const useMenuController = (runtime: Runtime) => {
 
               runtime.runFork(
                 sendEffect.pipe(
-                  Effect.catchAll((error) =>
-                    Effect.sync(() => console.error('入力イベント送信エラー', error))
-                  )
+                  Effect.catchAll((error) => Effect.sync(() => console.error('入力イベント送信エラー', error)))
                 )
               )
             }),
@@ -538,12 +542,7 @@ const MenuApp = ({ runtime }: { readonly runtime: Runtime }) => {
       Match.value(current.route),
       Match.when('main', () => <MainMenu actions={current.mainActions} onSelect={onMainSelect} />),
       Match.when('pause', () => (
-        <PauseMenu
-          actions={current.pauseActions}
-          onSelect={onPauseSelect}
-          title="Paused"
-          sessionName="Sandbox World"
-        />
+        <PauseMenu actions={current.pauseActions} onSelect={onPauseSelect} title="Paused" sessionName="Sandbox World" />
       )),
       Match.when('settings', () => (
         <SettingsOverlay
@@ -635,22 +634,20 @@ const MenuApp = ({ runtime }: { readonly runtime: Runtime }) => {
     </div>
   ) : null
 
-  const inventoryPanelNode = inventory.panel?.isOpen
-    ? (
-        <div
-          style={{
-            position: 'absolute',
-            right: '2rem',
-            bottom: '2rem',
-          }}
-        >
-          <InventoryPanel
-            model={inventory.panel}
-            onEvent={(event) => runInventoryHandler(resolvedInventoryHandler, event)}
-          />
-        </div>
-      )
-    : null
+  const inventoryPanelNode = inventory.panel?.isOpen ? (
+    <div
+      style={{
+        position: 'absolute',
+        right: '2rem',
+        bottom: '2rem',
+      }}
+    >
+      <InventoryPanel
+        model={inventory.panel}
+        onEvent={(event) => runInventoryHandler(resolvedInventoryHandler, event)}
+      />
+    </div>
+  ) : null
 
   const menuNode = pipe(
     Option.fromNullable(errorMessage),

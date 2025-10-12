@@ -1,6 +1,6 @@
 import * as Coordinates from '@domain/biome/value_object/coordinates'
 import { JsonValueSchema } from '@shared/schema/json'
-import { Brand, Effect, Schema } from 'effect'
+import { Brand, Schema } from 'effect'
 import * as ErrorHandling from '../error_handling'
 import * as ProgressTracking from '../progress_tracking'
 import * as SessionState from '../session_state'

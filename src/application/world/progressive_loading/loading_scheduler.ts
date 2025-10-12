@@ -362,8 +362,7 @@ const makeLoadingSchedulerService = Effect.gen(function* () {
                 Match.value(downgradedPriority),
                 Match.when(
                   (priority) => priority === request.priority,
-                  () =>
-                    Effect.logError(`全キュー満杯: ${request.id}`)
+                  () => Effect.logError(`全キュー満杯: ${request.id}`)
                 ),
                 Match.orElse(() =>
                   Effect.gen(function* () {
@@ -374,9 +373,7 @@ const makeLoadingSchedulerService = Effect.gen(function* () {
               )
             })
         ),
-        Match.orElse(() =>
-          Effect.logInfo(`リクエストキューに追加: ${request.id} (優先度: ${request.priority})`)
-        )
+        Match.orElse(() => Effect.logInfo(`リクエストキューに追加: ${request.id} (優先度: ${request.priority})`))
       )
     }).pipe(
       Effect.annotateLogs({

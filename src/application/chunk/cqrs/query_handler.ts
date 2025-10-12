@@ -1,15 +1,8 @@
 import { Context, Data, Effect, Layer, Match, Option } from 'effect'
 
-import type {
-  ChunkData,
-  ChunkId,
-  ChunkPosition,
-  ChunkQuery,
-  ChunkRegion,
-  ChunkStatistics,
-} from '@domain/chunk/types'
 import { ChunkRepository, type ChunkRepository as ChunkRepositoryService } from '@domain/chunk/repository'
 import type { RepositoryError } from '@domain/chunk/repository/types'
+import type { ChunkData, ChunkId, ChunkPosition, ChunkQuery, ChunkRegion, ChunkStatistics } from '@domain/chunk/types'
 import { ChunkReadModel } from './read_model'
 
 export const ChunkQueryError = Data.taggedEnum<{
@@ -29,9 +22,7 @@ export interface ChunkQueryHandler {
   readonly execute: (query: ChunkQuery) => Effect.Effect<ChunkQueryResult, ChunkQueryHandlerError>
 }
 
-export const ChunkQueryHandler = Context.GenericTag<ChunkQueryHandler>(
-  '@minecraft/domain/chunk/CQRS/QueryHandler'
-)
+export const ChunkQueryHandler = Context.GenericTag<ChunkQueryHandler>('@minecraft/domain/chunk/CQRS/QueryHandler')
 
 const ensureChunkById = (
   repository: ChunkRepositoryService,
@@ -82,9 +73,7 @@ const handleGetChunkById = (
   readModel: ChunkReadModel,
   chunkId: ChunkId
 ): Effect.Effect<ChunkQueryResult, ChunkQueryHandlerError> =>
-  ensureChunkById(repository, readModel, chunkId).pipe(
-    Effect.map((chunk) => ({ _tag: 'ChunkFound', chunk } as const))
-  )
+  ensureChunkById(repository, readModel, chunkId).pipe(Effect.map((chunk) => ({ _tag: 'ChunkFound', chunk }) as const))
 
 const handleGetChunkByPosition = (
   repository: ChunkRepositoryService,
@@ -92,7 +81,7 @@ const handleGetChunkByPosition = (
   position: ChunkPosition
 ): Effect.Effect<ChunkQueryResult, ChunkQueryHandlerError> =>
   ensureChunkByPosition(repository, readModel, position).pipe(
-    Effect.map((chunk) => ({ _tag: 'ChunkFound', chunk } as const))
+    Effect.map((chunk) => ({ _tag: 'ChunkFound', chunk }) as const)
   )
 
 const handleListChunksInRegion = (
@@ -112,10 +101,8 @@ const handleListChunksInRegion = (
       chunks.length > 0
         ? Effect.succeed({ _tag: 'ChunkList', chunks } as const)
         : repository.findByRegion(chunkRegion).pipe(
-            Effect.tap((fetched) =>
-              Effect.forEach(fetched, readModel.upsert, { concurrency: 'unbounded' })
-            ),
-            Effect.map((fetched) => ({ _tag: 'ChunkList', chunks: fetched } as const))
+            Effect.tap((fetched) => Effect.forEach(fetched, readModel.upsert, { concurrency: 'unbounded' })),
+            Effect.map((fetched) => ({ _tag: 'ChunkList', chunks: fetched }) as const)
           )
     )
   )
@@ -124,7 +111,7 @@ const handleListChunksInRegion = (
 const handleGetStatistics = (
   repository: ChunkRepositoryService
 ): Effect.Effect<ChunkQueryResult, ChunkQueryHandlerError> =>
-  repository.getStatistics().pipe(Effect.map((statistics) => ({ _tag: 'ChunkStatistics', statistics } as const)))
+  repository.getStatistics().pipe(Effect.map((statistics) => ({ _tag: 'ChunkStatistics', statistics }) as const))
 
 const executeQuery = (
   repository: ChunkRepositoryService,

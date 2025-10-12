@@ -16,9 +16,9 @@
  */
 
 import * as BiomeProperties from '@/domain/biome/value_object/biome_properties/index'
+import * as WorldSeed from '@domain/shared/value_object/world_seed/index'
 import * as GenerationParameters from '@domain/world/value_object/generation_parameters/index'
 import * as NoiseConfiguration from '@domain/world/value_object/noise_configuration/index'
-import * as WorldSeed from '@domain/shared/value_object/world_seed/index'
 import { JsonValueSchema, type JsonRecord } from '@shared/schema/json'
 import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
 import { Context, Effect, Either, Function, Layer, Match, ReadonlyArray, Schema } from 'effect'
@@ -271,8 +271,7 @@ const createWorldConfigurationFactory = (): WorldConfigurationFactory => ({
               yield* pipe(
                 Match.value(validation),
                 Match.when(
-                  (result) =>
-                    result.isValid === false && result.issues.some((issue) => issue.severity === 'critical'),
+                  (result) => result.isValid === false && result.issues.some((issue) => issue.severity === 'critical'),
                   (result) =>
                     Effect.fail(
                       ConfigurationFactoryError.compatibilityError(

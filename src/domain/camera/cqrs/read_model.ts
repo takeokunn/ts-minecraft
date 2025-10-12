@@ -21,9 +21,7 @@ export interface CameraReadModel {
   readonly snapshotStream: Stream.Stream<ReadonlyArray.ReadonlyArray<CameraSnapshot>>
 }
 
-export const CameraReadModel = Context.GenericTag<CameraReadModel>(
-  '@minecraft/domain/camera/CQRS/ReadModel'
-)
+export const CameraReadModel = Context.GenericTag<CameraReadModel>('@minecraft/domain/camera/CQRS/ReadModel')
 
 export const CameraReadModelLive = Layer.effect(
   CameraReadModel,
@@ -43,9 +41,7 @@ export const CameraReadModelLive = Layer.effect(
       }))
 
     const getSnapshot: CameraReadModel['getSnapshot'] = (cameraId) =>
-      SubscriptionRef.get(subscription).pipe(
-        Effect.map((state) => HashMap.get(state.snapshots, cameraId))
-      )
+      SubscriptionRef.get(subscription).pipe(Effect.map((state) => HashMap.get(state.snapshots, cameraId)))
 
     const getAllSnapshots: CameraReadModel['getAllSnapshots'] = SubscriptionRef.get(subscription).pipe(
       Effect.map((state) => ReadonlyArray.fromIterable(HashMap.values(state.snapshots)))

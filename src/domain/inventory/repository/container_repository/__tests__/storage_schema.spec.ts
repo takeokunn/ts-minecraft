@@ -2,8 +2,8 @@
  * @fileoverview ContainerStorageDataSchemaのテスト
  */
 
-import { Effect, Schema } from 'effect'
 import { describe, expect, it } from '@effect/vitest'
+import { Effect, Schema } from 'effect'
 import { ContainerRepositoryStorageSchema, ContainerStorageDataSchema } from '../storage_schema'
 
 describe('ContainerStorageDataSchema', () => {
@@ -32,18 +32,18 @@ describe('ContainerStorageDataSchema', () => {
       const validData = {
         id: 'container_12345678-1234-1234-1234-123456789012',
         type: 'chest' as const,
-      capacity: 27,
-      slots: {
-        '0': {
-          itemStack: {
-            itemId: 'minecraft:stone',
-            quantity: 64,
+        capacity: 27,
+        slots: {
+          '0': {
+            itemStack: {
+              itemId: 'minecraft:stone',
+              quantity: 64,
+            },
           },
+          '1': null,
         },
-        '1': null,
-      },
-      version: 1,
-    }
+        version: 1,
+      }
 
       const result = yield* decodeContainer(validData)
       expect(result.slots['0']).toBeDefined()

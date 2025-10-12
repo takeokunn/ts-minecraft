@@ -206,4 +206,4 @@ export const emptyEquipmentSet = (
     version: 1 as EquipmentSetVersion,
     createdAt: timestamp,
     updatedAt: timestamp,
-  } as EquipmentSet)
+  }) as EquipmentSet

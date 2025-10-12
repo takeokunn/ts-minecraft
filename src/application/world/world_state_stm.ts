@@ -16,13 +16,11 @@
 import type { ChunkData } from '@/domain/chunk/aggregate/chunk'
 import type { ChunkId } from '@/domain/shared/entities/chunk_id'
 import type { PlayerId } from '@/domain/shared/entities/player_id'
-import { WorldIdSchema } from '@/domain/shared/entities/world_id/schema'
 import type { WorldMetadata } from '@/domain/world/repository/world_metadata_repository/interface'
 import { WorldClock } from '@/domain/world/time'
 import { createWorldSeed } from '@/domain/world/types/core/world_types'
-import { WorldCoordinate2DSchema } from '@/domain/biome/value_object/coordinates'
 import { createWorldGeneratorId } from '@/domain/world_generation/aggregate/world_generator'
-import { Context, DateTime, Effect, Layer, ReadonlyArray, STM, Schema, pipe } from 'effect'
+import { Context, DateTime, Effect, Layer, ReadonlyArray, STM, pipe } from 'effect'
 
 /**
  * WorldStateSTM Service定義

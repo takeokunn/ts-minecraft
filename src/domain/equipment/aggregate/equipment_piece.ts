@@ -91,10 +91,11 @@ export const createEquipmentPiece = (
     }).pipe(Effect.mapError(() => pieceError('invalid equipment piece components')))
   })
 
-export const withUpdatedTimestamp = (piece: EquipmentPiece, timestamp: UnixTime): EquipmentPiece => ({
-  ...piece,
-  updatedAt: timestamp,
-}) as EquipmentPiece
+export const withUpdatedTimestamp = (piece: EquipmentPiece, timestamp: UnixTime): EquipmentPiece =>
+  ({
+    ...piece,
+    updatedAt: timestamp,
+  }) as EquipmentPiece
 
 export const assignBonusStats = (piece: EquipmentPiece, bonus: EquipmentStats): EquipmentPiece =>
   ({

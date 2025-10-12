@@ -271,10 +271,7 @@ export const createContainerBuilder = (initialConfig: ContainerBuilderConfig = {
 
         // Match.whenによる必須フィールド検証
         const missingFields = pipe(
-          [
-            Option.when(config.id === undefined, () => 'id'),
-            Option.when(config.type === undefined, () => 'type'),
-          ],
+          [Option.when(config.id === undefined, () => 'id'), Option.when(config.type === undefined, () => 'type')],
           ReadonlyArray.filterMap((field) => field)
         )
 

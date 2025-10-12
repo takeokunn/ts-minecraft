@@ -3,9 +3,9 @@
  * Application層の依存関係を提供し、Domain層に依存
  */
 
-import { InventoryDomainLive } from './domain-layer'
 import { Layer } from 'effect'
 import { ContainerManagerApplicationServiceLive } from './container_manager'
+import { InventoryDomainLive } from './domain-layer'
 import { InventoryManagerApplicationServiceLive } from './inventory_manager'
 import { TransactionManagerApplicationServiceLive } from './transaction_manager'
 

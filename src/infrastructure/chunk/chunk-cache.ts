@@ -3,10 +3,10 @@
  * ChunkデータをBounded LRUキャッシュとして管理し、ドメイン読み取りを高速化する。
  */
 
-import { Clock, Context, Effect, HashMap, HashSet, Layer, Match, Option, Ref, Schema } from 'effect'
-import { pipe } from 'effect/Function'
 import type { ChunkData } from '@/domain/chunk'
 import { getChunkHash, type ChunkHash, type ChunkPosition } from '@/domain/chunk'
+import { Clock, Context, Effect, HashMap, HashSet, Layer, Match, Option, Ref, Schema } from 'effect'
+import { pipe } from 'effect/Function'
 
 const DEFAULT_MAX_ENTRIES = 512
 const DEFAULT_PRELOAD_CONCURRENCY = 4
@@ -80,10 +80,7 @@ const refreshAccess = (entry: CacheEntry, timestamp: number): CacheEntry => ({
 
 export interface ChunkCacheService {
   readonly get: (position: ChunkPosition) => Effect.Effect<Option.Option<ChunkData>>
-  readonly getOrLoad: (
-    position: ChunkPosition,
-    loader: Effect.Effect<ChunkData>
-  ) => Effect.Effect<ChunkData>
+  readonly getOrLoad: (position: ChunkPosition, loader: Effect.Effect<ChunkData>) => Effect.Effect<ChunkData>
   readonly set: (chunk: ChunkData) => Effect.Effect<void>
   readonly invalidate: (position: ChunkPosition) => Effect.Effect<void>
   readonly markDirty: (position: ChunkPosition) => Effect.Effect<void>

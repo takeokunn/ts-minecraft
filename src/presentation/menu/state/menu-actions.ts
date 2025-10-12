@@ -11,9 +11,7 @@ export interface MenuActions {
   readonly back: () => Effect.Effect<MenuViewModel, MenuControllerError>
 }
 
-export const MenuActionsTag = Context.GenericTag<MenuActions>(
-  '@minecraft/presentation/menu/MenuActions'
-)
+export const MenuActionsTag = Context.GenericTag<MenuActions>('@minecraft/presentation/menu/MenuActions')
 export const MenuActionsService = MenuActionsTag
 
 export const MenuActionsLive = Layer.effect(

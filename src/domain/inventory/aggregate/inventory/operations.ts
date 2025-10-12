@@ -227,16 +227,18 @@ export const removeAllItems = (
   })
 
 export const findItemSlots = (aggregate: InventoryAggregate, itemId: ItemId): ReadonlyArray<SlotIndex> =>
-  aggregate.slots.reduce<SlotIndex[]>((acc, slot, index) =>
-    pipe(
-      Option.fromNullable(slot?.itemStack),
-      Option.filter((stack) => stack.itemId === itemId),
-      Option.match({
-        onSome: () => [...acc, makeUnsafeSlotIndex(index)],
-        onNone: () => acc,
-      })
-    ),
-  [] as SlotIndex[])
+  aggregate.slots.reduce<SlotIndex[]>(
+    (acc, slot, index) =>
+      pipe(
+        Option.fromNullable(slot?.itemStack),
+        Option.filter((stack) => stack.itemId === itemId),
+        Option.match({
+          onSome: () => [...acc, makeUnsafeSlotIndex(index)],
+          onNone: () => acc,
+        })
+      ),
+    [] as SlotIndex[]
+  )
 
 export const isFull = (aggregate: InventoryAggregate): boolean => aggregate.slots.every((slot) => slot !== null)
 

@@ -5,8 +5,8 @@
  * チェスト、樽、エンダーチェスト等の管理に特化
  */
 
-import type { ContainerAggregate, ContainerId } from '@/domain/inventory/aggregate/container'
 import type { ItemId, ItemStack, PlayerId } from '@/domain/inventory'
+import type { ContainerAggregate, ContainerId } from '@/domain/inventory/aggregate/container'
 import type { JsonValue } from '@shared/schema/json'
 import { Context, Effect } from 'effect'
 import type { InventoryApplicationError } from '../types'

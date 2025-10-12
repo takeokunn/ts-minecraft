@@ -6,13 +6,13 @@
  * 計算量 O(N²) → O(N) への改善
  */
 
-import { type GenerationError } from '@domain/world/types/errors'
 import {
   makeUnsafeWorldCoordinate2D,
   type BoundingBox,
   type WorldCoordinate2D,
   type WorldCoordinate3D,
 } from '@domain/biome/value_object/coordinates'
+import { type GenerationError } from '@domain/world/types/errors'
 import { Context, Effect, Layer, Match, Option, ReadonlyArray, Schema, pipe } from 'effect'
 import type { NoiseField, NoiseSample } from './index'
 
@@ -488,34 +488,22 @@ export const SimplexNoiseServiceLive = Layer.effect(
         const optimizedConfig = pipe(
           baseConfig,
           (config) =>
-            applyOptional(
-              config,
-              Option.fromNullable(targetCharacteristics.smoothness),
-              (current, smoothness) => ({
-                ...current,
-                frequency: current.frequency * (1 - smoothness * 0.5),
-                persistence: current.persistence * (smoothness * 0.5 + 0.5),
-              })
-            ),
+            applyOptional(config, Option.fromNullable(targetCharacteristics.smoothness), (current, smoothness) => ({
+              ...current,
+              frequency: current.frequency * (1 - smoothness * 0.5),
+              persistence: current.persistence * (smoothness * 0.5 + 0.5),
+            })),
           (config) =>
-            applyOptional(
-              config,
-              Option.fromNullable(targetCharacteristics.isotropy),
-              (current, isotropy) => ({
-                ...current,
-                gradientSelection: isotropy > 0.7 ? 'simplex' : 'optimized',
-              })
-            ),
+            applyOptional(config, Option.fromNullable(targetCharacteristics.isotropy), (current, isotropy) => ({
+              ...current,
+              gradientSelection: isotropy > 0.7 ? 'simplex' : 'optimized',
+            })),
           (config) =>
-            applyOptional(
-              config,
-              Option.fromNullable(targetCharacteristics.performance),
-              (current, performance) => ({
-                ...current,
-                enableSIMD: performance > 0.5,
-                cachingEnabled: performance > 0.3,
-              })
-            )
+            applyOptional(config, Option.fromNullable(targetCharacteristics.performance), (current, performance) => ({
+              ...current,
+              enableSIMD: performance > 0.5,
+              cachingEnabled: performance > 0.3,
+            }))
         )
 
         return optimizedConfig
@@ -528,7 +516,10 @@ export const SimplexNoiseServiceLive = Layer.effect(
 const simplexOffsets2D = (x0: number, y0: number): { i1: number; j1: number } =>
   pipe(
     Match.value<[number, number]>([x0, y0]),
-    Match.when(([xComponent, yComponent]) => xComponent > yComponent, () => ({ i1: 1, j1: 0 })),
+    Match.when(
+      ([xComponent, yComponent]) => xComponent > yComponent,
+      () => ({ i1: 1, j1: 0 })
+    ),
     Match.orElse(() => ({ i1: 0, j1: 1 }))
   )
 
@@ -539,11 +530,26 @@ const simplexOffsets3D = (
 ): { i1: number; j1: number; k1: number; i2: number; j2: number; k2: number } =>
   pipe(
     Match.value<[number, number, number]>([x0, y0, z0]),
-    Match.when(([x, y, z]) => x >= y && y >= z, () => ({ i1: 1, j1: 0, k1: 0, i2: 1, j2: 1, k2: 0 })),
-    Match.when(([x, y, z]) => x >= z && z >= y && y < z, () => ({ i1: 1, j1: 0, k1: 0, i2: 1, j2: 0, k2: 1 })),
-    Match.when(([x, y, z]) => z > x && x >= y, () => ({ i1: 0, j1: 0, k1: 1, i2: 1, j2: 0, k2: 1 })),
-    Match.when(([x, y, z]) => z > y && y > x, () => ({ i1: 0, j1: 0, k1: 1, i2: 0, j2: 1, k2: 1 })),
-    Match.when(([x, y, z]) => y >= z && z > x, () => ({ i1: 0, j1: 1, k1: 0, i2: 0, j2: 1, k2: 1 })),
+    Match.when(
+      ([x, y, z]) => x >= y && y >= z,
+      () => ({ i1: 1, j1: 0, k1: 0, i2: 1, j2: 1, k2: 0 })
+    ),
+    Match.when(
+      ([x, y, z]) => x >= z && z >= y && y < z,
+      () => ({ i1: 1, j1: 0, k1: 0, i2: 1, j2: 0, k2: 1 })
+    ),
+    Match.when(
+      ([x, y, z]) => z > x && x >= y,
+      () => ({ i1: 0, j1: 0, k1: 1, i2: 1, j2: 0, k2: 1 })
+    ),
+    Match.when(
+      ([x, y, z]) => z > y && y > x,
+      () => ({ i1: 0, j1: 0, k1: 1, i2: 0, j2: 1, k2: 1 })
+    ),
+    Match.when(
+      ([x, y, z]) => y >= z && z > x,
+      () => ({ i1: 0, j1: 1, k1: 0, i2: 0, j2: 1, k2: 1 })
+    ),
     Match.orElse(() => ({ i1: 0, j1: 1, k1: 0, i2: 1, j2: 1, k2: 0 }))
   )
 

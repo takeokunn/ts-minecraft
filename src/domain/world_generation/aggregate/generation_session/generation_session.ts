@@ -102,9 +102,7 @@ export const start = (session: GenerationSession): STM.STM<GenerationSession, Ge
     yield* pipe(
       Match.value(session.state.status),
       Match.when('created', () => STM.unit),
-      Match.orElse((status) =>
-        STM.fail(GenerationErrors.createSessionError(`Cannot start session in ${status} state`))
-      )
+      Match.orElse((status) => STM.fail(GenerationErrors.createSessionError(`Cannot start session in ${status} state`)))
     )
 
     const now = yield* STM.fromEffect(DateTime.nowAsDate)
@@ -201,10 +199,10 @@ export const failBatch = (
     const retryOutcome = yield* pipe(
       Match.value(shouldRetry),
       Match.when(true, () =>
-        STM.map(
-          STM.fromEffect(SessionState.scheduleRetry(session.state, batchId)),
-          (nextState) => ({ state: nextState, progress: session.progress })
-        )
+        STM.map(STM.fromEffect(SessionState.scheduleRetry(session.state, batchId)), (nextState) => ({
+          state: nextState,
+          progress: session.progress,
+        }))
       ),
       Match.orElse(() =>
         STM.gen(function* () {
@@ -215,9 +213,7 @@ export const failBatch = (
             Option.match({
               onNone: () => STM.succeed(session.progress),
               onSome: (existingBatch) =>
-                STM.fromEffect(
-                  ProgressTracking.updateProgress(session.progress, 0, existingBatch.coordinates.length)
-                ),
+                STM.fromEffect(ProgressTracking.updateProgress(session.progress, 0, existingBatch.coordinates.length)),
             })
           )
           return { state: failedState, progress: updatedProgress }
@@ -403,9 +399,7 @@ const validateGenerationRequest = (request: GenerationRequest): Effect.Effect<vo
     yield* pipe(
       Match.value(request.coordinates.length === 0),
       Match.when(true, () =>
-        Effect.fail(
-          GenerationErrors.createValidationError('Generation request must contain at least one coordinate')
-        )
+        Effect.fail(GenerationErrors.createValidationError('Generation request must contain at least one coordinate'))
       ),
       Match.orElse(() => Effect.void)
     )

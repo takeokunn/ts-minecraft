@@ -107,23 +107,20 @@ export const canAcceptItem = (
 ): Effect.Effect<AcceptanceResult, SlotError> =>
   pipe(
     Match.value(slot),
-    Match.when(
-      isLocked,
-      (lockedSlot) =>
-        AcceptanceResult.Rejected({
-          reason: pipe(
-            lockedSlot.state,
-            Match.value,
-            Match.tag('Locked', (locked) => locked.reason),
-            Match.tag('Reserved', (reserved) => `Reserved by ${reserved.reservedBy}`),
-            Match.orElse(() => 'Slot is locked')
-          ),
-        })
+    Match.when(isLocked, (lockedSlot) =>
+      AcceptanceResult.Rejected({
+        reason: pipe(
+          lockedSlot.state,
+          Match.value,
+          Match.tag('Locked', (locked) => locked.reason),
+          Match.tag('Reserved', (reserved) => `Reserved by ${reserved.reservedBy}`),
+          Match.orElse(() => 'Slot is locked')
+        ),
+      })
     ),
     Match.when(
       (currentSlot) =>
-        currentSlot.constraint.allowedItemTypes.length > 0 &&
-        !currentSlot.constraint.allowedItemTypes.includes(itemId),
+        currentSlot.constraint.allowedItemTypes.length > 0 && !currentSlot.constraint.allowedItemTypes.includes(itemId),
       () =>
         AcceptanceResult.Rejected({
           reason: `Item type '${itemId}' not allowed in this slot`,
@@ -366,15 +363,13 @@ export const removeItem = (
 export const clearSlot = (slot: Slot): Effect.Effect<Slot, SlotError> =>
   pipe(
     Match.value(slot),
-    Match.when(
-      isLocked,
-      (lockedSlot) =>
-        Effect.fail(
-          SlotError.SlotLocked({
-            slotId: lockedSlot.id,
-            reason: 'Cannot clear locked slot',
-          })
-        )
+    Match.when(isLocked, (lockedSlot) =>
+      Effect.fail(
+        SlotError.SlotLocked({
+          slotId: lockedSlot.id,
+          reason: 'Cannot clear locked slot',
+        })
+      )
     ),
     Match.orElse((unlockedSlot) => {
       const newSlot = {
@@ -405,8 +400,14 @@ export const clearSlot = (slot: Slot): Effect.Effect<Slot, SlotError> =>
 export const getSlotType = (slot: Slot): SlotType => {
   return pipe(
     Match.value(slot),
-    Match.when((currentSlot) => currentSlot.constraint.isHotbar, () => 'hotbar' as SlotType),
-    Match.when((currentSlot) => currentSlot.position.row === 0, () => 'hotbar' as SlotType),
+    Match.when(
+      (currentSlot) => currentSlot.constraint.isHotbar,
+      () => 'hotbar' as SlotType
+    ),
+    Match.when(
+      (currentSlot) => currentSlot.position.row === 0,
+      () => 'hotbar' as SlotType
+    ),
     Match.orElse(() => 'inventory' as SlotType)
   )
 }

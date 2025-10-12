@@ -6,7 +6,6 @@
  * データ品質の保証と問題の早期発見
  */
 
-import { type GenerationError } from '@domain/world/types/errors'
 import {
   BoundingBoxSchema,
   WorldCoordinate2DSchema,
@@ -14,6 +13,7 @@ import {
   type BoundingBox,
   type WorldCoordinate2D,
 } from '@domain/biome/value_object/coordinates'
+import { type GenerationError } from '@domain/world/types/errors'
 import { Context, Effect, Layer, Match, ReadonlyArray, Schema, pipe } from 'effect'
 import type { BiomeMappingResult, ClimateData } from '../biome_classification'
 
@@ -212,8 +212,7 @@ export const ConsistencyCheckerServiceLive = Layer.effect(
                 : []
 
               const distinctBiomeCount = new Set(cells.map((cell) => cell.primaryBiome)).size
-              const averageConfidence =
-                cells.reduce((total, cell) => total + cell.mappingConfidence, 0) / cells.length
+              const averageConfidence = cells.reduce((total, cell) => total + cell.mappingConfidence, 0) / cells.length
               const lowConfidenceRatio = lowConfidenceCells.length / cells.length
               const severity = determineSeverity(lowConfidenceRatio, outOfBoundsCells.length)
 
@@ -322,10 +321,7 @@ const validateBiomeClimateMatch = (biome: string, climate: ClimateData): boolean
   )
 }
 
-const determineSeverity = (
-  lowConfidenceRatio: number,
-  outOfBoundsCount: number
-): ConsistencyCheckResult['severity'] =>
+const determineSeverity = (lowConfidenceRatio: number, outOfBoundsCount: number): ConsistencyCheckResult['severity'] =>
   pipe(
     Match.value({ lowConfidenceRatio, outOfBoundsCount }),
     Match.when(
@@ -365,10 +361,7 @@ const selectIssueSeverity = (lowConfidenceRatio: number): 'low' | 'medium' | 'hi
     Match.orElse(() => 'medium' as const)
   )
 
-const pickReferenceCoordinate = (
-  region: ReadonlyArray<BiomeMappingResult>,
-  bounds?: BoundingBox
-): WorldCoordinate2D =>
+const pickReferenceCoordinate = (region: ReadonlyArray<BiomeMappingResult>, bounds?: BoundingBox): WorldCoordinate2D =>
   pipe(
     Match.value(bounds),
     Match.when(

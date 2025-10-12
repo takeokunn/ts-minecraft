@@ -327,8 +327,14 @@ const checkNBTCompatibility = (
   Effect.gen(function* () {
     return yield* pipe(
       Match.value<[ItemStackEntity['nbtData'], ItemStackEntity['nbtData']]>([stack1.nbtData, stack2.nbtData]),
-      Match.when(([first, second]) => !first && !second, () => Effect.succeed(true)),
-      Match.when(([first, second]) => !first || !second, () => Effect.succeed(false)),
+      Match.when(
+        ([first, second]) => !first && !second,
+        () => Effect.succeed(true)
+      ),
+      Match.when(
+        ([first, second]) => !first || !second,
+        () => Effect.succeed(false)
+      ),
       Match.orElse(([first, second]) => {
         const enchantments1 = first!.enchantments ?? []
         const enchantments2 = second!.enchantments ?? []

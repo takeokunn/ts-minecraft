@@ -8,9 +8,9 @@ export {
 export {
   WorldGenerationQueryHandler,
   WorldGenerationQueryHandlerLive,
+  type GenerationProgressType,
   type WorldGenerationQueryHandlerError,
   type WorldGenerationQueryResult,
-  type GenerationProgressType,
 } from './query_handler'
 
 export { WorldGenerationReadModel, WorldGenerationReadModelLive } from './read_model'

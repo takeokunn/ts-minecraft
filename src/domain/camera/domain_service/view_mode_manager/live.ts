@@ -449,14 +449,17 @@ const checkViewModePermission = (
   pipe(
     mode,
     Match.value,
-    Match.when((candidate) => ViewModeOps.isFirstPerson(candidate), () =>
-      Effect.succeed(permissions.canUseFirstPerson)
+    Match.when(
+      (candidate) => ViewModeOps.isFirstPerson(candidate),
+      () => Effect.succeed(permissions.canUseFirstPerson)
     ),
-    Match.when((candidate) => ViewModeOps.isThirdPerson(candidate), () =>
-      Effect.succeed(permissions.canUseThirdPerson)
+    Match.when(
+      (candidate) => ViewModeOps.isThirdPerson(candidate),
+      () => Effect.succeed(permissions.canUseThirdPerson)
     ),
-    Match.when((candidate) => ViewModeOps.isSpectator(candidate), () =>
-      Effect.succeed(permissions.canUseSpectator)
+    Match.when(
+      (candidate) => ViewModeOps.isSpectator(candidate),
+      () => Effect.succeed(permissions.canUseSpectator)
     ),
     Match.orElse(() => Effect.succeed(permissions.canUseCinematic)),
     Match.exhaustive

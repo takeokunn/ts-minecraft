@@ -1,14 +1,14 @@
 import { Camera } from '@/domain/camera/aggregate/camera/camera'
+import { cameraToSnapshot } from '@/domain/camera/cqrs/helpers'
 import type { CameraCommand, CameraQuery, CameraQueryResult, CameraSnapshot } from '@/domain/camera/types'
 import { CameraIdSchema } from '@/domain/camera/types'
-import { cameraToSnapshot } from '@/domain/camera/cqrs/helpers'
 import { createPosition3D } from '@/domain/camera/value_object/camera_position/operations'
 import { createCameraRotation } from '@/domain/camera/value_object/camera_rotation/operations'
 import { createCameraSettings } from '@/domain/camera/value_object/camera_settings/operations'
 import { ViewModeFactory } from '@/domain/camera/value_object/view_mode/operations'
 import { CameraAPIService } from '@application/camera/api-service'
+import { DateTime, Effect, Layer, Match, Option, Ref, Schema } from 'effect'
 import { CameraHUDServiceLive } from './hud-service'
-import { DateTime, Effect, Layer, Match, Option, Ref, pipe, Schema } from 'effect'
 
 const makeInitialCamera = Effect.gen(function* () {
   const cameraId = yield* Schema.decodeUnknown(CameraIdSchema)('camera-hud-primary').pipe(Effect.orDie)
@@ -44,10 +44,7 @@ export const CameraAPIServiceStub = Layer.effect(
     const cameraRef = yield* Ref.make(initialCamera)
 
     const executeCommand = (_command: CameraCommand): Effect.Effect<CameraSnapshot, never> =>
-      cameraRef.pipe(
-        Ref.get,
-        Effect.map(cameraToSnapshot)
-      )
+      cameraRef.pipe(Ref.get, Effect.map(cameraToSnapshot))
 
     const executeQuery = (query: CameraQuery): Effect.Effect<CameraQueryResult, never> =>
       cameraRef.pipe(

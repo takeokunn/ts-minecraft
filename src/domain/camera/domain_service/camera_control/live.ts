@@ -62,9 +62,7 @@ export const CameraControlServiceLive = Layer.succeed(
     applyPositionConstraints: (position, constraints) =>
       pipe(
         clampToBounds(position, constraints.worldBounds),
-        Effect.flatMap((boundedPosition) =>
-          clampHeight(boundedPosition, constraints.minHeight, constraints.maxHeight)
-        ),
+        Effect.flatMap((boundedPosition) => clampHeight(boundedPosition, constraints.minHeight, constraints.maxHeight)),
         Effect.flatMap((heightAdjusted) =>
           pipe(
             Match.value(constraints.terrainCollision),
@@ -251,20 +249,18 @@ const checkTerrainCollision = (
       Match.when(
         (data): data is Exclude<typeof data, undefined | null> => data != null,
         (worldCollisionData) =>
-          collisionDetection
-            .checkCameraCollision(position, radius, worldCollisionData)
-            .pipe(
-              Effect.flatMap((collisionResult) =>
-                Match.value(collisionResult).pipe(
-                  Match.when({ _tag: 'Collision' }, (collision) =>
-                    collisionDetection
-                      .findSafePosition(position, position, radius, worldCollisionData)
-                      .pipe(Effect.catchAll(() => Effect.succeed(collision.hitPosition)))
-                  ),
-                  Match.orElse(() => Effect.succeed(position))
-                )
+          collisionDetection.checkCameraCollision(position, radius, worldCollisionData).pipe(
+            Effect.flatMap((collisionResult) =>
+              Match.value(collisionResult).pipe(
+                Match.when({ _tag: 'Collision' }, (collision) =>
+                  collisionDetection
+                    .findSafePosition(position, position, radius, worldCollisionData)
+                    .pipe(Effect.catchAll(() => Effect.succeed(collision.hitPosition)))
+                ),
+                Match.orElse(() => Effect.succeed(position))
               )
             )
+          )
       ),
       Match.orElse(() => Effect.succeed(position))
     )

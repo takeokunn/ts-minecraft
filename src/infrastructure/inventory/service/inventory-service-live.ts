@@ -1,9 +1,3 @@
-import { now as timestampNow, type Timestamp } from '@domain/shared/value_object/units/timestamp'
-import * as TreeFormatter from '@effect/schema/TreeFormatter'
-import type { JsonValue } from '@shared/schema/json'
-import { JsonValueSchema } from '@shared/schema/json'
-import { Effect, Layer, Match, Option, Ref, Schema, pipe } from 'effect'
-import * as ReadonlyArray from 'effect/Array'
 import {
   Inventory,
   InventoryService,
@@ -20,6 +14,12 @@ import {
   type AddItemResult,
   type ItemDefinition,
 } from '@domain/inventory'
+import { now as timestampNow, type Timestamp } from '@domain/shared/value_object/units/timestamp'
+import * as TreeFormatter from '@effect/schema/TreeFormatter'
+import type { JsonValue } from '@shared/schema/json'
+import { JsonValueSchema } from '@shared/schema/json'
+import { Effect, Layer, Match, Option, Ref, Schema, pipe } from 'effect'
+import * as ReadonlyArray from 'effect/Array'
 
 const SLOT_COUNT = 36
 const HOTBAR_SIZE = 9
@@ -34,9 +34,7 @@ const toJsonValue = (input: Schema.ParseError | JsonValue): JsonValue =>
 const normalizeItemId = (itemId: ItemId | string): Effect.Effect<ItemId, InventoryServiceError> =>
   typeof itemId === 'string'
     ? Schema.decodeUnknown(ItemIdSchema)(itemId).pipe(
-        Effect.mapError((error) =>
-          InventoryServiceError.inventoryStateValidationFailed(toJsonValue(error))
-        )
+        Effect.mapError((error) => InventoryServiceError.inventoryStateValidationFailed(toJsonValue(error)))
       )
     : Effect.succeed(itemId)
 
@@ -155,7 +153,10 @@ export const InventoryServiceLive = Layer.effect(
         )
 
       // 既存スタックへの追加を試行
-      pipe(ReadonlyArray.makeBy(SLOT_COUNT, (i) => i), ReadonlyArray.forEach(tryStack))
+      pipe(
+        ReadonlyArray.makeBy(SLOT_COUNT, (i) => i),
+        ReadonlyArray.forEach(tryStack)
+      )
 
       // 空きスロットへの配置
       pipe(
@@ -795,15 +796,15 @@ export const InventoryServiceLive = Layer.effect(
           Effect.gen(function* () {
             const itemId = yield* normalizeItemId(itemIdInput)
             const indices = pipe(
-            inventory.slots,
-            ReadonlyArray.filterMapWithIndex((i, item) =>
-              pipe(
-                Option.fromNullable(item),
-                Option.filter((it) => it.itemId === itemId),
-                Option.map(() => i)
+              inventory.slots,
+              ReadonlyArray.filterMapWithIndex((i, item) =>
+                pipe(
+                  Option.fromNullable(item),
+                  Option.filter((it) => it.itemId === itemId),
+                  Option.map(() => i)
+                )
               )
             )
-          )
             return indices
           })
         ),
@@ -813,19 +814,19 @@ export const InventoryServiceLive = Layer.effect(
           Effect.gen(function* () {
             const itemId = yield* normalizeItemId(itemIdInput)
             return pipe(
-            inventory.slots,
-            ReadonlyArray.reduce(0, (amount, slot) =>
-              pipe(
-                Option.fromNullable(slot),
-                Option.filter((s) => s.itemId === itemId),
-                Option.match({
-                  onNone: () => amount,
-                  onSome: (s) => amount + s.count,
-                })
-              )
-            ),
-            Effect.succeed
-          )
+              inventory.slots,
+              ReadonlyArray.reduce(0, (amount, slot) =>
+                pipe(
+                  Option.fromNullable(slot),
+                  Option.filter((s) => s.itemId === itemId),
+                  Option.match({
+                    onNone: () => amount,
+                    onSome: (s) => amount + s.count,
+                  })
+                )
+              ),
+              Effect.succeed
+            )
           })
         ),
 
@@ -850,7 +851,12 @@ export const InventoryServiceLive = Layer.effect(
             Match.value(existingSpace >= item.count),
             Match.when(true, () => Effect.succeed(true)),
             Match.orElse(() =>
-              Effect.succeed(pipe(inventory.slots, ReadonlyArray.some((slot) => slot === null)))
+              Effect.succeed(
+                pipe(
+                  inventory.slots,
+                  ReadonlyArray.some((slot) => slot === null)
+                )
+              )
             )
           )
         }),

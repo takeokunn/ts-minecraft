@@ -11,7 +11,12 @@ interface MainMenuProps {
   readonly onSelect: (action: MenuAction) => void
 }
 
-export const MainMenu = ({ title = 'TypeScript Minecraft', subtitle, actions, onSelect }: MainMenuProps): JSX.Element => (
+export const MainMenu = ({
+  title = 'TypeScript Minecraft',
+  subtitle,
+  actions,
+  onSelect,
+}: MainMenuProps): JSX.Element => (
   <section
     style={{
       position: 'absolute',

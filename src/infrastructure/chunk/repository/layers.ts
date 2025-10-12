@@ -1,7 +1,7 @@
 import { Layer } from 'effect'
 
-import { InMemoryChunkRepositoryLive } from './chunk_repository/memory_implementation'
 import { ChunkRepository } from '@domain/chunk/repository'
+import { InMemoryChunkRepositoryLive } from './chunk_repository/memory_implementation'
 
 /**
  * Chunk Repository Layers

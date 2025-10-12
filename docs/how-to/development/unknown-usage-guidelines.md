@@ -45,23 +45,23 @@ export const parseConfig = (data: unknown): Effect.Effect<Config, ParseError> =>
 
 // ✅ 適切：localStorage/IndexedDBからのデータ検証
 const storageData: unknown = localStorage.getItem('config')
-const config = yield* parseConfig(storageData)
+const config = yield * parseConfig(storageData)
 ```
 
 ### 3. Factory restore関数（Branded Type推奨）
 
 ```typescript
 // ✅ 推奨：Branded Typeで意図を明示
-export type PersistedItemStack = Brand.Brand<unknown, "PersistedItemStack">
+export type PersistedItemStack = Brand.Brand<unknown, 'PersistedItemStack'>
 
 export const ItemStackFactory = {
   restore: (data: PersistedItemStack): Effect.Effect<ItemStackEntity, ItemStackError> =>
-    Schema.decodeUnknown(ItemStackEntitySchema)(data)
+    Schema.decodeUnknown(ItemStackEntitySchema)(data),
 }
 
 // 使用例
 const persistedData: unknown = await db.get('itemStack', id)
-const itemStack = yield* ItemStackFactory.restore(persistedData as PersistedItemStack)
+const itemStack = yield * ItemStackFactory.restore(persistedData as PersistedItemStack)
 ```
 
 ### 4. エラーハンドリング
@@ -70,10 +70,11 @@ const itemStack = yield* ItemStackFactory.restore(persistedData as PersistedItem
 // ✅ 適切：外部ライブラリのエラーを安全にハンドリング
 Effect.tryPromise({
   try: () => cannonBody.applyForce(force),
-  catch: (error: unknown) => PhysicsError.ExternalLibraryError({
-    library: 'CANNON.js',
-    cause: toErrorCause(error) // unknown → string変換ヘルパー
-  })
+  catch: (error: unknown) =>
+    PhysicsError.ExternalLibraryError({
+      library: 'CANNON.js',
+      cause: toErrorCause(error), // unknown → string変換ヘルパー
+    }),
 })
 ```
 
@@ -130,19 +131,20 @@ function identity<T>(value: T): T {
 ### Pattern 1: Schema.decodeUnknownSync → `satisfies`
 
 **Before**:
+
 ```typescript
-export const defaultConfig: Config =
-  Schema.decodeUnknownSync(ConfigSchema)({
-    timeout: 5000,
-    retries: 3
-  })
+export const defaultConfig: Config = Schema.decodeUnknownSync(ConfigSchema)({
+  timeout: 5000,
+  retries: 3,
+})
 ```
 
 **After**:
+
 ```typescript
 export const defaultConfig = {
   timeout: 5000,
-  retries: 3
+  retries: 3,
 } satisfies Config
 ```
 
@@ -153,28 +155,28 @@ export const defaultConfig = {
 ### Pattern 2: Unsafe make + Safe make (Dual API)
 
 **Before**:
+
 ```typescript
-export const make = (value: number): Meters =>
-  Schema.decodeUnknownSync(MetersSchema)(value)
+export const make = (value: number): Meters => Schema.decodeUnknownSync(MetersSchema)(value)
 ```
 
 **After**:
+
 ```typescript
 /**
  * @internal
  * 内部使用専用：信頼された値からMetersを生成
  */
-export const makeUnsafe = (value: number): Meters =>
-  value as Meters
+export const makeUnsafe = (value: number): Meters => value as Meters
 
 /**
  * 外部入力用：値を検証してMetersを生成
  */
-export const make = (value: number): Effect.Effect<Meters, ParseError> =>
-  Schema.decodeUnknown(MetersSchema)(value)
+export const make = (value: number): Effect.Effect<Meters, ParseError> => Schema.decodeUnknown(MetersSchema)(value)
 ```
 
 **使い分け**:
+
 - `makeUnsafe`: 内部計算結果（信頼できる値）
 - `make`: 外部入力（検証必要）
 
@@ -183,6 +185,7 @@ export const make = (value: number): Effect.Effect<Meters, ParseError> =>
 ### Pattern 3: Effect.catchAll → Effect.catchTags
 
 **Before**:
+
 ```typescript
 Effect.catchAll((error: unknown) => {
   if (error instanceof FileSystemError) {
@@ -194,10 +197,11 @@ Effect.catchAll((error: unknown) => {
 ```
 
 **After**:
+
 ```typescript
 Effect.catchTags({
   FileSystemError: (error) => Effect.fail(createStorageError(error)),
-  ParseError: (error) => Effect.fail(createDataIntegrityError(error))
+  ParseError: (error) => Effect.fail(createDataIntegrityError(error)),
 })
 ```
 
@@ -208,22 +212,24 @@ Effect.catchTags({
 ### Pattern 4: ParseError情報の構造化保持
 
 **Before**:
+
 ```typescript
 Effect.mapError((error) =>
   DomainError.make({
-    message: String(error) // ❌ 詳細情報が失われる
+    message: String(error), // ❌ 詳細情報が失われる
   })
 )
 ```
 
 **After**:
+
 ```typescript
 Effect.mapError((parseError: Schema.ParseError) =>
   DomainError.make({
     message: '検証に失敗しました',
     field: parseError.path?.join('.') ?? 'root',
     issues: formatParseIssues(parseError),
-    originalError: parseError
+    originalError: parseError,
   })
 )
 ```
@@ -236,11 +242,11 @@ Effect.mapError((parseError: Schema.ParseError) =>
 
 ### 削減実績
 
-| フェーズ | 削減箇所 | 主要改善 |
-|---------|---------|---------|
-| Phase 1-3 (初期) | 92箇所 | `any` → `unknown` |
-| Phase 4 (今回) | 62箇所 | `unknown`適正化 |
-| **合計** | **154箇所** | **47%削減** |
+| フェーズ         | 削減箇所    | 主要改善          |
+| ---------------- | ----------- | ----------------- |
+| Phase 1-3 (初期) | 92箇所      | `any` → `unknown` |
+| Phase 4 (今回)   | 62箇所      | `unknown`適正化   |
+| **合計**         | **154箇所** | **47%削減**       |
 
 ### 現状
 
@@ -250,14 +256,14 @@ Effect.mapError((parseError: Schema.ParseError) =>
 
 ### 内訳
 
-| カテゴリ | 件数 | ステータス |
-|---------|------|-----------|
-| 型ガード関数 | ~81 | ✅ 適切 |
-| Schema検証関数 | ~428 | ✅ 適切（一部改善済み） |
-| エラーハンドリング | ~30 | ✅ 改善済み（5箇所） |
-| Factory restore | ~10 | ✅ 改善済み（Branded Type導入） |
-| 文字列リテラル値 | 24 | ✅ 適切（値として使用） |
-| その他正当な使用 | ~155 | ✅ 適切 |
+| カテゴリ           | 件数 | ステータス                      |
+| ------------------ | ---- | ------------------------------- |
+| 型ガード関数       | ~81  | ✅ 適切                         |
+| Schema検証関数     | ~428 | ✅ 適切（一部改善済み）         |
+| エラーハンドリング | ~30  | ✅ 改善済み（5箇所）            |
+| Factory restore    | ~10  | ✅ 改善済み（Branded Type導入） |
+| 文字列リテラル値   | 24   | ✅ 適切（値として使用）         |
+| その他正当な使用   | ~155 | ✅ 適切                         |
 
 **結論**: 残存する`unknown`使用は全てEffect-TSとTypeScriptのベストプラクティスに準拠した正当な使用です。
 

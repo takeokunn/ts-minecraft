@@ -3,8 +3,8 @@
  * Domain層の依存関係を提供（Repository層のみ）
  */
 
-import type { EquipmentRepository } from './repository'
 import { Layer } from 'effect'
+import type { EquipmentRepository } from './repository'
 
 /**
  * Equipment Domain Layer Factory

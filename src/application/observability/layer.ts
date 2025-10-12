@@ -1,6 +1,6 @@
-import { Effect, Layer } from 'effect'
 import { NodeSdk } from '@effect/opentelemetry'
 import { PrometheusExporter } from '@opentelemetry/exporter-prometheus'
+import { Effect, Layer } from 'effect'
 
 /**
  * OpenTelemetry Observability Layer
@@ -12,11 +12,12 @@ import { PrometheusExporter } from '@opentelemetry/exporter-prometheus'
  * デフォルトポート: 9464
  * エンドポイント: http://localhost:9464/metrics
  */
-const createPrometheusExporter = Effect.sync(() =>
-  new PrometheusExporter({
-    port: 9464,
-    endpoint: '/metrics'
-  })
+const createPrometheusExporter = Effect.sync(
+  () =>
+    new PrometheusExporter({
+      port: 9464,
+      endpoint: '/metrics',
+    })
 )
 
 /**
@@ -31,18 +32,18 @@ export const ObservabilityLayer = Layer.unwrapEffect(
     const sdk = yield* NodeSdk.layer(() => ({
       resource: {
         serviceName: 'ts-minecraft',
-        serviceVersion: '1.0.0'
+        serviceVersion: '1.0.0',
       },
       metrics: {
-        reader: exporter
-      }
+        reader: exporter,
+      },
     }))
 
     // Prometheusエンドポイント起動ログ
     yield* Effect.logInfo('OpenTelemetry Prometheus exporter started').pipe(
       Effect.annotateLogs({
         port: 9464,
-        endpoint: 'http://localhost:9464/metrics'
+        endpoint: 'http://localhost:9464/metrics',
       })
     )
 

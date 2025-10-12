@@ -166,8 +166,9 @@ export const SettingsValidatorServiceLive = Layer.succeed(
         // アクセシビリティ要件を適用
         return yield* pipe(
           Match.value(constraints.accessibilityRequirements),
-          Match.when((req): req is AccessibilityRequirements => req !== undefined, (req) =>
-            applyAccessibilityRequirements(platformLimited, req)
+          Match.when(
+            (req): req is AccessibilityRequirements => req !== undefined,
+            (req) => applyAccessibilityRequirements(platformLimited, req)
           ),
           Match.orElse(() => Effect.succeed(platformLimited))
         )

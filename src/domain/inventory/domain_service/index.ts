@@ -18,10 +18,10 @@ export {
   TargetSlotAvailableSpecification,
   TransferError,
   TransferService,
-  makeTransferService,
   ValidItemCountSpecification,
   ValidSlotSpecification,
   analyzeTransferability,
+  makeTransferService,
 } from './transfer_service'
 export type {
   BatchTransferRequest,
@@ -41,12 +41,12 @@ export {
   StackOptimizationError,
   StackingError,
   StackingService,
-  makeStackingService,
   checkCompleteStackCompatibility,
   checkDurabilityCompatibility,
   checkItemIdCompatibility,
   checkMetadataCompatibility,
   checkStackLimitRule,
+  makeStackingService,
   resolveMetadataConflicts,
 } from './stacking_service'
 export type {
@@ -97,7 +97,6 @@ export type {
 export {
   ItemRegistryError,
   ItemRegistryService,
-  makeItemRegistryService,
   createDynamicItemDefinition,
   getAllDefaultItemDefinitions,
   getDefaultItemDefinition,
@@ -108,6 +107,7 @@ export {
   isEnchantable,
   isFuel,
   itemExists,
+  makeItemRegistryService,
   searchDefaultItems,
 } from './item_registry'
 export type {

@@ -22,10 +22,10 @@ import {
 } from './aggregate/world_generator/index'
 
 // Domain Service layers
+import { WorldGenerationReadModelLive } from './cqrs/read_model'
 import { NoiseGenerationLayer } from './domain_service/noise_generation/index'
 import { ProceduralGenerationLayer } from './domain_service/procedural_generation/index'
 import { WorldGenerationOrchestratorLive } from './domain_service/world_generation_orchestrator/index'
-import { WorldGenerationReadModelLive } from './cqrs/read_model'
 
 // Factory layers
 import { GenerationSessionFactoryLive } from './factory/generation_session_factory/index'

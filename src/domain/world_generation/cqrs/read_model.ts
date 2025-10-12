@@ -29,7 +29,10 @@ export interface WorldGenerationReadModel {
   readonly setActiveSessions: (sessions: ReadonlyArray.ReadonlyArray<string>) => Effect.Effect<void>
   readonly setHealthStatus: (status: Record<string, boolean>) => Effect.Effect<void>
   readonly getWorldResult: (generationId: string) => Effect.Effect<Option.Option<WorldGenerationResultType>>
-  readonly getChunkResult: (position: { readonly x: number; readonly z: number }) => Effect.Effect<Option.Option<ChunkGenerationResultType>>
+  readonly getChunkResult: (position: {
+    readonly x: number
+    readonly z: number
+  }) => Effect.Effect<Option.Option<ChunkGenerationResultType>>
   readonly getProgress: (generationId: string) => Effect.Effect<Option.Option<GenerationProgressType>>
   readonly worldResultsStream: Stream.Stream<ReadonlyArray.ReadonlyArray<WorldGenerationResultType>>
   readonly chunkResultsStream: Stream.Stream<ReadonlyArray.ReadonlyArray<ChunkGenerationResultType>>
@@ -78,19 +81,13 @@ export const WorldGenerationReadModelLive = Layer.effect(
       }))
 
     const getWorldResult: WorldGenerationReadModel['getWorldResult'] = (generationId) =>
-      SubscriptionRef.get(subscription).pipe(
-        Effect.map((state) => HashMap.get(state.worlds, generationId))
-      )
+      SubscriptionRef.get(subscription).pipe(Effect.map((state) => HashMap.get(state.worlds, generationId)))
 
     const getChunkResult: WorldGenerationReadModel['getChunkResult'] = (position) =>
-      SubscriptionRef.get(subscription).pipe(
-        Effect.map((state) => HashMap.get(state.chunks, chunkKey(position)))
-      )
+      SubscriptionRef.get(subscription).pipe(Effect.map((state) => HashMap.get(state.chunks, chunkKey(position))))
 
     const getProgress: WorldGenerationReadModel['getProgress'] = (generationId) =>
-      SubscriptionRef.get(subscription).pipe(
-        Effect.map((state) => HashMap.get(state.progress, generationId))
-      )
+      SubscriptionRef.get(subscription).pipe(Effect.map((state) => HashMap.get(state.progress, generationId)))
 
     const worldResultsStream: WorldGenerationReadModel['worldResultsStream'] = pipe(
       SubscriptionRef.changes(subscription),

@@ -127,41 +127,30 @@ export interface CameraSnapshotInput {
   readonly transform?: CameraTransformInput
 }
 
-const decodeSync = <S extends Schema.Schema<any>>(
-  schema: S,
-  value: unknown
-): Schema.Schema.Type<S> => {
-  return Match.value(Schema.decodeUnknownEither(schema)(value))
-    .pipe(
-      Match.tag('Left', (result) => {
-        throw result.left
-      }),
-      Match.tag('Right', (result) => result.right),
-      Match.exhaustive
-    )
+const decodeSync = <S extends Schema.Schema<any>>(schema: S, value: unknown): Schema.Schema.Type<S> => {
+  return Match.value(Schema.decodeUnknownEither(schema)(value)).pipe(
+    Match.tag('Left', (result) => {
+      throw result.left
+    }),
+    Match.tag('Right', (result) => result.right),
+    Match.exhaustive
+  )
 }
 
-const mergeVector = (
-  defaults: typeof defaultTransform.position,
-  overrides?: CameraVector3Input
-) => ({
+const mergeVector = (defaults: typeof defaultTransform.position, overrides?: CameraVector3Input) => ({
   x: overrides?.x ?? defaults.x,
   y: overrides?.y ?? defaults.y,
   z: overrides?.z ?? defaults.z,
 })
 
-const mergeQuaternion = (
-  overrides?: CameraQuaternionInput
-) => ({
+const mergeQuaternion = (overrides?: CameraQuaternionInput) => ({
   x: overrides?.x ?? defaultTransform.orientation.quaternion.x,
   y: overrides?.y ?? defaultTransform.orientation.quaternion.y,
   z: overrides?.z ?? defaultTransform.orientation.quaternion.z,
   w: overrides?.w ?? defaultTransform.orientation.quaternion.w,
 })
 
-const mergeRotation = (
-  overrides?: CameraRotationInput
-) => ({
+const mergeRotation = (overrides?: CameraRotationInput) => ({
   pitch: overrides?.pitch ?? defaultTransform.orientation.rotation.pitch,
   yaw: overrides?.yaw ?? defaultTransform.orientation.rotation.yaw,
   roll: overrides?.roll ?? defaultTransform.orientation.rotation.roll,

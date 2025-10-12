@@ -19,12 +19,12 @@
  * - STM による並行制御対応
  */
 
-import type * as WorldGenerator from '@domain/world_generation/aggregate/world_generator'
+import * as WorldSeed from '@domain/shared/value_object/world_seed/index'
 import * as WorldDomainServices from '@domain/world/domain_service'
 import * as BiomeProperties from '@domain/world/value_object/biome_properties/index'
 import * as GenerationParameters from '@domain/world/value_object/generation_parameters/index'
 import * as NoiseConfiguration from '@domain/world/value_object/noise_configuration/index'
-import * as WorldSeed from '@domain/shared/value_object/world_seed/index'
+import type * as WorldGenerator from '@domain/world_generation/aggregate/world_generator'
 import * as GenerationContext from '@domain/world_generation/aggregate/world_generator/generation_context'
 import { ErrorCauseSchema } from '@shared/schema/error'
 import { JsonValueSchema, type JsonSerializable } from '@shared/schema/json'
@@ -368,11 +368,7 @@ const createWorldGeneratorFactory = (): WorldGeneratorFactory => ({
  */
 const validateCreateParams = (params: CreateWorldGeneratorParams): Effect.Effect<void, FactoryError> =>
   Schema.decode(CreateWorldGeneratorParamsSchema)(params)
-    .pipe(
-      Effect.mapError((error) =>
-        FactoryError.parameterValidation('Invalid create parameters', { cause: error })
-      )
-    )
+    .pipe(Effect.mapError((error) => FactoryError.parameterValidation('Invalid create parameters', { cause: error })))
     .pipe(Effect.asVoid)
 
 /**
@@ -425,9 +421,7 @@ const buildGenerationContext = (
     biomeConfig: params.biomeConfig!,
     noiseConfig: params.noiseConfig!,
   }).pipe(
-    Effect.mapError((error) =>
-      FactoryError.parameterValidation('Failed to build generation context', { cause: error })
-    )
+    Effect.mapError((error) => FactoryError.parameterValidation('Failed to build generation context', { cause: error }))
   )
 
 /**
@@ -579,9 +573,7 @@ const resetGenerationContext = (context: WorldGenerator.GenerationContext) =>
   )
 
 const applyModifications = (context: WorldGenerator.GenerationContext, modifications: CreateWorldGeneratorParams) => {
-  const updates: Partial<
-    Omit<GenerationContext.GenerationContext, 'id' | 'version' | 'createdAt' | 'updatedAt'>
-  > = {
+  const updates: Partial<Omit<GenerationContext.GenerationContext, 'id' | 'version' | 'createdAt' | 'updatedAt'>> = {
     ...(modifications.metadata && { metadata: modifications.metadata }),
     ...(modifications.seed && { seed: modifications.seed }),
     ...(modifications.parameters && { parameters: modifications.parameters }),

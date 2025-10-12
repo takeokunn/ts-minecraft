@@ -8,8 +8,8 @@
 export * from './biome_mapper'
 export * from './climate_calculator'
 export * from './ecosystem_analyzer'
-export * from './layer'
 export * from './errors'
+export * from './layer'
 
 import { Match, Option, ReadonlyArray, pipe } from 'effect'
 import type { BiomeMappingResult, BiomeTransitionAnalysis } from './biome_mapper'
@@ -203,16 +203,12 @@ const calculateAverageSharpness = (transitions: ReadonlyArray<BiomeTransitionAna
   pipe(
     Match.value(transitions.length === 0),
     Match.when(true, () => 0),
-    Match.orElse(() =>
-      transitions.reduce((sum, t) => sum + (t.transitionSharpness || 0), 0) / transitions.length
-    )
+    Match.orElse(() => transitions.reduce((sum, t) => sum + (t.transitionSharpness || 0), 0) / transitions.length)
   )
 
 const assessEcotoneQuality = (transitions: ReadonlyArray<BiomeTransitionAnalysis>): number =>
   pipe(
     Match.value(transitions.length === 0),
     Match.when(true, () => 0),
-    Match.orElse(() =>
-      transitions.filter((t) => t.transitionType === 'ecotone').length / transitions.length
-    )
+    Match.orElse(() => transitions.filter((t) => t.transitionType === 'ecotone').length / transitions.length)
   )

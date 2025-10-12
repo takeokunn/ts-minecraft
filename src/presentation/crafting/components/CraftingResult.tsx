@@ -1,6 +1,6 @@
-import type { JSX } from 'react'
 import { pipe } from 'effect/Function'
 import * as Option from 'effect/Option'
+import type { JSX } from 'react'
 
 import type { CraftingResultView } from '../types'
 
@@ -44,9 +44,7 @@ export const CraftingResult = ({ result, disabled = false, onCraft }: CraftingRe
       <>
         <span style={{ fontSize: '1rem', fontWeight: 700 }}>{result.itemName ?? result.itemId}</span>
         <span style={{ fontSize: '0.85rem' }}>x{result.quantity}</span>
-        {result.description ? (
-          <span style={{ fontSize: '0.7rem', opacity: 0.75 }}>{result.description}</span>
-        ) : null}
+        {result.description ? <span style={{ fontSize: '0.7rem', opacity: 0.75 }}>{result.description}</span> : null}
       </>
     ) : (
       <span style={{ fontSize: '0.85rem', opacity: 0.5 }}>No recipe</span>

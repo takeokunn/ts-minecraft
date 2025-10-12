@@ -1,16 +1,16 @@
 import { describe, expect, it } from '@effect/vitest'
 import { Effect, Layer, Option, Ref } from 'effect'
 
-import { GameApplication } from '@application/game-application'
 import { mergeConfig } from '@application/config'
+import { GameApplication } from '@application/game-application'
 import { SettingsApplicationServiceLive } from '@application/settings'
 import {
   createInitialState,
   DEFAULT_GAME_APPLICATION_CONFIG,
-  type GameApplicationState,
   type ApplicationLifecycleState,
+  type GameApplicationState,
 } from '@application/types'
-import { MenuControllerService, MenuControllerLive, MenuStateStoreLive } from '@presentation/menu'
+import { MenuControllerLive, MenuControllerService, MenuStateStoreLive } from '@presentation/menu'
 
 type TestGameApplicationState = GameApplicationState
 
@@ -52,15 +52,16 @@ const TestGameApplicationLayer = Layer.scoped(
       getLifecycleState: () => getState().pipe(Effect.map((state) => state.lifecycle)),
       tick: () => Effect.void,
       updateConfig,
-      healthCheck: () => getState().pipe(
-        Effect.map(() => ({
-          gameLoop: { status: 'healthy' as const },
-          renderer: { status: 'healthy' as const },
-          scene: { status: 'healthy' as const },
-          input: { status: 'healthy' as const },
-          ecs: { status: 'healthy' as const },
-        }))
-      ),
+      healthCheck: () =>
+        getState().pipe(
+          Effect.map(() => ({
+            gameLoop: { status: 'healthy' as const },
+            renderer: { status: 'healthy' as const },
+            scene: { status: 'healthy' as const },
+            input: { status: 'healthy' as const },
+            ecs: { status: 'healthy' as const },
+          }))
+        ),
       reset: () => replaceState({ ...runningState }),
     })
   })
