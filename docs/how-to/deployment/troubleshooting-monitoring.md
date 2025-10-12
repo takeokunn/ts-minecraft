@@ -576,22 +576,18 @@ export const DiagnosticRunnerLive = Layer.succeed(DiagnosticRunner, makeDiagnost
     const results: DiagnosticResult[] = [];
 
     // 環境変数チェック
-    const requiredEnvVars = [
-      'NODE_ENV',
-      'DATABASE_URL',
-      'JWT_SECRET'
-    ];
+    const requiredEnvVars = ['NODE_ENV', 'DATABASE_URL', 'JWT_SECRET']
 
-    for (const envVar of requiredEnvVars) {
-      if (!process.env[envVar]) {
-        results.push({
-          category: "security",
-          severity: "critical",
-          message: `Missing required environment variable: ${envVar}`,
-          recommendation: "Set all required environment variables before deployment"
-        });
-      }
-    }
+    const missingEnvResults = requiredEnvVars
+      .filter((envVar) => !process.env[envVar])
+      .map((envVar): DiagnosticResult => ({
+        category: 'security',
+        severity: 'critical',
+        message: `Missing required environment variable: ${envVar}`,
+        recommendation: 'Set all required environment variables before deployment',
+      }))
+
+    results.push(...missingEnvResults)
 
     // 本番環境設定チェック
     if (process.env.NODE_ENV === 'production') {

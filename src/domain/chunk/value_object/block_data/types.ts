@@ -1,3 +1,5 @@
+import type { JsonSerializable, JsonValue } from '@shared/schema/json'
+import { toJsonValue } from '@shared/schema/json'
 import { Brand, Data, Schema } from 'effect'
 
 /**
@@ -69,10 +71,32 @@ export interface BlockDataError {
   readonly _tag: 'BlockDataError'
   readonly message: string
   readonly blockId?: BlockId
-  readonly value?: unknown
+  readonly value?: JsonValue
 }
 
-export const BlockDataError = Data.tagged<BlockDataError>('BlockDataError')
+type BlockDataErrorInput = {
+  readonly message: string
+  readonly blockId?: BlockId
+  readonly value?: JsonSerializable
+}
+
+const BlockDataErrorBase = Data.tagged<BlockDataError>('BlockDataError')
+
+const createBlockDataError = ({ message, blockId, value }: BlockDataErrorInput): BlockDataError =>
+  BlockDataErrorBase({
+    message,
+    blockId,
+    value: value === undefined ? undefined : toJsonValue(value),
+  })
+
+export const BlockDataError = Object.assign(createBlockDataError, {
+  is: BlockDataErrorBase.is,
+  tag: BlockDataErrorBase.tag,
+}) as {
+  (input: BlockDataErrorInput): BlockDataError
+  readonly is: typeof BlockDataErrorBase.is
+  readonly tag: typeof BlockDataErrorBase.tag
+}
 
 export interface BlockDataCorruptionError {
   readonly _tag: 'BlockDataCorruptionError'

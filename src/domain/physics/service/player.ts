@@ -1,12 +1,13 @@
 import type { PlayerId, Vector3D } from '@domain/entities'
+import { toErrorCause, type ErrorCause } from '@shared/schema/error'
 import { Clock, Context, Effect, Layer, Match, pipe } from 'effect'
 import { Player } from '../../entities/Player'
 import { Direction, JUMP_VELOCITY, MOVEMENT_SPEEDS } from '../../player/PlayerState'
-import { CannonPhysicsService, type PhysicsBodyState } from './cannon'
+import { PhysicsEngine, type PhysicsBodyState, type PhysicsEnginePort } from './engine'
 
 /**
  * Player Physics Service
- * プレイヤー専用の物理演算サービス - Cannon-esとの統合層
+ * プレイヤー専用の物理演算サービス - 具体エンジンはポート経由で注入される
  */
 
 // Player物理状態エラー
@@ -14,7 +15,7 @@ export interface PlayerPhysicsError {
   readonly _tag: 'PlayerPhysicsError'
   readonly message: string
   readonly playerId?: PlayerId
-  readonly cause?: unknown
+  readonly cause?: ErrorCause
 }
 
 // Player物理設定
@@ -103,9 +104,9 @@ export interface PlayerPhysicsService {
 export const PlayerPhysicsService = Context.GenericTag<PlayerPhysicsService>('@minecraft/domain/PlayerPhysicsService')
 
 // Player Physics Service実装
-const makePlayerPhysicsService: Effect.Effect<PlayerPhysicsService, never, CannonPhysicsService> = Effect.gen(
+const makePlayerPhysicsService: Effect.Effect<PlayerPhysicsService, never, PhysicsEnginePort> = Effect.gen(
   function* () {
-    const cannonPhysics = yield* CannonPhysicsService
+    const physicsEngine = yield* PhysicsEngine
 
     // プレイヤー物理の初期化
     const initializePlayerPhysics = (player: Player, config: Partial<PlayerPhysicsConfig> = {}) =>
@@ -117,26 +118,26 @@ const makePlayerPhysicsService: Effect.Effect<PlayerPhysicsService, never, Canno
 
         // Cannon-es Character Controllerを作成
         const bodyId = yield* pipe(
-          cannonPhysics.createPlayerController(player.id, player.position),
+          physicsEngine.createPlayerController(player.id, player.position),
           Effect.mapError(
             (error): PlayerPhysicsError => ({
               _tag: 'PlayerPhysicsError',
               message: `Failed to create physics controller for player ${player.id}`,
               playerId: player.id,
-              cause: error,
+              cause: toErrorCause(error),
             })
           )
         )
 
         // 初期物理状態を取得
         const physicsState = yield* pipe(
-          cannonPhysics.getPlayerState(bodyId),
+          physicsEngine.getPlayerState(bodyId),
           Effect.mapError(
             (error): PlayerPhysicsError => ({
               _tag: 'PlayerPhysicsError',
               message: `Failed to get initial physics state for player ${player.id}`,
               playerId: player.id,
-              cause: error,
+              cause: toErrorCause(error),
             })
           )
         )
@@ -150,7 +151,9 @@ const makePlayerPhysicsService: Effect.Effect<PlayerPhysicsService, never, Canno
           fallStartY: player.position.y,
         }
 
-        console.log(`Player physics initialized for ${player.id} with bodyId: ${bodyId}`)
+        yield* Effect.logInfo('Player physics initialized').pipe(
+          Effect.annotateLogs({ playerId: String(player.id), bodyId })
+        )
         return playerPhysicsState
       })
 
@@ -176,33 +179,50 @@ const makePlayerPhysicsService: Effect.Effect<PlayerPhysicsService, never, Canno
         )
 
         // 移動方向ベクトルの計算（水平面のみ）
-        const moveVector = yield* Effect.sync(() => {
-          const baseVector = { x: 0, y: 0, z: 0 }
+        const baseVector = { x: 0, y: 0, z: 0 }
 
-          // Forward/Backward
-          if (direction.forward) {
+        // Forward/Backward
+        yield* Effect.when(direction.forward, () =>
+          Effect.sync(() => {
             baseVector.z -= 1
-          }
-          if (direction.backward) {
+          })
+        )
+
+        yield* Effect.when(direction.backward, () =>
+          Effect.sync(() => {
             baseVector.z += 1
-          }
+          })
+        )
 
-          // Left/Right
-          if (direction.left) {
+        // Left/Right
+        yield* Effect.when(direction.left, () =>
+          Effect.sync(() => {
             baseVector.x -= 1
-          }
-          if (direction.right) {
+          })
+        )
+
+        yield* Effect.when(direction.right, () =>
+          Effect.sync(() => {
             baseVector.x += 1
-          }
+          })
+        )
 
-          // ベクトルを正規化
+        // ベクトルを正規化
+        const moveVector = yield* Effect.sync(() => {
           const length = Math.sqrt(baseVector.x * baseVector.x + baseVector.z * baseVector.z)
-          if (length > 0) {
-            baseVector.x /= length
-            baseVector.z /= length
-          }
 
-          return baseVector
+          return Match.value(length)
+            .pipe(
+              Match.when(
+                (value) => value > 0,
+                (value) => {
+                  baseVector.x /= value
+                  baseVector.z /= value
+                  return baseVector
+                }
+              ),
+              Match.orElse(() => baseVector)
+            )
         })
 
         // 移動力の適用 - 地上と空中で制御力を変える
@@ -218,26 +238,26 @@ const makePlayerPhysicsService: Effect.Effect<PlayerPhysicsService, never, Canno
 
         // Cannon-esに移動力を適用
         yield* pipe(
-          cannonPhysics.applyMovementForce(physicsState.bodyId, force),
+          physicsEngine.applyMovementForce(physicsState.bodyId, force),
           Effect.mapError(
             (error): PlayerPhysicsError => ({
               _tag: 'PlayerPhysicsError',
               message: `Failed to apply movement force to player ${physicsState.playerId}`,
               playerId: physicsState.playerId,
-              cause: error,
+              cause: toErrorCause(error),
             })
           )
         )
 
         // 更新された物理状態を取得
         const newPhysicsState = yield* pipe(
-          cannonPhysics.getPlayerState(physicsState.bodyId),
+          physicsEngine.getPlayerState(physicsState.bodyId),
           Effect.mapError(
             (error): PlayerPhysicsError => ({
               _tag: 'PlayerPhysicsError',
               message: `Failed to get updated physics state for player ${physicsState.playerId}`,
               playerId: physicsState.playerId,
-              cause: error,
+              cause: toErrorCause(error),
             })
           )
         )
@@ -280,26 +300,26 @@ const makePlayerPhysicsService: Effect.Effect<PlayerPhysicsService, never, Canno
             Effect.gen(function* () {
               // Cannon-esでジャンプ速度を適用
               yield* pipe(
-                cannonPhysics.jumpPlayer(physicsState.bodyId, physicsState.movementConfig.jumpVelocity),
+                physicsEngine.jumpPlayer(physicsState.bodyId, physicsState.movementConfig.jumpVelocity),
                 Effect.mapError(
                   (error): PlayerPhysicsError => ({
                     _tag: 'PlayerPhysicsError',
                     message: `Failed to jump player ${physicsState.playerId}`,
                     playerId: physicsState.playerId,
-                    cause: error,
+                    cause: toErrorCause(error),
                   })
                 )
               )
 
               // 更新された物理状態を取得
               const newPhysicsState = yield* pipe(
-                cannonPhysics.getPlayerState(physicsState.bodyId),
+                physicsEngine.getPlayerState(physicsState.bodyId),
                 Effect.mapError(
                   (error): PlayerPhysicsError => ({
                     _tag: 'PlayerPhysicsError',
                     message: `Failed to get physics state after jump for player ${physicsState.playerId}`,
                     playerId: physicsState.playerId,
-                    cause: error,
+                    cause: toErrorCause(error),
                   })
                 )
               )
@@ -367,13 +387,13 @@ const makePlayerPhysicsService: Effect.Effect<PlayerPhysicsService, never, Canno
       Effect.gen(function* () {
         // 最新の物理状態を取得
         const newPhysicsState = yield* pipe(
-          cannonPhysics.getPlayerState(physicsState.bodyId),
+          physicsEngine.getPlayerState(physicsState.bodyId),
           Effect.mapError(
             (error): PlayerPhysicsError => ({
               _tag: 'PlayerPhysicsError',
               message: `Failed to update physics state for player ${physicsState.playerId}`,
               playerId: physicsState.playerId,
-              cause: error,
+              cause: toErrorCause(error),
             })
           )
         )
@@ -401,18 +421,20 @@ const makePlayerPhysicsService: Effect.Effect<PlayerPhysicsService, never, Canno
     const destroyPlayerPhysics = (physicsState: PlayerPhysicsState) =>
       Effect.gen(function* () {
         yield* pipe(
-          cannonPhysics.removeBody(physicsState.bodyId),
+          physicsEngine.removeBody(physicsState.bodyId),
           Effect.mapError(
             (error): PlayerPhysicsError => ({
               _tag: 'PlayerPhysicsError',
               message: `Failed to destroy physics for player ${physicsState.playerId}`,
               playerId: physicsState.playerId,
-              cause: error,
+              cause: toErrorCause(error),
             })
           )
         )
 
-        console.log(`Player physics destroyed for ${physicsState.playerId}`)
+        yield* Effect.logInfo('Player physics destroyed').pipe(
+          Effect.annotateLogs({ playerId: String(physicsState.playerId) })
+        )
       })
 
     const service: PlayerPhysicsService = {

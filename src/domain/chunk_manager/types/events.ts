@@ -5,8 +5,10 @@
  * Event Sourcingパターンに基づき、ドメイン内で発生する全てのイベントを型安全に定義します。
  */
 
-import { Brand, Clock, Data, Effect, Schema } from 'effect'
+import { type JsonValue } from '@shared/schema/json'
+import { Brand, Clock, Data, DateTime, Effect, Random, Schema } from 'effect'
 import { ChunkId } from '../../chunk/value_object/chunk_id/index'
+import { DestructionReasonSchema, LifecycleStageSchema, PoolStrategySchema } from './core'
 import {
   ChunkLifetime,
   ChunkPoolId,
@@ -294,8 +296,8 @@ export type ConfigurationEvent = Data.TaggedEnum<{
   /** 設定変更イベント */
   ConfigurationChanged: {
     configKey: string
-    oldValue: unknown
-    newValue: unknown
+    oldValue: JsonValue
+    newValue: JsonValue
     changedBy: string
     reason: string
     metadata: EventMetadata
@@ -377,42 +379,42 @@ export const EventMetadataSchema = Schema.Struct({
   userId: Schema.optional(Schema.String),
 })
 
-export const PoolManagementEventSchema = Schema.TaggedEnum<PoolManagementEvent>()({
-  PoolCreated: Schema.Struct({
+export const PoolManagementEventSchema = Schema.Union(
+  Schema.TaggedStruct('PoolCreated', {
     poolId: Schema.String,
-    strategy: Schema.Unknown, // PoolStrategySchemaを参照
+    strategy: PoolStrategySchema,
     maxCapacity: Schema.Number.pipe(Schema.int(), Schema.positive()),
     metadata: EventMetadataSchema,
   }),
-  PoolDestroyed: Schema.Struct({
+  Schema.TaggedStruct('PoolDestroyed', {
     poolId: Schema.String,
     reason: Schema.String,
     chunksEvicted: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
     metadata: EventMetadataSchema,
   }),
-  PoolConfigurationChanged: Schema.Struct({
+  Schema.TaggedStruct('PoolConfigurationChanged', {
     poolId: Schema.String,
-    oldStrategy: Schema.Unknown,
-    newStrategy: Schema.Unknown,
+    oldStrategy: PoolStrategySchema,
+    newStrategy: PoolStrategySchema,
     metadata: EventMetadataSchema,
   }),
-  PoolCapacityChanged: Schema.Struct({
+  Schema.TaggedStruct('PoolCapacityChanged', {
     poolId: Schema.String,
     oldCapacity: Schema.Number.pipe(Schema.int(), Schema.positive()),
     newCapacity: Schema.Number.pipe(Schema.int(), Schema.positive()),
     metadata: EventMetadataSchema,
-  }),
-})
+  })
+)
 
-export const ChunkLifecycleEventSchema = Schema.TaggedEnum<ChunkLifecycleEvent>()({
-  ChunkActivated: Schema.Struct({
+export const ChunkLifecycleEventSchema = Schema.Union(
+  Schema.TaggedStruct('ChunkActivated', {
     chunkId: Schema.String,
     poolId: Schema.String,
     priority: Schema.Number.pipe(Schema.int(), Schema.between(0, 100)),
     activatedAt: Schema.Date,
     metadata: EventMetadataSchema,
   }),
-  ChunkDeactivated: Schema.Struct({
+  Schema.TaggedStruct('ChunkDeactivated', {
     chunkId: Schema.String,
     poolId: Schema.String,
     deactivatedAt: Schema.Date,
@@ -420,29 +422,29 @@ export const ChunkLifecycleEventSchema = Schema.TaggedEnum<ChunkLifecycleEvent>(
     reason: Schema.String,
     metadata: EventMetadataSchema,
   }),
-  ChunkMarkedForDestruction: Schema.Struct({
+  Schema.TaggedStruct('ChunkMarkedForDestruction', {
     chunkId: Schema.String,
     poolId: Schema.String,
     markedAt: Schema.Date,
-    reason: Schema.Unknown, // DestructionReasonSchemaを参照
+    reason: DestructionReasonSchema,
     metadata: EventMetadataSchema,
   }),
-  ChunkDestroyed: Schema.Struct({
+  Schema.TaggedStruct('ChunkDestroyed', {
     chunkId: Schema.String,
     poolId: Schema.String,
     destroyedAt: Schema.Date,
     memoryFreed: Schema.Number.pipe(Schema.int(), Schema.positive()),
     metadata: EventMetadataSchema,
   }),
-  LifecycleStageChanged: Schema.Struct({
+  Schema.TaggedStruct('LifecycleStageChanged', {
     chunkId: Schema.String,
     poolId: Schema.String,
-    fromStage: Schema.Unknown, // LifecycleStageSchemaを参照
-    toStage: Schema.Unknown, // LifecycleStageSchemaを参照
+    fromStage: LifecycleStageSchema,
+    toStage: LifecycleStageSchema,
     changedAt: Schema.Date,
     metadata: EventMetadataSchema,
-  }),
-})
+  })
+)
 
 // ========================================
 // Event Factory Functions
@@ -451,7 +453,8 @@ export const ChunkLifecycleEventSchema = Schema.TaggedEnum<ChunkLifecycleEvent>(
 export const createEventId = (): Effect.Effect<EventId> =>
   Effect.gen(function* () {
     const timestamp = yield* Clock.currentTimeMillis
-    const random = yield* Effect.sync(() => Math.random().toString(36).substring(2, 11))
+    const randomValue = yield* Random.nextIntBetween(0, 36 ** 9 - 1)
+    const random = randomValue.toString(36).padStart(9, '0')
     return `event-${timestamp}-${random}` as EventId
   })
 
@@ -466,7 +469,7 @@ export const createEventMetadata = (
 ): Effect.Effect<EventMetadata> =>
   Effect.gen(function* () {
     const eventId = yield* createEventId()
-    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const now = yield* DateTime.nowAsDate
 
     return EventMetadata({
       eventId,
@@ -525,7 +528,7 @@ export const createChunkActivatedEvent = (
 ): Effect.Effect<ChunkLifecycleEvent> =>
   Effect.gen(function* () {
     const metadata = yield* createEventMetadata(chunkId, aggregateVersion)
-    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const now = yield* DateTime.nowAsDate
     return ChunkLifecycleEvent.ChunkActivated({
       chunkId,
       poolId,
@@ -544,7 +547,7 @@ export const createChunkDeactivatedEvent = (
 ): Effect.Effect<ChunkLifecycleEvent> =>
   Effect.gen(function* () {
     const metadata = yield* createEventMetadata(chunkId, aggregateVersion)
-    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const now = yield* DateTime.nowAsDate
     return ChunkLifecycleEvent.ChunkDeactivated({
       chunkId,
       poolId,
@@ -563,7 +566,7 @@ export const createChunkMarkedForDestructionEvent = (
 ): Effect.Effect<ChunkLifecycleEvent> =>
   Effect.gen(function* () {
     const metadata = yield* createEventMetadata(chunkId, aggregateVersion)
-    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const now = yield* DateTime.nowAsDate
     return ChunkLifecycleEvent.ChunkMarkedForDestruction({
       chunkId,
       poolId,
@@ -581,7 +584,7 @@ export const createChunkDestroyedEvent = (
 ): Effect.Effect<ChunkLifecycleEvent> =>
   Effect.gen(function* () {
     const metadata = yield* createEventMetadata(chunkId, aggregateVersion)
-    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const now = yield* DateTime.nowAsDate
     return ChunkLifecycleEvent.ChunkDestroyed({
       chunkId,
       poolId,
@@ -602,7 +605,7 @@ export const createMemoryUsageUpdatedEvent = (
 ): Effect.Effect<MemoryManagementEvent> =>
   Effect.gen(function* () {
     const metadata = yield* createEventMetadata('memory-manager', aggregateVersion)
-    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const now = yield* DateTime.nowAsDate
     return MemoryManagementEvent.MemoryUsageUpdated({
       totalUsage,
       poolUsages,
@@ -624,7 +627,7 @@ export const createGCStartedEvent = (
 ): Effect.Effect<GarbageCollectionEvent> =>
   Effect.gen(function* () {
     const metadata = yield* createEventMetadata(gcId, aggregateVersion)
-    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const now = yield* DateTime.nowAsDate
     return GarbageCollectionEvent.GCStarted({
       gcId,
       strategy,
@@ -644,7 +647,7 @@ export const createGCCompletedEvent = (
 ): Effect.Effect<GarbageCollectionEvent> =>
   Effect.gen(function* () {
     const metadata = yield* createEventMetadata(gcId, aggregateVersion)
-    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const now = yield* DateTime.nowAsDate
     return GarbageCollectionEvent.GCCompleted({
       gcId,
       chunksCollected,
@@ -670,7 +673,7 @@ export const createPerformanceMetricRecordedEvent = (
 ): Effect.Effect<PerformanceEvent> =>
   Effect.gen(function* () {
     const metadata = yield* createEventMetadata('performance-monitor', aggregateVersion)
-    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+    const now = yield* DateTime.nowAsDate
     return PerformanceEvent.PerformanceMetricRecorded({
       metricName,
       value,
@@ -687,8 +690,8 @@ export const ConfigurationEvent = Data.taggedEnum<ConfigurationEvent>()
 
 export const createConfigurationChangedEvent = (
   configKey: string,
-  oldValue: unknown,
-  newValue: unknown,
+  oldValue: JsonValue,
+  newValue: JsonValue,
   changedBy: string,
   reason: string,
   aggregateVersion: number

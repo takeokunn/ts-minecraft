@@ -197,13 +197,17 @@ const formatIssues = (error: ParseErrorInput): readonly string[] =>
     .map((line) => line.trim())
     .filter((line) => line.length > 0)
 
-export const decodeCameraState = (input: unknown): Effect.Effect<CameraState, ViewDistanceError> =>
+export const decodeCameraState = (
+  input: Schema.Schema.Input<typeof CameraStateSchema>
+): Effect.Effect<CameraState, ViewDistanceError> =>
   pipe(
     Schema.decodeUnknown(CameraStateSchema)(input),
     Effect.mapError((error) => InvalidConfigurationError({ issues: formatIssues(error) }))
   )
 
-export const decodeViewControlConfig = (input: unknown): Effect.Effect<ViewControlConfig, ViewDistanceError> =>
+export const decodeViewControlConfig = (
+  input: Schema.Schema.Input<typeof ViewControlConfigSchema>
+): Effect.Effect<ViewControlConfig, ViewDistanceError> =>
   pipe(
     Schema.decodeUnknown(ViewControlConfigSchema)(input),
     Effect.flatMap((config) =>
@@ -222,19 +226,25 @@ export const decodeViewControlConfig = (input: unknown): Effect.Effect<ViewContr
     )
   )
 
-export const decodeManagedObject = (input: unknown): Effect.Effect<ManagedObject, ViewDistanceError> =>
+export const decodeManagedObject = (
+  input: Schema.Schema.Input<typeof ManagedObjectSchema>
+): Effect.Effect<ManagedObject, ViewDistanceError> =>
   pipe(
     Schema.decodeUnknown(ManagedObjectSchema)(input),
     Effect.mapError((error) => InvalidConfigurationError({ issues: formatIssues(error) }))
   )
 
-export const decodeCullableObject = (input: unknown): Effect.Effect<CullableObject, ViewDistanceError> =>
+export const decodeCullableObject = (
+  input: Schema.Schema.Input<typeof CullableObjectSchema>
+): Effect.Effect<CullableObject, ViewDistanceError> =>
   pipe(
     Schema.decodeUnknown(CullableObjectSchema)(input),
     Effect.mapError((error) => InvalidConfigurationError({ issues: formatIssues(error) }))
   )
 
-export const decodePerformanceMetrics = (input: unknown): Effect.Effect<PerformanceMetrics, ViewDistanceError> =>
+export const decodePerformanceMetrics = (
+  input: Schema.Schema.Input<typeof PerformanceMetricsSchema>
+): Effect.Effect<PerformanceMetrics, ViewDistanceError> =>
   pipe(
     Schema.decodeUnknown(PerformanceMetricsSchema)(input),
     Effect.mapError((error) => InvalidConfigurationError({ issues: formatIssues(error) }))
@@ -286,17 +296,48 @@ export const deriveCullableFromManaged = (
 export const emptyViewControlResult: ViewControlResult = {
   frustum: {
     id: 'frustum:empty',
-    farDistance: Schema.decodeUnknownSync(CameraDistanceSchema)(0),
-    nearDistance: Schema.decodeUnknownSync(CameraDistanceSchema)(0),
-    timestamp: Schema.decodeUnknownSync(EpochMillisSchema)(0),
+    farDistance: 0 satisfies CameraDistance,
+    nearDistance: 0 satisfies CameraDistance,
+    timestamp: 0 satisfies EpochMillis,
   },
   lodDecisions: [],
   cullingDecisions: [],
   appliedOptimizations: [],
 }
 
-export const createManagedObject = Schema.decodeUnknownSync(ManagedObjectSchema)
-export const createCullableObject = Schema.decodeUnknownSync(CullableObjectSchema)
-export const createCameraState = Schema.decodeUnknownSync(CameraStateSchema)
-export const createViewControlConfig = Schema.decodeUnknownSync(ViewControlConfigSchema)
-export const createPerformanceMetrics = Schema.decodeUnknownSync(PerformanceMetricsSchema)
+/**
+ * @internal
+ * ドメイン層内部専用。値の検証を行わないため、信頼できる値のみに使用すること。
+ */
+export const createManagedObject = (value: Schema.Schema.Encoded<typeof ManagedObjectSchema>): ManagedObject =>
+  value as ManagedObject
+
+/**
+ * @internal
+ * ドメイン層内部専用。値の検証を行わないため、信頼できる値のみに使用すること。
+ */
+export const createCullableObject = (value: Schema.Schema.Encoded<typeof CullableObjectSchema>): CullableObject =>
+  value as CullableObject
+
+/**
+ * @internal
+ * ドメイン層内部専用。値の検証を行わないため、信頼できる値のみに使用すること。
+ */
+export const createCameraState = (value: Schema.Schema.Encoded<typeof CameraStateSchema>): CameraState =>
+  value as CameraState
+
+/**
+ * @internal
+ * ドメイン層内部専用。値の検証を行わないため、信頼できる値のみに使用すること。
+ */
+export const createViewControlConfig = (
+  value: Schema.Schema.Encoded<typeof ViewControlConfigSchema>
+): ViewControlConfig => value as ViewControlConfig
+
+/**
+ * @internal
+ * ドメイン層内部専用。値の検証を行わないため、信頼できる値のみに使用すること。
+ */
+export const createPerformanceMetrics = (
+  value: Schema.Schema.Encoded<typeof PerformanceMetricsSchema>
+): PerformanceMetrics => value as PerformanceMetrics

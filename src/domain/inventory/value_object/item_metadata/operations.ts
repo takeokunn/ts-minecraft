@@ -1,4 +1,4 @@
-import { Effect, Array as EffectArray, Match, pipe, Schema } from 'effect'
+import { Effect, Array as EffectArray, Match, Option, pipe, ReadonlyArray, Schema } from 'effect'
 import {
   CustomModelDataSchema,
   DisplayNameSchema,
@@ -147,24 +147,28 @@ export const addEnchantment = (
   Effect.gen(function* () {
     const currentEnchantments = metadata.enchantments ?? []
 
-    // 既存のエンチャントと競合をチェック
-    const conflictingEnchantment = currentEnchantments.find((existing) =>
+    // 競合エンチャント検出
+    const conflictingEnchantment = ReadonlyArray.findFirst(currentEnchantments, (existing) =>
       isEnchantmentConflicting(existing.id, enchantment.id)
     )
 
-    if (conflictingEnchantment) {
-      return yield* Effect.fail(
-        ItemMetadataError.ConflictingEnchantments({
-          enchantment1: conflictingEnchantment.id,
+    // バリデーション: 競合エンチャントが存在しないこと
+    yield* Effect.succeed(conflictingEnchantment).pipe(
+      Effect.filterOrFail(Option.isNone, () => {
+        const conflict = Option.getOrThrow(conflictingEnchantment)
+        return ItemMetadataError.ConflictingEnchantments({
+          enchantment1: conflict.id,
           enchantment2: enchantment.id,
         })
-      )
-    }
+      })
+    )
 
-    // 同じエンチャントが既に存在する場合は置き換え
-    const updatedEnchantments = currentEnchantments
-      .filter((existing) => existing.id !== enchantment.id)
-      .concat([enchantment])
+    // 同じエンチャントを置き換え
+    const updatedEnchantments = pipe(
+      currentEnchantments,
+      ReadonlyArray.filter((existing) => existing.id !== enchantment.id),
+      ReadonlyArray.append(enchantment)
+    )
 
     return yield* createItemMetadata({
       ...metadata,
@@ -235,16 +239,19 @@ export const damageDurability = (
   metadata: ItemMetadata,
   damage: number
 ): Effect.Effect<ItemMetadata, ItemMetadataError> =>
-  Effect.gen(function* () {
-    if (!metadata.durability) {
-      return metadata
-    }
-
-    const newCurrent = Math.max(0, metadata.durability.current - damage)
-    const newDurability = yield* createDurability(newCurrent, metadata.durability.max)
-
-    return yield* updateDurability(metadata, newDurability)
-  })
+  pipe(
+    metadata.durability,
+    Option.fromNullable,
+    Match.value,
+    Match.tag('None', () => Effect.succeed(metadata)),
+    Match.tag('Some', ({ value }) =>
+      pipe(
+        createDurability(Math.max(0, value.current - damage), value.max),
+        Effect.flatMap((newDurability) => updateDurability(metadata, newDurability))
+      )
+    ),
+    Match.exhaustive
+  )
 
 /**
  * 耐久値を修復
@@ -253,16 +260,19 @@ export const repairDurability = (
   metadata: ItemMetadata,
   repairAmount: number
 ): Effect.Effect<ItemMetadata, ItemMetadataError> =>
-  Effect.gen(function* () {
-    if (!metadata.durability) {
-      return metadata
-    }
-
-    const newCurrent = Math.min(metadata.durability.max, metadata.durability.current + repairAmount)
-    const newDurability = yield* createDurability(newCurrent, metadata.durability.max)
-
-    return yield* updateDurability(metadata, newDurability)
-  })
+  pipe(
+    metadata.durability,
+    Option.fromNullable,
+    Match.value,
+    Match.tag('None', () => Effect.succeed(metadata)),
+    Match.tag('Some', ({ value }) =>
+      pipe(
+        createDurability(Math.min(value.max, value.current + repairAmount), value.max),
+        Effect.flatMap((newDurability) => updateDurability(metadata, newDurability))
+      )
+    ),
+    Match.exhaustive
+  )
 
 /**
  * カスタムタグを設定
@@ -284,18 +294,37 @@ export const setCustomTag = (
  * カスタムタグを削除
  */
 export const removeCustomTag = (metadata: ItemMetadata, key: string): Effect.Effect<ItemMetadata, ItemMetadataError> =>
-  Effect.gen(function* () {
-    if (!metadata.customTags || !(key in metadata.customTags)) {
-      return metadata
-    }
+  pipe(
+    metadata.customTags,
+    Option.fromNullable,
+    Match.value,
+    Match.tag('None', () => Effect.succeed(metadata)),
+    Match.tag('Some', ({ value: tags }) =>
+      pipe(
+        Match.value(tags),
+        Match.when((current) => !(key in current), () => Effect.succeed(metadata)),
+        Match.when(
+          () => true,
+          (current) => {
+            const { [key]: _, ...remainingTags } = current
 
-    const { [key]: _, ...remainingTags } = metadata.customTags
-
-    return yield* createItemMetadata({
-      ...metadata,
-      customTags: Object.keys(remainingTags).length > 0 ? remainingTags : undefined,
-    })
-  })
+            return createItemMetadata({
+              ...metadata,
+              customTags: pipe(
+                Object.keys(remainingTags).length,
+                Match.value,
+                Match.when(0, () => undefined),
+                Match.when(() => true, () => remainingTags),
+                Match.exhaustive
+              ),
+            })
+          }
+        ),
+        Match.exhaustive
+      )
+    ),
+    Match.exhaustive
+  )
 
 /**
  * 非破壊フラグを設定
@@ -312,27 +341,41 @@ export const setUnbreakable = (
 /**
  * アイテムの状態を判定
  */
-export const getItemCondition = (metadata: ItemMetadata): ItemCondition => {
-  if (!metadata.durability) {
-    return ItemCondition.Perfect({ description: 'Brand new condition' })
-  }
-
-  const percentage = (metadata.durability.current / metadata.durability.max) * 100
-
-  if (percentage === 100) {
-    return ItemCondition.Perfect({ description: 'Brand new condition' })
-  } else if (percentage >= 80) {
-    return ItemCondition.Excellent({ durabilityPercentage: percentage })
-  } else if (percentage >= 60) {
-    return ItemCondition.Good({ durabilityPercentage: percentage })
-  } else if (percentage >= 40) {
-    return ItemCondition.Fair({ durabilityPercentage: percentage })
-  } else if (percentage >= 20) {
-    return ItemCondition.Poor({ durabilityPercentage: percentage })
-  } else {
-    return ItemCondition.Broken({ canRepair: true })
-  }
-}
+export const getItemCondition = (metadata: ItemMetadata): ItemCondition =>
+  pipe(
+    metadata.durability,
+    Option.fromNullable,
+    Match.value,
+    Match.tag('None', () => ItemCondition.Perfect({ description: 'Brand new condition' })),
+    Match.tag('Some', ({ value }) =>
+      pipe(
+        Match.value((value.current / value.max) * 100),
+        Match.when(
+          (percentage) => percentage === 100,
+          () => ItemCondition.Perfect({ description: 'Brand new condition' })
+        ),
+        Match.when(
+          (percentage) => percentage >= 80,
+          (percentage) => ItemCondition.Excellent({ durabilityPercentage: percentage })
+        ),
+        Match.when(
+          (percentage) => percentage >= 60,
+          (percentage) => ItemCondition.Good({ durabilityPercentage: percentage })
+        ),
+        Match.when(
+          (percentage) => percentage >= 40,
+          (percentage) => ItemCondition.Fair({ durabilityPercentage: percentage })
+        ),
+        Match.when(
+          (percentage) => percentage >= 20,
+          (percentage) => ItemCondition.Poor({ durabilityPercentage: percentage })
+        ),
+        Match.when(() => true, () => ItemCondition.Broken({ canRepair: true })),
+        Match.exhaustive
+      )
+    ),
+    Match.exhaustive
+  )
 
 /**
  * エンチャントの競合をチェック
@@ -384,61 +427,90 @@ export const getMaxEnchantmentLevel = (enchantmentId: string): number => {
 /**
  * メタデータのサイズを計算（概算）
  */
-export const calculateMetadataSize = (metadata: ItemMetadata): number => {
-  let size = 0
-
-  if (metadata.display?.name) {
-    size += (metadata.display.name as string).length * 2 // UTF-16
-  }
-
-  if (metadata.display?.lore) {
-    size += metadata.display.lore.reduce((sum, line) => sum + line.length * 2, 0)
-  }
-
-  if (metadata.enchantments) {
-    size += metadata.enchantments.length * 16 // 推定サイズ
-  }
-
-  if (metadata.customTags) {
-    size += Object.keys(metadata.customTags).length * 32 // 推定サイズ
-  }
-
-  return size
-}
+export const calculateMetadataSize = (metadata: ItemMetadata): number =>
+  pipe(
+    [
+      pipe(
+        Match.value(metadata.display?.name),
+        Match.when(undefined, () => 0),
+        Match.when(() => true, (name) => (name as string).length * 2),
+        Match.exhaustive
+      ),
+      pipe(
+        Match.value(metadata.display?.lore),
+        Match.when(undefined, () => 0),
+        Match.when(
+          (lore): lore is readonly string[] => Array.isArray(lore),
+          (lore) => pipe(lore, ReadonlyArray.reduce(0, (sum, line) => sum + line.length * 2))
+        ),
+        Match.orElse(() => 0),
+        Match.exhaustive
+      ),
+      pipe(
+        Match.value(metadata.enchantments),
+        Match.when(undefined, () => 0),
+        Match.when(
+          (enchantments): enchantments is readonly Enchantment[] => Array.isArray(enchantments),
+          (enchantments) => enchantments.length * 16
+        ),
+        Match.exhaustive
+      ),
+      pipe(
+        Match.value(metadata.customTags),
+        Match.when(undefined, () => 0),
+        Match.when(() => true, (tags) => Object.keys(tags).length * 32),
+        Match.exhaustive
+      ),
+    ],
+    ReadonlyArray.reduce(0, (acc, value) => acc + value)
+  )
 
 /**
  * メタデータを比較
  */
 export const compareMetadata = (metadata1: ItemMetadata, metadata2: ItemMetadata): MetadataComparison => {
-  const differences: string[] = []
+  const differenceOptions = [
+    pipe(
+      Match.value(metadata1.display?.name === metadata2.display?.name),
+      Match.when(true, () => Option.none<string>()),
+      Match.when(() => true, () => Option.some('display name')),
+      Match.exhaustive
+    ),
+    pipe(
+      Match.value<[unknown, unknown]>([metadata1.display?.lore, metadata2.display?.lore]),
+      Match.when(
+        ([left, right]) => !EffectArray.isArray(left) && !EffectArray.isArray(right),
+        () => Option.none<string>()
+      ),
+      Match.when(
+        ([left, right]) => JSON.stringify(left) !== JSON.stringify(right),
+        () => Option.some('lore')
+      ),
+      Match.orElse(() => Option.none<string>()),
+      Match.exhaustive
+    ),
+    pipe(
+      Match.value(JSON.stringify(metadata1.enchantments) === JSON.stringify(metadata2.enchantments)),
+      Match.when(true, () => Option.none<string>()),
+      Match.when(() => true, () => Option.some('enchantments')),
+      Match.exhaustive
+    ),
+    pipe(
+      Match.value(JSON.stringify(metadata1.durability) === JSON.stringify(metadata2.durability)),
+      Match.when(true, () => Option.none<string>()),
+      Match.when(() => true, () => Option.some('durability')),
+      Match.exhaustive
+    ),
+  ] as const
 
-  // 表示名の比較
-  if (metadata1.display?.name !== metadata2.display?.name) {
-    differences.push('display name')
-  }
+  const differences = pipe(differenceOptions, ReadonlyArray.compact)
 
-  // 説明文の比較
-  if (!EffectArray.isArray(metadata1.display?.lore) && !EffectArray.isArray(metadata2.display?.lore)) {
-    // 両方未定義
-  } else if (JSON.stringify(metadata1.display?.lore) !== JSON.stringify(metadata2.display?.lore)) {
-    differences.push('lore')
-  }
-
-  // エンチャントの比較
-  if (JSON.stringify(metadata1.enchantments) !== JSON.stringify(metadata2.enchantments)) {
-    differences.push('enchantments')
-  }
-
-  // 耐久値の比較
-  if (JSON.stringify(metadata1.durability) !== JSON.stringify(metadata2.durability)) {
-    differences.push('durability')
-  }
-
-  if (differences.length === 0) {
-    return MetadataComparison.Identical({})
-  }
-
-  return MetadataComparison.Different({ differences })
+  return pipe(
+    Match.value(differences.length),
+    Match.when(0, () => MetadataComparison.Identical({})),
+    Match.orElse(() => MetadataComparison.Different({ differences: [...differences] })),
+    Match.exhaustive
+  )
 }
 
 /**
@@ -482,28 +554,22 @@ export const executeMetadataOperation = (
 export const getEnchantmentEffect = (enchantment: Enchantment): EnchantmentEffect => {
   const { id, level } = enchantment
 
-  switch (id) {
-    case 'minecraft:sharpness':
-      return EnchantmentEffect.Sharpness({ damageBonus: level * 0.5 })
-    case 'minecraft:protection':
-      return EnchantmentEffect.Protection({ type: 'all' })
-    case 'minecraft:efficiency':
-      return EnchantmentEffect.Efficiency({ speedMultiplier: 1 + level * 0.3 })
-    case 'minecraft:fortune':
-      return EnchantmentEffect.Fortune({ dropMultiplier: 1 + level * 0.5 })
-    case 'minecraft:silk_touch':
-      return EnchantmentEffect.SilkTouch({})
-    case 'minecraft:unbreaking':
-      return EnchantmentEffect.Unbreaking({ durabilityMultiplier: 1 + level / 3 })
-    case 'minecraft:mending':
-      return EnchantmentEffect.Mending({})
-    case 'minecraft:infinity':
-      return EnchantmentEffect.Infinity({})
-    default:
-      return EnchantmentEffect.Custom({
+  return pipe(
+    Match.value(id),
+    Match.when('minecraft:sharpness', () => EnchantmentEffect.Sharpness({ damageBonus: level * 0.5 })),
+    Match.when('minecraft:protection', () => EnchantmentEffect.Protection({ type: 'all' })),
+    Match.when('minecraft:efficiency', () => EnchantmentEffect.Efficiency({ speedMultiplier: 1 + level * 0.3 })),
+    Match.when('minecraft:fortune', () => EnchantmentEffect.Fortune({ dropMultiplier: 1 + level * 0.5 })),
+    Match.when('minecraft:silk_touch', () => EnchantmentEffect.SilkTouch({})),
+    Match.when('minecraft:unbreaking', () => EnchantmentEffect.Unbreaking({ durabilityMultiplier: 1 + level / 3 })),
+    Match.when('minecraft:mending', () => EnchantmentEffect.Mending({})),
+    Match.when('minecraft:infinity', () => EnchantmentEffect.Infinity({})),
+    Match.orElse(() =>
+      EnchantmentEffect.Custom({
         name: id,
         description: `Custom enchantment: ${id}`,
         effect: { level },
       })
-  }
+    )
+  )
 }

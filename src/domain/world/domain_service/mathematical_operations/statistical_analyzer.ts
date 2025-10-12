@@ -18,28 +18,36 @@ export const StatisticalAnalyzerService = Context.GenericTag<StatisticalAnalyzer
   '@minecraft/domain/world/StatisticalAnalyzer'
 )
 
+const emptyArrayError: GenerationError = {
+  type: 'StatisticalError',
+  message: 'Empty array',
+} as GenerationError
+
+const ensureNonEmpty = (values: ReadonlyArray<number>) =>
+  Effect.succeed(values).pipe(Effect.filterOrFail((xs) => xs.length > 0, () => emptyArrayError))
+
 export const StatisticalAnalyzerServiceLive = Layer.effect(
   StatisticalAnalyzerService,
   Effect.succeed({
-    calculateMean: (values) => {
-      if (values.length === 0)
-        return Effect.fail({ type: 'StatisticalError', message: 'Empty array' } as GenerationError)
-      const sum = values.reduce((acc, val) => acc + val, 0)
-      return Effect.succeed(sum / values.length)
-    },
-    calculateStandardDeviation: (values) => {
-      if (values.length === 0)
-        return Effect.fail({ type: 'StatisticalError', message: 'Empty array' } as GenerationError)
-      const mean = values.reduce((acc, val) => acc + val, 0) / values.length
-      const variance = values.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) / values.length
-      return Effect.succeed(Math.sqrt(variance))
-    },
-    calculatePercentile: (values, percentile) => {
-      if (values.length === 0)
-        return Effect.fail({ type: 'StatisticalError', message: 'Empty array' } as GenerationError)
-      const sorted = [...values].sort((a, b) => a - b)
-      const index = Math.ceil((percentile / 100) * sorted.length) - 1
-      return Effect.succeed(sorted[Math.max(0, index)])
-    },
+    calculateMean: (values) =>
+      ensureNonEmpty(values).pipe(
+        Effect.map((nonEmpty) => nonEmpty.reduce((acc, val) => acc + val, 0) / nonEmpty.length)
+      ),
+    calculateStandardDeviation: (values) =>
+      ensureNonEmpty(values).pipe(
+        Effect.map((nonEmpty) => {
+          const mean = nonEmpty.reduce((acc, val) => acc + val, 0) / nonEmpty.length
+          const variance = nonEmpty.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) / nonEmpty.length
+          return Math.sqrt(variance)
+        })
+      ),
+    calculatePercentile: (values, percentile) =>
+      ensureNonEmpty(values).pipe(
+        Effect.map((nonEmpty) => {
+          const sorted = [...nonEmpty].sort((a, b) => a - b)
+          const index = Math.ceil((percentile / 100) * sorted.length) - 1
+          return sorted[Math.max(0, index)]
+        })
+      ),
   })
 )

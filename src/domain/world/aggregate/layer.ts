@@ -4,6 +4,18 @@
  * 全集約ルートサービスの統合Layer
  */
 
+import {
+  GenerationSessionLive,
+  GenerationSessionTag,
+  InMemorySessionEventPublisher,
+  SessionEventPublisherTag,
+} from '@/domain/world_generation/aggregate/generation_session/index'
+import {
+  EventPublisherTag,
+  InMemoryEventPublisher,
+  WorldGeneratorLive,
+  WorldGeneratorTag,
+} from '@/domain/world_generation/aggregate/world_generator/index'
 import { Context, Layer } from 'effect'
 import {
   BiomeEventPublisherTag,
@@ -11,18 +23,6 @@ import {
   BiomeSystemTag,
   InMemoryBiomeEventPublisher,
 } from './biome_system/index'
-import {
-  GenerationSessionLive,
-  GenerationSessionTag,
-  InMemorySessionEventPublisher,
-  SessionEventPublisherTag,
-} from './generation_session/index'
-import {
-  EventPublisherTag,
-  InMemoryEventPublisher,
-  WorldGeneratorLive,
-  WorldGeneratorTag,
-} from './world_generator/index'
 
 /**
  * 全集約ルートサービスの統合タグ

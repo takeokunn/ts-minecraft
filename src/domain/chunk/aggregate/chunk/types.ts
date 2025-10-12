@@ -1,3 +1,4 @@
+import type { ErrorCause } from '@shared/schema/error'
 import { Brand, Data, Effect, Schema } from 'effect'
 import type { ChunkMetadata } from '../../value_object/chunk_metadata'
 import { ChunkMetadataSchema } from '../../value_object/chunk_metadata'
@@ -6,9 +7,10 @@ import { ChunkPositionSchema } from '../../value_object/chunk_position'
 
 /**
  * ブランド型
+ * ChunkIdは専用value_objectから再エクスポート
  */
-export type ChunkId = string & Brand.Brand<'ChunkId'>
-export const ChunkId = Brand.nominal<ChunkId>()
+export { ChunkIdSchema } from '../../value_object/chunk_id'
+export type { ChunkId } from '../../value_object/chunk_id'
 
 export type BlockId = number & Brand.Brand<'BlockId'>
 export const BlockId = Brand.refined<BlockId>(
@@ -16,10 +18,14 @@ export const BlockId = Brand.refined<BlockId>(
   (value) => Brand.error(`ブロックIDは0〜65535の整数である必要があります: ${value}`)
 )
 
-export type WorldCoordinate = number & Brand.Brand<'WorldCoordinate'>
-export const WorldCoordinate = Brand.refined<WorldCoordinate>(
-  (value): value is WorldCoordinate => Number.isInteger(value),
-  (value) => Brand.error(`ワールド座標は整数である必要があります: ${value}`)
+/**
+ * ローカル座標（チャンク内座標）
+ * チャンク内の相対位置を表す（0-15の範囲）
+ */
+export type LocalCoordinate = number & Brand.Brand<'LocalCoordinate'>
+export const LocalCoordinate = Brand.refined<LocalCoordinate>(
+  (value): value is LocalCoordinate => Number.isInteger(value) && value >= 0 && value < 16,
+  (value) => Brand.error(`ローカル座標は0〜15の整数である必要があります: ${value}`)
 )
 
 /**
@@ -53,7 +59,7 @@ export const ChunkBoundsError = Data.tagged<ChunkBoundsError>('ChunkBoundsError'
 export interface ChunkSerializationError {
   readonly _tag: 'ChunkSerializationError'
   readonly message: string
-  readonly originalError?: unknown
+  readonly originalError?: ErrorCause
 }
 
 export const ChunkSerializationError = Data.tagged<ChunkSerializationError>('ChunkSerializationError')
@@ -66,23 +72,23 @@ export interface ChunkAggregate {
   readonly position: ChunkPosition
   readonly data: ChunkData
   readonly getBlock: (
-    x: WorldCoordinate,
-    y: WorldCoordinate,
-    z: WorldCoordinate
+    x: LocalCoordinate,
+    y: LocalCoordinate,
+    z: LocalCoordinate
   ) => Effect.Effect<BlockId, ChunkBoundsError>
   readonly setBlock: (
-    x: WorldCoordinate,
-    y: WorldCoordinate,
-    z: WorldCoordinate,
+    x: LocalCoordinate,
+    y: LocalCoordinate,
+    z: LocalCoordinate,
     blockId: BlockId
   ) => Effect.Effect<ChunkAggregate, ChunkBoundsError>
   readonly fillRegion: (
-    startX: WorldCoordinate,
-    startY: WorldCoordinate,
-    startZ: WorldCoordinate,
-    endX: WorldCoordinate,
-    endY: WorldCoordinate,
-    endZ: WorldCoordinate,
+    startX: LocalCoordinate,
+    startY: LocalCoordinate,
+    startZ: LocalCoordinate,
+    endX: LocalCoordinate,
+    endY: LocalCoordinate,
+    endZ: LocalCoordinate,
     blockId: BlockId
   ) => Effect.Effect<ChunkAggregate, ChunkBoundsError>
   readonly markDirty: () => Effect.Effect<ChunkAggregate>

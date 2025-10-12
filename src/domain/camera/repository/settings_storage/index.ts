@@ -5,7 +5,7 @@
  * プレイヤー設定、グローバル設定、プリセット設定の統合管理
  */
 
-import { Clock, Effect } from 'effect'
+import { Clock, Effect, Either, pipe } from 'effect'
 
 // ========================================
 // Repository Interface & Context
@@ -243,19 +243,24 @@ export const SettingsConversionUtils = {
   /**
    * JSON文字列からの設定復元
    */
-  parseSettingsFromJson: (jsonString: string): any =>
+  parseSettingsFromJson: (jsonString: string): unknown =>
     pipe(
-      Effect.try({
+      Either.try({
         try: () => JSON.parse(jsonString),
-        catch: (error) => new Error(`Invalid JSON format: ${error}`),
+        catch: (error) => new Error(`Invalid JSON format: ${String(error)}`),
       }),
-      Effect.runSync
+      Either.match({
+        onLeft: (error) => {
+          throw error
+        },
+        onRight: (value) => value,
+      })
     ),
 
   /**
    * 設定をJSON文字列に変換
    */
-  settingsToJson: (settings: any): string => {
+  settingsToJson: (settings: unknown): string => {
     return JSON.stringify(settings, null, 2)
   },
 } as const

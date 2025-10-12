@@ -4,8 +4,8 @@ import { Schema } from 'effect'
 // 時刻・期間系ブランド型
 // =============================================================================
 
-export const TimestampSchema = Schema.Number.pipe(Schema.int(), Schema.nonNegative(), Schema.brand('Timestamp'))
-export type Timestamp = Schema.Schema.Type<typeof TimestampSchema>
+// Re-export from units
+export { TimestampSchema, type Timestamp } from '../../shared/value_object/units'
 
 export const DurationMsSchema = Schema.Number.pipe(Schema.int(), Schema.nonNegative(), Schema.brand('DurationMs'))
 export type DurationMs = Schema.Schema.Type<typeof DurationMsSchema>
@@ -188,21 +188,71 @@ export type ChunkManagerConfig = Schema.Schema.Type<typeof ChunkManagerConfigSch
 // コンストラクタ関数
 // =============================================================================
 
-export const makeTimestamp = (value: number): Timestamp => Schema.decodeUnknownSync(TimestampSchema)(value)
-export const makeDuration = (value: number): DurationMs => Schema.decodeUnknownSync(DurationMsSchema)(value)
-export const makeChunkPoolId = (value: string): ChunkPoolId => Schema.decodeUnknownSync(ChunkPoolIdSchema)(value)
-export const makeMemoryBytes = (value: number): MemoryBytes => Schema.decodeUnknownSync(MemoryBytesSchema)(value)
-export const makeChunkPriority = (value: number): ChunkPriority => Schema.decodeUnknownSync(ChunkPrioritySchema)(value)
-export const makeGCInterval = (value: number): GCInterval => Schema.decodeUnknownSync(GCIntervalSchema)(value)
-export const makeResourceUsagePercent = (value: number): ResourceUsagePercent =>
-  Schema.decodeUnknownSync(ResourceUsagePercentSchema)(value)
-export const makeChunkLifetime = (value: number): ChunkLifetime => Schema.decodeUnknownSync(ChunkLifetimeSchema)(value)
-export const makeChunkDistance = (value: number): ChunkDistance => Schema.decodeUnknownSync(ChunkDistanceSchema)(value)
-export const makeMaxActiveChunks = (value: number): MaxActiveChunks =>
-  Schema.decodeUnknownSync(MaxActiveChunksSchema)(value)
+/**
+ * @internal
+ * ドメイン層内部専用。値の検証を行わないため、信頼できる値のみに使用すること。
+ */
+export const makeTimestamp = (value: number): Timestamp => value as Timestamp
 
-export const makeChunkManagerConfig = (config: ChunkManagerConfig): ChunkManagerConfig =>
-  Schema.decodeUnknownSync(ChunkManagerConfigSchema)(config)
+/**
+ * @internal
+ * ドメイン層内部専用。値の検証を行わないため、信頼できる値のみに使用すること。
+ */
+export const makeDuration = (value: number): DurationMs => value as DurationMs
+
+/**
+ * @internal
+ * ドメイン層内部専用。値の検証を行わないため、信頼できる値のみに使用すること。
+ */
+export const makeChunkPoolId = (value: string): ChunkPoolId => value as ChunkPoolId
+
+/**
+ * @internal
+ * ドメイン層内部専用。値の検証を行わないため、信頼できる値のみに使用すること。
+ */
+export const makeMemoryBytes = (value: number): MemoryBytes => value as MemoryBytes
+
+/**
+ * @internal
+ * ドメイン層内部専用。値の検証を行わないため、信頼できる値のみに使用すること。
+ */
+export const makeChunkPriority = (value: number): ChunkPriority => value as ChunkPriority
+
+/**
+ * @internal
+ * ドメイン層内部専用。値の検証を行わないため、信頼できる値のみに使用すること。
+ */
+export const makeGCInterval = (value: number): GCInterval => value as GCInterval
+
+/**
+ * @internal
+ * ドメイン層内部専用。値の検証を行わないため、信頼できる値のみに使用すること。
+ */
+export const makeResourceUsagePercent = (value: number): ResourceUsagePercent => value as ResourceUsagePercent
+
+/**
+ * @internal
+ * ドメイン層内部専用。値の検証を行わないため、信頼できる値のみに使用すること。
+ */
+export const makeChunkLifetime = (value: number): ChunkLifetime => value as ChunkLifetime
+
+/**
+ * @internal
+ * ドメイン層内部専用。値の検証を行わないため、信頼できる値のみに使用すること。
+ */
+export const makeChunkDistance = (value: number): ChunkDistance => value as ChunkDistance
+
+/**
+ * @internal
+ * ドメイン層内部専用。値の検証を行わないため、信頼できる値のみに使用すること。
+ */
+export const makeMaxActiveChunks = (value: number): MaxActiveChunks => value as MaxActiveChunks
+
+/**
+ * @internal
+ * ドメイン層内部専用。値の検証を行わないため、信頼できる値のみに使用すること。
+ */
+export const makeChunkManagerConfig = (config: ChunkManagerConfig): ChunkManagerConfig => config
 
 // =============================================================================
 // デフォルト設定

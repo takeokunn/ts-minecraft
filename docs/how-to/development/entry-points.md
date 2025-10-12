@@ -552,18 +552,22 @@ const validateConfigStepByStep = (config: unknown) =>
 // ✅ Workerプールの動的管理
 const createWorkerPool = (config: WorkerPoolConfig) =>
   Effect.gen(function* () {
-    const pool = new Map<WorkerType, Worker[]>()
-
-    for (const [type, count] of Object.entries(config.workerCounts)) {
-      const workers = []
-      for (let i = 0; i < count; i++) {
-        const worker = yield* createWorker(type)
-        workers.push(worker)
-      }
-      pool.set(type, workers)
-    }
-
-    return pool
+    return yield* pipe(
+      Object.entries(config.workerCounts),
+      Effect.reduce(new Map<WorkerType, Worker[]>(), (pool, [type, count]) =>
+        pipe(
+          ReadonlyArray.range(0, count - 1),
+          Effect.reduce([] as ReadonlyArray<Worker>, (workers) =>
+            Effect.map(createWorker(type as WorkerType), (worker) => [...workers, worker])
+          ),
+          Effect.map((workers) => {
+            const updated = new Map(pool)
+            updated.set(type as WorkerType, [...workers])
+            return updated
+          })
+        )
+      )
+    )
   })
 
 // ✅ Workerエラー時の自動復旧

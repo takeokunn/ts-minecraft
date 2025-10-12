@@ -269,7 +269,7 @@ import {
   streamAccumulate,
   streamTakeWhile,
   streamCollectOptional,
-} from '@/shared/utils/stream-migration-helpers'
+} from '@shared/utils/stream-migration-helpers'
 
 // 使用例
 yield * streamForEach(items, (item) => Effect.sync(() => console.log(item)))

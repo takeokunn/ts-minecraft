@@ -129,8 +129,8 @@ graph TB
 ```typescript
 // src/application/services/WorldService.ts
 import { Context, Effect, Layer, Schema, Match, pipe } from 'effect'
-import { Chunk, ChunkCoordinate, ChunkOperations } from '../../domain/world/entities/Chunk.js'
-import { Block, BlockType } from '../../domain/world/entities/Block.js'
+import { Chunk, ChunkCoordinate, ChunkOperations } from '../../domain/world/entities/Chunk'
+import { Block, BlockType } from '../../domain/world/entities/Block'
 
 // エラー型定義 - Schema.TaggedErrorによる型安全なエラー
 export const WorldError = Schema.TaggedError('WorldError')({
@@ -617,8 +617,8 @@ export const WorldServiceLive = Layer.effect(WorldService, makeWorldService)
 ```typescript
 // src/application/services/PlayerService.ts
 import { Context, Effect, Layer, Schema, Match, pipe } from 'effect'
-import { Player, PlayerOperations, Position } from '../../domain/player/entities/Player.js'
-import { WorldService } from './WorldService.js'
+import { Player, PlayerOperations, Position } from '../../domain/player/entities/Player'
+import { WorldService } from './WorldService'
 
 // エラー型定義
 export const PlayerError = Schema.TaggedError('PlayerError')({
@@ -1031,8 +1031,8 @@ export const PlayerServiceLive = Layer.effect(PlayerService, makePlayerService).
 // src/application/__tests__/ServiceIntegration.test.ts
 import { describe, it, expect } from 'vitest'
 import { Effect, Layer } from 'effect'
-import { WorldService, WorldServiceLive } from '../services/WorldService.js'
-import { PlayerService, PlayerServiceLive } from '../services/PlayerService.js'
+import { WorldService, WorldServiceLive } from '../services/WorldService'
+import { PlayerService, PlayerServiceLive } from '../services/PlayerService'
 
 describe('Service Integration', () => {
   const TestLayer = Layer.mergeAll(WorldServiceLive, PlayerServiceLive)
@@ -1091,8 +1091,8 @@ describe('Service Integration', () => {
 ```typescript
 // src/examples/ServiceDemo.ts
 import { Effect } from 'effect'
-import { WorldService, WorldServiceLive } from '../application/services/WorldService.js'
-import { PlayerService, PlayerServiceLive } from '../application/services/PlayerService.js'
+import { WorldService, WorldServiceLive } from '../application/services/WorldService'
+import { PlayerService, PlayerServiceLive } from '../application/services/PlayerService'
 
 const serviceDemo = Effect.gen(function* () {
   const worldService = yield* WorldService

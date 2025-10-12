@@ -1,4 +1,6 @@
-import { Clock, Effect, Schema } from 'effect'
+import type { JsonRecord } from '@shared/schema/json'
+import { JsonRecordSchema } from '@shared/schema/json'
+import { Clock, Effect, Random, Schema } from 'effect'
 
 // =============================================================================
 // Base Domain Event
@@ -169,10 +171,7 @@ export const ItemAddedEventSchema = Schema.Struct({
     })
   ),
   metadata: Schema.optional(
-    Schema.Record({
-      key: Schema.String,
-      value: Schema.Unknown,
-    }).pipe(
+    JsonRecordSchema.pipe(
       Schema.annotations({
         description: 'Item metadata such as enchantments, durability, etc.',
       })
@@ -474,7 +473,7 @@ export const ItemBrokenEventSchema = Schema.Struct({
       quantity: Schema.Number.pipe(Schema.int(), Schema.positive()),
     }).pipe(
       Schema.annotations({
-        description: 'Item that replaced the broken item, if any',
+        description: 'Item that replaced the broken item, if present',
       })
     )
   ),
@@ -701,10 +700,16 @@ const createBaseEvent = (
 /**
  * ユニークなイベントIDを生成
  */
-const generateEventId = (): string => {
-  // UUIDv4の簡易実装（本来はuuidライブラリを使用）
-  return `evt_${Math.random().toString(16).substring(2, 10)}-${Math.random().toString(16).substring(2, 6)}-4${Math.random().toString(16).substring(2, 5)}-${Math.random().toString(16).substring(2, 5)}-${Math.random().toString(16).substring(2, 14)}`
-}
+const generateEventId = (): Effect.Effect<string> =>
+  Effect.gen(function* () {
+    const r1 = yield* Random.nextIntBetween(0, 0xffffffff)
+    const r2 = yield* Random.nextIntBetween(0, 0xffff)
+    const r3 = yield* Random.nextIntBetween(0, 0xfff)
+    const r4 = yield* Random.nextIntBetween(0, 0xffff)
+    const r5 = yield* Random.nextIntBetween(0, 0xffffffffffff)
+
+    return `evt_${r1.toString(16).padStart(8, '0')}-${r2.toString(16).padStart(4, '0')}-4${r3.toString(16).padStart(3, '0')}-${r4.toString(16).padStart(4, '0')}-${r5.toString(16).padStart(12, '0')}`
+  })
 
 /**
  * インベントリ作成イベントを生成
@@ -736,7 +741,7 @@ export const createItemAddedEvent = (params: {
   itemId: string
   quantity: number
   previousQuantity: number
-  metadata?: Record<string, unknown>
+  metadata?: JsonRecord
   source?: string
   aggregateVersion: number
 }): ItemAddedEvent => ({

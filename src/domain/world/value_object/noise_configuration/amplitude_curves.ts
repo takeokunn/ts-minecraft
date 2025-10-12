@@ -90,6 +90,18 @@ export const SmoothingStrengthSchema = Schema.Number.pipe(
 )
 
 /**
+ * NormalizedTime型のunsafe変換関数
+ * 定数定義時の型アサーションを型安全に実施（範囲検証なし）
+ */
+export const makeUnsafeNormalizedTime = (value: number): NormalizedTime => value as NormalizedTime
+
+/**
+ * ControlPointValue型のunsafe変換関数
+ * 定数定義時の型アサーションを型安全に実施（範囲検証なし）
+ */
+export const makeUnsafeControlPointValue = (value: number): ControlPointValue => value as ControlPointValue
+
+/**
  * カーブタイプ
  */
 export const CurveTypeSchema = Schema.Literal(

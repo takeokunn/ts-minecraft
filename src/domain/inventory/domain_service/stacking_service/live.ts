@@ -5,7 +5,7 @@
  * Effect-TSパターンに従い、不変性と純粋関数型アプローチを採用。
  */
 
-import { Effect, Layer, Match, pipe } from 'effect'
+import { Effect, Layer, Match, Option, pipe, ReadonlyArray } from 'effect'
 import type { Inventory, ItemId, ItemStack } from '../../types'
 import {
   checkCompleteStackCompatibility,
@@ -78,38 +78,41 @@ export const StackingServiceLive = Layer.succeed(
      */
     splitStack: (inventory, request) =>
       Effect.gen(function* () {
-        const sourceStack = inventory.slots[request.sourceSlot]
+        const sourceStackOption = Option.fromNullable(inventory.slots[request.sourceSlot])
 
-        yield* Effect.when(
-          () => sourceStack === null,
-          () => Effect.fail(new StackingError('INSUFFICIENT_ITEMS', 'Source slot is empty'))
+        const sourceStack = yield* pipe(
+          sourceStackOption,
+          Effect.fromOption,
+          Effect.mapError(() => new StackingError('INSUFFICIENT_ITEMS', 'Source slot is empty'))
         )
 
         yield* Effect.when(
-          () => request.splitCount >= sourceStack!.count,
+          () => request.splitCount >= sourceStack.count,
           () => Effect.fail(new StackingError('INVALID_ITEM_COUNT', 'Split count exceeds available items'))
         )
 
-        const targetSlot = request.targetSlot === 'auto' ? yield* findEmptySlot(inventory) : request.targetSlot
+        const targetSlotMaybe = request.targetSlot === 'auto' ? yield* findEmptySlot(inventory) : request.targetSlot
 
-        yield* Effect.when(
-          () => targetSlot === undefined,
-          () => Effect.fail(new StackingError('INVENTORY_FULL', 'No available slot for split'))
+        const targetSlot = yield* pipe(
+          Option.fromNullable(targetSlotMaybe),
+          Effect.fromOption,
+          Effect.mapError(() => new StackingError('INVENTORY_FULL', 'No available slot for split'))
         )
 
         const newSlots = [...inventory.slots]
 
         // 元のスタックを更新
-        newSlots[request.sourceSlot] = {
-          ...sourceStack!,
-          count: sourceStack!.count - request.splitCount,
+        const updatedSourceStack: ItemStack = {
+          ...sourceStack,
+          count: sourceStack.count - request.splitCount,
         }
+        newSlots[request.sourceSlot] = updatedSourceStack
 
         // 分割されたスタックを新しいスロットに配置
         const splitStack: ItemStack = {
-          ...sourceStack!,
+          ...sourceStack,
           count: request.splitCount,
-          metadata: request.preserveMetadata ? sourceStack!.metadata : undefined,
+          metadata: request.preserveMetadata ? sourceStack.metadata : undefined,
         }
         newSlots[targetSlot] = splitStack
 
@@ -118,8 +121,8 @@ export const StackingServiceLive = Layer.succeed(
           updatedInventory: { ...inventory, slots: newSlots },
           sourceSlot: request.sourceSlot,
           targetSlot,
-          originalStack: sourceStack!,
-          resultingStacks: [newSlots[request.sourceSlot]!, splitStack],
+          originalStack: sourceStack,
+          resultingStacks: [updatedSourceStack, splitStack],
         }
       }),
 
@@ -207,14 +210,18 @@ export const StackingServiceLive = Layer.succeed(
         }> = []
 
         // スタック数制限チェック
-        if (stack.count > 64) {
-          violations.push({
-            constraint: 'MAX_STACK_SIZE',
-            description: `Stack count ${stack.count} exceeds maximum 64`,
-            severity: 'ERROR',
-            suggestedFix: 'Split the stack into multiple stacks',
-          })
-        }
+        pipe(
+          Match.value(stack.count > 64),
+          Match.when(true, () =>
+            violations.push({
+              constraint: 'MAX_STACK_SIZE',
+              description: `Stack count ${stack.count} exceeds maximum 64`,
+              severity: 'ERROR',
+              suggestedFix: 'Split the stack into multiple stacks',
+            })
+          ),
+          Match.orElse(() => undefined)
+        )
 
         // アイテム固有制約チェック
         const itemConstraints = yield* checkItemSpecificConstraints(stack)
@@ -228,27 +235,26 @@ export const StackingServiceLive = Layer.succeed(
      */
     findStacksWithCriteria: (inventory, criteria) =>
       Effect.gen(function* () {
-        const matches: Array<{ slot: number; stack: ItemStack; matchScore: number }> = []
+        const matches = yield* pipe(
+          inventory.slots,
+          ReadonlyArray.mapWithIndex((stack, i) => ({ stack, index: i })),
+          Effect.forEach(
+            ({ stack, index }) =>
+              stack !== null
+                ? Effect.gen(function* () {
+                    const score = yield* calculateMatchScore(stack, criteria)
+                    return score > 0 ? Option.some({ slot: index, stack, matchScore: score }) : Option.none()
+                  })
+                : Effect.succeed(Option.none()),
+            { concurrency: 4 }
+          ),
+          Effect.map(ReadonlyArray.getSomes)
+        )
 
-        for (let i = 0; i < inventory.slots.length; i++) {
-          const stack = inventory.slots[i]
-          yield* Effect.when(
-            () => stack !== null,
-            () =>
-              Effect.gen(function* () {
-                const score = yield* calculateMatchScore(stack!, criteria)
-                yield* Effect.when(
-                  () => score > 0,
-                  () =>
-                    Effect.sync(() => {
-                      matches.push({ slot: i, stack: stack!, matchScore: score })
-                    })
-                )
-              })
-          )
-        }
-
-        return matches.sort((a, b) => b.matchScore - a.matchScore)
+        return pipe(
+          matches,
+          ReadonlyArray.sort((a, b) => b.matchScore - a.matchScore)
+        )
       }),
 
     /**
@@ -281,14 +287,13 @@ const calculateDurabilityAverage = (sourceStack: ItemStack, targetStack: ItemSta
 }
 
 const findEmptySlot = (inventory: Inventory): Effect.Effect<number | undefined, never> =>
-  Effect.gen(function* () {
-    for (let i = 0; i < inventory.slots.length; i++) {
-      if (inventory.slots[i] === null) {
-        return i
-      }
-    }
-    return undefined
-  })
+  Effect.succeed(
+    pipe(
+      inventory.slots,
+      ReadonlyArray.findFirstIndex((slot) => slot === null),
+      Option.getOrUndefined
+    )
+  )
 
 const consolidateAllStacks = (
   inventory: Inventory,
@@ -302,44 +307,55 @@ const consolidateAllStacks = (
   never
 > =>
   Effect.gen(function* () {
-    let currentInventory = inventory
-    let stacksConsolidated = 0
-    const operations: StackOptimizationResult['operationsPerformed'] = []
-
     // アイテムIDごとにグループ化
-    const itemGroups = yield* groupStacksByItemId(currentInventory)
+    const itemGroups = yield* groupStacksByItemId(inventory)
 
-    for (const [itemId, slots] of itemGroups) {
-      if (slots.length > 1) {
-        const consolidationResult = yield* consolidateItemGroup(currentInventory, itemId, slots)
-        currentInventory = consolidationResult.inventory
-        stacksConsolidated += consolidationResult.stacksConsolidated
-        operations.push(...consolidationResult.operations)
-      }
-    }
+    const result = yield* pipe(
+      Array.from(itemGroups.entries()),
+      ReadonlyArray.filter(([_, slots]) => slots.length > 1),
+      Effect.reduce(
+        {
+          inventory,
+          stacksConsolidated: 0,
+          operations: [] as const satisfies StackOptimizationResult['operationsPerformed'],
+        },
+        (acc, [itemId, slots]) =>
+          Effect.gen(function* () {
+            const consolidationResult = yield* consolidateItemGroup(acc.inventory, itemId, slots)
+            return {
+              inventory: consolidationResult.inventory,
+              stacksConsolidated: acc.stacksConsolidated + consolidationResult.stacksConsolidated,
+              operations: [...acc.operations, ...consolidationResult.operations],
+            }
+          })
+      )
+    )
 
-    return { inventory: currentInventory, stacksConsolidated, operations }
+    return result
   })
 
 const groupStacksByItemId = (inventory: Inventory): Effect.Effect<Map<ItemId, number[]>, never> =>
-  Effect.gen(function* () {
-    const groups = new Map<ItemId, number[]>()
-
-    for (let i = 0; i < inventory.slots.length; i++) {
-      const stack = inventory.slots[i]
-      yield* Effect.when(
-        () => stack !== null,
-        () =>
-          Effect.sync(() => {
-            const existing = groups.get(stack!.itemId) ?? []
-            existing.push(i)
-            groups.set(stack!.itemId, existing)
+  Effect.succeed(
+    pipe(
+      inventory.slots,
+      ReadonlyArray.mapWithIndex((stack, i) => ({ stack, index: i })),
+      ReadonlyArray.filter(({ stack }) => stack !== null),
+      ReadonlyArray.reduce(new Map<ItemId, number[]>(), (groups, { stack, index }) => {
+        return pipe(
+          Option.fromNullable(stack),
+          Option.match({
+            onNone: () => groups,
+            onSome: (itemStack) => {
+              const existing = groups.get(itemStack.itemId) ?? []
+              existing.push(index)
+              groups.set(itemStack.itemId, existing)
+              return groups
+            },
           })
-      )
-    }
-
-    return groups
-  })
+        )
+      })
+    )
+  )
 
 const consolidateItemGroup = (
   inventory: Inventory,
@@ -354,49 +370,77 @@ const consolidateItemGroup = (
   never
 > =>
   Effect.gen(function* () {
-    let currentInventory = inventory
-    let stacksConsolidated = 0
-    const operations: StackOptimizationResult['operationsPerformed'] = []
-
     // 部分的なスタックを統合
-    for (let i = 0; i < slots.length - 1; i++) {
-      for (let j = i + 1; j < slots.length; j++) {
-        const sourceSlot = slots[i]
-        const targetSlot = slots[j]
-        const sourceStack = currentInventory.slots[sourceSlot]
-        const targetStack = currentInventory.slots[targetSlot]
-
-        yield* Effect.when(
-          () => sourceStack && targetStack && sourceStack.count + targetStack.count <= 64,
-          () =>
-            Effect.sync(() => {
-              // スタック統合実行
-              const newSlots = [...currentInventory.slots]
-              newSlots[targetSlot] = {
-                ...targetStack!,
-                count: sourceStack!.count + targetStack!.count,
-              }
-              newSlots[sourceSlot] = null
-
-              currentInventory = { ...currentInventory, slots: newSlots }
-              stacksConsolidated++
-
-              operations.push({
-                type: 'CONSOLIDATE',
-                sourceSlot,
-                targetSlot,
-                itemsBefore: sourceStack!.count + targetStack!.count,
-                itemsAfter: newSlots[targetSlot]!.count,
-              })
-            })
+    // ネストループをReadonlyArray.flatMapで展開してペア生成
+    const pairs = pipe(
+      slots,
+      ReadonlyArray.flatMap((sourceSlot, i) =>
+        pipe(
+          slots.slice(i + 1),
+          ReadonlyArray.map((targetSlot) => ({ sourceSlot, targetSlot }))
         )
-        if (sourceStack && targetStack && sourceStack.count + targetStack.count <= 64) {
-          break
-        }
-      }
-    }
+      )
+    )
 
-    return { inventory: currentInventory, stacksConsolidated, operations }
+    const result = yield* pipe(
+      pairs,
+      Effect.reduce(
+        {
+          inventory,
+          stacksConsolidated: 0,
+          operations: [] as const satisfies StackOptimizationResult['operationsPerformed'],
+          shouldContinue: true,
+        },
+        (acc, { sourceSlot, targetSlot }) =>
+          pipe(
+            Match.value(acc.shouldContinue),
+            Match.when(false, () => Effect.succeed(acc)),
+            Match.orElse(() =>
+              pipe(
+                Option.all([
+                  Option.fromNullable(acc.inventory.slots[sourceSlot]),
+                  Option.fromNullable(acc.inventory.slots[targetSlot]),
+                ]),
+                Option.filter(([sourceStack, targetStack]) => sourceStack.count + targetStack.count <= 64),
+                Option.match({
+                  onNone: () => Effect.succeed(acc),
+                  onSome: ([sourceStack, targetStack]) =>
+                    Effect.succeed(() => {
+                      const newSlots = [...acc.inventory.slots]
+                      const consolidatedStack = {
+                        ...targetStack,
+                        count: sourceStack.count + targetStack.count,
+                      }
+                      newSlots[targetSlot] = consolidatedStack
+                      newSlots[sourceSlot] = null
+
+                      const newOperation = {
+                        type: 'CONSOLIDATE' as const,
+                        sourceSlot,
+                        targetSlot,
+                        itemsBefore: sourceStack.count + targetStack.count,
+                        itemsAfter: consolidatedStack.count,
+                      }
+
+                      return {
+                        inventory: { ...acc.inventory, slots: newSlots },
+                        stacksConsolidated: acc.stacksConsolidated + 1,
+                        operations: [...acc.operations, newOperation],
+                        shouldContinue: false,
+                      }
+                    }).pipe(Effect.flatMap((compute) => Effect.succeed(compute())))
+                })
+              )
+            )
+          )
+      )
+    )
+
+    return {
+      inventory: result.inventory,
+      stacksConsolidated: result.stacksConsolidated,
+      operations: result.operations,
+    }
   })
 
 const groupItemsByCategory = (
@@ -426,40 +470,61 @@ const compactInventory = (
   never
 > =>
   Effect.gen(function* () {
-    const newSlots = [...inventory.slots]
-    const operations: StackOptimizationResult['operationsPerformed'] = []
-    let writeIndex = 0
-
     // 非nullアイテムを前詰め
-    for (let readIndex = 0; readIndex < newSlots.length; readIndex++) {
-      yield* Effect.when(
-        () => newSlots[readIndex] !== null,
-        () =>
+    const result = yield* pipe(
+      inventory.slots,
+      ReadonlyArray.mapWithIndex((slot, readIndex) => ({ slot, readIndex })),
+      Effect.reduce(
+        {
+          newSlots: [...inventory.slots],
+          operations: [] as const satisfies StackOptimizationResult['operationsPerformed'],
+          writeIndex: 0,
+        },
+        (acc, { slot, readIndex }) =>
           Effect.gen(function* () {
-            yield* Effect.when(
-              () => writeIndex !== readIndex,
-              () =>
-                Effect.sync(() => {
-                  newSlots[writeIndex] = newSlots[readIndex]
-                  newSlots[readIndex] = null
+            // Option.matchによるnullチェック
+            return yield* pipe(
+              Option.fromNullable(slot),
+              Option.match({
+                onNone: () => Effect.succeed(acc),
+                onSome: (stackSlot) =>
+                  pipe(
+                    Match.value(acc.writeIndex !== readIndex),
+                    Match.when(true, () =>
+                      Effect.sync(() => {
+                        acc.newSlots[acc.writeIndex] = acc.newSlots[readIndex]
+                        acc.newSlots[readIndex] = null
 
-                  operations.push({
-                    type: 'MOVE',
-                    sourceSlot: readIndex,
-                    targetSlot: writeIndex,
-                    itemsBefore: newSlots[writeIndex]!.count,
-                    itemsAfter: newSlots[writeIndex]!.count,
-                  })
-                })
+                        acc.operations.push({
+                          type: 'MOVE',
+                          sourceSlot: readIndex,
+                          targetSlot: acc.writeIndex,
+                          itemsBefore: stackSlot.count,
+                          itemsAfter: stackSlot.count,
+                        })
+
+                        return {
+                          ...acc,
+                          writeIndex: acc.writeIndex + 1,
+                        }
+                      })
+                    ),
+                    Match.orElse(() =>
+                      Effect.succeed({
+                        ...acc,
+                        writeIndex: acc.writeIndex + 1,
+                      })
+                    )
+                  ),
+              })
             )
-            writeIndex++
           })
       )
-    }
+    )
 
     return {
-      inventory: { ...inventory, slots: newSlots },
-      operations,
+      inventory: { ...inventory, slots: result.newSlots },
+      operations: result.operations,
     }
   })
 

@@ -1,3 +1,5 @@
+import { toErrorCause, type ErrorCause } from '@shared/schema/error'
+import { toJsonValue, toJsonValueOption, type JsonSerializable, type JsonValue } from '@shared/schema/json'
 import { Data, Option } from 'effect'
 
 // ========================================
@@ -7,52 +9,18 @@ import { Data, Option } from 'effect'
 /**
  * カメラドメインのコアエラー型（Data.taggedEnum ADT）
  */
-export type CameraError = Data.TaggedEnum<{
-  InitializationFailed: {
-    readonly message: string
-    readonly cause: Option.Option<unknown>
-  }
-  CameraNotInitialized: {
-    readonly operation: string
-  }
-  InvalidConfiguration: {
-    readonly message: string
-    readonly config: Option.Option<unknown>
-  }
-  InvalidMode: {
-    readonly mode: string
-    readonly validModes: readonly string[]
-  }
-  InvalidParameter: {
-    readonly parameter: string
-    readonly value: unknown
-    readonly expected: Option.Option<string>
-  }
-  ResourceError: {
-    readonly message: string
-    readonly cause: Option.Option<unknown>
-  }
-  AnimationError: {
-    readonly message: string
-    readonly context: Option.Option<unknown>
-  }
-  CollisionError: {
-    readonly message: string
-    readonly details: Option.Option<unknown>
-  }
-}>
+export const CameraError = Data.taggedEnum<{
+  InitializationFailed: { message: string; cause: Option.Option<ErrorCause> }
+  CameraNotInitialized: { operation: string; message: string }
+  InvalidConfiguration: { message: string; config: Option.Option<JsonValue> }
+  InvalidMode: { message: string; mode: string; validModes: readonly string[] }
+  InvalidParameter: { message: string; parameter: string; value: JsonValue; expected: Option.Option<string> }
+  ResourceError: { message: string; cause: Option.Option<ErrorCause> }
+  AnimationError: { message: string; context: Option.Option<JsonValue> }
+  CollisionError: { message: string; details: Option.Option<JsonValue> }
+}>()
 
-// ADTコンストラクタ生成
-const {
-  InitializationFailed,
-  CameraNotInitialized,
-  InvalidConfiguration,
-  InvalidMode,
-  InvalidParameter,
-  ResourceError,
-  AnimationError,
-  CollisionError,
-} = Data.taggedEnum<CameraError>()
+export type CameraError = Data.TaggedEnum.Type<typeof CameraError>
 
 // ========================================
 // Value Object Errors (Data.taggedEnum)
@@ -61,69 +29,58 @@ const {
 /**
  * 位置関連エラー型
  */
-export type PositionError = Data.TaggedEnum<{
+export const PositionError = Data.taggedEnum<{
   InvalidPosition: {
-    readonly axis: 'x' | 'y' | 'z'
-    readonly value: number
-    readonly reason: string
+    message: string
+    axis: Option.Option<'x' | 'y' | 'z'>
+    value: Option.Option<number>
+    reason: Option.Option<string>
   }
   PositionOutOfBounds: {
-    readonly position: { readonly x: number; readonly y: number; readonly z: number }
-    readonly bounds: {
-      readonly min: { readonly x: number; readonly y: number; readonly z: number }
-      readonly max: { readonly x: number; readonly y: number; readonly z: number }
-    }
+    message: string
+    position: Option.Option<{ x: number; y: number; z: number }>
+    bounds: Option.Option<{
+      min: { x: number; y: number; z: number }
+      max: { x: number; y: number; z: number }
+    }>
   }
-}>
+}>()
 
-const PositionErrorConstructors = Data.taggedEnum<PositionError>()
-const { InvalidPosition, PositionOutOfBounds } = PositionErrorConstructors
+export type PositionError = Data.TaggedEnum.Type<typeof PositionError>
 
 /**
  * 回転関連エラー型
  */
-export type RotationError = Data.TaggedEnum<{
+export const RotationError = Data.taggedEnum<{
   InvalidRotation: {
-    readonly axis: 'pitch' | 'yaw' | 'roll'
-    readonly value: number
-    readonly min: number
-    readonly max: number
+    message: string
+    axis: Option.Option<'pitch' | 'yaw' | 'roll'>
+    value: Option.Option<number>
+    min: Option.Option<number>
+    max: Option.Option<number>
   }
   RotationLimitExceeded: {
-    readonly rotation: { readonly pitch: number; readonly yaw: number }
-    readonly limits: {
-      readonly pitch: { readonly min: number; readonly max: number }
-      readonly yaw: { readonly min: number; readonly max: number }
-    }
+    message: string
+    rotation: Option.Option<{ pitch: number; yaw: number }>
+    limits: Option.Option<{
+      pitch: { min: number; max: number }
+      yaw: { min: number; max: number }
+    }>
   }
-}>
+}>()
 
-const RotationErrorConstructors = Data.taggedEnum<RotationError>()
-const { InvalidRotation, RotationLimitExceeded } = RotationErrorConstructors
+export type RotationError = Data.TaggedEnum.Type<typeof RotationError>
 
 /**
  * 設定関連エラー型
  */
-export type SettingsError = Data.TaggedEnum<{
-  InvalidFOV: {
-    readonly value: number
-    readonly min: number
-    readonly max: number
-  }
-  InvalidSensitivity: {
-    readonly value: number
-    readonly min: number
-    readonly max: number
-  }
-  InvalidDistance: {
-    readonly value: number
-    readonly min: number
-    readonly max: number
-  }
-}>
+export const SettingsError = Data.taggedEnum<{
+  InvalidFOV: { message: string; value: number; min: number; max: number }
+  InvalidSensitivity: { message: string; value: number; min: number; max: number }
+  InvalidDistance: { message: string; value: number; min: number; max: number }
+}>()
 
-const SettingsErrorConstructors = Data.taggedEnum<SettingsError>()
-const { InvalidFOV, InvalidSensitivity, InvalidDistance } = SettingsErrorConstructors
+export type SettingsError = Data.TaggedEnum.Type<typeof SettingsError>
 
 // ========================================
 // Error Union Types
@@ -139,36 +96,62 @@ export type CameraDomainError = CameraError | PositionError | RotationError | Se
 // ========================================
 
 /**
- * カメラエラーファクトリー（ADTコンストラクタベース）
+ * カメラエラーファクトリー（Data.taggedEnum パターン）
  */
+const mapErrorCauseOption = (value: unknown): Option.Option<ErrorCause> => Option.fromNullable(toErrorCause(value))
+
+const mapJsonValueOption = (value: JsonSerializable | undefined): Option.Option<JsonValue> =>
+  Option.fromNullable(toJsonValueOption(value))
+
 export const createCameraError = {
   initializationFailed: (message: string, cause?: unknown) =>
-    InitializationFailed({ message, cause: Option.fromNullable(cause) }),
+    CameraError.InitializationFailed({ message, cause: mapErrorCauseOption(cause) }),
 
-  notInitialized: (operation: string) => CameraNotInitialized({ operation }),
+  notInitialized: (operation: string) =>
+    CameraError.CameraNotInitialized({
+      operation,
+      message: `Operation '${operation}' called before camera initialization`,
+    }),
 
-  invalidConfiguration: (message: string, config?: unknown) =>
-    InvalidConfiguration({ message, config: Option.fromNullable(config) }),
+  invalidConfiguration: (message: string, config?: JsonSerializable) =>
+    CameraError.InvalidConfiguration({ message, config: mapJsonValueOption(config) }),
 
-  invalidMode: (mode: string, validModes: readonly string[]) => InvalidMode({ mode, validModes }),
+  invalidMode: (mode: string, validModes: readonly string[]) =>
+    CameraError.InvalidMode({
+      message: `Invalid camera mode '${mode}'. Valid modes: ${validModes.join(', ')}`,
+      mode,
+      validModes,
+    }),
 
-  invalidParameter: (parameter: string, value: unknown, expected?: string) =>
-    InvalidParameter({ parameter, value, expected: Option.fromNullable(expected) }),
+  invalidParameter: (parameter: string, value: JsonSerializable, expected?: string) =>
+    CameraError.InvalidParameter({
+      message: `Invalid parameter '${parameter}'${expected ? `: ${expected}` : ''}`,
+      parameter,
+      value: toJsonValue(value),
+      expected: Option.fromNullable(expected),
+    }),
 
-  resourceError: (message: string, cause?: unknown) => ResourceError({ message, cause: Option.fromNullable(cause) }),
+  resourceError: (message: string, cause?: unknown) =>
+    CameraError.ResourceError({ message, cause: mapErrorCauseOption(cause) }),
 
-  animationError: (message: string, context?: unknown) =>
-    AnimationError({ message, context: Option.fromNullable(context) }),
+  animationError: (message: string, context?: JsonSerializable) =>
+    CameraError.AnimationError({ message, context: mapJsonValueOption(context) }),
 
-  collisionError: (message: string, details?: unknown) =>
-    CollisionError({ message, details: Option.fromNullable(details) }),
+  collisionError: (message: string, details?: JsonSerializable) =>
+    CameraError.CollisionError({ message, details: mapJsonValueOption(details) }),
 } as const
 
 /**
  * 位置エラーファクトリー
  */
 export const createPositionError = {
-  invalidCoordinate: (axis: 'x' | 'y' | 'z', value: number, reason: string) => InvalidPosition({ axis, value, reason }),
+  invalidCoordinate: (axis: 'x' | 'y' | 'z', value: number, reason: string) =>
+    PositionError.InvalidPosition({
+      message: `Invalid ${axis} coordinate: ${value} (${reason})`,
+      axis: Option.some(axis),
+      value: Option.some(value),
+      reason: Option.some(reason),
+    }),
 
   outOfBounds: (
     position: { x: number; y: number; z: number },
@@ -176,7 +159,12 @@ export const createPositionError = {
       min: { x: number; y: number; z: number }
       max: { x: number; y: number; z: number }
     }
-  ) => PositionOutOfBounds({ position, bounds }),
+  ) =>
+    PositionError.PositionOutOfBounds({
+      message: `Position out of bounds: (${position.x}, ${position.y}, ${position.z})`,
+      position: Option.some(position),
+      bounds: Option.some(bounds),
+    }),
 } as const
 
 /**
@@ -184,7 +172,13 @@ export const createPositionError = {
  */
 export const createRotationError = {
   invalidAngle: (axis: 'pitch' | 'yaw' | 'roll', value: number, min: number, max: number) =>
-    InvalidRotation({ axis, value, min, max }),
+    RotationError.InvalidRotation({
+      message: `Invalid ${axis} angle: ${value} (expected ${min} to ${max})`,
+      axis: Option.some(axis),
+      value: Option.some(value),
+      min: Option.some(min),
+      max: Option.some(max),
+    }),
 
   limitExceeded: (
     rotation: { pitch: number; yaw: number },
@@ -192,74 +186,47 @@ export const createRotationError = {
       pitch: { min: number; max: number }
       yaw: { min: number; max: number }
     }
-  ) => RotationLimitExceeded({ rotation, limits }),
+  ) =>
+    RotationError.RotationLimitExceeded({
+      message: `Rotation limit exceeded: pitch=${rotation.pitch}, yaw=${rotation.yaw}`,
+      rotation: Option.some(rotation),
+      limits: Option.some(limits),
+    }),
 } as const
 
 /**
  * 設定エラーファクトリー
  */
 export const createSettingsError = {
-  invalidFOV: (value: number, min: number, max: number) => InvalidFOV({ value, min, max }),
+  invalidFOV: (value: number, min: number, max: number) =>
+    SettingsError.InvalidFOV({
+      message: `Invalid FOV: ${value} (expected ${min} to ${max})`,
+      value,
+      min,
+      max,
+    }),
 
-  invalidSensitivity: (value: number, min: number, max: number) => InvalidSensitivity({ value, min, max }),
+  invalidSensitivity: (value: number, min: number, max: number) =>
+    SettingsError.InvalidSensitivity({
+      message: `Invalid sensitivity: ${value} (expected ${min} to ${max})`,
+      value,
+      min,
+      max,
+    }),
 
-  invalidDistance: (value: number, min: number, max: number) => InvalidDistance({ value, min, max }),
+  invalidDistance: (value: number, min: number, max: number) =>
+    SettingsError.InvalidDistance({
+      message: `Invalid distance: ${value} (expected ${min} to ${max})`,
+      value,
+      min,
+      max,
+    }),
 } as const
 
 // ========================================
-// ADT Export for External Use
+// Data.taggedEnum Pattern - Factory Functions
 // ========================================
-
-/**
- * カメラエラーADTコンストラクタ（外部用エクスポート）
- */
-export {
-  AnimationError,
-  CameraNotInitialized,
-  CollisionError,
-  InitializationFailed,
-  InvalidConfiguration,
-  InvalidMode,
-  InvalidParameter,
-  ResourceError,
-}
-
-/**
- * 位置エラーADTコンストラクタ（外部用エクスポート）
- */
-export { InvalidPosition, PositionOutOfBounds }
-
-/**
- * 回転エラーADTコンストラクタ（外部用エクスポート）
- */
-export { InvalidRotation, RotationLimitExceeded }
-
-/**
- * 設定エラーADTコンストラクタ（外部用エクスポート）
- */
-export { InvalidDistance, InvalidFOV, InvalidSensitivity }
-
-// ========================================
-// Backward Compatibility Aliases
-// ========================================
-
-/**
- * 既存コードとの後方互換性のためのエイリアス
- * @deprecated - 新しいADTパターンを使用してください
- */
-export const CameraInitializationError = InitializationFailed
-export const CameraNotInitializedError = CameraNotInitialized
-export const InvalidConfigurationError = InvalidConfiguration
-export const InvalidCameraModeError = InvalidMode
-export const InvalidParameterError = InvalidParameter
-export const CameraResourceError = ResourceError
-export const CameraAnimationError = AnimationError
-export const CameraCollisionError = CollisionError
-
-export const InvalidPositionError = InvalidPosition
-export const PositionOutOfBoundsError = PositionOutOfBounds
-export const InvalidRotationError = InvalidRotation
-export const RotationLimitExceededError = RotationLimitExceeded
-export const InvalidFOVError = InvalidFOV
-export const InvalidSensitivityError = InvalidSensitivity
-export const InvalidDistanceError = InvalidDistance
+// Note: With Data.taggedEnum, errors are created using:
+// 1. Direct constructors (e.g., CameraError.InitializationFailed({ ... }))
+// 2. Factory functions (e.g., createCameraError.initializationFailed(...))
+// Factory functions provide convenience and consistent error creation

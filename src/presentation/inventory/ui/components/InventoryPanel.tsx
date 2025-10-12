@@ -1,8 +1,7 @@
-import { Effect, Match, pipe } from 'effect'
+import { Match, pipe } from 'effect'
 import type { JSX } from 'react'
 import {
   InventoryClosed,
-  InventoryEventHandler,
   InventoryGUIEvent,
   InventoryOpened,
   InventoryPanelModel,
@@ -15,15 +14,8 @@ import { ItemSlot } from './index'
 
 interface InventoryPanelProps {
   readonly model: InventoryPanelModel
-  readonly onEvent: InventoryEventHandler
+  readonly onEvent: (event: InventoryGUIEvent) => void
 }
-
-const emit = (handler: InventoryEventHandler, event: InventoryGUIEvent) =>
-  handler(event).pipe(
-    Effect.catchAllCause((cause) => Effect.logError(cause)),
-    Effect.asVoid,
-    Effect.runSync
-  )
 
 const toggleEvent = (model: InventoryPanelModel) =>
   pipe(
@@ -61,9 +53,9 @@ const slotKey = (slotIndex: number) => `slot-${slotIndex}`
 export const InventoryPanel = ({ model, onEvent }: InventoryPanelProps): JSX.Element => {
   const { main, hotbar } = partitionSlots(model)
 
-  const handleSelect = (slot: InventorySlot) => emit(onEvent, SlotClicked({ slot: slot.index, button: 'left' }))
+  const handleSelect = (slot: InventorySlot) => onEvent(SlotClicked({ slot: slot.index, button: 'left' }))
 
-  const handleQuickMove = (slot: InventorySlot) => emit(onEvent, QuickMove({ slot: slot.index }))
+  const handleQuickMove = (slot: InventorySlot) => onEvent(QuickMove({ slot: slot.index }))
 
   const columns = `repeat(${model.config.columns}, 1fr)`
   const hotbarColumns = pipe(
@@ -95,7 +87,7 @@ export const InventoryPanel = ({ model, onEvent }: InventoryPanelProps): JSX.Ele
         <h2 style={{ margin: 0 }}>Inventory</h2>
         <button
           type="button"
-          onClick={() => emit(onEvent, toggleEvent(model))}
+          onClick={() => onEvent(toggleEvent(model))}
           style={{
             padding: '0.5rem 1rem',
             borderRadius: '8px',

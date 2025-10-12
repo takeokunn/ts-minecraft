@@ -1,8 +1,9 @@
 import { Cache, Clock, Duration, Effect, Chunk as EffectChunk, Either, Match, Option, pipe } from 'effect'
 import { getUsedHeapSize } from '../../../performance'
 import type { ChunkTimestamp } from '../../types'
-import { CHUNK_HEIGHT, CHUNK_MIN_Y, CHUNK_SIZE } from '../../types'
+import { CHUNK_HEIGHT, CHUNK_MIN_Y, CHUNK_SIZE, makeUnsafeChunkTimestamp } from '../../types'
 import type { ChunkMetadata, HeightValue } from '../../value_object/chunk_metadata'
+import { makeUnsafeHeightValue } from '../../value_object/chunk_metadata'
 import type { ChunkPosition } from '../../value_object/chunk_position'
 import type { ChunkData } from '../chunk_data'
 import { ChunkDataOptics } from './index'
@@ -62,7 +63,7 @@ const recalculatePositionalMetadata = (
     return {
       ...currentMetadata,
       biome: calculateBiomeFromPosition(position),
-      timestamp: timestamp as ChunkTimestamp,
+      timestamp: makeUnsafeChunkTimestamp(timestamp),
     }
   })
 
@@ -138,7 +139,7 @@ export const ChunkCompositeOperations = {
       const heightUpdates = validCoordinates
         .map(({ x, y, z }) => ({
           index: heightMapIndex(x, z),
-          height: y as HeightValue,
+          height: makeUnsafeHeightValue(y),
           isSolid: blockId !== 0,
         }))
         .filter(({ isSolid, index, height }) =>
@@ -241,7 +242,7 @@ export const ChunkBatchCompositeOperations = {
   batchAsyncUpdate: (
     chunks: ReadonlyArray<ChunkData>,
     operation: (chunk: ChunkData, index: number) => Effect.Effect<ChunkData>
-  ): Effect.Effect<ReadonlyArray<ChunkData>> => Effect.forEach(chunks, operation, { concurrency: 'unbounded' }),
+  ): Effect.Effect<ReadonlyArray<ChunkData>> => Effect.forEach(chunks, operation, { concurrency: 8 }),
 
   conditionalBatchUpdate: (
     chunks: ReadonlyArray<ChunkData>,
@@ -492,7 +493,9 @@ export const PerformanceMonitoring = {
       const startTime = yield* Effect.sync(() => performance.now())
       const result = yield* operation
       const endTime = yield* Effect.sync(() => performance.now())
-      yield* Effect.sync(() => console.debug(`${operationName} took ${endTime - startTime}ms`))
+      yield* Effect.logDebug('Operation completed').pipe(
+        Effect.annotateLogs({ operation: operationName, durationMs: endTime - startTime })
+      )
       return result
     }),
 
@@ -507,7 +510,9 @@ export const PerformanceMonitoring = {
         (diff) => diff > 1024 * 1024,
         Match.value,
         Match.when(true, () =>
-          Effect.sync(() => console.warn(`Memory usage increased by ${(afterMemory - beforeMemory) / 1024 / 1024}MB`))
+          Effect.logWarning('Memory usage increased').pipe(
+            Effect.annotateLogs({ increaseMB: (afterMemory - beforeMemory) / 1024 / 1024 })
+          )
         ),
         Match.orElse(() => Effect.unit)
       )

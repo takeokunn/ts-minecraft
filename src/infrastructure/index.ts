@@ -6,7 +6,14 @@
  */
 
 export * from './audio'
+export * from './chunk'
 export * from './ecs'
 export * from './inventory'
+export * from './input'
+export * from './world'
+export * from './biome'
+export * from './equipment'
+export * from './physics'
 export * from './rendering'
 export * from './scene'
+export * from './world_generation'

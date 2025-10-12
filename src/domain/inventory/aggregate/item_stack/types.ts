@@ -3,14 +3,19 @@
  * DDD原則に基づくエンティティの実装
  */
 
+import { JsonRecordSchema } from '@shared/schema/json'
+import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
 import { Schema } from 'effect'
+import { unsafeCoerce } from 'effect/Function'
 import type { ItemId } from '../../types'
+import { ItemIdSchema } from '../../value_object/item_id/schema'
+import { ItemMetadataSchema } from '../../value_object/item_metadata/schema'
 
 // ===== Brand Types =====
 
 export const ItemStackIdSchema = Schema.String.pipe(
   Schema.nonEmptyString(),
-  Schema.pattern(/^stack_[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{12}$/),
+  Schema.pattern(/^stack_[A-Za-z0-9_-]+$/),
   Schema.brand('ItemStackId')
 )
 export type ItemStackId = Schema.Schema.Type<typeof ItemStackIdSchema>
@@ -20,6 +25,14 @@ export type ItemCount = Schema.Schema.Type<typeof ItemCountSchema>
 
 export const DurabilitySchema = Schema.Number.pipe(Schema.between(0, 1), Schema.brand('Durability'))
 export type Durability = Schema.Schema.Type<typeof DurabilitySchema>
+
+// ===== makeUnsafe Functions =====
+
+export const makeUnsafeItemStackId = (value: string): ItemStackId => unsafeCoerce<string, ItemStackId>(value)
+
+export const makeUnsafeItemCount = (value: number): ItemCount => unsafeCoerce<number, ItemCount>(value)
+
+export const makeUnsafeDurability = (value: number): Durability => unsafeCoerce<number, Durability>(value)
 
 // ===== Value Objects =====
 
@@ -37,7 +50,7 @@ export const ItemNBTDataSchema = Schema.Struct({
   unbreakable: Schema.optional(Schema.Boolean),
   hideFlags: Schema.optional(Schema.Number.pipe(Schema.int())),
   customModelData: Schema.optional(Schema.Number.pipe(Schema.int())),
-  attributes: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
+  attributes: Schema.optional(JsonRecordSchema),
   tags: Schema.optional(Schema.Array(Schema.String)),
 })
 export type ItemNBTData = Schema.Schema.Type<typeof ItemNBTDataSchema>
@@ -49,12 +62,12 @@ export const ItemStackEntitySchema = Schema.Struct({
   id: ItemStackIdSchema,
 
   // 基本アイテム情報
-  itemId: Schema.suspend(() => import('../../types/index').then((m) => m.ItemIdSchema)),
+  itemId: ItemIdSchema,
   count: ItemCountSchema,
 
   // オプション属性
   durability: Schema.optional(DurabilitySchema),
-  metadata: Schema.optional(Schema.suspend(() => import('../../types/index').then((m) => m.ItemMetadata))),
+  metadata: Schema.optional(ItemMetadataSchema),
   nbtData: Schema.optional(ItemNBTDataSchema),
 
   // エンティティメタデータ
@@ -71,7 +84,7 @@ export const ItemStackMergedEventSchema = Schema.Struct({
   type: Schema.Literal('ItemStackMerged'),
   sourceStackId: ItemStackIdSchema,
   targetStackId: ItemStackIdSchema,
-  itemId: Schema.suspend(() => import('../../types/index').then((m) => m.ItemIdSchema)),
+  itemId: ItemIdSchema,
   mergedQuantity: ItemCountSchema,
   finalQuantity: ItemCountSchema,
   timestamp: Schema.DateTimeUtc,
@@ -81,7 +94,7 @@ export const ItemStackSplitEventSchema = Schema.Struct({
   type: Schema.Literal('ItemStackSplit'),
   sourceStackId: ItemStackIdSchema,
   newStackId: ItemStackIdSchema,
-  itemId: Schema.suspend(() => import('../../types/index').then((m) => m.ItemIdSchema)),
+  itemId: ItemIdSchema,
   splitQuantity: ItemCountSchema,
   remainingQuantity: ItemCountSchema,
   timestamp: Schema.DateTimeUtc,
@@ -90,7 +103,7 @@ export const ItemStackSplitEventSchema = Schema.Struct({
 export const ItemStackConsumedEventSchema = Schema.Struct({
   type: Schema.Literal('ItemStackConsumed'),
   stackId: ItemStackIdSchema,
-  itemId: Schema.suspend(() => import('../../types/index').then((m) => m.ItemIdSchema)),
+  itemId: ItemIdSchema,
   consumedQuantity: ItemCountSchema,
   remainingQuantity: ItemCountSchema,
   timestamp: Schema.DateTimeUtc,
@@ -100,7 +113,7 @@ export const ItemStackConsumedEventSchema = Schema.Struct({
 export const ItemStackDamageEventSchema = Schema.Struct({
   type: Schema.Literal('ItemStackDamaged'),
   stackId: ItemStackIdSchema,
-  itemId: Schema.suspend(() => import('../../types/index').then((m) => m.ItemIdSchema)),
+  itemId: ItemIdSchema,
   previousDurability: DurabilitySchema,
   newDurability: DurabilitySchema,
   damageAmount: Schema.Number.pipe(Schema.between(0, 1)),
@@ -135,85 +148,73 @@ export const ITEM_STACK_CONSTANTS = {
 
 // ===== Error Types =====
 
-export const ItemStackErrorSchema = Schema.TaggedError('ItemStackError')(
-  Schema.Struct({
-    reason: Schema.Literal(
-      'INVALID_STACK_SIZE',
-      'INCOMPATIBLE_ITEMS',
-      'INSUFFICIENT_QUANTITY',
-      'ITEM_BROKEN',
-      'INVALID_DURABILITY',
-      'MERGE_OVERFLOW',
-      'SPLIT_UNDERFLOW',
-      'ENCHANTMENT_CONFLICT',
-      'NBT_MISMATCH'
-    ),
-    message: Schema.String,
-    stackId: Schema.optional(ItemStackIdSchema),
-    itemId: Schema.optional(Schema.suspend(() => import('../../types/index').then((m) => m.ItemIdSchema))),
-    quantity: Schema.optional(ItemCountSchema),
-    metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
-  })
-)
+export const ItemStackErrorSchema = Schema.TaggedError('ItemStackError', {
+  reason: Schema.Literal(
+    'INVALID_STACK_SIZE',
+    'INCOMPATIBLE_ITEMS',
+    'INSUFFICIENT_QUANTITY',
+    'ITEM_BROKEN',
+    'INVALID_DURABILITY',
+    'MERGE_OVERFLOW',
+    'SPLIT_UNDERFLOW',
+    'ENCHANTMENT_CONFLICT',
+    'NBT_MISMATCH',
+    'MERGE_DIFFERENT_ITEMS',
+    'STACK_LIMIT_EXCEEDED'
+  ),
+  message: Schema.String,
+  stackId: Schema.optional(ItemStackIdSchema),
+  itemId: Schema.optional(ItemIdSchema),
+  quantity: Schema.optional(ItemCountSchema),
+  metadata: Schema.optional(JsonRecordSchema),
+  issues: Schema.optional(Schema.Array(Schema.String)),
+  originalError: Schema.optional(Schema.Unknown),
+})
+export type ItemStackError = Schema.Schema.Type<typeof ItemStackErrorSchema>
 
-export class ItemStackError extends Schema.TaggedError('ItemStackError')<{
-  readonly reason: typeof ItemStackErrorSchema.Type.reason
-  readonly message: string
-  readonly stackId?: ItemStackId
-  readonly itemId?: ItemId
-  readonly quantity?: ItemCount
-  readonly metadata?: Record<string, unknown>
-}> {
-  static invalidStackSize(stackId: ItemStackId, size: number): ItemStackError {
-    return new ItemStackError({
+const baseItemStackError = makeErrorFactory(ItemStackErrorSchema)
+
+export const ItemStackError = {
+  ...baseItemStackError,
+  invalidStackSize: (stackId: ItemStackId, size: number): ItemStackError =>
+    ItemStackErrorSchema.make({
       reason: 'INVALID_STACK_SIZE',
       message: `不正なスタックサイズ: ${size}`,
       stackId,
-      quantity: size as ItemCount,
-    })
-  }
-
-  static incompatibleItems(sourceId: ItemStackId, targetId: ItemStackId): ItemStackError {
-    return new ItemStackError({
+      quantity: makeUnsafeItemCount(size),
+    }),
+  incompatibleItems: (sourceId: ItemStackId, targetId: ItemStackId): ItemStackError =>
+    ItemStackErrorSchema.make({
       reason: 'INCOMPATIBLE_ITEMS',
       message: `互換性のないアイテム: ${sourceId} と ${targetId}`,
       stackId: sourceId,
-    })
-  }
-
-  static insufficientQuantity(stackId: ItemStackId, requested: number, available: number): ItemStackError {
-    return new ItemStackError({
+    }),
+  insufficientQuantity: (stackId: ItemStackId, requested: number, available: number): ItemStackError =>
+    ItemStackErrorSchema.make({
       reason: 'INSUFFICIENT_QUANTITY',
       message: `数量不足: ${requested} > ${available}`,
       stackId,
-      quantity: requested as ItemCount,
-    })
-  }
-
-  static itemBroken(stackId: ItemStackId, itemId: ItemId): ItemStackError {
-    return new ItemStackError({
+      quantity: makeUnsafeItemCount(requested),
+    }),
+  itemBroken: (stackId: ItemStackId, itemId: ItemId): ItemStackError =>
+    ItemStackErrorSchema.make({
       reason: 'ITEM_BROKEN',
       message: `アイテムが破損しています: ${itemId}`,
       stackId,
       itemId,
-    })
-  }
-
-  static mergeOverflow(sourceId: ItemStackId, targetId: ItemStackId, totalSize: number): ItemStackError {
-    return new ItemStackError({
+    }),
+  mergeOverflow: (sourceId: ItemStackId, targetId: ItemStackId, totalSize: number): ItemStackError =>
+    ItemStackErrorSchema.make({
       reason: 'MERGE_OVERFLOW',
       message: `マージによるスタックサイズオーバーフロー: ${totalSize}`,
       stackId: sourceId,
-      quantity: totalSize as ItemCount,
-    })
-  }
-
-  static splitUnderflow(stackId: ItemStackId, splitSize: number): ItemStackError {
-    return new ItemStackError({
+      quantity: makeUnsafeItemCount(totalSize),
+    }),
+  splitUnderflow: (stackId: ItemStackId, splitSize: number): ItemStackError =>
+    ItemStackErrorSchema.make({
       reason: 'SPLIT_UNDERFLOW',
       message: `分割によるスタックサイズアンダーフロー: ${splitSize}`,
       stackId,
-      quantity: splitSize as ItemCount,
-    })
-  }
-}
+      quantity: makeUnsafeItemCount(splitSize),
+    }),
+} as const

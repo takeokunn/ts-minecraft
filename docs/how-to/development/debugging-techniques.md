@@ -79,6 +79,19 @@ flowchart TD
     F --> F2[レンダリング確認]
     F --> F3[入力処理確認]
 
+## 🕹️ メニューデバッグフロー
+
+ゲームプレイ中のメニュー挙動を素早く検証するため、開発ビルド (`pnpm dev`) では以下の操作フローが利用できます。
+
+- **Escapeキー**: ポーズメニューをトグル。設定画面を開いている場合は直前のルートへ戻ります（`MenuInputLayer` が `InputService` 経由で `MenuController` を呼び出し、`GameApplication.pause/resume` と同期）。
+- **右下の「Debug Controls」パネル**: `MenuActions` Facade を介して `MenuController` を直接操作するミニHUDです。
+  - `Pause Menu`: ポーズメニューを開き、アプリケーションを一時停止。
+  - `Settings Menu`: アプリケーション設定UIへ遷移。
+  - `Close Menu`: 現在のメニューを閉じ、必要であれば `GameApplication.resume()` を呼び出し実行状態へ戻します。
+- **左上の「メニュー」ボタン**: メニューを非表示にした状態から再度メインメニューを呼び出すトリガー。
+
+これらの操作は Effect Layer (`MenuController` + `SettingsApplicationService`) を通じてゲーム本体と連携しており、Pause/Resume/Stop などの副作用を含むユースケースをブラウザ上で即時に再現できます。入力系の不具合調査や設定更新の確認時は、上記のデバッグフローを活用してください。
+
     classDef critical fill:#ffebee,stroke:#d32f2f,stroke-width:2px
     classDef performance fill:#e8f5e8,stroke:#388e3c,stroke-width:2px
     classDef logic fill:#e3f2fd,stroke:#1565c0,stroke-width:2px

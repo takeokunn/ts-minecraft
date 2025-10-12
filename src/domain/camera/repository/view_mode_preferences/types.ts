@@ -5,7 +5,9 @@
  * プレイヤー設定、コンテキスト依存設定、人気度分析の型安全性確保
  */
 
-import { Array, Brand, Clock, Data, Effect, Option, ReadonlyMap, Schema } from 'effect'
+import { ErrorCauseSchema, toErrorCause, type ErrorCause } from '@shared/schema/error'
+import { JsonValueSchema, toJsonValue, type JsonSerializable, type JsonValue } from '@shared/schema/json'
+import { Array, Brand, Clock, Data, Effect, Option, Random, ReadonlyMap, Schema } from 'effect'
 import type { ViewMode } from '../../value_object/index'
 
 // ========================================
@@ -14,8 +16,9 @@ import type { ViewMode } from '../../value_object/index'
 
 /**
  * Player ID - プレイヤー識別子
+ * 共有カーネルから再エクスポート
  */
-export type PlayerId = Brand<string, 'PlayerId'>
+export type { PlayerId } from '@domain/shared/entities/player_id'
 
 /**
  * Key Binding - キーバインディング設定
@@ -253,7 +256,7 @@ export type ViewModePreferencesRepositoryError = Data.TaggedEnum<{
   }
   readonly InvalidPreference: {
     readonly field: string
-    readonly value: unknown
+    readonly value: JsonValue
     readonly reason: string
   }
   readonly DuplicateRecord: {
@@ -270,7 +273,7 @@ export type ViewModePreferencesRepositoryError = Data.TaggedEnum<{
   }
   readonly StorageError: {
     readonly message: string
-    readonly cause: Option<unknown>
+    readonly cause: Option.Option<ErrorCause>
   }
   readonly EncodingFailed: {
     readonly dataType: string
@@ -291,9 +294,9 @@ export type ViewModePreferencesRepositoryError = Data.TaggedEnum<{
 // ========================================
 
 /**
- * Player ID Schema
+ * Player ID Schema - 共有カーネルから再エクスポート
  */
-export const PlayerIdSchema = Schema.String.pipe(Schema.brand('PlayerId'))
+export { PlayerIdSchema } from '@domain/shared/entities/player_id'
 
 /**
  * Key Binding Schema
@@ -308,48 +311,48 @@ export const KeyBindingSchema = Schema.Struct({
 /**
  * Game Context Schema
  */
-export const GameContextSchema = Schema.TaggedEnum<GameContext>()({
-  Exploration: Schema.Struct({}),
-  Combat: Schema.Struct({}),
-  Building: Schema.Struct({}),
-  Flying: Schema.Struct({}),
-  Spectating: Schema.Struct({}),
-  Cinematic: Schema.Struct({}),
-  Menu: Schema.Struct({}),
-  Inventory: Schema.Struct({}),
-  Crafting: Schema.Struct({}),
-  Chat: Schema.Struct({}),
-})
+export const GameContextSchema = Schema.Union(
+  Schema.TaggedStruct('Exploration', {}),
+  Schema.TaggedStruct('Combat', {}),
+  Schema.TaggedStruct('Building', {}),
+  Schema.TaggedStruct('Flying', {}),
+  Schema.TaggedStruct('Spectating', {}),
+  Schema.TaggedStruct('Cinematic', {}),
+  Schema.TaggedStruct('Menu', {}),
+  Schema.TaggedStruct('Inventory', {}),
+  Schema.TaggedStruct('Crafting', {}),
+  Schema.TaggedStruct('Chat', {})
+)
 
 /**
  * Preference Trigger Schema
  */
-export const PreferenceTriggerSchema = Schema.TaggedEnum<PreferenceTrigger>()({
-  Manual: Schema.Struct({
+export const PreferenceTriggerSchema = Schema.Union(
+  Schema.TaggedStruct('Manual', {
     inputMethod: Schema.Literal('keyboard', 'mouse', 'gamepad', 'touch'),
   }),
-  Automatic: Schema.Struct({
+  Schema.TaggedStruct('Automatic', {
     reason: Schema.Literal('context-switch', 'smart-suggestion', 'preset-load'),
   }),
-  System: Schema.Struct({
+  Schema.TaggedStruct('System', {
     reason: Schema.Literal('performance-optimization', 'error-recovery', 'default-fallback'),
-  }),
-})
+  })
+)
 
 /**
  * Trend Direction Schema
  */
-export const TrendDirectionSchema = Schema.TaggedEnum<TrendDirection>()({
-  Rising: Schema.Struct({
+export const TrendDirectionSchema = Schema.Union(
+  Schema.TaggedStruct('Rising', {
     percentageIncrease: Schema.Number.pipe(Schema.nonNegative()),
   }),
-  Falling: Schema.Struct({
+  Schema.TaggedStruct('Falling', {
     percentageDecrease: Schema.Number.pipe(Schema.nonNegative()),
   }),
-  Stable: Schema.Struct({
+  Schema.TaggedStruct('Stable', {
     variancePercentage: Schema.Number.pipe(Schema.nonNegative()),
-  }),
-})
+  })
+)
 
 /**
  * View Mode Preference Schema
@@ -425,59 +428,70 @@ export const PreferenceQueryOptionsSchema = Schema.Struct({
   filterByViewMode: Schema.OptionFromNullable(Schema.String),
   timeRange: Schema.OptionFromNullable(TimeRangeSchema),
   includeSatisfactionData: Schema.Boolean,
-  sortBy: Schema.TaggedEnum<PreferenceSortBy>()({
-    Timestamp: Schema.Struct({ ascending: Schema.Boolean }),
-    Duration: Schema.Struct({ ascending: Schema.Boolean }),
-    Frequency: Schema.Struct({ ascending: Schema.Boolean }),
-    Satisfaction: Schema.Struct({ ascending: Schema.Boolean }),
-  }),
+  sortBy: Schema.Union(
+    Schema.TaggedStruct('Timestamp', { ascending: Schema.Boolean }),
+    Schema.TaggedStruct('Duration', { ascending: Schema.Boolean }),
+    Schema.TaggedStruct('Frequency', { ascending: Schema.Boolean }),
+    Schema.TaggedStruct('Satisfaction', { ascending: Schema.Boolean })
+  ),
   limit: Schema.OptionFromNullable(Schema.Number.pipe(Schema.positive())),
 }).pipe(Schema.brand('PreferenceQueryOptions'))
 
 /**
  * View Mode Preferences Repository Error Schema
  */
-export const ViewModePreferencesRepositoryErrorSchema = Schema.TaggedEnum<ViewModePreferencesRepositoryError>()({
-  PreferenceNotFound: Schema.Struct({
+export const ViewModePreferencesRepositoryErrorSchema = Schema.Union(
+  Schema.TaggedStruct('PreferenceNotFound', {
     playerId: PlayerIdSchema,
     context: Schema.OptionFromNullable(GameContextSchema),
   }),
-  RecordNotFound: Schema.Struct({
+  Schema.TaggedStruct('RecordNotFound', {
     recordId: PreferenceRecordIdSchema,
   }),
-  InvalidPreference: Schema.Struct({
+  Schema.TaggedStruct('InvalidPreference', {
     field: Schema.String,
-    value: Schema.Unknown,
+    value: JsonValueSchema,
     reason: Schema.String,
   }),
-  DuplicateRecord: Schema.Struct({
+  Schema.TaggedStruct('DuplicateRecord', {
     playerId: PlayerIdSchema,
     timestamp: Schema.Number,
   }),
-  AnalyticsCalculationFailed: Schema.Struct({
+  Schema.TaggedStruct('AnalyticsCalculationFailed', {
     playerId: PlayerIdSchema,
     reason: Schema.String,
   }),
-  PopularityDataUnavailable: Schema.Struct({
+  Schema.TaggedStruct('PopularityDataUnavailable', {
     context: Schema.OptionFromNullable(GameContextSchema),
     reason: Schema.String,
   }),
-  StorageError: Schema.Struct({
+  Schema.TaggedStruct('StorageError', {
     message: Schema.String,
-    cause: Schema.OptionFromNullable(Schema.Unknown),
+    cause: Schema.OptionFromNullable(ErrorCauseSchema),
   }),
-  EncodingFailed: Schema.Struct({
+  Schema.TaggedStruct('EncodingFailed', {
     dataType: Schema.String,
     reason: Schema.String,
   }),
-  DecodingFailed: Schema.Struct({
+  Schema.TaggedStruct('DecodingFailed', {
     dataType: Schema.String,
     reason: Schema.String,
   }),
-  ConcurrencyError: Schema.Struct({
+  Schema.TaggedStruct('ConcurrencyError', {
     operation: Schema.String,
     conflictingPlayer: Schema.OptionFromNullable(PlayerIdSchema),
-  }),
+  })
+)
+
+/**
+ * Export Data Schema - エクスポートデータ検証用
+ * exportPlayerPreferences/importPlayerPreferences で使用
+ */
+export const PreferenceExportDataSchema = Schema.Struct({
+  playerId: PlayerIdSchema,
+  preference: Schema.UndefinedOr(ViewModePreferenceSchema),
+  records: Schema.Array(ViewModePreferenceRecordSchema),
+  exportedAt: Schema.Number.pipe(Schema.positive()),
 })
 
 // ========================================
@@ -497,8 +511,8 @@ export const createViewModePreferencesError = {
   recordNotFound: (recordId: PreferenceRecordId): ViewModePreferencesRepositoryError =>
     Data.tagged('RecordNotFound', { recordId }),
 
-  invalidPreference: (field: string, value: unknown, reason: string): ViewModePreferencesRepositoryError =>
-    Data.tagged('InvalidPreference', { field, value, reason }),
+  invalidPreference: (field: string, value: JsonSerializable, reason: string): ViewModePreferencesRepositoryError =>
+    Data.tagged('InvalidPreference', { field, value: toJsonValue(value), reason }),
 
   duplicateRecord: (playerId: PlayerId, timestamp: number): ViewModePreferencesRepositoryError =>
     Data.tagged('DuplicateRecord', { playerId, timestamp }),
@@ -512,7 +526,7 @@ export const createViewModePreferencesError = {
   storageError: (message: string, cause?: unknown): ViewModePreferencesRepositoryError =>
     Data.tagged('StorageError', {
       message,
-      cause: cause ? Option.some(cause) : Option.none(),
+      cause: Option.fromNullable(toErrorCause(cause)),
     }),
 
   encodingFailed: (dataType: string, reason: string): ViewModePreferencesRepositoryError =>
@@ -560,7 +574,7 @@ export const createDefaultPreferences = {
         contextSensitivity: 0.7,
         lastModified,
         version: 1,
-      } as ViewModePreference
+      }
     }),
 
   /**
@@ -574,7 +588,8 @@ export const createDefaultPreferences = {
   ): Effect.Effect<ViewModePreferenceRecord> =>
     Effect.gen(function* () {
       const timestamp = yield* Clock.currentTimeMillis
-      const randomId = yield* Effect.sync(() => Math.random().toString(36).slice(2, 11))
+      const randomValue = yield* Random.nextIntBetween(0, 36 ** 9 - 1)
+      const randomId = randomValue.toString(36).padStart(9, '0')
       return {
         id: `pref_${timestamp}_${randomId}` as PreferenceRecordId,
         playerId,
@@ -585,30 +600,28 @@ export const createDefaultPreferences = {
         triggeredBy: Data.tagged('Manual', { inputMethod: 'keyboard' }),
         sessionId: `session_${timestamp}`,
         satisfactionScore: Option.none(),
-      } as ViewModePreferenceRecord
+      }
     }),
 
   /**
    * 時間範囲を作成
    */
-  timeRange: (startTime: number, endTime: number): TimeRange =>
-    ({
-      startTime,
-      endTime,
-    }) as TimeRange,
+  timeRange: (startTime: number, endTime: number): TimeRange => ({
+    startTime,
+    endTime,
+  }),
 
   /**
    * デフォルトクエリオプションを作成
    */
-  defaultQueryOptions: (): PreferenceQueryOptions =>
-    ({
-      filterByContext: Option.none(),
-      filterByViewMode: Option.none(),
-      timeRange: Option.none(),
-      includeSatisfactionData: true,
-      sortBy: Data.tagged('Timestamp', { ascending: false }),
-      limit: Option.some(100),
-    }) as PreferenceQueryOptions,
+  defaultQueryOptions: (): PreferenceQueryOptions => ({
+    filterByContext: Option.none(),
+    filterByViewMode: Option.none(),
+    timeRange: Option.none(),
+    includeSatisfactionData: true,
+    sortBy: Data.tagged('Timestamp', { ascending: false }),
+    limit: Option.some(100),
+  }),
 } as const
 
 // ========================================

@@ -1,6 +1,5 @@
-import * as Schema from '@effect/schema/Schema'
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
-import { Either, Option } from 'effect'
+import { Option, Schema } from 'effect'
 
 // ===== Brand Types =====
 
@@ -11,12 +10,8 @@ export const FurnitureIdSchema = Schema.String.pipe(
 )
 export type FurnitureId = Schema.Schema.Type<typeof FurnitureIdSchema>
 
-export const PlayerIdSchema = Schema.String.pipe(
-  Schema.trimmed(),
-  Schema.pattern(/^player_[a-z0-9]{8}$/i),
-  Schema.brand('PlayerId')
-)
-export type PlayerId = Schema.Schema.Type<typeof PlayerIdSchema>
+// PlayerIdは共有カーネルから再エクスポート
+export { PlayerIdSchema, type PlayerId } from '@domain/shared/entities/player_id'
 
 export const TickSchema = Schema.Number.pipe(Schema.int(), Schema.nonNegative(), Schema.brand('GameTick'))
 export type GameTick = Schema.Schema.Type<typeof TickSchema>
@@ -229,21 +224,7 @@ export const decodeCreateSignInput = Schema.decodeEither(CreateSignInputSchema)
 export const decodeUpdateSignTextCommand = Schema.decodeEither(UpdateSignTextCommandSchema)
 
 // Utility to format schema errors into strings without using `as`
-const formatIssue = (issue: TreeFormatter.Issue) =>
-  TreeFormatter.formatIssue(issue, {
-    includeStackTrace: false,
-  })
-
-export const collectIssues = (result: Either.Either<unknown, unknown>) =>
-  Either.match(result, {
-    onLeft: (issue) => [formatIssue(issue)] as const,
-    onRight: () => [] as const,
-  })
-
-export const formatParseError = (error: Schema.ParseError) =>
-  TreeFormatter.formatError(error, {
-    includeStackTrace: false,
-  })
+export const formatParseError = (error: Schema.ParseError): string => TreeFormatter.formatErrorSync(error)
 
 export const toValidationError = (error: Schema.ParseError) => FurnitureError.validation([formatParseError(error)])
 

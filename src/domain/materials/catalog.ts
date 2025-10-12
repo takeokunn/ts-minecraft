@@ -1,4 +1,4 @@
-import { HashMap, Option, pipe, Schema } from 'effect'
+import { HashMap, Option, pipe } from 'effect'
 import * as Array_ from 'effect/Array'
 import type {
   BlockId,
@@ -9,15 +9,7 @@ import type {
   ToolEfficiency,
   ToolEfficiencyCollection,
 } from './types'
-import {
-  MaterialCollection as MaterialCollectionSchema,
-  ToolEfficiencyCollection as ToolEfficiencyCollectionSchema,
-} from './types'
-
-const decodeMaterials = Schema.decodeUnknownSync(MaterialCollectionSchema)
-const decodeEfficiencies = Schema.decodeUnknownSync(ToolEfficiencyCollectionSchema)
-
-const materialsSource: MaterialCollection = decodeMaterials([
+const materialsSource: MaterialCollection = [
   {
     id: 'stone',
     blockId: 'minecraft:stone',
@@ -116,9 +108,9 @@ const materialsSource: MaterialCollection = decodeMaterials([
     burnTime: 100,
     tags: ['overworld', 'foliage'],
   },
-])
+] as MaterialCollection
 
-const efficiencySource: ToolEfficiencyCollection = decodeEfficiencies([
+const efficiencySource: ToolEfficiencyCollection = [
   {
     toolType: 'pickaxe',
     toolMaterial: 'netherite',
@@ -224,7 +216,7 @@ const efficiencySource: ToolEfficiencyCollection = decodeEfficiencies([
     speedMultiplier: 6,
     canHarvest: true,
   },
-])
+] as ToolEfficiencyCollection
 
 const tuple = <A, B>(a: A, b: B): readonly [A, B] => [a, b]
 

@@ -1,12 +1,18 @@
-import { Schema } from 'effect'
+import {
+  EPOCH_ZERO,
+  Timestamp,
+  TimestampSchema,
+  now as timestampNow,
+} from '@domain/shared/value_object/units/timestamp'
+import { Effect, Schema } from 'effect'
 
-export const PlayerIdSchema = Schema.String.pipe(Schema.minLength(1), Schema.brand('PlayerId'))
-export type PlayerId = Schema.Schema.Type<typeof PlayerIdSchema>
-export const PlayerId = (value: string): PlayerId => Schema.decodeUnknownSync(PlayerIdSchema)(value)
+// PlayerIdは共有カーネルから再エクスポート
+export { PlayerIdSchema, type PlayerId } from '@domain/shared/entities/player_id'
+export { SimpleItemIdSchema as ItemIdSchema, type ItemId } from '../../shared/entities/item_id'
 
-export const ItemIdSchema = Schema.String.pipe(Schema.pattern(/^[a-z0-9_:-]+$/i), Schema.brand('ItemId'))
-export type ItemId = Schema.Schema.Type<typeof ItemIdSchema>
-export const ItemId = (value: string): ItemId => Schema.decodeUnknownSync(ItemIdSchema)(value)
+// 共有カーネルから再エクスポート（互換性のためSimpleItemIdSchemaを使用）
+import { SimpleItemIdSchema } from '../../shared/entities/item_id'
+export const ItemId = (value: string): ItemId => value as ItemId
 
 export const ItemMetadataSchema = Schema.Struct({
   durability: Schema.optional(Schema.Number.pipe(Schema.nonNegative())),
@@ -38,7 +44,7 @@ export interface ArmorSlots {
 }
 
 export interface InventoryMetadata {
-  readonly lastUpdated: number
+  readonly lastUpdated: Timestamp
   readonly checksum: string
 }
 
@@ -56,7 +62,7 @@ export interface Inventory {
 
 export interface InventoryState {
   readonly inventory: Inventory
-  readonly persistedAt: number
+  readonly persistedAt: Timestamp
 }
 
 export const InventorySchema: Schema.Schema<Inventory> = Schema.Struct({
@@ -77,14 +83,14 @@ export const InventorySchema: Schema.Schema<Inventory> = Schema.Struct({
   offhand: Schema.Union(ItemStackSchema, Schema.Null),
   version: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
   metadata: Schema.Struct({
-    lastUpdated: Schema.Number,
+    lastUpdated: TimestampSchema,
     checksum: Schema.String,
   }),
 })
 
 export const InventoryStateSchema: Schema.Schema<InventoryState> = Schema.Struct({
   inventory: InventorySchema,
-  persistedAt: Schema.Number,
+  persistedAt: TimestampSchema,
 })
 
 const createEmptyArmor = (): ArmorSlots => ({
@@ -109,14 +115,17 @@ const serializeInventory = (inventory: Inventory) => ({
 
 export const computeChecksum = (inventory: Inventory): string => {
   const json = JSON.stringify(serializeInventory(inventory))
-  let hash = 0
-  for (let i = 0; i < json.length; i += 1) {
-    hash = (hash * 31 + json.charCodeAt(i)) >>> 0
-  }
+  const hash = Array.from(json).reduce((acc, char) => (acc * 31 + char.charCodeAt(0)) >>> 0, 0)
   return hash.toString(16)
 }
 
-export const createEmptyInventory = (playerId: PlayerId): Inventory => {
+type InventoryCreationOptions = {
+  readonly timestamp?: Timestamp
+}
+
+export const createEmptyInventory = (playerId: PlayerId, options?: InventoryCreationOptions): Inventory => {
+  const timestamp = options?.timestamp ?? EPOCH_ZERO
+
   const base: Inventory = {
     id: `inventory-${playerId}`,
     playerId,
@@ -127,7 +136,7 @@ export const createEmptyInventory = (playerId: PlayerId): Inventory => {
     offhand: null,
     version: 0,
     metadata: {
-      lastUpdated: yield * Clock.currentTimeMillis,
+      lastUpdated: timestamp,
       checksum: '',
     },
   }
@@ -141,7 +150,10 @@ export const createEmptyInventory = (playerId: PlayerId): Inventory => {
   }
 }
 
-export const touchInventory = (inventory: Inventory): Inventory => {
+export const createEmptyInventoryEffect = (playerId: PlayerId): Effect.Effect<Inventory> =>
+  Effect.map(timestampNow(), (timestamp) => createEmptyInventory(playerId, { timestamp }))
+
+export const touchInventory = (inventory: Inventory, timestamp: Timestamp): Inventory => {
   const updated: Inventory = {
     ...inventory,
     version: inventory.version + 1,
@@ -150,10 +162,13 @@ export const touchInventory = (inventory: Inventory): Inventory => {
   return {
     ...updated,
     metadata: {
-      lastUpdated: yield * Clock.currentTimeMillis,
+      lastUpdated: timestamp,
       checksum: computeChecksum(updated),
     },
   }
 }
+
+export const touchInventoryEffect = (inventory: Inventory): Effect.Effect<Inventory> =>
+  Effect.map(timestampNow(), (timestamp) => touchInventory(inventory, timestamp))
 
 export const validateInventoryState = Schema.decodeUnknown(InventoryStateSchema)

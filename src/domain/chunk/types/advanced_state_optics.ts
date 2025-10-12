@@ -11,6 +11,9 @@ import type { ChunkMetadata } from '../value_object/chunk_metadata'
 import type { ChunkDataBytes, ChunkState, ChunkTimestamp, LoadProgress } from './index'
 import { ChunkStateGuards } from './index'
 
+type ChunkStateOptic<A> = Optic.Optic<ChunkState, ChunkState, never, A, never, A, ChunkState>
+type StateWithProperty<K extends keyof ChunkState> = Extract<ChunkState, { [P in K]: ChunkState[P] }>
+
 /**
  * 高度なChunkState操作用のOptics拡張
  * 複雑な状態遷移と条件付き操作を提供
@@ -27,9 +30,9 @@ export const AdvancedChunkStateOptics = {
    */
   conditional: <A>(
     condition: (state: ChunkState) => boolean,
-    whenTrue: Optic.Optic<ChunkState, unknown, never, A, never, A, ChunkState>,
-    whenFalse: Optic.Optic<ChunkState, unknown, never, A, never, A, ChunkState>
-  ): Optic.Optic<ChunkState, unknown, never, A, never, A, ChunkState> => {
+    whenTrue: ChunkStateOptic<A>,
+    whenFalse: ChunkStateOptic<A>
+  ): ChunkStateOptic<A> => {
     // @fp-ts/opticでは動的選択が難しいため、プレースホルダー実装
     return whenTrue
   },
@@ -76,7 +79,7 @@ export const AdvancedChunkStateOptics = {
    */
   conditionalProperty: <K extends keyof ChunkState>(propertyName: K) =>
     Optic.id<ChunkState>()
-      .filter((state): state is ChunkState & Record<K, unknown> => propertyName in state)
+      .filter((state): state is StateWithProperty<K> => propertyName in state)
       .at(propertyName),
 } as const
 
@@ -97,17 +100,28 @@ export const ChunkStateTransitionOptics = {
       toState: TTo,
       validation?: (state: Extract<ChunkState, { _tag: TFrom }>) => boolean
     ) =>
-    (state: ChunkState): Either.Either<TTo, string> => {
-      if (state._tag !== fromState) {
-        return Either.left(`Invalid transition: expected ${fromState}, got ${state._tag}`)
-      }
-
-      if (validation && !validation(state as Extract<ChunkState, { _tag: TFrom }>)) {
-        return Either.left(`Transition validation failed from ${fromState}`)
-      }
-
-      return Either.right(toState)
-    },
+    (state: ChunkState): Either.Either<TTo, string> =>
+      pipe(
+        Match.value(state._tag === fromState),
+        Match.when(false, () => Either.left(`Invalid transition: expected ${fromState}, got ${state._tag}` as const)),
+        Match.when(true, () =>
+          pipe(
+            validation,
+            Option.fromNullable,
+            Option.match({
+              onNone: () => Either.right(toState),
+              onSome: (validate) =>
+                pipe(
+                  Match.value(validate(state as Extract<ChunkState, { _tag: TFrom }>)),
+                  Match.when(false, () => Either.left(`Transition validation failed from ${fromState}` as const)),
+                  Match.when(true, () => Either.right(toState)),
+                  Match.exhaustive
+                ),
+            })
+          )
+        ),
+        Match.exhaustive
+      ),
 
   /**
    * 条件付き状態遷移
@@ -120,14 +134,13 @@ export const ChunkStateTransitionOptics = {
         transition: (state: ChunkState) => ChunkState
       }>
     ) =>
-    (state: ChunkState): ChunkState => {
-      for (const { condition, transition } of conditions) {
-        if (condition(state)) {
-          return transition(state)
-        }
-      }
-      return state // 条件に合致しない場合は元の状態を返す
-    },
+    (state: ChunkState): ChunkState =>
+      pipe(
+        conditions,
+        ReadonlyArray.findFirst(({ condition }) => condition(state)),
+        Option.map(({ transition }) => transition(state)),
+        Option.getOrElse(() => state)
+      ),
 
   /**
    * ロールバック機能付き状態遷移
@@ -204,12 +217,14 @@ export const ParallelChunkStateOptics = {
     Effect.gen(function* () {
       const chunks = EffectChunk.fromIterable(states)
       const batches = EffectChunk.chunksOf(chunks, batchSize)
-      const results: ChunkState[] = []
 
-      for (const batch of batches) {
-        const batchResults = yield* Effect.all(EffectChunk.toReadonlyArray(batch).map(operation))
-        results.push(...batchResults)
-      }
+      const results = yield* pipe(
+        batches,
+        Effect.forEach((batch) => Effect.all(EffectChunk.toReadonlyArray(batch).map(operation)), {
+          concurrency: 4,
+        }),
+        Effect.map(ReadonlyArray.flatten)
+      )
 
       return results
     }),
@@ -246,9 +261,21 @@ export const ParallelChunkStateOptics = {
 
       statistics.forEach((stat) => {
         byState[stat.tag] = (byState[stat.tag] || 0) + 1
-        if (stat.hasData) hasData++
-        if (stat.hasProgress) hasProgress++
-        if (stat.hasError) hasErrors++
+        hasData += pipe(
+          Match.value(stat.hasData),
+          Match.when(true, () => 1),
+          Match.orElse(() => 0)
+        )
+        hasProgress += pipe(
+          Match.value(stat.hasProgress),
+          Match.when(true, () => 1),
+          Match.orElse(() => 0)
+        )
+        hasErrors += pipe(
+          Match.value(stat.hasError),
+          Match.when(true, () => 1),
+          Match.orElse(() => 0)
+        )
       })
 
       return {
@@ -321,9 +348,11 @@ export const ReactiveChunkStateOptics = {
     (state: ChunkState) =>
     (newState: ChunkState) =>
       Effect.gen(function* () {
-        if (state._tag !== newState._tag) {
-          yield* onStateChange(state, newState)
-        }
+        yield* pipe(
+          Match.value(state._tag !== newState._tag),
+          Match.when(true, () => onStateChange(state, newState)),
+          Match.orElse(() => Effect.void)
+        )
         return newState
       }),
 
@@ -389,11 +418,12 @@ export const SafeChunkStateOptics = {
     <A>(optic: Optic.Optic<ChunkState, ChunkState, A, A>, fallback: A) =>
     (state: ChunkState): A =>
       pipe(
-        Effect.try({
-          try: () => optic.get(state) ?? fallback,
+        Either.try({
+          try: () => optic.get(state),
           catch: () => fallback,
         }),
-        Effect.runSync
+        Either.getOrElse((value) => value),
+        (value) => value ?? fallback
       ),
 
   /**
@@ -404,14 +434,10 @@ export const SafeChunkStateOptics = {
   safeSet:
     <A>(optic: Optic.Optic<ChunkState, ChunkState, A, A>, value: A) =>
     (state: ChunkState): Either.Either<ChunkState, string> =>
-      pipe(
-        Effect.try({
-          try: () => optic.replace(value)(state),
-          catch: (error) => `Failed to set state property: ${error}`,
-        }),
-        Effect.either,
-        Effect.runSync
-      ),
+      Either.try({
+        try: () => optic.replace(value)(state),
+        catch: (error) => `Failed to set state property: ${String(error)}`,
+      }),
 
   /**
    * リトライ機能付き状態操作

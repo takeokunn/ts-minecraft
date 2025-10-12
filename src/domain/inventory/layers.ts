@@ -1,8 +1,6 @@
 /**
- * Inventory Domain Integration Layers
- *
- * DDD原理主義に基づくInventoryドメインの統合レイヤー群。
- * 全てのドメインサービス、アプリケーションサービス、リポジトリを統合。
+ * @fileoverview Inventory Domain Layer
+ * Domain層の依存関係を提供（Repository層 + Domain Service層 + Factory層）
  */
 
 import { Layer } from 'effect'
@@ -16,15 +14,11 @@ import {
   ValidationServiceLive,
 } from './domain_service/index'
 
-// ===== Application Services Layer =====
-import {
-  ContainerManagerServiceLive,
-  InventoryManagerServiceLive,
-  TransactionManagerServiceLive,
-} from './application_service/index'
-
 // ===== Factory Layer =====
-import { ContainerFactoryLive, InventoryFactoryLive, ItemFactoryLive, ItemStackFactoryLive } from './factory/index'
+import { ContainerFactoryLayer } from './aggregate/container/factory'
+import { InventoryFactoryLayer as InventoryAggregateFactoryLayer } from './aggregate/inventory/factory'
+import { ItemStackFactoryLayer } from './aggregate/item_stack/factory'
+import { ItemFactoryLayer } from './factory/item_factory/factory'
 
 // ===== Repository Layer =====
 import { InventoryRepositoryLayer } from './repository/index'
@@ -44,82 +38,30 @@ export const InventoryDomainServicesLayer = Layer.mergeAll(
 )
 
 /**
- * Inventory Application Services Layer
- *
- * 全てのInventoryアプリケーションサービスを統合したレイヤー。
- * ユースケース実行とドメイン協調を担当。
- */
-export const InventoryApplicationServicesLayer = Layer.mergeAll(
-  InventoryManagerServiceLive,
-  ContainerManagerServiceLive,
-  TransactionManagerServiceLive
-)
-
-/**
  * Inventory Factory Layer
  *
  * 全てのInventoryファクトリーを統合したレイヤー。
  * 複雑な集約・エンティティの構築を担当。
  */
 export const InventoryFactoryLayer = Layer.mergeAll(
-  InventoryFactoryLive,
-  ContainerFactoryLive,
-  ItemStackFactoryLive,
-  ItemFactoryLive
+  InventoryAggregateFactoryLayer,
+  ContainerFactoryLayer,
+  ItemStackFactoryLayer,
+  ItemFactoryLayer
 )
 
 /**
  * Inventory Domain Layer
  *
- * ドメインサービス群とファクトリー群を統合したレイヤー。
- * 純粋なドメインロジックを提供。
- */
-export const InventoryDomainLayer = Layer.mergeAll(InventoryDomainServicesLayer, InventoryFactoryLayer)
-
-/**
- * Inventory Application Layer
+ * ドメインサービス群、ファクトリー群、リポジトリ群を統合したレイヤー。
+ * 純粋なドメインロジックとインフラストラクチャを提供。
  *
- * アプリケーションサービス群とドメイン層を統合したレイヤー。
- * ユースケース実行に必要な全要素を提供。
+ * FR-1により、Application ServiceはDomain層から分離されました。
  */
-export const InventoryApplicationLayer = Layer.mergeAll(InventoryDomainLayer, InventoryApplicationServicesLayer)
-
-/**
- * Inventory Infrastructure Layer
- *
- * リポジトリレイヤーを統合。
- * 永続化・技術的詳細を分離。
- */
-export const InventoryInfrastructureLayer = Layer.mergeAll(InventoryRepositoryLayer)
-
-/**
- * Inventory Complete Layer
- *
- * Inventoryドメインの全レイヤーを統合した完全なレイヤー。
- * アプリケーション開発で使用する統合レイヤー。
- *
- * 含まれる要素:
- * - 全ドメインサービス
- * - 全アプリケーションサービス
- * - 全ファクトリー
- * - 全リポジトリ
- */
-export const InventoryCompleteLayer = Layer.mergeAll(InventoryApplicationLayer, InventoryInfrastructureLayer)
-
-/**
- * Inventory Test Layer
- *
- * テスト用の軽量レイヤー。
- * インメモリ実装のみを使用し、高速なテスト実行を可能にする。
- */
-export const InventoryTestLayer = Layer.mergeAll(
+export const InventoryDomainLive = Layer.mergeAll(
   InventoryDomainServicesLayer,
   InventoryFactoryLayer,
-  // テスト用はメモリリポジトリのみ使用
-  Layer.mergeAll(
-    // TODO: メモリ実装のみの軽量リポジトリレイヤーを作成
-    InventoryRepositoryLayer
-  )
+  InventoryRepositoryLayer
 )
 
 // ===== レイヤー使用例 =====
@@ -131,7 +73,7 @@ export const InventoryTestLayer = Layer.mergeAll(
  * import { InventoryCompleteLayer } from './domain/inventory/layers'
  *
  * const program = Effect.gen(function* () {
- *   const inventoryManager = yield* InventoryManagerService
+ *   const inventoryManager = yield* InventoryManagerApplicationService
  *   const result = yield* inventoryManager.createPlayerInventory(playerId)
  *   return result
  * })

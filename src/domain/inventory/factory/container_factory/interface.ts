@@ -5,30 +5,36 @@
  * Chest、Furnace、Hopper等のMinecraftコンテナシステムを管理
  */
 
+import type { JsonRecord } from '@shared/schema/json'
+import { JsonRecordSchema } from '@shared/schema/json'
+import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
 import { Context, Effect, Schema } from 'effect'
 import type { ItemId, ItemStack } from '../../types'
 
 // Container Factory固有のエラー型（Schema.TaggedErrorパターン）
-export class ContainerCreationError extends Schema.TaggedError<ContainerCreationError>()('ContainerCreationError', {
+export const ContainerCreationErrorSchema = Schema.TaggedError('ContainerCreationError', {
   reason: Schema.String,
   invalidFields: Schema.Array(Schema.String),
-  context: Schema.Record({ key: Schema.String, value: Schema.Unknown }).pipe(Schema.optional),
-}) {}
+  context: JsonRecordSchema.pipe(Schema.optional),
+})
+export type ContainerCreationError = Schema.Schema.Type<typeof ContainerCreationErrorSchema>
+export const ContainerCreationError = makeErrorFactory(ContainerCreationErrorSchema)
 
-export class ContainerValidationError extends Schema.TaggedError<ContainerValidationError>()(
-  'ContainerValidationError',
-  {
-    reason: Schema.String,
-    missingFields: Schema.Array(Schema.String),
-    context: Schema.Record({ key: Schema.String, value: Schema.Unknown }).pipe(Schema.optional),
-  }
-) {}
+export const ContainerValidationErrorSchema = Schema.TaggedError('ContainerValidationError', {
+  reason: Schema.String,
+  missingFields: Schema.Array(Schema.String),
+  context: JsonRecordSchema.pipe(Schema.optional),
+})
+export type ContainerValidationError = Schema.Schema.Type<typeof ContainerValidationErrorSchema>
+export const ContainerValidationError = makeErrorFactory(ContainerValidationErrorSchema)
 
-export class ContainerOperationError extends Schema.TaggedError<ContainerOperationError>()('ContainerOperationError', {
+export const ContainerOperationErrorSchema = Schema.TaggedError('ContainerOperationError', {
   reason: Schema.String,
   operation: Schema.String,
-  context: Schema.Record({ key: Schema.String, value: Schema.Unknown }).pipe(Schema.optional),
-}) {}
+  context: JsonRecordSchema.pipe(Schema.optional),
+})
+export type ContainerOperationError = Schema.Schema.Type<typeof ContainerOperationErrorSchema>
+export const ContainerOperationError = makeErrorFactory(ContainerOperationErrorSchema)
 
 // コンテナタイプ（DDD Value Object）
 export type ContainerType =
@@ -53,6 +59,9 @@ export type ContainerType =
   | 'cartography_table'
   | 'fletching_table'
   | 'loom'
+
+// 型ガード関数（Schema未定義のため暫定的に使用）
+export const asContainerType = (value: string): ContainerType => value as ContainerType
 
 // コンテナアクセス権限（DDD Value Object）
 export interface ContainerPermissions {
@@ -84,7 +93,7 @@ export interface Container {
   readonly slots: ReadonlyArray<ContainerSlot>
   readonly totalSlots: number
   readonly permissions: ContainerPermissions
-  readonly metadata?: Record<string, unknown>
+  readonly metadata?: JsonRecord
   readonly position?: { x: number; y: number; z: number }
   readonly owner?: string
   readonly isOpen: boolean
@@ -100,7 +109,7 @@ export interface ContainerConfig {
   readonly totalSlots?: number
   readonly permissions?: Partial<ContainerPermissions>
   readonly initialItems?: ReadonlyArray<{ slotIndex: number; item: ItemStack }>
-  readonly metadata?: Record<string, unknown>
+  readonly metadata?: JsonRecord
   readonly position?: { x: number; y: number; z: number }
   readonly owner?: string
   readonly isLocked?: boolean
@@ -190,7 +199,7 @@ export interface ContainerBuilderConfig {
   readonly totalSlots?: number
   readonly permissions?: Partial<ContainerPermissions>
   readonly initialItems?: ReadonlyArray<{ slotIndex: number; item: ItemStack }>
-  readonly metadata?: Record<string, unknown>
+  readonly metadata?: JsonRecord
   readonly position?: { x: number; y: number; z: number }
   readonly owner?: string
   readonly isLocked?: boolean
@@ -207,7 +216,7 @@ export interface ContainerBuilder {
   readonly withPosition: (x: number, y: number, z: number) => ContainerBuilder
   readonly withOwner: (owner: string) => ContainerBuilder
   readonly withLock: (isLocked: boolean, lockKey?: string) => ContainerBuilder
-  readonly withMetadata: (metadata: Record<string, unknown>) => ContainerBuilder
+  readonly withMetadata: (metadata: JsonRecord) => ContainerBuilder
   readonly addItem: (slotIndex: number, item: ItemStack) => ContainerBuilder
   readonly addItems: (items: ReadonlyArray<{ slotIndex: number; item: ItemStack }>) => ContainerBuilder
   readonly build: () => Effect.Effect<Container, ContainerCreationError>

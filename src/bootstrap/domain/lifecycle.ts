@@ -1,7 +1,9 @@
 import { Effect, Option, pipe, Schema } from 'effect'
 import * as Match from 'effect/Match'
-import { BootstrapConfig, BootstrapConfigSchema } from './config'
-import { EpochMilliseconds, EpochMillisecondsSchema } from './value'
+import type { BootstrapConfig } from './config'
+import { BootstrapConfigSchema } from './config'
+import type { EpochMilliseconds } from './value'
+import { EpochMillisecondsSchema } from './value'
 
 export const LifecycleStateSchema = Schema.Literal('uninitialized', 'initializing', 'ready')
 export type LifecycleState = Schema.Schema.Type<typeof LifecycleStateSchema>
@@ -19,7 +21,7 @@ export const LifecycleSnapshotSchema = Schema.Struct({
 export type LifecycleSnapshot = Schema.Schema.Type<typeof LifecycleSnapshotSchema>
 export type LifecycleSnapshotInput = Schema.Schema.From<typeof LifecycleSnapshotSchema>
 
-const decodeLifecycleSnapshot = Schema.decode(LifecycleSnapshotSchema)
+export const decodeLifecycleSnapshot = Schema.decode(LifecycleSnapshotSchema)
 
 export const makeLifecycleSnapshot = (params: {
   readonly state: LifecycleState
@@ -79,7 +81,7 @@ export const AppReadinessSchema = Schema.Struct({
 export type AppReadiness = Schema.Schema.Type<typeof AppReadinessSchema>
 export type AppReadinessInput = Schema.Schema.From<typeof AppReadinessSchema>
 
-const decodeAppReadiness = Schema.decode(AppReadinessSchema)
+export const decodeAppReadiness = Schema.decode(AppReadinessSchema)
 
 export const readinessProjection = (snapshot: LifecycleSnapshot, ready: boolean): Effect.Effect<AppReadiness> =>
   decodeAppReadiness({
@@ -102,7 +104,7 @@ export const AppInitializationResultSchema = Schema.Struct({
 export type AppInitializationResult = Schema.Schema.Type<typeof AppInitializationResultSchema>
 export type AppInitializationResultInput = Schema.Schema.From<typeof AppInitializationResultSchema>
 
-const decodeInitializationResult = Schema.decode(AppInitializationResultSchema)
+export const decodeInitializationResult = Schema.decode(AppInitializationResultSchema)
 
 export const initializationProjection = (
   snapshot: LifecycleSnapshot,

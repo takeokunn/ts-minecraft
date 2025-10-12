@@ -539,12 +539,12 @@ export const PlayerRequestResolverLive = Layer.effect(
 ```typescript
 // ❌ メモリリークを引き起こすパターン
 const leakyBackground = Effect.gen(function* () {
-  const fibers: Fiber.Fiber<any, any>[] = []
-
-  for (let i = 0; i < 1000; i++) {
-    const fiber = yield* Effect.fork(heavyComputation(i))
-    fibers.push(fiber) // Fiberの参照が溜まり続ける
-  }
+  const fibers = yield* pipe(
+    ReadonlyArray.range(0, 999),
+    Effect.reduce([] as ReadonlyArray<Fiber.Fiber<any, any>>, (acc, i) =>
+      Effect.map(Effect.fork(heavyComputation(i)), (fiber) => [...acc, fiber])
+    )
+  )
 
   // fibersのクリーンアップを忘れがち
 })

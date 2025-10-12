@@ -104,7 +104,7 @@ export const CoordinateTransformSchema: Schema.Schema<CoordinateTransform> = Sch
 export const TransformResultSchema: Schema.Schema<TransformResult> = Schema.Union(
   Schema.Struct({
     _tag: Schema.Literal('Success'),
-    result: Schema.Unknown,
+    result: Schema.Union(SlotPositionSchema, GridCoordinateSchema, Schema.Number, Schema.String),
   }),
   Schema.Struct({
     _tag: Schema.Literal('OutOfRange'),

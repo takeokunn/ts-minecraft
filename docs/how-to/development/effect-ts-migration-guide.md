@@ -232,19 +232,18 @@ const testRuntime = Effect.provide(saveGame(mockGameState), Layer.succeed(Databa
 ```typescript
 // Before: 命令型スタイル
 async function processPlayers(players: Player[]): Promise<ProcessedPlayer[]> {
-  const results: ProcessedPlayer[] = []
+  const processed = await Promise.all(
+    players.map(async (player) => {
+      try {
+        return await processPlayer(player)
+      } catch (error) {
+        console.error(`Failed to process ${player.id}:`, error)
+        return null
+      }
+    })
+  )
 
-  for (const player of players) {
-    try {
-      const processed = await processPlayer(player)
-      results.push(processed)
-    } catch (error) {
-      console.error(`Failed to process ${player.id}:`, error)
-      // エラーを無視して続行（データ損失のリスク）
-    }
-  }
-
-  return results
+  return processed.filter((result): result is ProcessedPlayer => result !== null)
 }
 
 // After: Effect.forEach を使った関数型スタイル
@@ -464,16 +463,19 @@ const fixedFunction = <A>(input: unknown): Effect.Effect<A, ValidationError> =>
 // ❌ 非効率: ネストしたEffect.genの過度な使用
 const inefficient = (items: Item[]) =>
   Effect.gen(function* (_) {
-    const results = []
-    for (const item of items) {
-      const result = yield* _(
+    return yield* Effect.reduce(
+      items,
+      [] as ReadonlyArray<unknown>,
+      (acc, item) =>
         Effect.gen(function* (_) {
-          // 重いネストは避ける
+          const result = yield* _(
+            Effect.gen(function* (_) {
+              // 重いネストは避ける
+            })
+          )
+          return [...acc, result]
         })
-      )
-      results.push(result)
-    }
-    return results
+    )
   })
 
 // ✅ 効率的: 適切なコンビネーター使用
@@ -551,6 +553,111 @@ const debuggedEffect = pipe(
 - **公式ドキュメント**: [Effect-TS Official Docs](https://effect.website/)
 - **プロジェクト内資料**: [Effect-TS Fundamentals](../../tutorials/effect-ts-fundamentals/README.md)
 - **実践例**: プロジェクト内の既存移行コード参照
+
+## パターン別移行例
+
+### 1. TestClock/TestRandom導入
+
+#### Before: 実時間依存テスト
+
+```typescript
+it('waits for 5 seconds', async () => {
+  await new Promise(resolve => setTimeout(resolve, 5000))
+  const result = await generateChunk()
+  expect(result).toBeDefined()
+})
+```
+
+#### After: TestClock使用
+
+```typescript
+it.effect('controls time precisely', () =>
+  Effect.gen(function* () {
+    yield* Effect.sleep(Duration.seconds(5))
+    yield* TestClock.adjust(Duration.seconds(5))
+
+    const result = yield* generateChunk()
+    expect(result).toBeDefined()
+  }).pipe(Effect.provide(testLayer))
+)
+```
+
+### 2. Effect.catchTags導入
+
+#### Before: Effect.catchAllで全エラー捕捉
+
+```typescript
+const result = yield* generateChunk().pipe(
+  Effect.catchAll((error) => {
+    if ('_tag' in error && error._tag === 'ChunkGenerationError') {
+      // ChunkGenerationError処理
+    } else if ('_tag' in error && error._tag === 'BiomeNotFoundError') {
+      // BiomeNotFoundError処理
+    }
+    return Effect.succeed(fallback)
+  })
+)
+```
+
+#### After: Effect.catchTagsで型安全に分岐
+
+```typescript
+const result = yield* generateChunk().pipe(
+  Effect.catchTags({
+    ChunkGenerationError: (error) =>
+      Effect.succeed(createFallbackChunk(error)),
+    BiomeNotFoundError: (error) =>
+      Effect.fail(WorldGenerationError.biomeRequired(error)),
+  })
+)
+```
+
+### 3. Supervisor導入
+
+#### Before: Fiber状態の追跡なし
+
+```typescript
+const gameLoop = yield* Effect.fork(
+  Effect.forever(
+    Effect.gen(function* () {
+      yield* updateGameState()
+      yield* Effect.sleep(Duration.millis(16))
+    })
+  )
+)
+```
+
+#### After: Supervisor導入
+
+```typescript
+export const GameLoopSupervisorLayer = Layer.scoped(
+  GameLoopSupervisor,
+  Effect.gen(function* () {
+    const supervisor = yield* Supervisor.track
+    const fiber = yield* Effect.fork(GameLoopSupervisor).pipe(
+      Effect.supervised(supervisor)
+    )
+    yield* Effect.addFinalizer(() => Fiber.interrupt(fiber))
+    return {}
+  })
+)
+```
+
+### 4. Metric/Tracing統合
+
+#### Before: console.logでログ出力
+
+```typescript
+console.log(`Chunk generation took ${duration}ms`)
+```
+
+#### After: Metric計測
+
+```typescript
+yield* chunkGenerationDuration(duration)
+yield* chunkGenerationCounter.increment()
+yield* Effect.logInfo(`Chunk generated`, { duration, coord })
+```
 
 ## まとめ
 

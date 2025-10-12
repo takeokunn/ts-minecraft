@@ -3,9 +3,10 @@
  * コンテナ固有のビジネスロジック実装
  */
 
-import { Clock, Effect, Option, pipe } from 'effect'
+import { Clock, DateTime, Effect, Match, Option, pipe } from 'effect'
 import type { ItemId, PlayerId } from '../../types'
 import type { ItemStackEntity } from '../item_stack/types'
+import { ItemCountSchema, makeUnsafeItemStackId } from '../item_stack/types'
 import { addContainerUncommittedEvent, incrementContainerVersion } from './factory'
 import type {
   ContainerAggregate,
@@ -19,7 +20,7 @@ import type {
   ItemPlacedInContainerEvent,
   ItemRemovedFromContainerEvent,
 } from './types'
-import { CONTAINER_CONSTANTS, ContainerError } from './types'
+import { CONTAINER_CONSTANTS, ContainerError, makeUnsafeContainerSlotIndex } from './types'
 
 // ===== Access Control Operations =====
 
@@ -49,29 +50,33 @@ export const openContainer = (
       )
     )
 
-    // 既に視聴中でない場合のみ追加
-    if (!aggregate.currentViewers.includes(playerId)) {
-      const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms).toISOString())
-      const event: ContainerOpenedEvent = {
-        type: 'ContainerOpened',
-        aggregateId: aggregate.id,
-        playerId,
-        containerType: aggregate.type,
-        position: aggregate.position,
-        timestamp: timestamp as any,
-      }
+    return yield* pipe(
+      Match.value(aggregate.currentViewers.includes(playerId)),
+      Match.when(true, () => Effect.succeed(aggregate)),
+      Match.orElse(() =>
+        Effect.gen(function* () {
+          const now = yield* DateTime.now
+          const timestamp = DateTime.formatIso(now)
+          const event: ContainerOpenedEvent = {
+            type: 'ContainerOpened',
+            aggregateId: aggregate.id,
+            playerId,
+            containerType: aggregate.type,
+            position: aggregate.position,
+            timestamp,
+          }
 
-      const updatedAgg = {
-        ...aggregate,
-        isOpen: true,
-        currentViewers: [...aggregate.currentViewers, playerId],
-        lastAccessed: timestamp as any,
-      }
-      const versionedAgg = yield* incrementContainerVersion(updatedAgg)
-      return addContainerUncommittedEvent(versionedAgg, event)
-    }
-
-    return aggregate
+          const updatedAgg = {
+            ...aggregate,
+            isOpen: true,
+            currentViewers: [...aggregate.currentViewers, playerId],
+            lastAccessed: timestamp,
+          }
+          const versionedAgg = yield* incrementContainerVersion(updatedAgg)
+          return addContainerUncommittedEvent(versionedAgg, event)
+        })
+      )
+    )
   })
 
 /**
@@ -87,7 +92,8 @@ export const closeContainer = (
     const updatedViewers = aggregate.currentViewers.filter((id) => id !== playerId)
     const now = yield* Clock.currentTimeMillis
     const sessionDuration = now - sessionStartTime.getTime()
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms).toISOString())
+    const now = yield* DateTime.now
+    const timestamp = DateTime.formatIso(now)
 
     const event: ContainerClosedEvent = {
       type: 'ContainerClosed',
@@ -95,7 +101,7 @@ export const closeContainer = (
       playerId,
       containerType: aggregate.type,
       sessionDuration,
-      timestamp: timestamp as any,
+      timestamp,
     }
 
     const updatedAgg = {
@@ -163,7 +169,8 @@ export const placeItemInContainer = (
     const updatedSlots = [...aggregate.slots]
     updatedSlots[slotIndex] = newSlot
 
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms).toISOString())
+    const now = yield* DateTime.now
+    const timestamp = DateTime.formatIso(now)
     const event: ItemPlacedInContainerEvent = {
       type: 'ItemPlacedInContainer',
       aggregateId: aggregate.id,
@@ -172,7 +179,7 @@ export const placeItemInContainer = (
       itemId: itemStack.itemId,
       quantity: itemStack.count,
       itemStackId: itemStack.id,
-      timestamp: timestamp as any,
+      timestamp,
     }
 
     const updatedAgg = { ...aggregate, slots: updatedSlots }
@@ -214,26 +221,25 @@ export const removeItemFromContainer = (
 
     const slot = aggregate.slots[slotIndex]
 
-    // スロットにアイテムが存在するかチェック
-    yield* pipe(
-      slot?.itemStack,
-      Effect.filterOrFail(
-        (itemStack) => itemStack !== undefined,
-        () => ContainerError.slotEmpty(aggregate.id, slotIndex)
-      )
+    // スロットにアイテムが存在するかチェックし、検証済みデータを取得
+    const validatedSlot = yield* pipe(
+      slot,
+      Option.fromNullable,
+      Option.flatMap((s) => (s.itemStack ? Option.some({ slot: s, itemStack: s.itemStack }) : Option.none())),
+      Effect.fromOption(() => ContainerError.slotEmpty(aggregate.id, slotIndex))
     )
 
-    const removeQuantity = quantity ?? slot!.itemStack!.count
+    const removeQuantity = quantity ?? validatedSlot.itemStack.count
 
     // 数量の検証
     yield* pipe(
       removeQuantity,
       Effect.filterOrFail(
-        (qty) => qty <= slot!.itemStack!.count,
+        (qty) => qty <= validatedSlot.itemStack.count,
         () =>
-          new ContainerError({
+          ContainerError.make({
             reason: 'INVALID_SLOT_INDEX',
-            message: `数量不足: ${removeQuantity} > ${slot!.itemStack!.count}`,
+            message: `数量不足: ${removeQuantity} > ${validatedSlot.itemStack.count}`,
             containerId: aggregate.id,
             slotIndex,
           })
@@ -241,40 +247,44 @@ export const removeItemFromContainer = (
     )
 
     const updatedSlots = [...aggregate.slots]
-    let removedItemStack: Option.Option<ItemStackEntity> = Option.none()
 
-    if (removeQuantity === slot!.itemStack!.count) {
-      // 完全に削除
-      updatedSlots[slotIndex] = null
-      removedItemStack = Option.some(slot!.itemStack!)
-    } else {
-      // 一部削除
-      const updatedItemStack: ItemStackEntity = {
-        ...slot!.itemStack!,
-        count: (slot!.itemStack!.count - removeQuantity) as any,
-      }
-      updatedSlots[slotIndex] = { ...slot!, itemStack: updatedItemStack }
+    const removedItemStack = yield* pipe(
+      Match.value(removeQuantity === validatedSlot.itemStack.count),
+      Match.when(true, () => {
+        updatedSlots[slotIndex] = null
+        return Effect.succeed(Option.some(validatedSlot.itemStack))
+      }),
+      Match.orElse(() =>
+        Effect.gen(function* () {
+          const newCount = validatedSlot.itemStack.count - removeQuantity
+          const updatedItemStack: ItemStackEntity = {
+            ...validatedSlot.itemStack,
+            count: ItemCountSchema.make(newCount),
+          }
+          updatedSlots[slotIndex] = { ...validatedSlot.slot, itemStack: updatedItemStack }
 
-      // 削除されたアイテムスタックを作成（簡略化）
-      const now = yield* Clock.currentTimeMillis
-      const removedStack: ItemStackEntity = {
-        ...slot!.itemStack!,
-        count: removeQuantity as any,
-        id: `stack_removed_${now}` as any,
-      }
-      removedItemStack = Option.some(removedStack)
-    }
+          const nowMillis = yield* Clock.currentTimeMillis
+          const removedStack: ItemStackEntity = {
+            ...validatedSlot.itemStack,
+            count: ItemCountSchema.make(removeQuantity),
+            id: makeUnsafeItemStackId(`stack_removed_${nowMillis}`),
+          }
+          return Option.some(removedStack)
+        })
+      )
+    )
 
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms).toISOString())
+    const now = yield* DateTime.now
+    const timestamp = DateTime.formatIso(now)
     const event: ItemRemovedFromContainerEvent = {
       type: 'ItemRemovedFromContainer',
       aggregateId: aggregate.id,
       playerId,
       slotIndex,
-      itemId: slot!.itemStack!.itemId,
+      itemId: validatedSlot.itemStack.itemId,
       quantity: removeQuantity,
-      itemStackId: slot!.itemStack!.id,
-      timestamp: timestamp as any,
+      itemStackId: validatedSlot.itemStack.id,
+      timestamp,
       reason,
     }
 
@@ -309,7 +319,7 @@ export const sortContainer = (
       Effect.filterOrFail(
         (autoSort) => autoSort,
         () =>
-          new ContainerError({
+          ContainerError.make({
             reason: 'INVALID_CONFIGURATION',
             message: 'このコンテナは自動ソートが無効です',
             containerId: aggregate.id,
@@ -317,44 +327,46 @@ export const sortContainer = (
       )
     )
 
-    // アイテムがあるスロットを取得
-    const itemSlots = aggregate.slots.map((slot, index) => ({ slot, index })).filter(({ slot }) => slot?.itemStack)
+    // アイテムがあるスロットを取得（型安全に）
+    const itemSlots = aggregate.slots
+      .map((slot, index) => ({ slot, index }))
+      .filter(
+        (item): item is { slot: NonNullable<typeof item.slot> & { itemStack: ItemStackEntity }; index: number } =>
+          item.slot !== null && item.slot.itemStack !== undefined
+      )
 
     // ソートロジック
     const sortedSlots = [...itemSlots].sort((a, b) => {
-      const itemA = a.slot!.itemStack!
-      const itemB = b.slot!.itemStack!
+      const itemA = a.slot.itemStack
+      const itemB = b.slot.itemStack
 
-      switch (sortType) {
-        case 'alphabetical':
-          return itemA.itemId.localeCompare(itemB.itemId)
-        case 'quantity':
-          return itemB.count - itemA.count
-        case 'type':
-          return itemA.itemId.localeCompare(itemB.itemId)
-        default:
-          return 0
-      }
+      return pipe(
+        Match.value(sortType),
+        Match.when('alphabetical', () => itemA.itemId.localeCompare(itemB.itemId)),
+        Match.when('quantity', () => itemB.count - itemA.count),
+        Match.when('type', () => itemA.itemId.localeCompare(itemB.itemId)),
+        Match.orElse(() => 0)
+      )
     })
 
     // 新しいスロット配列を作成
-    const newSlots: Array<ContainerSlot> = Array(aggregate.configuration.maxSlots).fill(null)
-    sortedSlots.forEach(({ slot }, index) => {
-      if (index < aggregate.configuration.maxSlots) {
-        newSlots[index] = slot
-      }
+    const maxSlots = aggregate.configuration.maxSlots
+    const newSlots: Array<ContainerSlot> = Array(maxSlots).fill(null)
+    sortedSlots.slice(0, maxSlots).forEach(({ slot }, index) => {
+      newSlots[index] = slot
     })
 
-    const affectedSlots = sortedSlots.map((_, index) => index as ContainerSlotIndex)
+    const affectedSlots = sortedSlots.map((_, index) => makeUnsafeContainerSlotIndex(index))
 
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms).toISOString())
+    const now = yield* DateTime.now
+    const timestamp = DateTime.formatIso(now)
     const event: ContainerSortedEvent = {
       type: 'ContainerSorted',
       aggregateId: aggregate.id,
       playerId,
       sortType,
       affectedSlots,
-      timestamp: timestamp as any,
+      timestamp,
     }
 
     const updatedAgg = { ...aggregate, slots: newSlots }
@@ -389,14 +401,15 @@ export const grantPermission = (
     // 既存の権限を削除して新しい権限を追加
     const updatedPermissions = [...aggregate.permissions.filter((p) => p.playerId !== targetPlayerId), newPermission]
 
-    const timestamp = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms).toISOString())
+    const now = yield* DateTime.now
+    const timestamp = DateTime.formatIso(now)
     const event: ContainerPermissionGrantedEvent = {
       type: 'ContainerPermissionGranted',
       aggregateId: aggregate.id,
       ownerId,
       grantedTo: targetPlayerId,
       permission: newPermission,
-      timestamp: timestamp as any,
+      timestamp,
     }
 
     const updatedAgg = { ...aggregate, permissions: updatedPermissions }
@@ -415,44 +428,54 @@ const checkAccess = (
   accessType: 'view' | 'insert' | 'extract' | 'modify'
 ): Effect.Effect<boolean, ContainerError> =>
   Effect.gen(function* () {
-    // オーナーは常にアクセス可能
-    if (aggregate.ownerId === playerId) {
-      return true
-    }
+    const directAccess = aggregate.ownerId === playerId || aggregate.accessLevel === 'public'
 
-    // パブリックアクセスレベルの場合
-    if (aggregate.accessLevel === 'public') {
-      return true
-    }
+    return yield* pipe(
+      Match.value(directAccess),
+      Match.when(true, () => Effect.succeed(true)),
+      Match.orElse(() => {
+        const permission = aggregate.permissions.find((p) => p.playerId === playerId)
 
-    // 個別権限をチェック
-    const permission = aggregate.permissions.find((p) => p.playerId === playerId)
-    if (!permission) {
-      return false
-    }
+        return pipe(
+          Option.fromNullable(permission),
+          Option.match({
+            onNone: () => Effect.succeed(false),
+            onSome: (perm) =>
+              Effect.gen(function* () {
+                const isExpired = yield* pipe(
+                  Option.fromNullable(perm.expiresAt),
+                  Option.match({
+                    onNone: () => Effect.succeed(false),
+                    onSome: (expiresAtIso) =>
+                      Effect.gen(function* () {
+                        const now = yield* DateTime.now
+                        const expiresAt = DateTime.unsafeMake(expiresAtIso)
+                        return now > expiresAt
+                      }),
+                  })
+                )
 
-    // 権限の有効期限チェック
-    if (permission.expiresAt) {
-      const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
-      const expiresAt = new Date(permission.expiresAt)
-      if (now > expiresAt) {
-        return false
-      }
-    }
-
-    // アクセスタイプ別のチェック
-    switch (accessType) {
-      case 'view':
-        return permission.canView
-      case 'insert':
-        return permission.canInsert
-      case 'extract':
-        return permission.canExtract
-      case 'modify':
-        return permission.canModify
-      default:
-        return false
-    }
+                return yield* pipe(
+                  Match.value(isExpired),
+                  Match.when(true, () => Effect.succeed(false)),
+                  Match.orElse(() =>
+                    Effect.succeed(
+                      pipe(
+                        Match.value(accessType),
+                        Match.when('view', () => perm.canView),
+                        Match.when('insert', () => perm.canInsert),
+                        Match.when('extract', () => perm.canExtract),
+                        Match.when('modify', () => perm.canModify),
+                        Match.orElse(() => false)
+                      )
+                    )
+                  )
+                )
+              }),
+          })
+        )
+      })
+    )
   })
 
 /**
@@ -466,25 +489,26 @@ const checkItemTypeAllowed = (
   Effect.gen(function* () {
     const config = aggregate.configuration
 
-    // 制限されたアイテムタイプをチェック
-    if (config.restrictedItemTypes?.includes(itemId)) {
-      return false
-    }
+    const isRestricted = pipe(
+      Option.fromNullable(config.restrictedItemTypes),
+      Option.exists((items) => items.includes(itemId))
+    )
 
-    // 許可されたアイテムタイプをチェック
-    if (config.allowedItemTypes && !config.allowedItemTypes.includes(itemId)) {
-      return false
-    }
+    const violatesAllowed = pipe(
+      Option.fromNullable(config.allowedItemTypes),
+      Option.exists((items) => !items.includes(itemId))
+    )
 
-    // スロット固有のフィルターをチェック
-    if (config.slotFilters?.[slotIndex]) {
-      const allowedForSlot = config.slotFilters[slotIndex]
-      if (!allowedForSlot.includes(itemId)) {
-        return false
-      }
-    }
+    const violatesSlotFilter = pipe(
+      Option.fromNullable(config.slotFilters?.[slotIndex]),
+      Option.exists((allowedForSlot) => !allowedForSlot.includes(itemId))
+    )
 
-    return true
+    return pipe(
+      Match.value(isRestricted || violatesAllowed || violatesSlotFilter),
+      Match.when(true, () => false),
+      Match.orElse(() => true)
+    )
   })
 
 // ===== Query Operations =====
@@ -510,29 +534,22 @@ export const isContainerEmpty = (aggregate: ContainerAggregate): boolean =>
 /**
  * 指定されたアイテムが存在するスロットを検索
  */
-export const findItemSlots = (aggregate: ContainerAggregate, itemId: ItemId): ReadonlyArray<ContainerSlotIndex> => {
-  const slots: ContainerSlotIndex[] = []
-
-  for (let i = 0; i < aggregate.slots.length; i++) {
-    const slot = aggregate.slots[i]
-    if (slot?.itemStack?.itemId === itemId) {
-      slots.push(i as ContainerSlotIndex)
-    }
-  }
-
-  return slots
-}
+export const findItemSlots = (aggregate: ContainerAggregate, itemId: ItemId): ReadonlyArray<ContainerSlotIndex> =>
+  pipe(
+    aggregate.slots,
+    ReadonlyArray.filterMapWithIndex((i, slot) =>
+      slot?.itemStack?.itemId === itemId ? Option.some(makeUnsafeContainerSlotIndex(i)) : Option.none()
+    )
+  )
 
 /**
  * 指定されたアイテムの合計数量を取得
  */
 export const getItemCount = (aggregate: ContainerAggregate, itemId: ItemId): number =>
-  aggregate.slots.reduce((total, slot) => {
-    if (slot?.itemStack?.itemId === itemId) {
-      return total + slot.itemStack.count
-    }
-    return total
-  }, 0)
+  aggregate.slots.reduce(
+    (total, slot) => (slot?.itemStack?.itemId === itemId ? total + slot.itemStack.count : total),
+    0
+  )
 
 /**
  * プレイヤーがコンテナを視聴中かチェック

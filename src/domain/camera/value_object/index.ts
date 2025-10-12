@@ -93,6 +93,7 @@ export type {
 
 // Animation関連
 export type {
+  AnimatableValue,
   AnimationDirection,
   AnimationDuration,
   AnimationError,

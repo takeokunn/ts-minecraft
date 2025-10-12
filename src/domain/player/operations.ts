@@ -1,5 +1,6 @@
 import type { ParseError } from '@effect/schema/ParseResult'
 import { TreeFormatter } from '@effect/schema/TreeFormatter'
+import type { JsonValue } from '@shared/schema/json'
 import { Effect, Either, Match, pipe, ReadonlyArray, Schema } from 'effect'
 import {
   HEALTH_CONSTANTS,
@@ -11,7 +12,6 @@ import {
   PlayerAggregateSchema,
   PlayerCommand,
   PlayerCommandSchema,
-  PlayerCreationInput,
   PlayerCreationInputSchema,
   PlayerErrorBuilders,
   PlayerEvent,
@@ -27,7 +27,9 @@ import {
   PlayerUpdateContextSchema,
   PlayerVitalsSchema,
   SATURATION_CONSTANTS,
+  type PlayerConstraintDetails,
 } from './index'
+import type { PlayerMotion } from './types'
 
 // -----------------------------------------------------------------------------
 // 型エイリアス
@@ -40,21 +42,24 @@ type TransitionError = ReturnType<typeof PlayerErrorBuilders.invalidTransition>
 // ヘルパー
 // -----------------------------------------------------------------------------
 
-const toDetails = (label: string, error: ParseError): ReadonlyMap<string, unknown> =>
-  new Map([
+const toDetails = (label: string, error: ParseError): PlayerConstraintDetails =>
+  new Map<string, JsonValue>([
     ['label', label],
     ['message', TreeFormatter.formatErrorSync(error)],
   ])
 
-const decodeWith = <A>(schema: Schema.Schema<unknown, A>, label: string, value: unknown) =>
+const decodeWith = <A, I>(schema: Schema.Schema<I, A>, label: string, value: I) =>
   pipe(
     Schema.decodeUnknownEither(schema)(value),
     Either.mapLeft((parseError) => PlayerErrorBuilders.constraint(label, toDetails(label, parseError))),
     Effect.fromEither
   )
 
-const ensureContext = (context: PlayerUpdateContext) =>
-  decodeWith(PlayerUpdateContextSchema, 'PlayerUpdateContext', context)
+const ensureContext = (context: PlayerUpdateContextInput) =>
+  decodeWith(PlayerUpdateContextSchema, 'PlayerUpdateContext', context) as Effect.Effect<
+    PlayerUpdateContext,
+    ConstraintError
+  >
 
 const ensureTimestampOrder = (current: PlayerAggregate, context: PlayerUpdateContext) =>
   pipe(
@@ -67,9 +72,9 @@ const ensureTimestampOrder = (current: PlayerAggregate, context: PlayerUpdateCon
           () =>
             PlayerErrorBuilders.constraint(
               'TimestampOrder',
-              new Map([
+              new Map<string, JsonValue>([
                 ['previous', current.updatedAt],
-                ['next', context.timestamp],
+                ['next', context.timestamp ?? null],
               ])
             )
         ),
@@ -138,9 +143,13 @@ const defaultVitals = pipe(
   Effect.orDie
 )
 
-const eventOf = (input: unknown) => decodeWith(PlayerEventSchema, 'PlayerEvent', input)
+const eventOf = (input: Schema.Schema.Input<typeof PlayerEventSchema>) =>
+  decodeWith(PlayerEventSchema, 'PlayerEvent', input)
 
-const aggregateOf = (input: unknown) => decodeWith(PlayerAggregateSchema, 'PlayerAggregate', input)
+const aggregateOf = (input: Schema.Schema.Input<typeof PlayerAggregateSchema>) =>
+  decodeWith(PlayerAggregateSchema, 'PlayerAggregate', input)
+
+type PlayerMotionInput = Schema.Schema.Input<typeof PlayerMotionSchema> | PlayerMotion
 
 // -----------------------------------------------------------------------------
 // 操作結果型
@@ -155,11 +164,11 @@ export interface PlayerOperationResult {
 // プレイヤー作成
 // -----------------------------------------------------------------------------
 
-export const createPlayer = (input: PlayerCreationInput): Effect.Effect<PlayerOperationResult, ConstraintError> =>
+export const createPlayer = (input: PlayerCreationInputInput): Effect.Effect<PlayerOperationResult, ConstraintError> =>
   pipe(
     decodeWith(PlayerCreationInputSchema, 'PlayerCreationInput', input),
-    Effect.zipWith(stationaryMotion, (payload, motion) => ({ payload, motion })),
-    Effect.zipWith(defaultVitals, ({ payload, motion }, vitals) => ({ payload, motion, vitals })),
+    Effect.flatMap((payload) => stationaryMotion.pipe(Effect.map((motion) => ({ payload, motion })))),
+    Effect.flatMap(({ payload, motion }) => defaultVitals.pipe(Effect.map((vitals) => ({ payload, motion, vitals })))),
     Effect.flatMap(({ payload, motion, vitals }) =>
       aggregateOf({
         id: payload.id,
@@ -226,18 +235,22 @@ export const updateVitals = (
 
 export const updatePosition = (
   aggregate: PlayerAggregate,
-  params: { readonly position: PlayerPosition; readonly motion: unknown },
+  params: { readonly position: PlayerPosition; readonly motion: PlayerMotionInput },
   context: PlayerUpdateContext
 ): Effect.Effect<PlayerOperationResult, ConstraintError> =>
   pipe(
     ensureTimestampOrder(aggregate, context),
     Effect.flatMap((timestamp) =>
       decodeWith(PlayerMotionSchema, 'PlayerMotion', params.motion).pipe(
-        Effect.zipWith(decodeWith(PlayerPositionSchema, 'PlayerPosition', params.position), (motion, position) => ({
-          motion,
-          position,
-          timestamp,
-        }))
+        Effect.flatMap((motion) =>
+          decodeWith(PlayerPositionSchema, 'PlayerPosition', params.position).pipe(
+            Effect.map((position) => ({
+              motion,
+              position,
+              timestamp,
+            }))
+          )
+        )
       )
     ),
     Effect.flatMap(({ motion, position, timestamp }) =>
@@ -311,7 +324,7 @@ export const applyCommand = (
           Effect.fail(
             PlayerErrorBuilders.constraint(
               'CreateCommand',
-              new Map([['message', '既存プレイヤーにCreateコマンドは適用できません']])
+              new Map<string, JsonValue>([['message', '既存プレイヤーにCreateコマンドは適用できません']])
             )
           )
         ),

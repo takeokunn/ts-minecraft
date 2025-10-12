@@ -20,9 +20,8 @@ export {
   type EquipmentTag,
   type Slots,
 } from './aggregate'
-export { EquipmentServiceLive, EquipmentServiceTag, type EquipmentService } from './application_service'
 export { analyseEquipmentSet, type EquipmentAnalysisSummary } from './domain_service'
-export { EquipmentRepositoryTag, InMemoryEquipmentRepository, type EquipmentRepository } from './repository'
+export { EquipmentRepositoryTag, type EquipmentRepository } from './repository'
 export {
   EquipmentSlotSchema,
   EquipmentStatsSchema,

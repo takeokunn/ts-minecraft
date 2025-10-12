@@ -1,6 +1,6 @@
 export * from './aggregate'
-export * from './application_service'
 export * from './domain_service'
+export * from './layer'
 export * from './parsers'
 export * from './repository'
 export * from './types'

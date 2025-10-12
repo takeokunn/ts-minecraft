@@ -5,7 +5,7 @@
  * アニメーション記録・統計・パフォーマンス分析・履歴管理を統合
  */
 
-import { Clock, Data, Effect, Option, Schema } from 'effect'
+import { Clock, Data, Effect, Match, Option, Schema } from 'effect'
 import type { AnimationQueryOptions, AnimationRecord, TimeRange } from './types'
 import { createAnimationRecord } from './types'
 
@@ -50,6 +50,7 @@ export type {
 } from './types'
 
 export {
+  AnimationHistoryExportDataSchema,
   AnimationHistoryRepositoryErrorSchema,
   AnimationMetadataSchema,
   AnimationPrioritySchema,
@@ -155,18 +156,22 @@ export const AnimationAnalysisUtils = {
   /**
    * アニメーション成功率を計算
    */
-  calculateSuccessRate: (statistics: AnimationStatistics): number => {
-    if (statistics.totalAnimations === 0) return 0
-    return (statistics.successfulAnimations / statistics.totalAnimations) * 100
-  },
+  calculateSuccessRate: (statistics: AnimationStatistics): number =>
+    Match.value(statistics.totalAnimations)
+      .pipe(
+        Match.when((total) => total === 0, () => 0),
+        Match.orElse((total) => (statistics.successfulAnimations / total) * 100)
+      ),
 
   /**
    * 中断率を計算
    */
-  calculateInterruptionRate: (statistics: AnimationStatistics): number => {
-    if (statistics.totalAnimations === 0) return 0
-    return (statistics.interruptedAnimations / statistics.totalAnimations) * 100
-  },
+  calculateInterruptionRate: (statistics: AnimationStatistics): number =>
+    Match.value(statistics.totalAnimations)
+      .pipe(
+        Match.when((total) => total === 0, () => 0),
+        Match.orElse((total) => (statistics.interruptedAnimations / total) * 100)
+      ),
 
   /**
    * パフォーマンススコアを計算
@@ -212,13 +217,26 @@ export const AnimationAnalysisUtils = {
   /**
    * アニメーション品質グレードを判定
    */
-  getQualityGrade: (performanceScore: number): 'S' | 'A' | 'B' | 'C' | 'D' => {
-    if (performanceScore >= 90) return 'S'
-    if (performanceScore >= 80) return 'A'
-    if (performanceScore >= 70) return 'B'
-    if (performanceScore >= 60) return 'C'
-    return 'D'
-  },
+  getQualityGrade: (performanceScore: number): 'S' | 'A' | 'B' | 'C' | 'D' =>
+    Match.value(performanceScore).pipe(
+      Match.when(
+        (score) => score >= 90,
+        () => 'S' as const
+      ),
+      Match.when(
+        (score) => score >= 80,
+        () => 'A' as const
+      ),
+      Match.when(
+        (score) => score >= 70,
+        () => 'B' as const
+      ),
+      Match.when(
+        (score) => score >= 60,
+        () => 'C' as const
+      ),
+      Match.orElse(() => 'D' as const)
+    ),
 } as const
 
 // ========================================

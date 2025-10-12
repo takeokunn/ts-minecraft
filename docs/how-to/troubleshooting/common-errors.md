@@ -1201,15 +1201,15 @@ npm ERR! peer dep missing: typescript@^5.0.0, required by effect@^3.17.13
 
      const issues: string[] = []
 
-     for (const [pkg, expectedVersion] of Object.entries(requiredVersions)) {
-       const currentVersion = packageJson.dependencies?.[pkg] || packageJson.devDependencies?.[pkg]
+    Object.entries(requiredVersions).forEach(([pkg, expectedVersion]) => {
+      const currentVersion = packageJson.dependencies?.[pkg] || packageJson.devDependencies?.[pkg]
 
-       if (!currentVersion) {
-         issues.push(`Missing package: ${pkg}`)
-       } else if (!currentVersion.includes(expectedVersion)) {
-         issues.push(`Version mismatch for ${pkg}: expected ${expectedVersion}, got ${currentVersion}`)
-       }
-     }
+      if (!currentVersion) {
+        issues.push(`Missing package: ${pkg}`)
+      } else if (!currentVersion.includes(expectedVersion)) {
+        issues.push(`Version mismatch for ${pkg}: expected ${expectedVersion}, got ${currentVersion}`)
+      }
+    })
 
      if (issues.length > 0) {
        yield* Effect.fail(new DependencyError({ issues }))
@@ -1370,19 +1370,23 @@ const SystemManager = {
     Effect.gen(function* () {
       const world = yield* WorldService
 
-      for (const componentType of requiredComponents) {
-        const hasComponent = yield* world.hasComponent(entityId, componentType)
-        if (!hasComponent) {
-          return yield* Effect.fail(
-            new ComponentMismatchError({
-              entityId,
-              missingComponent: componentType,
-            })
-          )
-        }
-      }
-
-      return true
+      return yield* pipe(
+        requiredComponents,
+        Effect.reduce(true as boolean, (_, componentType) =>
+          Effect.gen(function* () {
+            const hasComponent = yield* world.hasComponent(entityId, componentType)
+            if (!hasComponent) {
+              return yield* Effect.fail(
+                new ComponentMismatchError({
+                  entityId,
+                  missingComponent: componentType,
+                })
+              )
+            }
+            return true
+          })
+        )
+      )
     }),
 }
 ```
@@ -1788,13 +1792,18 @@ class PriorityMessageQueue {
 
   dequeue(): Message | null {
     // 高優先度から処理
-    for (const priority of ['CRITICAL', 'HIGH', 'NORMAL', 'LOW']) {
-      const queue = this.queues.get(priority as MessagePriority)
-      if (queue && queue.length > 0) {
-        return queue.shift()!
-      }
+    const priorityOrder: MessagePriority[] = ['CRITICAL', 'HIGH', 'NORMAL', 'LOW']
+    const targetPriority = priorityOrder.find((priority) => {
+      const queue = this.queues.get(priority)
+      return queue !== undefined && queue.length > 0
+    })
+
+    if (!targetPriority) {
+      return null
     }
-    return null
+
+    const queue = this.queues.get(targetPriority)!
+    return queue.shift() ?? null
   }
 
   private evictLowPriorityMessages(): void {

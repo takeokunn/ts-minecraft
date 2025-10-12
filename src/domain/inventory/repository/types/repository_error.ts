@@ -1,3 +1,4 @@
+import { toJsonValueOption, type JsonValue } from '@shared/schema/json'
 import { Clock, Data, Effect } from 'effect'
 import type { ContainerId, ItemId, PlayerId, SlotPosition } from '../../types'
 
@@ -12,7 +13,7 @@ export const RepositoryError = Data.tagged<{
   readonly _tag: 'RepositoryError'
   readonly operation: string
   readonly reason: string
-  readonly details?: unknown
+  readonly details?: JsonValue
   readonly timestamp: number
 }>('RepositoryError')
 
@@ -187,7 +188,7 @@ export const createRepositoryError = (
     return RepositoryError({
       operation,
       reason,
-      details,
+      details: toJsonValueOption(details),
       timestamp,
     })
   })

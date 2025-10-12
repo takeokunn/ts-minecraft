@@ -15,11 +15,13 @@
  * - 高度なバリデーションシステム
  */
 
-import * as BiomeProperties from '@domain/world/value_object/biome_properties/index'
+import * as BiomeProperties from '@/domain/biome/value_object/biome_properties/index'
 import * as GenerationParameters from '@domain/world/value_object/generation_parameters/index'
 import * as NoiseConfiguration from '@domain/world/value_object/noise_configuration/index'
 import * as WorldSeed from '@domain/world/value_object/world_seed/index'
-import { Context, Effect, Function, Layer, Match, Schema } from 'effect'
+import { JsonValueSchema, type JsonRecord } from '@shared/schema/json'
+import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
+import { Context, Effect, Either, Function, Layer, Match, ReadonlyArray, Schema } from 'effect'
 
 // ================================
 // Factory Error Types
@@ -28,13 +30,33 @@ import { Context, Effect, Function, Layer, Match, Schema } from 'effect'
 export const ConfigurationFactoryErrorSchema = Schema.TaggedError('ConfigurationFactoryError', {
   category: Schema.Literal('configuration_invalid', 'preset_not_found', 'compatibility_error'),
   message: Schema.String,
-  context: Schema.optional(Schema.Unknown),
+  context: Schema.optional(JsonValueSchema),
 })
 
-export class ConfigurationFactoryError extends Schema.TaggedError<typeof ConfigurationFactoryErrorSchema>()(
-  'ConfigurationFactoryError',
-  ConfigurationFactoryErrorSchema
-) {}
+export type ConfigurationFactoryError = Schema.Schema.Type<typeof ConfigurationFactoryErrorSchema>
+
+type ConfigurationFactoryErrorExtras = Partial<Omit<ConfigurationFactoryError, 'category' | 'message'>>
+
+const makeConfigurationFactoryError = (
+  category: ConfigurationFactoryError['category'],
+  message: string,
+  extras?: ConfigurationFactoryErrorExtras
+): ConfigurationFactoryError =>
+  ConfigurationFactoryErrorSchema.make({
+    category,
+    message,
+    ...extras,
+  })
+
+export const ConfigurationFactoryError = {
+  ...makeErrorFactory(ConfigurationFactoryErrorSchema),
+  configurationInvalid: (message: string, extras?: ConfigurationFactoryErrorExtras) =>
+    makeConfigurationFactoryError('configuration_invalid', message, extras),
+  presetNotFound: (message: string, extras?: ConfigurationFactoryErrorExtras) =>
+    makeConfigurationFactoryError('preset_not_found', message, extras),
+  compatibilityError: (message: string, extras?: ConfigurationFactoryErrorExtras) =>
+    makeConfigurationFactoryError('compatibility_error', message, extras),
+} as const
 
 // ================================
 // Configuration Types
@@ -48,7 +70,7 @@ export const WorldConfigurationSchema = Schema.Struct({
   metadata: Schema.optional(
     Schema.Record({
       key: Schema.String,
-      value: Schema.Unknown,
+      value: JsonValueSchema,
     })
   ),
 })
@@ -98,7 +120,7 @@ export const CreateConfigurationParamsSchema = Schema.Struct({
   customParameters: Schema.optional(
     Schema.Record({
       key: Schema.String,
-      value: Schema.Unknown,
+      value: JsonValueSchema,
     })
   ),
   target: Schema.optional(Schema.Literal('client', 'server', 'hybrid')),
@@ -181,8 +203,8 @@ export const ConfigurationComparisonResultSchema = Schema.Struct({
   differences: Schema.Array(
     Schema.Struct({
       field: Schema.String,
-      value1: Schema.Unknown,
-      value2: Schema.Unknown,
+      value1: JsonValueSchema,
+      value2: JsonValueSchema,
       impact: Schema.Literal('low', 'medium', 'high', 'critical'),
     })
   ),
@@ -235,21 +257,36 @@ const createWorldConfigurationFactory = (): WorldConfigurationFactory => ({
         : configWithOverrides
 
       // 検証実行
-      if (validatedParams.validateCompatibility) {
-        const validation = yield* validateConfigurationAdvanced(
-          finalConfig,
-          validatedParams.validationStrictness ?? 'standard'
-        )
-        if (!validation.isValid && validation.issues.some((i) => i.severity === 'critical')) {
-          return yield* Effect.fail(
-            new ConfigurationFactoryError({
-              category: 'compatibility_error',
-              message: 'Configuration validation failed with critical issues',
-              context: { validation },
+      yield* pipe(
+        Match.value(validatedParams.validateCompatibility === true),
+        Match.when(
+          (shouldValidate) => shouldValidate,
+          () =>
+            Effect.gen(function* () {
+              const validation = yield* validateConfigurationAdvanced(
+                finalConfig,
+                validatedParams.validationStrictness ?? 'standard'
+              )
+
+              yield* pipe(
+                Match.value(validation),
+                Match.when(
+                  (result) =>
+                    result.isValid === false && result.issues.some((issue) => issue.severity === 'critical'),
+                  (result) =>
+                    Effect.fail(
+                      ConfigurationFactoryError.compatibilityError(
+                        'Configuration validation failed with critical issues',
+                        { context: { validation: result } }
+                      )
+                    )
+                ),
+                Match.orElse(() => Effect.void)
+              )
             })
-          )
-        }
-      }
+        ),
+        Match.orElse(() => Effect.void)
+      )
 
       return finalConfig
     }),
@@ -274,16 +311,19 @@ const createWorldConfigurationFactory = (): WorldConfigurationFactory => ({
 
   merge: (configs: readonly WorldConfiguration[]) =>
     Effect.gen(function* () {
-      if (configs.length === 0) {
-        return yield* createDefaultConfiguration()
-      }
-
-      let mergedConfig = configs[0]
-      for (let i = 1; i < configs.length; i++) {
-        mergedConfig = yield* mergeConfigurations(mergedConfig, configs[i])
-      }
-
-      return mergedConfig
+      return yield* pipe(
+        Match.value(configs.length),
+        Match.when(
+          (length) => length === 0,
+          () => createDefaultConfiguration()
+        ),
+        Match.orElse(() =>
+          Function.pipe(
+            ReadonlyArray.drop(configs, 1),
+            Effect.reduce(configs[0], (mergedConfig, config) => mergeConfigurations(mergedConfig, config))
+          )
+        )
+      )
     }),
 
   validate: (config: WorldConfiguration, strictness?: ValidationStrictness) =>
@@ -320,14 +360,7 @@ const loadPresetConfiguration = (
     Match.when('memory_optimized', () => createMemoryOptimizedConfiguration()),
     Match.when('quality_focused', () => createQualityFocusedConfiguration()),
     Match.when('balanced', () => createBalancedConfiguration()),
-    Match.orElse(() =>
-      Effect.fail(
-        new ConfigurationFactoryError({
-          category: 'preset_not_found',
-          message: `Unknown preset: ${preset}`,
-        })
-      )
-    )
+    Match.orElse(() => Effect.fail(ConfigurationFactoryError.presetNotFound(`Unknown preset: ${preset}`)))
   )
 
 const createDefaultConfiguration = (): Effect.Effect<WorldConfiguration, ConfigurationFactoryError> =>
@@ -469,10 +502,9 @@ const validateConfiguration = (config: WorldConfiguration): Effect.Effect<boolea
   pipe(
     Effect.gen(function* () {
       // スキーマ検証
-      yield* Effect.try({
-        try: () => Schema.decodeSync(WorldConfigurationSchema)(config),
-        catch: () => new Error('Schema validation failed'),
-      })
+      yield* Schema.decode(WorldConfigurationSchema)(config).pipe(
+        Effect.mapError(() => new Error('Schema validation failed'))
+      )
 
       // ビジネスルール検証
       const isParametersValid = yield* GenerationParameters.validate(config.parameters)
@@ -493,27 +525,21 @@ const validateCreateParams = (
 ): Effect.Effect<CreateConfigurationParams, ConfigurationFactoryError> =>
   Effect.gen(function* () {
     // Schema検証
-    const validatedParams = yield* pipe(
-      Effect.try({
-        try: () => Schema.decodeSync(CreateConfigurationParamsSchema)(params),
-        catch: (error) =>
-          new ConfigurationFactoryError({
-            category: 'configuration_invalid',
-            message: 'Schema validation failed',
-            cause: error,
-          }),
-      })
+    const validatedParams = yield* Schema.decode(CreateConfigurationParamsSchema)(params).pipe(
+      Effect.mapError((error) =>
+        ConfigurationFactoryError.configurationInvalid('Schema validation failed', { context: { error } })
+      )
     )
 
     // ビジネスルール検証
-    if (validatedParams.memoryBudget && validatedParams.memoryBudget <= 0) {
-      return yield* Effect.fail(
-        new ConfigurationFactoryError({
-          category: 'configuration_invalid',
-          message: 'Memory budget must be positive',
-        })
-      )
-    }
+    yield* pipe(
+      Match.value(validatedParams.memoryBudget),
+      Match.when(
+        (budget): budget is number => budget !== undefined && budget <= 0,
+        () => Effect.fail(ConfigurationFactoryError.configurationInvalid('Memory budget must be positive'))
+      ),
+      Match.orElse(() => Effect.void)
+    )
 
     return validatedParams
   })
@@ -574,7 +600,7 @@ const applyOptimization = (
 
 const applyCustomParameters = (
   config: WorldConfiguration,
-  customParams: Record<string, unknown>
+  customParams: JsonRecord
 ): Effect.Effect<WorldConfiguration, ConfigurationFactoryError> =>
   Effect.succeed({
     ...config,
@@ -595,12 +621,9 @@ const validateConfigurationAdvanced = (
 
     // 基本検証
     pipe(
-      Effect.try({
-        try: () => Schema.decodeSync(WorldConfigurationSchema)(config),
-        catch: (error) => error,
-      }),
-      Effect.catchAll((error) =>
-        Effect.sync(() => {
+      Schema.decodeEither(WorldConfigurationSchema)(config),
+      Either.match({
+        onLeft: () => {
           issues.push({
             severity: 'error',
             category: 'syntax',
@@ -609,40 +632,62 @@ const validateConfigurationAdvanced = (
             autoFixable: false,
           })
           score -= 30
-        })
-      ),
-      Effect.runSync
+        },
+        onRight: () => undefined,
+      })
     )
 
     // パフォーマンス検証
     const memoryUsage = estimateMemoryUsage(config)
-    if (memoryUsage > 512) {
-      // MB
-      issues.push({
-        severity: strictness === 'pedantic' ? 'error' : 'warning',
-        category: 'memory',
-        message: `High memory usage estimated: ${memoryUsage}MB`,
-        suggestion: 'Consider memory optimization',
-        autoFixable: true,
-      })
-      score -= strictness === 'pedantic' ? 20 : 10
-    }
+    pipe(
+      Match.value(memoryUsage),
+      Match.when(
+        (usage) => usage > 512,
+        (usage) => {
+          issues.push({
+            severity: strictness === 'pedantic' ? 'error' : 'warning',
+            category: 'memory',
+            message: `High memory usage estimated: ${usage}MB`,
+            suggestion: 'Consider memory optimization',
+            autoFixable: true,
+          })
+          score -= strictness === 'pedantic' ? 20 : 10
+        }
+      ),
+      Match.orElse(() => undefined)
+    )
 
     // 互換性検証
-    if (strictness === 'strict' || strictness === 'pedantic') {
-      // 詳細な互換性チェック
-      const isCompatible = yield* checkAdvancedCompatibility(config)
-      if (!isCompatible) {
-        issues.push({
-          severity: 'warning',
-          category: 'compatibility',
-          message: 'Some features may not be compatible',
-          suggestion: 'Review configuration parameters',
-          autoFixable: false,
-        })
-        score -= 15
-      }
-    }
+    yield* pipe(
+      Match.value(strictness),
+      Match.when(
+        (mode) => mode === 'strict' || mode === 'pedantic',
+        () =>
+          Effect.gen(function* () {
+            const isCompatible = yield* checkAdvancedCompatibility(config)
+
+            yield* pipe(
+              Match.value(isCompatible),
+              Match.when(
+                (compatible) => compatible === false,
+                () =>
+                  Effect.sync(() => {
+                    issues.push({
+                      severity: 'warning',
+                      category: 'compatibility',
+                      message: 'Some features may not be compatible',
+                      suggestion: 'Review configuration parameters',
+                      autoFixable: false,
+                    })
+                    score -= 15
+                  })
+              ),
+              Match.orElse(() => Effect.void)
+            )
+          })
+      ),
+      Match.orElse(() => Effect.void)
+    )
 
     const performance = {
       estimatedMemoryUsage: memoryUsage,
@@ -670,14 +715,21 @@ const compareConfigurations = (
     const differences: ConfigurationComparisonResult['differences'] = []
 
     // シード比較
-    if (config1.seed !== config2.seed) {
-      differences.push({
-        field: 'seed',
-        value1: config1.seed,
-        value2: config2.seed,
-        impact: 'high',
-      })
-    }
+    pipe(
+      Match.value({ seed1: config1.seed, seed2: config2.seed }),
+      Match.when(
+        ({ seed1, seed2 }) => seed1 !== seed2,
+        ({ seed1, seed2 }) => {
+          differences.push({
+            field: 'seed',
+            value1: seed1,
+            value2: seed2,
+            impact: 'high',
+          })
+        }
+      ),
+      Match.orElse(() => undefined)
+    )
 
     // 他の設定比較...
     const similarity = 1 - differences.length / 10 // 簡単な類似度計算
@@ -695,16 +747,27 @@ const autoFixConfiguration = (
   issues: readonly ConfigurationValidationIssue[]
 ): Effect.Effect<WorldConfiguration, ConfigurationFactoryError> =>
   Effect.gen(function* () {
-    let fixedConfig = config
+    const autoFixableIssues = Function.pipe(
+      issues,
+      ReadonlyArray.filter((i) => i.autoFixable)
+    )
 
-    for (const issue of issues.filter((i) => i.autoFixable)) {
-      if (issue.category === 'memory' && issue.message.includes('High memory usage')) {
-        fixedConfig = yield* applyOptimization(fixedConfig, 'memory')
-      }
-      // 他の自動修正ロジック...
-    }
-
-    return fixedConfig
+    return yield* Function.pipe(
+      autoFixableIssues,
+      Effect.reduce(config, (fixedConfig, issue) =>
+        Effect.gen(function* () {
+          return yield* pipe(
+            Match.value(issue),
+            Match.when(
+              (currentIssue) =>
+                currentIssue.category === 'memory' && currentIssue.message.includes('High memory usage'),
+              () => applyOptimization(fixedConfig, 'memory')
+            ),
+            Match.orElse(() => Effect.succeed(fixedConfig))
+          )
+        })
+      )
+    )
   })
 
 const createFromTemplate = (
@@ -765,17 +828,38 @@ const generateRecommendations = (
 ): readonly string[] => {
   const recommendations: string[] = []
 
-  if (performance.estimatedMemoryUsage > 256) {
-    recommendations.push('Consider using memory optimization mode')
-  }
+  pipe(
+    Match.value(performance.estimatedMemoryUsage),
+    Match.when(
+      (usage) => usage > 256,
+      () => {
+        recommendations.push('Consider using memory optimization mode')
+      }
+    ),
+    Match.orElse(() => undefined)
+  )
 
-  if (issues.some((i) => i.category === 'performance')) {
-    recommendations.push('Enable performance optimization for better results')
-  }
+  pipe(
+    Match.value(issues),
+    Match.when(
+      (list) => list.some((issue) => issue.category === 'performance'),
+      () => {
+        recommendations.push('Enable performance optimization for better results')
+      }
+    ),
+    Match.orElse(() => undefined)
+  )
 
-  if (issues.length > 5) {
-    recommendations.push('Review configuration parameters for potential issues')
-  }
+  pipe(
+    Match.value(issues.length),
+    Match.when(
+      (count) => count > 5,
+      () => {
+        recommendations.push('Review configuration parameters for potential issues')
+      }
+    ),
+    Match.orElse(() => undefined)
+  )
 
   return recommendations
 }
@@ -794,7 +878,7 @@ export interface WorldConfigurationBuilder {
   readonly withParameters: (params: GenerationParameters.GenerationParameters) => WorldConfigurationBuilder
   readonly withBiomeConfig: (config: BiomeProperties.BiomeConfiguration) => WorldConfigurationBuilder
   readonly withNoiseConfig: (config: NoiseConfiguration.NoiseConfiguration) => WorldConfigurationBuilder
-  readonly withMetadata: (metadata: Record<string, unknown>) => WorldConfigurationBuilder
+  readonly withMetadata: (metadata: JsonRecord) => WorldConfigurationBuilder
   readonly build: () => Effect.Effect<WorldConfiguration, ConfigurationFactoryError>
 }
 
@@ -805,8 +889,8 @@ export interface WorldConfigurationBuilder {
 //
 // 使用例:
 // import { pipe } from 'effect/Function'
-// import * as BuilderState from './builder_state.js'
-// import * as BuilderFunctions from './builder_functions.js'
+// import * as BuilderState from './builder_state'
+// import * as BuilderFunctions from './builder_functions'
 //
 // const config = yield* pipe(
 //   BuilderState.initialWorldConfigurationBuilderState,
@@ -815,10 +899,10 @@ export interface WorldConfigurationBuilder {
 //   BuilderFunctions.build
 // )
 
-export const createWorldConfigurationBuilder = () => {
+export const createWorldConfigurationBuilder = (): Effect.Effect<never, ConfigurationFactoryError> => {
   // Builder interface is deprecated - use pure functions instead
-  // Import: import * as BuilderState from './builder_state.js'
-  // Import: import * as BuilderFunctions from './builder_functions.js'
+  // Import: import * as BuilderState from './builder_state'
+  // Import: import * as BuilderFunctions from './builder_functions'
   //
   // Usage:
   // const config = yield* pipe(
@@ -826,7 +910,11 @@ export const createWorldConfigurationBuilder = () => {
   //   (state) => BuilderFunctions.withSeed(state, seed),
   //   BuilderFunctions.build
   // )
-  throw new Error('WorldConfigurationBuilder interface is deprecated. Use Schema + pure functions pattern.')
+  return Effect.fail(
+    ConfigurationFactoryError.compatibilityError(
+      'WorldConfigurationBuilder interface is deprecated. Use Schema + pure functions pattern.'
+    )
+  )
 }
 
 // ================================

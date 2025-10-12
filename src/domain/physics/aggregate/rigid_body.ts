@@ -19,14 +19,12 @@ import type { PhysicsError } from '@domain/physics/types/errors'
 import { Clock, Effect, Match, Random, pipe } from 'effect'
 import { FrictionCoefficient } from '../value_object'
 
-const defaultMotionState = (position: Vector3): MotionState =>
-  Effect.runSync(
-    decodeWith(MotionStateSchema)({
-      position,
-      velocity: vector3({ x: 0, y: 0, z: 0 }),
-      acceleration: vector3({ x: 0, y: 0, z: 0 }),
-    })
-  )
+const defaultMotionState = (position: Vector3): Effect.Effect<MotionState, PhysicsError> =>
+  decodeWith(MotionStateSchema)({
+    position,
+    velocity: vector3({ x: 0, y: 0, z: 0 }),
+    acceleration: vector3({ x: 0, y: 0, z: 0 }),
+  })
 
 const generateId = (): Effect.Effect<RigidBodyId, PhysicsError> =>
   Effect.gen(function* () {
@@ -41,18 +39,18 @@ const create = (params: {
   readonly entityId: string
   readonly bodyType: RigidBodyType
   readonly material: Parameters<typeof FrictionCoefficient.fromMaterial>[0]
-  readonly mass: unknown
+  readonly mass: number
   readonly position: Vector3
-  readonly restitution?: unknown
-  readonly friction?: unknown
+  readonly restitution?: number
+  readonly friction?: number
 }): Effect.Effect<RigidBody, PhysicsError> =>
   Effect.gen(function* () {
     const id = yield* generateId()
     const mass = yield* parsePositiveFloat(params.mass)
-    const motion = defaultMotionState(params.position)
+    const motion = yield* defaultMotionState(params.position)
     const createdAtMillis = yield* Clock.currentTimeMillis
     const createdAt = yield* decodeWith(EpochMillisSchema)(createdAtMillis)
-    const frictionPreset = FrictionCoefficient.fromMaterial(params.material)
+    const frictionPreset = yield* FrictionCoefficient.fromMaterial(params.material)
     const frictionValue = yield* pipe(
       params.friction,
       Match.value,
@@ -92,7 +90,7 @@ const updateMotion = (body: RigidBody, position: Vector3, velocity: Vector3): Ef
     }
   })
 
-const applyForce = (body: RigidBody, force: Vector3, deltaTime: unknown): Effect.Effect<RigidBody, PhysicsError> =>
+const applyForce = (body: RigidBody, force: Vector3, deltaTime: number): Effect.Effect<RigidBody, PhysicsError> =>
   Effect.gen(function* () {
     const dt = yield* parsePositiveFloat(deltaTime)
     const acceleration = {

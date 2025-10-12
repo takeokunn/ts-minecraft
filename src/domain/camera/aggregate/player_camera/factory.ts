@@ -9,7 +9,7 @@ import { CameraError, CameraId } from '@domain/camera/types'
 import { Effect, Option } from 'effect'
 import { CameraDistance, MouseDelta, MouseSensitivity, Position3D, Smoothing } from '../../value_object/index'
 import { Camera, CameraFactory } from '../camera'
-import { PlayerCamera, PlayerCameraSettings, PlayerId, Sensitivity, SmoothingFactor } from './index'
+import { PlayerCamera, PlayerCameraSettings, PlayerId, Sensitivity, SmoothingFactor } from './player_camera'
 
 /**
  * PlayerCamera Factory Namespace
@@ -29,8 +29,8 @@ export namespace PlayerCameraFactory {
       // デフォルト設定の取得
       const playerSettings = settings ?? (yield* createDefaultPlayerSettings())
 
-      return new PlayerCamera({
-        _tag: 'PlayerCamera',
+      return {
+        _tag: 'PlayerCamera' as const,
         camera,
         playerId,
         settings: playerSettings,
@@ -38,7 +38,7 @@ export namespace PlayerCameraFactory {
         lastPlayerPosition: Option.none(),
         isFollowing: true,
         collisionEnabled: playerSettings.collisionEnabled,
-      })
+      }
     })
 
   /**
@@ -129,10 +129,10 @@ export namespace PlayerCameraFactory {
       const baseSettings = yield* createDefaultPlayerSettings()
 
       // カスタム設定の統合
-      const settings = new PlayerCameraSettings({
+      const settings = {
         ...baseSettings,
         ...customSettings,
-      })
+      }
 
       // カメラの生成
       const cameraId = generateCameraId(playerId)
@@ -151,8 +151,8 @@ export namespace PlayerCameraFactory {
  */
 const createDefaultPlayerSettings = (): Effect.Effect<PlayerCameraSettings, CameraError> =>
   Effect.gen(function* () {
-    return new PlayerCameraSettings({
-      _tag: 'PlayerCameraSettings',
+    return {
+      _tag: 'PlayerCameraSettings' as const,
       sensitivity: yield* createDefaultSensitivity(),
       smoothing: yield* createDefaultSmoothing(),
       invertY: false,
@@ -160,7 +160,7 @@ const createDefaultPlayerSettings = (): Effect.Effect<PlayerCameraSettings, Came
       bobbing: true,
       collisionEnabled: true,
       followDistance: yield* createDefaultFollowDistance(),
-    })
+    }
   })
 
 /**
@@ -170,13 +170,13 @@ const createFirstPersonPlayerSettings = (): Effect.Effect<PlayerCameraSettings, 
   Effect.gen(function* () {
     const baseSettings = yield* createDefaultPlayerSettings()
 
-    return new PlayerCameraSettings({
+    return {
       ...baseSettings,
       sensitivity: yield* createFirstPersonSensitivity(),
       smoothing: yield* createFirstPersonSmoothing(),
       collisionEnabled: false, // First Personでは衝突検出を無効
       bobbing: true,
-    })
+    }
   })
 
 /**
@@ -186,14 +186,14 @@ const createThirdPersonPlayerSettings = (distance: CameraDistance): Effect.Effec
   Effect.gen(function* () {
     const baseSettings = yield* createDefaultPlayerSettings()
 
-    return new PlayerCameraSettings({
+    return {
       ...baseSettings,
       sensitivity: yield* createThirdPersonSensitivity(),
       smoothing: yield* createThirdPersonSmoothing(),
       collisionEnabled: true, // Third Personでは衝突検出を有効
       followDistance: distance,
       bobbing: false, // Third Personではカメラボビング無効
-    })
+    }
   })
 
 /**
@@ -203,12 +203,12 @@ const createDefaultSensitivity = (): Effect.Effect<Sensitivity, CameraError> =>
   Effect.gen(function* () {
     const mouseSensitivity = yield* createMouseSensitivity(1.0, 1.0)
 
-    return new Sensitivity({
-      _tag: 'Sensitivity',
+    return {
+      _tag: 'Sensitivity' as const,
       mouse: mouseSensitivity,
       keyboard: 1.0,
       wheel: 1.0,
-    })
+    }
   })
 
 /**
@@ -218,12 +218,12 @@ const createFirstPersonSensitivity = (): Effect.Effect<Sensitivity, CameraError>
   Effect.gen(function* () {
     const mouseSensitivity = yield* createMouseSensitivity(0.8, 0.8)
 
-    return new Sensitivity({
-      _tag: 'Sensitivity',
+    return {
+      _tag: 'Sensitivity' as const,
       mouse: mouseSensitivity,
       keyboard: 1.2,
       wheel: 1.0,
-    })
+    }
   })
 
 /**
@@ -233,12 +233,12 @@ const createThirdPersonSensitivity = (): Effect.Effect<Sensitivity, CameraError>
   Effect.gen(function* () {
     const mouseSensitivity = yield* createMouseSensitivity(1.2, 1.2)
 
-    return new Sensitivity({
-      _tag: 'Sensitivity',
+    return {
+      _tag: 'Sensitivity' as const,
       mouse: mouseSensitivity,
       keyboard: 1.0,
       wheel: 1.5, // Third Personではズーム感度を高める
-    })
+    }
   })
 
 /**
@@ -250,12 +250,12 @@ const createDefaultSmoothing = (): Effect.Effect<SmoothingFactor, CameraError> =
     const rotationSmoothing = yield* createSmoothing(0.2)
     const zoomSmoothing = yield* createSmoothing(0.15)
 
-    return new SmoothingFactor({
-      _tag: 'SmoothingFactor',
+    return {
+      _tag: 'SmoothingFactor' as const,
       movement: movementSmoothing,
       rotation: rotationSmoothing,
       zoom: zoomSmoothing,
-    })
+    }
   })
 
 /**
@@ -267,12 +267,12 @@ const createFirstPersonSmoothing = (): Effect.Effect<SmoothingFactor, CameraErro
     const rotationSmoothing = yield* createSmoothing(0.1) // やや即座に
     const zoomSmoothing = yield* createSmoothing(0.1)
 
-    return new SmoothingFactor({
-      _tag: 'SmoothingFactor',
+    return {
+      _tag: 'SmoothingFactor' as const,
       movement: movementSmoothing,
       rotation: rotationSmoothing,
       zoom: zoomSmoothing,
-    })
+    }
   })
 
 /**
@@ -284,12 +284,12 @@ const createThirdPersonSmoothing = (): Effect.Effect<SmoothingFactor, CameraErro
     const rotationSmoothing = yield* createSmoothing(0.3) // 滑らかな回転
     const zoomSmoothing = yield* createSmoothing(0.25)
 
-    return new SmoothingFactor({
-      _tag: 'SmoothingFactor',
+    return {
+      _tag: 'SmoothingFactor' as const,
       movement: movementSmoothing,
       rotation: rotationSmoothing,
       zoom: zoomSmoothing,
-    })
+    }
   })
 
 // ========================================

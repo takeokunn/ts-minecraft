@@ -5,7 +5,7 @@
  * class構文を使用せず、純粋関数とFunction.flowチェーンで実装
  */
 
-import { Effect, Function, Match, pipe } from 'effect'
+import { Effect, Array as EffectArray, Function, Match, Option, pipe } from 'effect'
 import type { ItemStack } from '../../types'
 import { ContainerFactoryLive } from './factory'
 import type {
@@ -17,7 +17,11 @@ import type {
   ContainerValidationError,
   defaultContainerPermissions,
 } from './interface'
-import { ContainerCreationError as CreationError, ContainerValidationError as ValidationError } from './interface'
+import {
+  asContainerType,
+  ContainerCreationError as CreationError,
+  ContainerValidationError as ValidationError,
+} from './interface'
 
 // ===== Builder Configuration Helpers（Pure Functions） =====
 
@@ -29,17 +33,17 @@ const getTypeDefaultConfig = (type: ContainerType): ContainerBuilderConfig => {
     type,
     Match.value,
     Match.when('chest', () => ({
-      type: 'chest' as ContainerType,
+      type: asContainerType('chest'),
       totalSlots: 27,
       permissions: defaultContainerPermissions,
     })),
     Match.when('large_chest', () => ({
-      type: 'large_chest' as ContainerType,
+      type: asContainerType('large_chest'),
       totalSlots: 54,
       permissions: defaultContainerPermissions,
     })),
     Match.when('ender_chest', () => ({
-      type: 'ender_chest' as ContainerType,
+      type: asContainerType('ender_chest'),
       totalSlots: 27,
       permissions: {
         ...defaultContainerPermissions,
@@ -47,37 +51,37 @@ const getTypeDefaultConfig = (type: ContainerType): ContainerBuilderConfig => {
       },
     })),
     Match.when('shulker_box', () => ({
-      type: 'shulker_box' as ContainerType,
+      type: asContainerType('shulker_box'),
       totalSlots: 27,
       permissions: defaultContainerPermissions,
     })),
     Match.when('furnace', () => ({
-      type: 'furnace' as ContainerType,
+      type: asContainerType('furnace'),
       totalSlots: 3,
       permissions: defaultContainerPermissions,
     })),
     Match.when('blast_furnace', () => ({
-      type: 'blast_furnace' as ContainerType,
+      type: asContainerType('blast_furnace'),
       totalSlots: 3,
       permissions: defaultContainerPermissions,
     })),
     Match.when('smoker', () => ({
-      type: 'smoker' as ContainerType,
+      type: asContainerType('smoker'),
       totalSlots: 3,
       permissions: defaultContainerPermissions,
     })),
     Match.when('brewing_stand', () => ({
-      type: 'brewing_stand' as ContainerType,
+      type: asContainerType('brewing_stand'),
       totalSlots: 4,
       permissions: defaultContainerPermissions,
     })),
     Match.when('hopper', () => ({
-      type: 'hopper' as ContainerType,
+      type: asContainerType('hopper'),
       totalSlots: 5,
       permissions: defaultContainerPermissions,
     })),
     Match.when('crafting_table', () => ({
-      type: 'crafting_table' as ContainerType,
+      type: asContainerType('crafting_table'),
       totalSlots: 10,
       permissions: {
         ...defaultContainerPermissions,
@@ -95,41 +99,83 @@ const getTypeDefaultConfig = (type: ContainerType): ContainerBuilderConfig => {
 // Builder設定の検証（Pure Function with Effect）
 const validateBuilderConfig = (config: ContainerBuilderConfig): Effect.Effect<void, ContainerValidationError> =>
   Effect.gen(function* () {
-    const errors: string[] = []
+    // id必須チェック
+    yield* Match.value(config).pipe(
+      Match.when(
+        (c) => !c.id,
+        () =>
+          Effect.fail(
+            ValidationError.make({
+              reason: 'id is required',
+              missingFields: ['id'],
+              context: { config },
+            })
+          )
+      ),
+      Match.orElse(() => Effect.void)
+    )
 
-    if (!config.id) {
-      errors.push('id is required')
-    }
+    // type必須チェック
+    yield* Match.value(config).pipe(
+      Match.when(
+        (c) => !c.type,
+        () =>
+          Effect.fail(
+            ValidationError.make({
+              reason: 'type is required',
+              missingFields: ['type'],
+              context: { config },
+            })
+          )
+      ),
+      Match.orElse(() => Effect.void)
+    )
 
-    if (!config.type) {
-      errors.push('type is required')
-    }
+    // totalSlots整合性チェック
+    yield* Match.value(config).pipe(
+      Match.when(
+        (c) => c.totalSlots !== undefined && c.type !== undefined,
+        (c) => {
+          const spec = containerTypeSpecs[c.type!]
+          return Match.value(c.totalSlots === spec.defaultSlotCount).pipe(
+            Match.when(false, () =>
+              Effect.fail(
+                ValidationError.make({
+                  reason: `totalSlots for ${c.type} should be ${spec.defaultSlotCount}`,
+                  missingFields: ['totalSlots'],
+                  context: { config },
+                })
+              )
+            ),
+            Match.orElse(() => Effect.void)
+          )
+        }
+      ),
+      Match.orElse(() => Effect.void)
+    )
 
-    if (config.totalSlots !== undefined) {
-      const spec = containerTypeSpecs[config.type!]
-      if (config.totalSlots !== spec.defaultSlotCount) {
-        errors.push(`totalSlots for ${config.type} should be ${spec.defaultSlotCount}`)
-      }
-    }
-
-    if (config.position) {
-      const { x, y, z } = config.position
-      if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) {
-        errors.push('position coordinates must be finite numbers')
-      }
-    }
-
-    if (errors.length > 0) {
-      return yield* Effect.fail(
-        new ValidationError({
-          reason: 'Builder configuration validation failed',
-          missingFields: errors,
-          context: { config },
-        })
-      )
-    }
-
-    return yield* Effect.void
+    // position座標チェック
+    yield* Match.value(config).pipe(
+      Match.when(
+        (c) => c.position !== undefined,
+        (c) => {
+          const { x, y, z } = c.position!
+          return Match.value(Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(z)).pipe(
+            Match.when(false, () =>
+              Effect.fail(
+                ValidationError.make({
+                  reason: 'position coordinates must be finite numbers',
+                  missingFields: ['position'],
+                  context: { config },
+                })
+              )
+            ),
+            Match.orElse(() => Effect.void)
+          )
+        }
+      ),
+      Match.orElse(() => Effect.void)
+    )
   })
 
 // ===== Function.flow Builder Implementation =====
@@ -218,36 +264,50 @@ export const createContainerBuilder = (initialConfig: ContainerBuilderConfig = {
       return createContainerBuilder(config)
     },
 
-    // 最終ビルド実行（Effect.gen with validation）
+    // 最終ビルド実行（Effect.gen with Match.whenバリデーション）
     build: () =>
       Effect.gen(function* () {
         yield* validateBuilderConfig(config)
 
-        if (!config.id || !config.type) {
-          return yield* Effect.fail(
-            new CreationError({
-              reason: 'Missing required fields for build',
-              invalidFields: config.id ? [] : ['id'].concat(config.type ? [] : ['type']),
-              context: { config },
+        // Match.whenによる必須フィールド検証
+        const missingFields = pipe(
+          [
+            Option.when(config.id === undefined, () => 'id'),
+            Option.when(config.type === undefined, () => 'type'),
+          ],
+          ReadonlyArray.filterMap((field) => field)
+        )
+
+        return yield* pipe(
+          Match.value(missingFields),
+          Match.when(EffectArray.isEmptyReadonlyArray, () =>
+            Effect.gen(function* () {
+              const containerConfig = {
+                id: config.id!,
+                type: config.type!,
+                name: config.name,
+                totalSlots: config.totalSlots,
+                permissions: config.permissions,
+                initialItems: config.initialItems,
+                metadata: config.metadata,
+                position: config.position,
+                owner: config.owner,
+                isLocked: config.isLocked,
+                lockKey: config.lockKey,
+              }
+              return yield* ContainerFactoryLive.createWithConfig(containerConfig)
             })
+          ),
+          Match.orElse((fields) =>
+            Effect.fail(
+              CreationError.make({
+                reason: 'Missing required fields for build',
+                invalidFields: fields,
+                context: { config },
+              })
+            )
           )
-        }
-
-        const containerConfig = {
-          id: config.id,
-          type: config.type,
-          name: config.name,
-          totalSlots: config.totalSlots,
-          permissions: config.permissions,
-          initialItems: config.initialItems,
-          metadata: config.metadata,
-          position: config.position,
-          owner: config.owner,
-          isLocked: config.isLocked,
-          lockKey: config.lockKey,
-        }
-
-        return yield* ContainerFactoryLive.createWithConfig(containerConfig)
+        )
       }),
 
     // 検証実行（ビルド前の事前検証）

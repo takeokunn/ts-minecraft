@@ -654,16 +654,19 @@ export const EquipmentServiceLive = Layer.effect(
 
     const calculateArmorValue = (equipment: Equipment) =>
       Effect.gen(function* () {
-        let totalArmor = 0
-
         const armorPieces = [equipment.helmet, equipment.chestplate, equipment.leggings, equipment.boots]
 
-        for (const piece of armorPieces) {
-          if (piece) {
-            const armorValue = yield* itemRegistry.getArmorValue(piece.itemId)
-            totalArmor += armorValue
-          }
-        }
+        const totalArmor = yield* pipe(
+          armorPieces,
+          Effect.reduce(0, (acc, piece) =>
+            piece
+              ? pipe(
+                  itemRegistry.getArmorValue(piece.itemId),
+                  Effect.map((armorValue) => acc + armorValue)
+                )
+              : Effect.succeed(acc)
+          )
+        )
 
         return Math.min(totalArmor, 20) // 最大20ポイント
       })

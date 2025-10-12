@@ -29,20 +29,31 @@ export type PerformanceMemory = Schema.Schema.Type<typeof PerformanceMemorySchem
  * @returns PerformanceMemoryデータ（存在しない場合はOption.none()）
  * @example
  * ```typescript
- * const memory = yield* getPerformanceMemory()
- * if (Option.isSome(memory)) {
- *   console.log(`Used: ${memory.value.usedJSHeapSize} bytes`)
- * }
+ * yield* pipe(
+ *   getPerformanceMemory(),
+ *   Effect.flatMap(
+ *     Option.match({
+ *       onNone: () => Effect.unit,
+ *       onSome: (memory) => Effect.log(`Used: ${memory.usedJSHeapSize} bytes`),
+ *     })
+ *   )
+ * )
  * ```
  */
+interface ExperimentalPerformanceMemory {
+  readonly jsHeapSizeLimit: number
+  readonly totalJSHeapSize: number
+  readonly usedJSHeapSize: number
+}
+
 export const getPerformanceMemory = (): Effect.Effect<Option.Option<PerformanceMemory>, never> =>
   Effect.sync(() => {
-    const perf = performance as any
-    if (!perf.memory) {
-      return Option.none()
-    }
-
-    return Schema.decodeUnknownOption(PerformanceMemorySchema)(perf.memory)
+    // Performance.memory は非標準APIでTypeScript型定義に含まれないため、ランタイムチェック
+    const perf = performance as Performance & { memory?: ExperimentalPerformanceMemory }
+    return pipe(
+      Option.fromNullable(perf.memory),
+      Option.flatMap((memory) => Schema.decodeUnknownOption(PerformanceMemorySchema)(memory))
+    )
   })
 
 /**
@@ -77,6 +88,19 @@ export const defaultPerformanceMemory: PerformanceMemory = {
   usedJSHeapSize: 0,
   totalJSHeapSize: 0,
   jsHeapSizeLimit: 0,
+}
+
+/**
+ * PerformanceMemoryを確実に取得（デフォルト値あり）- 同期版
+ *
+ * @returns PerformanceMemoryデータ（取得不可時はdefaultPerformanceMemory）
+ */
+export const getPerformanceMemoryOrDefaultSync = (): PerformanceMemory => {
+  const perf = performance as Performance & { memory?: ExperimentalPerformanceMemory }
+  const decoded = Option.fromNullable(perf.memory).pipe(
+    Option.flatMap((memory) => Schema.decodeUnknownOption(PerformanceMemorySchema)(memory))
+  )
+  return Option.getOrElse(() => defaultPerformanceMemory)(decoded)
 }
 
 /**

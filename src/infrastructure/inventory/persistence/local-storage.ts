@@ -21,11 +21,12 @@ import {
   toLoadFailed,
   toNotAvailable,
   toSaveFailed,
+  toStorageFailureCause,
 } from '..'
 import type { Inventory, InventoryState, PlayerId } from '../../../domain/inventory'
 import { InventorySchema, InventoryStateSchema, PlayerIdSchema } from '../../../domain/inventory'
 
-const backend = Schema.decodeUnknownSync(StorageBackendSchema)('localStorage')
+const backend = 'localStorage' satisfies StorageBackend
 
 const inventoryPrefix = 'minecraft:inventory:'
 const backupPrefix = 'minecraft:inventory:backup:'
@@ -38,7 +39,7 @@ const availabilityProbe = Effect.try({
     localStorage.removeItem(probeKey)
     return true
   },
-  catch: (cause) => toNotAvailable(backend, 'LocalStorage is not accessible', cause),
+  catch: (cause) => toNotAvailable(backend, 'LocalStorage is not accessible', toStorageFailureCause(cause)),
 })
 
 const requireAvailability = availabilityProbe.pipe(
@@ -55,29 +56,17 @@ const requireAvailability = availabilityProbe.pipe(
 const formatParseError = (error: Schema.ParseError): string => TreeFormatter.formatErrorSync(error)
 
 const decodeJson = <A>(value: string, schema: Schema.Schema<A>, context: string) =>
-  Effect.try({
-    try: () => JSON.parse(value),
-    catch: (cause) => toCorrupted(backend, `${context}: JSON decode failed`, cause),
-  }).pipe(
-    Effect.flatMap(Schema.decodeUnknown(schema)),
-    Effect.mapError((error) => toCorrupted(backend, formatParseError(error), error))
-  )
+  Schema.parseJson(schema)(value).pipe(Effect.mapError((error) => toCorrupted(backend, formatParseError(error), error)))
 
 const encodeJson = <A>(value: A, schema: Schema.Schema<A>, context: string) =>
-  Schema.encode(schema)(value).pipe(
-    Effect.mapError((error) => toCorrupted(backend, formatParseError(error), error)),
-    Effect.flatMap((encoded) =>
-      Effect.try({
-        try: () => JSON.stringify(encoded),
-        catch: (cause) => toSaveFailed(backend, `${context}: JSON encode failed`, 'Failed to serialise value', cause),
-      })
-    )
+  Schema.encodeJson(schema)(value).pipe(
+    Effect.mapError((error) => toSaveFailed(backend, `${context}: JSON encode failed`, formatParseError(error), error))
   )
 
 const readItem = <A>(key: string, schema: Schema.Schema<A>, context: string) =>
   Effect.try({
     try: () => localStorage.getItem(key),
-    catch: (cause) => toLoadFailed(backend, context, 'Failed to read LocalStorage item', cause),
+    catch: (cause) => toLoadFailed(backend, context, 'Failed to read LocalStorage item', toStorageFailureCause(cause)),
   }).pipe(
     Effect.flatMap((raw) =>
       pipe(
@@ -95,7 +84,8 @@ const writeItem = <A>(key: string, value: A, schema: Schema.Schema<A>, context: 
     Effect.flatMap((serialized) =>
       Effect.try({
         try: () => localStorage.setItem(key, serialized),
-        catch: (cause) => toSaveFailed(backend, context, 'Failed to write LocalStorage item', cause),
+        catch: (cause) =>
+          toSaveFailed(backend, context, 'Failed to write LocalStorage item', toStorageFailureCause(cause)),
       })
     )
   )
@@ -106,9 +96,9 @@ const removeItems = (keys: ReadonlyArray<string>, context: string) =>
     (key) =>
       Effect.try({
         try: () => localStorage.removeItem(key),
-        catch: (cause) => toSaveFailed(backend, context, `Failed to remove key ${key}`, cause),
+        catch: (cause) => toSaveFailed(backend, context, `Failed to remove key ${key}`, toStorageFailureCause(cause)),
       }),
-    { concurrency: 'unbounded' }
+    { concurrency: 4 }
   ).pipe(Effect.asVoid)
 
 const decodePlayerIdFromKey = (key: string): Effect.Effect<PlayerId, StorageError> =>
@@ -136,9 +126,10 @@ const gatherKeys = (prefix: string): Effect.Effect<ReadonlyArray<string>, Storag
       (index) =>
         Effect.try({
           try: () => localStorage.key(index),
-          catch: (cause) => toLoadFailed(backend, 'list-keys', 'Failed to enumerate keys', cause),
+          catch: (cause) =>
+            toLoadFailed(backend, 'list-keys', 'Failed to enumerate keys', toStorageFailureCause(cause)),
         }),
-      { concurrency: 'unbounded' }
+      { concurrency: 4 }
     )
 
     return rawKeys.filter((maybeKey): maybeKey is string => typeof maybeKey === 'string' && maybeKey.startsWith(prefix))
@@ -205,7 +196,7 @@ export const LocalStorageInventoryService = Layer.effect(
       listStoredInventories: () =>
         Effect.gen(function* () {
           const keys = yield* gatherKeys(inventoryPrefix)
-          const decoded = yield* Effect.forEach(keys, decodePlayerIdFromKey, { concurrency: 'unbounded' })
+          const decoded = yield* Effect.forEach(keys, decodePlayerIdFromKey, { concurrency: 4 })
           return decoded
         }),
 
@@ -220,11 +211,7 @@ export const LocalStorageInventoryService = Layer.effect(
               onNone: () => Effect.fail(toLoadFailed(backend, 'backup', 'Inventory not found for backup')),
               onSome: (inventory) =>
                 Effect.gen(function* () {
-                  const millisValue = yield* Clock.currentTimeMillis.pipe(
-                    Effect.mapError((cause) =>
-                      toLoadFailed(backend, 'backup-clock', 'Failed to obtain timestamp', cause)
-                    )
-                  )
+                  const millisValue = yield* Clock.currentTimeMillis
                   const millis = yield* Schema.decodeUnknown(MillisecondsSchema)(millisValue).pipe(
                     Effect.mapError((error) => toCorrupted(backend, formatParseError(error), error))
                   )
@@ -274,9 +261,15 @@ export const LocalStorageInventoryService = Layer.effect(
                     Option.getOrElse(() => 0)
                   )
                 },
-                catch: (cause) => toLoadFailed(backend, 'storage-info', `Failed to compute size for ${key}`, cause),
+                catch: (cause) =>
+                  toLoadFailed(
+                    backend,
+                    'storage-info',
+                    `Failed to compute size for ${key}`,
+                    toStorageFailureCause(cause)
+                  ),
               }),
-            { concurrency: 'unbounded' }
+            { concurrency: 4 }
           )
 
           const totalSize = bytes.reduce((acc, current) => acc + current, 0)

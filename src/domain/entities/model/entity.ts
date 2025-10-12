@@ -168,9 +168,12 @@ export const recordEvent = (state: EntityState, event: EntityEvent): EntityState
 })
 
 const applyUpdates = (state: EntityState, update: EntityUpdateInput): Effect.Effect<EntityState, EntityUpdateError> => {
-  const collectModifier = <A>(option: Option.Option<A>, mapper: (value: A) => (current: EntityState) => EntityState) =>
+  const collectModifier = <A>(
+    option: Option.Option<A>,
+    mapper: (value: A) => (current: EntityState) => EntityState
+  ): ReadonlyArray<(current: EntityState) => EntityState> =>
     Option.match(option, {
-      onNone: () => [] as ReadonlyArray<(current: EntityState) => EntityState>,
+      onNone: () => [],
       onSome: (value) => [mapper(value)],
     })
 

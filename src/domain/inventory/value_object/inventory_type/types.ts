@@ -1,3 +1,4 @@
+import type { JsonValue } from '@shared/schema/json'
 import { Brand, Data } from 'effect'
 
 /**
@@ -123,7 +124,7 @@ export type InventoryTypeError = Data.TaggedEnum<{
   AccessDenied: { readonly userId: string; readonly requiredPermission: string }
   CapacityExceeded: { readonly current: number; readonly max: number; readonly itemType: string }
   TypeConversionFailed: { readonly from: string; readonly to: string; readonly reason: string }
-  InvalidConfiguration: { readonly field: string; readonly value: unknown; readonly expected: string }
+  InvalidConfiguration: { readonly field: string; readonly value: JsonValue; readonly expected: string }
 }>
 
 /**

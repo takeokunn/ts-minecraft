@@ -1,4 +1,4 @@
-import { Effect, Schema } from 'effect'
+import { Effect, Either, Schema, pipe } from 'effect'
 import type { Simplify } from 'effect/Types'
 import { PhysicsError, fromParseError } from './errors'
 
@@ -116,7 +116,15 @@ export const decodeWith =
 export const decodeConstant =
   <A, I, R>(schema: Schema.Schema<A, I, R>) =>
   (input: unknown): A =>
-    Effect.runSync(decodeWith(schema)(input))
+    pipe(
+      Schema.decodeEither(schema)(input),
+      Either.match({
+        onLeft: (error) => {
+          throw fromParseError(error)
+        },
+        onRight: (value) => value,
+      })
+    )
 
 export type WithMotion<T extends { motion: MotionState }> = Simplify<T>
 

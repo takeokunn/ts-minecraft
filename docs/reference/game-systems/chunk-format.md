@@ -40,7 +40,7 @@ export const CHUNK_CONSTANTS = {
 ### チャンクスキーマ
 
 ```typescript
-import { Schema, Effect, pipe, Match, Option } from 'effect'
+import { Schema, Effect, pipe, Match, Option, ReadonlyArray } from 'effect'
 
 // エラー型定義
 export const CompressionErrorSchema = Schema.Struct({
@@ -229,15 +229,26 @@ export const BitStorageSchema = Schema.Struct({
     if (entriesPerLong !== expectedEntriesPerLong) return false
 
     // Validate no data corruption (all values within mask range)
-    for (let i = 0; i < data.length; i++) {
-      const longValue = data[i]
-      // Check each entry in this long
-      for (let j = 0; j < entriesPerLong && i * entriesPerLong + j < 4096; j++) {
-        const bitOffset = j * bitsPerEntry
-        const value = (longValue >>> bitOffset) & mask
-        // Value should not exceed mask
-        if (value > mask) return false
-      }
+    const valuesWithinMask = pipe(
+      data,
+      ReadonlyArray.every((longValue, i) =>
+        pipe(
+          ReadonlyArray.range(0, entriesPerLong - 1),
+          ReadonlyArray.every((j) => {
+            const globalIndex = i * entriesPerLong + j
+            if (globalIndex >= 4096) {
+              return true
+            }
+            const bitOffset = j * bitsPerEntry
+            const value = (longValue >>> bitOffset) & mask
+            return value <= mask
+          })
+        )
+      )
+    )
+
+    if (!valuesWithinMask) {
+      return false
     }
 
     return true
@@ -252,19 +263,22 @@ export type BitStorage = Schema.Schema.Type<typeof BitStorageSchema>
 
 // Helper function to extract indices from bit storage for validation
 const extractIndicesFromBitStorage = (storage: BitStorage): number[] => {
-  const indices: number[] = []
   const { data, bitsPerEntry, entriesPerLong, mask } = storage
   const totalEntries = 4096 // 16x16x16
 
-  for (let i = 0; i < totalEntries; i++) {
-    const longIndex = Math.floor(i / entriesPerLong)
-    const bitIndex = (i % entriesPerLong) * bitsPerEntry
-    if (longIndex < data.length) {
+  return pipe(
+    ReadonlyArray.range(0, totalEntries - 1),
+    ReadonlyArray.reduce([] as ReadonlyArray<number>, (acc, i) => {
+      const longIndex = Math.floor(i / entriesPerLong)
+      if (longIndex >= data.length) {
+        return acc
+      }
+
+      const bitIndex = (i % entriesPerLong) * bitsPerEntry
       const value = (data[longIndex] >>> bitIndex) & mask
-      indices.push(value)
-    }
-  }
-  return indices
+      return pipe(acc, ReadonlyArray.append(value))
+    })
+  )
 }
 
 // Palletted container with compression validation
@@ -454,13 +468,15 @@ export const BitStorageService = {
       const size = BitStorageService.getSize(storage)
       const newStorage = yield* BitStorageService.create(newBitsPerEntry, size)
 
-      let result = newStorage
-      for (let i = 0; i < size; i++) {
-        const value = yield* BitStorageService.get(storage, i)
-        result = yield* BitStorageService.set(result, i, value)
-      }
-
-      return result
+      return yield* pipe(
+        ReadonlyArray.range(0, size - 1),
+        Effect.reduce(newStorage, (acc, index) =>
+          Effect.gen(function* () {
+            const value = yield* BitStorageService.get(storage, index)
+            return yield* BitStorageService.set(acc, index, value)
+          })
+        )
+      )
     }),
 
   // サイズ計算
@@ -624,13 +640,20 @@ export const PalettedContainerService = {
   ): Effect.Effect<PalettedContainer, BitStorageError | IndexOutOfBoundsError> =>
     Effect.gen(function* () {
       const size = BitStorageService.getSize(container.storage)
-      let newStorage = yield* BitStorageService.create(14, size)
-
-      // 全エントリを直接ストレージに変換
-      for (let i = 0; i < size; i++) {
-        const blockState = yield* PalettedContainerService.get(container, i)
-        newStorage = yield* BitStorageService.set(newStorage, i, blockState)
-      }
+      const newStorage = yield* pipe(
+        BitStorageService.create(14, size),
+        Effect.flatMap((initial) =>
+          pipe(
+            ReadonlyArray.range(0, size - 1),
+            Effect.reduce(initial, (acc, index) =>
+              Effect.gen(function* () {
+                const blockState = yield* PalettedContainerService.get(container, index)
+                return yield* BitStorageService.set(acc, index, blockState)
+              })
+            )
+          )
+        )
+      )
 
       return {
         palette: [], // 直接モードではパレット不要
@@ -857,13 +880,21 @@ export const NibbleArraySchema = Schema.transform(
   {
     decode: (data) =>
       Effect.gen(function* () {
-        const result: LightLevel[] = []
-        for (let i = 0; i < data.length; i++) {
-          const lower = yield* Schema.decode(LightLevelSchema)(data[i] & 0x0f)
-          const upper = yield* Schema.decode(LightLevelSchema)((data[i] >> 4) & 0x0f)
-          result.push(lower, upper)
-        }
-        return result
+        const pairs = yield* pipe(
+          ReadonlyArray.range(0, data.length - 1),
+          Effect.forEach((index) =>
+            Effect.gen(function* () {
+              const lower = yield* Schema.decode(LightLevelSchema)(data[index] & 0x0f)
+              const upper = yield* Schema.decode(LightLevelSchema)((data[index] >> 4) & 0x0f)
+              return [lower, upper] as const
+            })
+          )
+        )
+
+        return pipe(
+          pairs,
+          ReadonlyArray.flatMap(([lower, upper]) => [lower, upper] as const)
+        )
       }),
     encode: (values) =>
       Effect.gen(function* () {
@@ -872,11 +903,20 @@ export const NibbleArraySchema = Schema.transform(
         }
 
         const data = new Uint8Array(2048)
-        for (let i = 0; i < values.length; i += 2) {
-          const lower = values[i] & 0x0f
-          const upper = (values[i + 1] & 0x0f) << 4
-          data[i / 2] = lower | upper
-        }
+
+        yield* pipe(
+          ReadonlyArray.range(0, data.length - 1),
+          Effect.forEach(
+            (index) =>
+              Effect.sync(() => {
+                const lower = values[index * 2]! & 0x0f
+                const upper = (values[index * 2 + 1]! & 0x0f) << 4
+                data[index] = lower | upper
+              }),
+            { discard: true }
+          )
+        )
+
         return data
       }),
   }

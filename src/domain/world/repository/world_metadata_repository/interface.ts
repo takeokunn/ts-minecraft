@@ -6,8 +6,16 @@
  * 高度なメタデータ検索とパフォーマンス最適化
  */
 
-import type { AllRepositoryErrors, WorldCoordinate, WorldGeneratorId, WorldId, WorldSeed } from '@domain/world/types'
-import { Context, Effect, Option, ReadonlyArray } from 'effect'
+import type {
+  AllRepositoryErrors,
+  WorldCoordinate,
+  WorldCoordinate2D,
+  WorldGeneratorId,
+  WorldId,
+  WorldSeed,
+} from '@domain/world/types'
+import type { JsonValue } from '@shared/schema/json'
+import { Context, Effect, Option, ReadonlyArray, Schema } from 'effect'
 
 // === Metadata Core Types ===
 
@@ -26,7 +34,7 @@ export interface WorldMetadata {
   readonly lastModified: Date
   readonly lastAccessed: Date
   readonly tags: ReadonlyArray<string>
-  readonly properties: Record<string, unknown>
+  readonly properties: Record<string, JsonValue>
   readonly settings: WorldSettings
   readonly statistics: WorldStatistics
   readonly checksum: string
@@ -46,8 +54,7 @@ export interface WorldSettings {
   readonly pvp: boolean
   readonly spawnProtection: number
   readonly worldBorder: {
-    readonly centerX: WorldCoordinate
-    readonly centerZ: WorldCoordinate
+    readonly center: WorldCoordinate2D
     readonly size: number
     readonly warningBlocks: number
     readonly warningTime: number
@@ -92,9 +99,7 @@ export interface WorldStatistics {
     readonly lastPlayerActivity: Date
     readonly spawnLocations: ReadonlyArray<{
       readonly playerId: string
-      readonly x: WorldCoordinate
-      readonly y: WorldCoordinate
-      readonly z: WorldCoordinate
+      readonly location: WorldCoordinate
     }>
   }
   readonly lastUpdated: Date
@@ -120,8 +125,8 @@ export interface MetadataVersion {
 export interface MetadataChange {
   readonly type: 'create' | 'update' | 'delete'
   readonly path: string
-  readonly oldValue?: unknown
-  readonly newValue?: unknown
+  readonly oldValue?: JsonValue
+  readonly newValue?: JsonValue
   readonly timestamp: Date
   readonly reason?: string
 }
@@ -646,6 +651,58 @@ export interface WorldMetadataRepositoryConfig {
   }
 }
 
+export const WorldMetadataRepositoryConfigSchema = Schema.Struct({
+  storage: Schema.Struct({
+    type: Schema.Literal('memory', 'indexeddb', 'filesystem'),
+    location: Schema.optional(Schema.String),
+    maxWorlds: Schema.optional(Schema.Number),
+    enableEncryption: Schema.optional(Schema.Boolean),
+  }),
+  compression: Schema.Struct({
+    algorithm: Schema.Literal('gzip', 'deflate', 'brotli', 'lz4'),
+    level: Schema.Number,
+    chunkSize: Schema.Number,
+    enableDictionary: Schema.Boolean,
+    enableStreaming: Schema.Boolean,
+    enableDeduplication: Schema.Boolean,
+  }),
+  versioning: Schema.Struct({
+    enabled: Schema.Boolean,
+    maxVersionsPerWorld: Schema.Number,
+    automaticVersioning: Schema.Boolean,
+    versioningStrategy: Schema.Literal('time-based', 'change-based', 'size-based'),
+  }),
+  backup: Schema.Struct({
+    enabled: Schema.Boolean,
+    retentionDays: Schema.Number,
+    compressionEnabled: Schema.Boolean,
+    encryptionEnabled: Schema.Boolean,
+    incrementalBackup: Schema.Boolean,
+    scheduleInterval: Schema.Number,
+    maxBackupSize: Schema.Number,
+    excludePatterns: Schema.Array(Schema.String),
+  }),
+  indexing: Schema.Struct({
+    enabled: Schema.Boolean,
+    indexTypes: Schema.Array(Schema.Literal('name', 'tags', 'created', 'modified', 'size')),
+    rebuildInterval: Schema.Number,
+    optimizationInterval: Schema.Number,
+  }),
+  cache: Schema.Struct({
+    enabled: Schema.Boolean,
+    maxSize: Schema.Number,
+    ttlSeconds: Schema.Number,
+    enableStatisticsCache: Schema.Boolean,
+    enableSettingsCache: Schema.Boolean,
+  }),
+  performance: Schema.Struct({
+    enableProfiling: Schema.Boolean,
+    enableMetrics: Schema.Boolean,
+    batchSize: Schema.Number,
+    concurrencyLimit: Schema.Number,
+  }),
+})
+
 // === Default Configuration ===
 
 export const defaultWorldMetadataRepositoryConfig: WorldMetadataRepositoryConfig = {
@@ -699,6 +756,8 @@ export const defaultWorldMetadataRepositoryConfig: WorldMetadataRepositoryConfig
   },
 }
 
+export { WorldMetadataRepositoryConfigSchema }
+
 // === Utility Functions ===
 
 /**
@@ -712,12 +771,14 @@ export const calculateMetadataChecksum = (metadata: WorldMetadata): string => {
     lastAccessed: undefined,
     checksum: undefined,
   })
-  let hash = 0
-  for (let i = 0; i < data.length; i++) {
-    const char = data.charCodeAt(i)
-    hash = (hash << 5) - hash + char
-    hash = hash & hash // Convert to 32-bit integer
-  }
+  const hash = pipe(
+    ReadonlyArray.range(0, data.length),
+    ReadonlyArray.reduce(0, (hash, i) => {
+      const char = data.charCodeAt(i)
+      const newHash = (hash << 5) - hash + char
+      return newHash & newHash // Convert to 32-bit integer
+    })
+  )
   return hash.toString(16)
 }
 

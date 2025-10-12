@@ -1,9 +1,19 @@
+import type { JsonValue } from '@shared/schema/json'
 import { Brand, Data } from 'effect'
 
 /**
  * NBTタグ値のBrand型
  */
-export type NBTValue = Brand.Brand<unknown, 'NBTValue'>
+type NBTValueBase =
+  | number
+  | bigint
+  | string
+  | readonly number[]
+  | readonly bigint[]
+  | readonly NBTTag[]
+  | Record<string, NBTTag>
+
+export type NBTValue = Brand.Brand<NBTValueBase, 'NBTValue'>
 
 /**
  * NBTタグのADT
@@ -116,7 +126,7 @@ export type EnchantmentEffect = Data.TaggedEnum<{
   Unbreaking: { readonly durabilityMultiplier: number }
   Mending: {}
   Infinity: {}
-  Custom: { readonly name: string; readonly description: string; readonly effect: unknown }
+  Custom: { readonly name: string; readonly description: string; readonly effect: JsonValue }
 }>
 
 /**
@@ -145,13 +155,13 @@ export const ItemCondition = Data.taggedEnum<ItemCondition>()
  * ItemMetadata関連のエラーADT
  */
 export type ItemMetadataError = Data.TaggedEnum<{
-  InvalidNBTTag: { readonly tag: string; readonly type: NBTTagType; readonly value: unknown }
+  InvalidNBTTag: { readonly tag: string; readonly type: NBTTagType; readonly value: JsonValue }
   InvalidEnchantment: { readonly enchantmentId: string; readonly level: number; readonly maxLevel: number }
   DurabilityOutOfRange: { readonly current: number; readonly max: number }
   InvalidDisplayName: { readonly name: string; readonly reason: string }
   InvalidLore: { readonly lore: readonly string[]; readonly reason: string }
   ConflictingEnchantments: { readonly enchantment1: string; readonly enchantment2: string }
-  UnknownCustomTag: { readonly tagName: string; readonly value: unknown }
+  UnknownCustomTag: { readonly tagName: string; readonly value: JsonValue }
   MetadataTooBig: { readonly currentSize: number; readonly maxSize: number }
   InvalidHideFlags: { readonly flags: number; readonly validRange: string }
 }>

@@ -522,17 +522,15 @@ const addPerformanceMarks = <A, E, R>(name: string, effect: Effect.Effect<A, E, 
 // User Timing API の活用
 const profileWithUserTiming = (gameLoop: () => void) => {
   const observer = new PerformanceObserver((list) => {
-    for (const entry of list.getEntries()) {
+    list.getEntries().forEach((entry) => {
       if (entry.entryType === 'measure') {
         console.log(`📊 ${entry.name}: ${entry.duration.toFixed(2)}ms`)
 
-        // 閾値チェック
         if (entry.duration > 16.67) {
-          // 60FPS threshold
           console.warn(`⚠️ Performance issue: ${entry.name}`)
         }
       }
-    }
+    })
   })
 
   observer.observe({ entryTypes: ['measure'] })
@@ -623,9 +621,10 @@ const makeMinecraftProfiler = (): MinecraftProfilerInterface => {
     generateReport: (): string => {
       const report = ['📊 Performance Report', '==================']
 
-      for (const [name, _] of samples) {
-        const sampleArray = samples.get(name) ?? []
-        if (sampleArray.length === 0) continue
+      samples.forEach((sampleArray, name) => {
+        if (sampleArray.length === 0) {
+          return
+        }
 
         const sorted = [...sampleArray].sort((a, b) => a - b)
         const sum = sampleArray.reduce((a, b) => a + b, 0)
@@ -649,7 +648,7 @@ const makeMinecraftProfiler = (): MinecraftProfilerInterface => {
         if (stats.p95 > 16.67) {
           report.push(`  ⚠️  Performance concern detected!`)
         }
-      }
+      })
 
       return report.join('\n')
     },
@@ -768,24 +767,34 @@ const runPerformanceBenchmark = () =>
       { name: 'Rendering', test: () => renderTestScene() },
     ]
 
-    const results = []
+    return yield* pipe(
+      benchmarks,
+      Effect.reduce([] as ReadonlyArray<{ name: string; time: number }>, (acc, benchmark) =>
+        Effect.gen(function* () {
+          const times = [] as number[]
 
-    for (const benchmark of benchmarks) {
-      const times = []
+          yield* pipe(
+            ReadonlyArray.range(0, 9),
+            Effect.forEach(
+              () =>
+                Effect.sync(() => performance.now()).pipe(
+                  Effect.tap(() => Effect.promise(() => benchmark.test())),
+                  Effect.tap((start) =>
+                    Effect.sync(() => {
+                      const end = performance.now()
+                      times.push(end - start)
+                    })
+                  )
+                ),
+              { discard: true }
+            )
+          )
 
-      // 10回実行して平均値を取得
-      for (let i = 0; i < 10; i++) {
-        const start = performance.now()
-        yield* _(Effect.promise(() => benchmark.test()))
-        const end = performance.now()
-        times.push(end - start)
-      }
-
-      const average = times.reduce((a, b) => a + b) / times.length
-      results.push({ name: benchmark.name, time: average })
-    }
-
-    return results
+          const average = times.reduce((a, b) => a + b, 0) / times.length
+          return [...acc, { name: benchmark.name, time: average }]
+        })
+      )
+    )
   })
 
 // 過去のベースラインとの比較

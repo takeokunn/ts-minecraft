@@ -1,22 +1,18 @@
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
 import { Data, Effect, Match, Option, Schema } from 'effect'
 import { pipe } from 'effect/Function'
+import type { BlockId, EpochMilliseconds, InteractionEvent, PlayerId, Progress, SessionId } from '../types'
 import {
-  BlockId,
   BlockIdSchema,
-  EpochMilliseconds,
   InteractionError,
-  InteractionEvent,
   InteractionEventSchema,
-  PlayerId,
   PlayerIdSchema,
-  Progress,
   ProgressSchema,
-  SessionId,
   SessionIdSchema,
   TimestampSchema,
 } from '../types'
-import { BlockFace, BlockFaceSchema, Vector3, Vector3Schema } from '../value_object'
+import type { BlockFace, Vector3 } from '../value_object'
+import { BlockFaceSchema, Vector3Schema } from '../value_object'
 
 const SessionStateSchema = Schema.Union(
   Schema.Struct({

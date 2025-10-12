@@ -1,24 +1,29 @@
 import { Clock, Effect, Layer, Option, Ref } from 'effect'
 import {
   Alpha,
-  defaultAlpha,
-  defaultClearColor,
-  defaultPixelRatio,
-  defaultViewport,
   PixelRatio,
   RendererService,
   RendererSnapshot,
   RendererTargetId,
   RgbColor,
   Viewport,
+  decodeAlpha,
+  decodePixelRatio,
+  decodeRgbColor,
+  decodeViewport,
 } from './renderer-service'
 
-const makeInitialSnapshot = (): RendererSnapshot => ({
+const makeInitialSnapshot = (defaults: {
+  readonly clearColor: RgbColor
+  readonly alpha: Alpha
+  readonly pixelRatio: PixelRatio
+  readonly viewport: Viewport
+}): RendererSnapshot => ({
   target: Option.none(),
-  clearColor: defaultClearColor,
-  alpha: defaultAlpha,
-  pixelRatio: defaultPixelRatio,
-  viewport: defaultViewport,
+  clearColor: defaults.clearColor,
+  alpha: defaults.alpha,
+  pixelRatio: defaults.pixelRatio,
+  viewport: defaults.viewport,
   frames: 0,
   lastUpdatedAt: 0,
 })
@@ -26,15 +31,25 @@ const makeInitialSnapshot = (): RendererSnapshot => ({
 const updateWithTimestamp = (
   ref: Ref.Ref<RendererSnapshot>,
   mutate: (snapshot: RendererSnapshot, timestamp: number) => RendererSnapshot
-) =>
-  Clock.currentTimeMillis.pipe(
-    Effect.flatMap((timestamp) => Ref.update(ref, (snapshot) => mutate(snapshot, timestamp)))
-  )
+) => Effect.flatMap(Clock.currentTimeMillis, (timestamp) => Ref.update(ref, (snapshot) => mutate(snapshot, timestamp)))
 
 export const RendererServiceLive = Layer.effect(
   RendererService,
   Effect.gen(function* () {
-    const stateRef = yield* Ref.make(makeInitialSnapshot())
+    const defaultClearColor = yield* decodeRgbColor(0x000000)
+    const defaultAlpha = yield* decodeAlpha(1)
+    const defaultPixelRatio = yield* decodePixelRatio(1)
+    const defaultViewport = yield* decodeViewport({ width: 0, height: 0 })
+
+    const makeSnapshot = () =>
+      makeInitialSnapshot({
+        clearColor: defaultClearColor,
+        alpha: defaultAlpha,
+        pixelRatio: defaultPixelRatio,
+        viewport: defaultViewport,
+      })
+
+    const stateRef = yield* Ref.make(makeSnapshot())
 
     const bindTarget = (id: RendererTargetId) =>
       updateWithTimestamp(stateRef, (snapshot, timestamp) => ({
@@ -73,7 +88,7 @@ export const RendererServiceLive = Layer.effect(
 
     const snapshot = Ref.get(stateRef)
 
-    const reset = Ref.set(stateRef, makeInitialSnapshot())
+    const reset = Ref.set(stateRef, makeSnapshot())
 
     return RendererService.of({
       bindTarget,

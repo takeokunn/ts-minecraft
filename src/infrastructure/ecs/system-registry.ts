@@ -5,6 +5,7 @@
  * Effect-TSのRefを使用した安全な状態管理
  */
 
+import { toErrorCause, type ErrorCause } from '@shared/schema/error'
 import { Clock, Context, Data, Effect, Layer, Match, Option, pipe, Ref } from 'effect'
 import type { System, SystemError, SystemMetadata, SystemPriority } from './system'
 import { isSystemError, makeSystemError, priorityToNumber, SystemExecutionState } from './system'
@@ -15,16 +16,36 @@ import { isSystemError, makeSystemError, priorityToNumber, SystemExecutionState 
 export const SystemRegistryError = Data.tagged<{
   readonly message: string
   readonly systemName: Option.Option<string>
-  readonly cause: Option.Option<unknown>
+  readonly cause: Option.Option<ErrorCause>
 }>('SystemRegistryError')
 
 export type SystemRegistryError = ReturnType<typeof SystemRegistryError>
 
-export const makeSystemRegistryError = (message: string, systemName?: string, cause?: unknown): SystemRegistryError =>
+type ErrorMessageRecord = {
+  readonly message: string
+}
+
+const isErrorMessageRecord = (value: unknown): value is ErrorMessageRecord =>
+  Match.value(value).pipe(
+    Match.when((candidate) => typeof candidate !== 'object' || candidate === null, () => false),
+    Match.orElse(() =>
+      pipe(
+        value as Record<string, unknown>,
+        (record) => 'message' in record && typeof record.message === 'string'
+      )
+    ),
+    Match.exhaustive
+  )
+
+export const makeSystemRegistryError = (
+  message: string,
+  systemName?: string,
+  cause?: Error | ErrorCause | undefined
+): SystemRegistryError =>
   SystemRegistryError({
     message,
     systemName: Option.fromNullable(systemName),
-    cause: Option.fromNullable(cause),
+    cause: Option.fromNullable(toErrorCause(cause)),
   })
 
 export const isSystemRegistryError = (error: unknown): error is SystemRegistryError =>
@@ -214,11 +235,9 @@ export const SystemRegistryServiceLive = Layer.effect(
       Effect.gen(function* () {
         const state = yield* Ref.get(stateRef)
 
-        yield* pipe(
-          state.systems.has(name),
-          Match.value,
+        yield* Match.value(state.systems.has(name)).pipe(
           Match.when(false, () => Effect.fail(makeSystemRegistryError(`System not found: ${name}`, name))),
-          Match.when(true, () => Effect.succeed(undefined)),
+          Match.orElse(() => Effect.unit()),
           Match.exhaustive
         )
 
@@ -243,23 +262,20 @@ export const SystemRegistryServiceLive = Layer.effect(
       Effect.gen(function* () {
         yield* Ref.update(stateRef, (state) => {
           const entry = state.systems.get(name)
-          return pipe(
-            Option.fromNullable(entry),
-            Option.match({
-              onNone: () => state,
-              onSome: (entry) => {
-                const newEntry: SystemEntry<unknown> = {
-                  ...entry,
-                  metadata: { ...entry.metadata, enabled },
-                }
+          return Option.match(Option.fromNullable(entry), {
+            onNone: () => state,
+            onSome: (value) => {
+              const newEntry: SystemEntry<unknown> = {
+                ...value,
+                metadata: { ...value.metadata, enabled },
+              }
 
-                const newSystems = new Map(state.systems)
-                newSystems.set(name, newEntry)
+              const newSystems = new Map(state.systems)
+              newSystems.set(name, newEntry)
 
-                return { ...state, systems: newSystems }
-              },
-            })
-          )
+              return { ...state, systems: newSystems }
+            },
+          })
         })
       })
 
@@ -270,31 +286,28 @@ export const SystemRegistryServiceLive = Layer.effect(
       Effect.gen(function* () {
         yield* Ref.update(stateRef, (state) => {
           const entry = state.systems.get(name)
-          return pipe(
-            Option.fromNullable(entry),
-            Option.match({
-              onNone: () => state,
-              onSome: (entry) => {
-                const newEntry: SystemEntry<unknown> = {
-                  ...entry,
-                  metadata: {
-                    ...entry.metadata,
-                    priority,
-                    order: order ?? entry.metadata.order,
-                  },
-                }
+          return Option.match(Option.fromNullable(entry), {
+            onNone: () => state,
+            onSome: (value) => {
+              const newEntry: SystemEntry<unknown> = {
+                ...value,
+                metadata: {
+                  ...value.metadata,
+                  priority,
+                  order: order ?? value.metadata.order,
+                },
+              }
 
-                const newSystems = new Map(state.systems)
-                newSystems.set(name, newEntry)
+              const newSystems = new Map(state.systems)
+              newSystems.set(name, newEntry)
 
-                return {
-                  ...state,
-                  systems: newSystems,
-                  executionOrder: calculateExecutionOrder(newSystems),
-                }
-              },
-            })
-          )
+              return {
+                ...state,
+                systems: newSystems,
+                executionOrder: calculateExecutionOrder(newSystems),
+              }
+            },
+          })
         })
       })
 
@@ -327,11 +340,19 @@ export const SystemRegistryServiceLive = Layer.effect(
               const errorMessage = pipe(
                 error.cause,
                 Option.flatMap((cause) =>
-                  typeof cause === 'object' && cause !== null && 'message' in cause
-                    ? Option.some(String((cause as { message?: unknown }).message ?? error.message))
-                    : typeof cause === 'string'
-                      ? Option.some(cause)
-                      : Option.none()
+                  pipe(
+                    Match.value(cause),
+                    Match.when(
+                      (candidate): candidate is Error => candidate instanceof Error,
+                      (candidate) => Option.some(candidate.message)
+                    ),
+                    Match.when(
+                      (candidate): candidate is string => typeof candidate === 'string',
+                      (candidate) => Option.some(candidate)
+                    ),
+                    Match.when(isErrorMessageRecord, (candidate) => Option.some(candidate.message)),
+                    Match.orElse(() => Option.none<string>())
+                  )
                 ),
                 Option.getOrElse(() => error.message)
               )
@@ -391,37 +412,42 @@ export const SystemRegistryServiceLive = Layer.effect(
     /**
      * すべての有効なシステムを実行
      */
-    const update = (context: unknown, deltaTime: number) =>
+    const update = (context: Record<string, never>, deltaTime: number) =>
       Effect.gen(function* () {
         const currentState = yield* Ref.get(stateRef)
-        if (!currentState.globalEnabled) {
-          return
-        }
 
-        const systems = yield* getOrderedSystems
-
-        yield* Effect.forEach(
-          systems,
-          (system) =>
+        yield* pipe(
+          Match.value(currentState.globalEnabled),
+          Match.when(false, () => Effect.succeed<void>(undefined)),
+          Match.orElse(() =>
             Effect.gen(function* () {
-              const startTime = yield* Clock.currentTimeMillis
+              const systems = yield* getOrderedSystems
 
-              yield* system.update(context, deltaTime).pipe(
-                Effect.mapError((error) =>
-                  isSystemError(error)
-                    ? error
-                    : makeSystemError(system.name, 'Unknown error in system execution', error)
-                ),
-                Effect.tap(() =>
+              yield* Effect.forEach(
+                systems,
+                (system) =>
                   Effect.gen(function* () {
-                    const endTime = yield* Clock.currentTimeMillis
-                    yield* recordSuccess(system.name, endTime - startTime, endTime)
-                  })
-                ),
-                Effect.tapError((error) => recordFailure(system.name, error))
+                    const startTime = yield* Clock.currentTimeMillis
+
+                    yield* system.update(context, deltaTime).pipe(
+                      Effect.mapError((error) =>
+                        isSystemError(error)
+                          ? error
+                          : makeSystemError(system.name, 'Unknown error in system execution', error)
+                      ),
+                      Effect.tap(() =>
+                        Effect.gen(function* () {
+                          const endTime = yield* Clock.currentTimeMillis
+                          yield* recordSuccess(system.name, endTime - startTime, endTime)
+                        })
+                      ),
+                      Effect.tapError((error) => recordFailure(system.name, error))
+                    )
+                  }),
+                { concurrency: 1 }
               )
-            }),
-          { concurrency: 1 }
+            })
+          )
         )
       })
 

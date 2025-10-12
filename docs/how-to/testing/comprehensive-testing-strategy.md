@@ -1316,9 +1316,9 @@ describe('STM-Enhanced Inventory Properties', () => {
           // 初期状態のセットアップ
           yield* STM.gen(function* () {
             const inventory = yield* STM.get(inventoryRef)
-            for (const item of inventory.items) {
-              yield* Effect.runSync(inventoryService.addItem(inventory, item))
-            }
+            yield* STM.forEach(inventory.items, (item) =>
+              STM.fromEffect(Effect.sync(() => Effect.runSync(inventoryService.addItem(inventory, item))))
+            )
           }).pipe(STM.commit)
 
           const snapshotBefore = yield* STM.commit(STM.get(inventoryRef))
@@ -1648,9 +1648,8 @@ describe('Fast-check 3.15.0+ Integration Features', () => {
     expect(sorted.reduce((sum, x) => sum + x, 0)).toBe(arr.reduce((sum, x) => sum + x, 0))
 
     // ソート順序
-    for (let i = 1; i < sorted.length; i++) {
-      expect(sorted[i]).toBeGreaterThanOrEqual(sorted[i - 1])
-    }
+    const isSortedAscending = sorted.slice(1).every((value, index) => value >= sorted[index])
+    expect(isSortedAscending).toBe(true)
   })
 
   // Schema統合による型安全なProperty Testing

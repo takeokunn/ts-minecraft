@@ -12,22 +12,13 @@ import {
   SpeedSchema,
 } from './index'
 
-const decodeSpeed = Schema.decodeUnknownSync(SpeedSchema)
-const decodeHealth = Schema.decodeUnknownSync(HealthValueSchema)
-const decodeHunger = Schema.decodeUnknownSync(HungerValueSchema)
-const decodeSaturation = Schema.decodeUnknownSync(SaturationValueSchema)
-const decodeAcceleration = Schema.decodeUnknownSync(AccelerationSchema)
-const decodeTickRate = Schema.decodeUnknownSync(
-  Schema.Number.pipe(Schema.finite(), Schema.int(), Schema.between(1, 200))
-)
-
-export const JUMP_VELOCITY: PlayerSpeed = decodeSpeed(8.6)
+export const JUMP_VELOCITY: PlayerSpeed = 8.6 as PlayerSpeed
 
 export const MOVEMENT_SPEEDS: Readonly<Record<'walk' | 'sprint' | 'crouch' | 'swim', PlayerSpeed>> = {
-  walk: decodeSpeed(4.317),
-  sprint: decodeSpeed(5.612),
-  crouch: decodeSpeed(2.158),
-  swim: decodeSpeed(3.613),
+  walk: 4.317 as PlayerSpeed,
+  sprint: 5.612 as PlayerSpeed,
+  crouch: 2.158 as PlayerSpeed,
+  swim: 3.613 as PlayerSpeed,
 } as const
 
 export const HEALTH_CONSTANTS: Readonly<{
@@ -36,10 +27,10 @@ export const HEALTH_CONSTANTS: Readonly<{
   readonly critical: PlayerHealthValue
   readonly healthy: PlayerHealthValue
 }> = {
-  minimum: decodeHealth(0),
-  maximum: decodeHealth(20),
-  critical: decodeHealth(4),
-  healthy: decodeHealth(16),
+  minimum: 0 as PlayerHealthValue,
+  maximum: 20 as PlayerHealthValue,
+  critical: 4 as PlayerHealthValue,
+  healthy: 16 as PlayerHealthValue,
 } as const
 
 export const HUNGER_CONSTANTS: Readonly<{
@@ -48,18 +39,18 @@ export const HUNGER_CONSTANTS: Readonly<{
   readonly starving: PlayerHungerValue
   readonly replenished: PlayerHungerValue
 }> = {
-  minimum: decodeHunger(0),
-  maximum: decodeHunger(20),
-  starving: decodeHunger(0),
-  replenished: decodeHunger(17),
+  minimum: 0 as PlayerHungerValue,
+  maximum: 20 as PlayerHungerValue,
+  starving: 0 as PlayerHungerValue,
+  replenished: 17 as PlayerHungerValue,
 } as const
 
 export const SATURATION_CONSTANTS: Readonly<{
   readonly minimum: PlayerSaturationValue
   readonly maximum: PlayerSaturationValue
 }> = {
-  minimum: decodeSaturation(0),
-  maximum: decodeSaturation(20),
+  minimum: 0 as PlayerSaturationValue,
+  maximum: 20 as PlayerSaturationValue,
 } as const
 
 export const PHYSICS_CONSTANTS: Readonly<{
@@ -67,7 +58,7 @@ export const PHYSICS_CONSTANTS: Readonly<{
   readonly drag: PlayerAcceleration
   readonly tickRate: number
 }> = {
-  gravity: decodeAcceleration(-0.08),
-  drag: decodeAcceleration(0.91),
-  tickRate: decodeTickRate(20),
+  gravity: -0.08 as PlayerAcceleration,
+  drag: 0.91 as PlayerAcceleration,
+  tickRate: 20,
 } as const

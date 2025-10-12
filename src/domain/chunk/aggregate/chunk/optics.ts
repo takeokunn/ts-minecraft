@@ -1,9 +1,14 @@
-import { Effect, Option, pipe, Schema } from 'effect'
+import { Effect, Option, pipe } from 'effect'
 import { CHUNK_SIZE, CHUNK_VOLUME } from '../../types'
-import { type ChunkMetadata, type HeightValue, HeightValue as MakeHeightValue } from '../../value_object/chunk_metadata'
+import {
+  type ChunkMetadata,
+  type HeightValue,
+  HeightValue as MakeHeightValue,
+  makeUnsafeHeightValue,
+} from '../../value_object/chunk_metadata'
 import type { ChunkPosition } from '../../value_object/chunk_position'
 import type { ChunkData } from '../chunk_data'
-import { ChunkDataSchema, ChunkDataValidationError } from '../chunk_data'
+import { ChunkDataValidationError } from '../chunk_data'
 
 /**
  * Lens定義
@@ -20,9 +25,7 @@ type IndexedLens<A> = {
   readonly modify: (f: (value: A) => A) => (chunk: ChunkData) => ChunkData
 }
 
-const decodeChunk = Schema.decodeUnknownSync(ChunkDataSchema)
-
-const rebuild = (chunk: ChunkData, updates: Partial<ChunkData>): ChunkData => decodeChunk({ ...chunk, ...updates })
+const rebuild = (chunk: ChunkData, updates: Partial<ChunkData>): ChunkData => ({ ...chunk, ...updates })
 
 const safeBlockIndex = (index: number): Option<number> =>
   Number.isInteger(index) && index >= 0 && index < CHUNK_VOLUME ? Option.some(index) : Option.none()
@@ -284,8 +287,7 @@ export const ChunkDataOpticsEffect = {
       safeHeightIndex(index),
       Option.match({
         onNone: () => Effect.fail(invalidIndexError('height', index)),
-        onSome: (validated) =>
-          Effect.succeed((chunk.metadata.heightMap[validated] ?? (0 as HeightValue)) as HeightValue),
+        onSome: (validated) => Effect.succeed(chunk.metadata.heightMap[validated] ?? makeUnsafeHeightValue(0)),
       })
     ),
 } as const

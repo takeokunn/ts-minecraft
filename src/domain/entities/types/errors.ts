@@ -1,3 +1,4 @@
+import { JsonValueSchema } from '@shared/schema/json'
 import { Schema } from 'effect'
 import { EntityIdSchema, EntityStatusSchema, EntityTypeSchema, PlayerIdSchema, Vector3Schema } from './index'
 
@@ -12,7 +13,7 @@ export const EntityValidationErrorSchema = Schema.TaggedStruct('EntityValidation
   entityId: Schema.optional(EntityIdSchema),
   field: Schema.String,
   message: Schema.String,
-  details: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
+  details: Schema.optional(Schema.Record({ key: Schema.String, value: JsonValueSchema })),
   timestamp,
 })
 export type EntityValidationError = Schema.Schema.Type<typeof EntityValidationErrorSchema>

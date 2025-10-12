@@ -22,6 +22,7 @@ export {
   WorldConfigurationSchema,
   type ConfigurationComparisonResult,
   type ConfigurationComplexity,
+  type ConfigurationFactoryError,
   // Advanced Types
   type ConfigurationPresetType,
   type ConfigurationTemplate,
@@ -36,24 +37,31 @@ export {
   type WorldConfigurationBuilder,
   // Main Factory Interface
   type WorldConfigurationFactory,
-} from './factory.js'
+} from './factory'
 
 // New Builder Pattern exports (Schema + Pure Functions)
 export {
   initialWorldConfigurationBuilderState,
   WorldConfigurationBuilderStateSchema,
   type WorldConfigurationBuilderState,
-} from './builder_state.js'
+} from './builder_state'
 
-export { build, withBiomeConfig, withMetadata, withNoiseConfig, withParameters, withSeed } from './builder_functions.js'
+export { build, withBiomeConfig, withMetadata, withNoiseConfig, withParameters, withSeed } from './builder_functions'
 
 // ================================
 // Convenience Functions
 // ================================
 
+import type { JsonRecord } from '@shared/schema/json'
 import { Effect } from 'effect'
-import type { ConfigurationPresetType, OptimizationMode, ValidationStrictness, WorldConfiguration } from './factory.js'
-import { WorldConfigurationFactoryTag } from './factory.js'
+import type {
+  ConfigurationPresetType,
+  ConfigurationValidationResult,
+  OptimizationMode,
+  ValidationStrictness,
+  WorldConfiguration,
+} from './factory'
+import { WorldConfigurationFactoryTag } from './factory'
 
 export const createQuickConfiguration = (): Effect.Effect<WorldConfiguration, never> =>
   Effect.gen(function* () {
@@ -81,7 +89,7 @@ export const createValidatedConfiguration = (
 ): Effect.Effect<
   {
     config: WorldConfiguration
-    validation: import('./factory.js').ConfigurationValidationResult
+    validation: ConfigurationValidationResult
   },
   never
 > =>
@@ -103,7 +111,7 @@ export const createBatchConfigurations = (
 
 export const createCustomConfiguration = (
   basePreset: ConfigurationPresetType = 'default',
-  customParams: Record<string, unknown> = {}
+  customParams: JsonRecord = {}
 ): Effect.Effect<WorldConfiguration, never> =>
   Effect.gen(function* () {
     const factory = yield* WorldConfigurationFactoryTag

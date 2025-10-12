@@ -47,13 +47,11 @@ export const PhysicsSimulationServiceLive = Layer.effect(
           feetLevel: context.feetLevel,
         })
 
-        const gravity = GravityVector.forMedium(FluidState.isInFluid(fluid))
+        const gravity = yield* GravityVector.forMedium(FluidState.isInFluid(fluid))
 
-        const velocityAfterGravity = yield* GravityVector.apply(
-          GravityVector.withMultiplier(gravity, fluid.immersion),
-          context.body.motion.velocity,
-          dt
-        )
+        const gravityWithMultiplier = yield* GravityVector.withMultiplier(gravity, fluid.immersion)
+
+        const velocityAfterGravity = yield* GravityVector.apply(gravityWithMultiplier, context.body.motion.velocity, dt)
 
         const velocityAfterFluid = yield* FluidState.applyResistance(fluid, velocityAfterGravity)
 
@@ -66,7 +64,7 @@ export const PhysicsSimulationServiceLive = Layer.effect(
           sample: context.sampleBlocks,
         })
 
-        const friction = FrictionCoefficient.fromMaterial(context.body.material)
+        const friction = yield* FrictionCoefficient.fromMaterial(context.body.material)
 
         const velocityAfterFriction = yield* FrictionCoefficient.apply(
           friction,

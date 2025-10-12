@@ -1,3 +1,5 @@
+import { Schema } from 'effect'
+
 /**
  * Noise Configuration Value Object - バレルエクスポート
  *
@@ -14,6 +16,12 @@ export {
   FrequencySchema,
   InterpolationSchema,
   LacunaritySchema,
+  makeUnsafeAmplitude,
+  makeUnsafeFrequency,
+  makeUnsafeLacunarity,
+  makeUnsafeOctaves,
+  makeUnsafePersistence,
+  makeUnsafeScale,
   NOISE_PRESETS,
   NoiseDimensionSchema,
   NoiseQualitySchema,
@@ -36,13 +44,16 @@ export {
   type Octaves,
   type Persistence,
   type Scale,
-} from './amplitude_curves'
+} from './noise_settings'
 
 // オクターブ設定
 export {
   CompleteOctaveConfigSchema,
   CreateOctaveConfigParamsSchema,
   IndividualOctaveConfigSchema,
+  makeUnsafeOctaveIndex,
+  makeUnsafePhase,
+  makeUnsafeWeight,
   OCTAVE_OPTIMIZATION_HINTS,
   OCTAVE_PRESETS,
   OctaveCombinationSchema,
@@ -60,20 +71,25 @@ export {
   type OctaveType,
   type Phase,
   type Weight,
-} from './amplitude_curves'
+} from './octave_config'
 
 // 周波数帯域設定
 export {
+  asFilterType,
   BandwidthSchema,
   CreateFrequencyBandsParamsSchema,
-  FREQUENCY_BAND_PRESETS,
   FilterTypeSchema,
+  FREQUENCY_BAND_PRESETS,
   FrequencyBandClassSchema,
   FrequencyBandCollectionSchema,
   FrequencyBandsErrorSchema,
   FrequencyValueSchema,
   GainSchema,
   IndividualFrequencyBandSchema,
+  makeUnsafeBandwidth,
+  makeUnsafeFrequencyValue,
+  makeUnsafeGain,
+  makeUnsafeQFactor,
   QFactorSchema,
   TERRAIN_FREQUENCY_MAPPING,
   type Bandwidth,
@@ -86,7 +102,7 @@ export {
   type Gain,
   type IndividualFrequencyBand,
   type QFactor,
-} from './amplitude_curves'
+} from './frequency_bands'
 
 // 振幅カーブ設定
 export {
@@ -99,6 +115,8 @@ export {
   CurveSegmentSchema,
   CurveTensionSchema,
   CurveTypeSchema,
+  makeUnsafeControlPointValue,
+  makeUnsafeNormalizedTime,
   NormalizedTimeSchema,
   SmoothingStrengthSchema,
   TERRAIN_AMPLITUDE_MAPPING,
@@ -113,7 +131,6 @@ export {
   type NormalizedTime,
   type SmoothingStrength,
 } from './amplitude_curves'
-export * from './octave_config'
 
 /**
  * ノイズ設定ファクトリ
@@ -254,24 +271,22 @@ export const NoiseConfigurationValidation = {
    * 周波数帯域の重複チェック
    */
   checkFrequencyOverlap: (bands: IndividualFrequencyBand[]): boolean => {
-    for (let i = 0; i < bands.length; i++) {
-      for (let j = i + 1; j < bands.length; j++) {
-        const band1 = bands[i]
-        const band2 = bands[j]
-
+    return bands.some((band1, i) =>
+      bands.slice(i + 1).some((band2) => {
         const range1Min = band1.centerFrequency - band1.bandwidth / 2
         const range1Max = band1.centerFrequency + band1.bandwidth / 2
         const range2Min = band2.centerFrequency - band2.bandwidth / 2
         const range2Max = band2.centerFrequency + band2.bandwidth / 2
 
-        if (range1Max > range2Min && range2Max > range1Min) {
-          return true // 重複あり
-        }
-      }
-    }
-    return false // 重複なし
+        return range1Max > range2Min && range2Max > range1Min
+      })
+    )
   },
 } as const
+
+const isBasicNoiseSettings = Schema.is(BasicNoiseSettingsSchema)
+const isCompleteOctaveConfig = Schema.is(CompleteOctaveConfigSchema)
+const isAmplitudeCurve = Schema.is(AmplitudeCurveSchema)
 
 /**
  * 型ガード
@@ -280,42 +295,17 @@ export const NoiseConfigurationTypeGuards = {
   /**
    * BasicNoiseSettingsの型ガード
    */
-  isBasicNoiseSettings: (value: unknown): value is BasicNoiseSettings => {
-    return (
-      typeof value === 'object' &&
-      value !== null &&
-      'type' in value &&
-      'frequency' in value &&
-      'amplitude' in value &&
-      'octaves' in value
-    )
-  },
+  isBasicNoiseSettings,
 
   /**
    * CompleteOctaveConfigの型ガード
    */
-  isCompleteOctaveConfig: (value: unknown): value is CompleteOctaveConfig => {
-    return (
-      typeof value === 'object' &&
-      value !== null &&
-      'octaves' in value &&
-      'combination' in value &&
-      Array.isArray((value as any).octaves)
-    )
-  },
+  isCompleteOctaveConfig,
 
   /**
    * AmplitudeCurveの型ガード
    */
-  isAmplitudeCurve: (value: unknown): value is AmplitudeCurve => {
-    return (
-      typeof value === 'object' &&
-      value !== null &&
-      'id' in value &&
-      'controlPoints' in value &&
-      Array.isArray((value as any).controlPoints)
-    )
-  },
+  isAmplitudeCurve,
 } as const
 
 /**
@@ -328,18 +318,18 @@ function createTerrainNoiseConfig(): AdvancedNoiseSettings {
     type: 'perlin',
     dimension: 3,
     quality: 'standard',
-    frequency: preset.frequency as Frequency,
-    amplitude: preset.amplitude as Amplitude,
-    scale: 1.0 as Scale,
-    octaves: preset.octaves as Octaves,
-    lacunarity: preset.lacunarity as Lacunarity,
-    persistence: preset.persistence as Persistence,
+    frequency: makeUnsafeFrequency(preset.frequency),
+    amplitude: makeUnsafeAmplitude(preset.amplitude),
+    scale: makeUnsafeScale(1.0),
+    octaves: makeUnsafeOctaves(preset.octaves),
+    lacunarity: makeUnsafeLacunarity(preset.lacunarity),
+    persistence: makeUnsafePersistence(preset.persistence),
     interpolation: 'quintic',
     offset: { x: 0, y: 0, z: 0 },
     outputRange: { min: -1, max: 1 },
     normalize: true,
     clamp: false,
-  } as AdvancedNoiseSettings
+  } as const satisfies AdvancedNoiseSettings
 }
 
 function createCaveNoiseConfig(): AdvancedNoiseSettings {
@@ -348,18 +338,18 @@ function createCaveNoiseConfig(): AdvancedNoiseSettings {
     type: 'simplex',
     dimension: 3,
     quality: 'high',
-    frequency: preset.frequency as Frequency,
-    amplitude: preset.amplitude as Amplitude,
-    scale: 1.0 as Scale,
-    octaves: preset.octaves as Octaves,
-    lacunarity: preset.lacunarity as Lacunarity,
-    persistence: preset.persistence as Persistence,
+    frequency: makeUnsafeFrequency(preset.frequency),
+    amplitude: makeUnsafeAmplitude(preset.amplitude),
+    scale: makeUnsafeScale(1.0),
+    octaves: makeUnsafeOctaves(preset.octaves),
+    lacunarity: makeUnsafeLacunarity(preset.lacunarity),
+    persistence: makeUnsafePersistence(preset.persistence),
     interpolation: 'quintic',
     offset: { x: 0, y: 0, z: 0 },
     outputRange: { min: 0, max: 1 },
     normalize: true,
     clamp: true,
-  } as AdvancedNoiseSettings
+  } as const satisfies AdvancedNoiseSettings
 }
 
 function createTemperatureNoiseConfig(): BasicNoiseSettings {
@@ -368,18 +358,18 @@ function createTemperatureNoiseConfig(): BasicNoiseSettings {
     type: 'perlin',
     dimension: 2,
     quality: 'standard',
-    frequency: preset.frequency as Frequency,
-    amplitude: preset.amplitude as Amplitude,
-    scale: 1.0 as Scale,
-    octaves: preset.octaves as Octaves,
-    lacunarity: preset.lacunarity as Lacunarity,
-    persistence: preset.persistence as Persistence,
+    frequency: makeUnsafeFrequency(preset.frequency),
+    amplitude: makeUnsafeAmplitude(preset.amplitude),
+    scale: makeUnsafeScale(1.0),
+    octaves: makeUnsafeOctaves(preset.octaves),
+    lacunarity: makeUnsafeLacunarity(preset.lacunarity),
+    persistence: makeUnsafePersistence(preset.persistence),
     interpolation: 'cosine',
     offset: { x: 0, y: 0 },
     outputRange: { min: -30, max: 50 },
     normalize: false,
     clamp: true,
-  } as BasicNoiseSettings
+  } as const satisfies BasicNoiseSettings
 }
 
 function createHumidityNoiseConfig(): BasicNoiseSettings {
@@ -388,29 +378,29 @@ function createHumidityNoiseConfig(): BasicNoiseSettings {
     type: 'perlin',
     dimension: 2,
     quality: 'standard',
-    frequency: preset.frequency as Frequency,
-    amplitude: preset.amplitude as Amplitude,
-    scale: 1.0 as Scale,
-    octaves: preset.octaves as Octaves,
-    lacunarity: preset.lacunarity as Lacunarity,
-    persistence: preset.persistence as Persistence,
+    frequency: makeUnsafeFrequency(preset.frequency),
+    amplitude: makeUnsafeAmplitude(preset.amplitude),
+    scale: makeUnsafeScale(1.0),
+    octaves: makeUnsafeOctaves(preset.octaves),
+    lacunarity: makeUnsafeLacunarity(preset.lacunarity),
+    persistence: makeUnsafePersistence(preset.persistence),
     interpolation: 'cosine',
     offset: { x: 0, y: 0 },
     outputRange: { min: 0, max: 1 },
     normalize: true,
     clamp: true,
-  } as BasicNoiseSettings
+  } as const satisfies BasicNoiseSettings
 }
 
 function createStandardOctaveConfig(octaveCount: number): CompleteOctaveConfig {
   const octaves: IndividualOctaveConfig[] = Array.from({ length: octaveCount }, (_, i) => ({
-    index: i as OctaveIndex,
+    index: makeUnsafeOctaveIndex(i),
     type: 'base',
     enabled: true,
     frequency: Math.pow(2, i),
     amplitude: Math.pow(0.5, i),
-    weight: Math.pow(0.5, i) as Weight,
-    phase: 0 as Phase,
+    weight: makeUnsafeWeight(Math.pow(0.5, i)),
+    phase: makeUnsafePhase(0),
     offset: { x: 0, y: 0, z: 0 },
   }))
 
@@ -437,7 +427,7 @@ function createStandardOctaveConfig(octaveCount: number): CompleteOctaveConfig {
         maxContribution: 0.01,
       },
     },
-  } as CompleteOctaveConfig
+  } as const satisfies CompleteOctaveConfig
 }
 
 function createTerrainFrequencyBands(): FrequencyBandCollection {
@@ -445,14 +435,14 @@ function createTerrainFrequencyBands(): FrequencyBandCollection {
   const bands = preset.bands.map((band, i) => ({
     id: `terrain_band_${i}`,
     name: band.name,
-    class: 'mid' as FrequencyBandClass,
+    class: 'mid' as const satisfies FrequencyBandClass,
     enabled: true,
-    centerFrequency: band.centerFreq as FrequencyValue,
-    bandwidth: band.bandwidth as Bandwidth,
-    gain: 0 as Gain,
-    qFactor: 1.0 as QFactor,
+    centerFrequency: makeUnsafeFrequencyValue(band.centerFreq),
+    bandwidth: makeUnsafeBandwidth(band.bandwidth),
+    gain: makeUnsafeGain(0),
+    qFactor: makeUnsafeQFactor(1.0),
     filter: {
-      type: 'bandpass' as FilterType,
+      type: asFilterType('bandpass'),
       order: 4,
       rolloff: 24,
     },
@@ -461,21 +451,21 @@ function createTerrainFrequencyBands(): FrequencyBandCollection {
   return {
     bands,
     global: {
-      masterGain: 0 as Gain,
+      masterGain: makeUnsafeGain(0),
       crossover: {
         enabled: true,
         type: 'linkwitz_riley',
         slope: 24,
       },
     },
-  } as FrequencyBandCollection
+  } as const satisfies FrequencyBandCollection
 }
 
 function createAmplitudeCurveFromPreset(preset: keyof typeof AMPLITUDE_CURVE_PRESETS): AmplitudeCurve {
   const presetData = AMPLITUDE_CURVE_PRESETS[preset]
   const controlPoints = presetData.points.map((point) => ({
-    time: point.time as NormalizedTime,
-    value: point.value as ControlPointValue,
+    time: makeUnsafeNormalizedTime(point.time),
+    value: makeUnsafeControlPointValue(point.value),
   }))
 
   return {
@@ -486,9 +476,9 @@ function createAmplitudeCurveFromPreset(preset: keyof typeof AMPLITUDE_CURVE_PRE
       defaultType: 'linear',
       inputRange: { min: 0, max: 1 },
       outputRange: {
-        min: Math.min(...presetData.points.map((p) => p.value)) as ControlPointValue,
-        max: Math.max(...presetData.points.map((p) => p.value)) as ControlPointValue,
+        min: makeUnsafeControlPointValue(Math.min(...presetData.points.map((p) => p.value))),
+        max: makeUnsafeControlPointValue(Math.max(...presetData.points.map((p) => p.value))),
       },
     },
-  } as AmplitudeCurve
+  } as const satisfies AmplitudeCurve
 }

@@ -6,7 +6,7 @@
  * アイテムに関する複雑なビジネスルールを統合管理します。
  */
 
-import { Context, Data, Effect } from 'effect'
+import { Context, Effect } from 'effect'
 import type { ItemId } from '../../types'
 
 // =============================================================================
@@ -133,10 +133,41 @@ export interface ItemDefinitionMetadata {
 // Domain Errors
 // =============================================================================
 
-export class ItemRegistryError extends Data.TaggedError('ItemRegistryError')<{
-  readonly reason: string
-  readonly itemId?: ItemId
-}> {}
+export const ItemRegistryErrorSchema = Schema.TaggedStruct('ItemRegistryError', {
+  reason: Schema.String,
+  itemId: Schema.optional(Schema.String),
+}).pipe(
+  Schema.annotations({
+    title: 'Item Registry Error',
+    description: 'Error when item registry operation fails',
+  })
+)
+export type ItemRegistryError = Schema.Schema.Type<typeof ItemRegistryErrorSchema>
+
+/**
+ * ItemRegistryErrorのメッセージを取得する操作関数
+ */
+export const getItemRegistryErrorMessage = (error: ItemRegistryError): string =>
+  error.itemId ? `${error.reason} (itemId: ${error.itemId})` : error.reason
+
+/**
+ * ItemRegistryErrorを作成するFactory関数
+ */
+export const createItemRegistryError = (
+  reason: string,
+  itemId?: ItemId
+): Effect.Effect<ItemRegistryError, Schema.ParseError> =>
+  Schema.decode(ItemRegistryErrorSchema)({
+    _tag: 'ItemRegistryError' as const,
+    reason,
+    itemId,
+  })
+
+/**
+ * 型ガード関数
+ */
+export const isItemRegistryError = (error: unknown): error is ItemRegistryError =>
+  Schema.is(ItemRegistryErrorSchema)(error)
 
 // =============================================================================
 // Item Registry Service Interface

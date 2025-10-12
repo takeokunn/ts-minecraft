@@ -5,7 +5,7 @@
  * @deprecated このファイルの型はcore.tsに統合されました。新しいVector3、Quaternion、Matrix4型を使用してください
  */
 
-import { Brand, Schema } from 'effect'
+import { Brand, Match, Schema } from 'effect'
 
 // core.tsからの再エクスポート用の型定義
 // 既存コードとの互換性のため一時的に維持
@@ -77,11 +77,12 @@ export const VectorMath = {
 
   magnitude: (v: Vector3D): number => Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z),
 
-  normalize: (v: Vector3D): Vector3D => {
-    const mag = VectorMath.magnitude(v)
-    if (mag === 0) return { x: 0, y: 0, z: 0 }
-    return VectorMath.multiply(v, 1 / mag)
-  },
+  normalize: (v: Vector3D): Vector3D =>
+    Match.value(VectorMath.magnitude(v))
+      .pipe(
+        Match.when((mag) => mag === 0, () => ({ x: 0, y: 0, z: 0 })),
+        Match.orElse((mag) => VectorMath.multiply(v, 1 / mag))
+      ),
 
   distance: (a: Vector3D, b: Vector3D): number => VectorMath.magnitude(VectorMath.subtract(b, a)),
 
@@ -119,12 +120,14 @@ export const PhysicsSpatialBrandedTypes = {
   BoundingBox: BoundingBoxSchema,
 
   // 作成ヘルパー関数
-  createVector3D: (x: number, y: number, z: number): Vector3D => Schema.decodeSync(Vector3Schema)({ x, y, z }),
+  createVector3D: (x: number, y: number, z: number): Vector3D =>
+    Schema.decodeSync(Vector3Schema)({ x, y, z }),
 
   createRotation: (pitch: number, yaw: number, roll = 0): Rotation =>
     Schema.decodeSync(RotationSchema)({ pitch, yaw, roll }),
 
-  createBoundingBox: (min: Vector3D, max: Vector3D): BoundingBox => Schema.decodeSync(BoundingBoxSchema)({ min, max }),
+  createBoundingBox: (min: Vector3D, max: Vector3D): BoundingBox =>
+    Schema.decodeSync(BoundingBoxSchema)({ min, max }),
 }
 
 // ===== core.tsからの型の再エクスポート =====

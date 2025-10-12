@@ -5,40 +5,52 @@ import { pipe } from 'effect/Function'
  * 数値範囲を昇順に生成
  */
 export const range = (start: number, end: number): ReadonlyArray<number> => {
-  if (!Number.isFinite(start) || !Number.isFinite(end)) {
-    return ReadonlyArray.empty<number>()
-  }
+  // バリデーション: 有限数値チェック
+  const isFinite = Number.isFinite(start) && Number.isFinite(end)
+  const emptyIfInvalid = !isFinite
 
-  const adjustedStart = Math.trunc(start)
-  const adjustedEnd = Math.trunc(end)
+  return emptyIfInvalid
+    ? ReadonlyArray.empty<number>()
+    : (() => {
+        const adjustedStart = Math.trunc(start)
+        const adjustedEnd = Math.trunc(end)
 
-  if (adjustedStart > adjustedEnd) {
-    return ReadonlyArray.empty<number>()
-  }
+        // バリデーション: 昇順範囲チェック
+        const isValidRange = adjustedStart <= adjustedEnd
 
-  const length = adjustedEnd - adjustedStart + 1
-
-  return ReadonlyArray.makeBy(length, (index) => adjustedStart + index)
+        return !isValidRange
+          ? ReadonlyArray.empty<number>()
+          : (() => {
+              const length = adjustedEnd - adjustedStart + 1
+              return ReadonlyArray.makeBy(length, (index) => adjustedStart + index)
+            })()
+      })()
 }
 
 /**
  * 数値範囲を降順に生成
  */
 export const rangeReverse = (start: number, end: number): ReadonlyArray<number> => {
-  if (!Number.isFinite(start) || !Number.isFinite(end)) {
-    return ReadonlyArray.empty<number>()
-  }
+  // バリデーション: 有限数値チェック
+  const isFinite = Number.isFinite(start) && Number.isFinite(end)
+  const emptyIfInvalid = !isFinite
 
-  const adjustedStart = Math.trunc(start)
-  const adjustedEnd = Math.trunc(end)
+  return emptyIfInvalid
+    ? ReadonlyArray.empty<number>()
+    : (() => {
+        const adjustedStart = Math.trunc(start)
+        const adjustedEnd = Math.trunc(end)
 
-  if (adjustedStart < adjustedEnd) {
-    return ReadonlyArray.empty<number>()
-  }
+        // バリデーション: 降順範囲チェック
+        const isValidRange = adjustedStart >= adjustedEnd
 
-  const length = adjustedStart - adjustedEnd + 1
-
-  return ReadonlyArray.makeBy(length, (index) => adjustedStart - index)
+        return !isValidRange
+          ? ReadonlyArray.empty<number>()
+          : (() => {
+              const length = adjustedStart - adjustedEnd + 1
+              return ReadonlyArray.makeBy(length, (index) => adjustedStart - index)
+            })()
+      })()
 }
 
 /**

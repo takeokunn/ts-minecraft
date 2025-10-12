@@ -50,8 +50,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run tests with coverage
-        run: pnpm test:coverage
+      - name: Run tests with coverage and timing
+        run: |
+          echo "::group::Test Execution Time"
+          time pnpm test:coverage
+          echo "::endgroup::"
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
@@ -103,6 +106,57 @@ jobs:
           fail_on_error: true
           filter_mode: nofilter
           level: error
+
+  effect-ts-compliance:
+    name: Effect-TS Compliance Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Check Effect.runSync usage
+        run: |
+          count=$(grep -r 'Effect\.runSync' src --include='*.ts' --include='*.tsx' | wc -l | tr -d ' ')
+          echo "Effect.runSync usage: $count"
+          if [ "$count" -gt 2 ]; then
+            echo "❌ Effect.runSync usage ($count) exceeds limit (2)"
+            echo "Allowed only in intentional helper functions (e.g., decodeConstant)"
+            exit 1
+          fi
+          echo "✅ Effect.runSync usage is within limit"
+
+      - name: Check unknown usage
+        run: |
+          count=$(grep -ro '\bunknown\b' src --include='*.ts' --include='*.tsx' | wc -l | tr -d ' ')
+          echo "unknown usage: $count"
+          if [ "$count" -gt 350 ]; then
+            echo "❌ unknown usage ($count) exceeds limit (350)"
+            echo "See docs/how-to/development/effect-ts-guidelines.md for reduction patterns"
+            exit 1
+          fi
+          echo "✅ unknown usage is within limit"
+
+      - name: Check console usage
+        run: |
+          count=$(grep -rE 'console\.(log|error|warn|info|debug)' src --include='*.ts' --include='*.tsx' | wc -l | tr -d ' ')
+          echo "console usage: $count"
+          if [ "$count" -gt 110 ]; then
+            echo "❌ console usage ($count) exceeds limit (110)"
+            echo "Use Effect.log* instead. See docs/how-to/development/effect-ts-guidelines.md"
+            exit 1
+          fi
+          echo "✅ console usage is within limit"
+
+      - name: Check Math.random usage
+        run: |
+          count=$(grep -r 'Math\.random' src --include='*.ts' --include='*.tsx' | wc -l | tr -d ' ')
+          echo "Math.random usage: $count"
+          if [ "$count" -gt 0 ]; then
+            echo "❌ Math.random usage detected ($count)"
+            echo "Use Random service instead. See docs/how-to/development/effect-ts-guidelines.md"
+            exit 1
+          fi
+          echo "✅ No Math.random usage detected"
 
   build:
     name: Build

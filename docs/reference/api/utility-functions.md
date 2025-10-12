@@ -854,12 +854,10 @@ export const MinecraftMathUtils = {
   // レイキャスティング
   raycast: (origin: Vector3, direction: Vector3, maxDistance: number): Vector3[] => {
     const normalizedDir = MathUtils.normalize3D(direction)
-    const positions: Vector3[] = []
-
-    for (let t = 0; t <= maxDistance; t += 0.1) {
-      const pos = MathUtils.add3D(origin, MathUtils.multiply3D(normalizedDir, t))
-      positions.push(MinecraftMathUtils.blockPosition(pos))
-    }
+    const stepCount = Math.max(0, Math.floor(maxDistance / 0.1))
+    const positions = Array.from({ length: stepCount + 1 }, (_, index) => index * 0.1)
+      .map((t) => MathUtils.add3D(origin, MathUtils.multiply3D(normalizedDir, t)))
+      .map(MinecraftMathUtils.blockPosition)
 
     // 重複除去
     return positions.filter(
@@ -897,21 +895,15 @@ export const MinecraftMathUtils = {
   },
 
   // 高度マップ生成
-  generateHeightMap: (width: number, height: number, scale: number, seed = 0): number[][] => {
-    const heightMap: number[][] = []
-
-    for (let x = 0; x < width; x++) {
-      heightMap[x] = []
-      for (let z = 0; z < height; z++) {
+  generateHeightMap: (width: number, height: number, scale: number, seed = 0): number[][] =>
+    Array.from({ length: width }, (_, x) =>
+      Array.from({ length: height }, (_, z) => {
         const noise1 = MinecraftMathUtils.noise2D(x * scale, z * scale, seed)
         const noise2 = MinecraftMathUtils.noise2D(x * scale * 2, z * scale * 2, seed + 1000)
         const combined = noise1 * 0.7 + noise2 * 0.3
-        heightMap[x][z] = Math.floor(combined * 128) + 64 // 64-192の高さ
-      }
-    }
-
-    return heightMap
-  },
+        return Math.floor(combined * 128) + 64 // 64-192の高さ
+      })
+    ),
 } as const
 ```
 
@@ -1051,11 +1043,8 @@ export const ArrayUtils = {
   chunk: <T>(array: readonly T[], size: number): readonly (readonly T[])[] => {
     if (size <= 0) return []
 
-    const chunks: T[][] = []
-    for (let i = 0; i < array.length; i += size) {
-      chunks.push([...array.slice(i, i + size)])
-    }
-    return chunks
+    const chunkCount = Math.ceil(array.length / size)
+    return Array.from({ length: chunkCount }, (_, index) => array.slice(index * size, index * size + size))
   },
 
   /**
@@ -1102,35 +1091,21 @@ export const ArrayUtils = {
     }),
 
   // グループ化
-  groupBy: <T>(array: readonly T[], keyFn: (item: T) => string): Record<string, T[]> => {
-    const groups: Record<string, T[]> = {}
-
-    for (const item of array) {
+  groupBy: <T>(array: readonly T[], keyFn: (item: T) => string): Record<string, T[]> =>
+    array.reduce<Record<string, T[]>>((groups, item) => {
       const key = keyFn(item)
-      if (!groups[key]) {
-        groups[key] = []
-      }
-      groups[key].push(item)
-    }
-
-    return groups
-  },
+      const existing = groups[key] ?? []
+      return { ...groups, [key]: [...existing, item] }
+    }, {}),
 
   // 分割（条件による）
-  partition: <T>(array: readonly T[], predicate: (item: T) => boolean): readonly [readonly T[], readonly T[]] => {
-    const trueItems: T[] = []
-    const falseItems: T[] = []
-
-    for (const item of array) {
-      if (predicate(item)) {
-        trueItems.push(item)
-      } else {
-        falseItems.push(item)
-      }
-    }
-
-    return [trueItems, falseItems] as const
-  },
+  partition: <T>(array: readonly T[], predicate: (item: T) => boolean): readonly [readonly T[], readonly T[]] =>
+    array.reduce<readonly [readonly T[], readonly T[]]>((acc, item) => {
+      const [trueItems, falseItems] = acc
+      return predicate(item)
+        ? [[...trueItems, item], falseItems] as const
+        : [trueItems, [...falseItems, item]] as const
+    }, [[], []] as const),
 
   // 安全なfindIndex
   findIndex: <T>(array: readonly T[], predicate: (item: T) => boolean): Option.Option<number> => {
@@ -1156,13 +1131,7 @@ export const ArrayUtils = {
   // 安全なzip
   zip: <T, U>(a: readonly T[], b: readonly U[]): readonly (readonly [T, U])[] => {
     const minLength = Math.min(a.length, b.length)
-    const result: [T, U][] = []
-
-    for (let i = 0; i < minLength; i++) {
-      result.push([a[i], b[i]])
-    }
-
-    return result
+    return Array.from({ length: minLength }, (_, index) => [a[index], b[index]] as const)
   },
 } as const
 
@@ -2533,11 +2502,12 @@ export const AdvancedEffectPBTPatterns = {
           )
 
           // アイテムをキューから取得
-          const results: string[] = []
-          for (let i = 0; i < items.length; i++) {
-            const item = yield* Queue.take(queue)
-            results.push(item)
-          }
+          const results = yield* Effect.reduce(
+            Array.from({ length: items.length }),
+            [] as string[],
+            (acc) =>
+              Effect.map(Queue.take(queue), (item) => [...acc, item])
+          )
 
           return results.length === items.length
         })

@@ -187,14 +187,10 @@ export const makeDrop = (
 export const makeDrops = (
   inputs: ReadonlyArray<Partial<Schema.Schema.Encoded<typeof ItemDropSchema>>>
 ): Effect.Effect<ReadonlyArray<ItemDrop>, BlockPropertiesError> =>
-  Effect.gen(function* () {
-    const resolved: ItemDrop[] = []
-    for (const item of inputs) {
-      const drop = yield* makeDrop(item)
-      resolved.push(drop)
-    }
-    return resolved as ReadonlyArray<ItemDrop>
-  })
+  pipe(
+    inputs,
+    Effect.forEach((item) => makeDrop(item))
+  )
 
 export const makeTool = (
   tool?: Schema.Schema.Encoded<typeof ToolTypeSchema>

@@ -1,4 +1,5 @@
 import type { Vector3D } from '@domain/entities/types'
+import { toErrorCause } from '@shared/schema/error'
 import {
   Clock,
   Duration,
@@ -46,6 +47,8 @@ interface ActiveSource {
  */
 const makeAudioService = Effect.gen(function* () {
   // Initialize audio context and listener
+  const runtime = yield* Effect.runtime<never>()
+
   const audioContext = yield* Effect.try({
     try: () => {
       // @ts-expect-error - WebAudio API
@@ -116,7 +119,7 @@ const makeAudioService = Effect.gen(function* () {
           AudioLoadError({
             soundId,
             message: `Failed to fetch sound: ${error}`,
-            cause: error,
+            cause: toErrorCause(error),
           }),
       })
 
@@ -126,7 +129,7 @@ const makeAudioService = Effect.gen(function* () {
           AudioLoadError({
             soundId,
             message: `Failed to decode audio: ${error}`,
-            cause: error,
+            cause: toErrorCause(error),
           }),
       })
 
@@ -222,10 +225,13 @@ const makeAudioService = Effect.gen(function* () {
         Match.when(false, () =>
           Effect.sync(() => {
             positionalAudio.onEnded = () => {
-              Effect.runSync(
+              runtime.runFork(
                 pipe(
                   Ref.update(activeSources, HashMap.remove(sourceId)),
-                  Effect.zipRight(Queue.offer(eventQueue, finishedEvent))
+                  Effect.zipRight(Queue.offer(eventQueue, finishedEvent)),
+                  Effect.catchAll((error) =>
+                    Effect.sync(() => console.error('Failed to handle audio end event:', error))
+                  )
                 )
               )
             }
@@ -335,10 +341,13 @@ const makeAudioService = Effect.gen(function* () {
       yield* Effect.when(
         Effect.sync(() => {
           audio.onEnded = () => {
-            Effect.runSync(
+            runtime.runFork(
               pipe(
                 Ref.update(activeSources, HashMap.remove(sourceId)),
-                Effect.zipRight(Queue.offer(eventQueue, finishedEvent))
+                Effect.zipRight(Queue.offer(eventQueue, finishedEvent)),
+                Effect.catchAll((error) =>
+                  Effect.sync(() => console.error('Failed to handle audio end event:', error))
+                )
               )
             )
           }

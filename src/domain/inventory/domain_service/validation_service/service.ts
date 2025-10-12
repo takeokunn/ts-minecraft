@@ -6,7 +6,8 @@
  * 複雑な検証ロジックを提供します。
  */
 
-import { Context, Data, Effect } from 'effect'
+import { JsonValueSchema, type JsonValue } from '@shared/schema/json'
+import { Context, Effect, Schema } from 'effect'
 import type { Inventory, InventoryErrorReason } from '../../types'
 
 // =============================================================================
@@ -32,8 +33,8 @@ export interface ValidationViolation {
   readonly severity: 'CRITICAL' | 'ERROR' | 'WARNING'
   readonly description: string
   readonly affectedSlots: ReadonlyArray<number>
-  readonly detectedValue: unknown
-  readonly expectedValue?: unknown
+  readonly detectedValue: JsonValue
+  readonly expectedValue?: JsonValue
   readonly canAutoCorrect: boolean
 }
 
@@ -81,7 +82,7 @@ export interface CorrectionStep {
   readonly action: 'REMOVE' | 'UPDATE' | 'MOVE' | 'RESET'
   readonly target: 'SLOT' | 'METADATA' | 'HOTBAR' | 'ARMOR'
   readonly slotIndex?: number
-  readonly newValue?: unknown
+  readonly newValue?: JsonValue
   readonly reason: string
 }
 
@@ -116,17 +117,86 @@ export interface ValidationOptions {
 // Domain Errors
 // =============================================================================
 
-export class ValidationError extends Data.TaggedError('ValidationError')<{
-  readonly reason: InventoryErrorReason
-  readonly details?: string
-}> {}
+export const ValidationErrorSchema = Schema.TaggedStruct('ValidationError', {
+  reason: Schema.String,
+  details: Schema.optional(Schema.String),
+}).pipe(
+  Schema.annotations({
+    title: 'Validation Error',
+    description: 'Error when inventory validation fails',
+  })
+)
+export type ValidationError = Schema.Schema.Type<typeof ValidationErrorSchema>
 
-export class CorrectionError extends Data.TaggedError('CorrectionError')<{
-  readonly failedCorrections: ReadonlyArray<{
+/**
+ * ValidationErrorのメッセージを取得する操作関数
+ */
+export const getValidationErrorMessage = (error: ValidationError): string =>
+  error.details ? `${error.reason}: ${error.details}` : error.reason
+
+/**
+ * ValidationErrorを作成するFactory関数
+ */
+export const createValidationError = (
+  reason: InventoryErrorReason,
+  details?: string
+): Effect.Effect<ValidationError, Schema.ParseError> =>
+  Schema.decode(ValidationErrorSchema)({
+    _tag: 'ValidationError' as const,
+    reason,
+    details,
+  })
+
+/**
+ * 型ガード関数
+ */
+export const isValidationError = (error: unknown): error is ValidationError => Schema.is(ValidationErrorSchema)(error)
+
+export const CorrectionErrorSchema = Schema.TaggedStruct('CorrectionError', {
+  failedCorrections: Schema.Array(
+    Schema.Struct({
+      step: Schema.Struct({
+        action: Schema.Literal('REMOVE', 'UPDATE', 'MOVE', 'RESET'),
+        target: Schema.Literal('SLOT', 'METADATA', 'HOTBAR', 'ARMOR'),
+        slotIndex: Schema.optional(Schema.Number),
+        newValue: Schema.optional(JsonValueSchema),
+        reason: Schema.String,
+      }),
+      error: Schema.String,
+    })
+  ),
+}).pipe(
+  Schema.annotations({
+    title: 'Correction Error',
+    description: 'Error when auto-correction of inventory issues fails',
+  })
+)
+export type CorrectionError = Schema.Schema.Type<typeof CorrectionErrorSchema>
+
+/**
+ * CorrectionErrorのメッセージを取得する操作関数
+ */
+export const getCorrectionErrorMessage = (error: CorrectionError): string =>
+  `Correction failed with ${error.failedCorrections.length} failed corrections`
+
+/**
+ * CorrectionErrorを作成するFactory関数
+ */
+export const createCorrectionError = (
+  failedCorrections: ReadonlyArray<{
     step: CorrectionStep
     error: string
   }>
-}> {}
+): Effect.Effect<CorrectionError, Schema.ParseError> =>
+  Schema.decode(CorrectionErrorSchema)({
+    _tag: 'CorrectionError' as const,
+    failedCorrections,
+  })
+
+/**
+ * 型ガード関数
+ */
+export const isCorrectionError = (error: unknown): error is CorrectionError => Schema.is(CorrectionErrorSchema)(error)
 
 // =============================================================================
 // Validation Service Interface
@@ -164,25 +234,31 @@ export interface ValidationService {
    *
    * @example
    * ```typescript
-   * const result = yield* validationService.validateInventory(inventory, {
-   *   checkItemRegistry: true,
-   *   validateMetadata: true,
-   *   checkStackLimits: true,
-   *   verifyHotbarIntegrity: true,
-   *   validateArmorSlots: true,
-   *   checkDurabilityRanges: true,
-   *   detectDuplicates: true,
-   *   performDeepValidation: true
-   * })
-   *
-   * if (!result.isValid) {
-   *   yield* Effect.log(`検証失敗: ${result.violations.length}個の違反を検出`)
-   *   for (const violation of result.violations) {
-   *     yield* Effect.log(`- ${violation.description}`)
-   *   }
-   * }
-   * ```
-   */
+ * const result = yield* validationService.validateInventory(inventory, {
+ *   checkItemRegistry: true,
+ *   validateMetadata: true,
+ *   checkStackLimits: true,
+ *   verifyHotbarIntegrity: true,
+ *   validateArmorSlots: true,
+ *   checkDurabilityRanges: true,
+ *   detectDuplicates: true,
+ *   performDeepValidation: true
+ * })
+ *
+ * yield* pipe(
+ *   Match.value(result.isValid),
+ *   Match.when(false, () =>
+ *     Effect.gen(function* () {
+ *       yield* Effect.log(`検証失敗: ${result.violations.length}個の違反を検出`)
+ *       yield* Effect.forEach(result.violations, (violation) =>
+ *         Effect.log(`- ${violation.description}`)
+ *       )
+ *     })
+ *   ),
+ *   Match.orElse(() => Effect.unit)
+ * )
+ * ```
+ */
   readonly validateInventory: (
     inventory: Inventory,
     options: ValidationOptions
@@ -198,13 +274,15 @@ export interface ValidationService {
    * @returns 基本的な検証結果
    *
    * @example
-   * ```typescript
-   * const isValid = yield* validationService.quickIntegrityCheck(inventory)
-   * if (!isValid) {
-   *   yield* Effect.log('インベントリに基本的な問題があります')
-   * }
-   * ```
-   */
+ * ```typescript
+ * const isValid = yield* validationService.quickIntegrityCheck(inventory)
+ * yield* pipe(
+ *   Match.value(isValid),
+ *   Match.when(false, () => Effect.log('インベントリに基本的な問題があります')),
+ *   Match.orElse(() => Effect.unit)
+ * )
+ * ```
+ */
   readonly quickIntegrityCheck: (inventory: Inventory) => Effect.Effect<boolean, never>
 
   /**
@@ -218,13 +296,18 @@ export interface ValidationService {
    * @returns スロット固有の検証結果
    *
    * @example
-   * ```typescript
-   * const result = yield* validationService.validateSlot(inventory, 5)
-   * if (result.violations.length > 0) {
-   *   yield* Effect.log(`スロット5に問題: ${result.violations[0].description}`)
-   * }
-   * ```
-   */
+ * ```typescript
+ * const result = yield* validationService.validateSlot(inventory, 5)
+ * yield* pipe(
+ *   Option.fromNullable(result.violations[0]),
+ *   Option.match({
+ *     onNone: () => Effect.unit,
+ *     onSome: (violation) =>
+ *       Effect.log(`スロット5に問題: ${violation.description}`),
+ *   })
+ * )
+ * ```
+ */
   readonly validateSlot: (
     inventory: Inventory,
     slotIndex: number
@@ -247,13 +330,15 @@ export interface ValidationService {
    * @returns ホットバー検証結果
    *
    * @example
-   * ```typescript
-   * const result = yield* validationService.validateHotbar(inventory)
-   * if (!result.isValid) {
-   *   yield* Effect.log('ホットバー設定に問題があります')
-   * }
-   * ```
-   */
+ * ```typescript
+ * const result = yield* validationService.validateHotbar(inventory)
+ * yield* pipe(
+ *   Match.value(result.isValid),
+ *   Match.when(false, () => Effect.log('ホットバー設定に問題があります')),
+ *   Match.orElse(() => Effect.unit)
+ * )
+ * ```
+ */
   readonly validateHotbar: (inventory: Inventory) => Effect.Effect<
     {
       readonly isValid: boolean
@@ -275,13 +360,13 @@ export interface ValidationService {
    * @returns 防具検証結果
    *
    * @example
-   * ```typescript
-   * const result = yield* validationService.validateArmorSlots(inventory)
-   * for (const issue of result.issues) {
-   *   yield* Effect.log(`防具問題: ${issue.description}`)
-   * }
-   * ```
-   */
+ * ```typescript
+ * const result = yield* validationService.validateArmorSlots(inventory)
+ * yield* Effect.forEach(result.issues, (issue) =>
+ *   Effect.log(`防具問題: ${issue.description}`)
+ * )
+ * ```
+ */
   readonly validateArmorSlots: (inventory: Inventory) => Effect.Effect<
     {
       readonly isValid: boolean
@@ -348,15 +433,17 @@ export interface ValidationService {
    * @returns 健全性スコアと詳細
    *
    * @example
-   * ```typescript
-   * const health = yield* validationService.calculateHealthScore(inventory)
-   * yield* Effect.log(`インベントリ健全性: ${health.score}/100`)
-   *
-   * if (health.score < 80) {
-   *   yield* Effect.log('最適化をお勧めします')
-   * }
-   * ```
-   */
+ * ```typescript
+ * const health = yield* validationService.calculateHealthScore(inventory)
+ * yield* Effect.log(`インベントリ健全性: ${health.score}/100`)
+ *
+ * yield* pipe(
+ *   Match.value(health.score < 80),
+ *   Match.when(true, () => Effect.log('最適化をお勧めします')),
+ *   Match.orElse(() => Effect.unit)
+ * )
+ * ```
+ */
   readonly calculateHealthScore: (inventory: Inventory) => Effect.Effect<
     {
       readonly score: number

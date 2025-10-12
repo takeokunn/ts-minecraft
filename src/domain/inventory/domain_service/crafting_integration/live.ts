@@ -7,6 +7,7 @@
 
 import { Effect, Layer, Option, pipe, ReadonlyArray } from 'effect'
 import type { Inventory, ItemId, ItemStack } from '../../types'
+import { makeUnsafeItemId } from '../../value_object/item_id/types'
 import {
   CraftingIntegrationError,
   CraftingIntegrationService,
@@ -31,15 +32,17 @@ export const CraftingIntegrationServiceLive = Layer.succeed(
         // 材料の可用性をチェック
         const ingredientChecks = yield* pipe(
           recipe.ingredients,
-          Effect.forEach((ingredient) =>
-            Effect.gen(function* () {
-              const available = yield* countItemsInInventory(inventory, ingredient.itemId)
-              return {
-                ingredient,
-                available,
-                isMissing: available < ingredient.count,
-              }
-            })
+          Effect.forEach(
+            (ingredient) =>
+              Effect.gen(function* () {
+                const available = yield* countItemsInInventory(inventory, ingredient.itemId)
+                return {
+                  ingredient,
+                  available,
+                  isMissing: available < ingredient.count,
+                }
+              }),
+            { concurrency: 4 }
           )
         )
 
@@ -88,44 +91,55 @@ export const CraftingIntegrationServiceLive = Layer.succeed(
         // クラフト可能性の事前チェック
         const craftability = yield* CraftingIntegrationService.checkCraftability(inventory, recipe)
 
-        if (!craftability.canCraft) {
-          yield* Effect.fail(new CraftingIntegrationError('CANNOT_CRAFT', craftability.reason))
-        }
+        // Effect.filterOrFailによる検証
+        yield* Effect.succeed(craftability).pipe(
+          Effect.filterOrFail(
+            (c) => c.canCraft,
+            () => new CraftingIntegrationError('CANNOT_CRAFT', craftability.reason)
+          )
+        )
 
-        let currentInventory = inventory
-        const craftedItems: ItemStack[] = []
-        const consumedIngredients: CraftingResult['consumedIngredients'] = []
-        let experienceGained = 0
+        // Effect.replicateとEffect.reduceによるクラフト実行
+        const craftingResults = yield* pipe(
+          Effect.replicate(craftCount, Effect.unit),
+          Effect.reduce(
+            {
+              currentInventory: inventory,
+              craftedItems: [] as const satisfies readonly ItemStack[],
+              consumedIngredients: [] as const satisfies CraftingResult['consumedIngredients'],
+              experienceGained: 0,
+            },
+            (acc, _) =>
+              Effect.gen(function* () {
+                // 材料を消費
+                const consumption = yield* consumeIngredients(acc.currentInventory, recipe.ingredients)
 
-        // 指定された回数だけクラフトを実行
-        for (let i = 0; i < craftCount; i++) {
-          // 材料を消費
-          const consumption = yield* consumeIngredients(currentInventory, recipe.ingredients)
-          currentInventory = consumption.updatedInventory
-          consumedIngredients.push(...consumption.consumed)
+                // 結果アイテムを追加
+                const resultStack: ItemStack = {
+                  itemId: recipe.result.itemId,
+                  count: recipe.result.count,
+                  metadata: recipe.result.metadata,
+                }
 
-          // 結果アイテムを追加
-          const resultStack: ItemStack = {
-            itemId: recipe.result.itemId,
-            count: recipe.result.count,
-            metadata: recipe.result.metadata,
-          }
+                const addResult = yield* addItemToInventory(consumption.updatedInventory, resultStack)
 
-          const addResult = yield* addItemToInventory(currentInventory, resultStack)
-          currentInventory = addResult.updatedInventory
-          craftedItems.push(resultStack)
-
-          // 経験値を加算
-          experienceGained += recipe.requirements.experience ?? 0
-        }
+                return {
+                  currentInventory: addResult.updatedInventory,
+                  craftedItems: [...acc.craftedItems, resultStack],
+                  consumedIngredients: [...acc.consumedIngredients, ...consumption.consumed],
+                  experienceGained: acc.experienceGained + (recipe.requirements.experience ?? 0),
+                }
+              })
+          )
+        )
 
         return {
           success: true,
-          updatedInventory: currentInventory,
-          craftedItems,
-          consumedIngredients,
-          experienceGained,
-          byproducts: [], // 現在は副産物なし
+          updatedInventory: craftingResults.currentInventory,
+          craftedItems: craftingResults.craftedItems,
+          consumedIngredients: craftingResults.consumedIngredients,
+          experienceGained: craftingResults.experienceGained,
+          byproducts: [],
         }
       }),
 
@@ -134,50 +148,85 @@ export const CraftingIntegrationServiceLive = Layer.succeed(
      */
     collectIngredients: (inventory, ingredients, allowAlternatives = false) =>
       Effect.gen(function* () {
-        const collected: IngredientCollectionResult['collected'] = []
-        const missing: IngredientCollectionResult['missing'] = []
-        const alternatives: IngredientCollectionResult['alternatives'] = []
+        return yield* pipe(
+          ingredients,
+          Effect.reduce(
+            {
+              collected: [] as const satisfies IngredientCollectionResult['collected'],
+              missing: [] as const satisfies IngredientCollectionResult['missing'],
+              alternatives: [] as const satisfies IngredientCollectionResult['alternatives'],
+            },
+            (acc, ingredient) =>
+              Effect.gen(function* () {
+                const availableSlots = yield* findItemSlots(inventory, ingredient.itemId)
+                const totalAvailable = availableSlots.reduce(
+                  (sum, slot) => sum + (inventory.slots[slot]?.count ?? 0),
+                  0
+                )
 
-        for (const ingredient of ingredients) {
-          const availableSlots = yield* findItemSlots(inventory, ingredient.itemId)
-          const totalAvailable = availableSlots.reduce((sum, slot) => sum + (inventory.slots[slot]?.count ?? 0), 0)
+                // Match.whenによる材料十分性チェック
+                return yield* pipe(
+                  Match.value(totalAvailable >= ingredient.count),
+                  Match.when(true, () =>
+                    Effect.succeed({
+                      ...acc,
+                      collected: [
+                        ...acc.collected,
+                        {
+                          itemId: ingredient.itemId,
+                          count: ingredient.count,
+                          fromSlots: availableSlots.slice(0, Math.ceil(ingredient.count / 64)),
+                        },
+                      ],
+                    })
+                  ),
+                  Match.orElse(() =>
+                    Effect.gen(function* () {
+                      const newMissing = {
+                        itemId: ingredient.itemId,
+                        required: ingredient.count,
+                        shortfall: ingredient.count - totalAvailable,
+                      }
 
-          if (totalAvailable >= ingredient.count) {
-            // 十分な材料がある
-            collected.push({
-              itemId: ingredient.itemId,
-              count: ingredient.count,
-              fromSlots: availableSlots.slice(0, Math.ceil(ingredient.count / 64)),
-            })
-          } else {
-            // 材料不足
-            missing.push({
-              itemId: ingredient.itemId,
-              required: ingredient.count,
-              shortfall: ingredient.count - totalAvailable,
-            })
+                      // Effect.whenによる代替材料検索
+                      const newAlternatives = yield* Effect.when(allowAlternatives && !!ingredient.alternatives, {
+                        onTrue: () =>
+                          pipe(
+                            ingredient.alternatives ?? [],
+                            Effect.forEach(
+                              (altItemId) =>
+                                Effect.gen(function* () {
+                                  const altAvailable = yield* countItemsInInventory(inventory, altItemId)
+                                  return { altItemId, altAvailable }
+                                }),
+                              { concurrency: 4 }
+                            ),
+                            Effect.map(
+                              ReadonlyArray.filterMap(({ altItemId, altAvailable }) =>
+                                altAvailable > 0
+                                  ? Option.some({
+                                      originalItemId: ingredient.itemId,
+                                      alternativeItemId: altItemId,
+                                      availableCount: altAvailable,
+                                    })
+                                  : Option.none()
+                              )
+                            )
+                          ),
+                        onFalse: () => Effect.succeed([] as const satisfies IngredientCollectionResult['alternatives']),
+                      })
 
-            // 代替材料を検索（許可されている場合）
-            if (allowAlternatives && ingredient.alternatives) {
-              for (const altItemId of ingredient.alternatives) {
-                const altAvailable = yield* countItemsInInventory(inventory, altItemId)
-                if (altAvailable > 0) {
-                  alternatives.push({
-                    originalItemId: ingredient.itemId,
-                    alternativeItemId: altItemId,
-                    availableCount: altAvailable,
-                  })
-                }
-              }
-            }
-          }
-        }
-
-        return {
-          collected,
-          missing,
-          alternatives,
-        }
+                      return {
+                        ...acc,
+                        missing: [...acc.missing, newMissing],
+                        alternatives: [...acc.alternatives, ...newAlternatives],
+                      }
+                    })
+                  )
+                )
+              })
+          )
+        )
       }),
 
     /**
@@ -185,33 +234,43 @@ export const CraftingIntegrationServiceLive = Layer.succeed(
      */
     suggestAlternativeIngredients: (inventory, requiredItemId, requiredCount) =>
       Effect.gen(function* () {
-        // 簡単な代替材料ロジック（実際のゲームではより複雑）
-        const alternatives: Array<{
-          itemId: ItemId
-          availableCount: number
-          compatibilityScore: number
-          reason: string
-        }> = []
-
-        // 木材系の代替
-        if (requiredItemId.includes('planks')) {
-          const woodTypes = ['oak', 'birch', 'spruce', 'jungle', 'acacia', 'dark_oak']
-
-          for (const woodType of woodTypes) {
-            const altItemId = `minecraft:${woodType}_planks` as ItemId
-            if (altItemId !== requiredItemId) {
-              const available = yield* countItemsInInventory(inventory, altItemId)
-              if (available > 0) {
-                alternatives.push({
-                  itemId: altItemId,
-                  availableCount: available,
-                  compatibilityScore: 0.9,
-                  reason: `Alternative wood type: ${woodType}`,
-                })
-              }
-            }
-          }
-        }
+        // Effect.whenによる木材系代替材料検索
+        const alternatives = yield* Effect.when(requiredItemId.includes('planks'), {
+          onTrue: () =>
+            pipe(
+              ['oak', 'birch', 'spruce', 'jungle', 'acacia', 'dark_oak'] as const,
+              Effect.forEach(
+                (woodType) =>
+                  Effect.gen(function* () {
+                    const altItemId = makeUnsafeItemId(`minecraft:${woodType}_planks`)
+                    const available = yield* countItemsInInventory(inventory, altItemId)
+                    return { altItemId, available, woodType }
+                  }),
+                { concurrency: 4 }
+              ),
+              Effect.map(
+                ReadonlyArray.filterMap(({ altItemId, available, woodType }) =>
+                  altItemId !== requiredItemId && available > 0
+                    ? Option.some({
+                        itemId: altItemId,
+                        availableCount: available,
+                        compatibilityScore: 0.9,
+                        reason: `Alternative wood type: ${woodType}`,
+                      })
+                    : Option.none()
+                )
+              )
+            ),
+          onFalse: () =>
+            Effect.succeed(
+              [] as const satisfies ReadonlyArray<{
+                itemId: ItemId
+                availableCount: number
+                compatibilityScore: number
+                reason: string
+              }>
+            ),
+        })
 
         return alternatives.sort((a, b) => b.compatibilityScore - a.compatibilityScore)
       }),
@@ -221,38 +280,43 @@ export const CraftingIntegrationServiceLive = Layer.succeed(
      */
     batchCrafting: (inventory, recipes) =>
       Effect.gen(function* () {
-        let currentInventory = inventory
-        let totalCrafted = 0
-        let totalExperienceGained = 0
-        const failedRecipes: Array<{ recipe: Recipe; reason: string }> = []
-        const executionOrder: string[] = []
-
-        // レシピを効率的な順序で実行
         const sortedRecipes = yield* optimizeRecipeOrder(recipes)
 
-        for (const { recipe, count } of sortedRecipes) {
-          try {
-            const result = yield* CraftingIntegrationService.executeCrafting(currentInventory, recipe, count)
-
-            currentInventory = result.updatedInventory
-            totalCrafted += result.craftedItems.length
-            totalExperienceGained += result.experienceGained
-            executionOrder.push(recipe.recipeId)
-          } catch (error) {
-            failedRecipes.push({
-              recipe,
-              reason: error instanceof Error ? error.message : 'Unknown error',
-            })
-          }
-        }
-
-        return {
-          updatedInventory: currentInventory,
-          totalCrafted,
-          totalExperienceGained,
-          failedRecipes,
-          executionOrder,
-        }
+        return yield* pipe(
+          sortedRecipes,
+          Effect.reduce(
+            {
+              currentInventory: inventory,
+              totalCrafted: 0,
+              totalExperienceGained: 0,
+              failedRecipes: [] as const satisfies ReadonlyArray<{ recipe: Recipe; reason: string }>,
+              executionOrder: [] as const satisfies readonly string[],
+            },
+            (acc, { recipe, count }) =>
+              pipe(
+                CraftingIntegrationService.executeCrafting(acc.currentInventory, recipe, count),
+                Effect.map((result) => ({
+                  currentInventory: result.updatedInventory,
+                  totalCrafted: acc.totalCrafted + result.craftedItems.length,
+                  totalExperienceGained: acc.totalExperienceGained + result.experienceGained,
+                  failedRecipes: acc.failedRecipes,
+                  executionOrder: [...acc.executionOrder, recipe.recipeId],
+                })),
+                Effect.catchAll((error) =>
+                  Effect.succeed({
+                    ...acc,
+                    failedRecipes: [
+                      ...acc.failedRecipes,
+                      {
+                        recipe,
+                        reason: error instanceof Error ? error.message : 'Unknown error',
+                      },
+                    ],
+                  })
+                )
+              )
+          )
+        )
       }),
 
     /**
@@ -260,34 +324,31 @@ export const CraftingIntegrationServiceLive = Layer.succeed(
      */
     findRecipesForItem: (targetItemId, inventory) =>
       Effect.gen(function* () {
-        // モックレシピデータベース（実際の実装ではレシピレジストリから取得）
         const allRecipes = yield* getAllRecipes()
         const matchingRecipes = allRecipes.filter((recipe) => recipe.result.itemId === targetItemId)
 
-        const results: Array<{
-          recipe: Recipe
-          canCraft: boolean
-          missingIngredients: ReadonlyArray<ItemId>
-          craftingComplexity: number
-        }> = []
+        const results = yield* pipe(
+          matchingRecipes,
+          Effect.forEach(
+            (recipe) =>
+              Effect.gen(function* () {
+                const craftability = yield* CraftingIntegrationService.checkCraftability(inventory, recipe)
 
-        for (const recipe of matchingRecipes) {
-          const craftability = yield* CraftingIntegrationService.checkCraftability(inventory, recipe)
+                return {
+                  recipe,
+                  canCraft: craftability.canCraft,
+                  missingIngredients: craftability.missingIngredients.map((mi) => mi.itemId),
+                  craftingComplexity: calculateCraftingComplexity(recipe),
+                }
+              }),
+            { concurrency: 4 }
+          )
+        )
 
-          results.push({
-            recipe,
-            canCraft: craftability.canCraft,
-            missingIngredients: craftability.missingIngredients.map((mi) => mi.itemId),
-            craftingComplexity: calculateCraftingComplexity(recipe),
-          })
-        }
+        const priority = (entry: { canCraft: boolean; craftingComplexity: number }) =>
+          (entry.canCraft ? 0 : 1) * 1_000_000 + entry.craftingComplexity
 
-        return results.sort((a, b) => {
-          // 実行可能なレシピを優先し、次に複雑度の低いものを優先
-          if (a.canCraft && !b.canCraft) return -1
-          if (!a.canCraft && b.canCraft) return 1
-          return a.craftingComplexity - b.craftingComplexity
-        })
+        return results.sort((a, b) => priority(a) - priority(b))
       }),
 
     /**
@@ -331,39 +392,51 @@ const checkResultPlacement = (
       ReadonlyArray.findFirstIndex((slot) => slot === null)
     )
 
-    if (Option.isSome(emptySlotIndex)) {
-      return {
-        canPlace: true,
-        targetSlot: emptySlotIndex.value,
-        overflow: [],
-      }
-    }
+    // Option.matchによる空きスロットチェック
+    return yield* pipe(
+      emptySlotIndex,
+      Option.match({
+        onSome: (index) =>
+          Effect.succeed({
+            canPlace: true,
+            targetSlot: index,
+            overflow: [],
+          }),
+        onNone: () =>
+          Effect.gen(function* () {
+            // 同じアイテムで結合可能なスロットを検索
+            const stackableSlotIndex = pipe(
+              inventory.slots,
+              ReadonlyArray.findFirstIndex(
+                (slot) => slot?.itemStack?.itemId === result.itemId && slot.itemStack.count + result.count <= 64
+              )
+            )
 
-    // 同じアイテムで結合可能なスロットを検索
-    const stackableSlotIndex = pipe(
-      inventory.slots,
-      ReadonlyArray.findFirstIndex(
-        (slot) => slot?.itemStack?.itemId === result.itemId && slot.itemStack.count + result.count <= 64
-      )
+            // Option.matchによるスタック可能チェック
+            return yield* pipe(
+              stackableSlotIndex,
+              Option.match({
+                onSome: (index) =>
+                  Effect.succeed({
+                    canPlace: true,
+                    targetSlot: index,
+                    overflow: [],
+                  }),
+                onNone: () =>
+                  Effect.succeed({
+                    canPlace: false,
+                    overflow: [
+                      {
+                        itemId: result.itemId,
+                        count: result.count,
+                      },
+                    ],
+                  }),
+              })
+            )
+          }),
+      })
     )
-
-    if (Option.isSome(stackableSlotIndex)) {
-      return {
-        canPlace: true,
-        targetSlot: stackableSlotIndex.value,
-        overflow: [],
-      }
-    }
-
-    return {
-      canPlace: false,
-      overflow: [
-        {
-          itemId: result.itemId,
-          count: result.count,
-        },
-      ],
-    }
   })
 
 const calculateSuggestedSlots = (
@@ -373,11 +446,13 @@ const calculateSuggestedSlots = (
   Effect.gen(function* () {
     return yield* pipe(
       ingredients,
-      Effect.forEach((ingredient) =>
-        Effect.gen(function* () {
-          const slots = yield* findItemSlots(inventory, ingredient.itemId)
-          return Option.fromNullable(slots[0])
-        })
+      Effect.forEach(
+        (ingredient) =>
+          Effect.gen(function* () {
+            const slots = yield* findItemSlots(inventory, ingredient.itemId)
+            return Option.fromNullable(slots[0])
+          }),
+        { concurrency: 4 }
       ),
       Effect.map(ReadonlyArray.getSomes)
     )
@@ -387,7 +462,7 @@ const findItemSlots = (inventory: Inventory, itemId: ItemId): Effect.Effect<numb
   Effect.succeed(
     pipe(
       inventory.slots,
-      ReadonlyArray.reduceWithIndex([] as number[], (index, slots, slot) =>
+      ReadonlyArray.reduceWithIndex([] as const satisfies readonly number[], (index, slots, slot) =>
         slot?.itemStack?.itemId === itemId ? [...slots, index] : slots
       )
     )
@@ -403,22 +478,24 @@ const consumeIngredients = (
   },
   CraftingIntegrationError
 > =>
-  Effect.gen(function* () {
-    let currentInventory = inventory
-    const consumed: CraftingResult['consumedIngredients'] = []
+  pipe(
+    ingredients,
+    Effect.reduce(
+      {
+        currentInventory: inventory,
+        consumed: [] as const satisfies CraftingResult['consumedIngredients'],
+      },
+      (acc, ingredient) =>
+        Effect.gen(function* () {
+          const consumeResult = yield* consumeSpecificItem(acc.currentInventory, ingredient.itemId, ingredient.count)
 
-    for (const ingredient of ingredients) {
-      const consumeResult = yield* consumeSpecificItem(currentInventory, ingredient.itemId, ingredient.count)
-
-      currentInventory = consumeResult.updatedInventory
-      consumed.push(consumeResult.consumed)
-    }
-
-    return {
-      updatedInventory: currentInventory,
-      consumed,
-    }
-  })
+          return {
+            currentInventory: consumeResult.updatedInventory,
+            consumed: [...acc.consumed, consumeResult.consumed],
+          }
+        })
+    )
+  )
 
 const consumeSpecificItem = (
   inventory: Inventory,
@@ -432,47 +509,78 @@ const consumeSpecificItem = (
   CraftingIntegrationError
 > =>
   Effect.gen(function* () {
-    const newSlots = [...inventory.slots]
-    const fromSlots: number[] = []
-    let remainingToConsume = count
+    // Effect.reduceによるスロット走査
+    const consumptionResult = yield* pipe(
+      inventory.slots,
+      ReadonlyArray.mapWithIndex((index, slot) => ({ index, slot })),
+      Effect.reduce(
+        {
+          newSlots: [...inventory.slots],
+          fromSlots: [] as const satisfies readonly number[],
+          remainingToConsume: count,
+        },
+        (acc, { index, slot }) =>
+          pipe(
+            Match.value(acc.remainingToConsume === 0),
+            Match.when(true, () => Effect.succeed(acc)),
+            Match.orElse(() =>
+              pipe(
+                Option.fromNullable(slot?.itemStack),
+                Option.filter((stack) => stack.itemId === itemId),
+                Option.match({
+                  onNone: () => Effect.succeed(acc),
+                  onSome: (stack) => {
+                    const consumeFromThisSlot = Math.min(stack.count, acc.remainingToConsume)
 
-    for (let i = 0; i < newSlots.length && remainingToConsume > 0; i++) {
-      const slot = newSlots[i]
-      if (slot?.itemStack?.itemId === itemId) {
-        const consumeFromThisSlot = Math.min(slot.itemStack.count, remainingToConsume)
+                    return pipe(
+                      Match.value(consumeFromThisSlot === stack.count),
+                      Match.when(true, () => Effect.succeed(null as typeof slot)),
+                      Match.orElse(() =>
+                        Effect.succeed({
+                          ...slot,
+                          itemStack: {
+                            ...stack,
+                            count: stack.count - consumeFromThisSlot,
+                          },
+                        })
+                      ),
+                      Effect.map((updatedSlot) => {
+                        const newSlotsArray = [...acc.newSlots]
+                        newSlotsArray[index] = updatedSlot
 
-        if (consumeFromThisSlot === slot.itemStack.count) {
-          newSlots[i] = null
-        } else {
-          newSlots[i] = {
-            ...slot,
-            itemStack: {
-              ...slot.itemStack,
-              count: slot.itemStack.count - consumeFromThisSlot,
-            },
-          }
-        }
-
-        remainingToConsume -= consumeFromThisSlot
-        fromSlots.push(i)
-      }
-    }
-
-    if (remainingToConsume > 0) {
-      yield* Effect.fail(
-        new CraftingIntegrationError('INSUFFICIENT_MATERIALS', `Missing ${remainingToConsume} ${itemId}`)
+                        return {
+                          newSlots: newSlotsArray,
+                          fromSlots: [...acc.fromSlots, index],
+                          remainingToConsume: acc.remainingToConsume - consumeFromThisSlot,
+                        }
+                      })
+                    )
+                  },
+                })
+              )
+            )
+          )
       )
-    }
+    )
+
+    // Effect.filterOrFailによる不足材料チェック
+    yield* Effect.succeed(consumptionResult).pipe(
+      Effect.filterOrFail(
+        (result) => result.remainingToConsume === 0,
+        (result) =>
+          new CraftingIntegrationError('INSUFFICIENT_MATERIALS', `Missing ${result.remainingToConsume} ${itemId}`)
+      )
+    )
 
     return {
       updatedInventory: {
         ...inventory,
-        slots: newSlots,
+        slots: consumptionResult.newSlots,
       },
       consumed: {
         itemId,
         count,
-        fromSlots,
+        fromSlots: consumptionResult.fromSlots,
       },
     }
   })
@@ -482,22 +590,30 @@ const addItemToInventory = (
   item: ItemStack
 ): Effect.Effect<{ updatedInventory: Inventory }, CraftingIntegrationError> =>
   Effect.gen(function* () {
-    const newSlots = [...inventory.slots]
+    // ReadonlyArray.findFirstIndexによる空きスロット検索
+    const emptySlotIndex = pipe(
+      inventory.slots,
+      ReadonlyArray.findFirstIndex((slot) => slot === null)
+    )
 
-    // 空きスロットを検索
-    for (let i = 0; i < newSlots.length; i++) {
-      if (newSlots[i] === null) {
-        newSlots[i] = item
-        return {
-          updatedInventory: {
-            ...inventory,
-            slots: newSlots,
-          },
-        }
-      }
-    }
-
-    yield* Effect.fail(new CraftingIntegrationError('INVENTORY_FULL', 'No space to place crafted item'))
+    // Option.matchによる空きスロットチェック
+    return yield* pipe(
+      emptySlotIndex,
+      Option.match({
+        onSome: (index) =>
+          Effect.gen(function* () {
+            const newSlots = [...inventory.slots]
+            newSlots[index] = item
+            return {
+              updatedInventory: {
+                ...inventory,
+                slots: newSlots,
+              },
+            }
+          }),
+        onNone: () => Effect.fail(new CraftingIntegrationError('INVENTORY_FULL', 'No space to place crafted item')),
+      })
+    )
   })
 
 const optimizeRecipeOrder = (
@@ -515,9 +631,9 @@ const getAllRecipes = (): Effect.Effect<Recipe[], never> =>
       {
         recipeId: 'bread_recipe',
         type: 'CRAFTING' as const,
-        ingredients: [{ itemId: 'minecraft:wheat' as ItemId, count: 3 }],
+        ingredients: [{ itemId: makeUnsafeItemId('minecraft:wheat'), count: 3 }],
         result: {
-          itemId: 'minecraft:bread' as ItemId,
+          itemId: makeUnsafeItemId('minecraft:bread'),
           count: 1,
         },
         requirements: {
@@ -532,12 +648,11 @@ const getAllRecipes = (): Effect.Effect<Recipe[], never> =>
 
 const calculateCraftingComplexity = (recipe: Recipe): number => {
   // 複雑度の計算（材料数、特殊要件等を考慮）
-  let complexity = recipe.ingredients.length
+  const baseComplexity = recipe.ingredients.length
+  const craftingTableBonus = recipe.requirements.craftingTableRequired ? 1 : 0
+  const furnaceBonus = recipe.requirements.furnaceRequired ? 2 : 0
+  const brewingStandBonus = recipe.requirements.brewingStandRequired ? 2 : 0
+  const smithingTableBonus = recipe.requirements.smithingTableRequired ? 3 : 0
 
-  if (recipe.requirements.craftingTableRequired) complexity += 1
-  if (recipe.requirements.furnaceRequired) complexity += 2
-  if (recipe.requirements.brewingStandRequired) complexity += 2
-  if (recipe.requirements.smithingTableRequired) complexity += 3
-
-  return complexity
+  return baseComplexity + craftingTableBonus + furnaceBonus + brewingStandBonus + smithingTableBonus
 }

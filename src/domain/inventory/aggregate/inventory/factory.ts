@@ -3,9 +3,12 @@
  * DDD原則に基づく複雑なオブジェクト生成の隠蔽
  */
 
-import { Clock, Context, Effect, Schema } from 'effect'
+import { JsonValueSchema } from '@shared/schema/json'
+import { formatParseIssues } from '@shared/schema/tagged_error_factory'
+import { Brand, Context, DateTime, Effect, Layer, Match, pipe, Schema } from 'effect'
 import { nanoid } from 'nanoid'
 import type { PlayerId } from '../../types'
+import { PlayerIdSchema } from '../../types/core'
 import type {
   ArmorSlot,
   HotbarSlot,
@@ -15,7 +18,33 @@ import type {
   InventorySlot,
   SlotIndex,
 } from './types'
-import { INVENTORY_CONSTANTS, InventoryAggregateError, InventoryAggregateSchema } from './types'
+import {
+  ArmorSlotSchema,
+  HotbarSlotSchema,
+  INVENTORY_CONSTANTS,
+  InventoryAggregateError,
+  InventoryAggregateErrorFactory,
+  InventoryAggregateSchema,
+  InventoryDomainEventSchema,
+  InventoryIdSchema,
+  InventorySlotSchema,
+  makeUnsafeHotbarSlot,
+  makeUnsafeInventoryId,
+  makeUnsafeSlotIndex,
+  SlotIndexSchema,
+} from './types'
+
+// ===== Branded Types for Persistence =====
+
+/**
+ * 永続化されたInventoryデータの型
+ *
+ * `unknown`を使用する理由:
+ * - 外部ストレージ（IndexedDB/LocalStorage）から取得されたデータは実行時検証が必須
+ * - Branded Typeにより、型安全な境界を明示的に定義
+ * - restore関数内でSchema検証を通過して初めてInventoryAggregateとして扱える
+ */
+export type PersistedInventory = Brand.Brand<unknown, 'PersistedInventory'>
 
 // ===== Factory Interface =====
 
@@ -27,209 +56,252 @@ export interface InventoryFactory {
 
   /**
    * 既存データからInventory集約を復元
+   *
+   * @param data - 永続化されたInventoryデータ（実行時検証が必要）
    */
-  readonly restore: (data: unknown) => Effect.Effect<InventoryAggregate, InventoryAggregateError>
-
-  /**
-   * Inventory集約のビルダーを作成
-   */
-  readonly builder: () => InventoryBuilder
+  readonly restore: (data: PersistedInventory) => Effect.Effect<InventoryAggregate, InventoryAggregateError>
 }
 
 export const InventoryFactory = Context.GenericTag<InventoryFactory>(
   '@minecraft/domain/inventory/aggregate/InventoryFactory'
 )
 
-// ===== Builder Pattern Implementation =====
+// ===== Builder State Schema =====
 
-export interface InventoryBuilder {
-  /**
-   * プレイヤーIDを設定
-   */
-  readonly setPlayerId: (playerId: PlayerId) => InventoryBuilder
+/**
+ * Builderの内部状態を表すSchema
+ */
+export const InventoryBuilderStateSchema = Schema.Struct({
+  id: Schema.NullOr(InventoryIdSchema),
+  playerId: Schema.NullOr(PlayerIdSchema),
+  slots: Schema.Array(InventorySlotSchema),
+  hotbar: Schema.Array(SlotIndexSchema),
+  armor: ArmorSlotSchema,
+  offhand: InventorySlotSchema,
+  selectedSlot: HotbarSlotSchema,
+  version: Schema.Number,
+  lastModifiedMs: Schema.NullOr(Schema.Number),
+  uncommittedEvents: Schema.Array(InventoryDomainEventSchema),
+  metadata: Schema.optional(JsonValueSchema),
+})
 
-  /**
-   * カスタムIDを設定（テスト用）
-   */
-  readonly setId: (id: InventoryId) => InventoryBuilder
+export type InventoryBuilderState = Schema.Schema.Type<typeof InventoryBuilderStateSchema>
 
-  /**
-   * 指定スロットにアイテムを設定
-   */
-  readonly setSlot: (index: SlotIndex, slot: InventorySlot) => InventoryBuilder
+// ===== Builder Pure Functions =====
 
-  /**
-   * ホットバー設定を追加
-   */
-  readonly setHotbar: (hotbar: ReadonlyArray<SlotIndex>) => InventoryBuilder
-
-  /**
-   * 防具を設定
-   */
-  readonly setArmor: (armor: ArmorSlot) => InventoryBuilder
-
-  /**
-   * オフハンドスロットを設定
-   */
-  readonly setOffhand: (slot: InventorySlot) => InventoryBuilder
-
-  /**
-   * 選択中のホットバースロットを設定
-   */
-  readonly setSelectedSlot: (slot: HotbarSlot) => InventoryBuilder
-
-  /**
-   * バージョンを設定
-   */
-  readonly setVersion: (version: number) => InventoryBuilder
-
-  /**
-   * 集約をビルド
-   */
-  readonly build: () => Effect.Effect<InventoryAggregate, InventoryAggregateError>
-}
-
-// ===== Builder Implementation =====
-
-class InventoryBuilderImpl implements InventoryBuilder {
-  private id: InventoryId | null = null
-  private playerId: PlayerId | null = null
-  private slots: Array<InventorySlot> = Array(INVENTORY_CONSTANTS.MAIN_INVENTORY_SIZE).fill(null)
-  private hotbar: ReadonlyArray<SlotIndex> = Array.from(
-    { length: INVENTORY_CONSTANTS.HOTBAR_SIZE },
-    (_, i) => i as SlotIndex
-  )
-  private armor: ArmorSlot = {
+/**
+ * 初期Builder状態を作成
+ */
+export const createInventoryBuilderState = (): InventoryBuilderState => ({
+  id: null,
+  playerId: null,
+  slots: Array(INVENTORY_CONSTANTS.MAIN_INVENTORY_SIZE).fill(null),
+  hotbar: Array.from({ length: INVENTORY_CONSTANTS.HOTBAR_SIZE }, (_, i) => makeUnsafeSlotIndex(i)),
+  armor: {
     helmet: null,
     chestplate: null,
     leggings: null,
     boots: null,
-  }
-  private offhand: InventorySlot = null
-  private selectedSlot: HotbarSlot = 0 as HotbarSlot
-  private version: number = 1
-  private lastModifiedMs: number | null = null
-  private uncommittedEvents: Array<InventoryDomainEvent> = []
+  },
+  offhand: null,
+  selectedSlot: makeUnsafeHotbarSlot(0),
+  version: 1,
+  lastModifiedMs: null,
+  uncommittedEvents: [],
+  metadata: undefined,
+})
 
-  setPlayerId(playerId: PlayerId): InventoryBuilder {
-    this.playerId = playerId
-    return this
-  }
+/**
+ * プレイヤーIDを設定
+ */
+export const withPlayerId =
+  (playerId: PlayerId) =>
+  (state: InventoryBuilderState): InventoryBuilderState => ({
+    ...state,
+    playerId,
+  })
 
-  setId(id: InventoryId): InventoryBuilder {
-    this.id = id
-    return this
-  }
+/**
+ * カスタムIDを設定
+ */
+export const withInventoryId =
+  (id: InventoryId) =>
+  (state: InventoryBuilderState): InventoryBuilderState => ({
+    ...state,
+    id,
+  })
 
-  setSlot(index: SlotIndex, slot: InventorySlot): InventoryBuilder {
-    if (index < 0 || index >= INVENTORY_CONSTANTS.MAIN_INVENTORY_SIZE) {
-      return this // エラーはbuild時に検証
-    }
-    this.slots[index] = slot
-    return this
-  }
-
-  setHotbar(hotbar: ReadonlyArray<SlotIndex>): InventoryBuilder {
-    if (hotbar.length === INVENTORY_CONSTANTS.HOTBAR_SIZE) {
-      this.hotbar = hotbar
-    }
-    return this
-  }
-
-  setArmor(armor: ArmorSlot): InventoryBuilder {
-    this.armor = armor
-    return this
-  }
-
-  setOffhand(slot: InventorySlot): InventoryBuilder {
-    this.offhand = slot
-    return this
-  }
-
-  setSelectedSlot(slot: HotbarSlot): InventoryBuilder {
-    this.selectedSlot = slot
-    return this
-  }
-
-  setVersion(version: number): InventoryBuilder {
-    this.version = version
-    return this
-  }
-
-  build(): Effect.Effect<InventoryAggregate, InventoryAggregateError> {
-    return Effect.gen(
-      function* () {
-        // 必須フィールドの検証
-        if (!this.playerId) {
-          yield* Effect.fail(
-            new InventoryAggregateError({
-              reason: 'INVALID_ITEM_TYPE',
-              message: 'プレイヤーIDが設定されていません',
-            })
-          )
+/**
+ * 指定スロットにアイテムを設定
+ */
+export const withInventorySlot =
+  (index: SlotIndex, slot: InventorySlot) =>
+  (state: InventoryBuilderState): InventoryBuilderState => {
+    return pipe(
+      Match.value(index >= 0 && index < INVENTORY_CONSTANTS.MAIN_INVENTORY_SIZE),
+      Match.when(
+        (isValid) => isValid,
+        () => {
+          const newSlots = [...state.slots]
+          newSlots[index] = slot
+          return {
+            ...state,
+            slots: newSlots,
+          }
         }
-
-        // IDの生成または検証
-        const id = this.id ?? (`inv_${nanoid()}` as InventoryId)
-
-        // lastModifiedの取得
-        const lastModifiedMs = this.lastModifiedMs ?? (yield* Clock.currentTimeMillis)
-        const lastModified = new Date(lastModifiedMs).toISOString()
-
-        // スキーマ検証
-        const aggregate = yield* Schema.decodeUnknown(InventoryAggregateSchema)({
-          id,
-          playerId: this.playerId,
-          slots: this.slots,
-          hotbar: this.hotbar,
-          armor: this.armor,
-          offhand: this.offhand,
-          selectedSlot: this.selectedSlot,
-          version: this.version,
-          lastModified,
-          uncommittedEvents: this.uncommittedEvents,
-        }).pipe(
-          Effect.mapError(
-            (error) =>
-              new InventoryAggregateError({
-                reason: 'INVALID_ITEM_TYPE',
-                message: `Inventory集約の検証に失敗: ${String(error)}`,
-              })
-          )
-        )
-
-        return aggregate
-      }.bind(this)
+      ),
+      Match.orElse(() => state)
     )
   }
-}
+
+/**
+ * ホットバー設定を追加
+ */
+export const withHotbar =
+  (hotbar: ReadonlyArray<SlotIndex>) =>
+  (state: InventoryBuilderState): InventoryBuilderState => {
+    return pipe(
+      Match.value(hotbar.length === INVENTORY_CONSTANTS.HOTBAR_SIZE),
+      Match.when(
+        (isValid) => isValid,
+        () => ({
+          ...state,
+          hotbar,
+        })
+      ),
+      Match.orElse(() => state)
+    )
+  }
+
+/**
+ * 防具を設定
+ */
+export const withArmor =
+  (armor: ArmorSlot) =>
+  (state: InventoryBuilderState): InventoryBuilderState => ({
+    ...state,
+    armor,
+  })
+
+/**
+ * オフハンドスロットを設定
+ */
+export const withOffhand =
+  (offhand: InventorySlot) =>
+  (state: InventoryBuilderState): InventoryBuilderState => ({
+    ...state,
+    offhand,
+  })
+
+/**
+ * 選択中のホットバースロットを設定
+ */
+export const withSelectedSlot =
+  (selectedSlot: HotbarSlot) =>
+  (state: InventoryBuilderState): InventoryBuilderState => ({
+    ...state,
+    selectedSlot,
+  })
+
+/**
+ * バージョンを設定
+ */
+export const withInventoryVersion =
+  (version: number) =>
+  (state: InventoryBuilderState): InventoryBuilderState => ({
+    ...state,
+    version,
+  })
+
+/**
+ * Builder状態からInventory集約を構築
+ */
+export const buildInventoryFromState = (
+  state: InventoryBuilderState
+): Effect.Effect<InventoryAggregate, InventoryAggregateError> =>
+  Effect.gen(function* () {
+    // 必須フィールドの検証
+    yield* pipe(
+      Match.value(!state.playerId),
+      Match.when(true, () =>
+        Effect.fail(
+          InventoryAggregateErrorFactory.make({
+            reason: 'INVALID_ITEM_TYPE',
+            message: 'プレイヤーIDが設定されていません',
+          })
+        )
+      ),
+      Match.orElse(() => Effect.succeed(undefined))
+    )
+
+    // IDの生成または検証
+    const id = state.id ?? makeUnsafeInventoryId(`inv_${nanoid()}`)
+
+    // lastModifiedの取得
+    const now = yield* DateTime.now
+    const lastModifiedMs = state.lastModifiedMs ?? DateTime.toEpochMillis(now)
+    const lastModified = DateTime.formatIso(DateTime.unsafeMake(lastModifiedMs))
+
+    // スキーマ検証
+    const aggregate = yield* Schema.decodeUnknown(InventoryAggregateSchema)({
+      id,
+      playerId: state.playerId,
+      slots: state.slots,
+      hotbar: state.hotbar,
+      armor: state.armor,
+      offhand: state.offhand,
+      selectedSlot: state.selectedSlot,
+      version: state.version,
+      lastModified,
+      uncommittedEvents: state.uncommittedEvents,
+    }).pipe(
+      Effect.mapError((parseError: Schema.ParseError) =>
+        InventoryAggregateErrorFactory.make({
+          reason: 'INVALID_ITEM_TYPE',
+          message: 'Inventory集約の検証に失敗',
+          issues: formatParseIssues(parseError),
+          originalError: parseError,
+        })
+      )
+    )
+
+    return aggregate
+  })
 
 // ===== Factory Implementation =====
 
 export const InventoryFactoryLive = InventoryFactory.of({
   createEmpty: (playerId: PlayerId) =>
     Effect.gen(function* () {
-      const builder = new InventoryBuilderImpl()
+      // pure functionパターンでBuilder状態を構築
+      const state = pipe(createInventoryBuilderState(), withPlayerId(playerId))
 
-      return yield* builder.setPlayerId(playerId).build()
+      return yield* buildInventoryFromState(state)
     }),
 
-  restore: (data: unknown) =>
+  restore: (data: PersistedInventory) =>
     Effect.gen(function* () {
       // スキーマ検証による安全な復元
+      // ParseErrorの構造化情報を保持してエラー診断を容易にする
       return yield* Schema.decodeUnknown(InventoryAggregateSchema)(data).pipe(
-        Effect.mapError(
-          (error) =>
-            new InventoryAggregateError({
-              reason: 'INVALID_ITEM_TYPE',
-              message: `データからの復元に失敗: ${String(error)}`,
-            })
+        Effect.mapError((parseError: Schema.ParseError) =>
+          InventoryAggregateErrorFactory.make({
+            reason: 'INVALID_ITEM_TYPE',
+            message: `データからの復元に失敗: Schema検証エラー`,
+            metadata: {
+              issues: formatParseIssues(parseError),
+              parseError: String(parseError),
+            },
+          })
         )
       )
     }),
-
-  builder: () => new InventoryBuilderImpl(),
 })
+
+/**
+ * InventoryFactory Layer
+ */
+export const InventoryFactoryLayer = Layer.succeed(InventoryFactory, InventoryFactoryLive)
 
 // ===== Utility Functions =====
 
@@ -252,18 +324,19 @@ export const createEmptyArmorSlot = (): ArmorSlot => ({
  * デフォルトのホットバー設定を作成
  */
 export const createDefaultHotbar = (): ReadonlyArray<SlotIndex> =>
-  Array.from({ length: INVENTORY_CONSTANTS.HOTBAR_SIZE }, (_, i) => i as SlotIndex)
+  Array.from({ length: INVENTORY_CONSTANTS.HOTBAR_SIZE }, (_, i) => makeUnsafeSlotIndex(i))
 
 /**
  * 集約のバージョンを増加
  */
 export const incrementVersion = (aggregate: InventoryAggregate): Effect.Effect<InventoryAggregate> =>
   Effect.gen(function* () {
-    const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms).toISOString())
+    const nowDateTime = yield* DateTime.now
+    const now = DateTime.formatIso(nowDateTime)
     return {
       ...aggregate,
       version: aggregate.version + 1,
-      lastModified: now as any,
+      lastModified: now,
     }
   })
 

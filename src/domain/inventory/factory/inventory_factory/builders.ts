@@ -5,18 +5,22 @@
  * class構文を使用せず、純粋関数とFunction.flowチェーンで実装
  */
 
-import { Effect, Function, Match, pipe } from 'effect'
+import { Effect, Array as EffectArray, Function, Match, pipe } from 'effect'
 import type { ItemStack, PlayerId } from '../../types'
 import { InventoryFactoryLive } from './factory'
 import type {
+  defaultPermissions,
   InventoryBuilder,
   InventoryBuilderConfig,
   InventoryBuilderFactory,
   InventoryType,
   InventoryValidationError,
-  defaultPermissions,
 } from './interface'
-import { InventoryCreationError as CreationError, InventoryValidationError as ValidationError } from './interface'
+import {
+  asInventoryType,
+  InventoryCreationError as CreationError,
+  InventoryValidationError as ValidationError,
+} from './interface'
 
 // ===== Builder Configuration Helpers（Pure Functions） =====
 
@@ -26,7 +30,7 @@ const getDefaultConfig = (type: InventoryType): InventoryBuilderConfig =>
     type,
     Match.value,
     Match.when('player', () => ({
-      type: 'player' as InventoryType,
+      type: asInventoryType('player'),
       slotCount: 36,
       enableHotbar: true,
       enableArmor: true,
@@ -35,7 +39,7 @@ const getDefaultConfig = (type: InventoryType): InventoryBuilderConfig =>
       permissions: defaultPermissions,
     })),
     Match.when('creative', () => ({
-      type: 'creative' as InventoryType,
+      type: asInventoryType('creative'),
       slotCount: 45,
       enableHotbar: true,
       enableArmor: true,
@@ -48,7 +52,7 @@ const getDefaultConfig = (type: InventoryType): InventoryBuilderConfig =>
       },
     })),
     Match.when('survival', () => ({
-      type: 'survival' as InventoryType,
+      type: asInventoryType('survival'),
       slotCount: 36,
       enableHotbar: true,
       enableArmor: true,
@@ -57,7 +61,7 @@ const getDefaultConfig = (type: InventoryType): InventoryBuilderConfig =>
       permissions: defaultPermissions,
     })),
     Match.when('spectator', () => ({
-      type: 'spectator' as InventoryType,
+      type: asInventoryType('spectator'),
       slotCount: 0,
       enableHotbar: false,
       enableArmor: false,
@@ -72,7 +76,7 @@ const getDefaultConfig = (type: InventoryType): InventoryBuilderConfig =>
       },
     })),
     Match.when('adventure', () => ({
-      type: 'adventure' as InventoryType,
+      type: asInventoryType('adventure'),
       slotCount: 36,
       enableHotbar: true,
       enableArmor: true,
@@ -89,35 +93,69 @@ const getDefaultConfig = (type: InventoryType): InventoryBuilderConfig =>
 // 設定の検証（Pure Function with Effect）
 const validateBuilderConfig = (config: InventoryBuilderConfig): Effect.Effect<void, InventoryValidationError> =>
   Effect.gen(function* () {
-    const errors: string[] = []
+    // playerId必須チェック
+    yield* Match.value(config).pipe(
+      Match.when(
+        (c) => !c.playerId,
+        () =>
+          Effect.fail(
+            ValidationError.make({
+              reason: 'playerId is required',
+              missingFields: ['playerId'],
+              context: { config },
+            })
+          )
+      ),
+      Match.orElse(() => Effect.void)
+    )
 
-    if (!config.playerId) {
-      errors.push('playerId is required')
-    }
+    // type必須チェック
+    yield* Match.value(config).pipe(
+      Match.when(
+        (c) => !c.type,
+        () =>
+          Effect.fail(
+            ValidationError.make({
+              reason: 'type is required',
+              missingFields: ['type'],
+              context: { config },
+            })
+          )
+      ),
+      Match.orElse(() => Effect.void)
+    )
 
-    if (!config.type) {
-      errors.push('type is required')
-    }
+    // slotCount範囲チェック
+    yield* Match.value(config).pipe(
+      Match.when(
+        (c) => c.slotCount !== undefined && (c.slotCount < 0 || c.slotCount > 54),
+        () =>
+          Effect.fail(
+            ValidationError.make({
+              reason: 'slotCount must be between 0 and 54',
+              missingFields: ['slotCount'],
+              context: { config },
+            })
+          )
+      ),
+      Match.orElse(() => Effect.void)
+    )
 
-    if (config.slotCount !== undefined && (config.slotCount < 0 || config.slotCount > 54)) {
-      errors.push('slotCount must be between 0 and 54')
-    }
-
-    if (config.startingItems && config.slotCount !== undefined && config.startingItems.length > config.slotCount) {
-      errors.push('startingItems count exceeds slotCount')
-    }
-
-    if (errors.length > 0) {
-      return yield* Effect.fail(
-        new ValidationError({
-          reason: 'Builder configuration validation failed',
-          missingFields: errors,
-          context: { config },
-        })
-      )
-    }
-
-    return yield* Effect.void
+    // startingItems整合性チェック
+    yield* Match.value(config).pipe(
+      Match.when(
+        (c) => c.startingItems && c.slotCount !== undefined && c.startingItems.length > c.slotCount,
+        () =>
+          Effect.fail(
+            ValidationError.make({
+              reason: 'startingItems count exceeds slotCount',
+              missingFields: ['startingItems'],
+              context: { config },
+            })
+          )
+      ),
+      Match.orElse(() => Effect.void)
+    )
   })
 
 // ===== Function.flow Builder Implementation =====
@@ -190,33 +228,47 @@ export const createInventoryBuilder = (initialConfig: InventoryBuilderConfig = {
       return createInventoryBuilder(config)
     },
 
-    // 最終ビルド実行（Effect.gen with validation）
+    // 最終ビルド実行（Effect.gen with Match.whenバリデーション）
     build: () =>
       Effect.gen(function* () {
         yield* validateBuilderConfig(config)
 
-        if (!config.playerId || !config.type) {
-          return yield* Effect.fail(
-            new CreationError({
-              reason: 'Missing required fields for build',
-              invalidFields: config.playerId ? [] : ['playerId'].concat(config.type ? [] : ['type']),
-              context: { config },
+        // Match.whenによる必須フィールド検証
+        const missingFields = pipe(
+          [
+            Option.when(config.playerId === undefined, () => 'playerId'),
+            Option.when(config.type === undefined, () => 'type'),
+          ],
+          ReadonlyArray.filterMap((field) => field)
+        )
+
+        return yield* pipe(
+          Match.value(missingFields),
+          Match.when(EffectArray.isEmptyReadonlyArray, () =>
+            Effect.gen(function* () {
+              const inventoryConfig = {
+                playerId: config.playerId!,
+                type: config.type!,
+                slotCount: config.slotCount ?? 36,
+                enableHotbar: config.enableHotbar ?? true,
+                enableArmor: config.enableArmor ?? true,
+                enableOffhand: config.enableOffhand ?? true,
+                startingItems: config.startingItems,
+                permissions: config.permissions ?? defaultPermissions,
+              }
+              return yield* InventoryFactoryLive.createWithConfig(inventoryConfig)
             })
+          ),
+          Match.orElse((fields) =>
+            Effect.fail(
+              CreationError.make({
+                reason: 'Missing required fields for build',
+                invalidFields: fields,
+                context: { config },
+              })
+            )
           )
-        }
-
-        const inventoryConfig = {
-          playerId: config.playerId,
-          type: config.type,
-          slotCount: config.slotCount ?? 36,
-          enableHotbar: config.enableHotbar ?? true,
-          enableArmor: config.enableArmor ?? true,
-          enableOffhand: config.enableOffhand ?? true,
-          startingItems: config.startingItems,
-          permissions: config.permissions ?? defaultPermissions,
-        }
-
-        return yield* InventoryFactoryLive.createWithConfig(inventoryConfig)
+        )
       }),
 
     // 検証実行（ビルド前の事前検証）

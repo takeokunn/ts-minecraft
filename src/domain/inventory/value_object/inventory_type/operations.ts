@@ -1,3 +1,4 @@
+import { toJsonValue } from '@shared/schema/json'
 import { Effect, Match, pipe, Schema } from 'effect'
 import { InventoryCapacitySchema, InventoryLayoutSchema, InventoryStatsSchema, InventoryTypeSchema } from './schema'
 import {
@@ -14,12 +15,13 @@ import {
 /**
  * InventoryType ファクトリー関数
  */
-export const createInventoryType = (typeData: any): Effect.Effect<InventoryType, InventoryTypeError> =>
+export const createInventoryType = (typeData: unknown): Effect.Effect<InventoryType, InventoryTypeError> =>
   pipe(
     Schema.decodeUnknown(InventoryTypeSchema)(typeData),
     Effect.mapError(() =>
       InventoryTypeError.UnsupportedType({
-        type: typeData._tag || 'unknown',
+        type:
+          typeof typeData === 'object' && typeData !== null && '_tag' in typeData ? String(typeData._tag) : 'unknown',
         supportedTypes: ['Player', 'Chest', 'Furnace', 'CraftingTable', 'Anvil', 'EnchantingTable'],
       })
     )
@@ -41,23 +43,27 @@ export const createPlayerInventory = (): Effect.Effect<InventoryType, InventoryT
  * チェストインベントリを作成
  */
 export const createChestInventory = (rows: number): Effect.Effect<InventoryType, InventoryTypeError> =>
-  Effect.gen(function* () {
-    if (rows < 1 || rows > 6) {
-      return yield* Effect.fail(
-        InventoryTypeError.InvalidSlotCount({
-          slots: rows * 9,
-          min: 9,
-          max: 54,
-        })
-      )
-    }
-
-    return yield* createInventoryType({
-      _tag: 'Chest',
-      rows,
-      slots: rows * 9,
-    })
-  })
+  pipe(
+    Match.value(rows),
+    Match.when(
+      (value) => value < 1 || value > 6,
+      (value) =>
+        Effect.fail(
+          InventoryTypeError.InvalidSlotCount({
+            slots: value * 9,
+            min: 9,
+            max: 54,
+          })
+        )
+    ),
+    Match.orElse((value) =>
+      createInventoryType({
+        _tag: 'Chest',
+        rows: value,
+        slots: value * 9,
+      })
+    )
+  )
 
 /**
  * シュルカーボックスを作成
@@ -83,21 +89,27 @@ export const createShulkerBox = (color: string): Effect.Effect<InventoryType, In
       'black',
     ]
 
-    if (!validColors.includes(color)) {
-      return yield* Effect.fail(
-        InventoryTypeError.InvalidConfiguration({
-          field: 'color',
-          value: color,
-          expected: `one of: ${validColors.join(', ')}`,
+    return yield* pipe(
+      Match.value(validColors.includes(color)),
+      Match.when(
+        (matches) => !matches,
+        () =>
+          Effect.fail(
+            InventoryTypeError.InvalidConfiguration({
+              field: 'color',
+              value: toJsonValue(color),
+              expected: `one of: ${validColors.join(', ')}`,
+            })
+          )
+      ),
+      Match.orElse(() =>
+        createInventoryType({
+          _tag: 'ShulkerBox',
+          slots: 27,
+          color,
         })
       )
-    }
-
-    return yield* createInventoryType({
-      _tag: 'ShulkerBox',
-      slots: 27,
-      color,
-    })
+    )
   })
 
 /**
@@ -118,7 +130,7 @@ export const calculateCapacity = (inventoryType: InventoryType): Effect.Effect<I
       Effect.mapError(() =>
         InventoryTypeError.InvalidConfiguration({
           field: 'capacity',
-          value: { totalSlots, maxStacksPerSlot, maxItemsTotal },
+          value: toJsonValue({ totalSlots, maxStacksPerSlot, maxItemsTotal }),
           expected: 'valid capacity configuration',
         })
       )
@@ -131,27 +143,40 @@ export const calculateCapacity = (inventoryType: InventoryType): Effect.Effect<I
 export const categorizeInventorySize = (inventoryType: InventoryType): InventorySize => {
   const slots = getTotalSlots(inventoryType)
 
-  if (slots <= 9) {
-    return InventorySize.Small({
-      slots,
-      description: 'Small inventory for basic storage',
-    })
-  } else if (slots <= 27) {
-    return InventorySize.Medium({
-      slots,
-      description: 'Medium inventory for moderate storage',
-    })
-  } else if (slots <= 54) {
-    return InventorySize.Large({
-      slots,
-      description: 'Large inventory for extensive storage',
-    })
-  } else {
-    return InventorySize.ExtraLarge({
-      slots,
-      description: 'Extra large inventory for massive storage',
-    })
-  }
+  return pipe(
+    Match.value(slots),
+    Match.when(
+      (value) => value <= 9,
+      (value) =>
+        InventorySize.Small({
+          slots: value,
+          description: 'Small inventory for basic storage',
+        })
+    ),
+    Match.when(
+      (value) => value <= 27,
+      (value) =>
+        InventorySize.Medium({
+          slots: value,
+          description: 'Medium inventory for moderate storage',
+        })
+    ),
+    Match.when(
+      (value) => value <= 54,
+      (value) =>
+        InventorySize.Large({
+          slots: value,
+          description: 'Large inventory for extensive storage',
+        })
+    ),
+    Match.orElse(
+      (value) =>
+        InventorySize.ExtraLarge({
+          slots: value,
+          description: 'Extra large inventory for massive storage',
+        })
+    )
+  )
 }
 
 /**
@@ -249,42 +274,56 @@ export const checkCompatibility = (type1: InventoryType, type2: InventoryType): 
   const slots1 = getTotalSlots(type1)
   const slots2 = getTotalSlots(type2)
 
-  // 同じタイプの場合は完全互換
-  if (type1._tag === type2._tag) {
-    return InventoryCompatibility.FullyCompatible({
-      reason: 'Same inventory type',
-    })
-  }
+  const isPlayerWithStorage = (a: string, b: string) =>
+    (a === 'Player' && ['Chest', 'DoubleChest', 'ShulkerBox', 'Barrel'].includes(b)) ||
+    (b === 'Player' && ['Chest', 'DoubleChest', 'ShulkerBox', 'Barrel'].includes(a))
 
-  // プレイヤーインベントリとチェスト系の互換性
-  if (
-    (type1._tag === 'Player' && ['Chest', 'DoubleChest', 'ShulkerBox', 'Barrel'].includes(type2._tag)) ||
-    (type2._tag === 'Player' && ['Chest', 'DoubleChest', 'ShulkerBox', 'Barrel'].includes(type1._tag))
-  ) {
-    if (slots1 === slots2) {
-      return InventoryCompatibility.FullyCompatible({
-        reason: 'Same slot count allows full compatibility',
-      })
-    } else {
-      return InventoryCompatibility.PartiallyCompatible({
-        limitations: [`Different slot counts: ${slots1} vs ${slots2}`],
-      })
-    }
-  }
-
-  // 機能ブロック間の互換性
   const functionalBlocks = ['Furnace', 'BlastFurnace', 'Smoker']
-  if (functionalBlocks.includes(type1._tag) && functionalBlocks.includes(type2._tag)) {
-    return InventoryCompatibility.RequiresConversion({
-      conversionType: 'functional block migration',
-      dataLoss: false,
-    })
-  }
+  const context = { type1, type2, slots1, slots2 }
 
-  // その他の場合は非互換
-  return InventoryCompatibility.Incompatible({
-    reason: `Incompatible inventory types: ${type1._tag} and ${type2._tag}`,
-  })
+  return pipe(
+    Match.value(context),
+    Match.when(
+      ({ type1, type2 }) => type1._tag === type2._tag,
+      () =>
+        InventoryCompatibility.FullyCompatible({
+          reason: 'Same inventory type',
+        })
+    ),
+    Match.when(
+      ({ type1, type2 }) => isPlayerWithStorage(type1._tag, type2._tag),
+      ({ slots1, slots2 }) =>
+        pipe(
+          Match.value(slots1 === slots2),
+          Match.when(
+            (equal) => equal,
+            () =>
+              InventoryCompatibility.FullyCompatible({
+                reason: 'Same slot count allows full compatibility',
+              })
+          ),
+          Match.orElse(() =>
+            InventoryCompatibility.PartiallyCompatible({
+              limitations: [`Different slot counts: ${slots1} vs ${slots2}`],
+            })
+          )
+        )
+    ),
+    Match.when(
+      ({ type1, type2 }) =>
+        functionalBlocks.includes(type1._tag) && functionalBlocks.includes(type2._tag),
+      () =>
+        InventoryCompatibility.RequiresConversion({
+          conversionType: 'functional block migration',
+          dataLoss: false,
+        })
+    ),
+    Match.orElse(({ type1, type2 }) =>
+      InventoryCompatibility.Incompatible({
+        reason: `Incompatible inventory types: ${type1._tag} and ${type2._tag}`,
+      })
+    )
+  )
 }
 
 /**
@@ -309,7 +348,7 @@ export const createInventoryLayout = (
       Effect.mapError(() =>
         InventoryTypeError.InvalidConfiguration({
           field: 'layout',
-          value: { gridWidth, gridHeight, specialSlots, playerSlots, displayName },
+          value: toJsonValue({ gridWidth, gridHeight, specialSlots, playerSlots, displayName }),
           expected: 'valid inventory layout',
         })
       )
@@ -396,7 +435,15 @@ export const calculateInventoryStats = (
       Effect.mapError(() =>
         InventoryTypeError.InvalidConfiguration({
           field: 'stats',
-          value: { totalSlots, usedSlots, emptySlots, totalItems, uniqueItems, averageStackSize, utilization },
+          value: toJsonValue({
+            totalSlots,
+            usedSlots,
+            emptySlots,
+            totalItems,
+            uniqueItems,
+            averageStackSize,
+            utilization,
+          }),
           expected: 'valid inventory statistics',
         })
       )

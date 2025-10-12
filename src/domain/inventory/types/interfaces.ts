@@ -15,7 +15,9 @@
  * @author TypeScript Minecraft Clone Team
  */
 
+import type { JsonRecord } from '@shared/schema/json'
 import { Context, Effect, Schema } from 'effect'
+import { ItemStackSchema } from '../../inventory-types'
 
 // Core Types Import
 import type {
@@ -703,7 +705,7 @@ export type InventoryData = {
   readonly playerId: PlayerId
   readonly type: InventoryType
   readonly slots: readonly InventorySlot[]
-  readonly metadata: Record<string, unknown>
+  readonly metadata: JsonRecord
   readonly createdAt: Date
   readonly updatedAt: Date
 }
@@ -808,7 +810,7 @@ export type TradeResult = {
 export const ItemAddResultSchema = Schema.Struct({
   success: Schema.Boolean,
   addedQuantity: Schema.Number,
-  remainingStack: Schema.NullOr(Schema.Unknown),
+  remainingStack: Schema.NullOr(ItemStackSchema),
   affectedSlots: Schema.Array(Schema.Number),
 })
 
@@ -856,25 +858,21 @@ export const InventoryStatisticsSchema = Schema.Struct({
  * ItemAddResult パーサー
  */
 export const parseItemAddResult = Schema.decodeUnknown(ItemAddResultSchema)
-export const parseItemAddResultSync = Schema.decodeUnknownSync(ItemAddResultSchema)
 
 /**
  * TransferResult パーサー
  */
 export const parseTransferResult = Schema.decodeUnknown(TransferResultSchema)
-export const parseTransferResultSync = Schema.decodeUnknownSync(TransferResultSchema)
 
 /**
  * IntegrityResult パーサー
  */
 export const parseIntegrityResult = Schema.decodeUnknown(IntegrityResultSchema)
-export const parseIntegrityResultSync = Schema.decodeUnknownSync(IntegrityResultSchema)
 
 /**
  * InventoryStatistics パーサー
  */
 export const parseInventoryStatistics = Schema.decodeUnknown(InventoryStatisticsSchema)
-export const parseInventoryStatisticsSync = Schema.decodeUnknownSync(InventoryStatisticsSchema)
 
 // =============================================================================
 // Validation Functions
@@ -910,11 +908,16 @@ export const isValidInventoryStatistics = Schema.is(InventoryStatisticsSchema)
  * Inventoryドメインが外部ドメインから受け取る入力型。
  * ドメイン間の境界を明確化する。
  */
-export type InventoryDomainInput = {
-  readonly playerService?: unknown // Player Domain からの入力
-  readonly craftingService?: unknown // Crafting Domain からの入力
-  readonly economyService?: unknown // Economy Domain からの入力
-  readonly worldService?: unknown // World Domain からの入力
+export type InventoryDomainInput<
+  TPlayerService = never,
+  TCraftingService = never,
+  TEconomyService = never,
+  TWorldService = never,
+> = {
+  readonly playerService?: TPlayerService // Player Domain からの入力
+  readonly craftingService?: TCraftingService // Crafting Domain からの入力
+  readonly economyService?: TEconomyService // Economy Domain からの入力
+  readonly worldService?: TWorldService // World Domain からの入力
 }
 
 /**

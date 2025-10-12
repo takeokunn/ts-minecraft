@@ -41,8 +41,9 @@ export type MouseDelta = number & Brand.Brand<'MouseDelta'>
 
 /**
  * デルタ時間のBrand型
+ * Re-export from units with alias
  */
-export type DeltaTime = number & Brand.Brand<'DeltaTime'>
+export type { Milliseconds as DeltaTime } from '../../shared/value_object/units'
 
 /**
  * 3D位置のBrand型
@@ -157,12 +158,19 @@ export const CAMERA_ANIMATION = {
 export const CAMERA_MODES = {
   FIRST_PERSON: 'first-person' as const,
   THIRD_PERSON: 'third-person' as const,
+  SPECTATOR: 'spectator' as const,
+  CINEMATIC: 'cinematic' as const,
 } as const
 
 /**
  * カメラモード配列
  */
-export const VALID_CAMERA_MODES = [CAMERA_MODES.FIRST_PERSON, CAMERA_MODES.THIRD_PERSON] as const
+export const VALID_CAMERA_MODES = [
+  CAMERA_MODES.FIRST_PERSON,
+  CAMERA_MODES.THIRD_PERSON,
+  CAMERA_MODES.SPECTATOR,
+  CAMERA_MODES.CINEMATIC,
+] as const
 
 /**
  * カメラモード型
@@ -177,7 +185,7 @@ export type CameraMode = (typeof VALID_CAMERA_MODES)[number]
  * カメラモードの型ガード
  */
 export const isCameraMode = (value: unknown): value is CameraMode =>
-  typeof value === 'string' && VALID_CAMERA_MODES.includes(value as CameraMode)
+  typeof value === 'string' && (VALID_CAMERA_MODES as readonly string[]).includes(value)
 
 /**
  * 有効なFOVかチェック
@@ -255,44 +263,43 @@ export const createBrandedNumberSchema = <T extends string>(
     finite?: boolean
   } = {}
 ) => {
-  let schema = Schema.Number
+  const bounds = { min: constraints.min, max: constraints.max } as const
 
-  // 制約の適用
-  if (constraints.min !== undefined && constraints.max !== undefined) {
-    schema = schema.pipe(Schema.between(constraints.min, constraints.max))
-  } else if (constraints.min !== undefined) {
-    schema = schema.pipe(Schema.greaterThanOrEqualTo(constraints.min))
-  } else if (constraints.max !== undefined) {
-    schema = schema.pipe(Schema.lessThanOrEqualTo(constraints.max))
-  }
+  const schemaWithBounds = pipe(
+    Match.value(bounds),
+    Match.when(
+      ({ min, max }) => min !== undefined && max !== undefined,
+      ({ min, max }) => Schema.Number.pipe(Schema.between(min, max))
+    ),
+    Match.when(
+      ({ min, max }) => min !== undefined && max === undefined,
+      ({ min }) => Schema.Number.pipe(Schema.greaterThanOrEqualTo(min))
+    ),
+    Match.when(
+      ({ min, max }) => min === undefined && max !== undefined,
+      ({ max }) => Schema.Number.pipe(Schema.lessThanOrEqualTo(max))
+    ),
+    Match.orElse(() => Schema.Number)
+  )
 
-  if (constraints.positive) {
-    schema = schema.pipe(Schema.positive())
-  }
-  if (constraints.nonNegative) {
-    schema = schema.pipe(Schema.nonNegative())
-  }
-  if (constraints.int) {
-    schema = schema.pipe(Schema.int())
-  }
-  if (constraints.finite) {
-    schema = schema.pipe(Schema.finite())
-  }
+  const transformedSchema = pipe(
+    [
+      [constraints.positive === true, (schema: Schema.Schema<number>) => schema.pipe(Schema.positive())],
+      [constraints.nonNegative === true, (schema: Schema.Schema<number>) => schema.pipe(Schema.nonNegative())],
+      [constraints.int === true, (schema: Schema.Schema<number>) => schema.pipe(Schema.int())],
+      [constraints.finite === true, (schema: Schema.Schema<number>) => schema.pipe(Schema.finite())],
+    ] as const,
+    ReadonlyArray.reduce(schemaWithBounds, (acc, [condition, transform]) =>
+      pipe(
+        Match.value(condition),
+        Match.when((flag) => flag, () => transform(acc)),
+        Match.orElse(() => acc)
+      )
+    )
+  )
 
-  return schema.pipe(Schema.brand(brand))
+  return transformedSchema.pipe(Schema.brand(brand))
 }
-
-/**
- * Brand型用のStructSchemaファクトリ関数
- * 複合型のBranded Schemaを作成します
- * 注意: Contextの型制約により、使用は推奨されません。直接Schema.Struct().pipe(Schema.brand())を使用してください。
- */
-// export const createBrandedStructSchema = <T extends string>(
-//   brand: T,
-//   fields: Record<string, Schema.Schema<any, any, any>>
-// ) => {
-//   return Schema.Struct(fields).pipe(Schema.brand(brand))
-// }
 
 // ========================================
 // Validation Schemas
@@ -360,11 +367,9 @@ export const MouseDeltaSchema = createBrandedNumberSchema('MouseDelta', {
 
 /**
  * デルタ時間バリデーションスキーマ
+ * Re-export from units with alias
  */
-export const DeltaTimeSchema = createBrandedNumberSchema('DeltaTime', {
-  nonNegative: true,
-  finite: true,
-})
+export { MillisecondsSchema as DeltaTimeSchema } from '../../shared/value_object/units'
 
 /**
  * 3D位置バリデーションスキーマ

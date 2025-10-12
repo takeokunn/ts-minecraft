@@ -1,6 +1,5 @@
-import { Context, Effect, Layer, Option, pipe } from 'effect'
+import { Brand, Context, Effect, Layer, Option, pipe } from 'effect'
 import type { ItemId, ItemStack } from './index'
-import { ItemId as makeItemId } from './index'
 
 export type ItemCategory = 'block' | 'tool' | 'weapon' | 'armor' | 'utility' | 'consumable'
 
@@ -27,9 +26,12 @@ export const ItemRegistryError = {
   itemNotFound: (itemId: ItemId): ItemRegistryError => ({ _tag: 'ItemNotFound', itemId }),
 } as const
 
+// FIXME: 一時的にunsafeなItemId作成を使用（本来はSchemaを通すべき）
+const makeItemIdUnsafe = (id: string): ItemId => Brand.nominal<ItemId>()(id)
+
 const createDefinition = (definition: Omit<ItemDefinition, 'id'> & { readonly id: string }): ItemDefinition => ({
   ...definition,
-  id: makeItemId(definition.id),
+  id: makeItemIdUnsafe(definition.id),
 })
 
 const definitions: ReadonlyArray<ItemDefinition> = [

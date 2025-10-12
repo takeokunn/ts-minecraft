@@ -1,7 +1,7 @@
 import { Data, Effect, Match, Schema } from 'effect'
 import {
-  ChunkRequest,
   ChunkPrioritySchema,
+  ChunkRequest,
   ChunkRequestSchema,
   ChunkSystemError,
   EpochMilliseconds,

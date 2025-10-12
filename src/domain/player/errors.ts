@@ -1,4 +1,7 @@
-import { Data, Option } from 'effect'
+import type { ParseError } from '@effect/schema/ParseResult'
+import { isParseError } from '@effect/schema/ParseResult'
+import type { JsonValue } from '@shared/schema/json'
+import { Data, Match, Option, ReadonlyArray, pipe } from 'effect'
 
 interface IdentityShape {
   readonly reason: string
@@ -7,7 +10,7 @@ interface IdentityShape {
 
 interface ConstraintShape {
   readonly reason: string
-  readonly details: ReadonlyMap<string, unknown>
+  readonly details: PlayerConstraintDetails
 }
 
 interface TransitionShape {
@@ -24,11 +27,11 @@ interface MissingShape {
 
 interface PersistenceShape {
   readonly operation: string
-  readonly cause: Option.Option<unknown>
+  readonly cause: Option.Option<PlayerErrorCause>
 }
 
 interface ClockShape {
-  readonly cause: Option.Option<unknown>
+  readonly cause: Option.Option<PlayerErrorCause>
 }
 
 /**
@@ -44,6 +47,101 @@ export const PlayerError = Data.taggedEnum<{
 }>()
 
 export type PlayerError = Data.TaggedEnum.Type<typeof PlayerError>
+
+export type PlayerConstraintDetails = ReadonlyMap<string, JsonValue>
+
+export type PlayerErrorCause = ParseError | Error | JsonValue
+
+const isPrimitiveJson = (input: unknown): input is string | number | boolean =>
+  typeof input === 'string' || typeof input === 'number' || typeof input === 'boolean'
+
+const isJsonRecord = (input: unknown): input is Record<string, JsonValue | undefined> =>
+  typeof input === 'object' && input !== null && !Array.isArray(input)
+
+const toJsonValue = (
+  value: JsonValue | Record<string, JsonValue> | Array<JsonValue> | Error | string | number | boolean | null | undefined
+): JsonValue | undefined => {
+  const result = pipe(
+    Match.value(value),
+    Match.when(
+      (candidate): candidate is null => candidate === null,
+      () => null
+    ),
+    Match.when(isPrimitiveJson, (primitive) => primitive as JsonValue),
+    Match.when(Array.isArray, (array) =>
+      pipe(
+        array,
+        ReadonlyArray.reduce(Option.some<ReadonlyArray<JsonValue>>([]), (acc, item) =>
+          pipe(
+            acc,
+            Option.flatMap((converted) =>
+              pipe(
+                toJsonValue(item),
+                Option.fromNullable,
+                Option.map((jsonItem) => pipe(converted, ReadonlyArray.append(jsonItem)))
+              )
+            )
+          )
+        )
+        ),
+        Option.match({
+          onNone: () => undefined,
+          onSome: (converted) => converted,
+        })
+      )
+    ),
+    Match.when(isJsonRecord, (record) =>
+      pipe(
+        Object.entries(record),
+        ReadonlyArray.reduce(Option.some<Record<string, JsonValue>>({}), (acc, [key, entry]) =>
+          pipe(
+            acc,
+            Option.flatMap((converted) =>
+              pipe(
+                toJsonValue(entry),
+                Option.fromNullable,
+                Option.map((jsonEntry) => ({
+                  ...converted,
+                  [key]: jsonEntry,
+                }))
+              )
+            )
+          )
+        )
+        ),
+        Option.match({
+          onNone: () => undefined,
+          onSome: (converted) => converted,
+        })
+      )
+    ),
+    Match.orElse(() => undefined)
+  )
+
+  return result
+}
+
+export const normalizePlayerErrorCause = (
+  value: PlayerErrorCause | JsonValue | Error | string | number | boolean | null | undefined
+): PlayerErrorCause | null => {
+  const jsonCandidate = toJsonValue(
+    value as JsonValue | Record<string, JsonValue> | Array<JsonValue> | string | number | boolean | null | undefined
+  )
+
+  return pipe(
+    Match.value(value),
+    Match.when(
+      (candidate): candidate is null | undefined => candidate === null || candidate === undefined,
+      () => null
+    ),
+    Match.when(
+      (candidate): candidate is Error => candidate instanceof Error,
+      (error) => error
+    ),
+    Match.when(isParseError, (parseError) => parseError),
+    Match.orElse(() => (jsonCandidate !== undefined ? jsonCandidate : String(value)))
+  )
+}
 
 interface ConstantRangeShape {
   readonly constant: string
@@ -71,13 +169,13 @@ export type PlayerConstantError = Data.TaggedEnum.Type<typeof PlayerConstantErro
  */
 export const PlayerErrorBuilders = {
   identity: (reason: string, value: string) => PlayerError.IdentityViolation({ reason, value }),
-  constraint: (reason: string, details: ReadonlyMap<string, unknown>) =>
+  constraint: (reason: string, details: PlayerConstraintDetails) =>
     PlayerError.ConstraintViolation({ reason, details }),
   invalidTransition: (params: TransitionShape) => PlayerError.InvalidTransition(params),
   missing: (entity: string, identifier: string) => PlayerError.MissingEntity({ entity, identifier }),
-  persistence: (operation: string, cause?: unknown) =>
-    PlayerError.PersistenceFailure({ operation, cause: Option.fromNullable(cause) }),
-  clock: (cause?: unknown) => PlayerError.ClockFailure({ cause: Option.fromNullable(cause) }),
+  persistence: (operation: string, cause?: PlayerErrorCause | null) =>
+    PlayerError.PersistenceFailure({ operation, cause: Option.fromNullable(cause ?? null) }),
+  clock: (cause?: PlayerErrorCause | null) => PlayerError.ClockFailure({ cause: Option.fromNullable(cause ?? null) }),
 }
 
 export const PlayerConstantErrorBuilders = {

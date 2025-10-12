@@ -1,4 +1,4 @@
-import { Brand, Schema } from 'effect'
+import { Brand, Match, pipe, Schema } from 'effect'
 import { Slot, SlotConstraint, SlotId, SlotState } from './types'
 
 /**
@@ -67,15 +67,18 @@ export const SlotSchema = Schema.Struct({
   position: SlotPositionSchema,
 }).pipe(
   Schema.filter(
-    (slot) => {
-      // ホットバースロットの位置制約チェック
-      if (slot.constraint.isHotbar && slot.position.row !== 0) {
-        return false
-      }
-      // スロットIDと位置の整合性チェック
-      const expectedId = slot.position.row * 9 + slot.position.column
-      return slot.id === expectedId
-    },
+    (slot) =>
+      pipe(
+        Match.value(slot),
+        Match.when(
+          (currentSlot) => currentSlot.constraint.isHotbar && currentSlot.position.row !== 0,
+          () => false
+        ),
+        Match.orElse((currentSlot) => {
+          const expectedId = currentSlot.position.row * 9 + currentSlot.position.column
+          return currentSlot.id === expectedId
+        })
+      ),
     {
       message: () => 'Slot ID must match position (row * 9 + column) and hotbar slots must be in row 0',
     }

@@ -6,6 +6,8 @@
  */
 
 import type { CameraSettings, FOV, Sensitivity } from '@domain/camera/types'
+import { ErrorCauseSchema, toErrorCause, type ErrorCause } from '@shared/schema/error'
+import { JsonValueSchema, toJsonValue, type JsonSerializable, type JsonValue } from '@shared/schema/json'
 import { Brand, Clock, Data, Effect, Option, ReadonlyMap, Schema } from 'effect'
 import type { ViewMode } from '../../value_object/index'
 
@@ -15,8 +17,9 @@ import type { ViewMode } from '../../value_object/index'
 
 /**
  * Player ID - プレイヤー識別子
+ * 共有カーネルから再エクスポート
  */
-export type PlayerId = Brand<string, 'PlayerId'>
+export type { PlayerId } from '@domain/shared/entities/player_id'
 
 /**
  * Key Binding - キーバインディング設定
@@ -216,7 +219,7 @@ export type SettingsRepositoryError = Data.TaggedEnum<{
   }
   readonly ValidationFailed: {
     readonly field: string
-    readonly value: unknown
+    readonly value: JsonValue
     readonly reason: string
   }
   readonly PresetNotFound: {
@@ -231,7 +234,7 @@ export type SettingsRepositoryError = Data.TaggedEnum<{
   }
   readonly StorageError: {
     readonly message: string
-    readonly cause: Option<unknown>
+    readonly cause: Option.Option<ErrorCause>
   }
   readonly EncodingFailed: {
     readonly settingsType: string
@@ -248,9 +251,9 @@ export type SettingsRepositoryError = Data.TaggedEnum<{
 // ========================================
 
 /**
- * Player ID Schema
+ * Player ID Schema - 共有カーネルから再エクスポート
  */
-export const PlayerIdSchema = Schema.String.pipe(Schema.brand('PlayerId'))
+export { PlayerIdSchema } from '@domain/shared/entities/player_id'
 
 /**
  * Key Binding Schema
@@ -264,12 +267,12 @@ export const KeyBindingSchema = Schema.Struct({
 /**
  * Quality Level Schema
  */
-export const QualityLevelSchema = Schema.TaggedEnum<QualityLevel>()({
-  Low: Schema.Struct({}),
-  Medium: Schema.Struct({}),
-  High: Schema.Struct({}),
-  Ultra: Schema.Struct({}),
-  Custom: Schema.Struct({
+export const QualityLevelSchema = Schema.Union(
+  Schema.TaggedStruct('Low', {}),
+  Schema.TaggedStruct('Medium', {}),
+  Schema.TaggedStruct('High', {}),
+  Schema.TaggedStruct('Ultra', {}),
+  Schema.TaggedStruct('Custom', {
     customSettings: Schema.Struct({
       renderDistance: Schema.Number.pipe(Schema.positive()),
       shadowQuality: Schema.Number.pipe(Schema.clamp(0, 10)),
@@ -277,8 +280,8 @@ export const QualityLevelSchema = Schema.TaggedEnum<QualityLevel>()({
       effectsQuality: Schema.Number.pipe(Schema.clamp(0, 10)),
       antiAliasing: Schema.Boolean,
     }).pipe(Schema.brand('CustomQualitySettings')),
-  }),
-})
+  })
+)
 
 /**
  * Player Camera Settings Schema
@@ -369,55 +372,55 @@ export const CameraPresetSettingsSchema = Schema.Struct({
 export const SettingsStorageQueryOptionsSchema = Schema.Struct({
   includeDefaults: Schema.Boolean,
   filterByTag: Schema.OptionFromNullable(Schema.String),
-  sortBy: Schema.TaggedEnum<SettingsSortBy>()({
-    Name: Schema.Struct({ ascending: Schema.Boolean }),
-    CreatedAt: Schema.Struct({ ascending: Schema.Boolean }),
-    LastModified: Schema.Struct({ ascending: Schema.Boolean }),
-    Popularity: Schema.Struct({ ascending: Schema.Boolean }),
-  }),
+  sortBy: Schema.Union(
+    Schema.TaggedStruct('Name', { ascending: Schema.Boolean }),
+    Schema.TaggedStruct('CreatedAt', { ascending: Schema.Boolean }),
+    Schema.TaggedStruct('LastModified', { ascending: Schema.Boolean }),
+    Schema.TaggedStruct('Popularity', { ascending: Schema.Boolean })
+  ),
   limit: Schema.OptionFromNullable(Schema.Number.pipe(Schema.positive())),
 }).pipe(Schema.brand('SettingsStorageQueryOptions'))
 
 /**
  * Settings Repository Error Schema
  */
-export const SettingsRepositoryErrorSchema = Schema.TaggedEnum<SettingsRepositoryError>()({
-  SettingsNotFound: Schema.Struct({
+export const SettingsRepositoryErrorSchema = Schema.Union(
+  Schema.TaggedStruct('SettingsNotFound', {
     settingsType: Schema.String,
     identifier: Schema.String,
   }),
-  DuplicateSettings: Schema.Struct({
+  Schema.TaggedStruct('DuplicateSettings', {
     settingsType: Schema.String,
     identifier: Schema.String,
   }),
-  ValidationFailed: Schema.Struct({
+  Schema.TaggedStruct('ValidationFailed', {
     field: Schema.String,
-    value: Schema.Unknown,
+    value: JsonValueSchema,
     reason: Schema.String,
   }),
-  PresetNotFound: Schema.Struct({
+  Schema.TaggedStruct('PresetNotFound', {
     presetName: Schema.String,
   }),
-  PresetAlreadyExists: Schema.Struct({
+  Schema.TaggedStruct('PresetAlreadyExists', {
     presetName: Schema.String,
   }),
-  UnauthorizedAccess: Schema.Struct({
+  Schema.TaggedStruct('UnauthorizedAccess', {
     operation: Schema.String,
     playerId: PlayerIdSchema,
   }),
-  StorageError: Schema.Struct({
+  Schema.TaggedStruct('StorageError', {
     message: Schema.String,
-    cause: Schema.OptionFromNullable(Schema.Unknown),
+    cause: Schema.OptionFromNullable(ErrorCauseSchema),
   }),
-  EncodingFailed: Schema.Struct({
+  Schema.TaggedStruct('EncodingFailed', {
     settingsType: Schema.String,
     reason: Schema.String,
   }),
-  DecodingFailed: Schema.Struct({
+  Schema.TaggedStruct('DecodingFailed', {
     settingsType: Schema.String,
     reason: Schema.String,
-  }),
-})
+  })
+)
 
 // ========================================
 // Factory Functions
@@ -433,8 +436,8 @@ export const createSettingsRepositoryError = {
   duplicateSettings: (settingsType: string, identifier: string): SettingsRepositoryError =>
     Data.tagged('DuplicateSettings', { settingsType, identifier }),
 
-  validationFailed: (field: string, value: unknown, reason: string): SettingsRepositoryError =>
-    Data.tagged('ValidationFailed', { field, value, reason }),
+  validationFailed: (field: string, value: JsonSerializable, reason: string): SettingsRepositoryError =>
+    Data.tagged('ValidationFailed', { field, value: toJsonValue(value), reason }),
 
   presetNotFound: (presetName: string): SettingsRepositoryError => Data.tagged('PresetNotFound', { presetName }),
 
@@ -447,7 +450,7 @@ export const createSettingsRepositoryError = {
   storageError: (message: string, cause?: unknown): SettingsRepositoryError =>
     Data.tagged('StorageError', {
       message,
-      cause: cause ? Option.some(cause) : Option.none(),
+      cause: Option.fromNullable(toErrorCause(cause)),
     }),
 
   encodingFailed: (settingsType: string, reason: string): SettingsRepositoryError =>
@@ -539,3 +542,19 @@ export const isPresetNotFoundError = (error: SettingsRepositoryError): boolean =
 export const isUnauthorizedError = (error: SettingsRepositoryError): boolean => error._tag === 'UnauthorizedAccess'
 
 export const isStorageError = (error: SettingsRepositoryError): boolean => error._tag === 'StorageError'
+
+// ========================================
+// Import/Export Data Schemas
+// ========================================
+
+/**
+ * Export Data Schema
+ * exportSettings関数で生成されるJSONデータの構造を定義
+ */
+export const ExportDataSchema = Schema.Struct({
+  globalSettings: GlobalCameraSettingsSchema,
+  playerSettings: Schema.optional(PlayerCameraSettingsSchema),
+  presets: Schema.optional(Schema.Array(CameraPresetSettingsSchema)),
+})
+
+export type ExportData = Schema.Schema.Type<typeof ExportDataSchema>

@@ -5,46 +5,45 @@
  * NBT、品質、レアリティ、エンチャントなどの複雑なアイテム属性を管理
  */
 
-import { Context, Effect, Schema } from 'effect'
+import type { JsonRecord } from '@shared/schema/json'
+import { JsonRecordSchema } from '@shared/schema/json'
+import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
+import { Context, Effect, Match, pipe, Schema } from 'effect'
 import type { ItemId, ItemStack } from '../../types'
+import type { ItemCategory, ItemQuality, ItemRarity } from '../../types/item_enums'
 
 // ItemStack Factory固有のエラー型（Schema.TaggedErrorパターン）
-export class ItemCreationError extends Schema.TaggedError<ItemCreationError>()('ItemCreationError', {
+export const ItemCreationErrorSchema = Schema.TaggedError('ItemCreationError', {
   reason: Schema.String,
   invalidFields: Schema.Array(Schema.String),
-  context: Schema.Record({ key: Schema.String, value: Schema.Unknown }).pipe(Schema.optional),
-}) {}
+  context: JsonRecordSchema.pipe(Schema.optional),
+})
 
-export class ItemValidationError extends Schema.TaggedError<ItemValidationError>()('ItemValidationError', {
+export type ItemCreationError = Schema.Schema.Type<typeof ItemCreationErrorSchema>
+
+export const ItemCreationError = makeErrorFactory(ItemCreationErrorSchema)
+
+export const ItemValidationErrorSchema = Schema.TaggedError('ItemValidationError', {
   reason: Schema.String,
   missingFields: Schema.Array(Schema.String),
-  context: Schema.Record({ key: Schema.String, value: Schema.Unknown }).pipe(Schema.optional),
-}) {}
+  context: JsonRecordSchema.pipe(Schema.optional),
+})
 
-export class ItemStackError extends Schema.TaggedError<ItemStackError>()('ItemStackError', {
+export type ItemValidationError = Schema.Schema.Type<typeof ItemValidationErrorSchema>
+
+export const ItemValidationError = makeErrorFactory(ItemValidationErrorSchema)
+
+export const ItemStackErrorSchema = Schema.TaggedError('ItemStackError', {
   reason: Schema.String,
-  stackingRules: Schema.Record({ key: Schema.String, value: Schema.Unknown }).pipe(Schema.optional),
-  context: Schema.Record({ key: Schema.String, value: Schema.Unknown }).pipe(Schema.optional),
-}) {}
+  stackingRules: JsonRecordSchema.pipe(Schema.optional),
+  context: JsonRecordSchema.pipe(Schema.optional),
+})
 
-// アイテムカテゴリ（DDD Value Object）
-export type ItemCategory =
-  | 'tool'
-  | 'weapon'
-  | 'armor'
-  | 'food'
-  | 'block'
-  | 'resource'
-  | 'misc'
-  | 'consumable'
-  | 'redstone'
-  | 'decoration'
+export type ItemStackError = Schema.Schema.Type<typeof ItemStackErrorSchema>
 
-// アイテム品質レベル（DDD Value Object）
-export type ItemQuality = 'poor' | 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary'
+export const ItemStackError = makeErrorFactory(ItemStackErrorSchema)
 
-// アイテムレアリティ（DDD Value Object）
-export type ItemRarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary' | 'mythic'
+// アイテムカテゴリ・品質・レアリティは types/item_enums.ts から import
 
 // エンチャント定義（DDD Value Object）
 export interface EnchantmentDefinition {
@@ -68,7 +67,7 @@ export interface ItemConfig {
   readonly enchantments?: ReadonlyArray<EnchantmentDefinition>
   readonly customName?: string
   readonly lore?: ReadonlyArray<string>
-  readonly nbtData?: Record<string, unknown>
+  readonly nbtData?: JsonRecord
   readonly stackable?: boolean
   readonly maxStackSize?: number
 }
@@ -114,7 +113,7 @@ export interface ItemFactory {
   readonly createFood: (
     itemId: ItemId,
     count?: number,
-    customEffects?: Record<string, unknown>
+    customEffects?: JsonRecord
   ) => Effect.Effect<ItemStack, ItemCreationError>
 
   readonly createBlock: (itemId: ItemId, count?: number) => Effect.Effect<ItemStack, ItemCreationError>
@@ -158,7 +157,7 @@ export interface ItemBuilderConfig {
   readonly enchantments?: ReadonlyArray<EnchantmentDefinition>
   readonly customName?: string
   readonly lore?: ReadonlyArray<string>
-  readonly nbtData?: Record<string, unknown>
+  readonly nbtData?: JsonRecord
   readonly stackable?: boolean
   readonly maxStackSize?: number
 }
@@ -174,7 +173,7 @@ export interface ItemBuilder {
   readonly withCustomName: (name: string) => ItemBuilder
   readonly withLore: (lore: ReadonlyArray<string>) => ItemBuilder
   readonly addLoreLine: (line: string) => ItemBuilder
-  readonly withNBT: (nbtData: Record<string, unknown>) => ItemBuilder
+  readonly withNBT: (nbtData: JsonRecord) => ItemBuilder
   readonly withStackable: (stackable: boolean, maxStackSize?: number) => ItemBuilder
   readonly addEnchantment: (enchantment: EnchantmentDefinition) => ItemBuilder
   readonly removeEnchantment: (enchantmentId: string) => ItemBuilder
@@ -207,16 +206,39 @@ export const defaultStackingRules: StackingRules = {
   canStack: (item1, item2) =>
     item1.itemId === item2.itemId && JSON.stringify(item1.metadata) === JSON.stringify(item2.metadata),
 
-  maxStackSize: (item) => {
-    // カテゴリ別のスタックサイズ判定
-    if (item.metadata?.customName) return 1 // カスタム名付きは単体
-    if (item.durability !== undefined && item.durability < 1.0) return 1 // 耐久度低下は単体
-    return 64 // デフォルト
-  },
+  maxStackSize: (item) =>
+    pipe(
+      item,
+      Match.value,
+      // カスタム名付きは単体
+      Match.when(
+        (i) => i.metadata?.customName !== undefined,
+        () => 1
+      ),
+      // 耐久度低下は単体
+      Match.when(
+        (i) => i.durability !== undefined && i.durability < 1.0,
+        () => 1
+      ),
+      // デフォルト
+      Match.orElse(() => 64)
+    ),
 
-  combineRule: (item1, item2) => {
-    if (!defaultStackingRules.canStack(item1, item2)) return 'error'
-    if (item1.count + item2.count <= defaultStackingRules.maxStackSize(item1)) return 'combine'
-    return 'separate'
-  },
+  combineRule: (item1, item2) =>
+    pipe(
+      { item1, item2 },
+      Match.value,
+      // スタック不可の場合はエラー
+      Match.when(
+        ({ item1, item2 }) => !defaultStackingRules.canStack(item1, item2),
+        () => 'error' as const
+      ),
+      // 合計がmaxStackSize以下なら結合
+      Match.when(
+        ({ item1, item2 }) => item1.count + item2.count <= defaultStackingRules.maxStackSize(item1),
+        () => 'combine' as const
+      ),
+      // それ以外は分離
+      Match.orElse(() => 'separate' as const)
+    ),
 }

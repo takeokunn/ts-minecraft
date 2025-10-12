@@ -1,6 +1,8 @@
 import type { BlockTypeId, Vector3D } from '@domain/entities'
-import { Context, Effect, Layer, pipe, Ref } from 'effect'
-import { CannonPhysicsService } from './cannon'
+import { makeUnsafe as makeUnsafeBlockTypeId } from '@domain/shared/entities/block_type_id/operations'
+import { toErrorCause, type ErrorCause } from '@shared/schema/error'
+import { Context, Effect, Layer, Match, Option, pipe, ReadonlyArray, Ref } from 'effect'
+import { PhysicsEngine, type PhysicsEnginePort } from './engine'
 
 /**
  * World Collision Service
@@ -11,7 +13,7 @@ import { CannonPhysicsService } from './cannon'
 export interface WorldCollisionError {
   readonly _tag: 'WorldCollisionError'
   readonly message: string
-  readonly cause?: unknown
+  readonly cause?: ErrorCause
 }
 
 // ブロック衝突情報
@@ -22,6 +24,17 @@ export interface BlockCollisionInfo {
   readonly collisionNormal: Vector3D
   readonly penetrationDepth: number
 }
+
+type CollisionUpdateTarget =
+  | {
+      readonly type: 'add'
+      readonly position: Vector3D
+      readonly blockType: BlockTypeId
+    }
+  | {
+      readonly type: 'remove'
+      readonly position: Vector3D
+    }
 
 // レイキャスト結果
 export interface RaycastHit {
@@ -255,9 +268,9 @@ export const WorldCollisionService = Context.GenericTag<WorldCollisionService>(
 )
 
 // World Collision Service実装
-const makeWorldCollisionService: Effect.Effect<WorldCollisionService, never, CannonPhysicsService> = Effect.gen(
+const makeWorldCollisionService: Effect.Effect<WorldCollisionService, never, PhysicsEnginePort> = Effect.gen(
   function* () {
-    const cannonPhysics = yield* CannonPhysicsService
+    const physicsEngine = yield* PhysicsEngine
 
     // 設定とキャッシュ
     const configRef = yield* Ref.make(DEFAULT_COLLISION_CONFIG)
@@ -280,23 +293,30 @@ const makeWorldCollisionService: Effect.Effect<WorldCollisionService, never, Can
         const finalConfig = { ...DEFAULT_COLLISION_CONFIG, ...config }
         yield* Ref.set(configRef, finalConfig)
 
-        console.log('World collision system initialized with config:', finalConfig)
+        yield* Effect.logInfo('World collision system initialized').pipe(
+          Effect.annotateLogs({ config: JSON.stringify(finalConfig) })
+        )
       })
 
     // ブロックの物理プロパティを取得
     const getBlockProperties = (blockType: BlockTypeId) =>
       Effect.gen(function* () {
-        const blockTypeStr = blockType as unknown as string
+        const blockTypeStr = String(blockType)
         const properties = DEFAULT_BLOCK_PROPERTIES[blockTypeStr]
 
-        if (!properties) {
-          return yield* Effect.fail({
-            _tag: 'WorldCollisionError',
-            message: `Unknown block type: ${blockTypeStr}`,
-          } as WorldCollisionError)
-        }
-
-        return properties
+        return yield* pipe(
+          Match.value(properties),
+          Match.when(
+            (maybe): maybe is undefined => maybe === undefined,
+            () =>
+              Effect.fail<WorldCollisionError>({
+                _tag: 'WorldCollisionError',
+                message: `Unknown block type: ${blockTypeStr}`,
+                cause: undefined,
+              })
+          ),
+          Match.orElse((found) => Effect.succeed(found))
+        )
       })
 
     // ブロックの物理ボディを追加
@@ -305,40 +325,67 @@ const makeWorldCollisionService: Effect.Effect<WorldCollisionService, never, Can
         const posKey = positionToKey(position)
         const blockBodies = yield* Ref.get(blockBodiesRef)
 
-        // すでに存在する場合はスキップ
-        if (blockBodies.has(posKey)) {
-          return blockBodies.get(posKey)!
-        }
-
-        // ブロック物理プロパティを取得
-        const properties = yield* getBlockProperties(blockType)
-
-        // 透明ブロックや流体は物理ボディを作らない
-        if (properties && properties.isTransparent && !properties.isClimbable) {
-          return ''
-        }
-
-        // Cannon-es静的ボディを作成
+        const existingBody = blockBodies.get(posKey)
         const bodyId = yield* pipe(
-          cannonPhysics.addStaticBlock(position, { x: 1, y: 1, z: 1 }),
-          Effect.mapError(
-            (error): WorldCollisionError => ({
-              _tag: 'WorldCollisionError',
-              message: `Failed to add block collision at ${posKey}`,
-              cause: error,
+          Match.value(existingBody),
+          Match.when(
+            (maybe): maybe is string => maybe !== undefined && maybe !== '',
+            (found) => Effect.succeed(found)
+          ),
+          Match.orElse(() =>
+            Effect.gen(function* () {
+              const properties = yield* getBlockProperties(blockType)
+
+              return yield* pipe(
+                Match.value(properties),
+                Match.when(
+                  (props) => props.isTransparent && !props.isClimbable,
+                  () => Effect.succeed('')
+                ),
+                Match.orElse(() =>
+                  pipe(
+                    physicsEngine.addStaticBlock(position, { x: 1, y: 1, z: 1 }),
+                    Effect.mapError(
+                      (error): WorldCollisionError => ({
+                        _tag: 'WorldCollisionError',
+                        message: `Failed to add block collision at ${posKey}`,
+                        cause: toErrorCause(error),
+                      })
+                    )
+                  )
+                )
+              )
             })
           )
         )
 
-        // キャッシュを更新
-        yield* Ref.update(blockBodiesRef, (bodies) => bodies.set(posKey, bodyId))
-        yield* Ref.update(bodyBlocksRef, (blocks) => blocks.set(bodyId, position))
-
-        // 統計を更新
-        yield* Ref.update(statsRef, (stats) => ({
-          ...stats,
-          totalBodies: stats.totalBodies + 1,
-        }))
+        yield* pipe(
+          Match.value(existingBody),
+          Match.when(
+            (maybe) => maybe === undefined,
+            () =>
+              Effect.gen(function* () {
+               yield* Ref.update(blockBodiesRef, (bodies) => bodies.set(posKey, bodyId))
+                yield* pipe(
+                  Match.value(bodyId),
+                  Match.when(
+                    (id) => id === '',
+                    () => Effect.void
+                  ),
+                  Match.orElse((id) =>
+                    Effect.gen(function* () {
+                      yield* Ref.update(bodyBlocksRef, (blocks) => blocks.set(id, position))
+                      yield* Ref.update(statsRef, (stats) => ({
+                        ...stats,
+                        totalBodies: stats.totalBodies + 1,
+                      }))
+                    })
+                  )
+                )
+              })
+          ),
+          Match.orElse(() => Effect.void)
+        )
 
         return bodyId
       })
@@ -350,40 +397,47 @@ const makeWorldCollisionService: Effect.Effect<WorldCollisionService, never, Can
         const blockBodies = yield* Ref.get(blockBodiesRef)
         const bodyId = blockBodies.get(posKey)
 
-        if (!bodyId) {
-          return // すでに削除済み
-        }
-
-        // Cannon-esボディを削除
         yield* pipe(
-          cannonPhysics.removeBody(bodyId),
-          Effect.mapError(
-            (error): WorldCollisionError => ({
-              _tag: 'WorldCollisionError',
-              message: `Failed to remove block collision at ${posKey}`,
-              cause: error,
+          Match.value(bodyId),
+          Match.when(
+            (maybe) => maybe === undefined,
+            () => Effect.void
+          ),
+          Match.orElse((existingBodyId) =>
+            Effect.gen(function* () {
+              // 物理エンジンからボディを削除
+              yield* pipe(
+                physicsEngine.removeBody(existingBodyId),
+                Effect.mapError(
+                  (error): WorldCollisionError => ({
+                    _tag: 'WorldCollisionError',
+                    message: `Failed to remove block collision at ${posKey}`,
+                    cause: toErrorCause(error),
+                  })
+                )
+              )
+
+              yield* Ref.update(blockBodiesRef, (bodies) => {
+                const newBodies = new Map(bodies)
+                newBodies.delete(posKey)
+                return newBodies
+              })
+
+              yield* Ref.update(bodyBlocksRef, (blocks) => {
+                const newBlocks = new Map(blocks)
+                newBlocks.delete(existingBodyId)
+                return newBlocks
+              })
+
+              yield* Ref.update(statsRef, (stats) => ({
+                ...stats,
+                totalBodies: Math.max(0, stats.totalBodies - 1),
+              }))
             })
           )
         )
 
-        // キャッシュから削除
-        yield* Ref.update(blockBodiesRef, (bodies) => {
-          const newBodies = new Map(bodies)
-          newBodies.delete(posKey)
-          return newBodies
-        })
-
-        yield* Ref.update(bodyBlocksRef, (blocks) => {
-          const newBlocks = new Map(blocks)
-          newBlocks.delete(bodyId)
-          return newBlocks
-        })
-
-        // 統計を更新
-        yield* Ref.update(statsRef, (stats) => ({
-          ...stats,
-          totalBodies: Math.max(0, stats.totalBodies - 1),
-        }))
+        return undefined
       })
 
     // 複数ブロックの一括追加
@@ -393,20 +447,26 @@ const makeWorldCollisionService: Effect.Effect<WorldCollisionService, never, Can
         const batchSize = config.blockUpdateBatchSize
 
         // バッチサイズに分割して処理
-        const bodyIds: string[] = []
-        for (let i = 0; i < blocks.length; i += batchSize) {
-          const batch = blocks.slice(i, i + batchSize)
+        const blockBatches = pipe(
+          ReadonlyArray.range(0, Math.ceil(blocks.length / batchSize)),
+          ReadonlyArray.map((i) => blocks.slice(i * batchSize, (i + 1) * batchSize))
+        )
 
-          const batchResults = yield* Effect.all(
-            batch.map(({ position, blockType }) => addBlockCollision(position, blockType)),
-            { concurrency: 'unbounded' }
-          )
+        const bodyIds = yield* pipe(
+          blockBatches,
+          Effect.forEach(
+            (batch) =>
+              Effect.forEach(batch, ({ position, blockType }) => addBlockCollision(position, blockType), {
+                concurrency: 4,
+              }),
+            { concurrency: 4 }
+          ),
+          Effect.map(ReadonlyArray.flatten)
+        )
 
-          bodyIds.push(...batchResults)
-        }
-
-        console.log(`Added ${bodyIds.filter((id) => id !== '').length} block collisions in batches`)
-        return bodyIds
+        const successCount = bodyIds.filter((id) => id !== '').length
+        yield* Effect.logInfo('Block collisions added in batches').pipe(Effect.annotateLogs({ count: successCount }))
+        return Array.from(bodyIds)
       })
 
     // 複数ブロックの一括削除
@@ -416,16 +476,22 @@ const makeWorldCollisionService: Effect.Effect<WorldCollisionService, never, Can
         const batchSize = config.blockUpdateBatchSize
 
         // バッチサイズに分割して処理
-        for (let i = 0; i < positions.length; i += batchSize) {
-          const batch = positions.slice(i, i + batchSize)
+        const positionBatches = pipe(
+          ReadonlyArray.range(0, Math.ceil(positions.length / batchSize)),
+          ReadonlyArray.map((i) => positions.slice(i * batchSize, (i + 1) * batchSize))
+        )
 
-          yield* Effect.all(
-            batch.map((position) => removeBlockCollision(position)),
-            { concurrency: 'unbounded' }
+        yield* pipe(
+          positionBatches,
+          Effect.forEach(
+            (batch) => Effect.forEach(batch, (position) => removeBlockCollision(position), { concurrency: 4 }),
+            { concurrency: 4 }
           )
-        }
+        )
 
-        console.log(`Removed ${positions.length} block collisions in batches`)
+        yield* Effect.logInfo('Block collisions removed in batches').pipe(
+          Effect.annotateLogs({ count: positions.length })
+        )
       })
 
     // レイキャスト実行
@@ -441,54 +507,53 @@ const makeWorldCollisionService: Effect.Effect<WorldCollisionService, never, Can
 
         // レイキャストを実行
         const result = yield* pipe(
-          cannonPhysics.raycastGround(origin, maxDistance),
+          physicsEngine.raycastGround(origin, maxDistance),
           Effect.mapError(
             (error): WorldCollisionError => ({
               _tag: 'WorldCollisionError',
               message: 'Raycast failed',
-              cause: error,
+              cause: toErrorCause(error),
             })
           )
         )
 
-        if (!result) {
-          return {
-            hit: false,
-            hitPoint: { x: 0, y: 0, z: 0 },
-            hitNormal: { x: 0, y: 1, z: 0 },
-            distance: maxDistance,
-          } as RaycastHit
-        }
+        const hitResult = yield* pipe(
+          Match.value(result),
+          Match.when(
+            (maybe): maybe is undefined | null => maybe == null,
+            () =>
+              Effect.succeed({
+                hit: false,
+                hitPoint: { x: 0, y: 0, z: 0 },
+                hitNormal: { x: 0, y: 1, z: 0 },
+                distance: maxDistance,
+              } as RaycastHit)
+          ),
+          Match.orElse((hit) =>
+            Effect.succeed({
+              hit: true,
+              hitPoint: {
+                x: origin.x + normalizedDir.x * hit.distance,
+                y: origin.y + normalizedDir.y * hit.distance,
+                z: origin.z + normalizedDir.z * hit.distance,
+              },
+              hitNormal: hit.normal,
+              distance: hit.distance,
+              blockPosition: {
+                x: Math.floor(origin.x + normalizedDir.x * hit.distance),
+                y: Math.floor(origin.y + normalizedDir.y * hit.distance),
+                z: Math.floor(origin.z + normalizedDir.z * hit.distance),
+              },
+            } satisfies RaycastHit)
+          )
+        )
 
-        // ヒット点を計算
-        const hitPoint = {
-          x: origin.x + normalizedDir.x * result.distance,
-          y: origin.y + normalizedDir.y * result.distance,
-          z: origin.z + normalizedDir.z * result.distance,
-        }
-
-        // ヒットしたブロックの位置を計算
-        const blockPosition = {
-          x: Math.floor(hitPoint.x),
-          y: Math.floor(hitPoint.y),
-          z: Math.floor(hitPoint.z),
-        }
-
-        return {
-          hit: true,
-          hitPoint,
-          hitNormal: result.normal,
-          distance: result.distance,
-          blockPosition,
-          // blockType: 不明 (ワールドサービスから取得が必要)
-        } as RaycastHit
+        return hitResult
       })
 
     // 球体vs世界の衝突チェック
     const sphereWorldCollision = (center: Vector3D, radius: number) =>
       Effect.gen(function* () {
-        const collisions: BlockCollisionInfo[] = []
-
         // 球体が接触する可能性のあるブロック範囲を計算
         const minX = Math.floor(center.x - radius)
         const maxX = Math.floor(center.x + radius)
@@ -499,52 +564,91 @@ const makeWorldCollisionService: Effect.Effect<WorldCollisionService, never, Can
 
         const blockBodies = yield* Ref.get(blockBodiesRef)
 
-        // 範囲内の全ブロックをチェック
-        for (let x = minX; x <= maxX; x++) {
-          for (let y = minY; y <= maxY; y++) {
-            for (let z = minZ; z <= maxZ; z++) {
-              const blockPos = { x, y, z }
-              const posKey = positionToKey(blockPos)
-              const bodyId = blockBodies.get(posKey)
+        // 全座標の組み合わせを生成
+        const xRange = ReadonlyArray.range(minX, maxX + 1)
+        const yRange = ReadonlyArray.range(minY, maxY + 1)
+        const zRange = ReadonlyArray.range(minZ, maxZ + 1)
 
-              if (bodyId) {
-                // ブロック中心との距離をチェック
-                const blockCenter = { x: x + 0.5, y: y + 0.5, z: z + 0.5 }
-                const dx = center.x - blockCenter.x
-                const dy = center.y - blockCenter.y
-                const dz = center.z - blockCenter.z
-                const distanceSquared = dx * dx + dy * dy + dz * dz
+        const allPositions = pipe(
+          xRange,
+          ReadonlyArray.flatMap((x) =>
+            pipe(
+              yRange,
+              ReadonlyArray.flatMap((y) =>
+                pipe(
+                  zRange,
+                  ReadonlyArray.map((z) => ({ x, y, z }))
+                )
+              )
+            )
+          )
+        )
 
-                // ブロックとの衝突判定（簡易版）
-                const minDistance = radius + 0.5 // ブロック半径0.5
-                if (distanceSquared < minDistance * minDistance) {
-                  const distance = Math.sqrt(distanceSquared)
-                  const penetrationDepth = minDistance - distance
+        // 並行で衝突判定を実行
+        const candidates = yield* pipe(
+          allPositions,
+          Effect.forEach(
+            (blockPos) =>
+              Effect.gen(function* () {
+                const posKey = positionToKey(blockPos)
+                const bodyId = blockBodies.get(posKey)
 
-                  // 衝突法線を計算
-                  const normal =
-                    distance > 0
-                      ? {
-                          x: dx / distance,
-                          y: dy / distance,
-                          z: dz / distance,
-                        }
-                      : { x: 0, y: 1, z: 0 }
+                const bodyOption = Option.fromNullable(bodyId)
 
-                  collisions.push({
-                    blockPosition: blockPos,
-                    blockType: 'stone' as unknown as BlockTypeId, // 仮の値
-                    bodyId,
-                    collisionNormal: normal,
-                    penetrationDepth,
-                  })
-                }
-              }
-            }
-          }
-        }
+                return yield* pipe(
+                  Match.value(bodyOption),
+                  Match.when(
+                    Option.isNone,
+                    () => Effect.succeed(Option.none())
+                  ),
+                  Match.orElse(() =>
+                    Effect.gen(function* () {
+                      const blockCenter = { x: blockPos.x + 0.5, y: blockPos.y + 0.5, z: blockPos.z + 0.5 }
+                      const dx = center.x - blockCenter.x
+                      const dy = center.y - blockCenter.y
+                      const dz = center.z - blockCenter.z
+                      const distanceSquared = dx * dx + dy * dy + dz * dz
+                      const minDistance = radius + 0.5
 
-        return collisions
+                      return yield* pipe(
+                        Match.value(distanceSquared),
+                        Match.when(
+                          (value) => value >= minDistance * minDistance,
+                          () => Effect.succeed(Option.none())
+                        ),
+                        Match.orElse(() =>
+                          Effect.gen(function* () {
+                            const distance = Math.sqrt(distanceSquared)
+                            const penetrationDepth = minDistance - distance
+                            const normal =
+                              distance > 0
+                                ? {
+                                    x: dx / distance,
+                                    y: dy / distance,
+                                    z: dz / distance,
+                                  }
+                                : { x: 0, y: 1, z: 0 }
+
+                            return Option.some({
+                              blockPosition: blockPos,
+                              blockType: makeUnsafeBlockTypeId(1),
+                              bodyId: bodyOption.value,
+                              collisionNormal: normal,
+                              penetrationDepth,
+                            })
+                          })
+                        )
+                      )
+                    })
+                  )
+                )
+              }),
+            { concurrency: 4 }
+          ),
+          Effect.map(ReadonlyArray.getSomes)
+        )
+
+        return Array.from(candidates)
       })
 
     // 指定範囲内のブロック衝突を更新
@@ -561,44 +665,88 @@ const makeWorldCollisionService: Effect.Effect<WorldCollisionService, never, Can
         const minZ = Math.floor(center.z - radius)
         const maxZ = Math.floor(center.z + radius)
 
-        const blocksToAdd: Array<{ position: Vector3D; blockType: BlockTypeId }> = []
-        const blocksToRemove: Vector3D[] = []
+        const blockBodies = yield* Ref.get(blockBodiesRef)
 
-        // 現在のブロック状態を取得
-        for (let x = minX; x <= maxX; x++) {
-          for (let y = minY; y <= maxY; y++) {
-            for (let z = minZ; z <= maxZ; z++) {
-              const blockPos = { x, y, z }
-              const currentBlockType = getBlockAt(blockPos)
-              const posKey = positionToKey(blockPos)
+        // 全座標の組み合わせを生成
+        const xRange = ReadonlyArray.range(minX, maxX + 1)
+        const yRange = ReadonlyArray.range(minY, maxY + 1)
+        const zRange = ReadonlyArray.range(minZ, maxZ + 1)
 
-              const blockBodies = yield* Ref.get(blockBodiesRef)
-              const hasCollision = blockBodies.has(posKey)
+        const allPositions = pipe(
+          xRange,
+          ReadonlyArray.flatMap((x) =>
+            pipe(
+              yRange,
+              ReadonlyArray.flatMap((y) =>
+                pipe(
+                  zRange,
+                  ReadonlyArray.map((z) => ({ x, y, z }))
+                )
+              )
+            )
+          )
+        )
 
-              if (currentBlockType && currentBlockType !== ('air' as unknown as BlockTypeId)) {
-                // ブロックが存在するが衝突がない場合は追加
-                if (!hasCollision) {
-                  blocksToAdd.push({ position: blockPos, blockType: currentBlockType })
-                }
-              } else {
-                // ブロックが存在しないが衝突がある場合は削除
-                if (hasCollision) {
-                  blocksToRemove.push(blockPos)
-                }
-              }
-            }
-          }
-        }
+        // 並行で更新対象ブロックを判定
+        const updateTargets = yield* pipe(
+          allPositions,
+          Effect.forEach(
+            (blockPos) =>
+              Effect.gen(function* () {
+                const currentBlockType = getBlockAt(blockPos)
+                const posKey = positionToKey(blockPos)
+                const hasCollision = blockBodies.has(posKey)
+
+                return yield* pipe(
+                  Match.value({ currentBlockType, hasCollision }),
+                  Match.when(
+                    ({ currentBlockType, hasCollision }) =>
+                      currentBlockType && currentBlockType !== makeUnsafeBlockTypeId(0) && !hasCollision,
+                    ({ currentBlockType }) =>
+                      Effect.succeed(
+                        Option.some<CollisionUpdateTarget>({
+                          type: 'add',
+                          position: blockPos,
+                          blockType: currentBlockType!,
+                        })
+                      )
+                  ),
+                  Match.when(
+                    ({ currentBlockType, hasCollision }) =>
+                      (!currentBlockType || currentBlockType === makeUnsafeBlockTypeId(0)) && hasCollision,
+                    () => Effect.succeed(Option.some<CollisionUpdateTarget>({ type: 'remove', position: blockPos }))
+                  ),
+                  Match.orElse(() => Effect.succeed(Option.none()))
+                )
+              }),
+            { concurrency: 4 }
+          ),
+          Effect.map(ReadonlyArray.getSomes)
+        )
+
+        // 追加・削除対象を分離
+        const blocksToAdd = pipe(
+          updateTargets,
+          ReadonlyArray.filter(
+            (target): target is Extract<CollisionUpdateTarget, { type: 'add' }> => target.type === 'add'
+          ),
+          ReadonlyArray.map((target) => ({ position: target.position, blockType: target.blockType }))
+        )
+
+        const blocksToRemove = pipe(
+          updateTargets,
+          ReadonlyArray.filter((t) => t.type === 'remove'),
+          ReadonlyArray.map((t) => t.position)
+        )
 
         // バッチで更新実行
-        if (blocksToAdd.length > 0) {
-          yield* addBlocksBatch(blocksToAdd)
-        }
-        if (blocksToRemove.length > 0) {
-          yield* removeBlocksBatch(blocksToRemove)
-        }
+        yield* Effect.when(blocksToAdd.length > 0, () => addBlocksBatch(Array.from(blocksToAdd)))
 
-        console.log(`Updated collisions: +${blocksToAdd.length}, -${blocksToRemove.length}`)
+        yield* Effect.when(blocksToRemove.length > 0, () => removeBlocksBatch(Array.from(blocksToRemove)))
+
+        yield* Effect.logInfo('Updated collisions').pipe(
+          Effect.annotateLogs({ added: blocksToAdd.length, removed: blocksToRemove.length })
+        )
       })
 
     // 衝突統計の取得
@@ -621,12 +769,18 @@ const makeWorldCollisionService: Effect.Effect<WorldCollisionService, never, Can
         const blockBodies = yield* Ref.get(blockBodiesRef)
 
         // すべてのブロックボディを削除
-        for (const bodyId of blockBodies.values()) {
-          yield* pipe(
-            cannonPhysics.removeBody(bodyId),
-            Effect.catchAll(() => Effect.void) // エラーは無視
+        const bodyIds = Array.from(blockBodies.values())
+        yield* pipe(
+          bodyIds,
+          Effect.forEach(
+            (bodyId) =>
+              pipe(
+                physicsEngine.removeBody(bodyId),
+                Effect.catchAll(() => Effect.void) // エラーは無視
+              ),
+            { concurrency: 4 }
           )
-        }
+        )
 
         // 状態をクリア
         yield* Ref.set(blockBodiesRef, new Map())
@@ -639,7 +793,7 @@ const makeWorldCollisionService: Effect.Effect<WorldCollisionService, never, Can
           cacheMisses: 0,
         })
 
-        console.log('World collision service cleaned up')
+        yield* Effect.logInfo('World collision service cleaned up')
       })
 
     // 球体衝突チェック (簡易版)
@@ -649,7 +803,7 @@ const makeWorldCollisionService: Effect.Effect<WorldCollisionService, never, Can
         const collisionInfos = yield* sphereWorldCollision(center, radius)
 
         const blocks = collisionInfos.map((info) => ({
-          id: info.blockType as unknown as string,
+          id: String(info.blockType),
           position: info.blockPosition,
           blockType: info.blockType,
           bodyId: info.bodyId,

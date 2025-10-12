@@ -515,15 +515,19 @@ const dynamicChunkLoading = (playerPosition: Position, loadRadius: number = 3) =
       z: Math.floor(playerPosition.z / 16),
     }
 
-    const chunksToLoad: ChunkCoordinate[] = []
-    for (let x = -loadRadius; x <= loadRadius; x++) {
-      for (let z = -loadRadius; z <= loadRadius; z++) {
-        chunksToLoad.push({
-          x: playerChunk.x + x,
-          z: playerChunk.z + z,
-        })
-      }
-    }
+    const offsets = ReadonlyArray.range(-loadRadius, loadRadius + 1)
+    const chunksToLoad: ReadonlyArray<ChunkCoordinate> = pipe(
+      offsets,
+      ReadonlyArray.flatMap((x) =>
+        pipe(
+          offsets,
+          ReadonlyArray.map((z) => ({
+            x: playerChunk.x + x,
+            z: playerChunk.z + z,
+          }))
+        )
+      )
+    )
 
     // 必要なチャンクを並列ロード
     const loadedChunks = yield* Effect.all(
@@ -757,7 +761,7 @@ const handlePlayerSpawnError = (params: SpawnPlayerParams) =>
 ### パフォーマンス最適化
 
 ```typescript
-import { Match, pipe } from 'effect'
+import { Match, ReadonlyArray, pipe } from 'effect'
 
 // 大量チャンク操作の最適化（Effect-TS Match パターン使用）
 const optimizedMassChunkOperation = (
@@ -771,30 +775,38 @@ const optimizedMassChunkOperation = (
     const BATCH_SIZE = 8
     const batches = chunk(coordinates, BATCH_SIZE)
 
-    for (const batch of batches) {
-      yield* Effect.all(
-        batch.map((coord) =>
-          pipe(
-            Match.value(operation),
-            Match.when('load', () => chunkService.loadChunk(coord)),
-            Match.when('save', () => chunkService.saveChunk(/* chunk */)),
-            Match.when('generate', () =>
-              chunkService.generateChunk({
-                x: coord.x,
-                z: coord.z,
-                seed: getCurrentWorldSeed(),
-                generateStructures: true,
-              })
-            ),
-            Match.exhaustive
-          )
-        ),
-        { concurrency: 4 }
-      )
+    yield* pipe(
+      batches,
+      ReadonlyArray.fromIterable,
+      Effect.forEach(
+        (batch) =>
+          Effect.gen(function* () {
+            yield* Effect.all(
+              batch.map((coord) =>
+                pipe(
+                  Match.value(operation),
+                  Match.when('load', () => chunkService.loadChunk(coord)),
+                  Match.when('save', () => chunkService.saveChunk(/* chunk */)),
+                  Match.when('generate', () =>
+                    chunkService.generateChunk({
+                      x: coord.x,
+                      z: coord.z,
+                      seed: getCurrentWorldSeed(),
+                      generateStructures: true,
+                    })
+                  ),
+                  Match.exhaustive
+                )
+              ),
+              { concurrency: 4 }
+            )
 
-      // バッチ間の小休止（メモリ解放）
-      yield* Effect.sleep('100 millis')
-    }
+            // バッチ間の小休止（メモリ解放）
+            yield* Effect.sleep('100 millis')
+          }),
+        { discard: true }
+      )
+    )
   })
 
 // メモリ使用量監視付きチャンク管理

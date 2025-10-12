@@ -4,15 +4,9 @@ import { Schema } from 'effect'
 // 基本Brand型
 // -----------------------------------------------------------------------------
 
-export const PlayerIdSchema = Schema.String.pipe(
-  Schema.trimmed(),
-  Schema.minLength(3),
-  Schema.maxLength(32),
-  Schema.pattern(/^[A-Za-z0-9_-]+$/),
-  Schema.brand('PlayerId')
-)
-
-export type PlayerId = Schema.Schema.Type<typeof PlayerIdSchema>
+// 共有カーネルから再エクスポート
+export { PlayerIdSchema, type PlayerId } from '../shared/entities/player_id'
+export { WorldIdSchema, type WorldId } from '../shared/entities/world_id'
 
 export const PlayerNameSchema = Schema.String.pipe(
   Schema.trimmed(),
@@ -87,15 +81,6 @@ export type PlayerSpeed = Schema.Schema.Type<typeof SpeedSchema>
 export const AccelerationSchema = Schema.Number.pipe(Schema.finite(), Schema.brand('PlayerAcceleration'))
 
 export type PlayerAcceleration = Schema.Schema.Type<typeof AccelerationSchema>
-
-export const WorldIdSchema = Schema.String.pipe(
-  Schema.trimmed(),
-  Schema.minLength(1),
-  Schema.maxLength(64),
-  Schema.brand('WorldId')
-)
-
-export type WorldId = Schema.Schema.Type<typeof WorldIdSchema>
 
 // -----------------------------------------------------------------------------
 // 値オブジェクト
@@ -272,12 +257,14 @@ export const PlayerCreationInputSchema = Schema.Struct({
   gameMode: PlayerGameModeSchema,
   position: PlayerPositionSchema,
   timestamp: TimestampSchema,
-}).pipe(Schema.brand('PlayerCreationInput'))
+})
 
 export type PlayerCreationInput = Schema.Schema.Type<typeof PlayerCreationInputSchema>
+export type PlayerCreationInputInput = Schema.Schema.Input<typeof PlayerCreationInputSchema>
 
 export const PlayerUpdateContextSchema = Schema.Struct({
   timestamp: TimestampSchema,
-}).pipe(Schema.brand('PlayerUpdateContext'))
+})
 
 export type PlayerUpdateContext = Schema.Schema.Type<typeof PlayerUpdateContextSchema>
+export type PlayerUpdateContextInput = Schema.Schema.Input<typeof PlayerUpdateContextSchema>

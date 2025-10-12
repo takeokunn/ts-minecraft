@@ -5,9 +5,11 @@
  * パフォーマンス最適化のためのStructure of Arrays (SoA)パターンを採用
  */
 
+import { ErrorCauseSchema } from '@shared/schema/error'
 import { Clock, Context, Effect, Layer, Match, Option, pipe, Predicate, Ref, Schema } from 'effect'
+import { unsafeCoerce } from 'effect/Function'
 import type { EntityId } from './entity'
-import { createEntityId } from './entity'
+import { createEntityId, EntityIdSchema } from './entity'
 import type { System, SystemError, SystemPriority } from './system'
 import { SystemRegistryError, SystemRegistryService } from './system-registry'
 
@@ -19,9 +21,9 @@ export { type EntityId } from './entity'
  */
 export const WorldError = Schema.TaggedStruct('WorldError', {
   message: Schema.String,
-  entityId: Schema.optional(Schema.Number.pipe(Schema.brand('EntityId'))),
+  entityId: Schema.optional(EntityIdSchema),
   componentType: Schema.optional(Schema.String),
-  cause: Schema.optional(Schema.Unknown),
+  cause: Schema.optional(ErrorCauseSchema),
 })
 
 export type WorldError = Schema.Schema.Type<typeof WorldError>
@@ -36,7 +38,7 @@ const createWorldError = (data: {
   message: string
   entityId?: EntityId
   componentType?: string
-  cause?: unknown
+  cause?: Schema.Schema.Input<typeof ErrorCauseSchema>
 }): WorldError => ({
   _tag: 'WorldError' as const,
   ...data,
@@ -44,17 +46,24 @@ const createWorldError = (data: {
 
 /**
  * コンポーネントストレージ - 型消去されたコンポーネントデータ
+ *
+ * DESIGN: World層は低レベルの型消去されたストレージとして設計されている。
+ * 型安全性は上位層のEntityManagerでSchema検証により保証される。
+ * これによりパフォーマンスクリティカルなホットパスでの
+ * 実行時検証オーバーヘッドをゼロに抑えている。
  */
+type ComponentValue = unknown
+
 interface ComponentStorage {
   readonly type: string
-  readonly data: Map<EntityId, unknown>
+  readonly data: Map<EntityId, ComponentValue>
 }
 
 /**
  * エンティティメタデータ
  */
 export const EntityMetadata = Schema.Struct({
-  id: Schema.Number.pipe(Schema.brand('EntityId')),
+  id: EntityIdSchema,
   name: Schema.optional(Schema.String),
   tags: Schema.Array(Schema.String),
   createdAt: Schema.Number,
@@ -401,6 +410,10 @@ export const WorldLive = Layer.effect(
 
     /**
      * コンポーネントを取得
+     *
+     * SAFETY: ComponentStorageに格納された値は、addComponent<T>で追加された
+     * 時点で型Tであることが保証されている。呼び出し側が適切な型パラメータを
+     * 指定する責任を持つ。実行時の型検証はEntityManager層で実施される。
      */
     const getComponent = <T>(entityId: EntityId, componentType: string) =>
       Effect.gen(function* () {
@@ -415,7 +428,8 @@ export const WorldLive = Layer.effect(
                 Option.fromNullable(storage.data.get(entityId)),
                 Option.match({
                   onNone: () => null,
-                  onSome: (component) => component as T,
+                  // SAFETY: この値は addComponent<T> で型Tとして格納されたもの
+                  onSome: (component) => unsafeCoerce<unknown, T>(component),
                 })
               ),
           })
@@ -657,6 +671,10 @@ export const WorldLive = Layer.effect(
 
     /**
      * コンポーネントの一括取得
+     *
+     * PERFORMANCE: ループ内でSchema検証を行うとフレームレートが低下するため、
+     * unsafeCoerceを使用してパフォーマンスを最適化している。
+     * 型安全性はEntityManager層で保証される。
      */
     const batchGetComponents = <T>(componentType: string) =>
       Effect.gen(function* () {
@@ -676,7 +694,8 @@ export const WorldLive = Layer.effect(
                         Option.flatMap((metadata) => (metadata.active ? Option.some(metadata) : Option.none())),
                         Option.match({
                           onNone: () => acc,
-                          onSome: () => acc.set(id, component as T),
+                          // SAFETY: この値は addComponent<T> で型Tとして格納されたもの
+                          onSome: () => acc.set(id, unsafeCoerce<unknown, T>(component)),
                         })
                       )
                     )

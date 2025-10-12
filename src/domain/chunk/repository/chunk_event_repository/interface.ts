@@ -1,7 +1,21 @@
 import { Context, Effect } from 'effect'
 import type { ChunkData } from '../../aggregate/chunk_data'
 import type { ChunkId } from '../../value_object/chunk_id'
-import type { ChunkPosition } from '../../value_object/chunk_position'
+import type {
+  BaseChunkEvent,
+  BlockChangedEvent,
+  ChunkCorruptedEvent,
+  ChunkCreatedEvent,
+  ChunkDeletedEvent,
+  ChunkEvent,
+  ChunkEventType,
+  ChunkLoadedEvent,
+  ChunkModifiedEvent,
+  ChunkOptimizedEvent,
+  ChunkSavedEvent,
+  ChunkUnloadedEvent,
+  ChunkValidatedEvent,
+} from '../../types'
 import type { RepositoryError } from '../types'
 
 /**
@@ -14,174 +28,23 @@ import type { RepositoryError } from '../types'
 // ===== Event Types ===== //
 
 /**
- * チャンクイベント基底型
+ * チャンクイベント型（Schema定義を再利用）
  */
-export interface BaseChunkEvent {
-  readonly eventId: string
-  readonly aggregateId: ChunkId
-  readonly eventType: string
-  readonly timestamp: number
-  readonly version: number
-  readonly metadata?: {
-    readonly userId?: string
-    readonly sessionId?: string
-    readonly source?: string
-    readonly correlationId?: string
-  }
-}
-
-/**
- * チャンクイベント統合型
- */
-export type ChunkEvent =
-  | ChunkCreatedEvent
-  | ChunkLoadedEvent
-  | ChunkUnloadedEvent
-  | ChunkModifiedEvent
-  | ChunkSavedEvent
-  | ChunkDeletedEvent
-  | BlockChangedEvent
-  | ChunkOptimizedEvent
-  | ChunkValidatedEvent
-  | ChunkCorruptedEvent
-
-/**
- * チャンク作成イベント
- */
-export interface ChunkCreatedEvent extends BaseChunkEvent {
-  readonly eventType: 'ChunkCreated'
-  readonly payload: {
-    readonly position: ChunkPosition
-    readonly initialData: ChunkData
-    readonly source: 'generated' | 'loaded' | 'imported'
-  }
-}
-
-/**
- * チャンクロードイベント
- */
-export interface ChunkLoadedEvent extends BaseChunkEvent {
-  readonly eventType: 'ChunkLoaded'
-  readonly payload: {
-    readonly position: ChunkPosition
-    readonly loadTime: number
-    readonly cacheHit: boolean
-    readonly dataSize: number
-  }
-}
-
-/**
- * チャンクアンロードイベント
- */
-export interface ChunkUnloadedEvent extends BaseChunkEvent {
-  readonly eventType: 'ChunkUnloaded'
-  readonly payload: {
-    readonly position: ChunkPosition
-    readonly reason: 'memory_pressure' | 'distance' | 'manual' | 'shutdown'
-    readonly wasDirty: boolean
-  }
-}
-
-/**
- * チャンク変更イベント
- */
-export interface ChunkModifiedEvent extends BaseChunkEvent {
-  readonly eventType: 'ChunkModified'
-  readonly payload: {
-    readonly position: ChunkPosition
-    readonly changeSet: {
-      readonly blocks: ReadonlyArray<{
-        readonly x: number
-        readonly y: number
-        readonly z: number
-        readonly previousBlockId: string
-        readonly newBlockId: string
-      }>
-    }
-    readonly reason: string
-  }
-}
-
-/**
- * チャンク保存イベント
- */
-export interface ChunkSavedEvent extends BaseChunkEvent {
-  readonly eventType: 'ChunkSaved'
-  readonly payload: {
-    readonly position: ChunkPosition
-    readonly saveTime: number
-    readonly dataSize: number
-    readonly compressionRatio?: number
-  }
-}
-
-/**
- * チャンク削除イベント
- */
-export interface ChunkDeletedEvent extends BaseChunkEvent {
-  readonly eventType: 'ChunkDeleted'
-  readonly payload: {
-    readonly position: ChunkPosition
-    readonly reason: 'manual' | 'cleanup' | 'corruption'
-    readonly backupCreated: boolean
-  }
-}
-
-/**
- * ブロック変更イベント
- */
-export interface BlockChangedEvent extends BaseChunkEvent {
-  readonly eventType: 'BlockChanged'
-  readonly payload: {
-    readonly chunkPosition: ChunkPosition
-    readonly blockPosition: { readonly x: number; readonly y: number; readonly z: number }
-    readonly previousBlockId: string
-    readonly newBlockId: string
-    readonly tool?: string
-    readonly player?: string
-  }
-}
-
-/**
- * チャンク最適化イベント
- */
-export interface ChunkOptimizedEvent extends BaseChunkEvent {
-  readonly eventType: 'ChunkOptimized'
-  readonly payload: {
-    readonly position: ChunkPosition
-    readonly optimizationType: 'compression' | 'defragmentation' | 'cache_optimization'
-    readonly beforeSize: number
-    readonly afterSize: number
-    readonly timeTaken: number
-  }
-}
-
-/**
- * チャンク検証イベント
- */
-export interface ChunkValidatedEvent extends BaseChunkEvent {
-  readonly eventType: 'ChunkValidated'
-  readonly payload: {
-    readonly position: ChunkPosition
-    readonly validationResult: 'passed' | 'failed'
-    readonly issues?: ReadonlyArray<string>
-    readonly checksum: string
-  }
-}
-
-/**
- * チャンク破損イベント
- */
-export interface ChunkCorruptedEvent extends BaseChunkEvent {
-  readonly eventType: 'ChunkCorrupted'
-  readonly payload: {
-    readonly position: ChunkPosition
-    readonly corruptionType: 'checksum_mismatch' | 'invalid_data' | 'missing_blocks'
-    readonly expectedChecksum?: string
-    readonly actualChecksum?: string
-    readonly recoverable: boolean
-  }
-}
+export type {
+  BaseChunkEvent,
+  BlockChangedEvent,
+  ChunkCorruptedEvent,
+  ChunkCreatedEvent,
+  ChunkDeletedEvent,
+  ChunkEvent,
+  ChunkEventType,
+  ChunkLoadedEvent,
+  ChunkModifiedEvent,
+  ChunkOptimizedEvent,
+  ChunkSavedEvent,
+  ChunkUnloadedEvent,
+  ChunkValidatedEvent,
+} from '../../types'
 
 // ===== Event Stream Types ===== //
 
@@ -222,7 +85,7 @@ export interface ChunkSnapshot {
  */
 export interface EventQuery {
   readonly aggregateIds?: ReadonlyArray<ChunkId>
-  readonly eventTypes?: ReadonlyArray<string>
+  readonly eventTypes?: ReadonlyArray<ChunkEventType>
   readonly fromTimestamp?: number
   readonly toTimestamp?: number
   readonly fromVersion?: number

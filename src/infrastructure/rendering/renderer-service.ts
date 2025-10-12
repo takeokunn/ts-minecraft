@@ -62,12 +62,6 @@ export const decodePixelRatio = Schema.decodeUnknown(PixelRatioSchema)
 export const decodeTargetId = Schema.decodeUnknown(TargetIdSchema)
 export const decodeViewport = Schema.decodeUnknown(DimensionSchema)
 
-export const parseRgbColor = Schema.decodeUnknownSync(RgbColorSchema)
-export const parseAlpha = Schema.decodeUnknownSync(AlphaSchema)
-export const parsePixelRatio = Schema.decodeUnknownSync(PixelRatioSchema)
-export const parseTargetId = Schema.decodeUnknownSync(TargetIdSchema)
-export const parseViewport = Schema.decodeUnknownSync(DimensionSchema)
-
 // スナップショット -----------------------------------------------------------
 
 export interface RendererSnapshot {
@@ -95,8 +89,3 @@ export interface RendererService {
 export const RendererService = Context.GenericTag<RendererService>('@minecraft/infrastructure/RendererService')
 
 // 初期値 ---------------------------------------------------------------
-
-export const defaultClearColor = parseRgbColor(0x000000)
-export const defaultAlpha = parseAlpha(1)
-export const defaultPixelRatio = parsePixelRatio(1)
-export const defaultViewport = parseViewport({ width: 0, height: 0 })

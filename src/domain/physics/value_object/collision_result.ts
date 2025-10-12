@@ -57,7 +57,7 @@ const translate = (box: AABB, offset: Vector3): Effect.Effect<AABB, PhysicsError
 const detect = (params: {
   readonly position: Vector3
   readonly velocity: Vector3
-  readonly deltaTime: unknown
+  readonly deltaTime: number
   readonly body: AABB
   readonly sample: (query: AABB) => ReadonlyArray<AABB>
 }): Effect.Effect<CollisionResult, PhysicsError> =>
@@ -115,9 +115,15 @@ const detect = (params: {
       )
     )
 
-    if (collisionCount > 0 && !collidedAxes.x && !collidedAxes.y && !collidedAxes.z) {
-      collidedAxes = { x: true, y: true, z: true }
-    }
+    collidedAxes = pipe(
+      Match.value({ collisionCount, collidedAxes }),
+      Match.when(
+        ({ collisionCount, collidedAxes }) =>
+          collisionCount > 0 && !collidedAxes.x && !collidedAxes.y && !collidedAxes.z,
+        () => ({ x: true, y: true, z: true })
+      ),
+      Match.orElse(({ collidedAxes }) => collidedAxes)
+    )
 
     const resolvedPosition = pipe(
       collisionCount,

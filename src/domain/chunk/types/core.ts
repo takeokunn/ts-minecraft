@@ -1,3 +1,5 @@
+import type { JsonValue } from '@shared/schema/json'
+import { JsonValueSchema, toJsonValue, type JsonSerializable } from '@shared/schema/json'
 import type { Brand } from 'effect'
 import { Data, Effect, Schema } from 'effect'
 import { DomainClock } from '../../shared/effect'
@@ -51,11 +53,25 @@ export type RetryCount = number & Brand.Brand<'RetryCount'>
 export const RetryCountSchema = Schema.Number.pipe(Schema.int(), Schema.nonNegative(), Schema.brand('RetryCount'))
 
 /**
+ * number を RetryCount に変換（検証なし）
+ *
+ * 注意: 既に検証済みの値のみに使用すること
+ */
+export const makeUnsafeRetryCount = (count: number): RetryCount => count as RetryCount
+
+/**
  * チャンクのタイムスタンプ
  */
 export type ChunkTimestamp = number & Brand.Brand<'ChunkTimestamp'>
 
 export const ChunkTimestampSchema = Schema.Number.pipe(Schema.int(), Schema.positive(), Schema.brand('ChunkTimestamp'))
+
+/**
+ * number を ChunkTimestamp に変換（検証なし）
+ *
+ * 注意: 既に検証済みの値のみに使用すること
+ */
+export const makeUnsafeChunkTimestamp = (timestamp: number): ChunkTimestamp => timestamp as ChunkTimestamp
 
 // ===== ADT Types ===== //
 
@@ -69,7 +85,7 @@ export interface ChangeSet {
     readonly y: number
     readonly z: number
     readonly blockId: string
-    readonly metadata?: unknown
+    readonly metadata?: JsonValue
   }>
   readonly timestamp: ChunkTimestamp
 }
@@ -82,7 +98,7 @@ export const ChangeSetSchema = Schema.Struct({
       y: Schema.Number.pipe(Schema.int()),
       z: Schema.Number.pipe(Schema.int()),
       blockId: Schema.String.pipe(Schema.minLength(1)),
-      metadata: Schema.optional(Schema.Unknown),
+      metadata: Schema.optional(JsonValueSchema),
     })
   ),
   timestamp: ChunkTimestampSchema,
@@ -217,7 +233,7 @@ export type ChunkError = Data.TaggedEnum<{
   /** バリデーションエラー */
   ValidationError: {
     readonly field: string
-    readonly value: unknown
+    readonly value: JsonValue
     readonly constraint: string
   }
 
@@ -230,7 +246,7 @@ export type ChunkError = Data.TaggedEnum<{
   /** シリアライゼーションエラー */
   SerializationError: {
     readonly format: string
-    readonly originalError: unknown
+    readonly originalError: JsonValue
   }
 
   /** データ破損エラー */
@@ -265,21 +281,21 @@ export const ChunkStates = {
   loading: (progress: LoadProgress): ChunkState =>
     ChunkState.Loading({
       progress,
-      startTime: 0 as ChunkTimestamp,
+      startTime: makeUnsafeChunkTimestamp(0),
     }),
 
   loaded: (data: ChunkDataBytes, metadata: ChunkMetadata): ChunkState =>
     ChunkState.Loaded({
       data,
-      loadTime: 0 as ChunkTimestamp,
+      loadTime: makeUnsafeChunkTimestamp(0),
       metadata,
     }),
 
-  failed: (error: string, retryCount: RetryCount = 0 as RetryCount): ChunkState =>
+  failed: (error: string, retryCount: RetryCount = makeUnsafeRetryCount(0)): ChunkState =>
     ChunkState.Failed({
       error,
       retryCount,
-      lastAttempt: 0 as ChunkTimestamp,
+      lastAttempt: makeUnsafeChunkTimestamp(0),
     }),
 
   dirty: (data: ChunkDataBytes, changes: ChangeSet, metadata: ChunkMetadata): ChunkState =>
@@ -299,7 +315,7 @@ export const ChunkStates = {
   cached: (data: ChunkDataBytes, metadata: ChunkMetadata): ChunkState =>
     ChunkState.Cached({
       data,
-      cacheTime: 0 as ChunkTimestamp,
+      cacheTime: makeUnsafeChunkTimestamp(0),
       metadata,
     }),
 } as const
@@ -366,18 +382,20 @@ export const ChunkOperations = {
     ChunkOperation.Serialize({ data, format, metadata }),
 } as const
 
+type JsonValueInput = JsonSerializable | undefined
+
 /**
  * ChunkError ファクトリ関数
  */
 export const ChunkErrors = {
-  validation: (field: string, value: unknown, constraint: string): ChunkError =>
-    ChunkError.ValidationError({ field, value, constraint }),
+  validation: (field: string, value: JsonValueInput, constraint: string): ChunkError =>
+    ChunkError.ValidationError({ field, value: toJsonValue(value), constraint }),
 
   bounds: (coordinates: { x: number; y: number; z: number }, bounds: { min: number; max: number }): ChunkError =>
     ChunkError.BoundsError({ coordinates, bounds }),
 
-  serialization: (format: string, originalError: unknown): ChunkError =>
-    ChunkError.SerializationError({ format, originalError }),
+  serialization: (format: string, originalError: JsonValueInput): ChunkError =>
+    ChunkError.SerializationError({ format, originalError: toJsonValue(originalError) }),
 
   corruption: (checksum: string, expected: string): ChunkError => ChunkError.CorruptionError({ checksum, expected }),
 

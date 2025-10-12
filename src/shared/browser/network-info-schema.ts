@@ -1,4 +1,5 @@
 import { Effect, Option, pipe, Schema } from 'effect'
+import * as Match from 'effect/Match'
 
 /**
  * Network Information API Schema
@@ -48,15 +49,45 @@ const hasNetworkInformation = (): boolean => {
  *
  * @returns NetworkConnectionのOption（取得不可時はnone）
  */
+interface NetworkInformationLike {
+  readonly effectiveType?: string
+  readonly downlink?: number
+  readonly rtt?: number
+  readonly saveData?: boolean
+}
+
 export const getNetworkConnection = (): Effect.Effect<Option.Option<NetworkConnection>, never> =>
   Effect.sync(() => {
-    if (!hasNetworkInformation()) {
-      return Option.none()
-    }
-
-    const nav = navigator as any
-    return Schema.decodeUnknownOption(NetworkConnectionSchema)(nav.connection)
+    return pipe(
+      Match.value(hasNetworkInformation()),
+      Match.when(false, () => Option.none<NetworkConnection>()),
+      Match.orElse(() => {
+        const nav = navigator as Navigator & { connection?: NetworkInformationLike }
+        return Schema.decodeUnknownOption(NetworkConnectionSchema)(nav.connection)
+      }),
+      Match.exhaustive
+    )
   })
+
+/**
+ * effectiveTypeのみ取得 - 同期版
+ *
+ * @returns 接続タイプ（取得不可時は'unknown'）
+ */
+export const getEffectiveConnectionTypeSync = (): 'slow-2g' | '2g' | '3g' | '4g' | 'unknown' =>
+  pipe(
+    Match.value(hasNetworkInformation()),
+    Match.when(false, () => 'unknown' as const),
+    Match.orElse(() => {
+      const nav = navigator as Navigator & { connection?: NetworkInformationLike }
+      const result = Schema.decodeUnknownOption(NetworkConnectionSchema)(nav.connection)
+      return Option.match(result, {
+        onNone: () => 'unknown' as const,
+        onSome: (conn) => conn.effectiveType,
+      })
+    }),
+    Match.exhaustive
+  )
 
 /**
  * effectiveTypeのみ取得

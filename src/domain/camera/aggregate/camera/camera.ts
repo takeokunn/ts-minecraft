@@ -8,9 +8,11 @@
  * DDD原則に基づき、ビジネスルールを内包し、不変性を保証します。
  */
 
-import type { CameraError, CameraEvent, CameraId } from '@domain/camera/types'
-import { Array, Clock, Data, Effect, Match, Option, pipe } from 'effect'
+import type { CameraError, CameraEvent, CameraId, CameraMode } from '@domain/camera/types'
+import { parseCameraEvent } from '@domain/camera/types'
+import { Array, Clock, Data, DateTime, Effect, Match, Option, pipe, ReadonlyArray } from 'effect'
 import type { AnimationState, CameraRotation, CameraSettings, Position3D, ViewMode } from '../../value_object/index'
+import { ViewModeOps } from '../../value_object/view_mode/operations'
 
 /**
  * Camera Aggregate Root Interface
@@ -51,28 +53,28 @@ export namespace CameraOps {
   export const updatePosition = (camera: Camera, newPosition: Position3D): Effect.Effect<Camera, CameraError> =>
     Effect.gen(function* () {
       // カメラが有効でない場合はエラー
-      if (!camera.isEnabled) {
-        return yield* Effect.fail(CameraError({ _tag: 'CameraNotInitializedError', message: 'Camera is disabled' }))
-      }
+      yield* Effect.when(!camera.isEnabled, () =>
+        Effect.fail(CameraError({ _tag: 'CameraNotInitializedError', message: 'Camera is disabled' }))
+      )
 
       // 位置の変更量チェック（急激な移動の防止）
       const positionDelta = calculatePositionDelta(camera.position, newPosition)
       const maxDelta = getMaxPositionDelta(camera.settings)
 
-      if (positionDelta > maxDelta) {
-        return yield* Effect.fail(
+      yield* Effect.when(positionDelta > maxDelta, () =>
+        Effect.fail(
           CameraError({
             _tag: 'InvalidPositionError',
             message: `Position change too large: ${positionDelta} > ${maxDelta}`,
           })
         )
-      }
+      )
 
       // 位置更新イベントの作成
-      const event = createPositionUpdatedEvent(camera.id, camera.position, newPosition)
+      const event = yield* createPositionUpdatedEvent(camera.id, camera.position, newPosition)
 
       // 現在時刻を取得
-      const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+      const now = yield* DateTime.nowAsDate
 
       // 新しいAggregateインスタンスの返却
       return Camera({
@@ -91,18 +93,18 @@ export namespace CameraOps {
    */
   export const updateRotation = (camera: Camera, newRotation: CameraRotation): Effect.Effect<Camera, CameraError> =>
     Effect.gen(function* () {
-      if (!camera.isEnabled) {
-        return yield* Effect.fail(CameraError({ _tag: 'CameraNotInitializedError', message: 'Camera is disabled' }))
-      }
+      yield* Effect.when(!camera.isEnabled, () =>
+        Effect.fail(CameraError({ _tag: 'CameraNotInitializedError', message: 'Camera is disabled' }))
+      )
 
       // 回転制限の適用
       const constrainedRotation = applyRotationConstraints(newRotation, camera.settings)
 
       // 回転更新イベントの作成
-      const event = createRotationUpdatedEvent(camera.id, camera.rotation, constrainedRotation)
+      const event = yield* createRotationUpdatedEvent(camera.id, camera.rotation, constrainedRotation)
 
       // 現在時刻を取得
-      const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+      const now = yield* DateTime.nowAsDate
 
       return Camera({
         ...camera,
@@ -119,18 +121,18 @@ export namespace CameraOps {
    */
   export const changeViewMode = (camera: Camera, newMode: ViewMode): Effect.Effect<Camera, CameraError> =>
     Effect.gen(function* () {
-      if (!camera.isEnabled) {
-        return yield* Effect.fail(CameraError({ _tag: 'CameraNotInitializedError', message: 'Camera is disabled' }))
-      }
+      yield* Effect.when(!camera.isEnabled, () =>
+        Effect.fail(CameraError({ _tag: 'CameraNotInitializedError', message: 'Camera is disabled' }))
+      )
 
       // ビューモード変更時の位置・回転調整
       const adjustedCamera = yield* adjustCameraForViewMode(camera, newMode)
 
       // ビューモード変更イベントの作成
-      const event = createViewModeChangedEvent(camera.id, camera.viewMode, newMode)
+      const event = yield* createViewModeChangedEvent(camera.id, camera.viewMode, newMode)
 
       // 現在時刻を取得
-      const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+      const now = yield* DateTime.nowAsDate
 
       return Camera({
         ...adjustedCamera,
@@ -147,18 +149,18 @@ export namespace CameraOps {
    */
   export const startAnimation = (camera: Camera, animation: AnimationState): Effect.Effect<Camera, CameraError> =>
     Effect.gen(function* () {
-      if (!camera.isEnabled) {
-        return yield* Effect.fail(CameraError({ _tag: 'CameraNotInitializedError', message: 'Camera is disabled' }))
-      }
+      yield* Effect.when(!camera.isEnabled, () =>
+        Effect.fail(CameraError({ _tag: 'CameraNotInitializedError', message: 'Camera is disabled' }))
+      )
 
       // 既存のアニメーション停止
       const updatedCamera = stopAnimation(camera)
 
       // アニメーション開始イベントの作成
-      const event = createAnimationStartedEvent(camera.id, animation)
+      const event = yield* createAnimationStartedEvent(camera.id, animation)
 
       // 現在時刻を取得
-      const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+      const now = yield* DateTime.nowAsDate
 
       return Camera({
         ...updatedCamera,
@@ -175,20 +177,24 @@ export namespace CameraOps {
    */
   export const stopAnimation = (camera: Camera): Effect.Effect<Camera> =>
     Effect.gen(function* () {
-      if (Option.isNone(camera.animationState)) {
-        return camera
-      }
+      return yield* pipe(
+        camera.animationState,
+        Option.match({
+          onNone: () => Effect.succeed(camera),
+          onSome: (animation) =>
+            Effect.gen(function* () {
+              const event = yield* createAnimationStoppedEvent(camera.id, animation)
+              const now = yield* DateTime.nowAsDate
 
-      const event = createAnimationStoppedEvent(camera.id, camera.animationState.value)
-
-      const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
-
-      return Camera({
-        ...camera,
-        animationState: Option.none(),
-        events: [...camera.events, event],
-        lastUpdated: now,
-      })
+              return Camera({
+                ...camera,
+                animationState: Option.none(),
+                events: [...camera.events, event],
+                lastUpdated: now,
+              })
+            }),
+        })
+      )
     })
 
   /**
@@ -201,19 +207,23 @@ export namespace CameraOps {
     settingsUpdate: Partial<CameraSettings>
   ): Effect.Effect<Camera, CameraError> =>
     Effect.gen(function* () {
-      if (!camera.isEnabled) {
-        return yield* Effect.fail(CameraError({ _tag: 'CameraNotInitializedError', message: 'Camera is disabled' }))
-      }
+      yield* pipe(
+        Match.value(camera.isEnabled),
+        Match.when(true, () => Effect.void),
+        Match.orElse(() =>
+          Effect.fail(CameraError({ _tag: 'CameraNotInitializedError', message: 'Camera is disabled' }))
+        )
+      )
 
       // 設定の統合と検証
       const newSettings = { ...camera.settings, ...settingsUpdate }
       const validatedSettings = yield* validateCameraSettings(newSettings)
 
       // 設定変更イベントの作成
-      const event = createSettingsChangedEvent(camera.id, camera.settings, validatedSettings)
+      const event = yield* createSettingsChangedEvent(camera.id, camera.settings, validatedSettings)
 
       // 現在時刻を取得
-      const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+      const now = yield* DateTime.nowAsDate
 
       return Camera({
         ...camera,
@@ -228,12 +238,13 @@ export namespace CameraOps {
    */
   export const enable = (camera: Camera): Effect.Effect<Camera> =>
     Effect.gen(function* () {
-      const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+      const event = yield* createCameraEnabledEvent(camera.id)
+      const now = yield* DateTime.nowAsDate
 
       return Camera({
         ...camera,
         isEnabled: true,
-        events: [...camera.events, createCameraEnabledEvent(camera.id)],
+        events: [...camera.events, event],
         lastUpdated: now,
       })
     })
@@ -243,13 +254,14 @@ export namespace CameraOps {
    */
   export const disable = (camera: Camera): Effect.Effect<Camera> =>
     Effect.gen(function* () {
-      const now = yield* Effect.map(Clock.currentTimeMillis, (ms) => new Date(ms))
+      const event = yield* createCameraDisabledEvent(camera.id)
+      const now = yield* DateTime.nowAsDate
 
       const disabledCamera = Camera({
         ...camera,
         isEnabled: false,
         animationState: Option.none(),
-        events: [...camera.events, createCameraDisabledEvent(camera.id)],
+        events: [...camera.events, event],
         lastUpdated: now,
       })
 
@@ -356,6 +368,8 @@ const validateCameraSettings = (settings: CameraSettings): Effect.Effect<CameraS
     return settings // 仮実装
   })
 
+const viewModeToCameraMode = (viewMode: ViewMode): CameraMode => ViewModeOps.getTag(viewMode) as CameraMode
+
 // ========================================
 // イベント作成ヘルパー関数
 // ========================================
@@ -364,43 +378,118 @@ const createPositionUpdatedEvent = (
   cameraId: CameraId,
   oldPosition: Position3D,
   newPosition: Position3D
-): CameraEvent => {
-  // イベント作成の実装
-  return {} as CameraEvent // 仮実装
-}
+): Effect.Effect<CameraEvent> =>
+  Effect.gen(function* () {
+    const timestamp = yield* Clock.currentTimeMillis
+    return parseCameraEvent({
+      _tag: 'PositionUpdated',
+      cameraId,
+      fromPosition: oldPosition,
+      toPosition: newPosition,
+      timestamp,
+    })
+  })
 
 const createRotationUpdatedEvent = (
   cameraId: CameraId,
   oldRotation: CameraRotation,
   newRotation: CameraRotation
-): CameraEvent => {
-  return {} as CameraEvent // 仮実装
-}
+): Effect.Effect<CameraEvent> =>
+  Effect.gen(function* () {
+    const timestamp = yield* Clock.currentTimeMillis
+    return parseCameraEvent({
+      _tag: 'RotationUpdated',
+      cameraId,
+      fromRotation: oldRotation,
+      toRotation: newRotation,
+      timestamp,
+    })
+  })
 
-const createViewModeChangedEvent = (cameraId: CameraId, oldMode: ViewMode, newMode: ViewMode): CameraEvent => {
-  return {} as CameraEvent // 仮実装
-}
+const createViewModeChangedEvent = (
+  cameraId: CameraId,
+  oldMode: ViewMode,
+  newMode: ViewMode
+): Effect.Effect<CameraEvent> =>
+  Effect.gen(function* () {
+    const timestamp = yield* Clock.currentTimeMillis
+    return parseCameraEvent({
+      _tag: 'ViewModeChanged' as const,
+      cameraId,
+      fromMode: viewModeToCameraMode(oldMode),
+      toMode: viewModeToCameraMode(newMode),
+      timestamp,
+    })
+  })
 
-const createAnimationStartedEvent = (cameraId: CameraId, animation: AnimationState): CameraEvent => {
-  return {} as CameraEvent // 仮実装
-}
+const createAnimationStartedEvent = (cameraId: CameraId, animation: AnimationState): Effect.Effect<CameraEvent> =>
+  Effect.gen(function* () {
+    const timestamp = yield* Clock.currentTimeMillis
+    return parseCameraEvent({
+      _tag: 'AnimationStarted',
+      cameraId,
+      animationState: animation,
+      timestamp,
+    })
+  })
 
-const createAnimationStoppedEvent = (cameraId: CameraId, animation: AnimationState): CameraEvent => {
-  return {} as CameraEvent // 仮実装
-}
+const createAnimationStoppedEvent = (cameraId: CameraId, animation: AnimationState): Effect.Effect<CameraEvent> =>
+  Effect.gen(function* () {
+    const timestamp = yield* Clock.currentTimeMillis
+    return parseCameraEvent({
+      _tag: 'AnimationCompleted',
+      cameraId,
+      animationState: animation,
+      timestamp,
+    })
+  })
 
 const createSettingsChangedEvent = (
   cameraId: CameraId,
   oldSettings: CameraSettings,
   newSettings: CameraSettings
-): CameraEvent => {
-  return {} as CameraEvent // 仮実装
+): Effect.Effect<CameraEvent> => {
+  const changedSettings = pipe(
+    ['fov', 'sensitivity', 'distance', 'smoothing'] as const,
+    ReadonlyArray.filterMap((key) =>
+      oldSettings[key] === newSettings[key]
+        ? Option.none<readonly [typeof key, CameraSettings[typeof key]]>()
+        : Option.some([key, newSettings[key]])
+    ),
+    ReadonlyArray.reduce({} as Partial<CameraSettings>, (acc, [key, value]) => ({
+      ...acc,
+      [key]: value,
+    }))
+  )
+
+  return Effect.gen(function* () {
+    const timestamp = yield* Clock.currentTimeMillis
+    return parseCameraEvent({
+      _tag: 'SettingsChanged',
+      cameraId,
+      changedSettings,
+      timestamp,
+    })
+  })
 }
 
-const createCameraEnabledEvent = (cameraId: CameraId): CameraEvent => {
-  return {} as CameraEvent // 仮実装
-}
+const createCameraEnabledEvent = (cameraId: CameraId): Effect.Effect<CameraEvent> =>
+  Effect.gen(function* () {
+    const timestamp = yield* Clock.currentTimeMillis
+    return parseCameraEvent({
+      _tag: 'CameraUnlocked',
+      cameraId,
+      timestamp,
+    })
+  })
 
-const createCameraDisabledEvent = (cameraId: CameraId): CameraEvent => {
-  return {} as CameraEvent // 仮実装
-}
+const createCameraDisabledEvent = (cameraId: CameraId): Effect.Effect<CameraEvent> =>
+  Effect.gen(function* () {
+    const timestamp = yield* Clock.currentTimeMillis
+    return parseCameraEvent({
+      _tag: 'CameraLocked',
+      cameraId,
+      reason: 'Camera disabled',
+      timestamp,
+    })
+  })

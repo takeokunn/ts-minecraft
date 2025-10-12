@@ -93,6 +93,36 @@ export const QFactorSchema = Schema.Number.pipe(
 )
 
 /**
+ * FrequencyValue型のunsafe変換関数
+ * 定数定義時の型アサーションを型安全に実施（範囲検証なし）
+ */
+export const makeUnsafeFrequencyValue = (value: number): FrequencyValue => value as FrequencyValue
+
+/**
+ * Bandwidth型のunsafe変換関数
+ * 定数定義時の型アサーションを型安全に実施（範囲検証なし）
+ */
+export const makeUnsafeBandwidth = (value: number): Bandwidth => value as Bandwidth
+
+/**
+ * Gain型のunsafe変換関数
+ * 定数定義時の型アサーションを型安全に実施（範囲検証なし）
+ */
+export const makeUnsafeGain = (value: number): Gain => value as Gain
+
+/**
+ * QFactor型のunsafe変換関数
+ * 定数定義時の型アサーションを型安全に実施（範囲検証なし）
+ */
+export const makeUnsafeQFactor = (value: number): QFactor => value as QFactor
+
+/**
+ * FilterType型のunsafe変換関数
+ * Match.when内での文字列リテラル型アサーションを型安全に実施
+ */
+export const asFilterType = (value: string): FilterType => value as FilterType
+
+/**
  * フィルタータイプ
  */
 export const FilterTypeSchema = Schema.Literal(

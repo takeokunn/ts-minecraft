@@ -1,4 +1,4 @@
-import { Brand, Effect, pipe, Schema } from 'effect'
+import { Brand, Effect, Match, pipe, Schema } from 'effect'
 import {
   AspectRatio,
   AspectRatioSchema,
@@ -190,16 +190,22 @@ export const createCameraSettings = (
     const validatedRenderDistance = yield* SettingsFactory.createRenderDistance(renderDistance)
     const validatedQualityLevel = yield* SettingsFactory.createQualityLevel(qualityLevel)
 
-    // 追加の制約チェック
-    if (validatedNearPlane >= validatedFarPlane) {
-      return yield* Effect.fail(
-        SettingsError.SettingsConflict({
-          setting1: 'nearPlane',
-          setting2: 'farPlane',
-          reason: 'Near plane must be less than far plane',
-        })
+    yield* pipe(
+      Match.value(validatedNearPlane < validatedFarPlane),
+      Match.when(
+        (isValid) => isValid,
+        () => Effect.void
+      ),
+      Match.orElse(() =>
+        Effect.fail(
+          SettingsError.SettingsConflict({
+            setting1: 'nearPlane',
+            setting2: 'farPlane',
+            reason: 'Near plane must be less than far plane',
+          })
+        )
       )
-    }
+    )
 
     return Brand.nominal<CameraSettings>()({
       fov: validatedFov,
@@ -408,13 +414,26 @@ export const QualityPresets = {
   /**
    * 設定からプリセットを推定
    */
-  detectPreset: (settings: CameraSettings): QualityPreset => {
-    if (settings.qualityLevel <= 1 && settings.renderDistance <= 4) return 'low'
-    if (settings.qualityLevel <= 3 && settings.renderDistance <= 8) return 'medium'
-    if (settings.qualityLevel <= 4 && settings.renderDistance <= 16) return 'high'
-    if (settings.qualityLevel >= 5 && settings.renderDistance >= 16) return 'ultra'
-    return 'custom'
-  },
+  detectPreset: (settings: CameraSettings): QualityPreset =>
+    Match.value(settings).pipe(
+      Match.when(
+        (s) => s.qualityLevel <= 1 && s.renderDistance <= 4,
+        () => 'low' as const
+      ),
+      Match.when(
+        (s) => s.qualityLevel <= 3 && s.renderDistance <= 8,
+        () => 'medium' as const
+      ),
+      Match.when(
+        (s) => s.qualityLevel <= 4 && s.renderDistance <= 16,
+        () => 'high' as const
+      ),
+      Match.when(
+        (s) => s.qualityLevel >= 5 && s.renderDistance >= 16,
+        () => 'ultra' as const
+      ),
+      Match.orElse(() => 'custom' as const)
+    ),
 }
 
 /**
@@ -441,17 +460,21 @@ export const SettingsValidation = {
   /**
    * 設定間の互換性チェック
    */
-  checkCompatibility: (settings: CameraSettings): Effect.Effect<void, SettingsError> => {
-    if (settings.nearPlane >= settings.farPlane) {
-      return Effect.fail(
-        SettingsError.SettingsConflict({
-          setting1: 'nearPlane',
-          setting2: 'farPlane',
-          reason: 'Near plane must be less than far plane',
-        })
+  checkCompatibility: (settings: CameraSettings): Effect.Effect<void, SettingsError> =>
+    pipe(
+      Match.value(settings.nearPlane < settings.farPlane),
+      Match.when(
+        (isValid) => isValid,
+        () => Effect.void
+      ),
+      Match.orElse(() =>
+        Effect.fail(
+          SettingsError.SettingsConflict({
+            setting1: 'nearPlane',
+            setting2: 'farPlane',
+            reason: 'Near plane must be less than far plane',
+          })
+        )
       )
-    }
-
-    return Effect.void
-  },
+    ),
 }

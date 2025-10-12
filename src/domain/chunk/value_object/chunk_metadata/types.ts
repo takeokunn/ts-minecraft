@@ -1,3 +1,4 @@
+import { formatParseIssues } from '@shared/schema/tagged_error_factory'
 import { Data, Effect, Option, pipe, Schema } from 'effect'
 
 const nonEmptyString = Schema.String.pipe(Schema.nonEmptyString())
@@ -8,14 +9,14 @@ export type BiomeType = Schema.Schema.Type<typeof BiomeTypeSchema>
 export const LightLevelSchema = Schema.Number.pipe(Schema.int(), Schema.between(0, 15), Schema.brand('LightLevel'))
 export type LightLevel = Schema.Schema.Type<typeof LightLevelSchema>
 
-export const TimestampSchema = Schema.Number.pipe(Schema.int(), Schema.nonNegative(), Schema.brand('Timestamp'))
-export type Timestamp = Schema.Schema.Type<typeof TimestampSchema>
+// Re-export from units
+export { TimestampSchema, type Timestamp } from '../../../shared/value_object/units'
 
 export const HeightValueSchema = Schema.Number.pipe(Schema.int(), Schema.between(-64, 319), Schema.brand('HeightValue'))
 export type HeightValue = Schema.Schema.Type<typeof HeightValueSchema>
 
-export const BlockIdSchema = Schema.Number.pipe(Schema.int(), Schema.nonNegative(), Schema.brand('BlockId'))
-export type BlockId = Schema.Schema.Type<typeof BlockIdSchema>
+// Re-export from shared entities
+export { BlockTypeIdSchema, type BlockTypeId } from '../../../shared/entities/block_type_id'
 
 export const BlockCountSchema = Schema.Number.pipe(Schema.int(), Schema.nonNegative(), Schema.brand('BlockCount'))
 export type BlockCount = Schema.Schema.Type<typeof BlockCountSchema>
@@ -79,11 +80,19 @@ export interface ChunkMetadataError {
   readonly _tag: 'ChunkMetadataError'
   readonly message: string
   readonly issues: ReadonlyArray<ChunkMetadataIssue>
+  readonly originalError?: unknown
 }
 
 export const ChunkMetadataError = Data.tagged<ChunkMetadataError>('ChunkMetadataError')
 
-export const makeHeightValue = (value: number): HeightValue => Schema.decodeSync(HeightValueSchema)(value)
+export const makeHeightValue = (value: number): HeightValue =>
+  Schema.decodeSync(HeightValueSchema)(value)
+
+/**
+ * HeightValueを検証なしで作成（型アサーションを集約）
+ * 注意: 値の妥当性は呼び出し側で保証すること
+ */
+export const makeUnsafeHeightValue = (value: number): HeightValue => value as HeightValue
 export const HeightValue = makeHeightValue
 
 export const withOptimizationRecord = (
@@ -103,15 +112,14 @@ export const withOptimizationRecord = (
         })
       ),
     }),
-    Effect.mapError((error) =>
+    Effect.mapError((parseError: Schema.ParseError) =>
       ChunkMetadataError({
         message: 'チャンクメタデータの更新に失敗しました',
-        issues: [
-          {
-            field: 'optimizations',
-            explanation: String(error),
-          },
-        ],
+        issues: formatParseIssues(parseError).map((issue) => ({
+          field: 'optimizations',
+          explanation: issue,
+        })),
+        originalError: parseError,
       })
     )
   )
@@ -126,15 +134,14 @@ export const touchMetadata = (
       isModified: true,
       lastUpdate: timestamp,
     }),
-    Effect.mapError((error) =>
+    Effect.mapError((parseError: Schema.ParseError) =>
       ChunkMetadataError({
         message: 'チャンクメタデータのタイムスタンプ更新に失敗しました',
-        issues: [
-          {
-            field: 'lastUpdate',
-            explanation: String(error),
-          },
-        ],
+        issues: formatParseIssues(parseError).map((issue) => ({
+          field: 'lastUpdate',
+          explanation: issue,
+        })),
+        originalError: parseError,
       })
     )
   )
@@ -155,15 +162,14 @@ export const createOptimizationRecord = (
         })
       )
     ),
-    Effect.mapError((error) =>
+    Effect.mapError((parseError: Schema.ParseError) =>
       ChunkMetadataError({
         message: '最適化レコードの構築に失敗しました',
-        issues: [
-          {
-            field: strategy,
-            explanation: String(error),
-          },
-        ],
+        issues: formatParseIssues(parseError).map((issue) => ({
+          field: strategy,
+          explanation: issue,
+        })),
+        originalError: parseError,
       })
     )
   )
@@ -173,15 +179,14 @@ export const createOptimizationDetails = (
 ): Effect.Effect<ChunkOptimizationDetails, ChunkMetadataError> =>
   pipe(
     Schema.decode(OptimizationDetailsSchema)(details),
-    Effect.mapError((error) =>
+    Effect.mapError((parseError: Schema.ParseError) =>
       ChunkMetadataError({
         message: '最適化詳細の構築に失敗しました',
-        issues: [
-          {
-            field: 'details',
-            explanation: String(error),
-          },
-        ],
+        issues: formatParseIssues(parseError).map((issue) => ({
+          field: 'details',
+          explanation: issue,
+        })),
+        originalError: parseError,
       })
     )
   )
@@ -189,15 +194,14 @@ export const createOptimizationDetails = (
 export const makeTimestamp = (value: number): Effect.Effect<Timestamp, ChunkMetadataError> =>
   pipe(
     Schema.decode(TimestampSchema)(value),
-    Effect.mapError((error) =>
+    Effect.mapError((parseError: Schema.ParseError) =>
       ChunkMetadataError({
         message: 'タイムスタンプの構築に失敗しました',
-        issues: [
-          {
-            field: 'timestamp',
-            explanation: String(error),
-          },
-        ],
+        issues: formatParseIssues(parseError).map((issue) => ({
+          field: 'timestamp',
+          explanation: issue,
+        })),
+        originalError: parseError,
       })
     )
   )
@@ -205,15 +209,14 @@ export const makeTimestamp = (value: number): Effect.Effect<Timestamp, ChunkMeta
 export const makeBlockCount = (value: number): Effect.Effect<BlockCount, ChunkMetadataError> =>
   pipe(
     Schema.decode(BlockCountSchema)(value),
-    Effect.mapError((error) =>
+    Effect.mapError((parseError: Schema.ParseError) =>
       ChunkMetadataError({
         message: 'ブロック数の構築に失敗しました',
-        issues: [
-          {
-            field: 'blockCount',
-            explanation: String(error),
-          },
-        ],
+        issues: formatParseIssues(parseError).map((issue) => ({
+          field: 'blockCount',
+          explanation: issue,
+        })),
+        originalError: parseError,
       })
     )
   )
@@ -221,31 +224,33 @@ export const makeBlockCount = (value: number): Effect.Effect<BlockCount, ChunkMe
 export const makePercentage = (value: number): Effect.Effect<Percentage, ChunkMetadataError> =>
   pipe(
     Schema.decode(PercentageSchema)(value),
-    Effect.mapError((error) =>
+    Effect.mapError((parseError: Schema.ParseError) =>
       ChunkMetadataError({
         message: '割合値の構築に失敗しました',
-        issues: [
-          {
-            field: 'percentage',
-            explanation: String(error),
-          },
-        ],
+        issues: formatParseIssues(parseError).map((issue) => ({
+          field: 'percentage',
+          explanation: issue,
+        })),
+        originalError: parseError,
       })
     )
   )
 
-export const makeBlockId = (value: number): Effect.Effect<BlockId, ChunkMetadataError> =>
+export const makeBlockTypeId = (value: number): Effect.Effect<BlockTypeId, ChunkMetadataError> =>
   pipe(
-    Schema.decode(BlockIdSchema)(value),
-    Effect.mapError((error) =>
+    Schema.decode(BlockTypeIdSchema)(value),
+    Effect.mapError((parseError: Schema.ParseError) =>
       ChunkMetadataError({
-        message: 'ブロックIDの構築に失敗しました',
-        issues: [
-          {
-            field: 'blockId',
-            explanation: String(error),
-          },
-        ],
+        message: 'ブロックタイプIDの構築に失敗しました',
+        issues: formatParseIssues(parseError).map((issue) => ({
+          field: 'blockTypeId',
+          explanation: issue,
+        })),
+        originalError: parseError,
       })
     )
   )
+
+// Note: 共有カーネルのBlockTypeId.createも利用可能
+// import * as BlockTypeId from '../../../shared/entities/block_type_id'
+// BlockTypeId.create(value) でも同等の処理が可能

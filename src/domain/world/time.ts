@@ -1,9 +1,9 @@
-import { Clock, Context, Effect, Layer } from 'effect'
+import { Clock, Context, DateTime, Effect, Layer } from 'effect'
 
 /**
  * WorldClock - ワールドドメイン向け時間サービス
  *
- * Effect-TSのClockサービスをベースに、現在時刻の数値および
+ * Effect-TSのDateTimeサービスをベースに、現在時刻の数値および
  * Dateオブジェクト化を完全にEffectとして提供する。
  */
 export interface WorldClock {
@@ -18,14 +18,14 @@ export const WorldClock = Context.GenericTag<WorldClock>('@ts-minecraft/domain/w
 
 /**
  * 実運用向けのWorldClock実装。
- * - 現在時刻はEffect.Clockを利用して副作用を隔離
+ * - 現在時刻はEffect.DateTimeを利用して副作用を隔離
  * - Date生成もEffect内で行い、参照透明性を保つ
  */
 export const WorldClockLive = Layer.effect(
   WorldClock,
   Effect.succeed<WorldClock>({
     currentMillis: Clock.currentTimeMillis,
-    currentDate: Effect.map(Clock.currentTimeMillis, (now) => new Date(now)),
+    currentDate: Effect.map(DateTime.now, (dt) => DateTime.toDate(dt)),
   })
 )
 
@@ -35,5 +35,5 @@ export const WorldClockLive = Layer.effect(
 export const makeWorldClockTestLayer = (fixedMillis: number) =>
   Layer.succeed(WorldClock, {
     currentMillis: Effect.succeed(fixedMillis),
-    currentDate: Effect.succeed(new Date(fixedMillis)),
+    currentDate: Effect.map(DateTime.unsafeMake(fixedMillis), (dt) => DateTime.toDate(dt)),
   } satisfies WorldClock)

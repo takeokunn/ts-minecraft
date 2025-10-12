@@ -6,6 +6,7 @@
  */
 
 import type { CameraId, CameraRotation, CameraSettings, Position3D } from '@domain/camera/types'
+import { ErrorCauseSchema, toErrorCause, type ErrorCause } from '@shared/schema/error'
 import { Brand, Data, Option, Schema } from 'effect'
 import type { ViewMode } from '../../value_object/index'
 
@@ -77,7 +78,7 @@ export type RepositoryError = Data.TaggedEnum<{
   }
   readonly StorageError: {
     readonly message: string
-    readonly cause: Option<unknown>
+    readonly cause: Option.Option<ErrorCause>
   }
   readonly EncodingFailed: {
     readonly entityType: string
@@ -114,8 +115,9 @@ export type Camera = Brand<
 
 /**
  * Player ID - プレイヤー識別子
+ * 共有カーネルから再エクスポート
  */
-export type PlayerId = Brand<string, 'PlayerId'>
+export type { PlayerId } from '@domain/shared/entities/player_id'
 
 // ========================================
 // Schema定義
@@ -158,36 +160,36 @@ export const CameraStateQueryOptionsSchema = Schema.Struct({
 /**
  * Repository Error Schema
  */
-export const RepositoryErrorSchema = Schema.TaggedEnum<RepositoryError>()({
-  EntityNotFound: Schema.Struct({
+export const RepositoryErrorSchema = Schema.Union(
+  Schema.TaggedStruct('EntityNotFound', {
     entityType: Schema.String,
     entityId: Schema.String,
   }),
-  DuplicateEntity: Schema.Struct({
+  Schema.TaggedStruct('DuplicateEntity', {
     entityType: Schema.String,
     entityId: Schema.String,
   }),
-  ValidationFailed: Schema.Struct({
+  Schema.TaggedStruct('ValidationFailed', {
     message: Schema.String,
     details: Schema.OptionFromNullable(Schema.String),
   }),
-  OperationFailed: Schema.Struct({
+  Schema.TaggedStruct('OperationFailed', {
     operation: Schema.String,
     reason: Schema.String,
   }),
-  StorageError: Schema.Struct({
+  Schema.TaggedStruct('StorageError', {
     message: Schema.String,
-    cause: Schema.OptionFromNullable(Schema.Unknown),
+    cause: Schema.OptionFromNullable(ErrorCauseSchema),
   }),
-  EncodingFailed: Schema.Struct({
+  Schema.TaggedStruct('EncodingFailed', {
     entityType: Schema.String,
     reason: Schema.String,
   }),
-  DecodingFailed: Schema.Struct({
+  Schema.TaggedStruct('DecodingFailed', {
     entityType: Schema.String,
     reason: Schema.String,
-  }),
-})
+  })
+)
 
 /**
  * Camera Schema
@@ -215,9 +217,9 @@ export const CameraSchema = Schema.Struct({
 }).pipe(Schema.brand('Camera'))
 
 /**
- * Player ID Schema
+ * Player ID Schema - 共有カーネルから再エクスポート
  */
-export const PlayerIdSchema = Schema.String.pipe(Schema.brand('PlayerId'))
+export { PlayerIdSchema } from '@domain/shared/entities/player_id'
 
 /**
  * Version Number Schema
@@ -255,7 +257,7 @@ export const createRepositoryError = {
   storageError: (message: string, cause?: unknown): RepositoryError =>
     Data.tagged('StorageError', {
       message,
-      cause: cause ? Option.some(cause) : Option.none(),
+      cause: Option.fromNullable(toErrorCause(cause)),
     }),
 
   encodingFailed: (entityType: string, reason: string): RepositoryError =>
