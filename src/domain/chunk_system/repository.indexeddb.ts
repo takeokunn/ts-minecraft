@@ -15,8 +15,7 @@ const broadcastAll = (queue: Queue.Queue<ChunkEvent>, events: ReadonlyArray<Chun
     discard: true,
   })
 
-const simulateLatency = <A, E>(effect: Effect.Effect<A, E>) =>
-  Effect.sleep(Duration.millis(2)).pipe(Effect.zipRight(effect))
+const simulateLatency = <A, E>(effect: Effect.Effect<A, E>) => effect
 
 export const indexedDbRepositoryLayer = (initial: ChunkSystemState): Layer.Layer<ChunkSystemRepository> =>
   Layer.scoped(

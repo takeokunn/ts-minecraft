@@ -32,44 +32,6 @@ export {
   type WorldSeed,
 } from './world_seed/index'
 
-// 3D座標系管理
-export {
-  BLOCK_COORDINATE_LIMITS,
-  BlockCoordinateSchema,
-  BlockXSchema,
-  BlockYSchema,
-  BlockZSchema,
-  CHUNK_COORDINATE_LIMITS,
-  ChunkCoordinateSchema,
-  ChunkXSchema,
-  ChunkYSchema,
-  ChunkZSchema,
-  CoordinateErrorSchema,
-  // 変換操作
-  CoordinateTransforms,
-  // 定数・制限値
-  WORLD_COORDINATE_LIMITS,
-  WorldCoordinateSchema,
-  // スキーマエクスポート
-  WorldXSchema,
-  WorldYSchema,
-  WorldZSchema,
-  type BlockCoordinate,
-  type BlockX,
-  type BlockY,
-  type BlockZ,
-  type ChunkCoordinate,
-  type ChunkX,
-  type ChunkY,
-  type ChunkZ,
-  type CoordinateError,
-  type WorldCoordinate,
-  // 座標型エクスポート
-  type WorldX,
-  type WorldY,
-  type WorldZ,
-} from './coordinates/index'
-
 // 世界生成パラメータ
 export {
   // 定数・プリセット

@@ -1,4 +1,4 @@
-import * as Coordinates from '@domain/world/value_object/coordinates/index'
+import * as Coordinates from '@domain/biome/value_object/coordinates'
 import { JsonValueSchema } from '@shared/schema/json'
 import { Brand, Effect, Schema } from 'effect'
 import * as ErrorHandling from '../error_handling'

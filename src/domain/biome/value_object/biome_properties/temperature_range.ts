@@ -5,7 +5,7 @@
  * 熱力学的整合性と季節変動の正確な表現
  */
 
-import { taggedUnion } from '@domain/world/utils'
+import { taggedUnion } from '@domain/shared/utils'
 import type { Brand as BrandType } from 'effect'
 import { Schema } from 'effect'
 import { unsafeCoerce } from 'effect/Function'

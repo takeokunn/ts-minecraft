@@ -7,16 +7,13 @@
  */
 
 import { makeUnsafeWorldCoordinate2D } from '@/domain/biome/value_object/coordinates'
-import type {
-  AllRepositoryErrors,
-  BiomeDefinition,
-  BiomeId,
-  ClimateData,
-  Humidity,
-  Temperature,
-  WorldCoordinate,
-} from '@domain/world/types'
+import { BiomeId } from '@/domain/biome/value_object/biome_id'
+import type { BiomeRegistry } from '@/domain/biome/aggregate/biome_system/biome_registry'
+import type { ClimateData } from '@/domain/biome/domain_service/biome_classification/climate_calculator'
+import type { WorldCoordinate } from '@/domain/biome/value_object/coordinates/world_coordinate'
 import { Context, Effect, Option, ReadonlyArray } from 'effect'
+import type { JsonRecord } from '@shared/schema/json'
+import type { BiomeRepositoryError } from '@/domain/biome/repository/errors'
 
 // === Spatial Index Types ===
 
@@ -142,52 +139,57 @@ export interface BiomeStatistics {
 /**
  * Biome System Repository インターフェース
  */
+type BiomeDefinition = BiomeRegistry['biomes'][number]
+
+export type Temperature = number
+export type Humidity = number
+
 export interface BiomeSystemRepository {
   // === Biome Definition Management ===
 
   /**
    * バイオーム定義保存
    */
-  readonly saveBiomeDefinition: (biome: BiomeDefinition) => Effect.Effect<void, AllRepositoryErrors>
+  readonly saveBiomeDefinition: (biome: BiomeDefinition) => Effect.Effect<void, BiomeRepositoryError>
 
   /**
    * バイオーム定義取得
    */
-  readonly findBiomeDefinition: (biomeId: BiomeId) => Effect.Effect<Option.Option<BiomeDefinition>, AllRepositoryErrors>
+  readonly findBiomeDefinition: (biomeId: BiomeId) => Effect.Effect<Option.Option<BiomeDefinition>, BiomeRepositoryError>
 
   /**
    * 全バイオーム定義取得
    */
-  readonly findAllBiomeDefinitions: () => Effect.Effect<ReadonlyArray<BiomeDefinition>, AllRepositoryErrors>
+  readonly findAllBiomeDefinitions: () => Effect.Effect<ReadonlyArray<BiomeDefinition>, BiomeRepositoryError>
 
   /**
    * バイオーム定義更新
    */
-  readonly updateBiomeDefinition: (biome: BiomeDefinition) => Effect.Effect<void, AllRepositoryErrors>
+  readonly updateBiomeDefinition: (biome: BiomeDefinition) => Effect.Effect<void, BiomeRepositoryError>
 
   /**
    * バイオーム定義削除
    */
-  readonly deleteBiomeDefinition: (biomeId: BiomeId) => Effect.Effect<void, AllRepositoryErrors>
+  readonly deleteBiomeDefinition: (biomeId: BiomeId) => Effect.Effect<void, BiomeRepositoryError>
 
   // === Spatial Biome Placement ===
 
   /**
    * バイオーム配置
    */
-  readonly placeBiome: (placement: BiomePlacement) => Effect.Effect<void, AllRepositoryErrors>
+  readonly placeBiome: (placement: BiomePlacement) => Effect.Effect<void, BiomeRepositoryError>
 
   /**
    * 座標のバイオーム取得
    */
-  readonly getBiomeAt: (coordinate: SpatialCoordinate) => Effect.Effect<Option.Option<BiomeId>, AllRepositoryErrors>
+  readonly getBiomeAt: (coordinate: SpatialCoordinate) => Effect.Effect<Option.Option<BiomeId>, BiomeRepositoryError>
 
   /**
    * 範囲内のバイオーム取得
    */
   readonly getBiomesInBounds: (
     bounds: SpatialBounds
-  ) => Effect.Effect<ReadonlyArray<SpatialQueryResult>, AllRepositoryErrors>
+  ) => Effect.Effect<ReadonlyArray<SpatialQueryResult>, BiomeRepositoryError>
 
   /**
    * 半径検索
@@ -195,7 +197,7 @@ export interface BiomeSystemRepository {
   readonly findBiomesInRadius: (
     center: SpatialCoordinate,
     radius: number
-  ) => Effect.Effect<ReadonlyArray<SpatialQueryResult>, AllRepositoryErrors>
+  ) => Effect.Effect<ReadonlyArray<SpatialQueryResult>, BiomeRepositoryError>
 
   /**
    * 最近傍バイオーム検索
@@ -203,12 +205,12 @@ export interface BiomeSystemRepository {
   readonly findNearestBiome: (
     coordinate: SpatialCoordinate,
     biomeType?: BiomeId
-  ) => Effect.Effect<Option.Option<SpatialQueryResult>, AllRepositoryErrors>
+  ) => Effect.Effect<Option.Option<SpatialQueryResult>, BiomeRepositoryError>
 
   /**
    * 空間クエリ実行
    */
-  readonly executeQuery: (query: SpatialQuery) => Effect.Effect<ReadonlyArray<SpatialQueryResult>, AllRepositoryErrors>
+  readonly executeQuery: (query: SpatialQuery) => Effect.Effect<ReadonlyArray<SpatialQueryResult>, BiomeRepositoryError>
 
   // === Climate Data Management ===
 
@@ -218,19 +220,19 @@ export interface BiomeSystemRepository {
   readonly setClimateData: (
     coordinate: SpatialCoordinate,
     climate: ClimateData
-  ) => Effect.Effect<void, AllRepositoryErrors>
+  ) => Effect.Effect<void, BiomeRepositoryError>
 
   /**
    * 気候データ取得
    */
   readonly getClimateData: (
     coordinate: SpatialCoordinate
-  ) => Effect.Effect<Option.Option<ClimateData>, AllRepositoryErrors>
+  ) => Effect.Effect<Option.Option<ClimateData>, BiomeRepositoryError>
 
   /**
    * 気候データ補間取得
    */
-  readonly interpolateClimateData: (coordinate: SpatialCoordinate) => Effect.Effect<ClimateData, AllRepositoryErrors>
+  readonly interpolateClimateData: (coordinate: SpatialCoordinate) => Effect.Effect<ClimateData, BiomeRepositoryError>
 
   /**
    * 気候グリッド作成
@@ -238,19 +240,19 @@ export interface BiomeSystemRepository {
   readonly createClimateGrid: (
     bounds: SpatialBounds,
     resolution: number
-  ) => Effect.Effect<ClimateGrid, AllRepositoryErrors>
+  ) => Effect.Effect<ClimateGrid, BiomeRepositoryError>
 
   /**
    * 気候遷移設定
    */
-  readonly setClimateTransition: (transition: ClimateTransition) => Effect.Effect<void, AllRepositoryErrors>
+  readonly setClimateTransition: (transition: ClimateTransition) => Effect.Effect<void, BiomeRepositoryError>
 
   // === Spatial Indexing ===
 
   /**
    * 空間インデックス再構築
    */
-  readonly rebuildSpatialIndex: () => Effect.Effect<void, AllRepositoryErrors>
+  readonly rebuildSpatialIndex: () => Effect.Effect<void, BiomeRepositoryError>
 
   /**
    * インデックス統計取得
@@ -263,7 +265,7 @@ export interface BiomeSystemRepository {
       readonly averageEntriesPerNode: number
       readonly spatialCoverage: SpatialBounds
     },
-    AllRepositoryErrors
+    BiomeRepositoryError
   >
 
   /**
@@ -275,7 +277,7 @@ export interface BiomeSystemRepository {
       readonly afterNodes: number
       readonly improvementRatio: number
     },
-    AllRepositoryErrors
+    BiomeRepositoryError
   >
 
   // === Cache Management ===
@@ -287,12 +289,12 @@ export interface BiomeSystemRepository {
     coordinate: SpatialCoordinate,
     biomeId: BiomeId,
     ttl?: number
-  ) => Effect.Effect<void, AllRepositoryErrors>
+  ) => Effect.Effect<void, BiomeRepositoryError>
 
   /**
    * キャッシュクリア
    */
-  readonly clearCache: (bounds?: SpatialBounds) => Effect.Effect<void, AllRepositoryErrors>
+  readonly clearCache: (bounds?: SpatialBounds) => Effect.Effect<void, BiomeRepositoryError>
 
   /**
    * キャッシュ統計取得
@@ -306,13 +308,13 @@ export interface BiomeSystemRepository {
       readonly evictionCount: number
       readonly averageAccessTime: number
     },
-    AllRepositoryErrors
+    BiomeRepositoryError
   >
 
   /**
    * キャッシュウォームアップ
    */
-  readonly warmupCache: (bounds: SpatialBounds) => Effect.Effect<void, AllRepositoryErrors>
+  readonly warmupCache: (bounds: SpatialBounds) => Effect.Effect<void, BiomeRepositoryError>
 
   // === Bulk Operations ===
 
@@ -323,27 +325,27 @@ export interface BiomeSystemRepository {
     {
       readonly successful: number
       readonly failed: number
-      readonly errors: ReadonlyArray<AllRepositoryErrors>
+      readonly errors: ReadonlyArray<BiomeRepositoryError>
     },
-    AllRepositoryErrors
+    BiomeRepositoryError
   >
 
   /**
    * 領域バイオーム更新
    */
-  readonly updateBiomesInBounds: (bounds: SpatialBounds, biomeId: BiomeId) => Effect.Effect<number, AllRepositoryErrors>
+  readonly updateBiomesInBounds: (bounds: SpatialBounds, biomeId: BiomeId) => Effect.Effect<number, BiomeRepositoryError>
 
   /**
    * 領域バイオーム削除
    */
-  readonly clearBiomesInBounds: (bounds: SpatialBounds) => Effect.Effect<number, AllRepositoryErrors>
+  readonly clearBiomesInBounds: (bounds: SpatialBounds) => Effect.Effect<number, BiomeRepositoryError>
 
   // === Statistics & Analysis ===
 
   /**
    * バイオーム統計取得
    */
-  readonly getStatistics: (bounds?: SpatialBounds) => Effect.Effect<BiomeStatistics, AllRepositoryErrors>
+  readonly getStatistics: (bounds?: SpatialBounds) => Effect.Effect<BiomeStatistics, BiomeRepositoryError>
 
   /**
    * バイオーム分布分析
@@ -356,7 +358,7 @@ export interface BiomeSystemRepository {
       readonly diversity: number
       readonly fragmentation: number
     },
-    AllRepositoryErrors
+    BiomeRepositoryError
   >
 
   /**
@@ -369,7 +371,7 @@ export interface BiomeSystemRepository {
       readonly transitionCount: number
       readonly averageGradient: number
     }>,
-    AllRepositoryErrors
+    BiomeRepositoryError
   >
 
   // === Data Export/Import ===
@@ -380,7 +382,7 @@ export interface BiomeSystemRepository {
   readonly exportBiomeData: (
     bounds: SpatialBounds,
     format: 'json' | 'binary' | 'image'
-  ) => Effect.Effect<Uint8Array, AllRepositoryErrors>
+  ) => Effect.Effect<Uint8Array, BiomeRepositoryError>
 
   /**
    * バイオームデータインポート
@@ -389,7 +391,7 @@ export interface BiomeSystemRepository {
     data: Uint8Array,
     format: 'json' | 'binary' | 'image',
     bounds: SpatialBounds
-  ) => Effect.Effect<void, AllRepositoryErrors>
+  ) => Effect.Effect<void, BiomeRepositoryError>
 
   /**
    * バイオームマップ生成
@@ -404,7 +406,7 @@ export interface BiomeSystemRepository {
       readonly height: number
       readonly legend: Record<BiomeId, string> // color mapping
     },
-    AllRepositoryErrors
+    BiomeRepositoryError
   >
 
   // === Repository Management ===
@@ -412,12 +414,12 @@ export interface BiomeSystemRepository {
   /**
    * リポジトリ初期化
    */
-  readonly initialize: () => Effect.Effect<void, AllRepositoryErrors>
+  readonly initialize: () => Effect.Effect<void, BiomeRepositoryError>
 
   /**
    * リポジトリクリーンアップ
    */
-  readonly cleanup: () => Effect.Effect<void, AllRepositoryErrors>
+  readonly cleanup: () => Effect.Effect<void, BiomeRepositoryError>
 
   /**
    * データ整合性検証
@@ -432,7 +434,7 @@ export interface BiomeSystemRepository {
         readonly issue: string
       }>
     },
-    AllRepositoryErrors
+    BiomeRepositoryError
   >
 }
 

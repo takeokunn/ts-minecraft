@@ -3,7 +3,7 @@
  */
 
 import type { GenerationError } from '@domain/world/types/errors'
-import type { WorldCoordinate3D } from '@domain/world/value_object/coordinates'
+import type { WorldCoordinate3D } from '@domain/biome/value_object/coordinates'
 import { Context, Effect, Layer } from 'effect'
 
 export interface CoordinateTransformService {

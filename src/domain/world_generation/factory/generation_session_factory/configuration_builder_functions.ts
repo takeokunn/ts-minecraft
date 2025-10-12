@@ -1,4 +1,4 @@
-import * as GenerationSession from '@domain/world/aggregate/generation_session'
+import * as GenerationSession from '@domain/world_generation/aggregate/generation_session'
 import { Function, Match } from 'effect'
 import * as Effect from 'effect/Effect'
 import type {

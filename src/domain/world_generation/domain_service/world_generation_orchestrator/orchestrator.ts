@@ -1,8 +1,8 @@
 import * as BiomeProperties from '@/domain/biome/value_object/biome_properties/index'
 import { BiomeIdSchema } from '@domain/world/types'
-import * as Coordinates from '@domain/world/value_object/coordinates/index'
+import * as Coordinates from '@domain/biome/value_object/coordinates'
 import * as GenerationParameters from '@domain/world/value_object/generation_parameters/index'
-import * as WorldSeed from '@domain/world/value_object/world_seed/index'
+import * as WorldSeed from '@domain/shared/value_object/world_seed/index'
 import { JsonRecordSchema, JsonValueSchema } from '@shared/schema/json'
 import { Context, Effect, pipe, Schema } from 'effect'
 

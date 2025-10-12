@@ -5,7 +5,7 @@
  * 既存のInventoryQueryベースで実装
  */
 
-import type { InventoryQuery, QueryResult } from '@/domain/inventory/types'
+import type { InventoryQuery, QueryResult } from '@application/inventory/types'
 import { Clock, Effect } from 'effect'
 import type { InventoryApplicationError } from '../types'
 

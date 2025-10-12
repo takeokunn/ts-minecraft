@@ -1,5 +1,5 @@
-import * as Coordinates from '@/domain/biome/value_object/coordinates/index'
-import * as WorldSeed from '@domain/world/value_object/world_seed/index'
+import * as Coordinates from '@/domain/biome/value_object/coordinates'
+import * as WorldSeed from '@domain/shared/value_object/world_seed/index'
 import { JsonRecordSchema } from '@shared/schema/json'
 import { Brand, Schema } from 'effect'
 

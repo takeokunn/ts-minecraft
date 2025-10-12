@@ -8,7 +8,7 @@
 import type { ItemStack } from '@/domain/inventory/aggregate/item_stack'
 import type { TransferService } from '@/domain/inventory/domain_service/transfer_service'
 import type { ValidationService } from '@/domain/inventory/domain_service/validation_service'
-import type { InventoryId, ItemId, PlayerId } from '@/domain/inventory/types'
+import type { InventoryId, ItemId, PlayerId } from '@/domain/inventory'
 import { DateTime, Effect, Array as EffectArray } from 'effect'
 import type { InventoryService } from '../..'
 import type { InventoryApplicationError } from '../types'

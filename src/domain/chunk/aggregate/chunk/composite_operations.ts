@@ -395,12 +395,7 @@ export const StreamingChunkOptics = {
 
             processedBlocks.push(...processor(blockChunk, startIndex))
 
-            return yield* pipe(
-              (chunkIndex * chunkSize) % (chunkSize * 10) === 0,
-              Match.value,
-              Match.when(true, () => Effect.sleep(Duration.millis(0))),
-              Match.orElse(() => Effect.unit)
-            )
+            return Effect.unit
           })
         )
       )

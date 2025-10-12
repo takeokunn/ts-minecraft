@@ -5,7 +5,7 @@
  * 実験的機能と安定機能の管理
  */
 
-import { taggedUnion } from '@domain/world/utils'
+import { taggedUnion } from '@domain/shared/utils'
 import { JsonValueSchema } from '@shared/schema/json'
 import type { Brand as BrandType } from 'effect'
 import { Schema } from 'effect'

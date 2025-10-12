@@ -142,10 +142,6 @@ export const RelativePositionSchema = Schema.Struct({
 )
 export type RelativePosition = Schema.Schema.Type<typeof RelativePositionSchema>
 
-// Backward compatibility aliases
-export const Position3DSchema = WorldPositionSchema
-export type Position3D = WorldPosition
-
 // Rotation with overflow protection
 export const RotationSchema = Schema.Struct({
   yaw: Schema.Number.pipe(
@@ -295,7 +291,6 @@ export const PlayerStatsSchema = Schema.Struct({
 )
 export type PlayerStats = Schema.Schema.Type<typeof PlayerStatsSchema>
 
-// Backward compatibility
 export const ExperienceSchema = Schema.Number.pipe(Schema.nonNegative(), Schema.brand('Experience'))
 export type Experience = Schema.Schema.Type<typeof ExperienceSchema>
 ```
@@ -307,7 +302,7 @@ export type Experience = Schema.Schema.Type<typeof ExperienceSchema>
 export const PlayerSchema = Schema.Struct({
   id: PlayerIdSchema,
   name: PlayerNameSchema,
-  position: Position3DSchema,
+  position: WorldPositionSchema,
   rotation: RotationSchema,
   velocity: Velocity3DSchema,
   stats: PlayerStatsSchema,
@@ -364,20 +359,20 @@ export const PlayerActionSchema = Schema.Union(
   Schema.Struct({
     _tag: Schema.Literal('UseItem'),
     item: Schema.suspend(() => ItemStackSchema),
-    target: Schema.optional(Position3DSchema),
+    target: Schema.optional(WorldPositionSchema),
   }),
   Schema.Struct({
     _tag: Schema.Literal('PlaceBlock'),
-    position: Position3DSchema,
+    position: WorldPositionSchema,
     face: Schema.Literal('top', 'bottom', 'north', 'south', 'east', 'west'),
   }),
   Schema.Struct({
     _tag: Schema.Literal('BreakBlock'),
-    position: Position3DSchema,
+    position: WorldPositionSchema,
   }),
   Schema.Struct({
     _tag: Schema.Literal('OpenContainer'),
-    position: Position3DSchema,
+    position: WorldPositionSchema,
   }),
   Schema.Struct({
     _tag: Schema.Literal('DropItem'),
@@ -430,7 +425,7 @@ export interface PlayerService {
   readonly addExperience: (playerId: PlayerId, amount: number) => Effect.Effect<Player, never>
 
   // クエリ・検索
-  readonly findNearbyPlayers: (center: Position3D, radius: number) => Effect.Effect<ReadonlyArray<Player>, never>
+  readonly findNearbyPlayers: (center: WorldPosition, radius: number) => Effect.Effect<ReadonlyArray<Player>, never>
   readonly getPlayerCount: () => Effect.Effect<number, never>
   readonly validatePlayerName: (name: string) => Effect.Effect<boolean, ValidationError>
 }
@@ -450,7 +445,7 @@ export interface PlayerMovementService {
 
   readonly checkCollisions: (player: Player, world: World) => Effect.Effect<CollisionResult, never>
 
-  readonly teleport: (player: Player, destination: Position3D) => Effect.Effect<Player, TeleportError>
+  readonly teleport: (player: Player, destination: WorldPosition) => Effect.Effect<Player, TeleportError>
 }
 
 export const PlayerMovementService = Context.GenericTag<PlayerMovementService>('@app/PlayerMovementService')
@@ -516,7 +511,7 @@ export interface PlayerSyncService {
   readonly interpolatePlayerPosition: (
     playerId: PlayerId,
     currentTime: number
-  ) => Effect.Effect<Option.Option<Position3D>, never>
+  ) => Effect.Effect<Option.Option<WorldPosition>, never>
 
   readonly predictPlayerMovement: (player: Player, input: InputState, deltaTime: number) => Effect.Effect<Player, never>
 }
@@ -652,7 +647,7 @@ export type CreatePlayerParamsWithAdvancedValidation = Schema.Schema.Type<
 
 export const UpdatePositionParamsSchema = Schema.Struct({
   playerId: PlayerIdSchema,
-  position: Position3DSchema,
+  position: WorldPositionSchema,
   rotation: RotationSchema,
 })
 export type UpdatePositionParams = Schema.Schema.Type<typeof UpdatePositionParamsSchema>
@@ -671,10 +666,10 @@ export type UpdateStatsParams = Schema.Schema.Type<typeof UpdateStatsParamsSchem
 ```typescript
 // 移動サービスインターフェース
 export interface IPlayerMovementService {
-  readonly move: (params: Schema.Schema.Type<typeof MovePlayerParams>) => Effect.Effect<Position3D, MovementError>
+  readonly move: (params: Schema.Schema.Type<typeof MovePlayerParams>) => Effect.Effect<WorldPosition, MovementError>
   readonly jump: (playerId: PlayerId) => Effect.Effect<Player, JumpError>
   readonly applyPhysics: (playerId: PlayerId, deltaTime: number) => Effect.Effect<Player, never>
-  readonly checkCollision: (playerId: PlayerId, newPosition: Position3D) => Effect.Effect<CollisionResult, never>
+  readonly checkCollision: (playerId: PlayerId, newPosition: WorldPosition) => Effect.Effect<CollisionResult, never>
   readonly teleport: (params: Schema.Schema.Type<typeof TeleportParams>) => Effect.Effect<Player, TeleportError>
 }
 
@@ -705,7 +700,7 @@ export type MovePlayerParams = Schema.Schema.Type<typeof MovePlayerParamsSchema>
 
 export const TeleportParamsSchema = Schema.Struct({
   playerId: PlayerIdSchema,
-  destination: Position3DSchema,
+  destination: WorldPositionSchema,
   preserveRotation: Schema.optional(Schema.Boolean),
 })
 export type TeleportParams = Schema.Schema.Type<typeof TeleportParamsSchema>
@@ -713,7 +708,7 @@ export type TeleportParams = Schema.Schema.Type<typeof TeleportParamsSchema>
 // 衝突結果
 export const CollisionResultSchema = Schema.Struct({
   hasCollision: Schema.Boolean,
-  resolvedPosition: Schema.optional(Position3DSchema),
+  resolvedPosition: Schema.optional(WorldPositionSchema),
   collisionAxis: Schema.optional(Schema.Union(Schema.Literal('x'), Schema.Literal('y'), Schema.Literal('z'))),
   isOnGround: Schema.Boolean,
 })
@@ -804,7 +799,7 @@ export const PlayerActionSchema = Schema.Union(
   }),
   Schema.Struct({
     _tag: Schema.Literal('PlaceBlock'),
-    position: Position3DSchema,
+    position: WorldPositionSchema,
     blockType: Schema.String.pipe(Schema.brand('BlockType')),
     face: Schema.Union(
       Schema.Literal('top'),
@@ -817,13 +812,13 @@ export const PlayerActionSchema = Schema.Union(
   }),
   Schema.Struct({
     _tag: Schema.Literal('BreakBlock'),
-    position: Position3DSchema,
+    position: WorldPositionSchema,
     tool: Schema.optional(Schema.String.pipe(Schema.brand('ItemId'))),
   }),
   Schema.Struct({
     _tag: Schema.Literal('UseItem'),
     item: Schema.String.pipe(Schema.brand('ItemId')),
-    target: Schema.optional(Position3DSchema),
+    target: Schema.optional(WorldPositionSchema),
   }),
   Schema.Struct({
     _tag: Schema.Literal('Attack'),
@@ -835,7 +830,7 @@ export const PlayerActionSchema = Schema.Union(
     target: Schema.Union(
       Schema.Struct({
         type: Schema.Literal('block'),
-        position: Position3DSchema,
+        position: WorldPositionSchema,
       }),
       Schema.Struct({
         type: Schema.Literal('entity'),
@@ -1399,7 +1394,7 @@ export const PlayerDetailedSchema = Schema.Struct({
   name: PlayerNameSchema,
 
   // 位置・回転
-  position: Position3DSchema,
+  position: WorldPositionSchema,
   rotation: RotationSchema,
   velocity: Velocity3DSchema,
 
@@ -1444,7 +1439,7 @@ export const PlayerDetailedSchema = Schema.Struct({
     lastLogin: Schema.Number,
     playtime: Schema.Number,
     worldId: Schema.String.pipe(Schema.brand('WorldId')),
-    bedPosition: Schema.optional(Position3DSchema),
+    bedPosition: Schema.optional(WorldPositionSchema),
   }),
 })
 export type PlayerDetailed = Schema.Schema.Type<typeof PlayerDetailedSchema>
@@ -1456,7 +1451,7 @@ export type PlayerDetailed = Schema.Schema.Type<typeof PlayerDetailedSchema>
 // 状態更新の型安全なパターン
 export const PlayerStateUpdates = {
   // 部分更新（不変性保持）
-  updatePosition: (player: Player, newPosition: Position3D): Player => ({
+  updatePosition: (player: Player, newPosition: WorldPosition): Player => ({
     ...player,
     position: newPosition,
   }),
@@ -1488,21 +1483,21 @@ export const PlayerEventSchema = Schema.Union(
   Schema.Struct({
     _tag: Schema.Literal('PlayerCreated'),
     playerId: PlayerIdSchema,
-    position: Position3DSchema,
+    position: WorldPositionSchema,
     timestamp: Schema.Number,
   }),
   Schema.Struct({
     _tag: Schema.Literal('PlayerMoved'),
     playerId: PlayerIdSchema,
-    from: Position3DSchema,
-    to: Position3DSchema,
+    from: WorldPositionSchema,
+    to: WorldPositionSchema,
     distance: Schema.Number,
     timestamp: Schema.Number,
   }),
   Schema.Struct({
     _tag: Schema.Literal('PlayerJumped'),
     playerId: PlayerIdSchema,
-    position: Position3DSchema,
+    position: WorldPositionSchema,
     jumpHeight: Schema.Number,
     timestamp: Schema.Number,
   }),
@@ -1525,7 +1520,7 @@ export const PlayerEventSchema = Schema.Union(
     _tag: Schema.Literal('PlayerDied'),
     playerId: PlayerIdSchema,
     cause: Schema.String,
-    position: Position3DSchema,
+    position: WorldPositionSchema,
     timestamp: Schema.Number,
   }),
   Schema.Struct({
@@ -1588,7 +1583,7 @@ export interface IPlayerSyncService {
   readonly interpolatePlayerPosition: (
     playerId: PlayerId,
     timestamp: number
-  ) => Effect.Effect<Option.Option<Position3D>, never>
+  ) => Effect.Effect<Option.Option<WorldPosition>, never>
   readonly predictPlayerMovement: (
     playerId: PlayerId,
     input: InputState,
@@ -1601,7 +1596,7 @@ export const PlayerSyncService = Context.GenericTag<IPlayerSyncService>('@app/Pl
 // 同期データ定義
 export const PlayerSyncDataSchema = Schema.Struct({
   playerId: PlayerIdSchema,
-  position: Position3DSchema,
+  position: WorldPositionSchema,
   rotation: RotationSchema,
   velocity: Velocity3DSchema,
   animationState: Schema.String,
@@ -1950,8 +1945,8 @@ export namespace PlayerSystemErrors {
 
   export const InvalidMovementError = Schema.TaggedError('PlayerSystem.InvalidMovementError')<{
     readonly playerId: string
-    readonly currentPosition: Position3D
-    readonly targetPosition: Position3D
+    readonly currentPosition: WorldPosition
+    readonly targetPosition: WorldPosition
     readonly reason: string
     readonly maxAllowedDistance: number
     readonly actualDistance: number
@@ -1969,7 +1964,7 @@ export namespace PlayerSystemErrors {
   export const PlayerDeathError = Schema.TaggedError('PlayerSystem.PlayerDeathError')<{
     readonly playerId: string
     readonly cause: string
-    readonly position: Position3D
+    readonly position: WorldPosition
     readonly timestamp: number
   }>
 }
@@ -2021,7 +2016,7 @@ export const PlayerSystemLayer = Layer.mergeAll(
 ).pipe(
   Layer.provide(
     Layer.mergeAll(
-      PlayerRepositoryLive,
+      PlayerRepositoryInMemoryLayer,
       EventBusServiceLive,
       PhysicsServiceLive,
       CollisionServiceLive,

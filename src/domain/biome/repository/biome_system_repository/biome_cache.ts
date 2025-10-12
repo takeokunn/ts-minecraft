@@ -7,9 +7,10 @@
  */
 
 import { makeUnsafeWorldCoordinate2D } from '@/domain/biome/value_object/coordinates'
-import type { AllRepositoryErrors, BiomeId } from '@domain/world/types'
-import { createBiomeId, createCacheError } from '@domain/world/types'
+import { createBiomeId, BiomeId } from '@/domain/biome/value_object/biome_id'
+import { createCacheError, type BiomeRepositoryError } from '@/domain/biome/repository/errors'
 import { Clock, Effect, Option, pipe, ReadonlyArray, Ref } from 'effect'
+import type { JsonRecord } from '@shared/schema/json'
 import type {
   calculateDistance,
   coordinateInBounds,
@@ -105,62 +106,62 @@ export interface BiomeCacheStatistics {
 
 export interface BiomeCache {
   // === Spatial Caching ===
-  readonly getBiomeAt: (coordinate: SpatialCoordinate) => Effect.Effect<Option.Option<BiomeId>, AllRepositoryErrors>
+  readonly getBiomeAt: (coordinate: SpatialCoordinate) => Effect.Effect<Option.Option<BiomeId>, BiomeRepositoryError>
   readonly setBiomeAt: (
     coordinate: SpatialCoordinate,
     biomeId: BiomeId,
     confidence?: number
-  ) => Effect.Effect<void, AllRepositoryErrors>
+  ) => Effect.Effect<void, BiomeRepositoryError>
   readonly getBiomesInBounds: (
     bounds: SpatialBounds
-  ) => Effect.Effect<Option.Option<ReadonlyArray<SpatialQueryResult>>, AllRepositoryErrors>
+  ) => Effect.Effect<Option.Option<ReadonlyArray<SpatialQueryResult>>, BiomeRepositoryError>
   readonly setBiomesInBounds: (
     bounds: SpatialBounds,
     results: ReadonlyArray<SpatialQueryResult>
-  ) => Effect.Effect<void, AllRepositoryErrors>
+  ) => Effect.Effect<void, BiomeRepositoryError>
 
   // === Query Caching ===
   readonly getCachedQuery: (
     queryHash: string
-  ) => Effect.Effect<Option.Option<ReadonlyArray<SpatialQueryResult>>, AllRepositoryErrors>
+  ) => Effect.Effect<Option.Option<ReadonlyArray<SpatialQueryResult>>, BiomeRepositoryError>
   readonly setCachedQuery: (
     queryHash: string,
     results: ReadonlyArray<SpatialQueryResult>,
     bounds: SpatialBounds
-  ) => Effect.Effect<void, AllRepositoryErrors>
+  ) => Effect.Effect<void, BiomeRepositoryError>
 
   // === Spatial Clustering ===
   readonly getCluster: (
     coordinate: SpatialCoordinate
-  ) => Effect.Effect<Option.Option<SpatialCluster>, AllRepositoryErrors>
+  ) => Effect.Effect<Option.Option<SpatialCluster>, BiomeRepositoryError>
   readonly updateCluster: (
     coordinate: SpatialCoordinate,
     biomeDistribution: Map<BiomeId, number>
-  ) => Effect.Effect<void, AllRepositoryErrors>
+  ) => Effect.Effect<void, BiomeRepositoryError>
   readonly getNearbyCluster: (
     coordinate: SpatialCoordinate,
     radius: number
-  ) => Effect.Effect<ReadonlyArray<SpatialCluster>, AllRepositoryErrors>
+  ) => Effect.Effect<ReadonlyArray<SpatialCluster>, BiomeRepositoryError>
 
   // === Cache Management ===
-  readonly clear: (bounds?: SpatialBounds) => Effect.Effect<void, AllRepositoryErrors>
-  readonly evictExpired: () => Effect.Effect<number, AllRepositoryErrors>
-  readonly optimize: () => Effect.Effect<void, AllRepositoryErrors>
-  readonly getStatistics: () => Effect.Effect<BiomeCacheStatistics, AllRepositoryErrors>
+  readonly clear: (bounds?: SpatialBounds) => Effect.Effect<void, BiomeRepositoryError>
+  readonly evictExpired: () => Effect.Effect<number, BiomeRepositoryError>
+  readonly optimize: () => Effect.Effect<void, BiomeRepositoryError>
+  readonly getStatistics: () => Effect.Effect<BiomeCacheStatistics, BiomeRepositoryError>
 
   // === Preloading & Warmup ===
-  readonly warmupRegion: (bounds: SpatialBounds) => Effect.Effect<void, AllRepositoryErrors>
+  readonly warmupRegion: (bounds: SpatialBounds) => Effect.Effect<void, BiomeRepositoryError>
   readonly preloadCluster: (
     centerCoordinate: SpatialCoordinate,
     radius: number
-  ) => Effect.Effect<void, AllRepositoryErrors>
+  ) => Effect.Effect<void, BiomeRepositoryError>
 }
 
 // === Cache Implementation ===
 
 export const createBiomeCache = (
   config: BiomeCacheConfig = defaultBiomeCacheConfig
-): Effect.Effect<BiomeCache, AllRepositoryErrors> =>
+): Effect.Effect<BiomeCache, BiomeRepositoryError> =>
   Effect.gen(function* () {
     // Cache state references
     const spatialCache = yield* Ref.make(new Map<string, BiomeCacheEntry>())

@@ -9,6 +9,7 @@ export * from './biome_mapper'
 export * from './climate_calculator'
 export * from './ecosystem_analyzer'
 export * from './layer'
+export * from './errors'
 
 import { Match, Option, ReadonlyArray, pipe } from 'effect'
 import type { BiomeMappingResult, BiomeTransitionAnalysis } from './biome_mapper'

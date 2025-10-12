@@ -1,4 +1,4 @@
-import { Clock, Context, Effect, Either, Layer, pipe, Schema } from 'effect'
+import { Context, Effect, Either, Schema, pipe } from 'effect'
 import { PlayerErrorBuilders, PlayerTimestamp, TimestampSchema } from './index'
 
 export interface PlayerClockService {
@@ -8,16 +8,9 @@ export interface PlayerClockService {
 
 export const PlayerClock = Context.Tag<PlayerClockService>('@domain/player/clock')
 
-const decodeTimestamp = (value: number) =>
+export const decodeTimestamp = (value: number) =>
   pipe(
     Schema.decodeUnknownEither(TimestampSchema)(value),
     Either.mapLeft((issue) => PlayerErrorBuilders.clock(issue)),
     Effect.fromEither
   )
-
-const makeClock = Effect.succeed<PlayerClockService>({
-  current: pipe(Clock.currentTimeMillis, Effect.flatMap(decodeTimestamp)),
-  fromUnix: (millis: number) => decodeTimestamp(millis),
-})
-
-export const PlayerClockLive = Layer.effect(PlayerClock, makeClock)

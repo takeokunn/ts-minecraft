@@ -223,9 +223,6 @@ export const ItemStackSchema = Schema.Struct({
 )
 export type ItemStack = Schema.Schema.Type<typeof ItemStackSchema>
 
-// Backward compatibility
-export const ItemQuantitySchema = Schema.Number.pipe(Schema.int(), Schema.between(1, 64), Schema.brand('ItemQuantity'))
-export type ItemQuantity = Schema.Schema.Type<typeof ItemQuantitySchema>
 ```
 
 ### Inventory - インベントリ構造

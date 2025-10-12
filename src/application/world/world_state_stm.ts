@@ -20,7 +20,7 @@ import { WorldIdSchema } from '@/domain/shared/entities/world_id/schema'
 import type { WorldMetadata } from '@/domain/world/repository/world_metadata_repository/interface'
 import { WorldClock } from '@/domain/world/time'
 import { createWorldSeed } from '@/domain/world/types/core/world_types'
-import { WorldCoordinate2DSchema } from '@/domain/world/value_object/coordinates'
+import { WorldCoordinate2DSchema } from '@/domain/biome/value_object/coordinates'
 import { createWorldGeneratorId } from '@/domain/world_generation/aggregate/world_generator'
 import { Context, DateTime, Effect, Layer, ReadonlyArray, STM, Schema, pipe } from 'effect'
 

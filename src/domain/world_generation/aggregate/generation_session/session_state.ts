@@ -10,7 +10,7 @@
 import { ChunkDataSchema } from '@domain/chunk'
 import type * as WorldTypes from '@domain/world/types/core'
 import type * as GenerationErrors from '@domain/world/types/errors'
-import * as Coordinates from '@domain/world/value_object/coordinates/index'
+import * as Coordinates from '@domain/biome/value_object/coordinates'
 import { DateTime, Effect, Match, Option, Schema, pipe } from 'effect'
 
 // ================================

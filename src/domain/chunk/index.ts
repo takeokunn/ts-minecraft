@@ -31,8 +31,6 @@ export {
   type WorldCoordinate,
 } from './aggregate'
 
-export * from './cqrs'
-
 // 値オブジェクト（Value Objects） - 各ドメインコンセプト
 export {
   BiomeType,

@@ -4,26 +4,23 @@
  * アイテムレジストリドメインサービスのバレルエクスポート。
  */
 
-// Service Interface and Implementation
-export { ItemRegistryError, ItemRegistryService } from './service'
-export type {
-  EdibleProperties,
-  FuelProperties,
-  ItemCategory,
-  ItemConstraints,
-  ItemDefinition,
-  ItemDefinitionMetadata,
-  ItemProperties,
-  ItemRarity,
-  StackingRules,
-  StorageRequirements,
-  UsageRestriction,
+export {
+  ItemRegistryService,
+  ItemRegistryErrorSchema,
+  type ItemRegistryError,
+  type EdibleProperties,
+  type FuelProperties,
+  type ItemCategory,
+  type ItemConstraints,
+  type ItemDefinition,
+  type ItemDefinitionMetadata,
+  type ItemProperties,
+  type ItemRarity,
+  type StackingRules,
+  type StorageRequirements,
+  type UsageRestriction,
 } from './service'
 
-// Live Implementation
-export { ItemRegistryServiceLive } from './live'
-
-// Definitions
 export {
   createDynamicItemDefinition,
   getAllDefaultItemDefinitions,
@@ -36,5 +33,6 @@ export {
   isFuel,
   itemExists,
   searchDefaultItems,
-} from './live'
-export * from './service'
+} from './definitions'
+
+export { makeItemRegistryService } from './live'

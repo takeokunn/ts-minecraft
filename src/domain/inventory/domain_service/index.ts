@@ -18,7 +18,7 @@ export {
   TargetSlotAvailableSpecification,
   TransferError,
   TransferService,
-  TransferServiceLive,
+  makeTransferService,
   ValidItemCountSpecification,
   ValidSlotSpecification,
   analyzeTransferability,
@@ -41,7 +41,7 @@ export {
   StackOptimizationError,
   StackingError,
   StackingService,
-  StackingServiceLive,
+  makeStackingService,
   checkCompleteStackCompatibility,
   checkDurabilityCompatibility,
   checkItemIdCompatibility,
@@ -69,7 +69,7 @@ export {
   CorrectionError,
   ValidationError,
   ValidationService,
-  ValidationServiceLive,
+  makeValidationService,
   runAllValidators,
   validateArmorSlots,
   validateDurability,
@@ -97,7 +97,7 @@ export type {
 export {
   ItemRegistryError,
   ItemRegistryService,
-  ItemRegistryServiceLive,
+  makeItemRegistryService,
   createDynamicItemDefinition,
   getAllDefaultItemDefinitions,
   getDefaultItemDefinition,
@@ -131,7 +131,7 @@ export type {
 export {
   CraftingIntegrationError,
   CraftingIntegrationService,
-  CraftingIntegrationServiceLive,
+  makeCraftingIntegrationService,
 } from './crafting_integration'
 export type {
   CraftabilityResult,

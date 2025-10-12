@@ -1,8 +1,13 @@
 import { Context, Data, Effect, Layer, Match, Option } from 'effect'
 
-import type { ChunkCommand, ChunkData, ChunkId, ChunkPosition } from '../types'
-import { ChunkRepository, type ChunkRepository as ChunkRepositoryService } from '../repository/chunk_repository'
-import type { RepositoryError } from '../repository/types'
+import type {
+  ChunkCommand,
+  ChunkData,
+  ChunkId,
+  ChunkPosition,
+} from '@domain/chunk/types'
+import { ChunkRepository, type ChunkRepository as ChunkRepositoryService } from '@domain/chunk/repository'
+import type { RepositoryError } from '@domain/chunk/repository/types'
 import { ChunkReadModel } from './read_model'
 
 export const ChunkCommandError = Data.taggedEnum<{

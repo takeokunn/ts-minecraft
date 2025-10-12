@@ -5,7 +5,7 @@
  * インベントリとクラフティングシステムの統合を効率的に処理します。
  */
 
-import { Effect, Layer, Option, pipe, ReadonlyArray } from 'effect'
+import { Effect, Match, Option, pipe, ReadonlyArray } from 'effect'
 import type { Inventory, ItemId, ItemStack } from '../../types'
 import { makeUnsafeItemId } from '../../value_object/item_id/types'
 import {
@@ -21,8 +21,7 @@ import {
 /**
  * クラフティング統合サービスのLive実装
  */
-export const CraftingIntegrationServiceLive = Layer.succeed(
-  CraftingIntegrationService,
+export const makeCraftingIntegrationService = Effect.succeed(
   CraftingIntegrationService.of({
     /**
      * レシピのクラフト可能性チェック

@@ -8,8 +8,8 @@
 
 import type { BoundingBox, WorldCoordinate2D } from '@/domain/biome/value_object/coordinates'
 import { makeUnsafeWorldCoordinate2D, WorldCoordinate2DSchema } from '@/domain/biome/value_object/coordinates'
-import { type GenerationError } from '@domain/world/types/errors'
-import type { WorldSeed } from '@domain/world/value_object/world_seed'
+import { type BiomeGenerationError } from './errors'
+import type { WorldSeed } from '@domain/shared/value_object/world_seed'
 import { Context, Effect, Layer, Match, Option, pipe, Random, ReadonlyArray, Schema } from 'effect'
 import { ClimateClassificationSchema, ClimateDataSchema } from './climate_calculator'
 import type { ClimateData } from './index'
@@ -208,7 +208,7 @@ export interface BiomeMapperService {
     climateData: ClimateData,
     coordinate: WorldCoordinate2D,
     seed: WorldSeed
-  ) => Effect.Effect<BiomeMappingResult, GenerationError>
+  ) => Effect.Effect<BiomeMappingResult, BiomeGenerationError>
 
   /**
    * 複数座標での地域バイオーム分布計算
@@ -217,7 +217,7 @@ export interface BiomeMapperService {
     bounds: BoundingBox,
     resolution: number,
     seed: WorldSeed
-  ) => Effect.Effect<ReadonlyArray<ReadonlyArray<BiomeMappingResult>>, GenerationError>
+  ) => Effect.Effect<ReadonlyArray<ReadonlyArray<BiomeMappingResult>>, BiomeGenerationError>
 
   /**
    * バイオーム遷移の詳細解析
@@ -226,7 +226,7 @@ export interface BiomeMapperService {
     centerCoordinate: WorldCoordinate2D,
     searchRadius: number,
     seed: WorldSeed
-  ) => Effect.Effect<ReadonlyArray<BiomeTransitionAnalysis>, GenerationError>
+  ) => Effect.Effect<ReadonlyArray<BiomeTransitionAnalysis>, BiomeGenerationError>
 
   /**
    * 希少バイオームの生成判定
@@ -242,7 +242,7 @@ export interface BiomeMapperService {
       rarity: number
       conditions: ReadonlyArray<string>
     },
-    GenerationError
+    BiomeGenerationError
   >
 
   /**
@@ -258,7 +258,7 @@ export interface BiomeMapperService {
       biome: MinecraftBiomeType
       transitionType: string
     }>,
-    GenerationError
+    BiomeGenerationError
   >
 
   /**
@@ -269,7 +269,7 @@ export interface BiomeMapperService {
     depth: number,
     temperature: number,
     seed: WorldSeed
-  ) => Effect.Effect<BiomeMappingResult, GenerationError>
+  ) => Effect.Effect<BiomeMappingResult, BiomeGenerationError>
 
   /**
    * 洞窟バイオームの生成
@@ -279,7 +279,7 @@ export interface BiomeMapperService {
     depth: number,
     surfaceBiome: MinecraftBiomeType,
     seed: WorldSeed
-  ) => Effect.Effect<BiomeMappingResult, GenerationError>
+  ) => Effect.Effect<BiomeMappingResult, BiomeGenerationError>
 
   /**
    * バイオーム境界の最適化
@@ -287,7 +287,7 @@ export interface BiomeMapperService {
   readonly optimizeBiomeBoundaries: (
     biomeMap: ReadonlyArray<ReadonlyArray<BiomeMappingResult>>,
     smoothingFactor: number
-  ) => Effect.Effect<ReadonlyArray<ReadonlyArray<BiomeMappingResult>>, GenerationError>
+  ) => Effect.Effect<ReadonlyArray<ReadonlyArray<BiomeMappingResult>>, BiomeGenerationError>
 
   /**
    * カスタムバイオーム定義の適用
@@ -295,7 +295,7 @@ export interface BiomeMapperService {
   readonly applyCustomBiomes: (
     baseMappingResult: BiomeMappingResult,
     customBiomeRules: ReadonlyArray<CustomBiomeRule>
-  ) => Effect.Effect<BiomeMappingResult, GenerationError>
+  ) => Effect.Effect<BiomeMappingResult, BiomeGenerationError>
 }
 
 /**
@@ -653,7 +653,7 @@ const calculateBiomeParameters = (
   climateData: ClimateData,
   coordinate: WorldCoordinate2D,
   seed: WorldSeed
-): Effect.Effect<BiomeParameters, GenerationError> =>
+): Effect.Effect<BiomeParameters, BiomeGenerationError> =>
   Effect.gen(function* () {
     const erosionValue = yield* Random.nextIntBetween(0, 100)
     return {
@@ -672,7 +672,7 @@ const calculateBiomeParameters = (
 const determinePrimaryBiome = (
   params: BiomeParameters,
   climateData: ClimateData
-): Effect.Effect<MinecraftBiomeType, GenerationError> => {
+): Effect.Effect<MinecraftBiomeType, BiomeGenerationError> => {
   const temp = params.temperature
   const humidity = params.humidity
 
@@ -720,7 +720,7 @@ const determineVariants = (
   primaryBiome: MinecraftBiomeType,
   _params: BiomeParameters,
   _seed: WorldSeed
-): Effect.Effect<{ variant?: string; subBiomes?: MinecraftBiomeType[] }, GenerationError> => {
+): Effect.Effect<{ variant?: string; subBiomes?: MinecraftBiomeType[] }, BiomeGenerationError> => {
   const variants: { variant?: string; subBiomes?: MinecraftBiomeType[] } = {}
 
   return pipe(
@@ -786,7 +786,7 @@ const detectTransitionBiomes = (
     distance: number
     transitionType: 'gradual' | 'sharp' | 'ecotone' | 'edge'
   }>,
-  GenerationError
+  BiomeGenerationError
 > => Effect.succeed([])
 
 /**
@@ -795,7 +795,7 @@ const detectTransitionBiomes = (
 const calculateMappingConfidence = (
   _params: BiomeParameters,
   climateData: ClimateData
-): Effect.Effect<number, GenerationError> => Effect.succeed(climateData.dataQuality * 0.9)
+): Effect.Effect<number, BiomeGenerationError> => Effect.succeed(climateData.dataQuality * 0.9)
 
 /**
  * 代替バイオームの計算
@@ -803,7 +803,7 @@ const calculateMappingConfidence = (
 const calculateAlternativeBiomes = (
   _params: BiomeParameters,
   primaryBiome: MinecraftBiomeType
-): Effect.Effect<ReadonlyArray<{ biome: MinecraftBiomeType; probability: number }>, GenerationError> =>
+): Effect.Effect<ReadonlyArray<{ biome: MinecraftBiomeType; probability: number }>, BiomeGenerationError> =>
   Effect.succeed([])
 
 /**
@@ -813,7 +813,7 @@ const identifySpecialFeatures = (
   primaryBiome: MinecraftBiomeType,
   _params: BiomeParameters,
   coordinate: WorldCoordinate2D
-): Effect.Effect<ReadonlyArray<string>, GenerationError> => Effect.succeed([])
+): Effect.Effect<ReadonlyArray<string>, BiomeGenerationError> => Effect.succeed([])
 
 /**
  * 簡単な気候データ作成
@@ -856,7 +856,7 @@ const getBiomeForElevation = (
   elevation: number,
   coordinate: WorldCoordinate2D,
   seed: WorldSeed
-): Effect.Effect<MinecraftBiomeType, GenerationError> =>
+): Effect.Effect<MinecraftBiomeType, BiomeGenerationError> =>
   Effect.succeed(
     pipe(
       elevation,

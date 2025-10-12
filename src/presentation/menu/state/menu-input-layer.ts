@@ -1,4 +1,4 @@
-import { InputService, KeyCode } from '@domain/input'
+import { InputService, KeyCode } from '@application/input/service'
 import { Effect, Layer, Match } from 'effect'
 
 import { MenuActionsService } from './menu-actions'

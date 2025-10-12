@@ -5,10 +5,12 @@
  * Minecraftの標準アイテムを中心とした定義を提供します。
  */
 
-import { Effect, Array as EffectArray, pipe } from 'effect'
+import { Effect, Array as EffectArray, Match, pipe } from 'effect'
 import type { ItemId } from '../../types'
 import { makeUnsafeItemId } from '../../value_object/item_id/types'
 import type { ItemCategory, ItemDefinition } from './index'
+
+const DEFAULT_LAST_UPDATED = 0
 
 // =============================================================================
 // Default Item Definitions
@@ -44,7 +46,7 @@ const DEFAULT_ITEM_DEFINITIONS = new Map<ItemId, ItemDefinition>([
       },
       metadata: {
         version: '1.0.0',
-        lastUpdated: yield * Clock.currentTimeMillis,
+        lastUpdated: DEFAULT_LAST_UPDATED,
         tags: ['tool', 'pickaxe', 'diamond'],
         description: 'A durable pickaxe made of diamond',
         craftingRecipes: ['diamond_pickaxe_recipe'],
@@ -78,7 +80,7 @@ const DEFAULT_ITEM_DEFINITIONS = new Map<ItemId, ItemDefinition>([
       },
       metadata: {
         version: '1.0.0',
-        lastUpdated: yield * Clock.currentTimeMillis,
+        lastUpdated: DEFAULT_LAST_UPDATED,
         tags: ['weapon', 'sword', 'diamond'],
         description: 'A sharp sword made of diamond',
         craftingRecipes: ['diamond_sword_recipe'],
@@ -112,7 +114,7 @@ const DEFAULT_ITEM_DEFINITIONS = new Map<ItemId, ItemDefinition>([
       },
       metadata: {
         version: '1.0.0',
-        lastUpdated: yield * Clock.currentTimeMillis,
+        lastUpdated: DEFAULT_LAST_UPDATED,
         tags: ['food', 'bread'],
         description: 'Nutritious bread that restores hunger',
         craftingRecipes: ['bread_recipe'],
@@ -142,7 +144,7 @@ const DEFAULT_ITEM_DEFINITIONS = new Map<ItemId, ItemDefinition>([
       },
       metadata: {
         version: '1.0.0',
-        lastUpdated: yield * Clock.currentTimeMillis,
+        lastUpdated: DEFAULT_LAST_UPDATED,
         tags: ['block', 'building', 'stone'],
         description: 'Common building block',
         craftingRecipes: [],
@@ -176,7 +178,7 @@ const DEFAULT_ITEM_DEFINITIONS = new Map<ItemId, ItemDefinition>([
       },
       metadata: {
         version: '1.0.0',
-        lastUpdated: yield * Clock.currentTimeMillis,
+        lastUpdated: DEFAULT_LAST_UPDATED,
         tags: ['fuel', 'mining'],
         description: 'Common fuel source',
         craftingRecipes: [],
@@ -193,17 +195,13 @@ const DEFAULT_ITEM_DEFINITIONS = new Map<ItemId, ItemDefinition>([
  * デフォルトアイテム定義を取得
  */
 export const getDefaultItemDefinition = (itemId: ItemId): Effect.Effect<ItemDefinition | undefined, never> =>
-  Effect.gen(function* () {
-    return DEFAULT_ITEM_DEFINITIONS.get(itemId)
-  })
+  Effect.sync(() => DEFAULT_ITEM_DEFINITIONS.get(itemId))
 
 /**
  * 全デフォルトアイテム定義を取得
  */
 export const getAllDefaultItemDefinitions = (): Effect.Effect<ReadonlyArray<ItemDefinition>, never> =>
-  Effect.gen(function* () {
-    return Array.from(DEFAULT_ITEM_DEFINITIONS.values())
-  })
+  Effect.sync(() => Array.from(DEFAULT_ITEM_DEFINITIONS.values()))
 
 /**
  * カテゴリ別アイテム定義を取得
@@ -211,63 +209,43 @@ export const getAllDefaultItemDefinitions = (): Effect.Effect<ReadonlyArray<Item
 export const getDefaultItemsByCategory = (
   category: ItemCategory
 ): Effect.Effect<ReadonlyArray<ItemDefinition>, never> =>
-  Effect.gen(function* () {
-    const allItems = Array.from(DEFAULT_ITEM_DEFINITIONS.values())
-    return allItems.filter((item) => item.category === category)
-  })
+  Effect.sync(() => Array.from(DEFAULT_ITEM_DEFINITIONS.values()).filter((item) => item.category === category))
 
 /**
  * アイテムが存在するかチェック
  */
 export const itemExists = (itemId: ItemId): Effect.Effect<boolean, never> =>
-  Effect.gen(function* () {
-    return DEFAULT_ITEM_DEFINITIONS.has(itemId)
-  })
+  Effect.sync(() => DEFAULT_ITEM_DEFINITIONS.has(itemId))
 
 /**
  * スタック制限を取得
  */
 export const getItemStackLimit = (itemId: ItemId): Effect.Effect<number, never> =>
-  Effect.gen(function* () {
-    const definition = DEFAULT_ITEM_DEFINITIONS.get(itemId)
-    return definition?.properties.maxStackSize ?? 64
-  })
+  Effect.sync(() => DEFAULT_ITEM_DEFINITIONS.get(itemId)?.properties.maxStackSize ?? 64)
 
 /**
  * アイテムが食べ物かチェック
  */
 export const isEdible = (itemId: ItemId): Effect.Effect<boolean, never> =>
-  Effect.gen(function* () {
-    const definition = DEFAULT_ITEM_DEFINITIONS.get(itemId)
-    return definition?.properties.edible !== undefined
-  })
+  Effect.sync(() => DEFAULT_ITEM_DEFINITIONS.get(itemId)?.properties.edible !== undefined)
 
 /**
  * アイテムが燃料かチェック
  */
 export const isFuel = (itemId: ItemId): Effect.Effect<boolean, never> =>
-  Effect.gen(function* () {
-    const definition = DEFAULT_ITEM_DEFINITIONS.get(itemId)
-    return definition?.properties.fuel !== undefined
-  })
+  Effect.sync(() => DEFAULT_ITEM_DEFINITIONS.get(itemId)?.properties.fuel !== undefined)
 
 /**
  * アイテムがエンチャント可能かチェック
  */
 export const isEnchantable = (itemId: ItemId): Effect.Effect<boolean, never> =>
-  Effect.gen(function* () {
-    const definition = DEFAULT_ITEM_DEFINITIONS.get(itemId)
-    return definition?.properties.enchantable ?? false
-  })
+  Effect.sync(() => DEFAULT_ITEM_DEFINITIONS.get(itemId)?.properties.enchantable ?? false)
 
 /**
  * アイテムのレアリティを取得
  */
 export const getItemRarity = (itemId: ItemId): Effect.Effect<string, never> =>
-  Effect.gen(function* () {
-    const definition = DEFAULT_ITEM_DEFINITIONS.get(itemId)
-    return definition?.properties.rarity ?? 'COMMON'
-  })
+  Effect.sync(() => DEFAULT_ITEM_DEFINITIONS.get(itemId)?.properties.rarity ?? 'COMMON')
 
 // =============================================================================
 // Dynamic Definition Helpers
@@ -280,7 +258,7 @@ export const createDynamicItemDefinition = (
   itemId: ItemId,
   overrides: Partial<ItemDefinition>
 ): Effect.Effect<ItemDefinition, never> =>
-  Effect.gen(function* () {
+  Effect.sync(() => {
     const baseDefinition: ItemDefinition = {
       itemId,
       displayName: itemId,
@@ -300,13 +278,21 @@ export const createDynamicItemDefinition = (
       },
       metadata: {
         version: '1.0.0',
-        lastUpdated: yield* Clock.currentTimeMillis,
+        lastUpdated: DEFAULT_LAST_UPDATED,
         tags: [],
         craftingRecipes: [],
       },
     }
 
-    return { ...baseDefinition, ...overrides }
+    return {
+      ...baseDefinition,
+      ...overrides,
+      metadata: {
+        ...baseDefinition.metadata,
+        ...overrides.metadata,
+        lastUpdated: overrides.metadata?.lastUpdated ?? DEFAULT_LAST_UPDATED,
+      },
+    }
   })
 
 /**

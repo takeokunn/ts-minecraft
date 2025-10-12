@@ -5,7 +5,7 @@
  * Effect-TSパターンに従い、包括的な検証機能を提供します。
  */
 
-import { Effect, HashSet, Layer, Option, pipe, ReadonlyArray } from 'effect'
+import { Effect, HashSet, Match, Option, pipe, ReadonlyArray } from 'effect'
 import type { Inventory } from '../../types'
 import {
   runAllValidators,
@@ -18,8 +18,7 @@ import {
 /**
  * 検証サービスのLive実装
  */
-export const ValidationServiceLive = Layer.succeed(
-  ValidationService,
+export const makeValidationService = Effect.succeed(
   ValidationService.of({
     /**
      * 包括的インベントリ検証

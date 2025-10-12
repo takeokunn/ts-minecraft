@@ -1,11 +1,9 @@
 import { Context, Effect, HashMap, Layer, Option, Stream, SubscriptionRef, pipe } from 'effect'
 import * as ReadonlyArray from 'effect/Array'
 
+import type { ChunkData, ChunkPosition, ChunkRegion } from '@domain/chunk/types'
+import { getChunkHash, type ChunkHash } from '@domain/chunk/value_object'
 import { makeUnsafeChunkId, type ChunkId } from '@domain/shared/entities/chunk_id'
-
-import type { ChunkData, ChunkPosition } from '../types'
-import type { ChunkRegion } from '../repository/chunk_repository/interface'
-import { getChunkHash, type ChunkHash } from '../value_object/chunk_position'
 
 interface ChunkReadModelState {
   readonly byId: HashMap.HashMap<ChunkId, ChunkData>

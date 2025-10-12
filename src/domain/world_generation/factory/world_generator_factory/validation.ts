@@ -18,7 +18,7 @@
  * - Configuration Conflicts: 設定競合
  */
 
-import * as WorldSeed from '@domain/world/value_object/world_seed/index'
+import * as WorldSeed from '@domain/shared/value_object/world_seed/index'
 import { JsonValueSchema } from '@shared/schema/json'
 import { Effect, Function, Match, Schema, Either } from 'effect'
 import type { CreateWorldGeneratorParams, FactoryError } from './factory'

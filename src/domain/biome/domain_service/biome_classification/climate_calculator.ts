@@ -8,8 +8,8 @@
 
 import type { WorldCoordinate2D } from '@/domain/biome/value_object/coordinates'
 import { WorldCoordinate2DSchema } from '@/domain/biome/value_object/coordinates'
-import { type GenerationError } from '@domain/world/types/errors'
-import type { WorldSeed } from '@domain/world/value_object/world_seed'
+import { type BiomeGenerationError } from './errors'
+import type { WorldSeed } from '@domain/shared/value_object/world_seed'
 import { Context, Effect, Layer, Match, Option, pipe, Random, ReadonlyArray, Schema } from 'effect'
 
 /**
@@ -181,12 +181,12 @@ export interface ClimateCalculatorService {
     coordinate: WorldCoordinate2D,
     elevation: number,
     seed: WorldSeed
-  ) => Effect.Effect<ClimateData, GenerationError>
+  ) => Effect.Effect<ClimateData, BiomeGenerationError>
 
   /**
    * 気候データに基づくバイオーム分類
    */
-  readonly classifyClimate: (climateData: ClimateData) => Effect.Effect<ClimateClassification, GenerationError>
+  readonly classifyClimate: (climateData: ClimateData) => Effect.Effect<ClimateClassification, BiomeGenerationError>
 
   /**
    * 季節変動を考慮した気候計算
@@ -196,7 +196,7 @@ export interface ClimateCalculatorService {
     elevation: number,
     dayOfYear: number, // 1-365
     seed: WorldSeed
-  ) => Effect.Effect<ClimateData, GenerationError>
+  ) => Effect.Effect<ClimateData, BiomeGenerationError>
 
   /**
    * 標高による気候修正
@@ -204,7 +204,7 @@ export interface ClimateCalculatorService {
   readonly applyElevationEffects: (
     baseClimate: ClimateData,
     elevation: number
-  ) => Effect.Effect<ClimateData, GenerationError>
+  ) => Effect.Effect<ClimateData, BiomeGenerationError>
 
   /**
    * 緯度による気候修正
@@ -212,7 +212,7 @@ export interface ClimateCalculatorService {
   readonly applyLatitudeEffects: (
     baseClimate: ClimateData,
     latitude: number
-  ) => Effect.Effect<ClimateData, GenerationError>
+  ) => Effect.Effect<ClimateData, BiomeGenerationError>
 
   /**
    * 大陸性・海洋性の影響計算
@@ -220,7 +220,7 @@ export interface ClimateCalculatorService {
   readonly calculateContinentality: (
     coordinate: WorldCoordinate2D,
     distanceToOcean: number
-  ) => Effect.Effect<number, GenerationError>
+  ) => Effect.Effect<number, BiomeGenerationError>
 
   /**
    * 風向・風速の影響計算
@@ -236,7 +236,7 @@ export interface ClimateCalculatorService {
       precipitationModifier: number
       temperatureModifier: number
     },
-    GenerationError
+    BiomeGenerationError
   >
 
   /**
@@ -252,7 +252,7 @@ export interface ClimateCalculatorService {
       boundaryType: string
       sharpness: number
     }>,
-    GenerationError
+    BiomeGenerationError
   >
 
   /**
@@ -268,7 +268,7 @@ export interface ClimateCalculatorService {
       variability: number
       trends: ReadonlyArray<string>
     },
-    GenerationError
+    BiomeGenerationError
   >
 }
 
@@ -573,7 +573,7 @@ const calculateBaseTemperature = (
   coordinate: WorldCoordinate2D,
   elevation: number,
   seed: WorldSeed
-): Effect.Effect<number, GenerationError> =>
+): Effect.Effect<number, BiomeGenerationError> =>
   Effect.succeed(() => {
     // 簡略化された温度計算
     const latitudeEffect = -Math.abs(coordinate.z * 0.0001) * 30 // 疑似緯度効果
@@ -590,7 +590,7 @@ const calculatePrecipitation = (
   coordinate: WorldCoordinate2D,
   elevation: number,
   seed: WorldSeed
-): Effect.Effect<number, GenerationError> =>
+): Effect.Effect<number, BiomeGenerationError> =>
   Effect.succeed(() => {
     const baseRainfall = 800
     const noiseEffect = Math.cos(Number(seed) + coordinate.x * 0.0005) * 400
@@ -606,7 +606,7 @@ const calculateHumidity = (
   temperature: number,
   precipitation: number,
   elevation: number
-): Effect.Effect<number, GenerationError> =>
+): Effect.Effect<number, BiomeGenerationError> =>
   Effect.succeed(() => {
     // 簡略化された相対湿度計算
     const baseHumidity = 60
@@ -624,7 +624,7 @@ const calculateEvapotranspiration = (
   temperature: number,
   humidity: number,
   elevation: number
-): Effect.Effect<number, GenerationError> =>
+): Effect.Effect<number, BiomeGenerationError> =>
   Effect.succeed(() => {
     // 簡略化されたPenman-Monteith式
     const tempFactor = Math.max(0, temperature) * 10
@@ -640,7 +640,7 @@ const calculateEvapotranspiration = (
 const calculateTemperatureAmplitude = (
   coordinate: WorldCoordinate2D,
   seed: WorldSeed
-): Effect.Effect<number, GenerationError> =>
+): Effect.Effect<number, BiomeGenerationError> =>
   Effect.succeed(() => {
     const continentalEffect = Math.abs(Math.sin(coordinate.x * 0.0001)) * 20
     const noiseEffect = Math.cos(Number(seed) + coordinate.z * 0.001) * 5
@@ -654,7 +654,7 @@ const calculateTemperatureAmplitude = (
 const calculatePrecipitationSeasonality = (
   coordinate: WorldCoordinate2D,
   seed: WorldSeed
-): Effect.Effect<number, GenerationError> =>
+): Effect.Effect<number, BiomeGenerationError> =>
   Effect.succeed(() => {
     const latitudeEffect = Math.abs(coordinate.z * 0.0001) * 0.5
     const noiseEffect = Math.sin(Number(seed) + coordinate.x * 0.002) * 0.3
@@ -665,7 +665,7 @@ const calculatePrecipitationSeasonality = (
 /**
  * Köppen-Geiger分類
  */
-const classifyKoppen = (climate: ClimateData): Effect.Effect<string, GenerationError> => {
+const classifyKoppen = (climate: ClimateData): Effect.Effect<string, BiomeGenerationError> => {
   const temp = climate.temperature
   const prec = climate.precipitation
 
@@ -709,7 +709,7 @@ const classifyKoppen = (climate: ClimateData): Effect.Effect<string, GenerationE
 /**
  * Whittaker生物群系分類
  */
-const classifyWhittaker = (climate: ClimateData): Effect.Effect<string, GenerationError> => {
+const classifyWhittaker = (climate: ClimateData): Effect.Effect<string, BiomeGenerationError> => {
   const temp = climate.temperature
   const prec = climate.precipitation
 
@@ -757,7 +757,7 @@ const classifyWhittaker = (climate: ClimateData): Effect.Effect<string, Generati
 /**
  * 分類信頼度の計算
  */
-const calculateClassificationConfidence = (climate: ClimateData): Effect.Effect<number, GenerationError> =>
+const calculateClassificationConfidence = (climate: ClimateData): Effect.Effect<number, BiomeGenerationError> =>
   Effect.succeed(() => {
     // データ品質と境界からの距離に基づく信頼度
     return Math.min(1, climate.dataQuality * 0.8 + 0.2)
@@ -766,7 +766,7 @@ const calculateClassificationConfidence = (climate: ClimateData): Effect.Effect<
 /**
  * 境界距離の計算
  */
-const calculateBorderDistance = (climate: ClimateData): Effect.Effect<number, GenerationError> =>
+const calculateBorderDistance = (climate: ClimateData): Effect.Effect<number, BiomeGenerationError> =>
   Effect.gen(function* () {
     // 簡略化された境界距離
     return yield* Random.nextIntBetween(0, 100)
@@ -777,7 +777,7 @@ const calculateBorderDistance = (climate: ClimateData): Effect.Effect<number, Ge
  */
 const calculateAlternativeClassifications = (
   climate: ClimateData
-): Effect.Effect<ReadonlyArray<{ classification: string; probability: number }>, GenerationError> =>
+): Effect.Effect<ReadonlyArray<{ classification: string; probability: number }>, BiomeGenerationError> =>
   Effect.succeed([
     { classification: 'alternative_1', probability: 0.2 },
     { classification: 'alternative_2', probability: 0.1 },

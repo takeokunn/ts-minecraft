@@ -7,17 +7,22 @@
  * - 型安全なドメインAPI
  */
 
-// ================================
-// WorldGenerator Aggregate Root (moved to world_generation context)
-// ================================
-
-export * from '@/domain/world_generation/aggregate/world_generator/index'
-
-// ================================
-// GenerationSession Aggregate Root (moved to world_generation context)
-// ================================
-
-export * from '@/domain/world_generation/aggregate/generation_session/index'
+import type { GenerationSession, GenerationSessionId, GenerationRequest, SessionConfiguration } from '@/domain/world_generation/aggregate/generation_session/shared'
+import {
+  GenerationSessionLive,
+  GenerationSessionTag,
+  InMemorySessionEventPublisher,
+  SessionEventPublisherTag,
+} from '@/domain/world_generation/aggregate/generation_session'
+import type { WorldGenerator, WorldGeneratorId } from '@/domain/world_generation/aggregate/world_generator/shared'
+import {
+  EventPublisherTag,
+  InMemoryEventPublisher,
+  WorldGeneratorLive,
+  WorldGeneratorTag,
+} from '@/domain/world_generation/aggregate/world_generator'
+import type { EventPublisher } from '@/domain/world_generation/aggregate/world_generator/events'
+import { Context, Effect } from 'effect'
 
 // ================================
 // BiomeSystem Aggregate Root
@@ -161,5 +166,4 @@ export const WorldDomainAggregateFactory = {
 // ================================
 
 import type * as GenerationErrors from '@domain/world/types/errors'
-import type * as WorldSeed from '@domain/world/value_object/world_seed/index'
-import { Context, Effect } from 'effect'
+import type * as WorldSeed from '@domain/shared/value_object/world_seed/index'

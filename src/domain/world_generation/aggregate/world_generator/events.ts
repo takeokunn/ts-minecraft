@@ -9,7 +9,7 @@
 
 import { ChunkDataSchema } from '@domain/chunk'
 import type * as WorldTypes from '@domain/world/types/core'
-import * as Coordinates from '@domain/world/value_object/coordinates/index'
+import * as Coordinates from '@domain/biome/value_object/coordinates'
 import { JsonValueSchema, type JsonRecord } from '@shared/schema/json'
 import { Brand, Clock, Context, DateTime, Effect, Random, Schema, Stream } from 'effect'
 import {

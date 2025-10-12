@@ -14,7 +14,7 @@ import {
   type BoundingBox,
   type WorldCoordinate2D,
   type WorldCoordinate3D,
-} from '@domain/world/value_object/coordinates'
+} from '@domain/biome/value_object/coordinates'
 import { Context, Effect, Layer, Match, pipe, Random, ReadonlyArray, Schema } from 'effect'
 import { PerlinNoiseService, SimplexNoiseService } from './index'
 

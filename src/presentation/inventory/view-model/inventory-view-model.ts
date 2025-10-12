@@ -1,10 +1,10 @@
 import {
-  PlayerId as DomainPlayerIdFactory,
   InventoryService,
+  PlayerIdOperations,
   type Inventory as DomainInventory,
   type ItemStack as DomainItemStack,
   type PlayerId as DomainPlayerId,
-} from '@domain/inventory'
+} from '@application/inventory/presentation-service'
 import type { ParseError } from '@effect/schema/ParseResult'
 import { Context, Duration, Effect, HashSet, Layer, Match, Option, Ref, Schedule, Schema, Stream, pipe } from 'effect'
 import {
@@ -70,7 +70,7 @@ const renderSchemaError = (error: FailureInput) => RenderFailureError({ message:
 const toDomainFailure = (error: FailureInput) => DomainFailureError({ message: failureMessage(error) })
 
 const toDomainPlayerId = (playerId: InventoryView['playerId']): DomainPlayerId =>
-  DomainPlayerIdFactory(playerIdToString(playerId))
+  PlayerIdOperations.makeUnsafe(playerIdToString(playerId))
 
 const parseHotbarIndex = (value: number) => parseSlotIndex(value)
 

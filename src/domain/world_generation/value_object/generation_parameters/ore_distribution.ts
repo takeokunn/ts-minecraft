@@ -5,7 +5,7 @@
  * 現実的な地質学原理とゲームバランスの両立
  */
 
-import { taggedUnion } from '@domain/world/utils'
+import { taggedUnion } from '@domain/shared/utils'
 import type { Brand as BrandType } from 'effect'
 import { Schema } from 'effect'
 

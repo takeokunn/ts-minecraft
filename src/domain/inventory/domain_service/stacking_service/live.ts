@@ -5,7 +5,7 @@
  * Effect-TSパターンに従い、不変性と純粋関数型アプローチを採用。
  */
 
-import { Effect, Layer, Match, Option, pipe, ReadonlyArray } from 'effect'
+import { Effect, Match, Option, pipe, ReadonlyArray } from 'effect'
 import type { Inventory, ItemId, ItemStack } from '../../types'
 import {
   checkCompleteStackCompatibility,
@@ -19,8 +19,7 @@ import {
 /**
  * スタッキングサービスのLive実装
  */
-export const StackingServiceLive = Layer.succeed(
-  StackingService,
+export const makeStackingService = Effect.succeed(
   StackingService.of({
     /**
      * スタック互換性チェック

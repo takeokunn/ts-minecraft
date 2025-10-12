@@ -1,6 +1,5 @@
 import * as Context from 'effect/Context'
 import * as Effect from 'effect/Effect'
-import * as Layer from 'effect/Layer'
 import type { BlockDefinition } from '../types'
 import {
   BlockDefinitionError,
@@ -24,7 +23,7 @@ export interface BlockFactory {
 
 export const BlockFactory = Context.GenericTag<BlockFactory>('BlockFactory')
 
-export const BlockFactoryLive = Layer.succeed(BlockFactory, {
+export const makeBlockFactory = Effect.succeed<BlockFactory>({
   standard: makeStandardBlock,
   liquid: makeLiquidBlock,
   interactive: makeInteractiveBlock,

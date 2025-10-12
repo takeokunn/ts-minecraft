@@ -5,7 +5,7 @@
  * Minecraft準拠の生態学的妥当性と気候データ管理
  */
 
-import { taggedUnion } from '@domain/world/utils'
+import { taggedUnion } from '@domain/shared/utils'
 import { JsonValueSchema } from '@shared/schema/json'
 import type { Brand as BrandType } from 'effect'
 import { Schema } from 'effect'

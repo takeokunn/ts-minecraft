@@ -13,7 +13,7 @@
  * - 環境適応型設定
  */
 
-import type * as GenerationSession from '@domain/world/aggregate/generation_session'
+import type * as GenerationSession from '@domain/world_generation/aggregate/generation_session'
 import { Effect, Schema } from 'effect'
 import type { SessionFactoryError } from './index'
 

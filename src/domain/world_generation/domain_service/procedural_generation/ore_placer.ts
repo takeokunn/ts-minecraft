@@ -11,9 +11,9 @@ import {
   WorldCoordinateSchema,
   type BoundingBox,
   type WorldCoordinate,
-} from '@domain/world/value_object/coordinates'
+} from '@domain/biome/value_object/coordinates'
 import { AdvancedNoiseSettingsSchema } from '@domain/world/value_object/noise_configuration/index'
-import type { WorldSeed } from '@domain/world/value_object/world_seed'
+import type { WorldSeed } from '@domain/shared/value_object/world_seed'
 import { JsonRecordSchema, JsonValueSchema } from '@shared/schema/json'
 import { Context, Effect, Layer, Match, Option, pipe, ReadonlyArray, Schema } from 'effect'
 

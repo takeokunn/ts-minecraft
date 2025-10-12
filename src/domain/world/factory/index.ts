@@ -3,17 +3,12 @@
  * ワールドファクトリー層の統合エクスポート
  */
 
-// ================================
-// WorldGeneratorFactory (moved to world_generation context)
-// ================================
+import { Layer } from 'effect'
 
-export * from '@/domain/world_generation/factory/world_generator_factory/index'
-
-// ================================
-// GenerationSessionFactory (moved to world_generation context)
-// ================================
-
-export * from '@/domain/world_generation/factory/generation_session_factory/index'
+import { BiomeSystemFactoryLive } from '@domain/biome/factory/biome_system_factory'
+import { WorldConfigurationFactoryLive } from './world_configuration_factory'
+import { GenerationSessionFactoryLive } from '@/domain/world_generation/factory/generation_session_factory'
+import { WorldGeneratorFactoryLive } from '@/domain/world_generation/factory/world_generator_factory'
 
 /**
  * 設定可能なFactory Layer
@@ -96,22 +91,3 @@ export const FACTORY_LAYER_FEATURES = [
 // Factory Summary
 // ================================
 // (Exported from helpers.ts)
-
-// ================================
-// Re-export Common Types
-// ================================
-
-export type {
-  BiomeSystem,
-  GenerationSession,
-  // From aggregates
-  WorldGenerator,
-} from '@domain/world/aggregate'
-
-export type {
-  BiomeConfiguration,
-  GenerationParameters,
-  NoiseConfiguration,
-  // From value objects
-  WorldSeed,
-} from '@domain/world/value_object'

@@ -9,8 +9,8 @@ import {
   WorldGeneratorFactoryTag,
 } from '@/domain/world_generation/factory/world_generator_factory/index'
 import { Effect, Layer } from 'effect'
-import type { BiomeSystemFactory } from './biome_system_factory/factory'
-import { BiomeSystemFactoryLive, BiomeSystemFactoryTag } from './biome_system_factory/index'
+import type { BiomeSystemFactory } from '@domain/biome/factory/biome_system_factory/factory'
+import { BiomeSystemFactoryLive, BiomeSystemFactoryTag } from '@domain/biome/factory/biome_system_factory'
 import type { WorldConfigurationFactory } from './world_configuration_factory/factory'
 import { WorldConfigurationFactoryLive, WorldConfigurationFactoryTag } from './world_configuration_factory/index'
 

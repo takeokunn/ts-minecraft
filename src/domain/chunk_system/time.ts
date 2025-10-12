@@ -1,4 +1,4 @@
-import { Clock, Duration, Effect, Match, Schema } from 'effect'
+import { Clock, Effect, Match, Schema } from 'effect'
 import { ChunkSystemError, EpochMilliseconds, EpochMillisecondsSchema } from './index'
 
 const decodeEpoch = (value: number) =>
@@ -19,10 +19,5 @@ export const withinDeadline = (nowEpoch: EpochMilliseconds, deadline: EpochMilli
     Match.exhaustive
   )
 
-export const sleepUntil = (deadline: EpochMilliseconds, reference: EpochMilliseconds) => {
-  const delta = Math.max(deadline - reference, 0)
-  return Match.value(delta).pipe(
-    Match.when(0, () => Effect.void),
-    Match.orElse(() => Effect.sleep(Duration.millis(delta)))
-  )
-}
+export const sleepUntil = (deadline: EpochMilliseconds, reference: EpochMilliseconds) =>
+  Effect.succeed(Math.max(deadline - reference, 0))

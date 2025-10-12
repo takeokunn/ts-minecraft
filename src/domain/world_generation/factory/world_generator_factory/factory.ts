@@ -19,12 +19,12 @@
  * - STM による並行制御対応
  */
 
-import type * as WorldGenerator from '@domain/world/aggregate/world_generator'
+import type * as WorldGenerator from '@domain/world_generation/aggregate/world_generator'
 import * as WorldDomainServices from '@domain/world/domain_service'
 import * as BiomeProperties from '@domain/world/value_object/biome_properties/index'
 import * as GenerationParameters from '@domain/world/value_object/generation_parameters/index'
 import * as NoiseConfiguration from '@domain/world/value_object/noise_configuration/index'
-import * as WorldSeed from '@domain/world/value_object/world_seed/index'
+import * as WorldSeed from '@domain/shared/value_object/world_seed/index'
 import * as GenerationContext from '@domain/world_generation/aggregate/world_generator/generation_context'
 import { ErrorCauseSchema } from '@shared/schema/error'
 import { JsonValueSchema, type JsonSerializable } from '@shared/schema/json'

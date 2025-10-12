@@ -5,11 +5,11 @@
  */
 
 import { Layer } from 'effect'
-import { CraftingIntegrationServiceLive } from './crafting_integration'
-import { ItemRegistryServiceLive } from './item_registry'
-import { StackingServiceLive } from './stacking_service'
-import { TransferServiceLive } from './transfer_service'
-import { ValidationServiceLive } from './validation_service'
+import { CraftingIntegrationService } from './crafting_integration'
+import { ItemRegistryService } from './item_registry'
+import { StackingService } from './stacking_service'
+import { TransferService } from './transfer_service'
+import { ValidationService } from './validation_service'
 
 /**
  * 全インベントリドメインサービスの統合レイヤー
@@ -33,10 +33,19 @@ import { ValidationServiceLive } from './validation_service'
  * Effect.provide(program, InventoryDomainServicesLive)
  * ```
  */
-export const InventoryDomainServicesLive = Layer.mergeAll(
-  TransferServiceLive,
-  StackingServiceLive,
-  ValidationServiceLive,
-  ItemRegistryServiceLive,
-  CraftingIntegrationServiceLive
-)
+export const createInventoryDomainServicesLayer = (
+  dependencies: {
+    readonly transfer: Layer.Layer<TransferService>
+    readonly stacking: Layer.Layer<StackingService>
+    readonly validation: Layer.Layer<ValidationService>
+    readonly itemRegistry: Layer.Layer<ItemRegistryService>
+    readonly craftingIntegration: Layer.Layer<CraftingIntegrationService>
+  }
+) =>
+  Layer.mergeAll(
+    dependencies.transfer,
+    dependencies.stacking,
+    dependencies.validation,
+    dependencies.itemRegistry,
+    dependencies.craftingIntegration
+  )

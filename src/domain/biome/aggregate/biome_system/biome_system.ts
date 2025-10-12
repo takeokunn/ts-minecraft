@@ -8,8 +8,8 @@
  * - 生態系シミュレーション
  */
 
-import * as Coordinates from '@/domain/biome/value_object/coordinates/index'
-import type * as GenerationErrors from '@domain/world/types/errors/generation_errors'
+import * as Coordinates from '@/domain/biome/value_object/coordinates'
+import * as GenerationErrors from './errors'
 import { Clock, Context, DateTime, Effect, Match, Option, Schema, STM, pipe } from 'effect'
 import * as BiomeRegistry from './biome_registry'
 import * as BiomeTransitions from './biome_transitions'

@@ -13,12 +13,12 @@ import {
   ChunkQueryHandlerLive,
   type ChunkQueryHandlerError,
   type ChunkQueryResult,
-} from '@/domain/chunk/cqrs'
+} from '@application/chunk/cqrs'
 import { ChunkCommandSchema, ChunkQuerySchema, type ChunkCommand } from '@/domain/chunk/types'
 import {
   ChunkQueryError,
   type ChunkQueryError as ChunkQueryErrorType,
-} from '@/domain/chunk/cqrs/query_handler'
+} from '@application/chunk/cqrs/query_handler'
 import type { ChunkWorkerAdapter } from '@/infrastructure/chunk'
 import { ChunkWorkerAdapterError, ChunkWorkerAdapterTag } from '@/infrastructure/chunk'
 

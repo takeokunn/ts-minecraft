@@ -2,8 +2,8 @@
  * @fileoverview Biome System Events - バイオームシステムイベント
  */
 
-import * as Coordinates from '@/domain/biome/value_object/coordinates/index'
-import * as WorldSeed from '@domain/world/value_object/world_seed/index'
+import * as Coordinates from '@/domain/biome/value_object/coordinates'
+import * as WorldSeed from '@domain/shared/value_object/world_seed/index'
 import { Clock, Context, DateTime, Effect, Random, Schema } from 'effect'
 import { UpdateClimateModelCommandSchema, type UpdateClimateModelCommand } from './biome_system'
 import {

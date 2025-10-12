@@ -8,7 +8,8 @@ import {
   ChunkWorkerAdapterTag,
 } from '@/infrastructure/chunk'
 import { ChunkCommandSchema, createChunkPositionSync, createEmptyChunkDataAggregate } from '@/domain/chunk'
-import { ChunkRepository, InMemoryChunkRepositoryLive } from '@/domain/chunk/repository'
+import { ChunkRepository } from '@/domain/chunk/repository'
+import { ChunkRepositoryMemoryLayer } from '@/infrastructure/chunk/repository/layers'
 import type { ChunkData } from '@/domain/chunk/types'
 import { Effect, Layer, Option, Schedule, Schema } from 'effect'
 
@@ -174,7 +175,7 @@ describe('ChunkWorkerRuntime', () => {
       Effect.provideSomeLayer(
         Layer.mergeAll(
           ChunkInfrastructureLayer.pipe(Layer.provide(provideChunkCacheConfig({ maxEntries: 8 }))),
-          InMemoryChunkRepositoryLive
+          ChunkRepositoryMemoryLayer
         )
       )
     )

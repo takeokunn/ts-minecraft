@@ -5,7 +5,7 @@
  * キャリング・キャパシティと競争原理に基づく実装
  */
 
-import { taggedUnion } from '@domain/world/utils'
+import { taggedUnion } from '@domain/shared/utils'
 import type { Brand as BrandType } from 'effect'
 import { Schema } from 'effect'
 import { unsafeCoerce } from 'effect/Function'

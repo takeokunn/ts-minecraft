@@ -13,7 +13,7 @@
  * - 設定バリデーション
  */
 
-import type * as GenerationSession from '@domain/world/aggregate/generation_session'
+import type * as GenerationSession from '@domain/world_generation/aggregate/generation_session'
 import type { JsonValue } from '@shared/schema/json'
 import { JsonValueSchema } from '@shared/schema/json'
 import { DateTime, Effect, Function, Match, Option, ReadonlyArray, Schema } from 'effect'

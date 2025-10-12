@@ -5,7 +5,7 @@
  * チャンク境界の正確な計算と変換を保証
  */
 
-import { taggedUnion } from '@domain/world/utils'
+import { taggedUnion } from '@domain/shared/utils'
 import type { Brand as BrandType } from 'effect'
 import { Schema } from 'effect'
 

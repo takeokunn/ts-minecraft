@@ -1,17 +1,14 @@
-import { BiomeSystemSchema, type BiomeSystem } from '@domain/biome/aggregate/biome_system/shared'
-import { WorldApplicationService, type WorldApplicationServiceErrorType } from '@domain/world/application_service'
-import { WorldFactories } from '@domain/world/factory'
-import type { WorldSeed } from '@domain/world/value_object/world_seed'
-import { WorldSeedFactory } from '@domain/world/value_object/world_seed/index'
-import { WorldGeneratorSchema, type WorldGenerator } from '@domain/world_generation/aggregate/world_generator/shared'
+import { BiomeSystemSchema } from '@domain/biome/aggregate/biome_system/shared'
+import type { WorldSeed } from '@domain/shared/value_object/world_seed'
+import { WorldSeedFactory } from '@domain/shared/value_object/world_seed/index'
 import * as TreeFormatter from '@effect/schema/TreeFormatter'
 import type { JsonValue } from '@shared/schema/json'
 import { DateTime, Effect, Match, Option, Random, Schema } from 'effect'
-import { WorldClock, WorldDomainConfig, defaultWorldDomainConfig } from './index'
+import { WorldClock, WorldDomainConfig, selectWorldDomainConfigSync } from './index'
 
 const WorldDataSchema = Schema.Struct({
   seed: Schema.Number,
-  generator: Schema.suspend(() => WorldGeneratorSchema),
+  generator: Schema.Unknown,
   biomeSystem: Schema.suspend(() => BiomeSystemSchema),
   metadata: Schema.optional(
     Schema.Struct({
@@ -43,17 +40,6 @@ const resolveSeed = (seed: number | undefined) =>
     })
   )
 
-export interface WorldSnapshot {
-  readonly seed: WorldSeed
-  readonly generator: WorldGenerator
-  readonly biomeSystem: BiomeSystem
-  readonly metadata: {
-    readonly createdAt: Date
-    readonly version: string
-    readonly type: string
-  }
-}
-
 const validateWorldDataInternal = (data: JsonValue): Effect.Effect<WorldDataValidationResult> =>
   Effect.matchEffect(Schema.decodeUnknown(WorldDataSchema)(data), {
     onFailure: (error) =>
@@ -71,8 +57,10 @@ const validateWorldDataInternal = (data: JsonValue): Effect.Effect<WorldDataVali
   })
 
 const optimizeWorldSettingsInternal = (config: Partial<WorldDomainConfig>) =>
-  Effect.map(Schema.decodeUnknown(WorldDomainDataSchema)({ ...defaultWorldDomainConfig, ...config }), (fullConfig) =>
-    Match.value(fullConfig.performanceMode).pipe(
+  Effect.map(
+    Schema.decodeUnknown(WorldDomainDataSchema)({ ...selectWorldDomainConfigSync('default'), ...config }),
+    (fullConfig) =>
+      Match.value(fullConfig.performanceMode).pipe(
       Match.when(
         'performance',
         () =>
@@ -134,39 +122,7 @@ const exportWorldMetadataInternal = (world: JsonValue) =>
     )
   })
 
-const createQuickWorldInternal = (seed?: number) =>
-  Effect.gen(function* () {
-    const worldSeed = yield* resolveSeed(seed)
-    const generator = yield* WorldFactories.createQuickGenerator()
-    const biomeSystem = yield* WorldFactories.createDefaultBiomeSystem()
-    const now = yield* Effect.flatMap(Effect.service(WorldClock), (clock) => clock.currentDate)
-
-    return {
-      seed: worldSeed,
-      generator,
-      biomeSystem,
-      metadata: {
-        createdAt: now,
-        version: '1.0.0',
-        type: 'quick_world',
-      },
-    } satisfies WorldSnapshot
-  })
-
-const generateChunkInternal = (
-  worldId: string,
-  chunkX: number,
-  chunkZ: number,
-  priority: 'critical' | 'high' | 'normal' | 'low' | 'background' = 'normal'
-) =>
-  Effect.gen(function* () {
-    const service = yield* Effect.service(WorldApplicationService)
-    return yield* service.generateChunk(worldId, chunkX, chunkZ, priority)
-  })
-
 export const WorldDomainHelpers = {
-  createQuickWorld: createQuickWorldInternal,
-  generateChunk: generateChunkInternal,
   validateWorldData: validateWorldDataInternal,
   optimizeWorldSettings: optimizeWorldSettingsInternal,
   exportWorldMetadata: exportWorldMetadataInternal,
@@ -178,10 +134,7 @@ const WorldDomainDataSchema = Schema.Struct({
   enablePerformanceMetrics: Schema.Boolean,
   enableDomainValidation: Schema.Boolean,
   enableAggregateEventSourcing: Schema.Boolean,
-  enableApplicationServices: Schema.Boolean,
   enableFactoryValidation: Schema.Boolean,
   performanceMode: Schema.Literals('quality', 'balanced', 'performance'),
   debugMode: Schema.Boolean,
 })
-
-export type WorldHelperGenerateChunkError = WorldApplicationServiceErrorType

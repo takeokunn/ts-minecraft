@@ -5,9 +5,9 @@
  * すべての関数は不変性を保証し、新しい状態オブジェクトを返します。
  */
 
-import type * as GenerationSession from '@domain/world/aggregate/generation_session'
-import type * as WorldGenerator from '@domain/world/aggregate/world_generator'
-import * as Coordinates from '@domain/world/value_object/coordinates/index'
+import type * as GenerationSession from '@domain/world_generation/aggregate/generation_session'
+import type * as WorldGenerator from '@domain/world_generation/aggregate/world_generator'
+import * as Coordinates from '@domain/biome/value_object/coordinates'
 import type { JsonValue } from '@shared/schema/json'
 import { Duration, Effect, Function, Match, Option, ReadonlyArray } from 'effect'
 import type { CreateSessionParams, SessionFactoryError, SessionTemplateType } from './factory'

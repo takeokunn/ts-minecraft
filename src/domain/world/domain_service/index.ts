@@ -3,13 +3,8 @@
  * ワールドドメインサービス層の統合エクスポート
  */
 
-// === Noise Generation Domain Service (moved to world_generation context) ===
-export * from '@/domain/world_generation/domain_service/noise_generation/index'
-export { NoiseGenerationServices } from '@/domain/world_generation/domain_service/noise_generation/index'
-
-// === Procedural Generation Domain Service (moved to world_generation context) ===
-export * from '@/domain/world_generation/domain_service/procedural_generation/index'
-export { ProceduralGenerationServices } from '@/domain/world_generation/domain_service/procedural_generation/index'
+import { MathematicalOperationsServices } from './mathematical_operations'
+import { WorldValidationServices } from './world_validation'
 
 /**
  * World Domain Service 統合サービス集合
@@ -18,15 +13,6 @@ export { ProceduralGenerationServices } from '@/domain/world_generation/domain_s
  * 各サービスカテゴリは独立してアクセス可能です。
  */
 export const WorldDomainServices = {
-  // 手続き的生成サービス
-  ProceduralGeneration: ProceduralGenerationServices,
-
-  // ノイズ生成サービス
-  NoiseGeneration: NoiseGenerationServices,
-
-  // バイオーム分類サービス
-  BiomeClassification: BiomeClassificationServices,
-
   // 世界検証サービス
   WorldValidation: WorldValidationServices,
 

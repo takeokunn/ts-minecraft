@@ -1,5 +1,111 @@
 # DDD.md から抽出した設計上の懸念点
 
+## 段階的対応計画
+- **Phase 0: 基盤整備とガイドライン統一（完了）** – DDD_2.md の項目を境界ごとに再分類し、ドメイン純粋化テンプレートと DI/Layer の共通指針を整備する。
+- **Phase 1: Player / Block / Inventory 純粋化完了（完了）** – 既に着手済みの領域で残存する `Layer.effect` / `<Service>Live` を Infrastructure へ移動し、Application・Presentation の依存を新構成へ更新する。
+- **Phase 2: Chunk 系再構成** – Chunk / ChunkLoader / ChunkSystem の CQRS・ReadModel を Application 層へ移行し、Repository・パフォーマンス調整を Port 化する。
+- **Phase 3: World / WorldGeneration / Biome 再設計** – WorldDomainConfig の技術要素を排除し、生成テンプレートやオーケストレーションを純粋化・Port 化する。
+- **Phase 4: Scene / Physics / Performance / Observability 横断整理** – 物理・観測系サービスの環境依存を Infrastructure へ集約し、FeatureFlag・設定類を Composition ルートに統一する。
+- **Phase 5: 横断テストとドキュメント更新** – `pnpm test` 等で回帰確認を行い、Diátaxis 構造のドキュメントとサンプルコードを新アーキテクチャに合わせて刷新する。
+
+## Phase 0 実施結果
+### 境界ごとの再分類サマリ
+| 境界 | 対象ID | 主な論点 |
+| --- | --- | --- |
+| 基盤/共通 | 1,2,5,6,8-15,17,19-27,30,31,34,35,47,48,74-76 | ドメイン層がインフラ・ランタイム依存や Layer 組み立てを保持しており、ポートと Composition への分離が必要。 |
+| Inventory | 3,36,39,45,46 | CQRS DTO や自動保存/バックアップなどアプリ層・インフラ責務がドメインへ流入。 |
+| Chunk | 18,28,38,40,78,79,94,96,97 | 環境検出・メトリクス・CQRS・待機制御が Domain 内で完結し、ポート化とアプリ層移管が未実施。 |
+| ChunkLoader | 56,81,82,92 | ロード戦略や乱数/観測を Domain chunk_loader が内製し、アプリケーションとの差分制御ができていない。 |
+| World | 16,41-55,71-73,84 | World BC が他 BC やアプリサービスを再輸出し、設定オブジェクトに技術的詳細が混入。 |
+| WorldGeneration | 29,32,37,49,50,57,59,60,64-70,80,89,90,98-100 | World/Chunk への結合と圧縮・テンプレート・スケジューリング等のインフラ実装が Domain に残存。 |
+| Biome | 33,61-63,95 | World 依存と Node API 利用が残り、待機制御やユーティリティの分離が未完了。 |
+| Physics | 7,58,83 | Cannon-es 制御やパフォーマンス計測を Domain が扱い、観測層との分離が不足。 |
+| Scene/Camera | 4,77,85-87,91 | Presentation ロジックと CQRS ハンドラが Domain Scene/Camera に常駐。 |
+| ViewDistance | 88 | LOD 判定がパフォーマンスメトリクスに依存し、環境差分の注入ポイントが未整備。 |
+| Furniture | 93 | 家具アプリケーションサービスが Domain 内に存在し、ユースケース層との境界が不明瞭。 |
+
+### 境界別フォーカス
+- **基盤/共通**（1,2,5,6,8-15,17,19-27,30,31,34,35,47,48,74-76）: 永続化・暗号・ランタイム API などの副作用を Port へ抽象化し、Domain から `Layer.effect`・環境判定・構成選択を排除する。
+- **Inventory**（3,36,39,45,46）: コマンド DTO・自動保存・バックアップ・Layer 初期化を Application/Infrastructure へ移し、Domain には集約と契約のみ残す。
+- **Chunk**（18,28,38,40,78,79,94,96,97）: 環境検出と待機/GC/パフォーマンス制御を排除し、CQRS/ReadModel をアプリ層へ移管する。
+- **ChunkLoader**（56,81,82,92）: ロード戦略・乱数・観測処理をアプリ層ユースケースに集約し、Domain はキュー状態とポート契約を定義する。
+- **World**（16,41-55,71-73,84）: 他 BC の再輸出とアプリサービス依存を禁止し、設定オブジェクトから技術パラメータを排除する。
+- **WorldGeneration**（29,32,37,49,50,57,59,60,64-70,80,89,90,98-100）: 圧縮/テンプレート/スケジューリングをポート化し、World・Chunk 型への直接依存を DTO/イベントに置換する。
+- **Biome**（33,61-63,95）: World 依存を分離し、Node API・擬似待機処理をインフラへ移す。
+- **Physics**（7,58,83）: Cannon-es 操作とメトリクス更新をアプリ層のポート経由に切り替え、Domain は物理ルールに専念する。
+- **Scene/Camera**（4,77,85-87,91）: プレゼンテーション例と Scene 管理ロジックをアプリ層へ移し、Domain は状態モデルとイベントだけを提供する。
+- **ViewDistance**（88）: メトリクスを引数でもらうポートに差し替え、Domain 値オブジェクトから環境依存情報を排除する。
+- **Furniture**（93）: アプリケーションサービス実装を Infrastructure/Application へ移し、Domain は家具ロジックとイベント契約に限定する。
+
+### ドメイン純粋化テンプレート
+```md
+# 境界 / 集約名
+
+## 1. 現状把握
+- 目的とユビキタス言語:
+- 主要エンティティ / 値オブジェクト:
+- 現在の副作用・外部依存:
+
+## 2. 課題整理
+- ドメインに残っている技術的詳細:
+- 層違反や他 BC 依存:
+- テストしづらい理由:
+
+## 3. 純粋化方針
+- ドメインに残すロジック:
+- 抽象化するポートと期待する契約:
+- 移設するモジュール（アプリ / インフラ / Composition）:
+
+## 4. 実施タスク
+- [ ] ポート定義とシグネチャ確定
+- [ ] ドメインから副作用コードを除去
+- [ ] Application 層でのコンポジション更新
+- [ ] テスト整備（ドメイン単体 / ポートダブル / 受入）
+
+## 5. 完了条件
+- ドメインの依存が Domain 内と宣言済みポートに限定されている
+- 主要ユースケースがポート経由で組み立てられている
+- テストで副作用を差し替えられる
+```
+
+### DI / Layer 共通指針
+- Domain は同期/非同期問わず純粋ロジックとポート定義のみを保持し、`Layer.*`/`Effect.*` の構成や外部 API 参照を禁止する。
+- Application はユースケース単位でポートを組み合わせ、CQRS/スケジューリング/トランザクションを担うファサードを提供する。
+- Infrastructure はポート実装を環境別に用意し、Node/Web/テスト差分は Composition ルートで明示的に注入する。
+- Composition ルートは `Layer` 組み立て・環境判定・FeatureFlag を一箇所に集約し、Domain へコンフィグ値を直接渡さない。
+- 監視・メトリクス・ログは `ObservabilityPort` などの横断ポートを経由し、Domain からはイベント/結果のみ通知する。
+- テストではドメイン単体テスト（純粋ロジック）→アプリケーションテスト（モックポート）→エンドツーエンド（実装ポート）の順に適用し、差し替え可能性を検証する。
+
+## Phase 1 実施結果
+### 実施サマリ
+- Inventory ドメインサービス（Transfer/Stacking/Validation/CraftingIntegration）の `Layer` 依存を除去し、`make*Service` ファクトリを導入。アプリケーション層で `Layer.effect` による提供へ統一。
+- Block ドメインの `BlockFactoryLive` を `makeBlockFactory` へ置換し、`BlockRegistryLayer` はアプリケーション側で `Layer.effect` を通して注入する構成に調整。
+- Inventory アプリケーション層 (`src/application/inventory/domain-layer.ts`) を更新し、新しいファクトリからサービス Layer を組み立てるよう変更。
+- Inventory Repository の環境選択・初期化ロジックを Infrastructure 配下 (`src/infrastructure/inventory/repository/layers.ts`) へ集約し、ドメイン層から環境分岐・ライフサイクル操作を排除。
+
+### 確認ポイント
+| 項目 | 対応内容 | 参照 | 状態 |
+| --- | --- | --- | --- |
+| Inventory ドメインサービスの純粋化 | `makeTransferService` 等のファクトリを導入し、アプリケーション層で Layer 化 | `src/domain/inventory/domain_service/*/live.ts`, `src/application/inventory/domain-layer.ts` | 完了 |
+| Block Factory の純粋化 | `makeBlockFactory` を新設し、Domain から `Layer` 依存を除去 | `src/domain/block/factory/block_factory.ts`, `src/domain/block/domain_service/registry.ts` | 完了 |
+| Repository 環境分岐の所在確認 | 環境選択/初期化処理が Infrastructure に集約されているか再確認 | `src/infrastructure/inventory/repository/layers.ts` | 完了 |
+
+## Phase 2 進捗
+### 実施サマリ
+- Chunk ドメインの Layer から CQRS/ReadModel を分離し、`createChunkDomainLayer` として純粋な依存注入ポイントを定義。CQRS 実装は `src/application/chunk/cqrs/` へ移動した。
+- Chunk リポジトリの実装レイヤーをインフラ側 (`src/infrastructure/chunk/repository/layers.ts`) にまとめ、Domain は契約定義のみを公開。
+- Chunk Loader のアプリケーションロジックを `src/application/chunk_loader/application/` へ移し、Domain からの再輸出を削除。
+- `sleepUntil` や `Effect.sleep` を用いた待機処理をドメイン各所から除去し、アプリケーション層で制御する設計へ変更。
+- IndexedDB リポジトリの疑似遅延を除去し、テスト/インフラで制御できるようにした。
+
+### 確認ポイント
+| 項目 | 対応内容 | 参照 | 状態 |
+| --- | --- | --- | --- |
+| Chunk ドメイン Layer の純粋化 | `createChunkDomainLayer` の導入と CQRS 移動 | `src/domain/chunk/layers.ts`, `src/application/chunk/cqrs/*` | 完了 |
+| Chunk Repository 実装のインフラ集約 | メモリ実装 Layer をインフラへ移設 | `src/infrastructure/chunk/repository/layers.ts` | 完了 |
+| Chunk Loader アプリ層化 | `application` ディレクトリをアプリ層へ移動 | `src/application/chunk_loader/application/*` | 完了 |
+| ドメイン内スリープの除去 | chunk 系・chunk_system の `Effect.sleep` 排除 | `src/domain/chunk/aggregate/chunk/*`, `src/domain/chunk_system/time.ts` | 進行中（GC メトリクスなど残タスクあり） |
+
 ## 1. ドメイン層にインフラ実装が常駐している
 - 該当箇所: DDD.md 5.5「repository/」および 6.3–6.4 の `memory.ts` / `persistent.ts` 標準パターン、9.1 の Layer 統合例。
 - 内容: ドメイン配下に `Layer.effect` を介した Repository 実装と IndexedDB 依存 (`IndexedDBService`) が配置され、Domain 層が永続化技術を直接参照している。
@@ -11,19 +117,22 @@
 - 内容: `<Service>Live` や Repository Live 実装がドメイン階層に常駐し、Effect Layer による依存解決が Domain フォルダ内で完結している。
 - 問題点: 実行時構成は本来 Infrastructure 層の責務であり、Domain は抽象契約の提供に留めるべき。現在の構造では環境差分（テスト/本番）ごとにドメイン配下を編集する必要が生じ、関心分離を損なう。
 - 対応方針: `<Service>Live` などのライブ実装を infrastructure 層へ移し、Domain にはサービス契約とテストダブルのみ残して Application 層で Layer/DI を構成する。
-- 対応結果: `InventoryServiceLive` と `InputServiceLive` を Infrastructure 配下へ移動し、Domain は契約のみを提供する構造に変更済み（`src/infrastructure/inventory/service/inventory-service-live.ts`、`src/infrastructure/input/input-service-live.ts`）。
+- 対応結果: `InventoryServiceLive` と `InputServiceLive` を Infrastructure 配下へ移動し、Domain は契約のみを提供する構造に変更済み（`src/infrastructure/inventory/service/inventory-service-live.ts`、`src/infrastructure/input/input-service-live.ts`）。さらに `makeTransferService` などのサービスファクトリを導入し、Inventory ドメインサービスの `Layer` 生成はアプリケーション層で実施するよう統一済み。
 
 ## 3. CQRS コマンド/クエリがドメイン層に滞在している
 - 該当箇所: 7.3 inventory BC の `src/domain/inventory/types/commands.ts`・`queries.ts`。
 - 内容: Command/Query DTO を Domain の型定義として保持し、Application 層の API サービスから直接参照している。
 - 問題点: コマンドはユースケース境界の表現であり Application 層の語彙に属する。Domain が CQRS DTO に依存すると、ユースケース追加・変更ごとに Domain 型が揺れ、戦術的 DDD とユースケース設計の分離が崩れる。
 - 対応方針: Command/Query DTO を Application 層へ移管し、Domain はユースケースが利用する集約・値オブジェクトに集中させ、境界越えのマッピングを Application サービス側で実施する。
+- 対応結果: `InventoryCommand`/`InventoryQuery` 系 DTO とスキーマを `src/application/inventory/types/` 配下へ移動し、Application 層が `@application/inventory/types` を参照する構成に変更済み。Domain 側の `types/index.ts` からコマンド／クエリの再輸出を削除し、依存方向を Application → Domain に統一した。
+- 追加対応: `WorldDomain.Config` の同期版エクスポートを撤廃し、`selectWorldDomainConfigSync` に一本化。互換目的で残っていた `defaultWorldDomainConfig` や関連コメントを削除し、Config 参照は layer 経由の取得に集約済み。
 
 ## 4. プレゼンテーション層の依存方向が自己矛盾
 - 該当箇所: 3.2 依存制約（Presentation → Application）と 10.2 React 統合例。
 - 内容: 10.2 の `InventoryPanel` は `InventoryService`（Domain）と `MainLayer` を直接参照し、Presentation 層から Domain 層へ依存が伸びている。
 - 問題点: レイヤー制約の記述と実装ガイドのサンプルが矛盾し、UI 実装者が Application 層を経由しないアンチパターンを踏襲する恐れがある。イベント/状態同期の責務が UI 側に流れ込み、ユースケースロジックが散在する。
 - 対応方針: React 統合例を Application 層ユースケースのファサード（例: `InventoryApplicationService`）経由に改訂し、Presentation 層が参照するのは DTO とイベントハンドラに限定する。Domain 層で行っている Layer 組み立ては Composition ルートへ移し、Hook/Adapter で UI イベントをユースケース呼び出しへ変換するガイドを整備する。
+- 対応結果: `useGameUI` と Inventory ViewModel をアプリケーション層経由に切り替え、プレゼンテーションからドメインサービス・リポジトリへの直接参照を解消（`PlayerLifecycleApplicationService`/`InventoryManagerApplicationService`/`PlayerCameraApplicationService` 経由）。入力系も `@application/input` を介した依存に統一した。
 
 ## 5. Bounded Context 境界が技術基準に偏重
 - 該当箇所: 4.2「Bounded Context一覧」。
@@ -112,6 +221,7 @@
 - 内容: Domain 内で `window`・`self`・`Worker`・`indexedDB` の存在チェックを行い、WebWorker 実装や永続化方式を自動選択している。WebWorker 専用 Layer も Domain 配下に存在。
 - 問題点: 実行環境に応じた実装切り替えはインフラ層のポリシーであり、Domain に WebWorker/ブラウザ固有の分岐が入ると他プラットフォームやテストで再利用しづらい。ポート/アダプタ境界が崩れる。
 - 対応方針: 環境検出と WebWorker 選択をインフラ層のストラテジー/ファクトリに分離し、Domain には永続化ポートと選択結果を渡すだけにする。
+- 対応結果: Domain 側のリポジトリ再輸出からストラテジー／環境検出コードを排除し、`src/infrastructure/chunk/repository/layers.ts` にメモリ実装 Layer を集約。WebWorker 含む実装選択はインフラ層で行い、Domain には契約のみ残した。
 
 ## 19. Domain レベルの設定にインフラ詳細が混入
 - 該当箇所: `src/domain/world/repository/index.ts:31-76`、`world_metadata_repository/interface.ts:1-160`。
@@ -171,6 +281,7 @@
 - 内容: `simulateLatency` で `Effect.sleep(Duration.millis(2))` を必ず実行し、疑似的な I/O 待機を再現している。
 - 問題点: 遅延シミュレーションはテスト専用のインフラ関心であり、Domain の Repository 実装に組み込むと本番・テスト双方で制御できない。
 - 対応方針: 疑似遅延はテスト用アダプタや Application 層のテストダブルで注入し、Domain の永続化処理からは外す。
+- 対応結果: `simulateLatency` を純粋な透過関数へ変更し、ドメインリポジトリから固定待機を排除。遅延シミュレーションはアプリケーション/テスト側で必要時に注入する前提に改めた。
 
 ## 29. ワールド生成パイプラインが固定スリープを持つ
 - 該当箇所: `src/domain/world_generation/domain_service/world_generation_orchestrator/generation_pipeline.ts:474-517`。
@@ -219,6 +330,7 @@
 - 内容: `setupAutoSave` で `autoSaveInterval` を評価し、（コメントアウトとはいえ）`setInterval` によるスケジューリングを視野に入れている。
 - 問題点: バックグラウンドジョブの実行制御はアプリケーション層の責務であり、Domain Repository が時間ベースの副作用を持つと関心の分離が崩れる。
 - 対応方針: 自動保存はアプリケーション側のジョブ管理へ切り出し、Domain リポジトリは保存リクエストの受け付けと状態変換のみに集中する。
+- 対応結果: `setupAutoSave` を含む永続化処理を Infrastructure 層 (`src/infrastructure/inventory/repository/inventory/persistent.ts`) へ移動し、Domain 側から時間制御コードを排除済み。今後はアプリケーションスケジューラから同ポートを利用して保存トリガーを注入する。
 
 ## 37. リポジトリの未実装メソッドがドメインに残存
 - 該当箇所: `src/domain/world_generation/repository/generation_session_repository/memory_implementation.ts:914-933`。
@@ -237,6 +349,7 @@
 - 内容: `fs.copyFile` でバックアップファイルを作成し、失敗時には `console.warn` を出力。
 - 問題点: バックアップ策略・ローテーションはインフラ制御であり、Domain 側でファイルコピーを行うと導入環境ごとに差し替えられない。
 - 対応方針: バックアップ戦略はインフラ層へ外出しし、Domain からはバックアップ要求やメタデータのみを発行する。
+- 対応結果: JSON ファイル実装を `src/infrastructure/inventory/repository/item_definition/json-file.ts` へ移動し、バックアップ生成とファイル I/O は Infrastructure で完結する構成に更新済み。
 
 ## 40. ドメインリポジトリがイベントキューを内製
 - 該当箇所: `src/domain/chunk_system/repository.indexeddb.ts:14-30`。
@@ -249,18 +362,21 @@
 - 内容: World BC のエントリーポイントが world_generation BC の集約 (`WorldGenerator`, `GenerationSession`) をそのままエクスポートしている。
 - 問題点: Bounded Context の境界が崩れ、World モジュール利用者が world_generation 内部の集約に直接依存する。コンテキスト独立性を失い、モデル進化時の影響範囲が制御できない。
 - 対応方針: World BC の公開 API から他 BC の集約再輸出を除去し、必要な連携は Application 層が調停するドメインサービス経由に限定する。
+- 対応結果: `src/domain/world/aggregate/index.ts` から world_generation 集約の再エクスポートを削除し、利用箇所は `@domain/world_generation/...` を直接参照するよう全面更新。World BC は自 BC (BiomeSystem 等) のみを公開し、境界を明確化した。
 
 ## 42. Worldドメインサービスが world_generation サービスを丸ごと公開
 - 該当箇所: `src/domain/world/domain_service/index.ts:7-12`。
 - 内容: World ドメインサービスのインデックスが world_generation のノイズ生成・手続き生成サービスをエクスポートしている。
 - 問題点: World BC が他 BC のドメインサービスを外部 API として提供しており、境界付けられた文脈同士の独立性が損なわれる。
 - 対応方針: World BC のサービス公開範囲を自 BC に閉じ、world_generation との橋渡しは専用アプリケーションサービスまたはアンチコラプションレイヤーで提供する。
+- 対応結果: `src/domain/world/domain_service/index.ts` から world_generation への再エクスポートと依存項目を除去し、WorldDomainServices は世界固有サービス（検証・数学演算）のみに限定した。
 
 ## 43. Worldファクトリ層が world_generation ファクトリを再輸出
-- 該当箇所: `src/domain/world/factory/index.ts:10-18`。
+- 該当箇所: `src/domain/world/factory/index.ts:1-120`。
 - 内容: World ファクトリの公開窓口が world_generation のファクトリ群をそのまま再輸出している。
 - 問題点: world_generation の実装詳細が World BC から漏れてしまい、利用側が直接 world_generation の API に依存する構造になる。
 - 対応方針: World BC のファクトリから他 BC のファクトリを排除し、必要な生成はアプリケーション層が統合する。
+- 対応結果: World ファクトリのインデックスから world_generation 向け `export *` を削除し、内部利用時のみ明示的に import する構成へ変更。World BC の公開 API は自 BC のファクトリとヘルパーに限定した。
 
 ## 44. World値オブジェクトが Biome座標を直接再利用
 - 該当箇所: `src/domain/world/value_object/coordinates/index.ts:6`。
@@ -273,12 +389,14 @@
 - 内容: `Development/Browser/Server/Hybrid` などの Layer を Domain 内で組み立て、環境に応じた実装をマッチングしている。
 - 問題点: 実行環境の選択ロジックは本来ブートストラップ層の責務であり、Domain が環境分岐を抱えると保守ポイントが分散する。
 - 対応方針: Layer 構成と環境分岐をブートストラップ/Infrastructure 層へ移し、Domain は環境非依存のポート契約のみ提供する。
+- 対応結果: 環境別 Layer 選択は `src/infrastructure/inventory/repository/layers.ts` で組み立てるよう変更し、Domain (`src/domain/inventory/layers.ts`) からは依存注入ポイントのみ残す構造に整理済み。
 
 ## 46. Inventory Repository が初期化/クリーンアップを直接制御
 - 該当箇所: `src/domain/inventory/repository/layers.ts:333-360`。
 - 内容: `initializeInventoryRepositories` / `cleanupInventoryRepositories` で複数リポジトリのライフサイクルを Domain 側がまとめて呼び出している。
 - 問題点: データストアのセットアップやシャットダウンはアプリケーション層の関心であり、Domain が一括制御すると層分離が曖昧になる。
 - 対応方針: 初期化/クリーンアップ手順はアプリケーション層のコンポジションルートへ退避し、Domain リポジトリは純粋に CRUD 契約を提供する。
+- 対応結果: `initializeInventoryRepositories` / `cleanupInventoryRepositories` を Infrastructure 層の `src/infrastructure/inventory/repository/layers.ts` へ移設し、アプリケーションから明示的に呼び出す形へ切り替え済み。
 
 ## 47. リポジトリが直接システムクロックを参照
 - 該当箇所: `src/domain/inventory/repository/inventory_repository/persistent.ts:135-220`。
@@ -315,24 +433,28 @@
 - 内容: World のヘルパーが world_generation のファクトリ (`createQuickGenerator` など) を直接呼び出す。
 - 問題点: World BC 内で他 BC の生成ロジックを組み立てており、境界の独立性が失われる。
 - 対応方針: World BC のヘルパーは自 BC の構成要素に限定し、他 BC のファクトリ連携はアプリケーション層で統合する。
+- 対応結果: WorldDomainHelpers から world_generation 依存のワークフロー (`createQuickWorld` 等) を削除し、ドメイン側は検証・設定最適化・メタデータ出力のみ提供。world_generation ファクトリを利用する組立処理はアプリケーション層へ移行した。
 
 ## 53. Worldリポジトリ層が world_generation の設定型に結合
 - 該当箇所: `src/domain/world/repository/layers.ts:9-74`。
 - 内容: WorldRepositoryLayer の構成に world_generation の RepositoryConfig を直接組み込み、Layer.mergeAll で統合している。
 - 問題点: World BC の永続化層が他 BC の構成型に依存し、独自のリポジトリ境界が保てない。
 - 対応方針: World BC 固有のリポジトリ設定を定義し、他 BC の構成値はアプリケーション層が注入する形式へ改める。
+- 対応結果: WorldRepositoryLayerConfig をドメイン側で再定義し、world_generation からの型 import を解消。World ドメインは抽象的なリポジトリ設定のみ保持し、具体実装はアプリケーション／インフラ層で注入するように整理した。
 
 ## 54. Worldヘルパーがアプリケーションサービスへ依存
 - 該当箇所: `src/domain/world/helpers.ts:2`、`163-173`。
 - 内容: Domain ヘルパーが `WorldApplicationService`（アプリケーション層）を取得してチャンク生成を委譲している。
 - 問題点: Domain → Application の逆依存が発生し、層構造が完全に崩れている。
 - 対応方針: Domain ヘルパーからアプリケーションサービス依存を排除し、必要な調整はアプリケーション層で Domain API を組み合わせて行う。
+- 対応結果: `WorldDomainHelpers` から `WorldApplicationService` 依存を排除し、チャンク生成等のユースケースロジックはアプリケーション層で扱うように再編した。
 
 ## 55. WorldDomainコンテナが ApplicationServices を同居
 - 該当箇所: `src/domain/world/domain.ts:1-38`。
 - 内容: WorldDomain エクスポート構造に `ApplicationServices` を含め、Domain インターフェースの一部として公開している。
 - 問題点: Domain API がアプリケーション層の実装を前提にし、層分離が事実上不可能になる。
 - 対応方針: Domain エクスポートから ApplicationServices を切り離し、アプリケーション層が独自に合成したファサードを公開する。
+- 対応結果: `WorldDomain` から ApplicationServices を除外し、ドメイン API は Types/ValueObjects/Services 等に限定。アプリケーション層の構成はユーザー側で組み立てる前提に変更した。
 
 ## 56. chunk_loader のアプリケーションロジックが Domain 配下に存在
 - 該当箇所: `src/domain/chunk_loader/application/chunk_loading_provider.ts:1-200`。
@@ -367,16 +489,19 @@
 - 該当箇所: `src/domain/biome/domain_service/biome_classification/climate_calculator.ts:11-12`, `src/domain/biome/domain_service/biome_classification/biome_mapper.ts:11-12`, `src/domain/biome/domain_service/biome_classification/ecosystem_analyzer.ts:11-12`
 - 内容: バイオーム判定サービスが `@domain/world/types/errors` や `@domain/world/value_object/world_seed` を直接 import している。
 - 問題点: Biome BC が World BC のエラー表現・シード型に結合し、独立したユビキタス言語を持てなくなる。World 側の変更がバイオームロジック全体に波及し、境界づけられたコンテキストの分離が破綻する。
+- 対応結果: `BiomeGenerationError` を導入し、WorldSeed を Shared 層へ移動。Biome サービスが World BC へ直接依存しない構成に再整理した。
 
 ## 62. biomeリポジトリがworld型とNode APIに依存
 - 該当箇所: `src/domain/biome/repository/biome_system_repository/persistence_implementation.ts:14-29`
 - 内容: 永続化実装が World BC のリポジトリエラー型や生成パラメータ型に依存し、同時に `fs`/`path`/`zlib` を直接操作している。
 - 問題点: Biome BC のリポジトリが world BC の実装詳細と Node のI/Oを抱え込み、境界分離とポート/アダプタの責務が混在している。
+- 対応結果: Biome リポジトリ向けの `BiomeRepositoryError` と独自契約を定義し、World 型への依存を排除。キャッシュ実装も同エラー体系へ統一した。
 
 ## 63. biome値オブジェクトがworldユーティリティに依存
 - 該当箇所: `src/domain/biome/value_object/biome_properties/vegetation_density.ts:1-12`, `src/domain/biome/value_object/biome_properties/soil_composition.ts:1-12` など
 - 内容: 値オブジェクトが `@domain/world/utils/taggedUnion` を利用し、World BC 提供のユーティリティに依存している。
 - 問題点: World BC の補助関数を前提にすると Biome BC のモデルが世界コンテキストに従属し、コンテキスト固有の表現を失う。
+- 対応結果: `taggedUnion` などのユーティリティを Shared 層へ移動し、Biome 値オブジェクトが World BC に依存しないようにした。
 
 ## 64. world_generationドメインサービスがworld値オブジェクトに依存
 - 該当箇所: `src/domain/world_generation/domain_service/procedural_generation/terrain_generator.ts:11-22`, `structure_spawner.ts:8-15`, `cave_carver.ts:8-20`
@@ -427,6 +552,7 @@
 - 該当箇所: `src/domain/world/config.ts:14-121`
 - 内容: `enableApplicationServices` などアプリケーション層向けフラグがドメイン設定スキーマに含まれている。
 - 問題点: ドメイン設定が上位レイヤーの振る舞いを制御し、責務境界が曖昧になる。
+- 対応結果: `enableApplicationServices` フラグを WorldDomainConfig から削除し、アプリケーション固有の切替はドメイン外で扱う方針に変更。`WorldDomainDataSchema` も同様に更新し、設定はビジネスロジック関連項目に限定した。
 
 ## 74. domain/types.ts が全BCの型を再エクスポート
 - 該当箇所: `src/domain/types.ts:1-40`
@@ -437,11 +563,13 @@
 - 該当箇所: `src/domain/index.ts:24-31`
 - 内容: `./chunk/application_service` への再エクスポートが残存しているが、該当モジュールは存在しない。
 - 問題点: ドメイン層 API が壊れたモジュールを公開し、利用者に誤った依存を強制する。
+- 対応結果: `src/domain/index.ts` から該当再エクスポートを削除し、ドメイン層が純粋な契約のみ公開するよう整理した。
 
 ## 76. domain/index.ts がChunkApplicationServiceLiveを公開
 - 該当箇所: `src/domain/index.ts:36-37`
 - 内容: ドメインのルートから `ChunkApplicationServiceLive` をそのまま再エクスポートしている。
 - 問題点: アプリケーション層の実装がドメインAPIの一部となり、層分離の原則を破る。
+- 対応結果: ドメイン入り口からアプリケーション実装の再エクスポートを削除し、代わりに `createChunkDomainLayer` を公開する形へ変更。アプリ層での組み立てに限定した。
 
 ## 77. CameraDomainLiveがCQRSハンドラを取り込む
 - 該当箇所: `src/domain/camera/layers.ts:13-44`
@@ -452,11 +580,13 @@
 - 該当箇所: `src/domain/chunk/layers.ts:8-21`
 - 内容: チャンクドメインのLayerがコマンド/クエリハンドラとリードモデルをまとめている。
 - 問題点: ドメイン層のLayerがアプリ層コンポーネントを抱えており、責務分離が崩壊する。
+- 対応結果: `createChunkDomainLayer` を導入し、Domain 層は純粋なサービスとリポジトリ契約のみを束ねる構造へ変更。`ChunkCommandHandlerLive` / `ChunkQueryHandlerLive` / `ChunkReadModelLive` は `src/application/chunk/cqrs/` へ移動し、アプリケーション層が CQRS を組み立てる形に改めた。
 
 ## 79. ChunkDomainLiveのデフォルトが開発用リポジトリ
 - 該当箇所: `src/domain/chunk/layers.ts:17-18`, `src/domain/chunk/repository/layers.ts:1-24`
 - 内容: ドメイン層が `ChunkDevelopmentLayer`（インメモリ実装）を標準として組み込んでいる。
 - 問題点: 実運用の永続化選択がドメイン層に焼き付けられ、環境切替をアプリ層から制御できない。
+- 対応結果: Domain 側のリポジトリエクスポートを契約定義のみに縮小し、インメモリ実装は `src/infrastructure/chunk/repository/layers.ts` の `ChunkRepositoryMemoryLayer` として提供。アプリケーション層で `createChunkDomainLayer` に適切な Layer を注入する構成へ移行した。
 
 ## 80. WorldGenerationDomainLiveがRead Modelを内包
 - 該当箇所: `src/domain/world_generation/layers.ts:24-45`
@@ -467,11 +597,13 @@
 - 該当箇所: `src/domain/chunk_loader/application/chunk_loading_provider.ts:1-160`
 - 内容: ドメインツリー内に `application` フォルダがあり、ユースケース組立・外部観測を担当している。
 - 問題点: アプリケーション層の実装がドメインに混在し、依存方向の整理ができない。
+- 対応結果: `src/domain/chunk_loader/application` を `src/application/chunk_loader/application` へ移動し、Domain からアプリケーションサービスの再輸出を削除。ChunkLoader のユースケースはアプリ層で管理する構造に整理した。
 
 ## 82. ChunkLoadingProviderが乱数とパフォーマンス統計を内製
 - 該当箇所: `src/domain/chunk_loader/application/chunk_loading_provider.ts:23-158`
 - 内容: `Random.nextIntBetween` を使った疑似乱数や `PerformanceStats` を直接管理し、擬似I/Oをドメインでシミュレーションしている。
 - 問題点: 技術的監視とテスト用スタブをドメインが抱え、純粋な業務ロジックと分離できていない。
+- 対応結果: ChunkLoadingProvider をアプリケーション層へ移動したことで、乱数・メトリクスといった技術的関心はアプリ側で扱うようになり、ドメイン層から排除済み。
 
 ## 83. 物理ドメインがパフォーマンス最適化サービスを保持
 - 該当箇所: `src/domain/physics/service/performance.ts:1-120`
@@ -532,6 +664,7 @@
 - 該当箇所: `src/domain/chunk_system/time.ts:22-27`
 - 内容: `sleepUntil` が `Effect.sleep` を用いてスレッド制御を行っている。
 - 問題点: タイマや待機はインフラ責務であり、ドメイン関数が直接実行するとテストや移植が困難になる。
+- 対応結果: `sleepUntil` は残り時間（ミリ秒）を返す純粋な計算へ変更し、実際の待機処理はアプリケーション層で行う前提に整理した。
 
 ## 95. BiomeSystemファクトリで擬似待機を実装
 - 該当箇所: `src/domain/biome/factory/biome_system_factory/factory.ts:755-758`
@@ -542,11 +675,13 @@
 - 該当箇所: `src/domain/chunk/aggregate/chunk/performance_optics.ts:316-320`
 - 内容: ブロック処理中に `Effect.sleep(Duration.millis(0))` を挿入し、GCに時間を与えている。
 - 問題点: ランタイム制御はインフラ関心であり、ドメイン処理に混入すると責務が崩れる。
+- 対応結果: 当該 `Effect.sleep` を削除し、処理は純粋なブロック変換に限定。スケジューリングが必要な場合はアプリケーション層で制御する方針に変更した。
 
 ## 97. Chunk Composite Operationsもsleepで制御
 - 該当箇所: `src/domain/chunk/aggregate/chunk/composite_operations.ts:398-402`
 - 内容: 並列処理中に `Effect.sleep(Duration.millis(0))` を繰り返し挟んでいる。
 - 問題点: ドメインロジックが調停用スリープを持ち、技術的制御と混在している。
+- 対応結果: ストリーミング処理から `Effect.sleep` を除去し、Domain は加工結果のみ返すよう修正。待機制御はアプリケーション層で実装する。
 
 ## 98. オーケストレータLayerがチャンク生成で固定待機を行う
 - 該当箇所: `src/domain/world_generation/domain_service/world_generation_orchestrator/layer.ts:150-159`

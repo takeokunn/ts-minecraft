@@ -3,8 +3,8 @@ import * as Data from 'effect/Data'
 import * as Effect from 'effect/Effect'
 import { pipe } from 'effect/Function'
 import * as Layer from 'effect/Layer'
-import { BlockFactory, BlockFactoryLive } from '../factory'
-import { BlockRepository, BlockRepositoryLayer } from '../repository'
+import { BlockFactory, makeBlockFactory } from '../factory'
+import { BlockRepository } from '../repository'
 import type { BlockRepositoryError } from '../repository/types'
 import type { BlockDefinition, BlockDefinitionError } from '../types'
 import { makeInteractiveBlock, makeLiquidBlock, makeStandardBlock } from '../types'
@@ -45,7 +45,7 @@ const wrapDefinitionError = (cause: BlockDefinitionError) => BlockRegistryError.
 
 const wrapRepositoryError = (cause: BlockRepositoryError) => BlockRegistryError.RepositoryError({ cause })
 
-const makeService = Effect.gen(function* () {
+export const makeBlockRegistryService = Effect.gen(function* () {
   const factory = yield* BlockFactory
   const repository = yield* BlockRepository
 
@@ -93,9 +93,6 @@ const makeService = Effect.gen(function* () {
   })
 })
 
-const BlockRegistryCore = Layer.effect(BlockRegistryService, makeService)
-
-export const BlockRegistryLayer = BlockRegistryCore.pipe(
-  Layer.provide(BlockFactoryLive),
-  Layer.provide(BlockRepositoryLayer)
+export const BlockRegistryLayer = Layer.effect(BlockRegistryService, makeBlockRegistryService).pipe(
+  Layer.provide(Layer.effect(BlockFactory, makeBlockFactory))
 )

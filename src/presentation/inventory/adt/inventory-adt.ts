@@ -4,7 +4,7 @@ import { Data, Effect, Match, Option, Schema, pipe } from 'effect'
 const decode = <A, I>(schema: Schema.Schema<A, I>) => Schema.decode(schema)
 
 // PlayerIdは共有カーネルから再エクスポート
-export { PlayerIdSchema, type PlayerId } from '@domain/shared/entities/player_id'
+export { PlayerIdSchema, type PlayerId } from '@application/inventory/presentation-service'
 export { SimpleItemIdSchema as ItemIdSchema, type ItemId } from '../../../domain/shared/entities/item_id'
 export const parsePlayerId = decode(PlayerIdSchema)
 export const playerIdToString = (value: PlayerId): string => value

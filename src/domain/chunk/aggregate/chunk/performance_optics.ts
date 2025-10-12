@@ -312,14 +312,7 @@ export const StreamingChunkOptics = {
             const processed = processor(blockChunk, startIndex)
             processedBlocks.push(...processed)
 
-            // 必要に応じて処理を一時停止してGCに時間を与える
-            return yield* pipe(
-              (chunkIndex * chunkSize) % (chunkSize * 10) === 0,
-              Match.value,
-              Match.when(true, () => Effect.sleep(Duration.millis(0))), // マイクロタスクキューに制御を渡す
-              Match.when(false, () => Effect.succeed(undefined)),
-              Match.exhaustive
-            )
+            return Effect.unit
           })
         )
       )

@@ -2,12 +2,16 @@ import { Layer } from 'effect'
 
 // ===== Domain Services Layer =====
 import {
-  CraftingIntegrationServiceLive,
-  ItemRegistryServiceLive,
-  StackingServiceLive,
-  TransferServiceLive,
-  ValidationServiceLive,
+  CraftingIntegrationService,
+  StackingService,
+  TransferService,
+  ValidationService,
+  makeCraftingIntegrationService,
+  makeStackingService,
+  makeTransferService,
+  makeValidationService,
 } from '@domain/inventory/domain_service'
+import { ItemRegistryServiceLayer } from '@infrastructure/inventory/service'
 
 // ===== Factory Layer =====
 import { ContainerFactoryLayer } from '@domain/inventory/aggregate/container/factory'
@@ -35,11 +39,11 @@ export const InventoryRepositoryLayer = createInventoryRepositoryLayer(DefaultIn
  * 複数集約にまたがるビジネスロジックを提供。
  */
 export const InventoryDomainServicesLayer = Layer.mergeAll(
-  ItemRegistryServiceLive,
-  TransferServiceLive,
-  StackingServiceLive,
-  ValidationServiceLive,
-  CraftingIntegrationServiceLive
+  ItemRegistryServiceLayer,
+  Layer.effect(TransferService, makeTransferService),
+  Layer.effect(StackingService, makeStackingService),
+  Layer.effect(ValidationService, makeValidationService),
+  Layer.effect(CraftingIntegrationService, makeCraftingIntegrationService)
 )
 
 /**

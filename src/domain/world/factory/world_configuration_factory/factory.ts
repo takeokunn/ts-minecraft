@@ -18,7 +18,7 @@
 import * as BiomeProperties from '@/domain/biome/value_object/biome_properties/index'
 import * as GenerationParameters from '@domain/world/value_object/generation_parameters/index'
 import * as NoiseConfiguration from '@domain/world/value_object/noise_configuration/index'
-import * as WorldSeed from '@domain/world/value_object/world_seed/index'
+import * as WorldSeed from '@domain/shared/value_object/world_seed/index'
 import { JsonValueSchema, type JsonRecord } from '@shared/schema/json'
 import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
 import { Context, Effect, Either, Function, Layer, Match, ReadonlyArray, Schema } from 'effect'

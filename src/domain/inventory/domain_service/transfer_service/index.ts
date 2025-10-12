@@ -16,8 +16,8 @@ export type {
   TransferabilityDetails,
 } from './service'
 
-// Live Implementation
-export { TransferServiceLive } from './live'
+// Service Factory
+export { makeTransferService } from './live'
 
 // Specifications
 export * from './service'

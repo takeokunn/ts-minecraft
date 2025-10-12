@@ -11,8 +11,8 @@ import {
   WorldCoordinateSchema,
   type BoundingBox,
   type WorldCoordinate,
-} from '@domain/world/value_object/coordinates'
-import type { WorldSeed } from '@domain/world/value_object/world_seed'
+} from '@domain/biome/value_object/coordinates'
+import type { WorldSeed } from '@domain/shared/value_object/world_seed'
 import { JsonRecordSchema } from '@shared/schema/json'
 import { Context, Effect, Layer, Match, pipe, ReadonlyArray, Schema } from 'effect'
 import type { HeightMap, TerrainContext } from './terrain_generator'

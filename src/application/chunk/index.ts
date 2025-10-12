@@ -5,6 +5,7 @@
 export * from './chunk_data_provider'
 export * from './chunk_generator'
 export * from './layers'
+export * from './cqrs'
 export {
   ChunkAPIService,
   ChunkAPIServiceLive,

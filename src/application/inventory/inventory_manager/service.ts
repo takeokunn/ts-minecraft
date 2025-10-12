@@ -8,7 +8,8 @@
 
 import type { Inventory } from '@/domain/inventory/aggregate/inventory'
 import type { ItemStack } from '@/domain/inventory/aggregate/item_stack'
-import type { InventoryCommand, InventoryId, InventoryQuery, PlayerId, QueryResult } from '@/domain/inventory/types'
+import type { InventoryId, PlayerId } from '@/domain/inventory'
+import type { InventoryCommand, InventoryQuery, QueryResult } from '@application/inventory/types'
 import { Context, Effect } from 'effect'
 import type { InventoryApplicationError } from '../types'
 

@@ -1,22 +1,24 @@
-/**
- * @fileoverview Chunk Application Layer
- * Application層の依存関係を提供し、Domain層に依存
- */
-
-import { ChunkDomainLive } from '@/domain/chunk/layers'
-import { ChunkInfrastructureLayer } from '@/infrastructure/chunk'
 import { Layer } from 'effect'
-import { ChunkDataProviderLive } from './chunk_data_provider'
+
+import { createChunkDomainLayer } from '@/domain/chunk/layers'
+import { ChunkInfrastructureLayer } from '@/infrastructure/chunk'
+import { ChunkRepositoryMemoryLayer } from '@/infrastructure/chunk/repository/layers'
 import { ChunkAPIServiceLive } from './api-service'
+import { ChunkDataProviderLive } from './chunk_data_provider'
+import { ChunkCommandHandlerLive, ChunkQueryHandlerLive, ChunkReadModelLive } from './cqrs'
 
-export const ChunkApplicationServicesLayer = Layer.mergeAll(ChunkDataProviderLive, ChunkAPIServiceLive)
+const ChunkDomainLayer = createChunkDomainLayer({ repository: ChunkRepositoryMemoryLayer })
 
-/**
- * Chunk Application Layer
- * - Application Services: ChunkDataProviderLive, ChunkAPIServiceLive
- * - 依存: ChunkDomainLive (Repository層)
- */
+export const ChunkApplicationServicesLayer = Layer.mergeAll(
+  ChunkReadModelLive,
+  ChunkCommandHandlerLive,
+  ChunkQueryHandlerLive,
+  ChunkDataProviderLive,
+  ChunkAPIServiceLive
+)
+
 export const ChunkApplicationLive = Layer.mergeAll(
-  ChunkApplicationServicesLayer,
-  ChunkInfrastructureLayer
-).pipe(Layer.provide(ChunkDomainLive))
+  ChunkDomainLayer,
+  ChunkInfrastructureLayer,
+  ChunkApplicationServicesLayer
+)

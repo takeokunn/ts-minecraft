@@ -3,7 +3,7 @@
  * システムライフサイクルとリソース管理のイベント定義
  */
 
-import { uuid } from '@domain/world/utils'
+import { uuid } from '@domain/shared/utils'
 import { JsonValueSchema, type JsonRecord } from '@shared/schema/json'
 import { DateTime, Effect, Schema } from 'effect'
 import { ChunkPosition, ChunkPositionSchema, WorldId, WorldIdSchema } from '../core'

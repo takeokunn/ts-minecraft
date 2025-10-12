@@ -5,7 +5,7 @@
  * 既存のInventoryCommandベースで実装
  */
 
-import type { InventoryCommand } from '@/domain/inventory/types'
+import type { InventoryCommand } from '@application/inventory/types'
 import { Effect } from 'effect'
 import type { InventoryApplicationError } from '../types'
 

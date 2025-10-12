@@ -5,7 +5,7 @@
  * 相対湿度・絶対湿度・露点温度の正確な計算
  */
 
-import { taggedUnion } from '@domain/world/utils'
+import { taggedUnion } from '@domain/shared/utils'
 import type { Brand as BrandType } from 'effect'
 import { Schema } from 'effect'
 import { unsafeCoerce } from 'effect/Function'

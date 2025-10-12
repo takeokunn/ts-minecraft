@@ -4,4 +4,4 @@
  * エクスポートモジュール
  */
 
-export { InventoryManagerApplicationServiceLive } from './service'
+export { InventoryManagerApplicationService, InventoryManagerApplicationServiceLive } from './service'

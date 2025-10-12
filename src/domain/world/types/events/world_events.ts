@@ -3,7 +3,7 @@
  * 世界ドメインのイベント定義（Event Sourcing対応）
  */
 
-import { uuid } from '@domain/world/utils'
+import { uuid } from '@domain/shared/utils'
 import { JsonValueSchema, type JsonRecord, type JsonValue } from '@shared/schema/json'
 import { DateTime, Effect, Schema } from 'effect'
 import {

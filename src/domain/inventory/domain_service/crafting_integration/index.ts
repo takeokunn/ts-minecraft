@@ -18,5 +18,5 @@ export type {
   RecipeType,
 } from './service'
 
-// Live Implementation
-export { CraftingIntegrationServiceLive } from './live'
+// Service Factory
+export { makeCraftingIntegrationService } from './live'

@@ -1,14 +1,9 @@
 import { describe, expect, it } from '@effect/vitest'
-import { ChunkAPIService, ChunkAPIServiceLive } from '@application/chunk'
+import { ChunkAPIService, ChunkApplicationLive } from '@application/chunk'
 import { createChunkPositionSync, createEmptyChunkDataAggregate, type ChunkData } from '@/domain/chunk'
 import { ChunkCommandSchema } from '@/domain/chunk/types'
-import { ChunkDevelopmentLayer } from '@/domain/chunk/repository/layers'
-import {
-  ChunkInfrastructureLayer,
-  ChunkWorkerAdapterLive,
-  ChunkWorkerAdapterTag,
-} from '@/infrastructure/chunk'
-import { Clock, Duration, Effect, Fiber, Layer, Option, Schema } from 'effect'
+import { ChunkWorkerAdapterTag } from '@/infrastructure/chunk'
+import { Clock, Duration, Effect, Fiber, Option, Schema } from 'effect'
 
 const createSampleChunk = (x: number, z: number, suffix: string) =>
   Effect.gen(function* () {
@@ -47,11 +42,7 @@ describe('ChunkAPIService', () => {
       const message = messageOption.value
       expect(message?._tag).toBe('LoadChunkRequest')
       expect(message?.position).toEqual(position)
-    }).pipe(
-      Effect.provideSomeLayer(
-        Layer.mergeAll(ChunkAPIServiceLive, ChunkDevelopmentLayer, ChunkWorkerAdapterLive)
-      )
-    )
+    }).pipe(Effect.provideSomeLayer(ChunkApplicationLive))
   )
 
   it.effect('requestAndWaitForChunksで生成されたチャンクを取得する', () =>
@@ -88,10 +79,6 @@ describe('ChunkAPIService', () => {
       const chunks = yield* Fiber.join(awaitFiber)
       expect(chunks).toHaveLength(1)
       expect(chunks[0]?.id).toBe(chunk.id)
-    }).pipe(
-      Effect.provideSomeLayer(
-        Layer.mergeAll(ChunkAPIServiceLive, ChunkInfrastructureLayer, ChunkDevelopmentLayer)
-      )
-    )
+    }).pipe(Effect.provideSomeLayer(ChunkApplicationLive))
   )
 })

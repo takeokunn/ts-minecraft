@@ -5,7 +5,7 @@
  * FFT/DFT原理に基づく周波数領域での制御
  */
 
-import { taggedUnion } from '@domain/world/utils'
+import { taggedUnion } from '@domain/shared/utils'
 import type { Brand as BrandType } from 'effect'
 import { Schema } from 'effect'
 

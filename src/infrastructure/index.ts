@@ -6,6 +6,7 @@
  */
 
 export * from './audio'
+export * from './block'
 export * from './chunk'
 export * from './ecs'
 export * from './inventory'
@@ -17,3 +18,4 @@ export * from './physics'
 export * from './rendering'
 export * from './scene'
 export * from './world_generation'
+export * from './player'

@@ -19,8 +19,8 @@ export type {
   StackSplitResult,
 } from './service'
 
-// Live Implementation
-export { StackingServiceLive } from './live'
+// Service Factory
+export { makeStackingService } from './live'
 
 // Rules and Constraints
 export * from './service'

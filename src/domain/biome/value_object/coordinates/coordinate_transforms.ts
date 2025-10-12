@@ -5,7 +5,7 @@
  * オーバーフロー防止と境界値の厳密な管理
  */
 
-import { taggedUnion } from '@domain/world/utils'
+import { taggedUnion } from '@domain/shared/utils'
 import { JsonValueSchema } from '@shared/schema/json'
 import { Effect, Schema } from 'effect'
 import { BLOCK_COORDINATE_LIMITS, BlockCoordinate, BlockRange } from './block_coordinate'

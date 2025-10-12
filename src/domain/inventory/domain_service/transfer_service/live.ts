@@ -6,7 +6,7 @@
  * 外部依存は一切持たない純粋なビジネスロジックとして実装されています。
  */
 
-import { Effect, Array as EffectArray, Layer, Match, Option, pipe, ReadonlyArray } from 'effect'
+import { Effect, Array as EffectArray, Match, Option, pipe, ReadonlyArray } from 'effect'
 import type { Inventory, ItemId, ItemStack } from '../../types'
 import {
   analyzeTransferability,
@@ -33,8 +33,7 @@ const isTransferFailure = (result: TransferResult | TransferFailure): result is 
  * 転送サービスのLive実装
  * 純粋なドメインロジックのみを含む
  */
-export const TransferServiceLive = Layer.succeed(
-  TransferService,
+export const makeTransferService = Effect.succeed(
   TransferService.of({
     /**
      * 単一アイテムの転送実行

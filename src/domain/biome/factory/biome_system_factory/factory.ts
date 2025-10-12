@@ -17,7 +17,7 @@
 
 import type * as BiomeSystem from '@/domain/biome/aggregate/biome_system'
 import * as BiomeProperties from '@/domain/biome/value_object/biome_properties/index'
-import * as Coordinates from '@/domain/biome/value_object/coordinates/index'
+import * as Coordinates from '@/domain/biome/value_object/coordinates'
 import { JsonValueSchema, type JsonRecord } from '@shared/schema/json'
 import { makeErrorFactory } from '@shared/schema/tagged_error_factory'
 import { Context, Effect, Function, Layer, Match, Option, Schema, pipe } from 'effect'

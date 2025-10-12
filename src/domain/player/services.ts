@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, pipe } from 'effect'
+import { Context, Effect, pipe } from 'effect'
 import {
   applyCommand,
   createPlayer,
@@ -58,7 +58,7 @@ export interface PlayerDomainService {
 
 export const PlayerDomainService = Context.Tag<PlayerDomainService>('@domain/player/service')
 
-const makeService = Effect.gen(function* () {
+export const createPlayerDomainService = Effect.gen(function* () {
   const repository = yield* PlayerRepository
   const clock = yield* PlayerClock
 
@@ -138,5 +138,3 @@ const makeService = Effect.gen(function* () {
     list,
   } satisfies PlayerDomainService
 })
-
-export const PlayerDomainServiceLive = Layer.effect(PlayerDomainService, makeService)

@@ -18,8 +18,8 @@ export type {
   ValidationWarning,
 } from './service'
 
-// Live Implementation
-export { ValidationServiceLive } from './live'
+// Service Factory
+export { makeValidationService } from './live'
 
 // Validators
 export * from './service'

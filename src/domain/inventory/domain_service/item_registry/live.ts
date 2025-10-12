@@ -4,23 +4,26 @@
  * アイテムレジストリドメインサービスの純粋なドメインロジック実装。
  */
 
-import { Effect, Layer, Match, Option, pipe } from 'effect'
+import { Effect, Match, Option, pipe } from 'effect'
+import type { ItemId } from '../../types'
+import { ItemRegistryService, type ItemRegistryError } from './service'
 import {
   getAllDefaultItemDefinitions,
   getDefaultItemDefinition,
   getDefaultItemsByCategory,
   getItemStackLimit,
   itemExists,
-  ItemRegistryError,
-  ItemRegistryService,
   searchDefaultItems,
-} from './index'
+} from './definitions'
 
-/**
- * アイテムレジストリサービスのLive実装
- */
-export const ItemRegistryServiceLive = Layer.succeed(
-  ItemRegistryService,
+const itemNotFound = (itemId: ItemId) =>
+  Effect.fail<ItemRegistryError>({
+    _tag: 'ItemRegistryError' as const,
+    reason: 'ITEM_NOT_FOUND',
+    itemId,
+  })
+
+export const makeItemRegistryService = Effect.succeed(
   ItemRegistryService.of({
     /**
      * アイテム定義取得
@@ -32,7 +35,7 @@ export const ItemRegistryServiceLive = Layer.succeed(
         return yield* pipe(
           Option.fromNullable(definition),
           Option.match({
-            onNone: () => Effect.fail(new ItemRegistryError('ITEM_NOT_FOUND', itemId)),
+            onNone: () => itemNotFound(itemId),
             onSome: (def) => Effect.succeed(def),
           })
         )
@@ -70,7 +73,7 @@ export const ItemRegistryServiceLive = Layer.succeed(
           Match.value,
           Match.when(
             ([src, tgt]) => !src || !tgt,
-            ([src]) => Effect.fail(new ItemRegistryError('ITEM_NOT_FOUND', !src ? sourceItemId : targetItemId))
+            ([src]) => itemNotFound(!src ? sourceItemId : targetItemId)
           ),
           Match.orElse(([src, tgt]) => Effect.succeed([src!, tgt!] as const))
         )
@@ -116,7 +119,7 @@ export const ItemRegistryServiceLive = Layer.succeed(
 
         return yield* pipe(
           Match.value(exists),
-          Match.when(false, () => Effect.fail(new ItemRegistryError('ITEM_NOT_FOUND', itemId))),
+          Match.when(false, () => itemNotFound(itemId)),
           Match.when(true, () => getItemStackLimit(itemId)),
           Match.exhaustive
         )

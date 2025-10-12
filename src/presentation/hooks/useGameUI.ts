@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 
 import type { ManagedRuntime } from 'effect/ManagedRuntime'
-import { Duration, Effect, Fiber, Option, Schedule, Schema, Stream, pipe } from 'effect'
+import { Duration, Effect, Fiber, Option, Schedule, Stream, pipe } from 'effect'
 
 import type { CameraHUDViewModel } from '@application/camera/hud-service'
 import { CameraHUDService } from '@application/camera/hud-service'
@@ -13,21 +13,10 @@ import type { InventoryEventHandler, InventoryPanelModel } from '@presentation/i
 import { InventoryOpened, parsePlayerId } from '@presentation/inventory/adt'
 import { InventoryViewModelTag } from '@presentation/inventory/view-model'
 
-import { InventoryService } from '@domain/inventory'
-import { CameraFactory } from '@domain/camera/aggregate/camera/factory'
-import { cameraToSnapshot } from '@domain/camera/cqrs/helpers'
-import { CameraReadModel } from '@domain/camera/cqrs/read_model'
-import { createPosition3D } from '@domain/camera/value_object/camera_position/operations'
-import { CameraStateRepository } from '@domain/camera/repository/camera_state'
-import { CameraIdSchema } from '@domain/camera/types'
-import { PlayerDomainService } from '@domain/player/services'
-import {
-  PlayerGameModeSchema,
-  PlayerNameSchema,
-  PlayerPositionSchema,
-  type PlayerId,
-} from '@domain/player/types'
-import { PlayerIdOperations } from '@domain/shared/entities/player_id'
+import { InventoryManagerApplicationService } from '@application/inventory/inventory_manager'
+import { createCameraPosition, PlayerCameraApplicationService } from '@application/camera'
+import { PlayerLifecycleApplicationService } from '@application/player'
+import { PlayerIdOperations } from '@application/inventory/presentation-service'
 
 type Runtime = ManagedRuntime<unknown, unknown>
 
@@ -50,56 +39,48 @@ export const useGameUI = (runtime: Runtime) => {
   const [hudState, setHudState] = useState<HudState>({ player: null, camera: null })
   const [inventoryPanel, setInventoryPanel] = useState<InventoryPanelModel | null>(null)
   const inventoryHandlerRef = useRef<InventoryEventHandler | null>(null)
+  const cameraIdRef = useRef<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
 
     const program = Effect.scoped(
       Effect.gen(function* () {
-        const playerId: PlayerId = PlayerIdOperations.makeUnsafe(DEFAULT_PLAYER_ID)
-        const inventoryPlayerId = yield* parsePlayerId(DEFAULT_PLAYER_ID)
-        const cameraId = yield* Schema.decode(CameraIdSchema)(DEFAULT_CAMERA_ID)
-
-        const playerDomain = yield* PlayerDomainService
-        const playerName = yield* Schema.decode(PlayerNameSchema)('Player One')
-        const gameMode = yield* Schema.decode(PlayerGameModeSchema)('survival')
-        const playerPosition = yield* Schema.decode(PlayerPositionSchema)({
-          x: 0,
-          y: 64,
-          z: 0,
-          worldId: 'overworld',
-          yaw: 0,
-          pitch: 0,
+        const playerLifecycle = yield* PlayerLifecycleApplicationService
+        const playerSnapshot = yield* playerLifecycle.ensurePlayerSession({
+          id: DEFAULT_PLAYER_ID,
+          name: 'Player One',
+          gameMode: 'survival',
+          position: {
+            x: 0,
+            y: 64,
+            z: 0,
+            worldId: 'overworld',
+            yaw: 0,
+            pitch: 0,
+          },
         })
 
-        yield* playerDomain
-          .spawn({
-            id: playerId,
-            name: playerName,
-            gameMode,
-            position: playerPosition,
-          })
+        const playerId = playerSnapshot.aggregate.id
+        const inventoryPlayerId = yield* parsePlayerId(DEFAULT_PLAYER_ID)
+
+        const inventoryManager = yield* InventoryManagerApplicationService
+        yield* inventoryManager
+          .initializePlayerInventory(playerId, 'player')
           .pipe(Effect.catchAll(() => Effect.void))
 
-        const playerSnapshot = yield* playerDomain.snapshot(playerId)
-
-        const inventoryService = yield* InventoryService
-        yield* inventoryService.createInventory(playerId).pipe(Effect.catchAll(() => Effect.void))
-
-        const cameraRepository = yield* CameraStateRepository
-        const cameraReadModel = yield* CameraReadModel
-
-        const cameraExists = yield* cameraRepository.exists(cameraId)
-        yield* Effect.when(!cameraExists, () =>
-          Effect.gen(function* () {
-            const position = playerSnapshot.aggregate.position
-            const cameraBasePosition = yield* createPosition3D(position.x, position.y, position.z)
-            const camera = yield* CameraFactory.createFirstPerson(cameraId, cameraBasePosition)
-            yield* cameraRepository.save(camera)
-            yield* cameraRepository.saveSnapshot(cameraId, cameraToSnapshot(camera))
-            yield* cameraReadModel.upsert(camera)
-          })
+        const playerCameraService = yield* PlayerCameraApplicationService
+        const cameraPosition = yield* createPosition3D(
+          playerSnapshot.aggregate.position.x,
+          playerSnapshot.aggregate.position.y,
+          playerSnapshot.aggregate.position.z
+        ).pipe(Effect.orDie)
+        const cameraId = yield* playerCameraService.initializePlayerCamera(
+          playerSnapshot.aggregate.id,
+          cameraPosition,
+          Option.none()
         )
+        cameraIdRef.current = String(cameraId)
 
         const inventoryViewModel = yield* InventoryViewModelTag
         const inventoryStateStore = yield* InventoryStateStoreTag
@@ -194,7 +175,7 @@ export const useGameUI = (runtime: Runtime) => {
       panel: inventoryPanel,
       handler: inventoryHandlerRef.current,
     } satisfies InventoryState,
-    defaultCameraId: DEFAULT_CAMERA_ID,
+    defaultCameraId: cameraIdRef.current ?? DEFAULT_CAMERA_ID,
     defaultPlayerId: DEFAULT_PLAYER_ID,
   }
 }

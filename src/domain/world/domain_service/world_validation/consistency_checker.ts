@@ -13,7 +13,7 @@ import {
   makeUnsafeWorldCoordinate2D,
   type BoundingBox,
   type WorldCoordinate2D,
-} from '@domain/world/value_object/coordinates'
+} from '@domain/biome/value_object/coordinates'
 import { Context, Effect, Layer, Match, ReadonlyArray, Schema, pipe } from 'effect'
 import type { BiomeMappingResult, ClimateData } from '../biome_classification'
 

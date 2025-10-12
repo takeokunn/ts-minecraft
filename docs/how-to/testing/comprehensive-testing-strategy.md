@@ -1678,7 +1678,7 @@ describe('Full Stack Integration Tests', () => {
   const createIntegrationTestLayers = () => {
     return Layer.mergeAll(
       // Infrastructure (テスト用インメモリ実装)
-      InMemoryPlayerRepositoryLive,
+      PlayerRepositoryInMemoryLayer,
       InMemoryWorldRepositoryLive,
       MockRenderingServiceLive,
       MockNetworkServiceLive,
