@@ -18,14 +18,14 @@ importers:
         specifier: ^3.2.2
         version: 3.2.2(react@19.2.0)
       '@effect/platform':
-        specifier: ^0.90.10
-        version: 0.90.10(effect@3.18.2)
+        specifier: ^0.92.1
+        version: 0.92.1(effect@3.18.4)
       '@effect/schema':
         specifier: ^0.75.5
-        version: 0.75.5(effect@3.18.2)
+        version: 0.75.5(effect@3.18.4)
       '@fp-ts/optic':
         specifier: ^0.25.0
-        version: 0.25.0(@effect/typeclass@0.27.5(effect@3.18.2))(effect@3.18.2)
+        version: 0.25.0(@effect/typeclass@0.27.5(effect@3.18.4))(effect@3.18.4)
       '@types/react':
         specifier: ^19.2.0
         version: 19.2.0
@@ -36,8 +36,8 @@ importers:
         specifier: ^0.20.0
         version: 0.20.0
       effect:
-        specifier: ^3.18.2
-        version: 3.18.2
+        specifier: ^3.18.4
+        version: 3.18.4
       framer-motion:
         specifier: ^12.23.22
         version: 12.23.22(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
@@ -62,7 +62,7 @@ importers:
     devDependencies:
       '@effect/vitest':
         specifier: ^0.25.1
-        version: 0.25.1(effect@3.18.2)(vitest@3.2.4)
+        version: 0.25.1(effect@3.18.4)(vitest@3.2.4)
       '@testing-library/dom':
         specifier: ^10.4.1
         version: 10.4.1
@@ -224,10 +224,10 @@ packages:
     peerDependencies:
       react: '>=16.8.0'
 
-  '@effect/platform@0.90.10':
-    resolution: {integrity: sha512-QhDPgCaLfIMQKOCoCPQvRUS+Y34iYJ07jdZ/CBAvYFvg/iUBebsmFuHL63RCD/YZH9BuK/kqqLYAA3M0fmUEgg==}
+  '@effect/platform@0.92.1':
+    resolution: {integrity: sha512-XXWCBVwyhaKZISN7aM1fv/3fWDGyxr84ObywnUrL8aHvJLoIeskWFAP/fqw3c5MFCrJ3ZV97RWLbv6JiBQugdg==}
     peerDependencies:
-      effect: ^3.17.13
+      effect: ^3.18.1
 
   '@effect/schema@0.75.5':
     resolution: {integrity: sha512-TQInulTVCuF+9EIbJpyLP6dvxbQJMphrnRqgexm/Ze39rSjfhJuufF7XvU3SxTgg3HnL7B/kpORTJbHhlE6thw==}
@@ -812,8 +812,8 @@ packages:
     resolution: {integrity: sha512-0je+qPKHEMohvfRTCEo3CrPG6cAzAYgmzKyxRiYSSDkS6eGJdyVJm7WaYA5ECaAD9wLB2T4EEeymA5aFVcYXCA==}
     engines: {node: '>=6'}
 
-  detect-libc@2.1.1:
-    resolution: {integrity: sha512-ecqj/sy1jcK1uWrwpR67UhYrIFQ+5WlGxth34WquCbamhFA6hkkwiu37o6J5xCHdo1oixJRfVRw+ywV+Hq/0Aw==}
+  detect-libc@2.1.2:
+    resolution: {integrity: sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ==}
     engines: {node: '>=8'}
 
   dom-accessibility-api@0.5.16:
@@ -827,8 +827,8 @@ packages:
     engines: {node: '>=20.11.0'}
     hasBin: true
 
-  effect@3.18.2:
-    resolution: {integrity: sha512-WWtrvydMwI4skxwgzISJLGTp3GUSiz9BZ6TzOj7GDsGPNV9sxUq1X31u+OF3JUWXG8ZT3ZuLyM8xSguP/hBFBg==}
+  effect@3.18.4:
+    resolution: {integrity: sha512-b1LXQJLe9D11wfnOKAk3PKxuqYshQ0Heez+y5pnkd3jLj1yx9QhM72zZ9uUrOQyNvrs2GZZd/3maL0ZV18YuDA==}
 
   emoji-regex@8.0.0:
     resolution: {integrity: sha512-MSjYzcWNOA0ewAHpz0MxpYFvwg6yjy1NG3xteoqz644VCo/RPgnr1/GGt+ic3iJTzQ8Eu3TdM14SawnVUmGE6A==}
@@ -1546,25 +1546,25 @@ snapshots:
       react: 19.2.0
       tslib: 2.8.1
 
-  '@effect/platform@0.90.10(effect@3.18.2)':
+  '@effect/platform@0.92.1(effect@3.18.4)':
     dependencies:
-      effect: 3.18.2
+      effect: 3.18.4
       find-my-way-ts: 0.1.6
       msgpackr: 1.11.5
       multipasta: 0.2.7
 
-  '@effect/schema@0.75.5(effect@3.18.2)':
+  '@effect/schema@0.75.5(effect@3.18.4)':
     dependencies:
-      effect: 3.18.2
+      effect: 3.18.4
       fast-check: 3.23.2
 
-  '@effect/typeclass@0.27.5(effect@3.18.2)':
+  '@effect/typeclass@0.27.5(effect@3.18.4)':
     dependencies:
-      effect: 3.18.2
+      effect: 3.18.4
 
-  '@effect/vitest@0.25.1(effect@3.18.2)(vitest@3.2.4)':
+  '@effect/vitest@0.25.1(effect@3.18.4)(vitest@3.2.4)':
     dependencies:
-      effect: 3.18.2
+      effect: 3.18.4
       vitest: 3.2.4(@types/node@24.6.2)(@vitest/ui@3.2.4)(happy-dom@18.0.1)(jsdom@27.0.0(postcss@8.5.6))(tsx@4.20.6)
 
   '@esbuild/aix-ppc64@0.25.10':
@@ -1645,10 +1645,10 @@ snapshots:
   '@esbuild/win32-x64@0.25.10':
     optional: true
 
-  '@fp-ts/optic@0.25.0(@effect/typeclass@0.27.5(effect@3.18.2))(effect@3.18.2)':
+  '@fp-ts/optic@0.25.0(@effect/typeclass@0.27.5(effect@3.18.4))(effect@3.18.4)':
     dependencies:
-      '@effect/typeclass': 0.27.5(effect@3.18.2)
-      effect: 3.18.2
+      '@effect/typeclass': 0.27.5(effect@3.18.4)
+      effect: 3.18.4
 
   '@isaacs/balanced-match@4.0.1': {}
 
@@ -2017,7 +2017,7 @@ snapshots:
 
   dequal@2.0.3: {}
 
-  detect-libc@2.1.1:
+  detect-libc@2.1.2:
     optional: true
 
   dom-accessibility-api@0.5.16: {}
@@ -2026,7 +2026,7 @@ snapshots:
 
   editorconfig-checker@6.1.0: {}
 
-  effect@3.18.2:
+  effect@3.18.4:
     dependencies:
       '@standard-schema/spec': 1.0.0
       fast-check: 3.23.2
@@ -2300,7 +2300,7 @@ snapshots:
 
   node-gyp-build-optional-packages@5.2.2:
     dependencies:
-      detect-libc: 2.1.1
+      detect-libc: 2.1.2
     optional: true
 
   package-json-from-dist@1.0.1: {}
