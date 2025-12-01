@@ -27,17 +27,17 @@
     "@effect/platform": "^0.90.10",
     "@effect/schema": "^0.75.5",
     "@fp-ts/optic": "^0.25.0",
-    "@types/react": "^19.2.0",
-    "@types/react-dom": "^19.2.0",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
     "cannon-es": "^0.20.0",
     "effect": "^3.18.2",
-    "framer-motion": "^12.23.22",
+    "framer-motion": "^12.23.24",
     "idb-keyval": "^6.2.2",
     "nanoid": "^5.1.6",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "three": "^0.180.0",
-    "zustand": "^5.0.8"
+    "zustand": "^5.0.9"
   },
   "devDependencies": {
     "@effect/vitest": "^0.25.1",
