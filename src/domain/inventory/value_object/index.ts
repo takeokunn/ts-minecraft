@@ -1,6 +1,0 @@
-export * from './inventory_type'
-export * from './item_id'
-export * from './item_metadata'
-export * from './slot'
-export * from './slot_position'
-export * from './stack_size'

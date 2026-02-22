@@ -1,6 +1,0 @@
-export * from './biome_registry'
-export * from './biome_system'
-export * from './biome_transitions'
-export * from './climate_model'
-export * from './events'
-export * from './shared/index'
