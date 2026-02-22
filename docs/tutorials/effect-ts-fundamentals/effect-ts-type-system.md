@@ -26,7 +26,7 @@ Effect-TSは、関数型プログラミングの概念をTypeScriptで利用で�
 
 ```typescript
 import { Effect, pipe } from 'effect'
-import { Schema } from '@effect/schema'
+import { Schema } from 'effect'
 
 // 従来のコード
 function processUserData(data: any) {
@@ -67,7 +67,7 @@ const processUserDataEffect = (data: unknown) =>
 ### 基本的なブランド型の定義
 
 ```typescript
-import { Schema } from '@effect/schema'
+import { Schema } from 'effect'
 
 // プレイヤーID用のブランド型
 export const PlayerIdSchema = Schema.String.pipe(
@@ -195,7 +195,7 @@ Effect-TS Schemaは、ランタイム時の値検証とTypeScriptの型システ
 ### 基本的なSchema定義
 
 ```typescript
-import { Schema } from '@effect/schema'
+import { Schema } from 'effect'
 
 // プリミティブ型
 const StringSchema = Schema.String
@@ -214,7 +214,7 @@ const UserSchema = Schema.Struct({
 const UserWithOptionalEmailSchema = Schema.Struct({
   id: Schema.String,
   name: Schema.String,
-  email: Schema.optional(Schema.String),
+  email: Schema.optionalWith(Schema.String, { exact: true }),
   age: Schema.Number,
 })
 

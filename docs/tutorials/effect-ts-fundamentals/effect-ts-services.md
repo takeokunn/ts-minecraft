@@ -1,6 +1,6 @@
 ---
 title: 'Effect-TS サービス層パターン - 依存性注入とレイヤー管理'
-description: 'Context.GenericTag、Layer、ManagedRuntimeを活用したサービス層の設計パターンとテスタブルなアーキテクチャの構築方法'
+description: 'Context.Tag、Layer、ManagedRuntimeを活用したサービス層の設計パターンとテスタブルなアーキテクチャの構築方法'
 category: 'architecture'
 difficulty: 'intermediate'
 tags: ['effect-ts', 'services', 'dependency-injection', 'layer', 'context']
@@ -16,13 +16,13 @@ estimated_reading_time: '25分'
 
 > 📍 **Navigation**: ← [Effect-TS Basics](./06a-effect-ts-basics.md) | → [Error Handling](./06c-effect-ts-error-handling.md)
 
-このドキュメントでは、TypeScript Minecraftプロジェクトにおける**Effect-TS 3.17+** のサービス層設計パターンを解説します。Context.GenericTag、Layer、ManagedRuntimeを活用した型安全で拡張可能なアーキテクチャを構築する方法を説明します。
+このドキュメントでは、TypeScript Minecraftプロジェクトにおける**Effect-TS 3.17+** のサービス層設計パターンを解説します。Context.Tag（class-based）、Layer、ManagedRuntimeを活用した型安全で拡張可能なアーキテクチャを構築する方法を説明します。
 
 > 📖 **関連ドキュメント**: [Effect-TS 基本概念](./06a-effect-ts-basics.md) | [Effect-TS エラーハンドリング](./06c-effect-ts-error-handling.md) | [Effect-TS テスト](./06d-effect-ts-testing.md)
 
-## 1. Context.GenericTag によるサービス定義
+## 1. Context.Tag によるサービス定義
 
-**Effect-TS 3.17+ 最新パターン**: サービス（依存関係）は `Context.GenericTag` を用いて定義します。この形式により型安全性を確保し、プロジェクト内での一貫性を保ちます。
+**Effect-TS 3.17+ 最新パターン**: サービス（依存関係）は `class extends Context.Tag` を用いて定義します。この形式により型安全性を確保し、プロジェクト内での一貫性を保ちます。
 
 ### 1.1 基本的なサービス定義
 
@@ -31,28 +31,35 @@ estimated_reading_time: '25分'
 // 🏢 Service Layer Architecture - Interactive Example
 import { Context, Effect, Schema } from 'effect'
 
-// ✅ 最新パターン（Context.GenericTag）
-export const WorldService = Context.GenericTag<{
-  readonly getBlock: (pos: Position) => Effect.Effect<Block, BlockNotFoundError>
-  readonly setBlock: (pos: Position, block: Block) => Effect.Effect<void, BlockSetError>
-  readonly getChunk: (chunkId: ChunkId) => Effect.Effect<Chunk, ChunkNotFoundError>
-  readonly isValidPosition: (pos: Position) => Effect.Effect<boolean, never>
-}>('@services/WorldService')
+// ✅ 最新パターン（class extends Context.Tag）
+export class WorldService extends Context.Tag("@services/WorldService")<
+  WorldService,
+  {
+    readonly getBlock: (pos: Position) => Effect.Effect<Block, BlockNotFoundError>
+    readonly setBlock: (pos: Position, block: Block) => Effect.Effect<void, BlockSetError>
+    readonly getChunk: (chunkId: ChunkId) => Effect.Effect<Chunk, ChunkNotFoundError>
+    readonly isValidPosition: (pos: Position) => Effect.Effect<boolean, never>
+  }
+>() {}
 
-// ✅ エラー型の定義（Schema.TaggedError使用）
-const BlockNotFoundError = Schema.TaggedError('BlockNotFoundError', {
-  position: Position,
-  message: Schema.String,
-  timestamp: Schema.Number.pipe(Schema.brand('Timestamp')),
-})
-type BlockNotFoundError = Schema.Schema.Type<typeof BlockNotFoundError>
+// ✅ エラー型の定義（class-based Schema.TaggedError使用）
+class BlockNotFoundError extends Schema.TaggedError<BlockNotFoundError>()(
+  "BlockNotFoundError",
+  {
+    position: Position,
+    message: Schema.String,
+    timestamp: Schema.Number.pipe(Schema.brand('Timestamp')),
+  }
+) {}
 
-const BlockSetError = Schema.TaggedError('BlockSetError', {
-  position: Position,
-  reason: Schema.String,
-  timestamp: Schema.Number.pipe(Schema.brand('Timestamp')),
-})
-type BlockSetError = Schema.Schema.Type<typeof BlockSetError>
+class BlockSetError extends Schema.TaggedError<BlockSetError>()(
+  "BlockSetError",
+  {
+    position: Position,
+    reason: Schema.String,
+    timestamp: Schema.Number.pipe(Schema.brand('Timestamp')),
+  }
+) {}
 
 // ✅ 複合サービスインターフェース
 interface PlayerServiceInterface {
@@ -62,7 +69,10 @@ interface PlayerServiceInterface {
   readonly addPlayer: (player: Player) => Effect.Effect<void, PlayerAddError>
 }
 
-export const PlayerService = Context.GenericTag<PlayerServiceInterface>('@minecraft/PlayerService')
+export class PlayerService extends Context.Tag("@minecraft/PlayerService")<
+  PlayerService,
+  PlayerServiceInterface
+>() {}
 
 // ✅ インベントリサービス
 interface InventoryServiceInterface {
@@ -76,7 +86,10 @@ interface InventoryServiceInterface {
   readonly moveItem: (playerId: PlayerId, fromSlot: number, toSlot: number) => Effect.Effect<Inventory, InventoryError>
 }
 
-export const InventoryService = Context.GenericTag<InventoryServiceInterface>('@minecraft/InventoryService')
+export class InventoryService extends Context.Tag("@minecraft/InventoryService")<
+  InventoryService,
+  InventoryServiceInterface
+>() {}
 ```
 
 ### 1.2 サービス間の依存関係
@@ -89,8 +102,10 @@ interface GameStateServiceInterface {
   readonly getWorldSnapshot: () => Effect.Effect<WorldSnapshot, never>
 }
 
-interface GameStateServiceInterface extends GameStateService, GameStateServiceInterface {}
-const GameStateService = Context.GenericTag<GameStateServiceInterface>('GameStateService')
+class GameStateService extends Context.Tag("GameStateService")<
+  GameStateService,
+  GameStateServiceInterface
+>() {}
 
 // ✅ 複数サービスを依存する高レベルサービス
 interface GameEngineInterface {
@@ -99,8 +114,10 @@ interface GameEngineInterface {
   readonly saveWorld: () => Effect.Effect<void, SaveError>
 }
 
-interface GameEngineInterface extends GameEngine, GameEngineInterface {}
-const GameEngine = Context.GenericTag<GameEngineInterface>('GameEngine')
+class GameEngine extends Context.Tag("GameEngine")<
+  GameEngine,
+  GameEngineInterface
+>() {}
 
 // ✅ サービス要件の型安全な合成
 type GameServices = WorldService | PlayerService | InventoryService | GameStateService
@@ -427,9 +444,9 @@ const PlayerServiceLive = Layer.effect(PlayerService, makePlayerServiceLive).pip
 // ✅ ManagedRuntimeによる高レベルAPI
 export const createWorldRuntime = (environment: 'dev' | 'prod' | 'test' = 'dev') => {
   const layer = Match.value(environment).pipe(
-    Match.tag('dev', () => WorldServiceDev),
-    Match.tag('prod', () => WorldServiceProd),
-    Match.tag('test', () => WorldServiceTest),
+    Match.when('dev', () => WorldServiceDev),
+    Match.when('prod', () => WorldServiceProd),
+    Match.when('test', () => WorldServiceTest),
     Match.exhaustive
   )
 
@@ -441,9 +458,9 @@ const createGameRuntime = (environment: 'dev' | 'prod' | 'test' = 'dev') => {
   const baseLayer = Layer.mergeAll(WorldServiceLive, PlayerServiceLive, InventoryServiceLive, GameStateServiceLive)
 
   const envLayer = Match.value(environment).pipe(
-    Match.tag('dev', () => baseLayer.pipe(Layer.provide(DevConfigLayer))),
-    Match.tag('prod', () => baseLayer.pipe(Layer.provide(ProdConfigLayer))),
-    Match.tag('test', () => baseLayer.pipe(Layer.provide(TestConfigLayer))),
+    Match.when('dev', () => baseLayer.pipe(Layer.provide(DevConfigLayer))),
+    Match.when('prod', () => baseLayer.pipe(Layer.provide(ProdConfigLayer))),
+    Match.when('test', () => baseLayer.pipe(Layer.provide(TestConfigLayer))),
     Match.exhaustive
   )
 
@@ -785,7 +802,7 @@ const makeMonitoredWorldService = Effect.gen(function* () {
 
 ### 🔧 **実装パターン**
 
-- **Context.Tag** によるサービス定義
+- **class extends Context.Tag** によるサービス定義
 - **Layer.effect** による実装の提供
 - **Effect.gen** による線形な処理フロー
 - **ManagedRuntime** による統合管理

@@ -47,7 +47,7 @@ Minecraftのゲームワールドにおける基本ブロックシステムを�
 
 #### 📚 ドキュメント確認
 
-- [x] `@docs/INDEX.md` - プロジェクト全体方針確認
+- [x] `@docs/README.md` - プロジェクト全体方針確認
 - [x] `@docs/tutorials/effect-ts-fundamentals/` - Effect-TSパターン確認
 - [x] `@docs/explanations/design-patterns/` - 設計パターン確認
 - [x] `@docs/how-to/development/development-conventions.md` - 開発規約確認

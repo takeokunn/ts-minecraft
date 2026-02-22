@@ -134,7 +134,7 @@ interface MovementECS {
   readonly updatePositions: (deltaTime: number) => void
 }
 
-const MovementECS = Context.GenericTag<MovementECS>('@minecraft/MovementECS')
+class MovementECS extends Context.Tag('@minecraft/MovementECS')<MovementECS, MovementECS>() {}
 
 export const makeMovementECS = (maxEntities: number = MAX_ENTITIES) =>
   Effect.gen(function* () {
@@ -415,63 +415,63 @@ export const createOptimizedGameLoop = (
     const frameStart = performance.now()
 
     // Phase 1: クリティカルパス（4ms 以内）
-    await this.criticalUpdates(deltaTime)
+    await criticalUpdates(ecsWorld, deltaTime)
 
     // Phase 2: 重要だが遅延可能（8ms 以内）
-    await this.importantUpdates(deltaTime)
+    await importantUpdates(domainServices, deltaTime)
 
     // Phase 3: バックグラウンド処理（残り時間）
     const remaining = 16 - (performance.now() - frameStart)
     if (remaining > 2) {
-      await this.backgroundUpdates(remaining)
+      await backgroundUpdates(remaining)
     }
-  }
+  },
+})
 
-  private async criticalUpdates(deltaTime: number): Promise<void> {
-    // ECS による高速処理
-    this.ecsWorld.updateSystems([
-      "MovementSystem",     // プレイヤー・エンティティの移動
-      "PhysicsSystem",      // 物理シミュレーション
-      "CollisionSystem",    // 衝突判定
-      "RenderingSystem"     // 描画準備
-    ], deltaTime)
-  }
+const criticalUpdates = async (ecsWorld: ECSWorld, deltaTime: number): Promise<void> => {
+  // ECS による高速処理
+  ecsWorld.updateSystems([
+    "MovementSystem",     // プレイヤー・エンティティの移動
+    "PhysicsSystem",      // 物理シミュレーション
+    "CollisionSystem",    // 衝突判定
+    "RenderingSystem"     // 描画準備
+  ], deltaTime)
+}
 
-  private async importantUpdates(deltaTime: number): Promise<void> {
-    // ドメインロジック（バッチ処理）
-    const pendingActions = await this.actionQueue.flush()
+const importantUpdates = async (domainServices: DomainServices, deltaTime: number): Promise<void> => {
+  // ドメインロジック（バッチ処理）
+  const pendingActions = await actionQueue.flush()
 
-    await Effect.runPromise(
-      Effect.forEach(
-        pendingActions,
-        action => this.processDomainAction(action),
-        { concurrency: 4 }  // 並行処理でスループット向上
-      ).pipe(
-        Effect.timeout("8ms"),  // 時間制限
-        Effect.catchAll(cause =>
-          Effect.gen(function* () {
-            yield* Logger.warn("Domain processing timeout", { cause })
-            return [] // 失敗したアクションは次フレームへ
-          })
-        )
+  await Effect.runPromise(
+    Effect.forEach(
+      pendingActions,
+      action => processDomainAction(action),
+      { concurrency: 4 }  // 並行処理でスループット向上
+    ).pipe(
+      Effect.timeout(Duration.millis(8)),  // 時間制限
+      Effect.catchAll(cause =>
+        Effect.gen(function* () {
+          yield* Logger.warn("Domain processing timeout", { cause })
+          return [] // 失敗したアクションは次フレームへ
+        })
       )
     )
-  }
-
-  private processDomainAction(action: PlayerAction): Effect.Effect<void, ActionError, DomainServices> =>
-    Match.value(action).pipe(
-      Match.tag("PlaceBlock", ({ position, blockType }) =>
-        PlacementDomain.validateAndPlace(action.playerId, position, blockType)
-      ),
-      Match.tag("UseItem", ({ itemId, target }) =>
-        ItemDomain.validateAndUse(action.playerId, itemId, target)
-      ),
-      Match.tag("ChatMessage", ({ message }) =>
-        ChatDomain.validateAndBroadcast(action.playerId, message)
-      ),
-      Match.exhaustive
-    )
+  )
 }
+
+const processDomainAction = (action: PlayerAction): Effect.Effect<void, ActionError, DomainServices> =>
+  Match.value(action).pipe(
+    Match.tag("PlaceBlock", ({ position, blockType }) =>
+      PlacementDomain.validateAndPlace(action.playerId, position, blockType)
+    ),
+    Match.tag("UseItem", ({ itemId, target }) =>
+      ItemDomain.validateAndUse(action.playerId, itemId, target)
+    ),
+    Match.tag("ChatMessage", ({ message }) =>
+      ChatDomain.validateAndBroadcast(action.playerId, message)
+    ),
+    Match.exhaustive
+  )
 ```
 
 ### メモリ効率とガベージコレクション最適化
@@ -484,31 +484,33 @@ export const createMemoryOptimizedChunkManager = () => {
   const blockUpdatePool = new ObjectPool(() => new BlockUpdate(), 1000)
 
   // Structure of Arrays による cache-friendly データ構造
-  private chunkPositions = new Int32Array(MAX_CHUNKS * 2)  // x, z
-  private chunkStates = new Uint8Array(MAX_CHUNKS)         // state flags
-  private chunkTimestamps = new Float64Array(MAX_CHUNKS)   // last update
+  const chunkPositions = new Int32Array(MAX_CHUNKS * 2)  // x, z
+  const chunkStates = new Uint8Array(MAX_CHUNKS)         // state flags
+  const chunkTimestamps = new Float64Array(MAX_CHUNKS)   // last update
 
-  updateChunk(chunkIndex: number, deltaTime: number): void {
+  const updateChunk = (chunkIndex: number, deltaTime: number): void => {
     // GC を発生させない純粋な計算
-    const x = this.chunkPositions[chunkIndex * 2]
-    const z = this.chunkPositions[chunkIndex * 2 + 1]
+    const x = chunkPositions[chunkIndex * 2]
+    const z = chunkPositions[chunkIndex * 2 + 1]
 
     // バッチ処理による効率化
-    this.processPendingBlockUpdates(chunkIndex)
+    processPendingBlockUpdates(chunkIndex)
 
     // メモリプールからオブジェクト取得
-    const blockUpdate = this.blockUpdatePool.acquire()
+    const blockUpdate = blockUpdatePool.acquire()
     try {
       // 処理実行
-      this.calculateBlockUpdates(x, z, blockUpdate)
-      this.applyBlockUpdates(chunkIndex, blockUpdate)
+      calculateBlockUpdates(x, z, blockUpdate)
+      applyBlockUpdates(chunkIndex, blockUpdate)
     } finally {
       // プールに返却（GC 回避）
-      this.blockUpdatePool.release(blockUpdate)
+      blockUpdatePool.release(blockUpdate)
     }
 
-    this.chunkTimestamps[chunkIndex] = performance.now()
+    chunkTimestamps[chunkIndex] = performance.now()
   }
+
+  return { updateChunk }
 }
 ```
 
@@ -554,15 +556,15 @@ export interface CreatePlayerAPI {
 
 ```typescript
 // タグ付きエラー型
-export const PlayerNotFoundError = Schema.TaggedError('PlayerNotFoundError')({
+export class PlayerNotFoundError extends Schema.TaggedError<PlayerNotFoundError>()('PlayerNotFoundError', {
   playerId: Schema.String,
   timestamp: Schema.Date,
-})
+}) {}
 
-export const WorldCorruptedError = Schema.TaggedError('WorldCorruptedError')({
+export class WorldCorruptedError extends Schema.TaggedError<WorldCorruptedError>()('WorldCorruptedError', {
   worldId: Schema.String,
   corruption: Schema.String,
-})
+}) {}
 
 // エラー境界での処理
 export const safePlayerOperation = (operation: Effect.Effect<Player, PlayerError>) =>
@@ -608,8 +610,8 @@ graph TB
 ### 1. HTTP/WebSocket層
 
 ```typescript
-export const HttpApiLayer = Layer.effectContext(
-  Tag<HttpApiService>,
+export const HttpApiLayer = Layer.effect(
+  HttpApiService,
   Effect.gen(function* () {
     const app = yield* ApplicationService
 
@@ -655,8 +657,8 @@ export const HttpApiLayer = Layer.effectContext(
 ### 2. Application層
 
 ```typescript
-export const ApplicationLayer = Layer.effectContext(
-  Tag<ApplicationService>,
+export const ApplicationLayer = Layer.effect(
+  ApplicationService,
   Effect.gen(function* () {
     const domain = yield* DomainService
     const repo = yield* Repository
@@ -694,8 +696,8 @@ export const ApplicationLayer = Layer.effectContext(
 ### 3. Domain層
 
 ```typescript
-export const DomainLayer = Layer.effectContext(
-  Tag<DomainService>,
+export const DomainLayer = Layer.effect(
+  DomainService,
   Effect.gen(function* () {
     return {
       // 純粋なビジネスロジック
@@ -805,7 +807,7 @@ interface PlayerServiceInterface {
   readonly update: (id: PlayerId, updates: PlayerUpdate) => Effect.Effect<Player, PlayerError>
 }
 
-export const PlayerService = Context.GenericTag<PlayerServiceInterface>('PlayerService')
+class PlayerService extends Context.Tag('PlayerService')<PlayerService, PlayerServiceInterface>() {}
 
 // レイヤー構成
 export const AppLayer = Layer.mergeAll(
@@ -859,8 +861,8 @@ export const withValidation =
 
 ```typescript
 // JWT認証
-export const JWTAuth = Layer.effectContext(
-  Tag<AuthService>,
+export const JWTAuth = Layer.effect(
+  AuthService,
   Effect.gen(function* () {
     const config = yield* ConfigService
 
@@ -888,8 +890,8 @@ export const JWTAuth = Layer.effectContext(
 ### 2. レート制限
 
 ```typescript
-export const RateLimiter = Layer.effectContext(
-  Tag<RateLimiterService>,
+export const RateLimiter = Layer.effect(
+  RateLimiterService,
   Effect.gen(function* () {
     const redis = yield* RedisService
 
@@ -913,8 +915,8 @@ export const RateLimiter = Layer.effectContext(
 
 ```typescript
 // 統合アーキテクチャにおけるメトリクス収集
-export const MetricsCollector = Layer.effectContext(
-  Tag<MetricsService>,
+export const MetricsCollector = Layer.effect(
+  MetricsService,
   Effect.gen(function* () {
     const prometheus = yield* PrometheusService
 

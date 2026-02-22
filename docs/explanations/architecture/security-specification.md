@@ -115,7 +115,7 @@ const sanitizeArgument = (input: string): string => {
 ### 移動速度検証
 
 ```typescript
-export const AntiCheatService = Context.GenericTag<
+class AntiCheatService extends Context.Tag('AntiCheatService')<
   AntiCheatService,
   {
     validateMovement: (params: {
@@ -131,7 +131,7 @@ export const AntiCheatService = Context.GenericTag<
       target?: Position
     }) => Effect.Effect<boolean, CheatDetectionError>
   }
->('AntiCheatService')
+>() {}
 
 export const AntiCheatServiceLive = Layer.succeed(AntiCheatService, {
   validateMovement: (params) =>
@@ -276,7 +276,7 @@ export const validateInventoryTransaction = (transaction: InventoryTransaction) 
 ### ワールドデータ暗号化
 
 ```typescript
-export const EncryptionService = Context.GenericTag<
+class EncryptionService extends Context.Tag('EncryptionService')<
   EncryptionService,
   {
     encryptWorld: (data: WorldData) => Effect.Effect<EncryptedData, EncryptionError>
@@ -285,7 +285,7 @@ export const EncryptionService = Context.GenericTag<
 
     generateKey: () => Effect.Effect<CryptoKey, KeyGenerationError>
   }
->('EncryptionService')
+>() {}
 
 export const EncryptionServiceLive = Layer.succeed(EncryptionService, {
   encryptWorld: (data) =>

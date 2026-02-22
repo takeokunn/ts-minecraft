@@ -38,19 +38,19 @@ machine_readable: true
 
 ```typescript
 // [INTERACTIVE_EXAMPLE: error-handling-basics]
-import { Effect, Schema, Console, Schedule } from '@effect/platform'
+import { Effect, Schema, Console, Schedule } from 'effect'
 
 // 1. Schema.TaggedError による型安全なエラー定義
-export const PlayerNotFoundError = Schema.TaggedError('PlayerNotFoundError')({
+export class PlayerNotFoundError extends Schema.TaggedError<PlayerNotFoundError>()('PlayerNotFoundError', {
   playerId: Schema.String,
   message: Schema.String,
-})
+}) {}
 
-export const NetworkError = Schema.TaggedError('NetworkError')({
+export class NetworkError extends Schema.TaggedError<NetworkError>()('NetworkError', {
   endpoint: Schema.String,
   statusCode: Schema.Number,
   retryable: Schema.Boolean,
-})
+}) {}
 
 // 2. エラーを発生させる可能性のある処理
 const findPlayer = (playerId: string) =>
@@ -171,13 +171,13 @@ const program = Effect.gen(function* () {
 
 ```typescript
 // プロジェクト内の実装例（最新Schema.TaggedErrorパターン）
-export const ChunkGenerationError = Schema.TaggedError('ChunkGenerationError')({
+export class ChunkGenerationError extends Schema.TaggedError<ChunkGenerationError>()('ChunkGenerationError', {
   coordinate: Schema.String,
   reason: Schema.String,
   timestamp: Schema.DateFromSelf,
   attemptCount: Schema.Number,
   recoverable: Schema.Boolean,
-})
+}) {}
 
 const loadChunk = (coordinate: ChunkCoordinate): Effect.Effect<ChunkData, never, ChunkService> =>
   Effect.gen(function* () {
@@ -215,25 +215,18 @@ const loadChunk = (coordinate: ChunkCoordinate): Effect.Effect<ChunkData, never,
 
 ```typescript
 // プロジェクト内の複数エラー型定義
-export const ChunkNotFoundError = Schema.TaggedError('ChunkNotFoundError')({
+export class ChunkNotFoundError extends Schema.TaggedError<ChunkNotFoundError>()('ChunkNotFoundError', {
   coordinate: Schema.String,
   searchedAt: Schema.DateFromSelf,
   cacheChecked: Schema.Boolean,
-})
+}) {}
 
-export const ChunkGenerationError = Schema.TaggedError('ChunkGenerationError')({
-  coordinate: Schema.String,
-  reason: Schema.String,
-  timestamp: Schema.DateFromSelf,
-  recoverable: Schema.Boolean,
-})
-
-export const ChunkCorruptedError = Schema.TaggedError('ChunkCorruptedError')({
+export class ChunkCorruptedError extends Schema.TaggedError<ChunkCorruptedError>()('ChunkCorruptedError', {
   coordinate: Schema.String,
   corruptionType: Schema.String,
   detectedAt: Schema.DateFromSelf,
   severity: Schema.Literal('minor', 'major', 'critical'),
-})
+}) {}
 
 const processChunk = (coordinate: ChunkCoordinate): Effect.Effect<ChunkData, ChunkGenerationError, ChunkService> =>
   Effect.gen(function* () {
@@ -278,20 +271,20 @@ const processChunk = (coordinate: ChunkCoordinate): Effect.Effect<ChunkData, Chu
 type PlayerId = string & Brand.Brand<'PlayerId'>
 type ItemId = string & Brand.Brand<'ItemId'>
 
-export const InventoryNotFoundError = Schema.TaggedError('InventoryNotFoundError')({
+export class InventoryNotFoundError extends Schema.TaggedError<InventoryNotFoundError>()('InventoryNotFoundError', {
   playerId: Schema.String.pipe(Schema.brand('PlayerId')),
-})
+}) {}
 
-export const InventoryFullError = Schema.TaggedError('InventoryFullError')({
+export class InventoryFullError extends Schema.TaggedError<InventoryFullError>()('InventoryFullError', {
   playerId: Schema.String.pipe(Schema.brand('PlayerId')),
   currentSize: Schema.Number.pipe(Schema.nonNegative()),
   maxSize: Schema.Number.pipe(Schema.positive()),
-})
+}) {}
 
-export const InvalidItemError = Schema.TaggedError('InvalidItemError')({
+export class InvalidItemError extends Schema.TaggedError<InvalidItemError>()('InvalidItemError', {
   itemId: Schema.String.pipe(Schema.brand('ItemId')),
   reason: Schema.String,
-})
+}) {}
 
 const addItemToInventory = (
   playerId: PlayerId,
@@ -344,14 +337,14 @@ const addItemToInventory = (
 **実装例**:
 
 ```typescript
-export const EnrichedError = Schema.TaggedError('EnrichedError')({
+export class EnrichedError extends Schema.TaggedError<EnrichedError>()('EnrichedError', {
   originalError: Schema.String,
   context: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
   timestamp: Schema.String.pipe(Schema.brand('Timestamp')),
   stackTrace: Schema.optional(Schema.String),
   defects: Schema.Array(Schema.Unknown),
   interruptions: Schema.Array(Schema.Unknown),
-})
+}) {}
 
 const processWithCauseAnalysis = <A, E>(data: A): Effect.Effect<ProcessingResult, EnrichedError, ProcessingService> =>
   Effect.gen(function* () {
@@ -460,18 +453,18 @@ const analyzeCause = (cause: Cause.Cause<unknown>) => {
 **実装例**:
 
 ```typescript
-export const TemporaryError = Schema.TaggedError('TemporaryError')({
+export class TemporaryError extends Schema.TaggedError<TemporaryError>()('TemporaryError', {
   operation: Schema.String,
   retryCount: Schema.Number.pipe(Schema.nonNegative()),
   lastAttemptTime: Schema.optional(Schema.String.pipe(Schema.brand('Timestamp'))),
   category: Schema.Literal('Network', 'Database', 'External'),
-})
+}) {}
 
-export const PermanentError = Schema.TaggedError('PermanentError')({
+export class PermanentError extends Schema.TaggedError<PermanentError>()('PermanentError', {
   operation: Schema.String,
   reason: Schema.String,
   category: Schema.Literal('Validation', 'Authorization', 'NotFound', 'Critical'),
-})
+}) {}
 
 // リトライ戦略の定義 - より柔軟で堅牢な戦略
 const retryStrategy = pipe(
@@ -570,13 +563,13 @@ const reliableNetworkOperation = (url: string): Effect.Effect<NetworkResponse, P
 **実装例**:
 
 ```typescript
-export const CircuitBreakerError = Schema.TaggedError('CircuitBreakerError')({
+export class CircuitBreakerError extends Schema.TaggedError<CircuitBreakerError>()('CircuitBreakerError', {
   service: Schema.String,
   state: Schema.Literal('Open', 'HalfOpen', 'Closed'),
   failureCount: Schema.Number.pipe(Schema.nonNegative()),
   lastFailureTime: Schema.optional(Schema.Number.pipe(Schema.brand('Timestamp'))),
   thresholdReached: Schema.Boolean,
-})
+}) {}
 
 // サーキットブレーカー状態管理 - より詳細な状態追跡
 interface CircuitBreakerState {
@@ -785,17 +778,17 @@ const safeOperation = Effect.gen(function* () {
 type FieldName = string & Brand.Brand<'FieldName'>
 type ErrorCode = number & Brand.Brand<'ErrorCode'>
 
-const ValidationError = Schema.TaggedError('ValidationError')({
+class ValidationError extends Schema.TaggedError<ValidationError>()('ValidationError', {
   field: Schema.String.pipe(Schema.brand('FieldName')),
   message: Schema.String,
   code: Schema.Number.pipe(Schema.brand('ErrorCode')),
-})
+}) {}
 
 // 3. 構造化されたエラー情報（最新構文）
 type CorrelationId = string & Brand.Brand<'CorrelationId'>
 type Timestamp = string & Brand.Brand<'Timestamp'>
 
-const EnhancedError = Schema.TaggedError('EnhancedError')({
+class EnhancedError extends Schema.TaggedError<EnhancedError>()('EnhancedError', {
   category: Schema.Literal('Network', 'Validation', 'Business', 'System'),
   severity: Schema.Literal('Low', 'Medium', 'High', 'Critical'),
   context: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
@@ -803,7 +796,7 @@ const EnhancedError = Schema.TaggedError('EnhancedError')({
   correlationId: Schema.String.pipe(Schema.brand('CorrelationId')),
   recoverable: Schema.Boolean,
   retryable: Schema.Boolean,
-})
+}) {}
 
 // 4. Effect.validateAllによる複数エラーの集約
 const validateAllInputs = (
@@ -838,11 +831,11 @@ const smartRetryStrategy = <E>(isRetryable: (error: E) => boolean) =>
 
 ```typescript
 // テスト用エラー生成（最新構文）
-const TestValidationError = Schema.TaggedError('TestValidationError')({
+class TestValidationError extends Schema.TaggedError<TestValidationError>()('TestValidationError', {
   field: Schema.String,
   expectedType: Schema.String,
   actualValue: Schema.Unknown,
-})
+}) {}
 
 const testableValidation = <T>(data: unknown): Effect.Effect<T, TestValidationError, ValidationService> =>
   Effect.gen(function* () {

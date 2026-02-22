@@ -136,17 +136,17 @@ graph TD
 
 ```typescript
 // ドメイン固有エラー
-export const PlayerError = Schema.TaggedError('PlayerError')({
+export class PlayerError extends Schema.TaggedError<PlayerError>()('PlayerError', {
   cause: Schema.Literal('NotFound', 'InvalidMovement', 'InsufficientHealth'),
   playerId: PlayerId,
   context: Schema.optional(Schema.Unknown),
-})
+}) {}
 
 // システムエラー
-export const SystemError = Schema.TaggedError('SystemError')({
+export class SystemError extends Schema.TaggedError<SystemError>()('SystemError', {
   cause: Schema.Literal('NetworkFailure', 'StorageError', 'MemoryExhausted'),
   originalError: Schema.Unknown,
-})
+}) {}
 ```
 
 ### 回復可能性による分類

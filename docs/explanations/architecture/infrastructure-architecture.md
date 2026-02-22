@@ -19,56 +19,65 @@ Infrastructure層の外部システム連携API仕様です。Effect-TSのAdapte
 ### World Storage API
 
 ```typescript
-export const WorldStorageAdapter = Context.GenericTag<{
-  save: (params: { worldId: string; data: WorldData }) => Effect.Effect<void, StorageError>
+class WorldStorageAdapter extends Context.Tag('@app/WorldStorageAdapter')<
+  WorldStorageAdapter,
+  {
+    save: (params: { worldId: string; data: WorldData }) => Effect.Effect<void, StorageError>
 
-  load: (worldId: string) => Effect.Effect<WorldData, StorageError | NotFoundError>
+    load: (worldId: string) => Effect.Effect<WorldData, StorageError | NotFoundError>
 
-  delete: (worldId: string) => Effect.Effect<void, StorageError>
+    delete: (worldId: string) => Effect.Effect<void, StorageError>
 
-  list: () => Effect.Effect<ReadonlyArray<WorldMetadata>, StorageError>
+    list: () => Effect.Effect<ReadonlyArray<WorldMetadata>, StorageError>
 
-  exists: (worldId: string) => Effect.Effect<boolean, StorageError>
-}>('@app/WorldStorageAdapter')
+    exists: (worldId: string) => Effect.Effect<boolean, StorageError>
+  }
+>() {}
 ```
 
 ### Chunk Storage API
 
 ```typescript
-export const ChunkStorageAdapter = Context.GenericTag<{
-  saveChunk: (params: { worldId: string; chunk: ChunkData }) => Effect.Effect<void, StorageError>
+class ChunkStorageAdapter extends Context.Tag('@app/ChunkStorageAdapter')<
+  ChunkStorageAdapter,
+  {
+    saveChunk: (params: { worldId: string; chunk: ChunkData }) => Effect.Effect<void, StorageError>
 
-  loadChunk: (params: {
-    worldId: string
-    position: ChunkPosition
-  }) => Effect.Effect<Option.Option<ChunkData>, StorageError>
+    loadChunk: (params: {
+      worldId: string
+      position: ChunkPosition
+    }) => Effect.Effect<Option.Option<ChunkData>, StorageError>
 
-  saveRegion: (params: { worldId: string; region: RegionData }) => Effect.Effect<void, StorageError>
+    saveRegion: (params: { worldId: string; region: RegionData }) => Effect.Effect<void, StorageError>
 
-  loadRegion: (params: {
-    worldId: string
-    regionPos: RegionPosition
-  }) => Effect.Effect<Option.Option<RegionData>, StorageError>
+    loadRegion: (params: {
+      worldId: string
+      regionPos: RegionPosition
+    }) => Effect.Effect<Option.Option<RegionData>, StorageError>
 
-  // バッチ操作
-  saveBatch: (params: { worldId: string; chunks: ReadonlyArray<ChunkData> }) => Effect.Effect<void, StorageError>
-}>('@app/ChunkStorageAdapter')
+    // バッチ操作
+    saveBatch: (params: { worldId: string; chunks: ReadonlyArray<ChunkData> }) => Effect.Effect<void, StorageError>
+  }
+>() {}
 ```
 
 ### Player Data Storage API
 
 ```typescript
-export const PlayerStorageAdapter = Context.GenericTag<{
-  savePlayer: (playerData: PlayerData) => Effect.Effect<void, StorageError>
+class PlayerStorageAdapter extends Context.Tag('PlayerStorageAdapter')<
+  PlayerStorageAdapter,
+  {
+    savePlayer: (playerData: PlayerData) => Effect.Effect<void, StorageError>
 
-  loadPlayer: (playerId: string) => Effect.Effect<Option.Option<PlayerData>, StorageError>
+    loadPlayer: (playerId: string) => Effect.Effect<Option.Option<PlayerData>, StorageError>
 
-  deletePlayer: (playerId: string) => Effect.Effect<void, StorageError>
+    deletePlayer: (playerId: string) => Effect.Effect<void, StorageError>
 
-  saveStats: (params: { playerId: string; stats: PlayerStats }) => Effect.Effect<void, StorageError>
+    saveStats: (params: { playerId: string; stats: PlayerStats }) => Effect.Effect<void, StorageError>
 
-  loadStats: (playerId: string) => Effect.Effect<Option.Option<PlayerStats>, StorageError>
-}>('PlayerStorageAdapter')
+    loadStats: (playerId: string) => Effect.Effect<Option.Option<PlayerStats>, StorageError>
+  }
+>() {}
 ```
 
 ## Rendering APIs
@@ -76,11 +85,7 @@ export const PlayerStorageAdapter = Context.GenericTag<{
 ### WebGL Renderer API
 
 ```typescript
-export interface WebGLRendererAdapter {
-  readonly _: unique symbol
-}
-
-export const WebGLRendererAdapter = Context.GenericTag<
+class WebGLRendererAdapter extends Context.Tag('WebGLRendererAdapter')<
   WebGLRendererAdapter,
   {
     initialize: (params: { canvas: HTMLCanvasElement; options?: RendererOptions }) => Effect.Effect<void, RendererError>
@@ -97,17 +102,13 @@ export const WebGLRendererAdapter = Context.GenericTag<
 
     screenshot: () => Effect.Effect<Uint8Array, RendererError>
   }
->('WebGLRendererAdapter')
+>() {}
 ```
 
 ### Texture Management API
 
 ```typescript
-export interface TextureAdapter {
-  readonly _: unique symbol
-}
-
-export const TextureAdapter = Context.GenericTag<
+class TextureAdapter extends Context.Tag('TextureAdapter')<
   TextureAdapter,
   {
     loadTexture: (params: { url: string; options?: TextureOptions }) => Effect.Effect<TextureId, TextureError>
@@ -128,7 +129,7 @@ export const TextureAdapter = Context.GenericTag<
       offset?: { x: number; y: number }
     }) => Effect.Effect<void, TextureError>
   }
->('TextureAdapter')
+>() {}
 ```
 
 ## Network APIs
@@ -136,11 +137,7 @@ export const TextureAdapter = Context.GenericTag<
 ### WebSocket Adapter API
 
 ```typescript
-export interface WebSocketAdapter {
-  readonly _: unique symbol
-}
-
-export const WebSocketAdapter = Context.GenericTag<
+class WebSocketAdapter extends Context.Tag('WebSocketAdapter')<
   WebSocketAdapter,
   {
     connect: (params: { url: string; protocols?: string[] }) => Effect.Effect<ConnectionId, NetworkError>
@@ -153,17 +150,13 @@ export const WebSocketAdapter = Context.GenericTag<
 
     getState: (connectionId: ConnectionId) => Effect.Effect<ConnectionState, NetworkError>
   }
->('WebSocketAdapter')
+>() {}
 ```
 
 ### HTTP Client API
 
 ```typescript
-export interface HttpClientAdapter {
-  readonly _: unique symbol
-}
-
-export const HttpClientAdapter = Context.GenericTag<
+class HttpClientAdapter extends Context.Tag('HttpClientAdapter')<
   HttpClientAdapter,
   {
     get: <T>(params: {
@@ -187,7 +180,7 @@ export const HttpClientAdapter = Context.GenericTag<
       onProgress?: (progress: number) => void
     }) => Effect.Effect<void, HttpError>
   }
->('HttpClientAdapter')
+>() {}
 ```
 
 ## Audio APIs
@@ -195,11 +188,7 @@ export const HttpClientAdapter = Context.GenericTag<
 ### Audio Engine API
 
 ```typescript
-export interface AudioEngineAdapter {
-  readonly _: unique symbol
-}
-
-export const AudioEngineAdapter = Context.GenericTag<
+class AudioEngineAdapter extends Context.Tag('AudioEngineAdapter')<
   AudioEngineAdapter,
   {
     initialize: () => Effect.Effect<void, AudioError>
@@ -226,7 +215,7 @@ export const AudioEngineAdapter = Context.GenericTag<
       orientation: Orientation
     }) => Effect.Effect<void, AudioError>
   }
->('AudioEngineAdapter')
+>() {}
 ```
 
 ## Input APIs
@@ -234,11 +223,7 @@ export const AudioEngineAdapter = Context.GenericTag<
 ### Input Handler API
 
 ```typescript
-export interface InputAdapter {
-  readonly _: unique symbol
-}
-
-export const InputAdapter = Context.GenericTag<
+class InputAdapter extends Context.Tag('InputAdapter')<
   InputAdapter,
   {
     startCapture: (params: { element: HTMLElement; options?: InputCaptureOptions }) => Effect.Effect<void, InputError>
@@ -259,7 +244,7 @@ export const InputAdapter = Context.GenericTag<
 
     vibrate: (params: { pattern: number | number[] }) => Effect.Effect<void, InputError>
   }
->('InputAdapter')
+>() {}
 ```
 
 ## Performance Monitoring APIs
@@ -267,11 +252,7 @@ export const InputAdapter = Context.GenericTag<
 ### Metrics Collector API
 
 ```typescript
-export interface MetricsAdapter {
-  readonly _: unique symbol
-}
-
-export const MetricsAdapter = Context.GenericTag<
+class MetricsAdapter extends Context.Tag('MetricsAdapter')<
   MetricsAdapter,
   {
     recordMetric: (params: {
@@ -295,7 +276,7 @@ export const MetricsAdapter = Context.GenericTag<
 
     recordHistogramValue: (params: { histogramId: HistogramId; value: number }) => Effect.Effect<void, MetricsError>
   }
->('MetricsAdapter')
+>() {}
 ```
 
 ## WebWorker APIs
@@ -303,11 +284,7 @@ export const MetricsAdapter = Context.GenericTag<
 ### Worker Pool API
 
 ```typescript
-export interface WorkerPoolAdapter {
-  readonly _: unique symbol
-}
-
-export const WorkerPoolAdapter = Context.GenericTag<
+class WorkerPoolAdapter extends Context.Tag('WorkerPoolAdapter')<
   WorkerPoolAdapter,
   {
     createPool: (params: { workerScript: string; poolSize: number }) => Effect.Effect<PoolId, WorkerError>
@@ -325,7 +302,7 @@ export const WorkerPoolAdapter = Context.GenericTag<
 
     getPoolStats: (poolId: PoolId) => Effect.Effect<PoolStats, WorkerError>
   }
->('WorkerPoolAdapter')
+>() {}
 ```
 
 ## Cache APIs
@@ -333,11 +310,7 @@ export const WorkerPoolAdapter = Context.GenericTag<
 ### Cache Adapter API
 
 ```typescript
-export interface CacheAdapter {
-  readonly _: unique symbol
-}
-
-export const CacheAdapter = Context.GenericTag<
+class CacheAdapter extends Context.Tag('CacheAdapter')<
   CacheAdapter,
   {
     get: <T>(params: { key: string; schema: Schema.Schema<T> }) => Effect.Effect<Option.Option<T>, CacheError>
@@ -352,7 +325,7 @@ export const CacheAdapter = Context.GenericTag<
 
     size: () => Effect.Effect<number, CacheError>
   }
->('CacheAdapter')
+>() {}
 ```
 
 ## Advanced Storage Systems
@@ -365,19 +338,22 @@ export const CacheAdapter = Context.GenericTag<
 // =============================================================================
 
 // ストレージクラスタ管理
-export const StorageClusterAdapter = Context.GenericTag<{
-  readonly selectNode: (key: string) => Effect.Effect<StorageNodeId, ClusterError>
-  readonly replicateData: (params: {
-    key: string
-    data: unknown
-    replicationFactor: number
-  }) => Effect.Effect<ReadonlyArray<StorageNodeId>, ReplicationError>
-  readonly readWithFallback: (params: {
-    key: string
-    preferredNodes: ReadonlyArray<StorageNodeId>
-  }) => Effect.Effect<unknown, StorageError>
-  readonly getClusterHealth: () => Effect.Effect<ClusterHealth, HealthCheckError>
-}>()('StorageClusterAdapter')
+class StorageClusterAdapter extends Context.Tag('StorageClusterAdapter')<
+  StorageClusterAdapter,
+  {
+    readonly selectNode: (key: string) => Effect.Effect<StorageNodeId, ClusterError>
+    readonly replicateData: (params: {
+      key: string
+      data: unknown
+      replicationFactor: number
+    }) => Effect.Effect<ReadonlyArray<StorageNodeId>, ReplicationError>
+    readonly readWithFallback: (params: {
+      key: string
+      preferredNodes: ReadonlyArray<StorageNodeId>
+    }) => Effect.Effect<unknown, StorageError>
+    readonly getClusterHealth: () => Effect.Effect<ClusterHealth, HealthCheckError>
+  }
+>() {}
 
 export const StorageClusterAdapterLive = Layer.effect(
   StorageClusterAdapter,
@@ -606,13 +582,16 @@ const createConsistentHashRingFromState = (
 // =============================================================================
 
 // 接続プール管理
-export const DatabaseConnectionPool = Context.GenericTag<{
-  readonly acquire: () => Effect.Effect<DatabaseConnection, ConnectionError>
-  readonly release: (connection: DatabaseConnection) => Effect.Effect<void>
-  readonly execute: <T>(query: DatabaseQuery<T>) => Effect.Effect<T, QueryError>
-  readonly transaction: <T>(operations: ReadonlyArray<DatabaseOperation>) => Effect.Effect<T, TransactionError>
-  readonly getPoolStats: () => Effect.Effect<PoolStats>
-}>()('DatabaseConnectionPool')
+class DatabaseConnectionPool extends Context.Tag('DatabaseConnectionPool')<
+  DatabaseConnectionPool,
+  {
+    readonly acquire: () => Effect.Effect<DatabaseConnection, ConnectionError>
+    readonly release: (connection: DatabaseConnection) => Effect.Effect<void>
+    readonly execute: <T>(query: DatabaseQuery<T>) => Effect.Effect<T, QueryError>
+    readonly transaction: <T>(operations: ReadonlyArray<DatabaseOperation>) => Effect.Effect<T, TransactionError>
+    readonly getPoolStats: () => Effect.Effect<PoolStats>
+  }
+>() {}
 
 export const DatabaseConnectionPoolLive = Layer.scoped(
   DatabaseConnectionPool,
@@ -799,26 +778,29 @@ export const DatabaseConnectionPoolLive = Layer.scoped(
 // =============================================================================
 
 // メッセージキューインターフェース
-export const MessageQueueAdapter = Context.GenericTag<{
-  readonly publish: <T>(params: {
-    topic: string
-    message: T
-    options?: PublishOptions
-  }) => Effect.Effect<MessageId, PublishError>
+class MessageQueueAdapter extends Context.Tag('MessageQueueAdapter')<
+  MessageQueueAdapter,
+  {
+    readonly publish: <T>(params: {
+      topic: string
+      message: T
+      options?: PublishOptions
+    }) => Effect.Effect<MessageId, PublishError>
 
-  readonly subscribe: <T>(params: {
-    topic: string
-    consumer: string
-    handler: (message: Message<T>) => Effect.Effect<void, MessageHandlerError>
-    options?: SubscribeOptions
-  }) => Effect.Effect<SubscriptionId, SubscribeError>
+    readonly subscribe: <T>(params: {
+      topic: string
+      consumer: string
+      handler: (message: Message<T>) => Effect.Effect<void, MessageHandlerError>
+      options?: SubscribeOptions
+    }) => Effect.Effect<SubscriptionId, SubscribeError>
 
-  readonly unsubscribe: (subscriptionId: SubscriptionId) => Effect.Effect<void, UnsubscribeError>
+    readonly unsubscribe: (subscriptionId: SubscriptionId) => Effect.Effect<void, UnsubscribeError>
 
-  readonly createTopic: (params: { name: string; config: TopicConfig }) => Effect.Effect<void, TopicCreationError>
+    readonly createTopic: (params: { name: string; config: TopicConfig }) => Effect.Effect<void, TopicCreationError>
 
-  readonly getQueueStats: (topic: string) => Effect.Effect<QueueStats, StatsError>
-}>()('MessageQueueAdapter')
+    readonly getQueueStats: (topic: string) => Effect.Effect<QueueStats, StatsError>
+  }
+>() {}
 
 // Redis Streams実装
 export const RedisMessageQueueAdapterLive = Layer.effect(
@@ -1061,28 +1043,31 @@ export const WebSocketMessageQueueAdapterLive = Layer.effect(
 // =============================================================================
 
 // シェーダーマネジメント
-export const ShaderManager = Context.GenericTag<{
-  readonly compileShader: (params: {
-    type: 'vertex' | 'fragment'
-    source: string
-    defines?: Record<string, string | number>
-  }) => Effect.Effect<ShaderId, ShaderCompilationError>
+class ShaderManager extends Context.Tag('ShaderManager')<
+  ShaderManager,
+  {
+    readonly compileShader: (params: {
+      type: 'vertex' | 'fragment'
+      source: string
+      defines?: Record<string, string | number>
+    }) => Effect.Effect<ShaderId, ShaderCompilationError>
 
-  readonly createProgram: (params: {
-    vertexShaderId: ShaderId
-    fragmentShaderId: ShaderId
-    attributes?: Record<string, number>
-  }) => Effect.Effect<ProgramId, ProgramLinkError>
+    readonly createProgram: (params: {
+      vertexShaderId: ShaderId
+      fragmentShaderId: ShaderId
+      attributes?: Record<string, number>
+    }) => Effect.Effect<ProgramId, ProgramLinkError>
 
-  readonly useProgram: (programId: ProgramId) => Effect.Effect<void, RenderError>
+    readonly useProgram: (programId: ProgramId) => Effect.Effect<void, RenderError>
 
-  readonly setUniforms: (params: {
-    programId: ProgramId
-    uniforms: Record<string, UniformValue>
-  }) => Effect.Effect<void, RenderError>
+    readonly setUniforms: (params: {
+      programId: ProgramId
+      uniforms: Record<string, UniformValue>
+    }) => Effect.Effect<void, RenderError>
 
-  readonly deleteShader: (shaderId: ShaderId) => Effect.Effect<void>
-}>()('ShaderManager')
+    readonly deleteShader: (shaderId: ShaderId) => Effect.Effect<void>
+  }
+>() {}
 
 export const ShaderManagerLive = Layer.effect(
   ShaderManager,
@@ -1250,36 +1235,39 @@ export const ShaderManagerLive = Layer.effect(
 )
 
 // ジオメトリバッファ管理
-export const GeometryBufferManager = Context.GenericTag<{
-  readonly createBuffer: (params: {
-    type: 'vertex' | 'index'
-    data: Float32Array | Uint16Array
-    usage: 'static' | 'dynamic' | 'stream'
-  }) => Effect.Effect<BufferId, BufferError>
+class GeometryBufferManager extends Context.Tag('GeometryBufferManager')<
+  GeometryBufferManager,
+  {
+    readonly createBuffer: (params: {
+      type: 'vertex' | 'index'
+      data: Float32Array | Uint16Array
+      usage: 'static' | 'dynamic' | 'stream'
+    }) => Effect.Effect<BufferId, BufferError>
 
-  readonly updateBuffer: (params: {
-    bufferId: BufferId
-    data: Float32Array | Uint16Array
-    offset?: number
-  }) => Effect.Effect<void, BufferError>
-
-  readonly bindBuffer: (params: { bufferId: BufferId; target: 'vertex' | 'index' }) => Effect.Effect<void, BufferError>
-
-  readonly createVertexArray: (params: {
-    attributes: ReadonlyArray<{
+    readonly updateBuffer: (params: {
       bufferId: BufferId
-      index: number
-      size: number
-      type: 'float' | 'int'
-      normalized?: boolean
-      stride?: number
+      data: Float32Array | Uint16Array
       offset?: number
-    }>
-    indexBufferId?: BufferId
-  }) => Effect.Effect<VertexArrayId, BufferError>
+    }) => Effect.Effect<void, BufferError>
 
-  readonly deleteBuffer: (bufferId: BufferId) => Effect.Effect<void>
-}>()('GeometryBufferManager')
+    readonly bindBuffer: (params: { bufferId: BufferId; target: 'vertex' | 'index' }) => Effect.Effect<void, BufferError>
+
+    readonly createVertexArray: (params: {
+      attributes: ReadonlyArray<{
+        bufferId: BufferId
+        index: number
+        size: number
+        type: 'float' | 'int'
+        normalized?: boolean
+        stride?: number
+        offset?: number
+      }>
+      indexBufferId?: BufferId
+    }) => Effect.Effect<VertexArrayId, BufferError>
+
+    readonly deleteBuffer: (bufferId: BufferId) => Effect.Effect<void>
+  }
+>() {}
 
 export const GeometryBufferManagerLive = Layer.effect(
   GeometryBufferManager,

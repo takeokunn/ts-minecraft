@@ -13,5 +13,5 @@
 
 ## 次アクション
 
-- docs/INDEX.md と ROADMAP の境界一覧を本テーブルに合わせて更新する。
+- docs/README.md と ROADMAP の境界一覧を本テーブルに合わせて更新する。
 - `src/domain` ディレクトリの移設は Phase 2 で World/Chunk 系、Phase 3 で Generation/Biome 系を中心に順次実施する。

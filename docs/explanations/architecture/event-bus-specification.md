@@ -173,11 +173,7 @@ export type SystemEvent =
 ### Core Event Bus API
 
 ```typescript
-export interface EventBusService {
-  readonly _: unique symbol
-}
-
-export const EventBusService = Context.GenericTag<
+class EventBusService extends Context.Tag('EventBusService')<
   EventBusService,
   {
     // イベント発行
@@ -207,7 +203,7 @@ export const EventBusService = Context.GenericTag<
     // メトリクス取得
     getMetrics: () => Effect.Effect<EventBusMetrics, MetricsError>
   }
->('EventBusService')
+>() {}
 ```
 
 ### Event Bus実装
@@ -279,11 +275,7 @@ export interface EventHandler<E extends GameEvent | SystemEvent> {
 }
 
 // Handler Registry
-export interface EventHandlerRegistry {
-  readonly _: unique symbol
-}
-
-export const EventHandlerRegistry = Context.GenericTag<
+class EventHandlerRegistry extends Context.Tag('EventHandlerRegistry')<
   EventHandlerRegistry,
   {
     register: <E extends GameEvent | SystemEvent>(handler: EventHandler<E>) => Effect.Effect<void, RegistrationError>
@@ -294,7 +286,7 @@ export const EventHandlerRegistry = Context.GenericTag<
       tag: Tag
     ) => Effect.Effect<ReadonlyArray<EventHandler<Extract<GameEvent | SystemEvent, { _tag: Tag }>>>, never>
   }
->('EventHandlerRegistry')
+>() {}
 ```
 
 ### Handler実装例
@@ -497,30 +489,33 @@ export const PriorityEventBus = {
 // =============================================================================
 
 // Event Store Interface
-export const EventStore = Context.GenericTag<{
-  readonly append: (params: {
-    streamId: string
-    events: ReadonlyArray<StoredEvent>
-    expectedVersion: number
-  }) => Effect.Effect<void, EventStoreError>
+class EventStore extends Context.Tag("EventStore")<
+  EventStore,
+  {
+    readonly append: (params: {
+      streamId: string
+      events: ReadonlyArray<StoredEvent>
+      expectedVersion: number
+    }) => Effect.Effect<void, EventStoreError>
 
-  readonly read: (params: {
-    streamId: string
-    fromVersion?: number
-    maxEvents?: number
-  }) => Stream.Stream<StoredEvent, EventStoreError>
+    readonly read: (params: {
+      streamId: string
+      fromVersion?: number
+      maxEvents?: number
+    }) => Stream.Stream<StoredEvent, EventStoreError>
 
-  readonly readAll: (params: {
-    fromPosition?: GlobalPosition
-    maxEvents?: number
-  }) => Stream.Stream<StoredEvent, EventStoreError>
+    readonly readAll: (params: {
+      fromPosition?: GlobalPosition
+      maxEvents?: number
+    }) => Stream.Stream<StoredEvent, EventStoreError>
 
-  readonly subscribe: (params: {
-    streamId?: string
-    fromPosition?: GlobalPosition
-    onEvent: (event: StoredEvent) => Effect.Effect<void>
-  }) => Effect.Effect<SubscriptionHandle, EventStoreError>
-}>()("EventStore")
+    readonly subscribe: (params: {
+      streamId?: string
+      fromPosition?: GlobalPosition
+      onEvent: (event: StoredEvent) => Effect.Effect<void>
+    }) => Effect.Effect<SubscriptionHandle, EventStoreError>
+  }
+>() {}
 
 // Event Store Types
 export interface StoredEvent {
@@ -805,22 +800,22 @@ export const createEventSourcedPlayer = (id: string): EventSourcedAggregate<Play
     )
   }
 
-  protected validate(event: PlayerEvent): Effect.Effect<void, DomainError> {
+  const validate = (event: PlayerEvent): Effect.Effect<void, DomainError> => {
     return Match.value(event).pipe(
       Match.tag("PlayerMoved", () => {
-        if (this.getState().status === "dead") {
+        if (aggregate.getState().status === "dead") {
           return Effect.fail(new InvalidOperationError({
             message: "Dead players cannot move",
-            aggregateId: this.id
+            aggregateId: id
           }))
         }
         return Effect.void
       }),
       Match.tag("PlayerDamaged", () => {
-        if (this.getState().health.value <= 0) {
+        if (aggregate.getState().health.value <= 0) {
           return Effect.fail(new InvalidOperationError({
             message: "Cannot damage dead player",
-            aggregateId: this.id
+            aggregateId: id
           }))
         }
         return Effect.void
@@ -829,49 +824,15 @@ export const createEventSourcedPlayer = (id: string): EventSourcedAggregate<Play
     )
   }
 
-  // ビジネスメソッド
-  create(params: { name: string; position: Position }): Effect.Effect<void, DomainError> {
-    return this.applyEvent({
-      _tag: "PlayerCreated",
-      playerId: this.id,
-      playerName: params.name,
-      position: params.position,
-      timestamp: Date.now()
-    })
-  }
+  const aggregate = createEventSourcedAggregate({
+    id,
+    initialState: getInitialState(),
+    getInitialState,
+    apply,
+    validate,
+  })
 
-  move(to: Position): Effect.Effect<void, DomainError> {
-    return this.applyEvent({
-      _tag: "PlayerMoved",
-      playerId: this.id,
-      from: this.getState().position,
-      to,
-      timestamp: Date.now()
-    })
-  }
-
-  takeDamage(params: { amount: number; source: DamageSource }): Effect.Effect<void, DomainError> {
-    return Effect.gen(function* () {
-      yield* this.applyEvent({
-        _tag: "PlayerDamaged",
-        playerId: this.id,
-        damage: params.amount,
-        source: params.source,
-        timestamp: Date.now()
-      })
-
-      // 死亡チェック
-      if (this.getState().health.value <= 0) {
-        yield* this.applyEvent({
-          _tag: "PlayerDied",
-          playerId: this.id,
-          cause: params.source,
-          position: this.getState().position,
-          timestamp: Date.now()
-        })
-      }
-    })
-  }
+  return aggregate
 }
 ```
 
@@ -976,9 +937,12 @@ export type PlayerCommand =
     }
 
 // Command Handler
-export const PlayerCommandHandler = Context.GenericTag<{
-  readonly handle: (command: PlayerCommand) => Effect.Effect<void, CommandHandlerError>
-}>()('PlayerCommandHandler')
+class PlayerCommandHandler extends Context.Tag('PlayerCommandHandler')<
+  PlayerCommandHandler,
+  {
+    readonly handle: (command: PlayerCommand) => Effect.Effect<void, CommandHandlerError>
+  }
+>() {}
 
 export const PlayerCommandHandlerLive = Layer.succeed(PlayerCommandHandler, {
   handle: (command) =>
@@ -1061,11 +1025,14 @@ export interface PlayerReadModel {
   readonly lastActivity: number
 }
 
-export const PlayerProjectionService = Context.GenericTag<{
-  readonly project: (event: PlayerEvent) => Effect.Effect<void, ProjectionError>
-  readonly getPlayer: (id: string) => Effect.Effect<Option.Option<PlayerReadModel>, QueryError>
-  readonly getPlayers: (filter?: PlayerFilter) => Effect.Effect<ReadonlyArray<PlayerReadModel>, QueryError>
-}>()('PlayerProjectionService')
+class PlayerProjectionService extends Context.Tag('PlayerProjectionService')<
+  PlayerProjectionService,
+  {
+    readonly project: (event: PlayerEvent) => Effect.Effect<void, ProjectionError>
+    readonly getPlayer: (id: string) => Effect.Effect<Option.Option<PlayerReadModel>, QueryError>
+    readonly getPlayers: (filter?: PlayerFilter) => Effect.Effect<ReadonlyArray<PlayerReadModel>, QueryError>
+  }
+>() {}
 
 export const PlayerProjectionServiceLive = Layer.effect(
   PlayerProjectionService,
@@ -1197,27 +1164,30 @@ export const PlayerProjectionServiceLive = Layer.effect(
 // イベントリプレイとデバッグ機能
 // =============================================================================
 
-export const EventReplayService = Context.GenericTag<{
-  readonly replayStream: (params: {
-    streamId: string
-    fromVersion?: number
-    toVersion?: number
-    speed?: number
-  }) => Stream.Stream<ReplayEvent, ReplayError>
+class EventReplayService extends Context.Tag('EventReplayService')<
+  EventReplayService,
+  {
+    readonly replayStream: (params: {
+      streamId: string
+      fromVersion?: number
+      toVersion?: number
+      speed?: number
+    }) => Stream.Stream<ReplayEvent, ReplayError>
 
-  readonly replayAll: (params: {
-    fromPosition?: GlobalPosition
-    toPosition?: GlobalPosition
-    speed?: number
-  }) => Stream.Stream<ReplayEvent, ReplayError>
+    readonly replayAll: (params: {
+      fromPosition?: GlobalPosition
+      toPosition?: GlobalPosition
+      speed?: number
+    }) => Stream.Stream<ReplayEvent, ReplayError>
 
-  readonly createSnapshot: (params: {
-    streamId: string
-    atVersion?: number
-  }) => Effect.Effect<AggregateSnapshot, SnapshotError>
+    readonly createSnapshot: (params: {
+      streamId: string
+      atVersion?: number
+    }) => Effect.Effect<AggregateSnapshot, SnapshotError>
 
-  readonly restoreFromSnapshot: (snapshot: AggregateSnapshot) => Effect.Effect<void, RestoreError>
-}>()('EventReplayService')
+    readonly restoreFromSnapshot: (snapshot: AggregateSnapshot) => Effect.Effect<void, RestoreError>
+  }
+>() {}
 
 export const EventReplayServiceLive = Layer.succeed(EventReplayService, {
   replayStream: (params) =>
@@ -1317,17 +1287,20 @@ export const EventReplayServiceLive = Layer.succeed(EventReplayService, {
 })
 
 // Event Debugging Tools
-export const EventDebugger = Context.GenericTag<{
-  readonly traceEvent: (event: GameEvent) => Effect.Effect<EventTrace, never>
-  readonly analyzeEventFlow: (params: {
-    correlationId: string
-    timeRange?: { start: number; end: number }
-  }) => Effect.Effect<EventFlowAnalysis, AnalysisError>
-  readonly detectAnomalies: (params: {
-    streamId?: string
-    timeRange: { start: number; end: number }
-  }) => Effect.Effect<ReadonlyArray<EventAnomaly>, AnalysisError>
-}>()('EventDebugger')
+class EventDebugger extends Context.Tag('EventDebugger')<
+  EventDebugger,
+  {
+    readonly traceEvent: (event: GameEvent) => Effect.Effect<EventTrace, never>
+    readonly analyzeEventFlow: (params: {
+      correlationId: string
+      timeRange?: { start: number; end: number }
+    }) => Effect.Effect<EventFlowAnalysis, AnalysisError>
+    readonly detectAnomalies: (params: {
+      streamId?: string
+      timeRange: { start: number; end: number }
+    }) => Effect.Effect<ReadonlyArray<EventAnomaly>, AnalysisError>
+  }
+>() {}
 
 export const EventDebuggerLive = Layer.effect(
   EventDebugger,

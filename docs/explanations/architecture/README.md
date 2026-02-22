@@ -71,9 +71,12 @@ TypeScript Minecraft Cloneプロジェクトの包括的なAPI設計仕様書で
 import { Effect, Context, Layer } from 'effect'
 
 // 2. ドメインサービスの定義
-export const PlayerService = Context.GenericTag<{
-  readonly create: (params: PlayerCreateParams) => Effect.Effect<Player, PlayerError>
-}>()('PlayerService')
+class PlayerService extends Context.Tag('PlayerService')<
+  PlayerService,
+  {
+    readonly create: (params: PlayerCreateParams) => Effect.Effect<Player, PlayerError>
+  }
+>() {}
 
 // 3. レイヤーの構築
 export const AppLayer = Layer.mergeAll(PlayerServiceLive, RepositoryLayer, InfrastructureLayer)
@@ -119,11 +122,14 @@ export const ChunkAPI = {
 
 ```typescript
 // Effect-TS 3.17+ Generator Pattern
-export const ChunkService = Context.GenericTag<{
-  readonly processChunkBatch: (
-    coordinates: ReadonlyArray<ChunkCoordinate>
-  ) => Effect.Effect<ReadonlyArray<ProcessedChunk>, ChunkBatchError, ChunkRepository | Logger>
-}>()('ChunkService')
+class ChunkService extends Context.Tag('ChunkService')<
+  ChunkService,
+  {
+    readonly processChunkBatch: (
+      coordinates: ReadonlyArray<ChunkCoordinate>
+    ) => Effect.Effect<ReadonlyArray<ProcessedChunk>, ChunkBatchError, ChunkRepository | Logger>
+  }
+>() {}
 
 // 実装例
 export const processChunkBatch = (coordinates: ReadonlyArray<ChunkCoordinate>) =>
@@ -135,8 +141,8 @@ export const processChunkBatch = (coordinates: ReadonlyArray<ChunkCoordinate>) =
       (coord) =>
         pipe(
           ChunkRepository.load(coord),
-          Effect.timeout('30 seconds'),
-          Effect.retry(Schedule.exponential('100 millis').pipe(Schedule.compose(Schedule.recurs(3)))),
+          Effect.timeout(Duration.seconds(30)),
+          Effect.retry(Schedule.exponential(Duration.millis(100)).pipe(Schedule.compose(Schedule.recurs(3)))),
           Effect.catchTag('ChunkNotFound', () => ChunkGenerator.generate(coord))
         ),
       { concurrency: 'unbounded' }
@@ -332,13 +338,16 @@ export const executeQuery = <Q extends Query>(query: Q) =>
 ### 🏷️ **Context & Layer 定義パターン**
 
 ```typescript
-// サービス定義 - Context.GenericTag
-export const WorldService = Context.GenericTag<{
-  readonly generateChunk: (coord: ChunkCoordinate) => Effect.Effect<Chunk, GenerationError>
-  readonly saveChunk: (chunk: Chunk) => Effect.Effect<void, SaveError, ChunkRepository>
-  readonly loadChunk: (coord: ChunkCoordinate) => Effect.Effect<Chunk, LoadError, ChunkRepository>
-  readonly streamChunks: (area: BoundingBox) => Stream.Stream<Chunk, LoadError, ChunkRepository>
-}>()('WorldService')
+// サービス定義 - Context.Tag
+class WorldService extends Context.Tag('WorldService')<
+  WorldService,
+  {
+    readonly generateChunk: (coord: ChunkCoordinate) => Effect.Effect<Chunk, GenerationError>
+    readonly saveChunk: (chunk: Chunk) => Effect.Effect<void, SaveError, ChunkRepository>
+    readonly loadChunk: (coord: ChunkCoordinate) => Effect.Effect<Chunk, LoadError, ChunkRepository>
+    readonly streamChunks: (area: BoundingBox) => Stream.Stream<Chunk, LoadError, ChunkRepository>
+  }
+>() {}
 
 // Layer実装 - 依存性注入
 export const WorldServiceLive: Layer.Layer<WorldService, never, ChunkRepository | Logger> = Layer.succeed(
@@ -360,13 +369,13 @@ export const WorldServiceLive: Layer.Layer<WorldService, never, ChunkRepository 
 
 ```typescript
 // Effect-TS 3.17+ Schema.TaggedError
-export const ChunkServiceError = Schema.TaggedError('ChunkServiceError')({
+export class ChunkServiceError extends Schema.TaggedError<ChunkServiceError>()('ChunkServiceError', {
   cause: Schema.Literal('NotFound', 'Corrupted', 'NetworkError', 'AccessDenied'),
   coordinate: ChunkCoordinateSchema,
   timestamp: Schema.Date,
   retryable: Schema.Boolean,
   context: Schema.Record(Schema.String, Schema.Unknown),
-})
+}) {}
 
 export const ChunkServiceErrorHelpers = {
   notFound: (coord: ChunkCoordinate) =>
@@ -442,10 +451,13 @@ export const chunkLoadTest = Effect.gen(function* () {
 
 ```typescript
 // リソースプール管理
-export const ChunkCache = Context.GenericTag<{
-  readonly get: (coord: ChunkCoordinate) => Effect.Effect<Option.Option<Chunk>, never>
-  readonly set: (coord: ChunkCoordinate, chunk: Chunk) => Effect.Effect<void, never>
-}>()('ChunkCache')
+class ChunkCache extends Context.Tag('ChunkCache')<
+  ChunkCache,
+  {
+    readonly get: (coord: ChunkCoordinate) => Effect.Effect<Option.Option<Chunk>, never>
+    readonly set: (coord: ChunkCoordinate, chunk: Chunk) => Effect.Effect<void, never>
+  }
+>() {}
 
 // LRUキャッシュ実装
 export const ChunkCacheLive = Layer.succeed(
@@ -517,7 +529,7 @@ export const streamWorldChunks = (worldId: string, viewport: BoundingBox) =>
     Stream.mapEffect((coord) =>
       pipe(
         WorldService.loadChunk(coord),
-        Effect.timeout('5 seconds'),
+        Effect.timeout(Duration.seconds(5)),
         Effect.orElse(() => Effect.succeed(generateEmptyChunk(coord)))
       )
     ),
@@ -580,10 +592,13 @@ export const validatePlayerUpdate = (input: unknown) =>
 
 ```typescript
 // JWT トークン検証
-export const JWTService = Context.GenericTag<{
-  readonly verify: (token: string) => Effect.Effect<JWTPayload, AuthError>
-  readonly generate: (payload: TokenPayload) => Effect.Effect<string, AuthError>
-}>()('JWTService')
+class JWTService extends Context.Tag('JWTService')<
+  JWTService,
+  {
+    readonly verify: (token: string) => Effect.Effect<JWTPayload, AuthError>
+    readonly generate: (payload: TokenPayload) => Effect.Effect<string, AuthError>
+  }
+>() {}
 
 // OAuth 2.0 フロー
 export const authenticateWithOAuth = (code: string) =>
@@ -623,9 +638,12 @@ export const authenticateWithOAuth = (code: string) =>
 
 ```typescript
 // Rate limiting
-export const RateLimiter = Context.GenericTag<{
-  readonly checkLimit: (key: string, limit: number, window: Duration) => Effect.Effect<boolean, RateLimitError>
-}>()('RateLimiter')
+class RateLimiter extends Context.Tag('RateLimiter')<
+  RateLimiter,
+  {
+    readonly checkLimit: (key: string, limit: number, window: Duration) => Effect.Effect<boolean, RateLimitError>
+  }
+>() {}
 
 // API エンドポイントの保護
 export const withRateLimit = <A, E, R>(effect: Effect.Effect<A, E, R>, key: string) =>
@@ -652,10 +670,13 @@ export const withAuthorization = <A, E, R>(effect: Effect.Effect<A, E, R>, requi
 
 ```typescript
 // データ暗号化
-export const CryptoService = Context.GenericTag<{
-  readonly encrypt: (data: string) => Effect.Effect<string, CryptoError>
-  readonly decrypt: (encryptedData: string) => Effect.Effect<string, CryptoError>
-}>()('CryptoService')
+class CryptoService extends Context.Tag('CryptoService')<
+  CryptoService,
+  {
+    readonly encrypt: (data: string) => Effect.Effect<string, CryptoError>
+    readonly decrypt: (encryptedData: string) => Effect.Effect<string, CryptoError>
+  }
+>() {}
 
 // セキュアなワールドデータ保存
 export const saveSecureWorldData = (worldId: string, data: WorldData) =>

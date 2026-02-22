@@ -83,7 +83,7 @@ import { Effect, Context, HashMap, Schema, Duration, Layer } from "effect"
 type ChunkPositionKey = Schema.Schema.Type<typeof ChunkPositionKey>
 const ChunkPositionKey = Schema.String.pipe(Schema.brand("ChunkPositionKey"))
 
-const ChunkLoadError = Schema.TaggedError("ChunkLoadError")({
+class ChunkLoadError extends Schema.TaggedError<ChunkLoadError>()("ChunkLoadError", {
   position: Schema.Struct({
     x: Schema.Number,
     z: Schema.Number
@@ -102,7 +102,7 @@ const ChunkLoadError = Schema.TaggedError("ChunkLoadError")({
   }
 }
 
-interface LazyChunkLoader {
+interface LazyChunkLoaderInterface {
   readonly loadChunk: (
     position: ChunkPosition
   ) => Effect.Effect<ChunkData, ChunkLoadError>
@@ -121,7 +121,7 @@ interface LazyChunkLoader {
   readonly evictLRU: (maxSize: number) => Effect.Effect<number, never>
 }
 
-const LazyChunkLoader = Context.GenericTag<LazyChunkLoader>("@minecraft/LazyChunkLoader")
+class LazyChunkLoader extends Context.Tag("LazyChunkLoader")<LazyChunkLoader, LazyChunkLoaderInterface>() {}
 
 // 高性能実装 - Effect.cached + HashMap + LRU
 const LazyChunkLoaderLive = Layer.effect(
@@ -205,7 +205,7 @@ const LazyChunkLoaderLive = Layer.effect(
       Duration.minutes(5) // 5分間キャッシュ
     )
 
-    return LazyChunkLoader.of({
+    return {
       loadChunk: (position) =>
         cachedLoader(position),
 
@@ -294,13 +294,13 @@ interface OldEntityProcessor {
 ```typescript
 import { Metric, Queue, Semaphore, FiberRef } from 'effect'
 
-interface EntityProcessor {
+interface EntityProcessorInterface {
   readonly processEntities: (entities: Entity[]) => Effect.Effect<void, ProcessingError>
   readonly getProcessingMetrics: () => Effect.Effect<ProcessingMetrics, never>
   readonly adjustConcurrency: () => Effect.Effect<void, never>
 }
 
-const EntityProcessor = Context.GenericTag<EntityProcessor>('@minecraft/EntityProcessor')
+class EntityProcessor extends Context.Tag('EntityProcessor')<EntityProcessor, EntityProcessorInterface>() {}
 
 const EntityProcessorLive = Layer.effect(
   EntityProcessor,
@@ -382,7 +382,7 @@ const EntityProcessorLive = Layer.effect(
       lastThroughput = currentProcessed
     })
 
-    return EntityProcessor.of({
+    return {
       processEntities: (entities) =>
         Effect.gen(function* () {
           const startTime = performance.now()
@@ -553,12 +553,12 @@ interface OldBlockUpdater {
 ```typescript
 import { Stream, Chunk, Schedule } from 'effect'
 
-interface BlockUpdateProcessor {
+interface BlockUpdateProcessorInterface {
   readonly processUpdates: (updates: BlockUpdate[]) => Effect.Effect<void, ProcessingError>
   readonly getStats: () => Effect.Effect<ProcessingStats, never>
 }
 
-const BlockUpdateProcessor = Context.GenericTag<BlockUpdateProcessor>('@minecraft/BlockUpdateProcessor')
+class BlockUpdateProcessor extends Context.Tag('BlockUpdateProcessor')<BlockUpdateProcessor, BlockUpdateProcessorInterface>() {}
 
 const BlockUpdateProcessorLive = Layer.effect(
   BlockUpdateProcessor,
@@ -581,7 +581,7 @@ const BlockUpdateProcessorLive = Layer.effect(
       }
     }
 
-    return BlockUpdateProcessor.of({
+    return {
       processUpdates: (updates) =>
         Effect.gen(function* () {
           if (updates.length === 0) return
@@ -751,7 +751,7 @@ const GameWorldManager = Layer.effect(
     const entityProcessor = yield* EntityProcessor
     const blockProcessor = yield* BlockUpdateProcessor
 
-    return GameWorld.of({
+    return {
       loadPlayerSurroundings: (playerPosition: Position, renderDistance: number) =>
         Effect.gen(function* () {
           const startTime = performance.now()

@@ -637,12 +637,15 @@ export const PermissionSchema = Schema.Union(
 // JWT認証ミドルウェア
 // =============================================================================
 
-export const JWTAuthMiddleware = Context.GenericTag<{
-  readonly authenticate: (token: string) => Effect.Effect<AuthenticatedUser, AuthenticationError>
-  readonly authorize: (user: AuthenticatedUser, permission: Permission) => Effect.Effect<void, AuthorizationError>
-  readonly generateTokens: (user: User) => Effect.Effect<TokenPair, TokenGenerationError>
-  readonly validateRefreshToken: (token: string) => Effect.Effect<User, TokenValidationError>
-}>()('JWTAuthMiddleware')
+class JWTAuthMiddleware extends Context.Tag('JWTAuthMiddleware')<
+  JWTAuthMiddleware,
+  {
+    readonly authenticate: (token: string) => Effect.Effect<AuthenticatedUser, AuthenticationError>
+    readonly authorize: (user: AuthenticatedUser, permission: Permission) => Effect.Effect<void, AuthorizationError>
+    readonly generateTokens: (user: User) => Effect.Effect<TokenPair, TokenGenerationError>
+    readonly validateRefreshToken: (token: string) => Effect.Effect<User, TokenValidationError>
+  }
+>() {}
 
 export const JWTAuthMiddlewareLive = Layer.effect(
   JWTAuthMiddleware,
@@ -977,30 +980,33 @@ export const WebSocketAPIEvents = {
 }
 
 // WebSocket接続管理
-export const WebSocketManager = Context.GenericTag<{
-  readonly connect: (params: {
-    sessionId: string
-    worldId: string
-    auth: AuthenticatedUser
-  }) => Effect.Effect<WebSocketConnection, ConnectionError>
+class WebSocketManager extends Context.Tag('WebSocketManager')<
+  WebSocketManager,
+  {
+    readonly connect: (params: {
+      sessionId: string
+      worldId: string
+      auth: AuthenticatedUser
+    }) => Effect.Effect<WebSocketConnection, ConnectionError>
 
-  readonly disconnect: (connectionId: string) => Effect.Effect<void>
+    readonly disconnect: (connectionId: string) => Effect.Effect<void>
 
-  readonly broadcast: (params: {
-    worldId: string
-    event: string
-    data: unknown
-    excludeConnectionId?: string
-  }) => Effect.Effect<void>
+    readonly broadcast: (params: {
+      worldId: string
+      event: string
+      data: unknown
+      excludeConnectionId?: string
+    }) => Effect.Effect<void>
 
-  readonly sendToPlayer: (params: {
-    playerId: string
-    event: string
-    data: unknown
-  }) => Effect.Effect<void, PlayerNotConnectedError>
+    readonly sendToPlayer: (params: {
+      playerId: string
+      event: string
+      data: unknown
+    }) => Effect.Effect<void, PlayerNotConnectedError>
 
-  readonly getConnectedPlayers: (worldId: string) => Effect.Effect<ReadonlyArray<ConnectedPlayer>>
-}>()('WebSocketManager')
+    readonly getConnectedPlayers: (worldId: string) => Effect.Effect<ReadonlyArray<ConnectedPlayer>>
+  }
+>() {}
 
 export const WebSocketManagerLive = Layer.effect(
   WebSocketManager,
@@ -1194,18 +1200,21 @@ interface ConnectedPlayer {
 // レート制限実装
 // =============================================================================
 
-export const RateLimiter = Context.GenericTag<{
-  readonly checkLimit: (params: {
-    key: string
-    limit: number
-    window: Duration.Duration
-    identifier?: string
-  }) => Effect.Effect<RateLimitResult, RateLimitError>
+class RateLimiter extends Context.Tag('RateLimiter')<
+  RateLimiter,
+  {
+    readonly checkLimit: (params: {
+      key: string
+      limit: number
+      window: Duration.Duration
+      identifier?: string
+    }) => Effect.Effect<RateLimitResult, RateLimitError>
 
-  readonly resetLimit: (key: string) => Effect.Effect<void>
+    readonly resetLimit: (key: string) => Effect.Effect<void>
 
-  readonly getCurrentUsage: (key: string) => Effect.Effect<RateLimitStatus, never>
-}>()('RateLimiter')
+    readonly getCurrentUsage: (key: string) => Effect.Effect<RateLimitStatus, never>
+  }
+>() {}
 
 export const RateLimiterLive = Layer.effect(
   RateLimiter,
@@ -1391,29 +1400,32 @@ export const createRateLimitMiddleware = (params: {
 // キャッシング戦略
 // =============================================================================
 
-export const HTTPCacheManager = Context.GenericTag<{
-  readonly get: <T>(params: {
-    key: string
-    schema: Schema.Schema<T>
-  }) => Effect.Effect<Option.Option<CachedResponse<T>>, CacheError>
+class HTTPCacheManager extends Context.Tag('HTTPCacheManager')<
+  HTTPCacheManager,
+  {
+    readonly get: <T>(params: {
+      key: string
+      schema: Schema.Schema<T>
+    }) => Effect.Effect<Option.Option<CachedResponse<T>>, CacheError>
 
-  readonly set: <T>(params: {
-    key: string
-    value: T
-    ttl?: Duration.Duration
-    tags?: ReadonlyArray<string>
-  }) => Effect.Effect<void, CacheError>
+    readonly set: <T>(params: {
+      key: string
+      value: T
+      ttl?: Duration.Duration
+      tags?: ReadonlyArray<string>
+    }) => Effect.Effect<void, CacheError>
 
-  readonly invalidate: (key: string) => Effect.Effect<void, CacheError>
+    readonly invalidate: (key: string) => Effect.Effect<void, CacheError>
 
-  readonly invalidateByTags: (tags: ReadonlyArray<string>) => Effect.Effect<void, CacheError>
+    readonly invalidateByTags: (tags: ReadonlyArray<string>) => Effect.Effect<void, CacheError>
 
-  readonly warmup: <T>(params: {
-    key: string
-    generator: () => Effect.Effect<T, never>
-    ttl?: Duration.Duration
-  }) => Effect.Effect<void, CacheError>
-}>()('HTTPCacheManager')
+    readonly warmup: <T>(params: {
+      key: string
+      generator: () => Effect.Effect<T, never>
+      ttl?: Duration.Duration
+    }) => Effect.Effect<void, CacheError>
+  }
+>() {}
 
 export const HTTPCacheManagerLive = Layer.effect(
   HTTPCacheManager,

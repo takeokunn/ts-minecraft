@@ -529,7 +529,7 @@ pnpm test:coverage
 
 #### **実績のある実装パターン**
 
-参考: [`docs/examples/sample-execution-plan-issue.md`](../../examples/sample-execution-plan-issue.md)
+参考: [`docs/reference/sample-execution-plan-issue.md`](../../reference/sample-execution-plan-issue.md)
 
 ```markdown
 ## 🏆 成功事例: P1-012基本ブロックシステム

@@ -105,7 +105,7 @@ flowchart TD
     B -->|システム統合| E[Infrastructure APIs]
     B -->|共通処理| F[Utility Functions]
 
-    C --> C1[Schema.Struct<br/>Context.GenericTag<br/>Effect.gen]
+    C --> C1[Schema.Struct<br/>Context.Tag<br/>Effect.gen]
     D --> D1[World.loadChunk<br/>Player.move<br/>Block.place]
     E --> E1[Renderer.render<br/>Asset.load<br/>Input.handle]
     F --> F1[Math.vector3<br/>Array.pipe<br/>Object.merge]
@@ -160,10 +160,10 @@ const PlayerSchema = Schema.Struct({
 })
 
 // 基本的なContext使用
-interface WorldService {
+interface WorldServiceShape {
   readonly loadChunk: (coord: ChunkCoordinate) => Effect.Effect<Chunk, ChunkError>
 }
-export const WorldService = Context.GenericTag<WorldService>('@app/WorldService')
+export class WorldService extends Context.Tag('@app/WorldService')<WorldService, WorldServiceShape>() {}
 ```
 
 ### 🥈 **Level 4: 中級API統合**
@@ -214,7 +214,7 @@ const processGameFrame = Effect.gen(function* () {
 | 問題                 | 参照先                                                                 | キーワード                           |
 | -------------------- | ---------------------------------------------------------------------- | ------------------------------------ |
 | **型エラー**         | [Core APIs](./core-apis.md#schema-api)                                 | `Schema.decode`, `Schema.validate`   |
-| **依存性注入**       | [Core APIs](./core-apis.md#context-api)                                | `Context.GenericTag`, `Layer`        |
+| **依存性注入**       | [Core APIs](./core-apis.md#context-api)                                | `Context.Tag`, `Layer`               |
 | **レンダリング問題** | [Infrastructure APIs](./infrastructure-api-reference.md#rendering-api) | `Three.js`, `WebGL`, `Scene`         |
 | **チャンク読み込み** | [Domain APIs](./domain-apis.md#world-api)                              | `loadChunk`, `ChunkCoordinate`       |
 | **プレイヤー移動**   | [Domain APIs](./domain-apis.md#player-api)                             | `movePlayer`, `Position`, `Velocity` |
@@ -247,7 +247,7 @@ const processGameFrame = Effect.gen(function* () {
 ### 🎯 **上級者向けリソース**
 
 - **[Pattern Catalog](../../explanations/design-patterns/README.md)** - 高度な実装パターン
-- **[Performance Optimization](../../examples/04-performance-optimization/README.md)** - パフォーマンス最適化技法
+- **[Performance Optimization](../../how-to/development/performance-optimization.md)** - パフォーマンス最適化技法
 - **[Architecture Guide](../explanations/architecture/README.md)** - システム設計思想
 
 ---

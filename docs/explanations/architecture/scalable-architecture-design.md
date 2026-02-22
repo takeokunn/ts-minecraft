@@ -616,7 +616,7 @@ export const makeObservableWorldService = (
     Effect.gen(function* () {
       const memoryUsage = yield* getMemoryUsage()
       const activeChunks = yield* getActiveChunkCount()
-      const dbConnection = yield* this.checkDatabaseConnection()
+      const dbConnection = yield* checkDatabaseConnection()
 
       const isHealthy =
         memoryUsage < MEMORY_THRESHOLD &&

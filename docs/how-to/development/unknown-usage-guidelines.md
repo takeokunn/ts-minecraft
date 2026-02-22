@@ -292,7 +292,7 @@ Effect.mapError((parseError: Schema.ParseError) =>
 
 - [Effect-TSパターン](../tutorials/effect-ts-fundamentals/effect-ts-patterns.md)
 - [Effect-TS準拠チェックリスト](../../reference/effect-ts-compliance.md)
-- [型安全性監査レポート](../../analysis/type-safety-phase1-audit-2025-10-11.md)
+- [型安全性監査レポート](../../project-status/type-safety-phase1-audit-2025-10-11.md)
 
 ---
 

@@ -76,12 +76,15 @@ export type GamePosition = Schema.Schema.Type<typeof GamePosition>
 
 ```typescript
 // Brand型によりコンパイル時に誤用を防ぐサービス設計
-export const EntityManagerService = Context.GenericTag<{
-  readonly spawn: (worldId: WorldId, position: GamePosition) => Effect.Effect<EntityId, SpawnError>
-  readonly despawn: (entityId: EntityId) => Effect.Effect<void, DespawnError>
-  readonly move: (entityId: EntityId, newPosition: GamePosition) => Effect.Effect<void, MoveError>
-  readonly getPosition: (entityId: EntityId) => Effect.Effect<Option.Option<GamePosition>, never>
-}>('@minecraft/domain/EntityManagerService')
+export class EntityManagerService extends Context.Tag("@minecraft/domain/EntityManagerService")<
+  EntityManagerService,
+  {
+    readonly spawn: (worldId: WorldId, position: GamePosition) => Effect.Effect<EntityId, SpawnError>
+    readonly despawn: (entityId: EntityId) => Effect.Effect<void, DespawnError>
+    readonly move: (entityId: EntityId, newPosition: GamePosition) => Effect.Effect<void, MoveError>
+    readonly getPosition: (entityId: EntityId) => Effect.Effect<Option.Option<GamePosition>, never>
+  }
+>() {}
 
 // 実装でのBrand型活用
 export const EntityManagerServiceLive = Layer.effect(
@@ -133,9 +136,12 @@ export const EntityManagerServiceLive = Layer.effect(
 import { Effect, Layer, Context } from 'effect'
 
 // 複数の依存関係を持つ高度なサービス
-export const AdvancedGameService = Context.GenericTag<{
-  readonly processComplexGameLogic: (input: GameInput) => Effect.Effect<GameResult, GameError>
-}>('@minecraft/application/AdvancedGameService')
+export class AdvancedGameService extends Context.Tag("@minecraft/application/AdvancedGameService")<
+  AdvancedGameService,
+  {
+    readonly processComplexGameLogic: (input: GameInput) => Effect.Effect<GameResult, GameError>
+  }
+>() {}
 
 // 複数Layer合成による高度な依存性注入
 export const AdvancedGameServiceLive = Layer.effect(
@@ -177,7 +183,7 @@ const ProductionEnvironmentLayers = Layer.mergeAll(
 )
 ```
 
-> 🔗 **基本的なサービス定義**: Context.GenericTagの基本的な使い方は [Effect-TS サービス](./effect-ts-services.md) を参照してください。
+> 🔗 **基本的なサービス定義**: Context.Tag（class-based）の基本的な使い方は [Effect-TS サービス](./effect-ts-services.md) を参照してください。
 
 ## 2. 高度なエラー回復パターン
 
@@ -233,7 +239,7 @@ const withCircuitBreaker = <A, E>(
 ### 3.1 バリデーション統合
 
 ```typescript
-import { Schema } from '@effect/schema'
+import { Schema } from 'effect'
 
 // APIリクエストのスキーマ
 const CreateUserRequest = Schema.Struct({

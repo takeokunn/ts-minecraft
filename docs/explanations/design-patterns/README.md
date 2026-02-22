@@ -102,7 +102,7 @@ mindmap
 #### **[🔧 Service Patterns](./service-patterns.md)** - サービス実装の基礎
 
 ```
-Context.GenericTag + Layer + Effect.gen による型安全サービス実装
+Context.Tag（class-based） + Layer + Effect.gen による型安全サービス実装
 🎯 目的: DDD・Clean Architectureにおけるサービス層実装
 ⏱️ 習得時間: 15-20分
 🏆 重要度: ★★★★★（必修）
@@ -304,17 +304,17 @@ async function badGenerateTerrain(x: number, z: number) {
 #### ✅ **3. Explicit Error Handling** - 型レベルエラー管理
 
 ```typescript
-// 🔥 BEST: Schema.TaggedError + 型レベル表現
-export const ChunkLoadError = Schema.TaggedError("ChunkLoadError")({
+// 🔥 BEST: Schema.TaggedError + 型レベル表現（class-based）
+export class ChunkLoadError extends Schema.TaggedError<ChunkLoadError>()("ChunkLoadError", {
   coordinate: ChunkCoordinate,
   cause: Schema.optional(Schema.Unknown),
-  timestamp: Schema.DateFromSelf
+  timestamp: Schema.DateFromSelf,
 }) {}
 
-export const ChunkSaveError = Schema.TaggedError("ChunkSaveError")({
+export class ChunkSaveError extends Schema.TaggedError<ChunkSaveError>()("ChunkSaveError", {
   chunk: ChunkSchema,
   reason: Schema.Literal("disk_full", "permission_denied", "corruption"),
-  retryable: Schema.Boolean
+  retryable: Schema.Boolean,
 }) {}
 
 // 合成時にエラー型が自動推論される
@@ -364,7 +364,7 @@ async function badProcessChunk() {
 
 #### 🔥 **必須項目** (Level 4-5品質)
 
-- [ ] ✅ **Context.GenericTag使用**: サービス定義に必須
+- [ ] ✅ **Context.Tag（class-based）使用**: サービス定義に必須
 - [ ] ✅ **Schema.TaggedError使用**: すべてのエラー定義
 - [ ] ✅ **Effect.gen記法**: 非同期・同期処理統一
 - [ ] ✅ **Layer提供**: サービスの依存性注入
@@ -487,11 +487,11 @@ graph LR
 // 🔥 BEST: Layer + テスト環境構築
 const TestWorldServiceLive = Layer.succeed(
   WorldService,
-  WorldService.of({
+  {
     loadChunk: (coord) => Effect.succeed(mockChunk),
     saveChunk: (chunk) => Effect.void,
     getBlock: (pos) => Effect.succeed(mockBlock),
-  })
+  }
 )
 
 const testWorldOperations = Effect.gen(function* () {

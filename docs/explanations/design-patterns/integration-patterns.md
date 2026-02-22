@@ -21,13 +21,13 @@ Effect-TSを使用したシステム間統合パターン。外部システム�
 
 ```typescript
 // 通信エラーの定義
-export const ServiceCommunicationError = Schema.TaggedError('ServiceCommunicationError')({
+export class ServiceCommunicationError extends Schema.TaggedError<ServiceCommunicationError>()('ServiceCommunicationError', {
   sourceService: Schema.String,
   targetService: Schema.String,
   operation: Schema.String,
   reason: Schema.String,
   timestamp: Schema.Number,
-})
+}) {}
 
 // プレイヤーサービス → インベントリサービス間通信
 export interface PlayerInventoryBridge {
@@ -38,14 +38,14 @@ export interface PlayerInventoryBridge {
   readonly requestInventoryState: (playerId: string) => Effect.Effect<InventoryState, ServiceCommunicationError>
 }
 
-export const PlayerInventoryBridge = Context.GenericTag<PlayerInventoryBridge>('@minecraft/PlayerInventoryBridge')
+export const PlayerInventoryBridge = Context.Tag<PlayerInventoryBridge>('@minecraft/PlayerInventoryBridge')
 
 const makePlayerInventoryBridge = Effect.gen(function* () {
   const playerService = yield* PlayerService
   const inventoryService = yield* InventoryService
   const eventBus = yield* EventBusService
 
-  return PlayerInventoryBridge.of({
+  return {
     syncInventoryChanges: (playerId, changes) =>
       Effect.gen(function* () {
         // プレイヤーの存在確認
@@ -132,12 +132,12 @@ const GameEventSchema = Schema.Union(
 
 type GameEvent = Schema.Schema.Type<typeof GameEventSchema>
 
-export const EventBusError = Schema.TaggedError('EventBusError')({
+export class EventBusError extends Schema.TaggedError<EventBusError>()('EventBusError', {
   operation: Schema.String,
   reason: Schema.String,
   eventType: Schema.optional(Schema.String),
   timestamp: Schema.Number,
-})
+}) {}
 
 export interface EventBusService {
   readonly publish: (event: GameEvent) => Effect.Effect<void, EventBusError>
@@ -147,12 +147,12 @@ export interface EventBusService {
   ) => Effect.Effect<void, EventBusError>
 }
 
-export const EventBusService = Context.GenericTag<EventBusService>('@minecraft/EventBusService')
+export const EventBusService = Context.Tag<EventBusService>('@minecraft/EventBusService')
 
 const makeEventBusService = Effect.gen(function* () {
   const subscribers = yield* Ref.make(new Map<string, Array<(event: GameEvent) => Effect.Effect<void, never>>>())
 
-  return EventBusService.of({
+  return {
     publish: (event) =>
       Effect.gen(function* () {
         const currentSubscribers = yield* Ref.get(subscribers)
@@ -214,12 +214,12 @@ const chunkEventHandler = Effect.gen(function* () {
 **実装**:
 
 ```typescript
-export const MessageQueueError = Schema.TaggedError('MessageQueueError')({
+export class MessageQueueError extends Schema.TaggedError<MessageQueueError>()('MessageQueueError', {
   operation: Schema.String,
   queueName: Schema.String,
   reason: Schema.String,
   timestamp: Schema.Number,
-})
+}) {}
 
 const MessageSchema = Schema.Struct({
   id: Schema.String,
@@ -244,12 +244,12 @@ export interface MessageQueueService {
   readonly nack: (queueName: string, messageId: string, delay?: number) => Effect.Effect<void, MessageQueueError>
 }
 
-export const MessageQueueService = Context.GenericTag<MessageQueueService>('@minecraft/MessageQueueService')
+export const MessageQueueService = Context.Tag<MessageQueueService>('@minecraft/MessageQueueService')
 
 const makeMessageQueueService = Effect.gen(function* () {
   const queues = yield* Ref.make(new Map<string, Queue.Queue<Message>>())
 
-  return MessageQueueService.of({
+  return {
     enqueue: (queueName, messageData) =>
       Effect.gen(function* () {
         const messageId = crypto.randomUUID()
@@ -359,13 +359,13 @@ type PlayerDataResponse = {
   readonly serverStatus: "online" | "offline" | "maintenance"
 } & Brand.Brand<"PlayerDataResponse">
 
-export const HttpIntegrationError = Schema.TaggedError("HttpIntegrationError")({
+export class HttpIntegrationError extends Schema.TaggedError<HttpIntegrationError>()("HttpIntegrationError", {
   endpoint: Schema.String,
   method: Schema.String,
   statusCode: Schema.optional(Schema.Number),
   message: Schema.String,
-  timestamp: Schema.Number
-})
+  timestamp: Schema.Number,
+}) {}
 
 // HTTP クライアント設定スキーマ（拡張版）
 const ApiConfigSchema = Schema.Struct({
@@ -474,7 +474,7 @@ export interface HttpIntegrationService {
   ) => Effect.Effect<ReadonlyArray<PlayerDataResponse>, HttpIntegrationError>
 }
 
-export const HttpIntegrationService = Context.GenericTag<HttpIntegrationService>("@minecraft/HttpIntegrationService")
+export const HttpIntegrationService = Context.Tag<HttpIntegrationService>("@minecraft/HttpIntegrationService")
 
 // 拡張レート制限付きHTTPクライアント（ヘルスチェック機能付き）
 const makeRateLimitedHttpClient = (config: ApiConfig) => Effect.gen(function* () {
@@ -732,7 +732,7 @@ const makeHttpIntegrationService = Effect.gen(function* () {
     )
   }
 
-  return HttpIntegrationService.of({
+  return {
     getPlayerData: (playerId) => {
       const request = HttpClientRequest.get(`${config.baseUrl}/players/${playerId}`).pipe(
         HttpClientRequest.setHeaders({
@@ -959,7 +959,7 @@ export interface WebSocketService {
   readonly getConnectionStatus: () => Effect.Effect<"CONNECTING" | "OPEN" | "CLOSING" | "CLOSED", never>
 }
 
-export const WebSocketService = Context.GenericTag<WebSocketService>("@minecraft/WebSocketService")
+export const WebSocketService = Context.Tag<WebSocketService>("@minecraft/WebSocketService")
 
 const makeWebSocketService = Effect.gen(function* () {
   const connectionRef = yield* Ref.make<WebSocket | null>(null)
@@ -999,7 +999,7 @@ const makeWebSocketService = Effect.gen(function* () {
     }
   })
 
-  return WebSocketService.of({
+  return {
     connect: (url) => Stream.async<WebSocketMessage, HttpIntegrationError>((emit) => {
       const connectWithRetry = () => {
         const ws = new WebSocket(url)
@@ -1302,14 +1302,14 @@ type DatabaseConfig = {
   readonly acquireTimeoutMillis: number
 } & Brand.Brand<"DatabaseConfig">
 
-export const ChunkStorageError = Schema.TaggedError("ChunkStorageError")({
+export class ChunkStorageError extends Schema.TaggedError<ChunkStorageError>()("ChunkStorageError", {
   operation: Schema.String,
   coordinate: Schema.optional(Schema.Unknown),
   table: Schema.optional(Schema.String),
   query: Schema.optional(Schema.String),
   message: Schema.String,
-  timestamp: Schema.Number
-})
+  timestamp: Schema.Number,
+}) {}
 
 // データベース設定スキーマ
 const DatabaseConfigSchema = Schema.Struct({
@@ -1380,7 +1380,7 @@ export interface ChunkRepository {
   ) => Effect.Effect<ChunkData, ChunkStorageError>
 }
 
-export const ChunkRepository = Context.GenericTag<ChunkRepository>("@minecraft/ChunkRepository")
+export const ChunkRepository = Context.Tag<ChunkRepository>("@minecraft/ChunkRepository")
 
 // SQLite実装（実本格的な実装）
 const makeChunkRepository = Effect.gen(function* () {
@@ -1425,7 +1425,7 @@ const makeChunkRepository = Effect.gen(function* () {
     )
   )
 
-  return ChunkRepository.of({
+  return {
     save: (chunk) => Effect.gen(function* () {
       const serializedData = JSON.stringify(chunk)
 
@@ -1736,7 +1736,7 @@ const makeDatabaseMonitorService = Effect.gen(function* () {
 
 export const DatabaseLive = Layer.unwrapEffect(makeDatabaseLayer)
 export const DatabaseMonitorLive = Layer.effect(
-  Context.GenericTag<{ healthCheck: () => Effect.Effect<boolean> }>("DatabaseMonitor"),
+  Context.Tag<{ healthCheck: () => Effect.Effect<boolean> }>("DatabaseMonitor"),
   makeDatabaseMonitorService
 )
 export const ChunkRepositoryLive = Layer.effect(ChunkRepository, makeChunkRepository).pipe(
@@ -1875,12 +1875,12 @@ const updateChunkSafely = (
 **実装**:
 
 ```typescript
-export const FileSystemError = Schema.TaggedError('FileSystemError')({
+export class FileSystemError extends Schema.TaggedError<FileSystemError>()('FileSystemError', {
   operation: Schema.String,
   path: Schema.String,
   reason: Schema.String,
   timestamp: Schema.Number,
-})
+}) {}
 
 export interface FileSystemService {
   readonly readFile: (path: string) => Effect.Effect<string, FileSystemError>
@@ -1890,10 +1890,9 @@ export interface FileSystemService {
   readonly listDirectory: (path: string) => Effect.Effect<string[], FileSystemError>
 }
 
-export const FileSystemService = Context.GenericTag<FileSystemService>('@minecraft/FileSystemService')
+export const FileSystemService = Context.Tag<FileSystemService>('@minecraft/FileSystemService')
 
-const makeFileSystemService = Effect.succeed(
-  FileSystemService.of({
+const makeFileSystemService = Effect.succeed({
     readFile: (path) =>
       Effect.gen(function* () {
         return yield* Effect.async<string, FileSystemError>((resume) => {
@@ -2020,13 +2019,13 @@ export interface ConfigService {
   readonly saveConfig: (config: Config) => Effect.Effect<void, FileSystemError>
 }
 
-export const ConfigService = Context.GenericTag<ConfigService>('@minecraft/ConfigService')
+export const ConfigService = Context.Tag<ConfigService>('@minecraft/ConfigService')
 
 const makeConfigService = Effect.gen(function* () {
   const fs = yield* FileSystemService
   const configPath = './config/game.json'
 
-  return ConfigService.of({
+  return {
     loadConfig: () =>
       Effect.gen(function* () {
         const exists = yield* fs.exists(configPath)
@@ -2066,12 +2065,12 @@ export const ConfigServiceLive = Layer.effect(ConfigService, makeConfigService)
 **実装**:
 
 ```typescript
-export const ThreeJSError = Schema.TaggedError('ThreeJSError')({
+export class ThreeJSError extends Schema.TaggedError<ThreeJSError>()('ThreeJSError', {
   operation: Schema.String,
   component: Schema.String,
   message: Schema.String,
   timestamp: Schema.Number,
-})
+}) {}
 
 // Three.jsレンダラーサービス
 export interface ThreeJSService {
@@ -2085,10 +2084,9 @@ export interface ThreeJSService {
   ) => Effect.Effect<void, ThreeJSError>
 }
 
-export const ThreeJSService = Context.GenericTag<ThreeJSService>('@minecraft/ThreeJSService')
+export const ThreeJSService = Context.Tag<ThreeJSService>('@minecraft/ThreeJSService')
 
-const makeThreeJSService = Effect.succeed(
-  ThreeJSService.of({
+const makeThreeJSService = Effect.succeed({
     initializeRenderer: (canvas) =>
       Effect.gen(function* () {
         return yield* Effect.try({
@@ -2148,12 +2146,12 @@ export interface MeshGenerationService {
   readonly disposeMesh: (mesh: THREE.Mesh) => Effect.Effect<void, never>
 }
 
-export const MeshGenerationService = Context.GenericTag<MeshGenerationService>('@minecraft/MeshGenerationService')
+export const MeshGenerationService = Context.Tag<MeshGenerationService>('@minecraft/MeshGenerationService')
 
 const makeMeshGenerationService = Effect.gen(function* () {
   const threeJS = yield* ThreeJSService
 
-  return MeshGenerationService.of({
+  return {
     createChunkMesh: (chunkData) =>
       Effect.gen(function* () {
         return yield* Effect.try({
@@ -2282,14 +2280,14 @@ export interface ChunkStoragePort {
   readonly load: (coordinate: ChunkCoordinate) => Effect.Effect<Option.Option<ChunkData>, ChunkStorageError>
 }
 
-export const ChunkStoragePort = Context.GenericTag<ChunkStoragePort>('@minecraft/domain/ChunkStoragePort')
+export const ChunkStoragePort = Context.Tag<ChunkStoragePort>('@minecraft/domain/ChunkStoragePort')
 
-export const ChunkStorageError = Schema.TaggedError('ChunkStorageError')({
+export class ChunkStorageError extends Schema.TaggedError<ChunkStorageError>()('ChunkStorageError', {
   operation: Schema.String,
   coordinate: Schema.optional(Schema.Unknown),
   reason: Schema.String,
   timestamp: Schema.Number,
-})
+}) {}
 
 // ドメインサービスの実装
 export interface ChunkDomainService {
@@ -2300,13 +2298,13 @@ export interface ChunkDomainService {
   ) => Effect.Effect<ChunkData, ChunkStorageError | ChunkGenerationError>
 }
 
-export const ChunkDomainService = Context.GenericTag<ChunkDomainService>('@minecraft/domain/ChunkDomainService')
+export const ChunkDomainService = Context.Tag<ChunkDomainService>('@minecraft/domain/ChunkDomainService')
 
 const makeChunkDomainService = Effect.gen(function* () {
   const chunkStorage = yield* ChunkStoragePort // ポートに依存
   const terrainGenerator = yield* TerrainGeneratorService
 
-  return ChunkDomainService.of({
+  return {
     generateChunk: (coordinate) =>
       Effect.gen(function* () {
         return yield* terrainGenerator.generate(coordinate)
@@ -2342,7 +2340,7 @@ export const ChunkDomainServiceLive = Layer.effect(ChunkDomainService, makeChunk
 const makeFileSystemChunkStorageAdapter = Effect.gen(function* () {
   const fs = yield* FileSystemService
 
-  return ChunkStoragePort.of({
+  return {
     save: (chunk) =>
       Effect.gen(function* () {
         const filePath = `./world/chunks/chunk_${chunk.coordinate.x}_${chunk.coordinate.z}.json`
@@ -2454,11 +2452,11 @@ interface BadService {
 
 ```typescript
 // これは避ける - サービス間の循環依存
-const ServiceA = Context.GenericTag<{
+const ServiceA = Context.Tag<{
   useB: () => Effect.Effect<string, never>
 }>('ServiceA')
 
-const ServiceB = Context.GenericTag<{
+const ServiceB = Context.Tag<{
   useA: () => Effect.Effect<string, never> // 循環依存
 }>('ServiceB')
 ```
@@ -2484,7 +2482,7 @@ export const DatabaseAdapter: DataPort = /* ... */
 // テスト用のモックを提供
 export const TestChunkStorageLive = Layer.succeed(
   ChunkStoragePort,
-  ChunkStoragePort.of({
+  {
     save: () => Effect.succeed(void 0),
     load: () => Effect.succeed(Option.none()),
   })
@@ -2646,7 +2644,7 @@ export interface ConfigService {
   readonly watchConfig: () => Stream.Stream<ServerConfig, ConfigError.ConfigError>
 }
 
-export const ConfigService = Context.GenericTag<ConfigService>('@minecraft/ConfigService')
+export const ConfigService = Context.Tag<ConfigService>('@minecraft/ConfigService')
 
 const makeConfigService = Effect.gen(function* () {
   const fs = yield* FileSystem.FileSystem
@@ -2690,7 +2688,7 @@ const makeConfigService = Effect.gen(function* () {
       return watchStream
     })
 
-  return ConfigService.of({
+  return {
     getServerConfig: () =>
       Effect.gen(function* () {
         const cached = yield* Ref.get(configCache)
@@ -2821,7 +2819,7 @@ export interface TelemetryService {
   ) => Effect.Effect<A, E, R>
 }
 
-export const TelemetryService = Context.GenericTag<TelemetryService>('@minecraft/TelemetryService')
+export const TelemetryService = Context.Tag<TelemetryService>('@minecraft/TelemetryService')
 
 // メトリクス初期化
 const createMetrics = Effect.gen(function* () {
@@ -2867,7 +2865,7 @@ const makeTelemetryService = Effect.gen(function* () {
   const metrics = yield* createMetrics
   const tracer = yield* Tracer.Tracer
 
-  return TelemetryService.of({
+  return {
     recordHttpRequest: (method, endpoint, statusCode, duration) =>
       Effect.gen(function* () {
         const durationSeconds = Duration.toSeconds(duration)
@@ -2952,7 +2950,7 @@ const makeObservableHttpIntegrationService = Effect.gen(function* () {
   const baseService = yield* HttpIntegrationService
   const telemetry = yield* TelemetryService
 
-  return HttpIntegrationService.of({
+  return {
     getPlayerData: (playerId) => {
       return telemetry.createSpan(
         'http.get_player_data',
@@ -3034,7 +3032,7 @@ const makeObservableChunkRepository = Effect.gen(function* () {
   const baseRepository = yield* ChunkRepository
   const telemetry = yield* TelemetryService
 
-  return ChunkRepository.of({
+  return {
     save: (chunk) => {
       return telemetry.createSpan(
         'db.chunk_save',
@@ -3185,7 +3183,7 @@ export interface HealthCheckService {
   ) => Effect.Effect<void, never>
 }
 
-export const HealthCheckService = Context.GenericTag<HealthCheckService>("@minecraft/HealthCheckService")
+export const HealthCheckService = Context.Tag<HealthCheckService>("@minecraft/HealthCheckService")
 
 const makeHealthCheckService = Effect.gen(function* () {
   const healthChecks = yield* Ref.make(
@@ -3245,7 +3243,7 @@ const makeHealthCheckService = Effect.gen(function* () {
     )
   )
 
-  return HealthCheckService.of({
+  return {
     checkHealth: (serviceName) => Effect.gen(function* () {
       const statuses = yield* Ref.get(healthStatuses)
       const status = statuses.get(serviceName)
@@ -3670,7 +3668,7 @@ const createMockHttpResponse = (playerId: string): PlayerDataResponse =>
 
 const TestHttpIntegrationServiceLive = Layer.succeed(
   HttpIntegrationService,
-  HttpIntegrationService.of({
+  {
     getPlayerData: (playerId) => Effect.succeed(createMockHttpResponse(playerId)),
     updatePlayerPosition: () => Effect.succeed(void 0),
     batchGetPlayers: (playerIds) => Effect.succeed(playerIds.map(createMockHttpResponse)),
@@ -3682,7 +3680,7 @@ const TestChunkRepositoryLive = Layer.effect(
   Effect.gen(function* () {
     const storage = yield* Ref.make(new Map<string, ChunkData>())
 
-    return ChunkRepository.of({
+    return {
       save: (chunk) =>
         Effect.gen(function* () {
           const key = `${chunk.coordinate.x},${chunk.coordinate.z}`
@@ -3809,7 +3807,7 @@ export interface GracefulShutdownService {
   readonly isShuttingDown: () => Effect.Effect<boolean, never>
 }
 
-export const GracefulShutdownService = Context.GenericTag<GracefulShutdownService>('@minecraft/GracefulShutdownService')
+export const GracefulShutdownService = Context.Tag<GracefulShutdownService>('@minecraft/GracefulShutdownService')
 
 const makeGracefulShutdownService = Effect.gen(function* () {
   const shutdownHooks = yield* Ref.make(new Map<string, () => Effect.Effect<void, never>>())
@@ -3903,7 +3901,7 @@ const makeGracefulShutdownService = Effect.gen(function* () {
 
   yield* setupSignalHandlers()
 
-  return GracefulShutdownService.of({
+  return {
     registerShutdownHook: (name, cleanup) =>
       Effect.gen(function* () {
         yield* Ref.update(shutdownHooks, (hooks) => new Map(hooks).set(name, cleanup))
@@ -3938,7 +3936,7 @@ export interface ResourceManagerService {
   >
 }
 
-export const ResourceManagerService = Context.GenericTag<ResourceManagerService>('@minecraft/ResourceManagerService')
+export const ResourceManagerService = Context.Tag<ResourceManagerService>('@minecraft/ResourceManagerService')
 
 const makeResourceManagerService = Effect.gen(function* () {
   const resources = yield* Ref.make(
@@ -3983,7 +3981,7 @@ const makeResourceManagerService = Effect.gen(function* () {
     })
   )
 
-  return ResourceManagerService.of({
+  return {
     acquireResource: (name, acquire, release) =>
       Effect.gen(function* () {
         yield* Effect.logDebug(`Acquiring resource: ${name}`)

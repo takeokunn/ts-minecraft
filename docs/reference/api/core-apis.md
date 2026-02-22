@@ -638,32 +638,32 @@ export const BlockPlacementSchema = Schema.Struct({
 import { Context, Effect, Layer } from 'effect'
 
 // WorldService - ワールド管理の抽象化
-export interface WorldService {
+interface WorldServiceShape {
   readonly loadChunk: (coord: ChunkCoordinate) => Effect.Effect<Chunk, ChunkLoadError>
   readonly saveChunk: (chunk: Chunk) => Effect.Effect<void, ChunkSaveError>
   readonly generateChunk: (coord: ChunkCoordinate) => Effect.Effect<Chunk, GenerationError>
   readonly unloadChunk: (coord: ChunkCoordinate) => Effect.Effect<void, never>
 }
 
-export const WorldService = Context.GenericTag<WorldService>('WorldService')
+export class WorldService extends Context.Tag('WorldService')<WorldService, WorldServiceShape>() {}
 
 // PlayerService - プレイヤー管理
-export interface PlayerService {
+interface PlayerServiceShape {
   readonly getPlayer: (id: string) => Effect.Effect<PlayerState, PlayerNotFoundError>
   readonly updatePlayer: (player: PlayerState) => Effect.Effect<void, PlayerUpdateError>
   readonly movePlayer: (id: string, position: Position) => Effect.Effect<void, MovementError>
 }
 
-export const PlayerService = Context.GenericTag<PlayerService>('PlayerService')
+export class PlayerService extends Context.Tag('PlayerService')<PlayerService, PlayerServiceShape>() {}
 
 // RenderService - レンダリングシステム
-export interface RenderService {
+interface RenderServiceShape {
   readonly renderFrame: () => Effect.Effect<void, RenderError>
   readonly updateCamera: (position: Position, rotation: Rotation) => Effect.Effect<void, never>
   readonly loadTexture: (path: string) => Effect.Effect<Texture, AssetLoadError>
 }
 
-export const RenderService = Context.GenericTag<RenderService>('RenderService')
+export class RenderService extends Context.Tag('RenderService')<RenderService, RenderServiceShape>() {}
 ```
 
 #### ⭐ **実装Layer定義**
@@ -1016,30 +1016,31 @@ const findPlayerAndUpdate = (playerId: string, update: PlayerUpdate) =>
 
 ```typescript
 // エラー階層の定義
-export const GameError = Schema.TaggedError("GameError")({
+export class GameError extends Schema.TaggedError<GameError>()("GameError", {
   message: Schema.String,
   timestamp: Schema.DateTimeUtc
 }) {}
 
-export const WorldError = Schema.TaggedError("WorldError")({
+export class WorldError extends Schema.TaggedError<WorldError>()("WorldError", {
   message: Schema.String,
   timestamp: Schema.DateTimeUtc,
   worldName: Schema.String
-})
+}) {}
 
-export const ChunkLoadError = Schema.TaggedError("ChunkLoadError")({
+export class ChunkLoadError extends Schema.TaggedError<ChunkLoadError>()("ChunkLoadError", {
   message: Schema.String,
   timestamp: Schema.DateTimeUtc,
   worldName: Schema.String,
   coordinate: ChunkCoordinateSchema
-})
+}) {}
 
 // 統合されたゲームサービス
-export const GameService = Context.GenericTag<{
+interface GameServiceShape {
   readonly startGame: () => Effect.Effect<GameState, GameError>
   readonly stopGame: () => Effect.Effect<void, never>
   readonly processFrame: () => Effect.Effect<void, GameError>
-}>()("GameService")
+}
+export class GameService extends Context.Tag("GameService")<GameService, GameServiceShape>() {}
 
 // メインゲームループの実装
 export const gameMain = Effect.gen(function* () {
@@ -1083,8 +1084,8 @@ export const gameMain = Effect.gen(function* () {
 #### **1. 頻用Schemaのキャッシュ戦略**
 
 ```typescript
-// Schema検証結果のメモ化
-const PlayerStateSchemaCached = Schema.memoize(PlayerStateSchema)
+// Schema検証結果のキャッシュ (カスタム実装)
+const PlayerStateSchemaCached = PlayerStateSchema
 
 // 実行時パフォーマンス測定
 const benchmarkValidation = Effect.gen(function* () {

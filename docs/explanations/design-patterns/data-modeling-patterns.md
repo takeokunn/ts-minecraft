@@ -413,7 +413,7 @@ type InventoryError = Data.TaggedEnum.Value<typeof InventoryError>
 
 ### 解決策
 
-Effect-TSの`Context.GenericTag`とLayerシステムを使用して、Repository インターフェースを定義し、実装を依存性注入で提供します。
+Effect-TSの`Context.Tag`（class-based）とLayerシステムを使用して、Repository インターフェースを定義し、実装を依存性注入で提供します。
 
 ### Schema定義例
 
@@ -429,17 +429,15 @@ const RepositoryError = Data.taggedEnum<{
 }>>
 type RepositoryError = Data.TaggedEnum.Value<typeof RepositoryError>;
 
-// ✅ Service定義パターン - 関数型パターン
-interface PlayerRepositoryInterface {
+// ✅ Service定義パターン - class-based Context.Tag
+class PlayerRepository extends Context.Tag("@app/PlayerRepository")<PlayerRepository, {
   readonly findById: (id: PlayerId) => Effect.Effect<Option.Option<Player>, RepositoryError>
   readonly findByName: (name: PlayerName) => Effect.Effect<Option.Option<Player>, RepositoryError>
   readonly save: (player: Player) => Effect.Effect<void, RepositoryError>
   readonly delete: (id: PlayerId) => Effect.Effect<void, RepositoryError>
   readonly findAll: () => Effect.Effect<ReadonlyArray<Player>, RepositoryError>
   readonly findByCondition: (predicate: (player: Player) => boolean) => Effect.Effect<ReadonlyArray<Player>, RepositoryError>
-}
-
-const PlayerRepository = Context.GenericTag<PlayerRepositoryInterface>("@app/PlayerRepository")
+}>() {}
 
 // ✅ 検索条件のSchemaベース定義
 const PlayerSearchCriteria = Schema.Struct({
@@ -468,7 +466,7 @@ const makePlayerRepositoryMemory = Effect.gen(function* () {
   const storage = yield* Ref.make(HashMap.empty<PlayerId, Player>())
   const nameIndex = yield* Ref.make(HashMap.empty<PlayerName, PlayerId>())
 
-  return PlayerRepository.of({
+  return {
     findById: (id) =>
       Effect.gen(function* () {
         const store = yield* Ref.get(storage)
@@ -556,14 +554,14 @@ const makePlayerRepositoryMemory = Effect.gen(function* () {
         const store = yield* Ref.get(storage)
         return pipe(HashMap.values(store), ReadonlyArray.filter(predicate))
       }),
-  })
+  }
 })
 
 // ✅ データベース実装 - SqlClientパターン使用
 const makePlayerRepositoryDatabase = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient
 
-  return PlayerRepository.of({
+  return {
     findById: (id) =>
       Effect.gen(function* () {
         const result = yield* sql<{
@@ -690,7 +688,7 @@ const makePlayerRepositoryDatabase = Effect.gen(function* () {
         const allPlayers = yield* this.findAll()
         return ReadonlyArray.filter(allPlayers, predicate)
       }),
-  })
+  }
 })
 
 // ✅ Layer定義

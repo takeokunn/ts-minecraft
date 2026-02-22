@@ -40,23 +40,24 @@ function loadChunk(position: ChunkPosition): Chunk {
 }
 
 // ✅ Effect-TS関数型アプローチによる改善
-const LoadChunkError = Schema.TaggedError('LoadChunkError')({
+class LoadChunkError extends Schema.TaggedError<LoadChunkError>()('LoadChunkError', {
   position: ChunkPositionSchema,
   reason: Schema.Literal('file_not_found', 'parse_error', 'memory_full', 'notification_failed'),
-})
+}) {}
 
-interface WorldService {
-  readonly loadChunk: (
-    position: ChunkPosition
-  ) => Effect.Effect<Chunk, typeof LoadChunkError.Type, FileSystem | ChunkCache | EventBus>
-}
-
-const WorldService = Context.GenericTag<WorldService>('@minecraft/WorldService')
+class WorldService extends Context.Tag('WorldService')<
+  WorldService,
+  {
+    readonly loadChunk: (
+      position: ChunkPosition
+    ) => Effect.Effect<Chunk, LoadChunkError, FileSystem | ChunkCache | EventBus>
+  }
+>() {}
 
 const makeWorldService = Effect.gen(function* () {
   const chunksRef = yield* Ref.make(new Map<string, Chunk>())
 
-  return WorldService.of({
+  return {
     loadChunk: (position) =>
       Effect.gen(function* () {
         const fs = yield* FileSystem
@@ -66,23 +67,23 @@ const makeWorldService = Effect.gen(function* () {
         // 各段階でのエラーを明示的に管理
         const chunkData = yield* fs
           .readChunk(position)
-          .pipe(Effect.mapError(() => LoadChunkError({ position, reason: 'file_not_found' })))
+          .pipe(Effect.mapError(() => new LoadChunkError({ position, reason: 'file_not_found' })))
 
         const chunk = yield* parseChunkData(chunkData).pipe(
-          Effect.mapError(() => LoadChunkError({ position, reason: 'parse_error' }))
+          Effect.mapError(() => new LoadChunkError({ position, reason: 'parse_error' }))
         )
 
         yield* Ref.update(chunksRef, (chunks) => new Map(chunks).set(position.key, chunk)).pipe(
-          Effect.mapError(() => LoadChunkError({ position, reason: 'memory_full' }))
+          Effect.mapError(() => new LoadChunkError({ position, reason: 'memory_full' }))
         )
 
         yield* eventBus
           .notify(ChunkLoadedEvent({ chunk, position }))
-          .pipe(Effect.mapError(() => LoadChunkError({ position, reason: 'notification_failed' })))
+          .pipe(Effect.mapError(() => new LoadChunkError({ position, reason: 'notification_failed' })))
 
         return chunk
       }),
-  })
+  }
 })
 ```
 
@@ -235,7 +236,7 @@ const gameLoop: Effect.Effect<void, never, GameServices> = Effect.gen(function* 
   const elapsed = yield* Clock.currentTimeMillis.pipe(Effect.map((now) => now - startTime))
 
   // フレーム時間調整
-  yield* elapsed < 16 ? Clock.sleep(`${16 - elapsed}ms`) : Effect.unit
+  yield* elapsed < 16 ? Clock.sleep(`${16 - elapsed}ms`) : Effect.void
 }).pipe(Effect.forever)
 ```
 
@@ -288,14 +289,11 @@ const optimizedBatchUpdate = (entities: Entity[]) =>
     // クリティカルパスは純粋な計算で最適化
     const results = new Float32Array(entities.length * 3)
     // パフォーマンスクリティカルな場合は配列操作を使用
-    pipe(
-      entities,
-      Array.forEachWithIndex((i, entity) => {
-        results[i * 3] = entity.position.x + entity.velocity.x
-        results[i * 3 + 1] = entity.position.y + entity.velocity.y
-        results[i * 3 + 2] = entity.position.z + entity.velocity.z
-      })
-    )
+    entities.forEach((entity, i) => {
+      results[i * 3] = entity.position.x + entity.velocity.x
+      results[i * 3 + 1] = entity.position.y + entity.velocity.y
+      results[i * 3 + 2] = entity.position.z + entity.velocity.z
+    })
     return results
   })
 ```

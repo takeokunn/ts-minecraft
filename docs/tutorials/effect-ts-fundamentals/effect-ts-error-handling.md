@@ -24,7 +24,7 @@ estimated_reading_time: '20分'
 
 - **概念説明**: [Effect-TSパターン](./06-effect-ts-patterns.md)
 - **APIリファレンス**: [Effect-TS Schema API](../reference/effect-ts-schema-api.md)
-- **実践例**: [エラーハンドリング例](../examples/02-advanced-patterns/01-effect-composition.md)
+- **実践例**: [Effect-TSパターン](./effect-ts-patterns.md)
 
 ---
 
@@ -35,16 +35,22 @@ estimated_reading_time: '20分'
 ```typescript
 import { Schema } from 'effect'
 
-// ドメインエラーの定義 - 関数型パターン
-const BlockNotFoundError = Schema.TaggedError('BlockNotFoundError')({
-  position: Position,
-  reason: Schema.optional(Schema.String),
-})
+// ドメインエラーの定義 - class-based パターン
+class BlockNotFoundError extends Schema.TaggedError<BlockNotFoundError>()(
+  "BlockNotFoundError",
+  {
+    position: Position,
+    reason: Schema.optionalWith(Schema.String, { exact: true }),
+  }
+) {}
 
-const InvalidBlockError = Schema.TaggedError('InvalidBlockError')({
-  blockType: Schema.String,
-  message: Schema.String,
-})
+class InvalidBlockError extends Schema.TaggedError<InvalidBlockError>()(
+  "InvalidBlockError",
+  {
+    blockType: Schema.String,
+    message: Schema.String,
+  }
+) {}
 
 // エラーユニオン型の定義
 type BlockError = typeof BlockNotFoundError.Type | typeof InvalidBlockError.Type
@@ -53,19 +59,25 @@ type BlockError = typeof BlockNotFoundError.Type | typeof InvalidBlockError.Type
 ### 1.2 階層的エラー構造
 
 ```typescript
-// 基底エラー型の定義 - 関数型パターン
-const GameError = Schema.TaggedError('GameError')({
-  timestamp: Schema.DateTimeUtc,
-  context: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
-})
+// 基底エラー型の定義 - class-based パターン
+class GameError extends Schema.TaggedError<GameError>()(
+  "GameError",
+  {
+    timestamp: Schema.DateTimeUtc,
+    context: Schema.optionalWith(Schema.Record({ key: Schema.String, value: Schema.Unknown }), { exact: true }),
+  }
+) {}
 
 // 具体的なエラー実装 - Match.value で処理
-const NetworkError = Schema.TaggedError('NetworkError')({
-  statusCode: Schema.Number,
-  endpoint: Schema.String,
-  timestamp: Schema.DateTimeUtc,
-  context: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
-})
+class NetworkError extends Schema.TaggedError<NetworkError>()(
+  "NetworkError",
+  {
+    statusCode: Schema.Number,
+    endpoint: Schema.String,
+    timestamp: Schema.DateTimeUtc,
+    context: Schema.optionalWith(Schema.Record({ key: Schema.String, value: Schema.Unknown }), { exact: true }),
+  }
+) {}
 
 // エラーファクトリー関数
 const createNetworkError = (statusCode: number, endpoint: string, context?: Record<string, unknown>) =>
@@ -146,17 +158,23 @@ const processBlock = pipe(
 ### 3.1 層間でのエラー変換
 
 ```typescript
-// インフラ層のエラー - 関数型パターン
-const DatabaseError = Schema.TaggedError('DatabaseError')({
-  query: Schema.String,
-  code: Schema.String,
-})
+// インフラ層のエラー - class-based パターン
+class DatabaseError extends Schema.TaggedError<DatabaseError>()(
+  "DatabaseError",
+  {
+    query: Schema.String,
+    code: Schema.String,
+  }
+) {}
 
-// ドメイン層のエラー - 関数型パターン
-const SaveError = Schema.TaggedError('SaveError')({
-  entityId: Schema.String,
-  reason: Schema.String,
-})
+// ドメイン層のエラー - class-based パターン
+class SaveError extends Schema.TaggedError<SaveError>()(
+  "SaveError",
+  {
+    entityId: Schema.String,
+    reason: Schema.String,
+  }
+) {}
 
 // エラー変換 - Match.value パターン使用
 const savePlayer = (player: Player) =>
@@ -228,19 +246,22 @@ const CircuitState = Schema.Union(
   Schema.Literal("half-open")
 )
 
-const CircuitOpenError = Schema.TaggedError("CircuitOpenError")({
-  message: Schema.String,
-  retryAfter: Schema.Number
-})
+class CircuitOpenError extends Schema.TaggedError<CircuitOpenError>()(
+  "CircuitOpenError",
+  {
+    message: Schema.String,
+    retryAfter: Schema.Number,
+  }
+) {}
 
 interface CircuitBreaker {
   private failures = 0
   private readonly threshold = 5
   private state: typeof CircuitState.Type = "closed"
 
-  execute<R, E, A>(
-    effect: Effect.Effect<R, E, A>
-  ): Effect.Effect<R, E | typeof CircuitOpenError.Type, A> {
+  execute<A, E, R>(
+    effect: Effect.Effect<A, E, R>
+  ): Effect.Effect<A, E | CircuitOpenError, R> {
     return Effect.gen(function* () {
       // Match.value でステート管理
       const shouldExecute = yield* Match.value(this.state).pipe(
@@ -353,5 +374,5 @@ const ErrorLoggerLive = Logger.replace(
 ## 次のステップ
 
 - **テスト戦略**: [Effect-TSテスト](./06d-effect-ts-testing.md)でエラーケースのテスト方法を学習
-- **実践例**: [エラーハンドリング例](../examples/02-advanced-patterns/01-effect-composition.md)で実装例を確認
+- **実践例**: [Effect-TSパターン](./effect-ts-patterns.md)で実装例を確認
 - **APIリファレンス**: [Effect-TS Effect API](../reference/effect-ts-effect-api.md)で詳細なAPI仕様を確認

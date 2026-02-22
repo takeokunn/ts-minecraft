@@ -124,7 +124,7 @@ const loadPlayerData = async (id: string) => {
 **Solution**: Schemaによる包括的検証
 
 ```typescript
-import { Schema } from '@effect/schema'
+import { Schema } from 'effect'
 
 // ✅ スキーマ定義による構造化検証
 const PlayerSchema = Schema.Struct({
@@ -173,39 +173,40 @@ function saveWorld(world: World): World {
 }
 
 // ✅ Effect-TS 関数型Serviceパターンによる完全置き換え
-const SaveError = Schema.TaggedError('SaveError')({
+class SaveError extends Schema.TaggedError<SaveError>()('SaveError', {
   reason: Schema.String,
   filePath: Schema.String,
-})
+}) {}
 
-const NotificationError = Schema.TaggedError('NotificationError')({
+class NotificationError extends Schema.TaggedError<NotificationError>()('NotificationError', {
   eventType: Schema.String,
   details: Schema.String,
-})
+}) {}
 
-const CacheError = Schema.TaggedError('CacheError')({
+class CacheError extends Schema.TaggedError<CacheError>()('CacheError', {
   operation: Schema.String,
   key: Schema.String,
-})
+}) {}
 
-interface WorldManager {
-  readonly saveWorld: (
-    world: World
-  ) => Effect.Effect<
-    World,
-    typeof SaveError.Type | typeof NotificationError.Type | typeof CacheError.Type,
-    FileSystem | EventBus | Cache
-  >
-}
-
-const WorldManager = Context.GenericTag<WorldManager>('@minecraft/WorldManager')
+class WorldManager extends Context.Tag('WorldManager')<
+  WorldManager,
+  {
+    readonly saveWorld: (
+      world: World
+    ) => Effect.Effect<
+      World,
+      SaveError | NotificationError | CacheError,
+      FileSystem | EventBus | Cache
+    >
+  }
+>() {}
 
 const makeWorldManager = Effect.gen(function* () {
   const fileSystem = yield* FileSystem
   const eventBus = yield* EventBus
   const cache = yield* Cache
 
-  return WorldManager.of({
+  return {
     saveWorld: (world) =>
       Effect.gen(function* () {
         // Match.value による段階的処理パターン
@@ -223,7 +224,7 @@ const makeWorldManager = Effect.gen(function* () {
 
         return world
       }),
-  })
+  }
 })
 
 const WorldManagerLive = Layer.effect(WorldManager, makeWorldManager)
@@ -381,26 +382,26 @@ function getBlockFast(x: number, y: number, z: number): BlockType {
 }
 
 // ✅ 関数型ChunkErrorの定義
-const ChunkError = Schema.TaggedError("ChunkError")({
+class ChunkError extends Schema.TaggedError<ChunkError>()("ChunkError", {
   reason: Schema.Literal("block_out_of_bounds", "chunk_not_loaded"),
   chunkKey: Schema.optional(Schema.String),
   coordinates: Schema.optional(Schema.Struct({ x: Schema.Number, y: Schema.Number, z: Schema.Number }))
-})
+}) {}
 
 // ✅ Effect-TS Serviceパターンで再実装 - 不変性と型安全性
-interface ChunkManager {
+interface ChunkManagerInterface {
   readonly getBlock: (x: number, y: number, z: number) => Effect.Effect<BlockType, ChunkError, never>
   readonly getBlockUnsafe: (x: number, y: number, z: number) => BlockType // パフォーマンス用
   readonly setBlock: (x: number, y: number, z: number, block: BlockType) => Effect.Effect<void, ChunkError, never>
 }
 
-const ChunkManager = Context.GenericTag<ChunkManager>("@minecraft/ChunkManager")
+class ChunkManager extends Context.Tag("ChunkManager")<ChunkManager, ChunkManagerInterface>() {}
 
 const makeChunkManager = (initialChunks: ReadonlyMap<string, Chunk> = new Map()) =>
   Effect.gen(function* () {
     const chunksRef = yield* Ref.make(initialChunks)
 
-    return ChunkManager.of({
+    return {
       getBlock: (x, y, z) => Effect.gen(function* () {
         const chunks = yield* Ref.get(chunksRef)
         const chunkX = Math.floor(x / 16)
@@ -421,7 +422,7 @@ const makeChunkManager = (initialChunks: ReadonlyMap<string, Chunk> = new Map())
                 ),
                 Match.when(
                   false,
-                  () => Effect.fail(ChunkError({
+                  () => Effect.fail(new ChunkError({
                     reason: "block_out_of_bounds",
                     coordinates: { x, y, z }
                   }))
@@ -431,14 +432,14 @@ const makeChunkManager = (initialChunks: ReadonlyMap<string, Chunk> = new Map())
             }
           ),
           Match.orElse(() =>
-            Effect.fail(ChunkError({ reason: "chunk_not_loaded", chunkKey }))
+            Effect.fail(new ChunkError({ reason: "chunk_not_loaded", chunkKey }))
           )
         )
       }),
 
       getBlockUnsafe: (x, y, z) => {
-        // パフォーマンスクリティカルなパス用
-        const chunks = Ref.unsafeGet(chunksRef)
+        // パフォーマンスクリティカルなパス用 - 同期アクセスにはEffect.runSyncを使用
+        const chunks = Effect.runSync(Ref.get(chunksRef))
         const chunkX = Math.floor(x / 16)
         const chunkZ = Math.floor(z / 16)
         const chunkKey = `${chunkX},${chunkZ}`
@@ -453,7 +454,7 @@ const makeChunkManager = (initialChunks: ReadonlyMap<string, Chunk> = new Map())
 
         const chunk = chunks.get(chunkKey)
         if (!chunk) {
-          return yield* Effect.fail(new ChunkError({ reason: "chunk_not_loaded", chunkKey }))
+          return yield* Effect.fail(new new ChunkError({ reason: "chunk_not_loaded", chunkKey }))
         }
 
         // 不変更新で新しいチャンク作成
@@ -489,7 +490,7 @@ const ChunkManagerLive = Layer.effect(ChunkManager, makeChunkManager())
       yield* Match.value(y >= 0 && y < 384).pipe(
         Match.when(
           false,
-          () => Effect.fail(ChunkError({
+          () => Effect.fail(new ChunkError({
             reason: "block_out_of_bounds",
             coordinates: { x, y, z }
           }))
@@ -506,7 +507,7 @@ const ChunkManagerLive = Layer.effect(ChunkManager, makeChunkManager())
 
       return yield* Match.value(chunk).pipe(
         Match.tag("None", () =>
-          Effect.fail(ChunkError({ reason: "chunk_not_loaded", chunkKey }))
+          Effect.fail(new ChunkError({ reason: "chunk_not_loaded", chunkKey }))
         ),
         Match.tag("Some", (chunk) => {
           const localX = x & 15
@@ -531,41 +532,41 @@ const ChunkManagerLive = Layer.effect(ChunkManager, makeChunkManager())
 
 ```typescript
 import { it, expect } from '@effect/vitest'
-import fc from '@effect/vitest'
+import * as fc from 'fast-check'
 
 describe('Health Brand Type', () => {
-  it('should only accept valid health values', () => {
-    it.prop(
-      it.prop(fc.integer({ min: 0, max: 100 }), (validValue) => {
-        const health = Health.create(validValue)
-        expect(Option.isSome(health)).toBe(true)
-      })
-    )
-  })
+  it.prop(
+    [fc.integer({ min: 0, max: 100 })],
+    'should only accept valid health values'
+  )((validValue) =>
+    Effect.gen(function* () {
+      const health = Health.create(validValue)
+      expect(Option.isSome(health)).toBe(true)
+    })
+  )
 
-  it('should reject invalid health values', () => {
-    it.prop(
-      it.prop(
-        Schema.Number.pipe(Schema.int()).filter((n) => n < 0 || n > 100),
-        (invalidValue) => {
-          const health = Health.create(invalidValue)
-          expect(Option.isNone(health)).toBe(true)
-        }
-      )
-    )
-  })
+  it.prop(
+    [fc.integer().filter((n) => n < 0 || n > 100)],
+    'should reject invalid health values'
+  )((invalidValue) =>
+    Effect.gen(function* () {
+      const health = Health.create(invalidValue)
+      expect(Option.isNone(health)).toBe(true)
+    })
+  )
 
-  it('health arithmetic should maintain invariants', () => {
-    it.prop(
-      it.prop(fc.integer({ min: 0, max: 100 }), fc.integer({ min: 1, max: 50 }), (initial, damage) => {
-        const health = Health.create(initial).pipe(Option.getOrThrow)
-        const afterDamage = Health.subtract(health, damage)
+  it.prop(
+    [fc.integer({ min: 0, max: 100 }), fc.integer({ min: 1, max: 50 })],
+    'health arithmetic should maintain invariants'
+  )((initial, damage) =>
+    Effect.gen(function* () {
+      const health = Health.create(initial).pipe(Option.getOrThrow)
+      const afterDamage = Health.subtract(health, damage)
 
-        // 不変条件: Health は常に 0-100 の範囲
-        expect(afterDamage >= 0 && afterDamage <= 100).toBe(true)
-      })
-    )
-  })
+      // 不変条件: Health は常に 0-100 の範囲
+      expect(afterDamage >= 0 && afterDamage <= 100).toBe(true)
+    })
+  )
 })
 ```
 

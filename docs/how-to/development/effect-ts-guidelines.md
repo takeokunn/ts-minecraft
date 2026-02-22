@@ -750,9 +750,7 @@ Effect.runPromiseExit(program.pipe(Effect.provide(NodeSdkLive)))
 - [トラブルシューティング](../troubleshooting/effect-ts-troubleshooting.md)
 - [Effect-TS完全準拠ガイドライン](../../reference/effect-ts-compliance.md) - 禁止/推奨パターン一覧
 - [Effect-TS移行ガイド](../../tutorials/effect-ts-migration-guide.md) - 移行手順・パターン例
-- [EXECUTION.md](../../../EXECUTION.md) - Phase1実績
-- [EXECUTION_2.md](../../../EXECUTION_2.md) - Phase2実績
-- [EXECUTION_3.md](../../../EXECUTION_3.md) - Phase3実績
+- [EXECUTION.md実績レポート](../../project-status/execution-md-status-report.md) - Phase1-3実績
 
 ## 11. 参照メモリ
 

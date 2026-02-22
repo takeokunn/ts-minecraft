@@ -188,17 +188,15 @@ const Player = Schema.Struct({
 })
 
 // 🏷️ TaggedError - 構造化エラーハンドリング
-const PlayerCreateError = Schema.TaggedError('PlayerCreateError')({
+class PlayerCreateError extends Schema.TaggedError<PlayerCreateError>()('PlayerCreateError', {
   reason: Schema.String,
-})
+}) {}
 
 // 🎯 Context-basedDI
-interface PlayerRepositoryInterface {
+class PlayerRepository extends Context.Tag('PlayerRepository')<PlayerRepository, {
   readonly save: (player: typeof Player.Type) => Effect.Effect<void, PlayerCreateError>
   readonly findById: (id: PlayerId) => Effect.Effect<Option.Option<typeof Player.Type>, never>
-}
-
-const PlayerRepository = Context.GenericTag<PlayerRepositoryInterface>('PlayerRepository')
+}>() {}
 
 // 📦 Layer-basedモック
 const MockPlayerRepository = Layer.succeed(PlayerRepository, {
@@ -299,9 +297,9 @@ const Player = Schema.Struct({
 })
 
 // TaggedError定義
-const PlayerCreateError = Schema.TaggedError('PlayerCreateError')({
-  reason: Schema.String
-})
+class PlayerCreateError extends Schema.TaggedError<PlayerCreateError>()('PlayerCreateError', {
+  reason: Schema.String,
+}) {}
 
 // テスト実装
 it.effect('プレイヤー作成が正常に完了すること', () =>
@@ -335,14 +333,12 @@ it.effect('プレイヤー作成が正常に完了すること', () =>
 ```typescript
 import { Layer, Context, Effect, Option } from 'effect'
 
-// サービス定義
-interface PlayerRepositoryInterface {
+// サービス定義（class-based Context.Tag）
+class PlayerRepository extends Context.Tag('PlayerRepository')<PlayerRepository, {
   readonly save: (player: Player) => Effect.Effect<void, PlayerCreateError>
   readonly findById: (id: PlayerId) => Effect.Effect<Option.Option<Player>, never>
   readonly delete: (id: PlayerId) => Effect.Effect<void, never>
-}
-
-const PlayerRepository = Context.GenericTag<PlayerRepositoryInterface>('PlayerRepository')
+}>() {}
 
 // モック実装
 const MockPlayerRepository = Layer.succeed(
@@ -392,7 +388,7 @@ const TestLayer = Layer.mergeAll(
 ```typescript
 import { it } from '@effect/vitest'
 import { Effect, Schema } from 'effect'
-import * as fc from '@effect/vitest'
+import * as fc from 'fast-check'
 
 // Fast-Check Arbitraryの定義
 const positionArbitrary = fc.record({
@@ -655,7 +651,7 @@ export default defineConfig({
 
 ```typescript
 // test/arbitraries/player.ts
-import * as fc from '@effect/vitest'
+import * as fc from 'fast-check'
 
 // 段階1: シンプルなArbitraryから開始
 export const playerIdArbitrary = fc
@@ -1031,10 +1027,10 @@ const PlayerSchema = Schema.Struct({
 })
 
 // Step 4: TaggedError導入
-const ValidationError = Schema.TaggedError('ValidationError')({
+class ValidationError extends Schema.TaggedError<ValidationError>()('ValidationError', {
   field: Schema.String,
   message: Schema.String,
-})
+}) {}
 ```
 
 ### Phase 3: テスト移行 (3-4週間)

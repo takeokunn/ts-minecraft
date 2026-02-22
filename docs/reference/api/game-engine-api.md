@@ -119,11 +119,11 @@ export const Block = Schema.Struct({
   position: Position,
   metadata: Schema.optional(BlockMetadata),
   lightLevel: LightLevel,
-  hardness: Schema.Number.pipe(Schema.nonNegative()),
+  hardness: Schema.Number.pipe(Schema.nonNegativeInt()),
   transparent: Schema.Boolean,
   solid: Schema.Boolean,
   flammable: Schema.Boolean,
-  breakTime: Schema.Number.pipe(Schema.nonNegative()),
+  breakTime: Schema.Number.pipe(Schema.nonNegativeInt()),
   dropItems: Schema.Array(ItemStack),
   soundEffects: BlockSoundEffects,
 })
@@ -564,13 +564,13 @@ export const CameraConfig = Schema.Struct({
 })
 
 export const FrameStats = Schema.Struct({
-  fps: Schema.Number.pipe(Schema.nonNegative()),
-  frameTime: Schema.Number.pipe(Schema.nonNegative()),
-  drawCalls: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
-  triangles: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
-  memoryUsage: Schema.Number.pipe(Schema.nonNegative()),
-  chunksRendered: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
-  entitiesRendered: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+  fps: Schema.Number.pipe(Schema.nonNegativeInt()),
+  frameTime: Schema.Number.pipe(Schema.nonNegativeInt()),
+  drawCalls: Schema.Number.pipe(Schema.int(), Schema.nonNegativeInt()),
+  triangles: Schema.Number.pipe(Schema.int(), Schema.nonNegativeInt()),
+  memoryUsage: Schema.Number.pipe(Schema.nonNegativeInt()),
+  chunksRendered: Schema.Number.pipe(Schema.int(), Schema.nonNegativeInt()),
+  entitiesRendered: Schema.Number.pipe(Schema.int(), Schema.nonNegativeInt()),
 })
 
 // Rendering Operations
@@ -705,7 +705,7 @@ export const CollisionResult = Schema.Struct({
 
 export const RaycastResult = Schema.Struct({
   hit: Schema.Boolean,
-  distance: Schema.Number.pipe(Schema.nonNegative()),
+  distance: Schema.Number.pipe(Schema.nonNegativeInt()),
   point: Position,
   normal: Vector3,
   object: CollisionObject,
@@ -865,38 +865,38 @@ const performanceOptimizations = {
 ### Complete Error Taxonomy
 
 ```typescript
-// System Errors - Effect-TS関数型パターン
-export const InitError = Schema.TaggedError('InitError')({
+// System Errors - Effect-TS class-basedパターン
+export class InitError extends Schema.TaggedError<InitError>()('InitError', {
   system: Schema.String,
   cause: Schema.Unknown,
   message: Schema.optional(Schema.String),
-})
+}) {}
 
-// World System Errors - Effect-TS関数型パターン
-export const ChunkLoadError = Schema.TaggedError('ChunkLoadError')({
+// World System Errors - Effect-TS class-basedパターン
+export class ChunkLoadError extends Schema.TaggedError<ChunkLoadError>()('ChunkLoadError', {
   coordinate: ChunkCoordinate,
   cause: Schema.Union(Schema.Literal('NotFound'), Schema.Literal('GenerationFailed'), Schema.Literal('IOError')),
   message: Schema.optional(Schema.String),
-})
+}) {}
 
-// Player System Errors - Effect-TS関数型パターン
-export const PlayerNotFoundError = Schema.TaggedError('PlayerNotFoundError')({
+// Player System Errors - Effect-TS class-basedパターン
+export class PlayerNotFoundError extends Schema.TaggedError<PlayerNotFoundError>()('PlayerNotFoundError', {
   playerId: PlayerId,
   message: Schema.optional(Schema.String),
-})
+}) {}
 
-// Physics Errors - Effect-TS関数型パターン
-export const CollisionError = Schema.TaggedError('CollisionError')({
+// Physics Errors - Effect-TS class-basedパターン
+export class CollisionError extends Schema.TaggedError<CollisionError>()('CollisionError', {
   cause: Schema.Union(
     Schema.Literal('InvalidPosition'),
     Schema.Literal('NoCollisionShape'),
     Schema.Literal('ComputationFailed')
   ),
   message: Schema.optional(Schema.String),
-})
+}) {}
 
-// Rendering Errors - Effect-TS関数型パターン
-export const RenderError = Schema.TaggedError('RenderError')({
+// Rendering Errors - Effect-TS class-basedパターン
+export class RenderError extends Schema.TaggedError<RenderError>()('RenderError', {
   cause: Schema.Union(
     Schema.Literal('ShaderCompileError'),
     Schema.Literal('TextureLoadError'),
@@ -905,7 +905,7 @@ export const RenderError = Schema.TaggedError('RenderError')({
   ),
   details: Schema.optional(Schema.Unknown),
   message: Schema.optional(Schema.String),
-})
+}) {}
 ```
 
 ---

@@ -37,7 +37,7 @@ graph TB
     subgraph DomainLayer ["ドメイン層 (Domain Layer)"]
         ENT["Entities<br/>🎯 エンティティ<br/>Schema.Struct + ID"]
         VO["Value Objects<br/>💎 値オブジェクト<br/>Brand型 + 不変"]
-        DS["Domain Services<br/>🔧 ドメインサービス<br/>Context.GenericTag"]
+        DS["Domain Services<br/>🔧 ドメインサービス<br/>Context.Tag"]
         DR["Domain Rules<br/>📏 ドメインルール<br/>純粋関数・制約"]
     end
 

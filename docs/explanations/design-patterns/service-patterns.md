@@ -1,13 +1,13 @@
 ---
-title: 'Effect-TS 3.17+ サービスパターン - Context.GenericTag完全実装'
-description: '依存注入、エラーハンドリング、テスト戦略を含む完全実装ガイド。Context.GenericTag、Layer、Schema.TaggedErrorの最新パターンによる企業レベル実装。'
+title: 'Effect-TS 3.17+ サービスパターン - Context.Tag完全実装'
+description: '依存注入、エラーハンドリング、テスト戦略を含む完全実装ガイド。Context.Tag、Layer、Schema.TaggedErrorの最新パターンによる企業レベル実装。'
 category: 'architecture'
 difficulty: 'advanced'
 tags: ['service-patterns', 'context-generic-tag', 'layer', 'dependency-injection', 'schema-tagged-error', 'effect-ts']
 prerequisites: ['effect-ts-fundamentals', 'context-usage', 'schema-basics']
 estimated_reading_time: '20分'
 learning_objectives:
-  - 'Context.GenericTagによる型安全なサービス定義をマスターする'
+  - 'Context.Tagによる型安全なサービス定義をマスターする'
   - 'Layerを使用した依存注入パターンを実装できる'
   - 'Schema.TaggedErrorによるエラーハンドリング統合を理解する'
   - 'テスタブルなサービス設計の原則を習得する'
@@ -21,7 +21,7 @@ internal_links:
 ai_context:
   purpose: 'explanation'
   audience: 'advanced developers implementing service layer architecture with Effect-TS'
-  key_concepts: ['Context.GenericTag', 'Layer composition', 'dependency injection', 'service testing patterns']
+  key_concepts: ['Context.Tag', 'Layer composition', 'dependency injection', 'service testing patterns']
 machine_readable: true
 ---
 
@@ -30,7 +30,7 @@ machine_readable: true
 executable: true
 language: "typescript"
 framework: "effect-ts-3.17"
-primary_patterns: ["Context.GenericTag", "Layer.succeed", "Schema.TaggedError"]
+primary_patterns: ["Context.Tag", "Layer.succeed", "Schema.TaggedError"]
 complexity_score: 8.5
 pattern_implementations: - "Basic Service with Schema Validation" - "Stateful Service with Resource Management" - "Service with Dependencies and Effect Layers" - "Caching Service with TTL" - "Resource Management Service with Scoped Resources"
 performance_benchmarks:
@@ -196,21 +196,21 @@ type ProcessInput = Schema.Schema.Type<typeof ProcessInput>
 type ProcessOutput = Schema.Schema.Type<typeof ProcessOutput>
 
 // Domain error with schema validation
-export const ProcessingError = Schema.TaggedError("ProcessingError")({
+export class ProcessingError extends Schema.TaggedError<ProcessingError>()("ProcessingError", {
   operation: Schema.String,
   reason: Schema.String,
   timestamp: Schema.DateFromSelf,
   retryCount: Schema.Number,
   correlationId: Schema.optional(Schema.String)
-})
+}) {}
 
 // Service interface
-export interface BasicService {
+export interface BasicServiceInterface {
   readonly process: (input: ProcessInput) => Effect.Effect<ProcessOutput, ProcessingError>
 }
 
-// Context tag（Effect-TS 3.17+最新パターン）
-export const BasicService = Context.GenericTag<BasicService>("@minecraft/BasicService")
+// Context tag（Effect-TS 3.17+最新パターン - class-based）
+class BasicService extends Context.Tag("BasicService")<BasicService, BasicServiceInterface>() {}
 
 // Implementation with comprehensive error handling and observability
 const makeBasicService: Effect.Effect<BasicService, never, never> =
@@ -219,7 +219,7 @@ const makeBasicService: Effect.Effect<BasicService, never, never> =
     const processingCount = yield* Ref.make(0)
     const errorCount = yield* Ref.make(0)
 
-    return BasicService.of({
+    return {
       process: (input) => Effect.gen(function* () {
         // 処理開始のメトリクス更新
         yield* Ref.update(processingCount, n => n + 1)
@@ -318,7 +318,7 @@ interface BasicServiceImpl {
   readonly healthCheck: () => Effect.Effect<{ status: "healthy" | "degraded", metrics: any, timestamp: string }, never>
 }
 
-export const BasicServiceImpl = Context.GenericTag<BasicServiceImpl>("@minecraft/BasicService")
+class BasicServiceImpl extends Context.Tag("BasicServiceImpl")<BasicServiceImpl, BasicServiceImplInterface>() {}
 
 // Layer for dependency injection with configuration
 export const BasicServiceLive = Layer.effect(BasicService, makeBasicService)
@@ -341,7 +341,7 @@ export const BasicServiceLive = Layer.effect(BasicService, makeBasicService)
 // テスト用モックLayer
 export const BasicServiceTest = Layer.succeed(
   BasicService,
-  BasicService.of({
+  {
     process: (input) => Effect.succeed(`MOCK_${input}` as ProcessOutput),
     getMetrics: () => Effect.succeed({ processed: 0, errors: 0, successRate: 1 }),
     healthCheck: () => Effect.succeed({
@@ -370,13 +370,13 @@ type Counter = Schema.Schema.Type<typeof Counter>
 type CounterOperation = { readonly _tag: 'increment' } | { readonly _tag: 'reset' } | { readonly _tag: 'get' }
 
 // Service interface
-export interface StatefulService {
+export interface StatefulServiceInterface {
   readonly increment: () => Effect.Effect<Counter, never>
   readonly reset: () => Effect.Effect<void, never>
   readonly get: () => Effect.Effect<Counter, never>
 }
 
-export const StatefulService = Context.GenericTag<StatefulService>('@minecraft/StatefulService')
+class StatefulService extends Context.Tag('StatefulService')<StatefulService, StatefulServiceInterface>() {}
 
 // Implementation with resource management and pattern matching
 const makeStatefulService: Effect.Effect<StatefulService, never, never> = Effect.gen(function* () {
@@ -425,19 +425,19 @@ const ComplexProcessOutput = Schema.Struct({
 type ComplexProcessOutput = Schema.Schema.Type<typeof ComplexProcessOutput>
 
 // Enhanced error handling
-export const ComplexProcessingError = Schema.TaggedError('ComplexProcessingError')({
+export class ComplexProcessingError extends Schema.TaggedError<ComplexProcessingError>()('ComplexProcessingError', {
   operation: Schema.String,
   input: Schema.Unknown,
   reason: Schema.String,
   timestamp: Schema.Number,
-})
+}) {}
 
 // Service interface
-export interface ComplexService {
+export interface ComplexServiceInterface {
   readonly complexProcess: (input: ComplexProcessInput) => Effect.Effect<ComplexProcessOutput, ComplexProcessingError>
 }
 
-export const ComplexService = Context.GenericTag<ComplexService>('@minecraft/ComplexService')
+class ComplexService extends Context.Tag('ComplexService')<ComplexService, ComplexServiceInterface>() {}
 
 // Implementation with dependency injection and pattern matching
 const makeComplexService = Effect.gen(function* () {
@@ -545,24 +545,24 @@ const CacheConfig = Schema.Struct({
 type CacheConfig = Schema.Schema.Type<typeof CacheConfig>
 
 // Domain error
-export const ComputationError = Schema.TaggedError('ComputationError')({
+export class ComputationError extends Schema.TaggedError<ComputationError>()('ComputationError', {
   key: Schema.String,
   reason: Schema.String,
   timestamp: Schema.Number,
-})
+}) {}
 
 // Service interface
-export interface CachingService {
+export interface CachingServiceInterface {
   readonly expensiveOperation: (key: CacheKey) => Effect.Effect<CacheValue, ComputationError>
   readonly invalidateKey: (key: CacheKey) => Effect.Effect<void, never>
   readonly clearCache: () => Effect.Effect<void, never>
   readonly getCacheStats: () => Effect.Effect<{ size: number; hitRate: number }, never>
 }
 
-export const CachingService = Context.GenericTag<CachingService>('@minecraft/CachingService')
+class CachingService extends Context.Tag('CachingService')<CachingService, CachingServiceInterface>() {}
 
 // Configuration tag
-export const CachingConfig = Context.GenericTag<CacheConfig>('@minecraft/CachingConfig')
+class CachingConfig extends Context.Tag('CachingConfig')<CachingConfig, CacheConfig>() {}
 
 // Implementation with resource management and guard clauses
 const makeCachingService = Effect.gen(function* () {
@@ -756,12 +756,12 @@ const Resource = Schema.Struct({
 type Resource = Schema.Schema.Type<typeof Resource>
 
 // Domain errors
-export const ResourceError = Schema.TaggedError('ResourceError')({
+export class ResourceError extends Schema.TaggedError<ResourceError>()('ResourceError', {
   operation: Schema.String,
   resourceId: Schema.String,
   reason: Schema.String,
   timestamp: Schema.Number,
-})
+}) {}
 
 // Resource pool configuration
 const ResourcePoolConfig = Schema.Struct({
@@ -772,7 +772,7 @@ const ResourcePoolConfig = Schema.Struct({
 type ResourcePoolConfig = Schema.Schema.Type<typeof ResourcePoolConfig>
 
 // Service interface with scoped resource management
-export interface ResourceService {
+export interface ResourceServiceInterface {
   readonly acquireResource: (id: ResourceId) => Effect.Effect<Resource, ResourceError, Scope.Scope>
   readonly withResource: <A, E>(
     id: ResourceId,
@@ -782,8 +782,8 @@ export interface ResourceService {
   readonly cleanupIdleResources: () => Effect.Effect<number, never> // Returns count of cleaned up resources
 }
 
-export const ResourceService = Context.GenericTag<ResourceService>('@minecraft/ResourceService')
-export const ResourcePoolConfigTag = Context.GenericTag<ResourcePoolConfig>('@minecraft/ResourcePoolConfig')
+class ResourceService extends Context.Tag('ResourceService')<ResourceService, ResourceServiceInterface>() {}
+class ResourcePoolConfigTag extends Context.Tag('ResourcePoolConfig')<ResourcePoolConfigTag, ResourcePoolConfig>() {}
 
 // Implementation with proper resource lifecycle management
 const makeResourceService = Effect.gen(function* () {
@@ -982,16 +982,15 @@ export const ResourceServiceLive = Layer.effect(ResourceService, makeResourceSer
 
 ## Anti-Patterns (避けるべき)
 
-### ❌ Anti-Pattern 1: Class-based Services
+### ❌ Anti-Pattern 1: Imperative Services without Effect-TS
 
 ```typescript
-// クラスベースを使わない（Schema + 純粋関数を使う）
-// ❌ 悪い例: クラスベース
+// ❌ 悪い例: Effect-TSを使わない命令的サービス
 class GameService {
   constructor(private dependencies: Dependencies) {}
 
   async processGame(input: any): Promise<any> {
-    // 命令的な処理
+    // 命令的な処理 - 型安全性なし
     if (!input) return null
 
     try {
@@ -1003,7 +1002,7 @@ class GameService {
   }
 }
 
-// ✅ 良い例: Schema + 純粋関数
+// ✅ 良い例: Effect-TS class-based Context.Tag + Schema.TaggedError
 const GameInput = Schema.Struct({
   data: Schema.String,
   priority: Schema.Literal('high', 'medium', 'low'),
@@ -1014,17 +1013,17 @@ const GameOutput = Schema.Struct({
   processedAt: Schema.DateTimeUtc,
 }).pipe(Schema.brand('GameOutput'))
 
-const GameServiceError = Schema.TaggedError('GameServiceError')({
+class GameServiceError extends Schema.TaggedError<GameServiceError>()('GameServiceError', {
   operation: Schema.String,
   reason: Schema.String,
   timestamp: Schema.DateTimeUtc,
-})
+}) {}
 
 interface GameServiceInterface {
   readonly processGame: (input: GameInput) => Effect.Effect<GameOutput, GameServiceError>
 }
 
-const GameService = Context.GenericTag<GameServiceInterface>('@minecraft/GameService')
+class GameService extends Context.Tag('GameService')<GameService, GameServiceInterface>() {}
 
 const makeGameService = Effect.gen(function* () {
   const dependencies = yield* Dependencies
@@ -1041,7 +1040,7 @@ const makeGameService = Effect.gen(function* () {
       )
     )
 
-  return GameService.of({
+  return {
     processGame: (input) =>
       pipe(
         Schema.decodeUnknown(GameInput)(input),
@@ -1055,7 +1054,7 @@ const makeGameService = Effect.gen(function* () {
         ),
         Effect.flatMap(processGameLogic)
       ),
-  })
+  }
 })
 ```
 
@@ -1081,11 +1080,11 @@ const ServiceInput = Schema.String.pipe(Schema.minLength(1), Schema.brand('Servi
 
 const ServiceOutput = Schema.String.pipe(Schema.brand('ServiceOutput'))
 
-const ServiceError = Schema.TaggedError('ServiceError')({
+class ServiceError extends Schema.TaggedError<ServiceError>()('ServiceError', {
   operation: Schema.String,
   reason: Schema.String,
   originalInput: Schema.String,
-})
+}) {}
 
 const goodServiceFunctional = (input: string): Effect.Effect<ServiceOutput, ServiceError> =>
   pipe(
@@ -1197,45 +1196,43 @@ const ProcessingInput = Schema.Struct({
 
 const ProcessingOutput = Schema.String.pipe(Schema.minLength(1), Schema.brand('ProcessingOutput'))
 
-const ProcessingError = Schema.TaggedError('ProcessingError')({
+class ProcessingError extends Schema.TaggedError<ProcessingError>()('ProcessingError', {
   phase: Schema.Literal('validation', 'processing'),
   details: Schema.String,
   input: Schema.Unknown,
-})
+}) {}
 
 interface TypedService {
   readonly process: (input: ProcessingInput) => Effect.Effect<ProcessingOutput, ProcessingError>
 }
 
-const TypedService = Context.GenericTag<TypedService>('@minecraft/TypedService')
+class TypedService extends Context.Tag('TypedService')<TypedService, TypedServiceInterface>() {}
 
-const makeTypedService: Effect.Effect<TypedService, never, never> = Effect.succeed(
-  TypedService.of({
-    process: (input) =>
-      pipe(
-        // 完全な型検証
-        Schema.decodeUnknown(ProcessingInput)(input),
-        Effect.mapError(
-          (error) =>
-            new ProcessingError({
-              phase: 'validation',
-              details: `Schema validation failed: ${error.message}`,
-              input,
-            })
-        ),
-        Effect.map((validInput) => validInput.data.value as ProcessingOutput),
-        Effect.catchAll((error) =>
-          Effect.fail(
-            new ProcessingError({
-              phase: 'processing',
-              details: `Processing failed: ${error}`,
-              input,
-            })
-          )
-        )
+const makeTypedService: Effect.Effect<TypedServiceInterface, never, never> = Effect.succeed({
+  process: (input) =>
+    pipe(
+      // 完全な型検証
+      Schema.decodeUnknown(ProcessingInput)(input),
+      Effect.mapError(
+        (error) =>
+          new ProcessingError({
+            phase: 'validation',
+            details: `Schema validation failed: ${error.message}`,
+            input,
+          })
       ),
-  })
-)
+      Effect.map((validInput) => validInput.data.value as ProcessingOutput),
+      Effect.catchAll((error) =>
+        Effect.fail(
+          new ProcessingError({
+            phase: 'processing',
+            details: `Processing failed: ${error}`,
+            input,
+          })
+        )
+      )
+    ),
+})
 ```
 
 ### ✅ Modern Effect-TS Patterns
@@ -1245,12 +1242,12 @@ const makeTypedService: Effect.Effect<TypedService, never, never> = Effect.succe
 const ProcessInput = Schema.String.pipe(Schema.brand('ProcessInput'))
 const ProcessOutput = Schema.String.pipe(Schema.brand('ProcessOutput'))
 
-// 2. Tagged errors with schema validation
-const ServiceError = Schema.TaggedError('ServiceError')({
+// 2. Tagged errors with schema validation (class-based)
+class ServiceError extends Schema.TaggedError<ServiceError>()('ServiceError', {
   operation: Schema.String,
   reason: Schema.String,
   timestamp: Schema.Number,
-})
+}) {}
 
 // 3. Pattern matching instead of if/else
 const processWithPattern = (input: ProcessInput) =>
@@ -1269,8 +1266,8 @@ const validateAndProcess = (input: unknown) =>
     Effect.flatMap(processWithPattern)
   )
 
-// 5. Context.Tag + Layer for dependency injection
-const Service = Context.Tag<ServiceInterface>('@namespace/Service')
+// 5. Context.Tag class-based + Layer for dependency injection
+class Service extends Context.Tag('Service')<Service, ServiceInterface>() {}
 const ServiceLive = Layer.effect(Service, makeService)
 ```
 
@@ -1284,8 +1281,8 @@ export interface ServiceNameService {
   readonly operation: (input: BrandedInput) => Effect.Effect<BrandedOutput, DomainError>
 }
 
-// Context tag
-export const ServiceNameService = Context.Tag<ServiceNameService>('@namespace/ServiceNameService')
+// Context tag (class-based)
+class ServiceNameService extends Context.Tag('ServiceNameService')<ServiceNameService, ServiceNameServiceInterface>() {}
 
 // Implementation with dependencies
 const makeServiceNameService = Effect.gen(function* () {
@@ -1332,27 +1329,27 @@ type ServiceConfig = Schema.Schema.Type<typeof ServiceConfig>
 
 ```typescript
 // Hierarchical error types with schema validation
-export const ValidationError = Schema.TaggedError('ValidationError')({
+export class ValidationError extends Schema.TaggedError<ValidationError>()('ValidationError', {
   field: Schema.String,
   expectedType: Schema.String,
   actualValue: Schema.Unknown,
   timestamp: Schema.Number,
-})
+}) {}
 
-export const BusinessLogicError = Schema.TaggedError('BusinessLogicError')({
+export class BusinessLogicError extends Schema.TaggedError<BusinessLogicError>()('BusinessLogicError', {
   operation: Schema.String,
   reason: Schema.String,
   context: Schema.Record(Schema.String, Schema.Unknown),
   timestamp: Schema.Number,
-})
+}) {}
 
-export const ResourceError = Schema.TaggedError('ResourceError')({
+export class ResourceError extends Schema.TaggedError<ResourceError>()('ResourceError', {
   resourceType: Schema.String,
   resourceId: Schema.String,
   operation: Schema.String,
   reason: Schema.String,
   timestamp: Schema.Number,
-})
+}) {}
 
 // Union type for all service errors
 type ServiceError = ValidationError | BusinessLogicError | ResourceError
@@ -1456,7 +1453,7 @@ export const CompleteServiceLive = Layer.mergeAll(ServiceNameServiceLive, Databa
 import { Context, Effect, Layer, Schema, Config, Schedule, pipe } from 'effect'
 
 // Service configuration tag
-const ServiceConfigTag = Context.GenericTag<ServiceConfig>('@namespace/ServiceConfig')
+class ServiceConfigTag extends Context.Tag('ServiceConfig')<ServiceConfigTag, ServiceConfig>() {}
 
 // Configuration with environment variable loading and Schedule-based retries
 const loadConfig = (): Effect.Effect<ServiceConfig, ConfigError> =>
@@ -1584,14 +1581,14 @@ const MinecraftChunk = Schema.Struct({
 type MinecraftChunk = Schema.Schema.Type<typeof MinecraftChunk>
 
 // エラー定義
-const ChunkLoadError = Schema.TaggedError('ChunkLoadError')({
+class ChunkLoadError extends Schema.TaggedError<ChunkLoadError>()('ChunkLoadError', {
   coordinate: ChunkCoordinate,
   reason: Schema.String,
   timestamp: Schema.DateTimeUtc,
-})
+}) {}
 
 // サービスインターフェース
-export interface WorldService {
+export interface WorldServiceInterface {
   readonly loadChunk: (coord: ChunkCoordinate) => Effect.Effect<MinecraftChunk, ChunkLoadError>
   readonly batchLoadChunks: (
     coords: readonly ChunkCoordinate[]
@@ -1599,7 +1596,7 @@ export interface WorldService {
   readonly getStats: () => Effect.Effect<{ loaded: number; cached: number; errors: number }, never>
 }
 
-export const WorldService = Context.GenericTag<WorldService>('@minecraft/WorldService')
+class WorldService extends Context.Tag('WorldService')<WorldService, WorldServiceInterface>() {}
 
 // 実装
 const makeWorldService = Effect.gen(function* () {
@@ -1663,7 +1660,7 @@ const makeWorldService = Effect.gen(function* () {
       )
     )
 
-  return WorldService.of({
+  return {
     loadChunk: loadSingleChunk,
 
     batchLoadChunks: (coords) =>
@@ -1929,11 +1926,11 @@ export const ChunkCoordinate = Schema.Struct({
 export type ChunkCoordinate = Schema.Schema.Type<typeof ChunkCoordinate>
 
 // errors/common.ts
-export const ValidationError = Schema.TaggedError('ValidationError')({
+export class ValidationError extends Schema.TaggedError<ValidationError>()('ValidationError', {
   field: Schema.String,
   reason: Schema.String,
   value: Schema.Unknown,
-})
+}) {}
 ```
 
 **Step 1.3: 移行対象サービスの選定**
@@ -1977,20 +1974,18 @@ interface UserAuthenticationService {
 }
 
 // After: Effect-TS版の実装
-export interface UserAuthenticationService {
+export interface UserAuthenticationServiceInterface {
   readonly authenticate: (
     credentials: AuthCredentials
   ) => Effect.Effect<AuthenticatedUser, AuthenticationError>
 }
 
-export const UserAuthenticationService = Context.GenericTag<UserAuthenticationService>(
-  "@minecraft/UserAuthenticationService"
-)
+class UserAuthenticationService extends Context.Tag("UserAuthenticationService")<UserAuthenticationService, UserAuthenticationServiceInterface>() {}
 
 const makeUserAuthenticationService = Effect.gen(function* () {
   const userRepository = yield* UserRepository
 
-  return UserAuthenticationService.of({
+  return {
     authenticate: (credentials) => pipe(
       Schema.decodeUnknown(AuthCredentials)(credentials),
       Effect.mapError(error => new AuthenticationError({
@@ -2072,7 +2067,7 @@ const loadPlayerWorldImperative =
   }
 
 // After: Effect-TS pattern適用
-export interface WorldService {
+export interface WorldServiceInterface {
   readonly loadPlayerWorld: (
     playerId: PlayerId
   ) => Effect.Effect<WorldData, WorldLoadError, ChunkService | PlayerService | EventBus>
@@ -2083,7 +2078,7 @@ const makeWorldService = Effect.gen(function* () {
   const playerService = yield* PlayerService
   const eventBus = yield* EventBus
 
-  return WorldService.of({
+  return {
     loadPlayerWorld: (playerId) =>
       Effect.gen(function* () {
         const player = yield* playerService.getPlayer(playerId)
@@ -2570,10 +2565,10 @@ type PlayerId = string & Brand.Brand<'PlayerId'>
 const PlayerId = Brand.nominal<PlayerId>()
 
 // Step 2: 基本エラー型の定義
-const ServiceError = Schema.TaggedError('ServiceError')({
+class ServiceError extends Schema.TaggedError<ServiceError>()('ServiceError', {
   operation: Schema.String,
   reason: Schema.String,
-})
+}) {}
 
 // Step 3: 最初のサービス選定（依存関係が少ないもの）
 // 推奨: ConfigService, ValidationService等
@@ -2684,9 +2679,10 @@ const BadPlayerService = {
 }
 
 // ✅ 解決策: 適切な責務分離
-const GoodPlayerService = Context.GenericTag<{
+interface GoodPlayerServiceInterface {
   readonly create: (data: CreatePlayerData) => Effect.Effect<Player, PlayerError>
-}>('@minecraft/PlayerService')
+}
+class GoodPlayerService extends Context.Tag('PlayerService')<GoodPlayerService, GoodPlayerServiceInterface>() {}
 
 const makeGoodPlayerService = Effect.gen(function* () {
   const repository = yield* PlayerRepository
@@ -2709,17 +2705,17 @@ const makeGoodPlayerService = Effect.gen(function* () {
 // 問題: 複雑すぎるエラーユニオン
 type ComplexError = 'VALIDATION_ERROR' | 'DATABASE_ERROR' | 'NETWORK_ERROR' | 'BUSINESS_LOGIC_ERROR' | 'UNKNOWN_ERROR' // ❌ 情報が不十分
 
-// ✅ 解決策: 構造化エラー
-const ValidationError = Schema.TaggedError('ValidationError')({
+// ✅ 解決策: 構造化エラー（class-based）
+class ValidationError extends Schema.TaggedError<ValidationError>()('ValidationError', {
   field: Schema.String,
   expected: Schema.String,
   received: Schema.Unknown,
-})
+}) {}
 
-const BusinessLogicError = Schema.TaggedError('BusinessLogicError')({
+class BusinessLogicError extends Schema.TaggedError<BusinessLogicError>()('BusinessLogicError', {
   rule: Schema.String,
   context: Schema.Record(Schema.String, Schema.Unknown),
-})
+}) {}
 ```
 
 ### 🏆 Service Patterns完全活用の効果

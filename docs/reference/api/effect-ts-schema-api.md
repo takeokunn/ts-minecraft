@@ -91,7 +91,7 @@ const ChunkSchema = Schema.Struct({
 // 数値バリデーション
 const HealthSchema = Schema.Number.pipe(Schema.between(0, 100), Schema.int())
 
-const ExperienceSchema = Schema.Number.pipe(Schema.nonNegative(), Schema.finite())
+const ExperienceSchema = Schema.Number.pipe(Schema.nonNegativeInt(), Schema.finite())
 
 // 文字列バリデーション
 const PlayerNameSchema = Schema.String.pipe(
@@ -295,17 +295,17 @@ const Base64Schema = Schema.transform(Schema.String, Schema.String.pipe(Schema.b
 ### 6.1 エラー定義
 
 ```typescript
-// タグ付きエラーの定義 (関数型パターン)
-const InvalidBlockError = Schema.TaggedError('InvalidBlockError')({
+// タグ付きエラーの定義 (class-basedパターン)
+class InvalidBlockError extends Schema.TaggedError<InvalidBlockError>()('InvalidBlockError', {
   position: PositionSchema,
   blockType: Schema.String,
   reason: Schema.String,
-})
+}) {}
 
-const ChunkNotLoadedError = Schema.TaggedError('ChunkNotLoadedError')({
+class ChunkNotLoadedError extends Schema.TaggedError<ChunkNotLoadedError>()('ChunkNotLoadedError', {
   chunkX: Schema.Int,
   chunkZ: Schema.Int,
-})
+}) {}
 
 // エラーのUnion型
 type WorldError = InvalidBlockError | ChunkNotLoadedError
@@ -384,15 +384,9 @@ export const NestedContainerSchema: Schema.Schema<NestedContainer> = Schema.Stru
 })
 ```
 
-### 9.2 メモ化とOpaqueパターン
+### 9.2 Opaqueパターン
 
 ```typescript
-// 高コストなバリデーションのメモ化
-const memoizedValidator = Schema.memoize(
-  ComplexValidationSchema,
-  (input) => JSON.stringify(input) // キー生成関数
-)
-
 // Opaque型パターン (最新機能)
 declare const OpaqueSymbol: unique symbol
 export interface OpaqueString<Tag> {
@@ -583,29 +577,29 @@ export const StandardPlayerSchema = Schema.Struct({
 })
 
 // ✅ 標準的なエラー定義パターン
-export const StandardErrors = {
-  PlayerNotFoundError: Schema.TaggedError('PlayerNotFoundError')({
-    playerId: Schema.String.pipe(Schema.brand('PlayerId')),
-    message: Schema.String,
-  }),
-  ValidationError: Schema.TaggedError('ValidationError')({
-    field: Schema.String,
-    value: Schema.Unknown,
-    message: Schema.String,
-  }),
-  NetworkError: Schema.TaggedError('NetworkError')({
-    status: Schema.Number,
-    url: Schema.String,
-    cause: Schema.optional(Schema.Unknown),
-  }),
-}
+export class PlayerNotFoundError extends Schema.TaggedError<PlayerNotFoundError>()('PlayerNotFoundError', {
+  playerId: Schema.String.pipe(Schema.brand('PlayerId')),
+  message: Schema.String,
+}) {}
+
+export class ValidationError extends Schema.TaggedError<ValidationError>()('ValidationError', {
+  field: Schema.String,
+  value: Schema.Unknown,
+  message: Schema.String,
+}) {}
+
+export class NetworkError extends Schema.TaggedError<NetworkError>()('NetworkError', {
+  status: Schema.Number,
+  url: Schema.String,
+  cause: Schema.optional(Schema.Unknown),
+}) {}
 ```
 
-### 11.3 Context.GenericTag標準パターン
+### 11.3 Context.Tag標準パターン
 
 ```typescript
 // ✅ サービス定義の標準パターン
-export interface StandardPlayerService {
+export interface StandardPlayerServiceInterface {
   readonly findById: (id: PlayerId) => Effect.Effect<Player, PlayerNotFoundError>
   readonly create: (data: CreatePlayerData) => Effect.Effect<Player, ValidationError>
   readonly update: (
@@ -613,7 +607,7 @@ export interface StandardPlayerService {
     data: UpdatePlayerData
   ) => Effect.Effect<Player, PlayerNotFoundError | ValidationError>
 }
-export const StandardPlayerService = Context.GenericTag<StandardPlayerService>('@minecraft/domain/PlayerService')
+export class StandardPlayerService extends Context.Tag('@minecraft/domain/PlayerService')<StandardPlayerService, StandardPlayerServiceInterface>() {}
 
 // ✅ Layer構築の標準パターン
 export const StandardPlayerServiceLive = Layer.effect(
@@ -702,7 +696,7 @@ export interface GameCurrency {
 
 export const GameCurrencySchema = Schema.transformOrFail(
   Schema.Struct({
-    amount: Schema.Number.pipe(Schema.int(), Schema.nonnegative()),
+    amount: Schema.Number.pipe(Schema.int(), Schema.nonNegativeInt()),
     type: Schema.Union(
       Schema.Literal('emerald'),
       Schema.Literal('diamond'),

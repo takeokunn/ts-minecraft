@@ -2,7 +2,7 @@
 
 ## 概要
 
-このドキュメントは、Effect-TSの高度機能を最大限活用するための**禁止パターン**と**推奨パターン**を一覧化したものです。実測データ（EXECUTION_3.md/EXECUTION_4.md）に基づいた具体的な基準値を提供します。
+このドキュメントは、Effect-TSの高度機能を最大限活用するための**禁止パターン**と**推奨パターン**を一覧化したものです。実測データ（project-status/execution-md-status-report.md）に基づいた具体的な基準値を提供します。
 
 ## 📋 禁止パターン一覧
 
@@ -119,7 +119,7 @@ pnpm check      # Biomeによるコード品質チェック
 pnpm test       # Vitestによるテスト実行
 ```
 
-## 📊 達成状況（EXECUTION_4.md実測値）
+## 📊 達成状況（project-status/execution-md-status-report.md実測値）
 
 ### Phase 3 完了メトリクス
 
@@ -160,8 +160,7 @@ pnpm test       # Vitestによるテスト実行
 - [Effect-TS実装ガイドライン](../how-to/development/effect-ts-guidelines.md) - 詳細実装パターン
 - [Effect-TS移行ガイド](../tutorials/effect-ts-migration-guide.md) - 移行手順
 - [開発規約](../how-to/development/development-conventions.md) - プロジェクト全体規約
-- [EXECUTION_3.md](../../EXECUTION_3.md) - Phase 3実績
-- [EXECUTION_4.md](../../EXECUTION_4.md) - 未完了タスク詳細
+- [EXECUTION.md実績レポート](../project-status/execution-md-status-report.md) - Phase 3実績・未完了タスク詳細
 
 ## 🔗 外部リソース
 

@@ -149,11 +149,11 @@ export type WorldService = Schema.Schema.Type<typeof WorldServiceSchema>
  * WorldService Context Tag
  * @usage const worldService = yield* WorldService
  */
-export const WorldService = Context.GenericTag<WorldService>("@minecraft/domain/WorldService")
-export const PlayerService = Context.GenericTag<PlayerService>("@minecraft/domain/PlayerService")
-export const BlockService = Context.GenericTag<BlockService>("@minecraft/domain/BlockService")
-export const EntityService = Context.GenericTag<EntityService>("@minecraft/domain/EntityService")
-export const GameService = Context.GenericTag<GameService>("@minecraft/domain/GameService")
+class WorldServiceTag extends Context.Tag("@minecraft/domain/WorldService")<WorldServiceTag, WorldService>() {}
+class PlayerServiceTag extends Context.Tag("@minecraft/domain/PlayerService")<PlayerServiceTag, PlayerService>() {}
+class BlockServiceTag extends Context.Tag("@minecraft/domain/BlockService")<BlockServiceTag, BlockService>() {}
+class EntityServiceTag extends Context.Tag("@minecraft/domain/EntityService")<EntityServiceTag, EntityService>() {}
+class GameServiceTag extends Context.Tag("@minecraft/domain/GameService")<GameServiceTag, GameService>() {}
 
 ### 📋 World基本データ構造
 
@@ -178,7 +178,7 @@ export type HealthPoints = Schema.Schema.Type<typeof HealthPointsSchema>
 
 export const ExperiencePointsSchema = Schema.Number.pipe(
   Schema.int(),
-  Schema.nonNegative(),
+  Schema.nonNegativeInt(),
   Schema.brand("ExperiencePoints")
 )
 export type ExperiencePoints = Schema.Schema.Type<typeof ExperiencePointsSchema>
@@ -192,7 +192,7 @@ export type ItemQuantity = Schema.Schema.Type<typeof ItemQuantitySchema>
 
 export const DurabilityValueSchema = Schema.Number.pipe(
   Schema.int(),
-  Schema.nonNegative(),
+  Schema.nonNegativeInt(),
   Schema.brand("DurabilityValue")
 )
 export type DurabilityValue = Schema.Schema.Type<typeof DurabilityValueSchema>
@@ -298,7 +298,7 @@ export type ChunkId = Schema.Schema.Type<typeof ChunkIdSchema>
 // Timestamp with game time semantics
 export const GameTimestampSchema = Schema.Number.pipe(
   Schema.int(),
-  Schema.nonnegative(),
+  Schema.nonNegativeInt(),
   Schema.brand("GameTimestamp"),
   Schema.annotations({
     identifier: "GameTimestamp",
@@ -416,76 +416,65 @@ export const DomainUtils = {
     Schema.decode(ExperiencePointsSchema)(experience)
 } as const
 
-// カスタムエラー型 - Effect-TS関数型パターン
-export const DomainErrorSchema = Schema.TaggedError("DomainError")({
+// カスタムエラー型 - Effect-TS class-basedパターン
+export class DomainError extends Schema.TaggedError<DomainError>()("DomainError", {
   message: Schema.String,
   timestamp: Schema.optional(Schema.DateTimeUtc)
-})
-export type DomainError = Schema.Schema.Type<typeof DomainErrorSchema>
+}) {}
 
 // 各種エラー型定義
-export const ChunkLoadErrorSchema = Schema.TaggedError("ChunkLoadError")({
+export class ChunkLoadError extends Schema.TaggedError<ChunkLoadError>()("ChunkLoadError", {
   coordinate: ChunkCoordinateSchema,
   reason: Schema.String
-})
-export type ChunkLoadError = Schema.Schema.Type<typeof ChunkLoadErrorSchema>
+}) {}
 
-export const ChunkSaveErrorSchema = Schema.TaggedError("ChunkSaveError")({
+export class ChunkSaveError extends Schema.TaggedError<ChunkSaveError>()("ChunkSaveError", {
   coordinate: ChunkCoordinateSchema,
   reason: Schema.String
-})
-export type ChunkSaveError = Schema.Schema.Type<typeof ChunkSaveErrorSchema>
+}) {}
 
-export const ChunkGenerationErrorSchema = Schema.TaggedError("ChunkGenerationError")({
+export class ChunkGenerationError extends Schema.TaggedError<ChunkGenerationError>()("ChunkGenerationError", {
   coordinate: ChunkCoordinateSchema,
   reason: Schema.String
-})
-export type ChunkGenerationError = Schema.Schema.Type<typeof ChunkGenerationErrorSchema>
+}) {}
 
-export const BlockErrorSchema = Schema.TaggedError("BlockError")({
+export class BlockError extends Schema.TaggedError<BlockError>()("BlockError", {
   position: PositionSchema,
   reason: Schema.String
-})
-export type BlockError = Schema.Schema.Type<typeof BlockErrorSchema>
+}) {}
 
-export const BlockPlacementErrorSchema = Schema.TaggedError("BlockPlacementError")({
+export class BlockPlacementError extends Schema.TaggedError<BlockPlacementError>()("BlockPlacementError", {
   position: PositionSchema,
   blockType: BlockTypeSchema,
   reason: Schema.String
-})
-export type BlockPlacementError = Schema.Schema.Type<typeof BlockPlacementErrorSchema>
+}) {}
 
-export const PlayerNotFoundErrorSchema = Schema.TaggedError("PlayerNotFoundError")({
+export class PlayerNotFoundError extends Schema.TaggedError<PlayerNotFoundError>()("PlayerNotFoundError", {
   playerId: Schema.String
-})
-export type PlayerNotFoundError = Schema.Schema.Type<typeof PlayerNotFoundErrorSchema>
+}) {}
 
-export const PlayerUpdateErrorSchema = Schema.TaggedError("PlayerUpdateError")({
+export class PlayerUpdateError extends Schema.TaggedError<PlayerUpdateError>()("PlayerUpdateError", {
   playerId: Schema.String,
   reason: Schema.String
-})
-export type PlayerUpdateError = Schema.Schema.Type<typeof PlayerUpdateErrorSchema>
+}) {}
 
-export const MovementErrorSchema = Schema.TaggedError("MovementError")({
+export class MovementError extends Schema.TaggedError<MovementError>()("MovementError", {
   playerId: Schema.String,
   from: PositionSchema,
   to: PositionSchema,
   reason: Schema.String
-})
-export type MovementError = Schema.Schema.Type<typeof MovementErrorSchema>
+}) {}
 
-export const InventoryErrorSchema = Schema.TaggedError("InventoryError")({
+export class InventoryError extends Schema.TaggedError<InventoryError>()("InventoryError", {
   playerId: Schema.String,
   reason: Schema.String
-})
-export type InventoryError = Schema.Schema.Type<typeof InventoryErrorSchema>
+}) {}
 
-export const GameErrorSchema = Schema.TaggedError("GameError")({
+export class GameError extends Schema.TaggedError<GameError>()("GameError", {
   type: Schema.String,
   message: Schema.String,
   context: Schema.optional(Schema.Unknown)
-})
-export type GameError = Schema.Schema.Type<typeof GameErrorSchema>
+}) {}
 
 // ワールド基本情報
 export const GameModeSchema = Schema.Literal("survival", "creative", "hardcore")
@@ -719,7 +708,7 @@ export interface WorldServiceImpl {
   readonly updateWorldInfo: (metadata: Partial<WorldMetadata>) => Effect.Effect<void, never>
 }
 
-export const WorldService = Context.GenericTag<WorldService>('@minecraft/domain/WorldService')
+class WorldService extends Context.Tag('@minecraft/domain/WorldService')<WorldService, WorldServiceImpl>() {}
 
 // 実装例
 export const WorldServiceLive = Layer.effect(
@@ -957,7 +946,7 @@ export const PlayerStateSchema = Schema.Struct({
   health: HealthPointsSchema, // 体力値（Brand型化・0.5刻み）
   hunger: Schema.Number.pipe(Schema.between(0, 20), Schema.int(), Schema.brand('HungerPoints')), // 空腹度（Brand型化・整数制限）
   experience: ExperiencePointsSchema, // 経験値（Brand型化・整数制限）
-  level: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+  level: Schema.Number.pipe(Schema.int(), Schema.nonNegativeInt()),
 
   // ゲーム設定
   gamemode: GameModeSchema,
@@ -1208,7 +1197,7 @@ export const PlayerServiceSchema = Schema.Struct({
 })
 export type PlayerService = Schema.Schema.Type<typeof PlayerServiceSchema>
 
-export const PlayerService = Context.GenericTag<PlayerService>('@minecraft/domain/PlayerService')
+class PlayerService extends Context.Tag('@minecraft/domain/PlayerService')<PlayerService, PlayerServiceImpl>() {}
 
 // 実装
 export const PlayerServiceLive = Layer.effect(
@@ -1520,7 +1509,7 @@ export type VelocityComponent = Schema.Schema.Type<typeof VelocityComponentSchem
 
 export const HealthComponentSchema = Schema.Struct({
   type: Schema.Literal('health'),
-  current: Schema.Number.pipe(Schema.nonNegative()),
+  current: Schema.Number.pipe(Schema.nonNegativeInt()),
   maximum: Schema.Number.pipe(Schema.positive()),
 }).annotations({ identifier: 'HealthComponent' })
 export type HealthComponent = Schema.Schema.Type<typeof HealthComponentSchema>

@@ -27,17 +27,17 @@ TypeScript Minecraftでは、2つの異なるアーキテクチャパラダイ�
 
 ```typescript
 // ✅ Effect-TS関数型ドメインロジックの明確な表現
-const PlayerDeathEvent = Schema.TaggedError('PlayerDeathEvent')({
+class PlayerDeathEvent extends Schema.TaggedError<PlayerDeathEvent>()('PlayerDeathEvent', {
   playerId: PlayerId,
   deathTime: Schema.Date,
   cause: Schema.String,
-})
+}) {}
 
-const PlayerDamagedEvent = Schema.TaggedError('PlayerDamagedEvent')({
+class PlayerDamagedEvent extends Schema.TaggedError<PlayerDamagedEvent>()('PlayerDamagedEvent', {
   playerId: PlayerId,
   damage: Schema.Number,
   remainingHealth: Schema.Number,
-})
+}) {}
 
 interface Player {
   readonly id: PlayerId
@@ -45,14 +45,14 @@ interface Player {
   readonly inventory: Inventory
 }
 
-const Player = Context.GenericTag<Player>('@minecraft/Player')
+class Player extends Context.Tag('Player')<Player, PlayerInterface>() {}
 
 const takeDamage = (player: Player, damage: Damage): Effect.Effect<DomainEvent[], never, never> =>
   Effect.gen(function* () {
     return yield* Match.value(player.health.current <= damage.amount).pipe(
       Match.when(true, () =>
         Effect.succeed([
-          PlayerDeathEvent({
+          new PlayerDeathEvent({
             playerId: player.id,
             deathTime: new Date(),
             cause: 'damage',
@@ -62,7 +62,7 @@ const takeDamage = (player: Player, damage: Damage): Effect.Effect<DomainEvent[]
       Match.when(false, () => {
         const newHealth = Health.subtract(player.health, damage.amount)
         return Effect.succeed([
-          PlayerDamagedEvent({
+          new PlayerDamagedEvent({
             playerId: player.id,
             damage: damage.amount,
             remainingHealth: newHealth.current,
@@ -86,21 +86,21 @@ const takeDamage = (player: Player, damage: Damage): Effect.Effect<DomainEvent[]
 
 ```typescript
 // ✅ Effect-TS関数型による効率的なデータレイアウト (Structure of Arrays)
-interface PositionSystem {
+interface PositionSystemInterface {
   readonly positions: Float32Array // x,y,z,x,y,z...
   readonly entities: Uint32Array // entity_id, entity_id...
   readonly update: (deltaTime: number) => Effect.Effect<void, never, never>
 }
 
-const PositionSystem = Context.GenericTag<PositionSystem>('@minecraft/PositionSystem')
+class PositionSystem extends Context.Tag('PositionSystem')<PositionSystem, PositionSystemInterface>() {}
 
-const makePositionSystem = (maxEntities: number): Effect.Effect<PositionSystem, never, never> =>
+const makePositionSystem = (maxEntities: number): Effect.Effect<PositionSystemInterface, never, never> =>
   Effect.gen(function* () {
     const positions = new Float32Array(maxEntities * 3)
     const entities = new Uint32Array(maxEntities)
     let entityCount = 0
 
-    return PositionSystem.of({
+    return {
       positions,
       entities,
       update: (deltaTime) =>
@@ -180,24 +180,24 @@ export const PlayerDomain = {
 }
 
 // ✅ Effect-TS関数型インフラ層: パフォーマンス最適化
-interface PlayerECS {
+interface PlayerECSInterface {
   readonly updatePositions: (deltaTime: number) => Effect.Effect<void, never, never>
   readonly getEntityId: (playerId: PlayerId) => Effect.Effect<number, EntityNotFoundError, never>
   readonly addPlayer: (playerId: PlayerId) => Effect.Effect<number, EntityLimitError, never>
 }
 
-const PlayerECS = Context.GenericTag<PlayerECS>('@minecraft/PlayerECS')
+class PlayerECS extends Context.Tag('PlayerECS')<PlayerECS, PlayerECSInterface>() {}
 
-const EntityNotFoundError = Schema.TaggedError('EntityNotFoundError')({
+class EntityNotFoundError extends Schema.TaggedError<EntityNotFoundError>()('EntityNotFoundError', {
   playerId: PlayerId,
-})
+}) {}
 
-const EntityLimitError = Schema.TaggedError('EntityLimitError')({
+class EntityLimitError extends Schema.TaggedError<EntityLimitError>()('EntityLimitError', {
   currentCount: Schema.Number,
   maxCount: Schema.Number,
-})
+}) {}
 
-const makePlayerECS = (maxPlayers: number): Effect.Effect<PlayerECS, never, never> =>
+const makePlayerECS = (maxPlayers: number): Effect.Effect<PlayerECSInterface, never, never> =>
   Effect.gen(function* () {
     // 効率的なデータストレージ
     const positions = new Float32Array(maxPlayers * 3)
@@ -206,7 +206,7 @@ const makePlayerECS = (maxPlayers: number): Effect.Effect<PlayerECS, never, neve
     const entityMapRef = yield* Ref.make(new Map<PlayerId, number>())
     const activeCountRef = yield* Ref.make(0)
 
-    return PlayerECS.of({
+    return {
       updatePositions: (deltaTime) =>
         Effect.gen(function* () {
           const activeCount = yield* Ref.get(activeCountRef)
@@ -234,7 +234,7 @@ const makePlayerECS = (maxPlayers: number): Effect.Effect<PlayerECS, never, neve
               (id): id is number => id !== undefined,
               (id) => Effect.succeed(id)
             ),
-            Match.orElse(() => Effect.fail(EntityNotFoundError({ playerId })))
+            Match.orElse(() => Effect.fail(new EntityNotFoundError({ playerId })))
           )
         }),
 
@@ -245,7 +245,7 @@ const makePlayerECS = (maxPlayers: number): Effect.Effect<PlayerECS, never, neve
           return yield* Match.value(activeCount >= maxPlayers).pipe(
             Match.when(true, () =>
               Effect.fail(
-                EntityLimitError({
+                new EntityLimitError({
                   currentCount: activeCount,
                   maxCount: maxPlayers,
                 })
@@ -348,7 +348,7 @@ export const PlayerQueriesLive: Layer.Layer<PlayerQueries, never, ECSWorld> = La
   Effect.gen(function* () {
     const world = yield* ECSWorld
 
-    return PlayerQueries.of({
+    return {
       findPlayersInArea: (area) =>
         Effect.gen(function* () {
           // 空間分割による高速検索
@@ -360,7 +360,7 @@ export const PlayerQueriesLive: Layer.Layer<PlayerQueries, never, ECSWorld> = La
 
           return players
         }),
-    })
+    }
   })
 )
 ```
@@ -540,8 +540,6 @@ interface ComponentPool<T> {
   readonly release: (component: T) => Effect.Effect<void, never, never>
 }
 
-const ComponentPool = <T>() => Context.GenericTag<ComponentPool<T>>('@minecraft/ComponentPool')
-
 const makeComponentPool = <T>(
   factory: () => T,
   resetComponent: (component: T) => void,
@@ -550,7 +548,7 @@ const makeComponentPool = <T>(
   Effect.gen(function* () {
     const availableRef = yield* Ref.make<T[]>([])
 
-    return ComponentPool<T>().of({
+    return {
       acquire: () =>
         Effect.gen(function* () {
           const available = yield* Ref.get(availableRef)

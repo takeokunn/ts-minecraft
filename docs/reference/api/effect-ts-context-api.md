@@ -1,6 +1,6 @@
 ---
 title: 'Effect-TS Context API リファレンス'
-description: 'Context.GenericTagとLayerを使用した依存性注入のAPIリファレンス'
+description: 'Context.TagとLayerを使用した依存性注入のAPIリファレンス'
 category: 'reference'
 difficulty: 'advanced'
 tags: ['effect-ts', 'context', 'dependency-injection', 'api-reference', 'layer']
@@ -28,15 +28,15 @@ estimated_reading_time: '15分'
 
 ---
 
-## 1. Context.GenericTag API
+## 1. Context.Tag API
 
 ### 1.1 基本定義
 
 ```typescript
 import { Context } from 'effect'
 
-// TypeScript Minecraft標準: @app/ServiceNameネームスペース (関数型パターン)
-const ServiceName = Context.GenericTag<ServiceInterface>('@app/ServiceName')
+// TypeScript Minecraft標準: class-based Context.Tag パターン
+class ServiceName extends Context.Tag('@app/ServiceName')<ServiceName, ServiceInterface>() {}
 
 // サービスインターフェース定義
 interface ServiceInterface {
@@ -48,31 +48,32 @@ interface ServiceInterface {
 
 ### 1.2 型パラメータ
 
-| パラメータ | 説明                               | 必須 |
-| ---------- | ---------------------------------- | ---- |
-| `Self`     | サービスタグ自身の型               | ✅   |
-| `Service`  | サービスが提供するインターフェース | ✅   |
+| パラメータ    | 説明                               | 必須 |
+| ------------- | ---------------------------------- | ---- |
+| `Identifier`  | サービス識別子文字列               | ✅   |
+| `Self`        | サービスタグ自身の型               | ✅   |
+| `Shape`       | サービスが提供するインターフェース | ✅   |
 
 ### 1.3 使用例
 
 ```typescript
-// Minecraftワールドサービス (関数型パターン)
+// Minecraftワールドサービス (class-basedパターン)
 interface WorldServiceInterface {
   readonly getChunk: (x: number, z: number) => Effect.Effect<Chunk, ChunkError>
   readonly setBlock: (pos: Position, block: Block) => Effect.Effect<void, BlockError>
   readonly save: () => Effect.Effect<void, SaveError>
 }
 
-const WorldService = Context.GenericTag<WorldServiceInterface>('@app/WorldService')
+class WorldService extends Context.Tag('@app/WorldService')<WorldService, WorldServiceInterface>() {}
 
-// インベントリサービス (関数型パターン)
+// インベントリサービス (class-basedパターン)
 interface InventoryServiceInterface {
   readonly addItem: (item: Item, count: number) => Effect.Effect<void, InventoryFullError>
   readonly removeItem: (slot: number) => Effect.Effect<Item, SlotEmptyError>
   readonly getItems: () => Effect.Effect<ReadonlyArray<Item>>
 }
 
-const InventoryService = Context.GenericTag<InventoryServiceInterface>('@app/InventoryService')
+class InventoryService extends Context.Tag('@app/InventoryService')<InventoryService, InventoryServiceInterface>() {}
 ```
 
 ## 2. Layer API
@@ -105,7 +106,7 @@ const ServiceLive = Layer.scoped(
 )
 
 // Layer.fail - エラーを持つLayer
-const ServiceFailed = Layer.fail(ServiceTag, new ServiceError())
+const ServiceFailed = Layer.fail(new ServiceError())
 ```
 
 ### 2.2 Layer合成
@@ -221,12 +222,12 @@ const program = pipe(getChunk(0, 0), Effect.map(processChunk))
 ### 4.1 サービスファクトリー
 
 ```typescript
-// サービスファクトリー (関数型パターン)
+// サービスファクトリー (class-basedパターン)
 interface ServiceFactoryInterface {
   readonly create: <T>(config: Config<T>) => Effect.Effect<T>
 }
 
-const ServiceFactory = Context.GenericTag<ServiceFactoryInterface>('@app/ServiceFactory')
+class ServiceFactory extends Context.Tag('@app/ServiceFactory')<ServiceFactory, ServiceFactoryInterface>() {}
 
 const ServiceFactoryLive = Layer.succeed(ServiceFactory, {
   create: (config) =>
@@ -281,15 +282,15 @@ const LoggedWorldServiceLive = withLogging(WorldServiceLive)
 
 ## 5. 型シグネチャ仕様
 
-### 5.1 Context.GenericTag完全型定義
+### 5.1 Context.Tag完全型定義
 
 ```typescript
-// GenericTag型定義 (関数型インターフェース)
-interface GenericTag<Identifier extends string, Service> {
-  readonly _tag: Identifier
-  readonly Type: Service
-  readonly pipe: <B>(f: (a: this) => B) => B
-}
+// Context.Tag型定義 (class-basedインターフェース)
+// class MyService extends Context.Tag(identifier)<Self, Shape>() {}
+//
+// - identifier: サービスの一意な文字列識別子
+// - Self: タグクラス自身の型
+// - Shape: サービスが提供するインターフェース
 ```
 
 ### 5.2 Layer型定義

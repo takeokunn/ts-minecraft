@@ -179,7 +179,53 @@ API、設定、仕様の包括的・体系的情報を辞書形式で提供。�
 2. パターン学習: [Design Patterns](./explanations/design-patterns/README.md)
 3. 詳細仕様: [Reference](./reference/README.md)
 
+### 🤖 AIエージェント向け
+
+1. **Issue実装フロー**: [GitHub Issue管理](./how-to/development/github-issue-management.md)
+2. **エントリーポイント**: [エントリーポイント](./how-to/development/entry-points.md)
+3. **Effect-TS実装ガイドライン**: [実装ガイドライン](./how-to/development/effect-ts-guidelines.md) - TestClock/catchTags/Supervisor/Metric
+4. **Effect-TS完全準拠**: [完全準拠ガイド](./reference/effect-ts-compliance.md) - 禁止/推奨パターン一覧
+5. **Effect-TS移行**: [移行ガイド](./how-to/migration/effect-ts-migration.md) - Before/After実例
+6. **実装パターン**: [サービスパターン](./explanations/design-patterns/service-patterns.md)
+7. **型安全設計**: [型安全パターン](./explanations/design-patterns/type-safety-philosophy.md)
+8. **トラブルシューティング**: [よくあるエラー](./how-to/troubleshooting/common-errors.md)
+
+## 🔄 Issue駆動開発
+
+### AIタスク実装フロー
+
+1. **Issue確認**: `.github/ISSUE_TEMPLATE/ai-task.yml`形式のIssue
+2. **実装計画**: 8段階実行ステップ (Step 1-8)
+3. **コード生成**: Effect-TS Service/Layer/Schemaパターン
+4. **自動検証**: `pnpm typecheck && pnpm check && pnpm test && pnpm build`
+5. **エラー修正**: トラブルシューティング手順に従う
+
+### 参照優先順位
+
+1. **GitHub Issue**: 具体的実装手順・完了条件
+2. **docs/**: 詳細仕様・実装パターン
+3. **src/shared/**: 実装済みパターン例
+4. **ROADMAP.md**: 全体コンテキスト
+
 ## 🎮 プロジェクト特徴
+
+### 技術的制約・設計方針
+
+- **クラス禁止**: Effect-TS Service/Layerパターンによる関数型設計
+- **変数制約**: var, let, any, async禁止（const + Effect.gen必須）
+- **型安全性**: Effect.gen/Schema.Struct必須
+- **ランタイム検証**: 外部データはすべてSchemaによる検証必須
+- **エラーハンドリング**: 例外禁止・Effect型によるエラー表現
+
+### Effect-TS採用理由
+
+1. **型安全性の向上**: Brand型により同種プリミティブの混同を防止
+2. **ランタイム安全性**: Schemaによる実行時データ検証
+3. **関数型エラーハンドリング**: Effect型による予測可能なエラー処理
+4. **コンポーザビリティ**: 小さな関数を組み合わせた堅牢なシステム構築
+5. **テスタビリティ**: 依存性注入により100%モック可能な設計
+
+### 完全関数型アーキテクチャ
 
 - **完全関数型設計**: クラス禁止、Effect-TSによる純粋関数アーキテクチャ
 - **最新Effect-TSパターン**: Schema.Struct、Context.GenericTag採用

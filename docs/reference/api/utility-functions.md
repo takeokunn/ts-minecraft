@@ -311,11 +311,11 @@ export const CoordinateUtils = {
 } as const
 
 // カスタムエラー型 - Effect-TS関数型パターン
-export const CoordinateError = Schema.TaggedError('CoordinateError')({
+export class CoordinateError extends Schema.TaggedError<CoordinateError>()('CoordinateError', {
   message: Schema.String,
   coordinate: Schema.optional(Schema.Unknown),
   timestamp: Schema.optional(Schema.DateTimeUtc),
-})
+}) {}
 
 // Brand型実行時検証・テスト統合パターン
 export const CoordinateTestUtils = {
@@ -617,17 +617,17 @@ export const CoordinateTestUtils = {
 } as const
 
 // テスト用エラー型 - Effect-TS関数型パターン
-export const ValidationError = Schema.TaggedError('ValidationError')({
+export class ValidationError extends Schema.TaggedError<ValidationError>()('ValidationError', {
   message: Schema.String,
   field: Schema.optional(Schema.String),
   value: Schema.optional(Schema.Unknown),
-})
+}) {}
 
-export const ParseError = Schema.TaggedError('ParseError')({
+export class ParseError extends Schema.TaggedError<ParseError>()('ParseError', {
   message: Schema.String,
   input: Schema.optional(Schema.String),
   position: Schema.optional(Schema.Number),
-})
+}) {}
 
 /**
  * ベクトル演算関数群
@@ -1814,12 +1814,13 @@ export const SchemaTypeGuards = {
 
 ````typescript
 // 統合ユーティリティサービス
-export const UtilityService = Context.GenericTag<{
+interface UtilityServiceShape {
   readonly math: typeof MathUtils & typeof MinecraftMathUtils
   readonly array: typeof ArrayUtils & typeof MinecraftArrayUtils
   readonly object: typeof ObjectUtils & typeof MinecraftObjectUtils
   readonly typeGuards: typeof TypeGuards & typeof MinecraftTypeGuards
-}>("UtilityService")
+}
+export class UtilityService extends Context.Tag("UtilityService")<UtilityService, UtilityServiceShape>() {}
 
 // ファクトリ関数による統合
 export const createUtilities = () => ({

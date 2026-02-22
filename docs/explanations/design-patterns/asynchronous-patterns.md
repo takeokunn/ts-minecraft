@@ -49,13 +49,13 @@ type PlayerData = {
 }
 
 // Tagged Error
-const PlayerNotFoundError = Schema.TaggedError('PlayerNotFoundError')({
+class PlayerNotFoundError extends Schema.TaggedError<PlayerNotFoundError>()('PlayerNotFoundError', {
   playerId: Schema.String,
-})
+}) {}
 
-const NetworkError = Schema.TaggedError('NetworkError')({
+class NetworkError extends Schema.TaggedError<NetworkError>()('NetworkError', {
   message: Schema.String,
-})
+}) {}
 
 // 各fetch関数の型定義
 declare const fetchPlayer: (playerId: PlayerId) => Effect.Effect<Player, PlayerNotFoundError | NetworkError>
@@ -111,9 +111,9 @@ const fetchPartialSuccess = (playerId: PlayerId): Effect.Effect<Partial<PlayerDa
 ```typescript
 import { pipe, Effect, Schedule, Match } from 'effect'
 
-const TimeoutError = Schema.TaggedError('TimeoutError')({
+class TimeoutError extends Schema.TaggedError<TimeoutError>()('TimeoutError', {
   duration: Schema.String,
-})
+}) {}
 
 const fetchWithTimeout = (playerId: PlayerId) =>
   pipe(
@@ -286,9 +286,9 @@ const createGameEventSystem = Effect.gen(function* () {
     yield* Stream.fromQueue(subscription).pipe(
       Stream.runForEach((event) =>
         Match.value(event.type).pipe(
-          Match.when("player_joined", () => Ref.update(stats, s => ({ ...s, playerJoined: s.playerJoined + 1 })))
-          Match.when("player_left", () => Ref.update(stats, s => ({ ...s, playerLeft: s.playerLeft + 1 })))
-          Match.when("item_dropped", () => Ref.update(stats, s => ({ ...s, itemDropped: s.itemDropped + 1 })))
+          Match.when("player_joined", () => Ref.update(stats, s => ({ ...s, playerJoined: s.playerJoined + 1 }))),
+          Match.when("player_left", () => Ref.update(stats, s => ({ ...s, playerLeft: s.playerLeft + 1 }))),
+          Match.when("item_dropped", () => Ref.update(stats, s => ({ ...s, itemDropped: s.itemDropped + 1 }))),
           Match.exhaustive
         )
       )
@@ -843,18 +843,18 @@ const ChunkCoordinate = Schema.Struct({
 type ChunkCoordinate = Schema.Schema.Type<typeof ChunkCoordinate>
 
 // 構造化エラー定義
-const ChunkLoadError = Schema.TaggedError('ChunkLoadError')({
+class ChunkLoadError extends Schema.TaggedError<ChunkLoadError>()('ChunkLoadError', {
   coordinate: ChunkCoordinate,
   reason: Schema.String,
   timestamp: Schema.DateTimeUtc,
   retryable: Schema.Boolean,
-})
+}) {}
 
-const ChunkGenerationError = Schema.TaggedError('ChunkGenerationError')({
+class ChunkGenerationError extends Schema.TaggedError<ChunkGenerationError>()('ChunkGenerationError', {
   coordinate: ChunkCoordinate,
   stage: Schema.String,
   details: Schema.String,
-})
+}) {}
 
 // Chunk型定義
 const MinecraftChunk = Schema.Struct({
@@ -866,20 +866,15 @@ const MinecraftChunk = Schema.Struct({
 }).pipe(Schema.brand('MinecraftChunk'))
 type MinecraftChunk = Schema.Schema.Type<typeof MinecraftChunk>
 
-// サービスインターフェース
-export interface ChunkLoaderService {
+// サービス定義（class-based Context.Tag）
+export class ChunkLoaderService extends Context.Tag('@minecraft/ChunkLoaderService')<ChunkLoaderService, {
   readonly loadChunk: (coord: ChunkCoordinate) => Effect.Effect<MinecraftChunk, ChunkLoadError | ChunkGenerationError>
-
   readonly batchLoadChunks: (
     coords: readonly ChunkCoordinate[]
   ) => Effect.Effect<readonly MinecraftChunk[], ChunkLoadError | ChunkGenerationError>
-
   readonly preloadChunksInRadius: (center: ChunkCoordinate, radius: number) => Effect.Effect<number, ChunkLoadError>
-
   readonly getStats: () => Effect.Effect<LoaderStats, never>
-}
-
-export const ChunkLoaderService = Context.GenericTag<ChunkLoaderService>('@minecraft/ChunkLoaderService')
+}>() {}
 
 type LoaderStats = {
   cacheHits: number
@@ -1014,7 +1009,7 @@ const makeChunkLoaderService = Effect.gen(function* () {
 
   yield* batchProcessor
 
-  return ChunkLoaderService.of({
+  return {
     loadChunk: loadSingleChunk,
 
     batchLoadChunks: (coords) =>
@@ -1031,7 +1026,7 @@ const makeChunkLoaderService = Effect.gen(function* () {
       }),
 
     getStats: () => Ref.get(stats),
-  })
+  }
 })
 
 export const ChunkLoaderServiceLive = Layer.effect(ChunkLoaderService, makeChunkLoaderService).pipe(
@@ -1345,16 +1340,16 @@ export const ChunkResult = Schema.Struct({
   generated: Schema.Boolean,
 })
 
-export const ChunkNotFoundError = Schema.TaggedError('ChunkNotFoundError')({
+export class ChunkNotFoundError extends Schema.TaggedError<ChunkNotFoundError>()('ChunkNotFoundError', {
   coordinate: ChunkCoordinate,
   searchedLocations: Schema.Array(Schema.String),
-})
+}) {}
 
-export const DatabaseConnectionError = Schema.TaggedError('DatabaseConnectionError')({
+export class DatabaseConnectionError extends Schema.TaggedError<DatabaseConnectionError>()('DatabaseConnectionError', {
   host: Schema.String,
   port: Schema.Number,
   lastAttempt: Schema.DateTimeUtc,
-})
+}) {}
 ```
 
 **Step 1.3: ユーティリティ関数の移行**
@@ -1405,17 +1400,15 @@ interface ConfigService {
 }
 
 // After: Effect版ConfigService
-export interface ConfigService {
+export class ConfigService extends Context.Tag("@minecraft/ConfigService")<ConfigService, {
   readonly loadConfig: () => Effect.Effect<Config, ConfigLoadError>
   readonly saveConfig: (config: Config) => Effect.Effect<void, ConfigSaveError>
-}
-
-export const ConfigService = Context.GenericTag<ConfigService>("@minecraft/ConfigService")
+}>() {}
 
 const makeConfigService = Effect.gen(function* () {
   const fileSystem = yield* FileSystemService
 
-  return ConfigService.of({
+  return {
     loadConfig: () => pipe(
       fileSystem.readTextFile('config.json'),
       Effect.flatMap(text =>
@@ -1429,8 +1422,8 @@ const makeConfigService = Effect.gen(function* () {
       Effect.map(data => JSON.stringify(data, null, 2)),
       Effect.flatMap(text => fileSystem.writeTextFile('config.json', text)),
       Effect.mapError(error => new ConfigSaveError({ reason: error.message }))
-    )
-  })
+    ),
+  }
 })
 
 export const ConfigServiceLive = Layer.effect(ConfigService, makeConfigService)
@@ -1495,16 +1488,16 @@ interface GameEngine {
 }
 
 // After: Effect版（依存関係と並行処理が明確）
-export interface GameEngineService {
+export class GameEngineService extends Context.Tag("@minecraft/GameEngineService")<GameEngineService, {
   readonly processGameTick: () => Effect.Effect<void, GameTickError, WorldService | PlayerService | EventService>
-}
+}>() {}
 
 const makeGameEngineService = Effect.gen(function* () {
   const worldService = yield* WorldService
   const playerService = yield* PlayerService
   const eventService = yield* EventService
 
-  return GameEngineService.of({
+  return {
     processGameTick: () => Effect.gen(function* () {
       // 並行実行可能な処理を特定
       const [_, movementResults] = yield* Effect.all([
@@ -1515,7 +1508,7 @@ const makeGameEngineService = Effect.gen(function* () {
       // 順次実行が必要な処理
       yield* eventService.processEvents(movementResults)
     })
-  })
+  }
 })
 
 export const GameEngineServiceLive = Layer.effect(GameEngineService, makeGameEngineService)
@@ -1538,7 +1531,7 @@ const gameMainLoop = Effect.gen(function* () {
             recoverable ? Effect.log(`Recoverable game tick error: ${reason}`) : Effect.fail(error)
           ),
           Match.tag('WorldUpdateError', ({ details }) =>
-            Effect.log(`World update failed: ${details}`).pipe(Effect.andThen(Effect.unit))
+            Effect.log(`World update failed: ${details}`).pipe(Effect.andThen(Effect.void))
           ),
           Match.exhaustive
         )
@@ -2124,7 +2117,7 @@ const processPlayerActions = (actions: PlayerAction[]) =>
             }
           })
         ),
-        Match.orElse(() => Effect.unit)
+        Match.orElse(() => Effect.void)
       ),
       { concurrency: 1 } // アクションは順次処理
     )

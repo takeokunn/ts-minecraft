@@ -38,19 +38,19 @@ import { Stream, Effect, Chunk } from 'effect'
 interface StreamAPI {
   // ストリーム生成
   from: <A>(iterable: Iterable<A>) => Stream.Stream<A>
-  fromEffect: <R, E, A>(effect: Effect.Effect<R, E, A>) => Stream.Stream<A, E, R>
-  fromSchedule: <R, A>(schedule: Schedule<R, A>) => Stream.Stream<A, never, R>
+  fromEffect: <A, E, R>(effect: Effect.Effect<A, E, R>) => Stream.Stream<A, E, R>
+  fromSchedule: <A, R>(schedule: Schedule<A, R>) => Stream.Stream<A, never, R>
 
   // 変換操作
-  map: <A, B>(f: (a: A) => B) => <R, E>(stream: Stream.Stream<A, E, R>) => Stream.Stream<B, E, R>
-  flatMap: <A, R2, E2, B>(
+  map: <A, B>(f: (a: A) => B) => <E, R>(stream: Stream.Stream<A, E, R>) => Stream.Stream<B, E, R>
+  flatMap: <A, B, E2, R2>(
     f: (a: A) => Stream.Stream<B, E2, R2>
-  ) => <R, E>(stream: Stream.Stream<A, E, R>) => Stream.Stream<B, E | E2, R | R2>
-  filter: <A>(predicate: (a: A) => boolean) => <R, E>(stream: Stream.Stream<A, E, R>) => Stream.Stream<A, E, R>
+  ) => <E, R>(stream: Stream.Stream<A, E, R>) => Stream.Stream<B, E | E2, R | R2>
+  filter: <A>(predicate: (a: A) => boolean) => <E, R>(stream: Stream.Stream<A, E, R>) => Stream.Stream<A, E, R>
 
   // 集約操作
-  runCollect: <R, E, A>(stream: Stream.Stream<A, E, R>) => Effect.Effect<R, E, Chunk.Chunk<A>>
-  runFold: <S, A>(s: S, f: (s: S, a: A) => S) => <R, E>(stream: Stream.Stream<A, E, R>) => Effect.Effect<R, E, S>
+  runCollect: <A, E, R>(stream: Stream.Stream<A, E, R>) => Effect.Effect<Chunk.Chunk<A>, E, R>
+  runFold: <S, A>(s: S, f: (s: S, a: A) => S) => <E, R>(stream: Stream.Stream<A, E, R>) => Effect.Effect<S, E, R>
 }
 ```
 
@@ -86,14 +86,14 @@ import { Fiber, Effect } from 'effect'
 
 interface FiberAPI {
   // Fiber生成
-  fork: <R, E, A>(effect: Effect.Effect<R, E, A>) => Effect.Effect<R, never, Fiber.Fiber<E, A>>
-  forkDaemon: <R, E, A>(effect: Effect.Effect<R, E, A>) => Effect.Effect<R, never, Fiber.Fiber<E, A>>
-  forkScoped: <R, E, A>(effect: Effect.Effect<R, E, A>) => Effect.Effect<R | Scope, never, Fiber.Fiber<E, A>>
+  fork: <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.Effect<Fiber.Fiber<A, E>, never, R>
+  forkDaemon: <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.Effect<Fiber.Fiber<A, E>, never, R>
+  forkScoped: <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.Effect<Fiber.Fiber<A, E>, never, R | Scope>
 
   // Fiber制御
-  join: <E, A>(fiber: Fiber.Fiber<E, A>) => Effect.Effect<never, E, A>
-  interrupt: <E, A>(fiber: Fiber.Fiber<E, A>) => Effect.Effect<never, never, Exit<E, A>>
-  await: <E, A>(fiber: Fiber.Fiber<E, A>) => Effect.Effect<never, never, Exit<E, A>>
+  join: <A, E>(fiber: Fiber.Fiber<A, E>) => Effect.Effect<A, E>
+  interrupt: <A, E>(fiber: Fiber.Fiber<A, E>) => Effect.Effect<Exit<A, E>>
+  await: <A, E>(fiber: Fiber.Fiber<A, E>) => Effect.Effect<Exit<A, E>>
 }
 ```
 
@@ -259,9 +259,9 @@ const adaptiveChunkUpdate = pipe(
 import { Scope, Effect } from 'effect'
 
 // スコープ付きリソース管理
-const withConnection = <R, E, A>(
-  use: (conn: DatabaseConnection) => Effect.Effect<R, E, A>
-): Effect.Effect<R | Scope.Scope, E | ConnectionError, A> =>
+const withConnection = <A, E, R>(
+  use: (conn: DatabaseConnection) => Effect.Effect<A, E, R>
+): Effect.Effect<A, E | ConnectionError, R | Scope.Scope> =>
   Effect.acquireUseRelease(
     // 取得
     connectToDatabase(),
@@ -345,18 +345,18 @@ const multiplayerEventSystem = Effect.gen(function* () {
 ### 型シグネチャ規約
 
 ```typescript
-// Effect型の完全な定義
-type Effect<Requirements, Error, Value> = {
-  readonly _R: Requirements
+// Effect型の完全な定義 (Success, Error, Requirements の順序)
+type Effect<Success, Error = never, Requirements = never> = {
+  readonly _A: Success
   readonly _E: Error
-  readonly _A: Value
+  readonly _R: Requirements
 }
 
 // Layer型の完全な定義
-type Layer<RIn, Error, ROut> = {
-  readonly _RIn: RIn
-  readonly _E: Error
+type Layer<ROut, Error = never, RIn = never> = {
   readonly _ROut: ROut
+  readonly _E: Error
+  readonly _RIn: RIn
 }
 
 // Stream型の完全な定義
@@ -369,6 +369,6 @@ type Stream<Value, Error = never, Requirements = never> = {
 
 ## 次のステップ
 
-- **実装例**: [高度なパターン例](../examples/02-advanced-patterns/README.md)で実践的な使用例
+- **実装例**: [Effect-TSパターン](./effect-ts-patterns.md)で実践的な使用例
 - **パフォーマンス**: [最適化パターン](../explanations/design-patterns/06-optimization-patterns.md)でパフォーマンスチューニング
 - **テスト**: [Effect-TSテスト](./06d-effect-ts-testing.md)で高度な機能のテスト方法

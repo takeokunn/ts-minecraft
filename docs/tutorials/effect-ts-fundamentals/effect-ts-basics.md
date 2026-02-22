@@ -1,9 +1,9 @@
 ---
 title: 'Effect-TS 3.17+ 基礎マスター - 実践的コアパターン習得'
-description: 'Effect.gen、Schema.Struct、Context.GenericTagを使った実践的パターン学習。リアルタイム実行環境で即座に理解できるハンズオン形式のEffect-TS入門。'
+description: 'Effect.gen、Schema.Struct、Context.Tagを使った実践的パターン学習。リアルタイム実行環境で即座に理解できるハンズオン形式のEffect-TS入門。'
 category: 'tutorial'
 difficulty: 'intermediate'
-tags: ['effect-ts', 'fundamentals', 'schema-struct', 'effect-gen', 'context-generic-tag', 'hands-on']
+tags: ['effect-ts', 'fundamentals', 'schema-struct', 'effect-gen', 'context-tag', 'hands-on']
 prerequisites: ['typescript-intermediate', 'functional-programming-basics']
 estimated_reading_time: '20分'
 ---
@@ -44,7 +44,7 @@ estimated_reading_time: '20分'
 // 🌟 LIVE CODE - このコードは即座に実行・編集可能です
 // CodeSandbox: https://codesandbox.io/s/effect-ts-basics
 // StackBlitz: https://stackblitz.com/edit/effect-ts-minecraft-basics
-import { Effect, Schema, Console } from "@effect/platform"
+import { Effect, Schema, Console } from "effect"
 
 // 📚 Schema定義の詳細は Schema API リファレンス を参照
 // → https://docs/reference/api/effect-ts-schema-api.md#11-統合パターンライブラリ
@@ -420,22 +420,20 @@ const processDirection = (direction: Direction) =>
   );
 // [/LIVE_EXAMPLE]
 
-// ✅ Option型との組み合わせ（最新Match.tags パターン）
+// ✅ Option型との組み合わせ（Match.tag パターン）
 const handleOptionalData = (data: Option.Option<string>) =>
   Match.value(data).pipe(
-    Match.tags({
-      Some: ({ value }) => Effect.succeed(`データ: ${value}`),
-      None: () => Effect.fail(new Error("データが見つかりません"))
-    })
+    Match.tag("Some", ({ value }) => Effect.succeed(`データ: ${value}`)),
+    Match.tag("None", () => Effect.fail(new Error("データが見つかりません"))),
+    Match.exhaustive
   );
 
-// ✅ Either型との組み合わせ（Match.tags 最新パターン）
+// ✅ Either型との組み合わせ（Match.tag パターン）
 const handleResult = <E, A>(result: Either.Either<E, A>) =>
   Match.value(result).pipe(
-    Match.tags({
-      Right: ({ right }) => Effect.succeed(right),
-      Left: ({ left }) => Effect.fail(left)
-    })
+    Match.tag("Right", ({ right }) => Effect.succeed(right)),
+    Match.tag("Left", ({ left }) => Effect.fail(left)),
+    Match.exhaustive
   );
 
 // ✅ 複合的なパターンマッチング
@@ -646,8 +644,8 @@ interface AppServices extends WorldService, PlayerService, ChunkService {}
 
 1. **Effect.gen + yield\*** による線形な合成
 2. **Schema.Struct** による型安全なデータ定義（Data.struct使用禁止）
-3. **Context.GenericTag** による依存性注入
-4. **Match.value + Match.tags** による網羅的パターンマッチング
+3. **class extends Context.Tag** による依存性注入
+4. **Match.value + Match.tag** による網羅的パターンマッチング
 5. **不変データ構造** の一貫した使用
 6. **純粋関数と副作用の分離**
 7. **早期リターンパターン** による最大3レベルネスト
@@ -656,9 +654,8 @@ interface AppServices extends WorldService, PlayerService, ChunkService {}
 
 ### 禁止パターン（Effect-TS 3.17+）
 
-1. **class** ベースの設計（Context.GenericTagを使用）
-2. **Data.struct** の使用（Schema.Structを使用）
-3. **if/else/switch** の多用（Match.value + Match.tagsを使用）
+1. **Data.struct** の使用（Schema.Structを使用）
+2. **if/else/switch** の多用（Match.value + Match.tagを使用）
 4. **任意の型（any、unknown）** の使用
 5. **可変データ構造** の使用
 6. **try/catch** による例外処理（Effect.catchTagsを使用）
@@ -677,7 +674,7 @@ interface AppServices extends WorldService, PlayerService, ChunkService {}
 
 ### 次のステップ
 
-- **サービス設計**: [Effect-TS サービス](./effect-ts-services.md) - Context.GenericTagとLayer管理
+- **サービス設計**: [Effect-TS サービス](./effect-ts-services.md) - Context.TagとLayer管理
 - **エラーハンドリング**: [Effect-TS エラーハンドリング](./effect-ts-error-handling.md) - 型安全なエラー処理戦略
 - **実践パターン**: [Effect-TS パターン集](./effect-ts-patterns.md) - 高度な応用パターン
 
@@ -699,7 +696,7 @@ interface AppServices extends WorldService, PlayerService, ChunkService {}
 
 ### 🎯 Next Module: Services & Dependency Injection (15分)
 
-→ **[サービスパターン](./effect-ts-services.md)** - Context.GenericTag、Layer、依存性注入
+→ **[サービスパターン](./effect-ts-services.md)** - Context.Tag、Layer、依存性注入
 
 ### 🗺️ Full Learning Path
 
