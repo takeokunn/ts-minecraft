@@ -20,7 +20,7 @@ TypeScript Minecraftプロジェクトのビルド設定について詳しく解
 
 ## 基本ビルド設定
 
-### Nix環境用Viteビルド設定
+### Viteビルド設定
 
 ```typescript
 // vite.config.build.ts
@@ -30,8 +30,6 @@ import { config } from 'dotenv'
 import { visualizer } from 'rollup-plugin-visualizer'
 import { compression } from 'vite-plugin-compression'
 
-// Nix devenv環境設定読み込み
-config({ path: './.devenv.env' })
 
 export default defineConfig(({ mode }): UserConfig => {
   const isProd = mode === 'production'
@@ -1351,7 +1349,6 @@ export const nixOptimizedDependencies = {
 - [TypeScript設定](./typescript-config.md) - TypeScript compilerOptions
 - [Project設定](./project-config.md) - プロジェクト全体設定
 - [Development設定](./development-config.md) - 開発環境最適化
-- [devenv.nix](../../../devenv.nix) - Nix開発環境設定
 
 ### 外部リファレンス
 

@@ -1,9 +1,9 @@
 ---
 title: 'Vite設定 - ビルドツール完全ガイド'
-description: 'Vite 7.1+でのTypeScript Minecraftプロジェクト設定。Nix環境対応、Effect-TS最適化、パフォーマンス調整。'
+description: 'Vite 7.1+でのTypeScript Minecraftプロジェクト設定。Effect-TS最適化、パフォーマンス調整。'
 category: 'reference'
 difficulty: 'intermediate'
-tags: ['vite', 'build-tools', 'nix', 'effect-ts', 'configuration', 'performance', 'pnpm']
+tags: ['vite', 'build-tools', 'effect-ts', 'configuration', 'performance', 'pnpm']
 prerequisites: ['basic-typescript', 'build-tools-basics']
 estimated_reading_time: '20分'
 dependencies: ['./typescript-config.md']
@@ -16,11 +16,10 @@ status: 'complete'
 
 ## 概要
 
-TypeScript MinecraftプロジェクトのVite 7.1+設定について詳しく解説します。Nix開発環境での統合、pnpmパッケージマネージャー、Effect-TS最適化、パフォーマンス調整など、実用的な設定例を豊富に提供します。
+TypeScript MinecraftプロジェクトのVite 7.1+設定について詳しく解説します。pnpmパッケージマネージャー、Effect-TS最適化、パフォーマンス調整など、実用的な設定例を豊富に提供します。
 
 **プロジェクト技術スタック**:
 
-- **開発環境**: Nix + devenv
 - **パッケージマネージャー**: pnpm
 - **ランタイム**: Node.js 22
 - **ビルドツール**: Vite 7.1+
@@ -31,19 +30,16 @@ TypeScript MinecraftプロジェクトのVite 7.1+設定について詳しく解
 
 ### 完全なvite.config.ts設定例
 
-**注意**: このプロジェクトはNix環境で開発されており、実際の設定ファイルは存在しませんが、以下は実用的な設定例です。
-
 ```typescript
 import { defineConfig, loadEnv } from 'vite'
 import { resolve } from 'path'
 import dns from 'node:dns'
 
-// Nix環境での開発に最適化されたVite設定
 // Node.js 22でのlocalhost解決最適化
 dns.setDefaultResultOrder('verbatim')
 
 export default defineConfig(({ command, mode }) => {
-  // Nix環境の環境変数読み込み
+  // 環境変数読み込み
   const env = loadEnv(mode, process.cwd(), '')
 
   const isDev = command === 'serve'
@@ -51,18 +47,18 @@ export default defineConfig(({ command, mode }) => {
   const isPreview = command === 'preview'
 
   return {
-    // サーバー設定（Nix/devenv環境最適化）
+    // サーバー設定
     server: {
       port: env.VITE_PORT ? Number(env.VITE_PORT) : 5173,
-      host: '0.0.0.0', // Nix container対応
-      strictPort: false, // Nixでの動的ポート割り当て許可
+      host: '0.0.0.0',
+      strictPort: false, // 動的ポート割り当て許可
       open: isDev,
       cors: {
         origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
         credentials: true,
       },
 
-      // HMR設定（Nix環境最適化）
+      // HMR設定
       hmr: {
         port: env.VITE_HMR_PORT ? Number(env.VITE_HMR_PORT) : 5174,
         overlay: true, // エラーオーバーレイ表示
@@ -113,7 +109,7 @@ export default defineConfig(({ command, mode }) => {
       assetsDir: 'assets',
       sourcemap: isDev,
       minify: isProd ? 'terser' : false,
-      reportCompressedSize: false, // Nixビルドでの高速化
+      reportCompressedSize: false, // ビルド高速化
 
       // Terser設定（本番最適化）
       terserOptions: isProd
@@ -207,7 +203,7 @@ export default defineConfig(({ command, mode }) => {
         ? ['development', 'module', 'import', 'default']
         : ['production', 'module', 'import', 'default'],
 
-      // Nixでのシンボリックリンク対応
+      // シンボリックリンク対応
       preserveSymlinks: true,
     },
 
@@ -272,7 +268,6 @@ export default defineConfig(({ command, mode }) => {
       __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
       __DEV__: isDev,
       __GAME_DEBUG__: isDev,
-      __NIX_ENV__: true,
       'process.env.NODE_ENV': JSON.stringify(mode),
       'import.meta.env.SSR': false, // クライアントサイドのみ
     },
@@ -298,8 +293,8 @@ export default defineConfig(({ command, mode }) => {
       cors: true,
     },
 
-    // Nix環境専用設定
-    clearScreen: false, // Nix環境でのログ表示維持
+    // ログ表示設定
+    clearScreen: false, // ログ表示維持
     logLevel: isDev ? 'info' : 'warn',
   }
 })
@@ -307,41 +302,41 @@ export default defineConfig(({ command, mode }) => {
 
 ## 🚀 開発環境別設定
 
-### 開発環境用設定（Nix環境最適化）
+### 開発環境用設定
 
 ```typescript
-// vite.config.dev.ts - Nix devenv用最適化設定
+// vite.config.dev.ts
 import { defineConfig } from 'vite'
 
 export default defineConfig({
   server: {
     port: 5173,
-    host: '0.0.0.0', // Nix container対応
-    strictPort: false, // Nix動的ポート対応
-    open: false, // Nixでは自動起動無効
+    host: '0.0.0.0',
+    strictPort: false,
+    open: false,
 
-    // Nix環境でのHMR最適化
+    // HMR最適化
     hmr: {
       port: 5174,
       overlay: true, // エラー画面オーバーレイ
       clientPort: 5174, // WebSocketポート明示
     },
 
-    // CORS設定（Nix環境用）
+    // CORS設定
     cors: {
       origin: ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://0.0.0.0:5173'],
       credentials: true,
     },
 
-    // ファイル監視設定（Nix最適化）
+    // ファイル監視設定
     watch: {
       usePolling: false, // Nix inotifyサポート
       ignored: ['**/node_modules/**', '**/dist/**', '**/.git/**'],
     },
 
-    // Nix store対応
+    // ファイルシステム設定
     fs: {
-      allow: ['..', '/nix/store'], // Nix store アクセス許可
+      allow: ['..'],
       deny: ['.env.local', '.env.*.local'],
     },
   },
@@ -500,7 +495,7 @@ export default defineConfig({
 
 ## ⚡ パフォーマンス最適化
 
-### Effect-TS + Nix環境専用最適化設定
+### Effect-TS最適化設定
 
 ```typescript
 // vite.config.performance.ts - Effect-TS + ゲーム最適化
@@ -635,7 +630,7 @@ export default defineConfig({
     // ゲーム用最適化設定
     assetsInlineLimit: 512, // 512B未満のみインライン
     chunkSizeWarningLimit: 1500, // チャンクサイズ警告
-    reportCompressedSize: false, // Nix高速ビルド
+    reportCompressedSize: false, // 高速ビルド
 
     // Web Worker最適化
     rollupOptions: {
@@ -648,7 +643,7 @@ export default defineConfig({
     },
   },
 
-  // Nix環境用最適化
+  // 最適化設定
   esbuild: {
     target: 'es2022',
     legalComments: 'none',

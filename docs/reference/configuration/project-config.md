@@ -41,18 +41,12 @@ TypeScript Minecraftプロジェクトのプロジェクトレベル設定につ
   "author": "Your Name <your.email@example.com>",
   "license": "MIT",
 
-  // Node.js/npm設定（Nix環境対応）
+  // Node.js/npm設定
   "engines": {
     "node": ">=22.0.0",
     "pnpm": ">=8.15.0"
   },
   "packageManager": "pnpm@8.15.0",
-
-  // Nix環境サポート
-  "volta": {
-    "node": "22.0.0",
-    "pnpm": "8.15.0"
-  },
 
   // モジュール設定
   "main": "./dist/index.js",

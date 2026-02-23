@@ -1,9 +1,9 @@
 ---
 title: 'TypeScript設定 - 型安全性完全ガイド'
-description: 'TypeScript 5.9+での厳格な型チェック、Effect-TS 3.17+最適化、Nix環境対応、パフォーマンス調整。'
+description: 'TypeScript 5.9+での厳格な型チェック、Effect-TS 3.17+最適化、パフォーマンス調整。'
 category: 'reference'
 difficulty: 'intermediate'
-tags: ['typescript', 'type-safety', 'configuration', 'effect-ts', 'nix', 'node22']
+tags: ['typescript', 'type-safety', 'configuration', 'effect-ts', 'node22']
 prerequisites: ['basic-typescript']
 estimated_reading_time: '25分'
 dependencies: []
@@ -16,26 +16,23 @@ status: 'complete'
 
 ## 概要
 
-TypeScript MinecraftプロジェクトのTypeScript 5.9+設定について詳しく解説します。Nix環境での厳格な型チェック、Effect-TS 3.17+最適化、Node.js 22対応、パフォーマンス調整など、実用的な設定例を豊富に提供します。
+TypeScript MinecraftプロジェクトのTypeScript 5.9+設定について詳しく解説します。厳格な型チェック、Effect-TS 3.17+最適化、Node.js 22対応、パフォーマンス調整など、実用的な設定例を豊富に提供します。
 
 **プロジェクト技術スタック**:
 
 - **TypeScript**: 5.9+ (最新機能対応)
 - **Node.js**: 22 (最新LTS)
 - **Effect-TS**: 3.17+ (関数型プログラミング)
-- **開発環境**: Nix + devenv
 - **アーキテクチャ**: DDD + ECS
-
-**注意**: このプロジェクトはNix環境で開発されており、実際の設定ファイルは存在しませんが、以下は実用的な設定例です。
 
 ## 基本設定
 
-### 完全なtsconfig.json設定例（Nix + Effect-TS最適化）
+### 完全なtsconfig.json設定例（Effect-TS最適化）
 
 ```json
 {
   "compilerOptions": {
-    /* === 基本設定（Node.js 22 + Nix最適化） === */
+    /* === 基本設定（Node.js 22） === */
     "target": "ES2022", // Node.js 22対応出力
     "module": "NodeNext", // Node.js ESMサポート
     "moduleResolution": "NodeNext", // Node.js 22モジュール解決
@@ -145,7 +142,7 @@ TypeScript MinecraftプロジェクトのTypeScript 5.9+設定について詳し
     "removeComments": false // Effect-TS JSDoc保持
   },
 
-  /* === Nixプロジェクトファイル管理 === */
+  /* === プロジェクトファイル管理 === */
   "include": [
     "src/**/*", // ソースコード全体
     "test/**/*", // テストコード
@@ -157,9 +154,6 @@ TypeScript MinecraftプロジェクトのTypeScript 5.9+設定について詳し
     "dist", // ビルド出力
     "coverage", // テストカバレッジ
     "docs", // ドキュメント
-    ".devenv", // Nix devenvキャッシュ
-    ".devenv.flake.nix", // Nix flakeキャッシュ
-    "devenv.lock" // Nixロックファイル
   ],
 
   /* === TypeScript 5.9新機能 + Node.js 22対応 === */
@@ -178,8 +172,7 @@ TypeScript MinecraftプロジェクトのTypeScript 5.9+設定について詳し
     "excludeDirectories": [
       "**/node_modules",
       "**/.git",
-      "**/dist",
-      "**/.devenv" // Nixキャッシュ除外
+      "**/dist"
     ],
     "excludeFiles": ["**/*.js.map", "**/*.d.ts.map"]
   }
@@ -188,10 +181,10 @@ TypeScript MinecraftプロジェクトのTypeScript 5.9+設定について詳し
 
 ## 🚀 環境・用途別設定
 
-### Nix開発環境用設定（Effect-TS最適化）
+### 開発環境用設定（Effect-TS最適化）
 
 ```json
-// tsconfig.dev.json - Nix開発時の型安全性最大化
+// tsconfig.dev.json - 開発時の型安全性最大化
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
@@ -399,8 +392,7 @@ TypeScript MinecraftプロジェクトのTypeScript 5.9+設定について詳し
     "dist",
     "coverage",
     "**/*.js", // JSファイル除外（型安全性重視）
-    "**/*.mjs", // MJSファイル除外
-    ".devenv" // Nix環境ファイル除外
+    "**/*.mjs" // MJSファイル除外
   ]
 }
 ```
@@ -584,83 +576,7 @@ export const createGameService = <T extends Record<string, any>>(implementation:
   implementation
 ```
 
-#### 2. Effect-TS + Nix環境 統合エラー
-
-**問題**: Effect-TS with Nix devenv module resolution failures
-
-**解決策**:
-
-```json
-{
-  "compilerOptions": {
-    // Nix + Effect-TS最適化
-    "moduleResolution": "bundler", // Vite + Nix統合
-    "module": "ESNext",
-    "allowSyntheticDefaultImports": true,
-    "esModuleInterop": true,
-    "allowImportingTsExtensions": true,
-
-    // Nixシンボリックリンク対応
-    "preserveSymlinks": true,
-
-    "paths": {
-      // Effect-TS解決パス
-      "@effect/*": ["node_modules/effect/*"],
-      "@effect/schema": ["node_modules/@effect/schema"],
-      "@effect/platform": ["node_modules/@effect/platform"],
-      "@/*": ["src/*"]
-    },
-
-    "resolvePackageJsonExports": true,
-    "resolvePackageJsonImports": true,
-    "moduleDetection": "force"
-  },
-
-  // Nix環境除外設定
-  "exclude": [
-    "node_modules",
-    "dist",
-    "coverage",
-    ".devenv", // Nix devenvキャッシュ
-    "devenv.lock", // Nixロックファイル
-    ".devenv.flake.nix" // Nix flakeキャッシュ
-  ],
-
-  // Nixウォッチャー最適化
-  "watchOptions": {
-    "excludeDirectories": [
-      "**/node_modules",
-      "**/.git",
-      "**/dist",
-      "**/.devenv" // Nixキャッシュ除外
-    ]
-  }
-}
-```
-
-**Nix + Effect-TS 開発環境設定**:
-
-```bash
-# devenv.nix の TypeScript設定
-{ pkgs, ... }: {
-  packages = with pkgs; [
-    nodejs_22
-    typescript
-    nodePackages.pnpm
-  ];
-
-  scripts.type-check.exec = '''
-    pnpm exec tsc --noEmit --project tsconfig.effect.json
-  ''';
-
-  # Effect-TS開発支援
-  scripts.effect-check.exec = '''
-    pnpm exec tsc --noEmit --strict --exactOptionalPropertyTypes
-  ''';
-}
-```
-
-#### 3. パフォーマンス問題（Nix環境）
+#### 2. Effect-TSモジュール解決エラー
 
 **問題**: 型チェックが遅い、メモリ不足
 
@@ -886,23 +802,6 @@ export {}
 3. **リアルタイム処理**: ゲームループでのバリデーション最適化
 4. **Three.js統合**: WebGLレンダリングとEffect-TSの統合
 
-**Nix + Effect-TS統合開発環境**:
-
-```bash
-# devenv.nix環境での移行作業
-# 1. Effect-TS依存関係のインストール
-devenv shell  # Nix環境に入る
-pnpm add effect @effect/schema @effect/platform
-
-# 2. TypeScript設定のテスト
-pnpm exec tsc -p tsconfig.effect.json --noEmit
-pnpm exec tsc -p tsconfig.effect.json
-
-# 3. ゲームビルドテスト
-pnpm run build:game    # ゲームエンジンビルド
-pnpm run test:effect   # Effect-TS特化テスト
-```
-
 ### ゲーム特化移行チェックリスト
 
 ゲーム開発に特化した移行チェックリスト:
@@ -932,17 +831,11 @@ pnpm run test:effect   # Effect-TS特化テスト
 - [Schema API](../../reference/api/effect-ts-schema-api.md) - ゲームエンティティスキーマ設計
 - [パフォーマンス最適化](../../how-to/development/performance-debugging-guide.md) - ゲームパフォーマンス
 
-### Nix + TypeScript統合
-
-- [Nixプロジェクト設定](../../how-to/development/README.md) - devenv環境設定
-- [開発環境ガイド](../../how-to/development/entry-points.md) - Nix環境での開発手順
-
 ### 外部リファレンス
 
 - [TypeScript公式ドキュメント](https://www.typescriptlang.org/docs/)
 - [Effect-TS公式ドキュメント](https://effect.website/docs/)
 - [TSConfig Reference](https://www.typescriptlang.org/tsconfig)
-- [Nix devenvドキュメント](https://devenv.sh/)
 
 ### トラブルシューティング
 
