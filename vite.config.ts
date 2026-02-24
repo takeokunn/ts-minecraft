@@ -154,7 +154,8 @@ export default defineConfig(({ command, mode }) => {
       preserveSymlinks: true,
     },
     optimizeDeps: {
-      disabled: true,
+      noDiscovery: true,
+      include: undefined,
     },
     css: {
       devSourcemap: isDev,

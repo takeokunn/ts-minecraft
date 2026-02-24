@@ -50,5 +50,4 @@ export type { Matrix4 } from './matrix4'
 
 // Color
 export { makeColor, fromHex, toThreeColor } from './color'
-
 export type { Color } from './color'
