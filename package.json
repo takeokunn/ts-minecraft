@@ -1,0 +1,85 @@
+{
+  "name": "ts-minecraft",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "description": "TypeScript implementation of Minecraft using Three.js and Effect-TS",
+  "homepage": "https://github.com/takeokunn/ts-minecraft#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/takeokunn/ts-minecraft.git"
+  },
+  "bugs": {
+    "url": "https://github.com/takeokunn/ts-minecraft/issues"
+  },
+  "author": "takeokunn",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=8.15.0"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "public",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "minecraft",
+    "typescript",
+    "three.js",
+    "effect-ts",
+    "voxel",
+    "game",
+    "webgl"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit",
+    "check": "pnpm typecheck && pnpm test",
+    "lint": "oxlint src test",
+    "lint:fix": "oxlint --fix src test",
+    "format": "oxlint --fix src test",
+    "format:check": "oxlint src test"
+  },
+  "dependencies": {
+    "@effect/platform": "^0.68.6",
+    "@effect/schema": "^0.75.5",
+    "@types/three": "^0.170.0",
+    "cannon-es": "^0.20.0",
+    "effect": "^3.19.19",
+    "three": "^0.170.0"
+  },
+  "devDependencies": {
+    "@effect/vitest": "^0.25.1",
+    "@types/node": "^22.19.11",
+    "@vitest/ui": "^3.2.4",
+    "oxlint": "^0.12.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.1",
+    "vitest": "^3.2.4"
+  },
+  "pnpm": {
+    "overrides": {
+      "typescript": "^5.9.0",
+      "minimatch": ">=10.2.1"
+    }
+  }
+}

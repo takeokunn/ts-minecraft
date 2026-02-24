@@ -1,0 +1,141 @@
+{
+  "$schema": "https://oxc-project.github.io/oxc/schema/linter.json",
+  "env": {
+    "browser": true,
+    "es2022": true,
+    "node": true
+  },
+  "settings": {
+    "nextjs": false,
+    "react": {
+      "version": "detect"
+    },
+    "typescript": {
+      "version": "5.9"
+    }
+  },
+  "plugins": [],
+  "categories": {
+    "correctness": "warn",
+    "suspicious": "warn",
+    "perf": "warn",
+    "style": "warn",
+    "restriction": "warn"
+  },
+  "rules": {
+    // TypeScript-specific rules
+    "@typescript-eslint/no-explicit-any": "off",
+    "@typescript-eslint/no-unused-vars": "warn",
+    "@typescript-eslint/no-floating-promises": "warn",
+    "@typescript-eslint/no-misused-new": "warn",
+    "@typescript-eslint/no-unnecessary-type-assertion": "warn",
+    "@typescript-eslint/no-var-requires": "warn",
+    "@typescript-eslint/prefer-enum-initializers": "warn",
+    "@typescript-eslint/prefer-for-of": "warn",
+    "@typescript-eslint/prefer-literal-enum-member": "warn",
+
+    // Correctness
+    "no-array-constructor": "warn",
+    "no-constant-condition": "warn",
+    "no-empty": "warn",
+    "no-eq-null": "warn",
+    "no-extra-boolean-cast": "warn",
+    "no-fallthrough": "warn",
+    "no-irregular-whitespace": "warn",
+    "no-self-compare": "warn",
+    "no-throw-literal": "warn",
+    "no-unreachable": "warn",
+    "use-isnan": "warn",
+    "valid-typeof": "warn",
+
+    // Suspicious
+    "no-console": "warn",
+    "no-debugger": "warn",
+    "no-empty-function": "warn",
+    "no-empty-pattern": "warn",
+    "no-eval": "error",
+    "no-implied-eval": "error",
+    "no-redeclare": "warn",
+    "no-shadow": "warn",
+    "no-unreachable-loop": "warn",
+    "no-unused-private-class-members": "warn",
+    "use-isnan": "warn",
+
+    // Performance
+    "no-await-in-loop": "warn",
+    "no-loop-func": "warn",
+    "no-promise-executor-return": "warn",
+    "no-sync": "warn",
+
+    // Style
+    "array-bracket-spacing": "warn",
+    "block-spacing": "warn",
+    "brace-style": ["warn", "1tbs", { "allowSingleLine": true }],
+    "camelcase": "warn",
+    "comma-dangle": ["warn", "always-multiline"],
+    "comma-spacing": "warn",
+    "comma-style": "warn",
+    "computed-property-spacing": "warn",
+    "eol-last": "warn",
+    "func-call-spacing": "warn",
+    "indent": "off", // Let Prettier/oxlint formatter handle this
+    "key-spacing": "warn",
+    "keyword-spacing": "warn",
+    "linebreak-style": ["warn", "unix"],
+    "lines-between-class-members": "warn",
+    "no-array-method-this-argument": "warn",
+    "no-bitwise": "warn",
+    "no-mixed-spaces-and-tabs": "error",
+    "no-new-object": "warn",
+    "no-tabs": "error",
+    "no-trailing-spaces": "warn",
+    "no-whitespace-before-property": "warn",
+    "object-curly-spacing": ["warn", "always"],
+    "one-var": ["warn", "never"],
+    "operator-linebreak": "warn",
+    "padded-blocks": ["warn", "never"],
+    "quote-props": ["warn", "as-needed"],
+    "quotes": ["warn", "double", { "avoidEscape": true, "allowTemplateLiterals": true }],
+    "semi": ["warn", "always"],
+    "semi-spacing": "warn",
+    "space-before-blocks": "warn",
+    "space-infix-ops": "warn",
+    "space-unary-ops": "warn",
+    "spaced-comment": "warn",
+
+    // Restriction
+    "default-case": "warn",
+    "default-case-last": "warn",
+    "no-empty-character-class": "warn",
+    "no-restricted-globals": ["warn", "name", "open", "close", "event"],
+    "no-restricted-imports": ["warn", {
+      "name": "effect",
+      "message": "Please use named imports from 'effect' package",
+      "importNames": ["default"]
+    }],
+    "no-throw-literal": "warn",
+    "prefer-template": "warn",
+
+    // Disabled rules (conflicts with project style)
+    "@typescript-eslint/explicit-function-return-type": "off",
+    "@typescript-eslint/explicit-module-boundary-types": "off",
+    "@typescript-eslint/no-non-null-assertion": "off",
+    "no-case-declarations": "off",
+    "no-constant-condition": "off",
+    "no-empty": "off",
+    "no-param-reassign": "off",
+    "no-plusplus": "off"
+  },
+  "ignore": [
+    "dist/**",
+    "node_modules/**",
+    "coverage/**",
+    ".git/**",
+    "test-results/**",
+    "*.config.js",
+    "*.config.ts",
+    "vite.config.ts",
+    "vitest.config.ts",
+    "docs/**"
+  ]
+}
