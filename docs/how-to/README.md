@@ -202,7 +202,6 @@ performance_benchmark:
 - [エントリポイント](./development/entry-points.md)
 - [パフォーマンス最適化](./development/performance-optimization.md)
 - [並行開発ワークフロー](./development/parallel-development-workflow.md)
-- [GitHub Issue管理](./development/github-issue-management.md)
 
 ### 🧪 [Testing](./testing/README.md)
 

@@ -46,19 +46,6 @@ cd ts-minecraft
 pnpm install
 ```
 
-### Issue駆動開発の開始
-
-```bash
-# 1. Issue作成（ROADMAPから自動生成）
-claude "ROADMAP Phase 0 のIssueを作成して"
-
-# 2. Issue実装（Claude Agent自動実行）
-claude "Issue #123 を実装して"
-# → GitHub Issue内の8段階実行計画を自動実行
-
-# 3. 開発サーバー起動
-pnpm dev
-```
 
 ### ステップ2: 依存関係インストール（2分）
 

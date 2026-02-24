@@ -477,5 +477,4 @@ export const InventoryApplicationLive = Layer.mergeAll(InventoryManagerLive, Tra
 
 ---
 
-**調査担当**: Claude Code (Anthropic AI)
 **調査基準**: DDD原則、Effect-TSベストプラクティス、TypeScript設計パターン

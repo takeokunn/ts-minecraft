@@ -52,7 +52,6 @@ Practical guides for solving specific problems
 - [Development](./how-to/development/README.md) - Development workflows
   - [Environment Setup](./tutorials/basic-game-development/environment-setup.md)
   - [Development Conventions](./how-to/development/development-conventions.md)
-  - [GitHub Issue Management](./how-to/development/github-issue-management.md)
 - [Testing](./how-to/testing/README.md) - Testing procedures
   - [Testing Guide](./how-to/testing/testing-guide.md)
   - [Property-Based Testing](./how-to/testing/pbt-implementation-examples.md)
@@ -110,29 +109,12 @@ Technical specifications and API documentation
 
 ### For AI Agents
 
-1. **Issue Workflow**: [GitHub Issue Management](./how-to/development/github-issue-management.md)
-2. **Entry Points**: [Entry Points](./how-to/development/entry-points.md)
-3. **Migration**: [Effect-TS Migration](./how-to/migration/effect-ts-migration.md)
-4. **Service Pattern**: [Service Patterns](./explanations/design-patterns/service-patterns.md)
-5. **Type Safety**: [Type Safety Patterns](./tutorials/design-patterns/type-safety-patterns.md)
-6. **Common Errors**: [Common Errors](./how-to/troubleshooting/common-errors.md)
+1. **Entry Points**: [Entry Points](./how-to/development/entry-points.md)
+2. **Migration**: [Effect-TS Migration](./how-to/migration/effect-ts-migration.md)
+3. **Service Pattern**: [Service Patterns](./explanations/design-patterns/service-patterns.md)
+4. **Type Safety**: [Type Safety Patterns](./tutorials/design-patterns/type-safety-patterns.md)
+5. **Common Errors**: [Common Errors](./how-to/troubleshooting/common-errors.md)
 
-## Issue-Driven Development
-
-### AI Task Implementation Flow
-
-1. **Issue Review**: GitHub Issue in `.github/ISSUE_TEMPLATE/ai-task.yml` format
-2. **Implementation Plan**: 8-step implementation process (Step 1-8)
-3. **Code Generation**: Effect-TS Service/Layer/Schema patterns
-4. **Automatic Verification**: `pnpm typecheck && pnpm check && pnpm test && pnpm build`
-5. **Error Resolution**: Follow troubleshooting procedures
-
-### Reference Priority
-
-1. **GitHub Issue**: Specific implementation steps and completion criteria
-2. **docs/**: Detailed specifications and implementation patterns
-3. **src/shared/**: Implemented pattern examples
-4. **ROADMAP.md**: Overall project context
 
 ## Command Reference
 

@@ -198,8 +198,7 @@ For practical usage examples, see [Implementing Block Systems](../how-to/develop
 1. **Single Source of Truth**: All documentation goes in `docs/`
 2. **Diátaxis Compliance**: Follow the four categories above
 3. **Root Minimalism**: Only keep essential files in project root
-4. **No Progress Artifacts**: Use GitHub Issues for progress tracking
-5. **Cross-References**: Link between categories rather than duplicating content
+4. **Cross-References**: Link between categories rather than duplicating content
 
 ### What Belongs in Project Root
 
@@ -209,10 +208,10 @@ For practical usage examples, see [Implementing Block Systems](../how-to/develop
 
 ### What Does NOT Belong in docs/
 
-- Progress reports (use GitHub Issues)
-- Analysis reports (use GitHub Issues or internal wiki)
-- Implementation plans (use GitHub Issues)
-- Status reports (use GitHub Issues)
+- Progress reports
+- Analysis reports
+- Implementation plans
+- Status reports
 - Internal templates (use `.github/` or CONTRIBUTING.md)
 - Standalone examples (integrate into tutorials/reference)
 
@@ -223,7 +222,6 @@ The Diátaxis framework is successful when:
 - Content is not duplicated across categories
 - Users can quickly find content based on their intent
 - Cross-references properly connect related content
-- No intermediate/progress artifacts exist in public documentation
 - All content quality checklists pass for existing documents
 - Project root contains only essential files
 

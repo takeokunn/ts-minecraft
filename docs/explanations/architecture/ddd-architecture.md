@@ -1402,8 +1402,6 @@ pnpm typecheck && pnpm lint && pnpm test && pnpm build
 
 **策定日**: 2025-10-07
 
-**策定者**: Claude Code (Anthropic AI)
-
 **策定基準**: DDD原則、Effect-TSベストプラクティス、実コード調査結果
 
 **次回更新**: 各Phase完了後の振り返りにて実績を記録
