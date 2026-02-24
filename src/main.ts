@@ -1,22 +1,26 @@
 import { Effect, Layer, Context } from 'effect'
 import * as THREE from 'three'
 
-// Import services
+// Import existing services
 import { RendererService, RendererServiceLive } from '@/infrastructure/three/renderer/renderer-service'
 import { SceneService, SceneServiceLive } from '@/infrastructure/three/scene/scene-service'
-import { PerspectiveCameraService, PerspectiveCameraServiceLive } from '@/infrastructure/three/camera/perspective'
+import { PerspectiveCameraService, PerspectiveCameraServiceLive, DEFAULT_CAMERA_OFFSET, DEFAULT_LERP_FACTOR } from '@/infrastructure/three/camera/perspective'
 import { TextureService, TextureServiceLive, BlockMeshService, BlockMeshServiceLive } from '@/infrastructure/three'
+import { WorldRendererService, WorldRendererServiceLive } from '@/infrastructure/three/world-renderer'
 import { FPSCounter, FPSCounterLive } from '@/presentation/fps-counter'
 import { BlockRegistry, BlockRegistryLive } from '@/domain'
 
-// Import core types from shared math layer for DDD purity
-import { makeVector3, zero } from '@/infrastructure/three/core'
+// Import new Phase 3 services
+import { TerrainService, TerrainServiceLive } from '@/application/terrain'
+import { PlayerService, PlayerServiceLive } from '@/domain/player'
+import { WorldService, WorldServiceLive } from '@/domain/world'
 
-// Import object pools
-import { Vector3Pool, QuaternionPool } from '@/shared/pool'
+// Import types
+import { PlayerId } from '@/shared/kernel'
+import { WorldId } from '@/shared/kernel'
 
-// Main Layer composition
-const MainLive = Layer.mergeAll(
+// Base layers - these have no dependencies on other services
+const BaseLayers = Layer.mergeAll(
   RendererServiceLive,
   SceneServiceLive,
   PerspectiveCameraServiceLive,
@@ -24,6 +28,16 @@ const MainLive = Layer.mergeAll(
   BlockMeshServiceLive,
   BlockRegistryLive,
   FPSCounterLive,
+  PlayerServiceLive,
+  WorldServiceLive,
+)
+
+// Main Layer composition with all Phase 3 services
+// TerrainServiceLive and WorldRendererServiceLive depend on WorldService
+const MainLive = Layer.mergeAll(
+  BaseLayers,
+  Layer.provide(TerrainServiceLive, BaseLayers),
+  Layer.provide(WorldRendererServiceLive, BaseLayers)
 )
 
 // Main application
@@ -44,7 +58,10 @@ const mainProgram = Effect.gen(function* () {
   const rendererService = yield* RendererService
   const sceneService = yield* SceneService
   const cameraService = yield* PerspectiveCameraService
-  const blockMeshService = yield* BlockMeshService
+  const playerService = yield* PlayerService
+  const worldService = yield* WorldService
+  const terrainService = yield* TerrainService
+  const worldRendererService = yield* WorldRendererService
   const fpsCounter = yield* FPSCounter
 
   // Create renderer
@@ -54,57 +71,29 @@ const mainProgram = Effect.gen(function* () {
   const scene = yield* sceneService.create()
 
   // Create camera
-  const cameraParams = {
+  const camera = yield* cameraService.create({
     fov: 75,
     aspect: canvas.clientWidth / canvas.clientHeight,
     near: 0.1,
     far: 1000,
-  }
-  const camera = yield* cameraService.create(cameraParams)
-
-  // Position camera
-  const cameraPosition = makeVector3(0, 5, 10)
-  yield* Effect.sync(() => {
-    camera.position.set(cameraPosition.x, cameraPosition.y, cameraPosition.z)
-    camera.lookAt(zero.x, zero.y, zero.z)
   })
 
-  // Create 5 blocks using BlockMeshService
-  // Block types: DIRT, STONE, WOOD, GRASS, SAND (excluding AIR)
-  const blockColors: Record<string, string> = {
-    DIRT: '#8B4513',
-    STONE: '#808080',
-    WOOD: '#A0522D',
-    GRASS: '#228B22',
-    SAND: '#F4A460',
-  }
+  // Position camera at default offset
+  yield* cameraService.setPosition(camera, DEFAULT_CAMERA_OFFSET)
 
-  const blockPositions = [
-    { x: -2, y: 0, z: 0 },  // DIRT
-    { x: -1, y: 0, z: 0 },  // STONE
-    { x: 0, y: 0, z: 0 },   // WOOD
-    { x: 1, y: 0, z: 0 },   // GRASS
-    { x: 2, y: 0, z: 0 },   // SAND
-  ]
+  // Create player
+  const playerId = 'player-1' as PlayerId
+  yield* playerService.create(playerId, { x: 0, y: 1, z: 0 })
 
-  const blockTypes = ['DIRT', 'STONE', 'WOOD', 'GRASS', 'SAND']
+  // Create world
+  const worldId = 'world-1' as WorldId
+  yield* worldService.create(worldId)
 
-  // Create blocks and add to scene
-  const blockMeshes = yield* Effect.forEach(
-    blockTypes,
-    (blockType, i) =>
-      Effect.gen(function* () {
-        const position = blockPositions[i]
-        const color = blockColors[blockType]
+  // Generate flat terrain (20x20)
+  yield* terrainService.generateFlatWorld(worldId, 20)
 
-        const mesh = yield* blockMeshService.createSolidBlockMesh(
-          color,
-          new THREE.Vector3(position.x, position.y, position.z)
-        )
-        yield* sceneService.add(scene, mesh)
-        return mesh
-      })
-  )
+  // Sync world to scene
+  yield* worldRendererService.syncWorld(worldId, scene)
 
   // Add directional light
   const light = new THREE.DirectionalLight(0xffffff, 1)
@@ -115,50 +104,53 @@ const mainProgram = Effect.gen(function* () {
   const ambientLight = new THREE.AmbientLight(0x404040, 0.5)
   yield* sceneService.add(scene, ambientLight)
 
-  // FPS overlay element
+  // FPS display
   const fpsElement = document.getElementById('fps-value')
+
+  // Run update loop (manual loop for Phase 3)
   let lastTime = performance.now()
+  let moveTime = 0
 
-  // Rendering loop with object pooling and FPS counter
-  const gameLoop = () => {
-    // Calculate delta time for FPS counter
-    const currentTime = performance.now()
-    const deltaTime = (currentTime - lastTime) / 1000 // Convert to seconds
-    lastTime = currentTime
+  const updateLoop = () => {
+    const now = performance.now()
+    const deltaTime = (now - lastTime) / 1000
+    lastTime = now
+    moveTime += deltaTime
 
-    // Update FPS counter (run as sync since it's just a ref update)
-    Effect.runSync(
-      fpsCounter.tick(deltaTime).pipe(
-        Effect.flatMap(() => fpsCounter.getFPS()),
-        Effect.map((fps) => {
-          if (fpsElement) {
-            fpsElement.textContent = fps.toFixed(1)
-          }
-        })
-      )
-    )
+    // Simple back-and-forth movement
+    const x = Math.sin(moveTime * 0.5) * 5
+    Effect.runPromise(
+      Effect.gen(function* () {
+        yield* playerService.updatePosition(playerId, { x, y: 1, z: 0 })
 
-    // Acquire temporary vectors from pool instead of creating new ones
-    const tempVector = Vector3Pool.acquire()
-    const tempQuaternion = QuaternionPool.acquire()
+        // Update camera follow
+        const playerPos = yield* playerService.getPosition(playerId)
+        yield* cameraService.smoothFollow(
+          camera,
+          playerPos,
+          DEFAULT_CAMERA_OFFSET,
+          DEFAULT_LERP_FACTOR
+        )
 
-    try {
-      // Render using pooled objects
-      renderer.render(scene, camera)
-    } finally {
-      // Always release pooled objects back to pool
-      Vector3Pool.release(tempVector)
-      QuaternionPool.release(tempQuaternion)
-    }
+        // Update FPS display
+        const fps = yield* fpsCounter.getFPS()
+        if (fpsElement) {
+          fpsElement.textContent = fps.toFixed(1)
+        }
 
-    // Request next frame
-    requestAnimationFrame(gameLoop)
+        // Tick FPS counter
+        yield* fpsCounter.tick(deltaTime)
+      })
+    ).catch((error) => {
+      console.error('Update error:', error)
+    })
+
+    renderer.render(scene, camera)
+    requestAnimationFrame(updateLoop)
   }
 
-  // Start loop
-  requestAnimationFrame(gameLoop)
-
-  yield* Effect.log('Game loop started with 5 blocks')
+  yield* Effect.log('Game started with Phase 3 architecture')
+  updateLoop()
 })
 
 // Run program

@@ -19,7 +19,7 @@ export default defineConfig(({ command, mode }) => {
       port: env.VITE_PORT ? Number(env.VITE_PORT) : 5173,
       host: '0.0.0.0',
       strictPort: false,
-      open: isDev,
+      open: false,
       cors: {
         origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
         credentials: true,

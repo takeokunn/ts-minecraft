@@ -115,3 +115,110 @@ export const isBlockError = (error: unknown): error is BlockError =>
  */
 export const isMeshError = (error: unknown): error is MeshError =>
   error instanceof MeshError || (error instanceof Error && (error as MeshError)._tag === 'MeshError')
+
+/**
+ * Error type for player operations
+ */
+export class PlayerError extends Error {
+  readonly _tag = 'PlayerError'
+
+  /**
+   * The player ID associated with error
+   */
+  readonly playerId: string
+
+  /**
+   * The specific reason for error
+   */
+  readonly reason: string
+
+  constructor(playerId: string, reason: string) {
+    super(`Player error for '${playerId}': ${reason}`)
+    this.name = 'PlayerError'
+    this.playerId = playerId
+    this.reason = reason
+
+    // Maintain proper prototype chain
+    Object.setPrototypeOf(this, PlayerError.prototype)
+  }
+}
+
+/**
+ * Error type for world operations
+ */
+export class WorldError extends Error {
+  readonly _tag = 'WorldError'
+
+  /**
+   * The world ID associated with error
+   */
+  readonly worldId: string
+
+  /**
+   * The specific reason for error
+   */
+  readonly reason: string
+
+  /**
+   * Optional position where error occurred
+   */
+  readonly position: readonly [number, number, number] | undefined
+
+  constructor(worldId: string, reason: string, position?: readonly [number, number, number]) {
+    const positionStr = position ? ` at (${position[0]}, ${position[1]}, ${position[2]})` : ''
+    super(`World error for '${worldId}'${positionStr}: ${reason}`)
+    this.name = 'WorldError'
+    this.worldId = worldId
+    this.reason = reason
+    this.position = position
+
+    // Maintain proper prototype chain
+    Object.setPrototypeOf(this, WorldError.prototype)
+  }
+}
+
+/**
+ * Error type for game loop operations
+ */
+export class GameLoopError extends Error {
+  readonly _tag = 'GameLoopError'
+
+  /**
+   * The specific reason for error
+   */
+  readonly reason: string
+
+  /**
+   * The underlying cause of error (if available)
+   */
+  readonly cause?: unknown
+
+  constructor(reason: string, cause?: unknown) {
+    const causeMessage = cause instanceof Error ? cause.message : cause ? String(cause) : ''
+    super(`Game loop error: ${reason}${causeMessage ? `: ${causeMessage}` : ''}`)
+    this.name = 'GameLoopError'
+    this.reason = reason
+    this.cause = cause
+
+    // Maintain proper prototype chain
+    Object.setPrototypeOf(this, GameLoopError.prototype)
+  }
+}
+
+/**
+ * Type guard for PlayerError
+ */
+export const isPlayerError = (error: unknown): error is PlayerError =>
+  error instanceof PlayerError || (error instanceof Error && (error as PlayerError)._tag === 'PlayerError')
+
+/**
+ * Type guard for WorldError
+ */
+export const isWorldError = (error: unknown): error is WorldError =>
+  error instanceof WorldError || (error instanceof Error && (error as WorldError)._tag === 'WorldError')
+
+/**
+ * Type guard for GameLoopError
+ */
+export const isGameLoopError = (error: unknown): error is GameLoopError =>
+  error instanceof GameLoopError || (error instanceof Error && (error as GameLoopError)._tag === 'GameLoopError')
