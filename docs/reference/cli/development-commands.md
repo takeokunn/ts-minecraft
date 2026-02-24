@@ -22,7 +22,7 @@ status: 'complete'
 | `pnpm build`     | プロダクションビルド | 30-60秒  | 最適化されたビルドの生成                          |
 | `pnpm preview`   | ビルド結果プレビュー | 1-3秒    | ビルドしたアプリのプレビュー                      |
 | `pnpm clean`     | キャッシュクリア     | 1-2秒    | ビルドキャッシュの削除                            |
-| `pnpm format`    | コード整形           | 2-5秒    | Prettierによるコード整形                          |
+| `pnpm format`    | コード整形           | 2-5秒    | oxlintによるコード整形                            |
 | `pnpm typecheck` | 型チェック           | 5-15秒   | TypeScriptの型チェック                            |
 | `pnpm check`     | 総合品質チェック     | 10-30秒  | typecheck + format:check + editorconfigの一括実行 |
 
@@ -199,7 +199,7 @@ pnpm format
 - JSON (`.json`)
 - Markdown (`.md`)
 
-**設定ファイル**: `.prettierrc`
+**設定ファイル**: `oxlint.json`
 
 **オプション**:
 
@@ -272,32 +272,29 @@ export default defineConfig({
 })
 ```
 
-### ESLint設定拡張
+### oxlint設定拡張
 
-`.eslintrc.json`での設定例:
+`oxlint.json`での設定例:
 
 ```json
 {
-  "extends": ["@effect/eslint-config"],
-  "rules": {
-    "@typescript-eslint/no-unused-vars": "error",
-    "functional/no-classes": "error"
+  "$schema": "https://oxc-project.github.io/oxc/schema/linter.json",
+  "env": {
+    "browser": true,
+    "es2022": true,
+    "node": true
+  },
+  "categories": {
+    "correctness": "warn",
+    "suspicious": "warn",
+    "perf": "warn",
+    "style": "warn",
+    "restriction": "warn"
   }
 }
 ```
 
-### Prettier設定調整
-
-`.prettierrc`での設定例:
-
-```json
-{
-  "semi": false,
-  "singleQuote": true,
-  "tabWidth": 2,
-  "trailingComma": "es5"
-}
-```
+**注**: oxlintはコード整形も行うため、別途Prettier設定は不要です。
 
 ## 🐛 トラブルシューティング
 

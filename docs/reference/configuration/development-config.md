@@ -630,9 +630,8 @@ export const remoteDevelopmentConfig = {
     // Vite
     "antfu.vite",
 
-    // リント・フォーマット
+    // リント・フォーマット（oxlintのみ使用）
     "oxc-project.oxc-vscode",
-    "esbenp.prettier-vscode",
 
     // Three.js
     "slevesque.shader",

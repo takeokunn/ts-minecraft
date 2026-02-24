@@ -77,7 +77,7 @@ pnpm add -D \
   vite@latest \
   vitest@latest \
   @types/node@latest \
-  prettier@latest
+  oxlint@latest
 ```
 
 ### ステップ3: 設定ファイル作成（2分）
@@ -273,7 +273,7 @@ cat > package.json << 'EOF'
     "vite": "latest",
     "vitest": "latest",
     "@types/node": "latest",
-    "prettier": "latest"
+    "oxlint": "latest"
   }
 }
 EOF

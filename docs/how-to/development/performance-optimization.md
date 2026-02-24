@@ -170,8 +170,8 @@ pnpx webpack-bundle-analyzer --port 8888
 # 6. TypeScript型チェック時間測定
 time pnpm typecheck
 
-# 7. ESLint パフォーマンス分析
-DEBUG=eslint:cli-engine pnpm lint
+# 7. oxlint パフォーマンス分析
+DEBUG=oxc* pnpm lint
 
 # 8. Vitest実行時間プロファイル
 pnpm test --reporter=verbose --run

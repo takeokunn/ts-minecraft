@@ -199,8 +199,8 @@ jobs:
     "type-check": "tsc --noEmit",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
+    "format": "oxlint --fix src test",
+    "format:check": "oxlint src test",
     "test": "vitest",
     "test:coverage": "vitest --coverage",
     "clean": "rm -rf dist node_modules/.vite"

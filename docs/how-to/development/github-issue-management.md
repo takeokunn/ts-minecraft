@@ -169,7 +169,7 @@ export const FeatureService = Context.GenericTag<FeatureService>('@app/FeatureSe
 ### Step 7: テスト実装
 
 - [ ] @effect/vitestでのEffect対応テスト
-- [ ] Property-based testing (fast-check)
+- [ ] Property-based testing (@effect/schema/Arbitrary)
 - [ ] Test Layer構成
 
 ### Step 8: ドキュメント更新
@@ -390,6 +390,7 @@ claude "Issue #123 を実装してエラーが出たら自動修正して"
 - TypeScript型エラー0件
 - oxlint警告0件
 - CI/CDパイプライン成功
+- **注**: ESLint/Prettierはoxlintに置き換えられています
 ```
 
 ### ⚡ トラブルシューティング

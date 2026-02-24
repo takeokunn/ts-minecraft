@@ -76,7 +76,7 @@ graph TB
         end
 
         subgraph PropertyTest ["Property-Based Testing"]
-            FastCheck["Fast-Check<br/>🎲 プロパティテスト<br/>Arbitrary統合"]
+            ArbitraryGen["@effect/schema/Arbitrary<br/>🎲 プロパティテスト<br/>Schema統合"]
             SchemaGen["Schema Generation<br/>📋 スキーマ生成<br/>自動テストデータ"]
             Invariants["Invariant Testing<br/>✅ 不変条件検証<br/>ビジネスルール"]
         end
@@ -102,9 +102,9 @@ graph TB
 
     EffectRunning --> ErrorTesting
     ErrorTesting --> ResourceTesting
-    ResourceTesting --> FastCheck
+    ResourceTesting --> ArbitraryGen
 
-    FastCheck --> SchemaGen
+    ArbitraryGen --> SchemaGen
     SchemaGen --> Invariants
 
     Invariants --> VitestRunner
@@ -118,12 +118,13 @@ graph TB
     classDef layerStyle fill:#e3f2fd,stroke:#1976d2,stroke-width:2px,color:#0d47a1
     classDef effectStyle fill:#e8f5e8,stroke:#388e3c,stroke-width:2px,color:#1b5e20
     classDef propertyStyle fill:#fff3e0,stroke:#f57c00,stroke-width:2px,color:#e65100
+    classDef arbitraryStyle fill:#fff9c4,stroke:#ff9800,stroke-width:2px,color:#e65100
     classDef toolStyle fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#4a148c
     classDef stmStyle fill:#fce4ec,stroke:#c2185b,stroke-width:2px,color:#880e4f
 
     class LayerTest,ServiceTest,IntegrationTest layerStyle
     class EffectRunning,ErrorTesting,ResourceTesting effectStyle
-    class FastCheck,SchemaGen,Invariants propertyStyle
+    class ArbitraryGen,SchemaGen,Invariants propertyStyle
     class VitestRunner,TestContext,SnapshotTest toolStyle
     class ConcurrentTest,AtomicTest,StateTest stmStyle
 ```
@@ -350,7 +351,7 @@ describe("Stateful WorldService Testing", () => {
 });
 ```
 
-## 3. Property-Based Testing with Fast-Check
+## 3. Property-Based Testing with @effect/schema/Arbitrary
 
 ### 3.1 Schema統合プロパティテスト - 小関数のテスト戦略
 
@@ -1382,7 +1383,7 @@ describe('Integration Tests with Test Utilities', () => {
 #### 必須テストパターン
 
 - **✅ Layer-based Testing**: 依存性注入とモック管理
-- **✅ Property-Based Testing**: Fast-Checkによる網羅的テスト
+- **✅ Property-Based Testing**: @effect/schema/Arbitraryによる網羅的テスト
 - **✅ STM Testing**: 並行状態管理のアトミック性検証
 - **✅ Effect.either + Match**: 型安全なエラーハンドリングテスト
 - **✅ TestClock + TestRandom**: 決定論的時間・乱数テスト

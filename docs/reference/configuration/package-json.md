@@ -81,8 +81,8 @@ npm test -- --coverage
 
 | スクリプト     | コマンド                                      | 説明                     |
 | -------------- | --------------------------------------------- | ------------------------ |
-| `format`       | `prettier --write . --ignore-path .gitignore` | コード整形               |
-| `format:check` | `prettier --check . --ignore-path .gitignore` | 整形チェック（修正なし） |
+| `format`       | `oxlint --fix src test`                    | コード整形（oxlint使用） |
+| `format:check` | `oxlint src test`                            | 整形チェック（修正なし）        |
 
 **使用例**:
 
@@ -195,14 +195,14 @@ npm run format:check
 
 ```json
 {
-  "prettier": "^3.6.2",
+  "oxlint": "^0.12.0",
   "madge": "^8.0.0"
 }
 ```
 
 | パッケージ | バージョン | 用途                 |
 | ---------- | ---------- | -------------------- |
-| `prettier` | `^3.6.2`   | コードフォーマッター |
+| `oxlint` | `^0.12.0`   | リンター・フォーマッター |
 | `madge`    | `^8.0.0`   | 依存関係分析ツール   |
 
 #### 型定義

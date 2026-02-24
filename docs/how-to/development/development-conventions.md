@@ -70,10 +70,10 @@ related_resources:
       type: 'official-style-guide'
       relevance_score: 0.97
       last_verified: '2025-01-15'
-    - url: 'https://typescript-eslint.io/rules/'
+    - url: 'https://oxc-project.github.io/oxc/linter/'
       type: 'linting-rules'
-      relevance_score: 0.89
-      last_verified: '2025-01-15'
+      relevance_score: 0.95
+      last_verified: '2026-02-24'
     - url: 'https://github.com/Effect-TS/effect/blob/main/CONTRIBUTING.md'
       type: 'contribution-guidelines'
       relevance_score: 0.92
@@ -194,8 +194,8 @@ pnpm list effect @effect/schema
 # TypeScript設定検証
 pnpx tsc --noEmit
 
-# ESLint設定検証
-pnpx eslint --print-config src/index.ts
+# Oxlint設定検証
+pnpx oxlint --help
 
 # プロジェクト構造検証
 tree -I 'node_modules|dist'
@@ -634,8 +634,8 @@ const updateAllEntitiesBatched = (world: World) => {
 # TypeScriptエラー数
 pnpx tsc --noEmit 2>&1 | grep "error TS" | wc -l
 
-# ESLint警告数
-pnpx eslint src/ --format json | jq '.[] | .messages | length' | awk '{sum+=$1} END {print sum}'
+# oxlint警告数
+pnpx oxlint src test --format json | jq '.[] | .messages | length' | awk '{sum+=$1} END {print sum}'
 
 # テストカバレッジ
 pnpm test:coverage --reporter=json | jq '.coverageMap | to_entries | map(.value.s) | add | map(if . > 0 then 1 else 0 end) | add'

@@ -597,7 +597,7 @@ const NextModulePreview = {
 # [LIVE_EXAMPLE: dev-tools-setup]
 # 推奨VS Code拡張機能インストール
 code --install-extension bradlc.vscode-tailwindcss
-code --install-extension esbenp.prettier-vscode
+code --install-extension oxc-project.oxc-vscode
 code --install-extension ms-vscode.vscode-typescript-next
 code --install-extension effectts.vscode-effect
 

@@ -43,8 +43,8 @@ mindmap
 | [**tsconfig.json**](./typescript-config.md)        | TypeScript設定   | ★★★    | 型チェック・コンパイル設定       |
 | [**vite.config.ts**](./vite-config.md)             | ビルド設定       | ★★★    | バンドル・開発サーバー設定       |
 | [**vitest.config.ts**](./vitest-config.md)         | テスト設定       | ★★☆    | テスト実行・カバレッジ設定       |
-| [**.eslintrc.json**](./eslint-config.md)           | リント設定       | ★★☆    | コード品質・スタイル設定         |
-| [**.prettierrc**](./prettier-config.md)            | フォーマット設定 | ★☆☆    | コード整形設定                   |
+| [**oxlint.json**](./oxlint-config.md)              | リント設定       | ★★☆    | oxlintコード品質・フォーマット設定  |
+| [**.prettierrc**](./prettier-config.md)            | ~~フォーマット設定~~ | ☆☆☆    | ~~コード整形設定（oxlint移行により廃止）~~ |
 | [**playwright.config.ts**](./playwright-config.md) | E2Eテスト設定    | ★☆☆    | ブラウザテスト設定               |
 
 ## ⚡ クイック設定ガイド
@@ -84,7 +84,7 @@ npm run build
 | ---------------------- | ----------------------------------------------------- | ------------------------ |
 | ポート変更             | [vite.config.ts](./vite-config.md#server-port)        | `server.port`            |
 | TypeScript厳密性調整   | [tsconfig.json](./typescript-config.md#strict-mode)   | `compilerOptions.strict` |
-| ESLintルール追加       | [.eslintrc.json](./eslint-config.md#rules)            | `rules`                  |
+| oxlintルール追加       | [oxlint.json](./oxlint-config.md#rules)            | `rules`                  |
 | テストタイムアウト設定 | [vitest.config.ts](./vitest-config.md#timeout)        | `test.testTimeout`       |
 | 依存関係追加           | [package.json](./package-json.md#dependencies)        | `dependencies`           |
 | ビルド最適化           | [vite.config.ts](./vite-config.md#build-optimization) | `build.rollupOptions`    |
@@ -96,8 +96,8 @@ npm run build
 | ビルドが遅い     | [vite.config.ts](./vite-config.md#performance)          | チャンク分割・キャッシュ設定 |
 | 型エラーが多い   | [tsconfig.json](./typescript-config.md#strict-settings) | 厳密性段階的緩和             |
 | テストが不安定   | [vitest.config.ts](./vitest-config.md#stability)        | タイムアウト・リトライ設定   |
-| リントエラー     | [.eslintrc.json](./eslint-config.md#troubleshooting)    | ルール調整・除外設定         |
-| フォーマット競合 | [.prettierrc](./prettier-config.md#conflicts)           | ESLintとの連携設定           |
+| リントエラー     | [oxlint.json](./oxlint-config.md#troubleshooting)    | ルール調整・除外設定         |
+| ~~フォーマット競合~~ | ~~[.prettierrc](./prettier-config.md#conflicts)~~           | ~~ESLintとの連携設定（廃止）~~           |
 
 ## 🎯 環境別設定
 
@@ -171,14 +171,22 @@ export default defineConfig({
 }
 ```
 
-**ESLint設定**:
+**oxlint設定**:
 
 ```json
 {
-  "extends": ["@effect/eslint-config"],
-  "rules": {
-    "functional/no-classes": "error",
-    "functional/immutable-data": "error"
+  "$schema": "https://oxc-project.github.io/oxc/schema/linter.json",
+  "env": {
+    "browser": true,
+    "es2022": true,
+    "node": true
+  },
+  "categories": {
+    "correctness": "warn",
+    "suspicious": "warn",
+    "perf": "warn",
+    "style": "warn",
+    "restriction": "warn"
   }
 }
 ```
@@ -215,7 +223,7 @@ export default defineConfig({
 
 ### 品質指標
 
-| 設定項目 | ESLintエラー | 型エラー | テスト実行時間 |
+| 設定項目 | oxlint警告 | 型エラー | テスト実行時間 |
 | -------- | ------------ | -------- | -------------- |
 | 基本設定 | 15個         | 8個      | 12秒           |
 | 厳密設定 | 0個          | 0個      | 15秒           |
@@ -309,11 +317,9 @@ cp -r templates/config-minimal/* .
 2. **ESLint設定競合**
 
    ```bash
-   # ESLint設定確認
-   npx eslint --print-config src/index.ts
-
-   # Prettier競合確認
-   npx eslint-config-prettier src/index.ts
+   # oxlint設定確認
+   npx oxlint --help
+   npx oxlint --print-config src/index.ts
    ```
 
 3. **Vite設定問題**
