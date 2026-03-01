@@ -102,9 +102,11 @@ describe('three/meshing/block-mesh', () => {
           const position = new THREE.Vector3(0, 0, 0)
           const mesh = yield* service.createMesh('grass', position)
 
-          const uvAttribute = mesh.geometry.attributes.uv
+          const uvAttribute = mesh.geometry.attributes['uv']
           expect(uvAttribute).toBeDefined()
-          expect(uvAttribute.count).toBeGreaterThan(0)
+          if (uvAttribute) {
+            expect(uvAttribute.count).toBeGreaterThan(0)
+          }
 
           return { success: true }
         }).pipe(Effect.provide(layer))
@@ -260,8 +262,8 @@ describe('three/meshing/block-mesh', () => {
           const position1 = new THREE.Vector3(0, 0, 0)
           const position2 = new THREE.Vector3(1, 0, 0)
 
-          const mesh1 = yield* service.createSolidBlockMesh('#ff0000', position1)
-          const mesh2 = yield* service.createSolidBlockMesh('#00ff00', position2)
+          yield* service.createSolidBlockMesh('#ff0000', position1)
+          yield* service.createSolidBlockMesh('#00ff00', position2)
 
           yield* service.disposeAll()
 

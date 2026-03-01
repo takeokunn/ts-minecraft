@@ -1,100 +1,52 @@
 /**
  * Domain-specific error types for Minecraft clone
  *
- * These errors follow Effect-TS error patterns with `_tag` readonly property
- * for discriminated union type narrowing and error handling.
+ * These errors follow Effect-TS Data.TaggedError patterns for discriminated
+ * union type narrowing, structural equality, and Effect.catchTag compatibility.
  */
+import { Data } from 'effect'
 
 /**
  * Error type for texture loading failures
  */
-export class TextureError extends Error {
-  readonly _tag = 'TextureError'
-
-  /**
-   * The URL that failed to load
-   */
+export class TextureError extends Data.TaggedError('TextureError')<{
   readonly url: string
-
-  /**
-   * The underlying cause of error (if available)
-   */
   readonly cause?: unknown
-
-  constructor(url: string, cause?: unknown) {
-    const causeMessage = cause instanceof Error ? cause.message : String(cause)
-    super(`Failed to load texture from ${url}${cause ? `: ${causeMessage}` : ''}`)
-    this.name = 'TextureError'
-    this.url = url
-    this.cause = cause
-
-    // Maintain proper prototype chain
-    Object.setPrototypeOf(this, TextureError.prototype)
+}> {
+  override get message(): string {
+    const causeMessage = this.cause instanceof Error ? this.cause.message : this.cause ? String(this.cause) : ''
+    return `Failed to load texture from ${this.url}${causeMessage ? `: ${causeMessage}` : ''}`
   }
 }
 
 /**
  * Error type for invalid block operations
  */
-export class BlockError extends Error {
-  readonly _tag = 'BlockError'
-
-  /**
-   * The type of block that caused error
-   */
+export class BlockError extends Data.TaggedError('BlockError')<{
   readonly blockType: string
-
-  /**
-   * The specific reason for error
-   */
   readonly reason: string
-
-  /**
-   * Optional coordinates where error occurred
-   */
-  readonly position: readonly [number, number, number] | undefined
-
-  constructor(blockType: string, reason: string, position?: readonly [number, number, number]) {
-    const positionStr = position ? ` at (${position[0]}, ${position[1]}, ${position[2]})` : ''
-    const message = `Invalid block operation for type '${blockType}'${positionStr}: ${reason}`
-    super(message)
-    this.name = 'BlockError'
-    this.blockType = blockType
-    this.reason = reason
-    this.position = position
-
-    // Maintain proper prototype chain
-    Object.setPrototypeOf(this, BlockError.prototype)
+  readonly position?: readonly [number, number, number]
+}> {
+  override get message(): string {
+    const positionStr = this.position
+      ? ` at (${this.position[0]}, ${this.position[1]}, ${this.position[2]})`
+      : ''
+    return `Invalid block operation for type '${this.blockType}'${positionStr}: ${this.reason}`
   }
 }
 
 /**
  * Error type for mesh generation failures
  */
-export class MeshError extends Error {
-  readonly _tag = 'MeshError'
-
-  /**
-   * The underlying cause of error (if available)
-   */
+export class MeshError extends Data.TaggedError('MeshError')<{
+  readonly reason: string
   readonly cause?: unknown
-
-  /**
-   * Optional details about mesh generation failure
-   */
-  readonly details: string | undefined
-
-  constructor(message: string, cause?: unknown, details?: string) {
-    const causeMessage = cause instanceof Error ? cause.message : String(cause)
-    const detailsStr = details ? ` (${details})` : ''
-    const fullMessage = `Mesh generation failed: ${message}${detailsStr}${cause ? `: ${causeMessage}` : ''}`
-    super(fullMessage)
-    this.name = 'MeshError'
-    this.cause = cause
-    this.details = details
-
-    // Maintain proper prototype chain
-    Object.setPrototypeOf(this, MeshError.prototype)
+  readonly details?: string
+}> {
+  override get message(): string {
+    const causeMessage = this.cause instanceof Error ? this.cause.message : this.cause ? String(this.cause) : ''
+    const detailsStr = this.details ? ` (${this.details})` : ''
+    return `Mesh generation failed: ${this.reason}${detailsStr}${causeMessage ? `: ${causeMessage}` : ''}`
   }
 }
 
@@ -102,106 +54,58 @@ export class MeshError extends Error {
  * Type guard for TextureError
  */
 export const isTextureError = (error: unknown): error is TextureError =>
-  error instanceof TextureError || (error instanceof Error && (error as TextureError)._tag === 'TextureError')
+  typeof error === 'object' && error !== null && '_tag' in error && (error as { _tag: string })._tag === 'TextureError'
 
 /**
  * Type guard for BlockError
  */
 export const isBlockError = (error: unknown): error is BlockError =>
-  error instanceof BlockError || (error instanceof Error && (error as BlockError)._tag === 'BlockError')
+  typeof error === 'object' && error !== null && '_tag' in error && (error as { _tag: string })._tag === 'BlockError'
 
 /**
  * Type guard for MeshError
  */
 export const isMeshError = (error: unknown): error is MeshError =>
-  error instanceof MeshError || (error instanceof Error && (error as MeshError)._tag === 'MeshError')
+  typeof error === 'object' && error !== null && '_tag' in error && (error as { _tag: string })._tag === 'MeshError'
 
 /**
  * Error type for player operations
  */
-export class PlayerError extends Error {
-  readonly _tag = 'PlayerError'
-
-  /**
-   * The player ID associated with error
-   */
+export class PlayerError extends Data.TaggedError('PlayerError')<{
   readonly playerId: string
-
-  /**
-   * The specific reason for error
-   */
   readonly reason: string
-
-  constructor(playerId: string, reason: string) {
-    super(`Player error for '${playerId}': ${reason}`)
-    this.name = 'PlayerError'
-    this.playerId = playerId
-    this.reason = reason
-
-    // Maintain proper prototype chain
-    Object.setPrototypeOf(this, PlayerError.prototype)
+}> {
+  override get message(): string {
+    return `Player error for '${this.playerId}': ${this.reason}`
   }
 }
 
 /**
  * Error type for world operations
  */
-export class WorldError extends Error {
-  readonly _tag = 'WorldError'
-
-  /**
-   * The world ID associated with error
-   */
+export class WorldError extends Data.TaggedError('WorldError')<{
   readonly worldId: string
-
-  /**
-   * The specific reason for error
-   */
   readonly reason: string
-
-  /**
-   * Optional position where error occurred
-   */
-  readonly position: readonly [number, number, number] | undefined
-
-  constructor(worldId: string, reason: string, position?: readonly [number, number, number]) {
-    const positionStr = position ? ` at (${position[0]}, ${position[1]}, ${position[2]})` : ''
-    super(`World error for '${worldId}'${positionStr}: ${reason}`)
-    this.name = 'WorldError'
-    this.worldId = worldId
-    this.reason = reason
-    this.position = position
-
-    // Maintain proper prototype chain
-    Object.setPrototypeOf(this, WorldError.prototype)
+  readonly position?: readonly [number, number, number]
+}> {
+  override get message(): string {
+    const positionStr = this.position
+      ? ` at (${this.position[0]}, ${this.position[1]}, ${this.position[2]})`
+      : ''
+    return `World error for '${this.worldId}'${positionStr}: ${this.reason}`
   }
 }
 
 /**
  * Error type for game loop operations
  */
-export class GameLoopError extends Error {
-  readonly _tag = 'GameLoopError'
-
-  /**
-   * The specific reason for error
-   */
+export class GameLoopError extends Data.TaggedError('GameLoopError')<{
   readonly reason: string
-
-  /**
-   * The underlying cause of error (if available)
-   */
   readonly cause?: unknown
-
-  constructor(reason: string, cause?: unknown) {
-    const causeMessage = cause instanceof Error ? cause.message : cause ? String(cause) : ''
-    super(`Game loop error: ${reason}${causeMessage ? `: ${causeMessage}` : ''}`)
-    this.name = 'GameLoopError'
-    this.reason = reason
-    this.cause = cause
-
-    // Maintain proper prototype chain
-    Object.setPrototypeOf(this, GameLoopError.prototype)
+}> {
+  override get message(): string {
+    const causeMessage = this.cause instanceof Error ? this.cause.message : this.cause ? String(this.cause) : ''
+    return `Game loop error: ${this.reason}${causeMessage ? `: ${causeMessage}` : ''}`
   }
 }
 
@@ -209,16 +113,75 @@ export class GameLoopError extends Error {
  * Type guard for PlayerError
  */
 export const isPlayerError = (error: unknown): error is PlayerError =>
-  error instanceof PlayerError || (error instanceof Error && (error as PlayerError)._tag === 'PlayerError')
+  typeof error === 'object' && error !== null && '_tag' in error && (error as { _tag: string })._tag === 'PlayerError'
 
 /**
  * Type guard for WorldError
  */
 export const isWorldError = (error: unknown): error is WorldError =>
-  error instanceof WorldError || (error instanceof Error && (error as WorldError)._tag === 'WorldError')
+  typeof error === 'object' && error !== null && '_tag' in error && (error as { _tag: string })._tag === 'WorldError'
 
 /**
  * Type guard for GameLoopError
  */
 export const isGameLoopError = (error: unknown): error is GameLoopError =>
-  error instanceof GameLoopError || (error instanceof Error && (error as GameLoopError)._tag === 'GameLoopError')
+  typeof error === 'object' && error !== null && '_tag' in error && (error as { _tag: string })._tag === 'GameLoopError'
+
+/**
+ * Error type for storage operations
+ */
+export class StorageError extends Data.TaggedError('StorageError')<{
+  readonly operation: string
+  readonly cause?: unknown
+}> {
+  override get message(): string {
+    const causeMessage = this.cause instanceof Error ? this.cause.message : this.cause ? String(this.cause) : ''
+    return `Storage operation '${this.operation}' failed${causeMessage ? `: ${causeMessage}` : ''}`
+  }
+}
+
+/**
+ * Type guard for StorageError
+ */
+export const isStorageError = (error: unknown): error is StorageError =>
+  typeof error === 'object' && error !== null && '_tag' in error && (error as { _tag: string })._tag === 'StorageError'
+
+/**
+ * Error type for chunk operations
+ */
+export class ChunkError extends Data.TaggedError('ChunkError')<{
+  readonly chunkCoord: { readonly x: number; readonly z: number }
+  readonly reason: string
+  readonly localPosition?: readonly [number, number, number]
+}> {
+  override get message(): string {
+    const localPosStr = this.localPosition
+      ? ` at local (${this.localPosition[0]}, ${this.localPosition[1]}, ${this.localPosition[2]})`
+      : ''
+    return `Chunk error at (${this.chunkCoord.x}, ${this.chunkCoord.z})${localPosStr}: ${this.reason}`
+  }
+}
+
+/**
+ * Type guard for ChunkError
+ */
+export const isChunkError = (error: unknown): error is ChunkError =>
+  typeof error === 'object' && error !== null && '_tag' in error && (error as { _tag: string })._tag === 'ChunkError'
+
+/**
+ * Error type for physics operations
+ */
+export class PhysicsError extends Data.TaggedError('PhysicsError')<{
+  readonly contextData: string
+  readonly reason: string
+}> {
+  override get message(): string {
+    return `Physics error for '${this.contextData}': ${this.reason}`
+  }
+}
+
+/**
+ * Type guard for PhysicsError
+ */
+export const isPhysicsError = (error: unknown): error is PhysicsError =>
+  typeof error === 'object' && error !== null && '_tag' in error && (error as { _tag: string })._tag === 'PhysicsError'

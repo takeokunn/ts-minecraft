@@ -1,0 +1,143 @@
+import { Effect, Layer, Option } from 'effect'
+import { InventoryService, INVENTORY_SIZE, HOTBAR_START } from '@/application/inventory/inventory-service'
+import { HotbarService } from '@/application/hotbar/hotbar-service'
+import type { BlockType } from '@/domain/block'
+
+// Colors for block types in the inventory UI
+const SLOT_COLORS: Record<string, string> = {
+  AIR: '#444444', GRASS: '#5a8a3a', DIRT: '#8b6344', STONE: '#888888',
+  SAND: '#d4c77a', WATER: '#3f76be', WOOD: '#6b4423', LEAVES: '#2d5a1b',
+  GLASS: '#c0e0f0', SNOW: '#f0f5ff', GRAVEL: '#7a6a5a', COBBLESTONE: '#606060',
+}
+const DEFAULT_SLOT_COLOR = '#333333'
+
+export class InventoryRenderer extends Effect.Service<InventoryRenderer>()(
+  '@minecraft/presentation/InventoryRenderer',
+  {
+    effect: Effect.gen(function* () {
+      const inventoryService = yield* InventoryService
+      const hotbarService = yield* HotbarService
+
+      let overlayEl: HTMLDivElement | null = null
+      let slotEls: HTMLDivElement[] = []
+      let isVisible = false
+
+      const getSlotColor = (blockType: BlockType | string): string =>
+        SLOT_COLORS[blockType] ?? DEFAULT_SLOT_COLOR
+
+      const createSlotEl = (index: number): HTMLDivElement => {
+        const el = document.createElement('div')
+        el.dataset['slot'] = String(index)
+        el.style.cssText = [
+          'width:48px', 'height:48px', 'border:2px solid #666',
+          'cursor:pointer', 'position:relative', 'display:flex',
+          'align-items:center', 'justify-content:center',
+          'font-size:10px', 'color:#fff', 'user-select:none',
+          'background:' + DEFAULT_SLOT_COLOR,
+        ].join(';')
+        el.addEventListener('click', () => {
+          Effect.runSync(
+            Effect.gen(function* () {
+              const selectedSlot = yield* hotbarService.getSelectedSlot()
+              const hotbarInventoryIndex = HOTBAR_START + selectedSlot
+              yield* inventoryService.moveStack(index, hotbarInventoryIndex)
+            })
+          )
+        })
+        return el
+      }
+
+      const buildOverlay = (): void => {
+        if (typeof document === 'undefined') return
+
+        overlayEl = document.createElement('div')
+        overlayEl.id = 'inventory-overlay'
+        overlayEl.style.cssText = [
+          'position:fixed', 'top:50%', 'left:50%',
+          'transform:translate(-50%,-50%)',
+          'background:rgba(0,0,0,0.85)', 'padding:16px',
+          'border-radius:8px', 'z-index:999', 'display:none',
+          'font-family:monospace',
+        ].join(';')
+
+        const title = document.createElement('div')
+        title.textContent = 'Inventory'
+        title.style.cssText = 'color:#fff;margin-bottom:10px;font-size:14px;text-align:center'
+        overlayEl.appendChild(title)
+
+        // Main grid (3 rows × 9 = slots 0-26)
+        const mainGrid = document.createElement('div')
+        mainGrid.style.cssText = 'display:grid;grid-template-columns:repeat(9,50px);gap:4px;margin-bottom:8px'
+        for (let i = 0; i < HOTBAR_START; i++) {
+          const el = createSlotEl(i)
+          slotEls[i] = el
+          mainGrid.appendChild(el)
+        }
+        overlayEl.appendChild(mainGrid)
+
+        // Separator
+        const sep = document.createElement('hr')
+        sep.style.cssText = 'border-color:#555;margin:8px 0'
+        overlayEl.appendChild(sep)
+
+        // Hotbar row (slots 27-35)
+        const hotbarGrid = document.createElement('div')
+        hotbarGrid.style.cssText = 'display:grid;grid-template-columns:repeat(9,50px);gap:4px'
+        for (let i = HOTBAR_START; i < INVENTORY_SIZE; i++) {
+          const el = createSlotEl(i)
+          slotEls[i] = el
+          hotbarGrid.appendChild(el)
+        }
+        overlayEl.appendChild(hotbarGrid)
+
+        document.body.appendChild(overlayEl)
+      }
+
+      const refreshSlots = (): Effect.Effect<void, never> =>
+        Effect.gen(function* () {
+          const allSlots = yield* inventoryService.getAllSlots()
+          const selectedSlot = yield* hotbarService.getSelectedSlot()
+
+          for (let i = 0; i < INVENTORY_SIZE; i++) {
+            const el = slotEls[i]
+            if (!el) continue
+            const slot = allSlots[i]
+            if (slot && Option.isSome(slot)) {
+              const stack = slot.value
+              el.style.background = getSlotColor(stack.blockType)
+              el.title = `${stack.blockType} ×${stack.count}`
+              el.textContent = stack.count < 64 ? String(stack.count) : ''
+            } else {
+              el.style.background = DEFAULT_SLOT_COLOR
+              el.title = ''
+              el.textContent = ''
+            }
+            // Highlight selected hotbar slot
+            if (i >= HOTBAR_START && i === HOTBAR_START + selectedSlot) {
+              el.style.border = '2px solid #fff'
+            } else {
+              el.style.border = '2px solid #666'
+            }
+          }
+        })
+
+      return {
+        initialize: (): Effect.Effect<void, never> => Effect.sync(() => { buildOverlay() }),
+
+        toggle: (): Effect.Effect<boolean, never> =>
+          Effect.gen(function* () {
+            isVisible = !isVisible
+            if (overlayEl) overlayEl.style.display = isVisible ? 'block' : 'none'
+            if (isVisible) yield* refreshSlots()
+            return isVisible
+          }),
+
+        isOpen: (): Effect.Effect<boolean, never> => Effect.sync(() => isVisible),
+
+        update: (): Effect.Effect<void, never> =>
+          isVisible ? refreshSlots() : Effect.void,
+      }
+    }),
+  }
+) {}
+export { InventoryRenderer as InventoryRendererLive }

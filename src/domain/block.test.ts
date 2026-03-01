@@ -6,7 +6,7 @@ import { BlockTypeSchema, BlockPropertiesSchema, BlockSchema, BlockType } from '
 describe('BlockTypeSchema', () => {
   describe('validation', () => {
     it('should accept valid block types', () => {
-      const validTypes = ['AIR', 'DIRT', 'STONE', 'WOOD', 'GRASS', 'SAND'] as const
+      const validTypes = ['AIR', 'DIRT', 'STONE', 'WOOD', 'GRASS', 'SAND', 'WATER', 'LEAVES', 'GLASS', 'SNOW', 'GRAVEL', 'COBBLESTONE'] as const
 
       for (const type of validTypes) {
         const result = Schema.decode(BlockTypeSchema)(type)
@@ -15,10 +15,10 @@ describe('BlockTypeSchema', () => {
     })
 
     it('should reject invalid block types', () => {
-      const invalidTypes = ['WATER', 'LAVA', 'DIAMOND', 'GOLD'] as const
+      const invalidTypes = ['BEDROCK', 'LAVA', 'DIAMOND', 'GOLD'] as const
 
       for (const type of invalidTypes) {
-        const result = Schema.decode(BlockTypeSchema)(type)
+        const result = Schema.decodeUnknown(BlockTypeSchema)(type)
         expect(() => Effect.runSync(result)).toThrow()
       }
     })
@@ -291,7 +291,7 @@ describe('BlockSchema', () => {
         },
       }
 
-      const result = Schema.encode(BlockSchema)(block)
+      const result = Schema.encodeUnknown(BlockSchema)(block)
       const encoded = Effect.runSync(result)
 
       expect(encoded).toEqual(block)

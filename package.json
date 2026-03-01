@@ -47,7 +47,7 @@
   ],
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "tsc --noEmit && vite build",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
@@ -57,7 +57,11 @@
     "lint": "oxlint src test",
     "lint:fix": "oxlint --fix src test",
     "format": "oxlint --fix src test",
-    "format:check": "oxlint src test"
+    "format:check": "oxlint src test",
+    "verify": "pnpm typecheck && pnpm lint && pnpm test && vite build",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed"
   },
   "dependencies": {
     "@effect/platform": "^0.68.6",
@@ -65,9 +69,13 @@
     "@types/three": "^0.170.0",
     "cannon-es": "^0.20.0",
     "effect": "^3.19.19",
+    "idb": "^8.0.3",
+    "simplex-noise": "^4.0.3",
     "three": "^0.170.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.49.0",
+    "playwright": "^1.49.0",
     "@effect/vitest": "^0.25.1",
     "@types/node": "^22.19.11",
     "@vitest/ui": "^3.2.4",

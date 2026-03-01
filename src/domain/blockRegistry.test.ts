@@ -2,7 +2,7 @@ import { describe, it } from '@effect/vitest'
 import { Effect, Schema, Option } from 'effect'
 import { expect } from 'vitest'
 import { BlockRegistry, BlockRegistryLive } from './blockRegistry'
-import { BlockIdSchema, BlockSchema } from './block'
+import { BlockSchema } from './block'
 
 describe('BlockRegistry', () => {
   describe('initialization', () => {
@@ -11,7 +11,7 @@ describe('BlockRegistry', () => {
         const registry = yield* BlockRegistry
         const allBlocks = yield* registry.getAll()
 
-        expect(allBlocks).toHaveLength(6)
+        expect(allBlocks).toHaveLength(12)
 
         const blockTypes = allBlocks.map((block) => block.type)
         expect(blockTypes).toContain('AIR')
@@ -20,6 +20,9 @@ describe('BlockRegistry', () => {
         expect(blockTypes).toContain('WOOD')
         expect(blockTypes).toContain('GRASS')
         expect(blockTypes).toContain('SAND')
+        expect(blockTypes).toContain('WATER')
+        expect(blockTypes).toContain('LEAVES')
+        expect(blockTypes).toContain('GLASS')
       })
 
       Effect.runSync(program.pipe(Effect.provide(BlockRegistryLive)))
@@ -205,7 +208,7 @@ describe('BlockRegistry', () => {
       const program = Effect.gen(function* () {
         const registry = yield* BlockRegistry
 
-        const block = yield* registry.get('WATER' as any)
+        const block = yield* registry.get('BEDROCK' as any)
         expect(Option.isNone(block)).toBe(true)
       })
 
@@ -244,7 +247,7 @@ describe('BlockRegistry', () => {
 
         const allBlocks = yield* registry.getAll()
 
-        expect(allBlocks).toHaveLength(6)
+        expect(allBlocks).toHaveLength(12)
         expect(Array.isArray(allBlocks)).toBe(true)
       })
 
@@ -284,7 +287,7 @@ describe('BlockRegistry', () => {
         const registry = yield* BlockRegistry
 
         const initialBlocks = yield* registry.getAll()
-        expect(initialBlocks).toHaveLength(6)
+        expect(initialBlocks).toHaveLength(12)
 
         const newBlockData = {
           id: 'block:obsidian' as const,
@@ -310,7 +313,7 @@ describe('BlockRegistry', () => {
         yield* registry.register(newBlock)
 
         const allBlocks = yield* registry.getAll()
-        expect(allBlocks).toHaveLength(6)
+        expect(allBlocks).toHaveLength(12)
       })
 
       Effect.runSync(program.pipe(Effect.provide(BlockRegistryLive)))
@@ -323,7 +326,7 @@ describe('BlockRegistry', () => {
         const registry = yield* BlockRegistry
 
         let allBlocks = yield* registry.getAll()
-        expect(allBlocks).toHaveLength(6)
+        expect(allBlocks).toHaveLength(12)
 
         yield* registry.dispose()
 

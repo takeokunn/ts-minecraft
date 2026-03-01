@@ -1,7 +1,7 @@
-import { Effect, Context, Layer, Ref, Schema, Option } from 'effect'
+import { Effect, Layer, Ref, Schema } from 'effect'
 import { PlayerIdSchema, PositionSchema, PlayerId, Position } from '@/shared/kernel'
 import { PlayerError } from './errors'
-import type { Vector3, Quaternion } from '@/shared/math/three'
+import type { Vector3 } from '@/shared/math/three'
 import { zero, identity } from '@/shared/math/three'
 
 // Vector3 Schema
@@ -30,99 +30,92 @@ export const PlayerStateSchema = Schema.Struct({
 })
 export type PlayerState = Schema.Schema.Type<typeof PlayerStateSchema>
 
-export interface PlayerService {
-  readonly create: (id: PlayerId, position: Position) => Effect.Effect<void, PlayerError>
-  readonly updatePosition: (id: PlayerId, position: Position) => Effect.Effect<void, PlayerError>
-  readonly getPosition: (id: PlayerId) => Effect.Effect<Position, PlayerError>
-  readonly getVelocity: (id: PlayerId) => Effect.Effect<Vector3, PlayerError>
-  readonly getState: (id: PlayerId) => Effect.Effect<PlayerState, PlayerError>
-}
+export class PlayerService extends Effect.Service<PlayerService>()(
+  '@minecraft/PlayerService',
+  {
+    effect: Effect.gen(function* () {
+      const playersRef = yield* Ref.make<Map<PlayerId, PlayerState>>(new Map())
 
-export const PlayerService = Context.GenericTag<PlayerService>('@minecraft/PlayerService')
+      return {
+        create: (id: PlayerId, position: Position): Effect.Effect<void, PlayerError> =>
+          Effect.gen(function* () {
+            const players = yield* Ref.get(playersRef)
+            if (players.has(id)) {
+              return yield* Effect.fail(new PlayerError({ playerId: id, reason: 'Player already exists' }))
+            }
 
-export const PlayerServiceLive = Layer.effect(
-  PlayerService,
-  Effect.gen(function* () {
-    const playersRef = yield* Ref.make<Map<PlayerId, PlayerState>>(new Map())
+            const playerState: PlayerState = {
+              id,
+              position,
+              velocity: zero,
+              rotation: identity,
+            }
 
-    return PlayerService.of({
-      create: (id, position) =>
-        Effect.gen(function* () {
-          const players = yield* Ref.get(playersRef)
-          if (players.has(id)) {
-            return yield* Effect.fail(new PlayerError(id, 'Player already exists'))
-          }
+            yield* Ref.update(playersRef, (players) => {
+              const newMap = new Map(players)
+              newMap.set(id, playerState)
+              return newMap
+            })
+          }),
 
-          const playerState: PlayerState = {
-            id,
-            position,
-            velocity: zero,
-            rotation: identity,
-          }
+        updatePosition: (id: PlayerId, position: Position): Effect.Effect<void, PlayerError> =>
+          Effect.gen(function* () {
+            const players = yield* Ref.get(playersRef)
+            const player = players.get(id)
 
-          yield* Ref.update(playersRef, (players) => {
-            const newMap = new Map(players)
-            newMap.set(id, playerState)
-            return newMap
-          })
-        }),
+            if (!player) {
+              return yield* Effect.fail(new PlayerError({ playerId: id, reason: 'Player not found' }))
+            }
 
-      updatePosition: (id, position) =>
-        Effect.gen(function* () {
-          const players = yield* Ref.get(playersRef)
-          const player = players.get(id)
+            const updatedPlayer: PlayerState = {
+              ...player,
+              position,
+            }
 
-          if (!player) {
-            return yield* Effect.fail(new PlayerError(id, 'Player not found'))
-          }
+            yield* Ref.update(playersRef, (players) => {
+              const newMap = new Map(players)
+              newMap.set(id, updatedPlayer)
+              return newMap
+            })
+          }),
 
-          const updatedPlayer: PlayerState = {
-            ...player,
-            position,
-          }
+        getPosition: (id: PlayerId): Effect.Effect<Position, PlayerError> =>
+          Effect.gen(function* () {
+            const players = yield* Ref.get(playersRef)
+            const player = players.get(id)
 
-          yield* Ref.update(playersRef, (players) => {
-            const newMap = new Map(players)
-            newMap.set(id, updatedPlayer)
-            return newMap
-          })
-        }),
+            if (!player) {
+              return yield* Effect.fail(new PlayerError({ playerId: id, reason: 'Player not found' }))
+            }
 
-      getPosition: (id) =>
-        Effect.gen(function* () {
-          const players = yield* Ref.get(playersRef)
-          const player = players.get(id)
+            return player.position
+          }),
 
-          if (!player) {
-            return yield* Effect.fail(new PlayerError(id, 'Player not found'))
-          }
+        getVelocity: (id: PlayerId): Effect.Effect<Vector3, PlayerError> =>
+          Effect.gen(function* () {
+            const players = yield* Ref.get(playersRef)
+            const player = players.get(id)
 
-          return player.position
-        }),
+            if (!player) {
+              return yield* Effect.fail(new PlayerError({ playerId: id, reason: 'Player not found' }))
+            }
 
-      getVelocity: (id) =>
-        Effect.gen(function* () {
-          const players = yield* Ref.get(playersRef)
-          const player = players.get(id)
+            return player.velocity
+          }),
 
-          if (!player) {
-            return yield* Effect.fail(new PlayerError(id, 'Player not found'))
-          }
+        getState: (id: PlayerId): Effect.Effect<PlayerState, PlayerError> =>
+          Effect.gen(function* () {
+            const players = yield* Ref.get(playersRef)
+            const player = players.get(id)
 
-          return player.velocity
-        }),
+            if (!player) {
+              return yield* Effect.fail(new PlayerError({ playerId: id, reason: 'Player not found' }))
+            }
 
-      getState: (id) =>
-        Effect.gen(function* () {
-          const players = yield* Ref.get(playersRef)
-          const player = players.get(id)
-
-          if (!player) {
-            return yield* Effect.fail(new PlayerError(id, 'Player not found'))
-          }
-
-          return player
-        }),
-    })
-  })
-)
+            return player
+          }),
+      }
+    }),
+  }
+) {}
+export { PlayerService as PlayerServiceLive }

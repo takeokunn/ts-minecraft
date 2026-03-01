@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { Effect } from 'effect'
 import * as THREE from 'three'
-import { TextureService, TextureServiceLive, TextureError } from './texture-loader'
+import { TextureService, TextureServiceLive } from './texture-loader'
 import { mockCanvasElement } from '../../../../test/helpers/three-mocks'
 
 describe('three/textures/texture-loader', () => {
@@ -126,8 +126,8 @@ describe('three/textures/texture-loader', () => {
         const program = Effect.gen(function* () {
           const service = yield* TextureService
 
-          const texture1 = yield* service.createSolidColor('#ff0000')
-          const texture2 = yield* service.createSolidColor('#00ff00')
+          yield* service.createSolidColor('#ff0000')
+          yield* service.createSolidColor('#00ff00')
 
           const cached1 = yield* service.getCached('test-url-1')
           expect(cached1._tag).toBe('None')

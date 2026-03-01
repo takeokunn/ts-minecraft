@@ -280,8 +280,8 @@ export function mockWebGLRenderer(): THREE.WebGLRenderer {
       // No-op for mock
     },
     setSize: (width: number, height: number) => {
-      ;(renderer as { width: number; height: number }).width = width
-      ;(renderer as { height: number }).height = height
+      ;(renderer as unknown as { width: number; height: number }).width = width
+      ;(renderer as unknown as { height: number }).height = height
     },
     dispose: () => {
       // No-op for mock

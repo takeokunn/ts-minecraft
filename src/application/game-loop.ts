@@ -1,7 +1,5 @@
-import { Effect, Context, Layer, Queue, Ref, Fiber } from 'effect'
+import { Effect, Queue, Ref, Fiber } from 'effect'
 import { GameLoopError } from '@/domain/errors'
-import { GameStateService } from './game-state'
-import { FPSCounter } from '@/presentation/fps-counter'
 
 /**
  * Frame command type for queue-based game loop
@@ -9,27 +7,7 @@ import { FPSCounter } from '@/presentation/fps-counter'
 export type FrameCommand = {
   readonly _tag: 'Tick'
   readonly timestamp: number
-  readonly deltaTime: number
 }
-
-/**
- * Service interface for managing the game loop
- */
-export interface GameLoopService {
-  readonly start: () => Effect.Effect<void, GameLoopError>
-  readonly stop: () => Effect.Effect<void, never>
-  readonly isRunning: () => Effect.Effect<boolean, never>
-}
-
-/**
- * Context tag for GameLoopService
- */
-export const GameLoopService = Context.GenericTag<GameLoopService>('@minecraft/application/GameLoopService')
-
-/**
- * Fixed delta time for Phase 3 (16ms = ~60 FPS)
- */
-const FIXED_DELTA_TIME = 0.016
 
 /**
  * Maximum queue capacity for frame commands
@@ -37,111 +15,117 @@ const FIXED_DELTA_TIME = 0.016
 const QUEUE_CAPACITY = 60
 
 /**
- * Live implementation of GameLoopService
+ * GameLoopService class for managing the game loop
  *
  * Uses Effect.Queue for frame command processing with a bridge pattern
  * that connects requestAnimationFrame to the Effect-TS ecosystem.
+ *
+ * The caller passes a frameHandler that receives the variable delta time
+ * (in seconds) for each frame, allowing all per-frame operations to be
+ * composed externally (e.g. in main.ts).
  */
-export const GameLoopServiceLive = Layer.effect(
-  GameLoopService,
-  Effect.gen(function* () {
-    const gameStateService = yield* GameStateService
-    const fpsCounter = yield* FPSCounter
-    const frameQueue = yield* Queue.bounded<FrameCommand>(QUEUE_CAPACITY)
-    const runningRef = yield* Ref.make(false)
+export class GameLoopService extends Effect.Service<GameLoopService>()(
+  '@minecraft/application/GameLoopService',
+  {
+    effect: Effect.gen(function* () {
+      const frameQueue = yield* Queue.bounded<FrameCommand>(QUEUE_CAPACITY)
+      const runningRef = yield* Ref.make(false)
 
-    // Track resources for cleanup
-    let processingFiber: Fiber.RuntimeFiber<void, never> | null = null
-    let animationFrameId: number | null = null
+      // Track resources for cleanup
+      let processingFiber: Fiber.RuntimeFiber<void, never> | null = null
+      let animationFrameId: number | null = null
 
-    /**
-     * Frame processing loop - runs in a separate fiber
-     */
-    const processFrames = Effect.gen(function* () {
-      while (true) {
-        const cmd = yield* Queue.take(frameQueue)
+      return {
+        start: (
+          frameHandler: (deltaTime: number) => Effect.Effect<void, never>
+        ): Effect.Effect<void, GameLoopError> =>
+          Effect.gen(function* () {
+            const currentlyRunning = yield* Ref.get(runningRef)
+            if (currentlyRunning) {
+              yield* Effect.fail(
+                new GameLoopError({ reason: 'Game loop is already running' })
+              )
+            }
 
-        // Update game state with error recovery
-        yield* gameStateService.update(cmd.deltaTime).pipe(
-          Effect.catchAll((error) =>
-            Effect.logError(`Game state update error: ${error}`)
-          )
-        )
+            /**
+             * Frame processing loop - runs in a separate fiber.
+             * Computes variable delta time from successive timestamps.
+             */
+            const processFrames = Effect.gen(function* () {
+              let lastTimestamp = 0
+              while (true) {
+                const cmd = yield* Queue.take(frameQueue)
+                const deltaTime =
+                  lastTimestamp === 0
+                    ? 0.016
+                    : (cmd.timestamp - lastTimestamp) / 1000
+                lastTimestamp = cmd.timestamp
+                yield* frameHandler(deltaTime).pipe(
+                  Effect.catchAll((e) =>
+                    Effect.logError(`Frame error: ${String(e)}`)
+                  )
+                )
+              }
+            })
 
-        // Update FPS counter with error recovery
-        yield* fpsCounter.tick(cmd.deltaTime).pipe(
-          Effect.catchAll(() => Effect.void)
-        )
+            /**
+             * Bridge loop - connects requestAnimationFrame to Effect Queue.
+             */
+            const bridgeLoop = () => {
+              const isRunning = Effect.runSync(Ref.get(runningRef))
+              if (!isRunning) return
+
+              const now = performance.now()
+
+              Effect.runPromise(
+                Queue.offer(frameQueue, { _tag: 'Tick', timestamp: now })
+              ).catch((e) =>
+                Effect.runSync(
+                  Effect.logError(`Frame queue error: ${String(e)}`)
+                )
+              )
+
+              animationFrameId = requestAnimationFrame(bridgeLoop)
+            }
+
+            // Mark as running
+            yield* Ref.set(runningRef, true)
+
+            // Fork the processing fiber
+            processingFiber = yield* Effect.fork(processFrames)
+
+            // Start the bridge loop
+            bridgeLoop()
+
+            yield* Effect.log('Game loop started')
+          }),
+
+        stop: (): Effect.Effect<void, never> =>
+          Effect.gen(function* () {
+            yield* Ref.set(runningRef, false)
+
+            // Cancel animation frame
+            if (animationFrameId !== null) {
+              cancelAnimationFrame(animationFrameId)
+              animationFrameId = null
+            }
+
+            // Interrupt processing fiber
+            if (processingFiber !== null) {
+              yield* Fiber.interrupt(processingFiber)
+              processingFiber = null
+            }
+
+            // Shutdown the queue
+            yield* Queue.shutdown(frameQueue)
+
+            yield* Effect.log('Game loop stopped')
+          }),
+
+        isRunning: (): Effect.Effect<boolean, never> => Ref.get(runningRef),
       }
-    })
+    }),
+  }
+) {}
 
-    /**
-     * Bridge loop - connects requestAnimationFrame to Effect Queue
-     */
-    const bridgeLoop = () => {
-      const isRunning = Effect.runSync(Ref.get(runningRef))
-      if (!isRunning) return
-
-      const now = performance.now()
-
-      // Offer frame command to queue (fire-and-forget with error logging)
-      Effect.runPromise(
-        Queue.offer(frameQueue, {
-          _tag: 'Tick',
-          timestamp: now,
-          deltaTime: FIXED_DELTA_TIME,
-        })
-      ).catch((error) => {
-        console.error('Failed to offer frame command:', error)
-      })
-
-      // Schedule next frame
-      animationFrameId = requestAnimationFrame(bridgeLoop)
-    }
-
-    return GameLoopService.of({
-      start: Effect.gen(function* () {
-        const currentlyRunning = yield* Ref.get(runningRef)
-        if (currentlyRunning) {
-          yield* Effect.fail(
-            new GameLoopError('Game loop is already running')
-          )
-        }
-
-        // Mark as running
-        yield* Ref.set(runningRef, true)
-
-        // Fork the processing fiber
-        processingFiber = yield* Effect.fork(processFrames)
-
-        // Start the bridge loop
-        bridgeLoop()
-
-        yield* Effect.log('Game loop started')
-      }),
-
-      stop: Effect.gen(function* () {
-        yield* Ref.set(runningRef, false)
-
-        // Cancel animation frame
-        if (animationFrameId !== null) {
-          cancelAnimationFrame(animationFrameId)
-          animationFrameId = null
-        }
-
-        // Interrupt processing fiber
-        if (processingFiber !== null) {
-          yield* Fiber.interrupt(processingFiber)
-          processingFiber = null
-        }
-
-        // Shutdown the queue
-        yield* Queue.shutdown(frameQueue)
-
-        yield* Effect.log('Game loop stopped')
-      }),
-
-      isRunning: () => Ref.get(runningRef),
-    })
-  })
-)
+export { GameLoopService as GameLoopServiceLive }
