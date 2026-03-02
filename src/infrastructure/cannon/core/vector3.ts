@@ -1,4 +1,5 @@
 import * as CANNON from 'cannon-es'
+import { Schema } from 'effect'
 
 /**
  * Cannon.js Vector3 wrapper
@@ -8,7 +9,8 @@ import * as CANNON from 'cannon-es'
  * - Pure functions (returns directly, not Effect type)
  */
 
-export type Vector3 = { readonly x: number; readonly y: number; readonly z: number }
+export const Vector3Schema = Schema.Struct({ x: Schema.Number, y: Schema.Number, z: Schema.Number })
+export type Vector3 = Schema.Schema.Type<typeof Vector3Schema>
 
 // Constructors
 export const makeVector3 = (x: number, y: number, z: number): Vector3 => ({ x, y, z })

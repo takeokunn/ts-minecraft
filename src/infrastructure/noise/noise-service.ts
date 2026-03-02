@@ -48,4 +48,4 @@ export class NoiseService extends Effect.Service<NoiseService>()(
     }),
   }
 ) {}
-export { NoiseService as NoiseServiceLive }
+export const NoiseServiceLive = NoiseService.Default

@@ -1,21 +1,15 @@
 import { Effect, Option, Schema } from 'effect'
 import { openDB, DBSchema, IDBPDatabase } from 'idb'
-import { WorldId, Position } from '@/shared/kernel'
+import { WorldId } from '@/shared/kernel'
 import { StorageError } from '@/domain/errors'
 import type { ChunkCoord } from '@/domain/chunk'
 
 export type { ChunkCoord }
 
 /**
- * World metadata for persistence
+ * Schema for world metadata persisted to IndexedDB.
+ * Note: uses Schema.DateFromSelf (JS Date instances), not Schema.Date (ISO string).
  */
-export interface WorldMetadata {
-  readonly seed: number
-  readonly createdAt: Date
-  readonly lastPlayed: Date
-  readonly playerSpawn: Position
-}
-
 export const WorldMetadataSchema = Schema.Struct({
   seed: Schema.Number,
   createdAt: Schema.DateFromSelf,
@@ -26,7 +20,7 @@ export const WorldMetadataSchema = Schema.Struct({
     z: Schema.Number,
   }),
 })
-export type WorldMetadataType = Schema.Schema.Type<typeof WorldMetadataSchema>
+export type WorldMetadata = Schema.Schema.Type<typeof WorldMetadataSchema>
 
 /**
  * IndexedDB schema definition
@@ -216,4 +210,4 @@ export class StorageService extends Effect.Service<StorageService>()(
     }),
   }
 ) {}
-export { StorageService as StorageServiceLive }
+export const StorageServiceLive = StorageService.Default

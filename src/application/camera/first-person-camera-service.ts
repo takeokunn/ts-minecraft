@@ -70,4 +70,4 @@ export class FirstPersonCameraService extends Effect.Service<FirstPersonCameraSe
     }),
   }
 ) {}
-export { FirstPersonCameraService as FirstPersonCameraServiceLive }
+export const FirstPersonCameraServiceLive = FirstPersonCameraService.Default

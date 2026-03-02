@@ -121,8 +121,8 @@ const createTestLayer = (
   inputService: ReturnType<typeof createTestInputService>,
   blockRegistry: ReturnType<typeof createTestBlockRegistry>
 ) => {
-  const inputLayer = Layer.succeed(InputService, inputService)
-  const blockRegistryLayer = Layer.succeed(BlockRegistry, blockRegistry)
+  const inputLayer = Layer.succeed(InputService, inputService as unknown as InputService)
+  const blockRegistryLayer = Layer.succeed(BlockRegistry, blockRegistry as unknown as BlockRegistry)
   const inventoryLayer = InventoryServiceLive.pipe(
     Layer.provide(blockRegistryLayer)
   )

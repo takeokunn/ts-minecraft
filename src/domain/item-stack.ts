@@ -1,14 +1,12 @@
-import { Option } from 'effect'
+import { Option, Schema } from 'effect'
 import type { BlockType } from './block'
+import { BlockTypeSchema } from './block'
 
-/**
- * An ItemStack represents a block type with a count (1-64)
- * in an inventory slot.
- */
-export interface ItemStack {
-  readonly blockType: BlockType
-  readonly count: number // 1-64
-}
+export const ItemStackSchema = Schema.Struct({
+  blockType: BlockTypeSchema,
+  count: Schema.Number.pipe(Schema.between(1, 64)),
+})
+export type ItemStack = Schema.Schema.Type<typeof ItemStackSchema>
 
 /**
  * Maximum items per stack

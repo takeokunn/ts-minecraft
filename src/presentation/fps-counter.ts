@@ -1,4 +1,4 @@
-import { Effect, Layer, Ref } from 'effect'
+import { Effect, Ref } from 'effect'
 
 interface FPSCounterState {
   readonly frameCount: number
@@ -59,4 +59,4 @@ export class FPSCounter extends Effect.Service<FPSCounter>()(
     })
   }
 ) {}
-export { FPSCounter as FPSCounterLive }
+export const FPSCounterLive = FPSCounter.Default

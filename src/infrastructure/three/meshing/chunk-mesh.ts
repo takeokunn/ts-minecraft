@@ -37,8 +37,8 @@ const buildAtlasTexture = (): Effect.Effect<THREE.Texture, TextureError> =>
             ctx.drawImage(img, col * TILE_PX, row * TILE_PX, TILE_PX, TILE_PX)
             resolve()
           }
-          img.onerror = () => {
-            console.warn(`[chunk-mesh] Atlas texture not found: ${url}`)
+          img.onerror = (e) => {
+            Effect.runSync(Effect.logWarning('Failed to load texture', url, String(e)))
             resolve()
           }
           img.src = url
@@ -215,4 +215,4 @@ export class ChunkMeshService extends Effect.Service<ChunkMeshService>()(
     }),
   }
 ) {}
-export { ChunkMeshService as ChunkMeshServiceLive }
+export const ChunkMeshServiceLive = ChunkMeshService.Default

@@ -1,8 +1,7 @@
-import { Effect, Layer, Ref, Schema, Clock, Data } from 'effect'
-import * as CANNON from 'cannon-es'
-import { PlayerService, PlayerError, isPhysicsError } from '@/domain'
-import { PlayerId, Position } from '@/shared/kernel'
-import { PhysicsService } from './physics/physics-service'
+import { Effect, Ref, Schema, Clock, Data } from 'effect'
+import { PlayerService, PlayerError } from '@/domain'
+import { PlayerId, Position, PhysicsBodyId } from '@/shared/kernel'
+import { PhysicsService, PhysicsError } from './physics/physics-service'
 import { MovementService } from './player/movement-service'
 import { PlayerCameraState } from '../domain/player-camera'
 
@@ -14,15 +13,7 @@ export const TimingStateSchema = Schema.Struct({
   deltaTime: Schema.Number,
   frameCount: Schema.Number,
 })
-
-/**
- * Timing state interface for tracking frame timing
- */
-export interface TimingState {
-  readonly lastFrameTime: number
-  readonly deltaTime: number
-  readonly frameCount: number
-}
+export type TimingState = Schema.Schema.Type<typeof TimingStateSchema>
 
 /**
  * Error type for game state operations
@@ -45,7 +36,7 @@ export const isGameStateError = (error: unknown): error is GameStateError =>
   typeof error === 'object' && error !== null && '_tag' in error && (error as { _tag: string })._tag === 'GameStateError'
 
 /**
- * Player physics body ID constant
+ * Player physics body ID constant (legacy string, kept for external compatibility)
  */
 export const PLAYER_BODY_ID = 'player'
 
@@ -73,29 +64,71 @@ export class GameStateService extends Effect.Service<GameStateService>()(
         frameCount: 0,
       })
 
-      // Physics world and player body references
-      let worldRef: CANNON.World | null = null
-      let playerBodyRef: CANNON.Body | null = null
+      // Opaque physics body ID for the player (replaces CANNON.Body ref)
+      const playerBodyIdRef = yield* Ref.make<PhysicsBodyId | null>(null)
       const playerId = DEFAULT_PLAYER_ID
+
+      // Jump override flag: when the player jumps, cannon-es contacts may persist
+      // for one frame before clearing. This flag overrides isGrounded to return false
+      // immediately after a jump, matching the behaviour of the old clearGroundedState.
+      const jumpOverrideRef = yield* Ref.make<boolean>(false)
+
+      /**
+       * Internal helper: get whether the player is currently grounded,
+       * applying the jump override when necessary.
+       */
+      const getIsGrounded = (playerBodyId: PhysicsBodyId): Effect.Effect<boolean, never> =>
+        Effect.gen(function* () {
+          const jumpOverride = yield* Ref.get(jumpOverrideRef)
+          const physicsGrounded = yield* physicsService.isGrounded(playerBodyId).pipe(
+            Effect.catchAll(() => Effect.succeed(false))
+          )
+          if (jumpOverride) {
+            // Once the physics contacts have cleared, remove the override
+            if (!physicsGrounded) {
+              yield* Ref.set(jumpOverrideRef, false)
+            }
+            return false
+          }
+          return physicsGrounded
+        })
 
       return {
         initialize: (spawnPosition: Position, groundY = 0): Effect.Effect<void, GameStateError> =>
           Effect.gen(function* () {
-            // Create physics scene (world + ground at terrain surface level)
-            const scene = yield* physicsService.initializeScene(groundY)
-            worldRef = scene.world
+            // Initialize the physics world
+            yield* physicsService.initialize({
+              gravity: { x: 0, y: -9.82, z: 0 },
+              broadphase: 'naive',
+            })
+
+            // Create the ground plane at terrain surface height
+            yield* physicsService.addBody({
+              mass: 0,
+              position: { x: 0, y: groundY, z: 0 },
+              shape: 'plane',
+              type: 'static',
+            })
 
             // Create player body at spawn position
-            playerBodyRef = yield* physicsService.createPlayerBody(
-              PLAYER_BODY_ID,
-              spawnPosition
-            )
+            const playerBodyId = yield* physicsService.addBody({
+              mass: 70,
+              position: spawnPosition,
+              shape: 'box',
+              shapeParams: {
+                halfExtents: { x: 0.3, y: 0.9, z: 0.3 },
+              },
+              fixedRotation: true,
+              angularDamping: 1,
+              allowSleep: false,
+            })
+            yield* Ref.set(playerBodyIdRef, playerBodyId)
 
             // Initialize player state at spawn position
             yield* playerService.create(playerId, spawnPosition)
           }).pipe(
             Effect.mapError((e) => {
-              if (isPhysicsError(e)) {
+              if (e instanceof PhysicsError) {
                 return new GameStateError({ operation: 'initialize', reason: e.reason, cause: e })
               }
               return new GameStateError({ operation: 'initialize', reason: String(e), cause: e })
@@ -104,7 +137,9 @@ export class GameStateService extends Effect.Service<GameStateService>()(
 
         update: (deltaTime: number): Effect.Effect<void, GameStateError> =>
           Effect.gen(function* () {
-            if (!worldRef || !playerBodyRef) {
+            const playerBodyId = yield* Ref.get(playerBodyIdRef)
+
+            if (playerBodyId === null) {
               return yield* Effect.fail(
                 new GameStateError({ operation: 'update', reason: 'Physics not initialized. Call initialize() first.' })
               )
@@ -114,11 +149,14 @@ export class GameStateService extends Effect.Service<GameStateService>()(
             const rotation = yield* cameraState.getRotation()
             const yaw = rotation.yaw
 
-            // Check if player is grounded
-            const isGrounded = yield* physicsService.isGrounded(PLAYER_BODY_ID)
+            // Check if player is grounded (respects jump override)
+            const isGrounded = yield* getIsGrounded(playerBodyId)
 
             // Get current physics velocity for Y preservation
-            const currentVelY = playerBodyRef.velocity.y
+            const currentVel = yield* physicsService.getVelocity(playerBodyId).pipe(
+              Effect.catchAll(() => Effect.succeed({ x: 0, y: 0, z: 0 }))
+            )
+            const currentVelY = currentVel.y
 
             // Calculate movement velocity based on input
             const velocity = yield* movementService.update(
@@ -130,22 +168,23 @@ export class GameStateService extends Effect.Service<GameStateService>()(
             // Y velocity handling:
             // - If velocity.y > 0: Player intentionally jumped, apply jump velocity
             // - If velocity.y <= 0: Not jumping, preserve current Y velocity (gravity)
-            yield* physicsService.setVelocity(PLAYER_BODY_ID, {
+            const jumped = velocity.y > 0
+            yield* physicsService.setVelocity(playerBodyId, {
               x: velocity.x,
-              y: velocity.y > 0 ? velocity.y : currentVelY,
+              y: jumped ? velocity.y : currentVelY,
               z: velocity.z,
             })
 
-            // Clear grounded state if jumping (velocity.y > 0 indicates jump)
-            if (velocity.y > 0) {
-              yield* physicsService.clearGroundedState(PLAYER_BODY_ID)
+            // Set jump override so grounded state clears immediately on jump
+            if (jumped) {
+              yield* Ref.set(jumpOverrideRef, true)
             }
 
             // Step physics simulation
-            yield* physicsService.step(worldRef, deltaTime)
+            yield* physicsService.step(deltaTime)
 
             // Sync physics position back to player state
-            const pos = playerBodyRef.position
+            const pos = yield* physicsService.getPosition(playerBodyId)
             yield* playerService.updatePosition(playerId, {
               x: pos.x,
               y: pos.y,
@@ -164,7 +203,7 @@ export class GameStateService extends Effect.Service<GameStateService>()(
               if (e instanceof GameStateError) {
                 return e
               }
-              if (isPhysicsError(e)) {
+              if (e instanceof PhysicsError) {
                 return new GameStateError({ operation: 'update', reason: e.reason, cause: e })
               }
               return new GameStateError({ operation: 'update', reason: String(e), cause: e })
@@ -180,9 +219,13 @@ export class GameStateService extends Effect.Service<GameStateService>()(
           cameraState.getRotation(),
 
         isPlayerGrounded: (): Effect.Effect<boolean, never> =>
-          physicsService.isGrounded(PLAYER_BODY_ID),
+          Effect.gen(function* () {
+            const playerBodyId = yield* Ref.get(playerBodyIdRef)
+            if (playerBodyId === null) return false
+            return yield* getIsGrounded(playerBodyId)
+          }),
       }
     }),
   }
 ) {}
-export { GameStateService as GameStateServiceLive }
+export const GameStateServiceLive = GameStateService.Default

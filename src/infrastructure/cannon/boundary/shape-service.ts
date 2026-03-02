@@ -1,21 +1,24 @@
-import { Effect } from 'effect'
+import { Effect, Schema } from 'effect'
 import * as CANNON from 'cannon-es'
-import type { Vector3 } from '@/infrastructure/cannon/core'
+import { Vector3Schema } from '@/infrastructure/cannon/core'
 
-export type BoxShapeConfig = {
-  readonly halfExtents: Vector3
-}
+export const BoxShapeConfigSchema = Schema.Struct({
+  halfExtents: Vector3Schema,
+})
+export type BoxShapeConfig = Schema.Schema.Type<typeof BoxShapeConfigSchema>
 
-export type SphereShapeConfig = {
-  readonly radius: number
-}
+export const SphereShapeConfigSchema = Schema.Struct({
+  radius: Schema.Number,
+})
+export type SphereShapeConfig = Schema.Schema.Type<typeof SphereShapeConfigSchema>
 
-export type CylinderShapeConfig = {
-  readonly radiusTop: number
-  readonly radiusBottom: number
-  readonly height: number
-  readonly numSegments?: number
-}
+export const CylinderShapeConfigSchema = Schema.Struct({
+  radiusTop: Schema.Number,
+  radiusBottom: Schema.Number,
+  height: Schema.Number,
+  numSegments: Schema.optional(Schema.Number),
+})
+export type CylinderShapeConfig = Schema.Schema.Type<typeof CylinderShapeConfigSchema>
 
 export class ShapeService extends Effect.Service<ShapeService>()(
   '@minecraft/infrastructure/cannon/ShapeService',
@@ -32,4 +35,4 @@ export class ShapeService extends Effect.Service<ShapeService>()(
     },
   }
 ) {}
-export { ShapeService as ShapeServiceLive }
+export const ShapeServiceLive = ShapeService.Default

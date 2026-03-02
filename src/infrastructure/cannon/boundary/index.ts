@@ -1,3 +1,3 @@
-export { PhysicsWorldService } from './world-service'
-export { RigidBodyService } from './body-service'
-export { ShapeService } from './shape-service'
+export { PhysicsWorldService, WorldConfigSchema } from './world-service'
+export { RigidBodyService, RigidBodyConfigSchema } from './body-service'
+export { ShapeService, BoxShapeConfigSchema, SphereShapeConfigSchema, CylinderShapeConfigSchema } from './shape-service'

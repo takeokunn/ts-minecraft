@@ -1,23 +1,25 @@
-import { Effect } from 'effect'
+import { Effect, Option, Schema } from 'effect'
 import * as THREE from 'three'
+import { Vector3Schema } from '@/infrastructure/cannon/core/vector3'
 
 /**
  * Result of a raycast hit
  */
-export interface RaycastHit {
+export const RaycastHitSchema = Schema.Struct({
   /** World position of hit point */
-  readonly point: { x: number; y: number; z: number }
+  point: Vector3Schema,
   /** Normal of hit surface */
-  readonly normal: { x: number; y: number; z: number }
+  normal: Vector3Schema,
   /** Distance from ray origin */
-  readonly distance: number
+  distance: Schema.Number,
   /** Block X coordinate */
-  readonly blockX: number
+  blockX: Schema.Number,
   /** Block Y coordinate */
-  readonly blockY: number
+  blockY: Schema.Number,
   /** Block Z coordinate */
-  readonly blockZ: number
-}
+  blockZ: Schema.Number,
+})
+export type RaycastHit = Schema.Schema.Type<typeof RaycastHitSchema>
 
 /**
  * Default ray distance for block interaction (5 blocks reach)
@@ -52,7 +54,7 @@ export class RaycastingService extends Effect.Service<RaycastingService>()(
           camera: THREE.Camera,
           scene: THREE.Scene,
           maxDistance = DEFAULT_RAY_DISTANCE
-        ): Effect.Effect<RaycastHit | null, never> =>
+        ): Effect.Effect<Option.Option<RaycastHit>, never> =>
           Effect.gen(function* () {
             const raycaster = new THREE.Raycaster()
             raycaster.far = maxDistance
@@ -65,14 +67,14 @@ export class RaycastingService extends Effect.Service<RaycastingService>()(
 
             const hit = intersects[0]
             if (!hit) {
-              return null
+              return Option.none()
             }
 
             const point = hit.point
             const face = hit.face
 
             if (!point || !face) {
-              return null
+              return Option.none()
             }
 
             // Calculate block coordinates from hit point
@@ -81,14 +83,14 @@ export class RaycastingService extends Effect.Service<RaycastingService>()(
             const blockY = Math.floor(point.y - face.normal.y * 0.01)
             const blockZ = Math.floor(point.z - face.normal.z * 0.01)
 
-            return {
+            return Option.some({
               point: { x: point.x, y: point.y, z: point.z },
               normal: { x: face.normal.x, y: face.normal.y, z: face.normal.z },
               distance: hit.distance,
               blockX,
               blockY,
               blockZ,
-            }
+            })
           }),
 
         /**
@@ -106,4 +108,4 @@ export class RaycastingService extends Effect.Service<RaycastingService>()(
     }),
   }
 ) {}
-export { RaycastingService as RaycastingServiceLive }
+export const RaycastingServiceLive = RaycastingService.Default

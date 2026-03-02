@@ -1,13 +1,15 @@
-import { Effect } from 'effect'
+import { Effect, Schema } from 'effect'
 import * as CANNON from 'cannon-es'
 import type { Vector3, Quaternion } from '@/infrastructure/cannon/core'
+import { Vector3Schema, QuaternionSchema } from '@/infrastructure/cannon/core'
 
-export type RigidBodyConfig = {
-  readonly mass: number
-  readonly position: Vector3
-  readonly quaternion: Quaternion
-  readonly type?: 'dynamic' | 'static' | 'kinematic'
-}
+export const RigidBodyConfigSchema = Schema.Struct({
+  mass: Schema.Number,
+  position: Vector3Schema,
+  quaternion: QuaternionSchema,
+  type: Schema.optional(Schema.Literal('dynamic', 'static', 'kinematic')),
+})
+export type RigidBodyConfig = Schema.Schema.Type<typeof RigidBodyConfigSchema>
 
 export class RigidBodyService extends Effect.Service<RigidBodyService>()(
   '@minecraft/infrastructure/cannon/RigidBodyService',
@@ -55,4 +57,4 @@ export class RigidBodyService extends Effect.Service<RigidBodyService>()(
     },
   }
 ) {}
-export { RigidBodyService as RigidBodyServiceLive }
+export const RigidBodyServiceLive = RigidBodyService.Default

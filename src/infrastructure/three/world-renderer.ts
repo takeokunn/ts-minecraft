@@ -144,4 +144,4 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
     dependencies: [ChunkMeshService.Default, SceneService.Default],
   }
 ) {}
-export { WorldRendererService as WorldRendererServiceLive }
+export const WorldRendererServiceLive = WorldRendererService.Default

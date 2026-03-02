@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { Effect, Layer, Option } from 'effect'
 import { StorageService } from '@/infrastructure/storage/storage-service'
+import { StorageError } from '@/domain/errors'
 import { NoiseServiceLive } from '@/infrastructure/noise/noise-service'
 import { BiomeServiceLive } from '@/application/biome/biome-service'
 import { ChunkServiceLive, CHUNK_SIZE, CHUNK_HEIGHT } from '@/domain/chunk'
@@ -16,11 +17,12 @@ const makeInMemoryStorage = () => {
   const metadata = new Map<string, unknown>()
 
   return StorageService.of({
-    initialize: Effect.void,
+    _tag: '@minecraft/infrastructure/storage/StorageService' as const,
+    initialize: Effect.void as Effect.Effect<undefined, StorageError>,
     saveChunk: (worldId, coord, data) =>
       Effect.sync(() => {
         chunks.set(`${worldId}:${coord.x}:${coord.z}`, data)
-      }),
+      }) as Effect.Effect<undefined, StorageError>,
     loadChunk: (worldId, coord) =>
       Effect.sync(() => {
         const data = chunks.get(`${worldId}:${coord.x}:${coord.z}`)
@@ -29,7 +31,7 @@ const makeInMemoryStorage = () => {
     saveWorldMetadata: (worldId, meta) =>
       Effect.sync(() => {
         metadata.set(worldId, meta)
-      }),
+      }) as Effect.Effect<undefined, StorageError>,
     loadWorldMetadata: (worldId) =>
       Effect.sync(() => {
         const data = metadata.get(worldId)
@@ -41,7 +43,7 @@ const makeInMemoryStorage = () => {
           if (key.startsWith(`${worldId}:`)) chunks.delete(key)
         }
         metadata.delete(worldId)
-      }),
+      }) as Effect.Effect<undefined, StorageError>,
   })
 }
 
@@ -51,7 +53,7 @@ const makeInMemoryStorage = () => {
 
 const buildTestLayer = () => {
   const storage = makeInMemoryStorage()
-  const StorageTestLayer = Layer.succeed(StorageService, storage)
+  const StorageTestLayer = Layer.succeed(StorageService, storage as unknown as StorageService)
   const NoiseLayer = NoiseServiceLive
   const BiomeTestLayer = BiomeServiceLive.pipe(Layer.provide(NoiseLayer))
 

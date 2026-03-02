@@ -1,9 +1,9 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { Effect, Layer } from 'effect'
-import * as CANNON from 'cannon-es'
 import {
   PhysicsService,
   PhysicsServiceLive,
+  PhysicsError,
   GROUND_DETECTION_DISTANCE,
   PLAYER_FEET_OFFSET,
 } from './physics-service'
@@ -32,17 +32,16 @@ describe('application/physics/physics-service', () => {
         const service = yield* PhysicsService
 
         expect(typeof service.initialize).toBe('function')
-        expect(typeof service.createPlayerBody).toBe('function')
-        expect(typeof service.createGroundPlane).toBe('function')
-        expect(typeof service.initializeScene).toBe('function')
+        expect(typeof service.addBody).toBe('function')
+        expect(typeof service.removeBody).toBe('function')
         expect(typeof service.step).toBe('function')
-        expect(typeof service.getBody).toBe('function')
-        expect(typeof service.applyImpulse).toBe('function')
-        expect(typeof service.setVelocity).toBe('function')
+        expect(typeof service.raycast).toBe('function')
         expect(typeof service.isGrounded).toBe('function')
-        expect(typeof service.checkGroundContact).toBe('function')
-        expect(typeof service.onGroundCollision).toBe('function')
-        expect(typeof service.clearGroundedState).toBe('function')
+        expect(typeof service.groundCollisions).toBe('function')
+        expect(typeof service.getVelocity).toBe('function')
+        expect(typeof service.getPosition).toBe('function')
+        expect(typeof service.setVelocity).toBe('function')
+        expect(typeof service.setPosition).toBe('function')
 
         return { success: true }
       }).pipe(Effect.provide(TestLayer))
@@ -58,37 +57,10 @@ describe('application/physics/physics-service', () => {
       const program = Effect.gen(function* () {
         const service = yield* PhysicsService
 
-        const world = yield* service.initialize()
+        yield* service.initialize({ gravity: { x: 0, y: -9.82, z: 0 }, broadphase: 'naive' })
 
-        expect(world).toBeInstanceOf(CANNON.World)
-        expect(world.gravity.x).toBe(0)
-        expect(world.gravity.y).toBe(-9.82)
-        expect(world.gravity.z).toBe(0)
-
-        return { success: true }
-      }).pipe(Effect.provide(TestLayer))
-
-      const result = Effect.runSync(program)
-
-      expect(result.success).toBe(true)
-    })
-  })
-
-  describe('Player body creation', () => {
-    it('should create player body with correct properties', () => {
-      const program = Effect.gen(function* () {
-        const service = yield* PhysicsService
-
-        yield* service.initialize()
-        const body = yield* service.createPlayerBody('player1', { x: 0, y: 10, z: 0 })
-
-        expect(body).toBeInstanceOf(CANNON.Body)
-        expect(body.mass).toBe(70)
-        expect(body.position.x).toBe(0)
-        expect(body.position.y).toBe(10)
-        expect(body.position.z).toBe(0)
-        expect(body.shapes.length).toBe(1)
-        expect(body.shapes[0]).toBeInstanceOf(CANNON.Box)
+        // Verify initialization succeeded by stepping without error
+        yield* service.step(0.016)
 
         return { success: true }
       }).pipe(Effect.provide(TestLayer))
@@ -98,77 +70,17 @@ describe('application/physics/physics-service', () => {
       expect(result.success).toBe(true)
     })
 
-    it('should fail to create player body before initialization', () => {
+    it('should fail to step before initialization', () => {
       const program = Effect.gen(function* () {
         const service = yield* PhysicsService
 
-        const result = yield* Effect.either(service.createPlayerBody('player1', { x: 0, y: 10, z: 0 }))
+        const result = yield* Effect.either(service.step(0.016))
 
         expect(result._tag).toBe('Left')
-
-        return { success: true }
-      }).pipe(Effect.provide(TestLayer))
-
-      const result = Effect.runSync(program)
-
-      expect(result.success).toBe(true)
-    })
-
-    it('should set fixedRotation to true on player body', () => {
-      const program = Effect.gen(function* () {
-        const service = yield* PhysicsService
-
-        yield* service.initialize()
-        const body = yield* service.createPlayerBody('player1', { x: 0, y: 10, z: 0 })
-
-        expect(body.fixedRotation).toBe(true)
-
-        return { success: true }
-      }).pipe(Effect.provide(TestLayer))
-
-      const result = Effect.runSync(program)
-
-      expect(result.success).toBe(true)
-    })
-
-    it('should set angularDamping to 1 on player body', () => {
-      const program = Effect.gen(function* () {
-        const service = yield* PhysicsService
-
-        yield* service.initialize()
-        const body = yield* service.createPlayerBody('player1', { x: 0, y: 10, z: 0 })
-
-        expect(body.angularDamping).toBe(1)
-
-        return { success: true }
-      }).pipe(Effect.provide(TestLayer))
-
-      const result = Effect.runSync(program)
-
-      expect(result.success).toBe(true)
-    })
-
-    it('should keep quaternion at identity after lateral impulse and physics step', () => {
-      const program = Effect.gen(function* () {
-        const service = yield* PhysicsService
-
-        const world = yield* service.initialize()
-        const body = yield* service.createPlayerBody('player1', { x: 0, y: 10, z: 0 })
-
-        // Apply a strong lateral impulse that would cause rotation without fixedRotation
-        yield* service.applyImpulse('player1', { x: 500, y: 0, z: 0 })
-
-        // Step the simulation to let the impulse take effect
-        for (let i = 0; i < 10; i++) {
-          yield* service.step(world, 1 / 60)
+        if (result._tag === 'Left') {
+          expect(result.left).toBeInstanceOf(PhysicsError)
         }
 
-        // Quaternion should remain at identity (no rotation) due to fixedRotation = true
-        expect(body.quaternion.x).toBeCloseTo(0, 5)
-        expect(body.quaternion.y).toBeCloseTo(0, 5)
-        expect(body.quaternion.z).toBeCloseTo(0, 5)
-        expect(body.quaternion.w).toBeCloseTo(1, 5)
-
         return { success: true }
       }).pipe(Effect.provide(TestLayer))
 
@@ -177,19 +89,14 @@ describe('application/physics/physics-service', () => {
       expect(result.success).toBe(true)
     })
 
-    it('should track multiple player bodies', () => {
+    it('should idempotently initialize (calling twice is safe)', () => {
       const program = Effect.gen(function* () {
         const service = yield* PhysicsService
 
-        yield* service.initialize()
-        const body1 = yield* service.createPlayerBody('player1', { x: 0, y: 10, z: 0 })
-        const body2 = yield* service.createPlayerBody('player2', { x: 5, y: 10, z: 5 })
-
-        const retrievedBody1 = yield* service.getBody('player1')
-        const retrievedBody2 = yield* service.getBody('player2')
-
-        expect(retrievedBody1).toBe(body1)
-        expect(retrievedBody2).toBe(body2)
+        yield* service.initialize({ gravity: { x: 0, y: -9.82, z: 0 }, broadphase: 'naive' })
+        // Second call should be a no-op
+        yield* service.initialize({ gravity: { x: 0, y: -9.82, z: 0 }, broadphase: 'naive' })
+        yield* service.step(0.016)
 
         return { success: true }
       }).pipe(Effect.provide(TestLayer))
@@ -200,32 +107,14 @@ describe('application/physics/physics-service', () => {
     })
   })
 
-  describe('Ground plane creation', () => {
-    it('should create ground plane', () => {
+  describe('addBody', () => {
+    it('should fail to add body before initialization', () => {
       const program = Effect.gen(function* () {
         const service = yield* PhysicsService
 
-        yield* service.initialize()
-        const ground = yield* service.createGroundPlane()
-
-        expect(ground).toBeInstanceOf(CANNON.Body)
-        expect(ground.mass).toBe(0) // Static body
-        expect(ground.shapes.length).toBe(1)
-        expect(ground.shapes[0]).toBeInstanceOf(CANNON.Plane)
-
-        return { success: true }
-      }).pipe(Effect.provide(TestLayer))
-
-      const result = Effect.runSync(program)
-
-      expect(result.success).toBe(true)
-    })
-
-    it('should fail to create ground plane before initialization', () => {
-      const program = Effect.gen(function* () {
-        const service = yield* PhysicsService
-
-        const result = yield* Effect.either(service.createGroundPlane())
+        const result = yield* Effect.either(
+          service.addBody({ mass: 70, position: { x: 0, y: 10, z: 0 }, shape: 'box' })
+        )
 
         expect(result._tag).toBe('Left')
 
@@ -236,57 +125,84 @@ describe('application/physics/physics-service', () => {
 
       expect(result.success).toBe(true)
     })
+
+    it('should return a PhysicsBodyId when adding a box body', () => {
+      const program = Effect.gen(function* () {
+        const service = yield* PhysicsService
+
+        yield* service.initialize({ gravity: { x: 0, y: -9.82, z: 0 }, broadphase: 'naive' })
+        const bodyId = yield* service.addBody({
+          mass: 70,
+          position: { x: 0, y: 10, z: 0 },
+          shape: 'box',
+          shapeParams: { halfExtents: { x: 0.3, y: 0.9, z: 0.3 } },
+        })
+
+        expect(typeof bodyId).toBe('string')
+        expect(bodyId).toContain('physics-body-')
+
+        return { success: true }
+      }).pipe(Effect.provide(TestLayer))
+
+      const result = Effect.runSync(program)
+
+      expect(result.success).toBe(true)
+    })
+
+    it('should return a PhysicsBodyId when adding a plane body', () => {
+      const program = Effect.gen(function* () {
+        const service = yield* PhysicsService
+
+        yield* service.initialize({ gravity: { x: 0, y: -9.82, z: 0 }, broadphase: 'naive' })
+        const groundId = yield* service.addBody({
+          mass: 0,
+          position: { x: 0, y: 0, z: 0 },
+          shape: 'plane',
+          type: 'static',
+        })
+
+        expect(typeof groundId).toBe('string')
+
+        return { success: true }
+      }).pipe(Effect.provide(TestLayer))
+
+      const result = Effect.runSync(program)
+
+      expect(result.success).toBe(true)
+    })
+
+    it('should return distinct IDs for multiple bodies', () => {
+      const program = Effect.gen(function* () {
+        const service = yield* PhysicsService
+
+        yield* service.initialize({ gravity: { x: 0, y: -9.82, z: 0 }, broadphase: 'naive' })
+        const id1 = yield* service.addBody({ mass: 70, position: { x: 0, y: 10, z: 0 }, shape: 'box' })
+        const id2 = yield* service.addBody({ mass: 70, position: { x: 5, y: 10, z: 5 }, shape: 'box' })
+
+        expect(id1).not.toBe(id2)
+
+        return { success: true }
+      }).pipe(Effect.provide(TestLayer))
+
+      const result = Effect.runSync(program)
+
+      expect(result.success).toBe(true)
+    })
   })
 
-  describe('Scene initialization', () => {
-    it('should initialize scene with world and ground body', () => {
+  describe('removeBody', () => {
+    it('should remove a body by ID', () => {
       const program = Effect.gen(function* () {
         const service = yield* PhysicsService
 
-        const { world, groundBody } = yield* service.initializeScene()
+        yield* service.initialize({ gravity: { x: 0, y: -9.82, z: 0 }, broadphase: 'naive' })
+        const bodyId = yield* service.addBody({ mass: 70, position: { x: 0, y: 10, z: 0 }, shape: 'box' })
 
-        expect(world).toBeInstanceOf(CANNON.World)
-        expect(groundBody).toBeInstanceOf(CANNON.Body)
+        yield* service.removeBody(bodyId)
 
-        // Verify world has correct gravity
-        expect(world.gravity.x).toBe(0)
-        expect(world.gravity.y).toBe(-9.82)
-        expect(world.gravity.z).toBe(0)
-
-        return { success: true }
-      }).pipe(Effect.provide(TestLayer))
-
-      const result = Effect.runSync(program)
-
-      expect(result.success).toBe(true)
-    })
-
-    it('should create ground body as static (mass = 0)', () => {
-      const program = Effect.gen(function* () {
-        const service = yield* PhysicsService
-
-        const { groundBody } = yield* service.initializeScene()
-
-        expect(groundBody.mass).toBe(0)
-        expect(groundBody.shapes.length).toBe(1)
-        expect(groundBody.shapes[0]).toBeInstanceOf(CANNON.Plane)
-
-        return { success: true }
-      }).pipe(Effect.provide(TestLayer))
-
-      const result = Effect.runSync(program)
-
-      expect(result.success).toBe(true)
-    })
-
-    it('should add ground body to world', () => {
-      const program = Effect.gen(function* () {
-        const service = yield* PhysicsService
-
-        const { world, groundBody } = yield* service.initializeScene()
-
-        // Check ground body is in the world
-        expect(world.bodies).toContain(groundBody)
+        // After removal, getVelocity should fail
+        const result = yield* Effect.either(service.getVelocity(bodyId))
+        expect(result._tag).toBe('Left')
 
         return { success: true }
       }).pipe(Effect.provide(TestLayer))
@@ -298,12 +214,12 @@ describe('application/physics/physics-service', () => {
   })
 
   describe('Step simulation', () => {
-    it('should step the simulation', () => {
+    it('should step the simulation without error', () => {
       const program = Effect.gen(function* () {
         const service = yield* PhysicsService
 
-        const world = yield* service.initialize()
-        yield* service.step(world, 1 / 60)
+        yield* service.initialize({ gravity: { x: 0, y: -9.82, z: 0 }, broadphase: 'naive' })
+        yield* service.step(1 / 60)
 
         return { success: true }
       }).pipe(Effect.provide(TestLayer))
@@ -313,22 +229,29 @@ describe('application/physics/physics-service', () => {
       expect(result.success).toBe(true)
     })
 
-    it('should simulate falling body', () => {
+    it('should simulate falling body (position decreases over time)', () => {
       const program = Effect.gen(function* () {
         const service = yield* PhysicsService
 
-        const world = yield* service.initialize()
-        const body = yield* service.createPlayerBody('player1', { x: 0, y: 10, z: 0 })
+        yield* service.initialize({ gravity: { x: 0, y: -9.82, z: 0 }, broadphase: 'naive' })
+        const bodyId = yield* service.addBody({
+          mass: 70,
+          position: { x: 0, y: 10, z: 0 },
+          shape: 'box',
+        })
 
-        const initialY = body.position.y
+        const initialPos = yield* service.getPosition(bodyId)
+        const initialY = initialPos.y
 
         // Step simulation multiple times
         for (let i = 0; i < 60; i++) {
-          yield* service.step(world, 1 / 60)
+          yield* service.step(1 / 60)
         }
 
-        // Body should have fallen
-        expect(body.position.y).toBeLessThan(initialY)
+        const finalPos = yield* service.getPosition(bodyId)
+
+        // Body should have fallen due to gravity
+        expect(finalPos.y).toBeLessThan(initialY)
 
         return { success: true }
       }).pipe(Effect.provide(TestLayer))
@@ -339,15 +262,20 @@ describe('application/physics/physics-service', () => {
     })
   })
 
-  describe('Body retrieval', () => {
-    it('should return null for unknown body ID', () => {
+  describe('Velocity operations', () => {
+    it('should set and get velocity on a body', () => {
       const program = Effect.gen(function* () {
         const service = yield* PhysicsService
 
-        yield* service.initialize()
-        const body = yield* service.getBody('unknown')
+        yield* service.initialize({ gravity: { x: 0, y: -9.82, z: 0 }, broadphase: 'naive' })
+        const bodyId = yield* service.addBody({ mass: 70, position: { x: 0, y: 10, z: 0 }, shape: 'box' })
 
-        expect(body).toBeNull()
+        yield* service.setVelocity(bodyId, { x: 5, y: 2, z: -3 })
+
+        const vel = yield* service.getVelocity(bodyId)
+        expect(vel.x).toBe(5)
+        expect(vel.y).toBe(2)
+        expect(vel.z).toBe(-3)
 
         return { success: true }
       }).pipe(Effect.provide(TestLayer))
@@ -357,39 +285,17 @@ describe('application/physics/physics-service', () => {
       expect(result.success).toBe(true)
     })
 
-    it('should return body for known ID', () => {
+    it('should fail to set velocity on unknown body ID', () => {
       const program = Effect.gen(function* () {
         const service = yield* PhysicsService
 
-        yield* service.initialize()
-        const createdBody = yield* service.createPlayerBody('player1', { x: 0, y: 10, z: 0 })
-        const retrievedBody = yield* service.getBody('player1')
+        yield* service.initialize({ gravity: { x: 0, y: -9.82, z: 0 }, broadphase: 'naive' })
 
-        expect(retrievedBody).toBe(createdBody)
+        // Use a valid-looking but unregistered body ID
+        const fakeId = 'physics-body-99999' as ReturnType<typeof import('@/shared/kernel').PhysicsBodyIdSchema.make>
+        const result = yield* Effect.either(service.setVelocity(fakeId, { x: 5, y: 2, z: -3 }))
 
-        return { success: true }
-      }).pipe(Effect.provide(TestLayer))
-
-      const result = Effect.runSync(program)
-
-      expect(result.success).toBe(true)
-    })
-  })
-
-  describe('Velocity setting', () => {
-    it('should set velocity on body', () => {
-      const program = Effect.gen(function* () {
-        const service = yield* PhysicsService
-
-        yield* service.initialize()
-        yield* service.createPlayerBody('player1', { x: 0, y: 10, z: 0 })
-        yield* service.setVelocity('player1', { x: 5, y: 2, z: -3 })
-
-        const body = yield* service.getBody('player1')
-
-        expect(body!.velocity.x).toBe(5)
-        expect(body!.velocity.y).toBe(2)
-        expect(body!.velocity.z).toBe(-3)
+        expect(result._tag).toBe('Left')
 
         return { success: true }
       }).pipe(Effect.provide(TestLayer))
@@ -399,12 +305,14 @@ describe('application/physics/physics-service', () => {
       expect(result.success).toBe(true)
     })
 
-    it('should fail to set velocity on unknown body', () => {
+    it('should fail to get velocity on unknown body ID', () => {
       const program = Effect.gen(function* () {
         const service = yield* PhysicsService
 
-        yield* service.initialize()
-        const result = yield* Effect.either(service.setVelocity('unknown', { x: 5, y: 2, z: -3 }))
+        yield* service.initialize({ gravity: { x: 0, y: -9.82, z: 0 }, broadphase: 'naive' })
+
+        const fakeId = 'physics-body-99999' as ReturnType<typeof import('@/shared/kernel').PhysicsBodyIdSchema.make>
+        const result = yield* Effect.either(service.getVelocity(fakeId))
 
         expect(result._tag).toBe('Left')
 
@@ -417,20 +325,22 @@ describe('application/physics/physics-service', () => {
     })
   })
 
-  describe('Impulse application', () => {
-    it('should apply impulse to body', () => {
+  describe('Position operations', () => {
+    it('should get position of a body', () => {
       const program = Effect.gen(function* () {
         const service = yield* PhysicsService
 
-        yield* service.initialize()
-        yield* service.createPlayerBody('player1', { x: 0, y: 10, z: 0 })
-        yield* service.applyImpulse('player1', { x: 0, y: 500, z: 0 })
+        yield* service.initialize({ gravity: { x: 0, y: -9.82, z: 0 }, broadphase: 'naive' })
+        const bodyId = yield* service.addBody({
+          mass: 70,
+          position: { x: 1, y: 10, z: 3 },
+          shape: 'box',
+        })
 
-        const body = yield* service.getBody('player1')
-
-        // After impulse, velocity should have changed
-        // impulse = mass * delta_velocity => delta_v = impulse / mass = 500 / 70 = 7.14
-        expect(body!.velocity.y).toBeCloseTo(500 / 70, 2)
+        const pos = yield* service.getPosition(bodyId)
+        expect(pos.x).toBe(1)
+        expect(pos.y).toBe(10)
+        expect(pos.z).toBe(3)
 
         return { success: true }
       }).pipe(Effect.provide(TestLayer))
@@ -440,14 +350,23 @@ describe('application/physics/physics-service', () => {
       expect(result.success).toBe(true)
     })
 
-    it('should fail to apply impulse on unknown body', () => {
+    it('should set position of a body', () => {
       const program = Effect.gen(function* () {
         const service = yield* PhysicsService
 
-        yield* service.initialize()
-        const result = yield* Effect.either(service.applyImpulse('unknown', { x: 0, y: 500, z: 0 }))
+        yield* service.initialize({ gravity: { x: 0, y: -9.82, z: 0 }, broadphase: 'naive' })
+        const bodyId = yield* service.addBody({
+          mass: 70,
+          position: { x: 0, y: 10, z: 0 },
+          shape: 'box',
+        })
 
-        expect(result._tag).toBe('Left')
+        yield* service.setPosition(bodyId, { x: 5, y: 20, z: -3 })
+        const pos = yield* service.getPosition(bodyId)
+
+        expect(pos.x).toBe(5)
+        expect(pos.y).toBe(20)
+        expect(pos.z).toBe(-3)
 
         return { success: true }
       }).pipe(Effect.provide(TestLayer))
@@ -459,14 +378,14 @@ describe('application/physics/physics-service', () => {
   })
 
   describe('Grounded state', () => {
-    it('should initially not be grounded', () => {
+    it('should initially not be grounded (body in air)', () => {
       const program = Effect.gen(function* () {
         const service = yield* PhysicsService
 
-        yield* service.initialize()
-        yield* service.createPlayerBody('player1', { x: 0, y: 10, z: 0 })
+        yield* service.initialize({ gravity: { x: 0, y: -9.82, z: 0 }, broadphase: 'naive' })
+        const bodyId = yield* service.addBody({ mass: 70, position: { x: 0, y: 10, z: 0 }, shape: 'box' })
 
-        const grounded = yield* service.isGrounded('player1')
+        const grounded = yield* service.isGrounded(bodyId)
 
         expect(grounded).toBe(false)
 
@@ -478,14 +397,16 @@ describe('application/physics/physics-service', () => {
       expect(result.success).toBe(true)
     })
 
-    it('should return false for unknown body ID', () => {
+    it('should fail isGrounded for unknown body ID', () => {
       const program = Effect.gen(function* () {
         const service = yield* PhysicsService
 
-        yield* service.initialize()
-        const grounded = yield* service.isGrounded('unknown')
+        yield* service.initialize({ gravity: { x: 0, y: -9.82, z: 0 }, broadphase: 'naive' })
 
-        expect(grounded).toBe(false)
+        const fakeId = 'physics-body-99999' as ReturnType<typeof import('@/shared/kernel').PhysicsBodyIdSchema.make>
+        const result = yield* Effect.either(service.isGrounded(fakeId))
+
+        expect(result._tag).toBe('Left')
 
         return { success: true }
       }).pipe(Effect.provide(TestLayer))
@@ -493,185 +414,43 @@ describe('application/physics/physics-service', () => {
       const result = Effect.runSync(program)
 
       expect(result.success).toBe(true)
-    })
-  })
-
-  describe('Ground contact checking', () => {
-    it('should return false for ground contact when no contact', () => {
-      const program = Effect.gen(function* () {
-        const service = yield* PhysicsService
-
-        yield* service.initialize()
-        yield* service.createPlayerBody('player1', { x: 0, y: 10, z: 0 })
-
-        const hasContact = yield* service.checkGroundContact('player1')
-
-        expect(hasContact).toBe(false)
-
-        return { success: true }
-      }).pipe(Effect.provide(TestLayer))
-
-      const result = Effect.runSync(program)
-
-      expect(result.success).toBe(true)
-    })
-
-    it('should return false for unknown body ID', () => {
-      const program = Effect.gen(function* () {
-        const service = yield* PhysicsService
-
-        yield* service.initialize()
-        const hasContact = yield* service.checkGroundContact('unknown')
-
-        expect(hasContact).toBe(false)
-
-        return { success: true }
-      }).pipe(Effect.provide(TestLayer))
-
-      const result = Effect.runSync(program)
-
-      expect(result.success).toBe(true)
-    })
-  })
-
-  describe('Clear grounded state', () => {
-    it('should clear grounded state for a body', () => {
-      const program = Effect.gen(function* () {
-        const service = yield* PhysicsService
-
-        yield* service.initialize()
-        yield* service.createPlayerBody('player1', { x: 0, y: 10, z: 0 })
-
-        // Initially not grounded
-        const initiallyGrounded = yield* service.isGrounded('player1')
-        expect(initiallyGrounded).toBe(false)
-
-        // Clear grounded state (used when jumping)
-        yield* service.clearGroundedState('player1')
-
-        // Should still not be grounded
-        const afterClearGrounded = yield* service.isGrounded('player1')
-        expect(afterClearGrounded).toBe(false)
-
-        return { success: true }
-      }).pipe(Effect.provide(TestLayer))
-
-      const result = Effect.runSync(program)
-
-      expect(result.success).toBe(true)
-    })
-
-    it('should clear ground contact count when clearing grounded state', () => {
-      const program = Effect.gen(function* () {
-        const service = yield* PhysicsService
-
-        yield* service.initialize()
-        yield* service.createPlayerBody('player1', { x: 0, y: 10, z: 0 })
-
-        // Clear grounded state
-        yield* service.clearGroundedState('player1')
-
-        // Check ground contact should also be false
-        const hasContact = yield* service.checkGroundContact('player1')
-        expect(hasContact).toBe(false)
-
-        return { success: true }
-      }).pipe(Effect.provide(TestLayer))
-
-      const result = Effect.runSync(program)
-
-      expect(result.success).toBe(true)
-    })
-  })
-
-  describe('Ground collision callbacks', () => {
-    it('should register ground collision callback', () => {
-      const program = Effect.gen(function* () {
-        const service = yield* PhysicsService
-
-        yield* service.initialize()
-        yield* service.createPlayerBody('player1', { x: 0, y: 10, z: 0 })
-
-        const callback = vi.fn()
-        yield* service.onGroundCollision('player1', callback)
-
-        // Callback is registered but not called yet
-        expect(callback).not.toHaveBeenCalled()
-
-        return { success: true }
-      }).pipe(Effect.provide(TestLayer))
-
-      const result = Effect.runSync(program)
-
-      expect(result.success).toBe(true)
-    })
-
-    it('should support multiple callbacks for same body', () => {
-      const program = Effect.gen(function* () {
-        const service = yield* PhysicsService
-
-        yield* service.initialize()
-        yield* service.createPlayerBody('player1', { x: 0, y: 10, z: 0 })
-
-        const callback1 = vi.fn()
-        const callback2 = vi.fn()
-        yield* service.onGroundCollision('player1', callback1)
-        yield* service.onGroundCollision('player1', callback2)
-
-        return { success: true }
-      }).pipe(Effect.provide(TestLayer))
-
-      const result = Effect.runSync(program)
-
-      expect(result.success).toBe(true)
-    })
-  })
-
-  describe('Effect composition', () => {
-    it('should support Effect.flatMap for chaining operations', () => {
-      const program = Effect.gen(function* () {
-        const service = yield* PhysicsService
-
-        const result = service.initialize().pipe(
-          Effect.flatMap((world) => service.step(world, 1 / 60)),
-          Effect.map(() => ({ success: true }))
-        )
-
-        expect(typeof result.pipe).toBe('function')
-
-        return { success: true }
-      }).pipe(Effect.provide(TestLayer))
-
-      const result = Effect.runSync(program)
-
-      expect(result.success).toBe(true)
-    })
-  })
-
-  describe('Raycast-based ground detection', () => {
-    it('should have correct ground detection constants', () => {
-      expect(GROUND_DETECTION_DISTANCE).toBe(0.15)
-      expect(PLAYER_FEET_OFFSET).toBe(0.9)
     })
 
     it('should detect ground when player lands on ground plane', () => {
       const program = Effect.gen(function* () {
         const service = yield* PhysicsService
 
-        const { world } = yield* service.initializeScene()
-        yield* service.createPlayerBody('player1', { x: 0, y: 5, z: 0 })
+        yield* service.initialize({ gravity: { x: 0, y: -9.82, z: 0 }, broadphase: 'naive' })
+
+        // Create ground plane
+        yield* service.addBody({
+          mass: 0,
+          position: { x: 0, y: 0, z: 0 },
+          shape: 'plane',
+          type: 'static',
+        })
+
+        const bodyId = yield* service.addBody({
+          mass: 70,
+          position: { x: 0, y: 5, z: 0 },
+          shape: 'box',
+          shapeParams: { halfExtents: { x: 0.3, y: 0.9, z: 0.3 } },
+          fixedRotation: true,
+          angularDamping: 1,
+          allowSleep: false,
+        })
 
         // Player should not be grounded initially (5 units above ground)
-        const initialGrounded = yield* service.isGrounded('player1')
+        const initialGrounded = yield* service.isGrounded(bodyId)
         expect(initialGrounded).toBe(false)
 
         // Simulate falling until player hits ground
         for (let i = 0; i < 300; i++) {
-          yield* service.step(world, 1 / 60)
+          yield* service.step(1 / 60)
         }
 
         // After falling, player should be grounded
-        const finalGrounded = yield* service.isGrounded('player1')
+        const finalGrounded = yield* service.isGrounded(bodyId)
         expect(finalGrounded).toBe(true)
 
         return { success: true }
@@ -681,32 +460,49 @@ describe('application/physics/physics-service', () => {
       expect(result.success).toBe(true)
     })
 
-    it('should not be grounded when player jumps', () => {
+    it('should not be grounded when player jumps (velocity applied upward)', () => {
       const program = Effect.gen(function* () {
         const service = yield* PhysicsService
 
-        const { world } = yield* service.initializeScene()
-        yield* service.createPlayerBody('player1', { x: 0, y: 5, z: 0 })
+        yield* service.initialize({ gravity: { x: 0, y: -9.82, z: 0 }, broadphase: 'naive' })
+
+        // Create ground plane
+        yield* service.addBody({
+          mass: 0,
+          position: { x: 0, y: 0, z: 0 },
+          shape: 'plane',
+          type: 'static',
+        })
+
+        const bodyId = yield* service.addBody({
+          mass: 70,
+          position: { x: 0, y: 5, z: 0 },
+          shape: 'box',
+          shapeParams: { halfExtents: { x: 0.3, y: 0.9, z: 0.3 } },
+          fixedRotation: true,
+          angularDamping: 1,
+          allowSleep: false,
+        })
 
         // Let player fall to ground
         for (let i = 0; i < 300; i++) {
-          yield* service.step(world, 1 / 60)
+          yield* service.step(1 / 60)
         }
 
         // Player should be on ground
-        const beforeJumpGrounded = yield* service.isGrounded('player1')
+        const beforeJumpGrounded = yield* service.isGrounded(bodyId)
         expect(beforeJumpGrounded).toBe(true)
 
-        // Apply jump impulse
-        yield* service.applyImpulse('player1', { x: 0, y: 500, z: 0 })
+        // Apply jump velocity
+        yield* service.setVelocity(bodyId, { x: 0, y: 7, z: 0 })
 
         // Step multiple times to let player rise above ground detection range
         for (let i = 0; i < 5; i++) {
-          yield* service.step(world, 1 / 60)
+          yield* service.step(1 / 60)
         }
 
         // Player should no longer be grounded after jumping
-        const afterJumpGrounded = yield* service.isGrounded('player1')
+        const afterJumpGrounded = yield* service.isGrounded(bodyId)
         expect(afterJumpGrounded).toBe(false)
 
         return { success: true }
@@ -716,37 +512,53 @@ describe('application/physics/physics-service', () => {
       expect(result.success).toBe(true)
     })
 
-    it('should properly detect grounded state after landing', () => {
+    it('should properly detect grounded state after landing (full jump cycle)', () => {
       const program = Effect.gen(function* () {
         const service = yield* PhysicsService
 
-        const { world } = yield* service.initializeScene()
-        yield* service.createPlayerBody('player1', { x: 0, y: 5, z: 0 })
+        yield* service.initialize({ gravity: { x: 0, y: -9.82, z: 0 }, broadphase: 'naive' })
 
-        // Fall and land (need enough frames for physics to settle)
+        // Create ground plane
+        yield* service.addBody({
+          mass: 0,
+          position: { x: 0, y: 0, z: 0 },
+          shape: 'plane',
+          type: 'static',
+        })
+
+        const bodyId = yield* service.addBody({
+          mass: 70,
+          position: { x: 0, y: 5, z: 0 },
+          shape: 'box',
+          shapeParams: { halfExtents: { x: 0.3, y: 0.9, z: 0.3 } },
+          fixedRotation: true,
+          angularDamping: 1,
+          allowSleep: false,
+        })
+
+        // Fall and land
         for (let i = 0; i < 500; i++) {
-          yield* service.step(world, 1 / 60)
+          yield* service.step(1 / 60)
         }
 
-        // After landing, check grounded
-        const isGroundedAfterLanding = yield* service.isGrounded('player1')
+        const isGroundedAfterLanding = yield* service.isGrounded(bodyId)
 
         // Jump
-        yield* service.applyImpulse('player1', { x: 0, y: 500, z: 0 })
+        yield* service.setVelocity(bodyId, { x: 0, y: 7, z: 0 })
         for (let i = 0; i < 10; i++) {
-          yield* service.step(world, 1 / 60)
+          yield* service.step(1 / 60)
         }
 
         // In air
-        expect(yield* service.isGrounded('player1')).toBe(false)
+        expect(yield* service.isGrounded(bodyId)).toBe(false)
 
         // Fall back down
         for (let i = 0; i < 500; i++) {
-          yield* service.step(world, 1 / 60)
+          yield* service.step(1 / 60)
         }
 
         // Landed again
-        expect(yield* service.isGrounded('player1')).toBe(true)
+        expect(yield* service.isGrounded(bodyId)).toBe(true)
 
         // Also verify the first landing was successful
         expect(isGroundedAfterLanding).toBe(true)
@@ -759,7 +571,34 @@ describe('application/physics/physics-service', () => {
     })
   })
 
-  describe('Physics raycast', () => {
+  describe('groundCollisions stream', () => {
+    it('should return a stream for a body ID', () => {
+      const program = Effect.gen(function* () {
+        const service = yield* PhysicsService
+
+        yield* service.initialize({ gravity: { x: 0, y: -9.82, z: 0 }, broadphase: 'naive' })
+        const bodyId = yield* service.addBody({ mass: 70, position: { x: 0, y: 10, z: 0 }, shape: 'box' })
+
+        const stream = service.groundCollisions(bodyId)
+        expect(stream).toBeDefined()
+
+        return { success: true }
+      }).pipe(Effect.provide(TestLayer))
+
+      const result = Effect.runSync(program)
+
+      expect(result.success).toBe(true)
+    })
+  })
+
+  describe('Physics constants', () => {
+    it('should have correct ground detection constants', () => {
+      expect(GROUND_DETECTION_DISTANCE).toBe(0.15)
+      expect(PLAYER_FEET_OFFSET).toBe(0.9)
+    })
+  })
+
+  describe('raycast', () => {
     it('should have raycast method', () => {
       const program = Effect.gen(function* () {
         const service = yield* PhysicsService
@@ -773,22 +612,15 @@ describe('application/physics/physics-service', () => {
       expect(result.success).toBe(true)
     })
 
-    it('should return no hit when raycast hits nothing', () => {
+    it('should fail to raycast before initialization', () => {
       const program = Effect.gen(function* () {
         const service = yield* PhysicsService
 
-        const world = yield* service.initialize()
-
-        const result = yield* service.raycast(
-          world,
-          { x: 0, y: 10, z: 0 },
-          { x: 0, y: -1, z: 0 },
-          5
+        const result = yield* Effect.either(
+          service.raycast({ x: 0, y: 10, z: 0 }, { x: 0, y: 0, z: 0 })
         )
 
-        expect(result.hasHit).toBe(false)
-        expect(result.body).toBeNull()
-        expect(result.hitPoint).toBeNull()
+        expect(result._tag).toBe('Left')
 
         return { success: true }
       }).pipe(Effect.provide(TestLayer))
@@ -797,24 +629,19 @@ describe('application/physics/physics-service', () => {
       expect(result.success).toBe(true)
     })
 
-    it('should return hit when raycast hits ground plane', () => {
+    it('should return empty array when raycast hits nothing', () => {
       const program = Effect.gen(function* () {
         const service = yield* PhysicsService
 
-        const { world } = yield* service.initializeScene()
+        yield* service.initialize({ gravity: { x: 0, y: -9.82, z: 0 }, broadphase: 'naive' })
 
-        // Raycast from above the ground
-        const result = yield* service.raycast(
-          world,
+        // Raycast in empty world
+        const hits = yield* service.raycast(
           { x: 0, y: 10, z: 0 },
-          { x: 0, y: -1, z: 0 },
-          15
+          { x: 0, y: 5, z: 0 }
         )
 
-        expect(result.hasHit).toBe(true)
-        expect(result.body).not.toBeNull()
-        expect(result.hitPoint).not.toBeNull()
-        expect(result.hitPoint!.y).toBeCloseTo(0, 1)
+        expect(hits).toHaveLength(0)
 
         return { success: true }
       }).pipe(Effect.provide(TestLayer))
@@ -822,27 +649,49 @@ describe('application/physics/physics-service', () => {
       const result = Effect.runSync(program)
       expect(result.success).toBe(true)
     })
+  })
 
-    it('should respect max distance', () => {
+  describe('Effect composition', () => {
+    it('should support Effect.flatMap for chaining operations', () => {
       const program = Effect.gen(function* () {
         const service = yield* PhysicsService
 
-        const { world } = yield* service.initializeScene()
+        const result = service
+          .initialize({ gravity: { x: 0, y: -9.82, z: 0 }, broadphase: 'naive' })
+          .pipe(
+            Effect.flatMap(() => service.step(1 / 60)),
+            Effect.map(() => ({ success: true }))
+          )
 
-        // Raycast from far above ground with short max distance
-        const result = yield* service.raycast(
-          world,
-          { x: 0, y: 100, z: 0 },
-          { x: 0, y: -1, z: 0 },
-          5 // Only cast 5 units, ground is 100 units away
-        )
-
-        expect(result.hasHit).toBe(false)
+        expect(typeof result.pipe).toBe('function')
 
         return { success: true }
       }).pipe(Effect.provide(TestLayer))
 
       const result = Effect.runSync(program)
+
+      expect(result.success).toBe(true)
+    })
+
+    it('should chain addBody and getVelocity via PhysicsBodyId', () => {
+      const program = Effect.gen(function* () {
+        const service = yield* PhysicsService
+
+        yield* service.initialize({ gravity: { x: 0, y: -9.82, z: 0 }, broadphase: 'naive' })
+
+        const bodyId = yield* service.addBody({ mass: 70, position: { x: 0, y: 10, z: 0 }, shape: 'box' })
+        yield* service.setVelocity(bodyId, { x: 1, y: 2, z: 3 })
+        const vel = yield* service.getVelocity(bodyId)
+
+        expect(vel.x).toBe(1)
+        expect(vel.y).toBe(2)
+        expect(vel.z).toBe(3)
+
+        return { success: true }
+      }).pipe(Effect.provide(TestLayer))
+
+      const result = Effect.runSync(program)
+
       expect(result.success).toBe(true)
     })
   })

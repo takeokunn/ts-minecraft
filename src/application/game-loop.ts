@@ -1,13 +1,13 @@
-import { Effect, Queue, Ref, Fiber } from 'effect'
+import { Effect, Queue, Ref, Fiber, Schema, Cause } from 'effect'
 import { GameLoopError } from '@/domain/errors'
 
 /**
  * Frame command type for queue-based game loop
  */
-export type FrameCommand = {
-  readonly _tag: 'Tick'
-  readonly timestamp: number
-}
+export const FrameCommandSchema = Schema.TaggedStruct('Tick', {
+  timestamp: Schema.Number,
+})
+export type FrameCommand = Schema.Schema.Type<typeof FrameCommandSchema>
 
 /**
  * Maximum queue capacity for frame commands
@@ -77,11 +77,11 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
 
               const now = performance.now()
 
-              Effect.runPromise(
-                Queue.offer(frameQueue, { _tag: 'Tick', timestamp: now })
-              ).catch((e) =>
-                Effect.runSync(
-                  Effect.logError(`Frame queue error: ${String(e)}`)
+              Effect.runFork(
+                Queue.offer(frameQueue, { _tag: 'Tick', timestamp: now }).pipe(
+                  Effect.catchAllCause(cause =>
+                    Effect.logError(`Frame queue error: ${Cause.pretty(cause)}`)
+                  )
                 )
               )
 
@@ -128,4 +128,4 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
   }
 ) {}
 
-export { GameLoopService as GameLoopServiceLive }
+export const GameLoopServiceLive = GameLoopService.Default

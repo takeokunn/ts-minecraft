@@ -1,6 +1,16 @@
-import { Effect, Layer } from 'effect'
+import { Effect, Option, Schema } from 'effect'
 import * as THREE from 'three'
 import { RaycastHit, RaycastingService } from '../../application/raycasting/raycasting-service'
+
+/**
+ * Schema for block target coordinates (integer block positions)
+ */
+export const BlockTargetSchema = Schema.Struct({
+  x: Schema.Int,
+  y: Schema.Int,
+  z: Schema.Int,
+})
+export type BlockTarget = Schema.Schema.Type<typeof BlockTargetSchema>
 
 /**
  * Default highlight color (black wireframe)
@@ -41,7 +51,7 @@ export class BlockHighlight extends Effect.Service<BlockHighlight>()(
       // Wireframe cube mesh for highlighting
       let highlightMesh: THREE.LineSegments | null = null
       // Current target block coordinates
-      let currentTarget: { x: number; y: number; z: number } | null = null
+      let currentTarget: BlockTarget | null = null
       // Full raycast hit for current target (includes surface normal for placement)
       let currentHit: RaycastHit | null = null
 
@@ -66,9 +76,10 @@ export class BlockHighlight extends Effect.Service<BlockHighlight>()(
           Effect.gen(function* () {
             if (!highlightMesh) return
 
-            const hit = yield* raycastingService.raycastFromCamera(camera, scene)
+            const hitOption = yield* raycastingService.raycastFromCamera(camera, scene)
 
-            if (hit) {
+            if (Option.isSome(hitOption)) {
+              const hit = hitOption.value
               // Position highlight at block coordinates (center of the block)
               highlightMesh.position.set(
                 hit.blockX + 0.5,
@@ -100,7 +111,7 @@ export class BlockHighlight extends Effect.Service<BlockHighlight>()(
          * Get the current target block coordinates
          * @returns The block coordinates or null if no block is targeted
          */
-        getTargetBlock: (): Effect.Effect<{ x: number; y: number; z: number } | null, never> =>
+        getTargetBlock: (): Effect.Effect<BlockTarget | null, never> =>
           Effect.sync(() => currentTarget),
 
         /**
@@ -114,4 +125,4 @@ export class BlockHighlight extends Effect.Service<BlockHighlight>()(
     }),
   }
 ) {}
-export { BlockHighlight as BlockHighlightLive }
+export const BlockHighlightLive = BlockHighlight.Default

@@ -1,13 +1,15 @@
 export {
   PhysicsService,
   PhysicsServiceLive,
+  PhysicsError,
   GROUND_DETECTION_DISTANCE,
   PLAYER_FEET_OFFSET,
 } from './physics-service'
 
 export type {
   PhysicsBody,
-  PhysicsRaycastResult,
+  PhysicsRaycastHit,
+  AddBodyConfig,
 } from './physics-service'
 
 export {
@@ -24,9 +26,4 @@ export {
   zeroPosition,
   addVelocities,
   scaleVelocity,
-} from './physics-utils'
-
-export type {
-  Position,
-  Velocity,
 } from './physics-utils'

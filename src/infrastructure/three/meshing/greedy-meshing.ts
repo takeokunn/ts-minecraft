@@ -1,4 +1,5 @@
-import { Chunk, CHUNK_SIZE, CHUNK_HEIGHT } from '@/domain/chunk'
+import { Schema } from 'effect'
+import { Chunk, CHUNK_SIZE, CHUNK_HEIGHT, blockIndex } from '@/domain/chunk'
 import { getTileIndex, getTileUVs, FaceDir } from '../textures/block-texture-map'
 
 export interface MeshedChunk {
@@ -10,19 +11,17 @@ export interface MeshedChunk {
   blockPositions: Array<{ x: number; y: number; z: number }>
 }
 
-export interface ChunkWorldOffset {
-  readonly wx: number
-  readonly wz: number
-}
+export const ChunkWorldOffsetSchema = Schema.Struct({
+  wx: Schema.Number,
+  wz: Schema.Number,
+})
+export type ChunkWorldOffset = Schema.Schema.Type<typeof ChunkWorldOffsetSchema>
 
 const AIR = 0
 
 const getBlock = (chunk: Chunk, lx: number, y: number, lz: number): number => {
-  if (lx < 0 || lx >= CHUNK_SIZE || lz < 0 || lz >= CHUNK_SIZE || y < 0 || y >= CHUNK_HEIGHT) {
-    return AIR
-  }
-  const idx = y + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE
-  return chunk.blocks[idx] ?? AIR
+  const idx = blockIndex(lx, y, lz)
+  return idx !== null ? chunk.blocks[idx] ?? AIR : AIR
 }
 
 const isAir = (chunk: Chunk, lx: number, y: number, lz: number): boolean =>
@@ -130,6 +129,63 @@ const addQuad = (
   acc.blockPositions.push(worldPos)
 }
 
+// ─── Shared greedy expansion ────────────────────────────────────────────────
+//
+// Runs the 2-D greedy-merge loop over a pre-built face mask.
+// The mask is a flat Uint16Array of size (uSize × vSize) where each cell
+// encodes `blockId | (ao << 4)`, or 0 for "no face here".
+//
+// For each maximal rectangle found the callback `emitQuad` is invoked with
+// (u0, v0, du, dv, blockId, ao) so the caller can build axis-specific vertices.
+
+type EmitQuad = (
+  u0: number,
+  v0: number,
+  du: number,
+  dv: number,
+  blockId: number,
+  ao: number
+) => void
+
+const runGreedyExpansion = (
+  mask: Uint16Array,
+  uSize: number,
+  vSize: number,
+  emitQuad: EmitQuad
+): void => {
+  const done = new Uint8Array(uSize * vSize)
+  for (let u = 0; u < uSize; u++) {
+    for (let v = 0; v < vSize; v++) {
+      const mi = u * vSize + v
+      const maskValue = mask[mi]
+      if (!maskValue || done[mi]) continue
+      const blockId = maskValue & 0xF
+      const ao = (maskValue >> 4) & 0x3
+      let dv = 1
+      while (v + dv < vSize && mask[u * vSize + v + dv] === maskValue && !done[u * vSize + v + dv]) {
+        dv++
+      }
+      let du = 1
+      outer: while (u + du < uSize) {
+        for (let k = 0; k < dv; k++) {
+          if (mask[(u + du) * vSize + v + k] !== maskValue || done[(u + du) * vSize + v + k]) {
+            break outer
+          }
+        }
+        du++
+      }
+      for (let a = u; a < u + du; a++) {
+        for (let b = v; b < v + dv; b++) {
+          done[a * vSize + b] = 1
+        }
+      }
+      emitQuad(u, v, du, dv, blockId, ao)
+    }
+  }
+}
+
+// ─── Main meshing function ───────────────────────────────────────────────────
+
 export const greedyMeshChunk = (chunk: Chunk, offset: ChunkWorldOffset): MeshedChunk => {
   const acc: MeshAccumulator = {
     positions: [],
@@ -140,6 +196,8 @@ export const greedyMeshChunk = (chunk: Chunk, offset: ChunkWorldOffset): MeshedC
     blockPositions: [],
   }
 
+  // ── X+ faces (normal = +1,0,0) ──────────────────────────────────────────
+  // Slice over lx; mask u-axis = lz, v-axis = y
   const passXPos = (): void => {
     const normal = [1, 0, 0] as const
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
@@ -153,53 +211,27 @@ export const greedyMeshChunk = (chunk: Chunk, offset: ChunkWorldOffset): MeshedC
           }
         }
       }
-      const done = new Uint8Array(CHUNK_SIZE * CHUNK_HEIGHT)
-      for (let u = 0; u < CHUNK_SIZE; u++) {
-        for (let v = 0; v < CHUNK_HEIGHT; v++) {
-          const mi = u * CHUNK_HEIGHT + v
-          const maskValue = mask[mi]
-          if (!maskValue || done[mi]) continue
-          const blockId = maskValue & 0xF
-          const ao = (maskValue >> 4) & 0x3
-          let dv = 1
-          while (v + dv < CHUNK_HEIGHT && mask[u * CHUNK_HEIGHT + v + dv] === maskValue && !done[u * CHUNK_HEIGHT + v + dv]) {
-            dv++
-          }
-          let du = 1
-          outer: while (u + du < CHUNK_SIZE) {
-            for (let k = 0; k < dv; k++) {
-              if (mask[(u + du) * CHUNK_HEIGHT + v + k] !== maskValue || done[(u + du) * CHUNK_HEIGHT + v + k]) {
-                break outer
-              }
-            }
-            du++
-          }
-          for (let a = u; a < u + du; a++) {
-            for (let b = v; b < v + dv; b++) {
-              done[a * CHUNK_HEIGHT + b] = 1
-            }
-          }
-          const lz0 = u, y0 = v
-          const fx = offset.wx + lx + 1
-          const wy0 = y0
-          const wz0 = offset.wz + lz0
-          addQuad(
-            acc,
-            [fx, wy0,       wz0],
-            [fx, wy0 + dv,  wz0],
-            [fx, wy0 + dv,  wz0 + du],
-            [fx, wy0,       wz0 + du],
-            normal,
-            blockId,
-            { x: offset.wx + lx, y: y0, z: offset.wz + lz0 },
-            [ao, ao, ao, ao],
-            'side'
-          )
-        }
-      }
+      runGreedyExpansion(mask, CHUNK_SIZE, CHUNK_HEIGHT, (u0, v0, du, dv, blockId, ao) => {
+        const lz0 = u0, y0 = v0
+        const fx = offset.wx + lx + 1
+        addQuad(
+          acc,
+          [fx, y0,       offset.wz + lz0],
+          [fx, y0 + dv,  offset.wz + lz0],
+          [fx, y0 + dv,  offset.wz + lz0 + du],
+          [fx, y0,       offset.wz + lz0 + du],
+          normal,
+          blockId,
+          { x: offset.wx + lx, y: y0, z: offset.wz + lz0 },
+          [ao, ao, ao, ao],
+          'side'
+        )
+      })
     }
   }
 
+  // ── X- faces (normal = -1,0,0) ──────────────────────────────────────────
+  // Slice over lx; mask u-axis = lz, v-axis = y
   const passXNeg = (): void => {
     const normal = [-1, 0, 0] as const
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
@@ -213,51 +245,27 @@ export const greedyMeshChunk = (chunk: Chunk, offset: ChunkWorldOffset): MeshedC
           }
         }
       }
-      const done = new Uint8Array(CHUNK_SIZE * CHUNK_HEIGHT)
-      for (let u = 0; u < CHUNK_SIZE; u++) {
-        for (let v = 0; v < CHUNK_HEIGHT; v++) {
-          const mi = u * CHUNK_HEIGHT + v
-          const maskValue = mask[mi]
-          if (!maskValue || done[mi]) continue
-          const blockId = maskValue & 0xF
-          const ao = (maskValue >> 4) & 0x3
-          let dv = 1
-          while (v + dv < CHUNK_HEIGHT && mask[u * CHUNK_HEIGHT + v + dv] === maskValue && !done[u * CHUNK_HEIGHT + v + dv]) {
-            dv++
-          }
-          let du = 1
-          outer: while (u + du < CHUNK_SIZE) {
-            for (let k = 0; k < dv; k++) {
-              if (mask[(u + du) * CHUNK_HEIGHT + v + k] !== maskValue || done[(u + du) * CHUNK_HEIGHT + v + k]) {
-                break outer
-              }
-            }
-            du++
-          }
-          for (let a = u; a < u + du; a++) {
-            for (let b = v; b < v + dv; b++) {
-              done[a * CHUNK_HEIGHT + b] = 1
-            }
-          }
-          const lz0 = u, y0 = v
-          const fx = offset.wx + lx
-          addQuad(
-            acc,
-            [fx, y0,      offset.wz + lz0 + du],
-            [fx, y0 + dv, offset.wz + lz0 + du],
-            [fx, y0 + dv, offset.wz + lz0],
-            [fx, y0,      offset.wz + lz0],
-            normal,
-            blockId,
-            { x: offset.wx + lx, y: y0, z: offset.wz + lz0 },
-            [ao, ao, ao, ao],
-            'side'
-          )
-        }
-      }
+      runGreedyExpansion(mask, CHUNK_SIZE, CHUNK_HEIGHT, (u0, v0, du, dv, blockId, ao) => {
+        const lz0 = u0, y0 = v0
+        const fx = offset.wx + lx
+        addQuad(
+          acc,
+          [fx, y0,      offset.wz + lz0 + du],
+          [fx, y0 + dv, offset.wz + lz0 + du],
+          [fx, y0 + dv, offset.wz + lz0],
+          [fx, y0,      offset.wz + lz0],
+          normal,
+          blockId,
+          { x: offset.wx + lx, y: y0, z: offset.wz + lz0 },
+          [ao, ao, ao, ao],
+          'side'
+        )
+      })
     }
   }
 
+  // ── Y+ faces (normal = 0,1,0) ────────────────────────────────────────────
+  // Slice over y; mask u-axis = lx, v-axis = lz
   const passYPos = (): void => {
     const normal = [0, 1, 0] as const
     for (let y = 0; y < CHUNK_HEIGHT; y++) {
@@ -271,51 +279,27 @@ export const greedyMeshChunk = (chunk: Chunk, offset: ChunkWorldOffset): MeshedC
           }
         }
       }
-      const done = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE)
-      for (let u = 0; u < CHUNK_SIZE; u++) {
-        for (let v = 0; v < CHUNK_SIZE; v++) {
-          const mi = u * CHUNK_SIZE + v
-          const maskValue = mask[mi]
-          if (!maskValue || done[mi]) continue
-          const blockId = maskValue & 0xF
-          const ao = (maskValue >> 4) & 0x3
-          let dv = 1
-          while (v + dv < CHUNK_SIZE && mask[u * CHUNK_SIZE + v + dv] === maskValue && !done[u * CHUNK_SIZE + v + dv]) {
-            dv++
-          }
-          let du = 1
-          outer: while (u + du < CHUNK_SIZE) {
-            for (let k = 0; k < dv; k++) {
-              if (mask[(u + du) * CHUNK_SIZE + v + k] !== maskValue || done[(u + du) * CHUNK_SIZE + v + k]) {
-                break outer
-              }
-            }
-            du++
-          }
-          for (let a = u; a < u + du; a++) {
-            for (let b = v; b < v + dv; b++) {
-              done[a * CHUNK_SIZE + b] = 1
-            }
-          }
-          const lx0 = u, lz0 = v
-          const fy = y + 1
-          addQuad(
-            acc,
-            [offset.wx + lx0,      fy, offset.wz + lz0],
-            [offset.wx + lx0,      fy, offset.wz + lz0 + dv],
-            [offset.wx + lx0 + du, fy, offset.wz + lz0 + dv],
-            [offset.wx + lx0 + du, fy, offset.wz + lz0],
-            normal,
-            blockId,
-            { x: offset.wx + lx0, y, z: offset.wz + lz0 },
-            [ao, ao, ao, ao],
-            'top'
-          )
-        }
-      }
+      runGreedyExpansion(mask, CHUNK_SIZE, CHUNK_SIZE, (u0, v0, du, dv, blockId, ao) => {
+        const lx0 = u0, lz0 = v0
+        const fy = y + 1
+        addQuad(
+          acc,
+          [offset.wx + lx0,      fy, offset.wz + lz0],
+          [offset.wx + lx0,      fy, offset.wz + lz0 + dv],
+          [offset.wx + lx0 + du, fy, offset.wz + lz0 + dv],
+          [offset.wx + lx0 + du, fy, offset.wz + lz0],
+          normal,
+          blockId,
+          { x: offset.wx + lx0, y, z: offset.wz + lz0 },
+          [ao, ao, ao, ao],
+          'top'
+        )
+      })
     }
   }
 
+  // ── Y- faces (normal = 0,-1,0) ───────────────────────────────────────────
+  // Slice over y; mask u-axis = lx, v-axis = lz
   const passYNeg = (): void => {
     const normal = [0, -1, 0] as const
     for (let y = 0; y < CHUNK_HEIGHT; y++) {
@@ -329,51 +313,27 @@ export const greedyMeshChunk = (chunk: Chunk, offset: ChunkWorldOffset): MeshedC
           }
         }
       }
-      const done = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE)
-      for (let u = 0; u < CHUNK_SIZE; u++) {
-        for (let v = 0; v < CHUNK_SIZE; v++) {
-          const mi = u * CHUNK_SIZE + v
-          const maskValue = mask[mi]
-          if (!maskValue || done[mi]) continue
-          const blockId = maskValue & 0xF
-          const ao = (maskValue >> 4) & 0x3
-          let dv = 1
-          while (v + dv < CHUNK_SIZE && mask[u * CHUNK_SIZE + v + dv] === maskValue && !done[u * CHUNK_SIZE + v + dv]) {
-            dv++
-          }
-          let du = 1
-          outer: while (u + du < CHUNK_SIZE) {
-            for (let k = 0; k < dv; k++) {
-              if (mask[(u + du) * CHUNK_SIZE + v + k] !== maskValue || done[(u + du) * CHUNK_SIZE + v + k]) {
-                break outer
-              }
-            }
-            du++
-          }
-          for (let a = u; a < u + du; a++) {
-            for (let b = v; b < v + dv; b++) {
-              done[a * CHUNK_SIZE + b] = 1
-            }
-          }
-          const lx0 = u, lz0 = v
-          const fy = y
-          addQuad(
-            acc,
-            [offset.wx + lx0 + du, fy, offset.wz + lz0],
-            [offset.wx + lx0 + du, fy, offset.wz + lz0 + dv],
-            [offset.wx + lx0,      fy, offset.wz + lz0 + dv],
-            [offset.wx + lx0,      fy, offset.wz + lz0],
-            normal,
-            blockId,
-            { x: offset.wx + lx0, y, z: offset.wz + lz0 },
-            [ao, ao, ao, ao],
-            'bottom'
-          )
-        }
-      }
+      runGreedyExpansion(mask, CHUNK_SIZE, CHUNK_SIZE, (u0, v0, du, dv, blockId, ao) => {
+        const lx0 = u0, lz0 = v0
+        const fy = y
+        addQuad(
+          acc,
+          [offset.wx + lx0 + du, fy, offset.wz + lz0],
+          [offset.wx + lx0 + du, fy, offset.wz + lz0 + dv],
+          [offset.wx + lx0,      fy, offset.wz + lz0 + dv],
+          [offset.wx + lx0,      fy, offset.wz + lz0],
+          normal,
+          blockId,
+          { x: offset.wx + lx0, y, z: offset.wz + lz0 },
+          [ao, ao, ao, ao],
+          'bottom'
+        )
+      })
     }
   }
 
+  // ── Z+ faces (normal = 0,0,1) ────────────────────────────────────────────
+  // Slice over lz; mask u-axis = lx, v-axis = y
   const passZPos = (): void => {
     const normal = [0, 0, 1] as const
     for (let lz = 0; lz < CHUNK_SIZE; lz++) {
@@ -387,51 +347,27 @@ export const greedyMeshChunk = (chunk: Chunk, offset: ChunkWorldOffset): MeshedC
           }
         }
       }
-      const done = new Uint8Array(CHUNK_SIZE * CHUNK_HEIGHT)
-      for (let u = 0; u < CHUNK_SIZE; u++) {
-        for (let v = 0; v < CHUNK_HEIGHT; v++) {
-          const mi = u * CHUNK_HEIGHT + v
-          const maskValue = mask[mi]
-          if (!maskValue || done[mi]) continue
-          const blockId = maskValue & 0xF
-          const ao = (maskValue >> 4) & 0x3
-          let dv = 1
-          while (v + dv < CHUNK_HEIGHT && mask[u * CHUNK_HEIGHT + v + dv] === maskValue && !done[u * CHUNK_HEIGHT + v + dv]) {
-            dv++
-          }
-          let du = 1
-          outer: while (u + du < CHUNK_SIZE) {
-            for (let k = 0; k < dv; k++) {
-              if (mask[(u + du) * CHUNK_HEIGHT + v + k] !== maskValue || done[(u + du) * CHUNK_HEIGHT + v + k]) {
-                break outer
-              }
-            }
-            du++
-          }
-          for (let a = u; a < u + du; a++) {
-            for (let b = v; b < v + dv; b++) {
-              done[a * CHUNK_HEIGHT + b] = 1
-            }
-          }
-          const lx0 = u, y0 = v
-          const fz = offset.wz + lz + 1
-          addQuad(
-            acc,
-            [offset.wx + lx0 + du, y0,      fz],
-            [offset.wx + lx0 + du, y0 + dv, fz],
-            [offset.wx + lx0,      y0 + dv, fz],
-            [offset.wx + lx0,      y0,      fz],
-            normal,
-            blockId,
-            { x: offset.wx + lx0, y: y0, z: offset.wz + lz },
-            [ao, ao, ao, ao],
-            'side'
-          )
-        }
-      }
+      runGreedyExpansion(mask, CHUNK_SIZE, CHUNK_HEIGHT, (u0, v0, du, dv, blockId, ao) => {
+        const lx0 = u0, y0 = v0
+        const fz = offset.wz + lz + 1
+        addQuad(
+          acc,
+          [offset.wx + lx0 + du, y0,      fz],
+          [offset.wx + lx0 + du, y0 + dv, fz],
+          [offset.wx + lx0,      y0 + dv, fz],
+          [offset.wx + lx0,      y0,      fz],
+          normal,
+          blockId,
+          { x: offset.wx + lx0, y: y0, z: offset.wz + lz },
+          [ao, ao, ao, ao],
+          'side'
+        )
+      })
     }
   }
 
+  // ── Z- faces (normal = 0,0,-1) ───────────────────────────────────────────
+  // Slice over lz; mask u-axis = lx, v-axis = y
   const passZNeg = (): void => {
     const normal = [0, 0, -1] as const
     for (let lz = 0; lz < CHUNK_SIZE; lz++) {
@@ -445,48 +381,22 @@ export const greedyMeshChunk = (chunk: Chunk, offset: ChunkWorldOffset): MeshedC
           }
         }
       }
-      const done = new Uint8Array(CHUNK_SIZE * CHUNK_HEIGHT)
-      for (let u = 0; u < CHUNK_SIZE; u++) {
-        for (let v = 0; v < CHUNK_HEIGHT; v++) {
-          const mi = u * CHUNK_HEIGHT + v
-          const maskValue = mask[mi]
-          if (!maskValue || done[mi]) continue
-          const blockId = maskValue & 0xF
-          const ao = (maskValue >> 4) & 0x3
-          let dv = 1
-          while (v + dv < CHUNK_HEIGHT && mask[u * CHUNK_HEIGHT + v + dv] === maskValue && !done[u * CHUNK_HEIGHT + v + dv]) {
-            dv++
-          }
-          let du = 1
-          outer: while (u + du < CHUNK_SIZE) {
-            for (let k = 0; k < dv; k++) {
-              if (mask[(u + du) * CHUNK_HEIGHT + v + k] !== maskValue || done[(u + du) * CHUNK_HEIGHT + v + k]) {
-                break outer
-              }
-            }
-            du++
-          }
-          for (let a = u; a < u + du; a++) {
-            for (let b = v; b < v + dv; b++) {
-              done[a * CHUNK_HEIGHT + b] = 1
-            }
-          }
-          const lx0 = u, y0 = v
-          const fz = offset.wz + lz
-          addQuad(
-            acc,
-            [offset.wx + lx0,      y0,      fz],
-            [offset.wx + lx0,      y0 + dv, fz],
-            [offset.wx + lx0 + du, y0 + dv, fz],
-            [offset.wx + lx0 + du, y0,      fz],
-            normal,
-            blockId,
-            { x: offset.wx + lx0, y: y0, z: offset.wz + lz },
-            [ao, ao, ao, ao],
-            'side'
-          )
-        }
-      }
+      runGreedyExpansion(mask, CHUNK_SIZE, CHUNK_HEIGHT, (u0, v0, du, dv, blockId, ao) => {
+        const lx0 = u0, y0 = v0
+        const fz = offset.wz + lz
+        addQuad(
+          acc,
+          [offset.wx + lx0,      y0,      fz],
+          [offset.wx + lx0,      y0 + dv, fz],
+          [offset.wx + lx0 + du, y0 + dv, fz],
+          [offset.wx + lx0 + du, y0,      fz],
+          normal,
+          blockId,
+          { x: offset.wx + lx0, y: y0, z: offset.wz + lz },
+          [ao, ao, ao, ao],
+          'side'
+        )
+      })
     }
   }
 

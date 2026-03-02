@@ -1,4 +1,4 @@
-import { Duration, Effect, Layer, Option, Ref, Schedule } from 'effect'
+import { Cause, Duration, Effect, Layer, Option, Ref, Schedule } from 'effect'
 import * as THREE from 'three'
 
 // Import existing infrastructure services
@@ -21,7 +21,7 @@ import { StorageService, StorageServiceLive } from '@/infrastructure/storage/sto
 import { ChunkMeshServiceLive } from '@/infrastructure/three/meshing/chunk-mesh'
 
 // Import Phase 6 domain services
-import { ChunkServiceLive, CHUNK_SIZE, CHUNK_HEIGHT } from '@/domain/chunk'
+import { ChunkServiceLive, CHUNK_SIZE, CHUNK_HEIGHT, blockIndex } from '@/domain/chunk'
 
 // Import Phase 6 application services
 import { BiomeServiceLive } from '@/application/biome/biome-service'
@@ -69,10 +69,6 @@ const BaseLayer = Layer.mergeAll(
   BlockRegistryLive,
   // Domain services
   PlayerServiceLive,
-  // Cannon-es services
-  PhysicsWorldServiceLive,
-  RigidBodyServiceLive,
-  ShapeServiceLive,
   // Input and DOM
   InputServiceLive,
   DomOperationsLive,
@@ -210,7 +206,6 @@ const MainLive = Layer.mergeAll(
   SettingsLayer,
   SettingsOverlayLayer,
   InventoryRendererLayer,
-  GameLoopServiceLive,
 )
 
 // World identifier used for all storage operations
@@ -313,22 +308,6 @@ const mainProgram = Effect.gen(function* () {
     )
   )
 
-  // Save on tab hide (best-effort)
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden) {
-      Effect.runPromise(
-        chunkManagerService.saveDirtyChunks().pipe(
-          Effect.catchAll(() => Effect.void)
-        )
-      )
-    }
-  })
-
-  // Best-effort save before unload (IndexedDB async, may not complete before unload)
-  window.addEventListener('beforeunload', () => {
-    Effect.runPromise(chunkManagerService.saveDirtyChunks()).catch(() => {})
-  })
-
   // Initialize: load chunks around spawn position, sync to scene
   yield* chunkManagerService.loadChunksAroundPlayer(spawnPosition)
   const initialChunks = yield* chunkManagerService.getLoadedChunks()
@@ -340,8 +319,8 @@ const mainProgram = Effect.gen(function* () {
   const spawnChunk = yield* chunkManagerService.getChunk({ x: 0, z: 0 })
   let surfaceY = 64 // fallback to sea level
   for (let y = CHUNK_HEIGHT - 1; y >= 0; y--) {
-    const idx = y + 0 * CHUNK_HEIGHT + 0 * CHUNK_HEIGHT * CHUNK_SIZE // lx=0, lz=0
-    if (spawnChunk.blocks[idx] !== 0) { // 0 = AIR
+    const idx = blockIndex(0, y, 0) // lx=0, lz=0
+    if (idx !== null && spawnChunk.blocks[idx] !== 0) { // 0 = AIR
       surfaceY = y
       break
     }
@@ -384,10 +363,35 @@ const mainProgram = Effect.gen(function* () {
   // Show crosshair
   yield* crosshair.show()
 
-  // Set up pointer lock on canvas click (requestPointerLock is synchronous — sets state via Ref)
-  canvas.addEventListener('click', () => {
+  // Define named handlers so removeEventListener can match the same reference
+  const handleVisibilityChange = () => {
+    if (document.hidden) {
+      Effect.runPromise(
+        chunkManagerService.saveDirtyChunks().pipe(
+          Effect.catchAll(() => Effect.void)
+        )
+      )
+    }
+  }
+  const handleBeforeUnload = () => {
+    Effect.runPromise(chunkManagerService.saveDirtyChunks()).catch(() => {})
+  }
+  const handleCanvasClick = () => {
     Effect.runSync(inputService.requestPointerLock())
-  })
+  }
+
+  yield* Effect.acquireRelease(
+    Effect.sync(() => {
+      document.addEventListener('visibilitychange', handleVisibilityChange)
+      window.addEventListener('beforeunload', handleBeforeUnload)
+      canvas.addEventListener('click', handleCanvasClick)
+    }),
+    () => Effect.sync(() => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+      canvas.removeEventListener('click', handleCanvasClick)
+    })
+  )
 
   // FPS display
   const fpsElement = document.getElementById('fps-value')
@@ -576,9 +580,10 @@ const mainProgram = Effect.gen(function* () {
 // Run program with all layers provided
 Effect.runPromise(
   mainProgram.pipe(
+    Effect.scoped,
     Effect.provide(MainLive),
+    Effect.catchAllCause(cause =>
+      Effect.logError(`Startup failed: ${Cause.pretty(cause)}`)
+    ),
   ),
-).catch((error: unknown) => {
-  console.error('Failed to start application:', error)
-  throw error
-})
+)

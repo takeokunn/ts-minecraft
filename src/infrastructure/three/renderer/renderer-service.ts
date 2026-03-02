@@ -33,4 +33,4 @@ export class RendererService extends Effect.Service<RendererService>()(
     },
   }
 ) {}
-export { RendererService as RendererServiceLive }
+export const RendererServiceLive = RendererService.Default

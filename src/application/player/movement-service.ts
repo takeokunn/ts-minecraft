@@ -1,26 +1,28 @@
-import { Effect } from 'effect'
+import { Effect, Schema } from 'effect'
 import { InputService, KeyMappings } from '../../presentation/input/input-service'
 
 /**
  * Movement input state representing which movement keys are pressed
  */
-export interface MovementInput {
-  readonly forward: boolean
-  readonly backward: boolean
-  readonly left: boolean
-  readonly right: boolean
-  readonly jump: boolean
-  readonly sprint: boolean
-}
+export const MovementInputSchema = Schema.Struct({
+  forward: Schema.Boolean,
+  backward: Schema.Boolean,
+  left: Schema.Boolean,
+  right: Schema.Boolean,
+  jump: Schema.Boolean,
+  sprint: Schema.Boolean,
+})
+export type MovementInput = Schema.Schema.Type<typeof MovementInputSchema>
 
 /**
  * Velocity vector for player movement
  */
-export interface Velocity {
-  readonly x: number
-  readonly y: number // Typically managed by physics (gravity)
-  readonly z: number
-}
+export const VelocitySchema = Schema.Struct({
+  x: Schema.Number,
+  y: Schema.Number,
+  z: Schema.Number,
+})
+export type Velocity = Schema.Schema.Type<typeof VelocitySchema>
 
 /**
  * Movement speed constants (in meters per second)
@@ -132,4 +134,4 @@ export class MovementService extends Effect.Service<MovementService>()(
     }),
   }
 ) {}
-export { MovementService as MovementServiceLive }
+export const MovementServiceLive = MovementService.Default

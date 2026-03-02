@@ -2,6 +2,7 @@
 export * from './block'
 export { BlockRegistry, BlockRegistryLive } from './blockRegistry'
 export * from './errors'
+export * from './item-stack'
 export * from './player'
 export { PlayerService } from './player'
 export * from './player-camera'

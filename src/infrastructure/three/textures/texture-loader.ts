@@ -77,4 +77,4 @@ export class TextureService extends Effect.Service<TextureService>()(
     }),
   }
 ) {}
-export { TextureService as TextureServiceLive }
+export const TextureServiceLive = TextureService.Default

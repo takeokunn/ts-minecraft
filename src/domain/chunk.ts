@@ -1,6 +1,15 @@
-import { Effect, Layer } from 'effect'
+import { Effect, Data, Schema } from 'effect'
 import { BlockType } from './block'
 import { ChunkError } from './errors'
+
+/**
+ * Error type for out-of-bounds block index access
+ */
+export class BlockIndexError extends Data.TaggedError('BlockIndexError')<{
+  readonly x: number
+  readonly y: number
+  readonly z: number
+}> {}
 
 /**
  * Chunk dimensions constants
@@ -11,10 +20,8 @@ export const CHUNK_HEIGHT = 256 // y dimension (0-255)
 /**
  * Chunk coordinate type for identifying chunk position in world
  */
-export interface ChunkCoord {
-  readonly x: number
-  readonly z: number
-}
+export const ChunkCoordSchema = Schema.Struct({ x: Schema.Number, z: Schema.Number })
+export type ChunkCoord = Schema.Schema.Type<typeof ChunkCoordSchema>
 
 /**
  * Chunk type representing a 16x16x256 section of blocks
@@ -65,11 +72,27 @@ const blockTypeToIndex = (blockType: BlockType): number => BLOCK_TYPE_TO_INDEX[b
 const indexToBlockType = (index: number): BlockType => INDEX_TO_BLOCK_TYPE[index] ?? 'AIR'
 
 /**
- * Calculate array index from 3D coordinates
+ * Calculate array index from 3D local coordinates.
+ * Returns null if coordinates are out of bounds.
  * Index = y + (z * CHUNK_HEIGHT) + (x * CHUNK_HEIGHT * CHUNK_SIZE)
  */
-const blockIndex = (localX: number, y: number, localZ: number): number =>
-  y + localZ * CHUNK_HEIGHT + localX * CHUNK_HEIGHT * CHUNK_SIZE
+export const blockIndex = (x: number, y: number, z: number): number | null => {
+  if (x < 0 || x >= CHUNK_SIZE || y < 0 || y >= CHUNK_HEIGHT || z < 0 || z >= CHUNK_SIZE) {
+    return null
+  }
+  return y + z * CHUNK_HEIGHT + x * CHUNK_HEIGHT * CHUNK_SIZE
+}
+
+/**
+ * Effect version of blockIndex for user-facing boundary APIs.
+ * Fails with BlockIndexError if coordinates are out of bounds.
+ */
+export const toBlockIndex = (x: number, y: number, z: number): Effect.Effect<number, BlockIndexError> => {
+  const idx = blockIndex(x, y, z)
+  return idx !== null
+    ? Effect.succeed(idx)
+    : Effect.fail(new BlockIndexError({ x, y, z }))
+}
 
 export class ChunkService extends Effect.Service<ChunkService>()(
   '@minecraft/ChunkService',
@@ -90,14 +113,8 @@ export class ChunkService extends Effect.Service<ChunkService>()(
        * Returns the BlockType at the position
        */
       getBlock: (chunk: Chunk, localX: number, y: number, localZ: number): Effect.Effect<BlockType, ChunkError> => {
-        if (
-          localX < 0 ||
-          localX >= CHUNK_SIZE ||
-          localZ < 0 ||
-          localZ >= CHUNK_SIZE ||
-          y < 0 ||
-          y >= CHUNK_HEIGHT
-        ) {
+        const idx = blockIndex(localX, y, localZ)
+        if (idx === null) {
           return Effect.fail(
             new ChunkError({
               chunkCoord: chunk.coord,
@@ -105,7 +122,6 @@ export class ChunkService extends Effect.Service<ChunkService>()(
             })
           )
         }
-        const idx = blockIndex(localX, y, localZ)
         return Effect.succeed(indexToBlockType(chunk.blocks[idx] ?? 0))
       },
 
@@ -114,14 +130,8 @@ export class ChunkService extends Effect.Service<ChunkService>()(
        * Returns the updated chunk with dirty flag set to true
        */
       setBlock: (chunk: Chunk, localX: number, y: number, localZ: number, blockType: BlockType): Effect.Effect<Chunk, ChunkError> => {
-        if (
-          localX < 0 ||
-          localX >= CHUNK_SIZE ||
-          localZ < 0 ||
-          localZ >= CHUNK_SIZE ||
-          y < 0 ||
-          y >= CHUNK_HEIGHT
-        ) {
+        const idx = blockIndex(localX, y, localZ)
+        if (idx === null) {
           return Effect.fail(
             new ChunkError({
               chunkCoord: chunk.coord,
@@ -130,7 +140,6 @@ export class ChunkService extends Effect.Service<ChunkService>()(
           )
         }
         const newBlocks = new Uint8Array(chunk.blocks)
-        const idx = blockIndex(localX, y, localZ)
         newBlocks[idx] = blockTypeToIndex(blockType)
         return Effect.succeed({ ...chunk, blocks: newBlocks, dirty: true } as const)
       },
@@ -139,24 +148,24 @@ export class ChunkService extends Effect.Service<ChunkService>()(
        * Convert world coordinates to chunk coordinates
        * Uses floor division to determine which chunk contains the position
        */
-      worldToChunkCoord: (worldX: number, worldZ: number): ChunkCoord => {
-        const x = Math.floor(worldX / CHUNK_SIZE)
-        const z = Math.floor(worldZ / CHUNK_SIZE)
-        return { x, z }
-      },
+      worldToChunkCoord: (worldX: number, worldZ: number): Effect.Effect<ChunkCoord, never, never> =>
+        Effect.succeed({
+          x: Math.floor(worldX / CHUNK_SIZE),
+          z: Math.floor(worldZ / CHUNK_SIZE),
+        }),
 
       /**
        * Convert chunk coordinates and local coordinates to world coordinates
        * Returns the absolute world position
        */
-      chunkToWorldCoord: (coord: ChunkCoord, localX: number, localZ: number): { readonly x: number; readonly z: number } => {
-        const x = coord.x * CHUNK_SIZE + localX
-        const z = coord.z * CHUNK_SIZE + localZ
-        return { x, z }
-      },
+      chunkToWorldCoord: (coord: ChunkCoord, localX: number, localZ: number): Effect.Effect<{ readonly x: number; readonly z: number }, never, never> =>
+        Effect.succeed({
+          x: coord.x * CHUNK_SIZE + localX,
+          z: coord.z * CHUNK_SIZE + localZ,
+        }),
     }),
   }
 ) {}
 
-export { blockIndex, blockTypeToIndex, indexToBlockType }
-export { ChunkService as ChunkServiceLive }
+export { blockTypeToIndex, indexToBlockType }
+export const ChunkServiceLive = ChunkService.Default

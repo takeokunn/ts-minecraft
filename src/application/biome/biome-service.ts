@@ -1,39 +1,33 @@
-import { Effect } from 'effect'
+import { Effect, Schema } from 'effect'
 import { NoiseService } from '@/infrastructure/noise/noise-service'
-import { BlockType } from '@/domain/block'
+import { BlockTypeSchema } from '@/domain/block'
 
 /**
  * Biome types for terrain classification
  */
-export type BiomeType =
-  | 'PLAINS'
-  | 'DESERT'
-  | 'FOREST'
-  | 'OCEAN'
-  | 'MOUNTAINS'
-  | 'SNOW'
-  | 'SWAMP'
-  | 'JUNGLE'
+export const BiomeTypeSchema = Schema.Literal('PLAINS', 'DESERT', 'FOREST', 'OCEAN', 'MOUNTAINS', 'SNOW', 'SWAMP', 'JUNGLE')
+export type BiomeType = Schema.Schema.Type<typeof BiomeTypeSchema>
 
 /**
  * Properties that define how a biome affects terrain generation
  */
-export interface BiomeProperties {
+export const BiomePropertiesSchema = Schema.Struct({
   /** Block type for surface layer */
-  readonly surfaceBlock: BlockType
+  surfaceBlock: BlockTypeSchema,
   /** Block type below surface */
-  readonly subSurfaceBlock: BlockType
+  subSurfaceBlock: BlockTypeSchema,
   /** Density of trees (0-1) */
-  readonly treeDensity: number
+  treeDensity: Schema.Number,
   /** Height modifier for terrain */
-  readonly heightModifier: number
+  heightModifier: Schema.Number,
   /** Base height for this biome */
-  readonly baseHeight: number
+  baseHeight: Schema.Number,
   /** Temperature range (0-1) */
-  readonly temperature: number
+  temperature: Schema.Number,
   /** Humidity range (0-1) */
-  readonly humidity: number
-}
+  humidity: Schema.Number,
+})
+export type BiomeProperties = Schema.Schema.Type<typeof BiomePropertiesSchema>
 
 /**
  * Default biome properties for each biome type
@@ -214,7 +208,8 @@ export class BiomeService extends Effect.Service<BiomeService>()(
           return classifyBiome(temp, hum)
         })
 
-      const getBiomeProperties = (biome: BiomeType): BiomeProperties => BIOME_PROPERTIES[biome]
+      const getBiomeProperties = (biome: BiomeType): Effect.Effect<BiomeProperties, never, never> =>
+        Effect.succeed(BIOME_PROPERTIES[biome])
 
       return {
         getBiome,
@@ -225,4 +220,4 @@ export class BiomeService extends Effect.Service<BiomeService>()(
     }),
   }
 ) {}
-export { BiomeService as BiomeServiceLive }
+export const BiomeServiceLive = BiomeService.Default

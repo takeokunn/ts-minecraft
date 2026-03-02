@@ -1,4 +1,4 @@
-import { Effect, Layer } from 'effect'
+import { Effect } from 'effect'
 
 // DOM abstraction for testability
 export class DomOperations extends Effect.Service<DomOperations>()(
@@ -97,8 +97,7 @@ export class Crosshair extends Effect.Service<Crosshair>()(
         isVisible: (): Effect.Effect<boolean, never> => Effect.sync(() => visible),
       }
     }),
-    dependencies: [DomOperations.Default],
   }
 ) {}
-export { Crosshair as CrosshairLive }
-export { DomOperations as DomOperationsLive }
+export const CrosshairLive = Crosshair.Default
+export const DomOperationsLive = DomOperations.Default

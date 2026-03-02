@@ -1,4 +1,4 @@
-import { Effect, Layer, Ref, Schema } from 'effect'
+import { Effect, Ref, Schema } from 'effect'
 
 // Schema for camera rotation state
 export const CameraRotationSchema = Schema.Struct({
@@ -44,4 +44,4 @@ export class PlayerCameraState extends Effect.Service<PlayerCameraState>()(
     }),
   }
 ) {}
-export { PlayerCameraState as PlayerCameraStateLive }
+export const PlayerCameraStateLive = PlayerCameraState.Default

@@ -1,4 +1,4 @@
-import { Effect, Layer, Option, Ref, Schema } from 'effect'
+import { Effect, Option, Ref, Schema } from 'effect'
 import { Block, BlockType, BlockIdSchema } from './block'
 
 type BlockMap = {
@@ -179,4 +179,4 @@ const initialBlocks: Array<Block> = [
     faces: defaultBlockFaces,
   },
 ]
-export { BlockRegistry as BlockRegistryLive }
+export const BlockRegistryLive = BlockRegistry.Default

@@ -122,4 +122,4 @@ export class BlockMeshService extends Effect.Service<BlockMeshService>()(
     }),
   }
 ) {}
-export { BlockMeshService as BlockMeshServiceLive }
+export const BlockMeshServiceLive = BlockMeshService.Default

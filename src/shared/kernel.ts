@@ -9,6 +9,9 @@ export type PlayerId = Schema.Schema.Type<typeof PlayerIdSchema>
 export const BlockIdSchema = Schema.String.pipe(Schema.brand('BlockId'))
 export type BlockId = Schema.Schema.Type<typeof BlockIdSchema>
 
+export const PhysicsBodyIdSchema = Schema.String.pipe(Schema.brand('PhysicsBodyId'))
+export type PhysicsBodyId = Schema.Schema.Type<typeof PhysicsBodyIdSchema>
+
 export const PositionSchema = Schema.Struct({
   x: Schema.Number,
   y: Schema.Number,

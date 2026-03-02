@@ -543,7 +543,7 @@ describe('ChunkService', () => {
     it('(0, 0) should map to chunk {x:0, z:0}', () => {
       const program = Effect.gen(function* () {
         const service = yield* ChunkService
-        const coord = service.worldToChunkCoord(0, 0)
+        const coord = yield* service.worldToChunkCoord(0, 0)
         expect(coord).toEqual({ x: 0, z: 0 })
       })
 
@@ -553,7 +553,7 @@ describe('ChunkService', () => {
     it('(15, 15) should map to chunk {x:0, z:0}', () => {
       const program = Effect.gen(function* () {
         const service = yield* ChunkService
-        const coord = service.worldToChunkCoord(15, 15)
+        const coord = yield* service.worldToChunkCoord(15, 15)
         expect(coord).toEqual({ x: 0, z: 0 })
       })
 
@@ -563,7 +563,7 @@ describe('ChunkService', () => {
     it('(16, 0) should map to chunk {x:1, z:0}', () => {
       const program = Effect.gen(function* () {
         const service = yield* ChunkService
-        const coord = service.worldToChunkCoord(16, 0)
+        const coord = yield* service.worldToChunkCoord(16, 0)
         expect(coord).toEqual({ x: 1, z: 0 })
       })
 
@@ -573,7 +573,7 @@ describe('ChunkService', () => {
     it('(0, 16) should map to chunk {x:0, z:1}', () => {
       const program = Effect.gen(function* () {
         const service = yield* ChunkService
-        const coord = service.worldToChunkCoord(0, 16)
+        const coord = yield* service.worldToChunkCoord(0, 16)
         expect(coord).toEqual({ x: 0, z: 1 })
       })
 
@@ -583,7 +583,7 @@ describe('ChunkService', () => {
     it('(-1, 0) should map to chunk {x:-1, z:0} (floor division)', () => {
       const program = Effect.gen(function* () {
         const service = yield* ChunkService
-        const coord = service.worldToChunkCoord(-1, 0)
+        const coord = yield* service.worldToChunkCoord(-1, 0)
         expect(coord).toEqual({ x: -1, z: 0 })
       })
 
@@ -593,7 +593,7 @@ describe('ChunkService', () => {
     it('(-16, -1) should map to chunk {x:-1, z:-1}', () => {
       const program = Effect.gen(function* () {
         const service = yield* ChunkService
-        const coord = service.worldToChunkCoord(-16, -1)
+        const coord = yield* service.worldToChunkCoord(-16, -1)
         expect(coord).toEqual({ x: -1, z: -1 })
       })
 
@@ -603,7 +603,7 @@ describe('ChunkService', () => {
     it('(-16, 0) should map to chunk {x:-1, z:0}', () => {
       const program = Effect.gen(function* () {
         const service = yield* ChunkService
-        const coord = service.worldToChunkCoord(-16, 0)
+        const coord = yield* service.worldToChunkCoord(-16, 0)
         expect(coord).toEqual({ x: -1, z: 0 })
       })
 
@@ -613,7 +613,7 @@ describe('ChunkService', () => {
     it('(-17, 0) should map to chunk {x:-2, z:0}', () => {
       const program = Effect.gen(function* () {
         const service = yield* ChunkService
-        const coord = service.worldToChunkCoord(-17, 0)
+        const coord = yield* service.worldToChunkCoord(-17, 0)
         expect(coord).toEqual({ x: -2, z: 0 })
       })
 
@@ -623,7 +623,7 @@ describe('ChunkService', () => {
     it('(32, 48) should map to chunk {x:2, z:3}', () => {
       const program = Effect.gen(function* () {
         const service = yield* ChunkService
-        const coord = service.worldToChunkCoord(32, 48)
+        const coord = yield* service.worldToChunkCoord(32, 48)
         expect(coord).toEqual({ x: 2, z: 3 })
       })
 
@@ -635,7 +635,7 @@ describe('ChunkService', () => {
     it('({x:0,z:0}, 0, 0) should return {x:0, z:0}', () => {
       const program = Effect.gen(function* () {
         const service = yield* ChunkService
-        const world = service.chunkToWorldCoord({ x: 0, z: 0 }, 0, 0)
+        const world = yield* service.chunkToWorldCoord({ x: 0, z: 0 }, 0, 0)
         expect(world).toEqual({ x: 0, z: 0 })
       })
 
@@ -645,7 +645,7 @@ describe('ChunkService', () => {
     it('({x:0,z:0}, 5, 3) should return {x:5, z:3}', () => {
       const program = Effect.gen(function* () {
         const service = yield* ChunkService
-        const world = service.chunkToWorldCoord({ x: 0, z: 0 }, 5, 3)
+        const world = yield* service.chunkToWorldCoord({ x: 0, z: 0 }, 5, 3)
         expect(world).toEqual({ x: 5, z: 3 })
       })
 
@@ -655,7 +655,7 @@ describe('ChunkService', () => {
     it('({x:1,z:2}, 0, 0) should return {x:16, z:32}', () => {
       const program = Effect.gen(function* () {
         const service = yield* ChunkService
-        const world = service.chunkToWorldCoord({ x: 1, z: 2 }, 0, 0)
+        const world = yield* service.chunkToWorldCoord({ x: 1, z: 2 }, 0, 0)
         expect(world).toEqual({ x: 16, z: 32 })
       })
 
@@ -665,7 +665,7 @@ describe('ChunkService', () => {
     it('({x:1,z:2}, 5, 3) should return {x:21, z:35}', () => {
       const program = Effect.gen(function* () {
         const service = yield* ChunkService
-        const world = service.chunkToWorldCoord({ x: 1, z: 2 }, 5, 3)
+        const world = yield* service.chunkToWorldCoord({ x: 1, z: 2 }, 5, 3)
         expect(world).toEqual({ x: 21, z: 35 })
       })
 
@@ -675,7 +675,7 @@ describe('ChunkService', () => {
     it('({x:-1,z:-1}, 0, 0) should return {x:-16, z:-16}', () => {
       const program = Effect.gen(function* () {
         const service = yield* ChunkService
-        const world = service.chunkToWorldCoord({ x: -1, z: -1 }, 0, 0)
+        const world = yield* service.chunkToWorldCoord({ x: -1, z: -1 }, 0, 0)
         expect(world).toEqual({ x: -16, z: -16 })
       })
 
@@ -696,8 +696,8 @@ describe('ChunkService', () => {
         ] as const
 
         for (const [wx, wz] of testCases) {
-          const chunkCoord = service.worldToChunkCoord(wx, wz)
-          const origin = service.chunkToWorldCoord(chunkCoord, 0, 0)
+          const chunkCoord = yield* service.worldToChunkCoord(wx, wz)
+          const origin = yield* service.chunkToWorldCoord(chunkCoord, 0, 0)
           expect(origin.x).toBe(chunkCoord.x * CHUNK_SIZE)
           expect(origin.z).toBe(chunkCoord.z * CHUNK_SIZE)
         }
@@ -712,7 +712,7 @@ describe('ChunkService', () => {
         const chunkCoord = { x: 3, z: -2 }
         const localX = 7
         const localZ = 11
-        const world = service.chunkToWorldCoord(chunkCoord, localX, localZ)
+        const world = yield* service.chunkToWorldCoord(chunkCoord, localX, localZ)
         expect(world.x).toBe(3 * CHUNK_SIZE + localX)
         expect(world.z).toBe(-2 * CHUNK_SIZE + localZ)
       })

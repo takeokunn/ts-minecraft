@@ -1,4 +1,4 @@
-import { Effect, Layer, Option, Ref, Schema } from 'effect'
+import { Effect, Option, Ref, Schema } from 'effect'
 import { WorldId, WorldIdSchema, Position } from '@/shared/kernel'
 import { WorldError } from './errors'
 import { BlockType, BlockTypeSchema } from './block'
@@ -146,4 +146,4 @@ export class WorldService extends Effect.Service<WorldService>()(
 ) {}
 
 export { positionToKey, keyToPosition }
-export { WorldService as WorldServiceLive }
+export const WorldServiceLive = WorldService.Default

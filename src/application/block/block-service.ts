@@ -1,6 +1,6 @@
 import { Effect, Data } from 'effect'
 import { ChunkManagerService } from '@/application/chunk/chunk-manager-service'
-import { ChunkService, CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex } from '@/domain/chunk'
+import { ChunkService, CHUNK_SIZE, blockTypeToIndex, toBlockIndex, BlockIndexError } from '@/domain/chunk'
 import { PlayerService } from '@/domain/player'
 import { BlockType } from '@/domain/block'
 import { Position, PlayerId, WorldId } from '@/shared/kernel'
@@ -56,13 +56,6 @@ const worldToChunkCoord = (
 }
 
 /**
- * Calculate flat Uint8Array index from local chunk coordinates.
- * Must match the formula in chunk.ts: y + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE
- */
-const blockIdx = (lx: number, y: number, lz: number): number =>
-  y + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE
-
-/**
  * BlockService class for block operations in the game world
  */
 export class BlockService extends Effect.Service<BlockService>()(
@@ -104,18 +97,13 @@ export class BlockService extends Effect.Service<BlockService>()(
               )
             }
 
-            if (y < 0 || y >= CHUNK_HEIGHT) {
-              return yield* Effect.fail(
-                new BlockServiceError({
-                  operation: 'breakBlock',
-                  reason: `Y coordinate ${y} is out of range [0, ${CHUNK_HEIGHT})`,
-                })
-              )
-            }
-
             // Intentional in-place mutation: ChunkManagerService cache holds the same Uint8Array reference.
-            // Bounds are validated above; this avoids the O(n) copy that ChunkService.setBlock would incur.
-            const idx = blockIdx(lx, y, lz)
+            // toBlockIndex validates all bounds and returns the flat index; avoids O(n) copy.
+            const idx = yield* toBlockIndex(lx, y, lz).pipe(
+              Effect.mapError(
+                (e: BlockIndexError) => new BlockServiceError({ operation: 'breakBlock', reason: `Block coordinates out of bounds: (${e.x}, ${e.y}, ${e.z})`, cause: e })
+              )
+            )
             chunk.blocks[idx] = blockTypeToIndex('AIR')
 
             yield* chunkManagerService.markChunkDirty(chunkCoord)
@@ -173,18 +161,13 @@ export class BlockService extends Effect.Service<BlockService>()(
               )
             }
 
-            if (y < 0 || y >= CHUNK_HEIGHT) {
-              return yield* Effect.fail(
-                new BlockServiceError({
-                  operation: 'placeBlock',
-                  reason: `Y coordinate ${y} is out of range [0, ${CHUNK_HEIGHT})`,
-                })
-              )
-            }
-
             // Intentional in-place mutation: ChunkManagerService cache holds the same Uint8Array reference.
-            // Bounds are validated above; this avoids the O(n) copy that ChunkService.setBlock would incur.
-            const idx = blockIdx(lx, y, lz)
+            // toBlockIndex validates all bounds and returns the flat index; avoids O(n) copy.
+            const idx = yield* toBlockIndex(lx, y, lz).pipe(
+              Effect.mapError(
+                (e: BlockIndexError) => new BlockServiceError({ operation: 'placeBlock', reason: `Block coordinates out of bounds: (${e.x}, ${e.y}, ${e.z})`, cause: e })
+              )
+            )
             chunk.blocks[idx] = blockTypeToIndex(blockType)
 
             yield* chunkManagerService.markChunkDirty(chunkCoord)
@@ -193,4 +176,4 @@ export class BlockService extends Effect.Service<BlockService>()(
     }),
   }
 ) {}
-export { BlockService as BlockServiceLive }
+export const BlockServiceLive = BlockService.Default

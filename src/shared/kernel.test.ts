@@ -4,6 +4,7 @@ import {
   WorldIdSchema,
   PlayerIdSchema,
   BlockIdSchema,
+  PhysicsBodyIdSchema,
   PositionSchema,
 } from './kernel'
 
@@ -68,6 +69,23 @@ describe('shared/kernel', () => {
     it('should validate BlockId type with Schema.is (positive)', () => {
       const blockId = BlockIdSchema.make('block-789')
       expect(Schema.is(BlockIdSchema)(blockId)).toBe(true)
+    })
+  })
+
+  describe('PhysicsBodyId', () => {
+    it('should create valid PhysicsBodyId', () => {
+      const result = PhysicsBodyIdSchema.make('physics-body-0')
+      expect(result).toBe('physics-body-0')
+    })
+
+    it('should decode unknown string to PhysicsBodyId', () => {
+      const result = Schema.decodeUnknownSync(PhysicsBodyIdSchema)('physics-body-42')
+      expect(result).toBe('physics-body-42')
+    })
+
+    it('should validate PhysicsBodyId type with Schema.is (positive)', () => {
+      const bodyId = PhysicsBodyIdSchema.make('physics-body-1')
+      expect(Schema.is(PhysicsBodyIdSchema)(bodyId)).toBe(true)
     })
   })
 

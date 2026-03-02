@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { Effect } from 'effect'
+import { Effect, Option } from 'effect'
 import * as THREE from 'three'
 import {
   RaycastingService,
@@ -141,7 +141,7 @@ describe('RaycastingService', () => {
   })
 
   describe('raycastFromCamera', () => {
-    it('should return null when no objects are hit', () => {
+    it('should return Option.none when no objects are hit', () => {
       const program = Effect.gen(function* () {
         const service = yield* RaycastingService
 
@@ -154,7 +154,7 @@ describe('RaycastingService', () => {
 
         const hit = yield* service.raycastFromCamera(camera, scene)
 
-        expect(hit).toBeNull()
+        expect(Option.isNone(hit)).toBe(true)
 
         return { success: true }
       }).pipe(Effect.provide(RaycastingServiceLive))
@@ -179,16 +179,19 @@ describe('RaycastingService', () => {
           [mesh]
         )
 
-        const hit = yield* service.raycastFromCamera(camera, scene)
+        const hitOption = yield* service.raycastFromCamera(camera, scene)
 
-        expect(hit).not.toBeNull()
-        expect(hit!.distance).toBeGreaterThan(0)
-        expect(hit!.distance).toBeLessThan(DEFAULT_RAY_DISTANCE)
-        expect(hit!.point).toBeDefined()
-        expect(hit!.normal).toBeDefined()
-        expect(typeof hit!.blockX).toBe('number')
-        expect(typeof hit!.blockY).toBe('number')
-        expect(typeof hit!.blockZ).toBe('number')
+        expect(Option.isSome(hitOption)).toBe(true)
+        if (Option.isSome(hitOption)) {
+          const hit = hitOption.value
+          expect(hit.distance).toBeGreaterThan(0)
+          expect(hit.distance).toBeLessThan(DEFAULT_RAY_DISTANCE)
+          expect(hit.point).toBeDefined()
+          expect(hit.normal).toBeDefined()
+          expect(typeof hit.blockX).toBe('number')
+          expect(typeof hit.blockY).toBe('number')
+          expect(typeof hit.blockZ).toBe('number')
+        }
 
         return { success: true }
       }).pipe(Effect.provide(RaycastingServiceLive))
@@ -215,11 +218,11 @@ describe('RaycastingService', () => {
 
         // Should not hit with default distance (5)
         const hitDefault = yield* service.raycastFromCamera(camera, scene, 5)
-        expect(hitDefault).toBeNull()
+        expect(Option.isNone(hitDefault)).toBe(true)
 
         // Should hit with extended distance (15)
         const hitExtended = yield* service.raycastFromCamera(camera, scene, 15)
-        expect(hitExtended).not.toBeNull()
+        expect(Option.isSome(hitExtended)).toBe(true)
 
         return { success: true }
       }).pipe(Effect.provide(RaycastingServiceLive))
@@ -244,12 +247,15 @@ describe('RaycastingService', () => {
           [mesh]
         )
 
-        const hit = yield* service.raycastFromCamera(camera, scene)
+        const hitOption = yield* service.raycastFromCamera(camera, scene)
 
-        expect(hit).not.toBeNull()
-        // Hit should be near the front face of the box (around z = -1.5)
-        expect(hit!.point.z).toBeLessThan(-1)
-        expect(hit!.point.z).toBeGreaterThan(-3)
+        expect(Option.isSome(hitOption)).toBe(true)
+        if (Option.isSome(hitOption)) {
+          const hit = hitOption.value
+          // Hit should be near the front face of the box (around z = -1.5)
+          expect(hit.point.z).toBeLessThan(-1)
+          expect(hit.point.z).toBeGreaterThan(-3)
+        }
 
         return { success: true }
       }).pipe(Effect.provide(RaycastingServiceLive))
@@ -274,14 +280,17 @@ describe('RaycastingService', () => {
           [mesh]
         )
 
-        const hit = yield* service.raycastFromCamera(camera, scene)
+        const hitOption = yield* service.raycastFromCamera(camera, scene)
 
-        expect(hit).not.toBeNull()
-        // Normal should be a unit vector
-        const normalLength = Math.sqrt(
-          hit!.normal.x ** 2 + hit!.normal.y ** 2 + hit!.normal.z ** 2
-        )
-        expect(normalLength).toBeCloseTo(1, 5)
+        expect(Option.isSome(hitOption)).toBe(true)
+        if (Option.isSome(hitOption)) {
+          const hit = hitOption.value
+          // Normal should be a unit vector
+          const normalLength = Math.sqrt(
+            hit.normal.x ** 2 + hit.normal.y ** 2 + hit.normal.z ** 2
+          )
+          expect(normalLength).toBeCloseTo(1, 5)
+        }
 
         return { success: true }
       }).pipe(Effect.provide(RaycastingServiceLive))
@@ -307,12 +316,15 @@ describe('RaycastingService', () => {
           [mesh]
         )
 
-        const hit = yield* service.raycastFromCamera(camera, scene, 10)
+        const hitOption = yield* service.raycastFromCamera(camera, scene, 10)
 
-        expect(hit).not.toBeNull()
-        expect(hit!.blockX).toBe(5)
-        expect(hit!.blockY).toBe(10)
-        expect(hit!.blockZ).toBe(-6)
+        expect(Option.isSome(hitOption)).toBe(true)
+        if (Option.isSome(hitOption)) {
+          const hit = hitOption.value
+          expect(hit.blockX).toBe(5)
+          expect(hit.blockY).toBe(10)
+          expect(hit.blockZ).toBe(-6)
+        }
 
         return { success: true }
       }).pipe(Effect.provide(RaycastingServiceLive))
@@ -343,11 +355,14 @@ describe('RaycastingService', () => {
           [nearMesh, farMesh]
         )
 
-        const hit = yield* service.raycastFromCamera(camera, scene)
+        const hitOption = yield* service.raycastFromCamera(camera, scene)
 
-        expect(hit).not.toBeNull()
-        // Should hit the closer box
-        expect(hit!.distance).toBeLessThan(3)
+        expect(Option.isSome(hitOption)).toBe(true)
+        if (Option.isSome(hitOption)) {
+          const hit = hitOption.value
+          // Should hit the closer box
+          expect(hit.distance).toBeLessThan(3)
+        }
 
         return { success: true }
       }).pipe(Effect.provide(RaycastingServiceLive))
@@ -375,7 +390,7 @@ describe('RaycastingService', () => {
         // Call without maxDistance parameter
         const hit = yield* service.raycastFromCamera(camera, scene)
 
-        expect(hit).not.toBeNull()
+        expect(Option.isSome(hit)).toBe(true)
 
         return { success: true }
       }).pipe(Effect.provide(RaycastingServiceLive))

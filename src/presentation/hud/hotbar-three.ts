@@ -1,4 +1,4 @@
-import { Effect, Layer, Option, Ref } from 'effect'
+import { Effect, Option, Ref } from 'effect'
 import * as THREE from 'three'
 import { BlockType } from '@/domain/block'
 import { RendererService } from '@/infrastructure/three/renderer/renderer-service'
@@ -28,7 +28,7 @@ const HOTBAR_Y_OFFSET = 50 // pixels from bottom edge of viewport to center of h
 export class HotbarRenderer extends Effect.Service<HotbarRenderer>()(
   '@minecraft/presentation/HotbarRenderer',
   {
-    effect: Effect.gen(function* () {
+    scoped: Effect.gen(function* () {
       const rendererService = yield* RendererService
 
       const hudScene = new THREE.Scene()
@@ -50,7 +50,36 @@ export class HotbarRenderer extends Effect.Service<HotbarRenderer>()(
         return cam
       }
 
-      let resizeHandler: (() => void) | null = null
+      // Resize handler — defined here so it can be registered/unregistered in acquireRelease.
+      // Effect.runSync inside a raw DOM callback is intentional: callbacks cannot yield.
+      const resizeHandler = () => {
+        const w = window.innerWidth
+        const h = window.innerHeight
+        const hudCamera = Effect.runSync(Ref.get(hudCameraRef))
+        if (hudCamera) {
+          hudCamera.left = -w / 2
+          hudCamera.right = w / 2
+          hudCamera.top = h / 2
+          hudCamera.bottom = -h / 2
+          hudCamera.updateProjectionMatrix()
+        }
+        const newY = -h / 2 + HOTBAR_Y_OFFSET
+        for (let i = 0; i < slotMeshes.length; i++) {
+          const m = slotMeshes[i]
+          if (m) m.position.y = newY
+        }
+        borderMesh.position.y = newY
+      }
+
+      yield* Effect.acquireRelease(
+        Effect.sync(() => {
+          window.addEventListener('resize', resizeHandler)
+        }),
+        () =>
+          Effect.sync(() => {
+            window.removeEventListener('resize', resizeHandler)
+          }),
+      )
 
       return {
         /**
@@ -76,38 +105,6 @@ export class HotbarRenderer extends Effect.Service<HotbarRenderer>()(
 
             const initialY = -initialHeight / 2 + HOTBAR_Y_OFFSET
             borderMesh.position.set(0, initialY, 0)
-
-            // Store handler for cleanup
-            resizeHandler = () => {
-              const w = window.innerWidth
-              const h = window.innerHeight
-              const hudCamera = Effect.runSync(Ref.get(hudCameraRef))
-              if (hudCamera) {
-                hudCamera.left = -w / 2
-                hudCamera.right = w / 2
-                hudCamera.top = h / 2
-                hudCamera.bottom = -h / 2
-                hudCamera.updateProjectionMatrix()
-              }
-              const newY = -h / 2 + HOTBAR_Y_OFFSET
-              for (let i = 0; i < slotMeshes.length; i++) {
-                const m = slotMeshes[i]
-                if (m) m.position.y = newY
-              }
-              borderMesh.position.y = newY
-            }
-            window.addEventListener('resize', resizeHandler)
-          }),
-
-        /**
-         * Remove the resize listener registered in initialize(). Call during teardown.
-         */
-        dispose: (): Effect.Effect<void, never> =>
-          Effect.sync(() => {
-            if (resizeHandler) {
-              window.removeEventListener('resize', resizeHandler)
-              resizeHandler = null
-            }
           }),
 
         /**
@@ -142,13 +139,14 @@ export class HotbarRenderer extends Effect.Service<HotbarRenderer>()(
         /**
          * Render the HUD overlay onto the renderer. Call after main scene render with autoClear=false.
          */
-        render: (renderer: THREE.WebGLRenderer): Effect.Effect<void, never> => {
-          const hudCamera = Effect.runSync(Ref.get(hudCameraRef))
-          if (!hudCamera) return Effect.void
-          return rendererService.renderOverlay(renderer, hudScene, hudCamera)
-        },
+        render: (renderer: THREE.WebGLRenderer): Effect.Effect<void, never> =>
+          Effect.gen(function* () {
+            const hudCamera = yield* Ref.get(hudCameraRef)
+            if (!hudCamera) return
+            yield* rendererService.renderOverlay(renderer, hudScene, hudCamera)
+          }),
       }
     }),
   }
 ) {}
-export { HotbarRenderer as HotbarRendererLive }
+export const HotbarRendererLive = HotbarRenderer.Default

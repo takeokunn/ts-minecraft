@@ -1,12 +1,13 @@
-import { Effect, Layer } from 'effect'
+import { Effect, Schema } from 'effect'
 
 /**
  * Mouse delta coordinates
  */
-export interface MouseDelta {
-  readonly x: number
-  readonly y: number
-}
+export const MouseDeltaSchema = Schema.Struct({
+  x: Schema.Number,
+  y: Schema.Number,
+})
+export type MouseDelta = Schema.Schema.Type<typeof MouseDeltaSchema>
 
 /**
  * Mouse button constants (standard MouseEvent.button values)
@@ -206,4 +207,4 @@ export class InputService extends Effect.Service<InputService>()(
     }),
   }
 ) {}
-export { InputService as InputServiceLive }
+export const InputServiceLive = InputService.Default

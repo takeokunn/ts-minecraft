@@ -1,10 +1,18 @@
-import { Effect, Context, Layer, Ref } from 'effect'
+import { Effect, Context, Layer, Ref, Schema } from 'effect'
 
-export interface Settings {
-  readonly renderDistance: number    // 2-16, default 8
-  readonly mouseSensitivity: number  // 0.1-3.0, default 0.5
-  readonly dayLengthSeconds: number  // 120-1200, default 400
-}
+/**
+ * Schema for validating the structure of stored settings.
+ * Value bounds are enforced by clampSettings after deserialization.
+ */
+export const SettingsSchema = Schema.Struct({
+  /** Chunk render distance in chunks. Default: 8. Clamped to [2, 16] by clampSettings. */
+  renderDistance: Schema.Number,
+  /** Mouse sensitivity multiplier. Default: 0.5. Clamped to [0.1, 3.0] by clampSettings. */
+  mouseSensitivity: Schema.Number,
+  /** Day length in seconds. Default: 400. Clamped to [120, 1200] by clampSettings. */
+  dayLengthSeconds: Schema.Number,
+})
+export type Settings = Schema.Schema.Type<typeof SettingsSchema>
 
 const DEFAULT_SETTINGS: Settings = {
   renderDistance: 8,
@@ -25,7 +33,7 @@ const loadFromStorage: Effect.Effect<Settings, never, never> =
     try: () => {
       const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_KEY) : null
       if (!raw) return DEFAULT_SETTINGS
-      return clampSettings(JSON.parse(raw) as Partial<Settings>)
+      return clampSettings(Schema.decodeUnknownSync(SettingsSchema)(JSON.parse(raw)))
     },
     catch: (e) => new Error(String(e)),
   }).pipe(Effect.catchAll(() => Effect.succeed(DEFAULT_SETTINGS)))

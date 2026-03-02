@@ -1,4 +1,4 @@
-import { Effect, Layer, Option } from 'effect'
+import { Effect, Option, Ref } from 'effect'
 import { InventoryService, INVENTORY_SIZE, HOTBAR_START } from '@/application/inventory/inventory-service'
 import { HotbarService } from '@/application/hotbar/hotbar-service'
 import type { BlockType } from '@/domain/block'
@@ -14,13 +14,13 @@ const DEFAULT_SLOT_COLOR = '#333333'
 export class InventoryRenderer extends Effect.Service<InventoryRenderer>()(
   '@minecraft/presentation/InventoryRenderer',
   {
-    effect: Effect.gen(function* () {
+    scoped: Effect.gen(function* () {
       const inventoryService = yield* InventoryService
       const hotbarService = yield* HotbarService
 
       let overlayEl: HTMLDivElement | null = null
       let slotEls: HTMLDivElement[] = []
-      let isVisible = false
+      const isVisibleRef = yield* Ref.make(false)
 
       const getSlotColor = (blockType: BlockType | string): string =>
         SLOT_COLORS[blockType] ?? DEFAULT_SLOT_COLOR
@@ -35,15 +35,6 @@ export class InventoryRenderer extends Effect.Service<InventoryRenderer>()(
           'font-size:10px', 'color:#fff', 'user-select:none',
           'background:' + DEFAULT_SLOT_COLOR,
         ].join(';')
-        el.addEventListener('click', () => {
-          Effect.runSync(
-            Effect.gen(function* () {
-              const selectedSlot = yield* hotbarService.getSelectedSlot()
-              const hotbarInventoryIndex = HOTBAR_START + selectedSlot
-              yield* inventoryService.moveStack(index, hotbarInventoryIndex)
-            })
-          )
-        })
         return el
       }
 
@@ -93,6 +84,32 @@ export class InventoryRenderer extends Effect.Service<InventoryRenderer>()(
         document.body.appendChild(overlayEl)
       }
 
+      buildOverlay()
+
+      const handleDelegatedClick = (event: MouseEvent) => {
+        const target = (event.target as HTMLElement).closest('[data-slot]') as HTMLElement | null
+        if (!target) return
+        const index = parseInt(target.dataset['slot'] ?? '-1', 10)
+        if (index < 0 || index >= INVENTORY_SIZE) return
+        Effect.runSync(
+          Effect.gen(function* () {
+            const selectedSlot = yield* hotbarService.getSelectedSlot()
+            const hotbarInventoryIndex = HOTBAR_START + selectedSlot
+            yield* inventoryService.moveStack(index, hotbarInventoryIndex)
+          })
+        )
+      }
+
+      yield* Effect.acquireRelease(
+        Effect.sync(() => {
+          overlayEl?.addEventListener('click', handleDelegatedClick)
+        }),
+        () => Effect.sync(() => {
+          overlayEl?.removeEventListener('click', handleDelegatedClick)
+          overlayEl?.remove()
+        })
+      )
+
       const refreshSlots = (): Effect.Effect<void, never> =>
         Effect.gen(function* () {
           const allSlots = yield* inventoryService.getAllSlots()
@@ -122,22 +139,27 @@ export class InventoryRenderer extends Effect.Service<InventoryRenderer>()(
         })
 
       return {
-        initialize: (): Effect.Effect<void, never> => Effect.sync(() => { buildOverlay() }),
+        initialize: (): Effect.Effect<void, never> => Effect.void,
 
         toggle: (): Effect.Effect<boolean, never> =>
           Effect.gen(function* () {
-            isVisible = !isVisible
-            if (overlayEl) overlayEl.style.display = isVisible ? 'block' : 'none'
-            if (isVisible) yield* refreshSlots()
-            return isVisible
+            const current = yield* Ref.get(isVisibleRef)
+            const next = !current
+            yield* Ref.set(isVisibleRef, next)
+            if (overlayEl) overlayEl.style.display = next ? 'block' : 'none'
+            if (next) yield* refreshSlots()
+            return next
           }),
 
-        isOpen: (): Effect.Effect<boolean, never> => Effect.sync(() => isVisible),
+        isOpen: (): Effect.Effect<boolean, never> => Ref.get(isVisibleRef),
 
         update: (): Effect.Effect<void, never> =>
-          isVisible ? refreshSlots() : Effect.void,
+          Effect.gen(function* () {
+            const isVisible = yield* Ref.get(isVisibleRef)
+            if (isVisible) yield* refreshSlots()
+          }),
       }
     }),
   }
 ) {}
-export { InventoryRenderer as InventoryRendererLive }
+export const InventoryRendererLive = InventoryRenderer.Default

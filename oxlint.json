@@ -24,6 +24,10 @@
   },
   "rules": {
     // TypeScript-specific rules
+    // Prefer `type` over `interface` for pure data types (Schema.Struct pattern)
+    // Note: service interfaces (Effect.Service) still use `class` not `interface`,
+    // so this rule safely applies to data-type definitions without breaking services.
+    "@typescript-eslint/consistent-type-definitions": ["warn", "type"],
     "@typescript-eslint/no-explicit-any": "off",
     "@typescript-eslint/no-unused-vars": "warn",
     "@typescript-eslint/no-floating-promises": "warn",

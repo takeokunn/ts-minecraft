@@ -1,5 +1,5 @@
 import { Effect, Ref, Option } from 'effect'
-import { ChunkService, Chunk, ChunkCoord, blockTypeToIndex, CHUNK_SIZE, CHUNK_HEIGHT } from '@/domain/chunk'
+import { ChunkService, Chunk, ChunkCoord, blockTypeToIndex, blockIndex, CHUNK_SIZE, CHUNK_HEIGHT } from '@/domain/chunk'
 import { StorageService } from '@/infrastructure/storage/storage-service'
 import { Position, WorldIdSchema } from '@/shared/kernel'
 import { ChunkError, StorageError } from '@/domain/errors'
@@ -107,6 +107,121 @@ interface ChunkCache {
 }
 
 /**
+ * Terrain generation constants
+ */
+const TERRAIN_SCALE = 0.02 // controls terrain frequency
+const HEIGHT_VARIATION = 16 // ±16 from sea level
+
+/**
+ * Calculate clamped surface height from a noise value and biome properties.
+ *
+ * Maps the 0-1 noise value to a block height using the biome's baseHeight and
+ * heightModifier, then clamps to valid chunk bounds [1, CHUNK_HEIGHT-2].
+ */
+const calculateSurfaceHeight = (
+  noiseVal: number,
+  baseHeight: number,
+  heightModifier: number,
+  heightVariation: number
+): number => {
+  const terrainHeight = Math.floor(
+    baseHeight + (noiseVal - 0.5) * heightVariation * 2 * heightModifier
+  )
+  return Math.max(1, Math.min(CHUNK_HEIGHT - 2, terrainHeight))
+}
+
+/**
+ * Fill a single vertical column of blocks up to surfaceY using biome block types.
+ *
+ * Block assignment (pure, no Effect overhead):
+ *   y == surfaceY: biome surface block (GRASS, SAND, STONE, etc.)
+ *   surfaceY-3 <= y < surfaceY: biome subsurface block (DIRT, SAND, etc.)
+ *   y < surfaceY-3: STONE
+ */
+const fillColumn = (
+  blocks: Uint8Array,
+  lx: number,
+  lz: number,
+  surfaceY: number,
+  props: { surfaceBlock: import('@/domain/block').BlockType; subSurfaceBlock: import('@/domain/block').BlockType }
+): void => {
+  for (let y = 0; y <= surfaceY; y++) {
+    const idx = blockIndex(lx, y, lz)
+    if (idx === null) continue // skip out-of-bounds (should never happen with valid coords)
+    if (y === surfaceY) {
+      blocks[idx] = blockTypeToIndex(props.surfaceBlock)
+    } else if (y >= surfaceY - 3) {
+      blocks[idx] = blockTypeToIndex(props.subSurfaceBlock)
+    } else {
+      blocks[idx] = blockTypeToIndex('STONE')
+    }
+  }
+}
+
+/**
+ * Return true if a tree should be placed at this world column.
+ *
+ * Uses a deterministic sine-hash RNG so tree placement is reproducible across
+ * chunk reloads. Returns the treeRng value as well so the caller can reuse it
+ * for trunk-height calculation without recomputing the hash.
+ */
+const shouldPlaceTree = (
+  treeDensity: number,
+  surfaceY: number,
+  wx: number,
+  wz: number
+): { place: boolean; treeRng: number } => {
+  if (treeDensity <= 0 || surfaceY <= 5 || surfaceY >= CHUNK_HEIGHT - 10) {
+    return { place: false, treeRng: 0 }
+  }
+  // Deterministic pseudo-random using world position
+  const treeRng = Math.sin(wx * 127.1 + wz * 311.7) * 43758.5453
+  const treeProb = treeRng - Math.floor(treeRng)
+  return { place: treeProb < treeDensity, treeRng }
+}
+
+/**
+ * Place a tree (trunk + 3x3x3 leaf canopy) into the blocks array.
+ *
+ * Writes are cropped to chunk boundaries (no cross-chunk writes).
+ * Leaves are only placed into AIR blocks to avoid overwriting solid terrain.
+ */
+const placeTree = (
+  blocks: Uint8Array,
+  lx: number,
+  lz: number,
+  surfaceY: number,
+  treeRng: number
+): void => {
+  // Trunk height: 4-6 blocks, derived from the same RNG used for probability
+  const trunkHeight = 4 + Math.floor((treeRng * 2) % 3)
+
+  // Trunk — place straight up from one block above the surface
+  for (let ty = surfaceY + 1; ty <= surfaceY + trunkHeight; ty++) {
+    const idx = blockIndex(lx, ty, lz)
+    if (idx !== null) {
+      blocks[idx] = blockTypeToIndex('WOOD')
+    }
+  }
+
+  // Leaves: 3x3x3 canopy anchored at top of trunk, cropped at chunk boundary
+  const leafBase = surfaceY + trunkHeight - 1
+  for (let dy = 0; dy <= 2; dy++) {
+    for (let dlx = -1; dlx <= 1; dlx++) {
+      for (let dlz = -1; dlz <= 1; dlz++) {
+        const lx2 = lx + dlx
+        const lz2 = lz + dlz
+        const ly = leafBase + dy
+        const leafIdx = blockIndex(lx2, ly, lz2)
+        if (leafIdx !== null && blocks[leafIdx] === 0) {
+          blocks[leafIdx] = blockTypeToIndex('LEAVES')
+        }
+      }
+    }
+  }
+}
+
+/**
  * Generate terrain for a chunk using noise-based heightmap.
  *
  * Height range: 48-80 blocks (sea level 64)
@@ -128,19 +243,16 @@ const generateTerrain = (
     // Mutable blocks array for efficient generation
     const blocks = new Uint8Array(chunk.blocks)
 
-    const TERRAIN_SCALE = 0.02 // controls terrain frequency
-    const HEIGHT_VARIATION = 16 // ±16 from sea level
-
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
       for (let lz = 0; lz < CHUNK_SIZE; lz++) {
         const wx = coord.x * CHUNK_SIZE + lx
         const wz = coord.z * CHUNK_SIZE + lz
 
-        // Get biome for this column
+        // Phase 1: Get biome for this column
         const biome = yield* biomeService.getBiome(wx, wz)
-        const props = biomeService.getBiomeProperties(biome)
+        const props = yield* biomeService.getBiomeProperties(biome)
 
-        // Heightmap: octave noise → height
+        // Phase 2: Calculate surface height from noise
         const noiseVal = noiseService.octaveNoise2D(
           wx * TERRAIN_SCALE,
           wz * TERRAIN_SCALE,
@@ -148,62 +260,15 @@ const generateTerrain = (
           0.5,
           2.0
         )
-        // noiseVal is 0-1, map to height range with biome modifier
-        const terrainHeight = Math.floor(
-          props.baseHeight + (noiseVal - 0.5) * HEIGHT_VARIATION * 2 * props.heightModifier
-        )
-        const height = Math.max(1, Math.min(CHUNK_HEIGHT - 2, terrainHeight))
+        const surfaceY = calculateSurfaceHeight(noiseVal, props.baseHeight, props.heightModifier, HEIGHT_VARIATION)
 
-        // Fill blocks column
-        for (let y = 0; y <= height; y++) {
-          const idx = y + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE
-          if (y === height) {
-            blocks[idx] = blockTypeToIndex(props.surfaceBlock)
-          } else if (y >= height - 3) {
-            blocks[idx] = blockTypeToIndex(props.subSurfaceBlock)
-          } else {
-            blocks[idx] = blockTypeToIndex('STONE')
-          }
-        }
+        // Phase 3: Fill column blocks (inner loop — pure, no Effect overhead)
+        fillColumn(blocks, lx, lz, surfaceY, props)
 
-        // Simple tree generation based on biome tree density
-        if (props.treeDensity > 0 && height > 5 && height < CHUNK_HEIGHT - 10) {
-          // Deterministic pseudo-random using position
-          const treeRng = Math.sin(wx * 127.1 + wz * 311.7) * 43758.5453
-          const treeProb = treeRng - Math.floor(treeRng)
-
-          if (treeProb < props.treeDensity) {
-            // Place tree: trunk (4-6 blocks) + leaves (3x3x3 canopy)
-            const trunkHeight = 4 + Math.floor((treeRng * 2) % 3)
-
-            // Trunk
-            for (let ty = height + 1; ty <= height + trunkHeight; ty++) {
-              if (ty < CHUNK_HEIGHT) {
-                const idx = ty + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE
-                blocks[idx] = blockTypeToIndex('WOOD')
-              }
-            }
-
-            // Leaves (3x3x3 around top of trunk, cropped at chunk boundary)
-            const leafBase = height + trunkHeight - 1
-            for (let dy = 0; dy <= 2; dy++) {
-              for (let dlx = -1; dlx <= 1; dlx++) {
-                for (let dlz = -1; dlz <= 1; dlz++) {
-                  const lx2 = lx + dlx
-                  const lz2 = lz + dlz
-                  const ly = leafBase + dy
-                  // Crop at chunk boundary (no cross-chunk writes)
-                  if (lx2 >= 0 && lx2 < CHUNK_SIZE && lz2 >= 0 && lz2 < CHUNK_SIZE && ly < CHUNK_HEIGHT) {
-                    const leafIdx = ly + lz2 * CHUNK_HEIGHT + lx2 * CHUNK_HEIGHT * CHUNK_SIZE
-                    // Only place leaves if block is AIR
-                    if (blocks[leafIdx] === 0) {
-                      blocks[leafIdx] = blockTypeToIndex('LEAVES')
-                    }
-                  }
-                }
-              }
-            }
-          }
+        // Phase 4: Place trees (probability-based, pure)
+        const { place, treeRng } = shouldPlaceTree(props.treeDensity, surfaceY, wx, wz)
+        if (place) {
+          placeTree(blocks, lx, lz, surfaceY, treeRng)
         }
       }
     }
@@ -430,4 +495,4 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
     }),
   }
 ) {}
-export { ChunkManagerService as ChunkManagerServiceLive }
+export const ChunkManagerServiceLive = ChunkManagerService.Default

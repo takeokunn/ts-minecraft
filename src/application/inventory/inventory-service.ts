@@ -1,4 +1,4 @@
-import { Effect, Context, Layer, Ref, Option } from 'effect'
+import { Effect, Context, Layer, Ref, Option, Schema } from 'effect'
 import type { BlockType } from '@/domain/block'
 import { BlockRegistry } from '@/domain/blockRegistry'
 import { ItemStack, createStack, mergeStacks, canMerge, MAX_STACK_SIZE, addToStack, removeFromStack } from '@/domain/item-stack'
@@ -10,12 +10,15 @@ export const INVENTORY_SIZE = 36
 export const HOTBAR_START = 27
 export const HOTBAR_SIZE = 9
 
-/**
- * Save data format for inventory serialization
- */
-export interface InventorySaveData {
-  readonly slots: ReadonlyArray<{ slot: number; blockType: string; count: number } | null>
-}
+const InventorySlotSaveEntrySchema = Schema.Struct({
+  slot: Schema.Number,
+  blockType: Schema.String,   // intentionally String (NOT BlockTypeSchema) — preserves existing behavior
+  count: Schema.Number,
+})
+export const InventorySaveDataSchema = Schema.Struct({
+  slots: Schema.Array(Schema.NullOr(InventorySlotSaveEntrySchema)),
+})
+export type InventorySaveData = Schema.Schema.Type<typeof InventorySaveDataSchema>
 
 export interface InventoryService {
   readonly getSlot: (index: number) => Effect.Effect<InventorySlot, never>

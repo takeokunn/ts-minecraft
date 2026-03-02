@@ -75,7 +75,7 @@ const createTestInputService = (initialState: {
  */
 const createTestLayer = (inputService: ReturnType<typeof createTestInputService>) => {
   // Create the base layers that don't have dependencies
-  const inputLayer = Layer.succeed(InputService, inputService)
+  const inputLayer = Layer.succeed(InputService, inputService as unknown as InputService)
   const shapeLayer = ShapeServiceLive
   const bodyLayer = RigidBodyServiceLive.pipe(Layer.provide(shapeLayer))
   const worldLayer = PhysicsWorldServiceLive

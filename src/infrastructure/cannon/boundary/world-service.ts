@@ -1,11 +1,12 @@
-import { Effect } from 'effect'
+import { Effect, Schema } from 'effect'
 import * as CANNON from 'cannon-es'
-import type { Vector3 } from '@/infrastructure/cannon/core/vector3'
+import { Vector3Schema } from '@/infrastructure/cannon/core'
 
-export type WorldConfig = {
-  readonly gravity: Vector3
-  readonly broadphase: 'naive' | 'sap'
-}
+export const WorldConfigSchema = Schema.Struct({
+  gravity: Vector3Schema,
+  broadphase: Schema.Literal('naive', 'sap'),
+})
+export type WorldConfig = Schema.Schema.Type<typeof WorldConfigSchema>
 
 export interface CollisionEvent {
   readonly bodyA: CANNON.Body
@@ -110,4 +111,4 @@ export class PhysicsWorldService extends Effect.Service<PhysicsWorldService>()(
     },
   }
 ) {}
-export { PhysicsWorldService as PhysicsWorldServiceLive }
+export const PhysicsWorldServiceLive = PhysicsWorldService.Default

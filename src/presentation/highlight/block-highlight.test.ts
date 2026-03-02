@@ -1,5 +1,5 @@
 import { describe, it } from '@effect/vitest'
-import { Effect, Layer } from 'effect'
+import { Effect, Layer, Option } from 'effect'
 import { expect, vi } from 'vitest'
 import * as THREE from 'three'
 import {
@@ -23,7 +23,7 @@ const createMockRaycastingService = (
         raycaster.far = 5
         return raycaster
       }),
-    raycastFromCamera: vi.fn(() => Effect.sync(() => hitResult)),
+    raycastFromCamera: vi.fn(() => Effect.sync(() => hitResult === null ? Option.none() : Option.some(hitResult))),
     worldToBlock: vi.fn((worldPos: { x: number; y: number; z: number }) =>
       Effect.sync(() => ({
         x: Math.floor(worldPos.x),
@@ -361,7 +361,7 @@ describe('BlockHighlight', () => {
         raycastFromCamera: vi.fn(() => {
           hitCount++
           if (hitCount === 1) {
-            return Effect.sync(() => ({
+            return Effect.sync(() => Option.some({
               point: { x: 5.5, y: 10.5, z: 3.5 },
               normal: { x: 0, y: 1, z: 0 },
               distance: 2.5,
@@ -370,7 +370,7 @@ describe('BlockHighlight', () => {
               blockZ: 3,
             }))
           }
-          return Effect.sync(() => null)
+          return Effect.sync(() => Option.none())
         }),
         worldToBlock: vi.fn((worldPos: { x: number; y: number; z: number }) =>
           Effect.sync(() => ({
@@ -438,7 +438,7 @@ describe('BlockHighlight', () => {
         raycastFromCamera: vi.fn(() => {
           hitCount++
           if (hitCount === 1 || hitCount === 3) {
-            return Effect.sync(() => ({
+            return Effect.sync(() => Option.some({
               point: { x: 1.5, y: 2.5, z: 3.5 },
               normal: { x: 0, y: 1, z: 0 },
               distance: 2.0,
@@ -447,7 +447,7 @@ describe('BlockHighlight', () => {
               blockZ: 3,
             }))
           }
-          return Effect.sync(() => null)
+          return Effect.sync(() => Option.none())
         }),
         worldToBlock: vi.fn((worldPos: { x: number; y: number; z: number }) =>
           Effect.sync(() => ({
@@ -509,7 +509,7 @@ describe('BlockHighlight', () => {
         raycastFromCamera: vi.fn(() => {
           const hit = positions[index % positions.length]
           index++
-          return Effect.sync(() => hit)
+          return Effect.sync(() => Option.some(hit))
         }),
         worldToBlock: vi.fn((worldPos: { x: number; y: number; z: number }) =>
           Effect.sync(() => ({

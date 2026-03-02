@@ -1,17 +1,20 @@
-import { Effect, Layer } from 'effect'
+import { Cause, Effect, Ref } from 'effect'
 import { SettingsService } from '@/application/settings/settings-service'
 
 export class SettingsOverlay extends Effect.Service<SettingsOverlay>()(
   '@minecraft/presentation/SettingsOverlay',
   {
-    effect: Effect.gen(function* () {
+    scoped: Effect.gen(function* () {
       const settingsService = yield* SettingsService
 
       let overlayEl: HTMLDivElement | null = null
       let renderDistanceInput: HTMLInputElement | null = null
       let sensitivityInput: HTMLInputElement | null = null
       let dayLengthInput: HTMLInputElement | null = null
-      let isVisible = false
+      let applyBtn: HTMLButtonElement | null = null
+      let closeBtn: HTMLButtonElement | null = null
+
+      const isVisibleRef = yield* Ref.make(false)
 
       const createOverlay = (): void => {
         if (typeof document === 'undefined') return
@@ -53,28 +56,8 @@ export class SettingsOverlay extends Effect.Service<SettingsOverlay>()(
         renderDistanceInput = overlayEl.querySelector('#rd-input')
         sensitivityInput = overlayEl.querySelector('#ms-input')
         dayLengthInput = overlayEl.querySelector('#dl-input')
-
-        // Live-update labels
-        renderDistanceInput?.addEventListener('input', () => {
-          const el = overlayEl?.querySelector('#rd-val')
-          if (el && renderDistanceInput) el.textContent = renderDistanceInput.value
-        })
-        sensitivityInput?.addEventListener('input', () => {
-          const el = overlayEl?.querySelector('#ms-val')
-          if (el && sensitivityInput) el.textContent = sensitivityInput.value
-        })
-        dayLengthInput?.addEventListener('input', () => {
-          const el = overlayEl?.querySelector('#dl-val')
-          if (el && dayLengthInput) el.textContent = dayLengthInput.value
-        })
-
-        overlayEl.querySelector('#settings-apply')?.addEventListener('click', () => {
-          Effect.runSync(applyEffect())
-        })
-        overlayEl.querySelector('#settings-close')?.addEventListener('click', () => {
-          isVisible = false
-          if (overlayEl) overlayEl.style.display = 'none'
-        })
+        applyBtn = overlayEl.querySelector('#settings-apply')
+        closeBtn = overlayEl.querySelector('#settings-close')
       }
 
       const applyEffect = (): Effect.Effect<void, never> =>
@@ -106,13 +89,64 @@ export class SettingsOverlay extends Effect.Service<SettingsOverlay>()(
         })
       }
 
+      // Named event handler functions for proper cleanup via removeEventListener
+      const handleRdInput = () => {
+        const el = overlayEl?.querySelector('#rd-val')
+        if (el && renderDistanceInput) el.textContent = renderDistanceInput.value
+      }
+
+      const handleMsInput = () => {
+        const el = overlayEl?.querySelector('#ms-val')
+        if (el && sensitivityInput) el.textContent = sensitivityInput.value
+      }
+
+      const handleDlInput = () => {
+        const el = overlayEl?.querySelector('#dl-val')
+        if (el && dayLengthInput) el.textContent = dayLengthInput.value
+      }
+
+      const handleApply = () => {
+        Effect.runFork(
+          applyEffect().pipe(
+            Effect.catchAllCause(cause =>
+              Effect.logError(`Settings apply error: ${Cause.pretty(cause)}`)
+            )
+          )
+        )
+      }
+
+      const handleClose = () => {
+        Effect.runSync(Ref.set(isVisibleRef, false))
+        if (overlayEl) overlayEl.style.display = 'none'
+      }
+
+      createOverlay()
+
+      yield* Effect.acquireRelease(
+        Effect.sync(() => {
+          renderDistanceInput?.addEventListener('input', handleRdInput)
+          sensitivityInput?.addEventListener('input', handleMsInput)
+          dayLengthInput?.addEventListener('input', handleDlInput)
+          applyBtn?.addEventListener('click', handleApply)
+          closeBtn?.addEventListener('click', handleClose)
+        }),
+        () => Effect.sync(() => {
+          renderDistanceInput?.removeEventListener('input', handleRdInput)
+          sensitivityInput?.removeEventListener('input', handleMsInput)
+          dayLengthInput?.removeEventListener('input', handleDlInput)
+          applyBtn?.removeEventListener('click', handleApply)
+          closeBtn?.removeEventListener('click', handleClose)
+          overlayEl?.remove()
+        })
+      )
+
       return {
         /**
          * Initialize the settings overlay DOM elements. Call once at startup.
          */
         initialize: (): Effect.Effect<void, never> =>
           Effect.sync(() => {
-            createOverlay()
+            // DOM elements are already created in the scoped initializer
           }),
 
         /**
@@ -121,16 +155,18 @@ export class SettingsOverlay extends Effect.Service<SettingsOverlay>()(
          */
         toggle: (): Effect.Effect<boolean, never> =>
           Effect.gen(function* () {
-            isVisible = !isVisible
-            if (overlayEl) overlayEl.style.display = isVisible ? 'block' : 'none'
-            if (isVisible) yield* syncEffect()
-            return isVisible
+            const current = yield* Ref.get(isVisibleRef)
+            const next = !current
+            yield* Ref.set(isVisibleRef, next)
+            if (overlayEl) overlayEl.style.display = next ? 'block' : 'none'
+            if (next) yield* syncEffect()
+            return next
           }),
 
         /**
          * Check if the settings overlay is currently open.
          */
-        isOpen: (): Effect.Effect<boolean, never> => Effect.sync(() => isVisible),
+        isOpen: (): Effect.Effect<boolean, never> => Ref.get(isVisibleRef),
 
         /**
          * Sync the overlay inputs with the current settings values.
@@ -145,4 +181,4 @@ export class SettingsOverlay extends Effect.Service<SettingsOverlay>()(
     }),
   }
 ) {}
-export { SettingsOverlay as SettingsOverlayLive }
+export const SettingsOverlayLive = SettingsOverlay.Default

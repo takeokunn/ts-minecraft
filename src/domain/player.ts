@@ -1,4 +1,4 @@
-import { Effect, Layer, Ref, Schema } from 'effect'
+import { Effect, Ref, Schema } from 'effect'
 import { PlayerIdSchema, PositionSchema, PlayerId, Position } from '@/shared/kernel'
 import { PlayerError } from './errors'
 import type { Vector3 } from '@/shared/math/three'
@@ -118,4 +118,4 @@ export class PlayerService extends Effect.Service<PlayerService>()(
     }),
   }
 ) {}
-export { PlayerService as PlayerServiceLive }
+export const PlayerServiceLive = PlayerService.Default

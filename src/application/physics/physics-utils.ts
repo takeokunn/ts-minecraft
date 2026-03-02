@@ -1,20 +1,5 @@
-/**
- * Position vector
- */
-export interface Position {
-  readonly x: number
-  readonly y: number
-  readonly z: number
-}
-
-/**
- * Velocity vector
- */
-export interface Velocity {
-  readonly x: number
-  readonly y: number
-  readonly z: number
-}
+import type { Position } from '@/shared/kernel'
+import type { Velocity } from '@/application/player/movement-service'
 
 /**
  * Default gravity constant (m/s^2)

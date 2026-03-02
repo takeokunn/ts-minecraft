@@ -1,6 +1,12 @@
 import * as THREE from 'three'
+import { Schema } from 'effect'
 
-export type Color = { readonly r: number; readonly g: number; readonly b: number }
+export const ColorSchema = Schema.Struct({
+  r: Schema.Number,
+  g: Schema.Number,
+  b: Schema.Number,
+})
+export type Color = Schema.Schema.Type<typeof ColorSchema>
 
 export const makeColor = (r: number, g: number, b: number): Color => ({ r, g, b })
 
