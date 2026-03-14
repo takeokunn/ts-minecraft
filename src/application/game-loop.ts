@@ -1,5 +1,6 @@
 import { Effect, Queue, Ref, Fiber, Schema, Cause } from 'effect'
 import { GameLoopError } from '@/domain/errors'
+import type { DeltaTimeSecs } from '@/shared/kernel'
 
 /**
  * Frame command type for queue-based game loop
@@ -31,13 +32,14 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
       const frameQueue = yield* Queue.bounded<FrameCommand>(QUEUE_CAPACITY)
       const runningRef = yield* Ref.make(false)
 
-      // Track resources for cleanup
-      let processingFiber: Fiber.RuntimeFiber<void, never> | null = null
+      // processingFiber is in a Ref for Effect-native mutation
+      const processingFiberRef = yield* Ref.make<Fiber.RuntimeFiber<void, never> | null>(null)
+      // animationFrameId stays as let — assigned inside sync rAF callback
       let animationFrameId: number | null = null
 
       return {
         start: (
-          frameHandler: (deltaTime: number) => Effect.Effect<void, never>
+          frameHandler: (deltaTime: DeltaTimeSecs) => Effect.Effect<void, never>
         ): Effect.Effect<void, GameLoopError> =>
           Effect.gen(function* () {
             const currentlyRunning = yield* Ref.get(runningRef)
@@ -55,10 +57,12 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
               let lastTimestamp = 0
               while (true) {
                 const cmd = yield* Queue.take(frameQueue)
-                const deltaTime =
+                // seconds (performance.now() timestamps are ms, divided by 1000)
+                const rawDelta =
                   lastTimestamp === 0
                     ? 0.016
                     : (cmd.timestamp - lastTimestamp) / 1000
+                const deltaTime = Math.max(0.001, rawDelta) as unknown as DeltaTimeSecs
                 lastTimestamp = cmd.timestamp
                 yield* frameHandler(deltaTime).pipe(
                   Effect.catchAll((e) =>
@@ -92,7 +96,7 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
             yield* Ref.set(runningRef, true)
 
             // Fork the processing fiber
-            processingFiber = yield* Effect.fork(processFrames)
+            yield* Ref.set(processingFiberRef, yield* Effect.fork(processFrames))
 
             // Start the bridge loop
             bridgeLoop()
@@ -111,9 +115,10 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
             }
 
             // Interrupt processing fiber
-            if (processingFiber !== null) {
-              yield* Fiber.interrupt(processingFiber)
-              processingFiber = null
+            const fiber = yield* Ref.get(processingFiberRef)
+            if (fiber !== null) {
+              yield* Fiber.interrupt(fiber)
+              yield* Ref.set(processingFiberRef, null)
             }
 
             // Shutdown the queue

@@ -1,5 +1,6 @@
 import { Effect, Schema } from 'effect'
-import { InputService, KeyMappings } from '../../presentation/input/input-service'
+import { PlayerInputService } from '@/application/input/player-input-service'
+import { KeyMappings } from '@/application/input/key-mappings'
 
 /**
  * Movement input state representing which movement keys are pressed
@@ -43,7 +44,7 @@ export class MovementService extends Effect.Service<MovementService>()(
   '@minecraft/layer/MovementService',
   {
     effect: Effect.gen(function* () {
-      const inputService = yield* InputService
+      const inputService = yield* PlayerInputService
 
       const getInput = (): Effect.Effect<MovementInput, never> =>
         Effect.gen(function* () {
@@ -65,7 +66,7 @@ export class MovementService extends Effect.Service<MovementService>()(
         yaw: number,
         isGrounded: boolean
       ): Effect.Effect<Velocity, never> =>
-        Effect.gen(function* () {
+        Effect.sync(() => {
           const speed = input.sprint ? DEFAULT_SPRINT_SPEED : DEFAULT_WALK_SPEED
 
           // Calculate movement direction based on camera yaw

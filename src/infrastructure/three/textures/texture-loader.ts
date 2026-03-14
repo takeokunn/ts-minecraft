@@ -37,7 +37,7 @@ export class TextureService extends Effect.Service<TextureService>()(
       return {
         load: loadEffect,
 
-        createSolidColor: (color: string | number): Effect.Effect<THREE.Texture, never> =>
+        createSolidColor: (color: string | number): Effect.Effect<THREE.Texture, TextureError> =>
           Effect.gen(function* () {
             const canvas = document.createElement('canvas')
             canvas.width = 64
@@ -45,7 +45,7 @@ export class TextureService extends Effect.Service<TextureService>()(
             const context = canvas.getContext('2d')
 
             if (!context) {
-              throw new Error('Failed to create canvas context')
+              return yield* Effect.fail(new TextureError({ url: 'solid-color-canvas', cause: 'Failed to create canvas context' }))
             }
 
             context.fillStyle = typeof color === 'string' ? color : `#${color.toString(16).padStart(6, '0')}`
@@ -64,7 +64,7 @@ export class TextureService extends Effect.Service<TextureService>()(
             return Option.fromNullable(cache.get(url))
           }),
 
-        preload: (urls: string[]): Effect.Effect<void, TextureError> =>
+        preload: (urls: string[]): Effect.Effect<void, never> =>
           Effect.forEach(urls, (url) => Effect.ignore(loadEffect(url)), { concurrency: 'unbounded' }),
 
         dispose: (): Effect.Effect<void, never> =>

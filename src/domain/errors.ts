@@ -3,6 +3,9 @@
  *
  * These errors follow Effect-TS Data.TaggedError patterns for discriminated
  * union type narrowing, structural equality, and Effect.catchTag compatibility.
+ *
+ * Error handling should use Effect.catchTag('ErrorTag', ...) or pattern matching
+ * via the _tag property — NOT runtime type guard functions.
  */
 import { Data } from 'effect'
 
@@ -51,24 +54,6 @@ export class MeshError extends Data.TaggedError('MeshError')<{
 }
 
 /**
- * Type guard for TextureError
- */
-export const isTextureError = (error: unknown): error is TextureError =>
-  typeof error === 'object' && error !== null && '_tag' in error && (error as { _tag: string })._tag === 'TextureError'
-
-/**
- * Type guard for BlockError
- */
-export const isBlockError = (error: unknown): error is BlockError =>
-  typeof error === 'object' && error !== null && '_tag' in error && (error as { _tag: string })._tag === 'BlockError'
-
-/**
- * Type guard for MeshError
- */
-export const isMeshError = (error: unknown): error is MeshError =>
-  typeof error === 'object' && error !== null && '_tag' in error && (error as { _tag: string })._tag === 'MeshError'
-
-/**
  * Error type for player operations
  */
 export class PlayerError extends Data.TaggedError('PlayerError')<{
@@ -110,24 +95,6 @@ export class GameLoopError extends Data.TaggedError('GameLoopError')<{
 }
 
 /**
- * Type guard for PlayerError
- */
-export const isPlayerError = (error: unknown): error is PlayerError =>
-  typeof error === 'object' && error !== null && '_tag' in error && (error as { _tag: string })._tag === 'PlayerError'
-
-/**
- * Type guard for WorldError
- */
-export const isWorldError = (error: unknown): error is WorldError =>
-  typeof error === 'object' && error !== null && '_tag' in error && (error as { _tag: string })._tag === 'WorldError'
-
-/**
- * Type guard for GameLoopError
- */
-export const isGameLoopError = (error: unknown): error is GameLoopError =>
-  typeof error === 'object' && error !== null && '_tag' in error && (error as { _tag: string })._tag === 'GameLoopError'
-
-/**
  * Error type for storage operations
  */
 export class StorageError extends Data.TaggedError('StorageError')<{
@@ -139,12 +106,6 @@ export class StorageError extends Data.TaggedError('StorageError')<{
     return `Storage operation '${this.operation}' failed${causeMessage ? `: ${causeMessage}` : ''}`
   }
 }
-
-/**
- * Type guard for StorageError
- */
-export const isStorageError = (error: unknown): error is StorageError =>
-  typeof error === 'object' && error !== null && '_tag' in error && (error as { _tag: string })._tag === 'StorageError'
 
 /**
  * Error type for chunk operations
@@ -163,12 +124,6 @@ export class ChunkError extends Data.TaggedError('ChunkError')<{
 }
 
 /**
- * Type guard for ChunkError
- */
-export const isChunkError = (error: unknown): error is ChunkError =>
-  typeof error === 'object' && error !== null && '_tag' in error && (error as { _tag: string })._tag === 'ChunkError'
-
-/**
  * Error type for physics operations
  */
 export class PhysicsError extends Data.TaggedError('PhysicsError')<{
@@ -181,7 +136,39 @@ export class PhysicsError extends Data.TaggedError('PhysicsError')<{
 }
 
 /**
- * Type guard for PhysicsError
+ * Error type for settings operations
  */
-export const isPhysicsError = (error: unknown): error is PhysicsError =>
-  typeof error === 'object' && error !== null && '_tag' in error && (error as { _tag: string })._tag === 'PhysicsError'
+export class SettingsError extends Data.TaggedError('SettingsError')<{
+  readonly operation: string
+  readonly cause?: unknown
+}> {
+  override get message(): string {
+    const causeMessage = this.cause instanceof Error ? this.cause.message : this.cause ? String(this.cause) : ''
+    return `Settings ${this.operation} failed${causeMessage ? `: ${causeMessage}` : ''}`
+  }
+}
+
+/**
+ * Error type for application startup failures
+ */
+export class StartupError extends Data.TaggedError('StartupError')<{
+  readonly reason: string
+  readonly cause?: unknown
+}> {
+  override get message(): string {
+    const causeMessage = this.cause instanceof Error ? this.cause.message : this.cause ? String(this.cause) : ''
+    return `${this.reason}${causeMessage ? `: ${causeMessage}` : ''}`
+  }
+}
+
+/**
+ * Error type for camera creation failures
+ */
+export class CameraError extends Data.TaggedError('CameraError')<{
+  readonly cause?: unknown
+}> {
+  override get message(): string {
+    const causeMessage = this.cause instanceof Error ? this.cause.message : this.cause ? String(this.cause) : ''
+    return `Camera creation failed${causeMessage ? `: ${causeMessage}` : ''}`
+  }
+}

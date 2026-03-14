@@ -2,9 +2,9 @@ import * as THREE from 'three'
 import { Schema } from 'effect'
 
 export const ColorSchema = Schema.Struct({
-  r: Schema.Number,
-  g: Schema.Number,
-  b: Schema.Number,
+  r: Schema.Number.pipe(Schema.finite(), Schema.between(0, 1)),
+  g: Schema.Number.pipe(Schema.finite(), Schema.between(0, 1)),
+  b: Schema.Number.pipe(Schema.finite(), Schema.between(0, 1)),
 })
 export type Color = Schema.Schema.Type<typeof ColorSchema>
 

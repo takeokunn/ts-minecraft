@@ -240,6 +240,41 @@ describe('BlockHighlight', () => {
     })
   })
 
+  describe('getTargetHit', () => {
+    it('should return the full RaycastHit including distance and normal after update', () => {
+      const hitResult: RaycastHit = {
+        point: { x: 5.5, y: 10.5, z: 3.5 },
+        normal: { x: 0, y: 1, z: 0 },
+        distance: 2.5,
+        blockX: 5,
+        blockY: 10,
+        blockZ: 3,
+      }
+      const mockRaycastingService = createMockRaycastingService(hitResult)
+      const MockLayer = Layer.succeed(RaycastingService, mockRaycastingService)
+      const TestLayer = BlockHighlightLive.pipe(Layer.provide(MockLayer))
+
+      const { scene } = createMockScene()
+      const camera = createMockCamera()
+
+      const program = Effect.gen(function* () {
+        const blockHighlight = yield* BlockHighlight
+        yield* blockHighlight.initialize(scene)
+        yield* blockHighlight.update(camera, scene)
+        return yield* blockHighlight.getTargetHit()
+      })
+
+      const result = Effect.runSync(program.pipe(Effect.provide(TestLayer)))
+
+      expect(result).not.toBeNull()
+      expect(result?.distance).toBe(2.5)
+      expect(result?.normal).toEqual({ x: 0, y: 1, z: 0 })
+      expect(result?.blockX).toBe(5)
+      expect(result?.blockY).toBe(10)
+      expect(result?.blockZ).toBe(3)
+    })
+  })
+
   describe('update', () => {
     it('should position mesh at hit block location', () => {
       const hitResult: RaycastHit = {

@@ -1,7 +1,7 @@
 import { Effect, Ref, Schema, Clock, Data } from 'effect'
 import { PlayerService, PlayerError } from '@/domain'
 import { PlayerId, Position, PhysicsBodyId } from '@/shared/kernel'
-import { PhysicsService, PhysicsError } from './physics/physics-service'
+import { PhysicsService } from './physics/physics-service'
 import { MovementService } from './player/movement-service'
 import { PlayerCameraState } from '../domain/player-camera'
 
@@ -128,8 +128,8 @@ export class GameStateService extends Effect.Service<GameStateService>()(
             yield* playerService.create(playerId, spawnPosition)
           }).pipe(
             Effect.mapError((e) => {
-              if (e instanceof PhysicsError) {
-                return new GameStateError({ operation: 'initialize', reason: e.reason, cause: e })
+              if (e._tag === 'PhysicsServiceError') {
+                return new GameStateError({ operation: 'initialize', reason: e.operation, cause: e })
               }
               return new GameStateError({ operation: 'initialize', reason: String(e), cause: e })
             })
@@ -200,11 +200,11 @@ export class GameStateService extends Effect.Service<GameStateService>()(
             }))
           }).pipe(
             Effect.mapError((e) => {
-              if (e instanceof GameStateError) {
+              if (e._tag === 'GameStateError') {
                 return e
               }
-              if (e instanceof PhysicsError) {
-                return new GameStateError({ operation: 'update', reason: e.reason, cause: e })
+              if (e._tag === 'PhysicsServiceError') {
+                return new GameStateError({ operation: 'update', reason: e.operation, cause: e })
               }
               return new GameStateError({ operation: 'update', reason: String(e), cause: e })
             })

@@ -1,4 +1,7 @@
-export type FaceDir = 'top' | 'bottom' | 'side'
+import { Schema } from 'effect'
+
+export const FaceDirSchema = Schema.Literal('top', 'bottom', 'side')
+export type FaceDir = Schema.Schema.Type<typeof FaceDirSchema>
 
 export const ATLAS_COLS = 16
 export const ATLAS_SIZE = 256

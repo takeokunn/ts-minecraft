@@ -1,12 +1,13 @@
-import { Effect, Context, Layer, Ref } from 'effect'
+import { Effect, Ref, Schema } from 'effect'
 
 /**
  * State for the time system
  */
-interface TimeState {
-  readonly ticks: number        // accumulated fractional ticks
-  readonly dayLengthTicks: number  // ticks per full day (default 24000 = 400s at 60fps)
-}
+const TimeStateSchema = Schema.Struct({
+  ticks: Schema.Number,         // accumulated fractional ticks
+  dayLengthTicks: Schema.Number,  // ticks per full day (default 24000 = 400s at 60fps)
+})
+type TimeState = Schema.Schema.Type<typeof TimeStateSchema>
 
 /**
  * TimeService manages the in-game day/night cycle.
@@ -20,84 +21,49 @@ interface TimeState {
  *   0.5 = noon      (bright)
  *   0.75 = dusk     (sunset)
  */
-export interface TimeService {
-  /**
-   * Advance the time by deltaTime seconds.
-   * Accumulates fractional ticks: ticks += deltaTime * 60
-   */
-  readonly advanceTick: (deltaTime: number) => Effect.Effect<void, never>
+export class TimeService extends Effect.Service<TimeService>()(
+  '@minecraft/application/TimeService',
+  {
+    effect: Effect.gen(function* () {
+      const stateRef = yield* Ref.make<TimeState>({
+        ticks: 0,
+        dayLengthTicks: 24000,  // 400 seconds at 60fps
+      })
 
-  /**
-   * Get the current time of day as a value in [0, 1).
-   * 0 = midnight, 0.5 = noon.
-   */
-  readonly getTimeOfDay: () => Effect.Effect<number, never>
+      return {
+        advanceTick: (deltaTime: number): Effect.Effect<void, never> =>
+          Ref.update(stateRef, (state) => ({
+            ...state,
+            ticks: state.ticks + deltaTime * 60,
+          })),
 
-  /**
-   * Returns true during night time (timeOfDay < 0.25 or > 0.75)
-   */
-  readonly isNight: () => Effect.Effect<boolean, never>
+        getTimeOfDay: (): Effect.Effect<number, never> =>
+          Ref.get(stateRef).pipe(
+            Effect.map((state) => (state.ticks % state.dayLengthTicks) / state.dayLengthTicks)
+          ),
 
-  /**
-   * Set the day length in seconds. Converts to ticks at 60fps.
-   * Valid range: 120-1200 seconds.
-   */
-  readonly setDayLength: (seconds: number) => Effect.Effect<void, never>
+        isNight: (): Effect.Effect<boolean, never> =>
+          Ref.get(stateRef).pipe(
+            Effect.map((state) => {
+              const timeOfDay = (state.ticks % state.dayLengthTicks) / state.dayLengthTicks
+              return timeOfDay < 0.25 || timeOfDay > 0.75
+            })
+          ),
 
-  /**
-   * Set the current time of day as a value in [0, 1).
-   * 0 = midnight, 0.5 = noon.
-   */
-  readonly setTimeOfDay: (fraction: number) => Effect.Effect<void, never>
-}
+        setDayLength: (seconds: number): Effect.Effect<void, never> =>
+          Ref.update(stateRef, (state) => ({
+            ...state,
+            dayLengthTicks: Math.max(120, Math.min(1200, seconds)) * 60, // clamps to 120-1200s range
+          })),
 
-/**
- * Context tag for TimeService
- */
-export const TimeService = Context.GenericTag<TimeService>('@minecraft/application/TimeService')
+        setTimeOfDay: (fraction: number): Effect.Effect<void, never> =>
+          Ref.update(stateRef, (state) => ({
+            ...state,
+            ticks: Math.max(0, Math.min(0.9999, fraction)) * state.dayLengthTicks, // 0.9999 avoids exact midnight wrap
+          })),
+      }
+    }),
+  }
+) {}
 
-/**
- * Live implementation of TimeService
- */
-export const TimeServiceLive = Layer.effect(
-  TimeService,
-  Effect.gen(function* () {
-    const stateRef = yield* Ref.make<TimeState>({
-      ticks: 0,
-      dayLengthTicks: 24000,  // 400 seconds at 60fps
-    })
-
-    return TimeService.of({
-      advanceTick: (deltaTime) =>
-        Ref.update(stateRef, (state) => ({
-          ...state,
-          ticks: state.ticks + deltaTime * 60,
-        })),
-
-      getTimeOfDay: () =>
-        Ref.get(stateRef).pipe(
-          Effect.map((state) => (state.ticks % state.dayLengthTicks) / state.dayLengthTicks)
-        ),
-
-      isNight: () =>
-        Ref.get(stateRef).pipe(
-          Effect.map((state) => {
-            const timeOfDay = (state.ticks % state.dayLengthTicks) / state.dayLengthTicks
-            return timeOfDay < 0.25 || timeOfDay > 0.75
-          })
-        ),
-
-      setDayLength: (seconds) =>
-        Ref.update(stateRef, (state) => ({
-          ...state,
-          dayLengthTicks: Math.max(120, Math.min(1200, seconds)) * 60,
-        })),
-
-      setTimeOfDay: (fraction) =>
-        Ref.update(stateRef, (state) => ({
-          ...state,
-          ticks: Math.max(0, Math.min(0.9999, fraction)) * state.dayLengthTicks,
-        })),
-    })
-  })
-)
+export const TimeServiceLive = TimeService.Default

@@ -2,11 +2,11 @@ import { describe, it } from '@effect/vitest'
 import { Effect, Schema, Option } from 'effect'
 import { expect } from 'vitest'
 import { BlockRegistry, BlockRegistryLive } from './blockRegistry'
-import { BlockSchema } from './block'
+import { Block } from './block'
 
 describe('BlockRegistry', () => {
   describe('initialization', () => {
-    it('should have all six initial blocks registered', () => {
+    it('should have all twelve initial blocks registered', () => {
       const program = Effect.gen(function* () {
         const registry = yield* BlockRegistry
         const allBlocks = yield* registry.getAll()
@@ -80,7 +80,7 @@ describe('BlockRegistry', () => {
           },
         }
 
-        const newBlock = Effect.runSync(Schema.decode(BlockSchema)(newBlockData))
+        const newBlock = Effect.runSync(Schema.decode(Block)(newBlockData))
         yield* registry.register(newBlock)
 
         const retrievedBlock = yield* registry.get('STONE')
@@ -122,7 +122,7 @@ describe('BlockRegistry', () => {
           },
         }
 
-        const updatedBlock = Effect.runSync(Schema.decode(BlockSchema)(updatedBlockData))
+        const updatedBlock = Effect.runSync(Schema.decode(Block)(updatedBlockData))
         yield* registry.register(updatedBlock)
 
         const retrievedBlock = yield* registry.get('STONE')
@@ -165,7 +165,7 @@ describe('BlockRegistry', () => {
           },
         }
 
-        const updatedStone = Effect.runSync(Schema.decode(BlockSchema)(updatedStoneData))
+        const updatedStone = Effect.runSync(Schema.decode(Block)(updatedStoneData))
         yield* registry.register(updatedStone)
 
         const dirtAfterUpdate = yield* registry.get('DIRT')
@@ -309,7 +309,7 @@ describe('BlockRegistry', () => {
           },
         }
 
-        const newBlock = Effect.runSync(Schema.decode(BlockSchema)(newBlockData))
+        const newBlock = Effect.runSync(Schema.decode(Block)(newBlockData))
         yield* registry.register(newBlock)
 
         const allBlocks = yield* registry.getAll()
@@ -380,7 +380,7 @@ describe('BlockRegistry', () => {
           },
         }
 
-        const newBlock = Effect.runSync(Schema.decode(BlockSchema)(newBlockData))
+        const newBlock = Effect.runSync(Schema.decode(Block)(newBlockData))
         yield* registry.register(newBlock)
 
         const allBlocks = yield* registry.getAll()
@@ -442,8 +442,8 @@ describe('BlockRegistry', () => {
         }
 
         const newBlocks = [
-          Effect.runSync(Schema.decode(BlockSchema)(ironBlockData)),
-          Effect.runSync(Schema.decode(BlockSchema)(goldBlockData)),
+          Effect.runSync(Schema.decode(Block)(ironBlockData)),
+          Effect.runSync(Schema.decode(Block)(goldBlockData)),
         ]
 
         for (const block of newBlocks) {

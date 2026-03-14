@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { Effect, Layer } from 'effect'
-import { InputService } from '../../presentation/input/input-service'
+import { PlayerInputService } from '@/application/input/player-input-service'
 import type { InputService as InputServiceType } from '../../presentation/input/input-service'
 import {
   MovementService,
@@ -23,7 +23,7 @@ const createTestInputService = (
     ['KeyA', initialState.left ?? false],
     ['KeyD', initialState.right ?? false],
     ['Space', initialState.jump ?? false],
-    ['ShiftLeft', initialState.sprint ?? false],
+    ['ControlLeft', initialState.sprint ?? false],
   ])
   // For consumeKeyPress, track "just pressed" keys
   // In tests, jump=true means Space was just pressed
@@ -56,10 +56,10 @@ const createTestInputService = (
 }
 
 /**
- * Helper to create test layers with mock InputService
+ * Helper to create test layers with mock PlayerInputService
  */
 const createTestLayers = (inputService: InputServiceType) =>
-  Layer.succeed(InputService, inputService)
+  Layer.succeed(PlayerInputService, inputService as unknown as PlayerInputService)
 
 describe('MovementService', () => {
   describe('constants', () => {
@@ -184,7 +184,7 @@ describe('MovementService', () => {
       expect(input.jump).toBe(true)
     })
 
-    it('should return sprint true when ShiftLeft is pressed', () => {
+    it('should return sprint true when ControlLeft is pressed', () => {
       const inputService = createTestInputService({ sprint: true })
       const testLayers = createTestLayers(inputService)
 
@@ -832,7 +832,7 @@ describe('MovementService', () => {
         ['KeyA', false],
         ['KeyD', false],
         ['Space', false],
-        ['ShiftLeft', false],
+        ['ControlLeft', false],
       ])
       // Track "just pressed" keys for consumeKeyPress
       let justPressedKeys = new Set<string>()
@@ -865,7 +865,7 @@ describe('MovementService', () => {
         const velocity1 = yield* movementService.update(0, true)
 
         // Start sprinting
-        pressedKeys.set('ShiftLeft', true)
+        pressedKeys.set('ControlLeft', true)
         const velocity2 = yield* movementService.update(0, true)
 
         // Jump while sprinting - need to add to justPressedKeys

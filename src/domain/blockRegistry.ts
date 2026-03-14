@@ -64,7 +64,7 @@ const defaultBlockFaces = {
 const makeBlockId = (id: string) => Schema.decodeSync(BlockIdSchema)(id)
 
 const initialBlocks: Array<Block> = [
-  {
+  new Block({
     id: makeBlockId('block:air'),
     type: 'AIR',
     properties: {
@@ -82,14 +82,14 @@ const initialBlocks: Array<Block> = [
       east: false,
       west: false,
     },
-  },
-  {
+  }),
+  new Block({
     id: makeBlockId('block:dirt'),
     type: 'DIRT',
     properties: defaultBlockProperties,
     faces: defaultBlockFaces,
-  },
-  {
+  }),
+  new Block({
     id: makeBlockId('block:stone'),
     type: 'STONE',
     properties: {
@@ -98,8 +98,8 @@ const initialBlocks: Array<Block> = [
       friction: 0.8,
     },
     faces: defaultBlockFaces,
-  },
-  {
+  }),
+  new Block({
     id: makeBlockId('block:wood'),
     type: 'WOOD',
     properties: {
@@ -107,8 +107,8 @@ const initialBlocks: Array<Block> = [
       hardness: 30,
     },
     faces: defaultBlockFaces,
-  },
-  {
+  }),
+  new Block({
     id: makeBlockId('block:grass'),
     type: 'GRASS',
     properties: {
@@ -117,8 +117,8 @@ const initialBlocks: Array<Block> = [
       emissive: true,
     },
     faces: defaultBlockFaces,
-  },
-  {
+  }),
+  new Block({
     id: makeBlockId('block:sand'),
     type: 'SAND',
     properties: {
@@ -127,8 +127,8 @@ const initialBlocks: Array<Block> = [
       friction: 0.5,
     },
     faces: defaultBlockFaces,
-  },
-  {
+  }),
+  new Block({
     id: makeBlockId('block:water'),
     type: 'WATER',
     properties: {
@@ -139,8 +139,8 @@ const initialBlocks: Array<Block> = [
       friction: 0,
     },
     faces: defaultBlockFaces,
-  },
-  {
+  }),
+  new Block({
     id: makeBlockId('block:leaves'),
     type: 'LEAVES',
     properties: {
@@ -149,8 +149,8 @@ const initialBlocks: Array<Block> = [
       transparency: true,
     },
     faces: defaultBlockFaces,
-  },
-  {
+  }),
+  new Block({
     id: makeBlockId('block:glass'),
     type: 'GLASS',
     properties: {
@@ -159,24 +159,24 @@ const initialBlocks: Array<Block> = [
       transparency: true,
     },
     faces: defaultBlockFaces,
-  },
-  {
+  }),
+  new Block({
     id: makeBlockId('block:snow'),
     type: 'SNOW',
     properties: { hardness: 5, transparency: false, solid: true, emissive: false, friction: 0.3 },
     faces: defaultBlockFaces,
-  },
-  {
+  }),
+  new Block({
     id: makeBlockId('block:gravel'),
     type: 'GRAVEL',
     properties: { hardness: 15, transparency: false, solid: true, emissive: false, friction: 0.5 },
     faces: defaultBlockFaces,
-  },
-  {
+  }),
+  new Block({
     id: makeBlockId('block:cobblestone'),
     type: 'COBBLESTONE',
     properties: { hardness: 80, transparency: false, solid: true, emissive: false, friction: 0.8 },
     faces: defaultBlockFaces,
-  },
+  }),
 ]
 export const BlockRegistryLive = BlockRegistry.Default

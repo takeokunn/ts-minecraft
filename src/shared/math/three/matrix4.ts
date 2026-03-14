@@ -1,7 +1,11 @@
 import * as THREE from 'three'
+import { Schema } from 'effect'
 
 // 4x4行列（列優先）
-export type Matrix4 = { readonly elements: readonly number[] }
+export const Matrix4Schema = Schema.Struct({
+  elements: Schema.Array(Schema.Number)
+})
+export type Matrix4 = typeof Matrix4Schema.Type
 
 export const identity: Matrix4 = {
   elements: [

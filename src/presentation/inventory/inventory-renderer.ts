@@ -1,7 +1,9 @@
-import { Effect, Option, Ref } from 'effect'
+import { Cause, Effect, Option, Ref } from 'effect'
 import { InventoryService, INVENTORY_SIZE, HOTBAR_START } from '@/application/inventory/inventory-service'
 import { HotbarService } from '@/application/hotbar/hotbar-service'
+import { DomOperations } from '@/presentation/hud/crosshair'
 import type { BlockType } from '@/domain/block'
+import { SlotIndex } from '@/shared/kernel'
 
 // Colors for block types in the inventory UI
 const SLOT_COLORS: Record<string, string> = {
@@ -17,6 +19,7 @@ export class InventoryRenderer extends Effect.Service<InventoryRenderer>()(
     scoped: Effect.gen(function* () {
       const inventoryService = yield* InventoryService
       const hotbarService = yield* HotbarService
+      const dom = yield* DomOperations
 
       let overlayEl: HTMLDivElement | null = null
       let slotEls: HTMLDivElement[] = []
@@ -26,7 +29,7 @@ export class InventoryRenderer extends Effect.Service<InventoryRenderer>()(
         SLOT_COLORS[blockType] ?? DEFAULT_SLOT_COLOR
 
       const createSlotEl = (index: number): HTMLDivElement => {
-        const el = document.createElement('div')
+        const el = dom.createElement('div') as HTMLDivElement
         el.dataset['slot'] = String(index)
         el.style.cssText = [
           'width:48px', 'height:48px', 'border:2px solid #666',
@@ -41,7 +44,7 @@ export class InventoryRenderer extends Effect.Service<InventoryRenderer>()(
       const buildOverlay = (): void => {
         if (typeof document === 'undefined') return
 
-        overlayEl = document.createElement('div')
+        overlayEl = dom.createElement('div') as HTMLDivElement
         overlayEl.id = 'inventory-overlay'
         overlayEl.style.cssText = [
           'position:fixed', 'top:50%', 'left:50%',
@@ -51,37 +54,37 @@ export class InventoryRenderer extends Effect.Service<InventoryRenderer>()(
           'font-family:monospace',
         ].join(';')
 
-        const title = document.createElement('div')
+        const title = dom.createElement('div')
         title.textContent = 'Inventory'
         title.style.cssText = 'color:#fff;margin-bottom:10px;font-size:14px;text-align:center'
-        overlayEl.appendChild(title)
+        dom.appendChildTo(overlayEl, title)
 
         // Main grid (3 rows × 9 = slots 0-26)
-        const mainGrid = document.createElement('div')
+        const mainGrid = dom.createElement('div')
         mainGrid.style.cssText = 'display:grid;grid-template-columns:repeat(9,50px);gap:4px;margin-bottom:8px'
         for (let i = 0; i < HOTBAR_START; i++) {
           const el = createSlotEl(i)
           slotEls[i] = el
-          mainGrid.appendChild(el)
+          dom.appendChildTo(mainGrid, el)
         }
-        overlayEl.appendChild(mainGrid)
+        dom.appendChildTo(overlayEl, mainGrid)
 
         // Separator
-        const sep = document.createElement('hr')
+        const sep = dom.createElement('hr')
         sep.style.cssText = 'border-color:#555;margin:8px 0'
-        overlayEl.appendChild(sep)
+        dom.appendChildTo(overlayEl, sep)
 
         // Hotbar row (slots 27-35)
-        const hotbarGrid = document.createElement('div')
+        const hotbarGrid = dom.createElement('div')
         hotbarGrid.style.cssText = 'display:grid;grid-template-columns:repeat(9,50px);gap:4px'
         for (let i = HOTBAR_START; i < INVENTORY_SIZE; i++) {
           const el = createSlotEl(i)
           slotEls[i] = el
-          hotbarGrid.appendChild(el)
+          dom.appendChildTo(hotbarGrid, el)
         }
-        overlayEl.appendChild(hotbarGrid)
+        dom.appendChildTo(overlayEl, hotbarGrid)
 
-        document.body.appendChild(overlayEl)
+        dom.appendChild(overlayEl)
       }
 
       buildOverlay()
@@ -91,12 +94,16 @@ export class InventoryRenderer extends Effect.Service<InventoryRenderer>()(
         if (!target) return
         const index = parseInt(target.dataset['slot'] ?? '-1', 10)
         if (index < 0 || index >= INVENTORY_SIZE) return
-        Effect.runSync(
+        Effect.runFork(
           Effect.gen(function* () {
             const selectedSlot = yield* hotbarService.getSelectedSlot()
             const hotbarInventoryIndex = HOTBAR_START + selectedSlot
-            yield* inventoryService.moveStack(index, hotbarInventoryIndex)
-          })
+            yield* inventoryService.moveStack(SlotIndex.make(index), SlotIndex.make(hotbarInventoryIndex))
+          }).pipe(
+            Effect.catchAllCause(cause =>
+              Effect.logError(`Inventory click error: ${Cause.pretty(cause)}`)
+            )
+          )
         )
       }
 

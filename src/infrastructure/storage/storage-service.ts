@@ -1,4 +1,4 @@
-import { Effect, Option, Schema } from 'effect'
+import { Effect, Option, Schema, Schedule, Duration } from 'effect'
 import { openDB, DBSchema, IDBPDatabase } from 'idb'
 import { WorldId } from '@/shared/kernel'
 import { StorageError } from '@/domain/errors'
@@ -53,6 +53,10 @@ interface StorageState {
   db: IDBPDatabase<MinecraftWorldsDB> | null
 }
 
+// StorageState: plain interface intentionally not converted to Schema.
+// IDBPDatabase<T> is a TypeScript interface (not a class constructor), so Schema.instanceOf is inapplicable.
+// Schema.declare would be unused (noUnusedLocals: true), so a comment serves as the type documentation.
+
 /**
  * Helper to create chunk key from worldId and chunk coordinates
  */
@@ -84,6 +88,19 @@ const tryCatchStorage = <A>(operation: string, fn: () => Promise<A>): Effect.Eff
   })
 
 /**
+ * Helper to wrap IndexedDB operations with exponential backoff retry.
+ * Retries up to 3 times with exponential delay, but skips retry for QuotaExceededError.
+ */
+const tryCatchStorageWithRetry = <A>(operation: string, fn: () => Promise<A>): Effect.Effect<A, StorageError> =>
+  tryCatchStorage(operation, fn).pipe(
+    Effect.retry({
+      while: (e: StorageError) => !isQuotaExceeded(e.cause),
+      times: 3,
+      schedule: Schedule.exponential(Duration.millis(100)),
+    })
+  )
+
+/**
  * StorageService — IndexedDB persistence for chunk and world metadata
  *
  * Provides low-level chunk and world metadata persistence using IndexedDB.
@@ -92,7 +109,7 @@ const tryCatchStorage = <A>(operation: string, fn: () => Promise<A>): Effect.Eff
 export class StorageService extends Effect.Service<StorageService>()(
   '@minecraft/infrastructure/storage/StorageService',
   {
-    effect: Effect.gen(function* () {
+    effect: Effect.sync(() => {
       const state: StorageState = { db: null }
 
       const initialize = Effect.gen(function* () {
@@ -128,7 +145,7 @@ export class StorageService extends Effect.Service<StorageService>()(
           }
 
           const key = chunkKey(worldId, chunkCoord)
-          yield* tryCatchStorage('saveChunk', () => state.db!.put(STORE_CHUNKS, data, key))
+          yield* tryCatchStorageWithRetry('saveChunk', () => state.db!.put(STORE_CHUNKS, data, key))
         })
 
       const loadChunk = (worldId: WorldId, chunkCoord: ChunkCoord) =>
@@ -139,7 +156,7 @@ export class StorageService extends Effect.Service<StorageService>()(
           }
 
           const key = chunkKey(worldId, chunkCoord)
-          const result = yield* tryCatchStorage('loadChunk', () => state.db!.get(STORE_CHUNKS, key))
+          const result = yield* tryCatchStorageWithRetry('loadChunk', () => state.db!.get(STORE_CHUNKS, key))
 
           return result !== undefined ? Option.some(result) : Option.none()
         })
@@ -151,7 +168,7 @@ export class StorageService extends Effect.Service<StorageService>()(
             return yield* Effect.fail(new StorageError({ operation: 'saveWorldMetadata', cause: 'Database not initialized' }))
           }
 
-          yield* tryCatchStorage('saveWorldMetadata', () =>
+          yield* tryCatchStorageWithRetry('saveWorldMetadata', () =>
             state.db!.put(STORE_METADATA, metadata, worldId),
           )
         })
@@ -163,7 +180,7 @@ export class StorageService extends Effect.Service<StorageService>()(
             return yield* Effect.fail(new StorageError({ operation: 'loadWorldMetadata', cause: 'Database not initialized' }))
           }
 
-          const result = yield* tryCatchStorage('loadWorldMetadata', () => state.db!.get(STORE_METADATA, worldId))
+          const result = yield* tryCatchStorageWithRetry('loadWorldMetadata', () => state.db!.get(STORE_METADATA, worldId))
 
           return result !== undefined ? Option.some(result) : Option.none()
         })

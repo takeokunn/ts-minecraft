@@ -3,7 +3,7 @@ import { Effect, Ref, Schema } from 'effect'
 // Schema for camera rotation state
 export const CameraRotationSchema = Schema.Struct({
   yaw: Schema.Number, // Horizontal rotation (radians)
-  pitch: Schema.Number, // Vertical rotation (radians), clamped to -89 to 89
+  pitch: Schema.Number.pipe(Schema.between(-Math.PI / 2 + 0.01, Math.PI / 2 - 0.01)), // Vertical rotation (radians), clamped to -89 to 89
 })
 export type CameraRotation = Schema.Schema.Type<typeof CameraRotationSchema>
 

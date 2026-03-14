@@ -1,5 +1,6 @@
 // Vector3
 export {
+  Vector3Schema,
   makeVector3,
   zero,
   one,
@@ -28,6 +29,7 @@ export type { Vector3 } from './vector3'
 
 // Quaternion
 export {
+  QuaternionSchema,
   identity,
   makeQuaternion,
   fromThreeQuaternion,
@@ -49,5 +51,5 @@ export {
 export type { Matrix4 } from './matrix4'
 
 // Color
-export { makeColor, fromHex, toThreeColor } from './color'
+export { ColorSchema, makeColor, fromHex, toThreeColor } from './color'
 export type { Color } from './color'

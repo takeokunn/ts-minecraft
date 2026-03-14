@@ -31,11 +31,12 @@ export type ChunkCoord = Schema.Schema.Type<typeof ChunkCoordSchema>
  * - Index calculation: y + (z * CHUNK_HEIGHT) + (x * CHUNK_HEIGHT * CHUNK_SIZE)
  * - BlockType values are stored as their index (0=AIR, 1=DIRT, etc.)
  */
-export interface Chunk {
-  readonly coord: ChunkCoord
-  readonly blocks: Uint8Array
-  dirty: boolean
-}
+export const ChunkSchema = Schema.Struct({
+  coord: ChunkCoordSchema,
+  // Schema.declare: opaque brand for Uint8Array (ArrayBufferLike base type, compatible with idb storage returns)
+  blocks: Schema.declare((u): u is Uint8Array<ArrayBufferLike> => u instanceof Uint8Array),
+})
+export type Chunk = Schema.Schema.Type<typeof ChunkSchema>
 
 /**
  * BlockType to number index mapping for storage
@@ -105,7 +106,7 @@ export class ChunkService extends Effect.Service<ChunkService>()(
       createChunk: (coord: ChunkCoord): Effect.Effect<Chunk, never> =>
         Effect.sync(() => {
           const blocks = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
-          return { coord, blocks, dirty: false }
+          return { coord, blocks }
         }),
 
       /**
@@ -127,7 +128,7 @@ export class ChunkService extends Effect.Service<ChunkService>()(
 
       /**
        * Set the block type at specified local coordinates within a chunk
-       * Returns the updated chunk with dirty flag set to true
+       * Returns a new chunk with the updated blocks array (immutable update)
        */
       setBlock: (chunk: Chunk, localX: number, y: number, localZ: number, blockType: BlockType): Effect.Effect<Chunk, ChunkError> => {
         const idx = blockIndex(localX, y, localZ)
@@ -141,7 +142,7 @@ export class ChunkService extends Effect.Service<ChunkService>()(
         }
         const newBlocks = new Uint8Array(chunk.blocks)
         newBlocks[idx] = blockTypeToIndex(blockType)
-        return Effect.succeed({ ...chunk, blocks: newBlocks, dirty: true } as const)
+        return Effect.succeed({ ...chunk, blocks: newBlocks })
       },
 
       /**
@@ -169,3 +170,32 @@ export class ChunkService extends Effect.Service<ChunkService>()(
 
 export { blockTypeToIndex, indexToBlockType }
 export const ChunkServiceLive = ChunkService.Default
+
+/**
+ * Get a readonly view of the chunk's block data for batch reads.
+ * Returns the backing Uint8Array as Readonly — zero allocation, no copy.
+ * Use this as a snapshot for performance-critical hot loops (e.g., greedy meshing).
+ */
+export const getBlocksBatch = (chunk: Chunk): Effect.Effect<Readonly<Uint8Array>, never> =>
+  Effect.succeed(chunk.blocks as Readonly<Uint8Array>)
+
+/**
+ * Set a block type at local coordinates via in-place mutation (O(1)).
+ * Intended for write paths in block-service; NOT a general-purpose API
+ * (use ChunkService.setBlock for immutable update patterns).
+ * Callers (block-service.ts) must call chunkManagerService.markChunkDirty()
+ * to register the coord in the persistence dirty-set (cache.dirtyChunks).
+ */
+export const setBlockInChunk = (
+  chunk: Chunk,
+  localX: number,
+  y: number,
+  localZ: number,
+  blockType: BlockType
+): Effect.Effect<void, BlockIndexError> =>
+  Effect.flatMap(
+    toBlockIndex(localX, y, localZ),
+    (idx) => Effect.sync(() => {
+      chunk.blocks[idx] = blockTypeToIndex(blockType)
+    })
+  )

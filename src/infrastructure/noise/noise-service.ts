@@ -1,4 +1,4 @@
-import { Effect } from 'effect'
+import { Effect, Ref } from 'effect'
 import { createNoise2D, type NoiseFunction2D } from 'simplex-noise'
 
 type RandomFn = () => number
@@ -19,31 +19,35 @@ export class NoiseService extends Effect.Service<NoiseService>()(
   '@minecraft/infrastructure/noise/NoiseService',
   {
     effect: Effect.gen(function* () {
-      let currentNoise2D: NoiseFunction2D = createNoise2D()
+      const noiseRef = yield* Ref.make<NoiseFunction2D>(createNoise2D())
 
       return {
-        noise2D: (x: number, z: number): number => normalizeNoise(currentNoise2D(x, z)),
+        noise2D: (x: number, z: number): Effect.Effect<number, never> =>
+          Effect.gen(function* () {
+            const noiseFn = yield* Ref.get(noiseRef)
+            return normalizeNoise(noiseFn(x, z))
+          }),
 
-        octaveNoise2D: (x: number, z: number, octaves: number, persistence: number, lacunarity: number): number => {
-          let total = 0
-          let frequency = 1
-          let amplitude = 1
-          let maxValue = 0
+        octaveNoise2D: (x: number, z: number, octaves: number, persistence: number, lacunarity: number): Effect.Effect<number, never> =>
+          Effect.gen(function* () {
+            const noiseFn = yield* Ref.get(noiseRef)
+            let total = 0
+            let frequency = 1
+            let amplitude = 1
+            let maxValue = 0
 
-          for (let i = 0; i < octaves; i++) {
-            total += currentNoise2D(x * frequency, z * frequency) * amplitude
-            maxValue += amplitude
-            amplitude *= persistence
-            frequency *= lacunarity
-          }
+            for (let i = 0; i < octaves; i++) {
+              total += noiseFn(x * frequency, z * frequency) * amplitude
+              maxValue += amplitude
+              amplitude *= persistence
+              frequency *= lacunarity
+            }
 
-          return normalizeNoise(total / maxValue)
-        },
+            return normalizeNoise(total / maxValue)
+          }),
 
         setSeed: (seed: number): Effect.Effect<void, never> =>
-          Effect.sync(() => {
-            currentNoise2D = createNoise2D(mulberry32(seed))
-          }),
+          Ref.set(noiseRef, createNoise2D(mulberry32(seed))),
       }
     }),
   }

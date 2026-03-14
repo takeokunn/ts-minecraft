@@ -1,4 +1,5 @@
-import { Cause, Duration, Effect, Layer, Option, Ref, Schedule } from 'effect'
+import { Cause, Clock, Duration, Effect, Layer, Option, Random, Ref, Schedule } from 'effect'
+import { StartupError } from '@/domain/errors'
 import * as THREE from 'three'
 
 // Import existing infrastructure services
@@ -32,17 +33,17 @@ import { PlayerServiceLive } from '@/domain/player'
 
 // Import Phase 5 services
 import { BlockService, BlockServiceLive } from '@/application/block/block-service'
-import { HotbarService, HotbarServiceLive } from '@/application/hotbar/hotbar-service'
+import { HotbarService } from '@/application/hotbar/hotbar-service'
 import { HotbarRenderer, HotbarRendererLive } from '@/presentation/hud/hotbar-three'
 
 // Import Phase 7 services
-import { InventoryServiceLive } from '@/application/inventory/inventory-service'
-import { TimeService, TimeServiceLive } from '@/application/time/time-service'
-import { SettingsService, SettingsServiceLive } from '@/application/settings/settings-service'
+import { InventoryService } from '@/application/inventory/inventory-service'
+import { TimeService } from '@/application/time/time-service'
+import { SettingsService } from '@/application/settings/settings-service'
 import { SettingsOverlay, SettingsOverlayLive } from '@/presentation/settings/settings-overlay'
 import { InventoryRenderer, InventoryRendererLive } from '@/presentation/inventory/inventory-renderer'
 
-import type { WorldId } from '@/shared/kernel'
+import type { WorldId, DeltaTimeSecs } from '@/shared/kernel'
 
 // Import Phase 4 services
 import { GameStateService, GameStateServiceLive, DEFAULT_PLAYER_ID } from '@/application/game-state'
@@ -53,7 +54,7 @@ import { PlayerCameraStateLive } from '@/domain/player-camera'
 import { Crosshair, CrosshairLive, DomOperationsLive } from '@/presentation/hud/crosshair'
 import { BlockHighlight, BlockHighlightLive } from '@/presentation/highlight/block-highlight'
 import { RaycastingServiceLive } from '@/application/raycasting/raycasting-service'
-import { InputService, InputServiceLive, KeyMappings } from '@/presentation/input/input-service'
+import { InputService, InputServiceLive, KeyMappings, PlayerInputServiceLive } from '@/presentation/input/input-service'
 import { GameLoopService, GameLoopServiceLive } from '@/application/game-loop'
 
 // Build layers from the bottom up, providing dependencies at each level
@@ -97,9 +98,14 @@ const PhysicsLayer = PhysicsServiceLive.pipe(
   Layer.provide(ShapeServiceLive),
 )
 
-// MovementService depends on InputService
-const MovementLayer = MovementServiceLive.pipe(
+// PlayerInputServiceLive: adapter bridging InputService (presentation) to PlayerInputService (application)
+const PlayerInputLayer = PlayerInputServiceLive.pipe(
   Layer.provide(InputServiceLive),
+)
+
+// MovementService depends on PlayerInputService
+const MovementLayer = MovementServiceLive.pipe(
+  Layer.provide(PlayerInputLayer),
 )
 
 // PlayerCameraState has no dependencies
@@ -118,9 +124,9 @@ const BlockHighlightLayer = BlockHighlightLive.pipe(
   Layer.provide(RaycastingLayer),
 )
 
-// FirstPersonCameraService depends on InputService and PlayerCameraState
+// FirstPersonCameraService depends on PlayerInputService and PlayerCameraState
 const FirstPersonCameraLayer = FirstPersonCameraServiceLive.pipe(
-  Layer.provide(InputServiceLive),
+  Layer.provide(PlayerInputLayer),
   Layer.provide(CameraStateLayer),
 )
 
@@ -154,13 +160,13 @@ const BlockLayer = BlockServiceLive.pipe(
 )
 
 // Phase 7: InventoryService depends on BlockRegistry
-const InventoryLayer = InventoryServiceLive.pipe(
+const InventoryLayer = InventoryService.Default.pipe(
   Layer.provide(BlockRegistryLive),
 )
 
-// HotbarService depends on InputService and InventoryService
-const HotbarLayer = HotbarServiceLive.pipe(
-  Layer.provide(InputServiceLive),
+// HotbarService depends on PlayerInputService and InventoryService
+const HotbarLayer = HotbarService.Default.pipe(
+  Layer.provide(PlayerInputLayer),
   Layer.provide(InventoryLayer),
 )
 
@@ -170,43 +176,60 @@ const HotbarRendererLayer = HotbarRendererLive.pipe(
 )
 
 // Phase 7: SettingsService has no Effect dependencies (uses localStorage internally)
-const SettingsLayer = SettingsServiceLive
+const SettingsLayer = SettingsService.Default
 
-// Phase 7: SettingsOverlay depends on SettingsService
+// Phase 7: SettingsOverlay depends on SettingsService and DomOperations
 const SettingsOverlayLayer = SettingsOverlayLive.pipe(
   Layer.provide(SettingsLayer),
+  Layer.provide(DomOperationsLive),
 )
 
-// Phase 7: InventoryRenderer depends on InventoryService and HotbarService
+// Phase 7: InventoryRenderer depends on InventoryService, HotbarService, and DomOperations
 const InventoryRendererLayer = InventoryRendererLive.pipe(
   Layer.provide(InventoryLayer),
   Layer.provide(HotbarLayer),
+  Layer.provide(DomOperationsLive),
 )
 
-// Merge all layers into a single application layer
-const MainLive = Layer.mergeAll(
-  BaseLayer,
-  NoiseLayer,
-  BiomeLayer,
-  PhysicsLayer,
-  MovementLayer,
-  CameraStateLayer,
-  RaycastingLayer,
-  CrosshairLayer,
-  BlockHighlightLayer,
-  FirstPersonCameraLayer,
-  GameLayer,
-  ChunkManagerLayer,
-  WorldRendererLayer,
-  BlockLayer,
-  HotbarLayer,
-  HotbarRendererLayer,
-  InventoryLayer,
-  TimeServiceLive,
-  SettingsLayer,
-  SettingsOverlayLayer,
-  InventoryRendererLayer,
-)
+  // Merge all layers into a single application layer
+
+  // FR-008: Organize layers by domain for better maintainability
+  const InfrastructureLayers = Layer.mergeAll(
+    BaseLayer,
+    NoiseLayer,
+    BiomeLayer,
+    PhysicsLayer,
+    WorldRendererLayer,
+  )
+
+  const GameLogicLayers = Layer.mergeAll(
+    GameLayer,
+    ChunkManagerLayer,
+    BlockLayer,
+    HotbarLayer,
+    InventoryLayer,
+    TimeService.Default,
+  )
+
+  const PresentationLayers = Layer.mergeAll(
+    PlayerInputLayer,
+    MovementLayer,
+    CameraStateLayer,
+    RaycastingLayer,
+    CrosshairLayer,
+    BlockHighlightLayer,
+    FirstPersonCameraLayer,
+    HotbarRendererLayer,
+    SettingsLayer,
+    SettingsOverlayLayer,
+    InventoryRendererLayer,
+  )
+
+  const MainLive = Layer.mergeAll(
+    InfrastructureLayers,
+    GameLogicLayers,
+    PresentationLayers,
+  )
 
 // World identifier used for all storage operations
 const WORLD_ID = 'world-1' as WorldId
@@ -217,16 +240,15 @@ const EYE_LEVEL_OFFSET = 0.7
 // Main application
 const mainProgram = Effect.gen(function* () {
   // Get canvas element
-  const canvas = yield* Effect.try({
-    try: () => {
-      const el = document.getElementById('game-canvas')
-      if (!el) {
-        throw new Error('Canvas element not found')
-      }
-      return el as HTMLCanvasElement
-    },
-    catch: (error) => new Error(`Failed to get canvas: ${error}`),
-  })
+  const canvas = yield* Effect.gen(function* () {
+    const el = document.getElementById('game-canvas')
+    if (!el) return yield* Effect.fail(new StartupError({ reason: 'Canvas element not found' }))
+    return el as HTMLCanvasElement
+  }).pipe(
+    Effect.mapError((error) =>
+      error instanceof StartupError ? error : new StartupError({ reason: 'Failed to get canvas', cause: error })
+    )
+  )
 
   // Get infrastructure services
   const rendererService = yield* RendererService
@@ -286,13 +308,15 @@ const mainProgram = Effect.gen(function* () {
     spawnPosition = metadata.playerSpawn ?? { x: 0, y: 100, z: 0 }
     yield* Effect.log(`Loaded world '${WORLD_ID}' with seed ${metadata.seed}`)
   } else {
-    const seed = Math.floor(Math.random() * 0xFFFFFFFF)
+    const seed = yield* Random.nextIntBetween(0, 0xFFFFFFFF)
     yield* noiseService.setSeed(seed)
     spawnPosition = { x: 0, y: 100, z: 0 }
+    const nowMs = yield* Clock.currentTimeMillis
+    const now = new Date(nowMs)
     yield* storageService.saveWorldMetadata(WORLD_ID, {
       seed,
-      createdAt: new Date(),
-      lastPlayed: new Date(),
+      createdAt: now,
+      lastPlayed: now,
       playerSpawn: spawnPosition,
     })
     yield* Effect.log(`Created new world '${WORLD_ID}' with seed ${seed}`)
@@ -317,10 +341,12 @@ const mainProgram = Effect.gen(function* () {
   // by scanning downward from the top until we find a non-air block.
   // This aligns the physics ground plane with the visual terrain surface.
   const spawnChunk = yield* chunkManagerService.getChunk({ x: 0, z: 0 })
+  // readonly snapshot for spawn height detection
+  const spawnBlocks = spawnChunk.blocks as Readonly<Uint8Array>
   let surfaceY = 64 // fallback to sea level
   for (let y = CHUNK_HEIGHT - 1; y >= 0; y--) {
     const idx = blockIndex(0, y, 0) // lx=0, lz=0
-    if (idx !== null && spawnChunk.blocks[idx] !== 0) { // 0 = AIR
+    if (idx !== null && spawnBlocks[idx] !== 0) { // 0 = AIR
       surfaceY = y
       break
     }
@@ -374,10 +400,14 @@ const mainProgram = Effect.gen(function* () {
     }
   }
   const handleBeforeUnload = () => {
-    Effect.runPromise(chunkManagerService.saveDirtyChunks()).catch(() => {})
+    Effect.runFork(chunkManagerService.saveDirtyChunks().pipe(Effect.catchAllCause(() => Effect.void)))
   }
   const handleCanvasClick = () => {
-    Effect.runSync(inputService.requestPointerLock())
+    Effect.runFork(
+      inputService.requestPointerLock().pipe(
+        Effect.catchAllCause((cause) => Effect.logError('pointer lock failed', cause))
+      )
+    )
   }
 
   yield* Effect.acquireRelease(
@@ -400,7 +430,7 @@ const mainProgram = Effect.gen(function* () {
   const gamePausedRef = yield* Ref.make(false)
 
   // Single frame handler — all 11 operations in sequence, single Effect.runPromise per frame
-  const frameHandler = (deltaTime: number): Effect.Effect<void, never> =>
+  const frameHandler = (deltaTime: DeltaTimeSecs): Effect.Effect<void, never> =>
     Effect.gen(function* () {
       // 1. Chunk streaming (throttled internally to 200ms)
       yield* Effect.gen(function* () {

@@ -1,13 +1,7 @@
 import { Schema, Arbitrary } from 'effect'
+import { PositionSchema } from '@/shared/kernel'
 
-/**
- * Schema for valid Position
- */
-export const PositionSchema = Schema.Struct({
-  x: Schema.Number.pipe(Schema.finite()),
-  y: Schema.Number.pipe(Schema.finite()),
-  z: Schema.Number.pipe(Schema.finite()),
-})
+export { PositionSchema }
 
 /**
  * Schema for valid Velocity

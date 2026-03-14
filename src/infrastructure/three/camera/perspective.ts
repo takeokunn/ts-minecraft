@@ -1,6 +1,7 @@
 import { Effect, Schema } from 'effect'
 import * as THREE from 'three'
 import type { Position } from '@/shared/kernel'
+import { CameraError } from '@/domain/errors'
 
 export const PerspectiveCameraParamsSchema = Schema.Struct({
   fov: Schema.Number.pipe(Schema.between(1, 179)),
@@ -18,10 +19,10 @@ export class PerspectiveCameraService extends Effect.Service<PerspectiveCameraSe
   '@minecraft/infrastructure/three/PerspectiveCameraService',
   {
     succeed: {
-      create: (params: PerspectiveCameraParams): Effect.Effect<THREE.PerspectiveCamera, Error> =>
+      create: (params: PerspectiveCameraParams): Effect.Effect<THREE.PerspectiveCamera, CameraError> =>
         Effect.try({
           try: () => new THREE.PerspectiveCamera(params.fov, params.aspect, params.near, params.far),
-          catch: (error) => new Error(`Failed to create camera: ${error}`),
+          catch: (error) => new CameraError({ cause: error }),
         }),
       updateAspect: (camera: THREE.PerspectiveCamera, aspect: number): Effect.Effect<void, never> =>
         Effect.sync(() => {
@@ -45,7 +46,7 @@ export class PerspectiveCameraService extends Effect.Service<PerspectiveCameraSe
         offset: Position,
         lerpFactor: number
       ): Effect.Effect<void, never> =>
-        Effect.gen(function* () {
+        Effect.sync(() => {
           const targetX = target.x + offset.x
           const targetY = target.y + offset.y
           const targetZ = target.z + offset.z

@@ -19,10 +19,7 @@ export default defineConfig({
     },
     include: ['**/*.{test,spec}.?(c|m)[jt]s?(x)'],
     exclude: ['**/node_modules/**', '**/dist/**', '**/.git/**', '**/coverage/**', '**/.next/**', '**/test/helpers/**'],
-    transformMode: {
-      web: [/\.[jt]sx?$/],
-      ssr: [/\.ts$/],
-    },
+
     coverage: {
       provider: 'v8',
       enabled: false,
@@ -93,20 +90,12 @@ export default defineConfig({
           include: ['effect', 'three'],
         },
       },
-      external: [/node_modules/],
-      inline: ['effect', 'three'],
     },
     server: {
       sourcemap: 'inline',
       debug: {
         dumpModules: false,
         loadDumppedModules: false,
-      },
-      hmr: {
-        port: 24678,
-      },
-      fs: {
-        allow: ['..'],
       },
     },
     typecheck: {

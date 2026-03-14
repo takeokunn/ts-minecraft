@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { Schema } from 'effect'
 
 /**
  * Three.js Vector3のラッパー
@@ -8,7 +9,8 @@ import * as THREE from 'three'
  * - 純粋関数（Effect型ではなく直接返す）
  */
 
-export type Vector3 = { readonly x: number; readonly y: number; readonly z: number }
+export const Vector3Schema = Schema.Struct({ x: Schema.Number.pipe(Schema.finite()), y: Schema.Number.pipe(Schema.finite()), z: Schema.Number.pipe(Schema.finite()) })
+export type Vector3 = Schema.Schema.Type<typeof Vector3Schema>
 
 // コンストラクタ
 export const makeVector3 = (x: number, y: number, z: number): Vector3 => ({ x, y, z })

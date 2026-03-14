@@ -1,10 +1,9 @@
 import * as CANNON from 'cannon-es'
-import { Schema } from 'effect'
 import type { Vector3 } from '@/infrastructure/cannon/core/vector3'
 import { toCannonVector } from '@/infrastructure/cannon/core/vector3'
-
-export const QuaternionSchema = Schema.Struct({ x: Schema.Number, y: Schema.Number, z: Schema.Number, w: Schema.Number })
-export type Quaternion = Schema.Schema.Type<typeof QuaternionSchema>
+import type { Quaternion } from '@/shared/math/three/quaternion'
+export { QuaternionSchema } from '@/shared/math/three/quaternion'
+export type { Quaternion } from '@/shared/math/three/quaternion'
 
 export const identity: Quaternion = { x: 0, y: 0, z: 0, w: 1 }
 

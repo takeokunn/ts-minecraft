@@ -1,8 +1,10 @@
 import * as THREE from 'three'
+import { Schema } from 'effect'
 import type { Vector3 } from './vector3'
 import { toThreeVector } from './vector3'
 
-export type Quaternion = { readonly x: number; readonly y: number; readonly z: number; readonly w: number }
+export const QuaternionSchema = Schema.Struct({ x: Schema.Number.pipe(Schema.finite()), y: Schema.Number.pipe(Schema.finite()), z: Schema.Number.pipe(Schema.finite()), w: Schema.Number.pipe(Schema.finite()) })
+export type Quaternion = Schema.Schema.Type<typeof QuaternionSchema>
 
 export const identity: Quaternion = { x: 0, y: 0, z: 0, w: 1 }
 

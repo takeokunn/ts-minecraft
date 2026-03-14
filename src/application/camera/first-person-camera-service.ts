@@ -1,6 +1,6 @@
 import { Effect } from 'effect'
 import * as THREE from 'three'
-import { InputService } from '../../presentation/input/input-service'
+import { PlayerInputService } from '@/application/input/player-input-service'
 import { PlayerCameraState } from '../../domain/player-camera'
 
 /**
@@ -20,7 +20,7 @@ export class FirstPersonCameraService extends Effect.Service<FirstPersonCameraSe
   '@minecraft/layer/FirstPersonCameraService',
   {
     effect: Effect.gen(function* () {
-      const inputService = yield* InputService
+      const inputService = yield* PlayerInputService
       const cameraState = yield* PlayerCameraState
 
       return {

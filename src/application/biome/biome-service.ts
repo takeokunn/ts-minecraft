@@ -178,27 +178,23 @@ export class BiomeService extends Effect.Service<BiomeService>()(
       const noiseService = yield* NoiseService
 
       const getTemperature = (x: number, z: number): Effect.Effect<number, never> =>
-        Effect.sync(() => {
-          // Use octave noise for smoother temperature gradients
-          return noiseService.octaveNoise2D(x * BIOME_SCALE, z * BIOME_SCALE, 4, 0.5, 2.0)
-        })
+        // Use octave noise for smoother temperature gradients
+        noiseService.octaveNoise2D(x * BIOME_SCALE, z * BIOME_SCALE, 4, 0.5, 2.0)
 
       const getHumidity = (x: number, z: number): Effect.Effect<number, never> =>
-        Effect.sync(() => {
-          // Offset coordinates to get independent noise
-          return noiseService.octaveNoise2D(
-            (x + 10000) * BIOME_SCALE,
-            (z + 10000) * BIOME_SCALE,
-            4,
-            0.5,
-            2.0
-          )
-        })
+        // Offset coordinates to get independent noise
+        noiseService.octaveNoise2D(
+          (x + 10000) * BIOME_SCALE,
+          (z + 10000) * BIOME_SCALE,
+          4,
+          0.5,
+          2.0
+        )
 
       const getBiome = (x: number, z: number): Effect.Effect<BiomeType, never> =>
-        Effect.sync(() => {
-          const temp = noiseService.octaveNoise2D(x * BIOME_SCALE, z * BIOME_SCALE, 4, 0.5, 2.0)
-          const hum = noiseService.octaveNoise2D(
+        Effect.gen(function* () {
+          const temp = yield* noiseService.octaveNoise2D(x * BIOME_SCALE, z * BIOME_SCALE, 4, 0.5, 2.0)
+          const hum = yield* noiseService.octaveNoise2D(
             (x + 10000) * BIOME_SCALE,
             (z + 10000) * BIOME_SCALE,
             4,

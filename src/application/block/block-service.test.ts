@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { Effect, Layer } from 'effect'
+import { Effect, Layer, Metric } from 'effect'
 import { ChunkManagerService, ChunkManagerError } from '@/application/chunk/chunk-manager-service'
 import { ChunkServiceLive, Chunk, ChunkCoord, CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex, indexToBlockType } from '@/domain/chunk'
 import { PlayerService } from '@/domain/player'
@@ -26,7 +26,6 @@ const chunkKey = (coord: ChunkCoord): string => `${coord.x},${coord.z}`
 const makeEmptyChunk = (coord: ChunkCoord): Chunk => ({
   coord,
   blocks: new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT),
-  dirty: false,
 })
 
 /**
@@ -657,6 +656,259 @@ describe('application/block/block-service', () => {
       const result = Effect.runSync(program)
       expect(result.success).toBe(true)
       expect(readBlock(chunkRef, lx, y, lz)).toBe('GLASS')
+    })
+  })
+
+  describe('Effect.Metric counters', () => {
+    it('breakBlock increments blocks_broken counter by 1', () => {
+      const targetPos: Position = { x: 10, y: 10, z: 10 }
+      const handle = createMockChunkManagerService([{ pos: targetPos, blockType: 'STONE' }])
+      const playerService = createMockPlayerService({ x: 100, y: 0, z: 100 })
+      const testLayer = createTestLayer(handle.service, playerService)
+
+      const program = Effect.gen(function* () {
+        const counter = Metric.counter('blocks_broken')
+        const before = yield* Metric.value(counter)
+
+        const blockService = yield* BlockService
+        yield* blockService.breakBlock(targetPos)
+
+        const after = yield* Metric.value(counter)
+        return after.count - before.count
+      }).pipe(Effect.provide(testLayer))
+
+      const delta = Effect.runSync(program)
+      expect(delta).toBe(1)
+    })
+
+    it('breakBlock multiple times increments blocks_broken by N', () => {
+      const positions: Position[] = [
+        { x: 20, y: 10, z: 20 },
+        { x: 21, y: 10, z: 20 },
+        { x: 22, y: 10, z: 20 },
+      ]
+      const handle = createMockChunkManagerService(
+        positions.map((pos) => ({ pos, blockType: 'DIRT' as const }))
+      )
+      const playerService = createMockPlayerService({ x: 100, y: 0, z: 100 })
+      const testLayer = createTestLayer(handle.service, playerService)
+
+      const program = Effect.gen(function* () {
+        const counter = Metric.counter('blocks_broken')
+        const before = yield* Metric.value(counter)
+
+        const blockService = yield* BlockService
+        for (const pos of positions) {
+          yield* blockService.breakBlock(pos)
+        }
+
+        const after = yield* Metric.value(counter)
+        return after.count - before.count
+      }).pipe(Effect.provide(testLayer))
+
+      const delta = Effect.runSync(program)
+      expect(delta).toBe(3)
+    })
+
+    it('placeBlock increments blocks_placed counter by 1', () => {
+      const targetPos: Position = { x: 30, y: 10, z: 30 }
+      const handle = createMockChunkManagerService()
+      const playerService = createMockPlayerService({ x: 100, y: 0, z: 100 })
+      const testLayer = createTestLayer(handle.service, playerService)
+
+      const program = Effect.gen(function* () {
+        const counter = Metric.counter('blocks_placed')
+        const before = yield* Metric.value(counter)
+
+        const blockService = yield* BlockService
+        yield* blockService.placeBlock(targetPos, 'DIRT')
+
+        const after = yield* Metric.value(counter)
+        return after.count - before.count
+      }).pipe(Effect.provide(testLayer))
+
+      const delta = Effect.runSync(program)
+      expect(delta).toBe(1)
+    })
+
+    it('breakBlock does NOT increment blocks_placed', () => {
+      const targetPos: Position = { x: 40, y: 10, z: 40 }
+      const handle = createMockChunkManagerService([{ pos: targetPos, blockType: 'GRASS' }])
+      const playerService = createMockPlayerService({ x: 100, y: 0, z: 100 })
+      const testLayer = createTestLayer(handle.service, playerService)
+
+      const program = Effect.gen(function* () {
+        const placedCounter = Metric.counter('blocks_placed')
+        const before = yield* Metric.value(placedCounter)
+
+        const blockService = yield* BlockService
+        yield* blockService.breakBlock(targetPos)
+
+        const after = yield* Metric.value(placedCounter)
+        return after.count - before.count
+      }).pipe(Effect.provide(testLayer))
+
+      const delta = Effect.runSync(program)
+      expect(delta).toBe(0)
+    })
+
+    it('placeBlock does NOT increment blocks_broken', () => {
+      const targetPos: Position = { x: 50, y: 10, z: 50 }
+      const handle = createMockChunkManagerService()
+      const playerService = createMockPlayerService({ x: 100, y: 0, z: 100 })
+      const testLayer = createTestLayer(handle.service, playerService)
+
+      const program = Effect.gen(function* () {
+        const brokenCounter = Metric.counter('blocks_broken')
+        const before = yield* Metric.value(brokenCounter)
+
+        const blockService = yield* BlockService
+        yield* blockService.placeBlock(targetPos, 'STONE')
+
+        const after = yield* Metric.value(brokenCounter)
+        return after.count - before.count
+      }).pipe(Effect.provide(testLayer))
+
+      const delta = Effect.runSync(program)
+      expect(delta).toBe(0)
+    })
+  })
+
+  describe('Error type verification', () => {
+    it('BlockServiceError should have _tag = BlockServiceError', () => {
+      const error = new BlockServiceError({ operation: 'test', reason: 'test' })
+      expect(error._tag).toBe('BlockServiceError')
+    })
+
+    it('BlockServiceError should be catchable with Effect.catchTag', () => {
+      const handle = createMockChunkManagerService()
+      const playerService = createMockPlayerService({ x: 100, y: 0, z: 100 })
+      const testLayer = createTestLayer(handle.service, playerService)
+
+      const program = Effect.gen(function* () {
+        const blockService = yield* BlockService
+
+        // breakBlock on AIR should fail
+        const result = yield* blockService.breakBlock({ x: 0, y: 0, z: 0 }).pipe(
+          Effect.catchTag('BlockServiceError', (e) => Effect.succeed(`caught: ${e.operation}`))
+        )
+
+        expect(result).toBe('caught: breakBlock')
+        return { success: true }
+      }).pipe(Effect.provide(testLayer))
+
+      const result = Effect.runSync(program)
+      expect(result.success).toBe(true)
+    })
+
+    it('placeBlock error should be catchable with Effect.catchTag', () => {
+      const targetPos: Position = { x: 0, y: 0, z: 0 }
+      const handle = createMockChunkManagerService([{ pos: targetPos, blockType: 'STONE' }])
+      const playerService = createMockPlayerService({ x: 100, y: 0, z: 100 })
+      const testLayer = createTestLayer(handle.service, playerService)
+
+      const program = Effect.gen(function* () {
+        const blockService = yield* BlockService
+
+        const result = yield* blockService.placeBlock(targetPos, 'DIRT').pipe(
+          Effect.catchTag('BlockServiceError', (e) => Effect.succeed(`caught: ${e.operation}`))
+        )
+
+        expect(result).toBe('caught: placeBlock')
+        return { success: true }
+      }).pipe(Effect.provide(testLayer))
+
+      const result = Effect.runSync(program)
+      expect(result.success).toBe(true)
+    })
+  })
+
+  describe('breakBlock — edge cases', () => {
+    it('should handle breaking block at negative coordinates', () => {
+      const targetPos: Position = { x: -3, y: 5, z: -7 }
+      const handle = createMockChunkManagerService([{ pos: targetPos, blockType: 'STONE' }])
+      const playerService = createMockPlayerService({ x: 100, y: 0, z: 100 })
+      const testLayer = createTestLayer(handle.service, playerService)
+
+      const { lx, lz, y } = worldToLocal(targetPos)
+      const chunkRef = handle.getChunkForPos(targetPos)
+
+      const program = Effect.gen(function* () {
+        const blockService = yield* BlockService
+        yield* blockService.breakBlock(targetPos)
+        return { success: true }
+      }).pipe(Effect.provide(testLayer))
+
+      const result = Effect.runSync(program)
+      expect(result.success).toBe(true)
+      expect(readBlock(chunkRef, lx, y, lz)).toBe('AIR')
+    })
+
+    it('should handle breaking block at y=255 (max height)', () => {
+      const targetPos: Position = { x: 0, y: 255, z: 0 }
+      const handle = createMockChunkManagerService([{ pos: targetPos, blockType: 'GLASS' }])
+      const playerService = createMockPlayerService({ x: 100, y: 0, z: 100 })
+      const testLayer = createTestLayer(handle.service, playerService)
+
+      const { lx, lz, y } = worldToLocal(targetPos)
+      const chunkRef = handle.getChunkForPos(targetPos)
+
+      const program = Effect.gen(function* () {
+        const blockService = yield* BlockService
+        yield* blockService.breakBlock(targetPos)
+        return { success: true }
+      }).pipe(Effect.provide(testLayer))
+
+      const result = Effect.runSync(program)
+      expect(result.success).toBe(true)
+      expect(readBlock(chunkRef, lx, y, lz)).toBe('AIR')
+    })
+  })
+
+  describe('placeBlock — boundary positions relative to player', () => {
+    it('should succeed when block is placed 2 blocks above player (y-axis separation)', () => {
+      // Player at y=0, PLAYER_HALF_HEIGHT=0.9, player center Y=0.9
+      // Block at y=3: blockCenter=(0.5, 3.5, 0.5)
+      // overlapY: |3.5-0.9| = 2.6 < (0.5+0.9)=1.4 => false
+      const targetPos: Position = { x: 0, y: 3, z: 0 }
+      const handle = createMockChunkManagerService()
+      const playerService = createMockPlayerService({ x: 0, y: 0, z: 0 })
+      const testLayer = createTestLayer(handle.service, playerService)
+
+      const program = Effect.gen(function* () {
+        const blockService = yield* BlockService
+        yield* blockService.placeBlock(targetPos, 'DIRT')
+        return { success: true }
+      }).pipe(Effect.provide(testLayer))
+
+      const result = Effect.runSync(program)
+      expect(result.success).toBe(true)
+    })
+
+    it('should fail when trying to break a block twice in a row', () => {
+      const targetPos: Position = { x: 5, y: 5, z: 5 }
+      const handle = createMockChunkManagerService([{ pos: targetPos, blockType: 'DIRT' }])
+      const playerService = createMockPlayerService({ x: 100, y: 0, z: 100 })
+      const testLayer = createTestLayer(handle.service, playerService)
+
+      const program = Effect.gen(function* () {
+        const blockService = yield* BlockService
+
+        // First break should succeed
+        yield* blockService.breakBlock(targetPos)
+
+        // Second break should fail (block is now AIR)
+        const result = yield* Effect.either(blockService.breakBlock(targetPos))
+        expect(result._tag).toBe('Left')
+        if (result._tag === 'Left') {
+          expect(result.left.message).toContain('No block at position')
+        }
+
+        return { success: true }
+      }).pipe(Effect.provide(testLayer))
+
+      const result = Effect.runSync(program)
+      expect(result.success).toBe(true)
     })
   })
 })

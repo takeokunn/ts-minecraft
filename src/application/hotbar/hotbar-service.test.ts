@@ -2,9 +2,12 @@ import { describe, it, expect } from 'vitest'
 import { Effect, Layer, Option } from 'effect'
 import { Block, BlockType } from '@/domain/block'
 import { BlockRegistry } from '@/domain/blockRegistry'
-import { InputService } from '@/presentation/input/input-service'
+import { PlayerInputService } from '@/application/input/player-input-service'
 import { InventoryServiceLive } from '@/application/inventory/inventory-service'
 import { HotbarService, HotbarServiceLive, HOTBAR_SIZE } from './hotbar-service'
+import type { SlotIndex } from '@/shared/kernel'
+
+const asSlotIndex = (n: number): SlotIndex => n as unknown as SlotIndex
 
 /**
  * Test implementation of InputService with controllable wheel and key state
@@ -121,7 +124,7 @@ const createTestLayer = (
   inputService: ReturnType<typeof createTestInputService>,
   blockRegistry: ReturnType<typeof createTestBlockRegistry>
 ) => {
-  const inputLayer = Layer.succeed(InputService, inputService as unknown as InputService)
+  const inputLayer = Layer.succeed(PlayerInputService, inputService as unknown as PlayerInputService)
   const blockRegistryLayer = Layer.succeed(BlockRegistry, blockRegistry as unknown as BlockRegistry)
   const inventoryLayer = InventoryServiceLive.pipe(
     Layer.provide(blockRegistryLayer)
@@ -198,7 +201,7 @@ describe('application/hotbar/hotbar-service', () => {
 
       const program = Effect.gen(function* () {
         const service = yield* HotbarService
-        yield* service.setSelectedSlot(3)
+        yield* service.setSelectedSlot(asSlotIndex(3))
         const slot = yield* service.getSelectedSlot()
         expect(slot).toBe(3)
         return { success: true }
@@ -215,7 +218,7 @@ describe('application/hotbar/hotbar-service', () => {
 
       const program = Effect.gen(function* () {
         const service = yield* HotbarService
-        yield* service.setSelectedSlot(-1)
+        yield* service.setSelectedSlot(asSlotIndex(-1))
         const slot = yield* service.getSelectedSlot()
         expect(slot).toBe(0)
         return { success: true }
@@ -232,7 +235,7 @@ describe('application/hotbar/hotbar-service', () => {
 
       const program = Effect.gen(function* () {
         const service = yield* HotbarService
-        yield* service.setSelectedSlot(9)
+        yield* service.setSelectedSlot(asSlotIndex(9))
         const slot = yield* service.getSelectedSlot()
         expect(slot).toBe(8)
         return { success: true }
@@ -249,7 +252,7 @@ describe('application/hotbar/hotbar-service', () => {
 
       const program = Effect.gen(function* () {
         const service = yield* HotbarService
-        yield* service.setSelectedSlot(8)
+        yield* service.setSelectedSlot(asSlotIndex(8))
         const slot = yield* service.getSelectedSlot()
         expect(slot).toBe(8)
         return { success: true }
@@ -349,7 +352,7 @@ describe('application/hotbar/hotbar-service', () => {
         }
 
         // Switch to slot 1 → STONE
-        yield* service.setSelectedSlot(1)
+        yield* service.setSelectedSlot(asSlotIndex(1))
         const blockType2 = yield* service.getSelectedBlockType()
         expect(Option.isSome(blockType2)).toBe(true)
         if (Option.isSome(blockType2)) {
@@ -409,7 +412,7 @@ describe('application/hotbar/hotbar-service', () => {
         const service = yield* HotbarService
 
         // Move to a different slot first
-        yield* service.setSelectedSlot(5)
+        yield* service.setSelectedSlot(asSlotIndex(5))
 
         yield* service.update()
         const slot = yield* service.getSelectedSlot()
@@ -490,7 +493,7 @@ describe('application/hotbar/hotbar-service', () => {
 
       const program = Effect.gen(function* () {
         const service = yield* HotbarService
-        yield* service.setSelectedSlot(4)
+        yield* service.setSelectedSlot(asSlotIndex(4))
 
         yield* service.update()
 
@@ -510,7 +513,7 @@ describe('application/hotbar/hotbar-service', () => {
 
       const program = Effect.gen(function* () {
         const service = yield* HotbarService
-        yield* service.setSelectedSlot(8)
+        yield* service.setSelectedSlot(asSlotIndex(8))
 
         yield* service.update()
 
@@ -550,12 +553,129 @@ describe('application/hotbar/hotbar-service', () => {
 
       const program = Effect.gen(function* () {
         const service = yield* HotbarService
-        yield* service.setSelectedSlot(3)
+        yield* service.setSelectedSlot(asSlotIndex(3))
 
         yield* service.update()
 
         const slot = yield* service.getSelectedSlot()
         expect(slot).toBe(3)
+        return { success: true }
+      }).pipe(Effect.provide(testLayer))
+
+      const result = Effect.runSync(program)
+      expect(result.success).toBe(true)
+    })
+  })
+
+  describe('wheel scroll boundary wrapping', () => {
+    it('should wrap from slot 8 to slot 0 after scrolling forward once', () => {
+      const inputService = createTestInputService()
+      const blockRegistry = createTestBlockRegistry(defaultTestBlocks)
+      const testLayer = createTestLayer(inputService, blockRegistry)
+
+      const program = Effect.gen(function* () {
+        const service = yield* HotbarService
+        yield* service.setSelectedSlot(asSlotIndex(8))
+
+        inputService.setWheelDelta(100)
+        yield* service.update()
+
+        const slot = yield* service.getSelectedSlot()
+        expect(slot).toBe(0)
+        return { success: true }
+      }).pipe(Effect.provide(testLayer))
+
+      const result = Effect.runSync(program)
+      expect(result.success).toBe(true)
+    })
+
+    it('should wrap from slot 0 to slot 8 after scrolling backward once', () => {
+      const inputService = createTestInputService()
+      const blockRegistry = createTestBlockRegistry(defaultTestBlocks)
+      const testLayer = createTestLayer(inputService, blockRegistry)
+
+      const program = Effect.gen(function* () {
+        const service = yield* HotbarService
+        // starts at slot 0 by default
+
+        inputService.setWheelDelta(-100)
+        yield* service.update()
+
+        const slot = yield* service.getSelectedSlot()
+        expect(slot).toBe(8)
+        return { success: true }
+      }).pipe(Effect.provide(testLayer))
+
+      const result = Effect.runSync(program)
+      expect(result.success).toBe(true)
+    })
+
+    it('should wrap correctly over multiple forward scrolls crossing the boundary', () => {
+      const inputService = createTestInputService()
+      const blockRegistry = createTestBlockRegistry(defaultTestBlocks)
+      const testLayer = createTestLayer(inputService, blockRegistry)
+
+      const program = Effect.gen(function* () {
+        const service = yield* HotbarService
+        yield* service.setSelectedSlot(asSlotIndex(7))
+
+        // scroll forward twice: 7 → 8 → 0
+        inputService.setWheelDelta(100)
+        yield* service.update()
+        expect(yield* service.getSelectedSlot()).toBe(8)
+
+        inputService.setWheelDelta(100)
+        yield* service.update()
+        expect(yield* service.getSelectedSlot()).toBe(0)
+
+        return { success: true }
+      }).pipe(Effect.provide(testLayer))
+
+      const result = Effect.runSync(program)
+      expect(result.success).toBe(true)
+    })
+
+    it('should wrap correctly over multiple backward scrolls crossing the boundary', () => {
+      const inputService = createTestInputService()
+      const blockRegistry = createTestBlockRegistry(defaultTestBlocks)
+      const testLayer = createTestLayer(inputService, blockRegistry)
+
+      const program = Effect.gen(function* () {
+        const service = yield* HotbarService
+        yield* service.setSelectedSlot(asSlotIndex(1))
+
+        // scroll backward twice: 1 → 0 → 8
+        inputService.setWheelDelta(-100)
+        yield* service.update()
+        expect(yield* service.getSelectedSlot()).toBe(0)
+
+        inputService.setWheelDelta(-100)
+        yield* service.update()
+        expect(yield* service.getSelectedSlot()).toBe(8)
+
+        return { success: true }
+      }).pipe(Effect.provide(testLayer))
+
+      const result = Effect.runSync(program)
+      expect(result.success).toBe(true)
+    })
+
+    it('should advance by exactly 1 step per update regardless of wheel delta magnitude', () => {
+      // The implementation uses Math.sign(wheelDelta) so large deltas still move by 1
+      const inputService = createTestInputService()
+      const blockRegistry = createTestBlockRegistry(defaultTestBlocks)
+      const testLayer = createTestLayer(inputService, blockRegistry)
+
+      const program = Effect.gen(function* () {
+        const service = yield* HotbarService
+        yield* service.setSelectedSlot(asSlotIndex(4))
+
+        inputService.setWheelDelta(9999)
+        yield* service.update()
+
+        const slot = yield* service.getSelectedSlot()
+        // Large positive delta → direction = 1 → advances by 1: 4 → 5
+        expect(slot).toBe(5)
         return { success: true }
       }).pipe(Effect.provide(testLayer))
 
@@ -573,7 +693,7 @@ describe('application/hotbar/hotbar-service', () => {
       const program = Effect.gen(function* () {
         const service = yield* HotbarService
 
-        const slot = yield* service.setSelectedSlot(5).pipe(
+        const slot = yield* service.setSelectedSlot(asSlotIndex(5)).pipe(
           Effect.flatMap(() => service.getSelectedSlot())
         )
 

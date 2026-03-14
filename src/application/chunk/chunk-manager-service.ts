@@ -1,5 +1,5 @@
-import { Effect, Ref, Option } from 'effect'
-import { ChunkService, Chunk, ChunkCoord, blockTypeToIndex, blockIndex, CHUNK_SIZE, CHUNK_HEIGHT } from '@/domain/chunk'
+import { Clock, Effect, Ref, Option, Schema, Metric, MetricBoundaries, Duration } from 'effect'
+import { ChunkService, ChunkSchema, Chunk, ChunkCoord, blockTypeToIndex, blockIndex, CHUNK_SIZE, CHUNK_HEIGHT } from '@/domain/chunk'
 import { StorageService } from '@/infrastructure/storage/storage-service'
 import { Position, WorldIdSchema } from '@/shared/kernel'
 import { ChunkError, StorageError } from '@/domain/errors'
@@ -68,21 +68,14 @@ const getChunksInRenderDistance = (center: ChunkCoord): ChunkCoord[] => {
 const chunkCoordToKey = (coord: ChunkCoord): string => `${coord.x},${coord.z}`
 
 /**
- * Evict the least-recently-used entry from the chunks map if over capacity.
- * Mutates the provided Map in-place.
+ * Histogram metric for chunk load duration (generation + storage load) in milliseconds.
+ * Buckets: 20 linear buckets from 0ms to 1000ms (width=50ms each).
  */
-const evictLRUIfNeeded = (chunks: Map<string, ChunkCacheEntry>): void => {
-  if (chunks.size <= MAX_CACHED_CHUNKS) return
-  let oldestKey = ''
-  let oldestTime = Infinity
-  for (const [k, entry] of chunks) {
-    if (entry.lastAccessed < oldestTime) {
-      oldestTime = entry.lastAccessed
-      oldestKey = k
-    }
-  }
-  if (oldestKey) chunks.delete(oldestKey)
-}
+const chunkLoadHistogram = Metric.histogram(
+  'chunk_load_ms',
+  MetricBoundaries.linear({ start: 0, width: 50, count: 20 }),
+  'Chunk load duration in milliseconds'
+)
 
 /**
  * Default world ID
@@ -93,13 +86,21 @@ const DEFAULT_WORLD_ID = WorldIdSchema.make('default')
  * LRU cache entry wrapping a chunk with its last access time.
  * lastAccessed is intentionally mutable for O(1) in-place LRU updates.
  */
-interface ChunkCacheEntry {
-  chunk: Chunk
-  lastAccessed: number  // mutable for LRU update performance
-}
+const ChunkCacheEntrySchema = Schema.mutable(
+  Schema.Struct({
+    chunk: ChunkSchema,         // ChunkSchema defined in src/domain/chunk.ts
+    lastAccessed: Schema.Number,  // mutable for O(1) LRU in-place updates
+  }),
+)
+type ChunkCacheEntry = Schema.Schema.Type<typeof ChunkCacheEntrySchema>
 
 /**
  * Internal state for loaded chunks with LRU tracking
+ *
+ * FR-006 DEFERRED: Effect.Cache is architecturally incompatible with this LRU implementation.
+ * Incompatibilities: (1) no onEvict callback for dirty-chunk persistence, (2) distance-based
+ * eviction not supported, (3) dirty tracking atomicity broken by Cache's key-deduplication.
+ * The current Phase 8 atomic LRU (Map + eviction loop) is correct and should be kept.
  */
 interface ChunkCache {
   chunks: Map<string, ChunkCacheEntry>
@@ -149,11 +150,11 @@ const fillColumn = (
     const idx = blockIndex(lx, y, lz)
     if (idx === null) continue // skip out-of-bounds (should never happen with valid coords)
     if (y === surfaceY) {
-      blocks[idx] = blockTypeToIndex(props.surfaceBlock)
+      blocks[idx] = blockTypeToIndex(props.surfaceBlock) // intentional direct write: pre-construction Uint8Array before Chunk is assembled
     } else if (y >= surfaceY - 3) {
-      blocks[idx] = blockTypeToIndex(props.subSurfaceBlock)
+      blocks[idx] = blockTypeToIndex(props.subSurfaceBlock) // intentional direct write: pre-construction Uint8Array before Chunk is assembled
     } else {
-      blocks[idx] = blockTypeToIndex('STONE')
+      blocks[idx] = blockTypeToIndex('STONE') // intentional direct write: pre-construction Uint8Array before Chunk is assembled
     }
   }
 }
@@ -200,7 +201,7 @@ const placeTree = (
   for (let ty = surfaceY + 1; ty <= surfaceY + trunkHeight; ty++) {
     const idx = blockIndex(lx, ty, lz)
     if (idx !== null) {
-      blocks[idx] = blockTypeToIndex('WOOD')
+      blocks[idx] = blockTypeToIndex('WOOD') // intentional direct write: pre-construction Uint8Array before Chunk is assembled
     }
   }
 
@@ -214,7 +215,7 @@ const placeTree = (
         const ly = leafBase + dy
         const leafIdx = blockIndex(lx2, ly, lz2)
         if (leafIdx !== null && blocks[leafIdx] === 0) {
-          blocks[leafIdx] = blockTypeToIndex('LEAVES')
+          blocks[leafIdx] = blockTypeToIndex('LEAVES') // intentional direct write: pre-construction Uint8Array before Chunk is assembled
         }
       }
     }
@@ -253,7 +254,7 @@ const generateTerrain = (
         const props = yield* biomeService.getBiomeProperties(biome)
 
         // Phase 2: Calculate surface height from noise
-        const noiseVal = noiseService.octaveNoise2D(
+        const noiseVal = yield* noiseService.octaveNoise2D(
           wx * TERRAIN_SCALE,
           wz * TERRAIN_SCALE,
           4,
@@ -273,7 +274,7 @@ const generateTerrain = (
       }
     }
 
-    return { ...chunk, blocks, dirty: false }
+    return { ...chunk, blocks }
   })
 
 /**
@@ -299,6 +300,61 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
 
       const lastLoadTimeRef = yield* Ref.make<number>(0)
 
+      // Semaphore limiting concurrent chunk generation/loading to 4 fibers at a time
+      const loadSemaphore = yield* Effect.makeSemaphore(4)
+
+      // Helper: find the LRU key in a chunks map (O(n) scan, fine at 400 items)
+      const findLRUKey = (chunks: Map<string, ChunkCacheEntry>): string => {
+        let oldestKey = ''
+        let oldestTime = Infinity
+        for (const [k, entry] of chunks) {
+          if (entry.lastAccessed < oldestTime) {
+            oldestTime = entry.lastAccessed
+            oldestKey = k
+          }
+        }
+        return oldestKey
+      }
+
+      // Helper: insert a chunk into the cache, evicting the LRU entry if at capacity.
+      // Pre-eviction dirty save happens BEFORE the atomic Ref.update to preserve the
+      // same atomicity guarantees as the original duplicated blocks.
+      const insertWithEviction = (
+        coord: ChunkCoord,
+        chunk: Chunk
+      ): Effect.Effect<void, StorageError> =>
+        Effect.gen(function* () {
+          const key = chunkCoordToKey(coord)
+
+          // Pre-eviction: if cache is full and the LRU entry is dirty, save it first
+          // then insert + evict atomically in a single Ref.update
+          const stateBeforeInsert = yield* Ref.get(cache)
+          if (stateBeforeInsert.chunks.size >= MAX_CACHED_CHUNKS) {
+            const evictKey = findLRUKey(stateBeforeInsert.chunks)
+            if (evictKey && stateBeforeInsert.dirtyChunks.has(evictKey)) {
+              const evictee = stateBeforeInsert.chunks.get(evictKey)!
+              yield* storageService.saveChunk(DEFAULT_WORLD_ID, evictee.chunk.coord, evictee.chunk.blocks) // intentional: raw Uint8Array passed to storage serialization
+            }
+          }
+
+          // Atomic: insert + evict LRU in one Ref.update
+          const now = yield* Clock.currentTimeMillis
+          yield* Ref.update(cache, (s) => {
+            const newChunks = new Map(s.chunks)
+            newChunks.set(key, { chunk, lastAccessed: now })
+            let newDirty = s.dirtyChunks
+            if (newChunks.size > MAX_CACHED_CHUNKS) {
+              const evictKey = findLRUKey(newChunks)
+              if (evictKey) {
+                newChunks.delete(evictKey)
+                newDirty = new Set(s.dirtyChunks)
+                newDirty.delete(evictKey)
+              }
+            }
+            return { ...s, chunks: newChunks, dirtyChunks: newDirty }
+          })
+        })
+
       const getChunk = (coord: ChunkCoord): Effect.Effect<Chunk, ChunkManagerError> =>
         Effect.gen(function* () {
           const key = chunkCoordToKey(coord)
@@ -307,11 +363,12 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
           // Return cached chunk if available, updating LRU access time
           const cached = state.chunks.get(key)
           if (cached) {
-            cached.lastAccessed = Date.now()  // O(1) in-place update, safe in single-threaded JS
+            const accessTime = yield* Clock.currentTimeMillis
+            cached.lastAccessed = accessTime  // O(1) in-place update, safe in single-threaded JS
             return cached.chunk
           }
 
-          // Try to load from storage
+          // Try to load from storage — measured with chunkLoadHistogram
           const storedData = yield* storageService.loadChunk(DEFAULT_WORLD_ID, coord)
 
           if (Option.isSome(storedData)) {
@@ -319,61 +376,16 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
             const chunk: Chunk = {
               coord,
               blocks: storedData.value,
-              dirty: false,
             }
-
-            // Pre-eviction: if cache is full and the LRU entry is dirty, save it first
-            const stateBeforeInsert = yield* Ref.get(cache)
-            if (stateBeforeInsert.chunks.size >= MAX_CACHED_CHUNKS) {
-              let oldestKey = ''
-              let oldestTime = Infinity
-              for (const [k, entry] of stateBeforeInsert.chunks) {
-                if (entry.lastAccessed < oldestTime) {
-                  oldestTime = entry.lastAccessed
-                  oldestKey = k
-                }
-              }
-              if (oldestKey && stateBeforeInsert.dirtyChunks.has(oldestKey)) {
-                const evictee = stateBeforeInsert.chunks.get(oldestKey)!
-                yield* storageService.saveChunk(DEFAULT_WORLD_ID, evictee.chunk.coord, evictee.chunk.blocks)
-              }
-            }
-
-            yield* Ref.update(cache, (s) => {
-              const newChunks = new Map(s.chunks)
-              newChunks.set(key, { chunk, lastAccessed: Date.now() })
-              evictLRUIfNeeded(newChunks)
-              return { ...s, chunks: newChunks }
-            })
+            yield* insertWithEviction(coord, chunk)
             return chunk
           }
 
-          // Generate new chunk via procedural terrain
-          const newChunk = yield* generateTerrain(chunkService, biomeService, noiseService, coord)
-
-          // Pre-eviction: if cache is full and the LRU entry is dirty, save it first
-          const stateBeforeGenInsert = yield* Ref.get(cache)
-          if (stateBeforeGenInsert.chunks.size >= MAX_CACHED_CHUNKS) {
-            let oldestKey = ''
-            let oldestTime = Infinity
-            for (const [k, entry] of stateBeforeGenInsert.chunks) {
-              if (entry.lastAccessed < oldestTime) {
-                oldestTime = entry.lastAccessed
-                oldestKey = k
-              }
-            }
-            if (oldestKey && stateBeforeGenInsert.dirtyChunks.has(oldestKey)) {
-              const evictee = stateBeforeGenInsert.chunks.get(oldestKey)!
-              yield* storageService.saveChunk(DEFAULT_WORLD_ID, evictee.chunk.coord, evictee.chunk.blocks)
-            }
-          }
-
-          yield* Ref.update(cache, (s) => {
-            const newChunks = new Map(s.chunks)
-            newChunks.set(key, { chunk: newChunk, lastAccessed: Date.now() })
-            evictLRUIfNeeded(newChunks)
-            return { ...s, chunks: newChunks }
-          })
+          // Generate new chunk via procedural terrain — track load duration
+          const newChunk = yield* generateTerrain(chunkService, biomeService, noiseService, coord).pipe(
+            Metric.trackDurationWith(chunkLoadHistogram, (d) => Duration.toMillis(d))
+          )
+          yield* insertWithEviction(coord, newChunk)
 
           return newChunk
         })
@@ -390,7 +402,7 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
 
           // Save if dirty
           if (state.dirtyChunks.has(key)) {
-            yield* storageService.saveChunk(DEFAULT_WORLD_ID, chunk.coord, chunk.blocks)
+            yield* storageService.saveChunk(DEFAULT_WORLD_ID, chunk.coord, chunk.blocks) // intentional: raw Uint8Array passed to storage serialization
           }
 
           // Remove from cache
@@ -416,7 +428,7 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
          */
         loadChunksAroundPlayer: (playerPos: Position): Effect.Effect<void, ChunkManagerError> =>
           Effect.gen(function* () {
-            const now = Date.now()
+            const now = yield* Clock.currentTimeMillis
             const lastLoadTime = yield* Ref.get(lastLoadTimeRef)
 
             // Throttle: only run every 200ms
@@ -428,10 +440,12 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
             const centerChunk = worldToChunkCoord(playerPos)
             const chunksToLoad = getChunksInRenderDistance(centerChunk)
 
-            // Load chunks in render distance
-            for (const coord of chunksToLoad) {
-              yield* getChunk(coord)
-            }
+            // Load chunks in render distance — up to 4 concurrent fibers via semaphore
+            yield* Effect.forEach(
+              chunksToLoad,
+              (coord) => loadSemaphore.withPermits(1)(getChunk(coord)),
+              { concurrency: 'unbounded' }
+            )
 
             // Unload chunks outside unload distance
             const state = yield* Ref.get(cache)
@@ -476,7 +490,7 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
             for (const key of state.dirtyChunks) {
               const entry = state.chunks.get(key)
               if (entry) {
-                yield* storageService.saveChunk(DEFAULT_WORLD_ID, entry.chunk.coord, entry.chunk.blocks)
+                yield* storageService.saveChunk(DEFAULT_WORLD_ID, entry.chunk.coord, entry.chunk.blocks) // intentional: raw Uint8Array passed to storage serialization
               }
             }
 

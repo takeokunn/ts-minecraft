@@ -1,11 +1,13 @@
 import { Cause, Effect, Ref } from 'effect'
 import { SettingsService } from '@/application/settings/settings-service'
+import { DomOperations } from '@/presentation/hud/crosshair'
 
 export class SettingsOverlay extends Effect.Service<SettingsOverlay>()(
   '@minecraft/presentation/SettingsOverlay',
   {
     scoped: Effect.gen(function* () {
       const settingsService = yield* SettingsService
+      const dom = yield* DomOperations
 
       let overlayEl: HTMLDivElement | null = null
       let renderDistanceInput: HTMLInputElement | null = null
@@ -19,7 +21,7 @@ export class SettingsOverlay extends Effect.Service<SettingsOverlay>()(
       const createOverlay = (): void => {
         if (typeof document === 'undefined') return
 
-        overlayEl = document.createElement('div')
+        overlayEl = dom.createElement('div') as HTMLDivElement
         overlayEl.id = 'settings-overlay'
         overlayEl.style.cssText = [
           'position:fixed', 'top:50%', 'left:50%', 'transform:translate(-50%,-50%)',
@@ -28,7 +30,7 @@ export class SettingsOverlay extends Effect.Service<SettingsOverlay>()(
           'z-index:1000', 'display:none',
         ].join(';')
 
-        overlayEl.innerHTML = `
+        dom.setInnerHTML(overlayEl, `
           <h2 style="margin:0 0 16px;font-size:18px">Settings</h2>
           <label style="display:block;margin-bottom:12px">
             Render Distance: <span id="rd-val">8</span>
@@ -49,15 +51,15 @@ export class SettingsOverlay extends Effect.Service<SettingsOverlay>()(
             <button id="settings-apply" style="flex:1;padding:8px;cursor:pointer;background:#4a7;border:none;color:#fff;border-radius:4px">Apply</button>
             <button id="settings-close" style="flex:1;padding:8px;cursor:pointer;background:#555;border:none;color:#fff;border-radius:4px">Close</button>
           </div>
-        `
+        `)
 
-        document.body.appendChild(overlayEl)
+        dom.appendChild(overlayEl)
 
-        renderDistanceInput = overlayEl.querySelector('#rd-input')
-        sensitivityInput = overlayEl.querySelector('#ms-input')
-        dayLengthInput = overlayEl.querySelector('#dl-input')
-        applyBtn = overlayEl.querySelector('#settings-apply')
-        closeBtn = overlayEl.querySelector('#settings-close')
+        renderDistanceInput = dom.querySelector<HTMLInputElement>(overlayEl, '#rd-input')
+        sensitivityInput = dom.querySelector<HTMLInputElement>(overlayEl, '#ms-input')
+        dayLengthInput = dom.querySelector<HTMLInputElement>(overlayEl, '#dl-input')
+        applyBtn = dom.querySelector<HTMLButtonElement>(overlayEl, '#settings-apply')
+        closeBtn = dom.querySelector<HTMLButtonElement>(overlayEl, '#settings-close')
       }
 
       const applyEffect = (): Effect.Effect<void, never> =>
@@ -73,17 +75,17 @@ export class SettingsOverlay extends Effect.Service<SettingsOverlay>()(
           const settings = yield* settingsService.getSettings()
           if (renderDistanceInput) {
             renderDistanceInput.value = String(settings.renderDistance)
-            const rdVal = overlayEl?.querySelector('#rd-val')
+            const rdVal = overlayEl ? dom.querySelector(overlayEl, '#rd-val') : null
             if (rdVal) rdVal.textContent = String(settings.renderDistance)
           }
           if (sensitivityInput) {
             sensitivityInput.value = String(settings.mouseSensitivity)
-            const msVal = overlayEl?.querySelector('#ms-val')
+            const msVal = overlayEl ? dom.querySelector(overlayEl, '#ms-val') : null
             if (msVal) msVal.textContent = String(settings.mouseSensitivity)
           }
           if (dayLengthInput) {
             dayLengthInput.value = String(settings.dayLengthSeconds)
-            const dlVal = overlayEl?.querySelector('#dl-val')
+            const dlVal = overlayEl ? dom.querySelector(overlayEl, '#dl-val') : null
             if (dlVal) dlVal.textContent = String(settings.dayLengthSeconds)
           }
         })
@@ -91,17 +93,17 @@ export class SettingsOverlay extends Effect.Service<SettingsOverlay>()(
 
       // Named event handler functions for proper cleanup via removeEventListener
       const handleRdInput = () => {
-        const el = overlayEl?.querySelector('#rd-val')
+        const el = overlayEl ? dom.querySelector(overlayEl, '#rd-val') : null
         if (el && renderDistanceInput) el.textContent = renderDistanceInput.value
       }
 
       const handleMsInput = () => {
-        const el = overlayEl?.querySelector('#ms-val')
+        const el = overlayEl ? dom.querySelector(overlayEl, '#ms-val') : null
         if (el && sensitivityInput) el.textContent = sensitivityInput.value
       }
 
       const handleDlInput = () => {
-        const el = overlayEl?.querySelector('#dl-val')
+        const el = overlayEl ? dom.querySelector(overlayEl, '#dl-val') : null
         if (el && dayLengthInput) el.textContent = dayLengthInput.value
       }
 
@@ -116,7 +118,7 @@ export class SettingsOverlay extends Effect.Service<SettingsOverlay>()(
       }
 
       const handleClose = () => {
-        Effect.runSync(Ref.set(isVisibleRef, false))
+        Effect.runFork(Ref.set(isVisibleRef, false).pipe(Effect.catchAllCause(() => Effect.void)))
         if (overlayEl) overlayEl.style.display = 'none'
       }
 

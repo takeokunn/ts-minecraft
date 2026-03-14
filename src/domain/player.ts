@@ -1,25 +1,7 @@
 import { Effect, Ref, Schema } from 'effect'
 import { PlayerIdSchema, PositionSchema, PlayerId, Position } from '@/shared/kernel'
 import { PlayerError } from './errors'
-import type { Vector3 } from '@/shared/math/three'
-import { zero, identity } from '@/shared/math/three'
-
-// Vector3 Schema
-export const Vector3Schema = Schema.Struct({
-  x: Schema.Number,
-  y: Schema.Number,
-  z: Schema.Number,
-})
-export type Vector3Type = Schema.Schema.Type<typeof Vector3Schema>
-
-// Quaternion Schema
-export const QuaternionSchema = Schema.Struct({
-  x: Schema.Number,
-  y: Schema.Number,
-  z: Schema.Number,
-  w: Schema.Number,
-})
-export type QuaternionType = Schema.Schema.Type<typeof QuaternionSchema>
+import { Vector3Schema, QuaternionSchema, zero, identity, type Vector3 } from '@/shared/math/three'
 
 // PlayerState Schema
 export const PlayerStateSchema = Schema.Struct({

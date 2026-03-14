@@ -38,10 +38,9 @@ export const BlockFaceSchema = Schema.Struct({
 })
 export type BlockFace = Schema.Schema.Type<typeof BlockFaceSchema>
 
-export const BlockSchema = Schema.Struct({
+export class Block extends Schema.Class<Block>('Block')({
   id: BlockIdSchema,
   type: BlockTypeSchema,
   properties: BlockPropertiesSchema,
   faces: BlockFaceSchema,
-})
-export type Block = Schema.Schema.Type<typeof BlockSchema>
+}) {}

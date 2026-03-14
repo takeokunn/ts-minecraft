@@ -1,10 +1,11 @@
-import { Effect, Ref } from 'effect'
+import { Effect, Ref, Schema, Metric } from 'effect'
 
-interface FPSCounterState {
-  readonly frameCount: number
-  readonly fps: number
-  readonly accumulatedTime: number
-}
+export const FPSCounterStateSchema = Schema.Struct({
+  frameCount: Schema.Number,
+  fps: Schema.Number,
+  accumulatedTime: Schema.Number,
+})
+type FPSCounterState = Schema.Schema.Type<typeof FPSCounterStateSchema>
 
 const FPS_SAMPLE_INTERVAL = 0.5 // seconds
 
@@ -38,6 +39,7 @@ export class FPSCounter extends Effect.Service<FPSCounter>()(
                 fps: calculatedFPS,
                 accumulatedTime: 0,
               })
+              yield* Metric.gauge('fps').pipe(Metric.set(calculatedFPS))
             }
           }),
 

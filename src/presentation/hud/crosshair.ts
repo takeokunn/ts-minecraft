@@ -1,4 +1,4 @@
-import { Effect } from 'effect'
+import { Effect, Ref } from 'effect'
 
 // DOM abstraction for testability
 export class DomOperations extends Effect.Service<DomOperations>()(
@@ -7,6 +7,7 @@ export class DomOperations extends Effect.Service<DomOperations>()(
     effect: Effect.sync(() => ({
       createElement: (tagName: string): HTMLElement => document.createElement(tagName),
       appendChild: (element: HTMLElement): void => { document.body.appendChild(element) },
+      appendChildTo: (parent: HTMLElement, child: HTMLElement): void => { parent.appendChild(child) },
       removeChild: (element: HTMLElement): void => {
         if (element.parentNode) {
           element.parentNode.removeChild(element)
@@ -14,6 +15,9 @@ export class DomOperations extends Effect.Service<DomOperations>()(
       },
       getParentNode: (element: HTMLElement): HTMLElement | null =>
         element.parentNode as HTMLElement | null,
+      setInnerHTML: (element: HTMLElement, html: string): void => { element.innerHTML = html },
+      querySelector: <T extends HTMLElement>(element: HTMLElement, selector: string): T | null =>
+        element.querySelector<T>(selector),
     }))
   }
 ) {}
@@ -64,37 +68,39 @@ export class Crosshair extends Effect.Service<Crosshair>()(
       element.appendChild(createLine(true))  // Vertical
       element.appendChild(createLine(false)) // Horizontal
 
-      let visible = false
+      const visibleRef = yield* Ref.make(false)
 
       return {
         show: (): Effect.Effect<void, never> =>
-          Effect.sync(() => {
-            if (!visible) {
+          Effect.gen(function* () {
+            const vis = yield* Ref.get(visibleRef)
+            if (!vis) {
               dom.appendChild(element)
-              visible = true
+              yield* Ref.set(visibleRef, true)
             }
           }),
 
         hide: (): Effect.Effect<void, never> =>
-          Effect.sync(() => {
-            if (visible && dom.getParentNode(element)) {
+          Effect.gen(function* () {
+            const vis = yield* Ref.get(visibleRef)
+            if (vis && dom.getParentNode(element)) {
               dom.removeChild(element)
-              visible = false
+              yield* Ref.set(visibleRef, false)
             }
           }),
 
         toggle: (): Effect.Effect<void, never> =>
-          Effect.sync(() => {
-            if (visible) {
+          Effect.gen(function* () {
+            const vis = yield* Ref.get(visibleRef)
+            if (vis) {
               dom.removeChild(element)
-              visible = false
             } else {
               dom.appendChild(element)
-              visible = true
             }
+            yield* Ref.set(visibleRef, !vis)
           }),
 
-        isVisible: (): Effect.Effect<boolean, never> => Effect.sync(() => visible),
+        isVisible: (): Effect.Effect<boolean, never> => Ref.get(visibleRef),
       }
     }),
   }

@@ -6,7 +6,7 @@ import { NoiseServiceLive } from '@/infrastructure/noise/noise-service'
 import { BiomeServiceLive } from '@/application/biome/biome-service'
 import { ChunkServiceLive, CHUNK_SIZE, CHUNK_HEIGHT } from '@/domain/chunk'
 import { WorldIdSchema } from '@/shared/kernel'
-import { ChunkManagerService, ChunkManagerServiceLive, RENDER_DISTANCE } from './chunk-manager-service'
+import { ChunkManagerService, ChunkManagerServiceLive, RENDER_DISTANCE, MAX_CACHED_CHUNKS } from './chunk-manager-service'
 
 // ---------------------------------------------------------------------------
 // In-memory StorageService mock (no IndexedDB)
@@ -370,5 +370,202 @@ describe('application/chunk/chunk-manager-service', () => {
       expect(RENDER_DISTANCE).toBeGreaterThan(0)
       expect(Number.isInteger(RENDER_DISTANCE)).toBe(true)
     })
+  })
+
+  describe('MAX_CACHED_CHUNKS constant', () => {
+    it('is defined as a positive integer', () => {
+      expect(MAX_CACHED_CHUNKS).toBeTypeOf('number')
+      expect(MAX_CACHED_CHUNKS).toBeGreaterThan(0)
+      expect(Number.isInteger(MAX_CACHED_CHUNKS)).toBe(true)
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // LRU eviction boundary tests
+  //
+  // MAX_CACHED_CHUNKS = 400, so we pre-populate chunks in the in-memory storage
+  // to avoid terrain generation — each getChunk call just does a Map lookup
+  // instead of running the noise pipeline, making the loop fast.
+  // ---------------------------------------------------------------------------
+  describe('insertWithEviction (LRU cache eviction)', () => {
+    /**
+     * Build a test layer with N chunks pre-populated in storage.
+     * Coordinates are laid out on the x-axis: (0,0), (1,0), (2,0), …
+     * Each chunk has a minimal but valid block array (all zeros = AIR).
+     */
+    const buildLayerWithStorageChunks = (count: number) => {
+      const storage = makeInMemoryStorage()
+
+      // Pre-populate `count` distinct chunks so getChunk reads from storage
+      // rather than triggering terrain generation (avoids slow noise pipeline).
+      const minimalBlocks = new Uint8Array(EXPECTED_BLOCKS_LENGTH)
+      const StorageTestLayer = Layer.succeed(StorageService, storage as unknown as StorageService)
+
+      const program = Effect.gen(function* () {
+        for (let i = 0; i < count; i++) {
+          yield* storage.saveChunk(DEFAULT_WORLD_ID, { x: i, z: 0 }, minimalBlocks)
+        }
+      })
+      Effect.runSync(program)
+
+      const NoiseLayer = NoiseServiceLive
+      const BiomeTestLayer = BiomeServiceLive.pipe(Layer.provide(NoiseLayer))
+
+      const TestLayer = ChunkManagerServiceLive.pipe(
+        Layer.provide(ChunkServiceLive),
+        Layer.provide(StorageTestLayer),
+        Layer.provide(BiomeTestLayer),
+        Layer.provide(NoiseLayer),
+      )
+
+      return { TestLayer, storage }
+    }
+
+    it('cache size stays at MAX_CACHED_CHUNKS after loading one chunk beyond capacity', () => {
+      // Pre-populate MAX_CACHED_CHUNKS + 1 chunks in storage so no terrain
+      // generation happens during the loop — each getChunk is a fast Map read.
+      const { TestLayer } = buildLayerWithStorageChunks(MAX_CACHED_CHUNKS + 1)
+
+      const program = Effect.gen(function* () {
+        const service = yield* ChunkManagerService
+
+        // Load MAX_CACHED_CHUNKS chunks — fills the cache to exact capacity.
+        for (let i = 0; i < MAX_CACHED_CHUNKS; i++) {
+          yield* service.getChunk({ x: i, z: 0 })
+        }
+
+        const atCapacity = yield* service.getLoadedChunks()
+        expect(atCapacity.length).toBe(MAX_CACHED_CHUNKS)
+
+        // Load one more chunk — triggers insertWithEviction's eviction branch.
+        yield* service.getChunk({ x: MAX_CACHED_CHUNKS, z: 0 })
+
+        const afterEviction = yield* service.getLoadedChunks()
+        // Cache must not exceed MAX_CACHED_CHUNKS.
+        expect(afterEviction.length).toBe(MAX_CACHED_CHUNKS)
+
+        return { success: true }
+      }).pipe(Effect.provide(TestLayer))
+
+      const result = Effect.runSync(program)
+      expect(result.success).toBe(true)
+    }, 30_000) // allow up to 30 s for 401 in-memory storage reads
+
+    it('evicted dirty chunk is auto-saved to storage before eviction', () => {
+      // We need at least MAX_CACHED_CHUNKS + 1 storage entries.
+      // Chunk (0,0) is the first loaded → it will be the LRU entry and get
+      // evicted once the cache reaches capacity and a new chunk is loaded.
+      const { TestLayer, storage } = buildLayerWithStorageChunks(MAX_CACHED_CHUNKS + 1)
+
+      const program = Effect.gen(function* () {
+        const service = yield* ChunkManagerService
+
+        // Load chunk (0,0) first so it becomes the LRU (oldest lastAccessed).
+        yield* service.getChunk({ x: 0, z: 0 })
+        yield* service.markChunkDirty({ x: 0, z: 0 })
+
+        // Load MAX_CACHED_CHUNKS - 1 more chunks so the cache is exactly full.
+        // These all have newer lastAccessed timestamps so (0,0) remains LRU.
+        for (let i = 1; i < MAX_CACHED_CHUNKS; i++) {
+          yield* service.getChunk({ x: i, z: 0 })
+        }
+
+        // Sanity: (0,0) is still in cache (not yet evicted).
+        const beforeEviction = yield* service.getLoadedChunks()
+        expect(beforeEviction.some((c) => c.coord.x === 0 && c.coord.z === 0)).toBe(true)
+
+        // Loading one more chunk should evict (0,0) — the LRU entry.
+        // Because (0,0) is dirty, insertWithEviction must save it first.
+        yield* service.getChunk({ x: MAX_CACHED_CHUNKS, z: 0 })
+
+        // (0,0) should no longer be in the in-memory cache.
+        const afterEviction = yield* service.getLoadedChunks()
+        expect(afterEviction.some((c) => c.coord.x === 0 && c.coord.z === 0)).toBe(false)
+
+        // (0,0) must have been written to storage during the pre-eviction save.
+        const saved = yield* storage.loadChunk(DEFAULT_WORLD_ID, { x: 0, z: 0 })
+        expect(Option.isSome(saved)).toBe(true)
+
+        return { success: true }
+      }).pipe(Effect.provide(TestLayer))
+
+      const result = Effect.runSync(program)
+      expect(result.success).toBe(true)
+    }, 30_000)
+
+    it('evicted clean chunk is NOT written to storage during eviction', () => {
+      // Load MAX_CACHED_CHUNKS + 1 chunks, but keep chunk (0,0) clean.
+      // After eviction the storage entry for (0,0) should still be the original
+      // pre-populated data (unchanged by the eviction path itself).
+      const { TestLayer, storage } = buildLayerWithStorageChunks(MAX_CACHED_CHUNKS + 1)
+
+      // Overwrite chunk (0,0) storage entry with a sentinel value so we can
+      // detect if the eviction path re-saves it with different data.
+      const sentinelBlocks = new Uint8Array(EXPECTED_BLOCKS_LENGTH).fill(99)
+      Effect.runSync(storage.saveChunk(DEFAULT_WORLD_ID, { x: 0, z: 0 }, sentinelBlocks))
+
+      const program = Effect.gen(function* () {
+        const service = yield* ChunkManagerService
+
+        // Load chunk (0,0) first — it picks up the sentinel data from storage.
+        yield* service.getChunk({ x: 0, z: 0 })
+        // Deliberately do NOT mark (0,0) dirty.
+
+        // Fill the rest of the cache.
+        for (let i = 1; i < MAX_CACHED_CHUNKS; i++) {
+          yield* service.getChunk({ x: i, z: 0 })
+        }
+
+        // Trigger eviction of (0,0).
+        yield* service.getChunk({ x: MAX_CACHED_CHUNKS, z: 0 })
+
+        // (0,0) should have been evicted.
+        const afterEviction = yield* service.getLoadedChunks()
+        expect(afterEviction.some((c) => c.coord.x === 0 && c.coord.z === 0)).toBe(false)
+
+        // The storage value for (0,0) must still equal the original sentinel —
+        // the eviction path must NOT re-save clean chunks.
+        const stored = yield* storage.loadChunk(DEFAULT_WORLD_ID, { x: 0, z: 0 })
+        expect(Option.isSome(stored)).toBe(true)
+        if (Option.isSome(stored)) {
+          expect(stored.value[0]).toBe(99) // sentinel byte intact
+        }
+
+        return { success: true }
+      }).pipe(Effect.provide(TestLayer))
+
+      const result = Effect.runSync(program)
+      expect(result.success).toBe(true)
+    }, 30_000)
+
+    it('newly inserted chunk is retrievable immediately after eviction cycle', () => {
+      const { TestLayer } = buildLayerWithStorageChunks(MAX_CACHED_CHUNKS + 2)
+
+      const program = Effect.gen(function* () {
+        const service = yield* ChunkManagerService
+
+        // Fill the cache to capacity.
+        for (let i = 0; i < MAX_CACHED_CHUNKS; i++) {
+          yield* service.getChunk({ x: i, z: 0 })
+        }
+
+        // Trigger eviction and insert the new chunk.
+        const newCoord = { x: MAX_CACHED_CHUNKS, z: 0 }
+        const inserted = yield* service.getChunk(newCoord)
+
+        expect(inserted.coord.x).toBe(MAX_CACHED_CHUNKS)
+        expect(inserted.coord.z).toBe(0)
+        expect(inserted.blocks).toBeInstanceOf(Uint8Array)
+
+        // The inserted chunk must be present in the loaded set.
+        const loaded = yield* service.getLoadedChunks()
+        expect(loaded.some((c) => c.coord.x === MAX_CACHED_CHUNKS && c.coord.z === 0)).toBe(true)
+
+        return { success: true }
+      }).pipe(Effect.provide(TestLayer))
+
+      const result = Effect.runSync(program)
+      expect(result.success).toBe(true)
+    }, 30_000)
   })
 })

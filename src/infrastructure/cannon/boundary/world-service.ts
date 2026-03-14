@@ -8,11 +8,12 @@ export const WorldConfigSchema = Schema.Struct({
 })
 export type WorldConfig = Schema.Schema.Type<typeof WorldConfigSchema>
 
-export interface CollisionEvent {
-  readonly bodyA: CANNON.Body
-  readonly bodyB: CANNON.Body
-  readonly contactPoint?: CANNON.Vec3
-}
+export const CollisionEventSchema = Schema.Struct({
+  bodyA: Schema.instanceOf(CANNON.Body),
+  bodyB: Schema.instanceOf(CANNON.Body),
+  contactPoint: Schema.optional(Schema.instanceOf(CANNON.Vec3)),
+})
+export type CollisionEvent = Schema.Schema.Type<typeof CollisionEventSchema>
 
 type CollisionCallback = (event: CollisionEvent) => void
 type BodyCollisionListener = (event: { body: CANNON.Body; target: CANNON.Body }) => void

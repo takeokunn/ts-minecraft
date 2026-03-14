@@ -32,7 +32,7 @@ export class BlockMeshService extends Effect.Service<BlockMeshService>()(
 
       return {
         createMesh: (_blockType: string, position: THREE.Vector3): Effect.Effect<THREE.Mesh, MeshError> =>
-          Effect.gen(function* () {
+          Effect.sync(() => {
             const mesh = new THREE.Mesh(
               sharedGeometry,
               new THREE.MeshStandardMaterial({

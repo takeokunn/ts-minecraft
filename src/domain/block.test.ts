@@ -1,7 +1,7 @@
 import { describe, it } from '@effect/vitest'
 import { Effect, Schema } from 'effect'
 import { expect } from 'vitest'
-import { BlockTypeSchema, BlockPropertiesSchema, BlockSchema, BlockType } from './block'
+import { BlockTypeSchema, BlockPropertiesSchema, Block, BlockType, BlockIdSchema } from './block'
 
 describe('BlockTypeSchema', () => {
   describe('validation', () => {
@@ -155,7 +155,7 @@ describe('BlockPropertiesSchema', () => {
   })
 })
 
-describe('BlockSchema', () => {
+describe('Block', () => {
   describe('make', () => {
     it('should create a valid block using Schema.make', () => {
       const blockData = {
@@ -178,7 +178,7 @@ describe('BlockSchema', () => {
         },
       }
 
-      const result = Schema.decode(BlockSchema)(blockData)
+      const result = Schema.decode(Block)(blockData)
       const block = Effect.runSync(result)
       expect(block).toEqual(blockData)
     })
@@ -206,7 +206,7 @@ describe('BlockSchema', () => {
         },
       }
 
-      const result = Schema.decode(BlockSchema)(blockData)
+      const result = Schema.decode(Block)(blockData)
       const decoded = Effect.runSync(result)
 
       expect(decoded).toEqual(blockData)
@@ -233,12 +233,12 @@ describe('BlockSchema', () => {
         },
       }
 
-      const result = Schema.decode(BlockSchema)(invalidBlockData)
+      const result = Schema.decode(Block)(invalidBlockData)
       expect(() => Effect.runSync(result)).toThrow()
     })
 
-    it('should decode all six block types', () => {
-      const blockTypes = ['AIR', 'DIRT', 'STONE', 'WOOD', 'GRASS', 'SAND'] as const
+    it('should decode all twelve block types', () => {
+      const blockTypes = ['AIR', 'DIRT', 'STONE', 'WOOD', 'GRASS', 'SAND', 'WATER', 'LEAVES', 'GLASS', 'SNOW', 'GRAVEL', 'COBBLESTONE'] as const
 
       for (const type of blockTypes) {
         const blockData = {
@@ -261,7 +261,7 @@ describe('BlockSchema', () => {
           },
         }
 
-        const result = Schema.decode(BlockSchema)(blockData)
+        const result = Schema.decode(Block)(blockData)
         const decoded = Effect.runSync(result)
 
         expect(decoded.type).toBe(type)
@@ -271,8 +271,8 @@ describe('BlockSchema', () => {
 
   describe('encode', () => {
     it('should encode a block', () => {
-      const block = {
-        id: 'block:stone' as const,
+      const block = new Block({
+        id: Schema.decodeSync(BlockIdSchema)('block:stone'),
         type: 'STONE' as const,
         properties: {
           hardness: 100,
@@ -289,9 +289,9 @@ describe('BlockSchema', () => {
           east: true,
           west: true,
         },
-      }
+      })
 
-      const result = Schema.encodeUnknown(BlockSchema)(block)
+      const result = Schema.encodeUnknown(Block)(block)
       const encoded = Effect.runSync(result)
 
       expect(encoded).toEqual(block)

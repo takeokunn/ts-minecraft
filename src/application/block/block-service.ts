@@ -1,6 +1,6 @@
-import { Effect, Data } from 'effect'
+import { Effect, Data, Metric } from 'effect'
 import { ChunkManagerService } from '@/application/chunk/chunk-manager-service'
-import { ChunkService, CHUNK_SIZE, blockTypeToIndex, toBlockIndex, BlockIndexError } from '@/domain/chunk'
+import { ChunkService, CHUNK_SIZE, setBlockInChunk, BlockIndexError } from '@/domain/chunk'
 import { PlayerService } from '@/domain/player'
 import { BlockType } from '@/domain/block'
 import { Position, PlayerId, WorldId } from '@/shared/kernel'
@@ -97,16 +97,15 @@ export class BlockService extends Effect.Service<BlockService>()(
               )
             }
 
-            // Intentional in-place mutation: ChunkManagerService cache holds the same Uint8Array reference.
-            // toBlockIndex validates all bounds and returns the flat index; avoids O(n) copy.
-            const idx = yield* toBlockIndex(lx, y, lz).pipe(
+            // Intentional in-place mutation via setBlockInChunk: sets AIR at the block coordinate.
+            yield* setBlockInChunk(chunk, lx, y, lz, 'AIR').pipe(
               Effect.mapError(
                 (e: BlockIndexError) => new BlockServiceError({ operation: 'breakBlock', reason: `Block coordinates out of bounds: (${e.x}, ${e.y}, ${e.z})`, cause: e })
               )
             )
-            chunk.blocks[idx] = blockTypeToIndex('AIR')
 
             yield* chunkManagerService.markChunkDirty(chunkCoord)
+            yield* Metric.counter('blocks_broken').pipe(Metric.increment)
           }),
 
         /**
@@ -161,16 +160,15 @@ export class BlockService extends Effect.Service<BlockService>()(
               )
             }
 
-            // Intentional in-place mutation: ChunkManagerService cache holds the same Uint8Array reference.
-            // toBlockIndex validates all bounds and returns the flat index; avoids O(n) copy.
-            const idx = yield* toBlockIndex(lx, y, lz).pipe(
+            // Intentional in-place mutation via setBlockInChunk: sets block type at the block coordinate.
+            yield* setBlockInChunk(chunk, lx, y, lz, blockType).pipe(
               Effect.mapError(
                 (e: BlockIndexError) => new BlockServiceError({ operation: 'placeBlock', reason: `Block coordinates out of bounds: (${e.x}, ${e.y}, ${e.z})`, cause: e })
               )
             )
-            chunk.blocks[idx] = blockTypeToIndex(blockType)
 
             yield* chunkManagerService.markChunkDirty(chunkCoord)
+            yield* Metric.counter('blocks_placed').pipe(Metric.increment)
           }),
       }
     }),

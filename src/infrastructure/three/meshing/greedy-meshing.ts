@@ -2,14 +2,15 @@ import { Schema } from 'effect'
 import { Chunk, CHUNK_SIZE, CHUNK_HEIGHT, blockIndex } from '@/domain/chunk'
 import { getTileIndex, getTileUVs, FaceDir } from '../textures/block-texture-map'
 
-export interface MeshedChunk {
-  positions: Float32Array
-  normals: Float32Array
-  colors: Float32Array
-  uvs: Float32Array
-  indices: Uint32Array
-  blockPositions: Array<{ x: number; y: number; z: number }>
-}
+export const MeshedChunkSchema = Schema.Struct({
+  positions: Schema.instanceOf(Float32Array),
+  normals: Schema.instanceOf(Float32Array),
+  colors: Schema.instanceOf(Float32Array),
+  uvs: Schema.instanceOf(Float32Array),
+  indices: Schema.instanceOf(Uint32Array),
+  blockPositions: Schema.Array(Schema.Struct({ x: Schema.Number, y: Schema.Number, z: Schema.Number })),
+})
+export type MeshedChunk = Schema.Schema.Type<typeof MeshedChunkSchema>
 
 export const ChunkWorldOffsetSchema = Schema.Struct({
   wx: Schema.Number,
@@ -19,68 +20,68 @@ export type ChunkWorldOffset = Schema.Schema.Type<typeof ChunkWorldOffsetSchema>
 
 const AIR = 0
 
-const getBlock = (chunk: Chunk, lx: number, y: number, lz: number): number => {
+const getBlock = (blocks: Readonly<Uint8Array>, lx: number, y: number, lz: number): number => {
   const idx = blockIndex(lx, y, lz)
-  return idx !== null ? chunk.blocks[idx] ?? AIR : AIR
+  return idx !== null ? blocks[idx] ?? AIR : AIR
 }
 
-const isAir = (chunk: Chunk, lx: number, y: number, lz: number): boolean =>
-  getBlock(chunk, lx, y, lz) === AIR
+const isAir = (blocks: Readonly<Uint8Array>, lx: number, y: number, lz: number): boolean =>
+  getBlock(blocks, lx, y, lz) === AIR
 
-const isSolid = (chunk: Chunk, lx: number, y: number, lz: number): boolean =>
-  !isAir(chunk, lx, y, lz)
+const isSolid = (blocks: Readonly<Uint8Array>, lx: number, y: number, lz: number): boolean =>
+  !isAir(blocks, lx, y, lz)
 
-const aoXPos = (chunk: Chunk, lx: number, y: number, lz: number): number => {
+const aoXPos = (blocks: Readonly<Uint8Array>, lx: number, y: number, lz: number): number => {
   let count = 0
-  if (isSolid(chunk, lx + 1, y + 1, lz)) count++
-  if (isSolid(chunk, lx + 1, y - 1, lz)) count++
-  if (isSolid(chunk, lx + 1, y, lz + 1)) count++
-  if (isSolid(chunk, lx + 1, y, lz - 1)) count++
+  if (isSolid(blocks, lx + 1, y + 1, lz)) count++
+  if (isSolid(blocks, lx + 1, y - 1, lz)) count++
+  if (isSolid(blocks, lx + 1, y, lz + 1)) count++
+  if (isSolid(blocks, lx + 1, y, lz - 1)) count++
   return Math.min(3, count)
 }
 
-const aoXNeg = (chunk: Chunk, lx: number, y: number, lz: number): number => {
+const aoXNeg = (blocks: Readonly<Uint8Array>, lx: number, y: number, lz: number): number => {
   let count = 0
-  if (isSolid(chunk, lx - 1, y + 1, lz)) count++
-  if (isSolid(chunk, lx - 1, y - 1, lz)) count++
-  if (isSolid(chunk, lx - 1, y, lz + 1)) count++
-  if (isSolid(chunk, lx - 1, y, lz - 1)) count++
+  if (isSolid(blocks, lx - 1, y + 1, lz)) count++
+  if (isSolid(blocks, lx - 1, y - 1, lz)) count++
+  if (isSolid(blocks, lx - 1, y, lz + 1)) count++
+  if (isSolid(blocks, lx - 1, y, lz - 1)) count++
   return Math.min(3, count)
 }
 
-const aoYPos = (chunk: Chunk, lx: number, y: number, lz: number): number => {
+const aoYPos = (blocks: Readonly<Uint8Array>, lx: number, y: number, lz: number): number => {
   let count = 0
-  if (isSolid(chunk, lx + 1, y + 1, lz)) count++
-  if (isSolid(chunk, lx - 1, y + 1, lz)) count++
-  if (isSolid(chunk, lx, y + 1, lz + 1)) count++
-  if (isSolid(chunk, lx, y + 1, lz - 1)) count++
+  if (isSolid(blocks, lx + 1, y + 1, lz)) count++
+  if (isSolid(blocks, lx - 1, y + 1, lz)) count++
+  if (isSolid(blocks, lx, y + 1, lz + 1)) count++
+  if (isSolid(blocks, lx, y + 1, lz - 1)) count++
   return Math.min(3, count)
 }
 
-const aoYNeg = (chunk: Chunk, lx: number, y: number, lz: number): number => {
+const aoYNeg = (blocks: Readonly<Uint8Array>, lx: number, y: number, lz: number): number => {
   let count = 0
-  if (isSolid(chunk, lx + 1, y - 1, lz)) count++
-  if (isSolid(chunk, lx - 1, y - 1, lz)) count++
-  if (isSolid(chunk, lx, y - 1, lz + 1)) count++
-  if (isSolid(chunk, lx, y - 1, lz - 1)) count++
+  if (isSolid(blocks, lx + 1, y - 1, lz)) count++
+  if (isSolid(blocks, lx - 1, y - 1, lz)) count++
+  if (isSolid(blocks, lx, y - 1, lz + 1)) count++
+  if (isSolid(blocks, lx, y - 1, lz - 1)) count++
   return Math.min(3, count)
 }
 
-const aoZPos = (chunk: Chunk, lx: number, y: number, lz: number): number => {
+const aoZPos = (blocks: Readonly<Uint8Array>, lx: number, y: number, lz: number): number => {
   let count = 0
-  if (isSolid(chunk, lx + 1, y, lz + 1)) count++
-  if (isSolid(chunk, lx - 1, y, lz + 1)) count++
-  if (isSolid(chunk, lx, y + 1, lz + 1)) count++
-  if (isSolid(chunk, lx, y - 1, lz + 1)) count++
+  if (isSolid(blocks, lx + 1, y, lz + 1)) count++
+  if (isSolid(blocks, lx - 1, y, lz + 1)) count++
+  if (isSolid(blocks, lx, y + 1, lz + 1)) count++
+  if (isSolid(blocks, lx, y - 1, lz + 1)) count++
   return Math.min(3, count)
 }
 
-const aoZNeg = (chunk: Chunk, lx: number, y: number, lz: number): number => {
+const aoZNeg = (blocks: Readonly<Uint8Array>, lx: number, y: number, lz: number): number => {
   let count = 0
-  if (isSolid(chunk, lx + 1, y, lz - 1)) count++
-  if (isSolid(chunk, lx - 1, y, lz - 1)) count++
-  if (isSolid(chunk, lx, y + 1, lz - 1)) count++
-  if (isSolid(chunk, lx, y - 1, lz - 1)) count++
+  if (isSolid(blocks, lx + 1, y, lz - 1)) count++
+  if (isSolid(blocks, lx - 1, y, lz - 1)) count++
+  if (isSolid(blocks, lx, y + 1, lz - 1)) count++
+  if (isSolid(blocks, lx, y - 1, lz - 1)) count++
   return Math.min(3, count)
 }
 
@@ -196,6 +197,9 @@ export const greedyMeshChunk = (chunk: Chunk, offset: ChunkWorldOffset): MeshedC
     blockPositions: [],
   }
 
+  // Take a readonly snapshot for consistent reads in the hot loop
+  const blocks = chunk.blocks as Readonly<Uint8Array>
+
   // ── X+ faces (normal = +1,0,0) ──────────────────────────────────────────
   // Slice over lx; mask u-axis = lz, v-axis = y
   const passXPos = (): void => {
@@ -204,9 +208,9 @@ export const greedyMeshChunk = (chunk: Chunk, offset: ChunkWorldOffset): MeshedC
       const mask = new Uint16Array(CHUNK_SIZE * CHUNK_HEIGHT)
       for (let lz = 0; lz < CHUNK_SIZE; lz++) {
         for (let y = 0; y < CHUNK_HEIGHT; y++) {
-          const blockId = getBlock(chunk, lx, y, lz)
-          if (blockId !== AIR && isAir(chunk, lx + 1, y, lz)) {
-            const ao = aoXPos(chunk, lx, y, lz)
+          const blockId = getBlock(blocks, lx, y, lz)
+          if (blockId !== AIR && isAir(blocks, lx + 1, y, lz)) {
+            const ao = aoXPos(blocks, lx, y, lz)
             mask[lz * CHUNK_HEIGHT + y] = blockId | (ao << 4)
           }
         }
@@ -238,9 +242,9 @@ export const greedyMeshChunk = (chunk: Chunk, offset: ChunkWorldOffset): MeshedC
       const mask = new Uint16Array(CHUNK_SIZE * CHUNK_HEIGHT)
       for (let lz = 0; lz < CHUNK_SIZE; lz++) {
         for (let y = 0; y < CHUNK_HEIGHT; y++) {
-          const blockId = getBlock(chunk, lx, y, lz)
-          if (blockId !== AIR && isAir(chunk, lx - 1, y, lz)) {
-            const ao = aoXNeg(chunk, lx, y, lz)
+          const blockId = getBlock(blocks, lx, y, lz)
+          if (blockId !== AIR && isAir(blocks, lx - 1, y, lz)) {
+            const ao = aoXNeg(blocks, lx, y, lz)
             mask[lz * CHUNK_HEIGHT + y] = blockId | (ao << 4)
           }
         }
@@ -272,9 +276,9 @@ export const greedyMeshChunk = (chunk: Chunk, offset: ChunkWorldOffset): MeshedC
       const mask = new Uint16Array(CHUNK_SIZE * CHUNK_SIZE)
       for (let lx = 0; lx < CHUNK_SIZE; lx++) {
         for (let lz = 0; lz < CHUNK_SIZE; lz++) {
-          const blockId = getBlock(chunk, lx, y, lz)
-          if (blockId !== AIR && isAir(chunk, lx, y + 1, lz)) {
-            const ao = aoYPos(chunk, lx, y, lz)
+          const blockId = getBlock(blocks, lx, y, lz)
+          if (blockId !== AIR && isAir(blocks, lx, y + 1, lz)) {
+            const ao = aoYPos(blocks, lx, y, lz)
             mask[lx * CHUNK_SIZE + lz] = blockId | (ao << 4)
           }
         }
@@ -306,9 +310,9 @@ export const greedyMeshChunk = (chunk: Chunk, offset: ChunkWorldOffset): MeshedC
       const mask = new Uint16Array(CHUNK_SIZE * CHUNK_SIZE)
       for (let lx = 0; lx < CHUNK_SIZE; lx++) {
         for (let lz = 0; lz < CHUNK_SIZE; lz++) {
-          const blockId = getBlock(chunk, lx, y, lz)
-          if (blockId !== AIR && isAir(chunk, lx, y - 1, lz)) {
-            const ao = aoYNeg(chunk, lx, y, lz)
+          const blockId = getBlock(blocks, lx, y, lz)
+          if (blockId !== AIR && isAir(blocks, lx, y - 1, lz)) {
+            const ao = aoYNeg(blocks, lx, y, lz)
             mask[lx * CHUNK_SIZE + lz] = blockId | (ao << 4)
           }
         }
@@ -340,9 +344,9 @@ export const greedyMeshChunk = (chunk: Chunk, offset: ChunkWorldOffset): MeshedC
       const mask = new Uint16Array(CHUNK_SIZE * CHUNK_HEIGHT)
       for (let lx = 0; lx < CHUNK_SIZE; lx++) {
         for (let y = 0; y < CHUNK_HEIGHT; y++) {
-          const blockId = getBlock(chunk, lx, y, lz)
-          if (blockId !== AIR && isAir(chunk, lx, y, lz + 1)) {
-            const ao = aoZPos(chunk, lx, y, lz)
+          const blockId = getBlock(blocks, lx, y, lz)
+          if (blockId !== AIR && isAir(blocks, lx, y, lz + 1)) {
+            const ao = aoZPos(blocks, lx, y, lz)
             mask[lx * CHUNK_HEIGHT + y] = blockId | (ao << 4)
           }
         }
@@ -374,9 +378,9 @@ export const greedyMeshChunk = (chunk: Chunk, offset: ChunkWorldOffset): MeshedC
       const mask = new Uint16Array(CHUNK_SIZE * CHUNK_HEIGHT)
       for (let lx = 0; lx < CHUNK_SIZE; lx++) {
         for (let y = 0; y < CHUNK_HEIGHT; y++) {
-          const blockId = getBlock(chunk, lx, y, lz)
-          if (blockId !== AIR && isAir(chunk, lx, y, lz - 1)) {
-            const ao = aoZNeg(chunk, lx, y, lz)
+          const blockId = getBlock(blocks, lx, y, lz)
+          if (blockId !== AIR && isAir(blocks, lx, y, lz - 1)) {
+            const ao = aoZNeg(blocks, lx, y, lz)
             mask[lx * CHUNK_HEIGHT + y] = blockId | (ao << 4)
           }
         }

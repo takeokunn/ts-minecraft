@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { Effect, Layer } from 'effect'
 import * as THREE from 'three'
-import { InputService } from '../../presentation/input/input-service'
-import type { InputService as InputServiceType, MouseDelta } from '../../presentation/input/input-service'
+import { PlayerInputService } from '../../application/input/player-input-service'
+import type { MouseDelta } from '../../application/input/player-input-service'
+import type { InputService as InputServiceType } from '../../presentation/input/input-service'
 import { PlayerCameraState, PlayerCameraStateLive } from '../../domain/player-camera'
 import {
   FirstPersonCameraService,
@@ -51,11 +52,11 @@ const createTestInputService = (initialState: {
 }
 
 /**
- * Helper to create test layers with mock InputService
+ * Helper to create test layers with mock PlayerInputService
  */
 const createTestLayers = (inputService: InputServiceType) =>
   Layer.merge(
-    Layer.succeed(InputService, inputService),
+    Layer.succeed(PlayerInputService, inputService as unknown as PlayerInputService),
     PlayerCameraStateLive
   )
 
@@ -413,13 +414,12 @@ describe('FirstPersonCameraService', () => {
 
       const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000)
 
+      // Set pointer locked via closure variable
+      pointerLocked = true
+
       const program = Effect.gen(function* () {
         const cameraService = yield* FirstPersonCameraService
-        const input = yield* InputService
         const cameraState = yield* PlayerCameraState
-
-        // Request pointer lock
-        yield* input.requestPointerLock()
 
         // First mouse movement - look right and up
         mouseDelta = { x: 200, y: -100 }
@@ -474,15 +474,14 @@ describe('FirstPersonCameraService', () => {
 
       const program = Effect.gen(function* () {
         const cameraService = yield* FirstPersonCameraService
-        const input = yield* InputService
         const cameraState = yield* PlayerCameraState
 
         // First update with pointer locked
         yield* cameraService.update(camera)
         const rotation1 = yield* cameraState.getRotation()
 
-        // Exit pointer lock
-        yield* input.exitPointerLock()
+        // Exit pointer lock via closure variable
+        pointerLocked = false
 
         // Set mouse delta but shouldn't be applied
         mouseDelta = { x: 200, y: 100 }

@@ -2,11 +2,10 @@ import { Option, Schema } from 'effect'
 import type { BlockType } from './block'
 import { BlockTypeSchema } from './block'
 
-export const ItemStackSchema = Schema.Struct({
+export class ItemStack extends Schema.Class<ItemStack>('ItemStack')({
   blockType: BlockTypeSchema,
   count: Schema.Number.pipe(Schema.between(1, 64)),
-})
-export type ItemStack = Schema.Schema.Type<typeof ItemStackSchema>
+}) {}
 
 /**
  * Maximum items per stack
@@ -16,19 +15,15 @@ export const MAX_STACK_SIZE = 64
 /**
  * Create a new ItemStack
  */
-export const createStack = (blockType: BlockType, count = 1): ItemStack => ({
-  blockType,
-  count: Math.max(1, Math.min(MAX_STACK_SIZE, count)),
-})
+export const createStack = (blockType: BlockType, count = 1): ItemStack =>
+  new ItemStack({ blockType, count: Math.max(1, Math.min(MAX_STACK_SIZE, count)) })
 
 /**
  * Add n items to a stack, clamping at MAX_STACK_SIZE.
  * Returns the updated stack.
  */
-export const addToStack = (stack: ItemStack, n: number): ItemStack => ({
-  ...stack,
-  count: Math.min(MAX_STACK_SIZE, stack.count + n),
-})
+export const addToStack = (stack: ItemStack, n: number): ItemStack =>
+  new ItemStack({ blockType: stack.blockType, count: Math.min(MAX_STACK_SIZE, stack.count + n) })
 
 /**
  * Remove n items from a stack.
@@ -37,7 +32,7 @@ export const addToStack = (stack: ItemStack, n: number): ItemStack => ({
 export const removeFromStack = (stack: ItemStack, n: number): Option.Option<ItemStack> => {
   const newCount = stack.count - n
   if (newCount <= 0) return Option.none()
-  return Option.some({ ...stack, count: newCount })
+  return Option.some(new ItemStack({ blockType: stack.blockType, count: newCount }))
 }
 
 /**
@@ -57,8 +52,8 @@ export const mergeStacks = (
   const space = MAX_STACK_SIZE - a.count
   if (space <= 0) return [a, Option.some(b)]
   const transferred = Math.min(space, b.count)
-  const newA: ItemStack = { ...a, count: a.count + transferred }
+  const newA = new ItemStack({ blockType: a.blockType, count: a.count + transferred })
   const remaining = b.count - transferred
-  const newB = remaining > 0 ? Option.some<ItemStack>({ ...b, count: remaining }) : Option.none<ItemStack>()
+  const newB = remaining > 0 ? Option.some(new ItemStack({ blockType: b.blockType, count: remaining })) : Option.none<ItemStack>()
   return [newA, newB]
 }

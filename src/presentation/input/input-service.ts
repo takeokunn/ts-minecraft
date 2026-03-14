@@ -1,13 +1,8 @@
-import { Effect, Schema } from 'effect'
-
-/**
- * Mouse delta coordinates
- */
-export const MouseDeltaSchema = Schema.Struct({
-  x: Schema.Number,
-  y: Schema.Number,
-})
-export type MouseDelta = Schema.Schema.Type<typeof MouseDeltaSchema>
+import { Effect, Layer } from 'effect'
+import { PlayerInputService } from '@/application/input/player-input-service'
+import type { MouseDelta } from '@/application/input/player-input-service'
+export type { MouseDelta } from '@/application/input/player-input-service'
+export { MouseDeltaSchema } from '@/application/input/player-input-service'
 
 /**
  * Mouse button constants (standard MouseEvent.button values)
@@ -20,30 +15,7 @@ export const MouseButton = {
 
 export type MouseButton = (typeof MouseButton)[keyof typeof MouseButton]
 
-/**
- * Key mappings for player controls
- */
-export const KeyMappings = {
-  MOVE_FORWARD: 'KeyW',
-  MOVE_BACKWARD: 'KeyS',
-  MOVE_LEFT: 'KeyA',
-  MOVE_RIGHT: 'KeyD',
-  JUMP: 'Space',
-  SPRINT: 'ShiftLeft',
-  SNEAK: 'ShiftLeft',
-  CAMERA_TOGGLE: 'F5',
-  HOTBAR_SLOT_1: 'Digit1',
-  HOTBAR_SLOT_2: 'Digit2',
-  HOTBAR_SLOT_3: 'Digit3',
-  HOTBAR_SLOT_4: 'Digit4',
-  HOTBAR_SLOT_5: 'Digit5',
-  HOTBAR_SLOT_6: 'Digit6',
-  HOTBAR_SLOT_7: 'Digit7',
-  HOTBAR_SLOT_8: 'Digit8',
-  HOTBAR_SLOT_9: 'Digit9',
-  INVENTORY_OPEN: 'KeyE',
-  ESCAPE: 'Escape',
-} as const
+export { KeyMappings } from '@/application/input/key-mappings'
 
 /**
  * Input service for player controls
@@ -208,3 +180,18 @@ export class InputService extends Effect.Service<InputService>()(
   }
 ) {}
 export const InputServiceLive = InputService.Default
+
+export const PlayerInputServiceLive: Layer.Layer<PlayerInputService, never, InputService> =
+  Layer.effect(
+    PlayerInputService,
+    Effect.gen(function* () {
+      const input = yield* InputService
+      return {
+        isKeyPressed: (key: string) => input.isKeyPressed(key),
+        consumeKeyPress: (key: string) => input.consumeKeyPress(key),
+        consumeWheelDelta: () => input.consumeWheelDelta(),
+        getMouseDelta: () => input.getMouseDelta(),
+        isPointerLocked: () => input.isPointerLocked(),
+      } as unknown as PlayerInputService
+    })
+  )

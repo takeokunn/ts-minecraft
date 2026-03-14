@@ -1,9 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { Effect, Layer } from 'effect'
+import { Effect, Layer, Schema, Fiber, Stream, Chunk, Duration } from 'effect'
 import {
   PhysicsService,
   PhysicsServiceLive,
-  PhysicsError,
+  PhysicsServiceError,
+  AddBodyConfigSchema,
+  PhysicsRaycastHitSchema,
   GROUND_DETECTION_DISTANCE,
   PLAYER_FEET_OFFSET,
 } from './physics-service'
@@ -78,7 +80,7 @@ describe('application/physics/physics-service', () => {
 
         expect(result._tag).toBe('Left')
         if (result._tag === 'Left') {
-          expect(result.left).toBeInstanceOf(PhysicsError)
+          expect(result.left).toBeInstanceOf(PhysicsServiceError)
         }
 
         return { success: true }
@@ -202,6 +204,27 @@ describe('application/physics/physics-service', () => {
 
         // After removal, getVelocity should fail
         const result = yield* Effect.either(service.getVelocity(bodyId))
+        expect(result._tag).toBe('Left')
+
+        return { success: true }
+      }).pipe(Effect.provide(TestLayer))
+
+      const result = Effect.runSync(program)
+
+      expect(result.success).toBe(true)
+    })
+
+    it('should fail to remove the same body twice (handlerMap cleanup)', () => {
+      const program = Effect.gen(function* () {
+        const service = yield* PhysicsService
+
+        yield* service.initialize({ gravity: { x: 0, y: -9.82, z: 0 }, broadphase: 'naive' })
+        const bodyId = yield* service.addBody({ mass: 70, position: { x: 0, y: 10, z: 0 }, shape: 'box' })
+
+        yield* service.removeBody(bodyId)
+
+        // Second removal should fail — body is no longer registered in bodyMap
+        const result = yield* Effect.either(service.removeBody(bodyId))
         expect(result._tag).toBe('Left')
 
         return { success: true }
@@ -591,6 +614,161 @@ describe('application/physics/physics-service', () => {
     })
   })
 
+  describe('Stream consumption', () => {
+    it('groundCollisions emits at least once when body falls and contacts plane', async () => {
+      const program = Effect.gen(function* () {
+        const service = yield* PhysicsService
+
+        yield* service.initialize({ gravity: { x: 0, y: -9.82, z: 0 }, broadphase: 'naive' })
+
+        // Create ground plane at y=0
+        yield* service.addBody({
+          mass: 0,
+          position: { x: 0, y: 0, z: 0 },
+          shape: 'plane',
+          type: 'static',
+        })
+
+        // Create sphere body at y=10 so it will fall and hit the plane
+        const bodyId = yield* service.addBody({
+          mass: 1,
+          position: { x: 0, y: 10, z: 0 },
+          shape: 'sphere',
+          shapeParams: { radius: 0.5 },
+          allowSleep: false,
+        })
+
+        // 1. Fork BEFORE triggering collision — subscription must be active first
+        const collectFiber = yield* Effect.fork(
+          service.groundCollisions(bodyId).pipe(
+            Stream.take(1),
+            Stream.runCollect,
+          )
+        )
+
+        // 2. Yield to let the PubSub subscription activate inside the forked fiber
+        yield* Effect.sleep(Duration.millis(0))
+
+        // 3. Run many physics steps until the sphere hits the ground
+        for (let i = 0; i < 200; i++) {
+          yield* service.step(1 / 60)
+        }
+
+        // 4. Allow time for Effect.runFork(PubSub.publish(...)) inside the collision handler to execute
+        yield* Effect.sleep(Duration.millis(50))
+
+        // 5. Collect result from the fiber
+        const events = yield* Fiber.join(collectFiber)
+        expect(Chunk.size(events)).toBeGreaterThanOrEqual(1)
+
+        return { success: true }
+      }).pipe(Effect.provide(TestLayer))
+
+      const result = await Effect.runPromise(program)
+      expect(result.success).toBe(true)
+    })
+
+    it('groundCollisions for bodyId-A does NOT receive events from bodyId-B', async () => {
+      const program = Effect.gen(function* () {
+        const service = yield* PhysicsService
+
+        yield* service.initialize({ gravity: { x: 0, y: -9.82, z: 0 }, broadphase: 'naive' })
+
+        // Create ground plane at y=0
+        yield* service.addBody({
+          mass: 0,
+          position: { x: 0, y: 0, z: 0 },
+          shape: 'plane',
+          type: 'static',
+        })
+
+        // Body A at y=10000 — far above ground so it won't collide during 150 steps
+        const bodyIdA = yield* service.addBody({
+          mass: 1,
+          position: { x: 100, y: 10000, z: 0 },
+          shape: 'sphere',
+          shapeParams: { radius: 0.5 },
+          allowSleep: false,
+        })
+
+        // Body B at y=3 — closer to ground, will collide faster
+        yield* service.addBody({
+          mass: 1,
+          position: { x: 0, y: 3, z: 0 },
+          shape: 'sphere',
+          shapeParams: { radius: 0.5 },
+          allowSleep: false,
+        })
+
+        // Track events received by A's stream
+        const aEventsRef: number[] = []
+
+        // Fork A's subscription — collects up to 5 events, times out via interrupt
+        const aFiber = yield* Effect.fork(
+          service.groundCollisions(bodyIdA).pipe(
+            Stream.take(5),
+            Stream.tap(() => Effect.sync(() => aEventsRef.push(1))),
+            Stream.runDrain,
+          )
+        )
+
+        // Yield to let A's subscription activate
+        yield* Effect.sleep(Duration.millis(0))
+
+        // Run physics — B will hit the ground, A is far away and won't collide
+        for (let i = 0; i < 150; i++) {
+          yield* service.step(1 / 60)
+        }
+
+        // Give time for any spurious B events to propagate
+        yield* Effect.sleep(Duration.millis(50))
+
+        // Interrupt A's fiber (it should still be waiting since no events came for A)
+        yield* Fiber.interrupt(aFiber)
+
+        // A should have received 0 events (B's collision should not appear in A's filtered stream)
+        expect(aEventsRef.length).toBe(0)
+
+        return { success: true }
+      }).pipe(Effect.provide(TestLayer))
+
+      const result = await Effect.runPromise(program)
+      expect(result.success).toBe(true)
+    })
+
+    it('groundCollisions stream is defined and can be forked then interrupted cleanly', async () => {
+      const program = Effect.gen(function* () {
+        const service = yield* PhysicsService
+
+        yield* service.initialize({ gravity: { x: 0, y: -9.82, z: 0 }, broadphase: 'naive' })
+        const bodyId = yield* service.addBody({
+          mass: 70,
+          position: { x: 0, y: 10, z: 0 },
+          shape: 'box',
+        })
+
+        // Fork the infinite stream
+        const fiber = yield* Effect.fork(
+          service.groundCollisions(bodyId).pipe(Stream.runDrain)
+        )
+
+        // Yield to let it start
+        yield* Effect.sleep(Duration.millis(0))
+
+        // Immediately interrupt — should not throw or crash
+        const exitResult = yield* Fiber.interrupt(fiber)
+
+        // The fiber should have been interrupted (not failed with an error)
+        expect(exitResult._tag).toBe('Failure')
+
+        return { success: true }
+      }).pipe(Effect.provide(TestLayer))
+
+      const result = await Effect.runPromise(program)
+      expect(result.success).toBe(true)
+    })
+  })
+
   describe('Physics constants', () => {
     it('should have correct ground detection constants', () => {
       expect(GROUND_DETECTION_DISTANCE).toBe(0.15)
@@ -693,6 +871,75 @@ describe('application/physics/physics-service', () => {
       const result = Effect.runSync(program)
 
       expect(result.success).toBe(true)
+    })
+  })
+
+  describe('AddBodyConfigSchema', () => {
+    it('should decode a valid box body config', () => {
+      const result = Schema.decodeSync(AddBodyConfigSchema)({
+        mass: 70,
+        position: { x: 0, y: 10, z: 0 },
+        shape: 'box',
+      })
+      expect(result.mass).toBe(70)
+      expect(result.shape).toBe('box')
+    })
+
+    it('should decode config with all optional fields', () => {
+      const result = Schema.decodeSync(AddBodyConfigSchema)({
+        mass: 0,
+        position: { x: 0, y: 0, z: 0 },
+        shape: 'plane',
+        type: 'static',
+        fixedRotation: true,
+        angularDamping: 0.9,
+        allowSleep: false,
+      })
+      expect(result.type).toBe('static')
+      expect(result.fixedRotation).toBe(true)
+    })
+
+    it('should reject invalid shape literal', () => {
+      expect(() =>
+        Schema.decodeUnknownSync(AddBodyConfigSchema)({
+          mass: 70,
+          position: { x: 0, y: 0, z: 0 },
+          shape: 'cylinder',
+        })
+      ).toThrow()
+    })
+
+    it('should reject invalid body type literal', () => {
+      expect(() =>
+        Schema.decodeUnknownSync(AddBodyConfigSchema)({
+          mass: 70,
+          position: { x: 0, y: 0, z: 0 },
+          shape: 'box',
+          type: 'invalid',
+        })
+      ).toThrow()
+    })
+  })
+
+  describe('PhysicsRaycastHitSchema', () => {
+    it('should decode a valid raycast hit', () => {
+      const result = Schema.decodeSync(PhysicsRaycastHitSchema)({
+        bodyId: 'physics-body-0',
+        point: { x: 1, y: 2, z: 3 },
+        normal: { x: 0, y: 1, z: 0 },
+        distance: 5.5,
+      })
+      expect(result.bodyId).toBe('physics-body-0')
+      expect(result.distance).toBe(5.5)
+    })
+
+    it('should reject a hit with missing fields', () => {
+      expect(() =>
+        Schema.decodeUnknownSync(PhysicsRaycastHitSchema)({
+          bodyId: 'physics-body-0',
+          point: { x: 1, y: 2, z: 3 },
+        })
+      ).toThrow()
     })
   })
 })
