@@ -38,7 +38,8 @@ const buildAtlasTexture = (): Effect.Effect<THREE.Texture, TextureError> =>
             resolve()
           }
           img.onerror = (e) => {
-            console.warn('Failed to load texture', url, String(e))
+            // Use Effect.runFork to route the warning through Effect's logging infrastructure
+            Effect.runFork(Effect.logWarning(`Failed to load texture: ${url} — ${String(e)}`))
             resolve()
           }
           img.src = url

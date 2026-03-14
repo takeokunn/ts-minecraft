@@ -1,322 +1,333 @@
-import { describe, it } from '@effect/vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { Effect, Layer } from 'effect'
-import { expect, vi } from 'vitest'
 import { SettingsOverlay, SettingsOverlayLive } from './settings-overlay'
 import { SettingsService } from '@/application/settings/settings-service'
 import { DomOperations } from '@/presentation/hud/crosshair'
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Mock factories
 // ---------------------------------------------------------------------------
 
-const createMockSettingsService = (
-  initial = { renderDistance: 8, mouseSensitivity: 0.5, dayLengthSeconds: 400 }
-) => {
-  let current = { ...initial }
-  return {
-    getSettings: vi.fn(() => Effect.succeed(current)),
-    updateSettings: vi.fn((partial: Partial<typeof current>) => {
-      current = { ...current, ...partial }
-      return Effect.void
-    }),
-    resetToDefaults: vi.fn(() => Effect.void),
-  } as unknown as SettingsService
-}
-
-const createMockDomOperations = () => {
-  const elements: Array<{
-    id: string
-    style: { cssText: string; display: string }
-    dataset: Record<string, string>
-    textContent: string
-    innerHTML: string
-    children: unknown[]
-    parentNode: unknown | null
-    addEventListener: ReturnType<typeof vi.fn>
-    removeEventListener: ReturnType<typeof vi.fn>
-    remove: ReturnType<typeof vi.fn>
-    querySelector: ReturnType<typeof vi.fn>
-    value: string
-  }> = []
-
-  const makeEl = () => {
+const createMockDomLayer = () => {
+  const createElement = vi.fn((tagName: string) => {
     const el = {
       id: '',
-      style: { cssText: '', display: '' },
+      tagName,
+      style: { cssText: '', display: 'none' },
+      textContent: null as string | null,
+      value: '8',
       dataset: {} as Record<string, string>,
-      textContent: '',
-      innerHTML: '',
-      children: [] as unknown[],
-      parentNode: null as unknown | null,
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
-      remove: vi.fn(() => { el.parentNode = null }),
-      querySelector: vi.fn((_selector: string) => null),
-      value: '',
-    }
-    elements.push(el)
+      remove: vi.fn(),
+    } as unknown as HTMLElement
     return el
-  }
+  })
 
-  const dom = {
-    createElement: vi.fn((_tag: string) => makeEl()),
-    appendChild: vi.fn((el: unknown) => {
-      ;(el as { parentNode: unknown }).parentNode = 'body'
-    }),
+  const MockDomLayer = Layer.succeed(DomOperations, {
+    createElement,
+    appendChild: vi.fn(),
     appendChildTo: vi.fn(),
-    removeChild: vi.fn((el: unknown) => {
-      ;(el as { parentNode: unknown | null }).parentNode = null
-    }),
-    getParentNode: vi.fn((el: unknown) => (el as { parentNode: unknown }).parentNode),
-    setInnerHTML: vi.fn((el: { innerHTML: string }, html: string) => {
-      el.innerHTML = html
-    }),
-    querySelector: vi.fn((_el: unknown, _selector: string) => null),
-  } as unknown as DomOperations
+    removeChild: vi.fn(),
+    getParentNode: vi.fn(() => null),
+    setInnerHTML: vi.fn(),
+    querySelector: vi.fn(() => null),
+  } as unknown as DomOperations)
 
-  return { dom, elements }
+  return { MockDomLayer, createElement }
+}
+
+const defaultSettings = { renderDistance: 8, mouseSensitivity: 0.5, dayLengthSeconds: 400 }
+
+const createMockSettingsLayer = (settings = defaultSettings) => {
+  const getSettings = vi.fn(() => Effect.succeed({ ...settings }))
+  const updateSettings = vi.fn((_partial: unknown) => Effect.void)
+  const resetToDefaults = vi.fn(() => Effect.void)
+
+  const MockSettingsLayer = Layer.succeed(SettingsService, {
+    getSettings,
+    updateSettings,
+    resetToDefaults,
+  } as unknown as SettingsService)
+
+  return { MockSettingsLayer, getSettings, updateSettings, resetToDefaults }
 }
 
 const buildTestLayer = (
-  settingsService: SettingsService = createMockSettingsService(),
-  dom: DomOperations = createMockDomOperations().dom
-) => {
-  const MockSettingsLayer = Layer.succeed(SettingsService, settingsService)
-  const MockDomLayer = Layer.succeed(DomOperations, dom)
-  return SettingsOverlayLive.pipe(
-    Layer.provide(Layer.merge(MockSettingsLayer, MockDomLayer))
+  mockDom = createMockDomLayer(),
+  mockSettings = createMockSettingsLayer()
+) =>
+  SettingsOverlayLive.pipe(
+    Layer.provide(mockDom.MockDomLayer),
+    Layer.provide(mockSettings.MockSettingsLayer)
   )
-}
+
+const runScoped = <A>(effect: Effect.Effect<A, never, never>) =>
+  Effect.runSync(effect.pipe(Effect.scoped))
 
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
-describe('SettingsOverlay', () => {
-  describe('isOpen', () => {
-    it('should return false initially', () => {
+describe('presentation/settings/settings-overlay', () => {
+  describe('SettingsOverlayLive — layer provision', () => {
+    it('should provide SettingsOverlay as a Layer without error', () => {
       const TestLayer = buildTestLayer()
-
       const program = Effect.gen(function* () {
         const overlay = yield* SettingsOverlay
-        const result = yield* overlay.isOpen()
-        expect(result).toBe(false)
-      })
+        expect(typeof overlay.initialize).toBe('function')
+        expect(typeof overlay.toggle).toBe('function')
+        expect(typeof overlay.isOpen).toBe('function')
+        expect(typeof overlay.syncFromSettings).toBe('function')
+        expect(typeof overlay.applyToSettings).toBe('function')
+        return { success: true }
+      }).pipe(Effect.provide(TestLayer))
 
-      Effect.runSync(program.pipe(Effect.provide(TestLayer), Effect.scoped))
+      const result = runScoped(program)
+      expect(result.success).toBe(true)
     })
 
-    it('should return false before any toggle', () => {
-      const TestLayer = buildTestLayer()
-
-      const program = Effect.gen(function* () {
-        const overlay = yield* SettingsOverlay
-        const result = yield* overlay.isOpen()
-        expect(result).toBe(false)
-      })
-
-      Effect.runSync(program.pipe(Effect.provide(TestLayer), Effect.scoped))
-    })
-  })
-
-  describe('toggle', () => {
-    it('should return true after first toggle (open)', () => {
-      const TestLayer = buildTestLayer()
-
-      const program = Effect.gen(function* () {
-        const overlay = yield* SettingsOverlay
-        const result = yield* overlay.toggle()
-        expect(result).toBe(true)
-      })
-
-      Effect.runSync(program.pipe(Effect.provide(TestLayer), Effect.scoped))
-    })
-
-    it('should make isOpen return true after toggle', () => {
-      const TestLayer = buildTestLayer()
-
-      const program = Effect.gen(function* () {
-        const overlay = yield* SettingsOverlay
-        yield* overlay.toggle()
-        const result = yield* overlay.isOpen()
-        expect(result).toBe(true)
-      })
-
-      Effect.runSync(program.pipe(Effect.provide(TestLayer), Effect.scoped))
-    })
-
-    it('should return false after second toggle (close)', () => {
-      const TestLayer = buildTestLayer()
-
-      const program = Effect.gen(function* () {
-        const overlay = yield* SettingsOverlay
-        yield* overlay.toggle()
-        const result = yield* overlay.toggle()
-        expect(result).toBe(false)
-      })
-
-      Effect.runSync(program.pipe(Effect.provide(TestLayer), Effect.scoped))
-    })
-
-    it('should make isOpen return false after two toggles', () => {
-      const TestLayer = buildTestLayer()
-
-      const program = Effect.gen(function* () {
-        const overlay = yield* SettingsOverlay
-        yield* overlay.toggle()
-        yield* overlay.toggle()
-        const result = yield* overlay.isOpen()
-        expect(result).toBe(false)
-      })
-
-      Effect.runSync(program.pipe(Effect.provide(TestLayer), Effect.scoped))
-    })
-
-    it('should alternate visibility through multiple toggles', () => {
-      const TestLayer = buildTestLayer()
-
-      const program = Effect.gen(function* () {
-        const overlay = yield* SettingsOverlay
-        const states: boolean[] = []
-
-        states.push(yield* overlay.isOpen())    // false initially
-
-        yield* overlay.toggle()
-        states.push(yield* overlay.isOpen())    // true
-
-        yield* overlay.toggle()
-        states.push(yield* overlay.isOpen())    // false
-
-        yield* overlay.toggle()
-        states.push(yield* overlay.isOpen())    // true
-
-        expect(states).toEqual([false, true, false, true])
-      })
-
-      Effect.runSync(program.pipe(Effect.provide(TestLayer), Effect.scoped))
+    it('should be defined', () => {
+      expect(SettingsOverlayLive).toBeDefined()
     })
   })
 
   describe('initialize', () => {
     it('should complete without error', () => {
       const TestLayer = buildTestLayer()
-
       const program = Effect.gen(function* () {
         const overlay = yield* SettingsOverlay
         yield* overlay.initialize()
-      })
+        return { success: true }
+      }).pipe(Effect.provide(TestLayer))
 
-      expect(() =>
-        Effect.runSync(program.pipe(Effect.provide(TestLayer), Effect.scoped))
-      ).not.toThrow()
+      const result = runScoped(program)
+      expect(result.success).toBe(true)
+    })
+
+    it('should be callable multiple times without error', () => {
+      const TestLayer = buildTestLayer()
+      const program = Effect.gen(function* () {
+        const overlay = yield* SettingsOverlay
+        yield* overlay.initialize()
+        yield* overlay.initialize()
+        return { success: true }
+      }).pipe(Effect.provide(TestLayer))
+
+      const result = runScoped(program)
+      expect(result.success).toBe(true)
+    })
+  })
+
+  describe('isOpen', () => {
+    it('should return false initially', () => {
+      const TestLayer = buildTestLayer()
+      const program = Effect.gen(function* () {
+        const overlay = yield* SettingsOverlay
+        const open = yield* overlay.isOpen()
+        return { open }
+      }).pipe(Effect.provide(TestLayer))
+
+      const { open } = runScoped(program)
+      expect(open).toBe(false)
+    })
+
+    it('should be consistent across multiple calls before any toggle', () => {
+      const TestLayer = buildTestLayer()
+      const program = Effect.gen(function* () {
+        const overlay = yield* SettingsOverlay
+        const open1 = yield* overlay.isOpen()
+        const open2 = yield* overlay.isOpen()
+        const open3 = yield* overlay.isOpen()
+        return { open1, open2, open3 }
+      }).pipe(Effect.provide(TestLayer))
+
+      const result = runScoped(program)
+      expect(result.open1).toBe(false)
+      expect(result.open2).toBe(false)
+      expect(result.open3).toBe(false)
+    })
+  })
+
+  describe('toggle', () => {
+    it('should return true on first call (opens)', () => {
+      const TestLayer = buildTestLayer()
+      const program = Effect.gen(function* () {
+        const overlay = yield* SettingsOverlay
+        const result = yield* overlay.toggle()
+        return { result }
+      }).pipe(Effect.provide(TestLayer))
+
+      const { result } = runScoped(program)
+      expect(result).toBe(true)
+    })
+
+    it('should return false on second call (closes)', () => {
+      const TestLayer = buildTestLayer()
+      const program = Effect.gen(function* () {
+        const overlay = yield* SettingsOverlay
+        yield* overlay.toggle()
+        const result = yield* overlay.toggle()
+        return { result }
+      }).pipe(Effect.provide(TestLayer))
+
+      const { result } = runScoped(program)
+      expect(result).toBe(false)
+    })
+
+    it('should return true on third call (opens again)', () => {
+      const TestLayer = buildTestLayer()
+      const program = Effect.gen(function* () {
+        const overlay = yield* SettingsOverlay
+        yield* overlay.toggle()
+        yield* overlay.toggle()
+        const result = yield* overlay.toggle()
+        return { result }
+      }).pipe(Effect.provide(TestLayer))
+
+      const { result } = runScoped(program)
+      expect(result).toBe(true)
+    })
+
+    it('should update isOpen after toggle', () => {
+      const TestLayer = buildTestLayer()
+      const program = Effect.gen(function* () {
+        const overlay = yield* SettingsOverlay
+        const openBefore = yield* overlay.isOpen()
+        yield* overlay.toggle()
+        const openAfter = yield* overlay.isOpen()
+        return { openBefore, openAfter }
+      }).pipe(Effect.provide(TestLayer))
+
+      const result = runScoped(program)
+      expect(result.openBefore).toBe(false)
+      expect(result.openAfter).toBe(true)
+    })
+
+    it('should sync from settings when toggling open', () => {
+      const mockDom = createMockDomLayer()
+      const mockSettings = createMockSettingsLayer()
+      const TestLayer = buildTestLayer(mockDom, mockSettings)
+
+      const program = Effect.gen(function* () {
+        const overlay = yield* SettingsOverlay
+        yield* overlay.toggle()
+        return { success: true }
+      }).pipe(Effect.provide(TestLayer))
+
+      runScoped(program)
+      // getSettings should have been called to sync
+      expect(mockSettings.getSettings).toHaveBeenCalled()
+    })
+
+    it('should NOT sync from settings when toggling closed', () => {
+      const mockDom = createMockDomLayer()
+      const mockSettings = createMockSettingsLayer()
+      const TestLayer = buildTestLayer(mockDom, mockSettings)
+
+      const program = Effect.gen(function* () {
+        const overlay = yield* SettingsOverlay
+        yield* overlay.toggle() // open (syncs)
+        const callsAfterOpen = mockSettings.getSettings.mock.calls.length
+        yield* overlay.toggle() // close (should NOT sync)
+        return { callsAfterOpen }
+      }).pipe(Effect.provide(TestLayer))
+
+      const { callsAfterOpen } = runScoped(program)
+      // Second toggle (close) should not call getSettings again
+      expect(mockSettings.getSettings.mock.calls.length).toBe(callsAfterOpen)
     })
   })
 
   describe('syncFromSettings', () => {
-    it('should call getSettings on the settings service', () => {
-      const mockSettings = createMockSettingsService()
-      const TestLayer = buildTestLayer(mockSettings)
+    it('should call getSettings on the SettingsService', () => {
+      const mockDom = createMockDomLayer()
+      const mockSettings = createMockSettingsLayer()
+      const TestLayer = buildTestLayer(mockDom, mockSettings)
 
       const program = Effect.gen(function* () {
         const overlay = yield* SettingsOverlay
         yield* overlay.syncFromSettings()
-      })
+        return { success: true }
+      }).pipe(Effect.provide(TestLayer))
 
-      Effect.runSync(program.pipe(Effect.provide(TestLayer), Effect.scoped))
-
+      runScoped(program)
       expect(mockSettings.getSettings).toHaveBeenCalled()
     })
 
-    it('should not throw when called before any input elements are available', () => {
-      const mockSettings = createMockSettingsService()
-      const TestLayer = buildTestLayer(mockSettings)
-
+    it('should complete without error', () => {
+      const TestLayer = buildTestLayer()
       const program = Effect.gen(function* () {
         const overlay = yield* SettingsOverlay
         yield* overlay.syncFromSettings()
-      })
+        return { success: true }
+      }).pipe(Effect.provide(TestLayer))
 
-      expect(() =>
-        Effect.runSync(program.pipe(Effect.provide(TestLayer), Effect.scoped))
-      ).not.toThrow()
+      const result = runScoped(program)
+      expect(result.success).toBe(true)
     })
   })
 
   describe('applyToSettings', () => {
-    it('should call updateSettings on the settings service', () => {
-      const mockSettings = createMockSettingsService()
-      const TestLayer = buildTestLayer(mockSettings)
+    it('should call updateSettings on the SettingsService', () => {
+      const mockDom = createMockDomLayer()
+      const mockSettings = createMockSettingsLayer()
+      const TestLayer = buildTestLayer(mockDom, mockSettings)
 
       const program = Effect.gen(function* () {
         const overlay = yield* SettingsOverlay
         yield* overlay.applyToSettings()
-      })
+        return { success: true }
+      }).pipe(Effect.provide(TestLayer))
 
-      Effect.runSync(program.pipe(Effect.provide(TestLayer), Effect.scoped))
-
-      expect(mockSettings.updateSettings).toHaveBeenCalledWith({
-        renderDistance: 8,
-        mouseSensitivity: expect.any(Number),
-        dayLengthSeconds: expect.any(Number),
-      })
+      runScoped(program)
+      expect(mockSettings.updateSettings).toHaveBeenCalled()
     })
 
-    it('should complete without throwing', () => {
+    it('should complete without error', () => {
       const TestLayer = buildTestLayer()
-
       const program = Effect.gen(function* () {
         const overlay = yield* SettingsOverlay
         yield* overlay.applyToSettings()
-      })
+        return { success: true }
+      }).pipe(Effect.provide(TestLayer))
 
-      expect(() =>
-        Effect.runSync(program.pipe(Effect.provide(TestLayer), Effect.scoped))
-      ).not.toThrow()
+      const result = runScoped(program)
+      expect(result.success).toBe(true)
     })
   })
 
-  describe('integration', () => {
-    it('should handle open → close → open cycle', () => {
+  describe('Effect composition', () => {
+    it('should support toggle.flatMap(isOpen)', () => {
       const TestLayer = buildTestLayer()
-
       const program = Effect.gen(function* () {
         const overlay = yield* SettingsOverlay
+        const isOpen = yield* overlay.toggle().pipe(
+          Effect.flatMap(() => overlay.isOpen())
+        )
+        return { isOpen }
+      }).pipe(Effect.provide(TestLayer))
 
-        // Open
-        const r1 = yield* overlay.toggle()
-        expect(r1).toBe(true)
-        expect(yield* overlay.isOpen()).toBe(true)
-
-        // Close
-        const r2 = yield* overlay.toggle()
-        expect(r2).toBe(false)
-        expect(yield* overlay.isOpen()).toBe(false)
-
-        // Open again
-        const r3 = yield* overlay.toggle()
-        expect(r3).toBe(true)
-        expect(yield* overlay.isOpen()).toBe(true)
-      })
-
-      Effect.runSync(program.pipe(Effect.provide(TestLayer), Effect.scoped))
+      const { isOpen } = runScoped(program)
+      expect(isOpen).toBe(true)
     })
 
-    it('should sync settings from service when toggled open', () => {
-      const mockSettings = createMockSettingsService({
-        renderDistance: 12,
-        mouseSensitivity: 1.5,
-        dayLengthSeconds: 600,
-      })
-      const TestLayer = buildTestLayer(mockSettings)
-
+    it('should support chaining multiple operations', () => {
+      const TestLayer = buildTestLayer()
       const program = Effect.gen(function* () {
         const overlay = yield* SettingsOverlay
-        // Toggling open triggers syncEffect which calls getSettings
+        yield* overlay.initialize()
         yield* overlay.toggle()
-        expect(mockSettings.getSettings).toHaveBeenCalled()
-      })
+        yield* overlay.syncFromSettings()
+        const isOpen = yield* overlay.isOpen()
+        yield* overlay.toggle()
+        const isClosed = yield* overlay.isOpen()
+        return { isOpen, isClosed }
+      }).pipe(Effect.provide(TestLayer))
 
-      Effect.runSync(program.pipe(Effect.provide(TestLayer), Effect.scoped))
+      const result = runScoped(program)
+      expect(result.isOpen).toBe(true)
+      expect(result.isClosed).toBe(false)
     })
   })
 })

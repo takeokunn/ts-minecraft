@@ -21,23 +21,37 @@ const QUEUE_CAPACITY = 60
  * Uses Effect.Queue for frame command processing with a bridge pattern
  * that connects requestAnimationFrame to the Effect-TS ecosystem.
  *
- * The caller passes a frameHandler that receives the variable delta time
- * (in seconds) for each frame, allowing all per-frame operations to be
- * composed externally (e.g. in main.ts).
+ * Design:
+ *   - start() creates a fresh queue, forks the processing fiber, starts rAF bridge,
+ *     and returns immediately. The loop runs in the background.
+ *   - stop() interrupts the fiber, cancels animation frames, shuts down the queue.
+ *   - The queue is recreated on each start() to support restart semantics.
  */
 export class GameLoopService extends Effect.Service<GameLoopService>()(
   '@minecraft/application/GameLoopService',
   {
     effect: Effect.gen(function* () {
-      const frameQueue = yield* Queue.bounded<FrameCommand>(QUEUE_CAPACITY)
       const runningRef = yield* Ref.make(false)
 
-      // processingFiber is in a Ref for Effect-native mutation
+      // Holds the current frame queue (recreated on each start)
+      const frameQueueRef = yield* Ref.make<Queue.Queue<FrameCommand> | null>(null)
+
+      // Holds the current processing fiber (null when stopped)
       const processingFiberRef = yield* Ref.make<Fiber.RuntimeFiber<void, never> | null>(null)
+
       // animationFrameId stays as let — assigned inside sync rAF callback
       let animationFrameId: number | null = null
 
       return {
+        /**
+         * Start the game loop with a frame handler.
+         *
+         * Creates a fresh queue, forks the frame-processing fiber, and starts the
+         * rAF bridge. Returns immediately — the loop runs in the background until
+         * stop() is called.
+         *
+         * Fails with GameLoopError if the loop is already running.
+         */
         start: (
           frameHandler: (deltaTime: DeltaTimeSecs) => Effect.Effect<void, never>
         ): Effect.Effect<void, GameLoopError> =>
@@ -49,11 +63,18 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
               )
             }
 
+            // Use a dropping queue: when the consumer falls behind, new offers are silently
+            // discarded rather than blocking the rAF bridge. This prevents unbounded fiber
+            // accumulation under load (the alternative — unbounded blocking offers — would
+            // pile up rAF fibers on frame backpressure).
+            const frameQueue = yield* Queue.dropping<FrameCommand>(QUEUE_CAPACITY)
+            yield* Ref.set(frameQueueRef, frameQueue)
+
             /**
              * Frame processing loop - runs in a separate fiber.
              * Computes variable delta time from successive timestamps.
              */
-            const processFrames = Effect.gen(function* () {
+            const processFrames: Effect.Effect<void, never> = Effect.gen(function* () {
               let lastTimestamp = 0
               while (true) {
                 const cmd = yield* Queue.take(frameQueue)
@@ -64,9 +85,12 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
                     : (cmd.timestamp - lastTimestamp) / 1000
                 const deltaTime = Math.max(0.001, rawDelta) as unknown as DeltaTimeSecs
                 lastTimestamp = cmd.timestamp
+                // catchAllCause captures both expected errors AND defects (unexpected exceptions).
+                // Using catchAll here would let defects propagate and kill the processing fiber,
+                // leaving runningRef=true while the loop has stopped silently.
                 yield* frameHandler(deltaTime).pipe(
-                  Effect.catchAll((e) =>
-                    Effect.logError(`Frame error: ${String(e)}`)
+                  Effect.catchAllCause((cause) =>
+                    Effect.logError(`Frame error: ${Cause.pretty(cause)}`)
                   )
                 )
               }
@@ -81,8 +105,12 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
 
               const now = performance.now()
 
+              // With a dropping queue, offer() returns false when the queue is full — no error.
+              // We use runFork to avoid blocking the rAF callback, but the dropping semantics
+              // ensure that no fiber piles up on backpressure.
               Effect.runFork(
                 Queue.offer(frameQueue, { _tag: 'Tick', timestamp: now }).pipe(
+                  Effect.asVoid,
                   Effect.catchAllCause(cause =>
                     Effect.logError(`Frame queue error: ${Cause.pretty(cause)}`)
                   )
@@ -92,18 +120,27 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
               animationFrameId = requestAnimationFrame(bridgeLoop)
             }
 
-            // Mark as running
+            // Mark as running before forking
             yield* Ref.set(runningRef, true)
 
-            // Fork the processing fiber
-            yield* Ref.set(processingFiberRef, yield* Effect.fork(processFrames))
+            // Fork the processing fiber — do NOT join it here.
+            // The fiber runs in the background; stop() will interrupt it.
+            const fiber = yield* Effect.fork(processFrames)
+            yield* Ref.set(processingFiberRef, fiber)
 
-            // Start the bridge loop
+            // Start the bridge loop (schedules first rAF callback)
             bridgeLoop()
 
             yield* Effect.log('Game loop started')
+            // Returns immediately — loop runs in the background
           }),
 
+        /**
+         * Stop the game loop.
+         *
+         * Cancels the pending animation frame, interrupts the processing fiber,
+         * and shuts down the queue. Safe to call when the loop is not running.
+         */
         stop: (): Effect.Effect<void, never> =>
           Effect.gen(function* () {
             yield* Ref.set(runningRef, false)
@@ -121,8 +158,12 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
               yield* Ref.set(processingFiberRef, null)
             }
 
-            // Shutdown the queue
-            yield* Queue.shutdown(frameQueue)
+            // Shutdown the queue to unblock any pending take
+            const queue = yield* Ref.get(frameQueueRef)
+            if (queue !== null) {
+              yield* Queue.shutdown(queue)
+              yield* Ref.set(frameQueueRef, null)
+            }
 
             yield* Effect.log('Game loop stopped')
           }),

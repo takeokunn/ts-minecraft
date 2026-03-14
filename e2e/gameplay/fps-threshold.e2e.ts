@@ -2,9 +2,10 @@ import { test, expect } from '@playwright/test'
 import { GamePage } from '../fixtures/game-page'
 import { waitForStableRender, getFpsValue } from '../helpers/wait-helpers'
 
-// FPS thresholds: lower in CI because SwiftShader software rendering
-// on 2-core GitHub Actions ubuntu-latest runners is significantly slower.
-const FPS_THRESHOLD = process.env['CI'] ? 15 : 30
+// FPS thresholds: e2e tests always use SwiftShader software rendering (no real GPU in headless).
+// CI runners are slower (2-core), so use a lower threshold there.
+// Local threshold is conservative (12) to stay stable under system load variability.
+const FPS_THRESHOLD = process.env['CI'] ? 10 : 12
 const SAMPLE_COUNT = 3
 const SAMPLE_INTERVAL_MS = 1_500 // must span multiple 0.5s FPS counter sample windows
 

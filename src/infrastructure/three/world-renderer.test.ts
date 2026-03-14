@@ -1,0 +1,246 @@
+import { describe, it, expect, vi } from 'vitest'
+import { Effect, Layer } from 'effect'
+import * as THREE from 'three'
+
+// ---------------------------------------------------------------------------
+// DOM mocks — vitest runs in 'node' (no real DOM)
+// chunk-mesh.ts needs document.createElement (canvas) and Image for atlas build.
+// ---------------------------------------------------------------------------
+if (typeof globalThis.document === 'undefined') {
+  const ctx = {
+    fillStyle: '',
+    fillRect: vi.fn(),
+    strokeStyle: '',
+    lineWidth: 0,
+    beginPath: vi.fn(),
+    arc: vi.fn(),
+    stroke: vi.fn(),
+    strokeRect: vi.fn(),
+    drawImage: vi.fn(),
+  }
+  Object.defineProperty(globalThis, 'document', {
+    value: {
+      createElement: vi.fn(() => ({
+        width: 256, height: 256,
+        getContext: () => ctx,
+      })),
+      body: { appendChild: vi.fn() },
+    },
+    writable: true,
+  })
+}
+
+if (typeof globalThis.Image === 'undefined') {
+  class MockImage {
+    onload: (() => void) | null = null
+    onerror: ((_e: unknown) => void) | null = null
+    private _src = ''
+    get src(): string { return this._src }
+    set src(url: string) {
+      this._src = url
+      // Trigger onload synchronously — simulates successful texture load
+      if (this.onload) this.onload()
+    }
+  }
+  Object.defineProperty(globalThis, 'Image', { value: MockImage, writable: true })
+}
+
+// ---------------------------------------------------------------------------
+// THREE.js mock — must be declared before any imports that touch 'three'
+// ---------------------------------------------------------------------------
+vi.mock('three', () => ({
+  Mesh: vi.fn(() => ({
+    geometry: { dispose: vi.fn() },
+    material: {},
+    visible: true,
+    userData: {} as Record<string, unknown>,
+    position: { set: vi.fn() },
+  })),
+  BufferGeometry: vi.fn(() => ({ setAttribute: vi.fn(), setIndex: vi.fn(), dispose: vi.fn() })),
+  BufferAttribute: vi.fn(),
+  Scene: vi.fn(() => ({ add: vi.fn(), remove: vi.fn(), children: [] })),
+  Frustum: vi.fn(() => ({ setFromProjectionMatrix: vi.fn(), intersectsBox: vi.fn(() => true) })),
+  Box3: vi.fn(() => ({ set: vi.fn() })),
+  Vector3: vi.fn(() => ({ set: vi.fn(), x: 0, y: 0, z: 0 })),
+  Matrix4: vi.fn(() => ({ multiplyMatrices: vi.fn(), elements: new Array(16).fill(0) })),
+  PerspectiveCamera: vi.fn(() => ({
+    updateMatrixWorld: vi.fn(),
+    projectionMatrix: { elements: new Array(16).fill(0) },
+    matrixWorldInverse: { elements: new Array(16).fill(0) },
+  })),
+  MeshStandardMaterial: vi.fn(() => ({ map: null })),
+  CanvasTexture: vi.fn(() => ({ magFilter: 0, minFilter: 0, wrapS: 0, wrapT: 0 })),
+  NearestFilter: 0,
+  ClampToEdgeWrapping: 0,
+}))
+
+import { WorldRendererService, WorldRendererServiceLive } from './world-renderer'
+import { ChunkMeshService } from './meshing/chunk-mesh'
+import { SceneService } from './scene/scene-service'
+import type { Chunk } from '@/domain/chunk'
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+const makeChunk = (x: number, z: number): Chunk => ({
+  coord: { x, z },
+  blocks: new Uint8Array(16 * 256 * 16),
+})
+
+const makeMockMesh = (coord: { x: number; z: number }) => ({
+  geometry: { dispose: vi.fn() },
+  material: {},
+  visible: true,
+  userData: { chunkCoord: coord, blockPositions: [] },
+  position: { set: vi.fn() },
+})
+
+// Build a test-specific Layer that bypasses WorldRendererServiceLive's bundled dependencies.
+// We use Layer.effect to construct WorldRendererService with injected mocks.
+const buildTestLayer = (
+  createChunkMesh: ReturnType<typeof vi.fn> = vi.fn((chunk: Chunk) =>
+    Effect.succeed(makeMockMesh(chunk.coord) as unknown as THREE.Mesh)
+  ),
+  sceneAdd: ReturnType<typeof vi.fn> = vi.fn((_s: unknown, _m: unknown) => Effect.void),
+  sceneRemove: ReturnType<typeof vi.fn> = vi.fn((_s: unknown, _m: unknown) => Effect.void)
+) => {
+  const chunkMeshLayer = Layer.succeed(ChunkMeshService, {
+    createChunkMesh,
+    updateChunkMesh: vi.fn((_m: THREE.Mesh, _c: Chunk) => Effect.void),
+    disposeMesh: vi.fn((_m: THREE.Mesh) => Effect.void),
+  } as unknown as ChunkMeshService)
+
+  const sceneLayer = Layer.succeed(SceneService, {
+    create: () => Effect.succeed({} as THREE.Scene),
+    add: sceneAdd,
+    remove: sceneRemove,
+  } as unknown as SceneService)
+
+  return Layer.provide(WorldRendererServiceLive, Layer.mergeAll(chunkMeshLayer, sceneLayer))
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+describe('infrastructure/three/world-renderer', () => {
+  describe('WorldRendererServiceLive', () => {
+    it('should be defined', () => {
+      expect(WorldRendererServiceLive).toBeDefined()
+    })
+
+    it('should expose all required methods', async () => {
+      const TestLayer = buildTestLayer()
+      const result = await Effect.gen(function* () {
+        const s = yield* WorldRendererService
+        return {
+          hasSyncChunks: typeof s.syncChunksToScene === 'function',
+          hasUpdate: typeof s.updateChunkInScene === 'function',
+          hasFrustum: typeof s.applyFrustumCulling === 'function',
+          hasClear: typeof s.clearScene === 'function',
+        }
+      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
+      expect(result.hasSyncChunks).toBe(true)
+      expect(result.hasUpdate).toBe(true)
+      expect(result.hasFrustum).toBe(true)
+      expect(result.hasClear).toBe(true)
+    })
+  })
+
+  // SceneService.Default calls scene.add(object) and scene.remove(object) directly.
+  // The THREE.js mock provides Scene with add/remove spy functions, so we use that.
+  const makeScene = (): THREE.Scene => new THREE.Scene()
+
+  describe('syncChunksToScene', () => {
+    it('should add new chunk meshes to scene', async () => {
+      // WorldRendererServiceLive uses ChunkMeshService from dependencies (not mock layer).
+      // We verify behavior by observing scene.add calls (using THREE.Scene mock which has spy add()).
+      const TestLayer = buildTestLayer()
+      const scene = makeScene()
+
+      await Effect.gen(function* () {
+        const s = yield* WorldRendererService
+        yield* s.syncChunksToScene([makeChunk(0, 0), makeChunk(1, 0)], scene)
+      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
+
+      // scene.add should be called once per new chunk
+      expect(scene.add).toHaveBeenCalledTimes(2)
+    })
+
+    it('should not add mesh again when chunks are unchanged', async () => {
+      const TestLayer = buildTestLayer()
+      const scene = makeScene()
+      const chunks = [makeChunk(0, 0)]
+
+      const result = await Effect.gen(function* () {
+        const s = yield* WorldRendererService
+        yield* s.syncChunksToScene(chunks, scene)
+        const addCountAfterFirst = (scene.add as ReturnType<typeof vi.fn>).mock.calls.length
+        yield* s.syncChunksToScene(chunks, scene)
+        const addCountAfterSecond = (scene.add as ReturnType<typeof vi.fn>).mock.calls.length
+        return { addCountAfterFirst, addCountAfterSecond }
+      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
+
+      expect(result.addCountAfterFirst).toBe(1)
+      expect(result.addCountAfterSecond).toBe(1) // no additional adds
+    })
+
+    it('should remove meshes for stale chunks', async () => {
+      const createChunkMesh = vi.fn((chunk: Chunk) =>
+        Effect.succeed(makeMockMesh(chunk.coord) as unknown as THREE.Mesh)
+      )
+      const TestLayer = buildTestLayer(createChunkMesh)
+      const scene = makeScene()
+
+      await Effect.gen(function* () {
+        const s = yield* WorldRendererService
+        yield* s.syncChunksToScene([makeChunk(0, 0), makeChunk(1, 0)], scene)
+        yield* s.syncChunksToScene([makeChunk(0, 0)], scene)
+      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
+
+      expect(scene.remove).toHaveBeenCalledTimes(1)
+    })
+
+    it('should handle empty chunk list without error', async () => {
+      const TestLayer = buildTestLayer()
+      const scene = makeScene()
+      const result = await Effect.gen(function* () {
+        const s = yield* WorldRendererService
+        yield* s.syncChunksToScene([], scene)
+        return { success: true }
+      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
+      expect(result.success).toBe(true)
+    })
+  })
+
+  describe('clearScene', () => {
+    it('should remove all tracked chunk meshes', async () => {
+      const createChunkMesh = vi.fn((chunk: Chunk) =>
+        Effect.succeed(makeMockMesh(chunk.coord) as unknown as THREE.Mesh)
+      )
+      const TestLayer = buildTestLayer(createChunkMesh)
+      const scene = makeScene()
+
+      await Effect.gen(function* () {
+        const s = yield* WorldRendererService
+        yield* s.syncChunksToScene([makeChunk(0, 0), makeChunk(1, 0), makeChunk(0, 1)], scene)
+        yield* s.clearScene(scene)
+      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
+
+      // 3 added, then 3 removed
+      expect(scene.remove).toHaveBeenCalledTimes(3)
+    })
+
+    it('should be safe to call on empty state', async () => {
+      const TestLayer = buildTestLayer()
+      const scene = makeScene()
+      const result = await Effect.gen(function* () {
+        const s = yield* WorldRendererService
+        yield* s.clearScene(scene)
+        return { success: true }
+      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
+      expect(result.success).toBe(true)
+    })
+  })
+})

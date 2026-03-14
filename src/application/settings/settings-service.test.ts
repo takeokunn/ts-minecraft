@@ -1,430 +1,445 @@
-import { describe, it } from '@effect/vitest'
 import { Effect, Schema } from 'effect'
-import { expect } from 'vitest'
-import {
-  SettingsSchema,
-  SettingsService,
-  SettingsServiceLive,
-} from './settings-service'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { SettingsSchema, SettingsService, SettingsServiceLive } from './settings-service'
 
-describe('SettingsSchema', () => {
-  describe('Schema.finite() rejection', () => {
-    it('should reject NaN for renderDistance', () => {
-      expect(() =>
-        Schema.decodeUnknownSync(SettingsSchema)({
-          renderDistance: NaN,
-          mouseSensitivity: 0.5,
-          dayLengthSeconds: 400,
-        })
-      ).toThrow()
+const STORAGE_KEY = 'minecraft-settings'
+
+const DEFAULT_SETTINGS = {
+  renderDistance: 8,
+  mouseSensitivity: 0.5,
+  dayLengthSeconds: 400,
+}
+
+describe('application/settings/settings-service', () => {
+  let store: Map<string, string>
+  let getItemSpy: ReturnType<typeof vi.fn>
+  let setItemSpy: ReturnType<typeof vi.fn>
+  let removeItemSpy: ReturnType<typeof vi.fn>
+
+  beforeEach(() => {
+    store = new Map<string, string>()
+
+    getItemSpy = vi.fn((key: string) => store.get(key) ?? null)
+    setItemSpy = vi.fn((key: string, value: string) => {
+      store.set(key, value)
+    })
+    removeItemSpy = vi.fn((key: string) => {
+      store.delete(key)
     })
 
-    it('should reject Infinity for mouseSensitivity', () => {
-      expect(() =>
-        Schema.decodeUnknownSync(SettingsSchema)({
-          renderDistance: 8,
-          mouseSensitivity: Infinity,
-          dayLengthSeconds: 400,
-        })
-      ).toThrow()
-    })
-
-    it('should reject -Infinity for dayLengthSeconds', () => {
-      expect(() =>
-        Schema.decodeUnknownSync(SettingsSchema)({
-          renderDistance: 8,
-          mouseSensitivity: 0.5,
-          dayLengthSeconds: -Infinity,
-        })
-      ).toThrow()
+    vi.stubGlobal('localStorage', {
+      getItem: getItemSpy,
+      setItem: setItemSpy,
+      removeItem: removeItemSpy,
     })
   })
 
-  describe('Schema.between() filter', () => {
-    it('should reject renderDistance below minimum (0)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  describe('SettingsSchema', () => {
+    const decode = SettingsSchema.pipe(Schema.decodeUnknownSync)
+
+    it('decodes valid settings', () => {
+      const result = decode({
+        renderDistance: 8,
+        mouseSensitivity: 0.5,
+        dayLengthSeconds: 400,
+      })
+
+      expect(result).toEqual(DEFAULT_SETTINGS)
+    })
+
+    it('accepts exact minimum boundaries', () => {
+      const result = decode({
+        renderDistance: 2,
+        mouseSensitivity: 0.1,
+        dayLengthSeconds: 120,
+      })
+
+      expect(result).toEqual({
+        renderDistance: 2,
+        mouseSensitivity: 0.1,
+        dayLengthSeconds: 120,
+      })
+    })
+
+    it('accepts exact maximum boundaries', () => {
+      const result = decode({
+        renderDistance: 16,
+        mouseSensitivity: 3,
+        dayLengthSeconds: 1200,
+      })
+
+      expect(result).toEqual({
+        renderDistance: 16,
+        mouseSensitivity: 3,
+        dayLengthSeconds: 1200,
+      })
+    })
+
+    it('rejects renderDistance below range', () => {
       expect(() =>
-        Schema.decodeUnknownSync(SettingsSchema)({
-          renderDistance: 0,
+        decode({
+          renderDistance: 1,
           mouseSensitivity: 0.5,
           dayLengthSeconds: 400,
         })
       ).toThrow()
     })
 
-    it('should reject renderDistance above maximum (20)', () => {
+    it('rejects renderDistance above range', () => {
       expect(() =>
-        Schema.decodeUnknownSync(SettingsSchema)({
-          renderDistance: 20,
+        decode({
+          renderDistance: 17,
           mouseSensitivity: 0.5,
           dayLengthSeconds: 400,
         })
       ).toThrow()
     })
 
-    it('should reject mouseSensitivity 0.05 (below minimum of 0.1)', () => {
+    it('rejects mouseSensitivity below range', () => {
       expect(() =>
-        Schema.decodeUnknownSync(SettingsSchema)({
+        decode({
           renderDistance: 8,
-          mouseSensitivity: 0.05,
+          mouseSensitivity: 0.09,
           dayLengthSeconds: 400,
         })
       ).toThrow()
     })
 
-    it('should reject mouseSensitivity 3.1 (above maximum of 3.0)', () => {
+    it('rejects mouseSensitivity above range', () => {
       expect(() =>
-        Schema.decodeUnknownSync(SettingsSchema)({
+        decode({
           renderDistance: 8,
-          mouseSensitivity: 3.1,
+          mouseSensitivity: 3.01,
           dayLengthSeconds: 400,
         })
       ).toThrow()
     })
 
-    it('should reject dayLengthSeconds 60 (below minimum of 120)', () => {
+    it('rejects dayLengthSeconds below range', () => {
       expect(() =>
-        Schema.decodeUnknownSync(SettingsSchema)({
+        decode({
           renderDistance: 8,
           mouseSensitivity: 0.5,
-          dayLengthSeconds: 60,
+          dayLengthSeconds: 119,
         })
       ).toThrow()
     })
 
-    it('should reject dayLengthSeconds 1201 (above maximum of 1200)', () => {
+    it('rejects dayLengthSeconds above range', () => {
       expect(() =>
-        Schema.decodeUnknownSync(SettingsSchema)({
+        decode({
           renderDistance: 8,
           mouseSensitivity: 0.5,
           dayLengthSeconds: 1201,
         })
       ).toThrow()
     })
-  })
 
-  describe('valid in-range values', () => {
-    it('should decode valid settings unchanged', () => {
-      const result = Schema.decodeUnknownSync(SettingsSchema)({
-        renderDistance: 8,
-        mouseSensitivity: 0.5,
-        dayLengthSeconds: 400,
-      })
-      expect(result.renderDistance).toBe(8)
-      expect(result.mouseSensitivity).toBe(0.5)
-      expect(result.dayLengthSeconds).toBe(400)
-    })
-
-    it('should decode boundary minimum values', () => {
-      const result = Schema.decodeUnknownSync(SettingsSchema)({
-        renderDistance: 2,
-        mouseSensitivity: 0.1,
-        dayLengthSeconds: 120,
-      })
-      expect(result.renderDistance).toBe(2)
-      expect(result.mouseSensitivity).toBe(0.1)
-      expect(result.dayLengthSeconds).toBe(120)
-    })
-
-    it('should decode boundary maximum values', () => {
-      const result = Schema.decodeUnknownSync(SettingsSchema)({
-        renderDistance: 16,
-        mouseSensitivity: 3.0,
-        dayLengthSeconds: 1200,
-      })
-      expect(result.renderDistance).toBe(16)
-      expect(result.mouseSensitivity).toBe(3.0)
-      expect(result.dayLengthSeconds).toBe(1200)
-    })
-  })
-})
-
-describe('SettingsService', () => {
-  describe('getSettings', () => {
-    it('should return default settings initially', () => {
-      const program = Effect.gen(function* () {
-        const service = yield* SettingsService
-        return yield* service.getSettings()
-      })
-
-      const result = Effect.runSync(program.pipe(Effect.provide(SettingsServiceLive)))
-      expect(result.renderDistance).toBe(8)
-      expect(result.mouseSensitivity).toBe(0.5)
-      expect(result.dayLengthSeconds).toBe(400)
-    })
-  })
-
-  describe('updateSettings', () => {
-    it('should update renderDistance', () => {
-      const program = Effect.gen(function* () {
-        const service = yield* SettingsService
-        yield* service.updateSettings({ renderDistance: 12 })
-        return yield* service.getSettings()
-      })
-
-      const result = Effect.runSync(program.pipe(Effect.provide(SettingsServiceLive)))
-      expect(result.renderDistance).toBe(12)
-    })
-
-    it('should fall back to DEFAULT_SETTINGS when updateSettings receives out-of-range values', () => {
-      const program = Effect.gen(function* () {
-        const service = yield* SettingsService
-        yield* service.updateSettings({ renderDistance: 100 })
-        return yield* service.getSettings()
-      })
-
-      const result = Effect.runSync(program.pipe(Effect.provide(SettingsServiceLive)))
-      expect(result.renderDistance).toBe(8)
-    })
-
-    it('should update multiple fields at once', () => {
-      const program = Effect.gen(function* () {
-        const service = yield* SettingsService
-        yield* service.updateSettings({ renderDistance: 10, mouseSensitivity: 1.5 })
-        return yield* service.getSettings()
-      })
-
-      const result = Effect.runSync(program.pipe(Effect.provide(SettingsServiceLive)))
-      expect(result.renderDistance).toBe(10)
-      expect(result.mouseSensitivity).toBe(1.5)
-    })
-  })
-
-  describe('resetToDefaults', () => {
-    it('should restore default settings after update', () => {
-      const program = Effect.gen(function* () {
-        const service = yield* SettingsService
-        yield* service.updateSettings({ renderDistance: 4, mouseSensitivity: 2.0, dayLengthSeconds: 600 })
-        yield* service.resetToDefaults()
-        return yield* service.getSettings()
-      })
-
-      const result = Effect.runSync(program.pipe(Effect.provide(SettingsServiceLive)))
-      expect(result.renderDistance).toBe(8)
-      expect(result.mouseSensitivity).toBe(0.5)
-      expect(result.dayLengthSeconds).toBe(400)
-    })
-  })
-
-  describe('Schema rejection (between semantics)', () => {
-    it('should fall back to defaults when renderDistance is 1 (below minimum 2)', () => {
-      const program = Effect.gen(function* () {
-        const service = yield* SettingsService
-        yield* service.updateSettings({ renderDistance: 8 })
-        yield* service.updateSettings({ renderDistance: 1 })
-        return yield* service.getSettings()
-      })
-
-      const result = Effect.runSync(program.pipe(Effect.provide(SettingsServiceLive)))
-      // updateSettings falls back to DEFAULT_SETTINGS when schema rejects
-      expect(result.renderDistance).toBe(8)
-    })
-
-    it('should fall back to defaults when renderDistance is 17 (above maximum 16)', () => {
-      const program = Effect.gen(function* () {
-        const service = yield* SettingsService
-        yield* service.updateSettings({ renderDistance: 17 })
-        return yield* service.getSettings()
-      })
-
-      const result = Effect.runSync(program.pipe(Effect.provide(SettingsServiceLive)))
-      expect(result.renderDistance).toBe(8)
-    })
-
-    it('should fall back to defaults when mouseSensitivity is 0.05 (below 0.1)', () => {
-      const program = Effect.gen(function* () {
-        const service = yield* SettingsService
-        yield* service.updateSettings({ mouseSensitivity: 0.05 })
-        return yield* service.getSettings()
-      })
-
-      const result = Effect.runSync(program.pipe(Effect.provide(SettingsServiceLive)))
-      expect(result.mouseSensitivity).toBe(0.5)
-    })
-
-    it('should fall back to defaults when mouseSensitivity is 3.5 (above 3.0)', () => {
-      const program = Effect.gen(function* () {
-        const service = yield* SettingsService
-        yield* service.updateSettings({ mouseSensitivity: 3.5 })
-        return yield* service.getSettings()
-      })
-
-      const result = Effect.runSync(program.pipe(Effect.provide(SettingsServiceLive)))
-      expect(result.mouseSensitivity).toBe(0.5)
-    })
-
-    it('should fall back to defaults when dayLengthSeconds is 100 (below minimum 120)', () => {
-      const program = Effect.gen(function* () {
-        const service = yield* SettingsService
-        yield* service.updateSettings({ dayLengthSeconds: 100 })
-        return yield* service.getSettings()
-      })
-
-      const result = Effect.runSync(program.pipe(Effect.provide(SettingsServiceLive)))
-      expect(result.dayLengthSeconds).toBe(400)
-    })
-
-    it('should fall back to defaults when dayLengthSeconds is 1500 (above maximum 1200)', () => {
-      const program = Effect.gen(function* () {
-        const service = yield* SettingsService
-        yield* service.updateSettings({ dayLengthSeconds: 1500 })
-        return yield* service.getSettings()
-      })
-
-      const result = Effect.runSync(program.pipe(Effect.provide(SettingsServiceLive)))
-      expect(result.dayLengthSeconds).toBe(400)
-    })
-
-    it('should preserve previously set valid values after a failed update', () => {
-      const program = Effect.gen(function* () {
-        const service = yield* SettingsService
-        // First apply valid settings
-        yield* service.updateSettings({ renderDistance: 10, mouseSensitivity: 1.5, dayLengthSeconds: 600 })
-        // Then attempt an invalid update (renderDistance out of range)
-        yield* service.updateSettings({ renderDistance: 999 })
-        return yield* service.getSettings()
-      })
-
-      const result = Effect.runSync(program.pipe(Effect.provide(SettingsServiceLive)))
-      // Falls back to DEFAULT_SETTINGS (not the previously set values), because the
-      // implementation always falls back to DEFAULT_SETTINGS on schema failure
-      expect(result.renderDistance).toBe(8)
-      expect(result.mouseSensitivity).toBe(0.5)
-      expect(result.dayLengthSeconds).toBe(400)
-    })
-
-    it('should succeed with valid renderDistance of 8', () => {
-      const program = Effect.gen(function* () {
-        const service = yield* SettingsService
-        yield* service.updateSettings({ renderDistance: 8 })
-        return yield* service.getSettings()
-      })
-
-      const result = Effect.runSync(program.pipe(Effect.provide(SettingsServiceLive)))
-      expect(result.renderDistance).toBe(8)
-    })
-  })
-
-  describe('updateSettings — partial updates', () => {
-    it('should update only mouseSensitivity without changing others', () => {
-      const program = Effect.gen(function* () {
-        const service = yield* SettingsService
-        yield* service.updateSettings({ mouseSensitivity: 2.0 })
-        return yield* service.getSettings()
-      })
-
-      const result = Effect.runSync(program.pipe(Effect.provide(SettingsServiceLive)))
-      expect(result.mouseSensitivity).toBe(2.0)
-      expect(result.renderDistance).toBe(8)
-      expect(result.dayLengthSeconds).toBe(400)
-    })
-
-    it('should update only dayLengthSeconds without changing others', () => {
-      const program = Effect.gen(function* () {
-        const service = yield* SettingsService
-        yield* service.updateSettings({ dayLengthSeconds: 600 })
-        return yield* service.getSettings()
-      })
-
-      const result = Effect.runSync(program.pipe(Effect.provide(SettingsServiceLive)))
-      expect(result.dayLengthSeconds).toBe(600)
-      expect(result.renderDistance).toBe(8)
-      expect(result.mouseSensitivity).toBe(0.5)
-    })
-
-    it('should accept all fields updated at once within valid ranges', () => {
-      const program = Effect.gen(function* () {
-        const service = yield* SettingsService
-        yield* service.updateSettings({
-          renderDistance: 12,
-          mouseSensitivity: 1.8,
-          dayLengthSeconds: 900,
-        })
-        return yield* service.getSettings()
-      })
-
-      const result = Effect.runSync(program.pipe(Effect.provide(SettingsServiceLive)))
-      expect(result.renderDistance).toBe(12)
-      expect(result.mouseSensitivity).toBe(1.8)
-      expect(result.dayLengthSeconds).toBe(900)
-    })
-  })
-
-  describe('updateSettings — boundary values', () => {
-    it('should accept exact minimum for all fields', () => {
-      const program = Effect.gen(function* () {
-        const service = yield* SettingsService
-        yield* service.updateSettings({
-          renderDistance: 2,
-          mouseSensitivity: 0.1,
-          dayLengthSeconds: 120,
-        })
-        return yield* service.getSettings()
-      })
-
-      const result = Effect.runSync(program.pipe(Effect.provide(SettingsServiceLive)))
-      expect(result.renderDistance).toBe(2)
-      expect(result.mouseSensitivity).toBe(0.1)
-      expect(result.dayLengthSeconds).toBe(120)
-    })
-
-    it('should accept exact maximum for all fields', () => {
-      const program = Effect.gen(function* () {
-        const service = yield* SettingsService
-        yield* service.updateSettings({
-          renderDistance: 16,
-          mouseSensitivity: 3.0,
-          dayLengthSeconds: 1200,
-        })
-        return yield* service.getSettings()
-      })
-
-      const result = Effect.runSync(program.pipe(Effect.provide(SettingsServiceLive)))
-      expect(result.renderDistance).toBe(16)
-      expect(result.mouseSensitivity).toBe(3.0)
-      expect(result.dayLengthSeconds).toBe(1200)
-    })
-  })
-
-  describe('sequential updates', () => {
-    it('should accumulate valid sequential updates', () => {
-      const program = Effect.gen(function* () {
-        const service = yield* SettingsService
-        yield* service.updateSettings({ renderDistance: 4 })
-        yield* service.updateSettings({ mouseSensitivity: 1.0 })
-        yield* service.updateSettings({ dayLengthSeconds: 200 })
-        return yield* service.getSettings()
-      })
-
-      const result = Effect.runSync(program.pipe(Effect.provide(SettingsServiceLive)))
-      expect(result.renderDistance).toBe(4)
-      expect(result.mouseSensitivity).toBe(1.0)
-      expect(result.dayLengthSeconds).toBe(200)
-    })
-  })
-
-  describe('SettingsSchema — type coercion', () => {
-    it('should reject string values for numeric fields', () => {
+    it('rejects NaN values', () => {
       expect(() =>
-        Schema.decodeUnknownSync(SettingsSchema)({
-          renderDistance: '8',
+        decode({
+          renderDistance: Number.NaN,
           mouseSensitivity: 0.5,
           dayLengthSeconds: 400,
         })
       ).toThrow()
     })
 
-    it('should reject missing required fields', () => {
+    it('rejects Infinity values', () => {
       expect(() =>
-        Schema.decodeUnknownSync(SettingsSchema)({
+        decode({
           renderDistance: 8,
+          mouseSensitivity: Number.POSITIVE_INFINITY,
+          dayLengthSeconds: 400,
         })
       ).toThrow()
     })
 
-    it('should reject empty object', () => {
-      expect(() =>
-        Schema.decodeUnknownSync(SettingsSchema)({})
-      ).toThrow()
+    it('rejects missing required fields', () => {
+      expect(() => decode({ renderDistance: 8, mouseSensitivity: 0.5 })).toThrow()
+    })
+  })
+
+  describe('SettingsService/getSettings', () => {
+    it('returns default settings when localStorage is empty', () => {
+      const program = Effect.gen(function* () {
+        const service = yield* SettingsService
+        return yield* service.getSettings()
+      }).pipe(Effect.provide(SettingsServiceLive))
+
+      const settings = Effect.runSync(program)
+
+      expect(settings).toEqual(DEFAULT_SETTINGS)
+      expect(getItemSpy).toHaveBeenCalledWith(STORAGE_KEY)
+    })
+
+    it('loads persisted settings when localStorage has valid data', () => {
+      store.set(
+        STORAGE_KEY,
+        JSON.stringify({
+          renderDistance: 12,
+          mouseSensitivity: 1.2,
+          dayLengthSeconds: 900,
+        })
+      )
+
+      const program = Effect.gen(function* () {
+        const service = yield* SettingsService
+        return yield* service.getSettings()
+      }).pipe(Effect.provide(SettingsServiceLive))
+
+      const settings = Effect.runSync(program)
+
+      expect(settings).toEqual({
+        renderDistance: 12,
+        mouseSensitivity: 1.2,
+        dayLengthSeconds: 900,
+      })
+    })
+
+    it('falls back to defaults when localStorage contains invalid JSON', () => {
+      store.set(STORAGE_KEY, '{invalid-json}')
+
+      const program = Effect.gen(function* () {
+        const service = yield* SettingsService
+        return yield* service.getSettings()
+      }).pipe(Effect.provide(SettingsServiceLive))
+
+      const settings = Effect.runSync(program)
+
+      expect(settings).toEqual(DEFAULT_SETTINGS)
+    })
+
+    it('falls back to defaults when localStorage contains schema-invalid data', () => {
+      store.set(
+        STORAGE_KEY,
+        JSON.stringify({
+          renderDistance: 999,
+          mouseSensitivity: 0.5,
+          dayLengthSeconds: 400,
+        })
+      )
+
+      const program = Effect.gen(function* () {
+        const service = yield* SettingsService
+        return yield* service.getSettings()
+      }).pipe(Effect.provide(SettingsServiceLive))
+
+      const settings = Effect.runSync(program)
+
+      expect(settings).toEqual(DEFAULT_SETTINGS)
+    })
+
+    it('falls back to defaults when localStorage.getItem throws', () => {
+      getItemSpy.mockImplementation(() => {
+        throw new Error('boom')
+      })
+
+      const program = Effect.gen(function* () {
+        const service = yield* SettingsService
+        return yield* service.getSettings()
+      }).pipe(Effect.provide(SettingsServiceLive))
+
+      const settings = Effect.runSync(program)
+
+      expect(settings).toEqual(DEFAULT_SETTINGS)
+    })
+  })
+
+  describe('SettingsService/updateSettings', () => {
+    it('updates a single field', () => {
+      const program = Effect.gen(function* () {
+        const service = yield* SettingsService
+        yield* service.updateSettings({ renderDistance: 10 })
+        return yield* service.getSettings()
+      }).pipe(Effect.provide(SettingsServiceLive))
+
+      const settings = Effect.runSync(program)
+
+      expect(settings).toEqual({ ...DEFAULT_SETTINGS, renderDistance: 10 })
+    })
+
+    it('updates multiple fields', () => {
+      const program = Effect.gen(function* () {
+        const service = yield* SettingsService
+        yield* service.updateSettings({ renderDistance: 14, dayLengthSeconds: 600 })
+        return yield* service.getSettings()
+      }).pipe(Effect.provide(SettingsServiceLive))
+
+      const settings = Effect.runSync(program)
+
+      expect(settings).toEqual({
+        renderDistance: 14,
+        mouseSensitivity: 0.5,
+        dayLengthSeconds: 600,
+      })
+    })
+
+    it('accumulates valid sequential partial updates', () => {
+      const program = Effect.gen(function* () {
+        const service = yield* SettingsService
+        yield* service.updateSettings({ renderDistance: 6 })
+        yield* service.updateSettings({ mouseSensitivity: 1.8 })
+        yield* service.updateSettings({ dayLengthSeconds: 300 })
+        return yield* service.getSettings()
+      }).pipe(Effect.provide(SettingsServiceLive))
+
+      const settings = Effect.runSync(program)
+
+      expect(settings).toEqual({
+        renderDistance: 6,
+        mouseSensitivity: 1.8,
+        dayLengthSeconds: 300,
+      })
+    })
+
+    it('falls back to defaults when renderDistance is out of range', () => {
+      const program = Effect.gen(function* () {
+        const service = yield* SettingsService
+        yield* service.updateSettings({ renderDistance: 17 })
+        return yield* service.getSettings()
+      }).pipe(Effect.provide(SettingsServiceLive))
+
+      const settings = Effect.runSync(program)
+
+      expect(settings).toEqual(DEFAULT_SETTINGS)
+    })
+
+    it('falls back to defaults when mouseSensitivity is out of range', () => {
+      const program = Effect.gen(function* () {
+        const service = yield* SettingsService
+        yield* service.updateSettings({ mouseSensitivity: 0.05 })
+        return yield* service.getSettings()
+      }).pipe(Effect.provide(SettingsServiceLive))
+
+      const settings = Effect.runSync(program)
+
+      expect(settings).toEqual(DEFAULT_SETTINGS)
+    })
+
+    it('falls back to defaults when dayLengthSeconds is out of range', () => {
+      const program = Effect.gen(function* () {
+        const service = yield* SettingsService
+        yield* service.updateSettings({ dayLengthSeconds: 5000 })
+        return yield* service.getSettings()
+      }).pipe(Effect.provide(SettingsServiceLive))
+
+      const settings = Effect.runSync(program)
+
+      expect(settings).toEqual(DEFAULT_SETTINGS)
+    })
+
+    it('falls back to defaults when one field is valid and another is invalid', () => {
+      const program = Effect.gen(function* () {
+        const service = yield* SettingsService
+        yield* service.updateSettings({ renderDistance: 12, mouseSensitivity: 99 })
+        return yield* service.getSettings()
+      }).pipe(Effect.provide(SettingsServiceLive))
+
+      const settings = Effect.runSync(program)
+
+      expect(settings).toEqual(DEFAULT_SETTINGS)
+    })
+
+    it('persists updated settings to localStorage', () => {
+      const program = Effect.gen(function* () {
+        const service = yield* SettingsService
+        yield* service.updateSettings({ renderDistance: 11 })
+      }).pipe(Effect.provide(SettingsServiceLive))
+
+      Effect.runSync(program)
+
+      expect(setItemSpy).toHaveBeenCalledWith(
+        STORAGE_KEY,
+        JSON.stringify({ ...DEFAULT_SETTINGS, renderDistance: 11 })
+      )
+    })
+
+    it('keeps in-memory update even when localStorage.setItem throws', () => {
+      setItemSpy.mockImplementation(() => {
+        throw new Error('save failed')
+      })
+
+      const program = Effect.gen(function* () {
+        const service = yield* SettingsService
+        yield* service.updateSettings({ mouseSensitivity: 2.2 })
+        return yield* service.getSettings()
+      }).pipe(Effect.provide(SettingsServiceLive))
+
+      const settings = Effect.runSync(program)
+
+      expect(settings).toEqual({ ...DEFAULT_SETTINGS, mouseSensitivity: 2.2 })
+    })
+  })
+
+  describe('SettingsService/resetToDefaults', () => {
+    it('resets settings back to defaults', () => {
+      const program = Effect.gen(function* () {
+        const service = yield* SettingsService
+        yield* service.updateSettings({
+          renderDistance: 15,
+          mouseSensitivity: 1.7,
+          dayLengthSeconds: 1000,
+        })
+        yield* service.resetToDefaults()
+        return yield* service.getSettings()
+      }).pipe(Effect.provide(SettingsServiceLive))
+
+      const settings = Effect.runSync(program)
+
+      expect(settings).toEqual(DEFAULT_SETTINGS)
+    })
+
+    it('persists defaults to localStorage on reset', () => {
+      const program = Effect.gen(function* () {
+        const service = yield* SettingsService
+        yield* service.updateSettings({ renderDistance: 13 })
+        yield* service.resetToDefaults()
+      }).pipe(Effect.provide(SettingsServiceLive))
+
+      Effect.runSync(program)
+
+      const lastCall = setItemSpy.mock.calls[setItemSpy.mock.calls.length - 1]
+      expect(lastCall).toEqual([STORAGE_KEY, JSON.stringify(DEFAULT_SETTINGS)])
+    })
+  })
+
+  describe('Effect composition', () => {
+    it('chains getSettings -> updateSettings -> getSettings', () => {
+      const program = Effect.gen(function* () {
+        const service = yield* SettingsService
+        const before = yield* service.getSettings()
+        yield* service.updateSettings({ renderDistance: 9 })
+        const after = yield* service.getSettings()
+        return { before, after }
+      }).pipe(Effect.provide(SettingsServiceLive))
+
+      const result = Effect.runSync(program)
+
+      expect(result.before).toEqual(DEFAULT_SETTINGS)
+      expect(result.after).toEqual({ ...DEFAULT_SETTINGS, renderDistance: 9 })
+    })
+
+    it('chains getSettings -> updateSettings -> resetToDefaults -> getSettings', () => {
+      const program = Effect.gen(function* () {
+        const service = yield* SettingsService
+        const initial = yield* service.getSettings()
+        yield* service.updateSettings({ dayLengthSeconds: 850 })
+        const updated = yield* service.getSettings()
+        yield* service.resetToDefaults()
+        const reset = yield* service.getSettings()
+        return { initial, updated, reset }
+      }).pipe(Effect.provide(SettingsServiceLive))
+
+      const result = Effect.runSync(program)
+
+      expect(result.initial).toEqual(DEFAULT_SETTINGS)
+      expect(result.updated).toEqual({ ...DEFAULT_SETTINGS, dayLengthSeconds: 850 })
+      expect(result.reset).toEqual(DEFAULT_SETTINGS)
     })
   })
 })

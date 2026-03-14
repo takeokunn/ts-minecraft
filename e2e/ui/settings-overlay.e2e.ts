@@ -6,8 +6,8 @@ test.describe('Settings overlay', () => {
     const game = new GamePage(page)
     await game.goto()
     await game.waitForReady()
-    // Ensure settings overlay is in DOM before tests
-    await page.waitForSelector('#settings-overlay')
+    // Ensure settings overlay is in DOM before tests (starts hidden, so use 'attached')
+    await page.waitForSelector('#settings-overlay', { state: 'attached' })
   })
 
   test('Escape key opens settings overlay', async ({ page }) => {

@@ -51,8 +51,8 @@ test.describe('Boot smoke tests', () => {
     await game.goto()
     await game.waitForReady()
 
-    // Wait for elements then verify they're hidden
-    await page.waitForSelector('#settings-overlay')
+    // Wait for element to be in DOM (it starts as display:none, so use 'attached' state)
+    await page.waitForSelector('#settings-overlay', { state: 'attached' })
     const settingsHidden = await page.evaluate(() => {
       const el = document.getElementById('settings-overlay')
       return el?.style.display === 'none' || el?.style.display === ''

@@ -54,8 +54,10 @@ export class InputService extends Effect.Service<InputService>()(
 
       const handleKeyUp = (event: KeyboardEvent) => {
         pressedKeys.delete(event.code)
-        // Remove from just pressed when key is released
-        justPressedKeys.delete(event.code)
+        // NOTE: do NOT remove from justPressedKeys here.
+        // consumeKeyPress() is responsible for clearing entries after they are read.
+        // Removing on keyup would cause the press to be missed when keydown and keyup
+        // arrive before the next frame handler runs (e.g. Playwright keyboard.press()).
       }
 
       // Mouse event handler for pointer movement

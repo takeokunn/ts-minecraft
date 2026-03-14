@@ -392,9 +392,10 @@ const mainProgram = Effect.gen(function* () {
   // Define named handlers so removeEventListener can match the same reference
   const handleVisibilityChange = () => {
     if (document.hidden) {
-      Effect.runPromise(
+      // runFork is used in DOM event handlers (not runPromise) — fire-and-forget without blocking
+      Effect.runFork(
         chunkManagerService.saveDirtyChunks().pipe(
-          Effect.catchAll(() => Effect.void)
+          Effect.catchAllCause(() => Effect.void)
         )
       )
     }

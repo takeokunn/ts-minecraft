@@ -15,9 +15,10 @@ export async function waitForGameReady(page: Page, timeoutMs = 25_000): Promise<
     { timeout: timeoutMs, polling: 200 }
   )
 
-  // Wait for dynamically-created elements injected after game initialization
-  await page.waitForSelector('#crosshair', { timeout: 8_000 })
-  await page.waitForSelector('#settings-overlay', { timeout: 8_000 })
+  // Wait for dynamically-created elements injected after game initialization.
+  // Use state:'attached' because #settings-overlay is intentionally display:none at startup.
+  await page.waitForSelector('#crosshair', { state: 'attached', timeout: 8_000 })
+  await page.waitForSelector('#settings-overlay', { state: 'attached', timeout: 8_000 })
 }
 
 /**
