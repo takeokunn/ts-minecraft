@@ -1,4 +1,4 @@
-import type { Position } from '@/shared/kernel'
+import type { Position, DeltaTimeSecs } from '@/shared/kernel'
 import type { Velocity } from '@/application/player/movement-service'
 
 /**
@@ -65,7 +65,7 @@ export const clampVelocity = (
 export const applyFriction = (
   velocity: Velocity,
   friction: number,
-  deltaTime: number
+  deltaTime: DeltaTimeSecs
 ): Velocity => {
   if (friction < 0 || friction > 1 || deltaTime <= 0) {
     return velocity
@@ -95,7 +95,7 @@ export const applyFriction = (
 export const updatePosition = (
   position: Position,
   velocity: Velocity,
-  deltaTime: number
+  deltaTime: DeltaTimeSecs
 ): Position => {
   if (deltaTime <= 0) {
     return position

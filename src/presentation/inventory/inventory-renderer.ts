@@ -1,7 +1,7 @@
 import { Cause, Effect, Option, Ref } from 'effect'
 import { InventoryService, INVENTORY_SIZE, HOTBAR_START } from '@/application/inventory/inventory-service'
 import { HotbarService } from '@/application/hotbar/hotbar-service'
-import { DomOperations } from '@/presentation/hud/crosshair'
+import { DomOperationsService } from '@/presentation/hud/crosshair'
 import type { BlockType } from '@/domain/block'
 import { SlotIndex } from '@/shared/kernel'
 
@@ -13,13 +13,13 @@ const SLOT_COLORS: Record<string, string> = {
 }
 const DEFAULT_SLOT_COLOR = '#333333'
 
-export class InventoryRenderer extends Effect.Service<InventoryRenderer>()(
+export class InventoryRendererService extends Effect.Service<InventoryRendererService>()(
   '@minecraft/presentation/InventoryRenderer',
   {
     scoped: Effect.gen(function* () {
       const inventoryService = yield* InventoryService
       const hotbarService = yield* HotbarService
-      const dom = yield* DomOperations
+      const dom = yield* DomOperationsService
 
       let overlayEl: HTMLDivElement | null = null
       let slotEls: HTMLDivElement[] = []
@@ -169,4 +169,4 @@ export class InventoryRenderer extends Effect.Service<InventoryRenderer>()(
     }),
   }
 ) {}
-export const InventoryRendererLive = InventoryRenderer.Default
+export const InventoryRendererLive = InventoryRendererService.Default

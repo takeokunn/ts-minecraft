@@ -182,7 +182,13 @@ export class StorageService extends Effect.Service<StorageService>()(
 
           const result = yield* tryCatchStorageWithRetry('loadWorldMetadata', () => state.db!.get(STORE_METADATA, worldId))
 
-          return result !== undefined ? Option.some(result) : Option.none()
+          if (result !== undefined) {
+            const validated = yield* Schema.decodeUnknown(WorldMetadataSchema)(result).pipe(
+              Effect.mapError((e) => new StorageError({ operation: 'loadWorldMetadata', cause: e }))
+            )
+            return Option.some(validated)
+          }
+          return Option.none()
         })
 
       const deleteWorld = (worldId: WorldId) =>

@@ -3,7 +3,7 @@ import { Effect, Layer, Option } from 'effect'
 import { expect, vi } from 'vitest'
 import * as THREE from 'three'
 import {
-  BlockHighlight,
+  BlockHighlightService,
   BlockHighlightLive,
   createWireframeCube,
   DEFAULT_HIGHLIGHT_COLOR,
@@ -63,7 +63,7 @@ const createMockCamera = () => {
   return new THREE.PerspectiveCamera(75, 1, 0.1, 1000)
 }
 
-describe('BlockHighlight', () => {
+describe('BlockHighlightService', () => {
   describe('createWireframeCube', () => {
     it('should create a THREE.LineSegments object', () => {
       const mesh = createWireframeCube()
@@ -114,7 +114,7 @@ describe('BlockHighlight', () => {
       const { scene, getChildren } = createMockScene()
 
       const program = Effect.gen(function* () {
-        const blockHighlight = yield* BlockHighlight
+        const blockHighlight = yield* BlockHighlightService
         yield* blockHighlight.initialize(scene)
       })
 
@@ -133,7 +133,7 @@ describe('BlockHighlight', () => {
       const { scene, getChildren } = createMockScene()
 
       const program = Effect.gen(function* () {
-        const blockHighlight = yield* BlockHighlight
+        const blockHighlight = yield* BlockHighlightService
         yield* blockHighlight.initialize(scene)
       })
 
@@ -153,7 +153,7 @@ describe('BlockHighlight', () => {
       const { scene, getChildren } = createMockScene()
 
       const program = Effect.gen(function* () {
-        const blockHighlight = yield* BlockHighlight
+        const blockHighlight = yield* BlockHighlightService
         yield* blockHighlight.initialize(scene)
         yield* blockHighlight.setVisible(true)
       })
@@ -172,7 +172,7 @@ describe('BlockHighlight', () => {
       const { scene, getChildren } = createMockScene()
 
       const program = Effect.gen(function* () {
-        const blockHighlight = yield* BlockHighlight
+        const blockHighlight = yield* BlockHighlightService
         yield* blockHighlight.initialize(scene)
         yield* blockHighlight.setVisible(true)
         yield* blockHighlight.setVisible(false)
@@ -190,7 +190,7 @@ describe('BlockHighlight', () => {
       const TestLayer = BlockHighlightLive.pipe(Layer.provide(MockLayer))
 
       const program = Effect.gen(function* () {
-        const blockHighlight = yield* BlockHighlight
+        const blockHighlight = yield* BlockHighlightService
         // Don't initialize, just try to set visibility
         yield* blockHighlight.setVisible(true)
       })
@@ -209,7 +209,7 @@ describe('BlockHighlight', () => {
       const { scene } = createMockScene()
 
       const program = Effect.gen(function* () {
-        const blockHighlight = yield* BlockHighlight
+        const blockHighlight = yield* BlockHighlightService
         yield* blockHighlight.initialize(scene)
         return yield* blockHighlight.getTargetBlock()
       })
@@ -228,7 +228,7 @@ describe('BlockHighlight', () => {
       const camera = createMockCamera()
 
       const program = Effect.gen(function* () {
-        const blockHighlight = yield* BlockHighlight
+        const blockHighlight = yield* BlockHighlightService
         yield* blockHighlight.initialize(scene)
         yield* blockHighlight.update(camera, scene)
         return yield* blockHighlight.getTargetBlock()
@@ -258,7 +258,7 @@ describe('BlockHighlight', () => {
       const camera = createMockCamera()
 
       const program = Effect.gen(function* () {
-        const blockHighlight = yield* BlockHighlight
+        const blockHighlight = yield* BlockHighlightService
         yield* blockHighlight.initialize(scene)
         yield* blockHighlight.update(camera, scene)
         return yield* blockHighlight.getTargetHit()
@@ -293,7 +293,7 @@ describe('BlockHighlight', () => {
       const camera = createMockCamera()
 
       const program = Effect.gen(function* () {
-        const blockHighlight = yield* BlockHighlight
+        const blockHighlight = yield* BlockHighlightService
         yield* blockHighlight.initialize(scene)
         yield* blockHighlight.update(camera, scene)
       })
@@ -324,7 +324,7 @@ describe('BlockHighlight', () => {
       const camera = createMockCamera()
 
       const program = Effect.gen(function* () {
-        const blockHighlight = yield* BlockHighlight
+        const blockHighlight = yield* BlockHighlightService
         yield* blockHighlight.initialize(scene)
         yield* blockHighlight.update(camera, scene)
       })
@@ -344,7 +344,7 @@ describe('BlockHighlight', () => {
       const camera = createMockCamera()
 
       const program = Effect.gen(function* () {
-        const blockHighlight = yield* BlockHighlight
+        const blockHighlight = yield* BlockHighlightService
         yield* blockHighlight.initialize(scene)
         yield* blockHighlight.update(camera, scene)
       })
@@ -372,7 +372,7 @@ describe('BlockHighlight', () => {
       const camera = createMockCamera()
 
       const program = Effect.gen(function* () {
-        const blockHighlight = yield* BlockHighlight
+        const blockHighlight = yield* BlockHighlightService
         yield* blockHighlight.initialize(scene)
         yield* blockHighlight.update(camera, scene)
         return yield* blockHighlight.getTargetBlock()
@@ -423,7 +423,7 @@ describe('BlockHighlight', () => {
       const camera = createMockCamera()
 
       const program = Effect.gen(function* () {
-        const blockHighlight = yield* BlockHighlight
+        const blockHighlight = yield* BlockHighlightService
         yield* blockHighlight.initialize(scene)
 
         // First update hits a block
@@ -450,7 +450,7 @@ describe('BlockHighlight', () => {
       const camera = createMockCamera()
 
       const program = Effect.gen(function* () {
-        const blockHighlight = yield* BlockHighlight
+        const blockHighlight = yield* BlockHighlightService
         // Don't initialize, just try to update
         yield* blockHighlight.update(camera, scene)
       })
@@ -500,7 +500,7 @@ describe('BlockHighlight', () => {
       const camera = createMockCamera()
 
       const program = Effect.gen(function* () {
-        const blockHighlight = yield* BlockHighlight
+        const blockHighlight = yield* BlockHighlightService
         yield* blockHighlight.initialize(scene)
 
         // First update: hit
@@ -562,7 +562,7 @@ describe('BlockHighlight', () => {
       const camera = createMockCamera()
 
       const program = Effect.gen(function* () {
-        const blockHighlight = yield* BlockHighlight
+        const blockHighlight = yield* BlockHighlightService
         yield* blockHighlight.initialize(scene)
 
         const results: Array<{ x: number; y: number; z: number } | null> = []
@@ -606,7 +606,7 @@ describe('BlockHighlight', () => {
       const camera = createMockCamera()
 
       const program = Effect.gen(function* () {
-        const blockHighlight = yield* BlockHighlight
+        const blockHighlight = yield* BlockHighlightService
         yield* blockHighlight.initialize(scene)
 
         // Update makes mesh visible

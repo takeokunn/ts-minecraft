@@ -8,12 +8,12 @@ describe('infrastructure/three/textures/block-texture-map', () => {
       expect(ATLAS_COLS).toBe(16)
     })
 
-    it('ATLAS_SIZE should be 256', () => {
-      expect(ATLAS_SIZE).toBe(256)
+    it('ATLAS_SIZE should be 512', () => {
+      expect(ATLAS_SIZE).toBe(512)
     })
 
     it('HALF_TEXEL should be 0.5 / ATLAS_SIZE', () => {
-      expect(HALF_TEXEL).toBeCloseTo(0.5 / 256)
+      expect(HALF_TEXEL).toBeCloseTo(0.5 / 512)
     })
   })
 
@@ -92,7 +92,7 @@ describe('infrastructure/three/textures/block-texture-map', () => {
     it('should apply HALF_TEXEL offset to avoid bleeding', () => {
       const uvs = getTileUVs(0)
       // col=0, row=0 → u0 = 0/16 + HALF_TEXEL, u1 = 1/16 - HALF_TEXEL
-      expect(uvs.u0).toBeCloseTo(0 / ATLAS_COLS + HALF_TEXEL)
+      expect(uvs.u0).toBeCloseTo(HALF_TEXEL)
       expect(uvs.u1).toBeCloseTo(1 / ATLAS_COLS - HALF_TEXEL)
     })
 

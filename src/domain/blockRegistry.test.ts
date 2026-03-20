@@ -1,7 +1,7 @@
 import { describe, it } from '@effect/vitest'
 import { Effect, Schema, Option } from 'effect'
 import { expect } from 'vitest'
-import { BlockRegistry, BlockRegistryLive } from './blockRegistry'
+import { BlockRegistry, BlockRegistryLive } from './block-registry'
 import { Block } from './block'
 
 describe('BlockRegistry', () => {

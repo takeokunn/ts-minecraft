@@ -1,20 +1,20 @@
 import { describe, it, expect } from 'vitest'
 import { Effect, Layer } from 'effect'
+import { DeltaTimeSecs } from '@/shared/kernel'
 import {
   GameStateService,
   GameStateServiceLive,
   GameStateError,
   PLAYER_BODY_ID,
-  DEFAULT_PLAYER_ID,
 } from './game-state'
+import { DEFAULT_PLAYER_ID } from '@/application/constants'
 import { PhysicsServiceLive } from './physics/physics-service'
 import { MovementServiceLive } from './player/movement-service'
-import { PlayerCameraStateLive } from '../domain/player-camera'
-import { PlayerServiceLive } from '../domain/player'
-import { WorldServiceLive } from '../domain/world'
+import { PlayerCameraStateLive } from '@/application/camera/camera-state'
+import { PlayerServiceLive } from '@/application/player/player-state'
 import { PlayerInputService } from './input/player-input-service'
-import { PhysicsWorldServiceLive } from '../infrastructure/cannon/boundary/world-service'
-import { RigidBodyServiceLive } from '../infrastructure/cannon/boundary/body-service'
+import { PhysicsWorldServiceLive } from '../infrastructure/cannon/boundary/physics-world-service'
+import { RigidBodyServiceLive } from '../infrastructure/cannon/boundary/rigid-body-service'
 import { ShapeServiceLive } from '../infrastructure/cannon/boundary/shape-service'
 
 /**
@@ -90,9 +90,8 @@ const createTestLayer = (inputService: ReturnType<typeof createTestInputService>
   // Create movement layer with input dependency
   const movementLayer = MovementServiceLive.pipe(Layer.provide(inputLayer))
 
-  // Create player and world layers
+  // Create player and camera layers
   const playerLayer = PlayerServiceLive
-  const worldServiceLayer = WorldServiceLive
   const cameraLayer = PlayerCameraStateLive
 
   // Merge all dependency layers
@@ -101,7 +100,6 @@ const createTestLayer = (inputService: ReturnType<typeof createTestInputService>
     movementLayer,
     cameraLayer,
     playerLayer,
-    worldServiceLayer
   )
 
   // Create final layer with GameStateService
@@ -219,7 +217,7 @@ describe('application/game-state', () => {
       const program = Effect.gen(function* () {
         const service = yield* GameStateService
 
-        const result = yield* Effect.either(service.update(1 / 60))
+        const result = yield* Effect.either(service.update(DeltaTimeSecs.make(1 / 60)))
 
         expect(result._tag).toBe('Left')
         if (result._tag === 'Left') {
@@ -242,7 +240,7 @@ describe('application/game-state', () => {
         const service = yield* GameStateService
 
         yield* service.initialize({ x: 0, y: 5, z: 0 })
-        yield* service.update(1 / 60)
+        yield* service.update(DeltaTimeSecs.make(1 / 60))
 
         return { success: true }
       }).pipe(Effect.provide(testLayer))
@@ -263,7 +261,7 @@ describe('application/game-state', () => {
         const timingBefore = yield* service.getTiming()
         expect(timingBefore.frameCount).toBe(0)
 
-        yield* service.update(1 / 60)
+        yield* service.update(DeltaTimeSecs.make(1 / 60))
 
         const timingAfter = yield* service.getTiming()
         expect(timingAfter.frameCount).toBe(1)
@@ -290,7 +288,7 @@ describe('application/game-state', () => {
 
         // Update multiple times to let physics move the player
         for (let i = 0; i < 60; i++) {
-          yield* service.update(1 / 60)
+          yield* service.update(DeltaTimeSecs.make(1 / 60))
         }
 
         const finalPos = yield* service.getPlayerPosition(DEFAULT_PLAYER_ID)
@@ -319,7 +317,7 @@ describe('application/game-state', () => {
 
         // Step simulation multiple times - player should fall due to gravity
         for (let i = 0; i < 120; i++) {
-          yield* service.update(1 / 60)
+          yield* service.update(DeltaTimeSecs.make(1 / 60))
         }
 
         const finalPos = yield* service.getPlayerPosition(DEFAULT_PLAYER_ID)
@@ -344,7 +342,7 @@ describe('application/game-state', () => {
         yield* service.initialize({ x: 0, y: 5, z: 0 })
 
         // Run simulation
-        yield* service.update(1 / 60)
+        yield* service.update(DeltaTimeSecs.make(1 / 60))
 
         // Position should be synced
         const position = yield* service.getPlayerPosition(DEFAULT_PLAYER_ID)
@@ -374,7 +372,7 @@ describe('application/game-state', () => {
 
         // Run simulation for a while
         for (let i = 0; i < 60; i++) {
-          yield* service.update(1 / 60)
+          yield* service.update(DeltaTimeSecs.make(1 / 60))
         }
 
         const position = yield* service.getPlayerPosition(DEFAULT_PLAYER_ID)
@@ -402,7 +400,7 @@ describe('application/game-state', () => {
 
         // Run some updates - player should be falling
         for (let i = 0; i < 30; i++) {
-          yield* service.update(1 / 60)
+          yield* service.update(DeltaTimeSecs.make(1 / 60))
         }
 
         const finalY = (yield* service.getPlayerPosition(DEFAULT_PLAYER_ID)).y
@@ -428,7 +426,7 @@ describe('application/game-state', () => {
 
         // Run simulation for extended time to let player fall and land
         for (let i = 0; i < 300; i++) {
-          yield* service.update(1 / 60)
+          yield* service.update(DeltaTimeSecs.make(1 / 60))
         }
 
         const position = yield* service.getPlayerPosition(DEFAULT_PLAYER_ID)
@@ -458,7 +456,7 @@ describe('application/game-state', () => {
 
         // First, let the player fall to ground (no jump pressed, so consumeKeyPress is not consumed)
         for (let i = 0; i < 300; i++) {
-          yield* service.update(1 / 60)
+          yield* service.update(DeltaTimeSecs.make(1 / 60))
         }
 
         // Check player is on ground
@@ -468,7 +466,7 @@ describe('application/game-state', () => {
         inputService.simulateKeyPress('Space')
 
         // Now update with jump pressed - should jump
-        yield* service.update(1 / 60)
+        yield* service.update(DeltaTimeSecs.make(1 / 60))
 
         // After jump, Y should increase
         const afterJumpY = (yield* service.getPlayerPosition(DEFAULT_PLAYER_ID)).y
@@ -492,14 +490,14 @@ describe('application/game-state', () => {
 
         // Let player fall to ground (no jump key, so consumeKeyPress is never consumed)
         for (let i = 0; i < 300; i++) {
-          yield* service.update(1 / 60)
+          yield* service.update(DeltaTimeSecs.make(1 / 60))
         }
 
         // Player is now on the ground — simulate a fresh jump key press
         inputService.simulateKeyPress('Space')
 
         // Update with jump pressed while grounded — jump should fire and clear grounded state
-        yield* service.update(1 / 60)
+        yield* service.update(DeltaTimeSecs.make(1 / 60))
 
         // After jump, grounded state should be cleared
         const isGroundedAfter = yield* service.isPlayerGrounded()
@@ -528,7 +526,7 @@ describe('application/game-state', () => {
         const initialY = (yield* service.getPlayerPosition(DEFAULT_PLAYER_ID)).y
 
         // Try to update with jump pressed while in air
-        yield* service.update(1 / 60)
+        yield* service.update(DeltaTimeSecs.make(1 / 60))
 
         const afterUpdateY = (yield* service.getPlayerPosition(DEFAULT_PLAYER_ID)).y
 
@@ -578,7 +576,7 @@ describe('application/game-state', () => {
 
         // Update multiple times - player should move in some direction
         for (let i = 0; i < 60; i++) {
-          yield* service.update(1 / 60)
+          yield* service.update(DeltaTimeSecs.make(1 / 60))
         }
 
         const finalPos = yield* service.getPlayerPosition(DEFAULT_PLAYER_ID)
@@ -632,7 +630,7 @@ describe('application/game-state', () => {
 
         // Phase 1: Fall and land
         for (let i = 0; i < 300; i++) {
-          yield* service.update(1 / 60)
+          yield* service.update(DeltaTimeSecs.make(1 / 60))
         }
 
         const landedY = (yield* service.getPlayerPosition(DEFAULT_PLAYER_ID)).y
@@ -643,7 +641,7 @@ describe('application/game-state', () => {
         const beforeMoveZ = (yield* service.getPlayerPosition(DEFAULT_PLAYER_ID)).z
 
         for (let i = 0; i < 60; i++) {
-          yield* service.update(1 / 60)
+          yield* service.update(DeltaTimeSecs.make(1 / 60))
         }
 
         const afterMoveZ = (yield* service.getPlayerPosition(DEFAULT_PLAYER_ID)).z
@@ -657,7 +655,7 @@ describe('application/game-state', () => {
 
         // Run a few updates to let physics settle
         for (let i = 0; i < 10; i++) {
-          yield* service.update(1 / 60)
+          yield* service.update(DeltaTimeSecs.make(1 / 60))
         }
 
         // Verify timing state is correct
@@ -683,14 +681,14 @@ describe('application/game-state', () => {
 
         // Let player land first
         for (let i = 0; i < 300; i++) {
-          yield* service.update(1 / 60)
+          yield* service.update(DeltaTimeSecs.make(1 / 60))
         }
 
         const initialZ = (yield* service.getPlayerPosition(DEFAULT_PLAYER_ID)).z
 
         // Sprint forward
         for (let i = 0; i < 60; i++) {
-          yield* service.update(1 / 60)
+          yield* service.update(DeltaTimeSecs.make(1 / 60))
         }
 
         const finalZ = (yield* service.getPlayerPosition(DEFAULT_PLAYER_ID)).z
@@ -716,7 +714,7 @@ describe('application/game-state', () => {
         const service = yield* GameStateService
 
         const result = service.initialize({ x: 0, y: 5, z: 0 }).pipe(
-          Effect.flatMap(() => service.update(1 / 60)),
+          Effect.flatMap(() => service.update(DeltaTimeSecs.make(1 / 60))),
           Effect.flatMap(() => service.getTiming()),
           Effect.map((timing) => timing.frameCount)
         )
@@ -743,7 +741,7 @@ describe('application/game-state', () => {
         yield* service.initialize({ x: 0, y: 5, z: 0 })
 
         for (let i = 0; i < 10; i++) {
-          yield* service.update(1 / 60)
+          yield* service.update(DeltaTimeSecs.make(1 / 60))
         }
 
         const timing = yield* service.getTiming()
@@ -765,11 +763,11 @@ describe('application/game-state', () => {
 
         yield* service.initialize({ x: 0, y: 5, z: 0 })
 
-        yield* service.update(1 / 60)
+        yield* service.update(DeltaTimeSecs.make(1 / 60))
         const timing1 = yield* service.getTiming()
         expect(timing1.deltaTime).toBeCloseTo(1 / 60)
 
-        yield* service.update(1 / 30)
+        yield* service.update(DeltaTimeSecs.make(1 / 30))
         const timing2 = yield* service.getTiming()
         expect(timing2.deltaTime).toBeCloseTo(1 / 30)
 
@@ -790,7 +788,7 @@ describe('application/game-state', () => {
         const service = yield* GameStateService
 
         // Don't initialize — update should fail
-        const result = yield* Effect.either(service.update(1 / 60))
+        const result = yield* Effect.either(service.update(DeltaTimeSecs.make(1 / 60)))
 
         expect(result._tag).toBe('Left')
         if (result._tag === 'Left') {
@@ -812,7 +810,7 @@ describe('application/game-state', () => {
         const service = yield* GameStateService
 
         // This should fail because we didn't initialize
-        const result = yield* service.update(1 / 60).pipe(
+        const result = yield* service.update(DeltaTimeSecs.make(1 / 60)).pipe(
           Effect.catchTag('GameStateError', (e) => Effect.succeed(`caught: ${e.operation}`))
         )
 
@@ -843,7 +841,7 @@ describe('application/game-state', () => {
         expect(initialPos.z).toBe(30)
 
         // After update, position should still be numeric (synced from physics)
-        yield* service.update(1 / 60)
+        yield* service.update(DeltaTimeSecs.make(1 / 60))
         const afterPos = yield* service.getPlayerPosition(DEFAULT_PLAYER_ID)
         expect(typeof afterPos.x).toBe('number')
         expect(typeof afterPos.y).toBe('number')
@@ -936,7 +934,7 @@ describe('application/game-state', () => {
         const initialPos = yield* service.getPlayerPosition(DEFAULT_PLAYER_ID)
 
         for (let i = 0; i < 60; i++) {
-          yield* service.update(1 / 60)
+          yield* service.update(DeltaTimeSecs.make(1 / 60))
         }
 
         const finalPos = yield* service.getPlayerPosition(DEFAULT_PLAYER_ID)

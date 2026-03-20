@@ -1,12 +1,13 @@
 import { describe, it, beforeEach } from '@effect/vitest'
 import { Effect, Schema, Metric } from 'effect'
+import { DeltaTimeSecs } from '@/shared/kernel'
 import { expect } from 'vitest'
-import { FPSCounter, FPSCounterLive, FPSCounterStateSchema } from './fps-counter'
+import { FPSCounterService, FPSCounterLive, FPSCounterStateSchema } from './fps-counter'
 
-describe('FPSCounter', () => {
+describe('FPSCounterService', () => {
   beforeEach(() => {
     return Effect.gen(function* () {
-      const counter = yield* FPSCounter
+      const counter = yield* FPSCounterService
       yield* counter.reset()
     }).pipe(
       Effect.provide(FPSCounterLive),
@@ -17,9 +18,9 @@ describe('FPSCounter', () => {
   describe('tick', () => {
     it('should increment frame count', () => {
       const program = Effect.gen(function* () {
-        const counter = yield* FPSCounter
+        const counter = yield* FPSCounterService
 
-        yield* counter.tick(0.016) // ~60 FPS frame time
+        yield* counter.tick(DeltaTimeSecs.make(0.016)) // ~60 FPS frame time
         const frameCount = yield* counter.getFrameCount()
 
         return frameCount
@@ -31,11 +32,11 @@ describe('FPSCounter', () => {
 
     it('should increment frame count on multiple ticks', () => {
       const program = Effect.gen(function* () {
-        const counter = yield* FPSCounter
+        const counter = yield* FPSCounterService
 
-        yield* counter.tick(0.016)
-        yield* counter.tick(0.016)
-        yield* counter.tick(0.016)
+        yield* counter.tick(DeltaTimeSecs.make(0.016))
+        yield* counter.tick(DeltaTimeSecs.make(0.016))
+        yield* counter.tick(DeltaTimeSecs.make(0.016))
         const frameCount = yield* counter.getFrameCount()
 
         return frameCount
@@ -49,10 +50,10 @@ describe('FPSCounter', () => {
   describe('getFPS', () => {
     it('should return 0 before sample interval', () => {
       const program = Effect.gen(function* () {
-        const counter = yield* FPSCounter
+        const counter = yield* FPSCounterService
 
-        yield* counter.tick(0.016)
-        yield* counter.tick(0.016)
+        yield* counter.tick(DeltaTimeSecs.make(0.016))
+        yield* counter.tick(DeltaTimeSecs.make(0.016))
         const fps = yield* counter.getFPS()
 
         return fps
@@ -64,11 +65,11 @@ describe('FPSCounter', () => {
 
     it('should return calculated FPS after sample interval', () => {
       const program = Effect.gen(function* () {
-        const counter = yield* FPSCounter
+        const counter = yield* FPSCounterService
 
         // Tick 30 times at 0.0167s (~60 FPS) = ~0.5s total
         for (let i = 0; i < 30; i++) {
-          yield* counter.tick(0.0167)
+          yield* counter.tick(DeltaTimeSecs.make(0.0167))
         }
 
         const fps = yield* counter.getFPS()
@@ -82,13 +83,13 @@ describe('FPSCounter', () => {
 
     it('should calculate FPS accurately (frame count / time interval)', () => {
       const program = Effect.gen(function* () {
-        const counter = yield* FPSCounter
+        const counter = yield* FPSCounterService
 
         // Simulate exactly 0.5 seconds with 30 frames = 60 FPS
         // Add one extra tick to account for floating point precision
         const deltaTime = 0.5 / 30
         for (let i = 0; i < 31; i++) {
-          yield* counter.tick(deltaTime)
+          yield* counter.tick(DeltaTimeSecs.make(deltaTime))
         }
 
         const fps = yield* counter.getFPS()
@@ -103,12 +104,12 @@ describe('FPSCounter', () => {
 
     it('should recalculate FPS after multiple intervals', () => {
       const program = Effect.gen(function* () {
-        const counter = yield* FPSCounter
+        const counter = yield* FPSCounterService
 
         // First interval: 31 frames to cross 0.5s threshold = ~60 FPS
         const deltaTime1 = 0.5 / 30
         for (let i = 0; i < 31; i++) {
-          yield* counter.tick(deltaTime1)
+          yield* counter.tick(DeltaTimeSecs.make(deltaTime1))
         }
         const fps1 = yield* counter.getFPS()
         expect(fps1).toBeGreaterThan(59)
@@ -117,7 +118,7 @@ describe('FPSCounter', () => {
         // Second interval: 26 frames in 0.5s = ~50 FPS
         const deltaTime2 = 0.5 / 25
         for (let i = 0; i < 26; i++) {
-          yield* counter.tick(deltaTime2)
+          yield* counter.tick(DeltaTimeSecs.make(deltaTime2))
         }
         const fps2 = yield* counter.getFPS()
         return fps2
@@ -132,16 +133,16 @@ describe('FPSCounter', () => {
   describe('getFrameCount', () => {
     it('should return current frame count', () => {
       const program = Effect.gen(function* () {
-        const counter = yield* FPSCounter
+        const counter = yield* FPSCounterService
 
         const initial = yield* counter.getFrameCount()
         expect(initial).toBe(0)
 
-        yield* counter.tick(0.016)
+        yield* counter.tick(DeltaTimeSecs.make(0.016))
         const afterOne = yield* counter.getFrameCount()
 
-        yield* counter.tick(0.016)
-        yield* counter.tick(0.016)
+        yield* counter.tick(DeltaTimeSecs.make(0.016))
+        yield* counter.tick(DeltaTimeSecs.make(0.016))
         const afterThree = yield* counter.getFrameCount()
 
         return { afterOne, afterThree }
@@ -156,12 +157,12 @@ describe('FPSCounter', () => {
   describe('reset', () => {
     it('should clear all state', () => {
       const program = Effect.gen(function* () {
-        const counter = yield* FPSCounter
+        const counter = yield* FPSCounterService
 
         // Accumulate some state (31 ticks to cross 0.5s threshold)
         const deltaTime = 0.5 / 30
         for (let i = 0; i < 31; i++) {
-          yield* counter.tick(deltaTime)
+          yield* counter.tick(DeltaTimeSecs.make(deltaTime))
         }
 
         const fpsBefore = yield* counter.getFPS()
@@ -186,12 +187,12 @@ describe('FPSCounter', () => {
 
     it('should reset accumulated state mid-interval', () => {
       const program = Effect.gen(function* () {
-        const counter = yield* FPSCounter
+        const counter = yield* FPSCounterService
 
         // Add some ticks but not enough for interval
-        yield* counter.tick(0.016)
-        yield* counter.tick(0.016)
-        yield* counter.tick(0.016)
+        yield* counter.tick(DeltaTimeSecs.make(0.016))
+        yield* counter.tick(DeltaTimeSecs.make(0.016))
+        yield* counter.tick(DeltaTimeSecs.make(0.016))
 
         yield* counter.reset()
 
@@ -210,16 +211,16 @@ describe('FPSCounter', () => {
   describe('integration', () => {
     it('should handle varying frame times correctly', () => {
       const program = Effect.gen(function* () {
-        const counter = yield* FPSCounter
+        const counter = yield* FPSCounterService
 
         // Simulate varying frame times (jittery ~60 FPS)
         const frameTimes = [0.015, 0.017, 0.016, 0.018, 0.014]
         for (const time of frameTimes) {
-          yield* counter.tick(time)
+          yield* counter.tick(DeltaTimeSecs.make(time))
         }
         // Add more ticks to cross 0.5s threshold (total: 0.08 + 30 * 0.016 = ~0.56s)
         for (let i = 0; i < 30; i++) {
-          yield* counter.tick(0.016)
+          yield* counter.tick(DeltaTimeSecs.make(0.016))
         }
 
         const fps = yield* counter.getFPS()
@@ -267,12 +268,12 @@ describe('FPSCounter', () => {
       // FPS_SAMPLE_INTERVAL = 0.5s. Use 31 ticks at deltaTime = 0.5/30 (~16.67ms)
       // to cross the 0.5s threshold and trigger the gauge update.
       const program = Effect.gen(function* () {
-        const counter = yield* FPSCounter
+        const counter = yield* FPSCounterService
         const fpsGauge = Metric.gauge('fps')
 
         const deltaTime = 0.5 / 30
         for (let i = 0; i < 31; i++) {
-          yield* counter.tick(deltaTime)
+          yield* counter.tick(DeltaTimeSecs.make(deltaTime))
         }
 
         const gaugeState = yield* Metric.value(fpsGauge)
@@ -287,12 +288,12 @@ describe('FPSCounter', () => {
       // Tick 31 frames at ~60 FPS to cross the 0.5s sample interval.
       // Both the gauge and getFPS() should report approximately the same value.
       const program = Effect.gen(function* () {
-        const counter = yield* FPSCounter
+        const counter = yield* FPSCounterService
         const fpsGauge = Metric.gauge('fps')
 
         const deltaTime = 0.5 / 30
         for (let i = 0; i < 31; i++) {
-          yield* counter.tick(deltaTime)
+          yield* counter.tick(DeltaTimeSecs.make(deltaTime))
         }
 
         const fps = yield* counter.getFPS()
@@ -310,13 +311,13 @@ describe('FPSCounter', () => {
       // The gauge must NOT have been updated in this run.
       // We use a delta assertion: gauge value before == gauge value after the 2 ticks.
       const program = Effect.gen(function* () {
-        const counter = yield* FPSCounter
+        const counter = yield* FPSCounterService
         const fpsGauge = Metric.gauge('fps')
 
         const before = yield* Metric.value(fpsGauge)
 
-        yield* counter.tick(0.016)
-        yield* counter.tick(0.016)
+        yield* counter.tick(DeltaTimeSecs.make(0.016))
+        yield* counter.tick(DeltaTimeSecs.make(0.016))
 
         const after = yield* Metric.value(fpsGauge)
         return { before: before.value, after: after.value }

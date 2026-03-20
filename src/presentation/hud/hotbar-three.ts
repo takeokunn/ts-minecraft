@@ -25,7 +25,7 @@ const HOTBAR_SLOTS = 9
 const TOTAL_WIDTH = HOTBAR_SLOTS * SLOT_SIZE + (HOTBAR_SLOTS - 1) * SLOT_GAP
 const HOTBAR_Y_OFFSET = 50 // pixels from bottom edge of viewport to center of hotbar strip
 
-export class HotbarRenderer extends Effect.Service<HotbarRenderer>()(
+export class HotbarRendererService extends Effect.Service<HotbarRendererService>()(
   '@minecraft/presentation/HotbarRenderer',
   {
     scoped: Effect.gen(function* () {
@@ -149,4 +149,4 @@ export class HotbarRenderer extends Effect.Service<HotbarRenderer>()(
     }),
   }
 ) {}
-export const HotbarRendererLive = HotbarRenderer.Default
+export const HotbarRendererLive = HotbarRendererService.Default

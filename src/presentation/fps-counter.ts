@@ -1,4 +1,5 @@
 import { Effect, Ref, Schema, Metric } from 'effect'
+import { DeltaTimeSecs } from '@/shared/kernel'
 
 export const FPSCounterStateSchema = Schema.Struct({
   frameCount: Schema.Number,
@@ -9,7 +10,7 @@ type FPSCounterState = Schema.Schema.Type<typeof FPSCounterStateSchema>
 
 const FPS_SAMPLE_INTERVAL = 0.5 // seconds
 
-export class FPSCounter extends Effect.Service<FPSCounter>()(
+export class FPSCounterService extends Effect.Service<FPSCounterService>()(
   // FPSCounterLive alias kept below for test compatibility
   '@minecraft/presentation/FPSCounter',
   {
@@ -21,7 +22,7 @@ export class FPSCounter extends Effect.Service<FPSCounter>()(
       })
 
       return {
-        tick: (deltaTime: number): Effect.Effect<void, never> =>
+        tick: (deltaTime: DeltaTimeSecs): Effect.Effect<void, never> =>
           Effect.gen(function* () {
             yield* Ref.update(state, (s) => ({
               ...s,
@@ -61,4 +62,4 @@ export class FPSCounter extends Effect.Service<FPSCounter>()(
     })
   }
 ) {}
-export const FPSCounterLive = FPSCounter.Default
+export const FPSCounterLive = FPSCounterService.Default

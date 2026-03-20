@@ -1,9 +1,9 @@
 import { Effect, Ref, Option, Schema } from 'effect'
 import type { BlockType } from '@/domain/block'
-import { BlockRegistry } from '@/domain/blockRegistry'
+import { BlockRegistry } from '@/domain/block-registry'
 import { BlockTypeSchema } from '@/domain/block'
 import { ItemStack, createStack, mergeStacks, canMerge, MAX_STACK_SIZE, addToStack, removeFromStack } from '@/domain/item-stack'
-import type { SlotIndex } from '@/shared/kernel'
+import { SlotIndex, SlotIndexSchema } from '@/shared/kernel'
 
 export type InventorySlot = Option.Option<ItemStack>
 export type InventorySlots = ReadonlyArray<InventorySlot>
@@ -13,7 +13,7 @@ export const HOTBAR_START = 27
 export const HOTBAR_SIZE = 9
 
 const InventorySlotSaveEntrySchema = Schema.Struct({
-  slot: Schema.Number,
+  slot: SlotIndexSchema,
   blockType: BlockTypeSchema,   // Use typed schema for runtime type safety
   count: Schema.Number,
 })
@@ -44,12 +44,12 @@ export class InventoryService extends Effect.Service<InventoryService>()(
       const slotsRef = yield* Ref.make<InventorySlot[]>(initialSlots)
 
       const getSlot = (index: SlotIndex): Effect.Effect<InventorySlot, never> =>
-        Ref.get(slotsRef).pipe(Effect.map((slots) => slots[index as unknown as number] ?? Option.none()))
+        Ref.get(slotsRef).pipe(Effect.map((slots) => slots[SlotIndex.toNumber(index)] ?? Option.none()))
 
       const setSlot = (index: SlotIndex, stack: InventorySlot): Effect.Effect<void, never> =>
         Ref.update(slotsRef, (slots) => {
           const next = [...slots]
-          next[index as unknown as number] = stack
+          next[SlotIndex.toNumber(index)] = stack
           return next
         })
 
@@ -57,13 +57,13 @@ export class InventoryService extends Effect.Service<InventoryService>()(
         Ref.update(slotsRef, (slots) => {
           const next = [...slots]
           if (from === to) return next
-          const fromSlot = next[from as unknown as number] ?? Option.none()
-          const toSlot = next[to as unknown as number] ?? Option.none()
+          const fromSlot = next[SlotIndex.toNumber(from)] ?? Option.none()
+          const toSlot = next[SlotIndex.toNumber(to)] ?? Option.none()
 
           if (Option.isNone(fromSlot)) return next
 
-          const toIdx = to as unknown as number
-          const fromIdx = from as unknown as number
+          const toIdx = SlotIndex.toNumber(to)
+          const fromIdx = SlotIndex.toNumber(from)
 
           if (Option.isNone(toSlot)) {
             // Move to empty slot
@@ -142,7 +142,7 @@ export class InventoryService extends Effect.Service<InventoryService>()(
           Effect.map((slots) => ({
             slots: slots.map((slot, i) =>
               Option.isSome(slot)
-                ? { slot: i, blockType: slot.value.blockType, count: slot.value.count }
+                ? { slot: SlotIndex.make(i), blockType: slot.value.blockType, count: slot.value.count }
                 : null
             ),
           }))

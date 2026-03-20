@@ -4,7 +4,7 @@ export const FaceDirSchema = Schema.Literal('top', 'bottom', 'side')
 export type FaceDir = Schema.Schema.Type<typeof FaceDirSchema>
 
 export const ATLAS_COLS = 16
-export const ATLAS_SIZE = 256
+export const ATLAS_SIZE = 512
 export const HALF_TEXEL = 0.5 / ATLAS_SIZE
 
 // Atlas tile index per blockId per face direction.

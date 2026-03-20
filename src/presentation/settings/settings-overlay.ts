@@ -1,18 +1,20 @@
 import { Cause, Effect, Ref } from 'effect'
 import { SettingsService } from '@/application/settings/settings-service'
-import { DomOperations } from '@/presentation/hud/crosshair'
+import { DomOperationsService } from '@/presentation/hud/crosshair'
 
-export class SettingsOverlay extends Effect.Service<SettingsOverlay>()(
+export class SettingsOverlayService extends Effect.Service<SettingsOverlayService>()(
   '@minecraft/presentation/SettingsOverlay',
   {
     scoped: Effect.gen(function* () {
       const settingsService = yield* SettingsService
-      const dom = yield* DomOperations
+      const dom = yield* DomOperationsService
 
       let overlayEl: HTMLDivElement | null = null
       let renderDistanceInput: HTMLInputElement | null = null
       let sensitivityInput: HTMLInputElement | null = null
       let dayLengthInput: HTMLInputElement | null = null
+      let shadowsInput: HTMLInputElement | null = null
+      let ssaoInput: HTMLInputElement | null = null
       let applyBtn: HTMLButtonElement | null = null
       let closeBtn: HTMLButtonElement | null = null
 
@@ -47,6 +49,14 @@ export class SettingsOverlay extends Effect.Service<SettingsOverlay>()(
             <input id="dl-input" type="range" min="120" max="1200" step="60" value="400"
               style="display:block;width:100%;margin-top:4px">
           </label>
+          <label style="display:block;margin-bottom:12px">
+            <input id="shadows-input" type="checkbox" checked style="margin-right:6px">
+            Shadows
+          </label>
+          <label style="display:block;margin-bottom:16px">
+            <input id="ssao-input" type="checkbox" checked style="margin-right:6px">
+            SSAO (Ambient Occlusion)
+          </label>
           <div style="display:flex;gap:8px">
             <button id="settings-apply" style="flex:1;padding:8px;cursor:pointer;background:#4a7;border:none;color:#fff;border-radius:4px">Apply</button>
             <button id="settings-close" style="flex:1;padding:8px;cursor:pointer;background:#555;border:none;color:#fff;border-radius:4px">Close</button>
@@ -58,6 +68,8 @@ export class SettingsOverlay extends Effect.Service<SettingsOverlay>()(
         renderDistanceInput = dom.querySelector<HTMLInputElement>(overlayEl, '#rd-input')
         sensitivityInput = dom.querySelector<HTMLInputElement>(overlayEl, '#ms-input')
         dayLengthInput = dom.querySelector<HTMLInputElement>(overlayEl, '#dl-input')
+        shadowsInput = dom.querySelector<HTMLInputElement>(overlayEl, '#shadows-input')
+        ssaoInput = dom.querySelector<HTMLInputElement>(overlayEl, '#ssao-input')
         applyBtn = dom.querySelector<HTMLButtonElement>(overlayEl, '#settings-apply')
         closeBtn = dom.querySelector<HTMLButtonElement>(overlayEl, '#settings-close')
       }
@@ -67,7 +79,13 @@ export class SettingsOverlay extends Effect.Service<SettingsOverlay>()(
           const rd = parseInt(renderDistanceInput?.value ?? '8', 10)
           const ms = parseFloat(sensitivityInput?.value ?? '0.5')
           const dl = parseInt(dayLengthInput?.value ?? '400', 10)
-          yield* settingsService.updateSettings({ renderDistance: rd, mouseSensitivity: ms, dayLengthSeconds: dl })
+          yield* settingsService.updateSettings({
+            renderDistance: rd,
+            mouseSensitivity: ms,
+            dayLengthSeconds: dl,
+            shadowsEnabled: shadowsInput?.checked ?? true,
+            ssaoEnabled: ssaoInput?.checked ?? true,
+          })
         })
 
       function syncEffect(): Effect.Effect<void, never> {
@@ -88,6 +106,8 @@ export class SettingsOverlay extends Effect.Service<SettingsOverlay>()(
             const dlVal = overlayEl ? dom.querySelector(overlayEl, '#dl-val') : null
             if (dlVal) dlVal.textContent = String(settings.dayLengthSeconds)
           }
+          if (shadowsInput) shadowsInput.checked = settings.shadowsEnabled
+          if (ssaoInput) ssaoInput.checked = settings.ssaoEnabled
         })
       }
 
@@ -183,4 +203,4 @@ export class SettingsOverlay extends Effect.Service<SettingsOverlay>()(
     }),
   }
 ) {}
-export const SettingsOverlayLive = SettingsOverlay.Default
+export const SettingsOverlayLive = SettingsOverlayService.Default

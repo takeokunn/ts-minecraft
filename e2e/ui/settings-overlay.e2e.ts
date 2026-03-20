@@ -85,4 +85,88 @@ test.describe('Settings overlay', () => {
     expect(sliderValue).not.toBeNull()
     expect(Number(sliderValue)).toBeGreaterThan(0)
   })
+
+  test('render distance change persists to localStorage after Apply', async ({ page }) => {
+    // Open settings
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(300)
+
+    // Read current slider value and compute a new distinct value
+    const originalValue = await page.evaluate(() => {
+      const el = document.getElementById('rd-input') as HTMLInputElement | null
+      return el ? Number(el.value) : 8
+    })
+
+    // Choose a target value different from the current one, staying within [2, 16]
+    const targetValue = originalValue === 10 ? 6 : 10
+
+    // Set the slider value via JS and fire an 'input' event so the overlay handler picks it up
+    await page.evaluate((val) => {
+      const el = document.getElementById('rd-input') as HTMLInputElement | null
+      if (!el) return
+      el.value = String(val)
+      el.dispatchEvent(new Event('input', { bubbles: true }))
+    }, targetValue)
+    await page.waitForTimeout(200)
+
+    // Click Apply to persist the setting
+    await page.locator('#settings-apply').click()
+    await page.waitForTimeout(500)
+
+    // Verify localStorage was updated with the new render distance
+    const storedRenderDistance = await page.evaluate((key) => {
+      const raw = localStorage.getItem(key)
+      if (!raw) return null
+      try {
+        return (JSON.parse(raw) as { renderDistance?: number }).renderDistance ?? null
+      } catch {
+        return null
+      }
+    }, 'minecraft-settings')
+
+    expect(storedRenderDistance).toBe(targetValue)
+  })
+
+  test('persisted render distance is reflected in slider after page reload', async ({ page }) => {
+    // Open settings and set a known render distance
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(300)
+
+    const targetValue = 5
+
+    await page.evaluate((val) => {
+      const el = document.getElementById('rd-input') as HTMLInputElement | null
+      if (!el) return
+      el.value = String(val)
+      el.dispatchEvent(new Event('input', { bubbles: true }))
+    }, targetValue)
+    await page.waitForTimeout(200)
+
+    await page.locator('#settings-apply').click()
+    await page.waitForTimeout(500)
+
+    // Reload the page — localStorage persists within the same browser context
+    await page.reload()
+
+    // Wait for game to be ready again
+    await page.waitForFunction(
+      () => {
+        const el = document.getElementById('fps-value')
+        return el !== null && parseFloat(el.textContent ?? '0') > 0
+      },
+      { timeout: 25_000, polling: 200 }
+    )
+    await page.waitForSelector('#settings-overlay', { state: 'attached', timeout: 8_000 })
+
+    // Open settings overlay to reveal the slider
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(300)
+
+    const sliderValueAfterReload = await page.evaluate(() => {
+      const el = document.getElementById('rd-input') as HTMLInputElement | null
+      return el ? Number(el.value) : -1
+    })
+
+    expect(sliderValueAfterReload).toBe(targetValue)
+  })
 })

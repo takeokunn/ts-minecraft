@@ -1,9 +1,9 @@
 import { describe, it } from '@effect/vitest'
 import { Effect, Layer } from 'effect'
 import { expect, vi } from 'vitest'
-import { Crosshair, CrosshairLive, DomOperations } from './crosshair'
+import { CrosshairService, CrosshairLive, DomOperationsService } from './crosshair'
 
-describe('Crosshair', () => {
+describe('CrosshairService', () => {
   describe('with mocked DOM', () => {
     const createMockDomLayer = () => {
       const appendChildMock = vi.fn()
@@ -42,13 +42,13 @@ describe('Crosshair', () => {
       })
 
       const MockDomLayer = Layer.succeed(
-        DomOperations,
+        DomOperationsService,
         {
           createElement: createElementMock,
           appendChild: appendChildMock,
           removeChild: removeChildMock,
           getParentNode: getParentNodeMock,
-        } as unknown as DomOperations
+        } as unknown as DomOperationsService
       )
 
       // Provide the mock DOM layer to CrosshairLive
@@ -69,7 +69,7 @@ describe('Crosshair', () => {
         const { TestLayer, appendChildMock } = createMockDomLayer()
 
         const program = Effect.gen(function* () {
-          const crosshair = yield* Crosshair
+          const crosshair = yield* CrosshairService
           yield* crosshair.show()
         })
 
@@ -82,7 +82,7 @@ describe('Crosshair', () => {
         const { TestLayer } = createMockDomLayer()
 
         const program = Effect.gen(function* () {
-          const crosshair = yield* Crosshair
+          const crosshair = yield* CrosshairService
           yield* crosshair.show()
           return yield* crosshair.isVisible()
         })
@@ -96,7 +96,7 @@ describe('Crosshair', () => {
         const { TestLayer, appendChildMock } = createMockDomLayer()
 
         const program = Effect.gen(function* () {
-          const crosshair = yield* Crosshair
+          const crosshair = yield* CrosshairService
           yield* crosshair.show()
           yield* crosshair.show()
         })
@@ -112,7 +112,7 @@ describe('Crosshair', () => {
         const { TestLayer, removeChildMock } = createMockDomLayer()
 
         const program = Effect.gen(function* () {
-          const crosshair = yield* Crosshair
+          const crosshair = yield* CrosshairService
           yield* crosshair.show()
           yield* crosshair.hide()
         })
@@ -126,7 +126,7 @@ describe('Crosshair', () => {
         const { TestLayer } = createMockDomLayer()
 
         const program = Effect.gen(function* () {
-          const crosshair = yield* Crosshair
+          const crosshair = yield* CrosshairService
           yield* crosshair.show()
           yield* crosshair.hide()
           return yield* crosshair.isVisible()
@@ -141,7 +141,7 @@ describe('Crosshair', () => {
         const { TestLayer, removeChildMock } = createMockDomLayer()
 
         const program = Effect.gen(function* () {
-          const crosshair = yield* Crosshair
+          const crosshair = yield* CrosshairService
           yield* crosshair.hide()
         })
 
@@ -156,7 +156,7 @@ describe('Crosshair', () => {
         const { TestLayer, appendChildMock } = createMockDomLayer()
 
         const program = Effect.gen(function* () {
-          const crosshair = yield* Crosshair
+          const crosshair = yield* CrosshairService
           yield* crosshair.toggle()
           return yield* crosshair.isVisible()
         })
@@ -171,7 +171,7 @@ describe('Crosshair', () => {
         const { TestLayer, removeChildMock } = createMockDomLayer()
 
         const program = Effect.gen(function* () {
-          const crosshair = yield* Crosshair
+          const crosshair = yield* CrosshairService
           yield* crosshair.show()
           yield* crosshair.toggle()
           return yield* crosshair.isVisible()
@@ -187,7 +187,7 @@ describe('Crosshair', () => {
         const { TestLayer, appendChildMock, removeChildMock } = createMockDomLayer()
 
         const program = Effect.gen(function* () {
-          const crosshair = yield* Crosshair
+          const crosshair = yield* CrosshairService
 
           // Initially hidden
           let visible = yield* crosshair.isVisible()
@@ -221,7 +221,7 @@ describe('Crosshair', () => {
         const { TestLayer } = createMockDomLayer()
 
         const program = Effect.gen(function* () {
-          const crosshair = yield* Crosshair
+          const crosshair = yield* CrosshairService
           return yield* crosshair.isVisible()
         })
 
@@ -234,7 +234,7 @@ describe('Crosshair', () => {
         const { TestLayer } = createMockDomLayer()
 
         const program = Effect.gen(function* () {
-          const crosshair = yield* Crosshair
+          const crosshair = yield* CrosshairService
           yield* crosshair.show()
           return yield* crosshair.isVisible()
         })
@@ -248,7 +248,7 @@ describe('Crosshair', () => {
         const { TestLayer } = createMockDomLayer()
 
         const program = Effect.gen(function* () {
-          const crosshair = yield* Crosshair
+          const crosshair = yield* CrosshairService
           yield* crosshair.show()
           yield* crosshair.hide()
           return yield* crosshair.isVisible()
@@ -265,7 +265,7 @@ describe('Crosshair', () => {
         const { TestLayer, getCreatedElements } = createMockDomLayer()
 
         const program = Effect.gen(function* () {
-          const crosshair = yield* Crosshair
+          const crosshair = yield* CrosshairService
           yield* crosshair.show()
         })
 
@@ -280,7 +280,7 @@ describe('Crosshair', () => {
         const { TestLayer, getCreatedElements } = createMockDomLayer()
 
         const program = Effect.gen(function* () {
-          const crosshair = yield* Crosshair
+          const crosshair = yield* CrosshairService
           yield* crosshair.show()
         })
 
@@ -299,7 +299,7 @@ describe('Crosshair', () => {
         const { TestLayer, appendChildMock, removeChildMock } = createMockDomLayer()
 
         const program = Effect.gen(function* () {
-          const crosshair = yield* Crosshair
+          const crosshair = yield* CrosshairService
 
           // Show
           yield* crosshair.show()
@@ -325,7 +325,7 @@ describe('Crosshair', () => {
         const { TestLayer } = createMockDomLayer()
 
         const program = Effect.gen(function* () {
-          const crosshair = yield* Crosshair
+          const crosshair = yield* CrosshairService
 
           const states: boolean[] = []
 
@@ -356,14 +356,14 @@ describe('Crosshair', () => {
     })
   })
 
-  describe('DomOperations', () => {
+  describe('DomOperationsService', () => {
     it('should create a valid mock layer', () => {
       const mockDom = {
         createElement: vi.fn(),
         appendChild: vi.fn(),
         removeChild: vi.fn(),
         getParentNode: vi.fn(),
-      } as unknown as DomOperations
+      } as unknown as DomOperationsService
 
       expect(mockDom).toBeDefined()
     })

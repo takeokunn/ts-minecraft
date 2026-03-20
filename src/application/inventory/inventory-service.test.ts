@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { Effect, Layer, Option } from 'effect'
+import { Effect, Layer, Option, Schema } from 'effect'
 import type { Block, BlockType } from '@/domain/block'
-import { BlockRegistry } from '@/domain/blockRegistry'
+import { BlockRegistry } from '@/domain/block-registry'
 import { MAX_STACK_SIZE, createStack } from '@/domain/item-stack'
 import type { SlotIndex } from '@/shared/kernel'
 import {
@@ -10,6 +10,7 @@ import {
   INVENTORY_SIZE,
   InventoryService,
   InventoryServiceLive,
+  InventorySaveDataSchema,
 } from './inventory-service'
 
 const asSlotIndex = (n: number): SlotIndex => n as unknown as SlotIndex
@@ -803,9 +804,9 @@ describe('application/inventory/inventory-service', () => {
         const data = {
           slots: [
             null,
-            { slot: -1, blockType: 'STONE' as const, count: 9 },
-            { slot: 5, blockType: 'WOOD' as const, count: 4 },
-            { slot: 99, blockType: 'DIRT' as const, count: 2 },
+            { slot: asSlotIndex(-1), blockType: 'STONE' as const, count: 9 },
+            { slot: asSlotIndex(5), blockType: 'WOOD' as const, count: 4 },
+            { slot: asSlotIndex(99), blockType: 'DIRT' as const, count: 2 },
           ],
         }
 
@@ -844,6 +845,138 @@ describe('application/inventory/inventory-service', () => {
 
       const restored = Effect.runSync(secondProgram)
       expect(restored).toEqual(snapshot)
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // C4: removeBlock on an empty slot (slot with no item)
+  // ---------------------------------------------------------------------------
+
+  describe('removeBlock on empty slot / inventory', () => {
+    it('removeBlock on fully empty inventory returns false without crashing', () => {
+      const testLayer = createTestLayer(createTestBlockRegistry(airOnlyBlocks))
+
+      const program = Effect.gen(function* () {
+        const service = yield* InventoryService
+        // All slots are empty (AIR-only registry → no non-AIR hotbar blocks)
+        const result = yield* service.removeBlock('STONE', 1)
+        expect(result).toBe(false)
+      }).pipe(Effect.provide(testLayer))
+
+      Effect.runSync(program)
+    })
+
+    it('removeBlock for a block type not present returns false', () => {
+      const testLayer = createTestLayer(createTestBlockRegistry(airOnlyBlocks))
+
+      const program = Effect.gen(function* () {
+        const service = yield* InventoryService
+        // Slot 0 has DIRT, we try to remove STONE (absent)
+        yield* service.setSlot(asSlotIndex(0), Option.some(createStack('DIRT', 5)))
+        const result = yield* service.removeBlock('STONE', 1)
+        expect(result).toBe(false)
+        // DIRT slot is untouched
+        const slot0 = yield* service.getSlot(asSlotIndex(0))
+        expect(Option.isSome(slot0)).toBe(true)
+        if (Option.isSome(slot0)) {
+          expect(slot0.value.count).toBe(5)
+        }
+      }).pipe(Effect.provide(testLayer))
+
+      Effect.runSync(program)
+    })
+
+    it('removeBlock on a slot explicitly set to Option.none returns false', () => {
+      const testLayer = createTestLayer(createTestBlockRegistry(airOnlyBlocks))
+
+      const program = Effect.gen(function* () {
+        const service = yield* InventoryService
+        yield* service.setSlot(asSlotIndex(3), Option.none())
+        const result = yield* service.removeBlock('DIRT', 1)
+        expect(result).toBe(false)
+        // Slot remains empty
+        const slot3 = yield* service.getSlot(asSlotIndex(3))
+        expect(Option.isNone(slot3)).toBe(true)
+      }).pipe(Effect.provide(testLayer))
+
+      Effect.runSync(program)
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // C5: InventorySaveDataSchema encode / decode round-trip
+  // ---------------------------------------------------------------------------
+
+  describe('InventorySaveDataSchema encode / decode round-trip', () => {
+    const encode = Schema.encodeSync(InventorySaveDataSchema)
+    const decode = Schema.decodeSync(InventorySaveDataSchema)
+
+    it('encodes and decodes a valid InventorySaveData object correctly', () => {
+      const original = {
+        slots: [
+          { slot: asSlotIndex(0), blockType: 'DIRT' as const, count: 12 },
+          null,
+          { slot: asSlotIndex(2), blockType: 'STONE' as const, count: 64 },
+        ],
+      }
+
+      const encoded = encode(original)
+      const decoded = decode(encoded)
+
+      expect(decoded.slots.length).toBe(3)
+
+      const entry0 = decoded.slots[0]
+      expect(entry0).not.toBeNull()
+      if (entry0 !== null && entry0 !== undefined) {
+        expect(entry0.slot).toBe(0)
+        expect(entry0.blockType).toBe('DIRT')
+        expect(entry0.count).toBe(12)
+      }
+
+      expect(decoded.slots[1]).toBeNull()
+
+      const entry2 = decoded.slots[2]
+      expect(entry2).not.toBeNull()
+      if (entry2 !== null && entry2 !== undefined) {
+        expect(entry2.slot).toBe(2)
+        expect(entry2.blockType).toBe('STONE')
+        expect(entry2.count).toBe(64)
+      }
+    })
+
+    it('round-trips: decode(encode(x)) deep-equals original', () => {
+      const original = {
+        slots: [
+          null,
+          { slot: asSlotIndex(5), blockType: 'WOOD' as const, count: 1 },
+          null,
+          { slot: asSlotIndex(27), blockType: 'GLASS' as const, count: 64 },
+        ],
+      }
+
+      const roundTripped = decode(encode(original))
+      expect(roundTripped).toEqual(original)
+    })
+
+    it('decoding invalid data (unknown blockType) throws a ParseError', () => {
+      const invalid = {
+        slots: [
+          { slot: 0, blockType: 'INVALID_BLOCK_TYPE', count: 5 },
+        ],
+      }
+
+      expect(() => decode(invalid as never)).toThrow()
+    })
+
+    it('decoding data with missing required field throws a ParseError', () => {
+      const invalid = { notSlots: [] }
+      expect(() => decode(invalid as never)).toThrow()
+    })
+
+    it('decoding all-null slots array succeeds', () => {
+      const allNull = { slots: [null, null, null] }
+      const result = decode(allNull)
+      expect(result.slots).toEqual([null, null, null])
     })
   })
 })

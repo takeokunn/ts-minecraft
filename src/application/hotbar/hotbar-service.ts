@@ -58,7 +58,7 @@ export class HotbarService extends Effect.Service<HotbarService>()(
          * Set the selected slot index (clamped to 0-8)
          */
         setSelectedSlot: (slot: SlotIndex): Effect.Effect<void, never> =>
-          Ref.set(selectedSlotRef, Math.max(0, Math.min(HOTBAR_SIZE - 1, slot as unknown as number))),
+          Ref.set(selectedSlotRef, Math.max(0, Math.min(HOTBAR_SIZE - 1, SlotIndex.toNumber(slot)))),
 
         /**
          * Get the BlockType for the currently selected slot.

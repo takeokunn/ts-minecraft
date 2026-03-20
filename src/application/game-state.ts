@@ -1,16 +1,18 @@
-import { Effect, Ref, Schema, Clock, Data } from 'effect'
-import { PlayerService, PlayerError } from '@/domain'
-import { PlayerId, Position, PhysicsBodyId } from '@/shared/kernel'
-import { PhysicsService } from './physics/physics-service'
+import { Effect, Ref, Schema, Clock, Data, Option } from 'effect'
+import { PlayerService } from '@/application/player/player-state'
+import { PlayerError } from '@/domain'
+import { DeltaTimeSecs, DeltaTimeSecsSchema, PlayerId, Position, PhysicsBodyId } from '@/shared/kernel'
+import { PhysicsService, PLAYER_FEET_OFFSET } from './physics/physics-service'
 import { MovementService } from './player/movement-service'
-import { PlayerCameraState } from '../domain/player-camera'
+import { PlayerCameraStateService } from '@/application/camera/camera-state'
+import { DEFAULT_PLAYER_ID } from '@/application/constants'
 
 /**
  * Schema for TimingState representing frame timing information
  */
 export const TimingStateSchema = Schema.Struct({
   lastFrameTime: Schema.Number,
-  deltaTime: Schema.Number,
+  deltaTime: DeltaTimeSecsSchema,
   frameCount: Schema.Number,
 })
 export type TimingState = Schema.Schema.Type<typeof TimingStateSchema>
@@ -30,20 +32,21 @@ export class GameStateError extends Data.TaggedError('GameStateError')<{
 }
 
 /**
- * Type guard for GameStateError
- */
-export const isGameStateError = (error: unknown): error is GameStateError =>
-  typeof error === 'object' && error !== null && '_tag' in error && (error as { _tag: string })._tag === 'GameStateError'
-
-/**
  * Player physics body ID constant (legacy string, kept for external compatibility)
  */
 export const PLAYER_BODY_ID = 'player'
 
-/**
- * Default player ID constant
- */
-export const DEFAULT_PLAYER_ID = 'player-1' as PlayerId
+/** Gravitational acceleration (m/s²) matching cannon-es default */
+const GRAVITY_Y = -9.82
+
+/** Player rigid body mass in kg */
+const PLAYER_MASS = 70
+
+/** Player box half-extents in meters (x and z) */
+const PLAYER_HALF_WIDTH = 0.3
+
+/** Player box half-extents in meters (y) */
+const PLAYER_HALF_HEIGHT = 0.9
 
 /**
  * Service class for coordinating game state across services
@@ -55,18 +58,21 @@ export class GameStateService extends Effect.Service<GameStateService>()(
       const playerService = yield* PlayerService
       const physicsService = yield* PhysicsService
       const movementService = yield* MovementService
-      const cameraState = yield* PlayerCameraState
+      const cameraState = yield* PlayerCameraStateService
 
-      // Timing state
+      // Timing state (deltaTime initial value 0 is a sentinel; DeltaTimeSecs.make requires positive,
+      // so cast directly — this value is overwritten on the first frame before any consumer reads it)
       const timingStateRef = yield* Ref.make<TimingState>({
         lastFrameTime: 0,
-        deltaTime: 0,
+        deltaTime: 0 as DeltaTimeSecs,
         frameCount: 0,
       })
 
       // Opaque physics body ID for the player (replaces CANNON.Body ref)
-      const playerBodyIdRef = yield* Ref.make<PhysicsBodyId | null>(null)
+      const playerBodyIdRef = yield* Ref.make<Option.Option<PhysicsBodyId>>(Option.none())
       const playerId = DEFAULT_PLAYER_ID
+      // Stored ground plane Y for post-step fall-through correction
+      const groundYRef = yield* Ref.make<number>(0)
 
       // Jump override flag: when the player jumps, cannon-es contacts may persist
       // for one frame before clearing. This flag overrides isGrounded to return false
@@ -74,31 +80,40 @@ export class GameStateService extends Effect.Service<GameStateService>()(
       const jumpOverrideRef = yield* Ref.make<boolean>(false)
 
       /**
-       * Internal helper: get whether the player is currently grounded,
-       * applying the jump override when necessary.
+       * Internal helper: get whether the player is currently grounded.
+       * Uses position-based detection: player center Y ≤ (groundY + halfHeight + tolerance).
+       * This is more reliable than cannon-es contact detection because the post-step
+       * ground clamp repositions the body without generating new contact equations.
        */
       const getIsGrounded = (playerBodyId: PhysicsBodyId): Effect.Effect<boolean, never> =>
         Effect.gen(function* () {
           const jumpOverride = yield* Ref.get(jumpOverrideRef)
-          const physicsGrounded = yield* physicsService.isGrounded(playerBodyId).pipe(
-            Effect.catchAll(() => Effect.succeed(false))
+          const pos = yield* physicsService.getPosition(playerBodyId).pipe(
+            Effect.catchTag('PhysicsServiceError', () => Effect.succeed({ x: 0, y: 0, z: 0 }))
           )
+          const gY = yield* Ref.get(groundYRef)
+          // Player center is at groundY + halfHeight when standing on ground
+          const groundedThresholdY = gY + PLAYER_HALF_HEIGHT + 0.15
+          const isNearGround = pos.y <= groundedThresholdY
           if (jumpOverride) {
-            // Once the physics contacts have cleared, remove the override
-            if (!physicsGrounded) {
+            // Clear override once player has risen above ground level
+            if (!isNearGround) {
               yield* Ref.set(jumpOverrideRef, false)
             }
             return false
           }
-          return physicsGrounded
+          return isNearGround
         })
 
       return {
         initialize: (spawnPosition: Position, groundY = 0): Effect.Effect<void, GameStateError> =>
           Effect.gen(function* () {
+            // Store ground plane Y for post-step fall-through correction
+            yield* Ref.set(groundYRef, groundY)
+
             // Initialize the physics world
             yield* physicsService.initialize({
-              gravity: { x: 0, y: -9.82, z: 0 },
+              gravity: { x: 0, y: GRAVITY_Y, z: 0 },
               broadphase: 'naive',
             })
 
@@ -112,38 +127,39 @@ export class GameStateService extends Effect.Service<GameStateService>()(
 
             // Create player body at spawn position
             const playerBodyId = yield* physicsService.addBody({
-              mass: 70,
+              mass: PLAYER_MASS,
               position: spawnPosition,
               shape: 'box',
               shapeParams: {
-                halfExtents: { x: 0.3, y: 0.9, z: 0.3 },
+                halfExtents: { x: PLAYER_HALF_WIDTH, y: PLAYER_HALF_HEIGHT, z: PLAYER_HALF_WIDTH },
               },
               fixedRotation: true,
               angularDamping: 1,
               allowSleep: false,
             })
-            yield* Ref.set(playerBodyIdRef, playerBodyId)
+            yield* Ref.set(playerBodyIdRef, Option.some(playerBodyId))
 
             // Initialize player state at spawn position
             yield* playerService.create(playerId, spawnPosition)
           }).pipe(
-            Effect.mapError((e) => {
-              if (e._tag === 'PhysicsServiceError') {
-                return new GameStateError({ operation: 'initialize', reason: e.operation, cause: e })
-              }
-              return new GameStateError({ operation: 'initialize', reason: String(e), cause: e })
-            })
+            Effect.catchTag('PhysicsServiceError', (e) =>
+              Effect.fail(new GameStateError({ operation: 'initialize', reason: e.operation, cause: e }))
+            ),
+            Effect.catchTag('PlayerError', (e) =>
+              Effect.fail(new GameStateError({ operation: 'initialize', reason: e.reason, cause: e }))
+            )
           ),
 
-        update: (deltaTime: number): Effect.Effect<void, GameStateError> =>
+        update: (deltaTime: DeltaTimeSecs): Effect.Effect<void, GameStateError> =>
           Effect.gen(function* () {
-            const playerBodyId = yield* Ref.get(playerBodyIdRef)
+            const playerBodyIdOpt = yield* Ref.get(playerBodyIdRef)
 
-            if (playerBodyId === null) {
+            if (!Option.isSome(playerBodyIdOpt)) {
               return yield* Effect.fail(
                 new GameStateError({ operation: 'update', reason: 'Physics not initialized. Call initialize() first.' })
               )
             }
+            const playerBodyId = playerBodyIdOpt.value
 
             // Get camera yaw for movement direction
             const rotation = yield* cameraState.getRotation()
@@ -154,7 +170,11 @@ export class GameStateService extends Effect.Service<GameStateService>()(
 
             // Get current physics velocity for Y preservation
             const currentVel = yield* physicsService.getVelocity(playerBodyId).pipe(
-              Effect.catchAll(() => Effect.succeed({ x: 0, y: 0, z: 0 }))
+              Effect.catchTag('PhysicsServiceError', (e) =>
+                Effect.logWarning(`getVelocity fallback: ${e.message ?? String(e)}`).pipe(
+                  Effect.as({ x: 0, y: 0, z: 0 })
+                )
+              )
             )
             const currentVelY = currentVel.y
 
@@ -180,16 +200,24 @@ export class GameStateService extends Effect.Service<GameStateService>()(
               yield* Ref.set(jumpOverrideRef, true)
             }
 
-            // Step physics simulation
-            yield* physicsService.step(deltaTime)
+            // Step physics simulation with ground-clamp to prevent tunneling
+            const storedGroundY = yield* Ref.get(groundYRef)
+            yield* physicsService.step(deltaTime, { minY: storedGroundY + PLAYER_FEET_OFFSET })
 
-            // Sync physics position back to player state
+            // Sync physics position and velocity back to player state
             const pos = yield* physicsService.getPosition(playerBodyId)
             yield* playerService.updatePosition(playerId, {
               x: pos.x,
               y: pos.y,
               z: pos.z,
             })
+
+            const finalVel = yield* physicsService.getVelocity(playerBodyId).pipe(
+              Effect.catchTag('PhysicsServiceError', () =>
+                Effect.succeed({ x: 0, y: 0, z: 0 })
+              )
+            )
+            yield* playerService.updateVelocity(playerId, finalVel)
 
             // Update timing state
             const now = yield* Clock.currentTimeMillis
@@ -199,15 +227,12 @@ export class GameStateService extends Effect.Service<GameStateService>()(
               frameCount: state.frameCount + 1,
             }))
           }).pipe(
-            Effect.mapError((e) => {
-              if (e._tag === 'GameStateError') {
-                return e
-              }
-              if (e._tag === 'PhysicsServiceError') {
-                return new GameStateError({ operation: 'update', reason: e.operation, cause: e })
-              }
-              return new GameStateError({ operation: 'update', reason: String(e), cause: e })
-            })
+            Effect.catchTag('PhysicsServiceError', (e) =>
+              Effect.fail(new GameStateError({ operation: 'update', reason: e.operation, cause: e }))
+            ),
+            Effect.catchTag('PlayerError', (e) =>
+              Effect.fail(new GameStateError({ operation: 'update', reason: e.reason, cause: e }))
+            )
           ),
 
         getTiming: (): Effect.Effect<TimingState, never> => Ref.get(timingStateRef),
@@ -220,10 +245,17 @@ export class GameStateService extends Effect.Service<GameStateService>()(
 
         isPlayerGrounded: (): Effect.Effect<boolean, never> =>
           Effect.gen(function* () {
-            const playerBodyId = yield* Ref.get(playerBodyIdRef)
-            if (playerBodyId === null) return false
-            return yield* getIsGrounded(playerBodyId)
+            const playerBodyIdOpt = yield* Ref.get(playerBodyIdRef)
+            if (!Option.isSome(playerBodyIdOpt)) return false
+            return yield* getIsGrounded(playerBodyIdOpt.value)
           }),
+
+        /**
+         * Update the terrain ground Y used for physics clamping and grounded detection.
+         * Called each frame by frame-handler with the terrain height at the player's column.
+         */
+        updateGroundY: (y: number): Effect.Effect<void, never> =>
+          Ref.set(groundYRef, y),
       }
     }),
   }

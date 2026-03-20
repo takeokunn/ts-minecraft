@@ -5,7 +5,7 @@ import { TextureError } from '@/domain'
 import { ATLAS_COLS, ATLAS_SIZE } from '../textures/block-texture-map'
 import { greedyMeshChunk, MeshedChunk } from './greedy-meshing'
 
-const TILE_PX = ATLAS_SIZE / ATLAS_COLS  // 16
+const TILE_PX = ATLAS_SIZE / ATLAS_COLS  // 32
 
 const buildGeometry = (meshed: MeshedChunk): THREE.BufferGeometry => {
   const geometry = new THREE.BufferGeometry()
@@ -25,6 +25,8 @@ const buildAtlasTexture = (): Effect.Effect<THREE.Texture, TextureError> =>
       canvas.height = ATLAS_SIZE
       const ctx = canvas.getContext('2d')
       if (!ctx) {
+        // This throw is inside Effect.tryPromise's async callback, so it is
+        // caught by the `catch` handler and mapped to TextureError — not a defect.
         throw new Error('Failed to acquire 2D canvas context for atlas build')
       }
 
@@ -65,96 +67,174 @@ const buildAtlasTexture = (): Effect.Effect<THREE.Texture, TextureError> =>
       ])
 
       // Generate procedural tiles for missing textures
+
+      // tile 3: wood_top — brown with concentric rings (more rings for 32×32)
       drawProceduralTile(3, (context, x, y) => {
-        // wood_top: brown with concentric rings
         context.fillStyle = '#7a5c1e'
         context.fillRect(x, y, TILE_PX, TILE_PX)
         context.strokeStyle = '#5c4414'
         context.lineWidth = 1
-        for (let r = 2; r < 8; r += 2) {
+        for (let r = 2; r < TILE_PX / 2 - 1; r += 3) {
           context.beginPath()
-          context.arc(x + 8, y + 8, r, 0, Math.PI * 2)
+          context.arc(x + TILE_PX / 2, y + TILE_PX / 2, r, 0, Math.PI * 2)
           context.stroke()
         }
+        // Center heartwood dot (fillRect avoids context.fill() which is unavailable in test env)
+        context.fillStyle = '#4a3010'
+        context.fillRect(x + TILE_PX / 2 - 2, y + TILE_PX / 2 - 2, 4, 4)
       })
 
+      // tile 5: grass_side — brown with green top stripe and dirt variation
       drawProceduralTile(5, (context, x, y) => {
-        // grass_side: brown with green top stripe
+        // Dirt base with subtle variation
         context.fillStyle = '#8B4513'
         context.fillRect(x, y, TILE_PX, TILE_PX)
+        // Dirt speckles
+        const dirtSpots = [[2,4],[6,8],[11,5],[15,10],[20,7],[25,3],[28,12],[4,18],[9,22],[18,19],[23,26],[27,20]] as const
+        for (const [sx, sy] of dirtSpots) {
+          context.fillStyle = sx % 3 === 0 ? '#7a3a0e' : '#9a5520'
+          context.fillRect(x + sx, y + sy + 4, 2, 2)
+        }
+        // Green top stripe with grass blades
         context.fillStyle = '#3a8a3a'
-        context.fillRect(x, y, TILE_PX, 4)
+        context.fillRect(x, y, TILE_PX, 5)
+        context.fillStyle = '#2d7a2d'
+        for (let bx = 0; bx < TILE_PX; bx += 3) {
+          context.fillRect(x + bx, y + 4, 1, 3)
+        }
+        // Transition zone (green seeping into dirt)
+        context.fillStyle = '#4a7a3a'
+        context.fillRect(x, y + 5, TILE_PX, 1)
       })
 
+      // tile 7: water — blue with animated-look wave lines
       drawProceduralTile(7, (context, x, y) => {
-        // water: blue with horizontal wave lines
         context.fillStyle = '#1a44bb'
         context.fillRect(x, y, TILE_PX, TILE_PX)
-        context.fillStyle = '#2255cc'
+        // Multiple wave layers
         for (let wy = 0; wy < TILE_PX; wy += 4) {
+          context.fillStyle = wy % 8 === 0 ? '#2255cc' : '#1e4ecc'
           context.fillRect(x, y + wy, TILE_PX, 2)
+        }
+        // Foam/highlight dots
+        const foamDots = [[3,1],[9,5],[15,1],[22,3],[27,7],[4,9],[12,13],[18,9],[25,13],[7,17],[14,17],[20,21],[2,21],[28,17],[6,25],[16,25],[24,29]] as const
+        for (const [fx, fy] of foamDots) {
+          context.fillStyle = '#4488ee'
+          context.fillRect(x + fx, y + fy, 2, 1)
         }
       })
 
+      // tile 8: leaves — dark green with lighter spots and depth
       drawProceduralTile(8, (context, x, y) => {
-        // leaves: dark green with lighter spots
         context.fillStyle = '#1a7a1a'
         context.fillRect(x, y, TILE_PX, TILE_PX)
-        context.fillStyle = '#228b22'
-        for (let lx = 0; lx < TILE_PX; lx += 3) {
-          for (let ly = 0; ly < TILE_PX; ly += 3) {
-            if ((lx + ly) % 6 === 0) context.fillRect(x + lx, y + ly, 2, 2)
+        // Light leaf spots in a pattern
+        for (let lx = 0; lx < TILE_PX; lx += 4) {
+          for (let ly = 0; ly < TILE_PX; ly += 4) {
+            const variant = (lx + ly) % 12
+            if (variant === 0) {
+              context.fillStyle = '#228b22'
+              context.fillRect(x + lx, y + ly, 3, 3)
+            } else if (variant === 4) {
+              context.fillStyle = '#2da02d'
+              context.fillRect(x + lx + 1, y + ly + 1, 2, 2)
+            } else if (variant === 8) {
+              context.fillStyle = '#145014'
+              context.fillRect(x + lx, y + ly, 2, 2)
+            }
+          }
+        }
+        // Dark gaps between clusters
+        for (let gx = 2; gx < TILE_PX; gx += 5) {
+          for (let gy = 2; gy < TILE_PX; gy += 5) {
+            context.fillStyle = '#0f5a0f'
+            context.fillRect(x + gx, y + gy, 1, 1)
           }
         }
       })
 
+      // tile 9: glass — light blue with highlight border and faint interior lines
       drawProceduralTile(9, (context, x, y) => {
-        // glass: light blue with border highlight
+        // Base: semi-transparent-looking blue
         context.fillStyle = '#aaddff'
         context.fillRect(x, y, TILE_PX, TILE_PX)
-        context.fillStyle = '#cceeff'
-        context.fillRect(x + 1, y + 1, TILE_PX - 2, 1)
-        context.fillRect(x + 1, y + 1, 1, TILE_PX - 2)
+        // Inner gradient-like lighter zone
+        context.fillStyle = '#c8eeff'
+        context.fillRect(x + 2, y + 2, TILE_PX - 4, TILE_PX - 4)
+        // Highlight edge top-left
+        context.fillStyle = '#e0f8ff'
+        context.fillRect(x + 1, y + 1, TILE_PX - 2, 2)
+        context.fillRect(x + 1, y + 1, 2, TILE_PX - 2)
+        // Shadow edge bottom-right
+        context.fillStyle = '#88bbdd'
+        context.fillRect(x + 1, y + TILE_PX - 3, TILE_PX - 2, 2)
+        context.fillRect(x + TILE_PX - 3, y + 1, 2, TILE_PX - 2)
+        // Faint cross reflection
+        context.fillStyle = '#d8f0ff'
+        context.fillRect(x + TILE_PX / 2 - 1, y + 4, 2, TILE_PX - 8)
+        context.fillRect(x + 4, y + TILE_PX / 2 - 1, TILE_PX - 8, 2)
       })
 
+      // tile 10: snow — near-white with blue tint and snowflake-like pattern
       drawProceduralTile(10, (context, x, y) => {
-        // snow: near-white with subtle blue tint
         context.fillStyle = '#f0f5ff'
         context.fillRect(x, y, TILE_PX, TILE_PX)
-        context.fillStyle = '#e0eaff'
-        for (let sx = 0; sx < TILE_PX; sx += 4) {
-          context.fillRect(x + sx, y + (sx % 8), 1, 1)
+        // Subtle blue-tint variation spots
+        const snowDots = [[1,2],[5,0],[9,3],[13,1],[17,4],[21,0],[25,2],[29,4],[3,8],[7,6],[11,9],[15,7],[19,10],[23,6],[27,9],[0,14],[4,12],[8,15],[12,13],[16,16],[20,12],[24,15],[28,13],[2,20],[6,18],[10,21],[14,19],[18,22],[22,18],[26,21],[30,19],[1,26],[5,24],[9,27],[13,25],[17,28],[21,24],[25,27],[29,25]] as const
+        for (let i = 0; i < snowDots.length; i++) {
+          const entry = snowDots[i]
+          if (!entry) continue
+          const [sx, sy] = entry
+          context.fillStyle = i % 3 === 0 ? '#dde8ff' : (i % 3 === 1 ? '#e8f0ff' : '#ccdaff')
+          context.fillRect(x + (sx % TILE_PX), y + (sy % TILE_PX), 2, 1)
         }
       })
 
+      // tile 11: gravel — grey-brown with varied speckles
       drawProceduralTile(11, (context, x, y) => {
-        // gravel: grey-brown with speckles
         context.fillStyle = '#7a6a5a'
         context.fillRect(x, y, TILE_PX, TILE_PX)
-        const speckles: ReadonlyArray<readonly [number, number]> = [
-          [1, 2], [4, 5], [7, 1], [10, 8], [13, 4], [3, 11], [8, 13], [12, 10],
-        ]
-        for (const [sx, sy] of speckles) {
-          context.fillStyle = sx % 2 === 0 ? '#8a7a6a' : '#6a5a4a'
-          context.fillRect(x + sx, y + sy, 2, 2)
+        // More speckles for 32×32
+        const speckles = [
+          [1,2,2,2],[4,5,3,3],[7,1,2,2],[10,8,3,2],[13,4,2,3],[16,0,2,2],[19,6,3,2],[22,3,2,3],
+          [25,1,2,2],[28,5,3,3],[2,10,3,2],[5,14,2,3],[8,11,2,2],[11,15,3,2],[14,12,2,2],
+          [17,10,3,3],[20,14,2,2],[23,11,3,2],[26,15,2,3],[0,19,2,2],[3,22,3,3],[6,18,2,2],
+          [9,23,3,2],[12,20,2,3],[15,17,2,2],[18,22,3,2],[21,19,2,2],[24,23,3,3],[27,18,2,2],
+          [1,28,3,2],[4,26,2,3],[7,29,2,2],[10,27,3,2],[13,25,2,2],[16,29,3,3],[19,26,2,2],
+          [22,28,3,2],[25,25,2,3],[29,27,2,2],
+        ] as const
+        for (const [sx, sy, sw, sh] of speckles) {
+          const colors = ['#8a7a6a', '#6a5a4a', '#9a8a7a', '#5a4a3a', '#8a8070'] as const
+          context.fillStyle = colors[Math.floor((sx + sy) % 5)] ?? '#8a7a6a'
+          context.fillRect(x + sx, y + sy, sw, sh)
         }
       })
 
+      // tile 12: cobblestone — grey with stone-like patches and mortar lines
       drawProceduralTile(12, (context, x, y) => {
-        // cobblestone: grey with darker patches
-        context.fillStyle = '#808080'
+        // Mortar base
+        context.fillStyle = '#606060'
         context.fillRect(x, y, TILE_PX, TILE_PX)
-        const patches: ReadonlyArray<readonly [number, number, number, number]> = [
-          [0, 0, 5, 4], [6, 0, 5, 4], [12, 0, 4, 4],
-          [0, 5, 4, 5], [5, 5, 6, 5], [12, 5, 4, 5],
-          [0, 11, 6, 5], [7, 11, 5, 5],
-        ]
+        // Stone patches (more for 32×32)
+        const patches = [
+          [1, 1, 9, 8], [12, 1, 9, 8], [22, 1, 9, 8],
+          [1, 11, 14, 8], [17, 11, 14, 8],
+          [1, 21, 9, 9], [12, 21, 9, 9], [22, 21, 9, 9],
+        ] as const
         for (const [px, py, pw, ph] of patches) {
-          context.fillStyle = '#686868'
+          // Stone fill color
+          const variant = (px + py) % 3
+          const stoneColor = variant === 0 ? '#787878' : (variant === 1 ? '#818181' : '#6f6f6f')
+          context.fillStyle = stoneColor
           context.fillRect(x + px, y + py, pw, ph)
-          context.strokeStyle = '#505050'
-          context.lineWidth = 0.5
-          context.strokeRect(x + px + 0.5, y + py + 0.5, pw - 1, ph - 1)
+          // Highlight on stone face
+          context.fillStyle = '#909090'
+          context.fillRect(x + px + 1, y + py + 1, pw - 2, 1)
+          context.fillRect(x + px + 1, y + py + 1, 1, ph - 2)
+          // Shadow on stone face
+          context.fillStyle = '#505050'
+          context.fillRect(x + px + 1, y + py + ph - 2, pw - 2, 1)
+          context.fillRect(x + px + pw - 2, y + py + 1, 1, ph - 2)
         }
       })
 
@@ -190,6 +270,8 @@ export class ChunkMeshService extends Effect.Service<ChunkMeshService>()(
             })
             const geometry = buildGeometry(meshed)
             const mesh = new THREE.Mesh(geometry, sharedMaterial)
+            mesh.castShadow = true
+            mesh.receiveShadow = true
             mesh.userData['blockPositions'] = meshed.blockPositions
             mesh.userData['chunkCoord'] = chunk.coord
             return mesh

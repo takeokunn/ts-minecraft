@@ -15,7 +15,6 @@ export const MouseButton = {
 
 export type MouseButton = (typeof MouseButton)[keyof typeof MouseButton]
 
-export { KeyMappings } from '@/application/input/key-mappings'
 
 /**
  * Input service for player controls
@@ -188,12 +187,19 @@ export const PlayerInputServiceLive: Layer.Layer<PlayerInputService, never, Inpu
     PlayerInputService,
     Effect.gen(function* () {
       const input = yield* InputService
-      return {
+      const impl: {
+        isKeyPressed: (key: string) => Effect.Effect<boolean>
+        consumeKeyPress: (key: string) => Effect.Effect<boolean>
+        consumeWheelDelta: () => Effect.Effect<number>
+        getMouseDelta: () => Effect.Effect<MouseDelta>
+        isPointerLocked: () => Effect.Effect<boolean>
+      } = {
         isKeyPressed: (key: string) => input.isKeyPressed(key),
         consumeKeyPress: (key: string) => input.consumeKeyPress(key),
         consumeWheelDelta: () => input.consumeWheelDelta(),
         getMouseDelta: () => input.getMouseDelta(),
         isPointerLocked: () => input.isPointerLocked(),
-      } as unknown as PlayerInputService
+      }
+      return impl as unknown as PlayerInputService
     })
   )

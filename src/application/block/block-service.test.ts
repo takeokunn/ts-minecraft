@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { Effect, Layer, Metric } from 'effect'
 import { ChunkManagerService, ChunkManagerError } from '@/application/chunk/chunk-manager-service'
 import { ChunkServiceLive, Chunk, ChunkCoord, CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex, indexToBlockType } from '@/domain/chunk'
-import { PlayerService } from '@/domain/player'
+import { PlayerService } from '@/application/player/player-state'
 import { BlockType } from '@/domain/block'
 import { Position, PlayerId } from '@/shared/kernel'
 import { PlayerError, StorageError } from '@/domain/errors'
@@ -10,9 +10,9 @@ import {
   BlockService,
   BlockServiceLive,
   BlockServiceError,
-  DEFAULT_WORLD_ID,
-  DEFAULT_PLAYER_ID_FOR_BLOCK,
 } from './block-service'
+import { InventoryService } from '@/application/inventory/inventory-service'
+import { DEFAULT_WORLD_ID, DEFAULT_PLAYER_ID } from '@/application/constants'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -144,7 +144,7 @@ const createMockPlayerService = (position: Position): PlayerService => ({
   getPosition: (_id: PlayerId) => Effect.succeed(position),
   getVelocity: (_id: PlayerId) => Effect.succeed({ x: 0, y: 0, z: 0 }),
   getState: (_id: PlayerId) =>
-    Effect.fail(new PlayerError({ playerId: DEFAULT_PLAYER_ID_FOR_BLOCK, reason: 'not implemented' })),
+    Effect.fail(new PlayerError({ playerId: DEFAULT_PLAYER_ID, reason: 'not implemented' })),
 } as unknown as PlayerService)
 
 /**
@@ -154,23 +154,32 @@ const createFailingPlayerService = (): PlayerService => ({
   create: (_id: PlayerId, _position: Position) => Effect.void,
   updatePosition: (_id: PlayerId, _position: Position) => Effect.void,
   getPosition: (_id: PlayerId) =>
-    Effect.fail(new PlayerError({ playerId: DEFAULT_PLAYER_ID_FOR_BLOCK, reason: 'Player not found' })),
+    Effect.fail(new PlayerError({ playerId: DEFAULT_PLAYER_ID, reason: 'Player not found' })),
   getVelocity: (_id: PlayerId) => Effect.succeed({ x: 0, y: 0, z: 0 }),
   getState: (_id: PlayerId) =>
-    Effect.fail(new PlayerError({ playerId: DEFAULT_PLAYER_ID_FOR_BLOCK, reason: 'not implemented' })),
+    Effect.fail(new PlayerError({ playerId: DEFAULT_PLAYER_ID, reason: 'not implemented' })),
 } as unknown as PlayerService)
 
 /**
  * Build a test Layer from mock services.
  */
+const mockInventoryService = {
+  addBlock: (_blockType: unknown, _count: unknown) => Effect.succeed(false),
+  getSlot: (_idx: unknown) => Effect.void,
+  setSlot: (_idx: unknown, _slot: unknown) => Effect.void,
+  moveStack: (_from: unknown, _to: unknown) => Effect.void,
+  getHotbarSlots: () => Effect.succeed([]),
+} as unknown as InventoryService
+
 const createTestLayer = (
   chunkManagerService: ChunkManagerService,
   playerService: PlayerService
 ) => {
   const chunkManagerLayer = Layer.succeed(ChunkManagerService, chunkManagerService)
   const playerLayer = Layer.succeed(PlayerService, playerService)
+  const inventoryLayer = Layer.succeed(InventoryService, mockInventoryService)
   return BlockServiceLive.pipe(
-    Layer.provide(Layer.mergeAll(chunkManagerLayer, playerLayer, ChunkServiceLive))
+    Layer.provide(Layer.mergeAll(chunkManagerLayer, playerLayer, ChunkServiceLive, inventoryLayer))
   )
 }
 
@@ -184,8 +193,8 @@ describe('application/block/block-service', () => {
       expect(DEFAULT_WORLD_ID).toBe('world-1')
     })
 
-    it('should export DEFAULT_PLAYER_ID_FOR_BLOCK as player-1', () => {
-      expect(DEFAULT_PLAYER_ID_FOR_BLOCK).toBe('player-1')
+    it('should export DEFAULT_PLAYER_ID as player-1', () => {
+      expect(DEFAULT_PLAYER_ID).toBe('player-1')
     })
   })
 

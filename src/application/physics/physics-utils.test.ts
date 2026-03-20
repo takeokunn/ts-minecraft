@@ -14,6 +14,7 @@ import {
   scaleVelocity,
   DEFAULT_GRAVITY,
 } from './physics-utils'
+import { DeltaTimeSecs } from '@/shared/kernel'
 
 /**
  * Physics utilities test suite with property-based testing
@@ -151,7 +152,7 @@ describe('application/physics/physics-utils', () => {
         }
         const friction = Math.random() * 0.99
         const dt = 0.001 + Math.random() * 0.099
-        const result = applyFriction(velocity, friction, dt)
+        const result = applyFriction(velocity, friction, DeltaTimeSecs.make(dt))
         const originalSpeed = getHorizontalSpeed(velocity)
         const newSpeed = getHorizontalSpeed(result)
         expect(newSpeed).toBeLessThan(originalSpeed + 0.001)
@@ -168,7 +169,7 @@ describe('application/physics/physics-utils', () => {
         }
         const friction = Math.random()
         const dt = 0.001 + Math.random() * 0.099
-        const result = applyFriction(velocity, friction, dt)
+        const result = applyFriction(velocity, friction, DeltaTimeSecs.make(dt))
         expect(result.y).toBe(velocity.y)
       }
     })
@@ -182,28 +183,24 @@ describe('application/physics/physics-utils', () => {
           z: (Math.random() - 0.5) * 200,
         }
         const dt = 0.001 + Math.random() * 0.099
-        const result = applyFriction(velocity, 1, dt)
+        const result = applyFriction(velocity, 1, DeltaTimeSecs.make(dt))
         expect(result.x).toBeCloseTo(velocity.x, 10)
         expect(result.z).toBeCloseTo(velocity.z, 10)
       }
     })
 
-    it('should return unchanged velocity for zero deltaTime', () => {
+    it('should return effectively unchanged velocity for near-zero deltaTime', () => {
       const velocity = { x: 10, y: 5, z: 10 }
-      const result = applyFriction(velocity, 0.5, 0)
-      expect(result).toEqual(velocity)
-    })
-
-    it('should return unchanged velocity for negative deltaTime', () => {
-      const velocity = { x: 10, y: 5, z: 10 }
-      const result = applyFriction(velocity, 0.5, -1)
-      expect(result).toEqual(velocity)
+      // Number.MIN_VALUE is the smallest positive double; frictionFactor rounds to 1.0 in FP
+      const result = applyFriction(velocity, 0.5, DeltaTimeSecs.make(Number.MIN_VALUE))
+      expect(result.x).toBeCloseTo(velocity.x, 10)
+      expect(result.z).toBeCloseTo(velocity.z, 10)
     })
 
     it('should return unchanged velocity for out-of-range friction', () => {
       const velocity = { x: 10, y: 5, z: 10 }
-      expect(applyFriction(velocity, -0.5, 0.016)).toEqual(velocity)
-      expect(applyFriction(velocity, 1.5, 0.016)).toEqual(velocity)
+      expect(applyFriction(velocity, -0.5, DeltaTimeSecs.make(0.016))).toEqual(velocity)
+      expect(applyFriction(velocity, 1.5, DeltaTimeSecs.make(0.016))).toEqual(velocity)
     })
   })
 
@@ -213,7 +210,7 @@ describe('application/physics/physics-utils', () => {
       const velocity = { x: 1, y: 2, z: 3 }
       const dt = 0.5
 
-      const newPos = updatePosition(position, velocity, dt)
+      const newPos = updatePosition(position, velocity, DeltaTimeSecs.make(dt))
 
       expect(newPos.x).toBe(0.5)
       expect(newPos.y).toBe(1)
@@ -236,8 +233,8 @@ describe('application/physics/physics-utils', () => {
         const dt1 = 0.001 + Math.random() * 0.05
         const dt2 = 0.001 + Math.random() * 0.05
 
-        const result1 = updatePosition(updatePosition(pos, vel, dt1), vel, dt2)
-        const result2 = updatePosition(pos, vel, dt1 + dt2)
+        const result1 = updatePosition(updatePosition(pos, vel, DeltaTimeSecs.make(dt1)), vel, DeltaTimeSecs.make(dt2))
+        const result2 = updatePosition(pos, vel, DeltaTimeSecs.make(dt1 + dt2))
 
         expect(result1.x).toBeCloseTo(result2.x, 5)
         expect(result1.y).toBeCloseTo(result2.y, 5)
@@ -245,39 +242,45 @@ describe('application/physics/physics-utils', () => {
       }
     })
 
-    it('should return unchanged position for zero deltaTime', () => {
-      // Property: Zero time means no movement
+    it('should return effectively unchanged position for near-zero deltaTime', () => {
+      // DeltaTimeSecs is always positive; Number.MIN_VALUE gives displacement below machine epsilon
       for (let i = 0; i < 100; i++) {
         const pos = {
-          x: (Math.random() - 0.5) * 2000,
-          y: (Math.random() - 0.5) * 600,
-          z: (Math.random() - 0.5) * 2000,
+          x: (Math.random() - 0.5) * 2000 + 1,
+          y: (Math.random() - 0.5) * 600 + 1,
+          z: (Math.random() - 0.5) * 2000 + 1,
         }
         const vel = {
           x: (Math.random() - 0.5) * 200,
           y: (Math.random() - 0.5) * 200,
           z: (Math.random() - 0.5) * 200,
         }
-        const result = updatePosition(pos, vel, 0)
-        expect(result).toEqual(pos)
+        const result = updatePosition(pos, vel, DeltaTimeSecs.make(Number.MIN_VALUE))
+        expect(result.x).toBeCloseTo(pos.x, 10)
+        expect(result.y).toBeCloseTo(pos.y, 10)
+        expect(result.z).toBeCloseTo(pos.z, 10)
       }
     })
 
-    it('should return unchanged position for negative deltaTime', () => {
-      // Property: Negative time means no movement
+    it('should return effectively unchanged position for near-zero deltaTime', () => {
+      // DeltaTimeSecs is always positive; use Number.MIN_VALUE (5e-324) as the floor.
+      // The resulting displacement (vel * 5e-324) is below machine epsilon relative to any
+      // typical position value, so toBeCloseTo(p, 10) holds for all random inputs.
       for (let i = 0; i < 100; i++) {
         const pos = {
-          x: (Math.random() - 0.5) * 2000,
-          y: (Math.random() - 0.5) * 600,
-          z: (Math.random() - 0.5) * 2000,
+          x: (Math.random() - 0.5) * 2000 + 1, // avoid exact 0 to stay above machine epsilon
+          y: (Math.random() - 0.5) * 600 + 1,
+          z: (Math.random() - 0.5) * 2000 + 1,
         }
         const vel = {
           x: (Math.random() - 0.5) * 200,
           y: (Math.random() - 0.5) * 200,
           z: (Math.random() - 0.5) * 200,
         }
-        const result = updatePosition(pos, vel, -1)
-        expect(result).toEqual(pos)
+        const result = updatePosition(pos, vel, DeltaTimeSecs.make(Number.MIN_VALUE))
+        expect(result.x).toBeCloseTo(pos.x, 10)
+        expect(result.y).toBeCloseTo(pos.y, 10)
+        expect(result.z).toBeCloseTo(pos.z, 10)
       }
     })
 
@@ -290,7 +293,7 @@ describe('application/physics/physics-utils', () => {
           z: (Math.random() - 0.5) * 2000,
         }
         const dt = 0.001 + Math.random() * 0.099
-        const result = updatePosition(pos, zeroVelocity(), dt)
+        const result = updatePosition(pos, zeroVelocity(), DeltaTimeSecs.make(dt))
         expect(result.x).toBeCloseTo(pos.x, 10)
         expect(result.y).toBeCloseTo(pos.y, 10)
         expect(result.z).toBeCloseTo(pos.z, 10)

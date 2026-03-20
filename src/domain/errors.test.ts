@@ -10,7 +10,6 @@ import {
   GameLoopError,
   StorageError,
   ChunkError,
-  PhysicsError,
   SettingsError,
   StartupError,
   CameraError,
@@ -278,42 +277,6 @@ describe('ChunkError', () => {
   })
 })
 
-describe('PhysicsError (domain/errors)', () => {
-  it('has _tag === "PhysicsError"', () => {
-    const err = new PhysicsError({ contextData: 'body-1', reason: 'missing' })
-    expect(err._tag).toBe('PhysicsError')
-  })
-
-  it('has contextData field (NOT operation field)', () => {
-    const err = new PhysicsError({ contextData: 'body-1', reason: 'missing' })
-    expect(err.contextData).toBe('body-1')
-  })
-
-  it('message includes contextData', () => {
-    const err = new PhysicsError({ contextData: 'rigid-body-42', reason: 'body not found' })
-    expect(err.message).toContain('rigid-body-42')
-  })
-
-  it('message includes reason', () => {
-    const err = new PhysicsError({ contextData: 'ctx', reason: 'collision failed' })
-    expect(err.message).toContain('collision failed')
-  })
-
-  it('message is a non-empty string', () => {
-    const err = new PhysicsError({ contextData: 'ctx', reason: 'test' })
-    expect(typeof err.message).toBe('string')
-    expect(err.message.length).toBeGreaterThan(0)
-  })
-
-  it('PhysicsError _tag is distinct from PhysicsServiceError in physics-service.ts', () => {
-    // domain/errors.ts PhysicsError has _tag: 'PhysicsError'
-    // physics-service.ts PhysicsServiceError has _tag: 'PhysicsServiceError'
-    // No collision — Effect.catchTag works correctly for both.
-    const domainPhysicsError = new PhysicsError({ contextData: 'test', reason: 'issue' })
-    expect(domainPhysicsError._tag).toBe('PhysicsError')
-  })
-})
-
 describe('SettingsError', () => {
   it('has _tag === "SettingsError"', () => {
     const err = new SettingsError({ operation: 'load' })
@@ -393,7 +356,6 @@ describe('_tag uniqueness across domain errors', () => {
     new GameLoopError({ reason: 'test' }),
     new StorageError({ operation: 'test' }),
     new ChunkError({ chunkCoord: { x: 0, z: 0 }, reason: 'test' }),
-    new PhysicsError({ contextData: 'ctx', reason: 'test' }),
     new SettingsError({ operation: 'test' }),
     new StartupError({ reason: 'test' }),
     new CameraError({}),
@@ -409,7 +371,7 @@ describe('_tag uniqueness across domain errors', () => {
   it('domain error _tag values are unique among themselves', () => {
     const tags = allErrors.map((e) => e._tag)
     const uniqueTags = new Set(tags)
-    // All 12 domain errors have unique tags among each other
+    // All 11 domain errors have unique tags among each other
     expect(uniqueTags.size).toBe(allErrors.length)
   })
 })
@@ -489,15 +451,6 @@ describe('Effect.catchTag compatibility', () => {
         Effect.catchTag('ChunkError', (e) => Effect.succeed(`caught: ${e.chunkCoord.x},${e.chunkCoord.z}`))
       )
       expect(result).toBe('caught: 3,-5')
-    })
-  )
-
-  effectIt.effect('should catch PhysicsError with catchTag', () =>
-    Effect.gen(function* () {
-      const result = yield* Effect.fail(new PhysicsError({ contextData: 'body-1', reason: 'missing' })).pipe(
-        Effect.catchTag('PhysicsError', (e) => Effect.succeed(`caught: ${e.contextData}`))
-      )
-      expect(result).toBe('caught: body-1')
     })
   )
 
@@ -611,12 +564,6 @@ describe('Data.TaggedError structural equality', () => {
     expect(a.message).toBe(b.message)
   })
 
-  it('PhysicsError with same fields should be structurally equal', () => {
-    const a = new PhysicsError({ contextData: 'body-1', reason: 'missing' })
-    const b = new PhysicsError({ contextData: 'body-1', reason: 'missing' })
-    expect(Equal.equals(a, b)).toBe(true)
-  })
-
   it('SettingsError with same fields should be structurally equal', () => {
     const a = new SettingsError({ operation: 'load' })
     const b = new SettingsError({ operation: 'load' })
@@ -673,10 +620,6 @@ describe('error _tag discrimination', () => {
 
   it('ChunkError._tag is "ChunkError"', () => {
     expect(new ChunkError({ chunkCoord: { x: 0, z: 0 }, reason: '' })._tag).toBe('ChunkError')
-  })
-
-  it('PhysicsError._tag is "PhysicsError"', () => {
-    expect(new PhysicsError({ contextData: '', reason: '' })._tag).toBe('PhysicsError')
   })
 
   it('SettingsError._tag is "SettingsError"', () => {

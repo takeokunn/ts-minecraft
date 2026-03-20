@@ -1,10 +1,7 @@
 // Domain exports
 export * from './block'
-export { BlockRegistry, BlockRegistryLive } from './blockRegistry'
+export { BlockRegistry, BlockRegistryLive } from './block-registry'
 export * from './errors'
 export * from './item-stack'
-export * from './player'
-export * from './player-camera'
-export * from './world'
 export { ChunkService, CHUNK_SIZE, CHUNK_HEIGHT } from './chunk'
 export type { ChunkCoord, Chunk } from './chunk'

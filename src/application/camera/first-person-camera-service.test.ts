@@ -3,12 +3,12 @@ import { Effect, Layer } from 'effect'
 import * as THREE from 'three'
 import { PlayerInputService } from '../../application/input/player-input-service'
 import type { MouseDelta } from '../../application/input/player-input-service'
-import type { InputService as InputServiceType } from '../../presentation/input/input-service'
-import { PlayerCameraState, PlayerCameraStateLive } from '../../domain/player-camera'
+import type { InputServicePort as InputServiceType } from '@/application/input'
+import { PlayerCameraStateService, PlayerCameraStateLive } from '@/application/camera/camera-state'
 import {
   FirstPersonCameraService,
   FirstPersonCameraServiceLive,
-  DEFAULT_MOUSE_SENSITIVITY,
+  BASE_MOUSE_SENSITIVITY,
 } from './first-person-camera-service'
 
 /**
@@ -61,13 +61,13 @@ const createTestLayers = (inputService: InputServiceType) =>
   )
 
 describe('FirstPersonCameraService', () => {
-  describe('DEFAULT_MOUSE_SENSITIVITY', () => {
-    it('should have a default sensitivity value', () => {
-      expect(DEFAULT_MOUSE_SENSITIVITY).toBe(0.002)
+  describe('BASE_MOUSE_SENSITIVITY', () => {
+    it('should have a base sensitivity value', () => {
+      expect(BASE_MOUSE_SENSITIVITY).toBe(0.004)
     })
 
     it('should be a positive number', () => {
-      expect(DEFAULT_MOUSE_SENSITIVITY).toBeGreaterThan(0)
+      expect(BASE_MOUSE_SENSITIVITY).toBeGreaterThan(0)
     })
   })
 
@@ -107,7 +107,7 @@ describe('FirstPersonCameraService', () => {
         const cameraService = yield* FirstPersonCameraService
         yield* cameraService.update(camera)
 
-        const cameraState = yield* PlayerCameraState
+        const cameraState = yield* PlayerCameraStateService
         return yield* cameraState.getRotation()
       })
 
@@ -116,8 +116,8 @@ describe('FirstPersonCameraService', () => {
       )
 
       // Verify rotation was updated (negative for intuitive direction)
-      const expectedYaw = -100 * DEFAULT_MOUSE_SENSITIVITY
-      const expectedPitch = -50 * DEFAULT_MOUSE_SENSITIVITY
+      const expectedYaw = -100 * BASE_MOUSE_SENSITIVITY * 0.5
+      const expectedPitch = -50 * BASE_MOUSE_SENSITIVITY * 0.5
 
       expect(rotation.yaw).toBeCloseTo(expectedYaw)
       expect(rotation.pitch).toBeCloseTo(expectedPitch)
@@ -158,7 +158,7 @@ describe('FirstPersonCameraService', () => {
 
       const program = Effect.gen(function* () {
         const cameraService = yield* FirstPersonCameraService
-        const cameraState = yield* PlayerCameraState
+        const cameraState = yield* PlayerCameraStateService
 
         // Set initial rotation
         yield* cameraState.setYaw(0.5)
@@ -193,7 +193,7 @@ describe('FirstPersonCameraService', () => {
         const cameraService = yield* FirstPersonCameraService
         yield* cameraService.update(camera)
 
-        const cameraState = yield* PlayerCameraState
+        const cameraState = yield* PlayerCameraStateService
         return yield* cameraState.getRotation()
       })
 
@@ -202,7 +202,7 @@ describe('FirstPersonCameraService', () => {
       )
 
       // Negative delta.x * sensitivity = positive yaw (looking right)
-      expect(rotation.yaw).toBeCloseTo(-100 * DEFAULT_MOUSE_SENSITIVITY)
+      expect(rotation.yaw).toBeCloseTo(-100 * BASE_MOUSE_SENSITIVITY * 0.5)
     })
 
     it('should accumulate multiple updates', () => {
@@ -235,7 +235,7 @@ describe('FirstPersonCameraService', () => {
         mouseDelta = { x: 50, y: 25 }
         yield* cameraService.update(camera)
 
-        const cameraState = yield* PlayerCameraState
+        const cameraState = yield* PlayerCameraStateService
         return yield* cameraState.getRotation()
       })
 
@@ -244,8 +244,8 @@ describe('FirstPersonCameraService', () => {
       )
 
       // Two updates should accumulate
-      const expectedYaw = -100 * DEFAULT_MOUSE_SENSITIVITY
-      const expectedPitch = -50 * DEFAULT_MOUSE_SENSITIVITY
+      const expectedYaw = -100 * BASE_MOUSE_SENSITIVITY * 0.5
+      const expectedPitch = -50 * BASE_MOUSE_SENSITIVITY * 0.5
 
       expect(rotation.yaw).toBeCloseTo(expectedYaw)
       expect(rotation.pitch).toBeCloseTo(expectedPitch)
@@ -266,7 +266,7 @@ describe('FirstPersonCameraService', () => {
         const cameraService = yield* FirstPersonCameraService
         yield* cameraService.update(camera)
 
-        const cameraState = yield* PlayerCameraState
+        const cameraState = yield* PlayerCameraStateService
         return yield* cameraState.getRotation()
       })
 
@@ -292,7 +292,7 @@ describe('FirstPersonCameraService', () => {
         const cameraService = yield* FirstPersonCameraService
         yield* cameraService.update(camera)
 
-        const cameraState = yield* PlayerCameraState
+        const cameraState = yield* PlayerCameraStateService
         return yield* cameraState.getRotation()
       })
 
@@ -315,7 +315,7 @@ describe('FirstPersonCameraService', () => {
 
       const program = Effect.gen(function* () {
         const cameraService = yield* FirstPersonCameraService
-        const cameraState = yield* PlayerCameraState
+        const cameraState = yield* PlayerCameraStateService
 
         // Set state values
         yield* cameraState.setYaw(Math.PI / 4)
@@ -362,7 +362,7 @@ describe('FirstPersonCameraService', () => {
 
       const program = Effect.gen(function* () {
         const cameraService = yield* FirstPersonCameraService
-        const cameraState = yield* PlayerCameraState
+        const cameraState = yield* PlayerCameraStateService
 
         yield* cameraState.setYaw(1.23)
         yield* cameraState.setPitch(0.45)
@@ -419,7 +419,7 @@ describe('FirstPersonCameraService', () => {
 
       const program = Effect.gen(function* () {
         const cameraService = yield* FirstPersonCameraService
-        const cameraState = yield* PlayerCameraState
+        const cameraState = yield* PlayerCameraStateService
 
         // First mouse movement - look right and up
         mouseDelta = { x: 200, y: -100 }
@@ -438,8 +438,8 @@ describe('FirstPersonCameraService', () => {
 
       // Net movement: yaw = -(200 - 100) * 0.002 = -0.2
       // Net movement: pitch = -(-100 + 50) * 0.002 = 0.1
-      expect(rotation.yaw).toBeCloseTo(-100 * DEFAULT_MOUSE_SENSITIVITY)
-      expect(rotation.pitch).toBeCloseTo(50 * DEFAULT_MOUSE_SENSITIVITY)
+      expect(rotation.yaw).toBeCloseTo(-100 * BASE_MOUSE_SENSITIVITY * 0.5)
+      expect(rotation.pitch).toBeCloseTo(50 * BASE_MOUSE_SENSITIVITY * 0.5)
     })
 
     it('should handle pointer lock/unlock during gameplay', () => {
@@ -474,7 +474,7 @@ describe('FirstPersonCameraService', () => {
 
       const program = Effect.gen(function* () {
         const cameraService = yield* FirstPersonCameraService
-        const cameraState = yield* PlayerCameraState
+        const cameraState = yield* PlayerCameraStateService
 
         // First update with pointer locked
         yield* cameraService.update(camera)

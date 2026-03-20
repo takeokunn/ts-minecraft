@@ -2,18 +2,33 @@ import { Schema } from 'effect'
 
 export const WorldIdSchema = Schema.String.pipe(Schema.brand('WorldId'))
 export type WorldId = Schema.Schema.Type<typeof WorldIdSchema>
+export const WorldId = {
+  make: (s: string): WorldId => s as WorldId,
+}
 
 export const PlayerIdSchema = Schema.String.pipe(Schema.brand('PlayerId'))
 export type PlayerId = Schema.Schema.Type<typeof PlayerIdSchema>
+export const PlayerId = {
+  make: (s: string): PlayerId => s as PlayerId,
+}
 
 export const BlockIdSchema = Schema.String.pipe(Schema.brand('BlockId'))
 export type BlockId = Schema.Schema.Type<typeof BlockIdSchema>
+export const BlockId = {
+  make: (s: string): BlockId => s as BlockId,
+}
 
 export const PhysicsBodyIdSchema = Schema.String.pipe(Schema.brand('PhysicsBodyId'))
 export type PhysicsBodyId = Schema.Schema.Type<typeof PhysicsBodyIdSchema>
+export const PhysicsBodyId = {
+  make: (s: string): PhysicsBodyId => s as PhysicsBodyId,
+}
 
 export const ChunkIdSchema = Schema.String.pipe(Schema.brand('ChunkId'))
 export type ChunkId = Schema.Schema.Type<typeof ChunkIdSchema>
+export const ChunkId = {
+  make: (s: string): ChunkId => s as ChunkId,
+}
 
 export const SlotIndexSchema = Schema.Number.pipe(
   Schema.int(),
@@ -44,27 +59,6 @@ export type BlockIndex = Schema.Schema.Type<typeof BlockIndexSchema>
 export const BlockIndex = {
   make: (n: number): BlockIndex => Schema.decodeUnknownSync(BlockIndexSchema)(n),
 }
-
-export const BlockXSchema = Schema.Number.pipe(
-  Schema.int(),
-  Schema.nonNegative(),
-  Schema.brand('BlockX')
-)
-export type BlockX = Schema.Schema.Type<typeof BlockXSchema>
-
-export const BlockYSchema = Schema.Number.pipe(
-  Schema.int(),
-  Schema.nonNegative(),
-  Schema.brand('BlockY')
-)
-export type BlockY = Schema.Schema.Type<typeof BlockYSchema>
-
-export const BlockZSchema = Schema.Number.pipe(
-  Schema.int(),
-  Schema.nonNegative(),
-  Schema.brand('BlockZ')
-)
-export type BlockZ = Schema.Schema.Type<typeof BlockZSchema>
 
 export const PositionSchema = Schema.Struct({
   x: Schema.Number.pipe(Schema.finite()),

@@ -1,13 +1,14 @@
 import { Effect } from 'effect'
 import * as THREE from 'three'
 import { PlayerInputService } from '@/application/input/player-input-service'
-import { PlayerCameraState } from '../../domain/player-camera'
+import { PlayerCameraStateService } from '@/application/camera/camera-state'
 
 /**
- * Mouse sensitivity for camera rotation
- * Higher values = faster camera movement
+ * Base sensitivity constant — multiplied by the mouseSensitivity setting.
+ * At the default setting of 0.5: 0.5 * 0.004 = 0.002 rad/px (was the previous hardcoded value).
+ * At setting 1.0: 0.004 rad/px. At max 3.0: 0.012 rad/px.
  */
-export const DEFAULT_MOUSE_SENSITIVITY = 0.002
+export const BASE_MOUSE_SENSITIVITY = 0.004
 
 /**
  * First-person camera service class
@@ -21,14 +22,14 @@ export class FirstPersonCameraService extends Effect.Service<FirstPersonCameraSe
   {
     effect: Effect.gen(function* () {
       const inputService = yield* PlayerInputService
-      const cameraState = yield* PlayerCameraState
+      const cameraState = yield* PlayerCameraStateService
 
       return {
         /**
          * Update camera rotation based on mouse movement
          * Only updates when pointer is locked (captured by the game)
          */
-        update: (camera: THREE.PerspectiveCamera): Effect.Effect<void, never> =>
+        update: (camera: THREE.PerspectiveCamera, sensitivity = 0.5): Effect.Effect<void, never> =>
           Effect.gen(function* () {
             // Only update if pointer is locked
             const isLocked = yield* inputService.isPointerLocked()
@@ -40,10 +41,11 @@ export class FirstPersonCameraService extends Effect.Service<FirstPersonCameraSe
             // Skip if no movement
             if (delta.x === 0 && delta.y === 0) return
 
-            // Convert to radians with sensitivity
+            // Convert to radians: BASE_MOUSE_SENSITIVITY * sensitivity setting (0.1–3.0)
             // Negative for intuitive rotation (mouse right = look right)
-            const yawDelta = -delta.x * DEFAULT_MOUSE_SENSITIVITY
-            const pitchDelta = -delta.y * DEFAULT_MOUSE_SENSITIVITY
+            const radPerPx = BASE_MOUSE_SENSITIVITY * sensitivity
+            const yawDelta = -delta.x * radPerPx
+            const pitchDelta = -delta.y * radPerPx
 
             // Update camera state (pitch is automatically clamped)
             yield* cameraState.addYaw(yawDelta)

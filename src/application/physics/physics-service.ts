@@ -1,9 +1,9 @@
 import { Effect, Ref, Stream, PubSub, Data, Schema } from 'effect'
 import * as CANNON from 'cannon-es'
-import { PhysicsBodyId, PhysicsBodyIdSchema, Position, PositionSchema } from '@/shared/kernel'
+import { PhysicsBodyId, PhysicsBodyIdSchema, Position, PositionSchema, DeltaTimeSecs } from '@/shared/kernel'
 import { Vector3Schema, type Vector3 } from '@/shared/math/three'
-import { RigidBodyService } from '@/infrastructure/cannon/boundary/body-service'
-import { PhysicsWorldService } from '@/infrastructure/cannon/boundary/world-service'
+import { RigidBodyService } from '@/infrastructure/cannon/boundary/rigid-body-service'
+import { PhysicsWorldService } from '@/infrastructure/cannon/boundary/physics-world-service'
 import { ShapeService } from '@/infrastructure/cannon/boundary/shape-service'
 
 /**
@@ -191,9 +191,9 @@ export class PhysicsService extends Effect.Service<PhysicsService>()(
 
                 // Register collision listener for ground detection (stored for cleanup in removeBody)
                 const collideHandler = (event: unknown) => {
-                  const e = event as { contact: CANNON.ContactEquation }
+                  if (typeof event !== 'object' || event === null || !('contact' in event)) return
                   const contactNormal = new CANNON.Vec3()
-                  const contact = e.contact
+                  const contact = (event as { contact: CANNON.ContactEquation }).contact
                   if (contact.bi.id === body.id) {
                     contact.ni.negate(contactNormal)
                   } else {
@@ -237,10 +237,23 @@ export class PhysicsService extends Effect.Service<PhysicsService>()(
             )
           ),
 
-        step: (deltaTime: number): Effect.Effect<void, PhysicsServiceError> =>
+        step: (deltaTime: DeltaTimeSecs, options?: { readonly minY?: number }): Effect.Effect<void, PhysicsServiceError> =>
           getWorld.pipe(
             Effect.flatMap((world) =>
               physicsWorldService.step(world, deltaTime).pipe(
+                Effect.tap(() =>
+                  Effect.sync(() => {
+                    if (options?.minY !== undefined) {
+                      const minY = options.minY
+                      for (const body of bodyMap.values()) {
+                        if (body.type !== CANNON.Body.STATIC && body.position.y < minY) {
+                          body.position.y = minY
+                          if (body.velocity.y < 0) body.velocity.y = 0
+                        }
+                      }
+                    }
+                  })
+                ),
                 Effect.mapError((e) => new PhysicsServiceError({ operation: 'step', cause: e }))
               )
             )

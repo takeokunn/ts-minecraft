@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { Effect, Layer, Option } from 'effect'
 import { Block, BlockType } from '@/domain/block'
-import { BlockRegistry } from '@/domain/blockRegistry'
+import { BlockRegistry } from '@/domain/block-registry'
 import { PlayerInputService } from '@/application/input/player-input-service'
 import { InventoryServiceLive } from '@/application/inventory/inventory-service'
 import { HotbarService, HotbarServiceLive, HOTBAR_SIZE } from './hotbar-service'

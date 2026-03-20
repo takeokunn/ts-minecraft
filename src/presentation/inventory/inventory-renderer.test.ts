@@ -1,9 +1,9 @@
 import { describe, it, expect, vi } from 'vitest'
 import { Effect, Layer, Option } from 'effect'
-import { InventoryRenderer, InventoryRendererLive } from './inventory-renderer'
+import { InventoryRendererService, InventoryRendererLive } from './inventory-renderer'
 import { InventoryService, INVENTORY_SIZE, HOTBAR_START } from '@/application/inventory/inventory-service'
 import { HotbarService } from '@/application/hotbar/hotbar-service'
-import { DomOperations } from '@/presentation/hud/crosshair'
+import { DomOperationsService } from '@/presentation/hud/crosshair'
 import type { SlotIndex } from '@/shared/kernel'
 
 // ---------------------------------------------------------------------------
@@ -30,7 +30,7 @@ const createMockDomLayer = () => {
     return el
   })
 
-  const MockDomLayer = Layer.succeed(DomOperations, {
+  const MockDomLayer = Layer.succeed(DomOperationsService, {
     createElement,
     appendChild: vi.fn(),
     appendChildTo: vi.fn(),
@@ -38,7 +38,7 @@ const createMockDomLayer = () => {
     getParentNode: vi.fn(() => null),
     setInnerHTML: vi.fn(),
     querySelector: vi.fn(() => null),
-  } as unknown as DomOperations)
+  } as unknown as DomOperationsService)
 
   return { MockDomLayer, createElement }
 }
@@ -109,7 +109,7 @@ describe('presentation/inventory/inventory-renderer', () => {
     it('should provide InventoryRenderer with all required methods', () => {
       const TestLayer = buildTestLayer()
       const program = Effect.gen(function* () {
-        const renderer = yield* InventoryRenderer
+        const renderer = yield* InventoryRendererService
         expect(typeof renderer.initialize).toBe('function')
         expect(typeof renderer.toggle).toBe('function')
         expect(typeof renderer.isOpen).toBe('function')
@@ -126,7 +126,7 @@ describe('presentation/inventory/inventory-renderer', () => {
     it('should complete without error', () => {
       const TestLayer = buildTestLayer()
       const program = Effect.gen(function* () {
-        const renderer = yield* InventoryRenderer
+        const renderer = yield* InventoryRendererService
         yield* renderer.initialize()
         return { success: true }
       }).pipe(Effect.provide(TestLayer))
@@ -138,7 +138,7 @@ describe('presentation/inventory/inventory-renderer', () => {
     it('should be callable multiple times without error', () => {
       const TestLayer = buildTestLayer()
       const program = Effect.gen(function* () {
-        const renderer = yield* InventoryRenderer
+        const renderer = yield* InventoryRendererService
         yield* renderer.initialize()
         yield* renderer.initialize()
         yield* renderer.initialize()
@@ -154,7 +154,7 @@ describe('presentation/inventory/inventory-renderer', () => {
     it('should return false initially', () => {
       const TestLayer = buildTestLayer()
       const program = Effect.gen(function* () {
-        const renderer = yield* InventoryRenderer
+        const renderer = yield* InventoryRendererService
         return { open: yield* renderer.isOpen() }
       }).pipe(Effect.provide(TestLayer))
 
@@ -165,7 +165,7 @@ describe('presentation/inventory/inventory-renderer', () => {
     it('should return the same value on repeated calls before toggle', () => {
       const TestLayer = buildTestLayer()
       const program = Effect.gen(function* () {
-        const renderer = yield* InventoryRenderer
+        const renderer = yield* InventoryRendererService
         const a = yield* renderer.isOpen()
         const b = yield* renderer.isOpen()
         return { a, b }
@@ -181,7 +181,7 @@ describe('presentation/inventory/inventory-renderer', () => {
     it('should return true on first call', () => {
       const TestLayer = buildTestLayer()
       const program = Effect.gen(function* () {
-        const renderer = yield* InventoryRenderer
+        const renderer = yield* InventoryRendererService
         return { result: yield* renderer.toggle() }
       }).pipe(Effect.provide(TestLayer))
 
@@ -192,7 +192,7 @@ describe('presentation/inventory/inventory-renderer', () => {
     it('should return false on second call', () => {
       const TestLayer = buildTestLayer()
       const program = Effect.gen(function* () {
-        const renderer = yield* InventoryRenderer
+        const renderer = yield* InventoryRendererService
         yield* renderer.toggle()
         return { result: yield* renderer.toggle() }
       }).pipe(Effect.provide(TestLayer))
@@ -204,7 +204,7 @@ describe('presentation/inventory/inventory-renderer', () => {
     it('should update isOpen state', () => {
       const TestLayer = buildTestLayer()
       const program = Effect.gen(function* () {
-        const renderer = yield* InventoryRenderer
+        const renderer = yield* InventoryRendererService
         const before = yield* renderer.isOpen()
         yield* renderer.toggle()
         const after = yield* renderer.isOpen()
@@ -223,7 +223,7 @@ describe('presentation/inventory/inventory-renderer', () => {
       const TestLayer = buildTestLayer(mockDom, mockInventory, mockHotbar)
 
       const program = Effect.gen(function* () {
-        const renderer = yield* InventoryRenderer
+        const renderer = yield* InventoryRendererService
         yield* renderer.toggle() // open → triggers refreshSlots
         return { success: true }
       }).pipe(Effect.provide(TestLayer))
@@ -240,7 +240,7 @@ describe('presentation/inventory/inventory-renderer', () => {
       const TestLayer = buildTestLayer(mockDom, mockInventory, mockHotbar)
 
       const program = Effect.gen(function* () {
-        const renderer = yield* InventoryRenderer
+        const renderer = yield* InventoryRendererService
         yield* renderer.toggle() // open
         const callsAfterOpen = mockInventory.getAllSlots.mock.calls.length
         yield* renderer.toggle() // close — should NOT refresh
@@ -256,7 +256,7 @@ describe('presentation/inventory/inventory-renderer', () => {
     it('should complete without error when closed', () => {
       const TestLayer = buildTestLayer()
       const program = Effect.gen(function* () {
-        const renderer = yield* InventoryRenderer
+        const renderer = yield* InventoryRendererService
         yield* renderer.update() // closed — should be no-op
         return { success: true }
       }).pipe(Effect.provide(TestLayer))
@@ -272,7 +272,7 @@ describe('presentation/inventory/inventory-renderer', () => {
       const TestLayer = buildTestLayer(mockDom, mockInventory, mockHotbar)
 
       const program = Effect.gen(function* () {
-        const renderer = yield* InventoryRenderer
+        const renderer = yield* InventoryRendererService
         yield* renderer.update() // not open
         return { success: true }
       }).pipe(Effect.provide(TestLayer))
@@ -288,7 +288,7 @@ describe('presentation/inventory/inventory-renderer', () => {
       const TestLayer = buildTestLayer(mockDom, mockInventory, mockHotbar)
 
       const program = Effect.gen(function* () {
-        const renderer = yield* InventoryRenderer
+        const renderer = yield* InventoryRendererService
         yield* renderer.toggle() // open
         const callsAfterToggle = mockInventory.getAllSlots.mock.calls.length
         yield* renderer.update() // should refresh again
@@ -302,7 +302,7 @@ describe('presentation/inventory/inventory-renderer', () => {
     it('should be callable multiple times without error', () => {
       const TestLayer = buildTestLayer()
       const program = Effect.gen(function* () {
-        const renderer = yield* InventoryRenderer
+        const renderer = yield* InventoryRendererService
         yield* renderer.update()
         yield* renderer.update()
         yield* renderer.update()
@@ -318,7 +318,7 @@ describe('presentation/inventory/inventory-renderer', () => {
     it('should support toggle.flatMap(isOpen)', () => {
       const TestLayer = buildTestLayer()
       const program = Effect.gen(function* () {
-        const renderer = yield* InventoryRenderer
+        const renderer = yield* InventoryRendererService
         const isOpen = yield* renderer.toggle().pipe(
           Effect.flatMap(() => renderer.isOpen())
         )
@@ -332,7 +332,7 @@ describe('presentation/inventory/inventory-renderer', () => {
     it('should support full lifecycle: initialize → toggle → update → toggle', () => {
       const TestLayer = buildTestLayer()
       const program = Effect.gen(function* () {
-        const renderer = yield* InventoryRenderer
+        const renderer = yield* InventoryRendererService
         yield* renderer.initialize()
         const openResult = yield* renderer.toggle()
         yield* renderer.update()

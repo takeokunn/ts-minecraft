@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { Effect } from 'effect'
 import { TimeService, TimeServiceLive } from '@/application/time/time-service'
+import { DeltaTimeSecs } from '@/shared/kernel'
 
 /**
  * TimeService has no external dependencies, so we use TimeService.Default (= TimeServiceLive)
@@ -118,7 +119,7 @@ describe('application/time/time-service', () => {
 
         const before = yield* service.getTimeOfDay()
         // Advance by 1/60 seconds (one frame at 60fps = 1 tick)
-        yield* service.advanceTick(1 / 60)
+        yield* service.advanceTick(DeltaTimeSecs.make(1 / 60))
         const after = yield* service.getTimeOfDay()
 
         expect(after).toBeGreaterThan(before)
@@ -137,7 +138,7 @@ describe('application/time/time-service', () => {
         const service = yield* TimeService
         yield* service.setDayLength(120)
         yield* service.setTimeOfDay(0)
-        yield* service.advanceTick(1.0)  // 1 second = 60 ticks
+        yield* service.advanceTick(DeltaTimeSecs.make(1.0))  // 1 second = 60 ticks
         const timeOfDay = yield* service.getTimeOfDay()
         expect(timeOfDay).toBeCloseTo(60 / 7200, 5)
         return { success: true }
@@ -155,7 +156,7 @@ describe('application/time/time-service', () => {
 
         // Advance 5 times by 1s each = total 5s = 300 ticks
         for (let i = 0; i < 5; i++) {
-          yield* service.advanceTick(1.0)
+          yield* service.advanceTick(DeltaTimeSecs.make(1.0))
         }
 
         const timeOfDay = yield* service.getTimeOfDay()
@@ -281,7 +282,7 @@ describe('application/time/time-service', () => {
         yield* service.setTimeOfDay(0.9)   // ticks = 0.9 * 7200 = 6480
         // Advance by 1200 ticks (20 seconds * 60fps) → total ticks = 6480 + 1200 = 7680
         // timeOfDay = 7680 % 7200 / 7200 = 480/7200 ≈ 0.0667
-        yield* service.advanceTick(20.0)
+        yield* service.advanceTick(DeltaTimeSecs.make(20.0))
         const timeOfDay = yield* service.getTimeOfDay()
         expect(timeOfDay).toBeLessThan(0.2)
         expect(timeOfDay).toBeGreaterThanOrEqual(0)
@@ -298,7 +299,7 @@ describe('application/time/time-service', () => {
         yield* service.setDayLength(120)   // dayLengthTicks = 7200
         yield* service.setTimeOfDay(0)
         // Advance exactly one full day + a quarter = 120s + 30s = 150s → 9000 ticks
-        yield* service.advanceTick(150.0)
+        yield* service.advanceTick(DeltaTimeSecs.make(150.0))
         const timeOfDay = yield* service.getTimeOfDay()
         // 9000 % 7200 = 1800; 1800/7200 = 0.25
         expect(timeOfDay).toBeCloseTo(0.25, 4)
@@ -371,7 +372,7 @@ describe('application/time/time-service', () => {
         yield* service.setDayLength(50)   // clamped to 120s → 7200 ticks
         yield* service.setTimeOfDay(0.5)  // ticks = 3600
         // Advance another half day
-        yield* service.advanceTick(60)    // 60s * 60fps = 3600 ticks → total = 7200
+        yield* service.advanceTick(DeltaTimeSecs.make(60))    // 60s * 60fps = 3600 ticks → total = 7200
         const timeOfDay = yield* service.getTimeOfDay()
         expect(timeOfDay).toBeCloseTo(0, 4)
         return { success: true }
@@ -431,7 +432,7 @@ describe('application/time/time-service', () => {
         expect(beforeNight).toBe(false)
 
         // Advance 0.03 of a day = 0.03 * 7200 / 60 = 3.6 seconds
-        yield* service.advanceTick(3.6)
+        yield* service.advanceTick(DeltaTimeSecs.make(3.6))
         const afterNight = yield* service.isNight()
         expect(afterNight).toBe(true)
         return { success: true }
@@ -451,7 +452,7 @@ describe('application/time/time-service', () => {
         expect(beforeDay).toBe(true)
 
         // Advance 0.03 of a day = 0.03 * 7200 / 60 = 3.6 seconds
-        yield* service.advanceTick(3.6)
+        yield* service.advanceTick(DeltaTimeSecs.make(3.6))
         const afterDay = yield* service.isNight()
         expect(afterDay).toBe(false)
         return { success: true }
@@ -472,7 +473,7 @@ describe('application/time/time-service', () => {
 
         // Advance 0.15 of a day = 0.15 * 120 = 18 seconds
         // timeOfDay = (0.95 + 0.15) mod 1.0 = 0.10 — still night
-        yield* service.advanceTick(18)
+        yield* service.advanceTick(DeltaTimeSecs.make(18))
         const afterWrap = yield* service.isNight()
         expect(afterWrap).toBe(true)
         return { success: true }
@@ -494,7 +495,7 @@ describe('application/time/time-service', () => {
         // Advance 60 seconds = 3600 ticks
         // dayLengthTicks = 600 * 60 = 36000
         // timeOfDay = (0.5 * 36000 + 3600) % 36000 / 36000 = 21600/36000 = 0.6
-        yield* service.advanceTick(60)
+        yield* service.advanceTick(DeltaTimeSecs.make(60))
         const timeOfDay = yield* service.getTimeOfDay()
         expect(timeOfDay).toBeCloseTo(0.6, 4)
         return { success: true }
@@ -511,7 +512,7 @@ describe('application/time/time-service', () => {
         const service = yield* TimeService
         yield* service.setDayLength(120)
         yield* service.setTimeOfDay(0.3)
-        yield* service.advanceTick(0)
+        yield* service.advanceTick(DeltaTimeSecs.make(Number.MIN_VALUE))
         const timeOfDay = yield* service.getTimeOfDay()
         expect(timeOfDay).toBeCloseTo(0.3, 5)
         return { success: true }

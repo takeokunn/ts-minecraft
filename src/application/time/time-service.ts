@@ -1,4 +1,5 @@
 import { Effect, Ref, Schema } from 'effect'
+import { DeltaTimeSecs } from '@/shared/kernel'
 
 /**
  * State for the time system
@@ -31,7 +32,7 @@ export class TimeService extends Effect.Service<TimeService>()(
       })
 
       return {
-        advanceTick: (deltaTime: number): Effect.Effect<void, never> =>
+        advanceTick: (deltaTime: DeltaTimeSecs): Effect.Effect<void, never> =>
           Ref.update(stateRef, (state) => ({
             ...state,
             ticks: state.ticks + deltaTime * 60,

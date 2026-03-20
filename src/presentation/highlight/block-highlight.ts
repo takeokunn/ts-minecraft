@@ -1,6 +1,6 @@
 import { Effect, Option, Ref, Schema } from 'effect'
 import * as THREE from 'three'
-import { RaycastHit, RaycastingService } from '../../application/raycasting/raycasting-service'
+import { RaycastHit, RaycastingService } from '@/application/raycasting/raycasting-service'
 
 /**
  * Schema for block target coordinates (integer block positions)
@@ -42,18 +42,18 @@ export const createWireframeCube = (color: number = DEFAULT_HIGHLIGHT_COLOR): TH
  * - Control visibility of the highlight
  * - Get current target block coordinates
  */
-export class BlockHighlight extends Effect.Service<BlockHighlight>()(
+export class BlockHighlightService extends Effect.Service<BlockHighlightService>()(
   '@minecraft/layer/BlockHighlight',
   {
     effect: Effect.gen(function* () {
       const raycastingService = yield* RaycastingService
 
       // Wireframe cube mesh for highlighting
-      const highlightMeshRef = yield* Ref.make<THREE.LineSegments | null>(null)
+      const highlightMeshRef = yield* Ref.make<Option.Option<THREE.LineSegments>>(Option.none())
       // Current target block coordinates
-      const currentTargetRef = yield* Ref.make<BlockTarget | null>(null)
+      const currentTargetRef = yield* Ref.make<Option.Option<BlockTarget>>(Option.none())
       // Full raycast hit for current target (includes surface normal for placement)
-      const currentHitRef = yield* Ref.make<RaycastHit | null>(null)
+      const currentHitRef = yield* Ref.make<Option.Option<RaycastHit>>(Option.none())
 
       return {
         /**
@@ -65,7 +65,7 @@ export class BlockHighlight extends Effect.Service<BlockHighlight>()(
             const mesh = createWireframeCube()
             mesh.visible = false
             scene.add(mesh)
-            yield* Ref.set(highlightMeshRef, mesh)
+            yield* Ref.set(highlightMeshRef, Option.some(mesh))
           }),
 
         /**
@@ -75,8 +75,9 @@ export class BlockHighlight extends Effect.Service<BlockHighlight>()(
          */
         update: (camera: THREE.Camera, scene: THREE.Scene): Effect.Effect<void, never> =>
           Effect.gen(function* () {
-            const highlightMesh = yield* Ref.get(highlightMeshRef)
-            if (!highlightMesh) return
+            const highlightMeshOpt = yield* Ref.get(highlightMeshRef)
+            if (Option.isNone(highlightMeshOpt)) return
+            const highlightMesh = highlightMeshOpt.value
 
             const hitOption = yield* raycastingService.raycastFromCamera(camera, scene)
 
@@ -89,12 +90,12 @@ export class BlockHighlight extends Effect.Service<BlockHighlight>()(
                 hit.blockZ + 0.5
               )
               highlightMesh.visible = true
-              yield* Ref.set(currentTargetRef, { x: hit.blockX, y: hit.blockY, z: hit.blockZ })
-              yield* Ref.set(currentHitRef, hit)
+              yield* Ref.set(currentTargetRef, Option.some({ x: hit.blockX, y: hit.blockY, z: hit.blockZ }))
+              yield* Ref.set(currentHitRef, Option.some(hit))
             } else {
               highlightMesh.visible = false
-              yield* Ref.set(currentTargetRef, null)
-              yield* Ref.set(currentHitRef, null)
+              yield* Ref.set(currentTargetRef, Option.none())
+              yield* Ref.set(currentHitRef, Option.none())
             }
           }),
 
@@ -104,9 +105,9 @@ export class BlockHighlight extends Effect.Service<BlockHighlight>()(
          */
         setVisible: (visible: boolean): Effect.Effect<void, never> =>
           Effect.gen(function* () {
-            const highlightMesh = yield* Ref.get(highlightMeshRef)
-            if (highlightMesh) {
-              highlightMesh.visible = visible
+            const highlightMeshOpt = yield* Ref.get(highlightMeshRef)
+            if (Option.isSome(highlightMeshOpt)) {
+              highlightMeshOpt.value.visible = visible
             }
           }),
 
@@ -115,7 +116,7 @@ export class BlockHighlight extends Effect.Service<BlockHighlight>()(
          * @returns The block coordinates or null if no block is targeted
          */
         getTargetBlock: (): Effect.Effect<BlockTarget | null, never> =>
-          Ref.get(currentTargetRef),
+          Ref.get(currentTargetRef).pipe(Effect.map(Option.getOrNull)),
 
         /**
          * Get the full raycast hit for the current target, including surface normal
@@ -123,9 +124,9 @@ export class BlockHighlight extends Effect.Service<BlockHighlight>()(
          * @returns The full RaycastHit or null if no block is targeted
          */
         getTargetHit: (): Effect.Effect<RaycastHit | null, never> =>
-          Ref.get(currentHitRef),
+          Ref.get(currentHitRef).pipe(Effect.map(Option.getOrNull)),
       }
     }),
   }
 ) {}
-export const BlockHighlightLive = BlockHighlight.Default
+export const BlockHighlightLive = BlockHighlightService.Default

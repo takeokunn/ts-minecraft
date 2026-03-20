@@ -1,4 +1,6 @@
 import { Effect, Schema } from 'effect'
+import { Vector3Schema } from '@/shared/math/three'
+import type { Vector3 } from '@/shared/math/three'
 import { PlayerInputService } from '@/application/input/player-input-service'
 import { KeyMappings } from '@/application/input/key-mappings'
 
@@ -16,20 +18,16 @@ export const MovementInputSchema = Schema.Struct({
 export type MovementInput = Schema.Schema.Type<typeof MovementInputSchema>
 
 /**
- * Velocity vector for player movement
+ * Velocity vector for player movement (alias for Vector3Schema)
  */
-export const VelocitySchema = Schema.Struct({
-  x: Schema.Number,
-  y: Schema.Number,
-  z: Schema.Number,
-})
-export type Velocity = Schema.Schema.Type<typeof VelocitySchema>
+export const VelocitySchema = Vector3Schema
+export type Velocity = Vector3
 
 /**
  * Movement speed constants (in meters per second)
  */
-export const DEFAULT_WALK_SPEED = 4.0 // m/s
-export const DEFAULT_SPRINT_SPEED = 7.0 // m/s
+export const DEFAULT_WALK_SPEED = 8.0 // m/s
+export const DEFAULT_SPRINT_SPEED = 14.0 // m/s
 export const DEFAULT_JUMP_VELOCITY = 5.0 // m/s
 
 /**

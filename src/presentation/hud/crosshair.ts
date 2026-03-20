@@ -1,7 +1,7 @@
 import { Effect, Ref } from 'effect'
 
 // DOM abstraction for testability
-export class DomOperations extends Effect.Service<DomOperations>()(
+export class DomOperationsService extends Effect.Service<DomOperationsService>()(
   '@minecraft/layer/DomOperations',
   {
     effect: Effect.sync(() => ({
@@ -21,12 +21,11 @@ export class DomOperations extends Effect.Service<DomOperations>()(
     }))
   }
 ) {}
-
-export class Crosshair extends Effect.Service<Crosshair>()(
+export class CrosshairService extends Effect.Service<CrosshairService>()(
   '@minecraft/layer/Crosshair',
   {
     effect: Effect.gen(function* () {
-      const dom = yield* DomOperations
+      const dom = yield* DomOperationsService
 
       // Create crosshair element
       const element = dom.createElement('div') as HTMLDivElement
@@ -105,5 +104,5 @@ export class Crosshair extends Effect.Service<Crosshair>()(
     }),
   }
 ) {}
-export const CrosshairLive = Crosshair.Default
-export const DomOperationsLive = DomOperations.Default
+export const CrosshairLive = CrosshairService.Default
+export const DomOperationsLive = DomOperationsService.Default

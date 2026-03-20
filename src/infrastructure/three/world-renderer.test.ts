@@ -62,11 +62,11 @@ vi.mock('three', () => ({
   Frustum: vi.fn(() => ({ setFromProjectionMatrix: vi.fn(), intersectsBox: vi.fn(() => true) })),
   Box3: vi.fn(() => ({ set: vi.fn() })),
   Vector3: vi.fn(() => ({ set: vi.fn(), x: 0, y: 0, z: 0 })),
-  Matrix4: vi.fn(() => ({ multiplyMatrices: vi.fn(), elements: new Array(16).fill(0) })),
+  Matrix4: vi.fn(() => ({ multiplyMatrices: vi.fn(), elements: Array.from({ length: 16 }, () => 0) })),
   PerspectiveCamera: vi.fn(() => ({
     updateMatrixWorld: vi.fn(),
-    projectionMatrix: { elements: new Array(16).fill(0) },
-    matrixWorldInverse: { elements: new Array(16).fill(0) },
+    projectionMatrix: { elements: Array.from({ length: 16 }, () => 0) },
+    matrixWorldInverse: { elements: Array.from({ length: 16 }, () => 0) },
   })),
   MeshStandardMaterial: vi.fn(() => ({ map: null })),
   CanvasTexture: vi.fn(() => ({ magFilter: 0, minFilter: 0, wrapS: 0, wrapT: 0 })),
@@ -241,6 +241,90 @@ describe('infrastructure/three/world-renderer', () => {
         return { success: true }
       }).pipe(Effect.provide(TestLayer), Effect.runPromise)
       expect(result.success).toBe(true)
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // D8: Block placement → worldRenderer mesh rebuild test
+  // ---------------------------------------------------------------------------
+
+  describe('updateChunkInScene', () => {
+    it('updateChunkInScene on a known chunk does not call scene.add again', async () => {
+      // Observable invariant: if the chunk is already in the scene, updateChunkInScene
+      // should update the mesh in-place and NOT call scene.add a second time.
+      const TestLayer = buildTestLayer()
+      const scene = makeScene()
+      const chunk = makeChunk(2, 3)
+
+      const result = await Effect.gen(function* () {
+        const s = yield* WorldRendererService
+
+        // First: sync puts the chunk in the scene (1 scene.add call)
+        yield* s.syncChunksToScene([chunk], scene)
+        const addCountAfterSync = (scene.add as ReturnType<typeof vi.fn>).mock.calls.length
+
+        // Modify the chunk blocks to simulate a block placement
+        chunk.blocks[0] = 1 // GRASS
+
+        // Update: must NOT add a second mesh to the scene
+        yield* s.updateChunkInScene(chunk, scene)
+        const addCountAfterUpdate = (scene.add as ReturnType<typeof vi.fn>).mock.calls.length
+
+        return { addCountAfterSync, addCountAfterUpdate }
+      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
+
+      expect(result.addCountAfterSync).toBe(1)
+      expect(result.addCountAfterUpdate).toBe(1) // no extra scene.add on in-place update
+    })
+
+    it('updateChunkInScene on an unknown chunk adds it to the scene once', async () => {
+      // If the chunk has NOT been synced yet, updateChunkInScene must create
+      // a new mesh and add it to the scene (exactly one scene.add call).
+      const TestLayer = buildTestLayer()
+      const scene = makeScene()
+      const chunk = makeChunk(7, 9)
+
+      const result = await Effect.gen(function* () {
+        const s = yield* WorldRendererService
+
+        // Call updateChunkInScene WITHOUT prior syncChunksToScene
+        yield* s.updateChunkInScene(chunk, scene)
+
+        return {
+          sceneAddCallCount: (scene.add as ReturnType<typeof vi.fn>).mock.calls.length,
+        }
+      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
+
+      // The new mesh must be added to the scene exactly once
+      expect(result.sceneAddCallCount).toBe(1)
+    })
+
+    it('does not call scene.add again when updating an already-tracked chunk mesh', async () => {
+      const createChunkMesh = vi.fn((chunk: Chunk) =>
+        Effect.succeed(makeMockMesh(chunk.coord) as unknown as THREE.Mesh)
+      )
+      const TestLayer = buildTestLayer(createChunkMesh)
+
+      const scene = makeScene()
+      const chunk = makeChunk(4, 4)
+
+      const result = await Effect.gen(function* () {
+        const s = yield* WorldRendererService
+
+        // First sync adds the chunk mesh (one scene.add call)
+        yield* s.syncChunksToScene([chunk], scene)
+        const addCountAfterSync = (scene.add as ReturnType<typeof vi.fn>).mock.calls.length
+
+        // Modify block and call update — should NOT call scene.add again
+        chunk.blocks[0] = 2
+        yield* s.updateChunkInScene(chunk, scene)
+        const addCountAfterUpdate = (scene.add as ReturnType<typeof vi.fn>).mock.calls.length
+
+        return { addCountAfterSync, addCountAfterUpdate }
+      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
+
+      expect(result.addCountAfterSync).toBe(1)
+      expect(result.addCountAfterUpdate).toBe(1) // no extra scene.add on update
     })
   })
 })

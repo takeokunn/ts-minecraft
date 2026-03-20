@@ -124,18 +124,6 @@ export class ChunkError extends Data.TaggedError('ChunkError')<{
 }
 
 /**
- * Error type for physics operations
- */
-export class PhysicsError extends Data.TaggedError('PhysicsError')<{
-  readonly contextData: string
-  readonly reason: string
-}> {
-  override get message(): string {
-    return `Physics error for '${this.contextData}': ${this.reason}`
-  }
-}
-
-/**
  * Error type for settings operations
  */
 export class SettingsError extends Data.TaggedError('SettingsError')<{

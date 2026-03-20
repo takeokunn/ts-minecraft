@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
+import * as fc from 'fast-check'
 import { Effect, Layer } from 'effect'
 import { PlayerInputService } from '@/application/input/player-input-service'
-import type { InputService as InputServiceType } from '../../presentation/input/input-service'
+import type { InputServicePort as InputServiceType } from '@/application/input'
 import {
   MovementService,
   MovementServiceLive,
@@ -63,12 +64,12 @@ const createTestLayers = (inputService: InputServiceType) =>
 
 describe('MovementService', () => {
   describe('constants', () => {
-    it('should have default walk speed of 4.0 m/s', () => {
-      expect(DEFAULT_WALK_SPEED).toBe(4.0)
+    it('should have default walk speed of 8.0 m/s', () => {
+      expect(DEFAULT_WALK_SPEED).toBe(8.0)
     })
 
-    it('should have default sprint speed of 7.0 m/s', () => {
-      expect(DEFAULT_SPRINT_SPEED).toBe(7.0)
+    it('should have default sprint speed of 14.0 m/s', () => {
+      expect(DEFAULT_SPRINT_SPEED).toBe(14.0)
     })
 
     it('should have default jump velocity of 5.0 m/s', () => {
@@ -824,6 +825,103 @@ describe('MovementService', () => {
     })
   })
 
+  // ---------------------------------------------------------------------------
+  // B7: Sprint distance > walk distance for same duration
+  // ---------------------------------------------------------------------------
+
+  describe('sprint vs walk distance comparison', () => {
+    it('sprint distance is greater than walk distance for the same number of frames', () => {
+      const FRAMES = 60
+      const yaw = 0 // facing negative-Z
+
+      // Walk: forward=true, sprint=false
+      const walkInputService = createTestInputService({ forward: true, sprint: false })
+      const walkLayers = createTestLayers(walkInputService)
+
+      const walkProgram = Effect.gen(function* () {
+        const movementService = yield* MovementService
+        let totalX = 0
+        let totalZ = 0
+        for (let i = 0; i < FRAMES; i++) {
+          const vel = yield* movementService.calculateVelocity(
+            { forward: true, backward: false, left: false, right: false, jump: false, sprint: false },
+            yaw,
+            true
+          )
+          totalX += vel.x
+          totalZ += vel.z
+        }
+        return Math.sqrt(totalX * totalX + totalZ * totalZ)
+      })
+
+      // Sprint: forward=true, sprint=true
+      const sprintProgram = Effect.gen(function* () {
+        const movementService = yield* MovementService
+        let totalX = 0
+        let totalZ = 0
+        for (let i = 0; i < FRAMES; i++) {
+          const vel = yield* movementService.calculateVelocity(
+            { forward: true, backward: false, left: false, right: false, jump: false, sprint: true },
+            yaw,
+            true
+          )
+          totalX += vel.x
+          totalZ += vel.z
+        }
+        return Math.sqrt(totalX * totalX + totalZ * totalZ)
+      })
+
+      const walkDist = Effect.runSync(
+        walkProgram.pipe(Effect.provide(MovementServiceLive), Effect.provide(walkLayers))
+      )
+      const sprintDist = Effect.runSync(
+        sprintProgram.pipe(Effect.provide(MovementServiceLive), Effect.provide(createTestLayers(walkInputService)))
+      )
+
+      expect(sprintDist).toBeGreaterThan(walkDist)
+    })
+
+    it('sprint displacement per frame equals DEFAULT_SPRINT_SPEED (no diagonal)', () => {
+      const walkInputService = createTestInputService()
+      const testLayers = createTestLayers(walkInputService)
+
+      const program = Effect.gen(function* () {
+        const movementService = yield* MovementService
+        const vel = yield* movementService.calculateVelocity(
+          { forward: true, backward: false, left: false, right: false, jump: false, sprint: true },
+          0,
+          true
+        )
+        return Math.sqrt(vel.x * vel.x + vel.z * vel.z)
+      })
+
+      const speed = Effect.runSync(
+        program.pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
+      )
+      expect(speed).toBeCloseTo(DEFAULT_SPRINT_SPEED)
+    })
+
+    it('walk displacement per frame equals DEFAULT_WALK_SPEED (no diagonal)', () => {
+      const walkInputService = createTestInputService()
+      const testLayers = createTestLayers(walkInputService)
+
+      const program = Effect.gen(function* () {
+        const movementService = yield* MovementService
+        const vel = yield* movementService.calculateVelocity(
+          { forward: true, backward: false, left: false, right: false, jump: false, sprint: false },
+          0,
+          true
+        )
+        return Math.sqrt(vel.x * vel.x + vel.z * vel.z)
+      })
+
+      const speed = Effect.runSync(
+        program.pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
+      )
+      expect(speed).toBeCloseTo(DEFAULT_WALK_SPEED)
+    })
+  })
+
   describe('integration scenarios', () => {
     it('should handle typical gameplay movement sequence', () => {
       let pressedKeys = new Map<string, boolean>([
@@ -959,6 +1057,102 @@ describe('MovementService', () => {
       // All horizontal keys cancel out
       expect(velocity.x).toBe(0)
       expect(velocity.z).toBe(0)
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // D6: Property-based test — velocity magnitude never exceeds sprint speed
+  // ---------------------------------------------------------------------------
+
+  describe('velocity magnitude invariant (property test)', () => {
+    it('|velocity| ≤ sprintSpeed for any combination of movement inputs and yaw angle', () => {
+      const inputService = createTestInputService()
+      const testLayers = createTestLayers(inputService)
+
+      fc.assert(
+        fc.property(
+          fc.float({ min: 0, max: Math.fround(Math.PI * 2), noNaN: true }), // yaw
+          fc.boolean(), // forward
+          fc.boolean(), // backward
+          fc.boolean(), // left
+          fc.boolean(), // right
+          fc.boolean(), // sprint
+          fc.boolean(), // isGrounded
+          (yaw, forward, backward, left, right, sprint, isGrounded) => {
+            const input: MovementInput = { forward, backward, left, right, jump: false, sprint }
+
+            const velocity = Effect.runSync(
+              Effect.gen(function* () {
+                const movementService = yield* MovementService
+                return yield* movementService.calculateVelocity(input, yaw, isGrounded)
+              }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
+            )
+
+            const magnitude = Math.sqrt(velocity.x ** 2 + velocity.z ** 2)
+            // Horizontal magnitude must never exceed sprint speed (+ small epsilon for float precision)
+            return magnitude <= DEFAULT_SPRINT_SPEED + 0.001
+          }
+        )
+      )
+    })
+
+    it('|velocity| ≤ walkSpeed when sprint is false, for any inputs and yaw', () => {
+      const inputService = createTestInputService()
+      const testLayers = createTestLayers(inputService)
+
+      fc.assert(
+        fc.property(
+          fc.float({ min: 0, max: Math.fround(Math.PI * 2), noNaN: true }),
+          fc.boolean(),
+          fc.boolean(),
+          fc.boolean(),
+          fc.boolean(),
+          fc.boolean(), // isGrounded
+          (yaw, forward, backward, left, right, isGrounded) => {
+            const input: MovementInput = { forward, backward, left, right, jump: false, sprint: false }
+
+            const velocity = Effect.runSync(
+              Effect.gen(function* () {
+                const movementService = yield* MovementService
+                return yield* movementService.calculateVelocity(input, yaw, isGrounded)
+              }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
+            )
+
+            const magnitude = Math.sqrt(velocity.x ** 2 + velocity.z ** 2)
+            return magnitude <= DEFAULT_WALK_SPEED + 0.001
+          }
+        )
+      )
+    })
+
+    it('velocity.y is always either 0 or DEFAULT_JUMP_VELOCITY (no other values)', () => {
+      const inputService = createTestInputService()
+      const testLayers = createTestLayers(inputService)
+
+      fc.assert(
+        fc.property(
+          fc.float({ min: 0, max: Math.fround(Math.PI * 2), noNaN: true }),
+          fc.boolean(),
+          fc.boolean(),
+          fc.boolean(),
+          fc.boolean(),
+          fc.boolean(), // jump
+          fc.boolean(), // isGrounded
+          (yaw, forward, backward, left, right, jump, isGrounded) => {
+            const input: MovementInput = { forward, backward, left, right, jump, sprint: false }
+
+            const velocity = Effect.runSync(
+              Effect.gen(function* () {
+                const movementService = yield* MovementService
+                return yield* movementService.calculateVelocity(input, yaw, isGrounded)
+              }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
+            )
+
+            // Y velocity is always exactly 0 or DEFAULT_JUMP_VELOCITY
+            return velocity.y === 0 || velocity.y === DEFAULT_JUMP_VELOCITY
+          }
+        )
+      )
     })
   })
 })

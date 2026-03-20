@@ -26,17 +26,19 @@ import {
   blockIndex,
   ChunkCoord,
 } from '@/domain/chunk'
-import { PlayerService } from '@/domain/player'
-import { WorldIdSchema, Position, PlayerId } from '@/shared/kernel'
+import { PlayerService } from '@/application/player/player-state'
+import { Position, PlayerId } from '@/shared/kernel'
 import { PlayerError } from '@/domain/errors'
 import { ChunkManagerService, ChunkManagerServiceLive } from '@/application/chunk/chunk-manager-service'
-import { BlockService, BlockServiceLive, DEFAULT_PLAYER_ID_FOR_BLOCK } from '@/application/block/block-service'
+import { BlockService, BlockServiceLive } from '@/application/block/block-service'
+import { InventoryService } from '@/application/inventory/inventory-service'
+import { DEFAULT_WORLD_ID, DEFAULT_PLAYER_ID } from '@/application/constants'
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-const DEFAULT_WORLD_ID = WorldIdSchema.make('default')
+
 
 // ---------------------------------------------------------------------------
 // In-memory StorageService mock (no IndexedDB)
@@ -69,7 +71,7 @@ const makeInMemoryStorage = () => {
       }),
     deleteWorld: (worldId) =>
       Effect.sync(() => {
-        for (const key of [...chunks.keys()]) {
+        for (const key of chunks.keys()) {
           if (key.startsWith(`${worldId}:`)) chunks.delete(key)
         }
         metadata.delete(worldId)
@@ -88,7 +90,7 @@ const createMockPlayerService = (position: Position): PlayerService =>
     getPosition: (_id: PlayerId) => Effect.succeed(position),
     getVelocity: (_id: PlayerId) => Effect.succeed({ x: 0, y: 0, z: 0 }),
     getState: (_id: PlayerId) =>
-      Effect.fail(new PlayerError({ playerId: DEFAULT_PLAYER_ID_FOR_BLOCK, reason: 'not implemented' })),
+      Effect.fail(new PlayerError({ playerId: DEFAULT_PLAYER_ID, reason: 'not implemented' })),
   } as unknown as PlayerService)
 
 // ---------------------------------------------------------------------------
@@ -114,9 +116,17 @@ const buildIntegrationLayer = (playerPos: Position = { x: 100, y: 0, z: 100 }) =
 
   const PlayerTestLayer = Layer.succeed(PlayerService, createMockPlayerService(playerPos))
 
+  const MockInventoryLayer = Layer.succeed(InventoryService, {
+    addBlock: (_blockType: unknown, _count: unknown) => Effect.succeed(false),
+    getSlot: (_idx: unknown) => Effect.void,
+    setSlot: (_idx: unknown, _slot: unknown) => Effect.void,
+    moveStack: (_from: unknown, _to: unknown) => Effect.void,
+    getHotbarSlots: () => Effect.succeed([]),
+  } as unknown as InventoryService)
+
   const BlockTestLayer = BlockServiceLive.pipe(
     Layer.provide(
-      Layer.mergeAll(ChunkManagerTestLayer, PlayerTestLayer, ChunkServiceLive)
+      Layer.mergeAll(ChunkManagerTestLayer, PlayerTestLayer, ChunkServiceLive, MockInventoryLayer)
     )
   )
 

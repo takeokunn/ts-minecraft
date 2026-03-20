@@ -4,65 +4,66 @@ import { Effect } from 'effect'
 import { NoiseService } from './noise-service'
 
 // ---------------------------------------------------------------------------
-// Helper: obtain a live NoiseService instance for sync/plain-function tests
-// ---------------------------------------------------------------------------
-
-const makeNoiseService = () =>
-  Effect.runSync(
-    Effect.gen(function* () {
-      return yield* NoiseService
-    }).pipe(Effect.provide(NoiseService.Default))
-  )
-
-// ---------------------------------------------------------------------------
 // Group 1: noise2D value range
 // ---------------------------------------------------------------------------
 
 describe('infrastructure/noise/noise-service', () => {
   describe('noise2D — value range [0, 1]', () => {
-    it('should return a value in [0.0, 1.0] for origin (0, 0)', () => {
-      const service = makeNoiseService()
-      const val = Effect.runSync(service.noise2D(0, 0))
-      expect(val).toBeGreaterThanOrEqual(0)
-      expect(val).toBeLessThanOrEqual(1)
-    })
+    it.effect('should return a value in [0.0, 1.0] for origin (0, 0)', () =>
+      Effect.gen(function* () {
+        const service = yield* NoiseService
+        const val = yield* service.noise2D(0, 0)
+        expect(val).toBeGreaterThanOrEqual(0)
+        expect(val).toBeLessThanOrEqual(1)
+      }).pipe(Effect.provide(NoiseService.Default))
+    )
 
-    it('should return a value in [0.0, 1.0] for large positive coordinates (100, 200)', () => {
-      const service = makeNoiseService()
-      const val = Effect.runSync(service.noise2D(100, 200))
-      expect(val).toBeGreaterThanOrEqual(0)
-      expect(val).toBeLessThanOrEqual(1)
-    })
+    it.effect('should return a value in [0.0, 1.0] for large positive coordinates (100, 200)', () =>
+      Effect.gen(function* () {
+        const service = yield* NoiseService
+        const val = yield* service.noise2D(100, 200)
+        expect(val).toBeGreaterThanOrEqual(0)
+        expect(val).toBeLessThanOrEqual(1)
+      }).pipe(Effect.provide(NoiseService.Default))
+    )
 
-    it('should return a value in [0.0, 1.0] for negative coordinates (-50, -50)', () => {
-      const service = makeNoiseService()
-      const val = Effect.runSync(service.noise2D(-50, -50))
-      expect(val).toBeGreaterThanOrEqual(0)
-      expect(val).toBeLessThanOrEqual(1)
-    })
+    it.effect('should return a value in [0.0, 1.0] for negative coordinates (-50, -50)', () =>
+      Effect.gen(function* () {
+        const service = yield* NoiseService
+        const val = yield* service.noise2D(-50, -50)
+        expect(val).toBeGreaterThanOrEqual(0)
+        expect(val).toBeLessThanOrEqual(1)
+      }).pipe(Effect.provide(NoiseService.Default))
+    )
 
-    it('should return a value in [0.0, 1.0] for fractional coordinates (0.5, 0.75)', () => {
-      const service = makeNoiseService()
-      const val = Effect.runSync(service.noise2D(0.5, 0.75))
-      expect(val).toBeGreaterThanOrEqual(0)
-      expect(val).toBeLessThanOrEqual(1)
-    })
+    it.effect('should return a value in [0.0, 1.0] for fractional coordinates (0.5, 0.75)', () =>
+      Effect.gen(function* () {
+        const service = yield* NoiseService
+        const val = yield* service.noise2D(0.5, 0.75)
+        expect(val).toBeGreaterThanOrEqual(0)
+        expect(val).toBeLessThanOrEqual(1)
+      }).pipe(Effect.provide(NoiseService.Default))
+    )
 
-    it('should return the same value for the same coordinates called twice (deterministic within session)', () => {
-      const service = makeNoiseService()
-      const val1 = Effect.runSync(service.noise2D(7, 13))
-      const val2 = Effect.runSync(service.noise2D(7, 13))
-      expect(val1).toBe(val2)
-    })
+    it.effect('should return the same value for the same coordinates called twice (deterministic within session)', () =>
+      Effect.gen(function* () {
+        const service = yield* NoiseService
+        const val1 = yield* service.noise2D(7, 13)
+        const val2 = yield* service.noise2D(7, 13)
+        expect(val1).toBe(val2)
+      }).pipe(Effect.provide(NoiseService.Default))
+    )
 
-    it('should return different values for different coordinates in general', () => {
-      const service = makeNoiseService()
-      const val1 = Effect.runSync(service.noise2D(0, 0))
-      const val2 = Effect.runSync(service.noise2D(1, 0))
-      const val3 = Effect.runSync(service.noise2D(0, 1))
-      // It is astronomically unlikely that all three equal the same value
-      expect([val1, val2, val3].every((v) => v === val1)).toBe(false)
-    })
+    it.effect('should return different values for different coordinates in general', () =>
+      Effect.gen(function* () {
+        const service = yield* NoiseService
+        const val1 = yield* service.noise2D(0, 0)
+        const val2 = yield* service.noise2D(1, 0)
+        const val3 = yield* service.noise2D(0, 1)
+        // It is astronomically unlikely that all three equal the same value
+        expect([val1, val2, val3].every((v) => v === val1)).toBe(false)
+      }).pipe(Effect.provide(NoiseService.Default))
+    )
   })
 
   // ---------------------------------------------------------------------------
@@ -171,7 +172,7 @@ describe('infrastructure/noise/noise-service', () => {
         const service = yield* NoiseService
         yield* service.setSeed(42)
         // Typical biome-service call: octaveNoise2D(x * 0.005, z * 0.005, 4, 0.5, 2.0)
-        const val = yield* service.octaveNoise2D(0.0 * 0.005, 0.0 * 0.005, 4, 0.5, 2.0)
+        const val = yield* service.octaveNoise2D(0, 0, 4, 0.5, 2.0) // origin (0,0) scaled by 0.005 = 0
         expect(val).toBeGreaterThanOrEqual(0)
         expect(val).toBeLessThanOrEqual(1)
       }).pipe(Effect.provide(NoiseService.Default))
@@ -264,41 +265,43 @@ describe('infrastructure/noise/noise-service', () => {
   // ---------------------------------------------------------------------------
 
   describe('noise2D — spatial continuity', () => {
-    it('should produce smoothly varying values between nearby coordinates', () => {
-      const service = makeNoiseService()
-      const val0 = Effect.runSync(service.noise2D(10, 10))
-      const val1 = Effect.runSync(service.noise2D(10.01, 10))
-      // Nearby coordinates should produce close values (simplex noise is continuous)
-      expect(Math.abs(val1 - val0)).toBeLessThan(0.1)
-    })
+    it.effect('should produce smoothly varying values between nearby coordinates', () =>
+      Effect.gen(function* () {
+        const service = yield* NoiseService
+        const val0 = yield* service.noise2D(10, 10)
+        const val1 = yield* service.noise2D(10.01, 10)
+        // Nearby coordinates should produce close values (simplex noise is continuous)
+        expect(Math.abs(val1 - val0)).toBeLessThan(0.1)
+      }).pipe(Effect.provide(NoiseService.Default))
+    )
 
-    it('should produce a variety of values across a range of coordinates', () => {
-      const service = makeNoiseService()
-      const values = new Set<number>()
-      for (let x = 0; x < 10; x++) {
-        for (let z = 0; z < 10; z++) {
-          values.add(Math.round(Effect.runSync(service.noise2D(x, z)) * 100) / 100)
+    it.effect('should produce a variety of values across a range of coordinates', () =>
+      Effect.gen(function* () {
+        const service = yield* NoiseService
+        const values = new Set<number>()
+        for (let x = 0; x < 10; x++) {
+          for (let z = 0; z < 10; z++) {
+            values.add(Math.round((yield* service.noise2D(x, z)) * 100) / 100)
+          }
         }
-      }
-      // 100 samples should produce more than just a few unique values
-      expect(values.size).toBeGreaterThan(5)
-    })
+        // 100 samples should produce more than just a few unique values
+        expect(values.size).toBeGreaterThan(5)
+      }).pipe(Effect.provide(NoiseService.Default))
+    )
 
-    it('should return consistent values across independent service instances with same seed', () =>
-      Effect.runSync(
-        Effect.gen(function* () {
-          const service1 = yield* NoiseService
-          yield* service1.setSeed(42)
-          const val1 = yield* service1.noise2D(7, 13)
+    it.effect('should return consistent values across independent service instances with same seed', () =>
+      Effect.gen(function* () {
+        const service1 = yield* NoiseService
+        yield* service1.setSeed(42)
+        const val1 = yield* service1.noise2D(7, 13)
 
-          const service2 = yield* NoiseService
-          yield* service2.setSeed(42)
-          const val2 = yield* service2.noise2D(7, 13)
+        const service2 = yield* NoiseService
+        yield* service2.setSeed(42)
+        const val2 = yield* service2.noise2D(7, 13)
 
-          // Both instances with same seed should produce identical output
-          expect(val1).toBe(val2)
-        }).pipe(Effect.provide(NoiseService.Default))
-      )
+        // Both instances with same seed should produce identical output
+        expect(val1).toBe(val2)
+      }).pipe(Effect.provide(NoiseService.Default))
     )
   })
 

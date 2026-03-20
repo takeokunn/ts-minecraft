@@ -13,11 +13,11 @@ export const RaycastHitSchema = Schema.Struct({
   /** Distance from ray origin */
   distance: Schema.Number,
   /** Block X coordinate */
-  blockX: Schema.Number,
+  blockX: Schema.Number.pipe(Schema.int()),
   /** Block Y coordinate */
-  blockY: Schema.Number,
+  blockY: Schema.Number.pipe(Schema.int()),
   /** Block Z coordinate */
-  blockZ: Schema.Number,
+  blockZ: Schema.Number.pipe(Schema.int()),
 })
 export type RaycastHit = Schema.Schema.Type<typeof RaycastHitSchema>
 

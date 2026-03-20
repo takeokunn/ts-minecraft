@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from 'vitest'
 import { Effect, Layer } from 'effect'
-import { SettingsOverlay, SettingsOverlayLive } from './settings-overlay'
+import { SettingsOverlayService, SettingsOverlayLive } from './settings-overlay'
 import { SettingsService } from '@/application/settings/settings-service'
-import { DomOperations } from '@/presentation/hud/crosshair'
+import { DomOperationsService } from '@/presentation/hud/crosshair'
 
 // ---------------------------------------------------------------------------
 // Mock factories
@@ -24,7 +24,7 @@ const createMockDomLayer = () => {
     return el
   })
 
-  const MockDomLayer = Layer.succeed(DomOperations, {
+  const MockDomLayer = Layer.succeed(DomOperationsService, {
     createElement,
     appendChild: vi.fn(),
     appendChildTo: vi.fn(),
@@ -32,7 +32,7 @@ const createMockDomLayer = () => {
     getParentNode: vi.fn(() => null),
     setInnerHTML: vi.fn(),
     querySelector: vi.fn(() => null),
-  } as unknown as DomOperations)
+  } as unknown as DomOperationsService)
 
   return { MockDomLayer, createElement }
 }
@@ -74,7 +74,7 @@ describe('presentation/settings/settings-overlay', () => {
     it('should provide SettingsOverlay as a Layer without error', () => {
       const TestLayer = buildTestLayer()
       const program = Effect.gen(function* () {
-        const overlay = yield* SettingsOverlay
+        const overlay = yield* SettingsOverlayService
         expect(typeof overlay.initialize).toBe('function')
         expect(typeof overlay.toggle).toBe('function')
         expect(typeof overlay.isOpen).toBe('function')
@@ -96,7 +96,7 @@ describe('presentation/settings/settings-overlay', () => {
     it('should complete without error', () => {
       const TestLayer = buildTestLayer()
       const program = Effect.gen(function* () {
-        const overlay = yield* SettingsOverlay
+        const overlay = yield* SettingsOverlayService
         yield* overlay.initialize()
         return { success: true }
       }).pipe(Effect.provide(TestLayer))
@@ -108,7 +108,7 @@ describe('presentation/settings/settings-overlay', () => {
     it('should be callable multiple times without error', () => {
       const TestLayer = buildTestLayer()
       const program = Effect.gen(function* () {
-        const overlay = yield* SettingsOverlay
+        const overlay = yield* SettingsOverlayService
         yield* overlay.initialize()
         yield* overlay.initialize()
         return { success: true }
@@ -123,7 +123,7 @@ describe('presentation/settings/settings-overlay', () => {
     it('should return false initially', () => {
       const TestLayer = buildTestLayer()
       const program = Effect.gen(function* () {
-        const overlay = yield* SettingsOverlay
+        const overlay = yield* SettingsOverlayService
         const open = yield* overlay.isOpen()
         return { open }
       }).pipe(Effect.provide(TestLayer))
@@ -135,7 +135,7 @@ describe('presentation/settings/settings-overlay', () => {
     it('should be consistent across multiple calls before any toggle', () => {
       const TestLayer = buildTestLayer()
       const program = Effect.gen(function* () {
-        const overlay = yield* SettingsOverlay
+        const overlay = yield* SettingsOverlayService
         const open1 = yield* overlay.isOpen()
         const open2 = yield* overlay.isOpen()
         const open3 = yield* overlay.isOpen()
@@ -153,7 +153,7 @@ describe('presentation/settings/settings-overlay', () => {
     it('should return true on first call (opens)', () => {
       const TestLayer = buildTestLayer()
       const program = Effect.gen(function* () {
-        const overlay = yield* SettingsOverlay
+        const overlay = yield* SettingsOverlayService
         const result = yield* overlay.toggle()
         return { result }
       }).pipe(Effect.provide(TestLayer))
@@ -165,7 +165,7 @@ describe('presentation/settings/settings-overlay', () => {
     it('should return false on second call (closes)', () => {
       const TestLayer = buildTestLayer()
       const program = Effect.gen(function* () {
-        const overlay = yield* SettingsOverlay
+        const overlay = yield* SettingsOverlayService
         yield* overlay.toggle()
         const result = yield* overlay.toggle()
         return { result }
@@ -178,7 +178,7 @@ describe('presentation/settings/settings-overlay', () => {
     it('should return true on third call (opens again)', () => {
       const TestLayer = buildTestLayer()
       const program = Effect.gen(function* () {
-        const overlay = yield* SettingsOverlay
+        const overlay = yield* SettingsOverlayService
         yield* overlay.toggle()
         yield* overlay.toggle()
         const result = yield* overlay.toggle()
@@ -192,7 +192,7 @@ describe('presentation/settings/settings-overlay', () => {
     it('should update isOpen after toggle', () => {
       const TestLayer = buildTestLayer()
       const program = Effect.gen(function* () {
-        const overlay = yield* SettingsOverlay
+        const overlay = yield* SettingsOverlayService
         const openBefore = yield* overlay.isOpen()
         yield* overlay.toggle()
         const openAfter = yield* overlay.isOpen()
@@ -210,7 +210,7 @@ describe('presentation/settings/settings-overlay', () => {
       const TestLayer = buildTestLayer(mockDom, mockSettings)
 
       const program = Effect.gen(function* () {
-        const overlay = yield* SettingsOverlay
+        const overlay = yield* SettingsOverlayService
         yield* overlay.toggle()
         return { success: true }
       }).pipe(Effect.provide(TestLayer))
@@ -226,7 +226,7 @@ describe('presentation/settings/settings-overlay', () => {
       const TestLayer = buildTestLayer(mockDom, mockSettings)
 
       const program = Effect.gen(function* () {
-        const overlay = yield* SettingsOverlay
+        const overlay = yield* SettingsOverlayService
         yield* overlay.toggle() // open (syncs)
         const callsAfterOpen = mockSettings.getSettings.mock.calls.length
         yield* overlay.toggle() // close (should NOT sync)
@@ -246,7 +246,7 @@ describe('presentation/settings/settings-overlay', () => {
       const TestLayer = buildTestLayer(mockDom, mockSettings)
 
       const program = Effect.gen(function* () {
-        const overlay = yield* SettingsOverlay
+        const overlay = yield* SettingsOverlayService
         yield* overlay.syncFromSettings()
         return { success: true }
       }).pipe(Effect.provide(TestLayer))
@@ -258,7 +258,7 @@ describe('presentation/settings/settings-overlay', () => {
     it('should complete without error', () => {
       const TestLayer = buildTestLayer()
       const program = Effect.gen(function* () {
-        const overlay = yield* SettingsOverlay
+        const overlay = yield* SettingsOverlayService
         yield* overlay.syncFromSettings()
         return { success: true }
       }).pipe(Effect.provide(TestLayer))
@@ -275,7 +275,7 @@ describe('presentation/settings/settings-overlay', () => {
       const TestLayer = buildTestLayer(mockDom, mockSettings)
 
       const program = Effect.gen(function* () {
-        const overlay = yield* SettingsOverlay
+        const overlay = yield* SettingsOverlayService
         yield* overlay.applyToSettings()
         return { success: true }
       }).pipe(Effect.provide(TestLayer))
@@ -287,7 +287,7 @@ describe('presentation/settings/settings-overlay', () => {
     it('should complete without error', () => {
       const TestLayer = buildTestLayer()
       const program = Effect.gen(function* () {
-        const overlay = yield* SettingsOverlay
+        const overlay = yield* SettingsOverlayService
         yield* overlay.applyToSettings()
         return { success: true }
       }).pipe(Effect.provide(TestLayer))
@@ -301,7 +301,7 @@ describe('presentation/settings/settings-overlay', () => {
     it('should support toggle.flatMap(isOpen)', () => {
       const TestLayer = buildTestLayer()
       const program = Effect.gen(function* () {
-        const overlay = yield* SettingsOverlay
+        const overlay = yield* SettingsOverlayService
         const isOpen = yield* overlay.toggle().pipe(
           Effect.flatMap(() => overlay.isOpen())
         )
@@ -315,7 +315,7 @@ describe('presentation/settings/settings-overlay', () => {
     it('should support chaining multiple operations', () => {
       const TestLayer = buildTestLayer()
       const program = Effect.gen(function* () {
-        const overlay = yield* SettingsOverlay
+        const overlay = yield* SettingsOverlayService
         yield* overlay.initialize()
         yield* overlay.toggle()
         yield* overlay.syncFromSettings()

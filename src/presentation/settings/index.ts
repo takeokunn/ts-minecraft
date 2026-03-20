@@ -1,1 +1,1 @@
-export { SettingsOverlay } from './settings-overlay'
+export { SettingsOverlayService, SettingsOverlayLive } from './settings-overlay'

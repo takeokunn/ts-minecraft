@@ -1,7 +1,8 @@
 import { Clock, Effect, Ref, Option, Schema, Metric, MetricBoundaries, Duration } from 'effect'
 import { ChunkService, ChunkSchema, Chunk, ChunkCoord, blockTypeToIndex, blockIndex, CHUNK_SIZE, CHUNK_HEIGHT } from '@/domain/chunk'
 import { StorageService } from '@/infrastructure/storage/storage-service'
-import { Position, WorldIdSchema } from '@/shared/kernel'
+import { Position } from '@/shared/kernel'
+import { DEFAULT_WORLD_ID } from '@/application/constants'
 import { ChunkError, StorageError } from '@/domain/errors'
 import { BiomeService } from '@/application/biome/biome-service'
 import { NoiseService } from '@/infrastructure/noise/noise-service'
@@ -76,11 +77,6 @@ const chunkLoadHistogram = Metric.histogram(
   MetricBoundaries.linear({ start: 0, width: 50, count: 20 }),
   'Chunk load duration in milliseconds'
 )
-
-/**
- * Default world ID
- */
-const DEFAULT_WORLD_ID = WorldIdSchema.make('default')
 
 /**
  * LRU cache entry wrapping a chunk with its last access time.
@@ -372,13 +368,25 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
           const storedData = yield* storageService.loadChunk(DEFAULT_WORLD_ID, coord)
 
           if (Option.isSome(storedData)) {
-            // Reconstruct chunk from stored data
-            const chunk: Chunk = {
-              coord,
-              blocks: storedData.value,
+            // Guard: storage may return deserialized JSON (plain Array) on schema mismatch.
+            // Re-wrap to Uint8Array to ensure typed array semantics are preserved.
+            const rawBlocks = storedData.value
+            const blocks = rawBlocks instanceof Uint8Array
+              ? rawBlocks
+              : new Uint8Array(rawBlocks as ArrayLike<number>)
+
+            const EXPECTED_LENGTH = CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT
+            if (blocks.byteLength !== EXPECTED_LENGTH) {
+              // Buffer length mismatch — discard and regenerate (corrupted or version-mismatched data)
+              yield* Effect.logWarning(`Chunk (${coord.x},${coord.z}) has invalid buffer length ${blocks.byteLength} (expected ${EXPECTED_LENGTH}); regenerating`)
+            } else {
+              const chunk: Chunk = {
+                coord,
+                blocks,
+              }
+              yield* insertWithEviction(coord, chunk)
+              return chunk
             }
-            yield* insertWithEviction(coord, chunk)
-            return chunk
           }
 
           // Generate new chunk via procedural terrain — track load duration

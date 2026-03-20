@@ -8,6 +8,8 @@ const DEFAULT_SETTINGS = {
   renderDistance: 8,
   mouseSensitivity: 0.5,
   dayLengthSeconds: 400,
+  shadowsEnabled: true,
+  ssaoEnabled: true,
 }
 
 describe('application/settings/settings-service', () => {
@@ -46,6 +48,8 @@ describe('application/settings/settings-service', () => {
         renderDistance: 8,
         mouseSensitivity: 0.5,
         dayLengthSeconds: 400,
+        shadowsEnabled: true,
+        ssaoEnabled: true,
       })
 
       expect(result).toEqual(DEFAULT_SETTINGS)
@@ -56,12 +60,16 @@ describe('application/settings/settings-service', () => {
         renderDistance: 2,
         mouseSensitivity: 0.1,
         dayLengthSeconds: 120,
+        shadowsEnabled: true,
+        ssaoEnabled: true,
       })
 
       expect(result).toEqual({
         renderDistance: 2,
         mouseSensitivity: 0.1,
         dayLengthSeconds: 120,
+        shadowsEnabled: true,
+        ssaoEnabled: true,
       })
     })
 
@@ -70,12 +78,16 @@ describe('application/settings/settings-service', () => {
         renderDistance: 16,
         mouseSensitivity: 3,
         dayLengthSeconds: 1200,
+        shadowsEnabled: true,
+        ssaoEnabled: true,
       })
 
       expect(result).toEqual({
         renderDistance: 16,
         mouseSensitivity: 3,
         dayLengthSeconds: 1200,
+        shadowsEnabled: true,
+        ssaoEnabled: true,
       })
     })
 
@@ -184,6 +196,8 @@ describe('application/settings/settings-service', () => {
           renderDistance: 12,
           mouseSensitivity: 1.2,
           dayLengthSeconds: 900,
+          shadowsEnabled: false,
+          ssaoEnabled: false,
         })
       )
 
@@ -198,6 +212,8 @@ describe('application/settings/settings-service', () => {
         renderDistance: 12,
         mouseSensitivity: 1.2,
         dayLengthSeconds: 900,
+        shadowsEnabled: false,
+        ssaoEnabled: false,
       })
     })
 
@@ -248,6 +264,36 @@ describe('application/settings/settings-service', () => {
 
       expect(settings).toEqual(DEFAULT_SETTINGS)
     })
+
+    it('default settings should include shadowsEnabled=true and ssaoEnabled=true', () => {
+      const program = Effect.gen(function* () {
+        const service = yield* SettingsService
+        return yield* service.getSettings()
+      }).pipe(Effect.provide(SettingsService.Default))
+      const settings = Effect.runSync(program)
+      expect(settings.shadowsEnabled).toBe(true)
+      expect(settings.ssaoEnabled).toBe(true)
+    })
+
+    it('should accept and persist shadowsEnabled=false', () => {
+      const program = Effect.gen(function* () {
+        const service = yield* SettingsService
+        yield* service.updateSettings({ shadowsEnabled: false })
+        return yield* service.getSettings()
+      }).pipe(Effect.provide(SettingsService.Default))
+      const settings = Effect.runSync(program)
+      expect(settings.shadowsEnabled).toBe(false)
+    })
+
+    it('should accept and persist ssaoEnabled=false', () => {
+      const program = Effect.gen(function* () {
+        const service = yield* SettingsService
+        yield* service.updateSettings({ ssaoEnabled: false })
+        return yield* service.getSettings()
+      }).pipe(Effect.provide(SettingsService.Default))
+      const settings = Effect.runSync(program)
+      expect(settings.ssaoEnabled).toBe(false)
+    })
   })
 
   describe('SettingsService/updateSettings', () => {
@@ -276,6 +322,8 @@ describe('application/settings/settings-service', () => {
         renderDistance: 14,
         mouseSensitivity: 0.5,
         dayLengthSeconds: 600,
+        shadowsEnabled: true,
+        ssaoEnabled: true,
       })
     })
 
@@ -294,6 +342,8 @@ describe('application/settings/settings-service', () => {
         renderDistance: 6,
         mouseSensitivity: 1.8,
         dayLengthSeconds: 300,
+        shadowsEnabled: true,
+        ssaoEnabled: true,
       })
     })
 

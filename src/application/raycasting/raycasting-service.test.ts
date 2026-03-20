@@ -11,11 +11,11 @@ import {
  * Helper function to set up camera and scene for raycasting
  * Three.js requires world matrices to be updated for raycasting to work
  */
-function setupRaycastingTest(
+const setupRaycastingTest = (
   cameraPos: THREE.Vector3,
   lookAt: THREE.Vector3,
   meshes: THREE.Mesh[]
-): { camera: THREE.PerspectiveCamera; scene: THREE.Scene } {
+): { camera: THREE.PerspectiveCamera; scene: THREE.Scene } => {
   const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000)
   camera.position.copy(cameraPos)
   camera.lookAt(lookAt)

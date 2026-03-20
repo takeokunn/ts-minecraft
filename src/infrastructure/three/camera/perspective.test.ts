@@ -20,8 +20,8 @@ const makeMockCamera = (fov = 75, aspect = 1.6, near = 0.1, far = 1000) => ({
   position: { x: 0, y: 0, z: 0, set: (x: number, y: number, z: number) => { camera.position.x = x; camera.position.y = y; camera.position.z = z } },
   updateProjectionMatrix: () => {},
   lookAt: (_x: number, _y: number, _z: number) => {},
-  projectionMatrix: { elements: new Array(16).fill(0) },
-  matrixWorldInverse: { elements: new Array(16).fill(0) },
+  projectionMatrix: { elements: Array.from({ length: 16 }, () => 0) },
+  matrixWorldInverse: { elements: Array.from({ length: 16 }, () => 0) },
   updateMatrixWorld: () => {},
 })
 type MockCamera = ReturnType<typeof makeMockCamera>

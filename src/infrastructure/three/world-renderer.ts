@@ -40,15 +40,24 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
          */
         syncChunksToScene: (loadedChunks: ReadonlyArray<Chunk>, scene: THREE.Scene): Effect.Effect<void, never> =>
           Effect.gen(function* () {
-            const loadedKeys = new Set(loadedChunks.map((c) => chunkKey(c.coord)))
             const meshes = yield* Ref.get(meshesRef)
 
-            // Early-exit: check if there are any changes before cloning the Map
+            // Early-exit phase 1: check for new chunks — no Set allocation needed.
             const hasNewChunks = loadedChunks.some((c) => !meshes.has(chunkKey(c.coord)))
-            const hasRemovedChunks = Array.from(meshes.keys()).some((k) => !loadedKeys.has(k))
+
+            // Early-exit phase 2: detect removals cheaply.
+            // If !hasNewChunks then loadedChunks ⊆ meshes.keys() (every loaded chunk already has
+            // a mesh). In that case equal sizes means the sets are identical → no removals.
+            // If sizes differ there must be stale meshes to remove.
+            // When hasNewChunks is true we must proceed regardless, so skip the count check.
+            const hasRemovedChunks = !hasNewChunks && loadedChunks.length < meshes.size
+
             if (!hasNewChunks && !hasRemovedChunks) {
               return
             }
+
+            // Allocate loadedKeys Set only after confirming work is needed
+            const loadedKeys = new Set(loadedChunks.map((c) => chunkKey(c.coord)))
 
             const nextMeshes = new Map(meshes)
 
@@ -83,22 +92,21 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
             const key = chunkKey(chunk.coord)
             const meshes = yield* Ref.get(meshesRef)
 
-            // Remove and dispose old mesh if present
             const oldMesh = meshes.get(key)
             if (oldMesh !== undefined) {
-              yield* sceneService.remove(scene, oldMesh)
-              disposeMesh(oldMesh)
+              // Reuse the existing mesh: update geometry in place, avoiding scene graph mutation
+              yield* chunkMeshService.updateChunkMesh(oldMesh, chunk)
+            } else {
+              // First time this chunk appears — create and register a new mesh
+              const newMesh = yield* chunkMeshService.createChunkMesh(chunk)
+              yield* sceneService.add(scene, newMesh)
+
+              yield* Ref.update(meshesRef, (map) => {
+                const next = new Map(map)
+                next.set(key, newMesh)
+                return next
+              })
             }
-
-            // Create and add new mesh
-            const newMesh = yield* chunkMeshService.createChunkMesh(chunk)
-            yield* sceneService.add(scene, newMesh)
-
-            yield* Ref.update(meshesRef, (map) => {
-              const next = new Map(map)
-              next.set(key, newMesh)
-              return next
-            })
           }),
 
         /**

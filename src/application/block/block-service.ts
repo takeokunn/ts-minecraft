@@ -1,19 +1,11 @@
 import { Effect, Data, Metric } from 'effect'
 import { ChunkManagerService } from '@/application/chunk/chunk-manager-service'
+import { DEFAULT_PLAYER_ID } from '@/application/constants'
 import { ChunkService, CHUNK_SIZE, setBlockInChunk, BlockIndexError } from '@/domain/chunk'
-import { PlayerService } from '@/domain/player'
+import { PlayerService } from '@/application/player/player-state'
+import { InventoryService } from '@/application/inventory/inventory-service'
 import { BlockType } from '@/domain/block'
-import { Position, PlayerId, WorldId } from '@/shared/kernel'
-
-/**
- * Default world ID - single-world game assumption (matches main.ts)
- */
-export const DEFAULT_WORLD_ID = 'world-1' as WorldId
-
-/**
- * Default player ID (matches game-state.ts DEFAULT_PLAYER_ID)
- */
-export const DEFAULT_PLAYER_ID_FOR_BLOCK = 'player-1' as PlayerId
+import { Position } from '@/shared/kernel'
 
 /**
  * Player bounding box dimensions (matches Cannon-ES body in physics-service.ts)
@@ -34,12 +26,6 @@ export class BlockServiceError extends Data.TaggedError('BlockServiceError')<{
     return `BlockService error during ${this.operation}: ${this.reason}${causeMessage ? `: ${causeMessage}` : ''}`
   }
 }
-
-/**
- * Type guard for BlockServiceError
- */
-export const isBlockServiceError = (error: unknown): error is BlockServiceError =>
-  typeof error === 'object' && error !== null && '_tag' in error && (error as { _tag: string })._tag === 'BlockServiceError'
 
 /**
  * Convert a world position to chunk coordinate and local block offsets.
@@ -65,6 +51,7 @@ export class BlockService extends Effect.Service<BlockService>()(
       const chunkManagerService = yield* ChunkManagerService
       const chunkService = yield* ChunkService
       const playerService = yield* PlayerService
+      const inventoryService = yield* InventoryService
 
       return {
         /**
@@ -106,6 +93,8 @@ export class BlockService extends Effect.Service<BlockService>()(
 
             yield* chunkManagerService.markChunkDirty(chunkCoord)
             yield* Metric.counter('blocks_broken').pipe(Metric.increment)
+            // Add broken block to inventory (silently ignore if inventory is full)
+            yield* inventoryService.addBlock(blockType, 1).pipe(Effect.asVoid)
           }),
 
         /**
@@ -138,7 +127,7 @@ export class BlockService extends Effect.Service<BlockService>()(
               )
             }
 
-            const playerPos = yield* playerService.getPosition(DEFAULT_PLAYER_ID_FOR_BLOCK).pipe(
+            const playerPos = yield* playerService.getPosition(DEFAULT_PLAYER_ID).pipe(
               Effect.mapError((e) => new BlockServiceError({ operation: 'placeBlock', reason: `Player position error: ${e.message}`, cause: e }))
             )
 
