@@ -3,8 +3,14 @@ import { StartupError } from '@/domain/errors'
 import * as THREE from 'three'
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js'
-import { SSAOPass } from 'three/addons/postprocessing/SSAOPass.js'
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js'
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
+import { BokehPass } from 'three/addons/postprocessing/BokehPass.js'
+import { SSRPass } from 'three/addons/postprocessing/SSRPass.js'
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js'
+import { Sky } from 'three/addons/objects/Sky.js'
+import { GodRaysPass } from '@/infrastructure/three/god-rays-pass'
 
 import { RendererService } from '@/infrastructure/three/renderer/renderer-service'
 import { SceneService } from '@/infrastructure/three/scene/scene-service'
@@ -81,6 +87,10 @@ const mainProgram = Effect.gen(function* () {
 
   // World generation and persistence
   const chunkManagerService = yield* ChunkManagerService
+  // Composition root: direct infrastructure service access is intentional here.
+  // main.ts is the application entry point and wires services together.
+  // NoiseService is used for seeding (not a chunk-manager concern);
+  // StorageService is used for world metadata (not in StorageServicePort which is chunk-only).
   const noiseService = yield* NoiseService
   const storageService = yield* StorageService
 
@@ -115,14 +125,47 @@ const mainProgram = Effect.gen(function* () {
     far: 1000,
   })
 
-  // EffectComposer for SSAO post-processing (conditionally used per frame based on settings)
-  const composer = new EffectComposer(renderer)
+  // EffectComposer: HDR render target required for UnrealBloomPass to work correctly
+  const composerRT = new THREE.WebGLRenderTarget(
+    canvas.clientWidth,
+    canvas.clientHeight,
+    { type: THREE.HalfFloatType }
+  )
+  const composer = new EffectComposer(renderer, composerRT)
   composer.addPass(new RenderPass(scene, camera))
-  const ssaoPass = new SSAOPass(scene, camera, canvas.clientWidth, canvas.clientHeight)
-  ssaoPass.kernelRadius = 8
-  ssaoPass.minDistance = 0.005
-  ssaoPass.maxDistance = 0.1
-  composer.addPass(ssaoPass)
+
+  // GTAO replaces SSAO (Ground Truth Ambient Occlusion — higher quality)
+  const gtaoPass = new GTAOPass(scene, camera, canvas.clientWidth, canvas.clientHeight)
+  gtaoPass.blendIntensity = 1.0
+  composer.addPass(gtaoPass)
+
+  // SSR (screen-space reflections for water surfaces)
+  // groundReflector is typed as required in SSRPassParams but works as null at runtime
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const ssrPass = new SSRPass({ renderer, scene, camera, width: canvas.clientWidth, height: canvas.clientHeight, selects: [] as THREE.Mesh[], groundReflector: null } as any)
+  composer.addPass(ssrPass)
+
+  // God rays (crepuscular light shafts — screen-space radial blur)
+  const godRaysPass = new GodRaysPass()
+  composer.addPass(godRaysPass)
+
+  // Bloom: threshold=0.85 prevents terrain from glowing; only sky/lava-bright surfaces bloom
+  const bloomPass = new UnrealBloomPass(
+    new THREE.Vector2(canvas.clientWidth, canvas.clientHeight),
+    0.5,  // strength
+    0.4,  // radius
+    0.85, // threshold
+  )
+  composer.addPass(bloomPass)
+
+  // Depth of field (bokeh)
+  const bokehPass = new BokehPass(scene, camera, { focus: 10.0, aperture: 0.002, maxblur: 0.01 })
+  composer.addPass(bokehPass)
+
+  // SMAA anti-aliasing (must be after bloom, before OutputPass)
+  const smaaPass = new SMAAPass(canvas.clientWidth, canvas.clientHeight)
+  composer.addPass(smaaPass)
+
   composer.addPass(new OutputPass())
 
   // World initialization: load or create world metadata, set noise seed
@@ -204,6 +247,25 @@ const mainProgram = Effect.gen(function* () {
   const ambientLight = new THREE.AmbientLight(AMBIENT_COLOR, 0.5)
   yield* sceneService.add(scene, ambientLight)
 
+  // Physical sky: Three.Sky Preetham model — replaces simple sky color lerp when enabled
+  const sky = new Sky()
+  sky.scale.setScalar(10000)
+  yield* sceneService.add(scene, sky)
+  const skyShaderMaterial = sky.material as THREE.ShaderMaterial
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+  skyShaderMaterial.uniforms['mieCoefficient']!.value = 0.005
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+  skyShaderMaterial.uniforms['mieDirectionalG']!.value = 0.7
+
+  // SkyMaterialPort: duck-typed view of sky uniforms for DayNightLightsPort
+  const skyPort: import('@/shared/math/three/day-night-port').SkyMaterialPort = {
+    uniforms: {
+      sunPosition: skyShaderMaterial.uniforms['sunPosition'] as { value: { set(x: number, y: number, z: number): void } },
+      turbidity: skyShaderMaterial.uniforms['turbidity'] as { value: number },
+      rayleigh: skyShaderMaterial.uniforms['rayleigh'] as { value: number },
+    },
+  }
+
   // Precomputed sky colors for smooth day/night lerp
   const skyNight = new THREE.Color(SKY_COLOR_NIGHT)
   const skyDay = new THREE.Color(SKY_COLOR_DAY)
@@ -266,7 +328,13 @@ const mainProgram = Effect.gen(function* () {
   yield* Effect.acquireRelease(
     Effect.void,
     () => Effect.sync(() => {
-      ssaoPass.dispose()
+      gtaoPass.dispose()
+      bloomPass.dispose()
+      bokehPass.dispose()
+      ssrPass.dispose()
+      godRaysPass.dispose()
+      smaaPass.dispose()
+      composerRT.dispose()
       composer.dispose()
     })
   )
@@ -289,12 +357,19 @@ const mainProgram = Effect.gen(function* () {
       renderer,
       scene,
       camera,
-      lights: { light, ambientLight, renderer, skyNight, skyDay, skyCurrent },
+      lights: { light, ambientLight, renderer, skyNight, skyDay, skyCurrent, sky: skyPort },
+      skyMesh: sky,
       fpsElement,
       healthValueElement,
       healthMaxElement,
       gamePausedRef,
       composer,
+      gtaoPass,
+      bloomPass,
+      ssrPass,
+      dofPass: bokehPass,
+      godRaysPass,
+      smaaPass,
     },
     {
       gameState,

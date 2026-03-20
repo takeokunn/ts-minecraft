@@ -1,20 +1,22 @@
 import { Effect, Option, Ref } from 'effect'
 import { PlayerHealth } from '@/domain/player-health'
 
+type FallState = { readonly prevY: Option.Option<number>; readonly isFalling: boolean }
+const INITIAL_FALL_STATE: FallState = { prevY: Option.none(), isFalling: false }
+
 export class HealthService extends Effect.Service<HealthService>()(
   '@minecraft/application/HealthService',
   {
     effect: Effect.gen(function* () {
       const healthRef = yield* Ref.make(new PlayerHealth({ current: 20, max: 20, invincibilityTicks: 0 }))
 
-      // Track previous Y for fall distance detection
-      const prevYRef = yield* Ref.make<Option.Option<number>>(Option.none())
-      const isFallingRef = yield* Ref.make(false)
+      // Track previous Y and falling state atomically
+      const fallStateRef = yield* Ref.make<FallState>(INITIAL_FALL_STATE)
 
       return {
-        getHealth: (): Effect.Effect<PlayerHealth> => Ref.get(healthRef),
+        getHealth: (): Effect.Effect<PlayerHealth, never> => Ref.get(healthRef),
 
-        applyDamage: (amount: number): Effect.Effect<void> =>
+        applyDamage: (amount: number): Effect.Effect<void, never> =>
           amount <= 0
             ? Effect.void
             : Ref.update(healthRef, h => new PlayerHealth({
@@ -23,7 +25,7 @@ export class HealthService extends Effect.Service<HealthService>()(
                 invincibilityTicks: 10,
               })),
 
-        heal: (amount: number): Effect.Effect<void> =>
+        heal: (amount: number): Effect.Effect<void, never> =>
           amount <= 0
             ? Effect.void
             : Ref.update(healthRef, h => new PlayerHealth({
@@ -32,10 +34,10 @@ export class HealthService extends Effect.Service<HealthService>()(
                 invincibilityTicks: h.invincibilityTicks,
               })),
 
-        isDead: (): Effect.Effect<boolean> =>
+        isDead: (): Effect.Effect<boolean, never> =>
           Ref.get(healthRef).pipe(Effect.map(h => h.current <= 0)),
 
-        tick: (): Effect.Effect<void> =>
+        tick: (): Effect.Effect<void, never> =>
           Ref.update(healthRef, h => h.invincibilityTicks > 0
             ? new PlayerHealth({
                 current: h.current,
@@ -47,19 +49,24 @@ export class HealthService extends Effect.Service<HealthService>()(
 
         // Called each frame with current player Y position and grounded state.
         // Returns fall damage to apply (0 if no damage).
-        processFallDamage: (currentY: number, isGrounded: boolean): Effect.Effect<number> =>
+        processFallDamage: (currentY: number, isGrounded: boolean): Effect.Effect<number, never> =>
           Effect.gen(function* () {
-            const prevYOpt = yield* Ref.get(prevYRef)
-            const wasFalling = yield* Ref.get(isFallingRef)
+            const { prevY: prevYOpt, isFalling: wasFalling } = yield* Ref.get(fallStateRef)
 
-            // Update previous Y
-            yield* Ref.set(prevYRef, Option.some(currentY))
-
-            if (Option.isNone(prevYOpt)) return 0
+            if (Option.isNone(prevYOpt)) {
+              // First frame: just record current Y, no damage possible yet
+              yield* Ref.update(fallStateRef, (s) => ({ ...s, prevY: Option.some(currentY) }))
+              return 0
+            }
 
             const prevY = prevYOpt.value
             const falling = currentY < prevY
-            yield* Ref.set(isFallingRef, falling)
+
+            // Atomically update both prevY and isFalling
+            yield* Ref.update(fallStateRef, (_s) => ({
+              prevY: Option.some(currentY),
+              isFalling: falling,
+            }))
 
             // Landing detection: was falling, now grounded
             if (wasFalling && isGrounded) {
@@ -72,12 +79,11 @@ export class HealthService extends Effect.Service<HealthService>()(
             return 0
           }),
 
-        reset: (): Effect.Effect<void> =>
+        reset: (): Effect.Effect<void, never> =>
           Effect.all([
             Ref.set(healthRef, new PlayerHealth({ current: 20, max: 20, invincibilityTicks: 0 })),
-            Ref.set(prevYRef, Option.none()),
-            Ref.set(isFallingRef, false),
-          ], { discard: true }),
+            Ref.set(fallStateRef, INITIAL_FALL_STATE),
+          ], { discard: true, concurrency: 'unbounded' }),
       }
     }),
   }

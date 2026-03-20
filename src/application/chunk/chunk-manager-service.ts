@@ -2,7 +2,7 @@ import { Clock, Effect, Ref, Option, Schema, Metric, MetricBoundaries, Duration 
 import { ChunkService, ChunkSchema, Chunk, ChunkCoord, blockTypeToIndex, blockIndex, CHUNK_SIZE, CHUNK_HEIGHT } from '@/domain/chunk'
 import { StorageServicePort } from '@/application/storage/storage-service-port'
 import { Position } from '@/shared/kernel'
-import { DEFAULT_WORLD_ID } from '@/application/constants'
+import { DEFAULT_WORLD_ID, SEA_LEVEL, LAKE_LEVEL } from '@/application/constants'
 import { ChunkError, StorageError } from '@/domain/errors'
 import { BiomeService } from '@/application/biome/biome-service'
 import { NoiseServicePort } from '@/application/noise/noise-service-port'
@@ -108,6 +108,17 @@ interface ChunkCache {
  */
 const TERRAIN_SCALE = 0.02 // controls terrain frequency
 const HEIGHT_VARIATION = 16 // ±16 from sea level
+
+/** Noise frequency for lake basin generation (lower = larger, rounder lakes) */
+const LAKE_NOISE_SCALE = 0.02
+/** Noise threshold above which a column becomes a lake basin */
+const LAKE_THRESHOLD = 0.70
+/** Maximum depth of lake depression in blocks */
+const LAKE_MAX_DEPTH = 18
+/** Minimum water depth — prevents single-block shallow patches */
+const LAKE_MIN_DEPTH = 10
+/** Noise range below LAKE_THRESHOLD that becomes sandy shoreline */
+const LAKE_SHORE_WIDTH = 0.04
 
 /**
  * Calculate clamped surface height from a noise value and biome properties.
@@ -257,14 +268,65 @@ const generateTerrain = (
           0.5,
           2.0
         )
-        const surfaceY = calculateSurfaceHeight(noiseVal, props.baseHeight, props.heightModifier, HEIGHT_VARIATION)
+        let surfaceY = calculateSurfaceHeight(noiseVal, props.baseHeight, props.heightModifier, HEIGHT_VARIATION)
+
+        // Phase 2.5: Lake generation — lower surface to create a basin, fill with water later
+        let isLake = false
+        let lakeNoiseVal = 0
+        if (biome !== 'OCEAN') {
+          lakeNoiseVal = yield* noiseService.noise2D(
+            wx * LAKE_NOISE_SCALE + 5000,
+            wz * LAKE_NOISE_SCALE + 5000,
+          )
+          if (lakeNoiseVal > LAKE_THRESHOLD && surfaceY >= LAKE_LEVEL) {
+            const t = (lakeNoiseVal - LAKE_THRESHOLD) / (1.0 - LAKE_THRESHOLD)
+            const lakeDepth = Math.max(LAKE_MIN_DEPTH, Math.floor(t * LAKE_MAX_DEPTH))
+            const depressedY = Math.max(SEA_LEVEL + 1, surfaceY - lakeDepth)
+            // Only commit to lake if the depression actually reaches below the water line
+            if (depressedY < LAKE_LEVEL) {
+              surfaceY = depressedY
+              isLake = true
+            }
+          }
+        }
+
+        // Sandy shoreline: only near terrain low enough that lakes can form nearby
+        const isShore =
+          !isLake &&
+          lakeNoiseVal > LAKE_THRESHOLD - LAKE_SHORE_WIDTH &&
+          surfaceY < LAKE_LEVEL + 4
 
         // Phase 3: Fill column blocks (inner loop — pure, no Effect overhead)
-        fillColumn(blocks, lx, lz, surfaceY, props)
+        fillColumn(
+          blocks,
+          lx,
+          lz,
+          surfaceY,
+          isLake
+            ? { surfaceBlock: 'SAND', subSurfaceBlock: 'SAND' }
+            : isShore
+              ? { ...props, surfaceBlock: 'SAND' }
+              : props,
+        )
+
+        // Phase 3.5: Water fill — ocean (below SEA_LEVEL) and inland lakes (below LAKE_LEVEL)
+        if (surfaceY < SEA_LEVEL) {
+          for (let y = surfaceY + 1; y <= SEA_LEVEL; y++) {
+            const idx = blockIndex(lx, y, lz)
+            if (idx === null) continue
+            blocks[idx] = blockTypeToIndex('WATER') // intentional direct write: water fill during terrain generation
+          }
+        } else if (isLake) {
+          for (let y = surfaceY + 1; y <= LAKE_LEVEL; y++) {
+            const idx = blockIndex(lx, y, lz)
+            if (idx === null) continue
+            blocks[idx] = blockTypeToIndex('WATER') // intentional direct write: lake water fill during terrain generation
+          }
+        }
 
         // Phase 4: Place trees (probability-based, pure)
         const { place, treeRng } = shouldPlaceTree(props.treeDensity, surfaceY, wx, wz)
-        if (place) {
+        if (place && !isLake) {
           placeTree(blocks, lx, lz, surfaceY, treeRng)
         }
       }
@@ -317,42 +379,46 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
       }
 
       // Helper: insert a chunk into the cache, evicting the LRU entry if at capacity.
-      // Pre-eviction dirty save happens BEFORE the atomic Ref.update to preserve the
-      // same atomicity guarantees as the original duplicated blocks.
+      // Uses Ref.modify to atomically insert + evict and return the evicted entry if dirty,
+      // then saves it outside the modify (I/O cannot run inside a Ref.modify callback).
+      // This eliminates the TOCTOU race where a pre-eviction save and the eviction step
+      // could target different LRU keys when concurrent fibers modify the cache in between.
       const insertWithEviction = (
         coord: ChunkCoord,
         chunk: Chunk
       ): Effect.Effect<void, StorageError> =>
         Effect.gen(function* () {
           const key = chunkCoordToKey(coord)
-
-          // Pre-eviction: if cache is full and the LRU entry is dirty, save it first
-          // then insert + evict atomically in a single Ref.update
-          const stateBeforeInsert = yield* Ref.get(cache)
-          if (stateBeforeInsert.chunks.size >= MAX_CACHED_CHUNKS) {
-            const evictKey = findLRUKey(stateBeforeInsert.chunks)
-            if (evictKey && stateBeforeInsert.dirtyChunks.has(evictKey)) {
-              const evictee = stateBeforeInsert.chunks.get(evictKey)!
-              yield* storageService.saveChunk(DEFAULT_WORLD_ID, evictee.chunk.coord, evictee.chunk.blocks) // intentional: raw Uint8Array passed to storage serialization
-            }
-          }
-
-          // Atomic: insert + evict LRU in one Ref.update
           const now = yield* Clock.currentTimeMillis
-          yield* Ref.update(cache, (s) => {
+
+          // Atomically insert + evict LRU, returning the dirty evictee (if any) for post-save
+          const evictedDirtyEntry = yield* Ref.modify(cache, (s): [Option.Option<ChunkCacheEntry>, ChunkCache] => {
             const newChunks = new Map(s.chunks)
             newChunks.set(key, { chunk, lastAccessed: now })
             let newDirty = s.dirtyChunks
+            let evictedDirty: Option.Option<ChunkCacheEntry> = Option.none()
             if (newChunks.size > MAX_CACHED_CHUNKS) {
               const evictKey = findLRUKey(newChunks)
               if (evictKey) {
+                const evictEntry = newChunks.get(evictKey)
+                const isDirty = s.dirtyChunks.has(evictKey)
                 newChunks.delete(evictKey)
                 newDirty = new Set(s.dirtyChunks)
                 newDirty.delete(evictKey)
+                if (isDirty && evictEntry !== undefined) {
+                  evictedDirty = Option.some(evictEntry)
+                }
               }
             }
-            return { ...s, chunks: newChunks, dirtyChunks: newDirty }
+            return [evictedDirty, { ...s, chunks: newChunks, dirtyChunks: newDirty }]
           })
+
+          // Save the evicted chunk if it was dirty (I/O must happen outside Ref.modify)
+          if (Option.isSome(evictedDirtyEntry)) {
+            const evicted = evictedDirtyEntry.value
+            yield* storageService.saveChunk(DEFAULT_WORLD_ID, evicted.chunk.coord, evicted.chunk.blocks) // intentional: raw Uint8Array passed to storage serialization
+          }
+
           // Invalidate getLoadedChunks cache: chunk set has changed
           yield* Ref.set(cachedLoadedChunksRef, Option.none())
         })
@@ -508,20 +574,27 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
          */
         saveDirtyChunks: (): Effect.Effect<void, StorageError> =>
           Effect.gen(function* () {
+            // Snapshot the dirty key set — saves only these keys, not any new ones added
+            // during the async save loop. Clears only the saved keys afterward so that
+            // block modifications arriving mid-save are not silently discarded.
             const state = yield* Ref.get(cache)
+            const keysToSave = new Set(state.dirtyChunks)
 
-            for (const key of state.dirtyChunks) {
+            for (const key of keysToSave) {
               const entry = state.chunks.get(key)
               if (entry) {
                 yield* storageService.saveChunk(DEFAULT_WORLD_ID, entry.chunk.coord, entry.chunk.blocks) // intentional: raw Uint8Array passed to storage serialization
               }
             }
 
-            // Clear dirty flags
-            yield* Ref.update(cache, (s) => ({
-              ...s,
-              dirtyChunks: new Set<string>(),
-            }))
+            // Clear only the keys we actually saved — preserves new dirty flags set during save
+            yield* Ref.update(cache, (s) => {
+              const newDirty = new Set(s.dirtyChunks)
+              for (const key of keysToSave) {
+                newDirty.delete(key)
+              }
+              return { ...s, dirtyChunks: newDirty }
+            })
           }),
 
         /**

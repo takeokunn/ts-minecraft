@@ -11,6 +11,12 @@
 import { Cause, Effect, Option, Ref } from 'effect'
 import * as THREE from 'three'
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js'
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
+import { BokehPass } from 'three/addons/postprocessing/BokehPass.js'
+import { SSRPass } from 'three/addons/postprocessing/SSRPass.js'
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js'
+import { GodRaysPass } from '@/infrastructure/three/god-rays-pass'
 import { GameStateService } from '@/application/game-state'
 import { DEFAULT_PLAYER_ID } from '@/application/constants'
 import { FirstPersonCameraService } from '@/application/camera/first-person-camera-service'
@@ -55,6 +61,13 @@ export interface FrameHandlerDeps {
   readonly healthMaxElement: HTMLElement | null
   readonly gamePausedRef: Ref.Ref<boolean>
   readonly composer?: EffectComposer
+  readonly skyMesh?: THREE.Object3D | null
+  readonly gtaoPass?: GTAOPass
+  readonly bloomPass?: UnrealBloomPass
+  readonly ssrPass?: SSRPass
+  readonly dofPass?: BokehPass
+  readonly godRaysPass?: GodRaysPass
+  readonly smaaPass?: SMAAPass
 }
 
 /**
@@ -95,8 +108,14 @@ export interface FrameHandlerServices {
 export const createFrameHandler = (
   deps: FrameHandlerDeps,
   services: FrameHandlerServices,
-): (deltaTime: DeltaTimeSecs) => Effect.Effect<void, never> =>
-  (deltaTime: DeltaTimeSecs) =>
+): (deltaTime: DeltaTimeSecs) => Effect.Effect<void, never> => {
+  // Accumulated total time for water shader uTime uniform (seconds since game start)
+  let totalTimeSecs = 0
+
+  // Pre-allocated for god rays sun position projection — reused each frame to avoid GC
+  const _sunWorldPos = new THREE.Vector3()
+
+  return (deltaTime: DeltaTimeSecs) =>
     Effect.gen(function* () {
       const {
         gameState,
@@ -116,10 +135,19 @@ export const createFrameHandler = (
         healthService,
       } = services
 
-      const { renderer, scene, camera, lights, fpsElement, gamePausedRef } = deps
+      const { renderer, scene, camera, fpsElement, gamePausedRef } = deps
+
+      // Accumulate total elapsed time for water shader uniform
+      totalTimeSecs += deltaTime
 
       // Fetch settings once per frame for shadow/SSAO and day-length reactive changes
       const currentSettings = yield* settingsService.getSettings()
+
+      // Derive effective lights: conditionally nullify sky port based on settings
+      const effectiveLights = currentSettings.skyEnabled
+        ? deps.lights
+        : { ...deps.lights, sky: null }
+      if (deps.skyMesh != null) deps.skyMesh.visible = currentSettings.skyEnabled
 
       // Hoist player position — shared across steps 1, 3.5, and 8 to avoid redundant Effect calls
       const playerPos = yield* gameState.getPlayerPosition(DEFAULT_PLAYER_ID).pipe(
@@ -162,7 +190,7 @@ export const createFrameHandler = (
       }).pipe(Effect.catchAllCause((cause) => Effect.logError(`Chunk streaming error: ${Cause.pretty(cause)}`)))
 
       // 2. Day/night cycle: advance time and update lighting + sky color
-      yield* updateDayNightCycle(deltaTime, lights, timeService).pipe(
+      yield* updateDayNightCycle(deltaTime, effectiveLights, timeService).pipe(
         Effect.catchAllCause((cause) => Effect.logError(`Day/night error: ${Cause.pretty(cause)}`))
       )
 
@@ -313,14 +341,61 @@ export const createFrameHandler = (
 
       // 9. Update FPS display — tick first to include this frame in the measurement,
       //    then read the updated average so the display reflects the current frame.
-      yield* Effect.gen(function* () {
-        yield* fpsCounter.tick(deltaTime)
-        const fps = yield* fpsCounter.getFPS()
-        if (fpsElement) fpsElement.textContent = fps.toFixed(1)
-      })
+      yield* fpsCounter.tick(deltaTime)
+      const fps = yield* fpsCounter.getFPS()
+      if (fpsElement) fpsElement.textContent = fps.toFixed(1)
 
-      // 10. Render world (EffectComposer with SSAO when enabled, direct render otherwise)
-      if (currentSettings.ssaoEnabled && renderer.capabilities.isWebGL2 && deps.composer) {
+      // 9.5. Refraction pre-pass for water shader (render scene without water to capture underwater)
+      yield* worldRendererService.doRefractionPrePass(deps.renderer, deps.scene, deps.camera).pipe(
+        Effect.catchAllCause((cause) => Effect.logError(`Refraction pre-pass error: ${Cause.pretty(cause)}`))
+      )
+
+      // Update water uniforms (skip if canvas dimensions are zero — avoids shader divide-by-zero)
+      const canvasW = deps.renderer.domElement.clientWidth
+      const canvasH = deps.renderer.domElement.clientHeight
+      if (canvasW > 0 && canvasH > 0) {
+        yield* worldRendererService.updateWaterUniforms(
+          totalTimeSecs,
+          deps.camera.position,
+          canvasW,
+          canvasH,
+        )
+      }
+
+      // 10. Sync pass enable states from settings, then render via EffectComposer
+      if (deps.gtaoPass) deps.gtaoPass.enabled = currentSettings.ssaoEnabled && renderer.capabilities.isWebGL2
+      if (deps.bloomPass) deps.bloomPass.enabled = currentSettings.bloomEnabled
+      if (deps.dofPass) deps.dofPass.enabled = currentSettings.dofEnabled
+      if (deps.smaaPass) deps.smaaPass.enabled = currentSettings.smaaEnabled
+
+      if (deps.ssrPass) {
+        if (currentSettings.ssrEnabled && renderer.capabilities.isWebGL2) {
+          const waterMeshes = yield* worldRendererService.getWaterMeshes()
+          deps.ssrPass.selects = waterMeshes as THREE.Mesh[]
+          deps.ssrPass.enabled = true
+        } else {
+          deps.ssrPass.enabled = false
+        }
+      }
+
+      if (deps.godRaysPass) {
+        if (currentSettings.godRaysEnabled) {
+          const lightPos = (deps.lights.light as unknown as THREE.DirectionalLight).position
+          _sunWorldPos.copy(lightPos).normalize().multiplyScalar(100)
+          _sunWorldPos.project(camera)
+          // Convert NDC [-1,1] to screen UV [0,1]
+          deps.godRaysPass.sunScreenPos.set(
+            (_sunWorldPos.x + 1) * 0.5,
+            (_sunWorldPos.y + 1) * 0.5,
+          )
+          deps.godRaysPass.enabled = true
+        } else {
+          deps.godRaysPass.enabled = false
+        }
+      }
+
+      // Render via EffectComposer (disabled passes are skipped automatically)
+      if (deps.composer) {
         deps.composer.render()
       } else {
         renderer.render(scene, camera)
@@ -333,3 +408,4 @@ export const createFrameHandler = (
       )
       renderer.autoClear = true
     })
+}

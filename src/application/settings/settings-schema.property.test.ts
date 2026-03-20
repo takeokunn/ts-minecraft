@@ -9,6 +9,12 @@ const BASE = {
   dayLengthSeconds: 400,
   shadowsEnabled: true,
   ssaoEnabled: true,
+  bloomEnabled: true,
+  skyEnabled: true,
+  ssrEnabled: false,
+  dofEnabled: false,
+  godRaysEnabled: false,
+  smaaEnabled: true,
 } as const
 
 const decode = Schema.decodeUnknownSync(SettingsSchema)

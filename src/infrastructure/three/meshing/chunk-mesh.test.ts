@@ -45,38 +45,40 @@ const ChunkMeshServiceTest = Layer.succeed(
         wz: chunk.coord.z * CHUNK_SIZE,
       })
       const geometry = new THREE.BufferGeometry()
-      geometry.setAttribute('position', new THREE.BufferAttribute(meshed.positions, 3))
-      geometry.setAttribute('normal', new THREE.BufferAttribute(meshed.normals, 3))
-      geometry.setAttribute('color', new THREE.BufferAttribute(meshed.colors, 3))
-      geometry.setAttribute('uv', new THREE.BufferAttribute(meshed.uvs, 2))
-      geometry.setIndex(new THREE.BufferAttribute(meshed.indices, 1))
+      geometry.setAttribute('position', new THREE.BufferAttribute(meshed.opaque.positions, 3))
+      geometry.setAttribute('normal', new THREE.BufferAttribute(meshed.opaque.normals, 3))
+      geometry.setAttribute('color', new THREE.BufferAttribute(meshed.opaque.colors, 3))
+      geometry.setAttribute('uv', new THREE.BufferAttribute(meshed.opaque.uvs, 2))
+      geometry.setIndex(new THREE.BufferAttribute(meshed.opaque.indices, 1))
       return geometry
     }
 
     return {
-      createChunkMesh: (chunk: Chunk): Effect.Effect<THREE.Mesh, never> =>
+      atlasTexture: {} as THREE.Texture,
+
+      createChunkMesh: (chunk: Chunk): Effect.Effect<{ opaqueMesh: THREE.Mesh; waterMesh: THREE.Mesh | null }, never> =>
         Effect.sync(() => {
           const meshed = greedyMeshChunk(chunk, {
             wx: chunk.coord.x * CHUNK_SIZE,
             wz: chunk.coord.z * CHUNK_SIZE,
           })
           const geometry = buildGeometry(chunk)
-          const mesh = new THREE.Mesh(geometry, sharedMaterial)
-          mesh.userData['blockPositions'] = meshed.blockPositions
-          mesh.userData['chunkCoord'] = chunk.coord
-          return mesh
+          const opaqueMesh = new THREE.Mesh(geometry, sharedMaterial)
+          opaqueMesh.userData['blockPositions'] = meshed.opaque.blockPositions
+          opaqueMesh.userData['chunkCoord'] = chunk.coord
+          return { opaqueMesh, waterMesh: null }
         }),
 
-      updateChunkMesh: (mesh: THREE.Mesh, chunk: Chunk): Effect.Effect<void, never> =>
+      updateChunkMesh: (opaqueMesh: THREE.Mesh, _waterMesh: THREE.Mesh | null, chunk: Chunk): Effect.Effect<void, never> =>
         Effect.sync(() => {
-          const oldGeometry = mesh.geometry
+          const oldGeometry = opaqueMesh.geometry
           const meshed = greedyMeshChunk(chunk, {
             wx: chunk.coord.x * CHUNK_SIZE,
             wz: chunk.coord.z * CHUNK_SIZE,
           })
-          mesh.geometry = buildGeometry(chunk)
-          mesh.userData['blockPositions'] = meshed.blockPositions
-          mesh.userData['chunkCoord'] = chunk.coord
+          opaqueMesh.geometry = buildGeometry(chunk)
+          opaqueMesh.userData['blockPositions'] = meshed.opaque.blockPositions
+          opaqueMesh.userData['chunkCoord'] = chunk.coord
           oldGeometry.dispose()
         }),
 
@@ -98,11 +100,11 @@ describe('ChunkMeshService', () => {
 
       const program = Effect.gen(function* () {
         const service = yield* ChunkMeshService
-        const mesh = yield* service.createChunkMesh(chunk)
-        expect(mesh).toBeInstanceOf(THREE.Mesh)
-        expect(mesh.userData['chunkCoord']).toEqual(coord)
-        expect(mesh.userData['chunkCoord'].x).toBe(3)
-        expect(mesh.userData['chunkCoord'].z).toBe(7)
+        const { opaqueMesh } = yield* service.createChunkMesh(chunk)
+        expect(opaqueMesh).toBeInstanceOf(THREE.Mesh)
+        expect(opaqueMesh.userData['chunkCoord']).toEqual(coord)
+        expect(opaqueMesh.userData['chunkCoord'].x).toBe(3)
+        expect(opaqueMesh.userData['chunkCoord'].z).toBe(7)
       }).pipe(Effect.provide(ChunkMeshServiceTest))
 
       Effect.runSync(program)
@@ -113,9 +115,9 @@ describe('ChunkMeshService', () => {
 
       const program = Effect.gen(function* () {
         const service = yield* ChunkMeshService
-        const mesh = yield* service.createChunkMesh(chunk)
-        expect(mesh.geometry).toBeDefined()
-        expect(mesh.geometry).toBeInstanceOf(THREE.BufferGeometry)
+        const { opaqueMesh } = yield* service.createChunkMesh(chunk)
+        expect(opaqueMesh.geometry).toBeDefined()
+        expect(opaqueMesh.geometry).toBeInstanceOf(THREE.BufferGeometry)
       }).pipe(Effect.provide(ChunkMeshServiceTest))
 
       Effect.runSync(program)
@@ -126,9 +128,9 @@ describe('ChunkMeshService', () => {
 
       const program = Effect.gen(function* () {
         const service = yield* ChunkMeshService
-        const mesh = yield* service.createChunkMesh(chunk)
-        expect(mesh.userData['blockPositions']).toBeDefined()
-        expect(Array.isArray(mesh.userData['blockPositions'])).toBe(true)
+        const { opaqueMesh } = yield* service.createChunkMesh(chunk)
+        expect(opaqueMesh.userData['blockPositions']).toBeDefined()
+        expect(Array.isArray(opaqueMesh.userData['blockPositions'])).toBe(true)
       }).pipe(Effect.provide(ChunkMeshServiceTest))
 
       Effect.runSync(program)
@@ -140,10 +142,10 @@ describe('ChunkMeshService', () => {
 
       const program = Effect.gen(function* () {
         const service = yield* ChunkMeshService
-        const mesh = yield* service.createChunkMesh(chunk)
-        expect(mesh.userData['chunkCoord']).toEqual(coord)
-        expect(mesh.userData['chunkCoord'].x).toBe(-5)
-        expect(mesh.userData['chunkCoord'].z).toBe(-3)
+        const { opaqueMesh } = yield* service.createChunkMesh(chunk)
+        expect(opaqueMesh.userData['chunkCoord']).toEqual(coord)
+        expect(opaqueMesh.userData['chunkCoord'].x).toBe(-5)
+        expect(opaqueMesh.userData['chunkCoord'].z).toBe(-3)
       }).pipe(Effect.provide(ChunkMeshServiceTest))
 
       Effect.runSync(program)
@@ -156,8 +158,8 @@ describe('ChunkMeshService', () => {
 
       const program = Effect.gen(function* () {
         const service = yield* ChunkMeshService
-        const mesh = yield* service.createChunkMesh(chunk)
-        const posAttr = mesh.geometry.getAttribute('position') as THREE.BufferAttribute
+        const { opaqueMesh } = yield* service.createChunkMesh(chunk)
+        const posAttr = opaqueMesh.geometry.getAttribute('position') as THREE.BufferAttribute
         expect(posAttr).toBeDefined()
         // All X-coordinates should be >= CHUNK_SIZE (16) due to world offset
         for (let i = 0; i < posAttr.count; i++) {
@@ -175,13 +177,13 @@ describe('ChunkMeshService', () => {
 
       const program = Effect.gen(function* () {
         const service = yield* ChunkMeshService
-        const mesh = yield* service.createChunkMesh(chunk)
+        const { opaqueMesh } = yield* service.createChunkMesh(chunk)
 
         // Spy on the OLD geometry's dispose method before calling update
-        const oldGeometry = mesh.geometry
+        const oldGeometry = opaqueMesh.geometry
         const disposeSpy = vi.spyOn(oldGeometry, 'dispose')
 
-        yield* service.updateChunkMesh(mesh, chunk)
+        yield* service.updateChunkMesh(opaqueMesh, null, chunk)
 
         expect(disposeSpy).toHaveBeenCalledOnce()
       }).pipe(Effect.provide(ChunkMeshServiceTest))
@@ -194,13 +196,13 @@ describe('ChunkMeshService', () => {
 
       const program = Effect.gen(function* () {
         const service = yield* ChunkMeshService
-        const mesh = yield* service.createChunkMesh(chunk)
-        const oldGeometry = mesh.geometry
+        const { opaqueMesh } = yield* service.createChunkMesh(chunk)
+        const oldGeometry = opaqueMesh.geometry
 
-        yield* service.updateChunkMesh(mesh, chunk)
+        yield* service.updateChunkMesh(opaqueMesh, null, chunk)
 
-        expect(mesh.geometry).not.toBe(oldGeometry)
-        expect(mesh.geometry).toBeInstanceOf(THREE.BufferGeometry)
+        expect(opaqueMesh.geometry).not.toBe(oldGeometry)
+        expect(opaqueMesh.geometry).toBeInstanceOf(THREE.BufferGeometry)
       }).pipe(Effect.provide(ChunkMeshServiceTest))
 
       Effect.runSync(program)
@@ -214,11 +216,11 @@ describe('ChunkMeshService', () => {
 
       const program = Effect.gen(function* () {
         const service = yield* ChunkMeshService
-        const mesh = yield* service.createChunkMesh(chunk1)
-        expect(mesh.userData['chunkCoord']).toEqual(coord1)
+        const { opaqueMesh } = yield* service.createChunkMesh(chunk1)
+        expect(opaqueMesh.userData['chunkCoord']).toEqual(coord1)
 
-        yield* service.updateChunkMesh(mesh, chunk2)
-        expect(mesh.userData['chunkCoord']).toEqual(coord2)
+        yield* service.updateChunkMesh(opaqueMesh, null, chunk2)
+        expect(opaqueMesh.userData['chunkCoord']).toEqual(coord2)
       }).pipe(Effect.provide(ChunkMeshServiceTest))
 
       Effect.runSync(program)
@@ -231,10 +233,10 @@ describe('ChunkMeshService', () => {
 
       const program = Effect.gen(function* () {
         const service = yield* ChunkMeshService
-        const mesh = yield* service.createChunkMesh(chunk)
+        const { opaqueMesh } = yield* service.createChunkMesh(chunk)
 
-        const disposeSpy = vi.spyOn(mesh.geometry, 'dispose')
-        yield* service.disposeMesh(mesh)
+        const disposeSpy = vi.spyOn(opaqueMesh.geometry, 'dispose')
+        yield* service.disposeMesh(opaqueMesh)
 
         expect(disposeSpy).toHaveBeenCalledOnce()
       }).pipe(Effect.provide(ChunkMeshServiceTest))
@@ -247,11 +249,11 @@ describe('ChunkMeshService', () => {
 
       const program = Effect.gen(function* () {
         const service = yield* ChunkMeshService
-        const mesh = yield* service.createChunkMesh(chunk)
+        const { opaqueMesh } = yield* service.createChunkMesh(chunk)
 
-        const disposeSpy = vi.spyOn(mesh.geometry, 'dispose')
-        yield* service.disposeMesh(mesh)
-        yield* service.disposeMesh(mesh)
+        const disposeSpy = vi.spyOn(opaqueMesh.geometry, 'dispose')
+        yield* service.disposeMesh(opaqueMesh)
+        yield* service.disposeMesh(opaqueMesh)
 
         expect(disposeSpy).toHaveBeenCalledTimes(2)
       }).pipe(Effect.provide(ChunkMeshServiceTest))

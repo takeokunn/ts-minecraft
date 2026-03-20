@@ -55,24 +55,34 @@ vi.mock('three', () => ({
     visible: true,
     userData: {} as Record<string, unknown>,
     position: { set: vi.fn() },
+    renderOrder: 0,
+    castShadow: false,
+    receiveShadow: false,
   })),
   BufferGeometry: vi.fn(() => ({ setAttribute: vi.fn(), setIndex: vi.fn(), dispose: vi.fn() })),
   BufferAttribute: vi.fn(),
   Scene: vi.fn(() => ({ add: vi.fn(), remove: vi.fn(), children: [] })),
   Frustum: vi.fn(() => ({ setFromProjectionMatrix: vi.fn(), intersectsBox: vi.fn(() => true) })),
   Box3: vi.fn(() => ({ set: vi.fn() })),
-  Vector3: vi.fn(() => ({ set: vi.fn(), x: 0, y: 0, z: 0 })),
+  Vector3: vi.fn(() => ({ set: vi.fn(), copy: vi.fn(), x: 0, y: 0, z: 0 })),
+  Vector2: vi.fn(() => ({ set: vi.fn(), x: 0, y: 0 })),
   Matrix4: vi.fn(() => ({ multiplyMatrices: vi.fn(), elements: Array.from({ length: 16 }, () => 0) })),
   PerspectiveCamera: vi.fn(() => ({
     updateMatrixWorld: vi.fn(),
     projectionMatrix: { elements: Array.from({ length: 16 }, () => 0) },
     matrixWorldInverse: { elements: Array.from({ length: 16 }, () => 0) },
     isCamera: true,
+    position: { set: vi.fn(), copy: vi.fn(), x: 0, y: 0, z: 0 },
   })),
-  MeshStandardMaterial: vi.fn(() => ({ map: null })),
-  CanvasTexture: vi.fn(() => ({ magFilter: 0, minFilter: 0, wrapS: 0, wrapT: 0 })),
+  MeshStandardMaterial: vi.fn(() => ({ map: null, dispose: vi.fn() })),
+  ShaderMaterial: vi.fn(() => ({ uniforms: {}, transparent: true, depthWrite: false, dispose: vi.fn() })),
+  CanvasTexture: vi.fn(() => ({ magFilter: 0, minFilter: 0, wrapS: 0, wrapT: 0, dispose: vi.fn() })),
+  WebGLRenderTarget: vi.fn(() => ({ texture: {}, setSize: vi.fn(), dispose: vi.fn() })),
   NearestFilter: 0,
+  LinearFilter: 1,
   ClampToEdgeWrapping: 0,
+  RGBAFormat: 0,
+  FrontSide: 0,
 }))
 
 import { WorldRendererService, WorldRendererServiceLive } from './world-renderer'
@@ -101,14 +111,15 @@ const makeMockMesh = (coord: { x: number; z: number }) => ({
 // We use Layer.effect to construct WorldRendererService with injected mocks.
 const buildTestLayer = (
   createChunkMesh: ReturnType<typeof vi.fn> = vi.fn((chunk: Chunk) =>
-    Effect.succeed(makeMockMesh(chunk.coord) as unknown as THREE.Mesh)
+    Effect.succeed({ opaqueMesh: makeMockMesh(chunk.coord) as unknown as THREE.Mesh, waterMesh: null })
   ),
   sceneAdd: ReturnType<typeof vi.fn> = vi.fn((_s: unknown, _m: unknown) => Effect.void),
   sceneRemove: ReturnType<typeof vi.fn> = vi.fn((_s: unknown, _m: unknown) => Effect.void)
 ) => {
   const chunkMeshLayer = Layer.succeed(ChunkMeshService, {
+    atlasTexture: {} as THREE.Texture,
     createChunkMesh,
-    updateChunkMesh: vi.fn((_m: THREE.Mesh, _c: Chunk) => Effect.void),
+    updateChunkMesh: vi.fn((_m: THREE.Mesh, _w: THREE.Mesh | null, _c: Chunk) => Effect.void),
     disposeMesh: vi.fn((_m: THREE.Mesh) => Effect.void),
   } as unknown as ChunkMeshService)
 

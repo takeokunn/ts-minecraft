@@ -21,14 +21,10 @@ export class NoiseService extends Effect.Service<NoiseService>()(
 
       return {
         noise2D: (x: number, z: number): Effect.Effect<number, never> =>
-          Effect.gen(function* () {
-            const noiseFn = yield* Ref.get(noiseRef)
-            return normalizeNoise(noiseFn(x, z))
-          }),
+          Ref.get(noiseRef).pipe(Effect.map((noiseFn) => normalizeNoise(noiseFn(x, z)))),
 
         octaveNoise2D: (x: number, z: number, octaves: number, persistence: number, lacunarity: number): Effect.Effect<number, never> =>
-          Effect.gen(function* () {
-            const noiseFn = yield* Ref.get(noiseRef)
+          Ref.get(noiseRef).pipe(Effect.map((noiseFn) => {
             let total = 0
             let frequency = 1
             let amplitude = 1
@@ -42,7 +38,7 @@ export class NoiseService extends Effect.Service<NoiseService>()(
             }
 
             return normalizeNoise(total / maxValue)
-          }),
+          })),
 
         setSeed: (seed: number): Effect.Effect<void, never, never> =>
           Ref.set(noiseRef, createPerlinNoise2D(mulberry32(seed))),

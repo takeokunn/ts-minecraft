@@ -46,6 +46,7 @@ const makeRenderer = () =>
   ({
     render: vi.fn(),
     autoClear: true,
+    domElement: { clientWidth: 800, clientHeight: 600 },
   }) as unknown as THREE.WebGLRenderer
 
 const makeCamera = () => {
@@ -138,7 +139,19 @@ const makeInputService = (pressedKeys: Set<string> = new Set()) =>
     consumeWheelDelta: () => Effect.succeed(0),
   }) as unknown as InstanceType<typeof import('@/presentation/input/input-service').InputService>
 
-const DEFAULT_SETTINGS = { renderDistance: 8, mouseSensitivity: 0.5, dayLengthSeconds: 400 }
+const DEFAULT_SETTINGS = {
+  renderDistance: 8,
+  mouseSensitivity: 0.5,
+  dayLengthSeconds: 400,
+  shadowsEnabled: true,
+  ssaoEnabled: true,
+  bloomEnabled: true,
+  skyEnabled: true,
+  ssrEnabled: false,
+  dofEnabled: false,
+  godRaysEnabled: false,
+  smaaEnabled: true,
+}
 
 /**
  * Build a complete FrameHandlerServices stub.
@@ -218,6 +231,11 @@ const makeServices = (opts: {
     syncChunksToScene: (_chunks: unknown, _scene: unknown) => Effect.void,
     applyFrustumCulling: (_cam: unknown) => Effect.void,
     updateChunkInScene: (_chunk: unknown, _scene: unknown) => Effect.void,
+    clearScene: (_scene: unknown) => Effect.void,
+    doRefractionPrePass: (_renderer: unknown, _scene: unknown, _camera: unknown) => Effect.void,
+    updateWaterUniforms: (_time: number, _camPos: unknown, _w: number, _h: number) => Effect.void,
+    resizeRefractionRT: (_w: number, _h: number) => Effect.void,
+    getWaterMeshes: () => Effect.succeed([] as THREE.Mesh[]),
   } as unknown as InstanceType<typeof import('@/infrastructure/three/world-renderer').WorldRendererService>
 
   const healthService = {

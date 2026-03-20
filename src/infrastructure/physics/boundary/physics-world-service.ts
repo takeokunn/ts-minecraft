@@ -19,10 +19,10 @@ export class PhysicsWorldService extends Effect.Service<PhysicsWorldService>()(
   {
     succeed: {
       create: (config: WorldConfig): Effect.Effect<CustomWorld, never> =>
-        Effect.sync(() => ({
+        Effect.succeed({
           gravity: { x: config.gravity.x, y: config.gravity.y, z: config.gravity.z },
           bodies: [],
-        })),
+        }),
       addBody: (world: CustomWorld, body: CustomBody): Effect.Effect<void, never> =>
         Effect.sync(() => {
           world.bodies.push(body)

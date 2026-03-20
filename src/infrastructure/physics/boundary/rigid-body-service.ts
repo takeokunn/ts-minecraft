@@ -26,7 +26,7 @@ export class RigidBodyService extends Effect.Service<RigidBodyService>()(
   {
     succeed: {
       create: (config: RigidBodyConfig): Effect.Effect<CustomBody, never> =>
-        Effect.sync(() => ({
+        Effect.succeed({
           position: { x: config.position.x, y: config.position.y, z: config.position.z },
           velocity: { x: 0, y: 0, z: 0 },
           mass: config.mass,
@@ -35,7 +35,7 @@ export class RigidBodyService extends Effect.Service<RigidBodyService>()(
           fixedRotation: false,
           angularDamping: 0,
           allowSleep: true,
-        })),
+        }),
       setPosition: (body: CustomBody, position: { x: number; y: number; z: number }): Effect.Effect<void, never> =>
         Effect.sync(() => {
           body.position.x = position.x

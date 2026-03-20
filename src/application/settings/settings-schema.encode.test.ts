@@ -10,6 +10,12 @@ describe('SettingsSchema encode round-trip', () => {
     dayLengthSeconds: 400,
     shadowsEnabled: true,
     ssaoEnabled: true,
+    bloomEnabled: true,
+    skyEnabled: true,
+    ssrEnabled: false,
+    dofEnabled: false,
+    godRaysEnabled: false,
+    smaaEnabled: true,
   }
 
   it('encodes valid settings to a plain object', () => {

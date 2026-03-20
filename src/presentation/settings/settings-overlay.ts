@@ -15,8 +15,15 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
       let dayLengthInput: HTMLInputElement | null = null
       let shadowsInput: HTMLInputElement | null = null
       let ssaoInput: HTMLInputElement | null = null
+      let bloomInput: HTMLInputElement | null = null
+      let skyInput: HTMLInputElement | null = null
+      let ssrInput: HTMLInputElement | null = null
+      let dofInput: HTMLInputElement | null = null
+      let godRaysInput: HTMLInputElement | null = null
+      let smaaInput: HTMLInputElement | null = null
       let applyBtn: HTMLButtonElement | null = null
       let closeBtn: HTMLButtonElement | null = null
+      let gearBtn: HTMLButtonElement | null = null
 
       const isVisibleRef = yield* Ref.make(false)
 
@@ -53,9 +60,33 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
             <input id="shadows-input" type="checkbox" checked style="margin-right:6px">
             Shadows
           </label>
-          <label style="display:block;margin-bottom:16px">
+          <label style="display:block;margin-bottom:12px">
             <input id="ssao-input" type="checkbox" checked style="margin-right:6px">
-            SSAO (Ambient Occlusion)
+            Ambient Occlusion (GTAO)
+          </label>
+          <label style="display:block;margin-bottom:12px">
+            <input id="bloom-input" type="checkbox" checked style="margin-right:6px">
+            Bloom (Glow Effects)
+          </label>
+          <label style="display:block;margin-bottom:12px">
+            <input id="sky-input" type="checkbox" checked style="margin-right:6px">
+            Physical Sky
+          </label>
+          <label style="display:block;margin-bottom:12px">
+            <input id="ssr-input" type="checkbox" style="margin-right:6px">
+            Water Reflections (SSR)
+          </label>
+          <label style="display:block;margin-bottom:12px">
+            <input id="dof-input" type="checkbox" style="margin-right:6px">
+            Depth of Field
+          </label>
+          <label style="display:block;margin-bottom:12px">
+            <input id="god-rays-input" type="checkbox" style="margin-right:6px">
+            God Rays (Light Shafts)
+          </label>
+          <label style="display:block;margin-bottom:16px">
+            <input id="smaa-input" type="checkbox" checked style="margin-right:6px">
+            Anti-aliasing (SMAA)
           </label>
           <div style="display:flex;gap:8px">
             <button id="settings-apply" style="flex:1;padding:8px;cursor:pointer;background:#4a7;border:none;color:#fff;border-radius:4px">Apply</button>
@@ -65,11 +96,29 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
 
         dom.appendChild(overlayEl)
 
+        gearBtn = dom.createElement('button') as HTMLButtonElement
+        gearBtn.id = 'settings-gear-btn'
+        gearBtn.textContent = '⚙'
+        gearBtn.style.cssText = [
+          'position:fixed', 'top:10px', 'left:10px',
+          'background:rgba(0,0,0,0.7)', 'color:white',
+          'border:none', 'font-size:20px',
+          'padding:5px 10px', 'cursor:pointer',
+          'border-radius:4px', 'z-index:10',
+        ].join(';')
+        dom.appendChild(gearBtn)
+
         renderDistanceInput = dom.querySelector<HTMLInputElement>(overlayEl, '#rd-input')
         sensitivityInput = dom.querySelector<HTMLInputElement>(overlayEl, '#ms-input')
         dayLengthInput = dom.querySelector<HTMLInputElement>(overlayEl, '#dl-input')
         shadowsInput = dom.querySelector<HTMLInputElement>(overlayEl, '#shadows-input')
         ssaoInput = dom.querySelector<HTMLInputElement>(overlayEl, '#ssao-input')
+        bloomInput = dom.querySelector<HTMLInputElement>(overlayEl, '#bloom-input')
+        skyInput = dom.querySelector<HTMLInputElement>(overlayEl, '#sky-input')
+        ssrInput = dom.querySelector<HTMLInputElement>(overlayEl, '#ssr-input')
+        dofInput = dom.querySelector<HTMLInputElement>(overlayEl, '#dof-input')
+        godRaysInput = dom.querySelector<HTMLInputElement>(overlayEl, '#god-rays-input')
+        smaaInput = dom.querySelector<HTMLInputElement>(overlayEl, '#smaa-input')
         applyBtn = dom.querySelector<HTMLButtonElement>(overlayEl, '#settings-apply')
         closeBtn = dom.querySelector<HTMLButtonElement>(overlayEl, '#settings-close')
       }
@@ -85,6 +134,12 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
             dayLengthSeconds: dl,
             shadowsEnabled: shadowsInput?.checked ?? true,
             ssaoEnabled: ssaoInput?.checked ?? true,
+            bloomEnabled: bloomInput?.checked ?? true,
+            skyEnabled: skyInput?.checked ?? true,
+            ssrEnabled: ssrInput?.checked ?? false,
+            dofEnabled: dofInput?.checked ?? false,
+            godRaysEnabled: godRaysInput?.checked ?? false,
+            smaaEnabled: smaaInput?.checked ?? true,
           })
         })
 
@@ -108,6 +163,12 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
           }
           if (shadowsInput) shadowsInput.checked = settings.shadowsEnabled
           if (ssaoInput) ssaoInput.checked = settings.ssaoEnabled
+          if (bloomInput) bloomInput.checked = settings.bloomEnabled
+          if (skyInput) skyInput.checked = settings.skyEnabled
+          if (ssrInput) ssrInput.checked = settings.ssrEnabled
+          if (dofInput) dofInput.checked = settings.dofEnabled
+          if (godRaysInput) godRaysInput.checked = settings.godRaysEnabled
+          if (smaaInput) smaaInput.checked = settings.smaaEnabled
         })
       }
 
@@ -146,6 +207,16 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
         )
       }
 
+      const handleGearClick = () => {
+        Effect.runFork(
+          Effect.gen(function* () {
+            const next = yield* Ref.modify(isVisibleRef, (current): [boolean, boolean] => [!current, !current])
+            if (overlayEl) overlayEl.style.display = next ? 'block' : 'none'
+            if (next) yield* syncEffect()
+          }).pipe(Effect.catchAllCause(() => Effect.void))
+        )
+      }
+
       createOverlay()
 
       yield* Effect.acquireRelease(
@@ -155,6 +226,7 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
           dayLengthInput?.addEventListener('input', handleDlInput)
           applyBtn?.addEventListener('click', handleApply)
           closeBtn?.addEventListener('click', handleClose)
+          gearBtn?.addEventListener('click', handleGearClick)
         }),
         () => Effect.sync(() => {
           renderDistanceInput?.removeEventListener('input', handleRdInput)
@@ -162,6 +234,8 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
           dayLengthInput?.removeEventListener('input', handleDlInput)
           applyBtn?.removeEventListener('click', handleApply)
           closeBtn?.removeEventListener('click', handleClose)
+          gearBtn?.removeEventListener('click', handleGearClick)
+          gearBtn?.remove()
           overlayEl?.remove()
         })
       )
@@ -173,9 +247,7 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
          */
         toggle: (): Effect.Effect<boolean, never> =>
           Effect.gen(function* () {
-            const current = yield* Ref.get(isVisibleRef)
-            const next = !current
-            yield* Ref.set(isVisibleRef, next)
+            const next = yield* Ref.modify(isVisibleRef, (current): [boolean, boolean] => [!current, !current])
             if (overlayEl) overlayEl.style.display = next ? 'block' : 'none'
             if (next) yield* syncEffect()
             return next

@@ -41,11 +41,10 @@ describe('three/meshing/block-mesh', () => {
       expect(typeof serviceLayer).toBe('object')
     })
 
-    it('should have createMesh, createSolidBlockMesh, getSharedGeometry, disposeMesh, and disposeAll methods', () => {
+    it('should have createSolidBlockMesh, getSharedGeometry, disposeMesh, and disposeAll methods', () => {
       const program = Effect.gen(function* () {
         const service = yield* BlockMeshService
 
-        expect(typeof service.createMesh).toBe('function')
         expect(typeof service.createSolidBlockMesh).toBe('function')
         expect(typeof service.getSharedGeometry).toBe('function')
         expect(typeof service.disposeMesh).toBe('function')
@@ -56,64 +55,6 @@ describe('three/meshing/block-mesh', () => {
 
       const result = Effect.runSync(program)
       expect(result.success).toBe(true)
-    })
-
-    describe('createMesh', () => {
-      it('should create mesh with shared geometry', async () => {
-        const program = Effect.gen(function* () {
-          const service = yield* BlockMeshService
-
-          const position = new THREE.Vector3(0, 0, 0)
-          const mesh = yield* service.createMesh('stone', position)
-
-          expect(mesh).toBeDefined()
-          expect(mesh).toBeInstanceOf(THREE.Mesh)
-          expect(mesh.geometry).toBeInstanceOf(THREE.BoxGeometry)
-
-          return { success: true }
-        }).pipe(Effect.provide(layer))
-
-        const result = await Effect.runPromise(program)
-        expect(result.success).toBe(true)
-      })
-
-      it('should set mesh position correctly', async () => {
-        const program = Effect.gen(function* () {
-          const service = yield* BlockMeshService
-
-          const position = new THREE.Vector3(1, 2, 3)
-          const mesh = yield* service.createMesh('dirt', position)
-
-          expect(mesh.position.x).toBe(1)
-          expect(mesh.position.y).toBe(2)
-          expect(mesh.position.z).toBe(3)
-
-          return { success: true }
-        }).pipe(Effect.provide(layer))
-
-        const result = await Effect.runPromise(program)
-        expect(result.success).toBe(true)
-      })
-
-      it('should create mesh with UV coordinates per face', async () => {
-        const program = Effect.gen(function* () {
-          const service = yield* BlockMeshService
-
-          const position = new THREE.Vector3(0, 0, 0)
-          const mesh = yield* service.createMesh('grass', position)
-
-          const uvAttribute = mesh.geometry.attributes['uv']
-          expect(uvAttribute).toBeDefined()
-          if (uvAttribute) {
-            expect(uvAttribute.count).toBeGreaterThan(0)
-          }
-
-          return { success: true }
-        }).pipe(Effect.provide(layer))
-
-        const result = await Effect.runPromise(program)
-        expect(result.success).toBe(true)
-      })
     })
 
     describe('createSolidBlockMesh', () => {

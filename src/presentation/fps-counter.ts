@@ -23,7 +23,7 @@ export class FPSCounterService extends Effect.Service<FPSCounterService>()(
       })
 
       return {
-        tick: (deltaTime: DeltaTimeSecs): Effect.Effect<void> =>
+        tick: (deltaTime: DeltaTimeSecs): Effect.Effect<void, never> =>
           Effect.gen(function* () {
             const maybeNewFPS = yield* Ref.modify(state, (s) => {
               const next = {
@@ -51,11 +51,6 @@ export class FPSCounterService extends Effect.Service<FPSCounterService>()(
           Ref.get(state).pipe(
             Effect.map((s) => s.frameCount)
           ),
-
-        reset: (): Effect.Effect<void, never> =>
-          Effect.gen(function* () {
-            yield* Ref.set(state, { frameCount: 0, fps: 0, accumulatedTime: 0 })
-          }),
       }
     })
   }

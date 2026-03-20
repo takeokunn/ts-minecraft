@@ -21,11 +21,11 @@ export class ShapeService extends Effect.Service<ShapeService>()(
   {
     succeed: {
       createBox: (config: BoxShapeConfig): Effect.Effect<CustomShape, never> =>
-        Effect.sync(() => ({ kind: 'box' as const, halfExtents: config.halfExtents })),
+        Effect.succeed({ kind: 'box' as const, halfExtents: config.halfExtents }),
       createSphere: (config: SphereShapeConfig): Effect.Effect<CustomShape, never> =>
-        Effect.sync(() => ({ kind: 'sphere' as const, radius: config.radius })),
+        Effect.succeed({ kind: 'sphere' as const, radius: config.radius }),
       createPlane: (): Effect.Effect<CustomShape, never> =>
-        Effect.sync(() => ({ kind: 'plane' as const })),
+        Effect.succeed({ kind: 'plane' as const }),
     },
   }
 ) {}

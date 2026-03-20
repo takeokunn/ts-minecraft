@@ -69,27 +69,8 @@ export default defineConfig(({ command, mode }) => {
       outDir: 'dist',
       assetsDir: 'assets',
       sourcemap: isDev,
-      minify: isProd ? 'terser' : false,
+      minify: isProd ? 'esbuild' : false,
       reportCompressedSize: false,
-      terserOptions: isProd
-        ? {
-            compress: {
-              drop_console: true,
-              drop_debugger: true,
-              pure_funcs: ['console.log', 'console.warn', 'console.info'],
-              passes: 2,
-            },
-            mangle: {
-              safari10: true,
-              properties: {
-                regex: /^_/,
-              },
-            },
-            format: {
-              comments: false,
-            },
-          }
-        : undefined,
       rollupOptions: {
         input: {
           main: resolve(__dirname, 'index.html'),
@@ -99,16 +80,9 @@ export default defineConfig(({ command, mode }) => {
           entryFileNames: 'assets/js/[name]-[hash].js',
           assetFileNames: 'assets/[ext]/[name]-[hash].[ext]',
           manualChunks: (id) => {
-            if (id.includes('test')) return null
-            if (id.includes('effect/')) {
-              if (id.includes('Schema')) return 'effect-schema'
-              if (id.includes('Context')) return 'effect-context'
-              if (id.includes('Match')) return 'effect-match'
-              return 'effect-core'
-            }
             if (id.includes('node_modules')) {
               if (id.includes('three')) return 'three'
-              return 'vendor'
+              if (id.includes('/effect/')) return 'effect'
             }
             if (id.includes('/domain/')) return 'domain'
             if (id.includes('/application/')) return 'application'
@@ -164,14 +138,6 @@ export default defineConfig(({ command, mode }) => {
       modules: {
         localsConvention: 'camelCase',
         generateScopedName: isDev ? '[name]__[local]___[hash:base64:5]' : '[hash:base64:8]',
-      },
-      transformer: 'lightningcss',
-      lightningcss: {
-        targets: {
-          chrome: 90,
-          firefox: 88,
-          safari: 14,
-        },
       },
     },
     define: {

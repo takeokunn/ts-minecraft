@@ -199,8 +199,20 @@ const runGreedyExpansion = (
 
 // ─── Main meshing function ───────────────────────────────────────────────────
 
-export const greedyMeshChunk = (chunk: Chunk, offset: ChunkWorldOffset): MeshedChunk => {
-  const acc: MeshAccumulator = {
+export const greedyMeshChunk = (
+  chunk: Chunk,
+  offset: ChunkWorldOffset,
+  transparentBlockIds: ReadonlySet<number> = new Set()
+): { opaque: MeshedChunk; water: MeshedChunk } => {
+  const opaqueAcc: MeshAccumulator = {
+    positions: [],
+    normals: [],
+    colors: [],
+    uvs: [],
+    indices: [],
+    blockPositions: [],
+  }
+  const waterAcc: MeshAccumulator = {
     positions: [],
     normals: [],
     colors: [],
@@ -232,8 +244,9 @@ export const greedyMeshChunk = (chunk: Chunk, offset: ChunkWorldOffset): MeshedC
       runGreedyExpansion(mask, CHUNK_SIZE, CHUNK_HEIGHT, (u0, v0, du, dv, blockId, ao) => {
         const lz0 = u0, y0 = v0
         const fx = offset.wx + lx + 1
+        const targetAcc = transparentBlockIds.has(blockId) ? waterAcc : opaqueAcc
         addQuad(
-          acc,
+          targetAcc,
           [fx, y0,       offset.wz + lz0],
           [fx, y0 + dv,  offset.wz + lz0],
           [fx, y0 + dv,  offset.wz + lz0 + du],
@@ -268,8 +281,9 @@ export const greedyMeshChunk = (chunk: Chunk, offset: ChunkWorldOffset): MeshedC
       runGreedyExpansion(mask, CHUNK_SIZE, CHUNK_HEIGHT, (u0, v0, du, dv, blockId, ao) => {
         const lz0 = u0, y0 = v0
         const fx = offset.wx + lx
+        const targetAcc = transparentBlockIds.has(blockId) ? waterAcc : opaqueAcc
         addQuad(
-          acc,
+          targetAcc,
           [fx, y0,      offset.wz + lz0 + du],
           [fx, y0 + dv, offset.wz + lz0 + du],
           [fx, y0 + dv, offset.wz + lz0],
@@ -304,8 +318,9 @@ export const greedyMeshChunk = (chunk: Chunk, offset: ChunkWorldOffset): MeshedC
       runGreedyExpansion(mask, CHUNK_SIZE, CHUNK_SIZE, (u0, v0, du, dv, blockId, ao) => {
         const lx0 = u0, lz0 = v0
         const fy = y + 1
+        const targetAcc = transparentBlockIds.has(blockId) ? waterAcc : opaqueAcc
         addQuad(
-          acc,
+          targetAcc,
           [offset.wx + lx0,      fy, offset.wz + lz0],
           [offset.wx + lx0,      fy, offset.wz + lz0 + dv],
           [offset.wx + lx0 + du, fy, offset.wz + lz0 + dv],
@@ -340,8 +355,9 @@ export const greedyMeshChunk = (chunk: Chunk, offset: ChunkWorldOffset): MeshedC
       runGreedyExpansion(mask, CHUNK_SIZE, CHUNK_SIZE, (u0, v0, du, dv, blockId, ao) => {
         const lx0 = u0, lz0 = v0
         const fy = y
+        const targetAcc = transparentBlockIds.has(blockId) ? waterAcc : opaqueAcc
         addQuad(
-          acc,
+          targetAcc,
           [offset.wx + lx0 + du, fy, offset.wz + lz0],
           [offset.wx + lx0 + du, fy, offset.wz + lz0 + dv],
           [offset.wx + lx0,      fy, offset.wz + lz0 + dv],
@@ -376,8 +392,9 @@ export const greedyMeshChunk = (chunk: Chunk, offset: ChunkWorldOffset): MeshedC
       runGreedyExpansion(mask, CHUNK_SIZE, CHUNK_HEIGHT, (u0, v0, du, dv, blockId, ao) => {
         const lx0 = u0, y0 = v0
         const fz = offset.wz + lz + 1
+        const targetAcc = transparentBlockIds.has(blockId) ? waterAcc : opaqueAcc
         addQuad(
-          acc,
+          targetAcc,
           [offset.wx + lx0 + du, y0,      fz],
           [offset.wx + lx0 + du, y0 + dv, fz],
           [offset.wx + lx0,      y0 + dv, fz],
@@ -412,8 +429,9 @@ export const greedyMeshChunk = (chunk: Chunk, offset: ChunkWorldOffset): MeshedC
       runGreedyExpansion(mask, CHUNK_SIZE, CHUNK_HEIGHT, (u0, v0, du, dv, blockId, ao) => {
         const lx0 = u0, y0 = v0
         const fz = offset.wz + lz
+        const targetAcc = transparentBlockIds.has(blockId) ? waterAcc : opaqueAcc
         addQuad(
-          acc,
+          targetAcc,
           [offset.wx + lx0,      y0,      fz],
           [offset.wx + lx0,      y0 + dv, fz],
           [offset.wx + lx0 + du, y0 + dv, fz],
@@ -435,12 +453,17 @@ export const greedyMeshChunk = (chunk: Chunk, offset: ChunkWorldOffset): MeshedC
   passZPos()
   passZNeg()
 
+  const toMeshedChunk = (a: MeshAccumulator): MeshedChunk => ({
+    positions: new Float32Array(a.positions),
+    normals: new Float32Array(a.normals),
+    colors: new Float32Array(a.colors),
+    uvs: new Float32Array(a.uvs),
+    indices: new Uint32Array(a.indices),
+    blockPositions: a.blockPositions,
+  })
+
   return {
-    positions: new Float32Array(acc.positions),
-    normals: new Float32Array(acc.normals),
-    colors: new Float32Array(acc.colors),
-    uvs: new Float32Array(acc.uvs),
-    indices: new Uint32Array(acc.indices),
-    blockPositions: acc.blockPositions,
+    opaque: toMeshedChunk(opaqueAcc),
+    water: toMeshedChunk(waterAcc),
   }
 }

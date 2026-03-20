@@ -1,4 +1,4 @@
-import { Effect, Option, Option as O } from 'effect'
+import { Effect, Option } from 'effect'
 import { Recipe, RecipeIngredient } from '@/domain/crafting'
 import { RecipeError } from '@/domain/errors'
 import type { InventoryService } from '@/application/inventory/inventory-service'
@@ -7,7 +7,7 @@ import { RecipeId } from '@/shared/kernel'
 export class RecipeService extends Effect.Service<RecipeService>()(
   '@minecraft/application/RecipeService',
   {
-    effect: Effect.sync(() => {
+    effect: Effect.succeed((() => {
       const recipes: Recipe[] = [
         new Recipe({
           id: RecipeId.make('wood-to-planks'),
@@ -89,7 +89,7 @@ export class RecipeService extends Effect.Service<RecipeService>()(
           const slots = yield* inventoryService.getAllSlots()
           const available = new Map<string, number>()
           for (const slot of slots) {
-            if (O.isSome(slot)) {
+            if (Option.isSome(slot)) {
               const { blockType, count } = slot.value
               available.set(blockType, (available.get(blockType) ?? 0) + count)
             }
@@ -131,7 +131,7 @@ export class RecipeService extends Effect.Service<RecipeService>()(
         findCraftable,
         craft,
       }
-    }),
+    })()),
   }
 ) {}
 export const RecipeServiceLive = RecipeService.Default

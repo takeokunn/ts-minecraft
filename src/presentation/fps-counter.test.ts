@@ -1,20 +1,10 @@
-import { describe, it, beforeEach } from '@effect/vitest'
+import { describe, it } from '@effect/vitest'
 import { Effect, Schema, Metric } from 'effect'
 import { DeltaTimeSecs } from '@/shared/kernel'
 import { expect } from 'vitest'
 import { FPSCounterService, FPSCounterLive, FPSCounterStateSchema } from './fps-counter'
 
 describe('FPSCounterService', () => {
-  beforeEach(() => {
-    return Effect.gen(function* () {
-      const counter = yield* FPSCounterService
-      yield* counter.reset()
-    }).pipe(
-      Effect.provide(FPSCounterLive),
-      Effect.runSync
-    )
-  })
-
   describe('tick', () => {
     it('should increment frame count', () => {
       const program = Effect.gen(function* () {
@@ -151,60 +141,6 @@ describe('FPSCounterService', () => {
       const result = Effect.runSync(program.pipe(Effect.provide(FPSCounterLive)))
       expect(result.afterOne).toBe(1)
       expect(result.afterThree).toBe(3)
-    })
-  })
-
-  describe('reset', () => {
-    it('should clear all state', () => {
-      const program = Effect.gen(function* () {
-        const counter = yield* FPSCounterService
-
-        // Accumulate some state (31 ticks to cross 0.5s threshold)
-        const deltaTime = 0.5 / 30
-        for (let i = 0; i < 31; i++) {
-          yield* counter.tick(DeltaTimeSecs.make(deltaTime))
-        }
-
-        const fpsBefore = yield* counter.getFPS()
-        const frameCountBefore = yield* counter.getFrameCount()
-
-        // Reset
-        yield* counter.reset()
-
-        const fpsAfter = yield* counter.getFPS()
-        const frameCountAfter = yield* counter.getFrameCount()
-
-        return { fpsBefore, frameCountBefore, fpsAfter, frameCountAfter }
-      })
-
-      const result = Effect.runSync(program.pipe(Effect.provide(FPSCounterLive)))
-      expect(result.fpsBefore).toBeGreaterThan(59)
-      expect(result.fpsBefore).toBeLessThan(61)
-      expect(result.frameCountBefore).toBe(0) // Reset after interval
-      expect(result.fpsAfter).toBe(0)
-      expect(result.frameCountAfter).toBe(0)
-    })
-
-    it('should reset accumulated state mid-interval', () => {
-      const program = Effect.gen(function* () {
-        const counter = yield* FPSCounterService
-
-        // Add some ticks but not enough for interval
-        yield* counter.tick(DeltaTimeSecs.make(0.016))
-        yield* counter.tick(DeltaTimeSecs.make(0.016))
-        yield* counter.tick(DeltaTimeSecs.make(0.016))
-
-        yield* counter.reset()
-
-        const fps = yield* counter.getFPS()
-        const frameCount = yield* counter.getFrameCount()
-
-        return { fps, frameCount }
-      })
-
-      const result = Effect.runSync(program.pipe(Effect.provide(FPSCounterLive)))
-      expect(result.fps).toBe(0)
-      expect(result.frameCount).toBe(0)
     })
   })
 

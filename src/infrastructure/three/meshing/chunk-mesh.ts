@@ -1,11 +1,13 @@
 import { Effect } from 'effect'
 import * as THREE from 'three'
-import { Chunk, CHUNK_SIZE } from '@/domain/chunk'
+import { Chunk, CHUNK_SIZE, blockTypeToIndex } from '@/domain/chunk'
 import { TextureError } from '@/domain'
 import { ATLAS_COLS, ATLAS_SIZE } from '../textures/block-texture-map'
 import { greedyMeshChunk, MeshedChunk } from './greedy-meshing'
 
 const TILE_PX = ATLAS_SIZE / ATLAS_COLS  // 32
+
+const TRANSPARENT_BLOCK_IDS = new Set([blockTypeToIndex('WATER')])
 
 const buildGeometry = (meshed: MeshedChunk): THREE.BufferGeometry => {
   const geometry = new THREE.BufferGeometry()
@@ -251,43 +253,78 @@ const buildAtlasTexture = (): Effect.Effect<THREE.Texture, TextureError> =>
 export class ChunkMeshService extends Effect.Service<ChunkMeshService>()(
   '@minecraft/infrastructure/three/ChunkMeshService',
   {
-    effect: Effect.gen(function* () {
-      const atlasTexture = yield* Effect.orDie(buildAtlasTexture())
+    scoped: Effect.gen(function* () {
+      const atlasTexture = yield* Effect.acquireRelease(
+        Effect.orDie(buildAtlasTexture()),
+        (tex) => Effect.sync(() => tex.dispose())
+      )
 
-      const sharedMaterial = new THREE.MeshStandardMaterial({
-        map: atlasTexture,
-        vertexColors: true,
-        roughness: 0.8,
-        metalness: 0,
-      })
+      const sharedMaterial = yield* Effect.acquireRelease(
+        Effect.sync(() => new THREE.MeshStandardMaterial({
+          map: atlasTexture,
+          vertexColors: true,
+          roughness: 0.8,
+          metalness: 0,
+        })),
+        (mat) => Effect.sync(() => mat.dispose())
+      )
 
       return {
-        createChunkMesh: (chunk: Chunk): Effect.Effect<THREE.Mesh, never> =>
+        atlasTexture,
+
+        createChunkMesh: (
+          chunk: Chunk,
+          waterMaterial?: THREE.ShaderMaterial
+        ): Effect.Effect<{ opaqueMesh: THREE.Mesh; waterMesh: THREE.Mesh | null }, never> =>
           Effect.sync(() => {
             const meshed = greedyMeshChunk(chunk, {
               wx: chunk.coord.x * CHUNK_SIZE,
               wz: chunk.coord.z * CHUNK_SIZE,
-            })
-            const geometry = buildGeometry(meshed)
-            const mesh = new THREE.Mesh(geometry, sharedMaterial)
-            mesh.castShadow = true
-            mesh.receiveShadow = true
-            mesh.userData['blockPositions'] = meshed.blockPositions
-            mesh.userData['chunkCoord'] = chunk.coord
-            return mesh
+            }, TRANSPARENT_BLOCK_IDS)
+
+            const opaqueGeometry = buildGeometry(meshed.opaque)
+            const opaqueMesh = new THREE.Mesh(opaqueGeometry, sharedMaterial)
+            opaqueMesh.castShadow = true
+            opaqueMesh.receiveShadow = true
+            opaqueMesh.userData['blockPositions'] = meshed.opaque.blockPositions
+            opaqueMesh.userData['chunkCoord'] = chunk.coord
+
+            let waterMesh: THREE.Mesh | null = null
+            if (waterMaterial !== undefined && meshed.water.positions.length > 0) {
+              const waterGeometry = buildGeometry(meshed.water)
+              waterMesh = new THREE.Mesh(waterGeometry, waterMaterial)
+              waterMesh.castShadow = false
+              waterMesh.receiveShadow = false
+              waterMesh.renderOrder = 1
+              waterMesh.userData['chunkCoord'] = chunk.coord
+            }
+
+            return { opaqueMesh, waterMesh }
           }),
 
-        updateChunkMesh: (mesh: THREE.Mesh, chunk: Chunk): Effect.Effect<void, never> =>
+        updateChunkMesh: (
+          opaqueMesh: THREE.Mesh,
+          waterMesh: THREE.Mesh | null,
+          chunk: Chunk
+        ): Effect.Effect<void, never> =>
           Effect.sync(() => {
-            const oldGeometry = mesh.geometry
             const meshed = greedyMeshChunk(chunk, {
               wx: chunk.coord.x * CHUNK_SIZE,
               wz: chunk.coord.z * CHUNK_SIZE,
-            })
-            mesh.geometry = buildGeometry(meshed)
-            mesh.userData['blockPositions'] = meshed.blockPositions
-            mesh.userData['chunkCoord'] = chunk.coord
-            oldGeometry.dispose()
+            }, TRANSPARENT_BLOCK_IDS)
+
+            const oldOpaqueGeometry = opaqueMesh.geometry
+            opaqueMesh.geometry = buildGeometry(meshed.opaque)
+            opaqueMesh.userData['blockPositions'] = meshed.opaque.blockPositions
+            opaqueMesh.userData['chunkCoord'] = chunk.coord
+            oldOpaqueGeometry.dispose()
+
+            if (waterMesh !== null) {
+              const oldWaterGeometry = waterMesh.geometry
+              waterMesh.geometry = buildGeometry(meshed.water)
+              waterMesh.userData['chunkCoord'] = chunk.coord
+              oldWaterGeometry.dispose()
+            }
           }),
 
         disposeMesh: (mesh: THREE.Mesh): Effect.Effect<void, never> =>

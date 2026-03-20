@@ -16,6 +16,18 @@ export const SettingsSchema = Schema.Struct({
   shadowsEnabled: Schema.Boolean,
   /** Screen-space ambient occlusion enabled. Default: true. */
   ssaoEnabled: Schema.Boolean,
+  /** Bloom (glow) post-processing. Default: true. */
+  bloomEnabled: Schema.Boolean,
+  /** Physical sky (Three.Sky Preetham model). Default: true. */
+  skyEnabled: Schema.Boolean,
+  /** Screen-space reflections on water. Default: false (heavy). */
+  ssrEnabled: Schema.Boolean,
+  /** Depth of field (bokeh). Default: false. */
+  dofEnabled: Schema.Boolean,
+  /** God rays (crepuscular light shafts). Default: false (heavy). */
+  godRaysEnabled: Schema.Boolean,
+  /** SMAA anti-aliasing. Default: true. */
+  smaaEnabled: Schema.Boolean,
 })
 export type Settings = Schema.Schema.Type<typeof SettingsSchema>
 
@@ -25,6 +37,12 @@ const DEFAULT_SETTINGS: Settings = {
   dayLengthSeconds: 400,
   shadowsEnabled: true,
   ssaoEnabled: true,
+  bloomEnabled: true,
+  skyEnabled: true,
+  ssrEnabled: false,
+  dofEnabled: false,
+  godRaysEnabled: false,
+  smaaEnabled: true,
 }
 
 const STORAGE_KEY = 'minecraft-settings'
@@ -67,9 +85,8 @@ export class SettingsService extends Effect.Service<SettingsService>()(
             const merged = { ...current, ...partial }
             const result = yield* Effect.try({
               try: () => Schema.decodeUnknownSync(SettingsSchema)(merged),
-              catch: (e) => e,
+              catch: (e) => new SettingsError({ operation: 'update', cause: e }),
             }).pipe(
-              Effect.tapError((e) => Effect.logWarning(`Settings validation failed, reverting to defaults: ${String(e)}`)),
               Effect.catchAllCause((cause) =>
                 Effect.logWarning(`Settings validation failed, reverting to defaults: ${Cause.pretty(cause)}`).pipe(
                   Effect.as(DEFAULT_SETTINGS)

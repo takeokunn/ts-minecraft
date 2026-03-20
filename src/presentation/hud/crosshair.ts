@@ -4,7 +4,7 @@ import { Effect, Ref } from 'effect'
 export class DomOperationsService extends Effect.Service<DomOperationsService>()(
   '@minecraft/presentation/DomOperations',
   {
-    effect: Effect.sync(() => ({
+    effect: Effect.succeed({
       createElement: (tagName: string): HTMLElement => document.createElement(tagName),
       appendChild: (element: HTMLElement): void => { document.body.appendChild(element) },
       appendChildTo: (parent: HTMLElement, child: HTMLElement): void => { parent.appendChild(child) },
@@ -18,7 +18,7 @@ export class DomOperationsService extends Effect.Service<DomOperationsService>()
       setInnerHTML: (element: HTMLElement, html: string): void => { element.innerHTML = html },
       querySelector: <T extends HTMLElement>(element: HTMLElement, selector: string): T | null =>
         element.querySelector<T>(selector),
-    }))
+    })
   }
 ) {}
 export class CrosshairService extends Effect.Service<CrosshairService>()(

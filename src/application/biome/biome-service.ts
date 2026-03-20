@@ -192,17 +192,9 @@ export class BiomeService extends Effect.Service<BiomeService>()(
         )
 
       const getBiome = (x: number, z: number): Effect.Effect<BiomeType, never> =>
-        Effect.gen(function* () {
-          const temp = yield* noiseService.octaveNoise2D(x * BIOME_SCALE, z * BIOME_SCALE, 4, 0.5, 2.0)
-          const hum = yield* noiseService.octaveNoise2D(
-            (x + 10000) * BIOME_SCALE,
-            (z + 10000) * BIOME_SCALE,
-            4,
-            0.5,
-            2.0
-          )
-          return classifyBiome(temp, hum)
-        })
+        Effect.all([getTemperature(x, z), getHumidity(x, z)], { concurrency: 'unbounded' }).pipe(
+          Effect.map(([temp, hum]) => classifyBiome(temp, hum))
+        )
 
       const getBiomeProperties = (biome: BiomeType): Effect.Effect<BiomeProperties, never, never> =>
         Effect.succeed(BIOME_PROPERTIES[biome])

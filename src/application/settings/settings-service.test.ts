@@ -10,6 +10,12 @@ const DEFAULT_SETTINGS = {
   dayLengthSeconds: 400,
   shadowsEnabled: true,
   ssaoEnabled: true,
+  bloomEnabled: true,
+  skyEnabled: true,
+  ssrEnabled: false,
+  dofEnabled: false,
+  godRaysEnabled: false,
+  smaaEnabled: true,
 }
 
 describe('application/settings/settings-service', () => {
@@ -50,6 +56,12 @@ describe('application/settings/settings-service', () => {
         dayLengthSeconds: 400,
         shadowsEnabled: true,
         ssaoEnabled: true,
+        bloomEnabled: true,
+        skyEnabled: true,
+        ssrEnabled: false,
+        dofEnabled: false,
+        godRaysEnabled: false,
+        smaaEnabled: true,
       })
 
       expect(result).toEqual(DEFAULT_SETTINGS)
@@ -62,6 +74,12 @@ describe('application/settings/settings-service', () => {
         dayLengthSeconds: 120,
         shadowsEnabled: true,
         ssaoEnabled: true,
+        bloomEnabled: false,
+        skyEnabled: false,
+        ssrEnabled: false,
+        dofEnabled: false,
+        godRaysEnabled: false,
+        smaaEnabled: false,
       })
 
       expect(result).toEqual({
@@ -70,6 +88,12 @@ describe('application/settings/settings-service', () => {
         dayLengthSeconds: 120,
         shadowsEnabled: true,
         ssaoEnabled: true,
+        bloomEnabled: false,
+        skyEnabled: false,
+        ssrEnabled: false,
+        dofEnabled: false,
+        godRaysEnabled: false,
+        smaaEnabled: false,
       })
     })
 
@@ -80,6 +104,12 @@ describe('application/settings/settings-service', () => {
         dayLengthSeconds: 1200,
         shadowsEnabled: true,
         ssaoEnabled: true,
+        bloomEnabled: true,
+        skyEnabled: true,
+        ssrEnabled: true,
+        dofEnabled: true,
+        godRaysEnabled: true,
+        smaaEnabled: true,
       })
 
       expect(result).toEqual({
@@ -88,6 +118,12 @@ describe('application/settings/settings-service', () => {
         dayLengthSeconds: 1200,
         shadowsEnabled: true,
         ssaoEnabled: true,
+        bloomEnabled: true,
+        skyEnabled: true,
+        ssrEnabled: true,
+        dofEnabled: true,
+        godRaysEnabled: true,
+        smaaEnabled: true,
       })
     })
 
@@ -198,6 +234,12 @@ describe('application/settings/settings-service', () => {
           dayLengthSeconds: 900,
           shadowsEnabled: false,
           ssaoEnabled: false,
+          bloomEnabled: false,
+          skyEnabled: false,
+          ssrEnabled: true,
+          dofEnabled: true,
+          godRaysEnabled: true,
+          smaaEnabled: false,
         })
       )
 
@@ -214,6 +256,12 @@ describe('application/settings/settings-service', () => {
         dayLengthSeconds: 900,
         shadowsEnabled: false,
         ssaoEnabled: false,
+        bloomEnabled: false,
+        skyEnabled: false,
+        ssrEnabled: true,
+        dofEnabled: true,
+        godRaysEnabled: true,
+        smaaEnabled: false,
       })
     })
 
@@ -324,6 +372,12 @@ describe('application/settings/settings-service', () => {
         dayLengthSeconds: 600,
         shadowsEnabled: true,
         ssaoEnabled: true,
+        bloomEnabled: true,
+        skyEnabled: true,
+        ssrEnabled: false,
+        dofEnabled: false,
+        godRaysEnabled: false,
+        smaaEnabled: true,
       })
     })
 
@@ -344,6 +398,12 @@ describe('application/settings/settings-service', () => {
         dayLengthSeconds: 300,
         shadowsEnabled: true,
         ssaoEnabled: true,
+        bloomEnabled: true,
+        skyEnabled: true,
+        ssrEnabled: false,
+        dofEnabled: false,
+        godRaysEnabled: false,
+        smaaEnabled: true,
       })
     })
 

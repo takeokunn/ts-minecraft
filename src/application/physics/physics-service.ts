@@ -106,13 +106,22 @@ export class PhysicsService extends Effect.Service<PhysicsService>()(
       return {
         initialize: (config: { gravity: Vector3; broadphase: 'naive' | 'sap' }): Effect.Effect<void, PhysicsServiceError> =>
           Effect.gen(function* () {
-            const existingWorld = yield* Ref.get(worldRef)
-            if (Option.isSome(existingWorld)) return
-            const world = yield* physicsWorldService.create({
+            // Create the world first (side effect outside the critical section)
+            const newWorld = yield* physicsWorldService.create({
               gravity: config.gravity,
               broadphase: config.broadphase,
             }).pipe(Effect.mapError((e) => new PhysicsServiceError({ operation: 'initialize', cause: e })))
-            yield* Ref.set(worldRef, Option.some(world))
+
+            // Atomic check-and-set: write only if still None
+            const wasAlreadyInit = yield* Ref.modify(worldRef, (current) =>
+              Option.isSome(current)
+                ? [true, current]                   // already initialized: keep current
+                : [false, Option.some(newWorld)]    // not yet: store new world
+            )
+
+            // If another concurrent caller already initialized, discard newWorld
+            // (CustomWorld has no dispose method, so just return early)
+            if (wasAlreadyInit) return
           }),
 
         addBody: (config: AddBodyConfig): Effect.Effect<PhysicsBodyId, PhysicsServiceError> =>
@@ -132,18 +141,12 @@ export class PhysicsService extends Effect.Service<PhysicsService>()(
                 }
 
                 // Build body config
-                const bodyConfig = config.type !== undefined
-                  ? {
-                      mass: config.mass,
-                      position: config.position,
-                      quaternion: { x: 0, y: 0, z: 0, w: 1 },
-                      type: config.type,
-                    }
-                  : {
-                      mass: config.mass,
-                      position: config.position,
-                      quaternion: { x: 0, y: 0, z: 0, w: 1 },
-                    }
+                const bodyConfig = {
+                  mass: config.mass,
+                  position: config.position,
+                  quaternion: { x: 0, y: 0, z: 0, w: 1 },
+                  ...(config.type !== undefined ? { type: config.type } : {}),
+                }
 
                 // Create body
                 const body = yield* rigidBodyService.create(bodyConfig)

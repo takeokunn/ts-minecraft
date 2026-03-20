@@ -9,13 +9,13 @@ import { Effect } from 'effect'
 import type { MouseDelta } from './player-input-service'
 
 export interface InputServicePort {
-  readonly isKeyPressed: (key: string) => Effect.Effect<boolean>
-  readonly consumeKeyPress: (key: string) => Effect.Effect<boolean>
-  readonly getMouseDelta: () => Effect.Effect<MouseDelta>
-  readonly isMouseDown: (button: number) => Effect.Effect<boolean>
-  readonly requestPointerLock: () => Effect.Effect<void>
-  readonly exitPointerLock: () => Effect.Effect<void>
-  readonly isPointerLocked: () => Effect.Effect<boolean>
-  readonly consumeMouseClick: (button: number) => Effect.Effect<boolean>
-  readonly consumeWheelDelta: () => Effect.Effect<number>
+  readonly isKeyPressed: (key: string) => Effect.Effect<boolean, never>
+  readonly consumeKeyPress: (key: string) => Effect.Effect<boolean, never>
+  readonly getMouseDelta: () => Effect.Effect<MouseDelta, never>
+  readonly isMouseDown: (button: number) => Effect.Effect<boolean, never>
+  readonly requestPointerLock: () => Effect.Effect<void, never>
+  readonly exitPointerLock: () => Effect.Effect<void, never>
+  readonly isPointerLocked: () => Effect.Effect<boolean, never>
+  readonly consumeMouseClick: (button: number) => Effect.Effect<boolean, never>
+  readonly consumeWheelDelta: () => Effect.Effect<number, never>
 }

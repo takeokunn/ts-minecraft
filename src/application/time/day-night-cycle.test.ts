@@ -17,9 +17,11 @@ const makeFakeLights = (): DayNightLights & {
     light: {
       intensity: 0,
       position: { set: (_x: number, _y: number, _z: number) => {} },
+      color: { setHSL: (_h: number, _s: number, _l: number) => {} },
     } as unknown as THREE.DirectionalLight,
     ambientLight: {
       intensity: 0,
+      color: { setHSL: (_h: number, _s: number, _l: number) => {} },
     } as unknown as THREE.AmbientLight,
     renderer: {
       setClearColor: (color: THREE.Color) => {
@@ -29,6 +31,7 @@ const makeFakeLights = (): DayNightLights & {
     skyNight: new THREE.Color(0x000000),
     skyDay: new THREE.Color(0xffffff),
     skyCurrent: new THREE.Color(),
+    sky: null,
     get capturedClearColor() {
       return capturedColor
     },

@@ -39,7 +39,7 @@ import { ChunkManagerServiceLive } from '@/application/chunk/chunk-manager-servi
 
 // Player state, health, and movement
 import { PlayerServiceLive } from '@/application/player/player-state'
-import { HealthService } from '@/application/player/health-service'
+import { HealthServiceLive } from '@/application/player/health-service'
 import { MovementServiceLive } from '@/application/player/movement-service'
 
 // Block interaction and hotbar
@@ -49,8 +49,8 @@ import { HotbarRendererLive } from '@/presentation/hud/hotbar-three'
 
 // Inventory, time, settings, and overlays
 import { InventoryServiceLive } from '@/application/inventory/inventory-service'
-import { RecipeService } from '@/application/crafting/recipe-service'
-import { TimeService } from '@/application/time/time-service'
+import { RecipeServiceLive } from '@/application/crafting/recipe-service'
+import { TimeServiceLive } from '@/application/time/time-service'
 import { SettingsServiceLive } from '@/application/settings/settings-service'
 import { SettingsOverlayLive } from '@/presentation/settings/settings-overlay'
 import { InventoryRendererLive } from '@/presentation/inventory/inventory-renderer'
@@ -241,9 +241,9 @@ export const GameLogicLayers = Layer.mergeAll(
   BlockLayer,
   HotbarLayer,
   InventoryLayer,
-  TimeService.Default,
-  HealthService.Default,
-  RecipeService.Default,
+  TimeServiceLive,
+  HealthServiceLive,
+  RecipeServiceLive,
   PlayerInputLayer,
   MovementLayer,
   CameraStateLayer,

@@ -148,9 +148,7 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
       return {
         toggle: (): Effect.Effect<boolean, never> =>
           Effect.gen(function* () {
-            const current = yield* Ref.get(isVisibleRef)
-            const next = !current
-            yield* Ref.set(isVisibleRef, next)
+            const next = yield* Ref.modify(isVisibleRef, (current): [boolean, boolean] => [!current, !current])
             if (overlayEl) overlayEl.style.display = next ? 'block' : 'none'
             if (next) yield* refreshSlots()
             return next

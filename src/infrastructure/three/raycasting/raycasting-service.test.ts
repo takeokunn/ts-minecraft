@@ -43,38 +43,6 @@ describe('RaycastingService', () => {
     })
   })
 
-  describe('createRaycaster', () => {
-    it('should create a raycaster with default max distance', () => {
-      const program = Effect.gen(function* () {
-        const service = yield* RaycastingService
-        const raycaster = yield* service.createRaycaster()
-
-        expect(raycaster).toBeInstanceOf(THREE.Raycaster)
-        expect(raycaster.far).toBe(DEFAULT_RAY_DISTANCE)
-
-        return { success: true }
-      }).pipe(Effect.provide(RaycastingServiceLive))
-
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
-    })
-
-    it('should return an Effect that resolves to a Raycaster', () => {
-      const program = Effect.gen(function* () {
-        const service = yield* RaycastingService
-        const createEffect = service.createRaycaster()
-
-        expect(typeof createEffect.pipe).toBe('function')
-        expect(typeof createEffect).toBe('object')
-
-        return { success: true }
-      }).pipe(Effect.provide(RaycastingServiceLive))
-
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
-    })
-  })
-
   describe('worldToBlock', () => {
     it('should convert positive world coordinates to block coordinates', () => {
       const program = Effect.gen(function* () {
@@ -513,7 +481,6 @@ describe('RaycastingService', () => {
       const program = Effect.gen(function* () {
         const service = yield* RaycastingService
 
-        expect(typeof service.createRaycaster).toBe('function')
         expect(typeof service.raycastFromCamera).toBe('function')
         expect(typeof service.worldToBlock).toBe('function')
 
@@ -528,10 +495,8 @@ describe('RaycastingService', () => {
       const program = Effect.gen(function* () {
         const service = yield* RaycastingService
 
-        const raycaster = yield* service.createRaycaster()
         const blockPos = yield* service.worldToBlock({ x: 1.5, y: 2.5, z: 3.5 })
 
-        expect(raycaster).toBeInstanceOf(THREE.Raycaster)
         expect(blockPos.x).toBe(1)
         expect(blockPos.y).toBe(2)
         expect(blockPos.z).toBe(3)
