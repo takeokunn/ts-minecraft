@@ -2,7 +2,6 @@ export {
   PhysicsService,
   PhysicsServiceLive,
   PhysicsServiceError,
-  PhysicsRaycastHitSchema,
   AddBodyConfigSchema,
   GROUND_DETECTION_DISTANCE,
   PLAYER_FEET_OFFSET,
@@ -10,7 +9,6 @@ export {
 
 export type {
   PhysicsBody,
-  PhysicsRaycastHit,
   AddBodyConfig,
 } from './physics-service'
 

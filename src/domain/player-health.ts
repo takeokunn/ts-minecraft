@@ -3,7 +3,7 @@ import { Schema } from 'effect'
 export class PlayerHealth extends Schema.Class<PlayerHealth>('PlayerHealth')({
   current: Schema.Number.pipe(Schema.between(0, 20)),
   max: Schema.Number.pipe(Schema.between(1, 20)),
-  invincibilityTicks: Schema.Number.pipe(Schema.greaterThanOrEqualTo(0)),
+  invincibilityTicks: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
 }) {}
 
 // Cross-field invariant: current health must not exceed max health.

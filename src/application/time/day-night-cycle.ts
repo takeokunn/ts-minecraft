@@ -1,7 +1,7 @@
 import { Effect } from 'effect'
-import * as THREE from 'three'
 import { TimeService } from '@/application/time/time-service'
 import type { DeltaTimeSecs } from '@/shared/kernel'
+import type { DayNightLightsPort } from '@/shared/math/three'
 
 const DAWN_PHASE_OFFSET = 0.25   // 0=midnight, 0.25=dawn, 0.5=noon, 0.75=dusk
 const DIRECT_LIGHT_MIN = 0.2
@@ -12,23 +12,14 @@ const SUN_DISTANCE = 50
 const SUN_HEIGHT = 80
 
 /**
- * Intentional plain interface: THREE.DirectionalLight, AmbientLight, and WebGLRenderer
- * are class instances — Schema.instanceOf is not applicable for function parameter shapes
- * that mix non-serializable Three.js objects with primitive values.
+ * Re-export port type as DayNightLights for backward compatibility with call sites.
  */
-export interface DayNightLights {
-  readonly light: THREE.DirectionalLight
-  readonly ambientLight: THREE.AmbientLight
-  readonly renderer: { setClearColor: (color: THREE.Color) => void }
-  readonly skyNight: THREE.Color
-  readonly skyDay: THREE.Color
-  readonly skyCurrent: THREE.Color
-}
+export type { DayNightLightsPort as DayNightLights }
 
 export const updateDayNightCycle = (
   deltaTime: DeltaTimeSecs,
-  lights: DayNightLights,
-  timeService: InstanceType<typeof TimeService>,
+  lights: DayNightLightsPort,
+  timeService: TimeService,
 ): Effect.Effect<void, never, never> =>
   Effect.gen(function* () {
     yield* timeService.advanceTick(deltaTime)

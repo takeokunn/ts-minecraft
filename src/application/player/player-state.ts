@@ -15,7 +15,7 @@ export const PlayerStateSchema = Schema.Struct({
 export type PlayerState = Schema.Schema.Type<typeof PlayerStateSchema>
 
 export class PlayerService extends Effect.Service<PlayerService>()(
-  '@minecraft/PlayerService',
+  '@minecraft/application/PlayerService',
   {
     effect: Effect.gen(function* () {
       const playersRef = yield* Ref.make<Map<PlayerId, PlayerState>>(new Map())

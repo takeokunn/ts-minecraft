@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest'
-import * as fc from 'fast-check'
-import { Schema } from 'effect'
+import { describe, it } from '@effect/vitest'
+import { expect } from 'vitest'
+import { Arbitrary, Schema } from 'effect'
 import {
   SlotIndex,
   SlotIndexSchema,
@@ -21,155 +21,92 @@ import {
 } from './kernel'
 
 describe('SlotIndex (property-based)', () => {
-  it('make() produces a value that round-trips through Schema.encode/decode', () => {
-    fc.assert(
-      fc.property(fc.integer({ min: 0, max: 1000 }), (n) => {
-        const idx = SlotIndex.make(n)
-        expect(SlotIndex.toNumber(idx)).toBe(n)
-      })
-    )
+  it.prop('make() produces a value that round-trips through Schema.encode/decode', { n: Arbitrary.make(SlotIndexSchema) }, ({ n }) => {
+    const idx = SlotIndex.make(n)
+    expect(SlotIndex.toNumber(idx)).toBe(n)
   })
 
-  it('toNumber(make(n)) === n for all valid non-negative integers', () => {
-    fc.assert(
-      fc.property(fc.integer({ min: 0, max: 35 }), (n) => {
-        expect(SlotIndex.toNumber(SlotIndex.make(n))).toBe(n)
-      })
-    )
+  it.prop('toNumber(make(n)) === n for all valid non-negative integers', { n: Arbitrary.make(SlotIndexSchema) }, ({ n }) => {
+    expect(SlotIndex.toNumber(SlotIndex.make(n))).toBe(n)
   })
 
-  it('make() throws for negative integers', () => {
-    fc.assert(
-      fc.property(fc.integer({ min: -1000, max: -1 }), (n) => {
-        expect(() => SlotIndex.make(n)).toThrow()
-      })
-    )
+  it.prop('make() throws for negative integers', { n: Arbitrary.make(Schema.Number.pipe(Schema.int(), Schema.between(-1000, -1))) }, ({ n }) => {
+    expect(() => SlotIndex.make(n)).toThrow()
   })
 
-  it('Schema decode accepts non-negative integers', () => {
-    fc.assert(
-      fc.property(fc.integer({ min: 0, max: 10000 }), (n) => {
-        const result = Schema.decodeUnknownEither(SlotIndexSchema)(n)
-        expect(result._tag).toBe('Right')
-      })
-    )
+  it.prop('Schema decode accepts non-negative integers', { n: Arbitrary.make(Schema.Number.pipe(Schema.int(), Schema.between(0, 10000))) }, ({ n }) => {
+    const result = Schema.decodeUnknownEither(SlotIndexSchema)(n)
+    expect(result._tag).toBe('Right')
   })
 
-  it('Schema decode rejects negative integers', () => {
-    fc.assert(
-      fc.property(fc.integer({ min: -1000, max: -1 }), (n) => {
-        const result = Schema.decodeUnknownEither(SlotIndexSchema)(n)
-        expect(result._tag).toBe('Left')
-      })
-    )
+  it.prop('Schema decode rejects negative integers', { n: Arbitrary.make(Schema.Number.pipe(Schema.int(), Schema.between(-1000, -1))) }, ({ n }) => {
+    const result = Schema.decodeUnknownEither(SlotIndexSchema)(n)
+    expect(result._tag).toBe('Left')
   })
 })
 
 describe('DeltaTimeSecs (property-based)', () => {
-  it('make() accepts positive numbers', () => {
-    fc.assert(
-      fc.property(fc.float({ min: Math.fround(0.001), max: 1.0, noNaN: true }), (n) => {
-        expect(() => DeltaTimeSecs.make(n)).not.toThrow()
-      })
-    )
+  it.prop('make() accepts positive numbers', { n: Arbitrary.make(DeltaTimeSecsSchema) }, ({ n }) => {
+    expect(() => DeltaTimeSecs.make(n)).not.toThrow()
   })
 
-  it('make() throws for zero or negative values', () => {
-    fc.assert(
-      fc.property(fc.float({ max: 0, noNaN: true }), (n) => {
-        expect(() => DeltaTimeSecs.make(n)).toThrow()
-      })
-    )
+  it.prop('make() throws for zero or negative values', { n: Arbitrary.make(Schema.Number.pipe(Schema.between(-10000, 0))) }, ({ n }) => {
+    expect(() => DeltaTimeSecs.make(n)).toThrow()
   })
 
-  it('Schema decode rejects non-positive numbers', () => {
-    fc.assert(
-      fc.property(fc.float({ max: 0, noNaN: true }), (n) => {
-        const result = Schema.decodeUnknownEither(DeltaTimeSecsSchema)(n)
-        expect(result._tag).toBe('Left')
-      })
-    )
+  it.prop('Schema decode rejects non-positive numbers', { n: Arbitrary.make(Schema.Number.pipe(Schema.between(-10000, 0))) }, ({ n }) => {
+    const result = Schema.decodeUnknownEither(DeltaTimeSecsSchema)(n)
+    expect(result._tag).toBe('Left')
   })
 })
 
 describe('BlockIndex (property-based)', () => {
-  it('make() accepts non-negative integers', () => {
-    fc.assert(
-      fc.property(fc.integer({ min: 0, max: 100000 }), (n) => {
-        expect(() => BlockIndex.make(n)).not.toThrow()
-      })
-    )
+  it.prop('make() accepts non-negative integers', { n: Arbitrary.make(BlockIndexSchema) }, ({ n }) => {
+    expect(() => BlockIndex.make(n)).not.toThrow()
   })
 
-  it('make() throws for negative integers', () => {
-    fc.assert(
-      fc.property(fc.integer({ min: -1000, max: -1 }), (n) => {
-        expect(() => BlockIndex.make(n)).toThrow()
-      })
-    )
+  it.prop('make() throws for negative integers', { n: Arbitrary.make(Schema.Number.pipe(Schema.int(), Schema.between(-1000, -1))) }, ({ n }) => {
+    expect(() => BlockIndex.make(n)).toThrow()
   })
 
-  it('Schema decode rejects floats', () => {
-    fc.assert(
-      fc.property(
-        fc.float({ min: Math.fround(0.1), max: Math.fround(999.9), noNaN: true }).filter((n) => n !== Math.floor(n)),
-        (n) => {
-          const result = Schema.decodeUnknownEither(BlockIndexSchema)(n)
-          expect(result._tag).toBe('Left')
-        }
-      )
-    )
-  })
+  it.prop(
+    'Schema decode rejects floats',
+    { n: Arbitrary.make(Schema.Number.pipe(Schema.between(0.1, 999.9), Schema.filter((n) => n !== Math.floor(n)))) },
+    ({ n }) => {
+      const result = Schema.decodeUnknownEither(BlockIndexSchema)(n)
+      expect(result._tag).toBe('Left')
+    }
+  )
 })
 
 describe('String branded types (property-based)', () => {
-  it('WorldId.make() is a total function for any string', () => {
-    fc.assert(
-      fc.property(fc.string(), (s) => {
-        expect(() => WorldId.make(s)).not.toThrow()
-        const result = Schema.decodeUnknownEither(WorldIdSchema)(WorldId.make(s))
-        expect(result._tag).toBe('Right')
-      })
-    )
+  it.prop('WorldId.make() is a total function for any string', { s: Arbitrary.make(WorldIdSchema) }, ({ s }) => {
+    expect(() => WorldId.make(s)).not.toThrow()
+    const result = Schema.decodeUnknownEither(WorldIdSchema)(WorldId.make(s))
+    expect(result._tag).toBe('Right')
   })
 
-  it('PlayerId.make() is a total function for any string', () => {
-    fc.assert(
-      fc.property(fc.string(), (s) => {
-        expect(() => PlayerId.make(s)).not.toThrow()
-        const result = Schema.decodeUnknownEither(PlayerIdSchema)(PlayerId.make(s))
-        expect(result._tag).toBe('Right')
-      })
-    )
+  it.prop('PlayerId.make() is a total function for any string', { s: Arbitrary.make(PlayerIdSchema) }, ({ s }) => {
+    expect(() => PlayerId.make(s)).not.toThrow()
+    const result = Schema.decodeUnknownEither(PlayerIdSchema)(PlayerId.make(s))
+    expect(result._tag).toBe('Right')
   })
 
-  it('BlockId.make() is a total function for any string', () => {
-    fc.assert(
-      fc.property(fc.string(), (s) => {
-        expect(() => BlockId.make(s)).not.toThrow()
-        const result = Schema.decodeUnknownEither(BlockIdSchema)(BlockId.make(s))
-        expect(result._tag).toBe('Right')
-      })
-    )
+  it.prop('BlockId.make() is a total function for any string', { s: Arbitrary.make(BlockIdSchema) }, ({ s }) => {
+    expect(() => BlockId.make(s)).not.toThrow()
+    const result = Schema.decodeUnknownEither(BlockIdSchema)(BlockId.make(s))
+    expect(result._tag).toBe('Right')
   })
 
-  it('PhysicsBodyId.make() is a total function for any string', () => {
-    fc.assert(
-      fc.property(fc.string(), (s) => {
-        expect(() => PhysicsBodyId.make(s)).not.toThrow()
-        const result = Schema.decodeUnknownEither(PhysicsBodyIdSchema)(PhysicsBodyId.make(s))
-        expect(result._tag).toBe('Right')
-      })
-    )
+  it.prop('PhysicsBodyId.make() is a total function for any string', { s: Arbitrary.make(PhysicsBodyIdSchema) }, ({ s }) => {
+    expect(() => PhysicsBodyId.make(s)).not.toThrow()
+    const result = Schema.decodeUnknownEither(PhysicsBodyIdSchema)(PhysicsBodyId.make(s))
+    expect(result._tag).toBe('Right')
   })
 
-  it('ChunkId.make() is a total function for any string', () => {
-    fc.assert(
-      fc.property(fc.string(), (s) => {
-        expect(() => ChunkId.make(s)).not.toThrow()
-        const result = Schema.decodeUnknownEither(ChunkIdSchema)(ChunkId.make(s))
-        expect(result._tag).toBe('Right')
-      })
-    )
+  it.prop('ChunkId.make() is a total function for any string', { s: Arbitrary.make(ChunkIdSchema) }, ({ s }) => {
+    expect(() => ChunkId.make(s)).not.toThrow()
+    const result = Schema.decodeUnknownEither(ChunkIdSchema)(ChunkId.make(s))
+    expect(result._tag).toBe('Right')
   })
 })

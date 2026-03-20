@@ -3,7 +3,7 @@ import * as THREE from 'three'
 import { MeshError } from '@/domain'
 
 export class BlockMeshService extends Effect.Service<BlockMeshService>()(
-  '@minecraft/infrastructure/BlockMeshService',
+  '@minecraft/infrastructure/three/BlockMeshService',
   {
     effect: Effect.gen(function* () {
       const sharedGeometry = new THREE.BoxGeometry(1, 1, 1)

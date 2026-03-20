@@ -492,4 +492,19 @@ describe('application/settings/settings-service', () => {
       expect(result.reset).toEqual(DEFAULT_SETTINGS)
     })
   })
+
+  describe('updateSettings — edge cases', () => {
+    it('updateSettings({}) with empty partial is a no-op (all fields unchanged)', () => {
+      const program = Effect.gen(function* () {
+        const service = yield* SettingsService
+        const before = yield* service.getSettings()
+        yield* service.updateSettings({})
+        const after = yield* service.getSettings()
+        return { before, after }
+      }).pipe(Effect.provide(SettingsServiceLive))
+
+      const { before, after } = Effect.runSync(program)
+      expect(after).toEqual(before)
+    })
+  })
 })

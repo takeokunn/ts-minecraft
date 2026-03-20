@@ -4,7 +4,7 @@ import { Effect, Ref, Schema } from 'effect'
 
 // Schema for camera rotation state
 export const CameraRotationSchema = Schema.Struct({
-  yaw: Schema.Number, // Horizontal rotation (radians)
+  yaw: Schema.Number.pipe(Schema.finite()), // Horizontal rotation (radians)
   pitch: Schema.Number.pipe(Schema.between(-Math.PI / 2 + 0.01, Math.PI / 2 - 0.01)), // Vertical rotation (radians), clamped to -89 to 89
 })
 export type CameraRotation = Schema.Schema.Type<typeof CameraRotationSchema>
@@ -14,7 +14,7 @@ export const PITCH_MIN = -Math.PI / 2 + 0.01 // ~-89, prevents flipping
 export const PITCH_MAX = Math.PI / 2 - 0.01 // ~89
 
 export class PlayerCameraStateService extends Effect.Service<PlayerCameraStateService>()(
-  '@minecraft/layer/PlayerCameraStateService',
+  '@minecraft/application/PlayerCameraStateService',
   {
     effect: Effect.gen(function* () {
       const stateRef = yield* Ref.make<CameraRotation>({ yaw: 0, pitch: 0 })

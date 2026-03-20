@@ -53,3 +53,9 @@ export type { Matrix4 } from './matrix4'
 // Color
 export { ColorSchema, makeColor, fromHex, toThreeColor } from './color'
 export type { Color } from './color'
+
+// Camera port
+export type { CameraRotationPort } from './camera-port'
+
+// Day/night port
+export type { DayNightLightsPort, LightPort, LightTargetPort, AmbientLightPort, ColorPort, RendererPort } from './day-night-port'

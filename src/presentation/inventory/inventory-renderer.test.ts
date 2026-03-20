@@ -110,38 +110,9 @@ describe('presentation/inventory/inventory-renderer', () => {
       const TestLayer = buildTestLayer()
       const program = Effect.gen(function* () {
         const renderer = yield* InventoryRendererService
-        expect(typeof renderer.initialize).toBe('function')
         expect(typeof renderer.toggle).toBe('function')
         expect(typeof renderer.isOpen).toBe('function')
         expect(typeof renderer.update).toBe('function')
-        return { success: true }
-      }).pipe(Effect.provide(TestLayer))
-
-      const result = runScoped(program)
-      expect(result.success).toBe(true)
-    })
-  })
-
-  describe('initialize', () => {
-    it('should complete without error', () => {
-      const TestLayer = buildTestLayer()
-      const program = Effect.gen(function* () {
-        const renderer = yield* InventoryRendererService
-        yield* renderer.initialize()
-        return { success: true }
-      }).pipe(Effect.provide(TestLayer))
-
-      const result = runScoped(program)
-      expect(result.success).toBe(true)
-    })
-
-    it('should be callable multiple times without error', () => {
-      const TestLayer = buildTestLayer()
-      const program = Effect.gen(function* () {
-        const renderer = yield* InventoryRendererService
-        yield* renderer.initialize()
-        yield* renderer.initialize()
-        yield* renderer.initialize()
         return { success: true }
       }).pipe(Effect.provide(TestLayer))
 
@@ -329,11 +300,10 @@ describe('presentation/inventory/inventory-renderer', () => {
       expect(isOpen).toBe(true)
     })
 
-    it('should support full lifecycle: initialize → toggle → update → toggle', () => {
+    it('should support full lifecycle: toggle → update → toggle', () => {
       const TestLayer = buildTestLayer()
       const program = Effect.gen(function* () {
         const renderer = yield* InventoryRendererService
-        yield* renderer.initialize()
         const openResult = yield* renderer.toggle()
         yield* renderer.update()
         const closeResult = yield* renderer.toggle()

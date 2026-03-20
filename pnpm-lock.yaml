@@ -12,27 +12,12 @@ importers:
 
   .:
     dependencies:
-      '@effect/platform':
-        specifier: ^0.68.6
-        version: 0.68.6(@effect/schema@0.75.5(effect@3.19.19))(effect@3.19.19)
-      '@effect/schema':
-        specifier: ^0.75.5
-        version: 0.75.5(effect@3.19.19)
       '@types/three':
         specifier: ^0.170.0
         version: 0.170.0
-      cannon-es:
-        specifier: ^0.20.0
-        version: 0.20.0
       effect:
         specifier: ^3.19.19
         version: 3.19.19
-      idb:
-        specifier: ^8.0.3
-        version: 8.0.3
-      simplex-noise:
-        specifier: ^4.0.3
-        version: 4.0.3
       three:
         specifier: ^0.170.0
         version: 0.170.0
@@ -49,9 +34,6 @@ importers:
       '@vitest/ui':
         specifier: ^3.2.4
         version: 3.2.4(vitest@3.2.4)
-      fast-check:
-        specifier: ^4.6.0
-        version: 4.6.0
       lightningcss:
         specifier: ^1.31.1
         version: 1.31.1
@@ -75,18 +57,6 @@ importers:
         version: 3.2.4(@types/node@22.19.11)(@vitest/ui@3.2.4)(lightningcss@1.31.1)(terser@5.46.0)
 
 packages:
-
-  '@effect/platform@0.68.6':
-    resolution: {integrity: sha512-0dLbgfZGxMQqxGX7hFCkpqI9N0vFXf0e5bLdplvjpEskB/VrFQXkz0j+aopztHwXJkG/4pp1HHLNLK3ZcU5FXQ==}
-    peerDependencies:
-      '@effect/schema': ^0.75.5
-      effect: ^3.9.2
-
-  '@effect/schema@0.75.5':
-    resolution: {integrity: sha512-TQInulTVCuF+9EIbJpyLP6dvxbQJMphrnRqgexm/Ze39rSjfhJuufF7XvU3SxTgg3HnL7B/kpORTJbHhlE6thw==}
-    deprecated: this package has been merged into the main effect package
-    peerDependencies:
-      effect: ^3.9.2
 
   '@effect/vitest@0.25.1':
     resolution: {integrity: sha512-OMYvOU8iGed8GZXxgVBXlYtjG+jwWj5cJxFk0hOHOfTbCHXtdCMEWlXNba5zxbE7dBnW4srbnSYrP/NGGTC3qQ==}
@@ -519,9 +489,6 @@ packages:
     resolution: {integrity: sha512-b6Ilus+c3RrdDk+JhLKUAQfzzgLEPy6wcXqS7f/xe1EETvsDP6GORG7SFuOs6cID5YkqchW/LXZbX5bc8j7ZcQ==}
     engines: {node: '>=8'}
 
-  cannon-es@0.20.0:
-    resolution: {integrity: sha512-eZhWTZIkFOnMAJOgfXJa9+b3kVlvG+FX4mdkpePev/w/rP5V8NRquGyEozcjPfEoXUlb+p7d9SUcmDSn14prOA==}
-
   chai@5.3.3:
     resolution: {integrity: sha512-4zNhdJD/iOjSH0A05ea+Ke6MU5mmpQcbQsSOkgdaUMJ9zTlDTD/GYlwohmIE2u0gaxHYiVHEn1Fw9mZ/ktJWgw==}
     engines: {node: '>=18'}
@@ -572,10 +539,6 @@ packages:
     resolution: {integrity: sha512-h5+1OzzfCC3Ef7VbtKdcv7zsstUQwUDlYpUTvjeUsJAssPgLn7QzbboPtL5ro04Mq0rPOsMzl7q5hIbRs2wD1A==}
     engines: {node: '>=8.0.0'}
 
-  fast-check@4.6.0:
-    resolution: {integrity: sha512-h7H6Dm0Fy+H4ciQYFxFjXnXkzR2kr9Fb22c0UBpHnm59K2zpr2t13aPTHlltFiNT6zuxp6HMPAVVvgur4BLdpA==}
-    engines: {node: '>=12.17.0'}
-
   fdir@6.5.0:
     resolution: {integrity: sha512-tIbYtZbucOs0BRGqPJkshJUYdL+SDH7dVM8gjy+ERp3WAUjLEFJE+02kanyHtwjWOnwrKYBiwAmM0p4kLJAnXg==}
     engines: {node: '>=12.0.0'}
@@ -587,9 +550,6 @@ packages:
 
   fflate@0.8.2:
     resolution: {integrity: sha512-cPJU47OaAoCbg0pBvzsgpTPhmhqI5eJjh/JIu8tPj5q+T7iLvW/JAYUqmE7KOB4R1ZyEhzBaIQpQpardBF5z8A==}
-
-  find-my-way-ts@0.1.6:
-    resolution: {integrity: sha512-a85L9ZoXtNAey3Y6Z+eBWW658kO/MwR7zIafkIUPUMf3isZG0NCs2pjW2wtjxAKuJPxMAsHUIP4ZPGv0o5gyTA==}
 
   flatted@3.3.3:
     resolution: {integrity: sha512-GX+ysw4PBCz0PzosHDepZGANEuFCMLrnRTiEy9McGjmkCQYwRq4A/X786G/fjM/+OjsWSU1ZrY5qyARZmO/uwg==}
@@ -603,9 +563,6 @@ packages:
     resolution: {integrity: sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==}
     engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
     os: [darwin]
-
-  idb@8.0.3:
-    resolution: {integrity: sha512-LtwtVyVYO5BqRvcsKuB2iUMnHwPVByPCXFXOpuU96IZPPoPN6xjOGxZQ74pgSVVLQWtUOYgyeL4GE98BY5D3wg==}
 
   js-tokens@9.0.1:
     resolution: {integrity: sha512-mxa9E9ITFOt0ban3j6L5MpjwegGz6lBQmM1IJkWeBZGcMxto50+eWdjC/52xDbS2vy0k7vIMK0Fe2wfL9OQSpQ==}
@@ -696,9 +653,6 @@ packages:
   ms@2.1.3:
     resolution: {integrity: sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA==}
 
-  multipasta@0.2.7:
-    resolution: {integrity: sha512-KPA58d68KgGil15oDqXjkUBEBYc00XvbPj5/X+dyzeo/lWm9Nc25pQRlf1D+gv4OpK7NM0J1odrbu9JNNGvynA==}
-
   nanoid@3.3.11:
     resolution: {integrity: sha512-N8SpfPUnUp1bK+PMYW8qSWdl9U+wwNWI4QKxOYDy9JAro3WMX7p2OeVRF9v+347pnakNevPmiHhNmZ2HbFA76w==}
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
@@ -740,9 +694,6 @@ packages:
   pure-rand@6.1.0:
     resolution: {integrity: sha512-bVWawvoZoBYpp6yIoQtQXHZjmz35RSVHnUOTefl8Vcjr8snTPY1wnpSPMWekcFwbxI6gtmT7rSYPFvz71ldiOA==}
 
-  pure-rand@8.3.0:
-    resolution: {integrity: sha512-1ws1Ab8fnsf4bvpL+SujgBnr3KFs5abgCLVzavBp+f2n8Ld5YTOZlkv/ccYPhu3X9s+MEeqPRMqKlJz/kWDK8A==}
-
   rollup@4.59.0:
     resolution: {integrity: sha512-2oMpl67a3zCH9H79LeMcbDhXW/UmWG/y2zuqnF2jQq5uq9TbM9TVyXvA4+t+ne2IIkBdrLpAaRQAvo7YI/Yyeg==}
     engines: {node: '>=18.0.0', npm: '>=8.0.0'}
@@ -750,9 +701,6 @@ packages:
 
   siginfo@2.0.0:
     resolution: {integrity: sha512-ybx0WO1/8bSBLEWXZvEd7gMW3Sn3JFlW3TvX1nREbDLRNQNaeNN8WK0meBwPdAaOI7TtRRRJn/Es1zhrrCHu7g==}
-
-  simplex-noise@4.0.3:
-    resolution: {integrity: sha512-qSE2I4AngLQG7BXqoZj51jokT4WUXe8mOBrvfOXpci8+6Yu44+/dD5zqDpOx3Ux792eamTd2lLcI8jqFntk/lg==}
 
   sirv@3.0.2:
     resolution: {integrity: sha512-2wcC/oGxHis/BoHkkPwldgiPSYcpZK3JU28WoMVv55yHJgcZ8rlXvuG9iZggz+sU1d4bRgIGASwyWqjxu3FM0g==}
@@ -899,18 +847,6 @@ packages:
     hasBin: true
 
 snapshots:
-
-  '@effect/platform@0.68.6(@effect/schema@0.75.5(effect@3.19.19))(effect@3.19.19)':
-    dependencies:
-      '@effect/schema': 0.75.5(effect@3.19.19)
-      effect: 3.19.19
-      find-my-way-ts: 0.1.6
-      multipasta: 0.2.7
-
-  '@effect/schema@0.75.5(effect@3.19.19)':
-    dependencies:
-      effect: 3.19.19
-      fast-check: 3.23.2
 
   '@effect/vitest@0.25.1(effect@3.19.19)(vitest@3.2.4)':
     dependencies:
@@ -1212,8 +1148,6 @@ snapshots:
 
   cac@6.7.14: {}
 
-  cannon-es@0.20.0: {}
-
   chai@5.3.3:
     dependencies:
       assertion-error: 2.0.1
@@ -1280,17 +1214,11 @@ snapshots:
     dependencies:
       pure-rand: 6.1.0
 
-  fast-check@4.6.0:
-    dependencies:
-      pure-rand: 8.3.0
-
   fdir@6.5.0(picomatch@4.0.3):
     optionalDependencies:
       picomatch: 4.0.3
 
   fflate@0.8.2: {}
-
-  find-my-way-ts@0.1.6: {}
 
   flatted@3.3.3: {}
 
@@ -1299,8 +1227,6 @@ snapshots:
 
   fsevents@2.3.3:
     optional: true
-
-  idb@8.0.3: {}
 
   js-tokens@9.0.1: {}
 
@@ -1365,8 +1291,6 @@ snapshots:
 
   ms@2.1.3: {}
 
-  multipasta@0.2.7: {}
-
   nanoid@3.3.11: {}
 
   oxlint@0.12.0:
@@ -1404,8 +1328,6 @@ snapshots:
 
   pure-rand@6.1.0: {}
 
-  pure-rand@8.3.0: {}
-
   rollup@4.59.0:
     dependencies:
       '@types/estree': 1.0.8
@@ -1438,8 +1360,6 @@ snapshots:
       fsevents: 2.3.3
 
   siginfo@2.0.0: {}
-
-  simplex-noise@4.0.3: {}
 
   sirv@3.0.2:
     dependencies:

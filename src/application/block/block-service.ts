@@ -2,6 +2,7 @@ import { Effect, Data, Metric } from 'effect'
 import { ChunkManagerService } from '@/application/chunk/chunk-manager-service'
 import { DEFAULT_PLAYER_ID } from '@/application/constants'
 import { ChunkService, CHUNK_SIZE, setBlockInChunk, BlockIndexError } from '@/domain/chunk'
+import type { ChunkCoord } from '@/domain/chunk'
 import { PlayerService } from '@/application/player/player-state'
 import { InventoryService } from '@/application/inventory/inventory-service'
 import { BlockType } from '@/domain/block'
@@ -33,7 +34,7 @@ export class BlockServiceError extends Data.TaggedError('BlockServiceError')<{
  */
 const worldToChunkCoord = (
   pos: Position
-): { chunkCoord: { x: number; z: number }; lx: number; lz: number } => {
+): { chunkCoord: ChunkCoord; lx: number; lz: number } => {
   const cx = Math.floor(pos.x / CHUNK_SIZE)
   const cz = Math.floor(pos.z / CHUNK_SIZE)
   const lx = ((Math.floor(pos.x) % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
@@ -94,7 +95,7 @@ export class BlockService extends Effect.Service<BlockService>()(
             yield* chunkManagerService.markChunkDirty(chunkCoord)
             yield* Metric.counter('blocks_broken').pipe(Metric.increment)
             // Add broken block to inventory (silently ignore if inventory is full)
-            yield* inventoryService.addBlock(blockType, 1).pipe(Effect.asVoid)
+            yield* inventoryService.addBlock(blockType, 1).pipe(Effect.catchAllCause(() => Effect.void))
           }),
 
         /**

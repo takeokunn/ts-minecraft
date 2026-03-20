@@ -1,16 +1,14 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Effect } from 'effect'
-import * as CANNON from 'cannon-es'
+import { Effect, Schema } from 'effect'
 import {
   RigidBodyService,
   RigidBodyServiceLive,
   RigidBodyConfigSchema,
   type RigidBodyConfig,
 } from './rigid-body-service'
-import { Schema } from 'effect'
 
-describe('cannon/boundary/body-service', () => {
+describe('physics/boundary/rigid-body-service', () => {
   const defaultConfig: RigidBodyConfig = {
     mass: 1,
     position: { x: 0, y: 0, z: 0 },
@@ -51,7 +49,7 @@ describe('cannon/boundary/body-service', () => {
       }).pipe(Effect.provide(RigidBodyServiceLive))
     )
 
-    it.effect('should create a CANNON.Body with correct mass', () =>
+    it.effect('should create a body with correct mass', () =>
       Effect.gen(function* () {
         const service = yield* RigidBodyService
         const body = yield* service.create(defaultConfig)
@@ -63,7 +61,7 @@ describe('cannon/boundary/body-service', () => {
       Effect.gen(function* () {
         const service = yield* RigidBodyService
         const body = yield* service.create({ ...defaultConfig, type: 'static' })
-        expect(body.type).toBe(CANNON.Body.STATIC)
+        expect(body.type).toBe('static')
       }).pipe(Effect.provide(RigidBodyServiceLive))
     )
 
@@ -71,11 +69,11 @@ describe('cannon/boundary/body-service', () => {
       Effect.gen(function* () {
         const service = yield* RigidBodyService
         const body = yield* service.create({ ...defaultConfig, type: 'kinematic' })
-        expect(body.type).toBe(CANNON.Body.KINEMATIC)
+        expect(body.type).toBe('kinematic')
       }).pipe(Effect.provide(RigidBodyServiceLive))
     )
 
-    it.effect('should set position on an existing body', () =>
+    it.effect('should set position on a body', () =>
       Effect.gen(function* () {
         const service = yield* RigidBodyService
         const body = yield* service.create(defaultConfig)
@@ -86,7 +84,7 @@ describe('cannon/boundary/body-service', () => {
       }).pipe(Effect.provide(RigidBodyServiceLive))
     )
 
-    it.effect('should set velocity on an existing body', () =>
+    it.effect('should set velocity on a body', () =>
       Effect.gen(function* () {
         const service = yield* RigidBodyService
         const body = yield* service.create(defaultConfig)
@@ -97,17 +95,17 @@ describe('cannon/boundary/body-service', () => {
       }).pipe(Effect.provide(RigidBodyServiceLive))
     )
 
-    it.effect('should add a shape to a body', () =>
+    it.effect('should add a shape to a body (replaces placeholder)', () =>
       Effect.gen(function* () {
         const service = yield* RigidBodyService
         const body = yield* service.create(defaultConfig)
-        const shape = new CANNON.Box(new CANNON.Vec3(0.5, 0.5, 0.5))
-        yield* service.addShape(body, shape)
-        expect(body.shapes.length).toBe(1)
+        const newShape = { kind: 'box' as const, halfExtents: { x: 0.5, y: 0.5, z: 0.5 } }
+        yield* service.addShape(body, newShape)
+        expect(body.shape).toEqual(newShape)
       }).pipe(Effect.provide(RigidBodyServiceLive))
     )
 
-    it.effect('should update mass properties without error', () =>
+    it.effect('updateMassProperties should complete without error', () =>
       Effect.gen(function* () {
         const service = yield* RigidBodyService
         const body = yield* service.create(defaultConfig)

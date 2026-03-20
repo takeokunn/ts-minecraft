@@ -2,7 +2,7 @@ import { Effect, Ref } from 'effect'
 
 // DOM abstraction for testability
 export class DomOperationsService extends Effect.Service<DomOperationsService>()(
-  '@minecraft/layer/DomOperations',
+  '@minecraft/presentation/DomOperations',
   {
     effect: Effect.sync(() => ({
       createElement: (tagName: string): HTMLElement => document.createElement(tagName),
@@ -22,7 +22,7 @@ export class DomOperationsService extends Effect.Service<DomOperationsService>()
   }
 ) {}
 export class CrosshairService extends Effect.Service<CrosshairService>()(
-  '@minecraft/layer/Crosshair',
+  '@minecraft/presentation/Crosshair',
   {
     effect: Effect.gen(function* () {
       const dom = yield* DomOperationsService

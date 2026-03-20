@@ -1,7 +1,8 @@
 import { describe, it } from '@effect/vitest'
 import { Effect } from 'effect'
 import { expect } from 'vitest'
-import { ChunkService, ChunkServiceLive, CHUNK_SIZE, CHUNK_HEIGHT, blockIndex, blockTypeToIndex, indexToBlockType, getBlocksBatch, setBlockInChunk } from './chunk'
+import { ChunkService, ChunkServiceLive, ChunkSchema, CHUNK_SIZE, CHUNK_HEIGHT, blockIndex, blockTypeToIndex, indexToBlockType, getBlocksBatch, setBlockInChunk } from './chunk'
+import { Schema } from 'effect'
 import { ChunkError } from './errors'
 import type { BlockType } from './block'
 
@@ -765,5 +766,23 @@ describe('ChunkService', () => {
 
       Effect.runSync(program.pipe(Effect.provide(ChunkServiceLive)))
     })
+  })
+})
+
+describe('ChunkSchema — blocks field runtime validation', () => {
+  const decode = Schema.decodeUnknownSync(ChunkSchema)
+
+  it('accepts a valid Chunk with Uint8Array blocks', () => {
+    const blocks = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
+    expect(() => decode({ coord: { x: 0, z: 0 }, blocks })).not.toThrow()
+  })
+
+  it('rejects a plain Array as blocks (must be Uint8Array)', () => {
+    const blocks = Array.from({ length: CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT }, () => 0)
+    expect(() => decode({ coord: { x: 0, z: 0 }, blocks })).toThrow()
+  })
+
+  it('rejects undefined blocks', () => {
+    expect(() => decode({ coord: { x: 0, z: 0 }, blocks: undefined })).toThrow()
   })
 })

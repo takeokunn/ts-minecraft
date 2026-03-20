@@ -1,9 +1,9 @@
-import { describe, it, expect } from 'vitest'
-import * as fc from 'fast-check'
-import { Effect, Layer, Option } from 'effect'
-import { StorageService } from '@/infrastructure/storage/storage-service'
+import { describe, it } from '@effect/vitest'
+import { expect } from 'vitest'
+import { Arbitrary, Effect, Layer, Option, Schema } from 'effect'
+import { StorageServicePort } from '@/application/storage/storage-service-port'
 import { StorageError } from '@/domain/errors'
-import { NoiseServiceLive } from '@/infrastructure/noise/noise-service'
+import { NoiseServicePort } from '@/application/noise/noise-service-port'
 import { BiomeServiceLive } from '@/application/biome/biome-service'
 import { ChunkServiceLive, CHUNK_SIZE, CHUNK_HEIGHT } from '@/domain/chunk'
 import { ChunkManagerService, ChunkManagerServiceLive, RENDER_DISTANCE, MAX_CACHED_CHUNKS, UNLOAD_DISTANCE } from './chunk-manager-service'
@@ -15,11 +15,9 @@ import { DEFAULT_WORLD_ID } from '@/application/constants'
 
 const makeInMemoryStorage = () => {
   const chunks = new Map<string, Uint8Array>()
-  const metadata = new Map<string, unknown>()
 
-  return StorageService.of({
-    _tag: '@minecraft/infrastructure/storage/StorageService' as const,
-    initialize: Effect.void as Effect.Effect<undefined, StorageError>,
+  return StorageServicePort.of({
+    _tag: '@minecraft/application/storage/StorageServicePort' as const,
     saveChunk: (worldId, coord, data) =>
       Effect.sync(() => {
         chunks.set(`${worldId}:${coord.x}:${coord.z}`, data)
@@ -29,22 +27,6 @@ const makeInMemoryStorage = () => {
         const data = chunks.get(`${worldId}:${coord.x}:${coord.z}`)
         return data !== undefined ? Option.some(data) : Option.none()
       }),
-    saveWorldMetadata: (worldId, meta) =>
-      Effect.sync(() => {
-        metadata.set(worldId, meta)
-      }) as Effect.Effect<undefined, StorageError>,
-    loadWorldMetadata: (worldId) =>
-      Effect.sync(() => {
-        const data = metadata.get(worldId)
-        return data !== undefined ? Option.some(data as never) : Option.none()
-      }),
-    deleteWorld: (worldId) =>
-      Effect.sync(() => {
-        for (const key of chunks.keys()) {
-          if (key.startsWith(`${worldId}:`)) chunks.delete(key)
-        }
-        metadata.delete(worldId)
-      }) as Effect.Effect<undefined, StorageError>,
   })
 }
 
@@ -54,8 +36,8 @@ const makeInMemoryStorage = () => {
 
 const buildTestLayer = () => {
   const storage = makeInMemoryStorage()
-  const StorageTestLayer = Layer.succeed(StorageService, storage as unknown as StorageService)
-  const NoiseLayer = NoiseServiceLive
+  const StorageTestLayer = Layer.succeed(StorageServicePort, storage as unknown as StorageServicePort)
+  const NoiseLayer = NoiseServicePort.Default
   const BiomeTestLayer = BiomeServiceLive.pipe(Layer.provide(NoiseLayer))
 
   const TestLayer = ChunkManagerServiceLive.pipe(
@@ -399,7 +381,7 @@ describe('application/chunk/chunk-manager-service', () => {
       // Pre-populate `count` distinct chunks so getChunk reads from storage
       // rather than triggering terrain generation (avoids slow noise pipeline).
       const minimalBlocks = new Uint8Array(EXPECTED_BLOCKS_LENGTH)
-      const StorageTestLayer = Layer.succeed(StorageService, storage as unknown as StorageService)
+      const StorageTestLayer = Layer.succeed(StorageServicePort, storage as unknown as StorageServicePort)
 
       const program = Effect.gen(function* () {
         for (let i = 0; i < count; i++) {
@@ -408,7 +390,7 @@ describe('application/chunk/chunk-manager-service', () => {
       })
       Effect.runSync(program)
 
-      const NoiseLayer = NoiseServiceLive
+      const NoiseLayer = NoiseServicePort.Default
       const BiomeTestLayer = BiomeServiceLive.pipe(Layer.provide(NoiseLayer))
 
       const TestLayer = ChunkManagerServiceLive.pipe(
@@ -576,25 +558,18 @@ describe('application/chunk/chunk-manager-service', () => {
   describe('StorageError propagation', () => {
     it('getChunk propagates StorageError when storage.loadChunk fails', () => {
       // Build a storage mock whose loadChunk always fails with a StorageError
-      const failingStorage = StorageService.of({
-        _tag: '@minecraft/infrastructure/storage/StorageService' as const,
-        initialize: Effect.void as Effect.Effect<undefined, StorageError>,
+      const failingStorage = StorageServicePort.of({
+        _tag: '@minecraft/application/storage/StorageServicePort' as const,
         saveChunk: (_worldId, _coord, _data) =>
           Effect.void as Effect.Effect<undefined, StorageError>,
         loadChunk: (_worldId, _coord) =>
           Effect.fail(
             new StorageError({ operation: 'loadChunk', cause: 'simulated storage failure' })
           ) as unknown as Effect.Effect<Option.Option<Uint8Array>, StorageError>,
-        saveWorldMetadata: (_worldId, _meta) =>
-          Effect.void as Effect.Effect<undefined, StorageError>,
-        loadWorldMetadata: (_worldId) =>
-          Effect.sync(() => Option.none<never>()),
-        deleteWorld: (_worldId) =>
-          Effect.void as Effect.Effect<undefined, StorageError>,
       })
 
-      const FailingStorageLayer = Layer.succeed(StorageService, failingStorage as unknown as StorageService)
-      const NoiseLayer = NoiseServiceLive
+      const FailingStorageLayer = Layer.succeed(StorageServicePort, failingStorage as unknown as StorageServicePort)
+      const NoiseLayer = NoiseServicePort.Default
       const BiomeTestLayer = BiomeServiceLive.pipe(Layer.provide(NoiseLayer))
 
       const FailingTestLayer = ChunkManagerServiceLive.pipe(
@@ -852,36 +827,34 @@ describe('application/chunk/chunk-manager-service', () => {
       expect(blocks1).toEqual(blocks2)
     })
 
-    it('shouldPlaceTree formula produces same result for same inputs (direct formula test)', () => {
-      // We replicate the shouldPlaceTree formula here and verify determinism
-      // for a range of known inputs using fast-check.
-      const shouldPlaceTreeFormula = (
-        treeDensity: number,
-        surfaceY: number,
-        wx: number,
-        wz: number
-      ): boolean => {
-        if (treeDensity <= 0 || surfaceY <= 5 || surfaceY >= 256 - 10) {
-          return false
-        }
-        const treeRng = Math.sin(wx * 127.1 + wz * 311.7) * 43758.5453
-        const treeProb = treeRng - Math.floor(treeRng)
-        return treeProb < treeDensity
+    // Replicate the shouldPlaceTree formula for direct determinism testing
+    const shouldPlaceTreeFormula = (
+      treeDensity: number,
+      surfaceY: number,
+      wx: number,
+      wz: number
+    ): boolean => {
+      if (treeDensity <= 0 || surfaceY <= 5 || surfaceY >= 256 - 10) {
+        return false
       }
+      const treeRng = Math.sin(wx * 127.1 + wz * 311.7) * 43758.5453
+      const treeProb = treeRng - Math.floor(treeRng)
+      return treeProb < treeDensity
+    }
 
-      fc.assert(
-        fc.property(
-          fc.float({ min: 0, max: 1, noNaN: true }),      // density
-          fc.integer({ min: 6, max: 246 }),                // surfaceY (within valid tree range)
-          fc.integer({ min: -100, max: 100 }),             // wx
-          fc.integer({ min: -100, max: 100 }),             // wz
-          (density, surfaceY, wx, wz) => {
-            const result1 = shouldPlaceTreeFormula(density, surfaceY, wx, wz)
-            const result2 = shouldPlaceTreeFormula(density, surfaceY, wx, wz)
-            return result1 === result2
-          }
-        )
-      )
-    })
+    it.prop(
+      'shouldPlaceTree formula produces same result for same inputs (direct formula test)',
+      {
+        density: Arbitrary.make(Schema.Number.pipe(Schema.between(0, 1))),
+        surfaceY: Arbitrary.make(Schema.Number.pipe(Schema.int(), Schema.between(6, 246))),
+        wx: Arbitrary.make(Schema.Number.pipe(Schema.int(), Schema.between(-100, 100))),
+        wz: Arbitrary.make(Schema.Number.pipe(Schema.int(), Schema.between(-100, 100))),
+      },
+      ({ density, surfaceY, wx, wz }) => {
+        const result1 = shouldPlaceTreeFormula(density, surfaceY, wx, wz)
+        const result2 = shouldPlaceTreeFormula(density, surfaceY, wx, wz)
+        expect(result1).toBe(result2)
+      }
+    )
   })
 })

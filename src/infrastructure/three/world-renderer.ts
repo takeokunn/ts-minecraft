@@ -18,7 +18,7 @@ const disposeMesh = (mesh: THREE.Mesh): void => {
  * Service for synchronizing chunk state with Three.js scene
  */
 export class WorldRendererService extends Effect.Service<WorldRendererService>()(
-  '@minecraft/infrastructure/WorldRendererService',
+  '@minecraft/infrastructure/three/WorldRendererService',
   {
     effect: Effect.gen(function* () {
       const chunkMeshService = yield* ChunkMeshService
@@ -115,6 +115,11 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
          */
         applyFrustumCulling: (camera: THREE.PerspectiveCamera): Effect.Effect<void, never> =>
           Effect.gen(function* () {
+            // camera.updateMatrixWorld() is intentionally called here even though Three.js
+            // also calls it during renderer.render(). This method runs BEFORE render() in the
+            // frame pipeline, so the camera world matrix may be stale (camera.position was
+            // just updated in step 8). Without this call, frustum culling would use last
+            // frame's matrix, causing one-frame-behind popping artifacts.
             camera.updateMatrixWorld()
             _projMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse)
             _frustum.setFromProjectionMatrix(_projMatrix)

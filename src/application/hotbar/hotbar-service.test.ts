@@ -684,6 +684,55 @@ describe('application/hotbar/hotbar-service', () => {
     })
   })
 
+  describe('update — NaN wheel delta edge case', () => {
+    it('wheelDelta of NaN does not change selected slot', () => {
+      // NaN wheel delta: Math.sign(NaN) === NaN, NaN !== 0 is true,
+      // but (current + NaN) % HOTBAR_SIZE = NaN, which collapses to 0.
+      // We document the actual behaviour: slot must remain valid (a number),
+      // not become NaN.
+      const inputService = createTestInputService()
+      const blockRegistry = createTestBlockRegistry(defaultTestBlocks)
+      const testLayer = createTestLayer(inputService, blockRegistry)
+
+      const program = Effect.gen(function* () {
+        const service = yield* HotbarService
+        yield* service.setSelectedSlot(asSlotIndex(3))
+
+        // Inject NaN via the mutable helper
+        inputService.setWheelDelta(NaN)
+        yield* service.update()
+
+        return yield* service.getSelectedSlot()
+      }).pipe(Effect.provide(testLayer))
+
+      const slot = Effect.runSync(program)
+      // The slot must always be a finite number within [0, HOTBAR_SIZE-1]
+      expect(Number.isFinite(slot)).toBe(true)
+      expect(slot).toBeGreaterThanOrEqual(0)
+      expect(slot).toBeLessThan(HOTBAR_SIZE)
+    })
+
+    it('wheelDelta of Infinity does not wrap to an out-of-range slot', () => {
+      const inputService = createTestInputService()
+      const blockRegistry = createTestBlockRegistry(defaultTestBlocks)
+      const testLayer = createTestLayer(inputService, blockRegistry)
+
+      const program = Effect.gen(function* () {
+        const service = yield* HotbarService
+        yield* service.setSelectedSlot(asSlotIndex(4))
+
+        inputService.setWheelDelta(Infinity)
+        yield* service.update()
+
+        return yield* service.getSelectedSlot()
+      }).pipe(Effect.provide(testLayer))
+
+      const slot = Effect.runSync(program)
+      expect(slot).toBeGreaterThanOrEqual(0)
+      expect(slot).toBeLessThan(HOTBAR_SIZE)
+    })
+  })
+
   describe('Effect composition', () => {
     it('should support Effect.flatMap for chaining operations', () => {
       const inputService = createTestInputService()

@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest'
-import * as fc from 'fast-check'
-import { Schema } from 'effect'
+import { describe, it } from '@effect/vitest'
+import { expect } from 'vitest'
+import { Arbitrary, Schema } from 'effect'
 import { KeyMappings, KeyMappingsSchema } from './key-mappings'
 
 // All valid literal values in order matching the schema
@@ -152,65 +152,53 @@ describe('KeyMappingsSchema', () => {
 })
 
 describe('KeyMappingsSchema (property-based)', () => {
-  it('rejects arbitrary strings as MOVE_FORWARD values unless the exact literal matches', () => {
-    fc.assert(
-      fc.property(
-        fc.string().filter((s) => s !== 'KeyW'),
-        (randomStr) => {
-          const result = Schema.decodeUnknownEither(KeyMappingsSchema)({
-            ...KeyMappings,
-            MOVE_FORWARD: randomStr,
-          })
-          expect(result._tag).toBe('Left')
-        }
-      )
-    )
-  })
+  it.prop(
+    'rejects arbitrary strings as MOVE_FORWARD values unless the exact literal matches',
+    { randomStr: Arbitrary.make(Schema.String.pipe(Schema.filter((s) => s !== 'KeyW'))) },
+    ({ randomStr }) => {
+      const result = Schema.decodeUnknownEither(KeyMappingsSchema)({
+        ...KeyMappings,
+        MOVE_FORWARD: randomStr,
+      })
+      expect(result._tag).toBe('Left')
+    }
+  )
 
-  it('rejects arbitrary strings as JUMP values unless the exact literal matches', () => {
-    fc.assert(
-      fc.property(
-        fc.string().filter((s) => s !== 'Space'),
-        (randomStr) => {
-          const result = Schema.decodeUnknownEither(KeyMappingsSchema)({
-            ...KeyMappings,
-            JUMP: randomStr,
-          })
-          expect(result._tag).toBe('Left')
-        }
-      )
-    )
-  })
+  it.prop(
+    'rejects arbitrary strings as JUMP values unless the exact literal matches',
+    { randomStr: Arbitrary.make(Schema.String.pipe(Schema.filter((s) => s !== 'Space'))) },
+    ({ randomStr }) => {
+      const result = Schema.decodeUnknownEither(KeyMappingsSchema)({
+        ...KeyMappings,
+        JUMP: randomStr,
+      })
+      expect(result._tag).toBe('Left')
+    }
+  )
 
-  it('rejects arbitrary strings as INVENTORY_OPEN values unless the exact literal matches', () => {
-    fc.assert(
-      fc.property(
-        fc.string().filter((s) => s !== 'KeyE'),
-        (randomStr) => {
-          const result = Schema.decodeUnknownEither(KeyMappingsSchema)({
-            ...KeyMappings,
-            INVENTORY_OPEN: randomStr,
-          })
-          expect(result._tag).toBe('Left')
-        }
-      )
-    )
-  })
+  it.prop(
+    'rejects arbitrary strings as INVENTORY_OPEN values unless the exact literal matches',
+    { randomStr: Arbitrary.make(Schema.String.pipe(Schema.filter((s) => s !== 'KeyE'))) },
+    ({ randomStr }) => {
+      const result = Schema.decodeUnknownEither(KeyMappingsSchema)({
+        ...KeyMappings,
+        INVENTORY_OPEN: randomStr,
+      })
+      expect(result._tag).toBe('Left')
+    }
+  )
 
-  it('rejects arbitrary strings as ESCAPE values unless the exact literal matches', () => {
-    fc.assert(
-      fc.property(
-        fc.string().filter((s) => s !== 'Escape'),
-        (randomStr) => {
-          const result = Schema.decodeUnknownEither(KeyMappingsSchema)({
-            ...KeyMappings,
-            ESCAPE: randomStr,
-          })
-          expect(result._tag).toBe('Left')
-        }
-      )
-    )
-  })
+  it.prop(
+    'rejects arbitrary strings as ESCAPE values unless the exact literal matches',
+    { randomStr: Arbitrary.make(Schema.String.pipe(Schema.filter((s) => s !== 'Escape'))) },
+    ({ randomStr }) => {
+      const result = Schema.decodeUnknownEither(KeyMappingsSchema)({
+        ...KeyMappings,
+        ESCAPE: randomStr,
+      })
+      expect(result._tag).toBe('Left')
+    }
+  )
 
   it('accepts only exact valid key strings from the known valid set', () => {
     // Every value in VALID_KEYS should appear in the decoded KeyMappings

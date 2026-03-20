@@ -1,8 +1,8 @@
 import { Effect, Schema } from 'effect'
 
 export const MouseDeltaSchema = Schema.Struct({
-  x: Schema.Number,
-  y: Schema.Number,
+  x: Schema.Number.pipe(Schema.finite()),
+  y: Schema.Number.pipe(Schema.finite()),
 })
 export type MouseDelta = Schema.Schema.Type<typeof MouseDeltaSchema>
 

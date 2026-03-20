@@ -151,12 +151,12 @@ const mainProgram = Effect.gen(function* () {
   }
 
   // Auto-save: persist dirty chunks every 5 seconds using Effect scheduler
-  yield* Effect.fork(
+  yield* Effect.forkDaemon(
     Effect.repeat(
       chunkManagerService.saveDirtyChunks().pipe(
-        Effect.catchAll((e) => Effect.logError(`Auto-save error: ${String(e)}`))
+        Effect.catchAllCause((cause) => Effect.logError(`Auto-save error: ${Cause.pretty(cause)}`))
       ),
-      Schedule.fixed(Duration.seconds(5))
+      Schedule.spaced(Duration.seconds(5))
     )
   )
 
@@ -218,10 +218,6 @@ const mainProgram = Effect.gen(function* () {
   // Initialize hotbar renderer
   yield* hotbarRenderer.initialize(canvas.clientWidth, canvas.clientHeight)
 
-  // Initialize UI overlays
-  yield* settingsOverlay.initialize()
-  yield* inventoryRenderer.initialize()
-
   // Apply initial day length from persisted settings, then set time to noon for visibility
   const initialSettings = yield* settingsService.getSettings()
   // Apply initial shadow state from persisted settings
@@ -279,7 +275,8 @@ const mainProgram = Effect.gen(function* () {
   const fpsElement = document.getElementById('fps-value')
 
   // Health display
-  const healthElement = document.getElementById('health-display')
+  const healthValueElement = document.getElementById('health-value')
+  const healthMaxElement = document.getElementById('health-max')
 
   // Game pause state: true when a modal overlay (settings/inventory) is open
   const gamePausedRef = yield* Ref.make(false)
@@ -294,14 +291,14 @@ const mainProgram = Effect.gen(function* () {
       camera,
       lights: { light, ambientLight, renderer, skyNight, skyDay, skyCurrent },
       fpsElement,
-      healthElement,
+      healthValueElement,
+      healthMaxElement,
       gamePausedRef,
       composer,
     },
     {
       gameState,
       firstPersonCamera,
-      crosshair,
       blockHighlight,
       inputService,
       blockService,

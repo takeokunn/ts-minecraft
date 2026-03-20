@@ -874,6 +874,143 @@ describe('application/block/block-service', () => {
     })
   })
 
+  describe('markChunkDirty integration', () => {
+    it('breakBlock calls markChunkDirty with the correct ChunkCoord', () => {
+      let dirtyCoord: { x: number; z: number } | null = null
+      const targetPos: Position = { x: 5, y: 10, z: 21 }
+      const { service: baseService } = createMockChunkManagerService([{ pos: targetPos, blockType: 'DIRT' }])
+      const capturingService = {
+        ...(baseService as unknown as Record<string, unknown>),
+        markChunkDirty: (coord: ChunkCoord) =>
+          Effect.sync(() => {
+            dirtyCoord = { x: coord.x, z: coord.z }
+          }),
+      } as unknown as ChunkManagerService
+      const playerService = createMockPlayerService({ x: 100, y: 0, z: 100 })
+      const testLayer = createTestLayer(capturingService, playerService)
+
+      const program = Effect.gen(function* () {
+        const blockService = yield* BlockService
+        yield* blockService.breakBlock(targetPos)
+        return { success: true }
+      }).pipe(Effect.provide(testLayer))
+
+      const result = Effect.runSync(program)
+      expect(result.success).toBe(true)
+      expect(dirtyCoord).not.toBeNull()
+      expect(dirtyCoord!.x).toBe(Math.floor(targetPos.x / CHUNK_SIZE))
+      expect(dirtyCoord!.z).toBe(Math.floor(targetPos.z / CHUNK_SIZE))
+    })
+
+    it('placeBlock calls markChunkDirty with the correct ChunkCoord', () => {
+      let dirtyCoord: { x: number; z: number } | null = null
+      const targetPos: Position = { x: 33, y: 5, z: 0 }
+      const { service: baseService } = createMockChunkManagerService()
+      const capturingService = {
+        ...(baseService as unknown as Record<string, unknown>),
+        markChunkDirty: (coord: ChunkCoord) =>
+          Effect.sync(() => {
+            dirtyCoord = { x: coord.x, z: coord.z }
+          }),
+      } as unknown as ChunkManagerService
+      const playerService = createMockPlayerService({ x: 100, y: 0, z: 100 })
+      const testLayer = createTestLayer(capturingService, playerService)
+
+      const program = Effect.gen(function* () {
+        const blockService = yield* BlockService
+        yield* blockService.placeBlock(targetPos, 'STONE')
+        return { success: true }
+      }).pipe(Effect.provide(testLayer))
+
+      const result = Effect.runSync(program)
+      expect(result.success).toBe(true)
+      expect(dirtyCoord).not.toBeNull()
+      expect(dirtyCoord!.x).toBe(Math.floor(targetPos.x / CHUNK_SIZE))
+      expect(dirtyCoord!.z).toBe(Math.floor(targetPos.z / CHUNK_SIZE))
+    })
+
+    it('breakBlock does NOT call markChunkDirty when it fails (no block)', () => {
+      let dirtyCalled = false
+      const { service: baseService } = createMockChunkManagerService()
+      const capturingService = {
+        ...(baseService as unknown as Record<string, unknown>),
+        markChunkDirty: (_coord: ChunkCoord) =>
+          Effect.sync(() => {
+            dirtyCalled = true
+          }),
+      } as unknown as ChunkManagerService
+      const playerService = createMockPlayerService({ x: 100, y: 0, z: 100 })
+      const testLayer = createTestLayer(capturingService, playerService)
+
+      const program = Effect.gen(function* () {
+        const blockService = yield* BlockService
+        yield* Effect.either(blockService.breakBlock({ x: 0, y: 0, z: 0 }))
+        return { success: true }
+      }).pipe(Effect.provide(testLayer))
+
+      Effect.runSync(program)
+      expect(dirtyCalled).toBe(false)
+    })
+  })
+
+  describe('breakBlock/placeBlock — out-of-bounds y coordinate', () => {
+    it('breakBlock at y=256 fails with BlockServiceError (out-of-bounds)', () => {
+      // y=256 exceeds CHUNK_HEIGHT-1=255 → setBlockInChunk returns BlockIndexError
+      // We need a block at y=256 to pass the AIR check; since the array index would
+      // be out of range, indexToBlockType returns AIR (0), so breakBlock fails with
+      // "No block at position" before reaching setBlockInChunk.
+      // Either way the result must be Left<BlockServiceError>.
+      const handle = createMockChunkManagerService()
+      const playerService = createMockPlayerService({ x: 100, y: 0, z: 100 })
+      const testLayer = createTestLayer(handle.service, playerService)
+
+      const program = Effect.gen(function* () {
+        const blockService = yield* BlockService
+        return yield* Effect.either(blockService.breakBlock({ x: 0, y: 256, z: 0 }))
+      }).pipe(Effect.provide(testLayer))
+
+      const result = Effect.runSync(program)
+      expect(result._tag).toBe('Left')
+      if (result._tag === 'Left') {
+        expect(result.left).toBeInstanceOf(BlockServiceError)
+      }
+    })
+
+    it('breakBlock at y=-1 fails with BlockServiceError (out-of-bounds)', () => {
+      const handle = createMockChunkManagerService()
+      const playerService = createMockPlayerService({ x: 100, y: 0, z: 100 })
+      const testLayer = createTestLayer(handle.service, playerService)
+
+      const program = Effect.gen(function* () {
+        const blockService = yield* BlockService
+        return yield* Effect.either(blockService.breakBlock({ x: 0, y: -1, z: 0 }))
+      }).pipe(Effect.provide(testLayer))
+
+      const result = Effect.runSync(program)
+      expect(result._tag).toBe('Left')
+      if (result._tag === 'Left') {
+        expect(result.left).toBeInstanceOf(BlockServiceError)
+      }
+    })
+
+    it('placeBlock at y=-1 fails with BlockServiceError (out-of-bounds)', () => {
+      const handle = createMockChunkManagerService()
+      const playerService = createMockPlayerService({ x: 100, y: 0, z: 100 })
+      const testLayer = createTestLayer(handle.service, playerService)
+
+      const program = Effect.gen(function* () {
+        const blockService = yield* BlockService
+        return yield* Effect.either(blockService.placeBlock({ x: 0, y: -1, z: 0 }, 'STONE'))
+      }).pipe(Effect.provide(testLayer))
+
+      const result = Effect.runSync(program)
+      expect(result._tag).toBe('Left')
+      if (result._tag === 'Left') {
+        expect(result.left).toBeInstanceOf(BlockServiceError)
+      }
+    })
+  })
+
   describe('placeBlock — boundary positions relative to player', () => {
     it('should succeed when block is placed 2 blocks above player (y-axis separation)', () => {
       // Player at y=0, PLAYER_HALF_HEIGHT=0.9, player center Y=0.9

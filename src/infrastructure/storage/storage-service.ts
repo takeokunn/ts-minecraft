@@ -1,5 +1,5 @@
 import { Effect, Option, Schema, Schedule, Duration } from 'effect'
-import { openDB, DBSchema, IDBPDatabase } from 'idb'
+import { openDatabase, DBSchema, TypedIDBDatabase } from './idb-utils'
 import { WorldId } from '@/shared/kernel'
 import { StorageError } from '@/domain/errors'
 import type { ChunkCoord } from '@/domain/chunk'
@@ -29,12 +29,10 @@ interface MinecraftWorldsDB extends DBSchema {
   chunks: {
     key: string
     value: Uint8Array
-    indexes: {}
   }
   metadata: {
     key: string
     value: WorldMetadata
-    indexes: {}
   }
 }
 
@@ -50,7 +48,7 @@ const STORE_METADATA = 'metadata'
  * Internal interface for database reference
  */
 interface StorageState {
-  db: IDBPDatabase<MinecraftWorldsDB> | null
+  db: TypedIDBDatabase<MinecraftWorldsDB> | null
 }
 
 // StorageState: plain interface intentionally not converted to Schema.
@@ -118,21 +116,19 @@ export class StorageService extends Effect.Service<StorageService>()(
         }
 
         state.db = yield* tryCatchStorage('open database', () =>
-          openDB<MinecraftWorldsDB>(DB_NAME, DB_VERSION, {
-            upgrade(db, oldVersion) {
-              if (!db.objectStoreNames.contains(STORE_CHUNKS)) {
-                db.createObjectStore(STORE_CHUNKS)
-              }
-              if (!db.objectStoreNames.contains(STORE_METADATA)) {
-                db.createObjectStore(STORE_METADATA)
-              }
-              // v1→v2: block type indices changed (SNOW=9, GRAVEL=10, COBBLESTONE=11 added)
-              // Clear all saved chunks to prevent corrupt block type decoding
-              if (oldVersion < 2 && db.objectStoreNames.contains(STORE_CHUNKS)) {
-                db.deleteObjectStore(STORE_CHUNKS)
-                db.createObjectStore(STORE_CHUNKS)
-              }
-            },
+          openDatabase<MinecraftWorldsDB>(DB_NAME, DB_VERSION, (db, oldVersion) => {
+            if (!db.objectStoreNames.contains(STORE_CHUNKS)) {
+              db.createObjectStore(STORE_CHUNKS)
+            }
+            if (!db.objectStoreNames.contains(STORE_METADATA)) {
+              db.createObjectStore(STORE_METADATA)
+            }
+            // v1→v2: block type indices changed (SNOW=9, GRAVEL=10, COBBLESTONE=11 added)
+            // Clear all saved chunks to prevent corrupt block type decoding
+            if (oldVersion < 2 && db.objectStoreNames.contains(STORE_CHUNKS)) {
+              db.deleteObjectStore(STORE_CHUNKS)
+              db.createObjectStore(STORE_CHUNKS)
+            }
           }),
         )
       })
@@ -202,12 +198,10 @@ export class StorageService extends Effect.Service<StorageService>()(
           const chunkKeys: string[] = yield* Effect.tryPromise({
             try: async () => {
               const keys: string[] = []
-              let cursor = await state.db!.transaction(STORE_CHUNKS).store.openCursor()
-              while (cursor) {
+              for await (const cursor of state.db!.openCursor(STORE_CHUNKS)) {
                 if (cursor.key.toString().startsWith(`${worldId}:`)) {
                   keys.push(cursor.key.toString())
                 }
-                cursor = await cursor.continue()
               }
               return keys
             },

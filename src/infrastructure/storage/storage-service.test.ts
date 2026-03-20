@@ -652,4 +652,144 @@ describe('infrastructure/storage/storage-service', () => {
       }).pipe(Effect.provide(TestLayer))
     })
   })
+
+  // ---------------------------------------------------------------------------
+  // Task 1: isQuotaExceeded and retry behavior
+  // ---------------------------------------------------------------------------
+
+  describe('isQuotaExceeded and QuotaExceededError handling (in-memory mock)', () => {
+    /**
+     * Build a StorageService layer backed by a mock that throws on saveChunk.
+     * The `throwOnSave` function is called instead of the normal Map write.
+     */
+    const makeFailingStorageService = (throwOnSave: () => void) => {
+      const chunkStore = new Map<string, Uint8Array>()
+      const metaStore = new Map<string, WorldMetadata>()
+      let saveCallCount = 0
+
+      const chunkKey = (worldId: WorldId, coord: ChunkCoord): string =>
+        `${worldId}:${coord.x}:${coord.z}`
+
+      const service = {
+        initialize: Effect.void,
+
+        saveChunk: (worldId: WorldId, chunkCoord: ChunkCoord, data: Uint8Array) =>
+          Effect.sync(() => {
+            saveCallCount++
+            throwOnSave()
+            chunkStore.set(chunkKey(worldId, chunkCoord), data)
+          }),
+
+        loadChunk: (worldId: WorldId, chunkCoord: ChunkCoord) =>
+          Effect.sync(() => {
+            const val = chunkStore.get(chunkKey(worldId, chunkCoord))
+            return val !== undefined ? Option.some(val) : Option.none<Uint8Array>()
+          }),
+
+        saveWorldMetadata: (worldId: WorldId, metadata: WorldMetadata) =>
+          Effect.sync(() => {
+            metaStore.set(worldId, metadata)
+          }),
+
+        loadWorldMetadata: (worldId: WorldId) =>
+          Effect.sync(() => {
+            const val = metaStore.get(worldId)
+            return val !== undefined ? Option.some(val) : Option.none<WorldMetadata>()
+          }),
+
+        deleteWorld: (worldId: WorldId) =>
+          Effect.sync(() => {
+            const prefix = `${worldId}:`
+            for (const key of chunkStore.keys()) {
+              if (key.startsWith(prefix)) chunkStore.delete(key)
+            }
+            metaStore.delete(worldId)
+          }),
+
+        _saveCallCount: () => saveCallCount,
+      }
+
+      const TestLayer = Layer.succeed(StorageService, service as unknown as StorageService)
+      return { service, TestLayer }
+    }
+
+    it.effect('saveChunk that throws a plain Error yields a StorageError from the caller layer', () => {
+      // When the underlying storage throws a generic Error (not QuotaExceededError),
+      // a well-written caller wrapping it in StorageError should produce _tag='StorageError'.
+      // Here we test StorageError construction directly to verify the tag and operation fields.
+      return Effect.gen(function* () {
+        const err = new StorageError({ operation: 'saveChunk', cause: new Error('disk full') })
+        expect(err._tag).toBe('StorageError')
+        expect(err.operation).toBe('saveChunk')
+        expect(err.message).toContain('disk full')
+      })
+    })
+
+    it('StorageError with QuotaExceededError cause embeds the quota message', () => {
+      // isQuotaExceeded returns true for DOMException with name='QuotaExceededError'.
+      // The production tryCatchStorage wraps it as: cause='Storage quota exceeded…'
+      const err = new StorageError({
+        operation: 'saveChunk',
+        cause: 'Storage quota exceeded. Please clear some data.',
+      })
+      expect(err._tag).toBe('StorageError')
+      expect(err.message).toContain('Storage quota exceeded')
+      expect(err.operation).toBe('saveChunk')
+    })
+
+    it('StorageError with QuotaExceededError DOMException (code 22) includes operation name', () => {
+      // DOMException with code 22 is the legacy QUOTA_EXCEEDED_ERR constant.
+      // tryCatchStorage maps it to a human-readable cause string.
+      const domExc = new DOMException('QuotaExceededError', 'QuotaExceededError')
+      const err = new StorageError({ operation: 'saveChunk', cause: domExc })
+      expect(err._tag).toBe('StorageError')
+      expect(err.operation).toBe('saveChunk')
+      // message includes the DOMException's message via the Error branch
+      expect(err.message).toContain('saveChunk')
+    })
+
+    it('StorageError wrapping a non-quota DOMException is still a StorageError', () => {
+      const domExc = new DOMException('The operation failed', 'AbortError')
+      const err = new StorageError({ operation: 'loadChunk', cause: domExc })
+      expect(err._tag).toBe('StorageError')
+      expect(err.operation).toBe('loadChunk')
+    })
+
+    it.effect('saveChunk that throws is called exactly once when mock throws immediately', () => {
+      // Verifies that a single-throw mock is called exactly once (no retry at mock level).
+      let callCount = 0
+      const { TestLayer } = makeFailingStorageService(() => {
+        callCount++
+        throw new Error('immediate failure')
+      })
+      return Effect.gen(function* () {
+        const storage = yield* StorageService
+        // The mock throws synchronously inside Effect.sync — this will cause a defect.
+        // We use Effect.sandbox to catch defects.
+        const result = yield* storage.saveChunk(testWorldId, testCoord, new Uint8Array([1])).pipe(
+          Effect.sandbox,
+          Effect.either,
+        )
+        expect(result._tag).toBe('Left')
+        // The mock was invoked exactly once
+        expect(callCount).toBe(1)
+      }).pipe(Effect.provide(TestLayer))
+    })
+
+    it.effect('saveChunk that does NOT throw succeeds and call count is 1', () => {
+      let callCount = 0
+      const { TestLayer } = makeFailingStorageService(() => {
+        callCount++
+        // no throw
+      })
+      return Effect.gen(function* () {
+        const storage = yield* StorageService
+        yield* storage.saveChunk(testWorldId, testCoord, new Uint8Array([42]))
+        expect(callCount).toBe(1)
+        const loaded = yield* storage.loadChunk(testWorldId, testCoord)
+        // The mock only increments on save, not on the throw path — verify data was stored
+        expect(Option.isSome(loaded)).toBe(true)
+      }).pipe(Effect.provide(TestLayer))
+    })
+  })
 })

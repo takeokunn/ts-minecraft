@@ -64,13 +64,8 @@
     "test:e2e:headed": "playwright test --headed"
   },
   "dependencies": {
-    "@effect/platform": "^0.68.6",
-    "@effect/schema": "^0.75.5",
     "@types/three": "^0.170.0",
-    "cannon-es": "^0.20.0",
-    "effect": "^3.19.19",
-    "idb": "^8.0.3",
-    "simplex-noise": "^4.0.3",
+"effect": "^3.19.19",
     "three": "^0.170.0"
   },
   "devDependencies": {
@@ -78,8 +73,7 @@
     "@playwright/test": "^1.49.0",
     "@types/node": "^22.19.11",
     "@vitest/ui": "^3.2.4",
-    "fast-check": "^4.6.0",
-    "lightningcss": "^1.31.1",
+"lightningcss": "^1.31.1",
     "oxlint": "^0.12.0",
     "playwright": "^1.49.0",
     "terser": "^5.46.0",

@@ -7,7 +7,7 @@
  *
  * Dependency order: Infrastructure → Application → Presentation
  */
-import { Layer } from 'effect'
+import { Effect, Layer } from 'effect'
 
 // Three.js rendering infrastructure
 import { RendererServiceLive } from '@/infrastructure/three/renderer/renderer-service'
@@ -18,16 +18,20 @@ import { WorldRendererServiceLive } from '@/infrastructure/three/world-renderer'
 import { FPSCounterLive } from '@/presentation/fps-counter'
 import { BlockRegistryLive } from '@/domain'
 
-// Physics infrastructure (cannon-es)
-import { PhysicsWorldServiceLive, RigidBodyServiceLive, ShapeServiceLive } from '@/infrastructure/cannon/boundary'
+// Physics infrastructure (custom engine)
+import { PhysicsWorldServiceLive, RigidBodyServiceLive, ShapeServiceLive } from '@/infrastructure/physics/boundary'
 
 // Procedural generation and storage infrastructure
-import { NoiseServiceLive } from '@/infrastructure/noise/noise-service'
-import { StorageServiceLive } from '@/infrastructure/storage/storage-service'
+import { NoiseService, NoiseServiceLive } from '@/infrastructure/noise/noise-service'
+import { StorageService, StorageServiceLive } from '@/infrastructure/storage/storage-service'
 import { ChunkMeshServiceLive } from '@/infrastructure/three/meshing/chunk-mesh'
 
 // Chunk domain service
 import { ChunkServiceLive } from '@/domain/chunk'
+
+// Application-layer ports (decouple application from infrastructure)
+import { NoiseServicePort } from '@/application/noise/noise-service-port'
+import { StorageServicePort } from '@/application/storage/storage-service-port'
 
 // Terrain and chunk management
 import { BiomeServiceLive } from '@/application/biome/biome-service'
@@ -40,18 +44,16 @@ import { MovementServiceLive } from '@/application/player/movement-service'
 
 // Block interaction and hotbar
 import { BlockServiceLive } from '@/application/block/block-service'
-import { HotbarService } from '@/application/hotbar/hotbar-service'
+import { HotbarServiceLive } from '@/application/hotbar/hotbar-service'
 import { HotbarRendererLive } from '@/presentation/hud/hotbar-three'
 
 // Inventory, time, settings, and overlays
-import { InventoryService } from '@/application/inventory/inventory-service'
+import { InventoryServiceLive } from '@/application/inventory/inventory-service'
+import { RecipeService } from '@/application/crafting/recipe-service'
 import { TimeService } from '@/application/time/time-service'
-import { SettingsService } from '@/application/settings/settings-service'
+import { SettingsServiceLive } from '@/application/settings/settings-service'
 import { SettingsOverlayLive } from '@/presentation/settings/settings-overlay'
 import { InventoryRendererLive } from '@/presentation/inventory/inventory-renderer'
-
-// Crafting
-import { RecipeService } from '@/application/crafting/recipe-service'
 
 // Game state, camera, physics, input, raycasting, and game loop
 import { GameStateServiceLive } from '@/application/game-state'
@@ -60,7 +62,7 @@ import { PhysicsServiceLive } from '@/application/physics/physics-service'
 import { PlayerCameraStateLive } from '@/application/camera/camera-state'
 import { CrosshairLive, DomOperationsLive } from '@/presentation/hud/crosshair'
 import { BlockHighlightLive } from '@/presentation/highlight/block-highlight'
-import { RaycastingServiceLive } from '@/application/raycasting/raycasting-service'
+import { RaycastingServiceLive } from '@/infrastructure/three/raycasting/raycasting-service'
 import { InputServiceLive, PlayerInputServiceLive } from '@/presentation/input/input-service'
 import { GameLoopServiceLive } from '@/application/game-loop'
 
@@ -91,16 +93,49 @@ export const BaseLayer = Layer.mergeAll(
 // Shared NoiseService — single instance provided to all dependents
 export const NoiseLayer = NoiseServiceLive
 
-// Level 2: BiomeService depends on NoiseService
+// Bridge: satisfies NoiseServicePort using the infrastructure NoiseService implementation.
+// Same pattern as PlayerInputServiceLive: the cast is safe because Layer.effect() only
+// accesses the 3 declared methods (noise2D, octaveNoise2D, setSeed).
+export const NoisePortLayer = Layer.effect(
+  NoiseServicePort,
+  Effect.map(NoiseService, (noise) => {
+    // Typed intermediate validates that NoiseService exposes all 3 required port methods
+    // with the correct signatures. If a method is renamed or its signature changes, tsc fails here.
+    const impl: { noise2D: NoiseService['noise2D']; octaveNoise2D: NoiseService['octaveNoise2D']; setSeed: NoiseService['setSeed'] } = {
+      noise2D: (x, z) => noise.noise2D(x, z),
+      octaveNoise2D: (x, z, o, p, l) => noise.octaveNoise2D(x, z, o, p, l),
+      setSeed: (seed) => noise.setSeed(seed),
+    }
+    // The `as unknown as NoiseServicePort` cast is unavoidable: Effect.Service adds a `_tag`
+    // discriminant that plain objects cannot satisfy structurally.
+    return impl as unknown as NoiseServicePort
+  })
+).pipe(Layer.provide(NoiseLayer))
+
+// Bridge: satisfies StorageServicePort using the infrastructure StorageService implementation.
+export const StoragePortLayer = Layer.effect(
+  StorageServicePort,
+  Effect.map(StorageService, (storage) => {
+    // Typed intermediate validates that StorageService exposes both required port methods
+    // with the correct signatures. If a method is renamed or its signature changes, tsc fails here.
+    const impl: { saveChunk: StorageService['saveChunk']; loadChunk: StorageService['loadChunk'] } = {
+      saveChunk: (worldId, chunkCoord, blocks) => storage.saveChunk(worldId, chunkCoord, blocks),
+      loadChunk: (worldId, chunkCoord) => storage.loadChunk(worldId, chunkCoord),
+    }
+    // The `as unknown as StorageServicePort` cast is unavoidable: Effect.Service adds a `_tag`
+    // discriminant that plain objects cannot satisfy structurally.
+    return impl as unknown as StorageServicePort
+  })
+).pipe(Layer.provide(StorageServiceLive))
+
+// Level 2: BiomeService depends on NoiseServicePort (via bridge)
 export const BiomeLayer = BiomeServiceLive.pipe(
-  Layer.provide(NoiseLayer),
+  Layer.provide(NoisePortLayer),
 )
 
-// Level 2: PhysicsService depends on PhysicsWorldService, RigidBodyService, ShapeService
+// Level 2: PhysicsService depends on PhysicsWorldService, RigidBodyService, ShapeService (all independent peers)
 export const PhysicsLayer = PhysicsServiceLive.pipe(
-  Layer.provide(PhysicsWorldServiceLive),
-  Layer.provide(RigidBodyServiceLive),
-  Layer.provide(ShapeServiceLive),
+  Layer.provide(Layer.mergeAll(PhysicsWorldServiceLive, RigidBodyServiceLive, ShapeServiceLive))
 )
 
 // PlayerInputServiceLive: adapter bridging InputService (presentation) to PlayerInputService (application)
@@ -135,12 +170,9 @@ export const FirstPersonCameraLayer = FirstPersonCameraServiceLive.pipe(
   Layer.provide(CameraStateLayer),
 )
 
-// Level 3: ChunkManagerService depends on ChunkService, StorageService, BiomeService, NoiseService
+// Level 3: ChunkManagerService depends on ChunkService, StorageServicePort, BiomeService, NoiseServicePort (all independent peers)
 export const ChunkManagerLayer = ChunkManagerServiceLive.pipe(
-  Layer.provide(ChunkServiceLive),
-  Layer.provide(StorageServiceLive),
-  Layer.provide(BiomeLayer),
-  Layer.provide(NoiseLayer),
+  Layer.provide(Layer.mergeAll(ChunkServiceLive, StoragePortLayer, BiomeLayer, NoisePortLayer))
 )
 
 // Level 4: GameStateService depends on PlayerService, PhysicsService, MovementService, CameraState
@@ -158,20 +190,17 @@ export const WorldRendererLayer = WorldRendererServiceLive.pipe(
 )
 
 // InventoryService depends on BlockRegistry
-export const InventoryLayer = InventoryService.Default.pipe(
+export const InventoryLayer = InventoryServiceLive.pipe(
   Layer.provide(BlockRegistryLive),
 )
 
-// Level 4: BlockService depends on ChunkManagerService, ChunkService, PlayerService, InventoryService
+// Level 4: BlockService depends on ChunkManagerService, ChunkService, PlayerService, InventoryService (all independent peers)
 export const BlockLayer = BlockServiceLive.pipe(
-  Layer.provide(ChunkManagerLayer),
-  Layer.provide(ChunkServiceLive),
-  Layer.provide(PlayerServiceLive),
-  Layer.provide(InventoryLayer),
+  Layer.provide(Layer.mergeAll(ChunkManagerLayer, ChunkServiceLive, PlayerServiceLive, InventoryLayer))
 )
 
 // HotbarService depends on PlayerInputService and InventoryService
-export const HotbarLayer = HotbarService.Default.pipe(
+export const HotbarLayer = HotbarServiceLive.pipe(
   Layer.provide(PlayerInputLayer),
   Layer.provide(InventoryLayer),
 )
@@ -182,7 +211,7 @@ export const HotbarRendererLayer = HotbarRendererLive.pipe(
 )
 
 // SettingsService: reads/writes localStorage — no Effect service dependencies
-export const SettingsLayer = SettingsService.Default
+export const SettingsLayer = SettingsServiceLive
 
 // SettingsOverlay depends on SettingsService and DomOperations
 export const SettingsOverlayLayer = SettingsOverlayLive.pipe(

@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest'
 import { Schema } from 'effect'
-import * as CANNON from 'cannon-es'
 import {
   Vector3Schema,
   makeVector3,
@@ -12,8 +11,6 @@ import {
   right,
   forward,
   backward,
-  fromCannonVector,
-  toCannonVector,
   add,
   subtract,
   scale,
@@ -265,26 +262,5 @@ describe('toJSON / fromJSON', () => {
   it('fromJSON(toJSON(v)) roundtrip should deep-equal original', () => {
     const v = { x: 1, y: 2, z: 3 }
     expect(fromJSON(toJSON(v))).toEqual(v)
-  })
-})
-
-describe('fromCannonVector / toCannonVector', () => {
-  it('fromCannonVector should extract x, y, z from CANNON.Vec3', () => {
-    const cannonVec = new CANNON.Vec3(1, 2, 3)
-    expect(fromCannonVector(cannonVec)).toEqual({ x: 1, y: 2, z: 3 })
-  })
-
-  it('toCannonVector should create a CANNON.Vec3 with correct values', () => {
-    const v = { x: 1, y: 2, z: 3 }
-    const cannonVec = toCannonVector(v)
-    expect(cannonVec).toBeInstanceOf(CANNON.Vec3)
-    expect(cannonVec.x).toBe(1)
-    expect(cannonVec.y).toBe(2)
-    expect(cannonVec.z).toBe(3)
-  })
-
-  it('roundtrip fromCannonVector(toCannonVector(v)) should deep-equal original', () => {
-    const v = { x: 5, y: 6, z: 7 }
-    expect(fromCannonVector(toCannonVector(v))).toEqual(v)
   })
 })

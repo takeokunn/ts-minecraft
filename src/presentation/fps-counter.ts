@@ -1,14 +1,15 @@
-import { Effect, Ref, Schema, Metric } from 'effect'
+import { Effect, Option, Ref, Schema, Metric } from 'effect'
 import { DeltaTimeSecs } from '@/shared/kernel'
 
 export const FPSCounterStateSchema = Schema.Struct({
-  frameCount: Schema.Number,
-  fps: Schema.Number,
-  accumulatedTime: Schema.Number,
+  frameCount: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+  fps: Schema.Number.pipe(Schema.finite(), Schema.nonNegative()),
+  accumulatedTime: Schema.Number.pipe(Schema.finite(), Schema.nonNegative()),
 })
 type FPSCounterState = Schema.Schema.Type<typeof FPSCounterStateSchema>
 
 const FPS_SAMPLE_INTERVAL = 0.5 // seconds
+const fpsGauge = Metric.gauge('fps')
 
 export class FPSCounterService extends Effect.Service<FPSCounterService>()(
   // FPSCounterLive alias kept below for test compatibility
@@ -22,25 +23,22 @@ export class FPSCounterService extends Effect.Service<FPSCounterService>()(
       })
 
       return {
-        tick: (deltaTime: DeltaTimeSecs): Effect.Effect<void, never> =>
+        tick: (deltaTime: DeltaTimeSecs): Effect.Effect<void> =>
           Effect.gen(function* () {
-            yield* Ref.update(state, (s) => ({
-              ...s,
-              frameCount: s.frameCount + 1,
-              accumulatedTime: s.accumulatedTime + deltaTime,
-            }))
-
-            const current = yield* Ref.get(state)
-
-            // Calculate FPS when sample interval is reached
-            if (current.accumulatedTime >= FPS_SAMPLE_INTERVAL) {
-              const calculatedFPS = current.frameCount / current.accumulatedTime
-              yield* Ref.set(state, {
-                frameCount: 0,
-                fps: calculatedFPS,
-                accumulatedTime: 0,
-              })
-              yield* Metric.gauge('fps').pipe(Metric.set(calculatedFPS))
+            const maybeNewFPS = yield* Ref.modify(state, (s) => {
+              const next = {
+                ...s,
+                frameCount: s.frameCount + 1,
+                accumulatedTime: s.accumulatedTime + deltaTime,
+              }
+              if (next.accumulatedTime >= FPS_SAMPLE_INTERVAL) {
+                const calculatedFPS = next.frameCount / next.accumulatedTime
+                return [Option.some(calculatedFPS), { frameCount: 0, fps: calculatedFPS, accumulatedTime: 0 }]
+              }
+              return [Option.none<number>(), next]
+            })
+            if (Option.isSome(maybeNewFPS)) {
+              yield* fpsGauge.pipe(Metric.set(maybeNewFPS.value))
             }
           }),
 

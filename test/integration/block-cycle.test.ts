@@ -13,9 +13,9 @@
  */
 import { describe, it, expect } from 'vitest'
 import { Effect, Layer, Option } from 'effect'
-import { StorageService } from '@/infrastructure/storage/storage-service'
+import { StorageServicePort } from '@/application/storage/storage-service-port'
 import { StorageError } from '@/domain/errors'
-import { NoiseServiceLive } from '@/infrastructure/noise/noise-service'
+import { NoiseServicePort } from '@/application/noise/noise-service-port'
 import { BiomeServiceLive } from '@/application/biome/biome-service'
 import {
   ChunkServiceLive,
@@ -46,11 +46,9 @@ import { DEFAULT_WORLD_ID, DEFAULT_PLAYER_ID } from '@/application/constants'
 
 const makeInMemoryStorage = () => {
   const chunks = new Map<string, Uint8Array>()
-  const metadata = new Map<string, unknown>()
 
-  return StorageService.of({
-    _tag: '@minecraft/infrastructure/storage/StorageService' as const,
-    initialize: Effect.void as Effect.Effect<undefined, StorageError>,
+  return StorageServicePort.of({
+    _tag: '@minecraft/application/storage/StorageServicePort' as const,
     saveChunk: (worldId, coord, data) =>
       Effect.sync(() => {
         chunks.set(`${worldId}:${coord.x}:${coord.z}`, data)
@@ -60,22 +58,6 @@ const makeInMemoryStorage = () => {
         const data = chunks.get(`${worldId}:${coord.x}:${coord.z}`)
         return data !== undefined ? Option.some(data) : Option.none()
       }),
-    saveWorldMetadata: (worldId, meta) =>
-      Effect.sync(() => {
-        metadata.set(worldId, meta)
-      }) as Effect.Effect<undefined, StorageError>,
-    loadWorldMetadata: (worldId) =>
-      Effect.sync(() => {
-        const data = metadata.get(worldId)
-        return data !== undefined ? Option.some(data as never) : Option.none()
-      }),
-    deleteWorld: (worldId) =>
-      Effect.sync(() => {
-        for (const key of chunks.keys()) {
-          if (key.startsWith(`${worldId}:`)) chunks.delete(key)
-        }
-        metadata.delete(worldId)
-      }) as Effect.Effect<undefined, StorageError>,
   })
 }
 
@@ -103,8 +85,8 @@ const createMockPlayerService = (position: Position): PlayerService =>
  */
 const buildIntegrationLayer = (playerPos: Position = { x: 100, y: 0, z: 100 }) => {
   const storage = makeInMemoryStorage()
-  const StorageTestLayer = Layer.succeed(StorageService, storage as unknown as StorageService)
-  const NoiseLayer = NoiseServiceLive
+  const StorageTestLayer = Layer.succeed(StorageServicePort, storage as unknown as StorageServicePort)
+  const NoiseLayer = NoiseServicePort.Default
   const BiomeTestLayer = BiomeServiceLive.pipe(Layer.provide(NoiseLayer))
 
   const ChunkManagerTestLayer = ChunkManagerServiceLive.pipe(
@@ -141,8 +123,8 @@ const buildIntegrationLayer = (playerPos: Position = { x: 100, y: 0, z: 100 }) =
  * Simulates a new game session loading persisted chunk data.
  */
 const buildSecondSessionLayer = (storage: ReturnType<typeof makeInMemoryStorage>) => {
-  const StorageTestLayer = Layer.succeed(StorageService, storage as unknown as StorageService)
-  const NoiseLayer = NoiseServiceLive
+  const StorageTestLayer = Layer.succeed(StorageServicePort, storage as unknown as StorageServicePort)
+  const NoiseLayer = NoiseServicePort.Default
   const BiomeTestLayer = BiomeServiceLive.pipe(Layer.provide(NoiseLayer))
 
   return ChunkManagerServiceLive.pipe(

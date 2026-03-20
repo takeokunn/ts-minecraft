@@ -8,7 +8,7 @@ import {
   createWireframeCube,
   DEFAULT_HIGHLIGHT_COLOR,
 } from './block-highlight'
-import { RaycastingService, type RaycastHit } from '../../application/raycasting/raycasting-service'
+import { RaycastingService, type RaycastHit } from '@/infrastructure/three/raycasting/raycasting-service'
 
 /**
  * Helper to create a mock RaycastingService

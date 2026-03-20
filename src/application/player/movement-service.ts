@@ -31,6 +31,55 @@ export const DEFAULT_SPRINT_SPEED = 14.0 // m/s
 export const DEFAULT_JUMP_VELOCITY = 5.0 // m/s
 
 /**
+ * Pure math: compute movement velocity from input state and camera yaw.
+ * No side effects — safe to call anywhere without Effect wrapping.
+ */
+const computeVelocity = (
+  input: MovementInput,
+  yaw: number,
+  isGrounded: boolean,
+): { x: number; y: number; z: number } => {
+  const speed = input.sprint ? DEFAULT_SPRINT_SPEED : DEFAULT_WALK_SPEED
+
+  // Calculate movement direction based on camera yaw.
+  // Forward direction uses negative Z in most game engines.
+  let moveX = 0
+  let moveZ = 0
+
+  if (input.forward) {
+    moveX -= Math.sin(yaw)
+    moveZ -= Math.cos(yaw)
+  }
+  if (input.backward) {
+    moveX += Math.sin(yaw)
+    moveZ += Math.cos(yaw)
+  }
+  if (input.left) {
+    moveX -= Math.cos(yaw)
+    moveZ += Math.sin(yaw)
+  }
+  if (input.right) {
+    moveX += Math.cos(yaw)
+    moveZ -= Math.sin(yaw)
+  }
+
+  // Normalize diagonal movement to prevent faster diagonal speeds.
+  const length = Math.sqrt(moveX * moveX + moveZ * moveZ)
+  if (length > 0) {
+    moveX = (moveX / length) * speed
+    moveZ = (moveZ / length) * speed
+  }
+
+  // Y velocity is handled by physics (gravity/jump).
+  let moveY = 0
+  if (input.jump && isGrounded) {
+    moveY = DEFAULT_JUMP_VELOCITY
+  }
+
+  return { x: moveX, y: moveY, z: moveZ }
+}
+
+/**
  * MovementService class for handling player movement input
  *
  * Provides functionality to:
@@ -39,7 +88,7 @@ export const DEFAULT_JUMP_VELOCITY = 5.0 // m/s
  * - Handle sprint and jump mechanics
  */
 export class MovementService extends Effect.Service<MovementService>()(
-  '@minecraft/layer/MovementService',
+  '@minecraft/application/MovementService',
   {
     effect: Effect.gen(function* () {
       const inputService = yield* PlayerInputService
@@ -54,7 +103,7 @@ export class MovementService extends Effect.Service<MovementService>()(
             // Use consumeKeyPress for jump to only trigger once per key press
             inputService.consumeKeyPress(KeyMappings.JUMP),
             inputService.isKeyPressed(KeyMappings.SPRINT),
-          ])
+          ], { concurrency: 'unbounded' })
 
           return { forward, backward, left, right, jump, sprint }
         })
@@ -64,46 +113,7 @@ export class MovementService extends Effect.Service<MovementService>()(
         yaw: number,
         isGrounded: boolean
       ): Effect.Effect<Velocity, never> =>
-        Effect.sync(() => {
-          const speed = input.sprint ? DEFAULT_SPRINT_SPEED : DEFAULT_WALK_SPEED
-
-          // Calculate movement direction based on camera yaw
-          // Forward direction uses negative Z in most game engines
-          let moveX = 0
-          let moveZ = 0
-
-          if (input.forward) {
-            moveX -= Math.sin(yaw)
-            moveZ -= Math.cos(yaw)
-          }
-          if (input.backward) {
-            moveX += Math.sin(yaw)
-            moveZ += Math.cos(yaw)
-          }
-          if (input.left) {
-            moveX -= Math.cos(yaw)
-            moveZ += Math.sin(yaw)
-          }
-          if (input.right) {
-            moveX += Math.cos(yaw)
-            moveZ -= Math.sin(yaw)
-          }
-
-          // Normalize diagonal movement to prevent faster diagonal speeds
-          const length = Math.sqrt(moveX * moveX + moveZ * moveZ)
-          if (length > 0) {
-            moveX = (moveX / length) * speed
-            moveZ = (moveZ / length) * speed
-          }
-
-          // Y velocity is handled by physics (gravity/jump)
-          let moveY = 0
-          if (input.jump && isGrounded) {
-            moveY = DEFAULT_JUMP_VELOCITY
-          }
-
-          return { x: moveX, y: moveY, z: moveZ }
-        })
+        Effect.succeed(computeVelocity(input, yaw, isGrounded))
 
       return {
         /**

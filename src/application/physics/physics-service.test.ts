@@ -1,19 +1,18 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Effect, Layer, Schema, Fiber, Stream, Chunk, Duration } from 'effect'
+import { Effect, Layer, Schema } from 'effect'
 import { DeltaTimeSecs } from '@/shared/kernel'
 import {
   PhysicsService,
   PhysicsServiceLive,
   PhysicsServiceError,
   AddBodyConfigSchema,
-  PhysicsRaycastHitSchema,
   GROUND_DETECTION_DISTANCE,
   PLAYER_FEET_OFFSET,
 } from './physics-service'
-import { PhysicsWorldServiceLive } from '../../infrastructure/cannon/boundary/physics-world-service'
-import { RigidBodyServiceLive } from '../../infrastructure/cannon/boundary/rigid-body-service'
-import { ShapeServiceLive } from '../../infrastructure/cannon/boundary/shape-service'
+import { PhysicsWorldServiceLive } from '../../infrastructure/physics/boundary/physics-world-service'
+import { RigidBodyServiceLive } from '../../infrastructure/physics/boundary/rigid-body-service'
+import { ShapeServiceLive } from '../../infrastructure/physics/boundary/shape-service'
 
 // Create test layer by combining all dependencies
 const TestLayer = PhysicsServiceLive.pipe(
@@ -39,9 +38,7 @@ describe('application/physics/physics-service', () => {
         expect(typeof service.addBody).toBe('function')
         expect(typeof service.removeBody).toBe('function')
         expect(typeof service.step).toBe('function')
-        expect(typeof service.raycast).toBe('function')
         expect(typeof service.isGrounded).toBe('function')
-        expect(typeof service.groundCollisions).toBe('function')
         expect(typeof service.getVelocity).toBe('function')
         expect(typeof service.getPosition).toBe('function')
         expect(typeof service.setVelocity).toBe('function')
@@ -211,6 +208,33 @@ describe('application/physics/physics-service', () => {
 
         // Body should have fallen due to gravity
         expect(finalPos.y).toBeLessThan(initialY)
+      }).pipe(Effect.provide(TestLayer))
+    )
+
+    it.effect('should clamp body position to minY when below threshold', () =>
+      Effect.gen(function* () {
+        const service = yield* PhysicsService
+
+        yield* service.initialize({ gravity: { x: 0, y: -9.82, z: 0 }, broadphase: 'naive' })
+        const bodyId = yield* service.addBody({
+          mass: 70,
+          position: { x: 0, y: 10, z: 0 },
+          shape: 'box',
+          shapeParams: { halfExtents: { x: 0.3, y: 0.9, z: 0.3 } },
+        })
+
+        // Teleport body far below the minY threshold
+        yield* service.setPosition(bodyId, { x: 0, y: -5, z: 0 })
+
+        // Step with minY = 1.0; body at y=-5 is below minY, so it should be clamped to 1.0
+        yield* service.step(DeltaTimeSecs.make(1 / 60), { minY: 1.0 })
+
+        const pos = yield* service.getPosition(bodyId)
+        expect(pos.y).toBeGreaterThanOrEqual(1.0)
+
+        // Velocity y should also be zeroed (since body was below minY)
+        const vel = yield* service.getVelocity(bodyId)
+        expect(vel.y).toBeGreaterThanOrEqual(0)
       }).pipe(Effect.provide(TestLayer))
     )
   })
@@ -467,203 +491,12 @@ describe('application/physics/physics-service', () => {
     )
   })
 
-  describe('groundCollisions stream', () => {
-    it.effect('should return a stream for a body ID', () =>
-      Effect.gen(function* () {
-        const service = yield* PhysicsService
-
-        yield* service.initialize({ gravity: { x: 0, y: -9.82, z: 0 }, broadphase: 'naive' })
-        const bodyId = yield* service.addBody({ mass: 70, position: { x: 0, y: 10, z: 0 }, shape: 'box' })
-
-        const stream = service.groundCollisions(bodyId)
-        expect(stream).toBeDefined()
-      }).pipe(Effect.provide(TestLayer))
-    )
-  })
-
-  describe('Stream consumption', () => {
-    it.live('groundCollisions emits at least once when body falls and contacts plane', () =>
-      Effect.gen(function* () {
-        const service = yield* PhysicsService
-
-        yield* service.initialize({ gravity: { x: 0, y: -9.82, z: 0 }, broadphase: 'naive' })
-
-        // Create ground plane at y=0
-        yield* service.addBody({
-          mass: 0,
-          position: { x: 0, y: 0, z: 0 },
-          shape: 'plane',
-          type: 'static',
-        })
-
-        // Create sphere body at y=10 so it will fall and hit the plane
-        const bodyId = yield* service.addBody({
-          mass: 1,
-          position: { x: 0, y: 10, z: 0 },
-          shape: 'sphere',
-          shapeParams: { radius: 0.5 },
-          allowSleep: false,
-        })
-
-        // 1. Fork BEFORE triggering collision — subscription must be active first
-        const collectFiber = yield* Effect.fork(
-          service.groundCollisions(bodyId).pipe(
-            Stream.take(1),
-            Stream.runCollect,
-          )
-        )
-
-        // 2. Yield to let the PubSub subscription activate inside the forked fiber
-        yield* Effect.sleep(Duration.millis(0))
-
-        // 3. Run many physics steps until the sphere hits the ground
-        for (let i = 0; i < 200; i++) {
-          yield* service.step(DeltaTimeSecs.make(1 / 60))
-        }
-
-        // 4. Allow time for Effect.runFork(PubSub.publish(...)) inside the collision handler to execute
-        yield* Effect.sleep(Duration.millis(50))
-
-        // 5. Collect result from the fiber
-        const events = yield* Fiber.join(collectFiber)
-        expect(Chunk.size(events)).toBeGreaterThanOrEqual(1)
-      }).pipe(Effect.provide(TestLayer))
-    , 30_000)
-
-    it.live('groundCollisions for bodyId-A does NOT receive events from bodyId-B', () =>
-      Effect.gen(function* () {
-        const service = yield* PhysicsService
-
-        yield* service.initialize({ gravity: { x: 0, y: -9.82, z: 0 }, broadphase: 'naive' })
-
-        // Create ground plane at y=0
-        yield* service.addBody({
-          mass: 0,
-          position: { x: 0, y: 0, z: 0 },
-          shape: 'plane',
-          type: 'static',
-        })
-
-        // Body A at y=10000 — far above ground so it won't collide during 150 steps
-        const bodyIdA = yield* service.addBody({
-          mass: 1,
-          position: { x: 100, y: 10000, z: 0 },
-          shape: 'sphere',
-          shapeParams: { radius: 0.5 },
-          allowSleep: false,
-        })
-
-        // Body B at y=3 — closer to ground, will collide faster
-        yield* service.addBody({
-          mass: 1,
-          position: { x: 0, y: 3, z: 0 },
-          shape: 'sphere',
-          shapeParams: { radius: 0.5 },
-          allowSleep: false,
-        })
-
-        // Track events received by A's stream
-        const aEventsRef: number[] = []
-
-        // Fork A's subscription — collects up to 5 events, times out via interrupt
-        const aFiber = yield* Effect.fork(
-          service.groundCollisions(bodyIdA).pipe(
-            Stream.take(5),
-            Stream.tap(() => Effect.sync(() => aEventsRef.push(1))),
-            Stream.runDrain,
-          )
-        )
-
-        // Yield to let A's subscription activate
-        yield* Effect.yieldNow()
-
-        // Run physics — B will hit the ground, A is far away and won't collide
-        for (let i = 0; i < 150; i++) {
-          yield* service.step(DeltaTimeSecs.make(1 / 60))
-        }
-
-        // Give time for any spurious B events to propagate
-        yield* Effect.sleep(Duration.millis(50))
-
-        // Interrupt A's fiber (it should still be waiting since no events came for A)
-        yield* Fiber.interrupt(aFiber)
-
-        // A should have received 0 events (B's collision should not appear in A's filtered stream)
-        expect(aEventsRef.length).toBe(0)
-      }).pipe(Effect.provide(TestLayer))
-    , 30_000)
-
-    it.effect('groundCollisions stream is defined and can be forked then interrupted cleanly', () =>
-      Effect.gen(function* () {
-        const service = yield* PhysicsService
-
-        yield* service.initialize({ gravity: { x: 0, y: -9.82, z: 0 }, broadphase: 'naive' })
-        const bodyId = yield* service.addBody({
-          mass: 70,
-          position: { x: 0, y: 10, z: 0 },
-          shape: 'box',
-        })
-
-        // Fork the infinite stream
-        const fiber = yield* Effect.fork(
-          service.groundCollisions(bodyId).pipe(Stream.runDrain)
-        )
-
-        // Yield to let it start
-        yield* Effect.yieldNow()
-
-        // Immediately interrupt — should not throw or crash
-        const exitResult = yield* Fiber.interrupt(fiber)
-
-        // The fiber should have been interrupted (not failed with an error)
-        expect(exitResult._tag).toBe('Failure')
-      }).pipe(Effect.provide(TestLayer))
-    )
-  })
 
   describe('Physics constants', () => {
     it('should have correct ground detection constants', () => {
       expect(GROUND_DETECTION_DISTANCE).toBe(0.15)
       expect(PLAYER_FEET_OFFSET).toBe(0.9)
     })
-  })
-
-  describe('raycast', () => {
-    it.effect('should have raycast method', () =>
-      Effect.gen(function* () {
-        const service = yield* PhysicsService
-
-        expect(typeof service.raycast).toBe('function')
-      }).pipe(Effect.provide(TestLayer))
-    )
-
-    it.effect('should fail to raycast before initialization', () =>
-      Effect.gen(function* () {
-        const service = yield* PhysicsService
-
-        const result = yield* Effect.either(
-          service.raycast({ x: 0, y: 10, z: 0 }, { x: 0, y: 0, z: 0 })
-        )
-
-        expect(result._tag).toBe('Left')
-      }).pipe(Effect.provide(TestLayer))
-    )
-
-    it.effect('should return empty array when raycast hits nothing', () =>
-      Effect.gen(function* () {
-        const service = yield* PhysicsService
-
-        yield* service.initialize({ gravity: { x: 0, y: -9.82, z: 0 }, broadphase: 'naive' })
-
-        // Raycast in empty world
-        const hits = yield* service.raycast(
-          { x: 0, y: 10, z: 0 },
-          { x: 0, y: 5, z: 0 }
-        )
-
-        expect(hits).toHaveLength(0)
-      }).pipe(Effect.provide(TestLayer))
-    )
   })
 
   describe('Effect composition', () => {
@@ -741,28 +574,6 @@ describe('application/physics/physics-service', () => {
           position: { x: 0, y: 0, z: 0 },
           shape: 'box',
           type: 'invalid',
-        })
-      ).toThrow()
-    })
-  })
-
-  describe('PhysicsRaycastHitSchema', () => {
-    it('should decode a valid raycast hit', () => {
-      const result = Schema.decodeSync(PhysicsRaycastHitSchema)({
-        bodyId: 'physics-body-0',
-        point: { x: 1, y: 2, z: 3 },
-        normal: { x: 0, y: 1, z: 0 },
-        distance: 5.5,
-      })
-      expect(result.bodyId).toBe('physics-body-0')
-      expect(result.distance).toBe(5.5)
-    })
-
-    it('should reject a hit with missing fields', () => {
-      expect(() =>
-        Schema.decodeUnknownSync(PhysicsRaycastHitSchema)({
-          bodyId: 'physics-body-0',
-          point: { x: 1, y: 2, z: 3 },
         })
       ).toThrow()
     })

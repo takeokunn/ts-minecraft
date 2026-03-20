@@ -5,8 +5,8 @@ import { DeltaTimeSecs } from '@/shared/kernel'
  * State for the time system
  */
 const TimeStateSchema = Schema.Struct({
-  ticks: Schema.Number,         // accumulated fractional ticks
-  dayLengthTicks: Schema.Number,  // ticks per full day (default 24000 = 400s at 60fps)
+  ticks: Schema.Number.pipe(Schema.finite(), Schema.nonNegative()),
+  dayLengthTicks: Schema.Number.pipe(Schema.finite(), Schema.positive()),
 })
 type TimeState = Schema.Schema.Type<typeof TimeStateSchema>
 
@@ -49,6 +49,11 @@ export class TimeService extends Effect.Service<TimeService>()(
               const timeOfDay = (state.ticks % state.dayLengthTicks) / state.dayLengthTicks
               return timeOfDay < 0.25 || timeOfDay > 0.75
             })
+          ),
+
+        getDayLength: (): Effect.Effect<number, never> =>
+          Ref.get(stateRef).pipe(
+            Effect.map((state) => state.dayLengthTicks / 60)
           ),
 
         setDayLength: (seconds: number): Effect.Effect<void, never> =>

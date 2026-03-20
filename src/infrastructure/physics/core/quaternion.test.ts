@@ -1,12 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { Schema } from 'effect'
-import * as CANNON from 'cannon-es'
 import {
   QuaternionSchema,
   identity,
   makeQuaternion,
-  fromCannonQuaternion,
-  toCannonQuaternion,
   fromAxisAngle,
   multiply,
   slerp,
@@ -148,35 +145,5 @@ describe('slerp', () => {
     const result = slerp(identity, q90, 0.5)
     expect(result.y).toBeCloseTo(q45.y)
     expect(result.w).toBeCloseTo(q45.w)
-  })
-})
-
-describe('fromCannonQuaternion / toCannonQuaternion', () => {
-  it('fromCannonQuaternion should extract x, y, z, w from CANNON.Quaternion', () => {
-    const cannonQuat = new CANNON.Quaternion(0, 0, 0, 1)
-    expect(fromCannonQuaternion(cannonQuat)).toEqual(identity)
-  })
-
-  it('toCannonQuaternion should create a CANNON.Quaternion with correct values', () => {
-    const cannonQuat = toCannonQuaternion(identity)
-    expect(cannonQuat).toBeInstanceOf(CANNON.Quaternion)
-    expect(cannonQuat.x).toBe(0)
-    expect(cannonQuat.y).toBe(0)
-    expect(cannonQuat.z).toBe(0)
-    expect(cannonQuat.w).toBe(1)
-  })
-
-  it('roundtrip fromCannonQuaternion(toCannonQuaternion(identity)) deep-equals identity', () => {
-    const result = fromCannonQuaternion(toCannonQuaternion(identity))
-    expect(result).toEqual(identity)
-  })
-
-  it('roundtrip preserves non-trivial quaternion values', () => {
-    const q = fromAxisAngle({ x: 0, y: 1, z: 0 }, Math.PI / 3)
-    const result = fromCannonQuaternion(toCannonQuaternion(q))
-    expect(result.x).toBeCloseTo(q.x)
-    expect(result.y).toBeCloseTo(q.y)
-    expect(result.z).toBeCloseTo(q.z)
-    expect(result.w).toBeCloseTo(q.w)
   })
 })

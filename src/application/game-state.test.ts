@@ -13,9 +13,9 @@ import { MovementServiceLive } from './player/movement-service'
 import { PlayerCameraStateLive } from '@/application/camera/camera-state'
 import { PlayerServiceLive } from '@/application/player/player-state'
 import { PlayerInputService } from './input/player-input-service'
-import { PhysicsWorldServiceLive } from '../infrastructure/cannon/boundary/physics-world-service'
-import { RigidBodyServiceLive } from '../infrastructure/cannon/boundary/rigid-body-service'
-import { ShapeServiceLive } from '../infrastructure/cannon/boundary/shape-service'
+import { PhysicsWorldServiceLive } from '../infrastructure/physics/boundary/physics-world-service'
+import { RigidBodyServiceLive } from '../infrastructure/physics/boundary/rigid-body-service'
+import { ShapeServiceLive } from '../infrastructure/physics/boundary/shape-service'
 
 /**
  * Test implementation of InputService with controllable key state
@@ -898,6 +898,40 @@ describe('application/game-state', () => {
 
       const result = Effect.runSync(program)
       expect(result.success).toBe(true)
+    })
+  })
+
+  describe('getCameraRotation', () => {
+    it('returns { yaw: 0, pitch: 0 } before any updates', () => {
+      const inputService = createTestInputService()
+      const testLayer = createTestLayer(inputService)
+
+      const program = Effect.gen(function* () {
+        const service = yield* GameStateService
+        // getCameraRotation delegates to PlayerCameraStateService which starts at (0, 0)
+        const rotation = yield* service.getCameraRotation()
+        return rotation
+      }).pipe(Effect.provide(testLayer))
+
+      const rotation = Effect.runSync(program)
+      expect(rotation.yaw).toBe(0)
+      expect(rotation.pitch).toBe(0)
+    })
+
+    it('getCameraRotation always returns numeric yaw and pitch', () => {
+      const inputService = createTestInputService()
+      const testLayer = createTestLayer(inputService)
+
+      const program = Effect.gen(function* () {
+        const service = yield* GameStateService
+        yield* service.initialize({ x: 0, y: 5, z: 0 })
+        yield* service.update(DeltaTimeSecs.make(1 / 60))
+        return yield* service.getCameraRotation()
+      }).pipe(Effect.provide(testLayer))
+
+      const rotation = Effect.runSync(program)
+      expect(typeof rotation.yaw).toBe('number')
+      expect(typeof rotation.pitch).toBe('number')
     })
   })
 

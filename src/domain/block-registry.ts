@@ -1,12 +1,13 @@
-import { Effect, Option, Ref, Schema } from 'effect'
-import { Block, BlockType, BlockIdSchema } from './block'
+import { Effect, Option, Ref } from 'effect'
+import { Block, BlockType } from './block'
+import { BlockId } from '@/shared/kernel'
 
 type BlockMap = {
   readonly [K in BlockType]?: Block
 }
 
 export class BlockRegistry extends Effect.Service<BlockRegistry>()(
-  '@minecraft/BlockRegistry',
+  '@minecraft/domain/BlockRegistry',
   {
     effect: Effect.gen(function* () {
       const registryRef = yield* Ref.make<BlockMap>({})
@@ -61,7 +62,7 @@ const defaultBlockFaces = {
   west: true,
 }
 
-const makeBlockId = (id: string) => Schema.decodeSync(BlockIdSchema)(id)
+const makeBlockId = (id: string) => BlockId.make(id)
 
 const initialBlocks: Array<Block> = [
   new Block({

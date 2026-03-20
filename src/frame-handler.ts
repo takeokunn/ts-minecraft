@@ -21,7 +21,6 @@ import { TimeService } from '@/application/time/time-service'
 import { SettingsService } from '@/application/settings/settings-service'
 import { FPSCounterService } from '@/presentation/fps-counter'
 import { HotbarRendererService } from '@/presentation/hud/hotbar-three'
-import { CrosshairService } from '@/presentation/hud/crosshair'
 import { BlockHighlightService } from '@/presentation/highlight/block-highlight'
 import { WorldRendererService } from '@/infrastructure/three/world-renderer'
 import { InputService } from '@/presentation/input/input-service'
@@ -29,12 +28,15 @@ import { KeyMappings } from '@/application/input/key-mappings'
 import { SettingsOverlayService } from '@/presentation/settings/settings-overlay'
 import { InventoryRendererService } from '@/presentation/inventory/inventory-renderer'
 import { HealthService } from '@/application/player/health-service'
-import { CHUNK_SIZE, CHUNK_HEIGHT, blockIndex } from '@/domain/chunk'
+import { type Chunk, CHUNK_SIZE, CHUNK_HEIGHT, blockIndex } from '@/domain/chunk'
 import { updateDayNightCycle, type DayNightLights } from '@/application/time/day-night-cycle'
 import type { DeltaTimeSecs } from '@/shared/kernel'
 
 // Eye level offset for camera (player height - half body height)
 const EYE_LEVEL_OFFSET = 0.7
+
+// Module-level fallback to avoid per-frame object literal allocation in the error path
+const FALLBACK_PLAYER_POS = Object.freeze({ x: 0, y: 64, z: 0 }) as { x: number; y: number; z: number }
 
 /**
  * Three.js objects and DOM state that live outside the Effect layer graph.
@@ -49,7 +51,8 @@ export interface FrameHandlerDeps {
   readonly camera: THREE.PerspectiveCamera
   readonly lights: DayNightLights
   readonly fpsElement: HTMLElement | null
-  readonly healthElement: HTMLElement | null
+  readonly healthValueElement: HTMLElement | null
+  readonly healthMaxElement: HTMLElement | null
   readonly gamePausedRef: Ref.Ref<boolean>
   readonly composer?: EffectComposer
 }
@@ -61,22 +64,21 @@ export interface FrameHandlerDeps {
  * 30+ layers at 60 Hz. Instances are resolved once in main.ts and forwarded here.
  */
 export interface FrameHandlerServices {
-  readonly gameState: InstanceType<typeof GameStateService>
-  readonly firstPersonCamera: InstanceType<typeof FirstPersonCameraService>
-  readonly crosshair: InstanceType<typeof CrosshairService>
-  readonly blockHighlight: InstanceType<typeof BlockHighlightService>
-  readonly inputService: InstanceType<typeof InputService>
-  readonly blockService: InstanceType<typeof BlockService>
-  readonly hotbarService: InstanceType<typeof HotbarService>
-  readonly hotbarRenderer: InstanceType<typeof HotbarRendererService>
-  readonly chunkManagerService: InstanceType<typeof ChunkManagerService>
-  readonly timeService: InstanceType<typeof TimeService>
-  readonly settingsService: InstanceType<typeof SettingsService>
-  readonly settingsOverlay: InstanceType<typeof SettingsOverlayService>
-  readonly inventoryRenderer: InstanceType<typeof InventoryRendererService>
-  readonly fpsCounter: InstanceType<typeof FPSCounterService>
-  readonly healthService: InstanceType<typeof HealthService>
-  readonly worldRendererService: InstanceType<typeof WorldRendererService>
+  readonly gameState: GameStateService
+  readonly firstPersonCamera: FirstPersonCameraService
+  readonly blockHighlight: BlockHighlightService
+  readonly inputService: InputService
+  readonly blockService: BlockService
+  readonly hotbarService: HotbarService
+  readonly hotbarRenderer: HotbarRendererService
+  readonly chunkManagerService: ChunkManagerService
+  readonly timeService: TimeService
+  readonly settingsService: SettingsService
+  readonly settingsOverlay: SettingsOverlayService
+  readonly inventoryRenderer: InventoryRendererService
+  readonly fpsCounter: FPSCounterService
+  readonly healthService: HealthService
+  readonly worldRendererService: WorldRendererService
 }
 
 /**
@@ -99,7 +101,6 @@ export const createFrameHandler = (
       const {
         gameState,
         firstPersonCamera,
-        crosshair,
         blockHighlight,
         inputService,
         blockService,
@@ -115,17 +116,18 @@ export const createFrameHandler = (
         healthService,
       } = services
 
-      // Suppress unused variable warning — crosshair is used for its side-effect
-      void crosshair
-
       const { renderer, scene, camera, lights, fpsElement, gamePausedRef } = deps
 
       // Fetch settings once per frame for shadow/SSAO and day-length reactive changes
       const currentSettings = yield* settingsService.getSettings()
 
+      // Hoist player position — shared across steps 1, 3.5, and 8 to avoid redundant Effect calls
+      const playerPos = yield* gameState.getPlayerPosition(DEFAULT_PLAYER_ID).pipe(
+        Effect.catchAllCause(() => Effect.succeed(FALLBACK_PLAYER_POS))
+      )
+
       // 1. Chunk streaming (throttled internally to 200ms)
       yield* Effect.gen(function* () {
-        const playerPos = yield* gameState.getPlayerPosition(DEFAULT_PLAYER_ID)
         yield* chunkManagerService.loadChunksAroundPlayer(playerPos)
         const loadedChunks = yield* chunkManagerService.getLoadedChunks()
         yield* worldRendererService.syncChunksToScene(loadedChunks, scene)
@@ -139,8 +141,13 @@ export const createFrameHandler = (
         const cz = Math.floor(playerPos.z / CHUNK_SIZE)
         const lx = ((Math.floor(playerPos.x) % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
         const lz = ((Math.floor(playerPos.z) % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
-        const playerChunk = loadedChunks.find((c) => c.coord.x === cx && c.coord.z === cz)
-        if (playerChunk) {
+        // Use O(1) Map cache lookup instead of O(n) linear scan over all loaded chunks
+        const playerChunkOpt = yield* chunkManagerService.getChunk({ x: cx, z: cz }).pipe(
+          Effect.map(Option.some<Chunk>),
+          Effect.catchAllCause(() => Effect.succeed(Option.none<Chunk>()))
+        )
+        if (Option.isSome(playerChunkOpt)) {
+          const playerChunk = playerChunkOpt.value
           const startY = Math.min(Math.floor(playerPos.y) + 1, CHUNK_HEIGHT - 1)
           let surfaceY = 0
           for (let y = startY; y >= 0; y--) {
@@ -166,7 +173,6 @@ export const createFrameHandler = (
 
       // 3.5. Health: fall damage processing and HUD update
       yield* Effect.gen(function* () {
-        const playerPos = yield* gameState.getPlayerPosition(DEFAULT_PLAYER_ID)
         const isGrounded = yield* gameState.isPlayerGrounded()
         const fallDamage = yield* healthService.processFallDamage(playerPos.y, isGrounded)
         if (fallDamage > 0) {
@@ -174,12 +180,9 @@ export const createFrameHandler = (
         }
         yield* healthService.tick()
         const health = yield* healthService.getHealth()
-        if (deps.healthElement) {
-          const valueEl = deps.healthElement.querySelector('#health-value')
-          const maxEl = deps.healthElement.querySelector('#health-max')
-          if (valueEl) valueEl.textContent = String(health.current)
-          if (maxEl) maxEl.textContent = String(health.max)
-        }
+        // Pre-cached element refs (resolved once at startup in FrameHandlerDeps)
+        if (deps.healthValueElement) deps.healthValueElement.textContent = String(health.current)
+        if (deps.healthMaxElement) deps.healthMaxElement.textContent = String(health.max)
       }).pipe(Effect.catchAllCause((cause) => Effect.logError(`Health error: ${Cause.pretty(cause)}`)))
 
       // 4. Update camera rotation from mouse look (suppressed when a modal is open)
@@ -193,8 +196,10 @@ export const createFrameHandler = (
 
       // 6. Handle overlay toggles: Escape (settings), E (inventory)
       yield* Effect.gen(function* () {
-        const escPressed = yield* inputService.consumeKeyPress(KeyMappings.ESCAPE)
-        const inventoryPressed = yield* inputService.consumeKeyPress(KeyMappings.INVENTORY_OPEN)
+        const [escPressed, inventoryPressed] = yield* Effect.all([
+          inputService.consumeKeyPress(KeyMappings.ESCAPE),
+          inputService.consumeKeyPress(KeyMappings.INVENTORY_OPEN),
+        ], { concurrency: 'unbounded' })
 
         if (escPressed) {
           const isInvOpen = yield* inventoryRenderer.isOpen()
@@ -231,7 +236,11 @@ export const createFrameHandler = (
         }
 
         // Sync day length to TimeService in case user applied settings changes
-        yield* timeService.setDayLength(currentSettings.dayLengthSeconds)
+        // Guard: only update if the value has actually changed (avoids 60 allocs/sec)
+        const currentDayLength = yield* timeService.getDayLength()
+        if (currentDayLength !== currentSettings.dayLengthSeconds) {
+          yield* timeService.setDayLength(currentSettings.dayLengthSeconds)
+        }
 
         // Refresh inventory display when open
         yield* inventoryRenderer.update()
@@ -296,19 +305,18 @@ export const createFrameHandler = (
       }).pipe(Effect.catchAllCause((cause) => Effect.logError(`Block interaction error: ${Cause.pretty(cause)}`)))
 
       // 8. Sync camera position with player; keep shadow target centered on player
-      yield* Effect.gen(function* () {
-        const playerPos = yield* gameState.getPlayerPosition(DEFAULT_PLAYER_ID)
-        camera.position.set(playerPos.x, playerPos.y + EYE_LEVEL_OFFSET, playerPos.z)
-        // Shadow frustum follows player so terrain around them is always shadow-covered
-        deps.lights.light.target.position.set(playerPos.x, 0, playerPos.z)
-        deps.lights.light.target.updateMatrixWorld()
-      }).pipe(Effect.catchAllCause((cause) => Effect.logError(`Camera sync error: ${Cause.pretty(cause)}`)))
+      // Uses hoisted playerPos from top of frame (avoids redundant getPlayerPosition call)
+      camera.position.set(playerPos.x, playerPos.y + EYE_LEVEL_OFFSET, playerPos.z)
+      // Shadow frustum follows player so terrain around them is always shadow-covered
+      deps.lights.light.target.position.set(playerPos.x, 0, playerPos.z)
+      deps.lights.light.target.updateMatrixWorld()
 
-      // 9. Update FPS display
+      // 9. Update FPS display — tick first to include this frame in the measurement,
+      //    then read the updated average so the display reflects the current frame.
       yield* Effect.gen(function* () {
+        yield* fpsCounter.tick(deltaTime)
         const fps = yield* fpsCounter.getFPS()
         if (fpsElement) fpsElement.textContent = fps.toFixed(1)
-        yield* fpsCounter.tick(deltaTime)
       })
 
       // 10. Render world (EffectComposer with SSAO when enabled, direct render otherwise)

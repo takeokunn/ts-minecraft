@@ -20,7 +20,7 @@ export const BlockTypeSchema = Schema.Literal(
 export type BlockType = Schema.Schema.Type<typeof BlockTypeSchema>
 
 export const BlockPropertiesSchema = Schema.Struct({
-  hardness: Schema.Number.pipe(Schema.between(0, 100)),
+  hardness: Schema.Number.pipe(Schema.int(), Schema.between(0, 100)),
   transparency: Schema.Boolean,
   solid: Schema.Boolean,
   emissive: Schema.Boolean,

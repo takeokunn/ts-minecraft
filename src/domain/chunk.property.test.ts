@@ -1,6 +1,8 @@
-import { describe, it, expect } from 'vitest'
-import * as fc from 'fast-check'
-import { blockIndex, CHUNK_SIZE, CHUNK_HEIGHT } from './chunk'
+import { describe, it } from '@effect/vitest'
+import { expect } from 'vitest'
+import { Arbitrary, Effect, Either, Schema } from 'effect'
+import { blockIndex, setBlockInChunk, CHUNK_SIZE, CHUNK_HEIGHT, type Chunk } from './chunk'
+import type { BlockType } from './block'
 
 /**
  * Recovers (x, y, z) coordinates from a flat block index.
@@ -13,110 +15,226 @@ function indexToCoords(index: number): { x: number; y: number; z: number } {
   return { x, y, z }
 }
 
-const validX = fc.integer({ min: 0, max: CHUNK_SIZE - 1 })
-const validY = fc.integer({ min: 0, max: CHUNK_HEIGHT - 1 })
-const validZ = fc.integer({ min: 0, max: CHUNK_SIZE - 1 })
+const validX = Arbitrary.make(Schema.Number.pipe(Schema.int(), Schema.between(0, CHUNK_SIZE - 1)))
+const validY = Arbitrary.make(Schema.Number.pipe(Schema.int(), Schema.between(0, CHUNK_HEIGHT - 1)))
+const validZ = Arbitrary.make(Schema.Number.pipe(Schema.int(), Schema.between(0, CHUNK_SIZE - 1)))
 
 describe('blockIndex (property-based)', () => {
-  it('returns a non-null index for every in-bounds coordinate', () => {
-    fc.assert(
-      fc.property(validX, validY, validZ, (x, y, z) => {
-        expect(blockIndex(x, y, z)).not.toBeNull()
+  it.prop(
+    'returns a non-null index for every in-bounds coordinate',
+    { x: validX, y: validY, z: validZ },
+    ({ x, y, z }) => {
+      expect(blockIndex(x, y, z)).not.toBeNull()
+    }
+  )
+
+  it.prop(
+    'returns null for out-of-bounds x',
+    { x: Arbitrary.make(Schema.Number.pipe(Schema.int(), Schema.between(CHUNK_SIZE, CHUNK_SIZE + 100))), y: validY, z: validZ },
+    ({ x, y, z }) => {
+      expect(blockIndex(x, y, z)).toBeNull()
+    }
+  )
+
+  it.prop(
+    'returns null for out-of-bounds y',
+    { x: validX, y: Arbitrary.make(Schema.Number.pipe(Schema.int(), Schema.between(CHUNK_HEIGHT, CHUNK_HEIGHT + 100))), z: validZ },
+    ({ x, y, z }) => {
+      expect(blockIndex(x, y, z)).toBeNull()
+    }
+  )
+
+  it.prop(
+    'returns null for out-of-bounds z',
+    { x: validX, y: validY, z: Arbitrary.make(Schema.Number.pipe(Schema.int(), Schema.between(CHUNK_SIZE, CHUNK_SIZE + 100))) },
+    ({ x, y, z }) => {
+      expect(blockIndex(x, y, z)).toBeNull()
+    }
+  )
+
+  it.prop(
+    'returns null for negative coordinates',
+    {
+      x: Arbitrary.make(Schema.Number.pipe(Schema.int(), Schema.between(-100, -1))),
+      y: Arbitrary.make(Schema.Number.pipe(Schema.int(), Schema.between(-100, -1))),
+      z: Arbitrary.make(Schema.Number.pipe(Schema.int(), Schema.between(-100, -1))),
+    },
+    ({ x, y, z }) => {
+      expect(blockIndex(x, y, z)).toBeNull()
+    }
+  )
+
+  it.prop(
+    'distinct in-bounds coordinates produce distinct flat indices',
+    { x1: validX, y1: validY, z1: validZ, x2: validX, y2: validY, z2: validZ },
+    ({ x1, y1, z1, x2, y2, z2 }) => {
+      if (x1 === x2 && y1 === y2 && z1 === z2) return
+      const idx1 = blockIndex(x1, y1, z1)
+      const idx2 = blockIndex(x2, y2, z2)
+      expect(idx1).not.toBeNull()
+      expect(idx2).not.toBeNull()
+      expect(idx1).not.toBe(idx2)
+    },
+    { fastCheck: { numRuns: 200 } }
+  )
+
+  it.prop(
+    'round-trips: indexToCoords(blockIndex(x,y,z)) === (x,y,z) for all in-bounds inputs',
+    { x: validX, y: validY, z: validZ },
+    ({ x, y, z }) => {
+      const idx = blockIndex(x, y, z)
+      expect(idx).not.toBeNull()
+      const recovered = indexToCoords(idx!)
+      expect(recovered).toEqual({ x, y, z })
+    }
+  )
+
+  it.prop(
+    'index is always within the valid flat-array range [0, CHUNK_SIZE*CHUNK_SIZE*CHUNK_HEIGHT)',
+    { x: validX, y: validY, z: validZ },
+    ({ x, y, z }) => {
+      const totalBlocks = CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT
+      const idx = blockIndex(x, y, z)
+      expect(idx).not.toBeNull()
+      expect(idx!).toBeGreaterThanOrEqual(0)
+      expect(idx!).toBeLessThan(totalBlocks)
+    }
+  )
+})
+
+// ---------------------------------------------------------------------------
+// Helper: create a minimal Chunk for testing
+// ---------------------------------------------------------------------------
+const makeTestChunk = (): Chunk => ({
+  coord: { x: 0, z: 0 },
+  blocks: new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT),
+})
+
+describe('setBlockInChunk (property-based)', () => {
+  it.effect.prop(
+    'succeeds for every in-bounds coordinate',
+    { x: validX, y: validY, z: validZ },
+    ({ x, y, z }) =>
+      Effect.gen(function* () {
+        const chunk = makeTestChunk()
+        const result = yield* Effect.either(setBlockInChunk(chunk, x, y, z, 'DIRT' as BlockType))
+        expect(Either.isRight(result)).toBe(true)
       })
-    )
-  })
+  )
 
-  it('returns null for out-of-bounds x', () => {
-    fc.assert(
-      fc.property(
-        fc.integer({ min: CHUNK_SIZE, max: CHUNK_SIZE + 100 }),
-        validY,
-        validZ,
-        (x, y, z) => {
-          expect(blockIndex(x, y, z)).toBeNull()
+  it.effect.prop(
+    'fails with BlockIndexError for out-of-bounds x (x < 0)',
+    { x: Arbitrary.make(Schema.Number.pipe(Schema.int(), Schema.between(-100, -1))), y: validY, z: validZ },
+    ({ x, y, z }) =>
+      Effect.gen(function* () {
+        const chunk = makeTestChunk()
+        const result = yield* Effect.either(setBlockInChunk(chunk, x, y, z, 'STONE' as BlockType))
+        expect(Either.isLeft(result)).toBe(true)
+        if (Either.isLeft(result)) {
+          expect(result.left._tag).toBe('BlockIndexError')
         }
-      )
-    )
-  })
+      })
+  )
 
-  it('returns null for out-of-bounds y', () => {
-    fc.assert(
-      fc.property(
-        validX,
-        fc.integer({ min: CHUNK_HEIGHT, max: CHUNK_HEIGHT + 100 }),
-        validZ,
-        (x, y, z) => {
-          expect(blockIndex(x, y, z)).toBeNull()
+  it.effect.prop(
+    'fails with BlockIndexError for out-of-bounds x (x >= CHUNK_SIZE)',
+    { x: Arbitrary.make(Schema.Number.pipe(Schema.int(), Schema.between(CHUNK_SIZE, CHUNK_SIZE + 100))), y: validY, z: validZ },
+    ({ x, y, z }) =>
+      Effect.gen(function* () {
+        const chunk = makeTestChunk()
+        const result = yield* Effect.either(setBlockInChunk(chunk, x, y, z, 'STONE' as BlockType))
+        expect(Either.isLeft(result)).toBe(true)
+        if (Either.isLeft(result)) {
+          expect(result.left._tag).toBe('BlockIndexError')
         }
-      )
-    )
-  })
+      })
+  )
 
-  it('returns null for out-of-bounds z', () => {
-    fc.assert(
-      fc.property(
-        validX,
-        validY,
-        fc.integer({ min: CHUNK_SIZE, max: CHUNK_SIZE + 100 }),
-        (x, y, z) => {
-          expect(blockIndex(x, y, z)).toBeNull()
+  it.effect.prop(
+    'fails with BlockIndexError for out-of-bounds y (y < 0)',
+    { x: validX, y: Arbitrary.make(Schema.Number.pipe(Schema.int(), Schema.between(-100, -1))), z: validZ },
+    ({ x, y, z }) =>
+      Effect.gen(function* () {
+        const chunk = makeTestChunk()
+        const result = yield* Effect.either(setBlockInChunk(chunk, x, y, z, 'GRASS' as BlockType))
+        expect(Either.isLeft(result)).toBe(true)
+        if (Either.isLeft(result)) {
+          expect(result.left._tag).toBe('BlockIndexError')
         }
-      )
-    )
-  })
+      })
+  )
 
-  it('returns null for negative coordinates', () => {
-    fc.assert(
-      fc.property(
-        fc.integer({ min: -100, max: -1 }),
-        fc.integer({ min: -100, max: -1 }),
-        fc.integer({ min: -100, max: -1 }),
-        (x, y, z) => {
-          expect(blockIndex(x, y, z)).toBeNull()
+  it.effect.prop(
+    'fails with BlockIndexError for out-of-bounds y (y >= CHUNK_HEIGHT)',
+    { x: validX, y: Arbitrary.make(Schema.Number.pipe(Schema.int(), Schema.between(CHUNK_HEIGHT, CHUNK_HEIGHT + 100))), z: validZ },
+    ({ x, y, z }) =>
+      Effect.gen(function* () {
+        const chunk = makeTestChunk()
+        const result = yield* Effect.either(setBlockInChunk(chunk, x, y, z, 'GRASS' as BlockType))
+        expect(Either.isLeft(result)).toBe(true)
+        if (Either.isLeft(result)) {
+          expect(result.left._tag).toBe('BlockIndexError')
         }
-      )
-    )
-  })
+      })
+  )
 
-  it('produces a unique index for every distinct in-bounds coordinate (injectivity)', () => {
-    // Sample a subset of the space: collect 200 random (x,y,z) → index pairs
-    // and verify no two distinct inputs produce the same index.
-    const seen = new Map<number, { x: number; y: number; z: number }>()
-    fc.assert(
-      fc.property(validX, validY, validZ, (x, y, z) => {
-        const idx = blockIndex(x, y, z)
-        if (idx === null) return
-        const prev = seen.get(idx)
-        if (prev !== undefined) {
-          expect(prev).toEqual({ x, y, z })
-        } else {
-          seen.set(idx, { x, y, z })
+  it.effect.prop(
+    'fails with BlockIndexError for out-of-bounds z (z < 0)',
+    { x: validX, y: validY, z: Arbitrary.make(Schema.Number.pipe(Schema.int(), Schema.between(-100, -1))) },
+    ({ x, y, z }) =>
+      Effect.gen(function* () {
+        const chunk = makeTestChunk()
+        const result = yield* Effect.either(setBlockInChunk(chunk, x, y, z, 'SAND' as BlockType))
+        expect(Either.isLeft(result)).toBe(true)
+        if (Either.isLeft(result)) {
+          expect(result.left._tag).toBe('BlockIndexError')
         }
-      }),
-      { numRuns: 200 }
-    )
-  })
+      })
+  )
 
-  it('round-trips: indexToCoords(blockIndex(x,y,z)) === (x,y,z) for all in-bounds inputs', () => {
-    fc.assert(
-      fc.property(validX, validY, validZ, (x, y, z) => {
+  it.effect.prop(
+    'fails with BlockIndexError for out-of-bounds z (z >= CHUNK_SIZE)',
+    { x: validX, y: validY, z: Arbitrary.make(Schema.Number.pipe(Schema.int(), Schema.between(CHUNK_SIZE, CHUNK_SIZE + 100))) },
+    ({ x, y, z }) =>
+      Effect.gen(function* () {
+        const chunk = makeTestChunk()
+        const result = yield* Effect.either(setBlockInChunk(chunk, x, y, z, 'SAND' as BlockType))
+        expect(Either.isLeft(result)).toBe(true)
+        if (Either.isLeft(result)) {
+          expect(result.left._tag).toBe('BlockIndexError')
+        }
+      })
+  )
+
+  it.effect.prop(
+    'mutates the block at the correct index after a successful write',
+    { x: validX, y: validY, z: validZ },
+    ({ x, y, z }) =>
+      Effect.gen(function* () {
+        const chunk = makeTestChunk()
+        yield* setBlockInChunk(chunk, x, y, z, 'DIRT' as BlockType)
+        // blockIndex is the inverse mapping — verify the written position
         const idx = blockIndex(x, y, z)
         expect(idx).not.toBeNull()
-        const recovered = indexToCoords(idx!)
-        expect(recovered).toEqual({ x, y, z })
+        // DIRT maps to index 1
+        expect(chunk.blocks[idx!]).toBe(1)
       })
-    )
-  })
+  )
 
-  it('index is always within the valid flat-array range [0, CHUNK_SIZE*CHUNK_SIZE*CHUNK_HEIGHT)', () => {
-    const totalBlocks = CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT
-    fc.assert(
-      fc.property(validX, validY, validZ, (x, y, z) => {
-        const idx = blockIndex(x, y, z)
-        expect(idx).not.toBeNull()
-        expect(idx!).toBeGreaterThanOrEqual(0)
-        expect(idx!).toBeLessThan(totalBlocks)
+  it.effect.prop(
+    'BlockIndexError carries the out-of-bounds coordinates',
+    { x: Arbitrary.make(Schema.Number.pipe(Schema.int(), Schema.between(CHUNK_SIZE, CHUNK_SIZE + 50))), y: validY, z: validZ },
+    ({ x, y, z }) =>
+      Effect.gen(function* () {
+        const chunk = makeTestChunk()
+        const result = yield* Effect.either(setBlockInChunk(chunk, x, y, z, 'AIR' as BlockType))
+        expect(Either.isLeft(result)).toBe(true)
+        if (Either.isLeft(result)) {
+          const err = result.left
+          expect(err.x).toBe(x)
+          expect(err.y).toBe(y)
+          expect(err.z).toBe(z)
+        }
       })
-    )
-  })
+  )
 })

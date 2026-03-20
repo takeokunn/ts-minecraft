@@ -3,7 +3,7 @@ import * as THREE from 'three'
 import { TextureError } from '@/domain'
 
 export class TextureService extends Effect.Service<TextureService>()(
-  '@minecraft/infrastructure/TextureService',
+  '@minecraft/infrastructure/three/TextureService',
   {
     effect: Effect.gen(function* () {
       const textureCache = yield* Ref.make<Map<string, THREE.Texture>>(new Map())

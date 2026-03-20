@@ -270,7 +270,7 @@ describe('infrastructure/noise/noise-service', () => {
         const service = yield* NoiseService
         const val0 = yield* service.noise2D(10, 10)
         const val1 = yield* service.noise2D(10.01, 10)
-        // Nearby coordinates should produce close values (simplex noise is continuous)
+        // Nearby coordinates should produce close values (Perlin noise is continuous)
         expect(Math.abs(val1 - val0)).toBeLessThan(0.1)
       }).pipe(Effect.provide(NoiseService.Default))
     )

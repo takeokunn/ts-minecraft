@@ -4,7 +4,7 @@ import { BlockTypeSchema } from './block'
 
 export class ItemStack extends Schema.Class<ItemStack>('ItemStack')({
   blockType: BlockTypeSchema,
-  count: Schema.Number.pipe(Schema.between(1, 64)),
+  count: Schema.Number.pipe(Schema.int(), Schema.between(1, 64)),
 }) {}
 
 /**

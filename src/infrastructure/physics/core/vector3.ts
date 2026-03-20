@@ -1,10 +1,9 @@
-import * as CANNON from 'cannon-es'
 import type { Vector3 } from '@/shared/math/three/vector3'
 export { Vector3Schema } from '@/shared/math/three/vector3'
 export type { Vector3 } from '@/shared/math/three/vector3'
 
 /**
- * Cannon.js Vector3 wrapper
+ * Physics engine Vector3 utilities
  *
  * **Design Philosophy**:
  * - Immutable data structure
@@ -22,11 +21,6 @@ export const left: Vector3 = { x: -1, y: 0, z: 0 }
 export const right: Vector3 = { x: 1, y: 0, z: 0 }
 export const forward: Vector3 = { x: 0, y: 0, z: -1 }
 export const backward: Vector3 = { x: 0, y: 0, z: 1 }
-
-// Cannon.js interoperability
-export const fromCannonVector = (v: CANNON.Vec3): Vector3 => ({ x: v.x, y: v.y, z: v.z })
-
-export const toCannonVector = (v: Vector3): CANNON.Vec3 => new CANNON.Vec3(v.x, v.y, v.z)
 
 // Vector operations (Immutable - pure functions)
 export const add = (a: Vector3, b: Vector3): Vector3 => ({ x: a.x + b.x, y: a.y + b.y, z: a.z + b.z })

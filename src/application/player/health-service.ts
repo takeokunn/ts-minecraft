@@ -15,18 +15,22 @@ export class HealthService extends Effect.Service<HealthService>()(
         getHealth: (): Effect.Effect<PlayerHealth> => Ref.get(healthRef),
 
         applyDamage: (amount: number): Effect.Effect<void> =>
-          Ref.update(healthRef, h => new PlayerHealth({
-            current: Math.max(0, h.current - amount),
-            max: h.max,
-            invincibilityTicks: amount > 0 ? 10 : h.invincibilityTicks,
-          })),
+          amount <= 0
+            ? Effect.void
+            : Ref.update(healthRef, h => new PlayerHealth({
+                current: Math.max(0, h.current - amount),
+                max: h.max,
+                invincibilityTicks: 10,
+              })),
 
         heal: (amount: number): Effect.Effect<void> =>
-          Ref.update(healthRef, h => new PlayerHealth({
-            current: Math.min(h.max, h.current + amount),
-            max: h.max,
-            invincibilityTicks: h.invincibilityTicks,
-          })),
+          amount <= 0
+            ? Effect.void
+            : Ref.update(healthRef, h => new PlayerHealth({
+                current: Math.min(h.max, h.current + amount),
+                max: h.max,
+                invincibilityTicks: h.invincibilityTicks,
+              })),
 
         isDead: (): Effect.Effect<boolean> =>
           Ref.get(healthRef).pipe(Effect.map(h => h.current <= 0)),

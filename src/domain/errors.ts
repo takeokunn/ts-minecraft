@@ -8,6 +8,7 @@
  * via the _tag property — NOT runtime type guard functions.
  */
 import { Data } from 'effect'
+import type { ChunkCoord } from './chunk'
 
 /**
  * Error type for texture loading failures
@@ -111,7 +112,7 @@ export class StorageError extends Data.TaggedError('StorageError')<{
  * Error type for chunk operations
  */
 export class ChunkError extends Data.TaggedError('ChunkError')<{
-  readonly chunkCoord: { readonly x: number; readonly z: number }
+  readonly chunkCoord: ChunkCoord
   readonly reason: string
   readonly localPosition?: readonly [number, number, number]
 }> {
@@ -146,6 +147,34 @@ export class StartupError extends Data.TaggedError('StartupError')<{
   override get message(): string {
     const causeMessage = this.cause instanceof Error ? this.cause.message : this.cause ? String(this.cause) : ''
     return `${this.reason}${causeMessage ? `: ${causeMessage}` : ''}`
+  }
+}
+
+/**
+ * Error type for inventory operation failures
+ */
+export class InventoryError extends Data.TaggedError('InventoryError')<{
+  readonly operation: string
+  readonly cause?: unknown
+}> {
+  override get message(): string {
+    return this.cause
+      ? `Inventory error [${this.operation}]: ${String(this.cause)}`
+      : `Inventory error [${this.operation}]`
+  }
+}
+
+/**
+ * Error type for recipe operation failures
+ */
+export class RecipeError extends Data.TaggedError('RecipeError')<{
+  readonly operation: string
+  readonly cause?: unknown
+}> {
+  override get message(): string {
+    return this.cause
+      ? `Recipe error [${this.operation}]: ${String(this.cause)}`
+      : `Recipe error [${this.operation}]`
   }
 }
 

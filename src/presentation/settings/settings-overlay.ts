@@ -138,8 +138,12 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
       }
 
       const handleClose = () => {
-        Effect.runFork(Ref.set(isVisibleRef, false).pipe(Effect.catchAllCause(() => Effect.void)))
-        if (overlayEl) overlayEl.style.display = 'none'
+        Effect.runFork(
+          Effect.gen(function* () {
+            yield* Ref.set(isVisibleRef, false)
+            if (overlayEl) overlayEl.style.display = 'none'
+          }).pipe(Effect.catchAllCause(() => Effect.void))
+        )
       }
 
       createOverlay()
@@ -163,14 +167,6 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
       )
 
       return {
-        /**
-         * Initialize the settings overlay DOM elements. Call once at startup.
-         */
-        initialize: (): Effect.Effect<void, never> =>
-          Effect.sync(() => {
-            // DOM elements are already created in the scoped initializer
-          }),
-
         /**
          * Toggle the settings overlay visibility.
          * Returns true if now open, false if now closed.

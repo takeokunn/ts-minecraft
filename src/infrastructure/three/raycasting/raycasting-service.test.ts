@@ -1,11 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { Effect, Option } from 'effect'
+import { Effect, Option, Schema } from 'effect'
 import * as THREE from 'three'
 import {
   RaycastingService,
   RaycastingServiceLive,
+  RaycastHitSchema,
   DEFAULT_RAY_DISTANCE,
-} from './raycasting-service'
+} from '@/infrastructure/three/raycasting/raycasting-service'
 
 /**
  * Helper function to set up camera and scene for raycasting
@@ -397,6 +398,106 @@ describe('RaycastingService', () => {
 
       const result = Effect.runSync(program)
       expect(result.success).toBe(true)
+    })
+  })
+
+  describe('RaycastHitSchema', () => {
+    const decode = Schema.decodeUnknownSync(RaycastHitSchema)
+    const encode = Schema.encodeSync(RaycastHitSchema)
+
+    const validHit = {
+      point: { x: 1.5, y: 10.5, z: -2.5 },
+      normal: { x: 0, y: 1, z: 0 },
+      distance: 3.2,
+      blockX: 1,
+      blockY: 10,
+      blockZ: -3,
+    }
+
+    it('decodes a valid hit object', () => {
+      const result = decode(validHit)
+      expect(result.blockX).toBe(1)
+      expect(result.blockY).toBe(10)
+      expect(result.blockZ).toBe(-3)
+      expect(result.distance).toBeCloseTo(3.2)
+    })
+
+    it('rejects fractional blockX (int() constraint)', () => {
+      expect(() => decode({ ...validHit, blockX: 1.5 })).toThrow()
+    })
+
+    it('rejects fractional blockY (int() constraint)', () => {
+      expect(() => decode({ ...validHit, blockY: 10.7 })).toThrow()
+    })
+
+    it('rejects fractional blockZ (int() constraint)', () => {
+      expect(() => decode({ ...validHit, blockZ: -2.3 })).toThrow()
+    })
+
+    it('accepts negative integer block coordinates', () => {
+      expect(() => decode({ ...validHit, blockX: -5, blockY: -1, blockZ: -100 })).not.toThrow()
+    })
+
+    it('rejects NaN for distance (Schema.finite() constraint)', () => {
+      expect(() => decode({ ...validHit, distance: NaN })).toThrow()
+    })
+
+    it('rejects Infinity for distance (Schema.finite() constraint)', () => {
+      expect(() => decode({ ...validHit, distance: Infinity })).toThrow()
+    })
+
+    it('rejects NaN in point vector', () => {
+      expect(() => decode({ ...validHit, point: { x: NaN, y: 0, z: 0 } })).toThrow()
+    })
+
+    it('rejects Infinity in normal vector', () => {
+      expect(() => decode({ ...validHit, normal: { x: Infinity, y: 0, z: 0 } })).toThrow()
+    })
+
+    it('rejects missing blockX field', () => {
+      const { blockX: _omit, ...withoutBlockX } = validHit
+      expect(() => decode(withoutBlockX)).toThrow()
+    })
+
+    it('rejects missing point field', () => {
+      const { point: _omit, ...withoutPoint } = validHit
+      expect(() => decode(withoutPoint)).toThrow()
+    })
+
+    it('rejects missing normal field', () => {
+      const { normal: _omit, ...withoutNormal } = validHit
+      expect(() => decode(withoutNormal)).toThrow()
+    })
+
+    it('encodes and decodes in round-trip', () => {
+      const decoded = decode(validHit)
+      const encoded = encode(decoded)
+      const redecoded = decode(encoded)
+      expect(redecoded.blockX).toBe(validHit.blockX)
+      expect(redecoded.blockY).toBe(validHit.blockY)
+      expect(redecoded.blockZ).toBe(validHit.blockZ)
+      expect(redecoded.distance).toBeCloseTo(validHit.distance)
+      expect(redecoded.point.x).toBeCloseTo(validHit.point.x)
+      expect(redecoded.point.y).toBeCloseTo(validHit.point.y)
+      expect(redecoded.point.z).toBeCloseTo(validHit.point.z)
+    })
+
+    it('Schema.decodeUnknownEither returns Left for fractional blockX', () => {
+      const result = Schema.decodeUnknownEither(RaycastHitSchema)({ ...validHit, blockX: 1.5 })
+      expect(result._tag).toBe('Left')
+    })
+
+    it('Schema.decodeUnknownEither returns Right for valid hit', () => {
+      const result = Schema.decodeUnknownEither(RaycastHitSchema)(validHit)
+      expect(result._tag).toBe('Right')
+    })
+
+    it('accepts zero distance (ray origin at surface)', () => {
+      expect(() => decode({ ...validHit, distance: 0 })).not.toThrow()
+    })
+
+    it('accepts block coordinates of zero', () => {
+      expect(() => decode({ ...validHit, blockX: 0, blockY: 0, blockZ: 0 })).not.toThrow()
     })
   })
 

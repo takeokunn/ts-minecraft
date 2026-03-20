@@ -1,5 +1,5 @@
 import { Effect } from 'effect'
-import * as THREE from 'three'
+import type { CameraRotationPort } from '@/shared/math/three'
 import { PlayerInputService } from '@/application/input/player-input-service'
 import { PlayerCameraStateService } from '@/application/camera/camera-state'
 
@@ -18,7 +18,7 @@ export const BASE_MOUSE_SENSITIVITY = 0.004
  * for rotation state management.
  */
 export class FirstPersonCameraService extends Effect.Service<FirstPersonCameraService>()(
-  '@minecraft/layer/FirstPersonCameraService',
+  '@minecraft/application/FirstPersonCameraService',
   {
     effect: Effect.gen(function* () {
       const inputService = yield* PlayerInputService
@@ -29,7 +29,7 @@ export class FirstPersonCameraService extends Effect.Service<FirstPersonCameraSe
          * Update camera rotation based on mouse movement
          * Only updates when pointer is locked (captured by the game)
          */
-        update: (camera: THREE.PerspectiveCamera, sensitivity = 0.5): Effect.Effect<void, never> =>
+        update: (camera: CameraRotationPort, sensitivity = 0.5): Effect.Effect<void, never> =>
           Effect.gen(function* () {
             // Only update if pointer is locked
             const isLocked = yield* inputService.isPointerLocked()
@@ -63,7 +63,7 @@ export class FirstPersonCameraService extends Effect.Service<FirstPersonCameraSe
          * Attach camera to player state (sync rotation from state to camera)
          * Used when initializing or resuming the game
          */
-        attachToPlayer: (camera: THREE.PerspectiveCamera): Effect.Effect<void, never> =>
+        attachToPlayer: (camera: CameraRotationPort): Effect.Effect<void, never> =>
           Effect.gen(function* () {
             const rotation = yield* cameraState.getRotation()
             camera.rotation.set(rotation.pitch, rotation.yaw, 0, 'YXZ')

@@ -20,6 +20,17 @@ export type ChunkWorldOffset = Schema.Schema.Type<typeof ChunkWorldOffsetSchema>
 
 const AIR = 0
 
+// Pooled buffer for greedy-expansion "done" tracking.
+// The largest possible slice is CHUNK_SIZE × CHUNK_HEIGHT = 16 × 256 = 4096 cells.
+// runGreedyExpansion takes a subarray view (zero-copy) and resets it with fill(0)
+// instead of allocating a new Uint8Array per call (576 allocs/chunk-rebuild).
+//
+// ⚠ CONCURRENCY WARNING: this buffer is module-level shared state. greedyMeshChunk
+// must never be called concurrently from two fibers (e.g. Effect.forEach with concurrency > 1)
+// or the done-tracking state will be corrupted. Currently safe: WorldRendererService
+// calls greedyMeshChunk synchronously within the single frame-handler fiber.
+const _doneBuf = new Uint8Array(CHUNK_SIZE * CHUNK_HEIGHT)
+
 const getBlock = (blocks: Readonly<Uint8Array>, lx: number, y: number, lz: number): number => {
   const idx = blockIndex(lx, y, lz)
   return idx !== null ? blocks[idx] ?? AIR : AIR
@@ -154,7 +165,8 @@ const runGreedyExpansion = (
   vSize: number,
   emitQuad: EmitQuad
 ): void => {
-  const done = new Uint8Array(uSize * vSize)
+  const done = _doneBuf.subarray(0, uSize * vSize)
+  done.fill(0)
   for (let u = 0; u < uSize; u++) {
     for (let v = 0; v < vSize; v++) {
       const mi = u * vSize + v
@@ -204,8 +216,10 @@ export const greedyMeshChunk = (chunk: Chunk, offset: ChunkWorldOffset): MeshedC
   // Slice over lx; mask u-axis = lz, v-axis = y
   const passXPos = (): void => {
     const normal = [1, 0, 0] as const
+    // Allocate mask once (CHUNK_SIZE * CHUNK_HEIGHT is constant); reset with fill(0) each slice
+    const mask = new Uint16Array(CHUNK_SIZE * CHUNK_HEIGHT)
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
-      const mask = new Uint16Array(CHUNK_SIZE * CHUNK_HEIGHT)
+      mask.fill(0)
       for (let lz = 0; lz < CHUNK_SIZE; lz++) {
         for (let y = 0; y < CHUNK_HEIGHT; y++) {
           const blockId = getBlock(blocks, lx, y, lz)
@@ -238,8 +252,10 @@ export const greedyMeshChunk = (chunk: Chunk, offset: ChunkWorldOffset): MeshedC
   // Slice over lx; mask u-axis = lz, v-axis = y
   const passXNeg = (): void => {
     const normal = [-1, 0, 0] as const
+    // Allocate mask once (CHUNK_SIZE * CHUNK_HEIGHT is constant); reset with fill(0) each slice
+    const mask = new Uint16Array(CHUNK_SIZE * CHUNK_HEIGHT)
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
-      const mask = new Uint16Array(CHUNK_SIZE * CHUNK_HEIGHT)
+      mask.fill(0)
       for (let lz = 0; lz < CHUNK_SIZE; lz++) {
         for (let y = 0; y < CHUNK_HEIGHT; y++) {
           const blockId = getBlock(blocks, lx, y, lz)
@@ -272,8 +288,10 @@ export const greedyMeshChunk = (chunk: Chunk, offset: ChunkWorldOffset): MeshedC
   // Slice over y; mask u-axis = lx, v-axis = lz
   const passYPos = (): void => {
     const normal = [0, 1, 0] as const
+    // Allocate mask once (CHUNK_SIZE * CHUNK_SIZE is constant); reset with fill(0) each slice
+    const mask = new Uint16Array(CHUNK_SIZE * CHUNK_SIZE)
     for (let y = 0; y < CHUNK_HEIGHT; y++) {
-      const mask = new Uint16Array(CHUNK_SIZE * CHUNK_SIZE)
+      mask.fill(0)
       for (let lx = 0; lx < CHUNK_SIZE; lx++) {
         for (let lz = 0; lz < CHUNK_SIZE; lz++) {
           const blockId = getBlock(blocks, lx, y, lz)
@@ -306,8 +324,10 @@ export const greedyMeshChunk = (chunk: Chunk, offset: ChunkWorldOffset): MeshedC
   // Slice over y; mask u-axis = lx, v-axis = lz
   const passYNeg = (): void => {
     const normal = [0, -1, 0] as const
+    // Allocate mask once (CHUNK_SIZE * CHUNK_SIZE is constant); reset with fill(0) each slice
+    const mask = new Uint16Array(CHUNK_SIZE * CHUNK_SIZE)
     for (let y = 0; y < CHUNK_HEIGHT; y++) {
-      const mask = new Uint16Array(CHUNK_SIZE * CHUNK_SIZE)
+      mask.fill(0)
       for (let lx = 0; lx < CHUNK_SIZE; lx++) {
         for (let lz = 0; lz < CHUNK_SIZE; lz++) {
           const blockId = getBlock(blocks, lx, y, lz)
@@ -340,8 +360,10 @@ export const greedyMeshChunk = (chunk: Chunk, offset: ChunkWorldOffset): MeshedC
   // Slice over lz; mask u-axis = lx, v-axis = y
   const passZPos = (): void => {
     const normal = [0, 0, 1] as const
+    // Allocate mask once (CHUNK_SIZE * CHUNK_HEIGHT is constant); reset with fill(0) each slice
+    const mask = new Uint16Array(CHUNK_SIZE * CHUNK_HEIGHT)
     for (let lz = 0; lz < CHUNK_SIZE; lz++) {
-      const mask = new Uint16Array(CHUNK_SIZE * CHUNK_HEIGHT)
+      mask.fill(0)
       for (let lx = 0; lx < CHUNK_SIZE; lx++) {
         for (let y = 0; y < CHUNK_HEIGHT; y++) {
           const blockId = getBlock(blocks, lx, y, lz)
@@ -374,8 +396,10 @@ export const greedyMeshChunk = (chunk: Chunk, offset: ChunkWorldOffset): MeshedC
   // Slice over lz; mask u-axis = lx, v-axis = y
   const passZNeg = (): void => {
     const normal = [0, 0, -1] as const
+    // Allocate mask once (CHUNK_SIZE * CHUNK_HEIGHT is constant); reset with fill(0) each slice
+    const mask = new Uint16Array(CHUNK_SIZE * CHUNK_HEIGHT)
     for (let lz = 0; lz < CHUNK_SIZE; lz++) {
-      const mask = new Uint16Array(CHUNK_SIZE * CHUNK_HEIGHT)
+      mask.fill(0)
       for (let lx = 0; lx < CHUNK_SIZE; lx++) {
         for (let y = 0; y < CHUNK_HEIGHT; y++) {
           const blockId = getBlock(blocks, lx, y, lz)

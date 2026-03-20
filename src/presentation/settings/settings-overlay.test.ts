@@ -75,7 +75,6 @@ describe('presentation/settings/settings-overlay', () => {
       const TestLayer = buildTestLayer()
       const program = Effect.gen(function* () {
         const overlay = yield* SettingsOverlayService
-        expect(typeof overlay.initialize).toBe('function')
         expect(typeof overlay.toggle).toBe('function')
         expect(typeof overlay.isOpen).toBe('function')
         expect(typeof overlay.syncFromSettings).toBe('function')
@@ -89,33 +88,6 @@ describe('presentation/settings/settings-overlay', () => {
 
     it('should be defined', () => {
       expect(SettingsOverlayLive).toBeDefined()
-    })
-  })
-
-  describe('initialize', () => {
-    it('should complete without error', () => {
-      const TestLayer = buildTestLayer()
-      const program = Effect.gen(function* () {
-        const overlay = yield* SettingsOverlayService
-        yield* overlay.initialize()
-        return { success: true }
-      }).pipe(Effect.provide(TestLayer))
-
-      const result = runScoped(program)
-      expect(result.success).toBe(true)
-    })
-
-    it('should be callable multiple times without error', () => {
-      const TestLayer = buildTestLayer()
-      const program = Effect.gen(function* () {
-        const overlay = yield* SettingsOverlayService
-        yield* overlay.initialize()
-        yield* overlay.initialize()
-        return { success: true }
-      }).pipe(Effect.provide(TestLayer))
-
-      const result = runScoped(program)
-      expect(result.success).toBe(true)
     })
   })
 
@@ -316,7 +288,6 @@ describe('presentation/settings/settings-overlay', () => {
       const TestLayer = buildTestLayer()
       const program = Effect.gen(function* () {
         const overlay = yield* SettingsOverlayService
-        yield* overlay.initialize()
         yield* overlay.toggle()
         yield* overlay.syncFromSettings()
         const isOpen = yield* overlay.isOpen()

@@ -13,7 +13,7 @@
  * inside createFrameHandler, not the individual services themselves.
  */
 import { describe, it, expect, vi } from 'vitest'
-import { Effect, Ref } from 'effect'
+import { Effect, Option, Ref } from 'effect'
 import * as THREE from 'three'
 import { createFrameHandler, type FrameHandlerDeps, type FrameHandlerServices } from '@/frame-handler'
 import { KeyMappings } from '@/application/input/key-mappings'
@@ -27,7 +27,7 @@ import type { DeltaTimeSecs } from '@/shared/kernel'
 
 const makeLights = () =>
   ({
-    light: { position: { set: vi.fn() }, intensity: 1 } as unknown as THREE.DirectionalLight,
+    light: { position: { set: vi.fn() }, intensity: 1, target: { position: { set: vi.fn() }, updateMatrixWorld: vi.fn() } } as unknown as THREE.DirectionalLight,
     ambientLight: { intensity: 0.3 } as unknown as THREE.AmbientLight,
     renderer: { setClearColor: vi.fn() },
     skyNight: new THREE.Color(0x001133),
@@ -63,7 +63,8 @@ const makeDeps = async (paused = false): Promise<FrameHandlerDeps & { gamePaused
     camera: makeCamera(),
     lights: makeLights(),
     fpsElement: null,
-    healthElement: null,
+    healthValueElement: null,
+    healthMaxElement: null,
     gamePausedRef,
   }
 }
@@ -94,7 +95,6 @@ const makeInventoryRenderer = (state: OverlayState) =>
         return state.open
       }),
     update: () => Effect.void,
-    initialize: () => Effect.void,
   }) as unknown as InstanceType<typeof import('@/presentation/inventory/inventory-renderer').InventoryRendererService>
 
 /**
@@ -109,7 +109,6 @@ const makeSettingsOverlay = (state: OverlayState) =>
         state.open = !state.open
         return state.open
       }),
-    initialize: () => Effect.void,
     syncFromSettings: () => Effect.void,
     applyToSettings: () => Effect.void,
   }) as unknown as InstanceType<typeof import('@/presentation/settings/settings-overlay').SettingsOverlayService>
@@ -164,8 +163,6 @@ const makeServices = (opts: {
     update: (_cam: unknown) => Effect.void,
   } as unknown as InstanceType<typeof import('@/application/camera/first-person-camera-service').FirstPersonCameraService>
 
-  const crosshair = {} as unknown as InstanceType<typeof import('@/presentation/hud/crosshair').CrosshairService>
-
   const blockHighlight = {
     update: (_cam: unknown, _scene: unknown) => Effect.void,
     getTargetBlock: () => Effect.succeed(null),
@@ -199,6 +196,7 @@ const makeServices = (opts: {
     advanceTick: (_dt: unknown) => Effect.void,
     getTimeOfDay: () => Effect.succeed(0.5),
     isNight: () => Effect.succeed(false),
+    getDayLength: () => Effect.succeed(DEFAULT_SETTINGS.dayLengthSeconds),
     setDayLength: (_s: unknown) => Effect.void,
     setTimeOfDay: (_f: unknown) => Effect.void,
   } as unknown as InstanceType<typeof import('@/application/time/time-service').TimeService>
@@ -232,7 +230,6 @@ const makeServices = (opts: {
   return {
     gameState,
     firstPersonCamera,
-    crosshair,
     blockHighlight,
     inputService,
     blockService,
@@ -494,6 +491,359 @@ describe('frame-handler', () => {
       // gamePausedRef must be true (inventory now open)
       const paused = await Effect.runPromise(Ref.get(deps.gamePausedRef))
       expect(paused).toBe(true)
+    })
+  })
+
+  // -------------------------------------------------------------------------
+  // Step 1: Chunk streaming
+  // -------------------------------------------------------------------------
+
+  describe('step 1 — chunk streaming', () => {
+    it('calls loadChunksAroundPlayer each frame', async () => {
+      const deps = await makeDeps(false)
+      const services = makeServices({
+        inputService: makeInputService(),
+        inventoryRenderer: makeInventoryRenderer({ open: false }),
+        settingsOverlay: makeSettingsOverlay({ open: false }),
+      })
+      const spy = vi.fn(() => Effect.void)
+      ;(services.chunkManagerService as unknown as { loadChunksAroundPlayer: unknown }).loadChunksAroundPlayer = spy
+
+      await runFrame(deps, services)
+
+      expect(spy).toHaveBeenCalledOnce()
+    })
+
+    it('calls syncChunksToScene each frame', async () => {
+      const deps = await makeDeps(false)
+      const services = makeServices({
+        inputService: makeInputService(),
+        inventoryRenderer: makeInventoryRenderer({ open: false }),
+        settingsOverlay: makeSettingsOverlay({ open: false }),
+      })
+      const spy = vi.fn(() => Effect.void)
+      ;(services.worldRendererService as unknown as { syncChunksToScene: unknown }).syncChunksToScene = spy
+
+      await runFrame(deps, services)
+
+      expect(spy).toHaveBeenCalledOnce()
+    })
+
+    it('calls applyFrustumCulling each frame', async () => {
+      const deps = await makeDeps(false)
+      const services = makeServices({
+        inputService: makeInputService(),
+        inventoryRenderer: makeInventoryRenderer({ open: false }),
+        settingsOverlay: makeSettingsOverlay({ open: false }),
+      })
+      const spy = vi.fn(() => Effect.void)
+      ;(services.worldRendererService as unknown as { applyFrustumCulling: unknown }).applyFrustumCulling = spy
+
+      await runFrame(deps, services)
+
+      expect(spy).toHaveBeenCalledOnce()
+    })
+  })
+
+  // -------------------------------------------------------------------------
+  // Step 2: Day/night cycle
+  // -------------------------------------------------------------------------
+
+  describe('step 2 — day/night cycle', () => {
+    it('calls timeService.advanceTick each frame', async () => {
+      const deps = await makeDeps(false)
+      const services = makeServices({
+        inputService: makeInputService(),
+        inventoryRenderer: makeInventoryRenderer({ open: false }),
+        settingsOverlay: makeSettingsOverlay({ open: false }),
+      })
+      const spy = vi.fn(() => Effect.void)
+      ;(services.timeService as unknown as { advanceTick: unknown }).advanceTick = spy
+
+      await runFrame(deps, services)
+
+      expect(spy).toHaveBeenCalledOnce()
+    })
+  })
+
+  // -------------------------------------------------------------------------
+  // Step 3.5: Fall damage
+  // -------------------------------------------------------------------------
+
+  describe('step 3.5 — fall damage', () => {
+    it('calls healthService.processFallDamage each frame', async () => {
+      const deps = await makeDeps(false)
+      const services = makeServices({
+        inputService: makeInputService(),
+        inventoryRenderer: makeInventoryRenderer({ open: false }),
+        settingsOverlay: makeSettingsOverlay({ open: false }),
+      })
+      const spy = vi.fn(() => Effect.succeed(0))
+      ;(services.healthService as unknown as { processFallDamage: unknown }).processFallDamage = spy
+
+      await runFrame(deps, services)
+
+      expect(spy).toHaveBeenCalledOnce()
+    })
+
+    it('calls healthService.applyDamage when processFallDamage returns > 0', async () => {
+      const deps = await makeDeps(false)
+      const services = makeServices({
+        inputService: makeInputService(),
+        inventoryRenderer: makeInventoryRenderer({ open: false }),
+        settingsOverlay: makeSettingsOverlay({ open: false }),
+      })
+      ;(services.healthService as unknown as { processFallDamage: unknown }).processFallDamage = vi.fn(() =>
+        Effect.succeed(5)
+      )
+      const applyDamageSpy = vi.fn(() => Effect.void)
+      ;(services.healthService as unknown as { applyDamage: unknown }).applyDamage = applyDamageSpy
+
+      await runFrame(deps, services)
+
+      expect(applyDamageSpy).toHaveBeenCalledOnce()
+      expect(applyDamageSpy).toHaveBeenCalledWith(5)
+    })
+
+    it('does NOT call healthService.applyDamage when processFallDamage returns 0', async () => {
+      const deps = await makeDeps(false)
+      const services = makeServices({
+        inputService: makeInputService(),
+        inventoryRenderer: makeInventoryRenderer({ open: false }),
+        settingsOverlay: makeSettingsOverlay({ open: false }),
+      })
+      ;(services.healthService as unknown as { processFallDamage: unknown }).processFallDamage = vi.fn(() =>
+        Effect.succeed(0)
+      )
+      const applyDamageSpy = vi.fn(() => Effect.void)
+      ;(services.healthService as unknown as { applyDamage: unknown }).applyDamage = applyDamageSpy
+
+      await runFrame(deps, services)
+
+      expect(applyDamageSpy).not.toHaveBeenCalled()
+    })
+
+    it('calls healthService.tick each frame', async () => {
+      const deps = await makeDeps(false)
+      const services = makeServices({
+        inputService: makeInputService(),
+        inventoryRenderer: makeInventoryRenderer({ open: false }),
+        settingsOverlay: makeSettingsOverlay({ open: false }),
+      })
+      const spy = vi.fn(() => Effect.void)
+      ;(services.healthService as unknown as { tick: unknown }).tick = spy
+
+      await runFrame(deps, services)
+
+      expect(spy).toHaveBeenCalledOnce()
+    })
+  })
+
+  // -------------------------------------------------------------------------
+  // Step 7: Block interaction
+  // -------------------------------------------------------------------------
+
+  describe('step 7 — block interaction', () => {
+    it('calls blockService.breakBlock on left-click when a target block is available', async () => {
+      const deps = await makeDeps(false)
+      const inputService = makeInputService()
+      // Override consumeMouseClick to return true for button 0
+      ;(inputService as unknown as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
+        Effect.succeed(btn === 0)
+      const services = makeServices({
+        inputService,
+        inventoryRenderer: makeInventoryRenderer({ open: false }),
+        settingsOverlay: makeSettingsOverlay({ open: false }),
+      })
+      // Provide a target block
+      ;(services.blockHighlight as unknown as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
+        Effect.succeed({ x: 0, y: 64, z: 0 })
+      )
+      ;(services.blockHighlight as unknown as { getTargetHit: unknown }).getTargetHit = vi.fn(() =>
+        Effect.succeed(null)
+      )
+      const breakSpy = vi.fn(() => Effect.void)
+      ;(services.blockService as unknown as { breakBlock: unknown }).breakBlock = breakSpy
+
+      await runFrame(deps, services)
+
+      expect(breakSpy).toHaveBeenCalledOnce()
+      expect(breakSpy).toHaveBeenCalledWith({ x: 0, y: 64, z: 0 })
+    })
+
+    it('does NOT call blockService.breakBlock when no target block', async () => {
+      const deps = await makeDeps(false)
+      const inputService = makeInputService()
+      ;(inputService as unknown as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
+        Effect.succeed(btn === 0)
+      const services = makeServices({
+        inputService,
+        inventoryRenderer: makeInventoryRenderer({ open: false }),
+        settingsOverlay: makeSettingsOverlay({ open: false }),
+      })
+      // No target block (null)
+      ;(services.blockHighlight as unknown as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
+        Effect.succeed(null)
+      )
+      ;(services.blockHighlight as unknown as { getTargetHit: unknown }).getTargetHit = vi.fn(() =>
+        Effect.succeed(null)
+      )
+      const breakSpy = vi.fn(() => Effect.void)
+      ;(services.blockService as unknown as { breakBlock: unknown }).breakBlock = breakSpy
+
+      await runFrame(deps, services)
+
+      expect(breakSpy).not.toHaveBeenCalled()
+    })
+
+    it('calls blockService.placeBlock on right-click when a target hit and hotbar block are available', async () => {
+      const deps = await makeDeps(false)
+      const inputService = makeInputService()
+      ;(inputService as unknown as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
+        Effect.succeed(btn === 2)
+      const services = makeServices({
+        inputService,
+        inventoryRenderer: makeInventoryRenderer({ open: false }),
+        settingsOverlay: makeSettingsOverlay({ open: false }),
+      })
+      ;(services.blockHighlight as unknown as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
+        Effect.succeed(null)
+      )
+      ;(services.blockHighlight as unknown as { getTargetHit: unknown }).getTargetHit = vi.fn(() =>
+        Effect.succeed({ blockX: 0, blockY: 64, blockZ: 0, normal: { x: 0, y: 1, z: 0 } })
+      )
+      ;(services.hotbarService as unknown as { getSelectedBlockType: unknown }).getSelectedBlockType = vi.fn(() =>
+        Effect.succeed(Option.some('GRASS'))
+      )
+      const placeSpy = vi.fn(() => Effect.void)
+      ;(services.blockService as unknown as { placeBlock: unknown }).placeBlock = placeSpy
+
+      await runFrame(deps, services)
+
+      expect(placeSpy).toHaveBeenCalledOnce()
+      // Adjacent position = block + normal = (0+0, 64+1, 0+0) = (0, 65, 0)
+      expect(placeSpy).toHaveBeenCalledWith({ x: 0, y: 65, z: 0 }, 'GRASS')
+    })
+
+    it('suppresses block interaction when game is paused', async () => {
+      const deps = await makeDeps(true /* paused */)
+      const inputService = makeInputService()
+      ;(inputService as unknown as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
+        Effect.succeed(btn === 0)
+      const services = makeServices({
+        inputService,
+        inventoryRenderer: makeInventoryRenderer({ open: false }),
+        settingsOverlay: makeSettingsOverlay({ open: false }),
+      })
+      ;(services.blockHighlight as unknown as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
+        Effect.succeed({ x: 0, y: 64, z: 0 })
+      )
+      const breakSpy = vi.fn(() => Effect.void)
+      ;(services.blockService as unknown as { breakBlock: unknown }).breakBlock = breakSpy
+
+      await runFrame(deps, services)
+
+      expect(breakSpy).not.toHaveBeenCalled()
+    })
+  })
+
+  // -------------------------------------------------------------------------
+  // Step 8: Camera sync
+  // -------------------------------------------------------------------------
+
+  describe('step 8 — camera sync', () => {
+    it('sets camera position to playerPos with EYE_LEVEL_OFFSET applied', async () => {
+      const deps = await makeDeps(false)
+      const services = makeServices({
+        inputService: makeInputService(),
+        inventoryRenderer: makeInventoryRenderer({ open: false }),
+        settingsOverlay: makeSettingsOverlay({ open: false }),
+      })
+      // Override getPlayerPosition to return a known position
+      ;(services.gameState as unknown as { getPlayerPosition: unknown }).getPlayerPosition = vi.fn(() =>
+        Effect.succeed({ x: 5, y: 64, z: 3 })
+      )
+
+      await runFrame(deps, services)
+
+      expect(deps.camera.position.x).toBe(5)
+      expect(deps.camera.position.y).toBeCloseTo(64 + 0.7)
+      expect(deps.camera.position.z).toBe(3)
+    })
+  })
+
+  // -------------------------------------------------------------------------
+  // Step 9: FPS display
+  // -------------------------------------------------------------------------
+
+  describe('step 9 — FPS display', () => {
+    it('calls fpsCounter.getFPS each frame', async () => {
+      const deps = await makeDeps(false)
+      const services = makeServices({
+        inputService: makeInputService(),
+        inventoryRenderer: makeInventoryRenderer({ open: false }),
+        settingsOverlay: makeSettingsOverlay({ open: false }),
+      })
+      const spy = vi.fn(() => Effect.succeed(60))
+      ;(services.fpsCounter as unknown as { getFPS: unknown }).getFPS = spy
+
+      await runFrame(deps, services)
+
+      expect(spy).toHaveBeenCalledOnce()
+    })
+
+    it('calls fpsCounter.tick with the deltaTime each frame', async () => {
+      const deps = await makeDeps(false)
+      const services = makeServices({
+        inputService: makeInputService(),
+        inventoryRenderer: makeInventoryRenderer({ open: false }),
+        settingsOverlay: makeSettingsOverlay({ open: false }),
+      })
+      const spy = vi.fn(() => Effect.void)
+      ;(services.fpsCounter as unknown as { tick: unknown }).tick = spy
+
+      await runFrame(deps, services)
+
+      expect(spy).toHaveBeenCalledOnce()
+      expect(spy).toHaveBeenCalledWith(0.016)
+    })
+
+    it('updates fpsElement.textContent when fpsElement is non-null', async () => {
+      // Use a plain stub instead of document.createElement (env is 'node', not jsdom)
+      const fpsElement = { textContent: '' } as unknown as HTMLElement
+      const deps = await makeDeps(false)
+      const depsWithEl: FrameHandlerDeps = { ...deps, fpsElement }
+      const services = makeServices({
+        inputService: makeInputService(),
+        inventoryRenderer: makeInventoryRenderer({ open: false }),
+        settingsOverlay: makeSettingsOverlay({ open: false }),
+      })
+      ;(services.fpsCounter as unknown as { getFPS: unknown }).getFPS = vi.fn(() => Effect.succeed(42))
+
+      await runFrame(depsWithEl, services)
+
+      expect(fpsElement.textContent).toBe('42.0')
+    })
+  })
+
+  // -------------------------------------------------------------------------
+  // Step 11: HUD render
+  // -------------------------------------------------------------------------
+
+  describe('step 11 — HUD render', () => {
+    it('calls hotbarRenderer.render every frame', async () => {
+      const deps = await makeDeps(false)
+      const services = makeServices({
+        inputService: makeInputService(),
+        inventoryRenderer: makeInventoryRenderer({ open: false }),
+        settingsOverlay: makeSettingsOverlay({ open: false }),
+      })
+      const spy = vi.fn(() => Effect.void)
+      ;(services.hotbarRenderer as unknown as { render: unknown }).render = spy
+
+      await runFrame(deps, services)
+
+      expect(spy).toHaveBeenCalledOnce()
     })
   })
 

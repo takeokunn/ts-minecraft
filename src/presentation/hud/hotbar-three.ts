@@ -2,6 +2,7 @@ import { Effect, Option, Ref } from 'effect'
 import * as THREE from 'three'
 import { BlockType } from '@/domain/block'
 import { RendererService } from '@/infrastructure/three/renderer/renderer-service'
+import { SlotIndex } from '@/shared/kernel'
 
 const BLOCK_COLORS: Record<BlockType, number> = {
   AIR:    0x444444,
@@ -32,7 +33,7 @@ export class HotbarRendererService extends Effect.Service<HotbarRendererService>
       const rendererService = yield* RendererService
 
       const hudScene = new THREE.Scene()
-      const hudCameraRef = yield* Ref.make<THREE.OrthographicCamera | null>(null)
+      const hudCameraRef = yield* Ref.make<Option.Option<THREE.OrthographicCamera>>(Option.none())
 
       const slotMeshes: THREE.Mesh[] = []
 
@@ -55,7 +56,8 @@ export class HotbarRendererService extends Effect.Service<HotbarRendererService>
       const resizeHandler = () => {
         const w = window.innerWidth
         const h = window.innerHeight
-        const hudCamera = Effect.runSync(Ref.get(hudCameraRef))
+        const hudCameraOpt = Effect.runSync(Ref.get(hudCameraRef))
+        const hudCamera = Option.getOrNull(hudCameraOpt)
         if (hudCamera) {
           hudCamera.left = -w / 2
           hudCamera.right = w / 2
@@ -88,7 +90,7 @@ export class HotbarRendererService extends Effect.Service<HotbarRendererService>
         initialize: (initialWidth: number, initialHeight: number): Effect.Effect<void, never> =>
           Effect.gen(function* () {
             const cam = makeCamera(initialWidth, initialHeight)
-            yield* Ref.set(hudCameraRef, cam)
+            yield* Ref.set(hudCameraRef, Option.some(cam))
 
             for (let i = 0; i < HOTBAR_SLOTS; i++) {
               const geo = new THREE.PlaneGeometry(SLOT_SIZE, SLOT_SIZE)
@@ -110,7 +112,7 @@ export class HotbarRendererService extends Effect.Service<HotbarRendererService>
         /**
          * Update slot colors and highlight based on current slots and selected slot. Call every frame.
          */
-        update: (slots: ReadonlyArray<Option.Option<BlockType>>, selectedSlot: number): Effect.Effect<void, never> =>
+        update: (slots: ReadonlyArray<Option.Option<BlockType>>, selectedSlot: SlotIndex): Effect.Effect<void, never> =>
           Effect.sync(() => {
             for (let i = 0; i < HOTBAR_SLOTS; i++) {
               const mesh = slotMeshes[i]
@@ -126,7 +128,7 @@ export class HotbarRendererService extends Effect.Service<HotbarRendererService>
               }
             }
 
-            const activeMesh = slotMeshes[selectedSlot]
+            const activeMesh = slotMeshes[SlotIndex.toNumber(selectedSlot)]
             if (activeMesh) {
               activeMesh.scale.setScalar(1.2)
               borderMesh.position.x = activeMesh.position.x
@@ -141,9 +143,9 @@ export class HotbarRendererService extends Effect.Service<HotbarRendererService>
          */
         render: (renderer: THREE.WebGLRenderer): Effect.Effect<void, never> =>
           Effect.gen(function* () {
-            const hudCamera = yield* Ref.get(hudCameraRef)
-            if (!hudCamera) return
-            yield* rendererService.renderOverlay(renderer, hudScene, hudCamera)
+            const hudCameraOpt = yield* Ref.get(hudCameraRef)
+            if (Option.isNone(hudCameraOpt)) return
+            yield* rendererService.renderOverlay(renderer, hudScene, hudCameraOpt.value)
           }),
       }
     }),

@@ -5,15 +5,15 @@ import { DeltaTimeSecs, DeltaTimeSecsSchema, PlayerId, Position, PhysicsBodyId }
 import { PhysicsService, PLAYER_FEET_OFFSET } from './physics/physics-service'
 import { MovementService } from './player/movement-service'
 import { PlayerCameraStateService } from '@/application/camera/camera-state'
-import { DEFAULT_PLAYER_ID } from '@/application/constants'
+import { DEFAULT_PLAYER_ID, FIRST_FRAME_DELTA_SECS } from '@/application/constants'
 
 /**
  * Schema for TimingState representing frame timing information
  */
 export const TimingStateSchema = Schema.Struct({
-  lastFrameTime: Schema.Number,
+  lastFrameTime: Schema.Number.pipe(Schema.finite(), Schema.nonNegative()),
   deltaTime: DeltaTimeSecsSchema,
-  frameCount: Schema.Number,
+  frameCount: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
 })
 export type TimingState = Schema.Schema.Type<typeof TimingStateSchema>
 
@@ -36,7 +36,7 @@ export class GameStateError extends Data.TaggedError('GameStateError')<{
  */
 export const PLAYER_BODY_ID = 'player'
 
-/** Gravitational acceleration (m/s²) matching cannon-es default */
+/** Gravitational acceleration (m/s²) — standard Earth gravity */
 const GRAVITY_Y = -9.82
 
 /** Player rigid body mass in kg */
@@ -47,6 +47,7 @@ const PLAYER_HALF_WIDTH = 0.3
 
 /** Player box half-extents in meters (y) */
 const PLAYER_HALF_HEIGHT = 0.9
+const ZERO_VEC3 = Object.freeze({ x: 0, y: 0, z: 0 })
 
 /**
  * Service class for coordinating game state across services
@@ -60,11 +61,10 @@ export class GameStateService extends Effect.Service<GameStateService>()(
       const movementService = yield* MovementService
       const cameraState = yield* PlayerCameraStateService
 
-      // Timing state (deltaTime initial value 0 is a sentinel; DeltaTimeSecs.make requires positive,
-      // so cast directly — this value is overwritten on the first frame before any consumer reads it)
+      // Timing state (deltaTime initial value uses a first-frame estimate of 16ms at 60fps)
       const timingStateRef = yield* Ref.make<TimingState>({
         lastFrameTime: 0,
-        deltaTime: 0 as DeltaTimeSecs,
+        deltaTime: DeltaTimeSecs.make(FIRST_FRAME_DELTA_SECS),
         frameCount: 0,
       })
 
@@ -74,7 +74,7 @@ export class GameStateService extends Effect.Service<GameStateService>()(
       // Stored ground plane Y for post-step fall-through correction
       const groundYRef = yield* Ref.make<number>(0)
 
-      // Jump override flag: when the player jumps, cannon-es contacts may persist
+      // Jump override flag: when the player jumps, contact state may persist
       // for one frame before clearing. This flag overrides isGrounded to return false
       // immediately after a jump, matching the behaviour of the old clearGroundedState.
       const jumpOverrideRef = yield* Ref.make<boolean>(false)
@@ -82,14 +82,14 @@ export class GameStateService extends Effect.Service<GameStateService>()(
       /**
        * Internal helper: get whether the player is currently grounded.
        * Uses position-based detection: player center Y ≤ (groundY + halfHeight + tolerance).
-       * This is more reliable than cannon-es contact detection because the post-step
+       * Position-threshold comparison is used instead of contact events because the post-step
        * ground clamp repositions the body without generating new contact equations.
        */
       const getIsGrounded = (playerBodyId: PhysicsBodyId): Effect.Effect<boolean, never> =>
         Effect.gen(function* () {
           const jumpOverride = yield* Ref.get(jumpOverrideRef)
           const pos = yield* physicsService.getPosition(playerBodyId).pipe(
-            Effect.catchTag('PhysicsServiceError', () => Effect.succeed({ x: 0, y: 0, z: 0 }))
+            Effect.catchTag('PhysicsServiceError', () => Effect.succeed(ZERO_VEC3))
           )
           const gY = yield* Ref.get(groundYRef)
           // Player center is at groundY + halfHeight when standing on ground
@@ -172,7 +172,7 @@ export class GameStateService extends Effect.Service<GameStateService>()(
             const currentVel = yield* physicsService.getVelocity(playerBodyId).pipe(
               Effect.catchTag('PhysicsServiceError', (e) =>
                 Effect.logWarning(`getVelocity fallback: ${e.message ?? String(e)}`).pipe(
-                  Effect.as({ x: 0, y: 0, z: 0 })
+                  Effect.as(ZERO_VEC3)
                 )
               )
             )

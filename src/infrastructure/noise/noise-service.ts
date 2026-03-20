@@ -1,9 +1,7 @@
 import { Effect, Ref } from 'effect'
-import { createNoise2D, type NoiseFunction2D } from 'simplex-noise'
+import { createPerlinNoise2D, type NoiseFn2D, type RandFn } from './perlin'
 
-type RandomFn = () => number
-
-const mulberry32 = (seed: number): RandomFn => {
+const mulberry32 = (seed: number): RandFn => {
   let s = seed >>> 0
   return () => {
     let t = (s += 0x6d2b79f5)
@@ -19,7 +17,7 @@ export class NoiseService extends Effect.Service<NoiseService>()(
   '@minecraft/infrastructure/noise/NoiseService',
   {
     effect: Effect.gen(function* () {
-      const noiseRef = yield* Ref.make<NoiseFunction2D>(createNoise2D())
+      const noiseRef = yield* Ref.make<NoiseFn2D>(createPerlinNoise2D())
 
       return {
         noise2D: (x: number, z: number): Effect.Effect<number, never> =>
@@ -46,8 +44,8 @@ export class NoiseService extends Effect.Service<NoiseService>()(
             return normalizeNoise(total / maxValue)
           }),
 
-        setSeed: (seed: number): Effect.Effect<void, never> =>
-          Ref.set(noiseRef, createNoise2D(mulberry32(seed))),
+        setSeed: (seed: number): Effect.Effect<void, never, never> =>
+          Ref.set(noiseRef, createPerlinNoise2D(mulberry32(seed))),
       }
     }),
   }

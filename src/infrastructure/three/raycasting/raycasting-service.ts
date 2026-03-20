@@ -11,7 +11,7 @@ export const RaycastHitSchema = Schema.Struct({
   /** Normal of hit surface */
   normal: Vector3Schema,
   /** Distance from ray origin */
-  distance: Schema.Number,
+  distance: Schema.Number.pipe(Schema.finite(), Schema.nonNegative()),
   /** Block X coordinate */
   blockX: Schema.Number.pipe(Schema.int()),
   /** Block Y coordinate */
@@ -30,7 +30,7 @@ export const DEFAULT_RAY_DISTANCE = 5.0
  * Raycasting service class for block targeting
  */
 export class RaycastingService extends Effect.Service<RaycastingService>()(
-  '@minecraft/layer/RaycastingService',
+  '@minecraft/infrastructure/three/RaycastingService',
   {
     succeed: {
       /**

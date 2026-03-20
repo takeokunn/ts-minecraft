@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { Effect, Layer } from 'effect'
 import { BiomeService, BiomeServiceLive } from '@/application/biome/biome-service'
-import { NoiseService } from '@/infrastructure/noise/noise-service'
+import { NoiseServicePort } from '@/application/noise/noise-service-port'
 
 /**
  * BiomeService uses these scaled coordinates:
@@ -17,7 +17,7 @@ import { NoiseService } from '@/infrastructure/noise/noise-service'
  *            x_arg ≤ 25.0  →  temperature call
  */
 const makeMockNoiseLayer = (tempValue: number, humidityValue: number) =>
-  Layer.succeed(NoiseService, {
+  Layer.succeed(NoiseServicePort, {
     noise2D: (_x: number, _z: number): Effect.Effect<number, never> => Effect.succeed(0.5),
 
     octaveNoise2D: (x: number, _z: number, _octaves: number, _persistence: number, _lacunarity: number): Effect.Effect<number, never> => {
@@ -28,7 +28,7 @@ const makeMockNoiseLayer = (tempValue: number, humidityValue: number) =>
     },
 
     setSeed: (_seed: number): Effect.Effect<void, never> => Effect.void,
-  } as unknown as NoiseService)
+  } as unknown as NoiseServicePort)
 
 /**
  * Build a BiomeService layer that uses the mock NoiseService.

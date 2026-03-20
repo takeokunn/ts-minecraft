@@ -1,34 +1,77 @@
 import { Schema } from 'effect'
 
+// ---------------------------------------------------------------------------
+// String branded types
+// ---------------------------------------------------------------------------
+// Companions use direct casts because the only constraint is "must be a string",
+// which TypeScript enforces at compile time via the `s: string` parameter type.
+// No runtime schema validation is needed (contrast with numeric types below
+// which validate range constraints such as int(), positive(), between()).
+// ---------------------------------------------------------------------------
+
 export const WorldIdSchema = Schema.String.pipe(Schema.brand('WorldId'))
 export type WorldId = Schema.Schema.Type<typeof WorldIdSchema>
 export const WorldId = {
-  make: (s: string): WorldId => s as WorldId,
+  // make() uses a direct cast because the only constraint is "must be a string",
+  // which TypeScript already enforces at compile time via the `s: string` parameter.
+  // Contrast with numeric companions (SlotIndex, DeltaTimeSecs) where make() uses
+  // decodeUnknownSync to validate range constraints (int, positive, etc.) at runtime.
+  make: (s: string): WorldId => s as unknown as WorldId,
 }
 
 export const PlayerIdSchema = Schema.String.pipe(Schema.brand('PlayerId'))
 export type PlayerId = Schema.Schema.Type<typeof PlayerIdSchema>
 export const PlayerId = {
-  make: (s: string): PlayerId => s as PlayerId,
+  // make() uses a direct cast because the only constraint is "must be a string",
+  // which TypeScript already enforces at compile time via the `s: string` parameter.
+  // Contrast with numeric companions (SlotIndex, DeltaTimeSecs) where make() uses
+  // decodeUnknownSync to validate range constraints (int, positive, etc.) at runtime.
+  make: (s: string): PlayerId => s as unknown as PlayerId,
 }
 
 export const BlockIdSchema = Schema.String.pipe(Schema.brand('BlockId'))
 export type BlockId = Schema.Schema.Type<typeof BlockIdSchema>
 export const BlockId = {
-  make: (s: string): BlockId => s as BlockId,
+  // make() uses a direct cast because the only constraint is "must be a string",
+  // which TypeScript already enforces at compile time via the `s: string` parameter.
+  // Contrast with numeric companions (SlotIndex, DeltaTimeSecs) where make() uses
+  // decodeUnknownSync to validate range constraints (int, positive, etc.) at runtime.
+  make: (s: string): BlockId => s as unknown as BlockId,
 }
 
 export const PhysicsBodyIdSchema = Schema.String.pipe(Schema.brand('PhysicsBodyId'))
 export type PhysicsBodyId = Schema.Schema.Type<typeof PhysicsBodyIdSchema>
 export const PhysicsBodyId = {
-  make: (s: string): PhysicsBodyId => s as PhysicsBodyId,
+  // make() uses a direct cast because the only constraint is "must be a string",
+  // which TypeScript already enforces at compile time via the `s: string` parameter.
+  // Contrast with numeric companions (SlotIndex, DeltaTimeSecs) where make() uses
+  // decodeUnknownSync to validate range constraints (int, positive, etc.) at runtime.
+  make: (s: string): PhysicsBodyId => s as unknown as PhysicsBodyId,
 }
 
 export const ChunkIdSchema = Schema.String.pipe(Schema.brand('ChunkId'))
 export type ChunkId = Schema.Schema.Type<typeof ChunkIdSchema>
 export const ChunkId = {
-  make: (s: string): ChunkId => s as ChunkId,
+  // make() uses a direct cast because the only constraint is "must be a string",
+  // which TypeScript already enforces at compile time via the `s: string` parameter.
+  // Contrast with numeric companions (SlotIndex, DeltaTimeSecs) where make() uses
+  // decodeUnknownSync to validate range constraints (int, positive, etc.) at runtime.
+  make: (s: string): ChunkId => s as unknown as ChunkId,
 }
+
+export const RecipeIdSchema = Schema.String.pipe(Schema.brand('RecipeId'))
+export type RecipeId = Schema.Schema.Type<typeof RecipeIdSchema>
+export const RecipeId = {
+  // make() uses a direct cast because the only constraint is "must be a string",
+  // which TypeScript already enforces at compile time via the `s: string` parameter.
+  // Contrast with numeric companions (SlotIndex, DeltaTimeSecs) where make() uses
+  // decodeUnknownSync to validate range constraints (int, positive, etc.) at runtime.
+  make: (s: string): RecipeId => s as unknown as RecipeId,
+}
+
+// ---------------------------------------------------------------------------
+// Numeric branded types — validated at runtime via Schema.decodeUnknownSync
+// ---------------------------------------------------------------------------
 
 export const SlotIndexSchema = Schema.Number.pipe(
   Schema.int(),
@@ -38,6 +81,7 @@ export const SlotIndexSchema = Schema.Number.pipe(
 export type SlotIndex = Schema.Schema.Type<typeof SlotIndexSchema>
 export const SlotIndex = {
   make: (n: number): SlotIndex => Schema.decodeUnknownSync(SlotIndexSchema)(n),
+  // Brand is a nominal type tag only; the underlying value is always a plain number
   toNumber: (idx: SlotIndex): number => idx as unknown as number,
 }
 

@@ -249,7 +249,7 @@ const buildAtlasTexture = (): Effect.Effect<THREE.Texture, TextureError> =>
   })
 
 export class ChunkMeshService extends Effect.Service<ChunkMeshService>()(
-  '@minecraft/infrastructure/ChunkMeshService',
+  '@minecraft/infrastructure/three/ChunkMeshService',
   {
     effect: Effect.gen(function* () {
       const atlasTexture = yield* Effect.orDie(buildAtlasTexture())

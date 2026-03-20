@@ -484,6 +484,56 @@ describe('application/time/time-service', () => {
     })
   })
 
+  describe('setDayLength → setTimeOfDay(0.5) ordering invariant', () => {
+    it('setDayLength(600) then setTimeOfDay(0.5) always results in getTimeOfDay() === 0.5', () => {
+      const program = Effect.gen(function* () {
+        const service = yield* TimeService
+        yield* service.setDayLength(600)
+        yield* service.setTimeOfDay(0.5)
+        return yield* service.getTimeOfDay()
+      }).pipe(Effect.provide(TimeServiceLive))
+
+      const result = Effect.runSync(program)
+      expect(result).toBeCloseTo(0.5, 5)
+    })
+
+    it('setDayLength(120) then setTimeOfDay(0.5) results in getTimeOfDay() === 0.5', () => {
+      const program = Effect.gen(function* () {
+        const service = yield* TimeService
+        yield* service.setDayLength(120)
+        yield* service.setTimeOfDay(0.5)
+        return yield* service.getTimeOfDay()
+      }).pipe(Effect.provide(TimeServiceLive))
+
+      const result = Effect.runSync(program)
+      expect(result).toBeCloseTo(0.5, 5)
+    })
+
+    it('setDayLength(1200) then setTimeOfDay(0.5) results in getTimeOfDay() === 0.5', () => {
+      const program = Effect.gen(function* () {
+        const service = yield* TimeService
+        yield* service.setDayLength(1200)
+        yield* service.setTimeOfDay(0.5)
+        return yield* service.getTimeOfDay()
+      }).pipe(Effect.provide(TimeServiceLive))
+
+      const result = Effect.runSync(program)
+      expect(result).toBeCloseTo(0.5, 5)
+    })
+
+    it('setDayLength(400) then setTimeOfDay(0.25) results in getTimeOfDay() === 0.25', () => {
+      const program = Effect.gen(function* () {
+        const service = yield* TimeService
+        yield* service.setDayLength(400)
+        yield* service.setTimeOfDay(0.25)
+        return yield* service.getTimeOfDay()
+      }).pipe(Effect.provide(TimeServiceLive))
+
+      const result = Effect.runSync(program)
+      expect(result).toBeCloseTo(0.25, 5)
+    })
+  })
+
   describe('multiple rapid setDayLength calls', () => {
     it('should use the last setDayLength value', () => {
       const program = Effect.gen(function* () {
@@ -520,6 +570,41 @@ describe('application/time/time-service', () => {
 
       const result = Effect.runSync(program)
       expect(result.success).toBe(true)
+    })
+  })
+
+  describe('getDayLength — round-trip with setDayLength', () => {
+    it('returns the value passed to setDayLength', () => {
+      const program = Effect.gen(function* () {
+        const service = yield* TimeService
+        yield* service.setDayLength(600)
+        const dayLength = yield* service.getDayLength()
+        expect(dayLength).toBe(600)
+        return { success: true }
+      }).pipe(Effect.provide(TimeServiceLive))
+      expect(Effect.runSync(program).success).toBe(true)
+    })
+
+    it('clamps below-minimum value to 120', () => {
+      const program = Effect.gen(function* () {
+        const service = yield* TimeService
+        yield* service.setDayLength(50)
+        const dayLength = yield* service.getDayLength()
+        expect(dayLength).toBe(120)
+        return { success: true }
+      }).pipe(Effect.provide(TimeServiceLive))
+      expect(Effect.runSync(program).success).toBe(true)
+    })
+
+    it('clamps above-maximum value to 1200', () => {
+      const program = Effect.gen(function* () {
+        const service = yield* TimeService
+        yield* service.setDayLength(9999)
+        const dayLength = yield* service.getDayLength()
+        expect(dayLength).toBe(1200)
+        return { success: true }
+      }).pipe(Effect.provide(TimeServiceLive))
+      expect(Effect.runSync(program).success).toBe(true)
     })
   })
 })

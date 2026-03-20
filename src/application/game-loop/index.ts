@@ -1,6 +1,7 @@
-import { Effect, Queue, Ref, Fiber, Schema, Cause } from 'effect'
+import { Effect, Option, Queue, Ref, Fiber, Schema, Cause } from 'effect'
 import { GameLoopError } from '@/domain/errors'
 import { DeltaTimeSecs } from '@/shared/kernel'
+import { FIRST_FRAME_DELTA_SECS } from '@/application/constants'
 
 /**
  * Frame command type for queue-based game loop
@@ -14,9 +15,6 @@ export type FrameCommand = Schema.Schema.Type<typeof FrameCommandSchema>
  * Maximum queue capacity for frame commands
  */
 const QUEUE_CAPACITY = 60
-
-/** Delta time for the very first frame when no previous timestamp exists (seconds) */
-const FIRST_FRAME_DELTA_SECS = 0.016
 
 /**
  * GameLoopService class for managing the game loop
@@ -38,10 +36,10 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
       let _isRunning = false
 
       // Holds the current frame queue (recreated on each start)
-      const frameQueueRef = yield* Ref.make<Queue.Queue<FrameCommand> | null>(null)
+      const frameQueueRef = yield* Ref.make<Option.Option<Queue.Queue<FrameCommand>>>(Option.none())
 
-      // Holds the current processing fiber (null when stopped)
-      const processingFiberRef = yield* Ref.make<Fiber.RuntimeFiber<void, never> | null>(null)
+      // Holds the current processing fiber (None when stopped)
+      const processingFiberRef = yield* Ref.make<Option.Option<Fiber.RuntimeFiber<void, never>>>(Option.none())
 
       // animationFrameId stays as let — assigned inside sync rAF callback
       let animationFrameId: number | null = null
@@ -71,7 +69,7 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
             // accumulation under load (the alternative — unbounded blocking offers — would
             // pile up rAF fibers on frame backpressure).
             const frameQueue = yield* Queue.dropping<FrameCommand>(QUEUE_CAPACITY)
-            yield* Ref.set(frameQueueRef, frameQueue)
+            yield* Ref.set(frameQueueRef, Option.some(frameQueue))
 
             /**
              * Frame processing loop - runs in a separate fiber.
@@ -133,7 +131,7 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
             // exits after start() returns. forkDaemon keeps the fiber alive until
             // stop() explicitly interrupts it via Fiber.interrupt.
             const fiber = yield* Effect.forkDaemon(processFrames)
-            yield* Ref.set(processingFiberRef, fiber)
+            yield* Ref.set(processingFiberRef, Option.some(fiber))
 
             // Start the bridge loop (schedules first rAF callback)
             bridgeLoop()
@@ -159,17 +157,17 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
             }
 
             // Interrupt processing fiber
-            const fiber = yield* Ref.get(processingFiberRef)
-            if (fiber !== null) {
-              yield* Fiber.interrupt(fiber)
-              yield* Ref.set(processingFiberRef, null)
+            const fiberOpt = yield* Ref.get(processingFiberRef)
+            if (Option.isSome(fiberOpt)) {
+              yield* Fiber.interrupt(fiberOpt.value)
+              yield* Ref.set(processingFiberRef, Option.none())
             }
 
             // Shutdown the queue to unblock any pending take
-            const queue = yield* Ref.get(frameQueueRef)
-            if (queue !== null) {
-              yield* Queue.shutdown(queue)
-              yield* Ref.set(frameQueueRef, null)
+            const queueOpt = yield* Ref.get(frameQueueRef)
+            if (Option.isSome(queueOpt)) {
+              yield* Queue.shutdown(queueOpt.value)
+              yield* Ref.set(frameQueueRef, Option.none())
             }
 
             yield* Effect.log('Game loop stopped')

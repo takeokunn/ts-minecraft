@@ -15,7 +15,7 @@ export const HOTBAR_SIZE = 9
 const InventorySlotSaveEntrySchema = Schema.Struct({
   slot: SlotIndexSchema,
   blockType: BlockTypeSchema,   // Use typed schema for runtime type safety
-  count: Schema.Number,
+  count: Schema.Number.pipe(Schema.int(), Schema.between(1, 64)),
 })
 export const InventorySaveDataSchema = Schema.Struct({
   slots: Schema.Array(Schema.NullOr(InventorySlotSaveEntrySchema)),
@@ -41,7 +41,7 @@ export class InventoryService extends Effect.Service<InventoryService>()(
         return Option.none()
       })
 
-      const slotsRef = yield* Ref.make<InventorySlot[]>(initialSlots)
+      const slotsRef = yield* Ref.make<InventorySlots>(initialSlots)
 
       const getSlot = (index: SlotIndex): Effect.Effect<InventorySlot, never> =>
         Ref.get(slotsRef).pipe(Effect.map((slots) => slots[SlotIndex.toNumber(index)] ?? Option.none()))
@@ -153,7 +153,7 @@ export class InventoryService extends Effect.Service<InventoryService>()(
           const next = [...slots]
           for (const entry of data.slots) {
             if (entry && entry.slot >= 0 && entry.slot < INVENTORY_SIZE) {
-              next[entry.slot] = Option.some(createStack(entry.blockType as BlockType, entry.count))
+              next[entry.slot] = Option.some(createStack(entry.blockType, entry.count))
             }
           }
           return next

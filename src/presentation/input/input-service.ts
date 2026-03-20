@@ -187,13 +187,11 @@ export const PlayerInputServiceLive: Layer.Layer<PlayerInputService, never, Inpu
     PlayerInputService,
     Effect.gen(function* () {
       const input = yield* InputService
-      const impl: {
-        isKeyPressed: (key: string) => Effect.Effect<boolean>
-        consumeKeyPress: (key: string) => Effect.Effect<boolean>
-        consumeWheelDelta: () => Effect.Effect<number>
-        getMouseDelta: () => Effect.Effect<MouseDelta>
-        isPointerLocked: () => Effect.Effect<boolean>
-      } = {
+      // Effect.Service adds a `_tag` discriminant to every instance type, so plain objects
+      // cannot satisfy InstanceType<typeof PlayerInputService> without a cast.
+      // The double cast is intentional and safe: the layer graph provides this object
+      // via Layer.effect(PlayerInputService, ...) which only accesses the 5 declared methods.
+      const impl = {
         isKeyPressed: (key: string) => input.isKeyPressed(key),
         consumeKeyPress: (key: string) => input.consumeKeyPress(key),
         consumeWheelDelta: () => input.consumeWheelDelta(),

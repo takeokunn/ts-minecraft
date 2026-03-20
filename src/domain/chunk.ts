@@ -20,7 +20,10 @@ export const CHUNK_HEIGHT = 256 // y dimension (0-255)
 /**
  * Chunk coordinate type for identifying chunk position in world
  */
-export const ChunkCoordSchema = Schema.Struct({ x: Schema.Number, z: Schema.Number })
+export const ChunkCoordSchema = Schema.Struct({
+  x: Schema.Number.pipe(Schema.int()),
+  z: Schema.Number.pipe(Schema.int()),
+})
 export type ChunkCoord = Schema.Schema.Type<typeof ChunkCoordSchema>
 
 /**
@@ -60,7 +63,7 @@ const BLOCK_TYPE_TO_INDEX: Record<BlockType, number> = {
 /**
  * Number index to BlockType mapping for retrieval
  */
-const INDEX_TO_BLOCK_TYPE: BlockType[] = ['AIR', 'DIRT', 'STONE', 'WOOD', 'GRASS', 'SAND', 'WATER', 'LEAVES', 'GLASS', 'SNOW', 'GRAVEL', 'COBBLESTONE']
+const INDEX_TO_BLOCK_TYPE: ReadonlyArray<BlockType> = ['AIR', 'DIRT', 'STONE', 'WOOD', 'GRASS', 'SAND', 'WATER', 'LEAVES', 'GLASS', 'SNOW', 'GRAVEL', 'COBBLESTONE']
 
 /**
  * Convert BlockType to storage index
@@ -96,7 +99,7 @@ export const toBlockIndex = (x: number, y: number, z: number): Effect.Effect<num
 }
 
 export class ChunkService extends Effect.Service<ChunkService>()(
-  '@minecraft/ChunkService',
+  '@minecraft/domain/ChunkService',
   {
     effect: Effect.succeed({
       /**
@@ -104,10 +107,7 @@ export class ChunkService extends Effect.Service<ChunkService>()(
        * All blocks are initialized to AIR (0)
        */
       createChunk: (coord: ChunkCoord): Effect.Effect<Chunk, never> =>
-        Effect.sync(() => {
-          const blocks = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
-          return { coord, blocks }
-        }),
+        Effect.succeed({ coord, blocks: new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT) }),
 
       /**
        * Get the block type at specified local coordinates within a chunk
@@ -159,7 +159,7 @@ export class ChunkService extends Effect.Service<ChunkService>()(
        * Convert chunk coordinates and local coordinates to world coordinates
        * Returns the absolute world position
        */
-      chunkToWorldCoord: (coord: ChunkCoord, localX: number, localZ: number): Effect.Effect<{ readonly x: number; readonly z: number }, never, never> =>
+      chunkToWorldCoord: (coord: ChunkCoord, localX: number, localZ: number): Effect.Effect<ChunkCoord, never, never> =>
         Effect.succeed({
           x: coord.x * CHUNK_SIZE + localX,
           z: coord.z * CHUNK_SIZE + localZ,

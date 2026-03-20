@@ -67,6 +67,7 @@ vi.mock('three', () => ({
     updateMatrixWorld: vi.fn(),
     projectionMatrix: { elements: Array.from({ length: 16 }, () => 0) },
     matrixWorldInverse: { elements: Array.from({ length: 16 }, () => 0) },
+    isCamera: true,
   })),
   MeshStandardMaterial: vi.fn(() => ({ map: null })),
   CanvasTexture: vi.fn(() => ({ magFilter: 0, minFilter: 0, wrapS: 0, wrapT: 0 })),
@@ -325,6 +326,96 @@ describe('infrastructure/three/world-renderer', () => {
 
       expect(result.addCountAfterSync).toBe(1)
       expect(result.addCountAfterUpdate).toBe(1) // no extra scene.add on update
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // applyFrustumCulling behavioral tests
+  //
+  // applyFrustumCulling(camera) takes only a PerspectiveCamera (no scene arg).
+  // The THREE mocks provide:
+  //   - PerspectiveCamera: updateMatrixWorld() vi.fn, projectionMatrix, matrixWorldInverse
+  //   - Frustum: setFromProjectionMatrix() vi.fn, intersectsBox() returns true by default
+  // ---------------------------------------------------------------------------
+
+  describe('applyFrustumCulling', () => {
+    it('sets mesh.visible = true for chunks inside the frustum', async () => {
+      // Default Frustum mock: intersectsBox returns true → all meshes visible.
+      const mockMeshes: ReturnType<typeof makeMockMesh>[] = []
+      const createChunkMesh = vi.fn((chunk: Chunk) => {
+        const mesh = makeMockMesh(chunk.coord)
+        mockMeshes.push(mesh)
+        return Effect.succeed(mesh as unknown as THREE.Mesh)
+      })
+      const TestLayer = buildTestLayer(createChunkMesh)
+      const scene = makeScene()
+      const camera = new THREE.PerspectiveCamera()
+
+      await Effect.gen(function* () {
+        const s = yield* WorldRendererService
+        yield* s.syncChunksToScene([makeChunk(0, 0), makeChunk(1, 0)], scene)
+        yield* s.applyFrustumCulling(camera)
+      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
+
+      // All meshes visible (intersectsBox = true from default mock)
+      for (const mesh of mockMeshes) {
+        expect(mesh.visible).toBe(true)
+      }
+    })
+
+    it('sets mesh.visible = false for chunks outside the frustum', async () => {
+      // Temporarily override Frustum mock to return intersectsBox = false.
+      const FrustumCtor = THREE.Frustum as ReturnType<typeof vi.fn>
+      const originalImpl = FrustumCtor.getMockImplementation()
+      FrustumCtor.mockImplementation(() => ({
+        setFromProjectionMatrix: vi.fn(),
+        intersectsBox: vi.fn(() => false),
+      }))
+
+      const mockMeshes: ReturnType<typeof makeMockMesh>[] = []
+      const createChunkMesh = vi.fn((chunk: Chunk) => {
+        const mesh = makeMockMesh(chunk.coord)
+        mesh.visible = true // start visible so we can detect the change
+        mockMeshes.push(mesh)
+        return Effect.succeed(mesh as unknown as THREE.Mesh)
+      })
+      const TestLayer = buildTestLayer(createChunkMesh)
+      const scene = makeScene()
+      const camera = new THREE.PerspectiveCamera()
+
+      await Effect.gen(function* () {
+        const s = yield* WorldRendererService
+        yield* s.syncChunksToScene([makeChunk(0, 0), makeChunk(1, 0)], scene)
+        yield* s.applyFrustumCulling(camera)
+      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
+
+      // Restore original Frustum implementation
+      if (originalImpl !== undefined) {
+        FrustumCtor.mockImplementation(originalImpl)
+      } else {
+        FrustumCtor.mockImplementation(() => ({
+          setFromProjectionMatrix: vi.fn(),
+          intersectsBox: vi.fn(() => true),
+        }))
+      }
+
+      // All meshes hidden (intersectsBox = false)
+      for (const mesh of mockMeshes) {
+        expect(mesh.visible).toBe(false)
+      }
+    })
+
+    it('completes without error when no chunks are loaded', async () => {
+      const TestLayer = buildTestLayer()
+      const camera = new THREE.PerspectiveCamera()
+
+      const result = await Effect.gen(function* () {
+        const s = yield* WorldRendererService
+        yield* s.applyFrustumCulling(camera)
+        return { success: true }
+      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
+
+      expect(result.success).toBe(true)
     })
   })
 })

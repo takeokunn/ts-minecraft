@@ -79,6 +79,7 @@ vi.mock('three', () => {
 import { HotbarRendererService, HotbarRendererLive } from './hotbar-three'
 import { RendererService } from '@/infrastructure/three/renderer/renderer-service'
 import type { BlockType } from '@/domain/block'
+import { SlotIndex } from '@/shared/kernel'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -155,7 +156,7 @@ describe('HotbarRendererService', () => {
       const program = Effect.gen(function* () {
         const renderer = yield* HotbarRendererService
         yield* renderer.initialize(800, 600)
-        yield* renderer.update(emptySlots, 0)
+        yield* renderer.update(emptySlots, SlotIndex.make(0))
       })
 
       expect(() =>
@@ -180,7 +181,7 @@ describe('HotbarRendererService', () => {
       const program = Effect.gen(function* () {
         const renderer = yield* HotbarRendererService
         yield* renderer.initialize(800, 600)
-        yield* renderer.update(slots, 0)
+        yield* renderer.update(slots, SlotIndex.make(0))
       })
 
       expect(() =>
@@ -199,7 +200,7 @@ describe('HotbarRendererService', () => {
         const renderer = yield* HotbarRendererService
         yield* renderer.initialize(800, 600)
         for (let i = 0; i < 9; i++) {
-          yield* renderer.update(emptySlots, i)
+          yield* renderer.update(emptySlots, SlotIndex.make(i))
         }
       })
 
@@ -218,7 +219,7 @@ describe('HotbarRendererService', () => {
       const program = Effect.gen(function* () {
         const renderer = yield* HotbarRendererService
         // update before initialize — slot meshes array is empty, should be a safe no-op
-        yield* renderer.update(emptySlots, 0)
+        yield* renderer.update(emptySlots, SlotIndex.make(0))
       })
 
       expect(() =>
@@ -296,7 +297,7 @@ describe('HotbarRendererService', () => {
       const program = Effect.gen(function* () {
         const renderer = yield* HotbarRendererService
         yield* renderer.initialize(1280, 720)
-        yield* renderer.update(slots, 2)
+        yield* renderer.update(slots, SlotIndex.make(2))
         yield* renderer.render(fakeWebGLRenderer)
       })
 
@@ -322,7 +323,7 @@ describe('HotbarRendererService', () => {
         yield* renderer.initialize(800, 600)
 
         for (let frame = 0; frame < 5; frame++) {
-          yield* renderer.update(emptySlots, frame % 9)
+          yield* renderer.update(emptySlots, SlotIndex.make(frame % 9))
           yield* renderer.render(fakeWebGLRenderer)
         }
       })

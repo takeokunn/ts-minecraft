@@ -1,10 +1,9 @@
-import { Effect, Ref, Stream, PubSub, Data, Schema } from 'effect'
-import * as CANNON from 'cannon-es'
+import { Effect, Option, Ref, Data, Schema } from 'effect'
 import { PhysicsBodyId, PhysicsBodyIdSchema, Position, PositionSchema, DeltaTimeSecs } from '@/shared/kernel'
 import { Vector3Schema, type Vector3 } from '@/shared/math/three'
-import { RigidBodyService } from '@/infrastructure/cannon/boundary/rigid-body-service'
-import { PhysicsWorldService } from '@/infrastructure/cannon/boundary/physics-world-service'
-import { ShapeService } from '@/infrastructure/cannon/boundary/shape-service'
+import { RigidBodyService, type CustomBody } from '@/infrastructure/physics/boundary/rigid-body-service'
+import { PhysicsWorldService, type CustomWorld } from '@/infrastructure/physics/boundary/physics-world-service'
+import { ShapeService, type CustomShape } from '@/infrastructure/physics/boundary/shape-service'
 
 /**
  * Error type for PhysicsService operations.
@@ -23,21 +22,10 @@ export class PhysicsServiceError extends Data.TaggedError('PhysicsServiceError')
 }
 
 /**
- * PhysicsBody handle — only exposes the opaque ID, not the raw CANNON.Body
+ * PhysicsBody handle — only exposes the opaque ID, not the raw body
  */
 export const PhysicsBodySchema = Schema.Struct({ id: PhysicsBodyIdSchema })
 export type PhysicsBody = typeof PhysicsBodySchema.Type
-
-/**
- * Raycast hit result — references a body by ID, not raw CANNON.Body
- */
-export const PhysicsRaycastHitSchema = Schema.Struct({
-  bodyId: PhysicsBodyIdSchema,
-  point: Vector3Schema,
-  normal: Vector3Schema,
-  distance: Schema.Number,
-})
-export type PhysicsRaycastHit = Schema.Schema.Type<typeof PhysicsRaycastHitSchema>
 
 /**
  * Configuration for adding a rigid body
@@ -48,13 +36,13 @@ const ShapeParamsSchema = Schema.Struct({
 })
 
 export const AddBodyConfigSchema = Schema.Struct({
-  mass: Schema.Number,
+  mass: Schema.Number.pipe(Schema.finite(), Schema.nonNegative()),
   position: PositionSchema,
   shape: Schema.Literal('box', 'sphere', 'plane'),
   shapeParams: Schema.optional(ShapeParamsSchema),
   type: Schema.optional(Schema.Literal('dynamic', 'static', 'kinematic')),
   fixedRotation: Schema.optional(Schema.Boolean),
-  angularDamping: Schema.optional(Schema.Number),
+  angularDamping: Schema.optional(Schema.Number.pipe(Schema.finite())),
   allowSleep: Schema.optional(Schema.Boolean),
 })
 export type AddBodyConfig = Schema.Schema.Type<typeof AddBodyConfigSchema>
@@ -70,46 +58,44 @@ export const GROUND_DETECTION_DISTANCE = 0.15
 export const PLAYER_FEET_OFFSET = 0.9
 
 export class PhysicsService extends Effect.Service<PhysicsService>()(
-  '@minecraft/layer/PhysicsService',
+  '@minecraft/application/PhysicsService',
   {
     effect: Effect.gen(function* () {
       const rigidBodyService = yield* RigidBodyService
       const physicsWorldService = yield* PhysicsWorldService
       const shapeService = yield* ShapeService
 
-      // Internal state: CANNON.World stored in a Ref
-      const worldRef = yield* Ref.make<CANNON.World | null>(null)
+      // Internal state: CustomWorld stored in a Ref
+      const worldRef = yield* Ref.make<Option.Option<CustomWorld>>(Option.none())
 
-      // Internal body registry: maps PhysicsBodyId -> CANNON.Body
-      const bodyMap = new Map<PhysicsBodyId, CANNON.Body>()
+      // Internal body registry: maps PhysicsBodyId -> CustomBody
+      const bodyMap = new Map<PhysicsBodyId, CustomBody>()
 
-      // Collision handler registry: maps PhysicsBodyId -> stored handler (for removeEventListener)
-      const handlerMap = new Map<PhysicsBodyId, (event: unknown) => void>()
+      // Track plane body Y positions for isGrounded()
+      const planePositions = new Map<PhysicsBodyId, number>()
 
-      // PubSub for ground collision events
-      const groundPubSub = yield* PubSub.unbounded<PhysicsBodyId>()
-
-      // Per-instance body ID counter — starts at 0 for each new PhysicsService instance
+      // Per-instance body ID counter
       let nextBodyId = 0
       const makeBodyId = (): PhysicsBodyId =>
-        PhysicsBodyIdSchema.make(`physics-body-${nextBodyId++}`)
+        PhysicsBodyId.make(`physics-body-${nextBodyId++}`)
 
       /**
        * Helper: get world or fail with PhysicsServiceError
        */
-      const getWorld: Effect.Effect<CANNON.World, PhysicsServiceError> = Ref.get(worldRef).pipe(
+      const getWorld: Effect.Effect<CustomWorld, PhysicsServiceError> = Ref.get(worldRef).pipe(
         Effect.flatMap((world) =>
-          world === null
-            ? Effect.fail(new PhysicsServiceError({ operation: 'getWorld', cause: 'Physics world not initialized. Call initialize() first.' }))
-            : Effect.succeed(world)
+          Option.match(world, {
+            onNone: () => Effect.fail(new PhysicsServiceError({ operation: 'getWorld', cause: 'Physics world not initialized. Call initialize() first.' })),
+            onSome: (w) => Effect.succeed(w),
+          })
         )
       )
 
       /**
-       * Helper: get CANNON.Body or fail with PhysicsServiceError
+       * Helper: get CustomBody or fail with PhysicsServiceError
        */
-      const getBody = (bodyId: PhysicsBodyId): Effect.Effect<CANNON.Body, PhysicsServiceError> =>
-        Effect.sync(() => bodyMap.get(bodyId)).pipe(
+      const getBody = (bodyId: PhysicsBodyId): Effect.Effect<CustomBody, PhysicsServiceError> =>
+        Effect.succeed(bodyMap.get(bodyId)).pipe(
           Effect.flatMap((body) =>
             body !== undefined
               ? Effect.succeed(body)
@@ -119,27 +105,22 @@ export class PhysicsService extends Effect.Service<PhysicsService>()(
 
       return {
         initialize: (config: { gravity: Vector3; broadphase: 'naive' | 'sap' }): Effect.Effect<void, PhysicsServiceError> =>
-          Ref.get(worldRef).pipe(
-            Effect.flatMap((existingWorld) => {
-              if (existingWorld !== null) {
-                return Effect.void
-              }
-              return physicsWorldService.create({
-                gravity: config.gravity,
-                broadphase: config.broadphase,
-              }).pipe(
-                Effect.flatMap((world) => Ref.set(worldRef, world)),
-                Effect.mapError((e) => new PhysicsServiceError({ operation: 'initialize', cause: e }))
-              )
-            })
-          ),
+          Effect.gen(function* () {
+            const existingWorld = yield* Ref.get(worldRef)
+            if (Option.isSome(existingWorld)) return
+            const world = yield* physicsWorldService.create({
+              gravity: config.gravity,
+              broadphase: config.broadphase,
+            }).pipe(Effect.mapError((e) => new PhysicsServiceError({ operation: 'initialize', cause: e })))
+            yield* Ref.set(worldRef, Option.some(world))
+          }),
 
         addBody: (config: AddBodyConfig): Effect.Effect<PhysicsBodyId, PhysicsServiceError> =>
           getWorld.pipe(
             Effect.flatMap((world) =>
               Effect.gen(function* () {
                 // Create shape
-                let shape: CANNON.Shape
+                let shape: CustomShape
                 if (config.shape === 'box') {
                   const halfExtents = config.shapeParams?.halfExtents ?? { x: 0.5, y: 0.5, z: 0.5 }
                   shape = yield* shapeService.createBox({ halfExtents })
@@ -179,39 +160,19 @@ export class PhysicsService extends Effect.Service<PhysicsService>()(
                   body.allowSleep = config.allowSleep
                 }
 
-                // Plane shapes need to be rotated to face upward (+Y normal)
-                if (config.shape === 'plane') {
-                  body.quaternion.setFromEuler(-Math.PI / 2, 0, 0)
-                }
-
                 yield* rigidBodyService.updateMassProperties(body)
 
                 // Generate opaque ID
                 const bodyId = makeBodyId()
 
-                // Register collision listener for ground detection (stored for cleanup in removeBody)
-                const collideHandler = (event: unknown) => {
-                  if (typeof event !== 'object' || event === null || !('contact' in event)) return
-                  const contactNormal = new CANNON.Vec3()
-                  const contact = (event as { contact: CANNON.ContactEquation }).contact
-                  if (contact.bi.id === body.id) {
-                    contact.ni.negate(contactNormal)
-                  } else {
-                    contactNormal.copy(contact.ni)
-                  }
-                  if (contactNormal.y > 0.5) {
-                    Effect.runFork(
-                      PubSub.publish(groundPubSub, bodyId).pipe(
-                        Effect.catchAllCause(() => Effect.void),
-                      ),
-                    )
-                  }
-                }
-                // Add body to world FIRST — handlerMap/bodyMap writes only after success
+                // Add body to world and register
                 yield* physicsWorldService.addBody(world, body)
                 bodyMap.set(bodyId, body)
-                handlerMap.set(bodyId, collideHandler)
-                body.addEventListener('collide', collideHandler)
+
+                // Track plane positions for isGrounded()
+                if (config.shape === 'plane') {
+                  planePositions.set(bodyId, config.position.y)
+                }
 
                 return bodyId
               }).pipe(
@@ -221,109 +182,54 @@ export class PhysicsService extends Effect.Service<PhysicsService>()(
           ),
 
         removeBody: (bodyId: PhysicsBodyId): Effect.Effect<void, PhysicsServiceError> =>
-          Effect.all([getWorld, getBody(bodyId)]).pipe(
-            Effect.flatMap(([world, body]) =>
-              physicsWorldService.removeBody(world, body).pipe(
-                Effect.tap(() => Effect.sync(() => {
-                  const handler = handlerMap.get(bodyId)
-                  if (handler) {
-                    body.removeEventListener('collide', handler)
-                    handlerMap.delete(bodyId)
-                  }
-                  bodyMap.delete(bodyId)
-                })),
-                Effect.mapError((e) => new PhysicsServiceError({ operation: 'removeBody', cause: e }))
-              )
+          Effect.gen(function* () {
+            const world = yield* getWorld
+            const body = yield* getBody(bodyId)
+            yield* physicsWorldService.removeBody(world, body).pipe(
+              Effect.mapError((e) => new PhysicsServiceError({ operation: 'removeBody', cause: e }))
             )
-          ),
+            bodyMap.delete(bodyId)
+            planePositions.delete(bodyId)
+          }),
 
         step: (deltaTime: DeltaTimeSecs, options?: { readonly minY?: number }): Effect.Effect<void, PhysicsServiceError> =>
-          getWorld.pipe(
-            Effect.flatMap((world) =>
-              physicsWorldService.step(world, deltaTime).pipe(
-                Effect.tap(() =>
-                  Effect.sync(() => {
-                    if (options?.minY !== undefined) {
-                      const minY = options.minY
-                      for (const body of bodyMap.values()) {
-                        if (body.type !== CANNON.Body.STATIC && body.position.y < minY) {
-                          body.position.y = minY
-                          if (body.velocity.y < 0) body.velocity.y = 0
-                        }
-                      }
-                    }
-                  })
-                ),
-                Effect.mapError((e) => new PhysicsServiceError({ operation: 'step', cause: e }))
-              )
+          Effect.gen(function* () {
+            const world = yield* getWorld
+            yield* physicsWorldService.step(world, deltaTime).pipe(
+              Effect.mapError((e) => new PhysicsServiceError({ operation: 'step', cause: e }))
             )
-          ),
-
-        raycast: (
-          from: Vector3,
-          to: Vector3,
-        ): Effect.Effect<ReadonlyArray<PhysicsRaycastHit>, PhysicsServiceError> =>
-          getWorld.pipe(
-            Effect.flatMap((world) =>
-              Effect.sync(() => {
-                const hits: PhysicsRaycastHit[] = []
-
-                const fromVec = new CANNON.Vec3(from.x, from.y, from.z)
-                const toVec = new CANNON.Vec3(to.x, to.y, to.z)
-
-                world.raycastAll(fromVec, toVec, { skipBackfaces: true }, (hit) => {
-                  if (hit.hasHit) {
-                    const hitBody = hit.body
-                    if (hitBody !== null) {
-                      for (const [id, body] of bodyMap.entries()) {
-                        if (body === hitBody) {
-                          hits.push({
-                            bodyId: id,
-                            point: { x: hit.hitPointWorld.x, y: hit.hitPointWorld.y, z: hit.hitPointWorld.z },
-                            normal: { x: hit.hitNormalWorld.x, y: hit.hitNormalWorld.y, z: hit.hitNormalWorld.z },
-                            distance: hit.distance,
-                          })
-                          break
-                        }
-                      }
-                    }
-                  }
-                })
-
-                return hits as ReadonlyArray<PhysicsRaycastHit>
-              })
-            )
-          ),
-
-        isGrounded: (bodyId: PhysicsBodyId): Effect.Effect<boolean, PhysicsServiceError> =>
-          Effect.all([getWorld, getBody(bodyId)]).pipe(
-            Effect.map(([world, body]) => {
-              let grounded = false
-              const contacts = world.contacts
-
-              for (const contact of contacts) {
-                if (contact.bi === body || contact.bj === body) {
-                  const normal = new CANNON.Vec3()
-                  if (contact.bi === body) {
-                    contact.ni.negate(normal)
-                  } else {
-                    normal.copy(contact.ni)
-                  }
-                  if (normal.y > 0.5) {
-                    grounded = true
-                    break
-                  }
+            if (options?.minY !== undefined) {
+              const minY = options.minY
+              for (const body of bodyMap.values()) {
+                if (body.type !== 'static' && body.position.y < minY) {
+                  body.position.y = minY
+                  if (body.velocity.y < 0) body.velocity.y = 0
                 }
               }
+            }
+          }),
 
-              return grounded
+        isGrounded: (bodyId: PhysicsBodyId): Effect.Effect<boolean, PhysicsServiceError> =>
+          getBody(bodyId).pipe(
+            Effect.map((body) => {
+              if (planePositions.size === 0) return false
+
+              let bodyBottomY: number
+              if (body.shape.kind === 'box') {
+                bodyBottomY = body.position.y - body.shape.halfExtents.y
+              } else if (body.shape.kind === 'sphere') {
+                bodyBottomY = body.position.y - body.shape.radius
+              } else {
+                return false // planes are never grounded
+              }
+
+              for (const planeY of planePositions.values()) {
+                if (bodyBottomY >= planeY - 0.5 && bodyBottomY <= planeY + GROUND_DETECTION_DISTANCE) {
+                  return true
+                }
+              }
+              return false
             })
-          ),
-
-        groundCollisions: (bodyId: PhysicsBodyId): Stream.Stream<void, never, never> =>
-          Stream.fromPubSub(groundPubSub).pipe(
-            Stream.filter((id) => id === bodyId),
-            Stream.map(() => undefined as void),
           ),
 
         getVelocity: (bodyId: PhysicsBodyId): Effect.Effect<Vector3, PhysicsServiceError> =>

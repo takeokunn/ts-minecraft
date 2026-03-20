@@ -97,7 +97,7 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
         Effect.runFork(
           Effect.gen(function* () {
             const selectedSlot = yield* hotbarService.getSelectedSlot()
-            const hotbarInventoryIndex = HOTBAR_START + selectedSlot
+            const hotbarInventoryIndex = HOTBAR_START + SlotIndex.toNumber(selectedSlot)
             yield* inventoryService.moveStack(SlotIndex.make(index), SlotIndex.make(hotbarInventoryIndex))
           }).pipe(
             Effect.catchAllCause(cause =>
@@ -137,7 +137,7 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
               el.textContent = ''
             }
             // Highlight selected hotbar slot
-            if (i >= HOTBAR_START && i === HOTBAR_START + selectedSlot) {
+            if (i >= HOTBAR_START && i === HOTBAR_START + SlotIndex.toNumber(selectedSlot)) {
               el.style.border = '2px solid #fff'
             } else {
               el.style.border = '2px solid #666'
@@ -146,8 +146,6 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
         })
 
       return {
-        initialize: (): Effect.Effect<void, never> => Effect.void,
-
         toggle: (): Effect.Effect<boolean, never> =>
           Effect.gen(function* () {
             const current = yield* Ref.get(isVisibleRef)

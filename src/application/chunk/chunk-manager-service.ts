@@ -1,11 +1,11 @@
 import { Clock, Effect, Ref, Option, Schema, Metric, MetricBoundaries, Duration } from 'effect'
 import { ChunkService, ChunkSchema, Chunk, ChunkCoord, blockTypeToIndex, blockIndex, CHUNK_SIZE, CHUNK_HEIGHT } from '@/domain/chunk'
-import { StorageService } from '@/infrastructure/storage/storage-service'
+import { StorageServicePort } from '@/application/storage/storage-service-port'
 import { Position } from '@/shared/kernel'
 import { DEFAULT_WORLD_ID } from '@/application/constants'
 import { ChunkError, StorageError } from '@/domain/errors'
 import { BiomeService } from '@/application/biome/biome-service'
-import { NoiseService } from '@/infrastructure/noise/noise-service'
+import { NoiseServicePort } from '@/application/noise/noise-service-port'
 
 /**
  * Render distance configuration
@@ -232,7 +232,7 @@ const placeTree = (
 const generateTerrain = (
   chunkService: ChunkService,
   biomeService: BiomeService,
-  noiseService: NoiseService,
+  noiseService: NoiseServicePort,
   coord: ChunkCoord
 ): Effect.Effect<Chunk, never> =>
   Effect.gen(function* () {
@@ -285,14 +285,18 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
   {
     effect: Effect.gen(function* () {
       const chunkService = yield* ChunkService
-      const storageService = yield* StorageService
+      const storageService = yield* StorageServicePort
       const biomeService = yield* BiomeService
-      const noiseService = yield* NoiseService
+      const noiseService = yield* NoiseServicePort
 
       const cache = yield* Ref.make<ChunkCache>({
         chunks: new Map(),
         dirtyChunks: new Set(),
       })
+
+      // Cache for getLoadedChunks result — invalidated whenever a chunk is inserted or removed.
+      // Avoids allocating two arrays + N object refs on every frame at 60 Hz.
+      const cachedLoadedChunksRef = yield* Ref.make<Option.Option<ReadonlyArray<Chunk>>>(Option.none())
 
       const lastLoadTimeRef = yield* Ref.make<number>(0)
 
@@ -349,6 +353,8 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
             }
             return { ...s, chunks: newChunks, dirtyChunks: newDirty }
           })
+          // Invalidate getLoadedChunks cache: chunk set has changed
+          yield* Ref.set(cachedLoadedChunksRef, Option.none())
         })
 
       const getChunk = (coord: ChunkCoord): Effect.Effect<Chunk, ChunkManagerError> =>
@@ -421,6 +427,8 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
             newDirty.delete(key)
             return { chunks: newChunks, dirtyChunks: newDirty }
           })
+          // Invalidate getLoadedChunks cache: chunk set has changed
+          yield* Ref.set(cachedLoadedChunksRef, Option.none())
         })
 
       return {
@@ -437,13 +445,14 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
         loadChunksAroundPlayer: (playerPos: Position): Effect.Effect<void, ChunkManagerError> =>
           Effect.gen(function* () {
             const now = yield* Clock.currentTimeMillis
-            const lastLoadTime = yield* Ref.get(lastLoadTimeRef)
 
-            // Throttle: only run every 200ms
-            if (now - lastLoadTime < 200) {
+            // Throttle: atomic check-and-update so concurrent callers can't both pass the gate
+            const shouldLoad = yield* Ref.modify(lastLoadTimeRef, (last) =>
+              now - last < 200 ? [false, last] : [true, now]
+            )
+            if (!shouldLoad) {
               return
             }
-            yield* Ref.set(lastLoadTimeRef, now)
 
             const centerChunk = worldToChunkCoord(playerPos)
             const chunksToLoad = getChunksInRenderDistance(centerChunk)
@@ -468,12 +477,18 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
           }),
 
         /**
-         * Get all currently loaded chunks
+         * Get all currently loaded chunks.
+         * Result is cached and only recomputed when the chunk set changes (insert/remove).
+         * Avoids allocating two arrays + N object refs on every frame at 60 Hz.
          */
         getLoadedChunks: (): Effect.Effect<ReadonlyArray<Chunk>, never> =>
           Effect.gen(function* () {
+            const cached = yield* Ref.get(cachedLoadedChunksRef)
+            if (Option.isSome(cached)) return cached.value
             const state = yield* Ref.get(cache)
-            return Array.from(state.chunks.values()).map((entry) => entry.chunk)
+            const chunks = Array.from(state.chunks.values()).map((entry) => entry.chunk) as ReadonlyArray<Chunk>
+            yield* Ref.set(cachedLoadedChunksRef, Option.some(chunks))
+            return chunks
           }),
 
         /**

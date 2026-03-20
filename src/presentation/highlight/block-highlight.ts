@@ -1,6 +1,6 @@
 import { Effect, Option, Ref, Schema } from 'effect'
 import * as THREE from 'three'
-import { RaycastHit, RaycastingService } from '@/application/raycasting/raycasting-service'
+import { RaycastHit, RaycastingService } from '@/infrastructure/three/raycasting/raycasting-service'
 
 /**
  * Schema for block target coordinates (integer block positions)
@@ -43,7 +43,7 @@ export const createWireframeCube = (color: number = DEFAULT_HIGHLIGHT_COLOR): TH
  * - Get current target block coordinates
  */
 export class BlockHighlightService extends Effect.Service<BlockHighlightService>()(
-  '@minecraft/layer/BlockHighlight',
+  '@minecraft/presentation/BlockHighlight',
   {
     effect: Effect.gen(function* () {
       const raycastingService = yield* RaycastingService

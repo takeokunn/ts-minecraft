@@ -1,5 +1,5 @@
 import { Effect, Schema } from 'effect'
-import { NoiseService } from '@/infrastructure/noise/noise-service'
+import { NoiseServicePort } from '@/application/noise/noise-service-port'
 import { BlockTypeSchema } from '@/domain/block'
 
 /**
@@ -17,15 +17,15 @@ export const BiomePropertiesSchema = Schema.Struct({
   /** Block type below surface */
   subSurfaceBlock: BlockTypeSchema,
   /** Density of trees (0-1) */
-  treeDensity: Schema.Number,
+  treeDensity: Schema.Number.pipe(Schema.finite(), Schema.between(0, 1)),
   /** Height modifier for terrain */
-  heightModifier: Schema.Number,
+  heightModifier: Schema.Number.pipe(Schema.finite(), Schema.positive()),
   /** Base height for this biome */
-  baseHeight: Schema.Number,
+  baseHeight: Schema.Number.pipe(Schema.finite(), Schema.positive()),
   /** Temperature range (0-1) */
-  temperature: Schema.Number,
+  temperature: Schema.Number.pipe(Schema.finite(), Schema.between(0, 1)),
   /** Humidity range (0-1) */
-  humidity: Schema.Number,
+  humidity: Schema.Number.pipe(Schema.finite(), Schema.between(0, 1)),
 })
 export type BiomeProperties = Schema.Schema.Type<typeof BiomePropertiesSchema>
 
@@ -175,7 +175,7 @@ export class BiomeService extends Effect.Service<BiomeService>()(
   '@minecraft/application/BiomeService',
   {
     effect: Effect.gen(function* () {
-      const noiseService = yield* NoiseService
+      const noiseService = yield* NoiseServicePort
 
       const getTemperature = (x: number, z: number): Effect.Effect<number, never> =>
         // Use octave noise for smoother temperature gradients

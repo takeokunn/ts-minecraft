@@ -31,7 +31,7 @@ export class HotbarService extends Effect.Service<HotbarService>()(
       const inputService = yield* PlayerInputService
       const inventoryService = yield* InventoryService
 
-      const selectedSlotRef = yield* Ref.make<number>(0)
+      const selectedSlotRef = yield* Ref.make<SlotIndex>(SlotIndex.make(0))
 
       const hotbarKeys: ReadonlyArray<string> = [
         KeyMappings.HOTBAR_SLOT_1,
@@ -50,15 +50,13 @@ export class HotbarService extends Effect.Service<HotbarService>()(
          * Get the currently selected slot index (0-8)
          */
         getSelectedSlot: (): Effect.Effect<SlotIndex, never> =>
-          Ref.get(selectedSlotRef).pipe(
-            Effect.map((n) => SlotIndex.make(n))
-          ),
+          Ref.get(selectedSlotRef),
 
         /**
          * Set the selected slot index (clamped to 0-8)
          */
         setSelectedSlot: (slot: SlotIndex): Effect.Effect<void, never> =>
-          Ref.set(selectedSlotRef, Math.max(0, Math.min(HOTBAR_SIZE - 1, SlotIndex.toNumber(slot)))),
+          Ref.set(selectedSlotRef, SlotIndex.make(Math.max(0, Math.min(HOTBAR_SIZE - 1, SlotIndex.toNumber(slot))))),
 
         /**
          * Get the BlockType for the currently selected slot.
@@ -67,7 +65,7 @@ export class HotbarService extends Effect.Service<HotbarService>()(
         getSelectedBlockType: (): Effect.Effect<Option.Option<BlockType>, never> =>
           Effect.gen(function* () {
             const slot = yield* Ref.get(selectedSlotRef)
-            const inventorySlot = yield* inventoryService.getSlot(SlotIndex.make(HOTBAR_START + slot))
+            const inventorySlot = yield* inventoryService.getSlot(SlotIndex.make(HOTBAR_START + SlotIndex.toNumber(slot)))
             return Option.map(inventorySlot, (stack) => stack.blockType)
           }),
 
@@ -92,7 +90,7 @@ export class HotbarService extends Effect.Service<HotbarService>()(
               if (key !== undefined) {
                 const pressed = yield* inputService.consumeKeyPress(key)
                 if (pressed) {
-                  yield* Ref.set(selectedSlotRef, i)
+                  yield* Ref.set(selectedSlotRef, SlotIndex.make(i))
                   return
                 }
               }
@@ -100,10 +98,10 @@ export class HotbarService extends Effect.Service<HotbarService>()(
 
             const wheelDelta = yield* inputService.consumeWheelDelta()
             if (wheelDelta !== 0) {
-              const current = yield* Ref.get(selectedSlotRef)
               const direction = wheelDelta > 0 ? 1 : -1
-              const next = (current + direction + HOTBAR_SIZE) % HOTBAR_SIZE
-              yield* Ref.set(selectedSlotRef, next)
+              yield* Ref.update(selectedSlotRef, (cur) =>
+                SlotIndex.make((SlotIndex.toNumber(cur) + direction + HOTBAR_SIZE) % HOTBAR_SIZE)
+              )
             }
           }),
       }

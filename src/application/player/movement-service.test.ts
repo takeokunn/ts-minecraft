@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest'
-import * as fc from 'fast-check'
-import { Effect, Layer } from 'effect'
+import { describe, it } from '@effect/vitest'
+import { expect } from 'vitest'
+import { Arbitrary, Effect, Layer, Schema } from 'effect'
 import { PlayerInputService } from '@/application/input/player-input-service'
 import type { InputServicePort as InputServiceType } from '@/application/input'
 import {
@@ -1065,94 +1065,159 @@ describe('MovementService', () => {
   // ---------------------------------------------------------------------------
 
   describe('velocity magnitude invariant (property test)', () => {
-    it('|velocity| ≤ sprintSpeed for any combination of movement inputs and yaw angle', () => {
-      const inputService = createTestInputService()
+    it.prop(
+      '|velocity| ≤ sprintSpeed for any combination of movement inputs and yaw angle',
+      {
+        yaw: Arbitrary.make(Schema.Number.pipe(Schema.between(0, Math.PI * 2))),
+        forward: Arbitrary.make(Schema.Boolean),
+        backward: Arbitrary.make(Schema.Boolean),
+        left: Arbitrary.make(Schema.Boolean),
+        right: Arbitrary.make(Schema.Boolean),
+        sprint: Arbitrary.make(Schema.Boolean),
+        isGrounded: Arbitrary.make(Schema.Boolean),
+      },
+      ({ yaw, forward, backward, left, right, sprint, isGrounded }) => {
+        const inputService = createTestInputService()
+        const testLayers = createTestLayers(inputService)
+        const input: MovementInput = { forward, backward, left, right, jump: false, sprint }
+
+        const velocity = Effect.runSync(
+          Effect.gen(function* () {
+            const movementService = yield* MovementService
+            return yield* movementService.calculateVelocity(input, yaw, isGrounded)
+          }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
+        )
+
+        const magnitude = Math.sqrt(velocity.x ** 2 + velocity.z ** 2)
+        expect(magnitude).toBeLessThanOrEqual(DEFAULT_SPRINT_SPEED + 0.001)
+      }
+    )
+
+    it.prop(
+      '|velocity| ≤ walkSpeed when sprint is false, for any inputs and yaw',
+      {
+        yaw: Arbitrary.make(Schema.Number.pipe(Schema.between(0, Math.PI * 2))),
+        forward: Arbitrary.make(Schema.Boolean),
+        backward: Arbitrary.make(Schema.Boolean),
+        left: Arbitrary.make(Schema.Boolean),
+        right: Arbitrary.make(Schema.Boolean),
+        isGrounded: Arbitrary.make(Schema.Boolean),
+      },
+      ({ yaw, forward, backward, left, right, isGrounded }) => {
+        const inputService = createTestInputService()
+        const testLayers = createTestLayers(inputService)
+        const input: MovementInput = { forward, backward, left, right, jump: false, sprint: false }
+
+        const velocity = Effect.runSync(
+          Effect.gen(function* () {
+            const movementService = yield* MovementService
+            return yield* movementService.calculateVelocity(input, yaw, isGrounded)
+          }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
+        )
+
+        const magnitude = Math.sqrt(velocity.x ** 2 + velocity.z ** 2)
+        expect(magnitude).toBeLessThanOrEqual(DEFAULT_WALK_SPEED + 0.001)
+      }
+    )
+
+    it.prop(
+      'velocity.y is always either 0 or DEFAULT_JUMP_VELOCITY (no other values)',
+      {
+        yaw: Arbitrary.make(Schema.Number.pipe(Schema.between(0, Math.PI * 2))),
+        forward: Arbitrary.make(Schema.Boolean),
+        backward: Arbitrary.make(Schema.Boolean),
+        left: Arbitrary.make(Schema.Boolean),
+        right: Arbitrary.make(Schema.Boolean),
+        jump: Arbitrary.make(Schema.Boolean),
+        isGrounded: Arbitrary.make(Schema.Boolean),
+      },
+      ({ yaw, forward, backward, left, right, jump, isGrounded }) => {
+        const inputService = createTestInputService()
+        const testLayers = createTestLayers(inputService)
+        const input: MovementInput = { forward, backward, left, right, jump, sprint: false }
+
+        const velocity = Effect.runSync(
+          Effect.gen(function* () {
+            const movementService = yield* MovementService
+            return yield* movementService.calculateVelocity(input, yaw, isGrounded)
+          }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
+        )
+
+        expect(velocity.y === 0 || velocity.y === DEFAULT_JUMP_VELOCITY).toBe(true)
+      }
+    )
+  })
+
+  // ---------------------------------------------------------------------------
+  // Task 5: consumeKeyPress one-shot — jump key is consumed on first read
+  // ---------------------------------------------------------------------------
+
+  describe('consumeKeyPress one-shot behavior', () => {
+    it('jump key is consumed: second getInput() in same frame returns jump=false', () => {
+      // createTestInputService({ jump: true }) adds 'Space' to justPressedKeys
+      // consumeKeyPress deletes from justPressedKeys on first call → returns true once, then false
+      const inputService = createTestInputService({ jump: true })
       const testLayers = createTestLayers(inputService)
 
-      fc.assert(
-        fc.property(
-          fc.float({ min: 0, max: Math.fround(Math.PI * 2), noNaN: true }), // yaw
-          fc.boolean(), // forward
-          fc.boolean(), // backward
-          fc.boolean(), // left
-          fc.boolean(), // right
-          fc.boolean(), // sprint
-          fc.boolean(), // isGrounded
-          (yaw, forward, backward, left, right, sprint, isGrounded) => {
-            const input: MovementInput = { forward, backward, left, right, jump: false, sprint }
+      const program = Effect.gen(function* () {
+        const movementService = yield* MovementService
+        const first = yield* movementService.getInput()
+        const second = yield* movementService.getInput()
+        return { first, second }
+      })
 
-            const velocity = Effect.runSync(
-              Effect.gen(function* () {
-                const movementService = yield* MovementService
-                return yield* movementService.calculateVelocity(input, yaw, isGrounded)
-              }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
-            )
-
-            const magnitude = Math.sqrt(velocity.x ** 2 + velocity.z ** 2)
-            // Horizontal magnitude must never exceed sprint speed (+ small epsilon for float precision)
-            return magnitude <= DEFAULT_SPRINT_SPEED + 0.001
-          }
-        )
+      const { first, second } = Effect.runSync(
+        program.pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
       )
+
+      // First read: Space is in justPressedKeys → consumeKeyPress returns true → jump=true
+      expect(first.jump).toBe(true)
+      // Second read: Space was deleted from justPressedKeys → consumeKeyPress returns false → jump=false
+      expect(second.jump).toBe(false)
     })
 
-    it('|velocity| ≤ walkSpeed when sprint is false, for any inputs and yaw', () => {
-      const inputService = createTestInputService()
+    it('non-jump keys are not consumed: forward remains true on second getInput()', () => {
+      // forward uses isKeyPressed (not consumeKeyPress), so it remains true across calls
+      const inputService = createTestInputService({ forward: true, jump: true })
       const testLayers = createTestLayers(inputService)
 
-      fc.assert(
-        fc.property(
-          fc.float({ min: 0, max: Math.fround(Math.PI * 2), noNaN: true }),
-          fc.boolean(),
-          fc.boolean(),
-          fc.boolean(),
-          fc.boolean(),
-          fc.boolean(), // isGrounded
-          (yaw, forward, backward, left, right, isGrounded) => {
-            const input: MovementInput = { forward, backward, left, right, jump: false, sprint: false }
+      const program = Effect.gen(function* () {
+        const movementService = yield* MovementService
+        const first = yield* movementService.getInput()
+        const second = yield* movementService.getInput()
+        return { first, second }
+      })
 
-            const velocity = Effect.runSync(
-              Effect.gen(function* () {
-                const movementService = yield* MovementService
-                return yield* movementService.calculateVelocity(input, yaw, isGrounded)
-              }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
-            )
-
-            const magnitude = Math.sqrt(velocity.x ** 2 + velocity.z ** 2)
-            return magnitude <= DEFAULT_WALK_SPEED + 0.001
-          }
-        )
+      const { first, second } = Effect.runSync(
+        program.pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
       )
+
+      // forward is still pressed (isKeyPressed, not consumed)
+      expect(first.forward).toBe(true)
+      expect(second.forward).toBe(true)
+      // jump consumed on first read
+      expect(first.jump).toBe(true)
+      expect(second.jump).toBe(false)
     })
 
-    it('velocity.y is always either 0 or DEFAULT_JUMP_VELOCITY (no other values)', () => {
-      const inputService = createTestInputService()
+    it('jump=false from the start: getInput() returns jump=false on both calls', () => {
+      // justPressedKeys is empty, so consumeKeyPress('Space') always returns false
+      const inputService = createTestInputService({ jump: false })
       const testLayers = createTestLayers(inputService)
 
-      fc.assert(
-        fc.property(
-          fc.float({ min: 0, max: Math.fround(Math.PI * 2), noNaN: true }),
-          fc.boolean(),
-          fc.boolean(),
-          fc.boolean(),
-          fc.boolean(),
-          fc.boolean(), // jump
-          fc.boolean(), // isGrounded
-          (yaw, forward, backward, left, right, jump, isGrounded) => {
-            const input: MovementInput = { forward, backward, left, right, jump, sprint: false }
+      const program = Effect.gen(function* () {
+        const movementService = yield* MovementService
+        const first = yield* movementService.getInput()
+        const second = yield* movementService.getInput()
+        return { first, second }
+      })
 
-            const velocity = Effect.runSync(
-              Effect.gen(function* () {
-                const movementService = yield* MovementService
-                return yield* movementService.calculateVelocity(input, yaw, isGrounded)
-              }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
-            )
-
-            // Y velocity is always exactly 0 or DEFAULT_JUMP_VELOCITY
-            return velocity.y === 0 || velocity.y === DEFAULT_JUMP_VELOCITY
-          }
-        )
+      const { first, second } = Effect.runSync(
+        program.pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
       )
+
+      expect(first.jump).toBe(false)
+      expect(second.jump).toBe(false)
     })
   })
 })

@@ -1,4 +1,4 @@
-import { Effect, Ref, Schema } from 'effect'
+import { Cause, Effect, Ref, Schema } from 'effect'
 import { SettingsError } from '@/domain/errors'
 
 /**
@@ -37,7 +37,10 @@ const loadFromStorage: Effect.Effect<Settings, never, never> =
       return Schema.decodeUnknownSync(SettingsSchema)(JSON.parse(raw))
     },
     catch: (e) => new SettingsError({ operation: 'load', cause: e }),
-  }).pipe(Effect.catchAllCause(() => Effect.succeed(DEFAULT_SETTINGS)))
+  }).pipe(
+    Effect.tapError((e) => Effect.logWarning(`Settings load failed, using defaults: ${e.message}`)),
+    Effect.catchAllCause(() => Effect.succeed(DEFAULT_SETTINGS))
+  )
 
 const saveToStorage = (settings: Settings): Effect.Effect<void, never, never> =>
   Effect.try({
@@ -62,12 +65,17 @@ export class SettingsService extends Effect.Service<SettingsService>()(
           Effect.gen(function* () {
             const current = yield* Ref.get(settingsRef)
             const merged = { ...current, ...partial }
-            let result: Settings
-            try {
-              result = Schema.decodeUnknownSync(SettingsSchema)(merged)
-            } catch {
-              result = DEFAULT_SETTINGS
-            }
+            const result = yield* Effect.try({
+              try: () => Schema.decodeUnknownSync(SettingsSchema)(merged),
+              catch: (e) => e,
+            }).pipe(
+              Effect.tapError((e) => Effect.logWarning(`Settings validation failed, reverting to defaults: ${String(e)}`)),
+              Effect.catchAllCause((cause) =>
+                Effect.logWarning(`Settings validation failed, reverting to defaults: ${Cause.pretty(cause)}`).pipe(
+                  Effect.as(DEFAULT_SETTINGS)
+                )
+              )
+            )
             yield* Ref.set(settingsRef, result)
             yield* saveToStorage(result)
           }),

@@ -1,10 +1,11 @@
-import { describe, it, expect } from 'vitest'
-import { Effect, Layer } from 'effect'
+import { describe, it } from '@effect/vitest'
+import { expect } from 'vitest'
+import { Arbitrary, Effect, Layer, Schema } from 'effect'
 import * as THREE from 'three'
 import { PlayerInputService } from '../../application/input/player-input-service'
 import type { MouseDelta } from '../../application/input/player-input-service'
 import type { InputServicePort as InputServiceType } from '@/application/input'
-import { PlayerCameraStateService, PlayerCameraStateLive } from '@/application/camera/camera-state'
+import { PlayerCameraStateService, PlayerCameraStateLive, PITCH_MIN, PITCH_MAX } from '@/application/camera/camera-state'
 import {
   FirstPersonCameraService,
   FirstPersonCameraServiceLive,
@@ -381,6 +382,58 @@ describe('FirstPersonCameraService', () => {
       expect(afterRotation.yaw).toBeCloseTo(beforeRotation.yaw)
       expect(afterRotation.pitch).toBeCloseTo(beforeRotation.pitch)
     })
+  })
+
+  describe('pitch clamping — property test', () => {
+    it.prop(
+      'pitch is always within [PITCH_MIN, PITCH_MAX] for any sequence of mouse Y deltas',
+      {
+        deltas: Arbitrary.make(
+          Schema.Array(Schema.Number.pipe(Schema.between(-1000, 1000))).pipe(Schema.minItems(1), Schema.maxItems(100))
+        ),
+      },
+      ({ deltas }) => {
+        // Build a fresh input service that returns deltas one at a time
+        let deltaIdx = 0
+        const inputService = {
+          isKeyPressed: () => Effect.sync(() => false),
+          consumeKeyPress: () => Effect.sync(() => false),
+          getMouseDelta: () =>
+            Effect.sync(() => {
+              const dy = deltaIdx < deltas.length ? (deltas[deltaIdx++] ?? 0) : 0
+              return { x: 0, y: dy }
+            }),
+          isMouseDown: () => Effect.sync(() => false),
+          requestPointerLock: () => Effect.sync(() => {}),
+          exitPointerLock: () => Effect.sync(() => {}),
+          isPointerLocked: () => Effect.sync(() => true),
+          consumeMouseClick: () => Effect.sync(() => false),
+          consumeWheelDelta: () => Effect.sync(() => 0),
+        } as unknown as InputServiceType
+
+        const testLayers = createTestLayers(inputService)
+        const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000)
+
+        const program = Effect.gen(function* () {
+          const cameraService = yield* FirstPersonCameraService
+          const cameraState = yield* PlayerCameraStateService
+
+          for (let i = 0; i < deltas.length; i++) {
+            yield* cameraService.update(camera)
+          }
+
+          const rotation = yield* cameraState.getRotation()
+          return rotation.pitch
+        })
+
+        const pitch = Effect.runSync(
+          program.pipe(Effect.provide(FirstPersonCameraServiceLive), Effect.provide(testLayers))
+        )
+
+        expect(pitch).toBeGreaterThanOrEqual(PITCH_MIN - 0.001)
+        expect(pitch).toBeLessThanOrEqual(PITCH_MAX + 0.001)
+      }
+    )
   })
 
   describe('integration scenarios', () => {

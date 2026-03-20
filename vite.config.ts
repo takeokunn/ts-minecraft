@@ -56,6 +56,9 @@ export default defineConfig(({ command, mode }) => {
               './src/infrastructure/**/*.ts',
               './src/presentation/**/*.ts',
               './src/shared/**/*.ts',
+              '!./src/**/*.test.ts',
+              '!./src/**/*.property.test.ts',
+              '!./src/**/*.spec.ts',
             ],
             ssrFiles: [],
           }
@@ -143,7 +146,6 @@ export default defineConfig(({ command, mode }) => {
         '@vitest/utils/error': resolve(__dirname, 'src/empty.ts'),
         '@vitest/spy': resolve(__dirname, 'src/empty.ts'),
         '@vitest/utils/source-map': resolve(__dirname, 'src/empty.ts'),
-        'fast-check': resolve(__dirname, 'src/empty.ts'),
         'expect-type': resolve(__dirname, 'src/empty.ts'),
         'chai': resolve(__dirname, 'src/empty.ts'),
       },
