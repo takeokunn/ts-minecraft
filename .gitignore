@@ -1,5 +1,10 @@
 .claude/
 
+# Tool caches
+.serena/
+.sisyphus/
+.playwright-mcp/
+
 # Dependencies
 node_modules/
 .pnpm-store/
