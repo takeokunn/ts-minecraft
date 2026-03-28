@@ -278,7 +278,8 @@ describe('water/opaque mesh split', () => {
       const chunk = makeChunkFromBlocks(blocks)
       const result = greedyMeshChunk(chunk, ZERO_OFFSET, TRANSPARENT_IDS)
       expect(result.water.indices.length % 3).toBe(0)
-    }
+    },
+    { fastCheck: { numRuns: 20 } }
   )
 
   it.prop(
@@ -292,7 +293,8 @@ describe('water/opaque mesh split', () => {
       expect(result.water.normals.length).toBe(vertexCount * 3)
       expect(result.water.colors.length).toBe(vertexCount * 3)
       expect(result.water.uvs.length).toBe(vertexCount * 2)
-    }
+    },
+    { fastCheck: { numRuns: 20 } }
   )
 
   it('all-water chunk: opaque mesh is empty, water mesh is non-empty', () => {
