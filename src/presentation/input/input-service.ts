@@ -1,4 +1,4 @@
-import { Effect, Layer, Option, Ref, HashMap, HashSet } from 'effect'
+import { Effect, Layer, Option, Ref, HashMap, HashSet, Schema } from 'effect'
 import { PlayerInputService } from '@/application/input/player-input-service'
 import type { MouseDelta } from '@/application/input/player-input-service'
 export type { MouseDelta } from '@/application/input/player-input-service'
@@ -7,13 +7,13 @@ export { MouseDeltaSchema } from '@/application/input/player-input-service'
 /**
  * Mouse button constants (standard MouseEvent.button values)
  */
+export const MouseButtonSchema = Schema.Literal(0, 1, 2)
+export type MouseButton = Schema.Schema.Type<typeof MouseButtonSchema>
 export const MouseButton = {
   LEFT: 0,
   MIDDLE: 1,
   RIGHT: 2,
 } as const
-
-export type MouseButton = (typeof MouseButton)[keyof typeof MouseButton]
 
 
 /**
@@ -60,8 +60,13 @@ export class InputService extends Effect.Service<InputService>()(
       }
 
       // Mouse event handler for pointer movement
+      const getPointerLockTarget = (): HTMLCanvasElement | null => {
+        const canvas = document.getElementById('game-canvas')
+        return canvas instanceof HTMLCanvasElement ? canvas : null
+      }
+
       const handleMouseMove = (event: MouseEvent) => {
-        if (document.pointerLockElement === document.body) {
+        if (document.pointerLockElement === getPointerLockTarget()) {
           Effect.runSync(Ref.update(mouseDeltaRef, (d) => ({ x: d.x + event.movementX, y: d.y + event.movementY })))
         }
       }
@@ -137,8 +142,9 @@ export class InputService extends Effect.Service<InputService>()(
 
         requestPointerLock: (): Effect.Effect<void, never> =>
           Effect.sync(() => {
-            if (document.body.requestPointerLock) {
-              document.body.requestPointerLock()
+            const target = getPointerLockTarget()
+            if (target?.requestPointerLock) {
+              target.requestPointerLock()
             }
           }),
 
@@ -150,7 +156,7 @@ export class InputService extends Effect.Service<InputService>()(
           }),
 
         isPointerLocked: (): Effect.Effect<boolean, never> =>
-          Effect.sync(() => document.pointerLockElement === document.body),
+          Effect.sync(() => document.pointerLockElement === getPointerLockTarget()),
 
         consumeMouseClick: (button: number): Effect.Effect<boolean, never> =>
           Ref.modify(justClickedButtonsRef, (s) => [HashSet.has(s, button), HashSet.remove(s, button)]),

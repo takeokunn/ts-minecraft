@@ -1,5 +1,5 @@
 import { Array as Arr, Effect, Match, Option, Schema } from 'effect'
-import type { CustomBody } from './rigid-body-service'
+import { CustomBodySchema, type CustomBody } from './rigid-body-service'
 import { Vector3Schema } from '@/infrastructure/physics/core'
 import type { DeltaTimeSecs } from '@/shared/kernel'
 
@@ -9,10 +9,13 @@ export const WorldConfigSchema = Schema.Struct({
 })
 export type WorldConfig = Schema.Schema.Type<typeof WorldConfigSchema>
 
-export type CustomWorld = {
-  gravity: { x: number; y: number; z: number }
-  bodies: CustomBody[]
-}
+export const CustomWorldSchema = Schema.mutable(
+  Schema.Struct({
+    gravity: Vector3Schema,
+    bodies: Schema.mutable(Schema.Array(CustomBodySchema)),
+  }),
+)
+export type CustomWorld = Schema.Schema.Type<typeof CustomWorldSchema>
 
 export class PhysicsWorldService extends Effect.Service<PhysicsWorldService>()(
   '@minecraft/infrastructure/physics/PhysicsWorldService',
@@ -25,11 +28,11 @@ export class PhysicsWorldService extends Effect.Service<PhysicsWorldService>()(
         }),
       addBody: (world: CustomWorld, body: CustomBody): Effect.Effect<void, never> =>
         Effect.sync(() => {
-          world.bodies.push(body)
+          world.bodies = Arr.append(world.bodies, body)
         }),
       removeBody: (world: CustomWorld, body: CustomBody): Effect.Effect<void, never> =>
         Effect.sync(() => {
-          Option.map(Arr.findFirstIndex(world.bodies, (b) => b === body), (idx) => world.bodies.splice(idx, 1))
+          world.bodies = Arr.filter(world.bodies, (b) => b !== body)
         }),
       step: (world: CustomWorld, deltaTime: DeltaTimeSecs): Effect.Effect<void, never> =>
         Effect.sync(() => {

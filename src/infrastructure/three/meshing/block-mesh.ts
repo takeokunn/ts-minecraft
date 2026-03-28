@@ -1,5 +1,6 @@
 import { Array as Arr, Effect, Ref, HashMap, Option } from 'effect'
 import * as THREE from 'three'
+import { MaterialCacheKey } from '@/shared/kernel'
 
 export class BlockMeshService extends Effect.Service<BlockMeshService>()(
   '@minecraft/infrastructure/three/BlockMeshService',
@@ -10,7 +11,7 @@ export class BlockMeshService extends Effect.Service<BlockMeshService>()(
         (geo) => Effect.sync(() => geo.dispose())
       )
 
-      const materialCache = yield* Ref.make(HashMap.empty<string, THREE.Material>())
+      const materialCache = yield* Ref.make(HashMap.empty<MaterialCacheKey, THREE.Material>())
 
       yield* Effect.acquireRelease(
         Effect.void,
@@ -24,7 +25,7 @@ export class BlockMeshService extends Effect.Service<BlockMeshService>()(
 
       const createMaterial = (colorOrUrl: string | number): Effect.Effect<THREE.Material, never> =>
         Effect.gen(function* () {
-          const cacheKey = `material-${typeof colorOrUrl}-${colorOrUrl}`
+          const cacheKey = MaterialCacheKey.make(colorOrUrl)
 
           return yield* Option.match(HashMap.get(yield* Ref.get(materialCache), cacheKey), {
             onSome: Effect.succeed,

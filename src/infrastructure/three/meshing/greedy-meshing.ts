@@ -8,13 +8,13 @@ export const MeshedChunkSchema = Schema.Struct({
   colors: Schema.instanceOf(Float32Array),
   uvs: Schema.instanceOf(Float32Array),
   indices: Schema.instanceOf(Uint32Array),
-  blockPositions: Schema.Array(Schema.Struct({ x: Schema.Number, y: Schema.Number, z: Schema.Number })),
+  blockPositions: Schema.Array(Schema.Struct({ x: Schema.Number.pipe(Schema.int()), y: Schema.Number.pipe(Schema.int()), z: Schema.Number.pipe(Schema.int()) })),
 })
 export type MeshedChunk = Schema.Schema.Type<typeof MeshedChunkSchema>
 
 export const ChunkWorldOffsetSchema = Schema.Struct({
-  wx: Schema.Number,
-  wz: Schema.Number,
+  wx: Schema.Number.pipe(Schema.int()),
+  wz: Schema.Number.pipe(Schema.int()),
 })
 export type ChunkWorldOffset = Schema.Schema.Type<typeof ChunkWorldOffsetSchema>
 
@@ -227,13 +227,14 @@ export const greedyMeshChunk = (
 
   // Take a readonly snapshot for consistent reads in the hot loop
   const blocks = chunk.blocks as Readonly<Uint8Array>
+  const maskCH = new Uint16Array(CHUNK_SIZE * CHUNK_HEIGHT)
+  const maskSS = new Uint16Array(CHUNK_SIZE * CHUNK_SIZE)
 
   // ── X+ faces (normal = +1,0,0) ──────────────────────────────────────────
   // Slice over lx; mask u-axis = lz, v-axis = y
   const passXPos = (): void => {
     const normal = [1, 0, 0] as const
-    // Allocate mask once (CHUNK_SIZE * CHUNK_HEIGHT is constant); reset with fill(0) each slice
-    const mask = new Uint16Array(CHUNK_SIZE * CHUNK_HEIGHT)
+    const mask = maskCH
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
       mask.fill(0)
       for (let lz = 0; lz < CHUNK_SIZE; lz++) {
@@ -269,8 +270,7 @@ export const greedyMeshChunk = (
   // Slice over lx; mask u-axis = lz, v-axis = y
   const passXNeg = (): void => {
     const normal = [-1, 0, 0] as const
-    // Allocate mask once (CHUNK_SIZE * CHUNK_HEIGHT is constant); reset with fill(0) each slice
-    const mask = new Uint16Array(CHUNK_SIZE * CHUNK_HEIGHT)
+    const mask = maskCH
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
       mask.fill(0)
       for (let lz = 0; lz < CHUNK_SIZE; lz++) {
@@ -306,8 +306,7 @@ export const greedyMeshChunk = (
   // Slice over y; mask u-axis = lx, v-axis = lz
   const passYPos = (): void => {
     const normal = [0, 1, 0] as const
-    // Allocate mask once (CHUNK_SIZE * CHUNK_SIZE is constant); reset with fill(0) each slice
-    const mask = new Uint16Array(CHUNK_SIZE * CHUNK_SIZE)
+    const mask = maskSS
     for (let y = 0; y < CHUNK_HEIGHT; y++) {
       mask.fill(0)
       for (let lx = 0; lx < CHUNK_SIZE; lx++) {
@@ -343,8 +342,7 @@ export const greedyMeshChunk = (
   // Slice over y; mask u-axis = lx, v-axis = lz
   const passYNeg = (): void => {
     const normal = [0, -1, 0] as const
-    // Allocate mask once (CHUNK_SIZE * CHUNK_SIZE is constant); reset with fill(0) each slice
-    const mask = new Uint16Array(CHUNK_SIZE * CHUNK_SIZE)
+    const mask = maskSS
     for (let y = 0; y < CHUNK_HEIGHT; y++) {
       mask.fill(0)
       for (let lx = 0; lx < CHUNK_SIZE; lx++) {
@@ -380,8 +378,7 @@ export const greedyMeshChunk = (
   // Slice over lz; mask u-axis = lx, v-axis = y
   const passZPos = (): void => {
     const normal = [0, 0, 1] as const
-    // Allocate mask once (CHUNK_SIZE * CHUNK_HEIGHT is constant); reset with fill(0) each slice
-    const mask = new Uint16Array(CHUNK_SIZE * CHUNK_HEIGHT)
+    const mask = maskCH
     for (let lz = 0; lz < CHUNK_SIZE; lz++) {
       mask.fill(0)
       for (let lx = 0; lx < CHUNK_SIZE; lx++) {
@@ -417,8 +414,7 @@ export const greedyMeshChunk = (
   // Slice over lz; mask u-axis = lx, v-axis = y
   const passZNeg = (): void => {
     const normal = [0, 0, -1] as const
-    // Allocate mask once (CHUNK_SIZE * CHUNK_HEIGHT is constant); reset with fill(0) each slice
-    const mask = new Uint16Array(CHUNK_SIZE * CHUNK_HEIGHT)
+    const mask = maskCH
     for (let lz = 0; lz < CHUNK_SIZE; lz++) {
       mask.fill(0)
       for (let lx = 0; lx < CHUNK_SIZE; lx++) {

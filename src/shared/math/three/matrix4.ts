@@ -3,7 +3,7 @@ import { Schema } from 'effect'
 
 // 4x4行列（列優先、16要素固定）
 export const Matrix4Schema = Schema.Struct({
-  elements: Schema.Array(Schema.Number).pipe(Schema.minItems(16), Schema.maxItems(16)),
+  elements: Schema.Array(Schema.Number.pipe(Schema.finite())).pipe(Schema.minItems(16), Schema.maxItems(16)),
 })
 export type Matrix4 = typeof Matrix4Schema.Type
 

@@ -16,6 +16,10 @@ const DEFAULT_SETTINGS = {
   dofEnabled: false,
   godRaysEnabled: false,
   smaaEnabled: true,
+  audioEnabled: true,
+  masterVolume: 0.8,
+  sfxVolume: 1.0,
+  musicVolume: 0.55,
 }
 
 describe('application/settings/settings-service', () => {
@@ -76,9 +80,9 @@ describe('application/settings/settings-service', () => {
         ssaoEnabled: true,
         bloomEnabled: false,
         skyEnabled: false,
-        ssrEnabled: false,
-        dofEnabled: false,
-        godRaysEnabled: false,
+        ssrEnabled: true,
+        dofEnabled: true,
+        godRaysEnabled: true,
         smaaEnabled: false,
       })
 
@@ -90,10 +94,14 @@ describe('application/settings/settings-service', () => {
         ssaoEnabled: true,
         bloomEnabled: false,
         skyEnabled: false,
-        ssrEnabled: false,
-        dofEnabled: false,
-        godRaysEnabled: false,
+        ssrEnabled: true,
+        dofEnabled: true,
+        godRaysEnabled: true,
         smaaEnabled: false,
+        audioEnabled: true,
+        masterVolume: 0.8,
+        sfxVolume: 1.0,
+        musicVolume: 0.55,
       })
     })
 
@@ -124,6 +132,10 @@ describe('application/settings/settings-service', () => {
         dofEnabled: true,
         godRaysEnabled: true,
         smaaEnabled: true,
+        audioEnabled: true,
+        masterVolume: 0.8,
+        sfxVolume: 1.0,
+        musicVolume: 0.55,
       })
     })
 
@@ -262,6 +274,10 @@ describe('application/settings/settings-service', () => {
         dofEnabled: true,
         godRaysEnabled: true,
         smaaEnabled: false,
+        audioEnabled: true,
+        masterVolume: 0.8,
+        sfxVolume: 1.0,
+        musicVolume: 0.55,
       })
     })
 
@@ -378,6 +394,10 @@ describe('application/settings/settings-service', () => {
         dofEnabled: false,
         godRaysEnabled: false,
         smaaEnabled: true,
+        audioEnabled: true,
+        masterVolume: 0.8,
+        sfxVolume: 1.0,
+        musicVolume: 0.55,
       })
     })
 
@@ -404,6 +424,10 @@ describe('application/settings/settings-service', () => {
         dofEnabled: false,
         godRaysEnabled: false,
         smaaEnabled: true,
+        audioEnabled: true,
+        masterVolume: 0.8,
+        sfxVolume: 1.0,
+        musicVolume: 0.55,
       })
     })
 
@@ -453,6 +477,35 @@ describe('application/settings/settings-service', () => {
       const settings = Effect.runSync(program)
 
       expect(settings).toEqual(DEFAULT_SETTINGS)
+    })
+
+    it('keeps previously valid settings when an update becomes invalid', () => {
+      const program = Effect.gen(function* () {
+        const service = yield* SettingsService
+        yield* service.updateSettings({ renderDistance: 10, mouseSensitivity: 1.4 })
+        yield* service.updateSettings({ renderDistance: 99 })
+        return yield* service.getSettings()
+      }).pipe(Effect.provide(SettingsServiceLive))
+
+      const settings = Effect.runSync(program)
+
+      expect(settings).toEqual({
+        renderDistance: 10,
+        mouseSensitivity: 1.4,
+        dayLengthSeconds: 400,
+        shadowsEnabled: true,
+        ssaoEnabled: true,
+        bloomEnabled: true,
+        skyEnabled: true,
+        ssrEnabled: false,
+        dofEnabled: false,
+        godRaysEnabled: false,
+        smaaEnabled: true,
+        audioEnabled: true,
+        masterVolume: 0.8,
+        sfxVolume: 1.0,
+        musicVolume: 0.55,
+      })
     })
 
     it('persists updated settings to localStorage', () => {

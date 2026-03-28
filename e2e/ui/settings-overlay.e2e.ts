@@ -1,7 +1,36 @@
 import { test, expect } from '@playwright/test'
+import type { Page } from '@playwright/test'
 import { GamePage } from '../fixtures/game-page'
 
 test.describe('Settings overlay', () => {
+  const waitForOverlayState = async (page: Page, open: boolean) => {
+    await page.waitForFunction(
+      ({ id, expected }: { id: string, expected: boolean }) => {
+        const el = document.getElementById(id)
+        if (!el) return false
+        return expected ? el.style.display === 'block' : el.style.display === 'none'
+      },
+      { id: 'settings-overlay', expected: open }
+    )
+  }
+
+  const waitForStoredSetting = async (page: Page, key: string, predicate: string) => {
+    await page.waitForFunction(
+      ({ storageKey, expression }: { storageKey: string, expression: string }) => {
+        const raw = localStorage.getItem(storageKey)
+        if (!raw) return false
+
+        try {
+          const settings = JSON.parse(raw) as Record<string, unknown>
+          return Function('settings', `return ${expression}`)(settings) as boolean
+        } catch {
+          return false
+        }
+      },
+      { storageKey: key, expression: predicate }
+    )
+  }
+
   test.beforeEach(async ({ page }) => {
     const game = new GamePage(page)
     await game.goto()
@@ -19,7 +48,7 @@ test.describe('Settings overlay', () => {
 
     // Press Escape to open
     await page.keyboard.press('Escape')
-    await page.waitForTimeout(300) // allow Effect pipeline to process
+    await waitForOverlayState(page, true)
 
     const isOpen = await game.isOverlayOpen('settings-overlay')
     expect(isOpen).toBe(true)
@@ -30,13 +59,13 @@ test.describe('Settings overlay', () => {
 
     // Open it first
     await page.keyboard.press('Escape')
-    await page.waitForTimeout(300)
+    await waitForOverlayState(page, true)
     const isOpen = await game.isOverlayOpen('settings-overlay')
     expect(isOpen).toBe(true)
 
     // Close it
     await page.keyboard.press('Escape')
-    await page.waitForTimeout(300)
+    await waitForOverlayState(page, false)
     const isClosed = await game.isOverlayOpen('settings-overlay')
     expect(isClosed).toBe(false)
   })
@@ -46,36 +75,28 @@ test.describe('Settings overlay', () => {
 
     // Open settings
     await page.keyboard.press('Escape')
-    await page.waitForTimeout(300)
+    await waitForOverlayState(page, true)
 
     // Click close button
     await page.locator('#settings-close').click()
-    await page.waitForTimeout(300)
+    await waitForOverlayState(page, false)
 
     const isClosed = await game.isOverlayOpen('settings-overlay')
     expect(isClosed).toBe(false)
   })
 
-  test('#settings-apply button is clickable without errors', async ({ page }) => {
+  test('#settings-apply button is not rendered', async ({ page }) => {
     // Open settings
     await page.keyboard.press('Escape')
-    await page.waitForTimeout(300)
+    await waitForOverlayState(page, true)
 
-    // Click apply — should not crash
-    await page.locator('#settings-apply').click()
-    await page.waitForTimeout(300)
-
-    // Page should still be functional
-    const fps = await page.evaluate(() =>
-      parseFloat(document.getElementById('fps-value')?.textContent ?? '0')
-    )
-    expect(fps).toBeGreaterThanOrEqual(0)
+    await expect(page.locator('#settings-apply')).toHaveCount(0)
   })
 
   test('#rd-input slider is interactable', async ({ page }) => {
     // Open settings to make slider accessible
     await page.keyboard.press('Escape')
-    await page.waitForTimeout(300)
+    await waitForOverlayState(page, true)
 
     // Verify slider exists and has a value
     const sliderValue = await page.evaluate(() => {
@@ -86,10 +107,10 @@ test.describe('Settings overlay', () => {
     expect(Number(sliderValue)).toBeGreaterThan(0)
   })
 
-  test('render distance change persists to localStorage after Apply', async ({ page }) => {
+  test('render distance change persists to localStorage immediately', async ({ page }) => {
     // Open settings
     await page.keyboard.press('Escape')
-    await page.waitForTimeout(300)
+    await waitForOverlayState(page, true)
 
     // Read current slider value and compute a new distinct value
     const originalValue = await page.evaluate(() => {
@@ -107,11 +128,7 @@ test.describe('Settings overlay', () => {
       el.value = String(val)
       el.dispatchEvent(new Event('input', { bubbles: true }))
     }, targetValue)
-    await page.waitForTimeout(200)
-
-    // Click Apply to persist the setting
-    await page.locator('#settings-apply').click()
-    await page.waitForTimeout(500)
+    await waitForStoredSetting(page, 'minecraft-settings', `settings.renderDistance === ${targetValue}`)
 
     // Verify localStorage was updated with the new render distance
     const storedRenderDistance = await page.evaluate((key) => {
@@ -127,10 +144,30 @@ test.describe('Settings overlay', () => {
     expect(storedRenderDistance).toBe(targetValue)
   })
 
+  test('checkbox toggles persist immediately without Apply', async ({ page }) => {
+    await page.keyboard.press('Escape')
+    await waitForOverlayState(page, true)
+
+    await page.locator('#shadows-input').uncheck()
+    await waitForStoredSetting(page, 'minecraft-settings', 'settings.shadowsEnabled === false')
+
+    const storedShadowsEnabled = await page.evaluate((key) => {
+      const raw = localStorage.getItem(key)
+      if (!raw) return null
+      try {
+        return (JSON.parse(raw) as { shadowsEnabled?: boolean }).shadowsEnabled ?? null
+      } catch {
+        return null
+      }
+    }, 'minecraft-settings')
+
+    expect(storedShadowsEnabled).toBe(false)
+  })
+
   test('persisted render distance is reflected in slider after page reload', async ({ page }) => {
     // Open settings and set a known render distance
     await page.keyboard.press('Escape')
-    await page.waitForTimeout(300)
+    await waitForOverlayState(page, true)
 
     const targetValue = 5
 
@@ -140,10 +177,7 @@ test.describe('Settings overlay', () => {
       el.value = String(val)
       el.dispatchEvent(new Event('input', { bubbles: true }))
     }, targetValue)
-    await page.waitForTimeout(200)
-
-    await page.locator('#settings-apply').click()
-    await page.waitForTimeout(500)
+    await waitForStoredSetting(page, 'minecraft-settings', `settings.renderDistance === ${targetValue}`)
 
     // Reload the page — localStorage persists within the same browser context
     await page.reload()
@@ -160,7 +194,7 @@ test.describe('Settings overlay', () => {
 
     // Open settings overlay to reveal the slider
     await page.keyboard.press('Escape')
-    await page.waitForTimeout(300)
+    await waitForOverlayState(page, true)
 
     const sliderValueAfterReload = await page.evaluate(() => {
       const el = document.getElementById('rd-input') as HTMLInputElement | null

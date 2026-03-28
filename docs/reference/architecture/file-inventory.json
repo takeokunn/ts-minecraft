@@ -390,7 +390,7 @@
     "classification": "構造変更対象"
   },
   {
-    "path": "src/domain/camera/__tests__/ThirdPersonCamera.spec.skip.ts",
+    "path": "src/application/camera/camera-state.test.ts",
     "category": "domain",
     "subcategory": "camera",
     "classification": "構造変更対象"
@@ -906,7 +906,7 @@
     "classification": "構造変更対象"
   },
   {
-    "path": "src/domain/camera/third_person.ts",
+    "path": "src/application/camera/camera-state.ts",
     "category": "domain",
     "subcategory": "camera",
     "classification": "構造変更対象"

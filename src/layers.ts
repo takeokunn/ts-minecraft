@@ -51,13 +51,22 @@ import { HotbarRendererLive } from '@/presentation/hud/hotbar-three'
 import { InventoryServiceLive } from '@/application/inventory/inventory-service'
 import { RecipeServiceLive } from '@/application/crafting/recipe-service'
 import { TimeServiceLive } from '@/application/time/time-service'
+import { AudioEngineLive, MusicManagerLive, SoundManagerLive } from '@/audio'
+import { EntityManagerLive } from '@/entity/entityManager'
+import { MobSpawnerLive } from '@/entity/spawner'
 import { SettingsServiceLive } from '@/application/settings/settings-service'
 import { SettingsOverlayLive } from '@/presentation/settings/settings-overlay'
 import { InventoryRendererLive } from '@/presentation/inventory/inventory-renderer'
+import { VillageServiceLive } from '@/village/village-service'
+import { TradingServiceLive } from '@/trading/trading-service'
+import { TradingPresentationLive } from '@/presentation/trading'
+import { RedstoneServiceLive } from '@/redstone/redstone-service'
+import { FluidServiceLive } from '@/application/fluid/fluid-service'
 
 // Game state, camera, physics, input, raycasting, and game loop
 import { GameStateServiceLive } from '@/application/game-state'
 import { FirstPersonCameraServiceLive } from '@/application/camera/first-person-camera-service'
+import { ThirdPersonCameraServiceLive } from '@/application/camera/third-person-camera-service'
 import { PhysicsServiceLive } from '@/application/physics/physics-service'
 import { PlayerCameraStateLive } from '@/application/camera/camera-state'
 import { CrosshairLive, DomOperationsLive } from '@/presentation/hud/crosshair'
@@ -170,9 +179,19 @@ export const FirstPersonCameraLayer = FirstPersonCameraServiceLive.pipe(
   Layer.provide(CameraStateLayer),
 )
 
+// ThirdPersonCameraService depends on PlayerCameraState
+export const ThirdPersonCameraLayer = ThirdPersonCameraServiceLive.pipe(
+  Layer.provide(CameraStateLayer),
+)
+
 // Level 3: ChunkManagerService depends on ChunkService, StorageServicePort, BiomeService, NoiseServicePort (all independent peers)
 export const ChunkManagerLayer = ChunkManagerServiceLive.pipe(
   Layer.provide(Layer.mergeAll(ChunkServiceLive, StoragePortLayer, BiomeLayer, NoisePortLayer))
+)
+
+// Fluid simulation service depends on chunk and world state
+export const FluidLayer = FluidServiceLive.pipe(
+  Layer.provide(ChunkManagerLayer),
 )
 
 // Level 4: GameStateService depends on PlayerService, PhysicsService, MovementService, CameraState
@@ -194,9 +213,29 @@ export const InventoryLayer = InventoryServiceLive.pipe(
   Layer.provide(BlockRegistryLive),
 )
 
+// Audio infrastructure and managers
+export const AudioEngineLayer = AudioEngineLive
+
+export const SoundLayer = SoundManagerLive.pipe(
+  Layer.provide(AudioEngineLayer),
+)
+
+export const MusicLayer = MusicManagerLive.pipe(
+  Layer.provide(AudioEngineLayer),
+)
+
+// EntityManager has no service dependencies
+export const EntityLayer = EntityManagerLive
+
+// MobSpawner depends on EntityManager and TimeService
+export const MobSpawnerLayer = MobSpawnerLive.pipe(
+  Layer.provide(EntityLayer),
+  Layer.provide(TimeServiceLive),
+)
+
 // Level 4: BlockService depends on ChunkManagerService, ChunkService, PlayerService, InventoryService (all independent peers)
 export const BlockLayer = BlockServiceLive.pipe(
-  Layer.provide(Layer.mergeAll(ChunkManagerLayer, ChunkServiceLive, PlayerServiceLive, InventoryLayer))
+  Layer.provide(Layer.mergeAll(ChunkManagerLayer, ChunkServiceLive, FluidLayer, PlayerServiceLive, InventoryLayer))
 )
 
 // HotbarService depends on PlayerInputService and InventoryService
@@ -226,6 +265,25 @@ export const InventoryRendererLayer = InventoryRendererLive.pipe(
   Layer.provide(DomOperationsLive),
 )
 
+// Village simulation has no service dependencies
+export const VillageLayer = VillageServiceLive
+
+// Trading depends on village state and inventory operations
+export const TradingLayer = TradingServiceLive.pipe(
+  Layer.provide(VillageLayer),
+  Layer.provide(InventoryLayer),
+)
+
+// Trading overlay depends on trading + village services and DOM operations
+export const TradingPresentationLayer = TradingPresentationLive.pipe(
+  Layer.provide(TradingLayer),
+  Layer.provide(VillageLayer),
+  Layer.provide(DomOperationsLive),
+)
+
+// Redstone simulation service has no layer dependencies
+export const RedstoneLayer = RedstoneServiceLive
+
 // Top-level layer groups — used by MainLive and for isolated testing
 export const InfrastructureLayers = Layer.mergeAll(
   BaseLayer,
@@ -241,7 +299,15 @@ export const GameLogicLayers = Layer.mergeAll(
   BlockLayer,
   HotbarLayer,
   InventoryLayer,
+  SoundLayer,
+  MusicLayer,
+  EntityLayer,
   TimeServiceLive,
+  VillageLayer,
+  TradingLayer,
+  RedstoneLayer,
+  FluidLayer,
+  MobSpawnerLayer,
   HealthServiceLive,
   RecipeServiceLive,
   PlayerInputLayer,
@@ -255,10 +321,12 @@ export const PresentationLayers = Layer.mergeAll(
   CrosshairLayer,
   BlockHighlightLayer,
   FirstPersonCameraLayer,
+  ThirdPersonCameraLayer,
   HotbarRendererLayer,
   SettingsLayer,
   SettingsOverlayLayer,
   InventoryRendererLayer,
+  TradingPresentationLayer,
   FPSCounterLive,  // presentation service: reads FPS counter state for HUD display
 )
 

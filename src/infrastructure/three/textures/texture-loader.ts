@@ -1,16 +1,18 @@
-import { Effect, Ref, Option, HashMap } from 'effect'
+import { Effect, Ref, Option, HashMap, Array as Arr } from 'effect'
 import * as THREE from 'three'
 import { TextureError } from '@/domain'
+import { TextureUrl } from '@/shared/kernel'
 
 export class TextureService extends Effect.Service<TextureService>()(
   '@minecraft/infrastructure/three/TextureService',
   {
     effect: Effect.gen(function* () {
-      const textureCache = yield* Ref.make(HashMap.empty<string, THREE.Texture>())
+      const textureCache = yield* Ref.make(HashMap.empty<TextureUrl, THREE.Texture>())
 
-      const loadEffect = (url: string) =>
-        Effect.gen(function* () {
-          return yield* Option.match(HashMap.get(yield* Ref.get(textureCache), url), {
+      const loadEffect = (url: string) => {
+        const textureUrl = TextureUrl.make(url)
+        return Effect.gen(function* () {
+          return yield* Option.match(HashMap.get(yield* Ref.get(textureCache), textureUrl), {
             onSome: Effect.succeed,
             onNone: () => Effect.tryPromise({
               try: async () => {
@@ -25,11 +27,12 @@ export class TextureService extends Effect.Service<TextureService>()(
               catch: (cause) => new TextureError({ url, cause }),
             }).pipe(
               Effect.tap((texture) =>
-                Ref.update(textureCache, (cache) => HashMap.set(cache, url, texture))
+                Ref.update(textureCache, (cache) => HashMap.set(cache, textureUrl, texture))
               )
             ),
           })
         })
+      }
 
       return {
         load: loadEffect,
@@ -61,7 +64,7 @@ export class TextureService extends Effect.Service<TextureService>()(
           }),
 
         getCached: (url: string): Effect.Effect<Option.Option<THREE.Texture>, never> =>
-          Ref.get(textureCache).pipe(Effect.map((cache) => HashMap.get(cache, url))),
+          Ref.get(textureCache).pipe(Effect.map((cache) => HashMap.get(cache, TextureUrl.make(url)))),
 
         preload: (urls: ReadonlyArray<string>): Effect.Effect<void, never> =>
           Effect.forEach(urls, (url) => Effect.ignore(loadEffect(url)), { concurrency: 'unbounded' }),
@@ -70,7 +73,7 @@ export class TextureService extends Effect.Service<TextureService>()(
           Effect.gen(function* () {
             const cache = yield* Ref.get(textureCache)
             yield* Effect.sync(() => {
-              for (const texture of HashMap.values(cache)) texture.dispose()
+              Arr.forEach(Arr.fromIterable(HashMap.values(cache)), (texture) => texture.dispose())
             })
             yield* Ref.set(textureCache, HashMap.empty())
           }),

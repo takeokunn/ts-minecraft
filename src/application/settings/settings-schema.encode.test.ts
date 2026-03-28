@@ -16,6 +16,10 @@ describe('SettingsSchema encode round-trip', () => {
     dofEnabled: false,
     godRaysEnabled: false,
     smaaEnabled: true,
+    audioEnabled: true,
+    masterVolume: 0.8,
+    sfxVolume: 1.0,
+    musicVolume: 0.55,
   }
 
   it('encodes valid settings to a plain object', () => {

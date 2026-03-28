@@ -19,6 +19,12 @@ import { createFrameHandler, type FrameHandlerDeps, type FrameHandlerServices } 
 import { KeyMappings } from '@/application/input/key-mappings'
 import type { DeltaTimeSecs } from '@/shared/kernel'
 
+type CameraMode = 'firstPerson' | 'thirdPerson'
+
+type CameraStateStub = {
+  mode: CameraMode
+}
+
 // ---------------------------------------------------------------------------
 // Minimal DayNightLights stub (shape required by FrameHandlerDeps.lights)
 //
@@ -55,6 +61,33 @@ const makeCamera = () => {
   // Stub updateProjectionMatrix to avoid WebGL warnings in jsdom
   cam.updateProjectionMatrix = vi.fn()
   return cam
+}
+
+const makeCameraState = (initialMode: CameraMode = 'firstPerson') => {
+  const state: CameraStateStub = { mode: initialMode }
+
+  const service = {
+    getRotation: () => Effect.succeed({ yaw: 0, pitch: 0 }),
+    getMode: () => Effect.sync(() => state.mode),
+    setYaw: (_yaw: number) => Effect.void,
+    setPitch: (_pitch: number) => Effect.void,
+    addYaw: (_delta: number) => Effect.void,
+    addPitch: (_delta: number) => Effect.void,
+    setMode: (mode: CameraMode) =>
+      Effect.sync(() => {
+        state.mode = mode
+      }),
+    toggleMode: () =>
+      Effect.sync(() => {
+        state.mode = state.mode === 'firstPerson' ? 'thirdPerson' : 'firstPerson'
+      }),
+    reset: () =>
+      Effect.sync(() => {
+        state.mode = 'firstPerson'
+      }),
+  } as unknown as InstanceType<typeof import('@/application/camera/camera-state').PlayerCameraStateService>
+
+  return { service, state }
 }
 
 const makeDeps = async (paused = false): Promise<FrameHandlerDeps & { gamePausedRef: Ref.Ref<boolean> }> => {
@@ -116,6 +149,23 @@ const makeSettingsOverlay = (state: OverlayState) =>
     applyToSettings: () => Effect.void,
   }) as unknown as InstanceType<typeof import('@/presentation/settings/settings-overlay').SettingsOverlayService>
 
+const makeTradingPresentation = (state: OverlayState) =>
+  ({
+    open: (_villagerId: string) =>
+      Effect.sync(() => {
+        state.open = true
+        return true
+      }),
+    close: () =>
+      Effect.sync(() => {
+        state.open = false
+      }),
+    isOpen: () => Effect.sync(() => state.open),
+    cycleSelection: (_delta: number) => Effect.void,
+    refresh: () => Effect.void,
+    executeSelectedTrade: () => Effect.succeed(false),
+  }) as unknown as InstanceType<typeof import('@/presentation/trading').TradingPresentationService>
+
 /**
  * Build a minimal InputService stub.
  * `consumeKeyPress` returns true for keys listed in `pressedKeys`.
@@ -149,10 +199,14 @@ const DEFAULT_SETTINGS = {
   ssaoEnabled: true,
   bloomEnabled: true,
   skyEnabled: true,
-  ssrEnabled: false,
-  dofEnabled: false,
-  godRaysEnabled: false,
+    ssrEnabled: true,
+    dofEnabled: true,
+    godRaysEnabled: true,
   smaaEnabled: true,
+  audioEnabled: true,
+  masterVolume: 0.8,
+  sfxVolume: 1,
+  musicVolume: 0.55,
 }
 
 /**
@@ -164,8 +218,11 @@ const makeServices = (opts: {
   inputService: ReturnType<typeof makeInputService>
   inventoryRenderer: ReturnType<typeof makeInventoryRenderer>
   settingsOverlay: ReturnType<typeof makeSettingsOverlay>
-}): FrameHandlerServices => {
+  tradingPresentation?: ReturnType<typeof makeTradingPresentation>
+}): FrameHandlerServices & { cameraState: CameraStateStub } => {
   const { inputService, inventoryRenderer, settingsOverlay } = opts
+  const tradingPresentation = opts.tradingPresentation ?? makeTradingPresentation({ open: false })
+  const cameraState = makeCameraState()
 
   const gameState = {
     getPlayerPosition: (_id: unknown) => Effect.succeed({ x: 0, y: 64, z: 0 }),
@@ -177,6 +234,17 @@ const makeServices = (opts: {
   const firstPersonCamera = {
     update: (_cam: unknown) => Effect.void,
   } as unknown as InstanceType<typeof import('@/application/camera/first-person-camera-service').FirstPersonCameraService>
+
+  const thirdPersonCamera = {
+    update: (cam: THREE.PerspectiveCamera, playerPos: { x: number; y: number; z: number }, eyeLevelOffset = 0.7) =>
+      Effect.sync(() => {
+        const distance = 4
+        const shoulderHeight = 1.5
+        const eyeY = playerPos.y + eyeLevelOffset
+        cam.position.set(playerPos.x, eyeY + shoulderHeight, playerPos.z - distance)
+        cam.lookAt(playerPos.x, eyeY, playerPos.z)
+      }),
+  } as unknown as InstanceType<typeof import('@/application/camera/third-person-camera-service').ThirdPersonCameraService>
 
   const blockHighlight = {
     update: (_cam: unknown, _scene: unknown) => Effect.void,
@@ -247,9 +315,86 @@ const makeServices = (opts: {
     processFallDamage: (_y: unknown, _grounded: unknown) => Effect.succeed(0),
   } as unknown as InstanceType<typeof import('@/application/player/health-service').HealthService>
 
+  const soundManager = {
+    applySettings: (_settings: unknown) => Effect.void,
+    setListenerPosition: (_position: unknown) => Effect.void,
+    playEffect: (_effect: unknown, _options?: unknown) => Effect.void,
+    getState: () => Effect.succeed({
+      enabled: true,
+      masterVolume: 0.8,
+      sfxVolume: 1,
+      listenerPosition: { x: 0, y: 64, z: 0 },
+    }),
+  } as unknown as InstanceType<typeof import('@/audio').SoundManager>
+
+  const musicManager = {
+    applySettings: (_settings: unknown) => Effect.void,
+    setEnvironment: (_environment: unknown) => Effect.void,
+    updateFromContext: (_context: unknown) => Effect.void,
+    stop: () => Effect.void,
+    getCurrentEnvironment: () => Effect.succeed(Option.none()),
+    getState: () => Effect.succeed({
+      enabled: true,
+      masterVolume: 0.8,
+      musicVolume: 0.55,
+    }),
+  } as unknown as InstanceType<typeof import('@/audio').MusicManager>
+
+  const entityManager = {
+    addEntity: (_type: unknown, _position: unknown) => Effect.succeed('entity-1' as unknown),
+    removeEntity: (_entityId: unknown) => Effect.succeed(false),
+    getEntity: (_entityId: unknown) => Effect.succeed(Option.none()),
+    getEntities: () => Effect.succeed([]),
+    getEntityAIState: (_entityId: unknown) => Effect.succeed(Option.none()),
+    getCount: () => Effect.succeed(0),
+    update: (_deltaTime: unknown, _playerPosition: unknown) => Effect.void,
+    applyDamage: (_entityId: unknown, _amount: unknown) => Effect.succeed(Option.none()),
+  } as unknown as InstanceType<typeof import('@/entity/entityManager').EntityManager>
+
+  const mobSpawner = {
+    trySpawn: (_playerPosition: unknown) => Effect.succeed(Option.none()),
+    getSpawnBounds: () => Effect.succeed({ minDistance: 16, maxDistance: 40 }),
+    getMaxPopulation: () => Effect.succeed(24),
+  } as unknown as InstanceType<typeof import('@/entity/spawner').MobSpawner>
+
+  const villageService = {
+    ensureVillageNear: (_playerPosition: unknown) =>
+      Effect.succeed({ villageId: 'village-1', center: { x: 0, y: 64, z: 0 }, structures: [], villagers: [] }),
+    getVillages: () => Effect.succeed([]),
+    getVillagers: () => Effect.succeed([]),
+    getVillager: (_villagerId: unknown) => Effect.succeed(Option.none()),
+    findNearestVillager: (_position: unknown, _maxDistance: unknown) => Effect.succeed(Option.none()),
+    addVillagerExperience: (_villagerId: unknown, _amount: unknown) => Effect.succeed(Option.none()),
+    update: (_playerPosition: unknown, _timeOfDay: unknown, _deltaTime: unknown) => Effect.void,
+  } as unknown as InstanceType<typeof import('@/village/village-service').VillageService>
+
+  const redstoneService = {
+    setComponent: (_position: unknown, _type: unknown) =>
+      Effect.succeed({ type: 'wire', position: { x: 0, y: 0, z: 0 }, state: { active: false, buttonTicksRemaining: 0, pistonExtended: false } }),
+    removeComponent: (_position: unknown) => Effect.void,
+    getComponent: (_position: unknown) => Effect.succeed(Option.none()),
+    getComponents: () => Effect.succeed([]),
+    toggleLever: (_position: unknown) => Effect.succeed(Option.none()),
+    pressButton: (_position: unknown, _durationTicks?: unknown) => Effect.succeed(Option.none()),
+    toggleTorch: (_position: unknown) => Effect.succeed(Option.none()),
+    getPowerAt: (_position: unknown) => Effect.succeed(0),
+    getPowerSnapshot: () => Effect.succeed({ tick: 0, poweredPositions: [] }),
+    tick: () => Effect.succeed({ tick: 0, poweredPositions: [] }),
+  } as unknown as InstanceType<typeof import('@/redstone/redstone-service').RedstoneService>
+
+  const fluidService = {
+    notifyBlockChanged: (_position: unknown) => Effect.void,
+    seedWater: (_position: unknown) => Effect.void,
+    removeWater: (_position: unknown) => Effect.void,
+    syncLoadedChunks: (_chunks: unknown) => Effect.void,
+    tick: () => Effect.void,
+  } as unknown as InstanceType<typeof import('@/application/fluid/fluid-service').FluidService>
+
   return {
     gameState,
+    playerCameraState: cameraState.service,
     firstPersonCamera,
+    thirdPersonCamera,
     blockHighlight,
     inputService,
     blockService,
@@ -263,6 +408,15 @@ const makeServices = (opts: {
     fpsCounter,
     worldRendererService,
     healthService,
+    soundManager,
+    musicManager,
+    entityManager,
+    mobSpawner,
+    villageService,
+    tradingPresentation,
+    redstoneService,
+    fluidService,
+    cameraState: cameraState.state,
   }
 }
 
@@ -793,6 +947,26 @@ describe('frame-handler', () => {
       expect(deps.camera.position.x).toBe(5)
       expect(deps.camera.position.y).toBeCloseTo(64 + 0.7)
       expect(deps.camera.position.z).toBe(3)
+    })
+
+    it('toggles to third person with F5 and moves the camera behind the player', async () => {
+      const deps = await makeDeps(false)
+      const pressedKeys = MutableHashSet.make(KeyMappings.CAMERA_TOGGLE)
+      const services = makeServices({
+        inputService: makeInputService(pressedKeys),
+        inventoryRenderer: makeInventoryRenderer({ open: false }),
+        settingsOverlay: makeSettingsOverlay({ open: false }),
+      })
+      ;(services.gameState as unknown as { getPlayerPosition: unknown }).getPlayerPosition = vi.fn(() =>
+        Effect.succeed({ x: 5, y: 64, z: 3 })
+      )
+
+      await runFrame(deps, services)
+
+      expect(services.cameraState.mode).toBe('thirdPerson')
+      expect(deps.camera.position.x).toBeCloseTo(5)
+      expect(deps.camera.position.y).toBeCloseTo(64 + 0.7 + 1.5)
+      expect(deps.camera.position.z).toBeCloseTo(3 - 4)
     })
   })
 

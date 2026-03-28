@@ -24,7 +24,7 @@ export const BlockPropertiesSchema = Schema.Struct({
   transparency: Schema.Boolean,
   solid: Schema.Boolean,
   emissive: Schema.Boolean,
-  friction: Schema.Number.pipe(Schema.between(0, 1)),
+  friction: Schema.Number.pipe(Schema.finite(), Schema.between(0, 1)),
 })
 export type BlockProperties = Schema.Schema.Type<typeof BlockPropertiesSchema>
 

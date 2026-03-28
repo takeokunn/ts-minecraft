@@ -32,6 +32,7 @@ import { PlayerError } from '@/domain/errors'
 import { ChunkManagerService, ChunkManagerServiceLive } from '@/application/chunk/chunk-manager-service'
 import { BlockService, BlockServiceLive } from '@/application/block/block-service'
 import { InventoryService } from '@/application/inventory/inventory-service'
+import { FluidService } from '@/application/fluid/fluid-service'
 import { DEFAULT_WORLD_ID, DEFAULT_PLAYER_ID } from '@/application/constants'
 
 // ---------------------------------------------------------------------------
@@ -103,9 +104,17 @@ const buildIntegrationLayer = (playerPos: Position = { x: 100, y: 0, z: 100 }) =
     getHotbarSlots: () => Effect.succeed([]),
   } as unknown as InventoryService)
 
+  const MockFluidLayer = Layer.succeed(FluidService, {
+    notifyBlockChanged: (_position: unknown) => Effect.void,
+    seedWater: (_position: unknown) => Effect.void,
+    removeWater: (_position: unknown) => Effect.void,
+    syncLoadedChunks: (_chunks: unknown) => Effect.void,
+    tick: () => Effect.void,
+  } as unknown as FluidService)
+
   const BlockTestLayer = BlockServiceLive.pipe(
     Layer.provide(
-      Layer.mergeAll(ChunkManagerTestLayer, PlayerTestLayer, ChunkServiceLive, MockInventoryLayer)
+      Layer.mergeAll(ChunkManagerTestLayer, PlayerTestLayer, ChunkServiceLive, MockInventoryLayer, MockFluidLayer)
     )
   )
 

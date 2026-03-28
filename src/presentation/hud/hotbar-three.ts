@@ -32,7 +32,7 @@ export class HotbarRendererService extends Effect.Service<HotbarRendererService>
     scoped: Effect.gen(function* () {
       const rendererService = yield* RendererService
 
-      const { hudScene, slotMeshes, borderMesh } = yield* Effect.sync(() => {
+      const { hudScene, borderMesh } = yield* Effect.sync(() => {
         const scene = new THREE.Scene()
         const border = new THREE.Mesh(
           new THREE.PlaneGeometry(SLOT_SIZE + 8, SLOT_SIZE + 8),
@@ -41,9 +41,10 @@ export class HotbarRendererService extends Effect.Service<HotbarRendererService>
         border.position.z = 0
         border.visible = false
         scene.add(border)
-        return { hudScene: scene, slotMeshes: [] as THREE.Mesh[], borderMesh: border }
+        return { hudScene: scene, borderMesh: border }
       })
       const hudCameraRef = yield* Ref.make<Option.Option<THREE.OrthographicCamera>>(Option.none())
+      const slotMeshesRef = yield* Ref.make<ReadonlyArray<THREE.Mesh>>([])
 
       const makeCamera = (w: number, h: number): THREE.OrthographicCamera => {
         const cam = new THREE.OrthographicCamera(-w / 2, w / 2, h / 2, -h / 2, 0, 100)
@@ -64,7 +65,7 @@ export class HotbarRendererService extends Effect.Service<HotbarRendererService>
           cam.updateProjectionMatrix()
         })
         const newY = -h / 2 + HOTBAR_Y_OFFSET
-        Arr.forEach(slotMeshes, (m) => { m.position.y = newY })
+        Arr.forEach(Effect.runSync(Ref.get(slotMeshesRef)), (m) => { m.position.y = newY })
         borderMesh.position.y = newY
       }
 
@@ -87,8 +88,8 @@ export class HotbarRendererService extends Effect.Service<HotbarRendererService>
             const cam = yield* Effect.sync(() => makeCamera(initialWidth, initialHeight))
             yield* Ref.set(hudCameraRef, Option.some(cam))
 
-            yield* Effect.sync(() => {
-              const meshes = Arr.makeBy(HOTBAR_SLOTS, (i) => {
+            const meshes = yield* Effect.sync(() => {
+              const built = Arr.makeBy(HOTBAR_SLOTS, (i) => {
                 const geo = new THREE.PlaneGeometry(SLOT_SIZE, SLOT_SIZE)
                 const mat = new THREE.MeshBasicMaterial({ color: BLOCK_COLORS['AIR'] })
                 const mesh = new THREE.Mesh(geo, mat)
@@ -97,37 +98,41 @@ export class HotbarRendererService extends Effect.Service<HotbarRendererService>
                 mesh.position.set(x, y, 1)
                 return mesh
               })
-              Arr.forEach(meshes, (m) => { hudScene.add(m); slotMeshes.push(m) })
+              Arr.forEach(built, (m) => { hudScene.add(m) })
               borderMesh.position.set(0, -initialHeight / 2 + HOTBAR_Y_OFFSET, 0)
+              return built
             })
+            yield* Ref.set(slotMeshesRef, meshes)
           }),
 
         /**
          * Update slot colors and highlight based on current slots and selected slot. Call every frame.
          */
         update: (slots: ReadonlyArray<Option.Option<BlockType>>, selectedSlot: SlotIndex): Effect.Effect<void, never> =>
-          Effect.sync(() => {
-            Arr.forEach(
-              Arr.zip(slotMeshes, slots),
-              ([mesh, slot]) => {
-                const mat = mesh.material as THREE.MeshBasicMaterial
-                Option.match(slot, {
-                  onSome: (blockType) => { mat.color.setHex(BLOCK_COLORS[blockType]) },
-                  onNone: () => { mat.color.setHex(0x333333) },
-                })
-                mesh.scale.setScalar(1)
-              }
-            )
+          Ref.get(slotMeshesRef).pipe(Effect.flatMap((slotMeshes) =>
+            Effect.sync(() => {
+              Arr.forEach(
+                Arr.zip(slotMeshes, slots),
+                ([mesh, slot]) => {
+                  const mat = mesh.material as THREE.MeshBasicMaterial
+                  Option.match(slot, {
+                    onSome: (blockType) => { mat.color.setHex(BLOCK_COLORS[blockType]) },
+                    onNone: () => { mat.color.setHex(0x333333) },
+                  })
+                  mesh.scale.setScalar(1)
+                }
+              )
 
-            Option.match(Arr.get(slotMeshes, SlotIndex.toNumber(selectedSlot)), {
-              onSome: (m) => {
-                m.scale.setScalar(1.2)
-                borderMesh.position.x = m.position.x
-                borderMesh.visible = true
-              },
-              onNone: () => { borderMesh.visible = false },
+              Option.match(Arr.get(slotMeshes as Array<THREE.Mesh>, SlotIndex.toNumber(selectedSlot)), {
+                onSome: (m) => {
+                  m.scale.setScalar(1.2)
+                  borderMesh.position.x = m.position.x
+                  borderMesh.visible = true
+                },
+                onNone: () => { borderMesh.visible = false },
+              })
             })
-          }),
+          )),
 
         /**
          * Render the HUD overlay onto the renderer. Call after main scene render with autoClear=false.

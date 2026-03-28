@@ -183,12 +183,10 @@ const buildAtlasTexture = (): Effect.Effect<THREE.Texture, TextureError> =>
         context.fillRect(x, y, TILE_PX, TILE_PX)
         // Subtle blue-tint variation spots
         const snowDots = [[1,2],[5,0],[9,3],[13,1],[17,4],[21,0],[25,2],[29,4],[3,8],[7,6],[11,9],[15,7],[19,10],[23,6],[27,9],[0,14],[4,12],[8,15],[12,13],[16,16],[20,12],[24,15],[28,13],[2,20],[6,18],[10,21],[14,19],[18,22],[22,18],[26,21],[30,19],[1,26],[5,24],[9,27],[13,25],[17,28],[21,24],[25,27],[29,25]] as const
-        for (let i = 0; i < snowDots.length; i++) {
-          Option.map(Arr.get(snowDots, i), ([sx, sy]) => {
-            context.fillStyle = i % 3 === 0 ? '#dde8ff' : (i % 3 === 1 ? '#e8f0ff' : '#ccdaff')
-            context.fillRect(x + (sx % TILE_PX), y + (sy % TILE_PX), 2, 1)
-          })
-        }
+        Arr.forEach(snowDots, ([sx, sy], i) => {
+          context.fillStyle = i % 3 === 0 ? '#dde8ff' : (i % 3 === 1 ? '#e8f0ff' : '#ccdaff')
+          context.fillRect(x + (sx % TILE_PX), y + (sy % TILE_PX), 2, 1)
+        })
       })
 
       // tile 11: gravel — grey-brown with varied speckles

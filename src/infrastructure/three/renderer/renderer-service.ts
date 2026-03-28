@@ -1,14 +1,25 @@
 import { Effect } from 'effect'
 import * as THREE from 'three'
 
+const TONE_MAPPING_EXPOSURE = 0.35
+
 export class RendererService extends Effect.Service<RendererService>()(
   '@minecraft/infrastructure/three/RendererService',
   {
     succeed: {
-      create: (canvas: HTMLCanvasElement): Effect.Effect<THREE.WebGLRenderer, never> =>
+        create: (canvas: HTMLCanvasElement): Effect.Effect<THREE.WebGLRenderer, never> =>
         Effect.sync(() => {
-          const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, failIfMajorPerformanceCaveat: false })
+          const renderer = new THREE.WebGLRenderer({
+            canvas,
+            antialias: true,
+            failIfMajorPerformanceCaveat: false,
+          })
           renderer.setSize(canvas.clientWidth, canvas.clientHeight)
+
+          renderer.toneMapping = THREE.ACESFilmicToneMapping
+          renderer.toneMappingExposure = TONE_MAPPING_EXPOSURE
+          renderer.outputColorSpace = THREE.SRGBColorSpace
+
           return renderer
         }),
       render: (renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera): Effect.Effect<void, never> =>

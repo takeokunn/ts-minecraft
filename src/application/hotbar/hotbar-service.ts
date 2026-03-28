@@ -86,7 +86,7 @@ export class HotbarService extends Effect.Service<HotbarService>()(
         update: (): Effect.Effect<void, never> =>
           Effect.gen(function* () {
             const keyFound = yield* Effect.reduce(
-              Arr.fromIterable(hotbarKeys.entries()),
+              Arr.map(hotbarKeys, (key, i) => [i, key] as const),
               false,
               (found, [i, key]) =>
                 found

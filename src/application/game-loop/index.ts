@@ -7,7 +7,7 @@ import { FIRST_FRAME_DELTA_SECS } from '@/application/constants'
  * Frame command type for queue-based game loop
  */
 export const FrameCommandSchema = Schema.TaggedStruct('Tick', {
-  timestamp: Schema.Number,
+  timestamp: Schema.Number.pipe(Schema.finite(), Schema.nonNegative()),
 })
 export type FrameCommand = Schema.Schema.Type<typeof FrameCommandSchema>
 
@@ -41,8 +41,9 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
       // Holds the current processing fiber (None when stopped)
       const processingFiberRef = yield* Ref.make<Option.Option<Fiber.RuntimeFiber<void, never>>>(Option.none())
 
-      // animationFrameId stays as let — assigned inside sync rAF callback
-      let animationFrameId: Option.Option<number> = Option.none()
+      // animationFrameId as Ref — written via Effect.runSync inside the rAF bridge,
+      // read via yield* in stop(). Consistent with hotbar-three.ts camera Ref pattern.
+      const animationFrameIdRef = yield* Ref.make<Option.Option<number>>(Option.none())
 
       return {
         /**
@@ -123,7 +124,7 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
                 )
               )
 
-              animationFrameId = Option.some(requestAnimationFrame(bridgeLoop))
+              Effect.runSync(Ref.set(animationFrameIdRef, Option.some(requestAnimationFrame(bridgeLoop))))
             }
 
             // Mark as running before forking
@@ -155,8 +156,8 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
             _isRunning = false
 
             // Cancel animation frame
-            Option.map(animationFrameId, (id) => cancelAnimationFrame(id))
-            animationFrameId = Option.none()
+            Option.map(yield* Ref.get(animationFrameIdRef), (id) => cancelAnimationFrame(id))
+            yield* Ref.set(animationFrameIdRef, Option.none())
 
             // Interrupt processing fiber
             yield* Option.match(yield* Ref.get(processingFiberRef), {

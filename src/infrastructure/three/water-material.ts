@@ -35,7 +35,7 @@ void main() {
 
   // Two-layer ripple at different frequencies and speeds — gives natural-looking motion
   // without requiring geometry tessellation.
-  float s = 0.010;
+  float s = 0.014;
   vec2 distort = vec2(
     sin(vWorldPos.z * 3.0 + uTime * 1.8) * s + sin(vWorldPos.x * 2.0 + uTime * 0.9) * s * 0.5,
     cos(vWorldPos.x * 3.0 + uTime * 1.6) * s + cos(vWorldPos.z * 2.0 + uTime * 1.1) * s * 0.5
@@ -45,11 +45,15 @@ void main() {
 
   vec3 viewDir = normalize(uCameraPosition - vWorldPos);
   vec3 n = normalize(vNormal);
-  float fresnel = pow(1.0 - max(dot(viewDir, n), 0.0), 3.0);
+  float fresnel = pow(1.0 - max(dot(viewDir, n), 0.0), 2.6);
 
-  vec4 waterTint = vec4(0.08, 0.30, 0.72, 0.9);
-  vec4 color = mix(refracted, waterTint, clamp(fresnel * 0.4 + 0.15, 0.0, 1.0));
-  color.a = 0.82;
+  vec4 shallowColor = vec4(0.10, 0.42, 0.64, 0.84);
+  vec4 deepColor = vec4(0.02, 0.16, 0.40, 0.92);
+  float depthFactor = clamp(0.45 + fresnel * 0.35, 0.0, 1.0);
+  vec4 waterTint = mix(shallowColor, deepColor, depthFactor);
+
+  vec4 color = mix(refracted, waterTint, clamp(fresnel * 0.38 + 0.18, 0.0, 1.0));
+  color.a = 0.86;
 
   gl_FragColor = color;
 }

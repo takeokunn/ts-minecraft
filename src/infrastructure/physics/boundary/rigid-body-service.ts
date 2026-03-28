@@ -1,17 +1,18 @@
 import { Effect, Option, Schema } from 'effect'
-import type { CustomShape } from './shape-service'
+import { CustomShapeSchema, type CustomShape } from './shape-service'
 import { Vector3Schema, QuaternionSchema } from '@/infrastructure/physics/core'
 
-export type CustomBody = {
-  position: { x: number; y: number; z: number }
-  velocity: { x: number; y: number; z: number }
-  mass: number
-  type: 'dynamic' | 'static' | 'kinematic'
-  shape: CustomShape
-  fixedRotation: boolean
-  angularDamping: number
-  allowSleep: boolean
-}
+export const CustomBodySchema = Schema.mutable(Schema.Struct({
+  position: Schema.mutable(Vector3Schema),
+  velocity: Schema.mutable(Vector3Schema),
+  mass: Schema.Number.pipe(Schema.finite(), Schema.nonNegative()),
+  type: Schema.Literal('dynamic', 'static', 'kinematic'),
+  shape: CustomShapeSchema,
+  fixedRotation: Schema.Boolean,
+  angularDamping: Schema.Number.pipe(Schema.finite(), Schema.nonNegative()),
+  allowSleep: Schema.Boolean,
+}))
+export type CustomBody = Schema.Schema.Type<typeof CustomBodySchema>
 
 export const RigidBodyConfigSchema = Schema.Struct({
   mass: Schema.Number.pipe(Schema.finite(), Schema.nonNegative()),

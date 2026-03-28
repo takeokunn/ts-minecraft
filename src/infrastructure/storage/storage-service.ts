@@ -11,13 +11,13 @@ export type { ChunkCoord }
  * Note: uses Schema.DateFromSelf (JS Date instances), not Schema.Date (ISO string).
  */
 export const WorldMetadataSchema = Schema.Struct({
-  seed: Schema.Number,
+  seed: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
   createdAt: Schema.DateFromSelf,
   lastPlayed: Schema.DateFromSelf,
   playerSpawn: Schema.Struct({
-    x: Schema.Number,
-    y: Schema.Number,
-    z: Schema.Number,
+    x: Schema.Number.pipe(Schema.int()),
+    y: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+    z: Schema.Number.pipe(Schema.int()),
   }),
 })
 export type WorldMetadata = Schema.Schema.Type<typeof WorldMetadataSchema>

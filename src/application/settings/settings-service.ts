@@ -20,14 +20,22 @@ export const SettingsSchema = Schema.Struct({
   bloomEnabled: Schema.Boolean,
   /** Physical sky (Three.Sky Preetham model). Default: true. */
   skyEnabled: Schema.Boolean,
-  /** Screen-space reflections on water. Default: false (heavy). */
+  /** Screen-space reflections on water. Default: true. */
   ssrEnabled: Schema.Boolean,
-  /** Depth of field (bokeh). Default: false. */
+  /** Depth of field (bokeh). Default: true. */
   dofEnabled: Schema.Boolean,
-  /** God rays (crepuscular light shafts). Default: false (heavy). */
+  /** God rays (crepuscular light shafts). Default: true. */
   godRaysEnabled: Schema.Boolean,
   /** SMAA anti-aliasing. Default: true. */
   smaaEnabled: Schema.Boolean,
+  /** Audio global enable toggle (optional in stored data; defaults to true for backward compatibility). */
+  audioEnabled: Schema.optionalWith(Schema.Boolean, { default: () => true }),
+  /** Master audio volume in [0,1] (optional in stored data; defaults to 0.8 for backward compatibility). */
+  masterVolume: Schema.optionalWith(Schema.Number.pipe(Schema.finite(), Schema.between(0, 1)), { default: () => 0.8 }),
+  /** Sound effect volume in [0,1] (optional in stored data; defaults to 1.0 for backward compatibility). */
+  sfxVolume: Schema.optionalWith(Schema.Number.pipe(Schema.finite(), Schema.between(0, 1)), { default: () => 1.0 }),
+  /** Music volume in [0,1] (optional in stored data; defaults to 0.55 for backward compatibility). */
+  musicVolume: Schema.optionalWith(Schema.Number.pipe(Schema.finite(), Schema.between(0, 1)), { default: () => 0.55 }),
 })
 export type Settings = Schema.Schema.Type<typeof SettingsSchema>
 
@@ -43,6 +51,10 @@ const DEFAULT_SETTINGS: Settings = {
   dofEnabled: false,
   godRaysEnabled: false,
   smaaEnabled: true,
+  audioEnabled: true,
+  masterVolume: 0.8,
+  sfxVolume: 1.0,
+  musicVolume: 0.55,
 }
 
 const STORAGE_KEY = 'minecraft-settings'
@@ -94,8 +106,8 @@ export class SettingsService extends Effect.Service<SettingsService>()(
             const merged = { ...current, ...partial }
             const result = yield* Schema.decodeUnknown(SettingsSchema)(merged).pipe(
               Effect.catchAllCause((cause) =>
-                Effect.logWarning(`Settings validation failed, reverting to defaults: ${Cause.pretty(cause)}`).pipe(
-                  Effect.as(DEFAULT_SETTINGS)
+                Effect.logWarning(`Settings validation failed, keeping previous settings: ${Cause.pretty(cause)}`).pipe(
+                  Effect.as(current)
                 )
               )
             )

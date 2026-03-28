@@ -32,7 +32,7 @@ export type PhysicsBody = typeof PhysicsBodySchema.Type
  */
 const ShapeParamsSchema = Schema.Struct({
   halfExtents: Schema.optional(Vector3Schema),
-  radius: Schema.optional(Schema.Number),
+  radius: Schema.optional(Schema.Number.pipe(Schema.finite(), Schema.positive())),
 })
 
 export const AddBodyConfigSchema = Schema.Struct({

@@ -5,8 +5,8 @@ import { DeltaTimeSecs } from '@/shared/kernel'
  * State for the time system
  */
 const TimeStateSchema = Schema.Struct({
-  ticks: Schema.Number.pipe(Schema.finite(), Schema.nonNegative()),
-  dayLengthTicks: Schema.Number.pipe(Schema.finite(), Schema.positive()),
+  ticks: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+  dayLengthTicks: Schema.Number.pipe(Schema.int(), Schema.positive()),
 })
 type TimeState = Schema.Schema.Type<typeof TimeStateSchema>
 

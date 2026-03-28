@@ -1042,7 +1042,7 @@ export const KeyboardDebugServiceHelpers = {
 
     // ブラウザのショートカットキーとの競合をチェック
     const potentialConflicts = [
-      { key: "F5", description: "リロード" },
+      { key: "F5", description: "カメラ視点切替" },
       { key: "F11", description: "フルスクリーン" },
       { key: "Ctrl+W", description: "タブを閉じる" },
       { key: "Ctrl+T", description: "新しいタブ" }

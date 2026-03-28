@@ -91,10 +91,11 @@ export class CrosshairService extends Effect.Service<CrosshairService>()(
 
         toggle: (): Effect.Effect<void, never> =>
           Ref.modify(visibleRef, (vis) => [vis, !vis] as const).pipe(
-            Effect.flatMap((wasVisible) => Effect.sync(() => {
+            Effect.tap((wasVisible) => Effect.sync(() => {
               if (wasVisible) dom.removeChild(element)
               else dom.appendChild(element)
-            }))
+            })),
+            Effect.asVoid,
           ),
 
         isVisible: (): Effect.Effect<boolean, never> => Ref.get(visibleRef),

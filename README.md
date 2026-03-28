@@ -63,6 +63,7 @@ All services use Effect-TS layers for dependency injection. See `src/layers.ts` 
 | Space | Jump |
 | Shift | Sprint |
 | Mouse | Look around |
+| F5 | Toggle camera view |
 | Left click | Break block |
 | Right click | Place block |
 | E | Open inventory |

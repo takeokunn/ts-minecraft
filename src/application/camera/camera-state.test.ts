@@ -39,6 +39,18 @@ describe('PlayerCameraStateService', () => {
     })
   })
 
+  describe('getMode', () => {
+    it('should return firstPerson by default', () => {
+      const program = Effect.gen(function* () {
+        const camera = yield* PlayerCameraStateService
+        return yield* camera.getMode()
+      })
+
+      const mode = Effect.runSync(program.pipe(Effect.provide(PlayerCameraStateLive)))
+      expect(mode).toBe('firstPerson')
+    })
+  })
+
   describe('setYaw', () => {
     it('should set yaw to a positive value', () => {
       const program = Effect.gen(function* () {
@@ -343,6 +355,40 @@ describe('PlayerCameraStateService', () => {
       })
 
       Effect.runSync(program.pipe(Effect.provide(PlayerCameraStateLive)))
+    })
+
+    it('should reset camera mode to firstPerson', () => {
+      const program = Effect.gen(function* () {
+        const camera = yield* PlayerCameraStateService
+
+        yield* camera.setMode('thirdPerson')
+        yield* camera.reset()
+        return yield* camera.getMode()
+      })
+
+      const mode = Effect.runSync(program.pipe(Effect.provide(PlayerCameraStateLive)))
+      expect(mode).toBe('firstPerson')
+    })
+  })
+
+  describe('toggleMode', () => {
+    it('should switch from firstPerson to thirdPerson and back', () => {
+      const program = Effect.gen(function* () {
+        const camera = yield* PlayerCameraStateService
+
+        const first = yield* camera.getMode()
+        yield* camera.toggleMode()
+        const second = yield* camera.getMode()
+        yield* camera.toggleMode()
+        const third = yield* camera.getMode()
+
+        return { first, second, third }
+      })
+
+      const result = Effect.runSync(program.pipe(Effect.provide(PlayerCameraStateLive)))
+      expect(result.first).toBe('firstPerson')
+      expect(result.second).toBe('thirdPerson')
+      expect(result.third).toBe('firstPerson')
     })
   })
 

@@ -3733,9 +3733,9 @@
       "dependents": [
         "src/domain/camera/__tests__/CameraService.spec.ts",
         "src/domain/camera/first_person.ts",
-        "src/domain/camera/third_person.ts",
+        "src/application/camera/camera-state.ts",
         "src/domain/camera/__tests__/FirstPersonCamera.spec.skip.ts",
-        "src/domain/camera/__tests__/ThirdPersonCamera.spec.skip.ts",
+        "src/application/camera/camera-state.test.ts",
         "src/domain/camera/index.ts"
       ],
       "orphan": false,
@@ -3764,9 +3764,9 @@
         "src/domain/camera/constant.ts",
         "src/domain/camera/service.ts",
         "src/domain/camera/first_person.ts",
-        "src/domain/camera/third_person.ts",
+        "src/application/camera/camera-state.ts",
         "src/domain/camera/__tests__/FirstPersonCamera.spec.skip.ts",
-        "src/domain/camera/__tests__/ThirdPersonCamera.spec.skip.ts",
+        "src/application/camera/camera-state.test.ts",
         "src/domain/camera/index.ts"
       ],
       "orphan": false,
@@ -3871,7 +3871,7 @@
       "dependents": [
         "src/domain/camera/types/index.ts",
         "src/domain/camera/types/events.ts",
-        "src/domain/camera/third_person.ts"
+        "src/application/camera/camera-state.ts"
       ],
       "orphan": false,
       "valid": true
@@ -3943,7 +3943,7 @@
       "dependents": [
         "src/domain/camera/__tests__/CameraService.spec.ts",
         "src/domain/camera/first_person.ts",
-        "src/domain/camera/third_person.ts",
+        "src/application/camera/camera-state.ts",
         "src/domain/camera/index.ts"
       ],
       "orphan": false,
@@ -3970,9 +3970,9 @@
       "dependents": [
         "src/domain/camera/__tests__/CameraService.spec.ts",
         "src/domain/camera/first_person.ts",
-        "src/domain/camera/third_person.ts",
+        "src/application/camera/camera-state.ts",
         "src/domain/camera/__tests__/FirstPersonCamera.spec.skip.ts",
-        "src/domain/camera/__tests__/ThirdPersonCamera.spec.skip.ts",
+        "src/application/camera/camera-state.test.ts",
         "src/domain/camera/index.ts"
       ],
       "orphan": false,
@@ -4018,12 +4018,12 @@
           "valid": true
         },
         {
-          "module": "./third_person",
+          "module": "./camera-state",
           "moduleSystem": "es6",
           "dynamic": false,
           "exoticallyRequired": false,
           "dependencyTypes": ["local", "import"],
-          "resolved": "src/domain/camera/third_person.ts",
+          "resolved": "src/application/camera/camera-state.ts",
           "coreModule": false,
           "followable": true,
           "couldNotResolve": false,
@@ -4105,7 +4105,7 @@
       "valid": true
     },
     {
-      "source": "src/domain/camera/third_person.ts",
+      "source": "src/application/camera/camera-state.ts",
       "dependencies": [
         {
           "module": "./constant",
@@ -4180,7 +4180,7 @@
       ],
       "dependents": [
         "src/domain/camera/live.ts",
-        "src/domain/camera/__tests__/ThirdPersonCamera.spec.skip.ts",
+        "src/application/camera/camera-state.test.ts",
         "src/domain/camera/index.ts"
       ],
       "orphan": false,
@@ -4251,7 +4251,7 @@
       "valid": true
     },
     {
-      "source": "src/domain/camera/__tests__/ThirdPersonCamera.spec.skip.ts",
+      "source": "src/application/camera/camera-state.test.ts",
       "dependencies": [
         {
           "module": "../constant",
@@ -4282,12 +4282,12 @@
           "valid": true
         },
         {
-          "module": "../third_person",
+          "module": "../camera-state",
           "moduleSystem": "es6",
           "dynamic": false,
           "exoticallyRequired": false,
           "dependencyTypes": ["local", "import"],
-          "resolved": "src/domain/camera/third_person.ts",
+          "resolved": "src/application/camera/camera-state.ts",
           "coreModule": false,
           "followable": true,
           "couldNotResolve": false,
@@ -8726,12 +8726,12 @@
           "valid": true
         },
         {
-          "module": "./third_person",
+          "module": "./camera-state",
           "moduleSystem": "es6",
           "dynamic": false,
           "exoticallyRequired": false,
           "dependencyTypes": ["local", "export"],
-          "resolved": "src/domain/camera/third_person.ts",
+          "resolved": "src/application/camera/camera-state.ts",
           "coreModule": false,
           "followable": true,
           "couldNotResolve": false,

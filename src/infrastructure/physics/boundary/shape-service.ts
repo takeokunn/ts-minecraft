@@ -1,10 +1,12 @@
 import { Effect, Schema } from 'effect'
 import { Vector3Schema } from '@/infrastructure/physics/core'
 
-export type CustomShape =
-  | { readonly kind: 'box'; readonly halfExtents: { x: number; y: number; z: number } }
-  | { readonly kind: 'sphere'; readonly radius: number }
-  | { readonly kind: 'plane' }
+export const CustomShapeSchema = Schema.Union(
+  Schema.Struct({ kind: Schema.Literal('box'), halfExtents: Vector3Schema }),
+  Schema.Struct({ kind: Schema.Literal('sphere'), radius: Schema.Number.pipe(Schema.finite(), Schema.positive()) }),
+  Schema.Struct({ kind: Schema.Literal('plane') }),
+)
+export type CustomShape = Schema.Schema.Type<typeof CustomShapeSchema>
 
 export const BoxShapeConfigSchema = Schema.Struct({
   halfExtents: Vector3Schema,
@@ -12,7 +14,7 @@ export const BoxShapeConfigSchema = Schema.Struct({
 export type BoxShapeConfig = Schema.Schema.Type<typeof BoxShapeConfigSchema>
 
 export const SphereShapeConfigSchema = Schema.Struct({
-  radius: Schema.Number,
+  radius: Schema.Number.pipe(Schema.finite(), Schema.positive()),
 })
 export type SphereShapeConfig = Schema.Schema.Type<typeof SphereShapeConfigSchema>
 

@@ -13,6 +13,7 @@ import {
 } from './block-service'
 import { InventoryService } from '@/application/inventory/inventory-service'
 import { DEFAULT_WORLD_ID, DEFAULT_PLAYER_ID } from '@/application/constants'
+import { FluidService } from '@/application/fluid/fluid-service'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -179,8 +180,15 @@ const createTestLayer = (
   const chunkManagerLayer = Layer.succeed(ChunkManagerService, chunkManagerService)
   const playerLayer = Layer.succeed(PlayerService, playerService)
   const inventoryLayer = Layer.succeed(InventoryService, mockInventoryService)
+  const fluidLayer = Layer.succeed(FluidService, {
+    notifyBlockChanged: () => Effect.void,
+    seedWater: () => Effect.void,
+    removeWater: () => Effect.void,
+    syncLoadedChunks: () => Effect.void,
+    tick: () => Effect.void,
+  } as unknown as FluidService)
   return BlockServiceLive.pipe(
-    Layer.provide(Layer.mergeAll(chunkManagerLayer, playerLayer, ChunkServiceLive, inventoryLayer))
+    Layer.provide(Layer.mergeAll(chunkManagerLayer, playerLayer, ChunkServiceLive, inventoryLayer, fluidLayer))
   )
 }
 

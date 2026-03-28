@@ -79,7 +79,7 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
 
         dom.appendChild(el)
 
-        return { overlayEl: Option.some(el), slotEls: [...mainSlots, ...hotbarSlots] }
+        return { overlayEl: Option.some(el), slotEls: Arr.appendAll(mainSlots, hotbarSlots) }
       })
 
       const handleDelegatedClick = (event: MouseEvent) => {

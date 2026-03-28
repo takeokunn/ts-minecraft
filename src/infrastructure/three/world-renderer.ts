@@ -1,14 +1,16 @@
 import { Array as Arr, Effect, HashMap, HashSet, Option, Ref } from 'effect'
 import * as THREE from 'three'
 import { Chunk, ChunkCoord, CHUNK_SIZE, CHUNK_HEIGHT } from '@/domain/chunk'
+import { ChunkCacheKey } from '@/shared/kernel'
 import { ChunkMeshService } from './meshing/chunk-mesh'
 import { SceneService } from './scene/scene-service'
 import { createWaterMaterial } from './water-material'
 
 /**
- * Key for chunk mesh tracking
+ * Key for chunk mesh tracking — uses the shared ChunkCacheKey brand so this
+ * HashMap<ChunkCacheKey, ChunkMeshes> is type-compatible with chunk-manager-service maps.
  */
-const chunkKey = (coord: ChunkCoord): string => `${coord.x},${coord.z}`
+const chunkKey = (coord: ChunkCoord): ChunkCacheKey => ChunkCacheKey.make(coord)
 
 // Only dispose geometry; materials may be shared across chunk meshes
 const disposeMesh = (mesh: THREE.Mesh): void => {
@@ -29,7 +31,8 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
     scoped: Effect.gen(function* () {
       const chunkMeshService = yield* ChunkMeshService
       const sceneService = yield* SceneService
-      const meshesRef = yield* Ref.make(HashMap.empty<string, ChunkMeshes>())
+      const meshesRef = yield* Ref.make(HashMap.empty<ChunkCacheKey, ChunkMeshes>())
+      const lastSyncedLoadedChunksRef = yield* Ref.make<Option.Option<ReadonlyArray<Chunk>>>(Option.none())
       // Stable water mesh list for SSRPass.selects — only replaced (new array reference) when
       // chunks are added/removed. SSRPass setter short-circuits when reference is identical,
       // preventing per-frame shader recompilation (60 Hz) that would otherwise occur.
@@ -77,6 +80,16 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
          */
         syncChunksToScene: (loadedChunks: ReadonlyArray<Chunk>, scene: THREE.Scene): Effect.Effect<void, never> =>
           Effect.gen(function* () {
+            const lastSyncedLoadedChunks = yield* Ref.get(lastSyncedLoadedChunksRef)
+            const chunksAlreadySynced = Option.match(lastSyncedLoadedChunks, {
+              onNone: () => false,
+              onSome: (previousLoadedChunks) => previousLoadedChunks === loadedChunks,
+            })
+
+            if (chunksAlreadySynced) {
+              return
+            }
+
             const meshes = yield* Ref.get(meshesRef)
 
             // Early-exit phase 1: check for new chunks — no Set allocation needed.
@@ -86,6 +99,7 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
             const hasRemovedChunks = !hasNewChunks && loadedChunks.length < HashMap.size(meshes)
 
             if (!hasNewChunks && !hasRemovedChunks) {
+              yield* Ref.set(lastSyncedLoadedChunksRef, Option.some(loadedChunks))
               return
             }
 
@@ -133,6 +147,7 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
             )
 
             yield* Ref.set(meshesRef, nextMeshes)
+            yield* Ref.set(lastSyncedLoadedChunksRef, Option.some(loadedChunks))
 
             // Rebuild stable water mesh list for SSRPass.selects
             const nextWaterMeshes = Arr.filterMap(Arr.fromIterable(HashMap.values(nextMeshes)), (cm) => cm.water)
@@ -158,7 +173,10 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
                 yield* sceneService.add(scene, opaqueMesh)
                 yield* Option.match(waterMesh, {
                   onNone: () => Effect.void,
-                  onSome: (m) => sceneService.add(scene, m),
+                  onSome: (m) => Effect.gen(function* () {
+                    yield* sceneService.add(scene, m)
+                    yield* Ref.update(waterMeshesRef, (waterMeshes) => [...waterMeshes, m])
+                  }),
                 })
                 yield* Ref.update(meshesRef, (map) => HashMap.set(map, key, { opaque: opaqueMesh, water: waterMesh }))
               }),
@@ -223,6 +241,8 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
               { concurrency: 1 }
             )
             yield* Ref.set(meshesRef, HashMap.empty())
+            yield* Ref.set(waterMeshesRef, [])
+            yield* Ref.set(lastSyncedLoadedChunksRef, Option.none())
           }),
 
         /**
@@ -235,16 +255,18 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
           camera: THREE.Camera
         ): Effect.Effect<void, never> =>
           Effect.gen(function* () {
-            const meshes = yield* Ref.get(meshesRef)
+            const waterMeshes = yield* Ref.get(waterMeshesRef)
+
+            if (waterMeshes.length === 0) {
+              return
+            }
 
             // Save current visibility and hide water meshes for the refraction render
             yield* Effect.sync(() => {
               _savedWaterVisibility.clear()
-              Arr.forEach(Arr.fromIterable(HashMap.values(meshes)), (chunkMeshes) => {
-                Option.map(chunkMeshes.water, (m) => {
-                  _savedWaterVisibility.set(m, m.visible)
-                  m.visible = false
-                })
+              Arr.forEach(waterMeshes, (mesh) => {
+                _savedWaterVisibility.set(mesh, mesh.visible)
+                mesh.visible = false
               })
             })
 

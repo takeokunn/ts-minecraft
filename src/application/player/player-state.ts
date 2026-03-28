@@ -23,10 +23,12 @@ export class PlayerService extends Effect.Service<PlayerService>()(
       return {
         create: (id: PlayerId, position: Position): Effect.Effect<void, PlayerError> =>
           Effect.gen(function* () {
-            const alreadyExists = yield* Ref.modify(playersRef, (players): [boolean, HashMap.HashMap<PlayerId, PlayerState>] => {
-              if (HashMap.has(players, id)) return [true, players]
-              return [false, HashMap.set(players, id, { id, position, velocity: zero, rotation: identity })]
-            })
+            const alreadyExists = yield* Ref.modify(playersRef, (players): [boolean, HashMap.HashMap<PlayerId, PlayerState>] =>
+              Option.match(HashMap.get(players, id), {
+                onSome: () => [true, players],
+                onNone: () => [false, HashMap.set(players, id, { id, position, velocity: zero, rotation: identity })],
+              })
+            )
             if (alreadyExists) {
               return yield* Effect.fail(new PlayerError({ playerId: id, reason: 'Player already exists' }))
             }

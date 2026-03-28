@@ -67,10 +67,11 @@ export class GodRaysPass extends Pass {
       uniforms: {
         tDiffuse: { value: null },
         sunScreenPos: { value: this.sunScreenPos },
-        exposure: { value: 0.3 },
-        decay: { value: 0.96 },
-        density: { value: 0.84 },
-        weight: { value: 0.5 },
+        // Premium god rays - restrained so they don't wash out the scene
+        exposure: { value: 0.05 },
+        decay: { value: 0.94 },
+        density: { value: 0.9 },
+        weight: { value: 0.75 },
       },
       vertexShader: GOD_RAYS_VERT,
       fragmentShader: GOD_RAYS_FRAG,

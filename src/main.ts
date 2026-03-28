@@ -24,7 +24,9 @@ import { ChunkManagerService } from '@/application/chunk/chunk-manager-service'
 import { GameStateService } from '@/application/game-state'
 import { BlockService } from '@/application/block/block-service'
 import { HotbarService } from '@/application/hotbar/hotbar-service'
+import { PlayerCameraStateService } from '@/application/camera/camera-state'
 import { FirstPersonCameraService } from '@/application/camera/first-person-camera-service'
+import { ThirdPersonCameraService } from '@/application/camera/third-person-camera-service'
 import { CrosshairService } from '@/presentation/hud/crosshair'
 import { BlockHighlightService } from '@/presentation/highlight/block-highlight'
 import { InputService } from '@/presentation/input/input-service'
@@ -36,6 +38,13 @@ import { SettingsOverlayService } from '@/presentation/settings/settings-overlay
 import { InventoryRendererService } from '@/presentation/inventory/inventory-renderer'
 import { GameLoopService } from '@/application/game-loop'
 import { HealthService } from '@/application/player/health-service'
+import { MusicManager, SoundManager } from '@/audio'
+import { EntityManager } from '@/entity/entityManager'
+import { MobSpawner } from '@/entity/spawner'
+import { VillageService } from '@/village/village-service'
+import { TradingPresentationService } from '@/presentation/trading'
+import { RedstoneService } from '@/redstone/redstone-service'
+import { FluidService } from '@/application/fluid/fluid-service'
 import { CHUNK_HEIGHT, blockIndex } from '@/domain/chunk'
 
 import { MainLive } from '@/layers'
@@ -74,7 +83,9 @@ const mainProgram = Effect.gen(function* () {
 
   // Game state, camera, input, block interaction, and hotbar
   const gameState = yield* GameStateService
+  const playerCameraState = yield* PlayerCameraStateService
   const firstPersonCamera = yield* FirstPersonCameraService
+  const thirdPersonCamera = yield* ThirdPersonCameraService
   const crosshair = yield* CrosshairService
   const blockHighlight = yield* BlockHighlightService
   const inputService = yield* InputService
@@ -105,6 +116,24 @@ const mainProgram = Effect.gen(function* () {
 
   // Health service for fall damage and HP tracking
   const healthService = yield* HealthService
+
+  // Sound and music services
+  const soundManager = yield* SoundManager
+  const musicManager = yield* MusicManager
+
+  // Entity system services (Phase 13 foundation)
+  const entityManager = yield* EntityManager
+  const mobSpawner = yield* MobSpawner
+
+  // Village and trading services (Phase 15 foundation)
+  const villageService = yield* VillageService
+  const tradingPresentation = yield* TradingPresentationService
+
+  // Redstone simulation service (Phase 16 foundation)
+  const redstoneService = yield* RedstoneService
+
+  // Fluid simulation service (water propagation)
+  const fluidService = yield* FluidService
 
   // Create renderer
   const renderer = yield* rendererService.create(canvas)
@@ -155,14 +184,14 @@ const mainProgram = Effect.gen(function* () {
     // Bloom: threshold=0.85 prevents terrain from glowing; only sky/lava-bright surfaces bloom
     const bloom = new UnrealBloomPass(
       new THREE.Vector2(canvas.clientWidth, canvas.clientHeight),
-      0.5,  // strength
-      0.4,  // radius
-      0.85, // threshold
+      0.25, // strength
+      0.45, // radius
+      0.9,  // threshold
     )
     comp.addPass(bloom)
 
     // Depth of field (bokeh)
-    const bokeh = new BokehPass(scene, camera, { focus: 10.0, aperture: 0.002, maxblur: 0.01 })
+    const bokeh = new BokehPass(scene, camera, { focus: 10.0, aperture: 0.002, maxblur: 0.02 })
     comp.addPass(bokeh)
 
     // SMAA anti-aliasing (must be after bloom, before OutputPass)
@@ -241,9 +270,9 @@ const mainProgram = Effect.gen(function* () {
   // Add directional light (sun — intensity driven by day/night cycle)
   const light = yield* Effect.sync(() => {
     const l = new THREE.DirectionalLight(SUN_COLOR, 1)
-    // Configure shadow map: 2048×2048 resolution, frustum covers render area (8 chunks × 16 = 128 units)
-    l.shadow.mapSize.width = 2048
-    l.shadow.mapSize.height = 2048
+    // Configure shadow map: high-res shadow map for sharper world lighting
+    l.shadow.mapSize.width = 4096
+    l.shadow.mapSize.height = 4096
     l.shadow.camera.near = 0.5
     l.shadow.camera.far = 500
     l.shadow.camera.left = -128
@@ -258,7 +287,7 @@ const mainProgram = Effect.gen(function* () {
   yield* sceneService.add(scene, light.target)
 
   // Add ambient light (sky — intensity driven by day/night cycle)
-  const ambientLight = yield* Effect.sync(() => new THREE.AmbientLight(AMBIENT_COLOR, 0.5))
+    const ambientLight = yield* Effect.sync(() => new THREE.AmbientLight(AMBIENT_COLOR, 0.35))
   yield* sceneService.add(scene, ambientLight)
 
   // Physical sky: Three.Sky Preetham model — replaces simple sky color lerp when enabled
@@ -303,10 +332,10 @@ const mainProgram = Effect.gen(function* () {
 
   // Apply initial day length from persisted settings, then set time to noon for visibility
   const initialSettings = yield* settingsService.getSettings()
-  // Apply initial shadow state from persisted settings
-  yield* Effect.sync(() => { light.castShadow = initialSettings.shadowsEnabled })
-  yield* timeService.setDayLength(initialSettings.dayLengthSeconds)
-  yield* timeService.setTimeOfDay(0.5)
+    // Apply initial shadow state from persisted settings
+    yield* Effect.sync(() => { light.castShadow = initialSettings.shadowsEnabled })
+    yield* timeService.setDayLength(initialSettings.dayLengthSeconds)
+    yield* timeService.setTimeOfDay(0.35)
 
   // Show crosshair
   yield* crosshair.show()
@@ -326,7 +355,7 @@ const mainProgram = Effect.gen(function* () {
     Effect.runFork(chunkManagerService.saveDirtyChunks().pipe(Effect.catchAllCause(() => Effect.void)))
   }
   const handleCanvasClick = () => {
-    Effect.runFork(
+    Effect.runSync(
       inputService.requestPointerLock().pipe(
         Effect.catchAllCause((cause) => Effect.logError('pointer lock failed', cause))
       )
@@ -394,7 +423,9 @@ const mainProgram = Effect.gen(function* () {
     },
     {
       gameState,
+      playerCameraState,
       firstPersonCamera,
+      thirdPersonCamera,
       blockHighlight,
       inputService,
       blockService,
@@ -408,6 +439,14 @@ const mainProgram = Effect.gen(function* () {
       fpsCounter,
       worldRendererService,
       healthService,
+      soundManager,
+      musicManager,
+      entityManager,
+      mobSpawner,
+      villageService,
+      tradingPresentation,
+      redstoneService,
+      fluidService,
     }
   )
 

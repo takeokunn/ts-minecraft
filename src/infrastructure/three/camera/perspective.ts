@@ -4,10 +4,10 @@ import type { Position } from '@/shared/kernel'
 import { CameraError } from '@/domain/errors'
 
 export const PerspectiveCameraParamsSchema = Schema.Struct({
-  fov: Schema.Number.pipe(Schema.between(1, 179)),
-  aspect: Schema.Number.pipe(Schema.positive()),
-  near: Schema.Number.pipe(Schema.positive()),
-  far: Schema.Number.pipe(Schema.positive()),
+  fov: Schema.Number.pipe(Schema.finite(), Schema.between(1, 179)),
+  aspect: Schema.Number.pipe(Schema.finite(), Schema.positive()),
+  near: Schema.Number.pipe(Schema.finite(), Schema.positive()),
+  far: Schema.Number.pipe(Schema.finite(), Schema.positive()),
 })
 
 export type PerspectiveCameraParams = Schema.Schema.Type<typeof PerspectiveCameraParamsSchema>

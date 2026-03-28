@@ -1,6 +1,7 @@
 import { Effect, Data, Metric } from 'effect'
 import { ChunkManagerService } from '@/application/chunk/chunk-manager-service'
 import { DEFAULT_PLAYER_ID } from '@/application/constants'
+import { FluidService } from '@/application/fluid/fluid-service'
 import { ChunkService, CHUNK_SIZE, setBlockInChunk, BlockIndexError } from '@/domain/chunk'
 import type { ChunkCoord } from '@/domain/chunk'
 import { PlayerService } from '@/application/player/player-state'
@@ -51,6 +52,7 @@ export class BlockService extends Effect.Service<BlockService>()(
     effect: Effect.gen(function* () {
       const chunkManagerService = yield* ChunkManagerService
       const chunkService = yield* ChunkService
+      const fluidService = yield* FluidService
       const playerService = yield* PlayerService
       const inventoryService = yield* InventoryService
 
@@ -93,6 +95,10 @@ export class BlockService extends Effect.Service<BlockService>()(
             )
 
             yield* chunkManagerService.markChunkDirty(chunkCoord)
+            if (blockType === 'WATER') {
+              yield* fluidService.removeWater(position)
+            }
+            yield* fluidService.notifyBlockChanged(position)
             yield* Metric.counter('blocks_broken').pipe(Metric.increment)
             // Add broken block to inventory (silently ignore if inventory is full)
             yield* inventoryService.addBlock(blockType, 1).pipe(Effect.catchAllCause(() => Effect.void))
@@ -158,6 +164,10 @@ export class BlockService extends Effect.Service<BlockService>()(
             )
 
             yield* chunkManagerService.markChunkDirty(chunkCoord)
+            yield* fluidService.notifyBlockChanged(position)
+            if (blockType === 'WATER') {
+              yield* fluidService.seedWater(position)
+            }
             yield* Metric.counter('blocks_placed').pipe(Metric.increment)
           }),
       }

@@ -1,0 +1,4 @@
+- generic [active] [ref=e1]:
+  - generic: "FPS: 105.6"
+  - generic: ♥ 20/20
+  - button "⚙" [ref=e3] [cursor=pointer]

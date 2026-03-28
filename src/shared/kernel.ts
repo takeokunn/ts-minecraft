@@ -86,6 +86,7 @@ export const SlotIndex = {
 }
 
 export const DeltaTimeSecsSchema = Schema.Number.pipe(
+  Schema.finite(),
   Schema.positive(),
   Schema.brand('DeltaTimeSecs')
 )
@@ -123,6 +124,27 @@ export const ChunkCacheKeySchema = Schema.String.pipe(Schema.brand('ChunkCacheKe
 export type ChunkCacheKey = Schema.Schema.Type<typeof ChunkCacheKeySchema>
 export const ChunkCacheKey = {
   make: (coord: { x: number; z: number }): ChunkCacheKey => `${coord.x},${coord.z}` as unknown as ChunkCacheKey,
+}
+
+/**
+ * URL string for a texture asset (relative path or absolute URL).
+ * Branded to prevent mixing texture URLs with arbitrary strings.
+ */
+export const TextureUrlSchema = Schema.String.pipe(Schema.brand('TextureUrl'))
+export type TextureUrl = Schema.Schema.Type<typeof TextureUrlSchema>
+export const TextureUrl = {
+  make: (url: string): TextureUrl => url as unknown as TextureUrl,
+}
+
+/**
+ * Composite key for the material cache ("material-<type>-<value>" format).
+ * Branded to prevent accidental use of arbitrary strings as cache keys.
+ */
+export const MaterialCacheKeySchema = Schema.String.pipe(Schema.brand('MaterialCacheKey'))
+export type MaterialCacheKey = Schema.Schema.Type<typeof MaterialCacheKeySchema>
+export const MaterialCacheKey = {
+  make: (colorOrUrl: string | number): MaterialCacheKey =>
+    `material-${typeof colorOrUrl}-${colorOrUrl}` as unknown as MaterialCacheKey,
 }
 
 // ---------------------------------------------------------------------------

@@ -87,11 +87,12 @@ export class GameStateService extends Effect.Service<GameStateService>()(
        */
       const getIsGrounded = (playerBodyId: PhysicsBodyId): Effect.Effect<boolean, never> =>
         Effect.gen(function* () {
-          const jumpOverride = yield* Ref.get(jumpOverrideRef)
-          const pos = yield* physicsService.getPosition(playerBodyId).pipe(
-            Effect.catchTag('PhysicsServiceError', () => Effect.succeed(ZERO_VEC3))
-          )
-          const gY = yield* Ref.get(groundYRef)
+          const [[jumpOverride, gY], pos] = yield* Effect.all([
+            Effect.all([Ref.get(jumpOverrideRef), Ref.get(groundYRef)], { concurrency: 'unbounded' }),
+            physicsService.getPosition(playerBodyId).pipe(
+              Effect.catchTag('PhysicsServiceError', () => Effect.succeed(ZERO_VEC3))
+            ),
+          ], { concurrency: 'unbounded' })
           // Player center is at groundY + halfHeight when standing on ground
           const groundedThresholdY = gY + PLAYER_HALF_HEIGHT + 0.15
           const isNearGround = pos.y <= groundedThresholdY
@@ -240,12 +241,12 @@ export class GameStateService extends Effect.Service<GameStateService>()(
           cameraState.getRotation(),
 
         isPlayerGrounded: (): Effect.Effect<boolean, never> =>
-          Effect.gen(function* () {
-            return yield* Option.match(yield* Ref.get(playerBodyIdRef), {
+          Ref.get(playerBodyIdRef).pipe(
+            Effect.flatMap(Option.match({
               onNone: () => Effect.succeed(false),
               onSome: (id) => getIsGrounded(id),
-            })
-          }),
+            })),
+          ),
 
         /**
          * Update the terrain ground Y used for physics clamping and grounded detection.

@@ -15,7 +15,7 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
       const {
         overlayEl, renderDistanceInput, sensitivityInput, dayLengthInput,
         shadowsInput, ssaoInput, bloomInput, skyInput, ssrInput, dofInput,
-        godRaysInput, smaaInput, applyBtn, closeBtn, gearBtn,
+        godRaysInput, smaaInput, closeBtn, gearBtn,
       } = yield* Effect.sync(() => {
         if (typeof document === 'undefined') {
           return {
@@ -31,7 +31,6 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
             dofInput: Option.none<HTMLInputElement>(),
             godRaysInput: Option.none<HTMLInputElement>(),
             smaaInput: Option.none<HTMLInputElement>(),
-            applyBtn: Option.none<HTMLButtonElement>(),
             closeBtn: Option.none<HTMLButtonElement>(),
             gearBtn: Option.none<HTMLButtonElement>(),
           }
@@ -96,7 +95,6 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
             Anti-aliasing (SMAA)
           </label>
           <div style="display:flex;gap:8px">
-            <button id="settings-apply" style="flex:1;padding:8px;cursor:pointer;background:#4a7;border:none;color:#fff;border-radius:4px">Apply</button>
             <button id="settings-close" style="flex:1;padding:8px;cursor:pointer;background:#555;border:none;color:#fff;border-radius:4px">Close</button>
           </div>
         `)
@@ -128,13 +126,12 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
           dofInput: dom.querySelector<HTMLInputElement>(el, '#dof-input'),
           godRaysInput: dom.querySelector<HTMLInputElement>(el, '#god-rays-input'),
           smaaInput: dom.querySelector<HTMLInputElement>(el, '#smaa-input'),
-          applyBtn: dom.querySelector<HTMLButtonElement>(el, '#settings-apply'),
           closeBtn: dom.querySelector<HTMLButtonElement>(el, '#settings-close'),
           gearBtn: Option.some(btn),
         }
       })
 
-      const applyEffect = (): Effect.Effect<void, never> =>
+      const commitEffect = (): Effect.Effect<void, never> =>
         Effect.gen(function* () {
           yield* settingsService.updateSettings({
             renderDistance: Option.getOrElse(Option.map(renderDistanceInput, (el) => parseInt(el.value, 10)), () => 8),
@@ -151,21 +148,31 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
           })
         })
 
+      const runCommit = () => {
+        Effect.runFork(
+          commitEffect().pipe(
+            Effect.catchAllCause(cause =>
+              Effect.logError(`Settings apply error: ${Cause.pretty(cause)}`)
+            )
+          )
+        )
+      }
+
       function syncEffect(): Effect.Effect<void, never> {
         return Effect.gen(function* () {
           const settings = yield* settingsService.getSettings()
           yield* Effect.sync(() => {
             Option.map(renderDistanceInput, (input) => {
               input.value = String(settings.renderDistance)
-              Option.map(overlayEl, (el) => Option.map(dom.querySelector(el, '#rd-val'), (span) => { span.textContent = String(settings.renderDistance) }))
+              Option.flatMap(overlayEl, (el) => Option.map(dom.querySelector(el, '#rd-val'), (span) => { span.textContent = String(settings.renderDistance) }))
             })
             Option.map(sensitivityInput, (input) => {
               input.value = String(settings.mouseSensitivity)
-              Option.map(overlayEl, (el) => Option.map(dom.querySelector(el, '#ms-val'), (span) => { span.textContent = String(settings.mouseSensitivity) }))
+              Option.flatMap(overlayEl, (el) => Option.map(dom.querySelector(el, '#ms-val'), (span) => { span.textContent = String(settings.mouseSensitivity) }))
             })
             Option.map(dayLengthInput, (input) => {
               input.value = String(settings.dayLengthSeconds)
-              Option.map(overlayEl, (el) => Option.map(dom.querySelector(el, '#dl-val'), (span) => { span.textContent = String(settings.dayLengthSeconds) }))
+              Option.flatMap(overlayEl, (el) => Option.map(dom.querySelector(el, '#dl-val'), (span) => { span.textContent = String(settings.dayLengthSeconds) }))
             })
             Option.map(shadowsInput, (el) => { el.checked = settings.shadowsEnabled })
             Option.map(ssaoInput, (el) => { el.checked = settings.ssaoEnabled })
@@ -184,28 +191,25 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
         Option.map(Option.all({ el: overlayEl, input: renderDistanceInput }), ({ el, input }) =>
           Option.map(dom.querySelector(el, '#rd-val'), (span) => { span.textContent = input.value })
         )
+        runCommit()
       }
 
       const handleMsInput = () => {
         Option.map(Option.all({ el: overlayEl, input: sensitivityInput }), ({ el, input }) =>
           Option.map(dom.querySelector(el, '#ms-val'), (span) => { span.textContent = input.value })
         )
+        runCommit()
       }
 
       const handleDlInput = () => {
         Option.map(Option.all({ el: overlayEl, input: dayLengthInput }), ({ el, input }) =>
           Option.map(dom.querySelector(el, '#dl-val'), (span) => { span.textContent = input.value })
         )
+        runCommit()
       }
 
-      const handleApply = () => {
-        Effect.runFork(
-          applyEffect().pipe(
-            Effect.catchAllCause(cause =>
-              Effect.logError(`Settings apply error: ${Cause.pretty(cause)}`)
-            )
-          )
-        )
+      const handleToggleChange = () => {
+        runCommit()
       }
 
       const handleClose = () => {
@@ -232,7 +236,14 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
           Option.map(renderDistanceInput, (el) => el.addEventListener('input', handleRdInput))
           Option.map(sensitivityInput, (el) => el.addEventListener('input', handleMsInput))
           Option.map(dayLengthInput, (el) => el.addEventListener('input', handleDlInput))
-          Option.map(applyBtn, (el) => el.addEventListener('click', handleApply))
+          Option.map(shadowsInput, (el) => el.addEventListener('change', handleToggleChange))
+          Option.map(ssaoInput, (el) => el.addEventListener('change', handleToggleChange))
+          Option.map(bloomInput, (el) => el.addEventListener('change', handleToggleChange))
+          Option.map(skyInput, (el) => el.addEventListener('change', handleToggleChange))
+          Option.map(ssrInput, (el) => el.addEventListener('change', handleToggleChange))
+          Option.map(dofInput, (el) => el.addEventListener('change', handleToggleChange))
+          Option.map(godRaysInput, (el) => el.addEventListener('change', handleToggleChange))
+          Option.map(smaaInput, (el) => el.addEventListener('change', handleToggleChange))
           Option.map(closeBtn, (el) => el.addEventListener('click', handleClose))
           Option.map(gearBtn, (el) => el.addEventListener('click', handleGearClick))
         }),
@@ -240,7 +251,14 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
           Option.map(renderDistanceInput, (el) => el.removeEventListener('input', handleRdInput))
           Option.map(sensitivityInput, (el) => el.removeEventListener('input', handleMsInput))
           Option.map(dayLengthInput, (el) => el.removeEventListener('input', handleDlInput))
-          Option.map(applyBtn, (el) => el.removeEventListener('click', handleApply))
+          Option.map(shadowsInput, (el) => el.removeEventListener('change', handleToggleChange))
+          Option.map(ssaoInput, (el) => el.removeEventListener('change', handleToggleChange))
+          Option.map(bloomInput, (el) => el.removeEventListener('change', handleToggleChange))
+          Option.map(skyInput, (el) => el.removeEventListener('change', handleToggleChange))
+          Option.map(ssrInput, (el) => el.removeEventListener('change', handleToggleChange))
+          Option.map(dofInput, (el) => el.removeEventListener('change', handleToggleChange))
+          Option.map(godRaysInput, (el) => el.removeEventListener('change', handleToggleChange))
+          Option.map(smaaInput, (el) => el.removeEventListener('change', handleToggleChange))
           Option.map(closeBtn, (el) => el.removeEventListener('click', handleClose))
           Option.map(gearBtn, (el) => { el.removeEventListener('click', handleGearClick); el.remove() })
           Option.map(overlayEl, (el) => el.remove())
@@ -273,7 +291,7 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
         /**
          * Read the current input values and apply them to SettingsService.
          */
-        applyToSettings: (): Effect.Effect<void, never> => applyEffect(),
+        applyToSettings: (): Effect.Effect<void, never> => commitEffect(),
       }
     }),
   }

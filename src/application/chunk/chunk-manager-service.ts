@@ -83,7 +83,7 @@ const chunkLoadHistogram = Metric.histogram(
 const ChunkCacheEntrySchema = Schema.mutable(
   Schema.Struct({
     chunk: ChunkSchema,         // ChunkSchema defined in src/domain/chunk.ts
-    lastAccessed: Schema.Number,  // mutable for O(1) LRU in-place updates
+    lastAccessed: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),  // mutable for O(1) LRU in-place updates
   }),
 )
 type ChunkCacheEntry = Schema.Schema.Type<typeof ChunkCacheEntrySchema>
