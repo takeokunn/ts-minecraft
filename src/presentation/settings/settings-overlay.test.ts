@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { Effect, Layer } from 'effect'
+import { Effect, Layer, Option } from 'effect'
 import { SettingsOverlayService, SettingsOverlayLive } from './settings-overlay'
 import { SettingsService } from '@/application/settings/settings-service'
 import { DomOperationsService } from '@/presentation/hud/crosshair'
@@ -29,9 +29,9 @@ const createMockDomLayer = () => {
     appendChild: vi.fn(),
     appendChildTo: vi.fn(),
     removeChild: vi.fn(),
-    getParentNode: vi.fn(() => null),
+    getParentNode: vi.fn(() => Option.none()),
     setInnerHTML: vi.fn(),
-    querySelector: vi.fn(() => null),
+    querySelector: vi.fn(() => Option.none()),
   } as unknown as DomOperationsService)
 
   return { MockDomLayer, createElement }

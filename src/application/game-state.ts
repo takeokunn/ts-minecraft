@@ -152,14 +152,10 @@ export class GameStateService extends Effect.Service<GameStateService>()(
 
         update: (deltaTime: DeltaTimeSecs): Effect.Effect<void, GameStateError> =>
           Effect.gen(function* () {
-            const playerBodyIdOpt = yield* Ref.get(playerBodyIdRef)
-
-            if (!Option.isSome(playerBodyIdOpt)) {
-              return yield* Effect.fail(
-                new GameStateError({ operation: 'update', reason: 'Physics not initialized. Call initialize() first.' })
-              )
-            }
-            const playerBodyId = playerBodyIdOpt.value
+            const playerBodyId = yield* Option.match(yield* Ref.get(playerBodyIdRef), {
+              onNone: () => Effect.fail(new GameStateError({ operation: 'update', reason: 'Physics not initialized. Call initialize() first.' })),
+              onSome: (id) => Effect.succeed(id),
+            })
 
             // Get camera yaw for movement direction
             const rotation = yield* cameraState.getRotation()
@@ -245,9 +241,10 @@ export class GameStateService extends Effect.Service<GameStateService>()(
 
         isPlayerGrounded: (): Effect.Effect<boolean, never> =>
           Effect.gen(function* () {
-            const playerBodyIdOpt = yield* Ref.get(playerBodyIdRef)
-            if (!Option.isSome(playerBodyIdOpt)) return false
-            return yield* getIsGrounded(playerBodyIdOpt.value)
+            return yield* Option.match(yield* Ref.get(playerBodyIdRef), {
+              onNone: () => Effect.succeed(false),
+              onSome: (id) => getIsGrounded(id),
+            })
           }),
 
         /**

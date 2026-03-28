@@ -1,6 +1,6 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Arbitrary, Effect, Layer, Schema } from 'effect'
+import { Arbitrary, Effect, Layer, MutableHashMap, MutableHashSet, Option, Schema } from 'effect'
 import { PlayerInputService } from '@/application/input/player-input-service'
 import type { InputServicePort as InputServiceType } from '@/application/input'
 import {
@@ -18,27 +18,27 @@ import {
 const createTestInputService = (
   initialState: Partial<MovementInput> = {}
 ): InputServiceType & { setKeyPressed: (key: string, pressed: boolean) => void } => {
-  const pressedKeys = new Map<string, boolean>([
-    ['KeyW', initialState.forward ?? false],
-    ['KeyS', initialState.backward ?? false],
-    ['KeyA', initialState.left ?? false],
-    ['KeyD', initialState.right ?? false],
-    ['Space', initialState.jump ?? false],
-    ['ControlLeft', initialState.sprint ?? false],
-  ])
+  const pressedKeys = MutableHashMap.make(
+    ['KeyW', Option.getOrElse(Option.fromNullable(initialState.forward), () => false)],
+    ['KeyS', Option.getOrElse(Option.fromNullable(initialState.backward), () => false)],
+    ['KeyA', Option.getOrElse(Option.fromNullable(initialState.left), () => false)],
+    ['KeyD', Option.getOrElse(Option.fromNullable(initialState.right), () => false)],
+    ['Space', Option.getOrElse(Option.fromNullable(initialState.jump), () => false)],
+    ['ControlLeft', Option.getOrElse(Option.fromNullable(initialState.sprint), () => false)],
+  )
   // For consumeKeyPress, track "just pressed" keys
   // In tests, jump=true means Space was just pressed
-  const justPressedKeys = new Set<string>()
+  const justPressedKeys = MutableHashSet.empty<string>()
   if (initialState.jump) {
-    justPressedKeys.add('Space')
+    MutableHashSet.add(justPressedKeys, 'Space')
   }
 
   return {
-    isKeyPressed: (key: string) => Effect.sync(() => pressedKeys.get(key) ?? false),
+    isKeyPressed: (key: string) => Effect.sync(() => Option.getOrElse(MutableHashMap.get(pressedKeys, key), () => false)),
     consumeKeyPress: (key: string) =>
       Effect.sync(() => {
-        if (justPressedKeys.has(key)) {
-          justPressedKeys.delete(key)
+        if (MutableHashSet.has(justPressedKeys, key)) {
+          MutableHashSet.remove(justPressedKeys, key)
           return true
         }
         return false
@@ -51,7 +51,7 @@ const createTestInputService = (
     consumeMouseClick: () => Effect.sync(() => false),
     consumeWheelDelta: () => Effect.sync(() => 0),
     setKeyPressed: (key: string, pressed: boolean) => {
-      pressedKeys.set(key, pressed)
+      MutableHashMap.set(pressedKeys, key, pressed)
     },
   } as unknown as InputServiceType & { setKeyPressed: (key: string, pressed: boolean) => void }
 }
@@ -924,23 +924,23 @@ describe('MovementService', () => {
 
   describe('integration scenarios', () => {
     it('should handle typical gameplay movement sequence', () => {
-      let pressedKeys = new Map<string, boolean>([
+      const pressedKeys = MutableHashMap.make(
         ['KeyW', false],
         ['KeyS', false],
         ['KeyA', false],
         ['KeyD', false],
         ['Space', false],
         ['ControlLeft', false],
-      ])
+      )
       // Track "just pressed" keys for consumeKeyPress
-      let justPressedKeys = new Set<string>()
+      const justPressedKeys = MutableHashSet.empty<string>()
 
       const inputService = {
-        isKeyPressed: (key: string) => Effect.sync(() => pressedKeys.get(key) ?? false),
+        isKeyPressed: (key: string) => Effect.sync(() => Option.getOrElse(MutableHashMap.get(pressedKeys, key), () => false)),
         consumeKeyPress: (key: string) =>
           Effect.sync(() => {
-            if (justPressedKeys.has(key)) {
-              justPressedKeys.delete(key)
+            if (MutableHashSet.has(justPressedKeys, key)) {
+              MutableHashSet.remove(justPressedKeys, key)
               return true
             }
             return false
@@ -959,16 +959,16 @@ describe('MovementService', () => {
         const movementService = yield* MovementService
 
         // Start moving forward
-        pressedKeys.set('KeyW', true)
+        MutableHashMap.set(pressedKeys, 'KeyW', true)
         const velocity1 = yield* movementService.update(0, true)
 
         // Start sprinting
-        pressedKeys.set('ControlLeft', true)
+        MutableHashMap.set(pressedKeys, 'ControlLeft', true)
         const velocity2 = yield* movementService.update(0, true)
 
         // Jump while sprinting - need to add to justPressedKeys
-        pressedKeys.set('Space', true)
-        justPressedKeys.add('Space')
+        MutableHashMap.set(pressedKeys, 'Space', true)
+        MutableHashSet.add(justPressedKeys, 'Space')
         const velocity3 = yield* movementService.update(0, true)
 
         // In air, can't jump again (Space still pressed but not in justPressedKeys)

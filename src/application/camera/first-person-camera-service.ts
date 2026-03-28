@@ -56,7 +56,7 @@ export class FirstPersonCameraService extends Effect.Service<FirstPersonCameraSe
 
             // Set camera rotation using Euler angles with YXZ order
             // This ensures proper first-person rotation behavior
-            camera.rotation.set(rotation.pitch, rotation.yaw, 0, 'YXZ')
+            yield* Effect.sync(() => { camera.rotation.set(rotation.pitch, rotation.yaw, 0, 'YXZ') })
           }),
 
         /**
@@ -66,7 +66,7 @@ export class FirstPersonCameraService extends Effect.Service<FirstPersonCameraSe
         attachToPlayer: (camera: CameraRotationPort): Effect.Effect<void, never> =>
           Effect.gen(function* () {
             const rotation = yield* cameraState.getRotation()
-            camera.rotation.set(rotation.pitch, rotation.yaw, 0, 'YXZ')
+            yield* Effect.sync(() => { camera.rotation.set(rotation.pitch, rotation.yaw, 0, 'YXZ') })
           }),
       }
     }),

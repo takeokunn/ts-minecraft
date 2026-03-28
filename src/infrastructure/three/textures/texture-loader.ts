@@ -1,4 +1,4 @@
-import { Effect, Ref, Option } from 'effect'
+import { Effect, Ref, Option, HashMap } from 'effect'
 import * as THREE from 'three'
 import { TextureError } from '@/domain'
 
@@ -6,32 +6,29 @@ export class TextureService extends Effect.Service<TextureService>()(
   '@minecraft/infrastructure/three/TextureService',
   {
     effect: Effect.gen(function* () {
-      const textureCache = yield* Ref.make<Map<string, THREE.Texture>>(new Map())
+      const textureCache = yield* Ref.make(HashMap.empty<string, THREE.Texture>())
 
       const loadEffect = (url: string) =>
         Effect.gen(function* () {
-          const cached = yield* Ref.get(textureCache)
-          if (cached.has(url)) {
-            return cached.get(url)!
-          }
-
-          return yield* Effect.tryPromise({
-            try: async () => {
-              const loader = new THREE.TextureLoader()
-              const texture = await loader.loadAsync(url)
-              texture.magFilter = THREE.NearestFilter
-              texture.minFilter = THREE.NearestFilter
-              texture.wrapS = THREE.RepeatWrapping
-              texture.wrapT = THREE.RepeatWrapping
-              return texture
-            },
-            catch: (cause) =>
-              new TextureError({ url, cause })
-          }).pipe(
-            Effect.tap((texture) =>
-              Ref.update(textureCache, (cache) => new Map(cache).set(url, texture))
-            )
-          )
+          return yield* Option.match(HashMap.get(yield* Ref.get(textureCache), url), {
+            onSome: Effect.succeed,
+            onNone: () => Effect.tryPromise({
+              try: async () => {
+                const loader = new THREE.TextureLoader()
+                const texture = await loader.loadAsync(url)
+                texture.magFilter = THREE.NearestFilter
+                texture.minFilter = THREE.NearestFilter
+                texture.wrapS = THREE.RepeatWrapping
+                texture.wrapT = THREE.RepeatWrapping
+                return texture
+              },
+              catch: (cause) => new TextureError({ url, cause }),
+            }).pipe(
+              Effect.tap((texture) =>
+                Ref.update(textureCache, (cache) => HashMap.set(cache, url, texture))
+              )
+            ),
+          })
         })
 
       return {
@@ -39,39 +36,43 @@ export class TextureService extends Effect.Service<TextureService>()(
 
         createSolidColor: (color: string | number): Effect.Effect<THREE.Texture, TextureError> =>
           Effect.gen(function* () {
-            const canvas = document.createElement('canvas')
-            canvas.width = 64
-            canvas.height = 64
-            const context = canvas.getContext('2d')
+            const result = yield* Effect.sync(() => {
+              const canvas = document.createElement('canvas')
+              canvas.width = 64
+              canvas.height = 64
+              const context = canvas.getContext('2d')
+              return { canvas, context }
+            })
 
+            const { canvas, context } = result
             if (!context) {
               return yield* Effect.fail(new TextureError({ url: 'solid-color-canvas', cause: 'Failed to create canvas context' }))
             }
 
-            context.fillStyle = typeof color === 'string' ? color : `#${color.toString(16).padStart(6, '0')}`
-            context.fillRect(0, 0, 64, 64)
+            return yield* Effect.sync(() => {
+              context.fillStyle = typeof color === 'string' ? color : `#${color.toString(16).padStart(6, '0')}`
+              context.fillRect(0, 0, 64, 64)
 
-            const texture = new THREE.CanvasTexture(canvas)
-            texture.magFilter = THREE.NearestFilter
-            texture.minFilter = THREE.NearestFilter
-
-            return texture
+              const texture = new THREE.CanvasTexture(canvas)
+              texture.magFilter = THREE.NearestFilter
+              texture.minFilter = THREE.NearestFilter
+              return texture
+            })
           }),
 
         getCached: (url: string): Effect.Effect<Option.Option<THREE.Texture>, never> =>
-          Effect.gen(function* () {
-            const cache = yield* Ref.get(textureCache)
-            return Option.fromNullable(cache.get(url))
-          }),
+          Ref.get(textureCache).pipe(Effect.map((cache) => HashMap.get(cache, url))),
 
-        preload: (urls: string[]): Effect.Effect<void, never> =>
+        preload: (urls: ReadonlyArray<string>): Effect.Effect<void, never> =>
           Effect.forEach(urls, (url) => Effect.ignore(loadEffect(url)), { concurrency: 'unbounded' }),
 
         dispose: (): Effect.Effect<void, never> =>
           Effect.gen(function* () {
             const cache = yield* Ref.get(textureCache)
-            cache.forEach((texture) => texture.dispose())
-            yield* Ref.set(textureCache, new Map())
+            yield* Effect.sync(() => {
+              for (const texture of HashMap.values(cache)) texture.dispose()
+            })
+            yield* Ref.set(textureCache, HashMap.empty())
           }),
       }
     }),

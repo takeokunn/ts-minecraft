@@ -13,7 +13,7 @@
  * overwrite each other.
  */
 import { describe, it } from '@effect/vitest'
-import { Effect, Option } from 'effect'
+import { Effect, MutableHashMap, Option } from 'effect'
 import * as fc from 'effect/FastCheck'
 import { WorldId } from '@/shared/kernel'
 import type { ChunkCoord } from '@/domain/chunk'
@@ -28,17 +28,15 @@ const chunkKey = (worldId: string, coord: ChunkCoord): string =>
 // In-memory storage mock (mirrors makeInMemoryStorageService in test file)
 // ---------------------------------------------------------------------------
 const makeInMemoryStorage = () => {
-  const store = new Map<string, Uint8Array>()
+  const store = MutableHashMap.empty<string, Uint8Array>()
   const worldId = 'test-world' as WorldId
 
   const save = (coord: ChunkCoord, data: Uint8Array): void => {
-    store.set(chunkKey(worldId, coord), data)
+    MutableHashMap.set(store, chunkKey(worldId, coord), data)
   }
 
-  const load = (coord: ChunkCoord): Option.Option<Uint8Array> => {
-    const val = store.get(chunkKey(worldId, coord))
-    return val !== undefined ? Option.some(val) : Option.none()
-  }
+  const load = (coord: ChunkCoord): Option.Option<Uint8Array> =>
+    MutableHashMap.get(store, chunkKey(worldId, coord))
 
   return { save, load }
 }

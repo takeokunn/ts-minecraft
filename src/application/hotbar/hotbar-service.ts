@@ -1,4 +1,4 @@
-import { Effect, Option, Ref } from 'effect'
+import { Array as Arr, Effect, Option, Ref } from 'effect'
 import type { BlockType } from '@/domain/block'
 import { InventoryService, HOTBAR_SIZE, HOTBAR_START } from '@/application/inventory/inventory-service'
 import { PlayerInputService } from '@/application/input/player-input-service'
@@ -76,7 +76,7 @@ export class HotbarService extends Effect.Service<HotbarService>()(
         getSlots: (): Effect.Effect<ReadonlyArray<Option.Option<BlockType>>, never> =>
           Effect.gen(function* () {
             const hotbarSlots = yield* inventoryService.getHotbarSlots()
-            return hotbarSlots.map((slot) => Option.map(slot, (stack) => stack.blockType))
+            return Arr.map(hotbarSlots, (slot) => Option.map(slot, (stack) => stack.blockType))
           }),
 
         /**
@@ -85,16 +85,22 @@ export class HotbarService extends Effect.Service<HotbarService>()(
          */
         update: (): Effect.Effect<void, never> =>
           Effect.gen(function* () {
-            for (let i = 0; i < hotbarKeys.length; i++) {
-              const key = hotbarKeys[i]
-              if (key !== undefined) {
-                const pressed = yield* inputService.consumeKeyPress(key)
-                if (pressed) {
-                  yield* Ref.set(selectedSlotRef, SlotIndex.make(i))
-                  return
-                }
-              }
-            }
+            const keyFound = yield* Effect.reduce(
+              Arr.fromIterable(hotbarKeys.entries()),
+              false,
+              (found, [i, key]) =>
+                found
+                  ? Effect.succeed(true)
+                  : inputService.consumeKeyPress(key).pipe(
+                      Effect.flatMap((pressed) =>
+                        pressed
+                          ? Ref.set(selectedSlotRef, SlotIndex.make(i)).pipe(Effect.as(true))
+                          : Effect.succeed(false)
+                      )
+                    )
+            )
+
+            if (keyFound) return
 
             const wheelDelta = yield* inputService.consumeWheelDelta()
             if (wheelDelta !== 0) {

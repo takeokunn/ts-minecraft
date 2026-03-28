@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { HashSet } from 'effect'
 import * as THREE from 'three'
 import { identity, fromThreeMatrix4, toThreeMatrix4 } from './matrix4'
 
@@ -17,9 +18,9 @@ describe('identity', () => {
 
   it('should have 0s on all off-diagonal elements', () => {
     const e = identity.elements
-    const diagonalIndices = new Set([0, 5, 10, 15])
+    const diagonalIndices = HashSet.make(0, 5, 10, 15)
     for (let i = 0; i < 16; i++) {
-      if (!diagonalIndices.has(i)) {
+      if (!HashSet.has(diagonalIndices, i)) {
         expect(e[i]).toBe(0)
       }
     }

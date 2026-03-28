@@ -110,3 +110,34 @@ export const PositionSchema = Schema.Struct({
   z: Schema.Number.pipe(Schema.finite()),
 })
 export type Position = Schema.Schema.Type<typeof PositionSchema>
+
+// ---------------------------------------------------------------------------
+// Domain-specific string branded types
+// ---------------------------------------------------------------------------
+
+/**
+ * Composite key for chunk coordinate cache ("x,z" format).
+ * Branded to prevent accidental use of arbitrary strings as cache keys.
+ */
+export const ChunkCacheKeySchema = Schema.String.pipe(Schema.brand('ChunkCacheKey'))
+export type ChunkCacheKey = Schema.Schema.Type<typeof ChunkCacheKeySchema>
+export const ChunkCacheKey = {
+  make: (coord: { x: number; z: number }): ChunkCacheKey => `${coord.x},${coord.z}` as unknown as ChunkCacheKey,
+}
+
+// ---------------------------------------------------------------------------
+// Physics / movement numeric branded types — validated at runtime
+// ---------------------------------------------------------------------------
+
+/**
+ * Velocity in meters per second. Finite, can be negative (deceleration / reverse).
+ */
+export const MetersPerSecSchema = Schema.Number.pipe(
+  Schema.finite(),
+  Schema.brand('MetersPerSec')
+)
+export type MetersPerSec = Schema.Schema.Type<typeof MetersPerSecSchema>
+export const MetersPerSec = {
+  make: (n: number): MetersPerSec => Schema.decodeUnknownSync(MetersPerSecSchema)(n),
+  toNumber: (v: MetersPerSec): number => v as unknown as number,
+}

@@ -1,4 +1,4 @@
-import { Cause, Effect, Option, Ref } from 'effect'
+import { Array as Arr, Cause, Effect, Option, Ref } from 'effect'
 import { InventoryService, INVENTORY_SIZE, HOTBAR_START } from '@/application/inventory/inventory-service'
 import { HotbarService } from '@/application/hotbar/hotbar-service'
 import { DomOperationsService } from '@/presentation/hud/crosshair'
@@ -21,12 +21,10 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
       const hotbarService = yield* HotbarService
       const dom = yield* DomOperationsService
 
-      let overlayEl: HTMLDivElement | null = null
-      let slotEls: HTMLDivElement[] = []
       const isVisibleRef = yield* Ref.make(false)
 
       const getSlotColor = (blockType: BlockType | string): string =>
-        SLOT_COLORS[blockType] ?? DEFAULT_SLOT_COLOR
+        Option.getOrElse(Option.fromNullable(SLOT_COLORS[blockType]), () => DEFAULT_SLOT_COLOR)
 
       const createSlotEl = (index: number): HTMLDivElement => {
         const el = dom.createElement('div') as HTMLDivElement
@@ -41,12 +39,13 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
         return el
       }
 
-      const buildOverlay = (): void => {
-        if (typeof document === 'undefined') return
+      // Build DOM once — yields const bindings, eliminates mutable let declarations
+      const { overlayEl, slotEls } = yield* Effect.sync((): { overlayEl: Option.Option<HTMLDivElement>; slotEls: HTMLDivElement[] } => {
+        if (typeof document === 'undefined') return { overlayEl: Option.none(), slotEls: [] }
 
-        overlayEl = dom.createElement('div') as HTMLDivElement
-        overlayEl.id = 'inventory-overlay'
-        overlayEl.style.cssText = [
+        const el = dom.createElement('div') as HTMLDivElement
+        el.id = 'inventory-overlay'
+        el.style.cssText = [
           'position:fixed', 'top:50%', 'left:50%',
           'transform:translate(-50%,-50%)',
           'background:rgba(0,0,0,0.85)', 'padding:16px',
@@ -57,63 +56,59 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
         const title = dom.createElement('div')
         title.textContent = 'Inventory'
         title.style.cssText = 'color:#fff;margin-bottom:10px;font-size:14px;text-align:center'
-        dom.appendChildTo(overlayEl, title)
+        dom.appendChildTo(el, title)
 
         // Main grid (3 rows × 9 = slots 0-26)
         const mainGrid = dom.createElement('div')
         mainGrid.style.cssText = 'display:grid;grid-template-columns:repeat(9,50px);gap:4px;margin-bottom:8px'
-        for (let i = 0; i < HOTBAR_START; i++) {
-          const el = createSlotEl(i)
-          slotEls[i] = el
-          dom.appendChildTo(mainGrid, el)
-        }
-        dom.appendChildTo(overlayEl, mainGrid)
+        const mainSlots = Arr.makeBy(HOTBAR_START, (i) => createSlotEl(i))
+        Arr.forEach(mainSlots, (slotEl) => dom.appendChildTo(mainGrid, slotEl))
+        dom.appendChildTo(el, mainGrid)
 
         // Separator
         const sep = dom.createElement('hr')
         sep.style.cssText = 'border-color:#555;margin:8px 0'
-        dom.appendChildTo(overlayEl, sep)
+        dom.appendChildTo(el, sep)
 
         // Hotbar row (slots 27-35)
         const hotbarGrid = dom.createElement('div')
         hotbarGrid.style.cssText = 'display:grid;grid-template-columns:repeat(9,50px);gap:4px'
-        for (let i = HOTBAR_START; i < INVENTORY_SIZE; i++) {
-          const el = createSlotEl(i)
-          slotEls[i] = el
-          dom.appendChildTo(hotbarGrid, el)
-        }
-        dom.appendChildTo(overlayEl, hotbarGrid)
+        const hotbarSlots = Arr.makeBy(INVENTORY_SIZE - HOTBAR_START, (i) => createSlotEl(HOTBAR_START + i))
+        Arr.forEach(hotbarSlots, (slotEl) => dom.appendChildTo(hotbarGrid, slotEl))
+        dom.appendChildTo(el, hotbarGrid)
 
-        dom.appendChild(overlayEl)
-      }
+        dom.appendChild(el)
 
-      buildOverlay()
+        return { overlayEl: Option.some(el), slotEls: [...mainSlots, ...hotbarSlots] }
+      })
 
       const handleDelegatedClick = (event: MouseEvent) => {
-        const target = (event.target as HTMLElement).closest('[data-slot]') as HTMLElement | null
-        if (!target) return
-        const index = parseInt(target.dataset['slot'] ?? '-1', 10)
-        if (index < 0 || index >= INVENTORY_SIZE) return
-        Effect.runFork(
-          Effect.gen(function* () {
-            const selectedSlot = yield* hotbarService.getSelectedSlot()
-            const hotbarInventoryIndex = HOTBAR_START + SlotIndex.toNumber(selectedSlot)
-            yield* inventoryService.moveStack(SlotIndex.make(index), SlotIndex.make(hotbarInventoryIndex))
-          }).pipe(
-            Effect.catchAllCause(cause =>
-              Effect.logError(`Inventory click error: ${Cause.pretty(cause)}`)
+        Option.map(
+          Option.fromNullable((event.target as HTMLElement).closest('[data-slot]') as HTMLElement | null),
+          (target) => {
+            const index = parseInt(Option.getOrElse(Option.fromNullable(target.dataset['slot']), () => '-1'), 10)
+            if (index < 0 || index >= INVENTORY_SIZE) return
+            Effect.runFork(
+              Effect.gen(function* () {
+                const selectedSlot = yield* hotbarService.getSelectedSlot()
+                const hotbarInventoryIndex = HOTBAR_START + SlotIndex.toNumber(selectedSlot)
+                yield* inventoryService.moveStack(SlotIndex.make(index), SlotIndex.make(hotbarInventoryIndex))
+              }).pipe(
+                Effect.catchAllCause(cause =>
+                  Effect.logError(`Inventory click error: ${Cause.pretty(cause)}`)
+                )
+              )
             )
-          )
+          }
         )
       }
 
       yield* Effect.acquireRelease(
         Effect.sync(() => {
-          overlayEl?.addEventListener('click', handleDelegatedClick)
+          Option.map(overlayEl, (el) => el.addEventListener('click', handleDelegatedClick))
         }),
         () => Effect.sync(() => {
-          overlayEl?.removeEventListener('click', handleDelegatedClick)
-          overlayEl?.remove()
+          Option.map(overlayEl, (el) => { el.removeEventListener('click', handleDelegatedClick); el.remove() })
         })
       )
 
@@ -122,34 +117,34 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
           const allSlots = yield* inventoryService.getAllSlots()
           const selectedSlot = yield* hotbarService.getSelectedSlot()
 
-          for (let i = 0; i < INVENTORY_SIZE; i++) {
-            const el = slotEls[i]
-            if (!el) continue
-            const slot = allSlots[i]
-            if (slot && Option.isSome(slot)) {
-              const stack = slot.value
-              el.style.background = getSlotColor(stack.blockType)
-              el.title = `${stack.blockType} ×${stack.count}`
-              el.textContent = stack.count < 64 ? String(stack.count) : ''
-            } else {
-              el.style.background = DEFAULT_SLOT_COLOR
-              el.title = ''
-              el.textContent = ''
-            }
-            // Highlight selected hotbar slot
-            if (i >= HOTBAR_START && i === HOTBAR_START + SlotIndex.toNumber(selectedSlot)) {
-              el.style.border = '2px solid #fff'
-            } else {
-              el.style.border = '2px solid #666'
-            }
-          }
+          yield* Effect.sync(() => {
+            const selectedHotbarIdx = HOTBAR_START + SlotIndex.toNumber(selectedSlot)
+            Arr.forEach(Arr.zip(slotEls, allSlots), ([el, itemOpt], i) => {
+              Option.match(itemOpt, {
+                onSome: (stack) => {
+                  el.style.background = getSlotColor(stack.blockType)
+                  el.title = `${stack.blockType} ×${stack.count}`
+                  el.textContent = stack.count < 64 ? String(stack.count) : ''
+                },
+                onNone: () => {
+                  el.style.background = DEFAULT_SLOT_COLOR
+                  el.title = ''
+                  el.textContent = ''
+                },
+              })
+              // Highlight selected hotbar slot
+              el.style.border = i >= HOTBAR_START && i === selectedHotbarIdx
+                ? '2px solid #fff'
+                : '2px solid #666'
+            })
+          })
         })
 
       return {
         toggle: (): Effect.Effect<boolean, never> =>
           Effect.gen(function* () {
             const next = yield* Ref.modify(isVisibleRef, (current): [boolean, boolean] => [!current, !current])
-            if (overlayEl) overlayEl.style.display = next ? 'block' : 'none'
+            yield* Effect.sync(() => Option.map(overlayEl, (el) => { el.style.display = next ? 'block' : 'none' }))
             if (next) yield* refreshSlots()
             return next
           }),

@@ -1,5 +1,6 @@
-import { Effect, Option } from 'effect'
+import { Array as Arr, Effect, HashMap, Option } from 'effect'
 import { Recipe, RecipeIngredient } from '@/domain/crafting'
+import type { BlockType } from '@/domain/block'
 import { RecipeError } from '@/domain/errors'
 import type { InventoryService } from '@/application/inventory/inventory-service'
 import { RecipeId } from '@/shared/kernel'
@@ -8,7 +9,7 @@ export class RecipeService extends Effect.Service<RecipeService>()(
   '@minecraft/application/RecipeService',
   {
     effect: Effect.succeed((() => {
-      const recipes: Recipe[] = [
+      const recipes: ReadonlyArray<Recipe> = [
         new Recipe({
           id: RecipeId.make('wood-to-planks'),
           ingredients: [new RecipeIngredient({ blockType: 'WOOD', count: 1 })],
@@ -52,15 +53,19 @@ export class RecipeService extends Effect.Service<RecipeService>()(
         }),
       ]
 
-      const recipeMap = new Map<RecipeId, Recipe>(recipes.map((r) => [r.id, r]))
+      // Immutable lookup map: RecipeId → Recipe (HashMap replaces native Map for structural equality)
+      const recipeMap = HashMap.fromIterable(Arr.map(recipes, (r) => [r.id, r] as [RecipeId, Recipe]))
 
-      const getAllRecipes = (): Recipe[] => recipes
+      const getAllRecipes = (): ReadonlyArray<Recipe> => recipes
 
-      const findById = (id: RecipeId): Option.Option<Recipe> => Option.fromNullable(recipeMap.get(id))
+      // findById: HashMap.get already returns Option<Recipe> — no fromNullable needed
+      const findById = (id: RecipeId): Option.Option<Recipe> => HashMap.get(recipeMap, id)
 
-      const findCraftable = (available: Map<string, number>): Recipe[] =>
-        recipes.filter((recipe) =>
-          recipe.ingredients.every((ing) => (available.get(ing.blockType) ?? 0) >= ing.count)
+      const findCraftable = (available: HashMap.HashMap<BlockType, number>): ReadonlyArray<Recipe> =>
+        Arr.filter(recipes, (recipe) =>
+          Arr.every(recipe.ingredients, (ing) =>
+            Option.getOrElse(HashMap.get(available, ing.blockType), () => 0) >= ing.count
+          )
         )
 
       /**
@@ -77,49 +82,56 @@ export class RecipeService extends Effect.Service<RecipeService>()(
       ): Effect.Effect<void, RecipeError> =>
         Effect.gen(function* () {
           // 1. Locate the recipe
-          const recipeOpt = findById(recipeId)
-          if (Option.isNone(recipeOpt)) {
-            return yield* Effect.fail(
-              new RecipeError({ operation: 'craft', cause: `Recipe not found: ${recipeId}` }),
-            )
-          }
-          const recipe = recipeOpt.value
+          const recipe = yield* Option.match(findById(recipeId), {
+            onNone: () => Effect.fail(new RecipeError({ operation: 'craft', cause: `Recipe not found: ${recipeId}` })),
+            onSome: Effect.succeed,
+          })
 
-          // 2. Count available items per block type in inventory
+          // 2. Count available items per block type in inventory using immutable HashMap accumulation
           const slots = yield* inventoryService.getAllSlots()
-          const available = new Map<string, number>()
-          for (const slot of slots) {
-            if (Option.isSome(slot)) {
-              const { blockType, count } = slot.value
-              available.set(blockType, (available.get(blockType) ?? 0) + count)
-            }
-          }
+          const available = Arr.reduce(
+            slots,
+            HashMap.empty<BlockType, number>(),
+            (map, slot) => Option.match(slot, {
+              onSome: ({ blockType, count }) => HashMap.set(
+                map,
+                blockType,
+                Option.getOrElse(HashMap.get(map, blockType), () => 0) + count
+              ),
+              onNone: () => map,
+            })
+          )
 
           // 3. Verify all ingredients are present before touching inventory
-          for (const ing of recipe.ingredients) {
-            const have = available.get(ing.blockType) ?? 0
-            if (have < ing.count) {
-              return yield* Effect.fail(
-                new RecipeError({
-                  operation: 'craft',
-                  cause: `Insufficient ${ing.blockType}: need ${ing.count}, have ${have}`,
-                }),
-              )
-            }
-          }
+          const shortageOpt = Arr.findFirst(recipe.ingredients, (ing) =>
+            Option.getOrElse(HashMap.get(available, ing.blockType), () => 0) < ing.count
+          )
+          yield* Option.match(shortageOpt, {
+            onNone: () => Effect.void,
+            onSome: (ing) => Effect.fail(new RecipeError({
+              operation: 'craft',
+              cause: `Insufficient ${ing.blockType}: need ${ing.count}, have ${Option.getOrElse(HashMap.get(available, ing.blockType), () => 0)}`,
+            })),
+          })
 
           // 4. Remove ingredients
-          for (const ing of recipe.ingredients) {
-            const removed = yield* inventoryService.removeBlock(ing.blockType, ing.count)
-            if (!removed) {
-              return yield* Effect.fail(
-                new RecipeError({
-                  operation: 'craft',
-                  cause: `Failed to remove ${ing.count}x ${ing.blockType} from inventory`,
-                }),
-              )
-            }
-          }
+          yield* Effect.forEach(
+            recipe.ingredients,
+            (ing) =>
+              inventoryService.removeBlock(ing.blockType, ing.count).pipe(
+                Effect.flatMap((removed) =>
+                  removed
+                    ? Effect.void
+                    : Effect.fail(
+                        new RecipeError({
+                          operation: 'craft',
+                          cause: `Failed to remove ${ing.count}x ${ing.blockType} from inventory`,
+                        })
+                      )
+                )
+              ),
+            { concurrency: 1 }
+          )
 
           // 5. Add output (ignore if inventory is full)
           yield* inventoryService.addBlock(recipe.output.blockType, recipe.output.count)

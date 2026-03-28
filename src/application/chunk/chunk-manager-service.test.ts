@@ -1,6 +1,6 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Arbitrary, Effect, Layer, Option, Schema } from 'effect'
+import { Arbitrary, Array as Arr, Effect, Layer, MutableHashMap, Option, Schema } from 'effect'
 import { StorageServicePort } from '@/application/storage/storage-service-port'
 import { StorageError } from '@/domain/errors'
 import { NoiseServicePort } from '@/application/noise/noise-service-port'
@@ -14,19 +14,16 @@ import { DEFAULT_WORLD_ID } from '@/application/constants'
 // ---------------------------------------------------------------------------
 
 const makeInMemoryStorage = () => {
-  const chunks = new Map<string, Uint8Array>()
+  const chunks = MutableHashMap.empty<string, Uint8Array>()
 
   return StorageServicePort.of({
     _tag: '@minecraft/application/storage/StorageServicePort' as const,
     saveChunk: (worldId, coord, data) =>
       Effect.sync(() => {
-        chunks.set(`${worldId}:${coord.x}:${coord.z}`, data)
+        MutableHashMap.set(chunks, `${worldId}:${coord.x}:${coord.z}`, data)
       }) as Effect.Effect<undefined, StorageError>,
     loadChunk: (worldId, coord) =>
-      Effect.sync(() => {
-        const data = chunks.get(`${worldId}:${coord.x}:${coord.z}`)
-        return data !== undefined ? Option.some(data) : Option.none()
-      }),
+      Effect.sync(() => MutableHashMap.get(chunks, `${worldId}:${coord.x}:${coord.z}`)),
   })
 }
 
@@ -211,7 +208,7 @@ describe('application/chunk/chunk-manager-service', () => {
 
         expect(loaded.length).toBe(3)
 
-        const keys = loaded.map((c) => `${c.coord.x},${c.coord.z}`)
+        const keys = Arr.map(loaded, (c) => `${c.coord.x},${c.coord.z}`)
         expect(keys).toContain('0,0')
         expect(keys).toContain('1,0')
         expect(keys).toContain('0,1')
@@ -234,12 +231,12 @@ describe('application/chunk/chunk-manager-service', () => {
         yield* service.getChunk({ x: 5, z: 5 })
 
         const beforeUnload = yield* service.getLoadedChunks()
-        expect(beforeUnload.some((c) => c.coord.x === 5 && c.coord.z === 5)).toBe(true)
+        expect(Arr.some(beforeUnload, (c) => c.coord.x === 5 && c.coord.z === 5)).toBe(true)
 
         yield* service.unloadChunk({ x: 5, z: 5 })
 
         const afterUnload = yield* service.getLoadedChunks()
-        expect(afterUnload.some((c) => c.coord.x === 5 && c.coord.z === 5)).toBe(false)
+        expect(Arr.some(afterUnload, (c) => c.coord.x === 5 && c.coord.z === 5)).toBe(false)
 
         return { success: true }
       }).pipe(Effect.provide(TestLayer))
@@ -454,7 +451,7 @@ describe('application/chunk/chunk-manager-service', () => {
 
         // Sanity: (0,0) is still in cache (not yet evicted).
         const beforeEviction = yield* service.getLoadedChunks()
-        expect(beforeEviction.some((c) => c.coord.x === 0 && c.coord.z === 0)).toBe(true)
+        expect(Arr.some(beforeEviction, (c) => c.coord.x === 0 && c.coord.z === 0)).toBe(true)
 
         // Loading one more chunk should evict (0,0) — the LRU entry.
         // Because (0,0) is dirty, insertWithEviction must save it first.
@@ -462,7 +459,7 @@ describe('application/chunk/chunk-manager-service', () => {
 
         // (0,0) should no longer be in the in-memory cache.
         const afterEviction = yield* service.getLoadedChunks()
-        expect(afterEviction.some((c) => c.coord.x === 0 && c.coord.z === 0)).toBe(false)
+        expect(Arr.some(afterEviction, (c) => c.coord.x === 0 && c.coord.z === 0)).toBe(false)
 
         // (0,0) must have been written to storage during the pre-eviction save.
         const saved = yield* storage.loadChunk(DEFAULT_WORLD_ID, { x: 0, z: 0 })
@@ -503,7 +500,7 @@ describe('application/chunk/chunk-manager-service', () => {
 
         // (0,0) should have been evicted.
         const afterEviction = yield* service.getLoadedChunks()
-        expect(afterEviction.some((c) => c.coord.x === 0 && c.coord.z === 0)).toBe(false)
+        expect(Arr.some(afterEviction, (c) => c.coord.x === 0 && c.coord.z === 0)).toBe(false)
 
         // The storage value for (0,0) must still equal the original sentinel —
         // the eviction path must NOT re-save clean chunks.
@@ -541,7 +538,7 @@ describe('application/chunk/chunk-manager-service', () => {
 
         // The inserted chunk must be present in the loaded set.
         const loaded = yield* service.getLoadedChunks()
-        expect(loaded.some((c) => c.coord.x === MAX_CACHED_CHUNKS && c.coord.z === 0)).toBe(true)
+        expect(Arr.some(loaded, (c) => c.coord.x === MAX_CACHED_CHUNKS && c.coord.z === 0)).toBe(true)
 
         return { success: true }
       }).pipe(Effect.provide(TestLayer))
@@ -619,7 +616,7 @@ describe('application/chunk/chunk-manager-service', () => {
         expect(countNearOrigin).toBeGreaterThan(0)
 
         // Record one of the origin-adjacent chunk coords that we know was loaded
-        const originChunkLoaded = afterFirstLoad.some(
+        const originChunkLoaded = Arr.some(afterFirstLoad,
           (c) => c.coord.x === 0 && c.coord.z === 0
         )
         expect(originChunkLoaded).toBe(true)
@@ -644,7 +641,7 @@ describe('application/chunk/chunk-manager-service', () => {
 
         // After unloading, origin chunks should no longer be loaded
         const afterUnload = yield* service.getLoadedChunks()
-        const originStillLoaded = afterUnload.some(
+        const originStillLoaded = Arr.some(afterUnload,
           (c) => c.coord.x === 0 && c.coord.z === 0
         )
         expect(originStillLoaded).toBe(false)
@@ -703,7 +700,7 @@ describe('application/chunk/chunk-manager-service', () => {
 
         const loaded = yield* service.getLoadedChunks()
         // Must appear only once in the cache
-        const matches = loaded.filter((c) => c.coord.x === 2 && c.coord.z === 5)
+        const matches = Arr.filter(loaded, (c) => c.coord.x === 2 && c.coord.z === 5)
         expect(matches.length).toBe(1)
 
         return { success: true }
@@ -787,7 +784,7 @@ describe('application/chunk/chunk-manager-service', () => {
         expect(second.blocks).toBe(first.blocks)
 
         const loaded = yield* service.getLoadedChunks()
-        const count = loaded.filter((c) => c.coord.x === -3 && c.coord.z === -7).length
+        const count = Arr.filter(loaded, (c) => c.coord.x === -3 && c.coord.z === -7).length
         expect(count).toBe(1)
 
         return { success: true }

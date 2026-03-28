@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { Array as Arr, MutableHashMap, MutableHashSet, Option } from 'effect'
 import { greedyMeshChunk } from './greedy-meshing'
 import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex } from '@/domain/chunk'
 import type { Chunk, ChunkCoord } from '@/domain/chunk'
@@ -299,23 +300,23 @@ describe('greedyMeshChunk', () => {
       const chunk = makeChunkWithBlock(ZERO_COORD, 0, 0, 0, 'DIRT')
       const result = greedyMeshChunk(chunk, ZERO_OFFSET)
 
-      const seenNormals = new Set<string>()
+      const seenNormals = MutableHashSet.empty<string>()
       // Each quad has 4 identical normals; sample one per quad (every 4 vertices)
       const vertCount = result.opaque.normals.length / 3
       for (let v = 0; v < vertCount; v += 4) {
         const nx = result.opaque.normals[v * 3]
         const ny = result.opaque.normals[v * 3 + 1]
         const nz = result.opaque.normals[v * 3 + 2]
-        seenNormals.add(`${nx},${ny},${nz}`)
+        MutableHashSet.add(seenNormals, `${nx},${ny},${nz}`)
       }
 
-      expect(seenNormals.size).toBe(6)
-      expect(seenNormals.has('1,0,0')).toBe(true)   // +X
-      expect(seenNormals.has('-1,0,0')).toBe(true)  // -X
-      expect(seenNormals.has('0,1,0')).toBe(true)   // +Y
-      expect(seenNormals.has('0,-1,0')).toBe(true)  // -Y
-      expect(seenNormals.has('0,0,1')).toBe(true)   // +Z
-      expect(seenNormals.has('0,0,-1')).toBe(true)  // -Z
+      expect(MutableHashSet.size(seenNormals)).toBe(6)
+      expect(MutableHashSet.has(seenNormals, '1,0,0')).toBe(true)   // +X
+      expect(MutableHashSet.has(seenNormals, '-1,0,0')).toBe(true)  // -X
+      expect(MutableHashSet.has(seenNormals, '0,1,0')).toBe(true)   // +Y
+      expect(MutableHashSet.has(seenNormals, '0,-1,0')).toBe(true)  // -Y
+      expect(MutableHashSet.has(seenNormals, '0,0,1')).toBe(true)   // +Z
+      expect(MutableHashSet.has(seenNormals, '0,0,-1')).toBe(true)  // -Z
     })
   })
 
@@ -326,7 +327,7 @@ describe('greedyMeshChunk', () => {
 
       expect(result.opaque.colors.length).toBe(72)  // 6 faces × 4 verts × 3 channels
       // Colors are grayscale AO factors (1.0 = no darkening) — must be non-zero
-      const hasNonZero = Array.from(result.opaque.colors).some((v) => v > 0)
+      const hasNonZero = Arr.some(Arr.fromIterable(result.opaque.colors), (v) => v > 0)
       expect(hasNonZero).toBe(true)
     })
 
@@ -380,21 +381,22 @@ describe('greedyMeshChunk', () => {
       const result = greedyMeshChunk(chunk, ZERO_OFFSET)
 
       // Collect first UV per face direction by checking normals
-      const uvsByNormal = new Map<string, number>()
+      const uvsByNormal = MutableHashMap.empty<string, number>()
       const vertCount = result.opaque.normals.length / 3
       let uvOffset = 0
       for (let v = 0; v < vertCount; v += 4) {
-        const ny = result.opaque.normals[v * 3 + 1] ?? 0
-        const nz = result.opaque.normals[v * 3 + 2] ?? 0
+        const ny = Option.getOrElse(Option.fromNullable(result.opaque.normals[v * 3 + 1]), () => 0)
+        const nz = Option.getOrElse(Option.fromNullable(result.opaque.normals[v * 3 + 2]), () => 0)
         const key = ny === 1 ? 'top' : nz !== 0 ? 'side' : 'other'
-        if (!uvsByNormal.has(key)) {
-          uvsByNormal.set(key, result.opaque.uvs[uvOffset] ?? 0)
+        if (!MutableHashMap.has(uvsByNormal, key)) {
+          MutableHashMap.set(uvsByNormal, key, Option.getOrElse(Option.fromNullable(result.opaque.uvs[uvOffset]), () => 0))
         }
         uvOffset += 8  // 4 verts × 2 UV components
       }
 
       // grass_top (tile 4) and grass_side (tile 5) have different u0
-      expect(uvsByNormal.get('top')).not.toBe(uvsByNormal.get('side'))
+      expect(Option.getOrElse(MutableHashMap.get(uvsByNormal, 'top'), () => -1))
+        .not.toBe(Option.getOrElse(MutableHashMap.get(uvsByNormal, 'side'), () => -2))
     })
   })
 

@@ -1,7 +1,7 @@
-import { Clock, Effect, Ref, Option, Schema, Metric, MetricBoundaries, Duration } from 'effect'
+import { Array as Arr, Clock, Duration, Effect, HashMap, HashSet, Metric, MetricBoundaries, Option, Ref, Schema } from 'effect'
 import { ChunkService, ChunkSchema, Chunk, ChunkCoord, blockTypeToIndex, blockIndex, CHUNK_SIZE, CHUNK_HEIGHT } from '@/domain/chunk'
 import { StorageServicePort } from '@/application/storage/storage-service-port'
-import { Position } from '@/shared/kernel'
+import { Position, ChunkCacheKey } from '@/shared/kernel'
 import { DEFAULT_WORLD_ID, SEA_LEVEL, LAKE_LEVEL } from '@/application/constants'
 import { ChunkError, StorageError } from '@/domain/errors'
 import { BiomeService } from '@/application/biome/biome-service'
@@ -50,23 +50,21 @@ const worldToChunkCoord = (pos: Position): ChunkCoord => ({
  * Get all chunk coordinates within render distance of a center point
  * Uses a circular check for a nicer radius shape
  */
-const getChunksInRenderDistance = (center: ChunkCoord): ChunkCoord[] => {
-  const chunks: ChunkCoord[] = []
-  for (let dx = -RENDER_DISTANCE; dx <= RENDER_DISTANCE; dx++) {
-    for (let dz = -RENDER_DISTANCE; dz <= RENDER_DISTANCE; dz++) {
-      // Circular check for nicer radius
-      if (dx * dx + dz * dz <= RENDER_DISTANCE * RENDER_DISTANCE) {
-        chunks.push({ x: center.x + dx, z: center.z + dz })
-      }
-    }
-  }
-  return chunks
+const getChunksInRenderDistance = (center: ChunkCoord): ReadonlyArray<ChunkCoord> => {
+  const offsets = Arr.makeBy(2 * RENDER_DISTANCE + 1, (i) => i - RENDER_DISTANCE)
+  return Arr.filterMap(
+    Arr.flatMap(offsets, (dx) => Arr.map(offsets, (dz) => [dx, dz] as const)),
+    ([dx, dz]) =>
+      dx * dx + dz * dz <= RENDER_DISTANCE * RENDER_DISTANCE
+        ? Option.some({ x: center.x + dx, z: center.z + dz })
+        : Option.none()
+  )
 }
 
 /**
  * Create a unique key for chunk coordinate
  */
-const chunkCoordToKey = (coord: ChunkCoord): string => `${coord.x},${coord.z}`
+const chunkCoordToKey = (coord: ChunkCoord): ChunkCacheKey => ChunkCacheKey.make(coord)
 
 /**
  * Histogram metric for chunk load duration (generation + storage load) in milliseconds.
@@ -96,11 +94,15 @@ type ChunkCacheEntry = Schema.Schema.Type<typeof ChunkCacheEntrySchema>
  * FR-006 DEFERRED: Effect.Cache is architecturally incompatible with this LRU implementation.
  * Incompatibilities: (1) no onEvict callback for dirty-chunk persistence, (2) distance-based
  * eviction not supported, (3) dirty tracking atomicity broken by Cache's key-deduplication.
- * The current Phase 8 atomic LRU (Map + eviction loop) is correct and should be kept.
+ * The current Phase 8 atomic LRU (HashMap + eviction loop) is correct and should be kept.
+ *
+ * HashMap/HashSet from Effect replace the native Map/Set:
+ * - Immutable: no defensive copies needed in Ref.modify callbacks (eliminates TOCTOU risk)
+ * - Value equality: structural equality for key lookup (no accidental reference bugs)
  */
 interface ChunkCache {
-  chunks: Map<string, ChunkCacheEntry>
-  dirtyChunks: Set<string>
+  chunks: HashMap.HashMap<ChunkCacheKey, ChunkCacheEntry>
+  dirtyChunks: HashSet.HashSet<ChunkCacheKey>
 }
 
 /**
@@ -154,15 +156,14 @@ const fillColumn = (
   props: { surfaceBlock: import('@/domain/block').BlockType; subSurfaceBlock: import('@/domain/block').BlockType }
 ): void => {
   for (let y = 0; y <= surfaceY; y++) {
-    const idx = blockIndex(lx, y, lz)
-    if (idx === null) continue // skip out-of-bounds (should never happen with valid coords)
-    if (y === surfaceY) {
-      blocks[idx] = blockTypeToIndex(props.surfaceBlock) // intentional direct write: pre-construction Uint8Array before Chunk is assembled
-    } else if (y >= surfaceY - 3) {
-      blocks[idx] = blockTypeToIndex(props.subSurfaceBlock) // intentional direct write: pre-construction Uint8Array before Chunk is assembled
-    } else {
-      blocks[idx] = blockTypeToIndex('STONE') // intentional direct write: pre-construction Uint8Array before Chunk is assembled
-    }
+    Option.map(blockIndex(lx, y, lz), (idx) => {
+      // skip out-of-bounds (should never happen with valid coords)
+      blocks[idx] = y === surfaceY  // intentional direct write: pre-construction Uint8Array before Chunk is assembled
+        ? blockTypeToIndex(props.surfaceBlock)
+        : y >= surfaceY - 3
+          ? blockTypeToIndex(props.subSurfaceBlock)
+          : blockTypeToIndex('STONE')
+    })
   }
 }
 
@@ -206,10 +207,9 @@ const placeTree = (
 
   // Trunk — place straight up from one block above the surface
   for (let ty = surfaceY + 1; ty <= surfaceY + trunkHeight; ty++) {
-    const idx = blockIndex(lx, ty, lz)
-    if (idx !== null) {
+    Option.map(blockIndex(lx, ty, lz), (idx) => {
       blocks[idx] = blockTypeToIndex('WOOD') // intentional direct write: pre-construction Uint8Array before Chunk is assembled
-    }
+    })
   }
 
   // Leaves: 3x3x3 canopy anchored at top of trunk, cropped at chunk boundary
@@ -220,10 +220,9 @@ const placeTree = (
         const lx2 = lx + dlx
         const lz2 = lz + dlz
         const ly = leafBase + dy
-        const leafIdx = blockIndex(lx2, ly, lz2)
-        if (leafIdx !== null && blocks[leafIdx] === 0) {
-          blocks[leafIdx] = blockTypeToIndex('LEAVES') // intentional direct write: pre-construction Uint8Array before Chunk is assembled
-        }
+        Option.map(blockIndex(lx2, ly, lz2), (idx) => {
+          if (blocks[idx] === 0) blocks[idx] = blockTypeToIndex('LEAVES') // intentional direct write: pre-construction Uint8Array before Chunk is assembled
+        })
       }
     }
   }
@@ -268,33 +267,34 @@ const generateTerrain = (
           0.5,
           2.0
         )
-        let surfaceY = calculateSurfaceHeight(noiseVal, props.baseHeight, props.heightModifier, HEIGHT_VARIATION)
+        const initialSurfaceY = calculateSurfaceHeight(noiseVal, props.baseHeight, props.heightModifier, HEIGHT_VARIATION)
 
         // Phase 2.5: Lake generation — lower surface to create a basin, fill with water later
-        let isLake = false
-        let lakeNoiseVal = 0
-        if (biome !== 'OCEAN') {
-          lakeNoiseVal = yield* noiseService.noise2D(
-            wx * LAKE_NOISE_SCALE + 5000,
-            wz * LAKE_NOISE_SCALE + 5000,
-          )
-          if (lakeNoiseVal > LAKE_THRESHOLD && surfaceY >= LAKE_LEVEL) {
-            const t = (lakeNoiseVal - LAKE_THRESHOLD) / (1.0 - LAKE_THRESHOLD)
+        // lakeNoiseVal: only computed for non-OCEAN biomes (OCEAN uses 0, ensuring isShore = false)
+        const lakeNoiseVal = biome !== 'OCEAN'
+          ? yield* noiseService.noise2D(wx * LAKE_NOISE_SCALE + 5000, wz * LAKE_NOISE_SCALE + 5000)
+          : 0
+
+        // lakeBasin: Some(depressedY) = inland lake at that surface, None = no lake
+        const lakeBasin: Option.Option<number> = Option.flatMap(
+          biome === 'OCEAN' || lakeNoiseVal <= LAKE_THRESHOLD || initialSurfaceY < LAKE_LEVEL
+            ? Option.none()
+            : Option.some(lakeNoiseVal),
+          (noiseVal) => {
+            const t = (noiseVal - LAKE_THRESHOLD) / (1.0 - LAKE_THRESHOLD)
             const lakeDepth = Math.max(LAKE_MIN_DEPTH, Math.floor(t * LAKE_MAX_DEPTH))
-            const depressedY = Math.max(SEA_LEVEL + 1, surfaceY - lakeDepth)
+            const depressedY = Math.max(SEA_LEVEL + 1, initialSurfaceY - lakeDepth)
             // Only commit to lake if the depression actually reaches below the water line
-            if (depressedY < LAKE_LEVEL) {
-              surfaceY = depressedY
-              isLake = true
-            }
+            return depressedY < LAKE_LEVEL ? Option.some(depressedY) : Option.none()
           }
-        }
+        )
+        const surfaceY = Option.getOrElse(lakeBasin, () => initialSurfaceY)
 
         // Sandy shoreline: only near terrain low enough that lakes can form nearby
-        const isShore =
-          !isLake &&
-          lakeNoiseVal > LAKE_THRESHOLD - LAKE_SHORE_WIDTH &&
-          surfaceY < LAKE_LEVEL + 4
+        const isShore = Option.match(lakeBasin, {
+          onSome: () => false,
+          onNone: () => lakeNoiseVal > LAKE_THRESHOLD - LAKE_SHORE_WIDTH && surfaceY < LAKE_LEVEL + 4,
+        })
 
         // Phase 3: Fill column blocks (inner loop — pure, no Effect overhead)
         fillColumn(
@@ -302,32 +302,36 @@ const generateTerrain = (
           lx,
           lz,
           surfaceY,
-          isLake
-            ? { surfaceBlock: 'SAND', subSurfaceBlock: 'SAND' }
-            : isShore
-              ? { ...props, surfaceBlock: 'SAND' }
-              : props,
+          Option.match(lakeBasin, {
+            onSome: () => ({ surfaceBlock: 'SAND' as const, subSurfaceBlock: 'SAND' as const }),
+            onNone: () => isShore ? { ...props, surfaceBlock: 'SAND' as const } : props,
+          }),
         )
 
         // Phase 3.5: Water fill — ocean (below SEA_LEVEL) and inland lakes (below LAKE_LEVEL)
         if (surfaceY < SEA_LEVEL) {
           for (let y = surfaceY + 1; y <= SEA_LEVEL; y++) {
-            const idx = blockIndex(lx, y, lz)
-            if (idx === null) continue
-            blocks[idx] = blockTypeToIndex('WATER') // intentional direct write: water fill during terrain generation
+            Option.map(blockIndex(lx, y, lz), (idx) => {
+              blocks[idx] = blockTypeToIndex('WATER') // intentional direct write: water fill during terrain generation
+            })
           }
-        } else if (isLake) {
-          for (let y = surfaceY + 1; y <= LAKE_LEVEL; y++) {
-            const idx = blockIndex(lx, y, lz)
-            if (idx === null) continue
-            blocks[idx] = blockTypeToIndex('WATER') // intentional direct write: lake water fill during terrain generation
-          }
+        } else {
+          Option.map(lakeBasin, () => {
+            for (let y = surfaceY + 1; y <= LAKE_LEVEL; y++) {
+              Option.map(blockIndex(lx, y, lz), (idx) => {
+                blocks[idx] = blockTypeToIndex('WATER') // intentional direct write: lake water fill during terrain generation
+              })
+            }
+          })
         }
 
         // Phase 4: Place trees (probability-based, pure)
         const { place, treeRng } = shouldPlaceTree(props.treeDensity, surfaceY, wx, wz)
-        if (place && !isLake) {
-          placeTree(blocks, lx, lz, surfaceY, treeRng)
+        if (place) {
+          Option.match(lakeBasin, {
+            onNone: () => placeTree(blocks, lx, lz, surfaceY, treeRng),
+            onSome: () => { /* lakes have no trees */ },
+          })
         }
       }
     }
@@ -352,8 +356,8 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
       const noiseService = yield* NoiseServicePort
 
       const cache = yield* Ref.make<ChunkCache>({
-        chunks: new Map(),
-        dirtyChunks: new Set(),
+        chunks: HashMap.empty<ChunkCacheKey, ChunkCacheEntry>(),
+        dirtyChunks: HashSet.empty<ChunkCacheKey>(),
       })
 
       // Cache for getLoadedChunks result — invalidated whenever a chunk is inserted or removed.
@@ -362,21 +366,26 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
 
       const lastLoadTimeRef = yield* Ref.make<number>(0)
 
+      // Monotonically incrementing counter for LRU access ordering.
+      // Using a counter instead of wall-clock time guarantees strict uniqueness per access,
+      // which avoids ties when multiple chunks are inserted within the same millisecond.
+      // HashMap iteration order is hash-based (not insertion-ordered like native Map),
+      // so ties in lastAccessed would produce non-deterministic LRU eviction — the counter fixes this.
+      const accessCounterRef = yield* Ref.make<number>(0)
+
       // Semaphore limiting concurrent chunk generation/loading to 4 fibers at a time
       const loadSemaphore = yield* Effect.makeSemaphore(4)
 
       // Helper: find the LRU key in a chunks map (O(n) scan, fine at 400 items)
-      const findLRUKey = (chunks: Map<string, ChunkCacheEntry>): string => {
-        let oldestKey = ''
-        let oldestTime = Infinity
-        for (const [k, entry] of chunks) {
-          if (entry.lastAccessed < oldestTime) {
-            oldestTime = entry.lastAccessed
-            oldestKey = k
-          }
-        }
-        return oldestKey
-      }
+      const findLRUKey = (chunks: HashMap.HashMap<ChunkCacheKey, ChunkCacheEntry>): Option.Option<ChunkCacheKey> =>
+        Arr.reduce(
+          Arr.fromIterable(chunks),
+          { keyOpt: Option.none<ChunkCacheKey>(), time: Infinity } as { keyOpt: Option.Option<ChunkCacheKey>; time: number },
+          (acc, [k, entry]) =>
+            entry.lastAccessed < acc.time
+              ? { keyOpt: Option.some(k), time: entry.lastAccessed }
+              : acc
+        ).keyOpt
 
       // Helper: insert a chunk into the cache, evicting the LRU entry if at capacity.
       // Uses Ref.modify to atomically insert + evict and return the evicted entry if dirty,
@@ -389,35 +398,40 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
       ): Effect.Effect<void, StorageError> =>
         Effect.gen(function* () {
           const key = chunkCoordToKey(coord)
-          const now = yield* Clock.currentTimeMillis
+          // Use monotonically incrementing counter instead of wall-clock time.
+          // Clock.currentTimeMillis can return the same value for multiple rapid insertions,
+          // causing ties in lastAccessed. With HashMap (hash-ordered iteration), a tie produces
+          // non-deterministic LRU selection. The counter guarantees strictly unique access order.
+          const accessOrder = yield* Ref.modify(accessCounterRef, (n) => [n + 1, n + 1])
 
-          // Atomically insert + evict LRU, returning the dirty evictee (if any) for post-save
+          // Atomically insert + evict LRU, returning the dirty evictee (if any) for post-save.
+          // HashMap/HashSet are immutable — no defensive copies needed; modifications return new instances.
           const evictedDirtyEntry = yield* Ref.modify(cache, (s): [Option.Option<ChunkCacheEntry>, ChunkCache] => {
-            const newChunks = new Map(s.chunks)
-            newChunks.set(key, { chunk, lastAccessed: now })
-            let newDirty = s.dirtyChunks
-            let evictedDirty: Option.Option<ChunkCacheEntry> = Option.none()
-            if (newChunks.size > MAX_CACHED_CHUNKS) {
-              const evictKey = findLRUKey(newChunks)
-              if (evictKey) {
-                const evictEntry = newChunks.get(evictKey)
-                const isDirty = s.dirtyChunks.has(evictKey)
-                newChunks.delete(evictKey)
-                newDirty = new Set(s.dirtyChunks)
-                newDirty.delete(evictKey)
-                if (isDirty && evictEntry !== undefined) {
-                  evictedDirty = Option.some(evictEntry)
-                }
-              }
+            const baseChunks = HashMap.set(s.chunks, key, { chunk, lastAccessed: accessOrder })
+
+            if (HashMap.size(baseChunks) <= MAX_CACHED_CHUNKS) {
+              return [Option.none(), { ...s, chunks: baseChunks }]
             }
-            return [evictedDirty, { ...s, chunks: newChunks, dirtyChunks: newDirty }]
+
+            return Option.match(findLRUKey(baseChunks), {
+              onNone: () => [Option.none<ChunkCacheEntry>(), { ...s, chunks: baseChunks }] as [Option.Option<ChunkCacheEntry>, ChunkCache],
+              onSome: (evictKey) => {
+                const evictEntryOpt = HashMap.get(baseChunks, evictKey)
+                const isDirty = HashSet.has(s.dirtyChunks, evictKey)
+                const newChunks = HashMap.remove(baseChunks, evictKey)
+                const newDirty = HashSet.remove(s.dirtyChunks, evictKey)
+                const evictedDirty = Option.filter(evictEntryOpt, () => isDirty)
+                return [evictedDirty, { ...s, chunks: newChunks, dirtyChunks: newDirty }]
+              },
+            })
           })
 
           // Save the evicted chunk if it was dirty (I/O must happen outside Ref.modify)
-          if (Option.isSome(evictedDirtyEntry)) {
-            const evicted = evictedDirtyEntry.value
-            yield* storageService.saveChunk(DEFAULT_WORLD_ID, evicted.chunk.coord, evicted.chunk.blocks) // intentional: raw Uint8Array passed to storage serialization
-          }
+          yield* Option.match(evictedDirtyEntry, {
+            onNone: () => Effect.void,
+            onSome: (evicted) =>
+              storageService.saveChunk(DEFAULT_WORLD_ID, evicted.chunk.coord, evicted.chunk.blocks), // intentional: raw Uint8Array passed to storage serialization
+          })
 
           // Invalidate getLoadedChunks cache: chunk set has changed
           yield* Ref.set(cachedLoadedChunksRef, Option.none())
@@ -428,73 +442,71 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
           const key = chunkCoordToKey(coord)
           const state = yield* Ref.get(cache)
 
-          // Return cached chunk if available, updating LRU access time
-          const cached = state.chunks.get(key)
-          if (cached) {
-            const accessTime = yield* Clock.currentTimeMillis
-            cached.lastAccessed = accessTime  // O(1) in-place update, safe in single-threaded JS
-            return cached.chunk
-          }
+          const generateAndInsert = (): Effect.Effect<Chunk, ChunkManagerError> =>
+            Effect.gen(function* () {
+              // Generate new chunk via procedural terrain — track load duration
+              const newChunk = yield* generateTerrain(chunkService, biomeService, noiseService, coord).pipe(
+                Metric.trackDurationWith(chunkLoadHistogram, (d) => Duration.toMillis(d))
+              )
+              yield* insertWithEviction(coord, newChunk)
+              return newChunk
+            })
 
-          // Try to load from storage — measured with chunkLoadHistogram
-          const storedData = yield* storageService.loadChunk(DEFAULT_WORLD_ID, coord)
+          return yield* Option.match(HashMap.get(state.chunks, key), {
+            onSome: (cached) => Effect.gen(function* () {
+              // Return cached chunk, updating LRU access order
+              const accessOrder = yield* Ref.modify(accessCounterRef, (n) => [n + 1, n + 1])
+              cached.lastAccessed = accessOrder  // O(1) in-place update, safe in single-threaded JS
+              return cached.chunk
+            }),
+            onNone: () => Effect.gen(function* () {
+              // Try to load from storage — measured with chunkLoadHistogram
+              const storedData = yield* storageService.loadChunk(DEFAULT_WORLD_ID, coord)
+              return yield* Option.match(storedData, {
+                onNone: () => generateAndInsert(),
+                onSome: (rawBlocks) => Effect.gen(function* () {
+                  // Guard: storage may return deserialized JSON (plain Array) on schema mismatch.
+                  // Re-wrap to Uint8Array to ensure typed array semantics are preserved.
+                  const blocks = rawBlocks instanceof Uint8Array
+                    ? rawBlocks
+                    : new Uint8Array(rawBlocks as ArrayLike<number>)
 
-          if (Option.isSome(storedData)) {
-            // Guard: storage may return deserialized JSON (plain Array) on schema mismatch.
-            // Re-wrap to Uint8Array to ensure typed array semantics are preserved.
-            const rawBlocks = storedData.value
-            const blocks = rawBlocks instanceof Uint8Array
-              ? rawBlocks
-              : new Uint8Array(rawBlocks as ArrayLike<number>)
-
-            const EXPECTED_LENGTH = CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT
-            if (blocks.byteLength !== EXPECTED_LENGTH) {
-              // Buffer length mismatch — discard and regenerate (corrupted or version-mismatched data)
-              yield* Effect.logWarning(`Chunk (${coord.x},${coord.z}) has invalid buffer length ${blocks.byteLength} (expected ${EXPECTED_LENGTH}); regenerating`)
-            } else {
-              const chunk: Chunk = {
-                coord,
-                blocks,
-              }
-              yield* insertWithEviction(coord, chunk)
-              return chunk
-            }
-          }
-
-          // Generate new chunk via procedural terrain — track load duration
-          const newChunk = yield* generateTerrain(chunkService, biomeService, noiseService, coord).pipe(
-            Metric.trackDurationWith(chunkLoadHistogram, (d) => Duration.toMillis(d))
-          )
-          yield* insertWithEviction(coord, newChunk)
-
-          return newChunk
+                  const EXPECTED_LENGTH = CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT
+                  if (blocks.byteLength !== EXPECTED_LENGTH) {
+                    // Buffer length mismatch — discard and regenerate (corrupted or version-mismatched data)
+                    yield* Effect.logWarning(`Chunk (${coord.x},${coord.z}) has invalid buffer length ${blocks.byteLength} (expected ${EXPECTED_LENGTH}); regenerating`)
+                    return yield* generateAndInsert()
+                  }
+                  const chunk: Chunk = { coord, blocks }
+                  yield* insertWithEviction(coord, chunk)
+                  return chunk
+                }),
+              })
+            }),
+          })
         })
 
       const unloadChunk = (coord: ChunkCoord): Effect.Effect<void, StorageError> =>
         Effect.gen(function* () {
           const key = chunkCoordToKey(coord)
           const state = yield* Ref.get(cache)
-          const chunk = state.chunks.get(key)?.chunk
-
-          if (!chunk) {
-            return
-          }
-
-          // Save if dirty
-          if (state.dirtyChunks.has(key)) {
-            yield* storageService.saveChunk(DEFAULT_WORLD_ID, chunk.coord, chunk.blocks) // intentional: raw Uint8Array passed to storage serialization
-          }
-
-          // Remove from cache
-          yield* Ref.update(cache, (s) => {
-            const newChunks = new Map(s.chunks)
-            newChunks.delete(key)
-            const newDirty = new Set(s.dirtyChunks)
-            newDirty.delete(key)
-            return { chunks: newChunks, dirtyChunks: newDirty }
+          yield* Option.match(Option.map(HashMap.get(state.chunks, key), (e) => e.chunk), {
+            onNone: () => Effect.void,
+            onSome: (chunk) => Effect.gen(function* () {
+              // Save if dirty
+              if (HashSet.has(state.dirtyChunks, key)) {
+                yield* storageService.saveChunk(DEFAULT_WORLD_ID, chunk.coord, chunk.blocks) // intentional: raw Uint8Array passed to storage serialization
+              }
+              // Remove from cache — HashMap/HashSet are immutable; remove returns new instance
+              yield* Ref.update(cache, (s) => ({
+                ...s,
+                chunks: HashMap.remove(s.chunks, key),
+                dirtyChunks: HashSet.remove(s.dirtyChunks, key),
+              }))
+              // Invalidate getLoadedChunks cache: chunk set has changed
+              yield* Ref.set(cachedLoadedChunksRef, Option.none())
+            }),
           })
-          // Invalidate getLoadedChunks cache: chunk set has changed
-          yield* Ref.set(cachedLoadedChunksRef, Option.none())
         })
 
       return {
@@ -534,12 +546,13 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
             const state = yield* Ref.get(cache)
             const maxDistance = UNLOAD_DISTANCE * UNLOAD_DISTANCE
 
-            for (const entry of state.chunks.values()) {
-              const dist = chunkDistanceSquared(entry.chunk.coord, centerChunk)
-              if (dist > maxDistance) {
-                yield* unloadChunk(entry.chunk.coord)
-              }
-            }
+            yield* Effect.forEach(
+              Arr.filter(Arr.fromIterable(HashMap.values(state.chunks)), (entry) =>
+                chunkDistanceSquared(entry.chunk.coord, centerChunk) > maxDistance
+              ),
+              (entry) => unloadChunk(entry.chunk.coord),
+              { concurrency: 1 }
+            )
           }),
 
         /**
@@ -549,12 +562,15 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
          */
         getLoadedChunks: (): Effect.Effect<ReadonlyArray<Chunk>, never> =>
           Effect.gen(function* () {
-            const cached = yield* Ref.get(cachedLoadedChunksRef)
-            if (Option.isSome(cached)) return cached.value
-            const state = yield* Ref.get(cache)
-            const chunks = Array.from(state.chunks.values()).map((entry) => entry.chunk) as ReadonlyArray<Chunk>
-            yield* Ref.set(cachedLoadedChunksRef, Option.some(chunks))
-            return chunks
+            return yield* Option.match(yield* Ref.get(cachedLoadedChunksRef), {
+              onSome: Effect.succeed,
+              onNone: () => Effect.gen(function* () {
+                const state = yield* Ref.get(cache)
+                const chunks = Arr.map(Arr.fromIterable(HashMap.values(state.chunks)), (entry) => entry.chunk) as ReadonlyArray<Chunk>
+                yield* Ref.set(cachedLoadedChunksRef, Option.some(chunks))
+                return chunks
+              }),
+            })
           }),
 
         /**
@@ -565,7 +581,7 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
             const key = chunkCoordToKey(coord)
             yield* Ref.update(cache, (s) => ({
               ...s,
-              dirtyChunks: new Set(s.dirtyChunks).add(key),
+              dirtyChunks: HashSet.add(s.dirtyChunks, key),
             }))
           }),
 
@@ -577,24 +593,22 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
             // Snapshot the dirty key set — saves only these keys, not any new ones added
             // during the async save loop. Clears only the saved keys afterward so that
             // block modifications arriving mid-save are not silently discarded.
+            // HashSet is immutable — holding a reference IS a snapshot (no defensive copy needed).
             const state = yield* Ref.get(cache)
-            const keysToSave = new Set(state.dirtyChunks)
+            const keysToSave = state.dirtyChunks
 
-            for (const key of keysToSave) {
-              const entry = state.chunks.get(key)
-              if (entry) {
-                yield* storageService.saveChunk(DEFAULT_WORLD_ID, entry.chunk.coord, entry.chunk.blocks) // intentional: raw Uint8Array passed to storage serialization
-              }
-            }
+            yield* Effect.forEach(
+              Arr.filterMap(Arr.fromIterable(keysToSave), (key) => HashMap.get(state.chunks, key)),
+              (entry) => storageService.saveChunk(DEFAULT_WORLD_ID, entry.chunk.coord, entry.chunk.blocks), // intentional: raw Uint8Array passed to storage serialization
+              { concurrency: 1 }
+            )
 
-            // Clear only the keys we actually saved — preserves new dirty flags set during save
-            yield* Ref.update(cache, (s) => {
-              const newDirty = new Set(s.dirtyChunks)
-              for (const key of keysToSave) {
-                newDirty.delete(key)
-              }
-              return { ...s, dirtyChunks: newDirty }
-            })
+            // Clear only the keys we actually saved — preserves new dirty flags set during save.
+            // HashSet.difference returns elements in s.dirtyChunks NOT in keysToSave.
+            yield* Ref.update(cache, (s) => ({
+              ...s,
+              dirtyChunks: HashSet.difference(s.dirtyChunks, keysToSave),
+            }))
           }),
 
         /**

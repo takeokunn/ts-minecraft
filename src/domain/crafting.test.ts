@@ -1,6 +1,6 @@
 import { describe, it } from 'vitest'
 import { expect } from 'vitest'
-import { Schema } from 'effect'
+import { Array as Arr, Option, Schema } from 'effect'
 import { RecipeIngredient, Recipe } from './crafting'
 
 describe('RecipeIngredient', () => {
@@ -106,8 +106,9 @@ describe('Recipe', () => {
     const encoded = Schema.encodeSync(Recipe)(original)
     const decoded = Schema.decodeUnknownSync(Recipe)(encoded)
     expect(decoded['id']).toBe('recipe-roundtrip')
-    expect(decoded['ingredients'][0]?.['blockType']).toBe('SAND')
-    expect(decoded['ingredients'][0]?.['count']).toBe(8)
+    const firstIngredient = Option.getOrThrow(Arr.get(decoded['ingredients'], 0))
+    expect(firstIngredient['blockType']).toBe('SAND')
+    expect(firstIngredient['count']).toBe(8)
     expect(decoded['output']['blockType']).toBe('GLASS')
     expect(decoded['output']['count']).toBe(8)
   })

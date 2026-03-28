@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { Effect, Layer } from 'effect'
+import { Array as Arr, Effect, Layer, Option } from 'effect'
 import * as THREE from 'three'
 
 // ---------------------------------------------------------------------------
@@ -66,11 +66,11 @@ vi.mock('three', () => ({
   Box3: vi.fn(() => ({ set: vi.fn() })),
   Vector3: vi.fn(() => ({ set: vi.fn(), copy: vi.fn(), x: 0, y: 0, z: 0 })),
   Vector2: vi.fn(() => ({ set: vi.fn(), x: 0, y: 0 })),
-  Matrix4: vi.fn(() => ({ multiplyMatrices: vi.fn(), elements: Array.from({ length: 16 }, () => 0) })),
+  Matrix4: vi.fn(() => ({ multiplyMatrices: vi.fn(), elements: Arr.makeBy(16, () => 0) })),
   PerspectiveCamera: vi.fn(() => ({
     updateMatrixWorld: vi.fn(),
-    projectionMatrix: { elements: Array.from({ length: 16 }, () => 0) },
-    matrixWorldInverse: { elements: Array.from({ length: 16 }, () => 0) },
+    projectionMatrix: { elements: Arr.makeBy(16, () => 0) },
+    matrixWorldInverse: { elements: Arr.makeBy(16, () => 0) },
     isCamera: true,
     position: { set: vi.fn(), copy: vi.fn(), x: 0, y: 0, z: 0 },
   })),
@@ -119,7 +119,7 @@ const buildTestLayer = (
   const chunkMeshLayer = Layer.succeed(ChunkMeshService, {
     atlasTexture: {} as THREE.Texture,
     createChunkMesh,
-    updateChunkMesh: vi.fn((_m: THREE.Mesh, _w: THREE.Mesh | null, _c: Chunk) => Effect.void),
+    updateChunkMesh: vi.fn((_m: THREE.Mesh, _w: Option.Option<THREE.Mesh>, _c: Chunk) => Effect.void),
     disposeMesh: vi.fn((_m: THREE.Mesh) => Effect.void),
   } as unknown as ChunkMeshService)
 

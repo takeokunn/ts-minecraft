@@ -1,6 +1,6 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Effect, Layer, Option } from 'effect'
+import { Array as Arr, Effect, HashMap, HashSet, Layer, Option } from 'effect'
 import type { Block, BlockType } from '@/domain/block'
 import { BlockRegistry } from '@/domain/block-registry'
 import { RecipeService } from '@/application/crafting/recipe-service'
@@ -65,9 +65,9 @@ describe('application/crafting/recipe-service', () => {
       Effect.gen(function* () {
         const rs = yield* RecipeService
         const recipes = rs.getAllRecipes()
-        const ids = recipes.map((r) => r.id)
-        const uniqueIds = new Set(ids)
-        expect(uniqueIds.size).toBe(ids.length)
+        const ids = Arr.map(recipes, (r) => r.id)
+        const uniqueIds = HashSet.fromIterable(ids)
+        expect(HashSet.size(uniqueIds)).toBe(ids.length)
       }).pipe(Effect.provide(RecipeService.Default))
     )
   })
@@ -110,7 +110,7 @@ describe('application/crafting/recipe-service', () => {
         const result = rs.findById(RecipeId.make('stone-to-cobblestone'))
         expect(Option.isSome(result)).toBe(true)
         if (Option.isSome(result)) {
-          expect(result.value.ingredients[0]?.blockType).toBe('STONE')
+          expect(Option.getOrThrow(Arr.get(result.value.ingredients, 0)).blockType).toBe('STONE')
           expect(result.value.output.blockType).toBe('COBBLESTONE')
         }
       }).pipe(Effect.provide(RecipeService.Default))
@@ -121,9 +121,9 @@ describe('application/crafting/recipe-service', () => {
     it.effect('returns matching recipes when inventory has sufficient ingredients', () =>
       Effect.gen(function* () {
         const rs = yield* RecipeService
-        const available = new Map([['WOOD', 5]])
+        const available = HashMap.make(['WOOD' as BlockType, 5])
         const craftable = rs.findCraftable(available)
-        const ids = craftable.map((r) => r.id)
+        const ids = Arr.map(craftable, (r) => r.id)
         expect(ids).toContain('wood-to-planks')
       }).pipe(Effect.provide(RecipeService.Default))
     )
@@ -132,9 +132,9 @@ describe('application/crafting/recipe-service', () => {
       Effect.gen(function* () {
         const rs = yield* RecipeService
         // sand-and-gravel-to-dirt needs SAND:1 and GRAVEL:1 — provide only SAND
-        const available = new Map([['SAND', 1]])
+        const available = HashMap.make(['SAND' as BlockType, 1])
         const craftable = rs.findCraftable(available)
-        const ids = craftable.map((r) => r.id)
+        const ids = Arr.map(craftable, (r) => r.id)
         expect(ids).not.toContain('sand-and-gravel-to-dirt')
       }).pipe(Effect.provide(RecipeService.Default))
     )
@@ -142,7 +142,7 @@ describe('application/crafting/recipe-service', () => {
     it.effect('returns empty array when inventory is empty', () =>
       Effect.gen(function* () {
         const rs = yield* RecipeService
-        const craftable = rs.findCraftable(new Map())
+        const craftable = rs.findCraftable(HashMap.empty<BlockType, number>())
         expect(craftable).toHaveLength(0)
       }).pipe(Effect.provide(RecipeService.Default))
     )
@@ -150,15 +150,15 @@ describe('application/crafting/recipe-service', () => {
     it.effect('returns multiple craftable recipes when inventory is fully stocked', () =>
       Effect.gen(function* () {
         const rs = yield* RecipeService
-        const available = new Map([
-          ['WOOD', 64],
-          ['STONE', 64],
-          ['GRASS', 64],
-          ['SAND', 64],
-          ['GRAVEL', 64],
-          ['DIRT', 64],
-          ['COBBLESTONE', 64],
-        ])
+        const available = HashMap.make(
+          ['WOOD' as BlockType, 64],
+          ['STONE' as BlockType, 64],
+          ['GRASS' as BlockType, 64],
+          ['SAND' as BlockType, 64],
+          ['GRAVEL' as BlockType, 64],
+          ['DIRT' as BlockType, 64],
+          ['COBBLESTONE' as BlockType, 64],
+        )
         const craftable = rs.findCraftable(available)
         expect(craftable.length).toBeGreaterThanOrEqual(5)
       }).pipe(Effect.provide(RecipeService.Default))
@@ -168,20 +168,14 @@ describe('application/crafting/recipe-service', () => {
       Effect.gen(function* () {
         const rs = yield* RecipeService
         // wood-and-stone-to-glass requires WOOD:2 and SAND:4
-        const tooFewSand = new Map([
-          ['WOOD', 2],
-          ['SAND', 3],
-        ])
-        const exact = new Map([
-          ['WOOD', 2],
-          ['SAND', 4],
-        ])
+        const tooFewSand = HashMap.make(['WOOD' as BlockType, 2], ['SAND' as BlockType, 3])
+        const exact = HashMap.make(['WOOD' as BlockType, 2], ['SAND' as BlockType, 4])
 
         const notCraftable = rs.findCraftable(tooFewSand)
         const craftable = rs.findCraftable(exact)
 
-        expect(notCraftable.map((r) => r.id)).not.toContain('wood-and-stone-to-glass')
-        expect(craftable.map((r) => r.id)).toContain('wood-and-stone-to-glass')
+        expect(Arr.map(notCraftable, (r) => r.id)).not.toContain('wood-and-stone-to-glass')
+        expect(Arr.map(craftable, (r) => r.id)).toContain('wood-and-stone-to-glass')
       }).pipe(Effect.provide(RecipeService.Default))
     )
   })
@@ -225,18 +219,14 @@ describe('application/crafting/recipe-service', () => {
 
         // Confirm we have WOOD (from hotbar init) and craft wood-to-planks (WOOD:1 → WOOD:4)
         const beforeSlots = yield* inv.getAllSlots()
-        const woodBefore = beforeSlots.reduce(
-          (sum, s) => sum + (Option.isSome(s) && s.value.blockType === 'WOOD' ? s.value.count : 0),
-          0,
+        const woodBefore = Arr.reduce(beforeSlots, 0, (sum, s) => sum + (Option.isSome(s) && s.value.blockType === 'WOOD' ? s.value.count : 0)
         )
         expect(woodBefore).toBeGreaterThanOrEqual(1)
 
         yield* rs.craft(RecipeId.make('wood-to-planks'), inv)
 
         const afterSlots = yield* inv.getAllSlots()
-        const woodAfter = afterSlots.reduce(
-          (sum, s) => sum + (Option.isSome(s) && s.value.blockType === 'WOOD' ? s.value.count : 0),
-          0,
+        const woodAfter = Arr.reduce(afterSlots, 0, (sum, s) => sum + (Option.isSome(s) && s.value.blockType === 'WOOD' ? s.value.count : 0)
         )
         // net: -1 ingredient +4 output = woodBefore + 3
         expect(woodAfter).toBe(woodBefore + 3)
@@ -281,9 +271,8 @@ describe('application/crafting/recipe-service', () => {
 
         // sand-and-gravel-to-dirt needs SAND:1 and GRAVEL:1.
         // woodSandInventoryLayer has WOOD and SAND but NOT GRAVEL.
-        const sandBefore = (yield* inv.getAllSlots()).reduce(
-          (sum, s) => sum + (Option.isSome(s) && s.value.blockType === 'SAND' ? s.value.count : 0),
-          0,
+        const sandBefore = Arr.reduce(yield* inv.getAllSlots(), 0,
+          (sum, s) => sum + (Option.isSome(s) && s.value.blockType === 'SAND' ? s.value.count : 0)
         )
         expect(sandBefore).toBeGreaterThan(0)
 
@@ -291,9 +280,8 @@ describe('application/crafting/recipe-service', () => {
         expect(result._tag).toBe('Left')
 
         // SAND must be unchanged — pre-check must have rejected before any removal
-        const sandAfter = (yield* inv.getAllSlots()).reduce(
-          (sum, s) => sum + (Option.isSome(s) && s.value.blockType === 'SAND' ? s.value.count : 0),
-          0,
+        const sandAfter = Arr.reduce(yield* inv.getAllSlots(), 0,
+          (sum, s) => sum + (Option.isSome(s) && s.value.blockType === 'SAND' ? s.value.count : 0)
         )
         expect(sandAfter).toBe(sandBefore)
       }).pipe(Effect.provide(combinedWoodSand))
@@ -307,13 +295,9 @@ describe('application/crafting/recipe-service', () => {
         const inv = yield* InventoryService
 
         const slotsBefore = yield* inv.getAllSlots()
-        const woodBefore = slotsBefore.reduce(
-          (sum, s) => sum + (Option.isSome(s) && s.value.blockType === 'WOOD' ? s.value.count : 0),
-          0,
+        const woodBefore = Arr.reduce(slotsBefore, 0, (sum, s) => sum + (Option.isSome(s) && s.value.blockType === 'WOOD' ? s.value.count : 0)
         )
-        const sandBefore = slotsBefore.reduce(
-          (sum, s) => sum + (Option.isSome(s) && s.value.blockType === 'SAND' ? s.value.count : 0),
-          0,
+        const sandBefore = Arr.reduce(slotsBefore, 0, (sum, s) => sum + (Option.isSome(s) && s.value.blockType === 'SAND' ? s.value.count : 0)
         )
         expect(woodBefore).toBeGreaterThanOrEqual(2)
         expect(sandBefore).toBeGreaterThanOrEqual(4)
@@ -322,17 +306,11 @@ describe('application/crafting/recipe-service', () => {
         yield* rs.craft(RecipeId.make('wood-and-stone-to-glass'), inv)
 
         const slotsAfter = yield* inv.getAllSlots()
-        const woodAfter = slotsAfter.reduce(
-          (sum, s) => sum + (Option.isSome(s) && s.value.blockType === 'WOOD' ? s.value.count : 0),
-          0,
+        const woodAfter = Arr.reduce(slotsAfter, 0, (sum, s) => sum + (Option.isSome(s) && s.value.blockType === 'WOOD' ? s.value.count : 0)
         )
-        const sandAfter = slotsAfter.reduce(
-          (sum, s) => sum + (Option.isSome(s) && s.value.blockType === 'SAND' ? s.value.count : 0),
-          0,
+        const sandAfter = Arr.reduce(slotsAfter, 0, (sum, s) => sum + (Option.isSome(s) && s.value.blockType === 'SAND' ? s.value.count : 0)
         )
-        const glassAfter = slotsAfter.reduce(
-          (sum, s) => sum + (Option.isSome(s) && s.value.blockType === 'GLASS' ? s.value.count : 0),
-          0,
+        const glassAfter = Arr.reduce(slotsAfter, 0, (sum, s) => sum + (Option.isSome(s) && s.value.blockType === 'GLASS' ? s.value.count : 0)
         )
 
         // Exactly 2 WOOD consumed, exactly 4 SAND consumed, exactly 4 GLASS produced
@@ -353,9 +331,7 @@ describe('application/crafting/recipe-service', () => {
         yield* inv.addBlock('COBBLESTONE', 10)
 
         const slotsBefore = yield* inv.getAllSlots()
-        const cobblestoneBefore = slotsBefore.reduce(
-          (sum, s) => sum + (Option.isSome(s) && s.value.blockType === 'COBBLESTONE' ? s.value.count : 0),
-          0,
+        const cobblestoneBefore = Arr.reduce(slotsBefore, 0, (sum, s) => sum + (Option.isSome(s) && s.value.blockType === 'COBBLESTONE' ? s.value.count : 0)
         )
         expect(cobblestoneBefore).toBe(10)
 
@@ -363,13 +339,9 @@ describe('application/crafting/recipe-service', () => {
         yield* rs.craft(RecipeId.make('cobblestone-bulk'), inv)
 
         const slotsAfter = yield* inv.getAllSlots()
-        const cobblestoneAfter = slotsAfter.reduce(
-          (sum, s) => sum + (Option.isSome(s) && s.value.blockType === 'COBBLESTONE' ? s.value.count : 0),
-          0,
+        const cobblestoneAfter = Arr.reduce(slotsAfter, 0, (sum, s) => sum + (Option.isSome(s) && s.value.blockType === 'COBBLESTONE' ? s.value.count : 0)
         )
-        const stoneAfter = slotsAfter.reduce(
-          (sum, s) => sum + (Option.isSome(s) && s.value.blockType === 'STONE' ? s.value.count : 0),
-          0,
+        const stoneAfter = Arr.reduce(slotsAfter, 0, (sum, s) => sum + (Option.isSome(s) && s.value.blockType === 'STONE' ? s.value.count : 0)
         )
 
         expect(cobblestoneAfter).toBe(6)
@@ -407,14 +379,12 @@ describe('application/crafting/recipe-service', () => {
         yield* inv.addBlock('COBBLESTONE', 36 * 64)
 
         const slotsBefore = yield* inv.getAllSlots()
-        const cobblestoneBefore = slotsBefore.reduce(
-          (sum, s) => sum + (Option.isSome(s) && s.value.blockType === 'COBBLESTONE' ? s.value.count : 0),
-          0,
+        const cobblestoneBefore = Arr.reduce(slotsBefore, 0, (sum, s) => sum + (Option.isSome(s) && s.value.blockType === 'COBBLESTONE' ? s.value.count : 0)
         )
         expect(cobblestoneBefore).toBe(36 * 64)
 
         // Verify there are no free slots
-        const freeBefore = slotsBefore.filter((s) => Option.isNone(s)).length
+        const freeBefore = Arr.filter(slotsBefore, Option.isNone).length
         expect(freeBefore).toBe(0)
 
         // Craft: COBBLESTONE:4 → STONE:4
@@ -422,13 +392,9 @@ describe('application/crafting/recipe-service', () => {
         yield* rs.craft(RecipeId.make('cobblestone-bulk'), inv)
 
         const slotsAfter = yield* inv.getAllSlots()
-        const cobblestoneAfter = slotsAfter.reduce(
-          (sum, s) => sum + (Option.isSome(s) && s.value.blockType === 'COBBLESTONE' ? s.value.count : 0),
-          0,
+        const cobblestoneAfter = Arr.reduce(slotsAfter, 0, (sum, s) => sum + (Option.isSome(s) && s.value.blockType === 'COBBLESTONE' ? s.value.count : 0)
         )
-        const stoneAfter = slotsAfter.reduce(
-          (sum, s) => sum + (Option.isSome(s) && s.value.blockType === 'STONE' ? s.value.count : 0),
-          0,
+        const stoneAfter = Arr.reduce(slotsAfter, 0, (sum, s) => sum + (Option.isSome(s) && s.value.blockType === 'STONE' ? s.value.count : 0)
         )
 
         // 4 COBBLESTONE consumed
@@ -457,11 +423,9 @@ describe('application/crafting/recipe-service', () => {
         yield* inv.addBlock('STONE', 1)
 
         const slotsBefore = yield* inv.getAllSlots()
-        const stoneBefore = slotsBefore.reduce(
-          (sum, s) => sum + (Option.isSome(s) && s.value.blockType === 'STONE' ? s.value.count : 0),
-          0,
+        const stoneBefore = Arr.reduce(slotsBefore, 0, (sum, s) => sum + (Option.isSome(s) && s.value.blockType === 'STONE' ? s.value.count : 0)
         )
-        const freeBefore = slotsBefore.filter((s) => Option.isNone(s)).length
+        const freeBefore = Arr.filter(slotsBefore, Option.isNone).length
         expect(stoneBefore).toBe(1)
         expect(freeBefore).toBe(0)
 
@@ -469,13 +433,9 @@ describe('application/crafting/recipe-service', () => {
         yield* rs.craft(RecipeId.make('stone-to-cobblestone'), inv)
 
         const slotsAfter = yield* inv.getAllSlots()
-        const stoneAfter = slotsAfter.reduce(
-          (sum, s) => sum + (Option.isSome(s) && s.value.blockType === 'STONE' ? s.value.count : 0),
-          0,
+        const stoneAfter = Arr.reduce(slotsAfter, 0, (sum, s) => sum + (Option.isSome(s) && s.value.blockType === 'STONE' ? s.value.count : 0)
         )
-        const cobblestoneAfter = slotsAfter.reduce(
-          (sum, s) => sum + (Option.isSome(s) && s.value.blockType === 'COBBLESTONE' ? s.value.count : 0),
-          0,
+        const cobblestoneAfter = Arr.reduce(slotsAfter, 0, (sum, s) => sum + (Option.isSome(s) && s.value.blockType === 'COBBLESTONE' ? s.value.count : 0)
         )
 
         // STONE ingredient consumed

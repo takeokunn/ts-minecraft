@@ -1,4 +1,4 @@
-import { Effect, Layer } from 'effect'
+import { Effect, Layer, Option, Ref, HashMap, HashSet } from 'effect'
 import { PlayerInputService } from '@/application/input/player-input-service'
 import type { MouseDelta } from '@/application/input/player-input-service'
 export type { MouseDelta } from '@/application/input/player-input-service'
@@ -30,29 +30,29 @@ export class InputService extends Effect.Service<InputService>()(
   '@minecraft/presentation/InputService',
   {
     scoped: Effect.gen(function* () {
-      // Track key state outside of Effect for direct event handler access
-      let pressedKeys = new Set<string>()
+      // Refs for all mutable input state — DOM handlers use Effect.runSync for synchronous access
+      const pressedKeysRef = yield* Ref.make(HashSet.empty<string>())
       // Track keys that were just pressed this frame (for consumeKeyPress)
-      let justPressedKeys = new Set<string>()
-      let mouseDelta = { x: 0, y: 0 }
+      const justPressedKeysRef = yield* Ref.make(HashSet.empty<string>())
+      const mouseDeltaRef = yield* Ref.make({ x: 0, y: 0 })
       // Track mouse button state (0=left, 1=middle, 2=right)
-      const mouseButtons = new Map<number, boolean>()
+      const mouseButtonsRef = yield* Ref.make(HashMap.empty<number, boolean>())
       // Track mouse buttons that were just clicked this frame (for consumeMouseClick)
-      const justClickedButtons = new Set<number>()
+      const justClickedButtonsRef = yield* Ref.make(HashSet.empty<number>())
       // Accumulated mouse wheel delta (positive = scroll down)
-      let wheelDelta = 0
+      const wheelDeltaRef = yield* Ref.make(0)
 
       // Keyboard event handlers
       const handleKeyDown = (event: KeyboardEvent) => {
         if (!event.repeat) {
-          pressedKeys.add(event.code)
+          Effect.runSync(Ref.update(pressedKeysRef, (s) => HashSet.add(s, event.code)))
           // Mark as just pressed (for consumeKeyPress)
-          justPressedKeys.add(event.code)
+          Effect.runSync(Ref.update(justPressedKeysRef, (s) => HashSet.add(s, event.code)))
         }
       }
 
       const handleKeyUp = (event: KeyboardEvent) => {
-        pressedKeys.delete(event.code)
+        Effect.runSync(Ref.update(pressedKeysRef, (s) => HashSet.remove(s, event.code)))
         // NOTE: do NOT remove from justPressedKeys here.
         // consumeKeyPress() is responsible for clearing entries after they are read.
         // Removing on keyup would cause the press to be missed when keydown and keyup
@@ -62,26 +62,25 @@ export class InputService extends Effect.Service<InputService>()(
       // Mouse event handler for pointer movement
       const handleMouseMove = (event: MouseEvent) => {
         if (document.pointerLockElement === document.body) {
-          mouseDelta.x += event.movementX
-          mouseDelta.y += event.movementY
+          Effect.runSync(Ref.update(mouseDeltaRef, (d) => ({ x: d.x + event.movementX, y: d.y + event.movementY })))
         }
       }
 
       // Mouse button event handlers
       const handleMouseDown = (event: MouseEvent) => {
-        mouseButtons.set(event.button, true)
+        Effect.runSync(Ref.update(mouseButtonsRef, (m) => HashMap.set(m, event.button, true)))
         // Mark as just clicked (for consumeMouseClick)
-        justClickedButtons.add(event.button)
+        Effect.runSync(Ref.update(justClickedButtonsRef, (s) => HashSet.add(s, event.button)))
       }
 
       const handleMouseUp = (event: MouseEvent) => {
-        mouseButtons.set(event.button, false)
+        Effect.runSync(Ref.update(mouseButtonsRef, (m) => HashMap.set(m, event.button, false)))
       }
 
       // Mouse wheel handler for hotbar slot cycling
       const handleWheel = (event: WheelEvent) => {
         event.preventDefault()
-        wheelDelta += event.deltaY
+        Effect.runSync(Ref.update(wheelDeltaRef, (d) => d + event.deltaY))
       }
 
       // Suppress browser context menu so right-click can be used for block placement.
@@ -121,28 +120,20 @@ export class InputService extends Effect.Service<InputService>()(
 
       return {
         isKeyPressed: (key: string): Effect.Effect<boolean, never> =>
-          Effect.sync(() => pressedKeys.has(key)),
+          Ref.get(pressedKeysRef).pipe(Effect.map((s) => HashSet.has(s, key))),
 
         consumeKeyPress: (key: string): Effect.Effect<boolean, never> =>
-          Effect.sync(() => {
-            if (justPressedKeys.has(key)) {
-              // Consume the key press - it won't be reported again until released and re-pressed
-              justPressedKeys.delete(key)
-              return true
-            }
-            return false
-          }),
+          Ref.modify(justPressedKeysRef, (s) => [HashSet.has(s, key), HashSet.remove(s, key)]),
 
         getMouseDelta: (): Effect.Effect<MouseDelta, never> =>
-          Effect.sync(() => {
-            const delta = { ...mouseDelta }
-            // Reset delta after reading
-            mouseDelta = { x: 0, y: 0 }
-            return delta
-          }),
+          Ref.modify(mouseDeltaRef, (delta) => [delta, { x: 0, y: 0 }]),
 
         isMouseDown: (button: number): Effect.Effect<boolean, never> =>
-          Effect.sync(() => mouseButtons.get(button) ?? false),
+          Ref.get(mouseButtonsRef).pipe(
+            Effect.map((m) => {
+              return Option.getOrElse(HashMap.get(m, button), () => false)
+            })
+          ),
 
         requestPointerLock: (): Effect.Effect<void, never> =>
           Effect.sync(() => {
@@ -162,20 +153,10 @@ export class InputService extends Effect.Service<InputService>()(
           Effect.sync(() => document.pointerLockElement === document.body),
 
         consumeMouseClick: (button: number): Effect.Effect<boolean, never> =>
-          Effect.sync(() => {
-            if (justClickedButtons.has(button)) {
-              justClickedButtons.delete(button)
-              return true
-            }
-            return false
-          }),
+          Ref.modify(justClickedButtonsRef, (s) => [HashSet.has(s, button), HashSet.remove(s, button)]),
 
         consumeWheelDelta: (): Effect.Effect<number, never> =>
-          Effect.sync(() => {
-            const delta = wheelDelta
-            wheelDelta = 0
-            return delta
-          }),
+          Ref.modify(wheelDeltaRef, (delta) => [delta, 0]),
       }
     }),
   }

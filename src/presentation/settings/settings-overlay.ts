@@ -1,4 +1,4 @@
-import { Cause, Effect, Ref } from 'effect'
+import { Cause, Effect, Option, Ref } from 'effect'
 import { SettingsService } from '@/application/settings/settings-service'
 import { DomOperationsService } from '@/presentation/hud/crosshair'
 
@@ -9,37 +9,44 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
       const settingsService = yield* SettingsService
       const dom = yield* DomOperationsService
 
-      let overlayEl: HTMLDivElement | null = null
-      let renderDistanceInput: HTMLInputElement | null = null
-      let sensitivityInput: HTMLInputElement | null = null
-      let dayLengthInput: HTMLInputElement | null = null
-      let shadowsInput: HTMLInputElement | null = null
-      let ssaoInput: HTMLInputElement | null = null
-      let bloomInput: HTMLInputElement | null = null
-      let skyInput: HTMLInputElement | null = null
-      let ssrInput: HTMLInputElement | null = null
-      let dofInput: HTMLInputElement | null = null
-      let godRaysInput: HTMLInputElement | null = null
-      let smaaInput: HTMLInputElement | null = null
-      let applyBtn: HTMLButtonElement | null = null
-      let closeBtn: HTMLButtonElement | null = null
-      let gearBtn: HTMLButtonElement | null = null
-
       const isVisibleRef = yield* Ref.make(false)
 
-      const createOverlay = (): void => {
-        if (typeof document === 'undefined') return
+      // Build DOM once — yields const bindings, eliminates mutable let declarations
+      const {
+        overlayEl, renderDistanceInput, sensitivityInput, dayLengthInput,
+        shadowsInput, ssaoInput, bloomInput, skyInput, ssrInput, dofInput,
+        godRaysInput, smaaInput, applyBtn, closeBtn, gearBtn,
+      } = yield* Effect.sync(() => {
+        if (typeof document === 'undefined') {
+          return {
+            overlayEl: Option.none<HTMLDivElement>(),
+            renderDistanceInput: Option.none<HTMLInputElement>(),
+            sensitivityInput: Option.none<HTMLInputElement>(),
+            dayLengthInput: Option.none<HTMLInputElement>(),
+            shadowsInput: Option.none<HTMLInputElement>(),
+            ssaoInput: Option.none<HTMLInputElement>(),
+            bloomInput: Option.none<HTMLInputElement>(),
+            skyInput: Option.none<HTMLInputElement>(),
+            ssrInput: Option.none<HTMLInputElement>(),
+            dofInput: Option.none<HTMLInputElement>(),
+            godRaysInput: Option.none<HTMLInputElement>(),
+            smaaInput: Option.none<HTMLInputElement>(),
+            applyBtn: Option.none<HTMLButtonElement>(),
+            closeBtn: Option.none<HTMLButtonElement>(),
+            gearBtn: Option.none<HTMLButtonElement>(),
+          }
+        }
 
-        overlayEl = dom.createElement('div') as HTMLDivElement
-        overlayEl.id = 'settings-overlay'
-        overlayEl.style.cssText = [
+        const el = dom.createElement('div') as HTMLDivElement
+        el.id = 'settings-overlay'
+        el.style.cssText = [
           'position:fixed', 'top:50%', 'left:50%', 'transform:translate(-50%,-50%)',
           'background:rgba(0,0,0,0.85)', 'color:#fff', 'padding:24px',
           'border-radius:8px', 'min-width:300px', 'font-family:monospace',
           'z-index:1000', 'display:none',
         ].join(';')
 
-        dom.setInnerHTML(overlayEl, `
+        dom.setInnerHTML(el, `
           <h2 style="margin:0 0 16px;font-size:18px">Settings</h2>
           <label style="display:block;margin-bottom:12px">
             Render Distance: <span id="rd-val">8</span>
@@ -94,98 +101,101 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
           </div>
         `)
 
-        dom.appendChild(overlayEl)
+        dom.appendChild(el)
 
-        gearBtn = dom.createElement('button') as HTMLButtonElement
-        gearBtn.id = 'settings-gear-btn'
-        gearBtn.textContent = '⚙'
-        gearBtn.style.cssText = [
+        const btn = dom.createElement('button') as HTMLButtonElement
+        btn.id = 'settings-gear-btn'
+        btn.textContent = '⚙'
+        btn.style.cssText = [
           'position:fixed', 'top:10px', 'left:10px',
           'background:rgba(0,0,0,0.7)', 'color:white',
           'border:none', 'font-size:20px',
           'padding:5px 10px', 'cursor:pointer',
           'border-radius:4px', 'z-index:10',
         ].join(';')
-        dom.appendChild(gearBtn)
+        dom.appendChild(btn)
 
-        renderDistanceInput = dom.querySelector<HTMLInputElement>(overlayEl, '#rd-input')
-        sensitivityInput = dom.querySelector<HTMLInputElement>(overlayEl, '#ms-input')
-        dayLengthInput = dom.querySelector<HTMLInputElement>(overlayEl, '#dl-input')
-        shadowsInput = dom.querySelector<HTMLInputElement>(overlayEl, '#shadows-input')
-        ssaoInput = dom.querySelector<HTMLInputElement>(overlayEl, '#ssao-input')
-        bloomInput = dom.querySelector<HTMLInputElement>(overlayEl, '#bloom-input')
-        skyInput = dom.querySelector<HTMLInputElement>(overlayEl, '#sky-input')
-        ssrInput = dom.querySelector<HTMLInputElement>(overlayEl, '#ssr-input')
-        dofInput = dom.querySelector<HTMLInputElement>(overlayEl, '#dof-input')
-        godRaysInput = dom.querySelector<HTMLInputElement>(overlayEl, '#god-rays-input')
-        smaaInput = dom.querySelector<HTMLInputElement>(overlayEl, '#smaa-input')
-        applyBtn = dom.querySelector<HTMLButtonElement>(overlayEl, '#settings-apply')
-        closeBtn = dom.querySelector<HTMLButtonElement>(overlayEl, '#settings-close')
-      }
+        return {
+          overlayEl: Option.some(el),
+          renderDistanceInput: dom.querySelector<HTMLInputElement>(el, '#rd-input'),
+          sensitivityInput: dom.querySelector<HTMLInputElement>(el, '#ms-input'),
+          dayLengthInput: dom.querySelector<HTMLInputElement>(el, '#dl-input'),
+          shadowsInput: dom.querySelector<HTMLInputElement>(el, '#shadows-input'),
+          ssaoInput: dom.querySelector<HTMLInputElement>(el, '#ssao-input'),
+          bloomInput: dom.querySelector<HTMLInputElement>(el, '#bloom-input'),
+          skyInput: dom.querySelector<HTMLInputElement>(el, '#sky-input'),
+          ssrInput: dom.querySelector<HTMLInputElement>(el, '#ssr-input'),
+          dofInput: dom.querySelector<HTMLInputElement>(el, '#dof-input'),
+          godRaysInput: dom.querySelector<HTMLInputElement>(el, '#god-rays-input'),
+          smaaInput: dom.querySelector<HTMLInputElement>(el, '#smaa-input'),
+          applyBtn: dom.querySelector<HTMLButtonElement>(el, '#settings-apply'),
+          closeBtn: dom.querySelector<HTMLButtonElement>(el, '#settings-close'),
+          gearBtn: Option.some(btn),
+        }
+      })
 
       const applyEffect = (): Effect.Effect<void, never> =>
         Effect.gen(function* () {
-          const rd = parseInt(renderDistanceInput?.value ?? '8', 10)
-          const ms = parseFloat(sensitivityInput?.value ?? '0.5')
-          const dl = parseInt(dayLengthInput?.value ?? '400', 10)
           yield* settingsService.updateSettings({
-            renderDistance: rd,
-            mouseSensitivity: ms,
-            dayLengthSeconds: dl,
-            shadowsEnabled: shadowsInput?.checked ?? true,
-            ssaoEnabled: ssaoInput?.checked ?? true,
-            bloomEnabled: bloomInput?.checked ?? true,
-            skyEnabled: skyInput?.checked ?? true,
-            ssrEnabled: ssrInput?.checked ?? false,
-            dofEnabled: dofInput?.checked ?? false,
-            godRaysEnabled: godRaysInput?.checked ?? false,
-            smaaEnabled: smaaInput?.checked ?? true,
+            renderDistance: Option.getOrElse(Option.map(renderDistanceInput, (el) => parseInt(el.value, 10)), () => 8),
+            mouseSensitivity: Option.getOrElse(Option.map(sensitivityInput, (el) => parseFloat(el.value)), () => 0.5),
+            dayLengthSeconds: Option.getOrElse(Option.map(dayLengthInput, (el) => parseInt(el.value, 10)), () => 400),
+            shadowsEnabled: Option.getOrElse(Option.map(shadowsInput, (el) => el.checked), () => true),
+            ssaoEnabled: Option.getOrElse(Option.map(ssaoInput, (el) => el.checked), () => true),
+            bloomEnabled: Option.getOrElse(Option.map(bloomInput, (el) => el.checked), () => true),
+            skyEnabled: Option.getOrElse(Option.map(skyInput, (el) => el.checked), () => true),
+            ssrEnabled: Option.getOrElse(Option.map(ssrInput, (el) => el.checked), () => false),
+            dofEnabled: Option.getOrElse(Option.map(dofInput, (el) => el.checked), () => false),
+            godRaysEnabled: Option.getOrElse(Option.map(godRaysInput, (el) => el.checked), () => false),
+            smaaEnabled: Option.getOrElse(Option.map(smaaInput, (el) => el.checked), () => true),
           })
         })
 
       function syncEffect(): Effect.Effect<void, never> {
         return Effect.gen(function* () {
           const settings = yield* settingsService.getSettings()
-          if (renderDistanceInput) {
-            renderDistanceInput.value = String(settings.renderDistance)
-            const rdVal = overlayEl ? dom.querySelector(overlayEl, '#rd-val') : null
-            if (rdVal) rdVal.textContent = String(settings.renderDistance)
-          }
-          if (sensitivityInput) {
-            sensitivityInput.value = String(settings.mouseSensitivity)
-            const msVal = overlayEl ? dom.querySelector(overlayEl, '#ms-val') : null
-            if (msVal) msVal.textContent = String(settings.mouseSensitivity)
-          }
-          if (dayLengthInput) {
-            dayLengthInput.value = String(settings.dayLengthSeconds)
-            const dlVal = overlayEl ? dom.querySelector(overlayEl, '#dl-val') : null
-            if (dlVal) dlVal.textContent = String(settings.dayLengthSeconds)
-          }
-          if (shadowsInput) shadowsInput.checked = settings.shadowsEnabled
-          if (ssaoInput) ssaoInput.checked = settings.ssaoEnabled
-          if (bloomInput) bloomInput.checked = settings.bloomEnabled
-          if (skyInput) skyInput.checked = settings.skyEnabled
-          if (ssrInput) ssrInput.checked = settings.ssrEnabled
-          if (dofInput) dofInput.checked = settings.dofEnabled
-          if (godRaysInput) godRaysInput.checked = settings.godRaysEnabled
-          if (smaaInput) smaaInput.checked = settings.smaaEnabled
+          yield* Effect.sync(() => {
+            Option.map(renderDistanceInput, (input) => {
+              input.value = String(settings.renderDistance)
+              Option.map(overlayEl, (el) => Option.map(dom.querySelector(el, '#rd-val'), (span) => { span.textContent = String(settings.renderDistance) }))
+            })
+            Option.map(sensitivityInput, (input) => {
+              input.value = String(settings.mouseSensitivity)
+              Option.map(overlayEl, (el) => Option.map(dom.querySelector(el, '#ms-val'), (span) => { span.textContent = String(settings.mouseSensitivity) }))
+            })
+            Option.map(dayLengthInput, (input) => {
+              input.value = String(settings.dayLengthSeconds)
+              Option.map(overlayEl, (el) => Option.map(dom.querySelector(el, '#dl-val'), (span) => { span.textContent = String(settings.dayLengthSeconds) }))
+            })
+            Option.map(shadowsInput, (el) => { el.checked = settings.shadowsEnabled })
+            Option.map(ssaoInput, (el) => { el.checked = settings.ssaoEnabled })
+            Option.map(bloomInput, (el) => { el.checked = settings.bloomEnabled })
+            Option.map(skyInput, (el) => { el.checked = settings.skyEnabled })
+            Option.map(ssrInput, (el) => { el.checked = settings.ssrEnabled })
+            Option.map(dofInput, (el) => { el.checked = settings.dofEnabled })
+            Option.map(godRaysInput, (el) => { el.checked = settings.godRaysEnabled })
+            Option.map(smaaInput, (el) => { el.checked = settings.smaaEnabled })
+          })
         })
       }
 
       // Named event handler functions for proper cleanup via removeEventListener
       const handleRdInput = () => {
-        const el = overlayEl ? dom.querySelector(overlayEl, '#rd-val') : null
-        if (el && renderDistanceInput) el.textContent = renderDistanceInput.value
+        Option.map(Option.all({ el: overlayEl, input: renderDistanceInput }), ({ el, input }) =>
+          Option.map(dom.querySelector(el, '#rd-val'), (span) => { span.textContent = input.value })
+        )
       }
 
       const handleMsInput = () => {
-        const el = overlayEl ? dom.querySelector(overlayEl, '#ms-val') : null
-        if (el && sensitivityInput) el.textContent = sensitivityInput.value
+        Option.map(Option.all({ el: overlayEl, input: sensitivityInput }), ({ el, input }) =>
+          Option.map(dom.querySelector(el, '#ms-val'), (span) => { span.textContent = input.value })
+        )
       }
 
       const handleDlInput = () => {
-        const el = overlayEl ? dom.querySelector(overlayEl, '#dl-val') : null
-        if (el && dayLengthInput) el.textContent = dayLengthInput.value
+        Option.map(Option.all({ el: overlayEl, input: dayLengthInput }), ({ el, input }) =>
+          Option.map(dom.querySelector(el, '#dl-val'), (span) => { span.textContent = input.value })
+        )
       }
 
       const handleApply = () => {
@@ -202,7 +212,7 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
         Effect.runFork(
           Effect.gen(function* () {
             yield* Ref.set(isVisibleRef, false)
-            if (overlayEl) overlayEl.style.display = 'none'
+            Option.map(overlayEl, (el) => { el.style.display = 'none' })
           }).pipe(Effect.catchAllCause(() => Effect.void))
         )
       }
@@ -211,32 +221,29 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
         Effect.runFork(
           Effect.gen(function* () {
             const next = yield* Ref.modify(isVisibleRef, (current): [boolean, boolean] => [!current, !current])
-            if (overlayEl) overlayEl.style.display = next ? 'block' : 'none'
+            Option.map(overlayEl, (el) => { el.style.display = next ? 'block' : 'none' })
             if (next) yield* syncEffect()
           }).pipe(Effect.catchAllCause(() => Effect.void))
         )
       }
 
-      createOverlay()
-
       yield* Effect.acquireRelease(
         Effect.sync(() => {
-          renderDistanceInput?.addEventListener('input', handleRdInput)
-          sensitivityInput?.addEventListener('input', handleMsInput)
-          dayLengthInput?.addEventListener('input', handleDlInput)
-          applyBtn?.addEventListener('click', handleApply)
-          closeBtn?.addEventListener('click', handleClose)
-          gearBtn?.addEventListener('click', handleGearClick)
+          Option.map(renderDistanceInput, (el) => el.addEventListener('input', handleRdInput))
+          Option.map(sensitivityInput, (el) => el.addEventListener('input', handleMsInput))
+          Option.map(dayLengthInput, (el) => el.addEventListener('input', handleDlInput))
+          Option.map(applyBtn, (el) => el.addEventListener('click', handleApply))
+          Option.map(closeBtn, (el) => el.addEventListener('click', handleClose))
+          Option.map(gearBtn, (el) => el.addEventListener('click', handleGearClick))
         }),
         () => Effect.sync(() => {
-          renderDistanceInput?.removeEventListener('input', handleRdInput)
-          sensitivityInput?.removeEventListener('input', handleMsInput)
-          dayLengthInput?.removeEventListener('input', handleDlInput)
-          applyBtn?.removeEventListener('click', handleApply)
-          closeBtn?.removeEventListener('click', handleClose)
-          gearBtn?.removeEventListener('click', handleGearClick)
-          gearBtn?.remove()
-          overlayEl?.remove()
+          Option.map(renderDistanceInput, (el) => el.removeEventListener('input', handleRdInput))
+          Option.map(sensitivityInput, (el) => el.removeEventListener('input', handleMsInput))
+          Option.map(dayLengthInput, (el) => el.removeEventListener('input', handleDlInput))
+          Option.map(applyBtn, (el) => el.removeEventListener('click', handleApply))
+          Option.map(closeBtn, (el) => el.removeEventListener('click', handleClose))
+          Option.map(gearBtn, (el) => { el.removeEventListener('click', handleGearClick); el.remove() })
+          Option.map(overlayEl, (el) => el.remove())
         })
       )
 
@@ -248,7 +255,7 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
         toggle: (): Effect.Effect<boolean, never> =>
           Effect.gen(function* () {
             const next = yield* Ref.modify(isVisibleRef, (current): [boolean, boolean] => [!current, !current])
-            if (overlayEl) overlayEl.style.display = next ? 'block' : 'none'
+            yield* Effect.sync(() => { Option.map(overlayEl, (el) => { el.style.display = next ? 'block' : 'none' }) })
             if (next) yield* syncEffect()
             return next
           }),

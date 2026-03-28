@@ -8,7 +8,7 @@
  */
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Arbitrary, Effect, Layer, Option, Schema } from 'effect'
+import { Arbitrary, Effect, Layer, MutableHashMap, Option, Schema } from 'effect'
 import { CHUNK_HEIGHT } from '@/domain/chunk'
 import { StorageServicePort } from '@/application/storage/storage-service-port'
 import { StorageError } from '@/domain/errors'
@@ -105,13 +105,13 @@ describe('chunk-manager-service / calculateSurfaceHeight formula', () => {
 // ---------------------------------------------------------------------------
 
 const makeInMemoryStorage = () => {
-  const chunks = new Map<string, Uint8Array>()
+  const chunks = MutableHashMap.empty<string, Uint8Array>()
 
   return StorageServicePort.of({
     _tag: '@minecraft/application/storage/StorageServicePort' as const,
     saveChunk: (worldId, coord, data) =>
       Effect.sync(() => {
-        chunks.set(`${worldId}:${coord.x}:${coord.z}`, data)
+        MutableHashMap.set(chunks, `${worldId}:${coord.x}:${coord.z}`, data)
       }) as Effect.Effect<undefined, StorageError>,
     loadChunk: (_worldId, _coord) => Effect.sync(() => Option.none<Uint8Array>()),
   })

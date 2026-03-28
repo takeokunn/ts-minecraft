@@ -1,6 +1,6 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Effect } from 'effect'
+import { Array as Arr, Effect, MutableHashSet } from 'effect'
 import { NoiseService } from './noise-service'
 
 // ---------------------------------------------------------------------------
@@ -61,7 +61,7 @@ describe('infrastructure/noise/noise-service', () => {
         const val2 = yield* service.noise2D(1, 0)
         const val3 = yield* service.noise2D(0, 1)
         // It is astronomically unlikely that all three equal the same value
-        expect([val1, val2, val3].every((v) => v === val1)).toBe(false)
+        expect(Arr.every([val1, val2, val3], (v) => v === val1)).toBe(false)
       }).pipe(Effect.provide(NoiseService.Default))
     )
   })
@@ -278,14 +278,14 @@ describe('infrastructure/noise/noise-service', () => {
     it.effect('should produce a variety of values across a range of coordinates', () =>
       Effect.gen(function* () {
         const service = yield* NoiseService
-        const values = new Set<number>()
+        const values = MutableHashSet.empty<number>()
         for (let x = 0; x < 10; x++) {
           for (let z = 0; z < 10; z++) {
-            values.add(Math.round((yield* service.noise2D(x, z)) * 100) / 100)
+            MutableHashSet.add(values, Math.round((yield* service.noise2D(x, z)) * 100) / 100)
           }
         }
         // 100 samples should produce more than just a few unique values
-        expect(values.size).toBeGreaterThan(5)
+        expect(MutableHashSet.size(values)).toBeGreaterThan(5)
       }).pipe(Effect.provide(NoiseService.Default))
     )
 

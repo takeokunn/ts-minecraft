@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { it as effectIt } from '@effect/vitest'
-import { Effect, Equal } from 'effect'
+import { Array as Arr, Effect, Equal, HashSet } from 'effect'
 import {
   TextureError,
   BlockError,
@@ -369,10 +369,10 @@ describe('_tag uniqueness across domain errors', () => {
   })
 
   it('domain error _tag values are unique among themselves', () => {
-    const tags = allErrors.map((e) => e._tag)
-    const uniqueTags = new Set(tags)
+    const tags = Arr.map(allErrors, (e) => e._tag)
+    const uniqueTags = HashSet.fromIterable(tags)
     // All 11 domain errors have unique tags among each other
-    expect(uniqueTags.size).toBe(allErrors.length)
+    expect(HashSet.size(uniqueTags)).toBe(allErrors.length)
   })
 })
 

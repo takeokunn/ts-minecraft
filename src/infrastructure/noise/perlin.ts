@@ -1,6 +1,8 @@
 // 2D Perlin Noise — Ken Perlin "Improved Noise" (2002)
 // Output range: approximately [-1, 1] (after AMPLITUDE_SCALE)
 
+import { Option } from 'effect'
+
 export type RandFn = () => number
 
 // Fisher-Yates shuffle using the provided PRNG
@@ -46,7 +48,7 @@ const AMPLITUDE_SCALE = Math.SQRT2
 export type NoiseFn2D = (x: number, y: number) => number
 
 export function createPerlinNoise2D(rand?: RandFn): NoiseFn2D {
-  const perm = buildPerm(rand ?? Math.random)
+  const perm = buildPerm(Option.getOrElse(Option.fromNullable(rand), () => Math.random))
   return (x: number, y: number): number => {
     // Offset by 0.5 to avoid the trivial zero at integer lattice points
     // (Perlin noise evaluates to 0 at all lattice vertices)

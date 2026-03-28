@@ -1,4 +1,4 @@
-import { Effect, Schema } from 'effect'
+import { Effect, Option, Schema } from 'effect'
 import type { CustomShape } from './shape-service'
 import { Vector3Schema, QuaternionSchema } from '@/infrastructure/physics/core'
 
@@ -14,7 +14,7 @@ export type CustomBody = {
 }
 
 export const RigidBodyConfigSchema = Schema.Struct({
-  mass: Schema.Number,
+  mass: Schema.Number.pipe(Schema.finite(), Schema.nonNegative()),
   position: Vector3Schema,
   quaternion: QuaternionSchema,
   type: Schema.optional(Schema.Literal('dynamic', 'static', 'kinematic')),
@@ -30,7 +30,7 @@ export class RigidBodyService extends Effect.Service<RigidBodyService>()(
           position: { x: config.position.x, y: config.position.y, z: config.position.z },
           velocity: { x: 0, y: 0, z: 0 },
           mass: config.mass,
-          type: config.type ?? 'dynamic',
+          type: Option.getOrElse(Option.fromNullable(config.type), () => 'dynamic' as const),
           shape: { kind: 'box' as const, halfExtents: { x: 0.5, y: 0.5, z: 0.5 } }, // placeholder, replaced by addShape
           fixedRotation: false,
           angularDamping: 0,

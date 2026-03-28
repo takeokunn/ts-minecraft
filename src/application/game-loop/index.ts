@@ -42,7 +42,7 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
       const processingFiberRef = yield* Ref.make<Option.Option<Fiber.RuntimeFiber<void, never>>>(Option.none())
 
       // animationFrameId stays as let — assigned inside sync rAF callback
-      let animationFrameId: number | null = null
+      let animationFrameId: Option.Option<number> = Option.none()
 
       return {
         /**
@@ -71,14 +71,17 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
             const frameQueue = yield* Queue.dropping<FrameCommand>(QUEUE_CAPACITY)
             yield* Ref.set(frameQueueRef, Option.some(frameQueue))
 
+            // Timestamp accumulator as Ref — reset to 0 on each start(), no mutable let needed
+            const lastTimestampRef = yield* Ref.make(0)
+
             /**
              * Frame processing loop - runs in a separate fiber.
-             * Computes variable delta time from successive timestamps.
+             * Effect.forever re-executes the take+process step until the fiber is interrupted.
+             * Computes variable delta time from successive timestamps via lastTimestampRef.
              */
-            const processFrames: Effect.Effect<void, never> = Effect.gen(function* () {
-              let lastTimestamp = 0
-              while (true) {
-                const cmd = yield* Queue.take(frameQueue)
+            const processFrames: Effect.Effect<void, never> = Queue.take(frameQueue).pipe(
+              Effect.flatMap((cmd) => Effect.gen(function* () {
+                const lastTimestamp = yield* Ref.get(lastTimestampRef)
                 // seconds (performance.now() timestamps are ms, divided by 1000)
                 const rawDelta =
                   lastTimestamp === 0
@@ -86,7 +89,7 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
                     : (cmd.timestamp - lastTimestamp) / 1000
                 // Cap at 50ms to prevent physics tunneling on tab-resume or heavy frames
                 const deltaTime = DeltaTimeSecs.make(Math.min(Math.max(0.001, rawDelta), 0.05))
-                lastTimestamp = cmd.timestamp
+                yield* Ref.set(lastTimestampRef, cmd.timestamp)
                 // catchAllCause captures both expected errors AND defects (unexpected exceptions).
                 // Using catchAll here would let defects propagate and kill the processing fiber,
                 // leaving _isRunning=true while the loop has stopped silently.
@@ -95,8 +98,9 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
                     Effect.logError(`Frame error: ${Cause.pretty(cause)}`)
                   )
                 )
-              }
-            })
+              })),
+              Effect.forever
+            )
 
             /**
              * Bridge loop - connects requestAnimationFrame to Effect Queue.
@@ -119,7 +123,7 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
                 )
               )
 
-              animationFrameId = requestAnimationFrame(bridgeLoop)
+              animationFrameId = Option.some(requestAnimationFrame(bridgeLoop))
             }
 
             // Mark as running before forking
@@ -151,24 +155,26 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
             _isRunning = false
 
             // Cancel animation frame
-            if (animationFrameId !== null) {
-              cancelAnimationFrame(animationFrameId)
-              animationFrameId = null
-            }
+            Option.map(animationFrameId, (id) => cancelAnimationFrame(id))
+            animationFrameId = Option.none()
 
             // Interrupt processing fiber
-            const fiberOpt = yield* Ref.get(processingFiberRef)
-            if (Option.isSome(fiberOpt)) {
-              yield* Fiber.interrupt(fiberOpt.value)
-              yield* Ref.set(processingFiberRef, Option.none())
-            }
+            yield* Option.match(yield* Ref.get(processingFiberRef), {
+              onNone: () => Effect.void,
+              onSome: (fiber) => Effect.gen(function* () {
+                yield* Fiber.interrupt(fiber)
+                yield* Ref.set(processingFiberRef, Option.none())
+              }),
+            })
 
             // Shutdown the queue to unblock any pending take
-            const queueOpt = yield* Ref.get(frameQueueRef)
-            if (Option.isSome(queueOpt)) {
-              yield* Queue.shutdown(queueOpt.value)
-              yield* Ref.set(frameQueueRef, Option.none())
-            }
+            yield* Option.match(yield* Ref.get(frameQueueRef), {
+              onNone: () => Effect.void,
+              onSome: (queue) => Effect.gen(function* () {
+                yield* Queue.shutdown(queue)
+                yield* Ref.set(frameQueueRef, Option.none())
+              }),
+            })
 
             yield* Effect.log('Game loop stopped')
           }),

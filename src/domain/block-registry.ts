@@ -1,45 +1,31 @@
-import { Effect, Option, Ref } from 'effect'
+import { Array as Arr, Effect, HashMap, Option, Ref } from 'effect'
 import { Block, BlockType } from './block'
 import { BlockId } from '@/shared/kernel'
 
-type BlockMap = {
-  readonly [K in BlockType]?: Block
-}
+type BlockMap = HashMap.HashMap<BlockType, Block>
 
 export class BlockRegistry extends Effect.Service<BlockRegistry>()(
   '@minecraft/domain/BlockRegistry',
   {
     effect: Effect.gen(function* () {
-      const registryRef = yield* Ref.make<BlockMap>({})
-
-      for (const block of initialBlocks) {
-        yield* Ref.update(registryRef, (registry) => ({
-          ...registry,
-          [block.type]: block,
-        }))
-      }
+      // Build the initial registry immutably from the static block list — no loop needed
+      const registryRef = yield* Ref.make<BlockMap>(
+        HashMap.fromIterable(Arr.map(initialBlocks, (b) => [b.type, b] as [BlockType, Block]))
+      )
 
       return {
         register: (block: Block): Effect.Effect<void, never> =>
-          Effect.gen(function* () {
-            yield* Ref.update(registryRef, (registry) => ({
-              ...registry,
-              [block.type]: block,
-            }))
-          }),
+          Ref.update(registryRef, (registry) => HashMap.set(registry, block.type, block)),
         get: (blockType: BlockType): Effect.Effect<Option.Option<Block>, never> =>
           Ref.get(registryRef).pipe(
-            Effect.map((registry) => {
-              const block = registry[blockType]
-              return block !== undefined ? Option.some(block) : Option.none()
-            })
+            Effect.map((registry) => HashMap.get(registry, blockType))
           ),
-        getAll: (): Effect.Effect<Array<Block>, never> =>
+        getAll: (): Effect.Effect<ReadonlyArray<Block>, never> =>
           Ref.get(registryRef).pipe(
-            Effect.map((registry) => Object.values(registry))
+            Effect.map((registry) => Arr.fromIterable(HashMap.values(registry)))
           ),
         dispose: (): Effect.Effect<void, never> =>
-          Ref.set(registryRef, {}),
+          Ref.set(registryRef, HashMap.empty<BlockType, Block>()),
       }
     }),
   }
@@ -64,7 +50,7 @@ const defaultBlockFaces = {
 
 const makeBlockId = (id: string) => BlockId.make(id)
 
-const initialBlocks: Array<Block> = [
+const initialBlocks: ReadonlyArray<Block> = [
   new Block({
     id: makeBlockId('block:air'),
     type: 'AIR',

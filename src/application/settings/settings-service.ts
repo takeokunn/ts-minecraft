@@ -1,4 +1,4 @@
-import { Cause, Effect, Ref, Schema } from 'effect'
+import { Cause, Effect, Option, Ref, Schema } from 'effect'
 import { SettingsError } from '@/domain/errors'
 
 /**
@@ -47,14 +47,22 @@ const DEFAULT_SETTINGS: Settings = {
 
 const STORAGE_KEY = 'minecraft-settings'
 
+// Schema.decodeUnknown returns Effect<Settings, ParseError> — no Effect.try wrapper needed
 const loadFromStorage: Effect.Effect<Settings, never, never> =
-  Effect.try({
-    try: () => {
-      const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_KEY) : null
-      if (!raw) return DEFAULT_SETTINGS
-      return Schema.decodeUnknownSync(SettingsSchema)(JSON.parse(raw))
-    },
-    catch: (e) => new SettingsError({ operation: 'load', cause: e }),
+  Effect.gen(function* () {
+    const rawOpt = Option.fromNullable(typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_KEY) : null)
+    return yield* Option.match(rawOpt, {
+      onNone: () => Effect.succeed(DEFAULT_SETTINGS),
+      onSome: (rawStr) => Effect.gen(function* () {
+        const parsed = yield* Effect.try({
+          try: () => JSON.parse(rawStr) as unknown,
+          catch: (e) => new SettingsError({ operation: 'load', cause: e }),
+        })
+        return yield* Schema.decodeUnknown(SettingsSchema)(parsed).pipe(
+          Effect.mapError((e) => new SettingsError({ operation: 'load', cause: e }))
+        )
+      }),
+    })
   }).pipe(
     Effect.tapError((e) => Effect.logWarning(`Settings load failed, using defaults: ${e.message}`)),
     Effect.catchAllCause(() => Effect.succeed(DEFAULT_SETTINGS))
@@ -79,14 +87,12 @@ export class SettingsService extends Effect.Service<SettingsService>()(
       return {
         getSettings: () => Ref.get(settingsRef),
 
+        // Schema.decodeUnknown returns Effect<Settings, ParseError> — no Effect.try wrapper needed
         updateSettings: (partial: Partial<Settings>) =>
           Effect.gen(function* () {
             const current = yield* Ref.get(settingsRef)
             const merged = { ...current, ...partial }
-            const result = yield* Effect.try({
-              try: () => Schema.decodeUnknownSync(SettingsSchema)(merged),
-              catch: (e) => new SettingsError({ operation: 'update', cause: e }),
-            }).pipe(
+            const result = yield* Schema.decodeUnknown(SettingsSchema)(merged).pipe(
               Effect.catchAllCause((cause) =>
                 Effect.logWarning(`Settings validation failed, reverting to defaults: ${Cause.pretty(cause)}`).pipe(
                   Effect.as(DEFAULT_SETTINGS)

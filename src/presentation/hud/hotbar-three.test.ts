@@ -1,5 +1,5 @@
 import { describe, it } from '@effect/vitest'
-import { Effect, Layer, Option } from 'effect'
+import { Array as Arr, Effect, Layer, Option } from 'effect'
 import { expect, vi } from 'vitest'
 
 // ---------------------------------------------------------------------------
@@ -148,10 +148,7 @@ describe('HotbarRendererService', () => {
   describe('update', () => {
     it('should complete without error when called with empty slots', () => {
       const TestLayer = buildTestLayer()
-      const emptySlots: ReadonlyArray<Option.Option<BlockType>> = Array.from(
-        { length: 9 },
-        () => Option.none()
-      )
+      const emptySlots: ReadonlyArray<Option.Option<BlockType>> = Arr.makeBy(9, () => Option.none())
 
       const program = Effect.gen(function* () {
         const renderer = yield* HotbarRendererService
@@ -191,10 +188,7 @@ describe('HotbarRendererService', () => {
 
     it('should accept any valid selectedSlot (0-8)', () => {
       const TestLayer = buildTestLayer()
-      const emptySlots: ReadonlyArray<Option.Option<BlockType>> = Array.from(
-        { length: 9 },
-        () => Option.none()
-      )
+      const emptySlots: ReadonlyArray<Option.Option<BlockType>> = Arr.makeBy(9, () => Option.none())
 
       const program = Effect.gen(function* () {
         const renderer = yield* HotbarRendererService
@@ -211,10 +205,7 @@ describe('HotbarRendererService', () => {
 
     it('should work before initialize is called (no crash)', () => {
       const TestLayer = buildTestLayer()
-      const emptySlots: ReadonlyArray<Option.Option<BlockType>> = Array.from(
-        { length: 9 },
-        () => Option.none()
-      )
+      const emptySlots: ReadonlyArray<Option.Option<BlockType>> = Arr.makeBy(9, () => Option.none())
 
       const program = Effect.gen(function* () {
         const renderer = yield* HotbarRendererService
@@ -290,7 +281,7 @@ describe('HotbarRendererService', () => {
 
       const slots: ReadonlyArray<Option.Option<BlockType>> = [
         Option.some('GRASS' as BlockType),
-        ...Array.from({ length: 8 }, () => Option.none<BlockType>()),
+        ...Arr.makeBy(8, () => Option.none<BlockType>()),
       ]
       const fakeWebGLRenderer = {} as import('three').WebGLRenderer
 
@@ -312,10 +303,7 @@ describe('HotbarRendererService', () => {
       const mockRenderer = createMockRendererService()
       const TestLayer = buildTestLayer(mockRenderer)
 
-      const emptySlots: ReadonlyArray<Option.Option<BlockType>> = Array.from(
-        { length: 9 },
-        () => Option.none()
-      )
+      const emptySlots: ReadonlyArray<Option.Option<BlockType>> = Arr.makeBy(9, () => Option.none())
       const fakeWebGLRenderer = {} as import('three').WebGLRenderer
 
       const program = Effect.gen(function* () {

@@ -1,4 +1,4 @@
-import { Effect } from 'effect'
+import { Array as Arr, Effect, Option } from 'effect'
 import * as THREE from 'three'
 import { Chunk, CHUNK_SIZE, blockTypeToIndex } from '@/domain/chunk'
 import { TextureError } from '@/domain'
@@ -93,10 +93,10 @@ const buildAtlasTexture = (): Effect.Effect<THREE.Texture, TextureError> =>
         context.fillRect(x, y, TILE_PX, TILE_PX)
         // Dirt speckles
         const dirtSpots = [[2,4],[6,8],[11,5],[15,10],[20,7],[25,3],[28,12],[4,18],[9,22],[18,19],[23,26],[27,20]] as const
-        for (const [sx, sy] of dirtSpots) {
+        Arr.forEach(dirtSpots, ([sx, sy]) => {
           context.fillStyle = sx % 3 === 0 ? '#7a3a0e' : '#9a5520'
           context.fillRect(x + sx, y + sy + 4, 2, 2)
-        }
+        })
         // Green top stripe with grass blades
         context.fillStyle = '#3a8a3a'
         context.fillRect(x, y, TILE_PX, 5)
@@ -120,10 +120,10 @@ const buildAtlasTexture = (): Effect.Effect<THREE.Texture, TextureError> =>
         }
         // Foam/highlight dots
         const foamDots = [[3,1],[9,5],[15,1],[22,3],[27,7],[4,9],[12,13],[18,9],[25,13],[7,17],[14,17],[20,21],[2,21],[28,17],[6,25],[16,25],[24,29]] as const
-        for (const [fx, fy] of foamDots) {
+        Arr.forEach(foamDots, ([fx, fy]) => {
           context.fillStyle = '#4488ee'
           context.fillRect(x + fx, y + fy, 2, 1)
-        }
+        })
       })
 
       // tile 8: leaves — dark green with lighter spots and depth
@@ -184,11 +184,10 @@ const buildAtlasTexture = (): Effect.Effect<THREE.Texture, TextureError> =>
         // Subtle blue-tint variation spots
         const snowDots = [[1,2],[5,0],[9,3],[13,1],[17,4],[21,0],[25,2],[29,4],[3,8],[7,6],[11,9],[15,7],[19,10],[23,6],[27,9],[0,14],[4,12],[8,15],[12,13],[16,16],[20,12],[24,15],[28,13],[2,20],[6,18],[10,21],[14,19],[18,22],[22,18],[26,21],[30,19],[1,26],[5,24],[9,27],[13,25],[17,28],[21,24],[25,27],[29,25]] as const
         for (let i = 0; i < snowDots.length; i++) {
-          const entry = snowDots[i]
-          if (!entry) continue
-          const [sx, sy] = entry
-          context.fillStyle = i % 3 === 0 ? '#dde8ff' : (i % 3 === 1 ? '#e8f0ff' : '#ccdaff')
-          context.fillRect(x + (sx % TILE_PX), y + (sy % TILE_PX), 2, 1)
+          Option.map(Arr.get(snowDots, i), ([sx, sy]) => {
+            context.fillStyle = i % 3 === 0 ? '#dde8ff' : (i % 3 === 1 ? '#e8f0ff' : '#ccdaff')
+            context.fillRect(x + (sx % TILE_PX), y + (sy % TILE_PX), 2, 1)
+          })
         }
       })
 
@@ -205,11 +204,11 @@ const buildAtlasTexture = (): Effect.Effect<THREE.Texture, TextureError> =>
           [1,28,3,2],[4,26,2,3],[7,29,2,2],[10,27,3,2],[13,25,2,2],[16,29,3,3],[19,26,2,2],
           [22,28,3,2],[25,25,2,3],[29,27,2,2],
         ] as const
-        for (const [sx, sy, sw, sh] of speckles) {
+        Arr.forEach(speckles, ([sx, sy, sw, sh]) => {
           const colors = ['#8a7a6a', '#6a5a4a', '#9a8a7a', '#5a4a3a', '#8a8070'] as const
-          context.fillStyle = colors[Math.floor((sx + sy) % 5)] ?? '#8a7a6a'
+          context.fillStyle = Option.getOrElse(Arr.get(colors, Math.floor((sx + sy) % 5)), () => '#8a7a6a' as const)
           context.fillRect(x + sx, y + sy, sw, sh)
-        }
+        })
       })
 
       // tile 12: cobblestone — grey with stone-like patches and mortar lines
@@ -223,7 +222,7 @@ const buildAtlasTexture = (): Effect.Effect<THREE.Texture, TextureError> =>
           [1, 11, 14, 8], [17, 11, 14, 8],
           [1, 21, 9, 9], [12, 21, 9, 9], [22, 21, 9, 9],
         ] as const
-        for (const [px, py, pw, ph] of patches) {
+        Arr.forEach(patches, ([px, py, pw, ph]) => {
           // Stone fill color
           const variant = (px + py) % 3
           const stoneColor = variant === 0 ? '#787878' : (variant === 1 ? '#818181' : '#6f6f6f')
@@ -237,7 +236,7 @@ const buildAtlasTexture = (): Effect.Effect<THREE.Texture, TextureError> =>
           context.fillStyle = '#505050'
           context.fillRect(x + px + 1, y + py + ph - 2, pw - 2, 1)
           context.fillRect(x + px + pw - 2, y + py + 1, 1, ph - 2)
-        }
+        })
       })
 
       const texture = new THREE.CanvasTexture(canvas)
@@ -275,7 +274,7 @@ export class ChunkMeshService extends Effect.Service<ChunkMeshService>()(
         createChunkMesh: (
           chunk: Chunk,
           waterMaterial?: THREE.ShaderMaterial
-        ): Effect.Effect<{ opaqueMesh: THREE.Mesh; waterMesh: THREE.Mesh | null }, never> =>
+        ): Effect.Effect<{ opaqueMesh: THREE.Mesh; waterMesh: Option.Option<THREE.Mesh> }, never> =>
           Effect.sync(() => {
             const meshed = greedyMeshChunk(chunk, {
               wx: chunk.coord.x * CHUNK_SIZE,
@@ -289,22 +288,23 @@ export class ChunkMeshService extends Effect.Service<ChunkMeshService>()(
             opaqueMesh.userData['blockPositions'] = meshed.opaque.blockPositions
             opaqueMesh.userData['chunkCoord'] = chunk.coord
 
-            let waterMesh: THREE.Mesh | null = null
-            if (waterMaterial !== undefined && meshed.water.positions.length > 0) {
-              const waterGeometry = buildGeometry(meshed.water)
-              waterMesh = new THREE.Mesh(waterGeometry, waterMaterial)
-              waterMesh.castShadow = false
-              waterMesh.receiveShadow = false
-              waterMesh.renderOrder = 1
-              waterMesh.userData['chunkCoord'] = chunk.coord
-            }
+            const waterMesh: Option.Option<THREE.Mesh> = meshed.water.positions.length === 0
+              ? Option.none()
+              : Option.map(Option.fromNullable(waterMaterial), (mat) => {
+                  const wm = new THREE.Mesh(buildGeometry(meshed.water), mat)
+                  wm.castShadow = false
+                  wm.receiveShadow = false
+                  wm.renderOrder = 1
+                  wm.userData['chunkCoord'] = chunk.coord
+                  return wm
+                })
 
             return { opaqueMesh, waterMesh }
           }),
 
         updateChunkMesh: (
           opaqueMesh: THREE.Mesh,
-          waterMesh: THREE.Mesh | null,
+          waterMesh: Option.Option<THREE.Mesh>,
           chunk: Chunk
         ): Effect.Effect<void, never> =>
           Effect.sync(() => {
@@ -319,12 +319,12 @@ export class ChunkMeshService extends Effect.Service<ChunkMeshService>()(
             opaqueMesh.userData['chunkCoord'] = chunk.coord
             oldOpaqueGeometry.dispose()
 
-            if (waterMesh !== null) {
-              const oldWaterGeometry = waterMesh.geometry
-              waterMesh.geometry = buildGeometry(meshed.water)
-              waterMesh.userData['chunkCoord'] = chunk.coord
+            Option.map(waterMesh, (wm) => {
+              const oldWaterGeometry = wm.geometry
+              wm.geometry = buildGeometry(meshed.water)
+              wm.userData['chunkCoord'] = chunk.coord
               oldWaterGeometry.dispose()
-            }
+            })
           }),
 
         disposeMesh: (mesh: THREE.Mesh): Effect.Effect<void, never> =>

@@ -1,5 +1,5 @@
 import { describe, it } from '@effect/vitest'
-import { Effect, Layer } from 'effect'
+import { Array as Arr, Effect, Layer, Option } from 'effect'
 import { expect, vi } from 'vitest'
 import { CrosshairService, CrosshairLive, DomOperationsService } from './crosshair'
 
@@ -38,7 +38,7 @@ describe('CrosshairService', () => {
       })
 
       getParentNodeMock.mockImplementation((element: unknown) => {
-        return (element as { parentNode: unknown | null }).parentNode
+        return Option.fromNullable((element as { parentNode: HTMLElement | null }).parentNode)
       })
 
       const MockDomLayer = Layer.succeed(
@@ -273,7 +273,7 @@ describe('CrosshairService', () => {
 
         const elements = getCreatedElements()
         // First element is the container (crosshair)
-        expect(elements[0]?.id).toBe('crosshair')
+        expect(Option.getOrThrow(Arr.get(elements, 0)).id).toBe('crosshair')
       })
 
       it('should create two line elements (horizontal and vertical)', () => {
@@ -290,7 +290,7 @@ describe('CrosshairService', () => {
         // First element is the container, next two are the lines
         expect(elements.length).toBe(3)
         // The container should have 2 children
-        expect(elements[0]?.children.length).toBe(2)
+        expect(Option.getOrThrow(Arr.get(elements, 0)).children.length).toBe(2)
       })
     })
 

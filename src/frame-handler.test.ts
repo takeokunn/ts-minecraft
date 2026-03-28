@@ -13,7 +13,7 @@
  * inside createFrameHandler, not the individual services themselves.
  */
 import { describe, it, expect, vi } from 'vitest'
-import { Effect, Option, Ref } from 'effect'
+import { Effect, MutableHashSet, Option, Ref } from 'effect'
 import * as THREE from 'three'
 import { createFrameHandler, type FrameHandlerDeps, type FrameHandlerServices } from '@/frame-handler'
 import { KeyMappings } from '@/application/input/key-mappings'
@@ -63,9 +63,10 @@ const makeDeps = async (paused = false): Promise<FrameHandlerDeps & { gamePaused
     scene: new THREE.Scene(),
     camera: makeCamera(),
     lights: makeLights(),
-    fpsElement: null,
-    healthValueElement: null,
-    healthMaxElement: null,
+    fpsElement: Option.none(),
+    healthValueElement: Option.none(),
+    healthMaxElement: Option.none(),
+    skyMesh: Option.none(),
     gamePausedRef,
   }
 }
@@ -119,12 +120,12 @@ const makeSettingsOverlay = (state: OverlayState) =>
  * `consumeKeyPress` returns true for keys listed in `pressedKeys`.
  * `consumeMouseClick` always returns false (block interaction not under test here).
  */
-const makeInputService = (pressedKeys: Set<string> = new Set()) =>
+const makeInputService = (pressedKeys: MutableHashSet.MutableHashSet<string> = MutableHashSet.empty()) =>
   ({
     consumeKeyPress: (key: string) =>
       Effect.sync(() => {
-        if (pressedKeys.has(key)) {
-          pressedKeys.delete(key) // consume — same as real service
+        if (MutableHashSet.has(pressedKeys, key)) {
+          MutableHashSet.remove(pressedKeys, key) // consume — same as real service
           return true
         }
         return false
@@ -178,8 +179,8 @@ const makeServices = (opts: {
 
   const blockHighlight = {
     update: (_cam: unknown, _scene: unknown) => Effect.void,
-    getTargetBlock: () => Effect.succeed(null),
-    getTargetHit: () => Effect.succeed(null),
+    getTargetBlock: () => Effect.succeed(Option.none()),
+    getTargetHit: () => Effect.succeed(Option.none()),
   } as unknown as InstanceType<typeof import('@/presentation/highlight/block-highlight').BlockHighlightService>
 
   const blockService = {
@@ -264,11 +265,15 @@ const makeServices = (opts: {
   }
 }
 
-// Convenience: run one frame with the provided deps and services
-const runFrame = (deps: FrameHandlerDeps, services: FrameHandlerServices) => {
-  const handler = createFrameHandler(deps, services)
-  return Effect.runPromise(handler(0.016 as DeltaTimeSecs))
-}
+// Convenience: run one frame with the provided deps and services.
+// createFrameHandler is now an Effect (initialises Refs) — yield* before calling the handler.
+const runFrame = (deps: FrameHandlerDeps, services: FrameHandlerServices) =>
+  Effect.runPromise(
+    Effect.gen(function* () {
+      const handler = yield* createFrameHandler(deps, services)
+      yield* handler(0.016 as DeltaTimeSecs)
+    })
+  )
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -362,7 +367,7 @@ describe('frame-handler', () => {
     it('closes inventory and sets gamePausedRef to false when Escape is pressed while inventory is open', async () => {
       const invState = { open: true }
       const setState = { open: false }
-      const pressedKeys = new Set([KeyMappings.ESCAPE])
+      const pressedKeys = MutableHashSet.make(KeyMappings.ESCAPE)
 
       const deps = await makeDeps(true /* paused because inventory is open */)
       const services = makeServices({
@@ -383,7 +388,7 @@ describe('frame-handler', () => {
     it('closes settings and sets gamePausedRef to false when Escape is pressed while settings is open', async () => {
       const invState = { open: false }
       const setState = { open: true }
-      const pressedKeys = new Set([KeyMappings.ESCAPE])
+      const pressedKeys = MutableHashSet.make(KeyMappings.ESCAPE)
 
       const deps = await makeDeps(true /* paused because settings is open */)
       const services = makeServices({
@@ -404,7 +409,7 @@ describe('frame-handler', () => {
     it('opens settings and sets gamePausedRef to true when Escape is pressed while nothing is open', async () => {
       const invState = { open: false }
       const setState = { open: false }
-      const pressedKeys = new Set([KeyMappings.ESCAPE])
+      const pressedKeys = MutableHashSet.make(KeyMappings.ESCAPE)
 
       const deps = await makeDeps(false /* not paused */)
       const services = makeServices({
@@ -450,7 +455,7 @@ describe('frame-handler', () => {
     it('opens inventory and sets gamePausedRef to true when KeyE is pressed while inventory is closed', async () => {
       const invState = { open: false }
       const setState = { open: false }
-      const pressedKeys = new Set([KeyMappings.INVENTORY_OPEN])
+      const pressedKeys = MutableHashSet.make(KeyMappings.INVENTORY_OPEN)
 
       const deps = await makeDeps(false)
       const services = makeServices({
@@ -471,7 +476,7 @@ describe('frame-handler', () => {
     it('closes inventory and sets gamePausedRef to false when KeyE is pressed while inventory is open', async () => {
       const invState = { open: true }
       const setState = { open: false }
-      const pressedKeys = new Set([KeyMappings.INVENTORY_OPEN])
+      const pressedKeys = MutableHashSet.make(KeyMappings.INVENTORY_OPEN)
 
       const deps = await makeDeps(true /* paused because inventory is open */)
       const services = makeServices({
@@ -492,7 +497,7 @@ describe('frame-handler', () => {
     it('closes settings and opens inventory when KeyE is pressed while settings is open', async () => {
       const invState = { open: false }
       const setState = { open: true }
-      const pressedKeys = new Set([KeyMappings.INVENTORY_OPEN])
+      const pressedKeys = MutableHashSet.make(KeyMappings.INVENTORY_OPEN)
 
       const deps = await makeDeps(true /* paused because settings is open */)
       const services = makeServices({
@@ -675,10 +680,10 @@ describe('frame-handler', () => {
       })
       // Provide a target block
       ;(services.blockHighlight as unknown as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
-        Effect.succeed({ x: 0, y: 64, z: 0 })
+        Effect.succeed(Option.some({ x: 0, y: 64, z: 0 }))
       )
       ;(services.blockHighlight as unknown as { getTargetHit: unknown }).getTargetHit = vi.fn(() =>
-        Effect.succeed(null)
+        Effect.succeed(Option.none())
       )
       const breakSpy = vi.fn(() => Effect.void)
       ;(services.blockService as unknown as { breakBlock: unknown }).breakBlock = breakSpy
@@ -699,12 +704,12 @@ describe('frame-handler', () => {
         inventoryRenderer: makeInventoryRenderer({ open: false }),
         settingsOverlay: makeSettingsOverlay({ open: false }),
       })
-      // No target block (null)
+      // No target block (Option.none)
       ;(services.blockHighlight as unknown as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
-        Effect.succeed(null)
+        Effect.succeed(Option.none())
       )
       ;(services.blockHighlight as unknown as { getTargetHit: unknown }).getTargetHit = vi.fn(() =>
-        Effect.succeed(null)
+        Effect.succeed(Option.none())
       )
       const breakSpy = vi.fn(() => Effect.void)
       ;(services.blockService as unknown as { breakBlock: unknown }).breakBlock = breakSpy
@@ -725,10 +730,10 @@ describe('frame-handler', () => {
         settingsOverlay: makeSettingsOverlay({ open: false }),
       })
       ;(services.blockHighlight as unknown as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
-        Effect.succeed(null)
+        Effect.succeed(Option.none())
       )
       ;(services.blockHighlight as unknown as { getTargetHit: unknown }).getTargetHit = vi.fn(() =>
-        Effect.succeed({ blockX: 0, blockY: 64, blockZ: 0, normal: { x: 0, y: 1, z: 0 } })
+        Effect.succeed(Option.some({ blockX: 0, blockY: 64, blockZ: 0, normal: { x: 0, y: 1, z: 0 } }))
       )
       ;(services.hotbarService as unknown as { getSelectedBlockType: unknown }).getSelectedBlockType = vi.fn(() =>
         Effect.succeed(Option.some('GRASS'))
@@ -754,7 +759,7 @@ describe('frame-handler', () => {
         settingsOverlay: makeSettingsOverlay({ open: false }),
       })
       ;(services.blockHighlight as unknown as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
-        Effect.succeed({ x: 0, y: 64, z: 0 })
+        Effect.succeed(Option.some({ x: 0, y: 64, z: 0 }))
       )
       const breakSpy = vi.fn(() => Effect.void)
       ;(services.blockService as unknown as { breakBlock: unknown }).breakBlock = breakSpy
@@ -830,7 +835,7 @@ describe('frame-handler', () => {
       // Use a plain stub instead of document.createElement (env is 'node', not jsdom)
       const fpsElement = { textContent: '' } as unknown as HTMLElement
       const deps = await makeDeps(false)
-      const depsWithEl: FrameHandlerDeps = { ...deps, fpsElement }
+      const depsWithEl: FrameHandlerDeps = { ...deps, fpsElement: Option.some(fpsElement) }
       const services = makeServices({
         inputService: makeInputService(),
         inventoryRenderer: makeInventoryRenderer({ open: false }),

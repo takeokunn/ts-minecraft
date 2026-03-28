@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { Option } from 'effect'
 
 /**
  * Mock THREE.Scene factory
@@ -41,7 +42,7 @@ export function mockScene(): THREE.Scene {
  */
 export function mockTexture(customUuid?: string): THREE.Texture {
   const texture = {
-    uuid: customUuid ?? `mock-texture-uuid-${Math.random().toString(36).substring(7)}`,
+    uuid: Option.getOrElse(Option.fromNullable(customUuid), () => `mock-texture-uuid-${Math.random().toString(36).substring(7)}`),
     source: {
       data: null,
       version: 0,
@@ -85,7 +86,7 @@ export function mockTexture(customUuid?: string): THREE.Texture {
  */
 export function mockMaterial(customUuid?: string): THREE.Material {
   return {
-    uuid: customUuid ?? `mock-material-uuid-${Math.random().toString(36).substring(7)}`,
+    uuid: Option.getOrElse(Option.fromNullable(customUuid), () => `mock-material-uuid-${Math.random().toString(36).substring(7)}`),
     name: '',
     type: 'Material',
     side: THREE.FrontSide,
@@ -130,8 +131,8 @@ export function mockMeshBasicMaterial(options?: {
     side: THREE.FrontSide,
     fog: true,
     blending: THREE.NormalBlending,
-    transparent: options?.transparent ?? false,
-    opacity: options?.opacity ?? 1,
+    transparent: Option.getOrElse(Option.fromNullable(options?.transparent), () => false),
+    opacity: Option.getOrElse(Option.fromNullable(options?.opacity), () => 1),
     depthFunc: THREE.LessEqualDepth,
     depthTest: true,
     depthWrite: true,
@@ -149,7 +150,7 @@ export function mockMeshBasicMaterial(options?: {
     onBeforeCompile: () => {},
     setValues: () => {},
     dispose: () => {},
-    color: new THREE.Color(options?.color ?? 0xffffff),
+    color: new THREE.Color(Option.getOrElse(Option.fromNullable(options?.color), () => 0xffffff)),
     map: options?.map ?? null,
   } as unknown as THREE.MeshBasicMaterial
 
@@ -175,8 +176,8 @@ export function mockMeshStandardMaterial(options?: {
     side: THREE.FrontSide,
     fog: true,
     blending: THREE.NormalBlending,
-    transparent: options?.transparent ?? false,
-    opacity: options?.opacity ?? 1,
+    transparent: Option.getOrElse(Option.fromNullable(options?.transparent), () => false),
+    opacity: Option.getOrElse(Option.fromNullable(options?.opacity), () => 1),
     depthFunc: THREE.LessEqualDepth,
     depthTest: true,
     depthWrite: true,
@@ -194,10 +195,10 @@ export function mockMeshStandardMaterial(options?: {
     onBeforeCompile: () => {},
     setValues: () => {},
     dispose: () => {},
-    color: new THREE.Color(options?.color ?? 0xffffff),
+    color: new THREE.Color(Option.getOrElse(Option.fromNullable(options?.color), () => 0xffffff)),
     map: options?.map ?? null,
-    roughness: options?.roughness ?? 0.5,
-    metalness: options?.metalness ?? 0,
+    roughness: Option.getOrElse(Option.fromNullable(options?.roughness), () => 0.5),
+    metalness: Option.getOrElse(Option.fromNullable(options?.metalness), () => 0),
   } as unknown as THREE.MeshStandardMaterial
 
   return material
@@ -221,9 +222,9 @@ export function mockMesh(options?: {
   material?: THREE.Material
   customUuid?: string
 }): THREE.Mesh {
-  const geometry = options?.geometry ?? new THREE.BoxGeometry(1, 1, 1)
-  const material = options?.material ?? mockMaterial()
-  const uuid = options?.customUuid ?? `mock-mesh-uuid-${Math.random().toString(36).substring(7)}`
+  const geometry = Option.getOrElse(Option.fromNullable(options?.geometry), () => new THREE.BoxGeometry(1, 1, 1))
+  const material = Option.getOrElse(Option.fromNullable(options?.material), () => mockMaterial())
+  const uuid = Option.getOrElse(Option.fromNullable(options?.customUuid), () => `mock-mesh-uuid-${Math.random().toString(36).substring(7)}`)
 
   const mesh = new THREE.Mesh(geometry, material)
   ;(mesh as THREE.Mesh & { uuid: string }).uuid = uuid
@@ -439,8 +440,8 @@ export function mockVector3(x = 0, y = 0, z = 0): THREE.Vector3 {
  * Creates a minimal mock box3 for testing
  */
 export function mockBox3(min?: THREE.Vector3, max?: THREE.Vector3): THREE.Box3 {
-  const minVec = min ?? new THREE.Vector3(0, 0, 0)
-  const maxVec = max ?? new THREE.Vector3(1, 1, 1)
+  const minVec = Option.getOrElse(Option.fromNullable(min), () => new THREE.Vector3(0, 0, 0))
+  const maxVec = Option.getOrElse(Option.fromNullable(max), () => new THREE.Vector3(1, 1, 1))
   return new THREE.Box3(minVec, maxVec)
 }
 

@@ -3,6 +3,7 @@ import { Vector3Schema } from '@/shared/math/three'
 import type { Vector3 } from '@/shared/math/three'
 import { PlayerInputService } from '@/application/input/player-input-service'
 import { KeyMappings } from '@/application/input/key-mappings'
+import { MetersPerSec } from '@/shared/kernel'
 
 /**
  * Movement input state representing which movement keys are pressed
@@ -24,11 +25,12 @@ export const VelocitySchema = Vector3Schema
 export type Velocity = Vector3
 
 /**
- * Movement speed constants (in meters per second)
+ * Movement speed constants in meters per second.
+ * Branded type enforces unit at compile time and validates finiteness at runtime.
  */
-export const DEFAULT_WALK_SPEED = 8.0 // m/s
-export const DEFAULT_SPRINT_SPEED = 14.0 // m/s
-export const DEFAULT_JUMP_VELOCITY = 5.0 // m/s
+export const DEFAULT_WALK_SPEED: MetersPerSec = MetersPerSec.make(8.0)
+export const DEFAULT_SPRINT_SPEED: MetersPerSec = MetersPerSec.make(14.0)
+export const DEFAULT_JUMP_VELOCITY: MetersPerSec = MetersPerSec.make(5.0)
 
 /**
  * Pure math: compute movement velocity from input state and camera yaw.
@@ -39,42 +41,28 @@ const computeVelocity = (
   yaw: number,
   isGrounded: boolean,
 ): { x: number; y: number; z: number } => {
-  const speed = input.sprint ? DEFAULT_SPRINT_SPEED : DEFAULT_WALK_SPEED
+  const speed = MetersPerSec.toNumber(input.sprint ? DEFAULT_SPRINT_SPEED : DEFAULT_WALK_SPEED)
 
-  // Calculate movement direction based on camera yaw.
+  // Accumulate movement direction from all pressed keys.
   // Forward direction uses negative Z in most game engines.
-  let moveX = 0
-  let moveZ = 0
-
-  if (input.forward) {
-    moveX -= Math.sin(yaw)
-    moveZ -= Math.cos(yaw)
-  }
-  if (input.backward) {
-    moveX += Math.sin(yaw)
-    moveZ += Math.cos(yaw)
-  }
-  if (input.left) {
-    moveX -= Math.cos(yaw)
-    moveZ += Math.sin(yaw)
-  }
-  if (input.right) {
-    moveX += Math.cos(yaw)
-    moveZ -= Math.sin(yaw)
-  }
+  const rawX =
+    (input.forward ? -Math.sin(yaw) : 0) +
+    (input.backward ? Math.sin(yaw) : 0) +
+    (input.left ? -Math.cos(yaw) : 0) +
+    (input.right ? Math.cos(yaw) : 0)
+  const rawZ =
+    (input.forward ? -Math.cos(yaw) : 0) +
+    (input.backward ? Math.cos(yaw) : 0) +
+    (input.left ? Math.sin(yaw) : 0) +
+    (input.right ? -Math.sin(yaw) : 0)
 
   // Normalize diagonal movement to prevent faster diagonal speeds.
-  const length = Math.sqrt(moveX * moveX + moveZ * moveZ)
-  if (length > 0) {
-    moveX = (moveX / length) * speed
-    moveZ = (moveZ / length) * speed
-  }
+  const length = Math.sqrt(rawX * rawX + rawZ * rawZ)
+  const moveX = length > 0 ? (rawX / length) * speed : 0
+  const moveZ = length > 0 ? (rawZ / length) * speed : 0
 
   // Y velocity is handled by physics (gravity/jump).
-  let moveY = 0
-  if (input.jump && isGrounded) {
-    moveY = DEFAULT_JUMP_VELOCITY
-  }
+  const moveY = input.jump && isGrounded ? MetersPerSec.toNumber(DEFAULT_JUMP_VELOCITY) : 0
 
   return { x: moveX, y: moveY, z: moveZ }
 }

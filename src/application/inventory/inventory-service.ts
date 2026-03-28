@@ -1,4 +1,4 @@
-import { Effect, Ref, Option, Schema } from 'effect'
+import { Array as Arr, Effect, Ref, Option, Schema } from 'effect'
 import type { BlockType } from '@/domain/block'
 import { BlockRegistry } from '@/domain/block-registry'
 import { BlockTypeSchema } from '@/domain/block'
@@ -30,13 +30,12 @@ export class InventoryService extends Effect.Service<InventoryService>()(
 
       // Build initial slots: empty for main grid (0-26), one of each non-AIR block for hotbar (27-35)
       const allBlocks = yield* blockRegistry.getAll()
-      const nonAirBlocks = allBlocks.filter((b) => b.type !== 'AIR').slice(0, HOTBAR_SIZE)
+      const nonAirBlocks = Arr.take(Arr.filter(allBlocks, (b) => b.type !== 'AIR'), HOTBAR_SIZE)
 
-      const initialSlots: InventorySlot[] = Array.from({ length: INVENTORY_SIZE }, (_, i) => {
+      const initialSlots: InventorySlots = Arr.makeBy(INVENTORY_SIZE, (i) => {
         const hotbarIndex = i - HOTBAR_START
-        if (i >= HOTBAR_START && hotbarIndex < nonAirBlocks.length) {
-          const block = nonAirBlocks[hotbarIndex]
-          return block ? Option.some(createStack(block.type, MAX_STACK_SIZE)) : Option.none()
+        if (i >= HOTBAR_START) {
+          return Option.map(Arr.get(nonAirBlocks, hotbarIndex), (block) => createStack(block.type, MAX_STACK_SIZE))
         }
         return Option.none()
       })
@@ -44,95 +43,91 @@ export class InventoryService extends Effect.Service<InventoryService>()(
       const slotsRef = yield* Ref.make<InventorySlots>(initialSlots)
 
       const getSlot = (index: SlotIndex): Effect.Effect<InventorySlot, never> =>
-        Ref.get(slotsRef).pipe(Effect.map((slots) => slots[SlotIndex.toNumber(index)] ?? Option.none()))
+        Ref.get(slotsRef).pipe(Effect.map((slots) => Option.getOrElse(Arr.get(slots, SlotIndex.toNumber(index)), () => Option.none<ItemStack>())))
 
       const setSlot = (index: SlotIndex, stack: InventorySlot): Effect.Effect<void, never> =>
-        Ref.update(slotsRef, (slots) => {
-          const next = [...slots]
-          next[SlotIndex.toNumber(index)] = stack
-          return next
-        })
+        Ref.update(slotsRef, Arr.modify(SlotIndex.toNumber(index), () => stack))
 
       const moveStack = (from: SlotIndex, to: SlotIndex): Effect.Effect<void, never> =>
         Ref.update(slotsRef, (slots) => {
-          const next = [...slots]
-          if (from === to) return next
-          const fromSlot = next[SlotIndex.toNumber(from)] ?? Option.none()
-          const toSlot = next[SlotIndex.toNumber(to)] ?? Option.none()
-
-          if (Option.isNone(fromSlot)) return next
-
-          const toIdx = SlotIndex.toNumber(to)
           const fromIdx = SlotIndex.toNumber(from)
+          const toIdx = SlotIndex.toNumber(to)
 
-          if (Option.isNone(toSlot)) {
-            // Move to empty slot
-            next[toIdx] = fromSlot
-            next[fromIdx] = Option.none()
-          } else if (canMerge(fromSlot.value, toSlot.value)) {
-            // Merge stacks
-            const [merged, remainder] = mergeStacks(toSlot.value, fromSlot.value)
-            next[toIdx] = Option.some(merged)
-            next[fromIdx] = remainder
-          } else {
-            // Swap
-            next[toIdx] = fromSlot
-            next[fromIdx] = toSlot
-          }
-          return next
+          if (from === to) return slots
+
+          const fromSlot = Option.getOrElse(Arr.get(slots, fromIdx), () => Option.none<ItemStack>())
+          const toSlot = Option.getOrElse(Arr.get(slots, toIdx), () => Option.none<ItemStack>())
+
+          return Option.match(fromSlot, {
+            onNone: () => slots,
+            onSome: (from) => {
+              const [newFromSlot, newToSlot] = Option.match(toSlot, {
+                onNone: () => [Option.none<ItemStack>(), Option.some(from)] as const,
+                onSome: (to) => canMerge(from, to)
+                  ? (() => {
+                      // Merge stacks
+                      const [merged, remainder] = mergeStacks(to, from)
+                      return [remainder, Option.some(merged)] as const
+                    })()
+                  // Swap
+                  : [toSlot, fromSlot] as const,
+              })
+              const withFrom = Arr.modify(slots, fromIdx, () => newFromSlot)
+              return Arr.modify(withFrom, toIdx, () => newToSlot)
+            },
+          })
         })
 
       const addBlock = (blockType: BlockType, count: number): Effect.Effect<boolean, never> =>
         Ref.modify(slotsRef, (slots) => {
-          const next = [...slots]
-          let remaining = count
-
           // First pass: fill existing partial stacks
-          for (let i = 0; i < INVENTORY_SIZE && remaining > 0; i++) {
-            const slot = next[i]
-            if (slot && Option.isSome(slot) && canMerge(slot.value, { blockType, count: 1 })) {
-              const space = MAX_STACK_SIZE - slot.value.count
-              if (space > 0) {
-                const add = Math.min(space, remaining)
-                next[i] = Option.some(addToStack(slot.value, add))
-                remaining -= add
-              }
-            }
-          }
+          const [remaining1, slots1] = Arr.mapAccum(slots, count, (rem, slot) => {
+            if (rem <= 0) return [rem, slot] as const
+            return Option.match(slot, {
+              onNone: () => [rem, slot] as const,
+              onSome: (stackVal) => {
+                if (!canMerge(stackVal, { blockType, count: 1 })) return [rem, slot] as const
+                const space = MAX_STACK_SIZE - stackVal.count
+                if (space <= 0) return [rem, slot] as const
+                const add = Math.min(space, rem)
+                return [rem - add, Option.some(addToStack(stackVal, add))] as const
+              },
+            })
+          })
 
           // Second pass: fill empty slots
-          for (let i = 0; i < INVENTORY_SIZE && remaining > 0; i++) {
-            const slot = next[i]
-            if (!slot || Option.isNone(slot)) {
-              const add = Math.min(MAX_STACK_SIZE, remaining)
-              next[i] = Option.some(createStack(blockType, add))
-              remaining -= add
-            }
-          }
+          const [remaining2, slots2] = Arr.mapAccum(slots1, remaining1, (rem, slot) => {
+            if (rem <= 0) return [rem, slot] as const
+            return Option.match(slot, {
+              onSome: () => [rem, slot] as const,
+              onNone: () => {
+                const add = Math.min(MAX_STACK_SIZE, rem)
+                return [rem - add, Option.some(createStack(blockType, add))] as const
+              },
+            })
+          })
 
-          return [remaining === 0, next]
+          return [remaining2 === 0, slots2]
         })
 
       const removeBlock = (blockType: BlockType, count: number): Effect.Effect<boolean, never> =>
         Ref.modify(slotsRef, (slots) => {
-          const next = [...slots]
-          let remaining = count
-
-          for (let i = 0; i < INVENTORY_SIZE && remaining > 0; i++) {
-            const slot = next[i]
-            if (slot && Option.isSome(slot) && slot.value.blockType === blockType) {
-              const take = Math.min(slot.value.count, remaining)
-              const updated = removeFromStack(slot.value, take)
-              next[i] = updated
-              remaining -= take
-            }
-          }
-
-          return [remaining === 0, next]
+          const [remaining, result] = Arr.mapAccum(slots, count, (rem, slot) => {
+            if (rem <= 0) return [rem, slot] as const
+            return Option.match(slot, {
+              onNone: () => [rem, slot] as const,
+              onSome: (stackVal) => {
+                if (stackVal.blockType !== blockType) return [rem, slot] as const
+                const take = Math.min(stackVal.count, rem)
+                return [rem - take, removeFromStack(stackVal, take)] as const
+              },
+            })
+          })
+          return [remaining === 0, result]
         })
 
       const getHotbarSlots = (): Effect.Effect<ReadonlyArray<InventorySlot>, never> =>
-        Ref.get(slotsRef).pipe(Effect.map((slots) => slots.slice(HOTBAR_START, HOTBAR_START + HOTBAR_SIZE)))
+        Ref.get(slotsRef).pipe(Effect.map((slots) => Arr.take(Arr.drop(slots, HOTBAR_START), HOTBAR_SIZE)))
 
       const getAllSlots = (): Effect.Effect<InventorySlots, never> =>
         Ref.get(slotsRef)
@@ -140,24 +135,29 @@ export class InventoryService extends Effect.Service<InventoryService>()(
       const serialize = (): Effect.Effect<InventorySaveData, never> =>
         Ref.get(slotsRef).pipe(
           Effect.map((slots) => ({
-            slots: slots.map((slot, i) =>
-              Option.isSome(slot)
-                ? { slot: SlotIndex.make(i), blockType: slot.value.blockType, count: slot.value.count }
-                : null
+            slots: Arr.map(slots, (slot, i) =>
+              Option.match(slot, {
+                onSome: (stack) => ({ slot: SlotIndex.make(i), blockType: stack.blockType, count: stack.count }),
+                onNone: () => null,
+              })
             ),
           }))
         )
 
       const deserialize = (data: InventorySaveData): Effect.Effect<void, never> =>
-        Ref.update(slotsRef, (slots) => {
-          const next = [...slots]
-          for (const entry of data.slots) {
-            if (entry && entry.slot >= 0 && entry.slot < INVENTORY_SIZE) {
-              next[entry.slot] = Option.some(createStack(entry.blockType, entry.count))
-            }
-          }
-          return next
-        })
+        Ref.update(slotsRef, (slots) =>
+          Arr.reduce(data.slots, slots, (acc, entry) =>
+            Option.match(Option.fromNullable(entry), {
+              onNone: () => acc,
+              onSome: (e) => {
+                const i = SlotIndex.toNumber(e.slot)
+                return i >= 0 && i < INVENTORY_SIZE
+                  ? Arr.modify(acc, i, () => Option.some(createStack(e.blockType, e.count)))
+                  : acc
+              },
+            })
+          )
+        )
 
       return {
         getSlot,

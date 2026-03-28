@@ -1,6 +1,6 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Arbitrary, Schema } from 'effect'
+import { Arbitrary, HashSet, Schema } from 'effect'
 import { KeyMappings, KeyMappingsSchema } from './key-mappings'
 
 // All valid literal values in order matching the schema
@@ -220,7 +220,7 @@ describe('KeyMappingsSchema (property-based)', () => {
 describe('KeyMappings uniqueness', () => {
   it('all key mapping values are unique (no key bound twice)', () => {
     const values = Object.values(KeyMappings)
-    const unique = new Set(values)
-    expect(unique.size).toBe(values.length)
+    const unique = HashSet.fromIterable(values)
+    expect(HashSet.size(unique)).toBe(values.length)
   })
 })

@@ -1,4 +1,4 @@
-import { Effect, Ref } from 'effect'
+import { Array as Arr, Effect, Ref, HashMap, Option } from 'effect'
 import * as THREE from 'three'
 
 export class BlockMeshService extends Effect.Service<BlockMeshService>()(
@@ -10,13 +10,15 @@ export class BlockMeshService extends Effect.Service<BlockMeshService>()(
         (geo) => Effect.sync(() => geo.dispose())
       )
 
-      const materialCache = yield* Ref.make<Map<string, THREE.Material>>(new Map())
+      const materialCache = yield* Ref.make(HashMap.empty<string, THREE.Material>())
 
       yield* Effect.acquireRelease(
         Effect.void,
         () => Effect.gen(function* () {
           const cache = yield* Ref.get(materialCache)
-          cache.forEach((mat) => mat.dispose())
+          yield* Effect.sync(() => {
+            Arr.forEach(Arr.fromIterable(HashMap.values(cache)), (mat) => mat.dispose())
+          })
         })
       )
 
@@ -24,20 +26,18 @@ export class BlockMeshService extends Effect.Service<BlockMeshService>()(
         Effect.gen(function* () {
           const cacheKey = `material-${typeof colorOrUrl}-${colorOrUrl}`
 
-          const cache = yield* Ref.get(materialCache)
-          if (cache.has(cacheKey)) {
-            return cache.get(cacheKey)!
-          }
-
-          const material = new THREE.MeshStandardMaterial({
-            color: typeof colorOrUrl === 'string' ? colorOrUrl : colorOrUrl,
-            roughness: 0.8,
-            metalness: 0,
+          return yield* Option.match(HashMap.get(yield* Ref.get(materialCache), cacheKey), {
+            onSome: Effect.succeed,
+            onNone: () => Effect.gen(function* () {
+              const material = yield* Effect.sync(() => new THREE.MeshStandardMaterial({
+                color: typeof colorOrUrl === 'string' ? colorOrUrl : colorOrUrl,
+                roughness: 0.8,
+                metalness: 0,
+              }))
+              yield* Ref.update(materialCache, (c) => HashMap.set(c, cacheKey, material))
+              return material
+            }),
           })
-
-          yield* Ref.update(materialCache, (c) => new Map(c).set(cacheKey, material))
-
-          return material
         })
 
       return {
@@ -45,11 +45,11 @@ export class BlockMeshService extends Effect.Service<BlockMeshService>()(
           Effect.gen(function* () {
             const material = yield* createMaterial(color)
 
-            const mesh = new THREE.Mesh(sharedGeometry, material)
-
-            mesh.position.copy(position)
-
-            return mesh
+            return yield* Effect.sync(() => {
+              const mesh = new THREE.Mesh(sharedGeometry, material)
+              mesh.position.copy(position)
+              return mesh
+            })
           }),
 
         getSharedGeometry: (): Effect.Effect<THREE.BoxGeometry, never> => Effect.succeed(sharedGeometry),
@@ -57,27 +57,35 @@ export class BlockMeshService extends Effect.Service<BlockMeshService>()(
         disposeMesh: (mesh: THREE.Mesh): Effect.Effect<void, never> =>
           Effect.gen(function* () {
             if (mesh.material) {
-              const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
-
-              for (const mat of materials) {
-                const cache = yield* Ref.get(materialCache)
-                const cacheKey = Array.from(cache.entries()).find(
-                  ([_, m]) => m === mat
-                )?.[0]
-
-                if (!cacheKey) {
-                  mat.dispose()
-                }
-              }
+              const materials: ReadonlyArray<THREE.Material> = Array.isArray(mesh.material)
+                ? mesh.material
+                : [mesh.material]
+              yield* Effect.forEach(
+                materials,
+                (mat) =>
+                  Effect.gen(function* () {
+                    const cache = yield* Ref.get(materialCache)
+                    const cacheKeyOpt = Option.map(
+                      Arr.findFirst(Arr.fromIterable(cache), ([, m]) => m === mat),
+                      ([k]) => k
+                    )
+                    yield* Option.match(cacheKeyOpt, {
+                      onNone: () => Effect.sync(() => mat.dispose()),
+                      onSome: () => Effect.void,
+                    })
+                  }),
+                { concurrency: 1 }
+              )
             }
           }),
 
         disposeAll: (): Effect.Effect<void, never> =>
           Effect.gen(function* () {
-            yield* Ref.modify(materialCache, (cache): [void, Map<string, THREE.Material>] => {
-              cache.forEach((material) => material.dispose())
-              return [undefined, new Map()]
+            const cache = yield* Ref.get(materialCache)
+            yield* Effect.sync(() => {
+              Arr.forEach(Arr.fromIterable(HashMap.values(cache)), (material) => material.dispose())
             })
+            yield* Ref.set(materialCache, HashMap.empty())
           }),
       }
     }),

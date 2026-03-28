@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { Effect, Layer, Metric } from 'effect'
+import { Array as Arr, Effect, Layer, Metric, MutableHashMap, Option } from 'effect'
 import { ChunkManagerService, ChunkManagerError } from '@/application/chunk/chunk-manager-service'
 import { ChunkServiceLive, Chunk, ChunkCoord, CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex, indexToBlockType } from '@/domain/chunk'
 import { PlayerService } from '@/application/player/player-state'
@@ -49,7 +49,7 @@ const worldToLocal = (pos: Position): { coord: ChunkCoord; lx: number; lz: numbe
  * Read a BlockType from a chunk's Uint8Array at local coordinates.
  */
 const readBlock = (chunk: Chunk, lx: number, y: number, lz: number): BlockType =>
-  indexToBlockType(chunk.blocks[blockIdx(lx, y, lz)] ?? 0)
+  indexToBlockType(Option.getOrElse(Option.fromNullable(chunk.blocks[blockIdx(lx, y, lz)]), () => 0))
 
 /**
  * Write a BlockType into a chunk's Uint8Array at local coordinates.
@@ -78,16 +78,17 @@ interface MockChunkManagerHandle {
 const createMockChunkManagerService = (
   initialBlocks?: Array<{ pos: Position; blockType: BlockType }>
 ): MockChunkManagerHandle => {
-  const chunkMap = new Map<string, Chunk>()
+  const chunkMap = MutableHashMap.empty<string, Chunk>()
 
   const ensureChunk = (coord: ChunkCoord): Chunk => {
     const key = chunkKey(coord)
-    let chunk = chunkMap.get(key)
-    if (!chunk) {
-      chunk = makeEmptyChunk(coord)
-      chunkMap.set(key, chunk)
+    const existingOpt = MutableHashMap.get(chunkMap, key)
+    if (Option.isNone(existingOpt)) {
+      const newChunk = makeEmptyChunk(coord)
+      MutableHashMap.set(chunkMap, key, newChunk)
+      return newChunk
     }
-    return chunk
+    return existingOpt.value
   }
 
   // Pre-populate blocks
@@ -102,7 +103,7 @@ const createMockChunkManagerService = (
   const service = {
     getChunk: (coord: ChunkCoord) => Effect.sync(() => ensureChunk(coord)),
     loadChunksAroundPlayer: (_playerPos: Position) => Effect.void,
-    getLoadedChunks: () => Effect.succeed(Array.from(chunkMap.values())),
+    getLoadedChunks: () => Effect.succeed(Arr.fromIterable(MutableHashMap.values(chunkMap))),
     markChunkDirty: (_coord: ChunkCoord) => Effect.void,
     saveDirtyChunks: () => Effect.void as Effect.Effect<void, StorageError>,
     unloadChunk: (_coord: ChunkCoord) => Effect.void as Effect.Effect<void, StorageError>,
@@ -591,7 +592,7 @@ describe('application/block/block-service', () => {
 
       for (const blockType of blockTypes) {
         // Use a unique position per block type to avoid reusing the same chunk cell
-        const typeIdx = blockTypes.indexOf(blockType)
+        const typeIdx = Option.getOrElse(Arr.findFirstIndex(blockTypes, (bt) => bt === blockType), () => 0)
         const targetPos: Position = { x: typeIdx * 2, y: 0, z: 0 }
         const handle = createMockChunkManagerService()
         const playerService = createMockPlayerService({ x: 100, y: 0, z: 100 })
@@ -697,7 +698,7 @@ describe('application/block/block-service', () => {
         { x: 22, y: 10, z: 20 },
       ]
       const handle = createMockChunkManagerService(
-        positions.map((pos) => ({ pos, blockType: 'DIRT' as const }))
+        Arr.map(positions, (pos) => ({ pos, blockType: 'DIRT' as const }))
       )
       const playerService = createMockPlayerService({ x: 100, y: 0, z: 100 })
       const testLayer = createTestLayer(handle.service, playerService)
@@ -876,14 +877,14 @@ describe('application/block/block-service', () => {
 
   describe('markChunkDirty integration', () => {
     it('breakBlock calls markChunkDirty with the correct ChunkCoord', () => {
-      let dirtyCoord: { x: number; z: number } | null = null
+      let dirtyCoord: Option.Option<{ x: number; z: number }> = Option.none()
       const targetPos: Position = { x: 5, y: 10, z: 21 }
       const { service: baseService } = createMockChunkManagerService([{ pos: targetPos, blockType: 'DIRT' }])
       const capturingService = {
         ...(baseService as unknown as Record<string, unknown>),
         markChunkDirty: (coord: ChunkCoord) =>
           Effect.sync(() => {
-            dirtyCoord = { x: coord.x, z: coord.z }
+            dirtyCoord = Option.some({ x: coord.x, z: coord.z })
           }),
       } as unknown as ChunkManagerService
       const playerService = createMockPlayerService({ x: 100, y: 0, z: 100 })
@@ -897,20 +898,21 @@ describe('application/block/block-service', () => {
 
       const result = Effect.runSync(program)
       expect(result.success).toBe(true)
-      expect(dirtyCoord).not.toBeNull()
-      expect(dirtyCoord!.x).toBe(Math.floor(targetPos.x / CHUNK_SIZE))
-      expect(dirtyCoord!.z).toBe(Math.floor(targetPos.z / CHUNK_SIZE))
+      expect(Option.isSome(dirtyCoord)).toBe(true)
+      const coord = Option.getOrThrow(dirtyCoord)
+      expect(coord.x).toBe(Math.floor(targetPos.x / CHUNK_SIZE))
+      expect(coord.z).toBe(Math.floor(targetPos.z / CHUNK_SIZE))
     })
 
     it('placeBlock calls markChunkDirty with the correct ChunkCoord', () => {
-      let dirtyCoord: { x: number; z: number } | null = null
+      let dirtyCoord: Option.Option<{ x: number; z: number }> = Option.none()
       const targetPos: Position = { x: 33, y: 5, z: 0 }
       const { service: baseService } = createMockChunkManagerService()
       const capturingService = {
         ...(baseService as unknown as Record<string, unknown>),
         markChunkDirty: (coord: ChunkCoord) =>
           Effect.sync(() => {
-            dirtyCoord = { x: coord.x, z: coord.z }
+            dirtyCoord = Option.some({ x: coord.x, z: coord.z })
           }),
       } as unknown as ChunkManagerService
       const playerService = createMockPlayerService({ x: 100, y: 0, z: 100 })
@@ -924,9 +926,10 @@ describe('application/block/block-service', () => {
 
       const result = Effect.runSync(program)
       expect(result.success).toBe(true)
-      expect(dirtyCoord).not.toBeNull()
-      expect(dirtyCoord!.x).toBe(Math.floor(targetPos.x / CHUNK_SIZE))
-      expect(dirtyCoord!.z).toBe(Math.floor(targetPos.z / CHUNK_SIZE))
+      expect(Option.isSome(dirtyCoord)).toBe(true)
+      const coord = Option.getOrThrow(dirtyCoord)
+      expect(coord.x).toBe(Math.floor(targetPos.x / CHUNK_SIZE))
+      expect(coord.z).toBe(Math.floor(targetPos.z / CHUNK_SIZE))
     })
 
     it('breakBlock does NOT call markChunkDirty when it fails (no block)', () => {

@@ -1,6 +1,6 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Arbitrary, Effect, Layer, Option, Schema } from 'effect'
+import { Arbitrary, Array as Arr, Effect, Layer, Option, Schema } from 'effect'
 import type { Block, BlockType } from '@/domain/block'
 // Block is used only in the registry stub below
 import { BlockRegistry } from '@/domain/block-registry'
@@ -116,20 +116,16 @@ describe('application/inventory/inventory-service (property-based)', () => {
           const inv = yield* InventoryService
 
           const slotsBefore = yield* inv.getAllSlots()
-          const totalBefore = slotsBefore.reduce(
-            (sum, s) =>
-              sum + (Option.isSome(s) && s.value.blockType === type ? s.value.count : 0),
-            0,
+          const totalBefore = Arr.reduce(slotsBefore, 0, (sum, s) =>
+            sum + (Option.isSome(s) && s.value.blockType === type ? s.value.count : 0)
           )
 
           yield* inv.addBlock(type as BlockType, count)
           yield* inv.removeBlock(type as BlockType, count)
 
           const slotsAfter = yield* inv.getAllSlots()
-          const totalAfter = slotsAfter.reduce(
-            (sum, s) =>
-              sum + (Option.isSome(s) && s.value.blockType === type ? s.value.count : 0),
-            0,
+          const totalAfter = Arr.reduce(slotsAfter, 0, (sum, s) =>
+            sum + (Option.isSome(s) && s.value.blockType === type ? s.value.count : 0)
           )
 
           expect(totalAfter).toBe(totalBefore)

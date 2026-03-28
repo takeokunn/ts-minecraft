@@ -8,7 +8,7 @@
  * Architectural note: this file lives at src/ root alongside main.ts and layers.ts.
  * Cross-layer imports here are the same kind of orchestration — acceptable in a composition root.
  */
-import { Cause, Effect, Option, Ref } from 'effect'
+import { Array as Arr, Cause, Effect, Option, Ref } from 'effect'
 import * as THREE from 'three'
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js'
@@ -56,12 +56,12 @@ export interface FrameHandlerDeps {
   readonly scene: THREE.Scene
   readonly camera: THREE.PerspectiveCamera
   readonly lights: DayNightLights
-  readonly fpsElement: HTMLElement | null
-  readonly healthValueElement: HTMLElement | null
-  readonly healthMaxElement: HTMLElement | null
+  readonly fpsElement: Option.Option<HTMLElement>
+  readonly healthValueElement: Option.Option<HTMLElement>
+  readonly healthMaxElement: Option.Option<HTMLElement>
   readonly gamePausedRef: Ref.Ref<boolean>
   readonly composer?: EffectComposer
-  readonly skyMesh?: THREE.Object3D | null
+  readonly skyMesh: Option.Option<THREE.Object3D>
   readonly gtaoPass?: GTAOPass
   readonly bloomPass?: UnrealBloomPass
   readonly ssrPass?: SSRPass
@@ -95,28 +95,33 @@ export interface FrameHandlerServices {
 }
 
 /**
- * Creates a curried frame handler: `createFrameHandler(deps, services)` returns
+ * Creates a curried frame handler: `yield* createFrameHandler(deps, services)` returns
  * `(deltaTime) => Effect<void, never>` — a pure Effect requiring no context (R = never).
  *
- * The outer call binds Three.js objects (deps) and service instances (services) at startup.
+ * The outer call is an Effect that initialises per-handler Refs (totalTimeSecs) and
+ * binds Three.js objects (deps) and service instances (services) at startup.
  * The inner call is invoked once per animation frame by GameLoopService with the delta time.
  *
  * Services are passed explicitly rather than yielded from context to avoid the
  * `Effect.provide(MainLive)` anti-pattern, which would reconstruct the full layer graph
  * every frame at 60 Hz.
+ *
+ * totalTimeSecs is a Ref rather than a closure `let` — aligns mutable per-handler state
+ * with the Effect-TS Ref pattern and makes state management explicit and composable.
  */
 export const createFrameHandler = (
   deps: FrameHandlerDeps,
   services: FrameHandlerServices,
-): (deltaTime: DeltaTimeSecs) => Effect.Effect<void, never> => {
-  // Accumulated total time for water shader uTime uniform (seconds since game start)
-  let totalTimeSecs = 0
+): Effect.Effect<(deltaTime: DeltaTimeSecs) => Effect.Effect<void, never>> =>
+  Effect.gen(function* () {
+    // Accumulated total time for water shader uTime uniform (seconds since game start)
+    const totalTimeSecsRef = yield* Ref.make(0)
 
-  // Pre-allocated for god rays sun position projection — reused each frame to avoid GC
-  const _sunWorldPos = new THREE.Vector3()
+    // Pre-allocated for god rays sun position projection — reused each frame to avoid GC
+    const _sunWorldPos = yield* Effect.sync(() => new THREE.Vector3())
 
-  return (deltaTime: DeltaTimeSecs) =>
-    Effect.gen(function* () {
+    return (deltaTime: DeltaTimeSecs) =>
+      Effect.gen(function* () {
       const {
         gameState,
         firstPersonCamera,
@@ -138,7 +143,8 @@ export const createFrameHandler = (
       const { renderer, scene, camera, fpsElement, gamePausedRef } = deps
 
       // Accumulate total elapsed time for water shader uniform
-      totalTimeSecs += deltaTime
+      yield* Ref.update(totalTimeSecsRef, (t) => t + deltaTime)
+      const totalTimeSecs = yield* Ref.get(totalTimeSecsRef)
 
       // Fetch settings once per frame for shadow/SSAO and day-length reactive changes
       const currentSettings = yield* settingsService.getSettings()
@@ -146,8 +152,8 @@ export const createFrameHandler = (
       // Derive effective lights: conditionally nullify sky port based on settings
       const effectiveLights = currentSettings.skyEnabled
         ? deps.lights
-        : { ...deps.lights, sky: null }
-      if (deps.skyMesh != null) deps.skyMesh.visible = currentSettings.skyEnabled
+        : { ...deps.lights, sky: Option.none() }
+      yield* Effect.sync(() => { Option.map(deps.skyMesh, (m) => { m.visible = currentSettings.skyEnabled }) })
 
       // Hoist player position — shared across steps 1, 3.5, and 8 to avoid redundant Effect calls
       const playerPos = yield* gameState.getPlayerPosition(DEFAULT_PLAYER_ID).pipe(
@@ -174,19 +180,25 @@ export const createFrameHandler = (
           Effect.map(Option.some<Chunk>),
           Effect.catchAllCause(() => Effect.succeed(Option.none<Chunk>()))
         )
-        if (Option.isSome(playerChunkOpt)) {
-          const playerChunk = playerChunkOpt.value
-          const startY = Math.min(Math.floor(playerPos.y) + 1, CHUNK_HEIGHT - 1)
-          let surfaceY = 0
-          for (let y = startY; y >= 0; y--) {
-            const idx = blockIndex(lx, y, lz)
-            if (idx !== null && playerChunk.blocks[idx] !== 0) {
-              surfaceY = y + 1
-              break
-            }
-          }
-          yield* gameState.updateGroundY(surfaceY)
-        }
+        yield* Option.match(playerChunkOpt, {
+          onNone: () => Effect.void,
+          onSome: (playerChunk) => Effect.gen(function* () {
+            const startY = Math.min(Math.floor(playerPos.y) + 1, CHUNK_HEIGHT - 1)
+            const surfaceY = Option.getOrElse(
+              Arr.findFirst(
+                Arr.makeBy(startY + 1, (i) => startY - i),
+                (y) => {
+                  return Option.match(blockIndex(lx, y, lz), {
+                    onNone: () => false,
+                    onSome: (idx) => playerChunk.blocks[idx] !== 0,
+                  })
+                }
+              ).pipe(Option.map((y) => y + 1)),
+              () => 0
+            )
+            yield* gameState.updateGroundY(surfaceY)
+          }),
+        })
       }).pipe(Effect.catchAllCause((cause) => Effect.logError(`Chunk streaming error: ${Cause.pretty(cause)}`)))
 
       // 2. Day/night cycle: advance time and update lighting + sky color
@@ -209,8 +221,10 @@ export const createFrameHandler = (
         yield* healthService.tick()
         const health = yield* healthService.getHealth()
         // Pre-cached element refs (resolved once at startup in FrameHandlerDeps)
-        if (deps.healthValueElement) deps.healthValueElement.textContent = String(health.current)
-        if (deps.healthMaxElement) deps.healthMaxElement.textContent = String(health.max)
+        yield* Effect.sync(() => {
+          Option.map(deps.healthValueElement, (el) => { el.textContent = String(health.current) })
+          Option.map(deps.healthMaxElement, (el) => { el.textContent = String(health.max) })
+        })
       }).pipe(Effect.catchAllCause((cause) => Effect.logError(`Health error: ${Cause.pretty(cause)}`)))
 
       // 4. Update camera rotation from mouse look (suppressed when a modal is open)
@@ -275,9 +289,11 @@ export const createFrameHandler = (
       }).pipe(Effect.catchAllCause((cause) => Effect.logError(`Overlay error: ${Cause.pretty(cause)}`)))
 
       // Guard prevents per-frame shadow map invalidation — Three.js marks shadow state dirty on every write
-      if (deps.lights.light.castShadow !== currentSettings.shadowsEnabled) {
-        deps.lights.light.castShadow = currentSettings.shadowsEnabled
-      }
+      yield* Effect.sync(() => {
+        if (deps.lights.light.castShadow !== currentSettings.shadowsEnabled) {
+          deps.lights.light.castShadow = currentSettings.shadowsEnabled
+        }
+      })
 
       // 7. Handle block interaction (break/place) and hotbar (suppressed when paused)
       yield* Effect.gen(function* () {
@@ -295,35 +311,38 @@ export const createFrameHandler = (
           const targetBlock = yield* blockHighlight.getTargetBlock()
           const targetHit = yield* blockHighlight.getTargetHit()
 
-          if (leftClick && targetBlock !== null) {
-            yield* blockService.breakBlock({ x: targetBlock.x, y: targetBlock.y, z: targetBlock.z })
-            // Re-mesh the affected chunk
-            const chunkCoord = {
-              x: Math.floor(targetBlock.x / CHUNK_SIZE),
-              z: Math.floor(targetBlock.z / CHUNK_SIZE),
-            }
-            const updatedChunk = yield* chunkManagerService.getChunk(chunkCoord)
-            yield* worldRendererService.updateChunkInScene(updatedChunk, scene)
-          }
-
-          if (rightClick && targetHit !== null) {
-            const adjacentPos = {
-              x: targetHit.blockX + Math.round(targetHit.normal.x),
-              y: targetHit.blockY + Math.round(targetHit.normal.y),
-              z: targetHit.blockZ + Math.round(targetHit.normal.z),
-            }
-            const selectedBlock = yield* hotbarService.getSelectedBlockType()
-            if (Option.isSome(selectedBlock)) {
-              yield* blockService.placeBlock(adjacentPos, selectedBlock.value)
+          if (leftClick) yield* Option.match(targetBlock, {
+            onNone: () => Effect.void,
+            onSome: (tb) => Effect.gen(function* () {
+              yield* blockService.breakBlock({ x: tb.x, y: tb.y, z: tb.z })
               // Re-mesh the affected chunk
-              const chunkCoord = {
-                x: Math.floor(adjacentPos.x / CHUNK_SIZE),
-                z: Math.floor(adjacentPos.z / CHUNK_SIZE),
-              }
+              const chunkCoord = { x: Math.floor(tb.x / CHUNK_SIZE), z: Math.floor(tb.z / CHUNK_SIZE) }
               const updatedChunk = yield* chunkManagerService.getChunk(chunkCoord)
               yield* worldRendererService.updateChunkInScene(updatedChunk, scene)
-            }
-          }
+            }),
+          })
+
+          if (rightClick) yield* Option.match(targetHit, {
+            onNone: () => Effect.void,
+            onSome: (hit) => Effect.gen(function* () {
+              const adjacentPos = {
+                x: hit.blockX + Math.round(hit.normal.x),
+                y: hit.blockY + Math.round(hit.normal.y),
+                z: hit.blockZ + Math.round(hit.normal.z),
+              }
+              const selectedBlock = yield* hotbarService.getSelectedBlockType()
+              yield* Option.match(selectedBlock, {
+                onNone: () => Effect.void,
+                onSome: (blockType) => Effect.gen(function* () {
+                  yield* blockService.placeBlock(adjacentPos, blockType)
+                  // Re-mesh the affected chunk
+                  const chunkCoord = { x: Math.floor(adjacentPos.x / CHUNK_SIZE), z: Math.floor(adjacentPos.z / CHUNK_SIZE) }
+                  const updatedChunk = yield* chunkManagerService.getChunk(chunkCoord)
+                  yield* worldRendererService.updateChunkInScene(updatedChunk, scene)
+                }),
+              })
+            }),
+          })
         }
 
         // Update hotbar renderer with current slot state
@@ -333,17 +352,19 @@ export const createFrameHandler = (
       }).pipe(Effect.catchAllCause((cause) => Effect.logError(`Block interaction error: ${Cause.pretty(cause)}`)))
 
       // 8. Sync camera position with player; keep shadow target centered on player
-      // Uses hoisted playerPos from top of frame (avoids redundant getPlayerPosition call)
-      camera.position.set(playerPos.x, playerPos.y + EYE_LEVEL_OFFSET, playerPos.z)
-      // Shadow frustum follows player so terrain around them is always shadow-covered
-      deps.lights.light.target.position.set(playerPos.x, 0, playerPos.z)
-      deps.lights.light.target.updateMatrixWorld()
+      yield* Effect.sync(() => {
+        // Uses hoisted playerPos from top of frame (avoids redundant getPlayerPosition call)
+        camera.position.set(playerPos.x, playerPos.y + EYE_LEVEL_OFFSET, playerPos.z)
+        // Shadow frustum follows player so terrain around them is always shadow-covered
+        deps.lights.light.target.position.set(playerPos.x, 0, playerPos.z)
+        deps.lights.light.target.updateMatrixWorld()
+      })
 
       // 9. Update FPS display — tick first to include this frame in the measurement,
       //    then read the updated average so the display reflects the current frame.
       yield* fpsCounter.tick(deltaTime)
       const fps = yield* fpsCounter.getFPS()
-      if (fpsElement) fpsElement.textContent = fps.toFixed(1)
+      yield* Effect.sync(() => { Option.map(fpsElement, (el) => { el.textContent = fps.toFixed(1) }) })
 
       // 9.5. Refraction pre-pass for water shader (render scene without water to capture underwater)
       yield* worldRendererService.doRefractionPrePass(deps.renderer, deps.scene, deps.camera).pipe(
@@ -363,49 +384,59 @@ export const createFrameHandler = (
       }
 
       // 10. Sync pass enable states from settings, then render via EffectComposer
-      if (deps.gtaoPass) deps.gtaoPass.enabled = currentSettings.ssaoEnabled && renderer.capabilities.isWebGL2
-      if (deps.bloomPass) deps.bloomPass.enabled = currentSettings.bloomEnabled
-      if (deps.dofPass) deps.dofPass.enabled = currentSettings.dofEnabled
-      if (deps.smaaPass) deps.smaaPass.enabled = currentSettings.smaaEnabled
+      yield* Effect.sync(() => {
+        if (deps.gtaoPass) deps.gtaoPass.enabled = currentSettings.ssaoEnabled && renderer.capabilities.isWebGL2
+        if (deps.bloomPass) deps.bloomPass.enabled = currentSettings.bloomEnabled
+        if (deps.dofPass) deps.dofPass.enabled = currentSettings.dofEnabled
+        if (deps.smaaPass) deps.smaaPass.enabled = currentSettings.smaaEnabled
+      })
 
-      if (deps.ssrPass) {
+      const ssrPass = deps.ssrPass
+      if (ssrPass) {
         if (currentSettings.ssrEnabled && renderer.capabilities.isWebGL2) {
           const waterMeshes = yield* worldRendererService.getWaterMeshes()
-          deps.ssrPass.selects = waterMeshes as THREE.Mesh[]
-          deps.ssrPass.enabled = true
+          yield* Effect.sync(() => {
+            ssrPass.selects = waterMeshes as THREE.Mesh[]
+            ssrPass.enabled = true
+          })
         } else {
-          deps.ssrPass.enabled = false
+          yield* Effect.sync(() => { ssrPass.enabled = false })
         }
       }
 
-      if (deps.godRaysPass) {
-        if (currentSettings.godRaysEnabled) {
-          const lightPos = (deps.lights.light as unknown as THREE.DirectionalLight).position
-          _sunWorldPos.copy(lightPos).normalize().multiplyScalar(100)
-          _sunWorldPos.project(camera)
-          // Convert NDC [-1,1] to screen UV [0,1]
-          deps.godRaysPass.sunScreenPos.set(
-            (_sunWorldPos.x + 1) * 0.5,
-            (_sunWorldPos.y + 1) * 0.5,
-          )
-          deps.godRaysPass.enabled = true
-        } else {
-          deps.godRaysPass.enabled = false
+      yield* Effect.sync(() => {
+        const godRaysPass = deps.godRaysPass
+        if (godRaysPass) {
+          if (currentSettings.godRaysEnabled) {
+            const lightPos = (deps.lights.light as unknown as THREE.DirectionalLight).position
+            _sunWorldPos.copy(lightPos).normalize().multiplyScalar(100)
+            _sunWorldPos.project(camera)
+            // Convert NDC [-1,1] to screen UV [0,1]
+            godRaysPass.sunScreenPos.set(
+              (_sunWorldPos.x + 1) * 0.5,
+              (_sunWorldPos.y + 1) * 0.5,
+            )
+            godRaysPass.enabled = true
+          } else {
+            godRaysPass.enabled = false
+          }
         }
-      }
+      })
 
       // Render via EffectComposer (disabled passes are skipped automatically)
-      if (deps.composer) {
-        deps.composer.render()
-      } else {
-        renderer.render(scene, camera)
-      }
+      yield* Effect.sync(() => {
+        if (deps.composer) {
+          deps.composer.render()
+        } else {
+          renderer.render(scene, camera)
+        }
+      })
 
       // 11. Render HUD hotbar overlay (second pass; autoClear=false prevents erasing the main scene)
-      renderer.autoClear = false
+      yield* Effect.sync(() => { renderer.autoClear = false })
       yield* hotbarRenderer.render(renderer).pipe(
         Effect.catchAllCause((cause) => Effect.logError(`HUD render error: ${Cause.pretty(cause)}`))
       )
-      renderer.autoClear = true
+      yield* Effect.sync(() => { renderer.autoClear = true })
     })
-}
+  })

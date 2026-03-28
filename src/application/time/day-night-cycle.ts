@@ -1,4 +1,4 @@
-import { Effect } from 'effect'
+import { Effect, Option } from 'effect'
 import { TimeService } from '@/application/time/time-service'
 import type { DeltaTimeSecs } from '@/shared/kernel'
 import type { DayNightLightsPort } from '@/shared/math/three'
@@ -37,41 +37,48 @@ export const updateDayNightCycle = (
 
     // Directional light follows a horizontal arc east→west
     const sunAngle = (timeOfDay - DAWN_PHASE_OFFSET) * Math.PI  // 0 at dawn, π at dusk
-    lights.light.intensity = DIRECT_LIGHT_MIN + dayFactor * DIRECT_LIGHT_RANGE
-    lights.light.position.set(Math.cos(sunAngle) * SUN_DISTANCE, Math.sin(sunAngle) * SUN_HEIGHT, 0)
 
-    // Ambient light dims at night
-    lights.ambientLight.intensity = AMBIENT_LIGHT_MIN + dayFactor * AMBIENT_LIGHT_RANGE
+    // Apply light property mutations as a single declared side effect
+    yield* Effect.sync(() => {
+      lights.light.intensity = DIRECT_LIGHT_MIN + dayFactor * DIRECT_LIGHT_RANGE
+      lights.light.position.set(Math.cos(sunAngle) * SUN_DISTANCE, Math.sin(sunAngle) * SUN_HEIGHT, 0)
 
-    // Directional light color temperature:
-    // - horizon (dayFactor ≈ 0): warm orange
-    // - noon (dayFactor = 1): white
-    // The horizonBlend peaks when dayFactor is low (near horizon transitions)
-    const horizonBlend = 1.0 - dayFactor
-    lights.light.color.setHSL(
-      0.06 - horizonBlend * 0.04,  // hue: ~0.06 (orange) near horizon → ~0.02 at night
-      horizonBlend * 0.9,           // saturation: highly saturated at horizon, white at noon
-      0.5 + dayFactor * 0.5,       // lightness: 0.5 at horizon, 1.0 at noon
-    )
+      // Ambient light dims at night
+      lights.ambientLight.intensity = AMBIENT_LIGHT_MIN + dayFactor * AMBIENT_LIGHT_RANGE
 
-    // Ambient light at night takes a cool blue tint
-    if (dayFactor < 0.1) {
-      lights.ambientLight.color.setHSL(0.6, 0.5, 0.3)  // cool blue at night
-    } else {
-      lights.ambientLight.color.setHSL(0.06, horizonBlend * 0.3, 0.5 + dayFactor * 0.3)
-    }
+      // Directional light color temperature:
+      // - horizon (dayFactor ≈ 0): warm orange
+      // - noon (dayFactor = 1): white
+      // The horizonBlend peaks when dayFactor is low (near horizon transitions)
+      const horizonBlend = 1.0 - dayFactor
+      lights.light.color.setHSL(
+        0.06 - horizonBlend * 0.04,  // hue: ~0.06 (orange) near horizon → ~0.02 at night
+        horizonBlend * 0.9,           // saturation: highly saturated at horizon, white at noon
+        0.5 + dayFactor * 0.5,       // lightness: 0.5 at horizon, 1.0 at noon
+      )
+
+      // Ambient light at night takes a cool blue tint
+      if (dayFactor < 0.1) {
+        lights.ambientLight.color.setHSL(0.6, 0.5, 0.3)  // cool blue at night
+      } else {
+        lights.ambientLight.color.setHSL(0.06, horizonBlend * 0.3, 0.5 + dayFactor * 0.3)
+      }
+    })
 
     // Update physical sky or fall back to lerp-based sky color
-    if (lights.sky !== null) {
-      const sunX = Math.cos(sunAngle) * SUN_DISTANCE
-      const sunY = Math.sin(sunAngle) * SUN_HEIGHT
-      lights.sky.uniforms.sunPosition.value.set(sunX, sunY, 0)
-      // Turbidity increases near horizon (hazy at dawn/dusk)
-      lights.sky.uniforms.turbidity.value = SKY_TURBIDITY_DAY + (1 - dayFactor) * (SKY_TURBIDITY_HORIZON - SKY_TURBIDITY_DAY)
-      lights.sky.uniforms.rayleigh.value = SKY_RAYLEIGH_NIGHT + dayFactor * (SKY_RAYLEIGH_DAY - SKY_RAYLEIGH_NIGHT)
-    } else {
-      // Fallback: lerp-based sky color (original behavior)
-      lights.skyCurrent.lerpColors(lights.skyNight, lights.skyDay, dayFactor)
-      lights.renderer.setClearColor(lights.skyCurrent)
-    }
+    yield* Option.match(lights.sky, {
+      onSome: (sky) => Effect.sync(() => {
+        const sunX = Math.cos(sunAngle) * SUN_DISTANCE
+        const sunY = Math.sin(sunAngle) * SUN_HEIGHT
+        sky.uniforms.sunPosition.value.set(sunX, sunY, 0)
+        // Turbidity increases near horizon (hazy at dawn/dusk)
+        sky.uniforms.turbidity.value = SKY_TURBIDITY_DAY + (1 - dayFactor) * (SKY_TURBIDITY_HORIZON - SKY_TURBIDITY_DAY)
+        sky.uniforms.rayleigh.value = SKY_RAYLEIGH_NIGHT + dayFactor * (SKY_RAYLEIGH_DAY - SKY_RAYLEIGH_NIGHT)
+      }),
+      onNone: () => Effect.sync(() => {
+        // Fallback: lerp-based sky color (original behavior)
+        lights.skyCurrent.lerpColors(lights.skyNight, lights.skyDay, dayFactor)
+        lights.renderer.setClearColor(lights.skyCurrent)
+      }),
+    })
   })

@@ -1,6 +1,6 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Arbitrary, Effect, Either, Schema } from 'effect'
+import { Arbitrary, Effect, Either, Option, Schema } from 'effect'
 import { blockIndex, setBlockInChunk, CHUNK_SIZE, CHUNK_HEIGHT, type Chunk } from './chunk'
 import type { BlockType } from './block'
 
@@ -21,46 +21,46 @@ const validZ = Arbitrary.make(Schema.Number.pipe(Schema.int(), Schema.between(0,
 
 describe('blockIndex (property-based)', () => {
   it.prop(
-    'returns a non-null index for every in-bounds coordinate',
+    'returns Some for every in-bounds coordinate',
     { x: validX, y: validY, z: validZ },
     ({ x, y, z }) => {
-      expect(blockIndex(x, y, z)).not.toBeNull()
+      expect(Option.isSome(blockIndex(x, y, z))).toBe(true)
     }
   )
 
   it.prop(
-    'returns null for out-of-bounds x',
+    'returns None for out-of-bounds x',
     { x: Arbitrary.make(Schema.Number.pipe(Schema.int(), Schema.between(CHUNK_SIZE, CHUNK_SIZE + 100))), y: validY, z: validZ },
     ({ x, y, z }) => {
-      expect(blockIndex(x, y, z)).toBeNull()
+      expect(blockIndex(x, y, z)).toEqual(Option.none())
     }
   )
 
   it.prop(
-    'returns null for out-of-bounds y',
+    'returns None for out-of-bounds y',
     { x: validX, y: Arbitrary.make(Schema.Number.pipe(Schema.int(), Schema.between(CHUNK_HEIGHT, CHUNK_HEIGHT + 100))), z: validZ },
     ({ x, y, z }) => {
-      expect(blockIndex(x, y, z)).toBeNull()
+      expect(blockIndex(x, y, z)).toEqual(Option.none())
     }
   )
 
   it.prop(
-    'returns null for out-of-bounds z',
+    'returns None for out-of-bounds z',
     { x: validX, y: validY, z: Arbitrary.make(Schema.Number.pipe(Schema.int(), Schema.between(CHUNK_SIZE, CHUNK_SIZE + 100))) },
     ({ x, y, z }) => {
-      expect(blockIndex(x, y, z)).toBeNull()
+      expect(blockIndex(x, y, z)).toEqual(Option.none())
     }
   )
 
   it.prop(
-    'returns null for negative coordinates',
+    'returns None for negative coordinates',
     {
       x: Arbitrary.make(Schema.Number.pipe(Schema.int(), Schema.between(-100, -1))),
       y: Arbitrary.make(Schema.Number.pipe(Schema.int(), Schema.between(-100, -1))),
       z: Arbitrary.make(Schema.Number.pipe(Schema.int(), Schema.between(-100, -1))),
     },
     ({ x, y, z }) => {
-      expect(blockIndex(x, y, z)).toBeNull()
+      expect(blockIndex(x, y, z)).toEqual(Option.none())
     }
   )
 
@@ -71,9 +71,9 @@ describe('blockIndex (property-based)', () => {
       if (x1 === x2 && y1 === y2 && z1 === z2) return
       const idx1 = blockIndex(x1, y1, z1)
       const idx2 = blockIndex(x2, y2, z2)
-      expect(idx1).not.toBeNull()
-      expect(idx2).not.toBeNull()
-      expect(idx1).not.toBe(idx2)
+      expect(Option.isSome(idx1)).toBe(true)
+      expect(Option.isSome(idx2)).toBe(true)
+      expect(idx1).not.toEqual(idx2)
     },
     { fastCheck: { numRuns: 200 } }
   )
@@ -82,9 +82,10 @@ describe('blockIndex (property-based)', () => {
     'round-trips: indexToCoords(blockIndex(x,y,z)) === (x,y,z) for all in-bounds inputs',
     { x: validX, y: validY, z: validZ },
     ({ x, y, z }) => {
-      const idx = blockIndex(x, y, z)
-      expect(idx).not.toBeNull()
-      const recovered = indexToCoords(idx!)
+      const idxOpt = blockIndex(x, y, z)
+      expect(Option.isSome(idxOpt)).toBe(true)
+      if (!Option.isSome(idxOpt)) return
+      const recovered = indexToCoords(idxOpt.value)
       expect(recovered).toEqual({ x, y, z })
     }
   )
@@ -94,10 +95,11 @@ describe('blockIndex (property-based)', () => {
     { x: validX, y: validY, z: validZ },
     ({ x, y, z }) => {
       const totalBlocks = CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT
-      const idx = blockIndex(x, y, z)
-      expect(idx).not.toBeNull()
-      expect(idx!).toBeGreaterThanOrEqual(0)
-      expect(idx!).toBeLessThan(totalBlocks)
+      const idxOpt = blockIndex(x, y, z)
+      expect(Option.isSome(idxOpt)).toBe(true)
+      if (!Option.isSome(idxOpt)) return
+      expect(idxOpt.value).toBeGreaterThanOrEqual(0)
+      expect(idxOpt.value).toBeLessThan(totalBlocks)
     }
   )
 })
@@ -214,10 +216,11 @@ describe('setBlockInChunk (property-based)', () => {
         const chunk = makeTestChunk()
         yield* setBlockInChunk(chunk, x, y, z, 'DIRT' as BlockType)
         // blockIndex is the inverse mapping — verify the written position
-        const idx = blockIndex(x, y, z)
-        expect(idx).not.toBeNull()
+        const idxOpt = blockIndex(x, y, z)
+        expect(Option.isSome(idxOpt)).toBe(true)
+        if (!Option.isSome(idxOpt)) return
         // DIRT maps to index 1
-        expect(chunk.blocks[idx!]).toBe(1)
+        expect(chunk.blocks[idxOpt.value]).toBe(1)
       })
   )
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { Effect, Layer, Option } from 'effect'
+import { Array as Arr, Effect, Layer, MutableHashMap, MutableHashSet, Option } from 'effect'
 import { Block, BlockType } from '@/domain/block'
 import { BlockRegistry } from '@/domain/block-registry'
 import { PlayerInputService } from '@/application/input/player-input-service'
@@ -16,15 +16,15 @@ const createTestInputService = (config: {
   justPressedKeys?: ReadonlyArray<string>
   wheelDelta?: number
 } = {}) => {
-  const justPressedKeys = new Set<string>(config.justPressedKeys ?? [])
-  let pendingWheelDelta = config.wheelDelta ?? 0
+  const justPressedKeys = MutableHashSet.fromIterable(Option.getOrElse(Option.fromNullable(config.justPressedKeys), (): ReadonlyArray<string> => []))
+  let pendingWheelDelta = Option.getOrElse(Option.fromNullable(config.wheelDelta), () => 0)
 
   return {
     isKeyPressed: (_key: string) => Effect.sync(() => false),
     consumeKeyPress: (key: string) =>
       Effect.sync(() => {
-        if (justPressedKeys.has(key)) {
-          justPressedKeys.delete(key)
+        if (MutableHashSet.has(justPressedKeys, key)) {
+          MutableHashSet.remove(justPressedKeys, key)
           return true
         }
         return false
@@ -43,7 +43,7 @@ const createTestInputService = (config: {
       }),
     // Test helpers
     simulateKeyPress: (key: string) => {
-      justPressedKeys.add(key)
+      MutableHashSet.add(justPressedKeys, key)
     },
     setWheelDelta: (delta: number) => {
       pendingWheelDelta = delta
@@ -78,25 +78,22 @@ const makeBlock = (type: BlockType): Block => ({
  * Test implementation of BlockRegistry with a fixed set of blocks
  */
 const createTestBlockRegistry = (blocks: ReadonlyArray<Block> = []) => {
-  const blockMap = new Map<BlockType, Block>()
+  let blockMap = MutableHashMap.empty<BlockType, Block>()
   for (const block of blocks) {
-    blockMap.set(block.type, block)
+    MutableHashMap.set(blockMap, block.type, block)
   }
 
   return {
     register: (block: Block) =>
       Effect.sync(() => {
-        blockMap.set(block.type, block)
+        MutableHashMap.set(blockMap, block.type, block)
       }),
     get: (blockType: BlockType) =>
-      Effect.sync(() => {
-        const block = blockMap.get(blockType)
-        return block !== undefined ? Option.some(block) : Option.none<Block>()
-      }),
-    getAll: () => Effect.sync(() => Array.from(blockMap.values())),
+      Effect.sync(() => MutableHashMap.get(blockMap, blockType)),
+    getAll: () => Effect.sync(() => Arr.fromIterable(MutableHashMap.values(blockMap))),
     dispose: () =>
       Effect.sync(() => {
-        blockMap.clear()
+        blockMap = MutableHashMap.empty<BlockType, Block>()
       }),
   }
 }
@@ -297,12 +294,12 @@ describe('application/hotbar/hotbar-service', () => {
         const slots = yield* service.getSlots()
 
         // First 3 slots should have block types
-        expect(Option.isSome(slots[0] ?? Option.none())).toBe(true)
-        expect(Option.isSome(slots[1] ?? Option.none())).toBe(true)
-        expect(Option.isSome(slots[2] ?? Option.none())).toBe(true)
+        expect(Option.isSome(Option.getOrElse(Arr.get(slots, 0), () => Option.none<BlockType>()))).toBe(true)
+        expect(Option.isSome(Option.getOrElse(Arr.get(slots, 1), () => Option.none<BlockType>()))).toBe(true)
+        expect(Option.isSome(Option.getOrElse(Arr.get(slots, 2), () => Option.none<BlockType>()))).toBe(true)
         // Remaining slots should be None
-        expect(Option.isNone(slots[3] ?? Option.none())).toBe(true)
-        expect(Option.isNone(slots[8] ?? Option.none())).toBe(true)
+        expect(Option.isNone(Option.getOrElse(Arr.get(slots, 3), () => Option.none<BlockType>()))).toBe(true)
+        expect(Option.isNone(Option.getOrElse(Arr.get(slots, 8), () => Option.none<BlockType>()))).toBe(true)
 
         return { success: true }
       }).pipe(Effect.provide(testLayer))

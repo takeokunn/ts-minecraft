@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { Effect, Layer } from 'effect'
+import { Effect, Layer, MutableHashMap, MutableHashSet, Option } from 'effect'
 import { DeltaTimeSecs } from '@/shared/kernel'
 import {
   GameStateService,
@@ -28,26 +28,26 @@ const createTestInputService = (initialState: {
   jump?: boolean
   sprint?: boolean
 } = {}) => {
-  const pressedKeys = new Map<string, boolean>([
-    ['KeyW', initialState.forward ?? false],
-    ['KeyS', initialState.backward ?? false],
-    ['KeyA', initialState.left ?? false],
-    ['KeyD', initialState.right ?? false],
-    ['Space', initialState.jump ?? false],
-    ['ShiftLeft', initialState.sprint ?? false],
-  ])
+  const pressedKeys = MutableHashMap.make(
+    ['KeyW', Option.getOrElse(Option.fromNullable(initialState.forward), () => false)],
+    ['KeyS', Option.getOrElse(Option.fromNullable(initialState.backward), () => false)],
+    ['KeyA', Option.getOrElse(Option.fromNullable(initialState.left), () => false)],
+    ['KeyD', Option.getOrElse(Option.fromNullable(initialState.right), () => false)],
+    ['Space', Option.getOrElse(Option.fromNullable(initialState.jump), () => false)],
+    ['ShiftLeft', Option.getOrElse(Option.fromNullable(initialState.sprint), () => false)],
+  )
   // For consumeKeyPress, track "just pressed" keys
-  const justPressedKeys = new Set<string>()
+  const justPressedKeys = MutableHashSet.empty<string>()
   if (initialState.jump) {
-    justPressedKeys.add('Space')
+    MutableHashSet.add(justPressedKeys, 'Space')
   }
 
   return {
-    isKeyPressed: (key: string) => Effect.sync(() => pressedKeys.get(key) ?? false),
+    isKeyPressed: (key: string) => Effect.sync(() => Option.getOrElse(MutableHashMap.get(pressedKeys, key), () => false)),
     consumeKeyPress: (key: string) =>
       Effect.sync(() => {
-        if (justPressedKeys.has(key)) {
-          justPressedKeys.delete(key)
+        if (MutableHashSet.has(justPressedKeys, key)) {
+          MutableHashSet.remove(justPressedKeys, key)
           return true
         }
         return false
@@ -60,12 +60,12 @@ const createTestInputService = (initialState: {
     consumeMouseClick: () => Effect.sync(() => false),
     consumeWheelDelta: () => Effect.sync(() => 0),
     setKeyPressed: (key: string, pressed: boolean) => {
-      pressedKeys.set(key, pressed)
+      MutableHashMap.set(pressedKeys, key, pressed)
     },
     // Helper to simulate a new key press (adds to justPressedKeys)
     simulateKeyPress: (key: string) => {
-      pressedKeys.set(key, true)
-      justPressedKeys.add(key)
+      MutableHashMap.set(pressedKeys, key, true)
+      MutableHashSet.add(justPressedKeys, key)
     },
   }
 }

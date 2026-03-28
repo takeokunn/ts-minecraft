@@ -1,6 +1,6 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Arbitrary, Effect, Layer, Schema } from 'effect'
+import { Arbitrary, Array as Arr, Effect, Layer, Option, Schema } from 'effect'
 import * as THREE from 'three'
 import { PlayerInputService } from '../../application/input/player-input-service'
 import type { MouseDelta } from '../../application/input/player-input-service'
@@ -19,8 +19,8 @@ const createTestInputService = (initialState: {
   mouseDelta?: MouseDelta
   pointerLocked?: boolean
 } = {}): InputServiceType & { setMouseDelta: (delta: MouseDelta) => void; setPointerLocked: (locked: boolean) => void } => {
-  let mouseDelta = initialState.mouseDelta ?? { x: 0, y: 0 }
-  let pointerLocked = initialState.pointerLocked ?? false
+  let mouseDelta = Option.getOrElse(Option.fromNullable(initialState.mouseDelta), () => ({ x: 0, y: 0 }))
+  let pointerLocked = Option.getOrElse(Option.fromNullable(initialState.pointerLocked), () => false)
 
   return {
     isKeyPressed: () => Effect.sync(() => false),
@@ -400,7 +400,7 @@ describe('FirstPersonCameraService', () => {
           consumeKeyPress: () => Effect.sync(() => false),
           getMouseDelta: () =>
             Effect.sync(() => {
-              const dy = deltaIdx < deltas.length ? (deltas[deltaIdx++] ?? 0) : 0
+              const dy = deltaIdx < deltas.length ? Option.getOrElse(Arr.get(deltas, deltaIdx++), () => 0) : 0
               return { x: 0, y: dy }
             }),
           isMouseDown: () => Effect.sync(() => false),

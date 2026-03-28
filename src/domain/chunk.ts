@@ -1,4 +1,4 @@
-import { Effect, Data, Schema } from 'effect'
+import { Array as Arr, Effect, Data, Option, Schema } from 'effect'
 import { BlockType } from './block'
 import { ChunkError } from './errors'
 
@@ -73,30 +73,29 @@ const blockTypeToIndex = (blockType: BlockType): number => BLOCK_TYPE_TO_INDEX[b
 /**
  * Convert storage index to BlockType
  */
-const indexToBlockType = (index: number): BlockType => INDEX_TO_BLOCK_TYPE[index] ?? 'AIR'
+const indexToBlockType = (index: number): BlockType => Option.getOrElse(Arr.get(INDEX_TO_BLOCK_TYPE, index), () => 'AIR' as const)
 
 /**
  * Calculate array index from 3D local coordinates.
- * Returns null if coordinates are out of bounds.
+ * Returns Option.none() if coordinates are out of bounds.
  * Index = y + (z * CHUNK_HEIGHT) + (x * CHUNK_HEIGHT * CHUNK_SIZE)
  */
-export const blockIndex = (x: number, y: number, z: number): number | null => {
+export const blockIndex = (x: number, y: number, z: number): Option.Option<number> => {
   if (x < 0 || x >= CHUNK_SIZE || y < 0 || y >= CHUNK_HEIGHT || z < 0 || z >= CHUNK_SIZE) {
-    return null
+    return Option.none()
   }
-  return y + z * CHUNK_HEIGHT + x * CHUNK_HEIGHT * CHUNK_SIZE
+  return Option.some(y + z * CHUNK_HEIGHT + x * CHUNK_HEIGHT * CHUNK_SIZE)
 }
 
 /**
  * Effect version of blockIndex for user-facing boundary APIs.
  * Fails with BlockIndexError if coordinates are out of bounds.
  */
-export const toBlockIndex = (x: number, y: number, z: number): Effect.Effect<number, BlockIndexError> => {
-  const idx = blockIndex(x, y, z)
-  return idx !== null
-    ? Effect.succeed(idx)
-    : Effect.fail(new BlockIndexError({ x, y, z }))
-}
+export const toBlockIndex = (x: number, y: number, z: number): Effect.Effect<number, BlockIndexError> =>
+  Option.match(blockIndex(x, y, z), {
+    onNone: () => Effect.fail(new BlockIndexError({ x, y, z })),
+    onSome: (idx) => Effect.succeed(idx),
+  })
 
 export class ChunkService extends Effect.Service<ChunkService>()(
   '@minecraft/domain/ChunkService',
@@ -113,37 +112,31 @@ export class ChunkService extends Effect.Service<ChunkService>()(
        * Get the block type at specified local coordinates within a chunk
        * Returns the BlockType at the position
        */
-      getBlock: (chunk: Chunk, localX: number, y: number, localZ: number): Effect.Effect<BlockType, ChunkError> => {
-        const idx = blockIndex(localX, y, localZ)
-        if (idx === null) {
-          return Effect.fail(
-            new ChunkError({
-              chunkCoord: chunk.coord,
-              reason: `Invalid local coordinates: (${localX}, ${y}, ${localZ}). Valid range: x,z=[0,${CHUNK_SIZE - 1}], y=[0,${CHUNK_HEIGHT - 1}]`,
-            })
-          )
-        }
-        return Effect.succeed(indexToBlockType(chunk.blocks[idx] ?? 0))
-      },
+      getBlock: (chunk: Chunk, localX: number, y: number, localZ: number): Effect.Effect<BlockType, ChunkError> =>
+        Option.match(blockIndex(localX, y, localZ), {
+          onNone: () => Effect.fail(new ChunkError({
+            chunkCoord: chunk.coord,
+            reason: `Invalid local coordinates: (${localX}, ${y}, ${localZ}). Valid range: x,z=[0,${CHUNK_SIZE - 1}], y=[0,${CHUNK_HEIGHT - 1}]`,
+          })),
+          onSome: (idx) => Effect.succeed(indexToBlockType(Option.getOrElse(Option.fromNullable(chunk.blocks[idx]), () => 0))),
+        }),
 
       /**
        * Set the block type at specified local coordinates within a chunk
        * Returns a new chunk with the updated blocks array (immutable update)
        */
-      setBlock: (chunk: Chunk, localX: number, y: number, localZ: number, blockType: BlockType): Effect.Effect<Chunk, ChunkError> => {
-        const idx = blockIndex(localX, y, localZ)
-        if (idx === null) {
-          return Effect.fail(
-            new ChunkError({
-              chunkCoord: chunk.coord,
-              reason: `Invalid local coordinates: (${localX}, ${y}, ${localZ}). Valid range: x,z=[0,${CHUNK_SIZE - 1}], y=[0,${CHUNK_HEIGHT - 1}]`,
-            })
-          )
-        }
-        const newBlocks = new Uint8Array(chunk.blocks)
-        newBlocks[idx] = blockTypeToIndex(blockType)
-        return Effect.succeed({ ...chunk, blocks: newBlocks })
-      },
+      setBlock: (chunk: Chunk, localX: number, y: number, localZ: number, blockType: BlockType): Effect.Effect<Chunk, ChunkError> =>
+        Option.match(blockIndex(localX, y, localZ), {
+          onNone: () => Effect.fail(new ChunkError({
+            chunkCoord: chunk.coord,
+            reason: `Invalid local coordinates: (${localX}, ${y}, ${localZ}). Valid range: x,z=[0,${CHUNK_SIZE - 1}], y=[0,${CHUNK_HEIGHT - 1}]`,
+          })),
+          onSome: (idx) => {
+            const newBlocks = new Uint8Array(chunk.blocks)
+            newBlocks[idx] = blockTypeToIndex(blockType)
+            return Effect.succeed({ ...chunk, blocks: newBlocks })
+          },
+        }),
 
       /**
        * Convert world coordinates to chunk coordinates

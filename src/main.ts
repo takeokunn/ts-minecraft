@@ -1,4 +1,4 @@
-import { Cause, Clock, Duration, Effect, Option, Random, Ref, Schedule } from 'effect'
+import { Array as Arr, Cause, Clock, Duration, Effect, Option, Random, Ref, Schedule } from 'effect'
 import { StartupError } from '@/domain/errors'
 import * as THREE from 'three'
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
@@ -57,7 +57,7 @@ const SKY_COLOR_DAY = 0x87ceeb  // sky blue
 const mainProgram = Effect.gen(function* () {
   // Get canvas element
   const canvas = yield* Effect.gen(function* () {
-    const el = document.getElementById('game-canvas')
+    const el = yield* Effect.sync(() => document.getElementById('game-canvas'))
     if (!el) return yield* Effect.fail(new StartupError({ reason: 'Canvas element not found' }))
     return el as HTMLCanvasElement
   }).pipe(
@@ -111,8 +111,10 @@ const mainProgram = Effect.gen(function* () {
 
   // Shadow map: always initialized as enabled (cannot change after first render).
   // castShadow on lights is toggled per-frame based on settings.
-  renderer.shadowMap.enabled = true
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap
+  yield* Effect.sync(() => {
+    renderer.shadowMap.enabled = true
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap
+  })
 
   // Create scene
   const scene = yield* sceneService.create()
@@ -126,72 +128,77 @@ const mainProgram = Effect.gen(function* () {
   })
 
   // EffectComposer: HDR render target required for UnrealBloomPass to work correctly
-  const composerRT = new THREE.WebGLRenderTarget(
-    canvas.clientWidth,
-    canvas.clientHeight,
-    { type: THREE.HalfFloatType }
-  )
-  const composer = new EffectComposer(renderer, composerRT)
-  composer.addPass(new RenderPass(scene, camera))
+  const { composerRT, composer, gtaoPass, ssrPass, godRaysPass, bloomPass, bokehPass, smaaPass } = yield* Effect.sync(() => {
+    const rt = new THREE.WebGLRenderTarget(
+      canvas.clientWidth,
+      canvas.clientHeight,
+      { type: THREE.HalfFloatType }
+    )
+    const comp = new EffectComposer(renderer, rt)
+    comp.addPass(new RenderPass(scene, camera))
 
-  // GTAO replaces SSAO (Ground Truth Ambient Occlusion — higher quality)
-  const gtaoPass = new GTAOPass(scene, camera, canvas.clientWidth, canvas.clientHeight)
-  gtaoPass.blendIntensity = 1.0
-  composer.addPass(gtaoPass)
+    // GTAO replaces SSAO (Ground Truth Ambient Occlusion — higher quality)
+    const gtao = new GTAOPass(scene, camera, canvas.clientWidth, canvas.clientHeight)
+    gtao.blendIntensity = 1.0
+    comp.addPass(gtao)
 
-  // SSR (screen-space reflections for water surfaces)
-  // groundReflector is typed as required in SSRPassParams but works as null at runtime
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const ssrPass = new SSRPass({ renderer, scene, camera, width: canvas.clientWidth, height: canvas.clientHeight, selects: [] as THREE.Mesh[], groundReflector: null } as any)
-  composer.addPass(ssrPass)
+    // SSR (screen-space reflections for water surfaces)
+    // groundReflector is typed as required in SSRPassParams but works as null at runtime
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const ssr = new SSRPass({ renderer, scene, camera, width: canvas.clientWidth, height: canvas.clientHeight, selects: [] as THREE.Mesh[], groundReflector: null } as any)
+    comp.addPass(ssr)
 
-  // God rays (crepuscular light shafts — screen-space radial blur)
-  const godRaysPass = new GodRaysPass()
-  composer.addPass(godRaysPass)
+    // God rays (crepuscular light shafts — screen-space radial blur)
+    const godRays = new GodRaysPass()
+    comp.addPass(godRays)
 
-  // Bloom: threshold=0.85 prevents terrain from glowing; only sky/lava-bright surfaces bloom
-  const bloomPass = new UnrealBloomPass(
-    new THREE.Vector2(canvas.clientWidth, canvas.clientHeight),
-    0.5,  // strength
-    0.4,  // radius
-    0.85, // threshold
-  )
-  composer.addPass(bloomPass)
+    // Bloom: threshold=0.85 prevents terrain from glowing; only sky/lava-bright surfaces bloom
+    const bloom = new UnrealBloomPass(
+      new THREE.Vector2(canvas.clientWidth, canvas.clientHeight),
+      0.5,  // strength
+      0.4,  // radius
+      0.85, // threshold
+    )
+    comp.addPass(bloom)
 
-  // Depth of field (bokeh)
-  const bokehPass = new BokehPass(scene, camera, { focus: 10.0, aperture: 0.002, maxblur: 0.01 })
-  composer.addPass(bokehPass)
+    // Depth of field (bokeh)
+    const bokeh = new BokehPass(scene, camera, { focus: 10.0, aperture: 0.002, maxblur: 0.01 })
+    comp.addPass(bokeh)
 
-  // SMAA anti-aliasing (must be after bloom, before OutputPass)
-  const smaaPass = new SMAAPass(canvas.clientWidth, canvas.clientHeight)
-  composer.addPass(smaaPass)
+    // SMAA anti-aliasing (must be after bloom, before OutputPass)
+    const smaa = new SMAAPass(canvas.clientWidth, canvas.clientHeight)
+    comp.addPass(smaa)
 
-  composer.addPass(new OutputPass())
+    comp.addPass(new OutputPass())
+
+    return { composerRT: rt, composer: comp, gtaoPass: gtao, ssrPass: ssr, godRaysPass: godRays, bloomPass: bloom, bokehPass: bokeh, smaaPass: smaa }
+  })
 
   // World initialization: load or create world metadata, set noise seed
   const existingMetadata = yield* storageService.loadWorldMetadata(WORLD_ID)
-  let spawnPosition: { x: number; y: number; z: number }
-
-  if (Option.isSome(existingMetadata)) {
-    const metadata = existingMetadata.value
-    yield* noiseService.setSeed(metadata.seed)
-    // Null-guard: old metadata format may not have playerSpawn (pre-migration)
-    spawnPosition = metadata.playerSpawn ?? { x: 0, y: 100, z: 0 }
-    yield* Effect.log(`Loaded world '${WORLD_ID}' with seed ${metadata.seed}`)
-  } else {
-    const seed = yield* Random.nextIntBetween(0, MAX_SEED_VALUE)
-    yield* noiseService.setSeed(seed)
-    spawnPosition = { x: 0, y: 100, z: 0 }
-    const nowMs = yield* Clock.currentTimeMillis
-    const now = new Date(nowMs)
-    yield* storageService.saveWorldMetadata(WORLD_ID, {
-      seed,
-      createdAt: now,
-      lastPlayed: now,
-      playerSpawn: spawnPosition,
-    })
-    yield* Effect.log(`Created new world '${WORLD_ID}' with seed ${seed}`)
-  }
+  const baseSpawnPosition = yield* Option.match(existingMetadata, {
+    onSome: (metadata) => Effect.gen(function* () {
+      yield* noiseService.setSeed(metadata.seed)
+      yield* Effect.log(`Loaded world '${WORLD_ID}' with seed ${metadata.seed}`)
+      // Null-guard: old metadata format may not have playerSpawn (pre-migration)
+      return Option.getOrElse(Option.fromNullable(metadata.playerSpawn), () => ({ x: 0, y: 100, z: 0 }))
+    }),
+    onNone: () => Effect.gen(function* () {
+      const seed = yield* Random.nextIntBetween(0, MAX_SEED_VALUE)
+      yield* noiseService.setSeed(seed)
+      const pos = { x: 0, y: 100, z: 0 }
+      const nowMs = yield* Clock.currentTimeMillis
+      const now = new Date(nowMs)
+      yield* storageService.saveWorldMetadata(WORLD_ID, {
+        seed,
+        createdAt: now,
+        lastPlayed: now,
+        playerSpawn: pos,
+      })
+      yield* Effect.log(`Created new world '${WORLD_ID}' with seed ${seed}`)
+      return pos
+    }),
+  })
 
   // Auto-save: persist dirty chunks every 5 seconds using Effect scheduler
   yield* Effect.forkDaemon(
@@ -204,7 +211,7 @@ const mainProgram = Effect.gen(function* () {
   )
 
   // Initialize: load chunks around spawn position, sync to scene
-  yield* chunkManagerService.loadChunksAroundPlayer(spawnPosition)
+  yield* chunkManagerService.loadChunksAroundPlayer(baseSpawnPosition)
   const initialChunks = yield* chunkManagerService.getLoadedChunks()
   yield* worldRendererService.syncChunksToScene(initialChunks, scene)
 
@@ -214,62 +221,76 @@ const mainProgram = Effect.gen(function* () {
   const spawnChunk = yield* chunkManagerService.getChunk({ x: 0, z: 0 })
   // readonly snapshot for spawn height detection
   const spawnBlocks = spawnChunk.blocks as Readonly<Uint8Array>
-  let surfaceY = 64 // fallback to sea level
-  for (let y = CHUNK_HEIGHT - 1; y >= 0; y--) {
-    const idx = blockIndex(0, y, 0) // lx=0, lz=0
-    if (idx !== null && spawnBlocks[idx] !== 0) { // 0 = AIR
-      surfaceY = y
-      break
-    }
-  }
   // surfaceY is the block INDEX of the highest solid block.
   // The visual top surface of that block is at surfaceY + 1 (blocks render as [y, y+1] cubes).
   // Spawn player 3 blocks above the visual terrain surface.
-  spawnPosition = { ...spawnPosition, y: surfaceY + 1 + 3 }
+  const surfaceY = Option.getOrElse(
+    Arr.findFirst(
+      Arr.makeBy(CHUNK_HEIGHT, (i) => CHUNK_HEIGHT - 1 - i),
+      (y) => {
+        return Option.match(blockIndex(0, y, 0), { // lx=0, lz=0
+          onNone: () => false,
+          onSome: (idx) => spawnBlocks[idx] !== 0, // 0 = AIR
+        })
+      }
+    ),
+    () => 64 // fallback to sea level
+  )
+  const spawnPosition = { ...baseSpawnPosition, y: surfaceY + 1 + 3 }
 
   // Add directional light (sun — intensity driven by day/night cycle)
-  const light = new THREE.DirectionalLight(SUN_COLOR, 1)
-  // Configure shadow map: 2048×2048 resolution, frustum covers render area (8 chunks × 16 = 128 units)
-  light.shadow.mapSize.width = 2048
-  light.shadow.mapSize.height = 2048
-  light.shadow.camera.near = 0.5
-  light.shadow.camera.far = 500
-  light.shadow.camera.left = -128
-  light.shadow.camera.right = 128
-  light.shadow.camera.top = 128
-  light.shadow.camera.bottom = -128
-  light.position.set(5, 10, 7)
+  const light = yield* Effect.sync(() => {
+    const l = new THREE.DirectionalLight(SUN_COLOR, 1)
+    // Configure shadow map: 2048×2048 resolution, frustum covers render area (8 chunks × 16 = 128 units)
+    l.shadow.mapSize.width = 2048
+    l.shadow.mapSize.height = 2048
+    l.shadow.camera.near = 0.5
+    l.shadow.camera.far = 500
+    l.shadow.camera.left = -128
+    l.shadow.camera.right = 128
+    l.shadow.camera.top = 128
+    l.shadow.camera.bottom = -128
+    l.position.set(5, 10, 7)
+    return l
+  })
   yield* sceneService.add(scene, light)
   // light.target must be in the scene graph for target position updates to take effect
   yield* sceneService.add(scene, light.target)
 
   // Add ambient light (sky — intensity driven by day/night cycle)
-  const ambientLight = new THREE.AmbientLight(AMBIENT_COLOR, 0.5)
+  const ambientLight = yield* Effect.sync(() => new THREE.AmbientLight(AMBIENT_COLOR, 0.5))
   yield* sceneService.add(scene, ambientLight)
 
   // Physical sky: Three.Sky Preetham model — replaces simple sky color lerp when enabled
-  const sky = new Sky()
-  sky.scale.setScalar(10000)
+  const sky = yield* Effect.sync(() => {
+    const s = new Sky()
+    s.scale.setScalar(10000)
+    return s
+  })
   yield* sceneService.add(scene, sky)
-  const skyShaderMaterial = sky.material as THREE.ShaderMaterial
-  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-  skyShaderMaterial.uniforms['mieCoefficient']!.value = 0.005
-  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-  skyShaderMaterial.uniforms['mieDirectionalG']!.value = 0.7
+  const skyPort = yield* Effect.sync(() => {
+    const skyShaderMaterial = sky.material as THREE.ShaderMaterial
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    skyShaderMaterial.uniforms['mieCoefficient']!.value = 0.005
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    skyShaderMaterial.uniforms['mieDirectionalG']!.value = 0.7
 
-  // SkyMaterialPort: duck-typed view of sky uniforms for DayNightLightsPort
-  const skyPort: import('@/shared/math/three/day-night-port').SkyMaterialPort = {
-    uniforms: {
-      sunPosition: skyShaderMaterial.uniforms['sunPosition'] as { value: { set(x: number, y: number, z: number): void } },
-      turbidity: skyShaderMaterial.uniforms['turbidity'] as { value: number },
-      rayleigh: skyShaderMaterial.uniforms['rayleigh'] as { value: number },
-    },
-  }
+    // SkyMaterialPort: duck-typed view of sky uniforms for DayNightLightsPort
+    return {
+      uniforms: {
+        sunPosition: skyShaderMaterial.uniforms['sunPosition'] as { value: { set(x: number, y: number, z: number): void } },
+        turbidity: skyShaderMaterial.uniforms['turbidity'] as { value: number },
+        rayleigh: skyShaderMaterial.uniforms['rayleigh'] as { value: number },
+      },
+    } satisfies import('@/shared/math/three/day-night-port').SkyMaterialPort
+  })
 
   // Precomputed sky colors for smooth day/night lerp
-  const skyNight = new THREE.Color(SKY_COLOR_NIGHT)
-  const skyDay = new THREE.Color(SKY_COLOR_DAY)
-  const skyCurrent = new THREE.Color()
+  const { skyNight, skyDay, skyCurrent } = yield* Effect.sync(() => ({
+    skyNight: new THREE.Color(SKY_COLOR_NIGHT),
+    skyDay: new THREE.Color(SKY_COLOR_DAY),
+    skyCurrent: new THREE.Color(),
+  }))
 
   // Initialize game state — physics ground plane at visual terrain surface (surfaceY + 1)
   yield* gameState.initialize(spawnPosition, surfaceY + 1)
@@ -283,7 +304,7 @@ const mainProgram = Effect.gen(function* () {
   // Apply initial day length from persisted settings, then set time to noon for visibility
   const initialSettings = yield* settingsService.getSettings()
   // Apply initial shadow state from persisted settings
-  light.castShadow = initialSettings.shadowsEnabled
+  yield* Effect.sync(() => { light.castShadow = initialSettings.shadowsEnabled })
   yield* timeService.setDayLength(initialSettings.dayLengthSeconds)
   yield* timeService.setTimeOfDay(0.5)
 
@@ -339,12 +360,12 @@ const mainProgram = Effect.gen(function* () {
     })
   )
 
-  // FPS display
-  const fpsElement = document.getElementById('fps-value')
-
-  // Health display
-  const healthValueElement = document.getElementById('health-value')
-  const healthMaxElement = document.getElementById('health-max')
+  // FPS and health display elements
+  const { fpsElement, healthValueElement, healthMaxElement } = yield* Effect.sync(() => ({
+    fpsElement: document.getElementById('fps-value'),
+    healthValueElement: document.getElementById('health-value'),
+    healthMaxElement: document.getElementById('health-max'),
+  }))
 
   // Game pause state: true when a modal overlay (settings/inventory) is open
   const gamePausedRef = yield* Ref.make(false)
@@ -352,16 +373,16 @@ const mainProgram = Effect.gen(function* () {
   // Build frame handler: Three.js deps plus all explicit service instances.
   // Services are passed directly (not via Effect context) so R = never,
   // avoiding the per-frame Effect.provide(MainLive) that re-builds all 30+ layers every frame.
-  const frameHandler = createFrameHandler(
+  const frameHandler = yield* createFrameHandler(
     {
       renderer,
       scene,
       camera,
-      lights: { light, ambientLight, renderer, skyNight, skyDay, skyCurrent, sky: skyPort },
-      skyMesh: sky,
-      fpsElement,
-      healthValueElement,
-      healthMaxElement,
+      lights: { light, ambientLight, renderer, skyNight, skyDay, skyCurrent, sky: Option.some(skyPort) },
+      skyMesh: Option.some(sky),
+      fpsElement: Option.fromNullable(fpsElement),
+      healthValueElement: Option.fromNullable(healthValueElement),
+      healthMaxElement: Option.fromNullable(healthMaxElement),
       gamePausedRef,
       composer,
       gtaoPass,

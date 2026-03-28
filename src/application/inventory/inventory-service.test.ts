@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { Effect, Layer, Option, Schema } from 'effect'
+import { Array as Arr, Effect, Layer, MutableHashMap, Option, Schema } from 'effect'
 import type { Block, BlockType } from '@/domain/block'
 import { BlockRegistry } from '@/domain/block-registry'
 import { MAX_STACK_SIZE, createStack } from '@/domain/item-stack'
+import type { ItemStack } from '@/domain/item-stack'
 import type { SlotIndex } from '@/shared/kernel'
 import {
   HOTBAR_SIZE,
@@ -36,25 +37,22 @@ const makeBlock = (type: BlockType): Block => ({
 })
 
 const createTestBlockRegistry = (blocks: ReadonlyArray<Block> = []) => {
-  const blockMap = new Map<BlockType, Block>()
+  let blockMap = MutableHashMap.empty<BlockType, Block>()
   for (const block of blocks) {
-    blockMap.set(block.type, block)
+    MutableHashMap.set(blockMap, block.type, block)
   }
 
   return {
     register: (block: Block) =>
       Effect.sync(() => {
-        blockMap.set(block.type, block)
+        MutableHashMap.set(blockMap, block.type, block)
       }),
     get: (blockType: BlockType) =>
-      Effect.sync(() => {
-        const block = blockMap.get(blockType)
-        return block !== undefined ? Option.some(block) : Option.none<Block>()
-      }),
-    getAll: () => Effect.sync(() => Array.from(blockMap.values())),
+      Effect.sync(() => MutableHashMap.get(blockMap, blockType)),
+    getAll: () => Effect.sync(() => Arr.fromIterable(MutableHashMap.values(blockMap))),
     dispose: () =>
       Effect.sync(() => {
-        blockMap.clear()
+        blockMap = MutableHashMap.empty<BlockType, Block>()
       }),
   }
 }
@@ -123,10 +121,10 @@ describe('application/inventory/inventory-service', () => {
 
     it('slots 27-35 are filled with non-AIR blocks when enough non-AIR blocks exist', () => {
       const testLayer = createTestLayer(createTestBlockRegistry(fullHotbarBlocks))
-      const expectedTypes = fullHotbarBlocks
-        .filter((block) => block.type !== 'AIR')
-        .slice(0, HOTBAR_SIZE)
-        .map((block) => block.type)
+      const expectedTypes = Arr.map(
+        Arr.take(Arr.filter(fullHotbarBlocks, (block) => block.type !== 'AIR'), HOTBAR_SIZE),
+        (block) => block.type
+      )
 
       const program = Effect.gen(function* () {
         const service = yield* InventoryService
@@ -134,7 +132,7 @@ describe('application/inventory/inventory-service', () => {
           const slot = yield* service.getSlot(asSlotIndex(HOTBAR_START + i))
           expect(Option.isSome(slot)).toBe(true)
           if (Option.isSome(slot)) {
-            expect(slot.value.blockType).toBe(expectedTypes[i])
+            expect(slot.value.blockType).toBe(Option.getOrElse(Arr.get(expectedTypes, i), () => 'AIR' as const))
             expect(slot.value.blockType).not.toBe('AIR')
             expect(slot.value.count).toBe(MAX_STACK_SIZE)
           }
@@ -663,8 +661,8 @@ describe('application/inventory/inventory-service', () => {
         const all = yield* service.getAllSlots()
 
         for (let i = 0; i < HOTBAR_SIZE; i++) {
-          const h = hotbar[i] ?? Option.none()
-          const s = all[HOTBAR_START + i] ?? Option.none()
+          const h = Option.getOrElse(Arr.get(hotbar, i), () => Option.none<ItemStack>())
+          const s = Option.getOrElse(Arr.get(all, HOTBAR_START + i), () => Option.none<ItemStack>())
           expect(Option.isSome(h)).toBe(Option.isSome(s))
           if (Option.isSome(h) && Option.isSome(s)) {
             expect(h.value.blockType).toBe(s.value.blockType)
@@ -684,7 +682,7 @@ describe('application/inventory/inventory-service', () => {
         yield* service.setSlot(asSlotIndex(HOTBAR_START + 2), Option.some(createStack('GRAVEL', 11)))
 
         const hotbar = yield* service.getHotbarSlots()
-        const slot = hotbar[2] ?? Option.none()
+        const slot = Option.getOrElse(Arr.get(hotbar, 2), () => Option.none<ItemStack>())
         expect(Option.isSome(slot)).toBe(true)
         if (Option.isSome(slot)) {
           expect(slot.value.blockType).toBe('GRAVEL')
@@ -717,7 +715,7 @@ describe('application/inventory/inventory-service', () => {
         yield* service.setSlot(asSlotIndex(10), Option.some(createStack('SAND', 42)))
 
         const all = yield* service.getAllSlots()
-        const slot10 = all[10] ?? Option.none()
+        const slot10 = Option.getOrElse(Arr.get(all, 10), () => Option.none<ItemStack>())
         expect(Option.isSome(slot10)).toBe(true)
         if (Option.isSome(slot10)) {
           expect(slot10.value.blockType).toBe('SAND')
@@ -743,20 +741,20 @@ describe('application/inventory/inventory-service', () => {
         expect(data.slots.length).toBe(INVENTORY_SIZE)
         expect(data.slots[0]).toBeNull()
 
-        const entry1 = data.slots[1]
-        expect(entry1).not.toBeNull()
-        if (entry1 !== null && entry1 !== undefined) {
-          expect(entry1.slot).toBe(1)
-          expect(entry1.blockType).toBe('STONE')
-          expect(entry1.count).toBe(8)
+        const entry1 = Option.fromNullable(data.slots[1])
+        expect(Option.isSome(entry1)).toBe(true)
+        if (Option.isSome(entry1)) {
+          expect(entry1.value.slot).toBe(1)
+          expect(entry1.value.blockType).toBe('STONE')
+          expect(entry1.value.count).toBe(8)
         }
 
-        const entry35 = data.slots[35]
-        expect(entry35).not.toBeNull()
-        if (entry35 !== null && entry35 !== undefined) {
-          expect(entry35.slot).toBe(35)
-          expect(entry35.blockType).toBe('DIRT')
-          expect(entry35.count).toBe(1)
+        const entry35 = Option.fromNullable(data.slots[35])
+        expect(Option.isSome(entry35)).toBe(true)
+        if (Option.isSome(entry35)) {
+          expect(entry35.value.slot).toBe(35)
+          expect(entry35.value.blockType).toBe('DIRT')
+          expect(entry35.value.count).toBe(1)
         }
       }).pipe(Effect.provide(testLayer))
 
@@ -925,22 +923,22 @@ describe('application/inventory/inventory-service', () => {
 
       expect(decoded.slots.length).toBe(3)
 
-      const entry0 = decoded.slots[0]
-      expect(entry0).not.toBeNull()
-      if (entry0 !== null && entry0 !== undefined) {
-        expect(entry0.slot).toBe(0)
-        expect(entry0.blockType).toBe('DIRT')
-        expect(entry0.count).toBe(12)
+      const entry0 = Option.fromNullable(decoded.slots[0])
+      expect(Option.isSome(entry0)).toBe(true)
+      if (Option.isSome(entry0)) {
+        expect(entry0.value.slot).toBe(0)
+        expect(entry0.value.blockType).toBe('DIRT')
+        expect(entry0.value.count).toBe(12)
       }
 
       expect(decoded.slots[1]).toBeNull()
 
-      const entry2 = decoded.slots[2]
-      expect(entry2).not.toBeNull()
-      if (entry2 !== null && entry2 !== undefined) {
-        expect(entry2.slot).toBe(2)
-        expect(entry2.blockType).toBe('STONE')
-        expect(entry2.count).toBe(64)
+      const entry2 = Option.fromNullable(decoded.slots[2])
+      expect(Option.isSome(entry2)).toBe(true)
+      if (Option.isSome(entry2)) {
+        expect(entry2.value.slot).toBe(2)
+        expect(entry2.value.blockType).toBe('STONE')
+        expect(entry2.value.count).toBe(64)
       }
     })
 

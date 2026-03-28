@@ -1,4 +1,4 @@
-import { Schema } from 'effect'
+import { Array as Arr, Option, Schema } from 'effect'
 
 export const FaceDirSchema = Schema.Literal('top', 'bottom', 'side')
 export type FaceDir = Schema.Schema.Type<typeof FaceDirSchema>
@@ -28,11 +28,8 @@ const TILE_MAP: ReadonlyArray<Readonly<Record<FaceDir, number>>> = [
   { top: 12, bottom: 12, side: 12 }, // 11: COBBLESTONE
 ]
 
-export const getTileIndex = (blockId: number, faceDir: FaceDir): number => {
-  const entry = TILE_MAP[blockId]
-  if (!entry) return 0
-  return entry[faceDir]
-}
+export const getTileIndex = (blockId: number, faceDir: FaceDir): number =>
+  Option.getOrElse(Option.map(Arr.get(TILE_MAP, blockId), (entry) => entry[faceDir]), () => 0)
 
 export const getTileUVs = (
   tileIndex: number

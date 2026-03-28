@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { Effect, Ref, Fiber } from 'effect'
+import { Effect, Ref, Fiber, Option } from 'effect'
 import { GameLoopService, GameLoopServiceLive } from '.'
 import { GameLoopError } from '@/domain/errors'
 
@@ -12,18 +12,18 @@ import { GameLoopError } from '@/domain/errors'
 // callback and expose a helper that fires it once.
 // ---------------------------------------------------------------------------
 
-let rafCallback: ((timestamp: number) => void) | null = null
+let rafCallback: Option.Option<(timestamp: number) => void> = Option.none()
 let rafId = 0
 
 beforeEach(() => {
-  rafCallback = null
+  rafCallback = Option.none()
   rafId = 0
   vi.stubGlobal('requestAnimationFrame', (cb: (ts: number) => void) => {
-    rafCallback = cb
+    rafCallback = Option.some(cb)
     return ++rafId
   })
   vi.stubGlobal('cancelAnimationFrame', (_id: number) => {
-    rafCallback = null
+    rafCallback = Option.none()
   })
 })
 
@@ -38,8 +38,8 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 const fireRaf = (timestamp = 16): void => {
   const cb = rafCallback
-  rafCallback = null
-  cb?.(timestamp)
+  rafCallback = Option.none()
+  if (Option.isSome(cb)) cb.value(timestamp)
 }
 
 // ---------------------------------------------------------------------------

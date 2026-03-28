@@ -3,6 +3,8 @@
  * Duck-typed — no Three.js import required. Any Three.js objects satisfying this
  * shape will work, keeping the application layer free from rendering infrastructure.
  */
+import { Option } from 'effect'
+export { Option }
 
 export interface ColorPort {
   r: number
@@ -50,5 +52,5 @@ export interface DayNightLightsPort {
   readonly skyNight: ColorPort
   readonly skyDay: ColorPort
   readonly skyCurrent: ColorPort
-  readonly sky: SkyMaterialPort | null
+  readonly sky: Option.Option<SkyMaterialPort>
 }

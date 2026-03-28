@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { Effect } from 'effect'
+import { Array as Arr, Effect } from 'effect'
 import {
   PerspectiveCameraService,
   PerspectiveCameraServiceLive,
@@ -20,8 +20,8 @@ const makeMockCamera = (fov = 75, aspect = 1.6, near = 0.1, far = 1000) => ({
   position: { x: 0, y: 0, z: 0, set: (x: number, y: number, z: number) => { camera.position.x = x; camera.position.y = y; camera.position.z = z } },
   updateProjectionMatrix: () => {},
   lookAt: (_x: number, _y: number, _z: number) => {},
-  projectionMatrix: { elements: Array.from({ length: 16 }, () => 0) },
-  matrixWorldInverse: { elements: Array.from({ length: 16 }, () => 0) },
+  projectionMatrix: { elements: Arr.makeBy(16, () => 0) },
+  matrixWorldInverse: { elements: Arr.makeBy(16, () => 0) },
   updateMatrixWorld: () => {},
 })
 type MockCamera = ReturnType<typeof makeMockCamera>

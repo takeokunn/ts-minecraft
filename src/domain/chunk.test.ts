@@ -1,5 +1,5 @@
 import { describe, it } from '@effect/vitest'
-import { Effect } from 'effect'
+import { Array as Arr, Effect, HashSet, Option } from 'effect'
 import { expect } from 'vitest'
 import { ChunkService, ChunkServiceLive, ChunkSchema, CHUNK_SIZE, CHUNK_HEIGHT, blockIndex, blockTypeToIndex, indexToBlockType, getBlocksBatch, setBlockInChunk } from './chunk'
 import { Schema } from 'effect'
@@ -8,32 +8,32 @@ import type { BlockType } from './block'
 
 describe('blockIndex', () => {
   it('(0, 0, 0) === 0', () => {
-    expect(blockIndex(0, 0, 0)).toBe(0)
+    expect(blockIndex(0, 0, 0)).toEqual(Option.some(0))
   })
 
   it('(0, 1, 0) === 1 (y increments first)', () => {
-    expect(blockIndex(0, 1, 0)).toBe(1)
+    expect(blockIndex(0, 1, 0)).toEqual(Option.some(1))
   })
 
   it('(0, 0, 1) === CHUNK_HEIGHT (z is second axis)', () => {
-    expect(blockIndex(0, 0, 1)).toBe(CHUNK_HEIGHT)
+    expect(blockIndex(0, 0, 1)).toEqual(Option.some(CHUNK_HEIGHT))
   })
 
   it('(1, 0, 0) === CHUNK_HEIGHT * CHUNK_SIZE (x is third axis)', () => {
-    expect(blockIndex(1, 0, 0)).toBe(CHUNK_HEIGHT * CHUNK_SIZE)
+    expect(blockIndex(1, 0, 0)).toEqual(Option.some(CHUNK_HEIGHT * CHUNK_SIZE))
   })
 
   it('formula: y + z * CHUNK_HEIGHT + x * CHUNK_HEIGHT * CHUNK_SIZE', () => {
     const x = 3
     const y = 42
     const z = 7
-    expect(blockIndex(x, y, z)).toBe(y + z * CHUNK_HEIGHT + x * CHUNK_HEIGHT * CHUNK_SIZE)
+    expect(blockIndex(x, y, z)).toEqual(Option.some(y + z * CHUNK_HEIGHT + x * CHUNK_HEIGHT * CHUNK_SIZE))
   })
 
   it('boundary: last valid index', () => {
     const lastIndex = blockIndex(CHUNK_SIZE - 1, CHUNK_HEIGHT - 1, CHUNK_SIZE - 1)
     const expectedMax = (CHUNK_SIZE - 1) * CHUNK_HEIGHT * CHUNK_SIZE + (CHUNK_SIZE - 1) * CHUNK_HEIGHT + (CHUNK_HEIGHT - 1)
-    expect(lastIndex).toBe(expectedMax)
+    expect(lastIndex).toEqual(Option.some(expectedMax))
   })
 })
 
@@ -99,9 +99,9 @@ describe('blockTypeToIndex and indexToBlockType', () => {
   })
 
   it('all block types produce unique indices', () => {
-    const indices = allBlockTypes.map(blockTypeToIndex)
-    const unique = new Set(indices)
-    expect(unique.size).toBe(allBlockTypes.length)
+    const indices = Arr.map(allBlockTypes, blockTypeToIndex)
+    const unique = HashSet.fromIterable(indices)
+    expect(HashSet.size(unique)).toBe(allBlockTypes.length)
   })
 })
 
@@ -625,7 +625,7 @@ describe('ChunkService', () => {
         const chunk = yield* chunkService.createChunk({ x: 0, z: 0 })
         const updated = yield* chunkService.setBlock(chunk, 0, 0, 0, 'DIRT')
         const blocks = yield* getBlocksBatch(updated)
-        const idx = blockIndex(0, 0, 0)!
+        const idx = Option.getOrThrow(blockIndex(0, 0, 0))
         expect(blocks[idx]).toBe(blockTypeToIndex('DIRT'))
       }).pipe(Effect.provide(ChunkService.Default), Effect.runPromise)
     )
@@ -637,7 +637,7 @@ describe('ChunkService', () => {
         const chunkService = yield* ChunkService
         const chunk = yield* chunkService.createChunk({ x: 0, z: 0 })
         yield* setBlockInChunk(chunk, 0, 0, 0, 'STONE')
-        const idx = blockIndex(0, 0, 0)!
+        const idx = Option.getOrThrow(blockIndex(0, 0, 0))
         expect(chunk.blocks[idx]).toBe(blockTypeToIndex('STONE'))
       }).pipe(Effect.provide(ChunkService.Default), Effect.runPromise)
     )
@@ -778,7 +778,7 @@ describe('ChunkSchema — blocks field runtime validation', () => {
   })
 
   it('rejects a plain Array as blocks (must be Uint8Array)', () => {
-    const blocks = Array.from({ length: CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT }, () => 0)
+    const blocks = Arr.makeBy(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT, () => 0)
     expect(() => decode({ coord: { x: 0, z: 0 }, blocks })).toThrow()
   })
 

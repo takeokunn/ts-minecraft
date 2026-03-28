@@ -1,4 +1,4 @@
-import { Effect, Option, Schema } from 'effect'
+import { Array as Arr, Effect, Option, Schema } from 'effect'
 import * as THREE from 'three'
 import { Vector3Schema } from '@/shared/math/three'
 
@@ -59,32 +59,29 @@ export class RaycastingService extends Effect.Service<RaycastingService>()(
             // Get all intersects
             const intersects = raycaster.intersectObjects(scene.children, true)
 
-            const hit = intersects[0]
-            if (!hit) {
-              return Option.none()
-            }
-
-            const point = hit.point
-            const face = hit.face
-
-            if (!point || !face) {
-              return Option.none()
-            }
-
-            // Calculate block coordinates from hit point
-            // Offset slightly in the direction of the normal to get the block we hit
-            const blockX = Math.floor(point.x - face.normal.x * 0.01)
-            const blockY = Math.floor(point.y - face.normal.y * 0.01)
-            const blockZ = Math.floor(point.z - face.normal.z * 0.01)
-
-            return Option.some({
-              point: { x: point.x, y: point.y, z: point.z },
-              normal: { x: face.normal.x, y: face.normal.y, z: face.normal.z },
-              distance: hit.distance,
-              blockX,
-              blockY,
-              blockZ,
-            })
+            // Option.flatMap chains: None-propagates through both guards,
+            // then Option.map builds the result only when both hit and face are present.
+            return Option.flatMap(
+              Arr.get(intersects, 0),
+              (hit) => Option.map(
+                Option.fromNullable(hit.face),
+                (face) => {
+                  // Calculate block coordinates from hit point
+                  // Offset slightly in the direction of the normal to get the block we hit
+                  const blockX = Math.floor(hit.point.x - face.normal.x * 0.01)
+                  const blockY = Math.floor(hit.point.y - face.normal.y * 0.01)
+                  const blockZ = Math.floor(hit.point.z - face.normal.z * 0.01)
+                  return {
+                    point: { x: hit.point.x, y: hit.point.y, z: hit.point.z },
+                    normal: { x: face.normal.x, y: face.normal.y, z: face.normal.z },
+                    distance: hit.distance,
+                    blockX,
+                    blockY,
+                    blockZ,
+                  }
+                }
+              )
+            )
           }),
 
         /**

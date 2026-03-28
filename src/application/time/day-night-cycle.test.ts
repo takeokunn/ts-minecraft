@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { Effect } from 'effect'
+import { Effect, Option } from 'effect'
 import * as THREE from 'three'
 import { TimeService, TimeServiceLive } from '@/application/time/time-service'
 import { updateDayNightCycle, type DayNightLights } from '@/application/time/day-night-cycle'
@@ -10,9 +10,9 @@ import type { DeltaTimeSecs } from '@/shared/kernel'
  * Captures the clear color passed to renderer.setClearColor for assertions.
  */
 const makeFakeLights = (): DayNightLights & {
-  capturedClearColor: THREE.Color | null
+  capturedClearColor: Option.Option<THREE.Color>
 } => {
-  let capturedColor: THREE.Color | null = null
+  let capturedColor: Option.Option<THREE.Color> = Option.none()
   return {
     light: {
       intensity: 0,
@@ -25,13 +25,13 @@ const makeFakeLights = (): DayNightLights & {
     } as unknown as THREE.AmbientLight,
     renderer: {
       setClearColor: (color: THREE.Color) => {
-        capturedColor = color
+        capturedColor = Option.some(color)
       },
     },
     skyNight: new THREE.Color(0x000000),
     skyDay: new THREE.Color(0xffffff),
     skyCurrent: new THREE.Color(),
-    sky: null,
+    sky: Option.none(),
     get capturedClearColor() {
       return capturedColor
     },
@@ -219,7 +219,7 @@ describe('application/time/day-night-cycle', () => {
         yield* timeService.setTimeOfDay(0)
         const lights = makeFakeLights()
         yield* updateDayNightCycle(0 as DeltaTimeSecs, lights, timeService)
-        expect(lights.capturedClearColor).not.toBeNull()
+        expect(Option.isSome(lights.capturedClearColor)).toBe(true)
         // skyCurrent after lerpColors(black, white, 0) = black
         expect(lights.skyCurrent.r).toBeCloseTo(0, 3)
         expect(lights.skyCurrent.g).toBeCloseTo(0, 3)
@@ -239,7 +239,7 @@ describe('application/time/day-night-cycle', () => {
         yield* timeService.setTimeOfDay(0.5)
         const lights = makeFakeLights()
         yield* updateDayNightCycle(0 as DeltaTimeSecs, lights, timeService)
-        expect(lights.capturedClearColor).not.toBeNull()
+        expect(Option.isSome(lights.capturedClearColor)).toBe(true)
         expect(lights.skyCurrent.r).toBeCloseTo(1, 3)
         expect(lights.skyCurrent.g).toBeCloseTo(1, 3)
         expect(lights.skyCurrent.b).toBeCloseTo(1, 3)

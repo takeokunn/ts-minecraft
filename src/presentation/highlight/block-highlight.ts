@@ -33,6 +33,13 @@ export const createWireframeCube = (color: number = DEFAULT_HIGHLIGHT_COLOR): TH
   return new THREE.LineSegments(edges, material)
 }
 
+// target and hit always move together — merged into one Ref to enforce the invariant structurally
+type HitState = {
+  readonly target: Option.Option<BlockTarget>
+  readonly hit: Option.Option<RaycastHit>
+}
+const EMPTY_HIT_STATE: HitState = { target: Option.none(), hit: Option.none() }
+
 /**
  * BlockHighlight service for visual feedback on targeted blocks
  *
@@ -50,10 +57,8 @@ export class BlockHighlightService extends Effect.Service<BlockHighlightService>
 
       // Wireframe cube mesh for highlighting
       const highlightMeshRef = yield* Ref.make<Option.Option<THREE.LineSegments>>(Option.none())
-      // Current target block coordinates
-      const currentTargetRef = yield* Ref.make<Option.Option<BlockTarget>>(Option.none())
-      // Full raycast hit for current target (includes surface normal for placement)
-      const currentHitRef = yield* Ref.make<Option.Option<RaycastHit>>(Option.none())
+      // target and hit always change together — one atomic Ref instead of two
+      const hitStateRef = yield* Ref.make<HitState>(EMPTY_HIT_STATE)
 
       return {
         /**
@@ -63,8 +68,7 @@ export class BlockHighlightService extends Effect.Service<BlockHighlightService>
         initialize: (scene: THREE.Scene): Effect.Effect<void, never> =>
           Effect.gen(function* () {
             const mesh = createWireframeCube()
-            mesh.visible = false
-            scene.add(mesh)
+            yield* Effect.sync(() => { mesh.visible = false; scene.add(mesh) })
             yield* Ref.set(highlightMeshRef, Option.some(mesh))
           }),
 
@@ -75,28 +79,30 @@ export class BlockHighlightService extends Effect.Service<BlockHighlightService>
          */
         update: (camera: THREE.Camera, scene: THREE.Scene): Effect.Effect<void, never> =>
           Effect.gen(function* () {
-            const highlightMeshOpt = yield* Ref.get(highlightMeshRef)
-            if (Option.isNone(highlightMeshOpt)) return
-            const highlightMesh = highlightMeshOpt.value
-
-            const hitOption = yield* raycastingService.raycastFromCamera(camera, scene)
-
-            if (Option.isSome(hitOption)) {
-              const hit = hitOption.value
-              // Position highlight at block coordinates (center of the block)
-              highlightMesh.position.set(
-                hit.blockX + 0.5,
-                hit.blockY + 0.5,
-                hit.blockZ + 0.5
-              )
-              highlightMesh.visible = true
-              yield* Ref.set(currentTargetRef, Option.some({ x: hit.blockX, y: hit.blockY, z: hit.blockZ }))
-              yield* Ref.set(currentHitRef, Option.some(hit))
-            } else {
-              highlightMesh.visible = false
-              yield* Ref.set(currentTargetRef, Option.none())
-              yield* Ref.set(currentHitRef, Option.none())
-            }
+            yield* Option.match(yield* Ref.get(highlightMeshRef), {
+              onNone: () => Effect.void,
+              onSome: (highlightMesh) => Effect.gen(function* () {
+                const hitOption = yield* raycastingService.raycastFromCamera(camera, scene)
+                yield* Option.match(hitOption, {
+                  onSome: (hit) => Effect.gen(function* () {
+                    // Position highlight at block coordinates (center of the block)
+                    yield* Effect.sync(() => {
+                      highlightMesh.position.set(hit.blockX + 0.5, hit.blockY + 0.5, hit.blockZ + 0.5)
+                      highlightMesh.visible = true
+                    })
+                    // Atomic write: target and hit always set together
+                    yield* Ref.set(hitStateRef, {
+                      target: Option.some({ x: hit.blockX, y: hit.blockY, z: hit.blockZ }),
+                      hit: Option.some(hit),
+                    })
+                  }),
+                  onNone: () => Effect.gen(function* () {
+                    yield* Effect.sync(() => { highlightMesh.visible = false })
+                    yield* Ref.set(hitStateRef, EMPTY_HIT_STATE)
+                  }),
+                })
+              }),
+            })
           }),
 
         /**
@@ -104,27 +110,24 @@ export class BlockHighlightService extends Effect.Service<BlockHighlightService>
          * @param visible - Whether the highlight should be visible
          */
         setVisible: (visible: boolean): Effect.Effect<void, never> =>
-          Effect.gen(function* () {
-            const highlightMeshOpt = yield* Ref.get(highlightMeshRef)
-            if (Option.isSome(highlightMeshOpt)) {
-              highlightMeshOpt.value.visible = visible
-            }
-          }),
+          Ref.get(highlightMeshRef).pipe(
+            Effect.flatMap((opt) => Effect.sync(() => { Option.map(opt, (m) => { m.visible = visible }) }))
+          ),
 
         /**
          * Get the current target block coordinates
          * @returns The block coordinates or null if no block is targeted
          */
-        getTargetBlock: (): Effect.Effect<BlockTarget | null, never> =>
-          Ref.get(currentTargetRef).pipe(Effect.map(Option.getOrNull)),
+        getTargetBlock: (): Effect.Effect<Option.Option<BlockTarget>, never> =>
+          Ref.get(hitStateRef).pipe(Effect.map((s) => s.target)),
 
         /**
          * Get the full raycast hit for the current target, including surface normal
          * Required for computing adjacent block position during placement
-         * @returns The full RaycastHit or null if no block is targeted
+         * @returns The full RaycastHit or Option.none() if no block is targeted
          */
-        getTargetHit: (): Effect.Effect<RaycastHit | null, never> =>
-          Ref.get(currentHitRef).pipe(Effect.map(Option.getOrNull)),
+        getTargetHit: (): Effect.Effect<Option.Option<RaycastHit>, never> =>
+          Ref.get(hitStateRef).pipe(Effect.map((s) => s.hit)),
       }
     }),
   }

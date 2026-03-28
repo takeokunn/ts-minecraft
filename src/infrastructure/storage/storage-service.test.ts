@@ -1,6 +1,6 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Effect, Layer, Option, Schema } from 'effect'
+import { Array as Arr, Effect, Layer, MutableHashMap, Option, Schema } from 'effect'
 import { StorageService, WorldMetadataSchema, WorldMetadata } from './storage-service'
 import { StorageError } from '@/domain/errors'
 import { WorldId } from '@/shared/kernel'
@@ -20,8 +20,8 @@ const testCoord: ChunkCoord = { x: 0, z: 0 }
  * a real browser environment.
  */
 const makeInMemoryStorageService = () => {
-  const chunkStore = new Map<string, Uint8Array>()
-  const metaStore = new Map<string, WorldMetadata>()
+  const chunkStore = MutableHashMap.empty<string, Uint8Array>()
+  const metaStore = MutableHashMap.empty<string, WorldMetadata>()
   let initialized = false
 
   const chunkKey = (worldId: WorldId, coord: ChunkCoord): string =>
@@ -34,35 +34,28 @@ const makeInMemoryStorageService = () => {
 
     saveChunk: (worldId: WorldId, chunkCoord: ChunkCoord, data: Uint8Array) =>
       Effect.sync(() => {
-        chunkStore.set(chunkKey(worldId, chunkCoord), data)
+        MutableHashMap.set(chunkStore, chunkKey(worldId, chunkCoord), data)
       }),
 
     loadChunk: (worldId: WorldId, chunkCoord: ChunkCoord) =>
-      Effect.sync(() => {
-        const val = chunkStore.get(chunkKey(worldId, chunkCoord))
-        return val !== undefined ? Option.some(val) : Option.none<Uint8Array>()
-      }),
+      Effect.sync(() => MutableHashMap.get(chunkStore, chunkKey(worldId, chunkCoord))),
 
     saveWorldMetadata: (worldId: WorldId, metadata: WorldMetadata) =>
       Effect.sync(() => {
-        metaStore.set(worldId, metadata)
+        MutableHashMap.set(metaStore, worldId, metadata)
       }),
 
     loadWorldMetadata: (worldId: WorldId) =>
-      Effect.sync(() => {
-        const val = metaStore.get(worldId)
-        return val !== undefined ? Option.some(val) : Option.none<WorldMetadata>()
-      }),
+      Effect.sync(() => MutableHashMap.get(metaStore, worldId)),
 
     deleteWorld: (worldId: WorldId) =>
       Effect.sync(() => {
         const prefix = `${worldId}:`
-        for (const key of chunkStore.keys()) {
-          if (key.startsWith(prefix)) {
-            chunkStore.delete(key)
-          }
+        const keysToDelete = Arr.filter(Arr.fromIterable(MutableHashMap.keys(chunkStore)), k => k.startsWith(prefix))
+        for (const key of keysToDelete) {
+          MutableHashMap.remove(chunkStore, key)
         }
-        metaStore.delete(worldId)
+        MutableHashMap.remove(metaStore, worldId)
       }),
 
     // Expose internal state for assertions in tests
@@ -663,8 +656,8 @@ describe('infrastructure/storage/storage-service', () => {
      * The `throwOnSave` function is called instead of the normal Map write.
      */
     const makeFailingStorageService = (throwOnSave: () => void) => {
-      const chunkStore = new Map<string, Uint8Array>()
-      const metaStore = new Map<string, WorldMetadata>()
+      const chunkStore = MutableHashMap.empty<string, Uint8Array>()
+      const metaStore = MutableHashMap.empty<string, WorldMetadata>()
       let saveCallCount = 0
 
       const chunkKey = (worldId: WorldId, coord: ChunkCoord): string =>
@@ -677,33 +670,28 @@ describe('infrastructure/storage/storage-service', () => {
           Effect.sync(() => {
             saveCallCount++
             throwOnSave()
-            chunkStore.set(chunkKey(worldId, chunkCoord), data)
+            MutableHashMap.set(chunkStore, chunkKey(worldId, chunkCoord), data)
           }),
 
         loadChunk: (worldId: WorldId, chunkCoord: ChunkCoord) =>
-          Effect.sync(() => {
-            const val = chunkStore.get(chunkKey(worldId, chunkCoord))
-            return val !== undefined ? Option.some(val) : Option.none<Uint8Array>()
-          }),
+          Effect.sync(() => MutableHashMap.get(chunkStore, chunkKey(worldId, chunkCoord))),
 
         saveWorldMetadata: (worldId: WorldId, metadata: WorldMetadata) =>
           Effect.sync(() => {
-            metaStore.set(worldId, metadata)
+            MutableHashMap.set(metaStore, worldId, metadata)
           }),
 
         loadWorldMetadata: (worldId: WorldId) =>
-          Effect.sync(() => {
-            const val = metaStore.get(worldId)
-            return val !== undefined ? Option.some(val) : Option.none<WorldMetadata>()
-          }),
+          Effect.sync(() => MutableHashMap.get(metaStore, worldId)),
 
         deleteWorld: (worldId: WorldId) =>
           Effect.sync(() => {
             const prefix = `${worldId}:`
-            for (const key of chunkStore.keys()) {
-              if (key.startsWith(prefix)) chunkStore.delete(key)
+            const keysToDelete = Arr.filter(Arr.fromIterable(MutableHashMap.keys(chunkStore)), k => k.startsWith(prefix))
+            for (const key of keysToDelete) {
+              MutableHashMap.remove(chunkStore, key)
             }
-            metaStore.delete(worldId)
+            MutableHashMap.remove(metaStore, worldId)
           }),
 
         _saveCallCount: () => saveCallCount,

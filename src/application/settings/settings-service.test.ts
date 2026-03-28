@@ -1,4 +1,4 @@
-import { Effect, Schema } from 'effect'
+import { Effect, MutableHashMap, Option, Schema } from 'effect'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { SettingsSchema, SettingsService, SettingsServiceLive } from './settings-service'
 
@@ -19,20 +19,20 @@ const DEFAULT_SETTINGS = {
 }
 
 describe('application/settings/settings-service', () => {
-  let store: Map<string, string>
+  let store: MutableHashMap.MutableHashMap<string, string>
   let getItemSpy: ReturnType<typeof vi.fn>
   let setItemSpy: ReturnType<typeof vi.fn>
   let removeItemSpy: ReturnType<typeof vi.fn>
 
   beforeEach(() => {
-    store = new Map<string, string>()
+    store = MutableHashMap.empty<string, string>()
 
-    getItemSpy = vi.fn((key: string) => store.get(key) ?? null)
+    getItemSpy = vi.fn((key: string) => Option.getOrNull(MutableHashMap.get(store, key)))
     setItemSpy = vi.fn((key: string, value: string) => {
-      store.set(key, value)
+      MutableHashMap.set(store, key, value)
     })
     removeItemSpy = vi.fn((key: string) => {
-      store.delete(key)
+      MutableHashMap.remove(store, key)
     })
 
     vi.stubGlobal('localStorage', {
@@ -226,7 +226,7 @@ describe('application/settings/settings-service', () => {
     })
 
     it('loads persisted settings when localStorage has valid data', () => {
-      store.set(
+      MutableHashMap.set(store, 
         STORAGE_KEY,
         JSON.stringify({
           renderDistance: 12,
@@ -266,7 +266,7 @@ describe('application/settings/settings-service', () => {
     })
 
     it('falls back to defaults when localStorage contains invalid JSON', () => {
-      store.set(STORAGE_KEY, '{invalid-json}')
+      MutableHashMap.set(store, STORAGE_KEY, '{invalid-json}')
 
       const program = Effect.gen(function* () {
         const service = yield* SettingsService
@@ -279,7 +279,7 @@ describe('application/settings/settings-service', () => {
     })
 
     it('falls back to defaults when localStorage contains schema-invalid data', () => {
-      store.set(
+      MutableHashMap.set(store, 
         STORAGE_KEY,
         JSON.stringify({
           renderDistance: 999,

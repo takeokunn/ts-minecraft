@@ -1,4 +1,4 @@
-import { Effect, Schema } from 'effect'
+import { Array as Arr, Effect, Match, Option, Schema } from 'effect'
 import type { CustomBody } from './rigid-body-service'
 import { Vector3Schema } from '@/infrastructure/physics/core'
 import type { DeltaTimeSecs } from '@/shared/kernel'
@@ -29,24 +29,22 @@ export class PhysicsWorldService extends Effect.Service<PhysicsWorldService>()(
         }),
       removeBody: (world: CustomWorld, body: CustomBody): Effect.Effect<void, never> =>
         Effect.sync(() => {
-          const idx = world.bodies.indexOf(body)
-          if (idx !== -1) world.bodies.splice(idx, 1)
+          Option.map(Arr.findFirstIndex(world.bodies, (b) => b === body), (idx) => world.bodies.splice(idx, 1))
         }),
       step: (world: CustomWorld, deltaTime: DeltaTimeSecs): Effect.Effect<void, never> =>
         Effect.sync(() => {
           const dt = deltaTime as number
 
           // Find all static plane bodies (for collision resolution)
-          const planeYValues: number[] = []
-          for (const body of world.bodies) {
-            if (body.type === 'static' && body.shape.kind === 'plane') {
-              planeYValues.push(body.position.y)
-            }
-          }
+          const planeYValues = Arr.filterMap(world.bodies, (body) =>
+            body.type === 'static' && body.shape.kind === 'plane'
+              ? Option.some(body.position.y)
+              : Option.none()
+          )
 
           // Integrate dynamic bodies
-          for (const body of world.bodies) {
-            if (body.type !== 'dynamic') continue
+          Arr.forEach(world.bodies, (body) => {
+            if (body.type !== 'dynamic') return
 
             // Apply gravity
             body.velocity.y += world.gravity.y * dt
@@ -57,26 +55,26 @@ export class PhysicsWorldService extends Effect.Service<PhysicsWorldService>()(
             body.position.z += body.velocity.z * dt
 
             // AABB-vs-plane collision resolution
-            for (const planeY of planeYValues) {
-              let bodyBottomY: number
-              if (body.shape.kind === 'box') {
-                bodyBottomY = body.position.y - body.shape.halfExtents.y
-              } else if (body.shape.kind === 'sphere') {
-                bodyBottomY = body.position.y - body.shape.radius
-              } else {
-                continue
-              }
-
-              if (bodyBottomY < planeY) {
-                if (body.shape.kind === 'box') {
-                  body.position.y = planeY + body.shape.halfExtents.y
-                } else if (body.shape.kind === 'sphere') {
-                  body.position.y = planeY + body.shape.radius
+            Arr.forEach(planeYValues, (planeY) => {
+              const bodyBottomYOpt = Match.value(body.shape).pipe(
+                Match.when({ kind: 'box' }, (shape) => Option.some(body.position.y - shape.halfExtents.y)),
+                Match.when({ kind: 'sphere' }, (shape) => Option.some(body.position.y - shape.radius)),
+                Match.when({ kind: 'plane' }, () => Option.none<number>()),
+                Match.exhaustive
+              )
+              Option.map(bodyBottomYOpt, (bodyBottomY) => {
+                if (bodyBottomY < planeY) {
+                  Match.value(body.shape).pipe(
+                    Match.when({ kind: 'box' }, (shape): void => { body.position.y = planeY + shape.halfExtents.y }),
+                    Match.when({ kind: 'sphere' }, (shape): void => { body.position.y = planeY + shape.radius }),
+                    Match.when({ kind: 'plane' }, (): void => {}),
+                    Match.exhaustive
+                  )
+                  if (body.velocity.y < 0) body.velocity.y = 0
                 }
-                if (body.velocity.y < 0) body.velocity.y = 0
-              }
-            }
-          }
+              })
+            })
+          })
         }),
     },
   }

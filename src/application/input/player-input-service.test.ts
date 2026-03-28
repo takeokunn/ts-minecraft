@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { Effect } from 'effect'
+import { Array as Arr, Effect, HashSet, Option } from 'effect'
 import { PlayerInputService } from './player-input-service'
 import { KeyMappings } from './key-mappings'
 
@@ -194,18 +194,18 @@ describe('KeyMappings constants', () => {
   describe('key uniqueness', () => {
     it('all keys should be unique strings', () => {
       const allValues = Object.values(KeyMappings)
-      const uniqueValues = new Set(allValues)
+      const uniqueValues = HashSet.fromIterable(allValues)
       // All keys should be unique (no duplicates)
-      expect(allValues.length - uniqueValues.size).toBe(0)
+      expect(allValues.length - HashSet.size(uniqueValues)).toBe(0)
     })
 
     it('there should be no duplicate key bindings', () => {
       const allValues = Object.values(KeyMappings)
-      const counts = allValues.reduce<Record<string, number>>((acc, v) => {
-        acc[v] = (acc[v] ?? 0) + 1
+      const counts = Arr.reduce(allValues, {} as Record<string, number>, (acc, v) => {
+        acc[v] = Option.getOrElse(Option.fromNullable(acc[v]), () => 0) + 1
         return acc
-      }, {})
-      const duplicates = Object.entries(counts).filter(([, count]) => count > 1)
+      })
+      const duplicates = Arr.filter(Object.entries(counts), ([, count]) => count > 1)
       expect(duplicates).toHaveLength(0)
     })
   })

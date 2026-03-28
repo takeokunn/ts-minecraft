@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { Effect, Layer } from 'effect'
+import { Effect, Layer, MutableHashMap, MutableHashSet, Option } from 'effect'
 import { InputService, MouseButton } from './input-service'
 import type { InputService as InputServiceType } from './input-service'
 
@@ -8,26 +8,26 @@ import type { InputService as InputServiceType } from './input-service'
  * Provides direct control over input state without DOM dependencies
  */
 const createTestInputService = (initialState: {
-  pressedKeys?: Set<string>
-  justPressedKeys?: Set<string>
-  mouseButtons?: Map<number, boolean>
+  pressedKeys?: MutableHashSet.MutableHashSet<string>
+  justPressedKeys?: MutableHashSet.MutableHashSet<string>
+  mouseButtons?: MutableHashMap.MutableHashMap<number, boolean>
   mouseDelta?: { x: number; y: number }
   pointerLocked?: boolean
 } = {}): InputServiceType => {
-  let pressedKeys = initialState.pressedKeys ?? new Set<string>()
-  let justPressedKeys = initialState.justPressedKeys ?? new Set<string>()
-  let mouseButtons = initialState.mouseButtons ?? new Map<number, boolean>()
-  let mouseDelta = initialState.mouseDelta ?? { x: 0, y: 0 }
-  let pointerLocked = initialState.pointerLocked ?? false
+  const pressedKeys = Option.getOrElse(Option.fromNullable(initialState.pressedKeys), () => MutableHashSet.empty<string>())
+  const justPressedKeys = Option.getOrElse(Option.fromNullable(initialState.justPressedKeys), () => MutableHashSet.empty<string>())
+  const mouseButtons = Option.getOrElse(Option.fromNullable(initialState.mouseButtons), () => MutableHashMap.empty<number, boolean>())
+  let mouseDelta = Option.getOrElse(Option.fromNullable(initialState.mouseDelta), () => ({ x: 0, y: 0 }))
+  let pointerLocked = Option.getOrElse(Option.fromNullable(initialState.pointerLocked), () => false)
 
   return {
     isKeyPressed: (key: string) =>
-      Effect.sync(() => pressedKeys.has(key)),
+      Effect.sync(() => MutableHashSet.has(pressedKeys, key)),
 
     consumeKeyPress: (key: string) =>
       Effect.sync(() => {
-        if (justPressedKeys.has(key)) {
-          justPressedKeys.delete(key)
+        if (MutableHashSet.has(justPressedKeys, key)) {
+          MutableHashSet.remove(justPressedKeys, key)
           return true
         }
         return false
@@ -41,7 +41,7 @@ const createTestInputService = (initialState: {
       }),
 
     isMouseDown: (button: number) =>
-      Effect.sync(() => mouseButtons.get(button) ?? false),
+      Effect.sync(() => Option.getOrElse(MutableHashMap.get(mouseButtons, button), () => false)),
 
     requestPointerLock: () =>
       Effect.sync(() => {
@@ -89,8 +89,8 @@ describe('InputService', () => {
     })
 
     it('should return true for left mouse button when pressed', () => {
-      const mouseButtons = new Map<number, boolean>()
-      mouseButtons.set(MouseButton.LEFT, true)
+      const mouseButtons = MutableHashMap.empty<number, boolean>()
+      MutableHashMap.set(mouseButtons, MouseButton.LEFT, true)
       const service = createTestInputService({ mouseButtons })
       const layer = createTestLayer(service)
 
@@ -104,8 +104,8 @@ describe('InputService', () => {
     })
 
     it('should return true for right mouse button when pressed', () => {
-      const mouseButtons = new Map<number, boolean>()
-      mouseButtons.set(MouseButton.RIGHT, true)
+      const mouseButtons = MutableHashMap.empty<number, boolean>()
+      MutableHashMap.set(mouseButtons, MouseButton.RIGHT, true)
       const service = createTestInputService({ mouseButtons })
       const layer = createTestLayer(service)
 
@@ -119,8 +119,8 @@ describe('InputService', () => {
     })
 
     it('should return true for middle mouse button when pressed', () => {
-      const mouseButtons = new Map<number, boolean>()
-      mouseButtons.set(MouseButton.MIDDLE, true)
+      const mouseButtons = MutableHashMap.empty<number, boolean>()
+      MutableHashMap.set(mouseButtons, MouseButton.MIDDLE, true)
       const service = createTestInputService({ mouseButtons })
       const layer = createTestLayer(service)
 
@@ -134,9 +134,9 @@ describe('InputService', () => {
     })
 
     it('should return false for unpressed button when other buttons are pressed', () => {
-      const mouseButtons = new Map<number, boolean>()
-      mouseButtons.set(MouseButton.LEFT, true)
-      mouseButtons.set(MouseButton.RIGHT, true)
+      const mouseButtons = MutableHashMap.empty<number, boolean>()
+      MutableHashMap.set(mouseButtons, MouseButton.LEFT, true)
+      MutableHashMap.set(mouseButtons, MouseButton.RIGHT, true)
       const service = createTestInputService({ mouseButtons })
       const layer = createTestLayer(service)
 
@@ -163,10 +163,10 @@ describe('InputService', () => {
     })
 
     it('should track multiple buttons simultaneously', () => {
-      const mouseButtons = new Map<number, boolean>()
-      mouseButtons.set(MouseButton.LEFT, true)
-      mouseButtons.set(MouseButton.RIGHT, true)
-      mouseButtons.set(MouseButton.MIDDLE, true)
+      const mouseButtons = MutableHashMap.empty<number, boolean>()
+      MutableHashMap.set(mouseButtons, MouseButton.LEFT, true)
+      MutableHashMap.set(mouseButtons, MouseButton.RIGHT, true)
+      MutableHashMap.set(mouseButtons, MouseButton.MIDDLE, true)
       const service = createTestInputService({ mouseButtons })
       const layer = createTestLayer(service)
 
@@ -185,8 +185,8 @@ describe('InputService', () => {
     })
 
     it('should return false for button explicitly set to false', () => {
-      const mouseButtons = new Map<number, boolean>()
-      mouseButtons.set(MouseButton.LEFT, false)
+      const mouseButtons = MutableHashMap.empty<number, boolean>()
+      MutableHashMap.set(mouseButtons, MouseButton.LEFT, false)
       const service = createTestInputService({ mouseButtons })
       const layer = createTestLayer(service)
 
@@ -224,8 +224,8 @@ describe('InputService', () => {
   describe('mousedown/mouseup transitions', () => {
     it('should simulate button press and release (state change)', () => {
       // Test that state can transition from pressed to not pressed
-      const mouseButtons = new Map<number, boolean>()
-      mouseButtons.set(MouseButton.LEFT, true)
+      const mouseButtons = MutableHashMap.empty<number, boolean>()
+      MutableHashMap.set(mouseButtons, MouseButton.LEFT, true)
 
       const servicePressed = createTestInputService({ mouseButtons })
       const layerPressed = createTestLayer(servicePressed)
@@ -239,7 +239,7 @@ describe('InputService', () => {
       expect(resultPressed).toBe(true)
 
       // Simulate button release
-      mouseButtons.set(MouseButton.LEFT, false)
+      MutableHashMap.set(mouseButtons, MouseButton.LEFT, false)
       const serviceReleased = createTestInputService({ mouseButtons })
       const layerReleased = createTestLayer(serviceReleased)
 
@@ -253,48 +253,48 @@ describe('InputService', () => {
     })
 
     it('should handle rapid press/release cycles', () => {
-      const mouseButtons = new Map<number, boolean>()
+      const mouseButtons = MutableHashMap.empty<number, boolean>()
 
       // Press
-      mouseButtons.set(MouseButton.LEFT, true)
+      MutableHashMap.set(mouseButtons, MouseButton.LEFT, true)
       const service1 = createTestInputService({ mouseButtons })
       expect(Effect.runSync(service1.isMouseDown(MouseButton.LEFT))).toBe(true)
 
       // Release
-      mouseButtons.set(MouseButton.LEFT, false)
+      MutableHashMap.set(mouseButtons, MouseButton.LEFT, false)
       const service2 = createTestInputService({ mouseButtons })
       expect(Effect.runSync(service2.isMouseDown(MouseButton.LEFT))).toBe(false)
 
       // Press again
-      mouseButtons.set(MouseButton.LEFT, true)
+      MutableHashMap.set(mouseButtons, MouseButton.LEFT, true)
       const service3 = createTestInputService({ mouseButtons })
       expect(Effect.runSync(service3.isMouseDown(MouseButton.LEFT))).toBe(true)
 
       // Release again
-      mouseButtons.set(MouseButton.LEFT, false)
+      MutableHashMap.set(mouseButtons, MouseButton.LEFT, false)
       const service4 = createTestInputService({ mouseButtons })
       expect(Effect.runSync(service4.isMouseDown(MouseButton.LEFT))).toBe(false)
     })
 
     it('should handle independent button state transitions', () => {
       // Test that buttons can be pressed/released independently
-      const mouseButtons = new Map<number, boolean>()
-      mouseButtons.set(MouseButton.LEFT, true)
-      mouseButtons.set(MouseButton.RIGHT, true)
+      const mouseButtons = MutableHashMap.empty<number, boolean>()
+      MutableHashMap.set(mouseButtons, MouseButton.LEFT, true)
+      MutableHashMap.set(mouseButtons, MouseButton.RIGHT, true)
 
       const serviceBoth = createTestInputService({ mouseButtons })
       expect(Effect.runSync(serviceBoth.isMouseDown(MouseButton.LEFT))).toBe(true)
       expect(Effect.runSync(serviceBoth.isMouseDown(MouseButton.RIGHT))).toBe(true)
 
       // Release only left
-      mouseButtons.set(MouseButton.LEFT, false)
+      MutableHashMap.set(mouseButtons, MouseButton.LEFT, false)
       const serviceRightOnly = createTestInputService({ mouseButtons })
       expect(Effect.runSync(serviceRightOnly.isMouseDown(MouseButton.LEFT))).toBe(false)
       expect(Effect.runSync(serviceRightOnly.isMouseDown(MouseButton.RIGHT))).toBe(true)
 
       // Press left again, release right
-      mouseButtons.set(MouseButton.LEFT, true)
-      mouseButtons.set(MouseButton.RIGHT, false)
+      MutableHashMap.set(mouseButtons, MouseButton.LEFT, true)
+      MutableHashMap.set(mouseButtons, MouseButton.RIGHT, false)
       const serviceLeftOnly = createTestInputService({ mouseButtons })
       expect(Effect.runSync(serviceLeftOnly.isMouseDown(MouseButton.LEFT))).toBe(true)
       expect(Effect.runSync(serviceLeftOnly.isMouseDown(MouseButton.RIGHT))).toBe(false)
@@ -303,8 +303,8 @@ describe('InputService', () => {
 
   describe('isMouseDown with Effect composition', () => {
     it('should work with Effect.gen', () => {
-      const mouseButtons = new Map<number, boolean>()
-      mouseButtons.set(MouseButton.LEFT, true)
+      const mouseButtons = MutableHashMap.empty<number, boolean>()
+      MutableHashMap.set(mouseButtons, MouseButton.LEFT, true)
       const service = createTestInputService({ mouseButtons })
       const layer = createTestLayer(service)
 
@@ -319,10 +319,10 @@ describe('InputService', () => {
     })
 
     it('should work with Effect.all for checking multiple buttons', () => {
-      const mouseButtons = new Map<number, boolean>()
-      mouseButtons.set(MouseButton.LEFT, true)
-      mouseButtons.set(MouseButton.RIGHT, false)
-      mouseButtons.set(MouseButton.MIDDLE, true)
+      const mouseButtons = MutableHashMap.empty<number, boolean>()
+      MutableHashMap.set(mouseButtons, MouseButton.LEFT, true)
+      MutableHashMap.set(mouseButtons, MouseButton.RIGHT, false)
+      MutableHashMap.set(mouseButtons, MouseButton.MIDDLE, true)
       const service = createTestInputService({ mouseButtons })
       const layer = createTestLayer(service)
 
@@ -343,8 +343,8 @@ describe('InputService', () => {
     })
 
     it('should work with Effect.map for transformations', () => {
-      const mouseButtons = new Map<number, boolean>()
-      mouseButtons.set(MouseButton.LEFT, true)
+      const mouseButtons = MutableHashMap.empty<number, boolean>()
+      MutableHashMap.set(mouseButtons, MouseButton.LEFT, true)
       const service = createTestInputService({ mouseButtons })
       const layer = createTestLayer(service)
 
@@ -387,8 +387,8 @@ describe('InputService', () => {
 
   describe('consumeKeyPress', () => {
     it('should return true when key was just pressed', () => {
-      const justPressedKeys = new Set<string>()
-      justPressedKeys.add('Space')
+      const justPressedKeys = MutableHashSet.empty<string>()
+      MutableHashSet.add(justPressedKeys, 'Space')
       const service = createTestInputService({ justPressedKeys })
 
       const result = Effect.runSync(service.consumeKeyPress('Space'))
@@ -396,15 +396,15 @@ describe('InputService', () => {
     })
 
     it('should return false when key was not just pressed', () => {
-      const service = createTestInputService({ justPressedKeys: new Set() })
+      const service = createTestInputService({ justPressedKeys: MutableHashSet.empty() })
 
       const result = Effect.runSync(service.consumeKeyPress('Space'))
       expect(result).toBe(false)
     })
 
     it('should consume the key press (return false on second call)', () => {
-      const justPressedKeys = new Set<string>()
-      justPressedKeys.add('Space')
+      const justPressedKeys = MutableHashSet.empty<string>()
+      MutableHashSet.add(justPressedKeys, 'Space')
       const service = createTestInputService({ justPressedKeys })
 
       // First call should return true and consume the key
@@ -417,9 +417,9 @@ describe('InputService', () => {
     })
 
     it('should only consume the specified key', () => {
-      const justPressedKeys = new Set<string>()
-      justPressedKeys.add('Space')
-      justPressedKeys.add('KeyW')
+      const justPressedKeys = MutableHashSet.empty<string>()
+      MutableHashSet.add(justPressedKeys, 'Space')
+      MutableHashSet.add(justPressedKeys, 'KeyW')
       const service = createTestInputService({ justPressedKeys })
 
       // Consume Space
@@ -436,8 +436,8 @@ describe('InputService', () => {
     })
 
     it('should work with Effect.gen', () => {
-      const justPressedKeys = new Set<string>()
-      justPressedKeys.add('Space')
+      const justPressedKeys = MutableHashSet.empty<string>()
+      MutableHashSet.add(justPressedKeys, 'Space')
       const service = createTestInputService({ justPressedKeys })
       const layer = createTestLayer(service)
 
@@ -453,10 +453,10 @@ describe('InputService', () => {
 
   describe('consumeMouseClick', () => {
     it('should return true when button was just clicked', () => {
-      const justPressedKeys = new Set<string>()
-      const mouseButtons = new Map<number, boolean>()
+      const justPressedKeys = MutableHashSet.empty<string>()
+      const mouseButtons = MutableHashMap.empty<number, boolean>()
       // Simulate a left-click having been registered
-      const justClickedButtons = new Set<number>([MouseButton.LEFT])
+      const justClickedButtons = MutableHashSet.make(MouseButton.LEFT)
       const service = createTestInputService({
         justPressedKeys,
         mouseButtons,
@@ -467,8 +467,8 @@ describe('InputService', () => {
         ...service,
         consumeMouseClick: (button: number) =>
           Effect.sync(() => {
-            if (justClickedButtons.has(button)) {
-              justClickedButtons.delete(button)
+            if (MutableHashSet.has(justClickedButtons, button)) {
+              MutableHashSet.remove(justClickedButtons, button)
               return true
             }
             return false
@@ -480,14 +480,14 @@ describe('InputService', () => {
     })
 
     it('should return false when button was not clicked', () => {
-      const justClickedButtons = new Set<number>()
+      const justClickedButtons = MutableHashSet.empty<number>()
       const service = createTestInputService()
       const mockService: typeof service = {
         ...service,
         consumeMouseClick: (button: number) =>
           Effect.sync(() => {
-            if (justClickedButtons.has(button)) {
-              justClickedButtons.delete(button)
+            if (MutableHashSet.has(justClickedButtons, button)) {
+              MutableHashSet.remove(justClickedButtons, button)
               return true
             }
             return false
@@ -499,14 +499,14 @@ describe('InputService', () => {
     })
 
     it('should consume the click (return false on second call)', () => {
-      const justClickedButtons = new Set<number>([MouseButton.RIGHT])
+      const justClickedButtons = MutableHashSet.make(MouseButton.RIGHT)
       const service = createTestInputService()
       const mockService: typeof service = {
         ...service,
         consumeMouseClick: (button: number) =>
           Effect.sync(() => {
-            if (justClickedButtons.has(button)) {
-              justClickedButtons.delete(button)
+            if (MutableHashSet.has(justClickedButtons, button)) {
+              MutableHashSet.remove(justClickedButtons, button)
               return true
             }
             return false
@@ -521,14 +521,14 @@ describe('InputService', () => {
     })
 
     it('should not consume a different button', () => {
-      const justClickedButtons = new Set<number>([MouseButton.LEFT])
+      const justClickedButtons = MutableHashSet.make(MouseButton.LEFT)
       const service = createTestInputService()
       const mockService: typeof service = {
         ...service,
         consumeMouseClick: (button: number) =>
           Effect.sync(() => {
-            if (justClickedButtons.has(button)) {
-              justClickedButtons.delete(button)
+            if (MutableHashSet.has(justClickedButtons, button)) {
+              MutableHashSet.remove(justClickedButtons, button)
               return true
             }
             return false

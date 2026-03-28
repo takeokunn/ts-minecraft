@@ -1,5 +1,5 @@
-import { Schema } from 'effect'
-import { Chunk, CHUNK_SIZE, CHUNK_HEIGHT, blockIndex } from '@/domain/chunk'
+import { Array as Arr, Option, Schema } from 'effect'
+import { Chunk, CHUNK_SIZE, CHUNK_HEIGHT } from '@/domain/chunk'
 import { getTileIndex, getTileUVs, FaceDir } from '../textures/block-texture-map'
 
 export const MeshedChunkSchema = Schema.Struct({
@@ -32,8 +32,8 @@ const AIR = 0
 const _doneBuf = new Uint8Array(CHUNK_SIZE * CHUNK_HEIGHT)
 
 const getBlock = (blocks: Readonly<Uint8Array>, lx: number, y: number, lz: number): number => {
-  const idx = blockIndex(lx, y, lz)
-  return idx !== null ? blocks[idx] ?? AIR : AIR
+  if (lx < 0 || lx >= CHUNK_SIZE || y < 0 || y >= CHUNK_HEIGHT || lz < 0 || lz >= CHUNK_SIZE) return AIR
+  return blocks[y + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE]!
 }
 
 const isAir = (blocks: Readonly<Uint8Array>, lx: number, y: number, lz: number): boolean =>
@@ -119,14 +119,18 @@ const addQuad = (
 ): void => {
   const base = acc.positions.length / 3
 
-  for (const v of [v0, v1, v2, v3]) {
-    acc.positions.push(v[0], v[1], v[2])
-    acc.normals.push(normal[0], normal[1], normal[2])
-  }
+  acc.positions.push(v0[0], v0[1], v0[2])
+  acc.normals.push(normal[0], normal[1], normal[2])
+  acc.positions.push(v1[0], v1[1], v1[2])
+  acc.normals.push(normal[0], normal[1], normal[2])
+  acc.positions.push(v2[0], v2[1], v2[2])
+  acc.normals.push(normal[0], normal[1], normal[2])
+  acc.positions.push(v3[0], v3[1], v3[2])
+  acc.normals.push(normal[0], normal[1], normal[2])
 
   // Vertex colors encode grayscale AO factor; texture provides block color
   for (let i = 0; i < 4; i++) {
-    const factor = 1.0 - (ao[i] ?? 0) * 0.2
+    const factor = 1.0 - Option.getOrElse(Arr.get(ao, i), () => 0) * 0.2
     acc.colors.push(factor, factor, factor)
   }
 

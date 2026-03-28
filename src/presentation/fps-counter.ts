@@ -37,9 +37,10 @@ export class FPSCounterService extends Effect.Service<FPSCounterService>()(
               }
               return [Option.none<number>(), next]
             })
-            if (Option.isSome(maybeNewFPS)) {
-              yield* fpsGauge.pipe(Metric.set(maybeNewFPS.value))
-            }
+            yield* Option.match(maybeNewFPS, {
+              onNone: () => Effect.void,
+              onSome: (fps) => fpsGauge.pipe(Metric.set(fps)),
+            })
           }),
 
         getFPS: (): Effect.Effect<number, never> =>

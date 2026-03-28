@@ -12,7 +12,7 @@
  *   - A new ChunkManagerService instance reads back the saved data unchanged
  */
 import { describe, it, expect } from 'vitest'
-import { Effect, Layer, Option } from 'effect'
+import { Array as Arr, Effect, Layer, MutableHashMap, Option } from 'effect'
 import { StorageServicePort } from '@/application/storage/storage-service-port'
 import { StorageError } from '@/domain/errors'
 import { NoiseServicePort } from '@/application/noise/noise-service-port'
@@ -45,19 +45,16 @@ import { DEFAULT_WORLD_ID, DEFAULT_PLAYER_ID } from '@/application/constants'
 // ---------------------------------------------------------------------------
 
 const makeInMemoryStorage = () => {
-  const chunks = new Map<string, Uint8Array>()
+  const chunks = MutableHashMap.empty<string, Uint8Array>()
 
   return StorageServicePort.of({
     _tag: '@minecraft/application/storage/StorageServicePort' as const,
     saveChunk: (worldId, coord, data) =>
       Effect.sync(() => {
-        chunks.set(`${worldId}:${coord.x}:${coord.z}`, data)
+        MutableHashMap.set(chunks, `${worldId}:${coord.x}:${coord.z}`, data)
       }) as Effect.Effect<undefined, StorageError>,
     loadChunk: (worldId, coord) =>
-      Effect.sync(() => {
-        const data = chunks.get(`${worldId}:${coord.x}:${coord.z}`)
-        return data !== undefined ? Option.some(data) : Option.none()
-      }),
+      Effect.sync(() => MutableHashMap.get(chunks, `${worldId}:${coord.x}:${coord.z}`)),
   })
 }
 
@@ -147,11 +144,8 @@ const worldToLocal = (pos: Position): { coord: ChunkCoord; lx: number; lz: numbe
   return { coord: { x: cx, z: cz }, lx, lz, y: Math.floor(pos.y) }
 }
 
-const readBlockFromArray = (blocks: Uint8Array, lx: number, y: number, lz: number): string => {
-  const idx = blockIndex(lx, y, lz)
-  if (idx === null) return 'AIR'
-  return indexToBlockType(blocks[idx] ?? 0)
-}
+const readBlockFromArray = (blocks: Uint8Array, lx: number, y: number, lz: number): string =>
+  Option.match(blockIndex(lx, y, lz), { onNone: () => 'AIR', onSome: (idx) => indexToBlockType(Option.getOrElse(Option.fromNullable(blocks[idx]), () => 0)) })
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -174,29 +168,28 @@ describe('integration/block-cycle', () => {
         // We read the chunk first to find any solid block within it.
         const chunk = yield* chunkManager.getChunk(coord)
 
-        // Find the first non-AIR block in this chunk by scanning y=1..80
+        // Find the first non-AIR block in this chunk by scanning y=80..1
         // (terrain surface is typically y=48-80 for PLAINS biome)
-        let solidPos: Position | null = null
-        for (let y = 80; y >= 1; y--) {
-          const idx = blockIndex(0, y, 0)
-          if (idx !== null && chunk.blocks[idx] !== 0) {
-            solidPos = { x: coord.x * CHUNK_SIZE, y, z: coord.z * CHUNK_SIZE }
-            break
+        const solidPos = Arr.findFirst(
+          Arr.makeBy(80, (i) => 80 - i),
+          (y) => {
+            const idxOpt = blockIndex(0, y, 0)
+            return Option.isSome(idxOpt) && chunk.blocks[idxOpt.value] !== 0
           }
-        }
+        ).pipe(Option.map((y) => ({ x: coord.x * CHUNK_SIZE, y, z: coord.z * CHUNK_SIZE } as Position)))
 
-        if (!solidPos) {
+        const effectiveSolidPos: Position = Option.getOrElse(solidPos, () => {
           // Fallback: manually inject a STONE block and break it
-          const idx = blockIndex(0, 64, 0)
-          if (idx !== null) chunk.blocks[idx] = blockTypeToIndex('STONE')
-          solidPos = { x: coord.x * CHUNK_SIZE, y: 64, z: coord.z * CHUNK_SIZE }
-        }
+          const idxFallback = blockIndex(0, 64, 0)
+          if (Option.isSome(idxFallback)) chunk.blocks[idxFallback.value] = blockTypeToIndex('STONE')
+          return { x: coord.x * CHUNK_SIZE, y: 64, z: coord.z * CHUNK_SIZE }
+        })
 
         // Save the chunk to ensure it's in cache before breakBlock
         yield* chunkManager.getChunk(coord)
 
         // Break the block — this calls markChunkDirty internally
-        yield* blockService.breakBlock(solidPos)
+        yield* blockService.breakBlock(effectiveSolidPos)
 
         // The chunk should now be dirty: saveDirtyChunks should write it to storage
         yield* chunkManager.saveDirtyChunks()
@@ -223,34 +216,33 @@ describe('integration/block-cycle', () => {
 
         // Find first non-AIR block (terrain surface)
         // Scan from CHUNK_HEIGHT-1 down to 1 to handle all biome height ranges
-        let surfaceY = -1
-        let surfaceLx = 0
-        let surfaceLz = 0
-        outerLoop: for (let lz = 0; lz < CHUNK_SIZE; lz++) {
-          for (let lx = 0; lx < CHUNK_SIZE; lx++) {
-            for (let y = CHUNK_HEIGHT - 1; y >= 1; y--) {
-              const idx = blockIndex(lx, y, lz)
-              if (idx !== null && chunk.blocks[idx] !== 0) {
-                surfaceY = y
-                surfaceLx = lx
-                surfaceLz = lz
-                break outerLoop
-              }
-            }
+        const surfaceBlockOpt = Arr.findFirst(
+          Arr.flatMap(
+            Arr.makeBy(CHUNK_SIZE, (lz) => lz),
+            (lz) => Arr.flatMap(
+              Arr.makeBy(CHUNK_SIZE, (lx) => lx),
+              (lx) => Arr.makeBy(CHUNK_HEIGHT - 1, (i) => ({ lx, lz, y: CHUNK_HEIGHT - 1 - i }))
+            )
+          ),
+          ({ lx, lz, y }) => {
+            const idxOpt = blockIndex(lx, y, lz)
+            return y >= 1 && Option.isSome(idxOpt) && chunk.blocks[idxOpt.value] !== 0
           }
-        }
+        )
+        const { lx: surfaceLx, lz: surfaceLz, y: surfaceY } = Option.getOrElse(
+          surfaceBlockOpt,
+          () => ({ lx: 0, lz: 0, y: -1 })
+        )
 
         // Fallback: place a DIRT block if no solid block found
         if (surfaceY === -1) {
-          surfaceY = 64
-          surfaceLx = 0
-          surfaceLz = 0
           yield* blockService.placeBlock({ x: coord.x * CHUNK_SIZE, y: 64, z: coord.z * CHUNK_SIZE }, 'DIRT')
         }
 
+        const effectiveSurfaceY = surfaceY === -1 ? 64 : surfaceY
         const worldPos: Position = {
           x: coord.x * CHUNK_SIZE + surfaceLx,
-          y: surfaceY,
+          y: effectiveSurfaceY,
           z: coord.z * CHUNK_SIZE + surfaceLz,
         }
 
@@ -267,7 +259,7 @@ describe('integration/block-cycle', () => {
         if (Option.isSome(stored)) {
           const savedBlocks = stored.value
           // The broken block position should now be AIR in the saved data
-          const savedBlock = readBlockFromArray(savedBlocks, surfaceLx, surfaceY, surfaceLz)
+          const savedBlock = readBlockFromArray(savedBlocks, surfaceLx, effectiveSurfaceY, surfaceLz)
           expect(savedBlock).toBe('AIR')
         }
 
@@ -295,9 +287,9 @@ describe('integration/block-cycle', () => {
 
         // Ensure position is AIR (y=200 is well above terrain surface ~48-80)
         const idxBefore = blockIndex(lx, y, lz)
-        expect(idxBefore).not.toBeNull()
-        if (idxBefore !== null) {
-          expect(chunkBefore.blocks[idxBefore]).toBe(0) // AIR
+        expect(Option.isSome(idxBefore)).toBe(true)
+        if (Option.isSome(idxBefore)) {
+          expect(chunkBefore.blocks[idxBefore.value]).toBe(0) // AIR
         }
 
         // Place a STONE block at the target position
@@ -356,11 +348,6 @@ describe('integration/block-cycle', () => {
       const { TestLayer, storage } = buildIntegrationLayer()
       const secondSessionLayer = buildSecondSessionLayer(storage)
 
-      let savedCoord: ChunkCoord
-      let savedSurfaceLx: number
-      let savedSurfaceY: number
-      let savedSurfaceLz: number
-
       // Session 1: break a surface block and save
       const session1 = Effect.gen(function* () {
         const chunkManager = yield* ChunkManagerService
@@ -371,49 +358,43 @@ describe('integration/block-cycle', () => {
 
         // Find the first solid block (terrain surface)
         // Scan from CHUNK_HEIGHT-1 down to 1 to handle all biome height ranges
-        let surfaceY = -1
-        let surfaceLx = 0
-        let surfaceLz = 0
-        outerLoop: for (let lz = 0; lz < CHUNK_SIZE; lz++) {
-          for (let lx = 0; lx < CHUNK_SIZE; lx++) {
-            for (let y = CHUNK_HEIGHT - 1; y >= 1; y--) {
-              const idx = blockIndex(lx, y, lz)
-              if (idx !== null && chunk.blocks[idx] !== 0) {
-                surfaceY = y
-                surfaceLx = lx
-                surfaceLz = lz
-                break outerLoop
-              }
-            }
+        const surfaceBlockOpt = Arr.findFirst(
+          Arr.flatMap(
+            Arr.makeBy(CHUNK_SIZE, (lz) => lz),
+            (lz) => Arr.flatMap(
+              Arr.makeBy(CHUNK_SIZE, (lx) => lx),
+              (lx) => Arr.makeBy(CHUNK_HEIGHT - 1, (i) => ({ lx, lz, y: CHUNK_HEIGHT - 1 - i }))
+            )
+          ),
+          ({ lx, lz, y }) => {
+            const idxOpt = blockIndex(lx, y, lz)
+            return y >= 1 && Option.isSome(idxOpt) && chunk.blocks[idxOpt.value] !== 0
           }
-        }
+        )
+        const { lx: surfaceLx, lz: surfaceLz, y: surfaceY } = Option.getOrElse(
+          surfaceBlockOpt,
+          () => ({ lx: 0, lz: 0, y: -1 })
+        )
 
         // Fallback: place a DIRT block if no solid block found
         if (surfaceY === -1) {
-          surfaceY = 64
-          surfaceLx = 0
-          surfaceLz = 0
           yield* blockService.placeBlock({ x: coord.x * CHUNK_SIZE, y: 64, z: coord.z * CHUNK_SIZE }, 'DIRT')
         }
 
-        savedCoord = coord
-        savedSurfaceLx = surfaceLx
-        savedSurfaceY = surfaceY
-        savedSurfaceLz = surfaceLz
-
+        const effectiveSurfaceY = surfaceY === -1 ? 64 : surfaceY
         const worldPos: Position = {
           x: coord.x * CHUNK_SIZE + surfaceLx,
-          y: surfaceY,
+          y: effectiveSurfaceY,
           z: coord.z * CHUNK_SIZE + surfaceLz,
         }
 
         yield* blockService.breakBlock(worldPos)
         yield* chunkManager.saveDirtyChunks()
 
-        return { success: true }
+        return { coord, surfaceLx, surfaceY: effectiveSurfaceY, surfaceLz }
       }).pipe(Effect.provide(TestLayer))
 
-      Effect.runSync(session1)
+      const { coord: savedCoord, surfaceLx: savedSurfaceLx, surfaceY: savedSurfaceY, surfaceLz: savedSurfaceLz } = Effect.runSync(session1)
 
       // Session 2: load the same chunk from storage (new ChunkManagerService instance)
       const session2 = Effect.gen(function* () {

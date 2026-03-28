@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { Effect, Layer, Option } from 'effect'
+import { Array as Arr, Effect, Layer, Option } from 'effect'
 import { InventoryRendererService, InventoryRendererLive } from './inventory-renderer'
 import { InventoryService, INVENTORY_SIZE, HOTBAR_START } from '@/application/inventory/inventory-service'
 import { HotbarService } from '@/application/hotbar/hotbar-service'
@@ -35,23 +35,23 @@ const createMockDomLayer = () => {
     appendChild: vi.fn(),
     appendChildTo: vi.fn(),
     removeChild: vi.fn(),
-    getParentNode: vi.fn(() => null),
+    getParentNode: vi.fn(() => Option.none()),
     setInnerHTML: vi.fn(),
-    querySelector: vi.fn(() => null),
+    querySelector: vi.fn(() => Option.none()),
   } as unknown as DomOperationsService)
 
   return { MockDomLayer, createElement }
 }
 
 const createMockInventoryLayer = (overrideSlots?: ReadonlyArray<Option.Option<unknown>>) => {
-  const slots = overrideSlots ?? Array.from({ length: INVENTORY_SIZE }, () => Option.none())
+  const slots = Option.getOrElse(Option.fromNullable(overrideSlots), () => Arr.makeBy(INVENTORY_SIZE, () => Option.none()))
   const getAllSlots = vi.fn(() => Effect.succeed(slots))
   const getSlot = vi.fn((_: SlotIndex) => Effect.succeed(Option.none()))
   const setSlot = vi.fn((_: SlotIndex, __: unknown) => Effect.void)
   const moveStack = vi.fn((_from: SlotIndex, _to: SlotIndex) => Effect.void)
   const addBlock = vi.fn((_bt: unknown, _count: number) => Effect.succeed(true))
   const removeBlock = vi.fn((_bt: unknown, _count: number) => Effect.succeed(true))
-  const getHotbarSlots = vi.fn(() => Effect.succeed(slots.slice(HOTBAR_START)))
+  const getHotbarSlots = vi.fn(() => Effect.succeed(Arr.drop(slots, HOTBAR_START)))
   const serialize = vi.fn(() => Effect.succeed({ slots: [] }))
   const deserialize = vi.fn((_: unknown) => Effect.void)
 

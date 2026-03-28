@@ -1,4 +1,4 @@
-import { Effect, Ref } from 'effect'
+import { Effect, Option, Ref } from 'effect'
 
 // DOM abstraction for testability
 export class DomOperationsService extends Effect.Service<DomOperationsService>()(
@@ -13,11 +13,11 @@ export class DomOperationsService extends Effect.Service<DomOperationsService>()
           element.parentNode.removeChild(element)
         }
       },
-      getParentNode: (element: HTMLElement): HTMLElement | null =>
-        element.parentNode as HTMLElement | null,
+      getParentNode: (element: HTMLElement): Option.Option<HTMLElement> =>
+        Option.fromNullable(element.parentNode as HTMLElement | null),
       setInnerHTML: (element: HTMLElement, html: string): void => { element.innerHTML = html },
-      querySelector: <T extends HTMLElement>(element: HTMLElement, selector: string): T | null =>
-        element.querySelector<T>(selector),
+      querySelector: <T extends HTMLElement>(element: HTMLElement, selector: string): Option.Option<T> =>
+        Option.fromNullable(element.querySelector<T>(selector)),
     })
   }
 ) {}
@@ -70,34 +70,32 @@ export class CrosshairService extends Effect.Service<CrosshairService>()(
       const visibleRef = yield* Ref.make(false)
 
       return {
+        // Ref.modify returns the OLD state atomically, then the side-effect runs on that old value.
+        // This eliminates the Ref.get → Ref.set TOCTOU window.
         show: (): Effect.Effect<void, never> =>
-          Effect.gen(function* () {
-            const vis = yield* Ref.get(visibleRef)
-            if (!vis) {
-              dom.appendChild(element)
-              yield* Ref.set(visibleRef, true)
-            }
-          }),
+          Ref.modify(visibleRef, (vis) => [vis, true] as const).pipe(
+            Effect.flatMap((wasVisible) =>
+              wasVisible ? Effect.void : Effect.sync(() => dom.appendChild(element))
+            )
+          ),
 
         hide: (): Effect.Effect<void, never> =>
-          Effect.gen(function* () {
-            const vis = yield* Ref.get(visibleRef)
-            if (vis && dom.getParentNode(element)) {
-              dom.removeChild(element)
-              yield* Ref.set(visibleRef, false)
-            }
-          }),
+          Ref.modify(visibleRef, (vis) => [vis, false] as const).pipe(
+            Effect.flatMap((wasVisible) =>
+              !wasVisible ? Effect.void : Option.match(dom.getParentNode(element), {
+                onSome: () => Effect.sync(() => dom.removeChild(element)),
+                onNone: () => Effect.void,
+              })
+            )
+          ),
 
         toggle: (): Effect.Effect<void, never> =>
-          Effect.gen(function* () {
-            const vis = yield* Ref.get(visibleRef)
-            if (vis) {
-              dom.removeChild(element)
-            } else {
-              dom.appendChild(element)
-            }
-            yield* Ref.set(visibleRef, !vis)
-          }),
+          Ref.modify(visibleRef, (vis) => [vis, !vis] as const).pipe(
+            Effect.flatMap((wasVisible) => Effect.sync(() => {
+              if (wasVisible) dom.removeChild(element)
+              else dom.appendChild(element)
+            }))
+          ),
 
         isVisible: (): Effect.Effect<boolean, never> => Ref.get(visibleRef),
       }

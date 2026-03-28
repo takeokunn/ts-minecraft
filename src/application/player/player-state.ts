@@ -1,6 +1,6 @@
 // Stateful application service (PlayerService + PlayerState schema) — not a pure domain model.
-// Moved from src/domain/ because it contains Ref.make<Map<...>>() state.
-import { Effect, Ref, Schema } from 'effect'
+// Moved from src/domain/ because it contains Ref.make<HashMap<...>>() state.
+import { Effect, Ref, Schema, HashMap, Option } from 'effect'
 import { PlayerIdSchema, PositionSchema, PlayerId, Position } from '@/shared/kernel'
 import { PlayerError } from '@/domain/errors'
 import { Vector3Schema, QuaternionSchema, zero, identity, type Vector3 } from '@/shared/math/three'
@@ -18,16 +18,14 @@ export class PlayerService extends Effect.Service<PlayerService>()(
   '@minecraft/application/PlayerService',
   {
     effect: Effect.gen(function* () {
-      const playersRef = yield* Ref.make<Map<PlayerId, PlayerState>>(new Map())
+      const playersRef = yield* Ref.make(HashMap.empty<PlayerId, PlayerState>())
 
       return {
         create: (id: PlayerId, position: Position): Effect.Effect<void, PlayerError> =>
           Effect.gen(function* () {
-            const alreadyExists = yield* Ref.modify(playersRef, (players): [boolean, Map<PlayerId, PlayerState>] => {
-              if (players.has(id)) return [true, players]
-              const newMap = new Map(players)
-              newMap.set(id, { id, position, velocity: zero, rotation: identity })
-              return [false, newMap]
+            const alreadyExists = yield* Ref.modify(playersRef, (players): [boolean, HashMap.HashMap<PlayerId, PlayerState>] => {
+              if (HashMap.has(players, id)) return [true, players]
+              return [false, HashMap.set(players, id, { id, position, velocity: zero, rotation: identity })]
             })
             if (alreadyExists) {
               return yield* Effect.fail(new PlayerError({ playerId: id, reason: 'Player already exists' }))
@@ -36,13 +34,12 @@ export class PlayerService extends Effect.Service<PlayerService>()(
 
         updatePosition: (id: PlayerId, position: Position): Effect.Effect<void, PlayerError> =>
           Effect.gen(function* () {
-            const notFound = yield* Ref.modify(playersRef, (players): [boolean, Map<PlayerId, PlayerState>] => {
-              const player = players.get(id)
-              if (!player) return [true, players]
-              const newMap = new Map(players)
-              newMap.set(id, { ...player, position })
-              return [false, newMap]
-            })
+            const notFound = yield* Ref.modify(playersRef, (players): [boolean, HashMap.HashMap<PlayerId, PlayerState>] =>
+              Option.match(HashMap.get(players, id), {
+                onNone: () => [true, players],
+                onSome: (player) => [false, HashMap.set(players, id, { ...player, position })],
+              })
+            )
             if (notFound) {
               return yield* Effect.fail(new PlayerError({ playerId: id, reason: 'Player not found' }))
             }
@@ -50,13 +47,12 @@ export class PlayerService extends Effect.Service<PlayerService>()(
 
         updateVelocity: (id: PlayerId, velocity: Vector3): Effect.Effect<void, PlayerError> =>
           Effect.gen(function* () {
-            const notFound = yield* Ref.modify(playersRef, (players): [boolean, Map<PlayerId, PlayerState>] => {
-              const player = players.get(id)
-              if (!player) return [true, players]
-              const newMap = new Map(players)
-              newMap.set(id, { ...player, velocity })
-              return [false, newMap]
-            })
+            const notFound = yield* Ref.modify(playersRef, (players): [boolean, HashMap.HashMap<PlayerId, PlayerState>] =>
+              Option.match(HashMap.get(players, id), {
+                onNone: () => [true, players],
+                onSome: (player) => [false, HashMap.set(players, id, { ...player, velocity })],
+              })
+            )
             if (notFound) {
               return yield* Effect.fail(new PlayerError({ playerId: id, reason: 'Player not found' }))
             }
@@ -65,37 +61,28 @@ export class PlayerService extends Effect.Service<PlayerService>()(
         getPosition: (id: PlayerId): Effect.Effect<Position, PlayerError> =>
           Effect.gen(function* () {
             const players = yield* Ref.get(playersRef)
-            const player = players.get(id)
-
-            if (!player) {
-              return yield* Effect.fail(new PlayerError({ playerId: id, reason: 'Player not found' }))
-            }
-
-            return player.position
+            return yield* Option.match(HashMap.get(players, id), {
+              onNone: () => Effect.fail(new PlayerError({ playerId: id, reason: 'Player not found' })),
+              onSome: (player) => Effect.succeed(player.position),
+            })
           }),
 
         getVelocity: (id: PlayerId): Effect.Effect<Vector3, PlayerError> =>
           Effect.gen(function* () {
             const players = yield* Ref.get(playersRef)
-            const player = players.get(id)
-
-            if (!player) {
-              return yield* Effect.fail(new PlayerError({ playerId: id, reason: 'Player not found' }))
-            }
-
-            return player.velocity
+            return yield* Option.match(HashMap.get(players, id), {
+              onNone: () => Effect.fail(new PlayerError({ playerId: id, reason: 'Player not found' })),
+              onSome: (player) => Effect.succeed(player.velocity),
+            })
           }),
 
         getState: (id: PlayerId): Effect.Effect<PlayerState, PlayerError> =>
           Effect.gen(function* () {
             const players = yield* Ref.get(playersRef)
-            const player = players.get(id)
-
-            if (!player) {
-              return yield* Effect.fail(new PlayerError({ playerId: id, reason: 'Player not found' }))
-            }
-
-            return player
+            return yield* Option.match(HashMap.get(players, id), {
+              onNone: () => Effect.fail(new PlayerError({ playerId: id, reason: 'Player not found' })),
+              onSome: Effect.succeed,
+            })
           }),
       }
     }),
