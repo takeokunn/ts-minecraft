@@ -705,7 +705,7 @@ describe('infrastructure/storage/storage-service', () => {
       // When the underlying storage throws a generic Error (not QuotaExceededError),
       // a well-written caller wrapping it in StorageError should produce _tag='StorageError'.
       // Here we test StorageError construction directly to verify the tag and operation fields.
-      return Effect.gen(function* () {
+      return Effect.sync(() => {
         const err = new StorageError({ operation: 'saveChunk', cause: new Error('disk full') })
         expect(err._tag).toBe('StorageError')
         expect(err.operation).toBe('saveChunk')

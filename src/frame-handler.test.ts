@@ -27,12 +27,13 @@ import type { DeltaTimeSecs } from '@/shared/kernel'
 
 const makeLights = () =>
   ({
-    light: { position: { set: vi.fn() }, intensity: 1, target: { position: { set: vi.fn() }, updateMatrixWorld: vi.fn() } } as unknown as THREE.DirectionalLight,
-    ambientLight: { intensity: 0.3 } as unknown as THREE.AmbientLight,
+    light: { position: { set: vi.fn() }, intensity: 1, color: { setHSL: vi.fn() }, target: { position: { set: vi.fn() }, updateMatrixWorld: vi.fn() } } as unknown as THREE.DirectionalLight,
+    ambientLight: { intensity: 0.3, color: { setHSL: vi.fn() } } as unknown as THREE.AmbientLight,
     renderer: { setClearColor: vi.fn() },
     skyNight: new THREE.Color(0x001133),
     skyDay: new THREE.Color(0x87ceeb),
     skyCurrent: new THREE.Color(0x87ceeb),
+    sky: Option.none(),
   }) as unknown as import('@/application/time/day-night-cycle').DayNightLights
 
 // ---------------------------------------------------------------------------

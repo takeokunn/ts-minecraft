@@ -216,7 +216,7 @@ describe('application/game-state — updateGroundY shifts grounded threshold', (
   it.effect(
     'updateGroundY property: threshold = newY + PLAYER_HALF_HEIGHT + tolerance',
     () =>
-      Effect.gen(function* () {
+      Effect.sync(() => {
         // Verify the formula directly: for a set of known ground Y values,
         // a player body placed exactly at groundY + PLAYER_FEET_OFFSET should
         // be considered grounded (within the 0.15 tolerance).
@@ -240,7 +240,7 @@ describe('application/game-state — updateGroundY shifts grounded threshold', (
   it.effect(
     'updateGroundY property: player well above new ground is not grounded',
     () =>
-      Effect.gen(function* () {
+      Effect.sync(() => {
         fc.assert(
           fc.property(
             fc.float({ min: -50, max: 50, noNaN: true }),

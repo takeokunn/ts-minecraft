@@ -21,7 +21,7 @@ import { HealthService } from '@/application/player/health-service'
 describe('HealthService (property-based)', () => {
   describe('processFallDamage formula invariants', () => {
     it.effect('falls of exactly 3 blocks or less always deal 0 damage', () =>
-      Effect.gen(function* () {
+      Effect.sync(() => {
         fc.assert(
           fc.property(
             // fallDistance in (0, 3] — strictly positive, at or below safe threshold
@@ -37,7 +37,7 @@ describe('HealthService (property-based)', () => {
     )
 
     it.effect('falls of at least 4 blocks deal positive damage equal to floor(fallDistance - 3)', () =>
-      Effect.gen(function* () {
+      Effect.sync(() => {
         fc.assert(
           fc.property(
             // fallDistance >= 4 guarantees floor(fallDistance - 3) >= 1 (positive damage).
@@ -53,7 +53,7 @@ describe('HealthService (property-based)', () => {
     )
 
     it.effect('damage is monotonically non-decreasing as fallDistance increases', () =>
-      Effect.gen(function* () {
+      Effect.sync(() => {
         fc.assert(
           fc.property(
             fc.float({ min: 0, max: 50, noNaN: true }),
@@ -71,7 +71,7 @@ describe('HealthService (property-based)', () => {
     )
 
     it.effect('processFallDamage returns 0 on first call regardless of Y (prevY not set)', () =>
-      Effect.gen(function* () {
+      Effect.sync(() => {
         fc.assert(
           fc.asyncProperty(
             fc.float({ min: -1000, max: 1000, noNaN: true }),
@@ -93,7 +93,7 @@ describe('HealthService (property-based)', () => {
     it.effect('processFallDamage returns 0 while still falling (not yet grounded)', () =>
       // If the player is falling (currentY < prevY) but isGrounded = false,
       // the landing-detection branch is not triggered → damage = 0.
-      Effect.gen(function* () {
+      Effect.sync(() => {
         fc.assert(
           fc.asyncProperty(
             fc.float({ min: 10, max: 100, noNaN: true }),     // startY
