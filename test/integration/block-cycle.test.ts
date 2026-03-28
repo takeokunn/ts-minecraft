@@ -12,8 +12,9 @@
  *   - A new ChunkManagerService instance reads back the saved data unchanged
  */
 import { describe, it, expect } from 'vitest'
-import { Array as Arr, Effect, Layer, MutableHashMap, Option } from 'effect'
+import { Array as Arr, Brand, Effect, Layer, MutableHashMap, Option } from 'effect'
 import { StorageServicePort } from '@/application/storage/storage-service-port'
+import type { ChunkStorageValue } from '@/application/storage/storage-service-port'
 import { StorageError } from '@/domain/errors'
 import { NoiseServicePort } from '@/application/noise/noise-service-port'
 import { BiomeServiceLive } from '@/application/biome/biome-service'
@@ -27,7 +28,7 @@ import {
   ChunkCoord,
 } from '@/domain/chunk'
 import { PlayerService } from '@/application/player/player-state'
-import { Position, PlayerId } from '@/shared/kernel'
+import { Position, PlayerId, WorldId } from '@/shared/kernel'
 import { PlayerError } from '@/domain/errors'
 import { ChunkManagerService, ChunkManagerServiceLive } from '@/application/chunk/chunk-manager-service'
 import { BlockService, BlockServiceLive } from '@/application/block/block-service'
@@ -45,17 +46,22 @@ import { DEFAULT_WORLD_ID, DEFAULT_PLAYER_ID } from '@/application/constants'
 // In-memory StorageService mock (no IndexedDB)
 // ---------------------------------------------------------------------------
 
+type ChunkStorageKey = string & Brand.Brand<'ChunkStorageKey'>
+const ChunkStorageKey = Brand.nominal<ChunkStorageKey>()
+const storageKey = (worldId: WorldId, coord: ChunkCoord): ChunkStorageKey =>
+  ChunkStorageKey(`${worldId}:${coord.x}:${coord.z}`)
+
 const makeInMemoryStorage = () => {
-  const chunks = MutableHashMap.empty<string, Uint8Array>()
+  const chunks = MutableHashMap.empty<ChunkStorageKey, Uint8Array>()
 
   return StorageServicePort.of({
     _tag: '@minecraft/application/storage/StorageServicePort' as const,
     saveChunk: (worldId, coord, data) =>
       Effect.sync(() => {
-        MutableHashMap.set(chunks, `${worldId}:${coord.x}:${coord.z}`, data)
+        MutableHashMap.set(chunks, storageKey(worldId, coord), data)
       }) as Effect.Effect<undefined, StorageError>,
     loadChunk: (worldId, coord) =>
-      Effect.sync(() => MutableHashMap.get(chunks, `${worldId}:${coord.x}:${coord.z}`)),
+      Effect.sync(() => MutableHashMap.get(chunks, storageKey(worldId, coord))),
   })
 }
 
@@ -153,8 +159,13 @@ const worldToLocal = (pos: Position): { coord: ChunkCoord; lx: number; lz: numbe
   return { coord: { x: cx, z: cz }, lx, lz, y: Math.floor(pos.y) }
 }
 
-const readBlockFromArray = (blocks: Uint8Array, lx: number, y: number, lz: number): string =>
-  Option.match(blockIndex(lx, y, lz), { onNone: () => 'AIR', onSome: (idx) => indexToBlockType(Option.getOrElse(Option.fromNullable(blocks[idx]), () => 0)) })
+const readBlockFromArray = (data: ChunkStorageValue, lx: number, y: number, lz: number): string => {
+  const blocks = data instanceof Uint8Array ? data : data.blocks
+  return Option.match(blockIndex(lx, y, lz), {
+    onNone: () => 'AIR',
+    onSome: (idx) => indexToBlockType(Option.getOrElse(Option.fromNullable(blocks[idx]), () => 0)),
+  })
+}
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -181,16 +192,18 @@ describe('integration/block-cycle', () => {
         // (terrain surface is typically y=48-80 for PLAINS biome)
         const solidPos = Arr.findFirst(
           Arr.makeBy(80, (i) => 80 - i),
-          (y) => {
-            const idxOpt = blockIndex(0, y, 0)
-            return Option.isSome(idxOpt) && chunk.blocks[idxOpt.value] !== 0
-          }
+          (y) => Option.match(blockIndex(0, y, 0), {
+            onNone: () => false,
+            onSome: (idx) => chunk.blocks[idx] !== 0,
+          })
         ).pipe(Option.map((y) => ({ x: coord.x * CHUNK_SIZE, y, z: coord.z * CHUNK_SIZE } as Position)))
 
         const effectiveSolidPos: Position = Option.getOrElse(solidPos, () => {
           // Fallback: manually inject a STONE block and break it
-          const idxFallback = blockIndex(0, 64, 0)
-          if (Option.isSome(idxFallback)) chunk.blocks[idxFallback.value] = blockTypeToIndex('STONE')
+          Option.match(blockIndex(0, 64, 0), {
+            onNone: () => {},
+            onSome: (idx) => { chunk.blocks[idx] = blockTypeToIndex('STONE') },
+          })
           return { x: coord.x * CHUNK_SIZE, y: 64, z: coord.z * CHUNK_SIZE }
         })
 
@@ -233,10 +246,10 @@ describe('integration/block-cycle', () => {
               (lx) => Arr.makeBy(CHUNK_HEIGHT - 1, (i) => ({ lx, lz, y: CHUNK_HEIGHT - 1 - i }))
             )
           ),
-          ({ lx, lz, y }) => {
-            const idxOpt = blockIndex(lx, y, lz)
-            return y >= 1 && Option.isSome(idxOpt) && chunk.blocks[idxOpt.value] !== 0
-          }
+          ({ lx, lz, y }) => y >= 1 && Option.match(blockIndex(lx, y, lz), {
+            onNone: () => false,
+            onSome: (idx) => chunk.blocks[idx] !== 0,
+          })
         )
         const { lx: surfaceLx, lz: surfaceLz, y: surfaceY } = Option.getOrElse(
           surfaceBlockOpt,
@@ -265,12 +278,14 @@ describe('integration/block-cycle', () => {
         const stored = yield* storage.loadChunk(DEFAULT_WORLD_ID, coord)
         expect(Option.isSome(stored)).toBe(true)
 
-        if (Option.isSome(stored)) {
-          const savedBlocks = stored.value
-          // The broken block position should now be AIR in the saved data
-          const savedBlock = readBlockFromArray(savedBlocks, surfaceLx, effectiveSurfaceY, surfaceLz)
-          expect(savedBlock).toBe('AIR')
-        }
+        Option.match(stored, {
+          onNone: () => {},
+          onSome: (savedBlocks) => {
+            // The broken block position should now be AIR in the saved data
+            const savedBlock = readBlockFromArray(savedBlocks, surfaceLx, effectiveSurfaceY, surfaceLz)
+            expect(savedBlock).toBe('AIR')
+          },
+        })
 
         return { success: true }
       }).pipe(Effect.provide(TestLayer))
@@ -297,9 +312,10 @@ describe('integration/block-cycle', () => {
         // Ensure position is AIR (y=200 is well above terrain surface ~48-80)
         const idxBefore = blockIndex(lx, y, lz)
         expect(Option.isSome(idxBefore)).toBe(true)
-        if (Option.isSome(idxBefore)) {
-          expect(chunkBefore.blocks[idxBefore.value]).toBe(0) // AIR
-        }
+        Option.match(idxBefore, {
+          onNone: () => {},
+          onSome: (idx) => { expect(chunkBefore.blocks[idx]).toBe(0) }, // AIR
+        })
 
         // Place a STONE block at the target position
         yield* blockService.placeBlock(targetPos, 'STONE')
@@ -311,10 +327,12 @@ describe('integration/block-cycle', () => {
         const stored = yield* storage.loadChunk(DEFAULT_WORLD_ID, coord)
         expect(Option.isSome(stored)).toBe(true)
 
-        if (Option.isSome(stored)) {
-          const savedBlock = readBlockFromArray(stored.value, lx, y, lz)
-          expect(savedBlock).toBe('STONE')
-        }
+        Option.match(stored, {
+          onNone: () => {},
+          onSome: (savedBlocks) => {
+            expect(readBlockFromArray(savedBlocks, lx, y, lz)).toBe('STONE')
+          },
+        })
 
         return { success: true }
       }).pipe(Effect.provide(TestLayer))
@@ -339,9 +357,12 @@ describe('integration/block-cycle', () => {
 
         const stored = yield* storage.loadChunk(DEFAULT_WORLD_ID, coord)
         expect(Option.isSome(stored)).toBe(true)
-        if (Option.isSome(stored)) {
-          expect(readBlockFromArray(stored.value, lx, y, lz)).toBe('DIRT')
-        }
+        Option.match(stored, {
+          onNone: () => {},
+          onSome: (savedBlocks) => {
+            expect(readBlockFromArray(savedBlocks, lx, y, lz)).toBe('DIRT')
+          },
+        })
 
         return { success: true }
       }).pipe(Effect.provide(TestLayer))
@@ -375,10 +396,10 @@ describe('integration/block-cycle', () => {
               (lx) => Arr.makeBy(CHUNK_HEIGHT - 1, (i) => ({ lx, lz, y: CHUNK_HEIGHT - 1 - i }))
             )
           ),
-          ({ lx, lz, y }) => {
-            const idxOpt = blockIndex(lx, y, lz)
-            return y >= 1 && Option.isSome(idxOpt) && chunk.blocks[idxOpt.value] !== 0
-          }
+          ({ lx, lz, y }) => y >= 1 && Option.match(blockIndex(lx, y, lz), {
+            onNone: () => false,
+            onSome: (idx) => chunk.blocks[idx] !== 0,
+          })
         )
         const { lx: surfaceLx, lz: surfaceLz, y: surfaceY } = Option.getOrElse(
           surfaceBlockOpt,

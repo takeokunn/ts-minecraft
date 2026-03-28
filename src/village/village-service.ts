@@ -36,13 +36,8 @@ const distanceTo = (a: Position, b: Position): number => {
   return Math.sqrt(dx * dx + dy * dy + dz * dz)
 }
 
-const hashString = (source: string): number => {
-  let hash = 0
-  for (let i = 0; i < source.length; i++) {
-    hash = ((hash << 5) - hash + source.charCodeAt(i)) | 0
-  }
-  return Math.abs(hash)
-}
+const hashString = (source: string): number =>
+  Math.abs(Arr.reduce(Arr.fromIterable(source), 0, (hash, char) => ((hash << 5) - hash + char.charCodeAt(0)) | 0))
 
 const moveTowards = (from: Position, to: Position, maxDelta: number): Position => {
   const dx = to.x - from.x
@@ -73,6 +68,18 @@ const findNearestVillage = (
           ? Option.some(village)
           : closest,
     })
+  )
+
+const findStructureAnchor = (
+  structures: ReadonlyArray<VillageStructure>,
+  structureId: VillageStructureId,
+  fallback: Position,
+): Position =>
+  Option.getOrElse(
+    Arr.findFirst(structures, (s) => s.structureId === structureId).pipe(
+      Option.map((s) => s.anchor),
+    ),
+    () => fallback,
   )
 
 const snapVillageCenter = (position: Position): Position => ({
@@ -124,13 +131,8 @@ const createVillage = (villageNumber: number, center: Position): Village => {
     },
   ]
 
-  const byId = (id: string): Position =>
-    Option.getOrElse(
-      Arr.findFirst(structures, (structure) => structure.structureId === id).pipe(
-        Option.map((structure) => structure.anchor),
-      ),
-      () => center,
-    )
+  const byId = (id: VillageStructureId): Position =>
+    findStructureAnchor(structures, id, center)
 
   const villagers: ReadonlyArray<Villager> = [
     {
@@ -216,12 +218,7 @@ const getTargetPosition = (
   tick: number,
 ): Position => {
   const findStructurePosition = (structureId: VillageStructureId): Position =>
-    Option.getOrElse(
-      Arr.findFirst(village.structures, (structure) => structure.structureId === structureId).pipe(
-        Option.map((structure) => structure.anchor),
-      ),
-      () => villager.position,
-    )
+    findStructureAnchor(village.structures, structureId, villager.position)
 
   if (nextActivity === VillagerActivity.Work) {
     return findStructurePosition(villager.workplaceStructureId)

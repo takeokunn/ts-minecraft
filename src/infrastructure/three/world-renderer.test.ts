@@ -75,7 +75,12 @@ vi.mock('three', () => ({
     position: { set: vi.fn(), copy: vi.fn(), x: 0, y: 0, z: 0 },
   })),
   MeshStandardMaterial: vi.fn(() => ({ map: null, dispose: vi.fn() })),
-  ShaderMaterial: vi.fn(() => ({ uniforms: {}, transparent: true, depthWrite: false, dispose: vi.fn() })),
+  ShaderMaterial: vi.fn((params: { uniforms?: Record<string, { value: unknown }> } = {}) => ({
+    uniforms: params.uniforms ?? {},
+    transparent: true,
+    depthWrite: false,
+    dispose: vi.fn(),
+  })),
   CanvasTexture: vi.fn(() => ({ magFilter: 0, minFilter: 0, wrapS: 0, wrapT: 0, dispose: vi.fn() })),
   WebGLRenderTarget: vi.fn(() => ({ texture: {}, setSize: vi.fn(), dispose: vi.fn() })),
   NearestFilter: 0,
@@ -162,7 +167,13 @@ describe('infrastructure/three/world-renderer', () => {
 
   // SceneService.Default calls scene.add(object) and scene.remove(object) directly.
   // The THREE.js mock provides Scene with add/remove spy functions, so we use that.
-  const makeScene = (): THREE.Scene => new THREE.Scene()
+const makeScene = (): THREE.Scene => new THREE.Scene()
+
+const makeRenderer = (): THREE.WebGLRenderer =>
+  ({
+    setRenderTarget: vi.fn(),
+    render: vi.fn(),
+  } as unknown as THREE.WebGLRenderer)
 
   describe('syncChunksToScene', () => {
     it('should add new chunk meshes to scene', async () => {
@@ -253,6 +264,48 @@ describe('infrastructure/three/world-renderer', () => {
         return { success: true }
       }).pipe(Effect.provide(TestLayer), Effect.runPromise)
       expect(result.success).toBe(true)
+    })
+  })
+
+  describe('doRefractionPrePass', () => {
+    it('should skip the refraction pass when there are no water meshes', async () => {
+      const TestLayer = buildTestLayer()
+      const scene = makeScene()
+      const renderer = makeRenderer()
+      const camera = new THREE.PerspectiveCamera()
+
+      await Effect.gen(function* () {
+        const s = yield* WorldRendererService
+        yield* s.syncChunksToScene([makeChunk(0, 0)], scene)
+        yield* s.doRefractionPrePass(renderer, scene, camera)
+      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
+
+      expect(renderer.setRenderTarget).not.toHaveBeenCalled()
+      expect(renderer.render).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('updateWaterUniforms', () => {
+    it('updates the water shader uniforms in place', async () => {
+      const TestLayer = buildTestLayer()
+      const cameraPosition = new THREE.Vector3()
+
+      const result = await Effect.gen(function* () {
+        const s = yield* WorldRendererService
+        yield* s.updateWaterUniforms(42, cameraPosition, 1280, 720)
+        const shaderMaterial = (THREE.ShaderMaterial as ReturnType<typeof vi.fn>).mock.results.at(-1)?.value as {
+          uniforms: {
+            uTime: { value: number }
+            uCameraPosition: { value: { copy: ReturnType<typeof vi.fn> } }
+            uResolution: { value: { set: ReturnType<typeof vi.fn> } }
+          }
+        }
+        return shaderMaterial
+      }).pipe(Effect.provide(TestLayer), Effect.runPromise)
+
+      expect(result.uniforms.uTime.value).toBe(42)
+      expect(result.uniforms.uCameraPosition.value.copy).toHaveBeenCalledWith(cameraPosition)
+      expect(result.uniforms.uResolution.value.set).toHaveBeenCalledWith(1280, 720)
     })
   })
 

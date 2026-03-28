@@ -38,6 +38,7 @@ export const ChunkSchema = Schema.Struct({
   coord: ChunkCoordSchema,
   // Schema.declare: opaque brand for Uint8Array (ArrayBufferLike base type, compatible with idb storage returns)
   blocks: Schema.declare((u): u is Uint8Array<ArrayBufferLike> => u instanceof Uint8Array),
+  fluid: Schema.optional(Schema.declare((u): u is Uint8Array<ArrayBufferLike> => u instanceof Uint8Array)),
 })
 export type Chunk = Schema.Schema.Type<typeof ChunkSchema>
 
@@ -106,7 +107,11 @@ export class ChunkService extends Effect.Service<ChunkService>()(
        * All blocks are initialized to AIR (0)
        */
       createChunk: (coord: ChunkCoord): Effect.Effect<Chunk, never> =>
-        Effect.succeed({ coord, blocks: new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT) }),
+        Effect.succeed({
+          coord,
+          blocks: new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT),
+          fluid: new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT),
+        }),
 
       /**
        * Get the block type at specified local coordinates within a chunk

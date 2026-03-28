@@ -36,14 +36,8 @@ const toPublicEntity = (entity: ManagedEntity): Entity => ({
   type: entity.type,
 })
 
-const hashEntityId = (entityId: EntityIdType): number => {
-  const source = entityId as unknown as string
-  let hash = 0
-  for (let i = 0; i < source.length; i++) {
-    hash = ((hash << 5) - hash + source.charCodeAt(i)) | 0
-  }
-  return Math.abs(hash)
-}
+const hashEntityId = (entityId: EntityIdType): number =>
+  Math.abs(Arr.reduce(Arr.fromIterable(entityId as string), 0, (hash, char) => ((hash << 5) - hash + char.charCodeAt(0)) | 0))
 
 const makeWanderDirection = (entityId: EntityIdType, tick: number): Vector3 => {
   const angleDegrees = (hashEntityId(entityId) + tick * 29) % 360

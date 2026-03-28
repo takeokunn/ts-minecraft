@@ -1,10 +1,11 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { Array as Arr, Effect, Layer, MutableHashMap, Option, Schema } from 'effect'
-import { StorageService, WorldMetadataSchema, WorldMetadata } from './storage-service'
+import { StorageService, WorldMetadataSchema, WorldMetadata, ChunkStorageKey } from './storage-service'
 import { StorageError } from '@/domain/errors'
 import { WorldId } from '@/shared/kernel'
 import type { ChunkCoord } from '@/domain/chunk'
+import type { ChunkStorageValue } from '@/application/storage/storage-service-port'
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -14,18 +15,21 @@ const testWorldId = 'test-world' as WorldId
 const anotherWorldId = 'another-world' as WorldId
 const testCoord: ChunkCoord = { x: 0, z: 0 }
 
+const chunkStorageBlocks = (value: ChunkStorageValue): Uint8Array<ArrayBufferLike> =>
+  value instanceof Uint8Array ? value : value.blocks
+
 /**
  * Build an in-memory StorageService implementation for contract testing.
  * Uses plain Maps to simulate the IndexedDB storage contract without requiring
  * a real browser environment.
  */
 const makeInMemoryStorageService = () => {
-  const chunkStore = MutableHashMap.empty<string, Uint8Array>()
-  const metaStore = MutableHashMap.empty<string, WorldMetadata>()
+  const chunkStore = MutableHashMap.empty<ChunkStorageKey, Uint8Array>()
+  const metaStore = MutableHashMap.empty<WorldId, WorldMetadata>()
   let initialized = false
 
-  const chunkKey = (worldId: WorldId, coord: ChunkCoord): string =>
-    `${worldId}:${coord.x}:${coord.z}`
+  const chunkKey = (worldId: WorldId, coord: ChunkCoord): ChunkStorageKey =>
+    ChunkStorageKey(`${worldId}:${coord.x}:${coord.z}`)
 
   const service = {
     initialize: Effect.sync(() => {
@@ -409,8 +413,9 @@ describe('infrastructure/storage/storage-service', () => {
         const result = yield* storage.loadChunk(testWorldId, testCoord)
         expect(Option.isSome(result)).toBe(true)
         const retrieved = Option.getOrThrow(result)
-        expect(retrieved.length).toBe(largeData.length)
-        expect(retrieved).toEqual(largeData)
+        const retrievedBlocks = chunkStorageBlocks(retrieved)
+        expect(retrievedBlocks.length).toBe(largeData.length)
+        expect(retrievedBlocks).toEqual(largeData)
       }).pipe(Effect.provide(TestLayer))
     })
 
@@ -422,7 +427,7 @@ describe('infrastructure/storage/storage-service', () => {
         yield* storage.saveChunk(testWorldId, testCoord, emptyData)
         const result = yield* storage.loadChunk(testWorldId, testCoord)
         expect(Option.isSome(result)).toBe(true)
-        expect(Option.getOrThrow(result).length).toBe(0)
+        expect(chunkStorageBlocks(Option.getOrThrow(result)).length).toBe(0)
       }).pipe(Effect.provide(TestLayer))
     })
 
@@ -512,7 +517,7 @@ describe('infrastructure/storage/storage-service', () => {
           const coord: ChunkCoord = { x: i, z: i * 2 }
           const loaded = yield* storage.loadChunk(testWorldId, coord)
           expect(Option.isSome(loaded)).toBe(true)
-          expect(Option.getOrThrow(loaded)[0]).toBe(i)
+          expect(chunkStorageBlocks(Option.getOrThrow(loaded))[0]).toBe(i)
         }
       }).pipe(Effect.provide(TestLayer))
     })

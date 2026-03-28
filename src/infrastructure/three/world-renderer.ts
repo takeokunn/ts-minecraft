@@ -32,7 +32,6 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
       const chunkMeshService = yield* ChunkMeshService
       const sceneService = yield* SceneService
       const meshesRef = yield* Ref.make(HashMap.empty<ChunkCacheKey, ChunkMeshes>())
-      const lastSyncedLoadedChunksRef = yield* Ref.make<Option.Option<ReadonlyArray<Chunk>>>(Option.none())
       // Stable water mesh list for SSRPass.selects — only replaced (new array reference) when
       // chunks are added/removed. SSRPass setter short-circuits when reference is identical,
       // preventing per-frame shader recompilation (60 Hz) that would otherwise occur.
@@ -80,16 +79,6 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
          */
         syncChunksToScene: (loadedChunks: ReadonlyArray<Chunk>, scene: THREE.Scene): Effect.Effect<void, never> =>
           Effect.gen(function* () {
-            const lastSyncedLoadedChunks = yield* Ref.get(lastSyncedLoadedChunksRef)
-            const chunksAlreadySynced = Option.match(lastSyncedLoadedChunks, {
-              onNone: () => false,
-              onSome: (previousLoadedChunks) => previousLoadedChunks === loadedChunks,
-            })
-
-            if (chunksAlreadySynced) {
-              return
-            }
-
             const meshes = yield* Ref.get(meshesRef)
 
             // Early-exit phase 1: check for new chunks — no Set allocation needed.
@@ -99,7 +88,6 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
             const hasRemovedChunks = !hasNewChunks && loadedChunks.length < HashMap.size(meshes)
 
             if (!hasNewChunks && !hasRemovedChunks) {
-              yield* Ref.set(lastSyncedLoadedChunksRef, Option.some(loadedChunks))
               return
             }
 
@@ -147,7 +135,6 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
             )
 
             yield* Ref.set(meshesRef, nextMeshes)
-            yield* Ref.set(lastSyncedLoadedChunksRef, Option.some(loadedChunks))
 
             // Rebuild stable water mesh list for SSRPass.selects
             const nextWaterMeshes = Arr.filterMap(Arr.fromIterable(HashMap.values(nextMeshes)), (cm) => cm.water)
@@ -175,7 +162,7 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
                   onNone: () => Effect.void,
                   onSome: (m) => Effect.gen(function* () {
                     yield* sceneService.add(scene, m)
-                    yield* Ref.update(waterMeshesRef, (waterMeshes) => [...waterMeshes, m])
+                    yield* Ref.update(waterMeshesRef, (waterMeshes) => Arr.append(waterMeshes, m))
                   }),
                 })
                 yield* Ref.update(meshesRef, (map) => HashMap.set(map, key, { opaque: opaqueMesh, water: waterMesh }))
@@ -203,19 +190,23 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
             const meshes = yield* Ref.get(meshesRef)
 
             yield* Effect.sync(() => {
-              Arr.forEach(Arr.fromIterable(HashMap.values(meshes)), (chunkMeshes) => {
-                Option.map(
-                  Option.fromNullable(chunkMeshes.opaque.userData['chunkCoord'] as ChunkCoord | null),
-                  (coord) => {
-                    _minVec.set(coord.x * CHUNK_SIZE, 0, coord.z * CHUNK_SIZE)
-                    _maxVec.set(coord.x * CHUNK_SIZE + CHUNK_SIZE, CHUNK_HEIGHT, coord.z * CHUNK_SIZE + CHUNK_SIZE)
-                    _box.set(_minVec, _maxVec)
-                    const visible = _frustum.intersectsBox(_box)
-                    chunkMeshes.opaque.visible = visible
-                    Option.map(chunkMeshes.water, (m) => { m.visible = visible })
-                  }
-                )
-              })
+              for (const chunkMeshes of HashMap.values(meshes)) {
+                const coord = chunkMeshes.opaque.userData['chunkCoord'] as ChunkCoord | null
+                if (coord === null) {
+                  continue
+                }
+
+                _minVec.set(coord.x * CHUNK_SIZE, 0, coord.z * CHUNK_SIZE)
+                _maxVec.set(coord.x * CHUNK_SIZE + CHUNK_SIZE, CHUNK_HEIGHT, coord.z * CHUNK_SIZE + CHUNK_SIZE)
+                _box.set(_minVec, _maxVec)
+
+                const visible = _frustum.intersectsBox(_box)
+                chunkMeshes.opaque.visible = visible
+
+                if (Option.isSome(chunkMeshes.water)) {
+                  chunkMeshes.water.value.visible = visible
+                }
+              }
             })
           }),
 
@@ -242,7 +233,6 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
             )
             yield* Ref.set(meshesRef, HashMap.empty())
             yield* Ref.set(waterMeshesRef, [])
-            yield* Ref.set(lastSyncedLoadedChunksRef, Option.none())
           }),
 
         /**
@@ -264,10 +254,10 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
             // Save current visibility and hide water meshes for the refraction render
             yield* Effect.sync(() => {
               _savedWaterVisibility.clear()
-              Arr.forEach(waterMeshes, (mesh) => {
+              for (const mesh of waterMeshes) {
                 _savedWaterVisibility.set(mesh, mesh.visible)
                 mesh.visible = false
-              })
+              }
             })
 
             yield* Effect.sync(() => {
@@ -295,9 +285,20 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
         ): Effect.Effect<void, never> =>
           Effect.sync(() => {
             const uniforms = waterMaterial.uniforms
-            Option.map(Option.fromNullable(uniforms['uTime']), (u) => { u.value = time })
-            Option.map(Option.fromNullable(uniforms['uCameraPosition']), (u) => { (u.value as THREE.Vector3).copy(cameraPosition) })
-            Option.map(Option.fromNullable(uniforms['uResolution']), (u) => { (u.value as THREE.Vector2).set(width, height) })
+            const uTime = uniforms['uTime']
+            if (uTime !== undefined) {
+              uTime.value = time
+            }
+
+            const uCameraPosition = uniforms['uCameraPosition']
+            if (uCameraPosition !== undefined) {
+              (uCameraPosition.value as THREE.Vector3).copy(cameraPosition)
+            }
+
+            const uResolution = uniforms['uResolution']
+            if (uResolution !== undefined) {
+              (uResolution.value as THREE.Vector2).set(width, height)
+            }
           }),
 
         /**

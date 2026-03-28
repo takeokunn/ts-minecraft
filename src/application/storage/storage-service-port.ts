@@ -3,6 +3,13 @@ import type { WorldId } from '@/shared/kernel'
 import type { ChunkCoord } from '@/domain/chunk'
 import { StorageError } from '@/domain/errors'
 
+export type ChunkStorageValue =
+  | Uint8Array<ArrayBufferLike>
+  | {
+      readonly blocks: Uint8Array<ArrayBufferLike>
+      readonly fluid: Uint8Array<ArrayBufferLike> | undefined
+    }
+
 /**
  * Application-layer port for chunk persistence.
  * Decouples application services from IndexedDB infrastructure.
@@ -15,12 +22,12 @@ export class StorageServicePort extends Effect.Service<StorageServicePort>()(
       saveChunk: (
         _worldId: WorldId,
         _chunkCoord: ChunkCoord,
-        _data: Uint8Array,
+        _data: ChunkStorageValue,
       ): Effect.Effect<void, StorageError> => Effect.void,
       loadChunk: (
         _worldId: WorldId,
         _chunkCoord: ChunkCoord,
-      ): Effect.Effect<Option.Option<Uint8Array>, StorageError> => Effect.succeed(Option.none()),
+      ): Effect.Effect<Option.Option<ChunkStorageValue>, StorageError> => Effect.succeed(Option.none()),
     },
   }
 ) {}

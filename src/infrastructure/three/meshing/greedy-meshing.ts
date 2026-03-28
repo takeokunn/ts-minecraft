@@ -1,4 +1,4 @@
-import { Array as Arr, Option, Schema } from 'effect'
+import { Schema } from 'effect'
 import { Chunk, CHUNK_SIZE, CHUNK_HEIGHT } from '@/domain/chunk'
 import { getTileIndex, getTileUVs, FaceDir } from '../textures/block-texture-map'
 
@@ -19,6 +19,14 @@ export const ChunkWorldOffsetSchema = Schema.Struct({
 export type ChunkWorldOffset = Schema.Schema.Type<typeof ChunkWorldOffsetSchema>
 
 const AIR = 0
+
+const FACE_DIR_INDEX: Record<FaceDir, number> = {
+  top: 0,
+  bottom: 1,
+  side: 2,
+}
+
+const TILE_UV_CACHE: Array<{ u0: number; v0: number; u1: number; v1: number } | undefined> = []
 
 // Pooled buffer for greedy-expansion "done" tracking.
 // The largest possible slice is CHUNK_SIZE × CHUNK_HEIGHT = 16 × 256 = 4096 cells.
@@ -129,15 +137,24 @@ const addQuad = (
   acc.normals.push(normal[0], normal[1], normal[2])
 
   // Vertex colors encode grayscale AO factor; texture provides block color
-  for (let i = 0; i < 4; i++) {
-    const factor = 1.0 - Option.getOrElse(Arr.get(ao, i), () => 0) * 0.2
-    acc.colors.push(factor, factor, factor)
-  }
+  const ao0 = ao[0]
+  const ao1 = ao[1]
+  const ao2 = ao[2]
+  const ao3 = ao[3]
+  const factor0 = 1.0 - ao0 * 0.2
+  const factor1 = 1.0 - ao1 * 0.2
+  const factor2 = 1.0 - ao2 * 0.2
+  const factor3 = 1.0 - ao3 * 0.2
+  acc.colors.push(factor0, factor0, factor0)
+  acc.colors.push(factor1, factor1, factor1)
+  acc.colors.push(factor2, factor2, factor2)
+  acc.colors.push(factor3, factor3, factor3)
 
   // UV coordinates from atlas tile lookup
   // NOTE: mask packs blockId in bits 0-3 (supports 0-15); current max is 11 (COBBLESTONE)
-  const tileIndex = getTileIndex(blockId, faceDir)
-  const { u0, v0: tv0, u1, v1: tv1 } = getTileUVs(tileIndex)
+  const cacheKey = blockId * 3 + FACE_DIR_INDEX[faceDir]
+  const cachedUVs = TILE_UV_CACHE[cacheKey] ??= getTileUVs(getTileIndex(blockId, faceDir))
+  const { u0, v0: tv0, u1, v1: tv1 } = cachedUVs
   acc.uvs.push(u0, tv0, u0, tv1, u1, tv1, u1, tv0)
 
   acc.indices.push(base, base + 1, base + 2, base, base + 2, base + 3)

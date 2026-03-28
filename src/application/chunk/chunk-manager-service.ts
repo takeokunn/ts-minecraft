@@ -1,6 +1,8 @@
 import { Array as Arr, Clock, Duration, Effect, HashMap, HashSet, Metric, MetricBoundaries, Option, Ref, Schema } from 'effect'
 import { ChunkService, ChunkSchema, Chunk, ChunkCoord, blockTypeToIndex, blockIndex, CHUNK_SIZE, CHUNK_HEIGHT } from '@/domain/chunk'
+import { FLUID_BYTE_LENGTH, createFluidBuffer, hydrateLegacyFluidBufferFromBlocks } from '@/domain/fluid'
 import { StorageServicePort } from '@/application/storage/storage-service-port'
+import type { ChunkStorageValue } from '@/application/storage/storage-service-port'
 import { Position, ChunkCacheKey } from '@/shared/kernel'
 import { DEFAULT_WORLD_ID, SEA_LEVEL, LAKE_LEVEL } from '@/application/constants'
 import { ChunkError, StorageError } from '@/domain/errors'
@@ -65,6 +67,24 @@ const getChunksInRenderDistance = (center: ChunkCoord): ReadonlyArray<ChunkCoord
  * Create a unique key for chunk coordinate
  */
 const chunkCoordToKey = (coord: ChunkCoord): ChunkCacheKey => ChunkCacheKey.make(coord)
+
+const normalizeFluidBuffer = (value: unknown): Uint8Array<ArrayBufferLike> => {
+  if (value instanceof Uint8Array) {
+    return value.byteLength === FLUID_BYTE_LENGTH ? value : createFluidBuffer()
+  }
+  return createFluidBuffer()
+}
+
+const normalizeChunkStorageValue = (stored: ChunkStorageValue): { blocks: Uint8Array<ArrayBufferLike>; fluid: Uint8Array<ArrayBufferLike> } => {
+  if (stored instanceof Uint8Array) {
+    return { blocks: stored, fluid: hydrateLegacyFluidBufferFromBlocks(stored, blockTypeToIndex('WATER')) }
+  }
+
+  return {
+    blocks: stored.blocks,
+    fluid: normalizeFluidBuffer(stored.fluid),
+  }
+}
 
 /**
  * Histogram metric for chunk load duration (generation + storage load) in milliseconds.
@@ -430,7 +450,10 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
           yield* Option.match(evictedDirtyEntry, {
             onNone: () => Effect.void,
             onSome: (evicted) =>
-              storageService.saveChunk(DEFAULT_WORLD_ID, evicted.chunk.coord, evicted.chunk.blocks), // intentional: raw Uint8Array passed to storage serialization
+              storageService.saveChunk(DEFAULT_WORLD_ID, evicted.chunk.coord, {
+                blocks: evicted.chunk.blocks,
+                fluid: evicted.chunk.fluid ?? createFluidBuffer(),
+              }),
           })
 
           // Invalidate getLoadedChunks cache: chunk set has changed
@@ -464,12 +487,8 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
               const storedData = yield* storageService.loadChunk(DEFAULT_WORLD_ID, coord)
               return yield* Option.match(storedData, {
                 onNone: () => generateAndInsert(),
-                onSome: (rawBlocks) => Effect.gen(function* () {
-                  // Guard: storage may return deserialized JSON (plain Array) on schema mismatch.
-                  // Re-wrap to Uint8Array to ensure typed array semantics are preserved.
-                  const blocks = rawBlocks instanceof Uint8Array
-                    ? rawBlocks
-                    : new Uint8Array(rawBlocks as ArrayLike<number>)
+                onSome: (stored) => Effect.gen(function* () {
+                  const { blocks, fluid } = normalizeChunkStorageValue(stored)
 
                   const EXPECTED_LENGTH = CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT
                   if (blocks.byteLength !== EXPECTED_LENGTH) {
@@ -477,7 +496,7 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
                     yield* Effect.logWarning(`Chunk (${coord.x},${coord.z}) has invalid buffer length ${blocks.byteLength} (expected ${EXPECTED_LENGTH}); regenerating`)
                     return yield* generateAndInsert()
                   }
-                  const chunk: Chunk = { coord, blocks }
+                  const chunk: Chunk = { coord, blocks, fluid }
                   yield* insertWithEviction(coord, chunk)
                   return chunk
                 }),
@@ -495,7 +514,10 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
             onSome: (chunk) => Effect.gen(function* () {
               // Save if dirty
               if (HashSet.has(state.dirtyChunks, key)) {
-                yield* storageService.saveChunk(DEFAULT_WORLD_ID, chunk.coord, chunk.blocks) // intentional: raw Uint8Array passed to storage serialization
+                yield* storageService.saveChunk(DEFAULT_WORLD_ID, chunk.coord, {
+                  blocks: chunk.blocks,
+                  fluid: chunk.fluid ?? createFluidBuffer(),
+                })
               }
               // Remove from cache — HashMap/HashSet are immutable; remove returns new instance
               yield* Ref.update(cache, (s) => ({

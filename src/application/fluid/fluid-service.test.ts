@@ -4,11 +4,17 @@ import { ChunkManagerService } from '@/application/chunk/chunk-manager-service'
 import { ChunkService, ChunkServiceLive, blockIndex, blockTypeToIndex, setBlockInChunk } from '@/domain/chunk'
 import { FluidService, FluidServiceLive } from './fluid-service'
 
-const makeChunkManager = (loadedChunks: ReadonlyArray<{ coord: { x: number; z: number }; blocks: Uint8Array }>) =>
-  Layer.succeed(ChunkManagerService, {
+const makeChunkManager = (loadedChunks: ReadonlyArray<{ coord: { x: number; z: number }; blocks: Uint8Array }>) => {
+  const dirtyCalls: Array<{ x: number; z: number }> = []
+  const layer = Layer.succeed(ChunkManagerService, {
     getLoadedChunks: () => Effect.succeed(loadedChunks),
-    markChunkDirty: () => Effect.void,
-  } as unknown as ChunkManagerService)
+    markChunkDirty: (coord: { x: number; z: number }) => Effect.sync(() => {
+      dirtyCalls.push(coord)
+    }),
+  } satisfies Pick<ChunkManagerService, 'getLoadedChunks' | 'markChunkDirty'> as ChunkManagerService)
+
+  return { layer, dirtyCalls }
+}
 
 describe('application/fluid/fluid-service', () => {
   it('seeds water blocks into loaded chunks', async () => {
@@ -20,10 +26,8 @@ describe('application/fluid/fluid-service', () => {
     )
 
     const loadedChunks = [chunk]
-    const layer = Layer.mergeAll(
-      ChunkServiceLive,
-      FluidServiceLive.pipe(Layer.provide(makeChunkManager(loadedChunks))),
-    )
+    const { layer: chunkManagerLayer, dirtyCalls } = makeChunkManager(loadedChunks)
+    const layer = Layer.mergeAll(ChunkServiceLive, FluidServiceLive.pipe(Layer.provide(chunkManagerLayer)))
 
     const program = Effect.gen(function* () {
       const fluid = yield* FluidService
@@ -33,6 +37,8 @@ describe('application/fluid/fluid-service', () => {
 
     const result = await Effect.runPromise(program)
     expect(result).toBe(blockTypeToIndex('WATER'))
+    expect(dirtyCalls).toHaveLength(1)
+    expect(dirtyCalls[0]).toEqual({ x: 0, z: 0 })
   })
 
   it('spreads a source downward on tick', async () => {
@@ -48,10 +54,8 @@ describe('application/fluid/fluid-service', () => {
     )
 
     const loadedChunks = [chunk]
-    const layer = Layer.mergeAll(
-      ChunkServiceLive,
-      FluidServiceLive.pipe(Layer.provide(makeChunkManager(loadedChunks))),
-    )
+    const { layer: chunkManagerLayer, dirtyCalls } = makeChunkManager(loadedChunks)
+    const layer = Layer.mergeAll(ChunkServiceLive, FluidServiceLive.pipe(Layer.provide(chunkManagerLayer)))
 
     const program = Effect.gen(function* () {
       const fluid = yield* FluidService
@@ -62,5 +66,6 @@ describe('application/fluid/fluid-service', () => {
 
     const result = await Effect.runPromise(program)
     expect(result).toBe(blockTypeToIndex('WATER'))
+    expect(dirtyCalls.length).toBeGreaterThan(0)
   })
 })

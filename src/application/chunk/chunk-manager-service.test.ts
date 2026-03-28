@@ -1,29 +1,36 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Arbitrary, Array as Arr, Effect, Layer, MutableHashMap, Option, Schema } from 'effect'
+import { Arbitrary, Array as Arr, Brand, Effect, Layer, MutableHashMap, Option, Schema } from 'effect'
 import { StorageServicePort } from '@/application/storage/storage-service-port'
+import type { ChunkStorageValue } from '@/application/storage/storage-service-port'
 import { StorageError } from '@/domain/errors'
 import { NoiseServicePort } from '@/application/noise/noise-service-port'
 import { BiomeServiceLive } from '@/application/biome/biome-service'
 import { ChunkServiceLive, CHUNK_SIZE, CHUNK_HEIGHT } from '@/domain/chunk'
 import { ChunkManagerService, ChunkManagerServiceLive, RENDER_DISTANCE, MAX_CACHED_CHUNKS, UNLOAD_DISTANCE } from './chunk-manager-service'
 import { DEFAULT_WORLD_ID } from '@/application/constants'
+import type { WorldId } from '@/shared/kernel'
 
 // ---------------------------------------------------------------------------
 // In-memory StorageService mock (no IndexedDB)
 // ---------------------------------------------------------------------------
 
+type ChunkStorageKey = string & Brand.Brand<'ChunkStorageKey'>
+const ChunkStorageKey = Brand.nominal<ChunkStorageKey>()
+const storageKey = (worldId: WorldId, coord: { x: number; z: number }): ChunkStorageKey =>
+  ChunkStorageKey(`${worldId}:${coord.x}:${coord.z}`)
+
 const makeInMemoryStorage = () => {
-  const chunks = MutableHashMap.empty<string, Uint8Array>()
+  const chunks = MutableHashMap.empty<ChunkStorageKey, ChunkStorageValue>()
 
   return StorageServicePort.of({
     _tag: '@minecraft/application/storage/StorageServicePort' as const,
     saveChunk: (worldId, coord, data) =>
       Effect.sync(() => {
-        MutableHashMap.set(chunks, `${worldId}:${coord.x}:${coord.z}`, data)
+        MutableHashMap.set(chunks, storageKey(worldId, coord), data)
       }) as Effect.Effect<undefined, StorageError>,
     loadChunk: (worldId, coord) =>
-      Effect.sync(() => MutableHashMap.get(chunks, `${worldId}:${coord.x}:${coord.z}`)),
+      Effect.sync(() => MutableHashMap.get(chunks, storageKey(worldId, coord))),
   })
 }
 
@@ -52,6 +59,9 @@ const buildTestLayer = () => {
 // ---------------------------------------------------------------------------
 
 const EXPECTED_BLOCKS_LENGTH = CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT
+
+const chunkStorageBlocks = (value: ChunkStorageValue): Uint8Array<ArrayBufferLike> =>
+  value instanceof Uint8Array ? value : value.blocks
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -143,8 +153,7 @@ describe('application/chunk/chunk-manager-service', () => {
 
         expect(Option.isSome(stored)).toBe(true)
         if (Option.isSome(stored)) {
-          expect(stored.value).toBeInstanceOf(Uint8Array)
-          expect(stored.value.length).toBe(EXPECTED_BLOCKS_LENGTH)
+          expect(chunkStorageBlocks(stored.value).length).toBe(EXPECTED_BLOCKS_LENGTH)
         }
 
         return { success: true }
@@ -507,7 +516,7 @@ describe('application/chunk/chunk-manager-service', () => {
         const stored = yield* storage.loadChunk(DEFAULT_WORLD_ID, { x: 0, z: 0 })
         expect(Option.isSome(stored)).toBe(true)
         if (Option.isSome(stored)) {
-          expect(stored.value[0]).toBe(99) // sentinel byte intact
+          expect(chunkStorageBlocks(stored.value)[0]).toBe(99) // sentinel byte intact
         }
 
         return { success: true }

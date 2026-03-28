@@ -1,8 +1,9 @@
-import { Effect, Option, Ref, Schema, Schedule, Duration } from 'effect'
+import { Brand, Effect, Option, Ref, Schema, Schedule, Duration } from 'effect'
 import { openDatabase, DBSchema, TypedIDBDatabase } from './idb-utils'
 import { WorldId } from '@/shared/kernel'
 import { StorageError } from '@/domain/errors'
 import type { ChunkCoord } from '@/domain/chunk'
+import type { ChunkStorageValue } from '@/application/storage/storage-service-port'
 
 export type { ChunkCoord }
 
@@ -28,7 +29,7 @@ export type WorldMetadata = Schema.Schema.Type<typeof WorldMetadataSchema>
 interface MinecraftWorldsDB extends DBSchema {
   chunks: {
     key: string
-    value: Uint8Array
+    value: ChunkStorageValue
   }
   metadata: {
     key: string
@@ -45,10 +46,17 @@ const STORE_CHUNKS = 'chunks'
 const STORE_METADATA = 'metadata'
 
 /**
+ * Branded composite key for IndexedDB chunk storage ("worldId:x:z" format).
+ * Prevents accidental use of arbitrary strings as storage keys.
+ */
+export type ChunkStorageKey = string & Brand.Brand<'ChunkStorageKey'>
+export const ChunkStorageKey = Brand.nominal<ChunkStorageKey>()
+
+/**
  * Helper to create chunk key from worldId and chunk coordinates
  */
-const chunkKey = (worldId: WorldId, chunkCoord: ChunkCoord): string =>
-  `${worldId}:${chunkCoord.x}:${chunkCoord.z}`
+const chunkKey = (worldId: WorldId, chunkCoord: ChunkCoord): ChunkStorageKey =>
+  ChunkStorageKey(`${worldId}:${chunkCoord.x}:${chunkCoord.z}`)
 
 /**
  * Helper to check if error is quota exceeded
@@ -124,7 +132,7 @@ export class StorageService extends Effect.Service<StorageService>()(
         })
       })
 
-      const saveChunk = (worldId: WorldId, chunkCoord: ChunkCoord, data: Uint8Array) =>
+      const saveChunk = (worldId: WorldId, chunkCoord: ChunkCoord, data: ChunkStorageValue) =>
         Effect.gen(function* () {
           yield* initialize
           yield* Option.match(yield* Ref.get(dbRef), {

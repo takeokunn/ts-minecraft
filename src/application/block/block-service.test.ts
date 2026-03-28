@@ -4,7 +4,7 @@ import { ChunkManagerService, ChunkManagerError } from '@/application/chunk/chun
 import { ChunkServiceLive, Chunk, ChunkCoord, CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex, indexToBlockType } from '@/domain/chunk'
 import { PlayerService } from '@/application/player/player-state'
 import { BlockType } from '@/domain/block'
-import { Position, PlayerId } from '@/shared/kernel'
+import { ChunkCacheKey, Position, PlayerId } from '@/shared/kernel'
 import { PlayerError, StorageError } from '@/domain/errors'
 import {
   BlockService,
@@ -18,8 +18,6 @@ import { FluidService } from '@/application/fluid/fluid-service'
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-const chunkKey = (coord: ChunkCoord): string => `${coord.x},${coord.z}`
 
 /**
  * Create an empty Chunk (all blocks = AIR) at the given coordinate.
@@ -79,10 +77,10 @@ interface MockChunkManagerHandle {
 const createMockChunkManagerService = (
   initialBlocks?: Array<{ pos: Position; blockType: BlockType }>
 ): MockChunkManagerHandle => {
-  const chunkMap = MutableHashMap.empty<string, Chunk>()
+  const chunkMap = MutableHashMap.empty<ChunkCacheKey, Chunk>()
 
   const ensureChunk = (coord: ChunkCoord): Chunk => {
-    const key = chunkKey(coord)
+    const key = ChunkCacheKey.make(coord)
     const existingOpt = MutableHashMap.get(chunkMap, key)
     if (Option.isNone(existingOpt)) {
       const newChunk = makeEmptyChunk(coord)
@@ -173,20 +171,45 @@ const mockInventoryService = {
   getHotbarSlots: () => Effect.succeed([]),
 } as unknown as InventoryService
 
+const createFluidRecorder = () => {
+  const calls = {
+    notify: [] as Position[],
+    seed: [] as Position[],
+    remove: [] as Position[],
+  }
+
+  const service = {
+    notifyBlockChanged: (position: Position) => Effect.sync(() => {
+      calls.notify.push(position)
+    }),
+    seedWater: (position: Position) => Effect.sync(() => {
+      calls.seed.push(position)
+    }),
+    removeWater: (position: Position) => Effect.sync(() => {
+      calls.remove.push(position)
+    }),
+    syncLoadedChunks: () => Effect.void,
+    tick: () => Effect.void,
+  } satisfies Pick<FluidService, 'notifyBlockChanged' | 'seedWater' | 'removeWater' | 'syncLoadedChunks' | 'tick'>
+
+  return { service, calls }
+}
+
 const createTestLayer = (
   chunkManagerService: ChunkManagerService,
-  playerService: PlayerService
-) => {
-  const chunkManagerLayer = Layer.succeed(ChunkManagerService, chunkManagerService)
-  const playerLayer = Layer.succeed(PlayerService, playerService)
-  const inventoryLayer = Layer.succeed(InventoryService, mockInventoryService)
-  const fluidLayer = Layer.succeed(FluidService, {
+  playerService: PlayerService,
+  fluidService: Pick<FluidService, 'notifyBlockChanged' | 'seedWater' | 'removeWater' | 'syncLoadedChunks' | 'tick'> = {
     notifyBlockChanged: () => Effect.void,
     seedWater: () => Effect.void,
     removeWater: () => Effect.void,
     syncLoadedChunks: () => Effect.void,
     tick: () => Effect.void,
-  } as unknown as FluidService)
+  }
+) => {
+  const chunkManagerLayer = Layer.succeed(ChunkManagerService, chunkManagerService)
+  const playerLayer = Layer.succeed(PlayerService, playerService)
+  const inventoryLayer = Layer.succeed(InventoryService, mockInventoryService)
+  const fluidLayer = Layer.succeed(FluidService, fluidService as unknown as FluidService)
   return BlockServiceLive.pipe(
     Layer.provide(Layer.mergeAll(chunkManagerLayer, playerLayer, ChunkServiceLive, inventoryLayer, fluidLayer))
   )
@@ -277,6 +300,23 @@ describe('application/block/block-service', () => {
       const result = Effect.runSync(program)
       expect(result.success).toBe(true)
       expect(readBlock(chunkRef, lx, y, lz)).toBe('AIR')
+    })
+
+    it('should notify fluid service when breaking water', () => {
+      const targetPos: Position = { x: 1, y: 2, z: 3 }
+      const handle = createMockChunkManagerService([{ pos: targetPos, blockType: 'WATER' }])
+      const playerService = createMockPlayerService({ x: 100, y: 0, z: 100 })
+      const fluid = createFluidRecorder()
+      const testLayer = createTestLayer(handle.service, playerService, fluid.service)
+
+      const program = Effect.gen(function* () {
+        const blockService = yield* BlockService
+        yield* blockService.breakBlock(targetPos)
+      }).pipe(Effect.provide(testLayer))
+
+      Effect.runSync(program)
+      expect(fluid.calls.remove).toEqual([targetPos])
+      expect(fluid.calls.notify).toEqual([targetPos])
     })
 
     it('should remove the block from chunk storage without affecting adjacent blocks', () => {
@@ -397,6 +437,23 @@ describe('application/block/block-service', () => {
       const result = Effect.runSync(program)
       expect(result.success).toBe(true)
       expect(readBlock(chunkRef, lx, y, lz)).toBe('DIRT')
+    })
+
+    it('should seed fluid when placing water', () => {
+      const targetPos: Position = { x: 2, y: 3, z: 4 }
+      const handle = createMockChunkManagerService()
+      const playerService = createMockPlayerService({ x: 100, y: 0, z: 100 })
+      const fluid = createFluidRecorder()
+      const testLayer = createTestLayer(handle.service, playerService, fluid.service)
+
+      const program = Effect.gen(function* () {
+        const blockService = yield* BlockService
+        yield* blockService.placeBlock(targetPos, 'WATER')
+      }).pipe(Effect.provide(testLayer))
+
+      Effect.runSync(program)
+      expect(fluid.calls.seed).toEqual([targetPos])
+      expect(fluid.calls.notify).toEqual([targetPos])
     })
 
     it('should store the correct block type', () => {
