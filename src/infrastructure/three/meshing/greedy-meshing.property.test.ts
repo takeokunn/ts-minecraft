@@ -1,6 +1,6 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Arbitrary, Schema } from 'effect'
+import { Array as Arr, Arbitrary, Option, Schema } from 'effect'
 import * as fc from 'effect/FastCheck'
 import { greedyMeshChunk } from './greedy-meshing'
 import { CHUNK_SIZE, CHUNK_HEIGHT } from '@/domain/chunk'
@@ -13,18 +13,20 @@ const TOTAL_BLOCKS = CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT
 const makeChunkFromBlocks = (blocks: Uint8Array, coord: ChunkCoord = { x: 0, z: 0 }): Chunk => ({
   coord,
   blocks,
+  fluid: Option.none(),
 })
 
 const makeEmptyChunk = (coord: ChunkCoord = { x: 0, z: 0 }): Chunk => ({
   coord,
   blocks: new Uint8Array(TOTAL_BLOCKS),
+  fluid: Option.none(),
 })
 
 /** Build a fully-solid chunk: every block set to STONE (index 2) */
 const makeSolidChunk = (coord: ChunkCoord = { x: 0, z: 0 }): Chunk => {
   const blocks = new Uint8Array(TOTAL_BLOCKS)
   blocks.fill(2) // STONE
-  return { coord, blocks }
+  return { coord, blocks, fluid: Option.none() }
 }
 
 /**
@@ -34,15 +36,15 @@ const makeSolidChunk = (coord: ChunkCoord = { x: 0, z: 0 }): Chunk => {
  */
 const makeLayerChunk = (layer: Uint8Array, coord: ChunkCoord = { x: 0, z: 0 }): Chunk => {
   const blocks = new Uint8Array(TOTAL_BLOCKS)
-  for (let lx = 0; lx < CHUNK_SIZE; lx++) {
-    for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+  Arr.forEach(Arr.makeBy(CHUNK_SIZE, lx => lx), lx => {
+    Arr.forEach(Arr.makeBy(CHUNK_SIZE, lz => lz), lz => {
       const blockType = layer[lx * CHUNK_SIZE + lz]! % 12
       // y=0: index = 0 + lz*CHUNK_HEIGHT + lx*CHUNK_HEIGHT*CHUNK_SIZE
       const idx = lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE
       blocks[idx] = blockType
-    }
-  }
-  return { coord, blocks }
+    })
+  })
+  return { coord, blocks, fluid: Option.none() }
 }
 
 const ZERO_OFFSET = { wx: 0, wz: 0 }
@@ -59,11 +61,11 @@ describe('greedyMeshChunk — property-based', () => {
         const result = greedyMeshChunk(chunk, ZERO_OFFSET)
 
         const vertexCount = result.opaque.positions.length / 3
-        for (let i = 0; i < result.opaque.indices.length; i++) {
+        Arr.forEach(Arr.makeBy(result.opaque.indices.length, i => i), i => {
           const idx = result.opaque.indices[i]!
           expect(idx).toBeGreaterThanOrEqual(0)
           expect(idx).toBeLessThan(vertexCount)
-        }
+        })
       },
       { fastCheck: { numRuns: 50 } }
     )
@@ -77,22 +79,22 @@ describe('greedyMeshChunk — property-based', () => {
       ({ layer0, layer1 }) => {
         // Two layers at y=0 and y=1 — tests hidden-face culling between stacked blocks
         const blocks = new Uint8Array(TOTAL_BLOCKS)
-        for (let lx = 0; lx < CHUNK_SIZE; lx++) {
-          for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+        Arr.forEach(Arr.makeBy(CHUNK_SIZE, lx => lx), lx => {
+          Arr.forEach(Arr.makeBy(CHUNK_SIZE, lz => lz), lz => {
             const base = lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE
             blocks[base + 0] = layer0[lx * CHUNK_SIZE + lz]! % 12
             blocks[base + 1] = layer1[lx * CHUNK_SIZE + lz]! % 12
-          }
-        }
+          })
+        })
         const chunk = makeChunkFromBlocks(blocks)
         const result = greedyMeshChunk(chunk, ZERO_OFFSET)
 
         const vertexCount = result.opaque.positions.length / 3
-        for (let i = 0; i < result.opaque.indices.length; i++) {
+        Arr.forEach(Arr.makeBy(result.opaque.indices.length, i => i), i => {
           const idx = result.opaque.indices[i]!
           expect(idx).toBeGreaterThanOrEqual(0)
           expect(idx).toBeLessThan(vertexCount)
-        }
+        })
       },
       { fastCheck: { numRuns: 30 } }
     )
@@ -155,7 +157,7 @@ describe('greedyMeshChunk — property-based', () => {
         const chunk = makeLayerChunk(layer)
         const result = greedyMeshChunk(chunk, ZERO_OFFSET)
 
-        const quadCount = result.opaque.blockPositions.length
+        const quadCount = result.opaque.indices.length / 6
         expect(result.opaque.indices.length).toBe(quadCount * 6)
         expect(result.opaque.positions.length / 3).toBe(quadCount * 4)
       },
@@ -172,7 +174,7 @@ describe('greedyMeshChunk — property-based', () => {
       expect(result.opaque.normals.length).toBe(0)
       expect(result.opaque.colors.length).toBe(0)
       expect(result.opaque.indices.length).toBe(0)
-      expect(result.opaque.blockPositions.length).toBe(0)
+      expect(result.opaque.indices.length / 6).toBe(0)
     })
 
     it.prop(
@@ -194,7 +196,7 @@ describe('greedyMeshChunk — property-based', () => {
 
       // Only the outermost shell faces are visible
       expect(result.opaque.positions.length).toBeGreaterThan(0)
-      expect(result.opaque.blockPositions.length).toBeGreaterThan(0)
+      expect(result.opaque.indices.length / 6).toBeGreaterThan(0)
     })
 
     it('fully solid chunk has all indices within vertex range', () => {
@@ -202,11 +204,11 @@ describe('greedyMeshChunk — property-based', () => {
       const result = greedyMeshChunk(chunk, ZERO_OFFSET)
 
       const vertexCount = result.opaque.positions.length / 3
-      for (let i = 0; i < result.opaque.indices.length; i++) {
+      Arr.forEach(Arr.makeBy(result.opaque.indices.length, i => i), i => {
         const idx = result.opaque.indices[i]!
         expect(idx).toBeGreaterThanOrEqual(0)
         expect(idx).toBeLessThan(vertexCount)
-      }
+      })
     })
 
     it('fully solid chunk indices are multiples of 3 and vertices multiples of 4', () => {
@@ -232,8 +234,8 @@ describe('greedyMeshChunk — property-based', () => {
         const result = greedyMeshChunk(chunk, ZERO_OFFSET)
 
         expect(result.opaque.positions).toBeInstanceOf(Float32Array)
-        expect(result.opaque.normals).toBeInstanceOf(Float32Array)
-        expect(result.opaque.colors).toBeInstanceOf(Float32Array)
+        expect(result.opaque.normals).toBeInstanceOf(Int8Array)
+        expect(result.opaque.colors).toBeInstanceOf(Uint8Array)
         expect(result.opaque.uvs).toBeInstanceOf(Float32Array)
         expect(result.opaque.indices).toBeInstanceOf(Uint32Array)
       },
@@ -300,12 +302,12 @@ describe('water/opaque mesh split', () => {
   it('all-water chunk: opaque mesh is empty, water mesh is non-empty', () => {
     const blocks = new Uint8Array(TOTAL_BLOCKS)
     // Fill bottom layer with WATER blocks
-    for (let lx = 0; lx < CHUNK_SIZE; lx++) {
-      for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+    Arr.forEach(Arr.makeBy(CHUNK_SIZE, lx => lx), lx => {
+      Arr.forEach(Arr.makeBy(CHUNK_SIZE, lz => lz), lz => {
         const idx = lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE
         blocks[idx] = WATER_BLOCK_ID
-      }
-    }
+      })
+    })
     const chunk = makeChunkFromBlocks(blocks)
     const result = greedyMeshChunk(chunk, ZERO_OFFSET, TRANSPARENT_IDS)
     expect(result.opaque.positions.length).toBe(0)
@@ -314,12 +316,12 @@ describe('water/opaque mesh split', () => {
 
   it('empty transparentBlockIds: water block goes to opaque mesh', () => {
     const blocks = new Uint8Array(TOTAL_BLOCKS)
-    for (let lx = 0; lx < CHUNK_SIZE; lx++) {
-      for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+    Arr.forEach(Arr.makeBy(CHUNK_SIZE, lx => lx), lx => {
+      Arr.forEach(Arr.makeBy(CHUNK_SIZE, lz => lz), lz => {
         const idx = lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE
         blocks[idx] = WATER_BLOCK_ID
-      }
-    }
+      })
+    })
     const chunk = makeChunkFromBlocks(blocks)
     // No transparent IDs — water treated as opaque
     const result = greedyMeshChunk(chunk, ZERO_OFFSET, new Set())

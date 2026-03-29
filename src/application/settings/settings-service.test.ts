@@ -1,6 +1,7 @@
-import { Effect, MutableHashMap, Option, Schema } from 'effect'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { SettingsSchema, SettingsService, SettingsServiceLive } from './settings-service'
+import { Array as Arr, Effect, MutableHashMap, Option, Schema } from 'effect'
+import { afterEach, beforeEach, expect, vi } from 'vitest'
+import { describe, it } from '@effect/vitest'
+import { resolvePreset, SettingsSchema, SettingsService, SettingsServiceLive } from './settings-service'
 
 const STORAGE_KEY = 'minecraft-settings'
 
@@ -8,14 +9,7 @@ const DEFAULT_SETTINGS = {
   renderDistance: 8,
   mouseSensitivity: 0.5,
   dayLengthSeconds: 400,
-  shadowsEnabled: true,
-  ssaoEnabled: true,
-  bloomEnabled: true,
-  skyEnabled: true,
-  ssrEnabled: false,
-  dofEnabled: false,
-  godRaysEnabled: false,
-  smaaEnabled: true,
+  graphicsQuality: 'high',
   audioEnabled: true,
   masterVolume: 0.8,
   sfxVolume: 1.0,
@@ -58,14 +52,7 @@ describe('application/settings/settings-service', () => {
         renderDistance: 8,
         mouseSensitivity: 0.5,
         dayLengthSeconds: 400,
-        shadowsEnabled: true,
-        ssaoEnabled: true,
-        bloomEnabled: true,
-        skyEnabled: true,
-        ssrEnabled: false,
-        dofEnabled: false,
-        godRaysEnabled: false,
-        smaaEnabled: true,
+        graphicsQuality: 'high',
       })
 
       expect(result).toEqual(DEFAULT_SETTINGS)
@@ -76,28 +63,14 @@ describe('application/settings/settings-service', () => {
         renderDistance: 2,
         mouseSensitivity: 0.1,
         dayLengthSeconds: 120,
-        shadowsEnabled: true,
-        ssaoEnabled: true,
-        bloomEnabled: false,
-        skyEnabled: false,
-        ssrEnabled: true,
-        dofEnabled: true,
-        godRaysEnabled: true,
-        smaaEnabled: false,
+        graphicsQuality: 'low',
       })
 
       expect(result).toEqual({
         renderDistance: 2,
         mouseSensitivity: 0.1,
         dayLengthSeconds: 120,
-        shadowsEnabled: true,
-        ssaoEnabled: true,
-        bloomEnabled: false,
-        skyEnabled: false,
-        ssrEnabled: true,
-        dofEnabled: true,
-        godRaysEnabled: true,
-        smaaEnabled: false,
+        graphicsQuality: 'low',
         audioEnabled: true,
         masterVolume: 0.8,
         sfxVolume: 1.0,
@@ -110,28 +83,14 @@ describe('application/settings/settings-service', () => {
         renderDistance: 16,
         mouseSensitivity: 3,
         dayLengthSeconds: 1200,
-        shadowsEnabled: true,
-        ssaoEnabled: true,
-        bloomEnabled: true,
-        skyEnabled: true,
-        ssrEnabled: true,
-        dofEnabled: true,
-        godRaysEnabled: true,
-        smaaEnabled: true,
+        graphicsQuality: 'ultra',
       })
 
       expect(result).toEqual({
         renderDistance: 16,
         mouseSensitivity: 3,
         dayLengthSeconds: 1200,
-        shadowsEnabled: true,
-        ssaoEnabled: true,
-        bloomEnabled: true,
-        skyEnabled: true,
-        ssrEnabled: true,
-        dofEnabled: true,
-        godRaysEnabled: true,
-        smaaEnabled: true,
+        graphicsQuality: 'ultra',
         audioEnabled: true,
         masterVolume: 0.8,
         sfxVolume: 1.0,
@@ -225,77 +184,52 @@ describe('application/settings/settings-service', () => {
   })
 
   describe('SettingsService/getSettings', () => {
-    it('returns default settings when localStorage is empty', () => {
-      const program = Effect.gen(function* () {
+    it.effect('returns default settings when localStorage is empty', () =>
+      Effect.gen(function* () {
         const service = yield* SettingsService
-        return yield* service.getSettings()
+        const settings = yield* service.getSettings()
+        expect(settings).toEqual(DEFAULT_SETTINGS)
+        expect(getItemSpy).toHaveBeenCalledWith(STORAGE_KEY)
       }).pipe(Effect.provide(SettingsServiceLive))
+    )
 
-      const settings = Effect.runSync(program)
-
-      expect(settings).toEqual(DEFAULT_SETTINGS)
-      expect(getItemSpy).toHaveBeenCalledWith(STORAGE_KEY)
-    })
-
-    it('loads persisted settings when localStorage has valid data', () => {
-      MutableHashMap.set(store, 
+    it.effect('loads persisted settings when localStorage has valid data', () => {
+      MutableHashMap.set(store,
         STORAGE_KEY,
         JSON.stringify({
           renderDistance: 12,
           mouseSensitivity: 1.2,
           dayLengthSeconds: 900,
-          shadowsEnabled: false,
-          ssaoEnabled: false,
-          bloomEnabled: false,
-          skyEnabled: false,
-          ssrEnabled: true,
-          dofEnabled: true,
-          godRaysEnabled: true,
-          smaaEnabled: false,
+          graphicsQuality: 'ultra',
         })
       )
-
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* SettingsService
-        return yield* service.getSettings()
+        const settings = yield* service.getSettings()
+        expect(settings).toEqual({
+          renderDistance: 12,
+          mouseSensitivity: 1.2,
+          dayLengthSeconds: 900,
+          graphicsQuality: 'ultra',
+          audioEnabled: true,
+          masterVolume: 0.8,
+          sfxVolume: 1.0,
+          musicVolume: 0.55,
+        })
       }).pipe(Effect.provide(SettingsServiceLive))
-
-      const settings = Effect.runSync(program)
-
-      expect(settings).toEqual({
-        renderDistance: 12,
-        mouseSensitivity: 1.2,
-        dayLengthSeconds: 900,
-        shadowsEnabled: false,
-        ssaoEnabled: false,
-        bloomEnabled: false,
-        skyEnabled: false,
-        ssrEnabled: true,
-        dofEnabled: true,
-        godRaysEnabled: true,
-        smaaEnabled: false,
-        audioEnabled: true,
-        masterVolume: 0.8,
-        sfxVolume: 1.0,
-        musicVolume: 0.55,
-      })
     })
 
-    it('falls back to defaults when localStorage contains invalid JSON', () => {
+    it.effect('falls back to defaults when localStorage contains invalid JSON', () => {
       MutableHashMap.set(store, STORAGE_KEY, '{invalid-json}')
-
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* SettingsService
-        return yield* service.getSettings()
+        const settings = yield* service.getSettings()
+        expect(settings).toEqual(DEFAULT_SETTINGS)
       }).pipe(Effect.provide(SettingsServiceLive))
-
-      const settings = Effect.runSync(program)
-
-      expect(settings).toEqual(DEFAULT_SETTINGS)
     })
 
-    it('falls back to defaults when localStorage contains schema-invalid data', () => {
-      MutableHashMap.set(store, 
+    it.effect('falls back to defaults when localStorage contains schema-invalid data', () => {
+      MutableHashMap.set(store,
         STORAGE_KEY,
         JSON.stringify({
           renderDistance: 999,
@@ -303,245 +237,165 @@ describe('application/settings/settings-service', () => {
           dayLengthSeconds: 400,
         })
       )
-
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* SettingsService
-        return yield* service.getSettings()
+        const settings = yield* service.getSettings()
+        expect(settings).toEqual(DEFAULT_SETTINGS)
       }).pipe(Effect.provide(SettingsServiceLive))
-
-      const settings = Effect.runSync(program)
-
-      expect(settings).toEqual(DEFAULT_SETTINGS)
     })
 
-    it('falls back to defaults when localStorage.getItem throws', () => {
+    it.effect('falls back to defaults when localStorage.getItem throws', () => {
       getItemSpy.mockImplementation(() => {
         throw new Error('boom')
       })
-
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* SettingsService
-        return yield* service.getSettings()
+        const settings = yield* service.getSettings()
+        expect(settings).toEqual(DEFAULT_SETTINGS)
       }).pipe(Effect.provide(SettingsServiceLive))
-
-      const settings = Effect.runSync(program)
-
-      expect(settings).toEqual(DEFAULT_SETTINGS)
     })
 
-    it('default settings should include shadowsEnabled=true and ssaoEnabled=true', () => {
-      const program = Effect.gen(function* () {
+    it.effect("default settings should include graphicsQuality='high'", () =>
+      Effect.gen(function* () {
         const service = yield* SettingsService
-        return yield* service.getSettings()
+        const settings = yield* service.getSettings()
+        expect(settings.graphicsQuality).toBe('high')
       }).pipe(Effect.provide(SettingsService.Default))
-      const settings = Effect.runSync(program)
-      expect(settings.shadowsEnabled).toBe(true)
-      expect(settings.ssaoEnabled).toBe(true)
-    })
+    )
 
-    it('should accept and persist shadowsEnabled=false', () => {
-      const program = Effect.gen(function* () {
+    it.effect("should accept and persist graphicsQuality='low'", () =>
+      Effect.gen(function* () {
         const service = yield* SettingsService
-        yield* service.updateSettings({ shadowsEnabled: false })
-        return yield* service.getSettings()
+        yield* service.updateSettings({ graphicsQuality: 'low' })
+        const settings = yield* service.getSettings()
+        expect(settings.graphicsQuality).toBe('low')
       }).pipe(Effect.provide(SettingsService.Default))
-      const settings = Effect.runSync(program)
-      expect(settings.shadowsEnabled).toBe(false)
-    })
+    )
 
-    it('should accept and persist ssaoEnabled=false', () => {
-      const program = Effect.gen(function* () {
+    it.effect("should accept and persist graphicsQuality='ultra'", () =>
+      Effect.gen(function* () {
         const service = yield* SettingsService
-        yield* service.updateSettings({ ssaoEnabled: false })
-        return yield* service.getSettings()
+        yield* service.updateSettings({ graphicsQuality: 'ultra' })
+        const settings = yield* service.getSettings()
+        expect(settings.graphicsQuality).toBe('ultra')
       }).pipe(Effect.provide(SettingsService.Default))
-      const settings = Effect.runSync(program)
-      expect(settings.ssaoEnabled).toBe(false)
+    )
+
+    it("resolvePreset('high') returns expected values", () => {
+      const resolved = resolvePreset('high')
+      expect(resolved.shadowsEnabled).toBe(true)
+      expect(resolved.ssaoEnabled).toBe(true)
+      expect(resolved.bloomEnabled).toBe(true)
+      expect(resolved.smaaEnabled).toBe(true)
+      expect(resolved.skyEnabled).toBe(true)
+      expect(resolved.dofEnabled).toBe(false)
+      expect(resolved.godRaysEnabled).toBe(false)
     })
   })
 
   describe('SettingsService/updateSettings', () => {
-    it('updates a single field', () => {
-      const program = Effect.gen(function* () {
+    it.effect('updates a single field', () =>
+      Effect.gen(function* () {
         const service = yield* SettingsService
         yield* service.updateSettings({ renderDistance: 10 })
-        return yield* service.getSettings()
+        const settings = yield* service.getSettings()
+        expect(settings).toEqual({ ...DEFAULT_SETTINGS, renderDistance: 10 })
       }).pipe(Effect.provide(SettingsServiceLive))
+    )
 
-      const settings = Effect.runSync(program)
-
-      expect(settings).toEqual({ ...DEFAULT_SETTINGS, renderDistance: 10 })
-    })
-
-    it('updates multiple fields', () => {
-      const program = Effect.gen(function* () {
+    it.effect('updates multiple fields', () =>
+      Effect.gen(function* () {
         const service = yield* SettingsService
         yield* service.updateSettings({ renderDistance: 14, dayLengthSeconds: 600 })
-        return yield* service.getSettings()
+        const settings = yield* service.getSettings()
+        expect(settings).toEqual({ ...DEFAULT_SETTINGS, renderDistance: 14, dayLengthSeconds: 600 })
       }).pipe(Effect.provide(SettingsServiceLive))
+    )
 
-      const settings = Effect.runSync(program)
-
-      expect(settings).toEqual({
-        renderDistance: 14,
-        mouseSensitivity: 0.5,
-        dayLengthSeconds: 600,
-        shadowsEnabled: true,
-        ssaoEnabled: true,
-        bloomEnabled: true,
-        skyEnabled: true,
-        ssrEnabled: false,
-        dofEnabled: false,
-        godRaysEnabled: false,
-        smaaEnabled: true,
-        audioEnabled: true,
-        masterVolume: 0.8,
-        sfxVolume: 1.0,
-        musicVolume: 0.55,
-      })
-    })
-
-    it('accumulates valid sequential partial updates', () => {
-      const program = Effect.gen(function* () {
+    it.effect('accumulates valid sequential partial updates', () =>
+      Effect.gen(function* () {
         const service = yield* SettingsService
         yield* service.updateSettings({ renderDistance: 6 })
         yield* service.updateSettings({ mouseSensitivity: 1.8 })
         yield* service.updateSettings({ dayLengthSeconds: 300 })
-        return yield* service.getSettings()
+        const settings = yield* service.getSettings()
+        expect(settings).toEqual({ ...DEFAULT_SETTINGS, renderDistance: 6, mouseSensitivity: 1.8, dayLengthSeconds: 300 })
       }).pipe(Effect.provide(SettingsServiceLive))
+    )
 
-      const settings = Effect.runSync(program)
-
-      expect(settings).toEqual({
-        renderDistance: 6,
-        mouseSensitivity: 1.8,
-        dayLengthSeconds: 300,
-        shadowsEnabled: true,
-        ssaoEnabled: true,
-        bloomEnabled: true,
-        skyEnabled: true,
-        ssrEnabled: false,
-        dofEnabled: false,
-        godRaysEnabled: false,
-        smaaEnabled: true,
-        audioEnabled: true,
-        masterVolume: 0.8,
-        sfxVolume: 1.0,
-        musicVolume: 0.55,
-      })
-    })
-
-    it('falls back to defaults when renderDistance is out of range', () => {
-      const program = Effect.gen(function* () {
+    it.effect('falls back to defaults when renderDistance is out of range', () =>
+      Effect.gen(function* () {
         const service = yield* SettingsService
         yield* service.updateSettings({ renderDistance: 17 })
-        return yield* service.getSettings()
+        const settings = yield* service.getSettings()
+        expect(settings).toEqual(DEFAULT_SETTINGS)
       }).pipe(Effect.provide(SettingsServiceLive))
+    )
 
-      const settings = Effect.runSync(program)
-
-      expect(settings).toEqual(DEFAULT_SETTINGS)
-    })
-
-    it('falls back to defaults when mouseSensitivity is out of range', () => {
-      const program = Effect.gen(function* () {
+    it.effect('falls back to defaults when mouseSensitivity is out of range', () =>
+      Effect.gen(function* () {
         const service = yield* SettingsService
         yield* service.updateSettings({ mouseSensitivity: 0.05 })
-        return yield* service.getSettings()
+        const settings = yield* service.getSettings()
+        expect(settings).toEqual(DEFAULT_SETTINGS)
       }).pipe(Effect.provide(SettingsServiceLive))
+    )
 
-      const settings = Effect.runSync(program)
-
-      expect(settings).toEqual(DEFAULT_SETTINGS)
-    })
-
-    it('falls back to defaults when dayLengthSeconds is out of range', () => {
-      const program = Effect.gen(function* () {
+    it.effect('falls back to defaults when dayLengthSeconds is out of range', () =>
+      Effect.gen(function* () {
         const service = yield* SettingsService
         yield* service.updateSettings({ dayLengthSeconds: 5000 })
-        return yield* service.getSettings()
+        const settings = yield* service.getSettings()
+        expect(settings).toEqual(DEFAULT_SETTINGS)
       }).pipe(Effect.provide(SettingsServiceLive))
+    )
 
-      const settings = Effect.runSync(program)
-
-      expect(settings).toEqual(DEFAULT_SETTINGS)
-    })
-
-    it('falls back to defaults when one field is valid and another is invalid', () => {
-      const program = Effect.gen(function* () {
+    it.effect('falls back to defaults when one field is valid and another is invalid', () =>
+      Effect.gen(function* () {
         const service = yield* SettingsService
         yield* service.updateSettings({ renderDistance: 12, mouseSensitivity: 99 })
-        return yield* service.getSettings()
+        const settings = yield* service.getSettings()
+        expect(settings).toEqual(DEFAULT_SETTINGS)
       }).pipe(Effect.provide(SettingsServiceLive))
+    )
 
-      const settings = Effect.runSync(program)
-
-      expect(settings).toEqual(DEFAULT_SETTINGS)
-    })
-
-    it('keeps previously valid settings when an update becomes invalid', () => {
-      const program = Effect.gen(function* () {
+    it.effect('keeps previously valid settings when an update becomes invalid', () =>
+      Effect.gen(function* () {
         const service = yield* SettingsService
         yield* service.updateSettings({ renderDistance: 10, mouseSensitivity: 1.4 })
         yield* service.updateSettings({ renderDistance: 99 })
-        return yield* service.getSettings()
+        const settings = yield* service.getSettings()
+        expect(settings).toEqual({ ...DEFAULT_SETTINGS, renderDistance: 10, mouseSensitivity: 1.4 })
       }).pipe(Effect.provide(SettingsServiceLive))
+    )
 
-      const settings = Effect.runSync(program)
-
-      expect(settings).toEqual({
-        renderDistance: 10,
-        mouseSensitivity: 1.4,
-        dayLengthSeconds: 400,
-        shadowsEnabled: true,
-        ssaoEnabled: true,
-        bloomEnabled: true,
-        skyEnabled: true,
-        ssrEnabled: false,
-        dofEnabled: false,
-        godRaysEnabled: false,
-        smaaEnabled: true,
-        audioEnabled: true,
-        masterVolume: 0.8,
-        sfxVolume: 1.0,
-        musicVolume: 0.55,
-      })
-    })
-
-    it('persists updated settings to localStorage', () => {
-      const program = Effect.gen(function* () {
+    it.effect('persists updated settings to localStorage', () =>
+      Effect.gen(function* () {
         const service = yield* SettingsService
         yield* service.updateSettings({ renderDistance: 11 })
+        expect(setItemSpy).toHaveBeenCalledWith(
+          STORAGE_KEY,
+          JSON.stringify({ ...DEFAULT_SETTINGS, renderDistance: 11 })
+        )
       }).pipe(Effect.provide(SettingsServiceLive))
+    )
 
-      Effect.runSync(program)
-
-      expect(setItemSpy).toHaveBeenCalledWith(
-        STORAGE_KEY,
-        JSON.stringify({ ...DEFAULT_SETTINGS, renderDistance: 11 })
-      )
-    })
-
-    it('keeps in-memory update even when localStorage.setItem throws', () => {
+    it.effect('keeps in-memory update even when localStorage.setItem throws', () => {
       setItemSpy.mockImplementation(() => {
         throw new Error('save failed')
       })
-
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* SettingsService
         yield* service.updateSettings({ mouseSensitivity: 2.2 })
-        return yield* service.getSettings()
+        const settings = yield* service.getSettings()
+        expect(settings).toEqual({ ...DEFAULT_SETTINGS, mouseSensitivity: 2.2 })
       }).pipe(Effect.provide(SettingsServiceLive))
-
-      const settings = Effect.runSync(program)
-
-      expect(settings).toEqual({ ...DEFAULT_SETTINGS, mouseSensitivity: 2.2 })
     })
   })
 
   describe('SettingsService/resetToDefaults', () => {
-    it('resets settings back to defaults', () => {
-      const program = Effect.gen(function* () {
+    it.effect('resets settings back to defaults', () =>
+      Effect.gen(function* () {
         const service = yield* SettingsService
         yield* service.updateSettings({
           renderDistance: 15,
@@ -549,75 +403,58 @@ describe('application/settings/settings-service', () => {
           dayLengthSeconds: 1000,
         })
         yield* service.resetToDefaults()
-        return yield* service.getSettings()
+        const settings = yield* service.getSettings()
+        expect(settings).toEqual(DEFAULT_SETTINGS)
       }).pipe(Effect.provide(SettingsServiceLive))
+    )
 
-      const settings = Effect.runSync(program)
-
-      expect(settings).toEqual(DEFAULT_SETTINGS)
-    })
-
-    it('persists defaults to localStorage on reset', () => {
-      const program = Effect.gen(function* () {
+    it.effect('persists defaults to localStorage on reset', () =>
+      Effect.gen(function* () {
         const service = yield* SettingsService
         yield* service.updateSettings({ renderDistance: 13 })
         yield* service.resetToDefaults()
+        const lastCall = Option.getOrThrow(Arr.last(setItemSpy.mock.calls))
+        expect(lastCall).toEqual([STORAGE_KEY, JSON.stringify(DEFAULT_SETTINGS)])
       }).pipe(Effect.provide(SettingsServiceLive))
-
-      Effect.runSync(program)
-
-      const lastCall = setItemSpy.mock.calls[setItemSpy.mock.calls.length - 1]
-      expect(lastCall).toEqual([STORAGE_KEY, JSON.stringify(DEFAULT_SETTINGS)])
-    })
+    )
   })
 
   describe('Effect composition', () => {
-    it('chains getSettings -> updateSettings -> getSettings', () => {
-      const program = Effect.gen(function* () {
+    it.effect('chains getSettings -> updateSettings -> getSettings', () =>
+      Effect.gen(function* () {
         const service = yield* SettingsService
         const before = yield* service.getSettings()
         yield* service.updateSettings({ renderDistance: 9 })
         const after = yield* service.getSettings()
-        return { before, after }
+        expect(before).toEqual(DEFAULT_SETTINGS)
+        expect(after).toEqual({ ...DEFAULT_SETTINGS, renderDistance: 9 })
       }).pipe(Effect.provide(SettingsServiceLive))
+    )
 
-      const result = Effect.runSync(program)
-
-      expect(result.before).toEqual(DEFAULT_SETTINGS)
-      expect(result.after).toEqual({ ...DEFAULT_SETTINGS, renderDistance: 9 })
-    })
-
-    it('chains getSettings -> updateSettings -> resetToDefaults -> getSettings', () => {
-      const program = Effect.gen(function* () {
+    it.effect('chains getSettings -> updateSettings -> resetToDefaults -> getSettings', () =>
+      Effect.gen(function* () {
         const service = yield* SettingsService
         const initial = yield* service.getSettings()
         yield* service.updateSettings({ dayLengthSeconds: 850 })
         const updated = yield* service.getSettings()
         yield* service.resetToDefaults()
         const reset = yield* service.getSettings()
-        return { initial, updated, reset }
+        expect(initial).toEqual(DEFAULT_SETTINGS)
+        expect(updated).toEqual({ ...DEFAULT_SETTINGS, dayLengthSeconds: 850 })
+        expect(reset).toEqual(DEFAULT_SETTINGS)
       }).pipe(Effect.provide(SettingsServiceLive))
-
-      const result = Effect.runSync(program)
-
-      expect(result.initial).toEqual(DEFAULT_SETTINGS)
-      expect(result.updated).toEqual({ ...DEFAULT_SETTINGS, dayLengthSeconds: 850 })
-      expect(result.reset).toEqual(DEFAULT_SETTINGS)
-    })
+    )
   })
 
   describe('updateSettings — edge cases', () => {
-    it('updateSettings({}) with empty partial is a no-op (all fields unchanged)', () => {
-      const program = Effect.gen(function* () {
+    it.effect('updateSettings({}) with empty partial is a no-op (all fields unchanged)', () =>
+      Effect.gen(function* () {
         const service = yield* SettingsService
         const before = yield* service.getSettings()
         yield* service.updateSettings({})
         const after = yield* service.getSettings()
-        return { before, after }
+        expect(after).toEqual(before)
       }).pipe(Effect.provide(SettingsServiceLive))
-
-      const { before, after } = Effect.runSync(program)
-      expect(after).toEqual(before)
-    })
+    )
   })
 })

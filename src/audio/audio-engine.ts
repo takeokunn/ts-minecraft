@@ -62,13 +62,13 @@ const safeStop = (oscillator: OscillatorNode): void => {
 
 export const AudioEngineLive = Layer.effect(
   AudioEngine,
-  Effect.gen(function* () {
-    const contextRef = yield* Ref.make<Option.Option<AudioContext>>(Option.none())
-    const masterGainRef = yield* Ref.make<Option.Option<GainNode>>(Option.none())
-    const masterGainValueRef = yield* Ref.make(0.8)
-    const activeTonesRef = yield* Ref.make(HashMap.empty<number, ActiveTone>())
-    const nextToneIdRef = yield* Ref.make(1)
-
+  Effect.all([
+    Ref.make<Option.Option<AudioContext>>(Option.none()),
+    Ref.make<Option.Option<GainNode>>(Option.none()),
+    Ref.make(0.8),
+    Ref.make(HashMap.empty<number, ActiveTone>()),
+    Ref.make(1),
+  ], { concurrency: 'unbounded' }).pipe(Effect.map(([contextRef, masterGainRef, masterGainValueRef, activeTonesRef, nextToneIdRef]) => {
     const ensureContext = (): Effect.Effect<Option.Option<{ context: AudioContext; masterGain: GainNode }>, never> =>
       Effect.gen(function* () {
         const [contextOpt, masterOpt] = yield* Effect.all(
@@ -221,5 +221,5 @@ export const AudioEngineLive = Layer.effect(
       stopTone,
       setMasterGain,
     }
-  })
+  }))
 )

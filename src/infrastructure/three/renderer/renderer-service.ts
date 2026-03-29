@@ -11,7 +11,9 @@ export class RendererService extends Effect.Service<RendererService>()(
         Effect.sync(() => {
           const renderer = new THREE.WebGLRenderer({
             canvas,
-            antialias: true,
+            antialias: false,
+            stencil: false,
+            powerPreference: 'high-performance',
             failIfMajorPerformanceCaveat: false,
           })
           renderer.setSize(canvas.clientWidth, canvas.clientHeight)

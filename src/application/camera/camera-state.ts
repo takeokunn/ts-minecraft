@@ -19,11 +19,10 @@ export const PITCH_MAX = Math.PI / 2 - 0.01 // ~89
 export class PlayerCameraStateService extends Effect.Service<PlayerCameraStateService>()(
   '@minecraft/application/PlayerCameraStateService',
   {
-    effect: Effect.gen(function* () {
-      const stateRef = yield* Ref.make<CameraRotation>({ yaw: 0, pitch: 0 })
-      const modeRef = yield* Ref.make<CameraMode>('firstPerson')
-
-      return {
+    effect: Effect.all([
+      Ref.make<CameraRotation>({ yaw: 0, pitch: 0 }),
+      Ref.make<CameraMode>('firstPerson'),
+    ], { concurrency: 'unbounded' }).pipe(Effect.map(([stateRef, modeRef]) => ({
         getRotation: (): Effect.Effect<CameraRotation, never> => Ref.get(stateRef),
 
         getMode: (): Effect.Effect<CameraMode, never> => Ref.get(modeRef),
@@ -56,8 +55,7 @@ export class PlayerCameraStateService extends Effect.Service<PlayerCameraStateSe
             Ref.set(stateRef, { yaw: 0, pitch: 0 }),
             Ref.set(modeRef, 'firstPerson'),
           ),
-      }
-    }),
+    })))
   }
 ) {}
 export const PlayerCameraStateLive = PlayerCameraStateService.Default

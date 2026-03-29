@@ -1,4 +1,4 @@
-import { Array as Arr, Clock, Duration, Effect, HashMap, HashSet, Metric, MetricBoundaries, Option, Ref, Schema } from 'effect'
+import { Array as Arr, Clock, Duration, Effect, HashMap, HashSet, Metric, MetricBoundaries, Option, Order, Ref, Schema } from 'effect'
 import { ChunkService, ChunkSchema, Chunk, ChunkCoord, blockTypeToIndex, blockIndex, CHUNK_SIZE, CHUNK_HEIGHT } from '@/domain/chunk'
 import { FLUID_BYTE_LENGTH, createFluidBuffer, hydrateLegacyFluidBufferFromBlocks } from '@/domain/fluid'
 import { StorageServicePort } from '@/application/storage/storage-service-port'
@@ -452,7 +452,7 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
             onSome: (evicted) =>
               storageService.saveChunk(DEFAULT_WORLD_ID, evicted.chunk.coord, {
                 blocks: evicted.chunk.blocks,
-                fluid: evicted.chunk.fluid ?? createFluidBuffer(),
+                fluid: Option.getOrElse(evicted.chunk.fluid, createFluidBuffer),
               }),
           })
 
@@ -496,7 +496,7 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
                     yield* Effect.logWarning(`Chunk (${coord.x},${coord.z}) has invalid buffer length ${blocks.byteLength} (expected ${EXPECTED_LENGTH}); regenerating`)
                     return yield* generateAndInsert()
                   }
-                  const chunk: Chunk = { coord, blocks, fluid }
+                  const chunk: Chunk = { coord, blocks, fluid: Option.fromNullable(fluid) }
                   yield* insertWithEviction(coord, chunk)
                   return chunk
                 }),
@@ -516,7 +516,7 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
               if (HashSet.has(state.dirtyChunks, key)) {
                 yield* storageService.saveChunk(DEFAULT_WORLD_ID, chunk.coord, {
                   blocks: chunk.blocks,
-                  fluid: chunk.fluid ?? createFluidBuffer(),
+                  fluid: Option.getOrElse(chunk.fluid, createFluidBuffer),
                 })
               }
               // Remove from cache — HashMap/HashSet are immutable; remove returns new instance
@@ -557,9 +557,16 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
             const centerChunk = worldToChunkCoord(playerPos)
             const chunksToLoad = getChunksInRenderDistance(centerChunk)
 
+            // Sort by distance from player — closest chunks load first for better perceived load time.
+            // chunkDistanceSquared is O(1) per comparison; total sort is O(n log n) where n ≈ 200 chunks.
+            const sortedChunksToLoad = Arr.sort(
+              chunksToLoad,
+              Order.mapInput(Order.number, (coord: ChunkCoord) => chunkDistanceSquared(coord, centerChunk))
+            )
+
             // Load chunks in render distance — up to 4 concurrent fibers via semaphore
             yield* Effect.forEach(
-              chunksToLoad,
+              sortedChunksToLoad,
               (coord) => loadSemaphore.withPermits(1)(getChunk(coord)),
               { concurrency: 'unbounded' }
             )

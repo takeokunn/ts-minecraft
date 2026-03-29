@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { Array as Arr } from 'effect'
 import {
   calculateJumpVelocity,
   clampVelocity,
@@ -31,12 +32,12 @@ describe('application/physics/physics-utils', () => {
   describe('calculateJumpVelocity', () => {
     it('should return positive velocity for valid height and gravity', () => {
       // Property: For all valid heights and gravities, velocity > 0
-      for (let i = 0; i < 100; i++) {
+      Arr.forEach(Arr.makeBy(100, i => i), (_) => {
         const height = 0.1 + Math.random() * 9.9
         const gravity = 1 + Math.random() * 49
         const velocity = calculateJumpVelocity(height, gravity)
         expect(velocity).toBeGreaterThan(0)
-      }
+      })
     })
 
     it('should return 0 for zero or negative height', () => {
@@ -57,31 +58,31 @@ describe('application/physics/physics-utils', () => {
 
     it('should satisfy v^2 = 2gh (kinematic equation)', () => {
       // Property: v^2 should equal 2gh for all valid inputs
-      for (let i = 0; i < 100; i++) {
+      Arr.forEach(Arr.makeBy(100, i => i), (_) => {
         const height = 0.1 + Math.random() * 9.9
         const gravity = 1 + Math.random() * 49
         const velocity = calculateJumpVelocity(height, gravity)
         expect(velocity ** 2).toBeCloseTo(2 * gravity * height, 3)
-      }
+      })
     })
 
     it('should increase with height', () => {
       // Property: Higher jump height requires higher velocity
-      for (let i = 0; i < 100; i++) {
+      Arr.forEach(Arr.makeBy(100, i => i), (_) => {
         const h1 = 0.1 + Math.random() * 4.9
         const h2 = h1 + 0.1 + Math.random() * 4.9 // Ensure h2 > h1
         const gravity = 1 + Math.random() * 49
         const v1 = calculateJumpVelocity(h1, gravity)
         const v2 = calculateJumpVelocity(h2, gravity)
         expect(v2).toBeGreaterThan(v1)
-      }
+      })
     })
   })
 
   describe('clampVelocity', () => {
     it('should not modify velocity under max speed', () => {
       // Property: Small velocities should not be modified (Y always preserved)
-      for (let i = 0; i < 100; i++) {
+      Arr.forEach(Arr.makeBy(100, i => i), (_) => {
         const velocity = {
           x: (Math.random() - 0.5) * 0.2,
           y: (Math.random() - 0.5) * 0.2,
@@ -92,12 +93,12 @@ describe('application/physics/physics-utils', () => {
         expect(clamped.y).toBe(velocity.y)
         const hSpeed = getHorizontalSpeed(clamped)
         expect(hSpeed).toBeLessThanOrEqual(maxSpeed + 0.0001)
-      }
+      })
     })
 
     it('should preserve Y velocity', () => {
       // Property: Y velocity is always preserved
-      for (let i = 0; i < 100; i++) {
+      Arr.forEach(Arr.makeBy(100, i => i), (_) => {
         const velocity = {
           x: (Math.random() - 0.5) * 200,
           y: (Math.random() - 0.5) * 200,
@@ -106,7 +107,7 @@ describe('application/physics/physics-utils', () => {
         const maxSpeed = 0.1 + Math.random() * 99.9
         const clamped = clampVelocity(velocity, maxSpeed)
         expect(clamped.y).toBe(velocity.y)
-      }
+      })
     })
 
     it('should clamp horizontal speed to max speed', () => {
@@ -144,7 +145,7 @@ describe('application/physics/physics-utils', () => {
   describe('applyFriction', () => {
     it('should reduce horizontal speed for friction < 1', () => {
       // Property: Friction reduces horizontal speed
-      for (let i = 0; i < 100; i++) {
+      Arr.forEach(Arr.makeBy(100, i => i), (_) => {
         const velocity = {
           x: (Math.random() - 0.5) * 100,
           y: (Math.random() - 0.5) * 100,
@@ -156,12 +157,12 @@ describe('application/physics/physics-utils', () => {
         const originalSpeed = getHorizontalSpeed(velocity)
         const newSpeed = getHorizontalSpeed(result)
         expect(newSpeed).toBeLessThan(originalSpeed + 0.001)
-      }
+      })
     })
 
     it('should not affect Y velocity', () => {
       // Property: Y velocity is always preserved
-      for (let i = 0; i < 100; i++) {
+      Arr.forEach(Arr.makeBy(100, i => i), (_) => {
         const velocity = {
           x: (Math.random() - 0.5) * 200,
           y: (Math.random() - 0.5) * 200,
@@ -171,12 +172,12 @@ describe('application/physics/physics-utils', () => {
         const dt = 0.001 + Math.random() * 0.099
         const result = applyFriction(velocity, friction, DeltaTimeSecs.make(dt))
         expect(result.y).toBe(velocity.y)
-      }
+      })
     })
 
     it('should return unchanged velocity for friction = 1 (no friction)', () => {
       // Property: Friction of 1 means no friction
-      for (let i = 0; i < 100; i++) {
+      Arr.forEach(Arr.makeBy(100, i => i), (_) => {
         const velocity = {
           x: (Math.random() - 0.5) * 200,
           y: (Math.random() - 0.5) * 200,
@@ -186,7 +187,7 @@ describe('application/physics/physics-utils', () => {
         const result = applyFriction(velocity, 1, DeltaTimeSecs.make(dt))
         expect(result.x).toBeCloseTo(velocity.x, 10)
         expect(result.z).toBeCloseTo(velocity.z, 10)
-      }
+      })
     })
 
     it('should return effectively unchanged velocity for near-zero deltaTime', () => {
@@ -219,7 +220,7 @@ describe('application/physics/physics-utils', () => {
 
     it('should be additive for sequential updates', () => {
       // Property: Sequential updates equal single update with combined time
-      for (let i = 0; i < 100; i++) {
+      Arr.forEach(Arr.makeBy(100, i => i), (_) => {
         const pos = {
           x: (Math.random() - 0.5) * 2000,
           y: (Math.random() - 0.5) * 600,
@@ -239,12 +240,12 @@ describe('application/physics/physics-utils', () => {
         expect(result1.x).toBeCloseTo(result2.x, 5)
         expect(result1.y).toBeCloseTo(result2.y, 5)
         expect(result1.z).toBeCloseTo(result2.z, 5)
-      }
+      })
     })
 
     it('should return effectively unchanged position for near-zero deltaTime', () => {
       // DeltaTimeSecs is always positive; Number.MIN_VALUE gives displacement below machine epsilon
-      for (let i = 0; i < 100; i++) {
+      Arr.forEach(Arr.makeBy(100, i => i), (_) => {
         const pos = {
           x: (Math.random() - 0.5) * 2000 + 1,
           y: (Math.random() - 0.5) * 600 + 1,
@@ -259,14 +260,14 @@ describe('application/physics/physics-utils', () => {
         expect(result.x).toBeCloseTo(pos.x, 10)
         expect(result.y).toBeCloseTo(pos.y, 10)
         expect(result.z).toBeCloseTo(pos.z, 10)
-      }
+      })
     })
 
     it('should return effectively unchanged position for near-zero deltaTime', () => {
       // DeltaTimeSecs is always positive; use Number.MIN_VALUE (5e-324) as the floor.
       // The resulting displacement (vel * 5e-324) is below machine epsilon relative to any
       // typical position value, so toBeCloseTo(p, 10) holds for all random inputs.
-      for (let i = 0; i < 100; i++) {
+      Arr.forEach(Arr.makeBy(100, i => i), (_) => {
         const pos = {
           x: (Math.random() - 0.5) * 2000 + 1, // avoid exact 0 to stay above machine epsilon
           y: (Math.random() - 0.5) * 600 + 1,
@@ -281,12 +282,12 @@ describe('application/physics/physics-utils', () => {
         expect(result.x).toBeCloseTo(pos.x, 10)
         expect(result.y).toBeCloseTo(pos.y, 10)
         expect(result.z).toBeCloseTo(pos.z, 10)
-      }
+      })
     })
 
     it('should return unchanged position for zero velocity', () => {
       // Property: Zero velocity means no movement
-      for (let i = 0; i < 100; i++) {
+      Arr.forEach(Arr.makeBy(100, i => i), (_) => {
         const pos = {
           x: (Math.random() - 0.5) * 2000,
           y: (Math.random() - 0.5) * 600,
@@ -297,7 +298,7 @@ describe('application/physics/physics-utils', () => {
         expect(result.x).toBeCloseTo(pos.x, 10)
         expect(result.y).toBeCloseTo(pos.y, 10)
         expect(result.z).toBeCloseTo(pos.z, 10)
-      }
+      })
     })
   })
 
@@ -327,7 +328,7 @@ describe('application/physics/physics-utils', () => {
 
     it('should satisfy distance property for valid grounded states', () => {
       // Property: If grounded, distance must be within [0, threshold]
-      for (let i = 0; i < 100; i++) {
+      Arr.forEach(Arr.makeBy(100, i => i), (_) => {
         const playerY = Math.random() * 5
         const groundY = (Math.random() - 0.5) * 20
         const threshold = 0.01 + Math.random() * 0.99
@@ -339,7 +340,7 @@ describe('application/physics/physics-utils', () => {
           expect(distance).toBeGreaterThanOrEqual(0)
           expect(distance).toBeLessThanOrEqual(threshold)
         }
-      }
+      })
     })
   })
 
@@ -359,7 +360,7 @@ describe('application/physics/physics-utils', () => {
 
     it('should always return non-negative', () => {
       // Property: Speed is always non-negative
-      for (let i = 0; i < 100; i++) {
+      Arr.forEach(Arr.makeBy(100, i => i), (_) => {
         const velocity = {
           x: (Math.random() - 0.5) * 200,
           y: (Math.random() - 0.5) * 200,
@@ -367,7 +368,7 @@ describe('application/physics/physics-utils', () => {
         }
         const speed = getHorizontalSpeed(velocity)
         expect(speed).toBeGreaterThanOrEqual(0)
-      }
+      })
     })
   })
 
@@ -386,7 +387,7 @@ describe('application/physics/physics-utils', () => {
 
     it('should always return non-negative', () => {
       // Property: Speed is always non-negative
-      for (let i = 0; i < 100; i++) {
+      Arr.forEach(Arr.makeBy(100, i => i), (_) => {
         const velocity = {
           x: (Math.random() - 0.5) * 200,
           y: (Math.random() - 0.5) * 200,
@@ -394,14 +395,14 @@ describe('application/physics/physics-utils', () => {
         }
         const speed = getTotalSpeed(velocity)
         expect(speed).toBeGreaterThanOrEqual(0)
-      }
+      })
     })
   })
 
   describe('normalizeHorizontalVelocity', () => {
     it('should produce exact target speed', () => {
       // Property: Normalized velocity has exact target horizontal speed
-      for (let i = 0; i < 100; i++) {
+      Arr.forEach(Arr.makeBy(100, i => i), (_) => {
         const velocity = {
           x: 0.01 + Math.random() * 49.99,
           y: (Math.random() - 0.5) * 200,
@@ -411,12 +412,12 @@ describe('application/physics/physics-utils', () => {
         const normalized = normalizeHorizontalVelocity(velocity, targetSpeed)
         const speed = getHorizontalSpeed(normalized)
         expect(speed).toBeCloseTo(targetSpeed, 3)
-      }
+      })
     })
 
     it('should preserve Y velocity', () => {
       // Property: Y is always preserved
-      for (let i = 0; i < 100; i++) {
+      Arr.forEach(Arr.makeBy(100, i => i), (_) => {
         const velocity = {
           x: 0.01 + Math.random() * 49.99,
           y: (Math.random() - 0.5) * 200,
@@ -425,7 +426,7 @@ describe('application/physics/physics-utils', () => {
         const targetSpeed = 0.1 + Math.random() * 49.9
         const normalized = normalizeHorizontalVelocity(velocity, targetSpeed)
         expect(normalized.y).toBe(velocity.y)
-      }
+      })
     })
 
     it('should preserve direction', () => {
@@ -483,7 +484,7 @@ describe('application/physics/physics-utils', () => {
 
     it('should be commutative', () => {
       // Property: Addition is commutative
-      for (let i = 0; i < 100; i++) {
+      Arr.forEach(Arr.makeBy(100, i => i), (_) => {
         const a = {
           x: (Math.random() - 0.5) * 200,
           y: (Math.random() - 0.5) * 200,
@@ -500,12 +501,12 @@ describe('application/physics/physics-utils', () => {
         expect(ab.x).toBeCloseTo(ba.x, 5)
         expect(ab.y).toBeCloseTo(ba.y, 5)
         expect(ab.z).toBeCloseTo(ba.z, 5)
-      }
+      })
     })
 
     it('should return same velocity when adding zero', () => {
       // Property: Adding zero is identity
-      for (let i = 0; i < 100; i++) {
+      Arr.forEach(Arr.makeBy(100, i => i), (_) => {
         const v = {
           x: (Math.random() - 0.5) * 200,
           y: (Math.random() - 0.5) * 200,
@@ -515,7 +516,7 @@ describe('application/physics/physics-utils', () => {
         expect(result.x).toBeCloseTo(v.x, 5)
         expect(result.y).toBeCloseTo(v.y, 5)
         expect(result.z).toBeCloseTo(v.z, 5)
-      }
+      })
     })
   })
 
@@ -531,7 +532,7 @@ describe('application/physics/physics-utils', () => {
 
     it('should return zero for scalar = 0', () => {
       // Property: Zero scale = zero velocity
-      for (let i = 0; i < 100; i++) {
+      Arr.forEach(Arr.makeBy(100, i => i), (_) => {
         const v = {
           x: (Math.random() - 0.5) * 200,
           y: (Math.random() - 0.5) * 200,
@@ -541,12 +542,12 @@ describe('application/physics/physics-utils', () => {
         expect(Object.is(result.x, 0) || Object.is(result.x, -0)).toBe(true)
         expect(Object.is(result.y, 0) || Object.is(result.y, -0)).toBe(true)
         expect(Object.is(result.z, 0) || Object.is(result.z, -0)).toBe(true)
-      }
+      })
     })
 
     it('should preserve direction for positive scalar', () => {
       // Property: Positive scaling preserves direction
-      for (let i = 0; i < 100; i++) {
+      Arr.forEach(Arr.makeBy(100, i => i), (_) => {
         const v = {
           x: 0.01 + Math.random() * 99.99,
           y: 0.01 + Math.random() * 99.99,
@@ -562,12 +563,12 @@ describe('application/physics/physics-utils', () => {
         if (v.y !== 0 && v.z !== 0) {
           expect(scaled.y / scaled.z).toBeCloseTo(v.y / v.z, 5)
         }
-      }
+      })
     })
 
     it('should double speed when scalar = 2', () => {
       // Property: Scalar of 2 doubles the speed
-      for (let i = 0; i < 100; i++) {
+      Arr.forEach(Arr.makeBy(100, i => i), (_) => {
         const v = {
           x: 0.01 + Math.random() * 99.99,
           y: 0.01 + Math.random() * 99.99,
@@ -577,7 +578,7 @@ describe('application/physics/physics-utils', () => {
         const scaled = scaleVelocity(v, 2)
         const newSpeed = getTotalSpeed(scaled)
         expect(newSpeed).toBeCloseTo(originalSpeed * 2, 5)
-      }
+      })
     })
   })
 })

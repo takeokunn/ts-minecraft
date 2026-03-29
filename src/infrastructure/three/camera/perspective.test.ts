@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect } from 'vitest'
+import { it } from '@effect/vitest'
 import { Array as Arr, Effect } from 'effect'
 import {
   PerspectiveCameraService,
@@ -65,8 +66,8 @@ describe('infrastructure/three/camera/perspective', () => {
   })
 
   describe('PerspectiveCameraService via Layer', () => {
-    it('should expose all required methods', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should expose all required methods', () =>
+      Effect.gen(function* () {
         const service = yield* PerspectiveCameraService
         expect(typeof service.create).toBe('function')
         expect(typeof service.updateAspect).toBe('function')
@@ -74,46 +75,35 @@ describe('infrastructure/three/camera/perspective', () => {
         expect(typeof service.setPosition).toBe('function')
         expect(typeof service.lookAt).toBe('function')
         expect(typeof service.smoothFollow).toBe('function')
-        return { success: true }
       }).pipe(Effect.provide(PerspectiveCameraServiceLive))
+    )
 
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
-    })
-
-    it('updateAspect should update camera.aspect', () => {
+    it.effect('updateAspect should update camera.aspect', () => {
       camera = makeMockCamera()
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* PerspectiveCameraService
         yield* service.updateAspect(camera as never, 2.0)
-        return { aspect: camera.aspect }
+        expect(camera.aspect).toBe(2.0)
       }).pipe(Effect.provide(PerspectiveCameraServiceLive))
-
-      const { aspect } = Effect.runSync(program)
-      expect(aspect).toBe(2.0)
     })
 
-    it('setPosition should update camera.position', () => {
+    it.effect('setPosition should update camera.position', () => {
       camera = makeMockCamera()
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* PerspectiveCameraService
         yield* service.setPosition(camera as never, { x: 5, y: 10, z: 15 })
-        return { pos: { ...camera.position } }
+        expect(camera.position.x).toBe(5)
+        expect(camera.position.y).toBe(10)
+        expect(camera.position.z).toBe(15)
       }).pipe(Effect.provide(PerspectiveCameraServiceLive))
-
-      const { pos } = Effect.runSync(program)
-      expect(pos.x).toBe(5)
-      expect(pos.y).toBe(10)
-      expect(pos.z).toBe(15)
     })
 
-    it('smoothFollow should move camera toward target', () => {
+    it.effect('smoothFollow should move camera toward target', () => {
       camera = makeMockCamera()
       camera.position.x = 0
       camera.position.y = 0
       camera.position.z = 0
-
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* PerspectiveCameraService
         yield* service.smoothFollow(
           camera as never,
@@ -121,14 +111,11 @@ describe('infrastructure/three/camera/perspective', () => {
           { x: 0, y: 5, z: 10 },
           1.0 // lerp=1 means instant jump to target
         )
-        return { pos: { ...camera.position } }
+        // With lerpFactor=1: camera jumps to targetX=10+0=10, targetY=10+5=15, targetZ=10+10=20
+        expect(camera.position.x).toBeCloseTo(10)
+        expect(camera.position.y).toBeCloseTo(15)
+        expect(camera.position.z).toBeCloseTo(20)
       }).pipe(Effect.provide(PerspectiveCameraServiceLive))
-
-      const { pos } = Effect.runSync(program)
-      // With lerpFactor=1: camera jumps to targetX=10+0=10, targetY=10+5=15, targetZ=10+10=20
-      expect(pos.x).toBeCloseTo(10)
-      expect(pos.y).toBeCloseTo(15)
-      expect(pos.z).toBeCloseTo(20)
     })
   })
 })

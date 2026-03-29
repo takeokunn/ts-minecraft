@@ -8,7 +8,7 @@
  */
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Arbitrary, Effect, Layer, MutableHashMap, Option, Schema } from 'effect'
+import { Arbitrary, Array as Arr, Effect, Layer, MutableHashMap, Option, Schema } from 'effect'
 import { CHUNK_HEIGHT } from '@/domain/chunk'
 import { StorageServicePort } from '@/application/storage/storage-service-port'
 import { StorageError } from '@/domain/errors'
@@ -147,10 +147,10 @@ describe('chunk-manager-service / getChunk block index bounds', () => {
 
       // All block values must be within valid range (0=AIR, up to 11=COBBLESTONE as of Phase 16)
       const MAX_VALID_BLOCK_INDEX = 255 // Uint8Array max, actual max much lower
-      for (let i = 0; i < chunk.blocks.length; i++) {
+      Arr.forEach(Arr.makeBy(chunk.blocks.length, i => i), (i) => {
         expect(chunk.blocks[i]).toBeGreaterThanOrEqual(0)
         expect(chunk.blocks[i]).toBeLessThanOrEqual(MAX_VALID_BLOCK_INDEX)
-      }
+      })
     }).pipe(Effect.provide(TestLayer))
   })
 })

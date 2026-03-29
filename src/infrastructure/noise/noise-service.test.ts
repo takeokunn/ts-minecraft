@@ -279,11 +279,13 @@ describe('infrastructure/noise/noise-service', () => {
       Effect.gen(function* () {
         const service = yield* NoiseService
         const values = MutableHashSet.empty<number>()
-        for (let x = 0; x < 10; x++) {
-          for (let z = 0; z < 10; z++) {
-            MutableHashSet.add(values, Math.round((yield* service.noise2D(x, z)) * 100) / 100)
-          }
-        }
+        yield* Effect.forEach(Arr.makeBy(10, x => x), x =>
+          Effect.forEach(Arr.makeBy(10, z => z), z =>
+            service.noise2D(x, z).pipe(
+              Effect.map(v => MutableHashSet.add(values, Math.round(v * 100) / 100))
+            ), { concurrency: 1 }
+          ), { concurrency: 1 }
+        )
         // 100 samples should produce more than just a few unique values
         expect(MutableHashSet.size(values)).toBeGreaterThan(5)
       }).pipe(Effect.provide(NoiseService.Default))

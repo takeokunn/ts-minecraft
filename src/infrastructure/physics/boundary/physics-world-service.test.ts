@@ -1,6 +1,6 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Effect } from 'effect'
+import { Array as Arr, Effect } from 'effect'
 import { DeltaTimeSecs } from '@/shared/kernel'
 import {
   PhysicsWorldService,
@@ -100,9 +100,7 @@ describe('physics/boundary/physics-world-service', () => {
         yield* worldSvc.addBody(world, box)
 
         // Step until settled
-        for (let i = 0; i < 300; i++) {
-          yield* worldSvc.step(world, DeltaTimeSecs.make(1 / 60))
-        }
+        yield* Effect.forEach(Arr.makeBy(300, () => undefined), () => worldSvc.step(world, DeltaTimeSecs.make(1 / 60)), { concurrency: 1 })
 
         // Box bottom should be at planeY (0), so box center at 0 + halfExtents.y = 0.5
         expect(box.position.y).toBeCloseTo(0.5, 1)

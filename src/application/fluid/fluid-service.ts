@@ -25,7 +25,7 @@ const NOTIFY_OFFSETS = [
   { x: 0, y: 0, z: -1 },
 ] as const
 
-type FluidKey = string & Brand.Brand<'FluidKey'>
+type FluidKey = number & Brand.Brand<'FluidKey'>
 const FluidKey = Brand.nominal<FluidKey>()
 
 type FluidState = Readonly<{
@@ -38,37 +38,38 @@ const INITIAL_STATE: FluidState = {
   frontier: HashSet.empty(),
 }
 
+const BIAS = 32768
+const Y_STRIDE = 65536
+const XZ_STRIDE = CHUNK_HEIGHT * Y_STRIDE
+
 const blockKey = (position: Position): FluidKey =>
-  FluidKey(`${Math.floor(position.x)}:${Math.floor(position.y)}:${Math.floor(position.z)}`)
+  FluidKey((Math.floor(position.x) + BIAS) * XZ_STRIDE + Math.floor(position.y) * Y_STRIDE + (Math.floor(position.z) + BIAS))
 
 const parseKey = (key: FluidKey): Position => {
-  const parts = key.split(':')
-  if (parts.length !== 3) {
-    return { x: 0, y: 0, z: 0 }
-  }
-
-  const toNum = (s: string): number => {
-    const n = Number(s)
-    return Number.isFinite(n) ? n : 0
-  }
-  const nums = Arr.map(parts, toNum)
+  const biasedX = Math.floor(key / XZ_STRIDE)
+  const remainder = key - biasedX * XZ_STRIDE
+  const y = Math.floor(remainder / Y_STRIDE)
+  const biasedZ = remainder - y * Y_STRIDE
   return {
-    x: Option.getOrElse(Arr.get(nums, 0), () => 0),
-    y: Option.getOrElse(Arr.get(nums, 1), () => 0),
-    z: Option.getOrElse(Arr.get(nums, 2), () => 0),
+    x: biasedX - BIAS,
+    y,
+    z: biasedZ - BIAS,
   }
 }
 
-const ensureFluidBuffer = (chunk: Chunk): Effect.Effect<Uint8Array<ArrayBufferLike>> => {
-  if (chunk.fluid && chunk.fluid.byteLength === FLUID_BYTE_LENGTH) {
-    return Effect.succeed(chunk.fluid)
-  }
-  return Effect.sync(() => {
-    const fluid = createFluidBuffer()
-    ;(chunk as { fluid?: Uint8Array<ArrayBufferLike> }).fluid = fluid
-    return fluid
-  })
-}
+const ensureFluidBuffer = (chunk: Chunk): Effect.Effect<Uint8Array<ArrayBufferLike>> =>
+  Option.match(
+    Option.filter(chunk.fluid, (b) => b.byteLength === FLUID_BYTE_LENGTH),
+    {
+      onNone: () =>
+        Effect.sync(() => {
+          const fluid = createFluidBuffer()
+          ;(chunk as { fluid: Option.Option<Uint8Array<ArrayBufferLike>> }).fluid = Option.some(fluid)
+          return fluid
+        }),
+      onSome: Effect.succeed,
+    }
+  )
 
 const floorMod = (value: number, modulo: number): number => ((value % modulo) + modulo) % modulo
 
@@ -117,9 +118,7 @@ const setWaterBlockIfLoaded = (
   Option.match(chunkOpt, {
     onNone: () => Effect.void,
     onSome: (chunk) => Effect.gen(function* () {
-      yield* setBlockInChunk(chunk, localX(position), localY(position), localZ(position), 'WATER').pipe(
-        Effect.catchAll(() => Effect.void),
-      )
+      yield* Effect.ignore(setBlockInChunk(chunk, localX(position), localY(position), localZ(position), 'WATER'))
       const fluid = yield* ensureFluidBuffer(chunk)
       const idx = getBlockIndex(position)
       if (idx >= 0) {
@@ -137,9 +136,7 @@ const setAirBlockIfLoaded = (
   Option.match(chunkOpt, {
     onNone: () => Effect.void,
     onSome: (chunk) => Effect.gen(function* () {
-      yield* setBlockInChunk(chunk, localX(position), localY(position), localZ(position), 'AIR').pipe(
-        Effect.catchAll(() => Effect.void),
-      )
+      yield* Effect.ignore(setBlockInChunk(chunk, localX(position), localY(position), localZ(position), 'AIR'))
       const fluid = yield* ensureFluidBuffer(chunk)
       const idx = getBlockIndex(position)
       if (idx >= 0) {
@@ -152,9 +149,11 @@ const setAirBlockIfLoaded = (
 export class FluidService extends Effect.Service<FluidService>()(
   '@minecraft/application/FluidService',
   {
-    effect: Effect.gen(function* () {
-      const chunkManagerService = yield* ChunkManagerService
-      const stateRef = yield* Ref.make<FluidState>(INITIAL_STATE)
+    effect: Effect.all([
+      ChunkManagerService,
+      Ref.make<FluidState>(INITIAL_STATE),
+      Ref.make<HashMap.HashMap<ChunkCacheKey, Chunk>>(HashMap.empty()),
+    ], { concurrency: 'unbounded' }).pipe(Effect.map(([chunkManagerService, stateRef, loadedCacheRef]) => {
 
       const setCell = (state: FluidState, position: Position, cell: FluidCell): FluidState => ({
         ...state,
@@ -166,34 +165,34 @@ export class FluidService extends Effect.Service<FluidService>()(
         cells: HashMap.remove(state.cells, blockKey(position)),
       })
 
-      const hydrateChunk = (state: FluidState, chunk: Chunk): FluidState => {
-        const fluid = chunk.fluid
-        const hasFluidMetadata =
-          fluid instanceof Uint8Array &&
-          fluid.byteLength === FLUID_BYTE_LENGTH &&
-          fluid.some((b) => b !== 0)
-
-        if (hasFluidMetadata && fluid) {
-          return fluid.reduce((acc: FluidState, byte: number, idx: number): FluidState =>
-            Option.match(decodeFluidByte(byte), {
-              onNone: () => acc,
-              onSome: (cell) => {
+      const hydrateChunk = (state: FluidState, chunk: Chunk): FluidState =>
+        Option.match(
+          Option.filter(
+            chunk.fluid,
+            (b) => b.byteLength === FLUID_BYTE_LENGTH && b.some((byte) => byte !== 0)
+          ),
+          {
+            onNone: () =>
+              chunk.blocks.reduce((acc: FluidState, blockIdx: number, idx: number): FluidState => {
+                if (blockIdx !== WATER_INDEX) return acc
                 const position = positionFromChunk(chunk, idx)
-                const next = setCell(acc, position, cell)
+                const next = setCell(acc, position, { level: 0, source: true })
                 return { ...next, frontier: enqueue(next.frontier, position) }
-              },
-            }),
-            state
-          )
-        }
-
-        return chunk.blocks.reduce((acc: FluidState, blockIdx: number, idx: number): FluidState => {
-          if (blockIdx !== WATER_INDEX) return acc
-          const position = positionFromChunk(chunk, idx)
-          const next = setCell(acc, position, { level: 0, source: true })
-          return { ...next, frontier: enqueue(next.frontier, position) }
-        }, state)
-      }
+              }, state),
+            onSome: (fluid) =>
+              fluid.reduce((acc: FluidState, byte: number, idx: number): FluidState => {
+                if (byte === 0) return acc
+                return Option.match(decodeFluidByte(byte), {
+                  onNone: () => acc,
+                  onSome: (cell) => {
+                    const position = positionFromChunk(chunk, idx)
+                    const next = setCell(acc, position, cell)
+                    return { ...next, frontier: enqueue(next.frontier, position) }
+                  },
+                })
+              }, state),
+          }
+        )
 
       const isAirAt = (loaded: HashMap.HashMap<ChunkCacheKey, Chunk>, position: Position): boolean =>
         Option.match(HashMap.get(loaded, ChunkCacheKey.make(chunkCoordsForPosition(position))), {
@@ -218,6 +217,17 @@ export class FluidService extends Effect.Service<FluidService>()(
           chunkManagerService,
         )
 
+      const getLoaded: Effect.Effect<HashMap.HashMap<ChunkCacheKey, Chunk>, never> =
+        Ref.get(loadedCacheRef).pipe(
+          Effect.flatMap((cached) =>
+            HashMap.size(cached) > 0
+              ? Effect.succeed(cached)
+              : chunkManagerService.getLoadedChunks().pipe(
+                  Effect.map((chunks) => HashMap.fromIterable(Arr.map(chunks, (chunk) => [ChunkCacheKey.make(chunk.coord), chunk] as const)))
+                )
+          )
+        )
+
       return {
         notifyBlockChanged: (position: Position): Effect.Effect<void, never> =>
           Ref.update(stateRef, (state) => ({
@@ -233,9 +243,7 @@ export class FluidService extends Effect.Service<FluidService>()(
               z: Math.floor(position.z),
             }
 
-            const loaded = yield* chunkManagerService.getLoadedChunks().pipe(
-              Effect.map((chunks) => HashMap.fromIterable(Arr.map(chunks, (chunk) => [ChunkCacheKey.make(chunk.coord), chunk] as const))),
-            )
+            const loaded = yield* getLoaded
 
             yield* Ref.update(stateRef, (state) => ({
               ...setCell(state, normalized, { level: 0, source: true }),
@@ -253,9 +261,7 @@ export class FluidService extends Effect.Service<FluidService>()(
               z: Math.floor(position.z),
             }
 
-            const loaded = yield* chunkManagerService.getLoadedChunks().pipe(
-              Effect.map((chunks) => HashMap.fromIterable(Arr.map(chunks, (chunk) => [ChunkCacheKey.make(chunk.coord), chunk] as const))),
-            )
+            const loaded = yield* getLoaded
 
             yield* Ref.update(stateRef, (state) => ({
               ...removeCell(state, normalized),
@@ -266,12 +272,14 @@ export class FluidService extends Effect.Service<FluidService>()(
           }),
 
         syncLoadedChunks: (chunks: ReadonlyArray<Chunk>): Effect.Effect<void, never> =>
-          Ref.set(stateRef, Arr.reduce(chunks, INITIAL_STATE, hydrateChunk)),
+          Effect.all([
+            Ref.set(stateRef, Arr.reduce(chunks, INITIAL_STATE, hydrateChunk)),
+            Ref.set(loadedCacheRef, HashMap.fromIterable(Arr.map(chunks, (chunk) => [ChunkCacheKey.make(chunk.coord), chunk] as const))),
+          ], { concurrency: 'unbounded', discard: true }),
 
         tick: (): Effect.Effect<void, never> =>
           Effect.gen(function* () {
-            const loadedChunks = yield* chunkManagerService.getLoadedChunks()
-            const loaded = HashMap.fromIterable(Arr.map(loadedChunks, (chunk) => [ChunkCacheKey.make(chunk.coord), chunk] as const))
+            const loaded = yield* Ref.get(loadedCacheRef)
 
             const state = yield* Ref.get(stateRef)
             const queued = Arr.fromIterable(state.frontier)
@@ -341,7 +349,7 @@ export class FluidService extends Effect.Service<FluidService>()(
             yield* Ref.set(stateRef, yield* Ref.get(tickStateRef))
           }),
       }
-    }),
+    })),
   }
 ) {}
 

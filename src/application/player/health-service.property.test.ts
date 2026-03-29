@@ -1,4 +1,5 @@
 import { describe, it } from '@effect/vitest'
+import { expect } from 'vitest'
 import { Effect } from 'effect'
 import * as fc from 'effect/FastCheck'
 import { HealthService } from '@/application/player/health-service'
@@ -70,53 +71,40 @@ describe('HealthService (property-based)', () => {
       }).pipe(Effect.provide(HealthService.Default))
     )
 
-    it.effect('processFallDamage returns 0 on first call regardless of Y (prevY not set)', () =>
-      Effect.sync(() => {
-        fc.assert(
-          fc.asyncProperty(
-            fc.float({ min: -1000, max: 1000, noNaN: true }),
-            fc.boolean(),
-            async (currentY, isGrounded) => {
-              const damage = await Effect.runPromise(
-                Effect.gen(function* () {
-                  const hs = yield* HealthService
-                  return yield* hs.processFallDamage(currentY, isGrounded)
-                }).pipe(Effect.provide(HealthService.Default))
-              )
-              return damage === 0
-            }
-          )
-        )
-      }).pipe(Effect.provide(HealthService.Default))
+    it.effect.prop(
+      'processFallDamage returns 0 on first call regardless of Y (prevY not set)',
+      {
+        currentY: fc.float({ min: -1000, max: 1000, noNaN: true }),
+        isGrounded: fc.boolean(),
+      },
+      ({ currentY, isGrounded }) =>
+        Effect.gen(function* () {
+          const hs = yield* HealthService
+          const damage = yield* hs.processFallDamage(currentY, isGrounded)
+          expect(damage).toBe(0)
+        }).pipe(Effect.provide(HealthService.Default))
     )
 
-    it.effect('processFallDamage returns 0 while still falling (not yet grounded)', () =>
-      // If the player is falling (currentY < prevY) but isGrounded = false,
-      // the landing-detection branch is not triggered → damage = 0.
-      Effect.sync(() => {
-        fc.assert(
-          fc.asyncProperty(
-            fc.float({ min: 10, max: 100, noNaN: true }),     // startY
-            // fallDist > 3 ensures damage would be non-zero IF we were grounded,
-            // but since isGrounded=false the damage must still be 0.
-            // Math.fround(3.001) needed for fc.float lower bound constraint.
-            fc.float({ min: Math.fround(3.001), max: Math.fround(9.99), noNaN: true }),
-            async (startY, fallDist) => {
-              const midY = startY - fallDist
-              const damage = await Effect.runPromise(
-                Effect.gen(function* () {
-                  const hs = yield* HealthService
-                  // First call: initialise prevY = startY, isFalling = false
-                  yield* hs.processFallDamage(startY, false)
-                  // Second call: falling (midY < startY), not grounded → 0 damage
-                  return yield* hs.processFallDamage(midY, false)
-                }).pipe(Effect.provide(HealthService.Default))
-              )
-              return damage === 0
-            }
-          )
-        )
-      }).pipe(Effect.provide(HealthService.Default))
+    it.effect.prop(
+      'processFallDamage returns 0 while still falling (not yet grounded)',
+      {
+        startY: fc.float({ min: 10, max: 100, noNaN: true }),
+        // fallDist > 3 ensures damage would be non-zero IF we were grounded,
+        // but since isGrounded=false the damage must still be 0.
+        // Math.fround(3.001) needed for fc.float lower bound constraint.
+        fallDist: fc.float({ min: Math.fround(3.001), max: Math.fround(9.99), noNaN: true }),
+      },
+      ({ startY, fallDist }) => {
+        const midY = startY - fallDist
+        return Effect.gen(function* () {
+          const hs = yield* HealthService
+          // First call: initialise prevY = startY, isFalling = false
+          yield* hs.processFallDamage(startY, false)
+          // Second call: falling (midY < startY), not grounded → 0 damage
+          const damage = yield* hs.processFallDamage(midY, false)
+          expect(damage).toBe(0)
+        }).pipe(Effect.provide(HealthService.Default))
+      }
     )
   })
 })

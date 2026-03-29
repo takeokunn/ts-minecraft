@@ -29,10 +29,9 @@ const HOTBAR_Y_OFFSET = 50 // pixels from bottom edge of viewport to center of h
 export class HotbarRendererService extends Effect.Service<HotbarRendererService>()(
   '@minecraft/presentation/HotbarRenderer',
   {
-    scoped: Effect.gen(function* () {
-      const rendererService = yield* RendererService
-
-      const { hudScene, borderMesh } = yield* Effect.sync(() => {
+    scoped: Effect.all([
+      RendererService,
+      Effect.sync(() => {
         const scene = new THREE.Scene()
         const border = new THREE.Mesh(
           new THREE.PlaneGeometry(SLOT_SIZE + 8, SLOT_SIZE + 8),
@@ -42,9 +41,12 @@ export class HotbarRendererService extends Effect.Service<HotbarRendererService>
         border.visible = false
         scene.add(border)
         return { hudScene: scene, borderMesh: border }
-      })
-      const hudCameraRef = yield* Ref.make<Option.Option<THREE.OrthographicCamera>>(Option.none())
-      const slotMeshesRef = yield* Ref.make<ReadonlyArray<THREE.Mesh>>([])
+      }),
+      Ref.make<Option.Option<THREE.OrthographicCamera>>(Option.none()),
+      Ref.make<ReadonlyArray<THREE.Mesh>>([]),
+      Ref.make<{ slots: ReadonlyArray<Option.Option<BlockType>>; selected: SlotIndex }>({ slots: [], selected: SlotIndex.make(0) }),
+    ], { concurrency: 'unbounded' }).pipe(
+      Effect.flatMap(([rendererService, { hudScene, borderMesh }, hudCameraRef, slotMeshesRef, prevStateRef]) => {
 
       const makeCamera = (w: number, h: number): THREE.OrthographicCamera => {
         const cam = new THREE.OrthographicCamera(-w / 2, w / 2, h / 2, -h / 2, 0, 100)
@@ -69,17 +71,15 @@ export class HotbarRendererService extends Effect.Service<HotbarRendererService>
         borderMesh.position.y = newY
       }
 
-      yield* Effect.acquireRelease(
-        Effect.sync(() => {
-          window.addEventListener('resize', resizeHandler)
-        }),
-        () =>
+        return Effect.acquireRelease(
           Effect.sync(() => {
-            window.removeEventListener('resize', resizeHandler)
+            window.addEventListener('resize', resizeHandler)
           }),
-      )
-
-      return {
+          () =>
+            Effect.sync(() => {
+              window.removeEventListener('resize', resizeHandler)
+            }),
+        ).pipe(Effect.as({
         /**
          * Create HUD scene, camera, and slot meshes. Call once after renderer is created.
          */
@@ -109,30 +109,38 @@ export class HotbarRendererService extends Effect.Service<HotbarRendererService>
          * Update slot colors and highlight based on current slots and selected slot. Call every frame.
          */
         update: (slots: ReadonlyArray<Option.Option<BlockType>>, selectedSlot: SlotIndex): Effect.Effect<void, never> =>
-          Ref.get(slotMeshesRef).pipe(Effect.flatMap((slotMeshes) =>
-            Effect.sync(() => {
-              Arr.forEach(
-                Arr.zip(slotMeshes, slots),
-                ([mesh, slot]) => {
-                  const mat = mesh.material as THREE.MeshBasicMaterial
-                  Option.match(slot, {
-                    onSome: (blockType) => { mat.color.setHex(BLOCK_COLORS[blockType]) },
-                    onNone: () => { mat.color.setHex(0x333333) },
-                  })
-                  mesh.scale.setScalar(1)
-                }
-              )
+          Ref.modify(prevStateRef, (prev) => {
+            if (prev.selected === selectedSlot && prev.slots === slots) return [true, prev] as const
+            return [false, { slots, selected: selectedSlot }] as const
+          }).pipe(
+            Effect.flatMap((unchanged) => unchanged
+              ? Effect.void
+              : Ref.get(slotMeshesRef).pipe(Effect.flatMap((slotMeshes) =>
+                  Effect.sync(() => {
+                    Arr.forEach(
+                      Arr.zip(slotMeshes, slots),
+                      ([mesh, slot]) => {
+                        const mat = mesh.material as THREE.MeshBasicMaterial
+                        Option.match(slot, {
+                          onSome: (blockType) => { mat.color.setHex(BLOCK_COLORS[blockType]) },
+                          onNone: () => { mat.color.setHex(0x333333) },
+                        })
+                        mesh.scale.setScalar(1)
+                      }
+                    )
 
-              Option.match(Arr.get(slotMeshes as Array<THREE.Mesh>, SlotIndex.toNumber(selectedSlot)), {
-                onSome: (m) => {
-                  m.scale.setScalar(1.2)
-                  borderMesh.position.x = m.position.x
-                  borderMesh.visible = true
-                },
-                onNone: () => { borderMesh.visible = false },
-              })
-            })
-          )),
+                    Option.match(Arr.get(slotMeshes as Array<THREE.Mesh>, SlotIndex.toNumber(selectedSlot)), {
+                      onSome: (m) => {
+                        m.scale.setScalar(1.2)
+                        borderMesh.position.x = m.position.x
+                        borderMesh.visible = true
+                      },
+                      onNone: () => { borderMesh.visible = false },
+                    })
+                  })
+                ))
+            )
+          ),
 
         /**
          * Render the HUD overlay onto the renderer. Call after main scene render with autoClear=false.
@@ -144,8 +152,9 @@ export class HotbarRendererService extends Effect.Service<HotbarRendererService>
               onSome: (cam) => rendererService.renderOverlay(renderer, hudScene, cam),
             }))
           ),
-      }
-    }),
+        }))
+      })
+    ),
   }
 ) {}
 export const HotbarRendererLive = HotbarRendererService.Default

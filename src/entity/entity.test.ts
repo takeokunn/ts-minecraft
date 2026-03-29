@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from '@effect/vitest'
 import { Effect, Option } from 'effect'
 import { AIState } from '@/ai/stateMachine'
 import { EntityType } from '@/entity/entity'
@@ -6,8 +6,8 @@ import { EntityManager, EntityManagerLive } from '@/entity/entityManager'
 import { DeltaTimeSecs } from '@/shared/kernel'
 
 describe('entity/entityManager', () => {
-  it('adds, retrieves, and removes entities', () => {
-    const program = Effect.gen(function* () {
+  it.effect('adds, retrieves, and removes entities', () =>
+    Effect.gen(function* () {
       const entityManager = yield* EntityManager
 
       const entityId = yield* entityManager.addEntity(EntityType.Zombie, { x: 0, y: 64, z: 0 })
@@ -16,9 +16,7 @@ describe('entity/entityManager', () => {
 
       const entityOpt = yield* entityManager.getEntity(entityId)
       expect(Option.isSome(entityOpt)).toBe(true)
-      if (Option.isSome(entityOpt)) {
-        expect(entityOpt.value.type).toBe(EntityType.Zombie)
-      }
+      expect(Option.getOrThrow(entityOpt).type).toBe(EntityType.Zombie)
 
       const removed = yield* entityManager.removeEntity(entityId)
       expect(removed).toBe(true)
@@ -29,12 +27,10 @@ describe('entity/entityManager', () => {
       const countAfterRemove = yield* entityManager.getCount()
       expect(countAfterRemove).toBe(0)
     }).pipe(Effect.provide(EntityManagerLive))
+  )
 
-    Effect.runSync(program)
-  })
-
-  it('updates hostile entities to chase and move toward the player', () => {
-    const program = Effect.gen(function* () {
+  it.effect('updates hostile entities to chase and move toward the player', () =>
+    Effect.gen(function* () {
       const entityManager = yield* EntityManager
 
       const entityId = yield* entityManager.addEntity(EntityType.Zombie, { x: 0, y: 64, z: 0 })
@@ -42,22 +38,16 @@ describe('entity/entityManager', () => {
 
       const stateOpt = yield* entityManager.getEntityAIState(entityId)
       expect(Option.isSome(stateOpt)).toBe(true)
-      if (Option.isSome(stateOpt)) {
-        expect(stateOpt.value).toBe(AIState.Chase)
-      }
+      expect(Option.getOrThrow(stateOpt)).toBe(AIState.Chase)
 
       const entityOpt = yield* entityManager.getEntity(entityId)
       expect(Option.isSome(entityOpt)).toBe(true)
-      if (Option.isSome(entityOpt)) {
-        expect(entityOpt.value.position.x).toBeGreaterThan(0)
-      }
+      expect(Option.getOrThrow(entityOpt).position.x).toBeGreaterThan(0)
     }).pipe(Effect.provide(EntityManagerLive))
+  )
 
-    Effect.runSync(program)
-  })
-
-  it('updates passive entities to flee from nearby player', () => {
-    const program = Effect.gen(function* () {
+  it.effect('updates passive entities to flee from nearby player', () =>
+    Effect.gen(function* () {
       const entityManager = yield* EntityManager
 
       const entityId = yield* entityManager.addEntity(EntityType.Cow, { x: 0, y: 64, z: 0 })
@@ -65,22 +55,16 @@ describe('entity/entityManager', () => {
 
       const stateOpt = yield* entityManager.getEntityAIState(entityId)
       expect(Option.isSome(stateOpt)).toBe(true)
-      if (Option.isSome(stateOpt)) {
-        expect(stateOpt.value).toBe(AIState.Flee)
-      }
+      expect(Option.getOrThrow(stateOpt)).toBe(AIState.Flee)
 
       const entityOpt = yield* entityManager.getEntity(entityId)
       expect(Option.isSome(entityOpt)).toBe(true)
-      if (Option.isSome(entityOpt)) {
-        expect(entityOpt.value.position.x).toBeLessThan(0)
-      }
+      expect(Option.getOrThrow(entityOpt).position.x).toBeLessThan(0)
     }).pipe(Effect.provide(EntityManagerLive))
+  )
 
-    Effect.runSync(program)
-  })
-
-  it('returns drops and removes entity when fatal damage is applied', () => {
-    const program = Effect.gen(function* () {
+  it.effect('returns drops and removes entity when fatal damage is applied', () =>
+    Effect.gen(function* () {
       const entityManager = yield* EntityManager
 
       const entityId = yield* entityManager.addEntity(EntityType.Pig, { x: 0, y: 64, z: 0 })
@@ -90,7 +74,5 @@ describe('entity/entityManager', () => {
       const countAfterKill = yield* entityManager.getCount()
       expect(countAfterKill).toBe(0)
     }).pipe(Effect.provide(EntityManagerLive))
-
-    Effect.runSync(program)
-  })
+  )
 })

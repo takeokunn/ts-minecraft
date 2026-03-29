@@ -7,14 +7,7 @@ const BASE = {
   renderDistance: 8,
   mouseSensitivity: 0.5,
   dayLengthSeconds: 400,
-  shadowsEnabled: true,
-  ssaoEnabled: true,
-  bloomEnabled: true,
-  skyEnabled: true,
-  ssrEnabled: false,
-  dofEnabled: false,
-  godRaysEnabled: false,
-  smaaEnabled: true,
+  graphicsQuality: 'high' as const,
 } as const
 
 const decode = Schema.decodeUnknownSync(SettingsSchema)
@@ -116,28 +109,20 @@ describe('SettingsSchema property tests', () => {
     })
   })
 
-  describe('boolean fields', () => {
-    it.prop('accepts true/false for shadowsEnabled', { b: Arbitrary.make(Schema.Boolean) }, ({ b }) => {
-      expect(() => decode({ ...BASE, shadowsEnabled: b })).not.toThrow()
-    })
-
-    it.prop('accepts true/false for ssaoEnabled', { b: Arbitrary.make(Schema.Boolean) }, ({ b }) => {
-      expect(() => decode({ ...BASE, ssaoEnabled: b })).not.toThrow()
-    })
-
+  describe('graphicsQuality', () => {
     it.prop(
-      'rejects non-boolean shadowsEnabled',
-      { v: Arbitrary.make(Schema.Union(Schema.Number, Schema.String, Schema.Null)) },
-      ({ v }) => {
-        expect(() => decode({ ...BASE, shadowsEnabled: v })).toThrow()
+      'accepts any valid quality literal',
+      { q: Arbitrary.make(Schema.Literal('low', 'medium', 'high', 'ultra')) },
+      ({ q }) => {
+        expect(() => decode({ ...BASE, graphicsQuality: q })).not.toThrow()
       }
     )
 
     it.prop(
-      'rejects non-boolean ssaoEnabled',
-      { v: Arbitrary.make(Schema.Union(Schema.Number, Schema.String, Schema.Null)) },
+      'rejects non-string graphicsQuality',
+      { v: Arbitrary.make(Schema.Union(Schema.Number, Schema.Boolean, Schema.Null)) },
       ({ v }) => {
-        expect(() => decode({ ...BASE, ssaoEnabled: v })).toThrow()
+        expect(() => decode({ ...BASE, graphicsQuality: v })).toThrow()
       }
     )
   })
@@ -151,8 +136,7 @@ describe('SettingsSchema property tests', () => {
         const redecoded = decode(encoded)
         expect(redecoded.renderDistance).toBe(settings.renderDistance)
         expect(redecoded.dayLengthSeconds).toBe(settings.dayLengthSeconds)
-        expect(redecoded.shadowsEnabled).toBe(settings.shadowsEnabled)
-        expect(redecoded.ssaoEnabled).toBe(settings.ssaoEnabled)
+        expect(redecoded.graphicsQuality).toBe(settings.graphicsQuality)
       }
     )
   })

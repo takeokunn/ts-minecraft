@@ -69,10 +69,10 @@ const chunkStorageBlocks = (value: ChunkStorageValue): Uint8Array<ArrayBufferLik
 
 describe('application/chunk/chunk-manager-service', () => {
   describe('getChunk', () => {
-    it('returns a generated chunk for an unknown coordinate', () => {
+    it.effect('returns a generated chunk for an unknown coordinate', () => {
       const { TestLayer } = buildTestLayer()
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* ChunkManagerService
         const chunk = yield* service.getChunk({ x: 0, z: 0 })
 
@@ -80,18 +80,13 @@ describe('application/chunk/chunk-manager-service', () => {
         expect(chunk.coord.z).toBe(0)
         expect(chunk.blocks).toBeInstanceOf(Uint8Array)
         expect(chunk.blocks.length).toBe(EXPECTED_BLOCKS_LENGTH)
-
-        return { success: true }
       }).pipe(Effect.provide(TestLayer))
-
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
     })
 
-    it('caches chunk and returns same blocks content on second call', () => {
+    it.effect('caches chunk and returns same blocks content on second call', () => {
       const { TestLayer } = buildTestLayer()
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* ChunkManagerService
         const chunk1 = yield* service.getChunk({ x: 0, z: 0 })
         const chunk2 = yield* service.getChunk({ x: 0, z: 0 })
@@ -99,21 +94,16 @@ describe('application/chunk/chunk-manager-service', () => {
         // Both calls should return the same blocks data
         expect(chunk1.blocks).toEqual(chunk2.blocks)
         expect(chunk1.coord).toEqual(chunk2.coord)
-
-        return { success: true }
       }).pipe(Effect.provide(TestLayer))
-
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
     })
 
-    it('loads chunk from storage when available', () => {
+    it.effect('loads chunk from storage when available', () => {
       const { TestLayer, storage } = buildTestLayer()
 
       // Pre-populate storage with a known chunk
       const savedBlocks = new Uint8Array(EXPECTED_BLOCKS_LENGTH).fill(2) // fill with STONE index
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         // Write directly to in-memory storage
         yield* storage.saveChunk(DEFAULT_WORLD_ID, { x: 3, z: 7 }, savedBlocks)
 
@@ -123,20 +113,15 @@ describe('application/chunk/chunk-manager-service', () => {
         expect(chunk.coord.x).toBe(3)
         expect(chunk.coord.z).toBe(7)
         expect(chunk.blocks).toEqual(savedBlocks)
-
-        return { success: true }
       }).pipe(Effect.provide(TestLayer))
-
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
     })
   })
 
   describe('markChunkDirty and saveDirtyChunks', () => {
-    it('persists dirty chunk to storage after saveDirtyChunks', () => {
+    it.effect('persists dirty chunk to storage after saveDirtyChunks', () => {
       const { TestLayer, storage } = buildTestLayer()
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* ChunkManagerService
 
         // Load a chunk so it enters the cache
@@ -152,21 +137,14 @@ describe('application/chunk/chunk-manager-service', () => {
         const stored = yield* storage.loadChunk(DEFAULT_WORLD_ID, { x: 1, z: 1 })
 
         expect(Option.isSome(stored)).toBe(true)
-        if (Option.isSome(stored)) {
-          expect(chunkStorageBlocks(stored.value).length).toBe(EXPECTED_BLOCKS_LENGTH)
-        }
-
-        return { success: true }
+        expect(chunkStorageBlocks(Option.getOrThrow(stored)).length).toBe(EXPECTED_BLOCKS_LENGTH)
       }).pipe(Effect.provide(TestLayer))
-
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
     })
 
-    it('does not persist chunk to storage when not marked dirty', () => {
+    it.effect('does not persist chunk to storage when not marked dirty', () => {
       const { TestLayer, storage } = buildTestLayer()
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* ChunkManagerService
 
         // Load chunk but do NOT mark dirty
@@ -177,36 +155,26 @@ describe('application/chunk/chunk-manager-service', () => {
 
         const stored = yield* storage.loadChunk(DEFAULT_WORLD_ID, { x: 2, z: 2 })
         expect(Option.isNone(stored)).toBe(true)
-
-        return { success: true }
       }).pipe(Effect.provide(TestLayer))
-
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
     })
   })
 
   describe('getLoadedChunks', () => {
-    it('returns empty array initially', () => {
+    it.effect('returns empty array initially', () => {
       const { TestLayer } = buildTestLayer()
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* ChunkManagerService
         const loaded = yield* service.getLoadedChunks()
 
         expect(loaded).toHaveLength(0)
-
-        return { success: true }
       }).pipe(Effect.provide(TestLayer))
-
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
     })
 
-    it('returns loaded chunks after getChunk calls', () => {
+    it.effect('returns loaded chunks after getChunk calls', () => {
       const { TestLayer } = buildTestLayer()
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* ChunkManagerService
 
         yield* service.getChunk({ x: 0, z: 0 })
@@ -221,20 +189,15 @@ describe('application/chunk/chunk-manager-service', () => {
         expect(keys).toContain('0,0')
         expect(keys).toContain('1,0')
         expect(keys).toContain('0,1')
-
-        return { success: true }
       }).pipe(Effect.provide(TestLayer))
-
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
     })
   })
 
   describe('unloadChunk', () => {
-    it('removes chunk from loaded set after unload', () => {
+    it.effect('removes chunk from loaded set after unload', () => {
       const { TestLayer } = buildTestLayer()
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* ChunkManagerService
 
         yield* service.getChunk({ x: 5, z: 5 })
@@ -246,18 +209,13 @@ describe('application/chunk/chunk-manager-service', () => {
 
         const afterUnload = yield* service.getLoadedChunks()
         expect(Arr.some(afterUnload, (c) => c.coord.x === 5 && c.coord.z === 5)).toBe(false)
-
-        return { success: true }
       }).pipe(Effect.provide(TestLayer))
-
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
     })
 
-    it('auto-saves dirty chunk to storage on unload', () => {
+    it.effect('auto-saves dirty chunk to storage on unload', () => {
       const { TestLayer, storage } = buildTestLayer()
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* ChunkManagerService
 
         yield* service.getChunk({ x: 4, z: 4 })
@@ -268,18 +226,13 @@ describe('application/chunk/chunk-manager-service', () => {
 
         const stored = yield* storage.loadChunk(DEFAULT_WORLD_ID, { x: 4, z: 4 })
         expect(Option.isSome(stored)).toBe(true)
-
-        return { success: true }
       }).pipe(Effect.provide(TestLayer))
-
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
     })
 
-    it('is a no-op when chunk is not loaded', () => {
+    it.effect('is a no-op when chunk is not loaded', () => {
       const { TestLayer } = buildTestLayer()
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* ChunkManagerService
 
         // Unload a coord that was never loaded - should not throw
@@ -287,20 +240,15 @@ describe('application/chunk/chunk-manager-service', () => {
 
         const loaded = yield* service.getLoadedChunks()
         expect(loaded.length).toBe(0)
-
-        return { success: true }
       }).pipe(Effect.provide(TestLayer))
-
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
     })
   })
 
   describe('loadChunksAroundPlayer', () => {
-    it('loads chunks within render distance of player position', () => {
+    it.live('loads chunks within render distance of player position', () => {
       const { TestLayer } = buildTestLayer()
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* ChunkManagerService
 
         // Player at world origin
@@ -313,23 +261,18 @@ describe('application/chunk/chunk-manager-service', () => {
 
         // All loaded chunks should be within RENDER_DISTANCE of (0,0)
         const rdSquared = RENDER_DISTANCE * RENDER_DISTANCE
-        for (const chunk of loaded) {
+        Arr.forEach(loaded, (chunk) => {
           const dx = chunk.coord.x
           const dz = chunk.coord.z
           expect(dx * dx + dz * dz).toBeLessThanOrEqual(rdSquared)
-        }
-
-        return { success: true }
+        })
       }).pipe(Effect.provide(TestLayer))
-
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
     })
 
-    it('is throttled: second immediate call does not reload chunks', () => {
+    it.effect('is throttled: second immediate call does not reload chunks', () => {
       const { TestLayer } = buildTestLayer()
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* ChunkManagerService
 
         // First call: loads chunks
@@ -343,12 +286,7 @@ describe('application/chunk/chunk-manager-service', () => {
         const countSecond = afterSecond.length
 
         expect(countFirst).toBe(countSecond)
-
-        return { success: true }
       }).pipe(Effect.provide(TestLayer))
-
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
     })
   })
 
@@ -389,12 +327,9 @@ describe('application/chunk/chunk-manager-service', () => {
       const minimalBlocks = new Uint8Array(EXPECTED_BLOCKS_LENGTH)
       const StorageTestLayer = Layer.succeed(StorageServicePort, storage as unknown as StorageServicePort)
 
-      const program = Effect.gen(function* () {
-        for (let i = 0; i < count; i++) {
-          yield* storage.saveChunk(DEFAULT_WORLD_ID, { x: i, z: 0 }, minimalBlocks)
-        }
-      })
-      Effect.runSync(program)
+      Effect.runSync(
+        Effect.forEach(Arr.makeBy(count, i => i), (i) => storage.saveChunk(DEFAULT_WORLD_ID, { x: i, z: 0 }, minimalBlocks), { concurrency: 1 })
+      )
 
       const NoiseLayer = NoiseServicePort.Default
       const BiomeTestLayer = BiomeServiceLive.pipe(Layer.provide(NoiseLayer))
@@ -409,18 +344,16 @@ describe('application/chunk/chunk-manager-service', () => {
       return { TestLayer, storage }
     }
 
-    it('cache size stays at MAX_CACHED_CHUNKS after loading one chunk beyond capacity', () => {
+    it.effect('cache size stays at MAX_CACHED_CHUNKS after loading one chunk beyond capacity', () => {
       // Pre-populate MAX_CACHED_CHUNKS + 1 chunks in storage so no terrain
       // generation happens during the loop — each getChunk is a fast Map read.
       const { TestLayer } = buildLayerWithStorageChunks(MAX_CACHED_CHUNKS + 1)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* ChunkManagerService
 
         // Load MAX_CACHED_CHUNKS chunks — fills the cache to exact capacity.
-        for (let i = 0; i < MAX_CACHED_CHUNKS; i++) {
-          yield* service.getChunk({ x: i, z: 0 })
-        }
+        yield* Effect.forEach(Arr.makeBy(MAX_CACHED_CHUNKS, i => i), (i) => service.getChunk({ x: i, z: 0 }), { concurrency: 1 })
 
         const atCapacity = yield* service.getLoadedChunks()
         expect(atCapacity.length).toBe(MAX_CACHED_CHUNKS)
@@ -431,21 +364,16 @@ describe('application/chunk/chunk-manager-service', () => {
         const afterEviction = yield* service.getLoadedChunks()
         // Cache must not exceed MAX_CACHED_CHUNKS.
         expect(afterEviction.length).toBe(MAX_CACHED_CHUNKS)
-
-        return { success: true }
       }).pipe(Effect.provide(TestLayer))
+    }, { timeout: 30_000 }) // allow up to 30 s for 401 in-memory storage reads
 
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
-    }, 30_000) // allow up to 30 s for 401 in-memory storage reads
-
-    it('evicted dirty chunk is auto-saved to storage before eviction', () => {
+    it.effect('evicted dirty chunk is auto-saved to storage before eviction', () => {
       // We need at least MAX_CACHED_CHUNKS + 1 storage entries.
       // Chunk (0,0) is the first loaded → it will be the LRU entry and get
       // evicted once the cache reaches capacity and a new chunk is loaded.
       const { TestLayer, storage } = buildLayerWithStorageChunks(MAX_CACHED_CHUNKS + 1)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* ChunkManagerService
 
         // Load chunk (0,0) first so it becomes the LRU (oldest lastAccessed).
@@ -454,9 +382,7 @@ describe('application/chunk/chunk-manager-service', () => {
 
         // Load MAX_CACHED_CHUNKS - 1 more chunks so the cache is exactly full.
         // These all have newer lastAccessed timestamps so (0,0) remains LRU.
-        for (let i = 1; i < MAX_CACHED_CHUNKS; i++) {
-          yield* service.getChunk({ x: i, z: 0 })
-        }
+        yield* Effect.forEach(Arr.makeBy(MAX_CACHED_CHUNKS - 1, i => i + 1), (i) => service.getChunk({ x: i, z: 0 }), { concurrency: 1 })
 
         // Sanity: (0,0) is still in cache (not yet evicted).
         const beforeEviction = yield* service.getLoadedChunks()
@@ -473,26 +399,21 @@ describe('application/chunk/chunk-manager-service', () => {
         // (0,0) must have been written to storage during the pre-eviction save.
         const saved = yield* storage.loadChunk(DEFAULT_WORLD_ID, { x: 0, z: 0 })
         expect(Option.isSome(saved)).toBe(true)
-
-        return { success: true }
       }).pipe(Effect.provide(TestLayer))
+    }, { timeout: 30_000 })
 
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
-    }, 30_000)
-
-    it('evicted clean chunk is NOT written to storage during eviction', () => {
+    it.effect('evicted clean chunk is NOT written to storage during eviction', () => {
       // Load MAX_CACHED_CHUNKS + 1 chunks, but keep chunk (0,0) clean.
       // After eviction the storage entry for (0,0) should still be the original
       // pre-populated data (unchanged by the eviction path itself).
       const { TestLayer, storage } = buildLayerWithStorageChunks(MAX_CACHED_CHUNKS + 1)
 
-      // Overwrite chunk (0,0) storage entry with a sentinel value so we can
-      // detect if the eviction path re-saves it with different data.
-      const sentinelBlocks = new Uint8Array(EXPECTED_BLOCKS_LENGTH).fill(99)
-      Effect.runSync(storage.saveChunk(DEFAULT_WORLD_ID, { x: 0, z: 0 }, sentinelBlocks))
+      return Effect.gen(function* () {
+        // Overwrite chunk (0,0) storage entry with a sentinel value so we can
+        // detect if the eviction path re-saves it with different data.
+        const sentinelBlocks = new Uint8Array(EXPECTED_BLOCKS_LENGTH).fill(99)
+        yield* storage.saveChunk(DEFAULT_WORLD_ID, { x: 0, z: 0 }, sentinelBlocks)
 
-      const program = Effect.gen(function* () {
         const service = yield* ChunkManagerService
 
         // Load chunk (0,0) first — it picks up the sentinel data from storage.
@@ -500,9 +421,7 @@ describe('application/chunk/chunk-manager-service', () => {
         // Deliberately do NOT mark (0,0) dirty.
 
         // Fill the rest of the cache.
-        for (let i = 1; i < MAX_CACHED_CHUNKS; i++) {
-          yield* service.getChunk({ x: i, z: 0 })
-        }
+        yield* Effect.forEach(Arr.makeBy(MAX_CACHED_CHUNKS - 1, i => i + 1), (i) => service.getChunk({ x: i, z: 0 }), { concurrency: 1 })
 
         // Trigger eviction of (0,0).
         yield* service.getChunk({ x: MAX_CACHED_CHUNKS, z: 0 })
@@ -515,27 +434,18 @@ describe('application/chunk/chunk-manager-service', () => {
         // the eviction path must NOT re-save clean chunks.
         const stored = yield* storage.loadChunk(DEFAULT_WORLD_ID, { x: 0, z: 0 })
         expect(Option.isSome(stored)).toBe(true)
-        if (Option.isSome(stored)) {
-          expect(chunkStorageBlocks(stored.value)[0]).toBe(99) // sentinel byte intact
-        }
-
-        return { success: true }
+        expect(chunkStorageBlocks(Option.getOrThrow(stored))[0]).toBe(99) // sentinel byte intact
       }).pipe(Effect.provide(TestLayer))
+    }, { timeout: 30_000 })
 
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
-    }, 30_000)
-
-    it('newly inserted chunk is retrievable immediately after eviction cycle', () => {
+    it.effect('newly inserted chunk is retrievable immediately after eviction cycle', () => {
       const { TestLayer } = buildLayerWithStorageChunks(MAX_CACHED_CHUNKS + 2)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* ChunkManagerService
 
         // Fill the cache to capacity.
-        for (let i = 0; i < MAX_CACHED_CHUNKS; i++) {
-          yield* service.getChunk({ x: i, z: 0 })
-        }
+        yield* Effect.forEach(Arr.makeBy(MAX_CACHED_CHUNKS, i => i), (i) => service.getChunk({ x: i, z: 0 }), { concurrency: 1 })
 
         // Trigger eviction and insert the new chunk.
         const newCoord = { x: MAX_CACHED_CHUNKS, z: 0 }
@@ -548,13 +458,8 @@ describe('application/chunk/chunk-manager-service', () => {
         // The inserted chunk must be present in the loaded set.
         const loaded = yield* service.getLoadedChunks()
         expect(Arr.some(loaded, (c) => c.coord.x === MAX_CACHED_CHUNKS && c.coord.z === 0)).toBe(true)
-
-        return { success: true }
       }).pipe(Effect.provide(TestLayer))
-
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
-    }, 30_000)
+    }, { timeout: 30_000 })
   })
 
   // ---------------------------------------------------------------------------
@@ -562,7 +467,7 @@ describe('application/chunk/chunk-manager-service', () => {
   // ---------------------------------------------------------------------------
 
   describe('StorageError propagation', () => {
-    it('getChunk propagates StorageError when storage.loadChunk fails', () => {
+    it.effect('getChunk propagates StorageError when storage.loadChunk fails', () => {
       // Build a storage mock whose loadChunk always fails with a StorageError
       const failingStorage = StorageServicePort.of({
         _tag: '@minecraft/application/storage/StorageServicePort' as const,
@@ -586,19 +491,16 @@ describe('application/chunk/chunk-manager-service', () => {
       )
 
       // The error should propagate and be catchable with Effect.catchTag
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* ChunkManagerService
         const result = yield* service.getChunk({ x: 0, z: 0 }).pipe(
           Effect.catchTag('StorageError', (e) =>
             Effect.succeed({ caught: 'StorageError', operation: e.operation })
           )
         )
-        return result
+        expect((result as { caught: string; operation: string }).caught).toBe('StorageError')
+        expect((result as { caught: string; operation: string }).operation).toBe('loadChunk')
       }).pipe(Effect.provide(FailingTestLayer))
-
-      const result = Effect.runSync(program) as { caught: string; operation: string }
-      expect(result.caught).toBe('StorageError')
-      expect(result.operation).toBe('loadChunk')
     })
   })
 
@@ -611,10 +513,10 @@ describe('application/chunk/chunk-manager-service', () => {
       expect(UNLOAD_DISTANCE).toBeGreaterThan(RENDER_DISTANCE)
     })
 
-    it('chunks loaded near origin are unloaded after loading near a far position', () => {
+    it.live('chunks loaded near origin are unloaded after loading near a far position', () => {
       const { TestLayer } = buildTestLayer()
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* ChunkManagerService
 
         // Load chunks around origin — fills cache with chunks near (0,0)
@@ -640,13 +542,14 @@ describe('application/chunk/chunk-manager-service', () => {
         // Unload chunks that are beyond UNLOAD_DISTANCE of the far position
         const loadedBeforeUnload = yield* service.getLoadedChunks()
         const udSquared = UNLOAD_DISTANCE * UNLOAD_DISTANCE
-        for (const chunk of loadedBeforeUnload) {
+        yield* Effect.forEach(loadedBeforeUnload, (chunk) => {
           const dx = chunk.coord.x - farChunkCoord.x
           const dz = chunk.coord.z - farChunkCoord.z
           if (dx * dx + dz * dz > udSquared) {
-            yield* service.unloadChunk(chunk.coord)
+            return service.unloadChunk(chunk.coord)
           }
-        }
+          return Effect.void
+        }, { concurrency: 1 })
 
         // After unloading, origin chunks should no longer be loaded
         const afterUnload = yield* service.getLoadedChunks()
@@ -657,12 +560,7 @@ describe('application/chunk/chunk-manager-service', () => {
 
         // The total number of loaded chunks should have decreased
         expect(afterUnload.length).toBeLessThan(countNearOrigin)
-
-        return { success: true }
       }).pipe(Effect.provide(TestLayer))
-
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
     })
   })
 
@@ -671,10 +569,10 @@ describe('application/chunk/chunk-manager-service', () => {
   // ---------------------------------------------------------------------------
 
   describe('loadChunk idempotency', () => {
-    it('calling loadChunk (getChunk) twice for same coordinate returns identical chunk object', () => {
+    it.effect('calling loadChunk (getChunk) twice for same coordinate returns identical chunk object', () => {
       const { TestLayer } = buildTestLayer()
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* ChunkManagerService
 
         const chunk1 = yield* service.getChunk({ x: 7, z: -3 })
@@ -690,18 +588,13 @@ describe('application/chunk/chunk-manager-service', () => {
         expect(chunk2.blocks).toEqual(blocks1Copy)
         // Should be the exact same Uint8Array reference (cached object)
         expect(chunk2.blocks).toBe(chunk1.blocks)
-
-        return { success: true }
       }).pipe(Effect.provide(TestLayer))
-
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
     })
 
-    it('calling getChunk twice does not double-count in getLoadedChunks', () => {
+    it.effect('calling getChunk twice does not double-count in getLoadedChunks', () => {
       const { TestLayer } = buildTestLayer()
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* ChunkManagerService
 
         yield* service.getChunk({ x: 2, z: 5 })
@@ -711,12 +604,7 @@ describe('application/chunk/chunk-manager-service', () => {
         // Must appear only once in the cache
         const matches = Arr.filter(loaded, (c) => c.coord.x === 2 && c.coord.z === 5)
         expect(matches.length).toBe(1)
-
-        return { success: true }
       }).pipe(Effect.provide(TestLayer))
-
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
     })
   })
 
@@ -725,10 +613,10 @@ describe('application/chunk/chunk-manager-service', () => {
   // ---------------------------------------------------------------------------
 
   describe('negative chunk coordinates', () => {
-    it('generates a valid chunk for coordinate { x: -1, z: -1 }', () => {
+    it.effect('generates a valid chunk for coordinate { x: -1, z: -1 }', () => {
       const { TestLayer } = buildTestLayer()
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* ChunkManagerService
         const chunk = yield* service.getChunk({ x: -1, z: -1 })
 
@@ -750,18 +638,13 @@ describe('application/chunk/chunk-manager-service', () => {
         }
         expect(surfaceY).toBeGreaterThanOrEqual(1)
         expect(surfaceY).toBeLessThanOrEqual(CHUNK_HEIGHT - 2)
-
-        return { success: true }
       }).pipe(Effect.provide(TestLayer))
-
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
     })
 
-    it('generates a valid chunk for coordinate { x: -5, z: 3 }', () => {
+    it.effect('generates a valid chunk for coordinate { x: -5, z: 3 }', () => {
       const { TestLayer } = buildTestLayer()
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* ChunkManagerService
         const chunk = yield* service.getChunk({ x: -5, z: 3 })
 
@@ -773,18 +656,13 @@ describe('application/chunk/chunk-manager-service', () => {
         // At least some blocks must be non-AIR (terrain was generated)
         const nonAirCount = chunk.blocks.reduce((acc, b) => acc + (b !== 0 ? 1 : 0), 0)
         expect(nonAirCount).toBeGreaterThan(0)
-
-        return { success: true }
       }).pipe(Effect.provide(TestLayer))
-
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
     })
 
-    it('caches negative-coordinate chunk correctly on second call', () => {
+    it.effect('caches negative-coordinate chunk correctly on second call', () => {
       const { TestLayer } = buildTestLayer()
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* ChunkManagerService
 
         const first = yield* service.getChunk({ x: -3, z: -7 })
@@ -795,12 +673,7 @@ describe('application/chunk/chunk-manager-service', () => {
         const loaded = yield* service.getLoadedChunks()
         const count = Arr.filter(loaded, (c) => c.coord.x === -3 && c.coord.z === -7).length
         expect(count).toBe(1)
-
-        return { success: true }
       }).pipe(Effect.provide(TestLayer))
-
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
     })
   })
 
@@ -814,23 +687,21 @@ describe('application/chunk/chunk-manager-service', () => {
   // ---------------------------------------------------------------------------
 
   describe('terrain generation determinism (shouldPlaceTree invariant)', () => {
-    it('getChunk returns same blocks on repeated calls (cache hit is deterministic)', () => {
+    it.effect('getChunk returns same blocks on repeated calls (cache hit is deterministic)', () => {
       // Two calls to getChunk for the same coord within one service instance
       // must return identical block data. The first call generates terrain;
       // the second call should return the cached chunk unchanged.
       const { TestLayer } = buildTestLayer()
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* ChunkManagerService
         const chunk1 = yield* service.getChunk({ x: 3, z: 7 })
         // Copy blocks before second call (Uint8Array is mutated in-place if ever)
         const blocks1 = new Uint8Array(chunk1.blocks)
         const chunk2 = yield* service.getChunk({ x: 3, z: 7 })
-        return { blocks1, blocks2: chunk2.blocks }
-      }).pipe(Effect.provide(TestLayer))
 
-      const { blocks1, blocks2 } = Effect.runSync(program)
-      expect(blocks1).toEqual(blocks2)
+        expect(blocks1).toEqual(chunk2.blocks)
+      }).pipe(Effect.provide(TestLayer))
     })
 
     // Replicate the shouldPlaceTree formula for direct determinism testing

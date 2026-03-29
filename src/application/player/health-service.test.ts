@@ -1,6 +1,6 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Effect } from 'effect'
+import { Array as Arr, Effect } from 'effect'
 import { HealthService } from '@/application/player/health-service'
 
 describe('HealthService', () => {
@@ -229,9 +229,7 @@ describe('HealthService', () => {
         expect(initialTicks).toBe(10)
 
         // Tick initialTicks + 5 extra times (more than enough to reach 0)
-        for (let i = 0; i < initialTicks + 5; i++) {
-          yield* hs.tick()
-        }
+        yield* Effect.forEach(Arr.makeBy(initialTicks + 5, () => undefined), () => hs.tick(), { concurrency: 1 })
 
         const healthAfterTicks = yield* hs.getHealth()
         // tick() only decrements when > 0, so it should clamp at 0 and not go negative

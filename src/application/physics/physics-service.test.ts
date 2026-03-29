@@ -1,6 +1,6 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Effect, Layer, Schema } from 'effect'
+import { Array as Arr, Effect, Either, Layer, Option, Schema } from 'effect'
 import { DeltaTimeSecs } from '@/shared/kernel'
 import {
   PhysicsService,
@@ -65,10 +65,8 @@ describe('application/physics/physics-service', () => {
 
         const result = yield* Effect.either(service.step(DeltaTimeSecs.make(0.016)))
 
-        expect(result._tag).toBe('Left')
-        if (result._tag === 'Left') {
-          expect(result.left).toBeInstanceOf(PhysicsServiceError)
-        }
+        expect(Either.isLeft(result)).toBe(true)
+        expect(Option.getOrThrow(Either.getLeft(result))).toBeInstanceOf(PhysicsServiceError)
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -93,7 +91,7 @@ describe('application/physics/physics-service', () => {
           service.addBody({ mass: 70, position: { x: 0, y: 10, z: 0 }, shape: 'box' })
         )
 
-        expect(result._tag).toBe('Left')
+        expect(Either.isLeft(result)).toBe(true)
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -155,7 +153,7 @@ describe('application/physics/physics-service', () => {
 
         // After removal, getVelocity should fail
         const result = yield* Effect.either(service.getVelocity(bodyId))
-        expect(result._tag).toBe('Left')
+        expect(Either.isLeft(result)).toBe(true)
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -170,7 +168,7 @@ describe('application/physics/physics-service', () => {
 
         // Second removal should fail — body is no longer registered in bodyMap
         const result = yield* Effect.either(service.removeBody(bodyId))
-        expect(result._tag).toBe('Left')
+        expect(Either.isLeft(result)).toBe(true)
       }).pipe(Effect.provide(TestLayer))
     )
   })
@@ -200,9 +198,7 @@ describe('application/physics/physics-service', () => {
         const initialY = initialPos.y
 
         // Step simulation multiple times
-        for (let i = 0; i < 60; i++) {
-          yield* service.step(DeltaTimeSecs.make(1 / 60))
-        }
+        yield* Effect.forEach(Arr.makeBy(60, i => i), _ => service.step(DeltaTimeSecs.make(1 / 60)), { concurrency: 1 })
 
         const finalPos = yield* service.getPosition(bodyId)
 
@@ -266,7 +262,7 @@ describe('application/physics/physics-service', () => {
         const fakeId = 'physics-body-99999' as ReturnType<typeof import('@/shared/kernel').PhysicsBodyIdSchema.make>
         const result = yield* Effect.either(service.setVelocity(fakeId, { x: 5, y: 2, z: -3 }))
 
-        expect(result._tag).toBe('Left')
+        expect(Either.isLeft(result)).toBe(true)
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -279,7 +275,7 @@ describe('application/physics/physics-service', () => {
         const fakeId = 'physics-body-99999' as ReturnType<typeof import('@/shared/kernel').PhysicsBodyIdSchema.make>
         const result = yield* Effect.either(service.getVelocity(fakeId))
 
-        expect(result._tag).toBe('Left')
+        expect(Either.isLeft(result)).toBe(true)
       }).pipe(Effect.provide(TestLayer))
     )
   })
@@ -347,7 +343,7 @@ describe('application/physics/physics-service', () => {
         const fakeId = 'physics-body-99999' as ReturnType<typeof import('@/shared/kernel').PhysicsBodyIdSchema.make>
         const result = yield* Effect.either(service.isGrounded(fakeId))
 
-        expect(result._tag).toBe('Left')
+        expect(Either.isLeft(result)).toBe(true)
       }).pipe(Effect.provide(TestLayer))
     )
 
@@ -380,9 +376,7 @@ describe('application/physics/physics-service', () => {
         expect(initialGrounded).toBe(false)
 
         // Simulate falling until player hits ground
-        for (let i = 0; i < 300; i++) {
-          yield* service.step(DeltaTimeSecs.make(1 / 60))
-        }
+        yield* Effect.forEach(Arr.makeBy(300, i => i), _ => service.step(DeltaTimeSecs.make(1 / 60)), { concurrency: 1 })
 
         // After falling, player should be grounded
         const finalGrounded = yield* service.isGrounded(bodyId)
@@ -415,9 +409,7 @@ describe('application/physics/physics-service', () => {
         })
 
         // Let player fall to ground
-        for (let i = 0; i < 300; i++) {
-          yield* service.step(DeltaTimeSecs.make(1 / 60))
-        }
+        yield* Effect.forEach(Arr.makeBy(300, i => i), _ => service.step(DeltaTimeSecs.make(1 / 60)), { concurrency: 1 })
 
         // Player should be on ground
         const beforeJumpGrounded = yield* service.isGrounded(bodyId)
@@ -427,9 +419,7 @@ describe('application/physics/physics-service', () => {
         yield* service.setVelocity(bodyId, { x: 0, y: 7, z: 0 })
 
         // Step multiple times to let player rise above ground detection range
-        for (let i = 0; i < 5; i++) {
-          yield* service.step(DeltaTimeSecs.make(1 / 60))
-        }
+        yield* Effect.forEach(Arr.makeBy(5, i => i), _ => service.step(DeltaTimeSecs.make(1 / 60)), { concurrency: 1 })
 
         // Player should no longer be grounded after jumping
         const afterJumpGrounded = yield* service.isGrounded(bodyId)
@@ -462,25 +452,19 @@ describe('application/physics/physics-service', () => {
         })
 
         // Fall and land
-        for (let i = 0; i < 500; i++) {
-          yield* service.step(DeltaTimeSecs.make(1 / 60))
-        }
+        yield* Effect.forEach(Arr.makeBy(500, i => i), _ => service.step(DeltaTimeSecs.make(1 / 60)), { concurrency: 1 })
 
         const isGroundedAfterLanding = yield* service.isGrounded(bodyId)
 
         // Jump
         yield* service.setVelocity(bodyId, { x: 0, y: 7, z: 0 })
-        for (let i = 0; i < 10; i++) {
-          yield* service.step(DeltaTimeSecs.make(1 / 60))
-        }
+        yield* Effect.forEach(Arr.makeBy(10, i => i), _ => service.step(DeltaTimeSecs.make(1 / 60)), { concurrency: 1 })
 
         // In air
         expect(yield* service.isGrounded(bodyId)).toBe(false)
 
         // Fall back down
-        for (let i = 0; i < 500; i++) {
-          yield* service.step(DeltaTimeSecs.make(1 / 60))
-        }
+        yield* Effect.forEach(Arr.makeBy(500, i => i), _ => service.step(DeltaTimeSecs.make(1 / 60)), { concurrency: 1 })
 
         // Landed again
         expect(yield* service.isGrounded(bodyId)).toBe(true)

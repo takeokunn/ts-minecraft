@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { Effect, Ref, Fiber, Option } from 'effect'
+import { describe, expect, vi, beforeEach, afterEach } from 'vitest'
+import { it } from '@effect/vitest'
+import { Array as Arr, Effect, Either, Fiber, MutableRef, Option, Ref } from 'effect'
 import { GameLoopService, GameLoopServiceLive } from '.'
 import { GameLoopError } from '@/domain/errors'
 
@@ -12,18 +13,18 @@ import { GameLoopError } from '@/domain/errors'
 // callback and expose a helper that fires it once.
 // ---------------------------------------------------------------------------
 
-let rafCallback: Option.Option<(timestamp: number) => void> = Option.none()
-let rafId = 0
+const rafCallbackRef = MutableRef.make<Option.Option<(timestamp: number) => void>>(Option.none())
+const rafIdRef = MutableRef.make(0)
 
 beforeEach(() => {
-  rafCallback = Option.none()
-  rafId = 0
+  MutableRef.set(rafCallbackRef, Option.none())
+  MutableRef.set(rafIdRef, 0)
   vi.stubGlobal('requestAnimationFrame', (cb: (ts: number) => void) => {
-    rafCallback = Option.some(cb)
-    return ++rafId
+    MutableRef.set(rafCallbackRef, Option.some(cb))
+    return MutableRef.updateAndGet(rafIdRef, n => n + 1)
   })
   vi.stubGlobal('cancelAnimationFrame', (_id: number) => {
-    rafCallback = Option.none()
+    MutableRef.set(rafCallbackRef, Option.none())
   })
 })
 
@@ -37,9 +38,9 @@ afterEach(() => {
 // so tests remain in full control of the frame cadence.
 // ---------------------------------------------------------------------------
 const fireRaf = (timestamp = 16): void => {
-  const cb = rafCallback
-  rafCallback = Option.none()
-  if (Option.isSome(cb)) cb.value(timestamp)
+  const cb = MutableRef.get(rafCallbackRef)
+  MutableRef.set(rafCallbackRef, Option.none())
+  Option.map(cb, fn => fn(timestamp))
 }
 
 // ---------------------------------------------------------------------------
@@ -68,20 +69,16 @@ describe('application/game-loop', () => {
   })
 
   describe('isRunning', () => {
-    it('should return false before start is called', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should return false before start is called', () =>
+      Effect.gen(function* () {
         const service = yield* GameLoopService
         const running = yield* service.isRunning()
         expect(running).toBe(false)
-        return { success: true }
       }).pipe(Effect.provide(TestLayer))
+    )
 
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
-    })
-
-    it('should return true after start is called', async () => {
-      const program = Effect.gen(function* () {
+    it.effect('should return true after start is called', () =>
+      Effect.gen(function* () {
         const service = yield* GameLoopService
 
         yield* service.start(() => Effect.void)
@@ -91,18 +88,13 @@ describe('application/game-loop', () => {
 
         // Clean up: stop the loop so the fiber does not leak.
         yield* service.stop()
-
-        return { success: true }
       }).pipe(Effect.provide(TestLayer))
-
-      const result = await Effect.runPromise(program)
-      expect(result.success).toBe(true)
-    })
+    )
   })
 
   describe('start', () => {
-    it('should fail with GameLoopError when called while already running', async () => {
-      const program = Effect.gen(function* () {
+    it.effect('should fail with GameLoopError when called while already running', () =>
+      Effect.gen(function* () {
         const service = yield* GameLoopService
 
         // First start succeeds.
@@ -111,25 +103,19 @@ describe('application/game-loop', () => {
         // Second start must fail.
         const result = yield* Effect.either(service.start(() => Effect.void))
 
-        expect(result._tag).toBe('Left')
-        if (result._tag === 'Left') {
-          expect(result.left).toBeInstanceOf(GameLoopError)
-          expect((result.left as GameLoopError).reason).toContain('already running')
-        }
+        expect(Either.isLeft(result)).toBe(true)
+        const err = Option.getOrThrow(Either.getLeft(result))
+        expect(err).toBeInstanceOf(GameLoopError)
+        expect((err as GameLoopError).reason).toContain('already running')
 
         yield* service.stop()
-
-        return { success: true }
       }).pipe(Effect.provide(TestLayer))
-
-      const result = await Effect.runPromise(program)
-      expect(result.success).toBe(true)
-    })
+    )
   })
 
   describe('stop', () => {
-    it('should set isRunning to false after stop is called', async () => {
-      const program = Effect.gen(function* () {
+    it.effect('should set isRunning to false after stop is called', () =>
+      Effect.gen(function* () {
         const service = yield* GameLoopService
 
         yield* service.start(() => Effect.void)
@@ -137,16 +123,11 @@ describe('application/game-loop', () => {
 
         yield* service.stop()
         expect(yield* service.isRunning()).toBe(false)
-
-        return { success: true }
       }).pipe(Effect.provide(TestLayer))
+    )
 
-      const result = await Effect.runPromise(program)
-      expect(result.success).toBe(true)
-    })
-
-    it('should be safe to call stop when the loop is not running', async () => {
-      const program = Effect.gen(function* () {
+    it.effect('should be safe to call stop when the loop is not running', () =>
+      Effect.gen(function* () {
         const service = yield* GameLoopService
 
         // Should not throw or fail.
@@ -154,18 +135,13 @@ describe('application/game-loop', () => {
 
         const running = yield* service.isRunning()
         expect(running).toBe(false)
-
-        return { success: true }
       }).pipe(Effect.provide(TestLayer))
-
-      const result = await Effect.runPromise(program)
-      expect(result.success).toBe(true)
-    })
+    )
   })
 
   describe('frame handler', () => {
-    it('should invoke the frame handler after a rAF tick fires', async () => {
-      const program = Effect.gen(function* () {
+    it.live('should invoke the frame handler after a rAF tick fires', () =>
+      Effect.gen(function* () {
         const callCountRef = yield* Ref.make(0)
 
         const service = yield* GameLoopService
@@ -188,16 +164,11 @@ describe('application/game-loop', () => {
         expect(callCount).toBeGreaterThan(0)
 
         yield* service.stop()
-
-        return { success: true }
       }).pipe(Effect.provide(TestLayer))
+    )
 
-      const result = await Effect.runPromise(program)
-      expect(result.success).toBe(true)
-    })
-
-    it('should pass a positive deltaTime to the frame handler', async () => {
-      const program = Effect.gen(function* () {
+    it.live('should pass a positive deltaTime to the frame handler', () =>
+      Effect.gen(function* () {
         const deltaTimeRef = yield* Ref.make<number>(-1)
 
         const service = yield* GameLoopService
@@ -219,16 +190,11 @@ describe('application/game-loop', () => {
         expect(deltaTime).toBeGreaterThan(0)
 
         yield* service.stop()
-
-        return { success: true }
       }).pipe(Effect.provide(TestLayer))
+    )
 
-      const result = await Effect.runPromise(program)
-      expect(result.success).toBe(true)
-    })
-
-    it('should enforce minimum deltaTime floor of 0.001 when consecutive timestamps are identical', async () => {
-      const program = Effect.gen(function* () {
+    it.live('should enforce minimum deltaTime floor of 0.001 when consecutive timestamps are identical', () =>
+      Effect.gen(function* () {
         const deltaTimeRef = yield* Ref.make<number>(-1)
 
         const service = yield* GameLoopService
@@ -252,16 +218,11 @@ describe('application/game-loop', () => {
         expect(deltaTime).toBeGreaterThanOrEqual(0.001)
 
         yield* service.stop()
-
-        return { success: true }
       }).pipe(Effect.provide(TestLayer))
+    )
 
-      const result = await Effect.runPromise(program)
-      expect(result.success).toBe(true)
-    })
-
-    it('should stop calling the frame handler after stop is invoked', async () => {
-      const program = Effect.gen(function* () {
+    it.live('should stop calling the frame handler after stop is invoked', () =>
+      Effect.gen(function* () {
         const callCountRef = yield* Ref.make(0)
 
         const service = yield* GameLoopService
@@ -284,13 +245,8 @@ describe('application/game-loop', () => {
 
         const countAfterExtraRaf = yield* Ref.get(callCountRef)
         expect(countAfterExtraRaf).toBe(countAfterStop)
-
-        return { success: true }
       }).pipe(Effect.provide(TestLayer))
-
-      const result = await Effect.runPromise(program)
-      expect(result.success).toBe(true)
-    })
+    )
   })
 
   describe('GameLoopServiceLive', () => {
@@ -299,25 +255,19 @@ describe('application/game-loop', () => {
       expect(typeof GameLoopServiceLive).toBe('object')
     })
 
-    it('should expose all required methods', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should expose all required methods', () =>
+      Effect.gen(function* () {
         const service = yield* GameLoopService
-
         expect(typeof service.start).toBe('function')
         expect(typeof service.stop).toBe('function')
         expect(typeof service.isRunning).toBe('function')
-
-        return { success: true }
       }).pipe(Effect.provide(TestLayer))
-
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
-    })
+    )
   })
 
   describe('Effect composition', () => {
-    it('should support Effect.flatMap for chaining start/isRunning/stop', async () => {
-      const program = Effect.gen(function* () {
+    it.effect('should support Effect.flatMap for chaining start/isRunning/stop', () =>
+      Effect.gen(function* () {
         const service = yield* GameLoopService
 
         const running = yield* service
@@ -327,18 +277,13 @@ describe('application/game-loop', () => {
         expect(running).toBe(true)
 
         yield* service.stop()
-
-        return { success: true }
       }).pipe(Effect.provide(TestLayer))
-
-      const result = await Effect.runPromise(program)
-      expect(result.success).toBe(true)
-    })
+    )
   })
 
   describe('Fiber lifecycle edge cases', () => {
-    it('stop() after stop() is idempotent (no error on double stop)', async () => {
-      const program = Effect.gen(function* () {
+    it.live('stop() after stop() is idempotent (no error on double stop)', () =>
+      Effect.gen(function* () {
         const service = yield* GameLoopService
 
         yield* service.start(() => Effect.void)
@@ -352,44 +297,39 @@ describe('application/game-loop', () => {
         // Second stop — should not throw or produce an error
         yield* service.stop()
         expect(yield* service.isRunning()).toBe(false)
-
-        return { success: true }
       }).pipe(Effect.provide(TestLayer))
+    )
 
-      const result = await Effect.runPromise(program)
-      expect(result.success).toBe(true)
-    })
+    it.effect('start() after stop() works (restart with fresh layer)', () =>
+      Effect.gen(function* () {
+        const firstRun = Effect.gen(function* () {
+          const service = yield* GameLoopService
+          yield* service.start(() => Effect.void)
+          expect(yield* service.isRunning()).toBe(true)
+          yield* service.stop()
+          expect(yield* service.isRunning()).toBe(false)
+          return { stoppedCleanly: true }
+        }).pipe(Effect.provide(GameLoopServiceLive))
 
-    it('start() after stop() works (restart with fresh layer)', async () => {
-      // Each Effect.provide(GameLoopServiceLive) gets an isolated service instance,
-      // so we verify that a fresh instance can start cleanly after a prior run.
-      const firstRun = Effect.gen(function* () {
-        const service = yield* GameLoopService
-        yield* service.start(() => Effect.void)
-        expect(yield* service.isRunning()).toBe(true)
-        yield* service.stop()
-        expect(yield* service.isRunning()).toBe(false)
-        return { stoppedCleanly: true }
-      }).pipe(Effect.provide(GameLoopServiceLive))
+        const secondRun = Effect.gen(function* () {
+          const service = yield* GameLoopService
+          yield* service.start(() => Effect.void)
+          expect(yield* service.isRunning()).toBe(true)
+          yield* service.stop()
+          expect(yield* service.isRunning()).toBe(false)
+          return { restartedCleanly: true }
+        }).pipe(Effect.provide(GameLoopServiceLive))
 
-      const secondRun = Effect.gen(function* () {
-        const service = yield* GameLoopService
-        yield* service.start(() => Effect.void)
-        expect(yield* service.isRunning()).toBe(true)
-        yield* service.stop()
-        expect(yield* service.isRunning()).toBe(false)
-        return { restartedCleanly: true }
-      }).pipe(Effect.provide(GameLoopServiceLive))
+        const r1 = yield* firstRun
+        const r2 = yield* secondRun
 
-      const r1 = await Effect.runPromise(firstRun)
-      const r2 = await Effect.runPromise(secondRun)
+        expect(r1.stoppedCleanly).toBe(true)
+        expect(r2.restartedCleanly).toBe(true)
+      })
+    )
 
-      expect(r1.stoppedCleanly).toBe(true)
-      expect(r2.restartedCleanly).toBe(true)
-    })
-
-    it('rAF fires after stop() does not call frame handler', async () => {
-      const program = Effect.gen(function* () {
+    it.live('rAF fires after stop() does not call frame handler', () =>
+      Effect.gen(function* () {
         const callCountRef = yield* Ref.make(0)
 
         const service = yield* GameLoopService
@@ -416,16 +356,11 @@ describe('application/game-loop', () => {
 
         // Handler should NOT have been invoked after stop
         expect(countAfterExtraRaf).toBe(countBeforeStop)
-
-        return { success: true }
       }).pipe(Effect.provide(TestLayer))
+    )
 
-      const result = await Effect.runPromise(program)
-      expect(result.success).toBe(true)
-    })
-
-    it('frame handler Fiber is interrupted when stop() is called', async () => {
-      const program = Effect.gen(function* () {
+    it.live('frame handler Fiber is interrupted when stop() is called', () =>
+      Effect.gen(function* () {
         const service = yield* GameLoopService
 
         // Use a long-running handler that we can detect was running
@@ -449,16 +384,11 @@ describe('application/game-loop', () => {
 
         // isRunning must be false after stop
         expect(yield* service.isRunning()).toBe(false)
-
-        return { success: true }
       }).pipe(Effect.provide(TestLayer))
+    )
 
-      const result = await Effect.runPromise(program)
-      expect(result.success).toBe(true)
-    })
-
-    it('Fiber.fork on an Effect that uses GameLoopService can be interrupted', async () => {
-      const program = Effect.gen(function* () {
+    it.live('Fiber.fork on an Effect that uses GameLoopService can be interrupted', () =>
+      Effect.gen(function* () {
         const service = yield* GameLoopService
         const callCountRef = yield* Ref.make(0)
 
@@ -469,10 +399,10 @@ describe('application/game-loop', () => {
         // Fork a background task that fires rAF frames continuously
         const bgFiber = yield* Effect.fork(
           Effect.gen(function* () {
-            for (let i = 0; i < 5; i++) {
+            yield* Effect.forEach(Arr.makeBy(5, i => i), (i) => Effect.gen(function* () {
               fireRaf(i * 16)
               yield* Effect.sleep(5)
-            }
+            }), { concurrency: 1 })
           })
         )
 
@@ -484,12 +414,7 @@ describe('application/game-loop', () => {
         expect(finalCount).toBeGreaterThan(0)
 
         yield* service.stop()
-
-        return { success: true }
       }).pipe(Effect.provide(TestLayer))
-
-      const result = await Effect.runPromise(program)
-      expect(result.success).toBe(true)
-    })
+    )
   })
 })

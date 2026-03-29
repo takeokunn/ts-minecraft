@@ -20,11 +20,8 @@ export const BASE_MOUSE_SENSITIVITY = 0.004
 export class FirstPersonCameraService extends Effect.Service<FirstPersonCameraService>()(
   '@minecraft/application/FirstPersonCameraService',
   {
-    effect: Effect.gen(function* () {
-      const inputService = yield* PlayerInputService
-      const cameraState = yield* PlayerCameraStateService
-
-      return {
+    effect: Effect.all([PlayerInputService, PlayerCameraStateService], { concurrency: 'unbounded' }).pipe(
+      Effect.map(([inputService, cameraState]) => ({
         /**
          * Update camera rotation based on mouse movement
          * Only updates when pointer is locked (captured by the game)
@@ -68,8 +65,7 @@ export class FirstPersonCameraService extends Effect.Service<FirstPersonCameraSe
             const rotation = yield* cameraState.getRotation()
             yield* Effect.sync(() => { camera.rotation.set(rotation.pitch, rotation.yaw, 0, 'YXZ') })
           }),
-      }
-    }),
+      })))
   }
 ) {}
 export const FirstPersonCameraServiceLive = FirstPersonCameraService.Default

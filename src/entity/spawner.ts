@@ -15,11 +15,6 @@ const PASSIVE_MOBS: ReadonlyArray<EntityType> = [
   EntityType.Sheep,
 ]
 
-const distance2D = (a: Position, b: Position): number => {
-  const dx = a.x - b.x
-  const dz = a.z - b.z
-  return Math.sqrt(dx * dx + dz * dz)
-}
 
 const getSpawnPosition = (playerPosition: Position, cursor: number): Position => {
   const angle = ((cursor % 16) / 16) * Math.PI * 2
@@ -43,14 +38,12 @@ const selectMobType = (isNight: boolean, cursor: number): EntityType => {
 export class MobSpawner extends Effect.Service<MobSpawner>()(
   '@minecraft/entity/MobSpawner',
   {
-    effect: Effect.gen(function* () {
-      const entityManager = yield* EntityManager
-      const timeService = yield* TimeService
-
-      const spawnFrameRef = yield* Ref.make(0)
-      const spawnCursorRef = yield* Ref.make(0)
-
-      return {
+    effect: Effect.all([
+      EntityManager,
+      TimeService,
+      Ref.make(0),
+      Ref.make(0),
+    ], { concurrency: 'unbounded' }).pipe(Effect.map(([entityManager, timeService, spawnFrameRef, spawnCursorRef]) => ({
         trySpawn: (playerPosition: Position): Effect.Effect<Option.Option<EntityId>, never> =>
           Effect.gen(function* () {
             const frame = yield* Ref.updateAndGet(spawnFrameRef, (value) => value + 1)
@@ -68,9 +61,11 @@ export class MobSpawner extends Effect.Service<MobSpawner>()(
               { concurrency: 'unbounded' },
             )
             const spawnPosition = getSpawnPosition(playerPosition, cursor)
-            const spawnDistance = distance2D(spawnPosition, playerPosition)
+            const sdx = spawnPosition.x - playerPosition.x
+            const sdz = spawnPosition.z - playerPosition.z
+            const spawnDistanceSq = sdx * sdx + sdz * sdz
 
-            if (spawnDistance < MIN_SPAWN_DISTANCE || spawnDistance > MAX_SPAWN_DISTANCE) {
+            if (spawnDistanceSq < MIN_SPAWN_DISTANCE * MIN_SPAWN_DISTANCE || spawnDistanceSq > MAX_SPAWN_DISTANCE * MAX_SPAWN_DISTANCE) {
               return Option.none<EntityId>()
             }
 
@@ -90,8 +85,7 @@ export class MobSpawner extends Effect.Service<MobSpawner>()(
 
         getMaxPopulation: (): Effect.Effect<number, never> =>
           Effect.succeed(MAX_ENTITY_COUNT),
-      }
-    }),
+    })))
   },
 ) {}
 

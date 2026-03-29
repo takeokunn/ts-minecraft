@@ -1,8 +1,10 @@
-import { describe, expect, it } from 'vitest'
+import { describe, it } from '@effect/vitest'
+import { expect } from 'vitest'
 import { Array as Arr, Effect, Layer, Option } from 'effect'
 import { InventoryService, InventoryServiceLive } from '@/application/inventory/inventory-service'
 import { BlockRegistryLive } from '@/domain'
 import { TradingService, TradingServiceLive, TRADE_CURRENCY_BLOCK } from '@/trading/trading-service'
+import { TradeSuccess } from '@/trading/trading-model'
 import { VillageService, VillageServiceLive } from '@/village/village-service'
 
 const InventoryLayer = InventoryServiceLive.pipe(
@@ -19,8 +21,8 @@ const TradingTestLayer = Layer.mergeAll(
 )
 
 describe('trading/trading-service', () => {
-  it('returns profession/level-appropriate offers for villagers', async () => {
-    const program = Effect.gen(function* () {
+  it.effect('returns profession/level-appropriate offers for villagers', () =>
+    Effect.gen(function* () {
       const villageService = yield* VillageService
       const tradingService = yield* TradingService
 
@@ -28,20 +30,19 @@ describe('trading/trading-service', () => {
       const villagers = yield* villageService.getVillagers()
       const farmerOpt = Arr.findFirst(villagers, (v) => v.profession === 'Farmer')
       if (Option.isNone(farmerOpt)) {
-        return [] as ReadonlyArray<string>
+        expect.fail('No Farmer villager found')
+        return
       }
       const offers = yield* tradingService.getOffersForVillager(Option.getOrThrow(farmerOpt))
-      return Arr.map(offers, (offer) => offer.offerId)
+      const offerIds = Arr.map(offers, (offer) => offer.offerId)
+
+      expect(offerIds.length).toBeGreaterThan(0)
+      expect(offerIds.every((offerId) => offerId.startsWith('farmer:'))).toBe(true)
     }).pipe(Effect.provide(TradingTestLayer))
+  )
 
-    const offerIds = await Effect.runPromise(program)
-
-    expect(offerIds.length).toBeGreaterThan(0)
-    expect(offerIds.every((offerId) => offerId.startsWith('farmer:'))).toBe(true)
-  })
-
-  it('executes trades, grants villager experience, and levels up deterministically', async () => {
-    const program = Effect.gen(function* () {
+  it.effect('executes trades, grants villager experience, and levels up deterministically', () =>
+    Effect.gen(function* () {
       const villageService = yield* VillageService
       const tradingService = yield* TradingService
       const inventoryService = yield* InventoryService
@@ -50,13 +51,15 @@ describe('trading/trading-service', () => {
       const villagers = yield* villageService.getVillagers()
       const farmerOpt = Arr.findFirst(villagers, (v) => v.profession === 'Farmer')
       if (Option.isNone(farmerOpt)) {
-        return { firstSuccess: false, secondSuccess: false, levelAfterSecondTrade: 1, canRemoveOutput: false }
+        expect.fail('No Farmer villager found')
+        return
       }
       const farmer = Option.getOrThrow(farmerOpt)
       const offers = yield* tradingService.getOffersForVillager(farmer)
       const offerOpt = Arr.get(offers, 0)
       if (Option.isNone(offerOpt)) {
-        return { firstSuccess: false, secondSuccess: false, levelAfterSecondTrade: 1, canRemoveOutput: false }
+        expect.fail('No trade offer found')
+        return
       }
       const offer = Option.getOrThrow(offerOpt)
 
@@ -71,22 +74,13 @@ describe('trading/trading-service', () => {
         offer.output.count,
       )
 
-      return {
-        firstSuccess: firstTrade._tag === 'TradeSuccess',
-        secondSuccess: secondTrade._tag === 'TradeSuccess',
-        levelAfterSecondTrade: Option.match(villagerAfter, {
-          onNone: () => 1,
-          onSome: (villager) => villager.level,
-        }),
-        canRemoveOutput,
-      }
+      expect(firstTrade instanceof TradeSuccess).toBe(true)
+      expect(secondTrade instanceof TradeSuccess).toBe(true)
+      expect(Option.match(villagerAfter, {
+        onNone: () => 1,
+        onSome: (villager) => villager.level,
+      })).toBeGreaterThanOrEqual(2)
+      expect(canRemoveOutput).toBe(true)
     }).pipe(Effect.provide(TradingTestLayer))
-
-    const result = await Effect.runPromise(program)
-
-    expect(result.firstSuccess).toBe(true)
-    expect(result.secondSuccess).toBe(true)
-    expect(result.levelAfterSecondTrade).toBeGreaterThanOrEqual(2)
-    expect(result.canRemoveOutput).toBe(true)
-  })
+  )
 })

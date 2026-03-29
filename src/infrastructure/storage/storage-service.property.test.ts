@@ -84,13 +84,13 @@ describe('storage-service / chunk key uniqueness (property-based)', () => {
               const loaded1 = storage.load({ x: x1, z: z1 })
               const loaded2 = storage.load({ x: x2, z: z2 })
 
-              // Both must be Some
-              if (Option.isNone(loaded1) || Option.isNone(loaded2)) return false
-
               // Each must retain its own data, not the other's
-              return (
-                loaded1.value[0] === 1 &&
-                loaded2.value[0] === 7
+              return Option.match(
+                Option.all([loaded1, loaded2] as const),
+                {
+                  onNone: () => false,
+                  onSome: ([d1, d2]) => d1[0] === 1 && d2[0] === 7,
+                },
               )
             }
           )
@@ -152,8 +152,10 @@ describe('storage-service / chunk key uniqueness (property-based)', () => {
               const data = new Uint8Array([42, 43, 44])
               storage.save({ x, z }, data)
               const result = storage.load({ x, z })
-              if (Option.isNone(result)) return false
-              return result.value[0] === 42 && result.value[1] === 43 && result.value[2] === 44
+              return Option.match(result, {
+                onNone: () => false,
+                onSome: (data) => data[0] === 42 && data[1] === 43 && data[2] === 44,
+              })
             }
           )
         )

@@ -1,5 +1,5 @@
 import { describe, it } from '@effect/vitest'
-import { Effect } from 'effect'
+import { Array as Arr, Effect } from 'effect'
 import { expect } from 'vitest'
 import {
   PlayerCameraStateService,
@@ -11,19 +11,17 @@ import {
 
 describe('PlayerCameraStateService', () => {
   describe('getRotation', () => {
-    it('should return initial rotation of { yaw: 0, pitch: 0 }', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should return initial rotation of { yaw: 0, pitch: 0 }', () =>
+      Effect.gen(function* () {
         const camera = yield* PlayerCameraStateService
         const rotation = yield* camera.getRotation()
 
         expect(rotation).toEqual({ yaw: 0, pitch: 0 })
-      })
+      }).pipe(Effect.provide(PlayerCameraStateLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(PlayerCameraStateLive)))
-    })
-
-    it('should return the current rotation state', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should return the current rotation state', () =>
+      Effect.gen(function* () {
         const camera = yield* PlayerCameraStateService
 
         yield* camera.setYaw(Math.PI / 4)
@@ -33,27 +31,23 @@ describe('PlayerCameraStateService', () => {
 
         expect(rotation.yaw).toBeCloseTo(Math.PI / 4)
         expect(rotation.pitch).toBeCloseTo(Math.PI / 6)
-      })
-
-      Effect.runSync(program.pipe(Effect.provide(PlayerCameraStateLive)))
-    })
+      }).pipe(Effect.provide(PlayerCameraStateLive))
+    )
   })
 
   describe('getMode', () => {
-    it('should return firstPerson by default', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should return firstPerson by default', () =>
+      Effect.gen(function* () {
         const camera = yield* PlayerCameraStateService
-        return yield* camera.getMode()
-      })
-
-      const mode = Effect.runSync(program.pipe(Effect.provide(PlayerCameraStateLive)))
-      expect(mode).toBe('firstPerson')
-    })
+        const mode = yield* camera.getMode()
+        expect(mode).toBe('firstPerson')
+      }).pipe(Effect.provide(PlayerCameraStateLive))
+    )
   })
 
   describe('setYaw', () => {
-    it('should set yaw to a positive value', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should set yaw to a positive value', () =>
+      Effect.gen(function* () {
         const camera = yield* PlayerCameraStateService
 
         yield* camera.setYaw(Math.PI / 2)
@@ -61,13 +55,11 @@ describe('PlayerCameraStateService', () => {
 
         expect(rotation.yaw).toBeCloseTo(Math.PI / 2)
         expect(rotation.pitch).toBe(0)
-      })
+      }).pipe(Effect.provide(PlayerCameraStateLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(PlayerCameraStateLive)))
-    })
-
-    it('should set yaw to a negative value', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should set yaw to a negative value', () =>
+      Effect.gen(function* () {
         const camera = yield* PlayerCameraStateService
 
         yield* camera.setYaw(-Math.PI)
@@ -75,13 +67,11 @@ describe('PlayerCameraStateService', () => {
 
         expect(rotation.yaw).toBeCloseTo(-Math.PI)
         expect(rotation.pitch).toBe(0)
-      })
+      }).pipe(Effect.provide(PlayerCameraStateLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(PlayerCameraStateLive)))
-    })
-
-    it('should set yaw to zero', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should set yaw to zero', () =>
+      Effect.gen(function* () {
         const camera = yield* PlayerCameraStateService
 
         yield* camera.setYaw(Math.PI / 4)
@@ -89,28 +79,24 @@ describe('PlayerCameraStateService', () => {
         const rotation = yield* camera.getRotation()
 
         expect(rotation.yaw).toBe(0)
-      })
+      }).pipe(Effect.provide(PlayerCameraStateLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(PlayerCameraStateLive)))
-    })
-
-    it('should allow full rotation (2*PI)', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should allow full rotation (2*PI)', () =>
+      Effect.gen(function* () {
         const camera = yield* PlayerCameraStateService
 
         yield* camera.setYaw(2 * Math.PI)
         const rotation = yield* camera.getRotation()
 
         expect(rotation.yaw).toBeCloseTo(2 * Math.PI)
-      })
-
-      Effect.runSync(program.pipe(Effect.provide(PlayerCameraStateLive)))
-    })
+      }).pipe(Effect.provide(PlayerCameraStateLive))
+    )
   })
 
   describe('setPitch', () => {
-    it('should set pitch to a positive value', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should set pitch to a positive value', () =>
+      Effect.gen(function* () {
         const camera = yield* PlayerCameraStateService
 
         yield* camera.setPitch(Math.PI / 4)
@@ -118,13 +104,11 @@ describe('PlayerCameraStateService', () => {
 
         expect(rotation.pitch).toBeCloseTo(Math.PI / 4)
         expect(rotation.yaw).toBe(0)
-      })
+      }).pipe(Effect.provide(PlayerCameraStateLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(PlayerCameraStateLive)))
-    })
-
-    it('should set pitch to a negative value', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should set pitch to a negative value', () =>
+      Effect.gen(function* () {
         const camera = yield* PlayerCameraStateService
 
         yield* camera.setPitch(-Math.PI / 4)
@@ -132,67 +116,57 @@ describe('PlayerCameraStateService', () => {
 
         expect(rotation.pitch).toBeCloseTo(-Math.PI / 4)
         expect(rotation.yaw).toBe(0)
-      })
+      }).pipe(Effect.provide(PlayerCameraStateLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(PlayerCameraStateLive)))
-    })
-
-    it('should clamp pitch to PITCH_MAX when exceeding upper limit', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should clamp pitch to PITCH_MAX when exceeding upper limit', () =>
+      Effect.gen(function* () {
         const camera = yield* PlayerCameraStateService
 
         yield* camera.setPitch(Math.PI) // Try to set beyond max
         const rotation = yield* camera.getRotation()
 
         expect(rotation.pitch).toBeCloseTo(PITCH_MAX)
-      })
+      }).pipe(Effect.provide(PlayerCameraStateLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(PlayerCameraStateLive)))
-    })
-
-    it('should clamp pitch to PITCH_MIN when exceeding lower limit', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should clamp pitch to PITCH_MIN when exceeding lower limit', () =>
+      Effect.gen(function* () {
         const camera = yield* PlayerCameraStateService
 
         yield* camera.setPitch(-Math.PI) // Try to set beyond min
         const rotation = yield* camera.getRotation()
 
         expect(rotation.pitch).toBeCloseTo(PITCH_MIN)
-      })
+      }).pipe(Effect.provide(PlayerCameraStateLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(PlayerCameraStateLive)))
-    })
-
-    it('should accept pitch at PITCH_MAX boundary', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should accept pitch at PITCH_MAX boundary', () =>
+      Effect.gen(function* () {
         const camera = yield* PlayerCameraStateService
 
         yield* camera.setPitch(PITCH_MAX)
         const rotation = yield* camera.getRotation()
 
         expect(rotation.pitch).toBeCloseTo(PITCH_MAX)
-      })
+      }).pipe(Effect.provide(PlayerCameraStateLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(PlayerCameraStateLive)))
-    })
-
-    it('should accept pitch at PITCH_MIN boundary', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should accept pitch at PITCH_MIN boundary', () =>
+      Effect.gen(function* () {
         const camera = yield* PlayerCameraStateService
 
         yield* camera.setPitch(PITCH_MIN)
         const rotation = yield* camera.getRotation()
 
         expect(rotation.pitch).toBeCloseTo(PITCH_MIN)
-      })
-
-      Effect.runSync(program.pipe(Effect.provide(PlayerCameraStateLive)))
-    })
+      }).pipe(Effect.provide(PlayerCameraStateLive))
+    )
   })
 
   describe('addYaw', () => {
-    it('should add positive delta to yaw', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should add positive delta to yaw', () =>
+      Effect.gen(function* () {
         const camera = yield* PlayerCameraStateService
 
         yield* camera.setYaw(0)
@@ -200,13 +174,11 @@ describe('PlayerCameraStateService', () => {
         const rotation = yield* camera.getRotation()
 
         expect(rotation.yaw).toBeCloseTo(Math.PI / 4)
-      })
+      }).pipe(Effect.provide(PlayerCameraStateLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(PlayerCameraStateLive)))
-    })
-
-    it('should add negative delta to yaw', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should add negative delta to yaw', () =>
+      Effect.gen(function* () {
         const camera = yield* PlayerCameraStateService
 
         yield* camera.setYaw(0)
@@ -214,13 +186,11 @@ describe('PlayerCameraStateService', () => {
         const rotation = yield* camera.getRotation()
 
         expect(rotation.yaw).toBeCloseTo(-Math.PI / 4)
-      })
+      }).pipe(Effect.provide(PlayerCameraStateLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(PlayerCameraStateLive)))
-    })
-
-    it('should accumulate multiple additions', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should accumulate multiple additions', () =>
+      Effect.gen(function* () {
         const camera = yield* PlayerCameraStateService
 
         yield* camera.setYaw(0)
@@ -230,13 +200,11 @@ describe('PlayerCameraStateService', () => {
         const rotation = yield* camera.getRotation()
 
         expect(rotation.yaw).toBeCloseTo((3 * Math.PI) / 4)
-      })
+      }).pipe(Effect.provide(PlayerCameraStateLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(PlayerCameraStateLive)))
-    })
-
-    it('should not affect pitch when adding yaw', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should not affect pitch when adding yaw', () =>
+      Effect.gen(function* () {
         const camera = yield* PlayerCameraStateService
 
         yield* camera.setPitch(Math.PI / 6)
@@ -245,15 +213,13 @@ describe('PlayerCameraStateService', () => {
 
         expect(rotation.pitch).toBeCloseTo(Math.PI / 6)
         expect(rotation.yaw).toBeCloseTo(Math.PI / 4)
-      })
-
-      Effect.runSync(program.pipe(Effect.provide(PlayerCameraStateLive)))
-    })
+      }).pipe(Effect.provide(PlayerCameraStateLive))
+    )
   })
 
   describe('addPitch', () => {
-    it('should add positive delta to pitch with clamping', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should add positive delta to pitch with clamping', () =>
+      Effect.gen(function* () {
         const camera = yield* PlayerCameraStateService
 
         yield* camera.setPitch(0)
@@ -261,13 +227,11 @@ describe('PlayerCameraStateService', () => {
         const rotation = yield* camera.getRotation()
 
         expect(rotation.pitch).toBeCloseTo(Math.PI / 4)
-      })
+      }).pipe(Effect.provide(PlayerCameraStateLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(PlayerCameraStateLive)))
-    })
-
-    it('should add negative delta to pitch with clamping', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should add negative delta to pitch with clamping', () =>
+      Effect.gen(function* () {
         const camera = yield* PlayerCameraStateService
 
         yield* camera.setPitch(0)
@@ -275,13 +239,11 @@ describe('PlayerCameraStateService', () => {
         const rotation = yield* camera.getRotation()
 
         expect(rotation.pitch).toBeCloseTo(-Math.PI / 4)
-      })
+      }).pipe(Effect.provide(PlayerCameraStateLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(PlayerCameraStateLive)))
-    })
-
-    it('should clamp to PITCH_MAX when adding exceeds limit', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should clamp to PITCH_MAX when adding exceeds limit', () =>
+      Effect.gen(function* () {
         const camera = yield* PlayerCameraStateService
 
         yield* camera.setPitch(PITCH_MAX - 0.1)
@@ -289,13 +251,11 @@ describe('PlayerCameraStateService', () => {
         const rotation = yield* camera.getRotation()
 
         expect(rotation.pitch).toBeCloseTo(PITCH_MAX)
-      })
+      }).pipe(Effect.provide(PlayerCameraStateLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(PlayerCameraStateLive)))
-    })
-
-    it('should clamp to PITCH_MIN when adding exceeds limit', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should clamp to PITCH_MIN when adding exceeds limit', () =>
+      Effect.gen(function* () {
         const camera = yield* PlayerCameraStateService
 
         yield* camera.setPitch(PITCH_MIN + 0.1)
@@ -303,13 +263,11 @@ describe('PlayerCameraStateService', () => {
         const rotation = yield* camera.getRotation()
 
         expect(rotation.pitch).toBeCloseTo(PITCH_MIN)
-      })
+      }).pipe(Effect.provide(PlayerCameraStateLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(PlayerCameraStateLive)))
-    })
-
-    it('should not affect yaw when adding pitch', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should not affect yaw when adding pitch', () =>
+      Effect.gen(function* () {
         const camera = yield* PlayerCameraStateService
 
         yield* camera.setYaw(Math.PI / 3)
@@ -318,15 +276,13 @@ describe('PlayerCameraStateService', () => {
 
         expect(rotation.yaw).toBeCloseTo(Math.PI / 3)
         expect(rotation.pitch).toBeCloseTo(Math.PI / 6)
-      })
-
-      Effect.runSync(program.pipe(Effect.provide(PlayerCameraStateLive)))
-    })
+      }).pipe(Effect.provide(PlayerCameraStateLive))
+    )
   })
 
   describe('reset', () => {
-    it('should reset rotation to { yaw: 0, pitch: 0 }', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should reset rotation to { yaw: 0, pitch: 0 }', () =>
+      Effect.gen(function* () {
         const camera = yield* PlayerCameraStateService
 
         yield* camera.setYaw(Math.PI / 2)
@@ -335,13 +291,11 @@ describe('PlayerCameraStateService', () => {
         const rotation = yield* camera.getRotation()
 
         expect(rotation).toEqual({ yaw: 0, pitch: 0 })
-      })
+      }).pipe(Effect.provide(PlayerCameraStateLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(PlayerCameraStateLive)))
-    })
-
-    it('should allow setting values after reset', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should allow setting values after reset', () =>
+      Effect.gen(function* () {
         const camera = yield* PlayerCameraStateService
 
         yield* camera.setYaw(Math.PI)
@@ -352,28 +306,24 @@ describe('PlayerCameraStateService', () => {
 
         expect(rotation.yaw).toBeCloseTo(Math.PI / 4)
         expect(rotation.pitch).toBeCloseTo(Math.PI / 8)
-      })
+      }).pipe(Effect.provide(PlayerCameraStateLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(PlayerCameraStateLive)))
-    })
-
-    it('should reset camera mode to firstPerson', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should reset camera mode to firstPerson', () =>
+      Effect.gen(function* () {
         const camera = yield* PlayerCameraStateService
 
         yield* camera.setMode('thirdPerson')
         yield* camera.reset()
-        return yield* camera.getMode()
-      })
-
-      const mode = Effect.runSync(program.pipe(Effect.provide(PlayerCameraStateLive)))
-      expect(mode).toBe('firstPerson')
-    })
+        const mode = yield* camera.getMode()
+        expect(mode).toBe('firstPerson')
+      }).pipe(Effect.provide(PlayerCameraStateLive))
+    )
   })
 
   describe('toggleMode', () => {
-    it('should switch from firstPerson to thirdPerson and back', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should switch from firstPerson to thirdPerson and back', () =>
+      Effect.gen(function* () {
         const camera = yield* PlayerCameraStateService
 
         const first = yield* camera.getMode()
@@ -382,14 +332,11 @@ describe('PlayerCameraStateService', () => {
         yield* camera.toggleMode()
         const third = yield* camera.getMode()
 
-        return { first, second, third }
-      })
-
-      const result = Effect.runSync(program.pipe(Effect.provide(PlayerCameraStateLive)))
-      expect(result.first).toBe('firstPerson')
-      expect(result.second).toBe('thirdPerson')
-      expect(result.third).toBe('firstPerson')
-    })
+        expect(first).toBe('firstPerson')
+        expect(second).toBe('thirdPerson')
+        expect(third).toBe('firstPerson')
+      }).pipe(Effect.provide(PlayerCameraStateLive))
+    )
   })
 
   describe('CameraRotationSchema', () => {
@@ -424,8 +371,8 @@ describe('PlayerCameraStateService', () => {
   })
 
   describe('integration scenarios', () => {
-    it('should handle typical mouse movement scenario', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should handle typical mouse movement scenario', () =>
+      Effect.gen(function* () {
         const camera = yield* PlayerCameraStateService
 
         // Simulate mouse movement: right and up
@@ -440,13 +387,11 @@ describe('PlayerCameraStateService', () => {
 
         expect(rotation.yaw).toBeCloseTo(0.03)
         expect(rotation.pitch).toBeCloseTo(0.015)
-      })
+      }).pipe(Effect.provide(PlayerCameraStateLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(PlayerCameraStateLive)))
-    })
-
-    it('should handle looking straight up and down with clamping', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should handle looking straight up and down with clamping', () =>
+      Effect.gen(function* () {
         const camera = yield* PlayerCameraStateService
 
         // Try to look straight up (should clamp)
@@ -458,27 +403,21 @@ describe('PlayerCameraStateService', () => {
         yield* camera.setPitch(-Math.PI / 2)
         rotation = yield* camera.getRotation()
         expect(rotation.pitch).toBeCloseTo(PITCH_MIN)
-      })
+      }).pipe(Effect.provide(PlayerCameraStateLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(PlayerCameraStateLive)))
-    })
-
-    it('should handle full 360 degree horizontal rotation', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should handle full 360 degree horizontal rotation', () =>
+      Effect.gen(function* () {
         const camera = yield* PlayerCameraStateService
 
         // Turn around multiple times
-        for (let i = 0; i < 4; i++) {
-          yield* camera.addYaw(Math.PI / 2)
-        }
+        yield* Effect.forEach(Arr.makeBy(4, () => undefined), () => camera.addYaw(Math.PI / 2), { concurrency: 1 })
 
         const rotation = yield* camera.getRotation()
 
         // Should complete full rotation (2*PI)
         expect(rotation.yaw).toBeCloseTo(2 * Math.PI)
-      })
-
-      Effect.runSync(program.pipe(Effect.provide(PlayerCameraStateLive)))
-    })
+      }).pipe(Effect.provide(PlayerCameraStateLive))
+    )
   })
 })

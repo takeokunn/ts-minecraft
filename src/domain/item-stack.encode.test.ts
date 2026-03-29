@@ -1,6 +1,6 @@
 import { describe, it } from 'vitest'
 import { expect } from 'vitest'
-import { Schema } from 'effect'
+import { Array as Arr, Either, Option, Schema } from 'effect'
 import { ItemStack } from './item-stack'
 
 // ItemStack uses Schema.Class, so the encoded form equals the plain object representation.
@@ -29,13 +29,13 @@ describe('ItemStack Schema.Class encode round-trip', () => {
       'SNOW', 'GRAVEL', 'COBBLESTONE',
     ] as const
 
-    for (const blockType of blockTypes) {
+    Arr.forEach(blockTypes, (blockType) => {
       const stack = new ItemStack({ blockType, count: 1 })
       const encoded = Schema.encodeSync(ItemStack)(stack)
       const decoded = Schema.decodeUnknownSync(ItemStack)(encoded)
       expect(decoded.blockType).toBe(blockType)
       expect(decoded.count).toBe(1)
-    }
+    })
   })
 
   it('round-trips with count at minimum boundary (1)', () => {
@@ -93,10 +93,9 @@ describe('ItemStack Schema.Class encode round-trip', () => {
   it('Effect.either encode succeeds for valid ItemStack', () => {
     const stack = new ItemStack({ blockType: 'SAND', count: 16 })
     const result = Schema.encodeUnknownEither(ItemStack)(stack)
-    expect(result._tag).toBe('Right')
-    if (result._tag === 'Right') {
-      expect(result.right.count).toBe(16)
-      expect(result.right.blockType).toBe('SAND')
-    }
+    expect(Either.isRight(result)).toBe(true)
+    const encoded = Option.getOrThrow(Either.getRight(result))
+    expect(encoded.count).toBe(16)
+    expect(encoded.blockType).toBe('SAND')
   })
 })

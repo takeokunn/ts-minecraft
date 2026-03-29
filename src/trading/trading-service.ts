@@ -76,11 +76,8 @@ const findOfferForVillager = (villager: Villager, offerId: TradeOfferId): Option
 export class TradingService extends Effect.Service<TradingService>()(
   '@minecraft/trading/TradingService',
   {
-    effect: Effect.gen(function* () {
-      const inventoryService = yield* InventoryService
-      const villageService = yield* VillageService
-
-      return {
+    effect: Effect.all([InventoryService, VillageService], { concurrency: 'unbounded' }).pipe(
+      Effect.map(([inventoryService, villageService]) => ({
         getCurrencyBlockType: (): Effect.Effect<BlockType, never> =>
           Effect.succeed(TRADE_CURRENCY_BLOCK),
 
@@ -134,8 +131,8 @@ export class TradingService extends Effect.Service<TradingService>()(
             Effect.catchAll((reason) => Effect.succeed<TradeResult>(new TradeFailure({ reason }))),
           )
         },
-      }
-    }),
+      }))
+    ),
   },
 ) {}
 

@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { Array as Arr } from 'effect'
 import { getTileIndex, getTileUVs, ATLAS_COLS, ATLAS_SIZE, HALF_TEXEL } from './block-texture-map'
 import type { FaceDir } from './block-texture-map'
 
@@ -20,9 +21,9 @@ describe('infrastructure/three/textures/block-texture-map', () => {
   describe('getTileIndex', () => {
     it('should return 0 for blockId=0 (AIR) all faces', () => {
       const faces: FaceDir[] = ['top', 'bottom', 'side']
-      for (const face of faces) {
+      Arr.forEach(faces, face => {
         expect(getTileIndex(0, face)).toBe(0)
-      }
+      })
     })
 
     it('should return 0 for blockId=1 (DIRT) all faces', () => {
@@ -71,13 +72,13 @@ describe('infrastructure/three/textures/block-texture-map', () => {
     })
 
     it('should return UV coordinates within [0, 1] range', () => {
-      for (let i = 0; i < 16; i++) {
+      Arr.forEach(Arr.makeBy(16, i => i), i => {
         const uvs = getTileUVs(i)
         expect(uvs.u0).toBeGreaterThanOrEqual(0)
         expect(uvs.u1).toBeLessThanOrEqual(1)
         expect(uvs.v0).toBeGreaterThanOrEqual(0)
         expect(uvs.v1).toBeLessThanOrEqual(1)
-      }
+      })
     })
 
     it('should have u1 > u0 and v0 > v1 (inverted v axis for UV)', () => {

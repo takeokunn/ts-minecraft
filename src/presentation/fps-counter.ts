@@ -15,14 +15,11 @@ export class FPSCounterService extends Effect.Service<FPSCounterService>()(
   // FPSCounterLive alias kept below for test compatibility
   '@minecraft/presentation/FPSCounter',
   {
-    effect: Effect.gen(function* () {
-      const state = yield* Ref.make<FPSCounterState>({
-        frameCount: 0,
-        fps: 0,
-        accumulatedTime: 0,
-      })
-
-      return {
+    effect: Ref.make<FPSCounterState>({
+      frameCount: 0,
+      fps: 0,
+      accumulatedTime: 0,
+    }).pipe(Effect.map((state) => ({
         tick: (deltaTime: DeltaTimeSecs): Effect.Effect<void, never> =>
           Effect.gen(function* () {
             const maybeNewFPS = yield* Ref.modify(state, (s) => {
@@ -52,8 +49,7 @@ export class FPSCounterService extends Effect.Service<FPSCounterService>()(
           Ref.get(state).pipe(
             Effect.map((s) => s.frameCount)
           ),
-      }
-    })
+    })))
   }
 ) {}
 export const FPSCounterLive = FPSCounterService.Default

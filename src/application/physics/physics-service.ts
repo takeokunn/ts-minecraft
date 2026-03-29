@@ -60,22 +60,23 @@ export const PLAYER_FEET_OFFSET = 0.9
 export class PhysicsService extends Effect.Service<PhysicsService>()(
   '@minecraft/application/PhysicsService',
   {
-    effect: Effect.gen(function* () {
-      const rigidBodyService = yield* RigidBodyService
-      const physicsWorldService = yield* PhysicsWorldService
-      const shapeService = yield* ShapeService
-
+    effect: Effect.all([
+      RigidBodyService,
+      PhysicsWorldService,
+      ShapeService,
       // Internal state: CustomWorld stored in a Ref
-      const worldRef = yield* Ref.make<Option.Option<CustomWorld>>(Option.none())
-
+      Ref.make<Option.Option<CustomWorld>>(Option.none()),
       // Internal body registry: maps PhysicsBodyId -> CustomBody
-      const bodyMapRef = yield* Ref.make(HashMap.empty<PhysicsBodyId, CustomBody>())
-
+      Ref.make(HashMap.empty<PhysicsBodyId, CustomBody>()),
       // Track plane body Y positions for isGrounded()
-      const planePositionsRef = yield* Ref.make(HashMap.empty<PhysicsBodyId, number>())
-
+      Ref.make(HashMap.empty<PhysicsBodyId, number>()),
       // Per-instance body ID counter
-      const nextBodyIdRef = yield* Ref.make(0)
+      Ref.make(0),
+      // Cache: flattened body array, invalidated on addBody/removeBody
+      Ref.make<ReadonlyArray<CustomBody> | null>(null),
+      // Cache: flattened plane-Y array, invalidated on addBody/removeBody
+      Ref.make<ReadonlyArray<number> | null>(null),
+    ], { concurrency: 'unbounded' }).pipe(Effect.map(([rigidBodyService, physicsWorldService, shapeService, worldRef, bodyMapRef, planePositionsRef, nextBodyIdRef, cachedBodiesRef, cachedPlaneYsRef]) => {
       const makeBodyId: Effect.Effect<PhysicsBodyId, never> =
         Ref.modify(nextBodyIdRef, (n) => [PhysicsBodyId.make(`physics-body-${n}`), n + 1])
 
@@ -177,10 +178,12 @@ export class PhysicsService extends Effect.Service<PhysicsService>()(
                 // Add body to world and register
                 yield* physicsWorldService.addBody(world, body)
                 yield* Ref.update(bodyMapRef, (m) => HashMap.set(m, bodyId, body))
+                yield* Ref.set(cachedBodiesRef, null)
 
                 // Track plane positions for isGrounded()
                 if (config.shape === 'plane') {
                   yield* Ref.update(planePositionsRef, (m) => HashMap.set(m, bodyId, config.position.y))
+                  yield* Ref.set(cachedPlaneYsRef, null)
                 }
 
                 return bodyId
@@ -199,6 +202,8 @@ export class PhysicsService extends Effect.Service<PhysicsService>()(
             )
             yield* Ref.update(bodyMapRef, (m) => HashMap.remove(m, bodyId))
             yield* Ref.update(planePositionsRef, (m) => HashMap.remove(m, bodyId))
+            yield* Ref.set(cachedBodiesRef, null)
+            yield* Ref.set(cachedPlaneYsRef, null)
           }),
 
         step: (deltaTime: DeltaTimeSecs, options?: { readonly minY?: number }): Effect.Effect<void, PhysicsServiceError> =>
@@ -210,9 +215,20 @@ export class PhysicsService extends Effect.Service<PhysicsService>()(
             yield* Option.match(Option.fromNullable(options?.minY), {
               onNone: () => Effect.void,
               onSome: (minY) => Effect.gen(function* () {
-                const bodyMap = yield* Ref.get(bodyMapRef)
+                const bodies = yield* Ref.get(cachedBodiesRef).pipe(
+                  Effect.flatMap((cached) =>
+                    cached !== null
+                      ? Effect.succeed(cached)
+                      : Ref.get(bodyMapRef).pipe(
+                          Effect.flatMap((bodyMap) => {
+                            const arr = Arr.fromIterable(HashMap.values(bodyMap))
+                            return Ref.set(cachedBodiesRef, arr).pipe(Effect.as(arr))
+                          })
+                        )
+                  )
+                )
                 yield* Effect.sync(() => {
-                  Arr.forEach(Arr.fromIterable(HashMap.values(bodyMap)), (body) => {
+                  Arr.forEach(bodies, (body) => {
                     if (body.type !== 'static' && body.position.y < minY) {
                       body.position.y = minY
                       if (body.velocity.y < 0) body.velocity.y = 0
@@ -226,9 +242,20 @@ export class PhysicsService extends Effect.Service<PhysicsService>()(
         isGrounded: (bodyId: PhysicsBodyId): Effect.Effect<boolean, PhysicsServiceError> =>
           Effect.gen(function* () {
             const body = yield* getBody(bodyId)
-            const planePositions = yield* Ref.get(planePositionsRef)
+            const planeYs = yield* Ref.get(cachedPlaneYsRef).pipe(
+              Effect.flatMap((cached) =>
+                cached !== null
+                  ? Effect.succeed(cached)
+                  : Ref.get(planePositionsRef).pipe(
+                      Effect.flatMap((pos) => {
+                        const arr = Arr.fromIterable(HashMap.values(pos))
+                        return Ref.set(cachedPlaneYsRef, arr).pipe(Effect.as(arr))
+                      })
+                    )
+              )
+            )
 
-            if (HashMap.size(planePositions) === 0) return false
+            if (planeYs.length === 0) return false
 
             const bodyBottomYOpt = Match.value(body.shape).pipe(
               Match.when({ kind: 'box' }, (shape) => Option.some(body.position.y - shape.halfExtents.y)),
@@ -240,7 +267,7 @@ export class PhysicsService extends Effect.Service<PhysicsService>()(
             return Option.match(bodyBottomYOpt, {
               onNone: () => false,
               onSome: (bodyBottomY) => Arr.some(
-                Arr.fromIterable(HashMap.values(planePositions)),
+                planeYs,
                 (planeY) => bodyBottomY >= planeY - 0.5 && bodyBottomY <= planeY + GROUND_DETECTION_DISTANCE
               ),
             })
@@ -284,7 +311,7 @@ export class PhysicsService extends Effect.Service<PhysicsService>()(
             )
           ),
       }
-    }),
+    })),
   }
 ) {}
 export const PhysicsServiceLive = PhysicsService.Default

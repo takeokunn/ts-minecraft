@@ -52,15 +52,13 @@ const EMPTY_HIT_STATE: HitState = { target: Option.none(), hit: Option.none() }
 export class BlockHighlightService extends Effect.Service<BlockHighlightService>()(
   '@minecraft/presentation/BlockHighlight',
   {
-    effect: Effect.gen(function* () {
-      const raycastingService = yield* RaycastingService
-
+    effect: Effect.all([
+      RaycastingService,
       // Wireframe cube mesh for highlighting
-      const highlightMeshRef = yield* Ref.make<Option.Option<THREE.LineSegments>>(Option.none())
+      Ref.make<Option.Option<THREE.LineSegments>>(Option.none()),
       // target and hit always change together — one atomic Ref instead of two
-      const hitStateRef = yield* Ref.make<HitState>(EMPTY_HIT_STATE)
-
-      return {
+      Ref.make<HitState>(EMPTY_HIT_STATE),
+    ], { concurrency: 'unbounded' }).pipe(Effect.map(([raycastingService, highlightMeshRef, hitStateRef]) => ({
         /**
          * Initialize the highlight mesh and add it to the scene
          * @param scene - The Three.js scene to add the highlight to
@@ -128,8 +126,7 @@ export class BlockHighlightService extends Effect.Service<BlockHighlightService>
          */
         getTargetHit: (): Effect.Effect<Option.Option<RaycastHit>, never> =>
           Ref.get(hitStateRef).pipe(Effect.map((s) => s.hit)),
-      }
-    }),
+      })))
   }
 ) {}
 export const BlockHighlightLive = BlockHighlightService.Default

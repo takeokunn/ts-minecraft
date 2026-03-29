@@ -1,5 +1,6 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it } from '@effect/vitest'
 import { Array as Arr, Effect, Layer, Option } from 'effect'
+import { expect, vi } from 'vitest'
 import { InventoryRendererService, InventoryRendererLive } from './inventory-renderer'
 import { InventoryService, INVENTORY_SIZE, HOTBAR_START } from '@/application/inventory/inventory-service'
 import { HotbarService } from '@/application/hotbar/hotbar-service'
@@ -93,9 +94,6 @@ const buildTestLayer = (
     Layer.provide(mockHotbar.MockHotbarLayer)
   )
 
-const runScoped = <A>(effect: Effect.Effect<A, never, never>) =>
-  Effect.runSync(effect.pipe(Effect.scoped))
-
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -106,215 +104,173 @@ describe('presentation/inventory/inventory-renderer', () => {
       expect(InventoryRendererLive).toBeDefined()
     })
 
-    it('should provide InventoryRenderer with all required methods', () => {
+    it.scoped('should provide InventoryRenderer with all required methods', () => {
       const TestLayer = buildTestLayer()
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const renderer = yield* InventoryRendererService
         expect(typeof renderer.toggle).toBe('function')
         expect(typeof renderer.isOpen).toBe('function')
         expect(typeof renderer.update).toBe('function')
-        return { success: true }
       }).pipe(Effect.provide(TestLayer))
-
-      const result = runScoped(program)
-      expect(result.success).toBe(true)
     })
   })
 
   describe('isOpen', () => {
-    it('should return false initially', () => {
+    it.scoped('should return false initially', () => {
       const TestLayer = buildTestLayer()
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const renderer = yield* InventoryRendererService
-        return { open: yield* renderer.isOpen() }
+        const open = yield* renderer.isOpen()
+        expect(open).toBe(false)
       }).pipe(Effect.provide(TestLayer))
-
-      const { open } = runScoped(program)
-      expect(open).toBe(false)
     })
 
-    it('should return the same value on repeated calls before toggle', () => {
+    it.scoped('should return the same value on repeated calls before toggle', () => {
       const TestLayer = buildTestLayer()
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const renderer = yield* InventoryRendererService
         const a = yield* renderer.isOpen()
         const b = yield* renderer.isOpen()
-        return { a, b }
+        expect(a).toBe(false)
+        expect(b).toBe(false)
       }).pipe(Effect.provide(TestLayer))
-
-      const { a, b } = runScoped(program)
-      expect(a).toBe(false)
-      expect(b).toBe(false)
     })
   })
 
   describe('toggle', () => {
-    it('should return true on first call', () => {
+    it.scoped('should return true on first call', () => {
       const TestLayer = buildTestLayer()
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const renderer = yield* InventoryRendererService
-        return { result: yield* renderer.toggle() }
+        const result = yield* renderer.toggle()
+        expect(result).toBe(true)
       }).pipe(Effect.provide(TestLayer))
-
-      const { result } = runScoped(program)
-      expect(result).toBe(true)
     })
 
-    it('should return false on second call', () => {
+    it.scoped('should return false on second call', () => {
       const TestLayer = buildTestLayer()
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const renderer = yield* InventoryRendererService
         yield* renderer.toggle()
-        return { result: yield* renderer.toggle() }
+        const result = yield* renderer.toggle()
+        expect(result).toBe(false)
       }).pipe(Effect.provide(TestLayer))
-
-      const { result } = runScoped(program)
-      expect(result).toBe(false)
     })
 
-    it('should update isOpen state', () => {
+    it.scoped('should update isOpen state', () => {
       const TestLayer = buildTestLayer()
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const renderer = yield* InventoryRendererService
         const before = yield* renderer.isOpen()
         yield* renderer.toggle()
         const after = yield* renderer.isOpen()
-        return { before, after }
+        expect(before).toBe(false)
+        expect(after).toBe(true)
       }).pipe(Effect.provide(TestLayer))
-
-      const { before, after } = runScoped(program)
-      expect(before).toBe(false)
-      expect(after).toBe(true)
     })
 
-    it('should call getAllSlots and getSelectedSlot when toggling open', () => {
+    it.scoped('should call getAllSlots and getSelectedSlot when toggling open', () => {
       const mockDom = createMockDomLayer()
       const mockInventory = createMockInventoryLayer()
       const mockHotbar = createMockHotbarLayer()
       const TestLayer = buildTestLayer(mockDom, mockInventory, mockHotbar)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const renderer = yield* InventoryRendererService
         yield* renderer.toggle() // open → triggers refreshSlots
-        return { success: true }
+        expect(mockInventory.getAllSlots).toHaveBeenCalled()
+        expect(mockHotbar.getSelectedSlot).toHaveBeenCalled()
       }).pipe(Effect.provide(TestLayer))
-
-      runScoped(program)
-      expect(mockInventory.getAllSlots).toHaveBeenCalled()
-      expect(mockHotbar.getSelectedSlot).toHaveBeenCalled()
     })
 
-    it('should NOT refresh slots when toggling closed', () => {
+    it.scoped('should NOT refresh slots when toggling closed', () => {
       const mockDom = createMockDomLayer()
       const mockInventory = createMockInventoryLayer()
       const mockHotbar = createMockHotbarLayer()
       const TestLayer = buildTestLayer(mockDom, mockInventory, mockHotbar)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const renderer = yield* InventoryRendererService
         yield* renderer.toggle() // open
         const callsAfterOpen = mockInventory.getAllSlots.mock.calls.length
         yield* renderer.toggle() // close — should NOT refresh
-        return { callsAfterOpen }
+        expect(mockInventory.getAllSlots.mock.calls.length).toBe(callsAfterOpen)
       }).pipe(Effect.provide(TestLayer))
-
-      const { callsAfterOpen } = runScoped(program)
-      expect(mockInventory.getAllSlots.mock.calls.length).toBe(callsAfterOpen)
     })
   })
 
   describe('update', () => {
-    it('should complete without error when closed', () => {
+    it.scoped('should complete without error when closed', () => {
       const TestLayer = buildTestLayer()
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const renderer = yield* InventoryRendererService
         yield* renderer.update() // closed — should be no-op
-        return { success: true }
       }).pipe(Effect.provide(TestLayer))
-
-      const result = runScoped(program)
-      expect(result.success).toBe(true)
     })
 
-    it('should NOT call getAllSlots when closed', () => {
+    it.scoped('should NOT call getAllSlots when closed', () => {
       const mockDom = createMockDomLayer()
       const mockInventory = createMockInventoryLayer()
       const mockHotbar = createMockHotbarLayer()
       const TestLayer = buildTestLayer(mockDom, mockInventory, mockHotbar)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const renderer = yield* InventoryRendererService
         yield* renderer.update() // not open
-        return { success: true }
+        expect(mockInventory.getAllSlots).not.toHaveBeenCalled()
       }).pipe(Effect.provide(TestLayer))
-
-      runScoped(program)
-      expect(mockInventory.getAllSlots).not.toHaveBeenCalled()
     })
 
-    it('should call getAllSlots when open', () => {
+    it.scoped('should call getAllSlots when open', () => {
       const mockDom = createMockDomLayer()
       const mockInventory = createMockInventoryLayer()
       const mockHotbar = createMockHotbarLayer()
       const TestLayer = buildTestLayer(mockDom, mockInventory, mockHotbar)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const renderer = yield* InventoryRendererService
         yield* renderer.toggle() // open
         const callsAfterToggle = mockInventory.getAllSlots.mock.calls.length
         yield* renderer.update() // should refresh again
-        return { callsAfterToggle }
+        expect(mockInventory.getAllSlots.mock.calls.length).toBeGreaterThan(callsAfterToggle)
       }).pipe(Effect.provide(TestLayer))
-
-      const { callsAfterToggle } = runScoped(program)
-      expect(mockInventory.getAllSlots.mock.calls.length).toBeGreaterThan(callsAfterToggle)
     })
 
-    it('should be callable multiple times without error', () => {
+    it.scoped('should be callable multiple times without error', () => {
       const TestLayer = buildTestLayer()
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const renderer = yield* InventoryRendererService
         yield* renderer.update()
         yield* renderer.update()
         yield* renderer.update()
-        return { success: true }
       }).pipe(Effect.provide(TestLayer))
-
-      const result = runScoped(program)
-      expect(result.success).toBe(true)
     })
   })
 
   describe('Effect composition', () => {
-    it('should support toggle.flatMap(isOpen)', () => {
+    it.scoped('should support toggle.flatMap(isOpen)', () => {
       const TestLayer = buildTestLayer()
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const renderer = yield* InventoryRendererService
         const isOpen = yield* renderer.toggle().pipe(
           Effect.flatMap(() => renderer.isOpen())
         )
-        return { isOpen }
+        expect(isOpen).toBe(true)
       }).pipe(Effect.provide(TestLayer))
-
-      const { isOpen } = runScoped(program)
-      expect(isOpen).toBe(true)
     })
 
-    it('should support full lifecycle: toggle → update → toggle', () => {
+    it.scoped('should support full lifecycle: toggle → update → toggle', () => {
       const TestLayer = buildTestLayer()
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const renderer = yield* InventoryRendererService
         const openResult = yield* renderer.toggle()
         yield* renderer.update()
         const closeResult = yield* renderer.toggle()
         const finalOpen = yield* renderer.isOpen()
-        return { openResult, closeResult, finalOpen }
+        expect(openResult).toBe(true)
+        expect(closeResult).toBe(false)
+        expect(finalOpen).toBe(false)
       }).pipe(Effect.provide(TestLayer))
-
-      const result = runScoped(program)
-      expect(result.openResult).toBe(true)
-      expect(result.closeResult).toBe(false)
-      expect(result.finalOpen).toBe(false)
     })
   })
 })

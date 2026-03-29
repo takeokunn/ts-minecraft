@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect } from 'vitest'
+import { it } from '@effect/vitest'
 import { Effect, Either, Schema } from 'effect'
 import {
   WorldIdSchema,
@@ -239,10 +240,12 @@ describe('shared/kernel', () => {
       expect(encoded).toEqual({ x: 10, y: 20, z: 30 })
     })
 
-    it('should decode Position with Effect', async () => {
-      const result = Schema.decodeUnknown(PositionSchema)({ x: 1, y: 2, z: 3 })
-      await expect(Effect.runPromise(result)).resolves.toEqual({ x: 1, y: 2, z: 3 })
-    })
+    it.effect('should decode Position with Effect', () =>
+      Effect.gen(function* () {
+        const result = yield* Schema.decodeUnknown(PositionSchema)({ x: 1, y: 2, z: 3 })
+        expect(result).toEqual({ x: 1, y: 2, z: 3 })
+      })
+    )
 
     it('should decode unknown object to Position', () => {
       const result = Schema.decodeUnknownSync(PositionSchema)({ x: 5, y: 10, z: 15 })

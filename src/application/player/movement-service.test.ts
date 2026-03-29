@@ -1,6 +1,6 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Arbitrary, Effect, Layer, MutableHashMap, MutableHashSet, Option, Schema } from 'effect'
+import { Arbitrary, Array as Arr, Effect, Layer, MutableHashMap, MutableHashSet, Option, Ref, Schema } from 'effect'
 import { PlayerInputService } from '@/application/input/player-input-service'
 import type { InputServicePort as InputServiceType } from '@/application/input'
 import {
@@ -82,148 +82,100 @@ describe('MovementService', () => {
   })
 
   describe('getInput', () => {
-    it('should return false for all inputs when no keys are pressed', () => {
+    it.effect('should return false for all inputs when no keys are pressed', () => {
       const inputService = createTestInputService()
       const testLayers = createTestLayers(inputService)
-
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const movementService = yield* MovementService
-        return yield* movementService.getInput()
-      })
-
-      const input = Effect.runSync(
-        program.pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
-      )
-
-      expect(input.forward).toBe(false)
-      expect(input.backward).toBe(false)
-      expect(input.left).toBe(false)
-      expect(input.right).toBe(false)
-      expect(input.jump).toBe(false)
-      expect(input.sprint).toBe(false)
+        const input = yield* movementService.getInput()
+        expect(input.forward).toBe(false)
+        expect(input.backward).toBe(false)
+        expect(input.left).toBe(false)
+        expect(input.right).toBe(false)
+        expect(input.jump).toBe(false)
+        expect(input.sprint).toBe(false)
+      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
     })
 
-    it('should return forward true when W is pressed', () => {
+    it.effect('should return forward true when W is pressed', () => {
       const inputService = createTestInputService({ forward: true })
       const testLayers = createTestLayers(inputService)
-
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const movementService = yield* MovementService
-        return yield* movementService.getInput()
-      })
-
-      const input = Effect.runSync(
-        program.pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
-      )
-
-      expect(input.forward).toBe(true)
-      expect(input.backward).toBe(false)
+        const input = yield* movementService.getInput()
+        expect(input.forward).toBe(true)
+        expect(input.backward).toBe(false)
+      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
     })
 
-    it('should return backward true when S is pressed', () => {
+    it.effect('should return backward true when S is pressed', () => {
       const inputService = createTestInputService({ backward: true })
       const testLayers = createTestLayers(inputService)
-
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const movementService = yield* MovementService
-        return yield* movementService.getInput()
-      })
-
-      const input = Effect.runSync(
-        program.pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
-      )
-
-      expect(input.backward).toBe(true)
-      expect(input.forward).toBe(false)
+        const input = yield* movementService.getInput()
+        expect(input.backward).toBe(true)
+        expect(input.forward).toBe(false)
+      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
     })
 
-    it('should return left true when A is pressed', () => {
+    it.effect('should return left true when A is pressed', () => {
       const inputService = createTestInputService({ left: true })
       const testLayers = createTestLayers(inputService)
-
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const movementService = yield* MovementService
-        return yield* movementService.getInput()
-      })
-
-      const input = Effect.runSync(
-        program.pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
-      )
-
-      expect(input.left).toBe(true)
+        const input = yield* movementService.getInput()
+        expect(input.left).toBe(true)
+      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
     })
 
-    it('should return right true when D is pressed', () => {
+    it.effect('should return right true when D is pressed', () => {
       const inputService = createTestInputService({ right: true })
       const testLayers = createTestLayers(inputService)
-
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const movementService = yield* MovementService
-        return yield* movementService.getInput()
-      })
-
-      const input = Effect.runSync(
-        program.pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
-      )
-
-      expect(input.right).toBe(true)
+        const input = yield* movementService.getInput()
+        expect(input.right).toBe(true)
+      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
     })
 
-    it('should return jump true when Space is pressed', () => {
+    it.effect('should return jump true when Space is pressed', () => {
       const inputService = createTestInputService({ jump: true })
       const testLayers = createTestLayers(inputService)
-
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const movementService = yield* MovementService
-        return yield* movementService.getInput()
-      })
-
-      const input = Effect.runSync(
-        program.pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
-      )
-
-      expect(input.jump).toBe(true)
+        const input = yield* movementService.getInput()
+        expect(input.jump).toBe(true)
+      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
     })
 
-    it('should return sprint true when ControlLeft is pressed', () => {
+    it.effect('should return sprint true when ControlLeft is pressed', () => {
       const inputService = createTestInputService({ sprint: true })
       const testLayers = createTestLayers(inputService)
-
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const movementService = yield* MovementService
-        return yield* movementService.getInput()
-      })
-
-      const input = Effect.runSync(
-        program.pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
-      )
-
-      expect(input.sprint).toBe(true)
+        const input = yield* movementService.getInput()
+        expect(input.sprint).toBe(true)
+      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
     })
 
-    it('should handle multiple keys pressed simultaneously', () => {
+    it.effect('should handle multiple keys pressed simultaneously', () => {
       const inputService = createTestInputService({
         forward: true,
         left: true,
         sprint: true,
       })
       const testLayers = createTestLayers(inputService)
-
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const movementService = yield* MovementService
-        return yield* movementService.getInput()
-      })
-
-      const input = Effect.runSync(
-        program.pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
-      )
-
-      expect(input.forward).toBe(true)
-      expect(input.backward).toBe(false)
-      expect(input.left).toBe(true)
-      expect(input.right).toBe(false)
-      expect(input.jump).toBe(false)
-      expect(input.sprint).toBe(true)
+        const input = yield* movementService.getInput()
+        expect(input.forward).toBe(true)
+        expect(input.backward).toBe(false)
+        expect(input.left).toBe(true)
+        expect(input.right).toBe(false)
+        expect(input.jump).toBe(false)
+        expect(input.sprint).toBe(true)
+      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
     })
   })
 
@@ -231,10 +183,9 @@ describe('MovementService', () => {
     const zeroYaw = 0
     const isGrounded = true
 
-    it('should return zero velocity when no input is provided', () => {
+    it.effect('should return zero velocity when no input is provided', () => {
       const inputService = createTestInputService()
       const testLayers = createTestLayers(inputService)
-
       const input: MovementInput = {
         forward: false,
         backward: false,
@@ -243,26 +194,19 @@ describe('MovementService', () => {
         jump: false,
         sprint: false,
       }
-
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const movementService = yield* MovementService
-        return yield* movementService.calculateVelocity(input, zeroYaw, isGrounded)
-      })
-
-      const velocity = Effect.runSync(
-        program.pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
-      )
-
-      expect(velocity.x).toBe(0)
-      expect(velocity.y).toBe(0)
-      expect(velocity.z).toBe(0)
+        const velocity = yield* movementService.calculateVelocity(input, zeroYaw, isGrounded)
+        expect(velocity.x).toBe(0)
+        expect(velocity.y).toBe(0)
+        expect(velocity.z).toBe(0)
+      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
     })
 
     describe('forward movement (W key)', () => {
-      it('should move in negative Z direction when facing forward (yaw=0)', () => {
+      it.effect('should move in negative Z direction when facing forward (yaw=0)', () => {
         const inputService = createTestInputService()
         const testLayers = createTestLayers(inputService)
-
         const input: MovementInput = {
           forward: true,
           backward: false,
@@ -271,27 +215,20 @@ describe('MovementService', () => {
           jump: false,
           sprint: false,
         }
-
-        const program = Effect.gen(function* () {
+        return Effect.gen(function* () {
           const movementService = yield* MovementService
-          return yield* movementService.calculateVelocity(input, 0, isGrounded)
-        })
-
-        const velocity = Effect.runSync(
-          program.pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
-        )
-
-        // At yaw=0: sin(0)=0, cos(0)=1
-        // Forward: x -= 0, z -= 1 => z = -walkSpeed
-        expect(velocity.x).toBeCloseTo(0)
-        expect(velocity.z).toBeCloseTo(-DEFAULT_WALK_SPEED)
-        expect(velocity.y).toBe(0)
+          const velocity = yield* movementService.calculateVelocity(input, 0, isGrounded)
+          // At yaw=0: sin(0)=0, cos(0)=1
+          // Forward: x -= 0, z -= 1 => z = -walkSpeed
+          expect(velocity.x).toBeCloseTo(0)
+          expect(velocity.z).toBeCloseTo(-DEFAULT_WALK_SPEED)
+          expect(velocity.y).toBe(0)
+        }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
       })
 
-      it('should move in correct direction when facing right (yaw=PI/2)', () => {
+      it.effect('should move in correct direction when facing right (yaw=PI/2)', () => {
         const inputService = createTestInputService()
         const testLayers = createTestLayers(inputService)
-
         const input: MovementInput = {
           forward: true,
           backward: false,
@@ -300,28 +237,21 @@ describe('MovementService', () => {
           jump: false,
           sprint: false,
         }
-
-        const program = Effect.gen(function* () {
+        return Effect.gen(function* () {
           const movementService = yield* MovementService
-          return yield* movementService.calculateVelocity(input, Math.PI / 2, isGrounded)
-        })
-
-        const velocity = Effect.runSync(
-          program.pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
-        )
-
-        // At yaw=PI/2: sin(PI/2)=1, cos(PI/2)=0
-        // Forward: x -= 1, z -= 0 => x = -walkSpeed
-        expect(velocity.x).toBeCloseTo(-DEFAULT_WALK_SPEED)
-        expect(velocity.z).toBeCloseTo(0)
+          const velocity = yield* movementService.calculateVelocity(input, Math.PI / 2, isGrounded)
+          // At yaw=PI/2: sin(PI/2)=1, cos(PI/2)=0
+          // Forward: x -= 1, z -= 0 => x = -walkSpeed
+          expect(velocity.x).toBeCloseTo(-DEFAULT_WALK_SPEED)
+          expect(velocity.z).toBeCloseTo(0)
+        }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
       })
     })
 
     describe('backward movement (S key)', () => {
-      it('should move in positive Z direction when facing forward (yaw=0)', () => {
+      it.effect('should move in positive Z direction when facing forward (yaw=0)', () => {
         const inputService = createTestInputService()
         const testLayers = createTestLayers(inputService)
-
         const input: MovementInput = {
           forward: false,
           backward: true,
@@ -330,28 +260,21 @@ describe('MovementService', () => {
           jump: false,
           sprint: false,
         }
-
-        const program = Effect.gen(function* () {
+        return Effect.gen(function* () {
           const movementService = yield* MovementService
-          return yield* movementService.calculateVelocity(input, 0, isGrounded)
-        })
-
-        const velocity = Effect.runSync(
-          program.pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
-        )
-
-        // At yaw=0: sin(0)=0, cos(0)=1
-        // Backward: x += 0, z += 1 => z = walkSpeed
-        expect(velocity.x).toBeCloseTo(0)
-        expect(velocity.z).toBeCloseTo(DEFAULT_WALK_SPEED)
+          const velocity = yield* movementService.calculateVelocity(input, 0, isGrounded)
+          // At yaw=0: sin(0)=0, cos(0)=1
+          // Backward: x += 0, z += 1 => z = walkSpeed
+          expect(velocity.x).toBeCloseTo(0)
+          expect(velocity.z).toBeCloseTo(DEFAULT_WALK_SPEED)
+        }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
       })
     })
 
     describe('left movement (A key)', () => {
-      it('should strafe left when facing forward (yaw=0)', () => {
+      it.effect('should strafe left when facing forward (yaw=0)', () => {
         const inputService = createTestInputService()
         const testLayers = createTestLayers(inputService)
-
         const input: MovementInput = {
           forward: false,
           backward: false,
@@ -360,28 +283,21 @@ describe('MovementService', () => {
           jump: false,
           sprint: false,
         }
-
-        const program = Effect.gen(function* () {
+        return Effect.gen(function* () {
           const movementService = yield* MovementService
-          return yield* movementService.calculateVelocity(input, 0, isGrounded)
-        })
-
-        const velocity = Effect.runSync(
-          program.pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
-        )
-
-        // At yaw=0: cos(0)=1, sin(0)=0
-        // Left: x -= 1, z += 0 => x = -walkSpeed
-        expect(velocity.x).toBeCloseTo(-DEFAULT_WALK_SPEED)
-        expect(velocity.z).toBeCloseTo(0)
+          const velocity = yield* movementService.calculateVelocity(input, 0, isGrounded)
+          // At yaw=0: cos(0)=1, sin(0)=0
+          // Left: x -= 1, z += 0 => x = -walkSpeed
+          expect(velocity.x).toBeCloseTo(-DEFAULT_WALK_SPEED)
+          expect(velocity.z).toBeCloseTo(0)
+        }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
       })
     })
 
     describe('right movement (D key)', () => {
-      it('should strafe right when facing forward (yaw=0)', () => {
+      it.effect('should strafe right when facing forward (yaw=0)', () => {
         const inputService = createTestInputService()
         const testLayers = createTestLayers(inputService)
-
         const input: MovementInput = {
           forward: false,
           backward: false,
@@ -390,28 +306,21 @@ describe('MovementService', () => {
           jump: false,
           sprint: false,
         }
-
-        const program = Effect.gen(function* () {
+        return Effect.gen(function* () {
           const movementService = yield* MovementService
-          return yield* movementService.calculateVelocity(input, 0, isGrounded)
-        })
-
-        const velocity = Effect.runSync(
-          program.pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
-        )
-
-        // At yaw=0: cos(0)=1, sin(0)=0
-        // Right: x += 1, z -= 0 => x = walkSpeed
-        expect(velocity.x).toBeCloseTo(DEFAULT_WALK_SPEED)
-        expect(velocity.z).toBeCloseTo(0)
+          const velocity = yield* movementService.calculateVelocity(input, 0, isGrounded)
+          // At yaw=0: cos(0)=1, sin(0)=0
+          // Right: x += 1, z -= 0 => x = walkSpeed
+          expect(velocity.x).toBeCloseTo(DEFAULT_WALK_SPEED)
+          expect(velocity.z).toBeCloseTo(0)
+        }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
       })
     })
 
     describe('diagonal movement normalization', () => {
-      it('should normalize diagonal movement to prevent faster speeds', () => {
+      it.effect('should normalize diagonal movement to prevent faster speeds', () => {
         const inputService = createTestInputService()
         const testLayers = createTestLayers(inputService)
-
         const input: MovementInput = {
           forward: true,
           backward: false,
@@ -420,25 +329,18 @@ describe('MovementService', () => {
           jump: false,
           sprint: false,
         }
-
-        const program = Effect.gen(function* () {
+        return Effect.gen(function* () {
           const movementService = yield* MovementService
-          return yield* movementService.calculateVelocity(input, 0, isGrounded)
-        })
-
-        const velocity = Effect.runSync(
-          program.pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
-        )
-
-        // The magnitude should equal walk speed, not sqrt(2) * walk speed
-        const magnitude = Math.sqrt(velocity.x ** 2 + velocity.z ** 2)
-        expect(magnitude).toBeCloseTo(DEFAULT_WALK_SPEED, 5)
+          const velocity = yield* movementService.calculateVelocity(input, 0, isGrounded)
+          // The magnitude should equal walk speed, not sqrt(2) * walk speed
+          const magnitude = Math.sqrt(velocity.x ** 2 + velocity.z ** 2)
+          expect(magnitude).toBeCloseTo(DEFAULT_WALK_SPEED, 5)
+        }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
       })
 
-      it('should normalize forward+right diagonal movement', () => {
+      it.effect('should normalize forward+right diagonal movement', () => {
         const inputService = createTestInputService()
         const testLayers = createTestLayers(inputService)
-
         const input: MovementInput = {
           forward: true,
           backward: false,
@@ -447,24 +349,17 @@ describe('MovementService', () => {
           jump: false,
           sprint: false,
         }
-
-        const program = Effect.gen(function* () {
+        return Effect.gen(function* () {
           const movementService = yield* MovementService
-          return yield* movementService.calculateVelocity(input, 0, isGrounded)
-        })
-
-        const velocity = Effect.runSync(
-          program.pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
-        )
-
-        const magnitude = Math.sqrt(velocity.x ** 2 + velocity.z ** 2)
-        expect(magnitude).toBeCloseTo(DEFAULT_WALK_SPEED, 5)
+          const velocity = yield* movementService.calculateVelocity(input, 0, isGrounded)
+          const magnitude = Math.sqrt(velocity.x ** 2 + velocity.z ** 2)
+          expect(magnitude).toBeCloseTo(DEFAULT_WALK_SPEED, 5)
+        }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
       })
 
-      it('should normalize backward+left diagonal movement', () => {
+      it.effect('should normalize backward+left diagonal movement', () => {
         const inputService = createTestInputService()
         const testLayers = createTestLayers(inputService)
-
         const input: MovementInput = {
           forward: false,
           backward: true,
@@ -473,26 +368,19 @@ describe('MovementService', () => {
           jump: false,
           sprint: false,
         }
-
-        const program = Effect.gen(function* () {
+        return Effect.gen(function* () {
           const movementService = yield* MovementService
-          return yield* movementService.calculateVelocity(input, 0, isGrounded)
-        })
-
-        const velocity = Effect.runSync(
-          program.pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
-        )
-
-        const magnitude = Math.sqrt(velocity.x ** 2 + velocity.z ** 2)
-        expect(magnitude).toBeCloseTo(DEFAULT_WALK_SPEED, 5)
+          const velocity = yield* movementService.calculateVelocity(input, 0, isGrounded)
+          const magnitude = Math.sqrt(velocity.x ** 2 + velocity.z ** 2)
+          expect(magnitude).toBeCloseTo(DEFAULT_WALK_SPEED, 5)
+        }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
       })
     })
 
     describe('sprint speed modifier', () => {
-      it('should apply sprint speed when sprint is true', () => {
+      it.effect('should apply sprint speed when sprint is true', () => {
         const inputService = createTestInputService()
         const testLayers = createTestLayers(inputService)
-
         const input: MovementInput = {
           forward: true,
           backward: false,
@@ -501,23 +389,16 @@ describe('MovementService', () => {
           jump: false,
           sprint: true,
         }
-
-        const program = Effect.gen(function* () {
+        return Effect.gen(function* () {
           const movementService = yield* MovementService
-          return yield* movementService.calculateVelocity(input, 0, isGrounded)
-        })
-
-        const velocity = Effect.runSync(
-          program.pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
-        )
-
-        expect(Math.abs(velocity.z)).toBeCloseTo(DEFAULT_SPRINT_SPEED)
+          const velocity = yield* movementService.calculateVelocity(input, 0, isGrounded)
+          expect(Math.abs(velocity.z)).toBeCloseTo(DEFAULT_SPRINT_SPEED)
+        }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
       })
 
-      it('should use walk speed when sprint is false', () => {
+      it.effect('should use walk speed when sprint is false', () => {
         const inputService = createTestInputService()
         const testLayers = createTestLayers(inputService)
-
         const input: MovementInput = {
           forward: true,
           backward: false,
@@ -526,25 +407,18 @@ describe('MovementService', () => {
           jump: false,
           sprint: false,
         }
-
-        const program = Effect.gen(function* () {
+        return Effect.gen(function* () {
           const movementService = yield* MovementService
-          return yield* movementService.calculateVelocity(input, 0, isGrounded)
-        })
-
-        const velocity = Effect.runSync(
-          program.pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
-        )
-
-        expect(Math.abs(velocity.z)).toBeCloseTo(DEFAULT_WALK_SPEED)
+          const velocity = yield* movementService.calculateVelocity(input, 0, isGrounded)
+          expect(Math.abs(velocity.z)).toBeCloseTo(DEFAULT_WALK_SPEED)
+        }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
       })
     })
 
     describe('jump mechanics', () => {
-      it('should return positive Y velocity when jump is pressed and grounded', () => {
+      it.effect('should return positive Y velocity when jump is pressed and grounded', () => {
         const inputService = createTestInputService()
         const testLayers = createTestLayers(inputService)
-
         const input: MovementInput = {
           forward: false,
           backward: false,
@@ -553,23 +427,16 @@ describe('MovementService', () => {
           jump: true,
           sprint: false,
         }
-
-        const program = Effect.gen(function* () {
+        return Effect.gen(function* () {
           const movementService = yield* MovementService
-          return yield* movementService.calculateVelocity(input, 0, true)
-        })
-
-        const velocity = Effect.runSync(
-          program.pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
-        )
-
-        expect(velocity.y).toBe(DEFAULT_JUMP_VELOCITY)
+          const velocity = yield* movementService.calculateVelocity(input, 0, true)
+          expect(velocity.y).toBe(DEFAULT_JUMP_VELOCITY)
+        }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
       })
 
-      it('should return zero Y velocity when jump is pressed but not grounded', () => {
+      it.effect('should return zero Y velocity when jump is pressed but not grounded', () => {
         const inputService = createTestInputService()
         const testLayers = createTestLayers(inputService)
-
         const input: MovementInput = {
           forward: false,
           backward: false,
@@ -578,23 +445,16 @@ describe('MovementService', () => {
           jump: true,
           sprint: false,
         }
-
-        const program = Effect.gen(function* () {
+        return Effect.gen(function* () {
           const movementService = yield* MovementService
-          return yield* movementService.calculateVelocity(input, 0, false)
-        })
-
-        const velocity = Effect.runSync(
-          program.pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
-        )
-
-        expect(velocity.y).toBe(0)
+          const velocity = yield* movementService.calculateVelocity(input, 0, false)
+          expect(velocity.y).toBe(0)
+        }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
       })
 
-      it('should return zero Y velocity when grounded but jump not pressed', () => {
+      it.effect('should return zero Y velocity when grounded but jump not pressed', () => {
         const inputService = createTestInputService()
         const testLayers = createTestLayers(inputService)
-
         const input: MovementInput = {
           forward: false,
           backward: false,
@@ -603,25 +463,18 @@ describe('MovementService', () => {
           jump: false,
           sprint: false,
         }
-
-        const program = Effect.gen(function* () {
+        return Effect.gen(function* () {
           const movementService = yield* MovementService
-          return yield* movementService.calculateVelocity(input, 0, true)
-        })
-
-        const velocity = Effect.runSync(
-          program.pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
-        )
-
-        expect(velocity.y).toBe(0)
+          const velocity = yield* movementService.calculateVelocity(input, 0, true)
+          expect(velocity.y).toBe(0)
+        }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
       })
     })
 
     describe('camera-relative direction', () => {
-      it('should adjust movement direction based on yaw angle', () => {
+      it.effect('should adjust movement direction based on yaw angle', () => {
         const inputService = createTestInputService()
         const testLayers = createTestLayers(inputService)
-
         const input: MovementInput = {
           forward: true,
           backward: false,
@@ -630,30 +483,24 @@ describe('MovementService', () => {
           jump: false,
           sprint: false,
         }
-
         // Test multiple yaw angles
         const testAngles = [0, Math.PI / 4, Math.PI / 2, Math.PI, -Math.PI / 2]
-
-        for (const yaw of testAngles) {
-          const program = Effect.gen(function* () {
-            const movementService = yield* MovementService
-            return yield* movementService.calculateVelocity(input, yaw, true)
-          })
-
-          const velocity = Effect.runSync(
-            program.pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
-          )
-
-          // Forward direction should be -sin(yaw), -cos(yaw)
-          expect(velocity.x).toBeCloseTo(-Math.sin(yaw) * DEFAULT_WALK_SPEED)
-          expect(velocity.z).toBeCloseTo(-Math.cos(yaw) * DEFAULT_WALK_SPEED)
-        }
+        return Effect.gen(function* () {
+          const movementService = yield* MovementService
+          yield* Effect.forEach(testAngles, yaw =>
+            Effect.gen(function* () {
+              const velocity = yield* movementService.calculateVelocity(input, yaw, true)
+              // Forward direction should be -sin(yaw), -cos(yaw)
+              expect(velocity.x).toBeCloseTo(-Math.sin(yaw) * DEFAULT_WALK_SPEED)
+              expect(velocity.z).toBeCloseTo(-Math.cos(yaw) * DEFAULT_WALK_SPEED)
+            })
+          , { concurrency: 1 })
+        }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
       })
 
-      it('should handle 180-degree rotation correctly', () => {
+      it.effect('should handle 180-degree rotation correctly', () => {
         const inputService = createTestInputService()
         const testLayers = createTestLayers(inputService)
-
         const input: MovementInput = {
           forward: true,
           backward: false,
@@ -662,166 +509,111 @@ describe('MovementService', () => {
           jump: false,
           sprint: false,
         }
-
-        const program = Effect.gen(function* () {
+        return Effect.gen(function* () {
           const movementService = yield* MovementService
-          return yield* movementService.calculateVelocity(input, Math.PI, true)
-        })
-
-        const velocity = Effect.runSync(
-          program.pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
-        )
-
-        // At yaw=PI: sin(PI)=0, cos(PI)=-1
-        // Forward: x -= 0, z -= (-1) => z = walkSpeed
-        expect(velocity.x).toBeCloseTo(0)
-        expect(velocity.z).toBeCloseTo(DEFAULT_WALK_SPEED)
+          const velocity = yield* movementService.calculateVelocity(input, Math.PI, true)
+          // At yaw=PI: sin(PI)=0, cos(PI)=-1
+          // Forward: x -= 0, z -= (-1) => z = walkSpeed
+          expect(velocity.x).toBeCloseTo(0)
+          expect(velocity.z).toBeCloseTo(DEFAULT_WALK_SPEED)
+        }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
       })
     })
   })
 
   describe('update', () => {
-    it('should combine getInput and calculateVelocity', () => {
+    it.effect('should combine getInput and calculateVelocity', () => {
       const inputService = createTestInputService({ forward: true })
       const testLayers = createTestLayers(inputService)
-
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const movementService = yield* MovementService
-        return yield* movementService.update(0, true)
-      })
-
-      const velocity = Effect.runSync(
-        program.pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
-      )
-
-      // Should move forward
-      expect(velocity.x).toBeCloseTo(0)
-      expect(velocity.z).toBeCloseTo(-DEFAULT_WALK_SPEED)
+        const velocity = yield* movementService.update(0, true)
+        // Should move forward
+        expect(velocity.x).toBeCloseTo(0)
+        expect(velocity.z).toBeCloseTo(-DEFAULT_WALK_SPEED)
+      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
     })
 
-    it('should return zero Y velocity when not jumping', () => {
+    it.effect('should return zero Y velocity when not jumping', () => {
       const inputService = createTestInputService({ forward: true })
       const testLayers = createTestLayers(inputService)
-
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const movementService = yield* MovementService
-        return yield* movementService.update(0, true)
-      })
-
-      const velocity = Effect.runSync(
-        program.pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
-      )
-
-      // Y velocity should be zero when not jumping
-      expect(velocity.y).toBe(0)
+        const velocity = yield* movementService.update(0, true)
+        // Y velocity should be zero when not jumping
+        expect(velocity.y).toBe(0)
+      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
     })
 
-    it('should return jump velocity when jumping', () => {
+    it.effect('should return jump velocity when jumping', () => {
       const inputService = createTestInputService({ jump: true })
       const testLayers = createTestLayers(inputService)
-
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const movementService = yield* MovementService
-        return yield* movementService.update(0, true)
-      })
-
-      const velocity = Effect.runSync(
-        program.pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
-      )
-
-      // Y velocity should be jump velocity when jumping
-      expect(velocity.y).toBe(DEFAULT_JUMP_VELOCITY)
+        const velocity = yield* movementService.update(0, true)
+        // Y velocity should be jump velocity when jumping
+        expect(velocity.y).toBe(DEFAULT_JUMP_VELOCITY)
+      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
     })
 
-    it('should not jump when not grounded', () => {
+    it.effect('should not jump when not grounded', () => {
       const inputService = createTestInputService({ jump: true })
       const testLayers = createTestLayers(inputService)
-
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const movementService = yield* MovementService
-        return yield* movementService.update(0, false)
-      })
-
-      const velocity = Effect.runSync(
-        program.pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
-      )
-
-      // Y velocity should be zero (no jump in air)
-      expect(velocity.y).toBe(0)
+        const velocity = yield* movementService.update(0, false)
+        // Y velocity should be zero (no jump in air)
+        expect(velocity.y).toBe(0)
+      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
     })
 
-    it('should handle sprint in update', () => {
+    it.effect('should handle sprint in update', () => {
       const inputService = createTestInputService({ forward: true, sprint: true })
       const testLayers = createTestLayers(inputService)
-
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const movementService = yield* MovementService
-        return yield* movementService.update(0, true)
-      })
-
-      const velocity = Effect.runSync(
-        program.pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
-      )
-
-      expect(Math.abs(velocity.z)).toBeCloseTo(DEFAULT_SPRINT_SPEED)
+        const velocity = yield* movementService.update(0, true)
+        expect(Math.abs(velocity.z)).toBeCloseTo(DEFAULT_SPRINT_SPEED)
+      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
     })
 
-    it('should handle complex input combinations', () => {
+    it.effect('should handle complex input combinations', () => {
       const inputService = createTestInputService({
         forward: true,
         right: true,
         sprint: true,
       })
       const testLayers = createTestLayers(inputService)
-
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const movementService = yield* MovementService
-        return yield* movementService.update(0, true)
-      })
-
-      const velocity = Effect.runSync(
-        program.pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
-      )
-
-      // Should have diagonal movement normalized to sprint speed
-      const magnitude = Math.sqrt(velocity.x ** 2 + velocity.z ** 2)
-      expect(magnitude).toBeCloseTo(DEFAULT_SPRINT_SPEED, 5)
+        const velocity = yield* movementService.update(0, true)
+        // Should have diagonal movement normalized to sprint speed
+        const magnitude = Math.sqrt(velocity.x ** 2 + velocity.z ** 2)
+        expect(magnitude).toBeCloseTo(DEFAULT_SPRINT_SPEED, 5)
+      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
     })
 
-    it('should handle zero current Y velocity', () => {
+    it.effect('should handle zero current Y velocity', () => {
       const inputService = createTestInputService()
       const testLayers = createTestLayers(inputService)
-
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const movementService = yield* MovementService
-        return yield* movementService.update(0, true)
-      })
-
-      const velocity = Effect.runSync(
-        program.pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
-      )
-
-      expect(velocity.y).toBe(0)
+        const velocity = yield* movementService.update(0, true)
+        expect(velocity.y).toBe(0)
+      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
     })
 
-    it('should apply camera-relative movement in update', () => {
+    it.effect('should apply camera-relative movement in update', () => {
       const inputService = createTestInputService({ forward: true })
       const testLayers = createTestLayers(inputService)
-
       const yaw = Math.PI / 4 // 45 degrees
-
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const movementService = yield* MovementService
-        return yield* movementService.update(yaw, true)
-      })
-
-      const velocity = Effect.runSync(
-        program.pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
-      )
-
-      // Verify movement is relative to yaw angle
-      expect(velocity.x).toBeCloseTo(-Math.sin(yaw) * DEFAULT_WALK_SPEED)
-      expect(velocity.z).toBeCloseTo(-Math.cos(yaw) * DEFAULT_WALK_SPEED)
+        const velocity = yield* movementService.update(yaw, true)
+        // Verify movement is relative to yaw angle
+        expect(velocity.x).toBeCloseTo(-Math.sin(yaw) * DEFAULT_WALK_SPEED)
+        expect(velocity.z).toBeCloseTo(-Math.cos(yaw) * DEFAULT_WALK_SPEED)
+      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
     })
   })
 
@@ -830,7 +622,7 @@ describe('MovementService', () => {
   // ---------------------------------------------------------------------------
 
   describe('sprint vs walk distance comparison', () => {
-    it('sprint distance is greater than walk distance for the same number of frames', () => {
+    it.effect('sprint distance is greater than walk distance for the same number of frames', () => {
       const FRAMES = 60
       const yaw = 0 // facing negative-Z
 
@@ -838,92 +630,80 @@ describe('MovementService', () => {
       const walkInputService = createTestInputService({ forward: true, sprint: false })
       const walkLayers = createTestLayers(walkInputService)
 
-      const walkProgram = Effect.gen(function* () {
-        const movementService = yield* MovementService
-        let totalX = 0
-        let totalZ = 0
-        for (let i = 0; i < FRAMES; i++) {
-          const vel = yield* movementService.calculateVelocity(
-            { forward: true, backward: false, left: false, right: false, jump: false, sprint: false },
-            yaw,
-            true
-          )
-          totalX += vel.x
-          totalZ += vel.z
-        }
-        return Math.sqrt(totalX * totalX + totalZ * totalZ)
+      const sprintInputService = createTestInputService({ forward: true, sprint: true })
+      const sprintLayers = createTestLayers(sprintInputService)
+
+      return Effect.gen(function* () {
+        const walkDistRef = yield* Ref.make(0)
+        const sprintDistRef = yield* Ref.make(0)
+
+        yield* Effect.gen(function* () {
+          const movementService = yield* MovementService
+          const accRef = yield* Ref.make({ x: 0, z: 0 })
+          yield* Effect.forEach(Arr.makeBy(FRAMES, () => undefined), () =>
+            movementService.calculateVelocity(
+              { forward: true, backward: false, left: false, right: false, jump: false, sprint: false },
+              yaw,
+              true
+            ).pipe(Effect.flatMap(vel => Ref.update(accRef, acc => ({ x: acc.x + vel.x, z: acc.z + vel.z }))))
+          , { concurrency: 1 })
+          const { x: totalX, z: totalZ } = yield* Ref.get(accRef)
+          yield* Ref.set(walkDistRef, Math.sqrt(totalX * totalX + totalZ * totalZ))
+        }).pipe(Effect.provide(MovementServiceLive), Effect.provide(walkLayers))
+
+        yield* Effect.gen(function* () {
+          const movementService = yield* MovementService
+          const accRef = yield* Ref.make({ x: 0, z: 0 })
+          yield* Effect.forEach(Arr.makeBy(FRAMES, () => undefined), () =>
+            movementService.calculateVelocity(
+              { forward: true, backward: false, left: false, right: false, jump: false, sprint: true },
+              yaw,
+              true
+            ).pipe(Effect.flatMap(vel => Ref.update(accRef, acc => ({ x: acc.x + vel.x, z: acc.z + vel.z }))))
+          , { concurrency: 1 })
+          const { x: totalX, z: totalZ } = yield* Ref.get(accRef)
+          yield* Ref.set(sprintDistRef, Math.sqrt(totalX * totalX + totalZ * totalZ))
+        }).pipe(Effect.provide(MovementServiceLive), Effect.provide(sprintLayers))
+
+        const walkDist = yield* Ref.get(walkDistRef)
+        const sprintDist = yield* Ref.get(sprintDistRef)
+        expect(sprintDist).toBeGreaterThan(walkDist)
       })
-
-      // Sprint: forward=true, sprint=true
-      const sprintProgram = Effect.gen(function* () {
-        const movementService = yield* MovementService
-        let totalX = 0
-        let totalZ = 0
-        for (let i = 0; i < FRAMES; i++) {
-          const vel = yield* movementService.calculateVelocity(
-            { forward: true, backward: false, left: false, right: false, jump: false, sprint: true },
-            yaw,
-            true
-          )
-          totalX += vel.x
-          totalZ += vel.z
-        }
-        return Math.sqrt(totalX * totalX + totalZ * totalZ)
-      })
-
-      const walkDist = Effect.runSync(
-        walkProgram.pipe(Effect.provide(MovementServiceLive), Effect.provide(walkLayers))
-      )
-      const sprintDist = Effect.runSync(
-        sprintProgram.pipe(Effect.provide(MovementServiceLive), Effect.provide(createTestLayers(walkInputService)))
-      )
-
-      expect(sprintDist).toBeGreaterThan(walkDist)
     })
 
-    it('sprint displacement per frame equals DEFAULT_SPRINT_SPEED (no diagonal)', () => {
+    it.effect('sprint displacement per frame equals DEFAULT_SPRINT_SPEED (no diagonal)', () => {
       const walkInputService = createTestInputService()
       const testLayers = createTestLayers(walkInputService)
-
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const movementService = yield* MovementService
         const vel = yield* movementService.calculateVelocity(
           { forward: true, backward: false, left: false, right: false, jump: false, sprint: true },
           0,
           true
         )
-        return Math.sqrt(vel.x * vel.x + vel.z * vel.z)
-      })
-
-      const speed = Effect.runSync(
-        program.pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
-      )
-      expect(speed).toBeCloseTo(DEFAULT_SPRINT_SPEED)
+        const speed = Math.sqrt(vel.x * vel.x + vel.z * vel.z)
+        expect(speed).toBeCloseTo(DEFAULT_SPRINT_SPEED)
+      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
     })
 
-    it('walk displacement per frame equals DEFAULT_WALK_SPEED (no diagonal)', () => {
+    it.effect('walk displacement per frame equals DEFAULT_WALK_SPEED (no diagonal)', () => {
       const walkInputService = createTestInputService()
       const testLayers = createTestLayers(walkInputService)
-
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const movementService = yield* MovementService
         const vel = yield* movementService.calculateVelocity(
           { forward: true, backward: false, left: false, right: false, jump: false, sprint: false },
           0,
           true
         )
-        return Math.sqrt(vel.x * vel.x + vel.z * vel.z)
-      })
-
-      const speed = Effect.runSync(
-        program.pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
-      )
-      expect(speed).toBeCloseTo(DEFAULT_WALK_SPEED)
+        const speed = Math.sqrt(vel.x * vel.x + vel.z * vel.z)
+        expect(speed).toBeCloseTo(DEFAULT_WALK_SPEED)
+      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
     })
   })
 
   describe('integration scenarios', () => {
-    it('should handle typical gameplay movement sequence', () => {
+    it.effect('should handle typical gameplay movement sequence', () => {
       const pressedKeys = MutableHashMap.make(
         ['KeyW', false],
         ['KeyS', false],
@@ -955,7 +735,7 @@ describe('MovementService', () => {
       } as unknown as InputServiceType
       const testLayers = createTestLayers(inputService)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const movementService = yield* MovementService
 
         // Start moving forward
@@ -974,69 +754,51 @@ describe('MovementService', () => {
         // In air, can't jump again (Space still pressed but not in justPressedKeys)
         const velocity4 = yield* movementService.update(0, false)
 
-        return { velocity1, velocity2, velocity3, velocity4 }
-      })
+        // Walking forward
+        expect(velocity1.z).toBeCloseTo(-DEFAULT_WALK_SPEED)
+        expect(velocity1.y).toBe(0)
 
-      const { velocity1, velocity2, velocity3, velocity4 } = Effect.runSync(
-        program.pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
-      )
+        // Sprinting
+        expect(velocity2.z).toBeCloseTo(-DEFAULT_SPRINT_SPEED)
+        expect(velocity2.y).toBe(0)
 
-      // Walking forward
-      expect(velocity1.z).toBeCloseTo(-DEFAULT_WALK_SPEED)
-      expect(velocity1.y).toBe(0)
+        // Jumping while sprinting
+        expect(velocity3.z).toBeCloseTo(-DEFAULT_SPRINT_SPEED)
+        expect(velocity3.y).toBe(DEFAULT_JUMP_VELOCITY)
 
-      // Sprinting
-      expect(velocity2.z).toBeCloseTo(-DEFAULT_SPRINT_SPEED)
-      expect(velocity2.y).toBe(0)
-
-      // Jumping while sprinting
-      expect(velocity3.z).toBeCloseTo(-DEFAULT_SPRINT_SPEED)
-      expect(velocity3.y).toBe(DEFAULT_JUMP_VELOCITY)
-
-      // In air (falling), horizontal movement maintained
-      expect(velocity4.z).toBeCloseTo(-DEFAULT_SPRINT_SPEED)
-      expect(velocity4.y).toBe(0) // No jump because not grounded
+        // In air (falling), horizontal movement maintained
+        expect(velocity4.z).toBeCloseTo(-DEFAULT_SPRINT_SPEED)
+        expect(velocity4.y).toBe(0) // No jump because not grounded
+      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
     })
 
-    it('should handle strafing while moving forward', () => {
+    it.effect('should handle strafing while moving forward', () => {
       const inputService = createTestInputService({ forward: true, right: true })
       const testLayers = createTestLayers(inputService)
-
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const movementService = yield* MovementService
-        return yield* movementService.update(0, true)
-      })
-
-      const velocity = Effect.runSync(
-        program.pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
-      )
-
-      // Should have both X and Z components, normalized
-      const magnitude = Math.sqrt(velocity.x ** 2 + velocity.z ** 2)
-      expect(magnitude).toBeCloseTo(DEFAULT_WALK_SPEED, 5)
-      expect(velocity.x).toBeGreaterThan(0) // Right
-      expect(velocity.z).toBeLessThan(0) // Forward (negative Z)
+        const velocity = yield* movementService.update(0, true)
+        // Should have both X and Z components, normalized
+        const magnitude = Math.sqrt(velocity.x ** 2 + velocity.z ** 2)
+        expect(magnitude).toBeCloseTo(DEFAULT_WALK_SPEED, 5)
+        expect(velocity.x).toBeGreaterThan(0) // Right
+        expect(velocity.z).toBeLessThan(0) // Forward (negative Z)
+      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
     })
 
-    it('should handle opposite keys cancelling out', () => {
+    it.effect('should handle opposite keys cancelling out', () => {
       const inputService = createTestInputService({ forward: true, backward: true })
       const testLayers = createTestLayers(inputService)
-
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const movementService = yield* MovementService
-        return yield* movementService.update(0, true)
-      })
-
-      const velocity = Effect.runSync(
-        program.pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
-      )
-
-      // Forward and backward cancel out
-      expect(velocity.x).toBe(0)
-      expect(velocity.z).toBe(0)
+        const velocity = yield* movementService.update(0, true)
+        // Forward and backward cancel out
+        expect(velocity.x).toBe(0)
+        expect(velocity.z).toBe(0)
+      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
     })
 
-    it('should handle all movement keys pressed', () => {
+    it.effect('should handle all movement keys pressed', () => {
       const inputService = createTestInputService({
         forward: true,
         backward: true,
@@ -1044,19 +806,13 @@ describe('MovementService', () => {
         right: true,
       })
       const testLayers = createTestLayers(inputService)
-
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const movementService = yield* MovementService
-        return yield* movementService.update(0, true)
-      })
-
-      const velocity = Effect.runSync(
-        program.pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
-      )
-
-      // All horizontal keys cancel out
-      expect(velocity.x).toBe(0)
-      expect(velocity.z).toBe(0)
+        const velocity = yield* movementService.update(0, true)
+        // All horizontal keys cancel out
+        expect(velocity.x).toBe(0)
+        expect(velocity.z).toBe(0)
+      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
     })
   })
 
@@ -1065,7 +821,7 @@ describe('MovementService', () => {
   // ---------------------------------------------------------------------------
 
   describe('velocity magnitude invariant (property test)', () => {
-    it.prop(
+    it.effect.prop(
       '|velocity| ≤ sprintSpeed for any combination of movement inputs and yaw angle',
       {
         yaw: Arbitrary.make(Schema.Number.pipe(Schema.between(0, Math.PI * 2))),
@@ -1080,20 +836,16 @@ describe('MovementService', () => {
         const inputService = createTestInputService()
         const testLayers = createTestLayers(inputService)
         const input: MovementInput = { forward, backward, left, right, jump: false, sprint }
-
-        const velocity = Effect.runSync(
-          Effect.gen(function* () {
-            const movementService = yield* MovementService
-            return yield* movementService.calculateVelocity(input, yaw, isGrounded)
-          }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
-        )
-
-        const magnitude = Math.sqrt(velocity.x ** 2 + velocity.z ** 2)
-        expect(magnitude).toBeLessThanOrEqual(DEFAULT_SPRINT_SPEED + 0.001)
+        return Effect.gen(function* () {
+          const movementService = yield* MovementService
+          const velocity = yield* movementService.calculateVelocity(input, yaw, isGrounded)
+          const magnitude = Math.sqrt(velocity.x ** 2 + velocity.z ** 2)
+          expect(magnitude).toBeLessThanOrEqual(DEFAULT_SPRINT_SPEED + 0.001)
+        }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
       }
     )
 
-    it.prop(
+    it.effect.prop(
       '|velocity| ≤ walkSpeed when sprint is false, for any inputs and yaw',
       {
         yaw: Arbitrary.make(Schema.Number.pipe(Schema.between(0, Math.PI * 2))),
@@ -1107,20 +859,16 @@ describe('MovementService', () => {
         const inputService = createTestInputService()
         const testLayers = createTestLayers(inputService)
         const input: MovementInput = { forward, backward, left, right, jump: false, sprint: false }
-
-        const velocity = Effect.runSync(
-          Effect.gen(function* () {
-            const movementService = yield* MovementService
-            return yield* movementService.calculateVelocity(input, yaw, isGrounded)
-          }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
-        )
-
-        const magnitude = Math.sqrt(velocity.x ** 2 + velocity.z ** 2)
-        expect(magnitude).toBeLessThanOrEqual(DEFAULT_WALK_SPEED + 0.001)
+        return Effect.gen(function* () {
+          const movementService = yield* MovementService
+          const velocity = yield* movementService.calculateVelocity(input, yaw, isGrounded)
+          const magnitude = Math.sqrt(velocity.x ** 2 + velocity.z ** 2)
+          expect(magnitude).toBeLessThanOrEqual(DEFAULT_WALK_SPEED + 0.001)
+        }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
       }
     )
 
-    it.prop(
+    it.effect.prop(
       'velocity.y is always either 0 or DEFAULT_JUMP_VELOCITY (no other values)',
       {
         yaw: Arbitrary.make(Schema.Number.pipe(Schema.between(0, Math.PI * 2))),
@@ -1135,15 +883,11 @@ describe('MovementService', () => {
         const inputService = createTestInputService()
         const testLayers = createTestLayers(inputService)
         const input: MovementInput = { forward, backward, left, right, jump, sprint: false }
-
-        const velocity = Effect.runSync(
-          Effect.gen(function* () {
-            const movementService = yield* MovementService
-            return yield* movementService.calculateVelocity(input, yaw, isGrounded)
-          }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
-        )
-
-        expect(velocity.y === 0 || velocity.y === DEFAULT_JUMP_VELOCITY).toBe(true)
+        return Effect.gen(function* () {
+          const movementService = yield* MovementService
+          const velocity = yield* movementService.calculateVelocity(input, yaw, isGrounded)
+          expect(velocity.y === 0 || velocity.y === DEFAULT_JUMP_VELOCITY).toBe(true)
+        }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
       }
     )
   })
@@ -1153,71 +897,50 @@ describe('MovementService', () => {
   // ---------------------------------------------------------------------------
 
   describe('consumeKeyPress one-shot behavior', () => {
-    it('jump key is consumed: second getInput() in same frame returns jump=false', () => {
+    it.effect('jump key is consumed: second getInput() in same frame returns jump=false', () => {
       // createTestInputService({ jump: true }) adds 'Space' to justPressedKeys
       // consumeKeyPress deletes from justPressedKeys on first call → returns true once, then false
       const inputService = createTestInputService({ jump: true })
       const testLayers = createTestLayers(inputService)
-
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const movementService = yield* MovementService
         const first = yield* movementService.getInput()
         const second = yield* movementService.getInput()
-        return { first, second }
-      })
-
-      const { first, second } = Effect.runSync(
-        program.pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
-      )
-
-      // First read: Space is in justPressedKeys → consumeKeyPress returns true → jump=true
-      expect(first.jump).toBe(true)
-      // Second read: Space was deleted from justPressedKeys → consumeKeyPress returns false → jump=false
-      expect(second.jump).toBe(false)
+        // First read: Space is in justPressedKeys → consumeKeyPress returns true → jump=true
+        expect(first.jump).toBe(true)
+        // Second read: Space was deleted from justPressedKeys → consumeKeyPress returns false → jump=false
+        expect(second.jump).toBe(false)
+      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
     })
 
-    it('non-jump keys are not consumed: forward remains true on second getInput()', () => {
+    it.effect('non-jump keys are not consumed: forward remains true on second getInput()', () => {
       // forward uses isKeyPressed (not consumeKeyPress), so it remains true across calls
       const inputService = createTestInputService({ forward: true, jump: true })
       const testLayers = createTestLayers(inputService)
-
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const movementService = yield* MovementService
         const first = yield* movementService.getInput()
         const second = yield* movementService.getInput()
-        return { first, second }
-      })
-
-      const { first, second } = Effect.runSync(
-        program.pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
-      )
-
-      // forward is still pressed (isKeyPressed, not consumed)
-      expect(first.forward).toBe(true)
-      expect(second.forward).toBe(true)
-      // jump consumed on first read
-      expect(first.jump).toBe(true)
-      expect(second.jump).toBe(false)
+        // forward is still pressed (isKeyPressed, not consumed)
+        expect(first.forward).toBe(true)
+        expect(second.forward).toBe(true)
+        // jump consumed on first read
+        expect(first.jump).toBe(true)
+        expect(second.jump).toBe(false)
+      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
     })
 
-    it('jump=false from the start: getInput() returns jump=false on both calls', () => {
+    it.effect('jump=false from the start: getInput() returns jump=false on both calls', () => {
       // justPressedKeys is empty, so consumeKeyPress('Space') always returns false
       const inputService = createTestInputService({ jump: false })
       const testLayers = createTestLayers(inputService)
-
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const movementService = yield* MovementService
         const first = yield* movementService.getInput()
         const second = yield* movementService.getInput()
-        return { first, second }
-      })
-
-      const { first, second } = Effect.runSync(
-        program.pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
-      )
-
-      expect(first.jump).toBe(false)
-      expect(second.jump).toBe(false)
+        expect(first.jump).toBe(false)
+        expect(second.jump).toBe(false)
+      }).pipe(Effect.provide(MovementServiceLive), Effect.provide(testLayers))
     })
   })
 })

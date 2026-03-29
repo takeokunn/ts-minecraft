@@ -6,10 +6,7 @@ import type { Position } from '@/shared/kernel'
 export class ThirdPersonCameraService extends Effect.Service<ThirdPersonCameraService>()(
   '@minecraft/application/ThirdPersonCameraService',
   {
-    effect: Effect.gen(function* () {
-      const cameraState = yield* PlayerCameraStateService
-
-      return {
+    effect: Effect.map(PlayerCameraStateService, (cameraState) => ({
         update: (camera: THREE.PerspectiveCamera, playerPos: Position, eyeLevelOffset = 0.7): Effect.Effect<void, never> =>
           Effect.gen(function* () {
             const rotation = yield* cameraState.getRotation()
@@ -27,8 +24,7 @@ export class ThirdPersonCameraService extends Effect.Service<ThirdPersonCameraSe
               camera.lookAt(playerPos.x, eyeY, playerPos.z)
             })
           }),
-      }
-    }),
+    })),
   }
 ) {}
 

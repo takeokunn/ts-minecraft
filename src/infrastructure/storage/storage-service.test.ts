@@ -1,6 +1,6 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Array as Arr, Effect, Layer, MutableHashMap, Option, Schema } from 'effect'
+import { Array as Arr, Effect, Either, Layer, MutableHashMap, Option, Schema } from 'effect'
 import { StorageService, WorldMetadataSchema, WorldMetadata, ChunkStorageKey } from './storage-service'
 import { StorageError } from '@/domain/errors'
 import { WorldId } from '@/shared/kernel'
@@ -56,9 +56,9 @@ const makeInMemoryStorageService = () => {
       Effect.sync(() => {
         const prefix = `${worldId}:`
         const keysToDelete = Arr.filter(Arr.fromIterable(MutableHashMap.keys(chunkStore)), k => k.startsWith(prefix))
-        for (const key of keysToDelete) {
+        Arr.forEach(keysToDelete, key => {
           MutableHashMap.remove(chunkStore, key)
-        }
+        })
         MutableHashMap.remove(metaStore, worldId)
       }),
 
@@ -508,17 +508,17 @@ describe('infrastructure/storage/storage-service', () => {
       const coordCount = 20
       return Effect.gen(function* () {
         const storage = yield* StorageService
-        for (let i = 0; i < coordCount; i++) {
+        yield* Effect.forEach(Arr.makeBy(coordCount, i => i), i => {
           const coord: ChunkCoord = { x: i, z: i * 2 }
-          yield* storage.saveChunk(testWorldId, coord, new Uint8Array([i]))
-        }
+          return storage.saveChunk(testWorldId, coord, new Uint8Array([i]))
+        }, { concurrency: 1 })
         // Verify all can be loaded back
-        for (let i = 0; i < coordCount; i++) {
+        yield* Effect.forEach(Arr.makeBy(coordCount, i => i), i => Effect.gen(function* () {
           const coord: ChunkCoord = { x: i, z: i * 2 }
           const loaded = yield* storage.loadChunk(testWorldId, coord)
           expect(Option.isSome(loaded)).toBe(true)
           expect(chunkStorageBlocks(Option.getOrThrow(loaded))[0]).toBe(i)
-        }
+        }), { concurrency: 1 })
       }).pipe(Effect.provide(TestLayer))
     })
   })
@@ -693,9 +693,9 @@ describe('infrastructure/storage/storage-service', () => {
           Effect.sync(() => {
             const prefix = `${worldId}:`
             const keysToDelete = Arr.filter(Arr.fromIterable(MutableHashMap.keys(chunkStore)), k => k.startsWith(prefix))
-            for (const key of keysToDelete) {
+            Arr.forEach(keysToDelete, key => {
               MutableHashMap.remove(chunkStore, key)
-            }
+            })
             MutableHashMap.remove(metaStore, worldId)
           }),
 
@@ -763,7 +763,7 @@ describe('infrastructure/storage/storage-service', () => {
           Effect.sandbox,
           Effect.either,
         )
-        expect(result._tag).toBe('Left')
+        expect(Either.isLeft(result)).toBe(true)
         // The mock was invoked exactly once
         expect(callCount).toBe(1)
       }).pipe(Effect.provide(TestLayer))

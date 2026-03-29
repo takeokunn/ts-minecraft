@@ -49,14 +49,13 @@ const worldToChunkCoord = (
 export class BlockService extends Effect.Service<BlockService>()(
   '@minecraft/application/BlockService',
   {
-    effect: Effect.gen(function* () {
-      const chunkManagerService = yield* ChunkManagerService
-      const chunkService = yield* ChunkService
-      const fluidService = yield* FluidService
-      const playerService = yield* PlayerService
-      const inventoryService = yield* InventoryService
-
-      return {
+    effect: Effect.all([
+      ChunkManagerService,
+      ChunkService,
+      FluidService,
+      PlayerService,
+      InventoryService,
+    ], { concurrency: 'unbounded' }).pipe(Effect.map(([chunkManagerService, chunkService, fluidService, playerService, inventoryService]) => ({
         /**
          * Remove a block at the given position from the world.
          * Validates: block exists at the given position.
@@ -170,8 +169,7 @@ export class BlockService extends Effect.Service<BlockService>()(
             }
             yield* Metric.counter('blocks_placed').pipe(Metric.increment)
           }),
-      }
-    }),
+    })))
   }
 ) {}
 export const BlockServiceLive = BlockService.Default

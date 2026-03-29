@@ -1,6 +1,6 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Arbitrary, HashSet, Schema } from 'effect'
+import { Arbitrary, Array as Arr, Either, HashSet, Option, Schema } from 'effect'
 import { KeyMappings, KeyMappingsSchema } from './key-mappings'
 
 // All valid literal values in order matching the schema
@@ -65,10 +65,10 @@ describe('KeyMappings constant', () => {
       KeyMappings.HOTBAR_SLOT_8,
       KeyMappings.HOTBAR_SLOT_9,
     ]
-    for (const key of hotbarKeys) {
+    Arr.forEach(hotbarKeys, (key) => {
       expect(key).toBeTruthy()
       expect(typeof key).toBe('string')
-    }
+    })
   })
 
   it('has non-empty string values for SPRINT, SNEAK, CAMERA_TOGGLE', () => {
@@ -94,7 +94,7 @@ describe('KeyMappings constant', () => {
 describe('KeyMappingsSchema', () => {
   it('decodes successfully with the KeyMappings constant values', () => {
     const result = Schema.decodeUnknownEither(KeyMappingsSchema)(KeyMappings)
-    expect(result._tag).toBe('Right')
+    expect(Either.isRight(result)).toBe(true)
   })
 
   it('decodes the exact literal values for each field', () => {
@@ -119,7 +119,7 @@ describe('KeyMappingsSchema', () => {
       INVENTORY_OPEN: 'KeyE',
       ESCAPE: 'Escape',
     })
-    expect(result._tag).toBe('Right')
+    expect(Either.isRight(result)).toBe(true)
   })
 
   it('rejects an object with a wrong MOVE_FORWARD value', () => {
@@ -127,7 +127,7 @@ describe('KeyMappingsSchema', () => {
       ...KeyMappings,
       MOVE_FORWARD: 'KeyA', // wrong — should be 'KeyW'
     })
-    expect(result._tag).toBe('Left')
+    expect(Either.isLeft(result)).toBe(true)
   })
 
   it('rejects an object with a wrong ESCAPE value', () => {
@@ -135,19 +135,19 @@ describe('KeyMappingsSchema', () => {
       ...KeyMappings,
       ESCAPE: 'Enter',
     })
-    expect(result._tag).toBe('Left')
+    expect(Either.isLeft(result)).toBe(true)
   })
 
   it('rejects an object missing required fields', () => {
     const { ESCAPE: _removed, ...withoutEscape } = KeyMappings
     const result = Schema.decodeUnknownEither(KeyMappingsSchema)(withoutEscape)
-    expect(result._tag).toBe('Left')
+    expect(Either.isLeft(result)).toBe(true)
   })
 
   it('rejects a non-object value', () => {
-    expect(Schema.decodeUnknownEither(KeyMappingsSchema)(null)._tag).toBe('Left')
-    expect(Schema.decodeUnknownEither(KeyMappingsSchema)(42)._tag).toBe('Left')
-    expect(Schema.decodeUnknownEither(KeyMappingsSchema)('KeyW')._tag).toBe('Left')
+    expect(Either.isLeft(Schema.decodeUnknownEither(KeyMappingsSchema)(null))).toBe(true)
+    expect(Either.isLeft(Schema.decodeUnknownEither(KeyMappingsSchema)(42))).toBe(true)
+    expect(Either.isLeft(Schema.decodeUnknownEither(KeyMappingsSchema)('KeyW'))).toBe(true)
   })
 })
 
@@ -160,7 +160,7 @@ describe('KeyMappingsSchema (property-based)', () => {
         ...KeyMappings,
         MOVE_FORWARD: randomStr,
       })
-      expect(result._tag).toBe('Left')
+      expect(Either.isLeft(result)).toBe(true)
     }
   )
 
@@ -172,7 +172,7 @@ describe('KeyMappingsSchema (property-based)', () => {
         ...KeyMappings,
         JUMP: randomStr,
       })
-      expect(result._tag).toBe('Left')
+      expect(Either.isLeft(result)).toBe(true)
     }
   )
 
@@ -184,7 +184,7 @@ describe('KeyMappingsSchema (property-based)', () => {
         ...KeyMappings,
         INVENTORY_OPEN: randomStr,
       })
-      expect(result._tag).toBe('Left')
+      expect(Either.isLeft(result)).toBe(true)
     }
   )
 
@@ -196,20 +196,18 @@ describe('KeyMappingsSchema (property-based)', () => {
         ...KeyMappings,
         ESCAPE: randomStr,
       })
-      expect(result._tag).toBe('Left')
+      expect(Either.isLeft(result)).toBe(true)
     }
   )
 
   it('accepts only exact valid key strings from the known valid set', () => {
     // Every value in VALID_KEYS should appear in the decoded KeyMappings
     const decoded = Schema.decodeUnknownEither(KeyMappingsSchema)(KeyMappings)
-    expect(decoded._tag).toBe('Right')
-    if (decoded._tag === 'Right') {
-      const values = Object.values(decoded.right)
-      for (const validKey of VALID_KEYS) {
-        expect(values).toContain(validKey)
-      }
-    }
+    expect(Either.isRight(decoded)).toBe(true)
+    const values = Object.values(Option.getOrThrow(Either.getRight(decoded)))
+    Arr.forEach(VALID_KEYS, (validKey) => {
+      expect(values).toContain(validKey)
+    })
   })
 })
 

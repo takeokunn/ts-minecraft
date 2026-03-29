@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { HashSet } from 'effect'
+import { Array as Arr, HashSet } from 'effect'
 import * as THREE from 'three'
 import { identity, fromThreeMatrix4, toThreeMatrix4 } from './matrix4'
 
@@ -19,11 +19,11 @@ describe('identity', () => {
   it('should have 0s on all off-diagonal elements', () => {
     const e = identity.elements
     const diagonalIndices = HashSet.make(0, 5, 10, 15)
-    for (let i = 0; i < 16; i++) {
+    Arr.forEach(Arr.makeBy(16, i => i), (i) => {
       if (!HashSet.has(diagonalIndices, i)) {
         expect(e[i]).toBe(0)
       }
-    }
+    })
   })
 })
 
@@ -81,8 +81,8 @@ describe('fromThreeMatrix4 / toThreeMatrix4 roundtrip', () => {
     const intermediate = fromThreeMatrix4(threeMatrix)
     const result = toThreeMatrix4(intermediate)
     expect(result).toBeInstanceOf(THREE.Matrix4)
-    for (let i = 0; i < 16; i++) {
+    Arr.forEach(Arr.makeBy(16, i => i), (i) => {
       expect(result.elements[i]).toBeCloseTo(threeMatrix.elements[i])
-    }
+    })
   })
 })

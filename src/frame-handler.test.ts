@@ -12,7 +12,8 @@
  * here — the goal is to unit-test the overlay-toggle and pause-gate logic
  * inside createFrameHandler, not the individual services themselves.
  */
-import { describe, it, expect, vi } from 'vitest'
+import { describe, expect, vi } from 'vitest'
+import { it } from '@effect/vitest'
 import { Effect, MutableHashSet, Option, Ref } from 'effect'
 import * as THREE from 'three'
 import { createFrameHandler, type FrameHandlerDeps, type FrameHandlerServices } from '@/frame-handler'
@@ -21,7 +22,7 @@ import type { DeltaTimeSecs } from '@/shared/kernel'
 
 type CameraMode = 'firstPerson' | 'thirdPerson'
 
-type CameraStateStub = {
+interface CameraStateStub {
   mode: CameraMode
 }
 
@@ -33,7 +34,7 @@ type CameraStateStub = {
 
 const makeLights = () =>
   ({
-    light: { position: { set: vi.fn() }, intensity: 1, color: { setHSL: vi.fn() }, target: { position: { set: vi.fn() }, updateMatrixWorld: vi.fn() } } as unknown as THREE.DirectionalLight,
+    light: { position: { set: vi.fn() }, intensity: 1, castShadow: true, color: { setHSL: vi.fn() }, target: { position: { set: vi.fn() }, updateMatrixWorld: vi.fn() }, shadow: { camera: { left: -128, right: 128, top: 128, bottom: -128, updateProjectionMatrix: vi.fn() } } } as unknown as THREE.DirectionalLight,
     ambientLight: { intensity: 0.3, color: { setHSL: vi.fn() } } as unknown as THREE.AmbientLight,
     renderer: { setClearColor: vi.fn() },
     skyNight: new THREE.Color(0x001133),
@@ -90,20 +91,27 @@ const makeCameraState = (initialMode: CameraMode = 'firstPerson') => {
   return { service, state }
 }
 
-const makeDeps = async (paused = false): Promise<FrameHandlerDeps & { gamePausedRef: Ref.Ref<boolean> }> => {
-  const gamePausedRef = await Effect.runPromise(Ref.make(paused))
-  return {
-    renderer: makeRenderer(),
-    scene: new THREE.Scene(),
-    camera: makeCamera(),
-    lights: makeLights(),
-    fpsElement: Option.none(),
-    healthValueElement: Option.none(),
-    healthMaxElement: Option.none(),
-    skyMesh: Option.none(),
-    gamePausedRef,
-  }
-}
+const makeDeps = (paused = false): Effect.Effect<FrameHandlerDeps & { gamePausedRef: Ref.Ref<boolean> }> =>
+  Effect.flatMap(
+    Ref.make(paused),
+    (gamePausedRef) => Effect.succeed({
+      renderer: makeRenderer(),
+      scene: new THREE.Scene(),
+      camera: makeCamera(),
+      lights: makeLights(),
+      fpsElement: Option.none(),
+      healthValueElement: Option.none(),
+      healthMaxElement: Option.none(),
+      skyMesh: Option.none(),
+      gamePausedRef,
+      composer: Option.none(),
+      gtaoPass: Option.none(),
+      bloomPass: Option.none(),
+      dofPass: Option.none(),
+      godRaysPass: Option.none(),
+      smaaPass: Option.none(),
+    })
+  )
 
 // ---------------------------------------------------------------------------
 // FrameHandlerServices factory
@@ -195,14 +203,7 @@ const DEFAULT_SETTINGS = {
   renderDistance: 8,
   mouseSensitivity: 0.5,
   dayLengthSeconds: 400,
-  shadowsEnabled: true,
-  ssaoEnabled: true,
-  bloomEnabled: true,
-  skyEnabled: true,
-    ssrEnabled: true,
-    dofEnabled: true,
-    godRaysEnabled: true,
-  smaaEnabled: true,
+  graphicsQuality: 'high' as const,
   audioEnabled: true,
   masterVolume: 0.8,
   sfxVolume: 1,
@@ -298,14 +299,17 @@ const makeServices = (opts: {
   } as unknown as InstanceType<typeof import('@/presentation/fps-counter').FPSCounterService>
 
   const worldRendererService = {
-    syncChunksToScene: (_chunks: unknown, _scene: unknown) => Effect.void,
+    syncChunksToScene: (_chunks: unknown, _scene: unknown) => Effect.succeed(true as boolean),
     applyFrustumCulling: (_cam: unknown) => Effect.void,
     updateChunkInScene: (_chunk: unknown, _scene: unknown) => Effect.void,
     clearScene: (_scene: unknown) => Effect.void,
     doRefractionPrePass: (_renderer: unknown, _scene: unknown, _camera: unknown) => Effect.void,
-    updateWaterUniforms: (_time: number, _camPos: unknown, _w: number, _h: number) => Effect.void,
+    updateWaterUniforms: (_time: number, _camPos: unknown) => Effect.void,
+    updateWaterResolution: (_w: number, _h: number) => Effect.void,
     resizeRefractionRT: (_w: number, _h: number) => Effect.void,
+    resizeRefractionCamera: (_aspect: number) => Effect.void,
     getWaterMeshes: () => Effect.succeed([] as THREE.Mesh[]),
+    setRefractionValid: (_valid: boolean) => Effect.void,
   } as unknown as InstanceType<typeof import('@/infrastructure/three/world-renderer').WorldRendererService>
 
   const healthService = {
@@ -422,13 +426,11 @@ const makeServices = (opts: {
 
 // Convenience: run one frame with the provided deps and services.
 // createFrameHandler is now an Effect (initialises Refs) — yield* before calling the handler.
-const runFrame = (deps: FrameHandlerDeps, services: FrameHandlerServices) =>
-  Effect.runPromise(
-    Effect.gen(function* () {
-      const handler = yield* createFrameHandler(deps, services)
-      yield* handler(0.016 as DeltaTimeSecs)
-    })
-  )
+const runFrame = (deps: FrameHandlerDeps, services: FrameHandlerServices): Effect.Effect<void> =>
+  Effect.gen(function* () {
+    const handler = yield* createFrameHandler(deps, services)
+    yield* handler(0.016 as DeltaTimeSecs)
+  })
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -440,8 +442,8 @@ describe('frame-handler', () => {
   // -------------------------------------------------------------------------
 
   describe('pause gate', () => {
-    it('suppresses firstPersonCamera.update when gamePausedRef is true', async () => {
-      const deps = await makeDeps(true /* paused */)
+    it.effect('suppresses firstPersonCamera.update when gamePausedRef is true', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(true /* paused */)
       const cameraUpdateSpy = vi.fn(() => Effect.void)
 
       const invState = { open: false }
@@ -454,13 +456,13 @@ describe('frame-handler', () => {
       // Override firstPersonCamera.update with spy
       ;(services.firstPersonCamera as unknown as { update: unknown }).update = cameraUpdateSpy
 
-      await runFrame(deps, services)
+      yield* runFrame(deps, services)
 
       expect(cameraUpdateSpy).not.toHaveBeenCalled()
-    })
+    }))
 
-    it('calls firstPersonCamera.update when gamePausedRef is false', async () => {
-      const deps = await makeDeps(false /* not paused */)
+    it.effect('calls firstPersonCamera.update when gamePausedRef is false', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(false /* not paused */)
       const cameraUpdateSpy = vi.fn(() => Effect.void)
 
       const invState = { open: false }
@@ -472,13 +474,13 @@ describe('frame-handler', () => {
       })
       ;(services.firstPersonCamera as unknown as { update: unknown }).update = cameraUpdateSpy
 
-      await runFrame(deps, services)
+      yield* runFrame(deps, services)
 
       expect(cameraUpdateSpy).toHaveBeenCalledOnce()
-    })
+    }))
 
-    it('suppresses hotbarService.update when gamePausedRef is true', async () => {
-      const deps = await makeDeps(true)
+    it.effect('suppresses hotbarService.update when gamePausedRef is true', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(true)
       const hotbarUpdateSpy = vi.fn(() => Effect.void)
 
       const invState = { open: false }
@@ -490,13 +492,13 @@ describe('frame-handler', () => {
       })
       ;(services.hotbarService as unknown as { update: unknown }).update = hotbarUpdateSpy
 
-      await runFrame(deps, services)
+      yield* runFrame(deps, services)
 
       expect(hotbarUpdateSpy).not.toHaveBeenCalled()
-    })
+    }))
 
-    it('calls hotbarService.update when gamePausedRef is false', async () => {
-      const deps = await makeDeps(false)
+    it.effect('calls hotbarService.update when gamePausedRef is false', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(false)
       const hotbarUpdateSpy = vi.fn(() => Effect.void)
 
       const invState = { open: false }
@@ -508,10 +510,10 @@ describe('frame-handler', () => {
       })
       ;(services.hotbarService as unknown as { update: unknown }).update = hotbarUpdateSpy
 
-      await runFrame(deps, services)
+      yield* runFrame(deps, services)
 
       expect(hotbarUpdateSpy).toHaveBeenCalledOnce()
-    })
+    }))
   })
 
   // -------------------------------------------------------------------------
@@ -519,87 +521,87 @@ describe('frame-handler', () => {
   // -------------------------------------------------------------------------
 
   describe('Escape key handling', () => {
-    it('closes inventory and sets gamePausedRef to false when Escape is pressed while inventory is open', async () => {
+    it.effect('closes inventory and sets gamePausedRef to false when Escape is pressed while inventory is open', () => Effect.gen(function* () {
       const invState = { open: true }
       const setState = { open: false }
       const pressedKeys = MutableHashSet.make(KeyMappings.ESCAPE)
 
-      const deps = await makeDeps(true /* paused because inventory is open */)
+      const deps = yield* makeDeps(true /* paused because inventory is open */)
       const services = makeServices({
         inputService: makeInputService(pressedKeys),
         inventoryRenderer: makeInventoryRenderer(invState),
         settingsOverlay: makeSettingsOverlay(setState),
       })
 
-      await runFrame(deps, services)
+      yield* runFrame(deps, services)
 
       // Inventory must now be closed
       expect(invState.open).toBe(false)
       // gamePausedRef must be false
-      const paused = await Effect.runPromise(Ref.get(deps.gamePausedRef))
+      const paused = yield* Ref.get(deps.gamePausedRef)
       expect(paused).toBe(false)
-    })
+    }))
 
-    it('closes settings and sets gamePausedRef to false when Escape is pressed while settings is open', async () => {
+    it.effect('closes settings and sets gamePausedRef to false when Escape is pressed while settings is open', () => Effect.gen(function* () {
       const invState = { open: false }
       const setState = { open: true }
       const pressedKeys = MutableHashSet.make(KeyMappings.ESCAPE)
 
-      const deps = await makeDeps(true /* paused because settings is open */)
+      const deps = yield* makeDeps(true /* paused because settings is open */)
       const services = makeServices({
         inputService: makeInputService(pressedKeys),
         inventoryRenderer: makeInventoryRenderer(invState),
         settingsOverlay: makeSettingsOverlay(setState),
       })
 
-      await runFrame(deps, services)
+      yield* runFrame(deps, services)
 
       // Settings must now be closed
       expect(setState.open).toBe(false)
       // gamePausedRef must be false
-      const paused = await Effect.runPromise(Ref.get(deps.gamePausedRef))
+      const paused = yield* Ref.get(deps.gamePausedRef)
       expect(paused).toBe(false)
-    })
+    }))
 
-    it('opens settings and sets gamePausedRef to true when Escape is pressed while nothing is open', async () => {
+    it.effect('opens settings and sets gamePausedRef to true when Escape is pressed while nothing is open', () => Effect.gen(function* () {
       const invState = { open: false }
       const setState = { open: false }
       const pressedKeys = MutableHashSet.make(KeyMappings.ESCAPE)
 
-      const deps = await makeDeps(false /* not paused */)
+      const deps = yield* makeDeps(false /* not paused */)
       const services = makeServices({
         inputService: makeInputService(pressedKeys),
         inventoryRenderer: makeInventoryRenderer(invState),
         settingsOverlay: makeSettingsOverlay(setState),
       })
 
-      await runFrame(deps, services)
+      yield* runFrame(deps, services)
 
       // Settings must now be open
       expect(setState.open).toBe(true)
       // gamePausedRef must be true
-      const paused = await Effect.runPromise(Ref.get(deps.gamePausedRef))
+      const paused = yield* Ref.get(deps.gamePausedRef)
       expect(paused).toBe(true)
-    })
+    }))
 
-    it('does not change overlay states when Escape is not pressed', async () => {
+    it.effect('does not change overlay states when Escape is not pressed', () => Effect.gen(function* () {
       const invState = { open: false }
       const setState = { open: false }
 
-      const deps = await makeDeps(false)
+      const deps = yield* makeDeps(false)
       const services = makeServices({
         inputService: makeInputService(/* no pressed keys */),
         inventoryRenderer: makeInventoryRenderer(invState),
         settingsOverlay: makeSettingsOverlay(setState),
       })
 
-      await runFrame(deps, services)
+      yield* runFrame(deps, services)
 
       expect(invState.open).toBe(false)
       expect(setState.open).toBe(false)
-      const paused = await Effect.runPromise(Ref.get(deps.gamePausedRef))
+      const paused = yield* Ref.get(deps.gamePausedRef)
       expect(paused).toBe(false)
-    })
+    }))
   })
 
   // -------------------------------------------------------------------------
@@ -607,69 +609,69 @@ describe('frame-handler', () => {
   // -------------------------------------------------------------------------
 
   describe('inventory key (KeyE) handling', () => {
-    it('opens inventory and sets gamePausedRef to true when KeyE is pressed while inventory is closed', async () => {
+    it.effect('opens inventory and sets gamePausedRef to true when KeyE is pressed while inventory is closed', () => Effect.gen(function* () {
       const invState = { open: false }
       const setState = { open: false }
       const pressedKeys = MutableHashSet.make(KeyMappings.INVENTORY_OPEN)
 
-      const deps = await makeDeps(false)
+      const deps = yield* makeDeps(false)
       const services = makeServices({
         inputService: makeInputService(pressedKeys),
         inventoryRenderer: makeInventoryRenderer(invState),
         settingsOverlay: makeSettingsOverlay(setState),
       })
 
-      await runFrame(deps, services)
+      yield* runFrame(deps, services)
 
       // Inventory must now be open
       expect(invState.open).toBe(true)
       // gamePausedRef must be true
-      const paused = await Effect.runPromise(Ref.get(deps.gamePausedRef))
+      const paused = yield* Ref.get(deps.gamePausedRef)
       expect(paused).toBe(true)
-    })
+    }))
 
-    it('closes inventory and sets gamePausedRef to false when KeyE is pressed while inventory is open', async () => {
+    it.effect('closes inventory and sets gamePausedRef to false when KeyE is pressed while inventory is open', () => Effect.gen(function* () {
       const invState = { open: true }
       const setState = { open: false }
       const pressedKeys = MutableHashSet.make(KeyMappings.INVENTORY_OPEN)
 
-      const deps = await makeDeps(true /* paused because inventory is open */)
+      const deps = yield* makeDeps(true /* paused because inventory is open */)
       const services = makeServices({
         inputService: makeInputService(pressedKeys),
         inventoryRenderer: makeInventoryRenderer(invState),
         settingsOverlay: makeSettingsOverlay(setState),
       })
 
-      await runFrame(deps, services)
+      yield* runFrame(deps, services)
 
       // Inventory must now be closed
       expect(invState.open).toBe(false)
       // gamePausedRef must be false
-      const paused = await Effect.runPromise(Ref.get(deps.gamePausedRef))
+      const paused = yield* Ref.get(deps.gamePausedRef)
       expect(paused).toBe(false)
-    })
+    }))
 
-    it('closes settings and opens inventory when KeyE is pressed while settings is open', async () => {
+    it.effect('closes settings and opens inventory when KeyE is pressed while settings is open', () => Effect.gen(function* () {
       const invState = { open: false }
       const setState = { open: true }
       const pressedKeys = MutableHashSet.make(KeyMappings.INVENTORY_OPEN)
 
-      const deps = await makeDeps(true /* paused because settings is open */)
+      const deps = yield* makeDeps(true /* paused because settings is open */)
       const services = makeServices({
         inputService: makeInputService(pressedKeys),
         inventoryRenderer: makeInventoryRenderer(invState),
         settingsOverlay: makeSettingsOverlay(setState),
       })
 
-      await runFrame(deps, services)
+      yield* runFrame(deps, services)
 
       // Settings must be closed, inventory must be open
       expect(setState.open).toBe(false)
       expect(invState.open).toBe(true)
       // gamePausedRef must be true (inventory now open)
-      const paused = await Effect.runPromise(Ref.get(deps.gamePausedRef))
+      const paused = yield* Ref.get(deps.gamePausedRef)
       expect(paused).toBe(true)
-    })
+    }))
   })
 
   // -------------------------------------------------------------------------
@@ -677,8 +679,8 @@ describe('frame-handler', () => {
   // -------------------------------------------------------------------------
 
   describe('step 1 — chunk streaming', () => {
-    it('calls loadChunksAroundPlayer each frame', async () => {
-      const deps = await makeDeps(false)
+    it.effect('calls loadChunksAroundPlayer each frame', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(false)
       const services = makeServices({
         inputService: makeInputService(),
         inventoryRenderer: makeInventoryRenderer({ open: false }),
@@ -687,28 +689,28 @@ describe('frame-handler', () => {
       const spy = vi.fn(() => Effect.void)
       ;(services.chunkManagerService as unknown as { loadChunksAroundPlayer: unknown }).loadChunksAroundPlayer = spy
 
-      await runFrame(deps, services)
+      yield* runFrame(deps, services)
 
       expect(spy).toHaveBeenCalledOnce()
-    })
+    }))
 
-    it('calls syncChunksToScene each frame', async () => {
-      const deps = await makeDeps(false)
+    it.effect('calls syncChunksToScene each frame', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(false)
       const services = makeServices({
         inputService: makeInputService(),
         inventoryRenderer: makeInventoryRenderer({ open: false }),
         settingsOverlay: makeSettingsOverlay({ open: false }),
       })
-      const spy = vi.fn(() => Effect.void)
+      const spy = vi.fn(() => Effect.succeed(true as boolean))
       ;(services.worldRendererService as unknown as { syncChunksToScene: unknown }).syncChunksToScene = spy
 
-      await runFrame(deps, services)
+      yield* runFrame(deps, services)
 
       expect(spy).toHaveBeenCalledOnce()
-    })
+    }))
 
-    it('calls applyFrustumCulling each frame', async () => {
-      const deps = await makeDeps(false)
+    it.effect('calls applyFrustumCulling each frame', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(false)
       const services = makeServices({
         inputService: makeInputService(),
         inventoryRenderer: makeInventoryRenderer({ open: false }),
@@ -717,10 +719,10 @@ describe('frame-handler', () => {
       const spy = vi.fn(() => Effect.void)
       ;(services.worldRendererService as unknown as { applyFrustumCulling: unknown }).applyFrustumCulling = spy
 
-      await runFrame(deps, services)
+      yield* runFrame(deps, services)
 
       expect(spy).toHaveBeenCalledOnce()
-    })
+    }))
   })
 
   // -------------------------------------------------------------------------
@@ -728,8 +730,8 @@ describe('frame-handler', () => {
   // -------------------------------------------------------------------------
 
   describe('step 2 — day/night cycle', () => {
-    it('calls timeService.advanceTick each frame', async () => {
-      const deps = await makeDeps(false)
+    it.effect('calls timeService.advanceTick each frame', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(false)
       const services = makeServices({
         inputService: makeInputService(),
         inventoryRenderer: makeInventoryRenderer({ open: false }),
@@ -738,10 +740,10 @@ describe('frame-handler', () => {
       const spy = vi.fn(() => Effect.void)
       ;(services.timeService as unknown as { advanceTick: unknown }).advanceTick = spy
 
-      await runFrame(deps, services)
+      yield* runFrame(deps, services)
 
       expect(spy).toHaveBeenCalledOnce()
-    })
+    }))
   })
 
   // -------------------------------------------------------------------------
@@ -749,8 +751,8 @@ describe('frame-handler', () => {
   // -------------------------------------------------------------------------
 
   describe('step 3.5 — fall damage', () => {
-    it('calls healthService.processFallDamage each frame', async () => {
-      const deps = await makeDeps(false)
+    it.effect('calls healthService.processFallDamage each frame', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(false)
       const services = makeServices({
         inputService: makeInputService(),
         inventoryRenderer: makeInventoryRenderer({ open: false }),
@@ -759,13 +761,13 @@ describe('frame-handler', () => {
       const spy = vi.fn(() => Effect.succeed(0))
       ;(services.healthService as unknown as { processFallDamage: unknown }).processFallDamage = spy
 
-      await runFrame(deps, services)
+      yield* runFrame(deps, services)
 
       expect(spy).toHaveBeenCalledOnce()
-    })
+    }))
 
-    it('calls healthService.applyDamage when processFallDamage returns > 0', async () => {
-      const deps = await makeDeps(false)
+    it.effect('calls healthService.applyDamage when processFallDamage returns > 0', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(false)
       const services = makeServices({
         inputService: makeInputService(),
         inventoryRenderer: makeInventoryRenderer({ open: false }),
@@ -777,14 +779,14 @@ describe('frame-handler', () => {
       const applyDamageSpy = vi.fn(() => Effect.void)
       ;(services.healthService as unknown as { applyDamage: unknown }).applyDamage = applyDamageSpy
 
-      await runFrame(deps, services)
+      yield* runFrame(deps, services)
 
       expect(applyDamageSpy).toHaveBeenCalledOnce()
       expect(applyDamageSpy).toHaveBeenCalledWith(5)
-    })
+    }))
 
-    it('does NOT call healthService.applyDamage when processFallDamage returns 0', async () => {
-      const deps = await makeDeps(false)
+    it.effect('does NOT call healthService.applyDamage when processFallDamage returns 0', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(false)
       const services = makeServices({
         inputService: makeInputService(),
         inventoryRenderer: makeInventoryRenderer({ open: false }),
@@ -796,13 +798,13 @@ describe('frame-handler', () => {
       const applyDamageSpy = vi.fn(() => Effect.void)
       ;(services.healthService as unknown as { applyDamage: unknown }).applyDamage = applyDamageSpy
 
-      await runFrame(deps, services)
+      yield* runFrame(deps, services)
 
       expect(applyDamageSpy).not.toHaveBeenCalled()
-    })
+    }))
 
-    it('calls healthService.tick each frame', async () => {
-      const deps = await makeDeps(false)
+    it.effect('calls healthService.tick each frame', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(false)
       const services = makeServices({
         inputService: makeInputService(),
         inventoryRenderer: makeInventoryRenderer({ open: false }),
@@ -811,10 +813,10 @@ describe('frame-handler', () => {
       const spy = vi.fn(() => Effect.void)
       ;(services.healthService as unknown as { tick: unknown }).tick = spy
 
-      await runFrame(deps, services)
+      yield* runFrame(deps, services)
 
       expect(spy).toHaveBeenCalledOnce()
-    })
+    }))
   })
 
   // -------------------------------------------------------------------------
@@ -822,8 +824,8 @@ describe('frame-handler', () => {
   // -------------------------------------------------------------------------
 
   describe('step 7 — block interaction', () => {
-    it('calls blockService.breakBlock on left-click when a target block is available', async () => {
-      const deps = await makeDeps(false)
+    it.effect('calls blockService.breakBlock on left-click when a target block is available', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(false)
       const inputService = makeInputService()
       // Override consumeMouseClick to return true for button 0
       ;(inputService as unknown as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
@@ -843,14 +845,14 @@ describe('frame-handler', () => {
       const breakSpy = vi.fn(() => Effect.void)
       ;(services.blockService as unknown as { breakBlock: unknown }).breakBlock = breakSpy
 
-      await runFrame(deps, services)
+      yield* runFrame(deps, services)
 
       expect(breakSpy).toHaveBeenCalledOnce()
       expect(breakSpy).toHaveBeenCalledWith({ x: 0, y: 64, z: 0 })
-    })
+    }))
 
-    it('does NOT call blockService.breakBlock when no target block', async () => {
-      const deps = await makeDeps(false)
+    it.effect('does NOT call blockService.breakBlock when no target block', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(false)
       const inputService = makeInputService()
       ;(inputService as unknown as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
         Effect.succeed(btn === 0)
@@ -869,13 +871,13 @@ describe('frame-handler', () => {
       const breakSpy = vi.fn(() => Effect.void)
       ;(services.blockService as unknown as { breakBlock: unknown }).breakBlock = breakSpy
 
-      await runFrame(deps, services)
+      yield* runFrame(deps, services)
 
       expect(breakSpy).not.toHaveBeenCalled()
-    })
+    }))
 
-    it('calls blockService.placeBlock on right-click when a target hit and hotbar block are available', async () => {
-      const deps = await makeDeps(false)
+    it.effect('calls blockService.placeBlock on right-click when a target hit and hotbar block are available', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(false)
       const inputService = makeInputService()
       ;(inputService as unknown as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
         Effect.succeed(btn === 2)
@@ -896,15 +898,15 @@ describe('frame-handler', () => {
       const placeSpy = vi.fn(() => Effect.void)
       ;(services.blockService as unknown as { placeBlock: unknown }).placeBlock = placeSpy
 
-      await runFrame(deps, services)
+      yield* runFrame(deps, services)
 
       expect(placeSpy).toHaveBeenCalledOnce()
       // Adjacent position = block + normal = (0+0, 64+1, 0+0) = (0, 65, 0)
       expect(placeSpy).toHaveBeenCalledWith({ x: 0, y: 65, z: 0 }, 'GRASS')
-    })
+    }))
 
-    it('suppresses block interaction when game is paused', async () => {
-      const deps = await makeDeps(true /* paused */)
+    it.effect('suppresses block interaction when game is paused', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(true /* paused */)
       const inputService = makeInputService()
       ;(inputService as unknown as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
         Effect.succeed(btn === 0)
@@ -919,10 +921,10 @@ describe('frame-handler', () => {
       const breakSpy = vi.fn(() => Effect.void)
       ;(services.blockService as unknown as { breakBlock: unknown }).breakBlock = breakSpy
 
-      await runFrame(deps, services)
+      yield* runFrame(deps, services)
 
       expect(breakSpy).not.toHaveBeenCalled()
-    })
+    }))
   })
 
   // -------------------------------------------------------------------------
@@ -930,8 +932,8 @@ describe('frame-handler', () => {
   // -------------------------------------------------------------------------
 
   describe('step 8 — camera sync', () => {
-    it('sets camera position to playerPos with EYE_LEVEL_OFFSET applied', async () => {
-      const deps = await makeDeps(false)
+    it.effect('sets camera position to playerPos with EYE_LEVEL_OFFSET applied', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(false)
       const services = makeServices({
         inputService: makeInputService(),
         inventoryRenderer: makeInventoryRenderer({ open: false }),
@@ -942,15 +944,15 @@ describe('frame-handler', () => {
         Effect.succeed({ x: 5, y: 64, z: 3 })
       )
 
-      await runFrame(deps, services)
+      yield* runFrame(deps, services)
 
       expect(deps.camera.position.x).toBe(5)
       expect(deps.camera.position.y).toBeCloseTo(64 + 0.7)
       expect(deps.camera.position.z).toBe(3)
-    })
+    }))
 
-    it('toggles to third person with F5 and moves the camera behind the player', async () => {
-      const deps = await makeDeps(false)
+    it.effect('toggles to third person with F5 and moves the camera behind the player', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(false)
       const pressedKeys = MutableHashSet.make(KeyMappings.CAMERA_TOGGLE)
       const services = makeServices({
         inputService: makeInputService(pressedKeys),
@@ -961,13 +963,13 @@ describe('frame-handler', () => {
         Effect.succeed({ x: 5, y: 64, z: 3 })
       )
 
-      await runFrame(deps, services)
+      yield* runFrame(deps, services)
 
       expect(services.cameraState.mode).toBe('thirdPerson')
       expect(deps.camera.position.x).toBeCloseTo(5)
       expect(deps.camera.position.y).toBeCloseTo(64 + 0.7 + 1.5)
       expect(deps.camera.position.z).toBeCloseTo(3 - 4)
-    })
+    }))
   })
 
   // -------------------------------------------------------------------------
@@ -975,8 +977,8 @@ describe('frame-handler', () => {
   // -------------------------------------------------------------------------
 
   describe('step 9 — FPS display', () => {
-    it('calls fpsCounter.getFPS each frame', async () => {
-      const deps = await makeDeps(false)
+    it.effect('calls fpsCounter.getFPS each frame', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(false)
       const services = makeServices({
         inputService: makeInputService(),
         inventoryRenderer: makeInventoryRenderer({ open: false }),
@@ -985,13 +987,13 @@ describe('frame-handler', () => {
       const spy = vi.fn(() => Effect.succeed(60))
       ;(services.fpsCounter as unknown as { getFPS: unknown }).getFPS = spy
 
-      await runFrame(deps, services)
+      yield* runFrame(deps, services)
 
       expect(spy).toHaveBeenCalledOnce()
-    })
+    }))
 
-    it('calls fpsCounter.tick with the deltaTime each frame', async () => {
-      const deps = await makeDeps(false)
+    it.effect('calls fpsCounter.tick with the deltaTime each frame', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(false)
       const services = makeServices({
         inputService: makeInputService(),
         inventoryRenderer: makeInventoryRenderer({ open: false }),
@@ -1000,16 +1002,16 @@ describe('frame-handler', () => {
       const spy = vi.fn(() => Effect.void)
       ;(services.fpsCounter as unknown as { tick: unknown }).tick = spy
 
-      await runFrame(deps, services)
+      yield* runFrame(deps, services)
 
       expect(spy).toHaveBeenCalledOnce()
       expect(spy).toHaveBeenCalledWith(0.016)
-    })
+    }))
 
-    it('updates fpsElement.textContent when fpsElement is non-null', async () => {
+    it.effect('updates fpsElement.textContent when fpsElement is non-null', () => Effect.gen(function* () {
       // Use a plain stub instead of document.createElement (env is 'node', not jsdom)
       const fpsElement = { textContent: '' } as unknown as HTMLElement
-      const deps = await makeDeps(false)
+      const deps = yield* makeDeps(false)
       const depsWithEl: FrameHandlerDeps = { ...deps, fpsElement: Option.some(fpsElement) }
       const services = makeServices({
         inputService: makeInputService(),
@@ -1018,10 +1020,10 @@ describe('frame-handler', () => {
       })
       ;(services.fpsCounter as unknown as { getFPS: unknown }).getFPS = vi.fn(() => Effect.succeed(42))
 
-      await runFrame(depsWithEl, services)
+      yield* runFrame(depsWithEl, services)
 
       expect(fpsElement.textContent).toBe('42.0')
-    })
+    }))
   })
 
   // -------------------------------------------------------------------------
@@ -1029,8 +1031,8 @@ describe('frame-handler', () => {
   // -------------------------------------------------------------------------
 
   describe('step 11 — HUD render', () => {
-    it('calls hotbarRenderer.render every frame', async () => {
-      const deps = await makeDeps(false)
+    it.effect('calls hotbarRenderer.render every frame', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(false)
       const services = makeServices({
         inputService: makeInputService(),
         inventoryRenderer: makeInventoryRenderer({ open: false }),
@@ -1039,10 +1041,10 @@ describe('frame-handler', () => {
       const spy = vi.fn(() => Effect.void)
       ;(services.hotbarRenderer as unknown as { render: unknown }).render = spy
 
-      await runFrame(deps, services)
+      yield* runFrame(deps, services)
 
       expect(spy).toHaveBeenCalledOnce()
-    })
+    }))
   })
 
   // -------------------------------------------------------------------------
@@ -1050,40 +1052,172 @@ describe('frame-handler', () => {
   // -------------------------------------------------------------------------
 
   describe('nominal frame execution', () => {
-    it('completes without error when no keys are pressed and game is not paused', async () => {
-      const deps = await makeDeps(false)
+    it.effect('completes without error when no keys are pressed and game is not paused', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(false)
       const services = makeServices({
         inputService: makeInputService(),
         inventoryRenderer: makeInventoryRenderer({ open: false }),
         settingsOverlay: makeSettingsOverlay({ open: false }),
       })
 
-      // Should resolve without throwing
-      await expect(runFrame(deps, services)).resolves.toBeUndefined()
-    })
+      // Should complete without error
+      yield* runFrame(deps, services)
+    }))
 
-    it('completes without error when game is paused', async () => {
-      const deps = await makeDeps(true)
+    it.effect('completes without error when game is paused', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(true)
       const services = makeServices({
         inputService: makeInputService(),
         inventoryRenderer: makeInventoryRenderer({ open: false }),
         settingsOverlay: makeSettingsOverlay({ open: false }),
       })
 
-      await expect(runFrame(deps, services)).resolves.toBeUndefined()
-    })
+      yield* runFrame(deps, services)
+    }))
 
-    it('calls renderer.render every frame regardless of pause state', async () => {
-      const deps = await makeDeps(true)
+    it.effect('calls renderer.render every frame regardless of pause state', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(true)
       const services = makeServices({
         inputService: makeInputService(),
         inventoryRenderer: makeInventoryRenderer({ open: false }),
         settingsOverlay: makeSettingsOverlay({ open: false }),
       })
 
-      await runFrame(deps, services)
+      yield* runFrame(deps, services)
 
       expect((deps.renderer as unknown as { render: ReturnType<typeof vi.fn> }).render).toHaveBeenCalledOnce()
-    })
+    }))
+  })
+
+  // -------------------------------------------------------------------------
+  // FR-009: Refraction pre-pass skip on low quality
+  // -------------------------------------------------------------------------
+
+  describe('FR-009 — refraction pre-pass skip on low quality', () => {
+    it.effect('does NOT call doRefractionPrePass when graphicsQuality is low', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(false)
+      const services = makeServices({
+        inputService: makeInputService(),
+        inventoryRenderer: makeInventoryRenderer({ open: false }),
+        settingsOverlay: makeSettingsOverlay({ open: false }),
+      })
+      // Override settingsService to return low quality
+      ;(services.settingsService as unknown as { getSettings: unknown }).getSettings = vi.fn(() =>
+        Effect.succeed({ ...DEFAULT_SETTINGS, graphicsQuality: 'low' as const })
+      )
+      const refractionSpy = vi.fn(() => Effect.void)
+      ;(services.worldRendererService as unknown as { doRefractionPrePass: unknown }).doRefractionPrePass = refractionSpy
+
+      yield* runFrame(deps, services)
+
+      expect(refractionSpy).not.toHaveBeenCalled()
+    }))
+
+    it.effect('calls doRefractionPrePass when graphicsQuality is high', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(false)
+      const services = makeServices({
+        inputService: makeInputService(),
+        inventoryRenderer: makeInventoryRenderer({ open: false }),
+        settingsOverlay: makeSettingsOverlay({ open: false }),
+      })
+      // Default settings already have graphicsQuality: 'high'
+      const refractionSpy = vi.fn(() => Effect.void)
+      ;(services.worldRendererService as unknown as { doRefractionPrePass: unknown }).doRefractionPrePass = refractionSpy
+
+      yield* runFrame(deps, services)
+
+      expect(refractionSpy).toHaveBeenCalledOnce()
+    }))
+
+    it.effect('calls doRefractionPrePass when graphicsQuality is medium', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(false)
+      const services = makeServices({
+        inputService: makeInputService(),
+        inventoryRenderer: makeInventoryRenderer({ open: false }),
+        settingsOverlay: makeSettingsOverlay({ open: false }),
+      })
+      ;(services.settingsService as unknown as { getSettings: unknown }).getSettings = vi.fn(() =>
+        Effect.succeed({ ...DEFAULT_SETTINGS, graphicsQuality: 'medium' as const })
+      )
+      const refractionSpy = vi.fn(() => Effect.void)
+      ;(services.worldRendererService as unknown as { doRefractionPrePass: unknown }).doRefractionPrePass = refractionSpy
+
+      yield* runFrame(deps, services)
+
+      expect(refractionSpy).toHaveBeenCalledOnce()
+    }))
+  })
+
+  // -------------------------------------------------------------------------
+  // FR-008: Graphics quality caching (pass enable sync)
+  // -------------------------------------------------------------------------
+
+  describe('FR-008 — graphics quality caching', () => {
+    it.effect('skips doRefractionPrePass on second frame when quality stays low both times', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(false)
+      const services = makeServices({
+        inputService: makeInputService(),
+        inventoryRenderer: makeInventoryRenderer({ open: false }),
+        settingsOverlay: makeSettingsOverlay({ open: false }),
+      })
+      ;(services.settingsService as unknown as { getSettings: unknown }).getSettings = vi.fn(() =>
+        Effect.succeed({ ...DEFAULT_SETTINGS, graphicsQuality: 'low' as const })
+      )
+      const refractionSpy = vi.fn(() => Effect.void)
+      ;(services.worldRendererService as unknown as { doRefractionPrePass: unknown }).doRefractionPrePass = refractionSpy
+
+      // Run two frames with the same handler instance to test caching
+      const handler = yield* createFrameHandler(deps, services)
+      yield* handler(0.016 as DeltaTimeSecs)
+      yield* handler(0.016 as DeltaTimeSecs)
+
+      // doRefractionPrePass should never be called (low quality skips it)
+      expect(refractionSpy).not.toHaveBeenCalled()
+    }))
+
+    it.effect('throttles doRefractionPrePass based on quality preset (high = every 2 frames)', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(false)
+      const services = makeServices({
+        inputService: makeInputService(),
+        inventoryRenderer: makeInventoryRenderer({ open: false }),
+        settingsOverlay: makeSettingsOverlay({ open: false }),
+      })
+      const refractionSpy = vi.fn(() => Effect.void)
+      ;(services.worldRendererService as unknown as { doRefractionPrePass: unknown }).doRefractionPrePass = refractionSpy
+
+      // Run three frames: high quality (refractionThrottleFrames=2) runs on frames 1 and 3
+      const handler = yield* createFrameHandler(deps, services)
+      yield* handler(0.016 as DeltaTimeSecs)
+      yield* handler(0.016 as DeltaTimeSecs)
+      yield* handler(0.016 as DeltaTimeSecs)
+
+      // high quality: refractionThrottleFrames=2, so frames 1 and 3 run (2 calls in 3 frames)
+      expect(refractionSpy).toHaveBeenCalledTimes(2)
+    }))
+
+    it.effect('resumes doRefractionPrePass when quality changes from low to high', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(false)
+      const services = makeServices({
+        inputService: makeInputService(),
+        inventoryRenderer: makeInventoryRenderer({ open: false }),
+        settingsOverlay: makeSettingsOverlay({ open: false }),
+      })
+      let callCount = 0
+      ;(services.settingsService as unknown as { getSettings: unknown }).getSettings = vi.fn(() => {
+        callCount++
+        // First frame: low quality, second frame: high quality
+        const quality = callCount <= 1 ? 'low' : 'high'
+        return Effect.succeed({ ...DEFAULT_SETTINGS, graphicsQuality: quality as 'low' | 'high' })
+      })
+      const refractionSpy = vi.fn(() => Effect.void)
+      ;(services.worldRendererService as unknown as { doRefractionPrePass: unknown }).doRefractionPrePass = refractionSpy
+
+      const handler = yield* createFrameHandler(deps, services)
+      yield* handler(0.016 as DeltaTimeSecs) // low — skip refraction
+      yield* handler(0.016 as DeltaTimeSecs) // high — call refraction
+
+      // Only the second frame should call doRefractionPrePass
+      expect(refractionSpy).toHaveBeenCalledOnce()
+    }))
   })
 })

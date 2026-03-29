@@ -36,8 +36,15 @@ const toPublicEntity = (entity: ManagedEntity): Entity => ({
   type: entity.type,
 })
 
-const hashEntityId = (entityId: EntityIdType): number =>
-  Math.abs(Arr.reduce(Arr.fromIterable(entityId as string), 0, (hash, char) => ((hash << 5) - hash + char.charCodeAt(0)) | 0))
+// Performance boundary: plain for-loop avoids Arr.fromIterable array allocation per entity per tick
+const hashEntityId = (entityId: EntityIdType): number => {
+  const str = entityId as string
+  let hash = 0
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0
+  }
+  return Math.abs(hash)
+}
 
 const makeWanderDirection = (entityId: EntityIdType, tick: number): Vector3 => {
   const angleDegrees = (hashEntityId(entityId) + tick * 29) % 360
@@ -52,12 +59,12 @@ const makeWanderDirection = (entityId: EntityIdType, tick: number): Vector3 => {
 export class EntityManager extends Effect.Service<EntityManager>()(
   '@minecraft/entity/EntityManager',
   {
-    effect: Effect.gen(function* () {
-      const entitiesRef = yield* Ref.make(HashMap.empty<EntityIdType, ManagedEntity>())
-      const nextEntityNumberRef = yield* Ref.make(1)
-      const updateTickRef = yield* Ref.make(0)
-
-      return {
+    effect: Effect.all([
+      Ref.make(HashMap.empty<EntityIdType, ManagedEntity>()),
+      Ref.make(1),
+      Ref.make(0),
+      Ref.make<ReadonlyArray<Entity> | null>(null),
+    ], { concurrency: 'unbounded' }).pipe(Effect.map(([entitiesRef, nextEntityNumberRef, updateTickRef, cachedEntitiesRef]) => ({
         addEntity: (
           type: EntityType,
           position: Position,
@@ -91,6 +98,7 @@ export class EntityManager extends Effect.Service<EntityManager>()(
             yield* Ref.update(entitiesRef, (entities) =>
               HashMap.set(entities, entityId, managedEntity)
             )
+            yield* Ref.set(cachedEntitiesRef, null)
 
             return entityId
           }),
@@ -101,7 +109,7 @@ export class EntityManager extends Effect.Service<EntityManager>()(
               onNone: () => [false, entities],
               onSome: () => [true, HashMap.remove(entities, entityId)],
             })
-          ),
+          ).pipe(Effect.tap((removed) => removed ? Ref.set(cachedEntitiesRef, null) : Effect.void)),
 
         getEntity: (entityId: EntityIdType): Effect.Effect<Option.Option<Entity>, never> =>
           Ref.get(entitiesRef).pipe(
@@ -109,9 +117,19 @@ export class EntityManager extends Effect.Service<EntityManager>()(
           ),
 
         getEntities: (): Effect.Effect<ReadonlyArray<Entity>, never> =>
-          Ref.get(entitiesRef).pipe(
-            Effect.map((entities) =>
-              Arr.map(Arr.fromIterable(HashMap.values(entities)), toPublicEntity) as ReadonlyArray<Entity>
+          Ref.get(cachedEntitiesRef).pipe(
+            Effect.flatMap((cached) =>
+              cached !== null
+                ? Effect.succeed(cached)
+                : Ref.get(entitiesRef).pipe(
+                    Effect.flatMap((entities) => {
+                      const result = Arr.map(
+                        Arr.fromIterable(HashMap.values(entities)),
+                        toPublicEntity
+                      ) as ReadonlyArray<Entity>
+                      return Ref.set(cachedEntitiesRef, result).pipe(Effect.as(result))
+                    })
+                  )
             )
           ),
 
@@ -131,53 +149,56 @@ export class EntityManager extends Effect.Service<EntityManager>()(
             const tick = yield* Ref.updateAndGet(updateTickRef, (value) => value + 1)
 
             yield* Ref.update(entitiesRef, (entities) =>
-              Arr.reduce(
-                Arr.fromIterable(entities),
-                HashMap.empty<EntityIdType, ManagedEntity>(),
-                (nextEntities, [entityId, entity]) => {
-                  const distance = distanceToPlayer(entity.position, playerPosition)
-                  const randomWanderRoll = ((hashEntityId(entityId) + tick * 17) % 1000) / 1000
-                  const nextState = resolveAIState(entity.aiState, {
-                    behavior: entity.behavior,
-                    distanceToPlayer: distance,
-                    canSeePlayer: distance <= entity.detectionRange,
-                    healthRatio: entity.health / entity.maxHealth,
-                    randomWanderRoll,
-                    attackRange: entity.attackRange,
-                    detectionRange: entity.detectionRange,
-                    fleeHealthThreshold: entity.fleeHealthThreshold,
-                  })
+              HashMap.map(entities, (entity, entityId) => {
+                const distance = distanceToPlayer(entity.position, playerPosition)
+                const randomWanderRoll = ((hashEntityId(entityId) + tick * 17) % 1000) / 1000
+                const nextState = resolveAIState(entity.aiState, {
+                  behavior: entity.behavior,
+                  distanceToPlayer: distance,
+                  canSeePlayer: distance <= entity.detectionRange,
+                  healthRatio: entity.health / entity.maxHealth,
+                  randomWanderRoll,
+                  attackRange: entity.attackRange,
+                  detectionRange: entity.detectionRange,
+                  fleeHealthThreshold: entity.fleeHealthThreshold,
+                })
 
-                  const wanderDirection =
-                    nextState === AIState.Wander
-                    && (entity.aiState !== AIState.Wander || randomWanderRoll < 0.2)
-                      ? makeWanderDirection(entityId, tick)
-                      : entity.wanderDirection
+                // Entity idle skip: avoid object allocation when nothing changed
+                if (nextState === entity.aiState
+                  && entity.velocity.x === 0 && entity.velocity.y === 0 && entity.velocity.z === 0) {
+                  return entity
+                }
 
-                  const velocity = computeStateVelocity({
-                    state: nextState,
-                    entityPosition: entity.position,
-                    playerPosition,
-                    speed: entity.speed,
-                    wanderDirection,
-                  })
+                const wanderDirection =
+                  nextState === AIState.Wander
+                  && (entity.aiState !== AIState.Wander || randomWanderRoll < 0.2)
+                    ? makeWanderDirection(entityId, tick)
+                    : entity.wanderDirection
 
-                  const nextPosition: Position = {
-                    x: entity.position.x + velocity.x * deltaTime,
-                    y: entity.position.y + velocity.y * deltaTime,
-                    z: entity.position.z + velocity.z * deltaTime,
-                  }
+                const velocity = computeStateVelocity({
+                  state: nextState,
+                  entityPosition: entity.position,
+                  playerPosition,
+                  speed: entity.speed,
+                  wanderDirection,
+                })
 
-                  return HashMap.set(nextEntities, entityId, {
-                    ...entity,
-                    aiState: nextState,
-                    velocity,
-                    position: nextPosition,
-                    wanderDirection,
-                  })
-                },
-              )
+                const nextPosition: Position = {
+                  x: entity.position.x + velocity.x * deltaTime,
+                  y: entity.position.y + velocity.y * deltaTime,
+                  z: entity.position.z + velocity.z * deltaTime,
+                }
+
+                return {
+                  ...entity,
+                  aiState: nextState,
+                  velocity,
+                  position: nextPosition,
+                  wanderDirection,
+                }
+              })
             )
+            yield* Ref.set(cachedEntitiesRef, null)
           }),
 
         applyDamage: (
@@ -210,10 +231,9 @@ export class EntityManager extends Effect.Service<EntityManager>()(
                   ]
                 },
               }),
-          )
+          ).pipe(Effect.tap(() => Ref.set(cachedEntitiesRef, null)))
         },
-      }
-    }),
+    })))
   },
 ) {}
 

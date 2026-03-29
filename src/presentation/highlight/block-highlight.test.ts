@@ -106,120 +106,106 @@ describe('BlockHighlightService', () => {
   })
 
   describe('initialize', () => {
-    it('should add wireframe mesh to scene', () => {
+    it.effect('should add wireframe mesh to scene', () => {
       const mockRaycastingService = createMockRaycastingService()
       const MockLayer = Layer.succeed(RaycastingService, mockRaycastingService)
       const TestLayer = BlockHighlightLive.pipe(Layer.provide(MockLayer))
 
       const { scene, getChildren } = createMockScene()
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const blockHighlight = yield* BlockHighlightService
         yield* blockHighlight.initialize(scene)
-      })
 
-      Effect.runSync(program.pipe(Effect.provide(TestLayer)))
-
-      expect(scene.add).toHaveBeenCalledTimes(1)
-      expect(getChildren().length).toBe(1)
-      expect(getChildren()[0]).toBeInstanceOf(THREE.LineSegments)
+        expect(scene.add).toHaveBeenCalledTimes(1)
+        expect(getChildren().length).toBe(1)
+        expect(getChildren()[0]).toBeInstanceOf(THREE.LineSegments)
+      }).pipe(Effect.provide(TestLayer))
     })
 
-    it('should set mesh visibility to false initially', () => {
+    it.effect('should set mesh visibility to false initially', () => {
       const mockRaycastingService = createMockRaycastingService()
       const MockLayer = Layer.succeed(RaycastingService, mockRaycastingService)
       const TestLayer = BlockHighlightLive.pipe(Layer.provide(MockLayer))
 
       const { scene, getChildren } = createMockScene()
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const blockHighlight = yield* BlockHighlightService
         yield* blockHighlight.initialize(scene)
-      })
 
-      Effect.runSync(program.pipe(Effect.provide(TestLayer)))
-
-      const mesh = getChildren()[0] as THREE.LineSegments
-      expect(mesh.visible).toBe(false)
+        const mesh = getChildren()[0] as THREE.LineSegments
+        expect(mesh.visible).toBe(false)
+      }).pipe(Effect.provide(TestLayer))
     })
   })
 
   describe('setVisible', () => {
-    it('should set mesh visibility to true', () => {
+    it.effect('should set mesh visibility to true', () => {
       const mockRaycastingService = createMockRaycastingService()
       const MockLayer = Layer.succeed(RaycastingService, mockRaycastingService)
       const TestLayer = BlockHighlightLive.pipe(Layer.provide(MockLayer))
 
       const { scene, getChildren } = createMockScene()
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const blockHighlight = yield* BlockHighlightService
         yield* blockHighlight.initialize(scene)
         yield* blockHighlight.setVisible(true)
-      })
 
-      Effect.runSync(program.pipe(Effect.provide(TestLayer)))
-
-      const mesh = getChildren()[0] as THREE.LineSegments
-      expect(mesh.visible).toBe(true)
+        const mesh = getChildren()[0] as THREE.LineSegments
+        expect(mesh.visible).toBe(true)
+      }).pipe(Effect.provide(TestLayer))
     })
 
-    it('should set mesh visibility to false', () => {
+    it.effect('should set mesh visibility to false', () => {
       const mockRaycastingService = createMockRaycastingService()
       const MockLayer = Layer.succeed(RaycastingService, mockRaycastingService)
       const TestLayer = BlockHighlightLive.pipe(Layer.provide(MockLayer))
 
       const { scene, getChildren } = createMockScene()
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const blockHighlight = yield* BlockHighlightService
         yield* blockHighlight.initialize(scene)
         yield* blockHighlight.setVisible(true)
         yield* blockHighlight.setVisible(false)
-      })
 
-      Effect.runSync(program.pipe(Effect.provide(TestLayer)))
-
-      const mesh = getChildren()[0] as THREE.LineSegments
-      expect(mesh.visible).toBe(false)
+        const mesh = getChildren()[0] as THREE.LineSegments
+        expect(mesh.visible).toBe(false)
+      }).pipe(Effect.provide(TestLayer))
     })
 
-    it('should not crash when mesh is not initialized', () => {
+    it.effect('should not crash when mesh is not initialized', () => {
       const mockRaycastingService = createMockRaycastingService()
       const MockLayer = Layer.succeed(RaycastingService, mockRaycastingService)
       const TestLayer = BlockHighlightLive.pipe(Layer.provide(MockLayer))
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const blockHighlight = yield* BlockHighlightService
         // Don't initialize, just try to set visibility
         yield* blockHighlight.setVisible(true)
-      })
-
-      // Should not throw
-      expect(() => Effect.runSync(program.pipe(Effect.provide(TestLayer)))).not.toThrow()
+      }).pipe(Effect.provide(TestLayer))
     })
   })
 
   describe('getTargetBlock', () => {
-    it('should return Option.none() initially', () => {
+    it.effect('should return Option.none() initially', () => {
       const mockRaycastingService = createMockRaycastingService()
       const MockLayer = Layer.succeed(RaycastingService, mockRaycastingService)
       const TestLayer = BlockHighlightLive.pipe(Layer.provide(MockLayer))
 
       const { scene } = createMockScene()
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const blockHighlight = yield* BlockHighlightService
         yield* blockHighlight.initialize(scene)
-        return yield* blockHighlight.getTargetBlock()
-      })
-
-      const result = Effect.runSync(program.pipe(Effect.provide(TestLayer)))
-
-      expect(result).toEqual(Option.none())
+        const result = yield* blockHighlight.getTargetBlock()
+        expect(result).toEqual(Option.none())
+      }).pipe(Effect.provide(TestLayer))
     })
 
-    it('should return Option.none() when no block is targeted', () => {
+    it.effect('should return Option.none() when no block is targeted', () => {
       const mockRaycastingService = createMockRaycastingService()
       const MockLayer = Layer.succeed(RaycastingService, mockRaycastingService)
       const TestLayer = BlockHighlightLive.pipe(Layer.provide(MockLayer))
@@ -227,21 +213,18 @@ describe('BlockHighlightService', () => {
       const { scene } = createMockScene()
       const camera = createMockCamera()
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const blockHighlight = yield* BlockHighlightService
         yield* blockHighlight.initialize(scene)
         yield* blockHighlight.update(camera, scene)
-        return yield* blockHighlight.getTargetBlock()
-      })
-
-      const result = Effect.runSync(program.pipe(Effect.provide(TestLayer)))
-
-      expect(result).toEqual(Option.none())
+        const result = yield* blockHighlight.getTargetBlock()
+        expect(result).toEqual(Option.none())
+      }).pipe(Effect.provide(TestLayer))
     })
   })
 
   describe('getTargetHit', () => {
-    it('should return the full RaycastHit including distance and normal after update', () => {
+    it.effect('should return the full RaycastHit including distance and normal after update', () => {
       const hitResult: RaycastHit = {
         point: { x: 5.5, y: 10.5, z: 3.5 },
         normal: { x: 0, y: 1, z: 0 },
@@ -257,28 +240,25 @@ describe('BlockHighlightService', () => {
       const { scene } = createMockScene()
       const camera = createMockCamera()
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const blockHighlight = yield* BlockHighlightService
         yield* blockHighlight.initialize(scene)
         yield* blockHighlight.update(camera, scene)
-        return yield* blockHighlight.getTargetHit()
-      })
+        const result = yield* blockHighlight.getTargetHit()
 
-      const result = Effect.runSync(program.pipe(Effect.provide(TestLayer)))
-
-      expect(Option.isSome(result)).toBe(true)
-      if (Option.isSome(result)) {
-        expect(result.value.distance).toBe(2.5)
-        expect(result.value.normal).toEqual({ x: 0, y: 1, z: 0 })
-        expect(result.value.blockX).toBe(5)
-        expect(result.value.blockY).toBe(10)
-        expect(result.value.blockZ).toBe(3)
-      }
+        expect(Option.isSome(result)).toBe(true)
+        const unwrapped = Option.getOrThrow(result)
+        expect(unwrapped.distance).toBe(2.5)
+        expect(unwrapped.normal).toEqual({ x: 0, y: 1, z: 0 })
+        expect(unwrapped.blockX).toBe(5)
+        expect(unwrapped.blockY).toBe(10)
+        expect(unwrapped.blockZ).toBe(3)
+      }).pipe(Effect.provide(TestLayer))
     })
   })
 
   describe('update', () => {
-    it('should position mesh at hit block location', () => {
+    it.effect('should position mesh at hit block location', () => {
       const hitResult: RaycastHit = {
         point: { x: 5.5, y: 10.5, z: 3.5 },
         normal: { x: 0, y: 1, z: 0 },
@@ -294,22 +274,20 @@ describe('BlockHighlightService', () => {
       const { scene, getChildren } = createMockScene()
       const camera = createMockCamera()
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const blockHighlight = yield* BlockHighlightService
         yield* blockHighlight.initialize(scene)
         yield* blockHighlight.update(camera, scene)
-      })
 
-      Effect.runSync(program.pipe(Effect.provide(TestLayer)))
-
-      const mesh = getChildren()[0] as THREE.LineSegments
-      // Position should be at block center (blockX + 0.5, blockY + 0.5, blockZ + 0.5)
-      expect(mesh.position.x).toBe(5.5)
-      expect(mesh.position.y).toBe(10.5)
-      expect(mesh.position.z).toBe(3.5)
+        const mesh = getChildren()[0] as THREE.LineSegments
+        // Position should be at block center (blockX + 0.5, blockY + 0.5, blockZ + 0.5)
+        expect(mesh.position.x).toBe(5.5)
+        expect(mesh.position.y).toBe(10.5)
+        expect(mesh.position.z).toBe(3.5)
+      }).pipe(Effect.provide(TestLayer))
     })
 
-    it('should make mesh visible when hit', () => {
+    it.effect('should make mesh visible when hit', () => {
       const hitResult: RaycastHit = {
         point: { x: 5.5, y: 10.5, z: 3.5 },
         normal: { x: 0, y: 1, z: 0 },
@@ -325,19 +303,17 @@ describe('BlockHighlightService', () => {
       const { scene, getChildren } = createMockScene()
       const camera = createMockCamera()
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const blockHighlight = yield* BlockHighlightService
         yield* blockHighlight.initialize(scene)
         yield* blockHighlight.update(camera, scene)
-      })
 
-      Effect.runSync(program.pipe(Effect.provide(TestLayer)))
-
-      const mesh = getChildren()[0] as THREE.LineSegments
-      expect(mesh.visible).toBe(true)
+        const mesh = getChildren()[0] as THREE.LineSegments
+        expect(mesh.visible).toBe(true)
+      }).pipe(Effect.provide(TestLayer))
     })
 
-    it('should hide mesh when no hit', () => {
+    it.effect('should hide mesh when no hit', () => {
       const mockRaycastingService = createMockRaycastingService()
       const MockLayer = Layer.succeed(RaycastingService, mockRaycastingService)
       const TestLayer = BlockHighlightLive.pipe(Layer.provide(MockLayer))
@@ -345,19 +321,17 @@ describe('BlockHighlightService', () => {
       const { scene, getChildren } = createMockScene()
       const camera = createMockCamera()
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const blockHighlight = yield* BlockHighlightService
         yield* blockHighlight.initialize(scene)
         yield* blockHighlight.update(camera, scene)
-      })
 
-      Effect.runSync(program.pipe(Effect.provide(TestLayer)))
-
-      const mesh = getChildren()[0] as THREE.LineSegments
-      expect(mesh.visible).toBe(false)
+        const mesh = getChildren()[0] as THREE.LineSegments
+        expect(mesh.visible).toBe(false)
+      }).pipe(Effect.provide(TestLayer))
     })
 
-    it('should update target block when hit', () => {
+    it.effect('should update target block when hit', () => {
       const hitResult: RaycastHit = {
         point: { x: 5.5, y: 10.5, z: 3.5 },
         normal: { x: 0, y: 1, z: 0 },
@@ -373,19 +347,16 @@ describe('BlockHighlightService', () => {
       const { scene } = createMockScene()
       const camera = createMockCamera()
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const blockHighlight = yield* BlockHighlightService
         yield* blockHighlight.initialize(scene)
         yield* blockHighlight.update(camera, scene)
-        return yield* blockHighlight.getTargetBlock()
-      })
-
-      const result = Effect.runSync(program.pipe(Effect.provide(TestLayer)))
-
-      expect(result).toEqual(Option.some({ x: 5, y: 10, z: 3 }))
+        const result = yield* blockHighlight.getTargetBlock()
+        expect(result).toEqual(Option.some({ x: 5, y: 10, z: 3 }))
+      }).pipe(Effect.provide(TestLayer))
     })
 
-    it('should clear target block when no hit', () => {
+    it.effect('should clear target block when no hit', () => {
       // First return a hit, then no hit
       let hitCount = 0
       const mockRaycastingService = {
@@ -424,7 +395,7 @@ describe('BlockHighlightService', () => {
       const { scene } = createMockScene()
       const camera = createMockCamera()
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const blockHighlight = yield* BlockHighlightService
         yield* blockHighlight.initialize(scene)
 
@@ -435,15 +406,12 @@ describe('BlockHighlightService', () => {
 
         // Second update has no hit
         yield* blockHighlight.update(camera, scene)
-        return yield* blockHighlight.getTargetBlock()
-      })
-
-      const result = Effect.runSync(program.pipe(Effect.provide(TestLayer)))
-
-      expect(result).toEqual(Option.none())
+        const result = yield* blockHighlight.getTargetBlock()
+        expect(result).toEqual(Option.none())
+      }).pipe(Effect.provide(TestLayer))
     })
 
-    it('should do nothing when mesh is not initialized', () => {
+    it.effect('should do nothing when mesh is not initialized', () => {
       const mockRaycastingService = createMockRaycastingService()
       const MockLayer = Layer.succeed(RaycastingService, mockRaycastingService)
       const TestLayer = BlockHighlightLive.pipe(Layer.provide(MockLayer))
@@ -451,19 +419,16 @@ describe('BlockHighlightService', () => {
       const { scene } = createMockScene()
       const camera = createMockCamera()
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const blockHighlight = yield* BlockHighlightService
         // Don't initialize, just try to update
         yield* blockHighlight.update(camera, scene)
-      })
-
-      // Should not throw
-      expect(() => Effect.runSync(program.pipe(Effect.provide(TestLayer)))).not.toThrow()
+      }).pipe(Effect.provide(TestLayer))
     })
   })
 
   describe('integration scenarios', () => {
-    it('should handle show -> hide -> show cycle correctly', () => {
+    it.effect('should handle show -> hide -> show cycle correctly', () => {
       let hitCount = 0
       const mockRaycastingService = {
         createRaycaster: () =>
@@ -501,7 +466,7 @@ describe('BlockHighlightService', () => {
       const { scene, getChildren } = createMockScene()
       const camera = createMockCamera()
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const blockHighlight = yield* BlockHighlightService
         yield* blockHighlight.initialize(scene)
 
@@ -517,18 +482,15 @@ describe('BlockHighlightService', () => {
 
         // Third update: hit again
         yield* blockHighlight.update(camera, scene)
-        return yield* blockHighlight.getTargetBlock()
-      })
+        const result = yield* blockHighlight.getTargetBlock()
+        expect(result).toEqual(Option.some({ x: 1, y: 2, z: 3 }))
 
-      const result = Effect.runSync(program.pipe(Effect.provide(TestLayer)))
-
-      expect(result).toEqual(Option.some({ x: 1, y: 2, z: 3 }))
-
-      const mesh = getChildren()[0] as THREE.LineSegments
-      expect(mesh.visible).toBe(true)
+        const mesh = getChildren()[0] as THREE.LineSegments
+        expect(mesh.visible).toBe(true)
+      }).pipe(Effect.provide(TestLayer))
     })
 
-    it('should handle multiple different block positions', () => {
+    it.effect('should handle multiple different block positions', () => {
       const positions: Array<RaycastHit> = [
         { point: { x: 0.5, y: 0.5, z: 0.5 }, normal: { x: 0, y: 1, z: 0 }, distance: 1, blockX: 0, blockY: 0, blockZ: 0 },
         { point: { x: 10.5, y: 20.5, z: 30.5 }, normal: { x: 1, y: 0, z: 0 }, distance: 2, blockX: 10, blockY: 20, blockZ: 30 },
@@ -563,35 +525,28 @@ describe('BlockHighlightService', () => {
       const { scene, getChildren } = createMockScene()
       const camera = createMockCamera()
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const blockHighlight = yield* BlockHighlightService
         yield* blockHighlight.initialize(scene)
 
-        const results: Array<Option.Option<{ x: number; y: number; z: number }>> = []
+        const results = yield* Effect.forEach(positions, (_pos) =>
+          blockHighlight.update(camera, scene).pipe(
+            Effect.andThen(blockHighlight.getTargetBlock())
+          ), { concurrency: 1 })
 
-        for (const _pos of positions) {
-          yield* blockHighlight.update(camera, scene)
-          const target = yield* blockHighlight.getTargetBlock()
-          results.push(target)
-        }
+        expect(results[0]).toEqual(Option.some({ x: 0, y: 0, z: 0 }))
+        expect(results[1]).toEqual(Option.some({ x: 10, y: 20, z: 30 }))
+        expect(results[2]).toEqual(Option.some({ x: -6, y: -11, z: -16 }))
 
-        return results
-      })
-
-      const results = Effect.runSync(program.pipe(Effect.provide(TestLayer)))
-
-      expect(results[0]).toEqual(Option.some({ x: 0, y: 0, z: 0 }))
-      expect(results[1]).toEqual(Option.some({ x: 10, y: 20, z: 30 }))
-      expect(results[2]).toEqual(Option.some({ x: -6, y: -11, z: -16 }))
-
-      const mesh = getChildren()[0] as THREE.LineSegments
-      // Check final position
-      expect(mesh.position.x).toBe(-5.5) // -6 + 0.5
-      expect(mesh.position.y).toBe(-10.5) // -11 + 0.5
-      expect(mesh.position.z).toBe(-15.5) // -16 + 0.5
+        const mesh = getChildren()[0] as THREE.LineSegments
+        // Check final position
+        expect(mesh.position.x).toBe(-5.5) // -6 + 0.5
+        expect(mesh.position.y).toBe(-10.5) // -11 + 0.5
+        expect(mesh.position.z).toBe(-15.5) // -16 + 0.5
+      }).pipe(Effect.provide(TestLayer))
     })
 
-    it('should handle setVisible override independently of raycast', () => {
+    it.effect('should handle setVisible override independently of raycast', () => {
       const hitResult: RaycastHit = {
         point: { x: 5.5, y: 10.5, z: 3.5 },
         normal: { x: 0, y: 1, z: 0 },
@@ -607,7 +562,7 @@ describe('BlockHighlightService', () => {
       const { scene, getChildren } = createMockScene()
       const camera = createMockCamera()
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const blockHighlight = yield* BlockHighlightService
         yield* blockHighlight.initialize(scene)
 
@@ -618,16 +573,14 @@ describe('BlockHighlightService', () => {
         yield* blockHighlight.setVisible(false)
 
         // Target block should still be set
-        return yield* blockHighlight.getTargetBlock()
-      })
+        const target = yield* blockHighlight.getTargetBlock()
 
-      const target = Effect.runSync(program.pipe(Effect.provide(TestLayer)))
+        // Target should still be tracked even though mesh is hidden
+        expect(target).toEqual(Option.some({ x: 5, y: 10, z: 3 }))
 
-      // Target should still be tracked even though mesh is hidden
-      expect(target).toEqual(Option.some({ x: 5, y: 10, z: 3 }))
-
-      const mesh = getChildren()[0] as THREE.LineSegments
-      expect(mesh.visible).toBe(false)
+        const mesh = getChildren()[0] as THREE.LineSegments
+        expect(mesh.visible).toBe(false)
+      }).pipe(Effect.provide(TestLayer))
     })
   })
 })

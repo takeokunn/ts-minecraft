@@ -104,64 +104,48 @@ const buildTestLayer = (rendererService: RendererService = createMockRendererSer
 
 describe('HotbarRendererService', () => {
   describe('initialize', () => {
-    it('should complete without error', () => {
+    it.scoped('should complete without error', () => {
       const TestLayer = buildTestLayer()
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const renderer = yield* HotbarRendererService
         yield* renderer.initialize(800, 600)
-      })
-
-      expect(() =>
-        Effect.runSync(program.pipe(Effect.provide(TestLayer), Effect.scoped))
-      ).not.toThrow()
+      }).pipe(Effect.provide(TestLayer))
     })
 
-    it('should accept different viewport dimensions', () => {
+    it.scoped('should accept different viewport dimensions', () => {
       const TestLayer = buildTestLayer()
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const renderer = yield* HotbarRendererService
         yield* renderer.initialize(1920, 1080)
         yield* renderer.initialize(1280, 720)
-      })
-
-      expect(() =>
-        Effect.runSync(program.pipe(Effect.provide(TestLayer), Effect.scoped))
-      ).not.toThrow()
+      }).pipe(Effect.provide(TestLayer))
     })
 
-    it('should work with zero dimensions (edge case)', () => {
+    it.scoped('should work with zero dimensions (edge case)', () => {
       const TestLayer = buildTestLayer()
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const renderer = yield* HotbarRendererService
         yield* renderer.initialize(0, 0)
-      })
-
-      expect(() =>
-        Effect.runSync(program.pipe(Effect.provide(TestLayer), Effect.scoped))
-      ).not.toThrow()
+      }).pipe(Effect.provide(TestLayer))
     })
   })
 
   describe('update', () => {
-    it('should complete without error when called with empty slots', () => {
+    it.scoped('should complete without error when called with empty slots', () => {
       const TestLayer = buildTestLayer()
       const emptySlots: ReadonlyArray<Option.Option<BlockType>> = Arr.makeBy(9, () => Option.none())
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const renderer = yield* HotbarRendererService
         yield* renderer.initialize(800, 600)
         yield* renderer.update(emptySlots, SlotIndex.make(0))
-      })
-
-      expect(() =>
-        Effect.runSync(program.pipe(Effect.provide(TestLayer), Effect.scoped))
-      ).not.toThrow()
+      }).pipe(Effect.provide(TestLayer))
     })
 
-    it('should complete without error when called with populated slots', () => {
+    it.scoped('should complete without error when called with populated slots', () => {
       const TestLayer = buildTestLayer()
       const slots: ReadonlyArray<Option.Option<BlockType>> = [
         Option.some('GRASS' as BlockType),
@@ -175,107 +159,87 @@ describe('HotbarRendererService', () => {
         Option.none(),
       ]
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const renderer = yield* HotbarRendererService
         yield* renderer.initialize(800, 600)
         yield* renderer.update(slots, SlotIndex.make(0))
-      })
-
-      expect(() =>
-        Effect.runSync(program.pipe(Effect.provide(TestLayer), Effect.scoped))
-      ).not.toThrow()
+      }).pipe(Effect.provide(TestLayer))
     })
 
-    it('should accept any valid selectedSlot (0-8)', () => {
+    it.scoped('should accept any valid selectedSlot (0-8)', () => {
       const TestLayer = buildTestLayer()
       const emptySlots: ReadonlyArray<Option.Option<BlockType>> = Arr.makeBy(9, () => Option.none())
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const renderer = yield* HotbarRendererService
         yield* renderer.initialize(800, 600)
-        for (let i = 0; i < 9; i++) {
-          yield* renderer.update(emptySlots, SlotIndex.make(i))
-        }
-      })
-
-      expect(() =>
-        Effect.runSync(program.pipe(Effect.provide(TestLayer), Effect.scoped))
-      ).not.toThrow()
+        yield* Effect.forEach(Arr.makeBy(9, i => i), (i) => renderer.update(emptySlots, SlotIndex.make(i)), { concurrency: 1 })
+      }).pipe(Effect.provide(TestLayer))
     })
 
-    it('should work before initialize is called (no crash)', () => {
+    it.scoped('should work before initialize is called (no crash)', () => {
       const TestLayer = buildTestLayer()
       const emptySlots: ReadonlyArray<Option.Option<BlockType>> = Arr.makeBy(9, () => Option.none())
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const renderer = yield* HotbarRendererService
         // update before initialize — slot meshes array is empty, should be a safe no-op
         yield* renderer.update(emptySlots, SlotIndex.make(0))
-      })
-
-      expect(() =>
-        Effect.runSync(program.pipe(Effect.provide(TestLayer), Effect.scoped))
-      ).not.toThrow()
+      }).pipe(Effect.provide(TestLayer))
     })
   })
 
   describe('render', () => {
-    it('should not call renderOverlay when camera is not initialized', () => {
+    it.scoped('should not call renderOverlay when camera is not initialized', () => {
       const mockRenderer = createMockRendererService()
       const TestLayer = buildTestLayer(mockRenderer)
 
       const fakeWebGLRenderer = {} as import('three').WebGLRenderer
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const renderer = yield* HotbarRendererService
         // render without calling initialize first — hudCamera is null
         yield* renderer.render(fakeWebGLRenderer)
-      })
 
-      Effect.runSync(program.pipe(Effect.provide(TestLayer), Effect.scoped))
-
-      // renderOverlay should NOT be called because hudCamera is null
-      expect(mockRenderer.renderOverlay).not.toHaveBeenCalled()
+        // renderOverlay should NOT be called because hudCamera is null
+        expect(mockRenderer.renderOverlay).not.toHaveBeenCalled()
+      }).pipe(Effect.provide(TestLayer))
     })
 
-    it('should call renderOverlay when camera is initialized', () => {
+    it.scoped('should call renderOverlay when camera is initialized', () => {
       const mockRenderer = createMockRendererService()
       const TestLayer = buildTestLayer(mockRenderer)
 
       const fakeWebGLRenderer = {} as import('three').WebGLRenderer
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const renderer = yield* HotbarRendererService
         yield* renderer.initialize(800, 600)
         yield* renderer.render(fakeWebGLRenderer)
-      })
 
-      Effect.runSync(program.pipe(Effect.provide(TestLayer), Effect.scoped))
-
-      expect(mockRenderer.renderOverlay).toHaveBeenCalledTimes(1)
+        expect(mockRenderer.renderOverlay).toHaveBeenCalledTimes(1)
+      }).pipe(Effect.provide(TestLayer))
     })
 
-    it('should pass the provided WebGLRenderer to renderOverlay', () => {
+    it.scoped('should pass the provided WebGLRenderer to renderOverlay', () => {
       const mockRenderer = createMockRendererService()
       const TestLayer = buildTestLayer(mockRenderer)
 
       const fakeWebGLRenderer = { clearDepth: vi.fn(), render: vi.fn() } as unknown as import('three').WebGLRenderer
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const renderer = yield* HotbarRendererService
         yield* renderer.initialize(800, 600)
         yield* renderer.render(fakeWebGLRenderer)
-      })
 
-      Effect.runSync(program.pipe(Effect.provide(TestLayer), Effect.scoped))
-
-      const [calledRenderer] = (mockRenderer.renderOverlay as ReturnType<typeof vi.fn>).mock.calls[0] as [unknown, ...unknown[]]
-      expect(calledRenderer).toBe(fakeWebGLRenderer)
+        const [calledRenderer] = (mockRenderer.renderOverlay as ReturnType<typeof vi.fn>).mock.calls[0] as [unknown, ...unknown[]]
+        expect(calledRenderer).toBe(fakeWebGLRenderer)
+      }).pipe(Effect.provide(TestLayer))
     })
   })
 
   describe('integration', () => {
-    it('should handle full initialize → update → render flow', () => {
+    it.scoped('should handle full initialize → update → render flow', () => {
       const mockRenderer = createMockRendererService()
       const TestLayer = buildTestLayer(mockRenderer)
 
@@ -285,40 +249,34 @@ describe('HotbarRendererService', () => {
       ]
       const fakeWebGLRenderer = {} as import('three').WebGLRenderer
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const renderer = yield* HotbarRendererService
         yield* renderer.initialize(1280, 720)
         yield* renderer.update(slots, SlotIndex.make(2))
         yield* renderer.render(fakeWebGLRenderer)
-      })
 
-      expect(() =>
-        Effect.runSync(program.pipe(Effect.provide(TestLayer), Effect.scoped))
-      ).not.toThrow()
-
-      expect(mockRenderer.renderOverlay).toHaveBeenCalledTimes(1)
+        expect(mockRenderer.renderOverlay).toHaveBeenCalledTimes(1)
+      }).pipe(Effect.provide(TestLayer))
     })
 
-    it('should handle repeated update + render calls', () => {
+    it.scoped('should handle repeated update + render calls', () => {
       const mockRenderer = createMockRendererService()
       const TestLayer = buildTestLayer(mockRenderer)
 
       const emptySlots: ReadonlyArray<Option.Option<BlockType>> = Arr.makeBy(9, () => Option.none())
       const fakeWebGLRenderer = {} as import('three').WebGLRenderer
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const renderer = yield* HotbarRendererService
         yield* renderer.initialize(800, 600)
 
-        for (let frame = 0; frame < 5; frame++) {
+        yield* Effect.forEach(Arr.makeBy(5, i => i), (frame) => Effect.gen(function* () {
           yield* renderer.update(emptySlots, SlotIndex.make(frame % 9))
           yield* renderer.render(fakeWebGLRenderer)
-        }
-      })
+        }), { concurrency: 1 })
 
-      Effect.runSync(program.pipe(Effect.provide(TestLayer), Effect.scoped))
-
-      expect(mockRenderer.renderOverlay).toHaveBeenCalledTimes(5)
+        expect(mockRenderer.renderOverlay).toHaveBeenCalledTimes(5)
+      }).pipe(Effect.provide(TestLayer))
     })
   })
 })

@@ -24,9 +24,7 @@ export class DomOperationsService extends Effect.Service<DomOperationsService>()
 export class CrosshairService extends Effect.Service<CrosshairService>()(
   '@minecraft/presentation/Crosshair',
   {
-    effect: Effect.gen(function* () {
-      const dom = yield* DomOperationsService
-
+    effect: Effect.flatMap(DomOperationsService, (dom) => {
       // Create crosshair element
       const element = dom.createElement('div') as HTMLDivElement
       element.id = 'crosshair'
@@ -67,9 +65,7 @@ export class CrosshairService extends Effect.Service<CrosshairService>()(
       element.appendChild(createLine(true))  // Vertical
       element.appendChild(createLine(false)) // Horizontal
 
-      const visibleRef = yield* Ref.make(false)
-
-      return {
+      return Ref.make(false).pipe(Effect.map((visibleRef) => ({
         // Ref.modify returns the OLD state atomically, then the side-effect runs on that old value.
         // This eliminates the Ref.get → Ref.set TOCTOU window.
         show: (): Effect.Effect<void, never> =>
@@ -99,7 +95,7 @@ export class CrosshairService extends Effect.Service<CrosshairService>()(
           ),
 
         isVisible: (): Effect.Effect<boolean, never> => Ref.get(visibleRef),
-      }
+      })))
     }),
   }
 ) {}

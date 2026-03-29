@@ -1,26 +1,28 @@
 import { describe, it } from '@effect/vitest'
-import { Effect, Schema } from 'effect'
+import { Effect, Either, Schema } from 'effect'
 import { expect } from 'vitest'
 import { BlockTypeSchema, BlockPropertiesSchema, Block, BlockType, BlockIdSchema } from './block'
 
 describe('BlockTypeSchema', () => {
   describe('validation', () => {
-    it('should accept valid block types', () => {
+    it.effect('should accept valid block types', () => {
       const validTypes = ['AIR', 'DIRT', 'STONE', 'WOOD', 'GRASS', 'SAND', 'WATER', 'LEAVES', 'GLASS', 'SNOW', 'GRAVEL', 'COBBLESTONE'] as const
-
-      for (const type of validTypes) {
-        const result = Schema.decode(BlockTypeSchema)(type)
-        expect(Effect.runSync(result)).toBe(type)
-      }
+      return Effect.forEach(validTypes, (type) =>
+        Effect.gen(function* () {
+          const result = yield* Schema.decode(BlockTypeSchema)(type)
+          expect(result).toBe(type)
+        })
+      , { concurrency: 1, discard: true })
     })
 
-    it('should reject invalid block types', () => {
+    it.effect('should reject invalid block types', () => {
       const invalidTypes = ['BEDROCK', 'LAVA', 'DIAMOND', 'GOLD'] as const
-
-      for (const type of invalidTypes) {
-        const result = Schema.decodeUnknown(BlockTypeSchema)(type)
-        expect(() => Effect.runSync(result)).toThrow()
-      }
+      return Effect.forEach(invalidTypes, (type) =>
+        Effect.gen(function* () {
+          const result = yield* Effect.either(Schema.decodeUnknown(BlockTypeSchema)(type))
+          expect(Either.isLeft(result)).toBe(true)
+        })
+      , { concurrency: 1, discard: true })
     })
   })
 
@@ -34,7 +36,7 @@ describe('BlockTypeSchema', () => {
 
 describe('BlockPropertiesSchema', () => {
   describe('validation', () => {
-    it('should accept valid properties', () => {
+    it.effect('should accept valid properties', () => {
       const validProperties = {
         hardness: 50,
         transparency: false,
@@ -42,88 +44,83 @@ describe('BlockPropertiesSchema', () => {
         emissive: false,
         friction: 0.6,
       }
-
-      const result = Schema.decode(BlockPropertiesSchema)(validProperties)
-      const decoded = Effect.runSync(result)
-
-      expect(decoded).toEqual(validProperties)
+      return Effect.gen(function* () {
+        const decoded = yield* Schema.decode(BlockPropertiesSchema)(validProperties)
+        expect(decoded).toEqual(validProperties)
+      })
     })
 
-    it('should reject hardness outside 0-100 range', () => {
+    it.effect('should reject hardness outside 0-100 range', () => {
       const invalidHardnessValues = [-1, -50, 101, 200]
-
-      for (const hardness of invalidHardnessValues) {
-        const invalidProperties = {
-          hardness,
-          transparency: false,
-          solid: true,
-          emissive: false,
-          friction: 0.6,
-        }
-
-        const result = Schema.decode(BlockPropertiesSchema)(invalidProperties)
-        expect(() => Effect.runSync(result)).toThrow()
-      }
+      return Effect.forEach(invalidHardnessValues, (hardness) =>
+        Effect.gen(function* () {
+          const invalidProperties = {
+            hardness,
+            transparency: false,
+            solid: true,
+            emissive: false,
+            friction: 0.6,
+          }
+          const result = yield* Effect.either(Schema.decode(BlockPropertiesSchema)(invalidProperties))
+          expect(Either.isLeft(result)).toBe(true)
+        })
+      , { concurrency: 1, discard: true })
     })
 
-    it('should reject friction outside 0-1 range', () => {
+    it.effect('should reject friction outside 0-1 range', () => {
       const invalidFrictionValues = [-0.1, -1, 1.1, 2]
-
-      for (const friction of invalidFrictionValues) {
-        const invalidProperties = {
-          hardness: 50,
-          transparency: false,
-          solid: true,
-          emissive: false,
-          friction,
-        }
-
-        const result = Schema.decode(BlockPropertiesSchema)(invalidProperties)
-        expect(() => Effect.runSync(result)).toThrow()
-      }
+      return Effect.forEach(invalidFrictionValues, (friction) =>
+        Effect.gen(function* () {
+          const invalidProperties = {
+            hardness: 50,
+            transparency: false,
+            solid: true,
+            emissive: false,
+            friction,
+          }
+          const result = yield* Effect.either(Schema.decode(BlockPropertiesSchema)(invalidProperties))
+          expect(Either.isLeft(result)).toBe(true)
+        })
+      , { concurrency: 1, discard: true })
     })
 
-    it('should accept hardness at boundary values', () => {
+    it.effect('should accept hardness at boundary values', () => {
       const boundaryValues = [0, 100]
-
-      for (const hardness of boundaryValues) {
-        const validProperties = {
-          hardness,
-          transparency: false,
-          solid: true,
-          emissive: false,
-          friction: 0.5,
-        }
-
-        const result = Schema.decode(BlockPropertiesSchema)(validProperties)
-        const decoded = Effect.runSync(result)
-
-        expect(decoded.hardness).toBe(hardness)
-      }
+      return Effect.forEach(boundaryValues, (hardness) =>
+        Effect.gen(function* () {
+          const validProperties = {
+            hardness,
+            transparency: false,
+            solid: true,
+            emissive: false,
+            friction: 0.5,
+          }
+          const decoded = yield* Schema.decode(BlockPropertiesSchema)(validProperties)
+          expect(decoded.hardness).toBe(hardness)
+        })
+      , { concurrency: 1, discard: true })
     })
 
-    it('should accept friction at boundary values', () => {
+    it.effect('should accept friction at boundary values', () => {
       const boundaryValues = [0, 1]
-
-      for (const friction of boundaryValues) {
-        const validProperties = {
-          hardness: 50,
-          transparency: false,
-          solid: true,
-          emissive: false,
-          friction,
-        }
-
-        const result = Schema.decode(BlockPropertiesSchema)(validProperties)
-        const decoded = Effect.runSync(result)
-
-        expect(decoded.friction).toBe(friction)
-      }
+      return Effect.forEach(boundaryValues, (friction) =>
+        Effect.gen(function* () {
+          const validProperties = {
+            hardness: 50,
+            transparency: false,
+            solid: true,
+            emissive: false,
+            friction,
+          }
+          const decoded = yield* Schema.decode(BlockPropertiesSchema)(validProperties)
+          expect(decoded.friction).toBe(friction)
+        })
+      , { concurrency: 1, discard: true })
     })
   })
 
   describe('boolean properties', () => {
-    it('should accept all boolean combinations', () => {
+    it.effect('should accept all boolean combinations', () => {
       const combinations = [
         { transparency: true, solid: true, emissive: true },
         { transparency: true, solid: true, emissive: false },
@@ -134,30 +131,28 @@ describe('BlockPropertiesSchema', () => {
         { transparency: false, solid: false, emissive: true },
         { transparency: false, solid: false, emissive: false },
       ]
-
-      for (const { transparency, solid, emissive } of combinations) {
-        const validProperties = {
-          hardness: 50,
-          transparency,
-          solid,
-          emissive,
-          friction: 0.5,
-        }
-
-        const result = Schema.decode(BlockPropertiesSchema)(validProperties)
-        const decoded = Effect.runSync(result)
-
-        expect(decoded.transparency).toBe(transparency)
-        expect(decoded.solid).toBe(solid)
-        expect(decoded.emissive).toBe(emissive)
-      }
+      return Effect.forEach(combinations, ({ transparency, solid, emissive }) =>
+        Effect.gen(function* () {
+          const validProperties = {
+            hardness: 50,
+            transparency,
+            solid,
+            emissive,
+            friction: 0.5,
+          }
+          const decoded = yield* Schema.decode(BlockPropertiesSchema)(validProperties)
+          expect(decoded.transparency).toBe(transparency)
+          expect(decoded.solid).toBe(solid)
+          expect(decoded.emissive).toBe(emissive)
+        })
+      , { concurrency: 1, discard: true })
     })
   })
 })
 
 describe('Block', () => {
   describe('make', () => {
-    it('should create a valid block using Schema.make', () => {
+    it.effect('should create a valid block using Schema.make', () => {
       const blockData = {
         id: 'block:test' as const,
         type: 'STONE' as const,
@@ -177,15 +172,15 @@ describe('Block', () => {
           west: true,
         },
       }
-
-      const result = Schema.decode(Block)(blockData)
-      const block = Effect.runSync(result)
-      expect(block).toEqual(blockData)
+      return Effect.gen(function* () {
+        const block = yield* Schema.decode(Block)(blockData)
+        expect(block).toEqual(blockData)
+      })
     })
   })
 
   describe('decode', () => {
-    it('should decode a valid block', () => {
+    it.effect('should decode a valid block', () => {
       const blockData = {
         id: 'block:stone' as const,
         type: 'STONE' as const,
@@ -205,14 +200,13 @@ describe('Block', () => {
           west: true,
         },
       }
-
-      const result = Schema.decode(Block)(blockData)
-      const decoded = Effect.runSync(result)
-
-      expect(decoded).toEqual(blockData)
+      return Effect.gen(function* () {
+        const decoded = yield* Schema.decode(Block)(blockData)
+        expect(decoded).toEqual(blockData)
+      })
     })
 
-    it('should reject block with invalid properties', () => {
+    it.effect('should reject block with invalid properties', () => {
       const invalidBlockData = {
         id: 'block:invalid' as const,
         type: 'STONE' as const,
@@ -232,45 +226,44 @@ describe('Block', () => {
           west: true,
         },
       }
-
-      const result = Schema.decode(Block)(invalidBlockData)
-      expect(() => Effect.runSync(result)).toThrow()
+      return Effect.gen(function* () {
+        const result = yield* Effect.either(Schema.decode(Block)(invalidBlockData))
+        expect(Either.isLeft(result)).toBe(true)
+      })
     })
 
-    it('should decode all twelve block types', () => {
+    it.effect('should decode all twelve block types', () => {
       const blockTypes = ['AIR', 'DIRT', 'STONE', 'WOOD', 'GRASS', 'SAND', 'WATER', 'LEAVES', 'GLASS', 'SNOW', 'GRAVEL', 'COBBLESTONE'] as const
-
-      for (const type of blockTypes) {
-        const blockData = {
-          id: `block:${type.toLowerCase()}` as const,
-          type,
-          properties: {
-            hardness: type === 'AIR' ? 0 : 50,
-            transparency: type === 'AIR',
-            solid: type !== 'AIR',
-            emissive: type === 'GRASS',
-            friction: 0.6,
-          },
-          faces: {
-            top: type !== 'AIR',
-            bottom: type !== 'AIR',
-            north: type !== 'AIR',
-            south: type !== 'AIR',
-            east: type !== 'AIR',
-            west: type !== 'AIR',
-          },
-        }
-
-        const result = Schema.decode(Block)(blockData)
-        const decoded = Effect.runSync(result)
-
-        expect(decoded.type).toBe(type)
-      }
+      return Effect.forEach(blockTypes, (type) =>
+        Effect.gen(function* () {
+          const blockData = {
+            id: `block:${type.toLowerCase()}` as const,
+            type,
+            properties: {
+              hardness: type === 'AIR' ? 0 : 50,
+              transparency: type === 'AIR',
+              solid: type !== 'AIR',
+              emissive: type === 'GRASS',
+              friction: 0.6,
+            },
+            faces: {
+              top: type !== 'AIR',
+              bottom: type !== 'AIR',
+              north: type !== 'AIR',
+              south: type !== 'AIR',
+              east: type !== 'AIR',
+              west: type !== 'AIR',
+            },
+          }
+          const decoded = yield* Schema.decode(Block)(blockData)
+          expect(decoded.type).toBe(type)
+        })
+      , { concurrency: 1, discard: true })
     })
   })
 
   describe('encode', () => {
-    it('should encode a block', () => {
+    it.effect('should encode a block', () => {
       const block = new Block({
         id: Schema.decodeSync(BlockIdSchema)('block:stone'),
         type: 'STONE' as const,
@@ -290,11 +283,10 @@ describe('Block', () => {
           west: true,
         },
       })
-
-      const result = Schema.encodeUnknown(Block)(block)
-      const encoded = Effect.runSync(result)
-
-      expect(encoded).toEqual(block)
+      return Effect.gen(function* () {
+        const encoded = yield* Schema.encodeUnknown(Block)(block)
+        expect(encoded).toEqual(block)
+      })
     })
   })
 })

@@ -1,5 +1,6 @@
-import { describe, it } from 'vitest'
-import { Effect, Layer, Option } from 'effect'
+import { describe, it } from '@effect/vitest'
+import { expect } from 'vitest'
+import { Array as Arr, Effect, Layer, Option } from 'effect'
 import * as fc from 'effect/FastCheck'
 import type { Block, BlockType } from '@/domain/block'
 import { BlockRegistry } from '@/domain/block-registry'
@@ -65,164 +66,132 @@ describe('application/hotbar/hotbar-service (property-based)', () => {
   // Invariant: the resulting slot is always in [0, HOTBAR_SIZE - 1].
   // -------------------------------------------------------------------------
   describe('wheel scroll wrap invariants', () => {
-    it('slot stays within [0, HOTBAR_SIZE-1] after any wheel scroll from any starting slot', async () => {
-      await fc.assert(
-        fc.asyncProperty(
-          fc.integer({ min: 0, max: HOTBAR_SIZE - 1 }),
-          fc.oneof(
-            fc.integer({ min: 1, max: 10_000 }),
-            fc.integer({ min: -10_000, max: -1 }),
-          ),
-          async (startSlot, wheelDelta) => {
-            const inputService = createTestInputService()
-            const TestLayer = createTestLayer(inputService)
+    it.effect.prop(
+      'slot stays within [0, HOTBAR_SIZE-1] after any wheel scroll from any starting slot',
+      {
+        startSlot: fc.integer({ min: 0, max: HOTBAR_SIZE - 1 }),
+        wheelDelta: fc.oneof(
+          fc.integer({ min: 1, max: 10_000 }),
+          fc.integer({ min: -10_000, max: -1 }),
+        ),
+      },
+      ({ startSlot, wheelDelta }) => {
+        const inputService = createTestInputService()
+        const TestLayer = createTestLayer(inputService)
 
-            const slot = await Effect.runPromise(
-              Effect.gen(function* () {
-                const service = yield* HotbarService
-                yield* service.setSelectedSlot(asSlotIndex(startSlot))
-                inputService.setWheelDelta(wheelDelta)
-                yield* service.update()
-                return yield* service.getSelectedSlot()
-              }).pipe(Effect.provide(TestLayer))
-            )
+        return Effect.gen(function* () {
+          const service = yield* HotbarService
+          yield* service.setSelectedSlot(asSlotIndex(startSlot))
+          inputService.setWheelDelta(wheelDelta)
+          yield* service.update()
+          const slot = yield* service.getSelectedSlot()
+          expect(slot >= 0 && slot < HOTBAR_SIZE).toBe(true)
+        }).pipe(Effect.provide(TestLayer))
+      }
+    )
 
-            return slot >= 0 && slot < HOTBAR_SIZE
-          }
-        )
-      )
-    })
+    it.effect.prop(
+      'scrolling forward from any slot lands at (current + 1) % HOTBAR_SIZE',
+      { startSlot: fc.integer({ min: 0, max: HOTBAR_SIZE - 1 }) },
+      ({ startSlot }) => {
+        const inputService = createTestInputService()
+        const TestLayer = createTestLayer(inputService)
 
-    it('scrolling forward from any slot lands at (current + 1) % HOTBAR_SIZE', async () => {
-      await fc.assert(
-        fc.asyncProperty(
-          fc.integer({ min: 0, max: HOTBAR_SIZE - 1 }),
-          async (startSlot) => {
-            const inputService = createTestInputService()
-            const TestLayer = createTestLayer(inputService)
+        return Effect.gen(function* () {
+          const service = yield* HotbarService
+          yield* service.setSelectedSlot(asSlotIndex(startSlot))
+          inputService.setWheelDelta(100) // positive → direction +1
+          yield* service.update()
+          const slot = yield* service.getSelectedSlot()
+          const expected = (startSlot + 1) % HOTBAR_SIZE
+          expect(slot).toBe(expected)
+        }).pipe(Effect.provide(TestLayer))
+      }
+    )
 
-            const slot = await Effect.runPromise(
-              Effect.gen(function* () {
-                const service = yield* HotbarService
-                yield* service.setSelectedSlot(asSlotIndex(startSlot))
-                inputService.setWheelDelta(100) // positive → direction +1
-                yield* service.update()
-                return yield* service.getSelectedSlot()
-              }).pipe(Effect.provide(TestLayer))
-            )
+    it.effect.prop(
+      'scrolling backward from any slot lands at (current - 1 + HOTBAR_SIZE) % HOTBAR_SIZE',
+      { startSlot: fc.integer({ min: 0, max: HOTBAR_SIZE - 1 }) },
+      ({ startSlot }) => {
+        const inputService = createTestInputService()
+        const TestLayer = createTestLayer(inputService)
 
-            const expected = (startSlot + 1) % HOTBAR_SIZE
-            return slot === expected
-          }
-        )
-      )
-    })
+        return Effect.gen(function* () {
+          const service = yield* HotbarService
+          yield* service.setSelectedSlot(asSlotIndex(startSlot))
+          inputService.setWheelDelta(-100) // negative → direction -1
+          yield* service.update()
+          const slot = yield* service.getSelectedSlot()
+          const expected = ((startSlot - 1) + HOTBAR_SIZE) % HOTBAR_SIZE
+          expect(slot).toBe(expected)
+        }).pipe(Effect.provide(TestLayer))
+      }
+    )
 
-    it('scrolling backward from any slot lands at (current - 1 + HOTBAR_SIZE) % HOTBAR_SIZE', async () => {
-      await fc.assert(
-        fc.asyncProperty(
-          fc.integer({ min: 0, max: HOTBAR_SIZE - 1 }),
-          async (startSlot) => {
-            const inputService = createTestInputService()
-            const TestLayer = createTestLayer(inputService)
+    it.effect.prop(
+      'scrolling forward HOTBAR_SIZE times returns to the starting slot',
+      { startSlot: fc.integer({ min: 0, max: HOTBAR_SIZE - 1 }) },
+      ({ startSlot }) => {
+        const inputService = createTestInputService()
+        const TestLayer = createTestLayer(inputService)
 
-            const slot = await Effect.runPromise(
-              Effect.gen(function* () {
-                const service = yield* HotbarService
-                yield* service.setSelectedSlot(asSlotIndex(startSlot))
-                inputService.setWheelDelta(-100) // negative → direction -1
-                yield* service.update()
-                return yield* service.getSelectedSlot()
-              }).pipe(Effect.provide(TestLayer))
-            )
+        return Effect.gen(function* () {
+          const service = yield* HotbarService
+          yield* service.setSelectedSlot(asSlotIndex(startSlot))
 
-            const expected = ((startSlot - 1) + HOTBAR_SIZE) % HOTBAR_SIZE
-            return slot === expected
-          }
-        )
-      )
-    })
+          yield* Effect.forEach(Arr.makeBy(HOTBAR_SIZE, () => undefined), () => Effect.gen(function* () {
+            inputService.setWheelDelta(100)
+            yield* service.update()
+          }), { concurrency: 1 })
 
-    it('scrolling forward HOTBAR_SIZE times returns to the starting slot', async () => {
-      await fc.assert(
-        fc.asyncProperty(
-          fc.integer({ min: 0, max: HOTBAR_SIZE - 1 }),
-          async (startSlot) => {
-            const inputService = createTestInputService()
-            const TestLayer = createTestLayer(inputService)
+          const finalSlot = yield* service.getSelectedSlot()
+          expect(finalSlot).toBe(startSlot)
+        }).pipe(Effect.provide(TestLayer))
+      }
+    )
 
-            const finalSlot = await Effect.runPromise(
-              Effect.gen(function* () {
-                const service = yield* HotbarService
-                yield* service.setSelectedSlot(asSlotIndex(startSlot))
+    it.effect.prop(
+      'scrolling backward HOTBAR_SIZE times returns to the starting slot',
+      { startSlot: fc.integer({ min: 0, max: HOTBAR_SIZE - 1 }) },
+      ({ startSlot }) => {
+        const inputService = createTestInputService()
+        const TestLayer = createTestLayer(inputService)
 
-                for (let i = 0; i < HOTBAR_SIZE; i++) {
-                  inputService.setWheelDelta(100)
-                  yield* service.update()
-                }
+        return Effect.gen(function* () {
+          const service = yield* HotbarService
+          yield* service.setSelectedSlot(asSlotIndex(startSlot))
 
-                return yield* service.getSelectedSlot()
-              }).pipe(Effect.provide(TestLayer))
-            )
+          yield* Effect.forEach(Arr.makeBy(HOTBAR_SIZE, () => undefined), () => Effect.gen(function* () {
+            inputService.setWheelDelta(-100)
+            yield* service.update()
+          }), { concurrency: 1 })
 
-            return finalSlot === startSlot
-          }
-        )
-      )
-    })
+          const finalSlot = yield* service.getSelectedSlot()
+          expect(finalSlot).toBe(startSlot)
+        }).pipe(Effect.provide(TestLayer))
+      }
+    )
 
-    it('scrolling backward HOTBAR_SIZE times returns to the starting slot', async () => {
-      await fc.assert(
-        fc.asyncProperty(
-          fc.integer({ min: 0, max: HOTBAR_SIZE - 1 }),
-          async (startSlot) => {
-            const inputService = createTestInputService()
-            const TestLayer = createTestLayer(inputService)
+    it.effect.prop(
+      'delta magnitude does not affect step size (always moves by exactly 1)',
+      {
+        startSlot: fc.integer({ min: 0, max: HOTBAR_SIZE - 1 }),
+        magnitude: fc.integer({ min: 1, max: 1_000_000 }),
+      },
+      ({ startSlot, magnitude }) => {
+        const inputService = createTestInputService()
+        const TestLayer = createTestLayer(inputService)
 
-            const finalSlot = await Effect.runPromise(
-              Effect.gen(function* () {
-                const service = yield* HotbarService
-                yield* service.setSelectedSlot(asSlotIndex(startSlot))
-
-                for (let i = 0; i < HOTBAR_SIZE; i++) {
-                  inputService.setWheelDelta(-100)
-                  yield* service.update()
-                }
-
-                return yield* service.getSelectedSlot()
-              }).pipe(Effect.provide(TestLayer))
-            )
-
-            return finalSlot === startSlot
-          }
-        )
-      )
-    })
-
-    it('delta magnitude does not affect step size (always moves by exactly 1)', async () => {
-      await fc.assert(
-        fc.asyncProperty(
-          fc.integer({ min: 0, max: HOTBAR_SIZE - 1 }),
-          fc.integer({ min: 1, max: 1_000_000 }),
-          async (startSlot, magnitude) => {
-            const inputService = createTestInputService()
-            const TestLayer = createTestLayer(inputService)
-
-            const slot = await Effect.runPromise(
-              Effect.gen(function* () {
-                const service = yield* HotbarService
-                yield* service.setSelectedSlot(asSlotIndex(startSlot))
-                inputService.setWheelDelta(magnitude)
-                yield* service.update()
-                return yield* service.getSelectedSlot()
-              }).pipe(Effect.provide(TestLayer))
-            )
-
-            const expected = (startSlot + 1) % HOTBAR_SIZE
-            return slot === expected
-          }
-        )
-      )
-    })
+        return Effect.gen(function* () {
+          const service = yield* HotbarService
+          yield* service.setSelectedSlot(asSlotIndex(startSlot))
+          inputService.setWheelDelta(magnitude)
+          yield* service.update()
+          const slot = yield* service.getSelectedSlot()
+          const expected = (startSlot + 1) % HOTBAR_SIZE
+          expect(slot).toBe(expected)
+        }).pipe(Effect.provide(TestLayer))
+      }
+    )
   })
 })

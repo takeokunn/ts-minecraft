@@ -65,128 +65,112 @@ describe('CrosshairService', () => {
     }
 
     describe('show', () => {
-      it('should append crosshair element to document body', () => {
+      it.effect('should append crosshair element to document body', () => {
         const { TestLayer, appendChildMock } = createMockDomLayer()
 
-        const program = Effect.gen(function* () {
+        return Effect.gen(function* () {
           const crosshair = yield* CrosshairService
           yield* crosshair.show()
-        })
 
-        Effect.runSync(program.pipe(Effect.provide(TestLayer)))
-
-        expect(appendChildMock).toHaveBeenCalledTimes(1)
+          expect(appendChildMock).toHaveBeenCalledTimes(1)
+        }).pipe(Effect.provide(TestLayer))
       })
 
-      it('should set visible to true after show', () => {
+      it.effect('should set visible to true after show', () => {
         const { TestLayer } = createMockDomLayer()
 
-        const program = Effect.gen(function* () {
+        return Effect.gen(function* () {
           const crosshair = yield* CrosshairService
           yield* crosshair.show()
-          return yield* crosshair.isVisible()
-        })
+          const result = yield* crosshair.isVisible()
 
-        const result = Effect.runSync(program.pipe(Effect.provide(TestLayer)))
-
-        expect(result).toBe(true)
+          expect(result).toBe(true)
+        }).pipe(Effect.provide(TestLayer))
       })
 
-      it('should not append element twice if already visible', () => {
+      it.effect('should not append element twice if already visible', () => {
         const { TestLayer, appendChildMock } = createMockDomLayer()
 
-        const program = Effect.gen(function* () {
+        return Effect.gen(function* () {
           const crosshair = yield* CrosshairService
           yield* crosshair.show()
           yield* crosshair.show()
-        })
 
-        Effect.runSync(program.pipe(Effect.provide(TestLayer)))
-
-        expect(appendChildMock).toHaveBeenCalledTimes(1)
+          expect(appendChildMock).toHaveBeenCalledTimes(1)
+        }).pipe(Effect.provide(TestLayer))
       })
     })
 
     describe('hide', () => {
-      it('should remove crosshair element from document body when visible', () => {
+      it.effect('should remove crosshair element from document body when visible', () => {
         const { TestLayer, removeChildMock } = createMockDomLayer()
 
-        const program = Effect.gen(function* () {
+        return Effect.gen(function* () {
           const crosshair = yield* CrosshairService
           yield* crosshair.show()
           yield* crosshair.hide()
-        })
 
-        Effect.runSync(program.pipe(Effect.provide(TestLayer)))
-
-        expect(removeChildMock).toHaveBeenCalledTimes(1)
+          expect(removeChildMock).toHaveBeenCalledTimes(1)
+        }).pipe(Effect.provide(TestLayer))
       })
 
-      it('should set visible to false after hide', () => {
+      it.effect('should set visible to false after hide', () => {
         const { TestLayer } = createMockDomLayer()
 
-        const program = Effect.gen(function* () {
+        return Effect.gen(function* () {
           const crosshair = yield* CrosshairService
           yield* crosshair.show()
           yield* crosshair.hide()
-          return yield* crosshair.isVisible()
-        })
+          const result = yield* crosshair.isVisible()
 
-        const result = Effect.runSync(program.pipe(Effect.provide(TestLayer)))
-
-        expect(result).toBe(false)
+          expect(result).toBe(false)
+        }).pipe(Effect.provide(TestLayer))
       })
 
-      it('should do nothing if not visible', () => {
+      it.effect('should do nothing if not visible', () => {
         const { TestLayer, removeChildMock } = createMockDomLayer()
 
-        const program = Effect.gen(function* () {
+        return Effect.gen(function* () {
           const crosshair = yield* CrosshairService
           yield* crosshair.hide()
-        })
 
-        Effect.runSync(program.pipe(Effect.provide(TestLayer)))
-
-        expect(removeChildMock).not.toHaveBeenCalled()
+          expect(removeChildMock).not.toHaveBeenCalled()
+        }).pipe(Effect.provide(TestLayer))
       })
     })
 
     describe('toggle', () => {
-      it('should show crosshair when hidden', () => {
+      it.effect('should show crosshair when hidden', () => {
         const { TestLayer, appendChildMock } = createMockDomLayer()
 
-        const program = Effect.gen(function* () {
+        return Effect.gen(function* () {
           const crosshair = yield* CrosshairService
           yield* crosshair.toggle()
-          return yield* crosshair.isVisible()
-        })
+          const result = yield* crosshair.isVisible()
 
-        const result = Effect.runSync(program.pipe(Effect.provide(TestLayer)))
-
-        expect(result).toBe(true)
-        expect(appendChildMock).toHaveBeenCalled()
+          expect(result).toBe(true)
+          expect(appendChildMock).toHaveBeenCalled()
+        }).pipe(Effect.provide(TestLayer))
       })
 
-      it('should hide crosshair when visible', () => {
+      it.effect('should hide crosshair when visible', () => {
         const { TestLayer, removeChildMock } = createMockDomLayer()
 
-        const program = Effect.gen(function* () {
+        return Effect.gen(function* () {
           const crosshair = yield* CrosshairService
           yield* crosshair.show()
           yield* crosshair.toggle()
-          return yield* crosshair.isVisible()
-        })
+          const result = yield* crosshair.isVisible()
 
-        const result = Effect.runSync(program.pipe(Effect.provide(TestLayer)))
-
-        expect(result).toBe(false)
-        expect(removeChildMock).toHaveBeenCalled()
+          expect(result).toBe(false)
+          expect(removeChildMock).toHaveBeenCalled()
+        }).pipe(Effect.provide(TestLayer))
       })
 
-      it('should toggle visibility correctly through multiple cycles', () => {
+      it.effect('should toggle visibility correctly through multiple cycles', () => {
         const { TestLayer, appendChildMock, removeChildMock } = createMockDomLayer()
 
-        const program = Effect.gen(function* () {
+        return Effect.gen(function* () {
           const crosshair = yield* CrosshairService
 
           // Initially hidden
@@ -205,100 +189,88 @@ describe('CrosshairService', () => {
 
           // Toggle to show again
           yield* crosshair.toggle()
-          return yield* crosshair.isVisible()
-        })
+          const result = yield* crosshair.isVisible()
 
-        const result = Effect.runSync(program.pipe(Effect.provide(TestLayer)))
-
-        expect(result).toBe(true)
-        expect(appendChildMock).toHaveBeenCalledTimes(2)
-        expect(removeChildMock).toHaveBeenCalledTimes(1)
+          expect(result).toBe(true)
+          expect(appendChildMock).toHaveBeenCalledTimes(2)
+          expect(removeChildMock).toHaveBeenCalledTimes(1)
+        }).pipe(Effect.provide(TestLayer))
       })
     })
 
     describe('isVisible', () => {
-      it('should return false initially', () => {
+      it.effect('should return false initially', () => {
         const { TestLayer } = createMockDomLayer()
 
-        const program = Effect.gen(function* () {
+        return Effect.gen(function* () {
           const crosshair = yield* CrosshairService
-          return yield* crosshair.isVisible()
-        })
+          const result = yield* crosshair.isVisible()
 
-        const result = Effect.runSync(program.pipe(Effect.provide(TestLayer)))
-
-        expect(result).toBe(false)
+          expect(result).toBe(false)
+        }).pipe(Effect.provide(TestLayer))
       })
 
-      it('should return true after show', () => {
+      it.effect('should return true after show', () => {
         const { TestLayer } = createMockDomLayer()
 
-        const program = Effect.gen(function* () {
+        return Effect.gen(function* () {
           const crosshair = yield* CrosshairService
           yield* crosshair.show()
-          return yield* crosshair.isVisible()
-        })
+          const result = yield* crosshair.isVisible()
 
-        const result = Effect.runSync(program.pipe(Effect.provide(TestLayer)))
-
-        expect(result).toBe(true)
+          expect(result).toBe(true)
+        }).pipe(Effect.provide(TestLayer))
       })
 
-      it('should return false after hide', () => {
+      it.effect('should return false after hide', () => {
         const { TestLayer } = createMockDomLayer()
 
-        const program = Effect.gen(function* () {
+        return Effect.gen(function* () {
           const crosshair = yield* CrosshairService
           yield* crosshair.show()
           yield* crosshair.hide()
-          return yield* crosshair.isVisible()
-        })
+          const result = yield* crosshair.isVisible()
 
-        const result = Effect.runSync(program.pipe(Effect.provide(TestLayer)))
-
-        expect(result).toBe(false)
+          expect(result).toBe(false)
+        }).pipe(Effect.provide(TestLayer))
       })
     })
 
     describe('element structure', () => {
-      it('should create crosshair element with correct id', () => {
+      it.effect('should create crosshair element with correct id', () => {
         const { TestLayer, getCreatedElements } = createMockDomLayer()
 
-        const program = Effect.gen(function* () {
+        return Effect.gen(function* () {
           const crosshair = yield* CrosshairService
           yield* crosshair.show()
-        })
 
-        Effect.runSync(program.pipe(Effect.provide(TestLayer)))
-
-        const elements = getCreatedElements()
-        // First element is the container (crosshair)
-        expect(Option.getOrThrow(Arr.get(elements, 0)).id).toBe('crosshair')
+          const elements = getCreatedElements()
+          // First element is the container (crosshair)
+          expect(Option.getOrThrow(Arr.get(elements, 0)).id).toBe('crosshair')
+        }).pipe(Effect.provide(TestLayer))
       })
 
-      it('should create two line elements (horizontal and vertical)', () => {
+      it.effect('should create two line elements (horizontal and vertical)', () => {
         const { TestLayer, getCreatedElements } = createMockDomLayer()
 
-        const program = Effect.gen(function* () {
+        return Effect.gen(function* () {
           const crosshair = yield* CrosshairService
           yield* crosshair.show()
-        })
 
-        Effect.runSync(program.pipe(Effect.provide(TestLayer)))
-
-        const elements = getCreatedElements()
-        // First element is the container, next two are the lines
-        expect(elements.length).toBe(3)
-        // The container should have 2 children
-        expect(Option.getOrThrow(Arr.get(elements, 0)).children.length).toBe(2)
+          const elements = getCreatedElements()
+          // First element is the container, next two are the lines
+          expect(elements.length).toBe(3)
+          // The container should have 2 children
+          expect(Option.getOrThrow(Arr.get(elements, 0)).children.length).toBe(2)
+        }).pipe(Effect.provide(TestLayer))
       })
     })
 
     describe('integration', () => {
-      it('should handle show -> hide -> show cycle correctly', () => {
+      it.effect('should handle show -> hide -> show cycle correctly', () => {
         const { TestLayer, appendChildMock, removeChildMock } = createMockDomLayer()
 
-        const program = Effect.gen(function* () {
+        return Effect.gen(function* () {
           const crosshair = yield* CrosshairService
 
           // Show
@@ -311,20 +283,18 @@ describe('CrosshairService', () => {
 
           // Show again
           yield* crosshair.show()
-          return yield* crosshair.isVisible()
-        })
+          const result = yield* crosshair.isVisible()
 
-        const result = Effect.runSync(program.pipe(Effect.provide(TestLayer)))
-
-        expect(result).toBe(true)
-        expect(appendChildMock).toHaveBeenCalledTimes(2)
-        expect(removeChildMock).toHaveBeenCalledTimes(1)
+          expect(result).toBe(true)
+          expect(appendChildMock).toHaveBeenCalledTimes(2)
+          expect(removeChildMock).toHaveBeenCalledTimes(1)
+        }).pipe(Effect.provide(TestLayer))
       })
 
-      it('should maintain correct visibility state through multiple operations', () => {
+      it.effect('should maintain correct visibility state through multiple operations', () => {
         const { TestLayer } = createMockDomLayer()
 
-        const program = Effect.gen(function* () {
+        return Effect.gen(function* () {
           const crosshair = yield* CrosshairService
 
           const states: boolean[] = []
@@ -346,12 +316,8 @@ describe('CrosshairService', () => {
           yield* crosshair.show()
           states.push(yield* crosshair.isVisible()) // true
 
-          return states
-        })
-
-        const result = Effect.runSync(program.pipe(Effect.provide(TestLayer)))
-
-        expect(result).toEqual([false, true, false, true, false, true])
+          expect(states).toEqual([false, true, false, true, false, true])
+        }).pipe(Effect.provide(TestLayer))
       })
     })
   })

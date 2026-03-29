@@ -29,18 +29,20 @@ export const MouseButton = {
 export class InputService extends Effect.Service<InputService>()(
   '@minecraft/presentation/InputService',
   {
-    scoped: Effect.gen(function* () {
+    scoped: Effect.all([
       // Refs for all mutable input state — DOM handlers use Effect.runSync for synchronous access
-      const pressedKeysRef = yield* Ref.make(HashSet.empty<string>())
+      Ref.make(HashSet.empty<string>()),
       // Track keys that were just pressed this frame (for consumeKeyPress)
-      const justPressedKeysRef = yield* Ref.make(HashSet.empty<string>())
-      const mouseDeltaRef = yield* Ref.make({ x: 0, y: 0 })
+      Ref.make(HashSet.empty<string>()),
+      Ref.make({ x: 0, y: 0 }),
       // Track mouse button state (0=left, 1=middle, 2=right)
-      const mouseButtonsRef = yield* Ref.make(HashMap.empty<number, boolean>())
+      Ref.make(HashMap.empty<number, boolean>()),
       // Track mouse buttons that were just clicked this frame (for consumeMouseClick)
-      const justClickedButtonsRef = yield* Ref.make(HashSet.empty<number>())
+      Ref.make(HashSet.empty<number>()),
       // Accumulated mouse wheel delta (positive = scroll down)
-      const wheelDeltaRef = yield* Ref.make(0)
+      Ref.make(0),
+    ], { concurrency: 'unbounded' }).pipe(
+      Effect.flatMap(([pressedKeysRef, justPressedKeysRef, mouseDeltaRef, mouseButtonsRef, justClickedButtonsRef, wheelDeltaRef]) => {
 
       // Keyboard event handlers
       const handleKeyDown = (event: KeyboardEvent) => {
@@ -97,33 +99,33 @@ export class InputService extends Effect.Service<InputService>()(
         e.preventDefault()
       }
 
-      // Register all event listeners and schedule cleanup via finalizer
-      if (typeof window !== 'undefined' && typeof document !== 'undefined') {
-        yield* Effect.acquireRelease(
-          Effect.sync(() => {
-            document.addEventListener('keydown', handleKeyDown)
-            document.addEventListener('keyup', handleKeyUp)
-            document.addEventListener('mousemove', handleMouseMove)
-            document.addEventListener('mousedown', handleMouseDown)
-            document.addEventListener('mouseup', handleMouseUp)
-            document.addEventListener('contextmenu', handleContextMenu)
-            // Wheel event for hotbar cycling; passive:false required to allow preventDefault
-            document.addEventListener('wheel', handleWheel, { passive: false })
-          }),
-          () =>
-            Effect.sync(() => {
-              document.removeEventListener('keydown', handleKeyDown)
-              document.removeEventListener('keyup', handleKeyUp)
-              document.removeEventListener('mousemove', handleMouseMove)
-              document.removeEventListener('mousedown', handleMouseDown)
-              document.removeEventListener('mouseup', handleMouseUp)
-              document.removeEventListener('contextmenu', handleContextMenu)
-              document.removeEventListener('wheel', handleWheel)
-            }),
-        )
-      }
+        // Register all event listeners and schedule cleanup via finalizer
+        const registerListeners = typeof window !== 'undefined' && typeof document !== 'undefined'
+          ? Effect.acquireRelease(
+              Effect.sync(() => {
+                document.addEventListener('keydown', handleKeyDown)
+                document.addEventListener('keyup', handleKeyUp)
+                document.addEventListener('mousemove', handleMouseMove)
+                document.addEventListener('mousedown', handleMouseDown)
+                document.addEventListener('mouseup', handleMouseUp)
+                document.addEventListener('contextmenu', handleContextMenu)
+                // Wheel event for hotbar cycling; passive:false required to allow preventDefault
+                document.addEventListener('wheel', handleWheel, { passive: false })
+              }),
+              () =>
+                Effect.sync(() => {
+                  document.removeEventListener('keydown', handleKeyDown)
+                  document.removeEventListener('keyup', handleKeyUp)
+                  document.removeEventListener('mousemove', handleMouseMove)
+                  document.removeEventListener('mousedown', handleMouseDown)
+                  document.removeEventListener('mouseup', handleMouseUp)
+                  document.removeEventListener('contextmenu', handleContextMenu)
+                  document.removeEventListener('wheel', handleWheel)
+                }),
+            )
+          : Effect.void
 
-      return {
+        return registerListeners.pipe(Effect.as({
         isKeyPressed: (key: string): Effect.Effect<boolean, never> =>
           Ref.get(pressedKeysRef).pipe(Effect.map((s) => HashSet.has(s, key))),
 
@@ -163,8 +165,9 @@ export class InputService extends Effect.Service<InputService>()(
 
         consumeWheelDelta: (): Effect.Effect<number, never> =>
           Ref.modify(wheelDeltaRef, (delta) => [delta, 0]),
-      }
-    }),
+        }))
+      })
+    ),
   }
 ) {}
 export const InputServiceLive = InputService.Default
@@ -172,19 +175,15 @@ export const InputServiceLive = InputService.Default
 export const PlayerInputServiceLive: Layer.Layer<PlayerInputService, never, InputService> =
   Layer.effect(
     PlayerInputService,
-    Effect.gen(function* () {
-      const input = yield* InputService
-      // Effect.Service adds a `_tag` discriminant to every instance type, so plain objects
-      // cannot satisfy InstanceType<typeof PlayerInputService> without a cast.
-      // The double cast is intentional and safe: the layer graph provides this object
-      // via Layer.effect(PlayerInputService, ...) which only accesses the 5 declared methods.
-      const impl = {
-        isKeyPressed: (key: string) => input.isKeyPressed(key),
-        consumeKeyPress: (key: string) => input.consumeKeyPress(key),
-        consumeWheelDelta: () => input.consumeWheelDelta(),
-        getMouseDelta: () => input.getMouseDelta(),
-        isPointerLocked: () => input.isPointerLocked(),
-      }
-      return impl as unknown as PlayerInputService
-    })
+    // Effect.Service adds a `_tag` discriminant to every instance type, so plain objects
+    // cannot satisfy InstanceType<typeof PlayerInputService> without a cast.
+    // The double cast is intentional and safe: the layer graph provides this object
+    // via Layer.effect(PlayerInputService, ...) which only accesses the 5 declared methods.
+    Effect.map(InputService, (input) => ({
+      isKeyPressed: (key: string) => input.isKeyPressed(key),
+      consumeKeyPress: (key: string) => input.consumeKeyPress(key),
+      consumeWheelDelta: () => input.consumeWheelDelta(),
+      getMouseDelta: () => input.getMouseDelta(),
+      isPointerLocked: () => input.isPointerLocked(),
+    } as unknown as PlayerInputService))
   )

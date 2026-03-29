@@ -27,12 +27,11 @@ export { HOTBAR_SIZE }
 export class HotbarService extends Effect.Service<HotbarService>()(
   '@minecraft/application/HotbarService',
   {
-    effect: Effect.gen(function* () {
-      const inputService = yield* PlayerInputService
-      const inventoryService = yield* InventoryService
-
-      const selectedSlotRef = yield* Ref.make<SlotIndex>(SlotIndex.make(0))
-
+    effect: Effect.all([
+      PlayerInputService,
+      InventoryService,
+      Ref.make<SlotIndex>(SlotIndex.make(0)),
+    ], { concurrency: 'unbounded' }).pipe(Effect.map(([inputService, inventoryService, selectedSlotRef]) => {
       const hotbarKeys: ReadonlyArray<string> = [
         KeyMappings.HOTBAR_SLOT_1,
         KeyMappings.HOTBAR_SLOT_2,
@@ -111,7 +110,7 @@ export class HotbarService extends Effect.Service<HotbarService>()(
             }
           }),
       }
-    }),
+    }))
   }
 ) {}
 

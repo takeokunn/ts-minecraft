@@ -104,8 +104,7 @@ const tryCatchStorageWithRetry = <A>(operation: string, fn: () => Promise<A>): E
 export class StorageService extends Effect.Service<StorageService>()(
   '@minecraft/infrastructure/storage/StorageService',
   {
-    effect: Effect.gen(function* () {
-      const dbRef = yield* Ref.make<Option.Option<TypedIDBDatabase<MinecraftWorldsDB>>>(Option.none())
+    effect: Ref.make<Option.Option<TypedIDBDatabase<MinecraftWorldsDB>>>(Option.none()).pipe(Effect.map((dbRef) => {
 
       const initialize: Effect.Effect<void, StorageError> = Effect.gen(function* () {
         yield* Option.match(yield* Ref.get(dbRef), {
@@ -224,7 +223,7 @@ export class StorageService extends Effect.Service<StorageService>()(
         loadWorldMetadata,
         deleteWorld,
       }
-    }),
+    })),
   }
 ) {}
 export const StorageServiceLive = StorageService.Default

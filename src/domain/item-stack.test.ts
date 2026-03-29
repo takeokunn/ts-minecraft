@@ -1,5 +1,5 @@
 import { describe, it } from '@effect/vitest'
-import { Effect, Option, Schema } from 'effect'
+import { Array as Arr, Effect, Either, Option, Schema } from 'effect'
 import { expect } from 'vitest'
 import {
   ItemStack,
@@ -71,12 +71,13 @@ describe('ItemStack', () => {
       ).toThrow()
     })
 
-    it('should decode via Schema.decode (Effect-based)', () => {
-      const result = Schema.decode(ItemStack)({ blockType: 'WOOD', count: 10 })
-      const decoded = Effect.runSync(result)
-      expect(decoded.blockType).toBe('WOOD')
-      expect(decoded.count).toBe(10)
-    })
+    it.effect('should decode via Schema.decode (Effect-based)', () =>
+      Effect.gen(function* () {
+        const decoded = yield* Schema.decode(ItemStack)({ blockType: 'WOOD', count: 10 })
+        expect(decoded.blockType).toBe('WOOD')
+        expect(decoded.count).toBe(10)
+      })
+    )
   })
 })
 
@@ -181,9 +182,7 @@ describe('removeFromStack', () => {
     const stack = createStack('STONE', 5)
     const result = removeFromStack(stack, 3)
     expect(Option.isSome(result)).toBe(true)
-    if (Option.isSome(result)) {
-      expect(result.value.count).toBe(2)
-    }
+    expect(Option.getOrThrow(result).count).toBe(2)
   })
 
   it('should preserve blockType in remaining Option.some stack', () => {
@@ -261,9 +260,7 @@ describe('mergeStacks', () => {
     const [newA, remainderB] = mergeStacks(a, b)
     expect(newA.count).toBe(64)
     expect(Option.isSome(remainderB)).toBe(true)
-    if (Option.isSome(remainderB)) {
-      expect(remainderB.value.count).toBe(6)
-    }
+    expect(Option.getOrThrow(remainderB).count).toBe(6)
   })
 
   it('should leave remainder when combined count exceeds MAX_STACK_SIZE (50 + 30 overflow)', () => {
@@ -281,9 +278,7 @@ describe('mergeStacks', () => {
     const [newA, remainderB] = mergeStacks(a, b)
     expect(newA.count).toBe(64)
     expect(Option.isSome(remainderB)).toBe(true)
-    if (Option.isSome(remainderB)) {
-      expect(remainderB.value.count).toBe(5)
-    }
+    expect(Option.getOrThrow(remainderB).count).toBe(5)
   })
 
   it('should return original A unchanged and all of B as remainder when A is full (MAX_STACK_SIZE)', () => {
@@ -334,9 +329,7 @@ describe('mergeStacks', () => {
     const b = createStack('WOOD', 10)
     const [, remainderB] = mergeStacks(a, b)
     expect(Option.isSome(remainderB)).toBe(true)
-    if (Option.isSome(remainderB)) {
-      expect(remainderB.value.blockType).toBe('WOOD')
-    }
+    expect(Option.getOrThrow(remainderB).blockType).toBe('WOOD')
   })
 
   it('should exactly fill A to MAX_STACK_SIZE and produce no remainder when fit is perfect (32 + 32)', () => {
@@ -381,11 +374,11 @@ describe('createStack edge cases', () => {
 
   it('should work for all block types', () => {
     const types = ['AIR', 'DIRT', 'STONE', 'WOOD', 'GRASS', 'SAND', 'WATER', 'LEAVES', 'GLASS', 'SNOW', 'GRAVEL', 'COBBLESTONE'] as const
-    for (const t of types) {
+    Arr.forEach(types, (t) => {
       const stack = createStack(t, 10)
       expect(stack.blockType).toBe(t)
       expect(stack.count).toBe(10)
-    }
+    })
   })
 })
 
@@ -432,28 +425,23 @@ describe('removeFromStack edge cases', () => {
     const stack = createStack('WOOD', 2)
     const result = removeFromStack(stack, 1)
     expect(Option.isSome(result)).toBe(true)
-    if (Option.isSome(result)) {
-      expect(result.value.count).toBe(1)
-      expect(result.value.blockType).toBe('WOOD')
-    }
+    const unwrapped = Option.getOrThrow(result)
+    expect(unwrapped.count).toBe(1)
+    expect(unwrapped.blockType).toBe('WOOD')
   })
 
   it('should return some with count=63 when removing 1 from full stack', () => {
     const stack = createStack('GRASS', 64)
     const result = removeFromStack(stack, 1)
     expect(Option.isSome(result)).toBe(true)
-    if (Option.isSome(result)) {
-      expect(result.value.count).toBe(63)
-    }
+    expect(Option.getOrThrow(result).count).toBe(63)
   })
 
   it('should handle removing 0 items (partial: returns some with same count)', () => {
     const stack = createStack('STONE', 10)
     const result = removeFromStack(stack, 0)
     expect(Option.isSome(result)).toBe(true)
-    if (Option.isSome(result)) {
-      expect(result.value.count).toBe(10)
-    }
+    expect(Option.getOrThrow(result).count).toBe(10)
   })
 })
 
@@ -465,10 +453,9 @@ describe('mergeStacks edge cases', () => {
     expect(newA.count).toBe(10)
     expect(newA.blockType).toBe('DIRT')
     expect(Option.isSome(remainderB)).toBe(true)
-    if (Option.isSome(remainderB)) {
-      expect(remainderB.value.count).toBe(20)
-      expect(remainderB.value.blockType).toBe('STONE')
-    }
+    const unwrapped = Option.getOrThrow(remainderB)
+    expect(unwrapped.count).toBe(20)
+    expect(unwrapped.blockType).toBe('STONE')
   })
 
   it('should return unchanged A and B as some when types differ (WOOD vs GLASS)', () => {
@@ -477,9 +464,7 @@ describe('mergeStacks edge cases', () => {
     const [newA, remainderB] = mergeStacks(a, b)
     expect(newA.count).toBe(32)
     expect(Option.isSome(remainderB)).toBe(true)
-    if (Option.isSome(remainderB)) {
-      expect(remainderB.value.count).toBe(16)
-    }
+    expect(Option.getOrThrow(remainderB).count).toBe(16)
   })
 
   it('should handle merging into empty-like stack (1 + 63 = 64, no remainder)', () => {
@@ -496,9 +481,7 @@ describe('mergeStacks edge cases', () => {
     const [newA, remainderB] = mergeStacks(a, b)
     expect(newA.count).toBe(64)
     expect(Option.isSome(remainderB)).toBe(true)
-    if (Option.isSome(remainderB)) {
-      expect(remainderB.value.count).toBe(64)
-    }
+    expect(Option.getOrThrow(remainderB).count).toBe(64)
   })
 
   it('should handle merging B of count 1 into nearly full A (63 + 1 = 64)', () => {
@@ -570,10 +553,10 @@ describe('ItemStack Schema validation', () => {
 
   it('should accept all twelve block types', () => {
     const types = ['AIR', 'DIRT', 'STONE', 'WOOD', 'GRASS', 'SAND', 'WATER', 'LEAVES', 'GLASS', 'SNOW', 'GRAVEL', 'COBBLESTONE'] as const
-    for (const t of types) {
+    Arr.forEach(types, (t) => {
       const result = Schema.decodeUnknownSync(ItemStack)({ blockType: t, count: 1 })
       expect(result.blockType).toBe(t)
-    }
+    })
   })
 
   it('should accept boundary count values (1 and 64)', () => {
@@ -583,15 +566,18 @@ describe('ItemStack Schema validation', () => {
     expect(max.count).toBe(64)
   })
 
-  it('should decode via Effect-based Schema.decode', () => {
-    const result = Schema.decode(ItemStack)({ blockType: 'LEAVES', count: 16 })
-    const decoded = Effect.runSync(result)
-    expect(decoded.blockType).toBe('LEAVES')
-    expect(decoded.count).toBe(16)
-  })
+  it.effect('should decode via Effect-based Schema.decode', () =>
+    Effect.gen(function* () {
+      const decoded = yield* Schema.decode(ItemStack)({ blockType: 'LEAVES', count: 16 })
+      expect(decoded.blockType).toBe('LEAVES')
+      expect(decoded.count).toBe(16)
+    })
+  )
 
-  it('should fail Effect-based Schema.decode for invalid data', () => {
-    const result = Schema.decodeUnknown(ItemStack)({ blockType: 'INVALID', count: 1 })
-    expect(() => Effect.runSync(result)).toThrow()
-  })
+  it.effect('should fail Effect-based Schema.decode for invalid data', () =>
+    Effect.gen(function* () {
+      const result = yield* Effect.either(Schema.decodeUnknown(ItemStack)({ blockType: 'INVALID', count: 1 }))
+      expect(Either.isLeft(result)).toBe(true)
+    })
+  )
 })

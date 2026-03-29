@@ -31,19 +31,17 @@ const QUEUE_CAPACITY = 60
 export class GameLoopService extends Effect.Service<GameLoopService>()(
   '@minecraft/application/GameLoopService',
   {
-    effect: Effect.gen(function* () {
-      // INTENTIONAL: plain boolean for rAF hot path; cannot use Effect inside rAF callback
-      let _isRunning = false
-
+    effect: Effect.all([
       // Holds the current frame queue (recreated on each start)
-      const frameQueueRef = yield* Ref.make<Option.Option<Queue.Queue<FrameCommand>>>(Option.none())
-
+      Ref.make<Option.Option<Queue.Queue<FrameCommand>>>(Option.none()),
       // Holds the current processing fiber (None when stopped)
-      const processingFiberRef = yield* Ref.make<Option.Option<Fiber.RuntimeFiber<void, never>>>(Option.none())
-
+      Ref.make<Option.Option<Fiber.RuntimeFiber<void, never>>>(Option.none()),
       // animationFrameId as Ref — written via Effect.runSync inside the rAF bridge,
       // read via yield* in stop(). Consistent with hotbar-three.ts camera Ref pattern.
-      const animationFrameIdRef = yield* Ref.make<Option.Option<number>>(Option.none())
+      Ref.make<Option.Option<number>>(Option.none()),
+    ], { concurrency: 'unbounded' }).pipe(Effect.map(([frameQueueRef, processingFiberRef, animationFrameIdRef]) => {
+      // INTENTIONAL: plain boolean for rAF hot path; cannot use Effect inside rAF callback
+      let _isRunning = false
 
       return {
         /**
@@ -182,7 +180,7 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
 
         isRunning: (): Effect.Effect<boolean, never> => Effect.succeed(_isRunning),
       }
-    }),
+    })),
   }
 ) {}
 

@@ -25,13 +25,10 @@ type TimeState = Schema.Schema.Type<typeof TimeStateSchema>
 export class TimeService extends Effect.Service<TimeService>()(
   '@minecraft/application/TimeService',
   {
-    effect: Effect.gen(function* () {
-      const stateRef = yield* Ref.make<TimeState>({
-        ticks: 0,
-        dayLengthTicks: 24000,  // 400 seconds at 60fps
-      })
-
-      return {
+    effect: Ref.make<TimeState>({
+      ticks: 0,
+      dayLengthTicks: 24000,  // 400 seconds at 60fps
+    }).pipe(Effect.map((stateRef) => ({
         advanceTick: (deltaTime: DeltaTimeSecs): Effect.Effect<void, never> =>
           Ref.update(stateRef, (state) => ({
             ...state,
@@ -67,8 +64,7 @@ export class TimeService extends Effect.Service<TimeService>()(
             ...state,
             ticks: Math.max(0, Math.min(0.9999, fraction)) * state.dayLengthTicks, // 0.9999 avoids exact midnight wrap
           })),
-      }
-    }),
+    })))
   }
 ) {}
 

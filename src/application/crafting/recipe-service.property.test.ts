@@ -54,12 +54,13 @@ describe('recipe-service / findCraftable (property-based)', () => {
               const augmentedIds = HashSet.fromIterable(Arr.map(rs.findCraftable(augmentedMap), (r) => r.id))
 
               // Every recipe craftable from base must still be craftable from augmented
-              for (const id of baseIds) {
+              let allPresent = true
+              Arr.forEach(Arr.fromIterable(baseIds), id => {
                 if (!HashSet.has(augmentedIds, id)) {
-                  return false
+                  allPresent = false
                 }
-              }
-              return true
+              })
+              return allPresent
             }
           )
         )
@@ -127,11 +128,11 @@ describe('recipe-service / findCraftable (property-based)', () => {
         const craftableIds = HashSet.fromIterable(Arr.map(craftable, (r) => r.id))
 
         // All known recipes must be craftable when all ingredients are available
-        for (const id of allIds) {
+        Arr.forEach(Arr.fromIterable(allIds), id => {
           if (!HashSet.has(craftableIds, id)) {
             throw new Error(`Recipe ${id} should be craftable with fully stocked inventory`)
           }
-        }
+        })
       }).pipe(Effect.provide(RecipeService.Default))
   )
 })

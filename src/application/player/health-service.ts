@@ -16,11 +16,8 @@ const INITIAL_STATE: HealthState = {
 export class HealthService extends Effect.Service<HealthService>()(
   '@minecraft/application/HealthService',
   {
-    effect: Effect.gen(function* () {
-      // Single Ref for all health-related state — reset() is atomic, coupling is explicit
-      const stateRef = yield* Ref.make<HealthState>(INITIAL_STATE)
-
-      return {
+    // Single Ref for all health-related state — reset() is atomic, coupling is explicit
+    effect: Ref.make<HealthState>(INITIAL_STATE).pipe(Effect.map((stateRef) => ({
         getHealth: (): Effect.Effect<PlayerHealth, never> =>
           Ref.get(stateRef).pipe(Effect.map((s) => s.health)),
 
@@ -98,8 +95,7 @@ export class HealthService extends Effect.Service<HealthService>()(
         // Atomic reset: single Ref.set restores both health and fall state simultaneously
         reset: (): Effect.Effect<void, never> =>
           Ref.set(stateRef, INITIAL_STATE),
-      }
-    }),
+    })))
   }
 ) {}
 export const HealthServiceLive = HealthService.Default

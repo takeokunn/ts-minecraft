@@ -55,29 +55,27 @@ const ZERO_VEC3 = Object.freeze({ x: 0, y: 0, z: 0 })
 export class GameStateService extends Effect.Service<GameStateService>()(
   '@minecraft/application/GameStateService',
   {
-    effect: Effect.gen(function* () {
-      const playerService = yield* PlayerService
-      const physicsService = yield* PhysicsService
-      const movementService = yield* MovementService
-      const cameraState = yield* PlayerCameraStateService
-
+    effect: Effect.all([
+      PlayerService,
+      PhysicsService,
+      MovementService,
+      PlayerCameraStateService,
       // Timing state (deltaTime initial value uses a first-frame estimate of 16ms at 60fps)
-      const timingStateRef = yield* Ref.make<TimingState>({
+      Ref.make<TimingState>({
         lastFrameTime: 0,
         deltaTime: DeltaTimeSecs.make(FIRST_FRAME_DELTA_SECS),
         frameCount: 0,
-      })
-
+      }),
       // Opaque physics body ID for the player (replaces CANNON.Body ref)
-      const playerBodyIdRef = yield* Ref.make<Option.Option<PhysicsBodyId>>(Option.none())
-      const playerId = DEFAULT_PLAYER_ID
+      Ref.make<Option.Option<PhysicsBodyId>>(Option.none()),
       // Stored ground plane Y for post-step fall-through correction
-      const groundYRef = yield* Ref.make<number>(0)
-
+      Ref.make<number>(0),
       // Jump override flag: when the player jumps, contact state may persist
       // for one frame before clearing. This flag overrides isGrounded to return false
       // immediately after a jump, matching the behaviour of the old clearGroundedState.
-      const jumpOverrideRef = yield* Ref.make<boolean>(false)
+      Ref.make<boolean>(false),
+    ], { concurrency: 'unbounded' }).pipe(Effect.map(([playerService, physicsService, movementService, cameraState, timingStateRef, playerBodyIdRef, groundYRef, jumpOverrideRef]) => {
+      const playerId = DEFAULT_PLAYER_ID
 
       /**
        * Internal helper: get whether the player is currently grounded.
@@ -255,7 +253,7 @@ export class GameStateService extends Effect.Service<GameStateService>()(
         updateGroundY: (y: number): Effect.Effect<void, never> =>
           Ref.set(groundYRef, y),
       }
-    }),
+    })),
   }
 ) {}
 export const GameStateServiceLive = GameStateService.Default

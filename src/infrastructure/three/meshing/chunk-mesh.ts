@@ -1,22 +1,97 @@
 import { Array as Arr, Effect, Option } from 'effect'
 import * as THREE from 'three'
-import { Chunk, CHUNK_SIZE, blockTypeToIndex } from '@/domain/chunk'
+import { Chunk } from '@/domain/chunk'
 import { TextureError } from '@/domain'
 import { ATLAS_COLS, ATLAS_SIZE } from '../textures/block-texture-map'
-import { greedyMeshChunk, MeshedChunk } from './greedy-meshing'
+import { MeshedChunk } from './greedy-meshing'
+import { MeshingWorkerPool } from './meshing-worker-pool'
 
 const TILE_PX = ATLAS_SIZE / ATLAS_COLS  // 32
 
-const TRANSPARENT_BLOCK_IDS = new Set([blockTypeToIndex('WATER')])
+// ─── Draw-call batching strategy ─────────────────────────────────────────────
+//
+// Why InstancedMesh is NOT used for chunk rendering:
+//
+// InstancedMesh requires many copies of the *same* geometry placed at different
+// positions via per-instance transforms. It excels for particle systems, foliage
+// billboards, or entity models where thousands of identical meshes exist.
+//
+// Chunk terrain does NOT fit this pattern because:
+// 1. Greedy meshing (greedy-meshing.ts) already merges adjacent same-type blocks
+//    into maximal rectangles. Each chunk produces a SINGLE merged BufferGeometry
+//    with variable-size quads — not repeated identical geometry.
+// 2. Each chunk's geometry is unique (different block arrangements, face counts,
+//    AO values). There is no "template" geometry to instance.
+// 3. One chunk = one draw call for opaque geometry (+ optionally one for water).
+//    With render distance 8, that's ~200 opaque draw calls — well within GPU
+//    command-buffer budgets. InstancedMesh would not reduce this.
+//
+// Current draw-call reduction techniques already in place:
+// - Single shared MeshLambertMaterial (atlas texture) across ALL opaque chunks
+// - Single shared ShaderMaterial across ALL water chunks
+// - frustumCulled=false + manual AABB frustum culling in WorldRendererService
+//   (cheaper than Three.js per-object bounding-sphere checks)
+// - Shadow distance culling: castShadow disabled beyond shadow camera range
+// - In-place GPU buffer reuse (tryReuseGeometry) avoids reallocation on update
+// - Vertex colors encode per-vertex AO; no per-block-type material switching
+//
+// If InstancedMesh becomes beneficial in the future, candidates would be:
+// - Entity rendering (mobs: cow, pig, sheep, zombie — identical box models)
+// - Particle effects (block break particles, water splash)
+// - Dropped item models
+// ─────────────────────────────────────────────────────────────────────────────
 
 const buildGeometry = (meshed: MeshedChunk): THREE.BufferGeometry => {
   const geometry = new THREE.BufferGeometry()
   geometry.setAttribute('position', new THREE.BufferAttribute(meshed.positions, 3))
-  geometry.setAttribute('normal', new THREE.BufferAttribute(meshed.normals, 3))
-  geometry.setAttribute('color', new THREE.BufferAttribute(meshed.colors, 3))
+  geometry.setAttribute('normal', new THREE.BufferAttribute(meshed.normals, 3, true))
+  geometry.setAttribute('color', new THREE.BufferAttribute(meshed.colors, 3, true))
   geometry.setAttribute('uv', new THREE.BufferAttribute(meshed.uvs, 2))
   geometry.setIndex(new THREE.BufferAttribute(meshed.indices, 1))
   return geometry
+}
+
+// Performance boundary: reuse existing GPU buffers when capacity is sufficient.
+// Returns true if in-place update succeeded, false if caller must do full rebuild.
+//
+// Accepts MeshedChunk (owned arrays from worker transfer or toMeshed() slice).
+// With worker-sourced data the .slice() allocation happens in the worker thread,
+// so the main thread only pays for the GPU copy here — no intermediate GC pressure.
+const tryReuseGeometry = (geometry: THREE.BufferGeometry, meshed: MeshedChunk): boolean => {
+  const oldPositionAttr = geometry.getAttribute('position') as THREE.BufferAttribute | undefined
+  if (!oldPositionAttr || oldPositionAttr.array.length < meshed.positions.length) return false
+
+  ;(oldPositionAttr.array as Float32Array).set(meshed.positions)
+  ;(oldPositionAttr as { count: number }).count = meshed.positions.length / 3
+  oldPositionAttr.needsUpdate = true
+
+  const normalAttr = geometry.getAttribute('normal') as THREE.BufferAttribute
+  ;(normalAttr.array as Int8Array).set(meshed.normals)
+  ;(normalAttr as { count: number }).count = meshed.normals.length / 3
+  normalAttr.needsUpdate = true
+
+  const colorAttr = geometry.getAttribute('color') as THREE.BufferAttribute
+  ;(colorAttr.array as Uint8Array).set(meshed.colors)
+  ;(colorAttr as { count: number }).count = meshed.colors.length / 3
+  colorAttr.needsUpdate = true
+
+  const uvAttr = geometry.getAttribute('uv') as THREE.BufferAttribute
+  ;(uvAttr.array as Float32Array).set(meshed.uvs)
+  ;(uvAttr as { count: number }).count = meshed.uvs.length / 2
+  uvAttr.needsUpdate = true
+
+  const indexAttr = geometry.getIndex()
+  if (indexAttr && indexAttr.array.length >= meshed.indices.length) {
+    ;(indexAttr.array as Uint32Array).set(meshed.indices)
+    ;(indexAttr as { count: number }).count = meshed.indices.length
+    indexAttr.needsUpdate = true
+    geometry.setDrawRange(0, meshed.indices.length)
+  } else {
+    geometry.setIndex(new THREE.BufferAttribute(meshed.indices, 1))
+    geometry.setDrawRange(0, meshed.indices.length)
+  }
+
+  return true
 }
 
 const buildAtlasTexture = (): Effect.Effect<THREE.Texture, TextureError> =>
@@ -240,6 +315,7 @@ const buildAtlasTexture = (): Effect.Effect<THREE.Texture, TextureError> =>
       const texture = new THREE.CanvasTexture(canvas)
       texture.magFilter = THREE.NearestFilter
       texture.minFilter = THREE.NearestFilter
+      texture.generateMipmaps = false
       texture.wrapS = THREE.ClampToEdgeWrapping
       texture.wrapT = THREE.ClampToEdgeWrapping
       return texture
@@ -251,17 +327,17 @@ export class ChunkMeshService extends Effect.Service<ChunkMeshService>()(
   '@minecraft/infrastructure/three/ChunkMeshService',
   {
     scoped: Effect.gen(function* () {
+      const pool = yield* MeshingWorkerPool
+
       const atlasTexture = yield* Effect.acquireRelease(
         Effect.orDie(buildAtlasTexture()),
         (tex) => Effect.sync(() => tex.dispose())
       )
 
       const sharedMaterial = yield* Effect.acquireRelease(
-        Effect.sync(() => new THREE.MeshStandardMaterial({
+        Effect.sync(() => new THREE.MeshLambertMaterial({
           map: atlasTexture,
           vertexColors: true,
-          roughness: 0.8,
-          metalness: 0,
         })),
         (mat) => Effect.sync(() => mat.dispose())
       )
@@ -273,57 +349,67 @@ export class ChunkMeshService extends Effect.Service<ChunkMeshService>()(
           chunk: Chunk,
           waterMaterial?: THREE.ShaderMaterial
         ): Effect.Effect<{ opaqueMesh: THREE.Mesh; waterMesh: Option.Option<THREE.Mesh> }, never> =>
-          Effect.sync(() => {
-            const meshed = greedyMeshChunk(chunk, {
-              wx: chunk.coord.x * CHUNK_SIZE,
-              wz: chunk.coord.z * CHUNK_SIZE,
-            }, TRANSPARENT_BLOCK_IDS)
+          pool.meshChunk(chunk).pipe(
+            Effect.map(({ opaque, water }) => {
+              const opaqueGeometry = buildGeometry(opaque)
+              // All opaque chunks share ONE material instance (sharedMaterial above) —
+              // this lets Three.js batch state changes and avoids GPU material switches.
+              const opaqueMesh = new THREE.Mesh(opaqueGeometry, sharedMaterial)
+              // Disable Three.js per-object bounding-sphere frustum culling;
+              // WorldRendererService.applyFrustumCulling does chunk-level AABB culling
+              // which is more efficient (known fixed-size boxes, no bounding-sphere compute).
+              opaqueMesh.frustumCulled = false
+              opaqueMesh.castShadow = true
+              opaqueMesh.receiveShadow = true
+              opaqueMesh.userData['chunkCoord'] = chunk.coord
 
-            const opaqueGeometry = buildGeometry(meshed.opaque)
-            const opaqueMesh = new THREE.Mesh(opaqueGeometry, sharedMaterial)
-            opaqueMesh.castShadow = true
-            opaqueMesh.receiveShadow = true
-            opaqueMesh.userData['blockPositions'] = meshed.opaque.blockPositions
-            opaqueMesh.userData['chunkCoord'] = chunk.coord
+              const waterMesh: Option.Option<THREE.Mesh> = water === null || water.positions.length === 0
+                ? Option.none()
+                // All water chunks share ONE ShaderMaterial instance (waterMaterial from WorldRendererService)
+                : Option.map(Option.fromNullable(waterMaterial), (mat) => {
+                    const wm = new THREE.Mesh(buildGeometry(water), mat)
+                    wm.frustumCulled = false  // manual AABB culling in WorldRendererService
+                    wm.castShadow = false
+                    wm.receiveShadow = false
+                    wm.renderOrder = 1
+                    wm.userData['chunkCoord'] = chunk.coord
+                    return wm
+                  })
 
-            const waterMesh: Option.Option<THREE.Mesh> = meshed.water.positions.length === 0
-              ? Option.none()
-              : Option.map(Option.fromNullable(waterMaterial), (mat) => {
-                  const wm = new THREE.Mesh(buildGeometry(meshed.water), mat)
-                  wm.castShadow = false
-                  wm.receiveShadow = false
-                  wm.renderOrder = 1
-                  wm.userData['chunkCoord'] = chunk.coord
-                  return wm
-                })
-
-            return { opaqueMesh, waterMesh }
-          }),
+              return { opaqueMesh, waterMesh }
+            })
+          ),
 
         updateChunkMesh: (
           opaqueMesh: THREE.Mesh,
           waterMesh: Option.Option<THREE.Mesh>,
           chunk: Chunk
         ): Effect.Effect<void, never> =>
-          Effect.sync(() => {
-            const meshed = greedyMeshChunk(chunk, {
-              wx: chunk.coord.x * CHUNK_SIZE,
-              wz: chunk.coord.z * CHUNK_SIZE,
-            }, TRANSPARENT_BLOCK_IDS)
+          pool.meshChunk(chunk).pipe(
+            Effect.map(({ opaque, water }) => {
+              // Opaque mesh: in-place update using owned arrays from worker transfer.
+              // Falls back to full geometry rebuild only when buffer capacity is insufficient.
+              if (!tryReuseGeometry(opaqueMesh.geometry, opaque)) {
+                const oldGeom = opaqueMesh.geometry
+                opaqueMesh.geometry = buildGeometry(opaque)
+                oldGeom.dispose()
+              }
 
-            const oldOpaqueGeometry = opaqueMesh.geometry
-            opaqueMesh.geometry = buildGeometry(meshed.opaque)
-            opaqueMesh.userData['blockPositions'] = meshed.opaque.blockPositions
-            opaqueMesh.userData['chunkCoord'] = chunk.coord
-            oldOpaqueGeometry.dispose()
+              opaqueMesh.userData['chunkCoord'] = { x: chunk.coord.x, z: chunk.coord.z }
 
-            Option.map(waterMesh, (wm) => {
-              const oldWaterGeometry = wm.geometry
-              wm.geometry = buildGeometry(meshed.water)
-              wm.userData['chunkCoord'] = chunk.coord
-              oldWaterGeometry.dispose()
+              // Water mesh: in-place update using owned arrays from worker transfer
+              Option.map(waterMesh, (wm) => {
+                if (water !== null && water.positions.length > 0) {
+                  if (!tryReuseGeometry(wm.geometry, water)) {
+                    const oldWaterGeometry = wm.geometry
+                    wm.geometry = buildGeometry(water)
+                    oldWaterGeometry.dispose()
+                  }
+                }
+                wm.userData['chunkCoord'] = chunk.coord
+              })
             })
-          }),
+          ),
 
         disposeMesh: (mesh: THREE.Mesh): Effect.Effect<void, never> =>
           Effect.sync(() => {
@@ -331,6 +417,7 @@ export class ChunkMeshService extends Effect.Service<ChunkMeshService>()(
           }),
       }
     }),
+    dependencies: [MeshingWorkerPool.Default],
   }
 ) {}
 export const ChunkMeshServiceLive = ChunkMeshService.Default

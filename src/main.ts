@@ -6,7 +6,6 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js'
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js'
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { BokehPass } from 'three/addons/postprocessing/BokehPass.js'
-import { SSRPass } from 'three/addons/postprocessing/SSRPass.js'
 import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js'
 import { Sky } from 'three/addons/objects/Sky.js'
@@ -33,7 +32,7 @@ import { InputService } from '@/presentation/input/input-service'
 import { HotbarRendererService } from '@/presentation/hud/hotbar-three'
 import { FPSCounterService } from '@/presentation/fps-counter'
 import { TimeService } from '@/application/time/time-service'
-import { SettingsService } from '@/application/settings/settings-service'
+import { SettingsService, resolvePreset } from '@/application/settings/settings-service'
 import { SettingsOverlayService } from '@/presentation/settings/settings-overlay'
 import { InventoryRendererService } from '@/presentation/inventory/inventory-renderer'
 import { GameLoopService } from '@/application/game-loop'
@@ -45,7 +44,8 @@ import { VillageService } from '@/village/village-service'
 import { TradingPresentationService } from '@/presentation/trading'
 import { RedstoneService } from '@/redstone/redstone-service'
 import { FluidService } from '@/application/fluid/fluid-service'
-import { CHUNK_HEIGHT, blockIndex } from '@/domain/chunk'
+import { CHUNK_HEIGHT, CHUNK_SIZE, blockIndex } from '@/domain/chunk'
+import { MAX_SHADOW_HALF_EXTENT } from '@/shared/rendering-constants'
 
 import { MainLive } from '@/layers'
 import { createFrameHandler } from '@/frame-handler'
@@ -65,11 +65,10 @@ const SKY_COLOR_DAY = 0x87ceeb  // sky blue
 // Main application
 const mainProgram = Effect.gen(function* () {
   // Get canvas element
-  const canvas = yield* Effect.gen(function* () {
-    const el = yield* Effect.sync(() => document.getElementById('game-canvas'))
-    if (!el) return yield* Effect.fail(new StartupError({ reason: 'Canvas element not found' }))
-    return el as HTMLCanvasElement
-  }).pipe(
+  const canvas = yield* Effect.sync(() => document.getElementById('game-canvas')).pipe(
+    Effect.flatMap((el) => el
+      ? Effect.succeed(el as HTMLCanvasElement)
+      : Effect.fail(new StartupError({ reason: 'Canvas element not found' }))),
     Effect.mapError((error) =>
       error instanceof StartupError ? error : new StartupError({ reason: 'Failed to get canvas', cause: error })
     )
@@ -148,85 +147,88 @@ const mainProgram = Effect.gen(function* () {
   // Create scene
   const scene = yield* sceneService.create()
 
-  // Create camera
+  // Load settings early — needed for dynamic camera far plane before first frame
+  const initialSettings = yield* settingsService.getSettings()
+  const initialGraphics = resolvePreset(initialSettings.graphicsQuality)
+
+  // Create camera with dynamic far plane based on renderDistance.
+  // Formula: renderDistance * CHUNK_SIZE * 1.5 + CHUNK_HEIGHT gives enough depth
+  // to cover the diagonal of the visible chunk area plus full vertical range.
+  // Floor of 300 prevents z-fighting at low render distances.
   const camera = yield* cameraService.create({
     fov: 75,
     aspect: canvas.clientWidth / canvas.clientHeight,
     near: 0.1,
-    far: 1000,
+    far: Math.max(initialSettings.renderDistance * CHUNK_SIZE * 1.5 + CHUNK_HEIGHT, 300),
   })
 
   // EffectComposer: HDR render target required for UnrealBloomPass to work correctly
-  const { composerRT, composer, gtaoPass, ssrPass, godRaysPass, bloomPass, bokehPass, smaaPass } = yield* Effect.sync(() => {
+  // FR-013: Use 8-bit RT when bloom is disabled at startup (50% bandwidth savings).
+  // This is a one-time decision — changing quality mid-session does not recreate the composer.
+  // FR-013: Deferred pass construction — only allocate GPU render targets and compile shaders
+  // for passes that are enabled at startup. Disabled passes get Option.none(), saving VRAM
+  // and startup shader compilation time.
+  const { composerRT, composer, gtaoPass, godRaysPass, bloomPass, bokehPass, smaaPass } = yield* Effect.sync(() => {
+    const composerType = initialGraphics.bloomEnabled ? THREE.HalfFloatType : THREE.UnsignedByteType
     const rt = new THREE.WebGLRenderTarget(
       canvas.clientWidth,
       canvas.clientHeight,
-      { type: THREE.HalfFloatType }
+      { type: composerType }
     )
     const comp = new EffectComposer(renderer, rt)
     comp.addPass(new RenderPass(scene, camera))
 
     // GTAO replaces SSAO (Ground Truth Ambient Occlusion — higher quality)
-    const gtao = new GTAOPass(scene, camera, canvas.clientWidth, canvas.clientHeight)
-    gtao.blendIntensity = 1.0
-    comp.addPass(gtao)
-
-    // SSR (screen-space reflections for water surfaces)
-    // groundReflector is typed as required in SSRPassParams but works as null at runtime
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const ssr = new SSRPass({ renderer, scene, camera, width: canvas.clientWidth, height: canvas.clientHeight, selects: [] as THREE.Mesh[], groundReflector: null } as any)
-    comp.addPass(ssr)
+    const gtao: Option.Option<GTAOPass> = initialGraphics.ssaoEnabled
+      ? Option.some((() => { const p = new GTAOPass(scene, camera, canvas.clientWidth, canvas.clientHeight); p.blendIntensity = 1.0; comp.addPass(p); return p })())
+      : Option.none()
 
     // God rays (crepuscular light shafts — screen-space radial blur)
-    const godRays = new GodRaysPass()
-    comp.addPass(godRays)
+    const godRays: Option.Option<GodRaysPass> = initialGraphics.godRaysEnabled
+      ? Option.some((() => { const p = new GodRaysPass(); comp.addPass(p); return p })())
+      : Option.none()
 
     // Bloom: threshold=0.85 prevents terrain from glowing; only sky/lava-bright surfaces bloom
-    const bloom = new UnrealBloomPass(
-      new THREE.Vector2(canvas.clientWidth, canvas.clientHeight),
-      0.25, // strength
-      0.45, // radius
-      0.9,  // threshold
-    )
-    comp.addPass(bloom)
+    const bloom: Option.Option<UnrealBloomPass> = initialGraphics.bloomEnabled
+      ? Option.some((() => { const p = new UnrealBloomPass(new THREE.Vector2(canvas.clientWidth, canvas.clientHeight), 0.25, 0.45, 0.9); comp.addPass(p); return p })())
+      : Option.none()
 
     // Depth of field (bokeh)
-    const bokeh = new BokehPass(scene, camera, { focus: 10.0, aperture: 0.002, maxblur: 0.02 })
-    comp.addPass(bokeh)
+    const bokeh: Option.Option<BokehPass> = initialGraphics.dofEnabled
+      ? Option.some((() => { const p = new BokehPass(scene, camera, { focus: 10.0, aperture: 0.002, maxblur: 0.02 }); comp.addPass(p); return p })())
+      : Option.none()
 
     // SMAA anti-aliasing (must be after bloom, before OutputPass)
-    const smaa = new SMAAPass(canvas.clientWidth, canvas.clientHeight)
-    comp.addPass(smaa)
+    const smaa: Option.Option<SMAAPass> = initialGraphics.smaaEnabled
+      ? Option.some((() => { const p = new SMAAPass(canvas.clientWidth, canvas.clientHeight); comp.addPass(p); return p })())
+      : Option.none()
 
     comp.addPass(new OutputPass())
 
-    return { composerRT: rt, composer: comp, gtaoPass: gtao, ssrPass: ssr, godRaysPass: godRays, bloomPass: bloom, bokehPass: bokeh, smaaPass: smaa }
+    return { composerRT: rt, composer: comp, gtaoPass: gtao, godRaysPass: godRays, bloomPass: bloom, bokehPass: bokeh, smaaPass: smaa }
   })
 
   // World initialization: load or create world metadata, set noise seed
   const existingMetadata = yield* storageService.loadWorldMetadata(WORLD_ID)
   const baseSpawnPosition = yield* Option.match(existingMetadata, {
-    onSome: (metadata) => Effect.gen(function* () {
-      yield* noiseService.setSeed(metadata.seed)
-      yield* Effect.log(`Loaded world '${WORLD_ID}' with seed ${metadata.seed}`)
+    onSome: (metadata) =>
       // Null-guard: old metadata format may not have playerSpawn (pre-migration)
-      return Option.getOrElse(Option.fromNullable(metadata.playerSpawn), () => ({ x: 0, y: 100, z: 0 }))
-    }),
-    onNone: () => Effect.gen(function* () {
-      const seed = yield* Random.nextIntBetween(0, MAX_SEED_VALUE)
-      yield* noiseService.setSeed(seed)
-      const pos = { x: 0, y: 100, z: 0 }
-      const nowMs = yield* Clock.currentTimeMillis
-      const now = new Date(nowMs)
-      yield* storageService.saveWorldMetadata(WORLD_ID, {
-        seed,
-        createdAt: now,
-        lastPlayed: now,
-        playerSpawn: pos,
-      })
-      yield* Effect.log(`Created new world '${WORLD_ID}' with seed ${seed}`)
-      return pos
-    }),
+      noiseService.setSeed(metadata.seed).pipe(
+        Effect.andThen(Effect.log(`Loaded world '${WORLD_ID}' with seed ${metadata.seed}`)),
+        Effect.as(Option.getOrElse(Option.fromNullable(metadata.playerSpawn), () => ({ x: 0, y: 100, z: 0 })))
+      ),
+    onNone: () =>
+      Effect.all([Random.nextIntBetween(0, MAX_SEED_VALUE), Clock.currentTimeMillis], { concurrency: 'unbounded' }).pipe(
+        Effect.flatMap(([seed, nowMs]) => {
+          const pos = { x: 0, y: 100, z: 0 }
+          const now = new Date(nowMs)
+          return noiseService.setSeed(seed).pipe(
+            Effect.andThen(storageService.saveWorldMetadata(WORLD_ID, { seed, createdAt: now, lastPlayed: now, playerSpawn: pos })),
+            Effect.andThen(Effect.log(`Created new world '${WORLD_ID}' with seed ${seed}`)),
+            Effect.as(pos)
+          )
+        })
+      ),
   })
 
   // Auto-save: persist dirty chunks every 5 seconds using Effect scheduler
@@ -267,19 +269,25 @@ const mainProgram = Effect.gen(function* () {
   )
   const spawnPosition = { ...baseSpawnPosition, y: surfaceY + 1 + 3 }
 
+  // initialSettings + initialGraphics loaded earlier (before camera creation) for dynamic far plane
+
   // Add directional light (sun — intensity driven by day/night cycle)
   const light = yield* Effect.sync(() => {
     const l = new THREE.DirectionalLight(SUN_COLOR, 1)
-    // Configure shadow map: high-res shadow map for sharper world lighting
-    l.shadow.mapSize.width = 4096
-    l.shadow.mapSize.height = 4096
+    // Shadow map: 2048 balances quality and GPU memory (was 4096 — 75% memory reduction)
+    l.shadow.mapSize.width = 2048
+    l.shadow.mapSize.height = 2048
     l.shadow.camera.near = 0.5
-    l.shadow.camera.far = 500
-    l.shadow.camera.left = -128
-    l.shadow.camera.right = 128
-    l.shadow.camera.top = 128
-    l.shadow.camera.bottom = -128
+    l.shadow.camera.far = Math.max(initialSettings.renderDistance * CHUNK_SIZE * 1.5 + CHUNK_HEIGHT, 300)
+    // Shadow frustum sized to renderDistance — tighter frustum = higher texel density.
+    // Half the chunk span gives good coverage without wasting shadow map on distant terrain.
+    const shadowHalfExtent = Math.min(Math.ceil(initialSettings.renderDistance * CHUNK_SIZE * 0.5), MAX_SHADOW_HALF_EXTENT)
+    l.shadow.camera.left = -shadowHalfExtent
+    l.shadow.camera.right = shadowHalfExtent
+    l.shadow.camera.top = shadowHalfExtent
+    l.shadow.camera.bottom = -shadowHalfExtent
     l.position.set(5, 10, 7)
+    l.castShadow = initialGraphics.shadowsEnabled
     return l
   })
   yield* sceneService.add(scene, light)
@@ -299,10 +307,8 @@ const mainProgram = Effect.gen(function* () {
   yield* sceneService.add(scene, sky)
   const skyPort = yield* Effect.sync(() => {
     const skyShaderMaterial = sky.material as THREE.ShaderMaterial
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    skyShaderMaterial.uniforms['mieCoefficient']!.value = 0.005
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    skyShaderMaterial.uniforms['mieDirectionalG']!.value = 0.7
+    Option.match(Option.fromNullable(skyShaderMaterial.uniforms['mieCoefficient']), { onNone: () => {}, onSome: (u) => { u.value = 0.005 } })
+    Option.match(Option.fromNullable(skyShaderMaterial.uniforms['mieDirectionalG']), { onNone: () => {}, onSome: (u) => { u.value = 0.7 } })
 
     // SkyMaterialPort: duck-typed view of sky uniforms for DayNightLightsPort
     return {
@@ -331,14 +337,49 @@ const mainProgram = Effect.gen(function* () {
   yield* hotbarRenderer.initialize(canvas.clientWidth, canvas.clientHeight)
 
   // Apply initial day length from persisted settings, then set time to noon for visibility
-  const initialSettings = yield* settingsService.getSettings()
-    // Apply initial shadow state from persisted settings
-    yield* Effect.sync(() => { light.castShadow = initialSettings.shadowsEnabled })
-    yield* timeService.setDayLength(initialSettings.dayLengthSeconds)
-    yield* timeService.setTimeOfDay(0.35)
+  yield* timeService.setDayLength(initialSettings.dayLengthSeconds)
+  yield* timeService.setTimeOfDay(0.35)
 
   // Show crosshair
   yield* crosshair.show()
+
+  // Canvas resize handler: update renderer, camera, composer, and all resolution-dependent passes.
+  // Without this, resizing the browser window produces stretched/blurry rendering.
+  const handleResize = () => {
+    const w = canvas.clientWidth
+    const h = canvas.clientHeight
+    if (w === 0 || h === 0) return
+    const dpr = Math.min(window.devicePixelRatio, 2)
+    renderer.setPixelRatio(dpr)
+    renderer.setSize(w, h)
+    camera.aspect = w / h
+    camera.updateProjectionMatrix()
+    composerRT.setSize(w, h)
+    composer.setSize(w, h)
+    // Only resize passes that were created AND are currently enabled — prevents VRAM
+    // re-expansion on window resize for passes disabled by graphics preset (FR-006).
+    // The frame handler manages each pass's `enabled` flag based on settings.
+    const gtaoOrNull = Option.getOrNull(gtaoPass)
+    const bloomOrNull = Option.getOrNull(bloomPass)
+    const bokehOrNull = Option.getOrNull(bokehPass)
+    const smaaOrNull = Option.getOrNull(smaaPass)
+    const godRaysOrNull = Option.getOrNull(godRaysPass)
+    if (gtaoOrNull && gtaoOrNull.enabled) gtaoOrNull.setSize(w, h)
+    if (bloomOrNull && bloomOrNull.enabled) bloomOrNull.setSize(w, h)
+    if (bokehOrNull && bokehOrNull.enabled) bokehOrNull.setSize(w, h)
+    if (smaaOrNull && smaaOrNull.enabled) smaaOrNull.setSize(w, h)
+    if (godRaysOrNull && godRaysOrNull.enabled) godRaysOrNull.setSize(w, h)
+    // Refraction RT stays at half canvas resolution — water distortion hides low-res detail
+    Effect.runFork(
+      Effect.all([
+        worldRendererService.resizeRefractionRT(Math.ceil(w / 2), Math.ceil(h / 2)),
+        worldRendererService.updateWaterResolution(w, h),
+        worldRendererService.resizeRefractionCamera(w / h),
+      ], { concurrency: 'unbounded', discard: true }).pipe(
+        Effect.catchAllCause((cause) => Effect.logError(`Resize error: ${Cause.pretty(cause)}`))
+      )
+    )
+  }
 
   // Define named handlers so removeEventListener can match the same reference
   const handleVisibilityChange = () => {
@@ -355,7 +396,7 @@ const mainProgram = Effect.gen(function* () {
     Effect.runFork(chunkManagerService.saveDirtyChunks().pipe(Effect.catchAllCause(() => Effect.void)))
   }
   const handleCanvasClick = () => {
-    Effect.runSync(
+    Effect.runFork(
       inputService.requestPointerLock().pipe(
         Effect.catchAllCause((cause) => Effect.logError('pointer lock failed', cause))
       )
@@ -364,11 +405,13 @@ const mainProgram = Effect.gen(function* () {
 
   yield* Effect.acquireRelease(
     Effect.sync(() => {
+      window.addEventListener('resize', handleResize)
       document.addEventListener('visibilitychange', handleVisibilityChange)
       window.addEventListener('beforeunload', handleBeforeUnload)
       canvas.addEventListener('click', handleCanvasClick)
     }),
     () => Effect.sync(() => {
+      window.removeEventListener('resize', handleResize)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       window.removeEventListener('beforeunload', handleBeforeUnload)
       canvas.removeEventListener('click', handleCanvasClick)
@@ -378,12 +421,11 @@ const mainProgram = Effect.gen(function* () {
   yield* Effect.acquireRelease(
     Effect.void,
     () => Effect.sync(() => {
-      gtaoPass.dispose()
-      bloomPass.dispose()
-      bokehPass.dispose()
-      ssrPass.dispose()
-      godRaysPass.dispose()
-      smaaPass.dispose()
+      Option.match(gtaoPass, { onNone: () => {}, onSome: (p) => p.dispose() })
+      Option.match(bloomPass, { onNone: () => {}, onSome: (p) => p.dispose() })
+      Option.match(bokehPass, { onNone: () => {}, onSome: (p) => p.dispose() })
+      Option.match(godRaysPass, { onNone: () => {}, onSome: (p) => p.dispose() })
+      Option.match(smaaPass, { onNone: () => {}, onSome: (p) => p.dispose() })
       composerRT.dispose()
       composer.dispose()
     })
@@ -413,10 +455,9 @@ const mainProgram = Effect.gen(function* () {
       healthValueElement: Option.fromNullable(healthValueElement),
       healthMaxElement: Option.fromNullable(healthMaxElement),
       gamePausedRef,
-      composer,
+      composer: Option.some(composer),
       gtaoPass,
       bloomPass,
-      ssrPass,
       dofPass: bokehPass,
       godRaysPass,
       smaaPass,

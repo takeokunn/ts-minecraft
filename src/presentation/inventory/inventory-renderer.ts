@@ -16,13 +16,13 @@ const DEFAULT_SLOT_COLOR = '#333333'
 export class InventoryRendererService extends Effect.Service<InventoryRendererService>()(
   '@minecraft/presentation/InventoryRenderer',
   {
-    scoped: Effect.gen(function* () {
-      const inventoryService = yield* InventoryService
-      const hotbarService = yield* HotbarService
-      const dom = yield* DomOperationsService
-
-      const isVisibleRef = yield* Ref.make(false)
-
+    scoped: Effect.all([
+      InventoryService,
+      HotbarService,
+      DomOperationsService,
+      Ref.make(false),
+    ], { concurrency: 'unbounded' }).pipe(
+      Effect.flatMap(([inventoryService, hotbarService, dom, isVisibleRef]) => {
       const getSlotColor = (blockType: BlockType | string): string =>
         Option.getOrElse(Option.fromNullable(SLOT_COLORS[blockType]), () => DEFAULT_SLOT_COLOR)
 
@@ -39,8 +39,7 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
         return el
       }
 
-      // Build DOM once — yields const bindings, eliminates mutable let declarations
-      const { overlayEl, slotEls } = yield* Effect.sync((): { overlayEl: Option.Option<HTMLDivElement>; slotEls: HTMLDivElement[] } => {
+      return Effect.sync((): { overlayEl: Option.Option<HTMLDivElement>; slotEls: HTMLDivElement[] } => {
         if (typeof document === 'undefined') return { overlayEl: Option.none(), slotEls: [] }
 
         const el = dom.createElement('div') as HTMLDivElement
@@ -80,84 +79,85 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
         dom.appendChild(el)
 
         return { overlayEl: Option.some(el), slotEls: Arr.appendAll(mainSlots, hotbarSlots) }
-      })
-
-      const handleDelegatedClick = (event: MouseEvent) => {
-        Option.map(
-          Option.fromNullable((event.target as HTMLElement).closest('[data-slot]') as HTMLElement | null),
-          (target) => {
-            const index = parseInt(Option.getOrElse(Option.fromNullable(target.dataset['slot']), () => '-1'), 10)
-            if (index < 0 || index >= INVENTORY_SIZE) return
-            Effect.runFork(
-              Effect.gen(function* () {
-                const selectedSlot = yield* hotbarService.getSelectedSlot()
-                const hotbarInventoryIndex = HOTBAR_START + SlotIndex.toNumber(selectedSlot)
-                yield* inventoryService.moveStack(SlotIndex.make(index), SlotIndex.make(hotbarInventoryIndex))
-              }).pipe(
-                Effect.catchAllCause(cause =>
-                  Effect.logError(`Inventory click error: ${Cause.pretty(cause)}`)
+      }).pipe(
+        Effect.flatMap(({ overlayEl, slotEls }) => {
+        const handleDelegatedClick = (event: MouseEvent) => {
+          Option.map(
+            Option.fromNullable((event.target as HTMLElement).closest('[data-slot]') as HTMLElement | null),
+            (target) => {
+              const index = parseInt(Option.getOrElse(Option.fromNullable(target.dataset['slot']), () => '-1'), 10)
+              if (index < 0 || index >= INVENTORY_SIZE) return
+              Effect.runFork(
+                Effect.gen(function* () {
+                  const selectedSlot = yield* hotbarService.getSelectedSlot()
+                  const hotbarInventoryIndex = HOTBAR_START + SlotIndex.toNumber(selectedSlot)
+                  yield* inventoryService.moveStack(SlotIndex.make(index), SlotIndex.make(hotbarInventoryIndex))
+                }).pipe(
+                  Effect.catchAllCause(cause =>
+                    Effect.logError(`Inventory click error: ${Cause.pretty(cause)}`)
+                  )
                 )
               )
-            )
-          }
-        )
-      }
+            }
+          )
+        }
 
-      yield* Effect.acquireRelease(
-        Effect.sync(() => {
-          Option.map(overlayEl, (el) => el.addEventListener('click', handleDelegatedClick))
-        }),
-        () => Effect.sync(() => {
-          Option.map(overlayEl, (el) => { el.removeEventListener('click', handleDelegatedClick); el.remove() })
-        })
-      )
+        const refreshSlots = (): Effect.Effect<void, never> =>
+          Effect.gen(function* () {
+            const allSlots = yield* inventoryService.getAllSlots()
+            const selectedSlot = yield* hotbarService.getSelectedSlot()
 
-      const refreshSlots = (): Effect.Effect<void, never> =>
-        Effect.gen(function* () {
-          const allSlots = yield* inventoryService.getAllSlots()
-          const selectedSlot = yield* hotbarService.getSelectedSlot()
-
-          yield* Effect.sync(() => {
-            const selectedHotbarIdx = HOTBAR_START + SlotIndex.toNumber(selectedSlot)
-            Arr.forEach(Arr.zip(slotEls, allSlots), ([el, itemOpt], i) => {
-              Option.match(itemOpt, {
-                onSome: (stack) => {
-                  el.style.background = getSlotColor(stack.blockType)
-                  el.title = `${stack.blockType} ×${stack.count}`
-                  el.textContent = stack.count < 64 ? String(stack.count) : ''
-                },
-                onNone: () => {
-                  el.style.background = DEFAULT_SLOT_COLOR
-                  el.title = ''
-                  el.textContent = ''
-                },
+            yield* Effect.sync(() => {
+              const selectedHotbarIdx = HOTBAR_START + SlotIndex.toNumber(selectedSlot)
+              Arr.forEach(Arr.zip(slotEls, allSlots), ([el, itemOpt], i) => {
+                Option.match(itemOpt, {
+                  onSome: (stack) => {
+                    el.style.background = getSlotColor(stack.blockType)
+                    el.title = `${stack.blockType} ×${stack.count}`
+                    el.textContent = stack.count < 64 ? String(stack.count) : ''
+                  },
+                  onNone: () => {
+                    el.style.background = DEFAULT_SLOT_COLOR
+                    el.title = ''
+                    el.textContent = ''
+                  },
+                })
+                // Highlight selected hotbar slot
+                el.style.border = i >= HOTBAR_START && i === selectedHotbarIdx
+                  ? '2px solid #fff'
+                  : '2px solid #666'
               })
-              // Highlight selected hotbar slot
-              el.style.border = i >= HOTBAR_START && i === selectedHotbarIdx
-                ? '2px solid #fff'
-                : '2px solid #666'
             })
           })
-        })
 
-      return {
-        toggle: (): Effect.Effect<boolean, never> =>
-          Effect.gen(function* () {
-            const next = yield* Ref.modify(isVisibleRef, (current): [boolean, boolean] => [!current, !current])
-            yield* Effect.sync(() => Option.map(overlayEl, (el) => { el.style.display = next ? 'block' : 'none' }))
-            if (next) yield* refreshSlots()
-            return next
+        return Effect.acquireRelease(
+          Effect.sync(() => {
+            Option.map(overlayEl, (el) => el.addEventListener('click', handleDelegatedClick))
           }),
+          () => Effect.sync(() => {
+            Option.map(overlayEl, (el) => { el.removeEventListener('click', handleDelegatedClick); el.remove() })
+          })
+        ).pipe(Effect.as({
+          toggle: (): Effect.Effect<boolean, never> =>
+            Effect.gen(function* () {
+              const next = yield* Ref.modify(isVisibleRef, (current): [boolean, boolean] => [!current, !current])
+              yield* Effect.sync(() => Option.map(overlayEl, (el) => { el.style.display = next ? 'block' : 'none' }))
+              if (next) yield* refreshSlots()
+              return next
+            }),
 
-        isOpen: (): Effect.Effect<boolean, never> => Ref.get(isVisibleRef),
+          isOpen: (): Effect.Effect<boolean, never> => Ref.get(isVisibleRef),
 
-        update: (): Effect.Effect<void, never> =>
-          Effect.gen(function* () {
-            const isVisible = yield* Ref.get(isVisibleRef)
-            if (isVisible) yield* refreshSlots()
-          }),
-      }
-    }),
+          update: (): Effect.Effect<void, never> =>
+            Effect.gen(function* () {
+              const isVisible = yield* Ref.get(isVisibleRef)
+              if (isVisible) yield* refreshSlots()
+            }),
+        }))
+      })
+      )
+    })
+    ),
   }
 ) {}
 export const InventoryRendererLive = InventoryRendererService.Default

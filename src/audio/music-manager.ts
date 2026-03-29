@@ -46,14 +46,13 @@ type ActiveTrack = {
 export class MusicManager extends Effect.Service<MusicManager>()(
   '@minecraft/audio/MusicManager',
   {
-    effect: Effect.gen(function* () {
-      const audioEngine = yield* AudioEngine
-
-      const enabledRef = yield* Ref.make(true)
-      const masterVolumeRef = yield* Ref.make(0.8)
-      const musicVolumeRef = yield* Ref.make(0.55)
-      const activeTrackRef = yield* Ref.make<Option.Option<ActiveTrack>>(Option.none())
-
+    effect: Effect.all([
+      AudioEngine,
+      Ref.make(true),
+      Ref.make(0.8),
+      Ref.make(0.55),
+      Ref.make<Option.Option<ActiveTrack>>(Option.none()),
+    ], { concurrency: 'unbounded' }).pipe(Effect.map(([audioEngine, enabledRef, masterVolumeRef, musicVolumeRef, activeTrackRef]) => {
       const stopActiveTrack = (): Effect.Effect<void, never> =>
         Effect.gen(function* () {
           const activeTrackOpt = yield* Ref.getAndSet(activeTrackRef, Option.none())
@@ -152,7 +151,7 @@ export class MusicManager extends Effect.Service<MusicManager>()(
             }
           }),
       }
-    }),
+    }))
   },
 ) {}
 

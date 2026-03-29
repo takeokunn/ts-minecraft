@@ -1,36 +1,25 @@
 import { Cause, Effect, Option, Ref } from 'effect'
-import { SettingsService } from '@/application/settings/settings-service'
+import { SettingsService, type GraphicsQuality } from '@/application/settings/settings-service'
 import { DomOperationsService } from '@/presentation/hud/crosshair'
 
 export class SettingsOverlayService extends Effect.Service<SettingsOverlayService>()(
   '@minecraft/presentation/SettingsOverlay',
   {
-    scoped: Effect.gen(function* () {
-      const settingsService = yield* SettingsService
-      const dom = yield* DomOperationsService
-
-      const isVisibleRef = yield* Ref.make(false)
-
-      // Build DOM once — yields const bindings, eliminates mutable let declarations
-      const {
-        overlayEl, renderDistanceInput, sensitivityInput, dayLengthInput,
-        shadowsInput, ssaoInput, bloomInput, skyInput, ssrInput, dofInput,
-        godRaysInput, smaaInput, closeBtn, gearBtn,
-      } = yield* Effect.sync(() => {
+    scoped: Effect.all([
+      SettingsService,
+      DomOperationsService,
+      Ref.make(false),
+    ], { concurrency: 'unbounded' }).pipe(
+      Effect.flatMap(([settingsService, dom, isVisibleRef]) =>
+        // Build DOM once — yields const bindings, eliminates mutable let declarations
+        Effect.sync(() => {
         if (typeof document === 'undefined') {
           return {
             overlayEl: Option.none<HTMLDivElement>(),
             renderDistanceInput: Option.none<HTMLInputElement>(),
             sensitivityInput: Option.none<HTMLInputElement>(),
             dayLengthInput: Option.none<HTMLInputElement>(),
-            shadowsInput: Option.none<HTMLInputElement>(),
-            ssaoInput: Option.none<HTMLInputElement>(),
-            bloomInput: Option.none<HTMLInputElement>(),
-            skyInput: Option.none<HTMLInputElement>(),
-            ssrInput: Option.none<HTMLInputElement>(),
-            dofInput: Option.none<HTMLInputElement>(),
-            godRaysInput: Option.none<HTMLInputElement>(),
-            smaaInput: Option.none<HTMLInputElement>(),
+            qualitySelect: Option.none<HTMLSelectElement>(),
             closeBtn: Option.none<HTMLButtonElement>(),
             gearBtn: Option.none<HTMLButtonElement>(),
           }
@@ -48,6 +37,15 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
         dom.setInnerHTML(el, `
           <h2 style="margin:0 0 16px;font-size:18px">Settings</h2>
           <label style="display:block;margin-bottom:12px">
+            Graphics Quality:
+            <select id="quality-select" style="display:block;width:100%;margin-top:4px;padding:4px;background:#333;color:#fff;border:1px solid #555;border-radius:4px;font-family:monospace">
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high" selected>High</option>
+              <option value="ultra">Ultra</option>
+            </select>
+          </label>
+          <label style="display:block;margin-bottom:12px">
             Render Distance: <span id="rd-val">8</span>
             <input id="rd-input" type="range" min="2" max="16" step="1" value="8"
               style="display:block;width:100%;margin-top:4px">
@@ -62,38 +60,6 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
             <input id="dl-input" type="range" min="120" max="1200" step="60" value="400"
               style="display:block;width:100%;margin-top:4px">
           </label>
-          <label style="display:block;margin-bottom:12px">
-            <input id="shadows-input" type="checkbox" checked style="margin-right:6px">
-            Shadows
-          </label>
-          <label style="display:block;margin-bottom:12px">
-            <input id="ssao-input" type="checkbox" checked style="margin-right:6px">
-            Ambient Occlusion (GTAO)
-          </label>
-          <label style="display:block;margin-bottom:12px">
-            <input id="bloom-input" type="checkbox" checked style="margin-right:6px">
-            Bloom (Glow Effects)
-          </label>
-          <label style="display:block;margin-bottom:12px">
-            <input id="sky-input" type="checkbox" checked style="margin-right:6px">
-            Physical Sky
-          </label>
-          <label style="display:block;margin-bottom:12px">
-            <input id="ssr-input" type="checkbox" style="margin-right:6px">
-            Water Reflections (SSR)
-          </label>
-          <label style="display:block;margin-bottom:12px">
-            <input id="dof-input" type="checkbox" style="margin-right:6px">
-            Depth of Field
-          </label>
-          <label style="display:block;margin-bottom:12px">
-            <input id="god-rays-input" type="checkbox" style="margin-right:6px">
-            God Rays (Light Shafts)
-          </label>
-          <label style="display:block;margin-bottom:16px">
-            <input id="smaa-input" type="checkbox" checked style="margin-right:6px">
-            Anti-aliasing (SMAA)
-          </label>
           <div style="display:flex;gap:8px">
             <button id="settings-close" style="flex:1;padding:8px;cursor:pointer;background:#555;border:none;color:#fff;border-radius:4px">Close</button>
           </div>
@@ -103,7 +69,7 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
 
         const btn = dom.createElement('button') as HTMLButtonElement
         btn.id = 'settings-gear-btn'
-        btn.textContent = '⚙'
+        btn.textContent = '\u2699'
         btn.style.cssText = [
           'position:fixed', 'top:10px', 'left:10px',
           'background:rgba(0,0,0,0.7)', 'color:white',
@@ -118,34 +84,18 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
           renderDistanceInput: dom.querySelector<HTMLInputElement>(el, '#rd-input'),
           sensitivityInput: dom.querySelector<HTMLInputElement>(el, '#ms-input'),
           dayLengthInput: dom.querySelector<HTMLInputElement>(el, '#dl-input'),
-          shadowsInput: dom.querySelector<HTMLInputElement>(el, '#shadows-input'),
-          ssaoInput: dom.querySelector<HTMLInputElement>(el, '#ssao-input'),
-          bloomInput: dom.querySelector<HTMLInputElement>(el, '#bloom-input'),
-          skyInput: dom.querySelector<HTMLInputElement>(el, '#sky-input'),
-          ssrInput: dom.querySelector<HTMLInputElement>(el, '#ssr-input'),
-          dofInput: dom.querySelector<HTMLInputElement>(el, '#dof-input'),
-          godRaysInput: dom.querySelector<HTMLInputElement>(el, '#god-rays-input'),
-          smaaInput: dom.querySelector<HTMLInputElement>(el, '#smaa-input'),
+          qualitySelect: dom.querySelector<HTMLSelectElement>(el, '#quality-select'),
           closeBtn: dom.querySelector<HTMLButtonElement>(el, '#settings-close'),
           gearBtn: Option.some(btn),
         }
-      })
-
-      const commitEffect = (): Effect.Effect<void, never> =>
-        Effect.gen(function* () {
-          yield* settingsService.updateSettings({
-            renderDistance: Option.getOrElse(Option.map(renderDistanceInput, (el) => parseInt(el.value, 10)), () => 8),
-            mouseSensitivity: Option.getOrElse(Option.map(sensitivityInput, (el) => parseFloat(el.value)), () => 0.5),
-            dayLengthSeconds: Option.getOrElse(Option.map(dayLengthInput, (el) => parseInt(el.value, 10)), () => 400),
-            shadowsEnabled: Option.getOrElse(Option.map(shadowsInput, (el) => el.checked), () => true),
-            ssaoEnabled: Option.getOrElse(Option.map(ssaoInput, (el) => el.checked), () => true),
-            bloomEnabled: Option.getOrElse(Option.map(bloomInput, (el) => el.checked), () => true),
-            skyEnabled: Option.getOrElse(Option.map(skyInput, (el) => el.checked), () => true),
-            ssrEnabled: Option.getOrElse(Option.map(ssrInput, (el) => el.checked), () => false),
-            dofEnabled: Option.getOrElse(Option.map(dofInput, (el) => el.checked), () => false),
-            godRaysEnabled: Option.getOrElse(Option.map(godRaysInput, (el) => el.checked), () => false),
-            smaaEnabled: Option.getOrElse(Option.map(smaaInput, (el) => el.checked), () => true),
-          })
+        }).pipe(
+          Effect.flatMap(({ overlayEl, renderDistanceInput, sensitivityInput, dayLengthInput, qualitySelect, closeBtn, gearBtn }) => {
+        const commitEffect = (): Effect.Effect<void, never> =>
+        settingsService.updateSettings({
+          renderDistance: Option.match(renderDistanceInput, { onNone: () => 8, onSome: (el) => parseInt(el.value, 10) }),
+          mouseSensitivity: Option.match(sensitivityInput, { onNone: () => 0.5, onSome: (el) => parseFloat(el.value) }),
+          dayLengthSeconds: Option.match(dayLengthInput, { onNone: () => 400, onSome: (el) => parseInt(el.value, 10) }),
+          graphicsQuality: Option.match(qualitySelect, { onNone: () => 'high' as const, onSome: (el) => el.value as GraphicsQuality }),
         })
 
       const runCommit = () => {
@@ -159,124 +109,116 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
       }
 
       function syncEffect(): Effect.Effect<void, never> {
-        return Effect.gen(function* () {
-          const settings = yield* settingsService.getSettings()
-          yield* Effect.sync(() => {
-            Option.map(renderDistanceInput, (input) => {
-              input.value = String(settings.renderDistance)
-              Option.flatMap(overlayEl, (el) => Option.map(dom.querySelector(el, '#rd-val'), (span) => { span.textContent = String(settings.renderDistance) }))
+        return settingsService.getSettings().pipe(
+          Effect.flatMap((settings) => Effect.sync(() => {
+            Option.match(renderDistanceInput, {
+              onNone: () => {},
+              onSome: (input) => {
+                input.value = String(settings.renderDistance)
+                Option.match(overlayEl, { onNone: () => {}, onSome: (el) => Option.match(dom.querySelector(el, '#rd-val'), { onNone: () => {}, onSome: (span) => { span.textContent = String(settings.renderDistance) } }) })
+              },
             })
-            Option.map(sensitivityInput, (input) => {
-              input.value = String(settings.mouseSensitivity)
-              Option.flatMap(overlayEl, (el) => Option.map(dom.querySelector(el, '#ms-val'), (span) => { span.textContent = String(settings.mouseSensitivity) }))
+            Option.match(sensitivityInput, {
+              onNone: () => {},
+              onSome: (input) => {
+                input.value = String(settings.mouseSensitivity)
+                Option.match(overlayEl, { onNone: () => {}, onSome: (el) => Option.match(dom.querySelector(el, '#ms-val'), { onNone: () => {}, onSome: (span) => { span.textContent = String(settings.mouseSensitivity) } }) })
+              },
             })
-            Option.map(dayLengthInput, (input) => {
-              input.value = String(settings.dayLengthSeconds)
-              Option.flatMap(overlayEl, (el) => Option.map(dom.querySelector(el, '#dl-val'), (span) => { span.textContent = String(settings.dayLengthSeconds) }))
+            Option.match(dayLengthInput, {
+              onNone: () => {},
+              onSome: (input) => {
+                input.value = String(settings.dayLengthSeconds)
+                Option.match(overlayEl, { onNone: () => {}, onSome: (el) => Option.match(dom.querySelector(el, '#dl-val'), { onNone: () => {}, onSome: (span) => { span.textContent = String(settings.dayLengthSeconds) } }) })
+              },
             })
-            Option.map(shadowsInput, (el) => { el.checked = settings.shadowsEnabled })
-            Option.map(ssaoInput, (el) => { el.checked = settings.ssaoEnabled })
-            Option.map(bloomInput, (el) => { el.checked = settings.bloomEnabled })
-            Option.map(skyInput, (el) => { el.checked = settings.skyEnabled })
-            Option.map(ssrInput, (el) => { el.checked = settings.ssrEnabled })
-            Option.map(dofInput, (el) => { el.checked = settings.dofEnabled })
-            Option.map(godRaysInput, (el) => { el.checked = settings.godRaysEnabled })
-            Option.map(smaaInput, (el) => { el.checked = settings.smaaEnabled })
-          })
-        })
+            Option.match(qualitySelect, { onNone: () => {}, onSome: (el) => { el.value = settings.graphicsQuality } })
+          }))
+        )
       }
 
       // Named event handler functions for proper cleanup via removeEventListener
       const handleRdInput = () => {
-        Option.map(Option.all({ el: overlayEl, input: renderDistanceInput }), ({ el, input }) =>
-          Option.map(dom.querySelector(el, '#rd-val'), (span) => { span.textContent = input.value })
-        )
+        Option.match(Option.all({ el: overlayEl, input: renderDistanceInput }), {
+          onNone: () => {},
+          onSome: ({ el, input }) => Option.match(dom.querySelector(el, '#rd-val'), { onNone: () => {}, onSome: (span) => { span.textContent = input.value } }),
+        })
         runCommit()
       }
 
       const handleMsInput = () => {
-        Option.map(Option.all({ el: overlayEl, input: sensitivityInput }), ({ el, input }) =>
-          Option.map(dom.querySelector(el, '#ms-val'), (span) => { span.textContent = input.value })
-        )
+        Option.match(Option.all({ el: overlayEl, input: sensitivityInput }), {
+          onNone: () => {},
+          onSome: ({ el, input }) => Option.match(dom.querySelector(el, '#ms-val'), { onNone: () => {}, onSome: (span) => { span.textContent = input.value } }),
+        })
         runCommit()
       }
 
       const handleDlInput = () => {
-        Option.map(Option.all({ el: overlayEl, input: dayLengthInput }), ({ el, input }) =>
-          Option.map(dom.querySelector(el, '#dl-val'), (span) => { span.textContent = input.value })
-        )
+        Option.match(Option.all({ el: overlayEl, input: dayLengthInput }), {
+          onNone: () => {},
+          onSome: ({ el, input }) => Option.match(dom.querySelector(el, '#dl-val'), { onNone: () => {}, onSome: (span) => { span.textContent = input.value } }),
+        })
         runCommit()
       }
 
-      const handleToggleChange = () => {
+      const handleQualityChange = () => {
         runCommit()
       }
 
       const handleClose = () => {
         Effect.runFork(
-          Effect.gen(function* () {
-            yield* Ref.set(isVisibleRef, false)
-            Option.map(overlayEl, (el) => { el.style.display = 'none' })
-          }).pipe(Effect.catchAllCause(() => Effect.void))
+          Ref.set(isVisibleRef, false).pipe(
+            Effect.andThen(Effect.sync(() => {
+              Option.match(overlayEl, { onNone: () => {}, onSome: (el) => { el.style.display = 'none' } })
+            })),
+            Effect.catchAllCause(() => Effect.void)
+          )
         )
       }
 
       const handleGearClick = () => {
         Effect.runFork(
-          Effect.gen(function* () {
-            const next = yield* Ref.modify(isVisibleRef, (current): [boolean, boolean] => [!current, !current])
-            Option.map(overlayEl, (el) => { el.style.display = next ? 'block' : 'none' })
-            if (next) yield* syncEffect()
-          }).pipe(Effect.catchAllCause(() => Effect.void))
+          Ref.modify(isVisibleRef, (current): [boolean, boolean] => [!current, !current]).pipe(
+            Effect.tap((next) => Effect.sync(() => {
+              Option.match(overlayEl, { onNone: () => {}, onSome: (el) => { el.style.display = next ? 'block' : 'none' } })
+            })),
+            Effect.flatMap((next) => next ? syncEffect() : Effect.void),
+            Effect.catchAllCause(() => Effect.void)
+          )
         )
       }
 
-      yield* Effect.acquireRelease(
-        Effect.sync(() => {
-          Option.map(renderDistanceInput, (el) => el.addEventListener('input', handleRdInput))
-          Option.map(sensitivityInput, (el) => el.addEventListener('input', handleMsInput))
-          Option.map(dayLengthInput, (el) => el.addEventListener('input', handleDlInput))
-          Option.map(shadowsInput, (el) => el.addEventListener('change', handleToggleChange))
-          Option.map(ssaoInput, (el) => el.addEventListener('change', handleToggleChange))
-          Option.map(bloomInput, (el) => el.addEventListener('change', handleToggleChange))
-          Option.map(skyInput, (el) => el.addEventListener('change', handleToggleChange))
-          Option.map(ssrInput, (el) => el.addEventListener('change', handleToggleChange))
-          Option.map(dofInput, (el) => el.addEventListener('change', handleToggleChange))
-          Option.map(godRaysInput, (el) => el.addEventListener('change', handleToggleChange))
-          Option.map(smaaInput, (el) => el.addEventListener('change', handleToggleChange))
-          Option.map(closeBtn, (el) => el.addEventListener('click', handleClose))
-          Option.map(gearBtn, (el) => el.addEventListener('click', handleGearClick))
-        }),
-        () => Effect.sync(() => {
-          Option.map(renderDistanceInput, (el) => el.removeEventListener('input', handleRdInput))
-          Option.map(sensitivityInput, (el) => el.removeEventListener('input', handleMsInput))
-          Option.map(dayLengthInput, (el) => el.removeEventListener('input', handleDlInput))
-          Option.map(shadowsInput, (el) => el.removeEventListener('change', handleToggleChange))
-          Option.map(ssaoInput, (el) => el.removeEventListener('change', handleToggleChange))
-          Option.map(bloomInput, (el) => el.removeEventListener('change', handleToggleChange))
-          Option.map(skyInput, (el) => el.removeEventListener('change', handleToggleChange))
-          Option.map(ssrInput, (el) => el.removeEventListener('change', handleToggleChange))
-          Option.map(dofInput, (el) => el.removeEventListener('change', handleToggleChange))
-          Option.map(godRaysInput, (el) => el.removeEventListener('change', handleToggleChange))
-          Option.map(smaaInput, (el) => el.removeEventListener('change', handleToggleChange))
-          Option.map(closeBtn, (el) => el.removeEventListener('click', handleClose))
-          Option.map(gearBtn, (el) => { el.removeEventListener('click', handleGearClick); el.remove() })
-          Option.map(overlayEl, (el) => el.remove())
-        })
-      )
-
-      return {
+        return Effect.acquireRelease(
+          Effect.sync(() => {
+            Option.match(renderDistanceInput, { onNone: () => {}, onSome: (el) => el.addEventListener('input', handleRdInput) })
+            Option.match(sensitivityInput, { onNone: () => {}, onSome: (el) => el.addEventListener('input', handleMsInput) })
+            Option.match(dayLengthInput, { onNone: () => {}, onSome: (el) => el.addEventListener('input', handleDlInput) })
+            Option.match(qualitySelect, { onNone: () => {}, onSome: (el) => el.addEventListener('change', handleQualityChange) })
+            Option.match(closeBtn, { onNone: () => {}, onSome: (el) => el.addEventListener('click', handleClose) })
+            Option.match(gearBtn, { onNone: () => {}, onSome: (el) => el.addEventListener('click', handleGearClick) })
+          }),
+          () => Effect.sync(() => {
+            Option.match(renderDistanceInput, { onNone: () => {}, onSome: (el) => el.removeEventListener('input', handleRdInput) })
+            Option.match(sensitivityInput, { onNone: () => {}, onSome: (el) => el.removeEventListener('input', handleMsInput) })
+            Option.match(dayLengthInput, { onNone: () => {}, onSome: (el) => el.removeEventListener('input', handleDlInput) })
+            Option.match(qualitySelect, { onNone: () => {}, onSome: (el) => el.removeEventListener('change', handleQualityChange) })
+            Option.match(closeBtn, { onNone: () => {}, onSome: (el) => el.removeEventListener('click', handleClose) })
+            Option.match(gearBtn, { onNone: () => {}, onSome: (el) => { el.removeEventListener('click', handleGearClick); el.remove() } })
+            Option.match(overlayEl, { onNone: () => {}, onSome: (el) => el.remove() })
+          })
+        ).pipe(Effect.as({
         /**
          * Toggle the settings overlay visibility.
          * Returns true if now open, false if now closed.
          */
         toggle: (): Effect.Effect<boolean, never> =>
-          Effect.gen(function* () {
-            const next = yield* Ref.modify(isVisibleRef, (current): [boolean, boolean] => [!current, !current])
-            yield* Effect.sync(() => { Option.map(overlayEl, (el) => { el.style.display = next ? 'block' : 'none' }) })
-            if (next) yield* syncEffect()
-            return next
-          }),
+          Ref.modify(isVisibleRef, (current): [boolean, boolean] => [!current, !current]).pipe(
+            Effect.tap((next) => Effect.sync(() => {
+              Option.match(overlayEl, { onNone: () => {}, onSome: (el) => { el.style.display = next ? 'block' : 'none' } })
+            })),
+            Effect.tap((next) => next ? syncEffect() : Effect.void),
+          ),
 
         /**
          * Check if the settings overlay is currently open.
@@ -292,8 +234,11 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
          * Read the current input values and apply them to SettingsService.
          */
         applyToSettings: (): Effect.Effect<void, never> => commitEffect(),
-      }
-    }),
+        }))
+      })
+        )
+      )
+    ),
   }
 ) {}
 export const SettingsOverlayLive = SettingsOverlayService.Default

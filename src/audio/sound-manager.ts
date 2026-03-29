@@ -43,15 +43,13 @@ const computeSpatial = (listener: Position, source: Position): { gain: number; p
 export class SoundManager extends Effect.Service<SoundManager>()(
   '@minecraft/audio/SoundManager',
   {
-    effect: Effect.gen(function* () {
-      const audioEngine = yield* AudioEngine
-
-      const enabledRef = yield* Ref.make(true)
-      const masterVolumeRef = yield* Ref.make(0.8)
-      const sfxVolumeRef = yield* Ref.make(1.0)
-      const listenerPositionRef = yield* Ref.make<Position>(DEFAULT_LISTENER_POSITION)
-
-      return {
+    effect: Effect.all([
+      AudioEngine,
+      Ref.make(true),
+      Ref.make(0.8),
+      Ref.make(1.0),
+      Ref.make<Position>(DEFAULT_LISTENER_POSITION),
+    ], { concurrency: 'unbounded' }).pipe(Effect.map(([audioEngine, enabledRef, masterVolumeRef, sfxVolumeRef, listenerPositionRef]) => ({
         applySettings: (settings: SoundSettings): Effect.Effect<void, never> =>
           Effect.gen(function* () {
             yield* Ref.set(enabledRef, settings.enabled)
@@ -126,8 +124,7 @@ export class SoundManager extends Effect.Service<SoundManager>()(
               listenerPosition,
             }
           }),
-      }
-    }),
+    })))
   },
 ) {}
 

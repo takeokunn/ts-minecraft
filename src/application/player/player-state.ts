@@ -17,77 +17,79 @@ export type PlayerState = Schema.Schema.Type<typeof PlayerStateSchema>
 export class PlayerService extends Effect.Service<PlayerService>()(
   '@minecraft/application/PlayerService',
   {
-    effect: Effect.gen(function* () {
-      const playersRef = yield* Ref.make(HashMap.empty<PlayerId, PlayerState>())
-
-      return {
+    effect: Ref.make(HashMap.empty<PlayerId, PlayerState>()).pipe(Effect.map((playersRef) => ({
         create: (id: PlayerId, position: Position): Effect.Effect<void, PlayerError> =>
-          Effect.gen(function* () {
-            const alreadyExists = yield* Ref.modify(playersRef, (players): [boolean, HashMap.HashMap<PlayerId, PlayerState>] =>
-              Option.match(HashMap.get(players, id), {
-                onSome: () => [true, players],
-                onNone: () => [false, HashMap.set(players, id, { id, position, velocity: zero, rotation: identity })],
-              })
+          Ref.modify(playersRef, (players): [boolean, HashMap.HashMap<PlayerId, PlayerState>] =>
+            Option.match(HashMap.get(players, id), {
+              onSome: () => [true, players],
+              onNone: () => [false, HashMap.set(players, id, { id, position, velocity: zero, rotation: identity })],
+            })
+          ).pipe(
+            Effect.flatMap((alreadyExists) =>
+              alreadyExists
+                ? Effect.fail(new PlayerError({ playerId: id, reason: 'Player already exists' }))
+                : Effect.void
             )
-            if (alreadyExists) {
-              return yield* Effect.fail(new PlayerError({ playerId: id, reason: 'Player already exists' }))
-            }
-          }),
+          ),
 
         updatePosition: (id: PlayerId, position: Position): Effect.Effect<void, PlayerError> =>
-          Effect.gen(function* () {
-            const notFound = yield* Ref.modify(playersRef, (players): [boolean, HashMap.HashMap<PlayerId, PlayerState>] =>
-              Option.match(HashMap.get(players, id), {
-                onNone: () => [true, players],
-                onSome: (player) => [false, HashMap.set(players, id, { ...player, position })],
-              })
+          Ref.modify(playersRef, (players): [boolean, HashMap.HashMap<PlayerId, PlayerState>] =>
+            Option.match(HashMap.get(players, id), {
+              onNone: () => [true, players],
+              onSome: (player) => [false, HashMap.set(players, id, { ...player, position })],
+            })
+          ).pipe(
+            Effect.flatMap((notFound) =>
+              notFound
+                ? Effect.fail(new PlayerError({ playerId: id, reason: 'Player not found' }))
+                : Effect.void
             )
-            if (notFound) {
-              return yield* Effect.fail(new PlayerError({ playerId: id, reason: 'Player not found' }))
-            }
-          }),
+          ),
 
         updateVelocity: (id: PlayerId, velocity: Vector3): Effect.Effect<void, PlayerError> =>
-          Effect.gen(function* () {
-            const notFound = yield* Ref.modify(playersRef, (players): [boolean, HashMap.HashMap<PlayerId, PlayerState>] =>
-              Option.match(HashMap.get(players, id), {
-                onNone: () => [true, players],
-                onSome: (player) => [false, HashMap.set(players, id, { ...player, velocity })],
-              })
+          Ref.modify(playersRef, (players): [boolean, HashMap.HashMap<PlayerId, PlayerState>] =>
+            Option.match(HashMap.get(players, id), {
+              onNone: () => [true, players],
+              onSome: (player) => [false, HashMap.set(players, id, { ...player, velocity })],
+            })
+          ).pipe(
+            Effect.flatMap((notFound) =>
+              notFound
+                ? Effect.fail(new PlayerError({ playerId: id, reason: 'Player not found' }))
+                : Effect.void
             )
-            if (notFound) {
-              return yield* Effect.fail(new PlayerError({ playerId: id, reason: 'Player not found' }))
-            }
-          }),
+          ),
 
         getPosition: (id: PlayerId): Effect.Effect<Position, PlayerError> =>
-          Effect.gen(function* () {
-            const players = yield* Ref.get(playersRef)
-            return yield* Option.match(HashMap.get(players, id), {
-              onNone: () => Effect.fail(new PlayerError({ playerId: id, reason: 'Player not found' })),
-              onSome: (player) => Effect.succeed(player.position),
-            })
-          }),
+          Ref.get(playersRef).pipe(
+            Effect.flatMap((players) =>
+              Option.match(HashMap.get(players, id), {
+                onNone: () => Effect.fail(new PlayerError({ playerId: id, reason: 'Player not found' })),
+                onSome: (player) => Effect.succeed(player.position),
+              })
+            )
+          ),
 
         getVelocity: (id: PlayerId): Effect.Effect<Vector3, PlayerError> =>
-          Effect.gen(function* () {
-            const players = yield* Ref.get(playersRef)
-            return yield* Option.match(HashMap.get(players, id), {
-              onNone: () => Effect.fail(new PlayerError({ playerId: id, reason: 'Player not found' })),
-              onSome: (player) => Effect.succeed(player.velocity),
-            })
-          }),
+          Ref.get(playersRef).pipe(
+            Effect.flatMap((players) =>
+              Option.match(HashMap.get(players, id), {
+                onNone: () => Effect.fail(new PlayerError({ playerId: id, reason: 'Player not found' })),
+                onSome: (player) => Effect.succeed(player.velocity),
+              })
+            )
+          ),
 
         getState: (id: PlayerId): Effect.Effect<PlayerState, PlayerError> =>
-          Effect.gen(function* () {
-            const players = yield* Ref.get(playersRef)
-            return yield* Option.match(HashMap.get(players, id), {
-              onNone: () => Effect.fail(new PlayerError({ playerId: id, reason: 'Player not found' })),
-              onSome: Effect.succeed,
-            })
-          }),
-      }
-    }),
+          Ref.get(playersRef).pipe(
+            Effect.flatMap((players) =>
+              Option.match(HashMap.get(players, id), {
+                onNone: () => Effect.fail(new PlayerError({ playerId: id, reason: 'Player not found' })),
+                onSome: Effect.succeed,
+              })
+            )
+          ),
+    })))
   }
 ) {}
 export const PlayerServiceLive = PlayerService.Default

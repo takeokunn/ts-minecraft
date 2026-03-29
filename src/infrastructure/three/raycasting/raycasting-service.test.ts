@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest'
-import { Effect, Option, Schema } from 'effect'
+import { describe, it } from '@effect/vitest'
+import { expect } from 'vitest'
+import { Array as Arr, Effect, Either, Option, Schema } from 'effect'
 import * as THREE from 'three'
 import {
   RaycastingService,
@@ -23,10 +24,10 @@ const setupRaycastingTest = (
   camera.updateMatrixWorld(true)
 
   const scene = new THREE.Scene()
-  for (const mesh of meshes) {
+  Arr.forEach(meshes, mesh => {
     mesh.updateMatrixWorld(true)
     scene.add(mesh)
-  }
+  })
   scene.updateMatrixWorld(true)
 
   return { camera, scene }
@@ -44,74 +45,54 @@ describe('RaycastingService', () => {
   })
 
   describe('worldToBlock', () => {
-    it('should convert positive world coordinates to block coordinates', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should convert positive world coordinates to block coordinates', () =>
+      Effect.gen(function* () {
         const service = yield* RaycastingService
         const blockPos = yield* service.worldToBlock({ x: 5.7, y: 3.2, z: 10.9 })
 
         expect(blockPos.x).toBe(5)
         expect(blockPos.y).toBe(3)
         expect(blockPos.z).toBe(10)
-
-        return { success: true }
       }).pipe(Effect.provide(RaycastingServiceLive))
+    )
 
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
-    })
-
-    it('should convert negative world coordinates to block coordinates', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should convert negative world coordinates to block coordinates', () =>
+      Effect.gen(function* () {
         const service = yield* RaycastingService
         const blockPos = yield* service.worldToBlock({ x: -5.7, y: -3.2, z: -10.9 })
 
         expect(blockPos.x).toBe(-6)
         expect(blockPos.y).toBe(-4)
         expect(blockPos.z).toBe(-11)
-
-        return { success: true }
       }).pipe(Effect.provide(RaycastingServiceLive))
+    )
 
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
-    })
-
-    it('should handle zero coordinates', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should handle zero coordinates', () =>
+      Effect.gen(function* () {
         const service = yield* RaycastingService
         const blockPos = yield* service.worldToBlock({ x: 0, y: 0, z: 0 })
 
         expect(blockPos.x).toBe(0)
         expect(blockPos.y).toBe(0)
         expect(blockPos.z).toBe(0)
-
-        return { success: true }
       }).pipe(Effect.provide(RaycastingServiceLive))
+    )
 
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
-    })
-
-    it('should handle exact integer coordinates', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should handle exact integer coordinates', () =>
+      Effect.gen(function* () {
         const service = yield* RaycastingService
         const blockPos = yield* service.worldToBlock({ x: 5.0, y: 10.0, z: 15.0 })
 
         expect(blockPos.x).toBe(5)
         expect(blockPos.y).toBe(10)
         expect(blockPos.z).toBe(15)
-
-        return { success: true }
       }).pipe(Effect.provide(RaycastingServiceLive))
-
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
-    })
+    )
   })
 
   describe('raycastFromCamera', () => {
-    it('should return Option.none when no objects are hit', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should return Option.none when no objects are hit', () =>
+      Effect.gen(function* () {
         const service = yield* RaycastingService
 
         // Create camera and empty scene
@@ -124,16 +105,11 @@ describe('RaycastingService', () => {
         const hit = yield* service.raycastFromCamera(camera, scene)
 
         expect(Option.isNone(hit)).toBe(true)
-
-        return { success: true }
       }).pipe(Effect.provide(RaycastingServiceLive))
+    )
 
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
-    })
-
-    it('should return hit info when hitting an object', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should return hit info when hitting an object', () =>
+      Effect.gen(function* () {
         const service = yield* RaycastingService
 
         // Create a box at Z = -2
@@ -151,26 +127,19 @@ describe('RaycastingService', () => {
         const hitOption = yield* service.raycastFromCamera(camera, scene)
 
         expect(Option.isSome(hitOption)).toBe(true)
-        if (Option.isSome(hitOption)) {
-          const hit = hitOption.value
-          expect(hit.distance).toBeGreaterThan(0)
-          expect(hit.distance).toBeLessThan(DEFAULT_RAY_DISTANCE)
-          expect(hit.point).toBeDefined()
-          expect(hit.normal).toBeDefined()
-          expect(typeof hit.blockX).toBe('number')
-          expect(typeof hit.blockY).toBe('number')
-          expect(typeof hit.blockZ).toBe('number')
-        }
-
-        return { success: true }
+        const hit = Option.getOrThrow(hitOption)
+        expect(hit.distance).toBeGreaterThan(0)
+        expect(hit.distance).toBeLessThan(DEFAULT_RAY_DISTANCE)
+        expect(hit.point).toBeDefined()
+        expect(hit.normal).toBeDefined()
+        expect(typeof hit.blockX).toBe('number')
+        expect(typeof hit.blockY).toBe('number')
+        expect(typeof hit.blockZ).toBe('number')
       }).pipe(Effect.provide(RaycastingServiceLive))
+    )
 
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
-    })
-
-    it('should respect maxDistance parameter', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should respect maxDistance parameter', () =>
+      Effect.gen(function* () {
         const service = yield* RaycastingService
 
         // Create a box at Z = -10 (beyond default distance)
@@ -192,16 +161,11 @@ describe('RaycastingService', () => {
         // Should hit with extended distance (15)
         const hitExtended = yield* service.raycastFromCamera(camera, scene, 15)
         expect(Option.isSome(hitExtended)).toBe(true)
-
-        return { success: true }
       }).pipe(Effect.provide(RaycastingServiceLive))
+    )
 
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
-    })
-
-    it('should return correct point coordinates on hit', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should return correct point coordinates on hit', () =>
+      Effect.gen(function* () {
         const service = yield* RaycastingService
 
         // Create a box centered at (0, 0, -2)
@@ -219,22 +183,15 @@ describe('RaycastingService', () => {
         const hitOption = yield* service.raycastFromCamera(camera, scene)
 
         expect(Option.isSome(hitOption)).toBe(true)
-        if (Option.isSome(hitOption)) {
-          const hit = hitOption.value
-          // Hit should be near the front face of the box (around z = -1.5)
-          expect(hit.point.z).toBeLessThan(-1)
-          expect(hit.point.z).toBeGreaterThan(-3)
-        }
-
-        return { success: true }
+        const hit = Option.getOrThrow(hitOption)
+        // Hit should be near the front face of the box (around z = -1.5)
+        expect(hit.point.z).toBeLessThan(-1)
+        expect(hit.point.z).toBeGreaterThan(-3)
       }).pipe(Effect.provide(RaycastingServiceLive))
+    )
 
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
-    })
-
-    it('should return surface normal on hit', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should return surface normal on hit', () =>
+      Effect.gen(function* () {
         const service = yield* RaycastingService
 
         // Create a box centered at (0, 0, -2)
@@ -252,24 +209,17 @@ describe('RaycastingService', () => {
         const hitOption = yield* service.raycastFromCamera(camera, scene)
 
         expect(Option.isSome(hitOption)).toBe(true)
-        if (Option.isSome(hitOption)) {
-          const hit = hitOption.value
-          // Normal should be a unit vector
-          const normalLength = Math.sqrt(
-            hit.normal.x ** 2 + hit.normal.y ** 2 + hit.normal.z ** 2
-          )
-          expect(normalLength).toBeCloseTo(1, 5)
-        }
-
-        return { success: true }
+        const hit = Option.getOrThrow(hitOption)
+        // Normal should be a unit vector
+        const normalLength = Math.sqrt(
+          hit.normal.x ** 2 + hit.normal.y ** 2 + hit.normal.z ** 2
+        )
+        expect(normalLength).toBeCloseTo(1, 5)
       }).pipe(Effect.provide(RaycastingServiceLive))
+    )
 
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
-    })
-
-    it('should calculate block coordinates from hit point', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should calculate block coordinates from hit point', () =>
+      Effect.gen(function* () {
         const service = yield* RaycastingService
 
         // Create a box at exact block position (5, 10, -5)
@@ -288,22 +238,15 @@ describe('RaycastingService', () => {
         const hitOption = yield* service.raycastFromCamera(camera, scene, 10)
 
         expect(Option.isSome(hitOption)).toBe(true)
-        if (Option.isSome(hitOption)) {
-          const hit = hitOption.value
-          expect(hit.blockX).toBe(5)
-          expect(hit.blockY).toBe(10)
-          expect(hit.blockZ).toBe(-6)
-        }
-
-        return { success: true }
+        const hit = Option.getOrThrow(hitOption)
+        expect(hit.blockX).toBe(5)
+        expect(hit.blockY).toBe(10)
+        expect(hit.blockZ).toBe(-6)
       }).pipe(Effect.provide(RaycastingServiceLive))
+    )
 
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
-    })
-
-    it('should hit the closest object when multiple objects are in range', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should hit the closest object when multiple objects are in range', () =>
+      Effect.gen(function* () {
         const service = yield* RaycastingService
 
         // Near box at Z = -2
@@ -327,21 +270,14 @@ describe('RaycastingService', () => {
         const hitOption = yield* service.raycastFromCamera(camera, scene)
 
         expect(Option.isSome(hitOption)).toBe(true)
-        if (Option.isSome(hitOption)) {
-          const hit = hitOption.value
-          // Should hit the closer box
-          expect(hit.distance).toBeLessThan(3)
-        }
-
-        return { success: true }
+        const hit = Option.getOrThrow(hitOption)
+        // Should hit the closer box
+        expect(hit.distance).toBeLessThan(3)
       }).pipe(Effect.provide(RaycastingServiceLive))
+    )
 
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
-    })
-
-    it('should use default distance when maxDistance is not provided', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should use default distance when maxDistance is not provided', () =>
+      Effect.gen(function* () {
         const service = yield* RaycastingService
 
         // Create a box at Z = -3 (within default distance)
@@ -360,13 +296,8 @@ describe('RaycastingService', () => {
         const hit = yield* service.raycastFromCamera(camera, scene)
 
         expect(Option.isSome(hit)).toBe(true)
-
-        return { success: true }
       }).pipe(Effect.provide(RaycastingServiceLive))
-
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
-    })
+    )
   })
 
   describe('RaycastHitSchema', () => {
@@ -452,12 +383,12 @@ describe('RaycastingService', () => {
 
     it('Schema.decodeUnknownEither returns Left for fractional blockX', () => {
       const result = Schema.decodeUnknownEither(RaycastHitSchema)({ ...validHit, blockX: 1.5 })
-      expect(result._tag).toBe('Left')
+      expect(Either.isLeft(result)).toBe(true)
     })
 
     it('Schema.decodeUnknownEither returns Right for valid hit', () => {
       const result = Schema.decodeUnknownEither(RaycastHitSchema)(validHit)
-      expect(result._tag).toBe('Right')
+      expect(Either.isRight(result)).toBe(true)
     })
 
     it('accepts zero distance (ray origin at surface)', () => {
@@ -477,22 +408,17 @@ describe('RaycastingService', () => {
       expect(typeof layer).toBe('object')
     })
 
-    it('should have all required methods', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should have all required methods', () =>
+      Effect.gen(function* () {
         const service = yield* RaycastingService
 
         expect(typeof service.raycastFromCamera).toBe('function')
         expect(typeof service.worldToBlock).toBe('function')
-
-        return { success: true }
       }).pipe(Effect.provide(RaycastingServiceLive))
+    )
 
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
-    })
-
-    it('should support Effect composition', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should support Effect composition', () =>
+      Effect.gen(function* () {
         const service = yield* RaycastingService
 
         const blockPos = yield* service.worldToBlock({ x: 1.5, y: 2.5, z: 3.5 })
@@ -500,12 +426,7 @@ describe('RaycastingService', () => {
         expect(blockPos.x).toBe(1)
         expect(blockPos.y).toBe(2)
         expect(blockPos.z).toBe(3)
-
-        return { success: true }
       }).pipe(Effect.provide(RaycastingServiceLive))
-
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
-    })
+    )
   })
 })

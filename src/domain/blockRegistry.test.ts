@@ -6,8 +6,8 @@ import { Block } from './block'
 
 describe('BlockRegistry', () => {
   describe('initialization', () => {
-    it('should have all twelve initial blocks registered', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should have all twelve initial blocks registered', () =>
+      Effect.gen(function* () {
         const registry = yield* BlockRegistry
         const allBlocks = yield* registry.getAll()
 
@@ -23,13 +23,11 @@ describe('BlockRegistry', () => {
         expect(blockTypes).toContain('WATER')
         expect(blockTypes).toContain('LEAVES')
         expect(blockTypes).toContain('GLASS')
-      })
+      }).pipe(Effect.provide(BlockRegistryLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(BlockRegistryLive)))
-    })
-
-    it('should have correct initial block IDs', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should have correct initial block IDs', () =>
+      Effect.gen(function* () {
         const registry = yield* BlockRegistry
 
         const airBlock = yield* registry.get('AIR')
@@ -41,15 +39,13 @@ describe('BlockRegistry', () => {
         expect(Option.isSome(dirtBlock)).toBe(true)
 
         expect(Option.getOrThrow(dirtBlock).id).toBe('block:dirt')
-      })
-
-      Effect.runSync(program.pipe(Effect.provide(BlockRegistryLive)))
-    })
+      }).pipe(Effect.provide(BlockRegistryLive))
+    )
   })
 
   describe('register', () => {
-    it('should add a new block to registry', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should add a new block to registry', () =>
+      Effect.gen(function* () {
         const registry = yield* BlockRegistry
 
         const newBlockData = {
@@ -72,7 +68,7 @@ describe('BlockRegistry', () => {
           },
         }
 
-        const newBlock = Effect.runSync(Schema.decode(Block)(newBlockData))
+        const newBlock = yield* Schema.decode(Block)(newBlockData)
         yield* registry.register(newBlock)
 
         const retrievedBlock = yield* registry.get('STONE')
@@ -82,13 +78,11 @@ describe('BlockRegistry', () => {
         expect(block).toHaveProperty('id', 'block:diamond')
         expect(block.properties.hardness).toBe(100)
         expect(block.properties.friction).toBe(0.9)
-      })
+      }).pipe(Effect.provide(BlockRegistryLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(BlockRegistryLive)))
-    })
-
-    it('should update an existing block', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should update an existing block', () =>
+      Effect.gen(function* () {
         const registry = yield* BlockRegistry
 
         const updatedBlockData = {
@@ -111,7 +105,7 @@ describe('BlockRegistry', () => {
           },
         }
 
-        const updatedBlock = Effect.runSync(Schema.decode(Block)(updatedBlockData))
+        const updatedBlock = yield* Schema.decode(Block)(updatedBlockData)
         yield* registry.register(updatedBlock)
 
         const retrievedBlock = yield* registry.get('STONE')
@@ -119,13 +113,11 @@ describe('BlockRegistry', () => {
 
         const block = Option.getOrThrow(retrievedBlock)
         expect(block.properties.hardness).toBe(90)
-      })
+      }).pipe(Effect.provide(BlockRegistryLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(BlockRegistryLive)))
-    })
-
-    it('should not affect other block types when updating', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should not affect other block types when updating', () =>
+      Effect.gen(function* () {
         const registry = yield* BlockRegistry
 
         const originalDirt = yield* registry.get('DIRT')
@@ -151,7 +143,7 @@ describe('BlockRegistry', () => {
           },
         }
 
-        const updatedStone = Effect.runSync(Schema.decode(Block)(updatedStoneData))
+        const updatedStone = yield* Schema.decode(Block)(updatedStoneData)
         yield* registry.register(updatedStone)
 
         const dirtAfterUpdate = yield* registry.get('DIRT')
@@ -162,41 +154,34 @@ describe('BlockRegistry', () => {
 
         expect(dirt.id).toBe(originalDirtBlock.id)
         expect(dirt.properties.hardness).toBe(originalDirtBlock.properties.hardness)
-      })
-
-      Effect.runSync(program.pipe(Effect.provide(BlockRegistryLive)))
-    })
+      }).pipe(Effect.provide(BlockRegistryLive))
+    )
   })
 
   describe('get', () => {
-    it('should return Option.Some for registered block types', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should return Option.Some for registered block types', () =>
+      Effect.gen(function* () {
         const registry = yield* BlockRegistry
 
         const blockTypes = ['AIR', 'DIRT', 'STONE', 'WOOD', 'GRASS', 'SAND'] as const
 
-        for (const blockType of blockTypes) {
-          const block = yield* registry.get(blockType)
-          expect(Option.isSome(block)).toBe(true)
-        }
-      })
+        yield* Effect.forEach(blockTypes, (blockType) =>
+          registry.get(blockType).pipe(Effect.map(block => expect(Option.isSome(block)).toBe(true)))
+        , { concurrency: 1 })
+      }).pipe(Effect.provide(BlockRegistryLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(BlockRegistryLive)))
-    })
-
-    it('should return Option.None for unregistered block types', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should return Option.None for unregistered block types', () =>
+      Effect.gen(function* () {
         const registry = yield* BlockRegistry
 
         const block = yield* registry.get('BEDROCK' as any)
         expect(Option.isNone(block)).toBe(true)
-      })
+      }).pipe(Effect.provide(BlockRegistryLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(BlockRegistryLive)))
-    })
-
-    it('should return correct block for each type', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should return correct block for each type', () =>
+      Effect.gen(function* () {
         const registry = yield* BlockRegistry
 
         const airBlock = yield* registry.get('AIR')
@@ -208,33 +193,29 @@ describe('BlockRegistry', () => {
         const grass = Option.getOrThrow(grassBlock)
         expect(grass).toHaveProperty('type', 'GRASS')
         expect(grass.properties.emissive).toBe(true)
-      })
-
-      Effect.runSync(program.pipe(Effect.provide(BlockRegistryLive)))
-    })
+      }).pipe(Effect.provide(BlockRegistryLive))
+    )
   })
 
   describe('getAll', () => {
-    it('should return all registered blocks', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should return all registered blocks', () =>
+      Effect.gen(function* () {
         const registry = yield* BlockRegistry
 
         const allBlocks = yield* registry.getAll()
 
         expect(allBlocks).toHaveLength(12)
         expect(Array.isArray(allBlocks)).toBe(true)
-      })
+      }).pipe(Effect.provide(BlockRegistryLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(BlockRegistryLive)))
-    })
-
-    it('should return blocks with all required properties', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should return blocks with all required properties', () =>
+      Effect.gen(function* () {
         const registry = yield* BlockRegistry
 
         const allBlocks = yield* registry.getAll()
 
-        for (const block of allBlocks) {
+        Arr.forEach(allBlocks, (block) => {
           expect(block).toHaveProperty('id')
           expect(block).toHaveProperty('type')
           expect(block).toHaveProperty('properties')
@@ -250,14 +231,12 @@ describe('BlockRegistry', () => {
           expect(block.faces).toHaveProperty('south')
           expect(block.faces).toHaveProperty('east')
           expect(block.faces).toHaveProperty('west')
-        }
-      })
+        })
+      }).pipe(Effect.provide(BlockRegistryLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(BlockRegistryLive)))
-    })
-
-    it('should include newly registered blocks', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should include newly registered blocks', () =>
+      Effect.gen(function* () {
         const registry = yield* BlockRegistry
 
         const initialBlocks = yield* registry.getAll()
@@ -283,20 +262,18 @@ describe('BlockRegistry', () => {
           },
         }
 
-        const newBlock = Effect.runSync(Schema.decode(Block)(newBlockData))
+        const newBlock = yield* Schema.decode(Block)(newBlockData)
         yield* registry.register(newBlock)
 
         const allBlocks = yield* registry.getAll()
         expect(allBlocks).toHaveLength(12)
-      })
-
-      Effect.runSync(program.pipe(Effect.provide(BlockRegistryLive)))
-    })
+      }).pipe(Effect.provide(BlockRegistryLive))
+    )
   })
 
   describe('dispose', () => {
-    it('should clear all registered blocks', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should clear all registered blocks', () =>
+      Effect.gen(function* () {
         const registry = yield* BlockRegistry
 
         let allBlocks = yield* registry.getAll()
@@ -306,30 +283,25 @@ describe('BlockRegistry', () => {
 
         allBlocks = yield* registry.getAll()
         expect(allBlocks).toHaveLength(0)
-      })
+      }).pipe(Effect.provide(BlockRegistryLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(BlockRegistryLive)))
-    })
-
-    it('should make get return Option.None for all types', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should make get return Option.None for all types', () =>
+      Effect.gen(function* () {
         const registry = yield* BlockRegistry
 
         yield* registry.dispose()
 
         const blockTypes = ['AIR', 'DIRT', 'STONE', 'WOOD', 'GRASS', 'SAND'] as const
 
-        for (const blockType of blockTypes) {
-          const block = yield* registry.get(blockType)
-          expect(Option.isNone(block)).toBe(true)
-        }
-      })
+        yield* Effect.forEach(blockTypes, (blockType) =>
+          registry.get(blockType).pipe(Effect.map((block) => expect(Option.isNone(block)).toBe(true)))
+        , { concurrency: 1 })
+      }).pipe(Effect.provide(BlockRegistryLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(BlockRegistryLive)))
-    })
-
-    it('should allow re-registering after dispose', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should allow re-registering after dispose', () =>
+      Effect.gen(function* () {
         const registry = yield* BlockRegistry
 
         yield* registry.dispose()
@@ -354,7 +326,7 @@ describe('BlockRegistry', () => {
           },
         }
 
-        const newBlock = Effect.runSync(Schema.decode(Block)(newBlockData))
+        const newBlock = yield* Schema.decode(Block)(newBlockData)
         yield* registry.register(newBlock)
 
         const allBlocks = yield* registry.getAll()
@@ -362,15 +334,13 @@ describe('BlockRegistry', () => {
 
         const retrievedBlock = yield* registry.get('STONE')
         expect(Option.isSome(retrievedBlock)).toBe(true)
-      })
-
-      Effect.runSync(program.pipe(Effect.provide(BlockRegistryLive)))
-    })
+      }).pipe(Effect.provide(BlockRegistryLive))
+    )
   })
 
   describe('integration scenarios', () => {
-    it('should support complex workflow: dispose, register multiple, retrieve', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should support complex workflow: dispose, register multiple, retrieve', () =>
+      Effect.gen(function* () {
         const registry = yield* BlockRegistry
 
         yield* registry.dispose()
@@ -415,14 +385,11 @@ describe('BlockRegistry', () => {
           },
         }
 
-        const newBlocks = [
-          Effect.runSync(Schema.decode(Block)(ironBlockData)),
-          Effect.runSync(Schema.decode(Block)(goldBlockData)),
-        ]
+        const ironBlock = yield* Schema.decode(Block)(ironBlockData)
+        const goldBlock = yield* Schema.decode(Block)(goldBlockData)
+        const newBlocks = [ironBlock, goldBlock]
 
-        for (const block of newBlocks) {
-          yield* registry.register(block)
-        }
+        yield* Effect.forEach(newBlocks, (block) => registry.register(block), { concurrency: 1 })
 
         const allBlocks = yield* registry.getAll()
         expect(allBlocks).toHaveLength(2)
@@ -436,9 +403,7 @@ describe('BlockRegistry', () => {
         expect(Option.isSome(dirtBlock)).toBe(true)
 
         expect(Option.getOrThrow(dirtBlock).id).toBe('block:gold')
-      })
-
-      Effect.runSync(program.pipe(Effect.provide(BlockRegistryLive)))
-    })
+      }).pipe(Effect.provide(BlockRegistryLive))
+    )
   })
 })

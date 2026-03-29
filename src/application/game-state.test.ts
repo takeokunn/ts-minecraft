@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { Effect, Layer, MutableHashMap, MutableHashSet, Option } from 'effect'
+import { describe, it, expect } from '@effect/vitest'
+import { Array as Arr, Effect, Either, Layer, MutableHashMap, MutableHashSet, Option } from 'effect'
 import { DeltaTimeSecs } from '@/shared/kernel'
 import {
   GameStateService,
@@ -144,11 +144,11 @@ describe('application/game-state', () => {
       expect(typeof layer).toBe('object')
     })
 
-    it('should have all required methods', () => {
+    it.effect('should have all required methods', () => {
       const inputService = createTestInputService()
       const testLayer = createTestLayer(inputService)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* GameStateService
 
         expect(typeof service.initialize).toBe('function')
@@ -157,21 +157,16 @@ describe('application/game-state', () => {
         expect(typeof service.getPlayerPosition).toBe('function')
         expect(typeof service.getCameraRotation).toBe('function')
         expect(typeof service.isPlayerGrounded).toBe('function')
-
-        return { success: true }
       }).pipe(Effect.provide(testLayer))
-
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
     })
   })
 
   describe('Initialization', () => {
-    it('should initialize physics world and player body', () => {
+    it.effect('should initialize physics world and player body', () => {
       const inputService = createTestInputService()
       const testLayer = createTestLayer(inputService)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* GameStateService
 
         yield* service.initialize({ x: 0, y: 5, z: 0 })
@@ -181,79 +176,58 @@ describe('application/game-state', () => {
         expect(position.x).toBe(0)
         expect(position.y).toBe(5) // Spawn position
         expect(position.z).toBe(0)
-
-        return { success: true }
       }).pipe(Effect.provide(testLayer))
-
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
     })
 
-    it('should create player at spawn position 5 units above ground', () => {
+    it.effect('should create player at spawn position 5 units above ground', () => {
       const inputService = createTestInputService()
       const testLayer = createTestLayer(inputService)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* GameStateService
 
         yield* service.initialize({ x: 0, y: 5, z: 0 })
 
         const position = yield* service.getPlayerPosition(DEFAULT_PLAYER_ID)
         expect(position.y).toBe(5)
-
-        return { success: true }
       }).pipe(Effect.provide(testLayer))
-
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
     })
   })
 
   describe('Update loop', () => {
-    it('should fail to update before initialization', () => {
+    it.effect('should fail to update before initialization', () => {
       const inputService = createTestInputService()
       const testLayer = createTestLayer(inputService)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* GameStateService
 
         const result = yield* Effect.either(service.update(DeltaTimeSecs.make(1 / 60)))
 
-        expect(result._tag).toBe('Left')
-        if (result._tag === 'Left') {
-          expect(result.left).toBeInstanceOf(GameStateError)
-          expect((result.left as GameStateError).operation).toBe('update')
-        }
-
-        return { success: true }
+        expect(Either.isLeft(result)).toBe(true)
+        const errUpdate = Option.getOrThrow(Either.getLeft(result))
+        expect(errUpdate).toBeInstanceOf(GameStateError)
+        expect((errUpdate as GameStateError).operation).toBe('update')
       }).pipe(Effect.provide(testLayer))
-
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
     })
 
-    it('should succeed to update after initialization', () => {
+    it.effect('should succeed to update after initialization', () => {
       const inputService = createTestInputService()
       const testLayer = createTestLayer(inputService)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* GameStateService
 
         yield* service.initialize({ x: 0, y: 5, z: 0 })
         yield* service.update(DeltaTimeSecs.make(1 / 60))
-
-        return { success: true }
       }).pipe(Effect.provide(testLayer))
-
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
     })
 
-    it('should update timing state', () => {
+    it.effect('should update timing state', () => {
       const inputService = createTestInputService()
       const testLayer = createTestLayer(inputService)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* GameStateService
 
         yield* service.initialize({ x: 0, y: 5, z: 0 })
@@ -266,19 +240,14 @@ describe('application/game-state', () => {
         const timingAfter = yield* service.getTiming()
         expect(timingAfter.frameCount).toBe(1)
         expect(timingAfter.deltaTime).toBe(1 / 60)
-
-        return { success: true }
       }).pipe(Effect.provide(testLayer))
-
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
     })
 
-    it('should apply movement velocity from input', () => {
+    it.effect('should apply movement velocity from input', () => {
       const inputService = createTestInputService({ forward: true })
       const testLayer = createTestLayer(inputService)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* GameStateService
 
         yield* service.initialize({ x: 0, y: 5, z: 0 })
@@ -287,27 +256,20 @@ describe('application/game-state', () => {
         const initialPos = yield* service.getPlayerPosition(DEFAULT_PLAYER_ID)
 
         // Update multiple times to let physics move the player
-        for (let i = 0; i < 60; i++) {
-          yield* service.update(DeltaTimeSecs.make(1 / 60))
-        }
+        yield* Effect.forEach(Arr.makeBy(60, () => undefined), () => service.update(DeltaTimeSecs.make(1 / 60)), { concurrency: 1 })
 
         const finalPos = yield* service.getPlayerPosition(DEFAULT_PLAYER_ID)
 
         // Player should have moved in negative Z direction (forward)
         expect(finalPos.z).toBeLessThan(initialPos.z)
-
-        return { success: true }
       }).pipe(Effect.provide(testLayer))
-
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
     })
 
-    it('should step physics simulation', () => {
+    it.effect('should step physics simulation', () => {
       const inputService = createTestInputService()
       const testLayer = createTestLayer(inputService)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* GameStateService
 
         yield* service.initialize({ x: 0, y: 5, z: 0 })
@@ -316,27 +278,20 @@ describe('application/game-state', () => {
         expect(initialPos.y).toBe(5)
 
         // Step simulation multiple times - player should fall due to gravity
-        for (let i = 0; i < 120; i++) {
-          yield* service.update(DeltaTimeSecs.make(1 / 60))
-        }
+        yield* Effect.forEach(Arr.makeBy(120, () => undefined), () => service.update(DeltaTimeSecs.make(1 / 60)), { concurrency: 1 })
 
         const finalPos = yield* service.getPlayerPosition(DEFAULT_PLAYER_ID)
 
         // Player should have fallen (gravity)
         expect(finalPos.y).toBeLessThan(initialPos.y)
-
-        return { success: true }
       }).pipe(Effect.provide(testLayer))
-
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
     })
 
-    it('should sync physics position back to player state', () => {
+    it.effect('should sync physics position back to player state', () => {
       const inputService = createTestInputService()
       const testLayer = createTestLayer(inputService)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* GameStateService
 
         yield* service.initialize({ x: 0, y: 5, z: 0 })
@@ -349,21 +304,16 @@ describe('application/game-state', () => {
         expect(typeof position.x).toBe('number')
         expect(typeof position.y).toBe('number')
         expect(typeof position.z).toBe('number')
-
-        return { success: true }
       }).pipe(Effect.provide(testLayer))
-
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
     })
   })
 
   describe('Gravity', () => {
-    it('should apply gravity to player', () => {
+    it.effect('should apply gravity to player', () => {
       const inputService = createTestInputService()
       const testLayer = createTestLayer(inputService)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* GameStateService
 
         yield* service.initialize({ x: 0, y: 5, z: 0 })
@@ -371,27 +321,20 @@ describe('application/game-state', () => {
         const initialY = 5
 
         // Run simulation for a while
-        for (let i = 0; i < 60; i++) {
-          yield* service.update(DeltaTimeSecs.make(1 / 60))
-        }
+        yield* Effect.forEach(Arr.makeBy(60, () => undefined), () => service.update(DeltaTimeSecs.make(1 / 60)), { concurrency: 1 })
 
         const position = yield* service.getPlayerPosition(DEFAULT_PLAYER_ID)
 
         // Player should have fallen
         expect(position.y).toBeLessThan(initialY)
-
-        return { success: true }
       }).pipe(Effect.provide(testLayer))
-
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
     })
 
-    it('should preserve gravity Y velocity when not jumping', () => {
+    it.effect('should preserve gravity Y velocity when not jumping', () => {
       const inputService = createTestInputService({ forward: true }) // No jump
       const testLayer = createTestLayer(inputService)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* GameStateService
 
         yield* service.initialize({ x: 0, y: 5, z: 0 })
@@ -399,35 +342,26 @@ describe('application/game-state', () => {
         const initialY = (yield* service.getPlayerPosition(DEFAULT_PLAYER_ID)).y
 
         // Run some updates - player should be falling
-        for (let i = 0; i < 30; i++) {
-          yield* service.update(DeltaTimeSecs.make(1 / 60))
-        }
+        yield* Effect.forEach(Arr.makeBy(30, () => undefined), () => service.update(DeltaTimeSecs.make(1 / 60)), { concurrency: 1 })
 
         const finalY = (yield* service.getPlayerPosition(DEFAULT_PLAYER_ID)).y
 
         // Player should have fallen (Y decreased)
         expect(finalY).toBeLessThan(initialY)
-
-        return { success: true }
       }).pipe(Effect.provide(testLayer))
-
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
     })
 
-    it('should stop falling when player hits ground', () => {
+    it.effect('should stop falling when player hits ground', () => {
       const inputService = createTestInputService()
       const testLayer = createTestLayer(inputService)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* GameStateService
 
         yield* service.initialize({ x: 0, y: 5, z: 0 })
 
         // Run simulation for extended time to let player fall and land
-        for (let i = 0; i < 300; i++) {
-          yield* service.update(DeltaTimeSecs.make(1 / 60))
-        }
+        yield* Effect.forEach(Arr.makeBy(300, () => undefined), () => service.update(DeltaTimeSecs.make(1 / 60)), { concurrency: 1 })
 
         const position = yield* service.getPlayerPosition(DEFAULT_PLAYER_ID)
 
@@ -435,29 +369,22 @@ describe('application/game-state', () => {
         // Ground is at y=0, player center is at player height/2 above ground
         expect(position.y).toBeGreaterThan(0)
         expect(position.y).toBeLessThan(3) // Should have landed
-
-        return { success: true }
       }).pipe(Effect.provide(testLayer))
-
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
     })
   })
 
   describe('Jump mechanics', () => {
-    it('should apply jump velocity when jump is pressed and grounded', () => {
+    it.effect('should apply jump velocity when jump is pressed and grounded', () => {
       const inputService = createTestInputService()
       const testLayer = createTestLayer(inputService)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* GameStateService
 
         yield* service.initialize({ x: 0, y: 5, z: 0 })
 
         // First, let the player fall to ground (no jump pressed, so consumeKeyPress is not consumed)
-        for (let i = 0; i < 300; i++) {
-          yield* service.update(DeltaTimeSecs.make(1 / 60))
-        }
+        yield* Effect.forEach(Arr.makeBy(300, () => undefined), () => service.update(DeltaTimeSecs.make(1 / 60)), { concurrency: 1 })
 
         // Check player is on ground
         const groundLevelY = (yield* service.getPlayerPosition(DEFAULT_PLAYER_ID)).y
@@ -471,27 +398,20 @@ describe('application/game-state', () => {
         // After jump, Y should increase
         const afterJumpY = (yield* service.getPlayerPosition(DEFAULT_PLAYER_ID)).y
         expect(afterJumpY).toBeGreaterThan(groundLevelY)
-
-        return { success: true }
       }).pipe(Effect.provide(testLayer))
-
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
     })
 
-    it('should clear grounded state when jumping', () => {
+    it.effect('should clear grounded state when jumping', () => {
       const inputService = createTestInputService()
       const testLayer = createTestLayer(inputService)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* GameStateService
 
         yield* service.initialize({ x: 0, y: 5, z: 0 })
 
         // Let player fall to ground (no jump key, so consumeKeyPress is never consumed)
-        for (let i = 0; i < 300; i++) {
-          yield* service.update(DeltaTimeSecs.make(1 / 60))
-        }
+        yield* Effect.forEach(Arr.makeBy(300, () => undefined), () => service.update(DeltaTimeSecs.make(1 / 60)), { concurrency: 1 })
 
         // Player is now on the ground — simulate a fresh jump key press
         inputService.simulateKeyPress('Space')
@@ -502,19 +422,14 @@ describe('application/game-state', () => {
         // After jump, grounded state should be cleared
         const isGroundedAfter = yield* service.isPlayerGrounded()
         expect(isGroundedAfter).toBe(false)
-
-        return { success: true }
       }).pipe(Effect.provide(testLayer))
-
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
     })
 
-    it('should not jump when not grounded (in air)', () => {
+    it.effect('should not jump when not grounded (in air)', () => {
       const inputService = createTestInputService({ jump: true })
       const testLayer = createTestLayer(inputService)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* GameStateService
 
         yield* service.initialize({ x: 0, y: 5, z: 0 })
@@ -532,42 +447,32 @@ describe('application/game-state', () => {
 
         // Player should be falling (Y should decrease), not jumping up
         expect(afterUpdateY).toBeLessThan(initialY)
-
-        return { success: true }
       }).pipe(Effect.provide(testLayer))
-
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
     })
   })
 
   describe('Camera rotation', () => {
-    it('should return camera rotation', () => {
+    it.effect('should return camera rotation', () => {
       const inputService = createTestInputService()
       const testLayer = createTestLayer(inputService)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* GameStateService
 
         const rotation = yield* service.getCameraRotation()
 
         expect(typeof rotation.yaw).toBe('number')
         expect(typeof rotation.pitch).toBe('number')
-
-        return { success: true }
       }).pipe(Effect.provide(testLayer))
-
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
     })
 
-    it('should use camera yaw for movement direction', () => {
+    it.effect('should use camera yaw for movement direction', () => {
       // This test verifies that movement is relative to camera direction
       // We test this by moving forward and checking the player position changes
       const inputService = createTestInputService({ forward: true })
       const testLayer = createTestLayer(inputService)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* GameStateService
 
         yield* service.initialize({ x: 0, y: 5, z: 0 })
@@ -575,9 +480,7 @@ describe('application/game-state', () => {
         const initialPos = yield* service.getPlayerPosition(DEFAULT_PLAYER_ID)
 
         // Update multiple times - player should move in some direction
-        for (let i = 0; i < 60; i++) {
-          yield* service.update(DeltaTimeSecs.make(1 / 60))
-        }
+        yield* Effect.forEach(Arr.makeBy(60, () => undefined), () => service.update(DeltaTimeSecs.make(1 / 60)), { concurrency: 1 })
 
         const finalPos = yield* service.getPlayerPosition(DEFAULT_PLAYER_ID)
 
@@ -587,21 +490,16 @@ describe('application/game-state', () => {
         const totalMovement = movedX + movedZ
 
         expect(totalMovement).toBeGreaterThan(0.1) // Player should have moved
-
-        return { success: true }
       }).pipe(Effect.provide(testLayer))
-
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
     })
   })
 
   describe('Grounded state', () => {
-    it('should not be grounded initially (in air)', () => {
+    it.effect('should not be grounded initially (in air)', () => {
       const inputService = createTestInputService()
       const testLayer = createTestLayer(inputService)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* GameStateService
 
         yield* service.initialize({ x: 0, y: 5, z: 0 })
@@ -609,29 +507,22 @@ describe('application/game-state', () => {
         const isGrounded = yield* service.isPlayerGrounded()
 
         expect(isGrounded).toBe(false)
-
-        return { success: true }
       }).pipe(Effect.provide(testLayer))
-
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
     })
   })
 
   describe('Integration scenarios', () => {
-    it('should handle full gameplay loop: fall, land, move, jump', () => {
+    it.effect('should handle full gameplay loop: fall, land, move, jump', () => {
       const inputService = createTestInputService()
       const testLayer = createTestLayer(inputService)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* GameStateService
 
         yield* service.initialize({ x: 0, y: 5, z: 0 })
 
         // Phase 1: Fall and land
-        for (let i = 0; i < 300; i++) {
-          yield* service.update(DeltaTimeSecs.make(1 / 60))
-        }
+        yield* Effect.forEach(Arr.makeBy(300, () => undefined), () => service.update(DeltaTimeSecs.make(1 / 60)), { concurrency: 1 })
 
         const landedY = (yield* service.getPlayerPosition(DEFAULT_PLAYER_ID)).y
         expect(landedY).toBeLessThan(5)
@@ -640,9 +531,7 @@ describe('application/game-state', () => {
         inputService.setKeyPressed('KeyW', true)
         const beforeMoveZ = (yield* service.getPlayerPosition(DEFAULT_PLAYER_ID)).z
 
-        for (let i = 0; i < 60; i++) {
-          yield* service.update(DeltaTimeSecs.make(1 / 60))
-        }
+        yield* Effect.forEach(Arr.makeBy(60, () => undefined), () => service.update(DeltaTimeSecs.make(1 / 60)), { concurrency: 1 })
 
         const afterMoveZ = (yield* service.getPlayerPosition(DEFAULT_PLAYER_ID)).z
         expect(afterMoveZ).toBeLessThan(beforeMoveZ)
@@ -654,63 +543,47 @@ describe('application/game-state', () => {
         inputService.setKeyPressed('KeyW', false)
 
         // Run a few updates to let physics settle
-        for (let i = 0; i < 10; i++) {
-          yield* service.update(DeltaTimeSecs.make(1 / 60))
-        }
+        yield* Effect.forEach(Arr.makeBy(10, () => undefined), () => service.update(DeltaTimeSecs.make(1 / 60)), { concurrency: 1 })
 
         // Verify timing state is correct
         const timing = yield* service.getTiming()
         // 300 (fall) + 60 (move) + 10 (settle) = 370 frames
         expect(timing.frameCount).toBe(370)
-
-        return { success: true }
       }).pipe(Effect.provide(testLayer))
-
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
     })
 
-    it('should handle sprint movement', () => {
+    it.effect('should handle sprint movement', () => {
       const inputService = createTestInputService({ forward: true, sprint: true })
       const testLayer = createTestLayer(inputService)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* GameStateService
 
         yield* service.initialize({ x: 0, y: 5, z: 0 })
 
         // Let player land first
-        for (let i = 0; i < 300; i++) {
-          yield* service.update(DeltaTimeSecs.make(1 / 60))
-        }
+        yield* Effect.forEach(Arr.makeBy(300, () => undefined), () => service.update(DeltaTimeSecs.make(1 / 60)), { concurrency: 1 })
 
         const initialZ = (yield* service.getPlayerPosition(DEFAULT_PLAYER_ID)).z
 
         // Sprint forward
-        for (let i = 0; i < 60; i++) {
-          yield* service.update(DeltaTimeSecs.make(1 / 60))
-        }
+        yield* Effect.forEach(Arr.makeBy(60, () => undefined), () => service.update(DeltaTimeSecs.make(1 / 60)), { concurrency: 1 })
 
         const finalZ = (yield* service.getPlayerPosition(DEFAULT_PLAYER_ID)).z
         const distanceTraveled = Math.abs(finalZ - initialZ)
 
         // Sprint should cover more distance than walk
         expect(distanceTraveled).toBeGreaterThan(0)
-
-        return { success: true }
       }).pipe(Effect.provide(testLayer))
-
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
     })
   })
 
   describe('Effect composition', () => {
-    it('should support Effect.flatMap for chaining operations', () => {
+    it.effect('should support Effect.flatMap for chaining operations', () => {
       const inputService = createTestInputService()
       const testLayer = createTestLayer(inputService)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* GameStateService
 
         const result = service.initialize({ x: 0, y: 5, z: 0 }).pipe(
@@ -721,44 +594,32 @@ describe('application/game-state', () => {
 
         const frameCount = yield* result
         expect(frameCount).toBe(1)
-
-        return { success: true }
       }).pipe(Effect.provide(testLayer))
-
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
     })
   })
 
   describe('Multiple update calls', () => {
-    it('should increment frameCount for each update call', () => {
+    it.effect('should increment frameCount for each update call', () => {
       const inputService = createTestInputService()
       const testLayer = createTestLayer(inputService)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* GameStateService
 
         yield* service.initialize({ x: 0, y: 5, z: 0 })
 
-        for (let i = 0; i < 10; i++) {
-          yield* service.update(DeltaTimeSecs.make(1 / 60))
-        }
+        yield* Effect.forEach(Arr.makeBy(10, () => undefined), () => service.update(DeltaTimeSecs.make(1 / 60)), { concurrency: 1 })
 
         const timing = yield* service.getTiming()
         expect(timing.frameCount).toBe(10)
-
-        return { success: true }
       }).pipe(Effect.provide(testLayer))
-
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
     })
 
-    it('should track deltaTime from the last update call', () => {
+    it.effect('should track deltaTime from the last update call', () => {
       const inputService = createTestInputService()
       const testLayer = createTestLayer(inputService)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* GameStateService
 
         yield* service.initialize({ x: 0, y: 5, z: 0 })
@@ -770,43 +631,31 @@ describe('application/game-state', () => {
         yield* service.update(DeltaTimeSecs.make(1 / 30))
         const timing2 = yield* service.getTiming()
         expect(timing2.deltaTime).toBeCloseTo(1 / 30)
-
-        return { success: true }
       }).pipe(Effect.provide(testLayer))
-
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
     })
   })
 
   describe('Error propagation', () => {
-    it('should wrap update error as GameStateError with correct _tag', () => {
+    it.effect('should wrap update error as GameStateError with correct _tag', () => {
       const inputService = createTestInputService()
       const testLayer = createTestLayer(inputService)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* GameStateService
 
         // Don't initialize — update should fail
         const result = yield* Effect.either(service.update(DeltaTimeSecs.make(1 / 60)))
 
-        expect(result._tag).toBe('Left')
-        if (result._tag === 'Left') {
-          expect(result.left._tag).toBe('GameStateError')
-        }
-
-        return { success: true }
+        expect(Either.isLeft(result)).toBe(true)
+        expect(Option.getOrThrow(Either.getLeft(result))._tag).toBe('GameStateError')
       }).pipe(Effect.provide(testLayer))
-
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
     })
 
-    it('should be catchable with Effect.catchTag for GameStateError', () => {
+    it.effect('should be catchable with Effect.catchTag for GameStateError', () => {
       const inputService = createTestInputService()
       const testLayer = createTestLayer(inputService)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* GameStateService
 
         // This should fail because we didn't initialize
@@ -815,21 +664,16 @@ describe('application/game-state', () => {
         )
 
         expect(result).toBe('caught: update')
-
-        return { success: true }
       }).pipe(Effect.provide(testLayer))
-
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
     })
   })
 
   describe('Position synchronization', () => {
-    it('should sync physics position back to player service after update', () => {
+    it.effect('should sync physics position back to player service after update', () => {
       const inputService = createTestInputService()
       const testLayer = createTestLayer(inputService)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* GameStateService
 
         yield* service.initialize({ x: 10, y: 20, z: 30 })
@@ -848,21 +692,16 @@ describe('application/game-state', () => {
         expect(typeof afterPos.z).toBe('number')
         // Y should be different due to gravity
         expect(afterPos.y).not.toBe(20)
-
-        return { success: true }
       }).pipe(Effect.provide(testLayer))
-
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
     })
   })
 
   describe('Initialization edge cases', () => {
-    it('should initialize at negative spawn coordinates', () => {
+    it.effect('should initialize at negative spawn coordinates', () => {
       const inputService = createTestInputService()
       const testLayer = createTestLayer(inputService)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* GameStateService
 
         yield* service.initialize({ x: -100, y: 50, z: -200 })
@@ -871,19 +710,14 @@ describe('application/game-state', () => {
         expect(pos.x).toBe(-100)
         expect(pos.y).toBe(50)
         expect(pos.z).toBe(-200)
-
-        return { success: true }
       }).pipe(Effect.provide(testLayer))
-
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
     })
 
-    it('should accept zero spawn position', () => {
+    it.effect('should accept zero spawn position', () => {
       const inputService = createTestInputService()
       const testLayer = createTestLayer(inputService)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* GameStateService
 
         yield* service.initialize({ x: 0, y: 0, z: 0 })
@@ -892,95 +726,73 @@ describe('application/game-state', () => {
         expect(pos.x).toBe(0)
         expect(pos.y).toBe(0)
         expect(pos.z).toBe(0)
-
-        return { success: true }
       }).pipe(Effect.provide(testLayer))
-
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
     })
   })
 
   describe('getCameraRotation', () => {
-    it('returns { yaw: 0, pitch: 0 } before any updates', () => {
+    it.effect('returns { yaw: 0, pitch: 0 } before any updates', () => {
       const inputService = createTestInputService()
       const testLayer = createTestLayer(inputService)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* GameStateService
         // getCameraRotation delegates to PlayerCameraStateService which starts at (0, 0)
         const rotation = yield* service.getCameraRotation()
-        return rotation
+        expect(rotation.yaw).toBe(0)
+        expect(rotation.pitch).toBe(0)
       }).pipe(Effect.provide(testLayer))
-
-      const rotation = Effect.runSync(program)
-      expect(rotation.yaw).toBe(0)
-      expect(rotation.pitch).toBe(0)
     })
 
-    it('getCameraRotation always returns numeric yaw and pitch', () => {
+    it.effect('getCameraRotation always returns numeric yaw and pitch', () => {
       const inputService = createTestInputService()
       const testLayer = createTestLayer(inputService)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* GameStateService
         yield* service.initialize({ x: 0, y: 5, z: 0 })
         yield* service.update(DeltaTimeSecs.make(1 / 60))
-        return yield* service.getCameraRotation()
+        const rotation = yield* service.getCameraRotation()
+        expect(typeof rotation.yaw).toBe('number')
+        expect(typeof rotation.pitch).toBe('number')
       }).pipe(Effect.provide(testLayer))
-
-      const rotation = Effect.runSync(program)
-      expect(typeof rotation.yaw).toBe('number')
-      expect(typeof rotation.pitch).toBe('number')
     })
   })
 
   describe('isPlayerGrounded before initialization', () => {
-    it('should return false when physics not initialized', () => {
+    it.effect('should return false when physics not initialized', () => {
       const inputService = createTestInputService()
       const testLayer = createTestLayer(inputService)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* GameStateService
 
         // No initialization
         const grounded = yield* service.isPlayerGrounded()
         expect(grounded).toBe(false)
-
-        return { success: true }
       }).pipe(Effect.provide(testLayer))
-
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
     })
   })
 
   describe('Strafing movement', () => {
-    it('should move player in X direction with left strafe', () => {
+    it.effect('should move player in X direction with left strafe', () => {
       const inputService = createTestInputService({ left: true })
       const testLayer = createTestLayer(inputService)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* GameStateService
 
         yield* service.initialize({ x: 0, y: 5, z: 0 })
 
         const initialPos = yield* service.getPlayerPosition(DEFAULT_PLAYER_ID)
 
-        for (let i = 0; i < 60; i++) {
-          yield* service.update(DeltaTimeSecs.make(1 / 60))
-        }
+        yield* Effect.forEach(Arr.makeBy(60, () => undefined), () => service.update(DeltaTimeSecs.make(1 / 60)), { concurrency: 1 })
 
         const finalPos = yield* service.getPlayerPosition(DEFAULT_PLAYER_ID)
 
         // Left strafe at yaw=0: x should decrease (negative X direction)
         expect(finalPos.x).toBeLessThan(initialPos.x)
-
-        return { success: true }
       }).pipe(Effect.provide(testLayer))
-
-      const result = Effect.runSync(program)
-      expect(result.success).toBe(true)
     })
   })
 })

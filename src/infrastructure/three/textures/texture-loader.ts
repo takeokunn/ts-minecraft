@@ -6,9 +6,7 @@ import { TextureUrl } from '@/shared/kernel'
 export class TextureService extends Effect.Service<TextureService>()(
   '@minecraft/infrastructure/three/TextureService',
   {
-    effect: Effect.gen(function* () {
-      const textureCache = yield* Ref.make(HashMap.empty<TextureUrl, THREE.Texture>())
-
+    effect: Ref.make(HashMap.empty<TextureUrl, THREE.Texture>()).pipe(Effect.map((textureCache) => {
       const loadEffect = (url: string) => {
         const textureUrl = TextureUrl.make(url)
         return Effect.gen(function* () {
@@ -20,6 +18,7 @@ export class TextureService extends Effect.Service<TextureService>()(
                 const texture = await loader.loadAsync(url)
                 texture.magFilter = THREE.NearestFilter
                 texture.minFilter = THREE.NearestFilter
+                texture.generateMipmaps = false
                 texture.wrapS = THREE.RepeatWrapping
                 texture.wrapT = THREE.RepeatWrapping
                 return texture
@@ -59,6 +58,7 @@ export class TextureService extends Effect.Service<TextureService>()(
               const texture = new THREE.CanvasTexture(canvas)
               texture.magFilter = THREE.NearestFilter
               texture.minFilter = THREE.NearestFilter
+              texture.generateMipmaps = false
               return texture
             })
           }),
@@ -78,7 +78,7 @@ export class TextureService extends Effect.Service<TextureService>()(
             yield* Ref.set(textureCache, HashMap.empty())
           }),
       }
-    }),
+    })),
   }
 ) {}
 export const TextureServiceLive = TextureService.Default

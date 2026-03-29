@@ -11,7 +11,7 @@
  */
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Effect, Layer } from 'effect'
+import { Array as Arr, Effect, Layer } from 'effect'
 import * as fc from 'effect/FastCheck'
 import { GameStateService, GameStateServiceLive } from '@/application/game-state'
 import { PhysicsServiceLive, PLAYER_FEET_OFFSET } from '@/application/physics/physics-service'
@@ -85,9 +85,7 @@ describe('application/game-state — jumpOverrideRef cleared on re-landing', () 
         yield* gameState.initialize(SPAWN_POS, GROUND_Y)
 
         // Run many steps to allow the player to fall and settle
-        for (let i = 0; i < 60; i++) {
-          yield* gameState.update(DELTA)
-        }
+        yield* Effect.forEach(Arr.makeBy(60, () => undefined), () => gameState.update(DELTA), { concurrency: 1 })
 
         const grounded = yield* gameState.isPlayerGrounded()
         expect(grounded).toBe(true)
@@ -114,14 +112,19 @@ describe('application/game-state — jumpOverrideRef cleared on re-landing', () 
         expect(groundedAtStart).toBe(false)
 
         // Simulate until grounded
-        let grounded = false
-        for (let i = 0; i < 100; i++) {
-          yield* gameState.update(DELTA)
-          grounded = yield* gameState.isPlayerGrounded()
-          if (grounded) break
-        }
+        const groundedState = yield* Effect.iterate(
+          { grounded: false, i: 0 },
+          {
+            while: (s) => !s.grounded && s.i < 100,
+            body: (s) => Effect.gen(function* () {
+              yield* gameState.update(DELTA)
+              const grounded = yield* gameState.isPlayerGrounded()
+              return { grounded, i: s.i + 1 }
+            }),
+          }
+        )
 
-        expect(grounded).toBe(true)
+        expect(groundedState.grounded).toBe(true)
       }).pipe(Effect.provide(TestGameLayer))
     }
   )
@@ -147,9 +150,7 @@ describe('application/game-state — updateGroundY shifts grounded threshold', (
         yield* gameState.initialize(SPAWN_POS, GROUND_Y)
 
         // Let player settle on the original ground
-        for (let i = 0; i < 40; i++) {
-          yield* gameState.update(DELTA)
-        }
+        yield* Effect.forEach(Arr.makeBy(40, () => undefined), () => gameState.update(DELTA), { concurrency: 1 })
 
         const groundedBefore = yield* gameState.isPlayerGrounded()
         expect(groundedBefore).toBe(true)
@@ -196,9 +197,7 @@ describe('application/game-state — updateGroundY shifts grounded threshold', (
         yield* gameState.initialize(SPAWN_POS, GROUND_Y)
 
         // Settle the player on the original ground
-        for (let i = 0; i < 40; i++) {
-          yield* gameState.update(DELTA)
-        }
+        yield* Effect.forEach(Arr.makeBy(40, () => undefined), () => gameState.update(DELTA), { concurrency: 1 })
 
         const groundedBefore = yield* gameState.isPlayerGrounded()
         expect(groundedBefore).toBe(true)

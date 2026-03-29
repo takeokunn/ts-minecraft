@@ -38,7 +38,7 @@ export const ChunkSchema = Schema.Struct({
   coord: ChunkCoordSchema,
   // Schema.declare: opaque brand for Uint8Array (ArrayBufferLike base type, compatible with idb storage returns)
   blocks: Schema.declare((u): u is Uint8Array<ArrayBufferLike> => u instanceof Uint8Array),
-  fluid: Schema.optional(Schema.declare((u): u is Uint8Array<ArrayBufferLike> => u instanceof Uint8Array)),
+  fluid: Schema.optionalWith(Schema.declare((u): u is Uint8Array<ArrayBufferLike> => u instanceof Uint8Array), { as: 'Option' }),
 })
 export type Chunk = Schema.Schema.Type<typeof ChunkSchema>
 
@@ -88,6 +88,10 @@ export const blockIndex = (x: number, y: number, z: number): Option.Option<numbe
   return Option.some(y + z * CHUNK_HEIGHT + x * CHUNK_HEIGHT * CHUNK_SIZE)
 }
 
+// Performance boundary: no Option allocation — caller must ensure 0 ≤ x < CHUNK_SIZE, 0 ≤ y < CHUNK_HEIGHT, 0 ≤ z < CHUNK_SIZE
+export const blockIndexUnsafe = (x: number, y: number, z: number): number =>
+  y + z * CHUNK_HEIGHT + x * CHUNK_HEIGHT * CHUNK_SIZE
+
 /**
  * Effect version of blockIndex for user-facing boundary APIs.
  * Fails with BlockIndexError if coordinates are out of bounds.
@@ -110,7 +114,7 @@ export class ChunkService extends Effect.Service<ChunkService>()(
         Effect.succeed({
           coord,
           blocks: new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT),
-          fluid: new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT),
+          fluid: Option.some(new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)),
         }),
 
       /**

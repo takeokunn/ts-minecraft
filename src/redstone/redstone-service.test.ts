@@ -1,40 +1,35 @@
-import { describe, expect, it } from 'vitest'
-import { Effect, Option } from 'effect'
+import { describe, it } from '@effect/vitest'
+import { expect } from 'vitest'
+import { Array as Arr, Effect, Option } from 'effect'
 import { RedstoneComponentType } from '@/redstone/redstone-model'
 import { RedstoneService, RedstoneServiceLive } from '@/redstone/redstone-service'
 
 describe('redstone/redstone-service', () => {
-  it('propagates signal with 1-step attenuation up to power distance limit', async () => {
-    const program = Effect.gen(function* () {
+  it.effect('propagates signal with 1-step attenuation up to power distance limit', () =>
+    Effect.gen(function* () {
       const redstone = yield* RedstoneService
 
       yield* redstone.setComponent({ x: 0, y: 64, z: 0 }, RedstoneComponentType.Lever)
       yield* redstone.toggleLever({ x: 0, y: 64, z: 0 })
 
-      for (let x = 1; x <= 15; x += 1) {
-        yield* redstone.setComponent({ x, y: 64, z: 0 }, RedstoneComponentType.Wire)
-      }
+      yield* Effect.forEach(Arr.makeBy(15, i => i + 1), (x) => redstone.setComponent({ x, y: 64, z: 0 }, RedstoneComponentType.Wire), { concurrency: 1 })
 
       yield* redstone.tick()
 
-      return {
-        sourcePower: yield* redstone.getPowerAt({ x: 0, y: 64, z: 0 }),
-        nearPower: yield* redstone.getPowerAt({ x: 1, y: 64, z: 0 }),
-        edgePower: yield* redstone.getPowerAt({ x: 14, y: 64, z: 0 }),
-        outOfRangePower: yield* redstone.getPowerAt({ x: 15, y: 64, z: 0 }),
-      }
+      const sourcePower = yield* redstone.getPowerAt({ x: 0, y: 64, z: 0 })
+      const nearPower = yield* redstone.getPowerAt({ x: 1, y: 64, z: 0 })
+      const edgePower = yield* redstone.getPowerAt({ x: 14, y: 64, z: 0 })
+      const outOfRangePower = yield* redstone.getPowerAt({ x: 15, y: 64, z: 0 })
+
+      expect(sourcePower).toBe(15)
+      expect(nearPower).toBe(14)
+      expect(edgePower).toBe(1)
+      expect(outOfRangePower).toBe(0)
     }).pipe(Effect.provide(RedstoneServiceLive))
+  )
 
-    const result = await Effect.runPromise(program)
-
-    expect(result.sourcePower).toBe(15)
-    expect(result.nearPower).toBe(14)
-    expect(result.edgePower).toBe(1)
-    expect(result.outOfRangePower).toBe(0)
-  })
-
-  it('button emits temporary power and decays deterministically by ticks', async () => {
-    const program = Effect.gen(function* () {
+  it.effect('button emits temporary power and decays deterministically by ticks', () =>
+    Effect.gen(function* () {
       const redstone = yield* RedstoneService
 
       yield* redstone.setComponent({ x: 0, y: 64, z: 0 }, RedstoneComponentType.Button)
@@ -50,18 +45,14 @@ describe('redstone/redstone-service', () => {
       yield* redstone.tick()
       const thirdTickPower = yield* redstone.getPowerAt({ x: 1, y: 64, z: 0 })
 
-      return { firstTickPower, secondTickPower, thirdTickPower }
+      expect(firstTickPower).toBe(14)
+      expect(secondTickPower).toBe(14)
+      expect(thirdTickPower).toBe(0)
     }).pipe(Effect.provide(RedstoneServiceLive))
+  )
 
-    const result = await Effect.runPromise(program)
-
-    expect(result.firstTickPower).toBe(14)
-    expect(result.secondTickPower).toBe(14)
-    expect(result.thirdTickPower).toBe(0)
-  })
-
-  it('piston abstraction extends when powered and retracts when unpowered', async () => {
-    const program = Effect.gen(function* () {
+  it.effect('piston abstraction extends when powered and retracts when unpowered', () =>
+    Effect.gen(function* () {
       const redstone = yield* RedstoneService
 
       yield* redstone.setComponent({ x: 0, y: 64, z: 0 }, RedstoneComponentType.Lever)
@@ -75,21 +66,17 @@ describe('redstone/redstone-service', () => {
       yield* redstone.tick()
       const afterOff = yield* redstone.getComponent({ x: 1, y: 64, z: 0 })
 
-      return {
-        extendedAfterOn: Option.match(afterOn, {
-          onNone: () => false,
-          onSome: (component) => component.state.pistonExtended,
-        }),
-        extendedAfterOff: Option.match(afterOff, {
-          onNone: () => true,
-          onSome: (component) => component.state.pistonExtended,
-        }),
-      }
+      const extendedAfterOn = Option.match(afterOn, {
+        onNone: () => false,
+        onSome: (component) => component.state.pistonExtended,
+      })
+      const extendedAfterOff = Option.match(afterOff, {
+        onNone: () => true,
+        onSome: (component) => component.state.pistonExtended,
+      })
+
+      expect(extendedAfterOn).toBe(true)
+      expect(extendedAfterOff).toBe(false)
     }).pipe(Effect.provide(RedstoneServiceLive))
-
-    const result = await Effect.runPromise(program)
-
-    expect(result.extendedAfterOn).toBe(true)
-    expect(result.extendedAfterOff).toBe(false)
-  })
+  )
 })

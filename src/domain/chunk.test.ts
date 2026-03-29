@@ -1,5 +1,5 @@
 import { describe, it } from '@effect/vitest'
-import { Array as Arr, Effect, HashSet, Option } from 'effect'
+import { Array as Arr, Effect, Either, HashSet, Option } from 'effect'
 import { expect } from 'vitest'
 import { ChunkService, ChunkServiceLive, ChunkSchema, CHUNK_SIZE, CHUNK_HEIGHT, blockIndex, blockTypeToIndex, indexToBlockType, getBlocksBatch, setBlockInChunk } from './chunk'
 import { Schema } from 'effect'
@@ -89,9 +89,9 @@ describe('blockTypeToIndex and indexToBlockType', () => {
   })
 
   it('round-trip: indexToBlockType(blockTypeToIndex(type)) === type for all block types', () => {
-    for (const type of allBlockTypes) {
+    Arr.forEach(allBlockTypes, (type) => {
       expect(indexToBlockType(blockTypeToIndex(type))).toBe(type)
-    }
+    })
   })
 
   it('indexToBlockType returns AIR for out-of-range index', () => {
@@ -107,86 +107,72 @@ describe('blockTypeToIndex and indexToBlockType', () => {
 
 describe('ChunkService', () => {
   describe('createChunk', () => {
-    it('should return a chunk with the correct coord', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should return a chunk with the correct coord', () =>
+      Effect.gen(function* () {
         const service = yield* ChunkService
         const coord = { x: 3, z: -5 }
         const chunk = yield* service.createChunk(coord)
         expect(chunk.coord).toEqual(coord)
-      })
+      }).pipe(Effect.provide(ChunkServiceLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(ChunkServiceLive)))
-    })
-
-    it('should initialize all blocks as AIR (0)', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should initialize all blocks as AIR (0)', () =>
+      Effect.gen(function* () {
         const service = yield* ChunkService
         const chunk = yield* service.createChunk({ x: 0, z: 0 })
-        for (let i = 0; i < chunk.blocks.length; i++) {
+        Arr.forEach(Arr.makeBy(chunk.blocks.length, i => i), i => {
           expect(chunk.blocks[i]).toBe(0)
-        }
-      })
+        })
+      }).pipe(Effect.provide(ChunkServiceLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(ChunkServiceLive)))
-    })
-
-    it('should create blocks array with length CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should create blocks array with length CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT', () =>
+      Effect.gen(function* () {
         const service = yield* ChunkService
         const chunk = yield* service.createChunk({ x: 0, z: 0 })
         expect(chunk.blocks.length).toBe(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
-      })
+      }).pipe(Effect.provide(ChunkServiceLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(ChunkServiceLive)))
-    })
-
-    it('blocks array length is 65536 (16 * 16 * 256)', () => {
-      const program = Effect.gen(function* () {
+    it.effect('blocks array length is 65536 (16 * 16 * 256)', () =>
+      Effect.gen(function* () {
         const service = yield* ChunkService
         const chunk = yield* service.createChunk({ x: 0, z: 0 })
         expect(chunk.blocks.length).toBe(65536)
-      })
+      }).pipe(Effect.provide(ChunkServiceLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(ChunkServiceLive)))
-    })
-
-    it('should create a Uint8Array for blocks', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should create a Uint8Array for blocks', () =>
+      Effect.gen(function* () {
         const service = yield* ChunkService
         const chunk = yield* service.createChunk({ x: 0, z: 0 })
         expect(chunk.blocks).toBeInstanceOf(Uint8Array)
-      })
+      }).pipe(Effect.provide(ChunkServiceLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(ChunkServiceLive)))
-    })
-
-    it('should work for negative chunk coordinates', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should work for negative chunk coordinates', () =>
+      Effect.gen(function* () {
         const service = yield* ChunkService
         const coord = { x: -10, z: -20 }
         const chunk = yield* service.createChunk(coord)
         expect(chunk.coord.x).toBe(-10)
         expect(chunk.coord.z).toBe(-20)
-      })
-
-      Effect.runSync(program.pipe(Effect.provide(ChunkServiceLive)))
-    })
+      }).pipe(Effect.provide(ChunkServiceLive))
+    )
   })
 
   describe('getBlock', () => {
-    it('should return AIR for an empty chunk at (0, 0, 0)', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should return AIR for an empty chunk at (0, 0, 0)', () =>
+      Effect.gen(function* () {
         const service = yield* ChunkService
         const chunk = yield* service.createChunk({ x: 0, z: 0 })
         const block = yield* service.getBlock(chunk, 0, 0, 0)
         expect(block).toBe('AIR')
-      })
+      }).pipe(Effect.provide(ChunkServiceLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(ChunkServiceLive)))
-    })
-
-    it('should return AIR for any valid position in an empty chunk', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should return AIR for any valid position in an empty chunk', () =>
+      Effect.gen(function* () {
         const service = yield* ChunkService
         const chunk = yield* service.createChunk({ x: 0, z: 0 })
         const positions = [
@@ -195,160 +181,124 @@ describe('ChunkService', () => {
           [15, 255, 15],
           [8, 128, 8],
         ] as const
-        for (const [x, y, z] of positions) {
+        yield* Effect.forEach(positions, ([x, y, z]) => Effect.gen(function* () {
           const block = yield* service.getBlock(chunk, x, y, z)
           expect(block).toBe('AIR')
-        }
-      })
+        }), { concurrency: 1 })
+      }).pipe(Effect.provide(ChunkServiceLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(ChunkServiceLive)))
-    })
-
-    it('should return the correct block type after setBlock', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should return the correct block type after setBlock', () =>
+      Effect.gen(function* () {
         const service = yield* ChunkService
         const chunk = yield* service.createChunk({ x: 0, z: 0 })
         const updated = yield* service.setBlock(chunk, 5, 64, 7, 'STONE')
         const block = yield* service.getBlock(updated, 5, 64, 7)
         expect(block).toBe('STONE')
-      })
+      }).pipe(Effect.provide(ChunkServiceLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(ChunkServiceLive)))
-    })
-
-    it('should fail with ChunkError for localX = -1', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should fail with ChunkError for localX = -1', () =>
+      Effect.gen(function* () {
         const service = yield* ChunkService
         const chunk = yield* service.createChunk({ x: 0, z: 0 })
         const result = yield* Effect.either(service.getBlock(chunk, -1, 0, 0))
-        expect(result._tag).toBe('Left')
-        if (result._tag === 'Left') {
-          expect(result.left).toBeInstanceOf(ChunkError)
-        }
-      })
+        expect(Either.isLeft(result)).toBe(true)
+        expect(Option.getOrThrow(Either.getLeft(result))).toBeInstanceOf(ChunkError)
+      }).pipe(Effect.provide(ChunkServiceLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(ChunkServiceLive)))
-    })
-
-    it('should fail with ChunkError for localX = CHUNK_SIZE', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should fail with ChunkError for localX = CHUNK_SIZE', () =>
+      Effect.gen(function* () {
         const service = yield* ChunkService
         const chunk = yield* service.createChunk({ x: 0, z: 0 })
         const result = yield* Effect.either(service.getBlock(chunk, CHUNK_SIZE, 0, 0))
-        expect(result._tag).toBe('Left')
-        if (result._tag === 'Left') {
-          expect(result.left).toBeInstanceOf(ChunkError)
-        }
-      })
+        expect(Either.isLeft(result)).toBe(true)
+        expect(Option.getOrThrow(Either.getLeft(result))).toBeInstanceOf(ChunkError)
+      }).pipe(Effect.provide(ChunkServiceLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(ChunkServiceLive)))
-    })
-
-    it('should fail with ChunkError for y = -1', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should fail with ChunkError for y = -1', () =>
+      Effect.gen(function* () {
         const service = yield* ChunkService
         const chunk = yield* service.createChunk({ x: 0, z: 0 })
         const result = yield* Effect.either(service.getBlock(chunk, 0, -1, 0))
-        expect(result._tag).toBe('Left')
-        if (result._tag === 'Left') {
-          expect(result.left).toBeInstanceOf(ChunkError)
-        }
-      })
+        expect(Either.isLeft(result)).toBe(true)
+        expect(Option.getOrThrow(Either.getLeft(result))).toBeInstanceOf(ChunkError)
+      }).pipe(Effect.provide(ChunkServiceLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(ChunkServiceLive)))
-    })
-
-    it('should fail with ChunkError for y = CHUNK_HEIGHT', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should fail with ChunkError for y = CHUNK_HEIGHT', () =>
+      Effect.gen(function* () {
         const service = yield* ChunkService
         const chunk = yield* service.createChunk({ x: 0, z: 0 })
         const result = yield* Effect.either(service.getBlock(chunk, 0, CHUNK_HEIGHT, 0))
-        expect(result._tag).toBe('Left')
-        if (result._tag === 'Left') {
-          expect(result.left).toBeInstanceOf(ChunkError)
-        }
-      })
+        expect(Either.isLeft(result)).toBe(true)
+        expect(Option.getOrThrow(Either.getLeft(result))).toBeInstanceOf(ChunkError)
+      }).pipe(Effect.provide(ChunkServiceLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(ChunkServiceLive)))
-    })
-
-    it('should fail with ChunkError for localZ = -1', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should fail with ChunkError for localZ = -1', () =>
+      Effect.gen(function* () {
         const service = yield* ChunkService
         const chunk = yield* service.createChunk({ x: 0, z: 0 })
         const result = yield* Effect.either(service.getBlock(chunk, 0, 0, -1))
-        expect(result._tag).toBe('Left')
-        if (result._tag === 'Left') {
-          expect(result.left).toBeInstanceOf(ChunkError)
-        }
-      })
+        expect(Either.isLeft(result)).toBe(true)
+        expect(Option.getOrThrow(Either.getLeft(result))).toBeInstanceOf(ChunkError)
+      }).pipe(Effect.provide(ChunkServiceLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(ChunkServiceLive)))
-    })
-
-    it('should fail with ChunkError for localZ = CHUNK_SIZE', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should fail with ChunkError for localZ = CHUNK_SIZE', () =>
+      Effect.gen(function* () {
         const service = yield* ChunkService
         const chunk = yield* service.createChunk({ x: 0, z: 0 })
         const result = yield* Effect.either(service.getBlock(chunk, 0, 0, CHUNK_SIZE))
-        expect(result._tag).toBe('Left')
-        if (result._tag === 'Left') {
-          expect(result.left).toBeInstanceOf(ChunkError)
-        }
-      })
+        expect(Either.isLeft(result)).toBe(true)
+        expect(Option.getOrThrow(Either.getLeft(result))).toBeInstanceOf(ChunkError)
+      }).pipe(Effect.provide(ChunkServiceLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(ChunkServiceLive)))
-    })
-
-    it('should succeed at boundary: (0, 0, 0)', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should succeed at boundary: (0, 0, 0)', () =>
+      Effect.gen(function* () {
         const service = yield* ChunkService
         const chunk = yield* service.createChunk({ x: 0, z: 0 })
         const block = yield* service.getBlock(chunk, 0, 0, 0)
         expect(block).toBe('AIR')
-      })
+      }).pipe(Effect.provide(ChunkServiceLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(ChunkServiceLive)))
-    })
-
-    it('should succeed at boundary: (CHUNK_SIZE-1, CHUNK_HEIGHT-1, CHUNK_SIZE-1)', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should succeed at boundary: (CHUNK_SIZE-1, CHUNK_HEIGHT-1, CHUNK_SIZE-1)', () =>
+      Effect.gen(function* () {
         const service = yield* ChunkService
         const chunk = yield* service.createChunk({ x: 0, z: 0 })
         const block = yield* service.getBlock(chunk, CHUNK_SIZE - 1, CHUNK_HEIGHT - 1, CHUNK_SIZE - 1)
         expect(block).toBe('AIR')
-      })
-
-      Effect.runSync(program.pipe(Effect.provide(ChunkServiceLive)))
-    })
+      }).pipe(Effect.provide(ChunkServiceLive))
+    )
   })
 
   describe('setBlock', () => {
-    it('should return a new chunk object (immutability)', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should return a new chunk object (immutability)', () =>
+      Effect.gen(function* () {
         const service = yield* ChunkService
         const original = yield* service.createChunk({ x: 0, z: 0 })
         const updated = yield* service.setBlock(original, 0, 0, 0, 'DIRT')
         expect(updated).not.toBe(original)
-      })
+      }).pipe(Effect.provide(ChunkServiceLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(ChunkServiceLive)))
-    })
-
-    it('should set the correct block type at the target position', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should set the correct block type at the target position', () =>
+      Effect.gen(function* () {
         const service = yield* ChunkService
         const chunk = yield* service.createChunk({ x: 0, z: 0 })
         const updated = yield* service.setBlock(chunk, 3, 100, 12, 'GRASS')
         const block = yield* service.getBlock(updated, 3, 100, 12)
         expect(block).toBe('GRASS')
-      })
+      }).pipe(Effect.provide(ChunkServiceLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(ChunkServiceLive)))
-    })
-
-    it('should leave other blocks as AIR', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should leave other blocks as AIR', () =>
+      Effect.gen(function* () {
         const service = yield* ChunkService
         const chunk = yield* service.createChunk({ x: 0, z: 0 })
         const updated = yield* service.setBlock(chunk, 3, 100, 12, 'STONE')
@@ -360,13 +310,11 @@ describe('ChunkService', () => {
         expect(neighbor1).toBe('AIR')
         expect(neighbor2).toBe('AIR')
         expect(neighbor3).toBe('AIR')
-      })
+      }).pipe(Effect.provide(ChunkServiceLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(ChunkServiceLive)))
-    })
-
-    it('should NOT modify the original chunk (immutability)', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should NOT modify the original chunk (immutability)', () =>
+      Effect.gen(function* () {
         const service = yield* ChunkService
         const original = yield* service.createChunk({ x: 0, z: 0 })
         const originalBlock = yield* service.getBlock(original, 5, 50, 5)
@@ -376,127 +324,97 @@ describe('ChunkService', () => {
 
         const stillAir = yield* service.getBlock(original, 5, 50, 5)
         expect(stillAir).toBe('AIR')
-      })
+      }).pipe(Effect.provide(ChunkServiceLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(ChunkServiceLive)))
-    })
-
-    it('should work for all block types', () => {
+    it.effect('should work for all block types', () => {
       const allBlockTypes: BlockType[] = ['AIR', 'DIRT', 'STONE', 'WOOD', 'GRASS', 'SAND', 'WATER', 'LEAVES', 'GLASS', 'SNOW', 'GRAVEL', 'COBBLESTONE']
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const service = yield* ChunkService
 
-        for (let i = 0; i < allBlockTypes.length; i++) {
+        yield* Effect.forEach(Arr.makeBy(allBlockTypes.length, i => i), (i) => Effect.gen(function* () {
           const blockType = allBlockTypes[i]!
           const chunk = yield* service.createChunk({ x: 0, z: 0 })
           const updated = yield* service.setBlock(chunk, i, i, i, blockType)
           const retrieved = yield* service.getBlock(updated, i, i, i)
           expect(retrieved).toBe(blockType)
-        }
-      })
-
-      Effect.runSync(program.pipe(Effect.provide(ChunkServiceLive)))
+        }), { concurrency: 1 })
+      }).pipe(Effect.provide(ChunkServiceLive))
     })
 
-    it('should preserve the chunk coord', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should preserve the chunk coord', () =>
+      Effect.gen(function* () {
         const service = yield* ChunkService
         const coord = { x: 7, z: -3 }
         const chunk = yield* service.createChunk(coord)
         const updated = yield* service.setBlock(chunk, 0, 0, 0, 'DIRT')
         expect(updated.coord).toEqual(coord)
-      })
+      }).pipe(Effect.provide(ChunkServiceLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(ChunkServiceLive)))
-    })
-
-    it('should fail with ChunkError for invalid localX = -1', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should fail with ChunkError for invalid localX = -1', () =>
+      Effect.gen(function* () {
         const service = yield* ChunkService
         const chunk = yield* service.createChunk({ x: 0, z: 0 })
         const result = yield* Effect.either(service.setBlock(chunk, -1, 0, 0, 'STONE'))
-        expect(result._tag).toBe('Left')
-        if (result._tag === 'Left') {
-          expect(result.left).toBeInstanceOf(ChunkError)
-        }
-      })
+        expect(Either.isLeft(result)).toBe(true)
+        expect(Option.getOrThrow(Either.getLeft(result))).toBeInstanceOf(ChunkError)
+      }).pipe(Effect.provide(ChunkServiceLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(ChunkServiceLive)))
-    })
-
-    it('should fail with ChunkError for invalid localX = CHUNK_SIZE', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should fail with ChunkError for invalid localX = CHUNK_SIZE', () =>
+      Effect.gen(function* () {
         const service = yield* ChunkService
         const chunk = yield* service.createChunk({ x: 0, z: 0 })
         const result = yield* Effect.either(service.setBlock(chunk, CHUNK_SIZE, 0, 0, 'STONE'))
-        expect(result._tag).toBe('Left')
-        if (result._tag === 'Left') {
-          expect(result.left).toBeInstanceOf(ChunkError)
-        }
-      })
+        expect(Either.isLeft(result)).toBe(true)
+        expect(Option.getOrThrow(Either.getLeft(result))).toBeInstanceOf(ChunkError)
+      }).pipe(Effect.provide(ChunkServiceLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(ChunkServiceLive)))
-    })
-
-    it('should fail with ChunkError for invalid y = -1', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should fail with ChunkError for invalid y = -1', () =>
+      Effect.gen(function* () {
         const service = yield* ChunkService
         const chunk = yield* service.createChunk({ x: 0, z: 0 })
         const result = yield* Effect.either(service.setBlock(chunk, 0, -1, 0, 'STONE'))
-        expect(result._tag).toBe('Left')
-        if (result._tag === 'Left') {
-          expect(result.left).toBeInstanceOf(ChunkError)
-        }
-      })
+        expect(Either.isLeft(result)).toBe(true)
+        expect(Option.getOrThrow(Either.getLeft(result))).toBeInstanceOf(ChunkError)
+      }).pipe(Effect.provide(ChunkServiceLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(ChunkServiceLive)))
-    })
-
-    it('should fail with ChunkError for invalid y = CHUNK_HEIGHT', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should fail with ChunkError for invalid y = CHUNK_HEIGHT', () =>
+      Effect.gen(function* () {
         const service = yield* ChunkService
         const chunk = yield* service.createChunk({ x: 0, z: 0 })
         const result = yield* Effect.either(service.setBlock(chunk, 0, CHUNK_HEIGHT, 0, 'STONE'))
-        expect(result._tag).toBe('Left')
-        if (result._tag === 'Left') {
-          expect(result.left).toBeInstanceOf(ChunkError)
-        }
-      })
+        expect(Either.isLeft(result)).toBe(true)
+        expect(Option.getOrThrow(Either.getLeft(result))).toBeInstanceOf(ChunkError)
+      }).pipe(Effect.provide(ChunkServiceLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(ChunkServiceLive)))
-    })
-
-    it('should fail with ChunkError for invalid localZ = -1', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should fail with ChunkError for invalid localZ = -1', () =>
+      Effect.gen(function* () {
         const service = yield* ChunkService
         const chunk = yield* service.createChunk({ x: 0, z: 0 })
         const result = yield* Effect.either(service.setBlock(chunk, 0, 0, -1, 'STONE'))
-        expect(result._tag).toBe('Left')
-        if (result._tag === 'Left') {
-          expect(result.left).toBeInstanceOf(ChunkError)
-        }
-      })
+        expect(Either.isLeft(result)).toBe(true)
+        expect(Option.getOrThrow(Either.getLeft(result))).toBeInstanceOf(ChunkError)
+      }).pipe(Effect.provide(ChunkServiceLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(ChunkServiceLive)))
-    })
-
-    it('should fail with ChunkError for invalid localZ = CHUNK_SIZE', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should fail with ChunkError for invalid localZ = CHUNK_SIZE', () =>
+      Effect.gen(function* () {
         const service = yield* ChunkService
         const chunk = yield* service.createChunk({ x: 0, z: 0 })
         const result = yield* Effect.either(service.setBlock(chunk, 0, 0, CHUNK_SIZE, 'STONE'))
-        expect(result._tag).toBe('Left')
-        if (result._tag === 'Left') {
-          expect(result.left).toBeInstanceOf(ChunkError)
-        }
-      })
+        expect(Either.isLeft(result)).toBe(true)
+        expect(Option.getOrThrow(Either.getLeft(result))).toBeInstanceOf(ChunkError)
+      }).pipe(Effect.provide(ChunkServiceLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(ChunkServiceLive)))
-    })
-
-    it('should support chained setBlock calls', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should support chained setBlock calls', () =>
+      Effect.gen(function* () {
         const service = yield* ChunkService
         const chunk = yield* service.createChunk({ x: 0, z: 0 })
         const step1 = yield* service.setBlock(chunk, 0, 0, 0, 'DIRT')
@@ -510,116 +428,96 @@ describe('ChunkService', () => {
         expect(b0).toBe('DIRT')
         expect(b1).toBe('STONE')
         expect(b2).toBe('WOOD')
-      })
-
-      Effect.runSync(program.pipe(Effect.provide(ChunkServiceLive)))
-    })
+      }).pipe(Effect.provide(ChunkServiceLive))
+    )
   })
 
   describe('worldToChunkCoord', () => {
-    it('(0, 0) should map to chunk {x:0, z:0}', () => {
-      const program = Effect.gen(function* () {
+    it.effect('(0, 0) should map to chunk {x:0, z:0}', () =>
+      Effect.gen(function* () {
         const service = yield* ChunkService
         const coord = yield* service.worldToChunkCoord(0, 0)
         expect(coord).toEqual({ x: 0, z: 0 })
-      })
+      }).pipe(Effect.provide(ChunkServiceLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(ChunkServiceLive)))
-    })
-
-    it('(15, 15) should map to chunk {x:0, z:0}', () => {
-      const program = Effect.gen(function* () {
+    it.effect('(15, 15) should map to chunk {x:0, z:0}', () =>
+      Effect.gen(function* () {
         const service = yield* ChunkService
         const coord = yield* service.worldToChunkCoord(15, 15)
         expect(coord).toEqual({ x: 0, z: 0 })
-      })
+      }).pipe(Effect.provide(ChunkServiceLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(ChunkServiceLive)))
-    })
-
-    it('(16, 0) should map to chunk {x:1, z:0}', () => {
-      const program = Effect.gen(function* () {
+    it.effect('(16, 0) should map to chunk {x:1, z:0}', () =>
+      Effect.gen(function* () {
         const service = yield* ChunkService
         const coord = yield* service.worldToChunkCoord(16, 0)
         expect(coord).toEqual({ x: 1, z: 0 })
-      })
+      }).pipe(Effect.provide(ChunkServiceLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(ChunkServiceLive)))
-    })
-
-    it('(0, 16) should map to chunk {x:0, z:1}', () => {
-      const program = Effect.gen(function* () {
+    it.effect('(0, 16) should map to chunk {x:0, z:1}', () =>
+      Effect.gen(function* () {
         const service = yield* ChunkService
         const coord = yield* service.worldToChunkCoord(0, 16)
         expect(coord).toEqual({ x: 0, z: 1 })
-      })
+      }).pipe(Effect.provide(ChunkServiceLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(ChunkServiceLive)))
-    })
-
-    it('(-1, 0) should map to chunk {x:-1, z:0} (floor division)', () => {
-      const program = Effect.gen(function* () {
+    it.effect('(-1, 0) should map to chunk {x:-1, z:0} (floor division)', () =>
+      Effect.gen(function* () {
         const service = yield* ChunkService
         const coord = yield* service.worldToChunkCoord(-1, 0)
         expect(coord).toEqual({ x: -1, z: 0 })
-      })
+      }).pipe(Effect.provide(ChunkServiceLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(ChunkServiceLive)))
-    })
-
-    it('(-16, -1) should map to chunk {x:-1, z:-1}', () => {
-      const program = Effect.gen(function* () {
+    it.effect('(-16, -1) should map to chunk {x:-1, z:-1}', () =>
+      Effect.gen(function* () {
         const service = yield* ChunkService
         const coord = yield* service.worldToChunkCoord(-16, -1)
         expect(coord).toEqual({ x: -1, z: -1 })
-      })
+      }).pipe(Effect.provide(ChunkServiceLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(ChunkServiceLive)))
-    })
-
-    it('(-16, 0) should map to chunk {x:-1, z:0}', () => {
-      const program = Effect.gen(function* () {
+    it.effect('(-16, 0) should map to chunk {x:-1, z:0}', () =>
+      Effect.gen(function* () {
         const service = yield* ChunkService
         const coord = yield* service.worldToChunkCoord(-16, 0)
         expect(coord).toEqual({ x: -1, z: 0 })
-      })
+      }).pipe(Effect.provide(ChunkServiceLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(ChunkServiceLive)))
-    })
-
-    it('(-17, 0) should map to chunk {x:-2, z:0}', () => {
-      const program = Effect.gen(function* () {
+    it.effect('(-17, 0) should map to chunk {x:-2, z:0}', () =>
+      Effect.gen(function* () {
         const service = yield* ChunkService
         const coord = yield* service.worldToChunkCoord(-17, 0)
         expect(coord).toEqual({ x: -2, z: 0 })
-      })
+      }).pipe(Effect.provide(ChunkServiceLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(ChunkServiceLive)))
-    })
-
-    it('(32, 48) should map to chunk {x:2, z:3}', () => {
-      const program = Effect.gen(function* () {
+    it.effect('(32, 48) should map to chunk {x:2, z:3}', () =>
+      Effect.gen(function* () {
         const service = yield* ChunkService
         const coord = yield* service.worldToChunkCoord(32, 48)
         expect(coord).toEqual({ x: 2, z: 3 })
-      })
-
-      Effect.runSync(program.pipe(Effect.provide(ChunkServiceLive)))
-    })
+      }).pipe(Effect.provide(ChunkServiceLive))
+    )
   })
 
   describe('getBlocksBatch', () => {
-    it('should return the backing Uint8Array as a readonly view', () =>
+    it.effect('should return the backing Uint8Array as a readonly view', () =>
       Effect.gen(function* () {
         const chunkService = yield* ChunkService
         const chunk = yield* chunkService.createChunk({ x: 0, z: 0 })
         const blocks = yield* getBlocksBatch(chunk)
         expect(blocks).toBe(chunk.blocks) // same reference — zero copy
         expect(blocks.length).toBe(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
-      }).pipe(Effect.provide(ChunkService.Default), Effect.runPromise)
+      }).pipe(Effect.provide(ChunkService.Default))
     )
 
-    it('should reflect current block data', () =>
+    it.effect('should reflect current block data', () =>
       Effect.gen(function* () {
         const chunkService = yield* ChunkService
         const chunk = yield* chunkService.createChunk({ x: 0, z: 0 })
@@ -627,110 +525,97 @@ describe('ChunkService', () => {
         const blocks = yield* getBlocksBatch(updated)
         const idx = Option.getOrThrow(blockIndex(0, 0, 0))
         expect(blocks[idx]).toBe(blockTypeToIndex('DIRT'))
-      }).pipe(Effect.provide(ChunkService.Default), Effect.runPromise)
+      }).pipe(Effect.provide(ChunkService.Default))
     )
   })
 
   describe('setBlockInChunk', () => {
-    it('should mutate chunk in-place', () =>
+    it.effect('should mutate chunk in-place', () =>
       Effect.gen(function* () {
         const chunkService = yield* ChunkService
         const chunk = yield* chunkService.createChunk({ x: 0, z: 0 })
         yield* setBlockInChunk(chunk, 0, 0, 0, 'STONE')
         const idx = Option.getOrThrow(blockIndex(0, 0, 0))
         expect(chunk.blocks[idx]).toBe(blockTypeToIndex('STONE'))
-      }).pipe(Effect.provide(ChunkService.Default), Effect.runPromise)
+      }).pipe(Effect.provide(ChunkService.Default))
     )
 
-    it('should mutate in-place (same Chunk object, no copy)', () =>
+    it.effect('should mutate in-place (same Chunk object, no copy)', () =>
       Effect.gen(function* () {
         const chunkService = yield* ChunkService
         const chunk = yield* chunkService.createChunk({ x: 0, z: 0 })
         const originalBlocks = chunk.blocks
         yield* setBlockInChunk(chunk, 1, 2, 3, 'GRASS')
         expect(chunk.blocks).toBe(originalBlocks) // same backing array
-      }).pipe(Effect.provide(ChunkService.Default), Effect.runPromise)
+      }).pipe(Effect.provide(ChunkService.Default))
     )
 
-    it('should fail with BlockIndexError for out-of-bounds x', () =>
+    it.effect('should fail with BlockIndexError for out-of-bounds x', () =>
       Effect.gen(function* () {
         const chunkService = yield* ChunkService
         const chunk = yield* chunkService.createChunk({ x: 0, z: 0 })
         const result = yield* Effect.either(setBlockInChunk(chunk, -1, 0, 0, 'DIRT'))
-        expect(result._tag).toBe('Left')
-        if (result._tag === 'Left') {
-          expect(result.left._tag).toBe('BlockIndexError')
-          expect(result.left.x).toBe(-1)
-        }
-      }).pipe(Effect.provide(ChunkService.Default), Effect.runPromise)
+        expect(Either.isLeft(result)).toBe(true)
+        const err = Option.getOrThrow(Either.getLeft(result))
+        expect(err._tag).toBe('BlockIndexError')
+        expect(err.x).toBe(-1)
+      }).pipe(Effect.provide(ChunkService.Default))
     )
 
-    it('should fail with BlockIndexError for out-of-bounds y', () =>
+    it.effect('should fail with BlockIndexError for out-of-bounds y', () =>
       Effect.gen(function* () {
         const chunkService = yield* ChunkService
         const chunk = yield* chunkService.createChunk({ x: 0, z: 0 })
         const result = yield* Effect.either(setBlockInChunk(chunk, 0, CHUNK_HEIGHT, 0, 'DIRT'))
-        expect(result._tag).toBe('Left')
-        if (result._tag === 'Left') {
-          expect(result.left._tag).toBe('BlockIndexError')
-        }
-      }).pipe(Effect.provide(ChunkService.Default), Effect.runPromise)
+        expect(Either.isLeft(result)).toBe(true)
+        expect(Option.getOrThrow(Either.getLeft(result))._tag).toBe('BlockIndexError')
+      }).pipe(Effect.provide(ChunkService.Default))
     )
   })
 
   describe('chunkToWorldCoord', () => {
-    it('({x:0,z:0}, 0, 0) should return {x:0, z:0}', () => {
-      const program = Effect.gen(function* () {
+    it.effect('({x:0,z:0}, 0, 0) should return {x:0, z:0}', () =>
+      Effect.gen(function* () {
         const service = yield* ChunkService
         const world = yield* service.chunkToWorldCoord({ x: 0, z: 0 }, 0, 0)
         expect(world).toEqual({ x: 0, z: 0 })
-      })
+      }).pipe(Effect.provide(ChunkServiceLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(ChunkServiceLive)))
-    })
-
-    it('({x:0,z:0}, 5, 3) should return {x:5, z:3}', () => {
-      const program = Effect.gen(function* () {
+    it.effect('({x:0,z:0}, 5, 3) should return {x:5, z:3}', () =>
+      Effect.gen(function* () {
         const service = yield* ChunkService
         const world = yield* service.chunkToWorldCoord({ x: 0, z: 0 }, 5, 3)
         expect(world).toEqual({ x: 5, z: 3 })
-      })
+      }).pipe(Effect.provide(ChunkServiceLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(ChunkServiceLive)))
-    })
-
-    it('({x:1,z:2}, 0, 0) should return {x:16, z:32}', () => {
-      const program = Effect.gen(function* () {
+    it.effect('({x:1,z:2}, 0, 0) should return {x:16, z:32}', () =>
+      Effect.gen(function* () {
         const service = yield* ChunkService
         const world = yield* service.chunkToWorldCoord({ x: 1, z: 2 }, 0, 0)
         expect(world).toEqual({ x: 16, z: 32 })
-      })
+      }).pipe(Effect.provide(ChunkServiceLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(ChunkServiceLive)))
-    })
-
-    it('({x:1,z:2}, 5, 3) should return {x:21, z:35}', () => {
-      const program = Effect.gen(function* () {
+    it.effect('({x:1,z:2}, 5, 3) should return {x:21, z:35}', () =>
+      Effect.gen(function* () {
         const service = yield* ChunkService
         const world = yield* service.chunkToWorldCoord({ x: 1, z: 2 }, 5, 3)
         expect(world).toEqual({ x: 21, z: 35 })
-      })
+      }).pipe(Effect.provide(ChunkServiceLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(ChunkServiceLive)))
-    })
-
-    it('({x:-1,z:-1}, 0, 0) should return {x:-16, z:-16}', () => {
-      const program = Effect.gen(function* () {
+    it.effect('({x:-1,z:-1}, 0, 0) should return {x:-16, z:-16}', () =>
+      Effect.gen(function* () {
         const service = yield* ChunkService
         const world = yield* service.chunkToWorldCoord({ x: -1, z: -1 }, 0, 0)
         expect(world).toEqual({ x: -16, z: -16 })
-      })
+      }).pipe(Effect.provide(ChunkServiceLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(ChunkServiceLive)))
-    })
-
-    it('round-trip: worldToChunkCoord then chunkToWorldCoord returns local origin of containing chunk', () => {
-      const program = Effect.gen(function* () {
+    it.effect('round-trip: worldToChunkCoord then chunkToWorldCoord returns local origin of containing chunk', () =>
+      Effect.gen(function* () {
         const service = yield* ChunkService
 
         const testCases = [
@@ -742,19 +627,17 @@ describe('ChunkService', () => {
           [-16, -16],
         ] as const
 
-        for (const [wx, wz] of testCases) {
+        yield* Effect.forEach(testCases, ([wx, wz]) => Effect.gen(function* () {
           const chunkCoord = yield* service.worldToChunkCoord(wx, wz)
           const origin = yield* service.chunkToWorldCoord(chunkCoord, 0, 0)
           expect(origin.x).toBe(chunkCoord.x * CHUNK_SIZE)
           expect(origin.z).toBe(chunkCoord.z * CHUNK_SIZE)
-        }
-      })
+        }), { concurrency: 1 })
+      }).pipe(Effect.provide(ChunkServiceLive))
+    )
 
-      Effect.runSync(program.pipe(Effect.provide(ChunkServiceLive)))
-    })
-
-    it('local coordinates within chunk are preserved in world space', () => {
-      const program = Effect.gen(function* () {
+    it.effect('local coordinates within chunk are preserved in world space', () =>
+      Effect.gen(function* () {
         const service = yield* ChunkService
         const chunkCoord = { x: 3, z: -2 }
         const localX = 7
@@ -762,10 +645,8 @@ describe('ChunkService', () => {
         const world = yield* service.chunkToWorldCoord(chunkCoord, localX, localZ)
         expect(world.x).toBe(3 * CHUNK_SIZE + localX)
         expect(world.z).toBe(-2 * CHUNK_SIZE + localZ)
-      })
-
-      Effect.runSync(program.pipe(Effect.provide(ChunkServiceLive)))
-    })
+      }).pipe(Effect.provide(ChunkServiceLive))
+    )
   })
 })
 

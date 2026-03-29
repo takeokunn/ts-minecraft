@@ -84,8 +84,7 @@ describe('blockIndex (property-based)', () => {
     ({ x, y, z }) => {
       const idxOpt = blockIndex(x, y, z)
       expect(Option.isSome(idxOpt)).toBe(true)
-      if (!Option.isSome(idxOpt)) return
-      const recovered = indexToCoords(idxOpt.value)
+      const recovered = indexToCoords(Option.getOrThrow(idxOpt))
       expect(recovered).toEqual({ x, y, z })
     }
   )
@@ -97,9 +96,9 @@ describe('blockIndex (property-based)', () => {
       const totalBlocks = CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT
       const idxOpt = blockIndex(x, y, z)
       expect(Option.isSome(idxOpt)).toBe(true)
-      if (!Option.isSome(idxOpt)) return
-      expect(idxOpt.value).toBeGreaterThanOrEqual(0)
-      expect(idxOpt.value).toBeLessThan(totalBlocks)
+      const idx = Option.getOrThrow(idxOpt)
+      expect(idx).toBeGreaterThanOrEqual(0)
+      expect(idx).toBeLessThan(totalBlocks)
     }
   )
 })
@@ -110,6 +109,7 @@ describe('blockIndex (property-based)', () => {
 const makeTestChunk = (): Chunk => ({
   coord: { x: 0, z: 0 },
   blocks: new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT),
+  fluid: Option.none(),
 })
 
 describe('setBlockInChunk (property-based)', () => {
@@ -132,9 +132,7 @@ describe('setBlockInChunk (property-based)', () => {
         const chunk = makeTestChunk()
         const result = yield* Effect.either(setBlockInChunk(chunk, x, y, z, 'STONE' as BlockType))
         expect(Either.isLeft(result)).toBe(true)
-        if (Either.isLeft(result)) {
-          expect(result.left._tag).toBe('BlockIndexError')
-        }
+        expect(Option.getOrThrow(Either.getLeft(result))._tag).toBe('BlockIndexError')
       })
   )
 
@@ -146,9 +144,7 @@ describe('setBlockInChunk (property-based)', () => {
         const chunk = makeTestChunk()
         const result = yield* Effect.either(setBlockInChunk(chunk, x, y, z, 'STONE' as BlockType))
         expect(Either.isLeft(result)).toBe(true)
-        if (Either.isLeft(result)) {
-          expect(result.left._tag).toBe('BlockIndexError')
-        }
+        expect(Option.getOrThrow(Either.getLeft(result))._tag).toBe('BlockIndexError')
       })
   )
 
@@ -160,9 +156,7 @@ describe('setBlockInChunk (property-based)', () => {
         const chunk = makeTestChunk()
         const result = yield* Effect.either(setBlockInChunk(chunk, x, y, z, 'GRASS' as BlockType))
         expect(Either.isLeft(result)).toBe(true)
-        if (Either.isLeft(result)) {
-          expect(result.left._tag).toBe('BlockIndexError')
-        }
+        expect(Option.getOrThrow(Either.getLeft(result))._tag).toBe('BlockIndexError')
       })
   )
 
@@ -174,9 +168,7 @@ describe('setBlockInChunk (property-based)', () => {
         const chunk = makeTestChunk()
         const result = yield* Effect.either(setBlockInChunk(chunk, x, y, z, 'GRASS' as BlockType))
         expect(Either.isLeft(result)).toBe(true)
-        if (Either.isLeft(result)) {
-          expect(result.left._tag).toBe('BlockIndexError')
-        }
+        expect(Option.getOrThrow(Either.getLeft(result))._tag).toBe('BlockIndexError')
       })
   )
 
@@ -188,9 +180,7 @@ describe('setBlockInChunk (property-based)', () => {
         const chunk = makeTestChunk()
         const result = yield* Effect.either(setBlockInChunk(chunk, x, y, z, 'SAND' as BlockType))
         expect(Either.isLeft(result)).toBe(true)
-        if (Either.isLeft(result)) {
-          expect(result.left._tag).toBe('BlockIndexError')
-        }
+        expect(Option.getOrThrow(Either.getLeft(result))._tag).toBe('BlockIndexError')
       })
   )
 
@@ -202,9 +192,7 @@ describe('setBlockInChunk (property-based)', () => {
         const chunk = makeTestChunk()
         const result = yield* Effect.either(setBlockInChunk(chunk, x, y, z, 'SAND' as BlockType))
         expect(Either.isLeft(result)).toBe(true)
-        if (Either.isLeft(result)) {
-          expect(result.left._tag).toBe('BlockIndexError')
-        }
+        expect(Option.getOrThrow(Either.getLeft(result))._tag).toBe('BlockIndexError')
       })
   )
 
@@ -218,9 +206,8 @@ describe('setBlockInChunk (property-based)', () => {
         // blockIndex is the inverse mapping — verify the written position
         const idxOpt = blockIndex(x, y, z)
         expect(Option.isSome(idxOpt)).toBe(true)
-        if (!Option.isSome(idxOpt)) return
         // DIRT maps to index 1
-        expect(chunk.blocks[idxOpt.value]).toBe(1)
+        expect(chunk.blocks[Option.getOrThrow(idxOpt)]).toBe(1)
       })
   )
 
@@ -232,12 +219,10 @@ describe('setBlockInChunk (property-based)', () => {
         const chunk = makeTestChunk()
         const result = yield* Effect.either(setBlockInChunk(chunk, x, y, z, 'AIR' as BlockType))
         expect(Either.isLeft(result)).toBe(true)
-        if (Either.isLeft(result)) {
-          const err = result.left
-          expect(err.x).toBe(x)
-          expect(err.y).toBe(y)
-          expect(err.z).toBe(z)
-        }
+        const err = Option.getOrThrow(Either.getLeft(result))
+        expect(err.x).toBe(x)
+        expect(err.y).toBe(y)
+        expect(err.z).toBe(z)
       })
   )
 })

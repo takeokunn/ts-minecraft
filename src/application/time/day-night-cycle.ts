@@ -28,8 +28,9 @@ export const updateDayNightCycle = (
   timeService: TimeService,
 ): Effect.Effect<void, never, never> =>
   Effect.gen(function* () {
-    yield* timeService.advanceTick(deltaTime)
-    const timeOfDay = yield* timeService.getTimeOfDay()
+    const timeOfDay = yield* timeService.advanceTick(deltaTime).pipe(
+      Effect.andThen(timeService.getTimeOfDay()),
+    )
 
     // Sun arc: 0.25=dawn, 0.5=noon, 0.75=dusk, 0.0/1.0=midnight
     // sin peaks at noon (0.5), zero at dawn/dusk, negative at night → clamp to 0
@@ -38,7 +39,6 @@ export const updateDayNightCycle = (
     // Directional light follows a horizontal arc east→west
     const sunAngle = (timeOfDay - DAWN_PHASE_OFFSET) * Math.PI  // 0 at dawn, π at dusk
 
-    // Apply light property mutations as a single declared side effect
     yield* Effect.sync(() => {
       lights.light.intensity = DIRECT_LIGHT_MIN + dayFactor * DIRECT_LIGHT_RANGE
       lights.light.position.set(Math.cos(sunAngle) * SUN_DISTANCE, Math.sin(sunAngle) * SUN_HEIGHT, 0)
@@ -63,22 +63,20 @@ export const updateDayNightCycle = (
       } else {
         lights.ambientLight.color.setHSL(0.06, horizonBlend * 0.3, 0.5 + dayFactor * 0.3)
       }
-    })
 
-    // Update physical sky or fall back to lerp-based sky color
-    yield* Option.match(lights.sky, {
-      onSome: (sky) => Effect.sync(() => {
-        const sunX = Math.cos(sunAngle) * SUN_DISTANCE
-        const sunY = Math.sin(sunAngle) * SUN_HEIGHT
-        sky.uniforms.sunPosition.value.set(sunX, sunY, 0)
-        // Turbidity increases near horizon (hazy at dawn/dusk)
-        sky.uniforms.turbidity.value = SKY_TURBIDITY_DAY + (1 - dayFactor) * (SKY_TURBIDITY_HORIZON - SKY_TURBIDITY_DAY)
-        sky.uniforms.rayleigh.value = SKY_RAYLEIGH_NIGHT + dayFactor * (SKY_RAYLEIGH_DAY - SKY_RAYLEIGH_NIGHT)
-      }),
-      onNone: () => Effect.sync(() => {
-        // Fallback: lerp-based sky color (original behavior)
-        lights.skyCurrent.lerpColors(lights.skyNight, lights.skyDay, dayFactor)
-        lights.renderer.setClearColor(lights.skyCurrent)
-      }),
+      Option.match(lights.sky, {
+        onSome: (sky) => {
+          const sunX = Math.cos(sunAngle) * SUN_DISTANCE
+          const sunY = Math.sin(sunAngle) * SUN_HEIGHT
+          sky.uniforms.sunPosition.value.set(sunX, sunY, 0)
+          // Turbidity increases near horizon (hazy at dawn/dusk)
+          sky.uniforms.turbidity.value = SKY_TURBIDITY_DAY + (1 - dayFactor) * (SKY_TURBIDITY_HORIZON - SKY_TURBIDITY_DAY)
+          sky.uniforms.rayleigh.value = SKY_RAYLEIGH_NIGHT + dayFactor * (SKY_RAYLEIGH_DAY - SKY_RAYLEIGH_NIGHT)
+        },
+        onNone: () => {
+          lights.skyCurrent.lerpColors(lights.skyNight, lights.skyDay, dayFactor)
+          lights.renderer.setClearColor(lights.skyCurrent)
+        },
+      })
     })
   })

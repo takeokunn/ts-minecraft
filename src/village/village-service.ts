@@ -29,11 +29,11 @@ const INITIAL_STATE: VillageState = {
   updateTick: 0,
 }
 
-const distanceTo = (a: Position, b: Position): number => {
+const distanceSq = (a: Position, b: Position): number => {
   const dx = b.x - a.x
   const dy = b.y - a.y
   const dz = b.z - a.z
-  return Math.sqrt(dx * dx + dy * dy + dz * dz)
+  return dx * dx + dy * dy + dz * dz
 }
 
 const hashString = (source: string): number =>
@@ -64,7 +64,7 @@ const findNearestVillage = (
     Option.match(closest, {
       onNone: () => Option.some(village),
       onSome: (current) =>
-        distanceTo(village.center, position) < distanceTo(current.center, position)
+        distanceSq(village.center, position) < distanceSq(current.center, position)
           ? Option.some(village)
           : closest,
     })
@@ -195,7 +195,7 @@ const ensureVillageInState = (
       ] as const
     },
     onSome: (nearestVillage) => {
-      if (distanceTo(nearestVillage.center, playerPosition) <= VILLAGE_NEAR_DISTANCE) {
+      if (distanceSq(nearestVillage.center, playerPosition) <= VILLAGE_NEAR_DISTANCE * VILLAGE_NEAR_DISTANCE) {
         return [state, nearestVillage] as const
       }
 
@@ -247,7 +247,7 @@ const nextActivityForVillager = (
   playerPosition: Position,
   timeOfDay: number,
 ): VillagerActivity => {
-  if (distanceTo(villager.position, playerPosition) <= TRADE_DISTANCE) {
+  if (distanceSq(villager.position, playerPosition) <= TRADE_DISTANCE * TRADE_DISTANCE) {
     return VillagerActivity.Trade
   }
 
@@ -268,10 +268,7 @@ const flattenVillagers = (villages: ReadonlyArray<Village>): ReadonlyArray<Villa
 export class VillageService extends Effect.Service<VillageService>()(
   '@minecraft/village/VillageService',
   {
-    effect: Effect.gen(function* () {
-      const stateRef = yield* Ref.make<VillageState>(INITIAL_STATE)
-
-      return {
+    effect: Ref.make<VillageState>(INITIAL_STATE).pipe(Effect.map((stateRef) => ({
         ensureVillageNear: (playerPosition: Position): Effect.Effect<Village, never> =>
           Ref.modify(stateRef, (state): [Village, VillageState] => {
             const [nextState, village] = ensureVillageInState(state, playerPosition)
@@ -296,15 +293,15 @@ export class VillageService extends Effect.Service<VillageService>()(
           Ref.get(stateRef).pipe(
             Effect.map((state) =>
               Arr.reduce(flattenVillagers(state.villages), Option.none<Villager>(), (closest, villager) => {
-                const villagerDistance = distanceTo(villager.position, position)
-                if (villagerDistance > maxDistance) {
+                const villagerDistanceSq = distanceSq(villager.position, position)
+                if (villagerDistanceSq > maxDistance * maxDistance) {
                   return closest
                 }
 
                 return Option.match(closest, {
                   onNone: () => Option.some(villager),
                   onSome: (current) =>
-                    villagerDistance < distanceTo(current.position, position)
+                    villagerDistanceSq < distanceSq(current.position, position)
                       ? Option.some(villager)
                       : closest,
                 })
@@ -361,6 +358,10 @@ export class VillageService extends Effect.Service<VillageService>()(
                     ? villager.position
                     : moveTowards(villager.position, target, maxMoveDelta)
 
+                if (nextActivity === villager.activity && nextPosition === villager.position) {
+                  return villager
+                }
+
                 return {
                   ...villager,
                   activity: nextActivity,
@@ -375,8 +376,7 @@ export class VillageService extends Effect.Service<VillageService>()(
               updateTick: tick,
             }
           }),
-      }
-    }),
+    })))
   },
 ) {}
 

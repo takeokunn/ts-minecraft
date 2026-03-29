@@ -1,6 +1,7 @@
-import { Effect, Schema } from 'effect'
+import { Array as Arr, Effect, Schema } from 'effect'
 import { NoiseServicePort } from '@/application/noise/noise-service-port'
 import { BlockTypeSchema } from '@/domain/block'
+import { CHUNK_SIZE } from '@/domain/chunk'
 
 /**
  * Biome types for terrain classification
@@ -174,9 +175,7 @@ const BIOME_SCALE = 0.005
 export class BiomeService extends Effect.Service<BiomeService>()(
   '@minecraft/application/BiomeService',
   {
-    effect: Effect.gen(function* () {
-      const noiseService = yield* NoiseServicePort
-
+    effect: Effect.map(NoiseServicePort, (noiseService) => {
       const getTemperature = (x: number, z: number): Effect.Effect<number, never> =>
         // Use octave noise for smoother temperature gradients
         noiseService.octaveNoise2D(x * BIOME_SCALE, z * BIOME_SCALE, 4, 0.5, 2.0)
@@ -199,13 +198,46 @@ export class BiomeService extends Effect.Service<BiomeService>()(
       const getBiomeProperties = (biome: BiomeType): Effect.Effect<BiomeProperties, never, never> =>
         Effect.succeed(BIOME_PROPERTIES[biome])
 
+      const getBiomesAndPropertiesForChunk = (
+        chunkX: number,
+        chunkZ: number,
+      ): Effect.Effect<ReadonlyArray<{ biome: BiomeType; props: BiomeProperties }>> => {
+        // Index layout: outer=lx (Math.floor(i/CHUNK_SIZE)), inner=lz (i%CHUNK_SIZE).
+        // Must match generateTerrain's terrainPoints and double-loop order (lx outer, lz inner).
+        const columnCount = CHUNK_SIZE * CHUNK_SIZE
+        const points: ReadonlyArray<readonly [number, number]> = Arr.makeBy(
+          columnCount,
+          (i): readonly [number, number] => {
+            const lx = Math.floor(i / CHUNK_SIZE)
+            const lz = i % CHUNK_SIZE
+            return [chunkX * CHUNK_SIZE + lx, chunkZ * CHUNK_SIZE + lz]
+          }
+        )
+        const biomeScalePoints = Arr.map(points, ([x, z]): readonly [number, number] => [x * BIOME_SCALE, z * BIOME_SCALE])
+        const humidityOffsetPoints = Arr.map(points, ([x, z]): readonly [number, number] => [(x + 10000) * BIOME_SCALE, (z + 10000) * BIOME_SCALE])
+        return Effect.all([
+          noiseService.octaveNoise2DBatch(biomeScalePoints, 4, 0.5, 2.0),
+          noiseService.octaveNoise2DBatch(humidityOffsetPoints, 4, 0.5, 2.0),
+        ], { concurrency: 'unbounded' }).pipe(
+          Effect.map(([tempVals, humVals]) =>
+            Arr.map(tempVals, (temp, i) => {
+              // humVals[i] is always defined: both arrays have length columnCount (same input size).
+              const biome = classifyBiome(temp, humVals[i]!)
+              return { biome, props: BIOME_PROPERTIES[biome] }
+            })
+          )
+        )
+      }
+
       return {
         getBiome,
         getBiomeProperties,
         getTemperature,
         getHumidity,
+        getBiomesAndPropertiesForChunk,
       }
     }),
   }
 ) {}
 export const BiomeServiceLive = BiomeService.Default
+

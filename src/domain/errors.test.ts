@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { it as effectIt } from '@effect/vitest'
-import { Array as Arr, Effect, Equal, HashSet } from 'effect'
+import { Array as Arr, Effect, Either, Equal, HashSet, Option } from 'effect'
 import {
   TextureError,
   BlockError,
@@ -362,10 +362,10 @@ describe('_tag uniqueness across domain errors', () => {
   ]
 
   it('all domain error _tag values are defined', () => {
-    for (const err of allErrors) {
+    Arr.forEach(allErrors, (err) => {
       expect(typeof err._tag).toBe('string')
       expect(err._tag.length).toBeGreaterThan(0)
-    }
+    })
   })
 
   it('domain error _tag values are unique among themselves', () => {
@@ -384,10 +384,8 @@ describe('Effect.catchTag compatibility', () => {
           Effect.catchTag('TextureError', (e) => Effect.succeed(`caught: ${e.url}`))
         )
       )
-      expect(result._tag).toBe('Right')
-      if (result._tag === 'Right') {
-        expect(result.right).toBe('caught: test.png')
-      }
+      expect(Either.isRight(result)).toBe(true)
+      expect(Option.getOrThrow(Either.getRight(result))).toBe('caught: test.png')
     })
   )
 
@@ -490,10 +488,8 @@ describe('Effect.catchTag compatibility', () => {
           Effect.catchTag('BlockError', () => Effect.succeed('should not reach'))
         )
       )
-      expect(result._tag).toBe('Left')
-      if (result._tag === 'Left') {
-        expect(result.left._tag).toBe('TextureError')
-      }
+      expect(Either.isLeft(result)).toBe(true)
+      expect(Option.getOrThrow(Either.getLeft(result))._tag).toBe('TextureError')
     })
   )
 })
@@ -677,11 +673,10 @@ describe('Effect.either pattern with domain errors', () => {
       const result = yield* Effect.either(
         Effect.fail(new TextureError({ url: 'missing.png' }))
       )
-      expect(result._tag).toBe('Left')
-      if (result._tag === 'Left') {
-        expect(result.left._tag).toBe('TextureError')
-        expect(result.left.url).toBe('missing.png')
-      }
+      expect(Either.isLeft(result)).toBe(true)
+      const err0 = Option.getOrThrow(Either.getLeft(result))
+      expect(err0._tag).toBe('TextureError')
+      expect(err0.url).toBe('missing.png')
     })
   )
 
@@ -690,12 +685,11 @@ describe('Effect.either pattern with domain errors', () => {
       const result = yield* Effect.either(
         Effect.fail(new ChunkError({ chunkCoord: { x: 5, z: -3 }, reason: 'chunk corrupt', localPosition: [1, 2, 3] }))
       )
-      expect(result._tag).toBe('Left')
-      if (result._tag === 'Left') {
-        expect(result.left._tag).toBe('ChunkError')
-        expect(result.left.chunkCoord).toEqual({ x: 5, z: -3 })
-        expect(result.left.localPosition).toEqual([1, 2, 3])
-      }
+      expect(Either.isLeft(result)).toBe(true)
+      const err1 = Option.getOrThrow(Either.getLeft(result))
+      expect(err1._tag).toBe('ChunkError')
+      expect(err1.chunkCoord).toEqual({ x: 5, z: -3 })
+      expect(err1.localPosition).toEqual([1, 2, 3])
     })
   )
 
@@ -704,11 +698,10 @@ describe('Effect.either pattern with domain errors', () => {
       const result = yield* Effect.either(
         Effect.fail(new SettingsError({ operation: 'load', cause: new Error('parse') }))
       )
-      expect(result._tag).toBe('Left')
-      if (result._tag === 'Left') {
-        expect(result.left._tag).toBe('SettingsError')
-        expect(result.left.operation).toBe('load')
-      }
+      expect(Either.isLeft(result)).toBe(true)
+      const err2 = Option.getOrThrow(Either.getLeft(result))
+      expect(err2._tag).toBe('SettingsError')
+      expect(err2.operation).toBe('load')
     })
   )
 
@@ -717,11 +710,10 @@ describe('Effect.either pattern with domain errors', () => {
       const result = yield* Effect.either(
         Effect.fail(new StartupError({ reason: 'no canvas' }))
       )
-      expect(result._tag).toBe('Left')
-      if (result._tag === 'Left') {
-        expect(result.left._tag).toBe('StartupError')
-        expect(result.left.reason).toBe('no canvas')
-      }
+      expect(Either.isLeft(result)).toBe(true)
+      const err3 = Option.getOrThrow(Either.getLeft(result))
+      expect(err3._tag).toBe('StartupError')
+      expect(err3.reason).toBe('no canvas')
     })
   )
 
@@ -730,10 +722,8 @@ describe('Effect.either pattern with domain errors', () => {
       const result = yield* Effect.either(
         Effect.fail(new CameraError({}))
       )
-      expect(result._tag).toBe('Left')
-      if (result._tag === 'Left') {
-        expect(result.left._tag).toBe('CameraError')
-      }
+      expect(Either.isLeft(result)).toBe(true)
+      expect(Option.getOrThrow(Either.getLeft(result))._tag).toBe('CameraError')
     })
   )
 })

@@ -1,5 +1,6 @@
-import { Array as Arr, Brand, Effect, HashMap, MutableHashMap, Option, Order, Ref } from 'effect'
+import { Array as Arr, Brand, Effect, HashMap, HashSet, MutableHashMap, Option, Order, Ref } from 'effect'
 import type { Position } from '@/shared/kernel'
+import { CHUNK_HEIGHT } from '@/domain/chunk'
 import {
   RedstonePowerLevel,
   RedstoneComponentType,
@@ -10,20 +11,32 @@ import {
 const MAX_REDSTONE_POWER = 15
 const DEFAULT_BUTTON_TICKS = 10
 
-// Branded key derived from a block-snapped Position. Only positionKey() may produce one,
-// so HashMap<PositionKey, X> cannot be accidentally queried with an arbitrary string.
-type PositionKey = string & Brand.Brand<'PositionKey'>
+// Branded key derived from a block-snapped Position via numeric encoding.
+// Only positionKey() may produce one, so HashMap<PositionKey, X> cannot be
+// accidentally queried with an arbitrary number.
+type PositionKey = number & Brand.Brand<'PositionKey'>
+const PositionKey = Brand.nominal<PositionKey>()
+
+const BIAS = 32768
+const Y_STRIDE = 65536
+const XZ_STRIDE = CHUNK_HEIGHT * Y_STRIDE
 
 type RedstoneState = {
   readonly tick: number
   readonly components: HashMap.HashMap<PositionKey, RedstoneComponent>
   readonly powerByPosition: HashMap.HashMap<PositionKey, number>
+  readonly pistonKeys: HashSet.HashSet<PositionKey>
+  readonly buttonKeys: HashSet.HashSet<PositionKey>
+  readonly cachedSnapshot: RedstoneTickSnapshot['poweredPositions'] | null
 }
 
 const INITIAL_STATE: RedstoneState = {
   tick: 0,
   components: HashMap.empty<PositionKey, RedstoneComponent>(),
   powerByPosition: HashMap.empty<PositionKey, number>(),
+  pistonKeys: HashSet.empty<PositionKey>(),
+  buttonKeys: HashSet.empty<PositionKey>(),
+  cachedSnapshot: null,
 }
 
 const POSITION_DIRECTIONS: ReadonlyArray<Position> = [
@@ -43,15 +56,18 @@ const toBlockPosition = (position: Position): Position => ({
 
 const positionKey = (position: Position): PositionKey => {
   const block = toBlockPosition(position)
-  return `${block.x}:${block.y}:${block.z}` as PositionKey
+  return PositionKey((block.x + BIAS) * XZ_STRIDE + block.y * Y_STRIDE + (block.z + BIAS))
 }
 
 const positionFromKey = (key: PositionKey): Position => {
-  const parts = Arr.map(key.split(':'), (v) => parseInt(v, 10))
+  const biasedX = Math.floor(key / XZ_STRIDE)
+  const remainder = key - biasedX * XZ_STRIDE
+  const y = Math.floor(remainder / Y_STRIDE)
+  const biasedZ = remainder - y * Y_STRIDE
   return {
-    x: Option.getOrElse(Arr.get(parts, 0), () => 0),
-    y: Option.getOrElse(Arr.get(parts, 1), () => 0),
-    z: Option.getOrElse(Arr.get(parts, 2), () => 0),
+    x: biasedX - BIAS,
+    y,
+    z: biasedZ - BIAS,
   }
 }
 
@@ -96,8 +112,9 @@ const propagatePower = (
     queue.push({ key, power: MAX_REDSTONE_POWER })
   })
 
-  while (queue.length > 0) {
-    const current = queue.shift()!
+  let cursor = 0
+  while (cursor < queue.length) {
+    const current = queue[cursor++]!
     const currentKnown = Option.getOrElse(MutableHashMap.get(powered, current.key), () => 0)
     if (current.power <= currentKnown) continue
 
@@ -124,32 +141,44 @@ const propagatePower = (
 const updatePistons = (
   components: HashMap.HashMap<PositionKey, RedstoneComponent>,
   powered: HashMap.HashMap<PositionKey, number>,
+  pistonKeys: HashSet.HashSet<PositionKey>,
 ): HashMap.HashMap<PositionKey, RedstoneComponent> =>
-  HashMap.map(components, (component, key) => {
-    if (component.type !== RedstoneComponentType.Piston) return component
-    const nextExtended = Option.getOrElse(HashMap.get(powered, key), () => 0) > 0
-    return { ...component, state: { ...component.state, pistonExtended: nextExtended } }
-  })
+  Arr.reduce(Arr.fromIterable(pistonKeys), components, (acc, key) =>
+    Option.match(HashMap.get(components, key), {
+      onNone: () => acc,
+      onSome: (component) => {
+        const nextExtended = Option.getOrElse(HashMap.get(powered, key), () => 0) > 0
+        return nextExtended === component.state.pistonExtended
+          ? acc
+          : HashMap.set(acc, key, { ...component, state: { ...component.state, pistonExtended: nextExtended } })
+      },
+    })
+  )
 
 const decayButtonTimers = (
   components: HashMap.HashMap<PositionKey, RedstoneComponent>,
+  buttonKeys: HashSet.HashSet<PositionKey>,
 ): HashMap.HashMap<PositionKey, RedstoneComponent> =>
-  HashMap.map(components, (component) => {
-    if (component.type !== RedstoneComponentType.Button) return component
-    const nextTicks = Math.max(0, component.state.buttonTicksRemaining - 1)
-    return {
-      ...component,
-      state: {
-        ...component.state,
-        buttonTicksRemaining: nextTicks,
-        active: nextTicks > 0,
+  Arr.reduce(Arr.fromIterable(buttonKeys), components, (acc, key) =>
+    Option.match(HashMap.get(components, key), {
+      onNone: () => acc,
+      onSome: (component) => {
+        const nextTicks = Math.max(0, component.state.buttonTicksRemaining - 1)
+        return HashMap.set(acc, key, {
+          ...component,
+          state: {
+            ...component.state,
+            buttonTicksRemaining: nextTicks,
+            active: nextTicks > 0,
+          },
+        })
       },
-    }
-  })
+    })
+  )
 
 const sortedPowerSnapshot = (powerByPosition: HashMap.HashMap<PositionKey, number>): RedstoneTickSnapshot['poweredPositions'] => {
   const entries: Array<[PositionKey, number]> = Arr.fromIterable(powerByPosition)
-  const sorted = Arr.sort(entries, Order.mapInput(Order.string, (e: readonly [PositionKey, number]) => e[0]))
+  const sorted = Arr.sort(entries, Order.mapInput(Order.number, (e: readonly [PositionKey, number]) => e[0]))
   return Arr.map(sorted, ([key, power]) => ({
     position: positionFromKey(key),
     power: RedstonePowerLevel.make(power),
@@ -159,10 +188,10 @@ const sortedPowerSnapshot = (powerByPosition: HashMap.HashMap<PositionKey, numbe
 export class RedstoneService extends Effect.Service<RedstoneService>()(
   '@minecraft/redstone/RedstoneService',
   {
-    effect: Effect.gen(function* () {
-      const stateRef = yield* Ref.make<RedstoneState>(INITIAL_STATE)
-
-      return {
+    effect: Effect.all([
+      Ref.make<RedstoneState>(INITIAL_STATE),
+      Ref.make(false),
+    ], { concurrency: 'unbounded' }).pipe(Effect.map(([stateRef, dirtyRef]) => ({
         setComponent: (
           position: Position,
           type: RedstoneComponentType,
@@ -183,15 +212,26 @@ export class RedstoneService extends Effect.Service<RedstoneService>()(
               state: componentState,
             })
             const components = HashMap.set(state.components, key, component)
-            return [component, { ...state, components }]
-          }),
+            const pistonKeys = type === RedstoneComponentType.Piston
+              ? HashSet.add(state.pistonKeys, key)
+              : state.pistonKeys
+            const buttonKeys = type === RedstoneComponentType.Button
+              ? HashSet.add(state.buttonKeys, key)
+              : state.buttonKeys
+            return [component, { ...state, components, pistonKeys, buttonKeys }]
+          }).pipe(Effect.tap(() => Ref.set(dirtyRef, true))),
 
         removeComponent: (position: Position): Effect.Effect<void, never> =>
-          Ref.update(stateRef, (state) => ({
-            ...state,
-            components: HashMap.remove(state.components, positionKey(position)),
-            powerByPosition: HashMap.remove(state.powerByPosition, positionKey(position)),
-          })),
+          Ref.update(stateRef, (state) => {
+            const key = positionKey(position)
+            return {
+              ...state,
+              components: HashMap.remove(state.components, key),
+              powerByPosition: HashMap.remove(state.powerByPosition, key),
+              pistonKeys: HashSet.remove(state.pistonKeys, key),
+              buttonKeys: HashSet.remove(state.buttonKeys, key),
+            }
+          }).pipe(Effect.tap(() => Ref.set(dirtyRef, true))),
 
         getComponent: (position: Position): Effect.Effect<Option.Option<RedstoneComponent>, never> =>
           Ref.get(stateRef).pipe(
@@ -202,7 +242,7 @@ export class RedstoneService extends Effect.Service<RedstoneService>()(
           Ref.get(stateRef).pipe(
             Effect.map((state) => {
               const components: Array<RedstoneComponent> = Arr.fromIterable(HashMap.values(state.components))
-              return Arr.sort(components, Order.mapInput(Order.string, (a: RedstoneComponent) => positionKey(a.position)))
+              return Arr.sort(components, Order.mapInput(Order.number, (a: RedstoneComponent) => positionKey(a.position)))
             }),
           ),
 
@@ -222,7 +262,7 @@ export class RedstoneService extends Effect.Service<RedstoneService>()(
                 },
               },
             )
-          }),
+          }).pipe(Effect.tap(() => Ref.set(dirtyRef, true))),
 
         pressButton: (
           position: Position,
@@ -248,7 +288,7 @@ export class RedstoneService extends Effect.Service<RedstoneService>()(
                 },
               },
             )
-          }),
+          }).pipe(Effect.tap(() => Ref.set(dirtyRef, true))),
 
         toggleTorch: (position: Position): Effect.Effect<Option.Option<RedstoneComponent>, never> =>
           Ref.modify(stateRef, (state): [Option.Option<RedstoneComponent>, RedstoneState] => {
@@ -266,7 +306,7 @@ export class RedstoneService extends Effect.Service<RedstoneService>()(
                 },
               },
             )
-          }),
+          }).pipe(Effect.tap(() => Ref.set(dirtyRef, true))),
 
         getPowerAt: (position: Position): Effect.Effect<number, never> =>
           Ref.get(stateRef).pipe(
@@ -282,26 +322,70 @@ export class RedstoneService extends Effect.Service<RedstoneService>()(
           ),
 
         tick: (): Effect.Effect<RedstoneTickSnapshot, never> =>
-          Ref.modify(stateRef, (state): [RedstoneTickSnapshot, RedstoneState] => {
-            const powered = propagatePower(state.components)
-            const pistonUpdated = updatePistons(state.components, powered)
-            const nextComponents = decayButtonTimers(pistonUpdated)
+          Effect.gen(function* () {
+            const dirty = yield* Ref.getAndSet(dirtyRef, false)
 
-            const nextState: RedstoneState = {
-              tick: state.tick + 1,
-              components: nextComponents,
-              powerByPosition: powered,
-            }
+            return yield* Ref.modify(stateRef, (state): [RedstoneTickSnapshot, RedstoneState] => {
+              // Buttons tick autonomously — always run decay.
+              // Propagation is needed if:
+              // 1. An external event set dirty (lever toggle, button press, component add/remove)
+              // 2. Any button is currently active (ticks > 0): propagation uses pre-decay state,
+              //    and the following tick must re-propagate because decay changes power sources.
+              // 3. Any button was a power source last tick but is now inactive (ticks just hit 0):
+              //    detected by checking if any Button component is powered but no longer active.
+              const buttonKeysArr = Arr.fromIterable(state.buttonKeys)
+              const anyButtonActive = Arr.some(
+                buttonKeysArr,
+                (key) => Option.match(HashMap.get(state.components, key), {
+                  onNone: () => false,
+                  onSome: (c) => c.state.buttonTicksRemaining > 0,
+                })
+              )
+              const anyButtonJustExpired = Arr.some(
+                buttonKeysArr,
+                (key) => Option.match(HashMap.get(state.components, key), {
+                  onNone: () => false,
+                  onSome: (c) =>
+                    c.state.buttonTicksRemaining === 0 &&
+                    Option.isSome(HashMap.get(state.powerByPosition, key)),
+                })
+              )
+              const needsPropagation = dirty || anyButtonActive || anyButtonJustExpired
 
-            const snapshot: RedstoneTickSnapshot = {
-              tick: nextState.tick,
-              poweredPositions: sortedPowerSnapshot(nextState.powerByPosition),
-            }
+              let powered = state.powerByPosition
+              let nextComponents: HashMap.HashMap<PositionKey, RedstoneComponent>
 
-            return [snapshot, nextState]
+              if (needsPropagation) {
+                powered = propagatePower(state.components)
+                const pistonUpdated = updatePistons(state.components, powered, state.pistonKeys)
+                nextComponents = decayButtonTimers(pistonUpdated, state.buttonKeys)
+              } else {
+                nextComponents = decayButtonTimers(state.components, state.buttonKeys)
+              }
+
+              const cachedSnapshot: RedstoneTickSnapshot['poweredPositions'] =
+                needsPropagation || state.cachedSnapshot === null
+                  ? sortedPowerSnapshot(powered)
+                  : state.cachedSnapshot
+
+              const nextState: RedstoneState = {
+                tick: state.tick + 1,
+                components: nextComponents,
+                powerByPosition: powered,
+                pistonKeys: state.pistonKeys,
+                buttonKeys: state.buttonKeys,
+                cachedSnapshot,
+              }
+
+              const snapshot: RedstoneTickSnapshot = {
+                tick: nextState.tick,
+                poweredPositions: cachedSnapshot,
+              }
+
+              return [snapshot, nextState]
+            })
           }),
-      }
-    }),
+    })))
   },
 ) {}
 

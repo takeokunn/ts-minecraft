@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it } from '@effect/vitest'
+import { expect } from 'vitest'
 import { Array as Arr, Effect, HashSet, Option } from 'effect'
 import { PlayerInputService } from './player-input-service'
 import { KeyMappings } from './key-mappings'
@@ -7,96 +8,79 @@ const TestLayer = PlayerInputService.Default
 
 describe('PlayerInputService (stub defaults)', () => {
   describe('isKeyPressed', () => {
-    it('should return false for movement key KeyW', async () => {
-      const result = await Effect.runPromise(
-        Effect.gen(function* () {
-          const service = yield* PlayerInputService
-          return yield* service.isKeyPressed('KeyW')
-        }).pipe(Effect.provide(TestLayer))
-      )
-      expect(result).toBe(false)
-    })
+    it.effect('should return false for movement key KeyW', () =>
+      Effect.gen(function* () {
+        const service = yield* PlayerInputService
+        const result = yield* service.isKeyPressed('KeyW')
+        expect(result).toBe(false)
+      }).pipe(Effect.provide(TestLayer))
+    )
 
-    it('should return false for jump key Space', async () => {
-      const result = await Effect.runPromise(
-        Effect.gen(function* () {
-          const service = yield* PlayerInputService
-          return yield* service.isKeyPressed('Space')
-        }).pipe(Effect.provide(TestLayer))
-      )
-      expect(result).toBe(false)
-    })
+    it.effect('should return false for jump key Space', () =>
+      Effect.gen(function* () {
+        const service = yield* PlayerInputService
+        const result = yield* service.isKeyPressed('Space')
+        expect(result).toBe(false)
+      }).pipe(Effect.provide(TestLayer))
+    )
 
-    it('should return false for any arbitrary key', async () => {
-      const result = await Effect.runPromise(
-        Effect.gen(function* () {
-          const service = yield* PlayerInputService
-          return yield* service.isKeyPressed('any')
-        }).pipe(Effect.provide(TestLayer))
-      )
-      expect(result).toBe(false)
-    })
+    it.effect('should return false for any arbitrary key', () =>
+      Effect.gen(function* () {
+        const service = yield* PlayerInputService
+        const result = yield* service.isKeyPressed('any')
+        expect(result).toBe(false)
+      }).pipe(Effect.provide(TestLayer))
+    )
   })
 
   describe('consumeKeyPress', () => {
-    it('should return false for KeyW (stub always returns false)', async () => {
-      const result = await Effect.runPromise(
-        Effect.gen(function* () {
-          const service = yield* PlayerInputService
-          return yield* service.consumeKeyPress('KeyW')
-        }).pipe(Effect.provide(TestLayer))
-      )
-      expect(result).toBe(false)
-    })
+    it.effect('should return false for KeyW (stub always returns false)', () =>
+      Effect.gen(function* () {
+        const service = yield* PlayerInputService
+        const result = yield* service.consumeKeyPress('KeyW')
+        expect(result).toBe(false)
+      }).pipe(Effect.provide(TestLayer))
+    )
 
-    it('should return false on repeated calls (no state changes)', async () => {
-      const result = await Effect.runPromise(
-        Effect.gen(function* () {
-          const service = yield* PlayerInputService
-          const first = yield* service.consumeKeyPress('Space')
-          const second = yield* service.consumeKeyPress('Space')
-          return { first, second }
-        }).pipe(Effect.provide(TestLayer))
-      )
-      expect(result.first).toBe(false)
-      expect(result.second).toBe(false)
-    })
+    it.effect('should return false on repeated calls (no state changes)', () =>
+      Effect.gen(function* () {
+        const service = yield* PlayerInputService
+        const first = yield* service.consumeKeyPress('Space')
+        const second = yield* service.consumeKeyPress('Space')
+        expect(first).toBe(false)
+        expect(second).toBe(false)
+      }).pipe(Effect.provide(TestLayer))
+    )
   })
 
   describe('consumeWheelDelta', () => {
-    it('should return 0 (stub always returns 0)', async () => {
-      const result = await Effect.runPromise(
-        Effect.gen(function* () {
-          const service = yield* PlayerInputService
-          return yield* service.consumeWheelDelta()
-        }).pipe(Effect.provide(TestLayer))
-      )
-      expect(result).toBe(0)
-    })
+    it.effect('should return 0 (stub always returns 0)', () =>
+      Effect.gen(function* () {
+        const service = yield* PlayerInputService
+        const result = yield* service.consumeWheelDelta()
+        expect(result).toBe(0)
+      }).pipe(Effect.provide(TestLayer))
+    )
   })
 
   describe('getMouseDelta', () => {
-    it('should return { x: 0, y: 0 } (stub always returns zero delta)', async () => {
-      const result = await Effect.runPromise(
-        Effect.gen(function* () {
-          const service = yield* PlayerInputService
-          return yield* service.getMouseDelta()
-        }).pipe(Effect.provide(TestLayer))
-      )
-      expect(result).toEqual({ x: 0, y: 0 })
-    })
+    it.effect('should return { x: 0, y: 0 } (stub always returns zero delta)', () =>
+      Effect.gen(function* () {
+        const service = yield* PlayerInputService
+        const result = yield* service.getMouseDelta()
+        expect(result).toEqual({ x: 0, y: 0 })
+      }).pipe(Effect.provide(TestLayer))
+    )
   })
 
   describe('isPointerLocked', () => {
-    it('should return false (stub always returns false)', async () => {
-      const result = await Effect.runPromise(
-        Effect.gen(function* () {
-          const service = yield* PlayerInputService
-          return yield* service.isPointerLocked()
-        }).pipe(Effect.provide(TestLayer))
-      )
-      expect(result).toBe(false)
-    })
+    it.effect('should return false (stub always returns false)', () =>
+      Effect.gen(function* () {
+        const service = yield* PlayerInputService
+        const result = yield* service.isPointerLocked()
+        expect(result).toBe(false)
+      }).pipe(Effect.provide(TestLayer))
+    )
   })
 })
 

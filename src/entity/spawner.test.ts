@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { Effect, Layer, Option } from 'effect'
+import { describe, expect, it } from '@effect/vitest'
+import { Array as Arr, Effect, Layer, Option } from 'effect'
 import { TimeService } from '@/application/time/time-service'
 import { EntityType, type EntityId } from '@/entity/entity'
 import { EntityManager, EntityManagerLive } from '@/entity/entityManager'
@@ -25,66 +25,58 @@ const makeSpawnerLayer = (night: boolean) =>
   )
 
 describe('entity/spawner', () => {
-  it('spawns hostile mobs at night', () => {
-    const program = Effect.gen(function* () {
+  it.effect('spawns hostile mobs at night', () =>
+    Effect.gen(function* () {
       const spawner = yield* MobSpawner
       const entityManager = yield* EntityManager
 
-      let spawned: Option.Option<EntityId> = Option.none()
-      for (let i = 0; i < 60; i++) {
-        spawned = yield* spawner.trySpawn({ x: 0, y: 64, z: 0 })
-        if (Option.isSome(spawned)) {
-          break
+      const state = yield* Effect.iterate(
+        { found: Option.none<EntityId>(), i: 0 },
+        {
+          while: (s) => Option.isNone(s.found) && s.i < 60,
+          body: (s) => spawner.trySpawn({ x: 0, y: 64, z: 0 }).pipe(Effect.map(found => ({ found, i: s.i + 1 }))),
         }
-      }
+      )
 
-      expect(Option.isSome(spawned)).toBe(true)
+      expect(Option.isSome(state.found)).toBe(true)
 
       const entities = yield* entityManager.getEntities()
       expect(entities.length).toBe(1)
       expect(entities[0]?.type).toBe(EntityType.Zombie)
     }).pipe(Effect.provide(makeSpawnerLayer(true)))
+  )
 
-    Effect.runSync(program)
-  })
-
-  it('spawns passive mobs during the day', () => {
-    const program = Effect.gen(function* () {
+  it.effect('spawns passive mobs during the day', () =>
+    Effect.gen(function* () {
       const spawner = yield* MobSpawner
       const entityManager = yield* EntityManager
 
-      let spawned: Option.Option<EntityId> = Option.none()
-      for (let i = 0; i < 60; i++) {
-        spawned = yield* spawner.trySpawn({ x: 0, y: 64, z: 0 })
-        if (Option.isSome(spawned)) {
-          break
+      const state = yield* Effect.iterate(
+        { found: Option.none<EntityId>(), i: 0 },
+        {
+          while: (s) => Option.isNone(s.found) && s.i < 60,
+          body: (s) => spawner.trySpawn({ x: 0, y: 64, z: 0 }).pipe(Effect.map(found => ({ found, i: s.i + 1 }))),
         }
-      }
+      )
 
-      expect(Option.isSome(spawned)).toBe(true)
+      expect(Option.isSome(state.found)).toBe(true)
 
       const entities = yield* entityManager.getEntities()
       expect(entities.length).toBe(1)
       expect(entities[0]?.type).not.toBe(EntityType.Zombie)
     }).pipe(Effect.provide(makeSpawnerLayer(false)))
+  )
 
-    Effect.runSync(program)
-  })
-
-  it('does not exceed configured population cap', () => {
-    const program = Effect.gen(function* () {
+  it.effect('does not exceed configured population cap', () =>
+    Effect.gen(function* () {
       const spawner = yield* MobSpawner
       const entityManager = yield* EntityManager
       const maxPopulation = yield* spawner.getMaxPopulation()
 
-      for (let i = 0; i < maxPopulation * 40; i++) {
-        yield* spawner.trySpawn({ x: 0, y: 64, z: 0 })
-      }
+      yield* Effect.forEach(Arr.makeBy(maxPopulation * 40, () => undefined), () => spawner.trySpawn({ x: 0, y: 64, z: 0 }), { concurrency: 1, discard: true })
 
       const count = yield* entityManager.getCount()
       expect(count).toBeLessThanOrEqual(maxPopulation)
     }).pipe(Effect.provide(makeSpawnerLayer(false)))
-
-    Effect.runSync(program)
-  })
+  )
 })

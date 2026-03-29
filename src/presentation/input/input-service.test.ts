@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect } from '@effect/vitest'
 import { Effect, Layer, MutableHashMap, MutableHashSet, Option } from 'effect'
 import { InputService, MouseButton } from './input-service'
 import type { InputService as InputServiceType } from './input-service'
@@ -70,99 +70,86 @@ const createTestLayer = (service: InputServiceType) =>
 
 describe('InputService', () => {
   describe('isMouseDown', () => {
-    it('should return false when no buttons are pressed', () => {
+    it.effect('should return false when no buttons are pressed', () => {
       const service = createTestInputService()
       const layer = createTestLayer(service)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const input = yield* InputService
         const leftPressed = yield* input.isMouseDown(MouseButton.LEFT)
         const rightPressed = yield* input.isMouseDown(MouseButton.RIGHT)
         const middlePressed = yield* input.isMouseDown(MouseButton.MIDDLE)
-        return { leftPressed, rightPressed, middlePressed }
-      })
-
-      const result = Effect.runSync(program.pipe(Effect.provide(layer)))
-      expect(result.leftPressed).toBe(false)
-      expect(result.rightPressed).toBe(false)
-      expect(result.middlePressed).toBe(false)
+        expect(leftPressed).toBe(false)
+        expect(rightPressed).toBe(false)
+        expect(middlePressed).toBe(false)
+      }).pipe(Effect.provide(layer))
     })
 
-    it('should return true for left mouse button when pressed', () => {
+    it.effect('should return true for left mouse button when pressed', () => {
       const mouseButtons = MutableHashMap.empty<number, boolean>()
       MutableHashMap.set(mouseButtons, MouseButton.LEFT, true)
       const service = createTestInputService({ mouseButtons })
       const layer = createTestLayer(service)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const input = yield* InputService
-        return yield* input.isMouseDown(MouseButton.LEFT)
-      })
-
-      const result = Effect.runSync(program.pipe(Effect.provide(layer)))
-      expect(result).toBe(true)
+        const result = yield* input.isMouseDown(MouseButton.LEFT)
+        expect(result).toBe(true)
+      }).pipe(Effect.provide(layer))
     })
 
-    it('should return true for right mouse button when pressed', () => {
+    it.effect('should return true for right mouse button when pressed', () => {
       const mouseButtons = MutableHashMap.empty<number, boolean>()
       MutableHashMap.set(mouseButtons, MouseButton.RIGHT, true)
       const service = createTestInputService({ mouseButtons })
       const layer = createTestLayer(service)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const input = yield* InputService
-        return yield* input.isMouseDown(MouseButton.RIGHT)
-      })
-
-      const result = Effect.runSync(program.pipe(Effect.provide(layer)))
-      expect(result).toBe(true)
+        const result = yield* input.isMouseDown(MouseButton.RIGHT)
+        expect(result).toBe(true)
+      }).pipe(Effect.provide(layer))
     })
 
-    it('should return true for middle mouse button when pressed', () => {
+    it.effect('should return true for middle mouse button when pressed', () => {
       const mouseButtons = MutableHashMap.empty<number, boolean>()
       MutableHashMap.set(mouseButtons, MouseButton.MIDDLE, true)
       const service = createTestInputService({ mouseButtons })
       const layer = createTestLayer(service)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const input = yield* InputService
-        return yield* input.isMouseDown(MouseButton.MIDDLE)
-      })
-
-      const result = Effect.runSync(program.pipe(Effect.provide(layer)))
-      expect(result).toBe(true)
+        const result = yield* input.isMouseDown(MouseButton.MIDDLE)
+        expect(result).toBe(true)
+      }).pipe(Effect.provide(layer))
     })
 
-    it('should return false for unpressed button when other buttons are pressed', () => {
+    it.effect('should return false for unpressed button when other buttons are pressed', () => {
       const mouseButtons = MutableHashMap.empty<number, boolean>()
       MutableHashMap.set(mouseButtons, MouseButton.LEFT, true)
       MutableHashMap.set(mouseButtons, MouseButton.RIGHT, true)
       const service = createTestInputService({ mouseButtons })
       const layer = createTestLayer(service)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const input = yield* InputService
-        return yield* input.isMouseDown(MouseButton.MIDDLE)
-      })
-
-      const result = Effect.runSync(program.pipe(Effect.provide(layer)))
-      expect(result).toBe(false)
+        const result = yield* input.isMouseDown(MouseButton.MIDDLE)
+        expect(result).toBe(false)
+      }).pipe(Effect.provide(layer))
     })
 
-    it('should return false for invalid button number', () => {
+    it.effect('should return false for invalid button number', () => {
       const service = createTestInputService()
       const layer = createTestLayer(service)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const input = yield* InputService
-        return yield* input.isMouseDown(99)
-      })
-
-      const result = Effect.runSync(program.pipe(Effect.provide(layer)))
-      expect(result).toBe(false)
+        const result = yield* input.isMouseDown(99)
+        expect(result).toBe(false)
+      }).pipe(Effect.provide(layer))
     })
 
-    it('should track multiple buttons simultaneously', () => {
+    it.effect('should track multiple buttons simultaneously', () => {
       const mouseButtons = MutableHashMap.empty<number, boolean>()
       MutableHashMap.set(mouseButtons, MouseButton.LEFT, true)
       MutableHashMap.set(mouseButtons, MouseButton.RIGHT, true)
@@ -170,33 +157,28 @@ describe('InputService', () => {
       const service = createTestInputService({ mouseButtons })
       const layer = createTestLayer(service)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const input = yield* InputService
         const left = yield* input.isMouseDown(MouseButton.LEFT)
         const right = yield* input.isMouseDown(MouseButton.RIGHT)
         const middle = yield* input.isMouseDown(MouseButton.MIDDLE)
-        return { left, right, middle }
-      })
-
-      const result = Effect.runSync(program.pipe(Effect.provide(layer)))
-      expect(result.left).toBe(true)
-      expect(result.right).toBe(true)
-      expect(result.middle).toBe(true)
+        expect(left).toBe(true)
+        expect(right).toBe(true)
+        expect(middle).toBe(true)
+      }).pipe(Effect.provide(layer))
     })
 
-    it('should return false for button explicitly set to false', () => {
+    it.effect('should return false for button explicitly set to false', () => {
       const mouseButtons = MutableHashMap.empty<number, boolean>()
       MutableHashMap.set(mouseButtons, MouseButton.LEFT, false)
       const service = createTestInputService({ mouseButtons })
       const layer = createTestLayer(service)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const input = yield* InputService
-        return yield* input.isMouseDown(MouseButton.LEFT)
-      })
-
-      const result = Effect.runSync(program.pipe(Effect.provide(layer)))
-      expect(result).toBe(false)
+        const result = yield* input.isMouseDown(MouseButton.LEFT)
+        expect(result).toBe(false)
+      }).pipe(Effect.provide(layer))
     })
   })
 
@@ -222,7 +204,7 @@ describe('InputService', () => {
   })
 
   describe('mousedown/mouseup transitions', () => {
-    it('should simulate button press and release (state change)', () => {
+    it.effect('should simulate button press and release (state change)', () => {
       // Test that state can transition from pressed to not pressed
       const mouseButtons = MutableHashMap.empty<number, boolean>()
       MutableHashMap.set(mouseButtons, MouseButton.LEFT, true)
@@ -230,26 +212,25 @@ describe('InputService', () => {
       const servicePressed = createTestInputService({ mouseButtons })
       const layerPressed = createTestLayer(servicePressed)
 
-      const programPressed = Effect.gen(function* () {
-        const input = yield* InputService
-        return yield* input.isMouseDown(MouseButton.LEFT)
-      })
+      return Effect.gen(function* () {
+        const inputPressed = yield* InputService
+        const resultPressed = yield* inputPressed.isMouseDown(MouseButton.LEFT)
+        expect(resultPressed).toBe(true)
+      }).pipe(Effect.provide(layerPressed))
+    })
 
-      const resultPressed = Effect.runSync(programPressed.pipe(Effect.provide(layerPressed)))
-      expect(resultPressed).toBe(true)
-
-      // Simulate button release
+    it.effect('should simulate button release after press', () => {
+      const mouseButtons = MutableHashMap.empty<number, boolean>()
       MutableHashMap.set(mouseButtons, MouseButton.LEFT, false)
+
       const serviceReleased = createTestInputService({ mouseButtons })
       const layerReleased = createTestLayer(serviceReleased)
 
-      const programReleased = Effect.gen(function* () {
-        const input = yield* InputService
-        return yield* input.isMouseDown(MouseButton.LEFT)
-      })
-
-      const resultReleased = Effect.runSync(programReleased.pipe(Effect.provide(layerReleased)))
-      expect(resultReleased).toBe(false)
+      return Effect.gen(function* () {
+        const inputReleased = yield* InputService
+        const resultReleased = yield* inputReleased.isMouseDown(MouseButton.LEFT)
+        expect(resultReleased).toBe(false)
+      }).pipe(Effect.provide(layerReleased))
     })
 
     it('should handle rapid press/release cycles', () => {
@@ -302,23 +283,20 @@ describe('InputService', () => {
   })
 
   describe('isMouseDown with Effect composition', () => {
-    it('should work with Effect.gen', () => {
+    it.effect('should work with Effect.gen', () => {
       const mouseButtons = MutableHashMap.empty<number, boolean>()
       MutableHashMap.set(mouseButtons, MouseButton.LEFT, true)
       const service = createTestInputService({ mouseButtons })
       const layer = createTestLayer(service)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const input = yield* InputService
         const isPressed = yield* input.isMouseDown(MouseButton.LEFT)
-        return isPressed
-      })
-
-      const result = Effect.runSync(program.pipe(Effect.provide(layer)))
-      expect(result).toBe(true)
+        expect(isPressed).toBe(true)
+      }).pipe(Effect.provide(layer))
     })
 
-    it('should work with Effect.all for checking multiple buttons', () => {
+    it.effect('should work with Effect.all for checking multiple buttons', () => {
       const mouseButtons = MutableHashMap.empty<number, boolean>()
       MutableHashMap.set(mouseButtons, MouseButton.LEFT, true)
       MutableHashMap.set(mouseButtons, MouseButton.RIGHT, false)
@@ -326,37 +304,32 @@ describe('InputService', () => {
       const service = createTestInputService({ mouseButtons })
       const layer = createTestLayer(service)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const input = yield* InputService
-        const results = yield* Effect.all([
+        const [left, right, middle] = yield* Effect.all([
           input.isMouseDown(MouseButton.LEFT),
           input.isMouseDown(MouseButton.RIGHT),
           input.isMouseDown(MouseButton.MIDDLE),
         ])
-        return results
-      })
-
-      const [left, right, middle] = Effect.runSync(program.pipe(Effect.provide(layer)))
-      expect(left).toBe(true)
-      expect(right).toBe(false)
-      expect(middle).toBe(true)
+        expect(left).toBe(true)
+        expect(right).toBe(false)
+        expect(middle).toBe(true)
+      }).pipe(Effect.provide(layer))
     })
 
-    it('should work with Effect.map for transformations', () => {
+    it.effect('should work with Effect.map for transformations', () => {
       const mouseButtons = MutableHashMap.empty<number, boolean>()
       MutableHashMap.set(mouseButtons, MouseButton.LEFT, true)
       const service = createTestInputService({ mouseButtons })
       const layer = createTestLayer(service)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const input = yield* InputService
-        return yield* input.isMouseDown(MouseButton.LEFT).pipe(
+        const result = yield* input.isMouseDown(MouseButton.LEFT).pipe(
           Effect.map((pressed) => (pressed ? 'LEFT_PRESSED' : 'LEFT_NOT_PRESSED'))
         )
-      })
-
-      const result = Effect.runSync(program.pipe(Effect.provide(layer)))
-      expect(result).toBe('LEFT_PRESSED')
+        expect(result).toBe('LEFT_PRESSED')
+      }).pipe(Effect.provide(layer))
     })
   })
 
@@ -386,73 +359,87 @@ describe('InputService', () => {
   })
 
   describe('consumeKeyPress', () => {
-    it('should return true when key was just pressed', () => {
-      const justPressedKeys = MutableHashSet.empty<string>()
-      MutableHashSet.add(justPressedKeys, 'Space')
-      const service = createTestInputService({ justPressedKeys })
-
-      const result = Effect.runSync(service.consumeKeyPress('Space'))
-      expect(result).toBe(true)
-    })
-
-    it('should return false when key was not just pressed', () => {
-      const service = createTestInputService({ justPressedKeys: MutableHashSet.empty() })
-
-      const result = Effect.runSync(service.consumeKeyPress('Space'))
-      expect(result).toBe(false)
-    })
-
-    it('should consume the key press (return false on second call)', () => {
-      const justPressedKeys = MutableHashSet.empty<string>()
-      MutableHashSet.add(justPressedKeys, 'Space')
-      const service = createTestInputService({ justPressedKeys })
-
-      // First call should return true and consume the key
-      const result1 = Effect.runSync(service.consumeKeyPress('Space'))
-      expect(result1).toBe(true)
-
-      // Second call should return false (key was consumed)
-      const result2 = Effect.runSync(service.consumeKeyPress('Space'))
-      expect(result2).toBe(false)
-    })
-
-    it('should only consume the specified key', () => {
-      const justPressedKeys = MutableHashSet.empty<string>()
-      MutableHashSet.add(justPressedKeys, 'Space')
-      MutableHashSet.add(justPressedKeys, 'KeyW')
-      const service = createTestInputService({ justPressedKeys })
-
-      // Consume Space
-      const result1 = Effect.runSync(service.consumeKeyPress('Space'))
-      expect(result1).toBe(true)
-
-      // KeyW should still be available
-      const result2 = Effect.runSync(service.consumeKeyPress('KeyW'))
-      expect(result2).toBe(true)
-
-      // Space should be consumed
-      const result3 = Effect.runSync(service.consumeKeyPress('Space'))
-      expect(result3).toBe(false)
-    })
-
-    it('should work with Effect.gen', () => {
+    it.effect('should return true when key was just pressed', () => {
       const justPressedKeys = MutableHashSet.empty<string>()
       MutableHashSet.add(justPressedKeys, 'Space')
       const service = createTestInputService({ justPressedKeys })
       const layer = createTestLayer(service)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const input = yield* InputService
-        return yield* input.consumeKeyPress('Space')
-      })
+        const result = yield* input.consumeKeyPress('Space')
+        expect(result).toBe(true)
+      }).pipe(Effect.provide(layer))
+    })
 
-      const result = Effect.runSync(program.pipe(Effect.provide(layer)))
-      expect(result).toBe(true)
+    it.effect('should return false when key was not just pressed', () => {
+      const service = createTestInputService({ justPressedKeys: MutableHashSet.empty() })
+      const layer = createTestLayer(service)
+
+      return Effect.gen(function* () {
+        const input = yield* InputService
+        const result = yield* input.consumeKeyPress('Space')
+        expect(result).toBe(false)
+      }).pipe(Effect.provide(layer))
+    })
+
+    it.effect('should consume the key press (return false on second call)', () => {
+      const justPressedKeys = MutableHashSet.empty<string>()
+      MutableHashSet.add(justPressedKeys, 'Space')
+      const service = createTestInputService({ justPressedKeys })
+      const layer = createTestLayer(service)
+
+      return Effect.gen(function* () {
+        const input = yield* InputService
+        // First call should return true and consume the key
+        const result1 = yield* input.consumeKeyPress('Space')
+        expect(result1).toBe(true)
+
+        // Second call should return false (key was consumed)
+        const result2 = yield* input.consumeKeyPress('Space')
+        expect(result2).toBe(false)
+      }).pipe(Effect.provide(layer))
+    })
+
+    it.effect('should only consume the specified key', () => {
+      const justPressedKeys = MutableHashSet.empty<string>()
+      MutableHashSet.add(justPressedKeys, 'Space')
+      MutableHashSet.add(justPressedKeys, 'KeyW')
+      const service = createTestInputService({ justPressedKeys })
+      const layer = createTestLayer(service)
+
+      return Effect.gen(function* () {
+        const input = yield* InputService
+        // Consume Space
+        const result1 = yield* input.consumeKeyPress('Space')
+        expect(result1).toBe(true)
+
+        // KeyW should still be available
+        const result2 = yield* input.consumeKeyPress('KeyW')
+        expect(result2).toBe(true)
+
+        // Space should be consumed
+        const result3 = yield* input.consumeKeyPress('Space')
+        expect(result3).toBe(false)
+      }).pipe(Effect.provide(layer))
+    })
+
+    it.effect('should work with Effect.gen', () => {
+      const justPressedKeys = MutableHashSet.empty<string>()
+      MutableHashSet.add(justPressedKeys, 'Space')
+      const service = createTestInputService({ justPressedKeys })
+      const layer = createTestLayer(service)
+
+      return Effect.gen(function* () {
+        const input = yield* InputService
+        const result = yield* input.consumeKeyPress('Space')
+        expect(result).toBe(true)
+      }).pipe(Effect.provide(layer))
     })
   })
 
   describe('consumeMouseClick', () => {
-    it('should return true when button was just clicked', () => {
+    it.effect('should return true when button was just clicked', () => {
       const justPressedKeys = MutableHashSet.empty<string>()
       const mouseButtons = MutableHashMap.empty<number, boolean>()
       // Simulate a left-click having been registered
@@ -474,12 +461,16 @@ describe('InputService', () => {
             return false
           }),
       }
+      const layer = createTestLayer(mockService)
 
-      const result = Effect.runSync(mockService.consumeMouseClick(MouseButton.LEFT))
-      expect(result).toBe(true)
+      return Effect.gen(function* () {
+        const input = yield* InputService
+        const result = yield* input.consumeMouseClick(MouseButton.LEFT)
+        expect(result).toBe(true)
+      }).pipe(Effect.provide(layer))
     })
 
-    it('should return false when button was not clicked', () => {
+    it.effect('should return false when button was not clicked', () => {
       const justClickedButtons = MutableHashSet.empty<number>()
       const service = createTestInputService()
       const mockService: typeof service = {
@@ -493,12 +484,16 @@ describe('InputService', () => {
             return false
           }),
       }
+      const layer = createTestLayer(mockService)
 
-      const result = Effect.runSync(mockService.consumeMouseClick(MouseButton.LEFT))
-      expect(result).toBe(false)
+      return Effect.gen(function* () {
+        const input = yield* InputService
+        const result = yield* input.consumeMouseClick(MouseButton.LEFT)
+        expect(result).toBe(false)
+      }).pipe(Effect.provide(layer))
     })
 
-    it('should consume the click (return false on second call)', () => {
+    it.effect('should consume the click (return false on second call)', () => {
       const justClickedButtons = MutableHashSet.make(MouseButton.RIGHT)
       const service = createTestInputService()
       const mockService: typeof service = {
@@ -512,15 +507,19 @@ describe('InputService', () => {
             return false
           }),
       }
+      const layer = createTestLayer(mockService)
 
-      const first = Effect.runSync(mockService.consumeMouseClick(MouseButton.RIGHT))
-      expect(first).toBe(true)
+      return Effect.gen(function* () {
+        const input = yield* InputService
+        const first = yield* input.consumeMouseClick(MouseButton.RIGHT)
+        expect(first).toBe(true)
 
-      const second = Effect.runSync(mockService.consumeMouseClick(MouseButton.RIGHT))
-      expect(second).toBe(false)
+        const second = yield* input.consumeMouseClick(MouseButton.RIGHT)
+        expect(second).toBe(false)
+      }).pipe(Effect.provide(layer))
     })
 
-    it('should not consume a different button', () => {
+    it.effect('should not consume a different button', () => {
       const justClickedButtons = MutableHashSet.make(MouseButton.LEFT)
       const service = createTestInputService()
       const mockService: typeof service = {
@@ -534,23 +533,32 @@ describe('InputService', () => {
             return false
           }),
       }
+      const layer = createTestLayer(mockService)
 
-      const right = Effect.runSync(mockService.consumeMouseClick(MouseButton.RIGHT))
-      expect(right).toBe(false)
+      return Effect.gen(function* () {
+        const input = yield* InputService
+        const right = yield* input.consumeMouseClick(MouseButton.RIGHT)
+        expect(right).toBe(false)
 
-      const left = Effect.runSync(mockService.consumeMouseClick(MouseButton.LEFT))
-      expect(left).toBe(true)
+        const left = yield* input.consumeMouseClick(MouseButton.LEFT)
+        expect(left).toBe(true)
+      }).pipe(Effect.provide(layer))
     })
   })
 
   describe('consumeWheelDelta', () => {
-    it('should return 0 when no wheel event occurred', () => {
+    it.effect('should return 0 when no wheel event occurred', () => {
       const service = createTestInputService()
-      const result = Effect.runSync(service.consumeWheelDelta())
-      expect(result).toBe(0)
+      const layer = createTestLayer(service)
+
+      return Effect.gen(function* () {
+        const input = yield* InputService
+        const result = yield* input.consumeWheelDelta()
+        expect(result).toBe(0)
+      }).pipe(Effect.provide(layer))
     })
 
-    it('should return accumulated delta and reset to zero', () => {
+    it.effect('should return accumulated delta and reset to zero', () => {
       let wheelDelta = 100
       const service = createTestInputService()
       const mockService: typeof service = {
@@ -562,15 +570,19 @@ describe('InputService', () => {
             return delta
           }),
       }
+      const layer = createTestLayer(mockService)
 
-      const first = Effect.runSync(mockService.consumeWheelDelta())
-      expect(first).toBe(100)
+      return Effect.gen(function* () {
+        const input = yield* InputService
+        const first = yield* input.consumeWheelDelta()
+        expect(first).toBe(100)
 
-      const second = Effect.runSync(mockService.consumeWheelDelta())
-      expect(second).toBe(0)
+        const second = yield* input.consumeWheelDelta()
+        expect(second).toBe(0)
+      }).pipe(Effect.provide(layer))
     })
 
-    it('should return negative delta for scroll up', () => {
+    it.effect('should return negative delta for scroll up', () => {
       let wheelDelta = -120
       const service = createTestInputService()
       const mockService: typeof service = {
@@ -582,9 +594,13 @@ describe('InputService', () => {
             return delta
           }),
       }
+      const layer = createTestLayer(mockService)
 
-      const result = Effect.runSync(mockService.consumeWheelDelta())
-      expect(result).toBe(-120)
+      return Effect.gen(function* () {
+        const input = yield* InputService
+        const result = yield* input.consumeWheelDelta()
+        expect(result).toBe(-120)
+      }).pipe(Effect.provide(layer))
     })
   })
 })

@@ -1,6 +1,6 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Arbitrary, Effect, Layer, Schema } from 'effect'
+import { Arbitrary, Effect, Either, Layer, Schema } from 'effect'
 import * as fc from 'effect/FastCheck'
 import { BiomeService, BiomeServiceLive, BiomeTypeSchema } from '@/application/biome/biome-service'
 import { NoiseServicePort } from '@/application/noise/noise-service-port'
@@ -78,7 +78,7 @@ describe('BiomeService — getBiome property tests', () => {
         const service = yield* BiomeService
         const biome = yield* service.getBiome(0, 0)
         const result = Schema.decodeUnknownEither(BiomeTypeSchema)(biome)
-        expect(result._tag).toBe('Right')
+        expect(Either.isRight(result)).toBe(true)
       }).pipe(Effect.provide(makeTestLayer(tempVal, humVal))),
     { fastCheck: { numRuns: 50 } },
   )
@@ -88,45 +88,41 @@ describe('BiomeService — getBiomeProperties property tests', () => {
   it.effect('treeDensity is always in [0, 1] for all biome types', () =>
     Effect.gen(function* () {
       const service = yield* BiomeService
-      for (const biome of ALL_BIOME_TYPES) {
-        const props = yield* service.getBiomeProperties(biome)
+      yield* Effect.forEach(ALL_BIOME_TYPES, (biome) => service.getBiomeProperties(biome).pipe(Effect.map((props) => {
         expect(props.treeDensity).toBeGreaterThanOrEqual(0)
         expect(props.treeDensity).toBeLessThanOrEqual(1)
-      }
+      })), { concurrency: 1 })
     }).pipe(Effect.provide(makeTestLayer(0.5, 0.5))),
   )
 
   it.effect('heightModifier is always > 0 for all biome types', () =>
     Effect.gen(function* () {
       const service = yield* BiomeService
-      for (const biome of ALL_BIOME_TYPES) {
-        const props = yield* service.getBiomeProperties(biome)
+      yield* Effect.forEach(ALL_BIOME_TYPES, (biome) => service.getBiomeProperties(biome).pipe(Effect.map((props) => {
         expect(props.heightModifier).toBeGreaterThan(0)
-      }
+      })), { concurrency: 1 })
     }).pipe(Effect.provide(makeTestLayer(0.5, 0.5))),
   )
 
   it.effect('baseHeight is always > 0 and < CHUNK_HEIGHT for all biome types', () =>
     Effect.gen(function* () {
       const service = yield* BiomeService
-      for (const biome of ALL_BIOME_TYPES) {
-        const props = yield* service.getBiomeProperties(biome)
+      yield* Effect.forEach(ALL_BIOME_TYPES, (biome) => service.getBiomeProperties(biome).pipe(Effect.map((props) => {
         expect(props.baseHeight).toBeGreaterThan(0)
         expect(props.baseHeight).toBeLessThan(CHUNK_HEIGHT)
-      }
+      })), { concurrency: 1 })
     }).pipe(Effect.provide(makeTestLayer(0.5, 0.5))),
   )
 
   it.effect('temperature and humidity properties are numeric for all biome types', () =>
     Effect.gen(function* () {
       const service = yield* BiomeService
-      for (const biome of ALL_BIOME_TYPES) {
-        const props = yield* service.getBiomeProperties(biome)
+      yield* Effect.forEach(ALL_BIOME_TYPES, (biome) => service.getBiomeProperties(biome).pipe(Effect.map((props) => {
         expect(typeof props.temperature).toBe('number')
         expect(typeof props.humidity).toBe('number')
         expect(Number.isFinite(props.temperature)).toBe(true)
         expect(Number.isFinite(props.humidity)).toBe(true)
-      }
+      })), { concurrency: 1 })
     }).pipe(Effect.provide(makeTestLayer(0.5, 0.5))),
   )
 

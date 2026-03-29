@@ -68,8 +68,8 @@ describe('application/inventory/inventory-service (property-based)', () => {
           const finalA = yield* inv.getSlot(asSlotIndex(slotA))
           const finalB = yield* inv.getSlot(asSlotIndex(slotB))
 
-          expect(Option.isSome(finalA) && finalA.value.blockType === typeA && finalA.value.count === countA).toBe(true)
-          expect(Option.isSome(finalB) && finalB.value.blockType === typeB && finalB.value.count === countB).toBe(true)
+          expect(Option.isSome(finalA) && Option.getOrThrow(finalA).blockType === typeA && Option.getOrThrow(finalA).count === countA).toBe(true)
+          expect(Option.isSome(finalB) && Option.getOrThrow(finalB).blockType === typeB && Option.getOrThrow(finalB).count === countB).toBe(true)
         }).pipe(Effect.provide(TestLayer))
     )
 
@@ -97,7 +97,7 @@ describe('application/inventory/inventory-service (property-based)', () => {
           const finalA = yield* inv.getSlot(asSlotIndex(slotA))
           const finalB = yield* inv.getSlot(asSlotIndex(slotB))
 
-          expect(Option.isSome(finalA) && finalA.value.blockType === type && finalA.value.count === count).toBe(true)
+          expect(Option.isSome(finalA) && Option.getOrThrow(finalA).blockType === type && Option.getOrThrow(finalA).count === count).toBe(true)
           expect(Option.isNone(finalB)).toBe(true)
         }).pipe(Effect.provide(TestLayer))
     )
@@ -117,7 +117,7 @@ describe('application/inventory/inventory-service (property-based)', () => {
 
           const slotsBefore = yield* inv.getAllSlots()
           const totalBefore = Arr.reduce(slotsBefore, 0, (sum, s) =>
-            sum + (Option.isSome(s) && s.value.blockType === type ? s.value.count : 0)
+            sum + Option.match(s, { onNone: () => 0, onSome: (item) => item.blockType === type ? item.count : 0 })
           )
 
           yield* inv.addBlock(type as BlockType, count)
@@ -125,7 +125,7 @@ describe('application/inventory/inventory-service (property-based)', () => {
 
           const slotsAfter = yield* inv.getAllSlots()
           const totalAfter = Arr.reduce(slotsAfter, 0, (sum, s) =>
-            sum + (Option.isSome(s) && s.value.blockType === type ? s.value.count : 0)
+            sum + Option.match(s, { onNone: () => 0, onSome: (item) => item.blockType === type ? item.count : 0 })
           )
 
           expect(totalAfter).toBe(totalBefore)
@@ -147,7 +147,7 @@ describe('application/inventory/inventory-service (property-based)', () => {
           yield* inv.setSlot(asSlotIndex(slotN), Option.some(stack))
           const result = yield* inv.getSlot(asSlotIndex(slotN))
 
-          expect(Option.isSome(result) && result.value.blockType === type && result.value.count === count).toBe(true)
+          expect(Option.isSome(result) && Option.getOrThrow(result).blockType === type && Option.getOrThrow(result).count === count).toBe(true)
         }).pipe(Effect.provide(TestLayer))
     )
 

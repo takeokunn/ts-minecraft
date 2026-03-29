@@ -34,21 +34,15 @@ const tradeResultText = (result: TradeResult): string =>
 export class TradingPresentationService extends Effect.Service<TradingPresentationService>()(
   '@minecraft/presentation/TradingPresentationService',
   {
-    scoped: Effect.gen(function* () {
-      const dom = yield* DomOperationsService
-      const tradingService = yield* TradingService
-      const villageService = yield* VillageService
-
-      const isVisibleRef = yield* Ref.make(false)
-      const uiStateRef = yield* Ref.make<Option.Option<TradingUiState>>(Option.none())
-
-      const {
-        overlayEl,
-        titleEl,
-        currencyEl,
-        listEl,
-        statusEl,
-      } = yield* Effect.sync(() => {
+    scoped: Effect.all([
+      DomOperationsService,
+      TradingService,
+      VillageService,
+      Ref.make(false),
+      Ref.make<Option.Option<TradingUiState>>(Option.none()),
+    ], { concurrency: 'unbounded' }).pipe(
+      Effect.flatMap(([dom, tradingService, villageService, isVisibleRef, uiStateRef]) =>
+        Effect.sync(() => {
         if (typeof document === 'undefined') {
           return {
             overlayEl: Option.none<HTMLDivElement>(),
@@ -105,9 +99,9 @@ export class TradingPresentationService extends Effect.Service<TradingPresentati
           listEl: Option.some(list),
           statusEl: Option.some(status),
         }
-      })
-
-      const renderUi = (): Effect.Effect<void, never> =>
+        }).pipe(
+          Effect.flatMap(({ overlayEl, titleEl, currencyEl, listEl, statusEl }) => {
+        const renderUi = (): Effect.Effect<void, never> =>
         Effect.gen(function* () {
           const [uiStateOption, currencyType] = yield* Effect.all(
             [Ref.get(uiStateRef), tradingService.getCurrencyBlockType()],
@@ -194,17 +188,15 @@ export class TradingPresentationService extends Effect.Service<TradingPresentati
           })
         })
 
-      yield* Effect.acquireRelease(
-        Effect.void,
-        () =>
-          Effect.sync(() => {
-            Option.map(overlayEl, (el) => {
-              el.remove()
-            })
-          }),
-      )
-
-      return {
+        return Effect.acquireRelease(
+          Effect.void,
+          () =>
+            Effect.sync(() => {
+              Option.map(overlayEl, (el) => {
+                el.remove()
+              })
+            }),
+        ).pipe(Effect.as({
         open: (villagerId: VillagerId): Effect.Effect<boolean, never> =>
           Effect.gen(function* () {
             const refreshed = yield* refreshForVillager(villagerId)
@@ -276,9 +268,12 @@ export class TradingPresentationService extends Effect.Service<TradingPresentati
               },
             )
           }),
-      }
-    }),
-  },
+        }))
+      })
+        )
+      )
+    ),
+  }
 ) {}
 
 export const TradingPresentationLive = TradingPresentationService.Default

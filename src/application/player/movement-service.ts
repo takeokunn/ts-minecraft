@@ -78,9 +78,7 @@ const computeVelocity = (
 export class MovementService extends Effect.Service<MovementService>()(
   '@minecraft/application/MovementService',
   {
-    effect: Effect.gen(function* () {
-      const inputService = yield* PlayerInputService
-
+    effect: Effect.map(PlayerInputService, (inputService) => {
       const getInput = (): Effect.Effect<MovementInput, never> =>
         Effect.gen(function* () {
           const [forward, backward, left, right, jump, sprint] = yield* Effect.all([

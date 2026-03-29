@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect } from 'vitest'
+import { it } from '@effect/vitest'
 import { Effect } from 'effect'
 import { RendererService, RendererServiceLive } from './renderer-service'
 
@@ -11,75 +12,51 @@ describe('three/renderer/renderer-service', () => {
       expect(typeof layer).toBe('object')
     })
 
-    it('should have create, render, and resize methods', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should have create, render, and resize methods', () =>
+      Effect.gen(function* () {
         const service = yield* RendererService
 
         expect(typeof service.create).toBe('function')
         expect(typeof service.render).toBe('function')
         expect(typeof service.resize).toBe('function')
-
-        return { success: true }
       }).pipe(Effect.provide(RendererServiceLive))
+    )
 
-      const result = Effect.runSync(program)
-
-      expect(result.success).toBe(true)
-    })
-
-    it('should create Effect for renderer creation', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should create Effect for renderer creation', () =>
+      Effect.gen(function* () {
         const service = yield* RendererService
 
         // Verify create returns an Effect
         const createEffect = service.create(null as any)
         expect(typeof createEffect.pipe).toBe('function')
         expect(typeof createEffect).toBe('object')
-
-        return { success: true }
       }).pipe(Effect.provide(RendererServiceLive))
+    )
 
-      const result = Effect.runSync(program)
-
-      expect(result.success).toBe(true)
-    })
-
-    it('should create Effect for render operation', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should create Effect for render operation', () =>
+      Effect.gen(function* () {
         const service = yield* RendererService
 
         // Verify render returns an Effect
         const renderEffect = service.render(null as any, null as any, null as any)
         expect(typeof renderEffect.pipe).toBe('function')
         expect(typeof renderEffect).toBe('object')
-
-        return { success: true }
       }).pipe(Effect.provide(RendererServiceLive))
+    )
 
-      const result = Effect.runSync(program)
-
-      expect(result.success).toBe(true)
-    })
-
-    it('should create Effect for resize operation', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should create Effect for resize operation', () =>
+      Effect.gen(function* () {
         const service = yield* RendererService
 
         // Verify resize returns an Effect
         const resizeEffect = service.resize(null as any, 100, 100)
         expect(typeof resizeEffect.pipe).toBe('function')
         expect(typeof resizeEffect).toBe('object')
-
-        return { success: true }
       }).pipe(Effect.provide(RendererServiceLive))
+    )
 
-      const result = Effect.runSync(program)
-
-      expect(result.success).toBe(true)
-    })
-
-    it('should support multiple Effect compositions', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should support multiple Effect compositions', () =>
+      Effect.gen(function* () {
         const service = yield* RendererService
 
         // Compose multiple Effect operations
@@ -91,17 +68,11 @@ describe('three/renderer/renderer-service', () => {
         expect(typeof createEffect.pipe).toBe('function')
         expect(typeof resizeEffect.pipe).toBe('function')
         expect(typeof renderEffect.pipe).toBe('function')
-
-        return { success: true }
       }).pipe(Effect.provide(RendererServiceLive))
+    )
 
-      const result = Effect.runSync(program)
-
-      expect(result.success).toBe(true)
-    })
-
-    it('should support Effect.map on service methods', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should support Effect.map on service methods', () =>
+      Effect.gen(function* () {
         const service = yield* RendererService
 
         const result = service.resize(null as any, 100, 100).pipe(
@@ -109,17 +80,11 @@ describe('three/renderer/renderer-service', () => {
         )
 
         expect(typeof result.pipe).toBe('function')
-
-        return { success: true }
       }).pipe(Effect.provide(RendererServiceLive))
+    )
 
-      const result = Effect.runSync(program)
-
-      expect(result.success).toBe(true)
-    })
-
-    it('should support Effect.flatMap on service methods', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should support Effect.flatMap on service methods', () =>
+      Effect.gen(function* () {
         const service = yield* RendererService
 
         const result = service.create(null as any).pipe(
@@ -127,13 +92,7 @@ describe('three/renderer/renderer-service', () => {
         )
 
         expect(typeof result.pipe).toBe('function')
-
-        return { success: true }
       }).pipe(Effect.provide(RendererServiceLive))
-
-      const result = Effect.runSync(program)
-
-      expect(result.success).toBe(true)
-    })
+    )
   })
 })

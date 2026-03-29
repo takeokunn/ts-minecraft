@@ -1,6 +1,6 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Arbitrary, Array as Arr, Effect, Layer, Option, Schema } from 'effect'
+import { Arbitrary, Array as Arr, Effect, Layer, MutableRef, Option, Schema } from 'effect'
 import * as THREE from 'three'
 import { PlayerInputService } from '../../application/input/player-input-service'
 import type { MouseDelta } from '../../application/input/player-input-service'
@@ -73,7 +73,7 @@ describe('FirstPersonCameraService', () => {
   })
 
   describe('update', () => {
-    it('should not update camera rotation when pointer is not locked', () => {
+    it.effect('should not update camera rotation when pointer is not locked', () => {
       const inputService = createTestInputService({
         mouseDelta: { x: 100, y: 50 },
         pointerLocked: false,
@@ -83,19 +83,17 @@ describe('FirstPersonCameraService', () => {
       const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000)
       const initialRotation = camera.rotation.clone()
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const cameraService = yield* FirstPersonCameraService
         yield* cameraService.update(camera)
-      })
 
-      Effect.runSync(program.pipe(Effect.provide(FirstPersonCameraServiceLive), Effect.provide(testLayers)))
-
-      expect(camera.rotation.x).toBe(initialRotation.x)
-      expect(camera.rotation.y).toBe(initialRotation.y)
-      expect(camera.rotation.z).toBe(initialRotation.z)
+        expect(camera.rotation.x).toBe(initialRotation.x)
+        expect(camera.rotation.y).toBe(initialRotation.y)
+        expect(camera.rotation.z).toBe(initialRotation.z)
+      }).pipe(Effect.provide(FirstPersonCameraServiceLive), Effect.provide(testLayers))
     })
 
-    it('should update camera rotation when pointer is locked', () => {
+    it.effect('should update camera rotation when pointer is locked', () => {
       const inputService = createTestInputService({
         mouseDelta: { x: 100, y: 50 },
         pointerLocked: true,
@@ -104,32 +102,28 @@ describe('FirstPersonCameraService', () => {
 
       const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const cameraService = yield* FirstPersonCameraService
         yield* cameraService.update(camera)
 
         const cameraState = yield* PlayerCameraStateService
-        return yield* cameraState.getRotation()
-      })
+        const rotation = yield* cameraState.getRotation()
 
-      const rotation = Effect.runSync(
-        program.pipe(Effect.provide(FirstPersonCameraServiceLive), Effect.provide(testLayers))
-      )
+        // Verify rotation was updated (negative for intuitive direction)
+        const expectedYaw = -100 * BASE_MOUSE_SENSITIVITY * 0.5
+        const expectedPitch = -50 * BASE_MOUSE_SENSITIVITY * 0.5
 
-      // Verify rotation was updated (negative for intuitive direction)
-      const expectedYaw = -100 * BASE_MOUSE_SENSITIVITY * 0.5
-      const expectedPitch = -50 * BASE_MOUSE_SENSITIVITY * 0.5
+        expect(rotation.yaw).toBeCloseTo(expectedYaw)
+        expect(rotation.pitch).toBeCloseTo(expectedPitch)
 
-      expect(rotation.yaw).toBeCloseTo(expectedYaw)
-      expect(rotation.pitch).toBeCloseTo(expectedPitch)
-
-      // Verify camera rotation matches state
-      expect(camera.rotation.x).toBeCloseTo(expectedPitch)
-      expect(camera.rotation.y).toBeCloseTo(expectedYaw)
-      expect(camera.rotation.z).toBe(0)
+        // Verify camera rotation matches state
+        expect(camera.rotation.x).toBeCloseTo(expectedPitch)
+        expect(camera.rotation.y).toBeCloseTo(expectedYaw)
+        expect(camera.rotation.z).toBe(0)
+      }).pipe(Effect.provide(FirstPersonCameraServiceLive), Effect.provide(testLayers))
     })
 
-    it('should use YXZ rotation order', () => {
+    it.effect('should use YXZ rotation order', () => {
       const inputService = createTestInputService({
         mouseDelta: { x: 100, y: 50 },
         pointerLocked: true,
@@ -138,17 +132,15 @@ describe('FirstPersonCameraService', () => {
 
       const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const cameraService = yield* FirstPersonCameraService
         yield* cameraService.update(camera)
-      })
 
-      Effect.runSync(program.pipe(Effect.provide(FirstPersonCameraServiceLive), Effect.provide(testLayers)))
-
-      expect(camera.rotation.order).toBe('YXZ')
+        expect(camera.rotation.order).toBe('YXZ')
+      }).pipe(Effect.provide(FirstPersonCameraServiceLive), Effect.provide(testLayers))
     })
 
-    it('should not update when mouse delta is zero', () => {
+    it.effect('should not update when mouse delta is zero', () => {
       const inputService = createTestInputService({
         mouseDelta: { x: 0, y: 0 },
         pointerLocked: true,
@@ -157,7 +149,7 @@ describe('FirstPersonCameraService', () => {
 
       const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const cameraService = yield* FirstPersonCameraService
         const cameraState = yield* PlayerCameraStateService
 
@@ -170,18 +162,12 @@ describe('FirstPersonCameraService', () => {
         yield* cameraService.update(camera)
         const afterRotation = yield* cameraState.getRotation()
 
-        return { beforeRotation, afterRotation }
-      })
-
-      const { beforeRotation, afterRotation } = Effect.runSync(
-        program.pipe(Effect.provide(FirstPersonCameraServiceLive), Effect.provide(testLayers))
-      )
-
-      expect(afterRotation.yaw).toBeCloseTo(beforeRotation.yaw)
-      expect(afterRotation.pitch).toBeCloseTo(beforeRotation.pitch)
+        expect(afterRotation.yaw).toBeCloseTo(beforeRotation.yaw)
+        expect(afterRotation.pitch).toBeCloseTo(beforeRotation.pitch)
+      }).pipe(Effect.provide(FirstPersonCameraServiceLive), Effect.provide(testLayers))
     })
 
-    it('should apply negative multiplier for intuitive rotation (mouse right = look right)', () => {
+    it.effect('should apply negative multiplier for intuitive rotation (mouse right = look right)', () => {
       const inputService = createTestInputService({
         mouseDelta: { x: 100, y: 0 }, // Mouse moved right
         pointerLocked: true,
@@ -190,23 +176,19 @@ describe('FirstPersonCameraService', () => {
 
       const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const cameraService = yield* FirstPersonCameraService
         yield* cameraService.update(camera)
 
         const cameraState = yield* PlayerCameraStateService
-        return yield* cameraState.getRotation()
-      })
+        const rotation = yield* cameraState.getRotation()
 
-      const rotation = Effect.runSync(
-        program.pipe(Effect.provide(FirstPersonCameraServiceLive), Effect.provide(testLayers))
-      )
-
-      // Negative delta.x * sensitivity = positive yaw (looking right)
-      expect(rotation.yaw).toBeCloseTo(-100 * BASE_MOUSE_SENSITIVITY * 0.5)
+        // Negative delta.x * sensitivity = positive yaw (looking right)
+        expect(rotation.yaw).toBeCloseTo(-100 * BASE_MOUSE_SENSITIVITY * 0.5)
+      }).pipe(Effect.provide(FirstPersonCameraServiceLive), Effect.provide(testLayers))
     })
 
-    it('should accumulate multiple updates', () => {
+    it.effect('should accumulate multiple updates', () => {
       let mouseDelta = { x: 50, y: 25 }
       const inputService = {
         isKeyPressed: () => Effect.sync(() => false),
@@ -228,7 +210,7 @@ describe('FirstPersonCameraService', () => {
 
       const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const cameraService = yield* FirstPersonCameraService
         yield* cameraService.update(camera)
 
@@ -237,24 +219,20 @@ describe('FirstPersonCameraService', () => {
         yield* cameraService.update(camera)
 
         const cameraState = yield* PlayerCameraStateService
-        return yield* cameraState.getRotation()
-      })
+        const rotation = yield* cameraState.getRotation()
 
-      const rotation = Effect.runSync(
-        program.pipe(Effect.provide(FirstPersonCameraServiceLive), Effect.provide(testLayers))
-      )
+        // Two updates should accumulate
+        const expectedYaw = -100 * BASE_MOUSE_SENSITIVITY * 0.5
+        const expectedPitch = -50 * BASE_MOUSE_SENSITIVITY * 0.5
 
-      // Two updates should accumulate
-      const expectedYaw = -100 * BASE_MOUSE_SENSITIVITY * 0.5
-      const expectedPitch = -50 * BASE_MOUSE_SENSITIVITY * 0.5
-
-      expect(rotation.yaw).toBeCloseTo(expectedYaw)
-      expect(rotation.pitch).toBeCloseTo(expectedPitch)
+        expect(rotation.yaw).toBeCloseTo(expectedYaw)
+        expect(rotation.pitch).toBeCloseTo(expectedPitch)
+      }).pipe(Effect.provide(FirstPersonCameraServiceLive), Effect.provide(testLayers))
     })
   })
 
   describe('update with pitch clamping', () => {
-    it('should clamp pitch to PITCH_MAX when looking too far up', () => {
+    it.effect('should clamp pitch to PITCH_MAX when looking too far up', () => {
       const inputService = createTestInputService({
         mouseDelta: { x: 0, y: -10000 }, // Large upward movement
         pointerLocked: true,
@@ -263,24 +241,20 @@ describe('FirstPersonCameraService', () => {
 
       const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const cameraService = yield* FirstPersonCameraService
         yield* cameraService.update(camera)
 
         const cameraState = yield* PlayerCameraStateService
-        return yield* cameraState.getRotation()
-      })
+        const rotation = yield* cameraState.getRotation()
 
-      const rotation = Effect.runSync(
-        program.pipe(Effect.provide(FirstPersonCameraServiceLive), Effect.provide(testLayers))
-      )
-
-      // Pitch should be clamped to near PI/2
-      expect(rotation.pitch).toBeLessThan(Math.PI / 2)
-      expect(rotation.pitch).toBeGreaterThan(1.5) // Close to PI/2
+        // Pitch should be clamped to near PI/2
+        expect(rotation.pitch).toBeLessThan(Math.PI / 2)
+        expect(rotation.pitch).toBeGreaterThan(1.5) // Close to PI/2
+      }).pipe(Effect.provide(FirstPersonCameraServiceLive), Effect.provide(testLayers))
     })
 
-    it('should clamp pitch to PITCH_MIN when looking too far down', () => {
+    it.effect('should clamp pitch to PITCH_MIN when looking too far down', () => {
       const inputService = createTestInputService({
         mouseDelta: { x: 0, y: 10000 }, // Large downward movement
         pointerLocked: true,
@@ -289,32 +263,28 @@ describe('FirstPersonCameraService', () => {
 
       const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const cameraService = yield* FirstPersonCameraService
         yield* cameraService.update(camera)
 
         const cameraState = yield* PlayerCameraStateService
-        return yield* cameraState.getRotation()
-      })
+        const rotation = yield* cameraState.getRotation()
 
-      const rotation = Effect.runSync(
-        program.pipe(Effect.provide(FirstPersonCameraServiceLive), Effect.provide(testLayers))
-      )
-
-      // Pitch should be clamped to near -PI/2
-      expect(rotation.pitch).toBeGreaterThan(-Math.PI / 2)
-      expect(rotation.pitch).toBeLessThan(-1.5) // Close to -PI/2
+        // Pitch should be clamped to near -PI/2
+        expect(rotation.pitch).toBeGreaterThan(-Math.PI / 2)
+        expect(rotation.pitch).toBeLessThan(-1.5) // Close to -PI/2
+      }).pipe(Effect.provide(FirstPersonCameraServiceLive), Effect.provide(testLayers))
     })
   })
 
   describe('attachToPlayer', () => {
-    it('should sync camera rotation with player camera state', () => {
+    it.effect('should sync camera rotation with player camera state', () => {
       const inputService = createTestInputService()
       const testLayers = createTestLayers(inputService)
 
       const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const cameraService = yield* FirstPersonCameraService
         const cameraState = yield* PlayerCameraStateService
 
@@ -326,42 +296,35 @@ describe('FirstPersonCameraService', () => {
         yield* cameraService.attachToPlayer(camera)
 
         const rotation = yield* cameraState.getRotation()
-        return rotation
-      })
 
-      const rotation = Effect.runSync(
-        program.pipe(Effect.provide(FirstPersonCameraServiceLive), Effect.provide(testLayers))
-      )
-
-      expect(camera.rotation.x).toBeCloseTo(rotation.pitch)
-      expect(camera.rotation.y).toBeCloseTo(rotation.yaw)
-      expect(camera.rotation.z).toBe(0)
-      expect(camera.rotation.order).toBe('YXZ')
+        expect(camera.rotation.x).toBeCloseTo(rotation.pitch)
+        expect(camera.rotation.y).toBeCloseTo(rotation.yaw)
+        expect(camera.rotation.z).toBe(0)
+        expect(camera.rotation.order).toBe('YXZ')
+      }).pipe(Effect.provide(FirstPersonCameraServiceLive), Effect.provide(testLayers))
     })
 
-    it('should use YXZ rotation order', () => {
+    it.effect('should use YXZ rotation order', () => {
       const inputService = createTestInputService()
       const testLayers = createTestLayers(inputService)
 
       const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const cameraService = yield* FirstPersonCameraService
         yield* cameraService.attachToPlayer(camera)
-      })
 
-      Effect.runSync(program.pipe(Effect.provide(FirstPersonCameraServiceLive), Effect.provide(testLayers)))
-
-      expect(camera.rotation.order).toBe('YXZ')
+        expect(camera.rotation.order).toBe('YXZ')
+      }).pipe(Effect.provide(FirstPersonCameraServiceLive), Effect.provide(testLayers))
     })
 
-    it('should not change the camera state values', () => {
+    it.effect('should not change the camera state values', () => {
       const inputService = createTestInputService()
       const testLayers = createTestLayers(inputService)
 
       const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const cameraService = yield* FirstPersonCameraService
         const cameraState = yield* PlayerCameraStateService
 
@@ -372,20 +335,14 @@ describe('FirstPersonCameraService', () => {
         yield* cameraService.attachToPlayer(camera)
         const afterRotation = yield* cameraState.getRotation()
 
-        return { beforeRotation, afterRotation }
-      })
-
-      const { beforeRotation, afterRotation } = Effect.runSync(
-        program.pipe(Effect.provide(FirstPersonCameraServiceLive), Effect.provide(testLayers))
-      )
-
-      expect(afterRotation.yaw).toBeCloseTo(beforeRotation.yaw)
-      expect(afterRotation.pitch).toBeCloseTo(beforeRotation.pitch)
+        expect(afterRotation.yaw).toBeCloseTo(beforeRotation.yaw)
+        expect(afterRotation.pitch).toBeCloseTo(beforeRotation.pitch)
+      }).pipe(Effect.provide(FirstPersonCameraServiceLive), Effect.provide(testLayers))
     })
   })
 
   describe('pitch clamping — property test', () => {
-    it.prop(
+    it.effect.prop(
       'pitch is always within [PITCH_MIN, PITCH_MAX] for any sequence of mouse Y deltas',
       {
         deltas: Arbitrary.make(
@@ -394,13 +351,15 @@ describe('FirstPersonCameraService', () => {
       },
       ({ deltas }) => {
         // Build a fresh input service that returns deltas one at a time
-        let deltaIdx = 0
+        const deltaIdxRef = MutableRef.make(0)
         const inputService = {
           isKeyPressed: () => Effect.sync(() => false),
           consumeKeyPress: () => Effect.sync(() => false),
           getMouseDelta: () =>
             Effect.sync(() => {
-              const dy = deltaIdx < deltas.length ? Option.getOrElse(Arr.get(deltas, deltaIdx++), () => 0) : 0
+              const currentIdx = MutableRef.get(deltaIdxRef)
+              const dy = currentIdx < deltas.length ? Option.getOrElse(Arr.get(deltas, currentIdx), () => 0) : 0
+              MutableRef.set(deltaIdxRef, currentIdx + 1)
               return { x: 0, y: dy }
             }),
           isMouseDown: () => Effect.sync(() => false),
@@ -414,30 +373,24 @@ describe('FirstPersonCameraService', () => {
         const testLayers = createTestLayers(inputService)
         const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000)
 
-        const program = Effect.gen(function* () {
+        return Effect.gen(function* () {
           const cameraService = yield* FirstPersonCameraService
           const cameraState = yield* PlayerCameraStateService
 
-          for (let i = 0; i < deltas.length; i++) {
-            yield* cameraService.update(camera)
-          }
+          yield* Effect.forEach(Arr.makeBy(deltas.length, () => undefined), () => cameraService.update(camera), { concurrency: 1 })
 
           const rotation = yield* cameraState.getRotation()
-          return rotation.pitch
-        })
+          const pitch = rotation.pitch
 
-        const pitch = Effect.runSync(
-          program.pipe(Effect.provide(FirstPersonCameraServiceLive), Effect.provide(testLayers))
-        )
-
-        expect(pitch).toBeGreaterThanOrEqual(PITCH_MIN - 0.001)
-        expect(pitch).toBeLessThanOrEqual(PITCH_MAX + 0.001)
+          expect(pitch).toBeGreaterThanOrEqual(PITCH_MIN - 0.001)
+          expect(pitch).toBeLessThanOrEqual(PITCH_MAX + 0.001)
+        }).pipe(Effect.provide(FirstPersonCameraServiceLive), Effect.provide(testLayers))
       }
     )
   })
 
   describe('integration scenarios', () => {
-    it('should handle typical mouse look sequence', () => {
+    it.effect('should handle typical mouse look sequence', () => {
       let mouseDelta = { x: 0, y: 0 }
       let pointerLocked = false
 
@@ -470,7 +423,7 @@ describe('FirstPersonCameraService', () => {
       // Set pointer locked via closure variable
       pointerLocked = true
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const cameraService = yield* FirstPersonCameraService
         const cameraState = yield* PlayerCameraStateService
 
@@ -482,20 +435,16 @@ describe('FirstPersonCameraService', () => {
         mouseDelta = { x: -100, y: 50 }
         yield* cameraService.update(camera)
 
-        return yield* cameraState.getRotation()
-      })
+        const rotation = yield* cameraState.getRotation()
 
-      const rotation = Effect.runSync(
-        program.pipe(Effect.provide(FirstPersonCameraServiceLive), Effect.provide(testLayers))
-      )
-
-      // Net movement: yaw = -(200 - 100) * 0.002 = -0.2
-      // Net movement: pitch = -(-100 + 50) * 0.002 = 0.1
-      expect(rotation.yaw).toBeCloseTo(-100 * BASE_MOUSE_SENSITIVITY * 0.5)
-      expect(rotation.pitch).toBeCloseTo(50 * BASE_MOUSE_SENSITIVITY * 0.5)
+        // Net movement: yaw = -(200 - 100) * 0.002 = -0.2
+        // Net movement: pitch = -(-100 + 50) * 0.002 = 0.1
+        expect(rotation.yaw).toBeCloseTo(-100 * BASE_MOUSE_SENSITIVITY * 0.5)
+        expect(rotation.pitch).toBeCloseTo(50 * BASE_MOUSE_SENSITIVITY * 0.5)
+      }).pipe(Effect.provide(FirstPersonCameraServiceLive), Effect.provide(testLayers))
     })
 
-    it('should handle pointer lock/unlock during gameplay', () => {
+    it.effect('should handle pointer lock/unlock during gameplay', () => {
       let mouseDelta = { x: 100, y: 50 }
       let pointerLocked = true
 
@@ -525,7 +474,7 @@ describe('FirstPersonCameraService', () => {
 
       const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000)
 
-      const program = Effect.gen(function* () {
+      return Effect.gen(function* () {
         const cameraService = yield* FirstPersonCameraService
         const cameraState = yield* PlayerCameraStateService
 
@@ -541,16 +490,10 @@ describe('FirstPersonCameraService', () => {
         yield* cameraService.update(camera)
         const rotation2 = yield* cameraState.getRotation()
 
-        return { rotation1, rotation2 }
-      })
-
-      const { rotation1, rotation2 } = Effect.runSync(
-        program.pipe(Effect.provide(FirstPersonCameraServiceLive), Effect.provide(testLayers))
-      )
-
-      // Second update should not have changed rotation
-      expect(rotation2.yaw).toBeCloseTo(rotation1.yaw)
-      expect(rotation2.pitch).toBeCloseTo(rotation1.pitch)
+        // Second update should not have changed rotation
+        expect(rotation2.yaw).toBeCloseTo(rotation1.yaw)
+        expect(rotation2.pitch).toBeCloseTo(rotation1.pitch)
+      }).pipe(Effect.provide(FirstPersonCameraServiceLive), Effect.provide(testLayers))
     })
   })
 })

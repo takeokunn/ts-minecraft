@@ -1,6 +1,6 @@
 import { describe, it } from 'vitest'
 import { expect } from 'vitest'
-import { Schema } from 'effect'
+import { Array as Arr, Either, Schema } from 'effect'
 import { SettingsSchema, type Settings } from './settings-service'
 
 describe('SettingsSchema encode round-trip', () => {
@@ -8,14 +8,7 @@ describe('SettingsSchema encode round-trip', () => {
     renderDistance: 8,
     mouseSensitivity: 0.5,
     dayLengthSeconds: 400,
-    shadowsEnabled: true,
-    ssaoEnabled: true,
-    bloomEnabled: true,
-    skyEnabled: true,
-    ssrEnabled: false,
-    dofEnabled: false,
-    godRaysEnabled: false,
-    smaaEnabled: true,
+    graphicsQuality: 'high',
     audioEnabled: true,
     masterVolume: 0.8,
     sfxVolume: 1.0,
@@ -27,8 +20,7 @@ describe('SettingsSchema encode round-trip', () => {
     expect(encoded.renderDistance).toBe(8)
     expect(encoded.mouseSensitivity).toBe(0.5)
     expect(encoded.dayLengthSeconds).toBe(400)
-    expect(encoded.shadowsEnabled).toBe(true)
-    expect(encoded.ssaoEnabled).toBe(true)
+    expect(encoded.graphicsQuality).toBe('high')
   })
 
   it('round-trips encode then decode back to identical values', () => {
@@ -37,8 +29,7 @@ describe('SettingsSchema encode round-trip', () => {
     expect(decoded.renderDistance).toBe(validSettings.renderDistance)
     expect(decoded.mouseSensitivity).toBe(validSettings.mouseSensitivity)
     expect(decoded.dayLengthSeconds).toBe(validSettings.dayLengthSeconds)
-    expect(decoded.shadowsEnabled).toBe(validSettings.shadowsEnabled)
-    expect(decoded.ssaoEnabled).toBe(validSettings.ssaoEnabled)
+    expect(decoded.graphicsQuality).toBe(validSettings.graphicsQuality)
   })
 
   it('round-trips with renderDistance at minimum boundary (2)', () => {
@@ -83,12 +74,11 @@ describe('SettingsSchema encode round-trip', () => {
     expect(decoded.dayLengthSeconds).toBe(1200)
   })
 
-  it('round-trips with shadowsEnabled=false and ssaoEnabled=false', () => {
-    const settings: Settings = { ...validSettings, shadowsEnabled: false, ssaoEnabled: false }
+  it('round-trips with graphicsQuality=low', () => {
+    const settings: Settings = { ...validSettings, graphicsQuality: 'low' }
     const encoded = Schema.encodeSync(SettingsSchema)(settings)
     const decoded = Schema.decodeUnknownSync(SettingsSchema)(encoded)
-    expect(decoded.shadowsEnabled).toBe(false)
-    expect(decoded.ssaoEnabled).toBe(false)
+    expect(decoded.graphicsQuality).toBe('low')
   })
 
   it('decode rejects renderDistance below minimum (1)', () => {
@@ -127,15 +117,17 @@ describe('SettingsSchema encode round-trip', () => {
     ).toThrow()
   })
 
-  it('decode rejects non-boolean shadowsEnabled', () => {
-    expect(() =>
-      Schema.decodeUnknownSync(SettingsSchema)({ ...validSettings, shadowsEnabled: 1 })
-    ).toThrow()
+  it('decode accepts valid graphicsQuality values', () => {
+    Arr.forEach(['low', 'medium', 'high', 'ultra'] as const, (q) => {
+      expect(() =>
+        Schema.decodeUnknownSync(SettingsSchema)({ ...validSettings, graphicsQuality: q })
+      ).not.toThrow()
+    })
   })
 
-  it('decode rejects non-boolean ssaoEnabled', () => {
+  it('decode rejects invalid graphicsQuality string', () => {
     expect(() =>
-      Schema.decodeUnknownSync(SettingsSchema)({ ...validSettings, ssaoEnabled: 'yes' })
+      Schema.decodeUnknownSync(SettingsSchema)({ ...validSettings, graphicsQuality: 'invalid' })
     ).toThrow()
   })
 
@@ -148,11 +140,11 @@ describe('SettingsSchema encode round-trip', () => {
 
   it('Schema.encodeUnknownEither returns Right for valid settings', () => {
     const result = Schema.encodeUnknownEither(SettingsSchema)(validSettings)
-    expect(result._tag).toBe('Right')
+    expect(Either.isRight(result)).toBe(true)
   })
 
   it('Schema.decodeUnknownEither returns Left for invalid renderDistance', () => {
     const result = Schema.decodeUnknownEither(SettingsSchema)({ ...validSettings, renderDistance: 0 })
-    expect(result._tag).toBe('Left')
+    expect(Either.isLeft(result)).toBe(true)
   })
 })

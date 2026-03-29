@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest'
-import { it as effectIt } from '@effect/vitest'
-import { Effect, Either, Schema } from 'effect'
+import { describe, it } from '@effect/vitest'
+import { expect, it as plainIt } from 'vitest'
+import { Effect, Either, Option, Schema } from 'effect'
 import { PlayerService, PlayerStateSchema } from '@/application/player/player-state'
 import { PlayerError } from '@/domain/errors'
 import type { PlayerId, Position } from '@/shared/kernel'
@@ -9,298 +9,262 @@ const testPlayerId = 'player-1' as PlayerId
 const testPosition: Position = { x: 0, y: 64, z: 0 }
 const TestLayer = PlayerService.Default
 
-const runPlayerTest = <A>(program: Effect.Effect<A, PlayerError, PlayerService>) =>
-  Effect.runSync(program.pipe(Effect.provide(TestLayer)))
-
 describe('PlayerService', () => {
   describe('service structure', () => {
-    it('should provide all required methods', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should provide all required methods', () =>
+      Effect.gen(function* () {
         const service = yield* PlayerService
         expect(typeof service.create).toBe('function')
         expect(typeof service.updatePosition).toBe('function')
         expect(typeof service.getPosition).toBe('function')
         expect(typeof service.getVelocity).toBe('function')
         expect(typeof service.getState).toBe('function')
-        return { success: true }
-      })
-      const result = Effect.runSync(program.pipe(Effect.provide(TestLayer)))
-      expect(result.success).toBe(true)
-    })
+      }).pipe(Effect.provide(TestLayer))
+    )
   })
 
   describe('create', () => {
-    it('should create a player without error', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should create a player without error', () =>
+      Effect.gen(function* () {
         const service = yield* PlayerService
         yield* service.create(testPlayerId, testPosition)
-        return { success: true }
-      })
-      const result = Effect.runSync(program.pipe(Effect.provide(TestLayer)))
-      expect(result.success).toBe(true)
-    })
+      }).pipe(Effect.provide(TestLayer))
+    )
 
-    it('should fail with PlayerError when creating the same player twice', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should fail with PlayerError when creating the same player twice', () =>
+      Effect.gen(function* () {
         const service = yield* PlayerService
         yield* service.create(testPlayerId, testPosition)
-        return yield* Effect.either(service.create(testPlayerId, testPosition))
-      })
-      const result = Effect.runSync(program.pipe(Effect.provide(TestLayer)))
-      expect(Either.isLeft(result)).toBe(true)
-      if (Either.isLeft(result)) {
-        expect(result.left._tag).toBe('PlayerError')
-        expect(result.left.reason).toContain('already exists')
-      }
-    })
+        const result = yield* Effect.either(service.create(testPlayerId, testPosition))
+        expect(Either.isLeft(result)).toBe(true)
+        const errCreate = Option.getOrThrow(Either.getLeft(result))
+        expect(errCreate._tag).toBe('PlayerError')
+        expect(errCreate.reason).toContain('already exists')
+      }).pipe(Effect.provide(TestLayer))
+    )
 
-    it('should succeed creating multiple players with different ids', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should succeed creating multiple players with different ids', () =>
+      Effect.gen(function* () {
         const service = yield* PlayerService
         yield* service.create('player-a' as PlayerId, { x: 0, y: 64, z: 0 })
         yield* service.create('player-b' as PlayerId, { x: 10, y: 64, z: 10 })
         yield* service.create('player-c' as PlayerId, { x: -10, y: 64, z: -10 })
-        return { success: true }
-      })
-      const result = Effect.runSync(program.pipe(Effect.provide(TestLayer)))
-      expect(result.success).toBe(true)
-    })
+      }).pipe(Effect.provide(TestLayer))
+    )
   })
 
   describe('getPosition', () => {
-    it('should return the initial position after create', () => {
-      const position: Position = { x: 10, y: 64, z: -5 }
-      const program = Effect.gen(function* () {
+    it.effect('should return the initial position after create', () =>
+      Effect.gen(function* () {
+        const position: Position = { x: 10, y: 64, z: -5 }
         const service = yield* PlayerService
         yield* service.create(testPlayerId, position)
-        return yield* service.getPosition(testPlayerId)
-      })
-      const result = runPlayerTest(program)
-      expect(result).toEqual(position)
-    })
+        const result = yield* service.getPosition(testPlayerId)
+        expect(result).toEqual(position)
+      }).pipe(Effect.provide(TestLayer))
+    )
 
-    it('should fail with PlayerError for a non-existent player', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should fail with PlayerError for a non-existent player', () =>
+      Effect.gen(function* () {
         const service = yield* PlayerService
-        return yield* Effect.either(service.getPosition('nonexistent' as PlayerId))
-      })
-      const result = Effect.runSync(program.pipe(Effect.provide(TestLayer)))
-      expect(Either.isLeft(result)).toBe(true)
-      if (Either.isLeft(result)) {
-        expect(result.left._tag).toBe('PlayerError')
-        expect(result.left.reason).toContain('not found')
-      }
-    })
+        const result = yield* Effect.either(service.getPosition('nonexistent' as PlayerId))
+        expect(Either.isLeft(result)).toBe(true)
+        const err1 = Option.getOrThrow(Either.getLeft(result))
+        expect(err1._tag).toBe('PlayerError')
+        expect(err1.reason).toContain('not found')
+      }).pipe(Effect.provide(TestLayer))
+    )
 
-    it('should return position with correct x, y, z values', () => {
-      const position: Position = { x: 100, y: 70, z: -200 }
-      const program = Effect.gen(function* () {
+    it.effect('should return position with correct x, y, z values', () =>
+      Effect.gen(function* () {
+        const position: Position = { x: 100, y: 70, z: -200 }
         const service = yield* PlayerService
         yield* service.create(testPlayerId, position)
-        return yield* service.getPosition(testPlayerId)
-      })
-      const result = runPlayerTest(program)
-      expect(result.x).toBe(100)
-      expect(result.y).toBe(70)
-      expect(result.z).toBe(-200)
-    })
+        const result = yield* service.getPosition(testPlayerId)
+        expect(result.x).toBe(100)
+        expect(result.y).toBe(70)
+        expect(result.z).toBe(-200)
+      }).pipe(Effect.provide(TestLayer))
+    )
   })
 
   describe('updatePosition', () => {
-    it('should update position so getPosition returns the new position', () => {
-      const initialPos: Position = { x: 0, y: 64, z: 0 }
-      const newPos: Position = { x: 50, y: 80, z: 30 }
-      const program = Effect.gen(function* () {
+    it.effect('should update position so getPosition returns the new position', () =>
+      Effect.gen(function* () {
+        const initialPos: Position = { x: 0, y: 64, z: 0 }
+        const newPos: Position = { x: 50, y: 80, z: 30 }
         const service = yield* PlayerService
         yield* service.create(testPlayerId, initialPos)
         yield* service.updatePosition(testPlayerId, newPos)
-        return yield* service.getPosition(testPlayerId)
-      })
-      const result = runPlayerTest(program)
-      expect(result).toEqual(newPos)
-    })
+        const result = yield* service.getPosition(testPlayerId)
+        expect(result).toEqual(newPos)
+      }).pipe(Effect.provide(TestLayer))
+    )
 
-    it('should fail with PlayerError when updating position for non-existent player', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should fail with PlayerError when updating position for non-existent player', () =>
+      Effect.gen(function* () {
         const service = yield* PlayerService
-        return yield* Effect.either(
+        const result = yield* Effect.either(
           service.updatePosition('ghost' as PlayerId, { x: 1, y: 2, z: 3 })
         )
-      })
-      const result = Effect.runSync(program.pipe(Effect.provide(TestLayer)))
-      expect(Either.isLeft(result)).toBe(true)
-      if (Either.isLeft(result)) {
-        expect(result.left._tag).toBe('PlayerError')
-      }
-    })
+        expect(Either.isLeft(result)).toBe(true)
+        expect(Option.getOrThrow(Either.getLeft(result))._tag).toBe('PlayerError')
+      }).pipe(Effect.provide(TestLayer))
+    )
 
-    it('should use the last position after multiple updates', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should use the last position after multiple updates', () =>
+      Effect.gen(function* () {
         const service = yield* PlayerService
         yield* service.create(testPlayerId, { x: 0, y: 64, z: 0 })
         yield* service.updatePosition(testPlayerId, { x: 10, y: 65, z: 10 })
         yield* service.updatePosition(testPlayerId, { x: 20, y: 66, z: 20 })
         const finalPos: Position = { x: 30, y: 67, z: 30 }
         yield* service.updatePosition(testPlayerId, finalPos)
-        return yield* service.getPosition(testPlayerId)
-      })
-      const result = runPlayerTest(program)
-      expect(result).toEqual({ x: 30, y: 67, z: 30 })
-    })
+        const result = yield* service.getPosition(testPlayerId)
+        expect(result).toEqual({ x: 30, y: 67, z: 30 })
+      }).pipe(Effect.provide(TestLayer))
+    )
 
-    it('should not affect other players when updating one player\'s position', () => {
-      const idA = 'player-a' as PlayerId
-      const idB = 'player-b' as PlayerId
-      const posA: Position = { x: 0, y: 64, z: 0 }
-      const posB: Position = { x: 100, y: 64, z: 100 }
-      const program = Effect.gen(function* () {
+    it.effect("should not affect other players when updating one player's position", () =>
+      Effect.gen(function* () {
+        const idA = 'player-a' as PlayerId
+        const idB = 'player-b' as PlayerId
+        const posA: Position = { x: 0, y: 64, z: 0 }
+        const posB: Position = { x: 100, y: 64, z: 100 }
         const service = yield* PlayerService
         yield* service.create(idA, posA)
         yield* service.create(idB, posB)
         yield* service.updatePosition(idA, { x: 999, y: 999, z: 999 })
-        return yield* service.getPosition(idB)
-      })
-      const result = runPlayerTest(program)
-      expect(result).toEqual(posB)
-    })
+        const result = yield* service.getPosition(idB)
+        expect(result).toEqual(posB)
+      }).pipe(Effect.provide(TestLayer))
+    )
   })
 
   describe('getVelocity', () => {
-    it('should return zero vector {x:0,y:0,z:0} for a newly created player', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should return zero vector {x:0,y:0,z:0} for a newly created player', () =>
+      Effect.gen(function* () {
         const service = yield* PlayerService
         yield* service.create(testPlayerId, testPosition)
-        return yield* service.getVelocity(testPlayerId)
-      })
-      const result = runPlayerTest(program)
-      expect(result).toEqual({ x: 0, y: 0, z: 0 })
-    })
+        const result = yield* service.getVelocity(testPlayerId)
+        expect(result).toEqual({ x: 0, y: 0, z: 0 })
+      }).pipe(Effect.provide(TestLayer))
+    )
 
-    it('should fail with PlayerError for a non-existent player', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should fail with PlayerError for a non-existent player', () =>
+      Effect.gen(function* () {
         const service = yield* PlayerService
-        return yield* Effect.either(service.getVelocity('nonexistent' as PlayerId))
-      })
-      const result = Effect.runSync(program.pipe(Effect.provide(TestLayer)))
-      expect(Either.isLeft(result)).toBe(true)
-      if (Either.isLeft(result)) {
-        expect(result.left._tag).toBe('PlayerError')
-        expect(result.left.reason).toContain('not found')
-      }
-    })
+        const result = yield* Effect.either(service.getVelocity('nonexistent' as PlayerId))
+        expect(Either.isLeft(result)).toBe(true)
+        const err2 = Option.getOrThrow(Either.getLeft(result))
+        expect(err2._tag).toBe('PlayerError')
+        expect(err2.reason).toContain('not found')
+      }).pipe(Effect.provide(TestLayer))
+    )
 
-    it('should have velocity x=0, y=0, z=0 individually', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should have velocity x=0, y=0, z=0 individually', () =>
+      Effect.gen(function* () {
         const service = yield* PlayerService
         yield* service.create(testPlayerId, testPosition)
-        return yield* service.getVelocity(testPlayerId)
-      })
-      const result = runPlayerTest(program)
-      expect(result.x).toBe(0)
-      expect(result.y).toBe(0)
-      expect(result.z).toBe(0)
-    })
+        const result = yield* service.getVelocity(testPlayerId)
+        expect(result.x).toBe(0)
+        expect(result.y).toBe(0)
+        expect(result.z).toBe(0)
+      }).pipe(Effect.provide(TestLayer))
+    )
   })
 
   describe('getState', () => {
-    it('should return complete state with id, position, velocity, and rotation after create', () => {
-      const position: Position = { x: 5, y: 70, z: -3 }
-      const program = Effect.gen(function* () {
+    it.effect('should return complete state with id, position, velocity, and rotation after create', () =>
+      Effect.gen(function* () {
+        const position: Position = { x: 5, y: 70, z: -3 }
         const service = yield* PlayerService
         yield* service.create(testPlayerId, position)
-        return yield* service.getState(testPlayerId)
-      })
-      const result = runPlayerTest(program)
-      expect(result.id).toBe(testPlayerId)
-      expect(result.position).toEqual(position)
-      expect(result).toHaveProperty('velocity')
-      expect(result).toHaveProperty('rotation')
-    })
+        const result = yield* service.getState(testPlayerId)
+        expect(result.id).toBe(testPlayerId)
+        expect(result.position).toEqual(position)
+        expect(result).toHaveProperty('velocity')
+        expect(result).toHaveProperty('rotation')
+      }).pipe(Effect.provide(TestLayer))
+    )
 
-    it('should have initial velocity as zero vector {x:0,y:0,z:0}', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should have initial velocity as zero vector {x:0,y:0,z:0}', () =>
+      Effect.gen(function* () {
         const service = yield* PlayerService
         yield* service.create(testPlayerId, testPosition)
-        return yield* service.getState(testPlayerId)
-      })
-      const result = runPlayerTest(program)
-      expect(result.velocity).toEqual({ x: 0, y: 0, z: 0 })
-    })
+        const result = yield* service.getState(testPlayerId)
+        expect(result.velocity).toEqual({ x: 0, y: 0, z: 0 })
+      }).pipe(Effect.provide(TestLayer))
+    )
 
-    it('should have initial rotation as identity quaternion {x:0,y:0,z:0,w:1}', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should have initial rotation as identity quaternion {x:0,y:0,z:0,w:1}', () =>
+      Effect.gen(function* () {
         const service = yield* PlayerService
         yield* service.create(testPlayerId, testPosition)
-        return yield* service.getState(testPlayerId)
-      })
-      const result = runPlayerTest(program)
-      expect(result.rotation).toEqual({ x: 0, y: 0, z: 0, w: 1 })
-    })
+        const result = yield* service.getState(testPlayerId)
+        expect(result.rotation).toEqual({ x: 0, y: 0, z: 0, w: 1 })
+      }).pipe(Effect.provide(TestLayer))
+    )
 
-    it('should fail with PlayerError for a non-existent player', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should fail with PlayerError for a non-existent player', () =>
+      Effect.gen(function* () {
         const service = yield* PlayerService
-        return yield* Effect.either(service.getState('ghost' as PlayerId))
-      })
-      const result = Effect.runSync(program.pipe(Effect.provide(TestLayer)))
-      expect(Either.isLeft(result)).toBe(true)
-      if (Either.isLeft(result)) {
-        expect(result.left._tag).toBe('PlayerError')
-        expect(result.left.reason).toContain('not found')
-      }
-    })
+        const result = yield* Effect.either(service.getState('ghost' as PlayerId))
+        expect(Either.isLeft(result)).toBe(true)
+        const err3 = Option.getOrThrow(Either.getLeft(result))
+        expect(err3._tag).toBe('PlayerError')
+        expect(err3.reason).toContain('not found')
+      }).pipe(Effect.provide(TestLayer))
+    )
 
-    it('should reflect updated position in state after updatePosition', () => {
-      const newPos: Position = { x: 99, y: 100, z: -50 }
-      const program = Effect.gen(function* () {
+    it.effect('should reflect updated position in state after updatePosition', () =>
+      Effect.gen(function* () {
+        const newPos: Position = { x: 99, y: 100, z: -50 }
         const service = yield* PlayerService
         yield* service.create(testPlayerId, testPosition)
         yield* service.updatePosition(testPlayerId, newPos)
-        return yield* service.getState(testPlayerId)
-      })
-      const result = runPlayerTest(program)
-      expect(result.position).toEqual(newPos)
-    })
+        const result = yield* service.getState(testPlayerId)
+        expect(result.position).toEqual(newPos)
+      }).pipe(Effect.provide(TestLayer))
+    )
   })
 
   describe('PlayerError properties', () => {
-    it('should have _tag === "PlayerError"', () => {
+    plainIt('should have _tag === "PlayerError"', () => {
       const err = new PlayerError({ playerId: 'test-player', reason: 'test reason' })
       expect(err._tag).toBe('PlayerError')
     })
 
-    it('should include playerId in message', () => {
+    plainIt('should include playerId in message', () => {
       const err = new PlayerError({ playerId: 'test-player-123', reason: 'not found' })
       expect(err.message).toContain('test-player-123')
     })
 
-    it('should include reason in message', () => {
+    plainIt('should include reason in message', () => {
       const err = new PlayerError({ playerId: 'p1', reason: 'Player already exists' })
       expect(err.message).toContain('Player already exists')
     })
 
-    it('should produce a non-empty message string', () => {
+    plainIt('should produce a non-empty message string', () => {
       const err = new PlayerError({ playerId: 'any-id', reason: 'some reason' })
       expect(typeof err.message).toBe('string')
       expect(err.message.length).toBeGreaterThan(0)
     })
 
-    it('should include playerId from caught error in Effect.either', () => {
-      const program = Effect.gen(function* () {
+    it.effect('should include playerId from caught error in Effect.either', () =>
+      Effect.gen(function* () {
         const service = yield* PlayerService
-        return yield* Effect.either(service.getPosition(testPlayerId))
-      })
-      const result = Effect.runSync(program.pipe(Effect.provide(TestLayer)))
-      expect(Either.isLeft(result)).toBe(true)
-      if (Either.isLeft(result)) {
-        expect(result.left._tag).toBe('PlayerError')
-        expect(result.left.message).toContain(testPlayerId)
-      }
-    })
+        const result = yield* Effect.either(service.getPosition(testPlayerId))
+        expect(Either.isLeft(result)).toBe(true)
+        const err4 = Option.getOrThrow(Either.getLeft(result))
+        expect(err4._tag).toBe('PlayerError')
+        expect(err4.message).toContain(testPlayerId)
+      }).pipe(Effect.provide(TestLayer))
+    )
   })
 
   describe('Effect.catchTag compatibility', () => {
-    effectIt.effect('should catch PlayerError with catchTag on getPosition for non-existent player', () =>
+    it.effect('should catch PlayerError with catchTag on getPosition for non-existent player', () =>
       Effect.gen(function* () {
         const service = yield* PlayerService
         const result = yield* service.getPosition('nonexistent' as PlayerId).pipe(
@@ -310,7 +274,7 @@ describe('PlayerService', () => {
       }).pipe(Effect.provide(TestLayer))
     )
 
-    effectIt.effect('should catch PlayerError with catchTag on create duplicate', () =>
+    it.effect('should catch PlayerError with catchTag on create duplicate', () =>
       Effect.gen(function* () {
         const service = yield* PlayerService
         yield* service.create(testPlayerId, testPosition)
@@ -321,7 +285,7 @@ describe('PlayerService', () => {
       }).pipe(Effect.provide(TestLayer))
     )
 
-    effectIt.effect('should catch PlayerError with catchTag on updatePosition for non-existent player', () =>
+    it.effect('should catch PlayerError with catchTag on updatePosition for non-existent player', () =>
       Effect.gen(function* () {
         const service = yield* PlayerService
         const result = yield* service.updatePosition('ghost' as PlayerId, { x: 0, y: 0, z: 0 }).pipe(
@@ -331,7 +295,7 @@ describe('PlayerService', () => {
       }).pipe(Effect.provide(TestLayer))
     )
 
-    effectIt.effect('should catch PlayerError with catchTag on getVelocity for non-existent player', () =>
+    it.effect('should catch PlayerError with catchTag on getVelocity for non-existent player', () =>
       Effect.gen(function* () {
         const service = yield* PlayerService
         const result = yield* service.getVelocity('ghost' as PlayerId).pipe(
@@ -341,7 +305,7 @@ describe('PlayerService', () => {
       }).pipe(Effect.provide(TestLayer))
     )
 
-    effectIt.effect('should catch PlayerError with catchTag on getState for non-existent player', () =>
+    it.effect('should catch PlayerError with catchTag on getState for non-existent player', () =>
       Effect.gen(function* () {
         const service = yield* PlayerService
         const result = yield* service.getState('ghost' as PlayerId).pipe(
@@ -353,12 +317,12 @@ describe('PlayerService', () => {
   })
 
   describe('multiple players isolation', () => {
-    it('should isolate position between two players', () => {
-      const idA = 'player-alpha' as PlayerId
-      const idB = 'player-beta' as PlayerId
-      const posA: Position = { x: 10, y: 64, z: 20 }
-      const posB: Position = { x: -100, y: 30, z: -50 }
-      const program = Effect.gen(function* () {
+    it.effect('should isolate position between two players', () =>
+      Effect.gen(function* () {
+        const idA = 'player-alpha' as PlayerId
+        const idB = 'player-beta' as PlayerId
+        const posA: Position = { x: 10, y: 64, z: 20 }
+        const posB: Position = { x: -100, y: 30, z: -50 }
         const service = yield* PlayerService
         yield* service.create(idA, posA)
         yield* service.create(idB, posB)
@@ -368,14 +332,13 @@ describe('PlayerService', () => {
 
         expect(retrievedA).toEqual(posA)
         expect(retrievedB).toEqual(posB)
-      })
-      Effect.runSync(program.pipe(Effect.provide(TestLayer)))
-    })
+      }).pipe(Effect.provide(TestLayer))
+    )
 
-    it('should isolate velocity between two players', () => {
-      const idA = 'player-alpha' as PlayerId
-      const idB = 'player-beta' as PlayerId
-      const program = Effect.gen(function* () {
+    it.effect('should isolate velocity between two players', () =>
+      Effect.gen(function* () {
+        const idA = 'player-alpha' as PlayerId
+        const idB = 'player-beta' as PlayerId
         const service = yield* PlayerService
         yield* service.create(idA, { x: 0, y: 64, z: 0 })
         yield* service.create(idB, { x: 10, y: 64, z: 10 })
@@ -385,16 +348,15 @@ describe('PlayerService', () => {
 
         expect(velA).toEqual({ x: 0, y: 0, z: 0 })
         expect(velB).toEqual({ x: 0, y: 0, z: 0 })
-      })
-      Effect.runSync(program.pipe(Effect.provide(TestLayer)))
-    })
+      }).pipe(Effect.provide(TestLayer))
+    )
 
-    it('should isolate state between two players', () => {
-      const idA = 'player-alpha' as PlayerId
-      const idB = 'player-beta' as PlayerId
-      const posA: Position = { x: 1, y: 2, z: 3 }
-      const posB: Position = { x: 4, y: 5, z: 6 }
-      const program = Effect.gen(function* () {
+    it.effect('should isolate state between two players', () =>
+      Effect.gen(function* () {
+        const idA = 'player-alpha' as PlayerId
+        const idB = 'player-beta' as PlayerId
+        const posA: Position = { x: 1, y: 2, z: 3 }
+        const posB: Position = { x: 4, y: 5, z: 6 }
         const service = yield* PlayerService
         yield* service.create(idA, posA)
         yield* service.create(idB, posB)
@@ -406,17 +368,16 @@ describe('PlayerService', () => {
         expect(stateB.id).toBe(idB)
         expect(stateA.position).toEqual(posA)
         expect(stateB.position).toEqual(posB)
-      })
-      Effect.runSync(program.pipe(Effect.provide(TestLayer)))
-    })
+      }).pipe(Effect.provide(TestLayer))
+    )
 
-    it('updating one player should not affect the other', () => {
-      const idA = 'player-alpha' as PlayerId
-      const idB = 'player-beta' as PlayerId
-      const posA: Position = { x: 0, y: 64, z: 0 }
-      const posB: Position = { x: 50, y: 64, z: 50 }
-      const newPosA: Position = { x: 999, y: 999, z: 999 }
-      const program = Effect.gen(function* () {
+    it.effect('updating one player should not affect the other', () =>
+      Effect.gen(function* () {
+        const idA = 'player-alpha' as PlayerId
+        const idB = 'player-beta' as PlayerId
+        const posA: Position = { x: 0, y: 64, z: 0 }
+        const posB: Position = { x: 50, y: 64, z: 50 }
+        const newPosA: Position = { x: 999, y: 999, z: 999 }
         const service = yield* PlayerService
         yield* service.create(idA, posA)
         yield* service.create(idB, posB)
@@ -427,13 +388,12 @@ describe('PlayerService', () => {
 
         expect(stateA.position).toEqual(newPosA)
         expect(stateB.position).toEqual(posB)
-      })
-      Effect.runSync(program.pipe(Effect.provide(TestLayer)))
-    })
+      }).pipe(Effect.provide(TestLayer))
+    )
   })
 
   describe('PlayerStateSchema', () => {
-    it('should decode a valid player state', () => {
+    plainIt('should decode a valid player state', () => {
       const data = {
         id: 'player-1',
         position: { x: 0, y: 64, z: 0 },
@@ -447,13 +407,13 @@ describe('PlayerService', () => {
       expect(result.rotation).toEqual({ x: 0, y: 0, z: 0, w: 1 })
     })
 
-    it('should reject player state with missing fields', () => {
+    plainIt('should reject player state with missing fields', () => {
       expect(() =>
         Schema.decodeUnknownSync(PlayerStateSchema)({ id: 'player-1' })
       ).toThrow()
     })
 
-    it('should reject player state with NaN position', () => {
+    plainIt('should reject player state with NaN position', () => {
       expect(() =>
         Schema.decodeUnknownSync(PlayerStateSchema)({
           id: 'player-1',
@@ -464,7 +424,7 @@ describe('PlayerService', () => {
       ).toThrow()
     })
 
-    it('should reject player state with Infinity velocity', () => {
+    plainIt('should reject player state with Infinity velocity', () => {
       expect(() =>
         Schema.decodeUnknownSync(PlayerStateSchema)({
           id: 'player-1',
@@ -477,68 +437,56 @@ describe('PlayerService', () => {
   })
 
   describe('error details', () => {
-    it('PlayerError from create duplicate should have playerId matching input', () => {
-      const program = Effect.gen(function* () {
+    it.effect('PlayerError from create duplicate should have playerId matching input', () =>
+      Effect.gen(function* () {
         const service = yield* PlayerService
         yield* service.create(testPlayerId, testPosition)
-        return yield* Effect.either(service.create(testPlayerId, { x: 1, y: 2, z: 3 }))
-      })
-      const result = Effect.runSync(program.pipe(Effect.provide(TestLayer)))
-      expect(Either.isLeft(result)).toBe(true)
-      if (Either.isLeft(result)) {
-        expect(result.left.playerId).toBe(testPlayerId)
-        expect(result.left.reason).toBe('Player already exists')
-      }
-    })
+        const result = yield* Effect.either(service.create(testPlayerId, { x: 1, y: 2, z: 3 }))
+        expect(Either.isLeft(result)).toBe(true)
+        const err5 = Option.getOrThrow(Either.getLeft(result))
+        expect(err5.playerId).toBe(testPlayerId)
+        expect(err5.reason).toBe('Player already exists')
+      }).pipe(Effect.provide(TestLayer))
+    )
 
-    it('PlayerError from getPosition non-existent should have correct reason', () => {
-      const program = Effect.gen(function* () {
+    it.effect('PlayerError from getPosition non-existent should have correct reason', () =>
+      Effect.gen(function* () {
         const service = yield* PlayerService
-        return yield* Effect.either(service.getPosition('missing' as PlayerId))
-      })
-      const result = Effect.runSync(program.pipe(Effect.provide(TestLayer)))
-      expect(Either.isLeft(result)).toBe(true)
-      if (Either.isLeft(result)) {
-        expect(result.left.playerId).toBe('missing')
-        expect(result.left.reason).toBe('Player not found')
-      }
-    })
+        const result = yield* Effect.either(service.getPosition('missing' as PlayerId))
+        expect(Either.isLeft(result)).toBe(true)
+        const err6 = Option.getOrThrow(Either.getLeft(result))
+        expect(err6.playerId).toBe('missing')
+        expect(err6.reason).toBe('Player not found')
+      }).pipe(Effect.provide(TestLayer))
+    )
 
-    it('PlayerError from updatePosition non-existent should have correct reason', () => {
-      const program = Effect.gen(function* () {
+    it.effect('PlayerError from updatePosition non-existent should have correct reason', () =>
+      Effect.gen(function* () {
         const service = yield* PlayerService
-        return yield* Effect.either(service.updatePosition('missing' as PlayerId, { x: 0, y: 0, z: 0 }))
-      })
-      const result = Effect.runSync(program.pipe(Effect.provide(TestLayer)))
-      expect(Either.isLeft(result)).toBe(true)
-      if (Either.isLeft(result)) {
-        expect(result.left.playerId).toBe('missing')
-        expect(result.left.reason).toBe('Player not found')
-      }
-    })
+        const result = yield* Effect.either(service.updatePosition('missing' as PlayerId, { x: 0, y: 0, z: 0 }))
+        expect(Either.isLeft(result)).toBe(true)
+        const err7 = Option.getOrThrow(Either.getLeft(result))
+        expect(err7.playerId).toBe('missing')
+        expect(err7.reason).toBe('Player not found')
+      }).pipe(Effect.provide(TestLayer))
+    )
 
-    it('PlayerError from getVelocity non-existent should have correct reason', () => {
-      const program = Effect.gen(function* () {
+    it.effect('PlayerError from getVelocity non-existent should have correct reason', () =>
+      Effect.gen(function* () {
         const service = yield* PlayerService
-        return yield* Effect.either(service.getVelocity('missing' as PlayerId))
-      })
-      const result = Effect.runSync(program.pipe(Effect.provide(TestLayer)))
-      expect(Either.isLeft(result)).toBe(true)
-      if (Either.isLeft(result)) {
-        expect(result.left.reason).toBe('Player not found')
-      }
-    })
+        const result = yield* Effect.either(service.getVelocity('missing' as PlayerId))
+        expect(Either.isLeft(result)).toBe(true)
+        expect(Option.getOrThrow(Either.getLeft(result)).reason).toBe('Player not found')
+      }).pipe(Effect.provide(TestLayer))
+    )
 
-    it('PlayerError from getState non-existent should have correct reason', () => {
-      const program = Effect.gen(function* () {
+    it.effect('PlayerError from getState non-existent should have correct reason', () =>
+      Effect.gen(function* () {
         const service = yield* PlayerService
-        return yield* Effect.either(service.getState('missing' as PlayerId))
-      })
-      const result = Effect.runSync(program.pipe(Effect.provide(TestLayer)))
-      expect(Either.isLeft(result)).toBe(true)
-      if (Either.isLeft(result)) {
-        expect(result.left.reason).toBe('Player not found')
-      }
-    })
+        const result = yield* Effect.either(service.getState('missing' as PlayerId))
+        expect(Either.isLeft(result)).toBe(true)
+        expect(Option.getOrThrow(Either.getLeft(result)).reason).toBe('Player not found')
+      }).pipe(Effect.provide(TestLayer))
+    )
   })
 })
