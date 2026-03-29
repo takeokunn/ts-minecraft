@@ -58,7 +58,9 @@ export class BlockHighlightService extends Effect.Service<BlockHighlightService>
       Ref.make<Option.Option<THREE.LineSegments>>(Option.none()),
       // target and hit always change together — one atomic Ref instead of two
       Ref.make<HitState>(EMPTY_HIT_STATE),
-    ], { concurrency: 'unbounded' }).pipe(Effect.map(([raycastingService, highlightMeshRef, hitStateRef]) => ({
+      // Last camera pose used for raycast; invalidated whenever the scene changes.
+      Ref.make({ x: NaN, y: NaN, z: NaN, qx: NaN, qy: NaN, qz: NaN, qw: NaN }),
+    ], { concurrency: 'unbounded' }).pipe(Effect.map(([raycastingService, highlightMeshRef, hitStateRef, lastCameraPoseRef]) => ({
         /**
          * Initialize the highlight mesh and add it to the scene
          * @param scene - The Three.js scene to add the highlight to
@@ -77,6 +79,29 @@ export class BlockHighlightService extends Effect.Service<BlockHighlightService>
          */
         update: (camera: THREE.Camera, scene: THREE.Scene): Effect.Effect<void, never> =>
           Effect.gen(function* () {
+            const currentPose = {
+              x: camera.position.x,
+              y: camera.position.y,
+              z: camera.position.z,
+              qx: camera.quaternion.x,
+              qy: camera.quaternion.y,
+              qz: camera.quaternion.z,
+              qw: camera.quaternion.w,
+            }
+
+            const lastPose = yield* Ref.get(lastCameraPoseRef)
+            if (
+              lastPose.x === currentPose.x &&
+              lastPose.y === currentPose.y &&
+              lastPose.z === currentPose.z &&
+              lastPose.qx === currentPose.qx &&
+              lastPose.qy === currentPose.qy &&
+              lastPose.qz === currentPose.qz &&
+              lastPose.qw === currentPose.qw
+            ) {
+              return
+            }
+
             yield* Option.match(yield* Ref.get(highlightMeshRef), {
               onNone: () => Effect.void,
               onSome: (highlightMesh) => Effect.gen(function* () {
@@ -99,9 +124,16 @@ export class BlockHighlightService extends Effect.Service<BlockHighlightService>
                     yield* Ref.set(hitStateRef, EMPTY_HIT_STATE)
                   }),
                 })
+                yield* Ref.set(lastCameraPoseRef, currentPose)
               }),
             })
           }),
+
+        /**
+         * Invalidate cached camera pose so the next update reruns the raycast.
+         */
+        invalidateCache: (): Effect.Effect<void, never> =>
+          Ref.set(lastCameraPoseRef, { x: NaN, y: NaN, z: NaN, qx: NaN, qy: NaN, qz: NaN, qw: NaN }),
 
         /**
          * Set the visibility of the highlight

@@ -135,7 +135,12 @@ const propagatePower = (
     })
   }
 
-  return HashMap.fromIterable(powered as Iterable<readonly [PositionKey, number]>)
+  let snapshot = HashMap.empty<PositionKey, number>()
+  MutableHashMap.forEach(powered, (value, key) => {
+    snapshot = HashMap.set(snapshot, key, value)
+  })
+
+  return snapshot
 }
 
 const updatePistons = (

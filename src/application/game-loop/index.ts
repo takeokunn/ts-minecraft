@@ -1,4 +1,4 @@
-import { Effect, Option, Queue, Ref, Fiber, Schema, Cause } from 'effect'
+import { Effect, Option, Queue, Ref, Fiber, Schema, Cause, MutableRef } from 'effect'
 import { GameLoopError } from '@/domain/errors'
 import { DeltaTimeSecs } from '@/shared/kernel'
 import { FIRST_FRAME_DELTA_SECS } from '@/application/constants'
@@ -36,151 +36,128 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
       Ref.make<Option.Option<Queue.Queue<FrameCommand>>>(Option.none()),
       // Holds the current processing fiber (None when stopped)
       Ref.make<Option.Option<Fiber.RuntimeFiber<void, never>>>(Option.none()),
-      // animationFrameId as Ref — written via Effect.runSync inside the rAF bridge,
-      // read via yield* in stop(). Consistent with hotbar-three.ts camera Ref pattern.
-      Ref.make<Option.Option<number>>(Option.none()),
-    ], { concurrency: 'unbounded' }).pipe(Effect.map(([frameQueueRef, processingFiberRef, animationFrameIdRef]) => {
-      // INTENTIONAL: plain boolean for rAF hot path; cannot use Effect inside rAF callback
-      let _isRunning = false
-
-      return {
-        /**
-         * Start the game loop with a frame handler.
-         *
-         * Creates a fresh queue, forks the frame-processing fiber, and starts the
-         * rAF bridge. Returns immediately — the loop runs in the background until
-         * stop() is called.
-         *
-         * Fails with GameLoopError if the loop is already running.
-         */
-        start: (
-          frameHandler: (deltaTime: DeltaTimeSecs) => Effect.Effect<void, never>
-        ): Effect.Effect<void, GameLoopError> =>
-          Effect.gen(function* () {
-            if (_isRunning) {
-              yield* Effect.fail(
-                new GameLoopError({ reason: 'Game loop is already running' })
-              )
+      Effect.sync(() => MutableRef.make(false)),
+      Effect.sync(() => MutableRef.make<Option.Option<number>>(Option.none())),
+    ], { concurrency: 'unbounded' }).pipe(
+      Effect.flatMap(([frameQueueRef, processingFiberRef, isRunningRef, animationFrameIdRef]) =>
+        Effect.succeed({
+          /**
+           * Start the game loop with a frame handler.
+           *
+           * Creates a fresh queue, forks the frame-processing fiber, and starts the
+           * rAF bridge. Returns immediately — the loop runs in the background until
+           * stop() is called.
+           *
+           * Fails with GameLoopError if the loop is already running.
+           */
+          start: (
+            frameHandler: (deltaTime: DeltaTimeSecs) => Effect.Effect<void, never>
+          ): Effect.Effect<void, GameLoopError> =>
+            Effect.gen(function* () {
+            if (MutableRef.get(isRunningRef)) {
+              yield* Effect.fail(new GameLoopError({ reason: 'Game loop is already running' }))
             }
 
-            // Use a dropping queue: when the consumer falls behind, new offers are silently
-            // discarded rather than blocking the rAF bridge. This prevents unbounded fiber
-            // accumulation under load (the alternative — unbounded blocking offers — would
-            // pile up rAF fibers on frame backpressure).
-            const frameQueue = yield* Queue.dropping<FrameCommand>(QUEUE_CAPACITY)
-            yield* Ref.set(frameQueueRef, Option.some(frameQueue))
+              // Use a dropping queue: when the consumer falls behind, new offers are silently
+              // discarded rather than blocking the rAF bridge. This prevents unbounded fiber
+              // accumulation under load (the alternative — unbounded blocking offers — would
+              // pile up rAF fibers on frame backpressure).
+              const frameQueue = yield* Queue.dropping<FrameCommand>(QUEUE_CAPACITY)
+              yield* Ref.set(frameQueueRef, Option.some(frameQueue))
 
-            // Timestamp accumulator as Ref — reset to 0 on each start(), no mutable let needed
-            const lastTimestampRef = yield* Ref.make(0)
+              // Timestamp accumulator as Ref — reset to 0 on each start(), no mutable let needed
+              const lastTimestampRef = yield* Ref.make(0)
 
-            /**
-             * Frame processing loop - runs in a separate fiber.
-             * Effect.forever re-executes the take+process step until the fiber is interrupted.
-             * Computes variable delta time from successive timestamps via lastTimestampRef.
-             */
-            const processFrames: Effect.Effect<void, never> = Queue.take(frameQueue).pipe(
-              Effect.flatMap((cmd) => Effect.gen(function* () {
-                const lastTimestamp = yield* Ref.get(lastTimestampRef)
-                // seconds (performance.now() timestamps are ms, divided by 1000)
-                const rawDelta =
-                  lastTimestamp === 0
-                    ? FIRST_FRAME_DELTA_SECS
-                    : (cmd.timestamp - lastTimestamp) / 1000
-                // Cap at 50ms to prevent physics tunneling on tab-resume or heavy frames
-                const deltaTime = DeltaTimeSecs.make(Math.min(Math.max(0.001, rawDelta), 0.05))
-                yield* Ref.set(lastTimestampRef, cmd.timestamp)
-                // catchAllCause captures both expected errors AND defects (unexpected exceptions).
-                // Using catchAll here would let defects propagate and kill the processing fiber,
-                // leaving _isRunning=true while the loop has stopped silently.
-                yield* frameHandler(deltaTime).pipe(
-                  Effect.catchAllCause((cause) =>
-                    Effect.logError(`Frame error: ${Cause.pretty(cause)}`)
-                  )
-                )
-              })),
-              Effect.forever
-            )
-
-            /**
-             * Bridge loop - connects requestAnimationFrame to Effect Queue.
-             */
-            const bridgeLoop = () => {
-              // INTENTIONAL: plain boolean for rAF hot path; cannot use Effect inside rAF callback
-              if (!_isRunning) return
-
-              const now = performance.now()
-
-              // With a dropping queue, offer() returns false when the queue is full — no error.
-              // We use runFork to avoid blocking the rAF callback, but the dropping semantics
-              // ensure that no fiber piles up on backpressure.
-              Effect.runFork(
-                Queue.offer(frameQueue, { _tag: 'Tick', timestamp: now }).pipe(
-                  Effect.asVoid,
-                  Effect.catchAllCause(cause =>
-                    Effect.logError(`Frame queue error: ${Cause.pretty(cause)}`)
-                  )
-                )
+              /**
+               * Frame processing loop - runs in a separate fiber.
+               * Effect.forever re-executes the take+process step until the fiber is interrupted.
+               * Computes variable delta time from successive timestamps via lastTimestampRef.
+               */
+              const processFrames: Effect.Effect<void, never> = Queue.take(frameQueue).pipe(
+                Effect.flatMap((cmd) =>
+                  Effect.gen(function* () {
+                    const lastTimestamp = yield* Ref.get(lastTimestampRef)
+                    const rawDelta =
+                      lastTimestamp === 0
+                        ? FIRST_FRAME_DELTA_SECS
+                        : (cmd.timestamp - lastTimestamp) / 1000
+                    const deltaTime = DeltaTimeSecs.make(Math.min(Math.max(0.001, rawDelta), 0.05))
+                    yield* Ref.set(lastTimestampRef, cmd.timestamp)
+                    yield* frameHandler(deltaTime).pipe(
+                      Effect.catchAllCause((cause) => Effect.logError(`Frame error: ${Cause.pretty(cause)}`)),
+                    )
+                  }),
+                ),
+                Effect.forever,
               )
 
-              Effect.runSync(Ref.set(animationFrameIdRef, Option.some(requestAnimationFrame(bridgeLoop))))
-            }
+              /**
+               * Bridge loop - connects requestAnimationFrame to Effect Queue.
+               */
+              const bridgeLoop = () => {
+                if (!MutableRef.get(isRunningRef)) return
 
-            // Mark as running before forking
-            _isRunning = true
+                const now = performance.now()
 
-            // Fork as a daemon fiber — NOT attached to any scope.
-            // Using Effect.fork here would tie the fiber to mainProgram's scope
-            // (via Effect.scoped), causing it to be interrupted the moment mainProgram
-            // exits after start() returns. forkDaemon keeps the fiber alive until
-            // stop() explicitly interrupts it via Fiber.interrupt.
-            const fiber = yield* Effect.forkDaemon(processFrames)
-            yield* Ref.set(processingFiberRef, Option.some(fiber))
+                Effect.runFork(
+                  Queue.offer(frameQueue, { _tag: 'Tick', timestamp: now }).pipe(
+                    Effect.asVoid,
+                    Effect.catchAllCause((cause) => Effect.logError(`Frame queue error: ${Cause.pretty(cause)}`)),
+                  ),
+                )
 
-            // Start the bridge loop (schedules first rAF callback)
-            bridgeLoop()
+                MutableRef.set(animationFrameIdRef, Option.some(requestAnimationFrame(bridgeLoop)))
+              }
 
-            yield* Effect.log('Game loop started')
-            // Returns immediately — loop runs in the background
-          }),
+              MutableRef.set(isRunningRef, true)
 
-        /**
-         * Stop the game loop.
-         *
-         * Cancels the pending animation frame, interrupts the processing fiber,
-         * and shuts down the queue. Safe to call when the loop is not running.
-         */
-        stop: (): Effect.Effect<void, never> =>
-          Effect.gen(function* () {
-            _isRunning = false
+              const fiber = yield* Effect.forkDaemon(processFrames)
+              yield* Ref.set(processingFiberRef, Option.some(fiber))
 
-            // Cancel animation frame
-            Option.map(yield* Ref.get(animationFrameIdRef), (id) => cancelAnimationFrame(id))
-            yield* Ref.set(animationFrameIdRef, Option.none())
+              bridgeLoop()
 
-            // Interrupt processing fiber
-            yield* Option.match(yield* Ref.get(processingFiberRef), {
-              onNone: () => Effect.void,
-              onSome: (fiber) => Effect.gen(function* () {
-                yield* Fiber.interrupt(fiber)
-                yield* Ref.set(processingFiberRef, Option.none())
-              }),
-            })
+              yield* Effect.log('Game loop started')
+            }),
 
-            // Shutdown the queue to unblock any pending take
-            yield* Option.match(yield* Ref.get(frameQueueRef), {
-              onNone: () => Effect.void,
-              onSome: (queue) => Effect.gen(function* () {
-                yield* Queue.shutdown(queue)
-                yield* Ref.set(frameQueueRef, Option.none())
-              }),
-            })
+          /**
+           * Stop the game loop.
+           *
+           * Cancels the pending animation frame, interrupts the processing fiber,
+           * and shuts down the queue. Safe to call when the loop is not running.
+           */
+          stop: (): Effect.Effect<void, never> =>
+            Effect.gen(function* () {
+            MutableRef.set(isRunningRef, false)
 
-            yield* Effect.log('Game loop stopped')
-          }),
+            const animationFrameId = MutableRef.get(animationFrameIdRef)
+            Option.map(animationFrameId, (id) => cancelAnimationFrame(id))
+            MutableRef.set(animationFrameIdRef, Option.none())
 
-        isRunning: (): Effect.Effect<boolean, never> => Effect.succeed(_isRunning),
-      }
-    })),
+              yield* Option.match(yield* Ref.get(processingFiberRef), {
+                onNone: () => Effect.void,
+                onSome: (fiber) =>
+                  Effect.gen(function* () {
+                    yield* Fiber.interrupt(fiber)
+                    yield* Ref.set(processingFiberRef, Option.none())
+                  }),
+              })
+
+              yield* Option.match(yield* Ref.get(frameQueueRef), {
+                onNone: () => Effect.void,
+                onSome: (queue) =>
+                  Effect.gen(function* () {
+                    yield* Queue.shutdown(queue)
+                    yield* Ref.set(frameQueueRef, Option.none())
+                  }),
+              })
+
+              yield* Effect.log('Game loop stopped')
+            }),
+
+        isRunning: (): Effect.Effect<boolean, never> => Effect.sync(() => MutableRef.get(isRunningRef)),
+      }),
+      ),
+    ),
   }
 ) {}
 

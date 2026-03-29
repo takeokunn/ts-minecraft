@@ -1,5 +1,19 @@
 import * as THREE from 'three'
 
+type WaterUniform<T> = { value: T }
+
+export type WaterMaterialUniforms = {
+  readonly uTime: WaterUniform<number>
+  readonly uRefractionMap: WaterUniform<THREE.Texture>
+  readonly uCameraPosition: WaterUniform<THREE.Vector3>
+  readonly uResolution: WaterUniform<THREE.Vector2>
+  readonly uRefractionValid: WaterUniform<boolean>
+}
+
+export type WaterMaterial = THREE.ShaderMaterial & {
+  readonly uniforms: WaterMaterialUniforms
+}
+
 const WATER_VERT = /* glsl */`
 precision mediump float;
 varying vec3 vWorldPos;
@@ -90,18 +104,21 @@ export const createWaterMaterial = (
   refractionTexture: THREE.Texture,
   width: number,
   height: number
-): THREE.ShaderMaterial =>
-  new THREE.ShaderMaterial({
-    uniforms: {
-      uTime: { value: 0.0 },
-      uRefractionMap: { value: refractionTexture },
-      uCameraPosition: { value: new THREE.Vector3() },
-      uResolution: { value: new THREE.Vector2(width, height) },
-      uRefractionValid: { value: false },
-    },
+): WaterMaterial => {
+  const uniforms = {
+    uTime: { value: 0.0 },
+    uRefractionMap: { value: refractionTexture },
+    uCameraPosition: { value: new THREE.Vector3() },
+    uResolution: { value: new THREE.Vector2(width, height) },
+    uRefractionValid: { value: false },
+  } satisfies WaterMaterialUniforms
+
+  return Object.assign(new THREE.ShaderMaterial({
+    uniforms,
     vertexShader: WATER_VERT,
     fragmentShader: WATER_FRAG,
     transparent: true,
     depthWrite: false,
     side: THREE.FrontSide,
-  })
+  }), { uniforms })
+}

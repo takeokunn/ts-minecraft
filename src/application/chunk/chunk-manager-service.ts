@@ -1,5 +1,5 @@
-import { Array as Arr, Clock, Duration, Effect, HashMap, HashSet, Metric, MetricBoundaries, Option, Order, Ref, Schema } from 'effect'
-import { ChunkService, ChunkSchema, Chunk, ChunkCoord, blockTypeToIndex, blockIndex, CHUNK_SIZE, CHUNK_HEIGHT } from '@/domain/chunk'
+import { Array as Arr, Clock, Duration, Effect, HashMap, HashSet, Metric, MetricBoundaries, Option, Ref, Schema } from 'effect'
+import { ChunkService, ChunkSchema, Chunk, ChunkCoord, blockTypeToIndex, CHUNK_SIZE, CHUNK_HEIGHT } from '@/domain/chunk'
 import { FLUID_BYTE_LENGTH, createFluidBuffer, hydrateLegacyFluidBufferFromBlocks } from '@/domain/fluid'
 import { StorageServicePort } from '@/application/storage/storage-service-port'
 import type { ChunkStorageValue } from '@/application/storage/storage-service-port'
@@ -48,19 +48,43 @@ const worldToChunkCoord = (pos: Position): ChunkCoord => ({
   z: Math.floor(pos.z / CHUNK_SIZE),
 })
 
+const getChunkLoadOffsets = (renderDistance: number): ReadonlyArray<readonly [number, number]> => {
+  const offsets: Array<readonly [number, number, number]> = []
+
+  for (let dx = -renderDistance; dx <= renderDistance; dx++) {
+    for (let dz = -renderDistance; dz <= renderDistance; dz++) {
+      const distance = dx * dx + dz * dz
+      if (distance <= renderDistance * renderDistance) {
+        offsets.push([dx, dz, distance])
+      }
+    }
+  }
+
+  const sorted = offsets
+    .sort((a, b) => a[2] - b[2] || a[0] - b[0] || a[1] - b[1])
+    .map(([dx, dz]) => [dx, dz] as const)
+
+  return sorted
+}
+
+const countChunksInRadius = (radius: number): number => {
+  let count = 0
+  for (let dx = -radius; dx <= radius; dx++) {
+    for (let dz = -radius; dz <= radius; dz++) {
+      if (dx * dx + dz * dz <= radius * radius) {
+        count++
+      }
+    }
+  }
+  return count
+}
+
 /**
  * Get all chunk coordinates within render distance of a center point
  * Uses a circular check for a nicer radius shape
  */
-const getChunksInRenderDistance = (center: ChunkCoord): ReadonlyArray<ChunkCoord> => {
-  const offsets = Arr.makeBy(2 * RENDER_DISTANCE + 1, (i) => i - RENDER_DISTANCE)
-  return Arr.filterMap(
-    Arr.flatMap(offsets, (dx) => Arr.map(offsets, (dz) => [dx, dz] as const)),
-    ([dx, dz]) =>
-      dx * dx + dz * dz <= RENDER_DISTANCE * RENDER_DISTANCE
-        ? Option.some({ x: center.x + dx, z: center.z + dz })
-        : Option.none()
-  )
+const getChunksInRenderDistance = (center: ChunkCoord, renderDistance: number): ReadonlyArray<ChunkCoord> => {
+  return Arr.map(getChunkLoadOffsets(renderDistance), ([dx, dz]) => ({ x: center.x + dx, z: center.z + dz }))
 }
 
 /**
@@ -120,7 +144,7 @@ type ChunkCacheEntry = Schema.Schema.Type<typeof ChunkCacheEntrySchema>
  * - Immutable: no defensive copies needed in Ref.modify callbacks (eliminates TOCTOU risk)
  * - Value equality: structural equality for key lookup (no accidental reference bugs)
  */
-interface ChunkCache {
+type ChunkCache = {
   chunks: HashMap.HashMap<ChunkCacheKey, ChunkCacheEntry>
   dirtyChunks: HashSet.HashSet<ChunkCacheKey>
 }
@@ -160,6 +184,8 @@ const calculateSurfaceHeight = (
   return Math.max(1, Math.min(CHUNK_HEIGHT - 2, terrainHeight))
 }
 
+const chunkBlockIndexUnchecked = (x: number, y: number, z: number): number => y + z * CHUNK_HEIGHT + x * CHUNK_HEIGHT * CHUNK_SIZE
+
 /**
  * Fill a single vertical column of blocks up to surfaceY using biome block types.
  *
@@ -173,17 +199,15 @@ const fillColumn = (
   lx: number,
   lz: number,
   surfaceY: number,
-  props: { surfaceBlock: import('@/domain/block').BlockType; subSurfaceBlock: import('@/domain/block').BlockType }
+  props: { surfaceBlockIndex: number; subSurfaceBlockIndex: number; stoneBlockIndex: number }
 ): void => {
-  for (let y = 0; y <= surfaceY; y++) {
-    Option.map(blockIndex(lx, y, lz), (idx) => {
-      // skip out-of-bounds (should never happen with valid coords)
-      blocks[idx] = y === surfaceY  // intentional direct write: pre-construction Uint8Array before Chunk is assembled
-        ? blockTypeToIndex(props.surfaceBlock)
-        : y >= surfaceY - 3
-          ? blockTypeToIndex(props.subSurfaceBlock)
-          : blockTypeToIndex('STONE')
-    })
+  let idx = chunkBlockIndexUnchecked(lx, 0, lz)
+  for (let y = 0; y <= surfaceY; y++, idx++) {
+    blocks[idx] = y === surfaceY
+      ? props.surfaceBlockIndex
+      : y >= surfaceY - 3
+        ? props.subSurfaceBlockIndex
+        : props.stoneBlockIndex
   }
 }
 
@@ -226,10 +250,9 @@ const placeTree = (
   const trunkHeight = 4 + Math.floor((treeRng * 2) % 3)
 
   // Trunk — place straight up from one block above the surface
-  for (let ty = surfaceY + 1; ty <= surfaceY + trunkHeight; ty++) {
-    Option.map(blockIndex(lx, ty, lz), (idx) => {
-      blocks[idx] = blockTypeToIndex('WOOD') // intentional direct write: pre-construction Uint8Array before Chunk is assembled
-    })
+  let trunkIdx = chunkBlockIndexUnchecked(lx, surfaceY + 1, lz)
+  for (let ty = surfaceY + 1; ty <= surfaceY + trunkHeight; ty++, trunkIdx++) {
+    blocks[trunkIdx] = blockTypeToIndex('WOOD') // intentional direct write: pre-construction Uint8Array before Chunk is assembled
   }
 
   // Leaves: 3x3x3 canopy anchored at top of trunk, cropped at chunk boundary
@@ -240,9 +263,9 @@ const placeTree = (
         const lx2 = lx + dlx
         const lz2 = lz + dlz
         const ly = leafBase + dy
-        Option.map(blockIndex(lx2, ly, lz2), (idx) => {
-          if (blocks[idx] === 0) blocks[idx] = blockTypeToIndex('LEAVES') // intentional direct write: pre-construction Uint8Array before Chunk is assembled
-        })
+        if (lx2 < 0 || lx2 >= CHUNK_SIZE || lz2 < 0 || lz2 >= CHUNK_SIZE || ly < 0 || ly >= CHUNK_HEIGHT) continue
+        const idx = chunkBlockIndexUnchecked(lx2, ly, lz2)
+        if (blocks[idx] === 0) blocks[idx] = blockTypeToIndex('LEAVES') // intentional direct write: pre-construction Uint8Array before Chunk is assembled
       }
     }
   }
@@ -269,52 +292,66 @@ const generateTerrain = (
     const chunk = yield* chunkService.createChunk(coord)
     // Mutable blocks array for efficient generation
     const blocks = new Uint8Array(chunk.blocks)
+    const columnCount = CHUNK_SIZE * CHUNK_SIZE
+    const baseWorldX = coord.x * CHUNK_SIZE
+    const baseWorldZ = coord.z * CHUNK_SIZE
 
+    const terrainNoisePoints: Array<readonly [number, number]> = new Array(columnCount)
+    const lakeNoisePoints: Array<readonly [number, number]> = new Array(columnCount)
+    let noisePointIndex = 0
+    for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+      const x = baseWorldX + lx
+      for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+        const z = baseWorldZ + lz
+        terrainNoisePoints[noisePointIndex] = [x * TERRAIN_SCALE, z * TERRAIN_SCALE]
+        lakeNoisePoints[noisePointIndex] = [x * LAKE_NOISE_SCALE + 5000, z * LAKE_NOISE_SCALE + 5000]
+        noisePointIndex++
+      }
+    }
+
+    const [biomeColumns, terrainNoiseVals, lakeNoiseVals] = yield* Effect.all([
+      biomeService.getBiomesAndPropertiesForChunk(coord.x, coord.z),
+      noiseService.octaveNoise2DBatch(terrainNoisePoints, 4, 0.5, 2.0),
+      noiseService.noise2DBatch(lakeNoisePoints),
+    ], { concurrency: 'unbounded' })
+
+    const stoneBlockIndex = blockTypeToIndex('STONE')
+    const waterBlockIndex = blockTypeToIndex('WATER')
+    const sandBlockIndex = blockTypeToIndex('SAND')
+
+    let columnIndex = 0
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
       for (let lz = 0; lz < CHUNK_SIZE; lz++) {
-        const wx = coord.x * CHUNK_SIZE + lx
-        const wz = coord.z * CHUNK_SIZE + lz
+        const wx = baseWorldX + lx
+        const wz = baseWorldZ + lz
 
-        // Phase 1: Get biome for this column
-        const biome = yield* biomeService.getBiome(wx, wz)
-        const props = yield* biomeService.getBiomeProperties(biome)
+        const { biome, props } = biomeColumns[columnIndex]!
+        const surfaceBlockIndex = blockTypeToIndex(props.surfaceBlock)
+        const subSurfaceBlockIndex = blockTypeToIndex(props.subSurfaceBlock)
 
         // Phase 2: Calculate surface height from noise
-        const noiseVal = yield* noiseService.octaveNoise2D(
-          wx * TERRAIN_SCALE,
-          wz * TERRAIN_SCALE,
-          4,
-          0.5,
-          2.0
-        )
+        const noiseVal = terrainNoiseVals[columnIndex]!
         const initialSurfaceY = calculateSurfaceHeight(noiseVal, props.baseHeight, props.heightModifier, HEIGHT_VARIATION)
 
         // Phase 2.5: Lake generation — lower surface to create a basin, fill with water later
         // lakeNoiseVal: only computed for non-OCEAN biomes (OCEAN uses 0, ensuring isShore = false)
-        const lakeNoiseVal = biome !== 'OCEAN'
-          ? yield* noiseService.noise2D(wx * LAKE_NOISE_SCALE + 5000, wz * LAKE_NOISE_SCALE + 5000)
-          : 0
+        const lakeNoiseVal = biome !== 'OCEAN' ? lakeNoiseVals[columnIndex]! : 0
 
         // lakeBasin: Some(depressedY) = inland lake at that surface, None = no lake
-        const lakeBasin: Option.Option<number> = Option.flatMap(
-          biome === 'OCEAN' || lakeNoiseVal <= LAKE_THRESHOLD || initialSurfaceY < LAKE_LEVEL
-            ? Option.none()
-            : Option.some(lakeNoiseVal),
-          (noiseVal) => {
-            const t = (noiseVal - LAKE_THRESHOLD) / (1.0 - LAKE_THRESHOLD)
-            const lakeDepth = Math.max(LAKE_MIN_DEPTH, Math.floor(t * LAKE_MAX_DEPTH))
-            const depressedY = Math.max(SEA_LEVEL + 1, initialSurfaceY - lakeDepth)
-            // Only commit to lake if the depression actually reaches below the water line
-            return depressedY < LAKE_LEVEL ? Option.some(depressedY) : Option.none()
+        let lakeBasinY: number | null = null
+        if (biome !== 'OCEAN' && lakeNoiseVal > LAKE_THRESHOLD && initialSurfaceY >= LAKE_LEVEL) {
+          const t = (lakeNoiseVal - LAKE_THRESHOLD) / (1.0 - LAKE_THRESHOLD)
+          const lakeDepth = Math.max(LAKE_MIN_DEPTH, Math.floor(t * LAKE_MAX_DEPTH))
+          const depressedY = Math.max(SEA_LEVEL + 1, initialSurfaceY - lakeDepth)
+          // Only commit to lake if the depression actually reaches below the water line
+          if (depressedY < LAKE_LEVEL) {
+            lakeBasinY = depressedY
           }
-        )
-        const surfaceY = Option.getOrElse(lakeBasin, () => initialSurfaceY)
+        }
+        const surfaceY = lakeBasinY ?? initialSurfaceY
 
         // Sandy shoreline: only near terrain low enough that lakes can form nearby
-        const isShore = Option.match(lakeBasin, {
-          onSome: () => false,
-          onNone: () => lakeNoiseVal > LAKE_THRESHOLD - LAKE_SHORE_WIDTH && surfaceY < LAKE_LEVEL + 4,
-        })
+        const isShore = lakeBasinY === null && lakeNoiseVal > LAKE_THRESHOLD - LAKE_SHORE_WIDTH && surfaceY < LAKE_LEVEL + 4
 
         // Phase 3: Fill column blocks (inner loop — pure, no Effect overhead)
         fillColumn(
@@ -322,37 +359,33 @@ const generateTerrain = (
           lx,
           lz,
           surfaceY,
-          Option.match(lakeBasin, {
-            onSome: () => ({ surfaceBlock: 'SAND' as const, subSurfaceBlock: 'SAND' as const }),
-            onNone: () => isShore ? { ...props, surfaceBlock: 'SAND' as const } : props,
-          }),
+          lakeBasinY !== null
+            ? { surfaceBlockIndex: sandBlockIndex, subSurfaceBlockIndex: sandBlockIndex, stoneBlockIndex }
+            : isShore
+              ? { surfaceBlockIndex: sandBlockIndex, subSurfaceBlockIndex, stoneBlockIndex }
+              : { surfaceBlockIndex, subSurfaceBlockIndex, stoneBlockIndex },
         )
 
         // Phase 3.5: Water fill — ocean (below SEA_LEVEL) and inland lakes (below LAKE_LEVEL)
         if (surfaceY < SEA_LEVEL) {
           for (let y = surfaceY + 1; y <= SEA_LEVEL; y++) {
-            Option.map(blockIndex(lx, y, lz), (idx) => {
-              blocks[idx] = blockTypeToIndex('WATER') // intentional direct write: water fill during terrain generation
-            })
+            blocks[chunkBlockIndexUnchecked(lx, y, lz)] = waterBlockIndex // intentional direct write: water fill during terrain generation
           }
         } else {
-          Option.map(lakeBasin, () => {
+          if (lakeBasinY !== null) {
             for (let y = surfaceY + 1; y <= LAKE_LEVEL; y++) {
-              Option.map(blockIndex(lx, y, lz), (idx) => {
-                blocks[idx] = blockTypeToIndex('WATER') // intentional direct write: lake water fill during terrain generation
-              })
+              blocks[chunkBlockIndexUnchecked(lx, y, lz)] = waterBlockIndex // intentional direct write: lake water fill during terrain generation
             }
-          })
+          }
         }
 
         // Phase 4: Place trees (probability-based, pure)
         const { place, treeRng } = shouldPlaceTree(props.treeDensity, surfaceY, wx, wz)
-        if (place) {
-          Option.match(lakeBasin, {
-            onNone: () => placeTree(blocks, lx, lz, surfaceY, treeRng),
-            onSome: () => { /* lakes have no trees */ },
-          })
+        if (place && lakeBasinY === null) {
+          placeTree(blocks, lx, lz, surfaceY, treeRng)
         }
+
+        columnIndex++
       }
     }
 
@@ -383,8 +416,9 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
       // Cache for getLoadedChunks result — invalidated whenever a chunk is inserted or removed.
       // Avoids allocating two arrays + N object refs on every frame at 60 Hz.
       const cachedLoadedChunksRef = yield* Ref.make<Option.Option<ReadonlyArray<Chunk>>>(Option.none())
+      const maxCachedChunksRef = yield* Ref.make(MAX_CACHED_CHUNKS)
 
-      const lastLoadTimeRef = yield* Ref.make<number>(0)
+      const lastLoadTimeRef = yield* Ref.make<number>(-200)
 
       // Monotonically incrementing counter for LRU access ordering.
       // Using a counter instead of wall-clock time guarantees strict uniqueness per access,
@@ -400,7 +434,7 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
       const findLRUKey = (chunks: HashMap.HashMap<ChunkCacheKey, ChunkCacheEntry>): Option.Option<ChunkCacheKey> =>
         Arr.reduce(
           Arr.fromIterable(chunks),
-          { keyOpt: Option.none<ChunkCacheKey>(), time: Infinity } as { keyOpt: Option.Option<ChunkCacheKey>; time: number },
+          { keyOpt: Option.none<ChunkCacheKey>(), time: Infinity } satisfies { keyOpt: Option.Option<ChunkCacheKey>; time: number },
           (acc, [k, entry]) =>
             entry.lastAccessed < acc.time
               ? { keyOpt: Option.some(k), time: entry.lastAccessed }
@@ -418,6 +452,7 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
       ): Effect.Effect<void, StorageError> =>
         Effect.gen(function* () {
           const key = chunkCoordToKey(coord)
+          const maxCachedChunks = yield* Ref.get(maxCachedChunksRef)
           // Use monotonically incrementing counter instead of wall-clock time.
           // Clock.currentTimeMillis can return the same value for multiple rapid insertions,
           // causing ties in lastAccessed. With HashMap (hash-ordered iteration), a tie produces
@@ -429,12 +464,15 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
           const evictedDirtyEntry = yield* Ref.modify(cache, (s): [Option.Option<ChunkCacheEntry>, ChunkCache] => {
             const baseChunks = HashMap.set(s.chunks, key, { chunk, lastAccessed: accessOrder })
 
-            if (HashMap.size(baseChunks) <= MAX_CACHED_CHUNKS) {
+            if (HashMap.size(baseChunks) <= maxCachedChunks) {
               return [Option.none(), { ...s, chunks: baseChunks }]
             }
 
             return Option.match(findLRUKey(baseChunks), {
-              onNone: () => [Option.none<ChunkCacheEntry>(), { ...s, chunks: baseChunks }] as [Option.Option<ChunkCacheEntry>, ChunkCache],
+              onNone: () => {
+                const result: [Option.Option<ChunkCacheEntry>, ChunkCache] = [Option.none<ChunkCacheEntry>(), { ...s, chunks: baseChunks }]
+                return result
+              },
               onSome: (evictKey) => {
                 const evictEntryOpt = HashMap.get(baseChunks, evictKey)
                 const isDirty = HashSet.has(s.dirtyChunks, evictKey)
@@ -542,7 +580,7 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
          * Load chunks around the player position within render distance
          * Unloads chunks outside render distance
          */
-        loadChunksAroundPlayer: (playerPos: Position): Effect.Effect<void, ChunkManagerError> =>
+        loadChunksAroundPlayer: (playerPos: Position, renderDistance: number = RENDER_DISTANCE): Effect.Effect<boolean, ChunkManagerError> =>
           Effect.gen(function* () {
             const now = yield* Clock.currentTimeMillis
 
@@ -551,29 +589,25 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
               now - last < 200 ? [false, last] : [true, now]
             )
             if (!shouldLoad) {
-              return
+              return false
             }
 
             const centerChunk = worldToChunkCoord(playerPos)
-            const chunksToLoad = getChunksInRenderDistance(centerChunk)
-
-            // Sort by distance from player — closest chunks load first for better perceived load time.
-            // chunkDistanceSquared is O(1) per comparison; total sort is O(n log n) where n ≈ 200 chunks.
-            const sortedChunksToLoad = Arr.sort(
-              chunksToLoad,
-              Order.mapInput(Order.number, (coord: ChunkCoord) => chunkDistanceSquared(coord, centerChunk))
-            )
+            const chunkCacheCapacity = Math.max(MAX_CACHED_CHUNKS, countChunksInRadius(renderDistance + 2))
+            yield* Ref.update(maxCachedChunksRef, (current) => Math.max(current, chunkCacheCapacity))
+            const chunksToLoad = getChunksInRenderDistance(centerChunk, renderDistance)
 
             // Load chunks in render distance — up to 4 concurrent fibers via semaphore
             yield* Effect.forEach(
-              sortedChunksToLoad,
+              chunksToLoad,
               (coord) => loadSemaphore.withPermits(1)(getChunk(coord)),
               { concurrency: 'unbounded' }
             )
 
-            // Unload chunks outside unload distance
+            // Unload chunks outside the render radius plus a small buffer.
             const state = yield* Ref.get(cache)
-            const maxDistance = UNLOAD_DISTANCE * UNLOAD_DISTANCE
+            const unloadDistance = Math.max(renderDistance + 2, UNLOAD_DISTANCE)
+            const maxDistance = unloadDistance * unloadDistance
 
             yield* Effect.forEach(
               Arr.filter(Arr.fromIterable(HashMap.values(state.chunks)), (entry) =>
@@ -582,6 +616,8 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
               (entry) => unloadChunk(entry.chunk.coord),
               { concurrency: 1 }
             )
+
+            return true
           }),
 
         /**
@@ -595,7 +631,7 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
               onSome: Effect.succeed,
               onNone: () => Effect.gen(function* () {
                 const state = yield* Ref.get(cache)
-                const chunks = Arr.map(Arr.fromIterable(HashMap.values(state.chunks)), (entry) => entry.chunk) as ReadonlyArray<Chunk>
+                const chunks: ReadonlyArray<Chunk> = Arr.map(Arr.fromIterable(HashMap.values(state.chunks)), (entry) => entry.chunk)
                 yield* Ref.set(cachedLoadedChunksRef, Option.some(chunks))
                 return chunks
               }),

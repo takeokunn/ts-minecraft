@@ -56,8 +56,9 @@ export class RaycastingService extends Effect.Service<RaycastingService>()(
             // Cast ray from camera center (reuses cached Vector2)
             raycaster.setFromCamera(center, camera)
 
-            // Get all intersects
-            const intersects = raycaster.intersectObjects(scene.children, true)
+            // The scene graph is flat for world geometry (direct child meshes only),
+            // so we can skip recursive traversal and save per-frame tree walking.
+            const intersects = raycaster.intersectObjects(scene.children, false)
 
             // Option.flatMap chains: None-propagates through both guards,
             // then Option.map builds the result only when both hit and face are present.

@@ -8,14 +8,19 @@
 import { Effect } from 'effect'
 import type { MouseDelta } from './player-input-service'
 
-export interface InputServicePort {
-  readonly isKeyPressed: (key: string) => Effect.Effect<boolean, never>
-  readonly consumeKeyPress: (key: string) => Effect.Effect<boolean, never>
-  readonly getMouseDelta: () => Effect.Effect<MouseDelta, never>
-  readonly isMouseDown: (button: number) => Effect.Effect<boolean, never>
-  readonly requestPointerLock: () => Effect.Effect<void, never>
-  readonly exitPointerLock: () => Effect.Effect<void, never>
-  readonly isPointerLocked: () => Effect.Effect<boolean, never>
-  readonly consumeMouseClick: (button: number) => Effect.Effect<boolean, never>
-  readonly consumeWheelDelta: () => Effect.Effect<number, never>
-}
+export class InputServicePort extends Effect.Service<InputServicePort>()(
+  '@minecraft/application/InputServicePort',
+  {
+    succeed: {
+      isKeyPressed: (_key: string): Effect.Effect<boolean, never> => Effect.succeed(false),
+      consumeKeyPress: (_key: string): Effect.Effect<boolean, never> => Effect.succeed(false),
+      getMouseDelta: (): Effect.Effect<MouseDelta, never> => Effect.succeed({ x: 0, y: 0 }),
+      isMouseDown: (_button: number): Effect.Effect<boolean, never> => Effect.succeed(false),
+      requestPointerLock: (): Effect.Effect<void, never> => Effect.void,
+      exitPointerLock: (): Effect.Effect<void, never> => Effect.void,
+      isPointerLocked: (): Effect.Effect<boolean, never> => Effect.succeed(false),
+      consumeMouseClick: (_button: number): Effect.Effect<boolean, never> => Effect.succeed(false),
+      consumeWheelDelta: (): Effect.Effect<number, never> => Effect.succeed(0),
+    },
+  }
+) {}

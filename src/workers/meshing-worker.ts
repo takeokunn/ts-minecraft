@@ -1,4 +1,4 @@
-import { Option } from 'effect'
+import { Option, Schema } from 'effect'
 import { greedyMeshChunk } from '@/infrastructure/three/meshing/greedy-meshing'
 import { CHUNK_SIZE } from '@/domain/chunk'
 import type { Chunk } from '@/domain/chunk'
@@ -10,15 +10,16 @@ import type { Chunk } from '@/domain/chunk'
 //
 // Output: all TypedArrays are *transferred* back to main thread (zero-copy).
 // null water arrays signal that this chunk has no transparent faces.
-interface MeshRequest {
-  readonly id: number
-  readonly blocks: ArrayBuffer
-  readonly wx: number
-  readonly wz: number
-  readonly transparentBlockIds: readonly number[]
-}
+export const MeshRequestSchema = Schema.Struct({
+  id: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+  blocks: Schema.instanceOf(ArrayBuffer),
+  wx: Schema.Number.pipe(Schema.int()),
+  wz: Schema.Number.pipe(Schema.int()),
+  transparentBlockIds: Schema.Array(Schema.Number.pipe(Schema.int(), Schema.nonNegative())),
+})
+export type MeshRequest = Schema.Schema.Type<typeof MeshRequestSchema>
 
-;(self as DedicatedWorkerGlobalScope).onmessage = (e: MessageEvent<MeshRequest>): void => {
+self.onmessage = (e: MessageEvent<MeshRequest>): void => {
   const { id, blocks, wx, wz, transparentBlockIds } = e.data
 
   // Reconstruct a minimal Chunk — greedyMeshChunk only reads chunk.blocks; coord
@@ -60,7 +61,7 @@ interface MeshRequest {
     )
   }
 
-  ;(self as DedicatedWorkerGlobalScope).postMessage(
+  self.postMessage(
     {
       id,
       opositions: meshed.opaque.positions,

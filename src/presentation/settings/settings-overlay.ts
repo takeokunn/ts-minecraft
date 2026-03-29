@@ -1,5 +1,5 @@
-import { Cause, Effect, Option, Ref } from 'effect'
-import { SettingsService, type GraphicsQuality } from '@/application/settings/settings-service'
+import { Cause, Effect, Match, Option, Ref } from 'effect'
+import { SettingsService } from '@/application/settings/settings-service'
 import { DomOperationsService } from '@/presentation/hud/crosshair'
 
 export class SettingsOverlayService extends Effect.Service<SettingsOverlayService>()(
@@ -25,7 +25,7 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
           }
         }
 
-        const el = dom.createElement('div') as HTMLDivElement
+        const el = dom.createElement('div')
         el.id = 'settings-overlay'
         el.style.cssText = [
           'position:fixed', 'top:50%', 'left:50%', 'transform:translate(-50%,-50%)',
@@ -67,7 +67,7 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
 
         dom.appendChild(el)
 
-        const btn = dom.createElement('button') as HTMLButtonElement
+        const btn = dom.createElement('button')
         btn.id = 'settings-gear-btn'
         btn.textContent = '\u2699'
         btn.style.cssText = [
@@ -95,7 +95,16 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
           renderDistance: Option.match(renderDistanceInput, { onNone: () => 8, onSome: (el) => parseInt(el.value, 10) }),
           mouseSensitivity: Option.match(sensitivityInput, { onNone: () => 0.5, onSome: (el) => parseFloat(el.value) }),
           dayLengthSeconds: Option.match(dayLengthInput, { onNone: () => 400, onSome: (el) => parseInt(el.value, 10) }),
-          graphicsQuality: Option.match(qualitySelect, { onNone: () => 'high' as const, onSome: (el) => el.value as GraphicsQuality }),
+          graphicsQuality: Option.match(qualitySelect, {
+            onNone: () => 'high' as const,
+            onSome: (el) => Match.value(el.value).pipe(
+              Match.when('low', () => 'low' as const),
+              Match.when('medium', () => 'medium' as const),
+              Match.when('high', () => 'high' as const),
+              Match.when('ultra', () => 'ultra' as const),
+              Match.orElse(() => 'high' as const),
+            ),
+          }),
         })
 
       const runCommit = () => {

@@ -1,6 +1,7 @@
 import { describe, it, expect } from '@effect/vitest'
 import { Effect, Layer, MutableHashMap, MutableHashSet, Option } from 'effect'
-import { InputService, MouseButton } from './input-service'
+import { InputService, MouseButton, PlayerInputServiceLive } from './input-service'
+import { PlayerInputService } from '@/application/input/player-input-service'
 import type { InputService as InputServiceType } from './input-service'
 
 /**
@@ -13,7 +14,7 @@ const createTestInputService = (initialState: {
   mouseButtons?: MutableHashMap.MutableHashMap<number, boolean>
   mouseDelta?: { x: number; y: number }
   pointerLocked?: boolean
-} = {}): InputServiceType => {
+  } = {}): InputServiceType => {
   const pressedKeys = Option.getOrElse(Option.fromNullable(initialState.pressedKeys), () => MutableHashSet.empty<string>())
   const justPressedKeys = Option.getOrElse(Option.fromNullable(initialState.justPressedKeys), () => MutableHashSet.empty<string>())
   const mouseButtons = Option.getOrElse(Option.fromNullable(initialState.mouseButtons), () => MutableHashMap.empty<number, boolean>())
@@ -21,6 +22,8 @@ const createTestInputService = (initialState: {
   let pointerLocked = Option.getOrElse(Option.fromNullable(initialState.pointerLocked), () => false)
 
   return {
+    _tag: '@minecraft/presentation/InputService' as const,
+
     isKeyPressed: (key: string) =>
       Effect.sync(() => MutableHashSet.has(pressedKeys, key)),
 
@@ -59,7 +62,7 @@ const createTestInputService = (initialState: {
     consumeMouseClick: () => Effect.sync(() => false),
 
     consumeWheelDelta: () => Effect.sync(() => 0),
-  } as unknown as InputServiceType
+  }
 }
 
 /**
@@ -69,6 +72,30 @@ const createTestLayer = (service: InputServiceType) =>
   Layer.succeed(InputService, service)
 
 describe('InputService', () => {
+  describe('PlayerInputServiceLive', () => {
+    it.effect('should delegate to the input service implementation', () => {
+      const pressedKeys = MutableHashSet.empty<string>()
+      MutableHashSet.add(pressedKeys, 'KeyW')
+      const justPressedKeys = MutableHashSet.empty<string>()
+      MutableHashSet.add(justPressedKeys, 'KeyW')
+      const mouseButtons = MutableHashMap.empty<number, boolean>()
+      MutableHashMap.set(mouseButtons, MouseButton.LEFT, true)
+      const inputLayer = createTestLayer(createTestInputService({ pressedKeys, justPressedKeys, mouseButtons, pointerLocked: true }))
+      const testLayer = PlayerInputServiceLive.pipe(Layer.provide(inputLayer))
+
+      return Effect.gen(function* () {
+        const playerInput = yield* PlayerInputService
+        const keyPressed = yield* playerInput.isKeyPressed('KeyW')
+        const pointerLocked = yield* playerInput.isPointerLocked()
+        const buttonPressed = yield* playerInput.consumeKeyPress('KeyW')
+
+        expect(keyPressed).toBe(true)
+        expect(pointerLocked).toBe(true)
+        expect(buttonPressed).toBe(true)
+      }).pipe(Effect.provide(testLayer))
+    })
+  })
+
   describe('isMouseDown', () => {
     it.effect('should return false when no buttons are pressed', () => {
       const service = createTestInputService()

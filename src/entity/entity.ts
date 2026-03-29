@@ -5,7 +5,7 @@ import { Vector3Schema, QuaternionSchema, identity, zero, type Quaternion, type 
 export const EntityIdSchema = Schema.String.pipe(Schema.brand('EntityId'))
 export type EntityId = Schema.Schema.Type<typeof EntityIdSchema>
 export const EntityId = {
-  make: (value: string): EntityId => value as unknown as EntityId,
+  make: (value: string): EntityId => Schema.decodeUnknownSync(EntityIdSchema)(value),
 }
 
 export const EntityTypeSchema = Schema.Literal('Zombie', 'Cow', 'Pig', 'Sheep')

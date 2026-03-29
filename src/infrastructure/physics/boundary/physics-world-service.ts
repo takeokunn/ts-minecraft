@@ -13,6 +13,7 @@ export const CustomWorldSchema = Schema.mutable(
   Schema.Struct({
     gravity: Vector3Schema,
     bodies: Schema.mutable(Schema.Array(CustomBodySchema)),
+    staticPlaneYs: Schema.mutable(Schema.Array(Schema.Number)),
   }),
 )
 export type CustomWorld = Schema.Schema.Type<typeof CustomWorldSchema>
@@ -25,25 +26,31 @@ export class PhysicsWorldService extends Effect.Service<PhysicsWorldService>()(
         Effect.succeed({
           gravity: { x: config.gravity.x, y: config.gravity.y, z: config.gravity.z },
           bodies: [],
+          staticPlaneYs: [],
         }),
       addBody: (world: CustomWorld, body: CustomBody): Effect.Effect<void, never> =>
         Effect.sync(() => {
           world.bodies = Arr.append(world.bodies, body)
+          if (body.type === 'static' && body.shape.kind === 'plane') {
+            world.staticPlaneYs = Arr.append(world.staticPlaneYs, body.position.y)
+          }
         }),
       removeBody: (world: CustomWorld, body: CustomBody): Effect.Effect<void, never> =>
         Effect.sync(() => {
           world.bodies = Arr.filter(world.bodies, (b) => b !== body)
+          if (body.type === 'static' && body.shape.kind === 'plane') {
+            const planeIndex = world.staticPlaneYs.indexOf(body.position.y)
+            if (planeIndex >= 0) {
+              world.staticPlaneYs = [
+                ...world.staticPlaneYs.slice(0, planeIndex),
+                ...world.staticPlaneYs.slice(planeIndex + 1),
+              ]
+            }
+          }
         }),
       step: (world: CustomWorld, deltaTime: DeltaTimeSecs): Effect.Effect<void, never> =>
         Effect.sync(() => {
-          const dt = deltaTime as number
-
-          // Find all static plane bodies (for collision resolution)
-          const planeYValues = Arr.filterMap(world.bodies, (body) =>
-            body.type === 'static' && body.shape.kind === 'plane'
-              ? Option.some(body.position.y)
-              : Option.none()
-          )
+          const dt = deltaTime
 
           // Integrate dynamic bodies
           Arr.forEach(world.bodies, (body) => {
@@ -58,7 +65,7 @@ export class PhysicsWorldService extends Effect.Service<PhysicsWorldService>()(
             body.position.z += body.velocity.z * dt
 
             // AABB-vs-plane collision resolution
-            Arr.forEach(planeYValues, (planeY) => {
+            Arr.forEach(world.staticPlaneYs, (planeY) => {
               const bodyBottomYOpt = Match.value(body.shape).pipe(
                 Match.when({ kind: 'box' }, (shape) => Option.some(body.position.y - shape.halfExtents.y)),
                 Match.when({ kind: 'sphere' }, (shape) => Option.some(body.position.y - shape.radius)),

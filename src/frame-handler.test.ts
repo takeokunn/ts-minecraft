@@ -249,6 +249,7 @@ const makeServices = (opts: {
 
   const blockHighlight = {
     update: (_cam: unknown, _scene: unknown) => Effect.void,
+    invalidateCache: () => Effect.void,
     getTargetBlock: () => Effect.succeed(Option.none()),
     getTargetHit: () => Effect.succeed(Option.none()),
   } as unknown as InstanceType<typeof import('@/presentation/highlight/block-highlight').BlockHighlightService>
@@ -309,6 +310,7 @@ const makeServices = (opts: {
     resizeRefractionRT: (_w: number, _h: number) => Effect.void,
     resizeRefractionCamera: (_aspect: number) => Effect.void,
     getWaterMeshes: () => Effect.succeed([] as THREE.Mesh[]),
+    getSceneVersion: () => Effect.succeed(0),
     setRefractionValid: (_valid: boolean) => Effect.void,
   } as unknown as InstanceType<typeof import('@/infrastructure/three/world-renderer').WorldRendererService>
 
@@ -709,6 +711,31 @@ describe('frame-handler', () => {
       expect(spy).toHaveBeenCalledOnce()
     }))
 
+    it.effect('retries chunk sync on the next stationary frame when sync is incomplete', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(false)
+      const services = makeServices({
+        inputService: makeInputService(),
+        inventoryRenderer: makeInventoryRenderer({ open: false }),
+        settingsOverlay: makeSettingsOverlay({ open: false }),
+      })
+      const loadedChunks = [{ coord: { x: 0, z: 0 }, blocks: new Uint8Array(0), dirty: false }]
+      const loadSpy = vi.fn(() => Effect.void)
+      const syncSpy = vi.fn(() => Effect.succeed(false as boolean))
+      syncSpy.mockImplementationOnce(() => Effect.succeed(false as boolean))
+      syncSpy.mockImplementation(() => Effect.succeed(true as boolean))
+
+      ;(services.chunkManagerService as unknown as { loadChunksAroundPlayer: unknown }).loadChunksAroundPlayer = loadSpy
+      ;(services.chunkManagerService as unknown as { getLoadedChunks: unknown }).getLoadedChunks = vi.fn(() => Effect.succeed(loadedChunks))
+      ;(services.worldRendererService as unknown as { syncChunksToScene: unknown }).syncChunksToScene = syncSpy
+
+      const handler = yield* createFrameHandler(deps, services)
+      yield* handler(0.016 as DeltaTimeSecs)
+      yield* handler(0.016 as DeltaTimeSecs)
+
+      expect(loadSpy).toHaveBeenCalledTimes(2)
+      expect(syncSpy).toHaveBeenCalledTimes(2)
+    }))
+
     it.effect('calls applyFrustumCulling each frame', () => Effect.gen(function* () {
       const deps = yield* makeDeps(false)
       const services = makeServices({
@@ -722,6 +749,71 @@ describe('frame-handler', () => {
       yield* runFrame(deps, services)
 
       expect(spy).toHaveBeenCalledOnce()
+    }))
+
+    it.effect('skips applyFrustumCulling once the camera pose stabilizes', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(false)
+      const services = makeServices({
+        inputService: makeInputService(),
+        inventoryRenderer: makeInventoryRenderer({ open: false }),
+        settingsOverlay: makeSettingsOverlay({ open: false }),
+      })
+      const spy = vi.fn(() => Effect.void)
+      ;(services.worldRendererService as unknown as { applyFrustumCulling: unknown }).applyFrustumCulling = spy
+
+      const handler = yield* createFrameHandler(deps, services)
+      yield* handler(0.016 as DeltaTimeSecs)
+      yield* handler(0.016 as DeltaTimeSecs)
+      yield* handler(0.016 as DeltaTimeSecs)
+
+      expect(spy).toHaveBeenCalledTimes(2)
+    }))
+
+    it.effect('reuses the groundY scan when the player stays in the same column', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(false)
+      const services = makeServices({
+        inputService: makeInputService(),
+        inventoryRenderer: makeInventoryRenderer({ open: false }),
+        settingsOverlay: makeSettingsOverlay({ open: false }),
+      })
+      const updateGroundYSpy = vi.fn(() => Effect.void)
+      ;(services.gameState as unknown as { updateGroundY: unknown }).updateGroundY = updateGroundYSpy
+
+      const handler = yield* createFrameHandler(deps, services)
+      yield* handler(0.016 as DeltaTimeSecs)
+      yield* handler(0.016 as DeltaTimeSecs)
+
+      expect(updateGroundYSpy).toHaveBeenCalledOnce()
+    }))
+
+    it.effect('invalidates the groundY scan after a chunk edit in the same column', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(false)
+      const inputService = makeInputService()
+      ;(inputService as unknown as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
+        Effect.succeed(btn === 2)
+      const services = makeServices({
+        inputService,
+        inventoryRenderer: makeInventoryRenderer({ open: false }),
+        settingsOverlay: makeSettingsOverlay({ open: false }),
+      })
+      const updateGroundYSpy = vi.fn(() => Effect.void)
+      ;(services.gameState as unknown as { updateGroundY: unknown }).updateGroundY = updateGroundYSpy
+      ;(services.blockHighlight as unknown as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
+        Effect.succeed(Option.none())
+      )
+      ;(services.blockHighlight as unknown as { getTargetHit: unknown }).getTargetHit = vi.fn(() =>
+        Effect.succeed(Option.some({ blockX: 0, blockY: 64, blockZ: 0, normal: { x: 0, y: 1, z: 0 } }))
+      )
+      ;(services.hotbarService as unknown as { getSelectedBlockType: unknown }).getSelectedBlockType = vi.fn(() =>
+        Effect.succeed(Option.some('GRASS'))
+      )
+      ;(services.blockService as unknown as { placeBlock: unknown }).placeBlock = vi.fn(() => Effect.void)
+
+      const handler = yield* createFrameHandler(deps, services)
+      yield* handler(0.016 as DeltaTimeSecs)
+      yield* handler(0.016 as DeltaTimeSecs)
+
+      expect(updateGroundYSpy).toHaveBeenCalledTimes(2)
     }))
   })
 
@@ -1146,6 +1238,26 @@ describe('frame-handler', () => {
 
       expect(refractionSpy).toHaveBeenCalledOnce()
     }))
+
+    it.effect('skips doRefractionPrePass on the second identical ultra-quality frame', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(false)
+      const services = makeServices({
+        inputService: makeInputService(),
+        inventoryRenderer: makeInventoryRenderer({ open: false }),
+        settingsOverlay: makeSettingsOverlay({ open: false }),
+      })
+      ;(services.settingsService as unknown as { getSettings: unknown }).getSettings = vi.fn(() =>
+        Effect.succeed({ ...DEFAULT_SETTINGS, graphicsQuality: 'ultra' as const })
+      )
+      const refractionSpy = vi.fn(() => Effect.void)
+      ;(services.worldRendererService as unknown as { doRefractionPrePass: unknown }).doRefractionPrePass = refractionSpy
+
+      const handler = yield* createFrameHandler(deps, services)
+      yield* handler(0.016 as DeltaTimeSecs)
+      yield* handler(0.016 as DeltaTimeSecs)
+
+      expect(refractionSpy).toHaveBeenCalledOnce()
+    }))
   })
 
   // -------------------------------------------------------------------------
@@ -1191,8 +1303,8 @@ describe('frame-handler', () => {
       yield* handler(0.016 as DeltaTimeSecs)
       yield* handler(0.016 as DeltaTimeSecs)
 
-      // high quality: refractionThrottleFrames=2, so frames 1 and 3 run (2 calls in 3 frames)
-      expect(refractionSpy).toHaveBeenCalledTimes(2)
+      // The unchanged-frame cache suppresses the repeated render, so only the first frame runs.
+      expect(refractionSpy).toHaveBeenCalledTimes(1)
     }))
 
     it.effect('resumes doRefractionPrePass when quality changes from low to high', () => Effect.gen(function* () {

@@ -53,6 +53,22 @@ describe('physics/boundary/physics-world-service', () => {
       }).pipe(Effect.provide(PhysicsWorldServiceLive), Effect.provide(RigidBodyServiceLive))
     )
 
+    it.effect('should cache static plane Y values when bodies are added and removed', () =>
+      Effect.gen(function* () {
+        const worldSvc = yield* PhysicsWorldService
+        const bodySvc = yield* RigidBodyService
+        const world = yield* worldSvc.create(defaultConfig)
+        const plane = yield* bodySvc.create({ mass: 0, position: { x: 0, y: 3, z: 0 }, quaternion: { x: 0, y: 0, z: 0, w: 1 }, type: 'static' })
+        plane.shape = { kind: 'plane' }
+
+        yield* worldSvc.addBody(world, plane)
+        expect(world.staticPlaneYs).toEqual([3])
+
+        yield* worldSvc.removeBody(world, plane)
+        expect(world.staticPlaneYs).toEqual([])
+      }).pipe(Effect.provide(PhysicsWorldServiceLive), Effect.provide(RigidBodyServiceLive))
+    )
+
     it.effect('should remove body from world', () =>
       Effect.gen(function* () {
         const worldSvc = yield* PhysicsWorldService

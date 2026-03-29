@@ -269,6 +269,39 @@ describe('application/chunk/chunk-manager-service', () => {
       }).pipe(Effect.provide(TestLayer))
     })
 
+    it.live('honors a custom render distance when loading chunks', () => {
+      const { TestLayer } = buildTestLayer()
+
+      return Effect.gen(function* () {
+        const service = yield* ChunkManagerService
+
+        yield* service.loadChunksAroundPlayer({ x: 0, y: 64, z: 0 }, 2)
+
+        const loaded = yield* service.getLoadedChunks()
+        expect(loaded.length).toBe(13)
+
+        const rdSquared = 2 * 2
+        Arr.forEach(loaded, (chunk) => {
+          const dx = chunk.coord.x
+          const dz = chunk.coord.z
+          expect(dx * dx + dz * dz).toBeLessThanOrEqual(rdSquared)
+        })
+      }).pipe(Effect.provide(TestLayer))
+    })
+
+    it.live('does not cap loading at the old unload radius', () => {
+      const { TestLayer } = buildTestLayer()
+
+      return Effect.gen(function* () {
+        const service = yield* ChunkManagerService
+
+        yield* service.loadChunksAroundPlayer({ x: 0, y: 64, z: 0 }, 11)
+
+        const loaded = yield* service.getLoadedChunks()
+        expect(Arr.some(loaded, (chunk) => chunk.coord.x === 11 && chunk.coord.z === 0)).toBe(true)
+      }).pipe(Effect.provide(TestLayer))
+    })
+
     it.effect('is throttled: second immediate call does not reload chunks', () => {
       const { TestLayer } = buildTestLayer()
 
@@ -276,15 +309,17 @@ describe('application/chunk/chunk-manager-service', () => {
         const service = yield* ChunkManagerService
 
         // First call: loads chunks
-        yield* service.loadChunksAroundPlayer({ x: 0, y: 64, z: 0 })
+        const firstLoaded = yield* service.loadChunksAroundPlayer({ x: 0, y: 64, z: 0 })
         const afterFirst = yield* service.getLoadedChunks()
         const countFirst = afterFirst.length
 
         // Immediate second call should be throttled (200ms window) and not change state
-        yield* service.loadChunksAroundPlayer({ x: 0, y: 64, z: 0 })
+        const secondLoaded = yield* service.loadChunksAroundPlayer({ x: 0, y: 64, z: 0 })
         const afterSecond = yield* service.getLoadedChunks()
         const countSecond = afterSecond.length
 
+        expect(firstLoaded).toBe(true)
+        expect(secondLoaded).toBe(false)
         expect(countFirst).toBe(countSecond)
       }).pipe(Effect.provide(TestLayer))
     })

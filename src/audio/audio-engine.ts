@@ -1,4 +1,4 @@
-import { Context, Effect, HashMap, Layer, Option, Ref, Schema } from 'effect'
+import { Effect, HashMap, Option, Ref, Schema } from 'effect'
 
 export const OscillatorWaveSchema = Schema.Literal('sine', 'square', 'sawtooth', 'triangle', 'custom')
 export type OscillatorWave = Schema.Schema.Type<typeof OscillatorWaveSchema>
@@ -18,14 +18,6 @@ export const ToneHandleSchema = Schema.Struct({
 })
 export type ToneHandle = Schema.Schema.Type<typeof ToneHandleSchema>
 
-export interface AudioEngine {
-  readonly playTone: (request: ToneRequest) => Effect.Effect<ToneHandle, never>
-  readonly stopTone: (handle: ToneHandle) => Effect.Effect<void, never>
-  readonly setMasterGain: (gain: number) => Effect.Effect<void, never>
-}
-
-export const AudioEngine = Context.GenericTag<AudioEngine>('@minecraft/audio/AudioEngine')
-
 type ActiveTone = {
   readonly oscillator: OscillatorNode
   readonly gainNode: GainNode
@@ -35,34 +27,38 @@ type ActiveTone = {
 export const clamp01 = (value: number): number => Math.max(0, Math.min(1, value))
 export const clampPan = (value: number): number => Math.max(-1, Math.min(1, value))
 
+type GlobalAudioCtor = typeof globalThis & {
+  readonly AudioContext?: typeof AudioContext
+  readonly webkitAudioContext?: typeof AudioContext
+}
+
+const hasAudioContextCtor = (value: typeof globalThis): value is GlobalAudioCtor =>
+  'AudioContext' in value || 'webkitAudioContext' in value
+
 const getAudioContextCtor = (): Option.Option<typeof AudioContext> => {
-  const globalWithAudio = globalThis as {
-    readonly AudioContext?: typeof AudioContext
-    readonly webkitAudioContext?: typeof AudioContext
+  const audioGlobal = globalThis
+  if (!hasAudioContextCtor(audioGlobal)) {
+    return Option.none()
   }
 
-  return Option.fromNullable(globalWithAudio.AudioContext ?? globalWithAudio.webkitAudioContext)
+  const ctor = audioGlobal.AudioContext ?? audioGlobal.webkitAudioContext
+  return Option.fromNullable(ctor)
 }
 
-const safeDisconnect = (node: AudioNode): void => {
-  try {
-    node.disconnect()
-  } catch (_error) {
-    // Disconnect can throw if the node was already disconnected.
-  }
-}
+const safeDisconnect = (node: AudioNode): Effect.Effect<void, never> =>
+  Effect.try({
+    try: () => node.disconnect(),
+    catch: (error) => new Error(error instanceof Error ? error.message : 'AudioNode disconnect failed'),
+  }).pipe(Effect.catchAll(() => Effect.void))
 
-const safeStop = (oscillator: OscillatorNode): void => {
-  try {
-    oscillator.stop()
-  } catch (_error) {
-    // stop() can throw if already stopped.
-  }
-}
+const safeStop = (oscillator: OscillatorNode): Effect.Effect<void, never> =>
+  Effect.try({
+    try: () => oscillator.stop(),
+    catch: (error) => new Error(error instanceof Error ? error.message : 'Oscillator stop failed'),
+  }).pipe(Effect.catchAll(() => Effect.void))
 
-export const AudioEngineLive = Layer.effect(
-  AudioEngine,
-  Effect.all([
+export class AudioEngine extends Effect.Service<AudioEngine>()('@minecraft/audio/AudioEngine', {
+  effect: Effect.all([
     Ref.make<Option.Option<AudioContext>>(Option.none()),
     Ref.make<Option.Option<GainNode>>(Option.none()),
     Ref.make(0.8),
@@ -155,12 +151,19 @@ export const AudioEngineLive = Layer.effect(
                 })
 
                 oscillator.onended = () => {
-                  safeDisconnect(oscillator)
-                  safeDisconnect(gainNode)
-                  Option.map(stereoPanner, safeDisconnect)
-
                   Effect.runFork(
-                    Ref.update(activeTonesRef, (state) => HashMap.remove(state, handle.id)),
+                    Effect.all(
+                      [
+                        safeDisconnect(oscillator),
+                        safeDisconnect(gainNode),
+                        Option.match(stereoPanner, {
+                          onNone: () => Effect.void,
+                          onSome: (pannerNode) => safeDisconnect(pannerNode),
+                        }),
+                        Ref.update(activeTonesRef, (state) => HashMap.remove(state, handle.id)),
+                      ],
+                      { concurrency: 'unbounded' },
+                    ).pipe(Effect.asVoid),
                   )
                 }
 
@@ -192,15 +195,21 @@ export const AudioEngineLive = Layer.effect(
             [HashMap.get(state, handle.id), HashMap.remove(state, handle.id)],
         )
 
-        yield* Option.match(toneOpt, {
+          yield* Option.match(toneOpt, {
           onNone: () => Effect.void,
           onSome: (tone) =>
-            Effect.sync(() => {
-              safeStop(tone.oscillator)
-              safeDisconnect(tone.oscillator)
-              safeDisconnect(tone.gainNode)
-              Option.map(tone.pannerNode, safeDisconnect)
-            }),
+            Effect.all(
+              [
+                safeStop(tone.oscillator),
+                safeDisconnect(tone.oscillator),
+                safeDisconnect(tone.gainNode),
+                Option.match(tone.pannerNode, {
+                  onNone: () => Effect.void,
+                  onSome: (pannerNode) => safeDisconnect(pannerNode),
+                }),
+              ],
+              { concurrency: 'unbounded' },
+            ).pipe(Effect.asVoid),
         })
       })
 
@@ -222,4 +231,6 @@ export const AudioEngineLive = Layer.effect(
       setMasterGain,
     }
   }))
-)
+}) {}
+
+export const AudioEngineLive = AudioEngine.Default

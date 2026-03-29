@@ -1,5 +1,5 @@
-import { Array as Arr, Effect, MutableRef } from 'effect'
-import { greedyMeshChunk } from './greedy-meshing'
+import { Array as Arr, Effect, MutableRef, Schema } from 'effect'
+import { greedyMeshChunk, MeshedChunkSchema } from './greedy-meshing'
 import type { MeshedChunk } from './greedy-meshing'
 import { CHUNK_SIZE, blockTypeToIndex } from '@/domain/chunk'
 import type { Chunk } from '@/domain/chunk'
@@ -9,37 +9,40 @@ import type { Chunk } from '@/domain/chunk'
 const TRANSPARENT_IDS_ARRAY: readonly number[] = [blockTypeToIndex('WATER')]
 const TRANSPARENT_IDS_SET = new Set(TRANSPARENT_IDS_ARRAY)
 
-export interface WorkerMeshResult {
-  readonly opaque: MeshedChunk
-  readonly water: MeshedChunk | null
-}
+export const WorkerMeshResultSchema = Schema.Struct({
+  opaque: MeshedChunkSchema,
+  water: Schema.NullOr(MeshedChunkSchema),
+})
+export type WorkerMeshResult = Schema.Schema.Type<typeof WorkerMeshResultSchema>
 
 // Typed shape of the message returned by meshing-worker.ts.
 // 'o' prefix = opaque, 'w' prefix = water. null water arrays mean no transparent faces.
 // ArrayBuffer (not ArrayBufferLike) because postMessage with transfer always detaches
 // the underlying ArrayBuffer — SharedArrayBuffer cannot be transferred this way.
-interface WorkerResponse {
-  readonly id: number
-  readonly opositions: Float32Array<ArrayBuffer>
-  readonly onormals: Int8Array<ArrayBuffer>
-  readonly ocolors: Uint8Array<ArrayBuffer>
-  readonly ouvs: Float32Array<ArrayBuffer>
-  readonly oindices: Uint32Array<ArrayBuffer>
-  readonly wpositions: Float32Array<ArrayBuffer> | null
-  readonly wnormals: Int8Array<ArrayBuffer> | null
-  readonly wcolors: Uint8Array<ArrayBuffer> | null
-  readonly wuvs: Float32Array<ArrayBuffer> | null
-  readonly windices: Uint32Array<ArrayBuffer> | null
-}
+const WorkerResponseSchema = Schema.Struct({
+  id: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+  opositions: Schema.instanceOf(Float32Array),
+  onormals: Schema.instanceOf(Int8Array),
+  ocolors: Schema.instanceOf(Uint8Array),
+  ouvs: Schema.instanceOf(Float32Array),
+  oindices: Schema.instanceOf(Uint32Array),
+  wpositions: Schema.NullOr(Schema.instanceOf(Float32Array)),
+  wnormals: Schema.NullOr(Schema.instanceOf(Int8Array)),
+  wcolors: Schema.NullOr(Schema.instanceOf(Uint8Array)),
+  wuvs: Schema.NullOr(Schema.instanceOf(Float32Array)),
+  windices: Schema.NullOr(Schema.instanceOf(Uint32Array)),
+})
+type WorkerResponse = Schema.Schema.Type<typeof WorkerResponseSchema>
 
-interface PendingMesh {
-  readonly resolve: (v: WorkerMeshResult) => void
-  readonly reject: (e: unknown) => void
-}
+const PendingMeshSchema = Schema.Struct({
+  resolve: Schema.declare((u): u is (value: WorkerMeshResult) => void => typeof u === 'function'),
+  reject: Schema.declare((u): u is (e: unknown) => void => typeof u === 'function'),
+})
+type PendingMesh = Schema.Schema.Type<typeof PendingMeshSchema>
 
-interface PoolWorker {
+type PoolWorker = {
   readonly worker: Worker
-  readonly pending: Map<number, PendingMesh>
+  readonly pending: MutableRef.MutableRef<Map<number, PendingMesh>>
 }
 
 /**
@@ -83,9 +86,9 @@ export class MeshingWorkerPool extends Effect.Service<MeshingWorkerPool>()(
       const nextIdRef = MutableRef.make(0)
       const nextWorkerIndexRef = MutableRef.make(0)
 
-      const poolWorkers: PoolWorker[] = []
+      const poolWorkersRef = MutableRef.make<PoolWorker[]>([])
       for (let i = 0; i < workerCount; i++) {
-        const pending = new Map<number, PendingMesh>()
+        const pendingRef = MutableRef.make(new Map<number, PendingMesh>())
 
         // Vite resolves this URL at build time and bundles meshing-worker.ts separately.
         // The @/ alias is resolved by Vite's worker bundler via the same alias config.
@@ -96,7 +99,8 @@ export class MeshingWorkerPool extends Effect.Service<MeshingWorkerPool>()(
 
         worker.onmessage = (e: MessageEvent<WorkerResponse>) => {
           const { id, opositions, onormals, ocolors, ouvs, oindices,
-                  wpositions, wnormals, wcolors, wuvs, windices } = e.data
+                  wpositions, wnormals, wcolors, wuvs, windices } = Schema.decodeUnknownSync(WorkerResponseSchema)(e.data)
+          const pending = MutableRef.get(pendingRef)
           const req = pending.get(id)
           if (req === undefined) return
           pending.delete(id)
@@ -117,19 +121,20 @@ export class MeshingWorkerPool extends Effect.Service<MeshingWorkerPool>()(
         }
 
         worker.onerror = (e: ErrorEvent) => {
+          const pending = MutableRef.get(pendingRef)
           for (const [, req] of pending) {
             req.reject(new Error(`Meshing worker error: ${e.message ?? 'unknown'}`))
           }
           pending.clear()
         }
 
-        poolWorkers.push({ worker, pending })
+        MutableRef.update(poolWorkersRef, (workers) => Arr.append(workers, { worker, pending: pendingRef }))
       }
 
       // Terminate all workers when the service scope closes (app shutdown / test teardown)
       yield* Effect.addFinalizer(() =>
         Effect.sync(() => {
-          Arr.forEach(poolWorkers, ({ worker }) => worker.terminate())
+          Arr.forEach(MutableRef.get(poolWorkersRef), ({ worker }) => worker.terminate())
         })
       )
 
@@ -138,13 +143,14 @@ export class MeshingWorkerPool extends Effect.Service<MeshingWorkerPool>()(
           Effect.async<WorkerMeshResult>((resume) => {
             const id = MutableRef.getAndUpdate(nextIdRef, n => n + 1)
             const workerIdx = MutableRef.getAndUpdate(nextWorkerIndexRef, n => n + 1) % workerCount
-            const state = poolWorkers[workerIdx]!
+            const state = MutableRef.get(poolWorkersRef)[workerIdx]!
 
-            state.pending.set(id, {
-              resolve: (v) => resume(Effect.succeed(v)),
+            const pending = MutableRef.get(state.pending)
+            pending.set(id, {
+              resolve: (v: WorkerMeshResult) => resume(Effect.succeed(v)),
               // Worker errors become defects (die) so they appear in logs and crash the
               // fiber rather than being silently swallowed as typed errors.
-              reject: (e) => resume(Effect.die(e)),
+              reject: (e: unknown) => resume(Effect.die(e)),
             })
 
             // .slice() produces an owned ArrayBuffer for transfer; chunk.blocks may be
@@ -168,7 +174,7 @@ export class MeshingWorkerPool extends Effect.Service<MeshingWorkerPool>()(
             // Interruption handler: remove pending entry so a late worker response
             // is silently discarded instead of resuming a dead fiber.
             return Effect.sync(() => {
-              state.pending.delete(id)
+              pending.delete(id)
             })
           }),
         workerCount,

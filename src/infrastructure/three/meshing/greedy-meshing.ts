@@ -10,15 +10,16 @@ import { getTileIndex, getTileUVs, FaceDir } from '../textures/block-texture-map
 // until the next call to greedyMeshChunk (which resets the accumulators).
 // The update path consumes them synchronously within the same frame-handler tick,
 // so this is safe under the current single-fiber meshing model.
-export interface RawMeshData {
-  readonly positions: Float32Array
-  readonly normals: Int8Array
-  readonly colors: Uint8Array
-  readonly uvs: Float32Array
-  readonly indices: Uint32Array
-  readonly vertexCount: number
-  readonly indexCount: number
-}
+export const RawMeshDataSchema = Schema.Struct({
+  positions: Schema.instanceOf(Float32Array),
+  normals: Schema.instanceOf(Int8Array),
+  colors: Schema.instanceOf(Uint8Array),
+  uvs: Schema.instanceOf(Float32Array),
+  indices: Schema.instanceOf(Uint32Array),
+  vertexCount: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+  indexCount: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+})
+export type RawMeshData = Schema.Schema.Type<typeof RawMeshDataSchema>
 
 export const MeshedChunkSchema = Schema.Struct({
   positions: Schema.instanceOf(Float32Array),
@@ -37,14 +38,6 @@ export type ChunkWorldOffset = Schema.Schema.Type<typeof ChunkWorldOffsetSchema>
 
 const AIR = 0
 
-const FACE_DIR_INDEX: Record<FaceDir, number> = {
-  top: 0,
-  bottom: 1,
-  side: 2,
-}
-
-const TILE_UV_CACHE: Array<{ u0: number; v0: number; u1: number; v1: number } | undefined> = []
-
 // Pooled buffer for greedy-expansion "done" tracking.
 // The largest possible slice is CHUNK_SIZE × CHUNK_HEIGHT = 16 × 256 = 4096 cells.
 // runGreedyExpansion takes a subarray view (zero-copy) and resets it with fill(0)
@@ -62,10 +55,6 @@ const EMPTY_MESHED_CHUNK: MeshedChunk = {
   indices: new Uint32Array(0),
 }
 
-const _doneBuf = new Uint8Array(CHUNK_SIZE * CHUNK_HEIGHT)
-const _maskCH = new Uint16Array(CHUNK_SIZE * CHUNK_HEIGHT)
-const _maskSS = new Uint16Array(CHUNK_SIZE * CHUNK_SIZE)
-
 const getBlock = (blocks: Readonly<Uint8Array>, lx: number, y: number, lz: number): number => {
   if (lx < 0 || lx >= CHUNK_SIZE || y < 0 || y >= CHUNK_HEIGHT || lz < 0 || lz >= CHUNK_SIZE) return AIR
   return blocks[y + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE]!
@@ -74,60 +63,57 @@ const getBlock = (blocks: Readonly<Uint8Array>, lx: number, y: number, lz: numbe
 const isAir = (blocks: Readonly<Uint8Array>, lx: number, y: number, lz: number): boolean =>
   getBlock(blocks, lx, y, lz) === AIR
 
-const isSolid = (blocks: Readonly<Uint8Array>, lx: number, y: number, lz: number): boolean =>
-  !isAir(blocks, lx, y, lz)
-
 const aoXPos = (blocks: Readonly<Uint8Array>, lx: number, y: number, lz: number): number => {
   let count = 0
-  if (isSolid(blocks, lx + 1, y + 1, lz)) count++
-  if (isSolid(blocks, lx + 1, y - 1, lz)) count++
-  if (isSolid(blocks, lx + 1, y, lz + 1)) count++
-  if (isSolid(blocks, lx + 1, y, lz - 1)) count++
+  if (getBlock(blocks, lx + 1, y + 1, lz) !== AIR) count++
+  if (getBlock(blocks, lx + 1, y - 1, lz) !== AIR) count++
+  if (getBlock(blocks, lx + 1, y, lz + 1) !== AIR) count++
+  if (getBlock(blocks, lx + 1, y, lz - 1) !== AIR) count++
   return Math.min(3, count)
 }
 
 const aoXNeg = (blocks: Readonly<Uint8Array>, lx: number, y: number, lz: number): number => {
   let count = 0
-  if (isSolid(blocks, lx - 1, y + 1, lz)) count++
-  if (isSolid(blocks, lx - 1, y - 1, lz)) count++
-  if (isSolid(blocks, lx - 1, y, lz + 1)) count++
-  if (isSolid(blocks, lx - 1, y, lz - 1)) count++
+  if (getBlock(blocks, lx - 1, y + 1, lz) !== AIR) count++
+  if (getBlock(blocks, lx - 1, y - 1, lz) !== AIR) count++
+  if (getBlock(blocks, lx - 1, y, lz + 1) !== AIR) count++
+  if (getBlock(blocks, lx - 1, y, lz - 1) !== AIR) count++
   return Math.min(3, count)
 }
 
 const aoYPos = (blocks: Readonly<Uint8Array>, lx: number, y: number, lz: number): number => {
   let count = 0
-  if (isSolid(blocks, lx + 1, y + 1, lz)) count++
-  if (isSolid(blocks, lx - 1, y + 1, lz)) count++
-  if (isSolid(blocks, lx, y + 1, lz + 1)) count++
-  if (isSolid(blocks, lx, y + 1, lz - 1)) count++
+  if (getBlock(blocks, lx + 1, y + 1, lz) !== AIR) count++
+  if (getBlock(blocks, lx - 1, y + 1, lz) !== AIR) count++
+  if (getBlock(blocks, lx, y + 1, lz + 1) !== AIR) count++
+  if (getBlock(blocks, lx, y + 1, lz - 1) !== AIR) count++
   return Math.min(3, count)
 }
 
 const aoYNeg = (blocks: Readonly<Uint8Array>, lx: number, y: number, lz: number): number => {
   let count = 0
-  if (isSolid(blocks, lx + 1, y - 1, lz)) count++
-  if (isSolid(blocks, lx - 1, y - 1, lz)) count++
-  if (isSolid(blocks, lx, y - 1, lz + 1)) count++
-  if (isSolid(blocks, lx, y - 1, lz - 1)) count++
+  if (getBlock(blocks, lx + 1, y - 1, lz) !== AIR) count++
+  if (getBlock(blocks, lx - 1, y - 1, lz) !== AIR) count++
+  if (getBlock(blocks, lx, y - 1, lz + 1) !== AIR) count++
+  if (getBlock(blocks, lx, y - 1, lz - 1) !== AIR) count++
   return Math.min(3, count)
 }
 
 const aoZPos = (blocks: Readonly<Uint8Array>, lx: number, y: number, lz: number): number => {
   let count = 0
-  if (isSolid(blocks, lx + 1, y, lz + 1)) count++
-  if (isSolid(blocks, lx - 1, y, lz + 1)) count++
-  if (isSolid(blocks, lx, y + 1, lz + 1)) count++
-  if (isSolid(blocks, lx, y - 1, lz + 1)) count++
+  if (getBlock(blocks, lx + 1, y, lz + 1) !== AIR) count++
+  if (getBlock(blocks, lx - 1, y, lz + 1) !== AIR) count++
+  if (getBlock(blocks, lx, y + 1, lz + 1) !== AIR) count++
+  if (getBlock(blocks, lx, y - 1, lz + 1) !== AIR) count++
   return Math.min(3, count)
 }
 
 const aoZNeg = (blocks: Readonly<Uint8Array>, lx: number, y: number, lz: number): number => {
   let count = 0
-  if (isSolid(blocks, lx + 1, y, lz - 1)) count++
-  if (isSolid(blocks, lx - 1, y, lz - 1)) count++
-  if (isSolid(blocks, lx, y + 1, lz - 1)) count++
-  if (isSolid(blocks, lx, y - 1, lz - 1)) count++
+  if (getBlock(blocks, lx + 1, y, lz - 1) !== AIR) count++
+  if (getBlock(blocks, lx - 1, y, lz - 1) !== AIR) count++
+  if (getBlock(blocks, lx, y + 1, lz - 1) !== AIR) count++
+  if (getBlock(blocks, lx, y - 1, lz - 1) !== AIR) count++
   return Math.min(3, count)
 }
 
@@ -138,15 +124,16 @@ const INITIAL_QUAD_CAPACITY = 8192
 const INITIAL_VERTEX_CAPACITY = INITIAL_QUAD_CAPACITY * 4  // 4 verts per quad
 const INITIAL_INDEX_CAPACITY = INITIAL_QUAD_CAPACITY * 6   // 6 indices per quad (2 triangles)
 
-interface MeshAccumulator {
-  positions: Float32Array
-  normals: Int8Array
-  colors: Uint8Array
-  uvs: Float32Array
-  indices: Uint32Array
-  vertexCount: number
-  indexCount: number
-}
+const MeshAccumulatorSchema = Schema.mutable(Schema.Struct({
+  positions: Schema.instanceOf(Float32Array),
+  normals: Schema.instanceOf(Int8Array),
+  colors: Schema.instanceOf(Uint8Array),
+  uvs: Schema.instanceOf(Float32Array),
+  indices: Schema.instanceOf(Uint32Array),
+  vertexCount: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+  indexCount: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+}))
+type MeshAccumulator = Schema.Schema.Type<typeof MeshAccumulatorSchema>
 
 const createAccumulator = (): MeshAccumulator => ({
   positions: new Float32Array(INITIAL_VERTEX_CAPACITY * 3),
@@ -226,9 +213,7 @@ const addQuad = (
 
   // UV coordinates from atlas tile lookup
   // NOTE: mask packs blockId in bits 0-7 (supports 0-255); current max is 11 (COBBLESTONE)
-  const cacheKey = blockId * 3 + FACE_DIR_INDEX[faceDir]
-  const cachedUVs = TILE_UV_CACHE[cacheKey] ??= getTileUVs(getTileIndex(blockId, faceDir))
-  const { u0, v0: tv0, u1, v1: tv1 } = cachedUVs
+  const { u0, v0: tv0, u1, v1: tv1 } = getTileUVs(getTileIndex(blockId, faceDir))
   const ui = base * 2
   acc.uvs[ui]     = u0; acc.uvs[ui + 1] = tv0
   acc.uvs[ui + 2] = u0; acc.uvs[ui + 3] = tv1
@@ -266,9 +251,10 @@ const runGreedyExpansion = (
   mask: Uint16Array,
   uSize: number,
   vSize: number,
+  doneBuf: Uint8Array,
   emitQuad: EmitQuad
 ): void => {
-  const done = _doneBuf.subarray(0, uSize * vSize)
+  const done = doneBuf.subarray(0, uSize * vSize)
   done.fill(0)
   for (let u = 0; u < uSize; u++) {
     for (let v = 0; v < vSize; v++) {
@@ -302,17 +288,27 @@ const runGreedyExpansion = (
 
 // ─── Main meshing function ───────────────────────────────────────────────────
 
-export interface GreedyMeshResult {
+export type GreedyMeshToMeshed = () => { opaque: MeshedChunk; water: MeshedChunk }
+
+export type GreedyMeshResult = {
   /** Zero-copy subarray views into accumulator buffers (valid until next greedyMeshChunk call) */
   readonly opaqueRaw: RawMeshData
   readonly waterRaw: RawMeshData | null
   /** Lazily produces sliced (owned) copies — call only when you need independent arrays */
-  readonly toMeshed: () => { opaque: MeshedChunk; water: MeshedChunk }
+  readonly toMeshed: GreedyMeshToMeshed
   /** Backward-compatible lazy accessor — calls toMeshed().opaque on first access */
   readonly opaque: MeshedChunk
   /** Backward-compatible lazy accessor — calls toMeshed().water on first access */
   readonly water: MeshedChunk
 }
+
+export const GreedyMeshResultSchema = Schema.Struct({
+  opaqueRaw: RawMeshDataSchema,
+  waterRaw: Schema.NullOr(RawMeshDataSchema),
+  toMeshed: Schema.declare((u): u is GreedyMeshToMeshed => typeof u === 'function'),
+  opaque: MeshedChunkSchema,
+  water: MeshedChunkSchema,
+})
 
 export const greedyMeshChunk = (
   chunk: Chunk,
@@ -321,17 +317,26 @@ export const greedyMeshChunk = (
 ): GreedyMeshResult => {
   const opaqueAcc = createAccumulator()
   let waterAcc: MeshAccumulator | null = null
+  const transparentLookup = new Uint8Array(256)
+  for (const blockId of transparentBlockIds) transparentLookup[blockId] = 1
+
+  const doneBuf = new Uint8Array(CHUNK_SIZE * CHUNK_HEIGHT)
+  const maskCH = new Uint16Array(CHUNK_SIZE * CHUNK_HEIGHT)
+  const maskSS = new Uint16Array(CHUNK_SIZE * CHUNK_SIZE)
 
   // Take a readonly snapshot for consistent reads in the hot loop
-  const blocks = chunk.blocks as Readonly<Uint8Array>
-  const maskCH = _maskCH
-  const maskSS = _maskSS
+  const blocks: Readonly<Uint8Array> = chunk.blocks
 
   // ── X+ faces (normal = +1,0,0) ──────────────────────────────────────────
   // Slice over lx; mask u-axis = lz, v-axis = y
   const passXPos = (): void => {
     const normal = [1, 0, 0] as const
     const mask = maskCH
+    const v0 = [0, 0, 0] as [number, number, number]
+    const v1 = [0, 0, 0] as [number, number, number]
+    const v2 = [0, 0, 0] as [number, number, number]
+    const v3 = [0, 0, 0] as [number, number, number]
+    const aoQuad = [0, 0, 0, 0] as [number, number, number, number]
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
       mask.fill(0)
       for (let lz = 0; lz < CHUNK_SIZE; lz++) {
@@ -343,19 +348,24 @@ export const greedyMeshChunk = (
           }
         }
       }
-      runGreedyExpansion(mask, CHUNK_SIZE, CHUNK_HEIGHT, (u0, v0, du, dv, blockId, ao) => {
-        const lz0 = u0, y0 = v0
+      runGreedyExpansion(mask, CHUNK_SIZE, CHUNK_HEIGHT, doneBuf, (u0, vCoord0, du, dv, blockId, ao) => {
+        const lz0 = u0, y0 = vCoord0
         const fx = offset.wx + lx + 1
-        const targetAcc = transparentBlockIds.has(blockId) ? (waterAcc ??= createAccumulator()) : opaqueAcc
+        const targetAcc = transparentLookup[blockId] !== 0 ? (waterAcc ??= createAccumulator()) : opaqueAcc
+        v0[0] = fx; v0[1] = y0; v0[2] = offset.wz + lz0
+        v1[0] = fx; v1[1] = y0 + dv; v1[2] = offset.wz + lz0
+        v2[0] = fx; v2[1] = y0 + dv; v2[2] = offset.wz + lz0 + du
+        v3[0] = fx; v3[1] = y0; v3[2] = offset.wz + lz0 + du
+        aoQuad[0] = ao; aoQuad[1] = ao; aoQuad[2] = ao; aoQuad[3] = ao
         addQuad(
           targetAcc,
-          [fx, y0,       offset.wz + lz0],
-          [fx, y0 + dv,  offset.wz + lz0],
-          [fx, y0 + dv,  offset.wz + lz0 + du],
-          [fx, y0,       offset.wz + lz0 + du],
+          v0,
+          v1,
+          v2,
+          v3,
           normal,
           blockId,
-          [ao, ao, ao, ao],
+          aoQuad,
           'side'
         )
       })
@@ -367,6 +377,11 @@ export const greedyMeshChunk = (
   const passXNeg = (): void => {
     const normal = [-1, 0, 0] as const
     const mask = maskCH
+    const v0 = [0, 0, 0] as [number, number, number]
+    const v1 = [0, 0, 0] as [number, number, number]
+    const v2 = [0, 0, 0] as [number, number, number]
+    const v3 = [0, 0, 0] as [number, number, number]
+    const aoQuad = [0, 0, 0, 0] as [number, number, number, number]
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
       mask.fill(0)
       for (let lz = 0; lz < CHUNK_SIZE; lz++) {
@@ -378,19 +393,24 @@ export const greedyMeshChunk = (
           }
         }
       }
-      runGreedyExpansion(mask, CHUNK_SIZE, CHUNK_HEIGHT, (u0, v0, du, dv, blockId, ao) => {
-        const lz0 = u0, y0 = v0
+      runGreedyExpansion(mask, CHUNK_SIZE, CHUNK_HEIGHT, doneBuf, (u0, vCoord0, du, dv, blockId, ao) => {
+        const lz0 = u0, y0 = vCoord0
         const fx = offset.wx + lx
-        const targetAcc = transparentBlockIds.has(blockId) ? (waterAcc ??= createAccumulator()) : opaqueAcc
+        const targetAcc = transparentLookup[blockId] !== 0 ? (waterAcc ??= createAccumulator()) : opaqueAcc
+        v0[0] = fx; v0[1] = y0; v0[2] = offset.wz + lz0 + du
+        v1[0] = fx; v1[1] = y0 + dv; v1[2] = offset.wz + lz0 + du
+        v2[0] = fx; v2[1] = y0 + dv; v2[2] = offset.wz + lz0
+        v3[0] = fx; v3[1] = y0; v3[2] = offset.wz + lz0
+        aoQuad[0] = ao; aoQuad[1] = ao; aoQuad[2] = ao; aoQuad[3] = ao
         addQuad(
           targetAcc,
-          [fx, y0,      offset.wz + lz0 + du],
-          [fx, y0 + dv, offset.wz + lz0 + du],
-          [fx, y0 + dv, offset.wz + lz0],
-          [fx, y0,      offset.wz + lz0],
+          v0,
+          v1,
+          v2,
+          v3,
           normal,
           blockId,
-          [ao, ao, ao, ao],
+          aoQuad,
           'side'
         )
       })
@@ -402,6 +422,11 @@ export const greedyMeshChunk = (
   const passYPos = (): void => {
     const normal = [0, 1, 0] as const
     const mask = maskSS
+    const v0 = [0, 0, 0] as [number, number, number]
+    const v1 = [0, 0, 0] as [number, number, number]
+    const v2 = [0, 0, 0] as [number, number, number]
+    const v3 = [0, 0, 0] as [number, number, number]
+    const aoQuad = [0, 0, 0, 0] as [number, number, number, number]
     for (let y = 0; y < CHUNK_HEIGHT; y++) {
       mask.fill(0)
       for (let lx = 0; lx < CHUNK_SIZE; lx++) {
@@ -413,19 +438,24 @@ export const greedyMeshChunk = (
           }
         }
       }
-      runGreedyExpansion(mask, CHUNK_SIZE, CHUNK_SIZE, (u0, v0, du, dv, blockId, ao) => {
-        const lx0 = u0, lz0 = v0
+      runGreedyExpansion(mask, CHUNK_SIZE, CHUNK_SIZE, doneBuf, (u0, vCoord0, du, dv, blockId, ao) => {
+        const lx0 = u0, lz0 = vCoord0
         const fy = y + 1
-        const targetAcc = transparentBlockIds.has(blockId) ? (waterAcc ??= createAccumulator()) : opaqueAcc
+        const targetAcc = transparentLookup[blockId] !== 0 ? (waterAcc ??= createAccumulator()) : opaqueAcc
+        v0[0] = offset.wx + lx0; v0[1] = fy; v0[2] = offset.wz + lz0
+        v1[0] = offset.wx + lx0; v1[1] = fy; v1[2] = offset.wz + lz0 + dv
+        v2[0] = offset.wx + lx0 + du; v2[1] = fy; v2[2] = offset.wz + lz0 + dv
+        v3[0] = offset.wx + lx0 + du; v3[1] = fy; v3[2] = offset.wz + lz0
+        aoQuad[0] = ao; aoQuad[1] = ao; aoQuad[2] = ao; aoQuad[3] = ao
         addQuad(
           targetAcc,
-          [offset.wx + lx0,      fy, offset.wz + lz0],
-          [offset.wx + lx0,      fy, offset.wz + lz0 + dv],
-          [offset.wx + lx0 + du, fy, offset.wz + lz0 + dv],
-          [offset.wx + lx0 + du, fy, offset.wz + lz0],
+          v0,
+          v1,
+          v2,
+          v3,
           normal,
           blockId,
-          [ao, ao, ao, ao],
+          aoQuad,
           'top'
         )
       })
@@ -437,6 +467,11 @@ export const greedyMeshChunk = (
   const passYNeg = (): void => {
     const normal = [0, -1, 0] as const
     const mask = maskSS
+    const v0 = [0, 0, 0] as [number, number, number]
+    const v1 = [0, 0, 0] as [number, number, number]
+    const v2 = [0, 0, 0] as [number, number, number]
+    const v3 = [0, 0, 0] as [number, number, number]
+    const aoQuad = [0, 0, 0, 0] as [number, number, number, number]
     for (let y = 0; y < CHUNK_HEIGHT; y++) {
       mask.fill(0)
       for (let lx = 0; lx < CHUNK_SIZE; lx++) {
@@ -448,19 +483,24 @@ export const greedyMeshChunk = (
           }
         }
       }
-      runGreedyExpansion(mask, CHUNK_SIZE, CHUNK_SIZE, (u0, v0, du, dv, blockId, ao) => {
-        const lx0 = u0, lz0 = v0
+      runGreedyExpansion(mask, CHUNK_SIZE, CHUNK_SIZE, doneBuf, (u0, vCoord0, du, dv, blockId, ao) => {
+        const lx0 = u0, lz0 = vCoord0
         const fy = y
-        const targetAcc = transparentBlockIds.has(blockId) ? (waterAcc ??= createAccumulator()) : opaqueAcc
+        const targetAcc = transparentLookup[blockId] !== 0 ? (waterAcc ??= createAccumulator()) : opaqueAcc
+        v0[0] = offset.wx + lx0 + du; v0[1] = fy; v0[2] = offset.wz + lz0
+        v1[0] = offset.wx + lx0 + du; v1[1] = fy; v1[2] = offset.wz + lz0 + dv
+        v2[0] = offset.wx + lx0; v2[1] = fy; v2[2] = offset.wz + lz0 + dv
+        v3[0] = offset.wx + lx0; v3[1] = fy; v3[2] = offset.wz + lz0
+        aoQuad[0] = ao; aoQuad[1] = ao; aoQuad[2] = ao; aoQuad[3] = ao
         addQuad(
           targetAcc,
-          [offset.wx + lx0 + du, fy, offset.wz + lz0],
-          [offset.wx + lx0 + du, fy, offset.wz + lz0 + dv],
-          [offset.wx + lx0,      fy, offset.wz + lz0 + dv],
-          [offset.wx + lx0,      fy, offset.wz + lz0],
+          v0,
+          v1,
+          v2,
+          v3,
           normal,
           blockId,
-          [ao, ao, ao, ao],
+          aoQuad,
           'bottom'
         )
       })
@@ -472,6 +512,11 @@ export const greedyMeshChunk = (
   const passZPos = (): void => {
     const normal = [0, 0, 1] as const
     const mask = maskCH
+    const v0 = [0, 0, 0] as [number, number, number]
+    const v1 = [0, 0, 0] as [number, number, number]
+    const v2 = [0, 0, 0] as [number, number, number]
+    const v3 = [0, 0, 0] as [number, number, number]
+    const aoQuad = [0, 0, 0, 0] as [number, number, number, number]
     for (let lz = 0; lz < CHUNK_SIZE; lz++) {
       mask.fill(0)
       for (let lx = 0; lx < CHUNK_SIZE; lx++) {
@@ -483,19 +528,24 @@ export const greedyMeshChunk = (
           }
         }
       }
-      runGreedyExpansion(mask, CHUNK_SIZE, CHUNK_HEIGHT, (u0, v0, du, dv, blockId, ao) => {
-        const lx0 = u0, y0 = v0
+      runGreedyExpansion(mask, CHUNK_SIZE, CHUNK_HEIGHT, doneBuf, (u0, vCoord0, du, dv, blockId, ao) => {
+        const lx0 = u0, y0 = vCoord0
         const fz = offset.wz + lz + 1
-        const targetAcc = transparentBlockIds.has(blockId) ? (waterAcc ??= createAccumulator()) : opaqueAcc
+        const targetAcc = transparentLookup[blockId] !== 0 ? (waterAcc ??= createAccumulator()) : opaqueAcc
+        v0[0] = offset.wx + lx0 + du; v0[1] = y0; v0[2] = fz
+        v1[0] = offset.wx + lx0 + du; v1[1] = y0 + dv; v1[2] = fz
+        v2[0] = offset.wx + lx0; v2[1] = y0 + dv; v2[2] = fz
+        v3[0] = offset.wx + lx0; v3[1] = y0; v3[2] = fz
+        aoQuad[0] = ao; aoQuad[1] = ao; aoQuad[2] = ao; aoQuad[3] = ao
         addQuad(
           targetAcc,
-          [offset.wx + lx0 + du, y0,      fz],
-          [offset.wx + lx0 + du, y0 + dv, fz],
-          [offset.wx + lx0,      y0 + dv, fz],
-          [offset.wx + lx0,      y0,      fz],
+          v0,
+          v1,
+          v2,
+          v3,
           normal,
           blockId,
-          [ao, ao, ao, ao],
+          aoQuad,
           'side'
         )
       })
@@ -507,6 +557,11 @@ export const greedyMeshChunk = (
   const passZNeg = (): void => {
     const normal = [0, 0, -1] as const
     const mask = maskCH
+    const v0 = [0, 0, 0] as [number, number, number]
+    const v1 = [0, 0, 0] as [number, number, number]
+    const v2 = [0, 0, 0] as [number, number, number]
+    const v3 = [0, 0, 0] as [number, number, number]
+    const aoQuad = [0, 0, 0, 0] as [number, number, number, number]
     for (let lz = 0; lz < CHUNK_SIZE; lz++) {
       mask.fill(0)
       for (let lx = 0; lx < CHUNK_SIZE; lx++) {
@@ -518,19 +573,24 @@ export const greedyMeshChunk = (
           }
         }
       }
-      runGreedyExpansion(mask, CHUNK_SIZE, CHUNK_HEIGHT, (u0, v0, du, dv, blockId, ao) => {
-        const lx0 = u0, y0 = v0
+      runGreedyExpansion(mask, CHUNK_SIZE, CHUNK_HEIGHT, doneBuf, (u0, vCoord0, du, dv, blockId, ao) => {
+        const lx0 = u0, y0 = vCoord0
         const fz = offset.wz + lz
-        const targetAcc = transparentBlockIds.has(blockId) ? (waterAcc ??= createAccumulator()) : opaqueAcc
+        const targetAcc = transparentLookup[blockId] !== 0 ? (waterAcc ??= createAccumulator()) : opaqueAcc
+        v0[0] = offset.wx + lx0; v0[1] = y0; v0[2] = fz
+        v1[0] = offset.wx + lx0; v1[1] = y0 + dv; v1[2] = fz
+        v2[0] = offset.wx + lx0 + du; v2[1] = y0 + dv; v2[2] = fz
+        v3[0] = offset.wx + lx0 + du; v3[1] = y0; v3[2] = fz
+        aoQuad[0] = ao; aoQuad[1] = ao; aoQuad[2] = ao; aoQuad[3] = ao
         addQuad(
           targetAcc,
-          [offset.wx + lx0,      y0,      fz],
-          [offset.wx + lx0,      y0 + dv, fz],
-          [offset.wx + lx0 + du, y0 + dv, fz],
-          [offset.wx + lx0 + du, y0,      fz],
+          v0,
+          v1,
+          v2,
+          v3,
           normal,
           blockId,
-          [ao, ao, ao, ao],
+          aoQuad,
           'side'
         )
       })
@@ -544,15 +604,16 @@ export const greedyMeshChunk = (
   passZPos()
   passZNeg()
 
-  const toRawMeshData = (a: MeshAccumulator): RawMeshData => ({
-    positions: a.positions.subarray(0, a.vertexCount * 3),
-    normals: a.normals.subarray(0, a.vertexCount * 3),
-    colors: a.colors.subarray(0, a.vertexCount * 3),
-    uvs: a.uvs.subarray(0, a.vertexCount * 2),
-    indices: a.indices.subarray(0, a.indexCount),
-    vertexCount: a.vertexCount,
-    indexCount: a.indexCount,
-  })
+  const toRawMeshData = (a: MeshAccumulator): RawMeshData =>
+    Schema.decodeUnknownSync(RawMeshDataSchema)({
+      positions: a.positions.subarray(0, a.vertexCount * 3),
+      normals: a.normals.subarray(0, a.vertexCount * 3),
+      colors: a.colors.subarray(0, a.vertexCount * 3),
+      uvs: a.uvs.subarray(0, a.vertexCount * 2),
+      indices: a.indices.subarray(0, a.indexCount),
+      vertexCount: a.vertexCount,
+      indexCount: a.indexCount,
+    })
 
   const toMeshedChunk = (raw: RawMeshData): MeshedChunk => ({
     positions: raw.positions.slice(),

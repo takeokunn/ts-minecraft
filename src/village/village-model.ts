@@ -4,19 +4,19 @@ import { PositionSchema } from '@/shared/kernel'
 export const VillageIdSchema = Schema.String.pipe(Schema.brand('VillageId'))
 export type VillageId = Schema.Schema.Type<typeof VillageIdSchema>
 export const VillageId = {
-  make: (value: string): VillageId => value as unknown as VillageId,
+  make: (value: string): VillageId => Schema.decodeUnknownSync(VillageIdSchema)(value),
 }
 
 export const VillageStructureIdSchema = Schema.String.pipe(Schema.brand('VillageStructureId'))
 export type VillageStructureId = Schema.Schema.Type<typeof VillageStructureIdSchema>
 export const VillageStructureId = {
-  make: (value: string): VillageStructureId => value as unknown as VillageStructureId,
+  make: (value: string): VillageStructureId => Schema.decodeUnknownSync(VillageStructureIdSchema)(value),
 }
 
 export const VillagerIdSchema = Schema.String.pipe(Schema.brand('VillagerId'))
 export type VillagerId = Schema.Schema.Type<typeof VillagerIdSchema>
 export const VillagerId = {
-  make: (value: string): VillagerId => value as unknown as VillagerId,
+  make: (value: string): VillagerId => Schema.decodeUnknownSync(VillagerIdSchema)(value),
 }
 
 export const VillageStructureTypeSchema = Schema.Literal('house', 'road', 'well', 'farm')

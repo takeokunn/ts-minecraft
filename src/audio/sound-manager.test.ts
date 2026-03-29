@@ -11,6 +11,7 @@ const makeFakeAudioEngine = () => {
   let nextToneId = 1
 
   const engine: AudioEngineService = {
+    _tag: '@minecraft/audio/AudioEngine' as const,
     playTone: (request) =>
       Effect.sync(() => {
         playRequests.push(request)

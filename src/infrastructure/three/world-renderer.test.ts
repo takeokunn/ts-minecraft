@@ -140,13 +140,14 @@ const buildTestLayer = (
   createChunkMesh: ReturnType<typeof vi.fn> = vi.fn((chunk: Chunk) =>
     Effect.succeed({ opaqueMesh: makeMockMesh(chunk.coord) as unknown as THREE.Mesh, waterMesh: Option.none<THREE.Mesh>() })
   ),
+  updateChunkMesh: ReturnType<typeof vi.fn> = vi.fn((_m: THREE.Mesh, w: Option.Option<THREE.Mesh>) => Effect.succeed(w)),
   sceneAdd: ReturnType<typeof vi.fn> = vi.fn((_s: unknown, _m: unknown) => Effect.void),
   sceneRemove: ReturnType<typeof vi.fn> = vi.fn((_s: unknown, _m: unknown) => Effect.void)
 ) => {
   const chunkMeshLayer = Layer.succeed(ChunkMeshService, {
     atlasTexture: {} as THREE.Texture,
     createChunkMesh,
-    updateChunkMesh: vi.fn((_m: THREE.Mesh, _w: Option.Option<THREE.Mesh>, _c: Chunk) => Effect.void),
+    updateChunkMesh,
     disposeMesh: vi.fn((_m: THREE.Mesh) => Effect.void),
   } as unknown as ChunkMeshService)
 
@@ -197,6 +198,7 @@ const makeRenderer = (): THREE.WebGLRenderer =>
   ({
     setRenderTarget: vi.fn(),
     render: vi.fn(),
+    shadowMap: { autoUpdate: true, needsUpdate: false },
   } as unknown as THREE.WebGLRenderer)
 
   describe('syncChunksToScene', () => {
@@ -290,6 +292,29 @@ const makeRenderer = (): THREE.WebGLRenderer =>
         yield* s.doRefractionPrePass(renderer, scene, camera)
         expect(renderer.setRenderTarget).not.toHaveBeenCalled()
         expect(renderer.render).not.toHaveBeenCalled()
+      }).pipe(Effect.provide(TestLayer))
+    })
+
+    it.effect('should skip a repeated refraction pass when camera and scene are unchanged', () => {
+      const TestLayer = buildTestLayer()
+      const scene = makeScene()
+      const renderer = makeRenderer()
+      const camera = new THREE.PerspectiveCamera()
+      const chunk = makeChunk(0, 0)
+      chunk.blocks[0] = 6
+
+      return Effect.gen(function* () {
+        const s = yield* WorldRendererService
+        yield* s.syncChunksToScene([chunk], scene)
+
+        yield* s.doRefractionPrePass(renderer, scene, camera)
+        const renderCallsAfterFirstPass = (renderer.render as ReturnType<typeof vi.fn>).mock.calls.length
+
+        yield* s.doRefractionPrePass(renderer, scene, camera)
+        const renderCallsAfterSecondPass = (renderer.render as ReturnType<typeof vi.fn>).mock.calls.length
+
+        expect(renderCallsAfterFirstPass).toBe(1)
+        expect(renderCallsAfterSecondPass).toBe(1)
       }).pipe(Effect.provide(TestLayer))
     })
   })
@@ -390,6 +415,39 @@ const makeRenderer = (): THREE.WebGLRenderer =>
         expect(addCountAfterUpdate).toBe(1) // no extra scene.add on update
       }).pipe(Effect.provide(TestLayer))
     })
+
+    it.effect('adds a water mesh when an updated chunk gains water', () => {
+      const TestLayer = buildTestLayer()
+      const scene = makeScene()
+      const chunk = makeChunk(2, 3)
+
+      return Effect.gen(function* () {
+        const s = yield* WorldRendererService
+        yield* s.syncChunksToScene([chunk], scene)
+        const addCountBeforeUpdate = (scene.add as ReturnType<typeof vi.fn>).mock.calls.length
+        chunk.blocks[0] = 6
+        yield* s.updateChunkInScene(chunk, scene)
+
+        expect((scene.add as ReturnType<typeof vi.fn>).mock.calls.length).toBe(addCountBeforeUpdate + 1)
+      }).pipe(Effect.provide(TestLayer))
+    })
+
+    it.effect('removes a water mesh when an updated chunk loses water', () => {
+      const TestLayer = buildTestLayer()
+      const scene = makeScene()
+      const chunk = makeChunk(4, 4)
+      chunk.blocks[0] = 6
+
+      return Effect.gen(function* () {
+        const s = yield* WorldRendererService
+        yield* s.syncChunksToScene([chunk], scene)
+        const removeCountBeforeUpdate = (scene.remove as ReturnType<typeof vi.fn>).mock.calls.length
+        chunk.blocks[0] = 0
+        yield* s.updateChunkInScene(chunk, scene)
+
+        expect((scene.remove as ReturnType<typeof vi.fn>).mock.calls.length).toBe(removeCountBeforeUpdate + 1)
+      }).pipe(Effect.provide(TestLayer))
+    })
   })
 
   // ---------------------------------------------------------------------------
@@ -418,6 +476,58 @@ const makeRenderer = (): THREE.WebGLRenderer =>
         yield* s.syncChunksToScene([makeChunk(0, 0), makeChunk(1, 0)], scene)
         yield* s.applyFrustumCulling(camera)
         // All meshes visible (intersectsBox = true from default mock)
+        Arr.forEach(mockMeshes, (mesh) => {
+          expect(mesh.visible).toBe(true)
+        })
+      }).pipe(Effect.provide(TestLayer))
+    })
+
+    it.effect('reuses the frustum cache when the camera pose is unchanged', () => {
+      const mockMeshes: ReturnType<typeof makeMockMesh>[] = []
+      const createChunkMesh = vi.fn((chunk: Chunk) => {
+        const mesh = makeMockMesh(chunk.coord)
+        mockMeshes.push(mesh)
+        return Effect.succeed({ opaqueMesh: mesh as unknown as THREE.Mesh, waterMesh: Option.none<THREE.Mesh>() })
+      })
+      const TestLayer = buildTestLayer(createChunkMesh)
+      const scene = makeScene()
+      const camera = new THREE.PerspectiveCamera()
+      const updateMatrixWorldSpy = vi.spyOn(camera, 'updateMatrixWorld')
+
+      return Effect.gen(function* () {
+        const s = yield* WorldRendererService
+        yield* s.syncChunksToScene([makeChunk(0, 0), makeChunk(1, 0)], scene)
+        yield* s.applyFrustumCulling(camera)
+        yield* s.applyFrustumCulling(camera)
+
+        expect(updateMatrixWorldSpy).toHaveBeenCalledTimes(1)
+        Arr.forEach(mockMeshes, (mesh) => {
+          expect(mesh.visible).toBe(true)
+        })
+      }).pipe(Effect.provide(TestLayer))
+    })
+
+    it.effect('invalidates the frustum cache after chunk sync changes the scene', () => {
+      const mockMeshes: ReturnType<typeof makeMockMesh>[] = []
+      const createChunkMesh = vi.fn((chunk: Chunk) => {
+        const mesh = makeMockMesh(chunk.coord)
+        mockMeshes.push(mesh)
+        return Effect.succeed({ opaqueMesh: mesh as unknown as THREE.Mesh, waterMesh: Option.none<THREE.Mesh>() })
+      })
+      const TestLayer = buildTestLayer(createChunkMesh)
+      const scene = makeScene()
+      const camera = new THREE.PerspectiveCamera()
+      const updateMatrixWorldSpy = vi.spyOn(camera, 'updateMatrixWorld')
+
+      return Effect.gen(function* () {
+        const s = yield* WorldRendererService
+        yield* s.syncChunksToScene([makeChunk(0, 0)], scene)
+        yield* s.applyFrustumCulling(camera)
+
+        yield* s.syncChunksToScene([makeChunk(0, 0), makeChunk(1, 0)], scene)
+        yield* s.applyFrustumCulling(camera)
+
+        expect(updateMatrixWorldSpy).toHaveBeenCalledTimes(2)
         Arr.forEach(mockMeshes, (mesh) => {
           expect(mesh.visible).toBe(true)
         })

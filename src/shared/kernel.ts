@@ -12,61 +12,37 @@ import { Schema } from 'effect'
 export const WorldIdSchema = Schema.String.pipe(Schema.brand('WorldId'))
 export type WorldId = Schema.Schema.Type<typeof WorldIdSchema>
 export const WorldId = {
-  // make() uses a direct cast because the only constraint is "must be a string",
-  // which TypeScript already enforces at compile time via the `s: string` parameter.
-  // Contrast with numeric companions (SlotIndex, DeltaTimeSecs) where make() uses
-  // decodeUnknownSync to validate range constraints (int, positive, etc.) at runtime.
-  make: (s: string): WorldId => s as unknown as WorldId,
+  make: (s: string): WorldId => Schema.decodeUnknownSync(WorldIdSchema)(s),
 }
 
 export const PlayerIdSchema = Schema.String.pipe(Schema.brand('PlayerId'))
 export type PlayerId = Schema.Schema.Type<typeof PlayerIdSchema>
 export const PlayerId = {
-  // make() uses a direct cast because the only constraint is "must be a string",
-  // which TypeScript already enforces at compile time via the `s: string` parameter.
-  // Contrast with numeric companions (SlotIndex, DeltaTimeSecs) where make() uses
-  // decodeUnknownSync to validate range constraints (int, positive, etc.) at runtime.
-  make: (s: string): PlayerId => s as unknown as PlayerId,
+  make: (s: string): PlayerId => Schema.decodeUnknownSync(PlayerIdSchema)(s),
 }
 
 export const BlockIdSchema = Schema.String.pipe(Schema.brand('BlockId'))
 export type BlockId = Schema.Schema.Type<typeof BlockIdSchema>
 export const BlockId = {
-  // make() uses a direct cast because the only constraint is "must be a string",
-  // which TypeScript already enforces at compile time via the `s: string` parameter.
-  // Contrast with numeric companions (SlotIndex, DeltaTimeSecs) where make() uses
-  // decodeUnknownSync to validate range constraints (int, positive, etc.) at runtime.
-  make: (s: string): BlockId => s as unknown as BlockId,
+  make: (s: string): BlockId => Schema.decodeUnknownSync(BlockIdSchema)(s),
 }
 
 export const PhysicsBodyIdSchema = Schema.String.pipe(Schema.brand('PhysicsBodyId'))
 export type PhysicsBodyId = Schema.Schema.Type<typeof PhysicsBodyIdSchema>
 export const PhysicsBodyId = {
-  // make() uses a direct cast because the only constraint is "must be a string",
-  // which TypeScript already enforces at compile time via the `s: string` parameter.
-  // Contrast with numeric companions (SlotIndex, DeltaTimeSecs) where make() uses
-  // decodeUnknownSync to validate range constraints (int, positive, etc.) at runtime.
-  make: (s: string): PhysicsBodyId => s as unknown as PhysicsBodyId,
+  make: (s: string): PhysicsBodyId => Schema.decodeUnknownSync(PhysicsBodyIdSchema)(s),
 }
 
 export const ChunkIdSchema = Schema.String.pipe(Schema.brand('ChunkId'))
 export type ChunkId = Schema.Schema.Type<typeof ChunkIdSchema>
 export const ChunkId = {
-  // make() uses a direct cast because the only constraint is "must be a string",
-  // which TypeScript already enforces at compile time via the `s: string` parameter.
-  // Contrast with numeric companions (SlotIndex, DeltaTimeSecs) where make() uses
-  // decodeUnknownSync to validate range constraints (int, positive, etc.) at runtime.
-  make: (s: string): ChunkId => s as unknown as ChunkId,
+  make: (s: string): ChunkId => Schema.decodeUnknownSync(ChunkIdSchema)(s),
 }
 
 export const RecipeIdSchema = Schema.String.pipe(Schema.brand('RecipeId'))
 export type RecipeId = Schema.Schema.Type<typeof RecipeIdSchema>
 export const RecipeId = {
-  // make() uses a direct cast because the only constraint is "must be a string",
-  // which TypeScript already enforces at compile time via the `s: string` parameter.
-  // Contrast with numeric companions (SlotIndex, DeltaTimeSecs) where make() uses
-  // decodeUnknownSync to validate range constraints (int, positive, etc.) at runtime.
-  make: (s: string): RecipeId => s as unknown as RecipeId,
+  make: (s: string): RecipeId => Schema.decodeUnknownSync(RecipeIdSchema)(s),
 }
 
 // ---------------------------------------------------------------------------
@@ -82,7 +58,7 @@ export type SlotIndex = Schema.Schema.Type<typeof SlotIndexSchema>
 export const SlotIndex = {
   make: (n: number): SlotIndex => Schema.decodeUnknownSync(SlotIndexSchema)(n),
   // Brand is a nominal type tag only; the underlying value is always a plain number
-  toNumber: (idx: SlotIndex): number => idx as unknown as number,
+  toNumber: (idx: SlotIndex): number => idx,
 }
 
 export const DeltaTimeSecsSchema = Schema.Number.pipe(
@@ -123,7 +99,7 @@ export type Position = Schema.Schema.Type<typeof PositionSchema>
 export const ChunkCacheKeySchema = Schema.String.pipe(Schema.brand('ChunkCacheKey'))
 export type ChunkCacheKey = Schema.Schema.Type<typeof ChunkCacheKeySchema>
 export const ChunkCacheKey = {
-  make: (coord: { x: number; z: number }): ChunkCacheKey => `${coord.x},${coord.z}` as unknown as ChunkCacheKey,
+  make: (coord: { x: number; z: number }): ChunkCacheKey => Schema.decodeUnknownSync(ChunkCacheKeySchema)(`${coord.x},${coord.z}`),
 }
 
 /**
@@ -133,7 +109,7 @@ export const ChunkCacheKey = {
 export const TextureUrlSchema = Schema.String.pipe(Schema.brand('TextureUrl'))
 export type TextureUrl = Schema.Schema.Type<typeof TextureUrlSchema>
 export const TextureUrl = {
-  make: (url: string): TextureUrl => url as unknown as TextureUrl,
+  make: (url: string): TextureUrl => Schema.decodeUnknownSync(TextureUrlSchema)(url),
 }
 
 /**
@@ -144,7 +120,7 @@ export const MaterialCacheKeySchema = Schema.String.pipe(Schema.brand('MaterialC
 export type MaterialCacheKey = Schema.Schema.Type<typeof MaterialCacheKeySchema>
 export const MaterialCacheKey = {
   make: (colorOrUrl: string | number): MaterialCacheKey =>
-    `material-${typeof colorOrUrl}-${colorOrUrl}` as unknown as MaterialCacheKey,
+    Schema.decodeUnknownSync(MaterialCacheKeySchema)(`material-${typeof colorOrUrl}-${colorOrUrl}`),
 }
 
 // ---------------------------------------------------------------------------
@@ -161,5 +137,5 @@ export const MetersPerSecSchema = Schema.Number.pipe(
 export type MetersPerSec = Schema.Schema.Type<typeof MetersPerSecSchema>
 export const MetersPerSec = {
   make: (n: number): MetersPerSec => Schema.decodeUnknownSync(MetersPerSecSchema)(n),
-  toNumber: (v: MetersPerSec): number => v as unknown as number,
+  toNumber: (v: MetersPerSec): number => v,
 }

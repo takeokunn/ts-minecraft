@@ -404,10 +404,38 @@ describe('BlockHighlightService', () => {
         const target1 = yield* blockHighlight.getTargetBlock()
         expect(target1).toEqual(Option.some({ x: 5, y: 10, z: 3 }))
 
+        yield* blockHighlight.invalidateCache()
+
         // Second update has no hit
         yield* blockHighlight.update(camera, scene)
         const result = yield* blockHighlight.getTargetBlock()
         expect(result).toEqual(Option.none())
+      }).pipe(Effect.provide(TestLayer))
+    })
+
+    it.effect('should reuse the cached raycast when camera pose is unchanged', () => {
+      const hitResult: RaycastHit = {
+        point: { x: 5.5, y: 10.5, z: 3.5 },
+        normal: { x: 0, y: 1, z: 0 },
+        distance: 2.5,
+        blockX: 5,
+        blockY: 10,
+        blockZ: 3,
+      }
+      const mockRaycastingService = createMockRaycastingService(Option.some(hitResult))
+      const MockLayer = Layer.succeed(RaycastingService, mockRaycastingService)
+      const TestLayer = BlockHighlightLive.pipe(Layer.provide(MockLayer))
+
+      const { scene } = createMockScene()
+      const camera = createMockCamera()
+
+      return Effect.gen(function* () {
+        const blockHighlight = yield* BlockHighlightService
+        yield* blockHighlight.initialize(scene)
+        yield* blockHighlight.update(camera, scene)
+        yield* blockHighlight.update(camera, scene)
+
+        expect(mockRaycastingService.raycastFromCamera).toHaveBeenCalledOnce()
       }).pipe(Effect.provide(TestLayer))
     })
 
@@ -475,10 +503,14 @@ describe('BlockHighlightService', () => {
         let target = yield* blockHighlight.getTargetBlock()
         expect(target).toEqual(Option.some({ x: 1, y: 2, z: 3 }))
 
+        yield* blockHighlight.invalidateCache()
+
         // Second update: no hit
         yield* blockHighlight.update(camera, scene)
         target = yield* blockHighlight.getTargetBlock()
         expect(target).toEqual(Option.none())
+
+        yield* blockHighlight.invalidateCache()
 
         // Third update: hit again
         yield* blockHighlight.update(camera, scene)
@@ -530,7 +562,8 @@ describe('BlockHighlightService', () => {
         yield* blockHighlight.initialize(scene)
 
         const results = yield* Effect.forEach(positions, (_pos) =>
-          blockHighlight.update(camera, scene).pipe(
+          blockHighlight.invalidateCache().pipe(
+            Effect.andThen(blockHighlight.update(camera, scene)),
             Effect.andThen(blockHighlight.getTargetBlock())
           ), { concurrency: 1 })
 

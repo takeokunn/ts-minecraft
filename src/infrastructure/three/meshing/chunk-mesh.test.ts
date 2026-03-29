@@ -65,12 +65,13 @@ const ChunkMeshServiceTest = Layer.succeed(
           return { opaqueMesh, waterMesh: Option.none() }
         }),
 
-      updateChunkMesh: (opaqueMesh: THREE.Mesh, _waterMesh: Option.Option<THREE.Mesh>, chunk: Chunk): Effect.Effect<void, never> =>
+      updateChunkMesh: (opaqueMesh: THREE.Mesh, _waterMesh: Option.Option<THREE.Mesh>, chunk: Chunk): Effect.Effect<Option.Option<THREE.Mesh>, never> =>
         Effect.sync(() => {
           const oldGeometry = opaqueMesh.geometry
           opaqueMesh.geometry = buildGeometry(chunk)
           opaqueMesh.userData['chunkCoord'] = chunk.coord
           oldGeometry.dispose()
+          return _waterMesh
         }),
 
       disposeMesh: (mesh: THREE.Mesh): Effect.Effect<void, never> =>

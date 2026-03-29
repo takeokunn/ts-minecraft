@@ -53,7 +53,7 @@ export class TradingPresentationService extends Effect.Service<TradingPresentati
           }
         }
 
-        const root = dom.createElement('div') as HTMLDivElement
+        const root = dom.createElement('div')
         root.id = 'trading-overlay'
         root.style.cssText = [
           'position:fixed',
@@ -72,17 +72,17 @@ export class TradingPresentationService extends Effect.Service<TradingPresentati
           'border:1px solid #4d4d4d',
         ].join(';')
 
-        const title = dom.createElement('div') as HTMLDivElement
+        const title = dom.createElement('div')
         title.style.cssText = 'font-size:16px;font-weight:bold;margin-bottom:8px'
         title.textContent = 'Trading'
 
-        const currency = dom.createElement('div') as HTMLDivElement
+        const currency = dom.createElement('div')
         currency.style.cssText = 'font-size:12px;color:#ddd;margin-bottom:8px'
 
-        const list = dom.createElement('div') as HTMLDivElement
+        const list = dom.createElement('div')
         list.style.cssText = 'display:flex;flex-direction:column;gap:4px;margin-bottom:8px;max-height:180px;overflow:auto'
 
-        const status = dom.createElement('div') as HTMLDivElement
+        const status = dom.createElement('div')
         status.style.cssText = 'font-size:12px;color:#b0b0b0'
         status.textContent = 'T: open/close, ↑↓: select, Enter: trade, Esc: close'
 

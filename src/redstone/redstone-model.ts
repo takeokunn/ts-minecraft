@@ -9,7 +9,7 @@ export const RedstonePowerLevelSchema = Schema.Number.pipe(
 export type RedstonePowerLevel = Schema.Schema.Type<typeof RedstonePowerLevelSchema>
 export const RedstonePowerLevel = {
   make: (n: number): RedstonePowerLevel => Schema.decodeUnknownSync(RedstonePowerLevelSchema)(n),
-  toNumber: (p: RedstonePowerLevel): number => p as unknown as number,
+  toNumber: (p: RedstonePowerLevel): number => Number(p),
 }
 
 export const RedstoneComponentTypeSchema = Schema.Literal('wire', 'lever', 'button', 'torch', 'piston')

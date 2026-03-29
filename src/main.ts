@@ -1,4 +1,4 @@
-import { Array as Arr, Cause, Clock, Duration, Effect, Option, Random, Ref, Schedule } from 'effect'
+import { Array as Arr, Cause, Clock, Duration, Effect, Option, Random, Ref, Schedule, Schema, MutableRef } from 'effect'
 import { StartupError } from '@/domain/errors'
 import * as THREE from 'three'
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
@@ -38,6 +38,7 @@ import { InventoryRendererService } from '@/presentation/inventory/inventory-ren
 import { GameLoopService } from '@/application/game-loop'
 import { HealthService } from '@/application/player/health-service'
 import { MusicManager, SoundManager } from '@/audio'
+import { DeltaTimeSecs } from '@/shared/kernel'
 import { EntityManager } from '@/entity/entityManager'
 import { MobSpawner } from '@/entity/spawner'
 import { VillageService } from '@/village/village-service'
@@ -49,6 +50,8 @@ import { MAX_SHADOW_HALF_EXTENT } from '@/shared/rendering-constants'
 
 import { MainLive } from '@/layers'
 import { createFrameHandler } from '@/frame-handler'
+import { type ColorPort } from '@/shared/math/three'
+import { SkyMaterialPortSchema } from '@/shared/math/three/day-night-port'
 
 import { WorldId } from '@/shared/kernel'
 
@@ -66,9 +69,11 @@ const SKY_COLOR_DAY = 0x87ceeb  // sky blue
 const mainProgram = Effect.gen(function* () {
   // Get canvas element
   const canvas = yield* Effect.sync(() => document.getElementById('game-canvas')).pipe(
-    Effect.flatMap((el) => el
-      ? Effect.succeed(el as HTMLCanvasElement)
-      : Effect.fail(new StartupError({ reason: 'Canvas element not found' }))),
+    Effect.flatMap((el) =>
+      el instanceof HTMLCanvasElement
+        ? Effect.succeed(el)
+        : Effect.fail(new StartupError({ reason: 'Canvas element not found' }))
+    ),
     Effect.mapError((error) =>
       error instanceof StartupError ? error : new StartupError({ reason: 'Failed to get canvas', cause: error })
     )
@@ -242,7 +247,7 @@ const mainProgram = Effect.gen(function* () {
   )
 
   // Initialize: load chunks around spawn position, sync to scene
-  yield* chunkManagerService.loadChunksAroundPlayer(baseSpawnPosition)
+  yield* chunkManagerService.loadChunksAroundPlayer(baseSpawnPosition, initialSettings.renderDistance)
   const initialChunks = yield* chunkManagerService.getLoadedChunks()
   yield* worldRendererService.syncChunksToScene(initialChunks, scene)
 
@@ -251,7 +256,7 @@ const mainProgram = Effect.gen(function* () {
   // This aligns the physics ground plane with the visual terrain surface.
   const spawnChunk = yield* chunkManagerService.getChunk({ x: 0, z: 0 })
   // readonly snapshot for spawn height detection
-  const spawnBlocks = spawnChunk.blocks as Readonly<Uint8Array>
+  const spawnBlocks: Readonly<Uint8Array> = spawnChunk.blocks
   // surfaceY is the block INDEX of the highest solid block.
   // The visual top surface of that block is at surfaceY + 1 (blocks render as [y, y+1] cubes).
   // Spawn player 3 blocks above the visual terrain surface.
@@ -306,18 +311,22 @@ const mainProgram = Effect.gen(function* () {
   })
   yield* sceneService.add(scene, sky)
   const skyPort = yield* Effect.sync(() => {
-    const skyShaderMaterial = sky.material as THREE.ShaderMaterial
+    const skyMaterial = Array.isArray(sky.material) ? sky.material[0] : sky.material
+    if (!(skyMaterial instanceof THREE.ShaderMaterial)) {
+      throw new StartupError({ reason: 'Sky material is not a ShaderMaterial' })
+    }
+    const skyShaderMaterial = skyMaterial
     Option.match(Option.fromNullable(skyShaderMaterial.uniforms['mieCoefficient']), { onNone: () => {}, onSome: (u) => { u.value = 0.005 } })
     Option.match(Option.fromNullable(skyShaderMaterial.uniforms['mieDirectionalG']), { onNone: () => {}, onSome: (u) => { u.value = 0.7 } })
 
     // SkyMaterialPort: duck-typed view of sky uniforms for DayNightLightsPort
-    return {
+    return Schema.decodeUnknownSync(SkyMaterialPortSchema)({
       uniforms: {
-        sunPosition: skyShaderMaterial.uniforms['sunPosition'] as { value: { set(x: number, y: number, z: number): void } },
-        turbidity: skyShaderMaterial.uniforms['turbidity'] as { value: number },
-        rayleigh: skyShaderMaterial.uniforms['rayleigh'] as { value: number },
+        sunPosition: skyShaderMaterial.uniforms['sunPosition'],
+        turbidity: skyShaderMaterial.uniforms['turbidity'],
+        rayleigh: skyShaderMaterial.uniforms['rayleigh'],
       },
-    } satisfies import('@/shared/math/three/day-night-port').SkyMaterialPort
+    })
   })
 
   // Precomputed sky colors for smooth day/night lerp
@@ -345,55 +354,25 @@ const mainProgram = Effect.gen(function* () {
 
   // Canvas resize handler: update renderer, camera, composer, and all resolution-dependent passes.
   // Without this, resizing the browser window produces stretched/blurry rendering.
+  type PendingResize = { readonly width: number; readonly height: number }
+  const pendingResizeRef = MutableRef.make<Option.Option<PendingResize>>(Option.none())
+  const pendingSaveDirtyChunksRef = MutableRef.make(false)
+
   const handleResize = () => {
     const w = canvas.clientWidth
     const h = canvas.clientHeight
     if (w === 0 || h === 0) return
-    const dpr = Math.min(window.devicePixelRatio, 2)
-    renderer.setPixelRatio(dpr)
-    renderer.setSize(w, h)
-    camera.aspect = w / h
-    camera.updateProjectionMatrix()
-    composerRT.setSize(w, h)
-    composer.setSize(w, h)
-    // Only resize passes that were created AND are currently enabled — prevents VRAM
-    // re-expansion on window resize for passes disabled by graphics preset (FR-006).
-    // The frame handler manages each pass's `enabled` flag based on settings.
-    const gtaoOrNull = Option.getOrNull(gtaoPass)
-    const bloomOrNull = Option.getOrNull(bloomPass)
-    const bokehOrNull = Option.getOrNull(bokehPass)
-    const smaaOrNull = Option.getOrNull(smaaPass)
-    const godRaysOrNull = Option.getOrNull(godRaysPass)
-    if (gtaoOrNull && gtaoOrNull.enabled) gtaoOrNull.setSize(w, h)
-    if (bloomOrNull && bloomOrNull.enabled) bloomOrNull.setSize(w, h)
-    if (bokehOrNull && bokehOrNull.enabled) bokehOrNull.setSize(w, h)
-    if (smaaOrNull && smaaOrNull.enabled) smaaOrNull.setSize(w, h)
-    if (godRaysOrNull && godRaysOrNull.enabled) godRaysOrNull.setSize(w, h)
-    // Refraction RT stays at half canvas resolution — water distortion hides low-res detail
-    Effect.runFork(
-      Effect.all([
-        worldRendererService.resizeRefractionRT(Math.ceil(w / 2), Math.ceil(h / 2)),
-        worldRendererService.updateWaterResolution(w, h),
-        worldRendererService.resizeRefractionCamera(w / h),
-      ], { concurrency: 'unbounded', discard: true }).pipe(
-        Effect.catchAllCause((cause) => Effect.logError(`Resize error: ${Cause.pretty(cause)}`))
-      )
-    )
+    MutableRef.set(pendingResizeRef, Option.some({ width: w, height: h }))
   }
 
   // Define named handlers so removeEventListener can match the same reference
   const handleVisibilityChange = () => {
     if (document.hidden) {
-      // runFork is used in DOM event handlers (not runPromise) — fire-and-forget without blocking
-      Effect.runFork(
-        chunkManagerService.saveDirtyChunks().pipe(
-          Effect.catchAllCause(() => Effect.void)
-        )
-      )
+      MutableRef.set(pendingSaveDirtyChunksRef, true)
     }
   }
   const handleBeforeUnload = () => {
-    Effect.runFork(chunkManagerService.saveDirtyChunks().pipe(Effect.catchAllCause(() => Effect.void)))
+    MutableRef.set(pendingSaveDirtyChunksRef, true)
   }
   const handleCanvasClick = () => {
     Effect.runFork(
@@ -440,6 +419,9 @@ const mainProgram = Effect.gen(function* () {
 
   // Game pause state: true when a modal overlay (settings/inventory) is open
   const gamePausedRef = yield* Ref.make(false)
+  const dayNightRenderer = {
+    setClearColor: (color: ColorPort) => renderer.setClearColor(new THREE.Color().setRGB(color.r, color.g, color.b)),
+  }
 
   // Build frame handler: Three.js deps plus all explicit service instances.
   // Services are passed directly (not via Effect context) so R = never,
@@ -449,7 +431,7 @@ const mainProgram = Effect.gen(function* () {
       renderer,
       scene,
       camera,
-      lights: { light, ambientLight, renderer, skyNight, skyDay, skyCurrent, sky: Option.some(skyPort) },
+      lights: { light, ambientLight, renderer: dayNightRenderer, skyNight, skyDay, skyCurrent, sky: Option.some(skyPort) },
       skyMesh: Option.some(sky),
       fpsElement: Option.fromNullable(fpsElement),
       healthValueElement: Option.fromNullable(healthValueElement),
@@ -491,10 +473,53 @@ const mainProgram = Effect.gen(function* () {
     }
   )
 
+  const frameHandlerWithBrowserEvents = (deltaTime: DeltaTimeSecs) =>
+    Effect.gen(function* () {
+      const pendingSaveDirtyChunks = MutableRef.get(pendingSaveDirtyChunksRef)
+      MutableRef.set(pendingSaveDirtyChunksRef, false)
+      if (pendingSaveDirtyChunks) {
+        yield* chunkManagerService.saveDirtyChunks().pipe(
+          Effect.catchAllCause(() => Effect.void)
+        )
+      }
+
+      const pendingResize = MutableRef.get(pendingResizeRef)
+      MutableRef.set(pendingResizeRef, Option.none())
+
+      yield* Option.match(pendingResize, {
+        onNone: () => Effect.void,
+        onSome: ({ width, height }) =>
+          Effect.sync(() => {
+            const dpr = Math.min(window.devicePixelRatio, 2)
+            renderer.setPixelRatio(dpr)
+            renderer.setSize(width, height)
+            camera.aspect = width / height
+            camera.updateProjectionMatrix()
+            composerRT.setSize(width, height)
+            composer.setSize(width, height)
+            // Only resize passes that were created AND are currently enabled — prevents VRAM
+            // re-expansion on window resize for passes disabled by graphics preset (FR-006).
+            // The frame handler manages each pass's `enabled` flag based on settings.
+            const gtaoOrNull = Option.getOrNull(gtaoPass)
+            const bloomOrNull = Option.getOrNull(bloomPass)
+            const bokehOrNull = Option.getOrNull(bokehPass)
+            const smaaOrNull = Option.getOrNull(smaaPass)
+            const godRaysOrNull = Option.getOrNull(godRaysPass)
+            if (gtaoOrNull && gtaoOrNull.enabled) gtaoOrNull.setSize(width, height)
+            if (bloomOrNull && bloomOrNull.enabled) bloomOrNull.setSize(width, height)
+            if (bokehOrNull && bokehOrNull.enabled) bokehOrNull.setSize(width, height)
+            if (smaaOrNull && smaaOrNull.enabled) smaaOrNull.setSize(width, height)
+            if (godRaysOrNull && godRaysOrNull.enabled) godRaysOrNull.setSize(width, height)
+          }),
+      })
+
+      yield* frameHandler(deltaTime)
+    })
+
   yield* Effect.log('Game initialized — inventory, day/night cycle, and settings ready')
 
   // Start the game loop via GameLoopService
-  yield* gameLoopService.start(frameHandler)
+  yield* gameLoopService['start'](frameHandlerWithBrowserEvents)
 
   // Keep the scope alive for the entire application lifetime.
   // Effect.scoped would close all scoped resources (DOM elements, event listeners) the moment
@@ -504,12 +529,12 @@ const mainProgram = Effect.gen(function* () {
 })
 
 // Run program with all layers provided
-Effect.runPromise(
+Effect.runFork(
   mainProgram.pipe(
     Effect.scoped,
     Effect.provide(MainLive),
-    Effect.catchAllCause(cause =>
-      Effect.logError(`Startup failed: ${Cause.pretty(cause)}`)
+    Effect.catchAllCause((cause): Effect.Effect<void, never, never> =>
+      Effect.logError(`Startup failed: ${Cause.pretty(cause)}`).pipe(Effect.asVoid)
     ),
   ),
 )

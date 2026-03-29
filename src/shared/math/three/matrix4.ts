@@ -5,7 +5,7 @@ import { Schema } from 'effect'
 export const Matrix4Schema = Schema.Struct({
   elements: Schema.Array(Schema.Number.pipe(Schema.finite())).pipe(Schema.minItems(16), Schema.maxItems(16)),
 })
-export type Matrix4 = typeof Matrix4Schema.Type
+export type Matrix4 = Schema.Schema.Type<typeof Matrix4Schema>
 
 export const identity: Matrix4 = {
   elements: [

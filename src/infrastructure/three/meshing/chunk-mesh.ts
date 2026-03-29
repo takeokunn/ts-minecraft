@@ -58,32 +58,30 @@ const buildGeometry = (meshed: MeshedChunk): THREE.BufferGeometry => {
 // With worker-sourced data the .slice() allocation happens in the worker thread,
 // so the main thread only pays for the GPU copy here — no intermediate GC pressure.
 const tryReuseGeometry = (geometry: THREE.BufferGeometry, meshed: MeshedChunk): boolean => {
-  const oldPositionAttr = geometry.getAttribute('position') as THREE.BufferAttribute | undefined
-  if (!oldPositionAttr || oldPositionAttr.array.length < meshed.positions.length) return false
+  const oldPositionAttr = geometry.getAttribute('position')
+  if (!(oldPositionAttr instanceof THREE.BufferAttribute) || oldPositionAttr.count * 3 < meshed.positions.length) return false
 
-  ;(oldPositionAttr.array as Float32Array).set(meshed.positions)
-  ;(oldPositionAttr as { count: number }).count = meshed.positions.length / 3
+  oldPositionAttr.copyArray(meshed.positions)
   oldPositionAttr.needsUpdate = true
 
-  const normalAttr = geometry.getAttribute('normal') as THREE.BufferAttribute
-  ;(normalAttr.array as Int8Array).set(meshed.normals)
-  ;(normalAttr as { count: number }).count = meshed.normals.length / 3
+  const normalAttr = geometry.getAttribute('normal')
+  if (!(normalAttr instanceof THREE.BufferAttribute)) return false
+  normalAttr.copyArray(meshed.normals)
   normalAttr.needsUpdate = true
 
-  const colorAttr = geometry.getAttribute('color') as THREE.BufferAttribute
-  ;(colorAttr.array as Uint8Array).set(meshed.colors)
-  ;(colorAttr as { count: number }).count = meshed.colors.length / 3
+  const colorAttr = geometry.getAttribute('color')
+  if (!(colorAttr instanceof THREE.BufferAttribute)) return false
+  colorAttr.copyArray(meshed.colors)
   colorAttr.needsUpdate = true
 
-  const uvAttr = geometry.getAttribute('uv') as THREE.BufferAttribute
-  ;(uvAttr.array as Float32Array).set(meshed.uvs)
-  ;(uvAttr as { count: number }).count = meshed.uvs.length / 2
+  const uvAttr = geometry.getAttribute('uv')
+  if (!(uvAttr instanceof THREE.BufferAttribute)) return false
+  uvAttr.copyArray(meshed.uvs)
   uvAttr.needsUpdate = true
 
   const indexAttr = geometry.getIndex()
-  if (indexAttr && indexAttr.array.length >= meshed.indices.length) {
-    ;(indexAttr.array as Uint32Array).set(meshed.indices)
-    ;(indexAttr as { count: number }).count = meshed.indices.length
+  if (indexAttr instanceof THREE.BufferAttribute && indexAttr.count >= meshed.indices.length) {
+    indexAttr.copyArray(meshed.indices)
     indexAttr.needsUpdate = true
     geometry.setDrawRange(0, meshed.indices.length)
   } else {
@@ -95,35 +93,34 @@ const tryReuseGeometry = (geometry: THREE.BufferGeometry, meshed: MeshedChunk): 
 }
 
 const buildAtlasTexture = (): Effect.Effect<THREE.Texture, TextureError> =>
-  Effect.tryPromise({
-    try: async () => {
+  Effect.gen(function* () {
       const canvas = document.createElement('canvas')
       canvas.width = ATLAS_SIZE
       canvas.height = ATLAS_SIZE
       const ctx = canvas.getContext('2d')
       if (!ctx) {
-        // This throw is inside Effect.tryPromise's async callback, so it is
-        // caught by the `catch` handler and mapped to TextureError — not a defect.
         throw new Error('Failed to acquire 2D canvas context for atlas build')
       }
 
-      const drawImageTile = (url: string, tileIndex: number): Promise<void> => {
-        const img = new Image()
-        return new Promise<void>((resolve) => {
+      const drawImageTile = (url: string, tileIndex: number): Effect.Effect<void> =>
+        Effect.async((resume) => {
+          const img = new Image()
           img.onload = () => {
             const col = tileIndex % ATLAS_COLS
             const row = Math.floor(tileIndex / ATLAS_COLS)
             ctx.drawImage(img, col * TILE_PX, row * TILE_PX, TILE_PX, TILE_PX)
-            resolve()
+            resume(Effect.void)
           }
           img.onerror = (e) => {
-            // Use Effect.runFork to route the warning through Effect's logging infrastructure
             Effect.runFork(Effect.logWarning(`Failed to load texture: ${url} — ${String(e)}`))
-            resolve()
+            resume(Effect.void)
           }
           img.src = url
+          return Effect.sync(() => {
+            img.onload = null
+            img.onerror = null
+          })
         })
-      }
 
       const drawProceduralTile = (
         tileIndex: number,
@@ -134,14 +131,17 @@ const buildAtlasTexture = (): Effect.Effect<THREE.Texture, TextureError> =>
         drawFn(ctx, col * TILE_PX, row * TILE_PX)
       }
 
-      // Load existing texture files in parallel
-      await Promise.all([
-        drawImageTile('/textures/dirt.png', 0),
-        drawImageTile('/textures/stone.png', 1),
-        drawImageTile('/textures/wood.png', 2),   // wood side (bark)
-        drawImageTile('/textures/grass.png', 4),  // grass top
-        drawImageTile('/textures/sand.png', 6),
-      ])
+      yield* Effect.forEach(
+        [
+          ['/textures/dirt.png', 0],
+          ['/textures/stone.png', 1],
+          ['/textures/wood.png', 2],
+          ['/textures/grass.png', 4],
+          ['/textures/sand.png', 6],
+        ] as const,
+        ([url, tileIndex]) => drawImageTile(url, tileIndex),
+        { concurrency: 'unbounded' }
+      )
 
       // Generate procedural tiles for missing textures
 
@@ -319,9 +319,7 @@ const buildAtlasTexture = (): Effect.Effect<THREE.Texture, TextureError> =>
       texture.wrapS = THREE.ClampToEdgeWrapping
       texture.wrapT = THREE.ClampToEdgeWrapping
       return texture
-    },
-    catch: (cause) => new TextureError({ url: '/textures/atlas', cause }),
-  })
+    }).pipe(Effect.mapError((cause) => new TextureError({ url: '/textures/atlas', cause })))
 
 export class ChunkMeshService extends Effect.Service<ChunkMeshService>()(
   '@minecraft/infrastructure/three/ChunkMeshService',
@@ -329,10 +327,7 @@ export class ChunkMeshService extends Effect.Service<ChunkMeshService>()(
     scoped: Effect.gen(function* () {
       const pool = yield* MeshingWorkerPool
 
-      const atlasTexture = yield* Effect.acquireRelease(
-        Effect.orDie(buildAtlasTexture()),
-        (tex) => Effect.sync(() => tex.dispose())
-      )
+      const atlasTexture = yield* Effect.orDie(buildAtlasTexture())
 
       const sharedMaterial = yield* Effect.acquireRelease(
         Effect.sync(() => new THREE.MeshLambertMaterial({
@@ -383,8 +378,9 @@ export class ChunkMeshService extends Effect.Service<ChunkMeshService>()(
         updateChunkMesh: (
           opaqueMesh: THREE.Mesh,
           waterMesh: Option.Option<THREE.Mesh>,
-          chunk: Chunk
-        ): Effect.Effect<void, never> =>
+          chunk: Chunk,
+          waterMaterial?: THREE.ShaderMaterial
+        ): Effect.Effect<Option.Option<THREE.Mesh>, never> =>
           pool.meshChunk(chunk).pipe(
             Effect.map(({ opaque, water }) => {
               // Opaque mesh: in-place update using owned arrays from worker transfer.
@@ -397,16 +393,38 @@ export class ChunkMeshService extends Effect.Service<ChunkMeshService>()(
 
               opaqueMesh.userData['chunkCoord'] = { x: chunk.coord.x, z: chunk.coord.z }
 
-              // Water mesh: in-place update using owned arrays from worker transfer
-              Option.map(waterMesh, (wm) => {
-                if (water !== null && water.positions.length > 0) {
+              // Water mesh: update in place when it already exists, or create/remove it when topology changes.
+              return Option.match(waterMesh, {
+                onNone: () => {
+                  if (water === null || water.positions.length === 0) {
+                    return Option.none()
+                  }
+                  return Option.match(Option.fromNullable(waterMaterial), {
+                    onNone: () => Option.none(),
+                    onSome: (mat) => {
+                      const wm = new THREE.Mesh(buildGeometry(water), mat)
+                      wm.frustumCulled = false
+                      wm.castShadow = false
+                      wm.receiveShadow = false
+                      wm.renderOrder = 1
+                      wm.userData['chunkCoord'] = chunk.coord
+                      return Option.some(wm)
+                    },
+                  })
+                },
+                onSome: (wm) => {
+                  if (water === null || water.positions.length === 0) {
+                    wm.geometry.dispose()
+                    return Option.none()
+                  }
                   if (!tryReuseGeometry(wm.geometry, water)) {
                     const oldWaterGeometry = wm.geometry
                     wm.geometry = buildGeometry(water)
                     oldWaterGeometry.dispose()
                   }
-                }
-                wm.userData['chunkCoord'] = chunk.coord
+                  wm.userData['chunkCoord'] = chunk.coord
+                  return waterMesh
+                },
               })
             })
           ),

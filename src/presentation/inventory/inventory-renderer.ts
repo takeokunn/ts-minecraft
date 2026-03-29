@@ -27,7 +27,7 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
         Option.getOrElse(Option.fromNullable(SLOT_COLORS[blockType]), () => DEFAULT_SLOT_COLOR)
 
       const createSlotEl = (index: number): HTMLDivElement => {
-        const el = dom.createElement('div') as HTMLDivElement
+        const el = dom.createElement('div')
         el.dataset['slot'] = String(index)
         el.style.cssText = [
           'width:48px', 'height:48px', 'border:2px solid #666',
@@ -42,7 +42,7 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
       return Effect.sync((): { overlayEl: Option.Option<HTMLDivElement>; slotEls: HTMLDivElement[] } => {
         if (typeof document === 'undefined') return { overlayEl: Option.none(), slotEls: [] }
 
-        const el = dom.createElement('div') as HTMLDivElement
+        const el = dom.createElement('div')
         el.id = 'inventory-overlay'
         el.style.cssText = [
           'position:fixed', 'top:50%', 'left:50%',
@@ -82,24 +82,25 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
       }).pipe(
         Effect.flatMap(({ overlayEl, slotEls }) => {
         const handleDelegatedClick = (event: MouseEvent) => {
-          Option.map(
-            Option.fromNullable((event.target as HTMLElement).closest('[data-slot]') as HTMLElement | null),
-            (target) => {
-              const index = parseInt(Option.getOrElse(Option.fromNullable(target.dataset['slot']), () => '-1'), 10)
-              if (index < 0 || index >= INVENTORY_SIZE) return
-              Effect.runFork(
-                Effect.gen(function* () {
-                  const selectedSlot = yield* hotbarService.getSelectedSlot()
-                  const hotbarInventoryIndex = HOTBAR_START + SlotIndex.toNumber(selectedSlot)
-                  yield* inventoryService.moveStack(SlotIndex.make(index), SlotIndex.make(hotbarInventoryIndex))
-                }).pipe(
-                  Effect.catchAllCause(cause =>
-                    Effect.logError(`Inventory click error: ${Cause.pretty(cause)}`)
-                  )
+          const slotTarget = Option.fromNullable(
+            event.target instanceof HTMLElement ? event.target.closest('[data-slot]') : null,
+          ).pipe(Option.filter((target): target is HTMLElement => target instanceof HTMLElement))
+
+          Option.map(slotTarget, (target) => {
+            const index = parseInt(Option.getOrElse(Option.fromNullable(target.dataset['slot']), () => '-1'), 10)
+            if (index < 0 || index >= INVENTORY_SIZE) return
+            Effect.runFork(
+              Effect.gen(function* () {
+                const selectedSlot = yield* hotbarService.getSelectedSlot()
+                const hotbarInventoryIndex = HOTBAR_START + SlotIndex.toNumber(selectedSlot)
+                yield* inventoryService.moveStack(SlotIndex.make(index), SlotIndex.make(hotbarInventoryIndex))
+              }).pipe(
+                Effect.catchAllCause(cause =>
+                  Effect.logError(`Inventory click error: ${Cause.pretty(cause)}`)
                 )
               )
-            }
-          )
+            )
+          })
         }
 
         const refreshSlots = (): Effect.Effect<void, never> =>

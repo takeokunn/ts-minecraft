@@ -5,7 +5,7 @@ import { VillagerProfessionSchema, type Villager } from '@/village/village-model
 export const TradeOfferIdSchema = Schema.String.pipe(Schema.brand('TradeOfferId'))
 export type TradeOfferId = Schema.Schema.Type<typeof TradeOfferIdSchema>
 export const TradeOfferId = {
-  make: (value: string): TradeOfferId => value as unknown as TradeOfferId,
+  make: (value: string): TradeOfferId => Schema.decodeUnknownSync(TradeOfferIdSchema)(value),
 }
 
 export const TradeStackSchema = Schema.Struct({

@@ -30,9 +30,17 @@ const disposeMesh = (mesh: THREE.Mesh): void => {
   mesh.geometry.dispose()
 }
 
-interface ChunkMeshes {
-  opaque: THREE.Mesh
-  water: Option.Option<THREE.Mesh>
+type ChunkMeshes = {
+  opaque: THREE.Mesh & {
+    readonly userData: THREE.Mesh['userData'] & {
+      readonly chunkCoord?: ChunkCoord
+    }
+  }
+  water: Option.Option<THREE.Mesh & {
+    readonly userData: THREE.Mesh['userData'] & {
+      readonly chunkCoord?: ChunkCoord
+    }
+  }>
 }
 
 /**
@@ -48,6 +56,9 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
       // Stable water mesh list — only replaced (new array reference) when
       // chunks are added/removed.
       Ref.make<ReadonlyArray<THREE.Mesh>>([]),
+      // Cache key for frustum culling — invalidated whenever chunk meshes change.
+      Ref.make({ x: NaN, y: NaN, z: NaN, qx: NaN, qy: NaN, qz: NaN, qw: NaN, p0: NaN, p5: NaN, p10: NaN, p14: NaN }),
+      Ref.make(0),
       // Pre-allocated objects for frustum culling and refraction pre-pass — reused every frame to avoid GC pressure
       Effect.sync(() => ({
         _frustum: new THREE.Frustum(),
@@ -55,12 +66,23 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
         _box: new THREE.Box3(),
         _minVec: new THREE.Vector3(),
         _maxVec: new THREE.Vector3(),
-        _savedWaterVisibility: new Map<THREE.Mesh, boolean>(),
+        _savedWaterVisibility: MutableRef.make(new Map<THREE.Mesh, boolean>()),
         // Water mesh cache — only return new reference when the mesh set actually changes
         _waterMeshCache: MutableRef.make<ReadonlyArray<THREE.Mesh>>([]),
+        // Refraction cache — reused until camera pose or scene version changes
+        _lastRefractionState: MutableRef.make({
+          version: -1,
+          x: NaN,
+          y: NaN,
+          z: NaN,
+          qx: NaN,
+          qy: NaN,
+          qz: NaN,
+          qw: NaN,
+        }),
       })),
     ], { concurrency: 'unbounded' }).pipe(
-      Effect.flatMap(([chunkMeshService, sceneService, meshesRef, waterMeshesRef, preAlloc]) =>
+      Effect.flatMap(([chunkMeshService, sceneService, meshesRef, waterMeshesRef, lastFrustumPoseRef, sceneVersionRef, preAlloc]) =>
         // Dedicated refraction camera — cloned once, far=128 permanently.
         // Per-frame doRefractionPrePass copies position/quaternion (cheap matrix copy)
         // instead of mutating the main camera's far plane and calling updateProjectionMatrix() twice.
@@ -96,7 +118,14 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
               (mat) => Effect.sync(() => mat.dispose())
             ).pipe(
               Effect.map((waterMaterial) => {
-              const { _frustum, _projMatrix, _box, _minVec, _maxVec, _savedWaterVisibility, _waterMeshCache } = preAlloc
+              const { _frustum, _projMatrix, _box, _minVec, _maxVec, _savedWaterVisibility, _waterMeshCache, _lastRefractionState } = preAlloc
+              const invalidateFrustumCache = () =>
+                Ref.set(lastFrustumPoseRef, { x: NaN, y: NaN, z: NaN, qx: NaN, qy: NaN, qz: NaN, qw: NaN, p0: NaN, p5: NaN, p10: NaN, p14: NaN })
+              const invalidateSceneCaches = () =>
+                Effect.all([
+                  invalidateFrustumCache(),
+                  Ref.update(sceneVersionRef, (version) => version + 1),
+                ], { concurrency: 'unbounded', discard: true })
               return {
                 /**
                  * Sync scene with loaded chunks:
@@ -179,6 +208,7 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
                     yield* Effect.all([
                       Ref.set(meshesRef, nextMeshes),
                       Ref.set(waterMeshesRef, nextWaterMeshes),
+                      invalidateSceneCaches(),
                     ], { concurrency: 'unbounded', discard: true })
 
                     return allNewChunksMeshed
@@ -188,28 +218,57 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
                  * Update (re-mesh) a single chunk that has been modified.
                  * Call this after block break/place for the affected chunk.
                  */
-                updateChunkInScene: (chunk: Chunk, scene: THREE.Scene): Effect.Effect<void, never> => {
+                      updateChunkInScene: (chunk: Chunk, scene: THREE.Scene): Effect.Effect<void, never> => {
                   const key = chunkKey(chunk.coord)
                   return Ref.get(meshesRef).pipe(
                     Effect.flatMap((meshes) => Option.match(HashMap.get(meshes, key), {
                       onSome: (existing) =>
                         // Reuse the existing mesh: update geometry in place, avoiding scene graph mutation
-                        chunkMeshService.updateChunkMesh(existing.opaque, existing.water, chunk),
+                        chunkMeshService.updateChunkMesh(existing.opaque, existing.water, chunk, waterMaterial).pipe(
+                          Effect.flatMap((nextWaterMesh) => {
+                            const updateWaterScene = Option.match(existing.water, {
+                              onNone: () => Option.match(nextWaterMesh, {
+                                onNone: () => Effect.void,
+                                onSome: (m) => sceneService.add(scene, m).pipe(
+                                  Effect.andThen(Ref.update(waterMeshesRef, (waterMeshes) => Arr.append(waterMeshes, m)))
+                                ),
+                              }),
+                              onSome: (oldWaterMesh) => Option.match(nextWaterMesh, {
+                                onNone: () => sceneService.remove(scene, oldWaterMesh).pipe(
+                                  Effect.andThen(Ref.update(waterMeshesRef, (waterMeshes) => Arr.filter(waterMeshes, (mesh) => mesh !== oldWaterMesh)))
+                                ),
+                                onSome: (newWaterMesh) => oldWaterMesh === newWaterMesh
+                                  ? Effect.void
+                                  : Effect.all([
+                                    sceneService.remove(scene, oldWaterMesh),
+                                    sceneService.add(scene, newWaterMesh),
+                                    Ref.update(waterMeshesRef, (waterMeshes) => Arr.append(Arr.filter(waterMeshes, (mesh) => mesh !== oldWaterMesh), newWaterMesh)),
+                                  ], { concurrency: 'unbounded', discard: true }),
+                              }),
+                            })
+
+                            return updateWaterScene.pipe(
+                              Effect.andThen(Ref.update(meshesRef, (map) => HashMap.set(map, key, { opaque: existing.opaque, water: nextWaterMesh }))),
+                              Effect.andThen(invalidateSceneCaches())
+                            )
+                          })
+                        ),
                       onNone: () =>
                         // First time this chunk appears — create and register a new mesh
                         chunkMeshService.createChunkMesh(chunk, waterMaterial).pipe(
                           Effect.flatMap(({ opaqueMesh, waterMesh }) =>
-                            Effect.all([
-                              sceneService.add(scene, opaqueMesh),
-                              Option.match(waterMesh, {
+                              Effect.all([
+                                sceneService.add(scene, opaqueMesh),
+                                Option.match(waterMesh, {
                                 onNone: () => Effect.void,
                                 onSome: (m) =>
                                   sceneService.add(scene, m).pipe(
                                     Effect.andThen(Ref.update(waterMeshesRef, (waterMeshes) => Arr.append(waterMeshes, m)))
                                   ),
                               }),
-                            ], { concurrency: 'unbounded', discard: true }).pipe(
-                              Effect.andThen(Ref.update(meshesRef, (map) => HashMap.set(map, key, { opaque: opaqueMesh, water: waterMesh })))
+                              ], { concurrency: 'unbounded', discard: true }).pipe(
+                              Effect.andThen(Ref.update(meshesRef, (map) => HashMap.set(map, key, { opaque: opaqueMesh, water: waterMesh }))),
+                              Effect.andThen(invalidateSceneCaches())
                             )
                           )
                         ),
@@ -229,35 +288,69 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
                   // frame's matrix, causing one-frame-behind popping artifacts.
                   Ref.get(meshesRef).pipe(
                     Effect.flatMap((meshes) =>
-                      Effect.sync(() => {
-                        camera.updateMatrixWorld()
-                        _projMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse)
-                        _frustum.setFromProjectionMatrix(_projMatrix)
-
-                        // Performance boundary: imperative loop avoids ~500-900 allocations/frame
-                        // from Arr.fromIterable + Option.fromNullable + Option.match per chunk
-                        for (const chunkMeshes of HashMap.values(meshes)) {
-                          const coord = chunkMeshes.opaque.userData['chunkCoord'] as ChunkCoord | undefined
-                          if (coord == null) continue
-
-                          _minVec.set(coord.x * CHUNK_SIZE, 0, coord.z * CHUNK_SIZE)
-                          _maxVec.set(coord.x * CHUNK_SIZE + CHUNK_SIZE, CHUNK_HEIGHT, coord.z * CHUNK_SIZE + CHUNK_SIZE)
-                          _box.set(_minVec, _maxVec)
-
-                          const visible = _frustum.intersectsBox(_box)
-                          chunkMeshes.opaque.visible = visible
-                          // Shadow distance culling: disable castShadow for chunks beyond shadow reach.
-                          // Shadow map has finite resolution — distant shadows are sub-texel and waste GPU fill.
-                          const SHADOW_CULL_DIST_SQ = MAX_SHADOW_HALF_EXTENT * MAX_SHADOW_HALF_EXTENT
-                          const dx = coord.x * CHUNK_SIZE + CHUNK_SIZE * 0.5 - camera.position.x
-                          const dz = coord.z * CHUNK_SIZE + CHUNK_SIZE * 0.5 - camera.position.z
-                          chunkMeshes.opaque.castShadow = visible && (dx * dx + dz * dz) < SHADOW_CULL_DIST_SQ
-                          // Performance boundary: direct _tag check avoids Option.match closure allocation per chunk
-                          if (chunkMeshes.water._tag === 'Some') {
-                            chunkMeshes.water.value.visible = visible
+                      Ref.get(lastFrustumPoseRef).pipe(
+                        Effect.flatMap((lastPose) => Effect.gen(function* () {
+                          const currentPose = {
+                            x: camera.position.x,
+                            y: camera.position.y,
+                            z: camera.position.z,
+                            qx: camera.quaternion.x,
+                            qy: camera.quaternion.y,
+                            qz: camera.quaternion.z,
+                            qw: camera.quaternion.w,
+                            p0: camera.projectionMatrix.elements[0],
+                            p5: camera.projectionMatrix.elements[5],
+                            p10: camera.projectionMatrix.elements[10],
+                            p14: camera.projectionMatrix.elements[14],
                           }
-                        }
-                      })
+
+                          if (
+                            lastPose.x === currentPose.x &&
+                            lastPose.y === currentPose.y &&
+                            lastPose.z === currentPose.z &&
+                            lastPose.qx === currentPose.qx &&
+                            lastPose.qy === currentPose.qy &&
+                            lastPose.qz === currentPose.qz &&
+                            lastPose.qw === currentPose.qw &&
+                            lastPose.p0 === currentPose.p0 &&
+                            lastPose.p5 === currentPose.p5 &&
+                            lastPose.p10 === currentPose.p10 &&
+                            lastPose.p14 === currentPose.p14
+                          ) {
+                            return
+                          }
+
+                          camera.updateMatrixWorld()
+                          _projMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse)
+                          _frustum.setFromProjectionMatrix(_projMatrix)
+
+                          // Performance boundary: imperative loop avoids ~500-900 allocations/frame
+                          // from Arr.fromIterable + Option.fromNullable + Option.match per chunk
+                          for (const chunkMeshes of HashMap.values(meshes)) {
+                            const coord = chunkMeshes.opaque.userData.chunkCoord
+                            if (coord == null) continue
+
+                            _minVec.set(coord.x * CHUNK_SIZE, 0, coord.z * CHUNK_SIZE)
+                            _maxVec.set(coord.x * CHUNK_SIZE + CHUNK_SIZE, CHUNK_HEIGHT, coord.z * CHUNK_SIZE + CHUNK_SIZE)
+                            _box.set(_minVec, _maxVec)
+
+                            const visible = _frustum.intersectsBox(_box)
+                            chunkMeshes.opaque.visible = visible
+                            // Shadow distance culling: disable castShadow for chunks beyond shadow reach.
+                            // Shadow map has finite resolution — distant shadows are sub-texel and waste GPU fill.
+                            const SHADOW_CULL_DIST_SQ = MAX_SHADOW_HALF_EXTENT * MAX_SHADOW_HALF_EXTENT
+                            const dx = coord.x * CHUNK_SIZE + CHUNK_SIZE * 0.5 - camera.position.x
+                            const dz = coord.z * CHUNK_SIZE + CHUNK_SIZE * 0.5 - camera.position.z
+                            chunkMeshes.opaque.castShadow = visible && (dx * dx + dz * dz) < SHADOW_CULL_DIST_SQ
+                            // Performance boundary: direct _tag check avoids Option.match closure allocation per chunk
+                            if (chunkMeshes.water._tag === 'Some') {
+                              chunkMeshes.water.value.visible = visible
+                            }
+                          }
+
+                          yield* Ref.set(lastFrustumPoseRef, currentPose)
+                        }))
+                      )
                     )
                   ),
 
@@ -288,6 +381,7 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
                     Effect.andThen(Effect.all([
                       Ref.set(meshesRef, HashMap.empty()),
                       Ref.set(waterMeshesRef, []),
+                      invalidateSceneCaches(),
                     ], { concurrency: 'unbounded', discard: true }))
                   ),
 
@@ -300,45 +394,71 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
                   scene: THREE.Scene,
                   camera: THREE.Camera
                 ): Effect.Effect<void, never> =>
-                  Ref.get(waterMeshesRef).pipe(
-                    Effect.flatMap((waterMeshes) => {
-                      if (waterMeshes.length === 0) return Effect.void
-                      // Skip refraction render when no water meshes are visible (all frustum-culled)
-                      if (!Arr.some(waterMeshes, (m) => m.visible)) return Effect.void
-                      // Save current visibility and hide water meshes for the refraction render
-                      return Effect.sync(() => {
-                        _savedWaterVisibility.clear()
-                        Arr.forEach(waterMeshes, (mesh) => {
-                          _savedWaterVisibility.set(mesh, mesh.visible)
-                          mesh.visible = false
-                        })
-                      }).pipe(
-                        // Suppress shadow pass during refraction render — at low resolution,
-                        // shadow detail is invisible through water distortion. Saves one full shadow pass.
-                        // try/finally ensures shadow autoUpdate is restored even on WebGL context loss.
-                        Effect.andThen(Effect.sync(() => {
-                          // Sync refraction camera with main camera's position/rotation (cheap copy, no projection recompute)
-                          refractionCamera.position.copy(camera.position)
-                          refractionCamera.quaternion.copy(camera.quaternion)
-                          refractionCamera.updateMatrixWorld()
-                          const savedAutoUpdate = renderer.shadowMap.autoUpdate
-                          renderer.shadowMap.autoUpdate = false
-                          renderer.shadowMap.needsUpdate = false
-                          renderer.setRenderTarget(refractionRT)
-                          try {
-                            renderer.render(scene, refractionCamera)
-                          } finally {
-                            renderer.setRenderTarget(null)
-                            renderer.shadowMap.autoUpdate = savedAutoUpdate
-                            // Restore saved visibility state (preserves frustum culling result)
-                            for (const [mesh, wasVisible] of _savedWaterVisibility) {
-                              mesh.visible = wasVisible
-                            }
-                          }
-                        }))
-                      )
+                  Effect.gen(function* () {
+                    const waterMeshes = yield* Ref.get(waterMeshesRef)
+                    if (waterMeshes.length === 0) return
+                    // Skip refraction render when no water meshes are visible (all frustum-culled)
+                    if (!Arr.some(waterMeshes, (m) => m.visible)) return
+
+                    const currentSceneVersion = yield* Ref.get(sceneVersionRef)
+                    const currentPose = {
+                      x: camera.position.x,
+                      y: camera.position.y,
+                      z: camera.position.z,
+                      qx: camera.quaternion.x,
+                      qy: camera.quaternion.y,
+                      qz: camera.quaternion.z,
+                      qw: camera.quaternion.w,
+                    }
+                    const lastRefractionState = MutableRef.get(_lastRefractionState)
+                    if (
+                      lastRefractionState.version === currentSceneVersion &&
+                      lastRefractionState.x === currentPose.x &&
+                      lastRefractionState.y === currentPose.y &&
+                      lastRefractionState.z === currentPose.z &&
+                      lastRefractionState.qx === currentPose.qx &&
+                      lastRefractionState.qy === currentPose.qy &&
+                      lastRefractionState.qz === currentPose.qz &&
+                      lastRefractionState.qw === currentPose.qw
+                    ) {
+                      return
+                    }
+
+                    const savedWaterVisibility = MutableRef.get(_savedWaterVisibility)
+                    yield* Effect.sync(() => {
+                      savedWaterVisibility.clear()
+                      Arr.forEach(waterMeshes, (mesh) => {
+                        savedWaterVisibility.set(mesh, mesh.visible)
+                        mesh.visible = false
+                      })
+
+                      // Sync refraction camera with main camera's position/rotation (cheap copy, no projection recompute)
+                      refractionCamera.position.copy(camera.position)
+                      refractionCamera.quaternion.copy(camera.quaternion)
+                      refractionCamera.updateMatrixWorld()
                     })
-                  ),
+
+                    const savedAutoUpdate = renderer.shadowMap.autoUpdate
+                    renderer.shadowMap.autoUpdate = false
+                    renderer.shadowMap.needsUpdate = false
+                    renderer.setRenderTarget(refractionRT)
+
+                    yield* Effect.ensuring(
+                      Effect.sync(() => {
+                        renderer.render(scene, refractionCamera)
+                      }),
+                      Effect.sync(() => {
+                        renderer.setRenderTarget(null)
+                        renderer.shadowMap.autoUpdate = savedAutoUpdate
+                        // Restore saved visibility state (preserves frustum culling result)
+                        for (const [mesh, wasVisible] of savedWaterVisibility) {
+                          mesh.visible = wasVisible
+                        }
+                      })
+                    )
+
+                    MutableRef.set(_lastRefractionState, { version: currentSceneVersion, ...currentPose })
+                  }),
 
                 /**
                  * Update water shader uniforms each frame.
@@ -349,10 +469,8 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
                 ): Effect.Effect<void, never> =>
                   Effect.sync(() => {
                     const uniforms = waterMaterial.uniforms
-                    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-                    uniforms['uTime']!.value = time
-                    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-                    ;(uniforms['uCameraPosition']!.value as THREE.Vector3).copy(cameraPosition)
+                    uniforms.uTime.value = time
+                    uniforms.uCameraPosition.value.copy(cameraPosition)
                   }),
 
                 /**
@@ -360,8 +478,7 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
                  */
                 setRefractionValid: (valid: boolean): Effect.Effect<void, never> =>
                   Effect.sync(() => {
-                    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-                    waterMaterial.uniforms['uRefractionValid']!.value = valid
+                    waterMaterial.uniforms.uRefractionValid.value = valid
                   }),
 
                 /**
@@ -369,8 +486,7 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
                  */
                 updateWaterResolution: (width: number, height: number): Effect.Effect<void, never> =>
                   Effect.sync(() => {
-                    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-                    ;(waterMaterial.uniforms['uResolution']!.value as THREE.Vector2).set(width, height)
+                    waterMaterial.uniforms.uResolution.value.set(width, height)
                   }),
 
                 /**
@@ -411,6 +527,11 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
                       return current
                     })
                   ),
+
+                /**
+                 * Monotonic scene version used to gate repeated frame-loop work.
+                 */
+                getSceneVersion: (): Effect.Effect<number, never> => Ref.get(sceneVersionRef),
               }
               })
             )

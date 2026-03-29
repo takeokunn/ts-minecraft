@@ -5,7 +5,8 @@ export class DomOperationsService extends Effect.Service<DomOperationsService>()
   '@minecraft/presentation/DomOperations',
   {
     effect: Effect.succeed({
-      createElement: (tagName: string): HTMLElement => document.createElement(tagName),
+      createElement: <K extends keyof HTMLElementTagNameMap>(tagName: K): HTMLElementTagNameMap[K] =>
+        document.createElement(tagName),
       appendChild: (element: HTMLElement): void => { document.body.appendChild(element) },
       appendChildTo: (parent: HTMLElement, child: HTMLElement): void => { parent.appendChild(child) },
       removeChild: (element: HTMLElement): void => {
@@ -14,7 +15,7 @@ export class DomOperationsService extends Effect.Service<DomOperationsService>()
         }
       },
       getParentNode: (element: HTMLElement): Option.Option<HTMLElement> =>
-        Option.fromNullable(element.parentNode as HTMLElement | null),
+        Option.fromNullable(element.parentElement),
       setInnerHTML: (element: HTMLElement, html: string): void => { element.innerHTML = html },
       querySelector: <T extends HTMLElement>(element: HTMLElement, selector: string): Option.Option<T> =>
         Option.fromNullable(element.querySelector<T>(selector)),
@@ -26,7 +27,7 @@ export class CrosshairService extends Effect.Service<CrosshairService>()(
   {
     effect: Effect.flatMap(DomOperationsService, (dom) => {
       // Create crosshair element
-      const element = dom.createElement('div') as HTMLDivElement
+      const element = dom.createElement('div')
       element.id = 'crosshair'
       element.style.cssText = `
         position: fixed;
@@ -41,7 +42,7 @@ export class CrosshairService extends Effect.Service<CrosshairService>()(
 
       // Create crosshair lines (cross shape)
       const createLine = (isVertical: boolean) => {
-        const line = dom.createElement('div') as HTMLDivElement
+        const line = dom.createElement('div')
         line.style.cssText = isVertical
           ? `
             position: absolute;

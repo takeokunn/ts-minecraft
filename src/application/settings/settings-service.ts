@@ -12,18 +12,19 @@ export type GraphicsQuality = Schema.Schema.Type<typeof GraphicsQuality>
  * Resolved graphics settings derived from a quality preset.
  * Used by frame-handler and main.ts to configure post-processing passes.
  */
-export interface ResolvedGraphics {
-  readonly shadowsEnabled: boolean
-  readonly ssaoEnabled: boolean
-  readonly bloomEnabled: boolean
-  readonly smaaEnabled: boolean
-  readonly skyEnabled: boolean
-  readonly dofEnabled: boolean
-  readonly godRaysEnabled: boolean
-  readonly godRaysSamples: number
-  readonly bloomStrength: number
-  readonly refractionThrottleFrames: number
-}
+export const ResolvedGraphicsSchema = Schema.Struct({
+  shadowsEnabled: Schema.Boolean,
+  ssaoEnabled: Schema.Boolean,
+  bloomEnabled: Schema.Boolean,
+  smaaEnabled: Schema.Boolean,
+  skyEnabled: Schema.Boolean,
+  dofEnabled: Schema.Boolean,
+  godRaysEnabled: Schema.Boolean,
+  godRaysSamples: Schema.Number.pipe(Schema.int(), Schema.between(0, 40)),
+  bloomStrength: Schema.Number.pipe(Schema.finite(), Schema.between(0, 1)),
+  refractionThrottleFrames: Schema.Number.pipe(Schema.int(), Schema.between(0, 3)),
+})
+export type ResolvedGraphics = Schema.Schema.Type<typeof ResolvedGraphicsSchema>
 
 /**
  * Map a quality preset to individual pass enable states.
@@ -91,7 +92,7 @@ const loadFromStorage: Effect.Effect<Settings, never, never> =
         onNone: () => Effect.succeed(DEFAULT_SETTINGS),
         onSome: (rawStr) =>
           Effect.try({
-            try: () => JSON.parse(rawStr) as unknown,
+            try: () => JSON.parse(rawStr),
             catch: (e) => new SettingsError({ operation: 'load', cause: e }),
           }).pipe(
             Effect.flatMap((parsed) => Schema.decodeUnknown(SettingsSchema)(parsed).pipe(

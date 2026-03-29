@@ -25,7 +25,7 @@ export class PhysicsServiceError extends Data.TaggedError('PhysicsServiceError')
  * PhysicsBody handle — only exposes the opaque ID, not the raw body
  */
 export const PhysicsBodySchema = Schema.Struct({ id: PhysicsBodyIdSchema })
-export type PhysicsBody = typeof PhysicsBodySchema.Type
+export type PhysicsBody = Schema.Schema.Type<typeof PhysicsBodySchema>
 
 /**
  * Configuration for adding a rigid body

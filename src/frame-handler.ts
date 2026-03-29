@@ -55,6 +55,7 @@ const TRADE_OPEN_KEY = 'KeyT'
 const TRADE_NEXT_KEY = 'ArrowDown'
 const TRADE_PREV_KEY = 'ArrowUp'
 const TRADE_EXECUTE_KEY = 'Enter'
+const MAX_DIRTY_CHUNK_UPDATES_PER_FRAME = 4
 const REDSTONE_TICK_INTERVAL_SECS = 0.05
 const FLUID_TICK_INTERVAL_SECS = 0.05
 const REDSTONE_PLACE_WIRE_KEY = 'KeyR'
@@ -67,7 +68,7 @@ const REDSTONE_PRESS_BUTTON_KEY = 'KeyU'
 const REDSTONE_TOGGLE_TORCH_KEY = 'KeyI'
 
 // Module-level fallback to avoid per-frame object literal allocation in the error path
-const FALLBACK_PLAYER_POS = Object.freeze({ x: 0, y: 64, z: 0 }) as { x: number; y: number; z: number }
+const FALLBACK_PLAYER_POS: { readonly x: number; readonly y: number; readonly z: number } = Object.freeze({ x: 0, y: 64, z: 0 })
 
 /**
  * Three.js objects and DOM state that live outside the Effect layer graph.
@@ -76,7 +77,7 @@ const FALLBACK_PLAYER_POS = Object.freeze({ x: 0, y: 64, z: 0 }) as { x: number;
  * `gamePausedRef` is a Ref rather than a dedicated service to avoid introducing
  * a `GamePauseService` for a single boolean that only frame-handler reads/writes.
  */
-export interface FrameHandlerDeps {
+export type FrameHandlerDeps = {
   readonly renderer: THREE.WebGLRenderer
   readonly scene: THREE.Scene
   readonly camera: THREE.PerspectiveCamera
@@ -100,7 +101,7 @@ export interface FrameHandlerDeps {
  * and does not require a per-frame `Effect.provide(MainLive)` that would rebuild all
  * 30+ layers at 60 Hz. Instances are resolved once in main.ts and forwarded here.
  */
-export interface FrameHandlerServices {
+export type FrameHandlerServices = {
   readonly gameState: GameStateService
   readonly playerCameraState: PlayerCameraStateService
   readonly firstPersonCamera: FirstPersonCameraService
@@ -162,6 +163,10 @@ export const createFrameHandler = (
     // Health display throttle: skip DOM write when health values are unchanged (FR-006)
     const lastHealthRef = MutableRef.make({ current: -1, max: -1 })
     const lastLoadedChunksRef = yield* Ref.make<Option.Option<ReadonlyArray<Chunk>>>(Option.none())
+    // Skip chunk streaming work until the player changes chunk or render distance changes.
+    const lastChunkStreamingRef = MutableRef.make({ cx: NaN, cz: NaN, renderDistance: NaN })
+    // Keep retrying chunk mesh sync until the renderer reports the loaded set is fully synced.
+    const chunkSyncPendingRef = MutableRef.make(false)
     // Track last renderDistance to avoid per-frame shadow camera updateProjectionMatrix
     const lastRenderDistanceRef = yield* Ref.make(0)
     // Track last graphicsQuality + resolved preset to skip resolvePreset and pass enable sync when preset is unchanged
@@ -174,11 +179,22 @@ export const createFrameHandler = (
 
     // FR-009: Cache last shadow target position — skip updateMatrixWorld when player hasn't moved significantly
     const lastShadowTargetRef = MutableRef.make({ x: NaN, z: NaN })
+    // Cache last world-renderer scene version + camera pose for frustum/refraction skips.
+    const lastFrustumCullRef = MutableRef.make({ version: -1, x: NaN, y: NaN, z: NaN, qx: NaN, qy: NaN, qz: NaN, qw: NaN })
+    const lastRefractionFrameRef = MutableRef.make({ version: -1, x: NaN, y: NaN, z: NaN, qx: NaN, qy: NaN, qz: NaN, qw: NaN })
     // FR-005: Skip audio applySettings when volume/enabled haven't changed
     const lastAudioRef = MutableRef.make({ enabled: false, master: -1, sfx: -1, music: -1 })
     // FR-012: Cache last chunk coordinate lookup for ground-Y scan — avoids per-frame getChunk
     // + object allocation when the player stays within the same chunk. NaN ensures first fetch.
     const lastChunkLookupRef = MutableRef.make<{ cx: number; cz: number; chunk: Option.Option<Chunk> }>({ cx: NaN, cz: NaN, chunk: Option.none() })
+    // Cache the last ground-height scan column so stationary frames skip the downward scan entirely.
+    const lastGroundScanRef = MutableRef.make<{ cx: number; cz: number; lx: number; lz: number; surfaceY: number }>({
+      cx: NaN,
+      cz: NaN,
+      lx: NaN,
+      lz: NaN,
+      surfaceY: NaN,
+    })
 
     // Pre-computed lights variant with sky disabled — avoids per-frame object spread
     const lightsWithoutSky: DayNightLights = { ...deps.lights, sky: Option.none() }
@@ -253,6 +269,8 @@ export const createFrameHandler = (
       const playerPos = yield* gameState.getPlayerPosition(DEFAULT_PLAYER_ID).pipe(
         Effect.catchAllCause(() => Effect.succeed(FALLBACK_PLAYER_POS))
       )
+      const cx = Math.floor(playerPos.x / CHUNK_SIZE)
+      const cz = Math.floor(playerPos.z / CHUNK_SIZE)
 
       // Audio settings (FR-005: skip applySettings when values haven't changed)
       const lastAudio = MutableRef.get(lastAudioRef)
@@ -285,68 +303,116 @@ export const createFrameHandler = (
 
       // 1. Chunk streaming (throttled internally to 200ms)
       yield* Effect.gen(function* () {
-        yield* chunkManagerService.loadChunksAroundPlayer(playerPos)
-        const [loadedChunks, lastLoadedChunks] = yield* Effect.all([
-          chunkManagerService.getLoadedChunks(),
-          Ref.get(lastLoadedChunksRef),
-        ], { concurrency: 'unbounded' })
-        const chunksChanged = Option.match(lastLoadedChunks, {
-          onNone: () => true,
-          onSome: (previousLoadedChunks) => previousLoadedChunks !== loadedChunks,
-        })
+        const chunkSyncPending = MutableRef.get(chunkSyncPendingRef)
+        const { cx: lastCx, cz: lastCz, renderDistance: lastRenderDistance } = MutableRef.get(lastChunkStreamingRef)
+        const shouldRefreshChunks =
+          chunkSyncPending ||
+          lastCx !== cx ||
+          lastCz !== cz ||
+          lastRenderDistance !== currentSettings.renderDistance
 
-        if (chunksChanged) {
-          const [fullySynced] = yield* Effect.all([
-            worldRendererService.syncChunksToScene(loadedChunks, scene),
-            fluidService.syncLoadedChunks(loadedChunks),
+        if (shouldRefreshChunks) {
+          const didLoadChunks = yield* chunkManagerService.loadChunksAroundPlayer(playerPos, currentSettings.renderDistance)
+          const [loadedChunks, lastLoadedChunks] = yield* Effect.all([
+            chunkManagerService.getLoadedChunks(),
+            Ref.get(lastLoadedChunksRef),
           ], { concurrency: 'unbounded' })
-          // Only cache loadedChunks when all new chunk meshes were built this frame.
-          // When throttled (fullySynced=false), keep lastLoadedChunksRef stale so
-          // the next frame re-enters this branch and processes remaining chunks.
-          if (fullySynced) {
-            yield* Ref.set(lastLoadedChunksRef, Option.some(loadedChunks))
+          const chunksChanged = Option.match(lastLoadedChunks, {
+            onNone: () => true,
+            onSome: (previousLoadedChunks) => previousLoadedChunks !== loadedChunks,
+          })
+          const shouldSyncWorld = chunkSyncPending || chunksChanged
+
+          if (shouldSyncWorld) {
+            const fullySynced = yield* worldRendererService.syncChunksToScene(loadedChunks, scene)
+
+            if (chunksChanged) {
+              yield* fluidService.syncLoadedChunks(loadedChunks)
+              yield* blockHighlight.invalidateCache()
+            }
+
+            // Only cache loadedChunks when all new chunk meshes were built this frame.
+            // When throttled (fullySynced=false), keep lastLoadedChunksRef stale so
+            // the next frame re-enters this branch and processes remaining chunks.
+            if (fullySynced) {
+              if (chunksChanged) {
+                yield* Ref.set(lastLoadedChunksRef, Option.some(loadedChunks))
+              }
+              MutableRef.set(chunkSyncPendingRef, false)
+            } else {
+              MutableRef.set(chunkSyncPendingRef, true)
+            }
+          }
+
+          if (didLoadChunks) {
+            MutableRef.set(lastChunkStreamingRef, { cx, cz, renderDistance: currentSettings.renderDistance })
           }
         }
 
-        yield* worldRendererService.applyFrustumCulling(camera)
+        const currentFrustumPose = {
+          x: camera.position.x,
+          y: camera.position.y,
+          z: camera.position.z,
+          qx: camera.quaternion.x,
+          qy: camera.quaternion.y,
+          qz: camera.quaternion.z,
+          qw: camera.quaternion.w,
+        }
+        const sceneVersionBeforeCull = yield* worldRendererService.getSceneVersion()
+        const lastFrustumCull = MutableRef.get(lastFrustumCullRef)
+        if (
+          lastFrustumCull.version !== sceneVersionBeforeCull ||
+          lastFrustumCull.x !== currentFrustumPose.x ||
+          lastFrustumCull.y !== currentFrustumPose.y ||
+          lastFrustumCull.z !== currentFrustumPose.z ||
+          lastFrustumCull.qx !== currentFrustumPose.qx ||
+          lastFrustumCull.qy !== currentFrustumPose.qy ||
+          lastFrustumCull.qz !== currentFrustumPose.qz ||
+          lastFrustumCull.qw !== currentFrustumPose.qw
+        ) {
+          yield* worldRendererService.applyFrustumCulling(camera)
+          MutableRef.set(lastFrustumCullRef, { version: sceneVersionBeforeCull, ...currentFrustumPose })
+        }
 
         // Update groundY for position-based grounded detection.
         // Scan the player's column downward to find the topmost solid block,
         // then set groundY = blockY + 1 (visual top face) so the grounded
         // threshold in GameStateService correctly tracks uneven terrain.
-        const cx = Math.floor(playerPos.x / CHUNK_SIZE)
-        const cz = Math.floor(playerPos.z / CHUNK_SIZE)
         const lx = ((Math.floor(playerPos.x) % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
         const lz = ((Math.floor(playerPos.z) % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
-        // FR-012: Cache chunk lookup — skip getChunk when player stays in the same chunk.
-        // NaN initial values guarantee the first frame always fetches.
-        const lastLookup = MutableRef.get(lastChunkLookupRef)
-        let playerChunkOpt: Option.Option<Chunk>
-        if (lastLookup.cx === cx && lastLookup.cz === cz) {
-          playerChunkOpt = lastLookup.chunk
-        } else {
-          playerChunkOpt = yield* chunkManagerService.getChunk({ x: cx, z: cz }).pipe(
-            Effect.map(Option.some<Chunk>),
-            Effect.catchAllCause(() => Effect.succeed(Option.none<Chunk>()))
-          )
-          MutableRef.set(lastChunkLookupRef, { cx, cz, chunk: playerChunkOpt })
-        }
-        yield* Option.match(playerChunkOpt, {
-          onNone: () => Effect.void,
-          onSome: (playerChunk) => {
-            // Performance boundary: imperative downward scan avoids allocating an array of
-            // ~65-257 elements (Arr.makeBy) plus Option wrappers per blockIndex call each frame.
-            const startY = Math.min(Math.floor(playerPos.y) + 1, CHUNK_HEIGHT - 1)
-            let surfaceY = 0
-            for (let y = startY; y >= 0; y--) {
-              if (playerChunk.blocks[y + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE] !== 0) {
-                surfaceY = y + 1
-                break
+        const lastGroundScan = MutableRef.get(lastGroundScanRef)
+        if (lastGroundScan.cx !== cx || lastGroundScan.cz !== cz || lastGroundScan.lx !== lx || lastGroundScan.lz !== lz) {
+          // FR-012: Cache chunk lookup — skip getChunk when player stays in the same chunk.
+          // NaN initial values guarantee the first frame always fetches.
+          const lastLookup = MutableRef.get(lastChunkLookupRef)
+          let playerChunkOpt: Option.Option<Chunk>
+          if (lastLookup.cx === cx && lastLookup.cz === cz) {
+            playerChunkOpt = lastLookup.chunk
+          } else {
+            playerChunkOpt = yield* chunkManagerService.getChunk({ x: cx, z: cz }).pipe(
+              Effect.map(Option.some<Chunk>),
+              Effect.catchAllCause(() => Effect.succeed(Option.none<Chunk>()))
+            )
+            MutableRef.set(lastChunkLookupRef, { cx, cz, chunk: playerChunkOpt })
+          }
+          yield* Option.match(playerChunkOpt, {
+            onNone: () => Effect.void,
+            onSome: (playerChunk) => {
+              // Performance boundary: imperative downward scan avoids allocating an array of
+              // ~65-257 elements (Arr.makeBy) plus Option wrappers per blockIndex call each frame.
+              const startY = Math.min(Math.floor(playerPos.y) + 1, CHUNK_HEIGHT - 1)
+              let surfaceY = 0
+              for (let y = startY; y >= 0; y--) {
+                if (playerChunk.blocks[y + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE] !== 0) {
+                  surfaceY = y + 1
+                  break
+                }
               }
-            }
-            return gameState.updateGroundY(surfaceY)
-          },
-        })
+              MutableRef.set(lastGroundScanRef, { cx, cz, lx, lz, surfaceY })
+              return gameState.updateGroundY(surfaceY)
+            },
+          })
+        }
       }).pipe(Effect.catchAllCause((cause) => Effect.logError(`Chunk streaming error: ${Cause.pretty(cause)}`)))
 
       // 2. Day/night cycle: advance time and update lighting + sky color
@@ -481,7 +547,7 @@ export const createFrameHandler = (
               camera.updateProjectionMatrix()
               // Shadow frustum: tighten bounds to renderDistance for higher texel density
               const halfExtent = Math.min(Math.ceil(currentSettings.renderDistance * CHUNK_SIZE * 0.5), MAX_SHADOW_HALF_EXTENT)
-              const cam = (deps.lights.light as unknown as THREE.DirectionalLight).shadow.camera
+              const cam = deps.lights.light.shadow.camera
               cam.far = Math.max(currentSettings.renderDistance * CHUNK_SIZE * 1.5 + CHUNK_HEIGHT, 300)
               cam.left = -halfExtent
               cam.right = halfExtent
@@ -745,12 +811,36 @@ export const createFrameHandler = (
       if (resolvedGraphics.refractionThrottleFrames > 0) {
         const refractionFrame = yield* Ref.updateAndGet(refractionFrameCounterRef, (n) => n + 1)
         if ((refractionFrame - 1) % resolvedGraphics.refractionThrottleFrames === 0) {
-          yield* worldRendererService.doRefractionPrePass(deps.renderer, deps.scene, deps.camera).pipe(
-            Effect.catchAllCause((cause) => Effect.logError(`Refraction pre-pass error: ${Cause.pretty(cause)}`))
-          )
-          yield* Ref.getAndSet(refractionValidRef, true).pipe(
-            Effect.flatMap((wasValid) => wasValid ? Effect.void : worldRendererService.setRefractionValid(true))
-          )
+          const currentRefractionPose = {
+            x: deps.camera.position.x,
+            y: deps.camera.position.y,
+            z: deps.camera.position.z,
+            qx: deps.camera.quaternion.x,
+            qy: deps.camera.quaternion.y,
+            qz: deps.camera.quaternion.z,
+            qw: deps.camera.quaternion.w,
+          }
+          const sceneVersionBeforeRefraction = yield* worldRendererService.getSceneVersion()
+          const lastRefractionFrame = MutableRef.get(lastRefractionFrameRef)
+          const shouldRunRefraction =
+            lastRefractionFrame.version !== sceneVersionBeforeRefraction ||
+            lastRefractionFrame.x !== currentRefractionPose.x ||
+            lastRefractionFrame.y !== currentRefractionPose.y ||
+            lastRefractionFrame.z !== currentRefractionPose.z ||
+            lastRefractionFrame.qx !== currentRefractionPose.qx ||
+            lastRefractionFrame.qy !== currentRefractionPose.qy ||
+            lastRefractionFrame.qz !== currentRefractionPose.qz ||
+            lastRefractionFrame.qw !== currentRefractionPose.qw
+
+          if (shouldRunRefraction) {
+            yield* worldRendererService.doRefractionPrePass(deps.renderer, deps.scene, deps.camera).pipe(
+              Effect.catchAllCause((cause) => Effect.logError(`Refraction pre-pass error: ${Cause.pretty(cause)}`))
+            )
+            MutableRef.set(lastRefractionFrameRef, { version: sceneVersionBeforeRefraction, ...currentRefractionPose })
+            yield* Ref.getAndSet(refractionValidRef, true).pipe(
+              Effect.flatMap((wasValid) => wasValid ? Effect.void : worldRendererService.setRefractionValid(true))
+            )
+          }
         }
       }
 
@@ -799,7 +889,7 @@ export const createFrameHandler = (
       yield* Effect.sync(() => {
         if (godRaysPassOrNull) {
           if (resolvedGraphics.godRaysEnabled) {
-            const lightPos = (deps.lights.light as unknown as THREE.DirectionalLight).position
+            const lightPos = deps.lights.light.position
             sunWorldPos.copy(lightPos).normalize().multiplyScalar(100)
             sunWorldPos.project(camera)
             const sunU = (sunWorldPos.x + 1) * 0.5
@@ -836,10 +926,53 @@ export const createFrameHandler = (
       // deduplicating rapid break/place clicks that target the same chunk.
       yield* Ref.getAndSet(dirtyChunksRef, HashMap.empty()).pipe(
         Effect.flatMap((dirtyChunks) =>
-          Effect.forEach(
-            HashMap.values(dirtyChunks),
-            (chunk) => worldRendererService.updateChunkInScene(chunk, scene),
-            { concurrency: 1, discard: true }
+          Effect.sync(() => {
+            const entries: Array<readonly [string, Chunk]> = []
+            HashMap.forEach(dirtyChunks, (chunk, key) => {
+              entries.push([key, chunk])
+            })
+            return entries
+          }).pipe(
+            Effect.flatMap((dirtyEntries) => {
+              const chunksToUpdate = dirtyEntries.slice(0, MAX_DIRTY_CHUNK_UPDATES_PER_FRAME)
+              const remainingEntries = dirtyEntries.slice(MAX_DIRTY_CHUNK_UPDATES_PER_FRAME)
+
+              const flushUpdates = Effect.forEach(
+                chunksToUpdate,
+                ([, chunk]) => worldRendererService.updateChunkInScene(chunk, scene),
+                { concurrency: 1, discard: true }
+              )
+
+              const requeueRemaining = remainingEntries.length > 0
+                ? Effect.sync(() => {
+                    let nextDirtyChunks = HashMap.empty<string, Chunk>()
+                    for (const [key, chunk] of remainingEntries) {
+                      nextDirtyChunks = HashMap.set(nextDirtyChunks, key, chunk)
+                    }
+                    return nextDirtyChunks
+                  }).pipe(
+                    Effect.flatMap((nextDirtyChunks) => Ref.set(dirtyChunksRef, nextDirtyChunks))
+                  )
+                : Effect.void
+
+              return flushUpdates.pipe(
+                Effect.andThen(requeueRemaining),
+                Effect.andThen(Effect.flatMap(Effect.sync(() => dirtyEntries.length > 0), (dirtyChunksChanged) =>
+                  dirtyChunksChanged ? blockHighlight.invalidateCache() : Effect.void
+                )),
+                Effect.andThen(Effect.sync(() => {
+                  if (dirtyEntries.length > 0) {
+                    MutableRef.set(lastGroundScanRef, {
+                      cx: NaN,
+                      cz: NaN,
+                      lx: NaN,
+                      lz: NaN,
+                      surfaceY: NaN,
+                    })
+                  }
+                }))
+              )
+            })
           )
         ),
         Effect.catchAllCause((cause) => Effect.logError(`Dirty chunk flush error: ${Cause.pretty(cause)}`))

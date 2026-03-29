@@ -26,7 +26,7 @@ export type WorldMetadata = Schema.Schema.Type<typeof WorldMetadataSchema>
 /**
  * IndexedDB schema definition
  */
-interface MinecraftWorldsDB extends DBSchema {
+type MinecraftWorldsDB = DBSchema & {
   chunks: {
     key: string
     value: ChunkStorageValue
@@ -63,7 +63,7 @@ const chunkKey = (worldId: WorldId, chunkCoord: ChunkCoord): ChunkStorageKey =>
  */
 const isQuotaExceeded = (error: unknown): boolean => {
   if (error instanceof DOMException) {
-    return error.name === 'QuotaExceededError' || error.code === 22
+    return error.name === 'QuotaExceededError'
   }
   return false
 }
@@ -71,23 +71,22 @@ const isQuotaExceeded = (error: unknown): boolean => {
 /**
  * Helper to wrap IndexedDB operations in Effect
  */
-const tryCatchStorage = <A>(operation: string, fn: () => Promise<A>): Effect.Effect<A, StorageError> =>
-  Effect.tryPromise({
-    try: fn,
-    catch: (cause) => {
+const tryCatchStorage = <A>(operation: string, effect: Effect.Effect<A, unknown>): Effect.Effect<A, StorageError> =>
+  effect.pipe(
+    Effect.mapError((cause) => {
       if (isQuotaExceeded(cause)) {
         return new StorageError({ operation, cause: 'Storage quota exceeded. Please clear some data.' })
       }
       return new StorageError({ operation, cause })
-    },
-  })
+    })
+  )
 
 /**
  * Helper to wrap IndexedDB operations with exponential backoff retry.
  * Retries up to 3 times with exponential delay, but skips retry for QuotaExceededError.
  */
-const tryCatchStorageWithRetry = <A>(operation: string, fn: () => Promise<A>): Effect.Effect<A, StorageError> =>
-  tryCatchStorage(operation, fn).pipe(
+const tryCatchStorageWithRetry = <A>(operation: string, effect: Effect.Effect<A, unknown>): Effect.Effect<A, StorageError> =>
+  tryCatchStorage(operation, effect).pipe(
     Effect.retry({
       while: (e: StorageError) => !isQuotaExceeded(e.cause),
       times: 3,
@@ -110,21 +109,21 @@ export class StorageService extends Effect.Service<StorageService>()(
         yield* Option.match(yield* Ref.get(dbRef), {
           onSome: () => Effect.void,
           onNone: () => Effect.gen(function* () {
-            const newDb = yield* tryCatchStorage('open database', () =>
-              openDatabase<MinecraftWorldsDB>(DB_NAME, DB_VERSION, (db, oldVersion) => {
-                if (!db.objectStoreNames.contains(STORE_CHUNKS)) {
-                  db.createObjectStore(STORE_CHUNKS)
-                }
-                if (!db.objectStoreNames.contains(STORE_METADATA)) {
-                  db.createObjectStore(STORE_METADATA)
-                }
-                // v1→v2: block type indices changed (SNOW=9, GRAVEL=10, COBBLESTONE=11 added)
-                // Clear all saved chunks to prevent corrupt block type decoding
-                if (oldVersion < 2 && db.objectStoreNames.contains(STORE_CHUNKS)) {
-                  db.deleteObjectStore(STORE_CHUNKS)
-                  db.createObjectStore(STORE_CHUNKS)
-                }
-              }),
+            const newDb = yield* openDatabase<MinecraftWorldsDB>(DB_NAME, DB_VERSION, (db, oldVersion) => {
+              if (!db.objectStoreNames.includes(STORE_CHUNKS)) {
+                db.createObjectStore(STORE_CHUNKS)
+              }
+              if (!db.objectStoreNames.includes(STORE_METADATA)) {
+                db.createObjectStore(STORE_METADATA)
+              }
+              // v1→v2: block type indices changed (SNOW=9, GRAVEL=10, COBBLESTONE=11 added)
+              // Clear all saved chunks to prevent corrupt block type decoding
+              if (oldVersion < 2 && db.objectStoreNames.includes(STORE_CHUNKS)) {
+                db.deleteObjectStore(STORE_CHUNKS)
+                db.createObjectStore(STORE_CHUNKS)
+              }
+            }).pipe(
+              Effect.mapError((cause) => new StorageError({ operation: 'open database', cause }))
             )
             yield* Ref.set(dbRef, Option.some(newDb))
           }),
@@ -138,7 +137,7 @@ export class StorageService extends Effect.Service<StorageService>()(
             onNone: () => Effect.fail(new StorageError({ operation: 'saveChunk', cause: 'Database not initialized' })),
             onSome: (db) => Effect.gen(function* () {
               const key = chunkKey(worldId, chunkCoord)
-              yield* tryCatchStorageWithRetry('saveChunk', () => db.put(STORE_CHUNKS, data, key))
+              yield* tryCatchStorageWithRetry('saveChunk', db.put(STORE_CHUNKS, data, key))
             }),
           })
         })
@@ -150,7 +149,7 @@ export class StorageService extends Effect.Service<StorageService>()(
             onNone: () => Effect.fail(new StorageError({ operation: 'loadChunk', cause: 'Database not initialized' })),
             onSome: (db) => Effect.gen(function* () {
               const key = chunkKey(worldId, chunkCoord)
-              const result = yield* tryCatchStorageWithRetry('loadChunk', () => db.get(STORE_CHUNKS, key))
+              const result = yield* tryCatchStorageWithRetry('loadChunk', db.get(STORE_CHUNKS, key))
               return Option.fromNullable(result)
             }),
           })
@@ -161,9 +160,7 @@ export class StorageService extends Effect.Service<StorageService>()(
           yield* initialize
           yield* Option.match(yield* Ref.get(dbRef), {
             onNone: () => Effect.fail(new StorageError({ operation: 'saveWorldMetadata', cause: 'Database not initialized' })),
-            onSome: (db) => tryCatchStorageWithRetry('saveWorldMetadata', () =>
-              db.put(STORE_METADATA, metadata, worldId),
-            ),
+            onSome: (db) => tryCatchStorageWithRetry('saveWorldMetadata', db.put(STORE_METADATA, metadata, worldId)),
           })
         })
 
@@ -173,7 +170,7 @@ export class StorageService extends Effect.Service<StorageService>()(
           return yield* Option.match(yield* Ref.get(dbRef), {
             onNone: () => Effect.fail(new StorageError({ operation: 'loadWorldMetadata', cause: 'Database not initialized' })),
             onSome: (db) => Effect.gen(function* () {
-              const result = yield* tryCatchStorageWithRetry('loadWorldMetadata', () => db.get(STORE_METADATA, worldId))
+              const result = yield* tryCatchStorageWithRetry('loadWorldMetadata', db.get(STORE_METADATA, worldId))
               return yield* Option.match(Option.fromNullable(result), {
                 onNone: () => Effect.succeed(Option.none<WorldMetadata>()),
                 onSome: (r) => Schema.decodeUnknown(WorldMetadataSchema)(r).pipe(
@@ -192,25 +189,24 @@ export class StorageService extends Effect.Service<StorageService>()(
             onNone: () => Effect.fail(new StorageError({ operation: 'deleteWorld', cause: 'Database not initialized' })),
             onSome: (db) => Effect.gen(function* () {
               // Delete all chunks for this world
-              const chunkKeys: ReadonlyArray<string> = yield* Effect.tryPromise({
-                try: async () => {
-                  const keys: string[] = []
-                  for await (const cursor of db.openCursor(STORE_CHUNKS)) {
+              const keys: string[] = []
+              yield* tryCatchStorage(
+                'deleteWorld',
+                db.forEachCursor(STORE_CHUNKS, (cursor) =>
+                  Effect.sync(() => {
                     if (cursor.key.toString().startsWith(`${worldId}:`)) {
                       keys.push(cursor.key.toString())
                     }
-                  }
-                  return keys
-                },
-                catch: (cause) => new StorageError({ operation: 'deleteWorld', cause }),
-              })
+                  })
+                ),
+              )
               yield* Effect.forEach(
-                chunkKeys,
-                (key) => tryCatchStorage('deleteWorld', () => db.delete(STORE_CHUNKS, key)),
+                keys,
+                (key) => tryCatchStorage('deleteWorld', db.delete(STORE_CHUNKS, key)),
                 { concurrency: 1 }
               )
               // Delete metadata
-              yield* tryCatchStorage('deleteWorld', () => db.delete(STORE_METADATA, worldId))
+              yield* tryCatchStorage('deleteWorld', db.delete(STORE_METADATA, worldId))
             }),
           })
         })
