@@ -164,12 +164,9 @@ export class HotbarRendererService extends Effect.Service<HotbarRendererService>
                * Render the HUD overlay onto the renderer. Call after main scene render with autoClear=false.
                */
               render: (renderer: THREE.WebGLRenderer): Effect.Effect<void, never> =>
-                Effect.gen(function* () {
-                  const hudCamera = MutableRef.get(hudCameraRef)
-                  return Option.match(hudCamera, {
-                    onNone: () => Effect.void,
-                    onSome: (cam) => rendererService.renderOverlay(renderer, hudScene, cam),
-                  })
+                Option.match(MutableRef.get(hudCameraRef), {
+                  onNone: () => Effect.void,
+                  onSome: (cam) => rendererService.renderOverlay(renderer, hudScene, cam),
                 }),
             }),
           )

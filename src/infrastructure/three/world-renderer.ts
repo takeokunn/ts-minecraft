@@ -14,6 +14,7 @@ import { createWaterMaterial } from './water-material'
  * Only throttles creation/update — removal of stale chunks is always immediate.
  */
 export const MAX_CHUNK_UPDATES_PER_FRAME = 4
+const CHUNK_SYNC_CONCURRENCY = typeof Worker === 'undefined' ? 1 : 2
 
 /**
  * Key for chunk mesh tracking — uses the shared ChunkCacheKey brand so this
@@ -159,34 +160,43 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
                     // Remaining new chunks will be picked up in subsequent frames.
                     const chunksToMesh = Arr.take(newChunks, MAX_CHUNK_UPDATES_PER_FRAME)
                     const allNewChunksMeshed = newChunks.length <= MAX_CHUNK_UPDATES_PER_FRAME
-                    const nextMeshesAfterAdd = yield* Effect.reduce(
+                    const meshedChunks = yield* Effect.forEach(
                       chunksToMesh,
-                      meshes,
-                      (acc, chunk) => {
-                        const key = chunkKey(chunk.coord)
-                        return chunkMeshService.createChunkMesh(chunk, waterMaterial).pipe(
-                          Effect.flatMap(({ opaqueMesh, waterMesh }) =>
-                            Effect.all([
-                              sceneService.add(scene, opaqueMesh),
-                              Option.match(waterMesh, {
-                                onNone: () => Effect.void,
-                                onSome: (m) => sceneService.add(scene, m),
-                              }),
-                            ], { concurrency: 'unbounded', discard: true }).pipe(
-                              Effect.as(HashMap.set(acc, key, { opaque: opaqueMesh, water: waterMesh }))
-                            )
-                          )
+                      (chunk) =>
+                        chunkMeshService.createChunkMesh(chunk, waterMaterial).pipe(
+                          Effect.map((chunkMeshes) => [chunkKey(chunk.coord), chunkMeshes] as const)
+                        ),
+                      { concurrency: CHUNK_SYNC_CONCURRENCY }
+                    )
+
+                    const nextMeshesAfterAdd = yield* Effect.all(
+                      meshedChunks.map(([key, { opaqueMesh, waterMesh }]) =>
+                        Effect.all([
+                          sceneService.add(scene, opaqueMesh),
+                          Option.match(waterMesh, {
+                            onNone: () => Effect.void,
+                            onSome: (m) => sceneService.add(scene, m),
+                          }),
+                        ], { concurrency: 'unbounded', discard: true }).pipe(
+                          Effect.as([key, { opaque: opaqueMesh, water: waterMesh }] as const)
                         )
-                      }
+                      ),
+                      { concurrency: CHUNK_SYNC_CONCURRENCY }
+                    ).pipe(
+                      Effect.map((added) =>
+                        Arr.reduce(added, meshes, (acc, [key, chunkMeshes]) => HashMap.set(acc, key, chunkMeshes))
+                      )
                     )
 
                     // Remove meshes for chunks no longer loaded (iterate original snapshot)
-                    const nextMeshes = yield* Effect.reduce(
+                    const removalPairs = Arr.filterMap(
                       Arr.fromIterable(meshes),
-                      nextMeshesAfterAdd,
-                      (acc, [key, chunkMeshes]) => {
-                        if (HashSet.has(loadedKeySet, key)) return Effect.succeed(acc)
-                        return Effect.all([
+                      ([key, chunkMeshes]) => HashSet.has(loadedKeySet, key) ? Option.none() : Option.some([key, chunkMeshes] as const)
+                    )
+
+                    const removedKeys = yield* Effect.all(
+                      removalPairs.map(([key, chunkMeshes]) =>
+                        Effect.all([
                           sceneService.remove(scene, chunkMeshes.opaque).pipe(
                             Effect.andThen(Effect.sync(() => disposeMesh(chunkMeshes.opaque)))
                           ),
@@ -198,10 +208,13 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
                               ),
                           }),
                         ], { concurrency: 'unbounded', discard: true }).pipe(
-                          Effect.as(HashMap.remove(acc, key))
+                          Effect.as(key)
                         )
-                      }
+                      ),
+                      { concurrency: CHUNK_SYNC_CONCURRENCY }
                     )
+
+                    const nextMeshes = Arr.reduce(removedKeys, nextMeshesAfterAdd, (acc, key) => HashMap.remove(acc, key))
 
                     // Rebuild stable water mesh list
                     const nextWaterMeshes = Arr.filterMap(Arr.fromIterable(HashMap.values(nextMeshes)), (cm) => cm.water)

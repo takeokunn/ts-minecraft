@@ -56,6 +56,7 @@ const TRADE_NEXT_KEY = 'ArrowDown'
 const TRADE_PREV_KEY = 'ArrowUp'
 const TRADE_EXECUTE_KEY = 'Enter'
 const MAX_DIRTY_CHUNK_UPDATES_PER_FRAME = 4
+const DIRTY_CHUNK_FLUSH_CONCURRENCY = typeof Worker === 'undefined' ? 1 : 2
 const REDSTONE_TICK_INTERVAL_SECS = 0.05
 const FLUID_TICK_INTERVAL_SECS = 0.05
 const REDSTONE_PLACE_WIRE_KEY = 'KeyR'
@@ -285,18 +286,16 @@ export const createFrameHandler = (
           sfx: currentSettings.sfxVolume,
           music: currentSettings.musicVolume,
         })
-        yield* Effect.all([
-          soundManager.applySettings({
-            enabled: currentSettings.audioEnabled,
-            masterVolume: currentSettings.masterVolume,
-            sfxVolume: currentSettings.sfxVolume,
-          }),
-          musicManager.applySettings({
-            enabled: currentSettings.audioEnabled,
-            masterVolume: currentSettings.masterVolume,
-            musicVolume: currentSettings.musicVolume,
-          }),
-        ], { concurrency: 'unbounded', discard: true })
+        yield* soundManager.applySettings({
+          enabled: currentSettings.audioEnabled,
+          masterVolume: currentSettings.masterVolume,
+          sfxVolume: currentSettings.sfxVolume,
+        })
+        yield* musicManager.applySettings({
+          enabled: currentSettings.audioEnabled,
+          masterVolume: currentSettings.masterVolume,
+          musicVolume: currentSettings.musicVolume,
+        })
       }
       // Listener position updates every frame (player moves)
       yield* soundManager.setListenerPosition(playerPos)
@@ -313,10 +312,8 @@ export const createFrameHandler = (
 
         if (shouldRefreshChunks) {
           const didLoadChunks = yield* chunkManagerService.loadChunksAroundPlayer(playerPos, currentSettings.renderDistance)
-          const [loadedChunks, lastLoadedChunks] = yield* Effect.all([
-            chunkManagerService.getLoadedChunks(),
-            Ref.get(lastLoadedChunksRef),
-          ], { concurrency: 'unbounded' })
+          const loadedChunks = yield* chunkManagerService.getLoadedChunks()
+          const lastLoadedChunks = yield* Ref.get(lastLoadedChunksRef)
           const chunksChanged = Option.match(lastLoadedChunks, {
             onNone: () => true,
             onSome: (previousLoadedChunks) => previousLoadedChunks !== loadedChunks,
@@ -425,15 +422,14 @@ export const createFrameHandler = (
         Effect.catchAllCause((cause) => Effect.logError(`Music update error: ${Cause.pretty(cause)}`))
       )
 
-      // 2.5. Entity system: spawn and update AI state machine
+      // 2.5 / 2.75. Entity and village simulation are independent once time-of-day is known.
+      // Run them sequentially to avoid false parallelism overhead in the CPU-bound frame loop.
+      const timeOfDay = yield* timeService.getTimeOfDay()
       yield* mobSpawner.trySpawn(playerPos).pipe(
         Effect.andThen(entityManager.update(deltaTime, playerPos)),
         Effect.catchAllCause((cause) => Effect.logError(`Entity system error: ${Cause.pretty(cause)}`))
       )
-
-      // 2.75. Village simulation update (deterministic generation + villager AI)
-      yield* timeService.getTimeOfDay().pipe(
-        Effect.flatMap((timeOfDay) => villageService.update(playerPos, timeOfDay, deltaTime)),
+      yield* villageService.update(playerPos, timeOfDay, deltaTime).pipe(
         Effect.catchAllCause((cause) => Effect.logError(`Village system error: ${Cause.pretty(cause)}`))
       )
 
@@ -940,7 +936,7 @@ export const createFrameHandler = (
               const flushUpdates = Effect.forEach(
                 chunksToUpdate,
                 ([, chunk]) => worldRendererService.updateChunkInScene(chunk, scene),
-                { concurrency: 1, discard: true }
+                { concurrency: DIRTY_CHUNK_FLUSH_CONCURRENCY, discard: true }
               )
 
               const requeueRemaining = remainingEntries.length > 0

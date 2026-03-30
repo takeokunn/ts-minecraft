@@ -1,5 +1,5 @@
 import { Option, Schema } from 'effect'
-import { greedyMeshChunk } from '@/infrastructure/three/meshing/greedy-meshing'
+import { createGreedyMeshScratch, greedyMeshChunk } from '@/infrastructure/three/meshing/greedy-meshing'
 import { CHUNK_SIZE } from '@/domain/chunk'
 import type { Chunk } from '@/domain/chunk'
 
@@ -19,6 +19,8 @@ export const MeshRequestSchema = Schema.Struct({
 })
 export type MeshRequest = Schema.Schema.Type<typeof MeshRequestSchema>
 
+const scratch = createGreedyMeshScratch()
+
 self.onmessage = (e: MessageEvent<MeshRequest>): void => {
   const { id, blocks, wx, wz, transparentBlockIds } = e.data
 
@@ -34,7 +36,8 @@ self.onmessage = (e: MessageEvent<MeshRequest>): void => {
   const result = greedyMeshChunk(
     chunk,
     { wx, wz },
-    new Set(transparentBlockIds)
+    new Set(transparentBlockIds),
+    scratch
   )
 
   // toMeshed() calls .slice() on each accumulator subarray, producing owned ArrayBuffers

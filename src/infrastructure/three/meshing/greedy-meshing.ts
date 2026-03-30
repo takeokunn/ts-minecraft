@@ -38,15 +38,9 @@ export type ChunkWorldOffset = Schema.Schema.Type<typeof ChunkWorldOffsetSchema>
 
 const AIR = 0
 
-// Pooled buffer for greedy-expansion "done" tracking.
-// The largest possible slice is CHUNK_SIZE × CHUNK_HEIGHT = 16 × 256 = 4096 cells.
-// runGreedyExpansion takes a subarray view (zero-copy) and resets it with fill(0)
-// instead of allocating a new Uint8Array per call (576 allocs/chunk-rebuild).
-//
-// ⚠ CONCURRENCY WARNING: this buffer is module-level shared state. greedyMeshChunk
-// must never be called concurrently from two fibers (e.g. Effect.forEach with concurrency > 1)
-// or the done-tracking state will be corrupted. Currently safe: WorldRendererService
-// calls greedyMeshChunk synchronously within the single frame-handler fiber.
+// Greedy meshing scratch buffers.
+// Reusing these per worker/service instance avoids reallocating ~4 KB of done-tracking
+// plus the two mask buffers on every chunk rebuild.
 const EMPTY_MESHED_CHUNK: MeshedChunk = {
   positions: new Float32Array(0),
   normals: new Int8Array(0),
@@ -54,6 +48,18 @@ const EMPTY_MESHED_CHUNK: MeshedChunk = {
   uvs: new Float32Array(0),
   indices: new Uint32Array(0),
 }
+
+export type GreedyMeshScratch = {
+  readonly doneBuf: Uint8Array
+  readonly maskCH: Uint16Array
+  readonly maskSS: Uint16Array
+}
+
+export const createGreedyMeshScratch = (): GreedyMeshScratch => ({
+  doneBuf: new Uint8Array(CHUNK_SIZE * CHUNK_HEIGHT),
+  maskCH: new Uint16Array(CHUNK_SIZE * CHUNK_HEIGHT),
+  maskSS: new Uint16Array(CHUNK_SIZE * CHUNK_SIZE),
+})
 
 const getBlock = (blocks: Readonly<Uint8Array>, lx: number, y: number, lz: number): number => {
   if (lx < 0 || lx >= CHUNK_SIZE || y < 0 || y >= CHUNK_HEIGHT || lz < 0 || lz >= CHUNK_SIZE) return AIR
@@ -64,57 +70,77 @@ const isAir = (blocks: Readonly<Uint8Array>, lx: number, y: number, lz: number):
   getBlock(blocks, lx, y, lz) === AIR
 
 const aoXPos = (blocks: Readonly<Uint8Array>, lx: number, y: number, lz: number): number => {
+  if (lx >= CHUNK_SIZE - 1) return 0
+  const xOffset = (lx + 1) * CHUNK_HEIGHT * CHUNK_SIZE
+  const zOffset = lz * CHUNK_HEIGHT
   let count = 0
-  if (getBlock(blocks, lx + 1, y + 1, lz) !== AIR) count++
-  if (getBlock(blocks, lx + 1, y - 1, lz) !== AIR) count++
-  if (getBlock(blocks, lx + 1, y, lz + 1) !== AIR) count++
-  if (getBlock(blocks, lx + 1, y, lz - 1) !== AIR) count++
-  return Math.min(3, count)
+  if (y > 0 && blocks[y - 1 + zOffset + xOffset]! !== AIR) count++
+  if (y < CHUNK_HEIGHT - 1 && blocks[y + 1 + zOffset + xOffset]! !== AIR) count++
+  if (lz > 0 && blocks[y + (lz - 1) * CHUNK_HEIGHT + xOffset]! !== AIR) count++
+  if (lz < CHUNK_SIZE - 1 && blocks[y + (lz + 1) * CHUNK_HEIGHT + xOffset]! !== AIR) count++
+  return count > 3 ? 3 : count
 }
 
 const aoXNeg = (blocks: Readonly<Uint8Array>, lx: number, y: number, lz: number): number => {
+  if (lx <= 0) return 0
+  const xOffset = (lx - 1) * CHUNK_HEIGHT * CHUNK_SIZE
+  const zOffset = lz * CHUNK_HEIGHT
   let count = 0
-  if (getBlock(blocks, lx - 1, y + 1, lz) !== AIR) count++
-  if (getBlock(blocks, lx - 1, y - 1, lz) !== AIR) count++
-  if (getBlock(blocks, lx - 1, y, lz + 1) !== AIR) count++
-  if (getBlock(blocks, lx - 1, y, lz - 1) !== AIR) count++
-  return Math.min(3, count)
+  if (y > 0 && blocks[y - 1 + zOffset + xOffset]! !== AIR) count++
+  if (y < CHUNK_HEIGHT - 1 && blocks[y + 1 + zOffset + xOffset]! !== AIR) count++
+  if (lz > 0 && blocks[y + (lz - 1) * CHUNK_HEIGHT + xOffset]! !== AIR) count++
+  if (lz < CHUNK_SIZE - 1 && blocks[y + (lz + 1) * CHUNK_HEIGHT + xOffset]! !== AIR) count++
+  return count > 3 ? 3 : count
 }
 
 const aoYPos = (blocks: Readonly<Uint8Array>, lx: number, y: number, lz: number): number => {
+  if (y >= CHUNK_HEIGHT - 1) return 0
+  const yOffset = y + 1
+  const xBase = CHUNK_HEIGHT * CHUNK_SIZE
+  const zOffset = lz * CHUNK_HEIGHT
   let count = 0
-  if (getBlock(blocks, lx + 1, y + 1, lz) !== AIR) count++
-  if (getBlock(blocks, lx - 1, y + 1, lz) !== AIR) count++
-  if (getBlock(blocks, lx, y + 1, lz + 1) !== AIR) count++
-  if (getBlock(blocks, lx, y + 1, lz - 1) !== AIR) count++
-  return Math.min(3, count)
+  if (lx + 1 < CHUNK_SIZE && blocks[yOffset + zOffset + (lx + 1) * xBase]! !== AIR) count++
+  if (lx > 0 && blocks[yOffset + zOffset + (lx - 1) * xBase]! !== AIR) count++
+  if (lz + 1 < CHUNK_SIZE && blocks[yOffset + (lz + 1) * CHUNK_HEIGHT + lx * xBase]! !== AIR) count++
+  if (lz > 0 && blocks[yOffset + (lz - 1) * CHUNK_HEIGHT + lx * xBase]! !== AIR) count++
+  return count > 3 ? 3 : count
 }
 
 const aoYNeg = (blocks: Readonly<Uint8Array>, lx: number, y: number, lz: number): number => {
+  if (y <= 0) return 0
+  const yOffset = y - 1
+  const xBase = CHUNK_HEIGHT * CHUNK_SIZE
+  const zOffset = lz * CHUNK_HEIGHT
   let count = 0
-  if (getBlock(blocks, lx + 1, y - 1, lz) !== AIR) count++
-  if (getBlock(blocks, lx - 1, y - 1, lz) !== AIR) count++
-  if (getBlock(blocks, lx, y - 1, lz + 1) !== AIR) count++
-  if (getBlock(blocks, lx, y - 1, lz - 1) !== AIR) count++
-  return Math.min(3, count)
+  if (lx + 1 < CHUNK_SIZE && blocks[yOffset + zOffset + (lx + 1) * xBase]! !== AIR) count++
+  if (lx > 0 && blocks[yOffset + zOffset + (lx - 1) * xBase]! !== AIR) count++
+  if (lz + 1 < CHUNK_SIZE && blocks[yOffset + (lz + 1) * CHUNK_HEIGHT + lx * xBase]! !== AIR) count++
+  if (lz > 0 && blocks[yOffset + (lz - 1) * CHUNK_HEIGHT + lx * xBase]! !== AIR) count++
+  return count > 3 ? 3 : count
 }
 
 const aoZPos = (blocks: Readonly<Uint8Array>, lx: number, y: number, lz: number): number => {
+  if (lz >= CHUNK_SIZE - 1) return 0
+  const zOffset = (lz + 1) * CHUNK_HEIGHT
+  const xBase = CHUNK_HEIGHT * CHUNK_SIZE
   let count = 0
-  if (getBlock(blocks, lx + 1, y, lz + 1) !== AIR) count++
-  if (getBlock(blocks, lx - 1, y, lz + 1) !== AIR) count++
-  if (getBlock(blocks, lx, y + 1, lz + 1) !== AIR) count++
-  if (getBlock(blocks, lx, y - 1, lz + 1) !== AIR) count++
-  return Math.min(3, count)
+  if (lx + 1 < CHUNK_SIZE && blocks[y + zOffset + (lx + 1) * xBase]! !== AIR) count++
+  if (lx > 0 && blocks[y + zOffset + (lx - 1) * xBase]! !== AIR) count++
+  if (y + 1 < CHUNK_HEIGHT && blocks[y + 1 + zOffset + lx * xBase]! !== AIR) count++
+  if (y > 0 && blocks[y - 1 + zOffset + lx * xBase]! !== AIR) count++
+  return count > 3 ? 3 : count
 }
 
 const aoZNeg = (blocks: Readonly<Uint8Array>, lx: number, y: number, lz: number): number => {
+  if (lz <= 0) return 0
+  const zOffset = (lz - 1) * CHUNK_HEIGHT
+  const xBase = CHUNK_HEIGHT * CHUNK_SIZE
   let count = 0
-  if (getBlock(blocks, lx + 1, y, lz - 1) !== AIR) count++
-  if (getBlock(blocks, lx - 1, y, lz - 1) !== AIR) count++
-  if (getBlock(blocks, lx, y + 1, lz - 1) !== AIR) count++
-  if (getBlock(blocks, lx, y - 1, lz - 1) !== AIR) count++
-  return Math.min(3, count)
+  if (lx + 1 < CHUNK_SIZE && blocks[y + zOffset + (lx + 1) * xBase]! !== AIR) count++
+  if (lx > 0 && blocks[y + zOffset + (lx - 1) * xBase]! !== AIR) count++
+  if (y + 1 < CHUNK_HEIGHT && blocks[y + 1 + zOffset + lx * xBase]! !== AIR) count++
+  if (y > 0 && blocks[y - 1 + zOffset + lx * xBase]! !== AIR) count++
+  return count > 3 ? 3 : count
 }
 
 // Performance boundary: pre-sized typed arrays for ~95% of chunks without reallocation.
@@ -313,16 +339,15 @@ export const GreedyMeshResultSchema = Schema.Struct({
 export const greedyMeshChunk = (
   chunk: Chunk,
   offset: ChunkWorldOffset,
-  transparentBlockIds: ReadonlySet<number> = new Set()
+  transparentBlockIds: ReadonlySet<number> = new Set(),
+  scratch: GreedyMeshScratch = createGreedyMeshScratch(),
 ): GreedyMeshResult => {
   const opaqueAcc = createAccumulator()
   let waterAcc: MeshAccumulator | null = null
   const transparentLookup = new Uint8Array(256)
   for (const blockId of transparentBlockIds) transparentLookup[blockId] = 1
 
-  const doneBuf = new Uint8Array(CHUNK_SIZE * CHUNK_HEIGHT)
-  const maskCH = new Uint16Array(CHUNK_SIZE * CHUNK_HEIGHT)
-  const maskSS = new Uint16Array(CHUNK_SIZE * CHUNK_SIZE)
+   const { doneBuf, maskCH, maskSS } = scratch
 
   // Take a readonly snapshot for consistent reads in the hot loop
   const blocks: Readonly<Uint8Array> = chunk.blocks

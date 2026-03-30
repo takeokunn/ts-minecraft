@@ -191,9 +191,11 @@ export class BiomeService extends Effect.Service<BiomeService>()(
         )
 
       const getBiome = (x: number, z: number): Effect.Effect<BiomeType, never> =>
-        Effect.all([getTemperature(x, z), getHumidity(x, z)], { concurrency: 'unbounded' }).pipe(
-          Effect.map(([temp, hum]) => classifyBiome(temp, hum))
-        )
+        Effect.gen(function* () {
+          const temp = yield* getTemperature(x, z)
+          const hum = yield* getHumidity(x, z)
+          return classifyBiome(temp, hum)
+        })
 
       const getBiomeProperties = (biome: BiomeType): Effect.Effect<BiomeProperties, never, never> =>
         Effect.succeed(BIOME_PROPERTIES[biome])
@@ -205,29 +207,35 @@ export class BiomeService extends Effect.Service<BiomeService>()(
         // Index layout: outer=lx (Math.floor(i/CHUNK_SIZE)), inner=lz (i%CHUNK_SIZE).
         // Must match generateTerrain's terrainPoints and double-loop order (lx outer, lz inner).
         const columnCount = CHUNK_SIZE * CHUNK_SIZE
-        const biomeScalePoints: Array<readonly [number, number]> = new Array(columnCount)
-        const humidityOffsetPoints: Array<readonly [number, number]> = new Array(columnCount)
+        const biomeScaleXs: number[] = []
+        biomeScaleXs.length = columnCount
+        const biomeScaleZs: number[] = []
+        biomeScaleZs.length = columnCount
+        const humidityOffsetXs: number[] = []
+        humidityOffsetXs.length = columnCount
+        const humidityOffsetZs: number[] = []
+        humidityOffsetZs.length = columnCount
         for (let i = 0; i < columnCount; i++) {
           const lx = Math.floor(i / CHUNK_SIZE)
           const lz = i % CHUNK_SIZE
           const x = chunkX * CHUNK_SIZE + lx
           const z = chunkZ * CHUNK_SIZE + lz
-          biomeScalePoints[i] = [x * BIOME_SCALE, z * BIOME_SCALE]
-          humidityOffsetPoints[i] = [(x + 10000) * BIOME_SCALE, (z + 10000) * BIOME_SCALE]
+          biomeScaleXs[i] = x * BIOME_SCALE
+          biomeScaleZs[i] = z * BIOME_SCALE
+          humidityOffsetXs[i] = (x + 10000) * BIOME_SCALE
+          humidityOffsetZs[i] = (z + 10000) * BIOME_SCALE
         }
-        return Effect.all([
-          noiseService.octaveNoise2DBatch(biomeScalePoints, 4, 0.5, 2.0),
-          noiseService.octaveNoise2DBatch(humidityOffsetPoints, 4, 0.5, 2.0),
-        ], { concurrency: 'unbounded' }).pipe(
-          Effect.map(([tempVals, humVals]) => {
-            const results: Array<{ biome: BiomeType; props: BiomeProperties }> = new Array(columnCount)
-            for (let i = 0; i < columnCount; i++) {
-              const biome = classifyBiome(tempVals[i]!, humVals[i]!)
-              results[i] = { biome, props: BIOME_PROPERTIES[biome] }
-            }
-            return results
-          })
-        )
+        return Effect.gen(function* () {
+          const tempVals = yield* noiseService.octaveNoise2DBatchXY(biomeScaleXs, biomeScaleZs, 4, 0.5, 2.0)
+          const humVals = yield* noiseService.octaveNoise2DBatchXY(humidityOffsetXs, humidityOffsetZs, 4, 0.5, 2.0)
+          const results: Array<{ biome: BiomeType; props: BiomeProperties }> = []
+          results.length = columnCount
+          for (let i = 0; i < columnCount; i++) {
+            const biome = classifyBiome(tempVals[i]!, humVals[i]!)
+            results[i] = { biome, props: BIOME_PROPERTIES[biome] }
+          }
+          return results
+        })
       }
 
       return {

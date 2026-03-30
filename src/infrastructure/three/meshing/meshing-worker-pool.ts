@@ -1,5 +1,5 @@
 import { Array as Arr, Effect, MutableRef, Schema } from 'effect'
-import { greedyMeshChunk, MeshedChunkSchema } from './greedy-meshing'
+import { createGreedyMeshScratch, greedyMeshChunk, MeshedChunkSchema } from './greedy-meshing'
 import type { MeshedChunk } from './greedy-meshing'
 import { CHUNK_SIZE, blockTypeToIndex } from '@/domain/chunk'
 import type { Chunk } from '@/domain/chunk'
@@ -60,13 +60,15 @@ export class MeshingWorkerPool extends Effect.Service<MeshingWorkerPool>()(
     scoped: Effect.gen(function* () {
       if (typeof Worker === 'undefined') {
         // Node.js / test fallback: synchronous meshing, Effect.sync (no fiber overhead)
+        const scratch = createGreedyMeshScratch()
         return {
           meshChunk: (chunk: Chunk): Effect.Effect<WorkerMeshResult> =>
             Effect.sync(() => {
               const result = greedyMeshChunk(
                 chunk,
                 { wx: chunk.coord.x * CHUNK_SIZE, wz: chunk.coord.z * CHUNK_SIZE },
-                TRANSPARENT_IDS_SET
+                TRANSPARENT_IDS_SET,
+                scratch
               )
               const meshed = result.toMeshed()
               return {

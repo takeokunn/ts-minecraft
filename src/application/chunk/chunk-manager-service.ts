@@ -296,24 +296,30 @@ const generateTerrain = (
     const baseWorldX = coord.x * CHUNK_SIZE
     const baseWorldZ = coord.z * CHUNK_SIZE
 
-    const terrainNoisePoints: Array<readonly [number, number]> = new Array(columnCount)
-    const lakeNoisePoints: Array<readonly [number, number]> = new Array(columnCount)
+    const terrainNoiseXs: number[] = []
+    terrainNoiseXs.length = columnCount
+    const terrainNoiseZs: number[] = []
+    terrainNoiseZs.length = columnCount
+    const lakeNoiseXs: number[] = []
+    lakeNoiseXs.length = columnCount
+    const lakeNoiseZs: number[] = []
+    lakeNoiseZs.length = columnCount
     let noisePointIndex = 0
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
       const x = baseWorldX + lx
       for (let lz = 0; lz < CHUNK_SIZE; lz++) {
         const z = baseWorldZ + lz
-        terrainNoisePoints[noisePointIndex] = [x * TERRAIN_SCALE, z * TERRAIN_SCALE]
-        lakeNoisePoints[noisePointIndex] = [x * LAKE_NOISE_SCALE + 5000, z * LAKE_NOISE_SCALE + 5000]
+        terrainNoiseXs[noisePointIndex] = x * TERRAIN_SCALE
+        terrainNoiseZs[noisePointIndex] = z * TERRAIN_SCALE
+        lakeNoiseXs[noisePointIndex] = x * LAKE_NOISE_SCALE + 5000
+        lakeNoiseZs[noisePointIndex] = z * LAKE_NOISE_SCALE + 5000
         noisePointIndex++
       }
     }
 
-    const [biomeColumns, terrainNoiseVals, lakeNoiseVals] = yield* Effect.all([
-      biomeService.getBiomesAndPropertiesForChunk(coord.x, coord.z),
-      noiseService.octaveNoise2DBatch(terrainNoisePoints, 4, 0.5, 2.0),
-      noiseService.noise2DBatch(lakeNoisePoints),
-    ], { concurrency: 'unbounded' })
+    const biomeColumns = yield* biomeService.getBiomesAndPropertiesForChunk(coord.x, coord.z)
+    const terrainNoiseVals = yield* noiseService.octaveNoise2DBatchXY(terrainNoiseXs, terrainNoiseZs, 4, 0.5, 2.0)
+    const lakeNoiseVals = yield* noiseService.noise2DBatchXY(lakeNoiseXs, lakeNoiseZs)
 
     const stoneBlockIndex = blockTypeToIndex('STONE')
     const waterBlockIndex = blockTypeToIndex('WATER')
@@ -597,11 +603,11 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
             yield* Ref.update(maxCachedChunksRef, (current) => Math.max(current, chunkCacheCapacity))
             const chunksToLoad = getChunksInRenderDistance(centerChunk, renderDistance)
 
-            // Load chunks in render distance — up to 4 concurrent fibers via semaphore
+            // Load chunks in render distance — cap fan-out to the same 4 fibers as the semaphore.
             yield* Effect.forEach(
               chunksToLoad,
               (coord) => loadSemaphore.withPermits(1)(getChunk(coord)),
-              { concurrency: 'unbounded' }
+              { concurrency: 4 }
             )
 
             // Unload chunks outside the render radius plus a small buffer.

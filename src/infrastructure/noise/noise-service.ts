@@ -58,6 +58,34 @@ export class NoiseService extends Effect.Service<NoiseService>()(
 
         noise2DBatch: (points: ReadonlyArray<readonly [number, number]>): Effect.Effect<ReadonlyArray<number>, never> =>
           Effect.sync(() => points.map(([x, z]) => normalizeNoise(noiseFn(x, z)))),
+
+        octaveNoise2DBatchXY: (
+          xs: ReadonlyArray<number>,
+          zs: ReadonlyArray<number>,
+          octaves: number,
+          persistence: number,
+          lacunarity: number,
+        ): Effect.Effect<ReadonlyArray<number>, never> =>
+          Effect.sync(() => {
+            const length = xs.length
+            const values: number[] = []
+            values.length = length
+            for (let i = 0; i < length; i++) {
+              values[i] = computeOctaveNoise(xs[i]!, zs[i]!, octaves, persistence, lacunarity)
+            }
+            return values
+          }),
+
+        noise2DBatchXY: (xs: ReadonlyArray<number>, zs: ReadonlyArray<number>): Effect.Effect<ReadonlyArray<number>, never> =>
+          Effect.sync(() => {
+            const length = xs.length
+            const values: number[] = []
+            values.length = length
+            for (let i = 0; i < length; i++) {
+              values[i] = normalizeNoise(noiseFn(xs[i]!, zs[i]!))
+            }
+            return values
+          }),
       }
     })
   }

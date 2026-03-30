@@ -325,9 +325,10 @@ export class ChunkMeshService extends Effect.Service<ChunkMeshService>()(
   '@minecraft/infrastructure/three/ChunkMeshService',
   {
     scoped: Effect.gen(function* () {
-      const pool = yield* MeshingWorkerPool
-
-      const atlasTexture = yield* Effect.orDie(buildAtlasTexture())
+      const [pool, atlasTexture] = yield* Effect.all(
+        [MeshingWorkerPool, Effect.orDie(buildAtlasTexture())],
+        { concurrency: 'unbounded' }
+      )
 
       const sharedMaterial = yield* Effect.acquireRelease(
         Effect.sync(() => new THREE.MeshLambertMaterial({

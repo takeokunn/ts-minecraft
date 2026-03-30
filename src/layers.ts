@@ -108,14 +108,16 @@ export const NoiseLayer = NoiseServiceLive
 export const NoisePortLayer = Layer.effect(
   NoiseServicePort,
   Effect.map(NoiseService, (noise) => {
-    // Typed intermediate validates that NoiseService exposes all 3 required port methods
+    // Typed intermediate validates that NoiseService exposes the required port methods
     // with the correct signatures. If a method is renamed or its signature changes, tsc fails here.
-    const impl: { noise2D: NoiseService['noise2D']; octaveNoise2D: NoiseService['octaveNoise2D']; setSeed: NoiseService['setSeed']; octaveNoise2DBatch: NoiseService['octaveNoise2DBatch']; noise2DBatch: NoiseService['noise2DBatch'] } = {
+    const impl: { noise2D: NoiseService['noise2D']; octaveNoise2D: NoiseService['octaveNoise2D']; setSeed: NoiseService['setSeed']; octaveNoise2DBatch: NoiseService['octaveNoise2DBatch']; noise2DBatch: NoiseService['noise2DBatch']; octaveNoise2DBatchXY: NoiseService['octaveNoise2DBatchXY']; noise2DBatchXY: NoiseService['noise2DBatchXY'] } = {
       noise2D: (x, z) => noise.noise2D(x, z),
       octaveNoise2D: (x, z, o, p, l) => noise.octaveNoise2D(x, z, o, p, l),
       setSeed: (seed) => noise.setSeed(seed),
       octaveNoise2DBatch: (points, o, p, l) => noise.octaveNoise2DBatch(points, o, p, l),
       noise2DBatch: (points) => noise.noise2DBatch(points),
+      octaveNoise2DBatchXY: (xs, zs, o, p, l) => noise.octaveNoise2DBatchXY(xs, zs, o, p, l),
+      noise2DBatchXY: (xs, zs) => noise.noise2DBatchXY(xs, zs),
     }
     // The `as unknown as NoiseServicePort` cast is unavoidable: Effect.Service adds a `_tag`
     // discriminant that plain objects cannot satisfy structurally.

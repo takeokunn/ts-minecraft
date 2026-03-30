@@ -101,8 +101,8 @@ const makeTypedDB = <T extends DBSchema>(db: IDBDatabase): TypedIDBDatabase<T> =
       // Throws if the transaction already auto-committed (normal completion) — safe to ignore.
       try {
         tx.abort()
-      } catch (_cause) {
-        // transaction already completed
+      } catch (cause) {
+        void cause
       }
     }
 

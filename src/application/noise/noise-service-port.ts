@@ -24,9 +24,20 @@ export class NoiseServicePort extends Effect.Service<NoiseServicePort>()(
         _persistence: number,
         _lacunarity: number,
       ): Effect.Effect<ReadonlyArray<number>> => Effect.succeed(points.map(() => 0.5)),
+      octaveNoise2DBatchXY: (
+        xs: ReadonlyArray<number>,
+        _zs: ReadonlyArray<number>,
+        _octaves: number,
+        _persistence: number,
+        _lacunarity: number,
+      ): Effect.Effect<ReadonlyArray<number>> => Effect.succeed(xs.map(() => 0.5)),
       noise2DBatch: (
         points: ReadonlyArray<readonly [number, number]>,
       ): Effect.Effect<ReadonlyArray<number>> => Effect.succeed(points.map(() => 0.5)),
+      noise2DBatchXY: (
+        xs: ReadonlyArray<number>,
+        _zs: ReadonlyArray<number>,
+      ): Effect.Effect<ReadonlyArray<number>> => Effect.succeed(xs.map(() => 0.5)),
     },
   }
 ) {}
