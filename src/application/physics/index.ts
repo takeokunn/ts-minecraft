@@ -3,8 +3,6 @@ export {
   PhysicsServiceLive,
   PhysicsServiceError,
   AddBodyConfigSchema,
-  GROUND_DETECTION_DISTANCE,
-  PLAYER_FEET_OFFSET,
 } from './physics-service'
 
 export type {

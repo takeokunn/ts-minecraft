@@ -2,10 +2,13 @@ import { Effect, Ref, Schema, Clock, Data, Option } from 'effect'
 import { PlayerService } from '@/application/player/player-state'
 import { PlayerError } from '@/domain'
 import { DeltaTimeSecs, DeltaTimeSecsSchema, PlayerId, Position, PhysicsBodyId } from '@/shared/kernel'
-import { PhysicsService, PLAYER_FEET_OFFSET } from './physics/physics-service'
+import { PhysicsService } from './physics/physics-service'
 import { MovementService } from './player/movement-service'
 import { PlayerCameraStateService } from '@/application/camera/camera-state'
 import { DEFAULT_PLAYER_ID, FIRST_FRAME_DELTA_SECS } from '@/application/constants'
+import { ChunkManagerService } from '@/application/chunk/chunk-manager-service'
+import { CHUNK_SIZE, CHUNK_HEIGHT } from '@/domain/chunk'
+import { resolveBlockCollisions } from '@/application/physics/aabb-collision'
 
 /**
  * Schema for TimingState representing frame timing information
@@ -47,6 +50,7 @@ const PLAYER_HALF_WIDTH = 0.3
 
 /** Player box half-extents in meters (y) */
 const PLAYER_HALF_HEIGHT = 0.9
+
 const ZERO_VEC3 = Object.freeze({ x: 0, y: 0, z: 0 })
 
 /**
@@ -60,6 +64,7 @@ export class GameStateService extends Effect.Service<GameStateService>()(
       PhysicsService,
       MovementService,
       PlayerCameraStateService,
+      ChunkManagerService,
       // Timing state (deltaTime initial value uses a first-frame estimate of 16ms at 60fps)
       Ref.make<TimingState>({
         lastFrameTime: 0,
@@ -68,60 +73,18 @@ export class GameStateService extends Effect.Service<GameStateService>()(
       }),
       // Opaque physics body ID for the player (replaces CANNON.Body ref)
       Ref.make<Option.Option<PhysicsBodyId>>(Option.none()),
-      // Stored ground plane Y for post-step fall-through correction
-      Ref.make<number>(0),
-      // Jump override flag: when the player jumps, contact state may persist
-      // for one frame before clearing. This flag overrides isGrounded to return false
-      // immediately after a jump, matching the behaviour of the old clearGroundedState.
+      // AABB-derived grounded state (updated each frame after block collision resolution)
       Ref.make<boolean>(false),
-    ], { concurrency: 'unbounded' }).pipe(Effect.map(([playerService, physicsService, movementService, cameraState, timingStateRef, playerBodyIdRef, groundYRef, jumpOverrideRef]) => {
+    ], { concurrency: 'unbounded' }).pipe(Effect.map(([playerService, physicsService, movementService, cameraState, chunkManagerService, timingStateRef, playerBodyIdRef, isGroundedRef]) => {
       const playerId = DEFAULT_PLAYER_ID
-
-      /**
-       * Internal helper: get whether the player is currently grounded.
-       * Uses position-based detection: player center Y ≤ (groundY + halfHeight + tolerance).
-       * Position-threshold comparison is used instead of contact events because the post-step
-       * ground clamp repositions the body without generating new contact equations.
-       */
-      const getIsGrounded = (playerBodyId: PhysicsBodyId): Effect.Effect<boolean, never> =>
-        Effect.gen(function* () {
-          const [[jumpOverride, gY], pos] = yield* Effect.all([
-            Effect.all([Ref.get(jumpOverrideRef), Ref.get(groundYRef)], { concurrency: 'unbounded' }),
-            physicsService.getPosition(playerBodyId).pipe(
-              Effect.catchTag('PhysicsServiceError', () => Effect.succeed(ZERO_VEC3))
-            ),
-          ], { concurrency: 'unbounded' })
-          // Player center is at groundY + halfHeight when standing on ground
-          const groundedThresholdY = gY + PLAYER_HALF_HEIGHT + 0.15
-          const isNearGround = pos.y <= groundedThresholdY
-          if (jumpOverride) {
-            // Clear override once player has risen above ground level
-            if (!isNearGround) {
-              yield* Ref.set(jumpOverrideRef, false)
-            }
-            return false
-          }
-          return isNearGround
-        })
 
       return {
         initialize: (spawnPosition: Position, groundY = 0): Effect.Effect<void, GameStateError> =>
           Effect.gen(function* () {
-            // Store ground plane Y for post-step fall-through correction
-            yield* Ref.set(groundYRef, groundY)
-
             // Initialize the physics world
             yield* physicsService.initialize({
               gravity: { x: 0, y: GRAVITY_Y, z: 0 },
               broadphase: 'naive',
-            })
-
-            // Create the ground plane at terrain surface height
-            yield* physicsService.addBody({
-              mass: 0,
-              position: { x: 0, y: groundY, z: 0 },
-              shape: 'plane',
-              type: 'static',
             })
 
             // Create player body at spawn position
@@ -140,6 +103,9 @@ export class GameStateService extends Effect.Service<GameStateService>()(
 
             // Initialize player state at spawn position
             yield* playerService.create(playerId, spawnPosition)
+
+            // Suppress unused warning for groundY parameter (kept for API compatibility)
+            void groundY
           }).pipe(
             Effect.catchTag('PhysicsServiceError', (e) =>
               Effect.fail(new GameStateError({ operation: 'initialize', reason: e.operation, cause: e }))
@@ -160,8 +126,8 @@ export class GameStateService extends Effect.Service<GameStateService>()(
             const rotation = yield* cameraState.getRotation()
             const yaw = rotation.yaw
 
-            // Check if player is grounded (respects jump override)
-            const isGrounded = yield* getIsGrounded(playerBodyId)
+            // Read grounded state from last frame's AABB result
+            const isGrounded = yield* Ref.get(isGroundedRef)
 
             // Get current physics velocity for Y preservation
             const currentVel = yield* physicsService.getVelocity(playerBodyId).pipe(
@@ -171,48 +137,84 @@ export class GameStateService extends Effect.Service<GameStateService>()(
                 )
               )
             )
-            const currentVelY = currentVel.y
 
             // Calculate movement velocity based on input
-            const velocity = yield* movementService.update(
-              yaw,
-              isGrounded
-            )
+            const velocity = yield* movementService.update(yaw, isGrounded)
 
-            // Apply velocity to physics body
-            // Y velocity handling:
-            // - If velocity.y > 0: Player intentionally jumped, apply jump velocity
-            // - If velocity.y <= 0: Not jumping, preserve current Y velocity (gravity)
             const jumped = velocity.y > 0
+
+            // Air control: only allow horizontal movement input when grounded
             yield* physicsService.setVelocity(playerBodyId, {
-              x: velocity.x,
-              y: jumped ? velocity.y : currentVelY,
-              z: velocity.z,
+              x: isGrounded ? velocity.x : currentVel.x,
+              y: jumped ? velocity.y : currentVel.y,
+              z: isGrounded ? velocity.z : currentVel.z,
             })
 
-            // Set jump override so grounded state clears immediately on jump
+            // Clear grounded immediately on jump
             if (jumped) {
-              yield* Ref.set(jumpOverrideRef, true)
+              yield* Ref.set(isGroundedRef, false)
             }
 
-            // Step physics simulation with ground-clamp to prevent tunneling
-            const storedGroundY = yield* Ref.get(groundYRef)
-            yield* physicsService.step(deltaTime, { minY: storedGroundY + PLAYER_FEET_OFFSET })
+            // Step physics simulation (Euler integration + gravity)
+            yield* physicsService.step(deltaTime)
 
-            // Sync physics position and velocity back to player state
-            const pos = yield* physicsService.getPosition(playerBodyId)
-            yield* playerService.updatePosition(playerId, {
-              x: pos.x,
-              y: pos.y,
-              z: pos.z,
-            })
-
-            const finalVel = yield* physicsService.getVelocity(playerBodyId).pipe(
-              Effect.catchTag('PhysicsServiceError', () =>
-                Effect.succeed({ x: 0, y: 0, z: 0 })
-              )
+            // Read post-step position and velocity
+            const physPos = yield* physicsService.getPosition(playerBodyId).pipe(
+              Effect.catchTag('PhysicsServiceError', () => Effect.succeed(ZERO_VEC3 as Position))
             )
-            yield* playerService.updateVelocity(playerId, finalVel)
+            const physVel = yield* physicsService.getVelocity(playerBodyId).pipe(
+              Effect.catchTag('PhysicsServiceError', () => Effect.succeed(ZERO_VEC3))
+            )
+
+            // Load surrounding chunks for block collision queries
+            const playerCx = Math.floor(physPos.x / CHUNK_SIZE)
+            const playerCz = Math.floor(physPos.z / CHUNK_SIZE)
+            const chunkCache = new Map<string, { blocks: Uint8Array }>()
+            yield* Effect.forEach(
+              ([-1, 0, 1] as const).flatMap((dx) => ([-1, 0, 1] as const).map((dz) => ({ dx, dz }))),
+              ({ dx, dz }) =>
+                chunkManagerService.getChunk({ x: playerCx + dx, z: playerCz + dz }).pipe(
+                  Effect.tap((chunk) =>
+                    Effect.sync(() => {
+                      chunkCache.set(`${playerCx + dx},${playerCz + dz}`, chunk)
+                    })
+                  ),
+                  Effect.ignore
+                ),
+              { concurrency: 'unbounded' }
+            )
+
+            // AABB block collision resolution
+            const isBlockSolid = (wx: number, wy: number, wz: number): boolean => {
+              const iy = Math.floor(wy)
+              if (iy < 0) return true  // bedrock floor
+              if (iy >= CHUNK_HEIGHT) return false
+              const bx = Math.floor(wx)
+              const bz = Math.floor(wz)
+              const cx = Math.floor(bx / CHUNK_SIZE)
+              const cz = Math.floor(bz / CHUNK_SIZE)
+              const chunk = chunkCache.get(`${cx},${cz}`)
+              if (!chunk) return false
+              const lx = ((bx % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
+              const lz = ((bz % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
+              return chunk.blocks[iy + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE] !== 0
+            }
+
+            const { position: resolvedPos, velocity: resolvedVel, isGrounded: newIsGrounded } =
+              resolveBlockCollisions(physPos, physVel, PLAYER_HALF_WIDTH, PLAYER_HALF_HEIGHT, isBlockSolid)
+
+            // Write resolved state back to physics body
+            yield* physicsService.setPosition(playerBodyId, resolvedPos as Position).pipe(
+              Effect.catchTag('PhysicsServiceError', () => Effect.void)
+            )
+            yield* physicsService.setVelocity(playerBodyId, resolvedVel).pipe(
+              Effect.catchTag('PhysicsServiceError', () => Effect.void)
+            )
+            yield* Ref.set(isGroundedRef, newIsGrounded)
+
+            // Sync resolved position to player state
+            yield* playerService.updatePosition(playerId, resolvedPos as Position)
+            yield* playerService.updateVelocity(playerId, resolvedVel)
 
             // Update timing state
             const now = yield* Clock.currentTimeMillis
@@ -239,19 +241,7 @@ export class GameStateService extends Effect.Service<GameStateService>()(
           cameraState.getRotation(),
 
         isPlayerGrounded: (): Effect.Effect<boolean, never> =>
-          Ref.get(playerBodyIdRef).pipe(
-            Effect.flatMap(Option.match({
-              onNone: () => Effect.succeed(false),
-              onSome: (id) => getIsGrounded(id),
-            })),
-          ),
-
-        /**
-         * Update the terrain ground Y used for physics clamping and grounded detection.
-         * Called each frame by frame-handler with the terrain height at the player's column.
-         */
-        updateGroundY: (y: number): Effect.Effect<void, never> =>
-          Ref.set(groundYRef, y),
+          Ref.get(isGroundedRef),
       }
     })),
   }

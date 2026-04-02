@@ -49,7 +49,7 @@ import { updateDayNightCycle, type DayNightLights } from '@/application/time/day
 import type { DeltaTimeSecs } from '@/shared/kernel'
 
 // Eye level offset for camera (player height - half body height)
-const EYE_LEVEL_OFFSET = 0.7
+const EYE_LEVEL_OFFSET = 0.72
 const TRADE_DISTANCE = 4
 const TRADE_OPEN_KEY = 'KeyT'
 const TRADE_NEXT_KEY = 'ArrowDown'
@@ -185,17 +185,6 @@ export const createFrameHandler = (
     const lastRefractionFrameRef = MutableRef.make({ version: -1, x: NaN, y: NaN, z: NaN, qx: NaN, qy: NaN, qz: NaN, qw: NaN })
     // FR-005: Skip audio applySettings when volume/enabled haven't changed
     const lastAudioRef = MutableRef.make({ enabled: false, master: -1, sfx: -1, music: -1 })
-    // FR-012: Cache last chunk coordinate lookup for ground-Y scan — avoids per-frame getChunk
-    // + object allocation when the player stays within the same chunk. NaN ensures first fetch.
-    const lastChunkLookupRef = MutableRef.make<{ cx: number; cz: number; chunk: Option.Option<Chunk> }>({ cx: NaN, cz: NaN, chunk: Option.none() })
-    // Cache the last ground-height scan column so stationary frames skip the downward scan entirely.
-    const lastGroundScanRef = MutableRef.make<{ cx: number; cz: number; lx: number; lz: number; surfaceY: number }>({
-      cx: NaN,
-      cz: NaN,
-      lx: NaN,
-      lz: NaN,
-      surfaceY: NaN,
-    })
 
     // Pre-computed lights variant with sky disabled — avoids per-frame object spread
     const lightsWithoutSky: DayNightLights = { ...deps.lights, sky: Option.none() }
@@ -371,45 +360,6 @@ export const createFrameHandler = (
           MutableRef.set(lastFrustumCullRef, { version: sceneVersionBeforeCull, ...currentFrustumPose })
         }
 
-        // Update groundY for position-based grounded detection.
-        // Scan the player's column downward to find the topmost solid block,
-        // then set groundY = blockY + 1 (visual top face) so the grounded
-        // threshold in GameStateService correctly tracks uneven terrain.
-        const lx = ((Math.floor(playerPos.x) % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
-        const lz = ((Math.floor(playerPos.z) % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
-        const lastGroundScan = MutableRef.get(lastGroundScanRef)
-        if (lastGroundScan.cx !== cx || lastGroundScan.cz !== cz || lastGroundScan.lx !== lx || lastGroundScan.lz !== lz) {
-          // FR-012: Cache chunk lookup — skip getChunk when player stays in the same chunk.
-          // NaN initial values guarantee the first frame always fetches.
-          const lastLookup = MutableRef.get(lastChunkLookupRef)
-          let playerChunkOpt: Option.Option<Chunk>
-          if (lastLookup.cx === cx && lastLookup.cz === cz) {
-            playerChunkOpt = lastLookup.chunk
-          } else {
-            playerChunkOpt = yield* chunkManagerService.getChunk({ x: cx, z: cz }).pipe(
-              Effect.map(Option.some<Chunk>),
-              Effect.catchAllCause(() => Effect.succeed(Option.none<Chunk>()))
-            )
-            MutableRef.set(lastChunkLookupRef, { cx, cz, chunk: playerChunkOpt })
-          }
-          yield* Option.match(playerChunkOpt, {
-            onNone: () => Effect.void,
-            onSome: (playerChunk) => {
-              // Performance boundary: imperative downward scan avoids allocating an array of
-              // ~65-257 elements (Arr.makeBy) plus Option wrappers per blockIndex call each frame.
-              const startY = Math.min(Math.floor(playerPos.y) + 1, CHUNK_HEIGHT - 1)
-              let surfaceY = 0
-              for (let y = startY; y >= 0; y--) {
-                if (playerChunk.blocks[y + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE] !== 0) {
-                  surfaceY = y + 1
-                  break
-                }
-              }
-              MutableRef.set(lastGroundScanRef, { cx, cz, lx, lz, surfaceY })
-              return gameState.updateGroundY(surfaceY)
-            },
-          })
-        }
       }).pipe(Effect.catchAllCause((cause) => Effect.logError(`Chunk streaming error: ${Cause.pretty(cause)}`)))
 
       // 2. Day/night cycle: advance time and update lighting + sky color
@@ -956,17 +906,7 @@ export const createFrameHandler = (
                 Effect.andThen(Effect.flatMap(Effect.sync(() => dirtyEntries.length > 0), (dirtyChunksChanged) =>
                   dirtyChunksChanged ? blockHighlight.invalidateCache() : Effect.void
                 )),
-                Effect.andThen(Effect.sync(() => {
-                  if (dirtyEntries.length > 0) {
-                    MutableRef.set(lastGroundScanRef, {
-                      cx: NaN,
-                      cz: NaN,
-                      lx: NaN,
-                      lz: NaN,
-                      surfaceY: NaN,
-                    })
-                  }
-                }))
+                Effect.andThen(Effect.void)
               )
             })
           )

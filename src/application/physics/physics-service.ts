@@ -1,4 +1,4 @@
-import { Array as Arr, Effect, Match, Option, Ref, Data, Schema, HashMap } from 'effect'
+import { Effect, Match, Option, Ref, Data, Schema, HashMap } from 'effect'
 import { PhysicsBodyId, PhysicsBodyIdSchema, Position, PositionSchema, DeltaTimeSecs } from '@/shared/kernel'
 import { Vector3Schema, type Vector3 } from '@/shared/math/three'
 import { RigidBodyService, type CustomBody } from '@/infrastructure/physics/boundary/rigid-body-service'
@@ -47,16 +47,6 @@ export const AddBodyConfigSchema = Schema.Struct({
 })
 export type AddBodyConfig = Schema.Schema.Type<typeof AddBodyConfigSchema>
 
-/**
- * Ground detection distance threshold (in meters)
- */
-export const GROUND_DETECTION_DISTANCE = 0.15
-
-/**
- * Vertical offset from player center to feet for ground detection
- */
-export const PLAYER_FEET_OFFSET = 0.9
-
 export class PhysicsService extends Effect.Service<PhysicsService>()(
   '@minecraft/application/PhysicsService',
   {
@@ -68,15 +58,9 @@ export class PhysicsService extends Effect.Service<PhysicsService>()(
       Ref.make<Option.Option<CustomWorld>>(Option.none()),
       // Internal body registry: maps PhysicsBodyId -> CustomBody
       Ref.make(HashMap.empty<PhysicsBodyId, CustomBody>()),
-      // Track plane body Y positions for isGrounded()
-      Ref.make(HashMap.empty<PhysicsBodyId, number>()),
       // Per-instance body ID counter
       Ref.make(0),
-      // Cache: flattened body array, invalidated on addBody/removeBody
-      Ref.make<ReadonlyArray<CustomBody> | null>(null),
-      // Cache: flattened plane-Y array, invalidated on addBody/removeBody
-      Ref.make<ReadonlyArray<number> | null>(null),
-    ], { concurrency: 'unbounded' }).pipe(Effect.map(([rigidBodyService, physicsWorldService, shapeService, worldRef, bodyMapRef, planePositionsRef, nextBodyIdRef, cachedBodiesRef, cachedPlaneYsRef]) => {
+    ], { concurrency: 'unbounded' }).pipe(Effect.map(([rigidBodyService, physicsWorldService, shapeService, worldRef, bodyMapRef, nextBodyIdRef]) => {
       const makeBodyId: Effect.Effect<PhysicsBodyId, never> =
         Ref.modify(nextBodyIdRef, (n) => [PhysicsBodyId.make(`physics-body-${n}`), n + 1])
 
@@ -117,13 +101,11 @@ export class PhysicsService extends Effect.Service<PhysicsService>()(
             // Atomic check-and-set: write only if still None
             const wasAlreadyInit = yield* Ref.modify(worldRef, (current) =>
               Option.match(current, {
-                onSome: () => [true, current] as const,          // already initialized: keep current
-                onNone: () => [false, Option.some(newWorld)] as const, // not yet: store new world
+                onSome: () => [true, current] as const,
+                onNone: () => [false, Option.some(newWorld)] as const,
               })
             )
 
-            // If another concurrent caller already initialized, discard newWorld
-            // (CustomWorld has no dispose method, so just return early)
             if (wasAlreadyInit) return
           }),
 
@@ -178,13 +160,6 @@ export class PhysicsService extends Effect.Service<PhysicsService>()(
                 // Add body to world and register
                 yield* physicsWorldService.addBody(world, body)
                 yield* Ref.update(bodyMapRef, (m) => HashMap.set(m, bodyId, body))
-                yield* Ref.set(cachedBodiesRef, null)
-
-                // Track plane positions for isGrounded()
-                if (config.shape === 'plane') {
-                  yield* Ref.update(planePositionsRef, (m) => HashMap.set(m, bodyId, config.position.y))
-                  yield* Ref.set(cachedPlaneYsRef, null)
-                }
 
                 return bodyId
               }).pipe(
@@ -201,76 +176,14 @@ export class PhysicsService extends Effect.Service<PhysicsService>()(
               Effect.mapError((e) => new PhysicsServiceError({ operation: 'removeBody', cause: e }))
             )
             yield* Ref.update(bodyMapRef, (m) => HashMap.remove(m, bodyId))
-            yield* Ref.update(planePositionsRef, (m) => HashMap.remove(m, bodyId))
-            yield* Ref.set(cachedBodiesRef, null)
-            yield* Ref.set(cachedPlaneYsRef, null)
           }),
 
-        step: (deltaTime: DeltaTimeSecs, options?: { readonly minY?: number }): Effect.Effect<void, PhysicsServiceError> =>
+        step: (deltaTime: DeltaTimeSecs): Effect.Effect<void, PhysicsServiceError> =>
           Effect.gen(function* () {
             const world = yield* getWorld
             yield* physicsWorldService.step(world, deltaTime).pipe(
               Effect.mapError((e) => new PhysicsServiceError({ operation: 'step', cause: e }))
             )
-            yield* Option.match(Option.fromNullable(options?.minY), {
-              onNone: () => Effect.void,
-              onSome: (minY) => Effect.gen(function* () {
-                const bodies = yield* Ref.get(cachedBodiesRef).pipe(
-                  Effect.flatMap((cached) =>
-                    cached !== null
-                      ? Effect.succeed(cached)
-                      : Ref.get(bodyMapRef).pipe(
-                          Effect.flatMap((bodyMap) => {
-                            const arr = Arr.fromIterable(HashMap.values(bodyMap))
-                            return Ref.set(cachedBodiesRef, arr).pipe(Effect.as(arr))
-                          })
-                        )
-                  )
-                )
-                yield* Effect.sync(() => {
-                  Arr.forEach(bodies, (body) => {
-                    if (body.type !== 'static' && body.position.y < minY) {
-                      body.position.y = minY
-                      if (body.velocity.y < 0) body.velocity.y = 0
-                    }
-                  })
-                })
-              }),
-            })
-          }),
-
-        isGrounded: (bodyId: PhysicsBodyId): Effect.Effect<boolean, PhysicsServiceError> =>
-          Effect.gen(function* () {
-            const body = yield* getBody(bodyId)
-            const planeYs = yield* Ref.get(cachedPlaneYsRef).pipe(
-              Effect.flatMap((cached) =>
-                cached !== null
-                  ? Effect.succeed(cached)
-                  : Ref.get(planePositionsRef).pipe(
-                      Effect.flatMap((pos) => {
-                        const arr = Arr.fromIterable(HashMap.values(pos))
-                        return Ref.set(cachedPlaneYsRef, arr).pipe(Effect.as(arr))
-                      })
-                    )
-              )
-            )
-
-            if (planeYs.length === 0) return false
-
-            const bodyBottomYOpt = Match.value(body.shape).pipe(
-              Match.when({ kind: 'box' }, (shape) => Option.some(body.position.y - shape.halfExtents.y)),
-              Match.when({ kind: 'sphere' }, (shape) => Option.some(body.position.y - shape.radius)),
-              Match.when({ kind: 'plane' }, () => Option.none<number>()), // planes are never grounded
-              Match.exhaustive
-            )
-
-            return Option.match(bodyBottomYOpt, {
-              onNone: () => false,
-              onSome: (bodyBottomY) => Arr.some(
-                planeYs,
-                (planeY) => bodyBottomY >= planeY - 0.5 && bodyBottomY <= planeY + GROUND_DETECTION_DISTANCE
-              ),
-            })
           }),
 
         getVelocity: (bodyId: PhysicsBodyId): Effect.Effect<Vector3, PhysicsServiceError> =>

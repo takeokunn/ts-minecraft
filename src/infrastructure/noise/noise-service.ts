@@ -18,6 +18,7 @@ export class NoiseService extends Effect.Service<NoiseService>()(
   {
     effect: Effect.sync(() => {
       let noiseFn: NoiseFn2D = createPerlinNoise2D()
+      let currentSeed = 0
 
       const computeOctaveNoise = (
         x: number,
@@ -48,8 +49,12 @@ export class NoiseService extends Effect.Service<NoiseService>()(
         octaveNoise2D: (x: number, z: number, octaves: number, persistence: number, lacunarity: number): Effect.Effect<number, never> =>
           Effect.sync(() => computeOctaveNoise(x, z, octaves, persistence, lacunarity)),
 
+        getSeed: (): Effect.Effect<number, never, never> =>
+          Effect.sync(() => currentSeed),
+
         setSeed: (seed: number): Effect.Effect<void, never, never> =>
           Effect.sync(() => {
+            currentSeed = seed
             noiseFn = createPerlinNoise2D(mulberry32(seed))
           }),
 

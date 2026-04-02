@@ -13,9 +13,19 @@ import { MovementServiceLive } from './player/movement-service'
 import { PlayerCameraStateLive } from '@/application/camera/camera-state'
 import { PlayerServiceLive } from '@/application/player/player-state'
 import { PlayerInputService } from './input/player-input-service'
+import { ChunkManagerService } from './chunk/chunk-manager-service'
 import { PhysicsWorldServiceLive } from '../infrastructure/physics/boundary/physics-world-service'
 import { RigidBodyServiceLive } from '../infrastructure/physics/boundary/rigid-body-service'
 import { ShapeServiceLive } from '../infrastructure/physics/boundary/shape-service'
+
+const NoOpChunkManagerLayer = Layer.succeed(ChunkManagerService, {
+  _tag: '@minecraft/application/ChunkManagerService' as const,
+  getChunk: (_coord: unknown) => Effect.fail({ _tag: 'ChunkError', message: 'not loaded' } as never),
+  getLoadedChunks: () => Effect.succeed([]),
+  loadChunksAroundPlayer: (_pos: unknown, _dist?: unknown) => Effect.succeed(false),
+  saveChunk: (_coord: unknown) => Effect.void,
+  evictChunksOutsideRange: (_pos: unknown, _dist: unknown) => Effect.succeed([]),
+} as unknown as ChunkManagerService)
 
 /**
  * Test implementation of InputService with controllable key state
@@ -100,6 +110,7 @@ const createTestLayer = (inputService: ReturnType<typeof createTestInputService>
     movementLayer,
     cameraLayer,
     playerLayer,
+    NoOpChunkManagerLayer,
   )
 
   // Create final layer with GameStateService

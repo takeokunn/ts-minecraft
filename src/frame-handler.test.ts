@@ -229,7 +229,6 @@ const makeServices = (opts: {
     getPlayerPosition: (_id: unknown) => Effect.succeed({ x: 0, y: 64, z: 0 }),
     update: (_dt: unknown) => Effect.void,
     isPlayerGrounded: () => Effect.succeed(true),
-    updateGroundY: (_y: unknown) => Effect.void,
   } as unknown as InstanceType<typeof import('@/application/game-state').GameStateService>
 
   const firstPersonCamera = {
@@ -237,7 +236,7 @@ const makeServices = (opts: {
   } as unknown as InstanceType<typeof import('@/application/camera/first-person-camera-service').FirstPersonCameraService>
 
   const thirdPersonCamera = {
-    update: (cam: THREE.PerspectiveCamera, playerPos: { x: number; y: number; z: number }, eyeLevelOffset = 0.7) =>
+    update: (cam: THREE.PerspectiveCamera, playerPos: { x: number; y: number; z: number }, eyeLevelOffset = 0.72) =>
       Effect.sync(() => {
         const distance = 4
         const shoulderHeight = 1.5
@@ -769,52 +768,6 @@ describe('frame-handler', () => {
       expect(spy).toHaveBeenCalledTimes(2)
     }))
 
-    it.effect('reuses the groundY scan when the player stays in the same column', () => Effect.gen(function* () {
-      const deps = yield* makeDeps(false)
-      const services = makeServices({
-        inputService: makeInputService(),
-        inventoryRenderer: makeInventoryRenderer({ open: false }),
-        settingsOverlay: makeSettingsOverlay({ open: false }),
-      })
-      const updateGroundYSpy = vi.fn(() => Effect.void)
-      ;(services.gameState as unknown as { updateGroundY: unknown }).updateGroundY = updateGroundYSpy
-
-      const handler = yield* createFrameHandler(deps, services)
-      yield* handler(0.016 as DeltaTimeSecs)
-      yield* handler(0.016 as DeltaTimeSecs)
-
-      expect(updateGroundYSpy).toHaveBeenCalledOnce()
-    }))
-
-    it.effect('invalidates the groundY scan after a chunk edit in the same column', () => Effect.gen(function* () {
-      const deps = yield* makeDeps(false)
-      const inputService = makeInputService()
-      ;(inputService as unknown as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
-        Effect.succeed(btn === 2)
-      const services = makeServices({
-        inputService,
-        inventoryRenderer: makeInventoryRenderer({ open: false }),
-        settingsOverlay: makeSettingsOverlay({ open: false }),
-      })
-      const updateGroundYSpy = vi.fn(() => Effect.void)
-      ;(services.gameState as unknown as { updateGroundY: unknown }).updateGroundY = updateGroundYSpy
-      ;(services.blockHighlight as unknown as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
-        Effect.succeed(Option.none())
-      )
-      ;(services.blockHighlight as unknown as { getTargetHit: unknown }).getTargetHit = vi.fn(() =>
-        Effect.succeed(Option.some({ blockX: 0, blockY: 64, blockZ: 0, normal: { x: 0, y: 1, z: 0 } }))
-      )
-      ;(services.hotbarService as unknown as { getSelectedBlockType: unknown }).getSelectedBlockType = vi.fn(() =>
-        Effect.succeed(Option.some('GRASS'))
-      )
-      ;(services.blockService as unknown as { placeBlock: unknown }).placeBlock = vi.fn(() => Effect.void)
-
-      const handler = yield* createFrameHandler(deps, services)
-      yield* handler(0.016 as DeltaTimeSecs)
-      yield* handler(0.016 as DeltaTimeSecs)
-
-      expect(updateGroundYSpy).toHaveBeenCalledTimes(2)
-    }))
   })
 
   // -------------------------------------------------------------------------
@@ -1039,7 +992,7 @@ describe('frame-handler', () => {
       yield* runFrame(deps, services)
 
       expect(deps.camera.position.x).toBe(5)
-      expect(deps.camera.position.y).toBeCloseTo(64 + 0.7)
+      expect(deps.camera.position.y).toBeCloseTo(64 + 0.72)
       expect(deps.camera.position.z).toBe(3)
     }))
 
@@ -1059,7 +1012,7 @@ describe('frame-handler', () => {
 
       expect(services.cameraState.mode).toBe('thirdPerson')
       expect(deps.camera.position.x).toBeCloseTo(5)
-      expect(deps.camera.position.y).toBeCloseTo(64 + 0.7 + 1.5)
+      expect(deps.camera.position.y).toBeCloseTo(64 + 0.72 + 1.5)
       expect(deps.camera.position.z).toBeCloseTo(3 - 4)
     }))
   })

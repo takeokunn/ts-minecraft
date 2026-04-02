@@ -53,22 +53,6 @@ describe('physics/boundary/physics-world-service', () => {
       }).pipe(Effect.provide(PhysicsWorldServiceLive), Effect.provide(RigidBodyServiceLive))
     )
 
-    it.effect('should cache static plane Y values when bodies are added and removed', () =>
-      Effect.gen(function* () {
-        const worldSvc = yield* PhysicsWorldService
-        const bodySvc = yield* RigidBodyService
-        const world = yield* worldSvc.create(defaultConfig)
-        const plane = yield* bodySvc.create({ mass: 0, position: { x: 0, y: 3, z: 0 }, quaternion: { x: 0, y: 0, z: 0, w: 1 }, type: 'static' })
-        plane.shape = { kind: 'plane' }
-
-        yield* worldSvc.addBody(world, plane)
-        expect(world.staticPlaneYs).toEqual([3])
-
-        yield* worldSvc.removeBody(world, plane)
-        expect(world.staticPlaneYs).toEqual([])
-      }).pipe(Effect.provide(PhysicsWorldServiceLive), Effect.provide(RigidBodyServiceLive))
-    )
-
     it.effect('should remove body from world', () =>
       Effect.gen(function* () {
         const worldSvc = yield* PhysicsWorldService
@@ -96,31 +80,6 @@ describe('physics/boundary/physics-world-service', () => {
 
         // Gravity should reduce y position
         expect(body.position.y).toBeLessThan(initialY)
-      }).pipe(Effect.provide(PhysicsWorldServiceLive), Effect.provide(RigidBodyServiceLive))
-    )
-
-    it.effect('should resolve AABB-vs-plane collision (body settles on plane)', () =>
-      Effect.gen(function* () {
-        const worldSvc = yield* PhysicsWorldService
-        const bodySvc = yield* RigidBodyService
-        const world = yield* worldSvc.create(defaultConfig)
-
-        // Static plane at y=0
-        const plane = yield* bodySvc.create({ mass: 0, position: { x: 0, y: 0, z: 0 }, quaternion: { x: 0, y: 0, z: 0, w: 1 }, type: 'static' })
-        plane.shape = { kind: 'plane' }
-        yield* worldSvc.addBody(world, plane)
-
-        // Dynamic box at y=5
-        const box = yield* bodySvc.create({ mass: 1, position: { x: 0, y: 5, z: 0 }, quaternion: { x: 0, y: 0, z: 0, w: 1 } })
-        box.shape = { kind: 'box', halfExtents: { x: 0.5, y: 0.5, z: 0.5 } }
-        yield* worldSvc.addBody(world, box)
-
-        // Step until settled
-        yield* Effect.forEach(Arr.makeBy(300, () => undefined), () => worldSvc.step(world, DeltaTimeSecs.make(1 / 60)), { concurrency: 1 })
-
-        // Box bottom should be at planeY (0), so box center at 0 + halfExtents.y = 0.5
-        expect(box.position.y).toBeCloseTo(0.5, 1)
-        expect(box.velocity.y).toBeCloseTo(0, 1)
       }).pipe(Effect.provide(PhysicsWorldServiceLive), Effect.provide(RigidBodyServiceLive))
     )
 

@@ -198,12 +198,13 @@ export const FluidLayer = FluidServiceLive.pipe(
   Layer.provide(ChunkManagerLayer),
 )
 
-// Level 4: GameStateService depends on PlayerService, PhysicsService, MovementService, CameraState
+// Level 4: GameStateService depends on PlayerService, PhysicsService, MovementService, CameraState, ChunkManagerService
 export const GameLayer = GameStateServiceLive.pipe(
   Layer.provide(PlayerServiceLive),
   Layer.provide(PhysicsLayer),
   Layer.provide(MovementLayer),
   Layer.provide(CameraStateLayer),
+  Layer.provide(ChunkManagerLayer),
 )
 
 // Level 4: WorldRendererService depends on ChunkMeshService and SceneService

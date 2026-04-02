@@ -7,8 +7,6 @@ import {
   PhysicsServiceLive,
   PhysicsServiceError,
   AddBodyConfigSchema,
-  GROUND_DETECTION_DISTANCE,
-  PLAYER_FEET_OFFSET,
 } from './physics-service'
 import { PhysicsWorldServiceLive } from '../../infrastructure/physics/boundary/physics-world-service'
 import { RigidBodyServiceLive } from '../../infrastructure/physics/boundary/rigid-body-service'
@@ -38,7 +36,6 @@ describe('application/physics/physics-service', () => {
         expect(typeof service.addBody).toBe('function')
         expect(typeof service.removeBody).toBe('function')
         expect(typeof service.step).toBe('function')
-        expect(typeof service.isGrounded).toBe('function')
         expect(typeof service.getVelocity).toBe('function')
         expect(typeof service.getPosition).toBe('function')
         expect(typeof service.setVelocity).toBe('function')
@@ -206,33 +203,6 @@ describe('application/physics/physics-service', () => {
         expect(finalPos.y).toBeLessThan(initialY)
       }).pipe(Effect.provide(TestLayer))
     )
-
-    it.effect('should clamp body position to minY when below threshold', () =>
-      Effect.gen(function* () {
-        const service = yield* PhysicsService
-
-        yield* service.initialize({ gravity: { x: 0, y: -9.82, z: 0 }, broadphase: 'naive' })
-        const bodyId = yield* service.addBody({
-          mass: 70,
-          position: { x: 0, y: 10, z: 0 },
-          shape: 'box',
-          shapeParams: { halfExtents: { x: 0.3, y: 0.9, z: 0.3 } },
-        })
-
-        // Teleport body far below the minY threshold
-        yield* service.setPosition(bodyId, { x: 0, y: -5, z: 0 })
-
-        // Step with minY = 1.0; body at y=-5 is below minY, so it should be clamped to 1.0
-        yield* service.step(DeltaTimeSecs.make(1 / 60), { minY: 1.0 })
-
-        const pos = yield* service.getPosition(bodyId)
-        expect(pos.y).toBeGreaterThanOrEqual(1.0)
-
-        // Velocity y should also be zeroed (since body was below minY)
-        const vel = yield* service.getVelocity(bodyId)
-        expect(vel.y).toBeGreaterThanOrEqual(0)
-      }).pipe(Effect.provide(TestLayer))
-    )
   })
 
   describe('Velocity operations', () => {
@@ -318,169 +288,6 @@ describe('application/physics/physics-service', () => {
         expect(pos.z).toBe(-3)
       }).pipe(Effect.provide(TestLayer))
     )
-  })
-
-  describe('Grounded state', () => {
-    it.effect('should initially not be grounded (body in air)', () =>
-      Effect.gen(function* () {
-        const service = yield* PhysicsService
-
-        yield* service.initialize({ gravity: { x: 0, y: -9.82, z: 0 }, broadphase: 'naive' })
-        const bodyId = yield* service.addBody({ mass: 70, position: { x: 0, y: 10, z: 0 }, shape: 'box' })
-
-        const grounded = yield* service.isGrounded(bodyId)
-
-        expect(grounded).toBe(false)
-      }).pipe(Effect.provide(TestLayer))
-    )
-
-    it.effect('should fail isGrounded for unknown body ID', () =>
-      Effect.gen(function* () {
-        const service = yield* PhysicsService
-
-        yield* service.initialize({ gravity: { x: 0, y: -9.82, z: 0 }, broadphase: 'naive' })
-
-        const fakeId = 'physics-body-99999' as ReturnType<typeof import('@/shared/kernel').PhysicsBodyIdSchema.make>
-        const result = yield* Effect.either(service.isGrounded(fakeId))
-
-        expect(Either.isLeft(result)).toBe(true)
-      }).pipe(Effect.provide(TestLayer))
-    )
-
-    it.effect('should detect ground when player lands on ground plane', () =>
-      Effect.gen(function* () {
-        const service = yield* PhysicsService
-
-        yield* service.initialize({ gravity: { x: 0, y: -9.82, z: 0 }, broadphase: 'naive' })
-
-        // Create ground plane
-        yield* service.addBody({
-          mass: 0,
-          position: { x: 0, y: 0, z: 0 },
-          shape: 'plane',
-          type: 'static',
-        })
-
-        const bodyId = yield* service.addBody({
-          mass: 70,
-          position: { x: 0, y: 5, z: 0 },
-          shape: 'box',
-          shapeParams: { halfExtents: { x: 0.3, y: 0.9, z: 0.3 } },
-          fixedRotation: true,
-          angularDamping: 1,
-          allowSleep: false,
-        })
-
-        // Player should not be grounded initially (5 units above ground)
-        const initialGrounded = yield* service.isGrounded(bodyId)
-        expect(initialGrounded).toBe(false)
-
-        // Simulate falling until player hits ground
-        yield* Effect.forEach(Arr.makeBy(300, i => i), _ => service.step(DeltaTimeSecs.make(1 / 60)), { concurrency: 1 })
-
-        // After falling, player should be grounded
-        const finalGrounded = yield* service.isGrounded(bodyId)
-        expect(finalGrounded).toBe(true)
-      }).pipe(Effect.provide(TestLayer))
-    )
-
-    it.effect('should not be grounded when player jumps (velocity applied upward)', () =>
-      Effect.gen(function* () {
-        const service = yield* PhysicsService
-
-        yield* service.initialize({ gravity: { x: 0, y: -9.82, z: 0 }, broadphase: 'naive' })
-
-        // Create ground plane
-        yield* service.addBody({
-          mass: 0,
-          position: { x: 0, y: 0, z: 0 },
-          shape: 'plane',
-          type: 'static',
-        })
-
-        const bodyId = yield* service.addBody({
-          mass: 70,
-          position: { x: 0, y: 5, z: 0 },
-          shape: 'box',
-          shapeParams: { halfExtents: { x: 0.3, y: 0.9, z: 0.3 } },
-          fixedRotation: true,
-          angularDamping: 1,
-          allowSleep: false,
-        })
-
-        // Let player fall to ground
-        yield* Effect.forEach(Arr.makeBy(300, i => i), _ => service.step(DeltaTimeSecs.make(1 / 60)), { concurrency: 1 })
-
-        // Player should be on ground
-        const beforeJumpGrounded = yield* service.isGrounded(bodyId)
-        expect(beforeJumpGrounded).toBe(true)
-
-        // Apply jump velocity
-        yield* service.setVelocity(bodyId, { x: 0, y: 7, z: 0 })
-
-        // Step multiple times to let player rise above ground detection range
-        yield* Effect.forEach(Arr.makeBy(5, i => i), _ => service.step(DeltaTimeSecs.make(1 / 60)), { concurrency: 1 })
-
-        // Player should no longer be grounded after jumping
-        const afterJumpGrounded = yield* service.isGrounded(bodyId)
-        expect(afterJumpGrounded).toBe(false)
-      }).pipe(Effect.provide(TestLayer))
-    )
-
-    it.effect('should properly detect grounded state after landing (full jump cycle)', () =>
-      Effect.gen(function* () {
-        const service = yield* PhysicsService
-
-        yield* service.initialize({ gravity: { x: 0, y: -9.82, z: 0 }, broadphase: 'naive' })
-
-        // Create ground plane
-        yield* service.addBody({
-          mass: 0,
-          position: { x: 0, y: 0, z: 0 },
-          shape: 'plane',
-          type: 'static',
-        })
-
-        const bodyId = yield* service.addBody({
-          mass: 70,
-          position: { x: 0, y: 5, z: 0 },
-          shape: 'box',
-          shapeParams: { halfExtents: { x: 0.3, y: 0.9, z: 0.3 } },
-          fixedRotation: true,
-          angularDamping: 1,
-          allowSleep: false,
-        })
-
-        // Fall and land
-        yield* Effect.forEach(Arr.makeBy(500, i => i), _ => service.step(DeltaTimeSecs.make(1 / 60)), { concurrency: 1 })
-
-        const isGroundedAfterLanding = yield* service.isGrounded(bodyId)
-
-        // Jump
-        yield* service.setVelocity(bodyId, { x: 0, y: 7, z: 0 })
-        yield* Effect.forEach(Arr.makeBy(10, i => i), _ => service.step(DeltaTimeSecs.make(1 / 60)), { concurrency: 1 })
-
-        // In air
-        expect(yield* service.isGrounded(bodyId)).toBe(false)
-
-        // Fall back down
-        yield* Effect.forEach(Arr.makeBy(500, i => i), _ => service.step(DeltaTimeSecs.make(1 / 60)), { concurrency: 1 })
-
-        // Landed again
-        expect(yield* service.isGrounded(bodyId)).toBe(true)
-
-        // Also verify the first landing was successful
-        expect(isGroundedAfterLanding).toBe(true)
-      }).pipe(Effect.provide(TestLayer))
-    )
-  })
-
-
-  describe('Physics constants', () => {
-    it('should have correct ground detection constants', () => {
-      expect(GROUND_DETECTION_DISTANCE).toBe(0.15)
-      expect(PLAYER_FEET_OFFSET).toBe(0.9)
-    })
   })
 
   describe('Effect composition', () => {
@@ -624,18 +431,6 @@ describe('application/physics/physics-service', () => {
         )
         expect(typeof errorMsg).toBe('string')
         expect((errorMsg as string).length).toBeGreaterThan(0)
-      }).pipe(Effect.provide(TestLayer))
-    )
-
-    it.effect('isGrounded on unknown body ID is catchable via Effect.catchTag', () =>
-      Effect.gen(function* () {
-        const service = yield* PhysicsService
-        yield* service.initialize({ gravity: { x: 0, y: -9.82, z: 0 }, broadphase: 'naive' })
-        const unknownId = 'physics-body-nonexistent' as ReturnType<typeof import('@/shared/kernel').PhysicsBodyIdSchema.make>
-        const caught = yield* service.isGrounded(unknownId).pipe(
-          Effect.catchTag('PhysicsServiceError', (e) => Effect.succeed(e._tag))
-        )
-        expect(caught).toBe('PhysicsServiceError')
       }).pipe(Effect.provide(TestLayer))
     )
   })
