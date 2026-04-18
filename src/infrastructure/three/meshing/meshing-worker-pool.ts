@@ -1,6 +1,7 @@
-import { Array as Arr, Effect, MutableRef, Schema } from 'effect'
+import { Array as Arr, Effect, MutableRef, Option, Schema } from 'effect'
 import { createGreedyMeshScratch, greedyMeshChunk, MeshedChunkSchema } from './greedy-meshing'
 import type { MeshedChunk } from './greedy-meshing'
+import type { LightGrids } from '@/domain/light'
 import { CHUNK_SIZE, blockTypeToIndex } from '@/domain/chunk'
 import type { Chunk } from '@/domain/chunk'
 
@@ -59,8 +60,21 @@ export class MeshingWorkerPool extends Effect.Service<MeshingWorkerPool>()(
   {
     scoped: Effect.gen(function* () {
       if (typeof Worker === 'undefined') {
-        // Node.js / test fallback: synchronous meshing, Effect.sync (no fiber overhead)
+        // Node.js / test fallback: synchronous meshing, Effect.sync (no fiber overhead).
+        // Forwards chunk.skyLight + chunk.blockLight as `lightGrids` to greedyMeshChunk
+        // when both are populated; otherwise falls back to all-daylight defaults inside the mesher.
         const scratch = createGreedyMeshScratch()
+        const lightGridsFromChunk = (chunk: Chunk): LightGrids | undefined =>
+          Option.match(
+            Option.all([
+              Option.fromNullable(chunk.skyLight),
+              Option.fromNullable(chunk.blockLight),
+            ] as const),
+            {
+              onNone: () => undefined,
+              onSome: ([skyLight, blockLight]) => ({ skyLight, blockLight }),
+            }
+          )
         return {
           meshChunk: (chunk: Chunk): Effect.Effect<WorkerMeshResult> =>
             Effect.sync(() => {
@@ -68,7 +82,8 @@ export class MeshingWorkerPool extends Effect.Service<MeshingWorkerPool>()(
                 chunk,
                 { wx: chunk.coord.x * CHUNK_SIZE, wz: chunk.coord.z * CHUNK_SIZE },
                 TRANSPARENT_IDS_SET,
-                scratch
+                scratch,
+                lightGridsFromChunk(chunk),
               )
               const meshed = result.toMeshed()
               return {
@@ -88,8 +103,7 @@ export class MeshingWorkerPool extends Effect.Service<MeshingWorkerPool>()(
       const nextIdRef = MutableRef.make(0)
       const nextWorkerIndexRef = MutableRef.make(0)
 
-      const poolWorkersRef = MutableRef.make<PoolWorker[]>([])
-      for (let i = 0; i < workerCount; i++) {
+      const makePoolWorker = (): PoolWorker => {
         const pendingRef = MutableRef.make(new Map<number, PendingMesh>())
 
         // Vite resolves this URL at build time and bundles meshing-worker.ts separately.
@@ -124,14 +138,19 @@ export class MeshingWorkerPool extends Effect.Service<MeshingWorkerPool>()(
 
         worker.onerror = (e: ErrorEvent) => {
           const pending = MutableRef.get(pendingRef)
-          for (const [, req] of pending) {
+          // Native Map iteration: pendingRef stores Map<number, PendingMesh> as a
+          // pre-allocated mutable buffer for per-message O(1) get/set/delete; kept as
+          // native Map for the same reason as _savedWaterVisibility (GC-pressure boundary).
+          Arr.forEach(Arr.fromIterable(pending.values()), (req) => {
             req.reject(new Error(`Meshing worker error: ${e.message ?? 'unknown'}`))
-          }
+          })
           pending.clear()
         }
 
-        MutableRef.update(poolWorkersRef, (workers) => Arr.append(workers, { worker, pending: pendingRef }))
+        return { worker, pending: pendingRef }
       }
+
+      const poolWorkersRef = MutableRef.make<PoolWorker[]>(Arr.makeBy(workerCount, () => makePoolWorker()))
 
       // Terminate all workers when the service scope closes (app shutdown / test teardown)
       yield* Effect.addFinalizer(() =>
@@ -155,22 +174,47 @@ export class MeshingWorkerPool extends Effect.Service<MeshingWorkerPool>()(
               reject: (e: unknown) => resume(Effect.die(e)),
             })
 
-            // .slice() produces an owned ArrayBuffer for transfer; chunk.blocks may be
-            // a subarray view of a larger shared buffer (e.g. from IndexedDB decode).
+            // ArrayBufferLike.slice returns ArrayBuffer per WebIDL; TS under-types it.
+            // chunk.blocks may be a subarray view of a larger buffer (e.g. from IndexedDB decode);
+            // .buffer.slice(byteOffset, byteOffset + byteLength) returns an owned, transferable
+            // ArrayBuffer with no intermediate memcpy through a Uint8Array view.
             const blocksBuffer = chunk.blocks.buffer.slice(
               chunk.blocks.byteOffset,
               chunk.blocks.byteOffset + chunk.blocks.byteLength
-            )
+            ) as ArrayBuffer
+
+            // Light grids: only transferred when BOTH are populated (computed by LightEngineService).
+            // Worker reconstructs LightGrids from these buffers; null on either side means "no lighting"
+            // → worker defaults to all-daylight (sky=15, block=0).
+            const hasLight = chunk.skyLight !== undefined && chunk.blockLight !== undefined
+            const skyBuffer: ArrayBuffer | null = hasLight
+              ? (chunk.skyLight!.buffer.slice(
+                  chunk.skyLight!.byteOffset,
+                  chunk.skyLight!.byteOffset + chunk.skyLight!.byteLength
+                ) as ArrayBuffer)
+              : null
+            const blockBuffer: ArrayBuffer | null = hasLight
+              ? (chunk.blockLight!.buffer.slice(
+                  chunk.blockLight!.byteOffset,
+                  chunk.blockLight!.byteOffset + chunk.blockLight!.byteLength
+                ) as ArrayBuffer)
+              : null
+
+            const transferList: ArrayBuffer[] = [blocksBuffer]
+            if (skyBuffer !== null) transferList.push(skyBuffer)
+            if (blockBuffer !== null) transferList.push(blockBuffer)
 
             state.worker.postMessage(
               {
                 id,
                 blocks: blocksBuffer,
+                skyLight: skyBuffer,
+                blockLight: blockBuffer,
                 wx: chunk.coord.x * CHUNK_SIZE,
                 wz: chunk.coord.z * CHUNK_SIZE,
                 transparentBlockIds: TRANSPARENT_IDS_ARRAY,
               },
-              [blocksBuffer]
+              transferList
             )
 
             // Interruption handler: remove pending entry so a late worker response

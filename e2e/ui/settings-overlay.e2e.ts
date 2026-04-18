@@ -144,24 +144,24 @@ test.describe('Settings overlay', () => {
     expect(storedRenderDistance).toBe(targetValue)
   })
 
-  test('checkbox toggles persist immediately without Apply', async ({ page }) => {
+  test('quality selection persists immediately without Apply', async ({ page }) => {
     await page.keyboard.press('Escape')
     await waitForOverlayState(page, true)
 
-    await page.locator('#shadows-input').uncheck()
-    await waitForStoredSetting(page, 'minecraft-settings', 'settings.shadowsEnabled === false')
+    await page.locator('#quality-select').selectOption('low')
+    await waitForStoredSetting(page, 'minecraft-settings', "settings.graphicsQuality === 'low'")
 
-    const storedShadowsEnabled = await page.evaluate((key) => {
+    const storedGraphicsQuality = await page.evaluate((key) => {
       const raw = localStorage.getItem(key)
       if (!raw) return null
       try {
-        return (JSON.parse(raw) as { shadowsEnabled?: boolean }).shadowsEnabled ?? null
+        return (JSON.parse(raw) as { graphicsQuality?: string }).graphicsQuality ?? null
       } catch {
         return null
       }
     }, 'minecraft-settings')
 
-    expect(storedShadowsEnabled).toBe(false)
+    expect(storedGraphicsQuality).toBe('low')
   })
 
   test('persisted render distance is reflected in slider after page reload', async ({ page }) => {

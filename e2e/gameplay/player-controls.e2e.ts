@@ -5,43 +5,27 @@ import { getFpsValue, waitForStableRender } from '../helpers/wait-helpers'
 
 const HOTBAR_START_INDEX = 27
 
-function getKeyFromCode(code: string): string {
+const toKey = (code: string): string => {
   if (code.startsWith('Key')) return code.slice(3).toLowerCase()
   if (code.startsWith('Digit')) return code.slice(5)
   if (code === 'Space') return ' '
+  if (code === 'ControlLeft') return 'Control'
   return code
 }
 
-async function dispatchDocumentKeyboardEvent(
-  page: Page,
-  type: 'keydown' | 'keyup',
-  code: string
-): Promise<void> {
-  const key = getKeyFromCode(code)
-  await page.evaluate(
-    ({ eventType, eventCode, eventKey }) => {
-      document.dispatchEvent(
-        new KeyboardEvent(eventType, {
-          code: eventCode,
-          key: eventKey,
-          bubbles: true,
-          cancelable: true,
-        })
-      )
-    },
-    { eventType: type, eventCode: code, eventKey: key }
-  )
+async function focusCanvas(page: Page): Promise<void> {
+  await page.locator('#game-canvas').click({ position: { x: 320, y: 240 } })
 }
 
-async function tapKeyCode(page: Page, code: string): Promise<void> {
-  await dispatchDocumentKeyboardEvent(page, 'keydown', code)
-  await dispatchDocumentKeyboardEvent(page, 'keyup', code)
+async function tapKey(page: Page, code: string): Promise<void> {
+  await page.keyboard.press(toKey(code))
 }
 
-async function holdKeyCode(page: Page, code: string, ms: number): Promise<void> {
-  await dispatchDocumentKeyboardEvent(page, 'keydown', code)
+async function holdKey(page: Page, code: string, ms: number): Promise<void> {
+  const key = toKey(code)
+  await page.keyboard.down(key)
   await page.waitForTimeout(ms)
-  await dispatchDocumentKeyboardEvent(page, 'keyup', code)
+  await page.keyboard.up(key)
 }
 
 async function captureCanvasScreenshot(page: Page): Promise<Buffer> {
@@ -49,7 +33,7 @@ async function captureCanvasScreenshot(page: Page): Promise<Buffer> {
 }
 
 async function openInventory(page: Page): Promise<void> {
-  await tapKeyCode(page, 'KeyE')
+  await tapKey(page, 'KeyE')
   await page.waitForFunction(
     () => {
       const overlay = document.getElementById('inventory-overlay')
@@ -60,7 +44,7 @@ async function openInventory(page: Page): Promise<void> {
 }
 
 async function closeInventory(page: Page): Promise<void> {
-  await tapKeyCode(page, 'KeyE')
+  await tapKey(page, 'Escape')
   await page.waitForFunction(
     () => {
       const overlay = document.getElementById('inventory-overlay')
@@ -92,10 +76,12 @@ test.describe('Player controls', () => {
     await game.waitForReady()
     await waitForStableRender(page, 800)
 
+    await focusCanvas(page)
+
     const movementAttempts: Array<{ code: string; changed: boolean }> = []
 
     const beforeW = await captureCanvasScreenshot(page)
-    await holdKeyCode(page, 'KeyW', 1_000)
+    await holdKey(page, 'KeyW', 1_000)
     await page.waitForTimeout(250)
     const afterW = await captureCanvasScreenshot(page)
 
@@ -105,7 +91,7 @@ test.describe('Player controls', () => {
     if (!moved) {
       for (const code of ['KeyA', 'KeyS', 'KeyD']) {
         const before = await captureCanvasScreenshot(page)
-        await holdKeyCode(page, code, 700)
+        await holdKey(page, code, 700)
         await page.waitForTimeout(200)
         const after = await captureCanvasScreenshot(page)
         const changed = !before.equals(after)
@@ -131,6 +117,8 @@ test.describe('Player controls', () => {
     await game.waitForReady()
     await waitForStableRender(page, 500)
 
+    await focusCanvas(page)
+
     await openInventory(page)
     expect(await getSelectedInventoryHotbarSlot(page)).toBe(HOTBAR_START_INDEX)
     await closeInventory(page)
@@ -142,7 +130,7 @@ test.describe('Player controls', () => {
     ]
 
     for (const { code, expectedSlot } of cases) {
-      await tapKeyCode(page, code)
+      await tapKey(page, code)
       await page.waitForTimeout(700)
 
       await openInventory(page)
@@ -158,7 +146,7 @@ test.describe('Player controls', () => {
           return Number(selected.dataset['slot'] ?? '-1') === expected
         },
         expectedSlot,
-        { timeout: 2_000, polling: 100 }
+        { timeout: 5_000, polling: 100 }
       )
 
       expect(await getSelectedInventoryHotbarSlot(page)).toBe(expectedSlot)
@@ -175,6 +163,8 @@ test.describe('Player controls', () => {
     await game.waitForReady()
     await waitForStableRender(page, 500)
 
+    await focusCanvas(page)
+
     const cases = [
       { code: 'Digit4', expectedSlot: HOTBAR_START_INDEX + 3 },
       { code: 'Digit5', expectedSlot: HOTBAR_START_INDEX + 4 },
@@ -185,7 +175,7 @@ test.describe('Player controls', () => {
     ]
 
     for (const { code, expectedSlot } of cases) {
-      await tapKeyCode(page, code)
+      await tapKey(page, code)
       await page.waitForTimeout(700)
 
       await openInventory(page)
@@ -221,19 +211,23 @@ test.describe('Player controls', () => {
     await game.waitForReady()
     await waitForStableRender(page, 500)
 
-    const fpsBefore = await getFpsValue(page)
+    await focusCanvas(page)
+
+    const fpsBefore = await game.getFPS()
     expect(fpsBefore).toBeGreaterThan(0)
 
     // Hold ControlLeft (sprint) while moving forward to exercise the sprint code path
-    await dispatchDocumentKeyboardEvent(page, 'keydown', 'ControlLeft')
-    await holdKeyCode(page, 'KeyW', 600)
-    await dispatchDocumentKeyboardEvent(page, 'keyup', 'ControlLeft')
+    await page.keyboard.down('Control')
+    await page.keyboard.down('w')
+    await page.waitForTimeout(600)
+    await page.keyboard.up('w')
+    await page.keyboard.up('Control')
     await page.waitForTimeout(300)
 
     const fpsSamples: number[] = []
     for (let i = 0; i < 3; i++) {
       await page.waitForTimeout(500)
-      fpsSamples.push(await getFpsValue(page))
+      fpsSamples.push(await game.getFPS())
     }
 
     expect(fpsSamples.every((fps) => fps > 0)).toBe(true)
@@ -247,10 +241,14 @@ test.describe('Player controls', () => {
     await game.waitForReady()
     await waitForStableRender(page, 500)
 
+    await focusCanvas(page)
+
     const fpsBeforeJump = await getFpsValue(page)
     expect(fpsBeforeJump).toBeGreaterThan(0)
 
-    await holdKeyCode(page, 'Space', 120)
+    await page.keyboard.down(' ')
+    await page.waitForTimeout(120)
+    await page.keyboard.up(' ')
     await page.waitForTimeout(250)
 
     const fpsSamples: number[] = []

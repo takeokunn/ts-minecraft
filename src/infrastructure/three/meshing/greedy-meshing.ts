@@ -1,5 +1,7 @@
 import { Schema } from 'effect'
 import { Chunk, CHUNK_SIZE, CHUNK_HEIGHT } from '@/domain/chunk'
+import { getLightAt } from '@/domain/light'
+import type { LightGrids } from '@/domain/light'
 import { getTileIndex, getTileUVs, FaceDir } from '../textures/block-texture-map'
 
 // Zero-copy view into accumulator buffers — subarrays (NOT sliced copies).
@@ -49,16 +51,22 @@ const EMPTY_MESHED_CHUNK: MeshedChunk = {
   indices: new Uint32Array(0),
 }
 
+// Mask cells now pack 26 bits:
+//   blockId      bits 0-7   (8 bits)
+//   ao           bits 8-9   (2 bits)
+//   sky0..sky3   bits 10-17 (2 bits each, 4 corners)
+//   block0..3    bits 18-25 (2 bits each, 4 corners)
+// Uint32Array is required to fit all 26 bits.
 export type GreedyMeshScratch = {
   readonly doneBuf: Uint8Array
-  readonly maskCH: Uint16Array
-  readonly maskSS: Uint16Array
+  readonly maskCH: Uint32Array
+  readonly maskSS: Uint32Array
 }
 
 export const createGreedyMeshScratch = (): GreedyMeshScratch => ({
   doneBuf: new Uint8Array(CHUNK_SIZE * CHUNK_HEIGHT),
-  maskCH: new Uint16Array(CHUNK_SIZE * CHUNK_HEIGHT),
-  maskSS: new Uint16Array(CHUNK_SIZE * CHUNK_SIZE),
+  maskCH: new Uint32Array(CHUNK_SIZE * CHUNK_HEIGHT),
+  maskSS: new Uint32Array(CHUNK_SIZE * CHUNK_SIZE),
 })
 
 const getBlock = (blocks: Readonly<Uint8Array>, lx: number, y: number, lz: number): number => {
@@ -143,6 +151,67 @@ const aoZNeg = (blocks: Readonly<Uint8Array>, lx: number, y: number, lz: number)
   return count > 3 ? 3 : count
 }
 
+// ─── Light sampling ──────────────────────────────────────────────────────────
+
+// Per-voxel light read with default of {sky:15, block:0} for out-of-bounds.
+// Reads from the AIR side of a face — caller passes (lx,y,lz) of the empty voxel
+// adjacent to the solid face.
+// Returns packed `(sky << 4) | block` (sky and block each ∈ [0..15]).
+const sampleVoxelLight = (
+  grids: LightGrids | undefined,
+  lx: number,
+  y: number,
+  lz: number
+): number => {
+  if (grids === undefined) return 0xf0 /* sky=15,block=0 */
+  if (lx < 0 || lx >= CHUNK_SIZE || y < 0 || y >= CHUNK_HEIGHT || lz < 0 || lz >= CHUNK_SIZE) {
+    return 0xf0 /* sky=15,block=0 */
+  }
+  return (getLightAt(grids.skyLight, lx, y, lz) << 4) | getLightAt(grids.blockLight, lx, y, lz)
+}
+
+// Sample 4 voxels meeting at a face corner and average their light.
+// `airX/airY/airZ` is the AIR-side voxel adjacent to the face.
+// `(t1x,t1y,t1z)` and `(t2x,t2y,t2z)` are unit tangent vectors in the face plane;
+// the corner offset (du,dv) selects which 2×2 corner we're sampling around.
+// Returns packed `(sky << 4) | block`; quantized 2-bit corner extraction at call sites:
+//   sky 2-bit  = (packed >> 6) & 0x3   (shift off 4 block bits + 2 low sky bits, mask 2 bits)
+//   block 2-bit = (packed >> 2) & 0x3
+const sampleCornerLight = (
+  grids: LightGrids | undefined,
+  airX: number,
+  airY: number,
+  airZ: number,
+  t1x: number,
+  t1y: number,
+  t1z: number,
+  t2x: number,
+  t2y: number,
+  t2z: number,
+  du: number,
+  dv: number
+): number => {
+  if (grids === undefined) return 0xf0 /* sky=15,block=0 */
+  // 4 voxels meeting at the corner: the AIR voxel itself plus its 3 neighbors
+  // along ±t1 / ±t2 directions, biased by the corner's quadrant (du,dv).
+  const o1 = du === 0 ? -1 : 0
+  const o2 = dv === 0 ? -1 : 0
+  // Sample the 2×2 group of voxels touching the corner.
+  let skySum = 0
+  let blockSum = 0
+  for (let i = 0; i <= 1; i++) {
+    for (let j = 0; j <= 1; j++) {
+      const sx = airX + (o1 + i) * t1x + (o2 + j) * t2x
+      const sy = airY + (o1 + i) * t1y + (o2 + j) * t2y
+      const sz = airZ + (o1 + i) * t1z + (o2 + j) * t2z
+      const v = sampleVoxelLight(grids, sx, sy, sz)
+      skySum += (v >> 4) & 0xf
+      blockSum += v & 0xf
+    }
+  }
+  return ((skySum >> 2) << 4) | (blockSum >> 2)
+}
+
 // Performance boundary: pre-sized typed arrays for ~95% of chunks without reallocation.
 // Previous pattern used number[].push() which triggers backing-store reallocation + copy as JS arrays grow.
 // ensureCapacity() doubles buffers if a chunk exceeds this capacity (amortized O(1)).
@@ -207,6 +276,8 @@ const addQuad = (
   normal: readonly [number, number, number],
   blockId: number,
   ao: readonly [number, number, number, number],
+  skyLight: readonly [number, number, number, number],
+  blockLight: readonly [number, number, number, number],
   faceDir: FaceDir
 ): void => {
   ensureCapacity(acc, 1)
@@ -226,16 +297,27 @@ const addQuad = (
   acc.normals[pi + 6] = normal[0]; acc.normals[pi + 7]  = normal[1]; acc.normals[pi + 8]  = normal[2]
   acc.normals[pi + 9] = normal[0]; acc.normals[pi + 10] = normal[1]; acc.normals[pi + 11] = normal[2]
 
-  // Vertex colors encode grayscale AO factor as Uint8 [0-255]; texture provides block color.
-  // GPU normalizes Uint8 → [0.0, 1.0] float via THREE.BufferAttribute normalized flag.
-  const factor0 = Math.round((1.0 - ao[0] * 0.2) * 255)
-  const factor1 = Math.round((1.0 - ao[1] * 0.2) * 255)
-  const factor2 = Math.round((1.0 - ao[2] * 0.2) * 255)
-  const factor3 = Math.round((1.0 - ao[3] * 0.2) * 255)
-  acc.colors[pi]     = factor0; acc.colors[pi + 1]  = factor0; acc.colors[pi + 2]  = factor0
-  acc.colors[pi + 3] = factor1; acc.colors[pi + 4]  = factor1; acc.colors[pi + 5]  = factor1
-  acc.colors[pi + 6] = factor2; acc.colors[pi + 7]  = factor2; acc.colors[pi + 8]  = factor2
-  acc.colors[pi + 9] = factor3; acc.colors[pi + 10] = factor3; acc.colors[pi + 11] = factor3
+  // Vertex colors encode three per-vertex factors normalized to [0,1] in the shader:
+  //   R = AO factor (1.0 = no darkening)
+  //   G = sky-light factor (skyLight / 15)
+  //   B = block-light factor (blockLight / 15)
+  // The fragment shader combines: light = max(G * sunIntensity, B); diffuse *= (0.15 + 0.85*light) * (0.7 + 0.3*R).
+  const aoR0 = Math.round((1.0 - ao[0] * 0.2) * 255)
+  const aoR1 = Math.round((1.0 - ao[1] * 0.2) * 255)
+  const aoR2 = Math.round((1.0 - ao[2] * 0.2) * 255)
+  const aoR3 = Math.round((1.0 - ao[3] * 0.2) * 255)
+  const skG0 = Math.round((skyLight[0] / 15) * 255)
+  const skG1 = Math.round((skyLight[1] / 15) * 255)
+  const skG2 = Math.round((skyLight[2] / 15) * 255)
+  const skG3 = Math.round((skyLight[3] / 15) * 255)
+  const blB0 = Math.round((blockLight[0] / 15) * 255)
+  const blB1 = Math.round((blockLight[1] / 15) * 255)
+  const blB2 = Math.round((blockLight[2] / 15) * 255)
+  const blB3 = Math.round((blockLight[3] / 15) * 255)
+  acc.colors[pi]     = aoR0; acc.colors[pi + 1]  = skG0; acc.colors[pi + 2]  = blB0
+  acc.colors[pi + 3] = aoR1; acc.colors[pi + 4]  = skG1; acc.colors[pi + 5]  = blB1
+  acc.colors[pi + 6] = aoR2; acc.colors[pi + 7]  = skG2; acc.colors[pi + 8]  = blB2
+  acc.colors[pi + 9] = aoR3; acc.colors[pi + 10] = skG3; acc.colors[pi + 11] = blB3
 
   // UV coordinates from atlas tile lookup
   // NOTE: mask packs blockId in bits 0-7 (supports 0-255); current max is 11 (COBBLESTONE)
@@ -255,26 +337,70 @@ const addQuad = (
   acc.indexCount += 6
 }
 
+// ─── Mask packing helpers ────────────────────────────────────────────────────
+//
+// 32-bit mask cell layout:
+//   bits  0-7   blockId (8 bits, max 255)
+//   bits  8-9   ao quantized [0..3]
+//   bits 10-11  sky corner 0 (2 bits)
+//   bits 12-13  sky corner 1
+//   bits 14-15  sky corner 2
+//   bits 16-17  sky corner 3
+//   bits 18-19  block corner 0
+//   bits 20-21  block corner 1
+//   bits 22-23  block corner 2
+//   bits 24-25  block corner 3
+//
+// All four corner lights participate in mask-value equality, so greedy expansion
+// only merges quads with identical lighting+ao+blockId — the expected vanilla
+// trade-off (mostly merges interior of uniformly-lit slabs).
+
+const packMask = (
+  blockId: number,
+  ao: number,
+  sk0: number,
+  sk1: number,
+  sk2: number,
+  sk3: number,
+  bl0: number,
+  bl1: number,
+  bl2: number,
+  bl3: number
+): number =>
+  (blockId & 0xff)
+  | ((ao & 0x3) << 8)
+  | ((sk0 & 0x3) << 10)
+  | ((sk1 & 0x3) << 12)
+  | ((sk2 & 0x3) << 14)
+  | ((sk3 & 0x3) << 16)
+  | ((bl0 & 0x3) << 18)
+  | ((bl1 & 0x3) << 20)
+  | ((bl2 & 0x3) << 22)
+  | ((bl3 & 0x3) << 24)
+
+// Dequantize 2-bit corner light to a 4-bit value (0..15). Spread evenly:
+// 0 → 0, 1 → 5, 2 → 10, 3 → 15.
+const dequantLight = (q: number): number => Math.round(q * 5)
+
 // ─── Shared greedy expansion ────────────────────────────────────────────────
 //
 // Runs the 2-D greedy-merge loop over a pre-built face mask.
-// The mask is a flat Uint16Array of size (uSize × vSize) where each cell
-// encodes `blockId | (ao << 8)`, or 0 for "no face here".
+// The mask is a flat Uint32Array of size (uSize × vSize) where each cell encodes
+// `packMask(blockId, ao, sky0..3, block0..3)`, or 0 for "no face here".
 //
-// For each maximal rectangle found the callback `emitQuad` is invoked with
-// (u0, v0, du, dv, blockId, ao) so the caller can build axis-specific vertices.
+// For each maximal rectangle the callback `emitQuad` is invoked with
+// (u0, v0, du, dv, maskValue) so the caller can unpack all face attributes.
 
 type EmitQuad = (
   u0: number,
   v0: number,
   du: number,
   dv: number,
-  blockId: number,
-  ao: number
+  maskValue: number
 ) => void
 
 const runGreedyExpansion = (
-  mask: Uint16Array,
+  mask: Uint32Array,
   uSize: number,
   vSize: number,
   doneBuf: Uint8Array,
@@ -285,10 +411,8 @@ const runGreedyExpansion = (
   for (let u = 0; u < uSize; u++) {
     for (let v = 0; v < vSize; v++) {
       const mi = u * vSize + v
-      const maskValue = mask[mi]
+      const maskValue = mask[mi]!
       if (!maskValue || done[mi]) continue
-      const blockId = maskValue & 0xFF
-      const ao = (maskValue >> 8) & 0x3
       let dv = 1
       while (v + dv < vSize && mask[u * vSize + v + dv] === maskValue && !done[u * vSize + v + dv]) {
         dv++
@@ -307,7 +431,7 @@ const runGreedyExpansion = (
           done[a * vSize + b] = 1
         }
       }
-      emitQuad(u, v, du, dv, blockId, ao)
+      emitQuad(u, v, du, dv, maskValue)
     }
   }
 }
@@ -341,19 +465,21 @@ export const greedyMeshChunk = (
   offset: ChunkWorldOffset,
   transparentBlockIds: ReadonlySet<number> = new Set(),
   scratch: GreedyMeshScratch = createGreedyMeshScratch(),
+  lightGrids?: LightGrids,
 ): GreedyMeshResult => {
   const opaqueAcc = createAccumulator()
   let waterAcc: MeshAccumulator | null = null
   const transparentLookup = new Uint8Array(256)
   for (const blockId of transparentBlockIds) transparentLookup[blockId] = 1
 
-   const { doneBuf, maskCH, maskSS } = scratch
+  const { doneBuf, maskCH, maskSS } = scratch
 
   // Take a readonly snapshot for consistent reads in the hot loop
   const blocks: Readonly<Uint8Array> = chunk.blocks
 
   // ── X+ faces (normal = +1,0,0) ──────────────────────────────────────────
   // Slice over lx; mask u-axis = lz, v-axis = y
+  // Face plane tangents: t1 = +Z (lz axis), t2 = +Y (y axis); air side = lx+1.
   const passXPos = (): void => {
     const normal = [1, 0, 0] as const
     const mask = maskCH
@@ -362,6 +488,8 @@ export const greedyMeshChunk = (
     const v2 = [0, 0, 0] as [number, number, number]
     const v3 = [0, 0, 0] as [number, number, number]
     const aoQuad = [0, 0, 0, 0] as [number, number, number, number]
+    const skyQuad = [0, 0, 0, 0] as [number, number, number, number]
+    const blockQuad = [0, 0, 0, 0] as [number, number, number, number]
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
       mask.fill(0)
       for (let lz = 0; lz < CHUNK_SIZE; lz++) {
@@ -369,36 +497,45 @@ export const greedyMeshChunk = (
           const blockId = getBlock(blocks, lx, y, lz)
           if (blockId !== AIR && isAir(blocks, lx + 1, y, lz)) {
             const ao = aoXPos(blocks, lx, y, lz)
-            mask[lz * CHUNK_HEIGHT + y] = blockId | (ao << 8)
+            // 4 corners on +X face — air voxel at (lx+1,y,lz); tangents (lz, y).
+            const c0 = sampleCornerLight(lightGrids, lx + 1, y, lz, 0, 0, 1, 0, 1, 0, 0, 0)
+            const c1 = sampleCornerLight(lightGrids, lx + 1, y, lz, 0, 0, 1, 0, 1, 0, 0, 1)
+            const c2 = sampleCornerLight(lightGrids, lx + 1, y, lz, 0, 0, 1, 0, 1, 0, 1, 1)
+            const c3 = sampleCornerLight(lightGrids, lx + 1, y, lz, 0, 0, 1, 0, 1, 0, 1, 0)
+            mask[lz * CHUNK_HEIGHT + y] = packMask(
+              blockId, ao,
+              (c0 >> 6) & 0x3, (c1 >> 6) & 0x3, (c2 >> 6) & 0x3, (c3 >> 6) & 0x3,
+              (c0 >> 2) & 0x3, (c1 >> 2) & 0x3, (c2 >> 2) & 0x3, (c3 >> 2) & 0x3,
+            )
           }
         }
       }
-      runGreedyExpansion(mask, CHUNK_SIZE, CHUNK_HEIGHT, doneBuf, (u0, vCoord0, du, dv, blockId, ao) => {
+      runGreedyExpansion(mask, CHUNK_SIZE, CHUNK_HEIGHT, doneBuf, (u0, vCoord0, du, dv, maskValue) => {
         const lz0 = u0, y0 = vCoord0
         const fx = offset.wx + lx + 1
+        const blockId = maskValue & 0xff
+        const ao = (maskValue >> 8) & 0x3
         const targetAcc = transparentLookup[blockId] !== 0 ? (waterAcc ??= createAccumulator()) : opaqueAcc
         v0[0] = fx; v0[1] = y0; v0[2] = offset.wz + lz0
         v1[0] = fx; v1[1] = y0 + dv; v1[2] = offset.wz + lz0
         v2[0] = fx; v2[1] = y0 + dv; v2[2] = offset.wz + lz0 + du
         v3[0] = fx; v3[1] = y0; v3[2] = offset.wz + lz0 + du
         aoQuad[0] = ao; aoQuad[1] = ao; aoQuad[2] = ao; aoQuad[3] = ao
-        addQuad(
-          targetAcc,
-          v0,
-          v1,
-          v2,
-          v3,
-          normal,
-          blockId,
-          aoQuad,
-          'side'
-        )
+        skyQuad[0] = dequantLight((maskValue >> 10) & 0x3)
+        skyQuad[1] = dequantLight((maskValue >> 12) & 0x3)
+        skyQuad[2] = dequantLight((maskValue >> 14) & 0x3)
+        skyQuad[3] = dequantLight((maskValue >> 16) & 0x3)
+        blockQuad[0] = dequantLight((maskValue >> 18) & 0x3)
+        blockQuad[1] = dequantLight((maskValue >> 20) & 0x3)
+        blockQuad[2] = dequantLight((maskValue >> 22) & 0x3)
+        blockQuad[3] = dequantLight((maskValue >> 24) & 0x3)
+        addQuad(targetAcc, v0, v1, v2, v3, normal, blockId, aoQuad, skyQuad, blockQuad, 'side')
       })
     }
   }
 
   // ── X- faces (normal = -1,0,0) ──────────────────────────────────────────
-  // Slice over lx; mask u-axis = lz, v-axis = y
+  // Air side = lx-1. Tangents: t1 = +Z, t2 = +Y.
   const passXNeg = (): void => {
     const normal = [-1, 0, 0] as const
     const mask = maskCH
@@ -407,6 +544,8 @@ export const greedyMeshChunk = (
     const v2 = [0, 0, 0] as [number, number, number]
     const v3 = [0, 0, 0] as [number, number, number]
     const aoQuad = [0, 0, 0, 0] as [number, number, number, number]
+    const skyQuad = [0, 0, 0, 0] as [number, number, number, number]
+    const blockQuad = [0, 0, 0, 0] as [number, number, number, number]
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
       mask.fill(0)
       for (let lz = 0; lz < CHUNK_SIZE; lz++) {
@@ -414,36 +553,45 @@ export const greedyMeshChunk = (
           const blockId = getBlock(blocks, lx, y, lz)
           if (blockId !== AIR && isAir(blocks, lx - 1, y, lz)) {
             const ao = aoXNeg(blocks, lx, y, lz)
-            mask[lz * CHUNK_HEIGHT + y] = blockId | (ao << 8)
+            // Vertices for X- are emitted in reverse winding (lz0+du..lz0); align corners to that order.
+            const c0 = sampleCornerLight(lightGrids, lx - 1, y, lz, 0, 0, 1, 0, 1, 0, 1, 0)
+            const c1 = sampleCornerLight(lightGrids, lx - 1, y, lz, 0, 0, 1, 0, 1, 0, 1, 1)
+            const c2 = sampleCornerLight(lightGrids, lx - 1, y, lz, 0, 0, 1, 0, 1, 0, 0, 1)
+            const c3 = sampleCornerLight(lightGrids, lx - 1, y, lz, 0, 0, 1, 0, 1, 0, 0, 0)
+            mask[lz * CHUNK_HEIGHT + y] = packMask(
+              blockId, ao,
+              (c0 >> 6) & 0x3, (c1 >> 6) & 0x3, (c2 >> 6) & 0x3, (c3 >> 6) & 0x3,
+              (c0 >> 2) & 0x3, (c1 >> 2) & 0x3, (c2 >> 2) & 0x3, (c3 >> 2) & 0x3,
+            )
           }
         }
       }
-      runGreedyExpansion(mask, CHUNK_SIZE, CHUNK_HEIGHT, doneBuf, (u0, vCoord0, du, dv, blockId, ao) => {
+      runGreedyExpansion(mask, CHUNK_SIZE, CHUNK_HEIGHT, doneBuf, (u0, vCoord0, du, dv, maskValue) => {
         const lz0 = u0, y0 = vCoord0
         const fx = offset.wx + lx
+        const blockId = maskValue & 0xff
+        const ao = (maskValue >> 8) & 0x3
         const targetAcc = transparentLookup[blockId] !== 0 ? (waterAcc ??= createAccumulator()) : opaqueAcc
         v0[0] = fx; v0[1] = y0; v0[2] = offset.wz + lz0 + du
         v1[0] = fx; v1[1] = y0 + dv; v1[2] = offset.wz + lz0 + du
         v2[0] = fx; v2[1] = y0 + dv; v2[2] = offset.wz + lz0
         v3[0] = fx; v3[1] = y0; v3[2] = offset.wz + lz0
         aoQuad[0] = ao; aoQuad[1] = ao; aoQuad[2] = ao; aoQuad[3] = ao
-        addQuad(
-          targetAcc,
-          v0,
-          v1,
-          v2,
-          v3,
-          normal,
-          blockId,
-          aoQuad,
-          'side'
-        )
+        skyQuad[0] = dequantLight((maskValue >> 10) & 0x3)
+        skyQuad[1] = dequantLight((maskValue >> 12) & 0x3)
+        skyQuad[2] = dequantLight((maskValue >> 14) & 0x3)
+        skyQuad[3] = dequantLight((maskValue >> 16) & 0x3)
+        blockQuad[0] = dequantLight((maskValue >> 18) & 0x3)
+        blockQuad[1] = dequantLight((maskValue >> 20) & 0x3)
+        blockQuad[2] = dequantLight((maskValue >> 22) & 0x3)
+        blockQuad[3] = dequantLight((maskValue >> 24) & 0x3)
+        addQuad(targetAcc, v0, v1, v2, v3, normal, blockId, aoQuad, skyQuad, blockQuad, 'side')
       })
     }
   }
 
   // ── Y+ faces (normal = 0,1,0) ────────────────────────────────────────────
-  // Slice over y; mask u-axis = lx, v-axis = lz
+  // Air side = y+1. Tangents: t1 = +X, t2 = +Z.
   const passYPos = (): void => {
     const normal = [0, 1, 0] as const
     const mask = maskSS
@@ -452,6 +600,8 @@ export const greedyMeshChunk = (
     const v2 = [0, 0, 0] as [number, number, number]
     const v3 = [0, 0, 0] as [number, number, number]
     const aoQuad = [0, 0, 0, 0] as [number, number, number, number]
+    const skyQuad = [0, 0, 0, 0] as [number, number, number, number]
+    const blockQuad = [0, 0, 0, 0] as [number, number, number, number]
     for (let y = 0; y < CHUNK_HEIGHT; y++) {
       mask.fill(0)
       for (let lx = 0; lx < CHUNK_SIZE; lx++) {
@@ -459,36 +609,45 @@ export const greedyMeshChunk = (
           const blockId = getBlock(blocks, lx, y, lz)
           if (blockId !== AIR && isAir(blocks, lx, y + 1, lz)) {
             const ao = aoYPos(blocks, lx, y, lz)
-            mask[lx * CHUNK_SIZE + lz] = blockId | (ao << 8)
+            // Vertex order: (lx0, lz0), (lx0, lz0+dv), (lx0+du, lz0+dv), (lx0+du, lz0).
+            const c0 = sampleCornerLight(lightGrids, lx, y + 1, lz, 1, 0, 0, 0, 0, 1, 0, 0)
+            const c1 = sampleCornerLight(lightGrids, lx, y + 1, lz, 1, 0, 0, 0, 0, 1, 0, 1)
+            const c2 = sampleCornerLight(lightGrids, lx, y + 1, lz, 1, 0, 0, 0, 0, 1, 1, 1)
+            const c3 = sampleCornerLight(lightGrids, lx, y + 1, lz, 1, 0, 0, 0, 0, 1, 1, 0)
+            mask[lx * CHUNK_SIZE + lz] = packMask(
+              blockId, ao,
+              (c0 >> 6) & 0x3, (c1 >> 6) & 0x3, (c2 >> 6) & 0x3, (c3 >> 6) & 0x3,
+              (c0 >> 2) & 0x3, (c1 >> 2) & 0x3, (c2 >> 2) & 0x3, (c3 >> 2) & 0x3,
+            )
           }
         }
       }
-      runGreedyExpansion(mask, CHUNK_SIZE, CHUNK_SIZE, doneBuf, (u0, vCoord0, du, dv, blockId, ao) => {
+      runGreedyExpansion(mask, CHUNK_SIZE, CHUNK_SIZE, doneBuf, (u0, vCoord0, du, dv, maskValue) => {
         const lx0 = u0, lz0 = vCoord0
         const fy = y + 1
+        const blockId = maskValue & 0xff
+        const ao = (maskValue >> 8) & 0x3
         const targetAcc = transparentLookup[blockId] !== 0 ? (waterAcc ??= createAccumulator()) : opaqueAcc
         v0[0] = offset.wx + lx0; v0[1] = fy; v0[2] = offset.wz + lz0
         v1[0] = offset.wx + lx0; v1[1] = fy; v1[2] = offset.wz + lz0 + dv
         v2[0] = offset.wx + lx0 + du; v2[1] = fy; v2[2] = offset.wz + lz0 + dv
         v3[0] = offset.wx + lx0 + du; v3[1] = fy; v3[2] = offset.wz + lz0
         aoQuad[0] = ao; aoQuad[1] = ao; aoQuad[2] = ao; aoQuad[3] = ao
-        addQuad(
-          targetAcc,
-          v0,
-          v1,
-          v2,
-          v3,
-          normal,
-          blockId,
-          aoQuad,
-          'top'
-        )
+        skyQuad[0] = dequantLight((maskValue >> 10) & 0x3)
+        skyQuad[1] = dequantLight((maskValue >> 12) & 0x3)
+        skyQuad[2] = dequantLight((maskValue >> 14) & 0x3)
+        skyQuad[3] = dequantLight((maskValue >> 16) & 0x3)
+        blockQuad[0] = dequantLight((maskValue >> 18) & 0x3)
+        blockQuad[1] = dequantLight((maskValue >> 20) & 0x3)
+        blockQuad[2] = dequantLight((maskValue >> 22) & 0x3)
+        blockQuad[3] = dequantLight((maskValue >> 24) & 0x3)
+        addQuad(targetAcc, v0, v1, v2, v3, normal, blockId, aoQuad, skyQuad, blockQuad, 'top')
       })
     }
   }
 
   // ── Y- faces (normal = 0,-1,0) ───────────────────────────────────────────
-  // Slice over y; mask u-axis = lx, v-axis = lz
+  // Air side = y-1. Tangents: t1 = +X, t2 = +Z.
   const passYNeg = (): void => {
     const normal = [0, -1, 0] as const
     const mask = maskSS
@@ -497,6 +656,8 @@ export const greedyMeshChunk = (
     const v2 = [0, 0, 0] as [number, number, number]
     const v3 = [0, 0, 0] as [number, number, number]
     const aoQuad = [0, 0, 0, 0] as [number, number, number, number]
+    const skyQuad = [0, 0, 0, 0] as [number, number, number, number]
+    const blockQuad = [0, 0, 0, 0] as [number, number, number, number]
     for (let y = 0; y < CHUNK_HEIGHT; y++) {
       mask.fill(0)
       for (let lx = 0; lx < CHUNK_SIZE; lx++) {
@@ -504,36 +665,45 @@ export const greedyMeshChunk = (
           const blockId = getBlock(blocks, lx, y, lz)
           if (blockId !== AIR && isAir(blocks, lx, y - 1, lz)) {
             const ao = aoYNeg(blocks, lx, y, lz)
-            mask[lx * CHUNK_SIZE + lz] = blockId | (ao << 8)
+            // Vertex order: (lx0+du, lz0), (lx0+du, lz0+dv), (lx0, lz0+dv), (lx0, lz0).
+            const c0 = sampleCornerLight(lightGrids, lx, y - 1, lz, 1, 0, 0, 0, 0, 1, 1, 0)
+            const c1 = sampleCornerLight(lightGrids, lx, y - 1, lz, 1, 0, 0, 0, 0, 1, 1, 1)
+            const c2 = sampleCornerLight(lightGrids, lx, y - 1, lz, 1, 0, 0, 0, 0, 1, 0, 1)
+            const c3 = sampleCornerLight(lightGrids, lx, y - 1, lz, 1, 0, 0, 0, 0, 1, 0, 0)
+            mask[lx * CHUNK_SIZE + lz] = packMask(
+              blockId, ao,
+              (c0 >> 6) & 0x3, (c1 >> 6) & 0x3, (c2 >> 6) & 0x3, (c3 >> 6) & 0x3,
+              (c0 >> 2) & 0x3, (c1 >> 2) & 0x3, (c2 >> 2) & 0x3, (c3 >> 2) & 0x3,
+            )
           }
         }
       }
-      runGreedyExpansion(mask, CHUNK_SIZE, CHUNK_SIZE, doneBuf, (u0, vCoord0, du, dv, blockId, ao) => {
+      runGreedyExpansion(mask, CHUNK_SIZE, CHUNK_SIZE, doneBuf, (u0, vCoord0, du, dv, maskValue) => {
         const lx0 = u0, lz0 = vCoord0
         const fy = y
+        const blockId = maskValue & 0xff
+        const ao = (maskValue >> 8) & 0x3
         const targetAcc = transparentLookup[blockId] !== 0 ? (waterAcc ??= createAccumulator()) : opaqueAcc
         v0[0] = offset.wx + lx0 + du; v0[1] = fy; v0[2] = offset.wz + lz0
         v1[0] = offset.wx + lx0 + du; v1[1] = fy; v1[2] = offset.wz + lz0 + dv
         v2[0] = offset.wx + lx0; v2[1] = fy; v2[2] = offset.wz + lz0 + dv
         v3[0] = offset.wx + lx0; v3[1] = fy; v3[2] = offset.wz + lz0
         aoQuad[0] = ao; aoQuad[1] = ao; aoQuad[2] = ao; aoQuad[3] = ao
-        addQuad(
-          targetAcc,
-          v0,
-          v1,
-          v2,
-          v3,
-          normal,
-          blockId,
-          aoQuad,
-          'bottom'
-        )
+        skyQuad[0] = dequantLight((maskValue >> 10) & 0x3)
+        skyQuad[1] = dequantLight((maskValue >> 12) & 0x3)
+        skyQuad[2] = dequantLight((maskValue >> 14) & 0x3)
+        skyQuad[3] = dequantLight((maskValue >> 16) & 0x3)
+        blockQuad[0] = dequantLight((maskValue >> 18) & 0x3)
+        blockQuad[1] = dequantLight((maskValue >> 20) & 0x3)
+        blockQuad[2] = dequantLight((maskValue >> 22) & 0x3)
+        blockQuad[3] = dequantLight((maskValue >> 24) & 0x3)
+        addQuad(targetAcc, v0, v1, v2, v3, normal, blockId, aoQuad, skyQuad, blockQuad, 'bottom')
       })
     }
   }
 
   // ── Z+ faces (normal = 0,0,1) ────────────────────────────────────────────
-  // Slice over lz; mask u-axis = lx, v-axis = y
+  // Air side = lz+1. Tangents: t1 = +X, t2 = +Y.
   const passZPos = (): void => {
     const normal = [0, 0, 1] as const
     const mask = maskCH
@@ -542,6 +712,8 @@ export const greedyMeshChunk = (
     const v2 = [0, 0, 0] as [number, number, number]
     const v3 = [0, 0, 0] as [number, number, number]
     const aoQuad = [0, 0, 0, 0] as [number, number, number, number]
+    const skyQuad = [0, 0, 0, 0] as [number, number, number, number]
+    const blockQuad = [0, 0, 0, 0] as [number, number, number, number]
     for (let lz = 0; lz < CHUNK_SIZE; lz++) {
       mask.fill(0)
       for (let lx = 0; lx < CHUNK_SIZE; lx++) {
@@ -549,36 +721,45 @@ export const greedyMeshChunk = (
           const blockId = getBlock(blocks, lx, y, lz)
           if (blockId !== AIR && isAir(blocks, lx, y, lz + 1)) {
             const ao = aoZPos(blocks, lx, y, lz)
-            mask[lx * CHUNK_HEIGHT + y] = blockId | (ao << 8)
+            // Vertex order: (lx0+du, y0), (lx0+du, y0+dv), (lx0, y0+dv), (lx0, y0).
+            const c0 = sampleCornerLight(lightGrids, lx, y, lz + 1, 1, 0, 0, 0, 1, 0, 1, 0)
+            const c1 = sampleCornerLight(lightGrids, lx, y, lz + 1, 1, 0, 0, 0, 1, 0, 1, 1)
+            const c2 = sampleCornerLight(lightGrids, lx, y, lz + 1, 1, 0, 0, 0, 1, 0, 0, 1)
+            const c3 = sampleCornerLight(lightGrids, lx, y, lz + 1, 1, 0, 0, 0, 1, 0, 0, 0)
+            mask[lx * CHUNK_HEIGHT + y] = packMask(
+              blockId, ao,
+              (c0 >> 6) & 0x3, (c1 >> 6) & 0x3, (c2 >> 6) & 0x3, (c3 >> 6) & 0x3,
+              (c0 >> 2) & 0x3, (c1 >> 2) & 0x3, (c2 >> 2) & 0x3, (c3 >> 2) & 0x3,
+            )
           }
         }
       }
-      runGreedyExpansion(mask, CHUNK_SIZE, CHUNK_HEIGHT, doneBuf, (u0, vCoord0, du, dv, blockId, ao) => {
+      runGreedyExpansion(mask, CHUNK_SIZE, CHUNK_HEIGHT, doneBuf, (u0, vCoord0, du, dv, maskValue) => {
         const lx0 = u0, y0 = vCoord0
         const fz = offset.wz + lz + 1
+        const blockId = maskValue & 0xff
+        const ao = (maskValue >> 8) & 0x3
         const targetAcc = transparentLookup[blockId] !== 0 ? (waterAcc ??= createAccumulator()) : opaqueAcc
         v0[0] = offset.wx + lx0 + du; v0[1] = y0; v0[2] = fz
         v1[0] = offset.wx + lx0 + du; v1[1] = y0 + dv; v1[2] = fz
         v2[0] = offset.wx + lx0; v2[1] = y0 + dv; v2[2] = fz
         v3[0] = offset.wx + lx0; v3[1] = y0; v3[2] = fz
         aoQuad[0] = ao; aoQuad[1] = ao; aoQuad[2] = ao; aoQuad[3] = ao
-        addQuad(
-          targetAcc,
-          v0,
-          v1,
-          v2,
-          v3,
-          normal,
-          blockId,
-          aoQuad,
-          'side'
-        )
+        skyQuad[0] = dequantLight((maskValue >> 10) & 0x3)
+        skyQuad[1] = dequantLight((maskValue >> 12) & 0x3)
+        skyQuad[2] = dequantLight((maskValue >> 14) & 0x3)
+        skyQuad[3] = dequantLight((maskValue >> 16) & 0x3)
+        blockQuad[0] = dequantLight((maskValue >> 18) & 0x3)
+        blockQuad[1] = dequantLight((maskValue >> 20) & 0x3)
+        blockQuad[2] = dequantLight((maskValue >> 22) & 0x3)
+        blockQuad[3] = dequantLight((maskValue >> 24) & 0x3)
+        addQuad(targetAcc, v0, v1, v2, v3, normal, blockId, aoQuad, skyQuad, blockQuad, 'side')
       })
     }
   }
 
   // ── Z- faces (normal = 0,0,-1) ───────────────────────────────────────────
-  // Slice over lz; mask u-axis = lx, v-axis = y
+  // Air side = lz-1. Tangents: t1 = +X, t2 = +Y.
   const passZNeg = (): void => {
     const normal = [0, 0, -1] as const
     const mask = maskCH
@@ -587,6 +768,8 @@ export const greedyMeshChunk = (
     const v2 = [0, 0, 0] as [number, number, number]
     const v3 = [0, 0, 0] as [number, number, number]
     const aoQuad = [0, 0, 0, 0] as [number, number, number, number]
+    const skyQuad = [0, 0, 0, 0] as [number, number, number, number]
+    const blockQuad = [0, 0, 0, 0] as [number, number, number, number]
     for (let lz = 0; lz < CHUNK_SIZE; lz++) {
       mask.fill(0)
       for (let lx = 0; lx < CHUNK_SIZE; lx++) {
@@ -594,30 +777,39 @@ export const greedyMeshChunk = (
           const blockId = getBlock(blocks, lx, y, lz)
           if (blockId !== AIR && isAir(blocks, lx, y, lz - 1)) {
             const ao = aoZNeg(blocks, lx, y, lz)
-            mask[lx * CHUNK_HEIGHT + y] = blockId | (ao << 8)
+            // Vertex order: (lx0, y0), (lx0, y0+dv), (lx0+du, y0+dv), (lx0+du, y0).
+            const c0 = sampleCornerLight(lightGrids, lx, y, lz - 1, 1, 0, 0, 0, 1, 0, 0, 0)
+            const c1 = sampleCornerLight(lightGrids, lx, y, lz - 1, 1, 0, 0, 0, 1, 0, 0, 1)
+            const c2 = sampleCornerLight(lightGrids, lx, y, lz - 1, 1, 0, 0, 0, 1, 0, 1, 1)
+            const c3 = sampleCornerLight(lightGrids, lx, y, lz - 1, 1, 0, 0, 0, 1, 0, 1, 0)
+            mask[lx * CHUNK_HEIGHT + y] = packMask(
+              blockId, ao,
+              (c0 >> 6) & 0x3, (c1 >> 6) & 0x3, (c2 >> 6) & 0x3, (c3 >> 6) & 0x3,
+              (c0 >> 2) & 0x3, (c1 >> 2) & 0x3, (c2 >> 2) & 0x3, (c3 >> 2) & 0x3,
+            )
           }
         }
       }
-      runGreedyExpansion(mask, CHUNK_SIZE, CHUNK_HEIGHT, doneBuf, (u0, vCoord0, du, dv, blockId, ao) => {
+      runGreedyExpansion(mask, CHUNK_SIZE, CHUNK_HEIGHT, doneBuf, (u0, vCoord0, du, dv, maskValue) => {
         const lx0 = u0, y0 = vCoord0
         const fz = offset.wz + lz
+        const blockId = maskValue & 0xff
+        const ao = (maskValue >> 8) & 0x3
         const targetAcc = transparentLookup[blockId] !== 0 ? (waterAcc ??= createAccumulator()) : opaqueAcc
         v0[0] = offset.wx + lx0; v0[1] = y0; v0[2] = fz
         v1[0] = offset.wx + lx0; v1[1] = y0 + dv; v1[2] = fz
         v2[0] = offset.wx + lx0 + du; v2[1] = y0 + dv; v2[2] = fz
         v3[0] = offset.wx + lx0 + du; v3[1] = y0; v3[2] = fz
         aoQuad[0] = ao; aoQuad[1] = ao; aoQuad[2] = ao; aoQuad[3] = ao
-        addQuad(
-          targetAcc,
-          v0,
-          v1,
-          v2,
-          v3,
-          normal,
-          blockId,
-          aoQuad,
-          'side'
-        )
+        skyQuad[0] = dequantLight((maskValue >> 10) & 0x3)
+        skyQuad[1] = dequantLight((maskValue >> 12) & 0x3)
+        skyQuad[2] = dequantLight((maskValue >> 14) & 0x3)
+        skyQuad[3] = dequantLight((maskValue >> 16) & 0x3)
+        blockQuad[0] = dequantLight((maskValue >> 18) & 0x3)
+        blockQuad[1] = dequantLight((maskValue >> 20) & 0x3)
+        blockQuad[2] = dequantLight((maskValue >> 22) & 0x3)
+        blockQuad[3] = dequantLight((maskValue >> 24) & 0x3)
+        addQuad(targetAcc, v0, v1, v2, v3, normal, blockId, aoQuad, skyQuad, blockQuad, 'side')
       })
     }
   }

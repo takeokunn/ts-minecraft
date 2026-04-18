@@ -6,6 +6,7 @@ import type { InputServicePort as InputServiceType } from '@/application/input'
 import {
   MovementService,
   MovementServiceLive,
+  computeVelocity,
   type MovementInput,
   DEFAULT_WALK_SPEED,
   DEFAULT_SPRINT_SPEED,
@@ -61,6 +62,81 @@ const createTestInputService = (
  */
 const createTestLayers = (inputService: InputServiceType) =>
   Layer.succeed(PlayerInputService, inputService as unknown as PlayerInputService)
+
+describe('computeVelocity — pure function', () => {
+  const walk = DEFAULT_WALK_SPEED
+  const sprint = DEFAULT_SPRINT_SPEED
+  const jump = DEFAULT_JUMP_VELOCITY
+
+  const noInput: MovementInput = { forward: false, backward: false, left: false, right: false, jump: false, sprint: false }
+
+  const cases: ReadonlyArray<readonly [string, MovementInput, number, boolean, { x: number; y: number; z: number }]> = [
+    [
+      'forward at yaw=0 → z=-walkSpeed, x=0',
+      { ...noInput, forward: true },
+      0,
+      false,
+      { x: 0, y: 0, z: -walk },
+    ],
+    [
+      'backward at yaw=0 → z=+walkSpeed',
+      { ...noInput, backward: true },
+      0,
+      false,
+      { x: 0, y: 0, z: walk },
+    ],
+    [
+      'left strafe at yaw=0 → x=-walkSpeed',
+      { ...noInput, left: true },
+      0,
+      false,
+      { x: -walk, y: 0, z: 0 },
+    ],
+    [
+      'right strafe at yaw=0 → x=+walkSpeed',
+      { ...noInput, right: true },
+      0,
+      false,
+      { x: walk, y: 0, z: 0 },
+    ],
+    [
+      'sprint forward at yaw=0 → z=-sprintSpeed',
+      { ...noInput, forward: true, sprint: true },
+      0,
+      false,
+      { x: 0, y: 0, z: -sprint },
+    ],
+    [
+      'jump when grounded → y=jumpVelocity',
+      { ...noInput, jump: true },
+      0,
+      true,
+      { x: 0, y: jump, z: 0 },
+    ],
+    [
+      'jump when not grounded → y=0',
+      { ...noInput, jump: true },
+      0,
+      false,
+      { x: 0, y: 0, z: 0 },
+    ],
+  ]
+
+  Arr.forEach(cases, ([label, input, yaw, grounded, expected]) => {
+    it(label, () => {
+      const vel = computeVelocity(input, yaw, grounded)
+      expect(vel.x).toBeCloseTo(expected.x)
+      expect(vel.y).toBeCloseTo(expected.y)
+      expect(vel.z).toBeCloseTo(expected.z)
+    })
+  })
+
+  it('diagonal forward+right normalized to walkSpeed', () => {
+    const vel = computeVelocity({ ...noInput, forward: true, right: true }, 0, false)
+    const magnitude = Math.sqrt(vel.x ** 2 + vel.z ** 2)
+    expect(magnitude).toBeCloseTo(walk, 5)
+  })
+})
 
 describe('MovementService', () => {
   describe('constants', () => {

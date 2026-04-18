@@ -7,54 +7,12 @@ import {
   createEntity as createEntityModel,
   type Entity,
   type EntityId as EntityIdType,
-  type MobBehavior,
 } from '@/entity/entity'
 import { getMobDefinition } from '@/entity/mobs'
 import type { DeltaTimeSecs, Position } from '@/shared/kernel'
-import type { Vector3 } from '@/shared/math/three'
 import { zero } from '@/shared/math/three'
-
-type ManagedEntity = Entity & {
-  readonly behavior: MobBehavior
-  readonly maxHealth: number
-  readonly attackDamage: number
-  readonly speed: number
-  readonly detectionRange: number
-  readonly attackRange: number
-  readonly fleeHealthThreshold: number
-  readonly drops: ReadonlyArray<ItemStack>
-  readonly aiState: AIState
-  readonly wanderDirection: Vector3
-}
-
-const toPublicEntity = (entity: ManagedEntity): Entity => ({
-  entityId: entity.entityId,
-  position: entity.position,
-  velocity: entity.velocity,
-  rotation: entity.rotation,
-  health: entity.health,
-  type: entity.type,
-})
-
-// Performance boundary: plain for-loop avoids Arr.fromIterable array allocation per entity per tick
-const hashEntityId = (entityId: EntityIdType): number => {
-  const str = entityId as string
-  let hash = 0
-  for (let i = 0; i < str.length; i++) {
-    hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0
-  }
-  return Math.abs(hash)
-}
-
-const makeWanderDirection = (entityId: EntityIdType, tick: number): Vector3 => {
-  const angleDegrees = (hashEntityId(entityId) + tick * 29) % 360
-  const angle = angleDegrees * (Math.PI / 180)
-  return {
-    x: Math.cos(angle),
-    y: 0,
-    z: Math.sin(angle),
-  }
-}
+import { HOSTILE_ATTACK_COOLDOWN_SECS, type ManagedEntity } from './entity-internal'
+import { hashEntityId, makeWanderDirection, toPublicEntity } from './entity-utils'
 
 export class EntityManager extends Effect.Service<EntityManager>()(
   '@minecraft/entity/EntityManager',
@@ -93,6 +51,7 @@ export class EntityManager extends Effect.Service<EntityManager>()(
               drops: definition.drops,
               aiState: AIState.Idle,
               wanderDirection: zero,
+              attackCooldownRemaining: 0,
             }
 
             yield* Ref.update(entitiesRef, (entities) =>
@@ -141,6 +100,31 @@ export class EntityManager extends Effect.Service<EntityManager>()(
         getCount: (): Effect.Effect<number, never> =>
           Ref.get(entitiesRef).pipe(Effect.map(HashMap.size)),
 
+        getPlayerContactDamage: (playerPosition: Position): Effect.Effect<number, never> =>
+          Ref.modify(entitiesRef, (entities): [number, HashMap.HashMap<EntityIdType, ManagedEntity>] => {
+              type DamageAccum = { changed: boolean; totalDamage: number; entities: typeof entities }
+              const { changed, totalDamage, entities: updatedEntities } = Arr.reduce(
+                Arr.fromIterable(HashMap.values(entities)),
+                { changed: false, totalDamage: 0, entities } as DamageAccum,
+                (acc, entity) => {
+                  if (entity.behavior !== 'hostile' || entity.attackDamage <= 0) return acc
+                  if (entity.attackCooldownRemaining <= 0 && distanceToPlayer(entity.position, playerPosition) <= entity.attackRange) {
+                    return {
+                      changed: true,
+                      totalDamage: acc.totalDamage + entity.attackDamage,
+                      entities: HashMap.set(acc.entities, entity.entityId, {
+                        ...entity,
+                        attackCooldownRemaining: HOSTILE_ATTACK_COOLDOWN_SECS,
+                      }),
+                    }
+                  }
+                  return acc
+                }
+              )
+
+              return [totalDamage, changed ? updatedEntities : entities]
+            }).pipe(Effect.tap((damage) => damage > 0 ? Ref.set(cachedEntitiesRef, null) : Effect.void)),
+
         update: (
           deltaTime: DeltaTimeSecs,
           playerPosition: Position,
@@ -163,10 +147,18 @@ export class EntityManager extends Effect.Service<EntityManager>()(
                   fleeHealthThreshold: entity.fleeHealthThreshold,
                 })
 
-                // Entity idle skip: avoid object allocation when nothing changed
+                const nextAttackCooldown = Math.max(0, entity.attackCooldownRemaining - deltaTime)
+
+                // Entity idle/attack skip: avoid object allocation when nothing changed,
+                // but still allow attack cooldowns to tick down while stationary.
                 if (nextState === entity.aiState
                   && entity.velocity.x === 0 && entity.velocity.y === 0 && entity.velocity.z === 0) {
-                  return entity
+                  return nextAttackCooldown === entity.attackCooldownRemaining
+                    ? entity
+                    : {
+                        ...entity,
+                        attackCooldownRemaining: nextAttackCooldown,
+                      }
                 }
 
                 const wanderDirection =
@@ -195,6 +187,7 @@ export class EntityManager extends Effect.Service<EntityManager>()(
                   velocity,
                   position: nextPosition,
                   wanderDirection,
+                  attackCooldownRemaining: nextAttackCooldown,
                 }
               })
             )

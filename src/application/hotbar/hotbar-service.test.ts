@@ -4,7 +4,8 @@ import { Array as Arr, Effect, Layer, MutableHashMap, MutableHashSet, Option } f
 import { Block, BlockType } from '@/domain/block'
 import { BlockRegistry } from '@/domain/block-registry'
 import { PlayerInputService } from '@/application/input/player-input-service'
-import { InventoryServiceLive } from '@/application/inventory/inventory-service'
+import { HOTBAR_START, InventoryService, InventoryServiceLive } from '@/application/inventory/inventory-service'
+import { createStack } from '@/domain/item-stack'
 import { HotbarService, HotbarServiceLive, HOTBAR_SIZE } from './hotbar-service'
 import type { SlotIndex } from '@/shared/kernel'
 
@@ -128,9 +129,12 @@ const createTestLayer = (
     Layer.provide(blockRegistryLayer)
   )
 
-  return HotbarServiceLive.pipe(
-    Layer.provide(inputLayer),
-    Layer.provide(inventoryLayer)
+  return Layer.mergeAll(
+    inventoryLayer,
+    HotbarServiceLive.pipe(
+      Layer.provide(inputLayer),
+      Layer.provide(inventoryLayer)
+    )
   )
 }
 
@@ -263,6 +267,10 @@ describe('application/hotbar/hotbar-service', () => {
 
       return Effect.gen(function* () {
         const service = yield* HotbarService
+        const inventory = yield* InventoryService
+        yield* inventory.setSlot(asSlotIndex(HOTBAR_START), Option.some(createStack('DIRT', 1)))
+        yield* inventory.setSlot(asSlotIndex(HOTBAR_START + 1), Option.some(createStack('STONE', 1)))
+        yield* inventory.setSlot(asSlotIndex(HOTBAR_START + 2), Option.some(createStack('WOOD', 1)))
         const slots = yield* service.getSlots()
 
         // First 3 slots should have block types
@@ -302,6 +310,9 @@ describe('application/hotbar/hotbar-service', () => {
 
       return Effect.gen(function* () {
         const service = yield* HotbarService
+        const inventory = yield* InventoryService
+        yield* inventory.setSlot(asSlotIndex(HOTBAR_START), Option.some(createStack('DIRT', 1)))
+        yield* inventory.setSlot(asSlotIndex(HOTBAR_START + 1), Option.some(createStack('STONE', 1)))
 
         // Default slot is 0 → DIRT
         const blockType = yield* service.getSelectedBlockType()

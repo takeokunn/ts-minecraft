@@ -11,11 +11,40 @@ import {
   type Villager,
   type VillageStructure,
 } from '@/village/village-model'
+import {
+  STRUCTURE_TEMPLATES,
+  VILLAGER_TEMPLATES,
+  buildAnchor,
+  buildStructureId,
+  buildVillagerId,
+} from '@/village/village-service.config'
+import {
+  VILLAGE_NEAR_DISTANCE,
+  distanceSq,
+  moveTowards,
+  findNearestVillage,
+  findStructureAnchor,
+  snapVillageCenter,
+  flattenVillagers,
+  nextActivityForVillager,
+  getTargetPosition,
+} from '@/village/village-simulation'
 
-const VILLAGE_GRID_SIZE = 96
-const VILLAGE_NEAR_DISTANCE = 80
-const TRADE_DISTANCE = 4
 const VILLAGER_MOVE_SPEED = 0.045
+
+const findClosestVillagerInRange = (
+  villagers: ReadonlyArray<Villager>,
+  position: Position,
+  maxDistanceSq: number,
+): Option.Option<Villager> =>
+  Arr.reduce(villagers, Option.none<Villager>(), (closest, villager) => {
+    const dSq = distanceSq(villager.position, position)
+    if (dSq > maxDistanceSq) return closest
+    return Option.match(closest, {
+      onNone: () => Option.some(villager),
+      onSome: (current) => dSq < distanceSq(current.position, position) ? Option.some(villager) : closest,
+    })
+  })
 
 type VillageState = {
   readonly villages: ReadonlyArray<Village>
@@ -29,146 +58,29 @@ const INITIAL_STATE: VillageState = {
   updateTick: 0,
 }
 
-const distanceSq = (a: Position, b: Position): number => {
-  const dx = b.x - a.x
-  const dy = b.y - a.y
-  const dz = b.z - a.z
-  return dx * dx + dy * dy + dz * dz
-}
-
-const hashString = (source: string): number =>
-  Math.abs(Arr.reduce(Arr.fromIterable(source), 0, (hash, char) => ((hash << 5) - hash + char.charCodeAt(0)) | 0))
-
-const moveTowards = (from: Position, to: Position, maxDelta: number): Position => {
-  const dx = to.x - from.x
-  const dy = to.y - from.y
-  const dz = to.z - from.z
-  const distance = Math.sqrt(dx * dx + dy * dy + dz * dz)
-
-  if (distance === 0 || distance <= maxDelta) {
-    return to
-  }
-
-  return {
-    x: from.x + (dx / distance) * maxDelta,
-    y: from.y + (dy / distance) * maxDelta,
-    z: from.z + (dz / distance) * maxDelta,
-  }
-}
-
-const findNearestVillage = (
-  villages: ReadonlyArray<Village>,
-  position: Position,
-): Option.Option<Village> =>
-  Arr.reduce(villages, Option.none<Village>(), (closest, village) =>
-    Option.match(closest, {
-      onNone: () => Option.some(village),
-      onSome: (current) =>
-        distanceSq(village.center, position) < distanceSq(current.center, position)
-          ? Option.some(village)
-          : closest,
-    })
-  )
-
-const findStructureAnchor = (
-  structures: ReadonlyArray<VillageStructure>,
-  structureId: VillageStructureId,
-  fallback: Position,
-): Position =>
-  Option.getOrElse(
-    Arr.findFirst(structures, (s) => s.structureId === structureId).pipe(
-      Option.map((s) => s.anchor),
-    ),
-    () => fallback,
-  )
-
-const snapVillageCenter = (position: Position): Position => ({
-  x: Math.floor(position.x / VILLAGE_GRID_SIZE) * VILLAGE_GRID_SIZE + VILLAGE_GRID_SIZE / 2,
-  y: Math.max(64, Math.round(position.y)),
-  z: Math.floor(position.z / VILLAGE_GRID_SIZE) * VILLAGE_GRID_SIZE + VILLAGE_GRID_SIZE / 2,
-})
-
 const createVillage = (villageNumber: number, center: Position): Village => {
   const villageId = VillageId.make(`village-${villageNumber}`)
-  const structureId = (suffix: string): VillageStructureId => VillageStructureId.make(`${villageId}:${suffix}`)
+  const structureId = (suffix: string): VillageStructureId =>
+    VillageStructureId.make(buildStructureId(villageId, suffix))
 
-  const structures: ReadonlyArray<VillageStructure> = [
-    {
-      structureId: structureId('well'),
-      type: 'well',
-      anchor: { x: center.x, y: center.y, z: center.z },
-      size: { x: 3, y: 4, z: 3 },
-    },
-    {
-      structureId: structureId('road-main'),
-      type: 'road',
-      anchor: { x: center.x - 12, y: center.y, z: center.z },
-      size: { x: 24, y: 1, z: 3 },
-    },
-    {
-      structureId: structureId('house-a'),
-      type: 'house',
-      anchor: { x: center.x - 8, y: center.y, z: center.z - 8 },
-      size: { x: 6, y: 5, z: 6 },
-    },
-    {
-      structureId: structureId('house-b'),
-      type: 'house',
-      anchor: { x: center.x + 2, y: center.y, z: center.z - 8 },
-      size: { x: 6, y: 5, z: 6 },
-    },
-    {
-      structureId: structureId('house-c'),
-      type: 'house',
-      anchor: { x: center.x + 8, y: center.y, z: center.z + 2 },
-      size: { x: 6, y: 5, z: 6 },
-    },
-    {
-      structureId: structureId('farm'),
-      type: 'farm',
-      anchor: { x: center.x - 10, y: center.y, z: center.z + 6 },
-      size: { x: 8, y: 1, z: 8 },
-    },
-  ]
+  const structures: ReadonlyArray<VillageStructure> = Arr.map(STRUCTURE_TEMPLATES, (template) => ({
+    structureId: structureId(template.suffix),
+    type: template.type,
+    anchor: buildAnchor(center, template),
+    size: { x: template.sizeX, y: template.sizeY, z: template.sizeZ },
+  }))
 
-  const byId = (id: VillageStructureId): Position =>
-    findStructureAnchor(structures, id, center)
-
-  const villagers: ReadonlyArray<Villager> = [
-    {
-      villagerId: VillagerId.make(`${villageId}:villager-farmer`),
-      villageId,
-      profession: VillagerProfession.Farmer,
-      homeStructureId: structureId('house-a'),
-      workplaceStructureId: structureId('farm'),
-      level: 1,
-      experience: 0,
-      position: byId(structureId('house-a')),
-      activity: VillagerActivity.Idle,
-    },
-    {
-      villagerId: VillagerId.make(`${villageId}:villager-librarian`),
-      villageId,
-      profession: VillagerProfession.Librarian,
-      homeStructureId: structureId('house-b'),
-      workplaceStructureId: structureId('well'),
-      level: 1,
-      experience: 0,
-      position: byId(structureId('house-b')),
-      activity: VillagerActivity.Idle,
-    },
-    {
-      villagerId: VillagerId.make(`${villageId}:villager-blacksmith`),
-      villageId,
-      profession: VillagerProfession.Blacksmith,
-      homeStructureId: structureId('house-c'),
-      workplaceStructureId: structureId('road-main'),
-      level: 1,
-      experience: 0,
-      position: byId(structureId('house-c')),
-      activity: VillagerActivity.Idle,
-    },
-  ]
+  const villagers: ReadonlyArray<Villager> = Arr.map(VILLAGER_TEMPLATES, (template) => ({
+    villagerId: VillagerId.make(buildVillagerId(villageId, template.suffix)),
+    villageId,
+    profession: VillagerProfession[template.profession],
+    homeStructureId: structureId(template.homeStructureSuffix),
+    workplaceStructureId: structureId(template.workplaceStructureSuffix),
+    level: 1,
+    experience: 0,
+    position: findStructureAnchor(structures, structureId(template.homeStructureSuffix), center),
+    activity: VillagerActivity.Idle,
+  }))
 
   return {
     villageId,
@@ -211,60 +123,6 @@ const ensureVillageInState = (
     },
   })
 
-const getTargetPosition = (
-  village: Village,
-  villager: Villager,
-  nextActivity: VillagerActivity,
-  tick: number,
-): Position => {
-  const findStructurePosition = (structureId: VillageStructureId): Position =>
-    findStructureAnchor(village.structures, structureId, villager.position)
-
-  if (nextActivity === VillagerActivity.Work) {
-    return findStructurePosition(villager.workplaceStructureId)
-  }
-
-  const homePosition = findStructurePosition(villager.homeStructureId)
-  if (nextActivity === VillagerActivity.Rest) {
-    return homePosition
-  }
-
-  if (nextActivity === VillagerActivity.Wander) {
-    const phase = (hashString(villager.villagerId) + tick * 9) % 360
-    const angle = phase * (Math.PI / 180)
-    return {
-      x: homePosition.x + Math.cos(angle) * 2,
-      y: homePosition.y,
-      z: homePosition.z + Math.sin(angle) * 2,
-    }
-  }
-
-  return villager.position
-}
-
-const nextActivityForVillager = (
-  villager: Villager,
-  playerPosition: Position,
-  timeOfDay: number,
-): VillagerActivity => {
-  if (distanceSq(villager.position, playerPosition) <= TRADE_DISTANCE * TRADE_DISTANCE) {
-    return VillagerActivity.Trade
-  }
-
-  if (timeOfDay < 0.22 || timeOfDay > 0.78) {
-    return VillagerActivity.Rest
-  }
-
-  if (timeOfDay >= 0.28 && timeOfDay <= 0.72) {
-    return VillagerActivity.Work
-  }
-
-  return VillagerActivity.Wander
-}
-
-const flattenVillagers = (villages: ReadonlyArray<Village>): ReadonlyArray<Villager> =>
-  Arr.flatMap(villages, (village) => village.villagers)
-
 export class VillageService extends Effect.Service<VillageService>()(
   '@minecraft/village/VillageService',
   {
@@ -292,20 +150,7 @@ export class VillageService extends Effect.Service<VillageService>()(
         ): Effect.Effect<Option.Option<Villager>, never> =>
           Ref.get(stateRef).pipe(
             Effect.map((state) =>
-              Arr.reduce(flattenVillagers(state.villages), Option.none<Villager>(), (closest, villager) => {
-                const villagerDistanceSq = distanceSq(villager.position, position)
-                if (villagerDistanceSq > maxDistance * maxDistance) {
-                  return closest
-                }
-
-                return Option.match(closest, {
-                  onNone: () => Option.some(villager),
-                  onSome: (current) =>
-                    villagerDistanceSq < distanceSq(current.position, position)
-                      ? Option.some(villager)
-                      : closest,
-                })
-              })
+              findClosestVillagerInRange(flattenVillagers(state.villages), position, maxDistance * maxDistance)
             )
           ),
 

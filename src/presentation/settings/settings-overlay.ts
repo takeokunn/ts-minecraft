@@ -90,6 +90,26 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
         }
         }).pipe(
           Effect.flatMap(({ overlayEl, renderDistanceInput, sensitivityInput, dayLengthInput, qualitySelect, closeBtn, gearBtn }) => {
+        const updateLabel = (labelId: string, value: string): void =>
+          Option.match(
+            Option.flatMap(overlayEl, (el) => dom.querySelector(el, labelId)),
+            { onNone: () => {}, onSome: (span) => { span.textContent = value } },
+          )
+
+        const syncInputAndLabel = (
+          inputOpt: Option.Option<HTMLElement & { value: string }>,
+          labelId: string,
+          value: string,
+        ): void => {
+          Option.match(inputOpt, {
+            onNone: () => {},
+            onSome: (input) => {
+              input.value = value
+              updateLabel(labelId, value)
+            },
+          })
+        }
+
         const commitEffect = (): Effect.Effect<void, never> =>
         settingsService.updateSettings({
           renderDistance: Option.match(renderDistanceInput, { onNone: () => 8, onSome: (el) => parseInt(el.value, 10) }),
@@ -120,27 +140,9 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
       function syncEffect(): Effect.Effect<void, never> {
         return settingsService.getSettings().pipe(
           Effect.flatMap((settings) => Effect.sync(() => {
-            Option.match(renderDistanceInput, {
-              onNone: () => {},
-              onSome: (input) => {
-                input.value = String(settings.renderDistance)
-                Option.match(overlayEl, { onNone: () => {}, onSome: (el) => Option.match(dom.querySelector(el, '#rd-val'), { onNone: () => {}, onSome: (span) => { span.textContent = String(settings.renderDistance) } }) })
-              },
-            })
-            Option.match(sensitivityInput, {
-              onNone: () => {},
-              onSome: (input) => {
-                input.value = String(settings.mouseSensitivity)
-                Option.match(overlayEl, { onNone: () => {}, onSome: (el) => Option.match(dom.querySelector(el, '#ms-val'), { onNone: () => {}, onSome: (span) => { span.textContent = String(settings.mouseSensitivity) } }) })
-              },
-            })
-            Option.match(dayLengthInput, {
-              onNone: () => {},
-              onSome: (input) => {
-                input.value = String(settings.dayLengthSeconds)
-                Option.match(overlayEl, { onNone: () => {}, onSome: (el) => Option.match(dom.querySelector(el, '#dl-val'), { onNone: () => {}, onSome: (span) => { span.textContent = String(settings.dayLengthSeconds) } }) })
-              },
-            })
+            syncInputAndLabel(renderDistanceInput, '#rd-val', String(settings.renderDistance))
+            syncInputAndLabel(sensitivityInput, '#ms-val', String(settings.mouseSensitivity))
+            syncInputAndLabel(dayLengthInput, '#dl-val', String(settings.dayLengthSeconds))
             Option.match(qualitySelect, { onNone: () => {}, onSome: (el) => { el.value = settings.graphicsQuality } })
           }))
         )
@@ -148,26 +150,17 @@ export class SettingsOverlayService extends Effect.Service<SettingsOverlayServic
 
       // Named event handler functions for proper cleanup via removeEventListener
       const handleRdInput = () => {
-        Option.match(Option.all({ el: overlayEl, input: renderDistanceInput }), {
-          onNone: () => {},
-          onSome: ({ el, input }) => Option.match(dom.querySelector(el, '#rd-val'), { onNone: () => {}, onSome: (span) => { span.textContent = input.value } }),
-        })
+        Option.match(renderDistanceInput, { onNone: () => {}, onSome: (input) => updateLabel('#rd-val', input.value) })
         runCommit()
       }
 
       const handleMsInput = () => {
-        Option.match(Option.all({ el: overlayEl, input: sensitivityInput }), {
-          onNone: () => {},
-          onSome: ({ el, input }) => Option.match(dom.querySelector(el, '#ms-val'), { onNone: () => {}, onSome: (span) => { span.textContent = input.value } }),
-        })
+        Option.match(sensitivityInput, { onNone: () => {}, onSome: (input) => updateLabel('#ms-val', input.value) })
         runCommit()
       }
 
       const handleDlInput = () => {
-        Option.match(Option.all({ el: overlayEl, input: dayLengthInput }), {
-          onNone: () => {},
-          onSome: ({ el, input }) => Option.match(dom.querySelector(el, '#dl-val'), { onNone: () => {}, onSome: (span) => { span.textContent = input.value } }),
-        })
+        Option.match(dayLengthInput, { onNone: () => {}, onSome: (input) => updateLabel('#dl-val', input.value) })
         runCommit()
       }
 

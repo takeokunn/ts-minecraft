@@ -9,7 +9,7 @@ describe('SettingsSchema encode round-trip', () => {
     mouseSensitivity: 0.5,
     dayLengthSeconds: 400,
     graphicsQuality: 'high',
-    audioEnabled: true,
+    audioEnabled: false, // NOTE: false intentionally — matches DEFAULT_SETTINGS in settings-service.ts
     masterVolume: 0.8,
     sfxVolume: 1.0,
     musicVolume: 0.55,

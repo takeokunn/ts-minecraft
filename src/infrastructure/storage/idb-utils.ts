@@ -144,6 +144,33 @@ const makeTypedDB = <T extends DBSchema>(db: IDBDatabase): TypedIDBDatabase<T> =
 })
 
 /**
+ * Deletes an IndexedDB database by name. Resolves successfully even if the
+ * database did not exist. Rejects with `IndexedDBError` on block or error
+ * events so callers can decide whether to ignore or propagate the failure.
+ */
+export const deleteDatabase = (name: string): Effect.Effect<void, IndexedDBError> =>
+  Effect.async((resume) => {
+    const settledRef = MutableRef.make(false)
+    const settle = (effect: Effect.Effect<void, IndexedDBError>): void => {
+      if (MutableRef.get(settledRef)) return
+      MutableRef.set(settledRef, true)
+      resume(effect)
+    }
+    const req = indexedDB.deleteDatabase(name)
+    req.onsuccess = () => settle(Effect.void)
+    req.onerror = () =>
+      settle(Effect.fail(new IndexedDBError('IndexedDB deleteDatabase failed', req.error ?? undefined)))
+    req.onblocked = () =>
+      settle(Effect.fail(new IndexedDBError('IndexedDB deleteDatabase blocked by an existing connection', undefined)))
+
+    return Effect.sync(() => {
+      req.onsuccess = null
+      req.onerror = null
+      req.onblocked = null
+    })
+  })
+
+/**
  * Opens (or creates/upgrades) an IndexedDB database.
  * Replaces `openDB<T>()` from the `idb` package.
  */

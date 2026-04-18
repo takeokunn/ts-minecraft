@@ -8,7 +8,7 @@ export const FPSCounterStateSchema = Schema.Struct({
 })
 type FPSCounterState = Schema.Schema.Type<typeof FPSCounterStateSchema>
 
-const FPS_SAMPLE_INTERVAL = 0.5 // seconds
+const FPS_SAMPLE_INTERVAL = 0.1 // seconds
 const fpsGauge = Metric.gauge('fps')
 
 export class FPSCounterService extends Effect.Service<FPSCounterService>()(

@@ -6,7 +6,15 @@ import { BlockTypeSchema, BlockPropertiesSchema, Block, BlockType, BlockIdSchema
 describe('BlockTypeSchema', () => {
   describe('validation', () => {
     it.effect('should accept valid block types', () => {
-      const validTypes = ['AIR', 'DIRT', 'STONE', 'WOOD', 'GRASS', 'SAND', 'WATER', 'LEAVES', 'GLASS', 'SNOW', 'GRAVEL', 'COBBLESTONE'] as const
+      const validTypes = [
+        'AIR', 'DIRT', 'STONE', 'WOOD', 'GRASS', 'SAND', 'WATER', 'LEAVES', 'GLASS', 'SNOW', 'GRAVEL', 'COBBLESTONE',
+        'GRANITE', 'DIORITE', 'ANDESITE', 'DEEPSLATE', 'BEDROCK', 'LAVA', 'OBSIDIAN',
+        'COAL_ORE', 'IRON_ORE', 'GOLD_ORE', 'DIAMOND_ORE', 'REDSTONE_ORE', 'LAPIS_ORE', 'EMERALD_ORE',
+        'DEEPSLATE_COAL_ORE', 'DEEPSLATE_IRON_ORE', 'DEEPSLATE_GOLD_ORE', 'DEEPSLATE_DIAMOND_ORE',
+        'DEEPSLATE_REDSTONE_ORE', 'DEEPSLATE_LAPIS_ORE', 'DEEPSLATE_EMERALD_ORE',
+        'COAL_BLOCK', 'IRON_BLOCK', 'GOLD_BLOCK', 'DIAMOND_BLOCK', 'REDSTONE_BLOCK', 'LAPIS_BLOCK', 'EMERALD_BLOCK',
+        'PLANKS', 'STICKS', 'CRAFTING_TABLE', 'FURNACE', 'TORCH', 'COAL', 'WOODEN_SWORD',
+      ] as const
       return Effect.forEach(validTypes, (type) =>
         Effect.gen(function* () {
           const result = yield* Schema.decode(BlockTypeSchema)(type)
@@ -16,7 +24,7 @@ describe('BlockTypeSchema', () => {
     })
 
     it.effect('should reject invalid block types', () => {
-      const invalidTypes = ['BEDROCK', 'LAVA', 'DIAMOND', 'GOLD'] as const
+      const invalidTypes = ['NETHERRACK', 'END_STONE', 'DIAMOND_SWORD', 'GOLD_INGOT'] as const
       return Effect.forEach(invalidTypes, (type) =>
         Effect.gen(function* () {
           const result = yield* Effect.either(Schema.decodeUnknown(BlockTypeSchema)(type))
@@ -232,8 +240,15 @@ describe('Block', () => {
       })
     })
 
-    it.effect('should decode all twelve block types', () => {
-      const blockTypes = ['AIR', 'DIRT', 'STONE', 'WOOD', 'GRASS', 'SAND', 'WATER', 'LEAVES', 'GLASS', 'SNOW', 'GRAVEL', 'COBBLESTONE'] as const
+    it.effect('should decode all registered block types', () => {
+      const blockTypes = [
+        'AIR', 'DIRT', 'STONE', 'WOOD', 'GRASS', 'SAND', 'WATER', 'LEAVES', 'GLASS', 'SNOW', 'GRAVEL', 'COBBLESTONE',
+        'GRANITE', 'DIORITE', 'ANDESITE', 'DEEPSLATE', 'BEDROCK', 'LAVA', 'OBSIDIAN',
+        'COAL_ORE', 'IRON_ORE', 'GOLD_ORE', 'DIAMOND_ORE', 'REDSTONE_ORE', 'LAPIS_ORE', 'EMERALD_ORE',
+        'DEEPSLATE_COAL_ORE', 'DEEPSLATE_IRON_ORE', 'DEEPSLATE_GOLD_ORE', 'DEEPSLATE_DIAMOND_ORE',
+        'DEEPSLATE_REDSTONE_ORE', 'DEEPSLATE_LAPIS_ORE', 'DEEPSLATE_EMERALD_ORE',
+        'COAL_BLOCK', 'IRON_BLOCK', 'GOLD_BLOCK', 'DIAMOND_BLOCK', 'REDSTONE_BLOCK', 'LAPIS_BLOCK', 'EMERALD_BLOCK',
+      ] as const
       return Effect.forEach(blockTypes, (type) =>
         Effect.gen(function* () {
           const blockData = {

@@ -3,17 +3,7 @@ import { TimeService } from '@/application/time/time-service'
 import { EntityManager } from '@/entity/entityManager'
 import { EntityType, type EntityId } from '@/entity/entity'
 import type { Position } from '@/shared/kernel'
-
-const MIN_SPAWN_DISTANCE = 16
-const MAX_SPAWN_DISTANCE = 40
-const MAX_ENTITY_COUNT = 24
-const SPAWN_INTERVAL_FRAMES = 6
-
-const PASSIVE_MOBS: ReadonlyArray<EntityType> = [
-  EntityType.Cow,
-  EntityType.Pig,
-  EntityType.Sheep,
-]
+import { MIN_SPAWN_DISTANCE, MAX_SPAWN_DISTANCE, MAX_ENTITY_COUNT, SPAWN_INTERVAL_FRAMES, PASSIVE_MOBS } from './spawner-config'
 
 
 const getSpawnPosition = (playerPosition: Position, cursor: number): Position => {

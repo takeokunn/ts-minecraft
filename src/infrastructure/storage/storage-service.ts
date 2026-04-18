@@ -1,8 +1,8 @@
 import { Brand, Effect, Option, Ref, Schema, Schedule, Duration } from 'effect'
-import { openDatabase, DBSchema, TypedIDBDatabase } from './idb-utils'
+import { deleteDatabase, openDatabase, DBSchema, TypedIDBDatabase } from './idb-utils'
 import { WorldId } from '@/shared/kernel'
 import { StorageError } from '@/domain/errors'
-import type { ChunkCoord } from '@/domain/chunk'
+import { WORLD_SCHEMA_VERSION, type ChunkCoord } from '@/domain/chunk'
 import type { ChunkStorageValue } from '@/application/storage/storage-service-port'
 
 export type { ChunkCoord }
@@ -44,6 +44,79 @@ const DB_NAME = 'minecraft-worlds'
 const DB_VERSION = 2  // v2: added SNOW/GRAVEL/COBBLESTONE block types; existing chunk data cleared on upgrade
 const STORE_CHUNKS = 'chunks'
 const STORE_METADATA = 'metadata'
+
+/**
+ * `localStorage` key recording the last WORLD_SCHEMA_VERSION successfully
+ * associated with the `minecraft-worlds` IndexedDB database.
+ *
+ * The key is namespaced with the IndexedDB database name (`minecraft-worlds`)
+ * so it cannot collide with unrelated apps sharing the same origin — only code
+ * that targets the same DB reads/writes this key. The `.schema-version`
+ * suffix further distinguishes it from any future gameplay keys that might
+ * reuse the `minecraft-worlds` prefix.
+ */
+const SCHEMA_VERSION_LS_KEY = `${DB_NAME}.schema-version`
+
+/**
+ * Safe `localStorage` accessor. Returns `Option.none()` when localStorage is
+ * unavailable (e.g. SSR, sandboxed tests, or when the access throws due to
+ * strict privacy settings).
+ */
+const safeLocalStorage: Effect.Effect<Option.Option<Storage>> = Effect.sync(() => {
+  try {
+    return typeof localStorage !== 'undefined' ? Option.some(localStorage) : Option.none()
+  } catch {
+    return Option.none()
+  }
+})
+
+/**
+ * Version-gate subroutine. Checks the stored schema version under
+ * `SCHEMA_VERSION_LS_KEY` and, if it differs from `WORLD_SCHEMA_VERSION`,
+ * deletes the IndexedDB `minecraft-worlds` database so the fresh open/upgrade
+ * path runs from scratch. Failures of `deleteDatabase` are logged (not
+ * propagated as defects) so startup can still proceed — a subsequent open
+ * will either succeed or surface its own error through the normal open path.
+ *
+ * When `localStorage` is unavailable, the gate is skipped with a warning.
+ */
+const runSchemaVersionGate: Effect.Effect<void> = Effect.gen(function* () {
+  const storageOpt = yield* safeLocalStorage
+  yield* Option.match(storageOpt, {
+    onNone: () =>
+      Effect.logWarning(
+        `localStorage unavailable — skipping world schema version gate (expected v${WORLD_SCHEMA_VERSION})`,
+      ),
+    onSome: (ls) =>
+      Effect.gen(function* () {
+        const stored = yield* Effect.sync(() => Option.fromNullable(ls.getItem(SCHEMA_VERSION_LS_KEY)))
+        const matches = Option.match(stored, {
+          onNone: () => false,
+          onSome: (value) => value === String(WORLD_SCHEMA_VERSION),
+        })
+        if (matches) return
+
+        const label = Option.getOrElse(stored, () => 'unknown')
+        yield* deleteDatabase(DB_NAME).pipe(
+          Effect.tap(() =>
+            Effect.sync(() => {
+              ls.setItem(SCHEMA_VERSION_LS_KEY, String(WORLD_SCHEMA_VERSION))
+            }),
+          ),
+          Effect.tap(() =>
+            Effect.logInfo(
+              `Wiped legacy v${label} world database (expected v${WORLD_SCHEMA_VERSION})`,
+            ),
+          ),
+          Effect.catchAll((cause) =>
+            Effect.logWarning(
+              `Failed to wipe legacy v${label} world database: ${String(cause)} — continuing startup`,
+            ),
+          ),
+        )
+      }),
+  })
+})
 
 /**
  * Branded composite key for IndexedDB chunk storage ("worldId:x:z" format).
@@ -109,6 +182,7 @@ export class StorageService extends Effect.Service<StorageService>()(
         yield* Option.match(yield* Ref.get(dbRef), {
           onSome: () => Effect.void,
           onNone: () => Effect.gen(function* () {
+            yield* runSchemaVersionGate
             const newDb = yield* openDatabase<MinecraftWorldsDB>(DB_NAME, DB_VERSION, (db, oldVersion) => {
               if (!db.objectStoreNames.includes(STORE_CHUNKS)) {
                 db.createObjectStore(STORE_CHUNKS)

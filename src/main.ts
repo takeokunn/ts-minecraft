@@ -15,6 +15,8 @@ import { RendererService } from '@/infrastructure/three/renderer/renderer-servic
 import { SceneService } from '@/infrastructure/three/scene/scene-service'
 import { PerspectiveCameraService } from '@/infrastructure/three/camera/perspective'
 import { WorldRendererService } from '@/infrastructure/three/world-renderer'
+import { EntityRendererService } from '@/infrastructure/three/entity-renderer'
+import { ChunkMeshService } from '@/infrastructure/three/meshing/chunk-mesh'
 
 import { NoiseService } from '@/infrastructure/noise/noise-service'
 import { StorageService } from '@/infrastructure/storage/storage-service'
@@ -23,6 +25,7 @@ import { ChunkManagerService } from '@/application/chunk/chunk-manager-service'
 import { GameStateService } from '@/application/game-state'
 import { BlockService } from '@/application/block/block-service'
 import { HotbarService } from '@/application/hotbar/hotbar-service'
+import { HOTBAR_START } from '@/application/inventory/inventory-service'
 import { PlayerCameraStateService } from '@/application/camera/camera-state'
 import { FirstPersonCameraService } from '@/application/camera/first-person-camera-service'
 import { ThirdPersonCameraService } from '@/application/camera/third-person-camera-service'
@@ -35,17 +38,20 @@ import { TimeService } from '@/application/time/time-service'
 import { SettingsService, resolvePreset } from '@/application/settings/settings-service'
 import { SettingsOverlayService } from '@/presentation/settings/settings-overlay'
 import { InventoryRendererService } from '@/presentation/inventory/inventory-renderer'
-import { GameLoopService } from '@/application/game-loop'
+import { InventoryService } from '@/application/inventory/inventory-service'
+import { RecipeService } from '@/application/crafting/recipe-service'
 import { HealthService } from '@/application/player/health-service'
 import { MusicManager, SoundManager } from '@/audio'
 import { DeltaTimeSecs } from '@/shared/kernel'
 import { EntityManager } from '@/entity/entityManager'
+import { EntityType } from '@/entity/entity'
 import { MobSpawner } from '@/entity/spawner'
 import { VillageService } from '@/village/village-service'
 import { TradingPresentationService } from '@/presentation/trading'
 import { RedstoneService } from '@/redstone/redstone-service'
 import { FluidService } from '@/application/fluid/fluid-service'
-import { CHUNK_HEIGHT, CHUNK_SIZE, blockIndex } from '@/domain/chunk'
+import { GameLoopService } from '@/application/game-loop'
+import { CHUNK_HEIGHT, CHUNK_SIZE, blockIndex, setBlockInChunk } from '@/domain/chunk'
 import { MAX_SHADOW_HALF_EXTENT } from '@/shared/rendering-constants'
 
 import { MainLive } from '@/layers'
@@ -53,17 +59,17 @@ import { createFrameHandler } from '@/frame-handler'
 import { type ColorPort } from '@/shared/math/three'
 import { SkyMaterialPortSchema } from '@/shared/math/three/day-night-port'
 
-import { WorldId } from '@/shared/kernel'
+import { SlotIndex, WorldId } from '@/shared/kernel'
+import {
+  MAX_SEED_VALUE,
+  SUN_COLOR, AMBIENT_COLOR, SKY_COLOR_NIGHT, SKY_COLOR_DAY,
+  BLOOM_STRENGTH, BLOOM_RADIUS, BLOOM_THRESHOLD,
+  BOKEH_FOCUS, BOKEH_APERTURE, BOKEH_MAXBLUR,
+  GTAO_BLEND_INTENSITY,
+} from '@/main.config'
 
 // World identifier used for all storage operations
 const WORLD_ID = WorldId.make('world-1')
-
-// Named constants for magic values used during world initialization and lighting setup
-const MAX_SEED_VALUE = 0xFFFFFFFF
-const SUN_COLOR = 0xffffff
-const AMBIENT_COLOR = 0x404040
-const SKY_COLOR_NIGHT = 0x0a0a1a // dark blue
-const SKY_COLOR_DAY = 0x87ceeb  // sky blue
 
 // Main application
 const mainProgram = Effect.gen(function* () {
@@ -84,6 +90,8 @@ const mainProgram = Effect.gen(function* () {
   const sceneService = yield* SceneService
   const cameraService = yield* PerspectiveCameraService
   const worldRendererService = yield* WorldRendererService
+  const entityRenderer = yield* EntityRendererService
+  const chunkMeshService = yield* ChunkMeshService
 
   // Game state, camera, input, block interaction, and hotbar
   const gameState = yield* GameStateService
@@ -114,9 +122,8 @@ const mainProgram = Effect.gen(function* () {
   const settingsService = yield* SettingsService
   const settingsOverlay = yield* SettingsOverlayService
   const inventoryRenderer = yield* InventoryRendererService
-
-  // Get game loop service
-  const gameLoopService = yield* GameLoopService
+  const inventoryService = yield* InventoryService
+  const recipeService = yield* RecipeService
 
   // Health service for fall damage and HP tracking
   const healthService = yield* HealthService
@@ -138,6 +145,7 @@ const mainProgram = Effect.gen(function* () {
 
   // Fluid simulation service (water propagation)
   const fluidService = yield* FluidService
+  const gameLoopService = yield* GameLoopService
 
   // Create renderer
   const renderer = yield* rendererService.create(canvas)
@@ -185,7 +193,7 @@ const mainProgram = Effect.gen(function* () {
 
     // GTAO replaces SSAO (Ground Truth Ambient Occlusion — higher quality)
     const gtao: Option.Option<GTAOPass> = initialGraphics.ssaoEnabled
-      ? Option.some((() => { const p = new GTAOPass(scene, camera, canvas.clientWidth, canvas.clientHeight); p.blendIntensity = 1.0; comp.addPass(p); return p })())
+      ? Option.some((() => { const p = new GTAOPass(scene, camera, canvas.clientWidth, canvas.clientHeight); p.blendIntensity = GTAO_BLEND_INTENSITY; comp.addPass(p); return p })())
       : Option.none()
 
     // God rays (crepuscular light shafts — screen-space radial blur)
@@ -193,14 +201,14 @@ const mainProgram = Effect.gen(function* () {
       ? Option.some((() => { const p = new GodRaysPass(); comp.addPass(p); return p })())
       : Option.none()
 
-    // Bloom: threshold=0.85 prevents terrain from glowing; only sky/lava-bright surfaces bloom
+    // Bloom: BLOOM_THRESHOLD prevents terrain from glowing; only sky/lava-bright surfaces bloom
     const bloom: Option.Option<UnrealBloomPass> = initialGraphics.bloomEnabled
-      ? Option.some((() => { const p = new UnrealBloomPass(new THREE.Vector2(canvas.clientWidth, canvas.clientHeight), 0.25, 0.45, 0.9); comp.addPass(p); return p })())
+      ? Option.some((() => { const p = new UnrealBloomPass(new THREE.Vector2(canvas.clientWidth, canvas.clientHeight), BLOOM_STRENGTH, BLOOM_RADIUS, BLOOM_THRESHOLD); comp.addPass(p); return p })())
       : Option.none()
 
     // Depth of field (bokeh)
     const bokeh: Option.Option<BokehPass> = initialGraphics.dofEnabled
-      ? Option.some((() => { const p = new BokehPass(scene, camera, { focus: 10.0, aperture: 0.002, maxblur: 0.02 }); comp.addPass(p); return p })())
+      ? Option.some((() => { const p = new BokehPass(scene, camera, { focus: BOKEH_FOCUS, aperture: BOKEH_APERTURE, maxblur: BOKEH_MAXBLUR }); comp.addPass(p); return p })())
       : Option.none()
 
     // SMAA anti-aliasing (must be after bloom, before OutputPass)
@@ -347,7 +355,7 @@ const mainProgram = Effect.gen(function* () {
 
   // Apply initial day length from persisted settings, then set time to noon for visibility
   yield* timeService.setDayLength(initialSettings.dayLengthSeconds)
-  yield* timeService.setTimeOfDay(0.35)
+  yield* timeService.setTimeOfDay(0.5)
 
   // Show crosshair
   yield* crosshair.show()
@@ -374,12 +382,8 @@ const mainProgram = Effect.gen(function* () {
   const handleBeforeUnload = () => {
     MutableRef.set(pendingSaveDirtyChunksRef, true)
   }
-  const handleCanvasClick = () => {
-    Effect.runFork(
-      inputService.requestPointerLock().pipe(
-        Effect.catchAllCause((cause) => Effect.logError('pointer lock failed', cause))
-      )
-    )
+  const handleCanvasMouseDown = () => {
+    Effect.runSync(inputService.requestPointerLock())
   }
 
   yield* Effect.acquireRelease(
@@ -387,24 +391,21 @@ const mainProgram = Effect.gen(function* () {
       window.addEventListener('resize', handleResize)
       document.addEventListener('visibilitychange', handleVisibilityChange)
       window.addEventListener('beforeunload', handleBeforeUnload)
-      canvas.addEventListener('click', handleCanvasClick)
+      canvas.addEventListener('mousedown', handleCanvasMouseDown)
     }),
     () => Effect.sync(() => {
       window.removeEventListener('resize', handleResize)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       window.removeEventListener('beforeunload', handleBeforeUnload)
-      canvas.removeEventListener('click', handleCanvasClick)
+      canvas.removeEventListener('mousedown', handleCanvasMouseDown)
     })
   )
 
   yield* Effect.acquireRelease(
     Effect.void,
     () => Effect.sync(() => {
-      Option.match(gtaoPass, { onNone: () => {}, onSome: (p) => p.dispose() })
-      Option.match(bloomPass, { onNone: () => {}, onSome: (p) => p.dispose() })
-      Option.match(bokehPass, { onNone: () => {}, onSome: (p) => p.dispose() })
-      Option.match(godRaysPass, { onNone: () => {}, onSome: (p) => p.dispose() })
-      Option.match(smaaPass, { onNone: () => {}, onSome: (p) => p.dispose() })
+      const passes: ReadonlyArray<Option.Option<{ dispose(): void }>> = [gtaoPass, bloomPass, bokehPass, godRaysPass, smaaPass]
+      Arr.forEach(passes, (pass) => Option.match(pass, { onNone: () => {}, onSome: (p) => p.dispose() }))
       composerRT.dispose()
       composer.dispose()
     })
@@ -431,6 +432,7 @@ const mainProgram = Effect.gen(function* () {
       renderer,
       scene,
       camera,
+      respawnPosition: spawnPosition,
       lights: { light, ambientLight, renderer: dayNightRenderer, skyNight, skyDay, skyCurrent, sky: Option.some(skyPort) },
       skyMesh: Option.some(sky),
       fpsElement: Option.fromNullable(fpsElement),
@@ -459,8 +461,11 @@ const mainProgram = Effect.gen(function* () {
       settingsService,
       settingsOverlay,
       inventoryRenderer,
+      inventoryService,
       fpsCounter,
       worldRendererService,
+      entityRenderer,
+      chunkMeshService,
       healthService,
       soundManager,
       musicManager,
@@ -472,6 +477,146 @@ const mainProgram = Effect.gen(function* () {
       fluidService,
     }
   )
+
+  yield* Effect.sync(() => {
+    if (typeof window === 'undefined') return
+
+    let stagedResourceBlocks: Array<{ pos: { x: number; y: number; z: number }; blockType: import('@/domain/block').BlockType }> = []
+
+    const qa = {
+      getInventorySnapshot: () =>
+        Effect.runPromise(
+          inventoryService.getAllSlots().pipe(
+            Effect.map((slots) => Arr.map(slots, (slot, index) =>
+              Option.match(slot, {
+                onNone: () => null,
+                onSome: (stack) => ({ slot: index, blockType: stack.blockType, count: stack.count }),
+              })
+            )),
+          ),
+        ),
+      openInventoryForQA: () => Effect.runPromise(inventoryRenderer.toggle()),
+      stageProgressionScenario: () =>
+        Effect.runPromise(Effect.gen(function* () {
+          stagedResourceBlocks = []
+          const direction = new THREE.Vector3()
+          camera.getWorldDirection(direction)
+          direction.normalize()
+
+          const placeBlockAhead = (distance: number, blockType: import('@/domain/block').BlockType) =>
+            Effect.gen(function* () {
+              const wx = Math.floor(camera.position.x + direction.x * distance)
+              const wy = Math.floor(camera.position.y)
+              const wz = Math.floor(camera.position.z + direction.z * distance)
+              const chunkCoord = { x: Math.floor(wx / CHUNK_SIZE), z: Math.floor(wz / CHUNK_SIZE) }
+              const lx = ((wx % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
+              const lz = ((wz % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
+              const chunk = yield* chunkManagerService.getChunk(chunkCoord)
+              yield* setBlockInChunk(chunk, lx, wy, lz, blockType)
+              yield* chunkManagerService.markChunkDirty(chunkCoord)
+              stagedResourceBlocks.push({ pos: { x: wx, y: wy, z: wz }, blockType })
+            })
+
+          yield* placeBlockAhead(4, 'WOOD')
+          yield* placeBlockAhead(5, 'WOOD')
+          yield* placeBlockAhead(6, 'WOOD')
+          yield* placeBlockAhead(3, 'STONE')
+
+          yield* blockHighlight.invalidateCache()
+        })),
+      collectStagedResources: () =>
+        Effect.runPromise(Effect.gen(function* () {
+          yield* Effect.forEach(
+            stagedResourceBlocks,
+            ({ pos }) => blockService.breakBlock(pos),
+            { concurrency: 1, discard: true },
+          )
+          stagedResourceBlocks = []
+        })),
+      spawnLowHealthZombieInFront: () =>
+        Effect.runPromise(Effect.gen(function* () {
+          const direction = new THREE.Vector3()
+          camera.getWorldDirection(direction)
+          direction.normalize()
+          const zombiePos = {
+            x: camera.position.x + direction.x * 6,
+            y: camera.position.y,
+            z: camera.position.z + direction.z * 6,
+          }
+          const zombieId = yield* entityManager.addEntity(EntityType.Zombie, zombiePos)
+          yield* entityManager.applyDamage(zombieId, 12)
+        })),
+      clearBlocksInFront: () =>
+        Effect.runPromise(Effect.gen(function* () {
+          const direction = new THREE.Vector3()
+          camera.getWorldDirection(direction)
+          direction.normalize()
+          yield* Effect.forEach([3, 4] as const, (distance) => {
+            const pos = {
+              x: Math.floor(camera.position.x + direction.x * distance),
+              y: Math.floor(camera.position.y),
+              z: Math.floor(camera.position.z + direction.z * distance),
+            }
+            return blockService.breakBlock(pos).pipe(Effect.catchAll(() => Effect.void))
+          }, { concurrency: 1, discard: true })
+          yield* blockHighlight.invalidateCache()
+        })),
+      attackFirstZombie: () =>
+        Effect.runPromise(Effect.gen(function* () {
+          const qaSwordDamage = 8
+          const qaHandDamage = 4
+          const entities = yield* entityManager.getEntities()
+          const zombieOpt = Arr.findFirst(entities, (entity) => entity.type === 'Zombie')
+          if (Option.isNone(zombieOpt)) return false
+          const zombie = Option.getOrThrow(zombieOpt)
+          const selectedItem = yield* hotbarService.getSelectedBlockType()
+          const damage = Option.match(selectedItem, {
+            onNone: () => qaHandDamage,
+            onSome: (item) => item === 'WOODEN_SWORD' ? qaSwordDamage : qaHandDamage,
+          })
+          yield* entityManager.applyDamage(zombie.entityId, damage)
+          return true
+        })),
+      placeSelectedItemInFront: () =>
+        Effect.runPromise(Effect.gen(function* () {
+          const direction = new THREE.Vector3()
+          camera.getWorldDirection(direction)
+          direction.normalize()
+          const selectedItem = yield* hotbarService.getSelectedBlockType()
+          const selectedSlot = yield* hotbarService.getSelectedSlot()
+          yield* Option.match(selectedItem, {
+            onNone: () => Effect.void,
+            onSome: (blockType) =>
+              blockService.placeBlock(
+                {
+                  x: Math.floor(camera.position.x + direction.x * 4),
+                  y: Math.floor(camera.position.y),
+                  z: Math.floor(camera.position.z + direction.z * 4),
+                },
+                blockType,
+                SlotIndex.make(HOTBAR_START + SlotIndex.toNumber(selectedSlot)),
+              ).pipe(Effect.catchAll(() => Effect.void)),
+          })
+          yield* blockHighlight.invalidateCache()
+        })),
+      moveItemToHotbar: (blockType: import('@/domain/block').BlockType, hotbarIndex: number) =>
+        Effect.runPromise(Effect.gen(function* () {
+          const slots = yield* inventoryService.getAllSlots()
+          const fromIndexOpt = Arr.findFirstIndex(slots, (slot) => Option.match(slot, { onNone: () => false, onSome: (stack) => stack.blockType === blockType }))
+          if (Option.isNone(fromIndexOpt)) return false
+          const fromIndex = Option.getOrThrow(fromIndexOpt)
+          yield* inventoryService.moveStack(SlotIndex.make(fromIndex), SlotIndex.make(HOTBAR_START + hotbarIndex))
+          yield* hotbarService.setSelectedSlot(SlotIndex.make(hotbarIndex))
+          return true
+        })),
+      selectHotbarSlot: (hotbarIndex: number) =>
+        Effect.runPromise(hotbarService.setSelectedSlot(SlotIndex.make(hotbarIndex))),
+      getRecipeButtons: () => Arr.map(recipeService.getAllRecipes(), (recipe) => recipe.id),
+      getEntitySnapshot: () => Effect.runPromise(entityManager.getEntities()),
+    }
+
+    Reflect.set(window as object, '__TS_MINECRAFT_QA__', qa)
+  })
 
   const frameHandlerWithBrowserEvents = (deltaTime: DeltaTimeSecs) =>
     Effect.gen(function* () {
@@ -518,8 +663,10 @@ const mainProgram = Effect.gen(function* () {
 
   yield* Effect.log('Game initialized — inventory, day/night cycle, and settings ready')
 
-  // Start the game loop via GameLoopService
-  yield* gameLoopService['start'](frameHandlerWithBrowserEvents)
+  yield* Effect.acquireRelease(
+    gameLoopService.start(frameHandlerWithBrowserEvents),
+    () => gameLoopService.stop()
+  )
 
   // Keep the scope alive for the entire application lifetime.
   // Effect.scoped would close all scoped resources (DOM elements, event listeners) the moment

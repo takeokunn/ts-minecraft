@@ -115,27 +115,19 @@ describe('application/inventory/inventory-service', () => {
       }).pipe(Effect.provide(testLayer))
     })
 
-    it.effect('slots 27-35 are filled with non-AIR blocks when enough non-AIR blocks exist', () => {
+    it.effect('slots 27-35 are empty in a fresh survival-style inventory', () => {
       const testLayer = createTestLayer(createTestBlockRegistry(fullHotbarBlocks))
-      const expectedTypes = Arr.map(
-        Arr.take(Arr.filter(fullHotbarBlocks, (block) => block.type !== 'AIR'), HOTBAR_SIZE),
-        (block) => block.type
-      )
       return Effect.gen(function* () {
         const service = yield* InventoryService
         yield* Effect.forEach(Arr.makeBy(HOTBAR_SIZE, (i) => i), (i) =>
           service.getSlot(asSlotIndex(HOTBAR_START + i)).pipe(Effect.map((slot) => {
-            expect(Option.isSome(slot)).toBe(true)
-            const unwrapped = Option.getOrThrow(slot)
-            expect(unwrapped.blockType).toBe(Option.getOrElse(Arr.get(expectedTypes, i), () => 'AIR' as const))
-            expect(unwrapped.blockType).not.toBe('AIR')
-            expect(unwrapped.count).toBe(MAX_STACK_SIZE)
+            expect(Option.isNone(slot)).toBe(true)
           }))
         , { concurrency: 1 })
       }).pipe(Effect.provide(testLayer))
     })
 
-    it.effect('when non-AIR blocks are fewer than 9, only those hotbar slots are filled', () => {
+    it.effect('fresh survival inventory stays empty even if the registry contains a small block set', () => {
       const testLayer = createTestLayer(createTestBlockRegistry(limitedHotbarBlocks))
       return Effect.gen(function* () {
         const service = yield* InventoryService
@@ -144,8 +136,8 @@ describe('application/inventory/inventory-service', () => {
         const second = yield* service.getSlot(asSlotIndex(HOTBAR_START + 1))
         const third = yield* service.getSlot(asSlotIndex(HOTBAR_START + 2))
 
-        expect(Option.isSome(first)).toBe(true)
-        expect(Option.isSome(second)).toBe(true)
+        expect(Option.isNone(first)).toBe(true)
+        expect(Option.isNone(second)).toBe(true)
         expect(Option.isNone(third)).toBe(true)
       }).pipe(Effect.provide(testLayer))
     })
@@ -529,6 +521,23 @@ describe('application/inventory/inventory-service', () => {
         const unwrapped1 = Option.getOrThrow(slot1)
         expect(unwrapped1.blockType).toBe('DIRT')
         expect(unwrapped1.count).toBe(2)
+      }).pipe(Effect.provide(testLayer))
+    })
+
+    it.effect('prefers removing from the requested slot before touching other matching stacks', () => {
+      const testLayer = createTestLayer(createTestBlockRegistry(airOnlyBlocks))
+      return Effect.gen(function* () {
+        const service = yield* InventoryService
+        yield* service.setSlot(asSlotIndex(0), Option.some(createStack('DIRT', 5)))
+        yield* service.setSlot(asSlotIndex(1), Option.some(createStack('DIRT', 5)))
+
+        const removed = yield* service.removeBlock('DIRT', 3, asSlotIndex(1))
+        const slot0 = yield* service.getSlot(asSlotIndex(0))
+        const slot1 = yield* service.getSlot(asSlotIndex(1))
+
+        expect(removed).toBe(true)
+        expect(Option.getOrThrow(slot0).count).toBe(5)
+        expect(Option.getOrThrow(slot1).count).toBe(2)
       }).pipe(Effect.provide(testLayer))
     })
   })

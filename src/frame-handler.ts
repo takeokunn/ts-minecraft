@@ -8,7 +8,7 @@
  * Architectural note: this file lives at src/ root alongside main.ts and layers.ts.
  * Cross-layer imports here are the same kind of orchestration — acceptable in a composition root.
  */
-import { Cause, Effect, HashMap, MutableRef, Option, Ref } from 'effect'
+import { Array as Arr, Cause, Effect, HashMap, MutableRef, Option, Ref } from 'effect'
 import * as THREE from 'three'
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js'
@@ -24,6 +24,8 @@ import { FirstPersonCameraService } from '@/application/camera/first-person-came
 import { ThirdPersonCameraService } from '@/application/camera/third-person-camera-service'
 import { BlockService } from '@/application/block/block-service'
 import { HotbarService } from '@/application/hotbar/hotbar-service'
+import { HOTBAR_START } from '@/application/inventory/inventory-service'
+import { SlotIndex } from '@/shared/kernel'
 import { ChunkManagerService } from '@/application/chunk/chunk-manager-service'
 import { TimeService } from '@/application/time/time-service'
 import { SettingsService, resolvePreset, type ResolvedGraphics } from '@/application/settings/settings-service'
@@ -31,10 +33,13 @@ import { FPSCounterService } from '@/presentation/fps-counter'
 import { HotbarRendererService } from '@/presentation/hud/hotbar-three'
 import { BlockHighlightService } from '@/presentation/highlight/block-highlight'
 import { WorldRendererService } from '@/infrastructure/three/world-renderer'
+import { EntityRendererService } from '@/infrastructure/three/entity-renderer'
+import { ChunkMeshService } from '@/infrastructure/three/meshing/chunk-mesh'
 import { InputService } from '@/presentation/input/input-service'
 import { KeyMappings } from '@/application/input/key-mappings'
 import { SettingsOverlayService } from '@/presentation/settings/settings-overlay'
 import { InventoryRendererService } from '@/presentation/inventory/inventory-renderer'
+import { InventoryService } from '@/application/inventory/inventory-service'
 import { HealthService } from '@/application/player/health-service'
 import { MusicManager, SoundManager } from '@/audio'
 import { EntityManager } from '@/entity/entityManager'
@@ -45,31 +50,20 @@ import { RedstoneComponentType } from '@/redstone/redstone-model'
 import { RedstoneService } from '@/redstone/redstone-service'
 import { FluidService } from '@/application/fluid/fluid-service'
 import { type Chunk, CHUNK_SIZE, CHUNK_HEIGHT } from '@/domain/chunk'
+import type { EntityId as EntityIdType } from '@/entity/entity'
 import { updateDayNightCycle, type DayNightLights } from '@/application/time/day-night-cycle'
-import type { DeltaTimeSecs } from '@/shared/kernel'
-
-// Eye level offset for camera (player height - half body height)
-const EYE_LEVEL_OFFSET = 0.72
-const TRADE_DISTANCE = 4
-const TRADE_OPEN_KEY = 'KeyT'
-const TRADE_NEXT_KEY = 'ArrowDown'
-const TRADE_PREV_KEY = 'ArrowUp'
-const TRADE_EXECUTE_KEY = 'Enter'
-const MAX_DIRTY_CHUNK_UPDATES_PER_FRAME = 4
-const DIRTY_CHUNK_FLUSH_CONCURRENCY = typeof Worker === 'undefined' ? 1 : 2
-const REDSTONE_TICK_INTERVAL_SECS = 0.05
-const FLUID_TICK_INTERVAL_SECS = 0.05
-const REDSTONE_PLACE_WIRE_KEY = 'KeyR'
-const REDSTONE_PLACE_LEVER_KEY = 'KeyL'
-const REDSTONE_PLACE_BUTTON_KEY = 'KeyB'
-const REDSTONE_PLACE_TORCH_KEY = 'KeyO'
-const REDSTONE_PLACE_PISTON_KEY = 'KeyP'
-const REDSTONE_TOGGLE_LEVER_KEY = 'KeyY'
-const REDSTONE_PRESS_BUTTON_KEY = 'KeyU'
-const REDSTONE_TOGGLE_TORCH_KEY = 'KeyI'
-
-// Module-level fallback to avoid per-frame object literal allocation in the error path
-const FALLBACK_PLAYER_POS: { readonly x: number; readonly y: number; readonly z: number } = Object.freeze({ x: 0, y: 64, z: 0 })
+import type { DeltaTimeSecs, Position } from '@/shared/kernel'
+import {
+  EYE_LEVEL_OFFSET,
+  TRADE_DISTANCE, TRADE_OPEN_KEY, TRADE_NEXT_KEY, TRADE_PREV_KEY, TRADE_EXECUTE_KEY,
+  MAX_DIRTY_CHUNK_UPDATES_PER_FRAME, DIRTY_CHUNK_FLUSH_CONCURRENCY,
+  REDSTONE_TICK_INTERVAL_SECS, FLUID_TICK_INTERVAL_SECS,
+  REDSTONE_PLACE_WIRE_KEY, REDSTONE_PLACE_LEVER_KEY, REDSTONE_PLACE_BUTTON_KEY,
+  REDSTONE_PLACE_TORCH_KEY, REDSTONE_PLACE_PISTON_KEY,
+  REDSTONE_TOGGLE_LEVER_KEY, REDSTONE_PRESS_BUTTON_KEY, REDSTONE_TOGGLE_TORCH_KEY,
+  PLAYER_ATTACK_REACH, PLAYER_ATTACK_RADIUS, PLAYER_ATTACK_DAMAGE, WOODEN_SWORD_ATTACK_DAMAGE,
+  FALLBACK_PLAYER_POS,
+} from './frame-handler.config'
 
 /**
  * Three.js objects and DOM state that live outside the Effect layer graph.
@@ -82,6 +76,7 @@ export type FrameHandlerDeps = {
   readonly renderer: THREE.WebGLRenderer
   readonly scene: THREE.Scene
   readonly camera: THREE.PerspectiveCamera
+  readonly respawnPosition: Position
   readonly lights: DayNightLights
   readonly fpsElement: Option.Option<HTMLElement>
   readonly healthValueElement: Option.Option<HTMLElement>
@@ -117,9 +112,12 @@ export type FrameHandlerServices = {
   readonly settingsService: SettingsService
   readonly settingsOverlay: SettingsOverlayService
   readonly inventoryRenderer: InventoryRendererService
+  readonly inventoryService: InventoryService
   readonly fpsCounter: FPSCounterService
   readonly healthService: HealthService
   readonly worldRendererService: WorldRendererService
+  readonly entityRenderer: EntityRendererService
+  readonly chunkMeshService: ChunkMeshService
   readonly soundManager: SoundManager
   readonly musicManager: MusicManager
   readonly entityManager: EntityManager
@@ -128,6 +126,41 @@ export type FrameHandlerServices = {
   readonly tradingPresentation: TradingPresentationService
   readonly redstoneService: RedstoneService
   readonly fluidService: FluidService
+}
+
+const findAttackableEntity = (
+  entities: ReadonlyArray<{ readonly entityId: EntityIdType; readonly position: Position }>,
+  camera: THREE.PerspectiveCamera,
+  maxDistance: Option.Option<number>,
+): Option.Option<EntityIdType> => {
+  const cameraDirection = new THREE.Vector3()
+  camera.getWorldDirection(cameraDirection)
+  cameraDirection.normalize()
+
+  const rayOrigin = camera.position
+  let closestEntityId: EntityIdType | null = null
+  let closestDistance = Infinity
+
+  Arr.forEach(entities, (entity) => {
+    const toEntity = new THREE.Vector3(
+      entity.position.x - rayOrigin.x,
+      entity.position.y + 0.9 - rayOrigin.y,
+      entity.position.z - rayOrigin.z,
+    )
+    const alongRay = toEntity.dot(cameraDirection)
+    if (alongRay < 0 || alongRay > PLAYER_ATTACK_REACH) return
+    if (Option.match(maxDistance, { onNone: () => false, onSome: (d) => alongRay > d })) return
+
+    const perpendicularSq = Math.max(0, toEntity.lengthSq() - alongRay * alongRay)
+    if (perpendicularSq > PLAYER_ATTACK_RADIUS * PLAYER_ATTACK_RADIUS) return
+
+    if (alongRay < closestDistance) {
+      closestDistance = alongRay
+      closestEntityId = entity.entityId
+    }
+  })
+
+  return closestEntityId === null ? Option.none() : Option.some(closestEntityId)
 }
 
 /**
@@ -195,13 +228,11 @@ export const createFrameHandler = (
     const fpsElementOrNull = Option.getOrNull(deps.fpsElement)
     const healthValueElementOrNull = Option.getOrNull(deps.healthValueElement)
     const healthMaxElementOrNull = Option.getOrNull(deps.healthMaxElement)
-    const composerOrNull = Option.getOrNull(deps.composer)
     const gtaoPassOrNull = Option.getOrNull(deps.gtaoPass)
     const bloomPassOrNull = Option.getOrNull(deps.bloomPass)
     const dofPassOrNull = Option.getOrNull(deps.dofPass)
     const smaaPassOrNull = Option.getOrNull(deps.smaaPass)
     const godRaysPassOrNull = Option.getOrNull(deps.godRaysPass)
-
     return (deltaTime: DeltaTimeSecs) =>
       Effect.gen(function* () {
       const {
@@ -219,8 +250,11 @@ export const createFrameHandler = (
         settingsService,
         settingsOverlay,
         inventoryRenderer,
+        inventoryService,
         fpsCounter,
         worldRendererService,
+        entityRenderer,
+        chunkMeshService,
         healthService,
         soundManager,
         musicManager,
@@ -259,6 +293,7 @@ export const createFrameHandler = (
       const playerPos = yield* gameState.getPlayerPosition(DEFAULT_PLAYER_ID).pipe(
         Effect.catchAllCause(() => Effect.succeed(FALLBACK_PLAYER_POS))
       )
+      let currentPlayerPos: Position = playerPos
       const cx = Math.floor(playerPos.x / CHUNK_SIZE)
       const cz = Math.floor(playerPos.z / CHUNK_SIZE)
 
@@ -383,6 +418,24 @@ export const createFrameHandler = (
         Effect.catchAllCause((cause) => Effect.logError(`Village system error: ${Cause.pretty(cause)}`))
       )
 
+      // 2.8. Sun-driven shader uniform — derived from the canonical day-factor formula
+      // (matches `updateDayNightCycle`'s sin curve so chunk lighting tracks the visible sun).
+      const sunIntensity = Math.max(0, Math.sin((timeOfDay - 0.25) * Math.PI * 2))
+      yield* chunkMeshService.setSunIntensity(sunIntensity).pipe(
+        Effect.catchAllCause((cause) => Effect.logError(`Sun intensity sync error: ${Cause.pretty(cause)}`))
+      )
+
+      // 2.85. Sync entity meshes with the live entity list and animate transforms.
+      // Must run after entityManager.update so the snapshot reflects this frame's positions.
+      yield* entityManager.getEntities().pipe(
+        Effect.flatMap((entitiesSnapshot) =>
+          entityRenderer.syncEntities(entitiesSnapshot, scene).pipe(
+            Effect.andThen(entityRenderer.updateEntityTransforms(entitiesSnapshot, totalTimeSecs, deltaTime))
+          )
+        ),
+        Effect.catchAllCause((cause) => Effect.logError(`Entity render error: ${Cause.pretty(cause)}`))
+      )
+
       // 2.9. Redstone simulation tick (fixed-step propagation)
       yield* Ref.modify(redstoneTickAccumulatorRef, (accumulated) => {
         const newAccumulated = accumulated + deltaTime
@@ -424,13 +477,43 @@ export const createFrameHandler = (
 
       // 3.5. Health: fall damage processing and HUD update
       yield* Effect.gen(function* () {
+        currentPlayerPos = yield* gameState.getPlayerPosition(DEFAULT_PLAYER_ID).pipe(
+          Effect.catchAllCause(() => Effect.succeed(currentPlayerPos))
+        )
+
+        const tryApplyPlayerDamage = (amount: number): Effect.Effect<boolean, never> =>
+          amount <= 0
+            ? Effect.succeed(false)
+            : healthService.getHealth().pipe(
+                Effect.flatMap((health) =>
+                  health.current <= 0 || health.invincibilityTicks > 0
+                    ? Effect.succeed(false)
+                    : healthService.applyDamage(amount).pipe(Effect.as(true))
+                )
+              )
+
         const isGrounded = yield* gameState.isPlayerGrounded()
-        const fallDamage = yield* healthService.processFallDamage(playerPos.y, isGrounded)
-        if (fallDamage > 0) {
-          yield* healthService.applyDamage(fallDamage)
-          yield* soundManager.playEffect('playerHurt', { position: playerPos })
+        const fallDamage = yield* healthService.processFallDamage(currentPlayerPos.y, isGrounded)
+        const tookFallDamage = yield* tryApplyPlayerDamage(fallDamage)
+        if (tookFallDamage) {
+          yield* soundManager.playEffect('playerHurt', { position: currentPlayerPos })
         }
-        yield* healthService.tick()
+
+        const hostileDamage = yield* entityManager.getPlayerContactDamage(currentPlayerPos)
+        const tookHostileDamage = yield* tryApplyPlayerDamage(hostileDamage)
+        if (tookHostileDamage) {
+          yield* soundManager.playEffect('playerHurt', { position: currentPlayerPos })
+        }
+
+        const isDead = yield* healthService.isDead()
+        if (isDead) {
+          yield* healthService.reset()
+          yield* gameState.respawn(deps.respawnPosition)
+          currentPlayerPos = deps.respawnPosition
+        } else {
+          yield* healthService.tick()
+        }
+
         const health = yield* healthService.getHealth()
         // Pre-cached element refs (resolved once at startup in FrameHandlerDeps)
         // FR-006: Only write DOM when health values actually change
@@ -463,21 +546,21 @@ export const createFrameHandler = (
         Effect.flatMap(([rotation, cameraMode]) =>
           cameraMode === 'firstPerson'
             ? Effect.sync(() => {
-                const eyeY = playerPos.y + EYE_LEVEL_OFFSET
-                camera.position.set(playerPos.x, eyeY, playerPos.z)
+                const eyeY = currentPlayerPos.y + EYE_LEVEL_OFFSET
+                camera.position.set(currentPlayerPos.x, eyeY, currentPlayerPos.z)
                 camera.rotation.set(rotation.pitch, rotation.yaw, 0, 'YXZ')
               })
-            : thirdPersonCamera.update(camera, playerPos, EYE_LEVEL_OFFSET)
+            : thirdPersonCamera.update(camera, currentPlayerPos, EYE_LEVEL_OFFSET)
         ),
         // Shadow frustum follows player so terrain around them is always shadow-covered
         // FR-009: Only update when player has moved more than 0.5 blocks (avoids per-frame updateMatrixWorld)
         Effect.andThen(Effect.sync(() => {
           const lastTarget = MutableRef.get(lastShadowTargetRef)
-          const dx = playerPos.x - lastTarget.x
-          const dz = playerPos.z - lastTarget.z
+          const dx = currentPlayerPos.x - lastTarget.x
+          const dz = currentPlayerPos.z - lastTarget.z
           if (dx * dx + dz * dz > 0.25) {
-            MutableRef.set(lastShadowTargetRef, { x: playerPos.x, z: playerPos.z })
-            deps.lights.light.target.position.set(playerPos.x, 0, playerPos.z)
+            MutableRef.set(lastShadowTargetRef, { x: currentPlayerPos.x, z: currentPlayerPos.z })
+            deps.lights.light.target.position.set(currentPlayerPos.x, 0, currentPlayerPos.z)
             deps.lights.light.target.updateMatrixWorld()
           }
         })),
@@ -510,7 +593,7 @@ export const createFrameHandler = (
 
       // 6. Handle overlay toggles: Escape (settings), E (inventory)
       yield* Effect.gen(function* () {
-        const [escPressed, inventoryPressed, tradePressed, tradeNextPressed, tradePrevPressed, tradeExecutePressed] = yield* Effect.all([
+          const [escPressed, inventoryPressed, tradePressed, tradeNextPressed, tradePrevPressed, tradeExecutePressed] = yield* Effect.all([
           inputService.consumeKeyPress(KeyMappings.ESCAPE),
           inputService.consumeKeyPress(KeyMappings.INVENTORY_OPEN),
           inputService.consumeKeyPress(TRADE_OPEN_KEY),
@@ -569,7 +652,7 @@ export const createFrameHandler = (
             const isInvOpen = yield* inventoryRenderer.isOpen()
             const isSettingsOpen = yield* settingsOverlay.isOpen()
             if (!isInvOpen && !isSettingsOpen) {
-              const villagerOption = yield* villageService.findNearestVillager(playerPos, TRADE_DISTANCE)
+              const villagerOption = yield* villageService.findNearestVillager(currentPlayerPos, TRADE_DISTANCE)
               yield* Option.match(villagerOption, {
                 onNone: () => Effect.void,
                 onSome: (villager) =>
@@ -601,6 +684,19 @@ export const createFrameHandler = (
               yield* tradingPresentation.executeSelectedTrade()
             }
             yield* tradingPresentation.refresh()
+          } else {
+            const inventoryOpenAfterToggles = yield* inventoryRenderer.isOpen()
+            if (inventoryOpenAfterToggles) {
+              if (tradePrevPressed) {
+                yield* inventoryRenderer.cycleRecipes(-1)
+              }
+              if (tradeNextPressed) {
+                yield* inventoryRenderer.cycleRecipes(1)
+              }
+              if (tradeExecutePressed) {
+                yield* inventoryRenderer.craftSelectedRecipe()
+              }
+            }
           }
 
           yield* inventoryRenderer.update()
@@ -649,6 +745,7 @@ export const createFrameHandler = (
         if (leftClick || rightClick || hasRedstoneInput) {
           const targetBlock = yield* blockHighlight.getTargetBlock()
           const targetHit = yield* blockHighlight.getTargetHit()
+          const selectedHotbarItem = yield* hotbarService.getSelectedBlockType()
 
           if (hasRedstoneInput) {
             yield* Option.match(targetBlock, {
@@ -687,21 +784,45 @@ export const createFrameHandler = (
             yield* redstoneService.tick()
           }
 
-          if (leftClick) yield* Option.match(targetBlock, {
-            onNone: () => Effect.void,
-            onSome: (tb) => {
-              const pos = { x: tb.x, y: tb.y, z: tb.z }
-              const chunkCoord = { x: Math.floor(tb.x / CHUNK_SIZE), z: Math.floor(tb.z / CHUNK_SIZE) }
-              const coordKey = `${chunkCoord.x},${chunkCoord.z}`
-              return Effect.all([
-                blockService.breakBlock(pos),
-                soundManager.playEffect('blockBreak', { position: pos }),
-              ], { concurrency: 'unbounded', discard: true }).pipe(
-                Effect.andThen(chunkManagerService.getChunk(chunkCoord)),
-                Effect.flatMap((updatedChunk) => Ref.update(dirtyChunksRef, (map) => HashMap.set(map, coordKey, updatedChunk)))
-              )
-            },
-          })
+          if (leftClick) {
+            const targetEntity = yield* entityManager.getEntities().pipe(
+              Effect.map((entities) => findAttackableEntity(entities, camera, Option.map(targetHit, (hit) => hit.distance))),
+            )
+
+            yield* Option.match(targetEntity, {
+              onNone: () => Option.match(targetBlock, {
+                onNone: () => Effect.void,
+                onSome: (tb) => {
+                  const pos = { x: tb.x, y: tb.y, z: tb.z }
+                  const chunkCoord = { x: Math.floor(tb.x / CHUNK_SIZE), z: Math.floor(tb.z / CHUNK_SIZE) }
+                  const coordKey = `${chunkCoord.x},${chunkCoord.z}`
+                  return Effect.all([
+                    blockService.breakBlock(pos),
+                    soundManager.playEffect('blockBreak', { position: pos }),
+                  ], { concurrency: 'unbounded', discard: true }).pipe(
+                    Effect.andThen(chunkManagerService.getChunk(chunkCoord)),
+                    Effect.flatMap((updatedChunk) => Ref.update(dirtyChunksRef, (map) => HashMap.set(map, coordKey, updatedChunk)))
+                  )
+                },
+              }),
+              onSome: (entityId) =>
+                entityManager.applyDamage(
+                  entityId,
+                  Option.match(selectedHotbarItem, {
+                    onNone: () => PLAYER_ATTACK_DAMAGE,
+                    onSome: (item) => item === 'WOODEN_SWORD' ? WOODEN_SWORD_ATTACK_DAMAGE : PLAYER_ATTACK_DAMAGE,
+                  }),
+                ).pipe(
+                  Effect.flatMap((drops) =>
+                    Effect.forEach(
+                      Option.getOrElse(drops, () => []),
+                      (drop) => inventoryService.addBlock(drop.blockType, drop.count),
+                      { concurrency: 'unbounded', discard: true },
+                    ),
+                  ),
+                ),
+            })
+          }
 
           if (rightClick) yield* Option.match(targetHit, {
             onNone: () => Effect.void,
@@ -711,16 +832,17 @@ export const createFrameHandler = (
                 y: hit.blockY + Math.round(hit.normal.y),
                 z: hit.blockZ + Math.round(hit.normal.z),
               }
-              return hotbarService.getSelectedBlockType().pipe(
-                Effect.flatMap((selectedBlock) => Option.match(selectedBlock, {
+              return Effect.all([
+                hotbarService.getSelectedBlockType(),
+                hotbarService.getSelectedSlot(),
+              ], { concurrency: 'unbounded' }).pipe(
+                Effect.flatMap(([selectedBlock, selectedSlot]) => Option.match(selectedBlock, {
                   onNone: () => Effect.void,
                   onSome: (blockType) => {
                     const chunkCoord = { x: Math.floor(adjacentPos.x / CHUNK_SIZE), z: Math.floor(adjacentPos.z / CHUNK_SIZE) }
                     const coordKey = `${chunkCoord.x},${chunkCoord.z}`
-                    return Effect.all([
-                      blockService.placeBlock(adjacentPos, blockType),
-                      soundManager.playEffect('blockPlace', { position: adjacentPos }),
-                    ], { concurrency: 'unbounded', discard: true }).pipe(
+                    return blockService.placeBlock(adjacentPos, blockType, SlotIndex.make(HOTBAR_START + selectedSlot)).pipe(
+                      Effect.flatMap(() => soundManager.playEffect('blockPlace', { position: adjacentPos })),
                       Effect.andThen(chunkManagerService.getChunk(chunkCoord)),
                       Effect.flatMap((updatedChunk) => Ref.update(dirtyChunksRef, (map) => HashMap.set(map, coordKey, updatedChunk)))
                     )
@@ -861,11 +983,7 @@ export const createFrameHandler = (
           }
         }
 
-        if (composerOrNull) {
-          composerOrNull.render()
-        } else {
-          renderer.render(scene, camera)
-        }
+        renderer.render(scene, camera)
       })
 
       // 10.5. Flush dirty chunks — remesh each modified chunk exactly once per frame,
@@ -890,13 +1008,13 @@ export const createFrameHandler = (
               )
 
               const requeueRemaining = remainingEntries.length > 0
-                ? Effect.sync(() => {
-                    let nextDirtyChunks = HashMap.empty<string, Chunk>()
-                    for (const [key, chunk] of remainingEntries) {
-                      nextDirtyChunks = HashMap.set(nextDirtyChunks, key, chunk)
-                    }
-                    return nextDirtyChunks
-                  }).pipe(
+                ? Effect.sync(() =>
+                    Arr.reduce(
+                      remainingEntries,
+                      HashMap.empty<string, Chunk>(),
+                      (acc, [k, c]) => HashMap.set(acc, k, c)
+                    )
+                  ).pipe(
                     Effect.flatMap((nextDirtyChunks) => Ref.set(dirtyChunksRef, nextDirtyChunks))
                   )
                 : Effect.void

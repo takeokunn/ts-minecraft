@@ -98,6 +98,7 @@ const makeDeps = (paused = false): Effect.Effect<FrameHandlerDeps & { gamePaused
       renderer: makeRenderer(),
       scene: new THREE.Scene(),
       camera: makeCamera(),
+      respawnPosition: { x: 0, y: 64, z: 0 },
       lights: makeLights(),
       fpsElement: Option.none(),
       healthValueElement: Option.none(),
@@ -139,6 +140,8 @@ const makeInventoryRenderer = (state: OverlayState) =>
         return state.open
       }),
     update: () => Effect.void,
+    cycleRecipes: (_delta: number) => Effect.void,
+    craftSelectedRecipe: () => Effect.succeed(false),
   }) as unknown as InstanceType<typeof import('@/presentation/inventory/inventory-renderer').InventoryRendererService>
 
 /**
@@ -228,6 +231,7 @@ const makeServices = (opts: {
   const gameState = {
     getPlayerPosition: (_id: unknown) => Effect.succeed({ x: 0, y: 64, z: 0 }),
     update: (_dt: unknown) => Effect.void,
+    respawn: (_position: unknown) => Effect.void,
     isPlayerGrounded: () => Effect.succeed(true),
   } as unknown as InstanceType<typeof import('@/application/game-state').GameStateService>
 
@@ -255,8 +259,20 @@ const makeServices = (opts: {
 
   const blockService = {
     breakBlock: (_pos: unknown) => Effect.void,
-    placeBlock: (_pos: unknown, _type: unknown) => Effect.void,
+    placeBlock: (_pos: unknown, _type: unknown, _slot?: unknown) => Effect.void,
   } as unknown as InstanceType<typeof import('@/application/block/block-service').BlockService>
+
+  const inventoryService = {
+    getAllSlots: () => Effect.succeed([]),
+    getSlot: (_index: unknown) => Effect.succeed(Option.none()),
+    setSlot: (_index: unknown, _stack: unknown) => Effect.void,
+    moveStack: (_from: unknown, _to: unknown) => Effect.void,
+    addBlock: (_type: unknown, _count: unknown) => Effect.succeed(true),
+    removeBlock: (_type: unknown, _count: unknown, _slot?: unknown) => Effect.succeed(true),
+    getHotbarSlots: () => Effect.succeed([]),
+    serialize: () => Effect.succeed({ slots: [] }),
+    deserialize: (_data: unknown) => Effect.void,
+  } as unknown as InstanceType<typeof import('@/application/inventory/inventory-service').InventoryService>
 
   const hotbarService = {
     update: () => Effect.void,
@@ -313,11 +329,24 @@ const makeServices = (opts: {
     setRefractionValid: (_valid: boolean) => Effect.void,
   } as unknown as InstanceType<typeof import('@/infrastructure/three/world-renderer').WorldRendererService>
 
+  const entityRenderer = {
+    syncEntities: (_entities: unknown, _scene: unknown) => Effect.void,
+    updateEntityTransforms: (_entities: unknown, _total: unknown, _delta: unknown) => Effect.void,
+    clearScene: (_scene: unknown) => Effect.void,
+    _getTrackedGroup: (_id: unknown) => Effect.succeed(Option.none()),
+  } as unknown as InstanceType<typeof import('@/infrastructure/three/entity-renderer').EntityRendererService>
+
+  const chunkMeshService = {
+    setSunIntensity: (_value: number) => Effect.void,
+  } as unknown as InstanceType<typeof import('@/infrastructure/three/meshing/chunk-mesh').ChunkMeshService>
+
   const healthService = {
-    getHealth: () => Effect.succeed({ current: 20, max: 20 }),
+    getHealth: () => Effect.succeed({ current: 20, max: 20, invincibilityTicks: 0 }),
     applyDamage: (_amount: unknown) => Effect.void,
+    isDead: () => Effect.succeed(false),
     tick: () => Effect.void,
     processFallDamage: (_y: unknown, _grounded: unknown) => Effect.succeed(0),
+    reset: () => Effect.void,
   } as unknown as InstanceType<typeof import('@/application/player/health-service').HealthService>
 
   const soundManager = {
@@ -352,6 +381,7 @@ const makeServices = (opts: {
     getEntities: () => Effect.succeed([]),
     getEntityAIState: (_entityId: unknown) => Effect.succeed(Option.none()),
     getCount: () => Effect.succeed(0),
+    getPlayerContactDamage: (_playerPosition: unknown) => Effect.succeed(0),
     update: (_deltaTime: unknown, _playerPosition: unknown) => Effect.void,
     applyDamage: (_entityId: unknown, _amount: unknown) => Effect.succeed(Option.none()),
   } as unknown as InstanceType<typeof import('@/entity/entityManager').EntityManager>
@@ -410,8 +440,11 @@ const makeServices = (opts: {
     settingsService,
     settingsOverlay,
     inventoryRenderer,
+    inventoryService,
     fpsCounter,
     worldRendererService,
+    entityRenderer,
+    chunkMeshService,
     healthService,
     soundManager,
     musicManager,
@@ -862,6 +895,44 @@ describe('frame-handler', () => {
 
       expect(spy).toHaveBeenCalledOnce()
     }))
+
+    it.effect('applies hostile contact damage when the entity manager reports an attacker in range', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(false)
+      const services = makeServices({
+        inputService: makeInputService(),
+        inventoryRenderer: makeInventoryRenderer({ open: false }),
+        settingsOverlay: makeSettingsOverlay({ open: false }),
+      })
+      ;(services.entityManager as unknown as { getPlayerContactDamage: unknown }).getPlayerContactDamage = vi.fn(() =>
+        Effect.succeed(3)
+      )
+      const applyDamageSpy = vi.fn(() => Effect.void)
+      ;(services.healthService as unknown as { applyDamage: unknown }).applyDamage = applyDamageSpy
+
+      yield* runFrame(deps, services)
+
+      expect(applyDamageSpy).toHaveBeenCalledWith(3)
+    }))
+
+    it.effect('resets health and respawns the player when health reaches zero', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(false)
+      const services = makeServices({
+        inputService: makeInputService(),
+        inventoryRenderer: makeInventoryRenderer({ open: false }),
+        settingsOverlay: makeSettingsOverlay({ open: false }),
+      })
+      ;(services.healthService as unknown as { isDead: unknown }).isDead = vi.fn(() => Effect.succeed(true))
+      const resetSpy = vi.fn(() => Effect.void)
+      const respawnSpy = vi.fn(() => Effect.void)
+      ;(services.healthService as unknown as { reset: unknown }).reset = resetSpy
+      ;(services.gameState as unknown as { respawn: unknown }).respawn = respawnSpy
+
+      yield* runFrame(deps, services)
+
+      expect(resetSpy).toHaveBeenCalledOnce()
+      expect(respawnSpy).toHaveBeenCalledOnce()
+      expect(respawnSpy).toHaveBeenCalledWith(deps.respawnPosition)
+    }))
   })
 
   // -------------------------------------------------------------------------
@@ -869,6 +940,40 @@ describe('frame-handler', () => {
   // -------------------------------------------------------------------------
 
   describe('step 7 — block interaction', () => {
+    it.effect('damages an entity under the crosshair before falling back to block breaking', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(false)
+      deps.camera.position.set(0, 0, 0)
+      deps.camera.getWorldDirection = vi.fn((target: THREE.Vector3) => target.set(0, 0, -1))
+
+      const inputService = makeInputService()
+      ;(inputService as unknown as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
+        Effect.succeed(btn === 0)
+
+      const services = makeServices({
+        inputService,
+        inventoryRenderer: makeInventoryRenderer({ open: false }),
+        settingsOverlay: makeSettingsOverlay({ open: false }),
+      })
+      ;(services.blockHighlight as unknown as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
+        Effect.succeed(Option.none())
+      )
+      ;(services.entityManager as unknown as { getEntities: unknown }).getEntities = vi.fn(() =>
+        Effect.succeed([{ entityId: 'entity-1', position: { x: 0, y: 64, z: -2 }, velocity: { x: 0, y: 0, z: 0 }, rotation: {} as THREE.Quaternion, health: 20, type: 'Zombie' }])
+      )
+      const applyDamageSpy = vi.fn(() => Effect.succeed(Option.some([{ blockType: 'DIRT', count: 2 }])))
+      const addBlockSpy = vi.fn(() => Effect.succeed(true))
+      const breakSpy = vi.fn(() => Effect.void)
+      ;(services.entityManager as unknown as { applyDamage: unknown }).applyDamage = applyDamageSpy
+      ;(services.inventoryService as unknown as { addBlock: unknown }).addBlock = addBlockSpy
+      ;(services.blockService as unknown as { breakBlock: unknown }).breakBlock = breakSpy
+
+      yield* runFrame(deps, services)
+
+      expect(applyDamageSpy).toHaveBeenCalledWith('entity-1', 4)
+      expect(addBlockSpy).toHaveBeenCalledWith('DIRT', 2)
+      expect(breakSpy).not.toHaveBeenCalled()
+    }))
+
     it.effect('calls blockService.breakBlock on left-click when a target block is available', () => Effect.gen(function* () {
       const deps = yield* makeDeps(false)
       const inputService = makeInputService()
@@ -940,6 +1045,9 @@ describe('frame-handler', () => {
       ;(services.hotbarService as unknown as { getSelectedBlockType: unknown }).getSelectedBlockType = vi.fn(() =>
         Effect.succeed(Option.some('GRASS'))
       )
+      ;(services.hotbarService as unknown as { getSelectedSlot: unknown }).getSelectedSlot = vi.fn(() =>
+        Effect.succeed(2)
+      )
       const placeSpy = vi.fn(() => Effect.void)
       ;(services.blockService as unknown as { placeBlock: unknown }).placeBlock = placeSpy
 
@@ -947,7 +1055,40 @@ describe('frame-handler', () => {
 
       expect(placeSpy).toHaveBeenCalledOnce()
       // Adjacent position = block + normal = (0+0, 64+1, 0+0) = (0, 65, 0)
-      expect(placeSpy).toHaveBeenCalledWith({ x: 0, y: 65, z: 0 }, 'GRASS')
+      expect(placeSpy).toHaveBeenCalledWith({ x: 0, y: 65, z: 0 }, 'GRASS', 29)
+    }))
+
+    it.effect('plays placement audio only after a successful placeBlock call', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(false)
+      const inputService = makeInputService()
+      ;(inputService as unknown as { consumeMouseClick: unknown }).consumeMouseClick = (btn: number) =>
+        Effect.succeed(btn === 2)
+      const services = makeServices({
+        inputService,
+        inventoryRenderer: makeInventoryRenderer({ open: false }),
+        settingsOverlay: makeSettingsOverlay({ open: false }),
+      })
+      ;(services.blockHighlight as unknown as { getTargetHit: unknown }).getTargetHit = vi.fn(() =>
+        Effect.succeed(Option.some({ blockX: 0, blockY: 64, blockZ: 0, normal: { x: 0, y: 1, z: 0 } }))
+      )
+      ;(services.blockHighlight as unknown as { getTargetBlock: unknown }).getTargetBlock = vi.fn(() =>
+        Effect.succeed(Option.none())
+      )
+      ;(services.hotbarService as unknown as { getSelectedBlockType: unknown }).getSelectedBlockType = vi.fn(() =>
+        Effect.succeed(Option.some('GRASS'))
+      )
+      ;(services.hotbarService as unknown as { getSelectedSlot: unknown }).getSelectedSlot = vi.fn(() =>
+        Effect.succeed(0)
+      )
+      const placeSpy = vi.fn(() => Effect.fail(new Error('no item')))
+      const playEffectSpy = vi.fn(() => Effect.void)
+      ;(services.blockService as unknown as { placeBlock: unknown }).placeBlock = placeSpy
+      ;(services.soundManager as unknown as { playEffect: unknown }).playEffect = playEffectSpy
+
+      yield* runFrame(deps, services)
+
+      expect(placeSpy).toHaveBeenCalledOnce()
+      expect(playEffectSpy).not.toHaveBeenCalledWith('blockPlace', expect.anything())
     }))
 
     it.effect('suppresses block interaction when game is paused', () => Effect.gen(function* () {
@@ -969,6 +1110,32 @@ describe('frame-handler', () => {
       yield* runFrame(deps, services)
 
       expect(breakSpy).not.toHaveBeenCalled()
+    }))
+  })
+
+  describe('inventory crafting runtime wiring', () => {
+    it.effect('routes inventory overlay navigation keys to crafting controls when inventory is open', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(true)
+      const pressedKeys = MutableHashSet.make('ArrowDown', 'ArrowUp', 'Enter')
+      const inventoryState = { open: true }
+      const inventoryRenderer = makeInventoryRenderer(inventoryState)
+      const cycleSpy = vi.fn(() => Effect.void)
+      const craftSpy = vi.fn(() => Effect.succeed(true))
+      ;(inventoryRenderer as unknown as { cycleRecipes: unknown }).cycleRecipes = cycleSpy
+      ;(inventoryRenderer as unknown as { craftSelectedRecipe: unknown }).craftSelectedRecipe = craftSpy
+
+      const services = makeServices({
+        inputService: makeInputService(pressedKeys),
+        inventoryRenderer,
+        settingsOverlay: makeSettingsOverlay({ open: false }),
+        tradingPresentation: makeTradingPresentation({ open: false }),
+      })
+
+      yield* runFrame(deps, services)
+
+      expect(cycleSpy).toHaveBeenCalledWith(-1)
+      expect(cycleSpy).toHaveBeenCalledWith(1)
+      expect(craftSpy).toHaveBeenCalledOnce()
     }))
   })
 
@@ -1210,6 +1377,132 @@ describe('frame-handler', () => {
       yield* handler(0.016 as DeltaTimeSecs)
 
       expect(refractionSpy).toHaveBeenCalledOnce()
+    }))
+  })
+
+  // -------------------------------------------------------------------------
+  // Step 2.8 / 2.85: Sun intensity + entity rendering (Phase 2.2c)
+  // -------------------------------------------------------------------------
+
+  describe('step 2.8 — sun intensity wiring', () => {
+    it.effect('calls chunkMeshService.setSunIntensity each frame', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(false)
+      const services = makeServices({
+        inputService: makeInputService(),
+        inventoryRenderer: makeInventoryRenderer({ open: false }),
+        settingsOverlay: makeSettingsOverlay({ open: false }),
+      })
+      const spy = vi.fn(() => Effect.void)
+      ;(services.chunkMeshService as unknown as { setSunIntensity: unknown }).setSunIntensity = spy
+
+      yield* runFrame(deps, services)
+
+      expect(spy).toHaveBeenCalledOnce()
+    }))
+
+    it.effect('passes a clamped [0,1] sun intensity to setSunIntensity', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(false)
+      const services = makeServices({
+        inputService: makeInputService(),
+        inventoryRenderer: makeInventoryRenderer({ open: false }),
+        settingsOverlay: makeSettingsOverlay({ open: false }),
+      })
+      // Force noon (timeOfDay = 0.5) so sin curve peaks at 1.0
+      ;(services.timeService as unknown as { getTimeOfDay: unknown }).getTimeOfDay = vi.fn(() =>
+        Effect.succeed(0.5)
+      )
+      const spy = vi.fn(() => Effect.void)
+      ;(services.chunkMeshService as unknown as { setSunIntensity: unknown }).setSunIntensity = spy
+
+      yield* runFrame(deps, services)
+
+      expect(spy).toHaveBeenCalledOnce()
+      const arg = spy.mock.calls[0]?.[0] as number
+      expect(arg).toBeGreaterThanOrEqual(0)
+      expect(arg).toBeLessThanOrEqual(1)
+      // At timeOfDay=0.5 (noon), sin((0.5-0.25)*2π) = sin(π/2) = 1
+      expect(arg).toBeCloseTo(1, 5)
+    }))
+
+    it.effect('reports zero sun intensity at midnight (timeOfDay=0)', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(false)
+      const services = makeServices({
+        inputService: makeInputService(),
+        inventoryRenderer: makeInventoryRenderer({ open: false }),
+        settingsOverlay: makeSettingsOverlay({ open: false }),
+      })
+      ;(services.timeService as unknown as { getTimeOfDay: unknown }).getTimeOfDay = vi.fn(() =>
+        Effect.succeed(0)
+      )
+      const spy = vi.fn(() => Effect.void)
+      ;(services.chunkMeshService as unknown as { setSunIntensity: unknown }).setSunIntensity = spy
+
+      yield* runFrame(deps, services)
+
+      // sin((0-0.25)*2π) = sin(-π/2) = -1, clamped to 0
+      const arg = spy.mock.calls[0]?.[0] as number
+      expect(arg).toBe(0)
+    }))
+  })
+
+  describe('step 2.85 — entity renderer wiring', () => {
+    it.effect('calls entityRenderer.syncEntities each frame with the live entity snapshot', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(false)
+      const services = makeServices({
+        inputService: makeInputService(),
+        inventoryRenderer: makeInventoryRenderer({ open: false }),
+        settingsOverlay: makeSettingsOverlay({ open: false }),
+      })
+      const entitiesStub = [{ entityId: 'entity-1', position: { x: 0, y: 0, z: 0 } }] as unknown as ReadonlyArray<unknown>
+      ;(services.entityManager as unknown as { getEntities: unknown }).getEntities = vi.fn(() =>
+        Effect.succeed(entitiesStub)
+      )
+      const syncSpy = vi.fn(() => Effect.void)
+      ;(services.entityRenderer as unknown as { syncEntities: unknown }).syncEntities = syncSpy
+
+      yield* runFrame(deps, services)
+
+      expect(syncSpy).toHaveBeenCalledOnce()
+      // First arg is the snapshot, second arg is the scene
+      expect(syncSpy.mock.calls[0]?.[0]).toBe(entitiesStub)
+      expect(syncSpy.mock.calls[0]?.[1]).toBe(deps.scene)
+    }))
+
+    it.effect('calls entityRenderer.updateEntityTransforms with deltaTime each frame', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(false)
+      const services = makeServices({
+        inputService: makeInputService(),
+        inventoryRenderer: makeInventoryRenderer({ open: false }),
+        settingsOverlay: makeSettingsOverlay({ open: false }),
+      })
+      const updateSpy = vi.fn(() => Effect.void)
+      ;(services.entityRenderer as unknown as { updateEntityTransforms: unknown }).updateEntityTransforms = updateSpy
+
+      yield* runFrame(deps, services)
+
+      expect(updateSpy).toHaveBeenCalledOnce()
+      // (entities, totalTimeSecs, deltaTimeSecs)
+      const callArgs = updateSpy.mock.calls[0] as readonly [unknown, number, number]
+      expect(callArgs[2]).toBeCloseTo(0.016)
+    }))
+
+    it.effect('passes monotonically growing totalTimeSecs to updateEntityTransforms', () => Effect.gen(function* () {
+      const deps = yield* makeDeps(false)
+      const services = makeServices({
+        inputService: makeInputService(),
+        inventoryRenderer: makeInventoryRenderer({ open: false }),
+        settingsOverlay: makeSettingsOverlay({ open: false }),
+      })
+      const updateSpy = vi.fn(() => Effect.void)
+      ;(services.entityRenderer as unknown as { updateEntityTransforms: unknown }).updateEntityTransforms = updateSpy
+
+      const handler = yield* createFrameHandler(deps, services)
+      yield* handler(0.016 as DeltaTimeSecs)
+      yield* handler(0.016 as DeltaTimeSecs)
+
+      const total1 = updateSpy.mock.calls[0]?.[1] as number
+      const total2 = updateSpy.mock.calls[1]?.[1] as number
+      expect(total2).toBeGreaterThan(total1)
     }))
   })
 

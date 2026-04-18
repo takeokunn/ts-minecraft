@@ -5,26 +5,25 @@ import { GameLoopService, GameLoopServiceLive } from '.'
 import { GameLoopError } from '@/domain/errors'
 
 // ---------------------------------------------------------------------------
-// requestAnimationFrame mock
+// setInterval mock
 //
-// `bridgeLoop` calls requestAnimationFrame(bridgeLoop) each frame, and also
-// calls Effect.runSync(Ref.get(runningRef)) synchronously inside the callback.
-// To control frame delivery in tests we keep a reference to the last registered
-// callback and expose a helper that fires it once.
+// The game loop uses a fixed interval scheduler. To control frame delivery in
+// tests we keep a reference to the registered callback and expose a helper that
+// fires it once.
 // ---------------------------------------------------------------------------
 
-const rafCallbackRef = MutableRef.make<Option.Option<(timestamp: number) => void>>(Option.none())
-const rafIdRef = MutableRef.make(0)
+const intervalCallbackRef = MutableRef.make<Option.Option<() => void>>(Option.none())
+const intervalIdRef = MutableRef.make(0)
 
 beforeEach(() => {
-  MutableRef.set(rafCallbackRef, Option.none())
-  MutableRef.set(rafIdRef, 0)
-  vi.stubGlobal('requestAnimationFrame', (cb: (ts: number) => void) => {
-    MutableRef.set(rafCallbackRef, Option.some(cb))
-    return MutableRef.updateAndGet(rafIdRef, n => n + 1)
+  MutableRef.set(intervalCallbackRef, Option.none())
+  MutableRef.set(intervalIdRef, 0)
+  vi.stubGlobal('setInterval', (cb: () => void) => {
+    MutableRef.set(intervalCallbackRef, Option.some(cb))
+    return MutableRef.updateAndGet(intervalIdRef, n => n + 1)
   })
-  vi.stubGlobal('cancelAnimationFrame', (_id: number) => {
-    MutableRef.set(rafCallbackRef, Option.none())
+  vi.stubGlobal('clearInterval', (_id: number) => {
+    MutableRef.set(intervalCallbackRef, Option.none())
   })
 })
 
@@ -33,14 +32,12 @@ afterEach(() => {
 })
 
 // ---------------------------------------------------------------------------
-// Helper: fire the current rAF callback once with the given timestamp.
-// After firing, the bridge registers a new callback — we do NOT auto-fire it
-// so tests remain in full control of the frame cadence.
+// Helper: fire the current interval callback once.
 // ---------------------------------------------------------------------------
 const fireRaf = (timestamp = 16): void => {
-  const cb = MutableRef.get(rafCallbackRef)
-  MutableRef.set(rafCallbackRef, Option.none())
-  Option.map(cb, fn => fn(timestamp))
+  void timestamp
+  const cb = MutableRef.get(intervalCallbackRef)
+  Option.map(cb, fn => fn())
 }
 
 // ---------------------------------------------------------------------------

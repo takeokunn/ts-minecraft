@@ -41,9 +41,10 @@ export class InputService extends Effect.Service<InputService>()(
       Effect.sync(() => MutableRef.make(HashSet.empty<number>())),
       // Accumulated mouse wheel delta (positive = scroll down)
       Effect.sync(() => MutableRef.make(0)),
+      // Fallback pointer-lock state for environments that deny the browser API (eg. MCP)
+      Effect.sync(() => MutableRef.make(false)),
     ], { concurrency: 'unbounded' }).pipe(
-      Effect.flatMap(([pressedKeysRef, justPressedKeysRef, mouseDeltaRef, mouseButtonsRef, justClickedButtonsRef, wheelDeltaRef]) => {
-
+      Effect.flatMap(([pressedKeysRef, justPressedKeysRef, mouseDeltaRef, mouseButtonsRef, justClickedButtonsRef, wheelDeltaRef, pointerLockFallbackRef]) => {
       // Keyboard event handlers
       const handleKeyDown = (event: KeyboardEvent) => {
         if (!event.repeat) {
@@ -62,13 +63,8 @@ export class InputService extends Effect.Service<InputService>()(
       }
 
       // Mouse event handler for pointer movement
-      const getPointerLockTarget = (): HTMLCanvasElement | null => {
-        const canvas = document.getElementById('game-canvas')
-        return canvas instanceof HTMLCanvasElement ? canvas : null
-      }
-
       const handleMouseMove = (event: MouseEvent) => {
-        if (document.pointerLockElement === getPointerLockTarget()) {
+        if (document.pointerLockElement instanceof HTMLCanvasElement || MutableRef.get(pointerLockFallbackRef)) {
           const delta = MutableRef.get(mouseDeltaRef)
           MutableRef.set(mouseDeltaRef, { x: delta.x + event.movementX, y: delta.y + event.movementY })
         }
@@ -150,21 +146,36 @@ export class InputService extends Effect.Service<InputService>()(
 
         requestPointerLock: (): Effect.Effect<void, never> =>
           Effect.sync(() => {
-            const target = getPointerLockTarget()
-            if (target?.requestPointerLock) {
-              target.requestPointerLock()
+            const canvas = document.getElementById('game-canvas')
+            const featurePolicy = (document as Document & {
+              featurePolicy?: { allowsFeature: (feature: string) => boolean }
+            }).featurePolicy
+            const pointerLockAllowed =
+              typeof featurePolicy?.allowsFeature === 'function'
+                ? featurePolicy.allowsFeature('pointer-lock')
+                : true
+
+            if (!pointerLockAllowed) {
+              MutableRef.set(pointerLockFallbackRef, true)
+              return
+            }
+
+            if (canvas instanceof HTMLCanvasElement && typeof canvas.requestPointerLock === 'function') {
+              canvas.requestPointerLock()
+              MutableRef.set(pointerLockFallbackRef, true)
             }
           }),
 
         exitPointerLock: (): Effect.Effect<void, never> =>
           Effect.sync(() => {
-            if (document.exitPointerLock) {
+            MutableRef.set(pointerLockFallbackRef, false)
+            if (document.pointerLockElement && typeof document.exitPointerLock === 'function') {
               document.exitPointerLock()
             }
           }),
 
         isPointerLocked: (): Effect.Effect<boolean, never> =>
-          Effect.sync(() => document.pointerLockElement === getPointerLockTarget()),
+          Effect.sync(() => document.pointerLockElement instanceof HTMLCanvasElement || MutableRef.get(pointerLockFallbackRef)),
 
         consumeMouseClick: (button: number): Effect.Effect<boolean, never> =>
           Effect.sync(() => {

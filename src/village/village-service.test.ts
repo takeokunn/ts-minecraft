@@ -27,7 +27,8 @@ describe('village/village-service', () => {
 
       const structureIds = HashSet.fromIterable(Arr.map(firstVillage.structures, (structure) => structure.structureId))
       expect(
-        firstVillage.villagers.every(
+        Arr.every(
+          firstVillage.villagers,
           (villager) =>
             HashSet.has(structureIds, villager.homeStructureId) &&
             HashSet.has(structureIds, villager.workplaceStructureId),
@@ -46,12 +47,7 @@ describe('village/village-service', () => {
       yield* villageService.update(playerPosition, 0.5, ONE_SECOND)
       const nearVillagers = yield* villageService.getVillagers()
 
-      const firstVillagerOpt = Option.fromNullable(nearVillagers[0])
-      if (Option.isNone(firstVillagerOpt)) {
-        expect.fail('Expected at least one villager')
-        return
-      }
-      const firstVillager = Option.getOrThrow(firstVillagerOpt)
+      const firstVillager = Option.getOrThrow(Arr.get(nearVillagers, 0))
 
       yield* villageService.update(firstVillager.position, 0.5, ONE_SECOND)
       const tradingSnapshot = yield* villageService.getVillagers()
@@ -59,8 +55,8 @@ describe('village/village-service', () => {
       yield* villageService.update(playerPosition, 0.9, ONE_SECOND)
       const nightSnapshot = yield* villageService.getVillagers()
 
-      expect(tradingSnapshot.some((villager) => villager.activity === VillagerActivity.Trade)).toBe(true)
-      expect(nightSnapshot.every((villager) => villager.activity === VillagerActivity.Rest)).toBe(true)
+      expect(Arr.some(tradingSnapshot, (villager) => villager.activity === VillagerActivity.Trade)).toBe(true)
+      expect(Arr.every(nightSnapshot, (villager) => villager.activity === VillagerActivity.Rest)).toBe(true)
     }).pipe(Effect.provide(VillageServiceLive))
   )
 })

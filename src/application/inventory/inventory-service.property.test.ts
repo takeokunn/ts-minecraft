@@ -32,6 +32,12 @@ const blockTypeArb = Arbitrary.make(Schema.Literal('DIRT', 'STONE', 'WOOD', 'GLA
 // Arbitrary for a valid item count (1 – MAX_STACK_SIZE)
 const countArb = Arbitrary.make(Schema.Number.pipe(Schema.int(), Schema.between(1, MAX_STACK_SIZE)))
 
+// Count total of a given block type across all inventory slots
+const countOf = (slots: ReadonlyArray<Option.Option<{ readonly blockType: BlockType; readonly count: number }>>, blockType: BlockType): number =>
+  Arr.reduce(slots, 0, (sum, slot) =>
+    sum + Option.match(slot, { onNone: () => 0, onSome: (item) => item.blockType === blockType ? item.count : 0 })
+  )
+
 // ---------------------------------------------------------------------------
 // Property tests
 // ---------------------------------------------------------------------------
@@ -68,8 +74,14 @@ describe('application/inventory/inventory-service (property-based)', () => {
           const finalA = yield* inv.getSlot(asSlotIndex(slotA))
           const finalB = yield* inv.getSlot(asSlotIndex(slotB))
 
-          expect(Option.isSome(finalA) && Option.getOrThrow(finalA).blockType === typeA && Option.getOrThrow(finalA).count === countA).toBe(true)
-          expect(Option.isSome(finalB) && Option.getOrThrow(finalB).blockType === typeB && Option.getOrThrow(finalB).count === countB).toBe(true)
+          expect(Option.isSome(finalA)).toBe(true)
+          const stackA = Option.getOrThrow(finalA)
+          expect(stackA.blockType).toBe(typeA)
+          expect(stackA.count).toBe(countA)
+          expect(Option.isSome(finalB)).toBe(true)
+          const stackB = Option.getOrThrow(finalB)
+          expect(stackB.blockType).toBe(typeB)
+          expect(stackB.count).toBe(countB)
         }).pipe(Effect.provide(TestLayer))
     )
 
@@ -97,7 +109,10 @@ describe('application/inventory/inventory-service (property-based)', () => {
           const finalA = yield* inv.getSlot(asSlotIndex(slotA))
           const finalB = yield* inv.getSlot(asSlotIndex(slotB))
 
-          expect(Option.isSome(finalA) && Option.getOrThrow(finalA).blockType === type && Option.getOrThrow(finalA).count === count).toBe(true)
+          expect(Option.isSome(finalA)).toBe(true)
+          const movedStack = Option.getOrThrow(finalA)
+          expect(movedStack.blockType).toBe(type)
+          expect(movedStack.count).toBe(count)
           expect(Option.isNone(finalB)).toBe(true)
         }).pipe(Effect.provide(TestLayer))
     )
@@ -116,17 +131,13 @@ describe('application/inventory/inventory-service (property-based)', () => {
           const inv = yield* InventoryService
 
           const slotsBefore = yield* inv.getAllSlots()
-          const totalBefore = Arr.reduce(slotsBefore, 0, (sum, s) =>
-            sum + Option.match(s, { onNone: () => 0, onSome: (item) => item.blockType === type ? item.count : 0 })
-          )
+          const totalBefore = countOf(slotsBefore, type as BlockType)
 
           yield* inv.addBlock(type as BlockType, count)
           yield* inv.removeBlock(type as BlockType, count)
 
           const slotsAfter = yield* inv.getAllSlots()
-          const totalAfter = Arr.reduce(slotsAfter, 0, (sum, s) =>
-            sum + Option.match(s, { onNone: () => 0, onSome: (item) => item.blockType === type ? item.count : 0 })
-          )
+          const totalAfter = countOf(slotsAfter, type as BlockType)
 
           expect(totalAfter).toBe(totalBefore)
         }).pipe(Effect.provide(TestLayer))
@@ -147,7 +158,10 @@ describe('application/inventory/inventory-service (property-based)', () => {
           yield* inv.setSlot(asSlotIndex(slotN), Option.some(stack))
           const result = yield* inv.getSlot(asSlotIndex(slotN))
 
-          expect(Option.isSome(result) && Option.getOrThrow(result).blockType === type && Option.getOrThrow(result).count === count).toBe(true)
+          expect(Option.isSome(result)).toBe(true)
+          const item = Option.getOrThrow(result)
+          expect(item.blockType).toBe(type)
+          expect(item.count).toBe(count)
         }).pipe(Effect.provide(TestLayer))
     )
 

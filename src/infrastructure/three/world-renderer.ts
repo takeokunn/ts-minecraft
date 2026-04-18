@@ -170,7 +170,7 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
                     )
 
                     const nextMeshesAfterAdd = yield* Effect.all(
-                      meshedChunks.map(([key, { opaqueMesh, waterMesh }]) =>
+                      Arr.map(meshedChunks, ([key, { opaqueMesh, waterMesh }]) =>
                         Effect.all([
                           sceneService.add(scene, opaqueMesh),
                           Option.match(waterMesh, {
@@ -195,7 +195,7 @@ export class WorldRendererService extends Effect.Service<WorldRendererService>()
                     )
 
                     const removedKeys = yield* Effect.all(
-                      removalPairs.map(([key, chunkMeshes]) =>
+                      Arr.map(removalPairs, ([key, chunkMeshes]) =>
                         Effect.all([
                           sceneService.remove(scene, chunkMeshes.opaque).pipe(
                             Effect.andThen(Effect.sync(() => disposeMesh(chunkMeshes.opaque)))

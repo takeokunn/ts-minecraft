@@ -223,7 +223,7 @@ describe('infrastructure/noise/noise-service', () => {
 
         const batchVals = yield* service.octaveNoise2DBatchXY(xs, zs, 4, 0.5, 2.0)
         const scalarVals = yield* Effect.forEach(
-          xs.map((x, i) => [x, zs[i]!] as const),
+          Arr.zip(xs, zs),
           ([x, z]) => service.octaveNoise2D(x, z, 4, 0.5, 2.0),
           { concurrency: 1 }
         )
@@ -242,7 +242,7 @@ describe('infrastructure/noise/noise-service', () => {
 
         const batchVals = yield* service.noise2DBatchXY(xs, zs)
         const scalarVals = yield* Effect.forEach(
-          xs.map((x, i) => [x, zs[i]!] as const),
+          Arr.zip(xs, zs),
           ([x, z]) => service.noise2D(x, z),
           { concurrency: 1 }
         )
@@ -350,6 +350,97 @@ describe('infrastructure/noise/noise-service', () => {
   // ---------------------------------------------------------------------------
   // Group 6: octaveNoise2D — parameter sensitivity
   // ---------------------------------------------------------------------------
+
+  // ---------------------------------------------------------------------------
+  // Group 3D: noise3D determinism, range, and batch consistency
+  // ---------------------------------------------------------------------------
+
+  describe('noise3D — value range and determinism', () => {
+    it.effect('should return a value in approximately [-1.0, 1.0] for origin (0, 0, 0)', () =>
+      Effect.gen(function* () {
+        const service = yield* NoiseService
+        yield* service.setSeed(1)
+        const val = yield* service.noise3D(0, 0, 0)
+        // Allow small numeric slack — amplitude normalisation is ~[-1, 1].
+        expect(val).toBeGreaterThanOrEqual(-1.01)
+        expect(val).toBeLessThanOrEqual(1.01)
+      }).pipe(Effect.provide(NoiseService.Default))
+    )
+
+    it.effect('should return a value in approximately [-1, 1] for mixed coords (10, 20, -5)', () =>
+      Effect.gen(function* () {
+        const service = yield* NoiseService
+        yield* service.setSeed(42)
+        const val = yield* service.noise3D(10, 20, -5)
+        expect(val).toBeGreaterThanOrEqual(-1.01)
+        expect(val).toBeLessThanOrEqual(1.01)
+      }).pipe(Effect.provide(NoiseService.Default))
+    )
+
+    it.effect('should be deterministic: same seed + same (x, y, z) yields the same value', () =>
+      Effect.gen(function* () {
+        const service = yield* NoiseService
+        yield* service.setSeed(777)
+        const v1 = yield* service.noise3D(3.14, 1.5, -2.7)
+        yield* service.setSeed(777)
+        const v2 = yield* service.noise3D(3.14, 1.5, -2.7)
+        expect(v1).toBe(v2)
+      }).pipe(Effect.provide(NoiseService.Default))
+    )
+
+    it.effect('should produce different values at different coordinates', () =>
+      Effect.gen(function* () {
+        const service = yield* NoiseService
+        yield* service.setSeed(99)
+        const v000 = yield* service.noise3D(0, 0, 0)
+        const v100 = yield* service.noise3D(1, 0, 0)
+        const v010 = yield* service.noise3D(0, 1, 0)
+        const v001 = yield* service.noise3D(0, 0, 1)
+        // It is astronomically unlikely that all four equal v000
+        expect(Arr.every([v100, v010, v001], (v) => v === v000)).toBe(false)
+      }).pipe(Effect.provide(NoiseService.Default))
+    )
+
+    it.effect('should produce different values after different seeds (3D)', () =>
+      Effect.gen(function* () {
+        const service = yield* NoiseService
+        yield* service.setSeed(1)
+        const v1 = yield* service.noise3D(5, 10, 7)
+        yield* service.setSeed(2)
+        const v2 = yield* service.noise3D(5, 10, 7)
+        expect(v1).not.toBe(v2)
+      }).pipe(Effect.provide(NoiseService.Default))
+    )
+
+    it.effect('noise3DBatchXYZ matches scalar noise3D for the same coordinates', () =>
+      Effect.gen(function* () {
+        const service = yield* NoiseService
+        yield* service.setSeed(2024)
+        const xs = [0, 1.5, -3, 42, 7.2]
+        const ys = [0, -2, 8, 15, 1.1]
+        const zs = [0, -2.25, 7, 99, -1.5]
+
+        const batch = yield* service.noise3DBatchXYZ(xs, ys, zs)
+        const scalar = yield* Effect.forEach(
+          Arr.makeBy(xs.length, (i) => i),
+          (i) => service.noise3D(xs[i]!, ys[i]!, zs[i]!),
+          { concurrency: 1 },
+        )
+        expect(batch).toEqual(scalar)
+      }).pipe(Effect.provide(NoiseService.Default))
+    )
+
+    it.effect('should produce spatially continuous values for nearby coordinates (3D)', () =>
+      Effect.gen(function* () {
+        const service = yield* NoiseService
+        yield* service.setSeed(7)
+        const v0 = yield* service.noise3D(10, 10, 10)
+        const v1 = yield* service.noise3D(10.01, 10, 10)
+        // Perlin noise is continuous — tiny step, tiny output delta.
+        expect(Math.abs(v1 - v0)).toBeLessThan(0.1)
+      }).pipe(Effect.provide(NoiseService.Default))
+    )
+  })
 
   describe('octaveNoise2D — parameter sensitivity', () => {
     it.effect('should produce different values with different persistence parameters', () =>

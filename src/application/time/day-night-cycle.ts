@@ -64,6 +64,9 @@ export const updateDayNightCycle = (
         lights.ambientLight.color.setHSL(0.06, horizonBlend * 0.3, 0.5 + dayFactor * 0.3)
       }
 
+      lights.skyCurrent.lerpColors(lights.skyNight, lights.skyDay, dayFactor)
+      lights.renderer.setClearColor(lights.skyCurrent)
+
       Option.match(lights.sky, {
         onSome: (sky) => {
           const sunX = Math.cos(sunAngle) * SUN_DISTANCE
@@ -73,10 +76,7 @@ export const updateDayNightCycle = (
           sky.uniforms.turbidity.value = SKY_TURBIDITY_DAY + (1 - dayFactor) * (SKY_TURBIDITY_HORIZON - SKY_TURBIDITY_DAY)
           sky.uniforms.rayleigh.value = SKY_RAYLEIGH_NIGHT + dayFactor * (SKY_RAYLEIGH_DAY - SKY_RAYLEIGH_NIGHT)
         },
-        onNone: () => {
-          lights.skyCurrent.lerpColors(lights.skyNight, lights.skyDay, dayFactor)
-          lights.renderer.setClearColor(lights.skyCurrent)
-        },
+        onNone: () => {},
       })
     })
   })

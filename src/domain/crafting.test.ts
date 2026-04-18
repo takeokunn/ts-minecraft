@@ -47,6 +47,7 @@ describe('Recipe', () => {
   it('creates a valid Recipe with one ingredient', () => {
     const recipe = Schema.decodeUnknownSync(Recipe)({
       id: 'recipe-001',
+      station: 'inventory',
       ingredients: [{ blockType: 'STONE', count: 4 }],
       output: { blockType: 'COBBLESTONE', count: 1 },
     })
@@ -58,6 +59,7 @@ describe('Recipe', () => {
   it('creates a valid Recipe with multiple ingredients', () => {
     const recipe = Schema.decodeUnknownSync(Recipe)({
       id: 'recipe-002',
+      station: 'inventory',
       ingredients: [
         { blockType: 'WOOD', count: 2 },
         { blockType: 'STONE', count: 3 },
@@ -100,6 +102,7 @@ describe('Recipe', () => {
   it('encode/decode roundtrip for Recipe', () => {
     const original = Schema.decodeUnknownSync(Recipe)({
       id: 'recipe-roundtrip',
+      station: 'inventory',
       ingredients: [{ blockType: 'SAND', count: 8 }],
       output: { blockType: 'GLASS', count: 8 },
     })

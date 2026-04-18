@@ -1,13 +1,22 @@
-import { Array as Arr, Clock, Duration, Effect, HashMap, HashSet, Metric, MetricBoundaries, Option, Ref, Schema } from 'effect'
+import { Array as Arr, Clock, Duration, Effect, HashMap, HashSet, Metric, Option, Ref, Schema } from 'effect'
 import { ChunkService, ChunkSchema, Chunk, ChunkCoord, blockTypeToIndex, CHUNK_SIZE, CHUNK_HEIGHT } from '@/domain/chunk'
 import { FLUID_BYTE_LENGTH, createFluidBuffer, hydrateLegacyFluidBufferFromBlocks } from '@/domain/fluid'
+import { LightEngineService } from '@/application/light/light-engine-service'
 import { StorageServicePort } from '@/application/storage/storage-service-port'
 import type { ChunkStorageValue } from '@/application/storage/storage-service-port'
 import { Position, ChunkCacheKey } from '@/shared/kernel'
-import { DEFAULT_WORLD_ID, SEA_LEVEL, LAKE_LEVEL } from '@/application/constants'
+import { DEFAULT_WORLD_ID } from '@/application/constants'
 import { ChunkError, StorageError } from '@/domain/errors'
 import { BiomeService } from '@/application/biome/biome-service'
 import { NoiseServicePort } from '@/application/noise/noise-service-port'
+import { chunkLoadHistogram, generateTerrain } from './terrain/generator'
+import {
+  chunkDistanceSquared,
+  worldToChunkCoord,
+  getChunksInRenderDistance,
+  countChunksInRadius,
+  chunkCoordToKey,
+} from './chunk-coord-utils'
 
 /**
  * Render distance configuration
@@ -31,67 +40,6 @@ export const MAX_CACHED_CHUNKS = 400
  */
 export type ChunkManagerError = ChunkError | StorageError
 
-/**
- * Calculate distance squared between two chunk coordinates
- */
-const chunkDistanceSquared = (a: ChunkCoord, b: ChunkCoord): number => {
-  const dx = a.x - b.x
-  const dz = a.z - b.z
-  return dx * dx + dz * dz
-}
-
-/**
- * Convert world position to chunk coordinate
- */
-const worldToChunkCoord = (pos: Position): ChunkCoord => ({
-  x: Math.floor(pos.x / CHUNK_SIZE),
-  z: Math.floor(pos.z / CHUNK_SIZE),
-})
-
-const getChunkLoadOffsets = (renderDistance: number): ReadonlyArray<readonly [number, number]> => {
-  const offsets: Array<readonly [number, number, number]> = []
-
-  for (let dx = -renderDistance; dx <= renderDistance; dx++) {
-    for (let dz = -renderDistance; dz <= renderDistance; dz++) {
-      const distance = dx * dx + dz * dz
-      if (distance <= renderDistance * renderDistance) {
-        offsets.push([dx, dz, distance])
-      }
-    }
-  }
-
-  const sorted = offsets
-    .sort((a, b) => a[2] - b[2] || a[0] - b[0] || a[1] - b[1])
-    .map(([dx, dz]) => [dx, dz] as const)
-
-  return sorted
-}
-
-const countChunksInRadius = (radius: number): number => {
-  let count = 0
-  for (let dx = -radius; dx <= radius; dx++) {
-    for (let dz = -radius; dz <= radius; dz++) {
-      if (dx * dx + dz * dz <= radius * radius) {
-        count++
-      }
-    }
-  }
-  return count
-}
-
-/**
- * Get all chunk coordinates within render distance of a center point
- * Uses a circular check for a nicer radius shape
- */
-const getChunksInRenderDistance = (center: ChunkCoord, renderDistance: number): ReadonlyArray<ChunkCoord> => {
-  return Arr.map(getChunkLoadOffsets(renderDistance), ([dx, dz]) => ({ x: center.x + dx, z: center.z + dz }))
-}
-
-/**
- * Create a unique key for chunk coordinate
- */
-const chunkCoordToKey = (coord: ChunkCoord): ChunkCacheKey => ChunkCacheKey.make(coord)
-
 const normalizeFluidBuffer = (value: unknown): Uint8Array<ArrayBufferLike> => {
   if (value instanceof Uint8Array) {
     return value.byteLength === FLUID_BYTE_LENGTH ? value : createFluidBuffer()
@@ -101,7 +49,7 @@ const normalizeFluidBuffer = (value: unknown): Uint8Array<ArrayBufferLike> => {
 
 const normalizeChunkStorageValue = (stored: ChunkStorageValue): { blocks: Uint8Array<ArrayBufferLike>; fluid: Uint8Array<ArrayBufferLike> } => {
   if (stored instanceof Uint8Array) {
-    return { blocks: stored, fluid: hydrateLegacyFluidBufferFromBlocks(stored, blockTypeToIndex('WATER')) }
+    return { blocks: stored, fluid: hydrateLegacyFluidBufferFromBlocks(stored, blockTypeToIndex('WATER'), blockTypeToIndex('LAVA')) }
   }
 
   return {
@@ -109,16 +57,6 @@ const normalizeChunkStorageValue = (stored: ChunkStorageValue): { blocks: Uint8A
     fluid: normalizeFluidBuffer(stored.fluid),
   }
 }
-
-/**
- * Histogram metric for chunk load duration (generation + storage load) in milliseconds.
- * Buckets: 20 linear buckets from 0ms to 1000ms (width=50ms each).
- */
-const chunkLoadHistogram = Metric.histogram(
-  'chunk_load_ms',
-  MetricBoundaries.linear({ start: 0, width: 50, count: 20 }),
-  'Chunk load duration in milliseconds'
-)
 
 /**
  * LRU cache entry wrapping a chunk with its last access time.
@@ -150,255 +88,6 @@ type ChunkCache = {
 }
 
 /**
- * Terrain generation constants
- */
-const TERRAIN_SCALE = 0.02 // controls terrain frequency
-const HEIGHT_VARIATION = 16 // ±16 from sea level
-
-/** Noise frequency for lake basin generation (lower = larger, rounder lakes) */
-const LAKE_NOISE_SCALE = 0.02
-/** Noise threshold above which a column becomes a lake basin */
-const LAKE_THRESHOLD = 0.70
-/** Maximum depth of lake depression in blocks */
-const LAKE_MAX_DEPTH = 18
-/** Minimum water depth — prevents single-block shallow patches */
-const LAKE_MIN_DEPTH = 10
-/** Noise range below LAKE_THRESHOLD that becomes sandy shoreline */
-const LAKE_SHORE_WIDTH = 0.04
-
-/**
- * Calculate clamped surface height from a noise value and biome properties.
- *
- * Maps the 0-1 noise value to a block height using the biome's baseHeight and
- * heightModifier, then clamps to valid chunk bounds [1, CHUNK_HEIGHT-2].
- */
-const calculateSurfaceHeight = (
-  noiseVal: number,
-  baseHeight: number,
-  heightModifier: number,
-  heightVariation: number
-): number => {
-  const terrainHeight = Math.floor(
-    baseHeight + (noiseVal - 0.5) * heightVariation * 2 * heightModifier
-  )
-  return Math.max(1, Math.min(CHUNK_HEIGHT - 2, terrainHeight))
-}
-
-const chunkBlockIndexUnchecked = (x: number, y: number, z: number): number => y + z * CHUNK_HEIGHT + x * CHUNK_HEIGHT * CHUNK_SIZE
-
-/**
- * Fill a single vertical column of blocks up to surfaceY using biome block types.
- *
- * Block assignment (pure, no Effect overhead):
- *   y == surfaceY: biome surface block (GRASS, SAND, STONE, etc.)
- *   surfaceY-3 <= y < surfaceY: biome subsurface block (DIRT, SAND, etc.)
- *   y < surfaceY-3: STONE
- */
-const fillColumn = (
-  blocks: Uint8Array,
-  lx: number,
-  lz: number,
-  surfaceY: number,
-  props: { surfaceBlockIndex: number; subSurfaceBlockIndex: number; stoneBlockIndex: number }
-): void => {
-  let idx = chunkBlockIndexUnchecked(lx, 0, lz)
-  for (let y = 0; y <= surfaceY; y++, idx++) {
-    blocks[idx] = y === surfaceY
-      ? props.surfaceBlockIndex
-      : y >= surfaceY - 3
-        ? props.subSurfaceBlockIndex
-        : props.stoneBlockIndex
-  }
-}
-
-/**
- * Return true if a tree should be placed at this world column.
- *
- * Uses a deterministic sine-hash RNG so tree placement is reproducible across
- * chunk reloads. Returns the treeRng value as well so the caller can reuse it
- * for trunk-height calculation without recomputing the hash.
- */
-const shouldPlaceTree = (
-  treeDensity: number,
-  surfaceY: number,
-  wx: number,
-  wz: number
-): { place: boolean; treeRng: number } => {
-  if (treeDensity <= 0 || surfaceY <= 5 || surfaceY >= CHUNK_HEIGHT - 10) {
-    return { place: false, treeRng: 0 }
-  }
-  // Deterministic pseudo-random using world position
-  const treeRng = Math.sin(wx * 127.1 + wz * 311.7) * 43758.5453
-  const treeProb = treeRng - Math.floor(treeRng)
-  return { place: treeProb < treeDensity, treeRng }
-}
-
-/**
- * Place a tree (trunk + 3x3x3 leaf canopy) into the blocks array.
- *
- * Writes are cropped to chunk boundaries (no cross-chunk writes).
- * Leaves are only placed into AIR blocks to avoid overwriting solid terrain.
- */
-const placeTree = (
-  blocks: Uint8Array,
-  lx: number,
-  lz: number,
-  surfaceY: number,
-  treeRng: number
-): void => {
-  // Trunk height: 4-6 blocks, derived from the same RNG used for probability
-  const trunkHeight = 4 + Math.floor((treeRng * 2) % 3)
-
-  // Trunk — place straight up from one block above the surface
-  let trunkIdx = chunkBlockIndexUnchecked(lx, surfaceY + 1, lz)
-  for (let ty = surfaceY + 1; ty <= surfaceY + trunkHeight; ty++, trunkIdx++) {
-    blocks[trunkIdx] = blockTypeToIndex('WOOD') // intentional direct write: pre-construction Uint8Array before Chunk is assembled
-  }
-
-  // Leaves: 3x3x3 canopy anchored at top of trunk, cropped at chunk boundary
-  const leafBase = surfaceY + trunkHeight - 1
-  for (let dy = 0; dy <= 2; dy++) {
-    for (let dlx = -1; dlx <= 1; dlx++) {
-      for (let dlz = -1; dlz <= 1; dlz++) {
-        const lx2 = lx + dlx
-        const lz2 = lz + dlz
-        const ly = leafBase + dy
-        if (lx2 < 0 || lx2 >= CHUNK_SIZE || lz2 < 0 || lz2 >= CHUNK_SIZE || ly < 0 || ly >= CHUNK_HEIGHT) continue
-        const idx = chunkBlockIndexUnchecked(lx2, ly, lz2)
-        if (blocks[idx] === 0) blocks[idx] = blockTypeToIndex('LEAVES') // intentional direct write: pre-construction Uint8Array before Chunk is assembled
-      }
-    }
-  }
-}
-
-/**
- * Generate terrain for a chunk using noise-based heightmap.
- *
- * Height range: 48-80 blocks (sea level 64)
- * Block assignment:
- *   y > height: AIR
- *   y == height: biome surface block (GRASS, SAND, STONE, etc.)
- *   height-1 >= y >= height-3: biome subsurface block (DIRT, SAND, etc.)
- *   y < height-3: STONE
- *   y == 0: STONE (bedrock-like)
- */
-const generateTerrain = (
-  chunkService: ChunkService,
-  biomeService: BiomeService,
-  noiseService: NoiseServicePort,
-  coord: ChunkCoord
-): Effect.Effect<Chunk, never> =>
-  Effect.gen(function* () {
-    const chunk = yield* chunkService.createChunk(coord)
-    // Mutable blocks array for efficient generation
-    const blocks = new Uint8Array(chunk.blocks)
-    const columnCount = CHUNK_SIZE * CHUNK_SIZE
-    const baseWorldX = coord.x * CHUNK_SIZE
-    const baseWorldZ = coord.z * CHUNK_SIZE
-
-    const terrainNoiseXs: number[] = []
-    terrainNoiseXs.length = columnCount
-    const terrainNoiseZs: number[] = []
-    terrainNoiseZs.length = columnCount
-    const lakeNoiseXs: number[] = []
-    lakeNoiseXs.length = columnCount
-    const lakeNoiseZs: number[] = []
-    lakeNoiseZs.length = columnCount
-    let noisePointIndex = 0
-    for (let lx = 0; lx < CHUNK_SIZE; lx++) {
-      const x = baseWorldX + lx
-      for (let lz = 0; lz < CHUNK_SIZE; lz++) {
-        const z = baseWorldZ + lz
-        terrainNoiseXs[noisePointIndex] = x * TERRAIN_SCALE
-        terrainNoiseZs[noisePointIndex] = z * TERRAIN_SCALE
-        lakeNoiseXs[noisePointIndex] = x * LAKE_NOISE_SCALE + 5000
-        lakeNoiseZs[noisePointIndex] = z * LAKE_NOISE_SCALE + 5000
-        noisePointIndex++
-      }
-    }
-
-    const biomeColumns = yield* biomeService.getBiomesAndPropertiesForChunk(coord.x, coord.z)
-    const terrainNoiseVals = yield* noiseService.octaveNoise2DBatchXY(terrainNoiseXs, terrainNoiseZs, 4, 0.5, 2.0)
-    const lakeNoiseVals = yield* noiseService.noise2DBatchXY(lakeNoiseXs, lakeNoiseZs)
-
-    const stoneBlockIndex = blockTypeToIndex('STONE')
-    const waterBlockIndex = blockTypeToIndex('WATER')
-    const sandBlockIndex = blockTypeToIndex('SAND')
-
-    let columnIndex = 0
-    for (let lx = 0; lx < CHUNK_SIZE; lx++) {
-      for (let lz = 0; lz < CHUNK_SIZE; lz++) {
-        const wx = baseWorldX + lx
-        const wz = baseWorldZ + lz
-
-        const { biome, props } = biomeColumns[columnIndex]!
-        const surfaceBlockIndex = blockTypeToIndex(props.surfaceBlock)
-        const subSurfaceBlockIndex = blockTypeToIndex(props.subSurfaceBlock)
-
-        // Phase 2: Calculate surface height from noise
-        const noiseVal = terrainNoiseVals[columnIndex]!
-        const initialSurfaceY = calculateSurfaceHeight(noiseVal, props.baseHeight, props.heightModifier, HEIGHT_VARIATION)
-
-        // Phase 2.5: Lake generation — lower surface to create a basin, fill with water later
-        // lakeNoiseVal: only computed for non-OCEAN biomes (OCEAN uses 0, ensuring isShore = false)
-        const lakeNoiseVal = biome !== 'OCEAN' ? lakeNoiseVals[columnIndex]! : 0
-
-        // lakeBasin: Some(depressedY) = inland lake at that surface, None = no lake
-        let lakeBasinY: number | null = null
-        if (biome !== 'OCEAN' && lakeNoiseVal > LAKE_THRESHOLD && initialSurfaceY >= LAKE_LEVEL) {
-          const t = (lakeNoiseVal - LAKE_THRESHOLD) / (1.0 - LAKE_THRESHOLD)
-          const lakeDepth = Math.max(LAKE_MIN_DEPTH, Math.floor(t * LAKE_MAX_DEPTH))
-          const depressedY = Math.max(SEA_LEVEL + 1, initialSurfaceY - lakeDepth)
-          // Only commit to lake if the depression actually reaches below the water line
-          if (depressedY < LAKE_LEVEL) {
-            lakeBasinY = depressedY
-          }
-        }
-        const surfaceY = lakeBasinY ?? initialSurfaceY
-
-        // Sandy shoreline: only near terrain low enough that lakes can form nearby
-        const isShore = lakeBasinY === null && lakeNoiseVal > LAKE_THRESHOLD - LAKE_SHORE_WIDTH && surfaceY < LAKE_LEVEL + 4
-
-        // Phase 3: Fill column blocks (inner loop — pure, no Effect overhead)
-        fillColumn(
-          blocks,
-          lx,
-          lz,
-          surfaceY,
-          lakeBasinY !== null
-            ? { surfaceBlockIndex: sandBlockIndex, subSurfaceBlockIndex: sandBlockIndex, stoneBlockIndex }
-            : isShore
-              ? { surfaceBlockIndex: sandBlockIndex, subSurfaceBlockIndex, stoneBlockIndex }
-              : { surfaceBlockIndex, subSurfaceBlockIndex, stoneBlockIndex },
-        )
-
-        // Phase 3.5: Water fill — ocean (below SEA_LEVEL) and inland lakes (below LAKE_LEVEL)
-        if (surfaceY < SEA_LEVEL) {
-          for (let y = surfaceY + 1; y <= SEA_LEVEL; y++) {
-            blocks[chunkBlockIndexUnchecked(lx, y, lz)] = waterBlockIndex // intentional direct write: water fill during terrain generation
-          }
-        } else {
-          if (lakeBasinY !== null) {
-            for (let y = surfaceY + 1; y <= LAKE_LEVEL; y++) {
-              blocks[chunkBlockIndexUnchecked(lx, y, lz)] = waterBlockIndex // intentional direct write: lake water fill during terrain generation
-            }
-          }
-        }
-
-        // Phase 4: Place trees (probability-based, pure)
-        const { place, treeRng } = shouldPlaceTree(props.treeDensity, surfaceY, wx, wz)
-        if (place && lakeBasinY === null) {
-          placeTree(blocks, lx, lz, surfaceY, treeRng)
-        }
-
-        columnIndex++
-      }
-    }
-
-    return { ...chunk, blocks }
-  })
-
-/**
  * ChunkManagerService class for chunk lifecycle management
  *
  * Handles loading, caching, and unloading of chunks based on player position.
@@ -413,6 +102,15 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
       const storageService = yield* StorageServicePort
       const biomeService = yield* BiomeService
       const noiseService = yield* NoiseServicePort
+      const lightEngine = yield* LightEngineService
+
+      // Compute and attach skyLight + blockLight grids onto a freshly-loaded or
+      // freshly-generated chunk before it enters the cache. The mesher uses these
+      // grids to emit per-vertex sky/block factors via vertex colors.
+      const withLighting = (chunk: Chunk): Effect.Effect<Chunk, never> =>
+        lightEngine.updateLight(chunk).pipe(
+          Effect.map((grids) => ({ ...chunk, skyLight: grids.skyLight, blockLight: grids.blockLight }))
+        )
 
       const cache = yield* Ref.make<ChunkCache>({
         chunks: HashMap.empty<ChunkCacheKey, ChunkCacheEntry>(),
@@ -512,9 +210,11 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
           const generateAndInsert = (): Effect.Effect<Chunk, ChunkManagerError> =>
             Effect.gen(function* () {
               // Generate new chunk via procedural terrain — track load duration
-              const newChunk = yield* generateTerrain(chunkService, biomeService, noiseService, coord).pipe(
+              const generated = yield* generateTerrain(chunkService, biomeService, noiseService, coord).pipe(
                 Metric.trackDurationWith(chunkLoadHistogram, (d) => Duration.toMillis(d))
               )
+              // Attach skyLight + blockLight grids before insert so the mesher can sample them.
+              const newChunk = yield* withLighting(generated)
               yield* insertWithEviction(coord, newChunk)
               return newChunk
             })
@@ -540,7 +240,10 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
                     yield* Effect.logWarning(`Chunk (${coord.x},${coord.z}) has invalid buffer length ${blocks.byteLength} (expected ${EXPECTED_LENGTH}); regenerating`)
                     return yield* generateAndInsert()
                   }
-                  const chunk: Chunk = { coord, blocks, fluid: Option.fromNullable(fluid) }
+                  const baseChunk: Chunk = { coord, blocks, fluid: Option.fromNullable(fluid) }
+                  // Compute lighting fresh on load — storage doesn't persist light grids;
+                  // this avoids stale lighting after manual block edits between sessions.
+                  const chunk = yield* withLighting(baseChunk)
                   yield* insertWithEviction(coord, chunk)
                   return chunk
                 }),
@@ -645,14 +348,51 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
           }),
 
         /**
-         * Mark a chunk as dirty (modified, needs saving)
+         * Mark a chunk as dirty (modified, needs saving) and refresh its light grids.
+         * Also marks the 8 neighboring chunks as dirty so the renderer re-meshes them —
+         * lighting changes near chunk borders affect adjacent chunks (no cross-chunk BFS yet,
+         * but corner sampling reaches one voxel into the AIR side which may be in a neighbor).
          */
         markChunkDirty: (coord: ChunkCoord): Effect.Effect<void, never> =>
           Effect.gen(function* () {
             const key = chunkCoordToKey(coord)
+            // Recompute lighting for the modified chunk in-place — the existing skyLight/blockLight
+            // buffers are reused (lightBufferOrFresh checks byteLength) so no extra allocations.
+            const state = yield* Ref.get(cache)
+            yield* Option.match(HashMap.get(state.chunks, key), {
+              onNone: () => Effect.void,
+              onSome: (entry) =>
+                lightEngine.updateLight(entry.chunk).pipe(
+                  Effect.tap((grids) =>
+                    Ref.update(cache, (s) =>
+                      Option.match(HashMap.get(s.chunks, key), {
+                        onNone: () => s,
+                        onSome: (e) => ({
+                          ...s,
+                          chunks: HashMap.set(s.chunks, key, {
+                            ...e,
+                            chunk: { ...e.chunk, skyLight: grids.skyLight, blockLight: grids.blockLight },
+                          }),
+                        }),
+                      })
+                    )
+                  )
+                ),
+            })
+
+            // Mark this chunk + 8 neighbors as dirty (renderer re-meshes from dirty set).
+            const neighborOffsets: ReadonlyArray<readonly [number, number]> = [
+              [0, 0],
+              [-1, -1], [-1, 0], [-1, 1],
+              [0, -1],           [0, 1],
+              [1, -1],  [1, 0],  [1, 1],
+            ]
+            const allKeys = Arr.map(neighborOffsets, ([dx, dz]) =>
+              chunkCoordToKey({ x: coord.x + dx, z: coord.z + dz })
+            )
             yield* Ref.update(cache, (s) => ({
               ...s,
-              dirtyChunks: HashSet.add(s.dirtyChunks, key),
+              dirtyChunks: Arr.reduce(allKeys, s.dirtyChunks, (set, k) => HashSet.add(set, k)),
             }))
           }),
 

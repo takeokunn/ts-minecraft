@@ -114,8 +114,9 @@ const createTestLayer = (inputService: ReturnType<typeof createTestInputService>
   )
 
   // Create final layer with GameStateService
-  return GameStateServiceLive.pipe(
-    Layer.provide(dependencyLayers)
+  return Layer.mergeAll(
+    GameStateServiceLive.pipe(Layer.provide(dependencyLayers)),
+    playerLayer,
   )
 }
 
@@ -164,6 +165,7 @@ describe('application/game-state', () => {
 
         expect(typeof service.initialize).toBe('function')
         expect(typeof service.update).toBe('function')
+        expect(typeof service.respawn).toBe('function')
         expect(typeof service.getTiming).toBe('function')
         expect(typeof service.getPlayerPosition).toBe('function')
         expect(typeof service.getCameraRotation).toBe('function')
@@ -315,6 +317,33 @@ describe('application/game-state', () => {
         expect(typeof position.x).toBe('number')
         expect(typeof position.y).toBe('number')
         expect(typeof position.z).toBe('number')
+      }).pipe(Effect.provide(testLayer))
+    })
+  })
+
+  describe('Respawn', () => {
+    it.effect('should reset the player position and velocity to the respawn point', () => {
+      const inputService = createTestInputService({ forward: true })
+      const testLayer = createTestLayer(inputService)
+      const respawnPosition = { x: 10, y: 20, z: -5 }
+
+      return Effect.gen(function* () {
+        const service = yield* GameStateService
+
+        yield* service.initialize({ x: 0, y: 5, z: 0 })
+        yield* Effect.forEach(Arr.makeBy(10, () => undefined), () => service.update(DeltaTimeSecs.make(1 / 60)), { concurrency: 1 })
+
+        yield* service.respawn(respawnPosition)
+
+        const position = yield* service.getPlayerPosition(DEFAULT_PLAYER_ID)
+        const grounded = yield* service.isPlayerGrounded()
+        yield* service.update(DeltaTimeSecs.make(1 / 60))
+        const afterUpdate = yield* service.getPlayerPosition(DEFAULT_PLAYER_ID)
+
+        expect(position).toEqual(respawnPosition)
+        expect(grounded).toBe(false)
+        expect(afterUpdate.x).toBe(respawnPosition.x)
+        expect(afterUpdate.z).toBe(respawnPosition.z)
       }).pipe(Effect.provide(testLayer))
     })
   })

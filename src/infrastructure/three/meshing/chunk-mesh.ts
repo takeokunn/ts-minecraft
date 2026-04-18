@@ -5,6 +5,17 @@ import { TextureError } from '@/domain'
 import { ATLAS_COLS, ATLAS_SIZE } from '../textures/block-texture-map'
 import { MeshedChunk } from './greedy-meshing'
 import { MeshingWorkerPool } from './meshing-worker-pool'
+import {
+  DIRT_SPOTS,
+  FOAM_DOTS,
+  SNOW_DOTS,
+  GRAVEL_SPECKLES,
+  COBBLESTONE_PATCHES,
+  ORE_SPECKLES,
+  METAL_PANELS,
+  LAVA_HOT_SPOTS,
+  OBSIDIAN_PURPLES,
+} from './chunk-mesh.config'
 
 const TILE_PX = ATLAS_SIZE / ATLAS_COLS  // 32
 
@@ -51,6 +62,16 @@ const buildGeometry = (meshed: MeshedChunk): THREE.BufferGeometry => {
   return geometry
 }
 
+const getBufferAttr = (geometry: THREE.BufferGeometry, name: string): THREE.BufferAttribute | null => {
+  const attr = geometry.getAttribute(name)
+  return attr instanceof THREE.BufferAttribute ? attr : null
+}
+
+const copyAndMark = (attr: THREE.BufferAttribute, data: ArrayLike<number>): void => {
+  attr.copyArray(data)
+  attr.needsUpdate = true
+}
+
 // Performance boundary: reuse existing GPU buffers when capacity is sufficient.
 // Returns true if in-place update succeeded, false if caller must do full rebuild.
 //
@@ -58,36 +79,29 @@ const buildGeometry = (meshed: MeshedChunk): THREE.BufferGeometry => {
 // With worker-sourced data the .slice() allocation happens in the worker thread,
 // so the main thread only pays for the GPU copy here — no intermediate GC pressure.
 const tryReuseGeometry = (geometry: THREE.BufferGeometry, meshed: MeshedChunk): boolean => {
-  const oldPositionAttr = geometry.getAttribute('position')
-  if (!(oldPositionAttr instanceof THREE.BufferAttribute) || oldPositionAttr.count * 3 < meshed.positions.length) return false
+  const posAttr = getBufferAttr(geometry, 'position')
+  if (!posAttr || posAttr.count * 3 < meshed.positions.length) return false
+  copyAndMark(posAttr, meshed.positions)
 
-  oldPositionAttr.copyArray(meshed.positions)
-  oldPositionAttr.needsUpdate = true
+  const normalAttr = getBufferAttr(geometry, 'normal')
+  if (!normalAttr) return false
+  copyAndMark(normalAttr, meshed.normals)
 
-  const normalAttr = geometry.getAttribute('normal')
-  if (!(normalAttr instanceof THREE.BufferAttribute)) return false
-  normalAttr.copyArray(meshed.normals)
-  normalAttr.needsUpdate = true
+  const colorAttr = getBufferAttr(geometry, 'color')
+  if (!colorAttr) return false
+  copyAndMark(colorAttr, meshed.colors)
 
-  const colorAttr = geometry.getAttribute('color')
-  if (!(colorAttr instanceof THREE.BufferAttribute)) return false
-  colorAttr.copyArray(meshed.colors)
-  colorAttr.needsUpdate = true
-
-  const uvAttr = geometry.getAttribute('uv')
-  if (!(uvAttr instanceof THREE.BufferAttribute)) return false
-  uvAttr.copyArray(meshed.uvs)
-  uvAttr.needsUpdate = true
+  const uvAttr = getBufferAttr(geometry, 'uv')
+  if (!uvAttr) return false
+  copyAndMark(uvAttr, meshed.uvs)
 
   const indexAttr = geometry.getIndex()
   if (indexAttr instanceof THREE.BufferAttribute && indexAttr.count >= meshed.indices.length) {
-    indexAttr.copyArray(meshed.indices)
-    indexAttr.needsUpdate = true
-    geometry.setDrawRange(0, meshed.indices.length)
+    copyAndMark(indexAttr, meshed.indices)
   } else {
     geometry.setIndex(new THREE.BufferAttribute(meshed.indices, 1))
-    geometry.setDrawRange(0, meshed.indices.length)
   }
+  geometry.setDrawRange(0, meshed.indices.length)
 
   return true
 }
@@ -167,8 +181,7 @@ const buildAtlasTexture = (): Effect.Effect<THREE.Texture, TextureError> =>
         context.fillStyle = '#8B4513'
         context.fillRect(x, y, TILE_PX, TILE_PX)
         // Dirt speckles
-        const dirtSpots = [[2,4],[6,8],[11,5],[15,10],[20,7],[25,3],[28,12],[4,18],[9,22],[18,19],[23,26],[27,20]] as const
-        Arr.forEach(dirtSpots, ([sx, sy]) => {
+        Arr.forEach(DIRT_SPOTS, ([sx, sy]) => {
           context.fillStyle = sx % 3 === 0 ? '#7a3a0e' : '#9a5520'
           context.fillRect(x + sx, y + sy + 4, 2, 2)
         })
@@ -194,8 +207,7 @@ const buildAtlasTexture = (): Effect.Effect<THREE.Texture, TextureError> =>
           context.fillRect(x, y + wy, TILE_PX, 2)
         }
         // Foam/highlight dots
-        const foamDots = [[3,1],[9,5],[15,1],[22,3],[27,7],[4,9],[12,13],[18,9],[25,13],[7,17],[14,17],[20,21],[2,21],[28,17],[6,25],[16,25],[24,29]] as const
-        Arr.forEach(foamDots, ([fx, fy]) => {
+        Arr.forEach(FOAM_DOTS, ([fx, fy]) => {
           context.fillStyle = '#4488ee'
           context.fillRect(x + fx, y + fy, 2, 1)
         })
@@ -257,8 +269,7 @@ const buildAtlasTexture = (): Effect.Effect<THREE.Texture, TextureError> =>
         context.fillStyle = '#f0f5ff'
         context.fillRect(x, y, TILE_PX, TILE_PX)
         // Subtle blue-tint variation spots
-        const snowDots = [[1,2],[5,0],[9,3],[13,1],[17,4],[21,0],[25,2],[29,4],[3,8],[7,6],[11,9],[15,7],[19,10],[23,6],[27,9],[0,14],[4,12],[8,15],[12,13],[16,16],[20,12],[24,15],[28,13],[2,20],[6,18],[10,21],[14,19],[18,22],[22,18],[26,21],[30,19],[1,26],[5,24],[9,27],[13,25],[17,28],[21,24],[25,27],[29,25]] as const
-        Arr.forEach(snowDots, ([sx, sy], i) => {
+        Arr.forEach(SNOW_DOTS, ([sx, sy], i) => {
           context.fillStyle = i % 3 === 0 ? '#dde8ff' : (i % 3 === 1 ? '#e8f0ff' : '#ccdaff')
           context.fillRect(x + (sx % TILE_PX), y + (sy % TILE_PX), 2, 1)
         })
@@ -268,16 +279,7 @@ const buildAtlasTexture = (): Effect.Effect<THREE.Texture, TextureError> =>
       drawProceduralTile(11, (context, x, y) => {
         context.fillStyle = '#7a6a5a'
         context.fillRect(x, y, TILE_PX, TILE_PX)
-        // More speckles for 32×32
-        const speckles = [
-          [1,2,2,2],[4,5,3,3],[7,1,2,2],[10,8,3,2],[13,4,2,3],[16,0,2,2],[19,6,3,2],[22,3,2,3],
-          [25,1,2,2],[28,5,3,3],[2,10,3,2],[5,14,2,3],[8,11,2,2],[11,15,3,2],[14,12,2,2],
-          [17,10,3,3],[20,14,2,2],[23,11,3,2],[26,15,2,3],[0,19,2,2],[3,22,3,3],[6,18,2,2],
-          [9,23,3,2],[12,20,2,3],[15,17,2,2],[18,22,3,2],[21,19,2,2],[24,23,3,3],[27,18,2,2],
-          [1,28,3,2],[4,26,2,3],[7,29,2,2],[10,27,3,2],[13,25,2,2],[16,29,3,3],[19,26,2,2],
-          [22,28,3,2],[25,25,2,3],[29,27,2,2],
-        ] as const
-        Arr.forEach(speckles, ([sx, sy, sw, sh]) => {
+        Arr.forEach(GRAVEL_SPECKLES, ([sx, sy, sw, sh]) => {
           const colors = ['#8a7a6a', '#6a5a4a', '#9a8a7a', '#5a4a3a', '#8a8070'] as const
           context.fillStyle = Option.getOrElse(Arr.get(colors, Math.floor((sx + sy) % 5)), () => '#8a7a6a' as const)
           context.fillRect(x + sx, y + sy, sw, sh)
@@ -290,12 +292,7 @@ const buildAtlasTexture = (): Effect.Effect<THREE.Texture, TextureError> =>
         context.fillStyle = '#606060'
         context.fillRect(x, y, TILE_PX, TILE_PX)
         // Stone patches (more for 32×32)
-        const patches = [
-          [1, 1, 9, 8], [12, 1, 9, 8], [22, 1, 9, 8],
-          [1, 11, 14, 8], [17, 11, 14, 8],
-          [1, 21, 9, 9], [12, 21, 9, 9], [22, 21, 9, 9],
-        ] as const
-        Arr.forEach(patches, ([px, py, pw, ph]) => {
+        Arr.forEach(COBBLESTONE_PATCHES, ([px, py, pw, ph]) => {
           // Stone fill color
           const variant = (px + py) % 3
           const stoneColor = variant === 0 ? '#787878' : (variant === 1 ? '#818181' : '#6f6f6f')
@@ -310,6 +307,259 @@ const buildAtlasTexture = (): Effect.Effect<THREE.Texture, TextureError> =>
           context.fillRect(x + px + 1, y + py + ph - 2, pw - 2, 1)
           context.fillRect(x + px + pw - 2, y + py + 1, 1, ph - 2)
         })
+      })
+
+
+      const drawSolidBase = (context: CanvasRenderingContext2D, x: number, y: number, fill: string) => {
+        context.fillStyle = fill
+        context.fillRect(x, y, TILE_PX, TILE_PX)
+      }
+
+      const drawNoise = (
+        context: CanvasRenderingContext2D, x: number, y: number,
+        colors: ReadonlyArray<string>, density: number
+      ) => {
+        for (let py = 0; py < TILE_PX; py++) {
+          for (let px = 0; px < TILE_PX; px++) {
+            const h = Math.sin(px * 12.9898 + py * 78.233 + colors.length) * 43758.5453
+            const r = h - Math.floor(h)
+            if (r < density) {
+              context.fillStyle = Option.getOrElse(
+                Arr.get(colors, Math.floor(r * colors.length * 10) % colors.length),
+                () => '#000000' as string
+              )
+              context.fillRect(x + px, y + py, 1, 1)
+            }
+          }
+        }
+      }
+
+      const drawOreTile = (
+        tileIndex: number,
+        baseColor: string,
+        baseNoise: ReadonlyArray<string>,
+        oreColors: ReadonlyArray<string>
+      ) => {
+        drawProceduralTile(tileIndex, (context, x, y) => {
+          drawSolidBase(context, x, y, baseColor)
+          drawNoise(context, x, y, baseNoise, 0.35)
+          Arr.forEach(ORE_SPECKLES, ([sx, sy, sz], i) => {
+            context.fillStyle = Option.getOrElse(
+              Arr.get(oreColors, i % oreColors.length),
+              () => '#000000' as string
+            )
+            context.fillRect(x + sx, y + sy, sz, sz)
+            // inner highlight
+            context.fillStyle = Option.getOrElse(
+              Arr.get(oreColors, (i + 1) % oreColors.length),
+              () => '#ffffff' as string
+            )
+            context.fillRect(x + sx + 1, y + sy + 1, Math.max(1, sz - 2), Math.max(1, sz - 2))
+          })
+        })
+      }
+
+      // tile 13: granite — reddish pink rock
+      drawProceduralTile(13, (context, x, y) => {
+        drawSolidBase(context, x, y, '#9a6a5a')
+        drawNoise(context, x, y, ['#b07868', '#8a5a4a', '#a56358'], 0.55)
+      })
+
+      // tile 14: diorite — white/grey rock
+      drawProceduralTile(14, (context, x, y) => {
+        drawSolidBase(context, x, y, '#bcbcbc')
+        drawNoise(context, x, y, ['#e0e0e0', '#8a8a8a', '#d0d0d0'], 0.55)
+      })
+
+      // tile 15: andesite — medium grey
+      drawProceduralTile(15, (context, x, y) => {
+        drawSolidBase(context, x, y, '#888888')
+        drawNoise(context, x, y, ['#a0a0a0', '#6a6a6a', '#909090'], 0.55)
+      })
+
+      // tile 16: deepslate — dark grey with column striations
+      drawProceduralTile(16, (context, x, y) => {
+        drawSolidBase(context, x, y, '#454545')
+        drawNoise(context, x, y, ['#555555', '#353535', '#4a4a4a'], 0.55)
+        // Faint vertical striations (columnar look)
+        context.fillStyle = '#383838'
+        for (let vx = 3; vx < TILE_PX; vx += 7) {
+          context.fillRect(x + vx, y, 1, TILE_PX)
+        }
+      })
+
+      // tile 17: bedrock — near-black with crack pattern
+      drawProceduralTile(17, (context, x, y) => {
+        drawSolidBase(context, x, y, '#333333')
+        drawNoise(context, x, y, ['#1c1c1c', '#505050', '#2a2a2a'], 0.65)
+        context.fillStyle = '#555555'
+        context.fillRect(x + 3, y + 3, 1, 6)
+        context.fillRect(x + 10, y + 12, 8, 1)
+        context.fillRect(x + 22, y + 7, 1, 9)
+        context.fillRect(x + 6, y + 22, 12, 1)
+      })
+
+      // tile 18: lava — bright orange with yellow hotspots
+      drawProceduralTile(18, (context, x, y) => {
+        drawSolidBase(context, x, y, '#d44a10')
+        drawNoise(context, x, y, ['#f07a20', '#b83308', '#e85a18'], 0.5)
+        // hot yellow spots
+        Arr.forEach(LAVA_HOT_SPOTS, ([hx, hy]) => {
+          context.fillStyle = '#ffd060'
+          context.fillRect(x + hx, y + hy, 2, 2)
+          context.fillStyle = '#ffff80'
+          context.fillRect(x + hx, y + hy, 1, 1)
+        })
+      })
+
+      // tile 19: obsidian — dark purple-black
+      drawProceduralTile(19, (context, x, y) => {
+        drawSolidBase(context, x, y, '#15101c')
+        drawNoise(context, x, y, ['#1f1830', '#0a0515', '#28203a'], 0.55)
+        // subtle purple highlights
+        Arr.forEach(OBSIDIAN_PURPLES, ([px, py]) => {
+          context.fillStyle = '#4a3060'
+          context.fillRect(x + px, y + py, 2, 1)
+        })
+      })
+
+      const STONE_BASE = '#7a7a7a'
+      const STONE_NOISE = ['#8a8a8a', '#6a6a6a', '#808080']
+      const DEEPSLATE_BASE = '#454545'
+      const DEEPSLATE_NOISE = ['#555555', '#353535', '#4a4a4a']
+
+      // tile 20: coal_ore
+      drawOreTile(20, STONE_BASE, STONE_NOISE, ['#151515', '#303030', '#000000'])
+      // tile 21: iron_ore — tan/pink specks
+      drawOreTile(21, STONE_BASE, STONE_NOISE, ['#b67a5a', '#d89878', '#9a5a3a'])
+      // tile 22: gold_ore
+      drawOreTile(22, STONE_BASE, STONE_NOISE, ['#f0c020', '#ffd840', '#c09010'])
+      // tile 23: diamond_ore
+      drawOreTile(23, STONE_BASE, STONE_NOISE, ['#40e0e0', '#80ffff', '#20a0c0'])
+      // tile 24: redstone_ore
+      drawOreTile(24, STONE_BASE, STONE_NOISE, ['#d02020', '#ff4040', '#a01010'])
+      // tile 25: lapis_ore
+      drawOreTile(25, STONE_BASE, STONE_NOISE, ['#2050c0', '#4080ff', '#1030a0'])
+      // tile 26: emerald_ore
+      drawOreTile(26, STONE_BASE, STONE_NOISE, ['#20c040', '#60ff80', '#108020'])
+      // tile 27-33: deepslate ore variants
+      drawOreTile(27, DEEPSLATE_BASE, DEEPSLATE_NOISE, ['#080808', '#202020', '#000000'])
+      drawOreTile(28, DEEPSLATE_BASE, DEEPSLATE_NOISE, ['#b67a5a', '#d89878', '#9a5a3a'])
+      drawOreTile(29, DEEPSLATE_BASE, DEEPSLATE_NOISE, ['#f0c020', '#ffd840', '#c09010'])
+      drawOreTile(30, DEEPSLATE_BASE, DEEPSLATE_NOISE, ['#40e0e0', '#80ffff', '#20a0c0'])
+      drawOreTile(31, DEEPSLATE_BASE, DEEPSLATE_NOISE, ['#d02020', '#ff4040', '#a01010'])
+      drawOreTile(32, DEEPSLATE_BASE, DEEPSLATE_NOISE, ['#2050c0', '#4080ff', '#1030a0'])
+      drawOreTile(33, DEEPSLATE_BASE, DEEPSLATE_NOISE, ['#20c040', '#60ff80', '#108020'])
+
+      const drawMetalBlock = (
+        tileIndex: number,
+        base: string,
+        highlight: string,
+        shadow: string
+      ) => {
+        drawProceduralTile(tileIndex, (context, x, y) => {
+          drawSolidBase(context, x, y, base)
+          // 4 brick-like panels per tile — fake metallic sheen
+          Arr.forEach(METAL_PANELS, ([px, py, pw, ph]) => {
+            context.fillStyle = highlight
+            context.fillRect(x + px, y + py, pw, 1)
+            context.fillRect(x + px, y + py, 1, ph)
+            context.fillStyle = shadow
+            context.fillRect(x + px, y + py + ph - 1, pw, 1)
+            context.fillRect(x + px + pw - 1, y + py, 1, ph)
+          })
+        })
+      }
+
+      // tile 34: coal_block
+      drawMetalBlock(34, '#1a1a1a', '#3a3a3a', '#050505')
+      // tile 35: iron_block
+      drawMetalBlock(35, '#d8d8d8', '#ffffff', '#a8a8a8')
+      // tile 36: gold_block
+      drawMetalBlock(36, '#f0c020', '#fff080', '#b08000')
+      // tile 37: diamond_block
+      drawMetalBlock(37, '#60e0d0', '#a0ffff', '#20a090')
+      // tile 38: redstone_block
+      drawMetalBlock(38, '#b01010', '#ff4040', '#700505')
+      // tile 39: lapis_block
+      drawMetalBlock(39, '#2040a0', '#5080ff', '#102060')
+      // tile 40: emerald_block
+      drawMetalBlock(40, '#20a040', '#80ff80', '#107020')
+
+      // tile 41: planks
+      drawProceduralTile(41, (context, x, y) => {
+        context.fillStyle = '#b88754'
+        context.fillRect(x, y, TILE_PX, TILE_PX)
+        context.fillStyle = '#9c6f40'
+        for (let row = 0; row < TILE_PX; row += 8) {
+          context.fillRect(x, y + row, TILE_PX, 2)
+        }
+        context.fillStyle = '#d2a46f'
+        for (let knot = 4; knot < TILE_PX; knot += 10) {
+          context.fillRect(x + knot, y + 4, 2, TILE_PX - 8)
+        }
+      })
+
+      // tile 42: sticks
+      drawProceduralTile(42, (context, x, y) => {
+        context.fillStyle = '#3b2a18'
+        context.fillRect(x, y, TILE_PX, TILE_PX)
+        context.fillStyle = '#c9a26b'
+        context.fillRect(x + 10, y + 2, 3, TILE_PX - 4)
+        context.fillRect(x + 18, y + 2, 3, TILE_PX - 4)
+      })
+
+      // tile 43: crafting table
+      drawProceduralTile(43, (context, x, y) => {
+        context.fillStyle = '#7a4f2b'
+        context.fillRect(x, y, TILE_PX, TILE_PX)
+        context.fillStyle = '#c69b6d'
+        context.fillRect(x + 3, y + 3, TILE_PX - 6, TILE_PX - 6)
+        context.fillStyle = '#6a4020'
+        context.fillRect(x + 3, y + 15, TILE_PX - 6, 2)
+        context.fillRect(x + 15, y + 3, 2, TILE_PX - 6)
+      })
+
+      // tile 44: furnace
+      drawProceduralTile(44, (context, x, y) => {
+        context.fillStyle = '#6a6a6a'
+        context.fillRect(x, y, TILE_PX, TILE_PX)
+        context.fillStyle = '#8a8a8a'
+        context.fillRect(x + 3, y + 3, TILE_PX - 6, 6)
+        context.fillStyle = '#2b2b2b'
+        context.fillRect(x + 7, y + 14, TILE_PX - 14, 10)
+      })
+
+      // tile 45: torch
+      drawProceduralTile(45, (context, x, y) => {
+        context.fillStyle = '#3b2a18'
+        context.fillRect(x, y, TILE_PX, TILE_PX)
+        context.fillStyle = '#d6b073'
+        context.fillRect(x + 14, y + 9, 4, TILE_PX - 13)
+        context.fillStyle = '#ffcf5a'
+        context.fillRect(x + 10, y + 2, 12, 9)
+        context.fillStyle = '#ff9f1c'
+        context.fillRect(x + 13, y + 4, 6, 5)
+      })
+
+      // tile 46: coal — circle approximated with fillRect diamond to avoid context.arc/fill (jsdom)
+      drawProceduralTile(46, (context, x, y) => {
+        context.fillStyle = '#1a1a1a'
+        context.fillRect(x, y, TILE_PX, TILE_PX)
+        context.fillStyle = '#4a4a4a'
+        context.fillRect(x + 10, y + 8, 12, 16)
+        context.fillRect(x + 8, y + 10, 16, 12)
+      })
+
+      // tile 47: wooden sword — blade tip approximated with fillRect to avoid path ops (jsdom)
+      drawProceduralTile(47, (context, x, y) => {
+        context.fillStyle = '#3b2a18'
+        context.fillRect(x, y, TILE_PX, TILE_PX)
+        context.fillStyle = '#d0b07a'
+        context.fillRect(x + 15, y + 6, 2, 18)
+        context.fillRect(x + 10, y + 11, 12, 2)
+        context.fillStyle = '#e8d0a8'
+        context.fillRect(x + 13, y + 2, 6, 10)
       })
 
       const texture = new THREE.CanvasTexture(canvas)
@@ -330,11 +580,54 @@ export class ChunkMeshService extends Effect.Service<ChunkMeshService>()(
         { concurrency: 'unbounded' }
       )
 
+      // Per-vertex colors encode three light factors normalized to [0,1] in the shader:
+      //   R = ambient occlusion (1 = unoccluded, 0 = fully occluded)
+      //   G = sky-light factor   (skyLight / 15)
+      //   B = block-light factor (blockLight / 15)
+      //
+      // The patch below replaces Three.js' vertex-color contribution to combine sky and block
+      // light (so torchlight at night is bright like vanilla) and modulate the result by AO.
+      // uSunIntensity is exposed per-material (default 1.0 = full daylight); a future
+      // time-of-day system can ramp this between 0 and 1 for diurnal cycles.
+      const sharedUniforms = { uSunIntensity: { value: 1.0 } }
       const sharedMaterial = yield* Effect.acquireRelease(
-        Effect.sync(() => new THREE.MeshLambertMaterial({
-          map: atlasTexture,
-          vertexColors: true,
-        })),
+        Effect.sync(() => {
+          const mat = new THREE.MeshLambertMaterial({
+            map: atlasTexture,
+            vertexColors: true,
+          })
+          mat.onBeforeCompile = (shader) => {
+            shader.uniforms['uSunIntensity'] = sharedUniforms.uSunIntensity
+            // Inject lighting compute into the fragment shader. We replace the standard
+            // <color_fragment> chunk (which would multiply diffuseColor by vColor as a tint)
+            // with our own combine: sky*sun + block (max-blended), then modulated by AO.
+            // The shader's vColor varying carries (R=AO, G=sky, B=block) in [0,1] from the
+            // BufferAttribute's `normalized: true` flag.
+            // Guard against Three.js upgrade silently breaking smooth-lighting injection.
+            if (!shader.fragmentShader.includes('void main() {') || !shader.fragmentShader.includes('#include <color_fragment>')) {
+              throw new Error('chunk-mesh: Three.js fragment shader tokens for smooth-lighting injection not found — lighting injection will silently no-op')
+            }
+            shader.fragmentShader = shader.fragmentShader
+              .replace(
+                'void main() {',
+                `uniform float uSunIntensity;\nvoid main() {`
+              )
+              .replace(
+                '#include <color_fragment>',
+                `#ifdef USE_COLOR
+                   float aoFactor = vColor.r;
+                   float skyFactor = vColor.g;
+                   float blockFactor = vColor.b;
+                   float lightFactor = max(skyFactor * uSunIntensity, blockFactor);
+                   diffuseColor.rgb *= (0.15 + 0.85 * lightFactor) * (0.7 + 0.3 * aoFactor);
+                 #endif`
+              )
+          }
+          // Three.js caches compiled programs by material UUID + defines; ensure recompile
+          // by setting needsUpdate after assignment.
+          mat.needsUpdate = true
+          return mat
+        }),
         (mat) => Effect.sync(() => mat.dispose())
       )
 
@@ -433,6 +726,15 @@ export class ChunkMeshService extends Effect.Service<ChunkMeshService>()(
         disposeMesh: (mesh: THREE.Mesh): Effect.Effect<void, never> =>
           Effect.sync(() => {
             mesh.geometry.dispose()
+          }),
+
+        /**
+         * Adjust the sun-light intensity uniform on the shared opaque chunk material.
+         * Value is clamped to [0, 1]. Future TimeService can drive this from day-night cycle.
+         */
+        setSunIntensity: (value: number): Effect.Effect<void, never> =>
+          Effect.sync(() => {
+            sharedUniforms.uSunIntensity.value = Math.max(0, Math.min(1, value))
           }),
       }
     }),

@@ -119,8 +119,9 @@ describe('recipe-service / findCraftable (property-based)', () => {
         const allRecipes = rs.getAllRecipes()
         const allIds = HashSet.fromIterable(Arr.map(allRecipes, (r) => r.id))
 
-        // Build a HashMap with 64 of every required ingredient block type
-        const fullyStocked = Arr.reduce(allRecipes, HashMap.empty<BlockType, number>(), (map, recipe) =>
+        // Build a HashMap with 64 of every required ingredient block type + CRAFTING_TABLE
+        // (CRAFTING_TABLE is a station requirement, not an ingredient, so it's added explicitly)
+        const fullyStocked = Arr.reduce(allRecipes, HashMap.set(HashMap.empty<BlockType, number>(), 'CRAFTING_TABLE' as BlockType, 64), (map, recipe) =>
           Arr.reduce(recipe.ingredients, map, (m, ing) => HashMap.set(m, ing.blockType, 64))
         )
 

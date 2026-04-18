@@ -2,61 +2,11 @@ import { Array as Arr, Effect, Option } from 'effect'
 import { InventoryService } from '@/application/inventory/inventory-service'
 import type { BlockType } from '@/domain/block'
 import { VillageService } from '@/village/village-service'
-import { VillagerProfession, type Villager, type VillagerId } from '@/village/village-model'
+import type { Villager, VillagerId } from '@/village/village-model'
 import { TradeOfferId, TradeSuccess, TradeFailure, type TradeFailureReason, type TradeOffer, type TradeResult } from '@/trading/trading-model'
+import { TRADE_CURRENCY_BLOCK, TRADE_OFFERS } from '@/trading/trading-service.config'
 
-export const TRADE_CURRENCY_BLOCK: BlockType = 'GRAVEL'
-
-const TRADE_OFFERS: ReadonlyArray<TradeOffer> = [
-  {
-    offerId: TradeOfferId.make('farmer:grass-bundle'),
-    profession: VillagerProfession.Farmer,
-    levelRequired: 1,
-    input: { blockType: TRADE_CURRENCY_BLOCK, count: 1 },
-    output: { blockType: 'GRASS', count: 4 },
-    experienceReward: 3,
-  },
-  {
-    offerId: TradeOfferId.make('farmer:sand-bundle'),
-    profession: VillagerProfession.Farmer,
-    levelRequired: 2,
-    input: { blockType: TRADE_CURRENCY_BLOCK, count: 2 },
-    output: { blockType: 'SAND', count: 6 },
-    experienceReward: 4,
-  },
-  {
-    offerId: TradeOfferId.make('librarian:wood-bundle'),
-    profession: VillagerProfession.Librarian,
-    levelRequired: 1,
-    input: { blockType: TRADE_CURRENCY_BLOCK, count: 1 },
-    output: { blockType: 'WOOD', count: 3 },
-    experienceReward: 3,
-  },
-  {
-    offerId: TradeOfferId.make('librarian:glass-bundle'),
-    profession: VillagerProfession.Librarian,
-    levelRequired: 2,
-    input: { blockType: TRADE_CURRENCY_BLOCK, count: 2 },
-    output: { blockType: 'GLASS', count: 3 },
-    experienceReward: 4,
-  },
-  {
-    offerId: TradeOfferId.make('blacksmith:stone-bundle'),
-    profession: VillagerProfession.Blacksmith,
-    levelRequired: 1,
-    input: { blockType: TRADE_CURRENCY_BLOCK, count: 1 },
-    output: { blockType: 'STONE', count: 4 },
-    experienceReward: 3,
-  },
-  {
-    offerId: TradeOfferId.make('blacksmith:cobblestone-bundle'),
-    profession: VillagerProfession.Blacksmith,
-    levelRequired: 2,
-    input: { blockType: TRADE_CURRENCY_BLOCK, count: 2 },
-    output: { blockType: 'COBBLESTONE', count: 5 },
-    experienceReward: 4,
-  },
-]
+export { TRADE_CURRENCY_BLOCK } from '@/trading/trading-service.config'
 
 const offersForVillager = (villager: Villager): ReadonlyArray<TradeOffer> =>
   Arr.filter(
@@ -71,6 +21,17 @@ const findOfferForVillager = (villager: Villager, offerId: TradeOfferId): Option
       offer.offerId === offerId &&
       offer.profession === villager.profession &&
       offer.levelRequired <= villager.level,
+  )
+
+const countBlockInInventory = (
+  slots: ReadonlyArray<Option.Option<{ readonly blockType: BlockType; readonly count: number }>>,
+  blockType: BlockType,
+): number =>
+  Arr.reduce(slots, 0, (total, slot) =>
+    total + Option.match(slot, {
+      onNone: () => 0,
+      onSome: (stack) => stack.blockType === blockType ? stack.count : 0,
+    })
   )
 
 export class TradingService extends Effect.Service<TradingService>()(
@@ -104,6 +65,12 @@ export class TradingService extends Effect.Service<TradingService>()(
 
             if (villager.level < offer.levelRequired) {
               return yield* Effect.fail<TradeFailureReason>('villager_level_too_low')
+            }
+
+            const inventorySlots = yield* inventoryService.getAllSlots()
+            const availableInput = countBlockInInventory(inventorySlots, offer.input.blockType)
+            if (availableInput < offer.input.count) {
+              return yield* Effect.fail<TradeFailureReason>('insufficient_input')
             }
 
             const inputRemoved = yield* inventoryService.removeBlock(offer.input.blockType, offer.input.count)

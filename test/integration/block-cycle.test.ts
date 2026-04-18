@@ -31,6 +31,7 @@ import { PlayerService } from '@/application/player/player-state'
 import { Position, PlayerId, WorldId } from '@/shared/kernel'
 import { PlayerError } from '@/domain/errors'
 import { ChunkManagerService, ChunkManagerServiceLive } from '@/application/chunk/chunk-manager-service'
+import { LightEngineLive } from '@/application/light/light-engine-service'
 import { BlockService, BlockServiceLive } from '@/application/block/block-service'
 import { InventoryService } from '@/application/inventory/inventory-service'
 import { FluidService } from '@/application/fluid/fluid-service'
@@ -98,12 +99,14 @@ const buildIntegrationLayer = (playerPos: Position = { x: 100, y: 0, z: 100 }) =
     Layer.provide(StorageTestLayer),
     Layer.provide(BiomeTestLayer),
     Layer.provide(NoiseLayer),
+    Layer.provide(LightEngineLive),
   )
 
   const PlayerTestLayer = Layer.succeed(PlayerService, createMockPlayerService(playerPos))
 
   const MockInventoryLayer = Layer.succeed(InventoryService, {
     addBlock: (_blockType: unknown, _count: unknown) => Effect.succeed(false),
+    removeBlock: (_blockType: unknown, _count: unknown) => Effect.succeed(true),
     getSlot: (_idx: unknown) => Effect.void,
     setSlot: (_idx: unknown, _slot: unknown) => Effect.void,
     moveStack: (_from: unknown, _to: unknown) => Effect.void,
@@ -144,6 +147,7 @@ const buildSecondSessionLayer = (storage: ReturnType<typeof makeInMemoryStorage>
     Layer.provide(StorageTestLayer),
     Layer.provide(BiomeTestLayer),
     Layer.provide(NoiseLayer),
+    Layer.provide(LightEngineLive),
   )
 }
 

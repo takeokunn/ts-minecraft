@@ -66,7 +66,7 @@ describe('ItemStack Schema.Class encode round-trip', () => {
 
   it('decode rejects invalid blockType', () => {
     expect(() =>
-      Schema.decodeUnknownSync(ItemStack)({ blockType: 'BEDROCK', count: 1 })
+      Schema.decodeUnknownSync(ItemStack)({ blockType: 'NETHERRACK', count: 1 })
     ).toThrow()
   })
 

@@ -27,7 +27,7 @@ const makeTestLayer = (tempValue: number, humidityValue: number) =>
   BiomeServiceLive.pipe(Layer.provide(makeMockNoiseLayer(tempValue, humidityValue)))
 
 // All valid BiomeType literals
-const ALL_BIOME_TYPES = ['PLAINS', 'DESERT', 'FOREST', 'OCEAN', 'MOUNTAINS', 'SNOW', 'SWAMP', 'JUNGLE'] as const
+const ALL_BIOME_TYPES = ['PLAINS', 'DESERT', 'FOREST', 'OCEAN', 'MOUNTAINS', 'SNOW', 'SWAMP', 'JUNGLE', 'BEACH', 'TAIGA', 'SAVANNA'] as const
 
 describe('BiomeService — getBiome property tests', () => {
   it.effect.prop(
@@ -95,25 +95,6 @@ describe('BiomeService — getBiomeProperties property tests', () => {
     }).pipe(Effect.provide(makeTestLayer(0.5, 0.5))),
   )
 
-  it.effect('heightModifier is always > 0 for all biome types', () =>
-    Effect.gen(function* () {
-      const service = yield* BiomeService
-      yield* Effect.forEach(ALL_BIOME_TYPES, (biome) => service.getBiomeProperties(biome).pipe(Effect.map((props) => {
-        expect(props.heightModifier).toBeGreaterThan(0)
-      })), { concurrency: 1 })
-    }).pipe(Effect.provide(makeTestLayer(0.5, 0.5))),
-  )
-
-  it.effect('baseHeight is always > 0 and < CHUNK_HEIGHT for all biome types', () =>
-    Effect.gen(function* () {
-      const service = yield* BiomeService
-      yield* Effect.forEach(ALL_BIOME_TYPES, (biome) => service.getBiomeProperties(biome).pipe(Effect.map((props) => {
-        expect(props.baseHeight).toBeGreaterThan(0)
-        expect(props.baseHeight).toBeLessThan(CHUNK_HEIGHT)
-      })), { concurrency: 1 })
-    }).pipe(Effect.provide(makeTestLayer(0.5, 0.5))),
-  )
-
   it.effect('temperature and humidity properties are numeric for all biome types', () =>
     Effect.gen(function* () {
       const service = yield* BiomeService
@@ -136,8 +117,6 @@ describe('BiomeService — getBiomeProperties property tests', () => {
         const props2 = yield* service.getBiomeProperties(biome)
         expect(props1.surfaceBlock).toBe(props2.surfaceBlock)
         expect(props1.subSurfaceBlock).toBe(props2.subSurfaceBlock)
-        expect(props1.heightModifier).toBe(props2.heightModifier)
-        expect(props1.baseHeight).toBe(props2.baseHeight)
         expect(props1.treeDensity).toBe(props2.treeDensity)
       }).pipe(Effect.provide(makeTestLayer(0.5, 0.5))),
     { fastCheck: { numRuns: 8 } },

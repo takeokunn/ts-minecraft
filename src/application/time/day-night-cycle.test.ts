@@ -5,6 +5,7 @@ import * as THREE from 'three'
 import { TimeService, TimeServiceLive } from '@/application/time/time-service'
 import { updateDayNightCycle, type DayNightLights } from '@/application/time/day-night-cycle'
 import type { DeltaTimeSecs } from '@/shared/kernel'
+import type { SkyMaterialPort } from '@/shared/math/three/day-night-port'
 
 /**
  * Lightweight stub for DayNightLights.
@@ -202,6 +203,32 @@ describe('application/time/day-night-cycle', () => {
         expect(lights.skyCurrent.r).toBeCloseTo(1, 3)
         expect(lights.skyCurrent.g).toBeCloseTo(1, 3)
         expect(lights.skyCurrent.b).toBeCloseTo(1, 3)
+      }).pipe(Effect.provide(TimeServiceLive))
+    )
+
+    it.effect('should also set clearColor when the physical sky is enabled', () =>
+      Effect.gen(function* () {
+        const timeService = yield* TimeService
+        yield* timeService.setDayLength(400)
+        yield* timeService.setTimeOfDay(0.5)
+
+        const fakeSky: SkyMaterialPort = {
+          uniforms: {
+            sunPosition: { value: { set: (_x: number, _y: number, _z: number) => {} } },
+            turbidity: { value: 0 },
+            rayleigh: { value: 0 },
+          },
+        }
+
+        const lights = {
+          ...makeFakeLights(),
+          sky: Option.some(fakeSky),
+        }
+
+        yield* updateDayNightCycle(0 as DeltaTimeSecs, lights, timeService)
+        expect(Option.isSome(MutableRef.get(lights.capturedClearColor))).toBe(true)
+        expect(fakeSky.uniforms.turbidity.value).toBeGreaterThan(0)
+        expect(fakeSky.uniforms.rayleigh.value).toBeGreaterThan(0)
       }).pipe(Effect.provide(TimeServiceLive))
     )
   })

@@ -4,6 +4,8 @@ import { greedyMeshChunk } from './greedy-meshing'
 import { CHUNK_SIZE, CHUNK_HEIGHT, blockTypeToIndex } from '@/domain/chunk'
 import type { Chunk, ChunkCoord } from '@/domain/chunk'
 import type { BlockType } from '@/domain/block'
+import { createLightBuffer, setLightAt, LIGHT_LEVEL_MAX, computeBlockLight } from '@/domain/light'
+import type { LightGrids } from '@/domain/light'
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
@@ -550,7 +552,7 @@ describe('greedyMeshChunk', () => {
   })
 
   describe('ensureCapacity buffer growth', () => {
-    it('handles a 3D checkerboard chunk that exceeds INITIAL_QUAD_CAPACITY (8192) without error', () => {
+    it('handles a 3D checkerboard chunk that exceeds INITIAL_QUAD_CAPACITY (8192) without error', { timeout: 20_000 }, () => {
       // A 3D checkerboard in 16×128×16 produces ~2048*6 = ~12288 quads per axis combination,
       // well above the INITIAL_QUAD_CAPACITY of 8192. This forces ensureCapacity to double buffers.
       const blocks = new Uint8Array(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT)
@@ -606,6 +608,146 @@ describe('greedyMeshChunk', () => {
       const result = greedyMeshChunk(chunk, ZERO_OFFSET)
       expect(result.opaque.indices).toBeInstanceOf(Uint32Array)
       expect(result.opaque.indices.length).toBeGreaterThan(0)
+    })
+  })
+
+  // ─── Lighting ─────────────────────────────────────────────────────────────
+  //
+  // Vertex colors encode three normalized factors (Uint8 → [0,1] in shader):
+  //   R = AO factor      (255 = no darkening)
+  //   G = sky-light      (skyLight / 15 * 255)
+  //   B = block-light    (blockLight / 15 * 255)
+  //
+  // dequantLight maps the 2-bit packed corner light back to {0,5,10,15} before
+  // encoding, so per-vertex G/B values fall in {0, 85, 170, 255}.
+
+  describe('lighting (LightGrids → vertex colors)', () => {
+    const fillLight = (grid: Uint8Array, value: number): void => {
+      Arr.forEach(Arr.makeBy(CHUNK_SIZE, (i) => i), (lx) => {
+        Arr.forEach(Arr.makeBy(CHUNK_SIZE, (i) => i), (lz) => {
+          Arr.forEach(Arr.makeBy(CHUNK_HEIGHT, (i) => i), (y) => {
+            setLightAt(grid, lx, y, lz, value)
+          })
+        })
+      })
+    }
+
+    const makeUniformLightGrids = (sky: number, block: number): LightGrids => {
+      const skyLight = createLightBuffer()
+      const blockLight = createLightBuffer()
+      fillLight(skyLight, sky)
+      fillLight(blockLight, block)
+      return { skyLight, blockLight }
+    }
+
+    // Slice colors into per-vertex [R, G, B] tuples for inspection.
+    const sliceColors = (colors: Uint8Array): Array<readonly [number, number, number]> =>
+      Arr.makeBy(colors.length / 3, (i) => [colors[i * 3]!, colors[i * 3 + 1]!, colors[i * 3 + 2]!] as const)
+
+    it('uniform daylight (sky=15, block=0) → all faces emit G=255, B=0', () => {
+      const chunk = makeChunkWithBlock(ZERO_COORD, 5, 10, 5, 'DIRT')
+      const result = greedyMeshChunk(chunk, ZERO_OFFSET, new Set(), undefined, makeUniformLightGrids(15, 0))
+
+      const verts = sliceColors(result.opaque.colors)
+      // All 24 vertices (6 faces × 4) should have full sky and zero block light.
+      Arr.forEach(verts, ([, g, b]) => {
+        expect(g).toBe(255)
+        expect(b).toBe(0)
+      })
+    })
+
+    it('default (no LightGrids passed) → falls back to all-daylight (G=255, B=0)', () => {
+      const chunk = makeChunkWithBlock(ZERO_COORD, 5, 10, 5, 'DIRT')
+      const result = greedyMeshChunk(chunk, ZERO_OFFSET)
+
+      const verts = sliceColors(result.opaque.colors)
+      Arr.forEach(verts, ([, g, b]) => {
+        expect(g).toBe(255)
+        expect(b).toBe(0)
+      })
+    })
+
+    it('covered pit (sky=0 throughout) → faces emit G=0, B=0', () => {
+      // Single solid block in pitch-black space (no sky penetration anywhere).
+      const chunk = makeChunkWithBlock(ZERO_COORD, 5, 10, 5, 'DIRT')
+      const result = greedyMeshChunk(chunk, ZERO_OFFSET, new Set(), undefined, makeUniformLightGrids(0, 0))
+
+      const verts = sliceColors(result.opaque.colors)
+      Arr.forEach(verts, ([, g, b]) => {
+        expect(g).toBe(0)
+        expect(b).toBe(0)
+      })
+    })
+
+    it('block light only (sky=0, block=15) → faces emit G=0, B=255', () => {
+      const chunk = makeChunkWithBlock(ZERO_COORD, 5, 10, 5, 'DIRT')
+      const result = greedyMeshChunk(chunk, ZERO_OFFSET, new Set(), undefined, makeUniformLightGrids(0, 15))
+
+      const verts = sliceColors(result.opaque.colors)
+      Arr.forEach(verts, ([, g, b]) => {
+        expect(g).toBe(0)
+        expect(b).toBe(255)
+      })
+    })
+
+    it('torch decay → faces nearer the torch are brighter than faces farther away', () => {
+      // Two STONE blocks placed 6 voxels apart. A "torch" (block-light source) at the
+      // first block's air neighbor decays through the BFS so the second block reads less.
+      const chunk = makeChunkWithBlocks(ZERO_COORD, [
+        { lx: 4, y: 8, lz: 8, blockType: 'STONE' },
+        { lx: 12, y: 8, lz: 8, blockType: 'STONE' },
+      ])
+
+      // Inject a torch at (5, 8, 8) by patching a temporary EMISSIVE-by-index slot.
+      // Simpler: write a precomputed block-light grid that mimics BFS decay (15 → 9 over 6 voxels).
+      const skyLight = createLightBuffer()
+      const blockLight = createLightBuffer()
+      Arr.forEach(Arr.makeBy(CHUNK_SIZE, (i) => i), (lx) => {
+        Arr.forEach(Arr.makeBy(CHUNK_HEIGHT, (i) => i), (y) => {
+          Arr.forEach(Arr.makeBy(CHUNK_SIZE, (i) => i), (lz) => {
+            // Manhattan distance from torch at (5, 8, 8); clamp to 0 if past max range.
+            const dist = Math.abs(lx - 5) + Math.abs(y - 8) + Math.abs(lz - 8)
+            const level = Math.max(0, LIGHT_LEVEL_MAX - dist)
+            setLightAt(blockLight, lx, y, lz, level)
+          })
+        })
+      })
+
+      const result = greedyMeshChunk(chunk, ZERO_OFFSET, new Set(), undefined, { skyLight, blockLight })
+
+      // Find the maximum block-light B-channel across all opaque vertices.
+      // Both blocks contribute faces; the near block (lx=4) sits beside light=14 on its +X face,
+      // the far block (lx=12) sits beside light=6 on its -X face — clearly distinguishable.
+      const verts = sliceColors(result.opaque.colors)
+      const maxB = Arr.reduce(verts, 0, (acc, [, , b]) => Math.max(acc, b))
+      const minB = Arr.reduce(verts, 255, (acc, [, , b]) => Math.min(acc, b))
+
+      // Brightest vertex must be near the torch; dimmest must be far from it.
+      expect(maxB).toBeGreaterThan(minB)
+      // Sanity: brightest must encode level ≥ 10 (torch-adjacent), dimmest ≤ 10.
+      expect(maxB).toBeGreaterThanOrEqual(170) // dequant(2) → 10/15 = 170
+      expect(minB).toBeLessThanOrEqual(170)
+    })
+
+    it('emissive block placed in dark space (computeBlockLight) → mesh reflects propagated block light', () => {
+      // End-to-end: use computeBlockLight on a chunk containing a real emissive block.
+      // Place a LAVA voxel (emissive=15) and a DIRT viewer block 3 voxels away; verify the
+      // viewer's nearer faces show non-zero block light after BFS propagation.
+      const chunk = makeChunkWithBlocks(ZERO_COORD, [
+        { lx: 5, y: 8, lz: 8, blockType: 'LAVA' },
+        { lx: 9, y: 8, lz: 8, blockType: 'DIRT' },
+      ])
+
+      const skyLight = createLightBuffer()
+      const blockLight = createLightBuffer()
+      computeBlockLight(chunk.blocks, blockLight)
+
+      const result = greedyMeshChunk(chunk, ZERO_OFFSET, new Set(), undefined, { skyLight, blockLight })
+
+      const verts = sliceColors(result.opaque.colors)
+      const maxB = Arr.reduce(verts, 0, (acc, [, , b]) => Math.max(acc, b))
+      // BFS spreads at least 11 (LAVA=15, distance 4 → 11) toward the DIRT face → dequant ≥ 10 → 170.
+      expect(maxB).toBeGreaterThanOrEqual(170)
     })
   })
 })

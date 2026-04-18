@@ -2,6 +2,7 @@ import { Array as Arr, Effect, MutableHashMap, Option, Schema } from 'effect'
 import { afterEach, beforeEach, expect, vi } from 'vitest'
 import { describe, it } from '@effect/vitest'
 import { resolvePreset, SettingsSchema, SettingsService, SettingsServiceLive } from './settings-service'
+import { GRAPHICS_PRESETS } from './settings-service.config'
 
 const STORAGE_KEY = 'minecraft-settings'
 
@@ -10,7 +11,7 @@ const DEFAULT_SETTINGS = {
   mouseSensitivity: 0.5,
   dayLengthSeconds: 400,
   graphicsQuality: 'high',
-  audioEnabled: true,
+  audioEnabled: false, // NOTE: false intentionally — must match settings-service.ts DEFAULT_SETTINGS
   masterVolume: 0.8,
   sfxVolume: 1.0,
   musicVolume: 0.55,
@@ -71,7 +72,7 @@ describe('application/settings/settings-service', () => {
         mouseSensitivity: 0.1,
         dayLengthSeconds: 120,
         graphicsQuality: 'low',
-        audioEnabled: true,
+        audioEnabled: false,
         masterVolume: 0.8,
         sfxVolume: 1.0,
         musicVolume: 0.55,
@@ -91,7 +92,7 @@ describe('application/settings/settings-service', () => {
         mouseSensitivity: 3,
         dayLengthSeconds: 1200,
         graphicsQuality: 'ultra',
-        audioEnabled: true,
+        audioEnabled: false,
         masterVolume: 0.8,
         sfxVolume: 1.0,
         musicVolume: 0.55,
@@ -211,7 +212,7 @@ describe('application/settings/settings-service', () => {
           mouseSensitivity: 1.2,
           dayLengthSeconds: 900,
           graphicsQuality: 'ultra',
-          audioEnabled: true,
+          audioEnabled: false,
           masterVolume: 0.8,
           sfxVolume: 1.0,
           musicVolume: 0.55,
@@ -228,19 +229,46 @@ describe('application/settings/settings-service', () => {
       }).pipe(Effect.provide(SettingsServiceLive))
     })
 
-    it.effect('falls back to defaults when localStorage contains schema-invalid data', () => {
+    it.effect('migrates schema-invalid legacy data instead of discarding valid fields', () => {
       MutableHashMap.set(store,
         STORAGE_KEY,
         JSON.stringify({
-          renderDistance: 999,
-          mouseSensitivity: 0.5,
-          dayLengthSeconds: 400,
+          renderDistance: 1,
+          mouseSensitivity: 1.25,
+          dayLengthSeconds: 600,
+          graphicsQuality: 'ultra',
+          audioEnabled: false,
+          masterVolume: 0.25,
+          sfxVolume: 0.4,
+          musicVolume: 0.6,
         })
       )
       return Effect.gen(function* () {
         const service = yield* SettingsService
         const settings = yield* service.getSettings()
-        expect(settings).toEqual(DEFAULT_SETTINGS)
+        expect(settings).toEqual({
+          renderDistance: 2,
+          mouseSensitivity: 1.25,
+          dayLengthSeconds: 600,
+          graphicsQuality: 'ultra',
+          audioEnabled: false,
+          masterVolume: 0.25,
+          sfxVolume: 0.4,
+          musicVolume: 0.6,
+        })
+        expect(setItemSpy).toHaveBeenCalledWith(
+          STORAGE_KEY,
+          JSON.stringify({
+            renderDistance: 2,
+            mouseSensitivity: 1.25,
+            dayLengthSeconds: 600,
+            graphicsQuality: 'ultra',
+            audioEnabled: false,
+            masterVolume: 0.25,
+            sfxVolume: 0.4,
+            musicVolume: 0.6,
+          })
+        )
       }).pipe(Effect.provide(SettingsServiceLive))
     })
 
@@ -281,15 +309,32 @@ describe('application/settings/settings-service', () => {
       }).pipe(Effect.provide(SettingsService.Default))
     )
 
-    it("resolvePreset('high') returns expected values", () => {
-      const resolved = resolvePreset('high')
-      expect(resolved.shadowsEnabled).toBe(true)
-      expect(resolved.ssaoEnabled).toBe(true)
-      expect(resolved.bloomEnabled).toBe(true)
-      expect(resolved.smaaEnabled).toBe(true)
-      expect(resolved.skyEnabled).toBe(true)
-      expect(resolved.dofEnabled).toBe(false)
-      expect(resolved.godRaysEnabled).toBe(false)
+    it('resolvePreset returns the correct values for every quality level', () => {
+      Arr.forEach(
+        ['low', 'medium', 'high', 'ultra'] as const,
+        (quality) => {
+          const resolved = resolvePreset(quality)
+          const expected = GRAPHICS_PRESETS[quality]
+          expect(resolved.shadowsEnabled).toBe(expected.shadowsEnabled)
+          expect(resolved.ssaoEnabled).toBe(expected.ssaoEnabled)
+          expect(resolved.bloomEnabled).toBe(expected.bloomEnabled)
+          expect(resolved.smaaEnabled).toBe(expected.smaaEnabled)
+          expect(resolved.skyEnabled).toBe(expected.skyEnabled)
+          expect(resolved.dofEnabled).toBe(expected.dofEnabled)
+          expect(resolved.godRaysEnabled).toBe(expected.godRaysEnabled)
+          expect(resolved.godRaysSamples).toBe(expected.godRaysSamples)
+          expect(resolved.bloomStrength).toBe(expected.bloomStrength)
+          expect(resolved.refractionThrottleFrames).toBe(expected.refractionThrottleFrames)
+        }
+      )
+    })
+
+    it('resolvePreset: each higher quality level has >= enabled passes than lower ones', () => {
+      const countEnabled = (q: typeof GRAPHICS_PRESETS[keyof typeof GRAPHICS_PRESETS]) =>
+        Arr.filter([q.shadowsEnabled, q.ssaoEnabled, q.bloomEnabled, q.dofEnabled, q.godRaysEnabled], Boolean).length
+      expect(countEnabled(GRAPHICS_PRESETS.low)).toBeLessThanOrEqual(countEnabled(GRAPHICS_PRESETS.medium))
+      expect(countEnabled(GRAPHICS_PRESETS.medium)).toBeLessThanOrEqual(countEnabled(GRAPHICS_PRESETS.high))
+      expect(countEnabled(GRAPHICS_PRESETS.high)).toBeLessThanOrEqual(countEnabled(GRAPHICS_PRESETS.ultra))
     })
   })
 

@@ -4,6 +4,9 @@ import { expect, vi } from 'vitest'
 import { InventoryRendererService, InventoryRendererLive } from './inventory-renderer'
 import { InventoryService, INVENTORY_SIZE, HOTBAR_START } from '@/application/inventory/inventory-service'
 import { HotbarService } from '@/application/hotbar/hotbar-service'
+import { RecipeService } from '@/application/crafting/recipe-service'
+import { GameStateService } from '@/application/game-state'
+import { ChunkManagerService } from '@/application/chunk/chunk-manager-service'
 import { DomOperationsService } from '@/presentation/hud/crosshair'
 import type { SlotIndex } from '@/shared/kernel'
 
@@ -83,15 +86,52 @@ const createMockHotbarLayer = (selectedSlot = 0) => {
   return { MockHotbarLayer, getSelectedSlot }
 }
 
+const createMockRecipeLayer = () => {
+  const recipes: Array<{ id: string; ingredients: Array<{ blockType: string; count: number }>; output: { blockType: string; count: number } }> = []
+  const getAllRecipes = vi.fn(() => recipes)
+  const findById = vi.fn((_id: string) => Option.none())
+  const findCraftable = vi.fn((_available: unknown, _hasTableAccess: boolean) => recipes)
+  const craft = vi.fn((_id: string, _inventory: unknown, _hasTableAccess: boolean) => Effect.void)
+
+  const MockRecipeLayer = Layer.succeed(RecipeService, {
+    getAllRecipes,
+    findById,
+    findCraftable,
+    craft,
+  } as unknown as RecipeService)
+
+  return { MockRecipeLayer, getAllRecipes, findCraftable, craft, recipes }
+}
+
+const createMockGameStateLayer = () => {
+  const MockGameStateLayer = Layer.succeed(GameStateService, {
+    getPlayerPosition: () => Effect.succeed({ x: 0, y: 0, z: 0 }),
+  } as unknown as GameStateService)
+  return { MockGameStateLayer }
+}
+
+const createMockChunkManagerLayer = () => {
+  const MockChunkManagerLayer = Layer.succeed(ChunkManagerService, {
+    getChunk: () => Effect.succeed({ blocks: new Uint8Array(256 * 16 * 16) }),
+  } as unknown as ChunkManagerService)
+  return { MockChunkManagerLayer }
+}
+
 const buildTestLayer = (
   mockDom = createMockDomLayer(),
   mockInventory = createMockInventoryLayer(),
-  mockHotbar = createMockHotbarLayer()
+  mockHotbar = createMockHotbarLayer(),
+  mockRecipe = createMockRecipeLayer(),
+  mockGameState = createMockGameStateLayer(),
+  mockChunkManager = createMockChunkManagerLayer(),
 ) =>
   InventoryRendererLive.pipe(
     Layer.provide(mockDom.MockDomLayer),
     Layer.provide(mockInventory.MockInventoryLayer),
-    Layer.provide(mockHotbar.MockHotbarLayer)
+    Layer.provide(mockHotbar.MockHotbarLayer),
+    Layer.provide(mockRecipe.MockRecipeLayer),
+    Layer.provide(mockGameState.MockGameStateLayer),
+    Layer.provide(mockChunkManager.MockChunkManagerLayer),
   )
 
 // ---------------------------------------------------------------------------
@@ -111,6 +151,8 @@ describe('presentation/inventory/inventory-renderer', () => {
         expect(typeof renderer.toggle).toBe('function')
         expect(typeof renderer.isOpen).toBe('function')
         expect(typeof renderer.update).toBe('function')
+        expect(typeof renderer.cycleRecipes).toBe('function')
+        expect(typeof renderer.craftSelectedRecipe).toBe('function')
       }).pipe(Effect.provide(TestLayer))
     })
   })

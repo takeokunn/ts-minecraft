@@ -1,59 +1,17 @@
 import { Array as Arr, Effect, HashMap, Option } from 'effect'
-import { Recipe, RecipeIngredient } from '@/domain/crafting'
+import { Recipe } from '@/domain/crafting'
 import type { BlockType } from '@/domain/block'
 import { RecipeError } from '@/domain/errors'
 import type { InventoryService } from '@/application/inventory/inventory-service'
 import { RecipeId } from '@/shared/kernel'
+import { RECIPE_DEFINITIONS } from './recipe-service.config'
 
 export class RecipeService extends Effect.Service<RecipeService>()(
   '@minecraft/application/RecipeService',
   {
     effect: Effect.succeed((() => {
-      const recipes: ReadonlyArray<Recipe> = [
-        new Recipe({
-          id: RecipeId.make('wood-to-planks'),
-          ingredients: [new RecipeIngredient({ blockType: 'WOOD', count: 1 })],
-          output: { blockType: 'WOOD', count: 4 },
-        }),
-        new Recipe({
-          id: RecipeId.make('stone-to-cobblestone'),
-          ingredients: [new RecipeIngredient({ blockType: 'STONE', count: 1 })],
-          output: { blockType: 'COBBLESTONE', count: 1 },
-        }),
-        new Recipe({
-          id: RecipeId.make('grass-to-dirt'),
-          ingredients: [new RecipeIngredient({ blockType: 'GRASS', count: 1 })],
-          output: { blockType: 'DIRT', count: 1 },
-        }),
-        new Recipe({
-          id: RecipeId.make('sand-and-gravel-to-dirt'),
-          ingredients: [
-            new RecipeIngredient({ blockType: 'SAND', count: 1 }),
-            new RecipeIngredient({ blockType: 'GRAVEL', count: 1 }),
-          ],
-          output: { blockType: 'DIRT', count: 2 },
-        }),
-        new Recipe({
-          id: RecipeId.make('wood-and-stone-to-glass'),
-          ingredients: [
-            new RecipeIngredient({ blockType: 'WOOD', count: 2 }),
-            new RecipeIngredient({ blockType: 'SAND', count: 4 }),
-          ],
-          output: { blockType: 'GLASS', count: 4 },
-        }),
-        new Recipe({
-          id: RecipeId.make('cobblestone-bulk'),
-          ingredients: [new RecipeIngredient({ blockType: 'COBBLESTONE', count: 4 })],
-          output: { blockType: 'STONE', count: 4 },
-        }),
-        new Recipe({
-          id: RecipeId.make('dirt-to-gravel'),
-          ingredients: [new RecipeIngredient({ blockType: 'DIRT', count: 2 })],
-          output: { blockType: 'GRAVEL', count: 1 },
-        }),
-      ]
+      const recipes: ReadonlyArray<Recipe> = RECIPE_DEFINITIONS
 
-      // Immutable lookup map: RecipeId → Recipe (HashMap replaces native Map for structural equality)
       const recipeMap = HashMap.fromIterable(Arr.map(recipes, (r) => [r.id, r] as [RecipeId, Recipe]))
 
       const getAllRecipes = (): ReadonlyArray<Recipe> => recipes
@@ -61,8 +19,23 @@ export class RecipeService extends Effect.Service<RecipeService>()(
       // findById: HashMap.get already returns Option<Recipe> — no fromNullable needed
       const findById = (id: RecipeId): Option.Option<Recipe> => HashMap.get(recipeMap, id)
 
-      const findCraftable = (available: HashMap.HashMap<BlockType, number>): ReadonlyArray<Recipe> =>
+      const hasCraftingTable = (available: HashMap.HashMap<BlockType, number>): boolean =>
+        Option.getOrElse(HashMap.get(available, 'CRAFTING_TABLE'), () => 0) > 0
+
+      const canUseRecipe = (
+        recipe: Recipe,
+        available: HashMap.HashMap<BlockType, number>,
+        hasCraftingTableAccess: boolean,
+      ): boolean =>
+        recipe.station === 'inventory' || (hasCraftingTableAccess && hasCraftingTable(available))
+
+      const findCraftable = (
+        available: HashMap.HashMap<BlockType, number>,
+        hasCraftingTableAccess = true,
+      ): ReadonlyArray<Recipe> =>
         Arr.filter(recipes, (recipe) =>
+          canUseRecipe(recipe, available, hasCraftingTableAccess)
+          &&
           Arr.every(recipe.ingredients, (ing) =>
             Option.getOrElse(HashMap.get(available, ing.blockType), () => 0) >= ing.count
           )
@@ -79,15 +52,14 @@ export class RecipeService extends Effect.Service<RecipeService>()(
       const craft = (
         recipeId: RecipeId,
         inventoryService: InventoryService,
+        hasCraftingTableAccess = true,
       ): Effect.Effect<void, RecipeError> =>
         Effect.gen(function* () {
-          // 1. Locate the recipe
           const recipe = yield* Option.match(findById(recipeId), {
             onNone: () => Effect.fail(new RecipeError({ operation: 'craft', cause: `Recipe not found: ${recipeId}` })),
             onSome: Effect.succeed,
           })
 
-          // 2. Count available items per block type in inventory using immutable HashMap accumulation
           const slots = yield* inventoryService.getAllSlots()
           const available = Arr.reduce(
             slots,
@@ -102,10 +74,16 @@ export class RecipeService extends Effect.Service<RecipeService>()(
             })
           )
 
-          // 3. Verify all ingredients are present before touching inventory
+          // Pre-check all ingredients before any removal to prevent partial consumption
           const shortageOpt = Arr.findFirst(recipe.ingredients, (ing) =>
             Option.getOrElse(HashMap.get(available, ing.blockType), () => 0) < ing.count
           )
+          if (!canUseRecipe(recipe, available, hasCraftingTableAccess)) {
+            return yield* Effect.fail(new RecipeError({
+              operation: 'craft',
+              cause: `Recipe requires a crafting table: ${recipeId}`,
+            }))
+          }
           yield* Option.match(shortageOpt, {
             onNone: () => Effect.void,
             onSome: (ing) => Effect.fail(new RecipeError({
@@ -114,7 +92,6 @@ export class RecipeService extends Effect.Service<RecipeService>()(
             })),
           })
 
-          // 4. Remove ingredients
           yield* Effect.forEach(
             recipe.ingredients,
             (ing) =>
@@ -133,7 +110,6 @@ export class RecipeService extends Effect.Service<RecipeService>()(
             { concurrency: 1 }
           )
 
-          // 5. Add output (ignore if inventory is full)
           yield* inventoryService.addBlock(recipe.output.blockType, recipe.output.count)
         })
 

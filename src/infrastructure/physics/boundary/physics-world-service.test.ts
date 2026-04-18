@@ -1,6 +1,6 @@
 import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
-import { Array as Arr, Effect } from 'effect'
+import { Effect } from 'effect'
 import { DeltaTimeSecs } from '@/shared/kernel'
 import {
   PhysicsWorldService,

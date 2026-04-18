@@ -1,16 +1,31 @@
-import { Effect, Schema } from 'effect'
+import { Array as Arr, Effect, Schema } from 'effect'
 import { NoiseServicePort } from '@/application/noise/noise-service-port'
 import { BlockTypeSchema } from '@/domain/block'
 import { CHUNK_SIZE } from '@/domain/chunk'
-
+import {
+  BIOME_PROPERTIES,
+  BIOME_SCALE,
+  HUMIDITY_WORLD_OFFSET,
+  TEMP_COLD, TEMP_HOT,
+  HUM_DRY, HUM_WET,
+  HUM_VERY_DRY, HUM_VERY_WET,
+  HUM_JUNGLE, TEMP_JUNGLE,
+  HUM_TAIGA, HUM_MOUNTAINS,
+  HUM_SAVANNA_MIN,
+} from './biome-service.config'
 /**
  * Biome types for terrain classification
  */
-export const BiomeTypeSchema = Schema.Literal('PLAINS', 'DESERT', 'FOREST', 'OCEAN', 'MOUNTAINS', 'SNOW', 'SWAMP', 'JUNGLE')
+export const BiomeTypeSchema = Schema.Literal('PLAINS', 'DESERT', 'FOREST', 'OCEAN', 'MOUNTAINS', 'SNOW', 'SWAMP', 'JUNGLE', 'BEACH', 'TAIGA', 'SAVANNA')
 export type BiomeType = Schema.Schema.Type<typeof BiomeTypeSchema>
 
 /**
- * Properties that define how a biome affects terrain generation
+ * Properties that define how a biome affects terrain generation.
+ *
+ * Phase 2.1 (multi-noise biomes): `baseHeight` and `heightModifier` have been
+ * removed — height is now derived from continentalness / erosion /
+ * peaks-and-valleys noise via the density function (task 2.1g). Biomes no
+ * longer carry per-biome height parameters.
  */
 export const BiomePropertiesSchema = Schema.Struct({
   /** Block type for surface layer */
@@ -19,10 +34,6 @@ export const BiomePropertiesSchema = Schema.Struct({
   subSurfaceBlock: BlockTypeSchema,
   /** Density of trees (0-1) */
   treeDensity: Schema.Number.pipe(Schema.finite(), Schema.between(0, 1)),
-  /** Height modifier for terrain */
-  heightModifier: Schema.Number.pipe(Schema.finite(), Schema.positive()),
-  /** Base height for this biome */
-  baseHeight: Schema.Number.pipe(Schema.finite(), Schema.positive()),
   /** Temperature range (0-1) */
   temperature: Schema.Number.pipe(Schema.finite(), Schema.between(0, 1)),
   /** Humidity range (0-1) */
@@ -31,171 +42,84 @@ export const BiomePropertiesSchema = Schema.Struct({
 export type BiomeProperties = Schema.Schema.Type<typeof BiomePropertiesSchema>
 
 /**
- * Default biome properties for each biome type
- */
-const BIOME_PROPERTIES: Record<BiomeType, BiomeProperties> = {
-  PLAINS: {
-    surfaceBlock: 'GRASS',
-    subSurfaceBlock: 'DIRT',
-    treeDensity: 0.01,
-    heightModifier: 1.0,
-    baseHeight: 64,
-    temperature: 0.5,
-    humidity: 0.3,
-  },
-  DESERT: {
-    surfaceBlock: 'SAND',
-    subSurfaceBlock: 'SAND',
-    treeDensity: 0.0,
-    heightModifier: 0.5,
-    baseHeight: 64,
-    temperature: 0.9,
-    humidity: 0.1,
-  },
-  FOREST: {
-    surfaceBlock: 'GRASS',
-    subSurfaceBlock: 'DIRT',
-    treeDensity: 0.3,
-    heightModifier: 1.0,
-    baseHeight: 64,
-    temperature: 0.5,
-    humidity: 0.6,
-  },
-  OCEAN: {
-    surfaceBlock: 'SAND',
-    subSurfaceBlock: 'SAND',
-    treeDensity: 0.0,
-    heightModifier: 0.3,
-    baseHeight: 40,
-    temperature: 0.5,
-    humidity: 0.9,
-  },
-  MOUNTAINS: {
-    surfaceBlock: 'STONE',
-    subSurfaceBlock: 'STONE',
-    treeDensity: 0.02,
-    heightModifier: 3.0,
-    baseHeight: 80,
-    temperature: 0.3,
-    humidity: 0.4,
-  },
-  SNOW: {
-    surfaceBlock: 'SNOW',
-    subSurfaceBlock: 'DIRT',
-    treeDensity: 0.05,
-    heightModifier: 1.0,
-    baseHeight: 64,
-    temperature: 0.1,
-    humidity: 0.5,
-  },
-  SWAMP: {
-    surfaceBlock: 'GRASS',
-    subSurfaceBlock: 'DIRT',
-    treeDensity: 0.2,
-    heightModifier: 0.5,
-    baseHeight: 58,
-    temperature: 0.6,
-    humidity: 0.8,
-  },
-  JUNGLE: {
-    surfaceBlock: 'GRASS',
-    subSurfaceBlock: 'DIRT',
-    treeDensity: 0.5,
-    heightModifier: 1.2,
-    baseHeight: 64,
-    temperature: 0.9,
-    humidity: 0.8,
-  },
-}
-
-/**
- * Determine biome type from temperature and humidity
+ * Classify a biome from continuous temperature and humidity values.
  *
- * Biome selection matrix:
- * - COLD + DRY = SNOW/TUNDRA
- * - COLD + WET = SNOW (forest variant)
- * - TEMPERATE + DRY = PLAINS
- * - TEMPERATE + WET = FOREST
- * - HOT + DRY = DESERT
- * - HOT + WET = JUNGLE or OCEAN
+ * Both axes use thresholds defined in biome-service.config.ts:
+ *   temperature: cold < TEMP_COLD < temperate < TEMP_HOT < hot
+ *   humidity:    dry < HUM_DRY < moderate < HUM_WET < wet < HUM_VERY_WET < very-wet
  */
-const classifyBiome = (temperature: number, humidity: number): BiomeType => {
-  // Temperature thresholds
-  const isCold = temperature < 0.3
-  const isHot = temperature > 0.7
+export const classifyBiome = (temperature: number, humidity: number): BiomeType => {
+  const isCold = temperature < TEMP_COLD
+  const isHot  = temperature > TEMP_HOT
+  const isDry  = humidity < HUM_DRY
+  const isWet  = humidity > HUM_WET
 
-  // Humidity thresholds
-  const isDry = humidity < 0.3
-  const isWet = humidity > 0.6
+  if (humidity < HUM_VERY_DRY)  return isCold ? 'SNOW' : 'DESERT'
+  if (humidity > HUM_VERY_WET)  return temperature > HUM_WET ? 'SWAMP' : 'OCEAN'
+  if (humidity > HUM_JUNGLE && temperature > TEMP_JUNGLE) return 'JUNGLE'
 
-  // Special case: very low humidity in any temp = desert-like
-  if (humidity < 0.15) {
-    return isCold ? 'SNOW' : 'DESERT'
-  }
+  if (isCold) return humidity > HUM_TAIGA ? 'TAIGA' : humidity > HUM_MOUNTAINS ? 'MOUNTAINS' : 'SNOW'
+  if (isHot)  return isWet ? 'JUNGLE' : humidity > HUM_SAVANNA_MIN ? 'SAVANNA' : 'DESERT'
+  if (isDry)  return 'PLAINS'
+  if (isWet)  return 'FOREST'
 
-  // Special case: very high humidity = water/swamp
-  if (humidity > 0.85) {
-    return temperature > 0.6 ? 'SWAMP' : 'OCEAN'
-  }
-
-  // Cold biomes
-  if (isCold) {
-    return humidity > 0.4 ? 'MOUNTAINS' : 'SNOW'
-  }
-
-  // Hot biomes
-  if (isHot) {
-    return isWet ? 'JUNGLE' : 'DESERT'
-  }
-
-  // Temperate biomes (middle temperatures)
-  if (isDry) {
-    return 'PLAINS'
-  }
-
-  if (isWet) {
-    return 'FOREST'
-  }
-
-  // Default to plains for edge cases
   return 'PLAINS'
 }
 
-/**
- * Scale factor for biome noise (larger = bigger biomes)
- */
-const BIOME_SCALE = 0.005
+const refineBeachBiome = (
+  biome: BiomeType,
+  neighboringBiomes: ReadonlyArray<BiomeType>,
+): BiomeType => {
+  if (biome === 'OCEAN' || biome === 'DESERT' || biome === 'SWAMP') return biome
+
+  const adjacentOcean = Arr.some(neighboringBiomes, (neighborBiome) => neighborBiome === 'OCEAN')
+
+  return adjacentOcean ? 'BEACH' : biome
+}
+
+// ─── Pure data helpers ────────────────────────────────────────────────────────
+
+type ChunkNoiseCoord = {
+  readonly tempX: number
+  readonly tempZ: number
+  readonly humX: number
+  readonly humZ: number
+}
 
 /**
- * BiomeService class for biome classification and properties
- *
- * Uses temperature and humidity noise layers to classify biomes.
- * Biomes affect terrain height, block types, and feature density.
+ * Build noise-input coordinates for every column in a chunk.
+ * Index layout matches generateTerrain: outer=lx (i/CHUNK_SIZE), inner=lz (i%CHUNK_SIZE).
  */
+export const buildChunkNoiseInputs = (chunkX: number, chunkZ: number): ReadonlyArray<ChunkNoiseCoord> =>
+  Arr.makeBy(CHUNK_SIZE * CHUNK_SIZE, (i) => {
+    const lx = Math.floor(i / CHUNK_SIZE)
+    const lz = i % CHUNK_SIZE
+    const x = chunkX * CHUNK_SIZE + lx
+    const z = chunkZ * CHUNK_SIZE + lz
+    return {
+      tempX: x * BIOME_SCALE,
+      tempZ: z * BIOME_SCALE,
+      humX: (x + HUMIDITY_WORLD_OFFSET) * BIOME_SCALE,
+      humZ: (z + HUMIDITY_WORLD_OFFSET) * BIOME_SCALE,
+    }
+  })
+
+// ─── Service ─────────────────────────────────────────────────────────────────
+
 export class BiomeService extends Effect.Service<BiomeService>()(
   '@minecraft/application/BiomeService',
   {
     effect: Effect.map(NoiseServicePort, (noiseService) => {
       const getTemperature = (x: number, z: number): Effect.Effect<number, never> =>
-        // Use octave noise for smoother temperature gradients
         noiseService.octaveNoise2D(x * BIOME_SCALE, z * BIOME_SCALE, 4, 0.5, 2.0)
 
       const getHumidity = (x: number, z: number): Effect.Effect<number, never> =>
-        // Offset coordinates to get independent noise
-        noiseService.octaveNoise2D(
-          (x + 10000) * BIOME_SCALE,
-          (z + 10000) * BIOME_SCALE,
-          4,
-          0.5,
-          2.0
-        )
+        noiseService.octaveNoise2D((x + HUMIDITY_WORLD_OFFSET) * BIOME_SCALE, (z + HUMIDITY_WORLD_OFFSET) * BIOME_SCALE, 4, 0.5, 2.0)
 
       const getBiome = (x: number, z: number): Effect.Effect<BiomeType, never> =>
-        Effect.gen(function* () {
-          const temp = yield* getTemperature(x, z)
-          const hum = yield* getHumidity(x, z)
-          return classifyBiome(temp, hum)
-        })
+        Effect.all([getTemperature(x, z), getHumidity(x, z)], { concurrency: 'unbounded' }).pipe(
+          Effect.map(([temp, hum]) => classifyBiome(temp, hum))
+        )
 
       const getBiomeProperties = (biome: BiomeType): Effect.Effect<BiomeProperties, never, never> =>
         Effect.succeed(BIOME_PROPERTIES[biome])
@@ -204,47 +128,51 @@ export class BiomeService extends Effect.Service<BiomeService>()(
         chunkX: number,
         chunkZ: number,
       ): Effect.Effect<ReadonlyArray<{ biome: BiomeType; props: BiomeProperties }>> => {
-        // Index layout: outer=lx (Math.floor(i/CHUNK_SIZE)), inner=lz (i%CHUNK_SIZE).
-        // Must match generateTerrain's terrainPoints and double-loop order (lx outer, lz inner).
-        const columnCount = CHUNK_SIZE * CHUNK_SIZE
-        const biomeScaleXs: number[] = []
-        biomeScaleXs.length = columnCount
-        const biomeScaleZs: number[] = []
-        biomeScaleZs.length = columnCount
-        const humidityOffsetXs: number[] = []
-        humidityOffsetXs.length = columnCount
-        const humidityOffsetZs: number[] = []
-        humidityOffsetZs.length = columnCount
-        for (let i = 0; i < columnCount; i++) {
-          const lx = Math.floor(i / CHUNK_SIZE)
-          const lz = i % CHUNK_SIZE
-          const x = chunkX * CHUNK_SIZE + lx
-          const z = chunkZ * CHUNK_SIZE + lz
-          biomeScaleXs[i] = x * BIOME_SCALE
-          biomeScaleZs[i] = z * BIOME_SCALE
-          humidityOffsetXs[i] = (x + 10000) * BIOME_SCALE
-          humidityOffsetZs[i] = (z + 10000) * BIOME_SCALE
-        }
-        return Effect.gen(function* () {
-          const tempVals = yield* noiseService.octaveNoise2DBatchXY(biomeScaleXs, biomeScaleZs, 4, 0.5, 2.0)
-          const humVals = yield* noiseService.octaveNoise2DBatchXY(humidityOffsetXs, humidityOffsetZs, 4, 0.5, 2.0)
-          const results: Array<{ biome: BiomeType; props: BiomeProperties }> = []
-          results.length = columnCount
-          for (let i = 0; i < columnCount; i++) {
-            const biome = classifyBiome(tempVals[i]!, humVals[i]!)
-            results[i] = { biome, props: BIOME_PROPERTIES[biome] }
-          }
-          return results
-        })
+        const coords = buildChunkNoiseInputs(chunkX, chunkZ)
+        return Effect.all(
+          [
+            noiseService.octaveNoise2DBatchXY(
+              Arr.map(coords, (c) => c.tempX),
+              Arr.map(coords, (c) => c.tempZ),
+              4, 0.5, 2.0,
+            ),
+            noiseService.octaveNoise2DBatchXY(
+              Arr.map(coords, (c) => c.humX),
+              Arr.map(coords, (c) => c.humZ),
+              4, 0.5, 2.0,
+            ),
+          ],
+          { concurrency: 'unbounded' },
+        ).pipe(
+          Effect.flatMap(([tempVals, humVals]) => {
+            const baseBiomes = Arr.makeBy(coords.length, (i) => classifyBiome(tempVals[i]!, humVals[i]!))
+            return Effect.forEach(
+              Arr.makeBy(coords.length, (i) => i),
+              (i) => {
+                const lx = Math.floor(i / CHUNK_SIZE)
+                const lz = i % CHUNK_SIZE
+                const worldX = chunkX * CHUNK_SIZE + lx
+                const worldZ = chunkZ * CHUNK_SIZE + lz
+                const biome = baseBiomes[i]!
+                return Effect.all([
+                  getBiome(worldX - 1, worldZ),
+                  getBiome(worldX + 1, worldZ),
+                  getBiome(worldX, worldZ - 1),
+                  getBiome(worldX, worldZ + 1),
+                ], { concurrency: 'unbounded' }).pipe(
+                  Effect.map((neighbors) => {
+                    const refinedBiome = refineBeachBiome(biome, neighbors)
+                    return { biome: refinedBiome, props: BIOME_PROPERTIES[refinedBiome] }
+                  }),
+                )
+              },
+              { concurrency: 'unbounded' },
+            )
+          })
+        )
       }
 
-      return {
-        getBiome,
-        getBiomeProperties,
-        getTemperature,
-        getHumidity,
-        getBiomesAndPropertiesForChunk,
-      }
+      return { getBiome, getBiomeProperties, getTemperature, getHumidity, getBiomesAndPropertiesForChunk }
     }),
   }
 ) {}

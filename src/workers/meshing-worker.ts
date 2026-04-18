@@ -2,17 +2,22 @@ import { Option, Schema } from 'effect'
 import { createGreedyMeshScratch, greedyMeshChunk } from '@/infrastructure/three/meshing/greedy-meshing'
 import { CHUNK_SIZE } from '@/domain/chunk'
 import type { Chunk } from '@/domain/chunk'
+import { LIGHT_BYTE_LENGTH, type LightGrids } from '@/domain/light'
 
 // Message shapes for the meshing worker protocol.
 //
 // Input: chunk.blocks ArrayBuffer is *transferred* (zero-copy); transparentBlockIds is a
 // small plain array (typically [6] for WATER). wx/wz are world-space block coordinates.
+// skyLight/blockLight ArrayBuffers are also transferred when lighting is computed for the
+// chunk; both null means the worker defaults to all-daylight (sky=15, block=0).
 //
 // Output: all TypedArrays are *transferred* back to main thread (zero-copy).
 // null water arrays signal that this chunk has no transparent faces.
 export const MeshRequestSchema = Schema.Struct({
   id: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
   blocks: Schema.instanceOf(ArrayBuffer),
+  skyLight: Schema.NullOr(Schema.instanceOf(ArrayBuffer)),
+  blockLight: Schema.NullOr(Schema.instanceOf(ArrayBuffer)),
   wx: Schema.Number.pipe(Schema.int()),
   wz: Schema.Number.pipe(Schema.int()),
   transparentBlockIds: Schema.Array(Schema.Number.pipe(Schema.int(), Schema.nonNegative())),
@@ -22,7 +27,7 @@ export type MeshRequest = Schema.Schema.Type<typeof MeshRequestSchema>
 const scratch = createGreedyMeshScratch()
 
 self.onmessage = (e: MessageEvent<MeshRequest>): void => {
-  const { id, blocks, wx, wz, transparentBlockIds } = e.data
+  const { id, blocks, skyLight, blockLight, wx, wz, transparentBlockIds } = e.data
 
   // Reconstruct a minimal Chunk — greedyMeshChunk only reads chunk.blocks; coord
   // is required by the type but unused inside the meshing algorithm (offset carries
@@ -33,11 +38,21 @@ self.onmessage = (e: MessageEvent<MeshRequest>): void => {
     fluid: Option.none(),
   }
 
+  // Reconstruct LightGrids only when both buffers arrived AND have the expected byte length;
+  // a mismatch means stale/corrupted lighting data — fall back to all-daylight default.
+  const lightGrids: LightGrids | undefined =
+    skyLight !== null && blockLight !== null
+      && skyLight.byteLength === LIGHT_BYTE_LENGTH
+      && blockLight.byteLength === LIGHT_BYTE_LENGTH
+      ? { skyLight: new Uint8Array(skyLight), blockLight: new Uint8Array(blockLight) }
+      : undefined
+
   const result = greedyMeshChunk(
     chunk,
     { wx, wz },
     new Set(transparentBlockIds),
-    scratch
+    scratch,
+    lightGrids,
   )
 
   // toMeshed() calls .slice() on each accumulator subarray, producing owned ArrayBuffers

@@ -45,6 +45,26 @@ const getAudioContextCtor = (): Option.Option<typeof AudioContext> => {
   return Option.fromNullable(ctor)
 }
 
+const acquireAudioContext = (): Effect.Effect<Option.Option<AudioContext>, never> =>
+  Option.match(getAudioContextCtor(), {
+    onNone: () => Effect.succeed(Option.none()),
+    onSome: (Ctor) =>
+      Effect.try({ try: () => new Ctor(), catch: () => new Error('AudioContext creation failed') }).pipe(
+        Effect.map(Option.some),
+        Effect.catchAllCause(() => Effect.succeed(Option.none())),
+      ),
+  })
+
+const wireMasterGain = (
+  context: AudioContext,
+  initialGain: number,
+): { masterGain: GainNode } => {
+  const masterGain = context.createGain()
+  masterGain.gain.value = initialGain
+  masterGain.connect(context.destination)
+  return { masterGain }
+}
+
 const safeDisconnect = (node: AudioNode): Effect.Effect<void, never> =>
   Effect.try({
     try: () => node.disconnect(),
@@ -69,44 +89,23 @@ export class AudioEngine extends Effect.Service<AudioEngine>()('@minecraft/audio
       Effect.gen(function* () {
         const [contextOpt, masterOpt] = yield* Effect.all(
           [Ref.get(contextRef), Ref.get(masterGainRef)],
-          { concurrency: 'unbounded' }
+          { concurrency: 'unbounded' },
         )
 
-        return yield* Option.match(
-          Option.zipWith(contextOpt, masterOpt, (context, masterGain) => ({ context, masterGain })),
-          {
-            onSome: (pair) => Effect.succeed(Option.some(pair)),
-            onNone: () =>
-              Effect.gen(function* () {
-                const createdOpt = yield* Option.match(getAudioContextCtor(), {
-                  onNone: () => Effect.succeed(Option.none<AudioContext>()),
-                  onSome: (Ctor) =>
-                    Effect.try({
-                      try: () => new Ctor(),
-                      catch: () => new Error('AudioContext creation failed'),
-                    }).pipe(
-                      Effect.map(Option.some),
-                      Effect.catchAllCause(() => Effect.succeed(Option.none<AudioContext>())),
-                    ),
-                })
+        const cached = Option.zipWith(contextOpt, masterOpt, (context, masterGain) => ({ context, masterGain }))
+        if (Option.isSome(cached)) return cached
 
-                return yield* Option.match(createdOpt, {
-                  onNone: () => Effect.succeed(Option.none<{ context: AudioContext; masterGain: GainNode }>()),
-                  onSome: (context) =>
-                    Effect.gen(function* () {
-                      const masterGain = context.createGain()
-                      masterGain.gain.value = yield* Ref.get(masterGainValueRef)
-                      masterGain.connect(context.destination)
+        const contextCreated = yield* acquireAudioContext()
+        if (Option.isNone(contextCreated)) return Option.none()
 
-                      yield* Ref.set(contextRef, Option.some(context))
-                      yield* Ref.set(masterGainRef, Option.some(masterGain))
+        const context = Option.getOrThrow(contextCreated)
+        const initialGain = yield* Ref.get(masterGainValueRef)
+        const { masterGain } = wireMasterGain(context, initialGain)
 
-                      return Option.some({ context, masterGain })
-                    }),
-                })
-              }),
-          },
-        )
+        yield* Ref.set(contextRef, Option.some(context))
+        yield* Ref.set(masterGainRef, Option.some(masterGain))
+
+        return Option.some({ context, masterGain })
       })
 
     const playTone = (request: ToneRequest): Effect.Effect<ToneHandle, never> =>

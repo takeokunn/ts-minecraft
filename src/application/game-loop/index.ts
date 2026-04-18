@@ -37,7 +37,7 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
       // Holds the current processing fiber (None when stopped)
       Ref.make<Option.Option<Fiber.RuntimeFiber<void, never>>>(Option.none()),
       Effect.sync(() => MutableRef.make(false)),
-      Effect.sync(() => MutableRef.make<Option.Option<number>>(Option.none())),
+      Effect.sync(() => MutableRef.make<Option.Option<ReturnType<typeof globalThis.setInterval>>>(Option.none())),
     ], { concurrency: 'unbounded' }).pipe(
       Effect.flatMap(([frameQueueRef, processingFiberRef, isRunningRef, animationFrameIdRef]) =>
         Effect.succeed({
@@ -91,30 +91,30 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
                 Effect.forever,
               )
 
-              /**
-               * Bridge loop - connects requestAnimationFrame to Effect Queue.
-               */
-              const bridgeLoop = () => {
-                if (!MutableRef.get(isRunningRef)) return
-
-                const now = performance.now()
-
-                Effect.runFork(
-                  Queue.offer(frameQueue, { _tag: 'Tick', timestamp: now }).pipe(
-                    Effect.asVoid,
-                    Effect.catchAllCause((cause) => Effect.logError(`Frame queue error: ${Cause.pretty(cause)}`)),
-                  ),
-                )
-
-                MutableRef.set(animationFrameIdRef, Option.some(requestAnimationFrame(bridgeLoop)))
-              }
-
               MutableRef.set(isRunningRef, true)
 
               const fiber = yield* Effect.forkDaemon(processFrames)
               yield* Ref.set(processingFiberRef, Option.some(fiber))
 
-              bridgeLoop()
+              const scheduleFrame = (): void => {
+                const rafId = globalThis.setInterval(() => {
+                  if (!MutableRef.get(isRunningRef)) return
+
+                  const timestamp = performance.now()
+
+                  Effect.runFork(
+                    Queue.offer(frameQueue, { _tag: 'Tick', timestamp }).pipe(
+                      Effect.asVoid,
+                      Effect.catchAllCause((cause) => Effect.logError(`Frame queue error: ${Cause.pretty(cause)}`)),
+                    ),
+                  )
+
+                }, 16)
+
+                MutableRef.set(animationFrameIdRef, Option.some(rafId))
+              }
+
+              scheduleFrame()
 
               yield* Effect.log('Game loop started')
             }),
@@ -130,7 +130,7 @@ export class GameLoopService extends Effect.Service<GameLoopService>()(
             MutableRef.set(isRunningRef, false)
 
             const animationFrameId = MutableRef.get(animationFrameIdRef)
-            Option.map(animationFrameId, (id) => cancelAnimationFrame(id))
+            Option.map(animationFrameId, (id) => globalThis.clearInterval(id))
             MutableRef.set(animationFrameIdRef, Option.none())
 
               yield* Option.match(yield* Ref.get(processingFiberRef), {

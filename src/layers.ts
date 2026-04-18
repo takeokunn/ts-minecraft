@@ -15,6 +15,7 @@ import { SceneServiceLive } from '@/infrastructure/three/scene/scene-service'
 import { PerspectiveCameraServiceLive } from '@/infrastructure/three/camera/perspective'
 import { TextureServiceLive, BlockMeshServiceLive } from '@/infrastructure/three'
 import { WorldRendererServiceLive } from '@/infrastructure/three/world-renderer'
+import { EntityRendererLive } from '@/infrastructure/three/entity-renderer'
 import { FPSCounterLive } from '@/presentation/fps-counter'
 import { BlockRegistryLive } from '@/domain'
 
@@ -62,6 +63,7 @@ import { TradingServiceLive } from '@/trading/trading-service'
 import { TradingPresentationLive } from '@/presentation/trading'
 import { RedstoneServiceLive } from '@/redstone/redstone-service'
 import { FluidServiceLive } from '@/application/fluid/fluid-service'
+import { LightEngineLive } from '@/application/light/light-engine-service'
 
 // Game state, camera, physics, input, raycasting, and game loop
 import { GameStateServiceLive } from '@/application/game-state'
@@ -110,7 +112,7 @@ export const NoisePortLayer = Layer.effect(
   Effect.map(NoiseService, (noise) => {
     // Typed intermediate validates that NoiseService exposes the required port methods
     // with the correct signatures. If a method is renamed or its signature changes, tsc fails here.
-    const impl: { noise2D: NoiseService['noise2D']; octaveNoise2D: NoiseService['octaveNoise2D']; setSeed: NoiseService['setSeed']; octaveNoise2DBatch: NoiseService['octaveNoise2DBatch']; noise2DBatch: NoiseService['noise2DBatch']; octaveNoise2DBatchXY: NoiseService['octaveNoise2DBatchXY']; noise2DBatchXY: NoiseService['noise2DBatchXY'] } = {
+    const impl: { noise2D: NoiseService['noise2D']; octaveNoise2D: NoiseService['octaveNoise2D']; setSeed: NoiseService['setSeed']; octaveNoise2DBatch: NoiseService['octaveNoise2DBatch']; noise2DBatch: NoiseService['noise2DBatch']; octaveNoise2DBatchXY: NoiseService['octaveNoise2DBatchXY']; noise2DBatchXY: NoiseService['noise2DBatchXY']; noise3D: NoiseService['noise3D']; noise3DBatchXYZ: NoiseService['noise3DBatchXYZ']; continentalness: NoiseService['continentalness']; erosion: NoiseService['erosion']; weirdness: NoiseService['weirdness']; jaggedness: NoiseService['jaggedness']; sampleTerrainChannels: NoiseService['sampleTerrainChannels'] } = {
       noise2D: (x, z) => noise.noise2D(x, z),
       octaveNoise2D: (x, z, o, p, l) => noise.octaveNoise2D(x, z, o, p, l),
       setSeed: (seed) => noise.setSeed(seed),
@@ -118,6 +120,13 @@ export const NoisePortLayer = Layer.effect(
       noise2DBatch: (points) => noise.noise2DBatch(points),
       octaveNoise2DBatchXY: (xs, zs, o, p, l) => noise.octaveNoise2DBatchXY(xs, zs, o, p, l),
       noise2DBatchXY: (xs, zs) => noise.noise2DBatchXY(xs, zs),
+      noise3D: (x, y, z) => noise.noise3D(x, y, z),
+      noise3DBatchXYZ: (xs, ys, zs) => noise.noise3DBatchXYZ(xs, ys, zs),
+      continentalness: (x, z) => noise.continentalness(x, z),
+      erosion: (x, z) => noise.erosion(x, z),
+      weirdness: (x, z) => noise.weirdness(x, z),
+      jaggedness: (x, z) => noise.jaggedness(x, z),
+      sampleTerrainChannels: (xStart, zStart) => noise.sampleTerrainChannels(xStart, zStart),
     }
     // The `as unknown as NoiseServicePort` cast is unavoidable: Effect.Service adds a `_tag`
     // discriminant that plain objects cannot satisfy structurally.
@@ -188,9 +197,12 @@ export const ThirdPersonCameraLayer = ThirdPersonCameraServiceLive.pipe(
   Layer.provide(CameraStateLayer),
 )
 
-// Level 3: ChunkManagerService depends on ChunkService, StorageServicePort, BiomeService, NoiseServicePort (all independent peers)
+// LightEngineService has no service dependencies — exposes Effect.succeed for compute/update
+export const LightEngineLayer = LightEngineLive
+
+// Level 3: ChunkManagerService depends on ChunkService, StorageServicePort, BiomeService, NoiseServicePort, LightEngineService
 export const ChunkManagerLayer = ChunkManagerServiceLive.pipe(
-  Layer.provide(Layer.mergeAll(ChunkServiceLive, StoragePortLayer, BiomeLayer, NoisePortLayer))
+  Layer.provide(Layer.mergeAll(ChunkServiceLive, StoragePortLayer, BiomeLayer, NoisePortLayer, LightEngineLayer))
 )
 
 // Fluid simulation service depends on chunk and world state
@@ -210,6 +222,11 @@ export const GameLayer = GameStateServiceLive.pipe(
 // Level 4: WorldRendererService depends on ChunkMeshService and SceneService
 export const WorldRendererLayer = WorldRendererServiceLive.pipe(
   Layer.provide(ChunkMeshServiceLive),
+  Layer.provide(SceneServiceLive),
+)
+
+// Level 4: EntityRendererService depends on SceneService — mirrors WorldRendererLayer
+export const EntityRendererLayer = EntityRendererLive.pipe(
   Layer.provide(SceneServiceLive),
 )
 
@@ -263,10 +280,13 @@ export const SettingsOverlayLayer = SettingsOverlayLive.pipe(
   Layer.provide(DomOperationsLive),
 )
 
-// InventoryRenderer depends on InventoryService, HotbarService, and DomOperations
+// InventoryRenderer depends on InventoryService, HotbarService, RecipeService, and DomOperations
 export const InventoryRendererLayer = InventoryRendererLive.pipe(
   Layer.provide(InventoryLayer),
   Layer.provide(HotbarLayer),
+  Layer.provide(RecipeServiceLive),
+  Layer.provide(GameLayer),
+  Layer.provide(ChunkManagerLayer),
   Layer.provide(DomOperationsLive),
 )
 
@@ -312,6 +332,7 @@ export const GameLogicLayers = Layer.mergeAll(
   TradingLayer,
   RedstoneLayer,
   FluidLayer,
+  LightEngineLayer,
   MobSpawnerLayer,
   HealthServiceLive,
   RecipeServiceLive,
@@ -320,6 +341,7 @@ export const GameLogicLayers = Layer.mergeAll(
   CameraStateLayer,
   RaycastingLayer,
   WorldRendererLayer,  // moved from InfrastructureLayers: orchestrates application→infrastructure
+  EntityRendererLayer,
 )
 
 export const PresentationLayers = Layer.mergeAll(

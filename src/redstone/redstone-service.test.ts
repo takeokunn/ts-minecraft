@@ -66,17 +66,8 @@ describe('redstone/redstone-service', () => {
       yield* redstone.tick()
       const afterOff = yield* redstone.getComponent({ x: 1, y: 64, z: 0 })
 
-      const extendedAfterOn = Option.match(afterOn, {
-        onNone: () => false,
-        onSome: (component) => component.state.pistonExtended,
-      })
-      const extendedAfterOff = Option.match(afterOff, {
-        onNone: () => true,
-        onSome: (component) => component.state.pistonExtended,
-      })
-
-      expect(extendedAfterOn).toBe(true)
-      expect(extendedAfterOff).toBe(false)
+      expect(Option.getOrThrow(afterOn).state.pistonExtended).toBe(true)
+      expect(Option.getOrThrow(afterOff).state.pistonExtended).toBe(false)
     }).pipe(Effect.provide(RedstoneServiceLive))
   )
 })

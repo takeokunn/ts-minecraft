@@ -1,4 +1,4 @@
-import { Effect, Ref, Schema, Clock, Data, Option } from 'effect'
+import { Array as Arr, Effect, Ref, Schema, Clock, Data, Option } from 'effect'
 import { PlayerService } from '@/application/player/player-state'
 import { PlayerError } from '@/domain'
 import { DeltaTimeSecs, DeltaTimeSecsSchema, PlayerId, Position, PhysicsBodyId } from '@/shared/kernel'
@@ -171,7 +171,7 @@ export class GameStateService extends Effect.Service<GameStateService>()(
             const playerCz = Math.floor(physPos.z / CHUNK_SIZE)
             const chunkCache = new Map<string, { blocks: Uint8Array }>()
             yield* Effect.forEach(
-              ([-1, 0, 1] as const).flatMap((dx) => ([-1, 0, 1] as const).map((dz) => ({ dx, dz }))),
+              Arr.flatMap([-1, 0, 1] as const, (dx) => Arr.map([-1, 0, 1] as const, (dz) => ({ dx, dz }))),
               ({ dx, dz }) =>
                 chunkManagerService.getChunk({ x: playerCx + dx, z: playerCz + dz }).pipe(
                   Effect.tap((chunk) =>
@@ -229,6 +229,27 @@ export class GameStateService extends Effect.Service<GameStateService>()(
             ),
             Effect.catchTag('PlayerError', (e) =>
               Effect.fail(new GameStateError({ operation: 'update', reason: e.reason, cause: e }))
+            )
+          ),
+
+        respawn: (spawnPosition: Position): Effect.Effect<void, GameStateError> =>
+          Effect.gen(function* () {
+            const playerBodyId = yield* Option.match(yield* Ref.get(playerBodyIdRef), {
+              onNone: () => Effect.fail(new GameStateError({ operation: 'respawn', reason: 'Physics not initialized. Call initialize() first.' })),
+              onSome: (id) => Effect.succeed(id),
+            })
+
+            yield* physicsService.setPosition(playerBodyId, spawnPosition)
+            yield* physicsService.setVelocity(playerBodyId, ZERO_VEC3)
+            yield* playerService.updatePosition(playerId, spawnPosition)
+            yield* playerService.updateVelocity(playerId, ZERO_VEC3)
+            yield* Ref.set(isGroundedRef, false)
+          }).pipe(
+            Effect.catchTag('PhysicsServiceError', (e) =>
+              Effect.fail(new GameStateError({ operation: 'respawn', reason: e.operation, cause: e }))
+            ),
+            Effect.catchTag('PlayerError', (e) =>
+              Effect.fail(new GameStateError({ operation: 'respawn', reason: e.reason, cause: e }))
             )
           ),
 

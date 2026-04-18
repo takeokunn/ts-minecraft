@@ -1,17 +1,27 @@
-import { Array as Arr, Cause, Effect, Option, Ref } from 'effect'
-import { InventoryService, INVENTORY_SIZE, HOTBAR_START } from '@/application/inventory/inventory-service'
+import { Array as Arr, Cause, Effect, HashMap, Match, Option, Ref } from 'effect'
+import { InventoryService, INVENTORY_SIZE, HOTBAR_START, type InventorySlot } from '@/application/inventory/inventory-service'
 import { HotbarService } from '@/application/hotbar/hotbar-service'
+import { RecipeService } from '@/application/crafting/recipe-service'
+import { GameStateService } from '@/application/game-state'
+import { ChunkManagerService } from '@/application/chunk/chunk-manager-service'
+import { DEFAULT_PLAYER_ID } from '@/application/constants'
+import { RecipeId } from '@/shared/kernel'
 import { DomOperationsService } from '@/presentation/hud/crosshair'
 import type { BlockType } from '@/domain/block'
+import type { Recipe } from '@/domain/crafting'
 import { SlotIndex } from '@/shared/kernel'
+import { CHUNK_HEIGHT, CHUNK_SIZE, blockTypeToIndex } from '@/domain/chunk'
 
-// Colors for block types in the inventory UI
-const SLOT_COLORS: Record<string, string> = {
-  AIR: '#444444', GRASS: '#5a8a3a', DIRT: '#8b6344', STONE: '#888888',
-  SAND: '#d4c77a', WATER: '#3f76be', WOOD: '#6b4423', LEAVES: '#2d5a1b',
-  GLASS: '#c0e0f0', SNOW: '#f0f5ff', GRAVEL: '#7a6a5a', COBBLESTONE: '#606060',
-}
-const DEFAULT_SLOT_COLOR = '#333333'
+import {
+  SLOT_COLORS, DEFAULT_SLOT_COLOR,
+  SLOT_EL_STYLE, OVERLAY_STYLE, OVERLAY_TITLE_STYLE,
+  MAIN_GRID_STYLE, HOTBAR_GRID_STYLE, SEPARATOR_STYLE,
+  CRAFTING_TITLE_STYLE, CRAFTING_LIST_STYLE, STATUS_STYLE,
+  EMPTY_RECIPE_STYLE, RECIPE_ROW_BASE_STYLE,
+  RECIPE_ROW_SELECTED_BG, RECIPE_ROW_SELECTED_BORDER,
+  RECIPE_ROW_DEFAULT_BG, RECIPE_ROW_DEFAULT_BORDER,
+  SLOT_BORDER_SELECTED, SLOT_BORDER_DEFAULT,
+} from './inventory-renderer.config'
 
 export class InventoryRendererService extends Effect.Service<InventoryRendererService>()(
   '@minecraft/presentation/InventoryRenderer',
@@ -19,87 +29,196 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
     scoped: Effect.all([
       InventoryService,
       HotbarService,
+      RecipeService,
+      GameStateService,
+      ChunkManagerService,
       DomOperationsService,
       Ref.make(false),
+      Ref.make<ReadonlyArray<Recipe>>([]),
+      Ref.make(0),
+      Ref.make('Click a recipe to craft it.'),
     ], { concurrency: 'unbounded' }).pipe(
-      Effect.flatMap(([inventoryService, hotbarService, dom, isVisibleRef]) => {
-      const getSlotColor = (blockType: BlockType | string): string =>
-        Option.getOrElse(Option.fromNullable(SLOT_COLORS[blockType]), () => DEFAULT_SLOT_COLOR)
+      Effect.flatMap(([inventoryService, hotbarService, recipeService, gameState, chunkManagerService, dom, isVisibleRef, availableRecipesRef, selectedRecipeIndexRef, statusMessageRef]) => {
+      const getSlotColor = (blockType: BlockType): string =>
+        Option.getOrElse(Option.fromNullable(SLOT_COLORS[blockType as BlockType]), () => DEFAULT_SLOT_COLOR)
+
+      type OverlayDom = {
+        readonly overlayEl: Option.Option<HTMLDivElement>
+        readonly slotEls: HTMLDivElement[]
+        readonly craftingListEl: Option.Option<HTMLDivElement>
+        readonly statusEl: Option.Option<HTMLDivElement>
+      }
+
+      const collectAvailableCounts = (slots: ReadonlyArray<InventorySlot>): HashMap.HashMap<BlockType, number> =>
+        Arr.reduce(slots, HashMap.empty<BlockType, number>(), (counts, slot) =>
+          Option.match(slot, {
+            onNone: () => counts,
+            onSome: (stack) =>
+              HashMap.set(
+                counts,
+                stack.blockType,
+                Option.getOrElse(HashMap.get(counts, stack.blockType), () => 0) + stack.count,
+              ),
+          }),
+        )
+
+      const hasNearbyCraftingTable = (): Effect.Effect<boolean, never> =>
+        Effect.gen(function* () {
+          const playerPos = yield* gameState.getPlayerPosition(DEFAULT_PLAYER_ID).pipe(Effect.catchAll(() => Effect.succeed({ x: 0, y: 0, z: 0 })))
+          const searchRadius = 3
+          const craftingTableIndex = blockTypeToIndex('CRAFTING_TABLE')
+
+          for (let dx = -searchRadius; dx <= searchRadius; dx++) {
+            for (let dy = -1; dy <= 2; dy++) {
+              for (let dz = -searchRadius; dz <= searchRadius; dz++) {
+                const wx = Math.floor(playerPos.x + dx)
+                const wy = Math.floor(playerPos.y + dy)
+                const wz = Math.floor(playerPos.z + dz)
+                if (wy < 0 || wy >= CHUNK_HEIGHT) continue
+                const cx = Math.floor(wx / CHUNK_SIZE)
+                const cz = Math.floor(wz / CHUNK_SIZE)
+                const chunk = yield* chunkManagerService.getChunk({ x: cx, z: cz }).pipe(Effect.catchAll(() => Effect.succeed(null)))
+                if (chunk === null) continue
+                const lx = ((wx % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
+                const lz = ((wz % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
+                const idx = wy + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE
+                if (chunk.blocks[idx] === craftingTableIndex) return true
+              }
+            }
+          }
+
+          return false
+        })
+
+      const refreshCraftingState = (slots: ReadonlyArray<InventorySlot>): Effect.Effect<readonly [ReadonlyArray<Recipe>, number], never> =>
+        Effect.gen(function* () {
+          const craftable = recipeService.findCraftable(collectAvailableCounts(slots), yield* hasNearbyCraftingTable())
+          const nextSelectedIndex = yield* Ref.modify(selectedRecipeIndexRef, (current) => {
+            if (craftable.length === 0) return [0, 0] as const
+            const clamped = Math.max(0, Math.min(current, craftable.length - 1))
+            return [clamped, clamped] as const
+          })
+          yield* Ref.set(availableRecipesRef, craftable)
+          return [craftable, nextSelectedIndex] as const
+        })
 
       const createSlotEl = (index: number): HTMLDivElement => {
         const el = dom.createElement('div')
         el.dataset['slot'] = String(index)
-        el.style.cssText = [
-          'width:48px', 'height:48px', 'border:2px solid #666',
-          'cursor:pointer', 'position:relative', 'display:flex',
-          'align-items:center', 'justify-content:center',
-          'font-size:10px', 'color:#fff', 'user-select:none',
-          'background:' + DEFAULT_SLOT_COLOR,
-        ].join(';')
+        el.style.cssText = `${SLOT_EL_STYLE};background:${DEFAULT_SLOT_COLOR}`
         return el
       }
 
-      return Effect.sync((): { overlayEl: Option.Option<HTMLDivElement>; slotEls: HTMLDivElement[] } => {
-        if (typeof document === 'undefined') return { overlayEl: Option.none(), slotEls: [] }
+      return Effect.sync((): OverlayDom => {
+        if (typeof document === 'undefined') {
+          return {
+            overlayEl: Option.none(),
+            slotEls: [],
+            craftingListEl: Option.none(),
+            statusEl: Option.none(),
+          }
+        }
 
         const el = dom.createElement('div')
         el.id = 'inventory-overlay'
-        el.style.cssText = [
-          'position:fixed', 'top:50%', 'left:50%',
-          'transform:translate(-50%,-50%)',
-          'background:rgba(0,0,0,0.85)', 'padding:16px',
-          'border-radius:8px', 'z-index:999', 'display:none',
-          'font-family:monospace',
-        ].join(';')
+        el.style.cssText = OVERLAY_STYLE
 
         const title = dom.createElement('div')
         title.textContent = 'Inventory'
-        title.style.cssText = 'color:#fff;margin-bottom:10px;font-size:14px;text-align:center'
+        title.style.cssText = OVERLAY_TITLE_STYLE
         dom.appendChildTo(el, title)
 
         // Main grid (3 rows × 9 = slots 0-26)
         const mainGrid = dom.createElement('div')
-        mainGrid.style.cssText = 'display:grid;grid-template-columns:repeat(9,50px);gap:4px;margin-bottom:8px'
+        mainGrid.style.cssText = MAIN_GRID_STYLE
         const mainSlots = Arr.makeBy(HOTBAR_START, (i) => createSlotEl(i))
         Arr.forEach(mainSlots, (slotEl) => dom.appendChildTo(mainGrid, slotEl))
         dom.appendChildTo(el, mainGrid)
 
         // Separator
         const sep = dom.createElement('hr')
-        sep.style.cssText = 'border-color:#555;margin:8px 0'
+        sep.style.cssText = SEPARATOR_STYLE
         dom.appendChildTo(el, sep)
 
         // Hotbar row (slots 27-35)
         const hotbarGrid = dom.createElement('div')
-        hotbarGrid.style.cssText = 'display:grid;grid-template-columns:repeat(9,50px);gap:4px'
+        hotbarGrid.style.cssText = HOTBAR_GRID_STYLE
         const hotbarSlots = Arr.makeBy(INVENTORY_SIZE - HOTBAR_START, (i) => createSlotEl(HOTBAR_START + i))
         Arr.forEach(hotbarSlots, (slotEl) => dom.appendChildTo(hotbarGrid, slotEl))
         dom.appendChildTo(el, hotbarGrid)
 
+        const craftingTitle = dom.createElement('div')
+        craftingTitle.textContent = 'Crafting'
+        craftingTitle.style.cssText = CRAFTING_TITLE_STYLE
+        dom.appendChildTo(el, craftingTitle)
+
+        const craftingList = dom.createElement('div')
+        craftingList.style.cssText = CRAFTING_LIST_STYLE
+        dom.appendChildTo(el, craftingList)
+
+        const status = dom.createElement('div')
+        status.style.cssText = STATUS_STYLE
+        status.textContent = 'Click a recipe to craft it.'
+        dom.appendChildTo(el, status)
+
         dom.appendChild(el)
 
-        return { overlayEl: Option.some(el), slotEls: Arr.appendAll(mainSlots, hotbarSlots) }
+        return {
+          overlayEl: Option.some(el),
+          slotEls: Arr.appendAll(mainSlots, hotbarSlots),
+          craftingListEl: Option.some(craftingList),
+          statusEl: Option.some(status),
+        }
       }).pipe(
-        Effect.flatMap(({ overlayEl, slotEls }) => {
+        Effect.flatMap(({ overlayEl, slotEls, craftingListEl, statusEl }) => {
         const handleDelegatedClick = (event: MouseEvent) => {
-          const slotTarget = Option.fromNullable(
-            event.target instanceof HTMLElement ? event.target.closest('[data-slot]') : null,
-          ).pipe(Option.filter((target): target is HTMLElement => target instanceof HTMLElement))
+          const htmlTarget = event.target instanceof HTMLElement ? event.target : null
+          const recipeTarget = Option.fromNullable(htmlTarget?.closest('[data-recipe-id]')).pipe(
+            Option.filter((target): target is HTMLElement => target instanceof HTMLElement),
+          )
 
-          Option.map(slotTarget, (target) => {
-            const index = parseInt(Option.getOrElse(Option.fromNullable(target.dataset['slot']), () => '-1'), 10)
-            if (index < 0 || index >= INVENTORY_SIZE) return
-            Effect.runFork(
-              Effect.gen(function* () {
-                const selectedSlot = yield* hotbarService.getSelectedSlot()
-                const hotbarInventoryIndex = HOTBAR_START + SlotIndex.toNumber(selectedSlot)
-                yield* inventoryService.moveStack(SlotIndex.make(index), SlotIndex.make(hotbarInventoryIndex))
-              }).pipe(
-                Effect.catchAllCause(cause =>
-                  Effect.logError(`Inventory click error: ${Cause.pretty(cause)}`)
-                )
+          Option.match(recipeTarget, {
+            onSome: (target) => {
+              const recipeId = target.dataset['recipeId']
+              if (!recipeId) return
+              Effect.runFork(
+                hasNearbyCraftingTable().pipe(
+                  Effect.flatMap((hasTableAccess) => recipeService.craft(RecipeId.make(recipeId), inventoryService, hasTableAccess)),
+                  Effect.andThen(Ref.set(statusMessageRef, 'Crafted successfully.')),
+                  Effect.catchAll((error) =>
+                    Ref.set(statusMessageRef, Match.value(error).pipe(
+                      Match.tag('RecipeError', (recipeError) => String(recipeError.cause)),
+                      Match.orElse(() => 'Crafting failed.'),
+                    )),
+                  ),
+                  Effect.andThen(refreshSlots()),
+                  Effect.catchAllCause((cause) =>
+                    Effect.logError(`Crafting click error: ${Cause.pretty(cause)}`),
+                  ),
+                ),
               )
-            )
+            },
+            onNone: () => {
+              const slotTarget = Option.fromNullable(htmlTarget?.closest('[data-slot]')).pipe(
+                Option.filter((target): target is HTMLElement => target instanceof HTMLElement),
+              )
+
+              Option.map(slotTarget, (target) => {
+                const index = parseInt(Option.getOrElse(Option.fromNullable(target.dataset['slot']), () => '-1'), 10)
+                if (index < 0 || index >= INVENTORY_SIZE) return
+                Effect.runFork(
+                  Effect.gen(function* () {
+                    const selectedSlot = yield* hotbarService.getSelectedSlot()
+                    const hotbarInventoryIndex = HOTBAR_START + SlotIndex.toNumber(selectedSlot)
+                    yield* inventoryService.moveStack(SlotIndex.make(index), SlotIndex.make(hotbarInventoryIndex))
+                  }).pipe(
+                    Effect.catchAllCause(cause =>
+                      Effect.logError(`Inventory click error: ${Cause.pretty(cause)}`)
+                    )
+                  )
+                )
+              })
+            },
           })
         }
 
@@ -107,6 +226,8 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
           Effect.gen(function* () {
             const allSlots = yield* inventoryService.getAllSlots()
             const selectedSlot = yield* hotbarService.getSelectedSlot()
+            const [craftableRecipes, selectedRecipeIndex] = yield* refreshCraftingState(allSlots)
+            const statusMessage = yield* Ref.get(statusMessageRef)
 
             yield* Effect.sync(() => {
               const selectedHotbarIdx = HOTBAR_START + SlotIndex.toNumber(selectedSlot)
@@ -125,8 +246,37 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
                 })
                 // Highlight selected hotbar slot
                 el.style.border = i >= HOTBAR_START && i === selectedHotbarIdx
-                  ? '2px solid #fff'
-                  : '2px solid #666'
+                  ? SLOT_BORDER_SELECTED
+                  : SLOT_BORDER_DEFAULT
+              })
+
+              Option.map(craftingListEl, (container) => {
+                container.innerHTML = ''
+                if (craftableRecipes.length === 0) {
+                  const empty = dom.createElement('div')
+                  empty.textContent = 'No craftable recipes yet.'
+                  empty.style.cssText = EMPTY_RECIPE_STYLE
+                  dom.appendChildTo(container, empty)
+                  return
+                }
+
+                Arr.forEach(craftableRecipes, (recipe, index) => {
+                  const row = dom.createElement('button')
+                  row.dataset['recipeId'] = recipe.id
+                  const isSelected = index === selectedRecipeIndex
+                  row.style.cssText = [
+                    RECIPE_ROW_BASE_STYLE,
+                    'border:1px solid ' + (isSelected ? RECIPE_ROW_SELECTED_BORDER : RECIPE_ROW_DEFAULT_BORDER),
+                    'background:' + (isSelected ? RECIPE_ROW_SELECTED_BG : RECIPE_ROW_DEFAULT_BG),
+                  ].join(';')
+                  const stationLabel = recipe.station === 'crafting_table' ? ' [Crafting Table]' : ''
+                  row.textContent = `${Arr.map(recipe.ingredients, (ingredient) => `${ingredient.count} ${ingredient.blockType}`).join(' + ')} → ${recipe.output.count} ${recipe.output.blockType}${stationLabel}`
+                  dom.appendChildTo(container, row)
+                })
+              })
+
+              Option.map(statusEl, (el) => {
+                el.textContent = statusMessage
               })
             })
           })
@@ -153,6 +303,45 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
             Effect.gen(function* () {
               const isVisible = yield* Ref.get(isVisibleRef)
               if (isVisible) yield* refreshSlots()
+            }),
+
+          cycleRecipes: (delta: number): Effect.Effect<void, never> =>
+            Effect.gen(function* () {
+              const recipes = yield* Ref.get(availableRecipesRef)
+              if (recipes.length === 0) return
+              yield* Ref.update(selectedRecipeIndexRef, (current) => {
+                const next = (current + delta) % recipes.length
+                return next < 0 ? next + recipes.length : next
+              })
+              yield* refreshSlots()
+            }),
+
+          craftSelectedRecipe: (): Effect.Effect<boolean, never> =>
+            Effect.gen(function* () {
+              const recipes = yield* Ref.get(availableRecipesRef)
+              const selectedRecipeIndex = yield* Ref.get(selectedRecipeIndexRef)
+              const recipe = Option.getOrElse(Arr.get(recipes, selectedRecipeIndex), () => null)
+              if (recipe === null) {
+                yield* Ref.set(statusMessageRef, 'No craftable recipe selected.')
+                yield* refreshSlots()
+                return false
+              }
+
+              const result = yield* recipeService.craft(recipe.id, inventoryService, yield* hasNearbyCraftingTable()).pipe(Effect.either)
+              const crafted = Match.value(result).pipe(
+                Match.tag('Right', () => true),
+                Match.tag('Left', () => false),
+                Match.exhaustive,
+              )
+
+              yield* Ref.set(
+                statusMessageRef,
+                crafted
+                  ? `Crafted ${recipe.output.count} ${recipe.output.blockType}.`
+                  : 'Crafting failed.',
+              )
+              yield* refreshSlots()
+              return crafted
             }),
         }))
       })

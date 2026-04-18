@@ -36,7 +36,7 @@ export const DEFAULT_JUMP_VELOCITY: MetersPerSec = MetersPerSec.make(5.0)
  * Pure math: compute movement velocity from input state and camera yaw.
  * No side effects — safe to call anywhere without Effect wrapping.
  */
-const computeVelocity = (
+export const computeVelocity = (
   input: MovementInput,
   yaw: number,
   isGrounded: boolean,

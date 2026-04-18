@@ -1,4 +1,5 @@
-import { Cause, Effect, Match, Option, Ref, Schema } from 'effect'
+import { Cause, Effect, Option, Ref, Schema } from 'effect'
+import { GRAPHICS_PRESETS } from './settings-service.config'
 import { SettingsError } from '@/domain/errors'
 
 /**
@@ -28,20 +29,10 @@ export type ResolvedGraphics = Schema.Schema.Type<typeof ResolvedGraphicsSchema>
 
 /**
  * Map a quality preset to individual pass enable states.
- *
- * - low:    sky + smaa only (maximum performance)
- * - medium: + shadows + bloom (balanced)
- * - high:   + ssao (matches original defaults — good quality)
- * - ultra:  + god rays + dof (maximum quality)
+ * Preset values are defined in settings-service.config.ts.
  */
 export const resolvePreset = (quality: GraphicsQuality): ResolvedGraphics =>
-  Match.value(quality).pipe(
-    Match.when('low', () => ({ shadowsEnabled: false, ssaoEnabled: false, bloomEnabled: false, smaaEnabled: true, skyEnabled: true, dofEnabled: false, godRaysEnabled: false, godRaysSamples: 0, bloomStrength: 0, refractionThrottleFrames: 0 })),
-    Match.when('medium', () => ({ shadowsEnabled: true, ssaoEnabled: false, bloomEnabled: true, smaaEnabled: true, skyEnabled: true, dofEnabled: false, godRaysEnabled: false, godRaysSamples: 25, bloomStrength: 0.2, refractionThrottleFrames: 3 })),
-    Match.when('high', () => ({ shadowsEnabled: true, ssaoEnabled: true, bloomEnabled: true, smaaEnabled: true, skyEnabled: true, dofEnabled: false, godRaysEnabled: false, godRaysSamples: 25, bloomStrength: 0.25, refractionThrottleFrames: 2 })),
-    Match.when('ultra', () => ({ shadowsEnabled: true, ssaoEnabled: true, bloomEnabled: true, smaaEnabled: true, skyEnabled: true, dofEnabled: true, godRaysEnabled: true, godRaysSamples: 40, bloomStrength: 0.3, refractionThrottleFrames: 1 })),
-    Match.exhaustive,
-  )
+  GRAPHICS_PRESETS[quality]
 
 /**
  * Schema for validating the structure of stored settings.
@@ -60,8 +51,10 @@ export const SettingsSchema = Schema.Struct({
   dayLengthSeconds: Schema.Number.pipe(Schema.finite(), Schema.between(120, 1200)),
   /** Graphics quality preset. Replaces individual post-processing toggles. Default: 'high'. */
   graphicsQuality: Schema.optionalWith(GraphicsQuality, { default: () => 'high' as const }),
-  /** Audio global enable toggle (optional in stored data; defaults to true for backward compatibility). */
-  audioEnabled: Schema.optionalWith(Schema.Boolean, { default: () => true }),
+  // NOTE: audioEnabled defaults to false intentionally — do NOT change this to true.
+  // Audio is disabled by default because it causes noise during development and testing.
+  // Users can enable it via the settings UI.
+  audioEnabled: Schema.optionalWith(Schema.Boolean, { default: () => false }),
   /** Master audio volume in [0,1] (optional in stored data; defaults to 0.8 for backward compatibility). */
   masterVolume: Schema.optionalWith(Schema.Number.pipe(Schema.finite(), Schema.between(0, 1)), { default: () => 0.8 }),
   /** Sound effect volume in [0,1] (optional in stored data; defaults to 1.0 for backward compatibility). */
@@ -76,13 +69,47 @@ const DEFAULT_SETTINGS: Settings = {
   mouseSensitivity: 0.5,
   dayLengthSeconds: 400,
   graphicsQuality: 'high',
-  audioEnabled: true,
+  // NOTE: false intentionally — audio is disabled by default (see Schema comment above).
+  audioEnabled: false,
   masterVolume: 0.8,
   sfxVolume: 1.0,
   musicVolume: 0.55,
 }
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null
+
+const clampNumber = (value: unknown, fallback: number, min: number, max: number): number => {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return fallback
+  return Math.min(max, Math.max(min, value))
+}
+
+const clampInteger = (value: unknown, fallback: number, min: number, max: number): number =>
+  Math.round(clampNumber(value, fallback, min, max))
+
+const isGraphicsQuality = (value: unknown): value is GraphicsQuality =>
+  value === 'low' || value === 'medium' || value === 'high' || value === 'ultra'
+
+const sanitizeLegacySettings = (parsed: unknown): Settings => {
+  const record = isRecord(parsed) ? parsed : {}
+
+  return {
+    renderDistance: clampInteger(record['renderDistance'], DEFAULT_SETTINGS.renderDistance, 2, 16),
+    mouseSensitivity: clampNumber(record['mouseSensitivity'], DEFAULT_SETTINGS.mouseSensitivity, 0.1, 3),
+    dayLengthSeconds: clampInteger(record['dayLengthSeconds'], DEFAULT_SETTINGS.dayLengthSeconds, 120, 1200),
+    graphicsQuality: isGraphicsQuality(record['graphicsQuality']) ? record['graphicsQuality'] : DEFAULT_SETTINGS.graphicsQuality,
+    audioEnabled: typeof record['audioEnabled'] === 'boolean' ? record['audioEnabled'] : DEFAULT_SETTINGS.audioEnabled,
+    masterVolume: clampNumber(record['masterVolume'], DEFAULT_SETTINGS.masterVolume, 0, 1),
+    sfxVolume: clampNumber(record['sfxVolume'], DEFAULT_SETTINGS.sfxVolume, 0, 1),
+    musicVolume: clampNumber(record['musicVolume'], DEFAULT_SETTINGS.musicVolume, 0, 1),
+  }
+}
+
 const STORAGE_KEY = 'minecraft-settings'
+const isLocalhost = typeof window !== 'undefined' && window.location.hostname === 'localhost'
+
+const forceAudioOff = (settings: Settings): Settings =>
+  isLocalhost ? { ...settings, audioEnabled: false } : settings
 
 // Schema.decodeUnknown returns Effect<Settings, ParseError> — no Effect.try wrapper needed
 const loadFromStorage: Effect.Effect<Settings, never, never> =
@@ -96,13 +123,19 @@ const loadFromStorage: Effect.Effect<Settings, never, never> =
             catch: (e) => new SettingsError({ operation: 'load', cause: e }),
           }).pipe(
             Effect.flatMap((parsed) => Schema.decodeUnknown(SettingsSchema)(parsed).pipe(
-              Effect.mapError((e) => new SettingsError({ operation: 'load', cause: e }))
+              Effect.mapError((e) => new SettingsError({ operation: 'load', cause: e })),
+              Effect.map(forceAudioOff),
+              Effect.catchAll(() =>
+                Effect.sync(() => forceAudioOff(sanitizeLegacySettings(parsed))).pipe(
+                  Effect.flatMap((settings) => saveToStorage(settings).pipe(Effect.as(settings)))
+                )
+              )
             ))
           ),
       })
     ),
     Effect.tapError((e) => Effect.logWarning(`Settings load failed, using defaults: ${e.message}`)),
-    Effect.catchAllCause(() => Effect.succeed(DEFAULT_SETTINGS))
+    Effect.catchAllCause(() => Effect.succeed(forceAudioOff(DEFAULT_SETTINGS)))
   )
 
 const saveToStorage = (settings: Settings): Effect.Effect<void, never, never> =>

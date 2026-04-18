@@ -6,12 +6,12 @@ import { Block } from './block'
 
 describe('BlockRegistry', () => {
   describe('initialization', () => {
-    it.effect('should have all twelve initial blocks registered', () =>
+    it.effect('should have all forty-seven initial blocks registered', () =>
       Effect.gen(function* () {
         const registry = yield* BlockRegistry
         const allBlocks = yield* registry.getAll()
 
-        expect(allBlocks).toHaveLength(12)
+        expect(allBlocks).toHaveLength(47)
 
         const blockTypes = Arr.map(allBlocks, (block) => block.type)
         expect(blockTypes).toContain('AIR')
@@ -30,15 +30,18 @@ describe('BlockRegistry', () => {
       Effect.gen(function* () {
         const registry = yield* BlockRegistry
 
-        const airBlock = yield* registry.get('AIR')
-        expect(Option.isSome(airBlock)).toBe(true)
+        const cases = [
+          ['AIR', 'block:air'],
+          ['DIRT', 'block:dirt'],
+        ] as const
 
-        expect(Option.getOrThrow(airBlock).id).toBe('block:air')
-
-        const dirtBlock = yield* registry.get('DIRT')
-        expect(Option.isSome(dirtBlock)).toBe(true)
-
-        expect(Option.getOrThrow(dirtBlock).id).toBe('block:dirt')
+        yield* Effect.forEach(cases, ([blockType, expectedId]) =>
+          registry.get(blockType).pipe(
+            Effect.map((block) => {
+              expect(Option.getOrThrow(block).id).toBe(expectedId)
+            }),
+          )
+        , { concurrency: 1 })
       }).pipe(Effect.provide(BlockRegistryLive))
     )
   })
@@ -71,10 +74,7 @@ describe('BlockRegistry', () => {
         const newBlock = yield* Schema.decode(Block)(newBlockData)
         yield* registry.register(newBlock)
 
-        const retrievedBlock = yield* registry.get('STONE')
-        expect(Option.isSome(retrievedBlock)).toBe(true)
-
-        const block = Option.getOrThrow(retrievedBlock)
+        const block = Option.getOrThrow(yield* registry.get('STONE'))
         expect(block).toHaveProperty('id', 'block:diamond')
         expect(block.properties.hardness).toBe(100)
         expect(block.properties.friction).toBe(0.9)
@@ -108,10 +108,7 @@ describe('BlockRegistry', () => {
         const updatedBlock = yield* Schema.decode(Block)(updatedBlockData)
         yield* registry.register(updatedBlock)
 
-        const retrievedBlock = yield* registry.get('STONE')
-        expect(Option.isSome(retrievedBlock)).toBe(true)
-
-        const block = Option.getOrThrow(retrievedBlock)
+        const block = Option.getOrThrow(yield* registry.get('STONE'))
         expect(block.properties.hardness).toBe(90)
       }).pipe(Effect.provide(BlockRegistryLive))
     )
@@ -120,8 +117,7 @@ describe('BlockRegistry', () => {
       Effect.gen(function* () {
         const registry = yield* BlockRegistry
 
-        const originalDirt = yield* registry.get('DIRT')
-        expect(Option.isSome(originalDirt)).toBe(true)
+        const originalDirtBlock = Option.getOrThrow(yield* registry.get('DIRT'))
 
         const updatedStoneData = {
           id: 'block:stone' as const,
@@ -146,11 +142,7 @@ describe('BlockRegistry', () => {
         const updatedStone = yield* Schema.decode(Block)(updatedStoneData)
         yield* registry.register(updatedStone)
 
-        const dirtAfterUpdate = yield* registry.get('DIRT')
-        expect(Option.isSome(dirtAfterUpdate)).toBe(true)
-
-        const dirt = Option.getOrThrow(dirtAfterUpdate)
-        const originalDirtBlock = Option.getOrThrow(originalDirt)
+        const dirt = Option.getOrThrow(yield* registry.get('DIRT'))
 
         expect(dirt.id).toBe(originalDirtBlock.id)
         expect(dirt.properties.hardness).toBe(originalDirtBlock.properties.hardness)
@@ -175,8 +167,8 @@ describe('BlockRegistry', () => {
       Effect.gen(function* () {
         const registry = yield* BlockRegistry
 
-        const block = yield* registry.get('BEDROCK' as any)
-        expect(Option.isNone(block)).toBe(true)
+        const block = yield* registry.get('NETHERRACK' as any)
+        expect(block).toStrictEqual(Option.none())
       }).pipe(Effect.provide(BlockRegistryLive))
     )
 
@@ -184,15 +176,13 @@ describe('BlockRegistry', () => {
       Effect.gen(function* () {
         const registry = yield* BlockRegistry
 
-        const airBlock = yield* registry.get('AIR')
-        const air = Option.getOrThrow(airBlock)
+        const air = Option.getOrThrow(yield* registry.get('AIR'))
         expect(air).toHaveProperty('type', 'AIR')
         expect(air.properties.solid).toBe(false)
 
-        const grassBlock = yield* registry.get('GRASS')
-        const grass = Option.getOrThrow(grassBlock)
+        const grass = Option.getOrThrow(yield* registry.get('GRASS'))
         expect(grass).toHaveProperty('type', 'GRASS')
-        expect(grass.properties.emissive).toBe(true)
+        expect(grass.properties.emissive).toBe(false)
       }).pipe(Effect.provide(BlockRegistryLive))
     )
   })
@@ -204,7 +194,7 @@ describe('BlockRegistry', () => {
 
         const allBlocks = yield* registry.getAll()
 
-        expect(allBlocks).toHaveLength(12)
+        expect(allBlocks).toHaveLength(47)
         expect(Array.isArray(allBlocks)).toBe(true)
       }).pipe(Effect.provide(BlockRegistryLive))
     )
@@ -240,7 +230,7 @@ describe('BlockRegistry', () => {
         const registry = yield* BlockRegistry
 
         const initialBlocks = yield* registry.getAll()
-        expect(initialBlocks).toHaveLength(12)
+        expect(initialBlocks).toHaveLength(47)
 
         const newBlockData = {
           id: 'block:obsidian' as const,
@@ -266,7 +256,7 @@ describe('BlockRegistry', () => {
         yield* registry.register(newBlock)
 
         const allBlocks = yield* registry.getAll()
-        expect(allBlocks).toHaveLength(12)
+        expect(allBlocks).toHaveLength(47)
       }).pipe(Effect.provide(BlockRegistryLive))
     )
   })
@@ -277,7 +267,7 @@ describe('BlockRegistry', () => {
         const registry = yield* BlockRegistry
 
         let allBlocks = yield* registry.getAll()
-        expect(allBlocks).toHaveLength(12)
+        expect(allBlocks).toHaveLength(47)
 
         yield* registry.dispose()
 
@@ -295,7 +285,7 @@ describe('BlockRegistry', () => {
         const blockTypes = ['AIR', 'DIRT', 'STONE', 'WOOD', 'GRASS', 'SAND'] as const
 
         yield* Effect.forEach(blockTypes, (blockType) =>
-          registry.get(blockType).pipe(Effect.map((block) => expect(Option.isNone(block)).toBe(true)))
+          registry.get(blockType).pipe(Effect.map((block) => expect(block).toStrictEqual(Option.none())))
         , { concurrency: 1 })
       }).pipe(Effect.provide(BlockRegistryLive))
     )
@@ -332,8 +322,7 @@ describe('BlockRegistry', () => {
         const allBlocks = yield* registry.getAll()
         expect(allBlocks).toHaveLength(1)
 
-        const retrievedBlock = yield* registry.get('STONE')
-        expect(Option.isSome(retrievedBlock)).toBe(true)
+        expect(Option.isSome(yield* registry.get('STONE'))).toBe(true)
       }).pipe(Effect.provide(BlockRegistryLive))
     )
   })
@@ -394,15 +383,18 @@ describe('BlockRegistry', () => {
         const allBlocks = yield* registry.getAll()
         expect(allBlocks).toHaveLength(2)
 
-        const stoneBlock = yield* registry.get('STONE')
-        expect(Option.isSome(stoneBlock)).toBe(true)
+        const cases = [
+          ['STONE', 'block:iron'],
+          ['DIRT', 'block:gold'],
+        ] as const
 
-        expect(Option.getOrThrow(stoneBlock).id).toBe('block:iron')
-
-        const dirtBlock = yield* registry.get('DIRT')
-        expect(Option.isSome(dirtBlock)).toBe(true)
-
-        expect(Option.getOrThrow(dirtBlock).id).toBe('block:gold')
+        yield* Effect.forEach(cases, ([blockType, expectedId]) =>
+          registry.get(blockType).pipe(
+            Effect.map((block) => {
+              expect(Option.getOrThrow(block).id).toBe(expectedId)
+            }),
+          )
+        , { concurrency: 1 })
       }).pipe(Effect.provide(BlockRegistryLive))
     )
   })

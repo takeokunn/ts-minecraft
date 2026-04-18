@@ -12,6 +12,49 @@ export const INVENTORY_SIZE = 36
 export const HOTBAR_START = 27
 export const HOTBAR_SIZE = 9
 
+// Pure: fills existing partial stacks of the same block type, returns [updatedSlots, remainingCount]
+const fillExistingStacks = (
+  slots: InventorySlots,
+  blockType: BlockType,
+  count: number,
+  maxStack: number,
+): readonly [InventorySlots, number] => {
+  const [remaining, updated] = Arr.mapAccum(slots, count, (rem, slot) => {
+    if (rem <= 0) return [rem, slot] as const
+    return Option.match(slot, {
+      onNone: () => [rem, slot] as const,
+      onSome: (stackVal) => {
+        if (!canMerge(stackVal, { blockType, count: 1 })) return [rem, slot] as const
+        const space = maxStack - stackVal.count
+        if (space <= 0) return [rem, slot] as const
+        const add = Math.min(space, rem)
+        return [rem - add, Option.some(addToStack(stackVal, add))] as const
+      },
+    })
+  })
+  return [updated, remaining]
+}
+
+// Pure: fills empty slots with remaining count, returns [updatedSlots, remainingCount]
+const fillEmptySlots = (
+  slots: InventorySlots,
+  blockType: BlockType,
+  count: number,
+  maxStack: number,
+): readonly [InventorySlots, number] => {
+  const [remaining, updated] = Arr.mapAccum(slots, count, (rem, slot) => {
+    if (rem <= 0) return [rem, slot] as const
+    return Option.match(slot, {
+      onSome: () => [rem, slot] as const,
+      onNone: () => {
+        const add = Math.min(maxStack, rem)
+        return [rem - add, Option.some(createStack(blockType, add))] as const
+      },
+    })
+  })
+  return [updated, remaining]
+}
+
 const InventorySlotSaveEntrySchema = Schema.Struct({
   slot: SlotIndexSchema,
   blockType: BlockTypeSchema,   // Use typed schema for runtime type safety
@@ -28,15 +71,9 @@ export class InventoryService extends Effect.Service<InventoryService>()(
     effect: Effect.flatMap(BlockRegistry, (blockRegistry) =>
       blockRegistry.getAll().pipe(
         Effect.flatMap((allBlocks) => {
-          // Build initial slots: empty for main grid (0-26), one of each non-AIR block for hotbar (27-35)
-          const nonAirBlocks = Arr.take(Arr.filter(allBlocks, (b) => b.type !== 'AIR'), HOTBAR_SIZE)
-          const initialSlots: InventorySlots = Arr.makeBy(INVENTORY_SIZE, (i) => {
-            const hotbarIndex = i - HOTBAR_START
-            if (i >= HOTBAR_START) {
-              return Option.map(Arr.get(nonAirBlocks, hotbarIndex), (block) => createStack(block.type, MAX_STACK_SIZE))
-            }
-            return Option.none()
-          })
+          void allBlocks
+          // Survival-style start: a fresh world begins with an empty inventory/hotbar.
+          const initialSlots: InventorySlots = Arr.makeBy(INVENTORY_SIZE, () => Option.none())
           return Ref.make<InventorySlots>(initialSlots)
         }),
         Effect.map((slotsRef) => ({
@@ -78,50 +115,46 @@ export class InventoryService extends Effect.Service<InventoryService>()(
 
           addBlock: (blockType: BlockType, count: number): Effect.Effect<boolean, never> =>
             Ref.modify(slotsRef, (slots) => {
-              // First pass: fill existing partial stacks
-              const [remaining1, slots1] = Arr.mapAccum(slots, count, (rem, slot) => {
-                if (rem <= 0) return [rem, slot] as const
-                return Option.match(slot, {
-                  onNone: () => [rem, slot] as const,
-                  onSome: (stackVal) => {
-                    if (!canMerge(stackVal, { blockType, count: 1 })) return [rem, slot] as const
-                    const space = MAX_STACK_SIZE - stackVal.count
-                    if (space <= 0) return [rem, slot] as const
-                    const add = Math.min(space, rem)
-                    return [rem - add, Option.some(addToStack(stackVal, add))] as const
-                  },
-                })
-              })
-
-              // Second pass: fill empty slots
-              const [remaining2, slots2] = Arr.mapAccum(slots1, remaining1, (rem, slot) => {
-                if (rem <= 0) return [rem, slot] as const
-                return Option.match(slot, {
-                  onSome: () => [rem, slot] as const,
-                  onNone: () => {
-                    const add = Math.min(MAX_STACK_SIZE, rem)
-                    return [rem - add, Option.some(createStack(blockType, add))] as const
-                  },
-                })
-              })
-
-              return [remaining2 === 0, slots2]
+              const [afterFill, rem1] = fillExistingStacks(slots, blockType, count, MAX_STACK_SIZE)
+              const [afterEmpty, rem2] = fillEmptySlots(afterFill, blockType, rem1, MAX_STACK_SIZE)
+              return [rem2 === 0, afterEmpty]
             }),
 
-          removeBlock: (blockType: BlockType, count: number): Effect.Effect<boolean, never> =>
+          removeBlock: (blockType: BlockType, count: number, preferredSlot?: SlotIndex): Effect.Effect<boolean, never> =>
             Ref.modify(slotsRef, (slots) => {
-              const [remaining, result] = Arr.mapAccum(slots, count, (rem, slot) => {
+              const preferredIdx = Option.map(Option.fromNullable(preferredSlot), SlotIndex.toNumber)
+
+              const takeFrom = (rem: number, stack: ItemStack): readonly [number, InventorySlot] => {
+                if (stack.blockType !== blockType) return [rem, Option.some(stack)]
+                const take = Math.min(stack.count, rem)
+                return [rem - take, removeFromStack(stack, take)]
+              }
+
+              // Step 1: drain preferred slot first (if provided)
+              const [rem1, slots1] = Option.match(preferredIdx, {
+                onNone: () => [count, slots] as const,
+                onSome: (idx) =>
+                  Option.match(Option.getOrElse(Arr.get(slots, idx), () => Option.none<ItemStack>()), {
+                    onNone: () => [count, slots] as const,
+                    onSome: (stack) => {
+                      const [newRem, newSlot] = takeFrom(count, stack)
+                      return [newRem, Arr.modify(slots, idx, () => newSlot)] as const
+                    },
+                  }),
+              })
+
+              // Step 2: drain remaining from all other slots in order
+              const preferredIdxNum = Option.getOrNull(preferredIdx)
+              const [rem2, slots2] = Arr.mapAccum(slots1, rem1, (rem, slot, idx) => {
                 if (rem <= 0) return [rem, slot] as const
+                if (preferredIdxNum !== null && idx === preferredIdxNum) return [rem, slot] as const
                 return Option.match(slot, {
                   onNone: () => [rem, slot] as const,
-                  onSome: (stackVal) => {
-                    if (stackVal.blockType !== blockType) return [rem, slot] as const
-                    const take = Math.min(stackVal.count, rem)
-                    return [rem - take, removeFromStack(stackVal, take)] as const
-                  },
+                  onSome: (stack) => takeFrom(rem, stack),
                 })
               })
-              return [remaining === 0, result]
+
+              return [rem2 === 0, slots2]
             }),
 
           getHotbarSlots: (): Effect.Effect<ReadonlyArray<InventorySlot>, never> =>

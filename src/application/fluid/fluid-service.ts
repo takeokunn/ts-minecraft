@@ -1,61 +1,35 @@
-import { Array as Arr, Brand, Effect, HashMap, HashSet, Option, Ref } from 'effect'
+import { Array as Arr, Effect, HashMap, HashSet, Option, Ref } from 'effect'
 import { ChunkManagerService } from '@/application/chunk/chunk-manager-service'
-import { CHUNK_HEIGHT, CHUNK_SIZE, blockIndex, blockTypeToIndex, setBlockInChunk, type Chunk, type ChunkCoord } from '@/domain/chunk'
-import { createFluidBuffer, decodeFluidByte, encodeFluidCell, FLUID_BYTE_LENGTH, type FluidCell } from '@/domain/fluid'
+import { setBlockInChunk, type Chunk } from '@/domain/chunk'
+import { createFluidBuffer, decodeFluidByte, encodeFluidCell, FLUID_BYTE_LENGTH, type FluidCell, type FluidType } from '@/domain/fluid'
 import { ChunkCacheKey, type Position } from '@/shared/kernel'
-
-const AIR_INDEX = blockTypeToIndex('AIR')
-const WATER_INDEX = blockTypeToIndex('WATER')
-const WATER_MAX_LEVEL = 7
-const FLUID_TICK_BUDGET = 512
-
-const FLOW_OFFSETS = [
-  { x: 1, y: 0, z: 0 },
-  { x: -1, y: 0, z: 0 },
-  { x: 0, y: 0, z: 1 },
-  { x: 0, y: 0, z: -1 },
-] as const
-
-const NOTIFY_OFFSETS = [
-  { x: 0, y: 1, z: 0 },
-  { x: 0, y: -1, z: 0 },
-  { x: 1, y: 0, z: 0 },
-  { x: -1, y: 0, z: 0 },
-  { x: 0, y: 0, z: 1 },
-  { x: 0, y: 0, z: -1 },
-] as const
-
-type FluidKey = number & Brand.Brand<'FluidKey'>
-const FluidKey = Brand.nominal<FluidKey>()
-
-type FluidState = Readonly<{
-  readonly cells: HashMap.HashMap<FluidKey, FluidCell>
-  readonly frontier: HashSet.HashSet<FluidKey>
-}>
-
-const INITIAL_STATE: FluidState = {
-  cells: HashMap.empty(),
-  frontier: HashSet.empty(),
-}
-
-const BIAS = 32768
-const Y_STRIDE = 65536
-const XZ_STRIDE = CHUNK_HEIGHT * Y_STRIDE
-
-const blockKey = (position: Position): FluidKey =>
-  FluidKey((Math.floor(position.x) + BIAS) * XZ_STRIDE + Math.floor(position.y) * Y_STRIDE + (Math.floor(position.z) + BIAS))
-
-const parseKey = (key: FluidKey): Position => {
-  const biasedX = Math.floor(key / XZ_STRIDE)
-  const remainder = key - biasedX * XZ_STRIDE
-  const y = Math.floor(remainder / Y_STRIDE)
-  const biasedZ = remainder - y * Y_STRIDE
-  return {
-    x: biasedX - BIAS,
-    y,
-    z: biasedZ - BIAS,
-  }
-}
+import type { BlockType } from '@/domain/block'
+import {
+  AIR_INDEX,
+  FLUID_TICK_BUDGET,
+  FLOW_OFFSETS,
+  INITIAL_STATE,
+  LAVA_INDEX,
+  LAVA_TICK_INTERVAL,
+  NOTIFY_OFFSETS,
+  WATER_INDEX,
+  type FluidKey,
+  type FluidState,
+} from './fluid-model'
+import {
+  blockIndexFor,
+  blockKey,
+  blockTypeFor,
+  chunkCoordsForPosition,
+  enqueue,
+  getBlockIndex,
+  localX,
+  localY,
+  localZ,
+  maxLevelFor,
+  parseKey,
+  positionFromChunk,
+} from './fluid-position-utils'
 
 const ensureFluidBuffer = (chunk: Chunk): Effect.Effect<Uint8Array<ArrayBufferLike>> =>
   Option.match(
@@ -71,58 +45,35 @@ const ensureFluidBuffer = (chunk: Chunk): Effect.Effect<Uint8Array<ArrayBufferLi
     }
   )
 
-const floorMod = (value: number, modulo: number): number => ((value % modulo) + modulo) % modulo
-
-const localX = (position: Position): number => floorMod(Math.floor(position.x), CHUNK_SIZE)
-const localY = (position: Position): number => Math.floor(position.y)
-const localZ = (position: Position): number => floorMod(Math.floor(position.z), CHUNK_SIZE)
-
-const enqueue = (frontier: HashSet.HashSet<FluidKey>, position: Position): HashSet.HashSet<FluidKey> =>
-  Arr.reduce(
-    NOTIFY_OFFSETS,
-    HashSet.add(frontier, blockKey(position)),
-    (acc, offset) => HashSet.add(acc, blockKey({
-      x: position.x + offset.x,
-      y: position.y + offset.y,
-      z: position.z + offset.z,
-    }))
-  )
-
-const chunkCoordsForPosition = (position: Position): ChunkCoord => ({
-  x: Math.floor(position.x / CHUNK_SIZE),
-  z: Math.floor(position.z / CHUNK_SIZE),
-})
-
-const positionFromChunk = (chunk: Chunk, idx: number): Position => {
-  const y = idx % CHUNK_HEIGHT
-  const column = Math.floor(idx / CHUNK_HEIGHT)
-  const z = column % CHUNK_SIZE
-  const x = Math.floor(column / CHUNK_SIZE)
-  return {
-    x: chunk.coord.x * CHUNK_SIZE + x,
-    y,
-    z: chunk.coord.z * CHUNK_SIZE + z,
-  }
+/**
+ * Vanilla-style lava+water contact resolution.
+ * Returns the block that should replace one of the cells, or null if no conversion applies.
+ * - Flowing lava touching any water -> COBBLESTONE
+ * - Lava source touching flowing water -> STONE (water flows INTO lava source)
+ * - Two sources or two flowing of same type -> no reaction
+ */
+export const resolveContact = (lavaCell: FluidCell, waterCell: FluidCell): Option.Option<BlockType> => {
+  if (lavaCell.type !== 'lava' || waterCell.type !== 'water') return Option.none()
+  if (!lavaCell.source && waterCell.source) return Option.some('COBBLESTONE')
+  if (!lavaCell.source) return Option.some('COBBLESTONE')
+  if (lavaCell.source && !waterCell.source) return Option.some('STONE')
+  return Option.none()
 }
 
-const getBlockIndex = (position: Position): number => {
-  const idxOpt = blockIndex(localX(position), localY(position), localZ(position))
-  return Option.getOrElse(idxOpt, () => -1)
-}
-
-const setWaterBlockIfLoaded = (
+const setFluidBlockIfLoaded = (
   chunkOpt: Option.Option<Chunk>,
   position: Position,
+  cell: FluidCell,
   chunkManagerService: ChunkManagerService,
 ): Effect.Effect<void, never> =>
   Option.match(chunkOpt, {
     onNone: () => Effect.void,
     onSome: (chunk) => Effect.gen(function* () {
-      yield* Effect.ignore(setBlockInChunk(chunk, localX(position), localY(position), localZ(position), 'WATER'))
+      yield* Effect.ignore(setBlockInChunk(chunk, localX(position), localY(position), localZ(position), blockTypeFor(cell.type)))
       const fluid = yield* ensureFluidBuffer(chunk)
       const idx = getBlockIndex(position)
       if (idx >= 0) {
-        fluid[idx] = encodeFluidCell({ level: 0, source: true })
+        fluid[idx] = encodeFluidCell(cell)
       }
       yield* chunkManagerService.markChunkDirty(chunk.coord)
     }),
@@ -145,6 +96,51 @@ const setAirBlockIfLoaded = (
       yield* chunkManagerService.markChunkDirty(chunk.coord)
     }),
   })
+
+const setSolidBlockIfLoaded = (
+  chunkOpt: Option.Option<Chunk>,
+  position: Position,
+  blockType: BlockType,
+  chunkManagerService: ChunkManagerService,
+): Effect.Effect<void, never> =>
+  Option.match(chunkOpt, {
+    onNone: () => Effect.void,
+    onSome: (chunk) => Effect.gen(function* () {
+      yield* Effect.ignore(setBlockInChunk(chunk, localX(position), localY(position), localZ(position), blockType))
+      const fluid = yield* ensureFluidBuffer(chunk)
+      const idx = getBlockIndex(position)
+      if (idx >= 0) {
+        fluid[idx] = 0
+      }
+      yield* chunkManagerService.markChunkDirty(chunk.coord)
+    }),
+  })
+
+type WorkItem = { key: FluidKey; cell: FluidCell }
+
+const splitBudget = (
+  workWithCells: ReadonlyArray<WorkItem>,
+  lavaTickActive: boolean,
+  budget: number,
+): {
+  work: ReadonlyArray<WorkItem>
+  retainedLavaFrontier: ReadonlyArray<FluidKey>
+} => {
+  const waterWork = Arr.filter(workWithCells, ({ cell }) => cell.type === 'water')
+  const lavaWork = lavaTickActive
+    ? Arr.filter(workWithCells, ({ cell }) => cell.type === 'lava')
+    : []
+  const halfBudget = Math.floor(budget / 2)
+  const waterSlice = Arr.take(waterWork, halfBudget)
+  const lavaSlice = Arr.take(lavaWork, budget - waterSlice.length)
+  const retainedLavaFrontier = lavaTickActive
+    ? []
+    : Arr.map(Arr.filter(workWithCells, ({ cell }) => cell.type === 'lava'), (w) => w.key)
+  return {
+    work: Arr.appendAll(waterSlice, lavaSlice),
+    retainedLavaFrontier,
+  }
+}
 
 export class FluidService extends Effect.Service<FluidService>()(
   '@minecraft/application/FluidService',
@@ -174,9 +170,10 @@ export class FluidService extends Effect.Service<FluidService>()(
           {
             onNone: () =>
               chunk.blocks.reduce((acc: FluidState, blockIdx: number, idx: number): FluidState => {
-                if (blockIdx !== WATER_INDEX) return acc
+                if (blockIdx !== WATER_INDEX && blockIdx !== LAVA_INDEX) return acc
                 const position = positionFromChunk(chunk, idx)
-                const next = setCell(acc, position, { level: 0, source: true })
+                const type: FluidType = blockIdx === LAVA_INDEX ? 'lava' : 'water'
+                const next = setCell(acc, position, { level: 0, source: true, type })
                 return { ...next, frontier: enqueue(next.frontier, position) }
               }, state),
             onSome: (fluid) =>
@@ -203,10 +200,17 @@ export class FluidService extends Effect.Service<FluidService>()(
           },
         })
 
-      const writeWater = (loaded: HashMap.HashMap<ChunkCacheKey, Chunk>, position: Position): Effect.Effect<void, never> =>
-        setWaterBlockIfLoaded(
+      const blockAt = (loaded: HashMap.HashMap<ChunkCacheKey, Chunk>, position: Position): Option.Option<number> =>
+        Option.flatMap(HashMap.get(loaded, ChunkCacheKey.make(chunkCoordsForPosition(position))), (chunk) => {
+          const idx = getBlockIndex(position)
+          return idx >= 0 ? Option.fromNullable(chunk.blocks[idx]) : Option.none()
+        })
+
+      const writeFluid = (loaded: HashMap.HashMap<ChunkCacheKey, Chunk>, position: Position, cell: FluidCell): Effect.Effect<void, never> =>
+        setFluidBlockIfLoaded(
           HashMap.get(loaded, ChunkCacheKey.make(chunkCoordsForPosition(position))),
           position,
+          cell,
           chunkManagerService,
         )
 
@@ -214,6 +218,14 @@ export class FluidService extends Effect.Service<FluidService>()(
         setAirBlockIfLoaded(
           HashMap.get(loaded, ChunkCacheKey.make(chunkCoordsForPosition(position))),
           position,
+          chunkManagerService,
+        )
+
+      const writeSolid = (loaded: HashMap.HashMap<ChunkCacheKey, Chunk>, position: Position, blockType: BlockType): Effect.Effect<void, never> =>
+        setSolidBlockIfLoaded(
+          HashMap.get(loaded, ChunkCacheKey.make(chunkCoordsForPosition(position))),
+          position,
+          blockType,
           chunkManagerService,
         )
 
@@ -228,6 +240,96 @@ export class FluidService extends Effect.Service<FluidService>()(
           )
         )
 
+      const seedFluid = (type: FluidType) => (position: Position): Effect.Effect<void, never> =>
+        Effect.gen(function* () {
+          const normalized = {
+            x: Math.floor(position.x),
+            y: Math.floor(position.y),
+            z: Math.floor(position.z),
+          }
+
+          const loaded = yield* getLoaded
+          const cell: FluidCell = { level: 0, source: true, type }
+
+          yield* Ref.update(stateRef, (state) => ({
+            ...setCell(state, normalized, cell),
+            frontier: enqueue(state.frontier, normalized),
+          }))
+
+          yield* writeFluid(loaded, normalized, cell)
+        })
+
+      const removeFluid = (position: Position): Effect.Effect<void, never> =>
+        Effect.gen(function* () {
+          const normalized = {
+            x: Math.floor(position.x),
+            y: Math.floor(position.y),
+            z: Math.floor(position.z),
+          }
+
+          const loaded = yield* getLoaded
+
+          yield* Ref.update(stateRef, (state) => ({
+            ...removeCell(state, normalized),
+            frontier: enqueue(state.frontier, normalized),
+          }))
+
+          yield* writeAir(loaded, normalized)
+        })
+
+      /**
+       * Check neighbors for cross-fluid contact (lava<->water); convert to solid if detected.
+       * Returns true if the current cell was consumed by the reaction.
+       */
+      const resolveNeighborContact = (
+        loaded: HashMap.HashMap<ChunkCacheKey, Chunk>,
+        stateRefLocal: Ref.Ref<FluidState>,
+        position: Position,
+        cell: FluidCell,
+      ): Effect.Effect<boolean, never> =>
+        Effect.gen(function* () {
+          const state = yield* Ref.get(stateRefLocal)
+          const hit = Arr.findFirst(NOTIFY_OFFSETS, (offset) => {
+            const neighborPos = { x: position.x + offset.x, y: position.y + offset.y, z: position.z + offset.z }
+            return Option.match(HashMap.get(state.cells, blockKey(neighborPos)), {
+              onNone: () => false,
+              onSome: (nc) => nc.type !== cell.type,
+            })
+          })
+          return yield* Option.match(hit, {
+            onNone: () => Effect.succeed(false),
+            onSome: (offset) => Effect.gen(function* () {
+              const neighborPos = { x: position.x + offset.x, y: position.y + offset.y, z: position.z + offset.z }
+              const neighborCell = Option.getOrElse(
+                HashMap.get(state.cells, blockKey(neighborPos)),
+                () => ({ level: 0, source: true, type: 'water' as FluidType }),
+              )
+              const [lavaCell, lavaPos, waterCell, waterPos] = cell.type === 'lava'
+                ? [cell, position, neighborCell, neighborPos] as const
+                : [neighborCell, neighborPos, cell, position] as const
+              const solid = resolveContact(lavaCell, waterCell)
+              return yield* Option.match(solid, {
+                onNone: () => Effect.succeed(false),
+                onSome: (blockType) => Effect.gen(function* () {
+                  // COBBLESTONE replaces the flowing lava, STONE replaces the water flow around a lava source.
+                  const targetPos = blockType === 'COBBLESTONE' ? lavaPos : waterPos
+                  yield* Ref.update(stateRefLocal, (s) => {
+                    const withoutLava = removeCell(s, lavaPos)
+                    const withoutWater = removeCell(withoutLava, waterPos)
+                    return { ...withoutWater, frontier: enqueue(withoutWater.frontier, targetPos) }
+                  })
+                  yield* writeSolid(loaded, targetPos, blockType)
+                  // If the current cell's own position was consumed, report true.
+                  const consumed = (targetPos.x === position.x && targetPos.y === position.y && targetPos.z === position.z)
+                    || (blockType === 'STONE' && cell.type === 'water')
+                    || (blockType === 'COBBLESTONE' && cell.type === 'lava')
+                  return consumed
+                }),
+              })
+            }),
+          })
+        })
+
       return {
         notifyBlockChanged: (position: Position): Effect.Effect<void, never> =>
           Ref.update(stateRef, (state) => ({
@@ -235,41 +337,11 @@ export class FluidService extends Effect.Service<FluidService>()(
             frontier: enqueue(state.frontier, position),
           })),
 
-        seedWater: (position: Position): Effect.Effect<void, never> =>
-          Effect.gen(function* () {
-            const normalized = {
-              x: Math.floor(position.x),
-              y: Math.floor(position.y),
-              z: Math.floor(position.z),
-            }
+        seedWater: seedFluid('water'),
+        seedLava: seedFluid('lava'),
 
-            const loaded = yield* getLoaded
-
-            yield* Ref.update(stateRef, (state) => ({
-              ...setCell(state, normalized, { level: 0, source: true }),
-              frontier: enqueue(state.frontier, normalized),
-            }))
-
-            yield* writeWater(loaded, normalized)
-          }),
-
-        removeWater: (position: Position): Effect.Effect<void, never> =>
-          Effect.gen(function* () {
-            const normalized = {
-              x: Math.floor(position.x),
-              y: Math.floor(position.y),
-              z: Math.floor(position.z),
-            }
-
-            const loaded = yield* getLoaded
-
-            yield* Ref.update(stateRef, (state) => ({
-              ...removeCell(state, normalized),
-              frontier: enqueue(state.frontier, normalized),
-            }))
-
-            yield* writeAir(loaded, normalized)
-          }),
+        removeWater: removeFluid,
+        removeLava: removeFluid,
 
         syncLoadedChunks: (chunks: ReadonlyArray<Chunk>): Effect.Effect<void, never> =>
           Effect.all([
@@ -282,47 +354,60 @@ export class FluidService extends Effect.Service<FluidService>()(
             const loaded = yield* Ref.get(loadedCacheRef)
 
             const state = yield* Ref.get(stateRef)
+            const tickCounter = state.tickCounter + 1
+            const lavaTickActive = tickCounter % LAVA_TICK_INTERVAL === 0
+
             const queued = Arr.fromIterable(state.frontier)
             if (queued.length === 0) {
+              yield* Ref.update(stateRef, (s) => ({ ...s, tickCounter }))
               return
             }
 
-            const work = Arr.take(queued, FLUID_TICK_BUDGET)
-            const carry = Arr.drop(queued, FLUID_TICK_BUDGET)
-
-            const tickStateRef = yield* Ref.make<FluidState>({
-              ...state,
-              frontier: HashSet.fromIterable(carry),
-            })
-
-            const workWithCells = Arr.filterMap(work, (key) =>
+            const workWithCells = Arr.filterMap(queued, (key) =>
               Option.map(HashMap.get(state.cells, key), (cell) => ({ key, cell }))
             )
 
-            yield* Effect.forEach(workWithCells, ({ key, cell }) => {
+            const { work, retainedLavaFrontier } = splitBudget(workWithCells, lavaTickActive, FLUID_TICK_BUDGET)
+            const processedKeys = HashSet.fromIterable(Arr.map(work, (w) => w.key))
+            const carry = Arr.filter(queued, (k) => !HashSet.has(processedKeys, k))
+
+            const tickStateRef = yield* Ref.make<FluidState>({
+              ...state,
+              tickCounter,
+              frontier: HashSet.fromIterable([...carry, ...retainedLavaFrontier]),
+            })
+
+            yield* Effect.forEach(work, ({ key, cell }) => {
               const position = parseKey(key)
               return Option.match(HashMap.get(loaded, ChunkCacheKey.make(chunkCoordsForPosition(position))), {
                 onNone: () => Effect.void,
                 onSome: (currentChunk) => Effect.gen(function* () {
                   const idx = getBlockIndex(position)
-                  if (idx < 0 || currentChunk.blocks[idx] !== WATER_INDEX) {
+                  if (idx < 0 || currentChunk.blocks[idx] !== blockIndexFor(cell.type)) {
                     yield* Ref.update(tickStateRef, (s) => removeCell(s, position))
                     return
                   }
 
-                  const nextLevel = cell.source ? 1 : Math.min(cell.level + 1, WATER_MAX_LEVEL)
-                  if (!cell.source && cell.level >= WATER_MAX_LEVEL) return
+                  // Check neighbor contact (lava<->water). If the current cell was consumed, stop.
+                  const consumed = yield* resolveNeighborContact(loaded, tickStateRef, position, cell)
+                  if (consumed) return
+
+                  const maxLevel = maxLevelFor(cell.type)
+                  const nextLevel = cell.source ? 1 : Math.min(cell.level + 1, maxLevel)
+                  if (!cell.source && cell.level >= maxLevel) return
 
                   const below = { x: position.x, y: position.y - 1, z: position.z }
+                  // Flow downward into AIR or into opposite-type fluid (contact handled below).
                   if (isAirAt(loaded, below)) {
                     const targetKey = blockKey(below)
                     const shouldWrite = yield* Ref.modify(tickStateRef, (s) => {
                       const existing = HashMap.get(s.cells, targetKey)
-                      if (Option.exists(existing, (e) => e.level <= nextLevel)) return [false, s] as const
-                      const next = setCell(s, below, { level: nextLevel, source: false })
+                      if (Option.exists(existing, (e) => e.type === cell.type && e.level <= nextLevel)) return [false, s] as const
+                      const newCell: FluidCell = { level: nextLevel, source: false, type: cell.type }
+                      const next = setCell(s, below, newCell)
                       return [true, { ...next, frontier: HashSet.add(next.frontier, targetKey) }] as const
                     })
-                    if (shouldWrite) yield* writeWater(loaded, below)
+                    if (shouldWrite) yield* writeFluid(loaded, below, { level: nextLevel, source: false, type: cell.type })
                     return
                   }
 
@@ -332,15 +417,28 @@ export class FluidService extends Effect.Service<FluidService>()(
                       y: position.y + offset.y,
                       z: position.z + offset.z,
                     }
-                    if (!isAirAt(loaded, target)) return
+                    if (!isAirAt(loaded, target)) {
+                      // Adjacent opposite-type fluid: contact resolution via shared helper.
+                      const otherIdx = blockAt(loaded, target)
+                      const isOpposite = Option.match(otherIdx, {
+                        onNone: () => false,
+                        onSome: (b) => (cell.type === 'lava' ? b === WATER_INDEX : b === LAVA_INDEX),
+                      })
+                      if (isOpposite) {
+                        yield* resolveNeighborContact(loaded, tickStateRef, position, cell)
+                        return
+                      }
+                      return
+                    }
                     const targetKey = blockKey(target)
                     const shouldWrite = yield* Ref.modify(tickStateRef, (s) => {
                       const existing = HashMap.get(s.cells, targetKey)
-                      if (Option.exists(existing, (e) => e.level <= nextLevel)) return [false, s] as const
-                      const next = setCell(s, target, { level: nextLevel, source: false })
+                      if (Option.exists(existing, (e) => e.type === cell.type && e.level <= nextLevel)) return [false, s] as const
+                      const newCell: FluidCell = { level: nextLevel, source: false, type: cell.type }
+                      const next = setCell(s, target, newCell)
                       return [true, { ...next, frontier: HashSet.add(next.frontier, targetKey) }] as const
                     })
-                    if (shouldWrite) yield* writeWater(loaded, target)
+                    if (shouldWrite) yield* writeFluid(loaded, target, { level: nextLevel, source: false, type: cell.type })
                   }), { concurrency: 1 })
                 }),
               })

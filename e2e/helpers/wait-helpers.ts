@@ -2,11 +2,11 @@ import type { Page } from '@playwright/test'
 
 /**
  * Wait until the game loop is running and dynamic DOM elements have been injected.
- * Uses #fps-value becoming non-zero as the primary signal (requires 0.5s FPS sample window).
+ * Uses #fps-value becoming non-zero as the primary signal.
  * Then waits for dynamically-injected elements (#crosshair, #settings-overlay).
  */
 export async function waitForGameReady(page: Page, timeoutMs = 25_000): Promise<void> {
-  // Primary signal: FPS counter is non-zero (game loop running, first sample complete)
+  // Primary signal: FPS counter is non-zero (game loop running, first sample complete).
   await page.waitForFunction(
     () => {
       const el = document.getElementById('fps-value')

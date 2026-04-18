@@ -2,6 +2,9 @@ import { Array as Arr, Effect, Data, Option, Schema } from 'effect'
 import { BlockType } from './block'
 import { ChunkError } from './errors'
 
+/** Terrain generator and chunk schema version. Bumped from 2 → 3 for Phase 2.1 multi-noise. */
+export const WORLD_SCHEMA_VERSION = 3
+
 /**
  * Error type for out-of-bounds block index access
  */
@@ -39,6 +42,8 @@ export const ChunkSchema = Schema.Struct({
   // Schema.declare: opaque brand for Uint8Array (ArrayBufferLike base type, compatible with idb storage returns)
   blocks: Schema.declare((u): u is Uint8Array<ArrayBufferLike> => u instanceof Uint8Array),
   fluid: Schema.optionalWith(Schema.declare((u): u is Uint8Array<ArrayBufferLike> => u instanceof Uint8Array), { as: 'Option' }),
+  skyLight: Schema.optional(Schema.declare((u): u is Uint8Array<ArrayBufferLike> => u instanceof Uint8Array)),
+  blockLight: Schema.optional(Schema.declare((u): u is Uint8Array<ArrayBufferLike> => u instanceof Uint8Array)),
 })
 export type Chunk = Schema.Schema.Type<typeof ChunkSchema>
 
@@ -59,12 +64,55 @@ const BLOCK_TYPE_TO_INDEX: Record<BlockType, number> = {
   SNOW: 9,
   GRAVEL: 10,
   COBBLESTONE: 11,
+  GRANITE: 12,
+  DIORITE: 13,
+  ANDESITE: 14,
+  DEEPSLATE: 15,
+  BEDROCK: 16,
+  LAVA: 17,
+  OBSIDIAN: 18,
+  COAL_ORE: 19,
+  IRON_ORE: 20,
+  GOLD_ORE: 21,
+  DIAMOND_ORE: 22,
+  REDSTONE_ORE: 23,
+  LAPIS_ORE: 24,
+  EMERALD_ORE: 25,
+  DEEPSLATE_COAL_ORE: 26,
+  DEEPSLATE_IRON_ORE: 27,
+  DEEPSLATE_GOLD_ORE: 28,
+  DEEPSLATE_DIAMOND_ORE: 29,
+  DEEPSLATE_REDSTONE_ORE: 30,
+  DEEPSLATE_LAPIS_ORE: 31,
+  DEEPSLATE_EMERALD_ORE: 32,
+  COAL_BLOCK: 33,
+  IRON_BLOCK: 34,
+  GOLD_BLOCK: 35,
+  DIAMOND_BLOCK: 36,
+  REDSTONE_BLOCK: 37,
+  LAPIS_BLOCK: 38,
+  EMERALD_BLOCK: 39,
+  PLANKS: 40,
+  STICKS: 41,
+  CRAFTING_TABLE: 42,
+  FURNACE: 43,
+  TORCH: 44,
+  COAL: 45,
+  WOODEN_SWORD: 46,
 }
 
 /**
  * Number index to BlockType mapping for retrieval
  */
-const INDEX_TO_BLOCK_TYPE: ReadonlyArray<BlockType> = ['AIR', 'DIRT', 'STONE', 'WOOD', 'GRASS', 'SAND', 'WATER', 'LEAVES', 'GLASS', 'SNOW', 'GRAVEL', 'COBBLESTONE']
+const INDEX_TO_BLOCK_TYPE: ReadonlyArray<BlockType> = [
+  'AIR', 'DIRT', 'STONE', 'WOOD', 'GRASS', 'SAND', 'WATER', 'LEAVES', 'GLASS', 'SNOW', 'GRAVEL', 'COBBLESTONE',
+  'GRANITE', 'DIORITE', 'ANDESITE', 'DEEPSLATE', 'BEDROCK', 'LAVA', 'OBSIDIAN',
+  'COAL_ORE', 'IRON_ORE', 'GOLD_ORE', 'DIAMOND_ORE', 'REDSTONE_ORE', 'LAPIS_ORE', 'EMERALD_ORE',
+  'DEEPSLATE_COAL_ORE', 'DEEPSLATE_IRON_ORE', 'DEEPSLATE_GOLD_ORE', 'DEEPSLATE_DIAMOND_ORE',
+  'DEEPSLATE_REDSTONE_ORE', 'DEEPSLATE_LAPIS_ORE', 'DEEPSLATE_EMERALD_ORE',
+  'COAL_BLOCK', 'IRON_BLOCK', 'GOLD_BLOCK', 'DIAMOND_BLOCK', 'REDSTONE_BLOCK', 'LAPIS_BLOCK', 'EMERALD_BLOCK',
+  'PLANKS', 'STICKS', 'CRAFTING_TABLE', 'FURNACE', 'TORCH', 'COAL', 'WOODEN_SWORD',
+]
 
 /**
  * Convert BlockType to storage index
