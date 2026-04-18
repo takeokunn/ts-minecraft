@@ -221,8 +221,8 @@ describe('placeOres', () => {
     fillAll(blocks, STONE)
     placeOres(blocks, 0, 0, ORE_INDICES)
 
-    const oreIndexSet = new Set([...ORE_REGULAR_INDICES, ...ORE_DEEPSLATE_INDICES])
-    const oreCount = Arr.filter(Arr.fromIterable(blocks), b => oreIndexSet.has(b)).length
+    const oreIndexSet = HashSet.fromIterable(Arr.appendAll(ORE_REGULAR_INDICES, ORE_DEEPSLATE_INDICES))
+    const oreCount = Arr.filter(Arr.fromIterable(blocks), b => HashSet.has(oreIndexSet, b)).length
     expect(oreCount).toBeGreaterThan(0)
   })
 })

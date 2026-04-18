@@ -7,6 +7,11 @@ import {
   type VillageStructure,
   VillageStructureId,
 } from '@/village/village-model'
+import {
+  ACTIVITY_REST_START, ACTIVITY_REST_END,
+  ACTIVITY_WORK_START, ACTIVITY_WORK_END,
+  WANDER_RADIUS, WANDER_PHASE_TICK_STEP,
+} from './village-simulation.config'
 
 export const VILLAGE_GRID_SIZE = 96
 export const VILLAGE_NEAR_DISTANCE = 80
@@ -80,11 +85,11 @@ export const nextActivityForVillager = (
     return VillagerActivity.Trade
   }
 
-  if (timeOfDay < 0.22 || timeOfDay > 0.78) {
+  if (timeOfDay < ACTIVITY_REST_END || timeOfDay > ACTIVITY_REST_START) {
     return VillagerActivity.Rest
   }
 
-  if (timeOfDay >= 0.28 && timeOfDay <= 0.72) {
+  if (timeOfDay >= ACTIVITY_WORK_START && timeOfDay <= ACTIVITY_WORK_END) {
     return VillagerActivity.Work
   }
 
@@ -110,12 +115,12 @@ export const getTargetPosition = (
   }
 
   if (nextActivity === VillagerActivity.Wander) {
-    const phase = (hashString(villager.villagerId) + tick * 9) % 360
+    const phase = (hashString(villager.villagerId) + tick * WANDER_PHASE_TICK_STEP) % 360
     const angle = phase * (Math.PI / 180)
     return {
-      x: homePosition.x + Math.cos(angle) * 2,
+      x: homePosition.x + Math.cos(angle) * WANDER_RADIUS,
       y: homePosition.y,
-      z: homePosition.z + Math.sin(angle) * 2,
+      z: homePosition.z + Math.sin(angle) * WANDER_RADIUS,
     }
   }
 

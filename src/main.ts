@@ -40,6 +40,7 @@ import { SettingsOverlayService } from '@/presentation/settings/settings-overlay
 import { InventoryRendererService } from '@/presentation/inventory/inventory-renderer'
 import { InventoryService } from '@/application/inventory/inventory-service'
 import { RecipeService } from '@/application/crafting/recipe-service'
+import { RecipeId } from '@/shared/kernel'
 import { HealthService } from '@/application/player/health-service'
 import { MusicManager, SoundManager } from '@/audio'
 import { DeltaTimeSecs } from '@/shared/kernel'
@@ -51,7 +52,8 @@ import { TradingPresentationService } from '@/presentation/trading'
 import { RedstoneService } from '@/redstone/redstone-service'
 import { FluidService } from '@/application/fluid/fluid-service'
 import { GameLoopService } from '@/application/game-loop'
-import { CHUNK_HEIGHT, CHUNK_SIZE, blockIndex, setBlockInChunk } from '@/domain/chunk'
+import { CHUNK_HEIGHT, CHUNK_SIZE, blockIndex, blockTypeToIndex, setBlockInChunk } from '@/domain/chunk'
+import { DEFAULT_PLAYER_ID } from '@/application/constants'
 import { MAX_SHADOW_HALF_EXTENT } from '@/shared/rendering-constants'
 
 import { MainLive } from '@/layers'
@@ -59,7 +61,7 @@ import { createFrameHandler } from '@/frame-handler'
 import { type ColorPort } from '@/shared/math/three'
 import { SkyMaterialPortSchema } from '@/shared/math/three/day-night-port'
 
-import { SlotIndex, WorldId } from '@/shared/kernel'
+import { Position, SlotIndex, WorldId } from '@/shared/kernel'
 import {
   MAX_SEED_VALUE,
   SUN_COLOR, AMBIENT_COLOR, SKY_COLOR_NIGHT, SKY_COLOR_DAY,
@@ -482,6 +484,26 @@ const mainProgram = Effect.gen(function* () {
     if (typeof window === 'undefined') return
 
     let stagedResourceBlocks: Array<{ pos: { x: number; y: number; z: number }; blockType: import('@/domain/block').BlockType }> = []
+    let stagedZombiePosition: Position | null = null
+
+    const setAimForQA = (target: Position): Effect.Effect<void, never> =>
+      Effect.gen(function* () {
+        const dx = target.x - camera.position.x
+        const dy = target.y - camera.position.y
+        const dz = target.z - camera.position.z
+        const yaw = Math.atan2(dx, -dz)
+        const pitch = Math.atan2(dy, Math.hypot(dx, dz))
+        yield* playerCameraState.setYaw(yaw)
+        yield* playerCameraState.setPitch(pitch)
+        yield* Effect.sync(() => {
+          camera.rotation.set(pitch, yaw, 0, 'YXZ')
+          camera.updateMatrixWorld(true)
+          scene.updateMatrixWorld(true)
+        })
+      }).pipe(
+        Effect.zipRight(blockHighlight.invalidateCache()),
+        Effect.zipRight(blockHighlight.update(camera, scene)),
+      )
 
     const qa = {
       getInventorySnapshot: () =>
@@ -496,9 +518,42 @@ const mainProgram = Effect.gen(function* () {
           ),
         ),
       openInventoryForQA: () => Effect.runPromise(inventoryRenderer.toggle()),
+      craftRecipeForQA: (recipeId: string) =>
+        Effect.runPromise(Effect.gen(function* () {
+          const hasTableAccess = yield* inventoryRenderer.isOpen().pipe(
+            Effect.flatMap(() => gameState.getPlayerPosition(DEFAULT_PLAYER_ID).pipe(Effect.catchAll(() => Effect.succeed({ x: 0, y: 0, z: 0 })))),
+            Effect.flatMap((playerPos) => {
+              const searchRadius = 5
+              const craftingTableIndex = blockTypeToIndex('CRAFTING_TABLE')
+              return Effect.gen(function* () {
+                for (let dx = -searchRadius; dx <= searchRadius; dx++) {
+                  for (let dy = -1; dy <= 2; dy++) {
+                    for (let dz = -searchRadius; dz <= searchRadius; dz++) {
+                      const wx = Math.floor(playerPos.x + dx)
+                      const wy = Math.floor(playerPos.y + dy)
+                      const wz = Math.floor(playerPos.z + dz)
+                      if (wy < 0 || wy >= CHUNK_HEIGHT) continue
+                      const cx = Math.floor(wx / CHUNK_SIZE)
+                      const cz = Math.floor(wz / CHUNK_SIZE)
+                      const chunk = yield* chunkManagerService.getChunk({ x: cx, z: cz }).pipe(Effect.catchAll(() => Effect.succeed(null)))
+                      if (chunk === null) continue
+                      const lx = ((wx % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
+                      const lz = ((wz % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
+                      const idx = wy + lz * CHUNK_HEIGHT + lx * CHUNK_HEIGHT * CHUNK_SIZE
+                      if (chunk.blocks[idx] === craftingTableIndex) return true
+                    }
+                  }
+                }
+                return false
+              })
+            }),
+          )
+          yield* recipeService.craft(RecipeId.make(recipeId), inventoryService, hasTableAccess)
+        })),
       stageProgressionScenario: () =>
         Effect.runPromise(Effect.gen(function* () {
           stagedResourceBlocks = []
+          stagedZombiePosition = null
           const direction = new THREE.Vector3()
           camera.getWorldDirection(direction)
           direction.normalize()
@@ -514,13 +569,13 @@ const mainProgram = Effect.gen(function* () {
               const chunk = yield* chunkManagerService.getChunk(chunkCoord)
               yield* setBlockInChunk(chunk, lx, wy, lz, blockType)
               yield* chunkManagerService.markChunkDirty(chunkCoord)
+              yield* worldRendererService.updateChunkInScene(chunk, scene).pipe(Effect.catchAll(() => Effect.void))
               stagedResourceBlocks.push({ pos: { x: wx, y: wy, z: wz }, blockType })
             })
 
           yield* placeBlockAhead(4, 'WOOD')
           yield* placeBlockAhead(5, 'WOOD')
           yield* placeBlockAhead(6, 'WOOD')
-          yield* placeBlockAhead(3, 'STONE')
 
           yield* blockHighlight.invalidateCache()
         })),
@@ -543,8 +598,53 @@ const mainProgram = Effect.gen(function* () {
             y: camera.position.y,
             z: camera.position.z + direction.z * 6,
           }
+          stagedZombiePosition = zombiePos
           const zombieId = yield* entityManager.addEntity(EntityType.Zombie, zombiePos)
           yield* entityManager.applyDamage(zombieId, 12)
+        })),
+      aimAtStagedResource: (resourceIndex: number) =>
+        Effect.runPromise(Effect.gen(function* () {
+          const target = stagedResourceBlocks[resourceIndex]
+          if (!target) return
+          yield* setAimForQA({ x: target.pos.x + 0.5, y: target.pos.y + 0.5, z: target.pos.z + 0.5 })
+          yield* blockHighlight.setTargetForQA(
+            { x: target.pos.x, y: target.pos.y, z: target.pos.z },
+            {
+              point: { x: target.pos.x + 0.5, y: target.pos.y + 0.5, z: target.pos.z + 0.5 },
+              normal: { x: 0, y: 0, z: 1 },
+              distance: 4,
+              blockX: target.pos.x,
+              blockY: target.pos.y,
+              blockZ: target.pos.z,
+            },
+          )
+        })),
+      aimAtBuildSpot: () =>
+        Effect.runPromise(Effect.gen(function* () {
+          const direction = new THREE.Vector3()
+          camera.getWorldDirection(direction)
+          direction.normalize()
+          const wx = Math.floor(camera.position.x + direction.x * 4)
+          const wy = Math.floor(camera.position.y)
+          const wz = Math.floor(camera.position.z + direction.z * 4)
+          yield* setAimForQA({ x: wx + 0.5, y: wy + 0.5, z: wz + 0.5 })
+          yield* blockHighlight.setTargetForQA(
+            { x: wx, y: wy, z: wz },
+            {
+              point: { x: wx + 0.5, y: wy + 0.5, z: wz + 0.5 },
+              normal: { x: 0, y: 1, z: 0 },
+              distance: 4,
+              blockX: wx,
+              blockY: wy,
+              blockZ: wz,
+            },
+          )
+        })),
+      aimAtStagedZombie: () =>
+        Effect.runPromise(Effect.gen(function* () {
+          if (!stagedZombiePosition) return
+          yield* setAimForQA({ x: stagedZombiePosition.x, y: stagedZombiePosition.y + 0.9, z: stagedZombiePosition.z })
+          yield* blockHighlight.clearTargetForQA()
         })),
       clearBlocksInFront: () =>
         Effect.runPromise(Effect.gen(function* () {
@@ -561,6 +661,34 @@ const mainProgram = Effect.gen(function* () {
           }, { concurrency: 1, discard: true })
           yield* blockHighlight.invalidateCache()
         })),
+      stageBuildSupportBlock: () =>
+        Effect.runPromise(Effect.gen(function* () {
+          const direction = new THREE.Vector3()
+          camera.getWorldDirection(direction)
+          direction.normalize()
+          const wx = Math.floor(camera.position.x + direction.x * 3)
+          const wy = Math.floor(camera.position.y)
+          const wz = Math.floor(camera.position.z + direction.z * 3)
+          const chunkCoord = { x: Math.floor(wx / CHUNK_SIZE), z: Math.floor(wz / CHUNK_SIZE) }
+          const lx = ((wx % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
+          const lz = ((wz % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE
+          const chunk = yield* chunkManagerService.getChunk(chunkCoord)
+          yield* setBlockInChunk(chunk, lx, wy, lz, 'STONE')
+          yield* chunkManagerService.markChunkDirty(chunkCoord)
+          yield* worldRendererService.updateChunkInScene(chunk, scene).pipe(Effect.catchAll(() => Effect.void))
+          yield* blockHighlight.invalidateCache()
+        })),
+      dispatchMouseClick: (button: 0 | 2) =>
+        Effect.runPromise(Effect.sync(() => {
+          document.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button }))
+          document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, button }))
+          if (button === 2) {
+            document.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, button }))
+          }
+        })),
+      consumeMouseClickForQA: (button: 0 | 2) => Effect.runPromise(inputService.consumeMouseClick(button)),
+      getCurrentTargetForQA: () =>
+        Effect.runPromise(blockHighlight.getTargetBlock()),
       attackFirstZombie: () =>
         Effect.runPromise(Effect.gen(function* () {
           const qaSwordDamage = 8

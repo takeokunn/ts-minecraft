@@ -1,5 +1,6 @@
 import { Effect, Option, Ref } from 'effect'
 import { PlayerHealth } from '@/domain/player-health'
+import { INVINCIBILITY_TICKS_ON_HIT, PLAYER_MAX_HEALTH, PLAYER_START_HEALTH, FALL_DAMAGE_FREE_BLOCKS } from './health-service.config'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -10,15 +11,10 @@ type HealthState = {
   readonly fallState: FallState
 }
 
-// ─── Constants ───────────────────────────────────────────────────────────────
-
-/** Ticks of damage immunity granted after taking a hit (prevents rapid multi-hit) */
-const INVINCIBILITY_TICKS_ON_HIT = 10
-
 // ─── Initial state ────────────────────────────────────────────────────────────
 
 const INITIAL_STATE: HealthState = {
-  health: new PlayerHealth({ current: 20, max: 20, invincibilityTicks: 0 }),
+  health: new PlayerHealth({ current: PLAYER_START_HEALTH, max: PLAYER_MAX_HEALTH, invincibilityTicks: 0 }),
   fallState: { prevY: Option.none(), isFalling: false },
 }
 
@@ -62,7 +58,7 @@ export const computeFallDamage = (
   wasFalling: boolean,
   isGrounded: boolean,
 ): number =>
-  wasFalling && isGrounded ? Math.max(0, Math.floor(prevY - currentY - 3)) : 0
+  wasFalling && isGrounded ? Math.max(0, Math.floor(prevY - currentY - FALL_DAMAGE_FREE_BLOCKS)) : 0
 
 // ─── Service ─────────────────────────────────────────────────────────────────
 

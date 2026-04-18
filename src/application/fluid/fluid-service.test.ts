@@ -120,28 +120,19 @@ describe('application/fluid/fluid-service', () => {
     }).pipe(Effect.provide(ChunkServiceLive))
   )
 
-  it('resolveContact — flowing lava + water source -> COBBLESTONE', () => {
-    const result = resolveContact(
-      { level: 1, source: false, type: 'lava' },
-      { level: 0, source: true, type: 'water' },
-    )
-    expect(result).toEqual(Option.some('COBBLESTONE'))
-  })
+  const resolveContactCases: ReadonlyArray<[string, Parameters<typeof resolveContact>, Option.Option<string>]> = [
+    ['flowing lava + water source → COBBLESTONE',  [{ level: 1, source: false, type: 'lava' }, { level: 0, source: true,  type: 'water' }], Option.some('COBBLESTONE')],
+    ['flowing lava + flowing water → COBBLESTONE', [{ level: 1, source: false, type: 'lava' }, { level: 2, source: false, type: 'water' }], Option.some('COBBLESTONE')],
+    ['lava source + flowing water → STONE',        [{ level: 0, source: true,  type: 'lava' }, { level: 2, source: false, type: 'water' }], Option.some('STONE')],
+    ['lava source + water source → none',          [{ level: 0, source: true,  type: 'lava' }, { level: 0, source: true,  type: 'water' }], Option.none()],
+    ['two water cells → none',                     [{ level: 0, source: true,  type: 'water'}, { level: 0, source: true,  type: 'water' }], Option.none()],
+    ['two lava cells → none',                      [{ level: 0, source: true,  type: 'lava' }, { level: 0, source: true,  type: 'lava'  }], Option.none()],
+  ]
 
-  it('resolveContact — lava source + flowing water -> STONE', () => {
-    const result = resolveContact(
-      { level: 0, source: true, type: 'lava' },
-      { level: 2, source: false, type: 'water' },
-    )
-    expect(result).toEqual(Option.some('STONE'))
-  })
-
-  it('resolveContact — two water cells return null', () => {
-    const result = resolveContact(
-      { level: 0, source: true, type: 'water' },
-      { level: 0, source: true, type: 'water' },
-    )
-    expect(result).toEqual(Option.none())
+  Arr.forEach(resolveContactCases, ([label, [lava, water], expected]) => {
+    it(`resolveContact — ${label}`, () => {
+      expect(resolveContact(lava, water)).toEqual(expected)
+    })
   })
 
   it.effect('lava adjacent to water converts to cobblestone on tick', () =>

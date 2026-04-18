@@ -19,22 +19,18 @@ export class RecipeService extends Effect.Service<RecipeService>()(
       // findById: HashMap.get already returns Option<Recipe> — no fromNullable needed
       const findById = (id: RecipeId): Option.Option<Recipe> => HashMap.get(recipeMap, id)
 
-      const hasCraftingTable = (available: HashMap.HashMap<BlockType, number>): boolean =>
-        Option.getOrElse(HashMap.get(available, 'CRAFTING_TABLE'), () => 0) > 0
-
       const canUseRecipe = (
         recipe: Recipe,
-        available: HashMap.HashMap<BlockType, number>,
         hasCraftingTableAccess: boolean,
       ): boolean =>
-        recipe.station === 'inventory' || (hasCraftingTableAccess && hasCraftingTable(available))
+        recipe.station === 'inventory' || hasCraftingTableAccess
 
       const findCraftable = (
         available: HashMap.HashMap<BlockType, number>,
         hasCraftingTableAccess = true,
       ): ReadonlyArray<Recipe> =>
         Arr.filter(recipes, (recipe) =>
-          canUseRecipe(recipe, available, hasCraftingTableAccess)
+          canUseRecipe(recipe, hasCraftingTableAccess)
           &&
           Arr.every(recipe.ingredients, (ing) =>
             Option.getOrElse(HashMap.get(available, ing.blockType), () => 0) >= ing.count
@@ -78,7 +74,7 @@ export class RecipeService extends Effect.Service<RecipeService>()(
           const shortageOpt = Arr.findFirst(recipe.ingredients, (ing) =>
             Option.getOrElse(HashMap.get(available, ing.blockType), () => 0) < ing.count
           )
-          if (!canUseRecipe(recipe, available, hasCraftingTableAccess)) {
+          if (!canUseRecipe(recipe, hasCraftingTableAccess)) {
             return yield* Effect.fail(new RecipeError({
               operation: 'craft',
               cause: `Recipe requires a crafting table: ${recipeId}`,

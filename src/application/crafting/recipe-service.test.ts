@@ -116,6 +116,41 @@ describe('application/crafting/recipe-service', () => {
     }).pipe(Effect.provide(testLayer))
   )
 
+  it.effect('findCraftable does not expose crafting-table recipes without nearby table access', () =>
+    Effect.gen(function* () {
+      const rs = yield* RecipeService
+      const available = HashMap.make(
+        ['PLANKS' as BlockType, 2],
+        ['STICKS' as BlockType, 1],
+        ['CRAFTING_TABLE' as BlockType, 1],
+      )
+
+      const craftableWithoutTable = rs.findCraftable(available, false)
+      const craftableWithTable = rs.findCraftable(available, true)
+
+      expect(Arr.map(craftableWithoutTable, (recipe) => recipe.id)).not.toContain('planks-and-sticks-to-wooden-sword')
+      expect(Arr.map(craftableWithTable, (recipe) => recipe.id)).toContain('planks-and-sticks-to-wooden-sword')
+    }).pipe(Effect.provide(testLayer))
+  )
+
+  it.effect('craft rejects crafting-table recipes when nearby table access is false even if inventory contains a table item', () =>
+    Effect.gen(function* () {
+      const rs = yield* RecipeService
+      const inv = yield* InventoryService
+      yield* inv.addBlock('PLANKS', 2)
+      yield* inv.addBlock('STICKS', 1)
+      yield* inv.addBlock('CRAFTING_TABLE', 1)
+
+      const result = yield* rs.craft(RecipeId.make('planks-and-sticks-to-wooden-sword'), inv, false).pipe(Effect.either)
+      const slotsAfter = yield* inv.getAllSlots()
+
+      expect(result._tag).toBe('Left')
+      expect(countBlock(slotsAfter, 'WOODEN_SWORD')).toBe(0)
+      expect(countBlock(slotsAfter, 'PLANKS')).toBe(2)
+      expect(countBlock(slotsAfter, 'STICKS')).toBe(1)
+    }).pipe(Effect.provide(testLayer))
+  )
+
   it.effect('craft produces torches from coal ore and sticks', () =>
     Effect.gen(function* () {
       const rs = yield* RecipeService

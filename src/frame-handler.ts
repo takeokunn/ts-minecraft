@@ -989,46 +989,26 @@ export const createFrameHandler = (
       // 10.5. Flush dirty chunks — remesh each modified chunk exactly once per frame,
       // deduplicating rapid break/place clicks that target the same chunk.
       yield* Ref.getAndSet(dirtyChunksRef, HashMap.empty()).pipe(
-        Effect.flatMap((dirtyChunks) =>
-          Effect.sync(() => {
-            const entries: Array<readonly [string, Chunk]> = []
-            HashMap.forEach(dirtyChunks, (chunk, key) => {
-              entries.push([key, chunk])
-            })
-            return entries
-          }).pipe(
-            Effect.flatMap((dirtyEntries) => {
-              const chunksToUpdate = dirtyEntries.slice(0, MAX_DIRTY_CHUNK_UPDATES_PER_FRAME)
-              const remainingEntries = dirtyEntries.slice(MAX_DIRTY_CHUNK_UPDATES_PER_FRAME)
+        Effect.flatMap((dirtyChunks) => {
+          const dirtyEntries = Arr.fromIterable(dirtyChunks)
+          const chunksToUpdate = Arr.take(dirtyEntries, MAX_DIRTY_CHUNK_UPDATES_PER_FRAME)
+          const remainingEntries = Arr.drop(dirtyEntries, MAX_DIRTY_CHUNK_UPDATES_PER_FRAME)
 
-              const flushUpdates = Effect.forEach(
-                chunksToUpdate,
-                ([, chunk]) => worldRendererService.updateChunkInScene(chunk, scene),
-                { concurrency: DIRTY_CHUNK_FLUSH_CONCURRENCY, discard: true }
-              )
-
-              const requeueRemaining = remainingEntries.length > 0
-                ? Effect.sync(() =>
-                    Arr.reduce(
-                      remainingEntries,
-                      HashMap.empty<string, Chunk>(),
-                      (acc, [k, c]) => HashMap.set(acc, k, c)
-                    )
-                  ).pipe(
-                    Effect.flatMap((nextDirtyChunks) => Ref.set(dirtyChunksRef, nextDirtyChunks))
-                  )
-                : Effect.void
-
-              return flushUpdates.pipe(
-                Effect.andThen(requeueRemaining),
-                Effect.andThen(Effect.flatMap(Effect.sync(() => dirtyEntries.length > 0), (dirtyChunksChanged) =>
-                  dirtyChunksChanged ? blockHighlight.invalidateCache() : Effect.void
-                )),
-                Effect.andThen(Effect.void)
-              )
-            })
+          const flushUpdates = Effect.forEach(
+            chunksToUpdate,
+            ([, chunk]) => worldRendererService.updateChunkInScene(chunk, scene),
+            { concurrency: DIRTY_CHUNK_FLUSH_CONCURRENCY, discard: true }
           )
-        ),
+
+          const requeueRemaining = remainingEntries.length > 0
+            ? Ref.set(dirtyChunksRef, HashMap.fromIterable(remainingEntries))
+            : Effect.void
+
+          return flushUpdates.pipe(
+            Effect.andThen(requeueRemaining),
+            Effect.andThen(dirtyEntries.length > 0 ? blockHighlight.invalidateCache() : Effect.void),
+          )
+        }),
         Effect.catchAllCause((cause) => Effect.logError(`Dirty chunk flush error: ${Cause.pretty(cause)}`))
       )
 

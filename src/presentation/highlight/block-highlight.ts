@@ -58,9 +58,10 @@ export class BlockHighlightService extends Effect.Service<BlockHighlightService>
       Ref.make<Option.Option<THREE.LineSegments>>(Option.none()),
       // target and hit always change together — one atomic Ref instead of two
       Ref.make<HitState>(EMPTY_HIT_STATE),
+      Ref.make<Option.Option<HitState>>(Option.none()),
       // Last camera pose used for raycast; invalidated whenever the scene changes.
       Ref.make({ x: NaN, y: NaN, z: NaN, qx: NaN, qy: NaN, qz: NaN, qw: NaN }),
-    ], { concurrency: 'unbounded' }).pipe(Effect.map(([raycastingService, highlightMeshRef, hitStateRef, lastCameraPoseRef]) => ({
+    ], { concurrency: 'unbounded' }).pipe(Effect.map(([raycastingService, highlightMeshRef, hitStateRef, overrideHitStateRef, lastCameraPoseRef]) => ({
         /**
          * Initialize the highlight mesh and add it to the scene
          * @param scene - The Three.js scene to add the highlight to
@@ -105,6 +106,22 @@ export class BlockHighlightService extends Effect.Service<BlockHighlightService>
             yield* Option.match(yield* Ref.get(highlightMeshRef), {
               onNone: () => Effect.void,
               onSome: (highlightMesh) => Effect.gen(function* () {
+                const overrideState = yield* Ref.get(overrideHitStateRef)
+                if (Option.isSome(overrideState)) {
+                  const forced = overrideState.value
+                  yield* Option.match(forced.target, {
+                    onNone: () => Effect.sync(() => { highlightMesh.visible = false }),
+                    onSome: (target) =>
+                      Effect.sync(() => {
+                        highlightMesh.position.set(target.x + 0.5, target.y + 0.5, target.z + 0.5)
+                        highlightMesh.visible = true
+                      }),
+                  })
+                  yield* Ref.set(hitStateRef, forced)
+                  yield* Ref.set(lastCameraPoseRef, currentPose)
+                  return
+                }
+
                 const hitOption = yield* raycastingService.raycastFromCamera(camera, scene)
                 yield* Option.match(hitOption, {
                   onSome: (hit) => Effect.gen(function* () {
@@ -158,6 +175,36 @@ export class BlockHighlightService extends Effect.Service<BlockHighlightService>
          */
         getTargetHit: (): Effect.Effect<Option.Option<RaycastHit>, never> =>
           Ref.get(hitStateRef).pipe(Effect.map((s) => s.hit)),
+
+        setTargetForQA: (target: BlockTarget, hit: RaycastHit): Effect.Effect<void, never> =>
+          Effect.gen(function* () {
+            yield* Option.match(yield* Ref.get(highlightMeshRef), {
+              onNone: () => Effect.void,
+              onSome: (highlightMesh) =>
+                Effect.sync(() => {
+                  highlightMesh.position.set(target.x + 0.5, target.y + 0.5, target.z + 0.5)
+                  highlightMesh.visible = true
+                }),
+            })
+            yield* Ref.set(hitStateRef, {
+              target: Option.some(target),
+              hit: Option.some(hit),
+            })
+            yield* Ref.set(overrideHitStateRef, Option.some({
+              target: Option.some(target),
+              hit: Option.some(hit),
+            }))
+          }),
+
+        clearTargetForQA: (): Effect.Effect<void, never> =>
+          Effect.gen(function* () {
+            yield* Option.match(yield* Ref.get(highlightMeshRef), {
+              onNone: () => Effect.void,
+              onSome: (highlightMesh) => Effect.sync(() => { highlightMesh.visible = false }),
+            })
+            yield* Ref.set(overrideHitStateRef, Option.none())
+            yield* Ref.set(hitStateRef, EMPTY_HIT_STATE)
+          }),
       })))
   }
 ) {}

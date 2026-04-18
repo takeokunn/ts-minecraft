@@ -65,7 +65,7 @@ export class InventoryRendererService extends Effect.Service<InventoryRendererSe
       const hasNearbyCraftingTable = (): Effect.Effect<boolean, never> =>
         Effect.gen(function* () {
           const playerPos = yield* gameState.getPlayerPosition(DEFAULT_PLAYER_ID).pipe(Effect.catchAll(() => Effect.succeed({ x: 0, y: 0, z: 0 })))
-          const searchRadius = 3
+          const searchRadius = 5
           const craftingTableIndex = blockTypeToIndex('CRAFTING_TABLE')
 
           for (let dx = -searchRadius; dx <= searchRadius; dx++) {

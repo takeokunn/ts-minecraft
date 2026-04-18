@@ -5,6 +5,13 @@ export class GamePage {
   constructor(readonly page: Page) {}
 
   async goto() {
+    await this.page.addInitScript(() => {
+      window.localStorage.clear()
+      window.sessionStorage.clear()
+      indexedDB.databases?.().then((dbs) => dbs.forEach((db) => {
+        if (db.name) indexedDB.deleteDatabase(db.name)
+      }))
+    })
     await this.page.goto('/')
   }
 
