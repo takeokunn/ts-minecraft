@@ -114,10 +114,15 @@ export const NoisePortLayer = Layer.effect(
   Effect.map(NoiseService, (noise) => {
     // Typed intermediate validates that NoiseService exposes the required port methods
     // with the correct signatures. If a method is renamed or its signature changes, tsc fails here.
-    const impl: { noise2D: NoiseService['noise2D']; octaveNoise2D: NoiseService['octaveNoise2D']; setSeed: NoiseService['setSeed']; octaveNoise2DBatch: NoiseService['octaveNoise2DBatch']; noise2DBatch: NoiseService['noise2DBatch']; octaveNoise2DBatchXY: NoiseService['octaveNoise2DBatchXY']; noise2DBatchXY: NoiseService['noise2DBatchXY']; noise3D: NoiseService['noise3D']; noise3DBatchXYZ: NoiseService['noise3DBatchXYZ']; continentalness: NoiseService['continentalness']; erosion: NoiseService['erosion']; weirdness: NoiseService['weirdness']; jaggedness: NoiseService['jaggedness']; sampleTerrainChannels: NoiseService['sampleTerrainChannels'] } = {
+    const impl: { noise2D: NoiseService['noise2D']; octaveNoise2D: NoiseService['octaveNoise2D']; setSeed: NoiseService['setSeed']; getSeed: Effect.Effect<number, never>; octaveNoise2DBatch: NoiseService['octaveNoise2DBatch']; noise2DBatch: NoiseService['noise2DBatch']; octaveNoise2DBatchXY: NoiseService['octaveNoise2DBatchXY']; noise2DBatchXY: NoiseService['noise2DBatchXY']; noise3D: NoiseService['noise3D']; noise3DBatchXYZ: NoiseService['noise3DBatchXYZ']; continentalness: NoiseService['continentalness']; erosion: NoiseService['erosion']; weirdness: NoiseService['weirdness']; jaggedness: NoiseService['jaggedness']; sampleTerrainChannels: NoiseService['sampleTerrainChannels'] } = {
       noise2D: (x, z) => noise.noise2D(x, z),
       octaveNoise2D: (x, z, o, p, l) => noise.octaveNoise2D(x, z, o, p, l),
       setSeed: (seed) => noise.setSeed(seed),
+      // `getSeed` is exposed as a plain Effect (not a thunk) on the port to match
+      // the read-only "current seed" semantics. The infrastructure-side method
+      // is a thunk that builds an `Effect.sync` per call; we evaluate it once
+      // here and reuse the resulting Effect — same value, same shape.
+      getSeed: noise.getSeed(),
       octaveNoise2DBatch: (points, o, p, l) => noise.octaveNoise2DBatch(points, o, p, l),
       noise2DBatch: (points) => noise.noise2DBatch(points),
       octaveNoise2DBatchXY: (xs, zs, o, p, l) => noise.octaveNoise2DBatchXY(xs, zs, o, p, l),
@@ -203,15 +208,14 @@ export const ThirdPersonCameraLayer = ThirdPersonCameraServiceLive.pipe(
 export const LightEngineLayer = LightEngineLive
 
 // Level 3: ChunkManagerService depends on ChunkService, StorageServicePort, BiomeService,
-// NoiseServicePort (port), NoiseService (infrastructure — for getSeed only), LightEngineService,
-// and TerrainWorkerPool (off-thread terrain generation, with sync fallback in non-browser envs).
+// NoiseServicePort (port — now exposes getSeed too), LightEngineService, and TerrainWorkerPool
+// (off-thread terrain generation, with sync fallback in non-browser envs).
 export const ChunkManagerLayer = ChunkManagerServiceLive.pipe(
   Layer.provide(Layer.mergeAll(
     ChunkServiceLive,
     StoragePortLayer,
     BiomeLayer,
     NoisePortLayer,
-    NoiseLayer,
     LightEngineLayer,
     TerrainWorkerPoolLive,
   ))

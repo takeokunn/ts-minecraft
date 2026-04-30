@@ -142,7 +142,11 @@ const makePureNoisePortLayer = (seed: number): Layer.Layer<NoiseServicePort> =>
 // ChunkService.Default and BiomeService.Default are already pure (BiomeService
 // only depends on NoiseServicePort, which we satisfy with the pure port). We
 // chain Layer.provide to feed the pure port into BiomeService.
-const buildTerrainLayer = (
+//
+// Exported so the worker entrypoint can build a Runtime once per seed and
+// reuse it across messages, avoiding the Layer-init cost on every chunk
+// generation (BiomeService.Default + ChunkService.Default + NoisePort).
+export const buildTerrainLayer = (
   seed: number,
 ): Layer.Layer<ChunkService | BiomeService | NoiseServicePort> => {
   const noisePort = makePureNoisePortLayer(seed)
@@ -208,24 +212,37 @@ export const createTerrainNoiseCoordinates = (
 // Public API. Synchronous: `Effect.runSync` is safe because every Effect in
 // the pipeline is `Effect.sync` / `Effect.succeed` — no async boundary.
 // ---------------------------------------------------------------------------
-export const generateTerrainBlocks = (input: TerrainGenerationInput): ChunkBlocks => {
-  const layer = buildTerrainLayer(input.seed)
 
-  const program = Effect.gen(function* () {
+/**
+ * Build the chunk-generation program for a given coord. Exposed so the worker
+ * entrypoint can pair it with a cached runtime built from `buildTerrainLayer`.
+ */
+export const buildTerrainProgram = (coord: ChunkCoord) =>
+  Effect.gen(function* () {
     const chunkService = yield* ChunkService
     const biomeService = yield* BiomeService
     const noiseService = yield* NoiseServicePort
-    return yield* generateTerrain(chunkService, biomeService, noiseService, input.coord)
+    return yield* generateTerrain(chunkService, biomeService, noiseService, coord)
   })
 
-  const chunk = Effect.runSync(program.pipe(Effect.provide(layer)))
+/**
+ * Convert the program output (a `Chunk`) into the `ChunkBlocks` envelope the
+ * worker protocol carries. Skylight is initialised top-down; blockLight is a
+ * fresh zero-filled buffer (the main-thread light engine fills it during
+ * `withLighting`).
+ */
+export const toChunkBlocks = (chunk: { blocks: Uint8Array }): ChunkBlocks => ({
+  blocks: chunk.blocks,
+  skyLight: computeInitialSkyLight(chunk.blocks),
+  blockLight: new Uint8Array(LIGHT_BYTE_LENGTH),
+})
+
+export const generateTerrainBlocks = (input: TerrainGenerationInput): ChunkBlocks => {
+  const layer = buildTerrainLayer(input.seed)
+  const chunk = Effect.runSync(buildTerrainProgram(input.coord).pipe(Effect.provide(layer)))
   // The generator only fills `blocks`; light buffers are produced here so the
   // worker can transfer all three buffers to the main thread in one message.
-  return {
-    blocks: chunk.blocks,
-    skyLight: computeInitialSkyLight(chunk.blocks),
-    blockLight: new Uint8Array(LIGHT_BYTE_LENGTH),
-  }
+  return toChunkBlocks(chunk)
 }
 
 // `seaLevel` / `lakeLevel` are accepted in the input envelope (so the worker

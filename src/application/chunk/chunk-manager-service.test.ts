@@ -962,6 +962,7 @@ describe('application/chunk/chunk-manager-service', () => {
           noise2D: (_x: number, _z: number) => Effect.succeed(0.0),
           octaveNoise2D: (_x: number, _z: number, _o: number, _p: number, _l: number) => Effect.succeed(0.5),
           setSeed: (_seed: number) => Effect.void,
+          getSeed: Effect.succeed(0),
           octaveNoise2DBatch: (points: ReadonlyArray<readonly [number, number]>) =>
             Effect.succeed(points.map(() => 0.5)),
           octaveNoise2DBatchXY: (xs: ReadonlyArray<number>) => Effect.succeed(xs.map(() => 0.5)),
@@ -1097,6 +1098,7 @@ describe('application/chunk/chunk-manager-service', () => {
           noise2D: (_x: number, _z: number) => Effect.succeed(0.0),
           octaveNoise2D: (_x: number, _z: number, _o: number, _p: number, _l: number) => Effect.succeed(0.5),
           setSeed: (_seed: number) => Effect.void,
+          getSeed: Effect.succeed(0),
           octaveNoise2DBatch: (points: ReadonlyArray<readonly [number, number]>) => Effect.succeed(points.map(() => 0.5)),
           octaveNoise2DBatchXY: (xs: ReadonlyArray<number>) => Effect.succeed(xs.map(() => 0.5)),
           noise2DBatch: (points: ReadonlyArray<readonly [number, number]>) => Effect.succeed(points.map(() => 0.0)),
@@ -1279,6 +1281,7 @@ describe('application/chunk/chunk-manager-service', () => {
           noise2D: (_x: number, _z: number) => Effect.succeed(0.95),
           octaveNoise2D: (_x: number, _z: number, _o: number, _p: number, _l: number) => Effect.succeed(0.5),
           setSeed: (_seed: number) => Effect.void,
+          getSeed: Effect.succeed(0),
           octaveNoise2DBatch: (
             points: ReadonlyArray<readonly [number, number]>,
             _o: number,
@@ -1588,6 +1591,7 @@ describe('application/chunk/chunk-manager-service', () => {
           noise2D: (_x: number, _z: number) => Effect.succeed(0.5),
           octaveNoise2D: (_x: number, _z: number, _o: number, _p: number, _l: number) => Effect.succeed(0.5),
           setSeed: (_seed: number) => Effect.void,
+          getSeed: Effect.succeed(0),
           octaveNoise2DBatch: (points: ReadonlyArray<readonly [number, number]>) =>
             Effect.succeed(points.map(() => 0.5)),
           octaveNoise2DBatchXY: (xs: ReadonlyArray<number>) => Effect.succeed(xs.map(() => 0.5)),

@@ -9,7 +9,6 @@ import { DEFAULT_WORLD_ID, SEA_LEVEL, LAKE_LEVEL } from '@/application/constants
 import { ChunkError, StorageError } from '@/domain/errors'
 import { BiomeService } from '@/application/biome/biome-service'
 import { NoiseServicePort } from '@/application/noise/noise-service-port'
-import { NoiseService } from '@/infrastructure/noise/noise-service'
 import { TerrainWorkerPool } from '@/infrastructure/terrain/terrain-worker-pool'
 import { chunkLoadHistogram } from './terrain/generator'
 import {
@@ -100,20 +99,17 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
   '@minecraft/application/ChunkManagerService',
   {
     effect: Effect.gen(function* () {
-      // ChunkService, BiomeService, and NoiseServicePort are still required at the layer
-      // boundary (other services in the graph depend on them being provided alongside
+      // ChunkService and BiomeService are still required at the layer boundary
+      // (other services in the graph depend on them being provided alongside
       // ChunkManagerService) but the chunk-manager body itself no longer touches them
       // directly — terrain generation moved off-thread via TerrainWorkerPool.
       yield* ChunkService
       const storageService = yield* StorageServicePort
       yield* BiomeService
-      yield* NoiseServicePort
-      // Infrastructure NoiseService is consumed only to read the active world seed via
-      // `getSeed()`. The application-layer NoiseServicePort intentionally does not expose
-      // `getSeed`, so we reach into the infrastructure service directly. Output remains
+      // NoiseServicePort exposes `getSeed` (the active world seed). Output remains
       // byte-identical because generateTerrainBlocks (in the worker pool's sync fallback
       // and in the worker itself) constructs the same NoisePrimitives from the same seed.
-      const noiseInfrastructure = yield* NoiseService
+      const noiseService = yield* NoiseServicePort
       const terrainPool = yield* TerrainWorkerPool
       const lightEngine = yield* LightEngineService
 
@@ -226,7 +222,7 @@ export class ChunkManagerService extends Effect.Service<ChunkManagerService>()(
               // synchronous generation when Worker is unavailable (Node.js / Vitest).
               // Output is byte-identical to the previous main-thread generateTerrain call
               // (proved by terrain-worker-pool.parity.property.test.ts).
-              const seed = yield* noiseInfrastructure.getSeed()
+              const seed = yield* noiseService.getSeed
               const generated = yield* terrainPool
                 .generateTerrain(coord, { seaLevel: SEA_LEVEL, lakeLevel: LAKE_LEVEL, seed })
                 .pipe(

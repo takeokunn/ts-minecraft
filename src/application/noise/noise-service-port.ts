@@ -18,6 +18,7 @@ export class NoiseServicePort extends Effect.Service<NoiseServicePort>()(
         _lacunarity: number,
       ): Effect.Effect<number, never> => Effect.succeed(0.5),
       setSeed: (_seed: number): Effect.Effect<void, never> => Effect.void,
+      getSeed: Effect.succeed(0),
       octaveNoise2DBatch: (
         points: ReadonlyArray<readonly [number, number]>,
         _octaves: number,

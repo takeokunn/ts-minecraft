@@ -3,7 +3,7 @@
  *
  * Single source of truth for the deterministic noise functions used by both
  * `infrastructure/noise/NoiseService` (Effect-wrapped) and the off-thread
- * `domain/terrain/terrain-generation` worker pipeline.
+ * `application/terrain/terrain-generation` worker pipeline.
  *
  * Self-contained: imports only `effect/Array` for lightweight functional
  * helpers and the existing `infrastructure/noise/perlin` core (Ken Perlin

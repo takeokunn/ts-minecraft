@@ -11,8 +11,11 @@
  *
  * Robustness extensions over the meshing pool (FR-016):
  *   - Worker `onerror` triggers respawn: the dead worker is terminated, a fresh
- *     one is created, and pending requests are re-routed to surviving workers
- *     (or failed with a typed `TerrainGenerationError` if no survivors exist).
+ *     one is created. Re-routing of stranded pending requests is NOT
+ *     implemented — every stranded request fails with a typed
+ *     `TerrainGenerationError` so the caller can retry against the now-healthy
+ *     pool. (The original request envelope is not retained, so genuine re-route
+ *     would need protocol changes.)
  *   - Decode failures on `onmessage` are caught and logged via
  *     `Effect.logError(Cause.pretty(...))` — never thrown.
  *   - `postMessage` uses an explicit transfer list. In dev builds we assert
@@ -34,7 +37,7 @@ import { LIGHT_BYTE_LENGTH } from '@/domain/light'
 import {
   generateTerrainBlocks,
   type ChunkBlocks,
-} from '@/domain/terrain/terrain-generation'
+} from '@/application/terrain/terrain-generation'
 import {
   TerrainWorkerResponseSchema,
   type TerrainWorkerRequest,
@@ -85,9 +88,14 @@ const computeWorkerCount = (): number => {
 // In dev builds, assert that the buffer has been detached post-postMessage.
 // We treat any environment where `import.meta.env?.DEV` is truthy OR
 // `process.env.NODE_ENV !== 'production'` as a dev build.
+//
+// We type `import.meta` locally instead of pulling in `vite/client`: the
+// project's tsconfig has `"types": []`, so adding a global types reference
+// would expand the ambient surface unnecessarily. Vite injects `import.meta.env`
+// at build time; the narrow intersection below describes only the field we
+// actually read.
 const isDevBuild = (): boolean => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const env = (import.meta as any).env as { DEV?: boolean } | undefined
+  const env = (import.meta as ImportMeta & { env?: { DEV?: boolean } }).env
   if (env && env.DEV === true) return true
   if (typeof process !== 'undefined' && process.env && process.env['NODE_ENV'] !== 'production') return true
   return false
@@ -133,17 +141,24 @@ export class TerrainWorkerPool extends Effect.Service<TerrainWorkerPool>()(
       const nextIdRef = MutableRef.make(0)
       const nextWorkerIndexRef = MutableRef.make(0)
 
-      // Each PoolWorker carries its own pending map. We keep workers in a
-      // single Ref so respawn can swap one slot in place.
-      let poolWorkers: PoolWorker[] = []
+      // Each PoolWorker carries its own pending map. The pool array is held
+      // in a `MutableRef` so respawn can swap one slot in place while keeping
+      // the state visible to the Effect runtime.
+      const poolWorkersRef = MutableRef.make<PoolWorker[]>([])
 
       // Forward declaration so makePoolWorker can refer to the respawn func
       // via the captured `respawnAt` reference.
+      //
+      // Re-route is NOT implemented: stranded requests fail with a retryable
+      // typed error so the caller can re-issue them against the now-healthy
+      // pool. The original `TerrainGenerationOptions` aren't retained inside
+      // `Pending`, so a genuine re-route would require protocol changes.
       const respawnAt = (idx: number): void => {
-        const dead = poolWorkers[idx]
+        const current = MutableRef.get(poolWorkersRef)
+        const dead = current[idx]
         if (dead === undefined) return
         // Snapshot the dead worker's pending requests before we tear it down,
-        // so we can re-route them to other workers.
+        // so we can fail them with a typed error.
         const stranded: Pending[] = []
         Arr.forEach(Arr.fromIterable(MutableHashMap.values(dead.pending)), (p) => {
           stranded.push(p)
@@ -156,45 +171,18 @@ export class TerrainWorkerPool extends Effect.Service<TerrainWorkerPool>()(
         }
 
         const replacement = makePoolWorker()
-        poolWorkers[idx] = replacement
+        // In-place mutation through MutableRef: same array identity, single
+        // slot replaced. Performance equals plain `arr[idx] = x` while
+        // explicitly signalling "state mutation" to readers of this code.
+        MutableRef.update(poolWorkersRef, (arr) => {
+          arr[idx] = replacement
+          return arr
+        })
 
-        // Re-route stranded requests. If there is at least one other live
-        // worker, dispatch round-robin across the survivors. If we are the
-        // only worker, fail them with a typed error so the caller can retry.
-        const survivorIndices = Arr.filter(
-          Arr.makeBy(poolWorkers.length, (i) => i),
-          (i) => i !== idx || poolWorkers[i] === replacement,
-        )
-        // The replacement counts as a survivor — but we should not flood it
-        // with requests that used to belong to a worker that just died.
-        // Instead, route to other workers when available, falling back to the
-        // replacement only as a last resort.
-        const otherIndices = Arr.filter(survivorIndices, (i) => i !== idx)
-
-        if (otherIndices.length === 0 && stranded.length > 0) {
-          // No other workers — fail the stranded requests. The caller can
-          // retry; the replacement worker will handle the retry cleanly.
-          Arr.forEach(stranded, (p) => {
-            p.resume(Effect.fail(new TerrainGenerationError({
-              reason: 'Worker died with pending requests and no surviving worker to re-route to',
-              chunk: p.chunk,
-            })))
-          })
-          return
-        }
-
-        Arr.forEach(stranded, (p, i) => {
-          const targetIdx = otherIndices[i % otherIndices.length]!
-          const target = poolWorkers[targetIdx]!
-          // Re-allocate a fresh id on the target worker so we don't collide
-          // with that worker's existing pending ids.
-          const newId = MutableRef.getAndUpdate(nextIdRef, (n) => n + 1)
-          MutableHashMap.set(target.pending, newId, p)
-          // Re-build a request envelope. We don't have the original options
-          // because we only stored `Pending`; instead re-route by failing
-          // and asking the caller to re-issue. (Simpler & keeps invariants
-          // strict — see comment in tests.)
-          MutableHashMap.remove(target.pending, newId)
+        // Fail every stranded request with a typed retryable error. The caller
+        // is expected to retry; the freshly-spawned replacement (and any other
+        // surviving workers) will handle the retry cleanly.
+        Arr.forEach(stranded, (p) => {
           p.resume(Effect.fail(new TerrainGenerationError({
             reason: 'Worker died; request must be retried',
             chunk: p.chunk,
@@ -248,7 +236,7 @@ export class TerrainWorkerPool extends Effect.Service<TerrainWorkerPool>()(
           // Locate this worker in the pool and respawn it. We capture `worker`
           // in this closure but lookup the index dynamically so respawn works
           // even after rotations.
-          const idx = poolWorkers.findIndex((w) => w.worker === worker)
+          const idx = MutableRef.get(poolWorkersRef).findIndex((w) => w.worker === worker)
           if (idx < 0) return
           Effect.runFork(Effect.logError(
             `TerrainWorkerPool worker[${idx}] errored: ${event.message ?? 'unknown error'}`,
@@ -259,13 +247,13 @@ export class TerrainWorkerPool extends Effect.Service<TerrainWorkerPool>()(
         return { worker, pending }
       }
 
-      poolWorkers = Arr.makeBy(workerCount, () => makePoolWorker()).slice()
+      MutableRef.set(poolWorkersRef, Arr.makeBy(workerCount, () => makePoolWorker()).slice())
 
       yield* Effect.addFinalizer(() =>
         Effect.sync(() => {
           // Reject every pending request so dependent fibers don't hang on
           // tear-down.
-          Arr.forEach(poolWorkers, ({ pending, worker }) => {
+          Arr.forEach(MutableRef.get(poolWorkersRef), ({ pending, worker }) => {
             Arr.forEach(Arr.fromIterable(MutableHashMap.values(pending)), (p) => {
               p.resume(Effect.fail(new TerrainGenerationError({
                 reason: 'TerrainWorkerPool finalized while request was in flight',
@@ -290,7 +278,7 @@ export class TerrainWorkerPool extends Effect.Service<TerrainWorkerPool>()(
             const id = MutableRef.getAndUpdate(nextIdRef, (n) => n + 1)
             const workerIdx =
               MutableRef.getAndUpdate(nextWorkerIndexRef, (n) => n + 1) % workerCount
-            const state = poolWorkers[workerIdx]!
+            const state = MutableRef.get(poolWorkersRef)[workerIdx]!
 
             MutableHashMap.set(state.pending, id, { resume, chunk })
 
